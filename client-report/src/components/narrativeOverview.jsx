@@ -25,6 +25,18 @@ const Overview = ({ conversation, ptptCount, ptptCountTotal, math, computedStats
     <div>
       <div>
         <p style={globals.primaryHeading}>Narrative Report — Beta Version</p>
+
+        <p style={globals.paragraph}>
+          {conversation && conversation.ownername
+            ? "This pol.is conversation was run by " + conversation.ownername + ". "
+            : null}
+          {conversation && conversation.topic
+            ? "The topic was '" + conversation.topic + "'. "
+            : null}
+        </p>
+        <p style={globals.secondaryHeading}>
+          <strong>Pol.is' New Narrative Report</strong>
+        </p>
         <p style={globals.paragraph}>
           You're seeing a beta version of Polis' new narrative report—generated with the help of
           Large Language Models (LLMs). We are currently crowdsourcing evaluations of this report
@@ -35,22 +47,24 @@ const Overview = ({ conversation, ptptCount, ptptCountTotal, math, computedStats
           This report has been designed to address a critical bottleneck in Polis conversations:
           human facilitators spend countless hours turning Polis results into accessible reports for
           both participants and decision-makers. Our first goal is to substantially augment human
-          report writing, getting any user 95-98% of the way to an acceptable deliverable report in
-          a fraction of the time it would a professional data scientist manually. We aim to improve
-          both quality and speed through ongoing iteration.
+          report writing, getting any user most of the way to an acceptable deliverable report in a
+          fraction of the time it would a professional data scientist manually.
+        </p>
+        <p style={globals.paragraph}>
+          Large language models can make big mistakes. Detailed human review is absolutely critical,
+          even if almost all clauses are accurate. We aim to improve both quality and speed through
+          ongoing iteration.
         </p>
         <p style={globals.secondaryHeading}>
           <strong>Generating a Polis Narrative Report</strong>
         </p>
-
         <p style={globals.paragraph}>
-          To generate a narrative report, you can currently choose between Gemini and Claude, with
-          many more options coming soon. You can use the same link to access the report throughout
-          the conversation. A new intermediary report is recomputed every hour, and a final report
-          will be generated once the conversation is closed. To keep a record of intermediary
-          reports, please save them as PDFs.
+          You can currently choose between Gemini and Claude, with many more options coming soon.
+          You can use the same link to access the report throughout the conversation. A new
+          intermediary report is recomputed every hour, and a final report will be generated once
+          the conversation is closed. To keep a record of intermediary reports, please save them as
+          PDFs using print to PDF.
         </p>
-
         <p style={globals.paragraph}>
           We advise against sharing intermediary narrative reports with the broader public, as it
           can change significantly throughout the conversation and may contain errors. Once the
@@ -65,24 +79,14 @@ const Overview = ({ conversation, ptptCount, ptptCountTotal, math, computedStats
           accompanied by citations, drawn from statements submitted by participants. Please review
           each clause against the cited statements and flag the following:
           <ol>
-            <li>Clauses that do not have accompanying citations</li>
             <li>Clauses that misrepresent the cited statements</li>
-            <li>Redundant clauses that are not helpful</li>
             <li>Statistical or numeric issues with the summary</li>
-            <li>Narrative issues, including issues with flow, organization, and story cohesion</li>
+            <li>Redundant clauses that are not helpful</li>
+            <li>Clauses that do not have accompanying citations</li>
           </ol>
           For quality control purposes, you will not be able to add new clauses to the Polis
-          narrative you will not be able to add new clauses to the Polis narrative report. However,
-          you are welcome to add or remove content when generating your own custom reports.
-        </p>
-
-        <p style={globals.paragraph}>
-          {conversation && conversation.ownername
-            ? "This pol.is conversation was run by " + conversation.ownername + ". "
-            : null}
-          {conversation && conversation.topic
-            ? "The topic was '" + conversation.topic + "'. "
-            : null}
+          narrative report. We welcome your feedback on the report, and will use it to improve the
+          report generation process.
         </p>
       </div>
 
