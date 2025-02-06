@@ -78,7 +78,6 @@ const BarChartCompact = ({ comment, voteCounts, nMembers, voteColors }) => {
 
 const CommentRow = ({ comment, groups, voteColors }) => {
   if (!comment) {
-    console.error("WHY IS THERE NO COMMENT 3452354235", comment);
     return null;
   }
 

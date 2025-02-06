@@ -112,7 +112,7 @@ const anthropic = new Anthropic({
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY as string);
 const gemeniModel = genAI.getGenerativeModel({
   // model: "gemini-1.5-pro-002",
-  model: "gemini-exp-1206",
+  model: "gemini-2.0-pro-exp-02-05",
   generationConfig: {
     // https://cloud.google.com/vertex-ai/docs/reference/rest/v1/GenerationConfig
     responseMimeType: "application/json",
@@ -395,7 +395,26 @@ export async function handle_GET_reportNarrative(
               {
                 parts: [
                   {
-                    text: prompt_xml,
+                    text: `
+                      ${prompt_xml}
+
+                      You MUST respond with a JSON object that follows this EXACT structure:
+
+                      \`\`\`json
+                      {
+                        "key1": "string value",
+                        "key2": [
+                          {
+                            "nestedKey1": 123,
+                            "nestedKey2": "another string"
+                          }
+                        ],
+                        "key3": true
+                      }
+                      \`\`\`
+
+                      Make sure the JSON is VALID. DO NOT begin with an array '[' - begin with an object '{' - All keys MUST be enclosed in double quotes. NO trailing comma's should be included after the last element in a block (not valid json). Do NOT include any additional text outside of the JSON object.  Do not provide explanations, only the JSON.
+                    `,
                   },
                 ],
                 role: "user",
