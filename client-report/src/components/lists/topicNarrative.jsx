@@ -60,7 +60,7 @@ const TopicNarrative = ({
   } catch (err) {
     console.error(`Failed to parse narrative for topic ${topicName}:`, {
       error: err,
-      rawText: narrative.responseClaude?.content[0]?.text,
+      rawText: model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini,
       model,
     });
     return (

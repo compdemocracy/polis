@@ -57,7 +57,7 @@ const ConsensusNarrative = ({
   } catch (err) {
     console.error("Failed to parse narrative:", {
       error: err,
-      rawText: narrative.responseClaude?.content[0]?.text,
+      rawText: narrative?.responseClaude?.content[0]?.text,
       model,
     });
     return (

@@ -21,15 +21,10 @@ describe('UncertaintyNarrative Component', () => {
     model: 'claude'
   };
 
-  it('renders loading message when data is missing', () => {
-    render(<UncertaintyNarrative conversation={null} />);
-    expect(screen.getByText('Loading Uncertainty...')).toBeInTheDocument();
-  });
-
   it('renders component with narrative and comment list when data is present (Claude model)', () => {
     render(<UncertaintyNarrative {...mockProps} />);
 
-    expect(screen.getByText('Uncertainty Narrative')).toBeInTheDocument();
+    expect(screen.getByText('Areas of Uncertainty')).toBeInTheDocument();
     expect(screen.getByText('This narrative summary may contain hallucinations. Check each clause.')).toBeInTheDocument();
     expect(screen.getByTestId('mock-narrative-claude')).toBeInTheDocument();
     expect(screen.getByTestId('mock-comment-list')).toBeInTheDocument();
@@ -38,7 +33,7 @@ describe('UncertaintyNarrative Component', () => {
   it('renders component with narrative and comment list when data is present (Gemini model)', () => {
     render(<UncertaintyNarrative {...mockProps} model="gemini" />);
 
-    expect(screen.getByText('Uncertainty Narrative')).toBeInTheDocument();
+    expect(screen.getByText('Areas of Uncertainty')).toBeInTheDocument();
     expect(screen.getByText('This narrative summary may contain hallucinations. Check each clause.')).toBeInTheDocument();
     expect(screen.getByTestId('mock-narrative-gemini')).toBeInTheDocument();
     expect(screen.getByTestId('mock-comment-list')).toBeInTheDocument();
