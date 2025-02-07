@@ -5,18 +5,18 @@ var s = {};
 // Text on the card
 
 s.participantHelpWelcomeText =
-  "Welcome to a new kind of conversation — <em>vote on other people's statements</em> — the more the better.";
+  "Welcome to a new kind of conversation — </b>vote</b>on other people's statements — </b> the more the better.</b>";
 
 s.agree = "Agree";
 s.disagree = "Disagree";
 s.pass = "Pass / Unsure";
 
-s.writePrompt =
-  "Share your perspective (you are not replying — submit a stand-alone idea)";
+s.writePrompt ="Share your perspective (you are not replying — submit a stand-alone statement)";
 s.anonPerson = "Anonymous";
 s.importantCheckbox = "Important/Significant";
 s.importantCheckboxDesc =
   "Check this box if you believe this statement is especially important to you or is highly relevant to the conversation, irrespective of your vote. It will give this statement higher priority compared to your other votes in the conversation analysis.";
+
 s.howImportantPrompt = "How important is this statement?";
 s.howImportantLow = "Low";
 s.howImportantMedium = "Medium";
@@ -52,6 +52,8 @@ s.comment_123 = "Statement:";
 s.majorityOpinion = "Majority Opinion";
 s.majorityOpinionShort = "Majority";
 s.info = "Info";
+
+
 s.helpWhatAmISeeingTitle = "What am I seeing?";
 s.helpWhatAmISeeing =
   "You are represented by the blue circle and grouped with others who share your perspective.";
@@ -90,7 +92,7 @@ s.helpWhatDoIDoTitle = " What do I do?";
 s.helpWhatDoIDo =
   "Vote on other people's statements by clicking 'agree' or 'disagree'. Write a statement (keep each to a single idea). Invite your friends to the conversation!";
 s.writeCommentHelpText =
-  "Are your perspectives or experiences missing from the conversation? If so, <b>add them</b> in the box below — <b>one at a time</b>.";
+  "Are your perspectives or experiences missing from the conversation? If so,</b>add them </b> in the box below — </b>one at a time</b>.";
 s.helpWriteListIntro = "What makes for a good statement?";
 s.helpWriteListStandalone = "A stand-alone idea";
 s.helpWriteListRaisNew = "A new perspective, experience, or issue";
@@ -98,7 +100,8 @@ s.helpWriteListShort = "Clear & concise wording (limited to 140 characters)";
 s.tip = "Tip:";
 s.commentWritingTipsHintsHeader = "Tips for writing statements";
 s.tipCharLimit = "Statements are limited to {{char_limit}} characters.";
-s.tipCommentsRandom = "";
+s.tipCommentsRandom =
+  "Statements are displayed randomly and you are not replying directly to other people's statements: <b> you are adding a stand-alone statement.<b>";
 s.tipOneIdea =
   "Break up long statements that contain multiple ideas. This makes it easier for others to vote on your statement.";
 s.tipNoQuestions =
@@ -113,11 +116,11 @@ s.commentSent =
 
 s.commentSendFailed = "There was an error submitting your statement.";
 s.commentSendFailedEmpty =
-  "There was an error submitting your statement — Statement should not be empty.";
+  "There was an error submitting your statement - Statement should not be empty.";
 s.commentSendFailedTooLong =
-  "There was an error submitting your statement — Statement is too long.";
+  "There was an error submitting your statement - Statement is too long.";
 s.commentSendFailedDuplicate =
-  "There was an error submitting your statement — An identical statement already exists.";
+  "There was an error submitting your statement - An identical statement already exists.";
 s.commentErrorDuplicate = "Duplicate! That statement already exists.";
 s.commentErrorConversationClosed =
   "This conversation is closed. No further statements can be submitted.";
@@ -182,7 +185,7 @@ s.modImportant = "Important";
 s.modSubmitInitialState = "Skip (none of the above), next statement";
 s.modSubmit = "Done, next statement";
 
-s.topic_good_01 = "What should we do about the pingpong room?";
+s.topic_good_01 = "What should we do about the ping pong room?";
 s.topic_good_01_reason =
   "open ended, anyone can have an opinion on answers to this question";
 s.topic_good_02 = "What do you think about the new proposal?";
@@ -196,8 +199,6 @@ s.topic_bad_01_reason =
 s.topic_bad_02 = "what are our launch blockers?";
 s.topic_bad_02_reason = "";
 
-// Old unused error message from when Polis was a demo <3
-
-s.notSentSinceDemo = "(not really, this is a demo)";
-
 module.exports = s;
+
+
