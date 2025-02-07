@@ -32,6 +32,10 @@ describe('Interface internationalization', function () {
     checkTranslation('el', this.convoId)
   })
 
+  it('translates into Burmese', function () {
+    checkTranslation('my', this.convoId)
+  })
+
   it('translates into English', function () {
     checkTranslation('en', this.convoId)
   })
