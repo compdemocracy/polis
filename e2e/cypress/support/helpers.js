@@ -56,6 +56,7 @@ const locales = {
   ta: 'ta',
   tdt: 'tdt',
   uk: 'uk',
+  ps: 'ps',
   'zh-CN': 'zh_Hans',
   'zh-TW': 'zh_Hant',
 }
