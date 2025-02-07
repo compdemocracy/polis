@@ -40,6 +40,10 @@ describe('Interface internationalization', function () {
     checkTranslation('es', this.convoId)
   })
 
+  it('translates into Swahili', function () {
+    checkTranslation('sw', this.convoId)
+  })
+
   it('translates into Farsi', function () {
     checkTranslation('fa', this.convoId)
   })
