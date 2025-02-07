@@ -51,6 +51,8 @@ var translations = {
   tdt: require("./strings/tdt.js"),
   // Ukrainian
   uk: require("./strings/uk.js"),
+  // Vietnamese
+  uk: require("./strings/vi.js"),
   // Chinese
   // zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
   zh_Hans: require("./strings/zh_Hans.js"),
@@ -133,6 +135,8 @@ preloadHelper.acceptLanguagePromise.then(function() {
       _.extend(strings, translations.ta);
     } else if (languageCode.match(/^tdt/)) {
       _.extend(strings, translations.tdt);
+    } else if (languageCode.match(/^vi/)) {
+      _.extend(strings, translations.vi);
     }
   });
 });
