@@ -52,7 +52,7 @@ var translations = {
   // Ukrainian
   uk: require("./strings/uk.js"),
   // Vietnamese
-  uk: require("./strings/vi.js"),
+  vi: require("./strings/vi.js"),
   // Chinese
   // zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
   zh_Hans: require("./strings/zh_Hans.js"),
