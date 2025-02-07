@@ -58,8 +58,8 @@ s.helpWhatAmISeeingTitle = "Je, ninaona nini?";
 s.helpWhatAmISeeing =
   "Unawakilishwa na mduara wa buluu na umewekwa kwenye kikundi pamoja na watu walio na mtazamo kama wako.";
 s.heresHowGroupVoted = "Hivi ndivyo Kikundi cha {{GROUP_NUMBER}} kilivyopiga kura:";
-s.one_person = mtu "{{x}} ";
-s.x_people = watu "{{x}} ";
+s.one_person = "mtu {{x}} ";
+s.x_people = "watu {{x}} ";
 s.acrossAllPtpts = "Kwa washiriki wote:";
 s.xPtptsSawThisComment = " waliona kauli hii;";
 s.xOfThoseAgreed = "kati ya washiriki hao wamekubali";
