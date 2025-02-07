@@ -195,7 +195,7 @@ s.topic_good_03 = "Je, unaweza kufikiria kinachosababisha upungufu wa tija?";
 
 s.topic_bad_01 = "kila mtu aripoti alivyojiandaa kwa uzinduzi";
 s.topic_bad_01_reason =
-  "watu kutoka timu mbalimbali watapigia kura majibu, lakini huenda wasiwe na maarifa ya kutosha ili kupiga kura kwa uhakika.".";
+  "watu kutoka timu mbalimbali watapigia kura majibu, lakini huenda wasiwe na maarifa ya kutosha ili kupiga kura kwa uhakika.";
 s.topic_bad_02 = "je, vipengele vyetu vya kusubirisha uzinduzi ni vipi?";
 s.topic_bad_02_reason = "";
 
