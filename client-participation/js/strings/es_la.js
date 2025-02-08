@@ -2,113 +2,202 @@
 
 var s = {};
 
-s.agree = "Acordar";
-s.disagree = "Discrepar";
-s.pass = "Pasar / Indeciso";
+// Text on the card
+
+s.participantHelpWelcomeText =
+  "Te damos la bienvenida a un nuevo tipo de conversación: <em>vota</em> las afirmaciones de otras personas. Cuantos más votos, mejor.";
+
+s.agree = "De acuerdo";
+s.disagree = "En desacuerdo";
+s.pass = "Paso/No lo tengo claro";
+
+s.writePrompt ="Comparte tu punto de vista (no se trata de una respuesta; debes aportar una afirmación independiente)";
+s.anonPerson = "Anónimo";
+s.importantCheckbox = "Importante/Significativa";
+s.importantCheckboxDesc =
+  "Marca esta casilla si crees que esta afirmación es especialmente importante para ti o muy relevante para la conversación, independientemente del sentido de tu voto. De esta manera, la afirmación tendrá una mayor prioridad en el análisis de la conversación que otros votos que hayas enviado.";
+
+s.howImportantPrompt = "¿Cuál es la importancia de esta afirmación?";
+s.howImportantLow = "Baja";
+s.howImportantMedium = "Media";
+s.howImportantHigh = "Alta";
 
 s.modSpam = "Spam";
-s.modOffTopic = "Fuera de Contexto";
+s.modOffTopic = "Sin relación con el tema";
 s.modImportant = "Importante";
-s.modSubmitInitialState = "Saltártelo (ninguna de las anteriores), próximo comentario";  //This could sound/be wrong in context
-s.modSubmit = "Terminado, próximo comentario";   //Ditto above
+s.modSubmitInitialState = "Saltar (nada de lo anterior); siguiente afirmación";
+s.modSubmit = "Hecho, siguiente afirmación";
 
-s.x_wrote = "escribió:";
-s.x_tweeted = "tuiteó:";
-s.comments_remaining = "{{num_comments}} restante";
-s.comments_remaining2 = "{{num_comments}} comentarios restantes";
+s.x_wrote = "ha escrito:";
+s.x_tweeted = "ha tuiteado:";
+s.comments_remaining = "Quedan {{num_comments}}";
+s.comments_remaining2 = "Quedan {{num_comments}} afirmaciones";
+
+// Text about phasing
+
+s.noCommentsYet = "Aún no hay afirmaciones.";
+s.noCommentsYetSoWrite = "Añade una afirmación para iniciar esta conversación.";
+s.noCommentsYetSoInvite =
+  "Invita a más participantes o añade una afirmación para iniciar esta conversación.";
+s.noCommentsYouVotedOnAll = "Has votado todas las afirmaciones.";
+s.noCommentsTryWritingOne =
+  "Si quieres añadir algo, puedes escribir tu propia afirmación.";
+s.convIsClosed = "Esta conversación está cerrada.";
+s.noMoreVotingAllowed = "No se permiten más votos.";
+
+// For the visualization below
+
 s.group_123 = "Grupo:";
-s.comment_123 = "Comentario:";
-s.majorityOpinion = "Opinión de la Mayoría";
+s.comment_123 = "Afirmación:";
+s.majorityOpinion = "Opinión de la mayoría";
 s.majorityOpinionShort = "Mayoría";
-s.info = "Info";
-s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
-s.privacy = "Privacidad";
-s.TOS = "Condiciones de Servicio";
-s.writePrompt = "Compartir su perspectiva...";
-s.anonPerson = "Anónimo";
-s.helpWhatAmISeeingTitle = "¿Qué es lo que veo?";
-s.helpWhatAmISeeing = "Se agrupa la gente que vota de manera similar. Haz clic en un grupo para ver sus puntos de vista compartidos.";
-s.helpWhatDoIDoTitle = " ¿Qué hago?";
-s.helpWhatDoIDo = "Haz clic en 'Acordar' o 'Discrepar' para votar en comentarios ajenos. Escribe un comentario (manténgalo a una sola idea). Invita a tus amigos a la discusión!";
-s.writeCommentHelpText = "Si su perspectiva no está representada ya, <strong>escribe</strong> un comentario!";
-s.helpWriteListIntro = "Qué hace que un comentario sea exitoso?";
-s.helpWriteListStandalone = "Idea única";
-s.helpWriteListRaisNew = "Plantear nuevas perspectivas, experiencias o problemas";
-s.helpWriteListShort = "Claro y conciso (límite - 140 carácteres)";
-s.heresHowGroupVoted = "Aquí está como votó el Grupo {{GROUP_NUMBER}}:";
+s.info = "Información";
+
+
+s.helpWhatAmISeeingTitle = "¿Qué estoy viendo?";
+s.helpWhatAmISeeing =
+  "El círculo azul representa tu perspectiva y se te ha agrupado con otras personas que la comparten.";
+s.heresHowGroupVoted = "Así ha votado el grupo {{GROUP_NUMBER}}:";
 s.one_person = "{{x}} persona";
 s.x_people = "{{x}} personas";
-s.acrossAllPtpts = "Por todos los participantes:";  //this may sound weird depending on the use context...?
-s.xPtptsSawThisComment = " vio este comentario";
-s.xOfThoseAgreed = "de esos participantes acordaron";
-s.xOfthoseDisagreed = "de esos participantes discreparon";
-s.opinionGroups = "Grupos de Opinión";
+s.acrossAllPtpts = "De todos los participantes:";
+s.xPtptsSawThisComment = " han visto esta afirmación";
+s.xOfThoseAgreed = "de esos participantes están de acuerdo";
+s.xOfthoseDisagreed = "de esos participantes están en desacuerdo";
+s.opinionGroups = "Grupos de opinión";
+s.topComments = "Afirmaciones con mayor consenso";
+s.divisiveComments = "Afirmaciones polarizadoras";
+s.pctAgreed = "{{pct}} % de acuerdo";
+s.pctDisagreed = "{{pct}} % en desacuerdo";
+s.pctAgreedLong =
+  "El {{pct}} % de todas las personas que votaron la afirmación {{comment_id}} está de acuerdo.";
+s.pctAgreedOfGroup = "El {{pct}} % del grupo {{group}} está de acuerdo";
+s.pctDisagreedOfGroup = "El {{pct}} % del grupo {{group}} está en desacuerdo";
+s.pctDisagreedLong =
+  "El {{pct}} % de todas las personas que votaron la afirmación {{comment_id}} está en desacuerdo.";
+s.pctAgreedOfGroupLong =
+  "El {{pct}} % de las personas del grupo {{group}} que votaron la afirmación {{comment_id}} está de acuerdo.";
+s.pctDisagreedOfGroupLong =
+  "El {{pct}} % de las personas del grupo {{group}} que votaron la afirmación {{comment_id}} está en desacuerdo.";
+s.participantHelpGroupsText =
+  "El círculo azul representa tu perspectiva y se te ha agrupado con otras personas que la comparten.";
+s.participantHelpGroupsNotYetText =
+  "La visualización aparecerá cuando 7 participantes hayan empezado a votar";
+s.helpWhatAreGroupsDetail =
+  "<p>Haz clic en tu grupo o en otros para consultar las opiniones de cada grupo.</p><p>Las opiniones de la mayoría son aquellas que más se comparten entre los diferentes grupos.</p>";
 
-s.pctAgreed = "{{pct}}% Acordaron";
-s.pctDisagreed = "{{pct}}% Discreparon";
-s.pctAgreedLong = "{{pct}}% de groupo que acordaron con el comentario {{comment_id}}.";
-s.pctAgreedOfGroup = "{{pct}}% de Grupo {{group}} Acordaron";
-s.pctDisagreedOfGroup = "{{pct}}% de Grupo {{group}} Discreparon";
-s.pctDisagreedLong = "{{pct}}% de todos que votaron {{comment_id}} discreparon.";
-s.pctAgreedOfGroupLong = "{{pct}}% de los del group {{group}} que votaron en el comentario {{comment_id}} acordaron.";
-s.pctDisagreedOfGroupLong = "{{pct}}% de los en el {{group}} que votaron por el comentario {{comment_id}} discreparon.";
-s.commentSent = "Comentario Enviado! Otros participantes verán tu comentario y acordarán or discreparán con él.";
-s.commentSendFailed = "Hubo un error procesando su comentario.";
-s.commentSendFailedEmpty = "Hubo un error procesando su comentario - Comentario incompleto.";
-s.commentSendFailedTooLong = "Hubo un error procesando su comentario - Comentario es demasiado largo.";
-s.commentSendFailedDuplicate = "Hubo un error procesando su comentario. Este comentario ya existe.";
-s.commentErrorDuplicate = "!Duplicado! Este comentario ya existe.";
-s.commentErrorConversationClosed = "Esta conversación está cerrada. No puede recibir más comentarios.d.";
-s.commentIsEmpty = "Comentario incompleto";
-s.commentIsTooLong = "Comentario es demasiado largo";
-s.hereIsNextStatement = "Voto procesado. Navigue arriba para ver el comentario próximo.";
-s.connectFacebook = "Conecta a Facebook";
-s.connectTwitter = "Conecta a Twitter";
-s.connectToPostPrompt = "Conecta a una identidad para comentar. No publicaremos tu línea de tiempo.";
-s.connectToVotePrompt = "Conecta a una identidad para votar. No publicaremos tu línea de tiempo.";
+// Text about writing your own statement
+
+s.helpWhatDoIDoTitle = "¿Qué tengo que hacer?";
+s.helpWhatDoIDo =
+  "Para votar las afirmaciones de otras personas, haz clic en De acuerdo o En desacuerdo. Escribe una afirmación (cada una debe comprender una sola idea). Invita a tus amigos a participar en la conversación.";
+s.writeCommentHelpText =
+  "¿Tus perspectivas o experiencias no están recogidas en la conversación? En ese caso,</b> añádelas de una en una </b> en el cuadro de abajo</b></b>.";
+s.helpWriteListIntro = "¿Qué hace que una afirmación se considere buena?";
+s.helpWriteListStandalone = "Plantea una idea concreta";
+s.helpWriteListRaisNew = "Plantea una perspectiva, una experiencia o un problema nuevos";
+s.helpWriteListShort = "Tiene una redacción clara y concisa (límite de 140 caracteres)";
 s.tip = "Consejo:";
-s.commentWritingTipsHintsHeader = "Cómo escribir un comentario";
-s.tipCharLimit = "Comentarios son limitados a {{char_limit}} carácteres.";
-s.tipCommentsRandom = "Los comentarios se exponen aleatoriamente. No puedes responder directamente a una persona.";
-s.tipOneIdea = "Desagrega los comentarios largos que contienen varias ideas. Así será más fácil que los demás voten en su comentario.";
-s.tipNoQuestions = "Los comentarios deben ser declaraciones en vez de preguntas. Los participantes acordarán o discreparán con lo que declares.";
-s.commentTooLongByChars = "Excedió el límite de carácters por {{CHARACTERS_COUNT}} carácters.";
-s.notSentSinceDemo = "(en realidad no, este es un demo)";
+s.commentWritingTipsHintsHeader = "Consejos para escribir afirmaciones";
+s.tipCharLimit = "Las afirmaciones tienen un límite de {{char_limit}} caracteres.";
+s.tipCommentsRandom =
+  "Las afirmaciones se muestran en orden aleatorio, así que no son una respuesta directa a las afirmaciones de otras personas, sino <b> una afirmación independiente.<b>";
+s.tipOneIdea =
+  "Divide las afirmaciones extensas que contengan varias ideas. Así, los demás podrán votar tu afirmación más fácilmente.";
+s.tipNoQuestions =
+  "Las afirmaciones no deben plantearse como preguntas. Los participantes indicarán si están de acuerdo o en desacuerdo con las afirmaciones que hagas.";
+s.commentTooLongByChars =
+  "La afirmación supera el límite de extensión por {{CHARACTERS_COUNT}} caracteres.";
 s.submitComment = "Enviar";
-s.tipStarred = "Marcado como importante.";
-s.participantHelpWelcomeText = "Bienvenido a un nuevo tipo de discusión - <span style='font-weight: 700;'>vota</span> en las opiniones de los demás y <span style='font-weight: 700;'>contribuye</span> opiniones propias.";
-s.participantHelpGroupsText = "<span style='font-weight: 700;'>Se agrupa</span> toda la gente que vota de manera similar. Haz clic en un grupo para ver los puntos de vista que comparten sus miembros <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...más</a>";
-s.participantHelpGroupsNotYetText = "La visualización aparecerá cuando 7 participantes votan";
-s.helpWhatAreGroupsDetail = "<p>Probablemente has visto los 'productos recomendados' en Amazon, o las 'películas recomendadas' en Netflix. Esos servicios usan la estadística para agruparte con la demás gente que compra y mira cosas similares y entonces mostrarte cosas compradas o miradas por ellos.</p> <p> Cuando votas en un comentario de Pol.is, ¡serás agrupado con gente que ha votado de manera similar! Aquí abajo puedes explorar los grupos. Cada grupo se compone de gente con opiniones similares. Cada conversación tiene percepciones nuevas y fascinantes para descubrir. ¡Dale! - ¡haz clic en un grupo para ver cuáles opiniones lo unen y cuáles lo hace único! </p>";
-s.socialConnectPrompt = "Conéctate para ver tus amigos y la gente que sigues en la visualización.";
-s.connectFbButton = "Conecta con Facebook";
-s.connectTwButton = "Conecta con Twitter";
-s.polis_err_reg_fb_verification_email_sent = "Por favor, chequea tu email para el enlace de verificación, y entonces regresa aquí para continuar.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Tu cuenta de Facebook no está verificada. Por favor, verifica tu email con Facebook, y entonces regresa aquí para continuar.";
-s.showTranslationButton = "Active Traducción";
-s.hideTranslationButton = "Deactive el servicio traducción";
-s.thirdPartyTranslationDisclaimer = "Traducción proporcionada por un tercero";
-s.notificationsAlreadySubscribed = "Está suscrito para recibir actualizaciones a esta conversación.";
-s.notificationsGetNotified = "Recibe notificaciones cuando comentarios nuevos aparecen:";
-s.notificationsEnterEmail = "Ingrese su dirección de email para recibir notificaciones cuando lleguen más comentarios:";
-s.labelEmail = "Email";
-s.notificationsSubscribeButton = "Subscribe";
-s.notificationsSubscribeErrorAlert = "Error al suscribirse";
-s.noCommentsYet = "Aún no hay comentarios";
-s.noCommentsYetSoWrite = "Agregue un comentario para comenzar esta conversación.";
-s.noCommentsYetSoInvite = "Comience esta conversación - invite más participantes o agregue un comentario.";
-s.noCommentsYouVotedOnAll = "Ya votó para todos los comentarios.";
-s.noCommentsTryWritingOne = "Si tiene algo más para decir, escriba un comentario nuevo.";
-s.convIsClosed = "Esta conversación está cerrada";
-s.noMoreVotingAllowed = "No puede votar más.";
-s.topic_good_01 = "Qué deberíamos hacer con el cuarto de ping pong?";
-s.topic_good_01_reason = "respuesta libre; cualquier persona puede expresar una opinión a esta pregunta";
-s.topic_good_02 = "Qué le parece la propuesta nueva?";
-s.topic_good_02_reason = "respuesta libre; cualquier persona puede expresar una opinión a esta pregunta";
-s.topic_good_03 = "Hay algo que está limitando productividad?";
-s.topic_bad_01 = "everyone report your launch readiness";
-s.topic_bad_01_reason = "personas de varios equipos van a votar por las repuestas, pero tal vez no tengan el sabimiento de votar confidentamente.";
-s.topic_bad_02 = "what are our launch blockers?";
+s.commentSent =
+  "Afirmación enviada. Solo otros participantes verán tu afirmación e indicarán si están de acuerdo o en desacuerdo.";
+
+// Error notices
+
+s.commentSendFailed = "No se ha podido enviar tu afirmación.";
+s.commentSendFailedEmpty =
+  "No se ha podido enviar tu afirmación porque está vacía.";
+s.commentSendFailedTooLong =
+  "No se ha podido enviar tu afirmación porque es demasiado larga.";
+s.commentSendFailedDuplicate =
+  "No se ha podido enviar tu afirmación porque ya existe una afirmación idéntica.";
+s.commentErrorDuplicate = "¡Duplicada! Esa afirmación ya existe.";
+s.commentErrorConversationClosed =
+  "Esta conversación está cerrada. No se pueden enviar más afirmaciones.";
+s.commentIsEmpty = "La afirmación está vacía";
+s.commentIsTooLong = "La afirmación es demasiado larga";
+s.hereIsNextStatement = "Voto correcto. Desplázate hacia arriba para ver la siguiente afirmación.";
+
+// Text about connecting identity
+
+s.connectFacebook = "Conectar Facebook";
+s.connectTwitter = "Conectar Twitter";
+s.connectToPostPrompt =
+  "Conecta una cuenta para enviar una afirmación. No publicaremos nada en tu perfil.";
+s.connectToVotePrompt =
+  "Conecta una cuenta para votar. No publicaremos nada en tu perfil.";
+s.socialConnectPrompt =
+  "De forma opcional, puedes conectar una cuenta para ver a tus amigos y a quienes sigues en la visualización.";
+s.connectFbButton = "Conectar Facebook";
+s.connectTwButton = "Conectar Twitter";
+s.polis_err_reg_fb_verification_email_sent =
+  "Busca en tu correo un enlace de verificación y vuelve a esta página después para continuar.";
+s.polis_err_reg_fb_verification_noemail_unverified =
+  "Tu cuenta de Facebook no está verificada. Verifica tu dirección de correo en Facebook y vuelve a esta página después para continuar.";
+
+// Text for the third party translation that appears on the cards
+
+s.showTranslationButton = "Activar traducción de tercero";
+s.hideTranslationButton = "Desactivar traducción";
+s.thirdPartyTranslationDisclaimer = "Traducción ofrecida por un tercero";
+
+// Text about notifications and subscriptions and embedding
+
+s.notificationsAlreadySubscribed =
+  "Te has suscrito para recibir novedades sobre esta conversación.";
+s.notificationsGetNotified = "Recibe notificaciones cuando se publiquen más afirmaciones:";
+s.notificationsEnterEmail =
+  "Escribe tu dirección de correo para recibir notificaciones cuando se publiquen más afirmaciones:";
+s.labelEmail = "Correo";
+s.notificationsSubscribeButton = "Suscribirme";
+s.notificationsSubscribeErrorAlert = "No te has podido suscribir";
+
+s.addPolisToYourSite =
+  "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
+
+// Footer
+
+s.privacy = "Privacidad";
+s.TOS = "Términos del Servicio";
+
+// Experimental features
+
+s.importantCheckbox = "Este comentario es importante";
+s.howImportantPrompt = "¿Cuál es la importancia de esta afirmación?";
+s.howImportantLow = "Baja";
+s.howImportantMedium = "Media";
+s.howImportantHigh = "Alta";
+s.tipStarred = "Marcada como importante.";
+
+s.modSpam = "Spam";
+s.modOffTopic = "Sin relación con el tema";
+s.modImportant = "Importante";
+s.modSubmitInitialState = "Saltar (nada de lo anterior); siguiente afirmación";
+s.modSubmit = "Hecho, siguiente afirmación";
+
+s.topic_good_01 = "¿Qué deberíamos hacer con la sala de ping-pong?";
+s.topic_good_01_reason =
+  "Pregunta abierta, todo el mundo puede dar su opinión sobre las respuestas a esta pregunta";
+s.topic_good_02 = "¿Qué piensas de la nueva propuesta?";
+s.topic_good_02_reason =
+  "Pregunta abierta, todo el mundo puede dar su opinión sobre las respuestas a esta pregunta";
+s.topic_good_03 = "¿Se te ocurre algo que esté disminuyendo la productividad?";
+
+s.topic_bad_01 = "Que todo el mundo informe si están listos para el lanzamiento";
+s.topic_bad_01_reason =
+  "Personas de diferentes equipos votarán las respuestas, pero puede que no tengan el suficiente conocimiento para votar con confianza.";
+s.topic_bad_02 = "¿Qué está impidiendo el lanzamiento?";
 s.topic_bad_02_reason = "";
 
 module.exports = s;
+

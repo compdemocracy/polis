@@ -1,127 +1,200 @@
-// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
 var s = {};
 
-s.agree = "DA";
-s.disagree = "NE";
-s.pass = "Dalje";
+// Text on the card
 
-s.importantCheckbox = "Ovaj komentar je bitan";
-s.howImportantPrompt = "Koliko bitna je ova izjava?";
+s.participantHelpWelcomeText =
+  "Dobro došli u novu vrstu razgovora – <em>glasajte</em> o izjavama drugih osoba – što više to bolje.";
+
+s.agree = "Slažem se";
+s.disagree = "Ne slažem se";
+s.pass = "Uspješno / nisam siguran/na";
+
+s.writePrompt ="Podijelite mišljenje (ne dajete odgovor, nego samostalnu izjavu)";
+s.anonPerson = "Anonimno";
+s.importantCheckbox = "Važno/značajno";
+s.importantCheckboxDesc =
+  "Potvrdite ovo polje ako vam je ova izjava posebno važna ili mislite da je veoma relevantna za razgovor, bez obzira na to kako ste glasali. Ovim će se izjavi u analizi razgovora dodijeliti veći prioritet u odnosu na prioritet vaših drugih glasova.";
+
+s.howImportantPrompt = "Koliko je važna ova izjava?";
 s.howImportantLow = "Malo";
 s.howImportantMedium = "Srednje";
-s.howImportantHigh = "Jako";
+s.howImportantHigh = "Veoma";
 
-s.modSpam = "Spam";
-s.modOffTopic = "Nije vezano uz temu";
-s.modImportant = "Bitno";
-s.modSubmitInitialState = "Preskoči (ništa od navedenog), sljedeća izjava";
-s.modSubmit = "Gotovo, sljedeća izjava";
+s.modSpam = "Neželjena poruka";
+s.modOffTopic = "Van teme";
+s.modImportant = "Važno";
+s.modSubmitInitialState = "Preskoči (ništa od navedenog); pređi na sljedeću izjavu";
+s.modSubmit = "Gotovo; pređi na sljedeću izjavu";
 
-s.x_wrote = "napisao/la:";
-s.x_tweeted = "tweetao/la:";
-s.comments_remaining = "{{num_comments}} preostalo";
-s.comments_remaining2 = "{{num_comments}} preostalih izjava";
+s.x_wrote = "napisao/la je:";
+s.x_tweeted = "objavio/la je na X-u:";
+s.comments_remaining = "preostalo: {{num_comments}}";
+s.comments_remaining2 = "preostalo izjava: {{num_comments}}";
+
+// Text about phasing
+
+s.noCommentsYet = "Još nema nijedne izjave.";
+s.noCommentsYetSoWrite = "Započnite ovaj razgovor dodavanjem izjave.";
+s.noCommentsYetSoInvite =
+  "Započnite ovaj razgovor pozivanjem više učesnika ili dodajte izjavu.";
+s.noCommentsYouVotedOnAll = "Glasali ste o svim izjavama.";
+s.noCommentsTryWritingOne =
+  "Ako želite nešto dodati, pokušajte napisati vlastitu izjavu.";
+s.convIsClosed = "Razgovor je zatvoren.";
+s.noMoreVotingAllowed = "Glasanje više nije dozvoljeno.";
+
+// For the visualization below
+
 s.group_123 = "Grupa:";
 s.comment_123 = "Izjava:";
-s.majorityOpinion = "Mišljenje većine";
+s.majorityOpinion = "Većinsko mišljenje";
 s.majorityOpinionShort = "Većina";
-s.info = "Info";
-s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
-s.privacy = "Obavijest o privatnosti";
-s.TOS = "Pravila korištenja";
-s.writePrompt = "Podijelite svoje viđenje...";
-s.anonPerson = "Nepoznat";
-s.helpWhatAmISeeingTitle = "Što vidim?";
-s.helpWhatAmISeeing = "Ljudi koji glasaju slično grupirani su. Kliknite grupu da biste vidjeli koja gledišta dijele.";
-s.helpWhatDoIDoTitle = "Što da radim?";
-s.helpWhatDoIDo = "Glasajte o izjavama drugih klikom na 'DA' ili 'NE'. Napišite svoju izjavu (neka se svaka izjava tiče samo jedne ideje). Pozovite svoje prijatelje na razgovor!";
-s.writeCommentHelpText = "Vaša gledišta ili iskustva nisu zastupljena dosadašnjim razgovorom? Dodajte ih koristeći donji okvir.";
-s.helpWriteListIntro = "Kako znam da je izjava dobro sročena?";
-s.helpWriteListStandalone = "Jedna ideja";
-s.helpWriteListRaisNew = "Novo viđenje, iskustvo ili problem";
-s.helpWriteListShort = "Jasno i sažeto (najviše 140 znakova)";
-s.heresHowGroupVoted = "Ovako je glasala Grupa {{GROUP_NUMBER}}:";
+s.info = "Informacije";
+
+
+s.helpWhatAmISeeingTitle = "Šta je prikazano?";
+s.helpWhatAmISeeing =
+  "Vas predstavlja plavi krug i u grupi ste s ostalima koji imaju isto mišljenje.";
+s.heresHowGroupVoted = "Evo rezultata glasanja grupe {{GROUP_NUMBER}}:";
 s.one_person = "{{x}} osoba";
-s.x_people = "{{x}} ljudi";
-s.acrossAllPtpts = "Uključivši sve sudionike:";
-s.xPtptsSawThisComment = " je vidjelo ovu izjavu";
-s.xOfThoseAgreed = "od tih sudionika se složilo";
-s.xOfthoseDisagreed = "od tih sudionika se nije složilo";
+s.x_people = "{{x}} osoba/e";
+s.acrossAllPtpts = "Sveukupno za sve učesnike važi sljedeće:";
+s.xPtptsSawThisComment = " vidjelo je ovu izjavu";
+s.xOfThoseAgreed = "tih učesnika se slaže";
+s.xOfthoseDisagreed = "tih učesnika se ne slaže";
 s.opinionGroups = "Grupe mišljenja";
-s.topComments = "Top izjave";
-s.divisiveComments = "Izjave koje su izazvale najviše podjela";
+s.topComments = "Najpopularnije izjave";
+s.divisiveComments = "Kontroverzne izjave";
 s.pctAgreed = "{{pct}}% se slaže";
 s.pctDisagreed = "{{pct}}% se ne slaže";
-s.pctAgreedLong = "{{pct}}% od svih koji su glasali o izjavi {{comment_id}} se s tom izjavom složilo.";
-s.pctAgreedOfGroup = "{{pct}}% članova Grupe {{group}} se složilo s izjavom";
-s.pctDisagreedOfGroup = "{{pct}}% članova Grupe {{group}} se nije složilo s izjavom";
-s.pctDisagreedLong = "{{pct}}% od svih koji su glasali o izjavi {{comment_id}} s tom se izjavom nije složilo.";
-s.pctAgreedOfGroupLong = "{{pct}}% članova Grupe {{group}} koji su glasali o izjavi {{comment_id}} se s tom izjavom složilo.";
-s.pctDisagreedOfGroupLong = "{{pct}}% onih u Grupi {{group}} koji su glasali o izjavi {{comment_id}} se s tom izjavom nije složilo.";
-s.commentSent = "Izjava je objavljena! Ostali sudionici će vidjeti vašu izjavu te mogu glasati slažu li se ili ne slažu.";
-s.commentSendFailed = "Pojavila se greška prilikom objavljivanja vaše izjave - Vaša izjava ne može biti objavljena.";
-s.commentSendFailedEmpty = "Pojavila se greška prilikom objavljivanja vaše izjave - Izjava ne može biti prazna.";
-s.commentSendFailedTooLong = "Pojavila se greška prilikom objavljivanja vaše izjave - Izjava je preduga.";
-s.commentSendFailedDuplicate = "Pojavila se greška prilikom objavljivanja vaše izjave - Već postoji izjava identična vašoj.";
-s.commentErrorDuplicate = "Ponovljeno! Već postoji izjava identična vašoj.";
-s.commentErrorConversationClosed = "Ovaj razgovor je završen. Više nije moguće objavljivati nove izjave.";
-s.commentIsEmpty = "Izjava je prazna.";
-s.commentIsTooLong = "Izjava je preduga.";
-s.hereIsNextStatement = "Vaše glasanje je uspjelo. Pomaknite se prema gore kako biste vidjeli sljedeću izjavu.";
+s.pctAgreedLong =
+  "{{pct}}% ispitanika se slaže, a koji su glasali o izjavi {{comment_id}}.";
+s.pctAgreedOfGroup = "{{pct}}% se slaže iz grupe {{group}}";
+s.pctDisagreedOfGroup = "{{pct}}% se ne slaže iz grupe {{group}}";
+s.pctDisagreedLong =
+  "{{pct}}% se ne slaže, a koji su glasali o izjavi {{comment_id}}.";
+s.pctAgreedOfGroupLong =
+  "{{pct}}% se slaže iz grupe {{group}} koji su glasali o izjavi {{comment_id}}.";
+s.pctDisagreedOfGroupLong =
+  "{{pct}}% se ne slaže iz grupe {{group}} koji su glasali o izjavi {{comment_id}}.";
+s.participantHelpGroupsText =
+  "Vas predstavlja plavi krug i u grupi ste s ostalima koji imaju isto mišljenje.";
+s.participantHelpGroupsNotYetText =
+  "Vizuelizacija će se prikazati kada 7 učesnika počne glasati";
+s.helpWhatAreGroupsDetail =
+  "<p>Kliknite na svoju ili druge grupe da istražite mišljenje svake grupe.</p><p>Većinska mišljenja su mišljenja koja su najšire zastupljena na nivou svih grupa.</p>";
 
-s.connectFacebook = "Spojite se pomoću Facebooka";
-s.connectTwitter = "Spojite se pomoću Twittera";
-s.connectToPostPrompt = "Potrebno je spojiti se kako biste objavili izjavu. Ništa od onog što ovdje napravite neće biti objavljeno na vašoj društvenoj mreži.";
-s.connectToVotePrompt = "Potrebno je spojiti se kako biste mogli glasati. Ništa od onog što ovdje napravite neće biti objavljeno na vašoj društvenoj mreži.";
+// Text about writing your own statement
+
+s.helpWhatDoIDoTitle = " Šta trebam uraditi?";
+s.helpWhatDoIDo =
+  `Glasajte o izjavama drugih osoba klikom na "Slažem se" ili "Ne slažem se"". Napišite izjavu (neka se svaka izjava odnosi na po jednu ideju). Pozovite prijatelje u razgovor!`;
+s.writeCommentHelpText =
+  "Nedostaju li u razgovoru vaši stavovi ili iskustva? Ako nedostaju,</b>dodajte ih </b> u okvir u nastavku — </b>pojedinačno</b>.";
+s.helpWriteListIntro = "Šta čini dobru izjavu?";
+s.helpWriteListStandalone = "Jedna ideja";
+s.helpWriteListRaisNew = "Novi pogled na stvari, iskustvo ili problem";
+s.helpWriteListShort = "Jasna i sažeta formulacija (najviše 140 znakova)";
 s.tip = "Savjet:";
 s.commentWritingTipsHintsHeader = "Savjeti za pisanje izjava";
-s.tipCharLimit = "Izjava može sadržavati najviše {{char_limit}} znakova.";
-s.tipCommentsRandom = "Imajte na umu da se izjave prikazuju nasumično i da nije moguće izravno odgovarati na izjave drugih sudionika.";
-s.tipOneIdea = "Razdvojite duge izjave koje sadrže više ideja u više kraćih rečenica. To drugima olakšava razumijevanje vaše izjave i glasanje o njoj.";
-s.tipNoQuestions = "Izjave ne mogu biti u obliku pitanja. Ostali sudionici će se složiti ili ne s izjavama koje date.";
-s.commentTooLongByChars = "Vaša izjava je {{CHARACTERS_COUNT}} znakova preduga.";
-s.notSentSinceDemo = "(Ovo je samo pokazni primjer)";
-s.submitComment = "Objavi";
-s.tipStarred = "Označeno kao bitno.";
-s.participantHelpWelcomeText = "Dobro došli u novi oblik razgovora - glasajte o mišljenjima drugih ljudi.";
-s.participantHelpGroupsText = "Svi koji glasaju slično <span style='font-weight: 700;'>čine grupu.</span> Kliknite grupu kako biste vidjeli gledišta njenih članova. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...više</a>";
-s.participantHelpGroupsNotYetText = "Vizualni pregled glasanja pojavit će se nakon što glasa 7 sudionika.";
-s.helpWhatAreGroupsDetail = "<p>Vjerojatno znate za odjeljak 'Preporučeni proizvodi' na Amazonu ili 'Preporučeni filmovi' na Netflixu. Te usluge koriste statističke metode za grupiranje nekog korisnika s drugim ljudima koji kupuju slične proizvode ili gledaju slične filmove, a zatim tom korisniku preporučuju proizvode ili filmove koje su kupili ili pogledali ti ljudi sa sličnim ukusom.</p> <p> Takav sustav koristi se i ovdje - nakon što sudionik glasa o nekoj izjavi ili više izjava, grupira ga se s ostalim sudionicima koji su glasali slično! Tako formirane grupe možete vidjeti u nastavku. Svaka grupa okuplja ljude koji imaju slična mišljenja. Ovaj pristup nudi mogućnost da o svakom vođenom razgovoru dobijete zanimljive uvide, a možda i otkrijete nešto fascinantno ili neočekivano. Samo naprijed - kliknite na neku grupu kako biste vidjeli što je spojilo njene članove i po čemu su jedinstveni! </p>";
-s.socialConnectPrompt = "Ukoliko želite, spojite se preko društvene mreže kako biste mogli vidjeti gdje se u vizualnom pregledu nalaze vaši prijatelji.";
-s.connectFbButton = "Spojite se pomoću Facebooka";
-s.connectTwButton = "Spojite se pomoću Twittera";
-s.polis_err_reg_fb_verification_email_sent = "Molimo provjerite svoju e-poštu za poveznicu za potvrdu, a zatim se vratite ovdje da biste nastavili.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Vaš Facebook račun nije potvrđen. Molimo potvrdite svoju e-adresu putem Facebooka, a zatim se vratite ovdje da biste nastavili.";
-s.showTranslationButton = "Uključite prijevod treće strane";
-s.hideTranslationButton = "Isključite prijevod";
-s.thirdPartyTranslationDisclaimer = "Prijevod koji je omogućila treća strana";
+s.tipCharLimit = "Izjave su ograničene na ovoliko znakova: {{char_limit}}.";
+s.tipCommentsRandom =
+  "Izjave se prikazuju nasumično i ne odgovarate direktno na izjave drugih osoba: <b> dodajete samostalnu izjavu.<b>";
+s.tipOneIdea =
+  "Podijelite duge izjave u kojima obrađujete više ideja. Ovo drugima olakšava da glasaju o vašoj izjavi.";
+s.tipNoQuestions =
+  "Izjave ne smiju biti u obliku pitanja. Učesnici će se s vašim izjavama složiti ili neće.";
+s.commentTooLongByChars =
+  "Ograničenje dužine izjave je premašeno za ovoliko znakova: {{CHARACTERS_COUNT}}.";
+s.submitComment = "Pošalji";
+s.commentSent =
+  "Izjava je poslana! Vašu izjavu će vidjeti i s njom će se moći složiti ili ne složiti samo drugi učesnici.";
 
-s.notificationsAlreadySubscribed = "Pretplaćeni ste na ažuriranja za ovaj razgovor.";
-s.notificationsGetNotified = "Primite obavijest kad stigne još izjava:";
-s.notificationsEnterEmail = "Unesite svoju adresu e-pošte da biste dobivali obavijesti kada stigne još izjava:";
-s.labelEmail = "Vaša adresa e-pošte";
-s.notificationsSubscribeButton = "Pretplati me";
-s.notificationsSubscribeErrorAlert = "Pogreška prilikom pretplate";
-s.noCommentsYet = "Još nema izjava.";
-s.noCommentsYetSoWrite = "Započnite ovaj razgovor dodavanjem izjave.";
-s.noCommentsYetSoInvite = "Započnite ovaj razgovor pozivom više sudionika ili dodajte novu izjavu.";
-s.noCommentsYouVotedOnAll = "Glasali ste o svim izjavama.";
-s.noCommentsTryWritingOne = "Ukoliko imate što dodati, možete napisati vlastitu izjavu.";
-s.convIsClosed = "Ovaj je razgovor zatvoren.";
-s.noMoreVotingAllowed = "Nije dopušteno daljnje glasanje.";
+// Error notices
 
+s.commentSendFailed = "Došlo je do greške prilikom slanja izjave.";
+s.commentSendFailedEmpty =
+  "Došlo je do greške prilikom slanja izjave – izjava ne smije biti prazna.";
+s.commentSendFailedTooLong =
+  "Došlo je do greške prilikom slanja izjave – izjava je preduga.";
+s.commentSendFailedDuplicate =
+  "Došlo je do greške prilikom slanja izjave – već postoji identična izjava.";
+s.commentErrorDuplicate = "Duplikat! Ta izjava već postoji.";
+s.commentErrorConversationClosed =
+  "Razgovor je zatvoren. Ne mogu se poslati dodatne izjave.";
+s.commentIsEmpty = "Izjava je prazna";
+s.commentIsTooLong = "Izjava je preduga";
+s.hereIsNextStatement = "Glasanje je uspjelo. Idite gore da vidite sljedeću izjavu.";
 
-s.topic_good_01 = "Što bismo trebali učiniti sa sobom za ping-pong?";
-s.topic_good_01_reason = "otvoreno, svatko može imati mišljenje o odgovorima na ovo pitanje";
-s.topic_good_02 = "Što mislite o novom prijedlogu?";
-s.topic_good_02_reason = "otvoreno, svatko može imati mišljenje o odgovorima na ovo pitanje";
-s.topic_good_03 = "Možete li se sjetiti ičega što usporava produktivnost?";
+// Text about connecting identity
 
-s.topic_bad_01 = "netka svatko prijavi svoju spremnost za pokretanje";
-s.topic_bad_01_reason = "ljudi iz različitih timova glasat će o odgovorima, ali možda neće imati dovoljno znanja da bi mogli glasovati pouzdano.";
-s.topic_bad_02 = "što nas blokira da krenemo?";
+s.connectFacebook = "Povežite Facebook račun";
+s.connectTwitter = "Povežite X račun";
+s.connectToPostPrompt =
+  "Povežite identitet da pošaljete izjavu. Vašu izjavu nećemo objaviti u vašem vremenskom slijedu.";
+s.connectToVotePrompt =
+  "Povežite identitet da glasate. Vašu izjavu nećemo objaviti u vašem vremenskom slijedu.";
+s.socialConnectPrompt =
+  "Neobavezno se možete povezati da prijatelje i osobe koje pratite vidite u vizuelizaciji.";
+s.connectFbButton = "Povežite s Facebook računom";
+s.connectTwButton = "Povežite s X računom";
+s.polis_err_reg_fb_verification_email_sent =
+  "Pogledajte ima li u e-pošti e-poruke s linkom za potvrdu, a zatim se vratite ovdje da nastavite.";
+s.polis_err_reg_fb_verification_noemail_unverified =
+  "Vaš Facebook račun nije potvrđen. Potvrdite adresu e-pošte na Facebooku, a zatim se vratite ovdje da nastavite.";
+
+// Text for the third party translation that appears on the cards
+
+s.showTranslationButton = "Aktiviraj prevod treće strane";
+s.hideTranslationButton = "Deaktiviraj prevod";
+s.thirdPartyTranslationDisclaimer = "Prevod je poslala treća strana";
+
+// Text about notifications and subscriptions and embedding
+
+s.notificationsAlreadySubscribed =
+  "Pretplaćeni ste na novosti o ovom razgovoru.";
+s.notificationsGetNotified = "Dobijajte obavještenja kada stignu dodatne izjave:";
+s.notificationsEnterEmail =
+  "Unesite adresu e-pošte da dobijate obavještenja kada stignu dodatne izjave:";
+s.labelEmail = "Adresa e-pošte";
+s.notificationsSubscribeButton = "Pretplatite se";
+s.notificationsSubscribeErrorAlert = "Došlo je do greške prilikom pretplaćivanja";
+
+s.addPolisToYourSite =
+  "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
+
+// Footer
+
+s.privacy = "Privatnost";
+s.TOS = "Uslovi korištenja usluge";
+
+// Experimental features
+
+s.importantCheckbox = "Ovaj komentar je važan";
+s.howImportantPrompt = "Koliko je važna ova izjava?";
+s.howImportantLow = "Malo";
+s.howImportantMedium = "Srednje";
+s.howImportantHigh = "Veoma";
+s.tipStarred = "Označeno kao važno.";
+
+s.modSpam = "Neželjena poruka";
+s.modOffTopic = "Van teme";
+s.modImportant = "Važno";
+s.modSubmitInitialState = "Preskoči (ništa od navedenog); pređi na sljedeću izjavu";
+s.modSubmit = "Gotovo; pređi na sljedeću izjavu";
+
+s.topic_good_01 = "Šta trebamo uraditi u pogledu prostorije za stolni tenis?";
+s.topic_good_01_reason =
+  "otvoreno; svako može poslati mišljenje o odgovorima na ovo pitanje";
+s.topic_good_02 = "Šta mislite o novom prijedlogu?";
+s.topic_good_02_reason =
+  "otvoreno; svako može poslati mišljenje o odgovorima na ovo pitanje";
+s.topic_good_03 = "Imate li ideju u pogledu toga šta usporava produktivnost?";
+
+s.topic_bad_01 = "svi trebate prijaviti svoju spremnost za pokretanje";
+s.topic_bad_01_reason =
+  "o odgovorima će glasati osobe iz raznih timova, ali možda neće raspolagati dovoljnim znanjem da glasaju informirano.";
+s.topic_bad_02 = "šta nas sprečava u pokretanju?";
 s.topic_bad_02_reason = "";
-
 
 module.exports = s;
