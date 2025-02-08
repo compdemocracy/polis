@@ -58,6 +58,8 @@ const locales = {
   tdt: 'tdt',
   uk: 'uk',
   my: 'my',
+  ps: 'ps',
+  sw: 'sw',
   vi: 'vi',
   'zh-CN': 'zh_Hans',
   'zh-TW': 'zh_Hant',

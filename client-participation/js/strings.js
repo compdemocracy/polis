@@ -39,6 +39,7 @@ var translations = {
   // Portuguese
   // Brazilian Portuguese (all portuguese speakers are temporarily using the same file.)
   pt_br: require("./strings/pt_br.js"),
+  ps: require("./strings/ps.js"),
   // Portuguese (Timor-Leste)
   // pt_tl: require("./strings/pt_tl.js"),
   // Romanian & Moldovan
@@ -47,6 +48,8 @@ var translations = {
   ru: require("./strings/ru.js"),
   // Slovak
   sk: require("./strings/sk.js"),
+  // Swahili
+  sw: require("./strings/sw.js"),
   // Tamil
   ta: require("./strings/ta.js"),
   // Tetum (Timor)
@@ -139,6 +142,10 @@ preloadHelper.acceptLanguagePromise.then(function() {
       _.extend(strings, translations.tdt);
     } else if (languageCode.match(/^my/)) {
       _.extend(strings, translations.my);
+    } else if (languageCode.match(/^ps/)) {
+      _.extend(strings, translations.ps);
+    } else if (languageCode.match(/^sw/)) {
+      _.extend(strings, translations.sw);
     } else if (languageCode.match(/^vi/)) {
       _.extend(strings, translations.vi);
     }
