@@ -6,6 +6,8 @@ var Utils = require("./util/utils");
 var translations = {
   // Arabic
   ar: require("./strings/ar.js"),
+  // Croatian
+  hr: require("./strings/hr.js"),
   // Welsh
   cy: require("./strings/cy.js"),
   // Danish
@@ -26,8 +28,6 @@ var translations = {
   fy: require("./strings/fy_nl.js"),
   // Hebrew
   he: require("./strings/he.js"),
-  // Croatian
-  hr: require("./strings/hr.js"),
   // Italian
   it: require("./strings/it.js"),
   // Japanese
@@ -52,6 +52,8 @@ var translations = {
   tdt: require("./strings/tdt.js"),
   // Ukrainian
   uk: require("./strings/uk.js"),
+  // Vietnamese
+  vi: require("./strings/vi.js"),
   // Chinese
   // zh-Hans is Simplified Chinese. (CN, SG and MY can use the same file.)
   zh_Hans: require("./strings/zh_Hans.js"),
@@ -100,6 +102,8 @@ preloadHelper.acceptLanguagePromise.then(function() {
       _.extend(strings, translations.es);
     } else if (languageCode.match(/^fa/)) {
       _.extend(strings, translations.fa);
+    } else if (languageCode.match(/^hr/)) {
+      _.extend(strings, translations.hr);
     } else if (languageCode.match(/^fr/)) {
       _.extend(strings, translations.fr);
     } else if (languageCode.match(/^nl/)) {
@@ -124,8 +128,6 @@ preloadHelper.acceptLanguagePromise.then(function() {
       _.extend(strings, translations.ru);
     } else if (languageCode.match(/^ro/)) {
       _.extend(strings, translations.ro);
-    } else if (languageCode.match(/^hr/)) {
-      _.extend(strings, translations.hr);
     } else if (languageCode.match(/^ar/)) {
       _.extend(strings, translations.ar);
     } else if (languageCode.match(/^fy/)) {
@@ -136,6 +138,8 @@ preloadHelper.acceptLanguagePromise.then(function() {
       _.extend(strings, translations.tdt);
     } else if (languageCode.match(/^ps/)) {
       _.extend(strings, translations.ps);
+    } else if (languageCode.match(/^vi/)) {
+      _.extend(strings, translations.vi);
     }
   });
 });
