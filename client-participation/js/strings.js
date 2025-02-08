@@ -45,6 +45,8 @@ var translations = {
   ru: require("./strings/ru.js"),
   // Slovak
   sk: require("./strings/sk.js"),
+  // Swahili
+  sw: require("./strings/sw.js"),
   // Tamil
   ta: require("./strings/ta.js"),
   // Tetum (Timor)
@@ -135,6 +137,8 @@ preloadHelper.acceptLanguagePromise.then(function() {
       _.extend(strings, translations.ta);
     } else if (languageCode.match(/^tdt/)) {
       _.extend(strings, translations.tdt);
+    } else if (languageCode.match(/^sw/)) {
+      _.extend(strings, translations.sw);
     } else if (languageCode.match(/^vi/)) {
       _.extend(strings, translations.vi);
     }
