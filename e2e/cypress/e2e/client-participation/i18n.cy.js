@@ -113,4 +113,8 @@ describe('Interface internationalization', function () {
   it('translates into Chinese (Traditional)', function () {
     checkTranslation('zh-TW', this.convoId)
   })
+
+  it('translates into Vietnamese', function () {
+    checkTranslation('vi', this.convoId)
+  })
 })
