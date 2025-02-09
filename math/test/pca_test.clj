@@ -57,8 +57,6 @@
       (testing "takes full number of iterations"
         (is (almost=? (m/length result1) 1.0 :tol 0.000001))  ; Should still be normalized
         (is (almost=? (m/length result3) 1.0 :tol 0.000001))
-        (println "result1:" result1)
-        (println "result3:" result3)
         ; Results should be different because it's still converging
         (is (not (almost=? result1 result3 :tol 0.01))))  ; Use larger tolerance to ensure difference
   
