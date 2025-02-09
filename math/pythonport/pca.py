@@ -39,15 +39,19 @@ def power_iteration(data, iters=100, start=None):
         
         # Compute eigenvalue as length of product vector
         eigval = np.linalg.norm(product_vector)
-        
-        # Normalize the vector
-        normed = product_vector / np.linalg.norm(product_vector)
+        # Normalize the vector, respecting the clojure matrix behaviour
+        # of normalizing a 0-norm vector to a vector of zeros
+        if eigval != 0:
+            normed = product_vector / eigval
+        else:
+            normed = np.zeros(n_cols)
+
+        curr_vector = normed
         
         # Check convergence
         if eigval == last_eigval:
             break
             
-        curr_vector = normed
         last_eigval = eigval
     
     return curr_vector
@@ -60,7 +64,7 @@ def powerit_pca(data, n_components, iters=100, start_vectors=None):
         data: numpy array of shape (n_samples, n_features)
         n_components: number of components to compute
         iters: number of iterations for power iteration (default: 100)
-        start_vectors: list of starting vectors (default: None)
+        start_vectors: list of starting vectors (default: None, will sample from np.random.rand)
     
     Returns:
         dict containing:
@@ -95,7 +99,7 @@ def powerit_pca(data, n_components, iters=100, start_vectors=None):
             proj = np.outer(np.dot(current_data, pc), pc)
             if not np.allclose(np.dot(pc, pc), 0):  # Only factor if pc is not zero vector
                 current_data = current_data - proj
-    
+
     return {
         'center': center,
         'comps': np.array(components)

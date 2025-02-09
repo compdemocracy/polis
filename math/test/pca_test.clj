@@ -254,3 +254,34 @@
           expected [15 25]]
       (is (almost=? (xtxr data start-vec) expected)))))
 
+  (testing "Zero-sum matrix behavior"
+    (let [data (m/matrix [[1 -1 0]
+                         [1 -1 0]
+                         [1 -1 0]])
+          start-vector [1 1 1]
+          product-vector (xtxr data start-vector)
+          eigval (m/length product-vector)
+          normed (m/normalise product-vector)]
+      
+      ; The product vector should be [0 0 0] because:
+      ; Each row [1 -1 0] dot [1 1 1] = 0
+      ; This creates a zero contribution from each row
+      (is (almost=? product-vector [0 0 0]))
+      
+      ; The eigenvalue (length) should be 0
+      (is (= eigval 0.0))
+      
+      ; The normalized vector should be [0 0 0] when input is zero vector
+      ; This is a special case of normalization
+      (is (almost=? normed [0 0 0]))))
+
+
+(deftest power-iteration-zero-matrices
+  (testing "zero matrices with power-iteration"
+    (let [data (m/matrix [[1 -1 0]
+                          [1 -1 0]
+                          [1 -1 0]])]
+      ; Test that power-iteration returns a zero vector for this degenerate case
+      (is (almost=? [0 0 0] (power-iteration data 2 nil)))))
+)
+

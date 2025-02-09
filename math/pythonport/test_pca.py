@@ -19,10 +19,6 @@ def test_power_iteration_basic():
     result2 = power_iteration(data, 2, start=np.array([1, 1, 1]))
     result3 = power_iteration(data, 2, start=np.array([1, 1]))
 
-    print("\nComparing PCA components:")
-    print(f"test-defined expected component: {expected}")
-    print(f"clojure-port component: {result1}")
-
     assert_array_almost_equal(result1, expected, decimal=4)
     assert_array_almost_equal(result2, expected, decimal=4)
     assert_array_almost_equal(result3, expected, decimal=4)
@@ -114,6 +110,14 @@ def test_power_iteration_termination_conditions():
         assert_array_almost_equal(result, np.array([0, 0]), decimal=3,
                                 err_msg="Zero matrix should give zero vector result")
 
+def test_power_iteration_zero_matrices():
+    data = np.array([[1, -1, 0],
+                     [1, -1, 0],
+                     [1, -1, 0]])
+    # Test that power-iteration returns a zero vector for this degenerate case
+    result = power_iteration(data, 2)
+    assert_array_almost_equal(result, np.array([0, 0, 0]))
+
 def test_wrapped_pca_shapes():
     # Test different matrix shapes
     assert wrapped_pca(np.array([[1]]), 2)
@@ -125,8 +129,12 @@ def test_wrapped_pca_zero_matrices():
     data = np.array([[1, -1, 0],
                      [1, -1, 0],
                      [1, -1, 0]])
+    # need to test not only that we get something sensible here, 
+    # but also that if 0 vectors are returned,
+    # that our wrapped-pca still be able to start up again
     result = wrapped_pca(data, 2)
-    
+
+    print(f"result: {result}")
     assert_array_almost_equal(result['comps'][0], np.array([0, 0, 0]))
     assert_array_almost_equal(result['comps'][1], np.array([0, 0, 0]))
 
@@ -177,10 +185,6 @@ def test_wrapped_pca_vs_sklearn():
     for i in range(2):
         if np.dot(our_components[i], sklearn_components[i]) < 0:
             sklearn_components[i] = -sklearn_components[i]
-
-    print("\nComparing full PCA components:")
-    print(f"sklearn components:\n{sklearn_components}")
-    print(f"our components:\n{our_components}")
 
     # Compare components with some tolerance
     assert_array_almost_equal(our_components, sklearn_components, decimal=4)
