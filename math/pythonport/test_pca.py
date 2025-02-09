@@ -55,59 +55,56 @@ def test_power_iteration_max_iterations():
     # Results should be different (still converging)
     assert any(abs(x - y) > 0.01 for x, y in zip(result1, result3))
 
-def test_power_iteration_termination_conditions():
-    # Test matrices
+def test_power_iteration_continue_case():
+    """Test that power iteration continues when neither termination condition is met"""
     slow_data = np.array([[1.01, 1.0],
                          [0.0, 1.0]])
-    identity_data = np.array([[1, 0],
-                            [0, 1]])
+    result = power_iteration(slow_data, 2, np.array([0, 1]))
+    assert not np.array_equal(result, np.array([0, 1])), "Vector should change after iterations"
+    assert_array_almost_equal(np.linalg.norm(result), 1.0, err_msg="Result should be normalized")
+
+def test_power_iteration_zero_iterations():
+    """Test that zero iterations returns normalized start vector"""
     rotation_data = np.array([[0, -1],
                             [1, 0]])
+    result = power_iteration(rotation_data, 0, np.array([1, 1]))
+    assert_array_almost_equal(result, np.array([0.7071067811865475, 0.7071067811865475]), decimal=3,
+                            err_msg="Should return normalized start vector [1/√2, 1/√2]")
+
+def test_power_iteration_eigenvalue_match_termination():
+    """Test early termination when eigenvalue matches"""
+    identity_data = np.array([[1, 0],
+                            [0, 1]])
+    result1 = power_iteration(identity_data, 10, np.array([1, 0]))
+    result2 = power_iteration(identity_data, 1, np.array([1, 0]))
+    assert_array_almost_equal(result1, np.array([1, 0]), 
+                            err_msg="Should converge to eigenvector [1, 0]")
+    assert_array_almost_equal(result1, result2,
+                            err_msg="Should terminate early giving same result")
+
+def test_power_iteration_convergence_progression():
+    """Test convergence behavior over different iteration counts"""
     diag_data = np.array([[2, 0],
                          [0, 1]])
+    start_vec = np.array([1, 1])
+    result1 = power_iteration(diag_data, 10, start_vec)
+    result2 = power_iteration(diag_data, 1, start_vec)
+    result3 = power_iteration(diag_data, 2, start_vec)
+
+    assert_array_almost_equal(result1, np.array([1, 0]), decimal=6,
+                            err_msg="Should fully converge after 10 iterations")
+    assert_array_almost_equal(result2, np.array([0.998, 0.062]), decimal=3,
+                            err_msg="Should partially converge after 1 iteration")
+    assert_array_almost_equal(result3, np.array([0.9999, 0.0156]), decimal=3,
+                            err_msg="Should converge more after 2 iterations")
+
+def test_power_iteration_zero_matrix():
+    """Test behavior with zero matrix input"""
     zero_data = np.array([[0, 0],
                          [0, 0]])
-
-    def test_continue_case():
-        """Test that power iteration continues when neither termination condition is met"""
-        result = power_iteration(slow_data, 2, np.array([0, 1]))
-        assert not np.array_equal(result, np.array([0, 1])), "Vector should change after iterations"
-        assert_array_almost_equal(np.linalg.norm(result), 1.0, err_msg="Result should be normalized")
-
-    def test_zero_iterations():
-        """Test that zero iterations returns normalized start vector"""
-        result = power_iteration(rotation_data, 0, np.array([1, 1]))
-        assert_array_almost_equal(result, np.array([0.7071067811865475, 0.7071067811865475]), decimal=3,
-                                err_msg="Should return normalized start vector [1/√2, 1/√2]")
-
-    def test_eigenvalue_match_termination():
-        """Test early termination when eigenvalue matches"""
-        result1 = power_iteration(identity_data, 10, np.array([1, 0]))
-        result2 = power_iteration(identity_data, 1, np.array([1, 0]))
-        assert_array_almost_equal(result1, np.array([1, 0]), 
-                                err_msg="Should converge to eigenvector [1, 0]")
-        assert_array_almost_equal(result1, result2,
-                                err_msg="Should terminate early giving same result")
-
-    def test_convergence_progression():
-        """Test convergence behavior over different iteration counts"""
-        start_vec = np.array([1, 1])
-        result1 = power_iteration(diag_data, 10, start_vec)
-        result2 = power_iteration(diag_data, 1, start_vec)
-        result3 = power_iteration(diag_data, 2, start_vec)
-
-        assert_array_almost_equal(result1, np.array([1, 0]), decimal=6,
-                                err_msg="Should fully converge after 10 iterations")
-        assert_array_almost_equal(result2, np.array([0.998, 0.062]), decimal=3,
-                                err_msg="Should partially converge after 1 iteration")
-        assert_array_almost_equal(result3, np.array([0.9999, 0.0156]), decimal=3,
-                                err_msg="Should converge more after 2 iterations")
-
-    def test_zero_matrix():
-        """Test behavior with zero matrix input"""
-        result = power_iteration(zero_data, 10, np.array([1, 1]))
-        assert_array_almost_equal(result, np.array([0, 0]), decimal=3,
-                                err_msg="Zero matrix should give zero vector result")
+    result = power_iteration(zero_data, 10, np.array([1, 1]))
+    assert_array_almost_equal(result, np.array([0, 0]), decimal=3,
+                            err_msg="Zero matrix should give zero vector result")
 
 def test_power_iteration_zero_matrices():
     data = np.array([[1, -1, 0],
@@ -191,5 +188,4 @@ def test_wrapped_pca_vs_sklearn():
     assert_array_almost_equal(
         our_pca['center'],
         np.mean(data, axis=0),
-        decimal=4
-    )
+        decimal=4)
