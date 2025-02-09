@@ -6,7 +6,10 @@ def power_iteration(data, iters=100, start=None):
     
     Args:
         data: numpy array of shape (n_samples, n_features)
-        iters: maximum number of iterations (default: 100)
+        iters: maximum number of iterations (default: 100). Note: this
+        will be incremented by 1 to reproduce the behavior of the
+        clojure version, which goes through at least one iteration
+        even if iters is 0.
         start: starting vector (default: None, will use vector of ones)
     
     Returns:
@@ -14,6 +17,11 @@ def power_iteration(data, iters=100, start=None):
     """
     n_cols = data.shape[1]
     
+    # Reproduce the behavior of the clojure version
+    # whose main loop goes through at least one iteration even
+    # if iters is 0.
+    iters = iters + 1
+
     # Initialize start vector if not provided
     if start is None:
         start = np.ones(n_cols)
@@ -27,7 +35,7 @@ def power_iteration(data, iters=100, start=None):
     
     for _ in range(iters):
         # Compute X^T X v (equivalent to Clojure's xtxr)
-        product_vector = sum(np.dot(row, curr_vector) * row for row in data)
+        product_vector = data.T @ (data @ curr_vector)
         
         # Compute eigenvalue as length of product vector
         eigval = np.linalg.norm(product_vector)
