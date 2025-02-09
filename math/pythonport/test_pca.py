@@ -1,13 +1,7 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_array_almost_equal
-
-# Stub functions to be implemented later
-def power_iteration(data, iters, start=None):
-    pass
-
-def wrapped_pca(data, n_components, start_vectors=None):
-    pass
+from pca import power_iteration, wrapped_pca
 
 def test_power_iteration_basic():
     data = np.array([
