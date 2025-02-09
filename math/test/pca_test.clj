@@ -223,3 +223,34 @@
       (is (almost=? expected-center (:center result)))
       (is (almost=? expected-comps (:comps result))))))
 
+(deftest xtxr-test
+  (testing "Basic functionality"
+    (let [data (m/matrix [[1 0]
+                         [0 1]])
+          start-vec [1 1]]
+      (is (almost=? (xtxr data start-vec) [1 1]))))
+
+  (testing "Zero vector input"
+    (let [data (m/matrix [[1 2]
+                         [3 4]])
+          start-vec [0 0]]
+      (is (almost=? (xtxr data start-vec) [0 0]))))
+
+  (testing "Rectangular matrix"
+    (let [data (m/matrix [[1 0 0]
+                         [0 1 0]])
+          start-vec [1 1 1]]
+      (is (almost=? (xtxr data start-vec) [1 1 0]))))
+
+  (testing "Known result"
+    (let [data (m/matrix [[2 1]
+                         [1 3]])
+          start-vec [1 2]
+          ; Expected result should be [5 7]
+          ; Because for each row:
+          ; Row 1: (2*1 + 1*2)[2 1] = 4[2 1] = [8 4]
+          ; Row 2: (1*1 + 3*2)[1 3] = 7[1 3] = [7 21]
+          ; Sum the contributions: [15 25]
+          expected [15 25]]
+      (is (almost=? (xtxr data start-vec) expected)))))
+
