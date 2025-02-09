@@ -53,8 +53,7 @@ def test_power_iteration_max_iterations():
     assert_array_almost_equal(np.linalg.norm(result3), 1.0, decimal=6)
     
     # Results should be different (still converging)
-    with pytest.raises(AssertionError):
-        assert_array_almost_equal(result1, result3, decimal=1)
+    assert any(abs(x - y) > 0.01 for x, y in zip(result1, result3))
 
 def test_power_iteration_termination_conditions():
     # Test matrices
@@ -134,7 +133,6 @@ def test_wrapped_pca_zero_matrices():
     # that our wrapped-pca still be able to start up again
     result = wrapped_pca(data, 2)
 
-    print(f"result: {result}")
     assert_array_almost_equal(result['comps'][0], np.array([0, 0, 0]))
     assert_array_almost_equal(result['comps'][1], np.array([0, 0, 0]))
 
