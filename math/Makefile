@@ -17,7 +17,7 @@ else
 endif
 test-py: ## Run Python tests on the host machine
 	@echo "Running Python tests..."
-	python -m pytest pythonport/test_*.py -v --cov=pythonport --cov-report=term-missing
+	cd $(CURDIR) && python -m pytest pythonport/test_*.py -v --cov=pythonport --cov-report=term-missing --capture=no
 
 test: test-clj test-py ## Run both Clojure and Python tests
 	@echo "All tests completed."

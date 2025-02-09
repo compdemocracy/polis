@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from numpy.testing import assert_array_almost_equal
-from pca import power_iteration, wrapped_pca
+from pythonport.pca import power_iteration, wrapped_pca
 from sklearn.decomposition import PCA
 
 def test_power_iteration_basic():
