@@ -14,6 +14,7 @@
             [index-hash-test]
             [named-matrix-test]
             [pca-test]
+            [language-test]
             [silhouette-test]
             [stats-test]
             [utils-test]
@@ -29,6 +30,7 @@
     index-hash-test
     named-matrix-test
     pca-test
+    language-test
     silhouette-test
     stats-test
     utils-test
@@ -47,20 +49,27 @@
 (defn test-to-src-ns
   "Convert a test namespace to its corresponding source namespace pattern.
    e.g., 'utils-test -> polismath.utils.*
-         'pca-test -> polismath.math.pca.*"
+         'pca-test -> polismath.math.pca.*
+         'language-test -> nil (no source namespace)"
   [test-ns]
-  (let [base-name (str/replace (name test-ns) #"-tests?$" "")
-        math-namespaces #{"pca" "named-matrix" "clusters" "stats" "conversation"}]
-    (if (contains? math-namespaces base-name)
-      (re-pattern (str "^polismath\\.math\\." (str/replace base-name #"-" "-") ".*"))
-      (re-pattern (str "^polismath\\." base-name ".*")))))
+  (let [base-name (str/replace (name test-ns) #"-tests?$" "")]
+    (cond
+      (= base-name "language") nil ; Special case - no source namespace
+      (contains? #{"pca" "named-matrix" "clusters" "stats" "conversation"} base-name)
+        (re-pattern (str "^polismath\\.math\\." (str/replace base-name #"-" "-") ".*"))
+      :else
+        (re-pattern (str "^polismath\\." base-name ".*")))))
 
 (defn run-with-coverage [test-namespaces debug?]
   (cov/run-project
     (merge
       {:src-ns-path ["src"]
        :test-ns-path ["test"]
-       :ns-regex (map test-to-src-ns test-namespaces)
+       :ns-regex (->> test-namespaces 
+                     (map test-to-src-ns)
+                     (remove nil?)    ; Remove nil entries
+                     (seq)           ; Convert to sequence or nil if empty
+                     (or [(re-pattern "$^")])) ; Use unmatchable pattern if empty
        :exclude-namespaces ["polismath.conv-man" "conv-man-tests"]
        :test-ns-regex (map #(re-pattern (str "^" %)) test-namespaces)
        :output "target/coverage"
@@ -87,9 +96,14 @@
   (let [coverage? (some #{"--coverage"} args)
         debug? (some #{"--debug"} args)
         test-args (remove #{"--coverage" "--debug"} args)
-        test-namespaces (parse-test-names test-args)]
+        test-namespaces (parse-test-names test-args)
+        ; Check if there are any source namespaces to monitor
+        has-source-ns? (->> test-namespaces
+                           (map test-to-src-ns)
+                           (remove nil?)
+                           seq)]
     (println "Running tests:" (str/join ", " test-namespaces))
-    (if coverage?
+    (if (and coverage? has-source-ns?)
       (run-with-coverage test-namespaces debug?)
       (apply test/run-tests test-namespaces))))
 
