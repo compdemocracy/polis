@@ -15,7 +15,10 @@ def test_power_iteration_basic():
     expected = np.array([-0.34217, 0.93906, 0.032633])
 
     # Add sklearn PCA verification
-    pca = PCA(n_components=1)
+    pca = PCA(n_components=1,
+              iterated_power=2,
+              svd_solver="randomized",
+              power_iteration_normalizer="QR")
     pca.fit(data)
     sklearn_first_component = pca.components_[0]
     # Ensure same direction as our implementation
@@ -163,3 +166,41 @@ def test_wrapped_pca_single_column():
     result = wrapped_pca(data, 2)
     assert_array_almost_equal(result['center'], np.array([2.5]))
     assert_array_almost_equal(result['comps'], np.array([[1]]))
+
+def test_wrapped_pca_vs_sklearn():
+    # Use same test data as in test_power_iteration_basic
+    data = np.array([
+        [1, 0, 0],
+        [-1, 1, 0.1],
+        [0, 1, 0.1],
+        [0, 1, -0.1]
+    ])
+
+    # Get results from our implementation
+    our_pca = wrapped_pca(data, 2)
+    our_components = np.array(our_pca['comps'])
+
+    # Get results from sklearn
+    sklearn_pca = PCA(n_components=2)
+    sklearn_pca.fit(data)
+    sklearn_components = sklearn_pca.components_
+
+    # For each component, ensure they point in the same direction
+    # (multiply by -1 if they point in opposite directions)
+    for i in range(2):
+        if np.dot(our_components[i], sklearn_components[i]) < 0:
+            sklearn_components[i] = -sklearn_components[i]
+
+    print("\nComparing full PCA components:")
+    print(f"sklearn components:\n{sklearn_components}")
+    print(f"our components:\n{our_components}")
+
+    # Compare components with some tolerance
+    assert_array_almost_equal(our_components, sklearn_components, decimal=4)
+
+    # Also verify that the center was correctly computed
+    assert_array_almost_equal(
+        our_pca['center'],
+        np.mean(data, axis=0),
+        decimal=4
+    )
