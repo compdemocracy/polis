@@ -68,8 +68,7 @@
        :ns-regex (->> test-namespaces 
                      (map test-to-src-ns)
                      (remove nil?)    ; Remove nil entries
-                     (seq)           ; Convert to sequence or nil if empty
-                     (or [(re-pattern "$^")])) ; Use unmatchable pattern if empty
+                     (seq))           ; Convert to sequence or nil if empty
        :exclude-namespaces ["polismath.conv-man" "conv-man-tests"]
        :test-ns-regex (map #(re-pattern (str "^" %)) test-namespaces)
        :output "target/coverage"
