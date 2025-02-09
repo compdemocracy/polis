@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_array_almost_equal
 from pca import power_iteration, wrapped_pca
+from sklearn.decomposition import PCA
 
 def test_power_iteration_basic():
     data = np.array([
@@ -10,13 +11,28 @@ def test_power_iteration_basic():
         [0, 1, 0.1],
         [0, 1, -0.1]
     ])
+
     expected = np.array([-0.34217, 0.93906, 0.032633])
+
+    # Add sklearn PCA verification
+    pca = PCA(n_components=1)
+    pca.fit(data)
+    sklearn_first_component = pca.components_[0]
+    # Ensure same direction as our implementation
+    if np.dot(sklearn_first_component, expected) < 0:
+        sklearn_first_component = -sklearn_first_component
 
     # Test with different starting conditions
     result1 = power_iteration(data, 2)
     result2 = power_iteration(data, 2, start=np.array([1, 1, 1]))
     result3 = power_iteration(data, 2, start=np.array([1, 1]))
 
+    print("\nComparing PCA components:")
+    print(f"test-defined expected component: {expected}")
+    print(f"sklearn component: {sklearn_first_component}")
+    print(f"clojure-port component: {result1}")
+
+    assert_array_almost_equal(sklearn_first_component, expected, decimal=4)
     assert_array_almost_equal(result1, expected, decimal=4)
     assert_array_almost_equal(result2, expected, decimal=4)
     assert_array_almost_equal(result3, expected, decimal=4)
