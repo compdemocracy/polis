@@ -15,22 +15,23 @@
 
 (def test-dir "/tmp/test-instrument")
 
-(defn get-latest-json-file []
+(defn get-json-files []
   (let [dir (io/file test-dir)]
     (when (.exists dir)
       (->> (file-seq dir)
            (filter #(.isFile %))
            (filter #(.endsWith (.getName %) ".json"))
-           (sort-by #(.lastModified %))
-           last))))
+           (sort-by #(.lastModified %))))))
 
 (defn read-json-file [file]
   (when (and file (.exists file))
     (json/parse-string (slurp file) true)))
 
 (defn get-records []
-  (when-let [file (get-latest-json-file)]
-    (read-json-file file)))
+  (when-let [files (get-json-files)]
+    (->> files
+         (mapcat read-json-file)
+         vec)))
 
 (defn clear-test-dir! []
   (when-let [dir (io/file test-dir)]
@@ -45,7 +46,6 @@
     (instrument/configure-instrumentation! {:enabled true
                                          :output-dir test-dir})
     (f)
-    (instrument/flush-instrumentation!)  ; Ensure all records are written before checking
     (clear-test-dir!)))
 
 (deftest test-single-function-instrumentation
@@ -58,7 +58,6 @@
     (test-fn 2 3)  ; Call it multiple times to verify all calls are recorded
     (test-fn 2 3)
     (test-fn 2 3)
-    (instrument/flush-instrumentation!)
     (let [records (get-records)]
       (is (= 4 (count records)) "Should record every call")
       (is (= "polismath.util.instrument-test/test-fn" (:fn-name (first records)))
@@ -79,27 +78,21 @@
     (test-fn 2 3)
     (test-fn 2 3)
     (another-test-fn 4)  ; This call should not be recorded due to predicate
-    (instrument/flush-instrumentation!)
     (let [records (get-records)]
       (is (= 3 (count records))
           "Should record all calls to functions matching predicate"))))
 
-(deftest test-buffer-overflow
-  (testing "Buffer writes to disk when full"
+(deftest test-file-writing
+  (testing "Direct file writing behavior"
     (instrument/configure-instrumentation!
-     {:max-buffer-size 2
-      :output-dir (str (System/getProperty "java.io.tmpdir") "/test-instrument")})
+     {:output-dir test-dir})
     (instrument/instrument-fn #'test-fn)
     (test-fn 1 1)
     (test-fn 2 2)
     (test-fn 3 3)
     (let [records (get-records)]
-      (is (= 2 (count records))
-          "Should have written first two calls to disk")
-      (instrument/flush-instrumentation!)
-      (let [new-records (get-records)]
-        (is (= 1 (count new-records))
-            "Should have one call in buffer after overflow")))))
+      (is (= 3 (count records))
+          "Should have written all three calls to disk"))))
 
 (deftest test-instrumentation-disabled
   (testing "No recording when disabled"
@@ -108,7 +101,6 @@
                                          :output-dir test-dir})
     (instrument/instrument-fn #'test-fn)
     (test-fn 1 2)
-    (instrument/flush-instrumentation!)
     (let [dir (io/file test-dir)]
       (is (or (not (.exists dir))
               (empty? (filter #(.isFile %) (file-seq dir))))
@@ -131,7 +123,6 @@
     (instrument/instrument-fn #'multi-arity-fn)
     (is (= 1 (multi-arity-fn 1)) "Single arity should work")
     (is (= 3 (multi-arity-fn 1 2)) "Multiple arity should work")
-    (instrument/flush-instrumentation!)
     (let [records (get-records)]
       (is (= 2 (count records)) "Should record both arity calls")
       (is (= "(1)" (:args (first records))) "Should record single arity args")
@@ -159,7 +150,6 @@
       (is (= {:data [[1 2 3]] :n-comps 2 :iters 50 :start-vectors [[1 1 1]]} result2)
           "Should work with keyword args"))
     
-    (instrument/flush-instrumentation!)
     (let [records (get-records)]
       (is (= 2 (count records)) "Should record both calls")
       
@@ -202,7 +192,6 @@
           "Should return centered matrix when center=true")
       
       ;; Check instrumentation records
-      (instrument/flush-instrumentation!)
       (let [records (get-records)]
         (is (= 2 (count records)) "Should record both calls")
         

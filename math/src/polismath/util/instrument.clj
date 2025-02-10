@@ -3,16 +3,16 @@
             [cheshire.core :as json]
             [clojure.string :as str]
             [taoensso.timbre :as log]
-            [clojure.core.matrix :as matrix]))
+            [clojure.core.matrix :as matrix])
+  (:import [java.time LocalDateTime]
+           [java.time.format DateTimeFormatter]))
 
 (def default-config
   {:enabled true
-   :output-dir "instrumentation"
-   :max-buffer-size 1000})
+   :output-dir "instrumentation"})
 
 (def instrumentation-config (atom default-config))
 
-(def instrumented-calls (atom []))
 (def instrumented-fns (atom #{}))
 (def ^:private original-fns (atom {}))
 
@@ -22,15 +22,6 @@
     (reset! instrumentation-config merged-config)
     (when-let [dir (:output-dir merged-config)]
       (io/make-parents (str dir "/dummy")))))
-
-(defn- write-buffer-to-disk! []
-  (log/debug "Writing buffer to disk")
-  (when-let [output-dir (:output-dir @instrumentation-config)]
-    (let [filename (str output-dir "/" (System/currentTimeMillis) ".json")]
-      (log/debug "Writing to file:" filename)
-      (io/make-parents filename)
-      (spit filename (json/generate-string @instrumented-calls))
-      (reset! instrumented-calls []))))
 
 (defn- format-matrix [m]
   (str "#matrix " (pr-str (matrix/to-nested-vectors m))))
@@ -48,24 +39,49 @@
                            args)]
     (str "(" (str/join " " formatted-args) ")")))
 
+(defn- count-outputs [result]
+  (cond
+    (or (sequential? result) (set? result)) (count result)
+    (map? result) (count result)
+    :else 1))
+
+(defn- format-filename [fn-name args result timestamp]
+  (let [datetime (LocalDateTime/now)
+        formatter (DateTimeFormatter/ofPattern "yyyy-MM-dd-HH-mm-ss")
+        formatted-time (str (.format datetime formatter) "-" (mod timestamp 1000))
+        clean-fn-name (-> fn-name
+                         str
+                         (str/replace #"^#'" "")
+                         (str/replace #"^instrument-test/" "")
+                         (str/replace #"/" "_")
+                         (str/replace #"\." "_"))
+        num-inputs (count args)
+        num-outputs (count-outputs result)]
+    (format "%s_%s_in_%d_out_%d.json"
+            formatted-time
+            clean-fn-name
+            num-inputs
+            num-outputs)))
+
 (defn- record-call! [fn-name args result duration-ms]
   (log/debug "Recording call for" fn-name "with" (count args) "args")
   (when (:enabled @instrumentation-config)
-    (let [fn-name-str (-> fn-name
+    (let [timestamp (System/currentTimeMillis)
+          fn-name-str (-> fn-name
                          str
                          (str/replace #"^#'" "")
                          (str/replace #"^instrument-test/" "polismath.util.instrument-test/"))
           record {:fn-name fn-name-str
                  :args (format-args args)
                  :result (format-value result)
-                 :timestamp (System/currentTimeMillis)
+                 :timestamp timestamp
                  :duration-ms duration-ms}]
       (log/debug "Created a record")
-      (swap! instrumented-calls conj record)
-      (when (and (:enabled @instrumentation-config)
-                 (>= (count @instrumented-calls) (:max-buffer-size @instrumentation-config)))
-        (log/debug "Buffer full, flushing to disk")
-        (write-buffer-to-disk!)))))
+      (when-let [output-dir (:output-dir @instrumentation-config)]
+        (let [filename (str output-dir "/" (format-filename fn-name args result timestamp))]
+          (log/debug "Writing to file:" filename)
+          (io/make-parents filename)
+          (spit filename (json/generate-string [record] {:pretty true})))))))
 
 (defn instrument-fn
   "Instruments a function with the given options."
@@ -98,7 +114,6 @@
   (log/debug "Clearing instrumentation")
   (doseq [[fn-var orig-fn] @original-fns]
     (alter-var-root fn-var (constantly orig-fn)))
-  (reset! instrumented-calls [])
   (reset! instrumented-fns #{})
   (reset! original-fns {}))
 
@@ -110,12 +125,4 @@
   (doseq [[sym var] (ns-interns (find-ns ns-sym))
           :when (and (fn? @var)
                      (pred sym))]
-    (instrument-fn var)))
-
-(defn flush-instrumentation!
-  "Flushes the instrumentation buffer to disk."
-  []
-  (log/debug "Flushing instrumentation buffer")
-  (when (and (:enabled @instrumentation-config)
-             (not-empty @instrumented-calls))
-    (write-buffer-to-disk!))) 
+    (instrument-fn var))) 

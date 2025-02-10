@@ -116,8 +116,7 @@
     ;; Configure instrumentation before running the update
     (instrument/configure-instrumentation! 
       {:enabled true
-       :output-dir "instrumentation"
-       :max-buffer-size 1000})
+       :output-dir "instrumentation"});
     ;; Instrument the wrapped-pca function
     (instrument/instrument-fn #'polismath.math.pca/wrapped-pca)
     ;; Run the normal update
@@ -127,10 +126,7 @@
           math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
       ;; Write the updates
       (conv-man/write-conv-updates! conv-man updated-conv math-tick)
-      ;; Flush instrumentation to ensure all traces are written
-      (instrument/flush-instrumentation!)
-      ;; Clear instrumentation to prevent memory leaks
-      (instrument/clear-instrumentation!))
+    )
     (catch Exception e 
       (log/error e (str "Unable to complete conversation update for zid " zid))
       ;; Make sure to clear instrumentation even if there's an error
@@ -292,7 +288,3 @@
 
   (stop!)
   :endcomment)
-
-
-
-
