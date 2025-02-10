@@ -11,55 +11,70 @@
 ;;   "duration-ms": execution-time-in-ms
 ;; }
 ;;
-;; Examples of different call patterns:
+;; Examples of different call patterns and type serialization:
 ;;
-;; 1. Simple Function Call:
-;;    Clojure: (fn 1 2)
+;; 1. Simple Function Call with Basic Types:
+;;    Clojure: (test-fn "hello" 42 true nil)
 ;;    {
-;;      "args": ["1", "2"],
+;;      "fn-name": "polismath.util.instrument-test/test-fn",
+;;      "args": ["hello", 42, true, null],
 ;;      "kwargs": {},
-;;      "result": "3"
+;;      "result": "hello"
 ;;    }
 ;;
 ;; 2. Mixed Positional and Keyword Arguments:
-;;    Clojure: (fn-with-kwargs data n-comps :iters 100 :start [1 1])
-;;    Function definition: (defn fn-with-kwargs [data n-comps & {:keys [iters start]}])
+;;    Clojure: (kwarg-fn [[1 2 3]] 2 :start-vectors [[1 1 1]] :iters 50)
 ;;    {
-;;      "args": ["data", "n-comps"],
+;;      "fn-name": "polismath.util.instrument-test/kwarg-fn",
+;;      "args": [[[1, 2, 3]], 2],
 ;;      "kwargs": {
-;;        "iters": "100",
-;;        "start": "[1 1]"
+;;        "start-vectors": [[1, 1, 1]],
+;;        "iters": 50
 ;;      },
-;;      "result": "value"
+;;      "result": {
+;;        "data": [[1, 2, 3]],
+;;        "n-comps": 2,
+;;        "iters": 50,
+;;        "start-vectors": [[1, 1, 1]]
+;;      }
 ;;    }
 ;;
-;; 3. Matrix Arguments:
-;;    Clojure: (fn (matrix [[1 2] [3 4]]))
+;; 3. Matrix Arguments and Results:
+;;    Clojure: (matrix-fn (matrix [[1 2] [3 4]]) :center true)
 ;;    {
+;;      "fn-name": "polismath.util.instrument-test/matrix-fn",
 ;;      "args": ["#matrix [[1.0 2.0] [3.0 4.0]]"],
+;;      "kwargs": {
+;;        "center": true
+;;      },
+;;      "result": "#matrix [[-1.5 -1.5] [1.5 1.5]]"
+;;    }
+;;
+;; 4. Nested Data Structures with Mixed Types:
+;;    Clojure: (nested-type-fn [[1 "a"] {:b 2 :c ["b" 3]} [4 "d"]])
+;;    {
+;;      "fn-name": "polismath.util.instrument-test/nested-type-fn",
+;;      "args": [[[1, "a"], {"b": 2, "c": ["b", 3]}, [4, "d"]]],
 ;;      "kwargs": {},
-;;      "result": "#matrix [[2.0 4.0] [6.0 8.0]]"
+;;      "result": {
+;;        "original": [[1, "a"], {"b": 2, "c": ["b", 3]}, [4, "d"]],
+;;        "processed": [[1, "a"], {"b": 2, "c": ["b", 3]}, [4, "d"]]
+;;      }
 ;;    }
 ;;
-;; 4. Map Results:
-;;    Clojure return value: {:a 1 :b [2 3]}
-;;    {
-;;      "args": [...],
-;;      "kwargs": {...},
-;;      "result": {"a": "1", "b": "[2 3]"}
-;;    }
-;;
-;; 5. Collection Results:
-;;    Clojure return value: [1 2 3]
-;;    {
-;;      "args": [...],
-;;      "kwargs": {...},
-;;      "result": ["1", "2", "3"]
-;;    }
+;; Type Serialization Rules:
+;; - Numbers: Preserved as raw numbers (e.g., 42, 3.14)
+;; - Strings: Preserved as strings (e.g., "hello")
+;; - Booleans: Preserved as true/false
+;; - nil: Serialized as null
+;; - Keywords: Converted to strings with : prefix (e.g., ":keyword")
+;; - Vectors/Lists: Preserved as arrays with elements serialized according to their types
+;; - Maps: Converted to objects with string keys (keyword keys have : stripped)
+;; - Matrices: Serialized as strings with "#matrix" prefix and nested vector representation
 ;;
 ;; File Naming Convention:
 ;; {timestamp}_{function-name}_in_{num-inputs}_out_{num-outputs}.json
-;; Example: 2024-02-10-14-28-38-993_multi-arity-fn_in_1_out_1.json
+;; Example: 2024-02-10-14-28-38-993_test-fn_in_2_out_1.json
 
 (ns polismath.util.instrument
   (:require [clojure.java.io :as io]
@@ -91,8 +106,24 @@
 
 (defn- format-value [v]
   (cond
-    (instance? mikera.matrixx.Matrix v) (format-matrix v)
-    :else (pr-str v)))
+    (nil? v) nil                     ; Keep nil as nil
+    (number? v) v                    ; Keep numbers as is
+    (boolean? v) v                   ; Keep booleans as is
+    (string? v) v                    ; Keep strings as is
+    (keyword? v) (str ":" (name v))  ; Convert keywords to strings with : prefix
+    (instance? mikera.vectorz.Vector v) ; Handle vectors
+    (str "#matrix " (pr-str (matrix/to-nested-vectors v)))
+    (instance? mikera.matrixx.Matrix v) ; Handle matrices
+    (str "#matrix " (pr-str (matrix/to-nested-vectors v)))
+    (or (sequential? v) (set? v))    ; Handle collections
+    (mapv format-value v)
+    (map? v)                         ; Handle maps
+    (into (sorted-map)
+          (map (fn [[k v]]
+                 [(if (keyword? k) (name k) (str k))
+                  (format-value v)])
+               v))
+    :else (str v)))                  ; Convert everything else to string
 
 (defn- format-args [args-seq]
   (let [args (vec args-seq)
