@@ -49,7 +49,7 @@
     (str "(" (str/join " " formatted-args) ")")))
 
 (defn- record-call! [fn-name args result duration-ms]
-  (log/debug "Recording call for" fn-name "with args:" args)
+  (log/debug "Recording call for" fn-name "with" (count args) "args")
   (when (:enabled @instrumentation-config)
     (let [fn-name-str (-> fn-name
                          str
@@ -60,7 +60,7 @@
                  :result (format-value result)
                  :timestamp (System/currentTimeMillis)
                  :duration-ms duration-ms}]
-      (log/debug "Created record:" record)
+      (log/debug "Created a record")
       (swap! instrumented-calls conj record)
       (when (and (:enabled @instrumentation-config)
                  (>= (count @instrumented-calls) (:max-buffer-size @instrumentation-config)))
@@ -79,7 +79,7 @@
        fn-var
        (fn [f]
          (fn [& args]
-           (log/debug "Calling instrumented function" fn-var "with args:" args)
+           (log/debug "Calling instrumented function" fn-var "with" (count args) "args")
            (let [start-time (System/nanoTime)
                  result (try
                          (apply orig-fn args)
