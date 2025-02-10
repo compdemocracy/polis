@@ -141,7 +141,7 @@
   (testing "Handles functions with keyword arguments"
     (ns-unmap *ns* 'kwarg-fn)
     (defn kwarg-fn
-      [data n-comps & {:keys [iters start-vectors] :as kwargs}]
+      [data n-comps & {:keys [iters start-vectors]}]
       {:data data
        :n-comps n-comps
        :iters (or iters 100)
@@ -150,13 +150,13 @@
     (instrument/instrument-fn #'kwarg-fn)
     
     ;; Test with no kwargs
-    (let [result1 (kwarg-fn [1 2 3] 2)]
-      (is (= {:data [1 2 3] :n-comps 2 :iters 100 :start-vectors nil} result1)
+    (let [result1 (kwarg-fn [[1 2 3]] 2)]
+      (is (= {:data [[1 2 3]] :n-comps 2 :iters 100 :start-vectors nil} result1)
           "Should work with no keyword args"))
     
     ;; Test with some kwargs
-    (let [result2 (kwarg-fn [1 2 3] 2 :iters 50 :start-vectors [[1 1 1]])]
-      (is (= {:data [1 2 3] :n-comps 2 :iters 50 :start-vectors [[1 1 1]]} result2)
+    (let [result2 (kwarg-fn [[1 2 3]] 2 :start-vectors [[1 1 1]] :iters 50)]
+      (is (= {:data [[1 2 3]] :n-comps 2 :iters 50 :start-vectors [[1 1 1]]} result2)
           "Should work with keyword args"))
     
     (instrument/flush-instrumentation!)
@@ -164,11 +164,11 @@
       (is (= 2 (count records)) "Should record both calls")
       
       ;; Check first call (no kwargs)
-      (is (= "([1 2 3] 2)" (:args (first records)))
+      (is (= "([[1 2 3]] 2)" (:args (first records)))
           "Should record positional args correctly when no kwargs present")
       
       ;; Check second call (with kwargs)
-      (is (= "([1 2 3] 2 :iters 50 :start-vectors [[1 1 1]])" (:args (second records)))
+      (is (= "([[1 2 3]] 2 :start-vectors [[1 1 1]] :iters 50)" (:args (second records)))
           "Should record both positional and keyword args correctly"))))
 
 (deftest test-matrix-arguments
