@@ -1,3 +1,66 @@
+;; Instrumentation library for recording function calls and their results.
+;; 
+;; JSON Format Documentation:
+;; Each function call is recorded in a separate JSON file with the following structure:
+;; {
+;;   "fn-name": "fully.qualified/function-name",
+;;   "args": [list of positional arguments],
+;;   "kwargs": {dictionary of keyword arguments},
+;;   "result": value,
+;;   "timestamp": unix-timestamp-in-ms,
+;;   "duration-ms": execution-time-in-ms
+;; }
+;;
+;; Examples of different call patterns:
+;;
+;; 1. Simple Function Call:
+;;    Clojure: (fn 1 2)
+;;    {
+;;      "args": ["1", "2"],
+;;      "kwargs": {},
+;;      "result": "3"
+;;    }
+;;
+;; 2. Mixed Positional and Keyword Arguments:
+;;    Clojure: (fn-with-kwargs data n-comps :iters 100 :start [1 1])
+;;    Function definition: (defn fn-with-kwargs [data n-comps & {:keys [iters start]}])
+;;    {
+;;      "args": ["data", "n-comps"],
+;;      "kwargs": {
+;;        "iters": "100",
+;;        "start": "[1 1]"
+;;      },
+;;      "result": "value"
+;;    }
+;;
+;; 3. Matrix Arguments:
+;;    Clojure: (fn (matrix [[1 2] [3 4]]))
+;;    {
+;;      "args": ["#matrix [[1.0 2.0] [3.0 4.0]]"],
+;;      "kwargs": {},
+;;      "result": "#matrix [[2.0 4.0] [6.0 8.0]]"
+;;    }
+;;
+;; 4. Map Results:
+;;    Clojure return value: {:a 1 :b [2 3]}
+;;    {
+;;      "args": [...],
+;;      "kwargs": {...},
+;;      "result": {"a": "1", "b": "[2 3]"}
+;;    }
+;;
+;; 5. Collection Results:
+;;    Clojure return value: [1 2 3]
+;;    {
+;;      "args": [...],
+;;      "kwargs": {...},
+;;      "result": ["1", "2", "3"]
+;;    }
+;;
+;; File Naming Convention:
+;; {timestamp}_{function-name}_in_{num-inputs}_out_{num-outputs}.json
+;; Example: 2024-02-10-14-28-38-993_multi-arity-fn_in_1_out_1.json
+
 (ns polismath.util.instrument
   (:require [clojure.java.io :as io]
             [cheshire.core :as json]
@@ -31,13 +94,35 @@
     (instance? mikera.matrixx.Matrix v) (format-matrix v)
     :else (pr-str v)))
 
-(defn- format-args [args]
-  (let [formatted-args (map (fn [arg]
-                             (if (instance? mikera.matrixx.Matrix arg)
-                               (format-matrix arg)
-                               (pr-str arg)))
-                           args)]
-    (str "(" (str/join " " formatted-args) ")")))
+(defn- format-args [args-seq]
+  (let [args (vec args-seq)
+        ; Split args into positional and keyword args
+        [positional-args kw-args] (split-with (complement keyword?) args)
+        ; Format positional args as a vector
+        args-list (mapv format-value positional-args)
+        ; Format keyword args as a map (if any)
+        kwargs (when (seq kw-args)
+                (into (sorted-map)
+                      (map (fn [[k v]]
+                            [(name k) (format-value v)])
+                           (partition 2 kw-args))))]
+    {:args args-list
+     :kwargs (or kwargs {})}))
+
+(defn- format-result [result]
+  (cond
+    (map? result)
+    (into (sorted-map)
+          (map (fn [[k v]]
+                 [(if (keyword? k) (name k) (str k))
+                  (format-value v)])
+               result))
+    
+    (or (sequential? result) (set? result))
+    (mapv format-value result)
+    
+    :else
+    (format-value result)))
 
 (defn- count-outputs [result]
   (cond
@@ -71,9 +156,11 @@
                          str
                          (str/replace #"^#'" "")
                          (str/replace #"^instrument-test/" "polismath.util.instrument-test/"))
+          formatted-args (format-args args)
           record {:fn-name fn-name-str
-                 :args (format-args args)
-                 :result (format-value result)
+                 :args (:args formatted-args)
+                 :kwargs (:kwargs formatted-args)
+                 :result (format-result result)
                  :timestamp timestamp
                  :duration-ms duration-ms}]
       (log/debug "Created a record")
@@ -81,7 +168,7 @@
         (let [filename (str output-dir "/" (format-filename fn-name args result timestamp))]
           (log/debug "Writing to file:" filename)
           (io/make-parents filename)
-          (spit filename (json/generate-string [record] {:pretty true})))))))
+          (spit filename (json/generate-string record {:pretty true})))))))
 
 (defn instrument-fn
   "Instruments a function with the given options."

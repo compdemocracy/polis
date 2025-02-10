@@ -25,12 +25,12 @@
 
 (defn read-json-file [file]
   (when (and file (.exists file))
-    (json/parse-string (slurp file) true)))
+    (json/parse-string (slurp file) false)))
 
 (defn get-records []
   (when-let [files (get-json-files)]
     (->> files
-         (mapcat read-json-file)
+         (map read-json-file)
          vec)))
 
 (defn clear-test-dir! []
@@ -48,6 +48,12 @@
     (f)
     (clear-test-dir!)))
 
+(defn get-first-record [records]
+  (first records))
+
+(defn get-second-record [records]
+  (second records))
+
 (deftest test-single-function-instrumentation
   (testing "Instrumenting a single function records its calls correctly"
     (instrument/clear-instrumentation!)  ; Start with clean state
@@ -58,14 +64,16 @@
     (test-fn 2 3)  ; Call it multiple times to verify all calls are recorded
     (test-fn 2 3)
     (test-fn 2 3)
-    (let [records (get-records)]
+    (let [records (get-records)
+          first-record (get-first-record records)]
       (is (= 4 (count records)) "Should record every call")
-      (is (= "polismath.util.instrument-test/test-fn" (:fn-name (first records)))
+      (is (= "polismath.util.instrument-test/test-fn" (get first-record "fn-name"))
           "Should record correct function name")
-      (is (= "(2 3)" (:args (first records))) "Should record arguments")
-      (is (= "5" (:result (first records))) "Should record result")
-      (is (number? (:timestamp (first records))) "Should have a timestamp")
-      (is (number? (:duration-ms (first records))) "Should record duration"))))
+      (is (= ["2" "3"] (get first-record "args")) "Should record arguments as list")
+      (is (= {} (get first-record "kwargs")) "Should have empty kwargs map")
+      (is (= "5" (get first-record "result")) "Should record result")
+      (is (number? (get first-record "timestamp")) "Should have a timestamp")
+      (is (number? (get first-record "duration-ms")) "Should record duration"))))
 
 (deftest test-namespace-instrumentation
   (testing "Instrumenting namespace with predicate"
@@ -123,10 +131,14 @@
     (instrument/instrument-fn #'multi-arity-fn)
     (is (= 1 (multi-arity-fn 1)) "Single arity should work")
     (is (= 3 (multi-arity-fn 1 2)) "Multiple arity should work")
-    (let [records (get-records)]
+    (let [records (get-records)
+          first-record (get-first-record records)
+          second-record (get-second-record records)]
       (is (= 2 (count records)) "Should record both arity calls")
-      (is (= "(1)" (:args (first records))) "Should record single arity args")
-      (is (= "(1 2)" (:args (second records))) "Should record multiple arity args"))))
+      (is (= ["1"] (get first-record "args")) "Should record single arity args")
+      (is (= {} (get first-record "kwargs")) "Should have empty kwargs map for single arity")
+      (is (= ["1" "2"] (get second-record "args")) "Should record multiple arity args")
+      (is (= {} (get second-record "kwargs")) "Should have empty kwargs map for multiple arity"))))
 
 (deftest test-keyword-arguments
   (testing "Handles functions with keyword arguments"
@@ -150,16 +162,29 @@
       (is (= {:data [[1 2 3]] :n-comps 2 :iters 50 :start-vectors [[1 1 1]]} result2)
           "Should work with keyword args"))
     
-    (let [records (get-records)]
+    (let [records (get-records)
+          first-record (get-first-record records)
+          second-record (get-second-record records)]
       (is (= 2 (count records)) "Should record both calls")
       
       ;; Check first call (no kwargs)
-      (is (= "([[1 2 3]] 2)" (:args (first records)))
-          "Should record positional args correctly when no kwargs present")
+      (is (= ["[[1 2 3]]" "2"] (get first-record "args"))
+          "Should record positional args correctly")
+      (is (= {} (get first-record "kwargs"))
+          "Should have empty kwargs map when no keyword args used")
       
       ;; Check second call (with kwargs)
-      (is (= "([[1 2 3]] 2 :start-vectors [[1 1 1]] :iters 50)" (:args (second records)))
-          "Should record both positional and keyword args correctly"))))
+      (is (= ["[[1 2 3]]" "2"] (get second-record "args"))
+          "Should record positional args correctly")
+      (is (= {"iters" "50" "start-vectors" "[[1 1 1]]"} (get second-record "kwargs"))
+          "Should record keyword args correctly")
+      
+      ;; Check result format
+      (is (= {"data" "[[1 2 3]]"
+              "iters" "100"
+              "n-comps" "2"
+              "start-vectors" "nil"} (get first-record "result"))
+          "Should record map result with string keys"))))
 
 (deftest test-matrix-arguments
   (testing "Handles matrix arguments correctly"
@@ -192,23 +217,30 @@
           "Should return centered matrix when center=true")
       
       ;; Check instrumentation records
-      (let [records (get-records)]
+      (let [records (get-records)
+            first-record (get-first-record records)
+            second-record (get-second-record records)]
         (is (= 2 (count records)) "Should record both calls")
         
         ;; First call (no keyword args)
-        (is (= "(#matrix [[1.0 2.0 3.0] [4.0 5.0 6.0] [7.0 8.0 9.0]])" 
-               (:args (first records)))
-            "Should record matrix arguments in readable format")
+        (is (= ["#matrix [[1.0 2.0 3.0] [4.0 5.0 6.0] [7.0 8.0 9.0]]"]
+               (get first-record "args"))
+            "Should record matrix arguments correctly")
+        (is (= {} (get first-record "kwargs"))
+            "Should have empty kwargs map when no keyword args used")
         
         ;; Second call (with keyword args)
-        (is (= "(#matrix [[1.0 2.0 3.0] [4.0 5.0 6.0] [7.0 8.0 9.0]] :center true)"
-               (:args (second records)))
-            "Should record both matrix and keyword arguments correctly")
+        (is (= ["#matrix [[1.0 2.0 3.0] [4.0 5.0 6.0] [7.0 8.0 9.0]]"]
+               (get second-record "args"))
+            "Should record matrix argument correctly")
+        (is (= {"center" "true"}
+               (get second-record "kwargs"))
+            "Should record keyword arguments correctly")
         
         ;; Check results are recorded correctly
         (is (= "#matrix [[1.0 2.0 3.0] [4.0 5.0 6.0] [7.0 8.0 9.0]]"
-               (:result (first records)))
-            "Should record matrix result in readable format")
+               (get first-record "result"))
+            "Should record matrix result correctly")
         (is (= "#matrix [[-3.0 -3.0 -3.0] [0.0 0.0 0.0] [3.0 3.0 3.0]]"
-               (:result (second records)))
-            "Should record centered matrix result correctly"))))) 
+               (get second-record "result"))
+            "Should record centered matrix result correctly")))))
