@@ -121,12 +121,21 @@ sql: ## Connect to the database
 	@echo 'connecting to database: ${DATABASE_URL}'
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} run postgres psql ${DATABASE_URL}
 
+replace-local-data-with-heroku: ## Import the data from Heroku. WILL ERASE LOCAL DATA.
+	## Assumes that you have set up heroku to connect to your polis prod instance
+	$(eval POSTGRES_USER = $(call parse_env_value,POSTGRES_USER))
+	$(eval POSTGRES_PASSWORD = $(call parse_env_value,POSTGRES_PASSWORD))
+	$(eval POSTGRES_PORT = $(call parse_env_value,POSTGRES_PORT))
+	$(eval POSTGRES_DB = $(call parse_env_value,POSTGRES_DB))
+	PGUSER=${POSTGRES_USER} PGPASSWORD=${POSTGRES_PASSWORD} dropdb --host localhost --port ${POSTGRES_PORT}  --if-exists ${POSTGRES_DB}  --interactive
+	PGUSER=${POSTGRES_USER} PGPASSWORD=${POSTGRES_PASSWORD} heroku pg:pull DATABASE_URL postgres://localhost:${POSTGRES_PORT}/${POSTGRES_DB} --app polisapp
+
 %:
 	@true
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
 	start-recreate restart-FULL-REBUILD e2e-install e2e-run e2e-run-all e2e-run-interactive \
-	build-web-assets extract-web-assets sql
+	build-web-assets extract-web-assets sql replace-local-data-with-heroku
 
 
 help:
