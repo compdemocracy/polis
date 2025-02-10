@@ -20,6 +20,7 @@
             [utils-test]
             [ptpt-stats-test]
             [pythonport-test]
+            [instrument-test]
             [clojure.test :as test]
             [clojure.string :as str]
             [cloverage.coverage :as cov]))
@@ -35,7 +36,8 @@
     stats-test
     utils-test
     ptpt-stats-test
-    pythonport-test])
+    pythonport-test
+    instrument-test])
 
 (defn parse-test-names
   "Convert command line args into test namespace symbols.
@@ -50,11 +52,13 @@
   "Convert a test namespace to its corresponding source namespace pattern.
    e.g., 'utils-test -> polismath.utils.*
          'pca-test -> polismath.math.pca.*
-         'language-test -> nil (no source namespace)"
+         'language-test -> nil (no source namespace)
+         'instrument-test -> polismath.util.instrument.*"
   [test-ns]
   (let [base-name (str/replace (name test-ns) #"-tests?$" "")]
     (cond
       (= base-name "language") nil ; Special case - no source namespace
+      (= base-name "instrument") (re-pattern "^polismath\\.util\\.instrument.*")
       (contains? #{"pca" "named-matrix" "clusters" "stats" "conversation"} base-name)
         (re-pattern (str "^polismath\\.math\\." (str/replace base-name #"-" "-") ".*"))
       :else
