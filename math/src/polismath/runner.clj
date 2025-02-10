@@ -20,7 +20,9 @@
             [polismath.conv-man :as conv-man]
             [polismath.math.conversation :as conv]
             [polismath.components.postgres :as postgres]
-            [clojure.pprint :as pprint])
+            [clojure.pprint :as pprint]
+            [polismath.util.instrument :as instrument]
+            [polismath.math.pca :as pca])
   (:import [java.util.zip ZipOutputStream ZipEntry]))
 
 
@@ -69,6 +71,7 @@
    ;"onyx" system/onyx-system ;; soon...
    "update-all" system/base-system
    "update" system/base-system
+   "update-with-trace" system/base-system
    "poller" system/poller-system
    "tasks" system/task-system
    "full" system/full-system
@@ -106,6 +109,32 @@
           math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
       (conv-man/write-conv-updates! conv-man updated-conv math-tick))
     (catch Exception e (log/error e (str "Unable to complete conversation update for zid " zid)))))
+
+(defn update-conv-traced
+  [system zid]
+  (try
+    ;; Configure instrumentation before running the update
+    (instrument/configure-instrumentation! 
+      {:enabled true
+       :output-dir "instrumentation"
+       :max-buffer-size 1000})
+    ;; Instrument the wrapped-pca function
+    (instrument/instrument-fn #'polismath.math.pca/wrapped-pca)
+    ;; Run the normal update
+    (let [conv-man (:conversation-manager system)
+          conv (conv-man/load-or-init conv-man zid)
+          updated-conv (conv/conv-update conv [])
+          math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
+      ;; Write the updates
+      (conv-man/write-conv-updates! conv-man updated-conv math-tick)
+      ;; Flush instrumentation to ensure all traces are written
+      (instrument/flush-instrumentation!)
+      ;; Clear instrumentation to prevent memory leaks
+      (instrument/clear-instrumentation!))
+    (catch Exception e 
+      (log/error e (str "Unable to complete conversation update for zid " zid))
+      ;; Make sure to clear instrumentation even if there's an error
+      (instrument/clear-instrumentation!))))
 
 
 (defn update-all-convs
@@ -241,6 +270,10 @@
           (let [zid (:zid options)]
             (println "zid is: " zid)
             (update-conv system zid))
+          "update-with-trace"
+          (let [zid (:zid options)]
+            (println "zid is: " zid)
+            (update-conv-traced system zid))
           ;; Otherwise, default to keeping the main thread spinning while the system runs
           (loop []
             (Thread/sleep 1000)

@@ -24,11 +24,17 @@ test: test-clj test-py ## Run both Clojure and Python tests
 
 update-from-scratch: ### Update a single convo
 ifdef ZID
-	#docker exec -it polis-dev-math-1 clojure -M:run update -r -z $(ZID)
-	docker compose run math clojure -M:run update -r -z $(ZID)
+	# Note: we will want to find a cleaner way than having an explicit container name here
+	# but for now that will have to do as I am not sure enough of the `docker compose run`
+	# subtlety. 
+	docker exec -it polis-dev-math-1 clojure -M:run update -r -z $(ZID)
 else
 	docker exec -it polis-dev-math-1 clojure -M:run update -r -z 1
 endif
+
+trace: ### Run a single convo with tracing enabled
+	docker exec -it polis-dev-math-1 clojure -M:run update-with-trace -r -z 17909
+
 
 help: ## Show this help
 	@echo 'Usage: make <command>'
@@ -48,4 +54,4 @@ help: ## Show this help
 %:
 	@$(MAKE) -C .. $@
 
-.PHONY: test test-clj test-py help update-from-scratch
+.PHONY: test test-clj test-py help update-from-scratch trace
