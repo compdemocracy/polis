@@ -148,7 +148,7 @@ const isFreshData = (timestamp: string) => {
   const elapsed = Math.abs(now - then);
   return (
     elapsed <
-    (((process.env.MAX_REPORT_CACHE_DURATION as unknown) as number) || 360)
+    (((process.env.MAX_REPORT_CACHE_DURATION as unknown) as number) || 3600000)
   );
 };
 
