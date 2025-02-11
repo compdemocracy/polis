@@ -246,14 +246,14 @@ export async function handle_GET_groupInformedConsensus(
   zid: number | undefined,
   modelVersion?: string
 ) {
-  const section = {
-    name: "group_informed_consensus",
-    templatePath:
-      "src/report_experimental/subtaskPrompts/group_informed_consensus.xml",
-    filter: (v: { group_aware_consensus: number }) =>
-      (v.group_aware_consensus ?? 0) > 0.7,
-  };
-
+    const section = {
+      name: "group_informed_consensus",
+      templatePath:
+        "src/report_experimental/subtaskPrompts/group_informed_consensus.xml",
+      filter: (v: { group_aware_consensus: number }) =>
+        (v.group_aware_consensus ?? 0) > 0.7,
+    };
+  
   const cachedResponse = await storage?.queryItemsByRidSectionModel(
     `${rid}#${section.name}#${model}`
   );
@@ -556,7 +556,7 @@ export async function handle_GET_topics(
   );
 
   sections.forEach(
-    async (section: { name: any; templatePath: PathLike | fs.FileHandle }) => {
+    async (section: { name: any; templatePath: PathLike | fs.FileHandle }, i: number, arr: any) => {
       const cachedResponse = await storage?.queryItemsByRidSectionModel(
         `${rid}#${section.name}#${model}`
       );
@@ -573,9 +573,9 @@ export async function handle_GET_topics(
             [section.name]: {
               [`response${model}`]: cachedResponse[0].report_data,
               errors:
-                structured_comments?.trim().length === 0
-                  ? "NO_CONTENT_AFTER_FILTER"
-                  : undefined,
+              structured_comments?.trim().length === 0
+              ? "NO_CONTENT_AFTER_FILTER"
+              : undefined,
             },
           }) + `|||`
         );
@@ -591,45 +591,53 @@ export async function handle_GET_topics(
         json.polisAnalysisPrompt.children[
           json.polisAnalysisPrompt.children.length - 1
         ].data.content = { structured_comments };
-
+        
         const prompt_xml = js2xmlparser.parse(
           "polis-comments-and-group-demographics",
           json
         );
+        setTimeout(async () => {
+          console.log("CALLING TOPIC")
+          const resp = await getModelResponse(
+            model,
+            system_lore,
+            prompt_xml,
+            modelVersion
+          );
+  
+          const reportItem = {
+            rid_section_model: `${rid}#${section.name}#${model}`,
+            timestamp: new Date().toISOString(),
+            report_data: resp,
+            errors:
+              structured_comments?.trim().length === 0
+                ? "NO_CONTENT_AFTER_FILTER"
+                : undefined,
+          };
+  
+          storage?.putItem(reportItem);
+  
+          res.write(
+            JSON.stringify({
+              [section.name]: {
+                [`response${model}`]: resp,
+                errors:
+                  structured_comments?.trim().length === 0
+                    ? "NO_CONTENT_AFTER_FILTER"
+                    : undefined,
+              },
+            }) + `|||`
+          );
+          console.log("topic over")
+          // @ts-expect-error flush - calling due to use of compression
+          res.flush();
 
-        const resp = await getModelResponse(
-          model,
-          system_lore,
-          prompt_xml,
-          modelVersion
-        );
-
-        const reportItem = {
-          rid_section_model: `${rid}#${section.name}#${model}`,
-          timestamp: new Date().toISOString(),
-          report_data: resp,
-          errors:
-            structured_comments?.trim().length === 0
-              ? "NO_CONTENT_AFTER_FILTER"
-              : undefined,
-        };
-
-        storage?.putItem(reportItem);
-
-        res.write(
-          JSON.stringify({
-            [section.name]: {
-              [`response${model}`]: resp,
-              errors:
-                structured_comments?.trim().length === 0
-                  ? "NO_CONTENT_AFTER_FILTER"
-                  : undefined,
-            },
-          }) + `|||`
-        );
+          if (arr.length -1 === i) {
+            console.log('all promises completed')
+            res.end();
+          }
+        }, 3000 * i);
       }
-      // @ts-expect-error flush - calling due to use of compression
-      res.flush();
     }
   );
 }
@@ -719,7 +727,6 @@ export async function handle_GET_reportNarrative(
       ),
     ];
     await Promise.all(promises);
-    res.end();
   } catch (err) {
     // @ts-expect-error flush - calling due to use of compression
     res.flush();
