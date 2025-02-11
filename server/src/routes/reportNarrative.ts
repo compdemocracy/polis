@@ -204,12 +204,12 @@ const getModelResponse = async (
     const openai = new OpenAI();
 
     switch (model) {
-      case "Gemini": {
+      case "gemini": {
         const respGem = await gemeniModel.generateContent(gemeniModelprompt);
         const result = await respGem.response.text();
         return result;
       }
-      case "Claude": {
+      case "claude": {
         const responseClaude = await anthropic.messages.create({
           model: modelVersion || "claude-3-5-sonnet-20241022",
           max_tokens: 3000,
@@ -286,7 +286,8 @@ export async function handle_GET_groupInformedConsensus(
     res.write(
       JSON.stringify({
         [section.name]: {
-          [`response${model}`]: cachedResponse[0].report_data,
+          modelResponse: cachedResponse[0].report_data,
+          model,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
@@ -323,6 +324,7 @@ export async function handle_GET_groupInformedConsensus(
       rid_section_model: `${rid}#${section.name}#${model}`,
       timestamp: new Date().toISOString(),
       report_data: resp,
+      model,
       errors:
         structured_comments?.trim().length === 0
           ? "NO_CONTENT_AFTER_FILTER"
@@ -334,7 +336,8 @@ export async function handle_GET_groupInformedConsensus(
     res.write(
       JSON.stringify({
         [section.name]: {
-          [`response${model}`]: resp,
+          modelResponse: resp,
+          model,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
@@ -377,7 +380,8 @@ export async function handle_GET_uncertainty(
     res.write(
       JSON.stringify({
         [section.name]: {
-          [`response${model}`]: cachedResponse[0].report_data,
+          modelResponse: cachedResponse[0].report_data,
+          model,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
@@ -414,6 +418,7 @@ export async function handle_GET_uncertainty(
       rid_section_model: `${rid}#${section.name}#${model}`,
       timestamp: new Date().toISOString(),
       report_data: resp,
+      model,
       errors:
         structured_comments?.trim().length === 0
           ? "NO_CONTENT_AFTER_FILTER"
@@ -425,7 +430,8 @@ export async function handle_GET_uncertainty(
     res.write(
       JSON.stringify({
         [section.name]: {
-          [`response${model}`]: resp,
+          modelResponse: resp,
+          model,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
@@ -469,7 +475,8 @@ export async function handle_GET_groups(
     res.write(
       JSON.stringify({
         [section.name]: {
-          [`response${model}`]: cachedResponse[0].report_data,
+          modelResponse: cachedResponse[0].report_data,
+          model,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
@@ -506,6 +513,7 @@ export async function handle_GET_groups(
       rid_section_model: `${rid}#${section.name}#${model}`,
       timestamp: new Date().toISOString(),
       report_data: resp,
+      model,
       errors:
         structured_comments?.trim().length === 0
           ? "NO_CONTENT_AFTER_FILTER"
@@ -517,7 +525,8 @@ export async function handle_GET_groups(
     res.write(
       JSON.stringify({
         [section.name]: {
-          [`response${model}`]: resp,
+          modelResponse: resp,
+          model,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
@@ -556,6 +565,7 @@ export async function handle_GET_topics(
     topics = await getTopicsFromRID(zid);
     const reportItemTopics = {
       rid_section_model: `${rid}#topics`,
+      model,
       timestamp: new Date().toISOString(),
       report_data: topics,
     };
@@ -593,7 +603,8 @@ export async function handle_GET_topics(
         res.write(
           JSON.stringify({
             [section.name]: {
-              [`response${model}`]: cachedResponse[0].report_data,
+              modelResponse: cachedResponse[0].report_data,
+              model,
               errors:
                 structured_comments?.trim().length === 0
                   ? "NO_CONTENT_AFTER_FILTER"
@@ -630,6 +641,7 @@ export async function handle_GET_topics(
           const reportItem = {
             rid_section_model: `${rid}#${section.name}#${model}`,
             timestamp: new Date().toISOString(),
+            model,
             report_data: resp,
             errors:
               structured_comments?.trim().length === 0
@@ -642,7 +654,8 @@ export async function handle_GET_topics(
           res.write(
             JSON.stringify({
               [section.name]: {
-                [`response${model}`]: resp,
+                modelResponse: resp,
+                model,
                 errors:
                   structured_comments?.trim().length === 0
                     ? "NO_CONTENT_AFTER_FILTER"
