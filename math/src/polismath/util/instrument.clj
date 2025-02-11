@@ -26,16 +26,16 @@
 ;;    Clojure: (kwarg-fn [[1 2 3]] 2 :start-vectors [[1 1 1]] :iters 50)
 ;;    {
 ;;      "fn-name": "polismath.util.instrument-test/kwarg-fn",
-;;      "args": [[[1, 2, 3]], 2],
+;;      "args": [[[1 2 3]], 2],
 ;;      "kwargs": {
-;;        "start-vectors": [[1, 1, 1]],
+;;        "start-vectors": [[1 1 1]],
 ;;        "iters": 50
 ;;      },
 ;;      "result": {
-;;        "data": [[1, 2, 3]],
+;;        "data": [[1 2 3]],
 ;;        "n-comps": 2,
 ;;        "iters": 50,
-;;        "start-vectors": [[1, 1, 1]]
+;;        "start-vectors": [[1 1 1]]
 ;;      }
 ;;    }
 ;;
@@ -101,29 +101,27 @@
     (when-let [dir (:output-dir merged-config)]
       (io/make-parents (str dir "/dummy")))))
 
-(defn- format-matrix [m]
-  (str "#matrix " (pr-str (matrix/to-nested-vectors m))))
-
 (defn- format-value [v]
-  (cond
-    (nil? v) nil                     ; Keep nil as nil
-    (number? v) v                    ; Keep numbers as is
-    (boolean? v) v                   ; Keep booleans as is
-    (string? v) v                    ; Keep strings as is
-    (keyword? v) (str ":" (name v))  ; Convert keywords to strings with : prefix
-    (instance? mikera.vectorz.Vector v) ; Handle vectors
-    (str "#matrix " (pr-str (matrix/to-nested-vectors v)))
-    (instance? mikera.matrixx.Matrix v) ; Handle matrices
-    (str "#matrix " (pr-str (matrix/to-nested-vectors v)))
-    (or (sequential? v) (set? v))    ; Handle collections
-    (mapv format-value v)
-    (map? v)                         ; Handle maps
-    (into (sorted-map)
-          (map (fn [[k v]]
-                 [(if (keyword? k) (name k) (str k))
-                  (format-value v)])
-               v))
-    :else (str v)))                  ; Convert everything else to string
+  v)
+  ;; (cond
+  ;;   (nil? v) nil                     ; Keep nil as nil
+  ;;   (number? v) v                    ; Keep numbers as is
+  ;;   (boolean? v) v                   ; Keep booleans as is
+  ;;   (string? v) v                    ; Keep strings as is
+  ;;   (keyword? v) (str ":" (name v))  ; Convert keywords to strings with : prefix
+  ;;   (instance? mikera.vectorz.Vector v) ; Handle vectors
+  ;;     v ; (str "#matrix " (pr-str (matrix/to-nested-vectors v)))
+  ;;   (instance? mikera.matrixx.Matrix v) ; Handle matrices
+  ;;     (str "#matrix " (pr-str (matrix/to-nested-vectors v)))
+  ;;   (or (sequential? v) (set? v))    ; Handle collections
+  ;;     (mapv format-value v)
+  ;;   (map? v)                         ; Handle maps
+  ;;     (into (sorted-map)
+  ;;           (map (fn [[k v]]
+  ;;                 [(if (keyword? k) (name k) (str k))
+  ;;                   (format-value v)])
+  ;;               v))
+  ;;   :else (str v)))                  ; Convert everything else to string
 
 (defn- format-args [args-seq]
   (let [args (vec args-seq)
