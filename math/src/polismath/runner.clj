@@ -116,7 +116,7 @@
     ;; Configure instrumentation before running the update
     (instrument/configure-instrumentation! 
       {:enabled true
-       :output-dir "instrumentation"});
+       :output-dir "traces"});
     ;; Instrument the wrapped-pca function
     (instrument/instrument-fn #'polismath.math.pca/wrapped-pca)
     ;; Run the normal update

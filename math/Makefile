@@ -35,6 +35,13 @@ endif
 trace: ### Run a single convo with tracing enabled
 	docker exec -it polis-dev-math-1 clojure -M:run update-with-trace -r -z 17909
 
+compare-traces: ### Run the traced calls in python and compare with the traced results
+ifdef DIR
+	python -m pythonport.validate_instrumentation "$(DIR)";
+else 
+	python -m pythonport.validate_instrumentation "./traces"
+endif
+	
 
 help: ## Show this help
 	@echo 'Usage: make <command>'
@@ -54,4 +61,4 @@ help: ## Show this help
 %:
 	@$(MAKE) -C .. $@
 
-.PHONY: test test-clj test-py help update-from-scratch trace
+.PHONY: test test-clj test-py help update-from-scratch trace compare-traces

@@ -49,7 +49,9 @@ def parse_value(value):
                     return np.array(value, dtype=int)
             # If not all integers or has NaN, use float
             return np.array(value, dtype=float)
-        except (ValueError, TypeError):
+        except (ValueError, TypeError) as e:
+            print(f"Failed to convert to numpy array: {str(e)}")
+            print(f"Value that failed: {value}")
             # If conversion fails, process each element recursively
             return [parse_value(v) for v in value]
     elif isinstance(value, dict):
@@ -64,9 +66,8 @@ def parse_args(record):
     kwargs = {k.replace('-', '_'): parse_value(v) for k, v in record['kwargs'].items()}
     return args, kwargs
 
-def compare_results(actual, expected_str):
+def compare_results(actual, expected):
     """Compare actual result with expected result from JSON."""
-    expected = parse_value(expected_str)
     
     if isinstance(actual, np.ndarray) and isinstance(expected, np.ndarray):
         return np.allclose(actual, expected, rtol=1e-5, atol=1e-8)
@@ -96,7 +97,8 @@ def format_list_for_display(lst):
 def format_value_for_display(value):
     """Format a value for display, showing shapes for matrices."""
     if isinstance(value, np.ndarray):
-        return colored(f"<matrix shape={value.shape}>", 'yellow')
+        first_elem = value.flat[0] if value.size > 0 else None
+        return colored(f"<matrix shape={value.shape}, first_elem={first_elem}>", 'yellow')
     elif isinstance(value, (list, tuple)):
         return format_list_for_display(value)
     elif isinstance(value, dict):
@@ -115,6 +117,7 @@ def validate_record(record, fn_mapping=None, arg_transformers=None):
 
     py_func = fn_mapping[fn_name]
     args, kwargs = parse_args(record)
+    expected = parse_value(record['result'])
 
     # Apply any custom argument transformations
     if arg_transformers:
@@ -129,17 +132,17 @@ def validate_record(record, fn_mapping=None, arg_transformers=None):
     print(f"Calling {fn_name} with {len(args)} args and kwargs: {kwargs.keys()}")
 
     # Format values for display
-    display_args = format_list_for_display(args)
-    display_kwargs = format_dict_for_display(kwargs)
+    display_args = format_value_for_display(args)
+    display_kwargs = format_value_for_display(kwargs)
+    display_expected = format_value_for_display(expected)
     print(colored("Function:", 'white', attrs=['bold']), colored(fn_name, 'green'))
     print(colored("Arguments:", 'white', attrs=['bold']), display_args)
     print(colored("Keyword Arguments:", 'white', attrs=['bold']), display_kwargs)
-    print(colored("Expected:", 'white', attrs=['bold']), colored(record['result'], 'blue'))
+    print(colored("Expected:", 'white', attrs=['bold']), display_expected)
 
     #try:
     result = py_func(*args, **kwargs)
-    matches = compare_results(result, record["result"])
-
+    matches = compare_results(result, expected)
 
     display_result = format_value_for_display(result)
     print(colored("Got:", 'white', attrs=['bold']), display_result)
