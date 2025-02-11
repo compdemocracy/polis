@@ -194,7 +194,7 @@ if __name__ == '__main__':
     import sys
     
     if len(sys.argv) != 2:
-        print("Usage: python validate_instrumentation.py <directory>")
+        print("Usage: python compare_to_traces.py <directory>")
         sys.exit(1)
     
     directory = sys.argv[1]

@@ -32,14 +32,14 @@ else
 	docker exec -it polis-dev-math-1 clojure -M:run update -r -z 1
 endif
 
-trace: ### Run a single convo with tracing enabled
+trace: ### Run a single convo with tracing enabled
 	docker exec -it polis-dev-math-1 clojure -M:run update-with-trace -r -z 17909
 
 compare-traces: ### Run the traced calls in python and compare with the traced results
 ifdef DIR
-	python -m pythonport.validate_instrumentation "$(DIR)";
+	python -m pythonport.compare_to_traces "$(DIR)";
 else 
-	python -m pythonport.validate_instrumentation "./traces"
+	python -m pythonport.compare_to_traces "./traces"
 endif
 	
 

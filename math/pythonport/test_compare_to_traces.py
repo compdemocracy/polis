@@ -1,6 +1,6 @@
 import numpy as np
 import pytest
-from pythonport.validate_instrumentation import parse_value, parse_args
+from pythonport.compare_to_traces import parse_value, parse_args
 import json
 
 def test_parse_value():
