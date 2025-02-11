@@ -89,6 +89,10 @@ const App = (props) => {
   let corMatRetries;
 
   useEffect(() => {
+
+    // setInterval(() => {
+    //   window.location.reload()
+    // }, 45000);
     if (
       window.location.pathname.split("/")[1] === "narrativeReport" &&
       isNarrativeReport !== true

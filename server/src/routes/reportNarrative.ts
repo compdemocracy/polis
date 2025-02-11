@@ -226,8 +226,8 @@ const getModelResponse = async (
             },
           ],
         });
-
-        return responseClaude;
+// @ts-expect-error claude api
+        return `{${responseClaude?.content[0]?.text}`;
       }
       case "openai": {
         console.log("RUNNING OPENAI MODEL FOR NARRATIVE");
@@ -249,9 +249,9 @@ const getModelResponse = async (
     }
   } catch (error) {
     console.error(error);
-    return {
+    return `{
       content: [],
-    };
+    }`;
   }
 };
 
