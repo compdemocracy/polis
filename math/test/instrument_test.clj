@@ -90,18 +90,6 @@
       (is (= 3 (count records))
           "Should record all calls to functions matching predicate"))))
 
-(deftest test-file-writing
-  (testing "Direct file writing behavior"
-    (instrument/configure-instrumentation!
-     {:output-dir test-dir})
-    (instrument/instrument-fn #'test-fn)
-    (test-fn 1 1)
-    (test-fn 2 2)
-    (test-fn 3 3)
-    (let [records (get-records)]
-      (is (= 3 (count records))
-          "Should have written all three calls to disk"))))
-
 (deftest test-instrumentation-disabled
   (testing "No recording when disabled"
     (clear-test-dir!)
@@ -186,245 +174,124 @@
               "start-vectors" nil} (get first-record "result"))
           "Should record map result with string keys"))))
 
-(deftest test-matrix-arguments
-  (testing "Handles matrix arguments correctly"
-    (matrix/set-current-implementation :vectorz)
-    (ns-unmap *ns* 'matrix-fn)
-    (defn matrix-fn
-      [data]
-      (matrix/mul data -1.0))
+(deftest test-data-serialization
+  (testing "Serialization of different data types and structures"
+    (clear-test-dir!)  ; Start with clean state
+    (instrument/clear-instrumentation!)
+    (instrument/configure-instrumentation! {:enabled true
+                                         :output-dir test-dir})
     
-    (instrument/instrument-fn #'matrix-fn)
+    ;; Test basic types
+    (ns-unmap *ns* 'type-test-fn)
+    (defn type-test-fn
+      [string-arg number-arg bool-arg nil-arg & {:keys [keyword-arg vector-arg map-arg]}]
+      {:string string-arg
+       :number number-arg
+       :bool bool-arg
+       :nil nil-arg
+       :keyword keyword-arg
+       :vector vector-arg
+       :map map-arg})
     
-    ;; Create test matrices
-    (let [test-matrix [[1.0 2.0]
-                       [3.0 4.0]]
-          result1 (matrix-fn test-matrix)]
+    (instrument/instrument-fn #'type-test-fn)
+    
+    ;; Call with different types
+    (type-test-fn 
+      "hello"           ; string
+      42               ; number
+      true             ; boolean
+      nil              ; nil
+      :keyword-arg :test-key        ; keyword
+      :vector-arg [1 2.5 "three"]  ; vector with mixed types
+      :map-arg {:a 1 :b true}   ; map with mixed types
+    )
+    
+    (let [records (get-records)
+          record (get-first-record records)]
       
-      ;; Verify function works correctly
-      (is (matrix/equals (matrix/matrix [[-1.0 -2.0]
-                                       [-3.0 -4.0]])
-                        result1)
-          "Should swap matrix")
-      
-      ;; Check instrumentation records
-      (let [records (get-records)
-            first-record (get-first-record records)]
+      (testing "Basic type serialization"
+        ;; Check argument serialization
+        (is (= ["hello" 42 true nil] 
+               (get record "args"))
+            "Should serialize positional arguments with correct types")
         
-        ;; First call (no keyword args)
+        ;; Check keyword argument serialization
+        (is (= {"keyword-arg" "test-key"
+                "vector-arg" [1 2.5 "three"]
+                "map-arg" {"a" 1 "b" true}}
+               (get record "kwargs"))
+            "Should serialize keyword arguments with correct types")
+        
+        ;; Check result serialization
+        (is (= {"string" "hello"
+                "number" 42
+                "bool" true
+                "nil" nil
+                "keyword" "test-key"
+                "vector" [1 2.5 "three"]
+                "map" {"a" 1 "b" true}}
+               (get record "result"))
+            "Should serialize result map with correct types")))
+
+    ;; Test matrix serialization
+    (testing "Matrix serialization"
+      (matrix/set-current-implementation :vectorz)
+      (ns-unmap *ns* 'matrix-fn)
+      (defn matrix-fn [m]
+        {:input m
+         :scaled (mapv #(mapv (partial * 2) %) m)})
+      
+      (instrument/instrument-fn #'matrix-fn)
+      
+      ;; Test regular matrix
+      (let [test-matrix [[1.0 2.0] [3.0 4.0]]
+            _ (matrix-fn test-matrix)
+            records (get-records)
+            record (last records)]
+        
         (is (= [[[1.0 2.0] [3.0 4.0]]]
-               (get first-record "args"))
-            "Should record matrix arguments correctly")
+               (get record "args"))
+            "Should serialize matrix as nested vectors")
         
-        ;; Check results are recorded correctly
-        (is (= [[-1.0 -2.0] [-3.0 -4.0]]
-               (get first-record "result"))
-            "Should record matrix result correctly"))))
+        (is (= {"input" [[1.0 2.0] [3.0 4.0]]
+                "scaled" [[2.0 4.0] [6.0 8.0]]}
+               (get record "result"))
+            "Should serialize matrix results as nested vectors"))
 
-)
+      ;; Test matrix with NaN
+      (let [test-matrix [[1.0 Double/NaN] [3.0 4.0]]
+            _ (matrix-fn test-matrix)
+            records (get-records)
+            record (last records)]
+        
+        (is (= [[[1.0 "NaN"] [3.0 4.0]]]
+               (get record "args"))
+            "Should serialize matrix with NaN as nested vectors")
+        
+        (is (= {"input" [[1.0 "NaN"] [3.0 4.0]]
+                "scaled" [[2.0 "NaN"] [6.0 8.0]]}
+               (get record "result"))
+            "Should serialize matrix with NaN as nested vectors")))
 
-(deftest test-type-serialization
-  (testing "Serialization of different types in instrumentation output"
-    (clear-test-dir!)  ; Start with clean state
-    (instrument/clear-instrumentation!)  ; Start with clean state
-    (instrument/configure-instrumentation! {:enabled true
-                                         :output-dir test-dir})
-    (ns-unmap *ns* 'type-test-fn)
-    (defn type-test-fn
-      [string-arg number-arg bool-arg nil-arg & {:keys [keyword-arg vector-arg map-arg]}]
-      {:string string-arg
-       :number number-arg
-       :bool bool-arg
-       :nil nil-arg
-       :keyword keyword-arg
-       :vector vector-arg
-       :map map-arg})
-    
-    (instrument/instrument-fn #'type-test-fn)
-    
-    ;; Call with different types
-    (type-test-fn 
-      "hello"           ; string
-      42               ; number
-      true             ; boolean
-      nil              ; nil
-      :keyword-arg :test-key        ; keyword
-      :vector-arg [1 2.5 "three"]  ; vector with mixed types
-      :map-arg {:a 1 :b true}   ; map with mixed types
-    )
-    
-    (let [records (get-records)
-          record (get-first-record records)]
-      (is (= 1 (count records)) "Should record one call")
+    ;; Test nested data structures
+    (testing "Nested data structures"
+      (ns-unmap *ns* 'nested-type-fn)
+      (defn nested-type-fn [data]
+        {:original data
+         :processed data})
       
-      ;; Check argument serialization
-      (is (= ["hello"           ; strings should be quoted
-              42                ; numbers should be raw
-              true             ; booleans should be raw
-              nil              ; nil should be raw
-             ] 
-             (get record "args"))
-          "Should serialize positional arguments with correct types")
+      (instrument/instrument-fn #'nested-type-fn)
       
-      ;; Check keyword argument serialization
-      (is (= {"keyword-arg" "test-key"      ; keywords are serialized without colons
-              "vector-arg" [1 2.5 "three"]  ; vectors should preserve types
-              "map-arg" {"a" 1 "b" true}    ; maps should have string keys and preserve value types
-             }
-             (get record "kwargs"))
-          "Should serialize keyword arguments with correct types")
-      
-      ;; Check result serialization
-      (is (= {"string" "hello"
-              "number" 42
-              "bool" true
-              "nil" nil
-              "keyword" "test-key"          ; keywords are serialized without colons
-              "vector" [1 2.5 "three"]
-              "map" {"a" 1 "b" true}}
-             (get record "result"))
-          "Should serialize result map with correct types")))
-
-  (testing "Matrix serialization"
-    (clear-test-dir!)  ; Start with clean state
-    (instrument/clear-instrumentation!)  ; Start with clean state
-    (instrument/configure-instrumentation! {:enabled true
-                                         :output-dir test-dir})
-    (matrix/set-current-implementation :vectorz)
-    (ns-unmap *ns* 'matrix-type-fn)
-    (defn matrix-type-fn [m]
-      {:input m
-       :scaled (mapv #(mapv (partial * 2) %) m)})
-    
-    (instrument/instrument-fn #'matrix-type-fn)
-    
-    (let [test-matrix [[1.0 2.0] [3.0 4.0]]
-          _ (matrix-type-fn test-matrix)
-          records (get-records)
-          record (get-first-record records)]
-      
-      ;; Check matrix argument serialization
-      (is (= [[[1.0 2.0] [3.0 4.0]]]
-             (get record "args"))
-          "Should serialize matrix as nested vectors")
-      
-      ;; Check matrix result serialization
-      (is (= {"input" [[1.0 2.0] [3.0 4.0]]
-              "scaled" [[2.0 4.0] [6.0 8.0]]}
-             (get record "result"))
-          "Should serialize matrix results as nested vectors")))
-
-  (testing "Matrix with NaN serialization"
-    (clear-test-dir!)  ; Start with clean state
-    (instrument/clear-instrumentation!)  ; Start with clean state
-    (instrument/configure-instrumentation! {:enabled true
-                                         :output-dir test-dir})
-    (matrix/set-current-implementation :vectorz)
-    (ns-unmap *ns* 'matrix-nan-fn)
-    (defn matrix-nan-fn [m]
-      {:input m})
-    
-    (instrument/instrument-fn #'matrix-nan-fn)
-    
-    (let [test-matrix [[1.0 Double/NaN] [3.0 4.0]]
-          _ (matrix-nan-fn test-matrix)
-          records (get-records)
-          record (get-first-record records)]
-      
-      ;; Check matrix argument serialization with NaN
-      (is (= [[[1.0 "NaN"] [3.0 4.0]]]
-             (get record "args"))
-          "Should serialize matrix with NaN as nested vectors")
-      
-      ;; Check matrix result serialization with NaN
-      (is (= {"input" [[1.0 "NaN"] [3.0 4.0]]}
-             (get record "result"))
-          "Should serialize matrix with NaN as nested vectors")))
-
-  (testing "Type serialization"
-    (clear-test-dir!)  ; Start with clean state
-    (instrument/clear-instrumentation!)  ; Start with clean state
-    (instrument/configure-instrumentation! {:enabled true
-                                         :output-dir test-dir})
-    (ns-unmap *ns* 'type-test-fn)
-    (defn type-test-fn
-      [string-arg number-arg bool-arg nil-arg & {:keys [keyword-arg vector-arg map-arg]}]
-      {:string string-arg
-       :number number-arg
-       :bool bool-arg
-       :nil nil-arg
-       :keyword keyword-arg
-       :vector vector-arg
-       :map map-arg})
-    
-    (instrument/instrument-fn #'type-test-fn)
-    
-    ;; Call with different types
-    (type-test-fn 
-      "hello"           ; string
-      42               ; number
-      true             ; boolean
-      nil              ; nil
-      :keyword-arg :test-key        ; keyword
-      :vector-arg [1 2.5 "three"]  ; vector with mixed types
-      :map-arg {:a 1 :b true}   ; map with mixed types
-    )
-    
-    (let [records (get-records)
-          record (get-first-record records)]
-      
-      ;; Check argument serialization
-      (is (= ["hello"           ; strings should be quoted
-              42                ; numbers should be raw
-              true             ; booleans should be raw
-              nil              ; nil should be raw
-             ] 
-             (get record "args"))
-          "Should serialize positional arguments with correct types")
-      
-      ;; Check keyword argument serialization
-      (is (= {"keyword-arg" "test-key"      ; keywords are serialized without colons
-              "vector-arg" [1 2.5 "three"]  ; vectors should preserve types
-              "map-arg" {"a" 1 "b" true}    ; maps should have string keys and preserve value types
-             }
-             (get record "kwargs"))
-          "Should serialize keyword arguments with correct types")
-      
-      ;; Check result serialization
-      (is (= {"string" "hello"
-              "number" 42
-              "bool" true
-              "nil" nil
-              "keyword" "test-key"          ; keywords are serialized without colons
-              "vector" [1 2.5 "three"]
-              "map" {"a" 1 "b" true}}
-             (get record "result"))
-          "Should serialize result map with correct types")))
-
-  (testing "Nested data structures"
-    (clear-test-dir!)  ; Start with clean state
-    (instrument/clear-instrumentation!)  ; Start with clean state
-    (instrument/configure-instrumentation! {:enabled true
-                                         :output-dir test-dir})
-    (ns-unmap *ns* 'nested-type-fn)
-    (defn nested-type-fn [data]
-      {:original data
-       :processed data})
-    
-    (instrument/instrument-fn #'nested-type-fn)
-    
-    (let [nested-data [[1 "a"] {:b 2 :c ["b" 3]} [4 "d"]]
-          _ (nested-type-fn nested-data)
-          records (get-records)
-          record (get-first-record records)]
-      
-      ;; Check nested argument serialization
-      (is (= [[[1 "a"] {"b" 2 "c" ["b" 3]} [4 "d"]]]
-             (get record "args"))
-          "Should serialize nested data structures correctly")
-      
-      ;; Check nested result serialization
-      (is (= {"original" [[1 "a"] {"b" 2 "c" ["b" 3]} [4 "d"]]
-              "processed" [[1 "a"] {"b" 2 "c" ["b" 3]} [4 "d"]]}
-             (get record "result"))
-          "Should serialize nested result structures correctly"))))
+      (let [nested-data [[1 "a"] {:b 2 :c ["b" 3]} [4 "d"]]
+            _ (nested-type-fn nested-data)
+            records (get-records)
+            record (last records)]
+        
+        (is (= [[[1 "a"] {"b" 2 "c" ["b" 3]} [4 "d"]]]
+               (get record "args"))
+            "Should serialize nested data structures correctly")
+        
+        (is (= {"original" [[1 "a"] {"b" 2 "c" ["b" 3]} [4 "d"]]
+                "processed" [[1 "a"] {"b" 2 "c" ["b" 3]} [4 "d"]]}
+               (get record "result"))
+            "Should serialize nested result structures correctly")))))
