@@ -83,7 +83,7 @@ const App = (props) => {
   const [searchParamsModel, setSearchParamModel] = useState(
     window.location.search.includes("model=")
       ? window.location.search.split("model=")[1]?.split("&")[0]
-      : null
+      : "Claude"
   );
 
   let corMatRetries;

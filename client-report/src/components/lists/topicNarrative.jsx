@@ -16,7 +16,7 @@ const TopicNarrative = ({
 }) => {
   try {
     const txt =
-      model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini;
+      model === "claude" ? narrative?.response.content[0].text : narrative?.response;
 
     const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
 
@@ -60,7 +60,7 @@ const TopicNarrative = ({
   } catch (err) {
     console.error(`Failed to parse narrative for topic ${topicName}:`, {
       error: err,
-      rawText: model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini,
+      rawText: model === "claude" ? narrative?.response.content[0].text : narrative?.response,
       model,
     });
     return (
