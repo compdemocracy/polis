@@ -8,6 +8,7 @@ import {
   GenerateContentRequest,
   GoogleGenerativeAI,
 } from "@google/generative-ai";
+import OpenAI from "openai";
 import { convertXML } from "simple-xml-to-json";
 import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
@@ -200,6 +201,8 @@ const getModelResponse = async (
       ],
       systemInstruction: system_lore,
     };
+    const openai = new OpenAI();
+
     switch (model) {
       case "Gemini": {
         const respGem = await gemeniModel.generateContent(gemeniModelprompt);
@@ -226,6 +229,21 @@ const getModelResponse = async (
 
         return responseClaude;
       }
+      case "openai": {
+        console.log("RUNNING OPENAI MODEL FOR NARRATIVE");
+        const responseOpenAI = await openai.chat.completions.create({
+          model: modelVersion || "gpt-4o",
+          messages: [
+            { role: "system", content: system_lore },
+            { role: "user", content: prompt_xml },
+          ],
+        });
+        console.log(
+          "OPENAI RESPONSE",
+          responseOpenAI.choices[0].message.content
+        );
+        return responseOpenAI.choices[0].message.content;
+      }
       default:
         return "";
     }
@@ -246,14 +264,14 @@ export async function handle_GET_groupInformedConsensus(
   zid: number | undefined,
   modelVersion?: string
 ) {
-    const section = {
-      name: "group_informed_consensus",
-      templatePath:
-        "src/report_experimental/subtaskPrompts/group_informed_consensus.xml",
-      filter: (v: { group_aware_consensus: number }) =>
-        (v.group_aware_consensus ?? 0) > 0.7,
-    };
-  
+  const section = {
+    name: "group_informed_consensus",
+    templatePath:
+      "src/report_experimental/subtaskPrompts/group_informed_consensus.xml",
+    filter: (v: { group_aware_consensus: number }) =>
+      (v.group_aware_consensus ?? 0) > 0.7,
+  };
+
   const cachedResponse = await storage?.queryItemsByRidSectionModel(
     `${rid}#${section.name}#${model}`
   );
@@ -556,7 +574,11 @@ export async function handle_GET_topics(
   );
 
   sections.forEach(
-    async (section: { name: any; templatePath: PathLike | fs.FileHandle }, i: number, arr: any) => {
+    async (
+      section: { name: any; templatePath: PathLike | fs.FileHandle },
+      i: number,
+      arr: any
+    ) => {
       const cachedResponse = await storage?.queryItemsByRidSectionModel(
         `${rid}#${section.name}#${model}`
       );
@@ -573,9 +595,9 @@ export async function handle_GET_topics(
             [section.name]: {
               [`response${model}`]: cachedResponse[0].report_data,
               errors:
-              structured_comments?.trim().length === 0
-              ? "NO_CONTENT_AFTER_FILTER"
-              : undefined,
+                structured_comments?.trim().length === 0
+                  ? "NO_CONTENT_AFTER_FILTER"
+                  : undefined,
             },
           }) + `|||`
         );
@@ -591,20 +613,20 @@ export async function handle_GET_topics(
         json.polisAnalysisPrompt.children[
           json.polisAnalysisPrompt.children.length - 1
         ].data.content = { structured_comments };
-        
+
         const prompt_xml = js2xmlparser.parse(
           "polis-comments-and-group-demographics",
           json
         );
         setTimeout(async () => {
-          console.log("CALLING TOPIC")
+          console.log("CALLING TOPIC");
           const resp = await getModelResponse(
             model,
             system_lore,
             prompt_xml,
             modelVersion
           );
-  
+
           const reportItem = {
             rid_section_model: `${rid}#${section.name}#${model}`,
             timestamp: new Date().toISOString(),
@@ -614,9 +636,9 @@ export async function handle_GET_topics(
                 ? "NO_CONTENT_AFTER_FILTER"
                 : undefined,
           };
-  
+
           storage?.putItem(reportItem);
-  
+
           res.write(
             JSON.stringify({
               [section.name]: {
@@ -628,12 +650,12 @@ export async function handle_GET_topics(
               },
             }) + `|||`
           );
-          console.log("topic over")
+          console.log("topic over");
           // @ts-expect-error flush - calling due to use of compression
           res.flush();
 
-          if (arr.length -1 === i) {
-            console.log('all promises completed')
+          if (arr.length - 1 === i) {
+            console.log("all promises completed");
             res.end();
           }
         }, 3000 * i);
