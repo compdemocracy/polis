@@ -4,7 +4,12 @@ import json
 import os
 import numpy as np
 from pathlib import Path
-from pythonport import pca  # Import the pca module from local package
+try:
+    # When running as part of the package
+    from . import pca
+except ImportError:
+    # When running as standalone script
+    import pca
 from termcolor import colored
 
 # Function name mapping from Clojure to Python
@@ -23,31 +28,32 @@ DEFAULT_ARG_TRANSFORMERS = {
     )
 }
 
-def parse_matrix(matrix_str):
-    """Convert a string representation of a matrix to numpy array."""
-    if not matrix_str.startswith('#matrix '):
-        return None
-    # Extract the nested list string and convert to proper Python list format
-    matrix_str = matrix_str.replace('#matrix ', '')
-    matrix_str = matrix_str.replace(' ', ', ')  # Add commas between elements
-    try:
-        matrix_data = eval(matrix_str)
-        return np.array(matrix_data)
-    except:
-        return None
+def is_all_integers(lst):
+    """Check if all non-NaN values in a nested list structure are integers."""
+    if isinstance(lst, list):
+        return all(is_all_integers(x) for x in lst)
+    return (isinstance(lst, (int, np.integer)) or 
+            (isinstance(lst, (float, np.floating)) and (np.isnan(lst) or lst.is_integer())))
 
 def parse_value(value):
-    """Parse a value, converting matrix strings to numpy arrays."""
-    # If it's not a string or is None, return as is
+    """Parse a value, converting lists of numbers to numpy arrays.
+    If all non-NaN values are integers, uses dtype=int, otherwise float."""
     if isinstance(value, list):
-        return [parse_value(v) for v in value]
+        try:
+            # First check if we can convert to array and if all values are integers
+            if is_all_integers(value):
+                # For integer arrays, we need to handle NaN specially since int dtype doesn't support NaN
+                has_nan = any(isinstance(x, (float, np.floating)) and np.isnan(x) 
+                            for x in np.array(value, dtype=float).flatten())
+                if not has_nan:
+                    return np.array(value, dtype=int)
+            # If not all integers or has NaN, use float
+            return np.array(value, dtype=float)
+        except (ValueError, TypeError):
+            # If conversion fails, process each element recursively
+            return [parse_value(v) for v in value]
     elif isinstance(value, dict):
         return {k: parse_value(v) for k, v in value.items()}
-    elif isinstance(value, str) and value.startswith('#matrix '):
-        # Matrices are passed without comma separators, so we need to add them
-        matrix_str = value.replace('#matrix ', '').replace(' ', ', ')
-        matrix_data = eval(matrix_str)
-        return np.array(matrix_data)
     else:
         return value
 
@@ -121,19 +127,21 @@ def validate_record(record, fn_mapping=None, arg_transformers=None):
 
     # Call the Python function
     print(f"Calling {fn_name} with {len(args)} args and kwargs: {kwargs.keys()}")
-    #try:
-    result = py_func(*args, **kwargs)
-    matches = compare_results(result, record["result"])
 
     # Format values for display
     display_args = format_list_for_display(args)
     display_kwargs = format_dict_for_display(kwargs)
-    display_result = format_value_for_display(result)
-
     print(colored("Function:", 'white', attrs=['bold']), colored(fn_name, 'green'))
     print(colored("Arguments:", 'white', attrs=['bold']), display_args)
     print(colored("Keyword Arguments:", 'white', attrs=['bold']), display_kwargs)
     print(colored("Expected:", 'white', attrs=['bold']), colored(record['result'], 'blue'))
+
+    #try:
+    result = py_func(*args, **kwargs)
+    matches = compare_results(result, record["result"])
+
+
+    display_result = format_value_for_display(result)
     print(colored("Got:", 'white', attrs=['bold']), display_result)
     print(colored("Match:", 'white', attrs=['bold']), 
             colored('✓', 'green', attrs=['bold']) if matches else colored('✗', 'red', attrs=['bold']))
