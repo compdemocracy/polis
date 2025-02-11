@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import * as globals from "../globals.js";
 import Narrative from "../narrative/index.jsx";
 import CommentList from "./commentList.jsx";
+import getNarrativeJSON from "../../util/getNarrativeJSON.js";
 const ConsensusNarrative = ({
   math,
   comments,
@@ -13,10 +14,7 @@ const ConsensusNarrative = ({
   model,
 }) => {
   try {
-    const txt =
-      narrative?.model === "claude" ? narrative?.modelResponse?.content[0]?.text : narrative?.modelResponse;
-
-    const narrativeJSON = narrative?.model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
+    const narrativeJSON = getNarrativeJSON(narrative, narrative?.model);
 
     // Extract all citation IDs from the narrative structure
     const uniqueTids = narrativeJSON.paragraphs.reduce((acc, paragraph) => {
@@ -58,7 +56,7 @@ const ConsensusNarrative = ({
     console.error("Failed to parse narrative:", {
       error: err,
       rawText: narrative,
-      model,
+      model: narrative?.model,
     });
     return (
       <div>

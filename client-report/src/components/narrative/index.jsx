@@ -1,4 +1,5 @@
 import React from "react";
+import getNarrativeJSON from "../../util/getNarrativeJSON";
 
 const Narrative = ({ sectionData, model }) => {
   if (!sectionData) return null;
@@ -7,10 +8,8 @@ const Narrative = ({ sectionData, model }) => {
     <p>Not enough data has been provided for analysis, please check back later</p>
   )
 
-  const txt =
-      sectionData?.model === "claude" ? sectionData?.modelResponse?.content[0]?.text : sectionData?.modelResponse;
 
-    const respData = sectionData?.model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
+    const respData = getNarrativeJSON(sectionData, sectionData?.model);
 
   return (
     <article style={{ maxWidth: "600px" }}>
