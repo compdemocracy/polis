@@ -148,7 +148,7 @@ const isFreshData = (timestamp: string) => {
   const elapsed = Math.abs(now - then);
   return (
     elapsed <
-    (((process.env.MAX_REPORT_CACHE_DURATION as unknown) as number) || 3600000)
+    (((process.env.MAX_REPORT_CACHE_DURATION as unknown) as number) || 360)
   );
 };
 
@@ -158,7 +158,6 @@ const getModelResponse = async (
   prompt_xml: string,
   modelVersion?: string
 ) => {
-  console.log("MODEL PARAM:::::", model);
   try {
     const gemeniModel = genAI.getGenerativeModel({
       // model: "gemini-1.5-pro-002",
@@ -317,7 +316,7 @@ export async function handle_GET_groupInformedConsensus(
     res.write(
       JSON.stringify({
         [section.name]: {
-          response: resp,
+          [`response${model}`]: resp,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
@@ -408,7 +407,7 @@ export async function handle_GET_uncertainty(
     res.write(
       JSON.stringify({
         [section.name]: {
-          response: resp,
+          [`response${model}`]: resp,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
@@ -500,7 +499,7 @@ export async function handle_GET_groups(
     res.write(
       JSON.stringify({
         [section.name]: {
-          response: resp,
+          [`response${model}`]: resp,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
@@ -620,7 +619,7 @@ export async function handle_GET_topics(
         res.write(
           JSON.stringify({
             [section.name]: {
-              response: resp,
+              [`response${model}`]: resp,
               errors:
                 structured_comments?.trim().length === 0
                   ? "NO_CONTENT_AFTER_FILTER"
