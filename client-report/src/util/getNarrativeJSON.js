@@ -1,14 +1,14 @@
 const getNarrativeJSON = (narrative, model) => {
   switch (model) {
     case "openai":
-      return JSON.parse(`{${narrative?.modelResponse?.content[0]?.text}`)
+      return JSON.parse(narrative?.modelResponse);
     case "gemini":
-      return JSON.parse(narrative?.modelResponse)
+      return JSON.parse(narrative?.modelResponse);
     case "claude":
-      return JSON.parse(`{${narrative?.modelResponse?.content[0]?.text}`)
+      return JSON.parse(`{${narrative?.modelResponse?.content[0]?.text}`);
     default:
-      return {}
+      return {};
   }
-}
+};
 
 export default getNarrativeJSON;
