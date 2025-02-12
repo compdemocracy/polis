@@ -10,8 +10,8 @@ const outputFile = './embed/index.html'
 const argv = require('yargs/yargs')(process.argv.slice(2))
   .usage(
     'Usage: $0 --conversationId <conversationId> [--baseUrl <baseUrl>]\n' +
-      '[--uiLang <ulLang>] [--ucsd <false>] [--ucsf <false>] [--ucsh <false>]\n' +
-      '[--ucst <false>] [--ucsv <false>] [--ucv <false>] [--ucw <false>]'
+      '[--uiLang <ulLang>] [--ucsd <value>] [--ucsf <value>] [--ucsh <value>]\n' +
+      '[--ucst <value>] [--ucsv <value>] [--ucv <value>] [--ucw <value>]'
   )
   .option('conversationId', {
     alias: 'id',
@@ -33,38 +33,31 @@ const argv = require('yargs/yargs')(process.argv.slice(2))
   })
   .option('ucsd', {
     describe: 'user-can-see-description',
-    type: 'boolean',
-    default: true,
+    type: 'string',
   })
   .option('ucsf', {
     describe: 'user-can-see-footer',
-    type: 'boolean',
-    default: true,
+    type: 'string',
   })
   .option('ucsh', {
     describe: 'user-can-see-help',
-    type: 'boolean',
-    default: true,
+    type: 'string',
   })
   .option('ucst', {
     describe: 'user-can-see-topic',
-    type: 'boolean',
-    default: true,
+    type: 'string',
   })
   .option('ucsv', {
     describe: 'user-can-see-vis',
-    type: 'boolean',
-    default: true,
+    type: 'string',
   })
   .option('ucv', {
     describe: 'user-can-vote',
-    type: 'boolean',
-    default: true,
+    type: 'string',
   })
   .option('ucw', {
     describe: 'user-can-write',
-    type: 'boolean',
-    default: true,
+    type: 'string',
   }).argv
 
 fs.readFile(inputFile, 'utf8', (err, data) => {
@@ -74,13 +67,13 @@ fs.readFile(inputFile, 'utf8', (err, data) => {
     .replace(/<%= conversation_id %>/g, argv.id)
     .replace(/<%= base_url %>/g, argv.url)
     .replace(/<%= ui_lang %>/g, argv.lang)
-    .replace(/<%= ucsd %>/g, argv.ucsd ? 1 : 0)
-    .replace(/<%= ucsf %>/g, argv.ucsf ? 1 : 0)
-    .replace(/<%= ucsh %>/g, argv.ucsh ? 1 : 0)
-    .replace(/<%= ucst %>/g, argv.ucst ? 1 : 0)
-    .replace(/<%= ucsv %>/g, argv.ucsv ? 1 : 0)
-    .replace(/<%= ucv %>/g, argv.ucv ? 1 : 0)
-    .replace(/<%= ucw %>/g, argv.ucw ? 1 : 0)
+    .replace(/<%= ucsd %>/g, argv.ucsd !== undefined ? argv.ucsd : 1)
+    .replace(/<%= ucsf %>/g, argv.ucsf !== undefined ? argv.ucsf : 1)
+    .replace(/<%= ucsh %>/g, argv.ucsh !== undefined ? argv.ucsh : 1)
+    .replace(/<%= ucst %>/g, argv.ucst !== undefined ? argv.ucst : 1)
+    .replace(/<%= ucsv %>/g, argv.ucsv !== undefined ? argv.ucsv : 1)
+    .replace(/<%= ucv %>/g, argv.ucv !== undefined ? argv.ucv : 1)
+    .replace(/<%= ucw %>/g, argv.ucw !== undefined ? argv.ucw : 1)
 
   fs.writeFile(outputFile, replacedData, (err) => {
     if (err) throw err

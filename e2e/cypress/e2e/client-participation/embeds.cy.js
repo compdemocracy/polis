@@ -184,4 +184,57 @@ describe('Embedded Conversations', function () {
         .should('not.be.visible')
     })
   })
+
+  describe('boolean parameter handling', function () {
+    const testCases = {
+      'handles string "0"': { ucv: "0", ucw: "0", expectVoting: false, expectCommenting: false },
+      'handles number 0': { ucv: 0, ucw: 0, expectVoting: false, expectCommenting: false },
+      'handles string "false"': { ucv: "false", ucw: "false", expectVoting: false, expectCommenting: false },
+      'handles string "1" as true': { ucv: "1", ucw: "1", expectVoting: true, expectCommenting: true }
+    }
+
+    function runTest(config) {
+      const baseUrl = Cypress.config('baseUrl')
+      cy.exec(
+        `npm run build:embed -- --id=${this.convoId} --url=${baseUrl} ` +
+        `--ucv=${config.ucv} --ucw=${config.ucw}`
+      )
+      cy.interceptEmbed()
+      
+      cy.visit('/embedded')
+      cy.wait('@participationInit')
+
+      cy.getIframeBody()
+        .find('[data-view-name="root"]')
+        .within(() => {
+          if (config.expectVoting) {
+            cy.get('[data-view-name="vote-view"]').should('be.visible')
+          } else {
+            cy.get('[data-view-name="vote-view"]').should('not.be.visible')
+          }
+
+          if (config.expectCommenting) {
+            cy.get('[data-view-name="comment-form"]').should('be.visible') 
+          } else {
+            cy.get('[data-view-name="comment-form"]').should('not.be.visible')
+          }
+        })
+    }
+
+    it('handles string "0"', function() {
+      runTest.call(this, testCases['handles string "0"'])
+    })
+
+    it('handles number 0', function() {
+      runTest.call(this, testCases['handles number 0'])
+    })
+
+    it('handles string "false"', function() {
+      runTest.call(this, testCases['handles string "false"'])
+    })
+
+    it('handles string "1" as true', function() {
+      runTest.call(this, testCases['handles string "1" as true'])
+    })
+  })
 })
