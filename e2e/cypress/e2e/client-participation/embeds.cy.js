@@ -86,6 +86,25 @@ describe('Embedded Conversations', function () {
     })
   })
 
+  describe('user-can-see-help (ucsh) is OFF', function () {
+    before(function () {
+      const baseUrl = Cypress.config('baseUrl')
+      cy.exec(`npm run build:embed -- --id=${this.convoId} --url=${baseUrl} --ucsh=false`)
+      cy.interceptEmbed()
+    })
+
+    it('hides help text', function () {
+      cy.visit('/embedded')
+      cy.wait('@participationInit')
+
+      cy.getIframeBody()
+        .find('[data-view-name="root"]')
+        .should('be.visible')
+        .find('#helpTextWelcome')
+        .should('not.be.visible')
+    })
+  })
+
   describe('user-can-see-description (ucsd) is OFF', function () {
     before(function () {
       const baseUrl = Cypress.config('baseUrl')
