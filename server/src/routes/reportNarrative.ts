@@ -226,11 +226,10 @@ const getModelResponse = async (
             },
           ],
         });
-// @ts-expect-error claude api
+        // @ts-expect-error claude api
         return `{${responseClaude?.content[0]?.text}`;
       }
       case "openai": {
-        console.log("RUNNING OPENAI MODEL FOR NARRATIVE");
         const responseOpenAI = await openai.chat.completions.create({
           model: modelVersion || "gpt-4o",
           messages: [
@@ -238,19 +237,32 @@ const getModelResponse = async (
             { role: "user", content: prompt_xml },
           ],
         });
-        console.log(
-          "OPENAI RESPONSE",
-          responseOpenAI.choices[0].message.content
-        );
         return responseOpenAI.choices[0].message.content;
       }
       default:
         return "";
     }
   } catch (error) {
-    console.error(error);
+    console.error("ERROR IN GETMODELRESPONSE", error);
     return `{
-      content: [],
+      "id": "polis_narrative_error_message",
+      "title": "Narrative Error Message",
+      "paragraphs": [
+        {
+          "id": "polis_narrative_error_message",
+          "title": "Narrative Error Message",
+          "sentences": [
+            {
+              "clauses": [
+                {
+                  "text": "There was an error generating the narrative. Please refresh the page once all sections have been generated. It may also be a problem with this model, especially if your content discussed sensitive topics.",
+                  "citations": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
     }`;
   }
 };
