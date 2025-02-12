@@ -78,12 +78,14 @@ const Overview = ({ conversation, ptptCount, ptptCountTotal, math, computedStats
           The report will very likely contain errors. Each clause in the report should be
           accompanied by citations, drawn from statements submitted by participants. Please review
           each clause against the cited statements and flag the following:
-          <ol>
-            <li>Clauses that misrepresent the cited statements</li>
-            <li>Statistical or numeric issues with the summary</li>
-            <li>Redundant clauses that are not helpful</li>
-            <li>Clauses that do not have accompanying citations</li>
-          </ol>
+        </p>
+        <ol style={globals.paragraph}>
+          <li>Clauses that misrepresent the cited statements</li>
+          <li>Statistical or numeric issues with the summary</li>
+          <li>Redundant clauses that are not helpful</li>
+          <li>Clauses that do not have accompanying citations</li>
+        </ol>
+        <p style={globals.paragraph}>
           For quality control purposes, you will not be able to add new clauses to the Polis
           narrative report. We welcome your feedback on the report, and will use it to improve the
           report generation process.
