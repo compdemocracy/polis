@@ -88,6 +88,10 @@ module.exports = (env, options) => {
       path: path.resolve(__dirname, outputDirectory),
       clean: true
     },
+    stats: {
+      errorDetails: true,
+      logging: 'verbose'
+    },
     resolve: {
       extensions: ['.js', '.css', '.png', '.svg'],
       alias: {
