@@ -711,7 +711,7 @@ export async function handle_GET_reportNarrative(
       "report_narrative_store"
     );
   }
-  const modelParam = req.query.model;
+  const modelParam = req.query.model || "openai";
   const modelVersionParam = req.query.modelVersion;
 
   res.writeHead(200, {
