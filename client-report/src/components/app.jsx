@@ -85,6 +85,11 @@ const App = (props) => {
       ? window.location.search.split("model=")[1]?.split("&")[0]
       : "openai"
   );
+  const [searchParamsCache, setSearchParamCache] = useState(
+    window.location.search.includes("noCache=")
+      ? window.location.search.split("noCache=")[1]?.split("&")[0]
+      : "false"
+  );
 
   let corMatRetries;
 
@@ -101,6 +106,7 @@ const App = (props) => {
     const urlParams = new URLSearchParams(queryString);
     if (urlParams.get("section")) setSearchParamsSection(urlParams.get("section"));
     if (urlParams.get("model")) setSearchParamModel(urlParams.get("model"));
+    if (urlParams.get("noCache")) setSearchParamCache(urlParams.get("noCache"));
   }, [window.location?.pathname, window.location?.search]);
 
   useEffect(() => {
@@ -173,7 +179,7 @@ const App = (props) => {
       const response = await fetch(
         `${urlPrefix}api/v3/reportNarrative?report_id=${report_id}${
           searchParamsSection ? `&section=${searchParamsSection}` : ``
-        }${searchParamsModel ? `&model=${searchParamsModel}` : ``}`,
+        }${searchParamsModel ? `&model=${searchParamsModel}` : ``}${searchParamsCache ? `&noCache=${searchParamsCache}` : ``}`,
         {
           credentials: "include",
           method: "get",

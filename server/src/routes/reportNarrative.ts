@@ -652,8 +652,9 @@ export async function handle_GET_topics(
           "polis-comments-and-group-demographics",
           json
         );
+        res.write(`POLIS-PING: calling topic timeout`);
         setTimeout(async () => {
-          console.log("CALLING TOPIC");
+          res.write(`POLIS-PING: calling topic`);
           const resp = await getModelResponse(
             model,
             system_lore,
@@ -708,7 +709,8 @@ export async function handle_GET_reportNarrative(
   if (process.env.AWS_REGION && process.env.AWS_REGION?.trim().length > 0) {
     storage = new DynamoStorageService(
       process.env.AWS_REGION,
-      "report_narrative_store"
+      "report_narrative_store",
+      req.query.noCache === "true",
     );
   }
   const modelParam = req.query.model || "openai";
