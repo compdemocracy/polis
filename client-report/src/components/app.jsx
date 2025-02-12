@@ -83,15 +83,12 @@ const App = (props) => {
   const [searchParamsModel, setSearchParamModel] = useState(
     window.location.search.includes("model=")
       ? window.location.search.split("model=")[1]?.split("&")[0]
-      : "claude"
+      : "openai"
   );
 
   let corMatRetries;
 
   useEffect(() => {
-    // setInterval(() => {
-    //   window.location.reload()
-    // }, 45000);
     if (
       window.location.pathname.split("/")[1] === "narrativeReport" &&
       isNarrativeReport !== true

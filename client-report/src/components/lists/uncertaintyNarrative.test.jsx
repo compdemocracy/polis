@@ -14,28 +14,16 @@ describe('UncertaintyNarrative Component', () => {
     formatTid: jest.fn((tid) => `TID${tid}`),
     math: {},
     voteColors: {},
-    narrative: {
-        responseClaude: { content: [{ text: '"paragraphs":[{"sentences":[{"clauses":[{"citations":["T1","T2"]}]}]}]}' }] },
-        responseGemini: '{"paragraphs":[{"sentences":[{"clauses":[{"citations":["T3"]}]}]}]}'
-    },
+    narrative: {modelResponse: `{"paragraphs":[{"sentences":[{"clauses":[{"citations":["T1","T2"]}]}]}]}`},
     model: 'claude'
   };
 
-  it('renders component with narrative and comment list when data is present (Claude model)', () => {
+  it('renders component with narrative and comment list when data is present', () => {
     render(<UncertaintyNarrative {...mockProps} />);
 
     expect(screen.getByText('Areas of Uncertainty')).toBeInTheDocument();
     expect(screen.getByText('This narrative summary may contain hallucinations. Check each clause.')).toBeInTheDocument();
     expect(screen.getByTestId('mock-narrative-claude')).toBeInTheDocument();
-    expect(screen.getByTestId('mock-comment-list')).toBeInTheDocument();
-  });
-
-  it('renders component with narrative and comment list when data is present (Gemini model)', () => {
-    render(<UncertaintyNarrative {...mockProps} model="gemini" />);
-
-    expect(screen.getByText('Areas of Uncertainty')).toBeInTheDocument();
-    expect(screen.getByText('This narrative summary may contain hallucinations. Check each clause.')).toBeInTheDocument();
-    expect(screen.getByTestId('mock-narrative-gemini')).toBeInTheDocument();
     expect(screen.getByTestId('mock-comment-list')).toBeInTheDocument();
   });
 
