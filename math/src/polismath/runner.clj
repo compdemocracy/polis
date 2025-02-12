@@ -87,13 +87,29 @@
   [["-r" "--recompute" "Recompute conversations from scratch instead of starting from most recent values"]
    ["-h" "--help" "Print help and exit"]
    ["-z" "--zid ZID"           "ZID on which to do an export" :parse-fn #(Integer/parseInt %)]
-   ["-Z" "--zinvite ZINVITE"   "ZINVITE code on which to perform an export"]])
+   ["-Z" "--zinvite ZINVITE"   "ZINVITE code on which to perform an export"]
+   ["-o" "--output-dir DIR"   "Directory where to store traces (defaults to 'traces')"]])
+
+(def trace-cli-options
+  [["-h" "--help" "Print help and exit"
+    :id :help]
+   ["-o" "--output-dir DIR" "Directory where to store traces"
+    :id :output-dir
+    :default "traces"]
+   ["-Z" "--zinvite" "Use zinvites instead of ZIDs to identify conversations"
+    :id :zinvite]])
 
 (defn usage [options-summary]
-  (->> ["Usage: lein run [subcommand] [options]"
+  (->> ["Usage: lein run [subcommand] [options] [args...]"
         ""
         (str "Subcommand options: " (string/join " " (keys subcommands)))
-
+        ""
+        "Special subcommand formats:"
+        "  update-with-trace [zid1 zid2 ...] - Process multiple conversations with tracing"
+        "    Options:"
+        "      -o, --output-dir DIR    Directory to store traces (default: 'traces')"
+        "      -Z, --zinvite          Use this flag if the arguments are zinvites instead of ZIDs"
+        "      -h, --help             Show this help message"
         ""
         "Other options:"
         options-summary]
@@ -110,28 +126,28 @@
       (conv-man/write-conv-updates! conv-man updated-conv math-tick))
     (catch Exception e (log/error e (str "Unable to complete conversation update for zid " zid)))))
 
-(defn update-conv-traced
-  [system zid]
-  (try
-    ;; Configure instrumentation before running the update
-    (instrument/configure-instrumentation! 
-      {:enabled true
-       :output-dir "traces"});
-    ;; Instrument the wrapped-pca function
-    (instrument/instrument-fn #'polismath.math.pca/wrapped-pca)
-    ;; Run the normal update
-    (let [conv-man (:conversation-manager system)
-          conv (conv-man/load-or-init conv-man zid)
-          updated-conv (conv/conv-update conv [])
-          math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
-      ;; Write the updates
-      (conv-man/write-conv-updates! conv-man updated-conv math-tick)
-    )
-    (catch Exception e 
-      (log/error e (str "Unable to complete conversation update for zid " zid))
-      ;; Make sure to clear instrumentation even if there's an error
-      (instrument/clear-instrumentation!))))
-
+(defn update-convs-traced
+  [system zids output-dir]
+  ;; Configure instrumentation at the start
+  (instrument/configure-instrumentation! 
+    {:enabled true
+     :output-dir output-dir})
+  ;; Instrument the wrapped-pca function
+  (instrument/instrument-fn #'polismath.math.pca/wrapped-pca)
+  
+  ;; The actual function calls being traced (wrapped-pca) happen asynchronously
+  ;; after the update-conv function returns. This means we cannot clear the
+  ;; instrumentation immediately after processing all ZIDs, as the traced
+  ;; functions may not have executed yet. Instead, we use a shutdown hook
+  ;; to ensure instrumentation is cleared only after all async operations
+  ;; have completed (which will be by the time the JVM is shutting down).
+  (.addShutdownHook (Runtime/getRuntime)
+    (Thread. #(instrument/clear-instrumentation!)))
+  
+  ;; Process all conversations, allowing individual ones to fail
+  (doseq [zid zids]
+    (log/info "Processing traced update for zid:" zid)
+    (update-conv (:conversation-manager system) zid)))
 
 (defn update-all-convs
   [{:as system :keys [conversation-manager postgres]}]
@@ -171,8 +187,8 @@
 
 (def export-cli-options
   [["-z" "--zid ZID"           "ZID on which to do an export" :parse-fn #(Integer/parseInt %)]
-   ["-Z" "--zinvite ZINVITE"   "ZINVITE code on which to perform an export"]
-   ["-X" "--include-xid"      "Include user xids in output"]
+   ["-Z" "--zinvite ZINVITE"   "INVITE code on which to perform an export"]
+   ["-X" "--include-xid"       "Include user xids in output"]
    ["-u" "--user-id USER_ID"   "Export all conversations associated with USER_ID, and place in zip file" :parse-fn #(Integer/parseInt %)]
    ["-f" "--filename FILENAME" "filename" "Name of output file (should be zip for csv out)"]
    ["-t" "--at-time AT_TIME"   "A string of YYYY-MM-DD-HH-MM-SS (in UTC) or ms-timestamp since epoch" :parse-fn parse-time]
@@ -237,7 +253,10 @@
   (log/info "Runner main function executed")
   ;; default to poller subcommand
   (let [subcommand (or (first args) "poller")
-        parser-spec (if (= subcommand "export") export-cli-options cli-options)
+        parser-spec (cond
+                     (= subcommand "export") export-cli-options
+                     (= subcommand "update-with-trace") trace-cli-options
+                     :else cli-options)
         {:as parse-results :keys [arguments options errors summary]} (cli/parse-opts args parser-spec)]
     (log/info "CLI arguments and options:\n" (with-out-str (pprint/pprint (select-keys parse-results [:arguments :options]))))
     (cond
@@ -267,9 +286,20 @@
             (println "zid is: " zid)
             (update-conv system zid))
           "update-with-trace"
-          (let [zid (:zid options)]
-            (println "zid is: " zid)
-            (update-conv-traced system zid))
+          (let [args-to-process (rest arguments)
+                output-dir (or (:output-dir options) "traces")
+                using-zinvites (:zinvite options)]
+            (if (empty? args-to-process)
+              (utils/exit 1 (str "No " (if using-zinvites "zinvites" "ZIDs") " provided. "
+                                "Usage: lein run update-with-trace [--zinvite] " 
+                                (if using-zinvites "zinvite1 [zinvite2 ...]" "zid1 [zid2 ...]")))
+              (do
+                (println (str "Processing " (if using-zinvites "zinvites" "ZIDs") ":" args-to-process))
+                (println "Storing traces in:" output-dir)
+                (let [zids (if using-zinvites
+                            (map #(postgres/get-zid-from-zinvite (:postgres system) %) args-to-process)
+                            (map #(Integer/parseInt %) args-to-process))]
+                  (update-convs-traced system zids output-dir)))))
           ;; Otherwise, default to keeping the main thread spinning while the system runs
           (loop []
             (Thread/sleep 1000)

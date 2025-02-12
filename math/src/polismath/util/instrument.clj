@@ -99,7 +99,14 @@
   (let [merged-config (merge default-config config)]
     (reset! instrumentation-config merged-config)
     (when-let [dir (:output-dir merged-config)]
-      (io/make-parents (str dir "/dummy")))))
+      ;; Create the output directory if it doesn't exist
+      (let [output-dir (io/file dir)]
+        (when-not (.exists output-dir)
+          (log/info "Creating output directory:" dir)
+          (.mkdirs output-dir))
+        ;; Ensure we have write permissions
+        (when-not (.canWrite output-dir)
+          (throw (ex-info "Output directory is not writable" {:dir dir})))))))
 
 (defn- format-value [v]
   v)

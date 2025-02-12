@@ -1,0 +1,23 @@
+#!/bin/bash
+
+# Get the directory where the script is located
+SCRIPT_DIR="$(dirname "$0")"
+# Get the math directory (parent of bin)
+MATH_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Function to run the trace command in docker with given arguments
+run_trace() {
+    docker exec -it polis-dev-math-1 clojure -M:run update-with-trace "$@"
+}
+
+# If no arguments provided, load ZIDs from the CSV file
+if [ $# -eq 0 ]; then
+    # Extract ZIDs from CSV file, skipping header line and using cut to get the third field
+    # Clean up the input by removing carriage returns and trimming whitespace
+    ZIDS=$(tail -n +2 "$MATH_DIR/traces/conversations_zid.csv" | cut -d, -f3 | tr -d '\r' | tr -d ' ')
+    # Forward the extracted ZIDs to the docker command
+    run_trace $ZIDS
+else
+    # Forward all provided arguments to the docker command for tracing conversations
+    run_trace "$@"
+fi 
