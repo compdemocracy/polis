@@ -89,7 +89,6 @@ const App = (props) => {
   let corMatRetries;
 
   useEffect(() => {
-
     // setInterval(() => {
     //   window.location.reload()
     // }, 45000);
@@ -203,17 +202,20 @@ const App = (props) => {
       const decodedChunk = decoder.decode(value, { stream: true });
 
       if (!decodedChunk.includes("POLIS-PING:")) {
-        decodedChunk.split(`|||`).filter(Boolean).forEach((j) => {
-          try {
-            const c = JSON.parse(j);
-            setNarrative((prevNarrative) => ({
-              ...(prevNarrative || {}),
-              ...c,
-            }))
-          } catch (error) {
-            console.log(error, j)
-          }
-        });
+        decodedChunk
+          .split(`|||`)
+          .filter(Boolean)
+          .forEach((j) => {
+            try {
+              const c = JSON.parse(j);
+              setNarrative((prevNarrative) => ({
+                ...(prevNarrative || {}),
+                ...c,
+              }));
+            } catch (error) {
+              console.log(error, j);
+            }
+          });
       }
     }
   };
