@@ -1,11 +1,14 @@
-(function() {
-  var polis = window.polis = window.polis || {};
-  var firstRun = !window.polis._hasRun;
-  polis._hasRun = 1;
-  var iframes = [];
-  var polisUrl = "https://preprod.pol.is";
-  var maxHeightsSeen = {};
+// Self-contained embed script for preprod.pol.is
 
+(function() {
+  const polis = window.polis = window.polis || {};
+  const firstRun = !window.polis._hasRun;
+  polis._hasRun = 1;
+  const iframes = [];
+  const serviceUrl = window.location.protocol + "//preprod.pol.is";
+  const maxHeightsSeen = {};
+
+  // Initialize event handlers if not already present
   polis.on = polis.on || {};
   polis.on.vote = polis.on.vote || [];
   polis.on.doneVoting = polis.on.doneVoting || [];
@@ -13,268 +16,255 @@
   polis.on.resize = polis.on.resize || [];
   polis.on.init = polis.on.init || [];
 
-  function parseQueryParams(startToken, s) {
-    if (typeof s !== "string") {
-      return {};
-    }
-    if (s.charAt(0) === startToken) {
-      s = s.slice(1);
-    }
-    var pairStrings = s.split("&");
-    var o = {};
-    for (var i = 0; i < pairStrings.length; i++) {
-      var pair = pairStrings[i].split("=");
-      o[pair[0]] = decodeURIComponent(pair[1]);
-    }
-    return o;
+  function parseQueryParams(startToken, queryString) {
+    if (typeof queryString !== "string") return {};
+    
+    const cleanQueryString = queryString.startsWith(startToken) ? queryString.slice(1) : queryString;
+    
+    return Object.fromEntries(
+      cleanQueryString
+        .split('&')
+        .map(pair => pair.split('='))
+        .map(([key, value]) => [key, decodeURIComponent(value)])
+    );
   }
 
-  var paramsHash = parseQueryParams("#", window.location.hash);
-  var paramsQuery = parseQueryParams("?", window.location.search);
-  var xid = paramsHash.xid || paramsQuery.xid;
+  const paramsHash = parseQueryParams("#", window.location.hash);
+  const paramsQuery = parseQueryParams("?", window.location.search);
+  const xid = paramsHash.xid ?? paramsQuery.xid;
 
-  function getConfig(d) {
-     return {
-         conversation_id: d.getAttribute("data-conversation_id"),
-         site_id: d.getAttribute("data-site_id"),
-         page_id: d.getAttribute("data-page_id"),
-         parent_url: d.getAttribute("data-parent_url"),
-         xid: d.getAttribute("data-xid") || xid,
-         x_name: d.getAttribute("data-x_name"),
-         x_profile_image_url: d.getAttribute("data-x_profile_image_url"),
+  // Default configuration values for UI display
+  const DEFAULT_CONFIG = {
+    // Visual defaults
+    border: '1px solid #ccc',
+    border_radius: '4px',
+    padding: '4px',
+    height: 930,
+    
+    // Basic display settings
+    bg_white: true
+  };
 
-         border: d.getAttribute("data-border"),
-         border_radius: d.getAttribute("data-border_radius"),
-         padding: d.getAttribute("data-padding"),
-         height: d.getAttribute("data-height"),
-         demo: d.getAttribute("data-demo"),
+  function getConfig(element) {
+    function getAttr(name) {
+      return element.getAttribute("data-" + name);
+    }
+    
+    return {
+      conversation_id: getAttr('conversation_id'),
+      site_id: getAttr('site_id'),
+      page_id: getAttr('page_id'),
+      parent_url: getAttr('parent_url'),
+      xid: getAttr('xid') ?? xid,
+      x_name: getAttr('x_name'),
+      x_profile_image_url: getAttr('x_profile_image_url'),
 
-         ucv: d.getAttribute("data-ucv"),
-         ucw: d.getAttribute("data-ucw"),
-         ucsh: d.getAttribute("data-ucsh"),
-         ucst: d.getAttribute("data-ucst"),
-         ucsd: d.getAttribute("data-ucsd"),
-         ucsv: d.getAttribute("data-ucsv"),
-         ucsf: d.getAttribute("data-ucsf"),
+      // Visual settings
+      border: getAttr('border'),
+      border_radius: getAttr('border_radius'),
+      padding: getAttr('padding'),
+      height: getAttr('height'),
+      demo: getAttr('demo'),
 
-         ui_lang: d.getAttribute("data-ui_lang"),
+      // User customization
+      ucv: getAttr('ucv'),
+      ucw: getAttr('ucw'),
+      ucsh: getAttr('ucsh'),
+      ucst: getAttr('ucst'),
+      ucsd: getAttr('ucsd'),
+      ucsv: getAttr('ucsv'),
+      ucsf: getAttr('ucsf'),
 
-         subscribe_type: d.getAttribute("data-subscribe_type"), // 0 for no prompt, 1 for email prompt (1 is default)
+      ui_lang: getAttr('ui_lang'),
+      subscribe_type: getAttr('subscribe_type'),
 
-         // These config variables will be used to init the conversation.
-         // Subsequent loads will not update to these values in our DB.
-         // To change the values after the conversation is created, go to the config tab of
-         // https://pol.is/m/<conversation_id>
-         show_vis: d.getAttribute("data-show_vis"),
-         show_share: d.getAttribute("data-show_share"),
-         bg_white: d.getAttribute("data-bg_white"),
+      // Display configuration
+      show_vis: getAttr('show_vis'),
+      show_share: getAttr('show_share'),
+      bg_white: getAttr('bg_white'),
 
-         auth_needed_to_vote: d.getAttribute("data-auth_needed_to_vote"), // default false
-         auth_needed_to_write: d.getAttribute("data-auth_needed_to_write"), // default true
-         // Prompt users to auth using Facebook.
-         auth_opt_fb: d.getAttribute("data-auth_opt_fb"), // default true
-         // Prompt users to auth using Twitter.
-         auth_opt_tw: d.getAttribute("data-auth_opt_tw"), // default true
-         // This is here in case we add other auth providers (Google, etc), you can preemptively disable them by setting this to false.
-         // Example: if auth_opt_fb is true, but auth_opt_allow_3rdparty is false, users will not be prompted to auth using Facebook.
-         auth_opt_allow_3rdparty: d.getAttribute("data-auth_opt_allow_3rdparty"), // default true
-         dwok: d.getAttribute("data-dwok"),
-         topic: d.getAttribute("data-topic")
-
-     };
+      // Auth settings
+      auth_needed_to_vote: getAttr('auth_needed_to_vote'),
+      auth_needed_to_write: getAttr('auth_needed_to_write'),
+      auth_opt_fb: getAttr('auth_opt_fb'),
+      auth_opt_tw: getAttr('auth_opt_tw'),
+      auth_opt_allow_3rdparty: getAttr('auth_opt_allow_3rdparty'),
+      
+      dwok: getAttr('dwok'),
+      topic: getAttr('topic')
+    };
   }
 
-
-  function createPolisIframe(parent, o) {
-    var iframe = document.createElement("iframe");
-    var path = [];
-    o.parent_url = o.parent_url || window.location+"";
-    var id = "polis_";
-    var paramStrings = [];
-
-    function appendIfPresent(name) {
-      if (o[name] !== null && o[name] !== void 0) {
-        paramStrings.push(name + "=" + encodeURIComponent(o[name]));
+  function createPolisIframe(parent, config) {
+    const iframe = document.createElement("iframe");
+    const path = [];
+    const paramStrings = [];
+    
+    // Set parent URL with fallback to current location
+    config.parent_url = config.parent_url || window.location+"";
+    
+    function appendParam(paramName) {
+      if (config[paramName] != null) {
+        paramStrings.push(paramName + "=" + encodeURIComponent(config[paramName]));
       }
     }
 
-    if (o.conversation_id) {
-      if (o.demo) {
-        path.push("demo");
-      }
-      path.push(o.conversation_id);
-      id += o.conversation_id;
-    } else if (o.site_id) {
-      path.push(o.site_id);
-      id += o.site_id;
-      if (!o.page_id) {
-        alert("Error: need data-page_id when using data-site_id");
+    // Build the iframe ID and source path
+    let iframeId = "polis_";
+    if (config.conversation_id) {
+      if (config.demo) path.push("demo");
+      path.push(config.conversation_id);
+      iframeId += config.conversation_id;
+    } else if (config.site_id) {
+      path.push(config.site_id);
+      iframeId += config.site_id;
+      
+      if (!config.page_id) {
+        console.error("Error: need data-page_id when using data-site_id");
         return;
       }
-      path.push(o.page_id);
-      id += "_" + o.page_id;
-      appendIfPresent("demo");
+      
+      path.push(config.page_id);
+      iframeId += "_" + config.page_id;
+      appendParam("demo");
     } else {
-      alert("Error: need data-conversation_id or data-site_id");
+      console.error("Error: need data-conversation_id or data-site_id");
       return;
     }
-    var src = polisUrl+ "/" + path.join("/");
 
-    appendIfPresent("parent_url");
-    if (o.parent_url) {
-      paramStrings.push("referrer="+ encodeURIComponent(document.referrer));
+    // Build the source URL with parameters
+    let srcUrl = serviceUrl + "/" + path.join("/");
+    
+    // Add parent URL and referrer
+    appendParam("parent_url");
+    if (config.parent_url) {
+      paramStrings.push("referrer=" + encodeURIComponent(document.referrer));
     }
 
-    appendIfPresent("xid");
-    appendIfPresent("x_name");
-    appendIfPresent("x_profile_image_url");
-    appendIfPresent("ucv");
-    appendIfPresent("ucw");
-    appendIfPresent("ucsh");
-    appendIfPresent("ucst");
-    appendIfPresent("ucsd");
-    appendIfPresent("ucsv");
-    appendIfPresent("ucsf");
+    // User identification params
+    ['xid', 'x_name', 'x_profile_image_url'].forEach(appendParam);
 
-    appendIfPresent("ui_lang");
+    // User customization params
+    ['ucv', 'ucw', 'ucsh', 'ucst', 'ucsd', 'ucsv', 'ucsf'].forEach(appendParam);
 
-    appendIfPresent("subscribe_type");
+    // UI and display params
+    ['ui_lang', 'subscribe_type', 'show_vis', 'show_share', 'bg_white'].forEach(appendParam);
 
-    appendIfPresent("show_vis");
-    appendIfPresent("show_share");
-    appendIfPresent("bg_white");
-    appendIfPresent("auth_needed_to_vote");
-    appendIfPresent("auth_needed_to_write");
-    appendIfPresent("auth_opt_fb");
-    appendIfPresent("auth_opt_tw");
-    appendIfPresent("auth_opt_allow_3rdparty");
+    // Auth params
+    [
+      'auth_needed_to_vote',
+      'auth_needed_to_write',
+      'auth_opt_fb',
+      'auth_opt_tw',
+      'auth_opt_allow_3rdparty'
+    ].forEach(appendParam);
 
-    appendIfPresent("dwok");
+    // Additional params
+    ['dwok', 'topic'].forEach(appendParam);
 
-    appendIfPresent("topic");
-
+    // Append parameters to source URL if any exist
     if (paramStrings.length) {
-      src += "?" + paramStrings.join("&");
+      srcUrl += "?" + paramStrings.join("&");
     }
 
-    iframe.src = src;
-    iframe.width = "100%"; // may be constrained by parent div
-    iframe.style.maxWidth = window.innerWidth + "px";
-    iframe.height = o.height || 930;
-    iframe.style.border = o.border || "1px solid #ccc";
-    iframe.style.borderRadius = o.border_radius || "4px";
-    iframe.style.padding = o.padding || "4px"; // 1px ensures that right border shows up on default wordpress theme
-    iframe.style.backgroundColor = "white";
-    // iframe.style.backgroundColor = "rgb(247, 247, 247)";
-    iframe.id = id;
+    // Set iframe attributes
+    Object.assign(iframe, {
+      src: srcUrl,
+      id: iframeId,
+      width: '100%',
+      height: config.height ?? DEFAULT_CONFIG.height
+    });
+
+    // Set iframe styles
+    Object.assign(iframe.style, {
+      maxWidth: window.innerWidth + "px",
+      border: config.border ?? DEFAULT_CONFIG.border,
+      borderRadius: config.border_radius ?? DEFAULT_CONFIG.border_radius,
+      padding: config.padding ?? DEFAULT_CONFIG.padding,
+      backgroundColor: 'white'
+    });
+
+    // Add test ID for e2e testing
+    iframe.setAttribute('data-test-id', 'polis-iframe');
+    
+    // Append iframe and track it
     parent.appendChild(iframe);
     iframes.push(iframe);
   }
 
   function cookiesEnabledAtTopLevel() {
     // create a temporary cookie
-    var soon = new Date(Date.now() + 1000).toUTCString();
-    var teststring = "_polistest_cookiesenabled";
-    document.cookie = teststring + "=1; expires=" + soon;
+    const expiryTime = new Date(Date.now() + 1000).toUTCString();
+    const testCookieName = "_polistest_cookiesenabled";
+    document.cookie = testCookieName + "=1; expires=" + expiryTime;
+    
     // see if it worked
-    var cookieEnabled = document.cookie.indexOf(teststring) != -1;
+    const cookieEnabled = document.cookie.includes(testCookieName);
+    
     // clear the cookie
-    document.cookie = teststring + "=; expires=" + (new Date(0)).toUTCString();
+    document.cookie = testCookieName + "=; expires=" + (new Date(0)).toUTCString();
     return cookieEnabled;
   }
 
   function encodeReturnUrl(str) {
-    var x, i;
-    var result = "";
-    for (i=0; i<str.length; i++) {
-      x = str.charCodeAt(i).toString(16);
-      result += ("000"+x).slice(-4);
+    let result = "";
+    for (let i = 0; i < str.length; i++) {
+      const x = str.charCodeAt(i).toString(16);
+      result += ("000" + x).slice(-4);
     }
     return result;
   }
 
-
   if (firstRun) {
-    // function notifyIframes(message) {
-    //   // NOTE: twitterWindow closes itself
-    //   for (var i = 0; i < iframes.length; i++) {
-    //     var x = iframes[i];
-    //     var c = x.contentWindow;
-    //     if (c && c.postMessage) {
-    //       c.postMessage(message, "*");
-    //     }
-    //   }
-    // }
-
     window.addEventListener("message", function(event) {
-      var data = event.data||{};
-      var domain = event.origin.replace(/^https?:\/\//,'');
-      if (!domain.match(/(^|\.)pol.is$/)) {
+      const data = event.data ?? {};
+      const domain = event.origin.replace(/^https?:\/\//, '');
+      
+      // Validate message origin for preprod
+      if (!domain.match(/(^|\.)preprod\.pol\.is$/)) {
         return;
       }
 
-      var cbList = polis.on[data.name]||[];
-      var cbResults = [];
-      for (var i = 0; i < cbList.length; i++) {
-        cbResults.push(cbList[i]({
-          iframe: document.getElementById("polis_" + data.polisFrameId),
-          data: data
-        }));
+      // Handle callbacks for the event
+      const callbacks = polis.on[data.name] ?? [];
+      const callbackResults = callbacks.map(cb => cb({
+        iframe: document.getElementById("polis_" + data.polisFrameId),
+        data
+      }));
+
+      // Handle init events
+      if (data?.name === "init") {
+        polis.on.init.forEach(handler => handler(data));
       }
 
-      if (data && data.name === "init") {
-        for (var r = 0; r < polis.on.init.length; r++) {
-          polis.on.init[r](data);
-        }
+      // Handle cookie redirect
+      if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {
+        window.location = serviceUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
       }
 
-      // if (data === "cookieRedirect" && cookiesEnabledAtTopLevel()) {//   // temporarily redirect to polis, which will set a cookie and redirect back
-      //   window.location = polisUrl + "/api/v3/launchPrep?dest=" + encodeReturnUrl(window.location+"");
-      // }
-      // if (data === "twitterConnectBegin") {
-      //   // open a new window where the twitter auth screen will show.
-      //   // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
-      //   var params = 'location=0,status=0,width=800,height=400';
-      //   twitterWindow = window.open(polisUrl + "/api/v3/twitterBtn?dest=" + encodeReturnUrl(window.location+""), 'twitterWindow', params);
-      // }
-
+      // Handle resize events
       if (data.name === "resize") {
-        var resizeWasHandled = false;
-        for (var j = 0; j < cbResults.length; j++) {
-          if (cbResults[j] === true) {
-            resizeWasHandled = true;
-          }
-        }
+        const resizeWasHandled = callbackResults.some(result => result === true);
+        
         if (!resizeWasHandled) {
-          console.log(data.polisFrameId);
-          var frameId = "polis_" + data.polisFrameId;
-          var iframe = document.getElementById(frameId);
-          var h = data.height;
-          if (h > maxHeightsSeen[frameId] || typeof maxHeightsSeen[frameId] === "undefined") {
-            // Prevents resize loops and excessive scrollbar flashing by only allowing iframe to expand.
-            maxHeightsSeen[frameId] = h;
-            iframe.setAttribute("height", h);
+          const frameId = "polis_" + data.polisFrameId;
+          const iframe = document.getElementById(frameId);
+          const height = data.height;
+          
+          // Only allow iframe to expand to prevent resize loops
+          if (height > (maxHeightsSeen[frameId] ?? 0)) {
+            maxHeightsSeen[frameId] = height;
+            iframe.setAttribute("height", height);
           }
         }
       }
-
-
     }, false);
   }
 
-  // Add iframes to any polis divs that don't already have iframes.
-  // (check needed since this script may be included multiple times)
-  var polisDivs = document.getElementsByClassName("polis");
-  for (var i = 0; i < polisDivs.length; i++) {
-      var d = polisDivs[i];
-      if (d.children && d.children.length) {
-          // already populated
-      } else {
-         var config = getConfig(d);
-         createPolisIframe(d, config);
-      }
-  }
+  // Initialize iframes for any polis divs that don't have them
+  document.querySelectorAll('.polis').forEach(function(div) {
+    if (!div.children?.length) {
+      createPolisIframe(div, getConfig(div));
+    }
+  });
 }());
-
-
-
