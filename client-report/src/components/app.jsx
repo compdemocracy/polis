@@ -41,7 +41,7 @@ const App = (props) => {
   const [conversation, setConversation] = useState(null);
   const [groupDemographics, setGroupDemographics] = useState(null);
   const [colorBlindMode, setColorBlindMode] = useState(false);
-  const [model, setModel] = useState("claude");
+  const [model, setModel] = useState("openai");
   const [isNarrativeReport, setIsNarrativeReport] = useState(
     window.location.pathname.split("/")[1] === "narrativeReport"
   );
