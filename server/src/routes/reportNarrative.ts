@@ -231,7 +231,7 @@ const getModelResponse = async (
       }
       case "openai": {
         const responseOpenAI = await openai.chat.completions.create({
-          model: modelVersion || "gpt-4o",
+          model: modelVersion || "gpt-4o-mini",
           messages: [
             { role: "system", content: system_lore },
             { role: "user", content: prompt_xml },
