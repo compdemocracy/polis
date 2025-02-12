@@ -1,0 +1,12 @@
+---
+description: Running python test
+globs: *.py
+---
+
+# Runing python unit tests
+
+- You can run the python unit tests with the make rule defined in [Makefile](mdc:math/Makefile) , to be run in the folder `math`.    
+```
+make test-py
+```
+We use `pytest` for testing, and coverage checks.

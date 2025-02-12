@@ -1,0 +1,23 @@
+---
+description: Running clojure unit tests and clojure code
+globs: *clj
+---
+
+# Runing clojure unit tests
+
+- You can run the clojure unit tests with the make rule defined in [Makefile](mdc:math/Makefile) , but you need to be in the `math` directory:    
+```
+make test-clj
+```
+with optional argument `T` to specifi which namespace to test, e.g.
+```
+make test-clj T="instrument"
+make test-clj T="pca"
+```
+as described in the test runner [test_runner.clj](mdc:math/test/test_runner.clj) 
+
+# Clojure setup
+
+Clojure runs in the docker container defined in [docker-compose.dev.yml](mdc:docker-compose.dev.yml) and [Dockerfile](mdc:math/Dockerfile) .
+In it, we do not use `lein`, we use `clojure`.
+[Makefile](mdc:Makefile) and [Makefile](mdc:math/Makefile) have useful rules to invoke commands related to these containers, in particular to run clojure code.

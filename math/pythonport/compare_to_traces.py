@@ -11,6 +11,7 @@ except ImportError:
     # When running as standalone script
     import pca
 from termcolor import colored
+import time
 
 # Function name mapping from Clojure to Python
 DEFAULT_FN_MAPPING = {
@@ -70,6 +71,13 @@ def compare_results(actual, expected):
     """Compare actual result with expected result from JSON.
     Returns a dict with 'match' and 'discrepancy' fields."""
     
+    # First check if types match
+    if type(actual) != type(expected):
+        return {
+            'match': False, 
+            'discrepancy': f"Type mismatch: {type(actual)} vs {type(expected)}"
+        }
+    
     if isinstance(actual, np.ndarray) and isinstance(expected, np.ndarray):
         match = np.allclose(actual, expected, rtol=1e-5, atol=1e-8)
         if not match:
@@ -79,26 +87,29 @@ def compare_results(actual, expected):
         else:
             discrepancy = None
     elif isinstance(actual, (list, tuple)) and isinstance(expected, (list, tuple)):
-        sub_results = [compare_results(a, str(e)) for a, e in zip(actual, expected)]
+        sub_results = [compare_results(a, e) for a, e in zip(actual, expected)]
         match = all(r['match'] for r in sub_results)
         discrepancy = [r['discrepancy'] for r in sub_results if r['discrepancy']] if not match else None
     elif isinstance(actual, dict) and isinstance(expected, dict):
-        sub_results = {k: compare_results(actual[k], str(expected[k])) for k in actual.keys()}
+        sub_results = {k: compare_results(actual[k], expected[k]) for k in actual.keys()}
         match = all(r['match'] for r in sub_results.values())
         discrepancy = {k: r['discrepancy'] for k, r in sub_results.items() if r['discrepancy']} if not match else None
+    elif isinstance(actual, (int, float, np.number)):
+        match = actual == expected
+        discrepancy = f"{actual} vs {expected}" if not match else None
     else:
+        # For non-numeric types, include type information in the comparison
         actual_str = str(actual)
         expected_str = str(expected)
         match = actual_str == expected_str
         if not match:
-            # Find first differing position
             i = 0
             while i < min(len(actual_str), len(expected_str)) and actual_str[i] == expected_str[i]:
                 i += 1
-            # Get context around difference
             start = max(0, i - 5)
             end = min(len(actual_str), i + 5)
-            discrepancy = f"diff at pos {i}: ...{actual_str[start:end]}... vs ...{expected_str[start:end]}..."
+            type_info = f" (type={type(actual).__name__})" if not isinstance(actual, str) else ""
+            discrepancy = f"diff at pos {i}{type_info}: ...{actual_str[start:end]}... vs ...{expected_str[start:end]}..."
         else:
             discrepancy = None
             
@@ -136,22 +147,20 @@ def validate_record(record, fn_mapping=None, arg_transformers=None):
     fn_name = record['fn-name']
     if fn_name not in fn_mapping:
         print(colored(f"Warning: No Python implementation found for {fn_name}", 'red'))
-        return False
+        return False, None
 
     py_func = fn_mapping[fn_name]
     args, kwargs = parse_args(record)
     expected = parse_value(record['result'])
+    clj_duration_ms = record.get('duration-ms', None)  # Get Clojure runtime
 
     # Apply any custom argument transformations
     if arg_transformers:
-        # Apply default transformer if it exists
         if '*' in arg_transformers:
             args, kwargs = arg_transformers['*'](args, kwargs)
-        # Apply function-specific transformer if it exists
         if fn_name in arg_transformers:
             args, kwargs = arg_transformers[fn_name](args, kwargs)
 
-    # Call the Python function
     print(f"Calling {fn_name} with {len(args)} args and kwargs: {kwargs.keys()}")
 
     # Format values for display
@@ -163,8 +172,11 @@ def validate_record(record, fn_mapping=None, arg_transformers=None):
     print(colored("Keyword Arguments:", 'white', attrs=['bold']), display_kwargs)
     print(colored("Expected:", 'white', attrs=['bold']), display_expected)
 
-    #try:
+    # Time the Python implementation
+    start_time = time.perf_counter()
     result = py_func(*args, **kwargs)
+    py_duration_ms = (time.perf_counter() - start_time) * 1000
+
     comparison = compare_results(result, expected)
     matches = comparison['match']
 
@@ -172,18 +184,29 @@ def validate_record(record, fn_mapping=None, arg_transformers=None):
     print(colored("Got:", 'white', attrs=['bold']), display_result)
     print(colored("Match:", 'white', attrs=['bold']), 
             colored('✓', 'green', attrs=['bold']) if matches else colored('✗', 'red', attrs=['bold']))
+    
+    speedup = None
+    # Display timing information
+    if clj_duration_ms is not None:
+        speedup = clj_duration_ms / py_duration_ms
+        print(colored("Timing:", 'white', attrs=['bold']))
+        print(f"  Clojure: {colored(f'{clj_duration_ms:.2f}ms', 'yellow')}")
+        print(f"  Python:  {colored(f'{py_duration_ms:.2f}ms', 'yellow')}")
+        color = 'green' if speedup > 1 else 'red'
+        print(f"  Speedup: {colored(f'{speedup:.2f}x', color)} (Python is {colored('faster' if speedup > 1 else 'slower', color)})")
+
     if not matches:
         print(colored("Discrepancy:", 'white', attrs=['bold']), 
               colored(str(comparison['discrepancy']), 'red'))
     print(colored("-" * 80, 'white', attrs=['dark']))
 
-    return matches
-    #except Exception as e:
-    #    print(colored(f"Error executing {fn_name}: {str(e)}", 'red'))
-    #    return False
+    return matches, speedup
 
 def validate_directory(directory_path, fn_mapping=None, arg_transformers=None):
     """Validate all JSON files in a directory."""
+    fn_mapping = fn_mapping or DEFAULT_FN_MAPPING
+    arg_transformers = arg_transformers or DEFAULT_ARG_TRANSFORMERS
+    
     directory = Path(directory_path)
     if not directory.exists():
         print(colored(f"Directory not found: {directory_path}", 'red'))
@@ -196,25 +219,40 @@ def validate_directory(directory_path, fn_mapping=None, arg_transformers=None):
     
     total = 0
     matches = 0
+    speedups = []  # Track speedups for each test
     
     for json_file in json_files:
-        #try:
         with open(json_file) as f:
             record = json.load(f)
         
         print(colored(f"\nValidating {json_file.name}:", 'white', attrs=['bold']))
-        if validate_record(record, fn_mapping, arg_transformers):
+        match_result, speedup = validate_record(record, fn_mapping, arg_transformers)
+        if match_result:
             matches += 1
+        if speedup is not None:
+            speedups.append(speedup)
         total += 1
-            
-        #except Exception as e:
-        #    print(colored(f"Error processing {json_file}: {str(e)}", 'red'))
     
+    # Print summary
     summary = f"\nSummary: {matches}/{total} records matched"
     if matches == total:
         print(colored(summary, 'green', attrs=['bold']))
     else:
         print(colored(summary, 'yellow', attrs=['bold']))
+    
+    # Print speedup summary if we have timing data
+    if speedups:
+        avg_speedup = sum(speedups) / len(speedups)
+        min_speedup = min(speedups)
+        max_speedup = max(speedups)
+        
+        print(colored("\nPerformance Summary:", 'white', attrs=['bold']))
+        color = 'green' if avg_speedup > 1 else 'red'
+        print(f"  Average Speedup: {colored(f'{avg_speedup:.2f}x', color)}")
+        print(f"  Range: {colored(f'{min_speedup:.2f}x', 'yellow')} to {colored(f'{max_speedup:.2f}x', 'yellow')}")
+        faster_count = sum(1 for s in speedups if s > 1)
+        print(f"  Python faster in {colored(f'{faster_count}/{len(speedups)}', 'green')} tests")
+    
     return matches, total
 
 if __name__ == '__main__':
