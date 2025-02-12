@@ -98,6 +98,9 @@ start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker conta
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build
 
+rebuild-web: echo_vars ## Rebuild and restart just the file-server container and its static assets
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build file-server
+
 build-web-assets: ## Build and extract static web assets for cloud deployment to `build` dir
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} create --build --force-recreate file-server
 	$(MAKE) extract-web-assets
@@ -125,7 +128,7 @@ rbs: start-rebuild
 	@true
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
-	start-recreate restart-FULL-REBUILD e2e-install e2e-run e2e-run-all e2e-run-interactive \
+	start-recreate start-FULL-REBUILD rebuild-web e2e-install e2e-run e2e-run-all e2e-run-interactive \
 	build-web-assets extract-web-assets
 
 
