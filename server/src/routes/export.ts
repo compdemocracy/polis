@@ -490,41 +490,25 @@ export async function sendCommentGroupsSummary(
         groupStats.passes
       );
     }
-    if (http && res) {
-      if (
-        filterFN &&
-        filterFN({
-          votes: stats.total_votes,
-          agrees: stats.total_agrees,
-          disagrees: stats.total_disagrees,
-          passes: stats.total_passes,
-          group_aware_consensus: groupAwareConsensus[stats.tid],
-          comment_extremity:
-            commentExtremity[tidToExtremityIndex.get(stats.tid)],
-          comment_id: stats.tid,
-        }) === true
-      ) {
-        res.write(row.join(",") + sep);
-      } else if (filterFN === undefined) {
-        res.write(row.join(",") + sep);
-      }
-    } else {
-      if (
-        filterFN &&
-        filterFN({
-          votes: stats.total_votes,
-          agrees: stats.total_agrees,
-          disagrees: stats.total_disagrees,
-          passes: stats.total_passes,
-          group_aware_consensus: groupAwareConsensus[stats.tid],
-          comment_extremity:
-            commentExtremity[tidToExtremityIndex.get(stats.tid)],
-          comment_id: stats.tid,
-        }) === true
-      ) {
-        csvText.push(row.join(",") + sep);
-      } else if (filterFN === undefined) {
-        csvText.push(row.join(",") + sep);
+    const shouldIncludeRow =
+      filterFN === undefined ||
+      filterFN({
+        votes: stats.total_votes,
+        agrees: stats.total_agrees,
+        disagrees: stats.total_disagrees,
+        passes: stats.total_passes,
+        group_aware_consensus: groupAwareConsensus[stats.tid],
+        comment_extremity: commentExtremity[tidToExtremityIndex.get(stats.tid)],
+        comment_id: stats.tid,
+      }) === true;
+
+    const rowString = row.join(",") + sep;
+
+    if (shouldIncludeRow) {
+      if (http && res) {
+        res.write(rowString);
+      } else {
+        csvText.push(rowString);
       }
     }
   }
