@@ -4,6 +4,7 @@ import React from "react";
 import CommentList from "./commentList.jsx";
 import * as globals from "../globals.js";
 import Narrative from "../narrative/index.jsx";
+import getNarrativeJSON from "../../util/getNarrativeJSON.js";
 
 const UncertaintyNarrative = ({
   conversation,
@@ -16,10 +17,7 @@ const UncertaintyNarrative = ({
   model,
 }) => {
   try {
-    const txt =
-      model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini;
-
-    const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
+    const narrativeJSON = getNarrativeJSON(narrative, narrative?.model);
 
     // Extract all citation IDs from the narrative structure
     const uniqueTids = narrativeJSON.paragraphs.reduce((acc, paragraph) => {
@@ -61,8 +59,8 @@ const UncertaintyNarrative = ({
   } catch (err) {
     console.error("Failed to parse narrative:", {
       error: err,
-      rawText: narrative?.responseClaude?.content[0]?.text,
-      model,
+      rawText: narrative,
+      model: narrative?.model,
     });
     return (
       <div>

@@ -2,6 +2,7 @@ import React from "react";
 import * as globals from "../globals.js";
 import Narrative from "../narrative/index.jsx";
 import CommentList from "./commentList.jsx";
+import getNarrativeJSON from "../../util/getNarrativeJSON.js";
 
 const TopicNarrative = ({
   conversation,
@@ -15,10 +16,7 @@ const TopicNarrative = ({
   topicName,
 }) => {
   try {
-    const txt =
-      model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini;
-
-    const narrativeJSON = model === "claude" ? JSON.parse(`{${txt}`) : JSON.parse(txt);
+    const narrativeJSON = getNarrativeJSON(narrative, narrative?.model);
 
     // Extract all citation IDs from the narrative structure
     const uniqueTids = narrativeJSON.paragraphs.reduce((acc, paragraph) => {
@@ -60,7 +58,7 @@ const TopicNarrative = ({
   } catch (err) {
     console.error(`Failed to parse narrative for topic ${topicName}:`, {
       error: err,
-      rawText: model === "claude" ? narrative?.responseClaude.content[0].text : narrative?.responseGemini,
+      rawText: narrative,
       model,
     });
     return (

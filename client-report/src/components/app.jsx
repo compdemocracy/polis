@@ -41,7 +41,7 @@ const App = (props) => {
   const [conversation, setConversation] = useState(null);
   const [groupDemographics, setGroupDemographics] = useState(null);
   const [colorBlindMode, setColorBlindMode] = useState(false);
-  const [model, setModel] = useState("claude");
+  const [model, setModel] = useState("openai");
   const [isNarrativeReport, setIsNarrativeReport] = useState(
     window.location.pathname.split("/")[1] === "narrativeReport"
   );
@@ -83,7 +83,7 @@ const App = (props) => {
   const [searchParamsModel, setSearchParamModel] = useState(
     window.location.search.includes("model=")
       ? window.location.search.split("model=")[1]?.split("&")[0]
-      : null
+      : "openai"
   );
 
   let corMatRetries;
@@ -169,48 +169,63 @@ const App = (props) => {
 
   const getNarrative = async (report_id) => {
     const urlPrefix = URLs.urlPrefix;
-    const response = await fetch(
-      `${urlPrefix}api/v3/reportNarrative?report_id=${report_id}${
-        searchParamsSection ? `&section=${searchParamsSection}` : ``
-      }${searchParamsModel ? `&model=${searchParamsModel}` : ``}`,
-      {
-        credentials: "include",
-        method: "get",
-        headers: {
-          Accept: "application/json, text/plain, */*",
-          "Content-Type": "application/json",
-        },
+    try {
+      const response = await fetch(
+        `${urlPrefix}api/v3/reportNarrative?report_id=${report_id}${
+          searchParamsSection ? `&section=${searchParamsSection}` : ``
+        }${searchParamsModel ? `&model=${searchParamsModel}` : ``}`,
+        {
+          credentials: "include",
+          method: "get",
+          headers: {
+            Accept: "application/json, text/plain, */*",
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-    );
-    if (!response.ok || !response.body) {
-      throw response.statusText;
-    }
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    const loopRunner = true;
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
 
-    while (loopRunner) {
-      // streaming response - the loop will run indefinetly until the response ends - this is a streaming function to improve UX and prevent cloud runners (like heroku) from terminating a long running http request
-      const { value, done } = await reader.read();
-      if (done) {
-        break;
-      }
-      const decodedChunk = decoder.decode(value, { stream: true });
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
 
-      if (!decodedChunk.includes("POLIS-PING:")) {
-        decodedChunk.split(`|||`).filter(Boolean).forEach((j) => {
-          try {
-            const c = JSON.parse(j);
-            setNarrative((prevNarrative) => ({
-              ...(prevNarrative || {}),
-              ...c,
-            }))
-          } catch (error) {
-            console.log(error, j)
+          if (done) break;
+
+          const decodedChunk = decoder.decode(value, { stream: true });
+
+          if (!decodedChunk.includes("POLIS-PING:")) {
+            decodedChunk
+              .split(`|||`)
+              .filter(Boolean)
+              .forEach((j) => {
+                try {
+                  const c = JSON.parse(j);
+                  setNarrative((prevNarrative) => ({
+                    ...(prevNarrative || {}),
+                    ...c,
+                  }));
+                } catch (error) {
+                  console.warn("Error parsing narrative chunk:", error);
+                }
+              });
           }
-        });
+        }
+      } catch (streamError) {
+        console.warn("Stream was interrupted:", streamError);
+        // Optionally retry or handle the interruption
+        // You could set a flag in state to show a "Connection interrupted" message
+      } finally {
+        reader.releaseLock();
       }
+    } catch (error) {
+      console.error("Failed to fetch narrative:", error);
+      // Handle the error appropriately - maybe set an error state
     }
   };
 

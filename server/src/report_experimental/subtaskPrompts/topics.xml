@@ -11,6 +11,10 @@
             Generate a JSON response that conforms to the provided schema. DO NOT INCLUDE ANY OTHER
             TEXT.
         </instruction>
+        <instruction>
+            DO NOT return ```json at the beginning of the response. This is not markdown. Do not end
+            the response with ```, your response MUST begin with { and end with }
+        </instruction>
     </criticalInstructions>
 
     <definitions>

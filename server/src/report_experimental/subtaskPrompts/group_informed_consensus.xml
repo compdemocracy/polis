@@ -12,6 +12,10 @@
             TEXT.
         </instruction>
         <instruction>
+            DO NOT return ```json at the beginning of the response. This is not markdown. Do not end
+            the response with ```, your response MUST begin with { and end with }
+        </instruction>
+        <instruction>
             Analyze and include ALL comments that show consensus patterns — the data is already
             filtered for those with the requisite score threshold for group-aware consensus.
             The analysis should be exhaustive and comprehensive, potentially spanning many

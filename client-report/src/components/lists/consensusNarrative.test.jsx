@@ -23,12 +23,7 @@ jest.mock('./commentList.jsx', () => {
 });
 
 describe('ConsensusNarrative Component', () => {
-    const mockNarrativeData = {
-          responseClaude: {
-            content: [{ text: '"paragraphs":[{"sentences":[{"clauses":[{"citations":["tid1","tid2"]}]}]}]}' }],
-          },
-          responseGemini: '{"paragraphs":[{"sentences":[{"clauses":[{"citations":["tid2","tid3","tid1"]}]}]}]}',
-      };
+    const mockNarrativeData = {modelResponse: `{"paragraphs":[{"sentences":[{"clauses":[{"citations":["tid2","tid3","tid1"]}]}]}]}`};
       
 
   const mockProps = {
@@ -43,23 +38,12 @@ describe('ConsensusNarrative Component', () => {
   };
 
 
-  it('renders the component with Claude model', async () => {
+  it('renders the component', async () => {
     render(<ConsensusNarrative {...mockProps} />);
 
     expect(screen.getByText('Consensus Across Groups')).toBeInTheDocument();
     expect(screen.getByText('This narrative summary may contain hallucinations. Check each clause.')).toBeInTheDocument();
 
-    expect(screen.getByTestId('mock-narrative')).toHaveTextContent('Model: claude');
-    expect(screen.getByTestId('mock-comment-list')).toHaveTextContent('TIDs: ["tid1","tid2"]');
+    expect(screen.getByTestId('mock-comment-list')).toHaveTextContent('CommentList Component - TIDs: ["tid2","tid3","tid1"]');
   });
-
-    it('renders the component with Gemini model', async () => {
-        render(<ConsensusNarrative {...{...mockProps, model: "gemini"}} />);
-
-        expect(screen.getByText('Consensus Across Groups')).toBeInTheDocument();
-        expect(screen.getByText('This narrative summary may contain hallucinations. Check each clause.')).toBeInTheDocument();
-
-        expect(screen.getByTestId('mock-narrative')).toHaveTextContent('Model: gemini');
-        expect(screen.getByTestId('mock-comment-list')).toHaveTextContent('TIDs: ["tid2","tid3","tid1"]');
-    });
 });

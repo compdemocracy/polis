@@ -66,6 +66,7 @@
     "nodemailer": "~6.4.16",
     "nodemailer-mailgun-transport": "~2.0.0",
     "oauth": "~0.9.14",
+    "openai": "^4.83.0",
     "optimist": "~0.3.7",
     "p3p": "~0.0.2",
     "pg": "~8.8.0",
