@@ -267,6 +267,13 @@ const getModelResponse = async (
   }
 };
 
+const getThreshold = (numGroups: number) => {
+  if (numGroups <= 2) return 0.7;
+  if (numGroups >= 5) return 0.24;
+  const slope = (0.24 - 0.7) / (5 - 2);
+  return 0.7 + slope * (numGroups - 2);
+};
+
 export async function handle_GET_groupInformedConsensus(
   rid: string,
   storage: DynamoStorageService | undefined,
@@ -280,8 +287,8 @@ export async function handle_GET_groupInformedConsensus(
     name: "group_informed_consensus",
     templatePath:
       "src/report_experimental/subtaskPrompts/group_informed_consensus.xml",
-    filter: (v: { group_aware_consensus: number }) =>
-      (v.group_aware_consensus ?? 0) > 0.7,
+    filter: (v: { group_aware_consensus: number; num_groups: number }) =>
+      (v.group_aware_consensus ?? 0) > getThreshold(v.num_groups),
   };
 
   const cachedResponse = await storage?.queryItemsByRidSectionModel(
