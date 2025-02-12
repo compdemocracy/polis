@@ -67,19 +67,42 @@ def parse_args(record):
     return args, kwargs
 
 def compare_results(actual, expected):
-    """Compare actual result with expected result from JSON."""
+    """Compare actual result with expected result from JSON.
+    Returns a dict with 'match' and 'discrepancy' fields."""
     
     if isinstance(actual, np.ndarray) and isinstance(expected, np.ndarray):
-        return np.allclose(actual, expected, rtol=1e-5, atol=1e-8)
+        match = np.allclose(actual, expected, rtol=1e-5, atol=1e-8)
+        if not match:
+            rel_diff = np.max(np.abs((actual - expected) / (expected + 1e-10)))
+            abs_diff = np.max(np.abs(actual - expected))
+            discrepancy = f"max_rel_diff={rel_diff:.2e}, max_abs_diff={abs_diff:.2e}"
+        else:
+            discrepancy = None
     elif isinstance(actual, (list, tuple)) and isinstance(expected, (list, tuple)):
-        return len(actual) == len(expected) and all(
-            compare_results(a, str(e)) for a, e in zip(actual, expected)
-        )
+        sub_results = [compare_results(a, str(e)) for a, e in zip(actual, expected)]
+        match = all(r['match'] for r in sub_results)
+        discrepancy = [r['discrepancy'] for r in sub_results if r['discrepancy']] if not match else None
     elif isinstance(actual, dict) and isinstance(expected, dict):
-        return (set(actual.keys()) == set(expected.keys()) and
-                all(compare_results(actual[k], str(expected[k])) for k in actual.keys()))
+        sub_results = {k: compare_results(actual[k], str(expected[k])) for k in actual.keys()}
+        match = all(r['match'] for r in sub_results.values())
+        discrepancy = {k: r['discrepancy'] for k, r in sub_results.items() if r['discrepancy']} if not match else None
     else:
-        return str(actual) == str(expected)
+        actual_str = str(actual)
+        expected_str = str(expected)
+        match = actual_str == expected_str
+        if not match:
+            # Find first differing position
+            i = 0
+            while i < min(len(actual_str), len(expected_str)) and actual_str[i] == expected_str[i]:
+                i += 1
+            # Get context around difference
+            start = max(0, i - 5)
+            end = min(len(actual_str), i + 5)
+            discrepancy = f"diff at pos {i}: ...{actual_str[start:end]}... vs ...{expected_str[start:end]}..."
+        else:
+            discrepancy = None
+            
+    return {'match': match, 'discrepancy': discrepancy}
 
 def format_dict_for_display(d):
     """Format a dictionary with colored keys and values."""
@@ -142,12 +165,16 @@ def validate_record(record, fn_mapping=None, arg_transformers=None):
 
     #try:
     result = py_func(*args, **kwargs)
-    matches = compare_results(result, expected)
+    comparison = compare_results(result, expected)
+    matches = comparison['match']
 
     display_result = format_value_for_display(result)
     print(colored("Got:", 'white', attrs=['bold']), display_result)
     print(colored("Match:", 'white', attrs=['bold']), 
             colored('✓', 'green', attrs=['bold']) if matches else colored('✗', 'red', attrs=['bold']))
+    if not matches:
+        print(colored("Discrepancy:", 'white', attrs=['bold']), 
+              colored(str(comparison['discrepancy']), 'red'))
     print(colored("-" * 80, 'white', attrs=['dark']))
 
     return matches
