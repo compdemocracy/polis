@@ -9,11 +9,13 @@ import {
 export default class DynamoStorageService {
   private client: DynamoDBClient;
   private tableName: string;
+  private cacheDisabled: boolean;
 
-  constructor(region: string, tableName: string) {
+  constructor(region: string, tableName: string, disableCache?: boolean) {
     const dynamoClient = new DynamoDBClient({ region });
     this.client = dynamoClient;
     this.tableName = tableName;
+    this.cacheDisabled = disableCache || false;
   }
 
   async putItem(item: Record<string, unknown> | undefined) {
@@ -42,6 +44,10 @@ export default class DynamoStorageService {
     };
   
     const command = new QueryCommand(params);
+
+    if (this.cacheDisabled) {
+      return []
+    }
   
     try {
       const data = await this.client.send(command);
