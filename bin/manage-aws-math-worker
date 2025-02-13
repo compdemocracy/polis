@@ -3,13 +3,24 @@
 set -euo pipefail
 
 # Configuration
-DEFAULT_AWS_REGION="us-west-2"  # Default region, can be overridden with --region
+DEFAULT_AWS_REGION="us-west-2"  # Default region, used only if AWS_REGION env var is not set and --region not specified
 DEFAULT_INSTANCE_TYPE="t3.medium"  # Default instance type, can be overridden with --instance-type
 DEFAULT_BRANCH="edge"  # Default branch/tag/commit, can be overridden with --branch
 DEFAULT_KEYPAIR_NAME="polis-math-worker"  # Default keypair name, can be overridden with --keypair-name
 SECURITY_GROUP_NAME="polis-math-worker"
 TAG_NAME="polis-math-worker"
 POLIS_REPO="https://github.com/compdemocracy/polis.git"
+
+get_region() {
+    local specified_region="$1"
+    if [ -n "$specified_region" ]; then
+        echo "$specified_region"
+    elif [ -n "${AWS_REGION:-}" ]; then
+        echo "$AWS_REGION"
+    else
+        echo "$DEFAULT_AWS_REGION"
+    fi
+}
 
 get_latest_al2023_ami() {
     local region="$1"
@@ -50,7 +61,7 @@ usage() {
     echo "    --env-file      Path to environment file (recommend to match your main Polis stack, except for database URL)"
     echo "    --ts-auth-key   Tailscale auth key"
     echo "  Optional:"
-    echo "    --region        AWS region (default: $DEFAULT_AWS_REGION)"
+    echo "    --region        AWS region (defaults to AWS_REGION environment variable, or $DEFAULT_AWS_REGION if not set)"
     echo "    --branch        Git branch/tag/commit to use (default: $DEFAULT_BRANCH)"
     echo "    --instance-type EC2 instance type (default: $DEFAULT_INSTANCE_TYPE)"
     echo "    --keypair-name  Name of the AWS key pair to use (default: $DEFAULT_KEYPAIR_NAME)"
@@ -102,25 +113,43 @@ usage() {
 }
 
 create_security_group() {
-    if ! aws ec2 describe-security-groups --group-names "$SECURITY_GROUP_NAME" &>/dev/null; then
-        aws ec2 create-security-group \
+    local region="$1"
+    local group_id
+    
+    # Try to get existing security group ID
+    group_id=$(aws ec2 describe-security-groups \
+        --region "$region" \
+        --filters "Name=group-name,Values=$SECURITY_GROUP_NAME" \
+        --query 'SecurityGroups[0].GroupId' \
+        --output text 2>/dev/null || echo "")
+    
+    if [ "$group_id" = "None" ] || [ -z "$group_id" ]; then
+        # Create new security group
+        group_id=$(aws ec2 create-security-group \
+            --region "$region" \
             --group-name "$SECURITY_GROUP_NAME" \
-            --description "Security group for Polis math worker"
+            --description "Security group for Polis math worker" \
+            --query 'GroupId' \
+            --output text)
         
         # Allow SSH inbound
         aws ec2 authorize-security-group-ingress \
-            --group-name "$SECURITY_GROUP_NAME" \
+            --region "$region" \
+            --group-id "$group_id" \
             --protocol tcp \
             --port 22 \
             --cidr 0.0.0.0/0
         
         # Allow all outbound traffic
         aws ec2 authorize-security-group-egress \
-            --group-name "$SECURITY_GROUP_NAME" \
+            --region "$region" \
+            --group-id "$group_id" \
             --protocol all \
-            --port all \
+            --port -1 \
             --cidr 0.0.0.0/0
     fi
+    
+    echo "$group_id"
 }
 
 wait_for_ssh() {
@@ -186,7 +215,7 @@ create_instance() {
     
     # Define user data script
     local user_data
-    read -r -d '' user_data << 'EOF'
+    user_data=$(cat << 'EOF'
 #!/bin/bash
 # Install Docker
 dnf update -y
@@ -221,22 +250,25 @@ docker run -d \
     --env-file ../.env \
     polis-math
 EOF
+)
     
     # Prepare user data by replacing placeholders
     user_data=$(echo "$user_data" | \
         sed "s|POLIS_REPO|$POLIS_REPO|g" | \
         sed "s|POLIS_BRANCH|$branch|g" | \
-        sed "s|ENV_FILE_CONTENT|$env_content|g")
-    
-    create_security_group
+        sed -e ':a' -e 'N' -e '$!ba' -e "s|ENV_FILE_CONTENT|$(echo "$env_content" | sed -e 's/[\/&]/\\&/g' -e 's/$/\\n/' | tr -d '\n')|g")
     
     # Create EC2 instance
     local instance_id
+    local security_group_id
+    security_group_id=$(create_security_group "$region")
+    
     instance_id=$(aws ec2 run-instances \
+        --region "$region" \
         --image-id "$ami_id" \
         --instance-type "$instance_type" \
         --key-name "$keypair_name" \
-        --security-groups "$SECURITY_GROUP_NAME" \
+        --security-group-ids "$security_group_id" \
         --user-data "$user_data" \
         --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$TAG_NAME}]" \
         --query 'Instances[0].InstanceId' \
@@ -245,11 +277,12 @@ EOF
     echo "Instance $instance_id is being created..."
     
     # Wait for instance to be running
-    aws ec2 wait instance-running --instance-ids "$instance_id"
+    aws ec2 wait instance-running --region "$region" --instance-ids "$instance_id"
     
     # Get instance public IP
     local public_ip
     public_ip=$(aws ec2 describe-instances \
+        --region "$region" \
         --instance-ids "$instance_id" \
         --query 'Reservations[0].Instances[0].PublicIpAddress' \
         --output text)
@@ -274,7 +307,9 @@ EOF
 
 get_instance_ip() {
     local instance_id="$1"
+    local region="$2"
     aws ec2 describe-instances \
+        --region "$region" \
         --instance-ids "$instance_id" \
         --query 'Reservations[0].Instances[0].PublicIpAddress' \
         --output text
@@ -286,7 +321,7 @@ ssh_to_instance() {
     local region="$3"
     
     local public_ip
-    public_ip=$(get_instance_ip "$instance_id")
+    public_ip=$(get_instance_ip "$instance_id" "$region")
     
     if [[ -z "$public_ip" ]]; then
         echo "Error: Could not get public IP for instance $instance_id"
@@ -305,24 +340,24 @@ ssh_to_instance() {
 start_instance() {
     local instance_id="$1"
     local region="$2"
-    aws ec2 start-instances --instance-ids "$instance_id"
-    aws ec2 wait instance-running --instance-ids "$instance_id"
+    aws ec2 start-instances --region "$region" --instance-ids "$instance_id"
+    aws ec2 wait instance-running --region "$region" --instance-ids "$instance_id"
     echo "Instance $instance_id started"
 }
 
 stop_instance() {
     local instance_id="$1"
     local region="$2"
-    aws ec2 stop-instances --instance-ids "$instance_id"
-    aws ec2 wait instance-stopped --instance-ids "$instance_id"
+    aws ec2 stop-instances --region "$region" --instance-ids "$instance_id"
+    aws ec2 wait instance-stopped --region "$region" --instance-ids "$instance_id"
     echo "Instance $instance_id stopped"
 }
 
 terminate_instance() {
     local instance_id="$1"
     local region="$2"
-    aws ec2 terminate-instances --instance-ids "$instance_id"
-    aws ec2 wait instance-terminated --instance-ids "$instance_id"
+    aws ec2 terminate-instances --region "$region" --instance-ids "$instance_id"
+    aws ec2 wait instance-terminated --region "$region" --instance-ids "$instance_id"
     echo "Instance $instance_id terminated"
 }
 
@@ -330,6 +365,7 @@ get_status() {
     local instance_id="$1"
     local region="$2"
     aws ec2 describe-instances \
+        --region "$region" \
         --instance-ids "$instance_id" \
         --query 'Reservations[0].Instances[0].{State:State.Name,PublicIP:PublicIpAddress,LaunchTime:LaunchTime}' \
         --output table
@@ -338,6 +374,7 @@ get_status() {
 list_instances() {
     local region="$1"
     aws ec2 describe-instances \
+        --region "$region" \
         --filters "Name=tag:Name,Values=$TAG_NAME" \
         --query 'Reservations[].Instances[].[InstanceId,State.Name,LaunchTime,PublicIpAddress,Tags[?Key==`Name`].Value | [0]]' \
         --output table
@@ -346,18 +383,19 @@ list_instances() {
 create_keypair() {
     local keypair_name="$1"
     local output_dir="${2:-$HOME/.ssh}"
-    local key_path="$output_dir/$keypair_name.pem"
     local region="$3"
+    local key_path="$output_dir/$keypair_name.pem"
     
     # Ensure output directory exists
     mkdir -p "$output_dir"
     
     # Delete existing key pair if it exists
-    aws ec2 delete-key-pair --key-name "$keypair_name" 2>/dev/null || true
+    aws ec2 delete-key-pair --region "$region" --key-name "$keypair_name" 2>/dev/null || true
     
     # Create new key pair
     echo "Creating key pair '$keypair_name'..."
     aws ec2 create-key-pair \
+        --region "$region" \
         --key-name "$keypair_name" \
         --query 'KeyMaterial' \
         --output text > "$key_path"
@@ -380,9 +418,9 @@ ensure_keypair_exists() {
     local output_dir="${3:-$HOME/.ssh}"
 
     # Check if keypair exists in AWS
-    if ! aws ec2 describe-key-pairs --key-names "$keypair_name" &>/dev/null; then
+    if ! aws ec2 describe-key-pairs --region "$region" --key-names "$keypair_name" &>/dev/null; then
         echo "Keypair '$keypair_name' not found, creating it..."
-        DEFAULT_AWS_REGION="$region" create_keypair "$keypair_name" "$output_dir" "$region"
+        create_keypair "$keypair_name" "$output_dir" "$region"
     else
         # Check if we have the private key locally
         if [ ! -f "$output_dir/$keypair_name.pem" ]; then
@@ -424,7 +462,7 @@ esac
 
 case "$command" in
     list)
-        region="$DEFAULT_AWS_REGION"
+        region=""  # Initialize empty to check for --region parameter
         while [[ $# -gt 0 ]]; do
             case "$1" in
                 --region)
@@ -438,8 +476,9 @@ case "$command" in
                     ;;
             esac
         done
+        region=$(get_region "$region")
         echo "Listing all polis math worker instances in region $region..."
-        DEFAULT_AWS_REGION="$region" list_instances
+        list_instances "$region"
         ;;
     create)
         branch="$DEFAULT_BRANCH"
@@ -448,7 +487,7 @@ case "$command" in
         keypair_name="$DEFAULT_KEYPAIR_NAME"
         instance_type="$DEFAULT_INSTANCE_TYPE"
         env_file=""
-        region="$DEFAULT_AWS_REGION"
+        region=""  # Initialize empty to check for --region parameter
         override_database_url=""
         
         while [[ $# -gt 0 ]]; do
@@ -493,6 +532,8 @@ case "$command" in
             esac
         done
         
+        region=$(get_region "$region")
+        
         if [[ -z "$env_file" || -z "$ts_auth_key" ]]; then
             echo "Error: --env-file and --ts-auth-key are required for create command"
             usage
@@ -502,10 +543,10 @@ case "$command" in
         # Ensure keypair exists before creating instance
         ensure_keypair_exists "$keypair_name" "$region" "$HOME/.ssh"
         
-        DEFAULT_AWS_REGION="$region" create_instance "$env_file" "$ts_auth_key" "$branch" "$key_path" "$keypair_name" "$instance_type" "$region" "$override_database_url"
+        create_instance "$env_file" "$ts_auth_key" "$branch" "$key_path" "$keypair_name" "$instance_type" "$region" "$override_database_url"
         echo ""
         echo "Instance created. All current instances:"
-        DEFAULT_AWS_REGION="$region" list_instances
+        list_instances "$region"
         ;;
     create-keypair)
         keypair_name="$DEFAULT_KEYPAIR_NAME"
@@ -534,7 +575,7 @@ case "$command" in
             esac
         done
         
-        DEFAULT_AWS_REGION="$region" create_keypair "$keypair_name" "$output_dir" "$region"
+        create_keypair "$keypair_name" "$output_dir" "$region"
         ;;
     ssh)
         instance_id=""
@@ -569,12 +610,12 @@ case "$command" in
             exit 1
         fi
         
-        DEFAULT_AWS_REGION="$region" ssh_to_instance "$instance_id" "$key_path" "$region"
+        ssh_to_instance "$instance_id" "$key_path" "$region"
         ;;
         
     start|stop|terminate|status)
         instance_id=""
-        region="$DEFAULT_AWS_REGION"
+        region=""  # Initialize empty to check for --region parameter
         
         while [[ $# -gt 0 ]]; do
             case "$1" in
@@ -594,6 +635,8 @@ case "$command" in
             esac
         done
         
+        region=$(get_region "$region")
+        
         if [[ -z "$instance_id" ]]; then
             echo "Error: --instance-id is required for $command command"
             usage
@@ -601,10 +644,10 @@ case "$command" in
         fi
         
         case "$command" in
-            start) DEFAULT_AWS_REGION="$region" start_instance "$instance_id" "$region" ;;
-            stop) DEFAULT_AWS_REGION="$region" stop_instance "$instance_id" "$region" ;;
-            terminate) DEFAULT_AWS_REGION="$region" terminate_instance "$instance_id" "$region" ;;
-            status) DEFAULT_AWS_REGION="$region" get_status "$instance_id" "$region" ;;
+            start) start_instance "$instance_id" "$region" ;;
+            stop) stop_instance "$instance_id" "$region" ;;
+            terminate) terminate_instance "$instance_id" "$region" ;;
+            status) get_status "$instance_id" "$region" ;;
         esac
         ;;
         

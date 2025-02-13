@@ -41,8 +41,7 @@ Create a new EC2 instance with the math worker:
 ```bash
 ./bin/manage-aws-math-worker create \
   --env-file .env \
-  --ts-auth-key 'tskey-xxxxx' \
-  --keypair-name polis-math-worker
+  --ts-auth-key 'tskey-xxxxx'
 ```
 
 The `--env-file` parameter is mandatory and should point to the same environment file used by your main Polis stack. This ensures configuration consistency across your deployment.
@@ -59,8 +58,9 @@ If you need to connect to a different database than specified in your environmen
 Optional parameters:
 - `--branch` - Git branch/tag/commit to use (default: edge)
 - `--instance-type` - EC2 instance type (default: t3.medium)
-- `--key-path` - Path to SSH key (if not using ssh-agent)
-- `--region` - AWS region (default: us-west-2)
+- `--key-path` - Path to SSH private key (if not using ssh-agent)
+- `--region` - AWS region (defaults to AWS_REGION environment variable, or us-west-2 if not set)
+- `--keypair-name` - Name of the AWS key pair to use (default: polis-math-worker)
 
 ### 4. List and Check Status
 
@@ -123,7 +123,16 @@ When the instance is no longer needed, terminate it:
 
 4. **Tailscale**: The instance will automatically join your Tailscale network during creation, enabling secure access to your PostgreSQL database.
 
-5. **AMI**: The script uses Amazon Linux 2023 AMI by default. If you modify the script to use a different AMI, you'll need to update the Tailscale installation steps in the user data script accordingly.
+5. **Region Selection**: The script will use regions in the following order of precedence:
+   - The `--region` command line argument if provided
+   - The `AWS_REGION` environment variable if set
+   - The default region (us-west-2)
+
+6. **Security Groups**: The script automatically manages security groups:
+   - Creates a security group named "polis-math-worker" if it doesn't exist
+   - Configures inbound SSH access (port 22)
+   - Allows all outbound traffic
+   - Reuses existing security group if already present
 
 ## Command Reference
 
