@@ -1,0 +1,616 @@
+#!/bin/bash
+
+set -euo pipefail
+
+# Configuration
+DEFAULT_AWS_REGION="us-west-2"  # Default region, can be overridden with --region
+DEFAULT_INSTANCE_TYPE="t3.medium"  # Default instance type, can be overridden with --instance-type
+DEFAULT_BRANCH="edge"  # Default branch/tag/commit, can be overridden with --branch
+DEFAULT_KEYPAIR_NAME="polis-math-worker"  # Default keypair name, can be overridden with --keypair-name
+SECURITY_GROUP_NAME="polis-math-worker"
+TAG_NAME="polis-math-worker"
+POLIS_REPO="https://github.com/compdemocracy/polis.git"
+
+get_latest_al2023_ami() {
+    local region="$1"
+    local ami_id
+    ami_id=$(aws ec2 describe-images \
+        --region "$region" \
+        --owners amazon \
+        --filters \
+            "Name=name,Values=al2023-ami-2023.*-x86_64" \
+            "Name=state,Values=available" \
+        --query 'sort_by(Images, &CreationDate)[-1].ImageId' \
+        --output text)
+    
+    if [[ -z "$ami_id" ]]; then
+        echo "Error: Could not find Amazon Linux 2023 AMI in region $region" >&2
+        exit 1
+    fi
+    echo "$ami_id"
+}
+
+usage() {
+    echo "Usage: $0 <command> [options]"
+    echo ""
+    echo "Commands Summary:"
+    echo "  create          Create and start a new EC2 instance"
+    echo "  create-keypair  Create a new AWS key pair and save it locally"
+    echo "  list           List all polis math worker instances"
+    echo "  status         Check instance status"
+    echo "  ssh            SSH into the instance"
+    echo "  start          Start an existing stopped instance"
+    echo "  stop           Stop a running instance"
+    echo "  terminate      Terminate an instance permanently"
+    echo ""
+    echo "Command Details:"
+    echo "----------------"
+    echo "create"
+    echo "  Required:"
+    echo "    --env-file      Path to environment file (recommend to match your main Polis stack, except for database URL)"
+    echo "    --ts-auth-key   Tailscale auth key"
+    echo "  Optional:"
+    echo "    --region        AWS region (default: $DEFAULT_AWS_REGION)"
+    echo "    --branch        Git branch/tag/commit to use (default: $DEFAULT_BRANCH)"
+    echo "    --instance-type EC2 instance type (default: $DEFAULT_INSTANCE_TYPE)"
+    echo "    --keypair-name  Name of the AWS key pair to use (default: $DEFAULT_KEYPAIR_NAME)"
+    echo "    --key-path      Path to SSH private key (if not using ssh-agent)"
+    echo "    --override-database-url  Override the DATABASE_URL from the environment file"
+    echo ""
+    echo "create-keypair"
+    echo "  Optional:"
+    echo "    --keypair-name  Name for the new key pair (default: $DEFAULT_KEYPAIR_NAME)"
+    echo "    --region        AWS region (default: $DEFAULT_AWS_REGION)"
+    echo "    --output-dir    Directory to save the key file (default: ~/.ssh)"
+    echo ""
+    echo "list"
+    echo "  Optional:"
+    echo "    --region        AWS region (default: $DEFAULT_AWS_REGION)"
+    echo ""
+    echo "status, start, stop, terminate"
+    echo "  Required:"
+    echo "    --instance-id   ID of the instance"
+    echo "  Optional:"
+    echo "    --region        AWS region (default: $DEFAULT_AWS_REGION)"
+    echo ""
+    echo "ssh"
+    echo "  Required:"
+    echo "    --instance-id   ID of the instance"
+    echo "  Optional:"
+    echo "    --region        AWS region (default: $DEFAULT_AWS_REGION)"
+    echo "    --key-path      Path to SSH private key (if not using ssh-agent)"
+    echo ""
+    echo "Examples:"
+    echo "  # Create a new instance"
+    echo "  $0 create --env-file .env --ts-auth-key tskey-xxxxx --keypair-name polis-math-worker"
+    echo ""
+    echo "  # Create in a different region"
+    echo "  $0 create --region us-east-1 --env-file .env --ts-auth-key tskey-xxxxx --keypair-name polis-math-worker"
+    echo ""
+    echo "  # Create with a different database URL"
+    echo "  $0 create --env-file .env --ts-auth-key tskey-xxxxx --override-database-url postgres://user:pass@host:5432/db"
+    echo ""
+    echo "  # SSH into an instance"
+    echo "  $0 ssh --instance-id i-xxxxxx"
+    echo ""
+    echo "Note: The environment file should be the same as used by your main Polis stack."
+    echo "      You can create a copy and modify the POSTGRES URL if needed."
+    echo ""
+    echo "Note about AMI: The script uses Amazon Linux 2023 AMI by default."
+    echo "      If you modify the script to use a different AMI, you'll need to update"
+    echo "      the Tailscale installation steps in the user data script accordingly."
+}
+
+create_security_group() {
+    if ! aws ec2 describe-security-groups --group-names "$SECURITY_GROUP_NAME" &>/dev/null; then
+        aws ec2 create-security-group \
+            --group-name "$SECURITY_GROUP_NAME" \
+            --description "Security group for Polis math worker"
+        
+        # Allow SSH inbound
+        aws ec2 authorize-security-group-ingress \
+            --group-name "$SECURITY_GROUP_NAME" \
+            --protocol tcp \
+            --port 22 \
+            --cidr 0.0.0.0/0
+        
+        # Allow all outbound traffic
+        aws ec2 authorize-security-group-egress \
+            --group-name "$SECURITY_GROUP_NAME" \
+            --protocol all \
+            --port all \
+            --cidr 0.0.0.0/0
+    fi
+}
+
+wait_for_ssh() {
+    local host="$1"
+    local key_path="${2:-}"
+    local max_attempts=30
+    local attempt=1
+    
+    echo "Waiting for SSH to become available..."
+    while true; do
+        if [ -n "$key_path" ]; then
+            # Try with explicit key file
+            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i "$key_path" ec2-user@"$host" true &>/dev/null && break
+        else
+            # Try with SSH agent
+            ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 ec2-user@"$host" true &>/dev/null && break
+        fi
+        
+        if [ $attempt -ge $max_attempts ]; then
+            echo "Timeout waiting for SSH to become available"
+            return 1
+        fi
+        echo "Attempt $attempt of $max_attempts..."
+        sleep 10
+        ((attempt++))
+    done
+    echo "SSH is available!"
+}
+
+create_instance() {
+    local env_file="$1"
+    local ts_auth_key="$2"
+    local branch="${3:-edge}"
+    local key_path="${4:-}"
+    local keypair_name="$5"
+    local instance_type="${6:-$DEFAULT_INSTANCE_TYPE}"
+    local region="$7"
+    local override_database_url="${8:-}"
+    
+    # Check if env file exists and read it
+    if [ ! -f "$env_file" ]; then
+        echo "Error: Environment file $env_file does not exist"
+        exit 1
+    fi
+    
+    # Read environment file content
+    local env_content
+    env_content=$(cat "$env_file")
+    
+    # Override DATABASE_URL if provided
+    if [ -n "$override_database_url" ]; then
+        echo "Overriding DATABASE_URL with: $override_database_url"
+        # Remove any existing DATABASE_URL line and add the new one
+        env_content=$(echo "$env_content" | grep -v "^DATABASE_URL=")
+        env_content="${env_content}"$'\n'"DATABASE_URL=$override_database_url"
+    fi
+    
+    # Get the latest AMI ID for the region
+    echo "Getting latest Amazon Linux 2023 AMI ID for region $region..."
+    local ami_id
+    ami_id=$(get_latest_al2023_ami "$region")
+    echo "Using AMI: $ami_id"
+    
+    # Define user data script
+    local user_data
+    read -r -d '' user_data << 'EOF'
+#!/bin/bash
+# Install Docker
+dnf update -y
+dnf install -y docker git
+systemctl start docker
+systemctl enable docker
+
+# Install Tailscale
+dnf config-manager --add-repo https://pkgs.tailscale.com/stable/amazon-linux/2023/tailscale.repo
+dnf install -y tailscale
+systemctl start tailscaled
+systemctl enable tailscaled
+
+# Clone Polis repository
+cd /opt
+git clone POLIS_REPO polis
+cd polis
+git checkout POLIS_BRANCH
+
+# Create env file
+cat > .env << 'ENVEOF'
+ENV_FILE_CONTENT
+ENVEOF
+
+# Start math worker
+cd math
+docker build -t polis-math .
+docker run -d \
+    --name polis-math \
+    --restart unless-stopped \
+    --memory=$(free -b | awk '/Mem:/ {printf "%.0f", $2*0.9}') \
+    --env-file ../.env \
+    polis-math
+EOF
+    
+    # Prepare user data by replacing placeholders
+    user_data=$(echo "$user_data" | \
+        sed "s|POLIS_REPO|$POLIS_REPO|g" | \
+        sed "s|POLIS_BRANCH|$branch|g" | \
+        sed "s|ENV_FILE_CONTENT|$env_content|g")
+    
+    create_security_group
+    
+    # Create EC2 instance
+    local instance_id
+    instance_id=$(aws ec2 run-instances \
+        --image-id "$ami_id" \
+        --instance-type "$instance_type" \
+        --key-name "$keypair_name" \
+        --security-groups "$SECURITY_GROUP_NAME" \
+        --user-data "$user_data" \
+        --tag-specifications "ResourceType=instance,Tags=[{Key=Name,Value=$TAG_NAME}]" \
+        --query 'Instances[0].InstanceId' \
+        --output text)
+    
+    echo "Instance $instance_id is being created..."
+    
+    # Wait for instance to be running
+    aws ec2 wait instance-running --instance-ids "$instance_id"
+    
+    # Get instance public IP
+    local public_ip
+    public_ip=$(aws ec2 describe-instances \
+        --instance-ids "$instance_id" \
+        --query 'Reservations[0].Instances[0].PublicIpAddress' \
+        --output text)
+    
+    # Wait for SSH to be available
+    wait_for_ssh "$public_ip" "$key_path"
+    
+    # Configure Tailscale
+    echo "Configuring Tailscale..."
+    if [ -n "$key_path" ]; then
+        ssh -o StrictHostKeyChecking=no -i "$key_path" ec2-user@"$public_ip" \
+            "sudo tailscale up --authkey $ts_auth_key"
+    else
+        ssh -o StrictHostKeyChecking=no ec2-user@"$public_ip" \
+            "sudo tailscale up --authkey $ts_auth_key"
+    fi
+    
+    echo "Instance $instance_id is ready!"
+    echo "You can check its status with: $0 status --instance-id $instance_id"
+    echo "You can SSH into it with: $0 ssh --instance-id $instance_id"
+}
+
+get_instance_ip() {
+    local instance_id="$1"
+    aws ec2 describe-instances \
+        --instance-ids "$instance_id" \
+        --query 'Reservations[0].Instances[0].PublicIpAddress' \
+        --output text
+}
+
+ssh_to_instance() {
+    local instance_id="$1"
+    local key_path="${2:-}"
+    local region="$3"
+    
+    local public_ip
+    public_ip=$(get_instance_ip "$instance_id")
+    
+    if [[ -z "$public_ip" ]]; then
+        echo "Error: Could not get public IP for instance $instance_id"
+        exit 1
+    fi
+    
+    if [ -n "$key_path" ]; then
+        # Use explicit key file if provided
+        ssh -i "$key_path" ec2-user@"$public_ip"
+    else
+        # Try SSH agent
+        ssh ec2-user@"$public_ip"
+    fi
+}
+
+start_instance() {
+    local instance_id="$1"
+    local region="$2"
+    aws ec2 start-instances --instance-ids "$instance_id"
+    aws ec2 wait instance-running --instance-ids "$instance_id"
+    echo "Instance $instance_id started"
+}
+
+stop_instance() {
+    local instance_id="$1"
+    local region="$2"
+    aws ec2 stop-instances --instance-ids "$instance_id"
+    aws ec2 wait instance-stopped --instance-ids "$instance_id"
+    echo "Instance $instance_id stopped"
+}
+
+terminate_instance() {
+    local instance_id="$1"
+    local region="$2"
+    aws ec2 terminate-instances --instance-ids "$instance_id"
+    aws ec2 wait instance-terminated --instance-ids "$instance_id"
+    echo "Instance $instance_id terminated"
+}
+
+get_status() {
+    local instance_id="$1"
+    local region="$2"
+    aws ec2 describe-instances \
+        --instance-ids "$instance_id" \
+        --query 'Reservations[0].Instances[0].{State:State.Name,PublicIP:PublicIpAddress,LaunchTime:LaunchTime}' \
+        --output table
+}
+
+list_instances() {
+    local region="$1"
+    aws ec2 describe-instances \
+        --filters "Name=tag:Name,Values=$TAG_NAME" \
+        --query 'Reservations[].Instances[].[InstanceId,State.Name,LaunchTime,PublicIpAddress,Tags[?Key==`Name`].Value | [0]]' \
+        --output table
+}
+
+create_keypair() {
+    local keypair_name="$1"
+    local output_dir="${2:-$HOME/.ssh}"
+    local key_path="$output_dir/$keypair_name.pem"
+    local region="$3"
+    
+    # Ensure output directory exists
+    mkdir -p "$output_dir"
+    
+    # Delete existing key pair if it exists
+    aws ec2 delete-key-pair --key-name "$keypair_name" 2>/dev/null || true
+    
+    # Create new key pair
+    echo "Creating key pair '$keypair_name'..."
+    aws ec2 create-key-pair \
+        --key-name "$keypair_name" \
+        --query 'KeyMaterial' \
+        --output text > "$key_path"
+    
+    # Set correct permissions
+    chmod 600 "$key_path"
+    
+    echo "Key pair created and saved to: $key_path"
+    echo "You can use it with:"
+    echo "  --keypair-name $keypair_name"
+    echo "  --key-path $key_path"
+    echo ""
+    echo "Or add it to your SSH agent with:"
+    echo "  ssh-add $key_path"
+}
+
+ensure_keypair_exists() {
+    local keypair_name="$1"
+    local region="$2"
+    local output_dir="${3:-$HOME/.ssh}"
+
+    # Check if keypair exists in AWS
+    if ! aws ec2 describe-key-pairs --key-names "$keypair_name" &>/dev/null; then
+        echo "Keypair '$keypair_name' not found, creating it..."
+        DEFAULT_AWS_REGION="$region" create_keypair "$keypair_name" "$output_dir" "$region"
+    else
+        # Check if we have the private key locally
+        if [ ! -f "$output_dir/$keypair_name.pem" ]; then
+            echo "Warning: Keypair '$keypair_name' exists in AWS but private key not found at $output_dir/$keypair_name.pem"
+            echo "You may want to:"
+            echo "1. Delete the keypair in AWS and recreate it: $0 create-keypair --keypair-name $keypair_name"
+            echo "2. Or specify a different keypair name with --keypair-name"
+            exit 1
+        fi
+    fi
+}
+
+# Show help if no arguments provided
+if [ $# -eq 0 ]; then
+    usage
+    exit 0
+fi
+
+# Show help if explicitly requested
+case "$1" in
+    --help|-h)
+        usage
+        exit 0
+        ;;
+esac
+
+# Main script logic
+case "$1" in
+    create|create-keypair|list|status|ssh|start|stop|terminate)
+        command="$1"
+        shift
+        ;;
+    *)
+        echo "Unknown command: $1"
+        usage
+        exit 1
+        ;;
+esac
+
+case "$command" in
+    list)
+        region="$DEFAULT_AWS_REGION"
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --region)
+                    region="$2"
+                    shift 2
+                    ;;
+                *)
+                    echo "Unknown option: $1"
+                    usage
+                    exit 1
+                    ;;
+            esac
+        done
+        echo "Listing all polis math worker instances in region $region..."
+        DEFAULT_AWS_REGION="$region" list_instances
+        ;;
+    create)
+        branch="$DEFAULT_BRANCH"
+        ts_auth_key=""
+        key_path=""
+        keypair_name="$DEFAULT_KEYPAIR_NAME"
+        instance_type="$DEFAULT_INSTANCE_TYPE"
+        env_file=""
+        region="$DEFAULT_AWS_REGION"
+        override_database_url=""
+        
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --region)
+                    region="$2"
+                    shift 2
+                    ;;
+                --branch)
+                    branch="$2"
+                    shift 2
+                    ;;
+                --ts-auth-key)
+                    ts_auth_key="$2"
+                    shift 2
+                    ;;
+                --key-path)
+                    key_path="$2"
+                    shift 2
+                    ;;
+                --keypair-name)
+                    keypair_name="$2"
+                    shift 2
+                    ;;
+                --instance-type)
+                    instance_type="$2"
+                    shift 2
+                    ;;
+                --env-file)
+                    env_file="$2"
+                    shift 2
+                    ;;
+                --override-database-url)
+                    override_database_url="$2"
+                    shift 2
+                    ;;
+                *)
+                    echo "Unknown option: $1"
+                    usage
+                    exit 1
+                    ;;
+            esac
+        done
+        
+        if [[ -z "$env_file" || -z "$ts_auth_key" ]]; then
+            echo "Error: --env-file and --ts-auth-key are required for create command"
+            usage
+            exit 1
+        fi
+
+        # Ensure keypair exists before creating instance
+        ensure_keypair_exists "$keypair_name" "$region" "$HOME/.ssh"
+        
+        DEFAULT_AWS_REGION="$region" create_instance "$env_file" "$ts_auth_key" "$branch" "$key_path" "$keypair_name" "$instance_type" "$region" "$override_database_url"
+        echo ""
+        echo "Instance created. All current instances:"
+        DEFAULT_AWS_REGION="$region" list_instances
+        ;;
+    create-keypair)
+        keypair_name="$DEFAULT_KEYPAIR_NAME"
+        output_dir="$HOME/.ssh"
+        region="$DEFAULT_AWS_REGION"
+        
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --region)
+                    region="$2"
+                    shift 2
+                    ;;
+                --keypair-name)
+                    keypair_name="$2"
+                    shift 2
+                    ;;
+                --output-dir)
+                    output_dir="$2"
+                    shift 2
+                    ;;
+                *)
+                    echo "Unknown option: $1"
+                    usage
+                    exit 1
+                    ;;
+            esac
+        done
+        
+        DEFAULT_AWS_REGION="$region" create_keypair "$keypair_name" "$output_dir" "$region"
+        ;;
+    ssh)
+        instance_id=""
+        key_path=""
+        region="$DEFAULT_AWS_REGION"
+        
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --region)
+                    region="$2"
+                    shift 2
+                    ;;
+                --instance-id)
+                    instance_id="$2"
+                    shift 2
+                    ;;
+                --key-path)
+                    key_path="$2"
+                    shift 2
+                    ;;
+                *)
+                    echo "Unknown option: $1"
+                    usage
+                    exit 1
+                    ;;
+            esac
+        done
+        
+        if [[ -z "$instance_id" ]]; then
+            echo "Error: --instance-id is required for ssh command"
+            usage
+            exit 1
+        fi
+        
+        DEFAULT_AWS_REGION="$region" ssh_to_instance "$instance_id" "$key_path" "$region"
+        ;;
+        
+    start|stop|terminate|status)
+        instance_id=""
+        region="$DEFAULT_AWS_REGION"
+        
+        while [[ $# -gt 0 ]]; do
+            case "$1" in
+                --region)
+                    region="$2"
+                    shift 2
+                    ;;
+                --instance-id)
+                    instance_id="$2"
+                    shift 2
+                    ;;
+                *)
+                    echo "Unknown option: $1"
+                    usage
+                    exit 1
+                    ;;
+            esac
+        done
+        
+        if [[ -z "$instance_id" ]]; then
+            echo "Error: --instance-id is required for $command command"
+            usage
+            exit 1
+        fi
+        
+        case "$command" in
+            start) DEFAULT_AWS_REGION="$region" start_instance "$instance_id" "$region" ;;
+            stop) DEFAULT_AWS_REGION="$region" stop_instance "$instance_id" "$region" ;;
+            terminate) DEFAULT_AWS_REGION="$region" terminate_instance "$instance_id" "$region" ;;
+            status) DEFAULT_AWS_REGION="$region" get_status "$instance_id" "$region" ;;
+        esac
+        ;;
+        
+    *)
+        echo "Unknown command: $command"
+        usage
+        exit 1
+        ;;
+esac 
