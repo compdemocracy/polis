@@ -6,16 +6,11 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 
 export interface MathWorkerStackProps extends cdk.StackProps {
-  env?: {
-    region?: string;
-    account?: string;
-  };
   envFile: string;
-  tsAuthKey?: string;  // Make Tailscale optional
   branch?: string;
   instanceType?: string;
   databaseUrl?: string;
-  enableSSHAccess?: boolean;  // Add option for SSH access
+  enableSSHAccess?: boolean;
 }
 
 export class MathWorkerStack extends cdk.Stack {
@@ -92,15 +87,6 @@ export class MathWorkerStack extends cdk.Stack {
       'systemctl enable docker',
     ];
 
-    // Tailscale installation commands (only if tsAuthKey is provided)
-    const tailscaleCommands = props.tsAuthKey ? [
-      // Install Tailscale
-      'dnf config-manager --add-repo https://pkgs.tailscale.com/stable/amazon-linux/2023/tailscale.repo',
-      'dnf install -y tailscale',
-      'systemctl start tailscaled',
-      'systemctl enable tailscaled',
-    ] : [];
-
     // Application setup commands
     const appCommands = [
       // Clone Polis repository
@@ -125,17 +111,10 @@ export class MathWorkerStack extends cdk.Stack {
       '    polis-math',
     ];
 
-    // Tailscale configuration command (only if tsAuthKey is provided)
-    const tailscaleConfigCommand = props.tsAuthKey ? [
-      `sudo tailscale up --authkey ${props.tsAuthKey}`
-    ] : [];
-
     // Combine all commands
     userDataScript.addCommands(
       ...baseCommands,
-      ...tailscaleCommands,
       ...appCommands,
-      ...tailscaleConfigCommand
     );
 
     // Create EC2 instance

@@ -35,4 +35,7 @@ coverage/
 
 # Logs
 logs
-*.log 
+*.log
+
+# Development overlays
+lib/overlays/tailscale.ts

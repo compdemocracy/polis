@@ -142,6 +142,62 @@ npx ts-node bin/math-worker.ts terminate --instance-id i-xxxxxx
 - `npm run test:unit` - Run unit tests only
 - `npm run test:integration` - Run integration tests
 
+## Development with Tailscale
+
+If you need to connect your math worker instance to a local PostgreSQL database during development, you can use the Tailscale development overlay. This overlay is not committed to the repository but can be set up locally:
+
+1. Create the development overlay file:
+```bash
+cp lib/math-worker-stack.dev-tailscale.ts.example lib/math-worker-stack.dev-tailscale.ts
+```
+
+2. Get a Tailscale auth key:
+   - Go to the [Tailscale Admin Console](https://login.tailscale.com/admin/authkeys)
+   - Create a new auth key (ephemeral recommended)
+   - Copy the key (it starts with `tskey-`)
+
+3. Create an instance with Tailscale enabled:
+```bash
+npx ts-node bin/math-worker.ts create \
+  --env-file .env \
+  --ts-auth-key tskey-xxxx \
+  --enable-ssh
+```
+
+The instance will:
+- Join your Tailscale network automatically
+- Be accessible via its Tailscale IP
+- Allow you to connect to local resources (like your PostgreSQL database)
+
+Note: The `--enable-ssh` flag is recommended when using Tailscale for easier debugging, but it's optional.
+
+### Connecting to Local PostgreSQL
+
+1. Make sure your local PostgreSQL is accessible via Tailscale:
+   - Your machine should be connected to Tailscale
+   - PostgreSQL should listen on your Tailscale IP or `0.0.0.0`
+   - PostgreSQL should allow connections from the Tailscale IP range
+
+2. Update your `.env` file to use the Tailscale connection:
+```bash
+DATABASE_URL=postgres://user:pass@your-machine.tail-xxxx.ts.net:5432/db
+```
+
+Or use the `--database-url` option:
+```bash
+npx ts-node bin/math-worker.ts create \
+  --env-file .env \
+  --ts-auth-key tskey-xxxx \
+  --database-url postgres://user:pass@your-machine.tail-xxxx.ts.net:5432/db
+```
+
+### Security Notes
+
+1. The Tailscale overlay is for development only and should not be used in production
+2. The overlay file is git-ignored to prevent accidental commits
+3. Auth keys should be ephemeral (automatically expire) for better security
+4. Each developer can have their own overlay configuration
+
 ## Infrastructure Components
 
 The CDK stack creates:
@@ -208,4 +264,87 @@ npm run test:integration
 npm test
 ```
 
-Integration tests will create actual AWS resources. Make sure you have appropriate permissions and AWS credentials configured. 
+Integration tests will create actual AWS resources. Make sure you have appropriate permissions and AWS credentials configured.
+
+## Stack Overlays
+
+The math worker supports a flexible overlay system that allows you to extend the base stack with additional functionality without modifying the core code. Overlays are automatically discovered and loaded from the `lib/overlays` directory.
+
+### Using Overlays
+
+Overlays are loaded dynamically and add their own command-line options to the `create` command. To see available overlays and their options:
+
+```bash
+npx ts-node bin/math-worker.ts create --help
+```
+
+### Creating New Overlays
+
+To create a new overlay:
+
+1. Create a new file in `lib/overlays/` (e.g., `my-feature.ts`)
+2. Use this template structure:
+
+```typescript
+import * as cdk from 'aws-cdk-lib';
+import { MathWorkerStack, MathWorkerStackProps } from '../math-worker-stack';
+
+// Define your overlay-specific properties
+interface MyFeatureStackProps extends MathWorkerStackProps {
+  myOption: string;
+}
+
+// Extend the base stack
+class MyFeatureStack extends MathWorkerStack {
+  constructor(scope: cdk.App, id: string, props: MyFeatureStackProps) {
+    super(scope, id, props);
+    
+    // Add your overlay-specific resources/configuration here
+    if (props.myOption) {
+      // ... your code ...
+    }
+  }
+}
+
+// Export the overlay definition
+export const overlayDefinition = {
+  name: 'My Feature',
+  optionFlag: 'myOption',
+  optionDescription: 'Description of my option',
+  stackClass: MyFeatureStack,
+};
+```
+
+The CLI will automatically detect your overlay and add the appropriate command-line option (in this case, `--myOption`).
+
+### Example: Tailscale Overlay
+
+An example overlay for Tailscale support is provided in `lib/overlays/tailscale.ts.example`. To use it:
+
+1. Copy the example:
+```bash
+cp lib/overlays/tailscale.ts.example lib/overlays/tailscale.ts
+```
+
+2. Create an instance with Tailscale:
+```bash
+npx ts-node bin/math-worker.ts create \
+  --env-file .env \
+  --tsAuthKey tskey-xxx
+```
+
+The example overlay demonstrates:
+- How to extend the base stack
+- How to add user data scripts
+- How to modify security groups
+- How to handle overlay-specific options
+
+### Overlay Guidelines
+
+1. **Keep overlays focused**: Each overlay should do one thing well
+2. **Document your overlay**: Include clear comments explaining what it does
+3. **Handle errors gracefully**: Validate inputs and provide helpful error messages
+4. **Follow the interface**: Always export an `overlayDefinition` object
+5. **Be independent**: Overlays shouldn't depend on other overlays
+6. **Respect the base stack**: Extend, don't modify existing functionality
+7. **Use TypeScript**: Take advantage of type safety 

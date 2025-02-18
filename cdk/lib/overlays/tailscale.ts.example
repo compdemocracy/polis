@@ -1,0 +1,72 @@
+/**
+ * Example overlay for the math worker CDK stack.
+ * This shows how to create an overlay that adds Tailscale support to the instance.
+ * To use this:
+ * 1. Copy this file to the overlays directory without the .example extension
+ * 2. The CLI will automatically detect it and add the --tsAuthKey option
+ */
+
+import * as cdk from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as iam from 'aws-cdk-lib/aws-iam';
+import { MathWorkerStack, MathWorkerStackProps } from '../math-worker-stack';
+
+/**
+ * Extended props interface that includes our overlay-specific properties.
+ * Each overlay should define its own props interface extending MathWorkerStackProps.
+ */
+interface TailscaleStackProps extends MathWorkerStackProps {
+  tsAuthKey: string;  // The auth key required by Tailscale
+}
+
+/**
+ * The overlay stack class that extends the base MathWorkerStack.
+ * This is where you implement the additional functionality.
+ */
+class TailscaleStack extends MathWorkerStack {
+  constructor(scope: cdk.App, id: string, props: TailscaleStackProps) {
+    // First call the parent constructor to set up the base stack
+    super(scope, id, props);
+
+    // Then add our overlay-specific resources/configuration
+    if (props.tsAuthKey) {
+      // Add Tailscale setup to the instance's user data script
+      const userData = this.instance.userData.addCommands(
+        // Update package list
+        'dnf update -y',
+        // Add Tailscale repository
+        'dnf config-manager --add-repo https://pkgs.tailscale.com/stable/amazon-linux/2023/tailscale.repo',
+        // Install Tailscale
+        'dnf install -y tailscale',
+        // Start and enable the Tailscale service
+        'systemctl enable --now tailscaled',
+        // Join the Tailscale network using the provided auth key
+        `tailscale up --authkey=${props.tsAuthKey} --hostname=polis-math-worker`,
+      );
+
+      // Add required security group rule for Tailscale
+      this.instance.connections.allowFromAnyIpv4(
+        ec2.Port.udp(41641),
+        'Tailscale UDP'
+      );
+    }
+  }
+}
+
+/**
+ * The overlay definition that tells the CLI about this overlay.
+ * This is required for the overlay system to work.
+ */
+export const overlayDefinition = {
+  // Display name for the overlay
+  name: 'Tailscale',
+  
+  // The command-line flag that will activate this overlay
+  optionFlag: 'tsAuthKey',
+  
+  // Description shown in --help
+  optionDescription: 'Tailscale auth key for development (optional)',
+  
+  // The stack class that implements the overlay
+  stackClass: TailscaleStack,
+}; 
