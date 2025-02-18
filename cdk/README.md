@@ -273,6 +273,12 @@ npm run test:integration
 
 # Run all tests
 npm test
+
+# Run only the quick integration tests (list and status commands)
+npm test -- -t "list command|status command" --verbose --no-buffer
+
+# Run only the full lifecycle integration test
+npm test -- -t "complete instance lifecycle" --verbose --no-buffer
 ```
 
 Integration tests will create actual AWS resources. Make sure you have appropriate permissions and AWS credentials configured.
