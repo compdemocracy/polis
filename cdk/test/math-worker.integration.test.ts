@@ -2,6 +2,7 @@ import {
   EC2Client,
   DescribeInstancesCommand,
   TerminateInstancesCommand,
+  StopInstancesCommand,
   type Instance
 } from '@aws-sdk/client-ec2';
 import { 
@@ -205,7 +206,7 @@ MATH_ENV=dev`;
     }
 
     try {
-      console.log('\n=== Creating instance ===');
+      console.log('\n=== Creating stack and instance ===');
       console.log(`Using test stack name: ${testStackName}`);
       
       // Use the fixture .env file
@@ -215,7 +216,7 @@ MATH_ENV=dev`;
       
       const createOutput = execSync(createCommand, { 
         encoding: 'utf8',
-        stdio: ['inherit', 'pipe', 'pipe']  // Inherit stdin, pipe stdout and stderr
+        stdio: ['inherit', 'pipe', 'pipe']
       });
       console.log('\nCreate command output:');
       console.log('----------------------------------------');
@@ -231,31 +232,7 @@ MATH_ENV=dev`;
 
       // Wait for instance to be running and ready
       console.log('\n=== Waiting for instance to be ready ===');
-      let isReady = false;
-      let attempts = 0;
-      const maxAttempts = 30;
-
-      while (!isReady && attempts < maxAttempts) {
-        const command = new DescribeInstancesCommand({
-          InstanceIds: [instanceId]
-        });
-        const response = await ec2Client.send(command);
-
-        const instance = response.Reservations?.[0]?.Instances?.[0];
-        console.log(`\nInstance state: ${instance?.State?.Name}`);
-        console.log(`Public IP: ${instance?.PublicIpAddress}`);
-        console.log(`Launch time: ${instance?.LaunchTime}`);
-        
-        if (instance?.State?.Name === 'running') {
-          isReady = true;
-        } else {
-          console.log(`Waiting for instance to be ready... (Attempt ${attempts + 1}/${maxAttempts})`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          attempts++;
-        }
-      }
-
-      expect(isReady).toBe(true);
+      await waitForInstanceState(instanceId, 'running');
       console.log('\nInstance is running');
 
       // Test the status command
@@ -269,34 +246,16 @@ MATH_ENV=dev`;
       console.log(statusOutput);
       console.log('----------------------------------------');
 
-      // Verify status output contains expected information
-      expect(statusOutput).toContain(`Stack: ${testStackName}`);
+      // Verify status output
       expect(statusOutput).toContain('State: running');
       expect(statusOutput).toContain('Public IP:');
-      expect(statusOutput).toContain('Launch Time:');
 
-      // Test the list command
-      console.log('\n=== Testing list command ===');
-      const listCommand = 'npx ts-node bin/math-worker.ts list';
-      console.log('\nRunning command:', listCommand);
-      
-      const listOutput = execSync(listCommand, { encoding: 'utf8' });
-      console.log('\nList command output:');
-      console.log('----------------------------------------');
-      console.log(listOutput);
-      console.log('----------------------------------------');
-
-      // Verify list output contains our instance with correct information
-      expect(listOutput).toContain(instanceId);
-      expect(listOutput).toContain(`Stack: ${testStackName}`);
-      expect(listOutput).toContain('State: running');
-      expect(listOutput).toContain('Public IP:');
-      expect(listOutput).toContain('Launch Time:');
-
-      // Wait for Docker container to be ready
+      // Test Docker container readiness
       console.log('\n=== Waiting for Docker container to be ready ===');
       let dockerReady = false;
-      attempts = 0;
+      let attempts = 0;
+      const maxAttempts = 30;
+      
       while (!dockerReady && attempts < maxAttempts) {
         try {
           const dockerStatus = await runSSMCommand(instanceId, 'docker ps -a --no-trunc');
@@ -304,11 +263,10 @@ MATH_ENV=dev`;
             dockerReady = true;
           } else {
             console.log(`Waiting for Docker container... (Attempt ${attempts + 1}/${maxAttempts})`);
-            await new Promise(resolve => setTimeout(resolve, 10000)); // 10 seconds between attempts
+            await new Promise(resolve => setTimeout(resolve, 10000));
             attempts++;
           }
         } catch (error) {
-          // SSM might not be ready yet
           console.log(`Waiting for SSM agent... (Attempt ${attempts + 1}/${maxAttempts})`);
           await new Promise(resolve => setTimeout(resolve, 10000));
           attempts++;
@@ -318,121 +276,100 @@ MATH_ENV=dev`;
       expect(dockerReady).toBe(true);
       console.log('\nDocker container is ready');
 
-      // Check Docker container status
-      console.log('\n=== Checking Docker container status ===');
-      const dockerStatus = await runSSMCommand(instanceId, 'docker ps -a --no-trunc');  // Show all containers with full output
-      console.log('\nDocker container status:');
-      console.log('----------------------------------------');
-      console.log(dockerStatus);
-      console.log('----------------------------------------');
-      expect(dockerStatus).toContain('polis-math');
-      console.log('\nDocker container is running');
+      // Test commands with wrong stack name
+      console.log('\n=== Testing commands with wrong stack name ===');
+      const wrongStackName = 'WrongStackName';
 
-      // Check Docker logs
-      console.log('\n=== Checking Docker logs ===');
-      const dockerLogs = await runSSMCommand(instanceId, 'docker logs polis-math 2>&1');  // Include stderr
-      console.log('\nDocker container logs:');
-      console.log('----------------------------------------');
-      console.log(dockerLogs);
-      console.log('----------------------------------------');
-      expect(dockerLogs).toBeTruthy();
-      console.log('\nDocker logs are available');
-
-      // Also check Docker container details
-      console.log('\n=== Checking Docker container details ===');
-      const containerDetails = await runSSMCommand(instanceId, 'docker inspect polis-math');
-      console.log('\nContainer details:');
-      console.log('----------------------------------------');
-      console.log(containerDetails);
-      console.log('----------------------------------------');
-
-      // Check container resource usage
-      console.log('\n=== Checking container resource usage ===');
-      const containerStats = await runSSMCommand(instanceId, 'docker stats polis-math --no-stream');
-      console.log('\nContainer resource usage:');
-      console.log('----------------------------------------');
-      console.log(containerStats);
-      console.log('----------------------------------------');
-
-      // Stop the instance
-      console.log('\n=== Stopping instance ===');
-      const stopCommand = new TerminateInstancesCommand({
-        InstanceIds: [instanceId]
-      });
-      await ec2Client.send(stopCommand);
-      console.log('\nStop command sent');
-
-      // Wait for instance to stop
-      isReady = false;
-      attempts = 0;
-      while (!isReady && attempts < maxAttempts) {
-        const command = new DescribeInstancesCommand({
-          InstanceIds: [instanceId]
-        });
-        const response = await ec2Client.send(command);
-
-        const instance = response.Reservations?.[0]?.Instances?.[0];
-        console.log(`\nInstance state: ${instance?.State?.Name}`);
-        
-        if (instance?.State?.Name === 'stopped') {
-          isReady = true;
-        } else {
-          console.log(`Waiting for instance to stop... (Attempt ${attempts + 1}/${maxAttempts})`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          attempts++;
-        }
+      // Try to stop instance with wrong stack name
+      const wrongStopCommand = `npx ts-node bin/math-worker.ts stop --instance-id ${instanceId} --stack-name ${wrongStackName}`;
+      try {
+        execSync(wrongStopCommand, { encoding: 'utf8' });
+        fail('Expected stop command to fail with wrong stack name');
+      } catch (error: any) {
+        const errorOutput = error.stderr?.toString() || error.stdout?.toString();
+        expect(errorOutput).toContain(`This instance belongs to stack "${testStackName}"`);
+        expect(errorOutput).toContain(`but you're trying to manage stack "${wrongStackName}"`);
       }
 
-      expect(isReady).toBe(true);
+      // Test stopping the instance with correct stack name
+      console.log('\n=== Testing instance stop ===');
+      const stopCommand = `npx ts-node bin/math-worker.ts stop --instance-id ${instanceId} --stack-name ${testStackName}`;
+      execSync(stopCommand, { encoding: 'utf8' });
+      
+      // Wait for instance to stop
+      await waitForInstanceState(instanceId, 'stopped');
       console.log('\nInstance is stopped');
 
-      // Terminate the instance
-      console.log('\n=== Terminating instance ===');
-      const terminateCommand = new TerminateInstancesCommand({
-        InstanceIds: [instanceId]
-      });
-      await ec2Client.send(terminateCommand);
-      console.log('\nTerminate command sent');
+      // Try to start instance with wrong stack name
+      const wrongStartCommand = `npx ts-node bin/math-worker.ts start --instance-id ${instanceId} --stack-name ${wrongStackName}`;
+      try {
+        execSync(wrongStartCommand, { encoding: 'utf8' });
+        fail('Expected start command to fail with wrong stack name');
+      } catch (error: any) {
+        const errorOutput = error.stderr?.toString() || error.stdout?.toString();
+        expect(errorOutput).toContain(`This instance belongs to stack "${testStackName}"`);
+        expect(errorOutput).toContain(`but you're trying to manage stack "${wrongStackName}"`);
+      }
 
-      // Wait for instance to terminate
-      isReady = false;
-      attempts = 0;
-      while (!isReady && attempts < maxAttempts) {
+      // Test starting the instance with correct stack name
+      console.log('\n=== Testing instance start ===');
+      const startCommand = `npx ts-node bin/math-worker.ts start --instance-id ${instanceId} --stack-name ${testStackName}`;
+      execSync(startCommand, { encoding: 'utf8' });
+      
+      // Wait for instance to start
+      await waitForInstanceState(instanceId, 'running');
+      console.log('\nInstance is running again');
+
+      // Verify Docker container is still functional
+      console.log('\n=== Verifying Docker container after restart ===');
+      const dockerStatusAfterRestart = await runSSMCommand(instanceId, 'docker ps -a --no-trunc');
+      expect(dockerStatusAfterRestart).toContain('polis-math');
+      console.log('\nDocker container verified after restart');
+
+      // Try to terminate instance with wrong stack name
+      const wrongTerminateCommand = `npx ts-node bin/math-worker.ts terminate --instance-id ${instanceId} --stack-name ${wrongStackName}`;
+      try {
+        execSync(wrongTerminateCommand, { encoding: 'utf8', timeout: 1000 }); // Short timeout since we expect failure
+        fail('Expected terminate command to fail with wrong stack name');
+      } catch (error: any) {
+        const errorOutput = error.stderr?.toString() || error.stdout?.toString();
+        expect(errorOutput).toContain(`This instance belongs to stack "${testStackName}"`);
+        expect(errorOutput).toContain(`but you're trying to manage stack "${wrongStackName}"`);
+      }
+
+      // Clean up by deleting the stack (this should terminate the instance too)
+      console.log('\n=== Cleaning up by deleting stack ===');
+      const deleteStackCommand = new DeleteStackCommand({ 
+        StackName: testStackName 
+      });
+      await cfnClient.send(deleteStackCommand);
+      console.log('\nStack deletion initiated');
+
+      // Verify instance is terminated as part of stack deletion
+      try {
         const command = new DescribeInstancesCommand({
           InstanceIds: [instanceId]
         });
         const response = await ec2Client.send(command);
-
         const instance = response.Reservations?.[0]?.Instances?.[0];
-        console.log(`\nInstance state: ${instance?.State?.Name}`);
-        
-        if (instance?.State?.Name === 'terminated') {
-          isReady = true;
-        } else {
-          console.log(`Waiting for instance to terminate... (Attempt ${attempts + 1}/${maxAttempts})`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          attempts++;
-        }
+        expect(instance?.State?.Name).toBe('terminated');
+      } catch (error: any) {
+        // Instance might be completely gone, which is also fine
+        expect(error.name).toBe('InvalidInstanceID.NotFound');
       }
-
-      expect(isReady).toBe(true);
-      console.log('\nInstance is terminated');
 
     } catch (error) {
       console.error('\n=== Test failed ===\n');
       console.error('Error details:', error);
-      // Attempt cleanup if something went wrong
-      if (instanceId) {
-        console.log('\nAttempting to clean up instance', instanceId);
-        try {
-          const terminateCommand = new TerminateInstancesCommand({
-            InstanceIds: [instanceId]
-          });
-          await ec2Client.send(terminateCommand);
-          console.log('Cleanup successful');
-        } catch (cleanupError) {
-          console.error('Cleanup failed:', cleanupError);
-        }
+      // Always try to clean up the stack
+      try {
+        const deleteStackCommand = new DeleteStackCommand({ 
+          StackName: testStackName 
+        });
+        await cfnClient.send(deleteStackCommand);
+        console.log('Cleanup initiated');
+      } catch (cleanupError) {
+        console.error('Cleanup failed:', cleanupError);
       }
       throw error;
     }

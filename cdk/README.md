@@ -29,42 +29,35 @@ cdk bootstrap
 
 ## Usage
 
-The CLI provides several commands to manage math worker instances:
+The CLI provides several commands to manage math worker instances and stacks:
 
-### Create a New Instance
+### Create a New Stack
 
-There are two ways to create an instance:
+Creates a new CloudFormation stack containing a math worker instance and all required resources:
 
-1. **Secure Production Setup** (Recommended for production):
-```bash
-npx ts-node bin/math-worker.ts create \
-  --env-file .env
-```
-This creates an instance that:
-- Has no inbound ports open
-- Is managed via AWS Systems Manager (SSM)
-- Is most secure for production use
-
-2. **Development Setup** with SSH and Tailscale:
 ```bash
 npx ts-node bin/math-worker.ts create \
   --env-file .env \
-  --ts-auth-key 'tskey-xxxxx' \
-  --enable-ssh
+  --stack-name MyMathWorker
 ```
-This creates an instance that:
-- Has SSH access enabled (port 22)
-- Uses Tailscale for secure networking
-- Is suitable for development and debugging
+
+This creates:
+- A CloudFormation stack with the specified name
+- An EC2 instance running the math worker
+- All required networking and security resources
+- IAM roles and policies
 
 Optional parameters:
 - `--branch` - Git branch/tag/commit to use (default: edge)
 - `--instance-type` - EC2 instance type (default: t3.medium)
 - `--region` - AWS region (defaults to AWS_REGION environment variable)
 - `--database-url` - Override the DATABASE_URL from the environment file
+- `--enable-ssh` - Enable SSH access (not recommended for production)
+- `--ts-auth-key` - Tailscale auth key (for development with Tailscale networking)
 
 ### List Instances
 
+List all math worker instances and their associated stacks:
 ```bash
 npx ts-node bin/math-worker.ts list
 ```
@@ -75,6 +68,40 @@ npx ts-node bin/math-worker.ts list
 npx ts-node bin/math-worker.ts status --instance-id i-xxxxxx
 ```
 
+### Instance Lifecycle Management
+
+Stop an instance (can be restarted later):
+```bash
+npx ts-node bin/math-worker.ts stop --instance-id i-xxxxxx
+```
+
+Start a previously stopped instance:
+```bash
+npx ts-node bin/math-worker.ts start --instance-id i-xxxxxx
+```
+
+Note: Only use start/stop for temporary instance management. The instance must be part of an existing stack created with the `create` command.
+
+### Stack Deletion
+
+To properly clean up all resources, delete the entire stack:
+```bash
+npx ts-node bin/math-worker.ts delete-stack --stack-name MyMathWorker
+```
+
+This will:
+- Terminate any running instances
+- Delete all associated resources (VPC, security groups, etc.)
+- Remove the CloudFormation stack
+
+### Instance Termination (Not Recommended)
+
+```bash
+npx ts-node bin/math-worker.ts terminate --instance-id i-xxxxxx
+```
+
+Warning: The `terminate` command only terminates the EC2 instance, leaving other stack resources in place. Use `delete-stack` instead for proper cleanup.
+
 ### Connect to Instance
 
 Open a shell session to the instance (uses SSM by default):
@@ -82,7 +109,7 @@ Open a shell session to the instance (uses SSM by default):
 npx ts-node bin/math-worker.ts shell --instance-id i-xxxxxx
 ```
 
-If you need to use SSH (only available if SSH access is enabled during instance creation):
+If you need to use SSH (only available if SSH access was enabled during creation):
 ```bash
 npx ts-node bin/math-worker.ts shell --instance-id i-xxxxxx --ssh
 ```
@@ -96,22 +123,6 @@ Execute commands on the instance via SSM (works for all instances):
 npx ts-node bin/math-worker.ts run \
   --instance-id i-xxxxxx \
   --command "docker ps"
-```
-
-### Start/Stop Instance
-
-```bash
-# Start
-npx ts-node bin/math-worker.ts start --instance-id i-xxxxxx
-
-# Stop
-npx ts-node bin/math-worker.ts stop --instance-id i-xxxxxx
-```
-
-### Terminate Instance
-
-```bash
-npx ts-node bin/math-worker.ts terminate --instance-id i-xxxxxx
 ```
 
 ## Security Features

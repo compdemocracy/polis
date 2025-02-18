@@ -285,6 +285,34 @@ export const handleStart = async (options: any, ec2Client?: EC2Client) => {
   const client = ec2Client || createEC2Client(region);
 
   try {
+    // First verify the instance exists and belongs to a valid stack
+    const describeCommand = new DescribeInstancesCommand({
+      InstanceIds: [options.instanceId]
+    });
+    const describeResponse = await client.send(describeCommand);
+    
+    const instance = describeResponse.Reservations?.[0]?.Instances?.[0];
+    if (!instance) {
+      console.error(`Instance ${options.instanceId} not found`);
+      process.exit(1);
+    }
+
+    // Check if instance belongs to a CloudFormation stack
+    const stackName = instance.Tags?.find(tag => tag.Key === 'aws:cloudformation:stack-name')?.Value;
+    if (!stackName) {
+      console.error('This instance does not appear to be part of a CloudFormation stack.');
+      console.error('Only instances created with the create command can be managed with start/stop.');
+      process.exit(1);
+    }
+
+    // Verify it belongs to a Math Worker stack
+    const expectedStackName = options.stackName || 'MathWorkerStack';
+    if (stackName !== expectedStackName) {
+      console.error(`This instance belongs to stack "${stackName}" but you're trying to manage stack "${expectedStackName}".`);
+      console.error('Please specify the correct stack name with --stack-name or use the default MathWorkerStack.');
+      process.exit(1);
+    }
+
     const command = new StartInstancesCommand({
       InstanceIds: [options.instanceId]
     });
@@ -301,6 +329,34 @@ export const handleStop = async (options: any, ec2Client?: EC2Client) => {
   const client = ec2Client || createEC2Client(region);
 
   try {
+    // First verify the instance exists and belongs to a valid stack
+    const describeCommand = new DescribeInstancesCommand({
+      InstanceIds: [options.instanceId]
+    });
+    const describeResponse = await client.send(describeCommand);
+    
+    const instance = describeResponse.Reservations?.[0]?.Instances?.[0];
+    if (!instance) {
+      console.error(`Instance ${options.instanceId} not found`);
+      process.exit(1);
+    }
+
+    // Check if instance belongs to a CloudFormation stack
+    const stackName = instance.Tags?.find(tag => tag.Key === 'aws:cloudformation:stack-name')?.Value;
+    if (!stackName) {
+      console.error('This instance does not appear to be part of a CloudFormation stack.');
+      console.error('Only instances created with the create command can be managed with start/stop.');
+      process.exit(1);
+    }
+
+    // Verify it belongs to a Math Worker stack
+    const expectedStackName = options.stackName || 'MathWorkerStack';
+    if (stackName !== expectedStackName) {
+      console.error(`This instance belongs to stack "${stackName}" but you're trying to manage stack "${expectedStackName}".`);
+      console.error('Please specify the correct stack name with --stack-name or use the default MathWorkerStack.');
+      process.exit(1);
+    }
+
     const command = new StopInstancesCommand({
       InstanceIds: [options.instanceId]
     });
@@ -317,6 +373,70 @@ export const handleTerminate = async (options: any, ec2Client?: EC2Client) => {
   const client = ec2Client || createEC2Client(region);
 
   try {
+    // First verify the instance exists and get its stack info
+    const describeCommand = new DescribeInstancesCommand({
+      InstanceIds: [options.instanceId]
+    });
+    const describeResponse = await client.send(describeCommand);
+    
+    const instance = describeResponse.Reservations?.[0]?.Instances?.[0];
+    if (!instance) {
+      console.error(`Instance ${options.instanceId} not found`);
+      process.exit(1);
+    }
+
+    // Get stack information
+    const stackName = instance.Tags?.find(tag => tag.Key === 'aws:cloudformation:stack-name')?.Value;
+    
+    // Verify it belongs to a Math Worker stack if it's part of a stack
+    if (stackName) {
+      const expectedStackName = options.stackName || 'MathWorkerStack';
+      if (stackName !== expectedStackName) {
+        console.error(`This instance belongs to stack "${stackName}" but you're trying to manage stack "${expectedStackName}".`);
+        console.error('Please specify the correct stack name with --stack-name or use the default MathWorkerStack.');
+        process.exit(1);
+      }
+    }
+    
+    console.log('\n⚠️  WARNING: You are about to terminate an EC2 instance.');
+    if (stackName) {
+      console.log(`This instance is part of the CloudFormation stack: ${stackName}`);
+      console.log('Terminating the instance will leave other stack resources in place, which may incur costs.');
+      console.log('\nRecommended Action:');
+      console.log(`Instead of terminating, use: math-worker delete-stack --stack-name ${stackName}`);
+      console.log('This will properly clean up all resources including the instance.');
+    } else {
+      console.log('This instance is not part of a CloudFormation stack.');
+    }
+    
+    // Ask for confirmation
+    process.stdout.write('\nAre you sure you want to proceed with termination? (yes/no): ');
+    const stdin = process.stdin;
+    const stdout = process.stdout;
+    
+    // Save current state
+    const wasRaw = stdin.isRaw;
+    stdin.setRawMode && stdin.setRawMode(true);
+    stdin.resume();
+    
+    // Wait for user input
+    const userResponse = await new Promise<string>((resolve) => {
+      stdin.once('data', (data) => {
+        const input = data.toString().toLowerCase().trim();
+        stdout.write(input + '\n');
+        resolve(input);
+      });
+    });
+    
+    // Restore state
+    stdin.setRawMode && stdin.setRawMode(wasRaw);
+    stdin.pause();
+    
+    if (userResponse !== 'yes') {
+      console.log('Termination cancelled');
+      process.exit(0);
+    }
+
     const command = new TerminateInstancesCommand({
       InstanceIds: [options.instanceId]
     });
@@ -382,6 +502,52 @@ export const handleShell = async (options: any, ec2Client?: EC2Client) => {
   }
 };
 
+export const handleDeleteStack = async (options: any, cfnClient?: CloudFormationClient) => {
+  const region = options.region || process.env.AWS_REGION || 'us-west-2';
+  const client = cfnClient || createCloudFormationClient(region);
+
+  try {
+    console.log(`\nDeleting stack ${options.stackName}...`);
+    const deleteStackCommand = new DeleteStackCommand({ 
+      StackName: options.stackName 
+    });
+    await client.send(deleteStackCommand);
+    console.log('Stack deletion initiated');
+    
+    // Wait for stack deletion with a timeout
+    const startTime = Date.now();
+    const timeoutMs = 5 * 60 * 1000; // 5 minutes timeout
+    
+    while (Date.now() - startTime < timeoutMs) {
+      try {
+        const describeStacksCommand = new DescribeStacksCommand({
+          StackName: options.stackName
+        });
+        const response = await client.send(describeStacksCommand);
+        
+        const status = response.Stacks?.[0]?.StackStatus;
+        if (!status?.includes('DELETE_IN_PROGRESS')) {
+          break;
+        }
+        console.log(`Waiting for stack deletion... (Status: ${status})`);
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      } catch (error: any) {
+        if (error.name === 'ValidationError' && error.message.includes('does not exist')) {
+          console.log('Stack deleted successfully');
+          return;
+        }
+        throw error;
+      }
+    }
+  } catch (error: any) {
+    if (!error.message.includes('does not exist')) {
+      console.error('Error deleting stack:', error);
+      process.exit(1);
+    }
+    console.log('Stack does not exist');
+  }
+};
+
 // Main function to run the CLI
 const main = () => {
   // Configure the CLI
@@ -400,7 +566,7 @@ const main = () => {
   // Create command with dynamic overlay options
   const createCommand = program
     .command('create')
-    .description('Create a new math worker instance')
+    .description('Create a new math worker stack with an EC2 instance')
     .requiredOption('--env-file <path>', 'Path to environment file')
     .option('--branch <branch>', 'Git branch/tag/commit to use', 'edge')
     .option('--instance-type <type>', 'EC2 instance type', 't3.medium')
@@ -432,26 +598,42 @@ const main = () => {
   // Start command
   program
     .command('start')
-    .description('Start an instance')
+    .description('Start a previously stopped instance (must be part of an existing stack)')
     .requiredOption('--instance-id <id>', 'Instance ID')
     .option('--region <region>', 'AWS region')
+    .option('--stack-name <name>', 'CloudFormation stack name (default: MathWorkerStack)')
     .action((options) => handleStart(options));
 
   // Stop command
   program
     .command('stop')
-    .description('Stop an instance')
+    .description('Stop an instance while preserving its state (can be restarted later)')
     .requiredOption('--instance-id <id>', 'Instance ID')
     .option('--region <region>', 'AWS region')
+    .option('--stack-name <name>', 'CloudFormation stack name (default: MathWorkerStack)')
     .action((options) => handleStop(options));
 
   // Terminate command
   program
     .command('terminate')
-    .description('Terminate an instance')
+    .description('Terminate an instance (WARNING: Use delete-stack instead to properly clean up all resources)')
     .requiredOption('--instance-id <id>', 'Instance ID')
     .option('--region <region>', 'AWS region')
-    .action((options) => handleTerminate(options));
+    .option('--stack-name <name>', 'CloudFormation stack name (default: MathWorkerStack)')
+    .action((options) => {
+      console.warn('\nWARNING: This command only terminates the EC2 instance.');
+      console.warn('To properly clean up all resources, use the delete-stack command instead.');
+      console.warn('Continuing with instance termination in 5 seconds...');
+      setTimeout(() => handleTerminate(options), 5000);
+    });
+
+  // Delete stack command
+  program
+    .command('delete-stack')
+    .description('Delete a math worker stack and all its resources')
+    .requiredOption('--stack-name <name>', 'CloudFormation stack name')
+    .option('--region <region>', 'AWS region')
+    .action((options) => handleDeleteStack(options));
 
   // Shell command
   program
