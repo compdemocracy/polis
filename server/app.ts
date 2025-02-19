@@ -300,6 +300,7 @@ helpersInitialized.then(
       need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       want("format", getStringLimitLength(1, 100), assignToP),
       want("unixTimestamp", getStringLimitLength(99), assignToP),
+      want("includeXid", getBool, assignToP),
       handle_GET_dataExport
     );
 

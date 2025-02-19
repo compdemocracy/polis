@@ -162,6 +162,12 @@
     :zinvite (or (:zinvite params)
                  (db/get-zinvite-from-zid (:postgres darwin) (:zid params)))))
 
+(defn params-with-xid
+  [params]
+  (assoc params :include-xid (if (contains? params :include-xid)
+                              (:include-xid params)
+                              false)))
+
 
 (defn parsed-params
   "Parses the params for a request, occording to parsers."
@@ -177,7 +183,8 @@
       {})
     (params-with-zid darwin)
     (params-with-zinvite darwin)
-    (params-with-filename)))
+    (params-with-filename)
+    (params-with-xid)))
 
 
 

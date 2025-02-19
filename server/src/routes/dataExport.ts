@@ -9,7 +9,7 @@ AWS.config.update({ region: Config.awsRegion });
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
 
 function handle_GET_dataExport(
-    req: { p: { uid?: any; zid: any; unixTimestamp: number; format: any } },
+    req: { p: { uid?: any; zid: any; unixTimestamp: number; format: any; includeXid?: boolean } },
     res: { json: (arg0: {}) => void }
   ) {
     const getUserInfoForUid2 = User.getUserInfoForUid2;
@@ -21,7 +21,8 @@ function handle_GET_dataExport(
           req.p.zid,
           req.p.unixTimestamp * 1000,
           req.p.format,
-          Math.abs((Math.random() * 999999999999) >> 0)
+          Math.abs((Math.random() * 999999999999) >> 0),
+          req.p.includeXid
         )
           .then(() => {
             res.json({});

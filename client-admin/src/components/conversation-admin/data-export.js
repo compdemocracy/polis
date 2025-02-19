@@ -14,7 +14,11 @@ class DataExport extends React.Component {
   constructor(props) {
     super(props)
     const times = dateSetupUtil()
-    this.state = Object.assign({}, times, { showHelpMessage: false })
+    this.state = Object.assign({}, times, { showHelpMessage: false, includeXid: false })
+  }
+
+  handleIncludeXidToggled() {
+    this.setState({ includeXid: !this.state.includeXid })
   }
 
   handleExportClicked() {
@@ -35,7 +39,8 @@ class DataExport extends React.Component {
           this.props.zid_metadata.conversation_id,
           format,
           (dddate / 1000) << 0,
-          !!this.state.untilEnabled
+          !!this.state.untilEnabled,
+          this.state.includeXid
         )
       )
     }
@@ -121,6 +126,16 @@ class DataExport extends React.Component {
               )
             })}
           </select>
+          <div>
+            <label>
+              <input
+                type="checkbox"
+                checked={this.state.includeXid}
+                onChange={this.handleIncludeXidToggled.bind(this)}
+              />
+              Include XIDs
+            </label>
+          </div>
           <p>
             By default, the entire dataset is returned. To limit the last
             timestamp returned, enter a date here.

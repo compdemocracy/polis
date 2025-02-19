@@ -171,7 +171,8 @@ function doAddDataExportTask(
   zid: number,
   atDate: number,
   format: string,
-  task_bucket: number
+  task_bucket: number,
+  includeXid?: boolean
 ) {
   return pgQueryP(
     "insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);",
@@ -182,6 +183,7 @@ function doAddDataExportTask(
         zid: zid,
         "at-date": atDate,
         format: format,
+        includeXid: includeXid || false,
       },
       task_bucket, // TODO hash the params to get a consistent number?
     ]

@@ -1695,7 +1695,8 @@ const dataExportGet = (
   conversation_id,
   format,
   unixTimestamp,
-  untilEnabled
+  untilEnabled,
+  includeXid
 ) => {
   //       url += ("&unixTimestamp=" + ((ctx.date/1000) << 0));
 
@@ -1704,6 +1705,11 @@ const dataExportGet = (
   if (untilEnabled) {
     url += `&unixTimestamp=${unixTimestamp}`
   }
+
+  if (includeXid) {
+    url += `&includeXid=true`
+  }
+
   return $.get(url)
 }
 
@@ -1711,7 +1717,8 @@ export const startDataExport = (
   conversation_id,
   format,
   unixTimestamp,
-  untilEnabled
+  untilEnabled,
+  includeXid = false
 ) => {
   return (dispatch) => {
     dispatch(dataExportStarted())
@@ -1719,7 +1726,8 @@ export const startDataExport = (
       conversation_id,
       format,
       unixTimestamp,
-      untilEnabled
+      untilEnabled,
+      includeXid
     ).then(
       (res) => dispatch(dataExportSuccess(res)),
       (err) => dispatch(dataExportError(err))
