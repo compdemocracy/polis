@@ -23,6 +23,10 @@ export GIT_HASH = $(shell git rev-parse --short HEAD)
 POSTGRES_DOCKER_RAW = $(shell echo $(call parse_env_value,POSTGRES_DOCKER) | tr '[:upper:]' '[:lower:]')
 export POSTGRES_DOCKER = $(call parse_env_bool,$(POSTGRES_DOCKER_RAW))
 
+# Support for detached mode
+DETACH ?= false
+DETACH_ARG = $(if $(filter true,$(DETACH)),-d,)
+
 # Default compose file args
 export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml
 COMPOSE_FILE_ARGS += $(if $(POSTGRES_DOCKER),--profile postgres,)
@@ -52,7 +56,7 @@ pull: echo_vars ## Pull most recent Docker container builds (nightlies)
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} pull
 
 start: echo_vars ## Start all Docker containers
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG}
 
 stop: echo_vars ## Stop all Docker containers
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
@@ -82,17 +86,17 @@ build-no-cache: echo_vars ## Build all Docker containers without cache
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build --no-cache
 
 start-recreate: echo_vars ## Start all Docker containers with recreated environments
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --force-recreate
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --force-recreate
 
 start-rebuild: echo_vars ## Start all Docker containers, [re]building as needed
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build
 
 start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker containers, volumes, and images (including db), as with rm-ALL
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build --no-cache
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build
 
 build-web-assets: ## Build and extract static web assets for cloud deployment to `build` dir
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} create --build --force-recreate file-server
@@ -136,6 +140,8 @@ help:
 	@echo
 	@echo 'As specified above, the config file can be overridden using `PROD` or `TEST` commands, and a custom config file'
 	@echo 'can also be specified by explicitly setting the `ENV_FILE` variable, like: `make ENV_FILE=custom.env <command>`.'
+	@echo
+	@echo 'To run docker compose in detached mode, set DETACH=true, like: `make DETACH=true start`.'
 	@echo
 	@echo 'Note that different values of `TAG` specified in your config file will result in different container and asset'
 	@echo 'builds, which can be useful for (e.g.) testing out features while preserving mainline branch builds.'
