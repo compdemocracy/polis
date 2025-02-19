@@ -21,18 +21,18 @@
   "This constructs an instance of the base system components, including config, db, etc."
   [config-overrides]
   {:config               (config/create-config config-overrides)
-   ;:logger               (component/using (logger/create-logger)                 [:config])
-   :core-matrix-boot     (component/using (core-matrix-boot/create-core-matrix-booter) [:config])
-   :postgres             (component/using (postgres/create-postgres)             [:config])
-   :conversation-manager (component/using (conv-man/create-conversation-manager) [:config :core-matrix-boot :postgres])})
+   :logger              (component/using (logger/create-logger)                 [:config])
+   :core-matrix-boot     (component/using (core-matrix-boot/create-core-matrix-booter) [:config :logger])
+   :postgres             (component/using (postgres/create-postgres)             [:config :logger])
+   :conversation-manager (component/using (conv-man/create-conversation-manager) [:config :core-matrix-boot :postgres :logger])})
 
 (defn poller-system
   "Creates a base-system and assocs in darwin server related components."
   [config-overrides]
   (merge
     (base-system config-overrides)
-    {:vote-poller (component/using (poller/create-poller :votes)      [:config :postgres :conversation-manager])
-     :mod-poller  (component/using (poller/create-poller :moderation) [:config :postgres :conversation-manager])}))
+    {:vote-poller (component/using (poller/create-poller :votes)      [:config :postgres :conversation-manager :logger])
+     :mod-poller  (component/using (poller/create-poller :moderation) [:config :postgres :conversation-manager :logger])}))
 
 (defn task-system
   [config-overrides]

@@ -51,7 +51,7 @@
                 :poll-from-days-ago 10}
    :math       {:matrix-implementation :vectorz}
    :logging    {:file "log/dev.log"
-                :level :info}})
+                :level :warn}})
 
 (defn ->long-list [x]
   (when x

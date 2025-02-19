@@ -33,7 +33,7 @@
         ;:group-k-buffer 4}}
 
  :logging {:file "log/dev.log"
-           :level :info}
+           :level :warn}
 
  ;:math-env                   {:parse ->keyword}
  ;; Have to use :port since that's what heroku expects...

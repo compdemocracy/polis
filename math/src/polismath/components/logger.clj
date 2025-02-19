@@ -11,15 +11,18 @@
 (defrecord Logger [config]
   component/Lifecycle
   (start [component]
-    (log/info ">> Starting config component")
+    ;; Set minimum level first before any other logging happens
+    (when-let [level (get-in config [:logging :level])]
+      (log/set-level! level))
+    ;; First merge the logging config from system config
     (log/merge-config!
-      {;:middleware [] ; (fns [data]) -> ?data, applied left->right
-       ;:timestamp-opts default-timestamp-opts ; {:pattern _ :locale _ :timezone _}
-       ;:output-fn default-output-fn ; (fn [data]) -> string
-       :appenders {:println-appender
+      (:logging config))
+    ;; Then merge appender config, inheriting the min-level from system config
+    (log/merge-config!
+      {:appenders {:println-appender
                    {:enabled?   true
                     :async?     false
-                    :min-level  nil
+                    :min-level  (get-in config [:logging :level] :warn)  ; Use system config level or default to :warn
                     :rate-limit [[1 250] [10 5000]] ; 1/250ms, 10/5s
                     :output-fn  :inherit
                     :fn ; Appender's fn
@@ -28,14 +31,11 @@
                             formatted-output-str (output-fn data)]
                         (println formatted-output-str)))}
                    :file-appender
-                   {:spit (appenders/spit-appender {:fname "dev.log"})}}})
-    (log/merge-config!
-      (:logging config)))
+                   {:spit (appenders/spit-appender {:fname (get-in config [:logging :file] "dev.log")})}}})
+    component)
   (stop [component]
     (log/info "<< Stopping config component")
     component))
 
 (defn create-logger []
   (map->Logger {}))
-
-

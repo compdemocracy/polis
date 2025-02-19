@@ -55,6 +55,7 @@ services:
         polis_tag: ${TAG:-dev}
     environment:
       - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_LEVEL=${MATH_LOG_LEVEL:-warn}
       - MATH_ENV=${MATH_ENV:-prod}
       - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
       - WEBSERVER_PASS=${WEBSERVER_PASS}
