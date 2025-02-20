@@ -99,7 +99,7 @@ start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker conta
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build
 
 rebuild-web: echo_vars ## Rebuild and restart just the file-server container and its static assets
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up --build file-server
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build --force-recreate file-server
 
 build-web-assets: ## Build and extract static web assets for cloud deployment to `build` dir
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} create --build --force-recreate file-server
