@@ -2,7 +2,7 @@ import { createLogger, format, transports } from "winston";
 import Config from "../config";
 
 // See https://github.com/winstonjs/winston#logging-levels
-const logLevel = Config.logLevel || "info";
+const logLevel = Config.logLevel || "warn";
 const logToFile = Config.logToFile;
 
 const consoleTransport = new transports.Console({
