@@ -104,8 +104,12 @@ Cypress.Commands.add('anonymousParticipant', ({ convoId }) => {
   )
 })
 
-Cypress.Commands.add('createConvo', (topic, description) => {
-  cy.ensureUser('moderator')
+Cypress.Commands.add('createConvo', (topic, description, user) => {
+  // If user provided, login and set up session
+  if (user) {
+    apiLogin(user)
+  }
+
   cy.request('POST', '/api/v3/conversations', {
     is_active: true,
     is_draft: true,
@@ -135,7 +139,6 @@ Cypress.Commands.add('ensureConversation', (userLabel) => {
 Cypress.Commands.add('seedComment', (convoId, commentText) => {
   const text = commentText || faker.lorem.sentences()
 
-  cy.ensureUser('moderator')
   cy.request('POST', '/api/v3/comments', {
     conversation_id: convoId,
     is_seed: true,
@@ -231,7 +234,13 @@ Cypress.Commands.add('visitAndVote', (conversationId) => {
 })
 
 function apiLogin(user) {
-  cy.request('POST', '/api/v3/auth/login', { email: user.email, password: user.password })
+  cy.request('POST', '/api/v3/auth/login', {
+    email: user.email,
+    password: user.password
+  }).then((response) => {
+    cy.setCookie('token2', response.body.token)
+    cy.setCookie('uid2', String(response.body.uid))
+  })
 }
 
 function recursiveVote() {

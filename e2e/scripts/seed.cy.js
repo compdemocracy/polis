@@ -11,25 +11,10 @@ describe('Database Seeding', function () {
   })
 
   it('creates moderator and conversations', function () {
-    // Register moderator
     cy.register(moderator)
 
     const numConversations = Cypress.env('numConversations') || 2
     const commentsPerConvo = Cypress.env('commentsPerConvo') || 3
-
-    // Create a session for our moderator
-    cy.session(
-      'generated_moderator',
-      () => {
-        cy.loginViaAPI(moderator)
-      },
-      {
-        validate: () => {
-          cy.getCookie('token2').should('exist')
-          cy.getCookie('uid2').should('exist')
-        }
-      }
-    )
 
     // Create conversations and store their IDs
     for (let i = 0; i < numConversations; i++) {
@@ -47,7 +32,8 @@ describe('Database Seeding', function () {
       })
     }
 
-    cy.logout()
+    cy.clearCookie('token2')
+    cy.clearCookie('uid2')
   })
 
   it('adds votes from participants', function () {
