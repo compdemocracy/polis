@@ -216,21 +216,29 @@ Cypress.Commands.add('vote', () => {
   })
 })
 
-Cypress.Commands.add('initAndVote', (userLabel, convoId) => {
+// Core voting logic that can be used after establishing a session
+Cypress.Commands.add('voteOnConversation', (convoId) => {
   cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
-
-  cy.ensureUser(userLabel)
   cy.visit('/' + convoId)
   cy.wait('@participationInit')
 
-  recursiveVote()
+  cy.get('[data-view-name="vote-view"]', { timeout: 10000 }).then(function voteLoop($voteView) {
+    if ($voteView.find('button#agreeButton').length && !$voteView.find('.Notification.Notification--warning').length) {
+      cy.vote()
+      cy.get('[data-view-name="vote-view"]').then(voteLoop)
+    }
+  })
 })
 
-Cypress.Commands.add('visitAndVote', (conversationId) => {
-  cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
-  cy.visit('/' + conversationId)
-  cy.wait('@participationInit')
-  recursiveVote()
+// Legacy support for visualization tests
+Cypress.Commands.add('initAndVote', (userLabel, convoId) => {
+  cy.ensureUser(userLabel)
+  cy.voteOnConversation(convoId)
+})
+
+// Alias for voteOnConversation, maintaining backward compatibility
+Cypress.Commands.add('visitAndVote', (convoId) => {
+  cy.voteOnConversation(convoId)
 })
 
 function apiLogin(user) {
@@ -240,13 +248,5 @@ function apiLogin(user) {
   }).then((response) => {
     cy.setCookie('token2', response.body.token)
     cy.setCookie('uid2', String(response.body.uid))
-  })
-}
-
-function recursiveVote() {
-  cy.get('[data-view-name="vote-view"]').then(($voteView) => {
-    if ($voteView.find('button#agreeButton').length) {
-      cy.vote().then(() => recursiveVote())
-    }
   })
 }

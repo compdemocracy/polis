@@ -1,6 +1,7 @@
 describe('Database Seeding', function () {
   let moderator
-  let conversationIds = []
+  let convoIds = []
+  let completedVoters = 0
 
   before(function () {
     moderator = {
@@ -23,7 +24,7 @@ describe('Database Seeding', function () {
 
       cy.createConvo(topic, description).then(function () {
         const convoId = this.convoId
-        conversationIds.push(convoId)
+        convoIds.push(convoId)
 
         // Add seed comments
         for (let j = 0; j < commentsPerConvo; j++) {
@@ -37,25 +38,57 @@ describe('Database Seeding', function () {
   })
 
   it('adds votes from participants', function () {
-    const numParticipants = Cypress.env('numVoters') || 5
+    const numVoters = Cypress.env('numVoters') || 5
+    const batchSize = 20 // Process participants in batches to manage memory
+    const totalBatches = Math.ceil(numVoters / batchSize)
 
-    // For each participant
-    for (let i = 0; i < numParticipants; i++) {
-      // Create a unique session for this participant
-      cy.session(
-        `participant_${i}`,
-        () => {
-          // Initialize participant with first conversation
-          cy.request(
-            '/api/v3/participationInit?conversation_id=' + conversationIds[0] + '&pid=mypid&lang=acceptLang'
-          )
-        }
-      )
+    // Process participants in batches
+    for (let batchStart = 0; batchStart < numVoters; batchStart += batchSize) {
+      const batchEnd = Math.min(batchStart + batchSize, numVoters)
+      const currentBatch = Math.floor(batchStart / batchSize) + 1
 
-      // Visit and vote on all conversations
-      conversationIds.forEach(conversationId => {
-        cy.visitAndVote(conversationId)
-      })
+      // For each participant in this batch
+      for (let i = batchStart; i < batchEnd; i++) {
+        const participantId = `participant_${i}`
+
+        // Initialize participant and vote on conversations
+        cy.session(participantId, () => {
+          cy.request('/api/v3/participationInit?conversation_id=' + convoIds[0] + '&pid=mypid&lang=acceptLang')
+
+          // Vote on all conversations in this session
+          convoIds.forEach((convoId) => {
+            cy.voteOnConversation(convoId)
+          })
+        }, {
+          validate: () => {
+            cy.getCookie('pc').should('exist')
+          },
+          cacheAcrossSpecs: false
+        })
+
+        // Track progress
+        completedVoters++
+
+        // Clean up after each participant
+        cy.clearAllCookies()
+        cy.clearAllSessionStorage()
+        cy.clearAllLocalStorage()
+      }
+
+      // After each batch
+      Cypress.session.clearAllSavedSessions()
+
+      // Small delay between batches to allow for GC
+      if (currentBatch < totalBatches) {
+        // eslint-disable-next-line cypress/no-unnecessary-waiting
+        cy.wait(1000)
+      }
     }
+
+    // Final progress report
+    cy.log('Seeding Complete:')
+    cy.log(`- Total voters processed: ${completedVoters}`)
+    cy.log(`- Total conversations: ${convoIds.length}`)
+    cy.log(`- Comments per conversation: ${Cypress.env('commentsPerConvo') || 3}`)
   })
 })

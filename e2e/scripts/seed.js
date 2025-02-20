@@ -31,27 +31,28 @@ async function seed({
   numConversations = 2,
   commentsPerConvo = 3
 } = {}) {
-  console.log('🌱 Starting database seeding...')
-  console.log(`
-Configuration:
-- Anonymous participants per conversation: ${numVoters}
-- Conversations to create: ${numConversations}
-- Comments per conversation: ${commentsPerConvo}
-`)
+  console.log('\n🌱 Starting database seeding...\n')
+  console.log('Configuration:')
+  console.log(`- Anonymous participants per conversation: ${numVoters}`)
+  console.log(`- Conversations to create: ${numConversations}`)
+  console.log(`- Comments per conversation: ${commentsPerConvo}`)
+  console.log('\n')
 
   const config = {
+    config: {
+      baseUrl: process.env.CYPRESS_BASE_URL || 'http://localhost',
+      experimentalMemoryManagement: true,
+      numTestsKeptInMemory: 0,
+      video: false,
+      screenshotOnRunFailure: false,
+      e2e: {
+        specPattern: 'scripts/seed.cy.js'
+      }
+    },
     env: {
       numVoters,
       numConversations,
       commentsPerConvo
-    },
-    config: {
-      video: false,
-      screenshotOnRunFailure: false,
-      e2e: {
-        baseUrl: process.env.BASE_URL || 'http://localhost',
-        specPattern: 'scripts/seed.cy.js'
-      }
     }
   }
 
@@ -60,29 +61,25 @@ Configuration:
 
     if (results.totalFailed === 0) {
       const totalVotes = numVoters * commentsPerConvo
-      console.log(`
-✅ Database seeded successfully!
+      console.log(`\n✅ Database seeded successfully!
 - Created 1 moderator
 - Created ${numConversations} conversations
 - Added ${numConversations * commentsPerConvo} total comments
 - Created ${numVoters} anonymous participants
-- Added ${totalVotes} total votes
-`)
+- Added ${totalVotes} total votes\n`)
+      process.exit(0)
     } else {
-      console.error(`
-❌ Failed to seed database
-Failed tests: ${results.totalFailed}
-Check the output above for detailed error messages.
-
-Common issues:
-1. Make sure the API server is running at ${config.config.e2e.baseUrl}
-2. Make sure the database is accessible
-3. Check if the moderator account already exists
-`)
+      console.log('\n❌ Failed to seed database')
+      console.log(`Failed tests: ${results.totalFailed}`)
+      console.log('Check the output above for detailed error messages.\n')
+      console.log('Common issues:')
+      console.log(`1. Make sure the API server is running at ${config.config.baseUrl}`)
+      console.log('2. Make sure the database is accessible')
+      console.log('3. Check if the moderator account already exists\n')
       process.exit(1)
     }
-  } catch (error) {
-    console.error('❌ Error seeding database:', error)
+  } catch (err) {
+    console.error('\n❌ Error running tests:', err.message)
     process.exit(1)
   }
 }
@@ -93,13 +90,13 @@ if (require.main === module) {
   const options = {}
 
   args.forEach(arg => {
-    const [key, value] = arg.split('=')
-    if (key && value) {
-      options[key.replace('--', '')] = parseInt(value, 10)
+    const [key, value] = arg.replace('--', '').split('=')
+    if (value) {
+      options[key] = parseInt(value)
     }
   })
 
   seed(options)
 }
 
-module.exports = { seed } 
+module.exports = { seed }
