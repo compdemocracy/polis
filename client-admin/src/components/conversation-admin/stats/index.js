@@ -58,27 +58,41 @@ class ConversationStats extends React.Component {
       populateZidMetadataStore(match.params.conversation_id)
     )
 
-    if (zid_metadata.is_mod) {
-      this.loadStats()
-      this.getStatsRepeatedly = setInterval(() => {
-        this.loadStats()
-      }, 10000)
+    if (zid_metadata?.is_mod) {
+      this.startPolling()
     }
   }
 
-  componentDidUpdate() {
+  componentDidUpdate(prevProps) {
     const { zid_metadata } = this.props
-    if (zid_metadata?.is_mod) {
-      this.loadStats()
+    const prevIsMod = prevProps.zid_metadata?.is_mod
+    const currentIsMod = zid_metadata?.is_mod
+
+    // Start polling only when is_mod changes from false to true
+    if (!prevIsMod && currentIsMod) {
+      this.startPolling()
     }
   }
 
   componentWillUnmount() {
-    const { zid_metadata } = this.props
-
-    if (zid_metadata.is_mod) {
+    if (this.getStatsRepeatedly) {
       clearInterval(this.getStatsRepeatedly)
     }
+  }
+
+  startPolling() {
+    // Clear any existing interval
+    if (this.getStatsRepeatedly) {
+      clearInterval(this.getStatsRepeatedly)
+    }
+
+    // Initial load
+    this.loadStats()
+
+    // Start polling
+    this.getStatsRepeatedly = setInterval(() => {
+      this.loadStats()
+    }, 10000)
   }
 
   render() {

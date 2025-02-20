@@ -32,11 +32,10 @@ class ReportsList extends React.Component {
       })
     })
   }
-  
+
   componentDidMount() {
     const { zid_metadata } = this.props
-    
-    // eslint-disable-next-line react/prop-types
+
     this.props.dispatch(
       populateZidMetadataStore(this.props.match.params.conversation_id)
     )
@@ -47,9 +46,13 @@ class ReportsList extends React.Component {
     }
   }
 
-  componentDidUpdate() {
+  componentDidUpdate(prevProps) {
+    // Only call getData() if is_mod changed from false/undefined to true
     const { zid_metadata } = this.props
-    if (zid_metadata?.is_mod) {
+    const prevIsMod = prevProps.zid_metadata?.is_mod
+    const currentIsMod = zid_metadata?.is_mod
+
+    if (!prevIsMod && currentIsMod) {
       this.getData()
     }
   }
@@ -105,6 +108,7 @@ class ReportsList extends React.Component {
 }
 
 ReportsList.propTypes = {
+  dispatch: PropTypes.func,
   match: PropTypes.shape({
     params: PropTypes.shape({
       conversation_id: PropTypes.string

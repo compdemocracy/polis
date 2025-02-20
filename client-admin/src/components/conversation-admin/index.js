@@ -37,8 +37,10 @@ class ConversationAdminContainer extends React.Component {
     this.resetMetadata()
   }
 
-  componentDidUpdate() {
-    this.loadZidMetadata()
+  componentDidUpdate(prevProps) {
+    if (prevProps.match.params.conversation_id !== this.props.match.params.conversation_id) {
+      this.loadZidMetadata()
+    }
   }
 
   render() {
