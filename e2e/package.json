@@ -15,7 +15,8 @@
     "lint:fix": "eslint . --fix",
     "prettier": "prettier --write .",
     "build:embed": "node build-embed.js",
-    "build:integrated": "node build-integrated.js"
+    "build:integrated": "node build-integrated.js",
+    "seed": "node scripts/seed.js"
   },
   "author": "",
   "license": "ISC",

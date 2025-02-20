@@ -223,6 +223,13 @@ Cypress.Commands.add('initAndVote', (userLabel, convoId) => {
   recursiveVote()
 })
 
+Cypress.Commands.add('visitAndVote', (conversationId) => {
+  cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
+  cy.visit('/' + conversationId)
+  cy.wait('@participationInit')
+  recursiveVote()
+})
+
 function apiLogin(user) {
   cy.request('POST', '/api/v3/auth/login', { email: user.email, password: user.password })
 }
