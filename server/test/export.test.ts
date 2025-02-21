@@ -241,6 +241,13 @@ describe("handle_GET_reportExport", () => {
       { tid: 3, pid: 2 },
     ] as never);
 
+    // Mock pgQueryP_readOnly to return xid data
+    (queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+      { pid: 1, xid: "xid-1" },
+      { pid: 1, xid: "xid-2" },
+      { pid: 2, xid: "xid-3" },
+    ] as never);
+
     // Mock getPca to return group cluster data
     (getPca as jest.Mock).mockResolvedValue({
       asPOJO: {
@@ -269,10 +276,10 @@ describe("handle_GET_reportExport", () => {
 
     expect(mockRes.setHeader).toHaveBeenCalledWith("content-type", "text/csv");
     expect(mockRes.write).toHaveBeenCalledWith(
-      "participant,group-id,n-comments,n-votes,n-agree,n-disagree,1,2,3\n"
+      "participant,xid,group-id,n-comments,n-votes,n-agree,n-disagree,1,2,3\n"
     );
     // Check if the participant rows are correctly formatted
-    expect(mockRes.write).toHaveBeenCalledWith("1,1,2,2,1,1,1,-1,\n");
+    expect(mockRes.write).toHaveBeenCalledWith("1,xid-1,1,2,2,1,1,1,-1,\n");
     expect(mockRes.end).toHaveBeenCalled();
   });
 

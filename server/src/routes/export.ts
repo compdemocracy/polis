@@ -230,10 +230,17 @@ export async function sendParticipantVotesSummary(zid: number, res: Response) {
     return undefined;
   }
 
+  const xids = await getXids(zid);
+  function getXid(pid: number): string | undefined {
+    const xid = xids.find((row) => row.pid === pid);
+    return xid?.xid;
+  }
+
   res.setHeader("content-type", "text/csv");
   res.write(
     [
       "participant",
+      "xid",
       "group-id",
       "n-comments",
       "n-votes",
@@ -255,6 +262,7 @@ export async function sendParticipantVotesSummary(zid: number, res: Response) {
     }
     const values = [
       currentParticipantId,
+      getXid(currentParticipantId),
       getGroupId(currentParticipantId),
       participantCommentCounts.get(currentParticipantId) || 0,
       currentParticipantVotes.size,
@@ -571,4 +579,12 @@ export async function handle_GET_reportExport(
         : "polis_err_data_export";
     fail(res, 500, msg, err);
   }
+}
+
+async function getXids(zid: number): Promise<{ pid: number; xid: string }[]> {
+  const rows = await pgQueryP_readOnly(
+    "SELECT p.pid, x.xid FROM participants p LEFT JOIN xids x ON p.uid = x.uid WHERE p.zid = $1",
+    [zid]
+  );
+  return rows as { pid: number; xid: string }[];
 }
