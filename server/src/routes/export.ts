@@ -233,7 +233,7 @@ export async function sendParticipantVotesSummary(zid: number, res: Response) {
   const xids = await getXids(zid);
   function getXid(pid: number): string | undefined {
     const xid = xids.find((row) => row.pid === pid);
-    return xid?.xid;
+    return xid?.xid || "";
   }
 
   res.setHeader("content-type", "text/csv");
