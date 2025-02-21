@@ -55,9 +55,11 @@ describe('Database Seeding', function () {
         cy.session(participantId, () => {
           cy.request('/api/v3/participationInit?conversation_id=' + convoIds[0] + '&pid=mypid&lang=acceptLang')
 
+          const xid = `seed-${i}`
+
           // Vote on all conversations in this session
           convoIds.forEach((convoId) => {
-            cy.voteOnConversation(convoId)
+            cy.voteOnConversation(convoId, xid)
           })
         }, {
           validate: () => {

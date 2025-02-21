@@ -60,12 +60,12 @@ async function seed({
     const results = await cypress.run(config)
 
     if (results.totalFailed === 0) {
-      const totalVotes = numVoters * commentsPerConvo
+      const totalVotes = numVoters * commentsPerConvo * numConversations
       console.log(`\n✅ Database seeded successfully!
 - Created 1 moderator
 - Created ${numConversations} conversations
 - Added ${numConversations * commentsPerConvo} total comments
-- Created ${numVoters} anonymous participants
+- Created ${numVoters} participants
 - Added ${totalVotes} total votes\n`)
       process.exit(0)
     } else {

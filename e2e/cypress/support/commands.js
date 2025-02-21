@@ -217,9 +217,13 @@ Cypress.Commands.add('vote', () => {
 })
 
 // Core voting logic that can be used after establishing a session
-Cypress.Commands.add('voteOnConversation', (convoId) => {
+Cypress.Commands.add('voteOnConversation', (convoId, xid) => {
   cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
-  cy.visit('/' + convoId)
+  let url = '/' + convoId;
+  if (xid) {
+    url += '?xid=' + xid;
+  }
+  cy.visit(url)
   cy.wait('@participationInit')
 
   cy.get('[data-view-name="vote-view"]', { timeout: 10000 }).then(function voteLoop($voteView) {
@@ -233,11 +237,6 @@ Cypress.Commands.add('voteOnConversation', (convoId) => {
 // Legacy support for visualization tests
 Cypress.Commands.add('initAndVote', (userLabel, convoId) => {
   cy.ensureUser(userLabel)
-  cy.voteOnConversation(convoId)
-})
-
-// Alias for voteOnConversation, maintaining backward compatibility
-Cypress.Commands.add('visitAndVote', (convoId) => {
   cy.voteOnConversation(convoId)
 })
 
