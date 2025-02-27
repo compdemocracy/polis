@@ -229,12 +229,10 @@ export async function sendParticipantVotesSummary(zid: number, res: Response) {
     }
 
     // First find which base cluster contains this participant
-    const baseClusterIds = baseClusters.id;
-    const baseClusterMembers = baseClusters.members;
     let baseClusterId = -1;
-    for (let i = 0; i < baseClusterIds.length; i++) {
-      if (baseClusterMembers[i].includes(pid)) {
-        baseClusterId = baseClusterIds[i];
+    for (const cluster of baseClusters) {
+      if (cluster.members.includes(pid)) {
+        baseClusterId = cluster.id;
         break;
       }
     }
