@@ -219,14 +219,35 @@ export async function sendParticipantVotesSummary(zid: number, res: Response) {
   const pca = await getPca(zid);
   const groupClusters: { id: number; members: number[] }[] | undefined =
     pca?.asPOJO["group-clusters"];
+
+  const baseClusters: { id: number; members: number[] }[] | undefined =
+    pca?.asPOJO["base-clusters"];
+
   function getGroupId(pid: number) {
-    if (groupClusters) {
+    if (!baseClusters || !groupClusters) {
+      return undefined;
+    }
+
+    // First find which base cluster contains this participant
+    const baseClusterIds = baseClusters.id;
+    const baseClusterMembers = baseClusters.members;
+    let baseClusterId = -1;
+    for (let i = 0; i < baseClusterIds.length; i++) {
+      if (baseClusterMembers[i].includes(pid)) {
+        baseClusterId = baseClusterIds[i];
+        break;
+      }
+    }
+
+    // If we found a base cluster, check which group contains it
+    if (baseClusterId !== -1) {
       for (const group of groupClusters) {
-        if (group.members.includes(pid)) {
+        if (group.members.includes(baseClusterId)) {
           return group.id;
         }
       }
     }
+
     return undefined;
   }
 
