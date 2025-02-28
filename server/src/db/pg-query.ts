@@ -173,7 +173,9 @@ function queryP_metered_impl(
   if (isUndefined(name) || isUndefined(queryString) || isUndefined(params)) {
     throw new Error("polis_err_queryP_metered_impl missing params");
   }
-  return MPromise(name, function (resolve, reject) {
+  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
+  return new MPromise(name, function (resolve, reject) {
     f(queryString, params).then(resolve, reject);
   });
 }
