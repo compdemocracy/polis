@@ -11,79 +11,129 @@ import logger from "./logger";
 import { addInRamMetric } from "./metered";
 
 export type PcaCacheItem = {
-  asPOJO: any;
+  asPOJO: {
+    "group-clusters": Array<{
+      id: number;
+      center: number[];
+      members: number[]; // These are base cluster IDs, not participant IDs
+    }>;
+    "base-clusters": {
+      x: number[];
+      y: number[];
+      id: number[];
+      count: number[];
+      members: number[][]; // Array of arrays, each inner array contains participant IDs
+      [key: string]: any;
+    };
+    "group-votes"?: Record<string, {
+      votes: Record<string, {
+        A: number; // agrees
+        D: number; // disagrees
+        S: number; // sum of all votes
+      }>
+    }>;
+    "group-aware-consensus"?: Record<string, number>;
+    "user-vote-counts": Record<string, number>;
+    "in-conv": number[];
+    "n-cmts": number;
+    pca: {
+      comps: number[][]; // [dimensions][participants]
+      center: number[];
+      "comment-extremity": number[];
+      "comment-projection": any;
+    };
+    tids?: number[];
+    n: number;
+    "mod-in"?: number[];
+    "mod-out"?: number[];
+    repness: Record<string, any[]>;
+    consensus: {
+      agree: any[];
+      disagree: any[];
+    };
+    "meta-tids"?: any[];
+    "votes-base"?: Record<string, any>;
+    "lastModTimestamp"?: number | null;
+    "lastVoteTimestamp"?: number;
+    "comment-priorities"?: Record<string, number>;
+    "math_tick": number;
+    [key: string]: any;
+  };
   consensus: { agree?: any; disagree?: any };
   repness: { [x: string]: any };
   asJSON: string;
   asBufferOfGzippedJson: any;
   expiration: number;
 };
-let pcaCacheSize = Config.cacheMathResults ? 300 : 1;
-let pcaCache = new LruCache<number, PcaCacheItem>({
+
+const pcaCacheSize = Config.cacheMathResults ? 300 : 1;
+const pcaCache = new LruCache<number, PcaCacheItem>({
   max: pcaCacheSize,
 });
 
+// this scheme might not last forever. For now, there are only a couple of MB worth of conversation pca data.
 let lastPrefetchedMathTick = -1;
 
-// this scheme might not last forever. For now, there are only a couple of MB worth of conversation pca data.
+// Background polling function to proactively cache PCA data
 export function fetchAndCacheLatestPcaData() {
   let lastPrefetchPollStartTime = Date.now();
 
   function waitTime() {
-    let timePassed = Date.now() - lastPrefetchPollStartTime;
+    const timePassed = Date.now() - lastPrefetchPollStartTime;
     return Math.max(0, 2500 - timePassed);
   }
-  // cursor.sort([["math_tick", "asc"]]);
-  pgQueryP_readOnly(
-    "select * from math_main where caching_tick > ($1) order by caching_tick limit 10;",
-    [lastPrefetchedMathTick]
-  )
-    // Argument of type '(rows: any[]) => void' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void>'.
-    // Types of parameters 'rows' and 'value' are incompatible.
-    //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-    // @ts-ignore
-    .then((rows: any[]) => {
-      if (!rows || !rows.length) {
+
+  function pollForLatestPcaData() {
+    lastPrefetchPollStartTime = Date.now();
+    
+    pgQueryP_readOnly<Array<{ data: any; math_tick: any; caching_tick: any; zid: any }>>(
+      "select * from math_main where caching_tick > ($1) order by caching_tick limit 10;",
+      [lastPrefetchedMathTick]
+    ).then((rows) => {
+      const rowsArray = rows as Array<{ data: any; math_tick: any; caching_tick: any; zid: any }>;
+      
+      if (!rowsArray || !rowsArray.length) {
         // call again
         logger.info("mathpoll done");
-        setTimeout(fetchAndCacheLatestPcaData, waitTime());
+        setTimeout(pollForLatestPcaData, waitTime());
         return;
       }
 
-      let results = rows.map(
-        (row: { data: any; math_tick: any; caching_tick: any }) => {
-          let item = row.data;
+      const results = rowsArray.map(row => {
+        const item = row.data;
 
-          if (row.math_tick) {
-            item.math_tick = Number(row.math_tick);
-          }
-          if (row.caching_tick) {
-            item.caching_tick = Number(row.caching_tick);
-          }
-
-          logger.info("mathpoll updating", {
-            caching_tick: item.caching_tick,
-            zid: item.zid,
-          });
-
-          // let prev = pcaCache.get(item.zid);
-          if (item.caching_tick > lastPrefetchedMathTick) {
-            lastPrefetchedMathTick = item.caching_tick;
-          }
-
-          processMathObject(item);
-
-          return updatePcaCache(item.zid, item);
+        if (row.math_tick) {
+          item.math_tick = Number(row.math_tick);
         }
-      );
-      Promise.all(results).then((a: any) => {
-        setTimeout(fetchAndCacheLatestPcaData, waitTime());
+        if (row.caching_tick) {
+          item.caching_tick = Number(row.caching_tick);
+        }
+
+        logger.info("mathpoll updating", {
+          caching_tick: item.caching_tick,
+          zid: row.zid,
+        });
+
+        if (item.caching_tick > lastPrefetchedMathTick) {
+          lastPrefetchedMathTick = item.caching_tick;
+        }
+
+        processMathObject(item);
+
+        return updatePcaCache(row.zid, item);
       });
-    })
-    .catch((err: any) => {
+      
+      Promise.all(results).then(() => {
+        setTimeout(pollForLatestPcaData, waitTime());
+      });
+    }).catch((err) => {
       logger.error("mathpoll error", err);
-      setTimeout(fetchAndCacheLatestPcaData, waitTime());
+      setTimeout(pollForLatestPcaData, waitTime());
     });
+  }
+
+  // Start the polling process
+  pollForLatestPcaData();
 }
 
 export function getPca(
@@ -91,14 +141,10 @@ export function getPca(
   math_tick?: number
 ): Promise<PcaCacheItem | undefined> {
   let cached = pcaCache.get(zid);
-  // Object is of type 'unknown'.ts(2571)
-  // @ts-ignore
   if (cached && cached.expiration < Date.now()) {
     cached = undefined;
   }
-  // Object is of type 'unknown'.ts(2571)
-  // @ts-ignore
-  let cachedPOJO = cached && cached.asPOJO;
+  const cachedPOJO = cached && cached.asPOJO;
   if (cachedPOJO) {
     if (cachedPOJO.math_tick <= (math_tick || 0)) {
       logger.info("math was cached but not new", {
@@ -119,22 +165,20 @@ export function getPca(
   // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
   // It's probably not difficult to cache, but keeping things simple for now, and only caching things that come down with the poll.
 
-  let queryStart = Date.now();
+  const queryStart = Date.now();
 
-  return pgQueryP_readOnly(
+  return pgQueryP_readOnly<Array<{ data: any; math_tick: any }>>(
     "select * from math_main where zid = ($1) and math_env = ($2);",
     [zid, Config.mathEnv]
-    //     Argument of type '(rows: string | any[]) => Promise<any> | null' is not assignable to parameter of type '(value: unknown) => any'.
-    // Types of parameters 'rows' and 'value' are incompatible.
-    //   Type 'unknown' is not assignable to type 'string | any[]'.
-    //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-    // @ts-ignore
-  ).then((rows: string | any[]) => {
-    let queryEnd = Date.now();
-    let queryDuration = queryEnd - queryStart;
+  ).then((rows) => {
+    const queryEnd = Date.now();
+    const queryDuration = queryEnd - queryStart;
     addInRamMetric("pcaGetQuery", queryDuration);
 
-    if (!rows || !rows.length) {
+    // Ensure rows is an array with proper type assertion
+    const rowsArray = rows as Array<{ data: any; math_tick: any }>;
+    
+    if (!rowsArray || !rowsArray.length) {
       logger.info(
         "mathpoll related; after cache miss, unable to find data for",
         {
@@ -145,10 +189,10 @@ export function getPca(
       );
       return undefined;
     }
-    let item = rows[0].data;
+    const item = rowsArray[0].data;
 
-    if (rows[0].math_tick) {
-      item.math_tick = Number(rows[0].math_tick);
+    if (rowsArray[0].math_tick) {
+      item.math_tick = Number(rowsArray[0].math_tick);
     }
 
     if (item.math_tick <= (math_tick || 0)) {
@@ -175,19 +219,21 @@ function updatePcaCache(zid: any, item: { zid: any }): Promise<PcaCacheItem> {
     reject: (arg0: any) => any
   ) {
     delete item.zid; // don't leak zid
-    let asJSON = JSON.stringify(item);
-    let buf = Buffer.from(asJSON, "utf-8");
+    const asJSON = JSON.stringify(item);
+    const buf = Buffer.from(asJSON, "utf-8");
     zlib.gzip(buf as unknown as InputType, function (err: any, jsondGzipdPcaBuffer: any) {
       if (err) {
         return reject(err);
       }
 
-      let o = {
+      const o = {
         asPOJO: item,
         asJSON: asJSON,
         asBufferOfGzippedJson: jsondGzipdPcaBuffer,
         expiration: Date.now() + 3000,
-      } as PcaCacheItem;
+        consensus: (item as any).consensus || { agree: {}, disagree: {} },
+        repness: (item as any).repness || {},
+      } as unknown as PcaCacheItem;
       // save in LRU cache, but don't update the lastPrefetchedMathTick
       pcaCache.set(zid, o);
       resolve(o);
@@ -196,26 +242,40 @@ function updatePcaCache(zid: any, item: { zid: any }): Promise<PcaCacheItem> {
 }
 
 function processMathObject(o: { [x: string]: any }) {
-  function remapSubgroupStuff(g: { val: any[] }) {
-    if (_.isArray(g.val)) {
-      g.val = g.val.map((x: { id: number }) => {
-        return { id: Number(x.id), val: x };
-      });
-    } else {
-      // Argument of type '(id: number) => { id: number; val: any; }'
-      // is not assignable to parameter of type '(value: string, index: number, array: string[]) => { id: number; val: any; }'.
-      // Types of parameters 'id' and 'value' are incompatible.
-      //         Type 'string' is not assignable to type 'number'.ts(2345)
-      // @ts-ignore
-      g.val = _.keys(g.val).map((id: number) => {
-        return { id: Number(id), val: g.val[id] };
-      });
+  function remapSubgroupStuff(o: any) {
+    if (!o) {
+      return o;
     }
-    return g;
+    
+    // Helper function to safely map arrays or convert objects to arrays
+    function safeMap(input: any, mapFn: (item: any, index: number) => any): any[] {
+      if (Array.isArray(input)) {
+        return input.map(mapFn);
+      } else if (input && typeof input === 'object') {
+        return Object.keys(input).map((key) => mapFn(input[key], Number(key)));
+      }
+      return [];
+    }
+
+    // Process all subgroup properties in a single loop
+    const subgroupProperties = [
+      "group-clusters", "repness", "group-votes", 
+      "subgroup-repness", "subgroup-votes", "subgroup-clusters"
+    ];
+    
+    subgroupProperties.forEach(prop => {
+      if (o[prop]) {
+        o[prop] = safeMap(o[prop], (val, i) => ({
+          id: Number(i),
+          val: val
+        }));
+      }
+    });
+
+    return o;
   }
 
   // Normalize so everything is arrays of objects (group-clusters is already in this format, but needs to have the val: subobject style too).
-
   if (_.isArray(o["group-clusters"])) {
     // NOTE this is different since group-clusters is already an array.
     o["group-clusters"] = o["group-clusters"].map((g: { id: any }) => {
@@ -223,74 +283,35 @@ function processMathObject(o: { [x: string]: any }) {
     });
   }
 
-  if (!_.isArray(o["repness"])) {
-    o["repness"] = _.keys(o["repness"]).map((gid: string | number) => {
-      return { id: Number(gid), val: o["repness"][gid] };
-    });
-  }
-  if (!_.isArray(o["group-votes"])) {
-    o["group-votes"] = _.keys(o["group-votes"]).map((gid: string | number) => {
-      return { id: Number(gid), val: o["group-votes"][gid] };
-    });
-  }
-  if (!_.isArray(o["subgroup-repness"])) {
-    o["subgroup-repness"] = _.keys(o["subgroup-repness"]).map(
-      (gid: string | number) => {
-        return { id: Number(gid), val: o["subgroup-repness"][gid] };
+  // Process all non-array properties that need to be converted to arrays
+  const propsToConvert = [
+    "repness", "group-votes", "subgroup-repness", 
+    "subgroup-votes", "subgroup-clusters"
+  ];
+  
+  propsToConvert.forEach(prop => {
+    if (!_.isArray(o[prop])) {
+      o[prop] = _.keys(o[prop]).map((gid: string) => ({
+        id: Number(gid), 
+        val: o[prop][gid]
+      }));
+      
+      // Apply remapSubgroupStuff to subgroup properties
+      if (prop.startsWith("subgroup-")) {
+        o[prop].map(remapSubgroupStuff);
       }
-    );
-    o["subgroup-repness"].map(remapSubgroupStuff);
-  }
-  if (!_.isArray(o["subgroup-votes"])) {
-    o["subgroup-votes"] = _.keys(o["subgroup-votes"]).map(
-      (gid: string | number) => {
-        return { id: Number(gid), val: o["subgroup-votes"][gid] };
-      }
-    );
-    o["subgroup-votes"].map(remapSubgroupStuff);
-  }
-  if (!_.isArray(o["subgroup-clusters"])) {
-    o["subgroup-clusters"] = _.keys(o["subgroup-clusters"]).map(
-      (gid: string | number) => {
-        return { id: Number(gid), val: o["subgroup-clusters"][gid] };
-      }
-    );
-    o["subgroup-clusters"].map(remapSubgroupStuff);
-  }
-
-  // Edge case where there are two groups and one is huge, split the large group.
-  // Once we have a better story for h-clust in the participation view, then we can just show the h-clust instead.
-  // var groupVotes = o['group-votes'];
-  // if (_.keys(groupVotes).length === 2 && o['subgroup-votes'] && o['subgroup-clusters'] && o['subgroup-repness']) {
-  //   var s0 = groupVotes[0].val['n-members'];
-  //   var s1 = groupVotes[1].val['n-members'];
-  //   const scaleRatio = 1.1;
-  //   if (s1 * scaleRatio < s0) {
-  //     o = splitTopLevelGroup(o, groupVotes[0].id);
-  //   } else if (s0 * scaleRatio < s1) {
-  //     o = splitTopLevelGroup(o, groupVotes[1].id);
-  //   }
-  // }
-
-  // // Gaps in the gids are not what we want to show users, and they make client development difficult.
-  // // So this guarantees that the gids are contiguous. TODO look into Darwin.
-  // o = packGids(o);
+    }
+  });
 
   // Un-normalize to maintain API consistency.
   // This could removed in a future API version.
-  function toObj(a: string | any[]) {
-    let obj = {};
+  function toObj(a: any[] | undefined): Record<string, any> {
+    const obj: Record<string, any> = {};
     if (!a) {
       return obj;
     }
     for (let i = 0; i < a.length; i++) {
-      // Element implicitly has an 'any' type
-      // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-      // @ts-ignore
       obj[a[i].id] = a[i].val;
-      // Element implicitly has an 'any' type
-      // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-      // @ts-ignore
       obj[a[i].id].id = a[i].id;
     }
     return obj;
@@ -300,7 +321,7 @@ function processMathObject(o: { [x: string]: any }) {
       return [];
     }
     return a.map((g: { id: any; val: any }) => {
-      let id = g.id;
+      const id = g.id;
       g = g.val;
       g.id = id;
       return g;
