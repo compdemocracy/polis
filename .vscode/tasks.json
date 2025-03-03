@@ -17,7 +17,9 @@
     {
       "type": "docker-run",
       "label": "docker-run: release",
-      "dependsOn": ["docker-build"],
+      "dependsOn": [
+        "docker-build"
+      ],
       "platform": "node",
       "node": {
         "package": "${workspaceFolder}/server/package.json"
@@ -26,7 +28,9 @@
     {
       "type": "docker-run",
       "label": "docker-run: debug",
-      "dependsOn": ["docker-build"],
+      "dependsOn": [
+        "docker-build"
+      ],
       "dockerRun": {
         "env": {
           "DEBUG": "*",
@@ -37,6 +41,58 @@
         "package": "${workspaceFolder}/server/package.json",
         "enableDebugging": true
       }
+    },
+    {
+      "label": "Analyze Repness",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "math/pythonport/math-python-main.py",
+        "analyze-repness"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Peek JSON",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "math/pythonport/math-python-main.py",
+        "peek-json"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    },
+    {
+      "label": "Analyze Repness with ZID",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "math/pythonport/math-python-main.py",
+        "analyze-repness",
+        "${input:zid}"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "new"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "zid",
+      "type": "promptString",
+      "description": "Enter the ZID"
     }
   ]
 }

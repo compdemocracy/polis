@@ -76,24 +76,41 @@ def add_comparative_stats(in_stats, rest_stats):
     return {**in_stats, "ra": ra, "rd": rd, "rat": rat, "rdt": rdt}
 
 def get_votes_matrix(db_uri, zid):
-    """Get the votes matrix from the database as a numpy array"""
-    logger.debug(f"Fetching votes matrix for ZID {zid}")
-    query = f"""
-    SELECT pid, tid, vote 
-    FROM votes 
-    WHERE zid = {zid} AND vote != 0
-    """
-    df = pl.read_database_uri(query=query, uri=db_uri)
-    # Pivot to create matrix
-    matrix = df.pivot(
-        values="vote",
-        index="pid",
-        columns="tid",
-        aggregate_function="first"
-    ).fill_null(0)
+    """Get the votes matrix from the database as a numpy array
     
-    # Convert to numpy array
-    votes_array = matrix.to_numpy()
+    Returns a matrix where:
+    - Rows correspond to participant IDs (PIDs) which are consecutive integers starting at 0
+    - Columns correspond to comment IDs (TIDs) which are consecutive integers starting at 0
+    - Cell values: -1 for agree, 1 for disagree, 0 for no vote
+    """
+    logger.debug(f"Fetching votes matrix for ZID {zid}")
+    
+    # Get maximum PIDs and TIDs to determine matrix dimensions
+    pid_max_query = f"SELECT MAX(pid) as max_pid FROM votes WHERE zid = {zid}"
+    tid_max_query = f"SELECT MAX(tid) as max_tid FROM votes WHERE zid = {zid}"
+    
+    pid_max_df = pl.read_database_uri(query=pid_max_query, uri=db_uri)
+    tid_max_df = pl.read_database_uri(query=tid_max_query, uri=db_uri)
+    
+    # Handle null case safely
+    max_pid = pid_max_df[0, 0] if not pid_max_df.is_empty() and pid_max_df[0, 0] is not None else 0
+    max_tid = tid_max_df[0, 0] if not tid_max_df.is_empty() and tid_max_df[0, 0] is not None else 0
+    
+    logger.debug(f"Maximum PID: {max_pid}, Maximum TID: {max_tid}")
+    
+    # Initialize the votes matrix with zeros (no vote)
+    # Since PIDs and TIDs start at 0, we need max+1 rows/columns
+    votes_array = np.zeros((max_pid + 1, max_tid + 1), dtype=np.int32)
+    
+    # Get all votes
+    votes_query = f"SELECT pid, tid, vote FROM votes WHERE zid = {zid} AND vote != 0"
+    votes_df = pl.read_database_uri(query=votes_query, uri=db_uri)
+    
+    # Fill in the votes matrix directly using PIDs and TIDs as indices
+    for row in votes_df.iter_rows(named=True):
+        pid, tid, vote = row["pid"], row["tid"], row["vote"]
+        votes_array[pid, tid] = vote
+    
     logger.debug(f"Retrieved votes matrix with shape {votes_array.shape}")
     return votes_array
 
@@ -143,24 +160,24 @@ def finalize_cmt_stats(tid, comment_stats):
     if comment_stats["rat"] > comment_stats["rdt"]:
         return {
             "tid": tid,
-            "n_success": comment_stats["na"],
-            "n_trials": comment_stats["ns"],
-            "p_success": comment_stats["pa"],
-            "p_test": comment_stats["pat"],
+            "n-success": comment_stats["na"],
+            "n-trials": comment_stats["ns"],
+            "p-success": comment_stats["pa"],
+            "p-test": comment_stats["pat"],
             "repness": comment_stats["ra"],
-            "repness_test": float(comment_stats["rat"]),
-            "repful_for": "agree"
+            "repness-test": float(comment_stats["rat"]),
+            "repful-for": "agree"
         }
     else:
         return {
             "tid": tid,
-            "n_success": comment_stats["nd"], 
-            "n_trials": comment_stats["ns"],
-            "p_success": comment_stats["pd"],
-            "p_test": comment_stats["pdt"],
+            "n-success": comment_stats["nd"], 
+            "n-trials": comment_stats["ns"],
+            "p-success": comment_stats["pd"],
+            "p-test": comment_stats["pdt"],
             "repness": comment_stats["rd"],
-            "repness_test": float(comment_stats["rdt"]),
-            "repful_for": "disagree"
+            "repness-test": float(comment_stats["rdt"]),
+            "repful-for": "disagree"
         }
 
 # Ports repness-metric from math/repness.clj
@@ -262,39 +279,48 @@ def select_rep_comments(repness_stats, mod_out=None):
 def compute_group_repness(votes_matrix, group_clusters, base_clusters):
     """Compute representativeness for each group.
     
-    For each comment, computes both:
-    1. Single proportion tests (pat/pdt) comparing group's agree/disagree rates to 0.5
-    2. Two proportion tests (rat/rdt) comparing group's rates to other groups' rates
+    This function computes how representative each comment is for each group 
+    by measuring both agreement within the group and how that agreement differs
+    from other groups.
     
-    Returns a dictionary with:
-    - ids: list of group IDs
-    - tids: list of comment IDs
-    - stats: list of group stats, each containing:
-        - gid: group ID
-        - comments: list of comment stats, each containing:
-            - tid: comment ID
-            - n_success: number of successes (agrees or disagrees)
-            - n_trials: total number of trials
-            - p_success: probability of success
-            - p_test: test probability
-            - repness: repness score
-            - repness_test: float value of repness test
-            - repful_for: either "agree" or "disagree"
-            - Additional stats for debugging:
-                - n_group_agree/disagree: counts for this group
-                - n_other_agree/disagree: counts for other groups
-                - pat/pdt: single proportion test results
-                - rat/rdt: two proportion test results
+    Args:
+        votes_matrix: A 2D numpy array where:
+            - rows correspond to PIDs (consecutive integers starting at 0)
+            - columns correspond to TIDs (consecutive integers starting at 0)
+            - cell values: -1 for agree, 1 for disagree, 0 for no vote
+        group_clusters: List of group clusters from math data
+        base_clusters: Base clusters from math data
+        
+    Returns:
+        Dictionary mapping group indices (as strings) to lists of comment stats
     """
-    # Get group members
+    # Extract group members (set of PIDs for each group)
     group_members = {}
+    
+    # First, determine if members is a list or a dict
+    members_is_dict = isinstance(base_clusters.get("members", {}), dict)
+    
+    # For each group, extract the participant IDs that belong to it
     for group in group_clusters:
         gid = group["id"]
         members = []
+        
+        # Extract participant IDs for this group
         for bid in group["members"]:
-            for pid in base_clusters["id"]:
-                if pid in base_clusters["members"][bid]:
-                    members.append(pid)
+            # Find the corresponding entries in base_clusters
+            if members_is_dict:
+                # If members is a dict with keys as base cluster IDs
+                if str(bid) in base_clusters["members"]:
+                    members.extend(base_clusters["members"][str(bid)])
+            else:
+                # If members is a list indexed by positions
+                try:
+                    bid_index = base_clusters["id"].index(bid)
+                    members.extend(base_clusters["members"][bid_index])
+                except (ValueError, IndexError):
+                    # Skip if bid not found in base_clusters["id"]
+                    continue
+        
         group_members[gid] = members
     
     # Initialize results
@@ -304,38 +330,44 @@ def compute_group_repness(votes_matrix, group_clusters, base_clusters):
     for gid, members in group_members.items():
         comments = []
         
-        # For each comment
-        for tid_idx, tid in enumerate(base_clusters["id"]):
-            # Get votes for this comment
-            group_votes = votes_matrix[members, tid_idx]
-            other_votes = votes_matrix[~np.isin(np.arange(votes_matrix.shape[0]), members), tid_idx]
+        # Create a boolean mask for group members
+        member_mask = np.zeros(votes_matrix.shape[0], dtype=bool)
+        for pid in members:
+            if 0 <= pid < votes_matrix.shape[0]:  # Ensure PID is within matrix bounds
+                member_mask[pid] = True
+        
+        # Skip if no members found
+        if not np.any(member_mask):
+            continue
+        
+        # For each comment (TID)
+        for tid in range(votes_matrix.shape[1]):
+            # Get votes for this comment from group members and others
+            group_votes = votes_matrix[member_mask, tid]
+            other_votes = votes_matrix[~member_mask, tid]
             
-            # Remove NaN values
-            group_votes = group_votes[~np.isnan(group_votes)]
-            other_votes = other_votes[~np.isnan(other_votes)]
-            
-            # Count votes
+            # Count votes (excluding zeros which are no-votes)
             n_group_agree = np.sum(group_votes == -1)  # -1 is agree in our data
             n_group_disagree = np.sum(group_votes == 1)  # 1 is disagree
-            n_group_votes = len(group_votes)
+            n_group_votes = n_group_agree + n_group_disagree
             
             n_other_agree = np.sum(other_votes == -1)
             n_other_disagree = np.sum(other_votes == 1)
-            n_other_votes = len(other_votes)
+            n_other_votes = n_other_agree + n_other_disagree
             
-            # Skip if no votes
-            if n_group_votes == 0 or n_other_votes == 0:
+            # Skip if too few votes
+            if n_group_votes < 2 or n_other_votes < 2:
                 continue
-            
-            # Calculate single proportion tests (vs 0.5 null hypothesis)
-            pat = prop_test(n_group_agree, n_group_votes)
-            pdt = prop_test(n_group_disagree, n_group_votes)
             
             # Calculate probabilities with Laplace smoothing
             p_group_agree = (n_group_agree + 1) / (n_group_votes + 2)
             p_group_disagree = (n_group_disagree + 1) / (n_group_votes + 2)
             p_other_agree = (n_other_agree + 1) / (n_other_votes + 2)
             p_other_disagree = (n_other_disagree + 1) / (n_other_votes + 2)
+            
+            # Calculate single proportion tests (vs 0.5 null hypothesis)
+            pat = prop_test(n_group_agree, n_group_votes)
+            pdt = prop_test(n_group_disagree, n_group_votes)
             
             # Calculate two proportion tests (between groups)
             rat = two_prop_test(n_group_agree, n_other_agree, n_group_votes, n_other_votes)
@@ -344,45 +376,40 @@ def compute_group_repness(votes_matrix, group_clusters, base_clusters):
             # Store all stats for both agree and disagree
             comment_stats = {
                 "tid": tid,
+                "na": int(n_group_agree),
+                "nd": int(n_group_disagree),
+                "ns": int(n_group_votes),
+                "pa": float(p_group_agree),
+                "pd": float(p_group_disagree),
+                "pat": float(pat),
+                "pdt": float(pdt),
+                "ra": float(p_group_agree / p_other_agree),
+                "rd": float(p_group_disagree / p_other_disagree),
+                "rat": float(rat),
+                "rdt": float(rdt),
+                "n-agree": int(n_group_agree),
+                "n-disagree": int(n_group_disagree),
                 "n_group_agree": int(n_group_agree),
                 "n_group_disagree": int(n_group_disagree),
                 "n_other_agree": int(n_other_agree),
-                "n_other_disagree": int(n_other_disagree),
-                "pat": float(pat),
-                "pdt": float(pdt),
-                "rat": float(rat),
-                "rdt": float(rdt),
-                "p_group_agree": float(p_group_agree),
-                "p_other_agree": float(p_other_agree)
+                "n_other_disagree": int(n_other_disagree)
             }
             
-            # Determine which is more representative (agree or disagree)
-            # by comparing the two-proportion test scores
-            if abs(rat) > abs(rdt):
-                comment_stats.update({
-                    "n_success": int(n_group_agree),
-                    "n_trials": int(n_group_votes),
-                    "p_success": float(p_group_agree),
-                    "p_test": float(pat),  # Use single proportion test
-                    "repness": float(p_group_agree / p_other_agree),
-                    "repness_test": float(rat),  # Use two proportion test
-                    "repful_for": "agree"
-                })
-            else:
-                comment_stats.update({
-                    "n_success": int(n_group_disagree),
-                    "n_trials": int(n_group_votes),
-                    "p_success": float(p_group_disagree),
-                    "p_test": float(pdt),  # Use single proportion test
-                    "repness": float(p_group_disagree / p_other_disagree),
-                    "repness_test": float(rdt),  # Use two proportion test
-                    "repful_for": "disagree"
-                })
+            # Format the comment stats for client consumption
+            final_stats = finalize_cmt_stats(tid, comment_stats)
             
-            comments.append(comment_stats)
+            # Add debug data - both kebab-case and snake_case for testing flexibility
+            final_stats.update({
+                "n_group_agree": int(n_group_agree),
+                "n_group_disagree": int(n_group_disagree),
+                "n_other_agree": int(n_other_agree),
+                "n_other_disagree": int(n_other_disagree)
+            })
+            
+            comments.append(final_stats)
         
         # Sort comments by absolute repness test score
-        comments.sort(key=lambda x: -abs(x["repness_test"]))
+        comments.sort(key=lambda x: -abs(x["repness-test"]))
         
         # Add group stats
         group_stats.append({
@@ -390,8 +417,9 @@ def compute_group_repness(votes_matrix, group_clusters, base_clusters):
             "comments": comments
         })
     
-    return {
-        "ids": [g["id"] for g in group_clusters],
-        "tids": base_clusters["id"],
-        "stats": group_stats
-    } 
+    # Prepare the return value to match the Clojure structure
+    result = {}
+    for i, group_stat in enumerate(group_stats):
+        result[str(i)] = group_stat["comments"]
+        
+    return result 
