@@ -449,32 +449,23 @@ def compute_group_repness(
             if i != group_i:
                 remaining_ptpts.extend(group_ptpts[i])
 
+        # Compute repness for this group
         comment_stats = compute_comment_repness(
             votes_mat,
             group_i_ptpts,
-            remaining_ptpts
+            remaining_ptpts,
+            mod_out
         )
 
         group_repness.append(comment_stats)
 
-    # Process stats to prepare for select_rep_comments
-    raw_stats_list = [comment for comment in group_repness if comment["tid"] in raw_stats_by_id]
-    
-    # Get representative comments based on raw stats
-    rep_comments_by_group = select_rep_comments(raw_stats_list, mod_out)
-
-    # Flatten the dictionary into a list of dictionaries, which is what the testing code expects
-    rep_comments = []
-    if rep_comments_by_group:
-        # Use only the first group (gid 0) since we're computing for a single group here
-        rep_comments = rep_comments_by_group.get(0, [])
-
-    return rep_comments 
+    return group_repness
 
 def compute_comment_repness(
     votes_mat,
     group_ptpts,
-    other_ptpts
+    other_ptpts,
+    mod_out=None
 ):
     """
     Compute the representativeness of comments for a group.
@@ -483,7 +474,8 @@ def compute_comment_repness(
         votes_mat: Matrix of votes (participants x comments)
         group_ptpts: List of participant IDs in the group
         other_ptpts: List of participant IDs not in the group
-        
+        mod_out: Set of comment IDs that have been moderated out
+    
     Returns:
         List of comments with their repness statistics
     """
