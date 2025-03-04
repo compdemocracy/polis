@@ -1,5 +1,6 @@
 import _ from "underscore";
 import { getPca, PcaCacheItem } from "../utils/pca";
+import { MPromise } from "../utils/metered";
 import fail from "../utils/fail";
 import { queryP as pgQueryP, query_readOnly as pgQuery_readOnly } from "../db/pg-query";
 import Utils from "../utils/common";
@@ -281,18 +282,17 @@ function handle_GET_bidToPid(
   );
 }
 
-function getXids(zid: any) {
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  return new MPromise(
+
+function getXids(zid: number): Promise<{ pid: number, xid: string }[] | undefined> {
+  return MPromise(
     "getXids",
-    function (resolve: (arg0: any) => void, reject: (arg0: string) => void) {
+    function (resolve: (arg0: { pid: number, xid: string }[]) => void, reject: (arg0: string) => void) {
       pgQuery_readOnly(
         "select pid, xid from xids inner join " +
           "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
           " where owner in (select org_id from conversations where zid = ($1));",
         [zid],
-        function (err: any, result: { rows: any }) {
+        function (err: any, result: { rows: { pid: number, xid: string }[] }) {
           if (err) {
             reject("polis_err_fetching_xids");
             return;
@@ -301,8 +301,9 @@ function getXids(zid: any) {
         }
       );
     }
-  );
+  ) as Promise<{ pid: number, xid: string }[] | undefined>;
 }
+
 function handle_GET_xids(
   req: { p: { uid?: any; zid: any } },
   res: {
@@ -334,6 +335,7 @@ function handle_GET_xids(
     }
   );
 }
+
 function handle_POST_xidWhitelist(
   req: { p: { xid_whitelist: any; uid?: any } },
   res: {
@@ -367,6 +369,7 @@ function handle_POST_xidWhitelist(
       return fail(res, 500, "polis_err_POST_xidWhitelist", err);
     });
 }
+
 function getBidsForPids(zid: any, math_tick: number, pids: any[]) {
   let dataPromise = getBidIndexToPidMapping(zid, math_tick);
   let mathResultsPromise = getPca(zid, math_tick);

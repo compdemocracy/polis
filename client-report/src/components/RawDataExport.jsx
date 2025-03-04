@@ -89,6 +89,16 @@ const RawDataExport = ({ conversation, report_id }) => {
           {getDownloadFilename("comment-groups", conversation)}
         </a>
       </p>
+      <p style={{ fontFamily: "monospace" }}>
+        {`Participant XIDs: `}
+        <a
+          download={getDownloadFilename("participant-xids", conversation)}
+          href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-xids.csv`}
+          type="text/csv"
+        >
+          {getDownloadFilename("participant-xids", conversation)}
+        </a>
+      </p>
 
       <div style={{ marginTop: "3em" }}>
         <p style={{ fontFamily: "monospace" }}>
@@ -108,6 +118,9 @@ const RawDataExport = ({ conversation, report_id }) => {
         </p>
         <p style={{ fontFamily: "monospace" }}>
           {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/comment-groups.csv`}
+        </p>
+        <p style={{ fontFamily: "monospace" }}>
+          {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-xids.csv`}
         </p>
       </div>
 

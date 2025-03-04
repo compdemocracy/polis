@@ -7,6 +7,7 @@ import {
   stream_queryP_readOnly as stream_pgQueryP_readOnly,
 } from "../db/pg-query";
 import { getZinvite, getZidForRid } from "../utils/zinvite";
+import { getXids } from "./math";
 import { getPca } from "../utils/pca";
 import fail from "../utils/fail";
 import logger from "../utils/logger";
@@ -605,6 +606,36 @@ export async function sendCommentGroupsSummary(
   }
 }
 
+export async function sendParticipantXidsSummary(zid: number, res: Response) {
+  try {
+    const pca = await getPca(zid);
+    if (!pca?.asPOJO) {
+      throw new Error("polis_error_no_pca_data");
+    }
+
+    const xids = await getXids(zid);
+    if (!xids) {
+      throw new Error("polis_error_no_xid_response");
+    }
+
+    // Sort xids by pid
+    xids.sort((a, b) => a.pid - b.pid);
+
+    // Define formatters for the CSV columns
+    const formatters: Formatters<{pid: number, xid: string}> = {
+      participant: (row) => String(row.pid),
+      xid: (row) => formatEscapedText(row.xid),
+    };
+
+    // Generate and send the CSV
+    res.setHeader("content-type", "text/csv");
+    res.send(formatCSV(formatters, xids));
+  } catch (err) {
+    logger.error("polis_err_report_participant_xids", err);
+    fail(res, 500, "polis_err_data_export", err);
+  }
+}
+
 export async function handle_GET_reportExport(
   req: {
     p: { rid: string; report_type: string };
@@ -641,6 +672,10 @@ export async function handle_GET_reportExport(
 
       case "comment-groups.csv":
         await sendCommentGroupsSummary(zid, res);
+        break;
+
+      case "participant-xids.csv":
+        await sendParticipantXidsSummary(zid, res);
         break;
 
       default:
