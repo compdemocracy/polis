@@ -11,7 +11,7 @@ import json
 import logging
 from dotenv import load_dotenv, find_dotenv
 from functools import wraps
-from repness import get_votes_matrix, compute_group_repness, select_rep_comments
+from repness import get_votes_matrix, compute_group_repness, select_rep_comments, load_conversation
 
 # Configure logging
 logging.basicConfig(
@@ -259,22 +259,26 @@ def compute_repness(zid, db_uri):
     group_clusters = math_data.get("group-clusters", [])
     base_clusters = math_data.get("base-clusters", [])
     
+    # Load conversation to get moderation state
+    conversation = load_conversation(db_uri, zid)
+    mod_out = conversation.get('mod-out', set())
+    
     # Debug logging
-    logger.debug("Group clusters: %s", group_clusters)
-    logger.debug("Base clusters: %s", base_clusters)
+    logger.debug(f"Group clusters: {len(group_clusters)}")
+    logger.debug(f"Moderated comments: {len(mod_out)}")
     
     if not group_clusters:
         click.echo("No group clusters found in math data")
         return
         
-    # Get votes matrix
-    votes_matrix = get_votes_matrix(db_uri, zid)
+    # Get votes matrix with moderation filtering
+    votes_matrix = get_votes_matrix(db_uri, zid, mod_out)
     
-    # Analyze repness for all groups
-    repness_stats = compute_group_repness(votes_matrix, group_clusters, base_clusters)
+    # Analyze repness for all groups, passing mod_out
+    repness_stats = compute_group_repness(votes_matrix, group_clusters, base_clusters, mod_out)
     
     # Select representative comments
-    rep_comments = select_rep_comments(repness_stats)
+    rep_comments = select_rep_comments(repness_stats, mod_out)
         
     # Display results
     click.echo("\nRepresentative Comments Analysis:")
