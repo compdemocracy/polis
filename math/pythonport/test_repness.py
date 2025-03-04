@@ -115,19 +115,37 @@ def test_group_repness_comparison_to_clojure():
         logger.debug("Python repness type: %s", type(python_repness))
         logger.debug("Python repness length: %d", len(python_repness))
 
+        # Log the first 5 comments from both Python and Clojure before filtering
+        for group_i, group_results in enumerate(python_repness):
+            group_idx = str(group_i)
+            if group_idx in clojure_tids:
+                logger.debug(f"Group {group_idx}:")
+                logger.debug(f"First 5 Python comments of {len(group_results)}: {[c['tid'] for c in group_results[:5]]}")
+                logger.debug(f"First 5 Clojure comments of {len(clojure_tids[group_idx])}: {clojure_tids[group_idx][:5]}")
+        
         # Extract just the comments with IDs matching Clojure results for easier comparison
         filtered_python_repness = []
         for group_i, group_results in enumerate(python_repness):
             group_idx = str(group_i)
             if group_idx in clojure_tids:
+                # Find comments in common and those not matching
+                python_tids = {comment['tid'] for comment in group_results}
+                clojure_tid_set = set(clojure_tids[group_idx])
+                
+                common_tids = python_tids.intersection(clojure_tid_set)
+                python_only_tids = python_tids - clojure_tid_set
+                clojure_only_tids = clojure_tid_set - python_tids
+                
                 filtered_group = [
                     comment for comment in group_results
                     if comment['tid'] in clojure_tids[group_idx]
                 ]
                 filtered_python_repness.append(filtered_group)
+                
                 logger.debug(f"Group {group_idx}: Found {len(filtered_group)} of {len(clojure_tids[group_idx])} Clojure comments in Python results")
-                if filtered_group:
-                    logger.debug(f"First Python comment in group {group_idx}: {filtered_group[0]['tid']}")
+                logger.debug(f"Group {group_idx}: Common TIDs: {sorted(list(common_tids))[:5]}...")
+                logger.debug(f"Group {group_idx}: Python-only TIDs: {sorted(list(python_only_tids))[:5]}...")
+                logger.debug(f"Group {group_idx}: Clojure-only TIDs: {sorted(list(clojure_only_tids))[:5]}...")
 
         if python_repness and len(python_repness) > 0 and len(python_repness[0]) > 0:
             first_comment = python_repness[0][0]
