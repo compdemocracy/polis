@@ -3,11 +3,16 @@
   "version": "1.0.0",
   "description": "External test suite for Polis API",
   "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
-    "test": "source test-env.sh && jest --detectOpenHandles",
+    "prune": "docker network prune -f && docker container prune -f",
+    "pretest": "npm run prune",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --detectOpenHandles",
     "test:debug": "DEBUG_API_CONTAINER=true DEBUG_API_REQUESTS=true npm test",
-    "test:watch": "source test-env.sh && jest --watch",
-    "test:coverage": "source test-env.sh && jest --coverage",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "test:coverage": "NODE_OPTIONS=--experimental-vm-modules jest --coverage",
     "format": "biome format --write",
     "lint": "biome lint --write",
     "lint:unsafe": "biome lint --write --unsafe",
@@ -15,19 +20,20 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@faker-js/faker": "^9.2.0",
+    "@faker-js/faker": "^9.5.1",
     "@jest/globals": "^29.7.0",
     "@types/jest": "^29.5.14",
     "@types/supertest": "^6.0.2",
+    "dotenv": "^16.4.7",
     "jest": "^29.7.0",
     "json-schema": "^0.4.0",
-    "nock": "^13.5.6",
-    "node-pg-migrate": "^7.8.0",
+    "nock": "^14.0.1",
+    "node-pg-migrate": "^7.9.1",
     "supertest": "^7.0.0",
-    "testcontainers": "^10.15.0"
+    "testcontainers": "^10.18.0"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "pg": "^8.13.1"
+    "bcryptjs": "^3.0.2",
+    "pg": "^8.13.3"
   }
 }
