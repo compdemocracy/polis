@@ -409,10 +409,11 @@ def compute_group_repness(
     """
     
     # Use fixed values for optional parameters as in Clojure implementation
-    n_agree_thresh = 1
-    include_denominators = False
-    p_thresh = 0.05
-    use_two_proportion_z = False
+    # TODO: actually use these!
+    # n_agree_thresh = 1
+    # include_denominators = False
+    # p_thresh = 0.05
+    # use_two_proportion_z = False
     
     # Create a mapping from cluster ID to index in the array
     cluster_id_to_index = {cluster_id: idx for idx, cluster_id in enumerate(base_clusters["id"])}
@@ -435,6 +436,18 @@ def compute_group_repness(
         
         group_ptpts.append(list(group_ptpt_set))
         logging.debug(f"Group has {len(group_ptpt_set)} participants after resolving base clusters")
+
+    # Debug info about group sizes
+    total_participants = sum(len(group) for group in group_ptpts)
+    logging.debug(f"GROUP SIZES: {[len(group) for group in group_ptpts]}, Total: {total_participants}")
+    
+    # Count how many total votes in the matrix
+    total_votes = np.count_nonzero(votes_mat != 0)  # Count non-zero votes
+    logging.debug(f"VOTE MATRIX: Shape={votes_mat.shape}, Total non-zero votes={total_votes}")
+    
+    # Debug info on the vote matrix
+    unique_vals, counts = np.unique(votes_mat, return_counts=True)
+    logging.debug(f"VOTE DISTRIBUTION: {dict(zip(unique_vals, counts))}")
 
     # Now compute repness as before
     group_repness = []
@@ -482,20 +495,63 @@ def compute_comment_repness(
     result = []
     raw_stats_by_id = {}  # Store raw stats for later use
     n_comments = votes_mat.shape[1]
+    
+    # Debug for specific comments we're seeing differences in
+    debug_comment_ids = [20, 30, 86, 87, 387]
+    logging.warning(f"Processing group with {len(group_ptpts)} group participants and {len(other_ptpts)} other participants")
 
     for comment_id in range(n_comments):
         # Get votes for this comment
         comment_votes = votes_mat[:, comment_id]
         
+        # IMPORTANT CHANGE: Filter out NaN values and only count participants who voted
+        # This mimics Clojure's named-matrix approach where subsetting retains structure
+        
+        # Extract group votes, but only where values are not NaN
+        group_votes_with_nans = comment_votes[group_ptpts]
+        valid_group_indices = ~np.isnan(group_votes_with_nans)
+        group_votes = group_votes_with_nans[valid_group_indices]
+        
+        # Same for other votes
+        other_votes_with_nans = comment_votes[other_ptpts]
+        valid_other_indices = ~np.isnan(other_votes_with_nans)
+        other_votes = other_votes_with_nans[valid_other_indices]
+        
         # Count agreements and disagreements for group and other
         # IMPORTANT: In the Clojure implementation, -1 = agree, 1 = disagree
-        n_group_agree = sum(1 for i in group_ptpts if comment_votes[i] == -1)  # Agree is -1
-        n_group_disagree = sum(1 for i in group_ptpts if comment_votes[i] == 1)  # Disagree is 1
-        n_other_agree = sum(1 for i in other_ptpts if comment_votes[i] == -1)  # Agree is -1
-        n_other_disagree = sum(1 for i in other_ptpts if comment_votes[i] == 1)  # Disagree is 1
+        n_group_agree = np.sum(group_votes == -1)  # Agree is -1
+        n_group_disagree = np.sum(group_votes == 1)  # Disagree is 1
+        n_group_neutral = np.sum(group_votes == 0)  # Neutral is 0
+        n_other_agree = np.sum(other_votes == -1)  # Agree is -1
+        n_other_disagree = np.sum(other_votes == 1)  # Disagree is 1
+        n_other_neutral = np.sum(other_votes == 0)  # Neutral is 0
         
-        n_group_votes = n_group_agree + n_group_disagree
-        n_other_votes = n_other_agree + n_other_disagree
+        # Only count non-nan values for trials, like Clojure's count-votes function
+        # This should now give us different n_group_votes per comment, matching Clojure
+        n_group_votes = len(group_votes)  # Only counts filtered valid votes
+        n_other_votes = len(other_votes)  # Only counts filtered valid votes
+        
+        # Log detailed stats for comments we're debugging
+        if comment_id in debug_comment_ids:
+            vote_counts = {
+                "-1 (agree)": int(np.sum(comment_votes == -1)),
+                "0 (neutral)": int(np.sum(comment_votes == 0)),
+                "1 (disagree)": int(np.sum(comment_votes == 1))
+            }
+            group_vote_counts = {
+                "-1 (agree)": int(n_group_agree),
+                "0 (neutral)": int(n_group_neutral),
+                "1 (disagree)": int(n_group_disagree)
+            }
+            other_vote_counts = {
+                "-1 (agree)": int(n_other_agree),
+                "0 (neutral)": int(n_other_neutral),
+                "1 (disagree)": int(n_other_disagree)
+            }
+            logging.debug(f"COMMENT {comment_id} VOTES: {vote_counts}")
+            logging.debug(f"COMMENT {comment_id} GROUP VOTES: {group_vote_counts}, total={n_group_votes}, original len={len(group_ptpts)}")
+            logging.debug(f"COMMENT {comment_id} OTHER VOTES: {other_vote_counts}, total={n_other_votes}, original len={len(other_ptpts)}")
+            logging.debug(f"COMMENT {comment_id} FILTERED: group:{np.sum(valid_group_indices)}/{len(group_ptpts)}, other:{np.sum(valid_other_indices)}/{len(other_ptpts)}")
         
         # Skip if not enough votes from the group
         if n_group_votes < 1:
@@ -506,7 +562,7 @@ def compute_comment_repness(
             "tid": comment_id,
             "na": n_group_agree,
             "nd": n_group_disagree,
-            "ns": n_group_votes
+            "ns": n_group_votes  # Only count group votes, not all votes
         }
         
         # Calculate individual group statistics
@@ -553,11 +609,11 @@ def compute_comment_repness(
         
         # Special debug logging for comment 387
         if comment_id == 387:
-            logging.warning(f"COMMENT 387 DEBUG: raw_stats={raw_stats}")
-            logging.warning(f"COMMENT 387 DEBUG: rat={rat}, rdt={rdt}, comparison: rat > rdt = {rat > rdt}")
-            logging.warning(f"COMMENT 387 DEBUG: na={n_group_agree}, nd={n_group_disagree}, ns={n_group_votes}")
-            logging.warning(f"COMMENT 387 DEBUG: pa={pa}, pd={pd}, ra={ra}, rd={rd}")
-            logging.warning(f"COMMENT 387 DEBUG: other_na={n_other_agree}, other_nd={n_other_disagree}, other_ns={n_other_votes}")
+            logging.debug(f"COMMENT 387 DEBUG: raw_stats={raw_stats}")
+            logging.debug(f"COMMENT 387 DEBUG: rat={rat}, rdt={rdt}, comparison: rat > rdt = {rat > rdt}")
+            logging.debug(f"COMMENT 387 DEBUG: na={n_group_agree}, nd={n_group_disagree}, ns={n_group_votes}")
+            logging.debug(f"COMMENT 387 DEBUG: pa={pa}, pd={pd}, ra={ra}, rd={rd}")
+            logging.debug(f"COMMENT 387 DEBUG: other_na={n_other_agree}, other_nd={n_other_disagree}, other_ns={n_other_votes}")
         
         # Save raw stats for later
         raw_stats_by_id[comment_id] = raw_stats
