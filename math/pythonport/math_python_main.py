@@ -257,7 +257,7 @@ def compute_repness(zid, db_uri):
     
     # Get clusters from math data
     group_clusters = math_data.get("group-clusters", [])
-    base_clusters = math_data.get("base-clusters", [])
+    base_clusters = math_data.get("base-clusters", {})
     
     # Load conversation to get moderation state
     conversation = load_conversation(db_uri, zid)
@@ -275,10 +275,31 @@ def compute_repness(zid, db_uri):
     votes_matrix = get_votes_matrix(db_uri, zid, mod_out)
     
     # Analyze repness for all groups, passing mod_out
-    repness_stats = compute_group_repness(votes_matrix, group_clusters, base_clusters, mod_out)
+    python_repness = compute_group_repness(
+        votes_matrix,
+        group_clusters,
+        base_clusters,
+        mod_out  # Pass mod_out to match Clojure behavior
+    )
     
+    # Print raw repness data for debugging and analysis
+    click.echo("\nRaw Repness Data:")
+    click.echo("----------------")
+    print(python_repness)
+    for group_id, group_data in enumerate(python_repness):
+        click.echo(f"\nGroup {group_id} Repness:")
+        for comment_data in group_data:
+            tid = comment_data["tid"]
+            repful_for = comment_data["repful-for"]
+            repness = comment_data["repness"]
+            repness_test = comment_data["repness-test"]
+            n_success = comment_data["n-success"]
+            n_trials = comment_data["n-trials"]
+            p_success = comment_data["p-success"]
+
+            click.echo(f"  Comment {tid}: {repful_for}, repness={repness:.4f}, z={repness_test:.4f}, votes={n_success}/{n_trials} ({p_success:.4f})")
     # Select representative comments
-    rep_comments = select_rep_comments(repness_stats, mod_out)
+    rep_comments = select_rep_comments(python_repness, mod_out)
         
     # Display results
     click.echo("\nRepresentative Comments Analysis:")
@@ -286,11 +307,21 @@ def compute_repness(zid, db_uri):
     for group_id, comments in rep_comments.items():
         click.echo(f"\nGroup {group_id}:")
         for comment in comments:
-            click.echo(f"Comment {comment['tid']}:")
-            click.echo(f"  Type: {comment['repful_for']}")
-            click.echo(f"  Success: {comment['n_success']}/{comment['n_trials']} ({comment['p_success']:.2f})")
-            click.echo(f"  Repness: {comment['repness']:.2f} (z={comment['repness_test']:.2f})")
-            if 'best_agree' in comment:
+            tid = comment["tid"]
+            repful_for = comment["repful-for"]
+            n_success = comment["n-success"]
+            n_trials = comment["n-trials"]
+            p_success = comment["p-success"]
+            repness = comment["repness"]
+            repness_test = comment["repness-test"]
+            
+            click.echo(f"Comment {tid}:")
+            click.echo(f"  Type: {repful_for}")
+            click.echo(f"  Success: {n_success}/{n_trials} ({p_success:.2f})")
+            click.echo(f"  Repness: {repness:.2f} (z={repness_test:.2f})")
+            if 'best-agree' in comment:
+                click.echo("  (Best agree comment)")
+            elif comment.get('best-agree') is True:
                 click.echo("  (Best agree comment)")
 
 
