@@ -2,8 +2,8 @@
 -- PostgreSQL database dump
 --
 
--- Dumped from database version 13.4
--- Dumped by pg_dump version 14.13 (Homebrew)
+-- Dumped from database version 16.8
+-- Dumped by pg_dump version 17.4
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -17,7 +17,7 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: get_times_for_most_recent_visible_comments(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: get_times_for_most_recent_visible_comments(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.get_times_for_most_recent_visible_comments() RETURNS TABLE(zid integer, modified bigint)
@@ -27,10 +27,8 @@ CREATE FUNCTION public.get_times_for_most_recent_visible_comments() RETURNS TABL
 $$;
 
 
-ALTER FUNCTION public.get_times_for_most_recent_visible_comments() OWNER TO postgres;
-
 --
--- Name: get_visible_comments(integer); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: get_visible_comments(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.get_visible_comments(the_zid integer) RETURNS TABLE(tid integer, mod integer, strict_moderation boolean)
@@ -40,10 +38,8 @@ CREATE FUNCTION public.get_visible_comments(the_zid integer) RETURNS TABLE(tid i
 $$;
 
 
-ALTER FUNCTION public.get_visible_comments(the_zid integer) OWNER TO postgres;
-
 --
--- Name: now_as_millis(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: now_as_millis(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.now_as_millis() RETURNS bigint
@@ -59,10 +55,8 @@ CREATE FUNCTION public.now_as_millis() RETURNS bigint
 $$;
 
 
-ALTER FUNCTION public.now_as_millis() OWNER TO postgres;
-
 --
--- Name: pid_auto(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: pid_auto(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.pid_auto() RETURNS trigger
@@ -92,10 +86,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.pid_auto() OWNER TO postgres;
-
 --
--- Name: pid_auto_unlock(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: pid_auto_unlock(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.pid_auto_unlock() RETURNS trigger
@@ -115,10 +107,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.pid_auto_unlock() OWNER TO postgres;
-
 --
--- Name: random_polis_site_id(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: random_polis_site_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.random_polis_site_id() RETURNS text
@@ -129,10 +119,8 @@ SELECT 'polis_site_id_' || random_string(18);
 $$;
 
 
-ALTER FUNCTION public.random_polis_site_id() OWNER TO postgres;
-
 --
--- Name: random_string(integer); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: random_string(integer); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.random_string(integer) RETURNS text
@@ -151,10 +139,8 @@ SELECT array_to_string(
 $_$;
 
 
-ALTER FUNCTION public.random_string(integer) OWNER TO postgres;
-
 --
--- Name: tid_auto(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: tid_auto(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.tid_auto() RETURNS trigger
@@ -179,10 +165,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.tid_auto() OWNER TO postgres;
-
 --
--- Name: tid_auto_unlock(); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: tid_auto_unlock(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.tid_auto_unlock() RETURNS trigger
@@ -202,10 +186,8 @@ END;
 $$;
 
 
-ALTER FUNCTION public.tid_auto_unlock() OWNER TO postgres;
-
 --
--- Name: to_millis(timestamp with time zone); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: to_millis(timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.to_millis(t timestamp with time zone) RETURNS bigint
@@ -217,10 +199,8 @@ CREATE FUNCTION public.to_millis(t timestamp with time zone) RETURNS bigint
 $$;
 
 
-ALTER FUNCTION public.to_millis(t timestamp with time zone) OWNER TO postgres;
-
 --
--- Name: to_zid(text); Type: FUNCTION; Schema: public; Owner: postgres
+-- Name: to_zid(text); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.to_zid(associated_zinvite text) RETURNS integer
@@ -232,14 +212,12 @@ CREATE FUNCTION public.to_zid(associated_zinvite text) RETURNS integer
 $$;
 
 
-ALTER FUNCTION public.to_zid(associated_zinvite text) OWNER TO postgres;
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
 
 --
--- Name: apikeysndvweifu; Type: TABLE; Schema: public; Owner: postgres
+-- Name: apikeysndvweifu; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.apikeysndvweifu (
@@ -249,10 +227,8 @@ CREATE TABLE public.apikeysndvweifu (
 );
 
 
-ALTER TABLE public.apikeysndvweifu OWNER TO postgres;
-
 --
--- Name: auth_tokens; Type: TABLE; Schema: public; Owner: postgres
+-- Name: auth_tokens; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.auth_tokens (
@@ -262,10 +238,8 @@ CREATE TABLE public.auth_tokens (
 );
 
 
-ALTER TABLE public.auth_tokens OWNER TO postgres;
-
 --
--- Name: beta; Type: TABLE; Schema: public; Owner: postgres
+-- Name: beta; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.beta (
@@ -276,10 +250,8 @@ CREATE TABLE public.beta (
 );
 
 
-ALTER TABLE public.beta OWNER TO postgres;
-
 --
--- Name: comment_translations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: comment_translations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.comment_translations (
@@ -293,10 +265,8 @@ CREATE TABLE public.comment_translations (
 );
 
 
-ALTER TABLE public.comment_translations OWNER TO postgres;
-
 --
--- Name: comments; Type: TABLE; Schema: public; Owner: postgres
+-- Name: comments; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.comments (
@@ -320,10 +290,8 @@ CREATE TABLE public.comments (
 );
 
 
-ALTER TABLE public.comments OWNER TO postgres;
-
 --
--- Name: contexts; Type: TABLE; Schema: public; Owner: postgres
+-- Name: contexts; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.contexts (
@@ -335,10 +303,8 @@ CREATE TABLE public.contexts (
 );
 
 
-ALTER TABLE public.contexts OWNER TO postgres;
-
 --
--- Name: contexts_context_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: contexts_context_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.contexts_context_id_seq
@@ -350,17 +316,15 @@ CREATE SEQUENCE public.contexts_context_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.contexts_context_id_seq OWNER TO postgres;
-
 --
--- Name: contexts_context_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: contexts_context_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.contexts_context_id_seq OWNED BY public.contexts.context_id;
 
 
 --
--- Name: contributer_agreement_signatures; Type: TABLE; Schema: public; Owner: postgres
+-- Name: contributer_agreement_signatures; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.contributer_agreement_signatures (
@@ -374,10 +338,8 @@ CREATE TABLE public.contributer_agreement_signatures (
 );
 
 
-ALTER TABLE public.contributer_agreement_signatures OWNER TO postgres;
-
 --
--- Name: conversation_translations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: conversation_translations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.conversation_translations (
@@ -391,10 +353,8 @@ CREATE TABLE public.conversation_translations (
 );
 
 
-ALTER TABLE public.conversation_translations OWNER TO postgres;
-
 --
--- Name: conversations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: conversations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.conversations (
@@ -438,14 +398,13 @@ CREATE TABLE public.conversations (
     auth_opt_tw boolean,
     auth_opt_allow_3rdparty boolean,
     modified bigint DEFAULT public.now_as_millis(),
-    created bigint DEFAULT public.now_as_millis()
+    created bigint DEFAULT public.now_as_millis(),
+    importance_enabled boolean DEFAULT false NOT NULL
 );
 
 
-ALTER TABLE public.conversations OWNER TO postgres;
-
 --
--- Name: conversations_zid_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: conversations_zid_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.conversations_zid_seq
@@ -457,17 +416,15 @@ CREATE SEQUENCE public.conversations_zid_seq
     CACHE 1;
 
 
-ALTER TABLE public.conversations_zid_seq OWNER TO postgres;
-
 --
--- Name: conversations_zid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: conversations_zid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.conversations_zid_seq OWNED BY public.conversations.zid;
 
 
 --
--- Name: courses; Type: TABLE; Schema: public; Owner: postgres
+-- Name: courses; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.courses (
@@ -480,10 +437,8 @@ CREATE TABLE public.courses (
 );
 
 
-ALTER TABLE public.courses OWNER TO postgres;
-
 --
--- Name: courses_course_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: courses_course_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.courses_course_id_seq
@@ -495,17 +450,15 @@ CREATE SEQUENCE public.courses_course_id_seq
     CACHE 1;
 
 
-ALTER TABLE public.courses_course_id_seq OWNER TO postgres;
-
 --
--- Name: courses_course_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: courses_course_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.courses_course_id_seq OWNED BY public.courses.course_id;
 
 
 --
--- Name: crowd_mod; Type: TABLE; Schema: public; Owner: postgres
+-- Name: crowd_mod; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.crowd_mod (
@@ -526,10 +479,8 @@ CREATE TABLE public.crowd_mod (
 );
 
 
-ALTER TABLE public.crowd_mod OWNER TO postgres;
-
 --
--- Name: demographic_data; Type: TABLE; Schema: public; Owner: postgres
+-- Name: demographic_data; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.demographic_data (
@@ -545,10 +496,8 @@ CREATE TABLE public.demographic_data (
 );
 
 
-ALTER TABLE public.demographic_data OWNER TO postgres;
-
 --
--- Name: einvites; Type: TABLE; Schema: public; Owner: postgres
+-- Name: einvites; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.einvites (
@@ -558,10 +507,8 @@ CREATE TABLE public.einvites (
 );
 
 
-ALTER TABLE public.einvites OWNER TO postgres;
-
 --
--- Name: email_validations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: email_validations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.email_validations (
@@ -570,10 +517,8 @@ CREATE TABLE public.email_validations (
 );
 
 
-ALTER TABLE public.email_validations OWNER TO postgres;
-
 --
--- Name: event_ptpt_no_more_comments; Type: TABLE; Schema: public; Owner: postgres
+-- Name: event_ptpt_no_more_comments; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.event_ptpt_no_more_comments (
@@ -584,10 +529,8 @@ CREATE TABLE public.event_ptpt_no_more_comments (
 );
 
 
-ALTER TABLE public.event_ptpt_no_more_comments OWNER TO postgres;
-
 --
--- Name: facebook_friends; Type: TABLE; Schema: public; Owner: postgres
+-- Name: facebook_friends; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.facebook_friends (
@@ -596,10 +539,8 @@ CREATE TABLE public.facebook_friends (
 );
 
 
-ALTER TABLE public.facebook_friends OWNER TO postgres;
-
 --
--- Name: facebook_users; Type: TABLE; Schema: public; Owner: postgres
+-- Name: facebook_users; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.facebook_users (
@@ -621,25 +562,8 @@ CREATE TABLE public.facebook_users (
 );
 
 
-ALTER TABLE public.facebook_users OWNER TO postgres;
-
 --
--- Name: geolocation_cache; Type: TABLE; Schema: public; Owner: postgres
---
-
-CREATE TABLE public.geolocation_cache (
-    location character varying(9999),
-    lat double precision NOT NULL,
-    lng double precision NOT NULL,
-    response json,
-    created bigint DEFAULT public.now_as_millis()
-);
-
-
-ALTER TABLE public.geolocation_cache OWNER TO postgres;
-
---
--- Name: inviters; Type: TABLE; Schema: public; Owner: postgres
+-- Name: inviters; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.inviters (
@@ -649,10 +573,8 @@ CREATE TABLE public.inviters (
 );
 
 
-ALTER TABLE public.inviters OWNER TO postgres;
-
 --
--- Name: jianiuevyew; Type: TABLE; Schema: public; Owner: postgres
+-- Name: jianiuevyew; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.jianiuevyew (
@@ -661,10 +583,8 @@ CREATE TABLE public.jianiuevyew (
 );
 
 
-ALTER TABLE public.jianiuevyew OWNER TO postgres;
-
 --
--- Name: math_bidtopid; Type: TABLE; Schema: public; Owner: postgres
+-- Name: math_bidtopid; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.math_bidtopid (
@@ -676,10 +596,8 @@ CREATE TABLE public.math_bidtopid (
 );
 
 
-ALTER TABLE public.math_bidtopid OWNER TO postgres;
-
 --
--- Name: math_cache; Type: TABLE; Schema: public; Owner: postgres
+-- Name: math_cache; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.math_cache (
@@ -690,10 +608,8 @@ CREATE TABLE public.math_cache (
 );
 
 
-ALTER TABLE public.math_cache OWNER TO postgres;
-
 --
--- Name: math_exportstatus; Type: TABLE; Schema: public; Owner: postgres
+-- Name: math_exportstatus; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.math_exportstatus (
@@ -705,10 +621,8 @@ CREATE TABLE public.math_exportstatus (
 );
 
 
-ALTER TABLE public.math_exportstatus OWNER TO postgres;
-
 --
--- Name: math_main; Type: TABLE; Schema: public; Owner: postgres
+-- Name: math_main; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.math_main (
@@ -722,10 +636,8 @@ CREATE TABLE public.math_main (
 );
 
 
-ALTER TABLE public.math_main OWNER TO postgres;
-
 --
--- Name: math_profile; Type: TABLE; Schema: public; Owner: postgres
+-- Name: math_profile; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.math_profile (
@@ -736,10 +648,8 @@ CREATE TABLE public.math_profile (
 );
 
 
-ALTER TABLE public.math_profile OWNER TO postgres;
-
 --
--- Name: math_ptptstats; Type: TABLE; Schema: public; Owner: postgres
+-- Name: math_ptptstats; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.math_ptptstats (
@@ -751,10 +661,8 @@ CREATE TABLE public.math_ptptstats (
 );
 
 
-ALTER TABLE public.math_ptptstats OWNER TO postgres;
-
 --
--- Name: math_report_correlationmatrix; Type: TABLE; Schema: public; Owner: postgres
+-- Name: math_report_correlationmatrix; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.math_report_correlationmatrix (
@@ -766,10 +674,8 @@ CREATE TABLE public.math_report_correlationmatrix (
 );
 
 
-ALTER TABLE public.math_report_correlationmatrix OWNER TO postgres;
-
 --
--- Name: math_ticks; Type: TABLE; Schema: public; Owner: postgres
+-- Name: math_ticks; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.math_ticks (
@@ -781,10 +687,8 @@ CREATE TABLE public.math_ticks (
 );
 
 
-ALTER TABLE public.math_ticks OWNER TO postgres;
-
 --
--- Name: metrics; Type: TABLE; Schema: public; Owner: postgres
+-- Name: metrics; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.metrics (
@@ -796,10 +700,8 @@ CREATE TABLE public.metrics (
 );
 
 
-ALTER TABLE public.metrics OWNER TO postgres;
-
 --
--- Name: notification_tasks; Type: TABLE; Schema: public; Owner: postgres
+-- Name: notification_tasks; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.notification_tasks (
@@ -808,10 +710,8 @@ CREATE TABLE public.notification_tasks (
 );
 
 
-ALTER TABLE public.notification_tasks OWNER TO postgres;
-
 --
--- Name: oinvites; Type: TABLE; Schema: public; Owner: postgres
+-- Name: oinvites; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.oinvites (
@@ -821,10 +721,8 @@ CREATE TABLE public.oinvites (
 );
 
 
-ALTER TABLE public.oinvites OWNER TO postgres;
-
 --
--- Name: page_ids; Type: TABLE; Schema: public; Owner: postgres
+-- Name: page_ids; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.page_ids (
@@ -834,10 +732,8 @@ CREATE TABLE public.page_ids (
 );
 
 
-ALTER TABLE public.page_ids OWNER TO postgres;
-
 --
--- Name: participant_locations; Type: TABLE; Schema: public; Owner: postgres
+-- Name: participant_locations; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.participant_locations (
@@ -851,10 +747,8 @@ CREATE TABLE public.participant_locations (
 );
 
 
-ALTER TABLE public.participant_locations OWNER TO postgres;
-
 --
--- Name: participant_metadata_answers; Type: TABLE; Schema: public; Owner: postgres
+-- Name: participant_metadata_answers; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.participant_metadata_answers (
@@ -867,10 +761,8 @@ CREATE TABLE public.participant_metadata_answers (
 );
 
 
-ALTER TABLE public.participant_metadata_answers OWNER TO postgres;
-
 --
--- Name: participant_metadata_answers_pmaid_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: participant_metadata_answers_pmaid_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.participant_metadata_answers_pmaid_seq
@@ -882,17 +774,15 @@ CREATE SEQUENCE public.participant_metadata_answers_pmaid_seq
     CACHE 1;
 
 
-ALTER TABLE public.participant_metadata_answers_pmaid_seq OWNER TO postgres;
-
 --
--- Name: participant_metadata_answers_pmaid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: participant_metadata_answers_pmaid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.participant_metadata_answers_pmaid_seq OWNED BY public.participant_metadata_answers.pmaid;
 
 
 --
--- Name: participant_metadata_choices; Type: TABLE; Schema: public; Owner: postgres
+-- Name: participant_metadata_choices; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.participant_metadata_choices (
@@ -905,10 +795,8 @@ CREATE TABLE public.participant_metadata_choices (
 );
 
 
-ALTER TABLE public.participant_metadata_choices OWNER TO postgres;
-
 --
--- Name: participant_metadata_questions; Type: TABLE; Schema: public; Owner: postgres
+-- Name: participant_metadata_questions; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.participant_metadata_questions (
@@ -920,10 +808,8 @@ CREATE TABLE public.participant_metadata_questions (
 );
 
 
-ALTER TABLE public.participant_metadata_questions OWNER TO postgres;
-
 --
--- Name: participant_metadata_questions_pmqid_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: participant_metadata_questions_pmqid_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.participant_metadata_questions_pmqid_seq
@@ -935,17 +821,15 @@ CREATE SEQUENCE public.participant_metadata_questions_pmqid_seq
     CACHE 1;
 
 
-ALTER TABLE public.participant_metadata_questions_pmqid_seq OWNER TO postgres;
-
 --
--- Name: participant_metadata_questions_pmqid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: participant_metadata_questions_pmqid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.participant_metadata_questions_pmqid_seq OWNED BY public.participant_metadata_questions.pmqid;
 
 
 --
--- Name: participants; Type: TABLE; Schema: public; Owner: postgres
+-- Name: participants; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.participants (
@@ -962,10 +846,8 @@ CREATE TABLE public.participants (
 );
 
 
-ALTER TABLE public.participants OWNER TO postgres;
-
 --
--- Name: participants_extended; Type: TABLE; Schema: public; Owner: postgres
+-- Name: participants_extended; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.participants_extended (
@@ -982,10 +864,8 @@ CREATE TABLE public.participants_extended (
 );
 
 
-ALTER TABLE public.participants_extended OWNER TO postgres;
-
 --
--- Name: permanentcookiezidjoins; Type: TABLE; Schema: public; Owner: postgres
+-- Name: permanentcookiezidjoins; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.permanentcookiezidjoins (
@@ -995,10 +875,8 @@ CREATE TABLE public.permanentcookiezidjoins (
 );
 
 
-ALTER TABLE public.permanentcookiezidjoins OWNER TO postgres;
-
 --
--- Name: pwreset_tokens; Type: TABLE; Schema: public; Owner: postgres
+-- Name: pwreset_tokens; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.pwreset_tokens (
@@ -1008,10 +886,8 @@ CREATE TABLE public.pwreset_tokens (
 );
 
 
-ALTER TABLE public.pwreset_tokens OWNER TO postgres;
-
 --
--- Name: report_comment_selections; Type: TABLE; Schema: public; Owner: postgres
+-- Name: report_comment_selections; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.report_comment_selections (
@@ -1023,10 +899,8 @@ CREATE TABLE public.report_comment_selections (
 );
 
 
-ALTER TABLE public.report_comment_selections OWNER TO postgres;
-
 --
--- Name: reports; Type: TABLE; Schema: public; Owner: postgres
+-- Name: reports; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.reports (
@@ -1053,10 +927,8 @@ CREATE TABLE public.reports (
 );
 
 
-ALTER TABLE public.reports OWNER TO postgres;
-
 --
--- Name: reports_rid_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: reports_rid_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.reports_rid_seq
@@ -1067,17 +939,15 @@ CREATE SEQUENCE public.reports_rid_seq
     CACHE 1;
 
 
-ALTER TABLE public.reports_rid_seq OWNER TO postgres;
-
 --
--- Name: reports_rid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: reports_rid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.reports_rid_seq OWNED BY public.reports.rid;
 
 
 --
--- Name: site_domain_whitelist; Type: TABLE; Schema: public; Owner: postgres
+-- Name: site_domain_whitelist; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.site_domain_whitelist (
@@ -1089,10 +959,8 @@ CREATE TABLE public.site_domain_whitelist (
 );
 
 
-ALTER TABLE public.site_domain_whitelist OWNER TO postgres;
-
 --
--- Name: social_settings; Type: TABLE; Schema: public; Owner: postgres
+-- Name: social_settings; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.social_settings (
@@ -1101,10 +969,8 @@ CREATE TABLE public.social_settings (
 );
 
 
-ALTER TABLE public.social_settings OWNER TO postgres;
-
 --
--- Name: stars; Type: TABLE; Schema: public; Owner: postgres
+-- Name: stars; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.stars (
@@ -1116,10 +982,8 @@ CREATE TABLE public.stars (
 );
 
 
-ALTER TABLE public.stars OWNER TO postgres;
-
 --
--- Name: suzinvites; Type: TABLE; Schema: public; Owner: postgres
+-- Name: suzinvites; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.suzinvites (
@@ -1131,10 +995,8 @@ CREATE TABLE public.suzinvites (
 );
 
 
-ALTER TABLE public.suzinvites OWNER TO postgres;
-
 --
--- Name: trashes; Type: TABLE; Schema: public; Owner: postgres
+-- Name: trashes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.trashes (
@@ -1146,10 +1008,8 @@ CREATE TABLE public.trashes (
 );
 
 
-ALTER TABLE public.trashes OWNER TO postgres;
-
 --
--- Name: twitter_users; Type: TABLE; Schema: public; Owner: postgres
+-- Name: twitter_users; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.twitter_users (
@@ -1168,10 +1028,8 @@ CREATE TABLE public.twitter_users (
 );
 
 
-ALTER TABLE public.twitter_users OWNER TO postgres;
-
 --
--- Name: upvotes; Type: TABLE; Schema: public; Owner: postgres
+-- Name: upvotes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.upvotes (
@@ -1180,10 +1038,8 @@ CREATE TABLE public.upvotes (
 );
 
 
-ALTER TABLE public.upvotes OWNER TO postgres;
-
 --
--- Name: users; Type: TABLE; Schema: public; Owner: postgres
+-- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.users (
@@ -1201,10 +1057,8 @@ CREATE TABLE public.users (
 );
 
 
-ALTER TABLE public.users OWNER TO postgres;
-
 --
--- Name: users_uid_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+-- Name: users_uid_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
 CREATE SEQUENCE public.users_uid_seq
@@ -1216,17 +1070,15 @@ CREATE SEQUENCE public.users_uid_seq
     CACHE 1;
 
 
-ALTER TABLE public.users_uid_seq OWNER TO postgres;
-
 --
--- Name: users_uid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+-- Name: users_uid_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
 --
 
 ALTER SEQUENCE public.users_uid_seq OWNED BY public.users.uid;
 
 
 --
--- Name: votes; Type: TABLE; Schema: public; Owner: postgres
+-- Name: votes; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.votes (
@@ -1235,14 +1087,13 @@ CREATE TABLE public.votes (
     tid integer NOT NULL,
     vote smallint,
     weight_x_32767 smallint DEFAULT 0,
-    created bigint DEFAULT public.now_as_millis()
+    created bigint DEFAULT public.now_as_millis(),
+    high_priority boolean DEFAULT false NOT NULL
 );
 
 
-ALTER TABLE public.votes OWNER TO postgres;
-
 --
--- Name: votes_latest_unique; Type: TABLE; Schema: public; Owner: postgres
+-- Name: votes_latest_unique; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.votes_latest_unique (
@@ -1255,10 +1106,8 @@ CREATE TABLE public.votes_latest_unique (
 );
 
 
-ALTER TABLE public.votes_latest_unique OWNER TO postgres;
-
 --
--- Name: worker_tasks; Type: TABLE; Schema: public; Owner: postgres
+-- Name: worker_tasks; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.worker_tasks (
@@ -1272,10 +1121,8 @@ CREATE TABLE public.worker_tasks (
 );
 
 
-ALTER TABLE public.worker_tasks OWNER TO postgres;
-
 --
--- Name: xid_whitelist; Type: TABLE; Schema: public; Owner: postgres
+-- Name: xid_whitelist; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.xid_whitelist (
@@ -1285,10 +1132,8 @@ CREATE TABLE public.xid_whitelist (
 );
 
 
-ALTER TABLE public.xid_whitelist OWNER TO postgres;
-
 --
--- Name: xids; Type: TABLE; Schema: public; Owner: postgres
+-- Name: xids; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.xids (
@@ -1303,10 +1148,8 @@ CREATE TABLE public.xids (
 );
 
 
-ALTER TABLE public.xids OWNER TO postgres;
-
 --
--- Name: zinvites; Type: TABLE; Schema: public; Owner: postgres
+-- Name: zinvites; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.zinvites (
@@ -1316,59 +1159,57 @@ CREATE TABLE public.zinvites (
 );
 
 
-ALTER TABLE public.zinvites OWNER TO postgres;
-
 --
--- Name: contexts context_id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: contexts context_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.contexts ALTER COLUMN context_id SET DEFAULT nextval('public.contexts_context_id_seq'::regclass);
 
 
 --
--- Name: conversations zid; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: conversations zid; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.conversations ALTER COLUMN zid SET DEFAULT nextval('public.conversations_zid_seq'::regclass);
 
 
 --
--- Name: courses course_id; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: courses course_id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.courses ALTER COLUMN course_id SET DEFAULT nextval('public.courses_course_id_seq'::regclass);
 
 
 --
--- Name: participant_metadata_answers pmaid; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: participant_metadata_answers pmaid; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_answers ALTER COLUMN pmaid SET DEFAULT nextval('public.participant_metadata_answers_pmaid_seq'::regclass);
 
 
 --
--- Name: participant_metadata_questions pmqid; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: participant_metadata_questions pmqid; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_questions ALTER COLUMN pmqid SET DEFAULT nextval('public.participant_metadata_questions_pmqid_seq'::regclass);
 
 
 --
--- Name: reports rid; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: reports rid; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.reports ALTER COLUMN rid SET DEFAULT nextval('public.reports_rid_seq'::regclass);
 
 
 --
--- Name: users uid; Type: DEFAULT; Schema: public; Owner: postgres
+-- Name: users uid; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users ALTER COLUMN uid SET DEFAULT nextval('public.users_uid_seq'::regclass);
 
 
 --
--- Name: apikeysndvweifu apikeysndvweifu_apikey_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: apikeysndvweifu apikeysndvweifu_apikey_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.apikeysndvweifu
@@ -1376,7 +1217,7 @@ ALTER TABLE ONLY public.apikeysndvweifu
 
 
 --
--- Name: auth_tokens auth_tokens_token_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_tokens auth_tokens_token_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_tokens
@@ -1384,7 +1225,7 @@ ALTER TABLE ONLY public.auth_tokens
 
 
 --
--- Name: beta beta_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: beta beta_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.beta
@@ -1392,7 +1233,7 @@ ALTER TABLE ONLY public.beta
 
 
 --
--- Name: comment_translations comment_translations_zid_tid_src_lang_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: comment_translations comment_translations_zid_tid_src_lang_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.comment_translations
@@ -1400,7 +1241,7 @@ ALTER TABLE ONLY public.comment_translations
 
 
 --
--- Name: comments comments_zid_tid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: comments comments_zid_tid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.comments
@@ -1408,7 +1249,7 @@ ALTER TABLE ONLY public.comments
 
 
 --
--- Name: comments comments_zid_txt_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: comments comments_zid_txt_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.comments
@@ -1416,7 +1257,7 @@ ALTER TABLE ONLY public.comments
 
 
 --
--- Name: conversation_translations conversation_translations_zid_src_lang_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: conversation_translations conversation_translations_zid_src_lang_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.conversation_translations
@@ -1424,7 +1265,7 @@ ALTER TABLE ONLY public.conversation_translations
 
 
 --
--- Name: conversations conversations_zid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: conversations conversations_zid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.conversations
@@ -1432,7 +1273,7 @@ ALTER TABLE ONLY public.conversations
 
 
 --
--- Name: courses courses_course_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: courses courses_course_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.courses
@@ -1440,7 +1281,7 @@ ALTER TABLE ONLY public.courses
 
 
 --
--- Name: courses courses_course_invite_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: courses courses_course_invite_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.courses
@@ -1448,7 +1289,7 @@ ALTER TABLE ONLY public.courses
 
 
 --
--- Name: demographic_data demographic_data_uid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: demographic_data demographic_data_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.demographic_data
@@ -1456,7 +1297,7 @@ ALTER TABLE ONLY public.demographic_data
 
 
 --
--- Name: einvites einvites_einvite_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: einvites einvites_einvite_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.einvites
@@ -1464,7 +1305,7 @@ ALTER TABLE ONLY public.einvites
 
 
 --
--- Name: email_validations email_validations_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: email_validations email_validations_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.email_validations
@@ -1472,7 +1313,7 @@ ALTER TABLE ONLY public.email_validations
 
 
 --
--- Name: facebook_users facebook_users_fb_user_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: facebook_users facebook_users_fb_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.facebook_users
@@ -1480,7 +1321,7 @@ ALTER TABLE ONLY public.facebook_users
 
 
 --
--- Name: facebook_users facebook_users_uid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: facebook_users facebook_users_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.facebook_users
@@ -1488,15 +1329,7 @@ ALTER TABLE ONLY public.facebook_users
 
 
 --
--- Name: geolocation_cache geolocation_cache_location_key; Type: CONSTRAINT; Schema: public; Owner: postgres
---
-
-ALTER TABLE ONLY public.geolocation_cache
-    ADD CONSTRAINT geolocation_cache_location_key UNIQUE (location);
-
-
---
--- Name: jianiuevyew jianiuevyew_uid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: jianiuevyew jianiuevyew_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.jianiuevyew
@@ -1504,7 +1337,7 @@ ALTER TABLE ONLY public.jianiuevyew
 
 
 --
--- Name: math_bidtopid math_bidtopid_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_bidtopid math_bidtopid_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_bidtopid
@@ -1512,7 +1345,7 @@ ALTER TABLE ONLY public.math_bidtopid
 
 
 --
--- Name: math_cache math_cache_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_cache math_cache_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_cache
@@ -1520,7 +1353,7 @@ ALTER TABLE ONLY public.math_cache
 
 
 --
--- Name: math_exportstatus math_exportstatus_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_exportstatus math_exportstatus_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_exportstatus
@@ -1528,7 +1361,7 @@ ALTER TABLE ONLY public.math_exportstatus
 
 
 --
--- Name: math_main math_main_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_main math_main_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_main
@@ -1536,7 +1369,7 @@ ALTER TABLE ONLY public.math_main
 
 
 --
--- Name: math_profile math_profile_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_profile math_profile_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_profile
@@ -1544,7 +1377,7 @@ ALTER TABLE ONLY public.math_profile
 
 
 --
--- Name: math_ptptstats math_ptptstats_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_ptptstats math_ptptstats_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_ptptstats
@@ -1552,7 +1385,7 @@ ALTER TABLE ONLY public.math_ptptstats
 
 
 --
--- Name: math_report_correlationmatrix math_report_correlationmatrix_rid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_report_correlationmatrix math_report_correlationmatrix_rid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_report_correlationmatrix
@@ -1560,7 +1393,7 @@ ALTER TABLE ONLY public.math_report_correlationmatrix
 
 
 --
--- Name: math_ticks math_ticks_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_ticks math_ticks_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_ticks
@@ -1568,7 +1401,7 @@ ALTER TABLE ONLY public.math_ticks
 
 
 --
--- Name: notification_tasks notification_tasks_zid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: notification_tasks notification_tasks_zid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.notification_tasks
@@ -1576,7 +1409,7 @@ ALTER TABLE ONLY public.notification_tasks
 
 
 --
--- Name: oinvites oinvites_oinvite_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: oinvites oinvites_oinvite_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.oinvites
@@ -1584,7 +1417,7 @@ ALTER TABLE ONLY public.oinvites
 
 
 --
--- Name: page_ids page_ids_site_id_page_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: page_ids page_ids_site_id_page_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.page_ids
@@ -1592,7 +1425,7 @@ ALTER TABLE ONLY public.page_ids
 
 
 --
--- Name: participant_locations participant_locations_zid_uid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_locations participant_locations_zid_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_locations
@@ -1600,7 +1433,7 @@ ALTER TABLE ONLY public.participant_locations
 
 
 --
--- Name: participant_metadata_answers participant_metadata_answers_pmaid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_answers participant_metadata_answers_pmaid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_answers
@@ -1608,7 +1441,7 @@ ALTER TABLE ONLY public.participant_metadata_answers
 
 
 --
--- Name: participant_metadata_answers participant_metadata_answers_pmqid_zid_value_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_answers participant_metadata_answers_pmqid_zid_value_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_answers
@@ -1616,7 +1449,7 @@ ALTER TABLE ONLY public.participant_metadata_answers
 
 
 --
--- Name: participant_metadata_choices participant_metadata_choices_zid_pid_pmqid_pmaid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_choices participant_metadata_choices_zid_pid_pmqid_pmaid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_choices
@@ -1624,7 +1457,7 @@ ALTER TABLE ONLY public.participant_metadata_choices
 
 
 --
--- Name: participant_metadata_questions participant_metadata_questions_pmqid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_questions participant_metadata_questions_pmqid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_questions
@@ -1632,7 +1465,7 @@ ALTER TABLE ONLY public.participant_metadata_questions
 
 
 --
--- Name: participant_metadata_questions participant_metadata_questions_zid_key_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_questions participant_metadata_questions_zid_key_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_questions
@@ -1640,7 +1473,7 @@ ALTER TABLE ONLY public.participant_metadata_questions
 
 
 --
--- Name: participants_extended participants_extended_zid_uid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participants_extended participants_extended_zid_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participants_extended
@@ -1648,7 +1481,7 @@ ALTER TABLE ONLY public.participants_extended
 
 
 --
--- Name: participants participants_zid_pid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participants participants_zid_pid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participants
@@ -1656,7 +1489,7 @@ ALTER TABLE ONLY public.participants
 
 
 --
--- Name: participants participants_zid_uid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participants participants_zid_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participants
@@ -1664,7 +1497,7 @@ ALTER TABLE ONLY public.participants
 
 
 --
--- Name: pwreset_tokens password_reset_tokens_pwresettoken_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: pwreset_tokens password_reset_tokens_pwresettoken_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.pwreset_tokens
@@ -1672,7 +1505,7 @@ ALTER TABLE ONLY public.pwreset_tokens
 
 
 --
--- Name: permanentcookiezidjoins permanentcookiezidjoins_zid_cookie_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: permanentcookiezidjoins permanentcookiezidjoins_zid_cookie_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.permanentcookiezidjoins
@@ -1680,7 +1513,7 @@ ALTER TABLE ONLY public.permanentcookiezidjoins
 
 
 --
--- Name: report_comment_selections report_comment_selections_rid_tid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: report_comment_selections report_comment_selections_rid_tid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.report_comment_selections
@@ -1688,7 +1521,7 @@ ALTER TABLE ONLY public.report_comment_selections
 
 
 --
--- Name: reports reports_report_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: reports reports_report_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.reports
@@ -1696,7 +1529,7 @@ ALTER TABLE ONLY public.reports
 
 
 --
--- Name: reports reports_rid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: reports reports_rid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.reports
@@ -1704,7 +1537,7 @@ ALTER TABLE ONLY public.reports
 
 
 --
--- Name: suzinvites suzinvites_suzinvite_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: suzinvites suzinvites_suzinvite_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.suzinvites
@@ -1712,7 +1545,7 @@ ALTER TABLE ONLY public.suzinvites
 
 
 --
--- Name: twitter_users twitter_users_twitter_user_id_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: twitter_users twitter_users_twitter_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.twitter_users
@@ -1720,7 +1553,7 @@ ALTER TABLE ONLY public.twitter_users
 
 
 --
--- Name: twitter_users twitter_users_uid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: twitter_users twitter_users_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.twitter_users
@@ -1728,7 +1561,7 @@ ALTER TABLE ONLY public.twitter_users
 
 
 --
--- Name: upvotes upvotes_uid_zid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: upvotes upvotes_uid_zid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.upvotes
@@ -1736,7 +1569,7 @@ ALTER TABLE ONLY public.upvotes
 
 
 --
--- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -1744,7 +1577,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: users users_uid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: users users_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.users
@@ -1752,7 +1585,7 @@ ALTER TABLE ONLY public.users
 
 
 --
--- Name: votes_latest_unique votes_latest_unique_zid_pid_tid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: votes_latest_unique votes_latest_unique_zid_pid_tid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.votes_latest_unique
@@ -1760,7 +1593,7 @@ ALTER TABLE ONLY public.votes_latest_unique
 
 
 --
--- Name: xid_whitelist xid_whitelist_owner_xid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: xid_whitelist xid_whitelist_owner_xid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.xid_whitelist
@@ -1768,7 +1601,7 @@ ALTER TABLE ONLY public.xid_whitelist
 
 
 --
--- Name: xids xids_owner_xid_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: xids xids_owner_xid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.xids
@@ -1776,7 +1609,7 @@ ALTER TABLE ONLY public.xids
 
 
 --
--- Name: zinvites zinvites_zinvite_key; Type: CONSTRAINT; Schema: public; Owner: postgres
+-- Name: zinvites zinvites_zinvite_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zinvites
@@ -1784,175 +1617,175 @@ ALTER TABLE ONLY public.zinvites
 
 
 --
--- Name: apikeysndvweifu_apikey_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: apikeysndvweifu_apikey_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX apikeysndvweifu_apikey_idx ON public.apikeysndvweifu USING btree (apikey);
 
 
 --
--- Name: apikeysndvweifu_uid_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: apikeysndvweifu_uid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX apikeysndvweifu_uid_idx ON public.apikeysndvweifu USING btree (uid);
 
 
 --
--- Name: comment_translations_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: comment_translations_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX comment_translations_idx ON public.comment_translations USING btree (zid, tid);
 
 
 --
--- Name: comments_zid_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: comments_zid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX comments_zid_idx ON public.comments USING btree (zid);
 
 
 --
--- Name: conversation_translations_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: conversation_translations_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX conversation_translations_idx ON public.conversation_translations USING btree (zid);
 
 
 --
--- Name: conversations_owner_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: conversations_owner_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX conversations_owner_idx ON public.conversations USING btree (owner);
 
 
 --
--- Name: course_id_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: course_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE UNIQUE INDEX course_id_idx ON public.courses USING btree (course_id);
 
 
 --
--- Name: main_main_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: main_main_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX main_main_idx ON public.math_main USING btree (zid);
 
 
 --
--- Name: main_profile_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: main_profile_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX main_profile_idx ON public.math_profile USING btree (zid);
 
 
 --
--- Name: math_bidtopid_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: math_bidtopid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX math_bidtopid_idx ON public.math_bidtopid USING btree (zid);
 
 
 --
--- Name: math_cache_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: math_cache_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX math_cache_idx ON public.math_cache USING btree (zid);
 
 
 --
--- Name: math_exportstatus_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: math_exportstatus_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX math_exportstatus_idx ON public.math_exportstatus USING btree (zid);
 
 
 --
--- Name: math_math_report_correlationmatrix_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: math_math_report_correlationmatrix_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX math_math_report_correlationmatrix_idx ON public.math_report_correlationmatrix USING btree (rid);
 
 
 --
--- Name: math_ptptstats_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: math_ptptstats_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX math_ptptstats_idx ON public.math_ptptstats USING btree (zid);
 
 
 --
--- Name: participants_conv_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: participants_conv_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX participants_conv_idx ON public.participants USING btree (zid);
 
 
 --
--- Name: participants_conv_uid_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: participants_conv_uid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX participants_conv_uid_idx ON public.participants USING btree (uid);
 
 
 --
--- Name: site_domain_whitelist_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: site_domain_whitelist_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX site_domain_whitelist_idx ON public.users USING btree (site_id);
 
 
 --
--- Name: suzinvites_owner_zid_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: suzinvites_owner_zid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX suzinvites_owner_zid_idx ON public.suzinvites USING btree (owner, zid);
 
 
 --
--- Name: users_uid_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: users_uid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX users_uid_idx ON public.users USING btree (uid);
 
 
 --
--- Name: votes_latest_unique_zid_tid_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: votes_latest_unique_zid_tid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX votes_latest_unique_zid_tid_idx ON public.votes USING btree (zid, tid);
 
 
 --
--- Name: votes_zid_pid_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: votes_zid_pid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX votes_zid_pid_idx ON public.votes USING btree (zid, pid);
 
 
 --
--- Name: xid_whitelist_owner_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: xid_whitelist_owner_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX xid_whitelist_owner_idx ON public.xid_whitelist USING btree (owner);
 
 
 --
--- Name: xids_owner_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: xids_owner_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX xids_owner_idx ON public.xids USING btree (owner);
 
 
 --
--- Name: zinvites_zid_idx; Type: INDEX; Schema: public; Owner: postgres
+-- Name: zinvites_zid_idx; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX zinvites_zid_idx ON public.zinvites USING btree (zid);
 
 
 --
--- Name: votes on_vote_insert_update_unique_table; Type: RULE; Schema: public; Owner: postgres
+-- Name: votes on_vote_insert_update_unique_table; Type: RULE; Schema: public; Owner: -
 --
 
 CREATE RULE on_vote_insert_update_unique_table AS
@@ -1961,35 +1794,35 @@ CREATE RULE on_vote_insert_update_unique_table AS
 
 
 --
--- Name: participants pid_auto; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: participants pid_auto; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER pid_auto BEFORE INSERT ON public.participants FOR EACH ROW EXECUTE FUNCTION public.pid_auto();
 
 
 --
--- Name: participants pid_auto_unlock; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: participants pid_auto_unlock; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER pid_auto_unlock AFTER INSERT ON public.participants FOR EACH ROW EXECUTE FUNCTION public.pid_auto_unlock();
 
 
 --
--- Name: comments tid_auto; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: comments tid_auto; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER tid_auto BEFORE INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION public.tid_auto();
 
 
 --
--- Name: comments tid_auto_unlock; Type: TRIGGER; Schema: public; Owner: postgres
+-- Name: comments tid_auto_unlock; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER tid_auto_unlock AFTER INSERT ON public.comments FOR EACH ROW EXECUTE FUNCTION public.tid_auto_unlock();
 
 
 --
--- Name: apikeysndvweifu apikeysndvweifu_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: apikeysndvweifu apikeysndvweifu_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.apikeysndvweifu
@@ -1997,7 +1830,7 @@ ALTER TABLE ONLY public.apikeysndvweifu
 
 
 --
--- Name: auth_tokens auth_tokens_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: auth_tokens auth_tokens_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.auth_tokens
@@ -2005,7 +1838,7 @@ ALTER TABLE ONLY public.auth_tokens
 
 
 --
--- Name: comment_translations comment_translations_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: comment_translations comment_translations_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.comment_translations
@@ -2013,7 +1846,7 @@ ALTER TABLE ONLY public.comment_translations
 
 
 --
--- Name: comments comments_zid_pid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: comments comments_zid_pid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.comments
@@ -2021,7 +1854,7 @@ ALTER TABLE ONLY public.comments
 
 
 --
--- Name: contexts contexts_creator_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: contexts contexts_creator_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.contexts
@@ -2029,7 +1862,7 @@ ALTER TABLE ONLY public.contexts
 
 
 --
--- Name: contributer_agreement_signatures contributer_agreement_signatures_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: contributer_agreement_signatures contributer_agreement_signatures_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.contributer_agreement_signatures
@@ -2037,7 +1870,7 @@ ALTER TABLE ONLY public.contributer_agreement_signatures
 
 
 --
--- Name: conversation_translations conversation_translations_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: conversation_translations conversation_translations_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.conversation_translations
@@ -2045,7 +1878,7 @@ ALTER TABLE ONLY public.conversation_translations
 
 
 --
--- Name: conversations conversations_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: conversations conversations_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.conversations
@@ -2053,7 +1886,7 @@ ALTER TABLE ONLY public.conversations
 
 
 --
--- Name: conversations conversations_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: conversations conversations_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.conversations
@@ -2061,7 +1894,7 @@ ALTER TABLE ONLY public.conversations
 
 
 --
--- Name: conversations conversations_owner_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: conversations conversations_owner_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.conversations
@@ -2069,7 +1902,7 @@ ALTER TABLE ONLY public.conversations
 
 
 --
--- Name: courses courses_owner_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: courses courses_owner_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.courses
@@ -2077,7 +1910,7 @@ ALTER TABLE ONLY public.courses
 
 
 --
--- Name: demographic_data demographic_data_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: demographic_data demographic_data_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.demographic_data
@@ -2085,7 +1918,7 @@ ALTER TABLE ONLY public.demographic_data
 
 
 --
--- Name: facebook_friends facebook_friends_friend_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: facebook_friends facebook_friends_friend_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.facebook_friends
@@ -2093,7 +1926,7 @@ ALTER TABLE ONLY public.facebook_friends
 
 
 --
--- Name: facebook_friends facebook_friends_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: facebook_friends facebook_friends_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.facebook_friends
@@ -2101,7 +1934,7 @@ ALTER TABLE ONLY public.facebook_friends
 
 
 --
--- Name: facebook_users facebook_users_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: facebook_users facebook_users_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.facebook_users
@@ -2109,7 +1942,7 @@ ALTER TABLE ONLY public.facebook_users
 
 
 --
--- Name: inviters inviters_inviter_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: inviters inviters_inviter_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.inviters
@@ -2117,7 +1950,7 @@ ALTER TABLE ONLY public.inviters
 
 
 --
--- Name: jianiuevyew jianiuevyew_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: jianiuevyew jianiuevyew_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.jianiuevyew
@@ -2125,7 +1958,7 @@ ALTER TABLE ONLY public.jianiuevyew
 
 
 --
--- Name: math_bidtopid math_bidtopid_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_bidtopid math_bidtopid_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_bidtopid
@@ -2133,7 +1966,7 @@ ALTER TABLE ONLY public.math_bidtopid
 
 
 --
--- Name: math_cache math_cache_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_cache math_cache_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_cache
@@ -2141,7 +1974,7 @@ ALTER TABLE ONLY public.math_cache
 
 
 --
--- Name: math_exportstatus math_exportstatus_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_exportstatus math_exportstatus_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_exportstatus
@@ -2149,7 +1982,7 @@ ALTER TABLE ONLY public.math_exportstatus
 
 
 --
--- Name: math_main math_main_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_main math_main_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_main
@@ -2157,7 +1990,7 @@ ALTER TABLE ONLY public.math_main
 
 
 --
--- Name: math_profile math_profile_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_profile math_profile_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_profile
@@ -2165,7 +1998,7 @@ ALTER TABLE ONLY public.math_profile
 
 
 --
--- Name: math_ptptstats math_ptptstats_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_ptptstats math_ptptstats_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_ptptstats
@@ -2173,7 +2006,7 @@ ALTER TABLE ONLY public.math_ptptstats
 
 
 --
--- Name: math_report_correlationmatrix math_report_correlationmatrix_rid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_report_correlationmatrix math_report_correlationmatrix_rid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_report_correlationmatrix
@@ -2181,7 +2014,7 @@ ALTER TABLE ONLY public.math_report_correlationmatrix
 
 
 --
--- Name: math_ticks math_ticks_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: math_ticks math_ticks_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.math_ticks
@@ -2189,7 +2022,7 @@ ALTER TABLE ONLY public.math_ticks
 
 
 --
--- Name: metrics metrics_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: metrics metrics_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.metrics
@@ -2197,7 +2030,7 @@ ALTER TABLE ONLY public.metrics
 
 
 --
--- Name: notification_tasks notification_tasks_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: notification_tasks notification_tasks_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.notification_tasks
@@ -2205,7 +2038,7 @@ ALTER TABLE ONLY public.notification_tasks
 
 
 --
--- Name: page_ids page_ids_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: page_ids page_ids_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.page_ids
@@ -2213,7 +2046,7 @@ ALTER TABLE ONLY public.page_ids
 
 
 --
--- Name: participant_locations participant_locations_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_locations participant_locations_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_locations
@@ -2221,7 +2054,7 @@ ALTER TABLE ONLY public.participant_locations
 
 
 --
--- Name: participant_locations participant_locations_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_locations participant_locations_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_locations
@@ -2229,7 +2062,7 @@ ALTER TABLE ONLY public.participant_locations
 
 
 --
--- Name: participant_metadata_answers participant_metadata_answers_pmqid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_answers participant_metadata_answers_pmqid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_answers
@@ -2237,7 +2070,7 @@ ALTER TABLE ONLY public.participant_metadata_answers
 
 
 --
--- Name: participant_metadata_answers participant_metadata_answers_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_answers participant_metadata_answers_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_answers
@@ -2245,7 +2078,7 @@ ALTER TABLE ONLY public.participant_metadata_answers
 
 
 --
--- Name: participant_metadata_choices participant_metadata_choices_pmaid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_choices participant_metadata_choices_pmaid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_choices
@@ -2253,7 +2086,7 @@ ALTER TABLE ONLY public.participant_metadata_choices
 
 
 --
--- Name: participant_metadata_choices participant_metadata_choices_pmqid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_choices participant_metadata_choices_pmqid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_choices
@@ -2261,7 +2094,7 @@ ALTER TABLE ONLY public.participant_metadata_choices
 
 
 --
--- Name: participant_metadata_choices participant_metadata_choices_zid_pid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_choices participant_metadata_choices_zid_pid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_choices
@@ -2269,7 +2102,7 @@ ALTER TABLE ONLY public.participant_metadata_choices
 
 
 --
--- Name: participant_metadata_questions participant_metadata_questions_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participant_metadata_questions participant_metadata_questions_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_questions
@@ -2277,7 +2110,7 @@ ALTER TABLE ONLY public.participant_metadata_questions
 
 
 --
--- Name: participants_extended participants_extended_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participants_extended participants_extended_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participants_extended
@@ -2285,7 +2118,7 @@ ALTER TABLE ONLY public.participants_extended
 
 
 --
--- Name: participants_extended participants_extended_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participants_extended participants_extended_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participants_extended
@@ -2293,7 +2126,7 @@ ALTER TABLE ONLY public.participants_extended
 
 
 --
--- Name: participants participants_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participants participants_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participants
@@ -2301,7 +2134,7 @@ ALTER TABLE ONLY public.participants
 
 
 --
--- Name: participants participants_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: participants participants_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participants
@@ -2309,7 +2142,7 @@ ALTER TABLE ONLY public.participants
 
 
 --
--- Name: pwreset_tokens password_reset_tokens_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: pwreset_tokens password_reset_tokens_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.pwreset_tokens
@@ -2317,7 +2150,7 @@ ALTER TABLE ONLY public.pwreset_tokens
 
 
 --
--- Name: report_comment_selections report_comment_selections_rid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: report_comment_selections report_comment_selections_rid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.report_comment_selections
@@ -2325,7 +2158,7 @@ ALTER TABLE ONLY public.report_comment_selections
 
 
 --
--- Name: report_comment_selections report_comment_selections_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: report_comment_selections report_comment_selections_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.report_comment_selections
@@ -2333,7 +2166,7 @@ ALTER TABLE ONLY public.report_comment_selections
 
 
 --
--- Name: reports reports_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: reports reports_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.reports
@@ -2341,7 +2174,7 @@ ALTER TABLE ONLY public.reports
 
 
 --
--- Name: social_settings social_settings_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: social_settings social_settings_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.social_settings
@@ -2349,7 +2182,7 @@ ALTER TABLE ONLY public.social_settings
 
 
 --
--- Name: suzinvites suzinvites_owner_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: suzinvites suzinvites_owner_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.suzinvites
@@ -2357,7 +2190,7 @@ ALTER TABLE ONLY public.suzinvites
 
 
 --
--- Name: suzinvites suzinvites_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: suzinvites suzinvites_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.suzinvites
@@ -2365,7 +2198,7 @@ ALTER TABLE ONLY public.suzinvites
 
 
 --
--- Name: twitter_users twitter_users_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: twitter_users twitter_users_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.twitter_users
@@ -2373,7 +2206,7 @@ ALTER TABLE ONLY public.twitter_users
 
 
 --
--- Name: upvotes upvotes_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: upvotes upvotes_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.upvotes
@@ -2381,7 +2214,7 @@ ALTER TABLE ONLY public.upvotes
 
 
 --
--- Name: upvotes upvotes_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: upvotes upvotes_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.upvotes
@@ -2389,7 +2222,7 @@ ALTER TABLE ONLY public.upvotes
 
 
 --
--- Name: xid_whitelist xid_whitelist_owner_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: xid_whitelist xid_whitelist_owner_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.xid_whitelist
@@ -2397,7 +2230,7 @@ ALTER TABLE ONLY public.xid_whitelist
 
 
 --
--- Name: xids xids_owner_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: xids xids_owner_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.xids
@@ -2405,7 +2238,7 @@ ALTER TABLE ONLY public.xids
 
 
 --
--- Name: xids xids_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: xids xids_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.xids
@@ -2413,7 +2246,7 @@ ALTER TABLE ONLY public.xids
 
 
 --
--- Name: zinvites zinvites_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+-- Name: zinvites zinvites_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zinvites
