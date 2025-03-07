@@ -1,0 +1,58 @@
+name: API Tests
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - edge
+    paths:
+      - 'api-tests/**'
+      - 'server/**'
+      - '.github/workflows/api-tests.yml'
+
+  pull_request:
+    paths:
+      - 'api-tests/**'
+      - 'server/**'
+      - '.github/workflows/api-tests.yml'
+
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: api-tests/package-lock.json
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Install dependencies
+        working-directory: api-tests
+        run: npm install
+
+      - name: Setup environment
+        working-directory: api-tests
+        run: |
+          cp .env.example .env
+
+      - name: Run API tests
+        working-directory: api-tests
+        run: npm test
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: api-tests/coverage
+          if-no-files-found: ignore
