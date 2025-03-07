@@ -22,7 +22,9 @@ async function validateDockerSetup() {
   try {
     await fs.access(path.join(fullPath, 'Dockerfile'))
   } catch (error) {
-    throw new Error(`Dockerfile not found at ${fullPath}. Please ensure API_DOCKERFILE_PATH is correct or API_DOCKER_IMAGE is set.`)
+    throw new Error(
+      `Dockerfile not found at ${fullPath}. Please ensure API_DOCKERFILE_PATH is correct or API_DOCKER_IMAGE is set.`
+    )
   }
 }
 
@@ -48,9 +50,12 @@ beforeAll(async () => {
       })
       .withCommand([
         'postgres',
-        '-c', 'fsync=off',
-        '-c', 'synchronous_commit=off',
-        '-c', 'full_page_writes=off',
+        '-c',
+        'fsync=off',
+        '-c',
+        'synchronous_commit=off',
+        '-c',
+        'full_page_writes=off',
       ])
       .withStartupTimeout(TIMEOUT)
       .withWaitStrategy(
@@ -122,11 +127,13 @@ beforeAll(async () => {
             Wait.forListeningPorts(),
             Wait.forLogMessage('started on port'),
             // Only use HTTP health checks if not in debug mode to avoid excessive logging
-            ...(process.env.DEBUG_API_CONTAINER === 'true' ? [] : [
-              Wait.forHttp('/api/v3/testConnection', 5000)
-                .forStatusCode(200)
-                .withStartupTimeout(TIMEOUT),
-            ]),
+            ...(process.env.DEBUG_API_CONTAINER === 'true'
+              ? []
+              : [
+                  Wait.forHttp('/api/v3/testConnection', 5000)
+                    .forStatusCode(200)
+                    .withStartupTimeout(TIMEOUT),
+                ]),
           ])
         )
     }
@@ -179,8 +186,12 @@ beforeAll(async () => {
   } catch (error) {
     console.error('Error during test setup:', error)
     // Attempt cleanup on setup failure
-    await containerState.stopContainers().catch(e => console.error('Error stopping containers:', e))
-    await network?.stop().catch(e => console.error('Error stopping network:', e))
+    await containerState
+      .stopContainers()
+      .catch((e) => console.error('Error stopping containers:', e))
+    await network
+      ?.stop()
+      .catch((e) => console.error('Error stopping network:', e))
     throw error
   }
 }, TIMEOUT)
@@ -193,8 +204,8 @@ afterAll(async () => {
     }
 
     // Clean up mock API temp directory if it exists
-    const tempDir = path.resolve(__dirname, '../../temp-mock-api');
-    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => { });
+    const tempDir = path.resolve(__dirname, '../../temp-mock-api')
+    await fs.rm(tempDir, { recursive: true, force: true }).catch(() => {})
   } catch (error) {
     console.error('Error during cleanup:', error)
     // Don't throw here, just log the error
