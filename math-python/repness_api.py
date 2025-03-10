@@ -191,6 +191,118 @@ def get_data_from_db(db_url, zid):
         raise
 
 
+def calculate_vote_statistics(df, vals_all_in, statements_all_in):
+    """
+    Calculate vote statistics for each group, comment, and vote value.
+
+    Note: moderated-out comments must have been removed from the statements_all_in list before calling this function
+
+    Args:
+        df: DataFrame with participant data including group-id
+        vals_all_in: DataFrame with vote values for each participant and comment
+        statements_all_in: List of comment IDs to analyze
+
+    Returns:
+        tuple: (R_v_g_c, P_v_g_c, N_v_g_c, R_v_g_c)
+            R_v_g_c: Representativeness metric
+            P_v_g_c: Probability of vote v in group g for comment c
+            N_v_g_c: Count of votes of value v in group g for comment c
+    """
+    logger.debug("Calculating vote statistics")
+    N_groups = df["group-id"].nunique()
+    N_comments = len(statements_all_in)
+    N_v_g_c = np.zeros([3, N_groups, N_comments])  # create N matrix
+    P_v_g_c = np.zeros([3, N_groups, N_comments])
+    N_g_c = np.zeros([N_groups, N_comments])
+    v_values = [-1, 0, 1]
+
+    # Step 1: Calculate N_v(g,c), N(g,c), and P_v(g,c)
+    for g in range(N_groups):
+        # get indices of cluster g; caution_ idx != participant id
+        idx_g = np.where(df["group-id"] == g)[0]
+        for c in range(N_comments):
+            comment = statements_all_in[c]  # comment id
+            df_c = vals_all_in[str(comment)].iloc[
+                idx_g
+            ]  # data frame: [participants of group g,comment c],
+            for v in range(3):
+                v_value = v_values[v]
+                N_v_g_c[v, g, c] = (
+                    df_c == v_value
+                ).sum()  # counts all v_value votes in data frame df_c
+            N_g_c[g, c] = (
+                N_v_g_c[0, g, c] + N_v_g_c[2, g, c]
+            )  # total votes corresponds to votes with +1 or -1
+
+            for v in range(3):
+                P_v_g_c[v, g, c] = (1 + N_v_g_c[v, g, c]) / (2 + N_g_c[g, c])
+
+    # Step 2: calculate R_v(g,c)
+    R_v_g_c = np.zeros([3, N_groups, N_comments])
+    for g in range(N_groups):
+        for c in range(N_comments):
+            for v in range(3):
+                R_v_g_c[v, g, c] = (
+                    P_v_g_c[v, g, c] / np.delete(P_v_g_c[v, :, c], g, 0).sum()
+                )  # np.delete neglects all entries with group g
+
+    return R_v_g_c, P_v_g_c, N_v_g_c
+
+
+def calculate_significance(df, vals_all_in, statements_all_in, R_v_g_c):
+    """
+    Calculate significance of representativeness using Fisher exact test.
+    
+    Use `calculate_vote_statistics` to calculate R_v_g_c first.
+    Note: moderated-out comments must have been removed from the statements_all_in list before calling this function
+    
+    Args:
+        df: DataFrame with participant data including group-id
+        vals_all_in: DataFrame with vote values for each participant and comment
+        statements_all_in: List of comment IDs to analyze
+        R_v_g_c: Representativeness metric from calculate_vote_statistics
+        N_groups: Number of groups
+        N_comments: Number of comments
+        
+    Returns:
+        numpy.ndarray: p_values array with shape [N_groups, N_comments, 3]
+    """
+    logger.debug("Calculating significance with Fisher exact test")
+    N_groups = df["group-id"].nunique()
+    N_comments = len(statements_all_in)
+    v_values = [-1, 0, 1]
+    p_values = np.zeros([N_groups, N_comments, 3])
+    
+    for g in range(N_groups):
+        idx_g = np.where(df["group-id"] == g)[0]
+        idx_g_not = np.where(df["group-id"] != g)[0]
+        for c in range(N_comments):
+            comment = statements_all_in[c]  # comment id
+
+            for v in range(3):
+                v_value = v_values[v]
+                N_v = (
+                    vals_all_in[str(comment)] == v_value
+                ).sum()  # total number of v votes in comment c
+                N_rest = (
+                    vals_all_in[str(comment)]
+                ).count() - N_v  # total number of votes = number of participants
+
+                df_c = vals_all_in[str(comment)].iloc[idx_g]  # get data frame of group g for comment c
+                N_v_in_g = (df_c == v_value).sum()
+                N_g = (df_c).count()
+
+                [M, n, N] = [
+                    N_rest + N_v,
+                    N_v,
+                    N_g,
+                ]  # hypergeometric distribution parameters
+                x = range(N_v_in_g - 1, N_g + 1)
+                prb = hypergeom.pmf(x, M, n, N).sum()  # calculates P(X>=N_v_in_g), i.e. p-value.
+                p_values[g, c, v] = prb * R_v_g_c[v, g, c]
+    
+    return p_values
+
 
 def calculate_repness(db_url, zid):
     """Calculate representativeness data for a given conversation ID"""
@@ -241,107 +353,20 @@ def calculate_repness(db_url, zid):
         vals.columns = vals.columns.astype(str)
         vals_all_in = vals[statements_all_in]
 
-        # # Comment Statistics
-        # 
-        # We analyze comments for how strongly they represent each opinion group.
-        # For that, the representative metric R_v(g,c) is calculated for all groups g, comments c, and possible votes v.
-        # This metric estimates how much more likely participants in group g are vote v on said comment c than those outside group g.
-        # 
-        # _Definition of R_v(g,c):_
-        # Let N*v(g,c) be the number of participants in group g who cast vote v on comment c, and let N(g,c) be the total number of votes for comment c within group g (i.e. <font color='red'> N*{+1}(g,c)+ N\_{-1}(g,c) <font> )
-        # 
-        # Defifne P_v(g,c)=(1+N_v(g,v))/(2+N(g,c)) which estimates the probability that a given person in group g votes v on comment c. Then
-        # 
-        # R_v(g,c) = P_v(g,c)/ P_v(g_not,c)
-        # 
-        # where g_not denotes the complement of g, thus all participants not in g.
-        # 
-
-        # Step 1: Calculate N_v(g,c), N(g,c), and P_v(g,c)
-        N_groups = df["group-id"].nunique()
-        N_comments = len(statements_all_in)
-        N_v_g_c = np.zeros([3, N_groups, N_comments])  # create N matrix
-        P_v_g_c = np.zeros([3, N_groups, N_comments])
-        N_g_c = np.zeros([N_groups, N_comments])
-        v_values = [-1, 0, 1]
-
-        for g in range(N_groups):
-            # get indices of cluster g; caution_ idx != participant id
-            idx_g = np.where(df["group-id"] == g)[0]
-            for c in range(N_comments):
-                comment = statements_all_in[c]  # comment id
-                df_c = vals_all_in[str(comment)].iloc[
-                    idx_g
-                ]  # data frame: [participants of group g,comment c],
-                for v in range(3):
-                    v_value = v_values[v]
-                    N_v_g_c[v, g, c] = (
-                        df_c == v_value
-                    ).sum()  # counts all v_value votes in data frame df_c
-                N_g_c[g, c] = (
-                    N_v_g_c[0, g, c] + N_v_g_c[2, g, c]
-                )  # total votes corresponds to votes with +1 or -1
-
-                for v in range(3):
-                    P_v_g_c[v, g, c] = (1 + N_v_g_c[v, g, c]) / (2 + N_g_c[g, c])
-
-        # Step2: calculate R_v(g,c)
-        R_v_g_c = np.zeros([3, N_groups, N_comments])
-        for g in range(N_groups):
-            for c in range(N_comments):
-                for v in range(3):
-                    R_v_g_c[v, g, c] = (
-                        P_v_g_c[v, g, c] / np.delete(P_v_g_c[v, :, c], g, 0).sum()
-                    )  # np.delete neglects all entries with group g
-
-        # # Comment Selection criterion
-        # 
-        # Given R_v(g,c), how to decide weather comment c is representative for group g?
-        # 
-        # Remember: R_v(g,c)=2 means that comment c is 2 times more likely to be voted v in group g compared to all the other groups.
-        # However, this does not tell us how significant this difference is (a very small likelihood multiplied by 2 is still a very small likelihood).
-        # 
-        # <font color='red'> 
-        # As a measure of significance, we calculate the Fisher exact test. This quantity can be regarded as a measure of correlation between two random variables. In fact, it tests how significantly the obtained sample (in this case votes v of comment c in group g) is different from the 0 hypothesis (in this case, that votes v are drawn from a hypergeometric distribution with parameters given by including all groups on comment c). 
-        # <font>
-        # 
-        # We weight this significance measure with R_v(g,c).
-        # 
-
-
-        v_values = [-1, 0, 1]
-        p_values = np.zeros([N_groups, N_comments, 3])
-        for g in range(N_groups):
-            idx_g = np.where(df["group-id"] == g)[0]
-            idx_g_not = np.where(df["group-id"] != g)[0]
-            for c in range(N_comments):
-                comment = statements_all_in[c]  # comment id
-
-                for v in range(3):
-                    v_value = v_values[v]
-                    N_v = (
-                        vals_all_in[str(comment)] == v_value
-                    ).sum()  # totol number of v votes in comment c
-                    N_rest = (
-                        vals_all_in[str(comment)]
-                    ).count() - N_v  # total number of votes =  number of participants
-
-                    df_c = vals_all_in[str(comment)].iloc[idx_g]  # get data frame of group g for comment c
-                    N_v_in_g = (df_c == v_value).sum()
-                    N_g = (df_c).count()
-
-                    [M, n, N] = [
-                        N_rest + N_v,
-                        N_v,
-                        N_g,
-                    ]  # hypergeometric distribution parameters https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.hypergeom.html
-                    x = range(N_v_in_g - 1, N_g + 1)
-                    prb = hypergeom.pmf(x, M, n, N).sum()  # calculates P(X>=N_v_in_g), i.e. p-value.
-                    p_values[g, c, v] = prb * R_v_g_c[v, g, c]
+        # Calculate vote statistics and representativeness
+        R_v_g_c, _, _ = calculate_vote_statistics(
+            df, vals_all_in, statements_all_in
+        )
+        
+        # Calculate significance using Fisher exact test
+        p_values = calculate_significance(
+            df, vals_all_in, statements_all_in, R_v_g_c
+        )
 
         logger.info("Representativeness calculation completed successfully")
+        N_groups = df["group-id"].nunique()
         representativeness_data = {
-            "vote_idx": v_values,
+            "vote_idx": [-1, 0, 1],
             "groups_idx": list(range(0, N_groups)),
             "statements_idx": [int(i) for i in statements_all_in],
             # Nested lists in order: groups, statements, vote_values
