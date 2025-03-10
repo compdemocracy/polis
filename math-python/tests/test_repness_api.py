@@ -13,7 +13,7 @@ def test_calculate_vote_statistics_empty():
     # Instead of expecting an exception, expect the function to handle empty inputs
     # by raising a specific error or returning arrays of the correct shape
     # Let's expect a ValueError or IndexError due to empty arrays
-    R_v_g_c, P_v_g_c, N_v_g_c = calculate_vote_statistics(df, vals_all_in, statements_all_in)
+    R_v_g_c, P_v_g_c, N_v_g_c = calculate_vote_statistics(df["group-id"], vals_all_in, statements_all_in)
 
 def test_calculate_significance_empty():
     """Test calculate_significance with empty data."""
@@ -25,7 +25,7 @@ def test_calculate_significance_empty():
     
     # Instead of expecting a generic Exception, expect a specific error
     # that would occur when trying to operate on empty arrays
-    p_values = calculate_significance(df, vals_all_in, statements_all_in, R_v_g_c)
+    p_values = calculate_significance(df["group-id"], vals_all_in, statements_all_in, R_v_g_c)
 
 def test_calculate_vote_statistics_simple():
     """Test calculate_vote_statistics with a simple dataset."""
@@ -47,7 +47,7 @@ def test_calculate_vote_statistics_simple():
     statements_all_in = ["1001", "1002"]
     
     # Calculate vote statistics
-    R_v_g_c, P_v_g_c, N_v_g_c = calculate_vote_statistics(df, vals_all_in, statements_all_in)
+    R_v_g_c, P_v_g_c, N_v_g_c = calculate_vote_statistics(df["group-id"], vals_all_in, statements_all_in)
     
     # Basic shape checks
     assert R_v_g_c.shape == (3, 2, 2)  # 3 vote values, 2 groups, 2 comments
@@ -60,7 +60,7 @@ def test_calculate_vote_statistics_simple():
     assert N_v_g_c[2, 0, 0] == 1
     
     # Test significance calculation with the same data
-    p_values = calculate_significance(df, vals_all_in, statements_all_in, R_v_g_c)
+    p_values = calculate_significance(df["group-id"], vals_all_in, statements_all_in, R_v_g_c)
     
     # Check shape
     assert p_values.shape == (2, 2, 3)  # 2 groups, 2 comments, 3 vote values

@@ -191,15 +191,15 @@ def get_data_from_db(db_url, zid):
         raise
 
 
-def calculate_vote_statistics(df, vals_all_in, statements_all_in):
+def calculate_vote_statistics(group_id_per_participant, vals_all_in, statements_all_in):
     """
     Calculate vote statistics for each group, comment, and vote value.
 
     Note: moderated-out comments must have been removed from the statements_all_in list before calling this function
 
     Args:
-        df: DataFrame with participant data including group-id
-        vals_all_in: DataFrame with vote values for each participant and comment
+        group_id_per_participant: List of group IDs for each participant
+        vals_all_in: DataFrame with group-id and vote values for each participant and comment
         statements_all_in: List of comment IDs to analyze
 
     Returns:
@@ -209,7 +209,11 @@ def calculate_vote_statistics(df, vals_all_in, statements_all_in):
             N_v_g_c: Count of votes of value v in group g for comment c
     """
     logger.debug("Calculating vote statistics")
-    N_groups = df["group-id"].nunique()
+    assert len(group_id_per_participant) == len(vals_all_in), f"Mismatch in data dimensions: group_id_per_participant has {len(group_id_per_participant)} rows but vals_all_in has {len(vals_all_in)} rows"
+
+    # Compare the number of rows in group_id_per_participant and vals_all_in
+    N_groups = group_id_per_participant.nunique()
+    logger.debug(f"N_groups: {N_groups}")
     N_comments = len(statements_all_in)
     N_v_g_c = np.zeros([3, N_groups, N_comments])  # create N matrix
     P_v_g_c = np.zeros([3, N_groups, N_comments])
@@ -219,7 +223,7 @@ def calculate_vote_statistics(df, vals_all_in, statements_all_in):
     # Step 1: Calculate N_v(g,c), N(g,c), and P_v(g,c)
     for g in range(N_groups):
         # get indices of cluster g; caution_ idx != participant id
-        idx_g = np.where(df["group-id"] == g)[0]
+        idx_g = np.where(group_id_per_participant == g)[0]
         for c in range(N_comments):
             comment = statements_all_in[c]  # comment id
             df_c = vals_all_in[str(comment)].iloc[
@@ -249,7 +253,7 @@ def calculate_vote_statistics(df, vals_all_in, statements_all_in):
     return R_v_g_c, P_v_g_c, N_v_g_c
 
 
-def calculate_significance(df, vals_all_in, statements_all_in, R_v_g_c):
+def calculate_significance(group_id_per_participant, vals_all_in, statements_all_in, R_v_g_c):
     """
     Calculate significance of representativeness using Fisher exact test.
     
@@ -257,8 +261,8 @@ def calculate_significance(df, vals_all_in, statements_all_in, R_v_g_c):
     Note: moderated-out comments must have been removed from the statements_all_in list before calling this function
     
     Args:
-        df: DataFrame with participant data including group-id
-        vals_all_in: DataFrame with vote values for each participant and comment
+        group_id_per_participant: List of group IDs for each participant
+        vals_all_in: DataFrame with group-id and vote values for each participant and comment
         statements_all_in: List of comment IDs to analyze
         R_v_g_c: Representativeness metric from calculate_vote_statistics
         N_groups: Number of groups
@@ -268,14 +272,17 @@ def calculate_significance(df, vals_all_in, statements_all_in, R_v_g_c):
         numpy.ndarray: p_values array with shape [N_groups, N_comments, 3]
     """
     logger.debug("Calculating significance with Fisher exact test")
-    N_groups = df["group-id"].nunique()
+    assert len(group_id_per_participant) == len(vals_all_in), f"Mismatch in data dimensions: group_id_per_participant has {len(group_id_per_participant)} rows but vals_all_in has {len(vals_all_in)} rows"
+
+    N_groups = group_id_per_participant.nunique()
+    logger.debug(f"N_groups: {N_groups}")
     N_comments = len(statements_all_in)
     v_values = [-1, 0, 1]
     p_values = np.zeros([N_groups, N_comments, 3])
     
     for g in range(N_groups):
-        idx_g = np.where(df["group-id"] == g)[0]
-        idx_g_not = np.where(df["group-id"] != g)[0]
+        idx_g = np.where(group_id_per_participant == g)[0]
+        idx_g_not = np.where(group_id_per_participant != g)[0]
         for c in range(N_comments):
             comment = statements_all_in[c]  # comment id
 
@@ -344,6 +351,7 @@ def calculate_repness(db_url, zid):
             logger.warning(f"Some moderated statements are not in val_fields: {statements_not_in_val_fields}")
         if val_fields_not_in_statements:
             logger.debug(f"Some val_fields are not in moderated statements (may be normal): {list(val_fields_not_in_statements)[:5]}...")
+
         vals = df[val_fields]
         # If the participant didn't see the statement, it's a null value, here we fill in the nulls with zeros
         null_count_before = vals.isnull().sum().sum()
@@ -355,12 +363,12 @@ def calculate_repness(db_url, zid):
 
         # Calculate vote statistics and representativeness
         R_v_g_c, _, _ = calculate_vote_statistics(
-            df, vals_all_in, statements_all_in
+            df["group-id"], vals_all_in, statements_all_in
         )
         
         # Calculate significance using Fisher exact test
         p_values = calculate_significance(
-            df, vals_all_in, statements_all_in, R_v_g_c
+            df["group-id"], vals_all_in, statements_all_in, R_v_g_c
         )
 
         logger.info("Representativeness calculation completed successfully")
