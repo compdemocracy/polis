@@ -660,9 +660,12 @@
                     extremity (or (get extremities tid)
                                   (do
                                     (log/warn "No extremity for tid" tid "zid" (:zid conv))
-                                    ;; Default to 0 just in case, but this shouldn't happen (bugfix)
-                                    0))]
-                (priority-metric (meta-tids tid) A P S extremity)))
+                                    0))
+                    ;; Use 0 as the default when meta-tids is null or doesn't contain the tid
+                    meta-tid-value (if meta-tids 
+                                   (get meta-tids tid 0)
+                                   0)]
+                (priority-metric meta-tid-value A P S extremity)))
             tids)))
 
 
@@ -762,13 +765,16 @@
 
 (defn conv-update
   "This function dispatches to either small- or large-conv-update, depending on the number
-  of participants (as decided by call to sample-size-fn)."
+  of participants or comments. Uses large-conv-update if either:
+  - Number of participants exceeds ptpt-cutoff (default 10000)
+  - Number of comments exceeds cmt-cutoff (default 5000)"
   ([conv votes]
    (conv-update conv votes {}))
   ;; TODO Need to pass through these options from all the various places where we call this function...
   ;; XXX Also need to set the max globally and by conversation for plan throttling
-  ([conv votes {:keys [large-cutoff]
-                :or {large-cutoff 10000}
+  ([conv votes {:keys [ptpt-cutoff cmt-cutoff]
+                :or {ptpt-cutoff 10000
+                     cmt-cutoff 5000}
                 :as opts}]
    (let [zid     (or (:zid conv) (:zid (first votes)))
          ptpts   (nm/rownames (:raw-rating-mat conv))
@@ -783,10 +789,11 @@
        (do
          (log/info (str "Starting conv-update for zid " zid ": N=" n-ptpts ", C=" n-cmts ", V=" (count votes)))
          (->
-           ; dispatch to the appropriate function
+           ; dispatch to the appropriate function based on either participant or comment count
            ((cond
-              (> n-ptpts large-cutoff)  large-conv-update
-              :else                     small-conv-update)
+              (or (> n-ptpts ptpt-cutoff)
+                  (> n-cmts cmt-cutoff)) large-conv-update
+              :else                          small-conv-update)
             {:conv conv :votes votes :opts opts})
            ;; This seems hackish... XXX
            ; Remove the :votes key from customs; not needed for persistence
