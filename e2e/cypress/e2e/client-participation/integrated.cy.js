@@ -13,7 +13,7 @@ describe('Integrated Conversations', function () {
   })
 
   beforeEach(function () {
-    const pageId = faker.datatype.uuid()
+    const pageId = faker.string.uuid()
     cy.wrap(pageId).as('pageId')
 
     cy.intercept('GET', '/api/v3/conversations*').as('getConversations')

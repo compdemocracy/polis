@@ -17,10 +17,7 @@ describe('Comment translation', function () {
     cy.get('button#showTranslationButtonVoteView').should('not.exist')
   })
 
-  // This test is flaky due to timing issues with the translation button
-  // Sometimes the translation button doesn't appear when expected
-  // Possibly related to asynchronous loading of translations or conditional rendering
-  it.skip('allows translation when comment not in browser language', function () {
+  it('allows translation when comment not in browser language', function () {
     cy.ensureUser()
     cy.openTranslated(this.convoId, 'en')
 

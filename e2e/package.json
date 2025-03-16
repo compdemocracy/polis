@@ -13,7 +13,7 @@
     "cy:open": "cypress open",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "prettier": "prettier --write .",
+    "format": "prettier --write .",
     "build:embed": "node build-embed.js",
     "build:integrated": "node build-integrated.js",
     "seed": "node scripts/seed.js"
@@ -21,16 +21,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@faker-js/faker": "^8.2.0",
-    "cypress": "^13.5.0",
-    "cypress-terminal-report": "^5.3.9",
+    "@faker-js/faker": "^9.6.0",
+    "cypress": "^14.2.0",
+    "cypress-terminal-report": "^7.1.0",
     "yargs": "^17.7.2"
   },
   "devDependencies": {
-    "eslint": "^8.53.0",
-    "eslint-config-prettier": "^9.0.0",
-    "eslint-plugin-cypress": "^2.15.1",
-    "eslint-plugin-mocha": "^10.2.0",
-    "prettier": "^3.0.3"
+    "@eslint/js": "^9.22.0",
+    "eslint": "^9.22.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-cypress": "^4.2.0",
+    "eslint-plugin-mocha": "^10.5.0",
+    "prettier": "^3.5.3"
   }
 }
