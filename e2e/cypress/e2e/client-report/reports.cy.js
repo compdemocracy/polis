@@ -30,6 +30,8 @@ describe('Reports', function () {
     cy.intercept('GET', '/api/v3/reports*').as('getReports')
     cy.intercept('GET', '/api/v3/comments*').as('getComments')
 
+    // Ensure we're authenticated before creating conversation
+    cy.ensureUser('admin')
     cy.createConvo().then(() => {
       cy.visit('/m/' + this.convoId)
       cy.wait('@getConversations')

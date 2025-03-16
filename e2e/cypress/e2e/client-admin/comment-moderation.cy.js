@@ -4,7 +4,9 @@ describe('Comment Moderation', function () {
     cy.intercept('GET', '/api/v3/comments*').as('getComments')
     cy.intercept('POST', '/api/v3/comments').as('createComment')
     cy.intercept('PUT', '/api/v3/comments*').as('updateComment')
-    cy.intercept('PUT', '/api/v3/mod/comments*').as('moderateComment')
+
+    // Ensure admin user is logged in before creating conversation
+    cy.ensureUser('admin')
 
     // Create a conversation and add some comments
     cy.createConvo().then(() => {

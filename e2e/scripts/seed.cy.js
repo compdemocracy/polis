@@ -7,7 +7,7 @@ describe('Database Seeding', function () {
     moderator = {
       name: 'Test Moderator',
       email: 'moderator@polis.test',
-      password: 'Te$tP@ssw0rd*'
+      password: 'Te$tP@ssw0rd*',
     }
   })
 
@@ -22,7 +22,7 @@ describe('Database Seeding', function () {
       const topic = `Test Conversation ${i + 1}`
       const description = `This is a test conversation ${i + 1} created by the seeding script`
 
-      cy.createConvo(topic, description).then(function () {
+      cy.createConvo(topic, description, moderator).then(function () {
         const convoId = this.convoId
         convoIds.push(convoId)
 
@@ -50,22 +50,23 @@ describe('Database Seeding', function () {
       // For each participant in this batch
       for (let i = batchStart; i < batchEnd; i++) {
         const participantId = `participant_${i}`
+        const xid = `seed-${i + 1}`
 
-        // Initialize participant and vote on conversations
-        cy.session(participantId, () => {
-          cy.request('/api/v3/participationInit?conversation_id=' + convoIds[0] + '&pid=mypid&lang=acceptLang')
-
-          const xid = `seed-${i + 1}`
-
-          // Vote on all conversations in this session
-          convoIds.forEach((convoId) => {
-            cy.voteOnConversation(convoId, xid)
-          })
-        }, {
-          validate: () => {
-            cy.getCookie('pc').should('exist')
-          },
-          cacheAcrossSpecs: false
+        // Vote on all conversations as this participant
+        convoIds.forEach((convoId) => {
+          cy.session(
+            participantId,
+            () => {
+              cy.participateAnonymously({ convoId, xid })
+              cy.voteOnConversation(convoId, xid)
+            },
+            {
+              validate: () => {
+                cy.getCookie('pc').should('exist')
+              },
+              cacheAcrossSpecs: false,
+            },
+          )
         })
 
         // Track progress

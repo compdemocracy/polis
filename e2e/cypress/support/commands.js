@@ -1,69 +1,100 @@
 import { faker } from '@faker-js/faker'
 
-Cypress.Commands.add('login', (user) => {
-  cy.intercept('POST', '/api/v3/auth/login').as('login')
-  cy.visit('/signin')
+/**
+ * Authentication commands
+ */
 
-  cy.get('form input#signinEmailInput').type(user.email)
-  cy.get('form input#signinPasswordInput').type(user.password)
-  cy.get('form button#signinButton').click()
-  cy.wait('@login')
+/**
+ * Log in a user via UI or API
+ * @param {Object} user - User object with email and password
+ * @param {boolean} useUI - Whether to use UI (true) or API (false) for login
+ */
+Cypress.Commands.add('login', (user, useUI = false) => {
+  if (useUI) {
+    cy.intercept('POST', '/api/v3/auth/login').as('login')
+    cy.visit('/signin')
+
+    cy.get('form input#signinEmailInput').type(user.email)
+    cy.get('form input#signinPasswordInput').type(user.password)
+    cy.get('form button#signinButton').click()
+    cy.wait('@login')
+  } else {
+    apiLogin(user)
+  }
 })
 
-Cypress.Commands.add('loginViaAPI', (user) => apiLogin(user))
+/**
+ * Log out a user via UI or API
+ * @param {boolean} useUI - Whether to use UI (true) or API (false) for logout
+ */
+Cypress.Commands.add('logout', (useUI = false) => {
+  if (useUI) {
+    cy.intercept('POST', '/api/v3/auth/deregister').as('logout')
+    cy.visit('/')
 
-Cypress.Commands.add('logoutViaUI', () => {
-  cy.intercept('POST', '/api/v3/auth/deregister').as('logout')
-  cy.visit('/')
-
-  cy.contains('a[href="/signout"]', 'sign out').click()
-  cy.wait('@logout')
+    cy.contains('a[href="/signout"]', 'sign out').click()
+    cy.wait('@logout')
+  } else {
+    cy.request('POST', '/api/v3/auth/deregister').then(() => cy.clearCookies())
+  }
 })
 
-Cypress.Commands.add('logout', () => {
-  cy.request('POST', '/api/v3/auth/deregister').then(() => cy.clearCookies())
-})
+/**
+ * Register a new user via UI or API
+ * @param {Object} user - User object with name, email, and password
+ * @param {boolean} useUI - Whether to use UI (true) or API (false) for registration
+ */
+Cypress.Commands.add('register', (user, useUI = false) => {
+  if (useUI) {
+    cy.intercept('POST', '/api/v3/auth/new').as('register')
+    cy.visit('/createuser')
 
-Cypress.Commands.add('registerViaUI', (user) => {
-  cy.intercept('POST', '/api/v3/auth/new').as('register')
-  cy.visit('/createuser')
+    cy.get('form input#createUserNameInput').type(user.name)
+    cy.get('form input#createUserEmailInput').type(user.email)
+    cy.get('form input#createUserPasswordInput').type(user.password)
+    cy.get('form input#createUserPasswordRepeatInput').type(user.password)
+    cy.get('form button#createUserButton').click()
+    cy.wait('@register')
 
-  cy.get('form input#createUserNameInput').type(user.name)
-  cy.get('form input#createUserEmailInput').type(user.email)
-  cy.get('form input#createUserPasswordInput').type(user.password)
-  cy.get('form input#createUserPasswordRepeatInput').type(user.password)
-  cy.get('form button#createUserButton').click()
-  cy.wait('@register')
-
-  // Conditionally check if the user already exist.
-  // If the user already exists, log them in.
-  cy.get('#root').then(($root) => {
-    if ($root.text().includes('Email address already in use')) {
-      cy.login(user)
-    }
-  })
-})
-
-Cypress.Commands.add('register', (user) => {
-  cy.request({
-    method: 'POST',
-    url: '/api/v3/auth/new',
-    body: {
-      hname: user.name,
-      email: user.email,
-      password: user.password,
-      gatekeeperTosPrivacy: 'true',
-    },
-    failOnStatusCode: false,
-  }).then(({ status }) => {
     // Conditionally check if the user already exists.
     // If the user already exists, log them in.
-    if (status == 403) {
-      apiLogin(user)
-    }
-  })
+    cy.get('#root').then(($root) => {
+      if ($root.text().includes('Email address already in use')) {
+        cy.login(user, true)
+      }
+    })
+  } else {
+    cy.request({
+      method: 'POST',
+      url: '/api/v3/auth/new',
+      body: {
+        hname: user.name,
+        email: user.email,
+        password: user.password,
+        gatekeeperTosPrivacy: 'true',
+      },
+      log: true,
+      failOnStatusCode: false,
+    }).then((response) => {
+      console.log('Registration response status:', response.status)
+      console.log('Registration response body:', response.body)
+
+      if (response.status == 403) {
+        console.log('User already exists, attempting login')
+        apiLogin(user)
+      } else if (response.status === 200) {
+        console.log('Registration successful')
+      } else {
+        console.error('Registration failed with unexpected status:', response.status)
+      }
+    })
+  }
 })
 
+/**
+ * Ensure a user is logged in (creates session if needed)
+ * @param {string} userLabel - User label from fixtures/users.json
+ */
 Cypress.Commands.add('ensureUser', (userLabel = 'participant') => {
   cy.session(
     userLabel,
@@ -78,35 +109,27 @@ Cypress.Commands.add('ensureUser', (userLabel = 'participant') => {
         cy.getCookie('token2').should('exist')
         cy.getCookie('uid2').should('exist')
       },
-    }
-  )
-})
-
-Cypress.Commands.add('anonymousParticipant', ({ convoId }) => {
-  if (!convoId) {
-    throw new Error('convoId is not defined')
-  }
-
-  cy.session(
-    'anonymous',
-    () => {
-      cy.request(
-        '/api/v3/participationInit?conversation_id=' + convoId + '&pid=mypid&lang=acceptLang'
-      )
     },
-    {
-      validate: () => {
-        cy.getCookie('token2').should('be.null')
-        cy.getCookie('uid2').should('be.null')
-        cy.getCookie('pc').should('exist')
-      },
-    }
   )
 })
 
+/**
+ * Conversation management commands
+ */
+
+/**
+ * Create a conversation
+ * @param {string} topic - Conversation topic
+ * @param {string} description - Conversation description
+ * @param {Object|string} user - User object or userLabel from fixtures/users.json
+ */
 Cypress.Commands.add('createConvo', (topic, description, user) => {
-  // If user provided, login and set up session
-  if (user) {
+  // If user provided as string (userLabel), ensure that user is logged in
+  if (typeof user === 'string') {
+    cy.ensureUser(user)
+  }
+  // If user provided as object, login
+  else if (user) {
     apiLogin(user)
   }
 
@@ -120,6 +143,10 @@ Cypress.Commands.add('createConvo', (topic, description, user) => {
     .as('convoId')
 })
 
+/**
+ * Find or create a conversation for testing
+ * @param {string} userLabel - User label from fixtures/users.json
+ */
 Cypress.Commands.add('ensureConversation', (userLabel) => {
   cy.ensureUser(userLabel)
   cy.request('/api/v3/conversations')
@@ -136,8 +163,19 @@ Cypress.Commands.add('ensureConversation', (userLabel) => {
     })
 })
 
-Cypress.Commands.add('seedComment', (convoId, commentText) => {
+/**
+ * Add a seed comment to a conversation
+ * @param {string} convoId - Conversation ID
+ * @param {string} commentText - Comment text (random if not provided)
+ * @param {string} userLabel - User label from fixtures/users.json
+ */
+Cypress.Commands.add('seedComment', (convoId, commentText, userLabel) => {
   const text = commentText || faker.lorem.sentences()
+
+  // If userLabel provided, ensure user is logged in
+  if (userLabel) {
+    cy.ensureUser(userLabel)
+  }
 
   cy.request('POST', '/api/v3/comments', {
     conversation_id: convoId,
@@ -147,26 +185,121 @@ Cypress.Commands.add('seedComment', (convoId, commentText) => {
   })
 })
 
+/**
+ * Participation commands
+ */
+
+/**
+ * Set up anonymous participation for a conversation
+ * @param {Object} options - Options object with convoId and optionally xid
+ */
+Cypress.Commands.add('participateAnonymously', (options) => {
+  const convoId = typeof options === 'string' ? options : options.convoId
+  const xid = options.xid || null
+
+  if (!convoId) {
+    throw new Error('convoId is required')
+  }
+
+  cy.clearCookies()
+
+  cy.session(
+    'anonymous' + (xid ? '-' + xid : ''),
+    () => {
+      cy.request(
+        '/api/v3/participationInit?conversation_id=' +
+          convoId +
+          '&pid=mypid&lang=acceptLang' +
+          (xid ? '&xid=' + xid : ''),
+      )
+    },
+    {
+      validate: () => {
+        cy.getCookie('token2').should('be.null')
+        cy.getCookie('uid2').should('be.null')
+        cy.getCookie('pc').should('exist')
+      },
+    },
+  )
+
+  cy.visit('/' + convoId + (xid ? '?xid=' + xid : ''))
+})
+
+/**
+ * Voting commands
+ */
+
+/**
+ * Vote on a comment (internal use by voteOnConversation)
+ */
+Cypress.Commands.add('vote', () => {
+  cy.intercept('POST', '/api/v3/votes').as('postVotes')
+
+  // randomly select one of [agree, disagree, pass]
+  const selectors = ['button#agreeButton', 'button#disagreeButton', 'button#passButton']
+  const selector = selectors[Math.floor(Math.random() * 3)]
+
+  cy.get('[data-view-name="vote-view"]').then(($voteView) => {
+    if ($voteView.find('.Notification.Notification--warning').length) {
+      // You've voted on all the statements.
+      return
+    }
+
+    $voteView.find(selector).click()
+    cy.wait('@postVotes')
+  })
+})
+
+/**
+ * Vote on all available comments in a conversation
+ * @param {string} convoId - Conversation ID
+ * @param {string} xid - External user ID (optional)
+ */
+Cypress.Commands.add('voteOnConversation', (convoId, xid) => {
+  cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
+  let url = '/' + convoId
+
+  if (xid) {
+    url += '?xid=' + xid
+  }
+
+  cy.visit(url)
+  cy.wait('@participationInit')
+
+  cy.get('[data-view-name="vote-view"]', { timeout: 10000 }).then(function voteLoop($voteView) {
+    if (
+      $voteView.find('button#agreeButton').length &&
+      !$voteView.find('.Notification.Notification--warning').length
+    ) {
+      cy.vote()
+      cy.get('[data-view-name="vote-view"]').then(voteLoop)
+    }
+  })
+})
+
+/**
+ * Open a conversation in a specific language
+ * @param {string} convoId - Conversation ID
+ * @param {string} lang - Language code
+ */
 Cypress.Commands.add('openTranslated', (convoId, lang) => {
   cy.visit('/' + convoId, { qs: { ui_lang: lang } })
 })
 
-// https://www.cypress.io/blog/2020/02/12/working-with-iframes-in-cypress/
+/**
+ * Embed commands
+ */
+
+/**
+ * Get the body of an iframe
+ */
 Cypress.Commands.add('getIframeBody', () => {
-  // get the iframe > document > body
-  // and retry until the body element is not empty
-  return (
-    cy
-      .get('iframe')
-      .its('0.contentDocument.body')
-      .should('not.be.empty')
-      // wraps "body" DOM element to allow
-      // chaining more Cypress commands, like ".find(...)"
-      .then(cy.wrap)
-  )
+  return cy.get('iframe').its('0.contentDocument.body').should('not.be.empty').then(cy.wrap)
 })
 
-// Serve up the embed/index.html in response to a request to /embedded
+/**
+ * Intercept embed requests with embed/index.html
+ */
 Cypress.Commands.add('interceptEmbed', () => {
   cy.readFile('./embed/index.html').then((html) => {
     cy.intercept('GET', '/embedded', (req) => {
@@ -181,7 +314,9 @@ Cypress.Commands.add('interceptEmbed', () => {
   })
 })
 
-// Serve up the embed/integrated-index.html in response to a request to /integrated
+/**
+ * Intercept integrated embed requests with embed/integrated-index.html
+ */
 Cypress.Commands.add('interceptIntegrated', () => {
   cy.readFile('./embed/integrated-index.html').then((html) => {
     cy.intercept('GET', '/integrated*', (req) => {
@@ -196,56 +331,37 @@ Cypress.Commands.add('interceptIntegrated', () => {
   })
 })
 
-Cypress.Commands.add('vote', () => {
-  cy.intercept('POST', '/api/v3/votes').as('postVotes')
-
-  // randomly select one of [agree, disagree, pass]
-  // as a selector for the vote button
-  const selector = ['button#agreeButton', 'button#disagreeButton', 'button#passButton'][
-    Math.floor(Math.random() * 3)
-  ]
-
-  cy.get('[data-view-name="vote-view"]').then(($voteView) => {
-    if ($voteView.find('.Notification.Notification--warning').length) {
-      // You've voted on all the statements.
-      return
-    }
-
-    $voteView.find(selector).click()
-    cy.wait('@postVotes')
-  })
-})
-
-// Core voting logic that can be used after establishing a session
-Cypress.Commands.add('voteOnConversation', (convoId, xid) => {
-  cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
-  let url = '/' + convoId;
-  if (xid) {
-    url += '?xid=' + xid;
-  }
-  cy.visit(url)
-  cy.wait('@participationInit')
-
-  cy.get('[data-view-name="vote-view"]', { timeout: 10000 }).then(function voteLoop($voteView) {
-    if ($voteView.find('button#agreeButton').length && !$voteView.find('.Notification.Notification--warning').length) {
-      cy.vote()
-      cy.get('[data-view-name="vote-view"]').then(voteLoop)
-    }
-  })
-})
-
-// Legacy support for visualization tests
-Cypress.Commands.add('initAndVote', (userLabel, convoId) => {
-  cy.ensureUser(userLabel)
-  cy.voteOnConversation(convoId)
-})
-
+/**
+ * Helper function for API login
+ * @param {Object} user - User object with email and password
+ */
 function apiLogin(user) {
-  cy.request('POST', '/api/v3/auth/login', {
-    email: user.email,
-    password: user.password
+  cy.request({
+    method: 'POST',
+    url: '/api/v3/auth/login',
+    body: {
+      email: user.email,
+      password: user.password,
+    },
+    log: true,
+    failOnStatusCode: false,
   }).then((response) => {
-    cy.setCookie('token2', response.body.token)
-    cy.setCookie('uid2', String(response.body.uid))
+    console.log('Login response status:', response.status)
+    console.log('Login response body:', response.body)
+
+    if (response.status === 200 && response.body.token) {
+      cy.setCookie('token2', response.body.token)
+      cy.setCookie('uid2', String(response.body.uid))
+
+      // Verify cookies were set
+      cy.getCookie('token2').then((cookie) => {
+        console.log('token2 cookie after setting:', cookie)
+      })
+      cy.getCookie('uid2').then((cookie) => {
+        console.log('uid2 cookie after setting:', cookie)
+      })
+    } else {
+      console.error('Authentication failed:', response.status, response.body)
+    }
   })
 }

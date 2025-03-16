@@ -1,4 +1,9 @@
 {
+  "admin": {
+    "name": "Test Admin",
+    "email": "admin@polis.test",
+    "password": "Te$tP@ssw0rd*"
+  },
   "moderator": {
     "name": "Test Moderator",
     "email": "moderator@polis.test",

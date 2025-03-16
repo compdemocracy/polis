@@ -11,7 +11,7 @@ const argv = require('yargs/yargs')(process.argv.slice(2))
   .usage(
     'Usage: $0 --conversationId <conversationId> [--baseUrl <baseUrl>]\n' +
       '[--uiLang <ulLang>] [--ucsd <false>] [--ucsf <false>] [--ucsh <false>]\n' +
-      '[--ucst <false>] [--ucsv <false>] [--ucv <false>] [--ucw <false>]'
+      '[--ucst <false>] [--ucsv <false>] [--ucv <false>] [--ucw <false>]',
   )
   .option('conversationId', {
     alias: 'id',

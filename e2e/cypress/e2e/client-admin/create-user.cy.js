@@ -14,7 +14,7 @@ describe('Create User page', function () {
     cy.location('pathname').should('eq', '/createuser')
 
     // Register User
-    cy.registerViaUI(user)
+    cy.register(user, true)
     cy.visit('/')
 
     cy.location('pathname').should('eq', '/')
@@ -22,7 +22,7 @@ describe('Create User page', function () {
     cy.getCookie('uid2').should('exist')
 
     // Log out User
-    cy.logoutViaUI()
+    cy.logout(true)
 
     cy.visit('/')
     cy.location('pathname').should('eq', '/home')
@@ -31,7 +31,7 @@ describe('Create User page', function () {
     cy.contains('h1', 'Sign In').should('be.visible')
 
     // Log in User
-    cy.login(user)
+    cy.login(user, true)
 
     cy.visit('/')
     cy.location('pathname').should('eq', '/')
@@ -47,7 +47,7 @@ describe('Create User page', function () {
 
     cy.register(user)
     cy.logout()
-    cy.loginViaAPI(user)
+    cy.login(user)
 
     cy.getCookie('token2').should('exist')
     cy.getCookie('uid2').should('exist')

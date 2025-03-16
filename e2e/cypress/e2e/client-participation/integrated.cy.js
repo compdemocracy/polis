@@ -2,7 +2,7 @@ import { faker } from '@faker-js/faker'
 
 describe('Integrated Conversations', function () {
   before(function () {
-    cy.ensureUser('moderator')
+    cy.ensureUser('admin')
     cy.visit('/integrate')
     cy.get('pre')
       .invoke('text')
@@ -25,7 +25,7 @@ describe('Integrated Conversations', function () {
 
       cy.intercept('GET', '/api/v3/participationInit*').as('participationInit')
       cy.exec(
-        `npm run build:integrated -- --siteId=${this.siteId} --pageId=${this.pageId} --baseUrl=${baseUrl}`
+        `npm run build:integrated -- --siteId=${this.siteId} --pageId=${this.pageId} --baseUrl=${baseUrl}`,
       )
       cy.interceptIntegrated()
       cy.visit('/integrated')
@@ -38,7 +38,7 @@ describe('Integrated Conversations', function () {
     })
 
     it('is created with default properties', function () {
-      cy.ensureUser('moderator')
+      cy.ensureUser('admin')
       cy.visit('/m/' + this.convoId)
       // force reload to ensure we're not getting cached data
       cy.reload(true)
@@ -60,7 +60,7 @@ describe('Integrated Conversations', function () {
     })
 
     it('shows the integration url on its /share page', function () {
-      cy.ensureUser('moderator')
+      cy.ensureUser('admin')
       cy.visit('/m/' + this.convoId + '/share')
       cy.get('[data-test-id="embed-page"]')
         .should('be.visible')
@@ -68,7 +68,7 @@ describe('Integrated Conversations', function () {
     })
 
     it('shows the integration url on the admin home page', function () {
-      cy.ensureUser('moderator')
+      cy.ensureUser('admin')
       cy.visit('/')
       cy.get('[data-test-id="embed-page"]')
         .contains(Cypress.config('baseUrl') + '/integrated')

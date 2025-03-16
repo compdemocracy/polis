@@ -5,19 +5,19 @@ const cypress = require('cypress')
  * -----------------
  * Basic usage:
  *   npm run seed
- * 
+ *
  * With custom parameters:
  *   npm run seed -- --numVoters=10 --numConversations=3 --commentsPerConvo=5
- * 
+ *
  * Environment Variables:
  *   CYPRESS_BASE_URL - Set the API server URL (default: http://localhost)
  *     Example: CYPRESS_BASE_URL=http://localhost:5001 npm run seed
- * 
+ *
  * Available Arguments:
  *   --numVoters         Number of anonymous participants to create (default: 5)
  *   --numConversations Number of conversations to create (default: 2)
  *   --commentsPerConvo Number of seed comments per conversation (default: 3)
- * 
+ *
  * Notes:
  * - A moderator user will always be created (moderator@polis.test)
  * - Each conversation will have the specified number of seed comments
@@ -26,11 +26,7 @@ const cypress = require('cypress')
  * - The script is idempotent - running it multiple times will not create duplicate data
  */
 
-async function seed({
-  numVoters = 5,
-  numConversations = 2,
-  commentsPerConvo = 3
-} = {}) {
+async function seed({ numVoters = 5, numConversations = 2, commentsPerConvo = 3 } = {}) {
   console.log('\n🌱 Starting database seeding...\n')
   console.log('Configuration:')
   console.log(`- Anonymous participants per conversation: ${numVoters}`)
@@ -46,14 +42,14 @@ async function seed({
       video: false,
       screenshotOnRunFailure: false,
       e2e: {
-        specPattern: 'scripts/seed.cy.js'
-      }
+        specPattern: 'scripts/seed.cy.js',
+      },
     },
     env: {
       numVoters,
       numConversations,
-      commentsPerConvo
-    }
+      commentsPerConvo,
+    },
   }
 
   try {
@@ -89,7 +85,7 @@ if (require.main === module) {
   const args = process.argv.slice(2)
   const options = {}
 
-  args.forEach(arg => {
+  args.forEach((arg) => {
     const [key, value] = arg.replace('--', '').split('=')
     if (value) {
       options[key] = parseInt(value)

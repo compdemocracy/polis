@@ -93,3 +93,62 @@ Read more about the [Cypress command line options here](https://docs.cypress.io/
 - The docker compose `test` configuration, using the `docker-compose.test.yml` overlay and/or `make TEST ...` commands are intended for running polis in a prod-like way with a couple of exceptions: including a maildev server with port 1080 exposed, and passing along some modified environment variables found in `test.env`. This is especially useful for CI server situations and not really necessary for local development. Running the tests against the `dev` docker compose configuration should work fine too.
 - The test suite creates a lot of data and writes it to a Postgres database. It will generate fresh data with every run and so it is a good idea to drop the database (or docker volume) occasionally. However, having a database full of random data is sometimes helpful for manual testing and development. You will accumulate random test data in whatever environment the tests are run.
   - **DON'T RUN CYPRESS TESTS IN PRODUCTION**
+
+## Testing Patterns
+
+The Cypress tests use the following patterns for common operations:
+
+### Authentication
+
+```javascript
+// Log in a user via UI
+cy.login(user, true)
+
+// Log in a user via API
+cy.login(user)
+
+// Register a new user via UI
+cy.register(user, true)
+
+// Register a new user via API
+cy.register(user)
+
+// Ensure a user exists and is logged in
+cy.ensureUser('admin') // Uses user from fixtures/users.json
+```
+
+### Conversation Management
+
+```javascript
+// Create a conversation (authenticated)
+cy.createConvo('Topic', 'Description', 'admin') // Using user from fixtures/users.json
+cy.createConvo('Topic', 'Description', user) // Using explicit user object
+
+// Add comments to a conversation
+cy.seedComment(convoId, 'Comment text', 'admin')
+
+// Find or create a conversation
+cy.ensureConversation('admin')
+```
+
+### Participation
+
+```javascript
+// Participate anonymously
+cy.participateAnonymously({ convoId, xid: 'optional-external-id' })
+
+// Vote on all comments in a conversation
+cy.voteOnConversation(convoId, 'optional-external-id')
+```
+
+### Embedded Testing
+
+```javascript
+// Intercept embed requests
+cy.interceptEmbed()
+
+// Access iframe content
+cy.getIframeBody()
+```
+
+These patterns help maintain consistency across tests and should be used when writing new tests.

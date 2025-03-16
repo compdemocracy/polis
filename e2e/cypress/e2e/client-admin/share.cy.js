@@ -1,5 +1,6 @@
 describe('Share page', function () {
   before(function () {
+    cy.ensureUser('admin')
     cy.createConvo()
       .then(() => {
         cy.wrap(`/m/${this.convoId}`).as('adminPath')
@@ -11,7 +12,7 @@ describe('Share page', function () {
   })
 
   beforeEach(function () {
-    cy.ensureUser('moderator')
+    cy.ensureUser('admin')
     cy.intercept('POST', '/api/v3/comments').as('createComment')
     cy.intercept('PUT', '/api/v3/comments').as('updateComment')
   })

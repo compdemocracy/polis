@@ -66,6 +66,7 @@ describe('Conversation: Configure', function () {
 
   describe('Conversation Participation', function () {
     beforeEach(function () {
+      cy.ensureUser('moderator')
       cy.createConvo().then(() => {
         cy.visit('/m/' + this.convoId)
         cy.wait('@getConversations')
@@ -120,6 +121,7 @@ describe('Conversation: Configure', function () {
 
   describe('Conversation Settings', function () {
     beforeEach(function () {
+      cy.ensureUser('moderator')
       cy.createConvo().then(() => cy.visit('/m/' + this.convoId))
       cy.wait('@getConversations')
     })
@@ -134,6 +136,7 @@ describe('Conversation: Configure', function () {
 
   describe('Closing a Conversation', function () {
     beforeEach(function () {
+      cy.ensureUser('moderator')
       cy.createConvo().then(() => cy.visit('/m/' + this.convoId))
       cy.wait('@getConversations')
       cy.get('input[data-test-id="topic"]').type('Test topic')

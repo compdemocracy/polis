@@ -3,6 +3,7 @@ const description = 'Embedded Conversation Description'
 
 describe('Embedded Conversations', function () {
   before(function () {
+    cy.ensureUser('admin')
     cy.createConvo(topic, description).then(() => {
       cy.seedComment(this.convoId)
     })
@@ -165,7 +166,6 @@ describe('Embedded Conversations', function () {
     })
   })
 
-  // TODO - add enough votes to show the vis
   describe('user-can-see-vis (ucsv) is OFF', function () {
     before(function () {
       const baseUrl = Cypress.config('baseUrl')
