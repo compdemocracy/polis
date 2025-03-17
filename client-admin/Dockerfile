@@ -3,7 +3,7 @@
 # But this file is still useful for development or deployments that do not use
 # the docker compose configuration.
 
-FROM docker.io/node:18-alpine
+FROM docker.io/node:20-alpine
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -17,4 +17,4 @@ RUN npm ci --production=false
 
 COPY . .
 
-CMD npm run build:prod
+CMD ["npm", "run", "build:prod"]
