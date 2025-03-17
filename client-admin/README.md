@@ -37,19 +37,6 @@ get very far. Still it can be useful for developing and debugging builds.
 
 ## Configuration
 
-### Facebook App Integration
-
-Optionally, you can [register with Facebook](https://developers.facebook.com/docs/development) and get a Facebook App ID
-to use the Facebook auth features.
-
-If you do so, set the FB_APP_ID environment variable in the top level `.env` file, or manually pass it in
-when building and running this application.
-
-### Twitter Integration
-
-To enable twitter widgets for user authentication, set the ENABLE_TWITTER_WIDGETS environment variable to `true` in the
-top level `.env` file, or manually pass it in when building and running this application.
-
 ### Common Problems
 
 If you having troubles with npm dependencies try run the commands below:

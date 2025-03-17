@@ -17,9 +17,6 @@ s.polis_err_reg_need_name = 'Please include your name.'
 s.polis_err_post_comment_duplicate =
   'Error posting: This comment already exists!'
 
-s.polis_err_fetching_tweet =
-  'Error fetching tweet. Expected a URL to a twitter tweet.'
-
 s.share_but_no_comments_warning =
   "This conversation has no comments. We recommend you add a few comments before inviting participants. This will help participants get started. Go to 'Configure' and then 'Seed Comments'."
 s.share_but_no_visible_comments_warning =

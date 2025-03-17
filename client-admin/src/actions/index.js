@@ -98,13 +98,6 @@ export const SUBMIT_SEED_COMMENT = 'SUBMIT_SEED_COMMENT'
 export const SUBMIT_SEED_COMMENT_SUCCESS = 'SUBMIT_SEED_COMMENT_SUCCESS'
 export const SUBMIT_SEED_COMMENT_ERROR = 'SUBMIT_SEED_COMMENT_ERROR'
 
-/* submit tweet seed comment */
-export const SEED_COMMENT_TWEET_LOCAL_UPDATE = 'SEED_COMMENT_TWEET_LOCAL_UPDATE'
-export const SUBMIT_SEED_COMMENT_TWEET = 'SUBMIT_SEED_COMMENT_TWEET'
-export const SUBMIT_SEED_COMMENT_TWEET_SUCCESS =
-  'SUBMIT_SEED_COMMENT_TWEET_SUCCESS'
-export const SUBMIT_SEED_COMMENT_TWEET_ERROR = 'SUBMIT_SEED_COMMENT_TWEET_ERROR'
-
 export const REQUEST_SEED_COMMENTS = 'REQUEST_SEED_COMMENTS'
 export const RECEIVE_SEED_COMMENTS = 'RECEIVE_SEED_COMMENTS'
 export const SEED_COMMENTS_FETCH_ERROR = 'SEED_COMMENTS_FETCH_ERROR'
@@ -137,10 +130,6 @@ export const PWRESET_INIT_ERROR = 'PWRESET_INIT_ERROR'
 export const PWRESET_INITIATED = 'PWRESET_INITIATED'
 export const PWRESET_SUCCESS = 'PWRESET_SUCCESS'
 export const PWRESET_ERROR = 'PWRESET_ERROR'
-
-export const FACEBOOK_SIGNIN_INITIATED = 'FACEBOOK_SIGNIN_INITIATED'
-export const FACEBOOK_SIGNIN_SUCCESSFUL = 'FACEBOOK_SIGNIN_SUCCESSFUL'
-export const FACEBOOK_SIGNIN_FAILED = 'FACEBOOK_SIGNIN_FAILED'
 
 export const SUBMIT_CONTRIB = 'SUBMIT_CONTRIB'
 export const SUBMIT_CONTRIB_SUCCESS = 'SUBMIT_CONTRIB_SUCCESS'
@@ -358,237 +347,6 @@ export const doPasswordReset = (attrs) => {
       },
       (err) => dispatch(passwordResetError(err))
     )
-  }
-}
-
-/* facebook */
-
-const facebookSigninInitiated = () => {
-  return {
-    type: FACEBOOK_SIGNIN_INITIATED
-  }
-}
-
-// FIXME
-// eslint-disable-next-line no-unused-vars
-const facebookSigninSuccessful = () => {
-  return {
-    type: FACEBOOK_SIGNIN_SUCCESSFUL
-  }
-}
-
-const facebookSigninFailed = (errorCode) => {
-  return {
-    type: FACEBOOK_SIGNIN_FAILED,
-    errorCode: errorCode
-  }
-}
-
-const getFriends = () => {
-  const dfd = $.Deferred()
-
-  const getMoreFriends = (friendsSoFar, urlForNextCall) => {
-    return $.get(urlForNextCall).then((response) => {
-      if (response.data.length) {
-        for (let i = 0; i < response.data.length; i++) {
-          friendsSoFar.push(response.data[i])
-        }
-        if (response.paging.next) {
-          return getMoreFriends(friendsSoFar, response.paging.next)
-        }
-        return friendsSoFar
-      } else {
-        return friendsSoFar
-      }
-    })
-  }
-
-  FB.api('/me/friends', (response) => {
-    if (response && !response.error) {
-      const friendsSoFar = response.data
-      if (response.data.length && response.paging.next) {
-        getMoreFriends(friendsSoFar, response.paging.next).then(
-          dfd.resolve,
-          dfd.reject
-        )
-      } else {
-        dfd.resolve(friendsSoFar || [])
-      }
-    } else {
-      // "failed to find friends"
-      dfd.reject(response)
-    }
-  })
-  return dfd.promise()
-}
-
-const getInfo = () => {
-  const dfd = $.Deferred()
-
-  FB.api('/me', (response) => {
-    // {"id":"10152802017421079"
-    //   "email":"michael@bjorkegren.com"
-    //   "first_name":"Mike"
-    //   "gender":"male"
-    //   "last_name":"Bjorkegren"
-    //   "link":"https://www.facebook.com/app_scoped_user_id/10152802017421079/"
-    //   "locale":"en_US"
-    //   "location": {
-    //      "id": "110843418940484",  ------------> we can make another call to get the lat,lng for this
-    //      "name": "Seattle, Washington"
-    //   },
-    //   "name":"Mike Bjorkegren"
-    //   "timezone":-7
-    //   "updated_time":"2014-07-03T06:38:02+0000"
-    //   "verified":true}
-
-    if (response && !response.error) {
-      if (response.location && response.location.id) {
-        FB.api('/' + response.location.id, (locationResponse) => {
-          if (locationResponse) {
-            response.locationInfo = locationResponse
-          }
-          dfd.resolve(response)
-        })
-      } else {
-        dfd.resolve(response)
-      }
-    } else {
-      // alert("failed to find data");
-      dfd.reject(response)
-    }
-  })
-  return dfd.promise()
-}
-
-const saveFacebookFriendsData = (data, dest, dispatch) => {
-  $.ajax({
-    url: '/api/v3/auth/facebook',
-    contentType: 'application/json; charset=utf-8',
-    headers: {
-      'Cache-Control': 'max-age=0'
-    },
-    xhrFields: {
-      withCredentials: true
-    },
-    dataType: 'json',
-    data: JSON.stringify(data),
-    type: 'POST'
-  }).then(
-    () => {
-      setTimeout(() => {
-        // Force page to load so we can be sure the old user"s state is cleared from memory
-        // delay a bit so the cookies have time to clear too.
-        window.location = dest || '/'
-      }, 1000)
-    },
-    (err) => {
-      console.dir(err)
-
-      if (
-        err.responseText &&
-        /polis_err_user_with_this_email_exists/.test(err.responseText)
-      ) {
-        // Todo handle
-
-        // var password = prompt("A pol.is user "+data.fb_email+", the same email address as associted with your facebook account, already exists. Enter your pol.is password to enable facebook login for your pol.is account.");
-        // that.linkMode = true;
-
-        dispatch(facebookSigninFailed('polis_err_user_with_this_email_exists')) // handle case user already exists enter your password
-
-        // that.model.set({
-        //   create: false, // don"t show create account stuff, account exists.
-        //   linkMode: true,
-        //   email: data.fb_email,
-        // });
-      } else {
-        alert('error logging in with Facebook')
-      }
-    }
-  )
-}
-
-const processFacebookFriendsData = (
-  response,
-  dest,
-  dispatch,
-  optionalPassword
-) => {
-  return (fb_public_profile, friendsData) => {
-    // alert(JSON.stringify(friendsData));
-
-    const data = {
-      fb_public_profile: JSON.stringify(fb_public_profile),
-      fb_friends_response: JSON.stringify(friendsData),
-      response: JSON.stringify(response)
-    }
-
-    // cleaner as fb_email: fb_public_profile.email ? fb_public_profile.email : null
-
-    if (fb_public_profile.email) {
-      data.fb_email = fb_public_profile.email
-    } else {
-      data.provided_email = prompt('Please enter your email address.')
-    }
-
-    const hname = [
-      fb_public_profile.first_name,
-      fb_public_profile.last_name
-    ].join(' ')
-
-    if (hname.length) {
-      data.hname = hname
-    }
-
-    if (
-      response &&
-      response.authResponse &&
-      response.authResponse.grantedScopes
-    ) {
-      data.fb_granted_scopes = response.authResponse.grantedScopes
-    }
-
-    if (optionalPassword) {
-      data.password = optionalPassword
-    }
-
-    saveFacebookFriendsData(data, dest, dispatch)
-  }
-}
-
-const onFbLoginOk = (response, dest, dispatch, optionalPassword) => {
-  $.when(getInfo(), getFriends()).then(
-    processFacebookFriendsData(response, dest, dispatch, optionalPassword),
-    (err) => {
-      console.error(err)
-    }
-  )
-}
-
-const callFacebookLoginAPI = (dest, dispatch, optionalPassword) => {
-  console.log('ringing facebook...')
-
-  FB.login(
-    (res) => {
-      return onFbLoginOk(res, dest, dispatch, optionalPassword)
-    },
-    {
-      return_scopes: true, // response should contain the scopes the user allowed
-      scope: [
-        // "taggable_friends", // requires review.
-        // invitable_friends NOTE: only for games with a fb Canvas presence, so don"t use this
-        'public_profile',
-        'user_friends',
-        'email'
-      ].join(',')
-    }
-  )
-}
-
-export const doFacebookSignin = (dest, optionalPassword) => {
-  return (dispatch) => {
-    dispatch(facebookSigninInitiated())
-    return callFacebookLoginAPI(dest, dispatch, optionalPassword)
   }
 }
 
@@ -863,85 +621,6 @@ const makeStandardSuccess = (type, data) => {
   }
 }
 
-/* seed tweets submit */
-
-export const seedCommentTweetChanged = (text) => {
-  return {
-    type: SEED_COMMENT_TWEET_LOCAL_UPDATE,
-    text: text
-  }
-}
-const submitSeedCommentTweetStart = () => {
-  return {
-    type: SUBMIT_SEED_COMMENT_TWEET
-  }
-}
-
-const submitSeedCommentPostTweetSuccess = () => {
-  return {
-    type: SUBMIT_SEED_COMMENT_TWEET_SUCCESS
-  }
-}
-
-const submitSeedCommentPostTweetError = (err) => {
-  return {
-    type: SUBMIT_SEED_COMMENT_TWEET_ERROR,
-    data: err
-  }
-}
-
-const postSeedCommentTweet = (o) => {
-  return PolisNet.polisPost('/api/v3/comments', o)
-}
-
-export const handleSeedCommentTweetSubmit = (o) => {
-  return (dispatch) => {
-    dispatch(submitSeedCommentTweetStart())
-    return postSeedCommentTweet(o)
-      .then(
-        (res) => dispatch(submitSeedCommentPostTweetSuccess(res)),
-        (err) => dispatch(submitSeedCommentPostTweetError(err))
-      )
-      .then(dispatch(populateAllCommentStores(o.conversation_id)))
-  }
-}
-
-/* seed comments fetch */
-
-// const requestSeedComments = () => {
-//   return {
-//     type: REQUEST_SEED_COMMENTS,
-//   };
-// };
-
-// const receiveSeedComments = (data) => {
-//   return {
-//     type: RECEIVE_SEED_COMMENTS,
-//     data: data
-//   };
-// };
-
-// const seedCommentsFetchError = (err) => {
-//   return {
-//     type: SEED_COMMENTS_FETCH_ERROR,
-//     data: err
-//   }
-// }
-
-// const fetchSeedComments = (conversation_id) => {
-//   return $.get("/api/v3/comments?moderation=true&mod=0&conversation_id=" + conversation_id);
-// }
-
-// export const populateSeedCommentStore = (conversation_id) => {
-//   return (dispatch) => {
-//     dispatch(requestSeedComments())
-//     return fetchSeedComments(conversation_id).then(
-//       res => dispatch(receiveSeedComments(res)),
-//       err => dispatch(seedCommentsFetchError(err))
-//     )
-//   }
-// }
-
 /* create conversation */
 
 const createConversationStart = () => {
@@ -1015,9 +694,9 @@ const fetchAllComments = (conversation_id) => {
   const includeSocial = ''
   return $.get(
     '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-      includeSocial +
-      'conversation_id=' +
-      conversation_id
+    includeSocial +
+    'conversation_id=' +
+    conversation_id
   )
 }
 
@@ -1056,9 +735,9 @@ const mathFetchError = (err) => {
 const fetchMath = (conversation_id, math_tick) => {
   return $.get(
     '/api/v3/math/pca2?&math_tick=' +
-      math_tick +
-      '&conversation_id=' +
-      conversation_id
+    math_tick +
+    '&conversation_id=' +
+    conversation_id
   )
 }
 
@@ -1100,9 +779,9 @@ const fetchUnmoderatedComments = (conversation_id) => {
   const includeSocial = ''
   return $.get(
     '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-      includeSocial +
-      'mod=0&conversation_id=' +
-      conversation_id
+    includeSocial +
+    'mod=0&conversation_id=' +
+    conversation_id
   )
 }
 
@@ -1143,9 +822,9 @@ const fetchAcceptedComments = (conversation_id) => {
   const includeSocial = ''
   return $.get(
     '/api/v3/comments?moderation=true&include_voting_patterns=false&mod=1&' +
-      includeSocial +
-      'conversation_id=' +
-      conversation_id
+    includeSocial +
+    'conversation_id=' +
+    conversation_id
   )
 }
 
@@ -1186,9 +865,9 @@ const fetchRejectedComments = (conversation_id) => {
   const includeSocial = ''
   return $.get(
     '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-      includeSocial +
-      'mod=-1&conversation_id=' +
-      conversation_id
+    includeSocial +
+    'mod=-1&conversation_id=' +
+    conversation_id
   )
 }
 
@@ -1656,8 +1335,8 @@ const conversationStatsFetchError = (err) => {
 const fetchConversationStats = (conversation_id, until) => {
   return $.get(
     '/api/v3/conversationStats?conversation_id=' +
-      conversation_id +
-      (until ? '&until=' + until : '')
+    conversation_id +
+    (until ? '&until=' + until : '')
   )
 }
 

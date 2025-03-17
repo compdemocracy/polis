@@ -26,9 +26,6 @@ class Account extends React.Component {
           <Box>
             <p>{this.props.user.hname}</p>
             <p>{this.props.user.email}</p>
-            <p>Social:</p>
-            <p>{this.props.user.hasFacebook ? 'Facebook is connected' : ''} </p>
-            <p>{this.props.user.hasTwitter ? 'Twitter is connected' : ''}</p>
           </Box>
         </Box>
       </>
@@ -48,8 +45,6 @@ Account.propTypes = {
   user: PropTypes.shape({
     hname: PropTypes.string,
     email: PropTypes.string,
-    hasFacebook: PropTypes.bool,
-    hasTwitter: PropTypes.bool
   })
 }
 

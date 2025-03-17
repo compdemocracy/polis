@@ -3,14 +3,12 @@
 
 import React from 'react'
 import { connect } from 'react-redux'
-import { doCreateUser, doFacebookSignin } from '../../actions'
-import { Heading, Box, Text, Button, jsx } from 'theme-ui'
+import { doCreateUser } from '../../actions'
+import { Heading, Box, Button, jsx } from 'theme-ui'
 
 import { Link } from 'react-router-dom'
 import StaticLayout from './lander-layout'
 import strings from '../../strings/strings'
-
-const fbAppId = process.env.FB_APP_ID
 
 @connect((state) => state.signin)
 class Createuser extends React.Component {
@@ -32,23 +30,6 @@ class Createuser extends React.Component {
       dest = '/'
     }
     this.props.dispatch(doCreateUser(attrs, dest))
-  }
-
-  facebookButtonClicked() {
-    let dest = this.getDest()
-    if (!dest.length) {
-      dest = '/'
-    }
-    this.props.dispatch(doFacebookSignin(dest))
-  }
-
-  handleFacebookPasswordSubmit() {
-    let dest = this.getDest()
-    if (!dest.length) {
-      dest = '/'
-    }
-    const optionalPassword = this.facebook_password.value
-    this.props.dispatch(doFacebookSignin(dest, optionalPassword))
   }
 
   maybeErrorMessage() {
@@ -161,46 +142,6 @@ class Createuser extends React.Component {
             Sign in
           </Link>
         </Box>
-
-        {fbAppId && (
-          <>
-            <Button
-              sx={{ my: [2] }}
-              id="signupFacebookButton"
-              onClick={this.facebookButtonClicked.bind(this)}>
-              Sign up with Facebook
-            </Button>
-            <Text>
-              If you click &apos;Sign in with Facebook&apos; and are not a pol.is
-              user, you will be registered and you agree to the pol.is terms and
-              privacy policy
-            </Text>
-          </>
-        )}
-      </Box>
-    )
-  }
-
-  drawPasswordConnectFacebookForm() {
-    return (
-      <Box>
-        <Text>
-          A pol.is user already exists with the email address associated with
-          this Facebook account.
-        </Text>
-        <Text>
-          {' '}
-          Please enter the password to your pol.is account to enable Facebook
-          login.
-        </Text>
-        <input
-          ref={(c) => (this.facebook_password = c)}
-          placeholder="polis password"
-          type="password"
-        />
-        <Button onClick={this.handleFacebookPasswordSubmit.bind(this)}>
-          {'Connect Facebook Account'}
-        </Button>
       </Box>
     )
   }
@@ -212,9 +153,7 @@ class Createuser extends React.Component {
           <Heading as="h1" sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>
             Create Account
           </Heading>
-          {this.props.facebookError !== 'polis_err_user_with_this_email_exists'
-            ? this.drawForm()
-            : this.drawPasswordConnectFacebookForm()}
+          {this.drawForm()}
         </div>
       </StaticLayout>
     )

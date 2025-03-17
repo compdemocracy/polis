@@ -1,11 +1,7 @@
 const path = require('path')
 const HtmlWebPackPlugin = require('html-webpack-plugin')
-const HtmlWebpackTagsPlugin = require('html-webpack-tags-plugin')
 
 module.exports = (env, argv) => {
-  const enableTwitterWidget = process.env.ENABLE_TWITTER_WIDGET === 'true'
-  const fbAppId = process.env.FB_APP_ID
-
   return {
     entry: './src/index.js',
     output: {
@@ -33,22 +29,9 @@ module.exports = (env, argv) => {
     },
     plugins: [
       new HtmlWebPackPlugin({
-        template: 'public/index.ejs',
+        template: 'public/index.html',
         filename: 'index_admin.html',
         inject: 'body',
-        templateParameters: {
-          fbAppId: fbAppId
-        }
-      }),
-      new HtmlWebpackTagsPlugin({
-        tags: enableTwitterWidget ? [{
-          path: 'https://platform.twitter.com/widgets.js',
-          attributes: {
-            async: true,
-            charset: 'utf-8'
-          }
-        }] : [],
-        append: false
       }),
     ].filter(Boolean)
   }

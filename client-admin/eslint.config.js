@@ -51,7 +51,6 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.es2021,
-        FB: 'readonly',
         process: 'readonly',
         // jQuery globals
         $: 'readonly',

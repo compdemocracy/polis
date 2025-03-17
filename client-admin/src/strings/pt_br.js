@@ -18,9 +18,6 @@ s.polis_err_reg_need_name = 'Por favor inclua seu nome.'
 s.polis_err_post_comment_duplicate =
   'Erro ao publicar. Este comentário já existe!'
 
-s.polis_err_fetching_tweet =
-  'Erro buscando tuíte. Verifique se esse link é mesmo de um tuíte.'
-
 s.share_but_no_comments_warning =
   "Essa discussão não tem comentários. Nós recomendamos adicionar alguns comentários antes de convidar participantes. Isso irá ajudar os participantes a começar. No menu da direita, vá para a opção 'comments' e depois 'seed'."
 s.share_but_no_visible_comments_warning =
