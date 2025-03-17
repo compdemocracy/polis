@@ -32,7 +32,7 @@ describe('Routes', function () {
     cy.wait('@getConversations')
 
     cy.location('pathname').should('eq', sharePath)
-    cy.get('h3').should('have.text', 'Distribute')
+    cy.contains('h3', 'Distribute').should('exist')
   })
 
   it('Page strips trailing slash from /m/:id/comments/accepted/', function () {
