@@ -153,7 +153,7 @@ class ParticipantXids extends React.Component {
 
           <li>
             Once the <Link target="_blank" href="https://compdemocracy.org/conversation">conversation</Link> has been embedded on a third party webpage, that page can, however it likes, via
-            JavaScript or via templating for instance, add the data attribute <code>data-xid="test"</code>
+            JavaScript or via templating for instance, add the data attribute <code>data-xid=&quot;test&quot;</code>
           </li>
 
           <li>
@@ -176,7 +176,7 @@ class ParticipantXids extends React.Component {
                 Then, when the <Link target="_blank" href="https://compdemocracy.org/participant">participant</Link> clicks through the email to a custom url, custom JavaScript written by
                 whoever is controlling the third party website on which polis is embedded grabs a token out of the url and adds it to the
                 <div sx={{ display: 'inline-block' }}>
-                  <code>data-xid="someTokenFromTheURLBarThatIdentifiesTheUser"</code>
+                  <code>data-xid=&quot;someTokenFromTheURLBarThatIdentifiesTheUser&quot;</code>
                 </div>
               </li>
             </ul>
@@ -187,8 +187,8 @@ class ParticipantXids extends React.Component {
           </li>
 
           <li>
-            Usage: <code>data-xid="guid"</code>, or <code>data-xid="5647434556754623"</code>, or less anonymously and not
-            recommended <code>data-xid="foo@bar.com"</code>
+            Usage: <code>data-xid=&quot;guid&quot;</code>, or <code>data-xid=&quot;5647434556754623&quot;</code>, or less anonymously and not
+            recommended <code>data-xid=&quot;foo@bar.com&quot;</code>
           </li>
         </ul>
       </div>
