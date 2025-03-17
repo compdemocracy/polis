@@ -17,6 +17,11 @@ export default (env, argv) => {
   const isProduction = argv.mode === 'production'
   const isDevelopment = !isProduction
 
+  // Get API URL from CLI arg, env var, or default
+  const apiUrl = env?.apiUrl || process.env.API_URL || 'http://localhost:5000'
+
+  console.log(`Using API URL: ${apiUrl}`)
+
   return {
     mode: isProduction ? 'production' : 'development',
     entry: './src/index.js',
@@ -36,7 +41,7 @@ export default (env, argv) => {
       proxy: [
         {
           context: ['/api'],
-          target: 'http://localhost:5000',
+          target: apiUrl,
           secure: false,
         }
       ],

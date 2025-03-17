@@ -5,12 +5,7 @@
 
 ######################## POLIS CLIENT ADMIN ########################
 #FROM client-base AS client-admin # <- switch back to basing on client admin once we upgrade other clients
-FROM docker.io/node:18-alpine AS client-admin
-
-ARG ENABLE_TWITTER_WIDGETS
-ARG FB_APP_ID
-ENV ENABLE_TWITTER_WIDGETS=${ENABLE_TWITTER_WIDGETS}
-ENV FB_APP_ID=${FB_APP_ID}
+FROM docker.io/node:20-alpine AS client-admin
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -29,13 +24,11 @@ RUN npm run build:prod
 
 
 ##################### POLIS CLIENT PARTICIPATION #####################
-FROM docker.io/node:18-alpine AS client-participation
+FROM docker.io/node:20-alpine AS client-participation
 
 ARG EMBED_SERVICE_HOSTNAME
-ARG FB_APP_ID
 ARG GA_TRACKING_ID
 ENV EMBED_SERVICE_HOSTNAME=${EMBED_SERVICE_HOSTNAME}
-ENV FB_APP_ID=${FB_APP_ID}
 ENV GA_TRACKING_ID=${GA_TRACKING_ID}
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
@@ -56,7 +49,7 @@ RUN npm run build:prod
 
 ######################## POLIS CLIENT REPORT ########################
 # FROM client-base AS client-report
-FROM docker.io/node:18-alpine AS client-report
+FROM docker.io/node:20-alpine AS client-report
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -83,7 +76,7 @@ RUN npm run build:prod
 
 
 ############################ FILE SERVER ############################
-FROM docker.io/node:18-alpine
+FROM docker.io/node:20-alpine
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
