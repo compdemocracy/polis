@@ -58,8 +58,8 @@ export default (env, argv) => {
           use: ['style-loader', 'css-loader']
         },
         {
-          test: /\.md$/,
-          use: ['html-loader', 'markdown-loader']
+          test: /\.mdx?$/,
+          use: ['babel-loader', '@mdx-js/loader']
         }
       ]
     },
