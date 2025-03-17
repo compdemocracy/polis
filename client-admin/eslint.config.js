@@ -1,11 +1,11 @@
-import eslint from '@eslint/js';
-import globals from 'globals';
-import jsxA11yPlugin from 'eslint-plugin-jsx-a11y';
-import reactPlugin from 'eslint-plugin-react';
-import importPlugin from 'eslint-plugin-import';
-import babelParser from '@babel/eslint-parser';
+const eslint = require('@eslint/js');
+const globals = require('globals');
+const jsxA11yPlugin = require('eslint-plugin-jsx-a11y');
+const reactPlugin = require('eslint-plugin-react');
+const importPlugin = require('eslint-plugin-import');
+const babelParser = require('@babel/eslint-parser');
 
-export default [
+module.exports = [
   {
     // Base configuration for all files
     ignores: ['build/**'],
