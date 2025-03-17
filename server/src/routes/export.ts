@@ -6,7 +6,8 @@ import {
   queryP_readOnly as pgQueryP_readOnly,
   stream_queryP_readOnly as stream_pgQueryP_readOnly,
 } from "../db/pg-query";
-import { getZinvite, getZidForRid } from "../utils/zinvite";
+import { getZinvite, getZidForRid, getZidForUuid } from "../utils/zinvite";
+import { getXids } from "./math";
 import { getPca } from "../utils/pca";
 import fail from "../utils/fail";
 import logger from "../utils/logger";
@@ -605,6 +606,36 @@ export async function sendCommentGroupsSummary(
   }
 }
 
+export async function sendParticipantXidsSummary(zid: number, res: Response) {
+  try {
+    const pca = await getPca(zid);
+    if (!pca?.asPOJO) {
+      throw new Error("polis_error_no_pca_data");
+    }
+
+    const xids = await getXids(zid);
+    if (!xids) {
+      throw new Error("polis_error_no_xid_response");
+    }
+
+    // Sort xids by pid
+    xids.sort((a, b) => a.pid - b.pid);
+
+    // Define formatters for the CSV columns
+    const formatters: Formatters<{pid: number, xid: string}> = {
+      participant: (row) => String(row.pid),
+      xid: (row) => formatEscapedText(row.xid),
+    };
+
+    // Generate and send the CSV
+    res.setHeader("content-type", "text/csv");
+    res.send(formatCSV(formatters, xids));
+  } catch (err) {
+    logger.error("polis_err_report_participant_xids", err);
+    fail(res, 500, "polis_err_data_export", err);
+  }
+}
+
 export async function handle_GET_reportExport(
   req: {
     p: { rid: string; report_type: string };
@@ -653,5 +684,24 @@ export async function handle_GET_reportExport(
         ? err.message
         : "polis_err_data_export";
     fail(res, 500, msg, err);
+  }
+}
+
+export async function handle_GET_xidReport(req: {
+  p: { xid_report: string };
+}, res: Response) {
+  const { xid_report } = req.p;
+  // example xid_report: "51295d48-9422-4a58-90dd-8a6e32cd1b52-xid.csv"
+  try {
+    const uuid = xid_report.split("-xid.csv")[0];
+    const zid = await getZidForUuid(uuid);
+    if (zid != null) {
+      await sendParticipantXidsSummary(zid, res);
+    } else {
+      fail(res, 404, "polis_error_data_unknown_report");
+    }
+  } catch (err) {
+    logger.error("polis_err_report_xid", err);
+    fail(res, 500, "polis_err_data_export", err);
   }
 }

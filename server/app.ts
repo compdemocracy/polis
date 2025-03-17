@@ -18,6 +18,8 @@ import morgan from "morgan";
 import Config from "./src/config";
 import server from "./src/server";
 import logger from "./src/utils/logger";
+import { handle_GET_conversationUuid } from "./src/routes/conversationUuid";
+import { handle_GET_xidReport } from "./src/routes/export";
 
 const app = express();
 
@@ -341,6 +343,13 @@ helpersInitialized.then(
     );
 
     app.get(
+      "/api/v3/xid/:xid_report",
+      moveToBody,
+      need("xid_report", getStringLimitLength(1, 99), assignToP),
+      handle_GET_xidReport
+    );
+
+    app.get(
       "/api/v3/xids",
       moveToBody,
       auth(assignToP),
@@ -599,6 +608,18 @@ helpersInitialized.then(
       want("report_id", getReportIdFetchRid, assignToPCustom("rid")),
       want("until", getInt, assignToP),
       handle_GET_conversationStats
+    );
+
+    app.get(
+      "/api/v3/conversationUuid",
+      moveToBody,
+      auth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_conversationUuid
     );
 
     app.get(

@@ -57,7 +57,6 @@ describe('Database Seeding', function () {
           cy.session(
             participantId,
             () => {
-              cy.participateAnonymously({ convoId, xid })
               cy.voteOnConversation(convoId, xid)
             },
             {

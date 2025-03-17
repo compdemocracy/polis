@@ -6,9 +6,10 @@ import PropTypes from 'prop-types'
 import Url from '../../util/url'
 import { connect } from 'react-redux'
 import { Link } from 'react-router-dom'
-import { Heading } from 'theme-ui'
+import { Heading, Text, Box } from 'theme-ui'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
+import ParticipantXids from './participant-xids'
 
 @connect((state) => state.zid_metadata)
 class ShareAndEmbed extends React.Component {
@@ -47,18 +48,34 @@ class ShareAndEmbed extends React.Component {
           conversation_id={match.params.conversation_id}
           strict_moderation={this.props.zid_metadata.strict_moderation}
         />
-        <div>
-          <p> Share </p>
-          <p>
+        <Box sx={{ mb: [3] }}>
+          <Text
+            sx={{
+              display: 'block',
+              mb: [2]
+            }}>
+            Share
+          </Text>
+          <Text
+            sx={{
+              display: 'block',
+              mb: [2]
+            }}>
             <a
               target="blank"
               href={Url.urlPrefix + match.params.conversation_id}>
               {Url.urlPrefix + match.params.conversation_id}
             </a>
-          </p>
-        </div>
-        <div>
-          <p> Embed</p>
+          </Text>
+        </Box>
+        <Box sx={{ mb: [5] }}>
+          <Text
+            sx={{
+              display: 'block',
+              mb: [2]
+            }}>
+            Embed
+          </Text>
           <div>
             <pre>
               {'<div'}
@@ -68,18 +85,25 @@ class ShareAndEmbed extends React.Component {
               {"<script async src='" + Url.urlPrefix + "embed.js'></script>"}
             </pre>
           </div>
-          <p>
+          <Text
+            sx={{
+              display: 'block',
+              maxWidth: '35em',
+              mt: [2]
+            }}>
             This embed code can only be used to embed a single conversation.{' '}
             <Link to="/integrate">
               I want to integrate pol.is on my entire site.
             </Link>
-          </p>
+          </Text>
           <div>
             {this.props.zid_metadata.parent_url
               ? this.constructEmbeddedOnMarkup()
               : ''}
           </div>
-        </div>
+        </Box>
+
+        <ParticipantXids conversation_id={match.params.conversation_id} />
       </div>
     )
   }

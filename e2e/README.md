@@ -134,9 +134,6 @@ cy.ensureConversation('admin')
 ### Participation
 
 ```javascript
-// Participate anonymously
-cy.participateAnonymously({ convoId, xid: 'optional-external-id' })
-
 // Vote on all comments in a conversation
 cy.voteOnConversation(convoId, 'optional-external-id')
 ```

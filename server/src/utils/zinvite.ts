@@ -8,9 +8,10 @@ import {
   queryP as pgQueryP,
   query_readOnly as pgQuery_readOnly,
   queryP_metered as pgQueryP_metered,
+  queryP_readOnly as pgQueryP_readOnly,
 } from "../db/pg-query";
 import { MPromise } from "./metered";
-
+import logger from "./logger";
 let zidToConversationIdCache = new LruCache({
   max: 1000,
 });
@@ -113,4 +114,25 @@ export function getZidForRid(rid: any) {
       return row[0].zid;
     }
   );
+}
+
+export async function getZidForUuid(uuid: string): Promise<number | null> {
+  logger.debug(`getZidForUuid: ${uuid}`);
+  try {
+    const queryResult = await pgQueryP_readOnly(
+      "SELECT zid FROM zinvites WHERE uuid = $1", 
+      [uuid]
+    );
+    
+    const rows = queryResult as { zid: number }[];
+
+    logger.debug(`queryResult: ${JSON.stringify(queryResult)}`);
+    logger.debug(`rows: ${JSON.stringify(rows)}`);
+    
+    // Return zid if found, null otherwise
+    return rows.length > 0 ? rows[0].zid : null;
+  } catch (err) {
+    logger.error(`Error finding zid for uuid ${uuid}: ${err}`);
+    return null;
+  }
 }

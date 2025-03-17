@@ -24,6 +24,7 @@
   },
   "author": "",
   "license": "AGPL-3.0",
+  "engine": ">=20.12.2",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.32.1",
     "@anthropic-ai/tokenizer": "^0.0.4",
@@ -97,7 +98,7 @@
     "@types/http-proxy": "~1.17.5",
     "@types/jest": "^29.4.0",
     "@types/lru-cache": "~5.1.0",
-    "@types/node": "~14.14.39",
+    "@types/node": "^22.13.10",
     "@types/nodemailer": "~6.4.1",
     "@types/nodemailer-mailgun-transport": "~1.4.2",
     "@types/oauth": "~0.9.1",

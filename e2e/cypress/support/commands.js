@@ -186,46 +186,6 @@ Cypress.Commands.add('seedComment', (convoId, commentText, userLabel) => {
 })
 
 /**
- * Participation commands
- */
-
-/**
- * Set up anonymous participation for a conversation
- * @param {Object} options - Options object with convoId and optionally xid
- */
-Cypress.Commands.add('participateAnonymously', (options) => {
-  const convoId = typeof options === 'string' ? options : options.convoId
-  const xid = options.xid || null
-
-  if (!convoId) {
-    throw new Error('convoId is required')
-  }
-
-  cy.clearCookies()
-
-  cy.session(
-    'anonymous' + (xid ? '-' + xid : ''),
-    () => {
-      cy.request(
-        '/api/v3/participationInit?conversation_id=' +
-          convoId +
-          '&pid=mypid&lang=acceptLang' +
-          (xid ? '&xid=' + xid : ''),
-      )
-    },
-    {
-      validate: () => {
-        cy.getCookie('token2').should('be.null')
-        cy.getCookie('uid2').should('be.null')
-        cy.getCookie('pc').should('exist')
-      },
-    },
-  )
-
-  cy.visit('/' + convoId + (xid ? '?xid=' + xid : ''))
-})
-
-/**
  * Voting commands
  */
 

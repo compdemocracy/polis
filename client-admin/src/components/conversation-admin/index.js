@@ -101,7 +101,7 @@ class ConversationAdminContainer extends React.Component {
             </Link>
           </Box>
         </Box>
-        <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '35em', mx: [4] }}>
+        <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '60em', mx: [4] }}>
           <Switch>
             <Route
               exact

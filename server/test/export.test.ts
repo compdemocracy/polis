@@ -5,10 +5,12 @@ import {
   loadConversationSummary,
   sendVotesSummary,
   sendParticipantVotesSummary,
+  sendParticipantXidsSummary,
 } from "../src/routes/export";
 import { queryP_readOnly, stream_queryP_readOnly } from "../src/db/pg-query";
 import { getZinvite } from "../src/utils/zinvite";
 import { getPca } from "../src/utils/pca";
+import { getXids } from "../src/routes/math";
 import { jest } from "@jest/globals";
 import logger from "../src/utils/logger";
 import fail from "../src/utils/fail";
@@ -42,10 +44,10 @@ function mockStreamWithRows(rows: any[], shouldError = false, error?: Error) {
         onError(error || new Error("Test error"));
         return;
       }
-      
+
       const rowCallback = args[2];
       const onComplete = args[3];
-      
+
       // Call rowCallback for each row
       rows.forEach(row => rowCallback(row));
       onComplete();
@@ -58,7 +60,15 @@ jest.mock("../src/db/pg-query", () => ({
   stream_queryP_readOnly: jest.fn(),
 }));
 
-jest.mock("../src/utils/zinvite");
+jest.mock("../src/utils/zinvite", () => ({
+  getZinvite: jest.fn(),
+  getZidForRid: jest.fn(),
+}));
+
+jest.mock("../src/routes/math", () => ({
+  getXids: jest.fn(),
+}));
+
 jest.mock("../src/utils/pca");
 jest.mock("../src/utils/logger");
 jest.mock("../src/utils/fail");
@@ -66,7 +76,7 @@ jest.mock("../src/utils/fail");
 describe("handle_GET_reportExport", () => {
   let mockRes: MockResponse;
   const zid = 123;
-  
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockRes = createMockResponse();
@@ -78,41 +88,41 @@ describe("handle_GET_reportExport", () => {
         name: (row) => row.name,
         age: (row) => String(row.age),
       };
-  
+
       const result = formatCSVHeaders(colFns);
-  
+
       expect(result).toBe("name,age");
     });
-  
+
     it("formatCSVHeaders should handle an empty object", () => {
       const colFns: Formatters<any> = {};
-  
+
       const result = formatCSVHeaders(colFns);
-  
+
       expect(result).toBe("");
     });
-  
+
     it("formatCSVRow should format a row as a comma-separated string", () => {
       const row = { name: "John Doe", age: 30 };
       const colFns: Formatters<typeof row> = {
         name: (row) => row.name,
         age: (row) => String(row.age),
       };
-  
+
       const result = formatCSVRow(row, colFns);
-  
+
       expect(result).toBe("John Doe,30");
     });
-  
+
     it("formatCSVRow should handle an empty object of formatters", () => {
       const row = { name: "Jane Doe", age: 25 };
       const colFns: Formatters<typeof row> = {};
-  
+
       const result = formatCSVRow(row, colFns);
-  
+
       expect(result).toBe("");
     });
-  
+
     it("formatCSVRow should handle formatters that return different data types", () => {
       const row = { name: "Alice", age: 28, active: true };
       const colFns: Formatters<typeof row> = {
@@ -120,12 +130,12 @@ describe("handle_GET_reportExport", () => {
         age: (row) => String(row.age),
         active: (row) => (row.active ? "yes" : "no"),
       };
-  
+
       const result = formatCSVRow(row, colFns);
-  
+
       expect(result).toBe("Alice,28,yes");
     });
-  
+
     it("formatCSV should format an array of rows as a CSV string", () => {
       const colFns: Formatters<{ name: string; age: number }> = {
         name: (row) => row.name,
@@ -135,21 +145,21 @@ describe("handle_GET_reportExport", () => {
         { name: "John Doe", age: 30 },
         { name: "Jane Doe", age: 25 },
       ];
-  
+
       const result = formatCSV(colFns, rows);
-  
+
       expect(result).toBe("name,age\nJohn Doe,30\nJane Doe,25\n");
     });
-  
+
     it("formatCSV should handle an empty array of rows", () => {
       const colFns: Formatters<{ name: string; age: number }> = {
         name: (row) => row.name,
         age: (row) => String(row.age),
       };
       const rows: { name: string; age: number }[] = [];
-  
+
       const result = formatCSV(colFns, rows);
-  
+
       expect(result).toBe("name,age\n");
     });
   });
@@ -157,7 +167,7 @@ describe("handle_GET_reportExport", () => {
   describe("Conversation summary", () => {
     it("loadConversationSummary should load and format conversation summary data", async () => {
       const siteUrl = "https://example.com";
-  
+
       // Mock the dependencies
       (getZinvite as jest.Mock).mockResolvedValue("test-zinvite" as never);
       (queryP_readOnly as jest.Mock)
@@ -173,9 +183,9 @@ describe("handle_GET_reportExport", () => {
           "n-cmts": 20,
         },
       } as never);
-  
+
       const result = await loadConversationSummary(zid, siteUrl);
-  
+
       expect(result).toEqual([
         'topic,"Test Topic"',
         "url,https://example.com/test-zinvite",
@@ -187,15 +197,79 @@ describe("handle_GET_reportExport", () => {
         'conversation-description,"Test Description"',
       ]);
     });
-  
+
     it("loadConversationSummary should throw an error if data is missing", async () => {
       const siteUrl = "https://example.com";
-  
+
       // Mock getZinvite to return undefined (simulating missing data)
       (getZinvite as jest.Mock).mockResolvedValue(undefined as never);
-  
+
       await expect(loadConversationSummary(zid, siteUrl)).rejects.toThrow(
         "polis_error_data_unknown_report"
+      );
+    });
+  });
+
+  describe("Participant XIDs summary", () => {
+    it("sendParticipantXidsSummary should send the participant XIDs as CSV", async () => {
+      // Mock the dependencies
+      (getPca as jest.Mock).mockResolvedValue({
+        asPOJO: {
+          "in-conv": [1, 2, 3],
+          "user-vote-counts": { 1: 5, 2: 3, 3: 2 },
+        },
+      } as never);
+
+      // Mock getXids to return sample data
+      (getXids as jest.Mock).mockResolvedValue([
+        { pid: 1, xid: "user-123" },
+        { pid: 2, xid: "user-456" },
+        { pid: 3, xid: "user-789" },
+      ] as never);
+
+      await sendParticipantXidsSummary(zid, mockRes as any);
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith("content-type", "text/csv");
+      expect(mockRes.send).toHaveBeenCalledWith(
+        'participant,xid\n1,"user-123"\n2,"user-456"\n3,"user-789"\n'
+      );
+    });
+
+    it("sendParticipantXidsSummary should handle empty xids array", async () => {
+      // Mock the dependencies
+      (getPca as jest.Mock).mockResolvedValue({
+        asPOJO: {
+          "in-conv": [],
+          "user-vote-counts": {},
+        },
+      } as never);
+
+      // Mock getXids to return an empty array
+      (getXids as jest.Mock).mockResolvedValue([] as never);
+
+      await sendParticipantXidsSummary(zid, mockRes as any);
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith("content-type", "text/csv");
+      expect(mockRes.send).toHaveBeenCalledWith('participant,xid\n');
+    });
+
+    it("sendParticipantXidsSummary should handle errors during export", async () => {
+      const mockError = new Error("polis_error_no_pca_data");
+
+      // Mock getPca to throw an error
+      (getPca as jest.Mock).mockRejectedValue(mockError as never);
+
+      await sendParticipantXidsSummary(zid, mockRes as any);
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "polis_err_report_participant_xids",
+        mockError
+      );
+      expect(fail).toHaveBeenCalledWith(
+        mockRes,
+        500,
+        "polis_err_data_export",
+        mockError
       );
     });
   });
@@ -211,12 +285,12 @@ describe("handle_GET_reportExport", () => {
       formatDatetimeSpy.mockReturnValue(
         "Thu Jan 01 1970 00:00:00 GMT+0000 (Coordinated Universal Time)"
       );
-  
+
       // Mock stream with a single vote row
       mockStreamWithRows([{ timestamp: 94668411, tid: 1, pid: 1, vote: -1 }]);
-      
+
       await sendVotesSummary(zid, mockRes as any);
-  
+
       expect(mockRes.setHeader).toHaveBeenCalledWith("Content-Type", "text/csv");
       expect(mockRes.write).toHaveBeenCalledWith(
         "timestamp,datetime,comment-id,voter-id,vote\n"
@@ -226,15 +300,15 @@ describe("handle_GET_reportExport", () => {
       );
       expect(mockRes.end).toHaveBeenCalled();
     });
-  
+
     it("sendVotesSummary should handle errors during vote summary export", async () => {
       const mockError = new Error("Test error");
-  
+
       // Mock stream with error
       mockStreamWithRows([], true, mockError);
-      
+
       await sendVotesSummary(zid, mockRes as any);
-  
+
       expect(logger.error).toHaveBeenCalledWith(
         "polis_err_report_votes_csv",
         mockError
@@ -276,21 +350,21 @@ describe("handle_GET_reportExport", () => {
         { tid: 2, pid: 1 },
         { tid: 3, pid: 2 },
       ] as never);
-  
+
       // Mock getPca to return properly structured PCA data
       (getPca as jest.Mock).mockResolvedValue({
         asPOJO: basePcaData,
       } as never);
-  
+
       // Mock stream with vote rows
       mockStreamWithRows([
         { pid: 1, tid: 1, vote: -1 },
         { pid: 1, tid: 2, vote: 1 },
         { pid: 2, tid: 3, vote: -1 }
       ]);
-      
+
       await sendParticipantVotesSummary(zid, mockRes as any);
-  
+
       expect(mockRes.setHeader).toHaveBeenCalledWith("content-type", "text/csv");
       expect(mockRes.write).toHaveBeenCalledWith(
         "participant,group-id,n-comments,n-votes,n-agree,n-disagree,1,2,3\n"
@@ -300,18 +374,18 @@ describe("handle_GET_reportExport", () => {
       expect(mockRes.write).toHaveBeenCalledWith("2,2,1,1,1,0,,,1\n");
       expect(mockRes.end).toHaveBeenCalled();
     });
-  
+
     it("sendParticipantVotesSummary should handle errors during participant vote summary export", async () => {
       const mockError = new Error("Test error");
-  
+
       // Mock pgQueryP_readOnly to return an empty array
       (queryP_readOnly as jest.Mock).mockResolvedValueOnce([] as never);
-  
+
       // Mock stream with error
       mockStreamWithRows([], true, mockError);
-      
+
       await sendParticipantVotesSummary(zid, mockRes as any);
-  
+
       expect(logger.error).toHaveBeenCalledWith(
         "polis_err_report_participant_votes",
         mockError
@@ -323,14 +397,14 @@ describe("handle_GET_reportExport", () => {
         mockError
       );
     });
-  
+
     it("sendParticipantVotesSummary should handle participants not found in any base cluster", async () => {
       // Mock pgQueryP_readOnly to return comment data
       (queryP_readOnly as jest.Mock).mockResolvedValueOnce([
         { tid: 1, pid: 1 },
         { tid: 2, pid: 3 }, // Participant 3 is in in-conv but not in any base cluster
       ] as never);
-  
+
       // Create a modified PCA data with participant 3 in in-conv but not in any base cluster
       const modifiedPcaData = {
         ...basePcaData,
@@ -344,32 +418,32 @@ describe("handle_GET_reportExport", () => {
           "center": [0, 0]
         }
       };
-  
+
       // Mock getPca with the modified data
       (getPca as jest.Mock).mockResolvedValue({
         asPOJO: modifiedPcaData,
       } as never);
-  
+
       // Mock stream with vote rows
       mockStreamWithRows([
         { pid: 1, tid: 1, vote: -1 },
         { pid: 3, tid: 2, vote: -1 }
       ]);
-      
+
       await sendParticipantVotesSummary(zid, mockRes as any);
-  
+
       expect(mockRes.setHeader).toHaveBeenCalledWith("content-type", "text/csv");
       expect(mockRes.write).toHaveBeenCalledWith(
         "participant,group-id,n-comments,n-votes,n-agree,n-disagree,1,2\n"
       );
-      
+
       // Participant 1 should have a group ID
       expect(mockRes.write).toHaveBeenCalledWith("1,1,1,1,1,0,1,\n");
-      
+
       // Participant 3 should not have a group ID (empty field)
       // Note: The vote is flipped from -1 to 1 in the code
       expect(mockRes.write).toHaveBeenCalledWith("3,,1,1,1,0,,1\n");
-      
+
       expect(mockRes.end).toHaveBeenCalled();
     });
   });

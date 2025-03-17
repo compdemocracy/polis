@@ -75,10 +75,11 @@ class ConversationConfig extends React.Component {
         </CheckboxField>
 
         <Box sx={{ mb: [3] }}>
-          <Text sx={{ mb: [2] }}>Topic</Text>
+          <Text sx={{ display: 'block', mb: [2] }}>Topic</Text>
           <input
             ref={(c) => (this.topic = c)}
             sx={{
+              display: 'block',
               fontFamily: 'body',
               fontSize: [2],
               width: '35em',
@@ -95,10 +96,11 @@ class ConversationConfig extends React.Component {
         </Box>
 
         <Box sx={{ mb: [3] }}>
-          <Text sx={{ mb: [2] }}>Description</Text>
+          <Text sx={{ display: 'block', mb: [2] }}>Description</Text>
           <textarea
             ref={(c) => (this.description = c)}
             sx={{
+              display: 'block',
               fontFamily: 'body',
               fontSize: [2],
               width: '35em',

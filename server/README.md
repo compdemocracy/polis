@@ -68,10 +68,21 @@ flavors of node.
   \i postgres/migrations/000006_update_votes_rule.sql
   \i postgres/migrations/000007_drop_geolocation_fields.sql
   \i postgres/migrations/000008_add_comment_priority.sql
+  \i postgres/migrations/000009_add_uuid_to_zinvites.sql
   ```
 
   You can also separately run `psql -d polis -f postgres/migrations/000000_initial.sql` and
   `psql -d polis -f postgres/migrations/000001_update_pwreset_table.sql` etc. from the shell.
+
+  Alternatively, you can use the provided migration script to run all migrations in sequence:
+
+  ```sh
+  # Using DATABASE_URL from environment
+  ./bin/run-migrations.sh
+  
+  # Or providing the URL as argument
+  ./bin/run-migrations.sh "postgres://username:password@localhost:5432/polis"
+  ```
 
 4\. Update database connection settings in `.env`. Replace the username, password, and database_name in the DATABASE_URL
 
@@ -85,10 +96,10 @@ flavors of node.
 
   ```sh
   # Install
-  $ nvm install 18
+  $ nvm install 20
 
   # Set correct node version.
-  $ nvm use 18
+  $ nvm use 20
   ```
 
 6\. Run the start-up script. This will install the dependencies, compile the typescript and start the server in
