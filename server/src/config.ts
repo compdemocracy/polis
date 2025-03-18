@@ -1,3 +1,4 @@
+/* eslint-disable no-restricted-properties */
 import fs from "fs";
 import isTrue from "boolean";
 
@@ -101,19 +102,20 @@ export default {
   shouldUseTranslationAPI: setGoogleApplicationCredentials(),
   staticFilesAdminPort: parseInt(
     process.env.STATIC_FILES_ADMIN_PORT ||
-      process.env.STATIC_FILES_PORT ||
-      "8080",
+    process.env.STATIC_FILES_PORT ||
+    "8080",
     10
   ),
   staticFilesParticipationPort: parseInt(
     process.env.STATIC_FILES_PARTICIPATION_PORT ||
-      process.env.STATIC_FILES_PORT ||
-      "8080",
+    process.env.STATIC_FILES_PORT ||
+    "8080",
     10
   ),
   staticFilesHost: process.env.STATIC_FILES_HOST as string,
   twitterConsumerKey: process.env.TWITTER_CONSUMER_KEY || null,
   twitterConsumerSecret: process.env.TWITTER_CONSUMER_SECRET || null,
+  useNetworkHost: isTrue(process.env.USE_NETWORK_HOST),
   webserverPass: process.env.WEBSERVER_PASS as string,
   webserverUsername: process.env.WEBSERVER_USERNAME as string,
 

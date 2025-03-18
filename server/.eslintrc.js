@@ -32,6 +32,14 @@ module.exports = {
     "no-empty": 1,
     "no-extra-boolean-cast": 1,
     "no-prototype-builtins": 1,
+    "no-restricted-properties": [
+      2,
+      {
+        object: "process",
+        property: "env",
+        message: "Please use config.ts instead of process.env"
+      }
+    ],
     "no-useless-escape": 1,
     "no-var": 1,
     "prefer-const": 1,

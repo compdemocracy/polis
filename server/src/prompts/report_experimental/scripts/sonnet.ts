@@ -3,6 +3,7 @@ import { convertXML } from "simple-xml-to-json";
 import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
 import { create } from "xmlbuilder2";
+import logger from "../../../utils/logger";
 
 const js2xmlparser = require("js2xmlparser");
 const report_id = process.argv[2];
@@ -131,7 +132,7 @@ async function main() {
     "polis-comments-and-group-demographics",
     json
   ); // then convert back to xml
-  console.log(prompt_xml);
+  logger.debug(prompt_xml);
   const msg = await anthropic.messages.create({
     model: "claude-3-7-sonnet-20250219",
     max_tokens: 1000,
@@ -158,7 +159,7 @@ async function main() {
       },
     ],
   });
-  console.log(msg);
+  logger.debug(msg);
 }
 
-main().catch(console.error);
+main().catch(logger.error);

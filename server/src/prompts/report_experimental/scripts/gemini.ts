@@ -1,4 +1,5 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import logger from "../../../utils/logger";
 
 const genAI = new GoogleGenerativeAI("my_api_key");
 
@@ -18,7 +19,7 @@ async function main() {
     },
   });
 
-  console.log(msg.response.text());
+  logger.debug(msg.response.text());
 }
 
-main().catch(console.error);
+main().catch(logger.error);
