@@ -15,13 +15,17 @@ ignorePatterns:
   - dist
 overrides:
   - files:
-    - webpack.config.js
-    - webpack.common.js
-    - webpack.dev.js
-    - writeHeadersJsonTask.js
+    - "*.js"
+    excludedFiles:
+    - "**/*.test.js"
+    - "**/*/*.js"
     env:
-      browser: false
       node: true
+      browser: false
+  - files:
+    - "**/*.test.js"
+    env:
+      jest: true
 parser: "@babel/eslint-parser"
 parserOptions:
   ecmaVersion: latest

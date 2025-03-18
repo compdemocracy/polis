@@ -6,11 +6,11 @@ const getVoteTotals = (math_main) => {
 
   if (gv) {
     for (const gid in gv) {
-      if (gv.hasOwnProperty(gid)) { // Important: check own properties
+      if (Object.prototype.hasOwnProperty.call(gv, gid)) { // Important: check own properties
         const data = gv[gid];
         if (data && data.votes) {
           for (const tid in data.votes) {
-            if (data.votes.hasOwnProperty(tid)) { // Important: check own properties
+            if (Object.prototype.hasOwnProperty.call(data.votes, tid)) { // Important: check own properties
               const counts = data.votes[tid];
               x[tid] = x[tid] || { agreed: 0, disagreed: 0, saw: 0 };
               x[tid].agreed += counts?.A || 0;
@@ -24,7 +24,7 @@ const getVoteTotals = (math_main) => {
   }
 
   for (const tid in x) {
-    if (x.hasOwnProperty(tid)) { // Important: check own properties
+    if (Object.prototype.hasOwnProperty.call(x, tid)) { // Important: check own properties
       const z = x[tid];
       z.pctAgreed = z.saw > 0 ? z.agreed / z.saw : 0;
       z.pctDisagreed = z.saw > 0 ? z.disagreed / z.saw : 0;
