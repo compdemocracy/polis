@@ -3,7 +3,7 @@
 # But this file is still useful for development or deployments that do not use
 # the docker compose configuration.
 
-FROM docker.io/node:18-alpine
+FROM docker.io/node:22-alpine
 
 ARG EMBED_SERVICE_HOSTNAME
 ARG GA_TRACKING_ID
