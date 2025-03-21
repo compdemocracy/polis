@@ -25,7 +25,9 @@ const app = express();
 
 // 'dev' format is
 // :method :url :status :response-time ms - :res[content-length]
-app.use(morgan("dev"));
+app.use(morgan("dev", {
+  skip: (req) => req.url.startsWith('/api/v3/math')
+}));
 
 // Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
 // See: https://github.com/pol-is/polis/issues/546

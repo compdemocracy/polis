@@ -94,7 +94,7 @@ export function fetchAndCacheLatestPcaData() {
       
       if (!rowsArray || !rowsArray.length) {
         // call again
-        logger.info("mathpoll done");
+        logger.silly("mathpoll done");
         setTimeout(pollForLatestPcaData, waitTime());
         return;
       }
@@ -109,7 +109,7 @@ export function fetchAndCacheLatestPcaData() {
           item.caching_tick = Number(row.caching_tick);
         }
 
-        logger.info("mathpoll updating", {
+        logger.silly("mathpoll updating", {
           caching_tick: item.caching_tick,
           zid: row.zid,
         });
@@ -147,19 +147,19 @@ export function getPca(
   const cachedPOJO = cached && cached.asPOJO;
   if (cachedPOJO) {
     if (cachedPOJO.math_tick <= (math_tick || 0)) {
-      logger.info("math was cached but not new", {
+      logger.silly("math was cached but not new", {
         zid,
         cached_math_tick: cachedPOJO.math_tick,
         query_math_tick: math_tick,
       });
       return Promise.resolve(undefined);
     } else {
-      logger.info("math from cache", { zid, math_tick });
+      logger.silly("math from cache", { zid, math_tick });
       return Promise.resolve(cached);
     }
   }
 
-  logger.info("mathpoll cache miss", { zid, math_tick });
+  logger.silly("mathpoll cache miss", { zid, math_tick });
 
   // NOTE: not caching results from this query for now, think about this later.
   // not caching these means that conversations without new votes might not be cached. (closed conversations may be slower to load)
@@ -179,7 +179,7 @@ export function getPca(
     const rowsArray = rows as Array<{ data: any; math_tick: any }>;
     
     if (!rowsArray || !rowsArray.length) {
-      logger.info(
+      logger.silly(
         "mathpoll related; after cache miss, unable to find data for",
         {
           zid,
@@ -196,13 +196,13 @@ export function getPca(
     }
 
     if (item.math_tick <= (math_tick || 0)) {
-      logger.info("after cache miss, unable to find newer item", {
+      logger.silly("after cache miss, unable to find newer item", {
         zid,
         math_tick,
       });
       return undefined;
     }
-    logger.info("after cache miss, found item, adding to cache", {
+    logger.silly("after cache miss, found item, adding to cache", {
       zid,
       math_tick,
     });
