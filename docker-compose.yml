@@ -88,6 +88,8 @@ services:
       dockerfile: nginx.Dockerfile
       labels:
         polis_tag: ${TAG:-dev}
+    environment:
+      - API_SERVER_PORT=${API_SERVER_PORT:-5000}
     depends_on:
       - "server"
     networks:
@@ -128,6 +130,7 @@ services:
 
 networks:
   polis-net:
+
 
 volumes:
   backups:
