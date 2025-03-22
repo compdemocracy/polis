@@ -22,7 +22,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           cache-dependency-path: sensemaking-tools/package-lock.json
-          node-version: "18"
+          node-version: "22"
           cache: "npm"
 
       - name: Install dependencies

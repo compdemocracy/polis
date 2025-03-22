@@ -6,16 +6,16 @@ Interface for working with polis reports. It is built with React.js.
 
 ### Dependencies
 
-* Node `>= 18`
+* Node `>= 22`
 We recommend installing [nvm](https://github.com/creationix/nvm) so that you can easily switch between your favorite
 flavors of node.
-* NPM `>= 8`
+* NPM `>= 10`
 
 If using nvm, run the commands below to install node and the application dependencies.
 
 ```sh
-nvm install 18
-nvm use 18
+nvm install 22
+nvm use 22
 npm install
 ```
 

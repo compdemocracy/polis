@@ -20,11 +20,11 @@ for it to connect to.)
 
 ### Dependencies
 
-* PostgreSql `(~ 13.4)`
-* Node `>= 16`
+* PostgreSql `(~ 16)`
 We recommend installing [nvm](https://github.com/creationix/nvm) so that you can easily switch between your favorite
 flavors of node.
-* NPM `>= 8`
+* Node `>= 22`
+* NPM `>= 10`
 
 ### Setup
 
@@ -96,10 +96,10 @@ flavors of node.
 
   ```sh
   # Install
-  $ nvm install 20
+  $ nvm install 22
 
   # Set correct node version.
-  $ nvm use 20
+  $ nvm use 22
   ```
 
 6\. Run the start-up script. This will install the dependencies, compile the typescript and start the server in
