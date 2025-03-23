@@ -33,10 +33,6 @@ describe('ParticipantGroups Component', () => {
     comments: {},
     voteColors: {},
     formatTid: jest.fn((tid) => `TID${tid}`),
-    demographics: {
-        0: {someDemo: "demo0"},
-        1: {someDemo: "demo1"}
-    },
     groupNames: {
         0: "Group A",
         1: "Group B"

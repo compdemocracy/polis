@@ -39,7 +39,6 @@ const App = (props) => {
   const [comments, setComments] = useState(null);
   const [participants, setParticipants] = useState(null);
   const [conversation, setConversation] = useState(null);
-  const [groupDemographics, setGroupDemographics] = useState(null);
   const [colorBlindMode, setColorBlindMode] = useState(false);
   const [model, setModel] = useState("openai");
   const [isNarrativeReport, setIsNarrativeReport] = useState(
@@ -156,8 +155,6 @@ const App = (props) => {
       report_id: report_id,
       moderation: true,
       mod_gt: isStrictMod ? 0 : -1,
-      //include_social: true,
-      //include_demographics: true,
       include_voting_patterns: true,
     });
   };
@@ -247,12 +244,6 @@ const App = (props) => {
         return null;
       });
   };
-  const getGroupDemographics = (conversation_id) => {
-    return net.polisGet("/api/v3/group_demographics", {
-      conversation_id: conversation_id,
-      report_id: report_id,
-    });
-  };
 
   const getConversationStats = (conversation_id) => {
     return net.polisGet("/api/v3/conversationStats", {
@@ -310,9 +301,6 @@ const App = (props) => {
         return getComments(report.conversation_id, conv.strict_moderation);
       });
     });
-    const groupDemographicsPromise = reportPromise.then((report) => {
-      return getGroupDemographics(report.conversation_id);
-    });
     const participantsOfInterestPromise = reportPromise.then((report) => {
       return getParticipantsOfInterest(report.conversation_id);
     });
@@ -334,7 +322,6 @@ const App = (props) => {
       reportPromise,
       mathPromise,
       commentsPromise,
-      groupDemographicsPromise,
       participantsOfInterestPromise,
       matrixPromise,
       conversationPromise,
@@ -345,7 +332,6 @@ const App = (props) => {
           _report,
           mathResult,
           _comments,
-          _groupDemographics,
           _participants,
           correlationHClust,
           _conversation,
@@ -505,7 +491,6 @@ const App = (props) => {
           })
         );
         setComments(_comments);
-        setGroupDemographics(_groupDemographics);
         setParticipants(_participants);
         setConversation(_conversation);
         setPtptCount(_ptptCount);
@@ -519,7 +504,7 @@ const App = (props) => {
         setFormatTid(() => _formatTid);
         setReport(_report);
         setComputedStats(_computedStats);
-        setNothingToShow(!_comments.length || !_groupDemographics.length);
+        setNothingToShow(!_comments.length);
       })
       .catch((err) => {
         console.error(err);
@@ -629,7 +614,6 @@ const App = (props) => {
             ptptCountTotal={ptptCountTotal}
             math={math}
             computedStats={computedStats}
-            demographics={groupDemographics}
           />
         )}
 
@@ -640,7 +624,6 @@ const App = (props) => {
             comments={comments}
             ptptCount={ptptCount}
             ptptCountTotal={ptptCountTotal}
-            demographics={groupDemographics}
             conversation={conversation}
             voteColors={voteColors}
           />
@@ -745,7 +728,6 @@ const App = (props) => {
             <ParticipantGroups
               comments={comments}
               conversation={conversation}
-              demographics={groupDemographics}
               ptptCount={ptptCount}
               groupNames={groupNames}
               formatTid={formatTid}

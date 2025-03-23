@@ -13,7 +13,6 @@ const ParticipantGroups = ({
   style,
   voteColors,
   formatTid,
-  demographics,
   groupNames,
   badTids,
   repfulAgreeTidsByGroup,
@@ -65,7 +64,6 @@ const ParticipantGroups = ({
             comments={comments}
             gid={gid}
             conversation={conversation}
-            demographicsForGroup={demographics[gid]}
             groupComments={math["repness"][gid]} // Access directly
             groupName={groupNames[gid]}
             groupVotesForThisGroup={math["group-votes"][gid]}
