@@ -1,7 +1,9 @@
 {
-    "jest.jestCommandLine": "npx jest --forceExit test",
-    "jest.autoRun": {
-      "watch": false,
-      "onSave": "test-src-file"
-    }
+  "biome.enabled": false,
+  "editor.formatOnSave": false,
+  "jest.autoRun": {
+    "onSave": "test-src-file",
+    "watch": false
+  },
+  "jest.jestCommandLine": "npx jest --forceExit test"
 }

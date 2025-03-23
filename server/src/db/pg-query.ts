@@ -90,6 +90,11 @@ function queryImpl<T>(pool: Pool, queryString: string, ...args: any[]) {
         logger.error("pg_connect_pool_fail", err);
         return reject(err);
       }
+      if (!client) {
+        const error = new Error("Failed to acquire client from pool");
+        logger.error("pg_connect_no_client", error);
+        return reject(error);
+      }
       // Anyway, here's the actual query call
       client.query(queryString, params, function (err, results) {
         if (err) {
@@ -204,6 +209,12 @@ function stream_queryP_readOnly(
   readPool.connect((err, client, done) => {
     if (err) {
       onError(err);
+      return;
+    }
+    if (!client) {
+      const error = new Error("Failed to acquire client from pool");
+      logger.error("pg_connect_no_client", error);
+      onError(error);
       return;
     }
 

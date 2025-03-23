@@ -21,10 +21,12 @@ module.exports = {
   plugins: ["@typescript-eslint", "jest"],
   rules: {
     "@typescript-eslint/ban-ts-comment": 1,
-    "@typescript-eslint/ban-types": 1,
     "@typescript-eslint/no-empty-function": 1,
+    "@typescript-eslint/no-empty-object-type": 1,
     "@typescript-eslint/no-explicit-any": 1,
     "@typescript-eslint/no-inferrable-types": 1,
+    "@typescript-eslint/no-require-imports": 1,
+    "@typescript-eslint/no-unused-vars": 1,
     "@typescript-eslint/no-var-requires": 1,
     "no-case-declarations": 1,
     'no-console': 2,

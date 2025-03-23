@@ -4,7 +4,7 @@
 
 import zlib, { InputType } from "zlib";
 import _ from "underscore";
-import LruCache from "lru-cache";
+import { LRUCache } from "lru-cache";
 import { queryP_readOnly as pgQueryP_readOnly } from "../db/pg-query";
 import Config from "../config";
 import logger from "./logger";
@@ -67,7 +67,7 @@ export type PcaCacheItem = {
 };
 
 const pcaCacheSize = Config.cacheMathResults ? 300 : 1;
-const pcaCache = new LruCache<number, PcaCacheItem>({
+const pcaCache = new LRUCache<number, PcaCacheItem>({
   max: pcaCacheSize,
 });
 

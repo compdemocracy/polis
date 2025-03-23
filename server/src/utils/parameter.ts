@@ -1,6 +1,6 @@
 import _ from "underscore";
 import { isUri } from "valid-url";
-import LruCache from "lru-cache";
+import { LRUCache } from "lru-cache";
 
 import pg from "../db/pg-query";
 import fail from "./fail";
@@ -332,7 +332,7 @@ function getIntInRange(min: number, max: number) {
   };
 }
 
-const reportIdToRidCache = new LruCache({
+const reportIdToRidCache = new LRUCache<string, string>({
   max: 1000,
 });
 

@@ -1,4 +1,4 @@
-import LruCache from "lru-cache";
+import { LRUCache } from "lru-cache";
 
 import pg from "./db/pg-query";
 import { MPromise } from "./utils/metered";
@@ -131,7 +131,7 @@ function getConversationInfoByConversationId(conversation_id: any) {
   );
 }
 
-const conversationIdToZidCache = new LruCache({
+const conversationIdToZidCache = new LRUCache<string, string>({
   max: 1000,
 });
 

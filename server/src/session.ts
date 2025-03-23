@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import LruCache from "lru-cache";
+import { LRUCache } from "lru-cache";
 
 import Config from "./config";
 import pg from "./db/pg-query";
@@ -64,7 +64,7 @@ function decrypt(text: string) {
   dec += decipher.final("utf8");
   return dec;
 }
-decrypt; // appease linter
+
 function makeSessionToken() {
   // These can probably be shortened at some point.
   return crypto
@@ -78,7 +78,7 @@ function makeSessionToken() {
 // and generally remove sources of uncertainty about what makes
 // various queries slow. And having every single query talk to PG
 // adds a lot of variability across the board.
-const userTokenCache = new LruCache({
+const userTokenCache = new LRUCache<string, number>({
   max: 9000,
 });
 
@@ -87,7 +87,7 @@ function getUserInfoForSessionToken(
   res: any,
   cb: (arg0: number | null, arg1?: unknown) => void
 ) {
-  let cachedUid = userTokenCache.get(sessionToken);
+  let cachedUid = userTokenCache.get(sessionToken as string);
   if (cachedUid) {
     cb(null, cachedUid);
     return;
@@ -108,7 +108,7 @@ function getUserInfoForSessionToken(
         return;
       }
       let uid = results.rows[0].uid;
-      userTokenCache.set(sessionToken, uid);
+      userTokenCache.set(sessionToken as string, uid);
       cb(null, uid);
     }
   );

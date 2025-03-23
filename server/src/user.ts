@@ -1,11 +1,10 @@
 import _ from "underscore";
-import LruCache from "lru-cache";
+import { LRUCache } from "lru-cache";
 
 import pg from "./db/pg-query";
 import { MPromise } from "./utils/metered";
 
 import Conversation from "./conversation";
-import LRUCache from "lru-cache";
 import logger from "./utils/logger";
 
 function getUserInfoForUid(
@@ -128,7 +127,7 @@ function createDummyUser() {
   );
 }
 
-let pidCache: LRUCache<string, number> = new LruCache({
+let pidCache = new LRUCache<string, number>({
   max: 9000,
 });
 

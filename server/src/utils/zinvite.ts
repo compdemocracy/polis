@@ -2,7 +2,7 @@
 
 "use strict";
 
-import LruCache from "lru-cache";
+import { LRUCache } from "lru-cache";
 import _ from "underscore";
 import {
   queryP as pgQueryP,
@@ -12,7 +12,7 @@ import {
 } from "../db/pg-query";
 import { MPromise } from "./metered";
 import logger from "./logger";
-let zidToConversationIdCache = new LruCache({
+let zidToConversationIdCache = new LRUCache<string, string>({
   max: 1000,
 });
 

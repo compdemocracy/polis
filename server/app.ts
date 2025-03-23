@@ -10,9 +10,6 @@ dotenv.config();
 
 import Promise from "bluebird";
 import express from "express";
-// import compression from "compression";
-// import cookieParser from "cookie-parser";
-// import bodyParser from "body-parser";
 import morgan from "morgan";
 
 import Config from "./src/config";
