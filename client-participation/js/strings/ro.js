@@ -19,7 +19,6 @@ s.modSubmitInitialState = "Ignorează (nici una de mai sus), următoarea afirma�
 s.modSubmit = "Bifat, următoarea afirmație";
  
 s.x_wrote = "A scris:";
-s.x_tweeted = "A postat";
 s.comments_remaining = "{{num_comments}} rămase";
 s.comments_remaining2 = "{{num_comments}} afirmații rămase";
 s.group_123 = "Grup:";
@@ -70,10 +69,6 @@ s.commentIsEmpty = "Acest mesaj nu conține text";
 s.commentIsTooLong = "Ai depășit limita de caractere";
 s.hereIsNextStatement = "Ai votat cu succes. Vezi mai sus următoarele comentarii.";
 
-s.connectFacebook = "Loghează-te cu cont Facebook";
-s.connectTwitter = "Loghează-te cu cont Twitter";
-s.connectToPostPrompt = "Loghează-te pentru a putea trimite un comentariu. Nu vom posta nimic pe rețelele tale sociale.";
-s.connectToVotePrompt = "Loghează-te pentru a putea vota. Nu vom posta nimic pe rețelele tale sociale.";
 s.tip = "Sugestie";
 s.commentWritingTipsHintsHeader = "Sugestii pentru a scrie afirmații";
 s.tipCharLimit = "Comentariile sunt limitate la {{char_limit}} caractere.";
@@ -88,11 +83,6 @@ s.participantHelpWelcomeText = "Încearcă o nouă experiență de discuție - <
 s.participantHelpGroupsText = "Oamenii care votează similar <span style='font-weight: 700;'>sunt grupați.</span> Fă click pe un grup  ca să vezi ce viziuni împărtășesc. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...more</a>";
 s.participantHelpGroupsNotYetText = "Vizualizarea va fi disponibilă după ce vor vota cel puțin șapte participanți.";
 s.helpWhatAreGroupsDetail = "<p>Probabil ai văzut „produse recomandate” pe Amazon, sau „filme recomandate” pe Netflix. Aceste service-uri folosesc statistici pentru a grupa utilizatorii care cumpără produse similare sau privesc aceleași filme ca să-ți arate ce cumpără sau privesc alți oameni.</p> <p> Când un utilizator votează comentariile este grupat cu alții care au votat la fel! Mai jos poți vedea aceste grupuri. Fiecare grup conține oameni cu opinii similare. Sunt lucruri fascinante de descoperit în fiecare discuție. Vezi - fă click pe un grup de oameni și vezi ce au în comun și ce îi deosebește de alții! </p>";
-s.socialConnectPrompt = "Conectează opțiunea pentru a putea vedea în vizualizare prietenii sau persoanele la care ești abonat în rețele sociale.";
-s.connectFbButton = "Loghează-te cu Facebook";
-s.connectTwButton = "Loghează-te cu Twitter";
-s.polis_err_reg_fb_verification_email_sent = "Verifică-ți email-ul pentru link-ul de verificare, apoi revină pentru a continua";
-s.polis_err_reg_fb_verification_noemail_unverified = "Contul tău de Facebook nu este verificat. Verifică adresa de email cu Facebook și revină pentru a continua";
 s.showTranslationButton = "Activează traducerea terță";
 s.hideTranslationButton = "Dezactivează Traducerea";
 s.thirdPartyTranslationDisclaimer = "Traducerea oferită de o parte terță";

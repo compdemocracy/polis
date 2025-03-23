@@ -4,71 +4,43 @@ var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var template = require("../templates/readReactView.handlebars");
 var CommentModel = require("../models/comment");
-var VoteView = require('../views/vote-view');
-var PolisFacebookUtils = require('../util/facebookButton');
+var VoteView = require("../views/vote-view");
 // var serverClient = require("../stores/polis");
 // var Utils = require("../util/utils");
 
 // var iOS = Utils.isIos();
 
-// if this changes, be sure to check for the presence of Constants.FB_APP_ID as well:
-var SHOULD_PROMPT_FOR_FB = false;
-
 module.exports = Handlebones.ModelView.extend({
-  name: "readReactView",
-  template: template,
-  events: {
-
-    "click #fbNotNowBtn": "fbNotNowBtn",
-    "click #fbNoUseBtn": "fbNoUseBtn",
-    "click #fbConnectBtn": "fbConnectBtn",
-    // "click #passButton": "participantPassed",
-
-  },
-  fbNotNowBtn: function() {
-    this.model.set("response", "fbnotnow");
-  },
-  fbNoUseBtn: function() {
-    this.model.set("response", "fbnouse");
-  },
-  fbConnectBtn: function() {
-    PolisFacebookUtils.connect().then(function() {
-      // that.model.set("response", "fbdone");
-      location.reload();
-    }, function(err) {
-      // alert("facebook error");
-    });
-  },
+	name: "readReactView",
+	template: template,
+	events: {
+		// "click #passButton": "participantPassed",
+	},
 
   context: function() {
-    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
-    // ctx.iOS = iOS;
-    var hasFacebookAttached = window.userObject.hasFacebook;
-
-    var voteCountForFacebookPrompt = 3;
-
-    ctx.promptFacebook = SHOULD_PROMPT_FOR_FB && !hasFacebookAttached && !this.model.get("response") && this.model.get("voteCount") > voteCountForFacebookPrompt;
-    return ctx;
-  },
+		var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+		// ctx.iOS = iOS;
+		return ctx;
+	},
 
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+		Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
-    this.model = options.model;
+		this.model = options.model;
 
     this.voteView = this.addChild(new VoteView({
-      firstCommentPromise: options.firstCommentPromise,
-      serverClient: options.serverClient,
-      model: new CommentModel(),
-      conversationModel: options.conversationModel,
-      votesByMe: options.votesByMe,
-      is_public: options.is_public,
-      isSubscribed: options.isSubscribed,
+				firstCommentPromise: options.firstCommentPromise,
+				serverClient: options.serverClient,
+				model: new CommentModel(),
+				conversationModel: options.conversationModel,
+				votesByMe: options.votesByMe,
+				is_public: options.is_public,
+				isSubscribed: options.isSubscribed,
       conversation_id: options.conversation_id
     }));
 
     eb.on("vote", function() {
       that.model.set("voteCount", (that.model.get("voteCount") + 1) || 1);
-    });
+		});
   }
 });

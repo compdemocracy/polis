@@ -12,7 +12,6 @@ const pkg = require('./package.json')
 const TerserPlugin = require("terser-webpack-plugin")
 
 const embedServiceHostname = process.env.EMBED_SERVICE_HOSTNAME || 'pol.is';
-const fbAppId = process.env.FB_APP_ID;
 const gaTrackingId = process.env.GA_TRACKING_ID;
 const outputDirectory = 'dist'
 
@@ -123,7 +122,6 @@ module.exports = (env, options) => {
         filename: 'index.html',
         templateParameters: {
           versionString: pkg.version,
-          fbAppId: fbAppId,
           gaTrackingId: gaTrackingId,
         }
       }),
@@ -135,7 +133,6 @@ module.exports = (env, options) => {
         }
       }),
       new webpack.DefinePlugin({
-        'process.env.FB_APP_ID': JSON.stringify(fbAppId),
         'process.env.GA_TRACKING_ID': JSON.stringify(gaTrackingId),
       }),
       // Only compress files during production builds.

@@ -21,7 +21,6 @@ s.modSubmitInitialState = "Überspringen (nichts davon ist zutreffend), nächste
 s.modSubmit = "Fertig, nächstes Statement";
 
 s.x_wrote = "hat geschrieben:";
-s.x_tweeted = "hat getweeted:";
 s.comments_remaining = "{{num_comments}} verbleibend";
 s.comments_remaining2 = "{{num_comments}} verbleibende Statements";
 s.group_123 = "Gruppe:";
@@ -72,10 +71,6 @@ s.commentIsEmpty = "Eingabefeld ist leer.";
 s.commentIsTooLong = "Statement ist zu lang.";
 s.hereIsNextStatement = "Bewertung war erfolgreich. Oben kannst du das nächste Statement sehen.";
 
-s.connectFacebook = "Mit Facebook verbinden";
-s.connectTwitter = "Mit Twitter verbinden";
-s.connectToPostPrompt = "Verknüpfen Sie eine Identität, um ein Statement zu verfassen. Wir werden keine Inhalte auf Ihrer Pinnwand posten.";
-s.connectToVotePrompt = "Verknüpfen Sie eine Identität, um abstimmen zu können. Wir werden keine Inhalte auf Ihrer Pinnwand posten.";
 s.tip = "Tipp:";
 s.commentWritingTipsHintsHeader = "Hinweise für dein Statement.";
 s.tipCharLimit = "Kommentare sind auf 140 Zeichen beschränkt.";
@@ -90,11 +85,7 @@ s.participantHelpWelcomeText = "Willkommen zu einer neuen Art der Diskussion - <
 s.participantHelpGroupsText = "DiskussionsteilnehmerInnen, die ähnlich abstimmen, <span style='font-weight: 700;'>werden zu einer Gruppe zusammengefasst.</span> Klicken Sie auf eine Gruppe, um zu sehen, welche gemeinsamen Standpunkte diese Gruppe vertritt <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>... Mehr anzeigen</a>";
 s.participantHelpGroupsNotYetText = "Die Visualisierung startet, sobald mindestens sieben TeilnehmerInnen abgestimmt haben.";
 s.helpWhatAreGroupsDetail = "<p>Sie kennen wahrscheinlich 'Andere Kunden kauften auch' auf Amazon oder 'personalisierte Empfehlungen' auf Netflix. Diese Dienste verwenden Statistiken, um Nutzer mit gemeinsamen Interessen zuzammenzufassen und darauf basierend entsprechende Produkt- oder Filmempfehlungen zu geben.</p> <p> Wenn Sie auf Pol.is über einen Kommentar abstimmen, werden Sie mit anderen Nutzern, die eine ähnliche Abstimmungspräferenz haben, in einer Gruppe zusammengefasst. Diese Gruppen werden unten angezeigt. Jede Gruppe besteht aus TeilnehmerInnen, die ähnliche Meinungen haben. Jede Diskussion bietet deshalb faszinierende Einblicke in das allgemeine Meinungsbild. Legen Sie los - klicken Sie auf eine Gruppe und erfahren Sie, welche Standpunkte diese Gruppe teilt und was sie einzigartig macht! </p>";
-s.socialConnectPrompt = "Melden Sie sich optional an, um Freunde und andere TeilnehmerInnen, denen Sie folgen, in der Visualisierung zu sehen.";
-s.connectFbButton = "Über Facebook anmelden.";
-s.connectTwButton = "Über Twitter anmelden.";
-s.polis_err_reg_fb_verification_email_sent = "Wir haben Ihnen einen Link zur Verifizierung zugeschickt. Bitte überprüfen Sie Ihren Email-Posteingang und fahren Sie dann hier fort.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Ihr Facebook-Account ist nicht verifiziert. Bitte verifizieren Sie Ihre Email-Adresse auf Facebook und fahren Sie dann hier fort.";
+
 s.showTranslationButton = "Übersetzung aktivieren.";
 s.hideTranslationButton = "Übersetzung ausschalten.";
 

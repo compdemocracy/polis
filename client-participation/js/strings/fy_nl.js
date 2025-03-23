@@ -13,7 +13,6 @@ s.pass = "Oerslaan / Unwis";
 s.writePrompt = "Diel jo miening…";
 s.anonPerson = "Anonym";
 s.x_wrote = "skreau:";
-s.x_tweeted = "tweette:";
 s.comments_remaining = "{{num_comments}} oer";
 s.comments_remaining2 = "{{num_comments}} reaksjes oer";
 
@@ -88,18 +87,6 @@ s.commentErrorConversationClosed = "Dizze konversaasje is sletten. Reagearje is 
 s.commentIsEmpty = "Reaksje is leech";
 s.commentIsTooLong = "Reaksje is te lang";
 s.hereIsNextStatement = "Stimmen suksesfol. Navigearje omheech om de folgjende reaksje te sjen.";
-
-// Text about connecting identity
-
-s.connectFacebook = "Ferbine mei Facebook";
-s.connectTwitter = "Ferbine mei Twitter";
-s.connectToPostPrompt = "Ferbyn om te reagearjen, wy sille neat publisearje op jo tiidline.";
-s.connectToVotePrompt = "Ferbyn om te stimmen, wy sille neat publisearje op jo tiidline.";
-s.socialConnectPrompt = "Ferbyn opsjoneel om te sjen hokker freonen en oare persoanen jo folgje yn de fisualisaasje.";
-s.connectFbButton = "Ferbyn mei Facebook";
-s.connectTwButton = "Ferbyn mei Twitter";
-s.polis_err_reg_fb_verification_email_sent = "Kontrolearje jo e-mail foar in ferifikaasjekeppeling, kom dernei werom op dizze side.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Jo Facebook-account is net ferifiearre. Kontrolearje earst jo e-mailadres by Facebook, kom dernei werom op dizze dizze om fierder te gean.";
 
 // Text for the third party translation that appears on the cards
 

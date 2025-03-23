@@ -14,7 +14,6 @@ var eb = require("../eventBus");
 var GroupSelectionView = require("../views/groupSelectionView");
 var { markdown } = require('markdown');
 var ParticipantModel = require("../models/participant");
-var PolisFacebookUtils = require('../util/facebookButton');
 var polisLogoBase64 = require("../images/polis_logo");
 var preloadHelper = require("../util/preloadHelper");
 var ReadReactView = require('../views/ReadReactView');
@@ -60,30 +59,14 @@ module.exports = ConversationView.extend({
   template: template,
   className: "participationView clickDeselectsHull",
   events: {
-    "click #facebookButtonPtpt": "fbConnectBtn",
-    "click #twitterButtonPtpt": "twitterConnectBtn",
-    "click .twitterShareButton": "shareOnTwitter",
-    "click .facebookShareButton": "shareOnFacebook",
     "click .hideOnClick": "hideOnClick",
     // "click #helpTextGroups": "hideHelpTextGroups",
     // "click #helpTextWelcome": "hideHelpTextWelcome",
     "click #helpTextGroupsExpand": "expandHelpTextGroups",
-    // "click #fbLoginBtn": "fbConnectBtn", // NOTE: may want a separate handler/API
-    // "click #twitterLoginBtn": "twitterConnectBtn", // NOTE: may want a separate handler/API
   },
   firstMathPollResultDeferred: $.Deferred(),
   shouldAffixVis: false,
   inVisLegendCounter: 0,
-  shareOnTwitter: function() {
-    if (this.serverClient) {
-      this.serverClient.shareConversationOnTwitter();
-    }
-  },
-  shareOnFacebook: function() {
-    if (this.serverClient) {
-      this.serverClient.shareConversationOnFacebook();
-    }
-  },
   onAnalyzeTabPopulated: function() {
     if (SHOULD_AUTO_CLICK_FIRST_COMMENT) {
       $('.query_result_item').first().trigger('click');
@@ -132,17 +115,8 @@ module.exports = ConversationView.extend({
     ctx.use_background_content_class = display.xs();
     ctx.xs = display.xs();
     ctx.showNewButton = true;
-    ctx.hasFacebook = userObject.hasFacebook && Constants.FB_APP_ID;
-    ctx.hasTwitter = userObject.hasTwitter;
-    ctx.hasFbAndTw = ctx.hasFacebook && ctx.hasTwitter;
-    ctx.auth_opt_fb_computed = preload.firstConv.auth_opt_fb_computed;
-    ctx.auth_opt_tw_computed = preload.firstConv.auth_opt_tw_computed;
-    ctx.auth_prompt_any_social = ctx.auth_opt_fb_computed || ctx.auth_opt_tw_computed;
-    ctx.twitterShareCount = preload.firstConv.twitterShareCount;
-    ctx.fbShareCount = preload.firstConv.fbShareCount;
     ctx.s = Strings;
     ctx.polis_bgcolor = "white"; //preload.firstConv.bgcolor || "#f7f7f7";
-    ctx.hideSocialButtons = preload.firstConv.socialbtn_type === 0;
     ctx.hideHelp = !Utils.userCanSeeHelp() || preload.firstConv.help_type === 0;
 
     ctx.direction = Strings.direction ? Strings.direction : 'ltr'
@@ -216,32 +190,6 @@ module.exports = ConversationView.extend({
 
     ctx.show_pca_vis = ctx.vis_type === Constants.VIS_TYPE.PCA;
     return ctx;
-  },
-
-  fbConnectBtn: function() {
-    PolisFacebookUtils.connect().then(function() {
-      // that.model.set("response", "fbdone");
-      location.reload();
-    }, function(err) {
-      // alert("facebook error");
-    });
-  },
-
-  twitterConnectBtn: function() {
-    // window.top.postMessage("twitterConnectBegin", "*");
-
-
-    // open a new window where the twitter auth screen will show.
-    // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
-    var params = 'location=0,status=0,width=800,height=400';
-    window.open(document.location.origin + "/api/v3/twitterBtn?dest=/twitterAuthReturn/ParticipationView", 'twitterWindow', params);
-
-    eb.on(eb.twitterConnectedParticipationView, function() {
-      eb.trigger(eb.reload);
-    });
-
-    // var dest = window.location.pathname + window.location.hash;
-    // window.location = "/api/v3/twitterBtn?dest=" + dest;
   },
 
   convSub: function(params) {
@@ -482,22 +430,6 @@ module.exports = ConversationView.extend({
       that.doInit(options, c);
     });
   },
-  updateVisibilityOfSocialButtons: function() {
-    var okToShow = true;
-    okToShow = okToShow && this.socialButtonsAllowedToShow;
-    // okToShow &= this.conversationTabs.onVoteTab();
-
-    var voteCountForFacebookPrompt = 6; // 6 means it appears after 7 votes.
-
-    var votedEnough = this.readReactModel && this.readReactModel.get("voteCount") >= voteCountForFacebookPrompt || false;
-    okToShow = okToShow && votedEnough;
-
-    if (okToShow) {
-      $("#socialButtonsUnderReadReact").fadeIn(1000);
-    } else {
-      $("#socialButtonsUnderReadReact").hide();
-    }
-  },
   doInit: function(options, firstComment) {
       var vis;
       var that = this;
@@ -508,8 +440,6 @@ module.exports = ConversationView.extend({
       serverClient.setNextCachedComment(options.firstCommentPromise);
 
       eb.on(eb.vote, function() {
-        that.socialButtonsAllowedToShow = true;
-        that.updateVisibilityOfSocialButtons();
         that.updateVis2();
         that.updateTopComments();
       });
@@ -1048,7 +978,6 @@ module.exports = ConversationView.extend({
         }
         moveVisToBottom(); // just in case
         that.showWriteHints();
-        that.updateVisibilityOfSocialButtons();
       });
       that.conversationTabs.on("beforehide:write", function() {
         // When we're leaving the write tab, show the vis again.
@@ -1080,7 +1009,6 @@ module.exports = ConversationView.extend({
         }).then(function() {
           //that.commentCarouselMajorityView.renderWithCarousel();
         });
-        that.updateVisibilityOfSocialButtons();
       });
       that.conversationTabs.on("beforeshow:group", function() {
         if (that.shouldShowVisUnderTabs()) {
@@ -1094,7 +1022,6 @@ module.exports = ConversationView.extend({
           //   $("#carousel").fadeIn("slow");
           // }, 100);
         });
-        that.updateVisibilityOfSocialButtons();
       });
       that.conversationTabs.on("aftershow:vote", function() {
         that.initPcaVis();
@@ -1103,7 +1030,6 @@ module.exports = ConversationView.extend({
         moveVisToBottom();
         // that.showVis();
         // that.showTutorial();
-        that.updateVisibilityOfSocialButtons();
       });
       that.conversationTabs.on("aftershow:majority", function() {
         that.initPcaVis();

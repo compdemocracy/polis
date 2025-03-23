@@ -166,7 +166,7 @@ var polisRouter = Backbone.Router.extend({
     var conversation_id = ptptModel.get("conversation_id");
 
     // Since nextComment is pretty slow, fire off the request way early and pass the promise into the participation view so it's (probably) ready when the page loads.
-    var firstCommentPromise = $.get("/api/v3/nextComment?not_voted_by_pid=mypid&limit=1&include_social=true&conversation_id=" + conversation_id);
+    var firstCommentPromise = $.get("/api/v3/nextComment?not_voted_by_pid=mypid&limit=1&conversation_id=" + conversation_id);
 
     this.getConversationModel(conversation_id).then(function(model) {
 

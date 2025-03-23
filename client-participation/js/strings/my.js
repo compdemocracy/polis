@@ -27,7 +27,6 @@ s.modSubmitInitialState = "ကျော်မည် (အထက်ပါမျာ
 s.modSubmit = "ပြီးပါပြီ၊ လာမည့်တင်ပြချက်";
 
 s.x_wrote = "ရေးထားသည်-";
-s.x_tweeted = "တွိလုပ်ထားသည်-";
 s.comments_remaining = "{{num_comments}} ခု ကျန်သည်";
 s.comments_remaining2 = "{{num_comments}} ခု ကျန်သည်";
 
@@ -125,23 +124,6 @@ s.commentErrorConversationClosed =
 s.commentIsEmpty = "တင်ပြချက်တွင် ဘာမျှမရှိပါ";
 s.commentIsTooLong = "တင်ပြချက်သည် ရှည်လွန်းသည်";
 s.hereIsNextStatement = "မဲပေးပြီးပါပြီ။ နောက်ထပ်တင်ပြချက်ကို ကြည့်ရန် အပေါ်သို့ သွားပါ။";
-
-// Text about connecting identity
-
-s.connectFacebook = "Facebook ချိတ်ဆက်ခြင်း";
-s.connectTwitter = "Twitter ချိတ်ဆက်ခြင်း";
-s.connectToPostPrompt =
-  "တင်ပြချက်ပို့ရန် အထောက်အထားတစ်ခုကို ချိတ်ဆက်ပါ။ ကျွန်ုပ်တို့သည် သင့်အချိန်မှတ်တမ်းတွင် ပို့စ်တင်မည်မဟုတ်ပါ။";
-s.connectToVotePrompt =
-  "မဲပေးရန် အထောက်အထားတစ်ခုကို ချိတ်ဆက်ပါ။ ကျွန်ုပ်တို့သည် သင့်အချိန်မှတ်တမ်းတွင် ပို့စ်တင်မည်မဟုတ်ပါ။";
-s.socialConnectPrompt =
-  "ပုံဖော်ပြသခြင်းတွင် သင် လိုက်ကြည့်သော မိတ်ဆွေနှင့် လူများကို မြင်ရရန် ချိတ်ဆက်လိုက ချိတ်ဆက်နိုင်သည်။";
-s.connectFbButton = "Facebook နှင့် ချိတ်ဆက်ရန်";
-s.connectTwButton = "Twitter နှင့် ချိတ်ဆက်ရန်";
-s.polis_err_reg_fb_verification_email_sent =
-  "စိစစ်ခြင်းလင့်ခ်အတွက် အီးမေးလ်စစ်ပါ။ ထို့နောက် ရှေ့ဆက်ရန် ဤနေရာသို့ ပြန်လာပါ။";
-s.polis_err_reg_fb_verification_noemail_unverified =
-  "သင့် Facebook အကောင့်ကို အတည်ပြုမထားပါ။ Facebook ဖြင့် သင့်အီးမေးလ်လိပ်စာကို အတည်ပြုပါ။ ထို့နောက် ရှေ့ဆက်ရန် ဤနေရာသို့ ပြန်လာပါ။";
 
 // Text for the third party translation that appears on the cards
 

@@ -27,7 +27,6 @@ s.modSubmitInitialState = "Preskoči (ništa od navedenog); pređi na sljedeću 
 s.modSubmit = "Gotovo; pređi na sljedeću izjavu";
 
 s.x_wrote = "napisao/la je:";
-s.x_tweeted = "objavio/la je na X-u:";
 s.comments_remaining = "preostalo: {{num_comments}}";
 s.comments_remaining2 = "preostalo izjava: {{num_comments}}";
 
@@ -125,23 +124,6 @@ s.commentErrorConversationClosed =
 s.commentIsEmpty = "Izjava je prazna";
 s.commentIsTooLong = "Izjava je preduga";
 s.hereIsNextStatement = "Glasanje je uspjelo. Idite gore da vidite sljedeću izjavu.";
-
-// Text about connecting identity
-
-s.connectFacebook = "Povežite Facebook račun";
-s.connectTwitter = "Povežite X račun";
-s.connectToPostPrompt =
-  "Povežite identitet da pošaljete izjavu. Vašu izjavu nećemo objaviti u vašem vremenskom slijedu.";
-s.connectToVotePrompt =
-  "Povežite identitet da glasate. Vašu izjavu nećemo objaviti u vašem vremenskom slijedu.";
-s.socialConnectPrompt =
-  "Neobavezno se možete povezati da prijatelje i osobe koje pratite vidite u vizuelizaciji.";
-s.connectFbButton = "Povežite s Facebook računom";
-s.connectTwButton = "Povežite s X računom";
-s.polis_err_reg_fb_verification_email_sent =
-  "Pogledajte ima li u e-pošti e-poruke s linkom za potvrdu, a zatim se vratite ovdje da nastavite.";
-s.polis_err_reg_fb_verification_noemail_unverified =
-  "Vaš Facebook račun nije potvrđen. Potvrdite adresu e-pošte na Facebooku, a zatim se vratite ovdje da nastavite.";
 
 // Text for the third party translation that appears on the cards
 

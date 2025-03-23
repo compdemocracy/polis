@@ -3,12 +3,6 @@
 
 <div id="comment_shower">
 
-{{#if needSocial}}
-{{!-- ================ CONNECT FACEBOOK / TWITTER ================ --}}
-
-
-{{else}}  {{!-- !needSocial --}}
-
 {{#if empty}}
   <div  style="margin: 20px;" class="Notification Notification--warning"> {{!-- empty scenario div --}}
   {{#if subscribed}}
@@ -94,15 +88,11 @@
       {{social.name}}
       <span style="
       ">
-        {{#if tweet_id}}
-          <a href="https://twitter.com/{{social.screen_name}}/status/{{tweet_id}}" target="_blank">{{s.x_tweeted}}</a>
-        {{else}} {{!-- !tweet_id --}}
-          {{#if quote_src_url}}
-            <a href="{{quote_src_url}}" target="_blank">{{s.x_wrote}}</a>
-          {{else}}
-            {{s.x_wrote}}
-          {{/if}}
-        {{/if}} {{!-- /tweet_id --}}
+        {{#if quote_src_url}}
+          <a href="{{quote_src_url}}" target="_blank">{{s.x_wrote}}</a>
+        {{else}}
+          {{s.x_wrote}}
+        {{/if}}
       </span>
       <span aria-hidden="true" style="
         {{floatStyle}}
@@ -118,8 +108,6 @@
         {{remainingString}}
       </span>
     </p>
-    {{!-- {{social.twitter_user_id}} --}}
-    {{!-- {{social.screen_name}} --}}
     <p lang="{{lang}}" style="
       {{pMarginStyle}} {{!-- 10 + 36 + 5 from social above --}}
       font-weight: 400;
@@ -319,10 +307,6 @@
   {{/if}} {{!-- /shouldMod --}}
 
 {{/if}} {{!-- /empty --}}
-
-
-{{/if}}  {{!-- /needSocial --}}
-
 
 <div id="hereIsNextStatementLabel" style="display: none" class="screen-reader-text" role="alert">{{s.hereIsNextStatement}}</div>
 

@@ -13,7 +13,6 @@ s.modSubmitInitialState = "Overslaan (geen enkel van bovenstaande), volgende rea
 s.modSubmit = "Klaar, ga naar volgende reactie";
 
 s.x_wrote = "schreef:";
-s.x_tweeted = "tweette:";
 s.comments_remaining = "{{num_comments}} resterend";
 s.comments_remaining2 = "{{num_comments}} resterende reacties";
 s.group_123 = "Groep:";
@@ -58,10 +57,6 @@ s.commentErrorConversationClosed = "Deze conversatie is afgesloten. Reageren is 
 s.commentIsEmpty = "Reactie is leeg";
 s.commentIsTooLong = "Reactie is te lang";
 
-s.connectFacebook = "Verbinden met Facebook";
-s.connectTwitter = "Verbinden met Twitter";
-s.connectToPostPrompt = "Verbindt om te reageren, we zullen niets publiceren op uw tijdlijn.";
-s.connectToVotePrompt = "Verbindt om te stemmen, we zullen niets publiceren op uw tijdlijn.";
 s.tip = "Tip:";
 s.commentWritingTipsHintsHeader = "Tips om reacties te schrijven";
 s.tipCharLimit = "De lengte van reacties zijn beperkt to {{char_limit}} tekens.";
@@ -76,11 +71,6 @@ s.participantHelpWelcomeText = "Welkom bij een nieuwe soort discussie - <span st
 s.participantHelpGroupsText = "Personen die gelijkaardig stemmen <span style='font-weight: 700.'>worden gegroepeerd.</span> Klik op een groep om te zien welk standpunt zij innemen <a style='font-weight: 700. cursor: pointer. text-decoration: underline' id='helpTextGroupsExpand'>...more</a>";
 s.participantHelpGroupsNotYetText = "De visualisatie zal verschijnen zodra er 7 personen zijn begonnen met stemmen";
 s.helpWhatAreGroupsDetail = "<p>U hebt allicht al 'aanbevolen artikels' op Amazon, of ‘aanbevolen films' op Netflix. Elk van deze services gebruiken statistieken om u te groeperen in bij personen die dezelfde dingen kopen of bekijken, vervolgend wordt er u getoond wat deze mensen kochten of naar welke film ze keken.</p> <p> Wanneer u een stem uitbrengt op een reactie wordt u vervolgens gegroepeerd met mensen die dezelfde stem uitbrachten! Onderaan kan u deze groepen bekijken. Elk van deze groepen bestaan uit personen met dezelfde opinie. Er zijn fascinerende inzichten de ontdekken elk van deze gesprekken. Wacht niet langer – klik op een groep om te zien wat hun bijeen bracht en wat hun uniek maakt! </p>";
-s.socialConnectPrompt = "Verbind optioneel om te zien welke vrienden en andere personen uw volgt in de visualisatie.";
-s.connectFbButton = "Verbind met Facebook";
-s.connectTwButton = "Verbind met Twitter";
-s.polis_err_reg_fb_verification_email_sent = "Gelieve uw mail te controleren voor een verificatie link, kom vervolgens terug op deze pagina.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Uw Facebook account is niet geverifieerd. Gelieven eerst uw emailadres te controleren bij Facebook, kom vervolgens terug op deze pagina om verder te gaan.";
 s.showTranslationButton = "Toon vertalingen";
 s.hideTranslationButton = "Verberg vertalingen";
 

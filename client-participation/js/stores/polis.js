@@ -264,7 +264,6 @@ module.exports = function(params) {
     var params = {
       not_voted_by_pid: "mypid",
       limit: 1,
-      include_social: true,
       conversation_id: conversation_id
     };
 
@@ -299,15 +298,6 @@ module.exports = function(params) {
       }
     });
     return p;
-  }
-
-  function importTweet(twitter_tweet_id, vote) {
-    var params = {
-      conversation_id: conversation_id,
-      twitter_tweet_id: twitter_tweet_id,
-      vote: vote,
-    };
-    return polisPost(commentsPath, params);
   }
 
   function submitComment(model) {
@@ -526,10 +516,6 @@ module.exports = function(params) {
       this.bid = o.id || o.bid;
       this.gid = o.gid;
       this.count = o.count;
-      this.hasTwitter = o.hasTwitter;
-      this.hasFacebook = o.hasFacebook;
-      this.twitter = o.twitter;
-      this.facebook = o.facebook;
       if (o.clusterCount) { // TODO stop with this pattern
         this.clusterCount = o.clusterCount; // TODO stop with this pattern
       }
@@ -623,10 +609,6 @@ module.exports = function(params) {
       priority: 999999,
       containsSelf: true,
       gid: self.gid,
-      hasTwitter: !!self.hasTwitter,
-      hasFacebook: !!self.hasFacebook,
-      twitter: self.twitter || {},
-      facebook: self.facebook || {},
       proj: self.proj,
       count: 1,
       bid: selfDotBid,
@@ -652,10 +634,6 @@ module.exports = function(params) {
       picture_size: ptptoiData.picture_size,
       containsSelf: o.containsSelf,
       gid: o.gid,
-      hasTwitter: !!ptptoiData.hasTwitter,
-      hasFacebook: !!ptptoiData.hasFacebook,
-      twitter: ptptoiData.twitter || {},
-      facebook: ptptoiData.facebook || {},
       ptptoi: true,
       proj: o.proj,
       count: 1,
@@ -1147,14 +1125,6 @@ module.exports = function(params) {
     });
   }
 
-  function shareConversationOnTwitter() {
-    window.open("https://twitter.com/intent/tweet?text=Join the conversation!&url=https://pol.is/" + conversation_id);
-  }
-
-  function shareConversationOnFacebook() {
-    window.open("http://www.facebook.com/sharer/sharer.php?u=https://pol.is/" + conversation_id);
-  }
-
 
   function getMathMain() {
     return cachedPcaData;
@@ -1540,30 +1510,6 @@ module.exports = function(params) {
     people = people || [];
     people = _.clone(people); // shallow copy
 
-    // if(Utils.isDemoMode()) {
-    //     participantsOfInterestVotes[myPid] = {
-    //         bid: -1,
-    //         // created: "1416276055476"
-    //         // modified: "1416276055476"
-    //         // uid: 91268
-    //         // zid: 12460
-    //         //votes: "daaauduuuuuuudauu" // Votes will be found in a local collection
-    //         picture: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
-    //         twitter: {
-    //             pid: myPid,
-    //             // followers_count: 23
-    //             // friends_count: 47
-    //             profile_image_url_https: "https://umbc.givecorps.com/assets/user-icon-silhouette-ae9ddcaf4a156a47931d5719ecee17b9.png",
-    //             // screen_name: "mbjorkegren"
-    //             // twitter_user_id: 1131541
-    //             verified: false
-    //         },
-    //         facebook: {
-    //             // ...
-    //         }
-    //     };
-    // }
-
 
     var bidToGid = getBidToGid();
     _.each(participantsOfInterestVotes, function(ptpt, pid) {
@@ -1743,7 +1689,6 @@ module.exports = function(params) {
   function getComments(params) {
     params = $.extend({
       conversation_id: conversation_id,
-      include_social: true,
       // not_pid: getPid() // don't want to see own coments
     }, params);
     return polisGet(commentsPath, params);
@@ -1959,38 +1904,11 @@ module.exports = function(params) {
 
         // default anon picture, may be overwritten
         ptpt.picture = Utils.getAnonPicUrl();
-
-        if (ptpt.facebook &&
-          ptpt.facebook.fb_user_id // TEMP - needed since I deleted some entries from facebook_users
-        ) {
-          ptpt.hasFacebook = true;
-          var width = 48; // same as twitter, normally 50x50
-          var height = 48; // same as twitter, normally 50x50
-          ptpt.picture_size = 48;
-          if (window.devicePixelRatio > 1) {
-            // on retina, we'll show 32x32, but fetch 64x64 images
-            width = 96; // facebook will return 64x64 images if we're on a retina device
-            height = 96; // facebook will return 64x64 images if we're on a retina device
-            ptpt.picture_size = 48;
-          }
-
-          // https://developers.facebook.com/docs/graph-api/reference/v2.2/user/picture
-          ptpt.facebook.picture = "https://graph.facebook.com/v2.2/" + ptpt.facebook.fb_user_id + "/picture?width=" + width + "&height=" + height;
-          ptpt.picture = ptpt.facebook.picture;
-        }
-
-        // override with Twitter if they have it
-        if (ptpt.twitter) {
-          ptpt.picture = ptpt.twitter.profile_image_url_https;
-          ptpt.picture_size = 48; // twitter's _normal.JPG size. _mini would be 24, and _bigger would be 73
-          ptpt.hasTwitter = true;
-        }
+        ptpt.picture_size = 48;
 
         if (ptpt.xInfo) {
           ptpt.picture = ptpt.xInfo.x_profile_image_url;
           ptpt.picture_size = 48;
-          ptpt.hasTwitter = false;
-          ptpt.hasFacebook = false;
         }
 
         // override with custom polis picture if they have it
@@ -2706,12 +2624,9 @@ module.exports = function(params) {
     getPtptCount: getPtptCount,
     put_participants_extended: put_participants_extended,
     updateMyProjection: updateMyProjection,
-    shareConversationOnFacebook: shareConversationOnFacebook,
-    shareConversationOnTwitter: shareConversationOnTwitter,
     startPolling: startPolling,
     // simple way to centralize polling actions, and ensure they happen near each-other (to save battery)
     addPollingScheduledCallback: addPollingScheduledCallback,
-    importTweet: importTweet,
     // jumpTo: jumpTo,
     submitComment: submitComment
   };

@@ -3,7 +3,6 @@
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
 var M = require("../util/metrics");
-var PolisFacebookUtils = require('../util/facebookButton');
 var PostMessageUtils = require("../util/postMessageUtils");
 var preloadHelper = require("../util/preloadHelper");
 var template = require("../templates/vote-view.handlebars");
@@ -27,56 +26,52 @@ function getMatchingOfficialTranslation(translations) {
 }
 
 module.exports = Handlebones.ModelView.extend({
-  name: "vote-view",
-  template: template,
-  events: {
-    "click #agreeButton": "participantAgreed",
-    "click #disagreeButton": "participantDisagreed",
-    "click #passButton": "participantPassed",
-    "click #subscribeBtn": "subscribeBtn",
+	name: "vote-view",
+	template: template,
+	events: {
+		"click #agreeButton": "participantAgreed",
+		"click #disagreeButton": "participantDisagreed",
+		"click #passButton": "participantPassed",
+		"click #subscribeBtn": "subscribeBtn",
     'submit #subscribeEmailForm': "subscribeBtn",
 
-    "click #spamToggle": "spamToggle",
-    "click #otToggle": "otToggle",
-    "click #importantToggle": "importantToggle",
+		"click #spamToggle": "spamToggle",
+		"click #otToggle": "otToggle",
+		"click #importantToggle": "importantToggle",
     "click #modSubmit" : "participantModerated",
 
-    "click #facebookButtonVoteView" : "facebookClicked",
-    "click #twitterButtonVoteView" : "twitterClicked",
     "click #showTranslationButtonVoteView" : "showTranslationClicked",
     "click #hideTranslationButtonVoteView" : "hideTranslationClicked",
 
-  },
+	},
   context: function() {
-    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
-    ctx.iOS = iOS;
-    ctx.customStyles = "";
+		var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+		ctx.iOS = iOS;
+		ctx.customStyles = "";
     // if (ctx.txt && ctx.txt.length < 30) {
     //   ctx.customStyles += "text-align: center; ";
     // ctx.customStyles += "padding-top: 39px; ";
     //   ctx.customStyles += "font-size: 22px; ";
     // }
-    ctx.email = userObject.email;
-    ctx.subscribed = this.isSubscribed();
-    if (ctx.created) {
+		ctx.email = userObject.email;
+		ctx.subscribed = this.isSubscribed();
+		if (ctx.created) {
       ctx.createdString = (new Date(ctx.created * 1)).toString().match(/(.*?) [0-9]+:/)[1];
-    }
-    ctx.s = Strings;
+		}
+		ctx.s = Strings;
 
-    var btnBg = preload.conversation.style_btn;
-    if (btnBg) {
-      ctx.customBtnStyles = "background-color: " + btnBg + ";";
-    }
-    if (Strings.direction == "rtl") {
-      ctx.pMarginStyle = "margin-right: 55px;";
+		var btnBg = preload.conversation.style_btn;
+		if (btnBg) {
+			ctx.customBtnStyles = "background-color: " + btnBg + ";";
+		}
+		if (Strings.direction == "rtl") {
+			ctx.pMarginStyle = "margin-right: 55px;";
       ctx.floatStyle = "float:left;"  // This is a hack to fix the bug in chrome, not supporting float:inline-start and end
-    } else {
-      ctx.pMarginStyle = "margin-left: 55px;";
+		} else {
+			ctx.pMarginStyle = "margin-left: 55px;";
       ctx.floatStyle = "float:right;"
     }
 
-    ctx.auth_opt_tw = preload.firstConv.auth_opt_tw;
-    ctx.auth_opt_fb = preload.firstConv.auth_opt_fb;
     var social = ctx.social;
     var socialCtx = {
       name: Strings.anonPerson,
@@ -85,24 +80,7 @@ module.exports = Handlebones.ModelView.extend({
       anon: true,
     };
     if (social) {
-      var hasTwitter = social.screen_name;
-      var hasFacebook = social.fb_name && Constants.FB_APP_ID;
       var hasX = social.x_name;
-      if (hasFacebook) {
-        socialCtx = {
-          name: social.fb_name,
-          img: social.fb_picture,
-          link: social.fb_link,
-        };
-      }
-      if (hasTwitter) {
-        socialCtx = {
-          name: social.name,
-          img: social.profile_image_url_https,
-          link: "https://twitter.com/" + social.screen_name,
-          screen_name: social.screen_name,
-        };
-      }
       if (hasX) {
         socialCtx = {
           name: social.x_name,
@@ -111,463 +89,426 @@ module.exports = Handlebones.ModelView.extend({
       }
 
     }
-    ctx.showImportantCheckbox = preload.conversation.importance_enabled;
+		ctx.showImportantCheckbox = preload.conversation.importance_enabled;
     ctx.social = socialCtx;
-    ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
-    ctx.canSubscribe = !!preload.firstPtpt || this.votesByMe.size() > 0;
-    ctx.canSubscribe = ctx.canSubscribe && Utils.userCanSeeSubscribePrompt();
-    ctx.needSocial = this.model.get("needSocial");
+		ctx.noModSet = !ctx.spamOn && !ctx.otOn && !ctx.importantOn;
+		ctx.canSubscribe = !!preload.firstPtpt || this.votesByMe.size() > 0;
+		ctx.canSubscribe = ctx.canSubscribe && Utils.userCanSeeSubscribePrompt();
 
-    if (ctx.showTranslation && ctx.translations && ctx.translations.length) {
-      ctx.translationTxt = ctx.translations[0].txt;
-      ctx.translationLang = ctx.translations[0].lang;
-      ctx.translationSrc = ctx.translations[0].src;
-    }
+		if (ctx.showTranslation && ctx.translations && ctx.translations.length) {
+			ctx.translationTxt = ctx.translations[0].txt;
+			ctx.translationLang = ctx.translations[0].lang;
+			ctx.translationSrc = ctx.translations[0].src;
+		}
     if (!ctx.showTranslation && ctx.lang && !Utils.matchesUiLang(ctx.lang) && ctx.translations && ctx.translations.length) {
-      ctx.showShowTranslationButton = true;
-    }
+			ctx.showShowTranslationButton = true;
+		}
     if (ctx.showTranslation && ctx.translationTxt && ctx.lang && !Utils.matchesUiLang(ctx.lang) && ctx.translations && ctx.translations.length) {
-      ctx.showHideTranslationButton = true;
-    }
+			ctx.showHideTranslationButton = true;
+		}
 
-    var officialTranslation = null;
-    if (ctx.showOfficialTranslation) {
-      // && ctx.translationSrc !== -1) {
-      officialTranslation = getMatchingOfficialTranslation(ctx.translations);
-      ctx.txt = officialTranslation.txt;
-      ctx.lang = officialTranslation.lang;
-    }
+		var officialTranslation = null;
+		if (ctx.showOfficialTranslation) {
+			// && ctx.translationSrc !== -1) {
+			officialTranslation = getMatchingOfficialTranslation(ctx.translations);
+			ctx.txt = officialTranslation.txt;
+			ctx.lang = officialTranslation.lang;
+		}
 
-    if (officialTranslation) {
-      ctx.isUnofficialTranslation = false;
-      ctx.showTranslationButton = Strings.showTranslationButton;
-    } else if (ctx.translations && ctx.translations.length > 0) {
-      ctx.isUnofficialTranslation = true;
-      ctx.showTranslationButton = Strings.showTranslationButton;
+		if (officialTranslation) {
+			ctx.isUnofficialTranslation = false;
+			ctx.showTranslationButton = Strings.showTranslationButton;
+		} else if (ctx.translations && ctx.translations.length > 0) {
+			ctx.isUnofficialTranslation = true;
+			ctx.showTranslationButton = Strings.showTranslationButton;
       ctx.thirdPartyTranslationDisclaimer = Strings.thirdPartyTranslationDisclaimer;
-    }
-    // if comment has correct language don't show translation or buttons
+		}
+		// if comment has correct language don't show translation or buttons
     if ((ctx.showTranslation || officialTranslation) &&
-        ctx.lang &&
-        Utils.matchesUiLang(ctx.lang)) {
-      ctx.showTranslation = false;
-      delete ctx.translationTxt;
-      delete ctx.translationLang;
-      delete ctx.translationSrc;
-      ctx.showShowTranslationButton = false;
-      ctx.showHideTranslationButton = false;
-    }
+			ctx.lang &&
+			Utils.matchesUiLang(ctx.lang)
+		) {
+			ctx.showTranslation = false;
+			delete ctx.translationTxt;
+			delete ctx.translationLang;
+			delete ctx.translationSrc;
+			ctx.showShowTranslationButton = false;
+			ctx.showHideTranslationButton = false;
+		}
 
     // if (ctx.userHasVotedThisSession) {
     //   // console.log('showHereIsNextStatement' + this.$el.parent().parent().attr('id'));
     //   ctx.showHereIsNextStatement = true;
     // }
 
-    var remaining = ctx.remaining;
-    if (remaining > 100) {
-      remaining = "100+";
-    }
+		var remaining = ctx.remaining;
+		if (remaining > 100) {
+			remaining = "100+";
+		}
     ctx.remainingString = Strings.comments_remaining.replace("{{num_comments}}", remaining);
     ctx.remainingStringScreenReader = Strings.comments_remaining2.replace("{{num_comments}}", remaining);
-    return ctx;
-  },
+		return ctx;
+	},
 
   showTranslationClicked: function(e) {
-    e.preventDefault();
-    this.model.set({
-      showTranslation: true,
-    });
-    this.serverClient.put_participants_extended({
-      show_translation_activated: true,
-    });
-  },
+		e.preventDefault();
+		this.model.set({
+			showTranslation: true,
+		});
+		this.serverClient.put_participants_extended({
+			show_translation_activated: true,
+		});
+	},
 
   hideTranslationClicked: function(e) {
-    e.preventDefault();
-    this.model.set({
-      showTranslation: false,
-    });
-    this.serverClient.put_participants_extended({
-      show_translation_activated: false,
-    });
-  },
+		e.preventDefault();
+		this.model.set({
+			showTranslation: false,
+		});
+		this.serverClient.put_participants_extended({
+			show_translation_activated: false,
+		});
+	},
 
-  facebookClicked: function(e) {
-    e.preventDefault();
-    var that = this;
-    M.addAndSend(M.VOTE_SUBMIT_FB_INIT);
-    PolisFacebookUtils.connect().then(function() {
-      M.addAndSend(M.VOTE_SUBMIT_FB_OK);
-      // wait a bit for new cookies to be ready, or something, then submit comment.
-      setTimeout(function() {
-        that.onAuthSuccess();
-        // CurrentUserModel.update();
-      }, 100);
-    }, function(err) {
-      M.addAndSend(M.VOTE_SUBMIT_FB_ERR);
-      // alert("facebook error");
-    });
-  },
-  twitterClicked: function(e) {
-    var that = this;
-    e.preventDefault();
-
-    eb.on(eb.twitterConnectedVoteView, function() {
-      M.addAndSend(M.VOTE_SUBMIT_TW_OK);
-      // wait a bit for new cookies to be ready, or something, then submit comment.
-      setTimeout(function() {
-        that.onAuthSuccess();
-        // CurrentUserModel.update();
-      }, 100);
-    });
-
-    M.addAndSend(M.VOTE_SUBMIT_TW_INIT);
-
-    // open a new window where the twitter auth screen will show.
-    // that window will redirect back to a simple page that calls window.opener.twitterStatus("ok")
-    var params = 'location=0,status=0,width=800,height=400';
-    window.open(document.location.origin + "/api/v3/twitterBtn?owner=false&dest=/twitterAuthReturn/VoteView", 'twitterWindow', params);
-  },
-
-  spamToggle: function() {
-    this.model.set({
-      spamOn: !this.model.get("spamOn"),
-      otOn: false,
-      importantOn: false,
-    });
-  },
+	spamToggle: function () {
+		this.model.set({
+			spamOn: !this.model.get("spamOn"),
+			otOn: false,
+			importantOn: false,
+		});
+	},
   otToggle: function() {
-    this.model.set({
-      spamOn: false,
-      otOn: !this.model.get("otOn"),
-      importantOn: false,
-    });
-  },
+		this.model.set({
+			spamOn: false,
+			otOn: !this.model.get("otOn"),
+			importantOn: false,
+		});
+	},
   importantToggle: function() {
-    this.model.set({
-      spamOn: false,
-      otOn: false,
-      importantOn: !this.model.get("importantOn"),
-    });
-  },
+		this.model.set({
+			spamOn: false,
+			otOn: false,
+			importantOn: !this.model.get("importantOn"),
+		});
+	},
 
   animateOut: function() {
-    // Animating opacity directly instead of jQuery's fadeOut because we don't want display:none at the end.
+		// Animating opacity directly instead of jQuery's fadeOut because we don't want display:none at the end.
     this.$el.children().children().animate({
       opacity: 0
     }, 200);
-  },
+	},
   animateIn: function() {
     this.$el.children().children().animate({
       opacity: 1
     }, 200);
-  },
+	},
   showMod: function() {
-    this.model.set("shouldMod", true);
-  },
+		this.model.set("shouldMod", true);
+	},
   initialize: function(options) {
-    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
-    eb.on(eb.exitConv, cleanup);
+		Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+		eb.on(eb.exitConv, cleanup);
 
-    function cleanup() {
-      //alert('cleanup');
-      eb.off(eb.exitConv, cleanup);
-    }
+		function cleanup() {
+			//alert('cleanup');
+			eb.off(eb.exitConv, cleanup);
+		}
     var serverClient = this.serverClient = options.serverClient;
     var votesByMe = this.votesByMe = options.votesByMe;
-    var votesByMeFetched = $.Deferred();
+		var votesByMeFetched = $.Deferred();
     votesByMeFetched.then(function() {
-      if (votesByMe.size() > 0) {
-        eb.trigger(eb.interacted);
-      }
-    });
-    this.conversationModel = options.conversationModel;
+			if (votesByMe.size() > 0) {
+				eb.trigger(eb.interacted);
+			}
+		});
+		this.conversationModel = options.conversationModel;
 
-    var is_public = options.is_public;
+		var is_public = options.is_public;
     var conversation_id = this.conversation_id = options.conversation_id;
-    this.pid = options.pid;
-    this.isSubscribed = options.isSubscribed;
+		this.pid = options.pid;
+		this.isSubscribed = options.isSubscribed;
 
-    if (Utils.isDemoMode()) {
-      votesByMeFetched.resolve();
-    }
-    votesByMe.on("sync", votesByMeFetched.resolve);
+		if (Utils.isDemoMode()) {
+			votesByMeFetched.resolve();
+		}
+		votesByMe.on("sync", votesByMeFetched.resolve);
 
 
-    var that = this;
-    var waitingForComments = true;
-    var commentPollInterval = 5 * 1000;
+		var that = this;
+		var waitingForComments = true;
+		var commentPollInterval = 5 * 1000;
 
-    function pollForComments(optionalPromiseForPreExisingNextCommentCall) {
-      if (waitingForComments && !Utils.isHidden()) {
-        getNextAndShow(optionalPromiseForPreExisingNextCommentCall);
-      } else {
-        // try to try again later
-        setTimeout(pollForComments, commentPollInterval);
-      }
-    }
+		function pollForComments(optionalPromiseForPreExisingNextCommentCall) {
+			if (waitingForComments && !Utils.isHidden()) {
+				getNextAndShow(optionalPromiseForPreExisingNextCommentCall);
+			} else {
+				// try to try again later
+				setTimeout(pollForComments, commentPollInterval);
+			}
+		}
 
-    function showComment(model) {
+		function showComment(model) {
 
-      var savedState = {
-        showTranslation: that.model.get("showTranslation"),
-        empty: false,
-        shouldMod: false,
-      };
+			var savedState = {
+				showTranslation: that.model.get("showTranslation"),
+				empty: false,
+				shouldMod: false,
+			};
 
-      var t = getMatchingOfficialTranslation(model.translations);
-      if (t) {
-        savedState.showOfficialTranslation = true;
-      }
+			var t = getMatchingOfficialTranslation(model.translations);
+			if (t) {
+				savedState.showOfficialTranslation = true;
+			}
 
-      that.model.clear({
+			that.model.clear({
         silent: true
-      });
-      that.model.set(_.extend(savedState, model));
-      that.render();
-      that.trigger("showComment");
-      waitingForComments = false;
-    }
+			});
+			that.model.set(_.extend(savedState, model));
+			that.render();
+			that.trigger("showComment");
+			waitingForComments = false;
+		}
 
-    function getNextAndShow(optionalPromiseForPreExisingNextCommentCall) {
+		function getNextAndShow(optionalPromiseForPreExisingNextCommentCall) {
 
-      var params = {};
-      if (that.model && that.model.get("tid")) {
-        params.notTid = that.model.get("tid");
-      }
+			var params = {};
+			if (that.model && that.model.get("tid")) {
+				params.notTid = that.model.get("tid");
+			}
       var promise = optionalPromiseForPreExisingNextCommentCall || serverClient.getNextComment(params);
       promise.then(function(c) {
-        var emailEl = that.$(".email");
-        var email = emailEl.val() || emailEl.is(":focus");
+					var emailEl = that.$(".email");
+					var email = emailEl.val() || emailEl.is(":focus");
         if (!email) { // Don't clobber view if user is writing an email
-          if (!that.conversationModel.get("is_active")) {
-            showClosedConversationNotice();
-          } else if (c && c.txt) {
-            showComment(c);
-          } else {
-            showEmpty();
-          }
-        }
-        setTimeout(pollForComments, commentPollInterval);
+						if (!that.conversationModel.get("is_active")) {
+							showClosedConversationNotice();
+						} else if (c && c.txt) {
+							showComment(c);
+						} else {
+							showEmpty();
+						}
+					}
+					setTimeout(pollForComments, commentPollInterval);
       }, function(err) {
-        setTimeout(pollForComments, commentPollInterval);
+					setTimeout(pollForComments, commentPollInterval);
       });
-    }
+		}
 
-    function onFail(err) {
-      this.animateIn();
-      console.error(err);
+		function onFail(err) {
+			this.animateIn();
+			console.error(err);
 
-      if (!Utils.cookiesEnabled()) {
-        // TODO send GA event
+			if (!Utils.cookiesEnabled()) {
+				// TODO send GA event
         alert("Sorry, voting requires cookies to be enabled. If you do enable cookies, be sure to reload the page after.");
       } else if (err && err.responseText === "polis_err_conversation_is_closed") {
-        alert("This conversation is closed. No further voting is allowed.");
+				alert("This conversation is closed. No further voting is allowed.");
       } else if (err && err.responseText === "polis_err_post_votes_social_needed") {
         that.model.set({
           needSocial: true,
         });
-      } else if (err && err.responseText === "polis_err_xid_not_whitelisted") {
+			} else if (err && err.responseText === "polis_err_xid_not_whitelisted") {
         alert("Sorry, you must be registered to vote. Please sign in or contact the conversation owner.");
-      } else {
+			} else {
         alert("Apologies, your vote failed to send. Please check your connection and try again.");
-      }
-    }
+			}
+		}
 
-    function onVote(result) {
-      eb.trigger(eb.vote, this.mostRecentVoteType);
-      eb.trigger(eb.interacted);
-      setTimeout(PostMessageUtils.postVoteEvent);
+		function onVote(result) {
+			eb.trigger(eb.vote, this.mostRecentVoteType);
+			eb.trigger(eb.interacted);
+			setTimeout(PostMessageUtils.postVoteEvent);
 
-      if (result.shouldMod) {
-        this.showMod(); // result of mod should include a nextComment property.
-      } else if (result.nextComment) {
-        showComment(result.nextComment);
-      } else {
-        showEmpty();
-      }
-      this.animateIn();
+			if (result.shouldMod) {
+				this.showMod(); // result of mod should include a nextComment property.
+			} else if (result.nextComment) {
+				showComment(result.nextComment);
+			} else {
+				showEmpty();
+			}
+			this.animateIn();
 
-      // this.model.set({
-      //   userHasVotedThisSession: true,
-      // });
-      this.$("#hereIsNextStatementLabel").show();
+			// this.model.set({
+			//   userHasVotedThisSession: true,
+			// });
+			this.$("#hereIsNextStatementLabel").show();
 
-      // Fix for stuck hover effects for touch events.
-      // Remove when this is fix is accepted
-      // https://github.com/twbs/bootstrap/issues/12832
-      this.$(".btn-vote").blur();
-    }
+			// Fix for stuck hover effects for touch events.
+			// Remove when this is fix is accepted
+			// https://github.com/twbs/bootstrap/issues/12832
+			this.$(".btn-vote").blur();
+		}
 
-    function showClosedConversationNotice() {
-      that.model.clear({
+		function showClosedConversationNotice() {
+			that.model.clear({
         silent: true
-      });
-      that.model.set({
-        empty: true,
-        txt1: Strings.convIsClosed,
-        txt2: Strings.noMoreVotingAllowed,
-      });
-      that.render();
-    }
+			});
+			that.model.set({
+				empty: true,
+				txt1: Strings.convIsClosed,
+				txt2: Strings.noMoreVotingAllowed,
+			});
+			that.render();
+		}
 
-    function showEmpty() {
-      $.when(
-        preloadHelper.firstVotesByMePromise,
+		function showEmpty() {
+			$.when(
+				preloadHelper.firstVotesByMePromise,
         preloadHelper.firstPtptPromise
       ).then(_.defer(function() {
 
         var userHasVoted = !!votesByMe.size() ||
-          (preload.firstVotesByMe && preload.firstVotesByMe.length) ||
-          (preload.firstPtpt && preload.firstPtpt.vote_count > 0);
+						(preload.firstVotesByMe && preload.firstVotesByMe.length) ||
+						(preload.firstPtpt && preload.firstPtpt.vote_count > 0);
 
 
-        waitingForComments = true;
-        // pollForComments();
-        var ucw = Utils.userCanWrite();
-        var message1;
-        var message2;
-        if (userHasVoted) {
-          message1 = Strings.noCommentsYouVotedOnAll;
-          if (ucw) {
-            message2 = Strings.noCommentsTryWritingOne;
-          }
-        } else {
-          message1 = Strings.noCommentsYet;
-          if (is_public) {
-            message2 = Strings.noCommentsYetSoInvite;
-          } else if (ucw) {
-            message2 = Strings.noCommentsYetSoWrite;
-          }
-        }
+					waitingForComments = true;
+					// pollForComments();
+					var ucw = Utils.userCanWrite();
+					var message1;
+					var message2;
+					if (userHasVoted) {
+						message1 = Strings.noCommentsYouVotedOnAll;
+						if (ucw) {
+							message2 = Strings.noCommentsTryWritingOne;
+						}
+					} else {
+						message1 = Strings.noCommentsYet;
+						if (is_public) {
+							message2 = Strings.noCommentsYetSoInvite;
+						} else if (ucw) {
+							message2 = Strings.noCommentsYetSoWrite;
+						}
+					}
 
-        // TODO show some indication of whether they should wait around or not (how many active users there are, etc)
-        that.model.clear({
+					// TODO show some indication of whether they should wait around or not (how many active users there are, etc)
+					that.model.clear({
           silent: true
-        });
-        that.model.set({
-          empty: true,
-          txt1: message1,
+					});
+					that.model.set({
+						empty: true,
+						txt1: message1,
           txt2: message2
-        });
-        that.render();
+					});
+					that.render();
       }));
-    }
+		}
 
     this.onButtonClicked = function() {
-      this.animateOut();
-    };
+			this.animateOut();
+		};
     this.starBtn = function(e) {
-      var starred = !that.model.get("starred");
+			var starred = !that.model.get("starred");
 
-      that.model.set("starred", starred);
-      if (starred) {
-        $("#starredLabel").fadeIn(200);
+			that.model.set("starred", starred);
+			if (starred) {
+				$("#starredLabel").fadeIn(200);
         setTimeout(function() {
-          $("#starredLabel").fadeOut(600);
-        }, 1500);
-      }
-    };
+					$("#starredLabel").fadeOut(600);
+				}, 1500);
+			}
+		};
     this.subscribeBtn = function(e) {
       var that = this;
-      var email = this.$(".email").val() || preload.firstUser.email;
+			var email = this.$(".email").val() || preload.firstUser.email;
       serverClient.convSub({
-        type: 1, // 1 for email
-        email: email,
+					type: 1, // 1 for email
+					email: email,
         conversation_id: conversation_id
       }).then(function() {
         userObject.email = that.$(".email").val(); // TODO this is kinda crappy
         that.isSubscribed(1); // TODO this is totally crappy
         that.$(".email").val("");
         that.model.set("foo", Math.random()); // trigger render
-        // alert("you have subscribed");
+						// alert("you have subscribed");
       }, function(err) {
-        alert(Strings.notificationsSubscribeErrorAlert);
-        console.error(err);
+						alert(Strings.notificationsSubscribeErrorAlert);
+						console.error(err);
       });
-      return false;
-    };
+			return false;
+		};
 
-    // note: instead of -1/1/0, weight is now the boolean high_priority
+		// note: instead of -1/1/0, weight is now the boolean high_priority
     this.highPriority = function () {
-      if ($("#weight_high").prop("checked")) {
-        return true;
-      }
-      return false;
-    };
+			if ($("#weight_high").prop("checked")) {
+				return true;
+			}
+			return false;
+		};
     this.participantAgreed = function(e) {
-      this.mostRecentVoteType = "agree";
-      var tid = this.model.get("tid");
-      var starred = this.model.get("starred");
-      if (!starred) {
-        starred = void 0; // don't bother sending up false, no need to put a vote value of 0 in the db.
-      }
-      this.wipVote = {
-        vote: -1,
-        conversation_id: conversation_id,
-        high_priority: this.highPriority(),
+			this.mostRecentVoteType = "agree";
+			var tid = this.model.get("tid");
+			var starred = this.model.get("starred");
+			if (!starred) {
+				starred = void 0; // don't bother sending up false, no need to put a vote value of 0 in the db.
+			}
+			this.wipVote = {
+				vote: -1,
+				conversation_id: conversation_id,
+				high_priority: this.highPriority(),
         tid: tid
-      };
-      serverClient.addToVotesByMe(this.wipVote);
-      this.onButtonClicked();
+			};
+			serverClient.addToVotesByMe(this.wipVote);
+			this.onButtonClicked();
       serverClient.agree(tid, starred, this.wipVote.high_priority)
-        .then(onVote.bind(this), onFail.bind(this));
-    };
+				.then(onVote.bind(this), onFail.bind(this));
+		};
     this.participantDisagreed = function() {
-      this.mostRecentVoteType = "disagree";
-      var tid = this.model.get("tid");
-      var starred = this.model.get("starred");
-      this.wipVote = {
-        vote: 1,
-        conversation_id: conversation_id,
-        high_priority: this.highPriority(),
+			this.mostRecentVoteType = "disagree";
+			var tid = this.model.get("tid");
+			var starred = this.model.get("starred");
+			this.wipVote = {
+				vote: 1,
+				conversation_id: conversation_id,
+				high_priority: this.highPriority(),
         tid: tid
-      };
-      serverClient.addToVotesByMe(this.wipVote);
-      this.onButtonClicked();
+			};
+			serverClient.addToVotesByMe(this.wipVote);
+			this.onButtonClicked();
       serverClient.disagree(tid, starred, this.wipVote.high_priority)
-        .then(onVote.bind(this), onFail.bind(this));
-    };
+				.then(onVote.bind(this), onFail.bind(this));
+		};
     this.participantPassed = function() {
-      this.mostRecentVoteType = "pass";
-      var tid = this.model.get("tid");
-      var starred = this.model.get("starred");
-      this.wipVote = {
-        vote: 0,
-        conversation_id: conversation_id,
-        high_priority: this.highPriority(), // TODO: specify in help text that this is for "important but unsure"
+			this.mostRecentVoteType = "pass";
+			var tid = this.model.get("tid");
+			var starred = this.model.get("starred");
+			this.wipVote = {
+				vote: 0,
+				conversation_id: conversation_id,
+				high_priority: this.highPriority(), // TODO: specify in help text that this is for "important but unsure"
         tid: tid
-      };
-      serverClient.addToVotesByMe(this.wipVote);
-      this.onButtonClicked();
+			};
+			serverClient.addToVotesByMe(this.wipVote);
+			this.onButtonClicked();
       serverClient.pass(tid, starred, this.wipVote.high_priority)
-        .then(onVote.bind(this), onFail.bind(this));
-    };
+				.then(onVote.bind(this), onFail.bind(this));
+		};
 
     this.participantModerated = function(e) {
-      var tid = this.model.get("tid");
+			var tid = this.model.get("tid");
       serverClient.mod(tid, {
-        spam: this.model.get("spamOn"),
-        offtopic: this.model.get("otOn"),
-        important: this.model.get("importantOn"),
+					spam: this.model.get("spamOn"),
+					offtopic: this.model.get("otOn"),
+					important: this.model.get("importantOn"),
       }).then(onVote.bind(this), onFail.bind(this));
-    };
+		};
 
     this.participantStarred = function() {
-      var tid = this.model.get("tid");
-      serverClient.addToVotesByMe({
-        participantStarred: true,
-        vote: -1,
-        conversation_id: conversation_id,
+			var tid = this.model.get("tid");
+			serverClient.addToVotesByMe({
+				participantStarred: true,
+				vote: -1,
+				conversation_id: conversation_id,
         tid: tid
-      });
-      this.onButtonClicked();
+			});
+			this.onButtonClicked();
       $.when(serverClient.star(tid), serverClient.agree(tid))
         .then(onVote.bind(this), onFail.bind(this));
-    };
+		};
     this.participantTrashed = function() {
-      var tid = this.model.get("tid");
-      this.onButtonClicked();
+			var tid = this.model.get("tid");
+			this.onButtonClicked();
       serverClient.trash(tid)
         .then(onVote.bind(this), onFail.bind(this));
     };
@@ -603,9 +544,9 @@ module.exports = Handlebones.ModelView.extend({
       } else {
         alert(3);
       }
-    };
+		};
 
-    pollForComments(options.firstCommentPromise); // call immediately using a promise for the first comment (latency reduction hack)
+		pollForComments(options.firstCommentPromise); // call immediately using a promise for the first comment (latency reduction hack)
     this.listenTo(this, "rendered", function() {
       // this.$("#agreeButton").tooltip({
       //   title: "This comment represents my opinion",
@@ -618,24 +559,24 @@ module.exports = Handlebones.ModelView.extend({
       //   placement: "top",
       //   delay: { show: 500, hide: 0 }
       // });
-      this.$("#passButton").tooltip({
-        title: "'No reaction', or 'I am unsure'",
-        placement: "top",
-        delay: {
-          show: 500,
+			this.$("#passButton").tooltip({
+				title: "'No reaction', or 'I am unsure'",
+				placement: "top",
+				delay: {
+					show: 500,
           hide: 0
         }
-      });
-      this.$("#trashButton").tooltip({
-        title: "This comment is irrelevant and/or abusive",
-        placement: "top",
-        delay: {
-          show: 500,
+			});
+			this.$("#trashButton").tooltip({
+				title: "This comment is irrelevant and/or abusive",
+				placement: "top",
+				delay: {
+					show: 500,
           hide: 0
         }
-      });
+			});
 
 
-    });
+		});
   }
 });

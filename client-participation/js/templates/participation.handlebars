@@ -124,47 +124,6 @@
 
     </div>
     {{/if}}
-    {{!-- {{/ifNotEmbedded}} --}}
-
-    {{!--
-    <div style="margin: 10px 0px" class="{{#if hideSocialButtons}}displayNone{{/if}}">
-      <button class="facebookShareButton userWillShareOnFacebook">
-        <i class="svgIcon" style="
-          display: inline-block;
-          position: relative;
-          margin-inline-end: 2px;
-          top: 1px;
-          width: 16px;
-          fill: white;
-        ">{{> iconFaFacebookSquare16}}</i>
-        <span style="
-          top: -2px;
-          position: relative;
-        ">Share</span>
-      </button>
-      {{#if fbShareCount}}
-        <span class="arrow_box">{{fbShareCount}}</span>
-      {{/if}}
-
-      <button class="twitterShareButton userWillShareOnTwitter">
-        <i class="svgIcon" style="
-          display: inline-block;
-          position: relative;
-          margin-inline-end: 2px;
-          top: 1px;
-          width: 16px;
-          fill: white;
-        ">{{> iconFaTwitter16}}</i>
-        <span style="
-          top: -2px;
-          position: relative;
-        ">Tweet</span>
-      </button>
-      {{#if twitterShareCount}}
-        <span class="arrow_box">{{twitterShareCount}}</span>
-      {{/if}}
-    </div>
-    --}}
 
     {{#unless no_topic}}
     {{#ifDefined topic}}
@@ -262,60 +221,6 @@
 <span class="{{#if no_voting}}displayNone{{/if}}">
   {{view readReactView}}
 </span>
-
-{{#if auth_prompt_any_social}}
-{{#unless hasFbAndTw}}
-<div
-  id="socialButtonsUnderReadReact"
-  class=""
-  style="
-    margin-inline-start: 8px;
-    margin-bottom: 20px;
-    display: none; {{! waiting to be shown }}
-  ">
-  <p style="font-size: 14px;">
-    {{s.socialConnectPrompt}}
-  </p>
-  <div>
-    {{#if auth_opt_fb_computed}}
-    {{#unless hasFacebook}}
-      <button class="facebookButton" id="facebookButtonPtpt">
-        <span class="socialButtonText">
-          <i class="svgIcon" style="
-            display: inline-block;
-            position: relative;
-            margin-inline-end: 2px;
-            top: 6px;
-            width: 25px;
-            fill: white;
-          ">{{> iconFaFacebookSquare25}}</i>
-          {{s.connectFbButton}}
-        </span>
-      </button>
-    {{/unless}}
-    {{/if}}
-
-    {{#if auth_opt_tw_computed}}
-    {{#unless hasTwitter}}
-      <button class="twitterButton" id="twitterButtonPtpt">
-      <span class="socialButtonText">
-        <i class="svgIcon" style="
-          display: inline-block;
-          position: relative;
-          margin-inline-end: 2px;
-          top: 8px;
-          width: 25px;
-          fill: white;
-        ">{{> iconFaTwitter25}}</i>
-        {{s.connectTwButton}}
-      </span>
-      </button>
-    {{/unless}}
-    {{/if}}
-  </div>
-</div>
-{{/unless}}  {{!-- hasFbAndTw --}}
-{{/if}}  {{!-- auth_prompt_any_social --}}
 
 
 

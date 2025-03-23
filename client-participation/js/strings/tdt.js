@@ -13,7 +13,6 @@ s.modImportant  = "Importante";
 s.modSubmitInitialState  = "Liu de'it (nein ida husi leten), komentáriu tuir mai";
 s.modSubmit  = "Konklui ona, deklarasaun tuir mai";
 s.x_wrote  = "hakerek:";
-s.x_tweeted  = "tweeted:";
 s.comments_remaining  = "{{num_comments}} sira seluk";
 s.comments_remaining2  = "{{num_comments}} deklarasaun sira seluk";
 s.group_123  = "Grupu:";

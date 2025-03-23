@@ -19,7 +19,6 @@ s.modSubmitInitialState = "Επόμενη ιδέα (καμία από τις π�
 s.modSubmit = "Ολοκληρώθηκε, επόμενη ιδέα";
 
 s.x_wrote = "έγραψε:";
-s.x_tweeted = "tweeted:";
 s.comments_remaining = "{{num_comments}} απομένουν";
 s.comments_remaining2 = "{{num_comments}} εναπομείνασες ιδέες";
 s.group_123 = "Ομάδα:";
@@ -70,10 +69,6 @@ s.commentIsEmpty = "Η ιδέα είναι κενή";
 s.commentIsTooLong = "Η ιδέα είναι πολύ μεγάλη";
 s.hereIsNextStatement = "Η ψήφος ήταν επιτυχής. Πλοηγηθείτε προς τα επάνω για να δείτε την επόμενη ιδέα.";
 
-s.connectFacebook = "Σύνδεση με Facebook";
-s.connectTwitter = "Σύνδεση με Twitter";
-s.connectToPostPrompt = "Συνδεθείτε μ' έναν λογαριασμό για να υποβάλετε μια ιδέα. Δε θα δημοσιευτεί στο χρονολόγιο σας.";
-s.connectToVotePrompt = "Συνδεθείτε μ' έναν λογαριασμό για να ψηφίσετε. Δε θα δημοσιευτεί στο χρονολόγιο σας.";
 s.tip = "Συμβουλή:";
 s.commentWritingTipsHintsHeader = "Συμβουλές για τη δημιουργία ιδεών";
 s.tipCharLimit = "Οι ιδέες περιορίζονται σε {{char_limit}} χαρακτήρες.";
@@ -88,11 +83,7 @@ s.participantHelpWelcomeText = "Καλώς ορίσατε σε ένα νέο ε�
 s.participantHelpGroupsText = "Άτομα που ψηφίζουν παρόμοια <span style='font-weight: 700;'>ομαδοποιούνται.</span> Πατήστε σε μία ομάδα για να δείτε ποιες απόψεις μοιράζονται. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...περισσότερα</a>";
 s.participantHelpGroupsNotYetText = "Η απεικόνιση θα εμφανιστεί αφού έχουν ψηφίσει 7 συμμετέχοντες";
 s.helpWhatAreGroupsDetail = "<p>Έχετε πιθανώς δει 'προτεινόμενα προϊόντα' στην Amazon, ή 'προτεινόμενες ταινίες' στο Netflix. Κάθε μία από αυτές τις υπηρεσίες χρησιμοποιεί στατιστικά στοιχεία για να ομαδοποιήσει τον χρήστη με άλλους που αγοράζουν και βλέπουν παρόμαια προϊόντα και μετά τους δείχνει προϊόντα που αυτά τα άτομα αγόρασαν ή είδαν.</p> <p> Όταν ένας χρήστης ψηφίζει μία ιδέα, ομαδοποιείται με άτομα που ψήφισαν όπως αυτός! Μπορείτε να δείτε τις ομάδες παρακάτω. Η κάθε μία αποτελείται από άτομα που ψήφισαν παρόμοιες ιδέες. Υπάρχουν συναρπαστικές ιδέες και πληροφορίες για να ανακαλύψετε σε κάθε συνομιλία. Κάντε κλικ σε μία ομάδα για να δείτε τι ένωσε τους συμμετέχοντες και τι τους κάνει ξεχωριστούς! </p>";
-s.socialConnectPrompt = "Συνδεθείτε προαιρετικά για να δείτε φίλους και άτομα που ακολουθείτε στην οπτικοποίηση.";
-s.connectFbButton = "Σύνδεση με Facebook";
-s.connectTwButton = "Σύνδεση με Twitter";
-s.polis_err_reg_fb_verification_email_sent = "Παρακαλώ, ελέγξτε το email σας για τον σύνδεσμο επαλήθευσης και μετά επιστρέψτε εδώ για να συνεχίσετε.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Ο λογαριασμός σας στο Facebook δεν έχει επαληθευτεί. Παρακαλώ, επαληθεύστε το email σας με το Facebook και μετά επιστρέψτε εδώ για να συνεχίσετε.";
+
 s.showTranslationButton = "Ενεργοποίηση μετάφρασης";
 s.hideTranslationButton = "Απενεργοποίηση μετάφρασης ";
 s.thirdPartyTranslationDisclaimer = "Η μετάφραση παρέχεται από τρίτο μέρος";

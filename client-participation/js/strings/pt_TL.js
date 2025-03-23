@@ -13,7 +13,6 @@ s.modImportant  = "Importante";
 s.modSubmitInitialState  = "Avançar (nenhuma das anteriores), próxima declaração";
 s.modSubmit  = "Concluído, próxima declaração";
 s.x_wrote  = "escreva:";
-s.x_tweeted  = "tweeted:";
 s.comments_remaining  =  "{{num_comments}} restante";
 s.comments_remaining2  =  "{{num_comments}} declarações restantes";
 s.group_123  = "Grupo:";

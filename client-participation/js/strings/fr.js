@@ -13,7 +13,6 @@ s.modSubmitInitialState = "Aucune de ces réponses – Passer à la prochaine af
 s.modSubmit = "Terminé – Passer à la prochain affirmation";
 
 s.x_wrote = "a écrit :";
-s.x_tweeted = "a publié sur Twitter :";
 s.comments_remaining = "Il en reste {{num_comments}}";
 s.comments_remaining2 = "Il reste {{num_comments}} autres affirmations";
 s.group_123 = "Groupe :";
@@ -58,10 +57,6 @@ s.commentIsEmpty = "L’affirmation est vide.";
 s.commentIsTooLong = "L’affirmation est trop longue.";
 s.hereIsNextStatement = "Vote effectué avec succès. Naviguez vers le haut pour voir l’affirmation suivante.";
 
-s.connectFacebook = "Connexion à Facebook";
-s.connectTwitter = "Connexion à Twitter";
-s.connectToPostPrompt = "Connectez-vous pour publier une affirmation. Nous ne publierons pas votre journal.";
-s.connectToVotePrompt = "Connectez-vous pour voter. Nous ne publierons pas votre journal.";
 s.tip = "Conseil :";
 s.commentWritingTipsHintsHeader = "Conseils pour rédiger une affirmation";
 s.tipCharLimit = "Les énoncés doivent compter au plus {{char_limit}} caractères.";
@@ -81,11 +76,6 @@ s.participantHelpWelcomeText = "Bienvenue à un nouveau mode de conversation : <
 s.participantHelpGroupsText = "Toutes les personnes qui ont voté de façon semblable <span style='font-weight: 700;'>sont regroupées.</span> Cliquez sur un groupe pour connaître le point de vue des membres.<a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...(plus)</a>";
 s.participantHelpGroupsNotYetText = "Le volet de visualisation s’affichera une fois qu’au moins 7 participants auront voté. ";
 s.helpWhatAreGroupsDetail = "<p>Vous avez probablement déjà consulté la section sur les produits recommandés d’Amazon, ou celle des films recommandés sur Netflix. Chacun de ces services se fonde sur les statistiques pour regrouper l’utilisateur avec d’autres qui achètent des produits ou regardent des films similaires, puis présente les articles que ces autres utilisateurs ont acheté ou regardé. </p> <p> Lorsqu’un participant vote au sujet d’une affirmation, il est regroupé avec d’autres participants qui ont voté comme lui! Vous pouvez voir ci-dessous les groupes ainsi formés. Chacun est constitué de participants ayant des opinions semblables. Chaque conversation permet de faire des découvertes fascinantes. Allez-y! Cliquez sur un groupe pour voir ce que les membres ont en commun et ce qui les distingue des autres! </p>";
-s.socialConnectPrompt = "Vous pouvez aussi vous connecter au forum pour voir vos amis et les personnes que vous suivez dans le volet de visualisation.";
-s.connectFbButton = "Connectez-vous avec votre compte Facebook";
-s.connectTwButton = "Connectez-vous avec votre compte Twitter";
-s.polis_err_reg_fb_verification_email_sent = "Veuillez vérifier votre boîte de courriel et cliquez sur le lien de vérification. Revenez ensuite ici pour continuer.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Votre compte Facebook n’a pas été confirmé. Veuillez vérifier l’adresse de courriel que vous utilisez avec votre compte Facebook, puis revenez ici pour continuer.";
 s.showTranslationButton = "Activer la traduction par un tiers";
 s.hideTranslationButton = "Désactiver le service de traduction";
 

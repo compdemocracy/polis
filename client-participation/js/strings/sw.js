@@ -29,7 +29,6 @@ s.modSubmitInitialState = "Ruka (Zote zilizo hapo juu si muhimu), kauli inayofua
 s.modSubmit = "Nimemaliza, kauli inayofuata";
 
 s.x_wrote = "ameandika:";
-s.x_tweeted = "amechapisha:";
 s.comments_remaining = "{{num_comments}} zimesalia";
 s.comments_remaining2 = "{{num_comments}} kauli zilizosalia";
 
@@ -127,23 +126,6 @@ s.commentErrorConversationClosed =
 s.commentIsEmpty = "Kauli haijawekwa";
 s.commentIsTooLong = "Kauli ni ndefu mno";
 s.hereIsNextStatement = "Umepiga kura. Nenda juu ili uone kauli inayofuata.";
-
-// Maandishi kuhusu kuunganisha utambulisho
-
-s.connectFacebook = "Unganisha Facebook";
-s.connectTwitter = "Unganisha Twitter";
-s.connectToPostPrompt =
-  "Unganisha utambulisho ili utume kauli. Hatutachapisha kwenye kalenda ya matukio yako.";
-s.connectToVotePrompt =
-  "Unganisha utambulisho ili upige kura. Hatutachapisha kwenye kalenda ya matukio yako.";
-s.socialConnectPrompt =
-  "Ukipenda unganisha ili uone marafiki na watu unaowafuatilia kwenye mwonekano.";
-s.connectFbButton = "Unganisha na Facebook";
-s.connectTwButton = "Unganisha na Twitter";
-s.polis_err_reg_fb_verification_email_sent =
-  "Tafadhali angalia barua pepe yako ili uone kiungo cha kuthibitisha, kisha urejee hapa ili uendelee.";
-s.polis_err_reg_fb_verification_noemail_unverified =
-  "Akaunti yako ya Facebook haijathibitishwa. Tafadhali thibitisha anwani yako ya barua pepe inayotumika kwenye Facebook, kisha rudi hapa ili uendelee.";
 
 // Maandishi ya tafsiri ya wengine yanayoonekana kwenye kadi
 

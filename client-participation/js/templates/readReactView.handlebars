@@ -17,27 +17,7 @@
   		z-index: 3;
   		{{!-- min-height: 144px; attempt to avoid flashing on vote view load--}}
   	">
-
-    {{!-- This is the optional social prompt --}}
-	  {{#if promptFacebook}}
-	  <div style="margin: 20px;" class="Notification Notification--warning">
-	    <p class="HeadingF HeadingF--light pull-right" style="cursor: pointer" role="button" type="button" id="fbNotNowBtn">
-	    	<i class="fa fa-times"></i> Not now
-	    </p>
-	    <div>
-	      <p class="facebookCaveatText">
-		      Connect Facebook and invite your friends to see them in the visualization! We will not post on your behalf.
-	      </p>
-	      <div class="text-center">
-		    	<button id="fbConnectBtn" class="facebookButton">
-		    		<i class="fa fa-facebook-square"></i>&nbsp; Connect Facebook
-		      </button>
-	      </div>
-	    </div>
-	  </div>
-	  {{else}}
   		{{view voteView}}
-	  {{/if}}
 	</div>
 
   {{!-- Empty "Card stack" div1 (notice css "top" and "width") --}}

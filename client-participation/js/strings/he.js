@@ -22,7 +22,6 @@ s.modSubmitInitialState = "דלג (אף אחד מאלה), אמירה הבאה";
 s.modSubmit = "סיימתי, אמירה הבאה";
 
 s.x_wrote = "כתב/ה:";
-s.x_tweeted = "צייצ/ה:";
 s.comments_remaining = "{{num_comments}} נותרו";
 s.comments_remaining2 = "{{num_comments}} אמירות נותרו";
 s.group_123 = "קבוצה:";
@@ -73,10 +72,6 @@ s.commentIsEmpty = "אמירה ריקה";
 s.commentIsTooLong = "אמירה ארוכה מדי";
 s.hereIsNextStatement = "הצבעה נקלטה. נווטו למעלה על מנת לראות את האמירה הבאה.";
 
-s.connectFacebook = "התחברות פייסבוק";
-s.connectTwitter = "התחברות טוויטר";
-s.connectToPostPrompt = "עליך להזדהות על מנת להוסיף אמירה. אנחנו לא נכתוב בשמך בפייסבוק.";
-s.connectToVotePrompt = "עליך להזדהות על מנת להצביע. אנחנו לא נכתוב בשמך בפייסבוק.";
 s.tip = "טיפ:";
 s.commentWritingTipsHintsHeader = "טיפים לכתיבת אמירות";
 s.tipCharLimit = "אמירות מוגבלות ל-{{char_limit}} תווים.";
@@ -93,11 +88,6 @@ s.participantHelpWelcomeText = "ברוכים הבאים לסוג חדש של ש�
 s.participantHelpGroupsText = "אנשים שהצביעו באופן דומה <span style='font-weight: 700;'>נמצאים יחד בקבוצה.</span> לחצו על קבוצה על מנת לראות אילו נקודות מבט הם חולקים. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...עוד</a>";
 s.participantHelpGroupsNotYetText = "הגרפיקות יופיעו כאשר 7 משתתפים לפחות יצביעו.";
 s.helpWhatAreGroupsDetail = "<p>ודאי הוצעו לכם 'מוצרים מומלצים' באמזון או 'סרטים מומלצים' בנטפליקס. כל אחד מהשירותים האלהמשתמש בסטטיסטיקה על מנת לקבץ את המשתמשים עם אנשים שקנו וצפו בדברים דומים להם, ואז מציע להם את מה שאותם אנשים קנו או צפו בו. </p> <p> כאשר משתמשים מצביעים על אמירה, הם מקובצים יחד עם אנשים שהצביעו כמוהם! תוכלו לראות את הקבוצות הללו למטה. כל אחת מורכבת מאנשים שחולקים דעות דומות. ישנן תובנות מרתקות לגילוי בכל שיחה. נסו ללחוץ על קבוצה וראו אילו דעות איחדו אותם, ומה הופך אותם לייחודיים.</p>";
-s.socialConnectPrompt = "תוכלו להתחבר על מנת לראות חברים ואנשים שאתם עוקבים אחריהם בהדמיה.";
-s.connectFbButton = "התחברות עם פייסבוק";
-s.connectTwButton = "התחברות עם טוויטר";
-s.polis_err_reg_fb_verification_email_sent = "יש לבדוק את המייל ללינק אימות, ואז לחזור לכאן על מנת להמשיך.";
-s.polis_err_reg_fb_verification_noemail_unverified = "חשבון הפייסבוק שלך לא מאומת. יש לאמת את כתובת האימייל עם פייסבוק ואז לחזור לכאן על מנת להמשיך.";
 s.showTranslationButton = "הפעלת תרגום של ספק צד שלישי";
 s.hideTranslationButton = "כיבוי תרגום";
 s.thirdPartyTranslationDisclaimer = "התרגום מתבצע על ידי צד שלישי";

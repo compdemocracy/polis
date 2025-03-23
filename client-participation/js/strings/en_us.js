@@ -28,7 +28,6 @@ s.modSubmitInitialState = "Skip (none of the above), next statement";
 s.modSubmit = "Done, next statement";
 
 s.x_wrote = "wrote:";
-s.x_tweeted = "tweeted:";
 s.comments_remaining = "{{num_comments}} remaining";
 s.comments_remaining2 = "{{num_comments}} remaining statements";
 
@@ -126,23 +125,6 @@ s.commentErrorConversationClosed =
 s.commentIsEmpty = "Statement is empty";
 s.commentIsTooLong = "Statement is too long";
 s.hereIsNextStatement = "Vote success. Navigate up to see the next statement.";
-
-// Text about connecting identity
-
-s.connectFacebook = "Connect Facebook";
-s.connectTwitter = "Connect Twitter";
-s.connectToPostPrompt =
-  "Connect an identity to submit a statement. We will not post to your timeline.";
-s.connectToVotePrompt =
-  "Connect an identity to vote. We will not post to your timeline.";
-s.socialConnectPrompt =
-  "Optionally connect to see friends and people you follow in the visualization.";
-s.connectFbButton = "Connect with Facebook";
-s.connectTwButton = "Connect with Twitter";
-s.polis_err_reg_fb_verification_email_sent =
-  "Please check your email for a verification link, then return here to continue.";
-s.polis_err_reg_fb_verification_noemail_unverified =
-  "Your Facebook account is unverified. Please verify your email address with Facebook, then return here to continue.";
 
 // Text for the third party translation that appears on the cards
 

@@ -27,7 +27,6 @@ s.modSubmitInitialState = "پریږدئ (له پورتنیو څخه هیڅ یو 
 s.modSubmit = "بشپړ شو، راتلونکی بیان";
 
 s.x_wrote = "ولیکل:";
-s.x_tweeted = "ټویټ شوی:";
 s.comments_remaining = "{{num_comments}} پاتې شوني";
 s.comments_remaining2 = "{{num_comments}} پاتې بیانونه";
 
@@ -125,23 +124,6 @@ s.commentErrorConversationClosed =
 s.commentIsEmpty = "بیان خالي دی";
 s.commentIsTooLong = "بیان ډېر اوږد دی";
 s.hereIsNextStatement = "د رایې ورکولو بریالیتوب. د راتلونکې بیان لیدلو لپاره پورته لاړ شئ.";
-
-// د هویت دوصل کولو په اړه متن
-
-s.connectFacebook = "د Facebook سره وصل کړئ";
-s.connectTwitter = "د Twitter سره وصل کړئ";
-s.connectToPostPrompt =
-  "د بیان سپارلو لپاره یو هویت وصل کړئ. موږ به ستاسو په مهال ویش کې خپور نه کړو.";
-s.connectToVotePrompt =
-  "د رایې ورکولو لپاره هویت وصل کړئ. موږ به ستاسو په مهال ویش کې خپور نه کړو.";
-s.socialConnectPrompt =
-  "په اختیاري ډول د هغه ملګرو او خلکو کتلو وصل شئ چې تاسو یې په لید کې تعقیب کوئ.";
-s.connectFbButton = "د Facebook سره وصل شئ";
-s.connectTwButton = "د Twitter سره وصل شئشئ";
-s.polis_err_reg_fb_verification_email_sent =
-  "مهرباني وکړئ د تایید لینک لپاره خپل بریښنالیک وګورئ، بیا د ادامې لپاره دلته بیرته راشئ.";
-s.polis_err_reg_fb_verification_noemail_unverified =
-  "ستاسو د Facebook حساب تایید شوی نه دی. مهرباني وکړئ خپل برېښنالیک پته د Facebook سره تایید کړئ، بیا دلته د ادامې لپاره بیرته راشئ.";
 
 // د دریمې ډلې ژباړې لپاره هغه متن چې په کارتونو کې ښکاري
 

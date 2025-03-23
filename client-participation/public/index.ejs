@@ -231,21 +231,6 @@
 
   <body class="clickDeselectsHull" style="margin:0; background-color: white;">
 
-    <% if (fbAppId) { %>
-      <div id="fb-root"></div>
-      <script>
-        window.fbAsyncInit = function() {
-          FB.init({
-            appId            : '<%= fbAppId %>',
-            cookie           : true,
-            xfbml            : true,
-            version          : 'v9.0'
-          });
-        };
-      </script>
-      <script async defer crossorigin="anonymous" src="https://connect.facebook.net/en_US/sdk.js"></script>
-    <% } %>
-
     <p id="mainSpinner" style="text-align:center; margin: auto; width:100%; display: none">
       <svg version="1.1" id="loader-1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
         width="40px" height="40px" viewBox="0 0 50 50" style="enable-background:new 0 0 50 50;" xml:space="preserve">

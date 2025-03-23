@@ -97,36 +97,8 @@ module.exports = Handlebones.CollectionView.extend({
   //   template: Handlebars.compile("empty content"),
   // }),
   events: {
-    "click #fbNotNowBtn": "fbNotNowBtn",
-    "click #fbNoUseBtn": "fbNoUseBtn",
-    "click #fbConnectBtn": "fbConnectBtn",
     // "click #passButton": "participantPassed",
   },
-
-  // fbNotNowBtn: function() {
-  //   this.model.set("response", "fbnotnow");
-  // },
-  // fbNoUseBtn: function() {
-  //   this.model.set("response", "fbnouse");
-  // },
-  // fbConnectBtn: function() {
-  //   PolisFacebookUtils.connect().then(function() {
-  //     // that.model.set("response", "fbdone");
-  //     location.reload();
-  //   }, function(err) {
-  //     // alert("facebook error");
-  //   });
-  // },
-
-  // context: function() {
-  //   var ctx = Handlebones.CollectionView.prototype.context.apply(this, arguments);
-  //   // var hasFacebookAttached = window.userObject.hasFacebook;
-
-  //   // var voteCountForFacebookPrompt = 3;
-
-  //   // ctx.promptFacebook = SHOULD_PROMPT_FOR_FB && !hasFacebookAttached && !this.model.get("response") && this.model.get("voteCount") > voteCountForFacebookPrompt;
-  //   return ctx;
-  // },
 
   initialize: function(options) {
     Handlebones.CollectionView.prototype.initialize.apply(this, arguments);

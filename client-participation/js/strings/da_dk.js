@@ -13,7 +13,6 @@ s.modSubmitInitialState = "Spring over (ingen af ovenstående), næste kommentar
 s.modSubmit = "Færdig, næste kommentar";
 
 s.x_wrote = "skrev:";
-s.x_tweeted = "tweetede:";
 s.comments_remaining = "{{num_comments}} tilbage";
 s.comments_remaining2 = "{{num_comments}} tilbage";
 s.group_123 = "Gruppe:";
@@ -62,10 +61,6 @@ s.commentIsEmpty = "Kommentar er tom";
 s.commentIsTooLong = "Kommentar er for lang";
 s.hereIsNextStatement = "Succes. Naviger op for at se næste kommentar.";
 
-s.connectFacebook = "Forbind Facebook";
-s.connectTwitter = "Forbind Twitter";
-s.connectToPostPrompt = "Forbind en identitet for at kommentere. Vi poster ikke på din tidslinje.";
-s.connectToVotePrompt = "orbind en identitet for at kommentere. Vi poster ikke på din tidslinje.";
 s.tip = "Tip:";
 s.commentWritingTipsHintsHeader = "Råd til at skrive kommentarer";
 s.tipCharLimit = "Kommentarer er begrænset til {{char_limit}} tegn.";
@@ -80,11 +75,6 @@ s.participantHelpWelcomeText = "Velkommen til en ny slags samtale - <span style=
 s.participantHelpGroupsText = "Personer der stemmer lig hinanden <span style='font-weight: 700;'>grupperes.</span> Klik på en gruppe for at se, hvilke synspunkter de deler <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...mere</a>";
 s.participantHelpGroupsNotYetText = "Visualisering kan først ses når 7 deltagere har stemt";
 s.helpWhatAreGroupsDetail = "<p>Du har sikkert set 'anbefalede produkter' på Amazon eller 'anbefalede film' på Netflix. Tjenesterne grupperer dig med personer, der køber eller ser lignende ting, så du får anbefalet, hvad de købte eller så.</p> <p> Når du stemmer på en kommentar, bliver du grupperet med personer der stemte ligesom dig. Du kan se grupperne her. Hver gruppe er sammensat af personer med lignende holdninger. Der kan være fascinerende indsigt i dette - gå på opdagelse og se, hvad der gør grupperne unikke. </p>";
-s.socialConnectPrompt = "Du kan forbinde for at se venner og personer du følger i visualiseringen.";
-s.connectFbButton = "Forbind med Facebook";
-s.connectTwButton = "Forbind med Twitter";
-s.polis_err_reg_fb_verification_email_sent = "Check din email for et link, så vi kan verificere dig.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Din Facebook-konto er ikke verificeret, Verificer den og kom tilbage..";
 s.showTranslationButton = "Aktiver oversættelse";
 
 s.hideTranslationButton = "Deaktiver oversættelse";

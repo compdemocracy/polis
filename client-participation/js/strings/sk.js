@@ -19,7 +19,6 @@ s.modSubmitInitialState = "Vynechať (Žiadne z vyššie uvedených), ďalší v
 s.modSubmit = "Hotovo, ďalší výrok";
 
 s.x_wrote = "napísal/a:";
-s.x_tweeted = "tweetol/a:";
 s.comments_remaining = "{{num_comments}} zostávajúcich";
 s.comments_remaining2 = "{{num_comments}} zostávajúcich komentárov";
 s.group_123 = "Skupina:";
@@ -70,10 +69,6 @@ s.commentIsEmpty = "Komentár je prázdny";
 s.commentIsTooLong = "Komentár je príliš dlhý";
 s.hereIsNextStatement = "Váš hlas bol úspešne zaznamenaný. Prejdite vyššie pre zobrazenie ďalšieho komentáru.";
 
-s.connectFacebook = "Prepojiť Facebook";
-s.connectTwitter = "Prepojiť Twitter";
-s.connectToPostPrompt = "Prepojte svoju profil pre zadanie komentáru. Na vašu časovú os nebudeme pridávať žiadne príspevky.";
-s.connectToVotePrompt = "Prepojte svoju profil pre hlasovanie. Na vašu časovú os nebudeme pridávať žiadne príspevky.";
 s.tip = "Tip:";
 s.commentWritingTipsHintsHeader = "Tipy pre písanie výrokov";
 s.tipCharLimit = "Výroky sú limitované na {{char_limit}} znakov.";
@@ -88,11 +83,6 @@ s.participantHelpWelcomeText = "Vitajte v novom druhu online diskusie - <em>hlas
 s.participantHelpGroupsText = "Diskutujúci, ktorí hlasovali podobne <span style='font-weight: 700;'>sú zoskupení v názorových skupinách.</span> Kliknite na jednotlivú skupinu pre zobrazenie názorov, ktoré zastávajú. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...ďalšie</a>";
 s.participantHelpGroupsNotYetText = "Vizualizácia sa zobrazí keď 7 účastníkov začalo hlasovať";
 s.helpWhatAreGroupsDetail = '<p> Pravdepodobne ste už videli "odporúčané produkty" na Amazone, alebo "odporúčané filmy" na Netflixe. Všetky tieto internetové služby využívajú štatistiku na zoskupenie uživateľov, ktorí kupujú, či sledujú podobné veci. Tieto služby im následne odporúčajú produkty, ktoré si ľudia z ich skupiny už kúpili či pozreli.</p> <p> Keď účastník konverzácie hlasuje o jednotlivých komentároch, tak algoritmus ho zoskupí s účastníkmi, ktorí hlasovali podobne. Grafické vyobrazenie týchto skupín môžte vidieť nižšie. Každá skupina je zložená z ľudí, kotrí majú podobný názor na vec. Práve to nám umožňuje viesť konštruktívnu diskusiu a prehľadne zistiť čo si veľké skupiny ľudí myslia. Neváhajte, kliknite na ľubovolnú skupinu nižšie a zistite čo nás rozdeľuje a čo spája.</p>';
-s.socialConnectPrompt = "Môžte si pripojiť svoj účet, aby ste vo vizualizácii videli vašich priateľov a ľudí, ktorých sledujete.";
-s.connectFbButton = "Pripojte sa s Facebookom";
-s.connectTwButton = "Pripojte sa s Twitterom";
-s.polis_err_reg_fb_verification_email_sent = "Prosím, verifikujte váš mail a následne sa sem vráťte pre pokračovanie.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Váš Facebook účet nebol verifikovaný. Verifikute prosím, vašu emailovú adresu prostredníctvom Facebooku a následne sa sem vráťte pre pokračovanie.";
 s.showTranslationButton = "Preložiť";
 s.hideTranslationButton = "Deaktivujte preklad";
 s.thirdPartyTranslationDisclaimer = "Preklad je zabezpečovaný treťou stranou.";

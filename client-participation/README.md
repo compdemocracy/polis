@@ -44,14 +44,6 @@ embedded into another website. Set the **`EMBED_SERVICE_HOSTNAME`** environment 
 when you build this app. In the top-level `docker compose` configuration, this variable is read from the `.env` file
 there. e.g. `EMBED_SERVICE_HOSTNAME=api.mypolis.org`.
 
-### Facebook App Integration
-
-Optionally, you can [register with Facebook](https://developers.facebook.com/docs/development) and get a Facebook App ID
-to use the Facebook auth features.
-
-If you do so, set the **`FB_APP_ID`** environment variable in the top level `.env` file, or manually pass it in
-when building and running this application.
-
 ## Building the Application
 
 ```sh

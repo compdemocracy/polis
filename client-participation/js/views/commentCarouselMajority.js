@@ -69,32 +69,13 @@ module.exports = CommentCarousel.extend({
       // var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
       var backgroundColor = "white"; //forAgree ? "rgba(192, 228, 180, 1)" : "rgba(246, 208, 208, 1)";
       var dotColor = forAgree ? "#00b54d" : "#e74c3c";
-      var social = c.get("social");
+
       var socialCtx = {
         name: Strings.anonPerson,
         img: Utils.getAnonPicUrl(),
         link: "",
         anon: true,
       };
-      if (social) {
-        var hasTwitter = social.screen_name;
-        var hasFacebook = social.fb_name;
-        if (hasFacebook) {
-          socialCtx = {
-            name: social.fb_name,
-            img: social.fb_picture,
-            link: social.fb_link,
-          };
-        }
-        if (hasTwitter) {
-          socialCtx = {
-            name: social.name,
-            img: social.twitter_profile_image_url_https,
-            link: "https://twitter.com/" + social.screen_name,
-            screen_name: social.screen_name,
-          };
-        }
-      }
 
       var tmpl = display.xs() ? carouselCommentMobileTemplate : carouselCommentTemplate;
 

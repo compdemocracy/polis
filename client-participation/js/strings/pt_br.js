@@ -13,7 +13,6 @@ s.modSubmitInitialState = "Passar (nenhuma das anteriores), próximo comentário
 s.modSubmit = "Finalizado, próximo comentário";
 
 s.x_wrote = "escreveu:";
-s.x_tweeted = "tuítou:";
 s.comments_remaining = "faltam {{num_comments}}";
 s.group_123 = "Grupo:";
 s.comment_123 = "Commentário:";
@@ -47,10 +46,6 @@ s.pctDisagreedLong = "{{pct}}% de todos que opinaram no comentário {{comment_id
 s.pctAgreedOfGroupLong = "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} concordaram.";
 s.pctDisagreedOfGroupLong = "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} discordaram.";
 s.commentSent = "Comentário Enviado! Outros participantes vão ver seu comentário, podendo concordar ou discordar.";
-s.connectFacebook = "Conectar Facebook";
-s.connectTwitter = "Conectar Twitter";
-s.connectToPostPrompt = "Conectar uma conta para comentar. Não vamos publicar na sua timeline.";
-s.connectToVotePrompt = "Se conecte para opinar. Nós não vamos publicar na sua timeline.";
 s.tip = "Dica:";
 s.tipCommentsRandom = "Comentários são embaralhados para ser exibidos. Quando escreve um comentário, você não está respondendo diretamente para ninguém.";
 s.tipOneIdea = "Divida comentários longos que contenham muitas ideias. Isso facilita para as pessoas entenderem e reagirem ao seu comentário.";
@@ -62,11 +57,6 @@ s.participantHelpWelcomeText = "Bem vindo a um novo jeito de discutir - <span st
 s.participantHelpGroupsText = "Pessoas que participam de forma parecida <span style='font-weight: 700;'>são agrupadas.</span> Clique num grupo para ver que pontos de vista elas compartilham <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...mais</a>";
 s.participantHelpGroupsNotYetText = "A visualização dos grupos ira aparecer só depois de 7 participantes terem opinado";
 s.helpWhatAreGroupsDetail = "<p> Quando você opina sobre um ou mais comentários, é agrupado com pessoas que opinaram de um jeito parecido contigo! Você pode ver esses grupos abaixo. Cada um é formado por pessoas que tem opiniões parecidas. Há ideias fascinantes para descobrir em cada conversa. Vá em frente - clique num grupo para ver o que os uniu e o que faz eles serem únicos! </p>";
-s.socialConnectPrompt = "Conecte para visualizar os amigos e pessoas que você segue.";
-s.connectFbButton = "Conecte com Facebook";
-s.connectTwButton = "Conecte com Twitter";
-s.polis_err_reg_fb_verification_email_sent = "Por favor acesse seu email e clique no link de verificação, então retorne aqui para continuar.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Sua conta no Facebook não foi verificada. Por favor verifique seu endereço de email com o Facebook, então retorne aqui para continuar";
 
 s.notificationsAlreadySubscribed = "Você está inscrito para receber atualizações dessa discussão.";
 s.notificationsGetNotified = "Seja notificado quando mais comentários chegarem:";

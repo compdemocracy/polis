@@ -19,7 +19,6 @@ s.modSubmitInitialState = "Mynd heibio (dim o'r uchod), datganiad nesaf";
 s.modSubmit = "Cwblhawyd, datganiad nesaf";
 
 s.x_wrote = "ysgrifennodd:";
-s.x_tweeted = "trydarodd:";
 s.comments_remaining = "{{num_comments}} ar ôl";
 s.comments_remaining2 = "{{num_comments}} o ddatganiadau ar ôl";
 s.group_123 = "Grŵp:";
@@ -70,10 +69,6 @@ s.commentIsEmpty = "Mae'r datganiad yn wag";
 s.commentIsTooLong = "Mae'r datganiad rhy hir";
 s.hereIsNextStatement = "Llwyddiant pleidleisio. Ewch i fyny i weld y datganiad nesaf.";
 
-s.connectFacebook = "Cysylltu Facebook";
-s.connectTwitter = "Cysylltu Twitter";
-s.connectToPostPrompt = "Cysylltwch broffil i gyflwyno datganiad. Ni fyddwn yn postio i'ch llinell amser.";
-s.connectToVotePrompt = "Cysylltwch broffil i bleidleisio. Ni fyddwn yn postio i'ch llinell amser.";
 s.tip = "Awgrym:";
 s.commentWritingTipsHintsHeader = "Awgrymiadau ar gyfer ysgrifennu datganiadau.";
 s.tipCharLimit = "Mae datganiadau wedi'u cyfyngu i {{char_limit}}  o lythrennau.";
@@ -88,11 +83,7 @@ s.participantHelpWelcomeText = "Croeso i fath newydd o sgwrs - <em> pleidleisiwc
 s.participantHelpGroupsText = "Mae'r bobl sy'n pleidleisio'r un fath  <span style='font-weight: 700;'>wedi'u grwpio.</span> Cliciwch grŵp i weld pa safbwyntiau maen nhw'n eu rhannu. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...mwy</a>";
 s.participantHelpGroupsNotYetText = "Bydd y ddelwedd yn ymddangos unwaith y bydd 7 cyfrannwr wedi dechrau pleidleisio.";
 s.helpWhatAreGroupsDetail = "<p>Mae'n debyg eich bod wedi gweld 'recommended products' ar Amazon, neu 'recommended films' ar Netflix. Mae pob un o'r gwasanaethau hynny'n defnyddio ystadegau i grwpio'r defnyddiwr gyda phobl sy'n prynu ac yn gwylio pethau tebyg, yna'n dangos pethau iddyn nhw'n seiliedig ar beth ddaru'r grŵp brynu neu wylio. </p> <p> Pan fydd defnyddiwr yn pleidleisio ar ddatganiadau, maen nhw'n cael eu grwpio gyda phobl sydd wedi pleidleisio yn yr un ffordd! Gallwch weld y grwpiau hynny isod. Mae pob un yn cynnwys pobl sydd â barn debyg. Mae syniadau hynod ddiddorol i'w darganfod ym mhob sgwrs. Ewch ymlaen - cliciwch grŵp i weld beth ddaeth â nhw at ei gilydd a beth sy'n eu gwneud yn unigryw! </p>";
-s.socialConnectPrompt = "Dewiswch i gysylltu i weld ffrindiau a phobl rydych chi'n eu dilyn yn y ddelwedd.";
-s.connectFbButton = "Cysylltwch gyda Facebook";
-s.connectTwButton = "Cysylltwch gyda Twitter";
-s.polis_err_reg_fb_verification_email_sent = "Gwiriwch eich e-bost am ddolen wirio, yna dychwelwch yma i barhau.";
-s.polis_err_reg_fb_verification_noemail_unverified = "Mae eich cyfrif Facebook heb ei wirio. Gwiriwch eich cyfeiriad e-bost gyda Facebook, yna dychwelwch yma i barhau.";
+
 s.showTranslationButton = "Cychwyn cyfieithiad trydydd parti";
 s.hideTranslationButton = "Gorffen cyfieithiad";
 s.thirdPartyTranslationDisclaimer = "Cyfieithiad wedi ei ddarparu gan drydydd parti";

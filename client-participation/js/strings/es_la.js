@@ -29,7 +29,6 @@ s.modSubmitInitialState = "Saltar (nada de lo anterior); siguiente afirmación";
 s.modSubmit = "Hecho, siguiente afirmación";
 
 s.x_wrote = "ha escrito:";
-s.x_tweeted = "ha tuiteado:";
 s.comments_remaining = "Quedan {{num_comments}}";
 s.comments_remaining2 = "Quedan {{num_comments}} afirmaciones";
 
@@ -127,23 +126,6 @@ s.commentErrorConversationClosed =
 s.commentIsEmpty = "La afirmación está vacía";
 s.commentIsTooLong = "La afirmación es demasiado larga";
 s.hereIsNextStatement = "Voto correcto. Desplázate hacia arriba para ver la siguiente afirmación.";
-
-// Text about connecting identity
-
-s.connectFacebook = "Conectar Facebook";
-s.connectTwitter = "Conectar Twitter";
-s.connectToPostPrompt =
-  "Conecta una cuenta para enviar una afirmación. No publicaremos nada en tu perfil.";
-s.connectToVotePrompt =
-  "Conecta una cuenta para votar. No publicaremos nada en tu perfil.";
-s.socialConnectPrompt =
-  "De forma opcional, puedes conectar una cuenta para ver a tus amigos y a quienes sigues en la visualización.";
-s.connectFbButton = "Conectar Facebook";
-s.connectTwButton = "Conectar Twitter";
-s.polis_err_reg_fb_verification_email_sent =
-  "Busca en tu correo un enlace de verificación y vuelve a esta página después para continuar.";
-s.polis_err_reg_fb_verification_noemail_unverified =
-  "Tu cuenta de Facebook no está verificada. Verifica tu dirección de correo en Facebook y vuelve a esta página después para continuar.";
 
 // Text for the third party translation that appears on the cards
 

@@ -8,7 +8,6 @@ s.disagree = "反対";
 s.pass = "わからない/どちらでもない";
 
 s.x_wrote = "から：";
-s.x_tweeted = "がツイートしました：";
 s.comments_remaining = "残り {{num_comments}} 問";
 s.comments_remaining2 = "{{num_comments}} が残っています";
 s.group_123 = "グループ：";
@@ -57,10 +56,6 @@ s.commentIsTooLong = "意見が長すぎます。";
 s.hereIsNextStatement = "投票に成功しました。次の意見に行きましょう。";
 
 s.emailLogin = "メールでログイン";
-s.connectFacebook = "Facebookでログイン";
-s.connectTwitter = "Twitterでログイン";
-s.connectToPostPrompt = "意見するにはメールアドレスまたはFacebookIDでアクセスしてください。あなたのタイムラインには何も表示されません。";
-s.connectToVotePrompt = "投票するにはメールアドレスまたはFacebookIDでアクセスしてください。あなたのタイムラインには何も表示されません。";
 s.tip = "Tip:";
 s.commentWritingTipsHintsHeader = "意見を書くためのコツ";
 s.tipCharLimit = "意見は最大で {{char_limit}} 文字です。";
@@ -75,9 +70,6 @@ s.participantHelpWelcomeText = "新しい形式の会話へようこそ。他の
 s.participantHelpGroupsText = "意見が似ている人は<span style='font-weight: 700;'>グループにまとめられます。</span>グループをクリックすると、そこの人の視点になれます。<a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...more</a>";
 s.participantHelpGroupsNotYetText = "7人以上が投票していると、図形が表示されます。";
 s.helpWhatAreGroupsDetail = "<p>Amazonの「お勧めの商品」、Netflixの「お勧めの映画」は、統計を使用して、類似のものを購入したり視聴しているユーザをグループ化し、同じグループの他のユーザが購入または視聴しているものを表示します。</p><p>Pol.isでも同様です。グループは以下で確認でき、似たような意見を持つ人々で構成されています。グループをクリックすると、何がそのグループの特徴となっているのかがわかります。</p>";
-s.socialConnectPrompt = "ログインしていると、ビジュアルにあなたの位置が表示それます。";
-s.connectFbButton = "Facebookでログイン";
-s.connectTwButton = "Twitterでログイン";
 
 s.notificationsAlreadySubscribed = "この会話を購読しました。";
 s.notificationsGetNotified = "新しい質問が追加されたときに通知を受け取る場合、Subscribeボタンを押してください。";

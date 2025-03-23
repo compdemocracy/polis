@@ -27,7 +27,6 @@ s.modSubmitInitialState = "Bỏ qua (không chọn phương án nào ở trên),
 s.modSubmit = "Đã xong, chuyển sang ý kiến tiếp theo";
 
 s.x_wrote = "đã viết:";
-s.x_tweeted = "đã đăng trên Twitter:";
 s.comments_remaining = "Còn lại {{num_comments}}";
 s.comments_remaining2 = "Số ý kiến còn lại: {{num_comments}}";
 
@@ -125,23 +124,6 @@ s.commentErrorConversationClosed =
 s.commentIsEmpty = "Ý kiến không có nội dung";
 s.commentIsTooLong = "Ý kiến quá dài";
 s.hereIsNextStatement = "Đã bình chọn xong. Hãy di chuyển lên để xem ý kiến tiếp theo.";
-
-// Text about connecting identity
-
-s.connectFacebook = "Kết nối với Facebook";
-s.connectTwitter = "Kết nối với Twitter";
-s.connectToPostPrompt =
-  "Kết nối một tài khoản để gửi ý kiến. Chúng tôi sẽ không đăng lên dòng thời gian của bạn.";
-s.connectToVotePrompt =
-  "Kết nối một tài khoản để bình chọn. Chúng tôi sẽ không đăng lên dòng thời gian của bạn.";
-s.socialConnectPrompt =
-  "Bạn có thể kết nối để nhìn thấy bạn bè và những người mình theo dõi trong hình ảnh trực quan.";
-s.connectFbButton = "Kết nối với Facebook";
-s.connectTwButton = "Kết nối với Twitter";
-s.polis_err_reg_fb_verification_email_sent =
-  "Vui lòng kiểm tra email để tìm đường liên kết xác minh, rồi quay lại đây để tiếp tục.";
-s.polis_err_reg_fb_verification_noemail_unverified =
-  "Tài khoản Facebook của bạn chưa được xác minh. Vui lòng xác minh địa chỉ email của bạn với Facebook, rồi quay lại đây để tiếp tục.";
 
 // Text for the third party translation that appears on the cards
 
