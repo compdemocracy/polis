@@ -38,8 +38,6 @@ const sql_conversations: any = sql.define({
     "style_btn",
     "auth_needed_to_vote",
     "auth_needed_to_write",
-    "auth_opt_fb",
-    "auth_opt_tw",
     "auth_opt_allow_3rdparty",
   ],
 });
@@ -102,10 +100,10 @@ const sql_participants_extended: any = sql.define({
   columns:
     Config.applicationName === "PolisWebServer"
       ? [
-          ...baseParticipantsExtendedColumns,
-          "encrypted_ip_address",
-          "encrypted_x_forwarded_for",
-        ]
+        ...baseParticipantsExtendedColumns,
+        "encrypted_ip_address",
+        "encrypted_x_forwarded_for",
+      ]
       : baseParticipantsExtendedColumns,
 });
 

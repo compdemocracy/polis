@@ -64,8 +64,6 @@ export type CommentOptions = {
 
 type ModerationState = -1 | 0 | 1;
 
-type ModerationObject = { isMod: ModerationState | undefined };
-
 export type CommentType = {
   zid: any;
   not_voted_by_pid: any;
@@ -159,43 +157,11 @@ export type ConversationType = {
   limit?: any;
 };
 
-export type TwitterParameters = {
-  [key: string]: any;
-  user_id?: any;
-  screen_name?: any;
-};
-
-export type ParticipantSocialNetworkInfo = {
-  [key: string]: any;
-  facebook?: any;
-  twitter?: any;
-};
-
 export type ParticipantOption = {
   bidToPid?: any;
   asPOJO?: any;
   "group-clusters": any;
   "base-clusters": any;
-};
-
-export type DemographicEntry = {
-  count: number;
-  gender_male: number;
-  gender_female: number;
-  gender_null: number;
-  birth_year: number;
-  birth_year_count: number;
-  ms_birth_year_estimate_fb: number;
-  ms_birth_year_count: number;
-  birth_year_guess: number;
-  birth_year_guess_count: number;
-};
-
-export type Demo = {
-  pid?: any;
-  fb_gender?: any;
-  ms_gender_estimate_fb?: any;
-  ms_birth_year_estimate_fb: number;
 };
 
 export type Vote = {

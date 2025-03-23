@@ -60,7 +60,6 @@ function getComments(o: CommentType) {
         "tid",
         "created",
         "uid",
-        "tweet_id",
         "quote_src_url",
         "anon",
         "is_seed",
@@ -153,7 +152,7 @@ function _getCommentsForModerationList(o: {
       .queryP_metered_readOnly(
         "_getCommentsForModerationList",
         "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" +
-          modClause,
+        modClause,
         params
       )
       .then((rows: Row[]) => {
@@ -281,11 +280,11 @@ function _getCommentsList(o: {
 function getNumberOfCommentsRemaining(zid: any, pid: any) {
   return pg.queryP(
     "with " +
-      "v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), " +
-      "c as (select * from get_visible_comments($1)), " +
-      "remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), " +
-      "total as (select count(*) as total from c) " +
-      "select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;",
+    "v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), " +
+    "c as (select * from get_visible_comments($1)), " +
+    "remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), " +
+    "total as (select count(*) as total from c) " +
+    "select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;",
     [zid, pid]
   );
 }

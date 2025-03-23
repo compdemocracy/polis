@@ -93,8 +93,6 @@ helpersInitialized.then(
       handle_GET_domainWhitelist,
       handle_GET_dummyButton,
       handle_GET_einvites,
-      handle_GET_facebook_delete,
-      handle_GET_groupDemographics,
       handle_GET_iim_conversation,
       handle_GET_iip_conversation,
       handle_GET_implicit_conversation_generation,
@@ -120,10 +118,6 @@ helpersInitialized.then(
       handle_GET_testConnection,
       handle_GET_testDatabase,
       handle_GET_tryCookie,
-      handle_GET_twitter_image,
-      handle_GET_twitter_oauth_callback,
-      handle_GET_twitter_users,
-      handle_GET_twitterBtn,
       handle_GET_users,
       handle_GET_verification,
       handle_GET_votes,
@@ -133,7 +127,6 @@ helpersInitialized.then(
       handle_GET_zinvites,
 
       handle_POST_auth_deregister,
-      handle_POST_auth_facebook,
       handle_POST_auth_login,
       handle_POST_auth_new,
       handle_POST_auth_password,
@@ -634,31 +627,6 @@ helpersInitialized.then(
       handle_GET_snapshot
     );
 
-    // this endpoint isn't really ready for general use TODO_SECURITY
-    app.get(
-      "/api/v3/facebook/delete",
-      moveToBody,
-      auth(assignToP),
-      handle_GET_facebook_delete
-    );
-
-    app.post(
-      "/api/v3/auth/facebook",
-      enableAgid,
-      authOptional(assignToP),
-      want("fb_granted_scopes", getStringLimitLength(1, 9999), assignToP),
-      want("fb_friends_response", getStringLimitLength(1, 99999), assignToP),
-      want("fb_public_profile", getStringLimitLength(1, 99999), assignToP),
-      want("fb_email", getEmail, assignToP),
-      want("hname", getOptionalStringLimitLength(9999), assignToP),
-      want("provided_email", getEmail, assignToP),
-      want("conversation_id", getOptionalStringLimitLength(999), assignToP),
-      want("password", getPassword, assignToP),
-      need("response", getStringLimitLength(1, 9999), assignToP),
-      want("owner", getBool, assignToP, true),
-      handle_POST_auth_facebook
-    );
-
     app.post(
       "/api/v3/auth/new",
       want("anon", getBool, assignToP),
@@ -704,19 +672,6 @@ helpersInitialized.then(
     );
 
     app.get(
-      "/api/v3/group_demographics",
-      moveToBody,
-      authOptional(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      want("report_id", getReportIdFetchRid, assignToPCustom("rid")),
-      handle_GET_groupDemographics
-    );
-
-    app.get(
       "/api/v3/comments",
       moveToBody,
       authOptional(assignToP),
@@ -732,7 +687,6 @@ helpersInitialized.then(
       want("modIn", getBool, assignToP), // set this to true if you want to see the comments that are ptpt-visible given the current "strict mod" setting, or false for ptpt-invisible comments.
       want("mod_gt", getInt, assignToP),
       want("include_social", getBool, assignToP),
-      want("include_demographics", getBool, assignToP),
       //    need('lastServerToken', _.identity, assignToP),
       want("include_voting_patterns", getBool, assignToP, false),
       resolve_pidThing(
@@ -755,8 +709,6 @@ helpersInitialized.then(
       ),
       want("txt", getOptionalStringLimitLength(997), assignToP),
       want("vote", getIntInRange(-1, 1), assignToP),
-      want("twitter_tweet_id", getStringLimitLength(999), assignToP),
-      want("quote_twitter_screen_name", getStringLimitLength(999), assignToP),
       want("quote_txt", getStringLimitLength(999), assignToP),
       want("quote_src_url", getUrlLimitLength(999), assignToP),
       want("anon", getBool, assignToP),
@@ -1035,8 +987,6 @@ helpersInitialized.then(
       want("style_btn", getOptionalStringLimitLength(500), assignToP),
       want("auth_needed_to_vote", getBool, assignToP),
       want("auth_needed_to_write", getBool, assignToP),
-      want("auth_opt_fb", getBool, assignToP),
-      want("auth_opt_tw", getBool, assignToP),
       want("auth_opt_allow_3rdparty", getBool, assignToP),
       want("verifyMeta", getBool, assignToP),
       want("send_created_email", getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
@@ -1319,27 +1269,6 @@ helpersInitialized.then(
     );
 
     app.get(
-      "/api/v3/twitterBtn",
-      moveToBody,
-      authOptional(assignToP),
-      want("dest", getStringLimitLength(9999), assignToP),
-      want("owner", getBool, assignToP, true),
-      handle_GET_twitterBtn
-    );
-
-    app.get(
-      "/api/v3/twitter_oauth_callback",
-      moveToBody,
-      enableAgid,
-      auth(assignToP),
-      need("dest", getStringLimitLength(9999), assignToP),
-      need("oauth_token", getStringLimitLength(9999), assignToP), // TODO verify
-      need("oauth_verifier", getStringLimitLength(9999), assignToP), // TODO verify
-      want("owner", getBool, assignToP, true),
-      handle_GET_twitter_oauth_callback
-    );
-
-    app.get(
       "/api/v3/locations",
       moveToBody,
       authOptional(assignToP),
@@ -1394,14 +1323,6 @@ helpersInitialized.then(
       handle_GET_votes_famous
     );
 
-    app.get(
-      "/api/v3/twitter_users",
-      moveToBody,
-      authOptional(assignToP),
-      want("twitter_user_id", getInt, assignToP), // if not provided, returns info for the signed-in user
-      handle_GET_twitter_users
-    );
-
     app.post(
       "/api/v3/einvites",
       need("email", getEmail, assignToP),
@@ -1437,8 +1358,6 @@ helpersInitialized.then(
       want("referrer", getStringLimitLength(1, 10000), assignToP),
       want("auth_needed_to_vote", getBool, assignToP),
       want("auth_needed_to_write", getBool, assignToP),
-      want("auth_opt_fb", getBool, assignToP),
-      want("auth_opt_tw", getBool, assignToP),
       want("auth_opt_allow_3rdparty", getBool, assignToP),
       want("show_vis", getBool, assignToP),
       want("show_share", getBool, assignToP),
@@ -1482,17 +1401,6 @@ helpersInitialized.then(
         assignToPCustom("zid")
       ),
       handle_GET_iim_conversation
-    );
-
-    // proxy for fetching twitter profile images
-    // Needed because Twitter doesn't provide profile pics in response to a request - you have to fetch the user info, then parse that to get the URL, requiring two round trips.
-    // There is a bulk user data API, but it's too slow to block on in our /famous route.
-    // So references to this route are injected into the twitter part of the /famous response.
-    app.get(
-      "/twitter_image",
-      moveToBody,
-      need("id", getStringLimitLength(999), assignToP),
-      handle_GET_twitter_image
     );
 
     // TODO this should probably be exempt from the CORS restrictions
@@ -1662,17 +1570,6 @@ helpersInitialized.then(
         hostname,
         staticFilesParticipationPort,
         "/football.html",
-        {
-          "Content-Type": "text/html",
-        }
-      )
-    );
-    app.get(
-      /^\/twitterAuthReturn(\/.*)?$/,
-      makeFileFetcher(
-        hostname,
-        staticFilesParticipationPort,
-        "/twitterAuthReturn.html",
         {
           "Content-Type": "text/html",
         }

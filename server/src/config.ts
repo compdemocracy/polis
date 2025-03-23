@@ -82,7 +82,6 @@ export default {
   dynamoDbEndpoint: process.env.DYNAMODB_ENDPOINT || null,
   emailTransportTypes: process.env.EMAIL_TRANSPORT_TYPES || null,
   encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
-  fbAppId: process.env.FB_APP_ID || null,
   geminiApiKey: process.env.GEMINI_API_KEY || null,
   googleApiKey: process.env.GOOGLE_API_KEY || null,
   googleJigsawPerspectiveApiKey:
@@ -113,8 +112,6 @@ export default {
     10
   ),
   staticFilesHost: process.env.STATIC_FILES_HOST as string,
-  twitterConsumerKey: process.env.TWITTER_CONSUMER_KEY || null,
-  twitterConsumerSecret: process.env.TWITTER_CONSUMER_SECRET || null,
   useNetworkHost: isTrue(process.env.USE_NETWORK_HOST),
   webserverPass: process.env.WEBSERVER_PASS as string,
   webserverUsername: process.env.WEBSERVER_USERNAME as string,
