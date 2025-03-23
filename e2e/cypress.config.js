@@ -5,7 +5,7 @@ const { defineConfig } = require('cypress')
 // See https://docs.cypress.io/guides/guides/environment-variables
 
 module.exports = defineConfig({
-  blockHosts: ['*.twitter.com', '*.jsdelivr.net'],
+  blockHosts: ['*.jsdelivr.net'],
   // required to test within iframe:
   chromeSecurity: false,
   requestTimeout: 10000,

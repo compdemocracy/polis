@@ -131,13 +131,10 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 (All are optional, and omitting them will disable the related feature.)
 
 - **`AKISMET_ANTISPAM_API_KEY`** Comment spam detection and filtering.
-- **`ENABLE_TWITTER_WIDGETS`** set to `true` to enable twitter widgets on the client-admin authentication pages.
-- **`FB_APP_ID`** Must register with Facebook to get an ID to enable Facebook App connectivity.
 - **`GA_TRACKING_ID`** For using Google Analytics on client pages.
 - **`GOOGLE_CREDENTIALS_BASE64`** Required if using Google Translate API. (See below).
 - **`GOOGLE_CREDS_STRINGIFIED`** Alternative to **`GOOGLE_CREDENTIALS_BASE64`** (See below).
 - **`MAILGUN_API_KEY`**, **`MAILGUN_DOMAIN`** If using Mailgun as an email transport.
-- **`TWITTER_CONSUMER_KEY`**, **`TWITTER_CONSUMER_SECRET`** For Twitter integration.
 - **`AWS_REGION`** Used for some data import/export.
 - **`AWS_ACCESS_KEY_ID`**, **`AWS_SECRET_ACCESS_KEY`** Useful for AWS SDK operations.
 - **`ANTHROPIC_API_KEY`** For using Anthropic as a generative AI model.

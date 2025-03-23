@@ -20,7 +20,6 @@ New values:
 
 - **`API_DEV_HOSTNAME`**
 - **`API_PROD_HOSTNAME`**
-- **`ENABLE_TWITTER_WIDGETS`**
 - **`GA_TRACKING_ID`**
 - **`POSTGRES_HOST`**
 - **`POSTGRES_PORT`**

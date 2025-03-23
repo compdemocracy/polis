@@ -10,7 +10,7 @@ There's been [some progress](https://github.com/compdemocracy/polis/issues/289) 
 
 ## Details
 
-For testing some functionality (e.g., social login via Facebook), some external services must interact with the Polis app via HTTPS.
+For testing some functionality, some external services must interact with the Polis app via HTTPS.
 
 To modify these settings, edit `file-server/nginx/nginx-ssl.site.default.conf` before building the `nginx-proxy` docker container:
 

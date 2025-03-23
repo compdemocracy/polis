@@ -51,7 +51,6 @@ jobs:
       - name: Build static assets
         env:
           EMBED_SERVICE_HOSTNAME: preprod.pol.is
-          ENABLE_TWITTER_WIDGETS: true
           GA_TRACKING_ID: G-WVP78N35QR
           SERVICE_URL: https://preprod.pol.is
         run: |
