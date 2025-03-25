@@ -50,6 +50,7 @@ services:
       polis_tag: ${TAG}
     networks:
       - polis-net
+    restart: unless-stopped
     ports:
       # User interface
       - "1080:1080"
