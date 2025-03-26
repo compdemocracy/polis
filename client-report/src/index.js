@@ -2,13 +2,24 @@
 
 // React Core
 import React from "react";
+import { Auth0Provider } from "@auth0/auth0-react";
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from "./components/app.jsx";
 
 class Root extends React.Component {
   render() {
-    return (
+    return process.env.USE_AUTH_PROVIDER ? (
+      <Auth0Provider
+        domain="compdem.us.auth0.com"
+        clientId={process.env.AUTH_CLIENT_ID}
+        authorizationParams={{
+          redirect_uri: window.location.origin
+        }}
+      >
+        <App />
+      </Auth0Provider>
+    ) : (
       <div>
         <App />
       </div>
