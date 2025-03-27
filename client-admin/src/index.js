@@ -3,6 +3,7 @@
 import $ from 'jquery'
 
 import React from 'react'
+import { Auth0Provider, useAuth0 } from '@auth0/auth0-react'
 import ReactDOM from 'react-dom'
 import { Provider } from 'react-redux'
 
@@ -17,14 +18,31 @@ const store = configureStore()
 
 class Root extends React.Component {
   render() {
+    const AuthSwitcher = ({ children }) => process.env.USE_AUTH_PROVIDER ? (
+      <Auth0Provider
+        domain="compdem.us.auth0.com"
+        clientId={process.env.AUTH_CLIENT_ID}
+        authorizationParams={{
+          redirect_uri: window.location.origin
+        }}
+      >
+        {children}
+      </Auth0Provider>
+    ) : (
+      <>
+        {children}
+      </>
+    );
     return (
-      <ThemeProvider theme={theme}>
-        <Provider store={store}>
-          <Router>
-            <Route render={(routeProps) => <App {...routeProps} />}></Route>
-          </Router>
-        </Provider>
-      </ThemeProvider>
+      <AuthSwitcher>
+        <ThemeProvider theme={theme}>
+          <Provider store={store}>
+            <Router>
+              <Route render={(routeProps) => <App {...routeProps}/>}></Route>
+            </Router>
+          </Provider>
+        </ThemeProvider>
+      </AuthSwitcher>
     )
   }
 }

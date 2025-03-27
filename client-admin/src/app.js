@@ -11,6 +11,8 @@ import _ from 'lodash'
 import { Switch, Route, Link, Redirect } from 'react-router-dom'
 import { Flex, Box, jsx } from 'theme-ui'
 
+import withAuth0 from './util/withAuth0'
+
 /* landers */
 import Home from './components/landers/home'
 import TOS from './components/landers/tos'
@@ -83,6 +85,8 @@ class App extends React.Component {
 
   isAuthed() {
     let authed = false
+
+    if (process.env.USE_AUTH_PROVIDER) return true
 
     if (!_.isUndefined(this.props.isLoggedIn) && this.props.isLoggedIn) {
       authed = true
@@ -259,4 +263,4 @@ App.propTypes = {
   })
 }
 
-export default App
+export default withAuth0(App)

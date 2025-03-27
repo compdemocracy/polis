@@ -48,7 +48,9 @@
     "webpack-dev-server": "~5.2.0"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.3.0",
     "d3-scale": "~3.3.0",
+    "dotenv": "^16.4.7",
     "jquery": "~2.2.4",
     "lodash": "~4.17.21",
     "prop-types": "~15.8.1",

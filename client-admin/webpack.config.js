@@ -1,3 +1,5 @@
+import { config } from 'dotenv'
+config()
 import path from 'path'
 import HtmlWebPackPlugin from 'html-webpack-plugin'
 import LodashModuleReplacementPlugin from 'lodash-webpack-plugin'
@@ -8,6 +10,7 @@ import EventHooksPlugin from 'event-hooks-webpack-plugin'
 import * as glob from 'glob'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
+import webpack from 'webpack'
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url)
@@ -75,6 +78,10 @@ export default (env, argv) => {
         template: 'public/index.html',
         filename: isProduction ? 'index_admin.html' : 'index.html',
         inject: 'body',
+      }),
+      new webpack.DefinePlugin({
+        'process.env.USE_AUTH_PROVIDER': JSON.stringify(process.env.USE_AUTH_PROVIDER),
+        'process.env.AUTH_CLIENT_ID': JSON.stringify(process.env.AUTH_CLIENT_ID),
       }),
 
       // Production-only plugins
