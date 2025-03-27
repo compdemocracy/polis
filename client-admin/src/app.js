@@ -86,7 +86,7 @@ class App extends React.Component {
   isAuthed() {
     let authed = false
 
-    if (process.env.USE_AUTH_PROVIDER) return true
+    if (process.env.USE_AUTH_PROVIDER) return this.props.isAuthenticated;
 
     if (!_.isUndefined(this.props.isLoggedIn) && this.props.isLoggedIn) {
       authed = true
@@ -103,11 +103,11 @@ class App extends React.Component {
   }
 
   isLoading() {
-    const { isLoggedIn } = this.props
+    const { isLoggedIn, isLoading } = this.props
 
     return _.isUndefined(
       isLoggedIn
-    ) /* if isLoggedIn is undefined, the app is loading */
+    ) || isLoading /* if isLoggedIn is undefined, the app is loading */
   }
 
   componentDidMount() {

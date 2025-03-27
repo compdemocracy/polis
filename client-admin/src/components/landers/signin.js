@@ -111,6 +111,9 @@ class SignIn extends React.Component {
   }
 
   render() {
+    if (process.env.USE_AUTH_PROVIDER) {
+      return (<button onClick={() => this.props.loginWithRedirect()}>Log In</button>);
+    }
     const { signInSuccessful, authed } = this.props
 
     if (signInSuccessful || authed) {
