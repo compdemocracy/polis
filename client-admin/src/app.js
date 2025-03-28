@@ -73,7 +73,11 @@ class App extends React.Component {
   }
 
   loadUserData() {
-    this.props.dispatch(populateUserStore())
+    let token
+    if (process.env.USE_AUTH_PROVIDER) {
+      token = this.props.getAccessTokenSilently();
+    }
+    this.props.dispatch(populateUserStore(token))
   }
 
   componentWillMount() {
@@ -105,9 +109,9 @@ class App extends React.Component {
   isLoading() {
     const { isLoggedIn, isLoading } = this.props
 
-    return _.isUndefined(
+    return process.env.USE_AUTH_PROVIDER ? isLoading : _.isUndefined(
       isLoggedIn
-    ) || isLoading /* if isLoggedIn is undefined, the app is loading */
+    ) /* if isLoggedIn is undefined, the app is loading */
   }
 
   componentDidMount() {

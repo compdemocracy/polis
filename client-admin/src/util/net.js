@@ -1,6 +1,7 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import URLs from './url'
+import {useAuth0} from '@auth0/auth0-react'
 import _ from 'lodash'
 
 const urlPrefix = URLs.urlPrefix
@@ -8,7 +9,7 @@ const basePath = ''
 
 // var pid = "unknownpid";
 
-function polisAjax(api, data, type) {
+async function polisAjax(api, data, type, token) {
   if (!_.isString(api)) {
     throw new Error('api param should be a string')
   }
@@ -30,13 +31,16 @@ function polisAjax(api, data, type) {
   //     //data = $.extend({ token: token}, data); // moving to cookies
   // }
 
+  console.log(token)
+
   let promise
   const config = {
     url: url,
     contentType: 'application/json; charset=utf-8',
     headers: {
       // "Cache-Control": "no-cache"  // no-cache
-      'Cache-Control': 'max-age=0'
+      'Cache-Control': 'max-age=0',
+      ...(token && {'Authorization': `Bearer ${token}`})
     },
     xhrFields: {
       withCredentials: true
@@ -60,6 +64,8 @@ function polisAjax(api, data, type) {
     )
   }
 
+  console.log(config)
+
   promise.fail(function (jqXHR, message, errorType) {
     // sendEvent("Error", api, jqXHR.status);
 
@@ -75,12 +81,16 @@ function polisAjax(api, data, type) {
   return promise
 }
 
-function polisPost(api, data) {
-  return polisAjax(api, data, 'POST')
+async function polisPost(api, data, token) {
+  return await polisAjax(api, data, 'POST', token)
 }
 
-function polisGet(api, data) {
-  return polisAjax(api, data, 'GET')
+async function polisGet(api, data, token) {
+  try {
+    return await polisAjax(api, data, 'GET', token)
+  } catch (error) {
+    console.log(error)
+  }
 }
 
 const PolisNet = {

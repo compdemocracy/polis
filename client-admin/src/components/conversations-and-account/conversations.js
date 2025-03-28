@@ -9,6 +9,7 @@ import {
 } from '../../actions'
 
 import Url from '../../util/url'
+import withAuth0 from '../../util/withAuth0'
 import { Box, Heading, Button, Text } from 'theme-ui'
 import Conversation from './conversation'
 
@@ -27,7 +28,11 @@ class Conversations extends React.Component {
   }
 
   componentDidMount() {
-    this.props.dispatch(populateConversationsStore())
+    let token
+    if (process.env.USE_AUTH_PROVIDER) {
+      token = this.props.getAccessTokenSilently();
+    }
+    this.props.dispatch(populateConversationsStore(token))
     // loading true or just do that in constructor
     // check your connectivity and try again
   }
@@ -139,4 +144,4 @@ Conversations.propTypes = {
   })
 }
 
-export default Conversations
+export default withAuth0(Conversations)

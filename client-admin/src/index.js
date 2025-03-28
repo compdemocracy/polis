@@ -3,7 +3,7 @@
 import $ from 'jquery'
 
 import React from 'react'
-import { Auth0Provider, useAuth0 } from '@auth0/auth0-react'
+import { Auth0Provider } from '@auth0/auth0-react'
 import ReactDOM from 'react-dom'
 import { Provider } from 'react-redux'
 

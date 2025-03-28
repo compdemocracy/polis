@@ -175,14 +175,14 @@ const userFetchError = (err) => {
   }
 }
 
-const fetchUser = () => {
-  return PolisNet.polisGet('/api/v3/users', { errIfNoAuth: true })
+const fetchUser = (token) => {
+  return PolisNet.polisGet('/api/v3/users', { errIfNoAuth: true }, token)
 }
 
-export const populateUserStore = () => {
+export const populateUserStore = (token) => {
   return (dispatch) => {
     dispatch(requestUser())
-    return fetchUser().then(
+    return fetchUser(token).then(
       (res) => dispatch(receiveUser(res)),
       (err) => dispatch(userFetchError(err))
     )
@@ -415,14 +415,18 @@ const conversationsError = (err) => {
   }
 }
 
-const fetchConversations = () => {
-  return $.get('/api/v3/conversations?include_all_conversations_i_am_in=true')
+const fetchConversations = (token) => {
+  try {
+    return PolisNet.polisGet('/api/v3/conversations?include_all_conversations_i_am_in=true', undefined, token)
+  } catch (e) {
+    console.log(e)
+  }
 }
 
-export const populateConversationsStore = () => {
+export const populateConversationsStore = (token) => {
   return (dispatch) => {
     dispatch(requestConversations())
-    return fetchConversations().then(
+    return fetchConversations(token).then(
       (res) => dispatch(receiveConversations(res)),
       (err) => dispatch(conversationsError(err))
     )
@@ -461,7 +465,7 @@ export const resetMetadataStore = () => {
 }
 
 const fetchZidMetadata = (conversation_id) => {
-  return $.get('/api/v3/conversations?conversation_id=' + conversation_id)
+  return PolisNet.polisGet('/api/v3/conversations?conversation_id=' + conversation_id, undefined, token)
 }
 
 export const populateZidMetadataStore = (conversation_id) => {
