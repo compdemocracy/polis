@@ -27,10 +27,10 @@ class Conversations extends React.Component {
     this.props.dispatch(handleCreateConversationSubmit())
   }
 
-  componentDidMount() {
+  async componentDidMount() {
     let token
     if (process.env.USE_AUTH_PROVIDER) {
-      token = this.props.getAccessTokenSilently();
+      token = await this.props.getAccessTokenSilently();
     }
     this.props.dispatch(populateConversationsStore(token))
     // loading true or just do that in constructor

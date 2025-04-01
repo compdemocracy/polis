@@ -72,10 +72,10 @@ class App extends React.Component {
     }
   }
 
-  loadUserData() {
+  async loadUserData() {
     let token
     if (process.env.USE_AUTH_PROVIDER) {
-      token = this.props.getAccessTokenSilently();
+      token = await this.props.getAccessTokenSilently();
     }
     this.props.dispatch(populateUserStore(token))
   }

@@ -2,6 +2,7 @@
 import fs from "fs";
 import isTrue from "boolean";
 
+const useAuthProvider: boolean = isTrue(process.env.USE_AUTH_PROVIDER);
 const devHostname: string = process.env.API_DEV_HOSTNAME || "localhost:5000";
 const devMode: boolean = isTrue(process.env.DEV_MODE);
 const domainOverride: string | null = process.env.DOMAIN_OVERRIDE || null;
@@ -19,6 +20,7 @@ import("source-map-support").then((sourceMapSupport) => {
 });
 
 export default {
+  useAuthProvider,
   domainOverride,
   isDevMode: devMode,
   serverPort,
@@ -70,6 +72,8 @@ export default {
   akismetAntispamApiKey: process.env.AKISMET_ANTISPAM_API_KEY || null,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || null,
   applicationName: process.env.APPLICATION_NAME || null,
+  authIssuer: process.env.AUTH_ISSUER || null,
+  authAudience: process.env.AUTH_AUDIENCE || null,
   awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID || 'local' as string,
   awsRegion: process.env.AWS_REGION || 'local' as string,
   awsSecretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || 'local' as string,
@@ -87,6 +91,7 @@ export default {
   googleApiKey: process.env.GOOGLE_API_KEY || null,
   googleJigsawPerspectiveApiKey:
     process.env.GOOGLE_JIGSAW_PERSPECTIVE_API_KEY || null,
+  jwksUrl: process.env.JWKS_URL || null,
   logLevel: process.env.SERVER_LOG_LEVEL as string,
   logToFile: isTrue(process.env.SERVER_LOG_TO_FILE),
   mailgunApiKey: process.env.MAILGUN_API_KEY || null,

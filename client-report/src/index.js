@@ -14,6 +14,7 @@ class Root extends React.Component {
         domain="compdem.us.auth0.com"
         clientId={process.env.AUTH_CLIENT_ID}
         authorizationParams={{
+          audience: "users",
           redirect_uri: window.location.origin
         }}
       >

@@ -51,6 +51,30 @@ function getUserInfoForUid2(uid: any) {
   );
 }
 
+function getUserIDForEmail(email: any) {
+  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
+  // @ts-ignore
+  return new MPromise(
+    "getUserIDForEmail",
+    function (resolve: (arg0: any) => void, reject: (arg0: null) => any) {
+      pg.query_readOnly(
+        "SELECT * from users where email = $1",
+        [email],
+        function (err: any, results: { rows: string | any[] }) {
+          if (err) {
+            return reject(err);
+          }
+          if (!results.rows || !results.rows.length) {
+            return reject(null);
+          }
+          let o = results.rows[0];
+          resolve(o.uid);
+        }
+      );
+    }
+  );
+}
+
 async function getUser(
   uid: number,
   zid_optional: any,
@@ -372,6 +396,7 @@ export {
   getPid,
   getPidPromise,
   getPidForParticipant,
+  getUserIDForEmail
 };
 
 export default {
@@ -385,4 +410,5 @@ export default {
   getPid,
   getPidPromise,
   getPidForParticipant,
+  getUserIDForEmail
 };

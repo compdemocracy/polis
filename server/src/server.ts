@@ -1,7 +1,9 @@
+/* eslint-disable no-console */
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 "use strict";
 
+import { jwtVerify, createRemoteJWKSet } from "jose";
 import akismetLib from "akismet";
 import AWS from "aws-sdk";
 import badwords from "badwords/object";
@@ -126,6 +128,7 @@ import logger from "./utils/logger";
 
 // # notifications
 import emailSenders from "./email/senders";
+import { NextFunction } from "node_modules/@types/express";
 const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
@@ -923,13 +926,67 @@ function initializePolisHelpers() {
         });
     };
   }
+
+  async function getUserInfo(accessToken: string) {
+    const userInfoUrl = `${Config.authIssuer}userinfo`;
+  
+    const response = await fetch(userInfoUrl, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+  
+    if (!response.ok) {
+      throw new Error(`Failed to fetch user info: ${response.status} ${response.statusText}`);
+    }
+  
+    return response.json();
+  }
+  
+  // @ts-expect-error debug
+  function _auth0(assigner, optional) {
+
+    return async function verifyJwt(req: any, res: { status: (arg0: number) => ({ send: (arg0: string) => void }) }, next: NextFunction) {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+          return res.status(401).send('Authorization header missing');
+        }
+
+        const token = authHeader.split(' ')[1];
+        const jwksUri = Config.jwksUrl;
+        const jwks = createRemoteJWKSet(new URL(jwksUri as string));
+        // @ts-expect-error bad jose typings
+        const { payload, protectedHeader } = await jwtVerify(token as string, jwks, {
+          issuer: Config.authIssuer,
+          audience: Config.authAudience,
+        });
+
+        const userInfo = await getUserInfo(token);
+
+        req.userAuth = { payload, protectedHeader, token, userInfo }; // Store auth data in req.userAuth
+        console.log(req.userAuth)
+        const uid = await User.getUserIDForEmail(userInfo.email)
+        console.log(uid)
+        assigner(req, "uid", uid);
+        next();
+      } catch (error) {
+        console.error('JWT verification failed:', error);
+        return res.status(401).send('Invalid token');
+      }
+    }
+  }
+
   // input token from body or query, and populate req.body.u with userid.
   function authOptional(assigner: any) {
-    return _auth(assigner, true);
+    // return Config.useAuthProvider ? () : _auth(assigner, true);
+    // return _auth(assigner, true);
+    return Config.useAuthProvider ? _auth0(assigner, false) : _auth(assigner, false);
   }
 
   function auth(assigner: any) {
-    return _auth(assigner, false);
+    // req.auth.payload;
+    return Config.useAuthProvider ? _auth0(assigner, false) : _auth(assigner, false);
   }
 
   function enableAgid(req: { body: Body }, res: any, next: () => void) {
