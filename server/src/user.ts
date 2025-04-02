@@ -51,12 +51,12 @@ function getUserInfoForUid2(uid: any) {
   );
 }
 
-function getUserIDForEmail(email: any) {
+function getOrCreateUserIDWithEmail(email: any, userInfo: any) {
   // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
   // @ts-ignore
   return new MPromise(
-    "getUserIDForEmail",
-    function (resolve: (arg0: any) => void, reject: (arg0: null) => any) {
+    "getOrCreateUserIDWithEmail",
+    function (resolve: (arg0: any) => void, reject: (arg0: string) => any) {
       pg.query_readOnly(
         "SELECT * from users where email = $1",
         [email],
@@ -65,7 +65,26 @@ function getUserIDForEmail(email: any) {
             return reject(err);
           }
           if (!results.rows || !results.rows.length) {
-            return reject(null);
+            let query =
+              "insert into users " +
+              "(email, hname, zinvite, oinvite, is_owner" +
+              ") VALUES " + // TODO use sql query builder
+              "($1, $2, $3, $4, $5" +
+              ") " + // TODO use sql query builder
+              "returning uid;";
+            let vals = [email, userInfo.name, null, null, true];
+
+            pg.query(
+              query,
+              vals,
+              function (err: any, result: { rows: { uid: any }[] }) {
+                if (err) {
+                  reject("polis_err_reg_failed_to_add_user_record");
+                  return;
+                }
+                resolve(result?.rows[0]?.uid);
+              }
+            );
           }
           let o = results.rows[0];
           resolve(o.uid);
@@ -396,7 +415,7 @@ export {
   getPid,
   getPidPromise,
   getPidForParticipant,
-  getUserIDForEmail
+  getOrCreateUserIDWithEmail,
 };
 
 export default {
@@ -410,5 +429,5 @@ export default {
   getPid,
   getPidPromise,
   getPidForParticipant,
-  getUserIDForEmail
+  getOrCreateUserIDWithEmail,
 };
