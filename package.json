@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "@types/facebook-js-sdk": "^3.3.12"
+  }
+}

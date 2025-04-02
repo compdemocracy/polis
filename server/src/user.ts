@@ -64,7 +64,7 @@ function getOrCreateUserIDWithEmail(email: any, userInfo: any) {
           if (err) {
             return reject(err);
           }
-          if (!results.rows || !results.rows.length) {
+          if (!results.rows || !results.rows.length || results.rows[0] === undefined) {
             let query =
               "insert into users " +
               "(email, hname, zinvite, oinvite, is_owner" +
@@ -74,7 +74,7 @@ function getOrCreateUserIDWithEmail(email: any, userInfo: any) {
               "returning uid;";
             let vals = [email, userInfo.name, null, null, true];
 
-            pg.query(
+            return pg.query(
               query,
               vals,
               function (err: any, result: { rows: { uid: any }[] }) {
@@ -82,12 +82,13 @@ function getOrCreateUserIDWithEmail(email: any, userInfo: any) {
                   reject("polis_err_reg_failed_to_add_user_record");
                   return;
                 }
-                resolve(result?.rows[0]?.uid);
+                return resolve(result?.rows[0]?.uid);
               }
             );
           }
           let o = results.rows[0];
-          resolve(o.uid);
+          console.log(JSON.stringify(results))
+          return resolve(o.uid);
         }
       );
     }

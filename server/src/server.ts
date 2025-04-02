@@ -963,6 +963,7 @@ function initializePolisHelpers() {
         const jwks = createRemoteJWKSet(new URL(jwksUri as string));
         const { payload, protectedHeader } = await jwtVerify(
           token as string,
+          // @ts-ignore
           jwks,
           {
             issuer: Config.authIssuer,
@@ -973,12 +974,10 @@ function initializePolisHelpers() {
         const userInfo = await getUserInfo(token);
 
         req.userAuth = { payload, protectedHeader, token, userInfo }; // Store auth data in req.userAuth
-        console.log(req.userAuth);
         const uid = await User.getOrCreateUserIDWithEmail(
           userInfo.email,
           userInfo
         );
-        console.log(uid);
         assigner(req, "uid", uid);
         next();
       } catch (error) {
@@ -11604,7 +11603,7 @@ Thanks for using Polis!
   }
   let handle_GET_conditionalIndexFetcher = (function () {
     return function (req: any, res: { redirect: (arg0: string) => void }) {
-      if (hasAuthToken(req)) {
+      if (hasAuthToken(req) || process.env.USE_AUTH_PROVIDER) {
         // user is signed in, serve the app
         // Argument of type '{ redirect: (arg0: string) => void; }'
         // is not assignable to parameter of type '{ set: (arg0: any) => void; }'.

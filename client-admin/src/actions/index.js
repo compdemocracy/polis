@@ -161,6 +161,7 @@ const requestUser = () => {
 }
 
 const receiveUser = (data) => {
+  console.log(`RECEIVEUSER: ${data}`)
   return {
     type: RECEIVE_USER,
     data: data
@@ -183,7 +184,7 @@ export const populateUserStore = (token) => {
   return (dispatch) => {
     dispatch(requestUser())
     return fetchUser(token).then(
-      (res) => dispatch(receiveUser(res)),
+      (res) => { console.log(`RES`, res); return dispatch(receiveUser(res))},
       (err) => dispatch(userFetchError(err))
     )
   }

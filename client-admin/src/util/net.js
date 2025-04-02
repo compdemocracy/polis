@@ -31,8 +31,6 @@ async function polisAjax(api, data, type, token) {
   //     //data = $.extend({ token: token}, data); // moving to cookies
   // }
 
-  console.log(token)
-
   let promise
   const config = {
     url: url,
@@ -64,8 +62,6 @@ async function polisAjax(api, data, type, token) {
     )
   }
 
-  console.log(config)
-
   promise.fail(function (jqXHR, message, errorType) {
     // sendEvent("Error", api, jqXHR.status);
 
@@ -87,7 +83,8 @@ async function polisPost(api, data, token) {
 
 async function polisGet(api, data, token) {
   try {
-    return await polisAjax(api, data, 'GET', token)
+    const data = await polisAjax(api, data, 'GET', token)
+    return data
   } catch (error) {
     console.log(error)
   }

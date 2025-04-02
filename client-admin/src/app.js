@@ -76,6 +76,7 @@ class App extends React.Component {
     let token
     if (process.env.USE_AUTH_PROVIDER) {
       token = await this.props.getAccessTokenSilently();
+      this.props.dispatch({ type: 'signin completed successfully' })
     }
     this.props.dispatch(populateUserStore(token))
   }
@@ -88,9 +89,12 @@ class App extends React.Component {
   }
 
   isAuthed() {
+    console.log(this.props)
     let authed = false
 
-    if (process.env.USE_AUTH_PROVIDER) return this.props.isAuthenticated;
+    if (process.env.USE_AUTH_PROVIDER) {
+      return this.props.isAuthenticated;
+    }
 
     if (!_.isUndefined(this.props.isLoggedIn) && this.props.isLoggedIn) {
       authed = true
