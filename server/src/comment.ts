@@ -295,20 +295,19 @@ function translateAndStoreComment(zid: any, tid: any, txt: any, lang: any) {
     return translateString(txt, lang).then((results: any[]) => {
       const translation = results[0];
       const src = -1; // Google Translate of txt with no added context
-      return (
-        pg
-          .queryP(
-            "insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) returning *;",
-            [zid, tid, translation, lang, src]
-          )
-          //       Argument of type '(rows: Row[]) => Row' is not assignable to parameter of type '(value: unknown) => Row | PromiseLike<Row>'.
-          // Types of parameters 'rows' and 'value' are incompatible.
-          //   Type 'unknown' is not assignable to type 'Row[]'.ts(2345)
-          // @ts-ignore
-          .then((rows: Row[]) => {
-            return rows[0];
-          })
-      );
+      return pg
+        .queryP(
+          "insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) " +
+          "on conflict (zid, tid, src, lang) do update set " +
+          "txt = excluded.txt, " +
+          "modified = now_as_millis() " +
+          "returning *;",
+          [zid, tid, translation, lang, src]
+        )
+        // @ts-ignore
+        .then((rows: Row[]) => {
+          return rows[0];
+        });
     });
   }
   return Promise.resolve(null);
