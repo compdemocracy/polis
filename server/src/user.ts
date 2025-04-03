@@ -87,7 +87,6 @@ function getOrCreateUserIDWithEmail(email: any, userInfo: any) {
             );
           }
           let o = results.rows[0];
-          console.log(JSON.stringify(results))
           return resolve(o.uid);
         }
       );

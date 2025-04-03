@@ -160,9 +160,9 @@ class App extends React.Component {
             path="/signin/**/*"
             render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
           />
-          <Route exact path="/signout" component={SignOut} />
-          <Route exact path="/signout/*" component={SignOut} />
-          <Route exact path="/signout/**/*" component={SignOut} />
+          <Route exact path="/signout" render={() => <SignOut {...this.props} />} />
+          <Route exact path="/signout/*" render={() => <SignOut {...this.props} />} />
+          <Route exact path="/signout/**/*" render={() => <SignOut {...this.props} />} />
           <Route exact path="/createuser" component={CreateUser} />
           <Route exact path="/createuser/*" component={CreateUser} />
           <Route exact path="/createuser/**/*" component={CreateUser} />

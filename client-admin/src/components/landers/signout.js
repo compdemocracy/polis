@@ -6,12 +6,17 @@ import { connect } from 'react-redux'
 import StaticLayout from './lander-layout'
 import { Heading } from 'theme-ui'
 
+
 import { doSignout } from '../../actions'
 
 @connect((state) => state.signout)
 class SignOut extends React.Component {
   componentDidMount() {
-    this.props.dispatch(doSignout('/home'))
+    if (process.env.USE_AUTH_PROVIDER) {
+      this.props.logout({ returnTo: `${window.location.origin}/home`});
+    } else {
+      this.props.dispatch(doSignout('/home'))
+    }
   }
 
   render() {
@@ -26,6 +31,7 @@ class SignOut extends React.Component {
 }
 
 SignOut.propTypes = {
+  logout: PropTypes.func,
   dispatch: PropTypes.func
 }
 

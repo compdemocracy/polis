@@ -53,7 +53,16 @@ class SignIn extends React.Component {
   }
 
   drawLoginForm() {
-    return (
+    return process.env.USE_AUTH_PROVIDER ? (
+      <Box>
+        <Button
+          sx={{ my: [2] }}
+          id="signinButton"
+          onClick={this.props.loginWithRedirect}>
+          Sign In
+        </Button>
+      </Box>
+    ) : (
       <Box>
         <form>
           <Box sx={{ my: [2] }}>
@@ -111,9 +120,6 @@ class SignIn extends React.Component {
   }
 
   render() {
-    if (process.env.USE_AUTH_PROVIDER) {
-      return (<button onClick={() => this.props.loginWithRedirect()}>Log In</button>);
-    }
     const { signInSuccessful, authed } = this.props
 
     if (signInSuccessful || authed) {
