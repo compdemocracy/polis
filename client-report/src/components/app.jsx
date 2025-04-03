@@ -34,14 +34,15 @@ function assertExists(obj, key) {
 }
 
 const App = (props) => {
-  const { user, isAuthenticated, isLoading: isAuthLoading, loginWithRedirect } = useAuth0();
-
-  if (isAuthLoading) {
-    return <div>Loading ...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return (<button onClick={() => loginWithRedirect()}>Log In</button>);
+  const { user, isAuthenticated, isLoading: isAuthLoading, getAccessTokenSilently } = useAuth0();
+  if (process.env.USE_AUTH_PROVIDER) {
+    if (isAuthLoading) {
+      return <div>Loading ...</div>;
+    }
+  
+    if (!isAuthenticated) {
+      return window.location.href = `/signin`;
+    }
   }
   const [loading, setLoading] = useState(true);
   const [consensus, setConsensus] = useState(null);
@@ -102,6 +103,7 @@ const App = (props) => {
   );
 
   let corMatRetries;
+  let token;
 
   useEffect(() => {
     if (
@@ -151,7 +153,7 @@ const App = (props) => {
       .polisGet("/api/v3/math/pca2", {
         lastVoteTimestamp: 0,
         conversation_id: conversation_id,
-      })
+      }, token)
       .then((data) => {
         if (!data) {
           return {};
@@ -169,18 +171,18 @@ const App = (props) => {
       //include_social: true,
       //include_demographics: true,
       include_voting_patterns: true,
-    });
+    }, token);
   };
 
   const getParticipantsOfInterest = (conversation_id) => {
     return net.polisGet("/api/v3/ptptois", {
       conversation_id: conversation_id,
-    });
+    }, token);
   };
   const getConversation = (conversation_id) => {
     return net.polisGet("/api/v3/conversations", {
       conversation_id: conversation_id,
-    });
+    }, token);
   };
 
   const getNarrative = async (report_id) => {
@@ -196,6 +198,7 @@ const App = (props) => {
           headers: {
             Accept: "application/json, text/plain, */*",
             "Content-Type": "application/json",
+            ...(token && {"Authorization": `Bearer ${token}`})
           },
         }
       );
@@ -249,7 +252,7 @@ const App = (props) => {
     return net
       .polisGet("/api/v3/reports", {
         report_id: report_id,
-      })
+      }, token)
       .then((reports) => {
         if (reports.length) {
           return reports[0];
@@ -261,21 +264,21 @@ const App = (props) => {
     return net.polisGet("/api/v3/group_demographics", {
       conversation_id: conversation_id,
       report_id: report_id,
-    });
+    }, token);
   };
 
   const getConversationStats = (conversation_id) => {
     return net.polisGet("/api/v3/conversationStats", {
       conversation_id: conversation_id,
       report_id: report_id,
-    });
+    }, token);
   };
 
   const getCorrelationMatrix = (math_tick) => {
     const attemptResponse = net.polisGet("/api/v3/math/correlationMatrix", {
       math_tick: math_tick,
       report_id: report_id,
-    });
+    }, token);
 
     return new Promise((resolve, reject) => {
       attemptResponse.then(
@@ -540,7 +543,13 @@ const App = (props) => {
 
   useEffect(() => {
     const init = async () => {
-      await getData();
+      if (process.env.USE_AUTH_PROVIDER) {
+        token = await getAccessTokenSilently();
+        await getData();
+      } else {
+        await getData();
+      }
+      
       setInterval(() => {
         if (shouldPoll) {
           getData();
