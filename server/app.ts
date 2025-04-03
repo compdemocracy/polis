@@ -1620,8 +1620,9 @@ helpersInitialized.then(
       app.get(/^\/[^(api\/)]?.*/, proxy);
     }
 
-    app.listen(Config.serverPort);
-    logger.info("started on port " + Config.serverPort);
+    // move app.listen to index.ts
+    // app.listen(Config.serverPort);
+    // logger.info("started on port " + Config.serverPort);
   },
 
   function (err) {

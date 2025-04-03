@@ -160,7 +160,7 @@ function _getCommentsForModerationList(o: {
         let adp: { [key: string]: Row } = {};
         for (let i = 0; i < rows.length; i++) {
           let row = rows[i];
-          let o = (adp[row.tid] = adp[row.tid] || {
+          let o = (adp[row.tid] = adp[row.tid] || { tid: row.tid, vote: 0, count: 0,
             agree_count: 0,
             disagree_count: 0,
             pass_count: 0,

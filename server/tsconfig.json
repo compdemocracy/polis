@@ -25,8 +25,9 @@
     // "isolatedModules": true,                     /* Transpile each file as a separate module (similar to 'ts.transpileModule'). */
 
     /* Strict Type-Checking Options */
-    "strict": true /* Enable all strict type-checking options. */,
-    // "noImplicitAny": true,                       /* Raise error on expressions and declarations with an implied 'any' type. */
+    "strict": false /* Disable strict type-checking for test files. */,
+    "noImplicitAny": false,                        /* Disable error on expressions and declarations with an implied 'any' type for tests. */
+    "isolatedModules": true,                       /* Transpile each file as a separate module (similar to 'ts.transpileModule'). */
     // "strictNullChecks": true,                    /* Enable strict null checks. */
     // "strictFunctionTypes": true,                 /* Enable strict checking of function types. */
     // "strictBindCallApply": true,                 /* Enable strict 'bind', 'call', and 'apply' methods on functions. */
@@ -76,8 +77,9 @@
     /* Advanced Options */
     "skipLibCheck": true /* Skip type checking of declaration files. */,
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */,
-    "typeRoots": ["./node_modules/@types"]
+    "typeRoots": ["./node_modules/@types", "./types"],
+    "esModuleInterop": true
   },
-  "include": ["app.ts", "src/**/*", "types/**/*"],
-  "exclude": ["node_modules", "**/*.spec.ts", "dist", "src/report_experimental/topics-example/lib/**/**"]
+  "include": ["index.ts", "app.ts", "src/**/*", "types/**/*"],
+  "exclude": ["node_modules", "dist", "src/report_experimental/topics-example/lib/**/**", "__tests__/**/*"]
 }

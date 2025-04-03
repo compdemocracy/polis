@@ -8,6 +8,12 @@
 # For more information see https://docs.docker.com/compose/extends/
 
 services:
+  server:
+    environment:
+      - GOOGLE_CREDENTIALS_BASE64
+      - NODE_ENV=development
+      - MAILDEV_HOST=maildev
+
   maildev:
     image: docker.io/maildev/maildev:1.1.1
     labels:
@@ -15,8 +21,29 @@ services:
     networks:
       - polis-net
     ports:
+      # User interface
       - "1080:1080"
+      # SMTP port
+      - "1025:1025"
 
-  server:
+  postgres:
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     environment:
-      - GOOGLE_CREDENTIALS_BASE64
+      # Ensure these are explicitly set in test environment
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+
+  file-server:
+    build:
+      args:
+        NODE_ENV: development
+    ports:
+      - ${STATIC_FILES_PORT:-8080}:${STATIC_FILES_PORT:-8080}

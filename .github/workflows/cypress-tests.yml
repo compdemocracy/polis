@@ -25,9 +25,34 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # Configure proper Docker layer caching
+      - name: Set up Docker Cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ github.workspace }}/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
       - name: Build and start Docker containers
         run: |
+          # Build with proper cache configuration
+          docker buildx build \
+            --cache-from=type=local,src=${{ github.workspace }}/.buildx-cache \
+            --cache-to=type=local,dest=${{ github.workspace }}/.buildx-cache-new,mode=max \
+            --load \
+            -f server/Dockerfile \
+            ./server
+          
+          # Move cache to prevent cache growth
+          rm -rf ${{ github.workspace }}/.buildx-cache
+          mv ${{ github.workspace }}/.buildx-cache-new ${{ github.workspace }}/.buildx-cache
+          
+          # Start containers
           docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres up -d --build
+        env:
+          DOCKER_BUILDKIT: 1
+          COMPOSE_DOCKER_CLI_BUILD: 1
 
       - name: Health Check the Server http response
         uses: jtalk/url-health-check-action@v4

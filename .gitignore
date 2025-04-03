@@ -9,3 +9,5 @@ prod.env
 xids.csv
 preprod.env 
 .venv
+
+**/CLAUDE.local.md

@@ -1,7 +1,8 @@
 .env
 .google_creds_temp
+.venv/
+coverage/
 dist
 logs/
 node_modules/
 npm-debug.log*
-.venv/

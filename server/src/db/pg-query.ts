@@ -59,8 +59,9 @@ const readsPgConnection = Object.assign(
 // pressure down on the transactor (read+write) server
 
 // const PoolConstructor = pgnative?.Pool ?? Pool;
-const readWritePool: Pool = new Pool(pgConnection as PoolConfig);
-const readPool: Pool = new Pool(readsPgConnection as PoolConfig);
+// Cast to unknown first to avoid type errors with port being string vs number
+const readWritePool: Pool = new Pool(pgConnection as unknown as PoolConfig);
+const readPool: Pool = new Pool(readsPgConnection as unknown as PoolConfig);
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.

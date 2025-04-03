@@ -6,14 +6,14 @@ import {
   sendVotesSummary,
   sendParticipantVotesSummary,
   sendParticipantXidsSummary,
-} from "../src/routes/export";
-import { queryP_readOnly, stream_queryP_readOnly } from "../src/db/pg-query";
-import { getZinvite } from "../src/utils/zinvite";
-import { getPca } from "../src/utils/pca";
-import { getXids } from "../src/routes/math";
+} from "../../src/routes/export";
+import { queryP_readOnly, stream_queryP_readOnly } from "../../src/db/pg-query";
+import { getZinvite } from "../../src/utils/zinvite";
+import { getPca } from "../../src/utils/pca";
+import { getXids } from "../../src/routes/math";
 import { jest } from "@jest/globals";
-import logger from "../src/utils/logger";
-import fail from "../src/utils/fail";
+import logger from "../../src/utils/logger";
+import fail from "../../src/utils/fail";
 
 type Formatters<T> = Record<string, (row: T) => string>;
 
@@ -55,23 +55,23 @@ function mockStreamWithRows(rows: any[], shouldError = false, error?: Error) {
   );
 }
 
-jest.mock("../src/db/pg-query", () => ({
+jest.mock("../../src/db/pg-query", () => ({
   queryP_readOnly: jest.fn(),
   stream_queryP_readOnly: jest.fn(),
 }));
 
-jest.mock("../src/utils/zinvite", () => ({
+jest.mock("../../src/utils/zinvite", () => ({
   getZinvite: jest.fn(),
   getZidForRid: jest.fn(),
 }));
 
-jest.mock("../src/routes/math", () => ({
+jest.mock("../../src/routes/math", () => ({
   getXids: jest.fn(),
 }));
 
-jest.mock("../src/utils/pca");
-jest.mock("../src/utils/logger");
-jest.mock("../src/utils/fail");
+jest.mock("../../src/utils/pca");
+jest.mock("../../src/utils/logger");
+jest.mock("../../src/utils/fail");
 
 describe("handle_GET_reportExport", () => {
   let mockRes: MockResponse;
@@ -279,7 +279,7 @@ describe("handle_GET_reportExport", () => {
       // Use the original require approach since it's more compatible with jest.spyOn
       const formatDatetimeSpy = jest.spyOn(
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require("../src/routes/export"),
+        require("../../src/routes/export"),
         "formatDatetime"
       );
       formatDatetimeSpy.mockReturnValue(
