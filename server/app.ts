@@ -1185,7 +1185,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/reports",
       moveToBody,
-      authOptional(assignToP),
+      auth(assignToP),
       want(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1197,6 +1197,7 @@ helpersInitialized.then(
 
     app.get(
       "/api/v3/reportNarrative",
+      auth(assignToP),
       moveToBody,
       need("report_id", getReportIdFetchRid, assignToPCustom("rid")),
       handle_GET_reportNarrative
