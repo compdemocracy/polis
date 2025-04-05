@@ -417,7 +417,11 @@ const conversationsError = (err) => {
 
 const fetchConversations = (token) => {
   try {
-    return PolisNet.polisGet('/api/v3/conversations?include_all_conversations_i_am_in=true', undefined, token)
+    return PolisNet.polisGet(
+      '/api/v3/conversations?include_all_conversations_i_am_in=true',
+      undefined,
+      token
+    )
   } catch (e) {
     console.log(e)
   }
@@ -465,7 +469,11 @@ export const resetMetadataStore = () => {
 }
 
 const fetchZidMetadata = (conversation_id, token) => {
-  return PolisNet.polisGet('/api/v3/conversations?conversation_id=' + conversation_id, undefined, token)
+  return PolisNet.polisGet(
+    '/api/v3/conversations?conversation_id=' + conversation_id,
+    undefined,
+    token
+  )
 }
 
 export const populateZidMetadataStore = (conversation_id, token) => {
@@ -697,9 +705,9 @@ const fetchAllComments = (conversation_id) => {
   const includeSocial = ''
   return $.get(
     '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-    includeSocial +
-    'conversation_id=' +
-    conversation_id
+      includeSocial +
+      'conversation_id=' +
+      conversation_id
   )
 }
 
@@ -738,9 +746,9 @@ const mathFetchError = (err) => {
 const fetchMath = (conversation_id, math_tick) => {
   return $.get(
     '/api/v3/math/pca2?&math_tick=' +
-    math_tick +
-    '&conversation_id=' +
-    conversation_id
+      math_tick +
+      '&conversation_id=' +
+      conversation_id
   )
 }
 
@@ -777,21 +785,22 @@ const unmoderatedCommentsFetchError = (err) => {
   }
 }
 
-const fetchUnmoderatedComments = (conversation_id) => {
-  // let includeSocial = "include_social=true&";
-  const includeSocial = ''
-  return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-    includeSocial +
-    'mod=0&conversation_id=' +
-    conversation_id
-  )
+const fetchUnmoderatedComments = (conversation_id, token) => {
+  const includeSocial = '' // Or potentially "include_social=true&" if needed
+  const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&${includeSocial}mod=0&conversation_id=${conversation_id}`
+
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
 }
 
-export const populateUnmoderatedCommentsStore = (conversation_id) => {
+export const populateUnmoderatedCommentsStore = (conversation_id, token) => {
   return (dispatch) => {
     dispatch(requestUnmoderatedComments())
-    return fetchUnmoderatedComments(conversation_id).then(
+    return fetchUnmoderatedComments(conversation_id, token).then(
       (res) => dispatch(receiveUnmoderatedComments(res)),
       (err) => dispatch(unmoderatedCommentsFetchError(err))
     )
@@ -820,21 +829,22 @@ const acceptedCommentsFetchError = (err) => {
   }
 }
 
-const fetchAcceptedComments = (conversation_id) => {
-  // let includeSocial = "include_social=true&";
-  const includeSocial = ''
-  return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&mod=1&' +
-    includeSocial +
-    'conversation_id=' +
-    conversation_id
-  )
+const fetchAcceptedComments = (conversation_id, token) => {
+  const includeSocial = '' // Or potentially "include_social=true&" if needed
+  const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&mod=1&${includeSocial}conversation_id=${conversation_id}`
+
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  })
 }
 
-export const populateAcceptedCommentsStore = (conversation_id) => {
+export const populateAcceptedCommentsStore = (conversation_id, token) => {
   return (dispatch) => {
     dispatch(requestAcceptedComments())
-    return fetchAcceptedComments(conversation_id).then(
+    return fetchAcceptedComments(conversation_id, token).then(
       (res) => dispatch(receiveAcceptedComments(res)),
       (err) => dispatch(acceptedCommentsFetchError(err))
     )
@@ -868,9 +878,9 @@ const fetchRejectedComments = (conversation_id) => {
   const includeSocial = ''
   return $.get(
     '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-    includeSocial +
-    'mod=-1&conversation_id=' +
-    conversation_id
+      includeSocial +
+      'mod=-1&conversation_id=' +
+      conversation_id
   )
 }
 
@@ -886,12 +896,12 @@ export const populateRejectedCommentsStore = (conversation_id) => {
 
 /* populate ALL stores todo/accept/reject/seed */
 
-export const populateAllCommentStores = (conversation_id) => {
+export const populateAllCommentStores = (conversation_id, token) => {
   return (dispatch) => {
     return $.when(
-      dispatch(populateUnmoderatedCommentsStore(conversation_id)),
-      dispatch(populateAcceptedCommentsStore(conversation_id)),
-      dispatch(populateRejectedCommentsStore(conversation_id))
+      dispatch(populateUnmoderatedCommentsStore(conversation_id, token)),
+      dispatch(populateAcceptedCommentsStore(conversation_id, token)),
+      dispatch(populateRejectedCommentsStore(conversation_id, token))
     )
   }
 }
@@ -967,21 +977,24 @@ const rejectCommentError = (err) => {
   }
 }
 
-const putCommentRejected = (comment) => {
-  return $.ajax({
+const putCommentRejected = (comment, token) => {
+  return fetch('/api/v3/comments', {
     method: 'PUT',
-    url: '/api/v3/comments',
-    data: Object.assign(comment, { mod: -1 })
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`
+    },
+    body: JSON.stringify(Object.assign(comment, { mod: -1 }))
   })
 }
 
-export const changeCommentStatusToRejected = (comment) => {
+export const changeCommentStatusToRejected = (comment, token) => {
   return (dispatch) => {
     dispatch(optimisticCommentRejected())
-    return putCommentRejected(comment).then(
+    return putCommentRejected(comment, token).then(
       (res) => {
         dispatch(rejectCommentSuccess(res))
-        dispatch(populateAllCommentStores(comment.conversation_id))
+        dispatch(populateAllCommentStores(comment.conversation_id, token))
       },
       (err) => dispatch(rejectCommentError(err))
     )
@@ -1338,8 +1351,8 @@ const conversationStatsFetchError = (err) => {
 const fetchConversationStats = (conversation_id, until) => {
   return $.get(
     '/api/v3/conversationStats?conversation_id=' +
-    conversation_id +
-    (until ? '&until=' + until : '')
+      conversation_id +
+      (until ? '&until=' + until : '')
   )
 }
 
