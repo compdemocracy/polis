@@ -68,8 +68,12 @@ class Conversations extends React.Component {
     return include
   }
 
-  firePopulateInboxAction() {
-    this.props.dispatch(populateConversationsStore())
+  async firePopulateInboxAction() {
+    let token
+    if (process.env.USE_AUTH_PROVIDER) {
+      token = await this.props.getAccessTokenSilently();
+    }
+    this.props.dispatch(populateConversationsStore(token))
   }
 
   onFilterChange() {
