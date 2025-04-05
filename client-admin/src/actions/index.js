@@ -464,11 +464,11 @@ export const resetMetadataStore = () => {
   }
 }
 
-const fetchZidMetadata = (conversation_id) => {
+const fetchZidMetadata = (conversation_id, token) => {
   return PolisNet.polisGet('/api/v3/conversations?conversation_id=' + conversation_id, undefined, token)
 }
 
-export const populateZidMetadataStore = (conversation_id) => {
+export const populateZidMetadataStore = (conversation_id, token) => {
   return (dispatch, getState) => {
     const state = getState()
     const hasConversationId =
@@ -494,7 +494,7 @@ export const populateZidMetadataStore = (conversation_id) => {
     }
 
     dispatch(requestZidMetadata(conversation_id))
-    return fetchZidMetadata(conversation_id).then(
+    return fetchZidMetadata(conversation_id, token).then(
       (res) => dispatch(receiveZidMetadata(res)),
       (err) => dispatch(zidMetadataFetchError(err))
     )

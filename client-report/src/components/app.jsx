@@ -34,7 +34,7 @@ function assertExists(obj, key) {
 }
 
 const App = (props) => {
-  const { user, isAuthenticated, isLoading: isAuthLoading, getAccessTokenSilently } = useAuth0();
+  const { isAuthenticated, isLoading: isAuthLoading, getAccessTokenSilently } = useAuth0();
   if (process.env.USE_AUTH_PROVIDER) {
     if (isAuthLoading) {
       return <div>Loading ...</div>;

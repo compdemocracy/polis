@@ -4,6 +4,7 @@
 import dateSetupUtil from '../../../util/data-export-date-setup'
 import React from 'react'
 import { connect } from 'react-redux'
+import withAuth0 from '../../../util/withAuth0'
 import { populateConversationStatsStore, populateZidMetadataStore } from '../../../actions'
 import NumberCards from './conversation-stats-number-cards'
 import Voters from './voters'
@@ -51,12 +52,19 @@ class ConversationStats extends React.Component {
     )
   }
 
-  componentDidMount() {
+  async componentDidMount() {
     const { zid_metadata, match } = this.props
 
-    this.props.dispatch(
-      populateZidMetadataStore(match.params.conversation_id)
-    )
+    if (process.env.USE_AUTH_PROVIDER) {
+      const token = await this.props.getAccessTokenSilently();
+      this.props.dispatch(
+        populateZidMetadataStore(this.props.match.params.conversation_id, token)
+      )
+    } else {
+      this.props.dispatch(
+        populateZidMetadataStore(this.props.match.params.conversation_id)
+      )
+    }
 
     if (zid_metadata?.is_mod) {
       this.startPolling()
@@ -134,4 +142,4 @@ class ConversationStats extends React.Component {
   }
 }
 
-export default ConversationStats
+export default withAuth0(ConversationStats)

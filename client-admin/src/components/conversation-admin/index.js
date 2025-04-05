@@ -9,6 +9,7 @@ import { Switch, Route, Link } from 'react-router-dom'
 
 import ConversationConfig from './conversation-config'
 import ConversationStats from './stats'
+import withAuth0 from '../../util/withAuth0'
 
 import ModerateComments from './comment-moderation/'
 
@@ -19,10 +20,20 @@ import Reports from './report/reports'
 
 @connect((state) => state.zid_metadata)
 class ConversationAdminContainer extends React.Component {
-  loadZidMetadata() {
-    this.props.dispatch(
-      populateZidMetadataStore(this.props.match.params.conversation_id)
-    )
+  constructor(props) {
+    super(props);
+  }
+  async loadZidMetadata() {
+    if (process.env.USE_AUTH_PROVIDER) {
+      const token = await this.props.getAccessTokenSilently();
+      this.props.dispatch(
+        populateZidMetadataStore(this.props.match.params.conversation_id, token)
+      )
+    } else {
+      this.props.dispatch(
+        populateZidMetadataStore(this.props.match.params.conversation_id)
+      )
+    }
   }
 
   resetMetadata() {
@@ -131,4 +142,4 @@ class ConversationAdminContainer extends React.Component {
   }
 }
 
-export default ConversationAdminContainer
+export default withAuth0(ConversationAdminContainer)

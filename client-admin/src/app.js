@@ -89,7 +89,6 @@ class App extends React.Component {
   }
 
   isAuthed() {
-    console.log(this.props)
     let authed = false
 
     if (process.env.USE_AUTH_PROVIDER) {
