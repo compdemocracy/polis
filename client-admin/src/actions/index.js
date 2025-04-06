@@ -531,24 +531,27 @@ const updateZidMetadataError = (err) => {
   }
 }
 
-const updateZidMetadata = (zm, field, value) => {
+const updateZidMetadata = (zm, field, value, token) => {
   const data = {}
   data[field] = value
-  return $.ajax({
-    url: '/api/v3/conversations',
+  const bodyData = JSON.stringify(Object.assign({}, zm, data))
+
+  return fetch('/api/v3/conversations', {
     method: 'PUT',
-    contentType: 'application/json; charset=utf-8',
-    headers: { 'Cache-Control': 'max-age=0' },
-    xhrFields: { withCredentials: true },
-    dataType: 'json',
-    data: JSON.stringify(Object.assign({}, zm, data))
-  })
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'max-age=0',
+      ...(token && { Authorization: `Bearer ${token}` })
+    },
+    credentials: 'include',
+    body: bodyData
+  }).then((r) => r.json())
 }
 
-export const handleZidMetadataUpdate = (zm, field, value) => {
+export const handleZidMetadataUpdate = (zm, field, value, token) => {
   return (dispatch) => {
     dispatch(updateZidMetadataStarted())
-    return updateZidMetadata(zm, field, value)
+    return updateZidMetadata(zm, field, value, token)
       .then((res) => dispatch(updateZidMetadataSuccess(res)))
       .fail((err) => dispatch(updateZidMetadataError(err)))
   }
@@ -590,14 +593,14 @@ const submitSeedCommentPostError = (err) => {
   }
 }
 
-const postSeedComment = (comment) => {
-  return PolisNet.polisPost('/api/v3/comments', comment)
+const postSeedComment = (comment, token) => {
+  return PolisNet.polisPost('/api/v3/comments', comment, token)
 }
 
-export const handleSeedCommentSubmit = (comment) => {
+export const handleSeedCommentSubmit = (comment, token) => {
   return (dispatch) => {
     dispatch(submitSeedCommentStart())
-    return postSeedComment(comment)
+    return postSeedComment(comment, token)
       .then(
         (res) => dispatch(submitSeedCommentPostSuccess(res)),
         (err) => dispatch(submitSeedCommentPostError(err))
@@ -654,17 +657,21 @@ const createConversationPostError = (err) => {
   }
 }
 
-const postCreateConversation = () => {
-  return PolisNet.polisPost('/api/v3/conversations', {
-    is_draft: true,
-    is_active: true
-  })
+const postCreateConversation = (token) => {
+  return PolisNet.polisPost(
+    '/api/v3/conversations',
+    {
+      is_draft: true,
+      is_active: true
+    },
+    token
+  )
 }
 
-export const handleCreateConversationSubmit = (routeTo) => {
+export const handleCreateConversationSubmit = (routeTo, token) => {
   return (dispatch) => {
     dispatch(createConversationStart())
-    return postCreateConversation()
+    return postCreateConversation(token)
       .then(
         (res) => {
           dispatch(createConversationPostSuccess(res))
@@ -700,21 +707,22 @@ const commentsFetchError = (err) => {
   }
 }
 
-const fetchAllComments = (conversation_id) => {
-  // let includeSocial = "include_social=true&";
-  const includeSocial = ''
-  return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-      includeSocial +
-      'conversation_id=' +
-      conversation_id
-  )
+const fetchAllComments = (conversation_id, token) => {
+  const includeSocial = '' // Or potentially "include_social=true&" if needed
+  const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&${includeSocial}conversation_id=${conversation_id}`
+
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      ...(token && { Authorization: `Bearer ${token}` })
+    }
+  }).then((r) => r.json())
 }
 
-export const populateCommentsStore = (conversation_id) => {
+export const populateCommentsStore = (conversation_id, token) => {
   return (dispatch) => {
     dispatch(requestComments())
-    return fetchAllComments(conversation_id).then(
+    return fetchAllComments(conversation_id, token).then(
       (res) => dispatch(receiveComments(res)),
       (err) => dispatch(commentsFetchError(err))
     )
@@ -794,7 +802,7 @@ const fetchUnmoderatedComments = (conversation_id, token) => {
     headers: {
       Authorization: `Bearer ${token}`
     }
-  })
+  }).then((r) => r.json())
 }
 
 export const populateUnmoderatedCommentsStore = (conversation_id, token) => {
@@ -838,7 +846,7 @@ const fetchAcceptedComments = (conversation_id, token) => {
     headers: {
       Authorization: `Bearer ${token}`
     }
-  })
+  }).then((r) => r.json())
 }
 
 export const populateAcceptedCommentsStore = (conversation_id, token) => {
@@ -873,21 +881,22 @@ const rejectedCommentsFetchError = (err) => {
   }
 }
 
-const fetchRejectedComments = (conversation_id) => {
-  // let includeSocial = "include_social=true&";
-  const includeSocial = ''
-  return $.get(
-    '/api/v3/comments?moderation=true&include_voting_patterns=false&' +
-      includeSocial +
-      'mod=-1&conversation_id=' +
-      conversation_id
-  )
+const fetchRejectedComments = (conversation_id, token) => {
+  const includeSocial = '' // Or potentially "include_social=true&" if needed
+  const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&${includeSocial}mod=-1&conversation_id=${conversation_id}`
+
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  }).then((r) => r.json())
 }
 
-export const populateRejectedCommentsStore = (conversation_id) => {
+export const populateRejectedCommentsStore = (conversation_id, token) => {
   return (dispatch) => {
     dispatch(requestRejectedComments())
-    return fetchRejectedComments(conversation_id).then(
+    return fetchRejectedComments(conversation_id, token).then(
       (res) => dispatch(receiveRejectedComments(res)),
       (err) => dispatch(rejectedCommentsFetchError(err))
     )
@@ -932,19 +941,22 @@ const acceptCommentError = (err) => {
   }
 }
 
-const putCommentAccepted = (comment) => {
-  return $.ajax({
+const putCommentAccepted = (comment, token) => {
+  return fetch('/api/v3/comments', {
     method: 'PUT',
-    url: '/api/v3/comments',
-    data: Object.assign(comment, { mod: 1 })
-  })
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` })
+    },
+    body: JSON.stringify(Object.assign(comment, { mod: 1 }))
+  }).then((r) => r.json())
 }
 
-export const changeCommentStatusToAccepted = (comment) => {
+export const changeCommentStatusToAccepted = (comment, token) => {
   comment.active = true
   return (dispatch) => {
     dispatch(optimisticCommentAccepted(comment))
-    return putCommentAccepted(comment).then(
+    return putCommentAccepted(comment, token).then(
       (res) => {
         dispatch(acceptCommentSuccess(res))
         dispatch(populateAllCommentStores(comment.conversation_id))
@@ -985,7 +997,7 @@ const putCommentRejected = (comment, token) => {
       Authorization: `Bearer ${token}`
     },
     body: JSON.stringify(Object.assign(comment, { mod: -1 }))
-  })
+  }).then((r) => r.json())
 }
 
 export const changeCommentStatusToRejected = (comment, token) => {
@@ -1024,18 +1036,21 @@ const commentIsMetaChangeError = (err) => {
   }
 }
 
-const putCommentCommentIsMetaChange = (comment, is_meta) => {
-  return $.ajax({
+const putCommentCommentIsMetaChange = (comment, is_meta, token) => {
+  return fetch('/api/v3/comments', {
     method: 'PUT',
-    url: '/api/v3/comments',
-    data: Object.assign(comment, { is_meta: is_meta })
-  })
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` })
+    },
+    body: JSON.stringify(Object.assign(comment, { is_meta: is_meta }))
+  }).then((r) => r.json())
 }
 
-export const changeCommentCommentIsMeta = (comment, is_meta) => {
+export const changeCommentCommentIsMeta = (comment, is_meta, token) => {
   return (dispatch) => {
     dispatch(optimisticCommentIsMetaChanged())
-    return putCommentCommentIsMetaChange(comment, is_meta).then(
+    return putCommentCommentIsMetaChange(comment, is_meta, token).then(
       (res) => {
         dispatch(commentIsMetaChangeSuccess(res))
         dispatch(populateAllCommentStores(comment.conversation_id))
@@ -1067,14 +1082,21 @@ const participantsFetchError = (err) => {
   }
 }
 
-const fetchParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?conversation_id=' + conversation_id)
+const fetchParticipants = (conversation_id, token) => {
+  const url = `/api/v3/ptptois?conversation_id=${conversation_id}`
+
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      ...(token && { Authorization: `Bearer ${token}` })
+    }
+  }).then((r) => r.json())
 }
 
-export const populateParticipantsStore = (conversation_id) => {
+export const populateParticipantsStore = (conversation_id, token) => {
   return (dispatch) => {
     dispatch(requestParticipants())
-    return fetchParticipants(conversation_id).then(
+    return fetchParticipants(conversation_id, token).then(
       (res) => dispatch(receiveParticipants(res)),
       (err) => dispatch(participantsFetchError(err))
     )
@@ -1103,14 +1125,21 @@ const defaultParticipantFetchError = (err) => {
   }
 }
 
-const fetchDefaultParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?mod=0&conversation_id=' + conversation_id)
+const fetchDefaultParticipants = (conversation_id, token) => {
+  const url = `/api/v3/ptptois?mod=0&conversation_id=${conversation_id}`
+
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      ...(token && { Authorization: `Bearer ${token}` })
+    }
+  }).then((r) => r.json())
 }
 
-export const populateDefaultParticipantStore = (conversation_id) => {
+export const populateDefaultParticipantStore = (conversation_id, token) => {
   return (dispatch) => {
     dispatch(requestDefaultParticipants())
-    return fetchDefaultParticipants(conversation_id).then(
+    return fetchDefaultParticipants(conversation_id, token).then(
       (res) => dispatch(receiveDefaultParticipants(res)),
       (err) => dispatch(defaultParticipantFetchError(err))
     )
@@ -1139,14 +1168,21 @@ const featuredParticipantFetchError = (err) => {
   }
 }
 
-const fetchFeaturedParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?mod=1&conversation_id=' + conversation_id)
+const fetchFeaturedParticipants = (conversation_id, token) => {
+  const url = `/api/v3/ptptois?mod=1&conversation_id=${conversation_id}`
+
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      ...(token && { Authorization: `Bearer ${token}` })
+    }
+  }).then((r) => r.json())
 }
 
-export const populateFeaturedParticipantStore = (conversation_id) => {
+export const populateFeaturedParticipantStore = (conversation_id, token) => {
   return (dispatch) => {
     dispatch(requestFeaturedParticipants())
-    return fetchFeaturedParticipants(conversation_id).then(
+    return fetchFeaturedParticipants(conversation_id, token).then(
       (res) => dispatch(receiveFeaturedParticipants(res)),
       (err) => dispatch(featuredParticipantFetchError(err))
     )
@@ -1175,14 +1211,21 @@ const hiddenParticipantFetchError = (err) => {
   }
 }
 
-const fetchHiddenParticipants = (conversation_id) => {
-  return $.get('/api/v3/ptptois?mod=-1&conversation_id=' + conversation_id)
+const fetchHiddenParticipants = (conversation_id, token) => {
+  const url = `/api/v3/ptptois?mod=-1&conversation_id=${conversation_id}`
+
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      ...(token && { Authorization: `Bearer ${token}` })
+    }
+  }).then((r) => r.json())
 }
 
-export const populateHiddenParticipantStore = (conversation_id) => {
+export const populateHiddenParticipantStore = (conversation_id, token) => {
   return (dispatch) => {
     dispatch(requestHiddenParticipants())
-    return fetchHiddenParticipants(conversation_id).then(
+    return fetchHiddenParticipants(conversation_id, token).then(
       (res) => dispatch(receiveHiddenParticipants(res)),
       (err) => dispatch(hiddenParticipantFetchError(err))
     )
@@ -1191,12 +1234,12 @@ export const populateHiddenParticipantStore = (conversation_id) => {
 
 /* populate ALL stores todo/accept/reject/seed */
 
-export const populateAllParticipantStores = (conversation_id) => {
+export const populateAllParticipantStores = (conversation_id, token) => {
   return (dispatch) => {
     return $.when(
-      dispatch(populateDefaultParticipantStore(conversation_id)),
-      dispatch(populateFeaturedParticipantStore(conversation_id)),
-      dispatch(populateHiddenParticipantStore(conversation_id))
+      dispatch(populateDefaultParticipantStore(conversation_id, token)),
+      dispatch(populateFeaturedParticipantStore(conversation_id, token)),
+      dispatch(populateHiddenParticipantStore(conversation_id, token))
     )
   }
 }
@@ -1224,18 +1267,21 @@ const featureParticipantError = (err) => {
   }
 }
 
-const putFeatureParticipant = (participant) => {
-  return $.ajax({
+const putFeatureParticipant = (participant, token) => {
+  return fetch('/api/v3/ptptois', {
     method: 'PUT',
-    url: '/api/v3/ptptois',
-    data: Object.assign(participant, { mod: 1 })
-  })
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` })
+    },
+    body: JSON.stringify(Object.assign(participant, { mod: 1 }))
+  }).then((r) => r.json())
 }
 
-export const changeParticipantStatusToFeatured = (participant) => {
+export const changeParticipantStatusToFeatured = (participant, token) => {
   return (dispatch) => {
     dispatch(optimisticFeatureParticipant(participant))
-    return putFeatureParticipant(participant).then(
+    return putFeatureParticipant(participant, token).then(
       (res) => dispatch(featureParticipantSuccess(res)),
       (err) => dispatch(featureParticipantError(err))
     )
@@ -1264,18 +1310,21 @@ const hideParticipantError = (err) => {
   }
 }
 
-const putHideParticipant = (participant) => {
-  return $.ajax({
+const putHideParticipant = (participant, token) => {
+  return fetch('/api/v3/ptptois', {
     method: 'PUT',
-    url: '/api/v3/ptptois',
-    data: Object.assign(participant, { mod: -1 })
-  })
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` })
+    },
+    body: JSON.stringify(Object.assign(participant, { mod: -1 }))
+  }).then((r) => r.json())
 }
 
-export const changeParticipantStatusToHidden = (participant) => {
+export const changeParticipantStatusToHidden = (participant, token) => {
   return (dispatch) => {
     dispatch(optimisticHideParticipant(participant))
-    return putHideParticipant(participant).then(
+    return putHideParticipant(participant, token).then(
       (res) => dispatch(hideParticipantSuccess(res)),
       (err) => dispatch(hideParticipantError(err))
     )
@@ -1308,18 +1357,21 @@ const unmoderateParticipantError = (err) => {
   }
 }
 
-const putUnmoderateParticipant = (participant) => {
-  return $.ajax({
+const putUnmoderateParticipant = (participant, token) => {
+  return fetch('/api/v3/ptptois', {
     method: 'PUT',
-    url: '/api/v3/ptptois',
-    data: Object.assign(participant, { mod: 0 })
-  })
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` })
+    },
+    body: JSON.stringify(Object.assign(participant, { mod: 0 }))
+  }).then((r) => r.json())
 }
 
-export const changeParticipantStatusToUnmoderated = (participant) => {
+export const changeParticipantStatusToUnmoderated = (participant, token) => {
   return (dispatch) => {
     dispatch(optimisticUnmoderateParticipant(participant))
-    return putUnmoderateParticipant(participant).then(
+    return putUnmoderateParticipant(participant, token).then(
       (res) => dispatch(hideParticipantSuccess(res)),
       (err) => dispatch(hideParticipantError(err))
     )
@@ -1348,18 +1400,28 @@ const conversationStatsFetchError = (err) => {
   }
 }
 
-const fetchConversationStats = (conversation_id, until) => {
-  return $.get(
-    '/api/v3/conversationStats?conversation_id=' +
-      conversation_id +
-      (until ? '&until=' + until : '')
-  )
+const fetchConversationStats = (conversation_id, until, token) => {
+  let url = `/api/v3/conversationStats?conversation_id=${conversation_id}`
+  if (until) {
+    url += `&until=${until}`
+  }
+
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      ...(token && { Authorization: `Bearer ${token}` })
+    }
+  }).then((r) => r.json())
 }
 
-export const populateConversationStatsStore = (conversation_id, until) => {
+export const populateConversationStatsStore = (
+  conversation_id,
+  until,
+  token
+) => {
   return (dispatch) => {
     dispatch(requestConversationStats())
-    return fetchConversationStats(conversation_id, until).then(
+    return fetchConversationStats(conversation_id, until, token).then(
       (res) => dispatch(receiveConversationStats(res)),
       (err) => dispatch(conversationStatsFetchError(err))
     )
@@ -1390,23 +1452,27 @@ const dataExportGet = (
   conversation_id,
   format,
   unixTimestamp,
-  untilEnabled
+  untilEnabled,
+  token
 ) => {
-  //       url += ("&unixTimestamp=" + ((ctx.date/1000) << 0));
-
-  /* https://pol.is/api/v3/dataExport?conversation_id=2arcefpshi&format=csv&unixTimestamp=1447362000 */
   let url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}`
   if (untilEnabled) {
     url += `&unixTimestamp=${unixTimestamp}`
   }
-  return $.get(url)
+  return fetch(url, {
+    method: 'GET',
+    headers: {
+      ...(token && { Authorization: `Bearer ${token}` })
+    }
+  })
 }
 
 export const startDataExport = (
   conversation_id,
   format,
   unixTimestamp,
-  untilEnabled
+  untilEnabled,
+  token
 ) => {
   return (dispatch) => {
     dispatch(dataExportStarted())
@@ -1414,7 +1480,8 @@ export const startDataExport = (
       conversation_id,
       format,
       unixTimestamp,
-      untilEnabled
+      untilEnabled,
+      token
     ).then(
       (res) => dispatch(dataExportSuccess(res)),
       (err) => dispatch(dataExportError(err))

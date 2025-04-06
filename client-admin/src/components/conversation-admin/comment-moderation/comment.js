@@ -19,7 +19,7 @@ class Comment extends React.Component {
     this.props.rejectClickHandler(this.props.comment)
   }
 
-  onIsMetaClicked() {
+  async onIsMetaClicked() {
     this.props.toggleIsMetaHandler(this.props.comment, this.is_meta.checked)
   }
 
@@ -27,7 +27,11 @@ class Comment extends React.Component {
     return (
       <Card sx={{ mb: [3], minWidth: '35em' }} data-test-id="pending-comment">
         <Box>
-          <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>{this.props.comment.active ? null : 'Comment flagged as toxic by Jigsaw Perspective API. Comment not shown to participants. Accept to override.'}</Text>
+          <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>
+            {this.props.comment.active
+              ? null
+              : 'Comment flagged as toxic by Jigsaw Perspective API. Comment not shown to participants. Accept to override.'}
+          </Text>
           <Text sx={{ mb: [3] }}>{this.props.comment.txt}</Text>
           <Flex
             sx={{
@@ -44,7 +48,9 @@ class Comment extends React.Component {
                 </Button>
               ) : null}
               {this.props.rejectButton ? (
-                <Button onClick={this.onRejectClicked.bind(this)} data-test-id="reject-comment">
+                <Button
+                  onClick={this.onRejectClicked.bind(this)}
+                  data-test-id="reject-comment">
                   {this.props.rejectButtonText}
                 </Button>
               ) : null}
