@@ -24,16 +24,9 @@ class ConversationAdminContainer extends React.Component {
     super(props);
   }
   async loadZidMetadata() {
-    if (process.env.USE_AUTH_PROVIDER) {
-      const token = await this.props.getAccessTokenSilently();
-      this.props.dispatch(
-        populateZidMetadataStore(this.props.match.params.conversation_id, token)
-      )
-    } else {
-      this.props.dispatch(
-        populateZidMetadataStore(this.props.match.params.conversation_id)
-      )
-    }
+    this.props.dispatch(
+      populateZidMetadataStore(this.props.match.params.conversation_id)
+    )
   }
 
   resetMetadata() {

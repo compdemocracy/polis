@@ -6,6 +6,7 @@ import PropTypes from 'prop-types'
 import Url from '../../../util/url'
 import { connect } from 'react-redux'
 import { Heading, Box, Button } from 'theme-ui'
+import withAuth0 from '../../../util/withAuth0'
 import { populateZidMetadataStore } from '../../../actions'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
@@ -33,9 +34,8 @@ class ReportsList extends React.Component {
     })
   }
 
-  componentDidMount() {
+  async componentDidMount() {
     const { zid_metadata } = this.props
-
     this.props.dispatch(
       populateZidMetadataStore(this.props.match.params.conversation_id)
     )
@@ -119,4 +119,4 @@ ReportsList.propTypes = {
   })
 }
 
-export default ReportsList
+export default withAuth0(ReportsList)

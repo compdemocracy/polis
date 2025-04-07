@@ -54,17 +54,9 @@ class ConversationStats extends React.Component {
 
   async componentDidMount() {
     const { zid_metadata, match } = this.props
-
-    if (process.env.USE_AUTH_PROVIDER) {
-      const token = await this.props.getAccessTokenSilently();
-      this.props.dispatch(
-        populateZidMetadataStore(this.props.match.params.conversation_id, token)
-      )
-    } else {
-      this.props.dispatch(
-        populateZidMetadataStore(this.props.match.params.conversation_id)
-      )
-    }
+    this.props.dispatch(
+      populateZidMetadataStore(this.props.match.params.conversation_id)
+    )
 
     if (zid_metadata?.is_mod) {
       this.startPolling()
@@ -142,4 +134,4 @@ class ConversationStats extends React.Component {
   }
 }
 
-export default withAuth0(ConversationStats)
+export default ConversationStats

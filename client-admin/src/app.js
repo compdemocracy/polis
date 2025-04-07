@@ -72,13 +72,8 @@ class App extends React.Component {
     }
   }
 
-  async loadUserData() {
-    let token
-    if (process.env.USE_AUTH_PROVIDER) {
-      token = await this.props.getAccessTokenSilently();
-      this.props.dispatch({ type: 'signin completed successfully' })
-    }
-    this.props.dispatch(populateUserStore(token))
+  loadUserData() {
+    this.props.dispatch(populateUserStore())
   }
 
   componentWillMount() {

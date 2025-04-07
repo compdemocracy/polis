@@ -27,12 +27,8 @@ class Conversations extends React.Component {
     this.props.dispatch(handleCreateConversationSubmit())
   }
 
-  async componentDidMount() {
-    let token
-    if (process.env.USE_AUTH_PROVIDER) {
-      token = await this.props.getAccessTokenSilently();
-    }
-    this.props.dispatch(populateConversationsStore(token))
+  componentDidMount() {
+    this.props.dispatch(populateConversationsStore())
     // loading true or just do that in constructor
     // check your connectivity and try again
   }
@@ -69,11 +65,7 @@ class Conversations extends React.Component {
   }
 
   async firePopulateInboxAction() {
-    let token
-    if (process.env.USE_AUTH_PROVIDER) {
-      token = await this.props.getAccessTokenSilently();
-    }
-    this.props.dispatch(populateConversationsStore(token))
+    this.props.dispatch(populateConversationsStore())
   }
 
   onFilterChange() {
