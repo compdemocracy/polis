@@ -54,11 +54,10 @@ class ConversationStats extends React.Component {
     )
   }
 
-  async componentDidMount() {
+  componentDidMount() {
     const { zid_metadata, match } = this.props
-    this.props.dispatch(
-      populateZidMetadataStore(this.props.match.params.conversation_id)
-    )
+
+    this.props.dispatch(populateZidMetadataStore(match.params.conversation_id))
 
     if (zid_metadata?.is_mod) {
       this.startPolling()

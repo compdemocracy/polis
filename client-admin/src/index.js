@@ -33,7 +33,7 @@ class Root extends React.Component {
       ) : (
         <>{children}</>
       )
-    AuthSwitcher.propTypes = {
+    AuthSwitcher.PropTypes = {
       children: PropTypes.node.isRequired
     }
     return (
