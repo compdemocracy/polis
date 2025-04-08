@@ -11603,7 +11603,7 @@ Thanks for using Polis!
   }
   let handle_GET_conditionalIndexFetcher = (function () {
     return function (req: any, res: { redirect: (arg0: string) => void }) {
-      if (hasAuthToken(req) || process.env.USE_AUTH_PROVIDER) {
+      if (hasAuthToken(req) || Config.useAuthProvider) {
         // user is signed in, serve the app
         // Argument of type '{ redirect: (arg0: string) => void; }'
         // is not assignable to parameter of type '{ set: (arg0: any) => void; }'.
