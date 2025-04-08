@@ -22,10 +22,10 @@ class Account extends React.Component {
             }}>
             Account
           </Heading>
-          <p>Hi {this.props.user.hname.split(' ')[0]}!</p>
+          <p>Hi {this.props.user?.hname.split(' ')[0]}!</p>
           <Box>
-            <p>{this.props.user.hname}</p>
-            <p>{this.props.user.email}</p>
+            <p>{this.props.user?.hname}</p>
+            <p>{this.props.user?.email}</p>
           </Box>
         </Box>
       </>
@@ -35,7 +35,7 @@ class Account extends React.Component {
   render() {
     return (
       <div>
-        {this.props.user.hname ? this.buildAccountMarkup() : <Spinner />}
+        {this.props.user?.hname ? this.buildAccountMarkup() : <Spinner />}
       </div>
     )
   }

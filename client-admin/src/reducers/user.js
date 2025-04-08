@@ -20,7 +20,7 @@ const user = (
       return Object.assign({}, state, {
         loading: false,
         user: action.data,
-        isLoggedIn: !!action.data.email || !!action.data.xInfo,
+        isLoggedIn: !!action.data?.email || !!action.data?.xInfo,
         error: false
       })
     case types.USER_FETCH_ERROR:
