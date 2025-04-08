@@ -50,6 +50,10 @@ class Root extends React.Component {
   }
 }
 
+Root.PropTypes = {
+  children: PropTypes.node.isRequired
+}
+
 window.$ = $
 
 ReactDOM.render(<Root />, document.getElementById('root'))
