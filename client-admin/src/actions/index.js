@@ -419,7 +419,7 @@ const fetchConversations = () => {
   try {
     return PolisNet.polisGet(
       '/api/v3/conversations?include_all_conversations_i_am_in=true',
-      undefined,
+      undefined
     )
   } catch (e) {
     console.log(e)
@@ -470,7 +470,7 @@ export const resetMetadataStore = () => {
 const fetchZidMetadata = (conversation_id) => {
   return PolisNet.polisGet(
     '/api/v3/conversations?conversation_id=' + conversation_id,
-    undefined,
+    undefined
   )
 }
 
@@ -534,16 +534,18 @@ const updateZidMetadata = (zm, field, value) => {
   data[field] = value
   const bodyData = JSON.stringify(Object.assign({}, zm, data))
 
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch('/api/v3/conversations', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Cache-Control': 'max-age=0',
-      ...(token && { Authorization: `Bearer ${token}` })
-    },
-    credentials: 'include',
-    body: bodyData
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch('/api/v3/conversations', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'max-age=0',
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
+      credentials: 'include',
+      body: bodyData
+    }).then((r) => r.json())
+  )
 }
 
 export const handleZidMetadataUpdate = (zm, field, value) => {
@@ -551,7 +553,7 @@ export const handleZidMetadataUpdate = (zm, field, value) => {
     dispatch(updateZidMetadataStarted())
     return updateZidMetadata(zm, field, value)
       .then((res) => dispatch(updateZidMetadataSuccess(res)))
-      .fail((err) => dispatch(updateZidMetadataError(err)))
+      .catch((err) => dispatch(updateZidMetadataError(err)))
   }
 }
 
@@ -656,13 +658,10 @@ const createConversationPostError = (err) => {
 }
 
 const postCreateConversation = () => {
-  return PolisNet.polisPost(
-    '/api/v3/conversations',
-    {
-      is_draft: true,
-      is_active: true
-    },
-  )
+  return PolisNet.polisPost('/api/v3/conversations', {
+    is_draft: true,
+    is_active: true
+  })
 }
 
 export const handleCreateConversationSubmit = (routeTo) => {
@@ -708,12 +707,14 @@ const fetchAllComments = (conversation_id) => {
   const includeSocial = '' // Or potentially "include_social=true&" if needed
   const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&${includeSocial}conversation_id=${conversation_id}`
 
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch(url, {
-    method: 'GET',
-    headers: {
-      ...(token && { Authorization: `Bearer ${token}` })
-    }
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      }
+    }).then((r) => r.json())
+  )
 }
 
 export const populateCommentsStore = (conversation_id) => {
@@ -794,12 +795,14 @@ const fetchUnmoderatedComments = (conversation_id) => {
   const includeSocial = '' // Or potentially "include_social=true&" if needed
   const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&${includeSocial}mod=0&conversation_id=${conversation_id}`
 
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }).then((r) => r.json())
+  )
 }
 
 export const populateUnmoderatedCommentsStore = (conversation_id) => {
@@ -838,12 +841,14 @@ const fetchAcceptedComments = (conversation_id) => {
   const includeSocial = '' // Or potentially "include_social=true&" if needed
   const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&mod=1&${includeSocial}conversation_id=${conversation_id}`
 
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }).then((r) => r.json())
+  )
 }
 
 export const populateAcceptedCommentsStore = (conversation_id) => {
@@ -882,12 +887,14 @@ const fetchRejectedComments = (conversation_id) => {
   const includeSocial = '' // Or potentially "include_social=true&" if needed
   const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&${includeSocial}mod=-1&conversation_id=${conversation_id}`
 
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }).then((r) => r.json())
+  )
 }
 
 export const populateRejectedCommentsStore = (conversation_id) => {
@@ -939,14 +946,16 @@ const acceptCommentError = (err) => {
 }
 
 const putCommentAccepted = (comment) => {
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch('/api/v3/comments', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` })
-    },
-    body: JSON.stringify(Object.assign(comment, { mod: 1 }))
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch('/api/v3/comments', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
+      body: JSON.stringify(Object.assign(comment, { mod: 1 }))
+    }).then((r) => r.json())
+  )
 }
 
 export const changeCommentStatusToAccepted = (comment) => {
@@ -987,14 +996,16 @@ const rejectCommentError = (err) => {
 }
 
 const putCommentRejected = (comment) => {
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch('/api/v3/comments', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`
-    },
-    body: JSON.stringify(Object.assign(comment, { mod: -1 }))
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch('/api/v3/comments', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(Object.assign(comment, { mod: -1 }))
+    }).then((r) => r.json())
+  )
 }
 
 export const changeCommentStatusToRejected = (comment) => {
@@ -1034,14 +1045,16 @@ const commentIsMetaChangeError = (err) => {
 }
 
 const putCommentCommentIsMetaChange = (comment, is_meta) => {
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch('/api/v3/comments', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` })
-    },
-    body: JSON.stringify(Object.assign(comment, { is_meta: is_meta }))
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch('/api/v3/comments', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
+      body: JSON.stringify(Object.assign(comment, { is_meta: is_meta }))
+    }).then((r) => r.json())
+  )
 }
 
 export const changeCommentCommentIsMeta = (comment, is_meta) => {
@@ -1082,12 +1095,14 @@ const participantsFetchError = (err) => {
 const fetchParticipants = (conversation_id) => {
   const url = `/api/v3/ptptois?conversation_id=${conversation_id}`
 
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch(url, {
-    method: 'GET',
-    headers: {
-      ...(token && { Authorization: `Bearer ${token}` })
-    }
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      }
+    }).then((r) => r.json())
+  )
 }
 
 export const populateParticipantsStore = (conversation_id) => {
@@ -1125,12 +1140,14 @@ const defaultParticipantFetchError = (err) => {
 const fetchDefaultParticipants = (conversation_id) => {
   const url = `/api/v3/ptptois?mod=0&conversation_id=${conversation_id}`
 
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch(url, {
-    method: 'GET',
-    headers: {
-      ...(token && { Authorization: `Bearer ${token}` })
-    }
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      }
+    }).then((r) => r.json())
+  )
 }
 
 export const populateDefaultParticipantStore = (conversation_id) => {
@@ -1168,12 +1185,14 @@ const featuredParticipantFetchError = (err) => {
 const fetchFeaturedParticipants = (conversation_id) => {
   const url = `/api/v3/ptptois?mod=1&conversation_id=${conversation_id}`
 
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch(url, {
-    method: 'GET',
-    headers: {
-      ...(token && { Authorization: `Bearer ${token}` })
-    }
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      }
+    }).then((r) => r.json())
+  )
 }
 
 export const populateFeaturedParticipantStore = (conversation_id) => {
@@ -1211,12 +1230,14 @@ const hiddenParticipantFetchError = (err) => {
 const fetchHiddenParticipants = (conversation_id) => {
   const url = `/api/v3/ptptois?mod=-1&conversation_id=${conversation_id}`
 
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch(url, {
-    method: 'GET',
-    headers: {
-      ...(token && { Authorization: `Bearer ${token}` })
-    }
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      }
+    }).then((r) => r.json())
+  )
 }
 
 export const populateHiddenParticipantStore = (conversation_id) => {
@@ -1265,14 +1286,16 @@ const featureParticipantError = (err) => {
 }
 
 const putFeatureParticipant = (participant) => {
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch('/api/v3/ptptois', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` })
-    },
-    body: JSON.stringify(Object.assign(participant, { mod: 1 }))
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch('/api/v3/ptptois', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
+      body: JSON.stringify(Object.assign(participant, { mod: 1 }))
+    }).then((r) => r.json())
+  )
 }
 
 export const changeParticipantStatusToFeatured = (participant) => {
@@ -1308,14 +1331,16 @@ const hideParticipantError = (err) => {
 }
 
 const putHideParticipant = (participant) => {
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch('/api/v3/ptptois', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` })
-    },
-    body: JSON.stringify(Object.assign(participant, { mod: -1 }))
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch('/api/v3/ptptois', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
+      body: JSON.stringify(Object.assign(participant, { mod: -1 }))
+    }).then((r) => r.json())
+  )
 }
 
 export const changeParticipantStatusToHidden = (participant) => {
@@ -1355,14 +1380,16 @@ const unmoderateParticipantError = (err) => {
 }
 
 const putUnmoderateParticipant = (participant) => {
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch('/api/v3/ptptois', {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token && { Authorization: `Bearer ${token}` })
-    },
-    body: JSON.stringify(Object.assign(participant, { mod: 0 }))
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch('/api/v3/ptptois', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token && { Authorization: `Bearer ${token}` })
+      },
+      body: JSON.stringify(Object.assign(participant, { mod: 0 }))
+    }).then((r) => r.json())
+  )
 }
 
 export const changeParticipantStatusToUnmoderated = (participant) => {
@@ -1403,18 +1430,17 @@ const fetchConversationStats = (conversation_id, until) => {
     url += `&until=${until}`
   }
 
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch(url, {
-    method: 'GET',
-    headers: {
-      ...(token && { Authorization: `Bearer ${token}` })
-    }
-  }).then((r) => r.json()))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      }
+    }).then((r) => r.json())
+  )
 }
 
-export const populateConversationStatsStore = (
-  conversation_id,
-  until,
-) => {
+export const populateConversationStatsStore = (conversation_id, until) => {
   return (dispatch) => {
     dispatch(requestConversationStats())
     return fetchConversationStats(conversation_id, until).then(
@@ -1448,25 +1474,27 @@ const dataExportGet = (
   conversation_id,
   format,
   unixTimestamp,
-  untilEnabled,
+  untilEnabled
 ) => {
   let url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}`
   if (untilEnabled) {
     url += `&unixTimestamp=${unixTimestamp}`
   }
-  return PolisNet.getAccessTokenSilentlySPA().then(token => fetch(url, {
-    method: 'GET',
-    headers: {
-      ...(token && { Authorization: `Bearer ${token}` })
-    }
-  }))
+  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
+    fetch(url, {
+      method: 'GET',
+      headers: {
+        ...(token && { Authorization: `Bearer ${token}` })
+      }
+    })
+  )
 }
 
 export const startDataExport = (
   conversation_id,
   format,
   unixTimestamp,
-  untilEnabled,
+  untilEnabled
 ) => {
   return (dispatch) => {
     dispatch(dataExportStarted())
@@ -1474,7 +1502,7 @@ export const startDataExport = (
       conversation_id,
       format,
       unixTimestamp,
-      untilEnabled,
+      untilEnabled
     ).then(
       (res) => dispatch(dataExportSuccess(res)),
       (err) => dispatch(dataExportError(err))
