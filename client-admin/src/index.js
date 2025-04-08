@@ -6,7 +6,7 @@ import React from 'react'
 import { Auth0Provider } from '@auth0/auth0-react'
 import ReactDOM from 'react-dom'
 import { Provider } from 'react-redux'
-
+import PropTypes from 'prop-types'
 import configureStore from './store'
 import { ThemeProvider } from 'theme-ui'
 import theme from './theme'
