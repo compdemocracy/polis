@@ -947,15 +947,38 @@ function initializePolisHelpers() {
 
   // @ts-expect-error debug
   function _auth0(assigner, optional) {
+    function getKey(
+      req: {
+        body: Body;
+        headers?: Headers;
+        query?: Query;
+      },
+      key: string
+    ) {
+      return req.body[key] || req?.headers?.[key] || req?.query?.[key];
+    }
     return async function verifyJwt(
       req: any,
-      res: { status: (arg0: number) => { send: (arg0: string) => void } },
+      res: { status: (arg0: number) => { send: (arg0: string) => void },  },
       next: NextFunction
     ) {
       try {
         const authHeader = req.headers.authorization;
         if (!authHeader) {
-          return res.status(401).send("Authorization header missing");
+          if (getKey(req, "xid") && getKey(req, "conversation_id")) {
+            return doXidConversationIdAuth(
+              assigner,
+              getKey(req, "xid"),
+              getKey(req, "conversation_id"),
+              optional,
+              req,
+              res,
+              next
+            );
+          } else if (req.cookies[COOKIES.TOKEN]) {
+            return doCookieAuth(assigner, optional, req, res, next);
+          }
+          return optional ? next() : res.status(401).send("Invalid authentication");
         }
 
         const token = authHeader.split(" ")[1];
@@ -978,8 +1001,10 @@ function initializePolisHelpers() {
           userInfo.email,
           userInfo
         );
-        assigner(req, "uid", uid);
-        next();
+        return startSessionAndAddCookies(req, res, uid).then(() => {
+          assigner(req, "uid", uid);
+          return next();
+        })
       } catch (error) {
         if (optional) {
           return next();
@@ -6220,8 +6245,10 @@ Email verified! You can close this tab or hit the back button.
     let pid = req.p.pid; // PID_FLOW pid may be undefined here.
     let lang = req.p.lang;
 
+    console.log(`UIDUIDFUDI: ${JSON.stringify(req.p)}`)
+
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
-    let token = req.cookies[COOKIES.TOKEN];
+    let token = req.cookies[COOKIES.TOKEN] || Config.useAuthProvider;
     let apiToken = req?.headers?.authorization || "";
     let xPolisHeaderToken = req?.headers?.["x-polis"];
     if (!uid && !token && !apiToken && !xPolisHeaderToken) {
