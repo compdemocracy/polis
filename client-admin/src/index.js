@@ -18,29 +18,30 @@ const store = configureStore()
 
 class Root extends React.Component {
   render() {
-    const AuthSwitcher = ({ children }) => process.env.USE_AUTH_PROVIDER ? (
-      <Auth0Provider
-        domain="compdem.us.auth0.com"
-        clientId={process.env.AUTH_CLIENT_ID}
-        cacheLocation="localstorage"
-        authorizationParams={{
-          redirect_uri: window.location.origin,
-          audience: "users"
-        }}
-      >
-        {children}
-      </Auth0Provider>
-    ) : (
-      <>
-        {children}
-      </>
-    );
+    const AuthSwitcher = ({ children }) =>
+      process.env.USE_AUTH_PROVIDER ? (
+        <Auth0Provider
+          domain="compdem.us.auth0.com"
+          clientId={process.env.AUTH_CLIENT_ID}
+          cacheLocation="localstorage"
+          authorizationParams={{
+            redirect_uri: window.location.origin,
+            audience: 'users'
+          }}>
+          {children}
+        </Auth0Provider>
+      ) : (
+        <>{children}</>
+      )
+    AuthSwitcher.propTypes = {
+      children: PropTypes.node.isRequired
+    }
     return (
       <AuthSwitcher>
         <ThemeProvider theme={theme}>
           <Provider store={store}>
             <Router>
-              <Route render={(routeProps) => <App {...routeProps}/>}></Route>
+              <Route render={(routeProps) => <App {...routeProps} />}></Route>
             </Router>
           </Provider>
         </ThemeProvider>

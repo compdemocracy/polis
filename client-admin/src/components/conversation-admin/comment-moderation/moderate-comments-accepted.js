@@ -7,29 +7,16 @@ import {
   changeCommentStatusToRejected,
   changeCommentCommentIsMeta
 } from '../../../actions'
-import withAuth0 from '../../../util/withAuth0'
 import Comment from './comment'
 
 @connect((state) => state.mod_comments_accepted)
 class ModerateCommentsAccepted extends React.Component {
-  async onCommentRejected(comment) {
-    let token
-    if (process.env.USE_AUTH_PROVIDER) {
-      token = await this.props.getAccessTokenSilently()
-      this.props.dispatch(changeCommentStatusToRejected(comment, token))
-    } else {
-      this.props.dispatch(changeCommentStatusToRejected(comment))
-    }
+  onCommentRejected(comment) {
+    this.props.dispatch(changeCommentStatusToRejected(comment))
   }
 
-  async toggleIsMetaHandler(comment, is_meta) {
-    let token
-    if (process.env.USE_AUTH_PROVIDER) {
-      token = await this.props.getAccessTokenSilently()
-      this.props.dispatch(changeCommentCommentIsMeta(comment, is_meta, token))
-    } else {
-      this.props.dispatch(changeCommentStatusToRejected(comment))
-    }
+  toggleIsMetaHandler(comment, is_meta) {
+    this.props.dispatch(changeCommentCommentIsMeta(comment, is_meta))
   }
 
   createCommentMarkup() {
@@ -65,4 +52,4 @@ ModerateCommentsAccepted.propTypes = {
   accepted_comments: PropTypes.arrayOf(PropTypes.object)
 }
 
-export default withAuth0(ModerateCommentsAccepted)
+export default ModerateCommentsAccepted

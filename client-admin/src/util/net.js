@@ -1,7 +1,7 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import URLs from './url'
-import * as auth0 from "@auth0/auth0-spa-js";
+import * as auth0 from '@auth0/auth0-spa-js'
 import _ from 'lodash'
 
 const urlPrefix = URLs.urlPrefix
@@ -9,32 +9,32 @@ const basePath = ''
 
 // var pid = "unknownpid";
 
-let auth0Client = null;
-
+let auth0Client = null
 
 const getAccessTokenSilentlySPA = async (options) => {
   if (process.env.USE_AUTH_PROVIDER) {
     try {
       const initializeAuth0 = async () => {
         auth0Client = await auth0.createAuth0Client({
-          domain: "compdem.us.auth0.com",
+          domain: 'compdem.us.auth0.com',
           clientId: process.env.AUTH_CLIENT_ID,
           authorizationParams: {
-            audience: "users",
+            audience: 'users'
           }
-        });
-      };
-      if (!auth0Client) {
-        await initializeAuth0();
+        })
       }
-      return await auth0Client.getTokenSilently(options);
+      if (!auth0Client) {
+        await initializeAuth0()
+      }
+      return await auth0Client.getTokenSilently(options)
     } catch (e) {
-      auth0Client.logInWithRedirect();
+      console.log(e)
+      auth0Client.logInWithRedirect()
     }
   } else {
-    return Promise.resolve(undefined);
+    return Promise.resolve(undefined)
   }
-};
+}
 
 async function polisAjax(api, data, type) {
   if (!_.isString(api)) {
@@ -60,9 +60,9 @@ async function polisAjax(api, data, type) {
 
   if (process.env.USE_AUTH_PROVIDER) {
     const token = await getAccessTokenSilentlySPA({
-      audience: "users",
-      scope: "openid,profile,email",
-    });
+      audience: 'users',
+      scope: 'openid,profile,email'
+    })
 
     let promise
     const config = {
@@ -71,7 +71,7 @@ async function polisAjax(api, data, type) {
       headers: {
         // "Cache-Control": "no-cache"  // no-cache
         'Cache-Control': 'max-age=0',
-        'Authorization': `Bearer ${token}`
+        Authorization: `Bearer ${token}`
       },
       xhrFields: {
         withCredentials: true
@@ -94,10 +94,10 @@ async function polisAjax(api, data, type) {
         })
       )
     }
-  
+
     promise.fail(function (jqXHR, message, errorType) {
       // sendEvent("Error", api, jqXHR.status);
-  
+
       // logger.error("SEND ERROR");
       console.dir('polisAjax promise failed: ', arguments)
       if (jqXHR.status === 403) {
@@ -115,7 +115,7 @@ async function polisAjax(api, data, type) {
       contentType: 'application/json; charset=utf-8',
       headers: {
         // "Cache-Control": "no-cache"  // no-cache
-        'Cache-Control': 'max-age=0',
+        'Cache-Control': 'max-age=0'
       },
       xhrFields: {
         withCredentials: true
@@ -138,10 +138,10 @@ async function polisAjax(api, data, type) {
         })
       )
     }
-  
+
     promise.fail(function (jqXHR, message, errorType) {
       // sendEvent("Error", api, jqXHR.status);
-  
+
       // logger.error("SEND ERROR");
       console.dir('polisAjax promise failed: ', arguments)
       if (jqXHR.status === 403) {
@@ -153,8 +153,6 @@ async function polisAjax(api, data, type) {
     })
     return promise
   }
-
-
 }
 
 async function polisPost(api, data) {

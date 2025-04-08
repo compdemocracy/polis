@@ -4,8 +4,10 @@
 import dateSetupUtil from '../../../util/data-export-date-setup'
 import React from 'react'
 import { connect } from 'react-redux'
-import withAuth0 from '../../../util/withAuth0'
-import { populateConversationStatsStore, populateZidMetadataStore } from '../../../actions'
+import {
+  populateConversationStatsStore,
+  populateZidMetadataStore
+} from '../../../actions'
 import NumberCards from './conversation-stats-number-cards'
 import Voters from './voters'
 import Commenters from './commenters'
