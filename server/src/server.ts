@@ -992,15 +992,12 @@ function initializePolisHelpers() {
 
   // input token from body or query, and populate req.body.u with userid.
   function authOptional(assigner: any) {
-    // return Config.useAuthProvider ? () : _auth(assigner, true);
-    // return _auth(assigner, true);
     return Config.useAuthProvider
-      ? _auth0(assigner, false)
-      : _auth(assigner, false);
+      ? _auth0(assigner, true)
+      : _auth(assigner, true);
   }
 
   function auth(assigner: any) {
-    // req.auth.payload;
     return Config.useAuthProvider
       ? _auth0(assigner, false)
       : _auth(assigner, false);
