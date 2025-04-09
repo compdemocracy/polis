@@ -5,7 +5,7 @@ var s = {};
 // Text on the card
 
 s.participantHelpWelcomeText =
-  "Welcome to a new kind of conversation — </b>vote</b>on other people's statements — </b> the more the better.</b>";
+  "Welcome to a new kind of conversation — </b>vote</b> on other people's statements — </b> the more the better.</b>";
 
 s.agree = "Agree";
 s.disagree = "Disagree";
