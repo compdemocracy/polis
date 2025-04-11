@@ -25,11 +25,12 @@ const getAccessTokenSilentlySPA = async (options) => {
       }
       if (!auth0Client) {
         await initializeAuth0()
+        return Promise.resolve(undefined)
       }
       return await auth0Client.getTokenSilently(options)
     } catch (e) {
       console.log(e)
-      auth0Client.logInWithRedirect()
+      auth0Client.loginWithRedirect()
     }
   } else {
     return Promise.resolve(undefined)
