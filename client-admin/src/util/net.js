@@ -61,7 +61,7 @@ async function polisAjax(api, data, type) {
   if (process.env.USE_AUTH_PROVIDER) {
     const token = await getAccessTokenSilentlySPA({
       audience: 'users',
-      scope: 'openid,profile,email'
+      scope: 'openid profile email'
     })
 
     let promise

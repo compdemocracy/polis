@@ -9,18 +9,39 @@ import { faker } from '@faker-js/faker'
  * @param {Object} user - User object with email and password
  * @param {boolean} useUI - Whether to use UI (true) or API (false) for login
  */
-Cypress.Commands.add('login', (user, useUI = false) => {
-  if (useUI) {
-    cy.intercept('POST', '/api/v3/auth/login').as('login')
-    cy.visit('/signin')
+// Cypress.Commands.add('login', (user, useUI = false) => {
+//   if (useUI) {
+//     cy.intercept('POST', '/api/v3/auth/login').as('login')
+//     cy.visit('/signin')
 
-    cy.get('form input#signinEmailInput').type(user.email)
-    cy.get('form input#signinPasswordInput').type(user.password)
-    cy.get('form button#signinButton').click()
-    cy.wait('@login')
-  } else {
-    apiLogin(user)
+//     cy.get('form input#signinEmailInput').type(user.email)
+//     cy.get('form input#signinPasswordInput').type(user.password)
+//     cy.get('form button#signinButton').click()
+//     cy.wait('@login')
+//   } else {
+//     apiLogin(user)
+//   }
+// })
+
+Cypress.Commands.add('login', (user) => {
+  Cypress.log({
+    name: 'loginViaAuth0',
+  })
+
+  const options = {
+    method: 'POST',
+    url: Cypress.env('auth_url'),
+    body: {
+      grant_type: 'password',
+      username: user.username,
+      password: user.password,
+      audience: 'users',
+      scope: 'openid profile email',
+      client_id: Cypress.env('auth_client_id'),
+      client_secret: Cypress.env('auth_client_secret'),
+    },
   }
+  cy.request(options)
 })
 
 /**
