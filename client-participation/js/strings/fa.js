@@ -2,126 +2,200 @@
 
 var s = {};
 
-s.direction = "rtl";
+// نوشتار روی کارت
 
-s.agree = "موافق";
-s.disagree = "مخالف";
-s.pass = "رد کن/مطمئن نیستم";
+s.participantHelpWelcomeText =
+  `به نوع جدید مکالمه خوش آمدید - به عبارت‌های دیگران <em>رأی دهید</em> - هرچه بشتر، بهتر.`
 
-s.importantCheckbox = "این نطر مهم است";
-s.howImportantPrompt = "این گفته چقدر مهم است؟";
-s.howImportantLow = "کم";
-s.howImportantMedium = "متوسط";
-s.howImportantHigh = "زیاد";
+s.agree = `موافق`
+s.disagree = `مخالف`
+s.pass = `گذشتن / نامطمئن`
 
-s.modSpam = "اسپم";
-s.modOffTopic = "خارج از موضوع";
-s.modImportant = "مهم";
-s.modSubmitInitialState = "رد کن (هیچ یک از موارد بالا)، گفته بعدی";
-s.modSubmit = "انجام شد، گفته بعدی";
+s.writePrompt =`دیدگاهتان را هم‌رسانی کنید (پاسخ نمی‌دهید — عبارت مستقلی را ارسال کنید)`
+s.anonPerson = `ناشناس`
+s.importantCheckbox = `مهم/ قابل‌توجه`
+s.importantCheckboxDesc =
+  `صرف‌نظر از رأی شما، اگر فکر می‌کنید این عبارت برایتان اهمیت ویژه دارد یا به این مکالمه خیلی ارتباط دارد، این چارگوش را علامت بزنید. به‌این‌ترتیب، درمقایسه با رأی‌های دیگرتان در این مکالمه تحلیلی، به این عبارت اولویت بالاتری می‌دهید.`
 
-s.x_wrote = "نوشت";
-s.x_tweeted = "توییت کرد";
-s.comments_remaining = "{{num_comments}} باقی مانده";
-s.comments_remaining2 = "{{num_comments}} گفته‌های باقی مانده";
-s.group_123 = "گروه";
-s.comment_123 = "گفته";
-s.majorityOpinion = "نظر اکثریت";
-s.majorityOpinionShort = "اکثریت";
-s.info = "اطلاعات";
-s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
-s.privacy = "سیاست حفظ حریم خصوصی";
-s.TOS = "شرایط استفاده از خدمات";
-s.writePrompt = "دیدگاه خود را به اشتراک بگذارید";
-s.anonPerson = "ناشناس";
-s.helpWhatAmISeeingTitle = "این که میبینم چیست؟";
-s.helpWhatAmISeeing = "افرادی که به صورت مشابه رای میدهند در یک گروه قرار میگیرند. روی یکه گروه کلیک کنید تا ببینید چه دیدگاه های مشترکی دارند.";
-s.helpWhatDoIDoTitle = "چه کار باید بکنم؟";
-s.helpWhatDoIDo = "با کلیک روی 'موافق' و 'مخالف' به گفته دیگران رای دهید. نظرات خود را اضافه کنید. (هر ثبت نظر را به یک ایده محدود کنید.) دوستان خود را به گفتگو دعوت کنید.";
-s.writeCommentHelpText = "آیا دیدگاه یا تجربه‌ی شما در این گفتگو دیده نمی‌شود؟ در اینصورت، آنها را در جعبه ویرایش زیر <b> اضافه کنید</b>.";
-s.helpWriteListIntro = "یک گفته‌ی خوب چه ویژگی‌هایی دارد؟";
-s.helpWriteListStandalone = "ایده‌ی مستقل در قالب یک جمله";
-s.helpWriteListRaisNew = "دیدگاه، تجربه یا مشکل جدیدی را مطرح میکند.";
-s.helpWriteListShort = "واضح و مختصر (محدود به ۱۴۰ کاراکتر)";
-s.heresHowGroupVoted = "در اینجا نحوه رای دادن گروه {{GROUP_NUMBER}} آمده است";
-s.one_person = "{{x}} نفر";
-s.x_people = "{{x}} نفر";
-s.acrossAllPtpts = "از میان همه شرکت کننده‌ها";
-s.xPtptsSawThisComment = "این گفته را دیده‌اند ";
-s.xOfThoseAgreed = "از شرکت کننده‌ها موافقت کردند.";
-s.xOfthoseDisagreed = "از شرکت کننده‌ها مخالفت کردند";
-s.opinionGroups = "گروه‌های فکری";
-s.topComments = "گفته‌های برتر";
-s.divisiveComments = "نظرات تفرقه برانگیز";
-s.pctAgreed = "{{pct}}% موافق:";
-s.pctDisagreed = "{{pct}}% مخالف:";
-s.pctAgreedLong = "{{pct}}% از کسانی که به گفته {{comment_id}} رای دادند، با آن موافقت کردند.";
-s.pctAgreedOfGroup = "{{pct}}% از گروه {{group}} موافقت کردند";
-s.pctDisagreedOfGroup = "{{pct}}% از گروه {{group}} مخالفت کردند";
-s.pctDisagreedLong = "{{pct}}% از کسانی که به گفته {{comment_id}} رای دادند، با آن مخالفت کردند ";
-s.pctAgreedOfGroupLong = "{{pct}}% از کسانی که از گروه {{group}} به گفته {{comment_id}} رای دادند، با آن موافقت کردند ";
-s.pctDisagreedOfGroupLong = "{{pct}}% از کسانی که از گروه {{group}} به گفته {{comment_id}} رای دادند، با آن مخالفت کردند ";
-s.commentSent = "گفته‌ی شما به لیست نظرات اضافه شد و شرکت کننده‌های دیگر می‌توانند به آن رای بدهند.";
-s.commentSendFailed = "در ارسال گفته شما خطایی رخ داد.";
-s.commentSendFailedEmpty = "در ارسال گفته شما خطایی رخ داد - گفته نباید خالی باشد";
-s.commentSendFailedTooLong = "در ارسال گفته شما خطایی رخ داد - گفته خیلی طولانی است";
-s.commentSendFailedDuplicate = "در ارسال گفته شما خطایی رخ داد - گفته یکسانی از قبل وجود دارد.";
-s.commentErrorDuplicate = "تکراری! این گفته از قبل وجود دارد";
-s.commentErrorConversationClosed = "این گفتگو بسته شده است. ارسال گفته جدید قابل انجام نیست. ";
-s.commentIsEmpty = "گفته خالی است";
-s.commentIsTooLong = "گفته خیلی طولانی است";
-s.hereIsNextStatement = "رای دهی موفق. برای دیدن گفته‌ی بعدی به بالا بروید.";
+s.howImportantPrompt = `این عبارت چقدر اهمیت دارد؟`
+s.howImportantLow = `کم`
+s.howImportantMedium = `متوسط`
+s.howImportantHigh = `زیاد`
 
-s.connectFacebook = "فیسبوک را متصل کنید";
-s.connectTwitter = "توییتر را متصل کنید";
-s.connectToPostPrompt = "(برای ارسال گفته هویتی را متصل کنید. (ما به تایملاین شما چیزی ارسال نمی‌کنیم.";
-s.connectToVotePrompt = "(برای رای دادن هویتی را متصل کنید. (ما به تایملاین شما چیزی ارسال نمی‌کنیم.";
-s.tip = "نکته";
-s.commentWritingTipsHintsHeader = "نکاتی برای نوشتن نظر";
-s.tipCharLimit = "نظرها محدود به {{char_limit}} کاراکتر هستند";
-s.tipCommentsRandom = "لطفاً به یاد داشته باشید، نظرات به صورت تصادفی نمایش داده می شوند و شما مستقیماً به اظهارات سایر شرکت کنندگان پاسخ نمی دهید:";
-s.tipOneIdea = "جملات طولانی که حاوی چندین ایده هستند را جدا کنید. این کار رای دادن به گفته شما را برای دیگران آسان تر می کند:";
-s.tipNoQuestions = "اظهارات نباید به صورت سوال باشد. شرکت کنندگان با اظهارات شما موافق یا مخالف خواهند بود:";
-s.commentTooLongByChars = "طول گفته به اندازه‌ی {{CHARACTERS_COUNT}} از محدودیت کاراکتر بیشتر است";
-s.notSentSinceDemo = "نه واقعا، این یک نمایه است";
-s.submitComment = "ارسال";
-s.tipStarred = "به عنوان مهم علامت گذاری شده است";
-s.participantHelpWelcomeText = "به نوع جدیدی از گفتگو خوش آمدید - به نظرات دیگران <em>رای دهید</em>:";
-s.participantHelpGroupsText = "افرادی که به طور مشابه رای می‌دهند با هم گروه‌بندی می‌شوند. روی هر گروه کلیک کنید تا ببینید چه دیدگاه‌هایی را به اشتراک می‌گذارند. ...بیشتر";
-s.participantHelpGroupsNotYetText = "زمانی که 7 شرکت‌کننده رای‌گیری را آغاز کرده باشند، تصویرسازی ظاهر می‌شود:";
-s.helpWhatAreGroupsDetail = "<p> احتمالاً \"محصولات توصیه شده\" در آمازون یا \"فیلم های توصیه شده\" در نتفلیکس را دیده اید. هر یک از این سرویس‌ها از روش های آماری استفاده میکند تا کاربر در گروه کاربرانی که چیزهای مشابهی را می‌خرند و تماشا می‌کنند قرار داده و سپس چیزهایی را که آن افراد خریده یا تماشا کرده‌اند به آن‌ها نشان ‌دهد.</p> <p> وقتی کاربر به نظرات رأی می‌دهد، با افرادی گروه‌بندی می‌شوند که آن‌ها را دیده‌اند و مثل آنها رای دادند! در زیر می توانید آن گروه ها را ببینید. هر کدام متشکل از افرادی است که نظرات مشابهی دارند. در هر مکالمه بینش های جذابی برای کشف وجود دارد. ادامه دهید - روی یک گروه کلیک کنید تا ببینید چه چیزی آنها را گرد هم آورده و چه چیزی آنها را منحصر به فرد می کند! </p>";
-s.socialConnectPrompt = "در صورت تمایل برای دیدن دوستان و افرادی که دنبال می کنید در نمایه، هویت شبکه‌های مجازی خود را متصل کنید";
-s.connectFbButton = "با فیسبوک متصل شوید";
-s.connectTwButton = "با توییتر متصل شوید";
-s.polis_err_reg_fb_verification_email_sent = "لطفاً برای پیدا کردن پیوند تأیید به ایمیل خود مراجعه کنید، و سپس برای ادامه به اینجا بازگردید";
-s.polis_err_reg_fb_verification_noemail_unverified = "حساب فیسبوک شما تایید نشده است. لطفاً آدرس ایمیل خود را با فیس بوک تأیید کنید، سپس برای ادامه به اینجا بازگردید";
-s.showTranslationButton = "فعال کردن ترجمه شخص ثالث";
-s.hideTranslationButton = "غیرفعال کردن ترجمه";
+s.modSpam = `هرزنامه`
+s.modOffTopic = `نامربوط`
+s.modImportant = `مهم`
+s.modSubmitInitialState = `رد شدن (هیچ‌کدام از موارد بالا)، عبارت بعدی`
+s.modSubmit = `انجام شد، عبارت بعدی`
 
-s.notificationsAlreadySubscribed = "ایمیل شما برای دریافت به‌روزرسانی‌های این مکالمه ثبت شد.";
-s.notificationsGetNotified = "آیا می‌خواهید وقتی نظرات جدیدی میرسند از طریق ایمیل خبردار شوید؟";
-s.notificationsEnterEmail = "آدرس ایمیل خود را وارد کنید که وقتی نظرات جدیدی میرسند خبردار شوید.";
-s.labelEmail = "ایمیل";
-s.notificationsSubscribeButton = "ثبت ایمیل";
-s.notificationsSubscribeErrorAlert = "در مشترک شدن خطایی رخ داده است";
-s.noCommentsYet = "هنوز نظری وجود ندارد";
-s.noCommentsYetSoWrite = "با اضافه کردن یک نظر این گفتگو را شروع کنید";
-s.noCommentsYetSoInvite = "این گفتگو را با دعوت شرکت کننده‌های بیشتر یا اضافه کردن یک نظر شروع کنید";
-s.noCommentsYouVotedOnAll = "شما به همه‌ی نظرات رای داده‌ید";
-s.noCommentsTryWritingOne = "اگر چیزی برای افزودن دارید، سعی کنید گفته خود را بنویسید.";
-s.convIsClosed = "این گفتگو بسته شده است.";
-s.noMoreVotingAllowed = "رای دادن بیشتر مجاز نیست ";
+s.x_wrote = `نوشت:`
+s.x_tweeted = `توییت کرد:`
+s.comments_remaining = `{{num_comments}} باقیمانده است`
+s.comments_remaining2 = `{{num_comments}} عبارت باقیمانده است`
 
-s.topic_good_01 = "در مورد اتاق پینگ پنگ باید چه کار کنیم؟:";
-s.topic_good_01_reason = "سوالِ باز، هر کسی میتواند در مورد پاسخهای این پرسش نظر داشته باشد.";
-s.topic_good_02 = "در مورد طرح پیشنهادی چه فکر میکنید؟";
-s.topic_good_02_reason = "سوالٍ باز، هر کسی میتواند در مورد پاسخهای این پرسش نظر داشته باشد.";
-s.topic_good_03 = "آیا چیزی به ذهنتان می‌آید که بهره‌وری را کاهش می‌دهد؟";
+// Text about phasing
 
-s.topic_bad_01 = "همه آمادگی خود را برای راه اندازی اعلام کنید";
-s.topic_bad_01_reason = "افراد از تیم‌های مختلف در مورد نظرات رای میدهند، ولی ممکن است به اندازه کافی دانش نداشته باشند که با اطمینان رای دهند.";
-s.topic_bad_02 = "چه چیزهایی جلوی راه‌اندازی ما را می‌گیرند؟";
-s.topic_bad_02_reason = "";
+s.noCommentsYet = `هنوز هیچ عبارتی وجود ندارد.`
+s.noCommentsYetSoWrite = `این مکالمه را با افزودن عبارتی شروع کنید.`
+s.noCommentsYetSoInvite =
+  `این مکالمه را با دعوت کردن از شرکت‌کنندگان بیشتر یا افزودن عبارت شروع کنید.`
+s.noCommentsYouVotedOnAll = `به همه عبارت‌ها رأی داده‌اید.`
+s.noCommentsTryWritingOne =
+  `اگر چیزی برای اضافه کردن دارید، عبارت خودتان را بنویسید.`
+s.convIsClosed = `این مکالمه بسته شده است.`
+s.noMoreVotingAllowed = `رأی دادن بیشتر مجاز نیست.`
 
+// برای دیداری‌سازی زیر
+
+s.group_123 = `گروه:`
+s.comment_123 = `عبارت:`
+s.majorityOpinion = `نظر اکثریت`
+s.majorityOpinionShort = `اکثریت`
+s.info = `اطلاعات`
+
+
+s.helpWhatAmISeeingTitle = `دارم چه می‌بینم؟`
+s.helpWhatAmISeeing =
+  `شما با دایره آبی معرفی می‌شوید و با کسانی که دیدگاه‌های مشترکی با شما دارند گروه‌بندی می‌شوید.` 
+s.heresHowGroupVoted = `رأی گروه {{GROUP_NUMBER}} این است:`
+s.one_person = `{{x}} نفر`
+s.x_people = `{{x}} نفر`
+s.acrossAllPtpts = `بین همه شرکت‌کنندگان:`
+s.xPtptsSawThisComment = ` این عبارت را دیدند`
+s.xOfThoseAgreed = `از آن شرکت‌کنندگان موافق هستند`
+s.xOfthoseDisagreed = `از آن شرکت‌کنندگان مخالف هستند`
+s.opinionGroups = `گروه‌های نظر`
+s.topComments = `عبارت‌های برتر`
+s.divisiveComments = `عبارت‌های تفرقه‌افکن`
+s.pctAgreed = `٪{{pct}} موافقت کردند.`
+s.pctAgreed = `٪{{pct}} مخالفت کردند`
+s.pctAgreedLong =
+  `٪{{pct}} از کسانی که با عبارت {{comment_id}} موافق بودند.`
+s.pctAgreedOfGroup = `٪{{pct}} از گروه {{group}} موافقت کردند`
+s.pctDisagreedOfGroup = `٪{{pct}}از گروه {{group}} مخالف بودند`
+s.pctDisagreedLong =
+  `٪{{pct}} از کسانی که به عبارت {{comment_id}} رأی مخالف دادند.`
+s.pctAgreedOfGroupLong =
+  `٪{{pct}} از افراد در گروه {{group}} که به عبارت {{comment_id}} رأی موافق دادند.`
+s.pctDisagreedOfGroupLong =
+  `٪{{pct}} از افراد در گروه {{group}} که به عبارت {{comment_id}} رأی مخالف دادند.`
+s.participantHelpGroupsText =
+  `شما با دایره آبی معرفی می‌شوید و با کسانی که دیدگاه‌های مشترکی با شما دارند گروه‌بندی می‌شوید.` 
+s.participantHelpGroupsNotYetText =
+  `دیداری‌سازی وقتی نمایش داده می‌شود که ۷ شرکت‌کننده رأی دادن را شروع کرده باشند`
+s.helpWhatAreGroupsDetail =
+  `<p>روی گروهتان یا دیگران کلیک کنید تا نظرهای هر گروه را کاوش کنید.</p><p>اکثریت نظرها آن‌هایی هستند که به‌صورت گسترده‌ای درسراسر گروه‌ها هم‌رسانی شده‌اند.</p>`
+
+// نوشتار درباره نوشتن عبارت خودتان
+
+s.helpWhatDoIDoTitle = ` چه می‌کنم؟`
+s.helpWhatDoIDo = `با کلیک کردن روی «موافق» یا «مخالف»، به عبارت‌های دیگران رأی بدهید. عبارتی بنویسید (در هر عبارت یک ایده بگنجانید). دوستانتان را به این مکالمه دعوت کنید!`
+s.writeCommentHelpText =
+  `آیا دیدگاه‌ها یا تجربیات شما در این مکالمه جاافتاده است؟ اگر چنین است،</b>آن‌ها را </b> در چارگوش زیر اضافه کنید — </b>هربار یک مورد</b>.`
+s.helpWriteListIntro = `چه چیزی عبارت را خوب می‌کند؟` 
+s.helpWriteListStandalone = `ایده مستقل`
+s.helpWriteListRaisNew = `دیدگاه، تجربه، یا مشکلی جدید`
+s.helpWriteListShort = `عبارت‌بندی روشن و دقیق (به ۱۴۰ نویسه محدود باشد)`
+s.tip = `نکته:`
+s.commentWritingTipsHintsHeader = `نکته‌هایی برای نوشتن عبارت‌ها`
+s.tipCharLimit = `عبارت‌ها به {{char_limit}} نویسه محدود هستند.`
+s.tipCommentsRandom =
+  `عبارت‌ها به‌طور تصادفی نمایش داده می‌شوند و شما مستقیماً به عبارت‌های شرکت‌کنندگان دیگر پاسخ نمی‌دهید: <b> عبارت مستقلی اضافه می‌کنید.<b>`
+s.tipOneIdea =
+  `عبارت‌های طولانی را که چندین ایده دارند بشکنید. این کار رأی دادن دیگران را به عبارت شما ساده‌تر می‌کند.`
+s.tipNoQuestions =
+  `عبارت‌ها نباید به‌شکل پرسشی باشند. شرکت‌کنندگان با عبارت‌هایی که نوشته‌اید موافق یا مخالف خواهند بود.`
+s.commentTooLongByChars =
+  `طول عبارت از محدوده {{CHARACTERS_COUNT}} نویسه فراتر رفته است.`
+s.submitComment = `ارسال کردن`.
+s.commentSent =
+  `عبارت ارسال شد! فقط شرکت‌کنندگان دیگر عبارت شما را می‌بینند و موافقت یا مخالفت خود را نشان می‌دهند.`
+
+// اعلان‌های خطا
+
+s.commentSendFailed = `هنگام ارسال عبارت شما خطایی رخ داد.`
+s.commentSendFailedEmpty =
+  `هنگام ارسال عبارت شما خطایی رخ داد - عبارت نباید خالی باشد.`
+s.commentSendFailedTooLong =
+  `هنگام ارسال عبارت شما خطایی رخ داد - عبارت خیلی طولانی است.`
+s.commentSendFailedDuplicate =
+  `هنگام ارسال عبارت شما خطایی رخ داد - عبارت یکسانی ازقبل وجود دارد.`
+s.commentErrorDuplicate = `تکراری! این عبارت ازقبل وجود دارد.`
+s.commentErrorConversationClosed =
+  `این عبارت بسته شده است. هیچ عبارت دیگری نمی‌تواند ارسال شود.`
+s.commentIsEmpty = `عبارت خالی است`
+s.commentIsTooLong = `عبارت خیلی طولانی است`
+s.hereIsNextStatement = `رأی دادن موفقیت‌آمیز بود. به بالا پیمایش کنید تا عبارت بعدی را ببینید.`
+
+// نوشتار درباره ارتباط دادن هویت
+
+s.connectFacebook = `ارتباط دادن فیس‌بوک`
+s.connectTwitter = `ارتباط دادن X`
+s.connectToPostPrompt =
+  `برای ارسال عبارت، هویتی را ارتباط دهید. در خط زمان شما پست نخواهیم کرد.`
+s.connectToVotePrompt =
+  `برای رأی دادن، هویتی را ارتباط دهید. در خط زمان شما پست نخواهیم کرد.`
+s.socialConnectPrompt =
+  `به‌طور اختیاری مرتبط شوید تا دوستان و افرادی را که دنبال می‌کنید در دیداری‌سازی ببینید.`
+s.connectFbButton = `با فیس‌بوک مرتبط شوید`
+s.connectTwButton = `با X مرتبط شویدr`
+s.polis_err_reg_fb_verification_email_sent =
+  `برای پیوند درستی‌سنجی لطفاً ایمیلتان را بررسی کنید، سپس برای ادامه دادن به اینجا برگردید.`
+s.polis_err_reg_fb_verification_noemail_unverified =
+  `حساب فیس‌بوک شما تأیید شده است. لطفاً نشانی ایمیلتان را با فیس‌بوک تأیید کنید، سپس برای ادامه دادن به اینجا برگردید.`
+
+// نوشتار برای ترجمه طرف سوم که در کارت‌ها نمایش داده می‌شود
+
+s.showTranslationButton = `فعال کردن ترجمه طرف سوم`
+s.hideTranslationButton = `غیرفعال کردن ترجمه`
+s.thirdPartyTranslationDisclaimer = `ترجمه ارائه‌شده توسط طرف سوم`
+
+// نوشتار درباره اعلان‌ها و اشتراک‌ها و جاسازی‌ها
+
+s.notificationsAlreadySubscribed =
+  `برای به‌روز شدن درباره این مکالمه مشترک شده‌اید.`
+s.notificationsGetNotified = `وقتی عبارت‌های بیشتری می‌رسد، اعلان دریافت کنید:`
+s.notificationsEnterEmail =
+  `نشانی ایمیلتان را وارد کنید تا وقتی عبارت‌های بیشتری می‌رسد مطلع شوید:`
+s.labelEmail = `ایمیل`
+s.notificationsSubscribeButton = `مشترک شوید`
+s.notificationsSubscribeErrorAlert = `خطای مشترک شدن`
+
+s.addPolisToYourSite =
+  `<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>`
+
+// پانویس
+
+s.privacy = `حریم خصوصی`
+s.TOS = `شرایط خدمات`
+
+// ویژگی‌های آزمایشی
+
+s.importantCheckbox = `این نظر مهم است`
+s.howImportantPrompt = `این عبارت چقدر اهمیت دارد؟`
+s.howImportantLow = `کم`
+s.howImportantMedium = `متوسط`
+s.howImportantHigh = `زیاد`
+s.tipStarred = `علامت‌گذاری به‌عنوان مهم.`
+
+s.modSpam = `هرزنامه`
+s.modOffTopic = `نامربوط`
+s.modImportant = `مهم`
+s.modSubmitInitialState = `رد شدن (هیچ‌کدام از موارد بالا)، عبارت بعدی`
+s.modSubmit = `انجام شد، عبارت بعدی`
+
+s.topic_good_01 = `برای اتاق پینگ‌پنگ چه باید بکنیم؟`
+s.topic_good_01_reason =
+  `پایان باز، هرکسی می‌تواند درباره پاسخ‌های این پرسش نظری داشته باشد`
+s.topic_good_02 = `درباره این پیشنهاد جدید چه فکر می‌کنید؟`
+s.topic_good_02_reason =
+  `پایان باز، هرکسی می‌تواند درباره پاسخ‌های این پرسش نظری داشته باشد`
+s.topic_good_03 = `می‌توانید موردی بگویید که سرعت بهره‌وری را کم می‌کند؟`
+
+s.topic_bad_01 = `آمادگی شما برای راه‌اندازی را همه گزارش کرده‌اند`
+s.topic_bad_01_reason =
+  `افراد از تیم‌های مختلف به پاسخ‌ها رأی خواهند داد ولی ممکن است دانش کافی برای رأی دادن بااطمینان نداشته باشند.`
+s.topic_bad_02 = `موانع راه‌اندازی ما چه چیزهایی است؟`
+s.topic_bad_02_reason = ``
 
 module.exports = s;
