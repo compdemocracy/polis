@@ -25,7 +25,7 @@ const getAccessTokenSilentlySPA = async (options) => {
       }
       if (!auth0Client) {
         await initializeAuth0()
-        return Promise.resolve(undefined)
+        // return Promise.resolve(undefined)
       }
       return await auth0Client.getTokenSilently(options)
     } catch (e) {
@@ -37,132 +37,84 @@ const getAccessTokenSilentlySPA = async (options) => {
   }
 }
 
-async function polisAjax(api, data, type) {
-  if (!_.isString(api)) {
-    throw new Error('api param should be a string')
+async function polisFetch(api, data, type) {
+  if (typeof api !== 'string') {
+    throw new Error('api param should be a string');
   }
 
   if (api && api.length && api[0] === '/') {
-    api = api.slice(1)
+    api = api.slice(1);
   }
 
-  const url = urlPrefix + basePath + api
+  let url = urlPrefix + basePath + api;
 
-  // Add the auth token if needed.
-  // if (_.contains(authenticatedCalls, api)) {
-  //     var token = tokenStore.get();
-  //     if (!token) {
-  //         needAuthCallbacks.fire();
-  //         console.error("auth needed");
-  //         return $.Deferred().reject("auth needed");
-  //     }
-  //     //data = $.extend({ token: token}, data); // moving to cookies
-  // }
+  const headers = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'max-age=0',
+  };
+
+  const credentials = 'include'; // Equivalent to xhrFields: { withCredentials: true }
+
+  let body = null;
+  let method = type ? type.toUpperCase() : 'GET';
+
+  if (method === 'GET' && data) {
+    const queryParams = new URLSearchParams(data);
+    url += `?${queryParams.toString()}`;
+  } else if (method === 'POST' && data) {
+    body = JSON.stringify(data);
+  }
 
   if (process.env.USE_AUTH_PROVIDER) {
-    const token = await getAccessTokenSilentlySPA({
-      audience: 'users',
-      scope: 'openid profile email'
-    })
-
-    let promise
-    const config = {
-      url: url,
-      contentType: 'application/json; charset=utf-8',
-      headers: {
-        // "Cache-Control": "no-cache"  // no-cache
-        'Cache-Control': 'max-age=0',
-        Authorization: `Bearer ${token}`
-      },
-      xhrFields: {
-        withCredentials: true
-      },
-      // crossDomain: true,
-      dataType: 'json'
+    try {
+      const token = await getAccessTokenSilentlySPA({
+        audience: 'users',
+        scope: 'openid,profile,email',
+      });
+      headers.Authorization = `Bearer ${token}`;
+    } catch (error) {
+      console.error('Error getting access token:', error);
+      // Handle the error appropriately, e.g., redirect to login
+      // You might want to return a rejected promise here as well
+      // to signal the failure of the API call due to auth issues.
+      throw error; // Re-throw the error to be caught by the caller
     }
-    if (type === 'GET') {
-      promise = $.ajax(
-        $.extend(config, {
-          type: 'GET',
-          data: data
-        })
-      )
-    } else if (type === 'POST') {
-      promise = $.ajax(
-        $.extend(config, {
-          type: 'POST',
-          data: JSON.stringify(data)
-        })
-      )
-    }
+  }
 
-    promise.fail(function (jqXHR, message, errorType) {
-      // sendEvent("Error", api, jqXHR.status);
+  try {
+    const response = await fetch(url, {
+      method: method,
+      headers: headers,
+      body: body,
+      credentials: credentials,
+    });
 
-      // logger.error("SEND ERROR");
-      console.dir('polisAjax promise failed: ', arguments)
-      if (jqXHR.status === 403) {
+    if (!response.ok) {
+      // Log the error details for debugging
+      console.error('polisFetch failed:', response.status, response.statusText, await response.text());
+      if (response.status === 403) {
+        // Handle 403 Forbidden specifically if needed
         // eb.trigger(eb.authNeeded);
       }
-      // logger.dir(data);
-      // logger.dir(message);
-      // logger.dir(errorType);
-    })
-    return promise
-  } else {
-    let promise
-    const config = {
-      url: url,
-      contentType: 'application/json; charset=utf-8',
-      headers: {
-        // "Cache-Control": "no-cache"  // no-cache
-        'Cache-Control': 'max-age=0'
-      },
-      xhrFields: {
-        withCredentials: true
-      },
-      // crossDomain: true,
-      dataType: 'json'
-    }
-    if (type === 'GET') {
-      promise = $.ajax(
-        $.extend(config, {
-          type: 'GET',
-          data: data
-        })
-      )
-    } else if (type === 'POST') {
-      promise = $.ajax(
-        $.extend(config, {
-          type: 'POST',
-          data: JSON.stringify(data)
-        })
-      )
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
 
-    promise.fail(function (jqXHR, message, errorType) {
-      // sendEvent("Error", api, jqXHR.status);
-
-      // logger.error("SEND ERROR");
-      console.dir('polisAjax promise failed: ', arguments)
-      if (jqXHR.status === 403) {
-        // eb.trigger(eb.authNeeded);
-      }
-      // logger.dir(data);
-      // logger.dir(message);
-      // logger.dir(errorType);
-    })
-    return promise
+    const jsonResponse = await response.json();
+    return jsonResponse;
+  } catch (error) {
+    console.error('polisFetch error:', error);
+    // Optionally re-throw the error or return a specific error object/promise
+    throw error;
   }
 }
 
 async function polisPost(api, data) {
-  return await polisAjax(api, data, 'POST')
+  return await polisFetch(api, data, 'POST')
 }
 
 async function polisGet(api, data) {
   try {
-    const d = await polisAjax(api, data, 'GET')
+    const d = await polisFetch(api, data, 'GET')
     return d
   } catch (error) {
     console.log(error)
@@ -170,7 +122,7 @@ async function polisGet(api, data) {
 }
 
 const PolisNet = {
-  polisAjax: polisAjax,
+  polisFetch: polisFetch,
   polisPost: polisPost,
   polisGet: polisGet,
   getAccessTokenSilentlySPA
