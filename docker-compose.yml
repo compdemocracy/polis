@@ -104,6 +104,7 @@ services:
       labels:
         polis_tag: ${TAG:-dev}
       args:
+        EMBED_SERVICE_HOSTNAME: ${EMBED_SERVICE_HOSTNAME}
         GA_TRACKING_ID: ${GA_TRACKING_ID}
         GIT_HASH: "${GIT_HASH:-placeholder}"
         NODE_ENV: production
