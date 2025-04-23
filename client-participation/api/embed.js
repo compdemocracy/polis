@@ -1,4 +1,4 @@
-(function () {
+(function() {
 	var polis = (window.polis = window.polis || {});
 	var firstRun = !window.polis._hasRun;
 	polis._hasRun = 1;
