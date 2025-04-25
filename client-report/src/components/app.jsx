@@ -35,7 +35,7 @@ function assertExists(obj, key) {
 
 const App = (props) => {
   const { isAuthenticated, isLoading: isAuthLoading, getAccessTokenSilently } = useAuth0();
-  if (process.env.USE_AUTH_PROVIDER) {
+  if (process.env.AUTH_CLIENT_ID) {
     if (isAuthLoading) {
       return <div>Loading ...</div>;
     }
@@ -543,7 +543,7 @@ const App = (props) => {
 
   useEffect(() => {
     const init = async () => {
-      if (process.env.USE_AUTH_PROVIDER) {
+      if (process.env.AUTH_CLIENT_ID) {
         token = await getAccessTokenSilently();
         await getData();
       } else {

@@ -9,39 +9,18 @@ import { faker } from '@faker-js/faker'
  * @param {Object} user - User object with email and password
  * @param {boolean} useUI - Whether to use UI (true) or API (false) for login
  */
-// Cypress.Commands.add('login', (user, useUI = false) => {
-//   if (useUI) {
-//     cy.intercept('POST', '/api/v3/auth/login').as('login')
-//     cy.visit('/signin')
+Cypress.Commands.add('login', (user, useUI = false) => {
+  if (useUI) {
+    cy.intercept('POST', '/api/v3/auth/login').as('login')
+    cy.visit('/signin')
 
-//     cy.get('form input#signinEmailInput').type(user.email)
-//     cy.get('form input#signinPasswordInput').type(user.password)
-//     cy.get('form button#signinButton').click()
-//     cy.wait('@login')
-//   } else {
-//     apiLogin(user)
-//   }
-// })
-
-Cypress.Commands.add('login', (user) => {
-  Cypress.log({
-    name: 'loginViaAuth0',
-  })
-
-  const options = {
-    method: 'POST',
-    url: 'https://compdem.us.auth0.com/oauth/token', //Cypress.env('AUTH_URL'), // gh actions to create cypress env with secrets
-    body: {
-      grant_type: 'password',
-      username: user.username,
-      password: user.password,
-      audience: 'users',
-      scope: 'openid profile email',
-      client_id: '...',
-      client_secret: '...',
-    },
+    cy.get('form input#signinEmailInput').type(user.email)
+    cy.get('form input#signinPasswordInput').type(user.password)
+    cy.get('form button#signinButton').click()
+    cy.wait('@login')
+  } else {
+    apiLogin(user)
   }
-  cy.request(options)
 })
 
 /**
@@ -122,15 +101,15 @@ Cypress.Commands.add('ensureUser', (userLabel = 'participant') => {
     () => {
       cy.fixture('users').then((usersJson) => {
         const user = usersJson[userLabel]
-        cy.login(user)
+        cy.register(user)
       })
     },
-    // {
-    //   validate: () => {
-    //     cy.getCookie('token2').should('exist')
-    //     cy.getCookie('uid2').should('exist')
-    //   },
-    // },
+    {
+      validate: () => {
+        cy.getCookie('token2').should('exist')
+        cy.getCookie('uid2').should('exist')
+      },
+    },
   )
 })
 
@@ -155,7 +134,6 @@ Cypress.Commands.add('createConvo', (topic, description, user) => {
   }
 
   cy.request('POST', '/api/v3/conversations', {
-    // This should be "manual" creation - have cypress click and type
     is_active: true,
     is_draft: true,
     ...(topic && { topic }),

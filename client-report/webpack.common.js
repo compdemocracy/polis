@@ -37,7 +37,6 @@ module.exports = {
       filename: 'index_report.html',
     }),
     new webpack.DefinePlugin({
-      'process.env.USE_AUTH_PROVIDER': JSON.stringify(process.env.USE_AUTH_PROVIDER),
       'process.env.AUTH_CLIENT_ID': JSON.stringify(process.env.AUTH_CLIENT_ID),
     }),
   ],

@@ -19,6 +19,9 @@ RUN npm ci --production=false
 
 COPY client-admin/. .
 
+ARG AUTH_CLIENT_ID
+ENV AUTH_CLIENT_ID=${AUTH_CLIENT_ID}
+
 RUN npm run build:prod
 
 
@@ -67,9 +70,11 @@ COPY client-report/. .
 
 # GIT_HASH will be set properly when running `make` (see Makefile).
 ARG GIT_HASH
-ARG SERVICE_URL
 ENV GIT_HASH=${GIT_HASH:-placeholder}
+ARG SERVICE_URL
 ENV SERVICE_URL=${SERVICE_URL}
+ARG AUTH_CLIENT_ID
+ENV AUTH_CLIENT_ID=${AUTH_CLIENT_ID}
 
 RUN npm run build:prod
 

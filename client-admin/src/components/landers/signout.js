@@ -12,7 +12,7 @@ import { doSignout } from '../../actions'
 @connect((state) => state.signout)
 class SignOut extends React.Component {
   componentDidMount() {
-    if (process.env.USE_AUTH_PROVIDER) {
+    if (process.env.AUTH_CLIENT_ID) {
       this.props.logout({ returnTo: `${window.location.origin}/home`});
     } else {
       this.props.dispatch(doSignout('/home'))

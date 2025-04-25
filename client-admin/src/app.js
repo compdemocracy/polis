@@ -6,8 +6,6 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { populateUserStore } from './actions'
 
-import _ from 'lodash'
-
 import { Switch, Route, Link, Redirect } from 'react-router-dom'
 import { Flex, Box, jsx } from 'theme-ui'
 
@@ -54,7 +52,7 @@ const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
 }
 
 PrivateRoute.propTypes = {
-  component: PropTypes.element,
+  component: PropTypes.elementType,
   isLoading: PropTypes.bool,
   location: PropTypes.object,
   authed: PropTypes.bool
@@ -86,11 +84,11 @@ class App extends React.Component {
   isAuthed() {
     let authed = false
 
-    if (process.env.USE_AUTH_PROVIDER) {
+    if (process.env.AUTH_CLIENT_ID) {
       return this.props.isAuthenticated;
     }
 
-    if (!_.isUndefined(this.props.isLoggedIn) && this.props.isLoggedIn) {
+    if (this.props.isLoggedIn !== undefined && this.props.isLoggedIn) {
       authed = true
     }
 
@@ -107,9 +105,8 @@ class App extends React.Component {
   isLoading() {
     const { isLoggedIn, isLoading } = this.props
 
-    return process.env.USE_AUTH_PROVIDER ? isLoading : _.isUndefined(
-      isLoggedIn
-    ) /* if isLoggedIn is undefined, the app is loading */
+    return process.env.AUTH_CLIENT_ID ? isLoading : isLoggedIn === undefined
+    /* if isLoggedIn is undefined, the app is loading */
   }
 
   componentDidMount() {

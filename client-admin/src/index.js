@@ -16,26 +16,28 @@ import { BrowserRouter as Router, Route } from 'react-router-dom'
 
 const store = configureStore()
 
+const AuthSwitcher = ({ children }) =>
+  process.env.AUTH_CLIENT_ID ? (
+    <Auth0Provider
+      domain="compdem.us.auth0.com"
+      clientId={process.env.AUTH_CLIENT_ID}
+      cacheLocation="localstorage"
+      authorizationParams={{
+        redirect_uri: window.location.origin,
+        audience: 'users'
+      }}>
+      {children}
+    </Auth0Provider>
+  ) : (
+    <>{children}</>
+  )
+
+AuthSwitcher.propTypes = {
+  children: PropTypes.node.isRequired
+}
+
 class Root extends React.Component {
   render() {
-    const AuthSwitcher = ({ children }) =>
-      process.env.USE_AUTH_PROVIDER ? (
-        <Auth0Provider
-          domain="compdem.us.auth0.com"
-          clientId={process.env.AUTH_CLIENT_ID}
-          cacheLocation="localstorage"
-          authorizationParams={{
-            redirect_uri: window.location.origin,
-            audience: 'users'
-          }}>
-          {children}
-        </Auth0Provider>
-      ) : (
-        <>{children}</>
-      )
-    AuthSwitcher.propTypes = {
-      children: PropTypes.node.isRequired
-    }
     return (
       <AuthSwitcher>
         <ThemeProvider theme={theme}>
@@ -48,10 +50,6 @@ class Root extends React.Component {
       </AuthSwitcher>
     )
   }
-}
-
-Root.propTypes = {
-  children: PropTypes.node.isRequired
 }
 
 window.$ = $

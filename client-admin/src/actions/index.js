@@ -799,7 +799,7 @@ const fetchUnmoderatedComments = (conversation_id) => {
     fetch(url, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`
+        ...(token && { Authorization: `Bearer ${token}` })
       }
     }).then((r) => r.json())
   )
@@ -845,7 +845,7 @@ const fetchAcceptedComments = (conversation_id) => {
     fetch(url, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`
+        ...(token && { Authorization: `Bearer ${token}` })
       }
     }).then((r) => r.json())
   )
@@ -891,7 +891,7 @@ const fetchRejectedComments = (conversation_id) => {
     fetch(url, {
       method: 'GET',
       headers: {
-        Authorization: `Bearer ${token}`
+        ...(token && { Authorization: `Bearer ${token}` })
       }
     }).then((r) => r.json())
   )
@@ -1001,7 +1001,7 @@ const putCommentRejected = (comment) => {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
+        ...(token && { Authorization: `Bearer ${token}` })
       },
       body: JSON.stringify(Object.assign(comment, { mod: -1 }))
     }).then((r) => r.json())

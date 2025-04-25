@@ -23,7 +23,7 @@ class NumberCards extends React.Component {
           icon="tags"
         />
         <NumberCard
-          datum={isNaN(averageVotes) ? 0 : averageVotes}
+          datum={isNaN(averageVotes) ? 0 : Number(averageVotes)}
           subheading="votes per participant on average"
         />
         <NumberCard

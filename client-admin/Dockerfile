@@ -17,4 +17,8 @@ RUN npm ci --production=false
 
 COPY . .
 
+ARG AUTH_CLIENT_ID
+ENV AUTH_CLIENT_ID=${AUTH_CLIENT_ID}
+
+
 CMD ["npm", "run", "build:prod"]
