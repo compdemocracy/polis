@@ -2,7 +2,6 @@
 import fs from "fs";
 import isTrue from "boolean";
 
-const useAuthProvider: boolean = isTrue(process.env.USE_AUTH_PROVIDER);
 const devHostname: string = process.env.API_DEV_HOSTNAME || "localhost:5000";
 const devMode: boolean = isTrue(process.env.DEV_MODE);
 const domainOverride: string | null = process.env.DOMAIN_OVERRIDE || null;
@@ -20,7 +19,6 @@ import("source-map-support").then((sourceMapSupport) => {
 });
 
 export default {
-  useAuthProvider,
   domainOverride,
   isDevMode: devMode,
   serverPort,

@@ -993,8 +993,7 @@ function initializePolisHelpers() {
         }
 
         const token = authHeader.split(" ")[1];
-        const jwksUri = Config.jwksUrl;
-        const jwks = createRemoteJWKSet(new URL(jwksUri as string));
+        const jwks = createRemoteJWKSet(new URL(Config.jwksUrl as string));
         const { payload, protectedHeader } = await jwtVerify(
           token as string,
           // @ts-ignore
@@ -1028,13 +1027,13 @@ function initializePolisHelpers() {
 
   // input token from body or query, and populate req.body.u with userid.
   function authOptional(assigner: any) {
-    return Config.useAuthProvider
+    return Config.authIssuer
       ? _auth0(assigner, true)
       : _auth(assigner, true);
   }
 
   function auth(assigner: any) {
-    return Config.useAuthProvider
+    return Config.authIssuer
       ? _auth0(assigner, false)
       : _auth(assigner, false);
   }
@@ -6257,7 +6256,7 @@ Email verified! You can close this tab or hit the back button.
     let lang = req.p.lang;
 
     // We allow viewing (and possibly writing) without cookies enabled, but voting requires cookies (except the auto-vote on your own comment, which seems ok)
-    let token = req.cookies[COOKIES.TOKEN] || Config.useAuthProvider;
+    let token = req.cookies[COOKIES.TOKEN] || Config.authIssuer;
     let apiToken = req?.headers?.authorization || "";
     let xPolisHeaderToken = req?.headers?.["x-polis"];
     if (!uid && !token && !apiToken && !xPolisHeaderToken) {
@@ -11636,7 +11635,7 @@ Thanks for using Polis!
   }
   let handle_GET_conditionalIndexFetcher = (function () {
     return function (req: any, res: { redirect: (arg0: string) => void }) {
-      if (hasAuthToken(req) || Config.useAuthProvider) {
+      if (hasAuthToken(req) || Config.authIssuer) {
         // user is signed in, serve the app
         // Argument of type '{ redirect: (arg0: string) => void; }'
         // is not assignable to parameter of type '{ set: (arg0: any) => void; }'.

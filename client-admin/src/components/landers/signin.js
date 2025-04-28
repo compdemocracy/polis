@@ -46,14 +46,14 @@ class SignIn extends React.Component {
 
   maybeErrorMessage() {
     let markup = ''
-    if (this.props.error) {
+    if (this.props.error && this.props.error.responseText) {
       markup = <div>{strings(this.props.error.responseText)}</div>
     }
     return markup
   }
 
   drawLoginForm() {
-    return process.env.USE_AUTH_PROVIDER ? (
+    return process.env.AUTH_CLIENT_ID ? (
       <Box>
         <Button
           sx={{ my: [2] }}

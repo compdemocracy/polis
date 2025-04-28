@@ -2,7 +2,6 @@ import { config } from 'dotenv'
 config()
 import path from 'path'
 import HtmlWebPackPlugin from 'html-webpack-plugin'
-import LodashModuleReplacementPlugin from 'lodash-webpack-plugin'
 import CompressionPlugin from 'compression-webpack-plugin'
 import CopyPlugin from 'copy-webpack-plugin'
 import TerserPlugin from 'terser-webpack-plugin'
@@ -19,11 +18,13 @@ const __dirname = path.dirname(__filename)
 export default (env, argv) => {
   const isProduction = argv.mode === 'production'
   const isDevelopment = !isProduction
-
-  // Get API URL from CLI arg, env var, or default
-  const apiUrl = env?.apiUrl || process.env.API_URL || 'http://localhost:5000'
-
-  console.log(`Using API URL: ${apiUrl}`)
+  
+  let apiUrl  
+  if (isDevelopment) {
+    // Get API URL from CLI arg, env var, or default
+    apiUrl = env?.apiUrl || process.env.API_URL || 'http://localhost:5000'
+    console.log(`Using API URL: ${apiUrl}`)
+  }
 
   return {
     mode: isProduction ? 'production' : 'development',
@@ -80,14 +81,7 @@ export default (env, argv) => {
         inject: 'body',
       }),
       new webpack.DefinePlugin({
-        'process.env.USE_AUTH_PROVIDER': JSON.stringify(process.env.USE_AUTH_PROVIDER),
         'process.env.AUTH_CLIENT_ID': JSON.stringify(process.env.AUTH_CLIENT_ID),
-      }),
-
-      // Production-only plugins
-      isProduction && new LodashModuleReplacementPlugin({
-        collections: true,
-        shorthands: true
       }),
 
       isProduction && new CopyPlugin({
@@ -108,9 +102,10 @@ export default (env, argv) => {
 
       isProduction && new CompressionPlugin({
         test: /\.js$/,
+        exclude: /\.map$/,
         filename: '[path][base]',
         algorithm: 'gzip',
-        deleteOriginalAssets: true,
+        deleteOriginalAssets: 'keep-source-map',
       }),
 
       isProduction && new EventHooksPlugin({

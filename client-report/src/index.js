@@ -9,7 +9,7 @@ import App from "./components/app.jsx";
 
 class Root extends React.Component {
   render() {
-    return process.env.USE_AUTH_PROVIDER ? (
+    return process.env.AUTH_CLIENT_ID ? (
       <Auth0Provider
         domain="compdem.us.auth0.com"
         clientId={process.env.AUTH_CLIENT_ID}

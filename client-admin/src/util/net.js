@@ -2,7 +2,6 @@
 
 import URLs from './url'
 import * as auth0 from '@auth0/auth0-spa-js'
-import _ from 'lodash'
 
 const urlPrefix = URLs.urlPrefix
 const basePath = ''
@@ -12,7 +11,8 @@ const basePath = ''
 let auth0Client = null
 
 const getAccessTokenSilentlySPA = async (options) => {
-  if (process.env.USE_AUTH_PROVIDER) {
+  console.log('getAccessTokenSilentlySPA', process.env.AUTH_CLIENT_ID, !!process.env.AUTH_CLIENT_ID)
+  if (process.env.AUTH_CLIENT_ID) {
     try {
       const initializeAuth0 = async () => {
         auth0Client = await auth0.createAuth0Client({
@@ -65,13 +65,16 @@ async function polisFetch(api, data, type) {
     body = JSON.stringify(data);
   }
 
-  if (process.env.USE_AUTH_PROVIDER) {
+  if (process.env.AUTH_CLIENT_ID) {
     try {
       const token = await getAccessTokenSilentlySPA({
         audience: 'users',
         scope: 'openid,profile,email',
       });
-      headers.Authorization = `Bearer ${token}`;
+      // Only add the header if a token exists
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
     } catch (error) {
       console.error('Error getting access token:', error);
       // Handle the error appropriately, e.g., redirect to login
@@ -90,20 +93,20 @@ async function polisFetch(api, data, type) {
     });
 
     if (!response.ok) {
-      // Log the error details for debugging
-      console.error('polisFetch failed:', response.status, response.statusText, await response.text());
-      if (response.status === 403) {
-        // Handle 403 Forbidden specifically if needed
-        // eb.trigger(eb.authNeeded);
-      }
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // Read the response body to include in the error
+      const errorBody = await response.text();
+      // Create a new error object and attach the response body
+      const error = new Error(`Polis API Error: ${method} ${url} failed with status ${response.status} (${response.statusText})`);
+      error.responseText = errorBody;
+      error.status = response.status;
+
+      throw error;
     }
 
     const jsonResponse = await response.json();
     return jsonResponse;
   } catch (error) {
     console.error('polisFetch error:', error);
-    // Optionally re-throw the error or return a specific error object/promise
     throw error;
   }
 }
