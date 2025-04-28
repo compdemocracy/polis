@@ -591,7 +591,8 @@ class DataConverter:
     @staticmethod
     def batch_convert_embeddings(
         conversation_id: str,
-        document_vectors: np.ndarray
+        document_vectors: np.ndarray,
+        document_map: Optional[np.ndarray] = None
     ) -> List[CommentEmbedding]:
         """
         Convert batch of embeddings from NumPy arrays to model objects.
@@ -606,14 +607,26 @@ class DataConverter:
         embeddings = []
         
         for i in range(len(document_vectors)):
-            # Create model with just the embedding vectors
-            # UMAP coordinates and nearest neighbors are stored exclusively in UMAPGraph
+            # Generate UMAP coordinates for the comment (if document_map is provided)
+            if document_map is not None and i < len(document_map):
+                umap_coords = Coordinates(
+                    x=float(document_map[i][0]),
+                    y=float(document_map[i][1])
+                )
+            else:
+                umap_coords = None
+                
+            # Create the model with embedding vector
             embedding = DataConverter.create_comment_embedding(
                 conversation_id=conversation_id,
                 comment_id=i,
                 vector=document_vectors[i]
             )
             
+            # Add UMAP coordinates directly to the embedding model if available
+            if umap_coords is not None:
+                embedding.umap_coordinates = umap_coords
+                
             embeddings.append(embedding)
         
         return embeddings

@@ -75,6 +75,13 @@ fi
 
 echo -e "${GREEN}Running Delphi Orchestrator for conversation $ZID...${NC}"
 
+# Set DynamoDB as the default data store
+export PREFER_DYNAMODB=true
+export USE_DYNAMODB=true
+export DYNAMODB_ENDPOINT="http://host.docker.internal:8000"
+echo -e "${GREEN}Using DynamoDB as the primary data store${NC}"
+echo -e "${GREEN}Using DynamoDB endpoint: ${DYNAMODB_ENDPOINT}${NC}"
+
 # Check if DynamoDB container is running in main docker-compose
 if ! docker ps | grep -q polis-dynamodb-local; then
   echo -e "${YELLOW}DynamoDB container not running. Starting it now...${NC}"
@@ -119,7 +126,7 @@ fi
 
 # Create DynamoDB tables if they don't exist
 echo -e "${YELLOW}Creating DynamoDB tables if they don't exist...${NC}"
-docker exec -e PYTHONPATH=/app delphi-app python /app/create_dynamodb_tables.py --endpoint-url http://host.docker.internal:8000
+docker exec -e PYTHONPATH=/app -e PREFER_DYNAMODB=true -e USE_DYNAMODB=true delphi-app python /app/create_dynamodb_tables.py --endpoint-url "${DYNAMODB_ENDPOINT}"
 
 # Fix the umap_narrative directory once and for all
 echo -e "${YELLOW}Fixing umap_narrative directory in the container...${NC}"
@@ -137,132 +144,174 @@ chmod +x delphi_orchestrator.py
 # Make sure the container has the latest script (it's mounted as a volume)
 echo -e "${GREEN}Executing pipeline in container...${NC}"
 docker exec delphi-app chmod +x /app/delphi_orchestrator.py
-# First try to list available conversations
-echo -e "${YELLOW}Checking for available conversations...${NC}"
-docker exec delphi-app python -c "
-from polismath.database.postgres import PostgresClient
-import os
-import sys
-try:
-    print(f'DATABASE_URL: {os.environ.get(\"DATABASE_URL\", \"not set\")}')
-    # Create client
-    client = PostgresClient()
-    print('PostgreSQL client initialized')
-    
-    # Test direct connection using SQLAlchemy
-    if hasattr(client, 'engine'):
-        try:
-            from sqlalchemy import text
-            with client.engine.connect() as conn:
-                result = conn.execute(text('SELECT 1'))
-                print(f'Connection test: {result.scalar()}')
-                
-                # Try to list conversations
-                result = conn.execute(text('SELECT zid, topic FROM conversations LIMIT 10'))
-                conversations = list(result)
-                if conversations:
-                    print('Available conversations:')
-                    for c in conversations:
-                        print(f'  ZID: {c[0]}, Topic: {c[1]}')
-                else:
-                    print('No conversations found in database')
-        except Exception as e:
-            print(f'SQL execution error: {e}')
-    else:
-        print('PostgreSQL client has no engine attribute')
-except Exception as e:
-    print(f'Error initializing PostgreSQL client: {e}')
-    sys.exit(1)
-"
 
 # Ensure dependencies are installed directly in the container
 echo -e "${YELLOW}Ensuring dependencies are properly installed...${NC}"
 docker exec delphi-app pip install --no-cache-dir fastapi==0.115.0 pydantic colorlog numpy pandas scipy scikit-learn
 
-# Debug the PostgreSQL connection to ensure the URL is configured correctly
-echo -e "${YELLOW}Testing PostgreSQL connection...${NC}"
-docker exec delphi-app python -c "
+# Check DynamoDB tables first, don't fallback to PostgreSQL
+echo -e "${YELLOW}Checking DynamoDB tables...${NC}"
+docker exec -e PREFER_DYNAMODB=true -e USE_DYNAMODB=true delphi-app python -c "
 import os
-from sqlalchemy import create_engine, text
-import urllib.parse
+import boto3
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# First check DynamoDB tables
+try:
+    # Initialize DynamoDB client
+    endpoint_url = os.environ.get('DYNAMODB_ENDPOINT', 'http://host.docker.internal:8000')
+    print(f'Using DynamoDB endpoint: {endpoint_url}')
+    dynamodb = boto3.resource('dynamodb', endpoint_url=endpoint_url, region_name='us-west-2')
+    
+    # List available tables
+    tables = list(dynamodb.tables.all())
+    table_names = [table.name for table in tables]
+    print(f'DynamoDB tables available: {table_names}')
+    
+    # Check for required tables
+    required_tables = [
+        'Delphi_PCAConversationConfig',
+        'Delphi_PCAResults',
+        'Delphi_KMeansClusters',
+        'Delphi_CommentRouting',
+        'Delphi_RepresentativeComments',
+        'Delphi_PCAParticipantProjections'
+    ]
+    
+    missing_tables = [table for table in required_tables if table not in table_names]
+    
+    if missing_tables:
+        print(f'Warning: Missing required DynamoDB tables: {missing_tables}')
+        # Create missing tables
+        print('Creating missing DynamoDB tables...')
+        from polismath.database.dynamodb import DynamoDBClient
+        dynamodb_client = DynamoDBClient(
+            endpoint_url=endpoint_url,
+            region_name='us-west-2',
+            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID', 'dummy'),
+            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY', 'dummy')
+        )
+        dynamodb_client.initialize()
+        dynamodb_client.create_tables()
+        print('Missing tables have been created')
+    else:
+        print('All required DynamoDB tables are available')
+        
+except Exception as e:
+    print(f'Error checking DynamoDB tables: {e}')
+    exit(1)
+"
+
+# Run the math pipeline with DynamoDB only
+echo -e "${GREEN}Running math pipeline with DynamoDB...${NC}"
+# IMPORTANT: We need to pass PostgreSQL environment variables to container
+# This ensures that the run_math_pipeline.py script uses host.docker.internal
+# instead of localhost which would fail to connect from inside the container
+MATH_OUTPUT=$(docker exec -e PYTHONPATH=/app \
+  -e USE_DYNAMODB=true \
+  -e DYNAMODB_ENDPOINT="${DYNAMODB_ENDPOINT}" \
+  -e PREFER_DYNAMODB=true \
+  -e AWS_REGION="${AWS_REGION}" \
+  -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+  -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+  -e POSTGRES_HOST="host.docker.internal" \
+  -e POSTGRES_PORT="${POSTGRES_PORT:-5432}" \
+  -e POSTGRES_DB="${POSTGRES_DB:-polis}" \
+  -e POSTGRES_USER="${POSTGRES_USER:-postgres}" \
+  -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}" \
+  delphi-app python /app/polismath/run_math_pipeline.py --zid=${ZID} --batch-size=50000 2>&1)
+MATH_EXIT_CODE=$?
+
+# Check if math pipeline completed successfully
+if [ $MATH_EXIT_CODE -ne 0 ]; then
+  echo -e "${RED}Math pipeline failed with exit code $MATH_EXIT_CODE${NC}"
+  echo "$MATH_OUTPUT"
+  exit 1
+fi
+
+# Verify DynamoDB tables are populated
+echo -e "${YELLOW}Verifying DynamoDB tables are populated...${NC}"
+docker exec -e DYNAMODB_ENDPOINT="${DYNAMODB_ENDPOINT}" -e USE_DYNAMODB=true -e PREFER_DYNAMODB=true -e AWS_REGION="${AWS_REGION}" -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" delphi-app python -c "
+import boto3
+import os
+import sys
+import json
 
 try:
-    # Print environment variables
-    db_url = os.environ.get('DATABASE_URL')
-    print(f'DATABASE_URL: {db_url}')
+    # Initialize DynamoDB client
+    endpoint_url = os.environ.get('DYNAMODB_ENDPOINT', 'http://host.docker.internal:8000')
+    region = os.environ.get('AWS_REGION', 'us-west-2')
+    print(f'Using DynamoDB endpoint: {endpoint_url}, region: {region}')
+    dynamodb = boto3.resource(
+        'dynamodb', 
+        endpoint_url=endpoint_url, 
+        region_name=region, 
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID', 'fakeMyKeyId'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY', 'fakeSecretAccessKey')
+    )
     
-    if db_url:
-        # Test direct connection
-        print('Attempting direct SQLAlchemy connection...')
-        engine = create_engine(db_url)
-        with engine.connect() as conn:
-            result = conn.execute(text('SELECT 1')).scalar()
-            print(f'Connection successful! Test result: {result}')
-            
-            # Try to list tables to verify schema access
-            result = conn.execute(text('SELECT table_name FROM information_schema.tables WHERE table_schema=\\'public\\''))
-            tables = [row[0] for row in result]
-            print(f'Available tables: {tables}')
+    # Check required tables
+    required_tables = ['Delphi_PCAConversationConfig', 'Delphi_CommentRouting', 'Delphi_PCAResults', 'Delphi_PCAParticipantProjections']
+    missing_tables = []
+    empty_tables = []
+    
+    for table_name in required_tables:
+        try:
+            table = dynamodb.Table(table_name)
+            response = table.scan(Limit=1)
+            if not response.get('Items'):
+                empty_tables.append(table_name)
+        except Exception as e:
+            missing_tables.append(table_name)
+    
+    if missing_tables:
+        print(f'Error: Missing DynamoDB tables: {missing_tables}')
+        sys.exit(1)
+    
+    if empty_tables:
+        print(f'Error: Empty DynamoDB tables: {empty_tables}')
+        sys.exit(1)
+    
+    print('DynamoDB tables verified successfully')
 except Exception as e:
-    print(f'Error connecting to PostgreSQL: {e}')
+    print(f'Error verifying DynamoDB tables: {e}')
+    sys.exit(1)
 "
 
-# Verify FastAPI is installed
-echo -e "${YELLOW}Verifying FastAPI installation...${NC}"
-docker exec delphi-app pip list | grep fastapi
-
-# Set up Python path
-docker exec delphi-app bash -c "export PYTHONPATH=/app:$PYTHONPATH && echo PYTHONPATH=\$PYTHONPATH"
-
-# Fix the problematic math directory by temporarily renaming it
-echo -e "${YELLOW}Temporarily renaming problematic math directory...${NC}"
-docker exec delphi-app bash -c "
-if [ -d /app/polismath/math ]; then
-  echo 'Renaming /app/polismath/math to /app/polismath/math_orig'
-  mv /app/polismath/math /app/polismath/math_orig
-fi
-"
-
-# Run the math pipeline (polismath) before UMAP pipeline
-echo -e "${GREEN}Running math pipeline (polismath)...${NC}"
-
-# For testing with limited votes
-if [ -n "$MAX_VOTES" ]; then
-  MAX_VOTES_ARG="--max-votes=${MAX_VOTES}"
-  echo -e "${YELLOW}Limiting to ${MAX_VOTES} votes for testing${NC}"
-else
-  MAX_VOTES_ARG=""
+# Only proceed if DynamoDB verification was successful
+if [ $? -ne 0 ]; then
+  echo -e "${RED}DynamoDB verification failed. Please check the math pipeline output above.${NC}"
+  exit 1
 fi
 
-# For adjusting batch size
-if [ -n "$BATCH_SIZE" ]; then
-  BATCH_SIZE_ARG="--batch-size=${BATCH_SIZE}"
-  echo -e "${YELLOW}Using batch size of ${BATCH_SIZE}${NC}"
-else
-  BATCH_SIZE_ARG="--batch-size=50000"  # Default batch size
-fi
-
-docker exec -e PYTHONPATH=/app delphi-app python /app/polismath/run_math_pipeline.py --zid=${ZID} ${MAX_VOTES_ARG} ${BATCH_SIZE_ARG}
-
-# Restore the original math directory after running the script
-docker exec delphi-app bash -c "
-if [ -d /app/polismath/math_orig ] && [ ! -d /app/polismath/math ]; then
-  echo 'Restoring original math directory'
-  mv /app/polismath/math_orig /app/polismath/math
-fi
-"
-
-# Run the UMAP narrative pipeline directly
-echo -e "${GREEN}Running UMAP narrative pipeline...${NC}"
+# Run the UMAP narrative pipeline directly with DynamoDB only
+echo -e "${GREEN}Running UMAP narrative pipeline with DynamoDB only...${NC}"
 
 # Always use Ollama for topic naming
 USE_OLLAMA="--use-ollama"
 echo -e "${YELLOW}Using Ollama for topic naming${NC}"
 
-# Run the pipeline directly, using the main dynamodb as the endpoint
-# Pass OLLAMA_HOST to make sure it connects to the Ollama container
-# Also pass the model that we pulled
-docker exec -e PYTHONPATH=/app -e DYNAMODB_ENDPOINT=http://host.docker.internal:8000 -e OLLAMA_HOST=http://ollama:11434 -e OLLAMA_MODEL=${MODEL} delphi-app python /app/umap_narrative/run_pipeline.py --zid=${ZID} ${USE_OLLAMA}
+# Run the pipeline, using DynamoDB but allowing PostgreSQL for comment texts
+# Pass through PostgreSQL connection details from the parent environment
+docker exec -e PYTHONPATH=/app \
+  -e DYNAMODB_ENDPOINT="${DYNAMODB_ENDPOINT}" \
+  -e OLLAMA_HOST=http://ollama:11434 \
+  -e OLLAMA_MODEL=${MODEL} \
+  -e PREFER_DYNAMODB=true \
+  -e USE_DYNAMODB=true \
+  -e AWS_REGION="${AWS_REGION}" \
+  -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+  -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+  -e POSTGRES_HOST="host.docker.internal" \
+  -e POSTGRES_PORT="${POSTGRES_PORT:-5432}" \
+  -e POSTGRES_DB="${POSTGRES_DB:-polis}" \
+  -e POSTGRES_USER="${POSTGRES_USER:-postgres}" \
+  -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}" \
+  -e DATABASE_URL="postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-}@host.docker.internal:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-polis}" \
+  delphi-app python /app/umap_narrative/run_pipeline.py --zid=${ZID} ${USE_OLLAMA}
 
 # Save the exit code
 PIPELINE_EXIT_CODE=$?
@@ -270,11 +319,37 @@ PIPELINE_EXIT_CODE=$?
 if [ $PIPELINE_EXIT_CODE -eq 0 ]; then
   echo -e "${YELLOW}Creating visualizations with datamapplot...${NC}"
   
-  # Generate layer 0 visualization
-  docker exec -e PYTHONPATH=/app -e DYNAMODB_ENDPOINT=http://host.docker.internal:8000 delphi-app python /app/umap_narrative/700_datamapplot_for_layer.py --conversation_id=${ZID} --layer=0 --output_dir=/app/polis_data/${ZID}/python_output/comments_enhanced_multilayer
+  # Generate layer 0 visualization with DynamoDB and PostgreSQL
+  docker exec -e PYTHONPATH=/app \
+    -e DYNAMODB_ENDPOINT="${DYNAMODB_ENDPOINT}" \
+    -e PREFER_DYNAMODB=true \
+    -e USE_DYNAMODB=true \
+    -e AWS_REGION="${AWS_REGION}" \
+    -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+    -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+    -e POSTGRES_HOST="host.docker.internal" \
+    -e POSTGRES_PORT="${POSTGRES_PORT:-5432}" \
+    -e POSTGRES_DB="${POSTGRES_DB:-polis}" \
+    -e POSTGRES_USER="${POSTGRES_USER:-postgres}" \
+    -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}" \
+    -e DATABASE_URL="postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-}@host.docker.internal:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-polis}" \
+    delphi-app python /app/umap_narrative/700_datamapplot_for_layer.py --conversation_id=${ZID} --layer=0 --output_dir=/app/polis_data/${ZID}/python_output/comments_enhanced_multilayer
   
-  # Generate layer 1 visualization (if available)
-  docker exec -e PYTHONPATH=/app -e DYNAMODB_ENDPOINT=http://host.docker.internal:8000 delphi-app python /app/umap_narrative/700_datamapplot_for_layer.py --conversation_id=${ZID} --layer=1 --output_dir=/app/polis_data/${ZID}/python_output/comments_enhanced_multilayer
+  # Generate layer 1 visualization (if available) with DynamoDB and PostgreSQL
+  docker exec -e PYTHONPATH=/app \
+    -e DYNAMODB_ENDPOINT="${DYNAMODB_ENDPOINT}" \
+    -e PREFER_DYNAMODB=true \
+    -e USE_DYNAMODB=true \
+    -e AWS_REGION="${AWS_REGION}" \
+    -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+    -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+    -e POSTGRES_HOST="host.docker.internal" \
+    -e POSTGRES_PORT="${POSTGRES_PORT:-5432}" \
+    -e POSTGRES_DB="${POSTGRES_DB:-polis}" \
+    -e POSTGRES_USER="${POSTGRES_USER:-postgres}" \
+    -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}" \
+    -e DATABASE_URL="postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-}@host.docker.internal:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-polis}" \
+    delphi-app python /app/umap_narrative/700_datamapplot_for_layer.py --conversation_id=${ZID} --layer=1 --output_dir=/app/polis_data/${ZID}/python_output/comments_enhanced_multilayer
   
   # Create a dedicated visualization folder and copy visualizations there
   echo -e "${YELLOW}Copying visualizations to dedicated folder...${NC}"
@@ -293,8 +368,24 @@ if [ $PIPELINE_EXIT_CODE -eq 0 ]; then
   # Run the report generator with Claude 3.7 Sonnet
   if [ -n "$ANTHROPIC_API_KEY" ]; then
     echo -e "${YELLOW}Generating report with Claude 3.7 Sonnet...${NC}"
-    # Pass environment variables to ensure Claude is used
-    docker exec -e PYTHONPATH=/app -e DYNAMODB_ENDPOINT=http://host.docker.internal:8000 -e LLM_PROVIDER=anthropic -e ANTHROPIC_MODEL=claude-3-7-sonnet-20250219 -e ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY} delphi-app python /app/umap_narrative/800_report_topic_clusters.py --conversation_id=${ZID} --model=claude-3-7-sonnet-20250219
+    # Pass environment variables to ensure Claude is used and DynamoDB is used by default
+    docker exec -e PYTHONPATH=/app \
+      -e DYNAMODB_ENDPOINT="${DYNAMODB_ENDPOINT}" \
+      -e LLM_PROVIDER=anthropic \
+      -e ANTHROPIC_MODEL=claude-3-7-sonnet-20250219 \
+      -e ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}" \
+      -e PREFER_DYNAMODB=true \
+      -e USE_DYNAMODB=true \
+      -e AWS_REGION="${AWS_REGION}" \
+      -e AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}" \
+      -e AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}" \
+      -e POSTGRES_HOST="host.docker.internal" \
+      -e POSTGRES_PORT="${POSTGRES_PORT:-5432}" \
+      -e POSTGRES_DB="${POSTGRES_DB:-polis}" \
+      -e POSTGRES_USER="${POSTGRES_USER:-postgres}" \
+      -e POSTGRES_PASSWORD="${POSTGRES_PASSWORD:-}" \
+      -e DATABASE_URL="postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-}@host.docker.internal:${POSTGRES_PORT:-5432}/${POSTGRES_DB:-polis}" \
+      delphi-app python /app/umap_narrative/800_report_topic_clusters.py --conversation_id=${ZID} --model=claude-3-7-sonnet-20250219
     
     # Save the exit code
     REPORT_EXIT_CODE=$?

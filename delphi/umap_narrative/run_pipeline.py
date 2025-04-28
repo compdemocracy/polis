@@ -15,8 +15,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime
+import decimal
+import traceback
 from pathlib import Path
 from tqdm.auto import tqdm
+import boto3
+from boto3.dynamodb.conditions import Key
 
 # Import from installed packages
 import evoc
@@ -37,38 +41,97 @@ logger = logging.getLogger(__name__)
 
 def setup_environment(db_host=None, db_port=None, db_name=None, db_user=None, db_password=None):
     """Set up environment variables for database connections."""
-    # PostgreSQL settings
+    # PostgreSQL settings - Prefer POSTGRES_* variables over DATABASE_* variables
+    postgres_host = os.environ.get('POSTGRES_HOST')
+    postgres_port = os.environ.get('POSTGRES_PORT')
+    postgres_db = os.environ.get('POSTGRES_DB')
+    postgres_user = os.environ.get('POSTGRES_USER')
+    postgres_password = os.environ.get('POSTGRES_PASSWORD')
+    
+    # Priority: 1. Command line args, 2. POSTGRES_* env vars, 3. DATABASE_* env vars, 4. defaults
+    
+    # Host
     if db_host:
         os.environ['DATABASE_HOST'] = db_host
+        os.environ['POSTGRES_HOST'] = db_host
+    elif postgres_host:
+        os.environ['DATABASE_HOST'] = postgres_host
     elif not os.environ.get('DATABASE_HOST'):
         os.environ['DATABASE_HOST'] = 'localhost'
+        # Also set POSTGRES_HOST for consistency
+        if not postgres_host:
+            os.environ['POSTGRES_HOST'] = 'localhost'
     
+    # Port
     if db_port:
         os.environ['DATABASE_PORT'] = str(db_port)
+        os.environ['POSTGRES_PORT'] = str(db_port)
+    elif postgres_port:
+        os.environ['DATABASE_PORT'] = postgres_port
     elif not os.environ.get('DATABASE_PORT'):
         os.environ['DATABASE_PORT'] = '5432'
+        # Also set POSTGRES_PORT for consistency
+        if not postgres_port:
+            os.environ['POSTGRES_PORT'] = '5432'
     
+    # Database name
     if db_name:
         os.environ['DATABASE_NAME'] = db_name
+        os.environ['POSTGRES_DB'] = db_name
+    elif postgres_db:
+        os.environ['DATABASE_NAME'] = postgres_db
     elif not os.environ.get('DATABASE_NAME'):
         os.environ['DATABASE_NAME'] = 'polisDB_prod_local_mar14'
+        # Also set POSTGRES_DB for consistency
+        if not postgres_db:
+            os.environ['POSTGRES_DB'] = 'polisDB_prod_local_mar14'
     
+    # User
     if db_user:
         os.environ['DATABASE_USER'] = db_user
+        os.environ['POSTGRES_USER'] = db_user
+    elif postgres_user:
+        os.environ['DATABASE_USER'] = postgres_user
     elif not os.environ.get('DATABASE_USER'):
         os.environ['DATABASE_USER'] = 'postgres'
+        # Also set POSTGRES_USER for consistency
+        if not postgres_user:
+            os.environ['POSTGRES_USER'] = 'postgres'
     
+    # Password
     if db_password:
         os.environ['DATABASE_PASSWORD'] = db_password
+        os.environ['POSTGRES_PASSWORD'] = db_password
+    elif postgres_password:
+        os.environ['DATABASE_PASSWORD'] = postgres_password
     elif not os.environ.get('DATABASE_PASSWORD'):
         os.environ['DATABASE_PASSWORD'] = ''
+        # Also set POSTGRES_PASSWORD for consistency
+        if not postgres_password:
+            os.environ['POSTGRES_PASSWORD'] = ''
+    
+    # Ensure DATABASE_URL is set if not already - needed by some components
+    if not os.environ.get('DATABASE_URL'):
+        # Use POSTGRES_* variables if available, otherwise construct from DATABASE_* variables
+        host = os.environ.get('POSTGRES_HOST') or os.environ.get('DATABASE_HOST')
+        port = os.environ.get('POSTGRES_PORT') or os.environ.get('DATABASE_PORT')
+        db = os.environ.get('POSTGRES_DB') or os.environ.get('DATABASE_NAME')
+        user = os.environ.get('POSTGRES_USER') or os.environ.get('DATABASE_USER')
+        password = os.environ.get('POSTGRES_PASSWORD') or os.environ.get('DATABASE_PASSWORD')
+        
+        # Construct DATABASE_URL
+        if password:
+            os.environ['DATABASE_URL'] = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+        else:
+            os.environ['DATABASE_URL'] = f"postgresql://{user}@{host}:{port}/{db}"
     
     # Print database connection info
     logger.info(f"Database connection info:")
-    logger.info(f"- HOST: {os.environ.get('DATABASE_HOST')}")
-    logger.info(f"- PORT: {os.environ.get('DATABASE_PORT')}")
-    logger.info(f"- DATABASE: {os.environ.get('DATABASE_NAME')}")
-    logger.info(f"- USER: {os.environ.get('DATABASE_USER')}")
+    logger.info(f"- HOST: {os.environ.get('POSTGRES_HOST') or os.environ.get('DATABASE_HOST')}")
+    logger.info(f"- PORT: {os.environ.get('POSTGRES_PORT') or os.environ.get('DATABASE_PORT')}")
+    logger.info(f"- DATABASE: {os.environ.get('POSTGRES_DB') or os.environ.get('DATABASE_NAME')}")
+    logger.info(f"- USER: {os.environ.get('POSTGRES_USER') or os.environ.get('DATABASE_USER')}")
+    logger.info(f"- DATABASE_URL: {os.environ.get('DATABASE_URL').replace(os.environ.get('POSTGRES_PASSWORD') or '', '*****')}")
     
     # DynamoDB settings (for local DynamoDB)
     # Don't override if already set in environment
@@ -89,18 +152,136 @@ def setup_environment(db_host=None, db_port=None, db_name=None, db_user=None, db
     if not os.environ.get('AWS_DEFAULT_REGION') and not os.environ.get('AWS_REGION'):
         os.environ['AWS_DEFAULT_REGION'] = 'us-west-2'
 
-def fetch_conversation_data(zid):
+def fetch_conversation_data(zid, skip_postgres=False, postgres_for_comments_only=True):
     """
-    Fetch conversation data from PostgreSQL.
+    Fetch conversation data, trying DynamoDB first and optionally falling back to PostgreSQL.
     
     Args:
         zid: Conversation ID
+        skip_postgres: If True, only use DynamoDB and don't fall back to PostgreSQL
+        postgres_for_comments_only: If True, still use PostgreSQL for comment texts even if skip_postgres is True
         
     Returns:
         comments: List of comment dictionaries
         metadata: Dictionary with conversation metadata
     """
-    logger.info(f"Fetching conversation {zid} from PostgreSQL...")
+    # First try to load from DynamoDB
+    logger.info(f"Attempting to load conversation {zid} from DynamoDB...")
+    try:
+        # Initialize DynamoDB storage
+        dynamo_storage = DynamoDBStorage(
+            region_name='us-west-2',
+            endpoint_url=os.environ.get('DYNAMODB_ENDPOINT')
+        )
+        
+        # Get conversation metadata from PCA results table
+        try:
+            config_table = dynamo_storage.dynamodb.Table('Delphi_PCAConversationConfig')
+            config_response = config_table.get_item(Key={'zid': str(zid)})
+            
+            if 'Item' in config_response:
+                logger.info(f"Found conversation metadata in DynamoDB for {zid}")
+                meta = config_response['Item']
+                math_tick = meta.get('latest_math_tick')
+                
+                if math_tick:
+                    logger.info(f"Found math tick {math_tick} in PCA config")
+                    # Get comment data from Delphi_CommentRouting table
+                    try:
+                        zid_tick = f"{zid}:{math_tick}"
+                        comments_table = dynamo_storage.dynamodb.Table('Delphi_CommentRouting')
+                        response = comments_table.query(
+                            KeyConditionExpression=boto3.dynamodb.conditions.Key('zid_tick').eq(zid_tick)
+                        )
+                        
+                        comment_items = response.get('Items', [])
+                        # Handle pagination if needed
+                        while 'LastEvaluatedKey' in response:
+                            response = comments_table.query(
+                                KeyConditionExpression=boto3.dynamodb.conditions.Key('zid_tick').eq(zid_tick),
+                                ExclusiveStartKey=response['LastEvaluatedKey']
+                            )
+                            comment_items.extend(response.get('Items', []))
+                        
+                        if comment_items:
+                            logger.info(f"Found {len(comment_items)} comments in DynamoDB")
+                            
+                            # We need to get comment texts from PostgreSQL since they're not in DynamoDB
+                            # Get PostgreSQL connection temporarily
+                            postgres_client = PostgresClient()
+                            postgres_client.initialize()
+                            
+                            # Get comment texts from PostgreSQL if not skipped entirely
+                            if skip_postgres and not postgres_for_comments_only:
+                                logger.warning("PostgreSQL lookup for comment texts is disabled, using placeholders")
+                                # Create placeholder texts based on comment IDs
+                                all_comments = [{'tid': cid, 'txt': f"Comment {cid} (text unavailable)"} 
+                                                for cid in [item['comment_id'] for item in comment_items]]
+                            else:
+                                # Always try to get actual comment texts from PostgreSQL
+                                try:
+                                    if skip_postgres and postgres_for_comments_only:
+                                        logger.info("Getting comment texts from PostgreSQL (postgres_for_comments_only=True overrides skip_postgres)")
+                                    else:
+                                        logger.info("Getting comment texts from PostgreSQL" + (" (even in skip_postgres mode)" if skip_postgres else ""))
+                                    all_comments = postgres_client.get_comments_by_conversation(zid)
+                                    postgres_client.shutdown()
+                                except Exception as e:
+                                    logger.warning(f"Failed to get comment texts from PostgreSQL: {e}, using placeholders")
+                                    # Fall back to placeholders if PostgreSQL access fails
+                                    all_comments = [{'tid': cid, 'txt': f"Comment {cid} (text unavailable)"} 
+                                                    for cid in [item['comment_id'] for item in comment_items]]
+                            
+                            # Create a mapping of comment IDs to texts
+                            comment_texts = {str(c['tid']): c['txt'] for c in all_comments}
+                            
+                            # Merge comment data from DynamoDB with texts from PostgreSQL
+                            comments = []
+                            for item in comment_items:
+                                comment_id = item['comment_id']
+                                if comment_id in comment_texts:
+                                    comments.append({
+                                        'tid': comment_id,
+                                        'zid': zid,
+                                        'txt': comment_texts[comment_id],
+                                        'priority': item.get('priority', 0),
+                                        'active': True  # Assume active
+                                    })
+                            
+                            # Create metadata
+                            metadata = {
+                                'conversation_id': str(zid),
+                                'zid': zid,
+                                'conversation_name': meta.get('topic', f"Conversation {zid}"),
+                                'description': '',
+                                'num_comments': len(comments),
+                                'num_participants': meta.get('participant_count', 0),
+                                'source': 'dynamo',
+                                'math_tick': math_tick
+                            }
+                            
+                            logger.info(f"Successfully loaded {len(comments)} comments from DynamoDB")
+                            return comments, metadata
+                    except Exception as e:
+                        logger.warning(f"Error loading comment data from DynamoDB: {e}")
+                        logger.warning("Falling back to PostgreSQL")
+        except Exception as e:
+            logger.warning(f"Error checking PCA config: {e}")
+            logger.warning("Falling back to PostgreSQL")
+    except Exception as e:
+        logger.warning(f"Error accessing DynamoDB: {e}")
+        if skip_postgres:
+            logger.error("DynamoDB access failed and PostgreSQL fallback is disabled")
+            return None, None
+        logger.warning("Falling back to PostgreSQL")
+    
+    # Fall back to PostgreSQL if not skipped
+    if skip_postgres:
+        logger.info("Skipping PostgreSQL load as requested")
+        return None, None
+        
+    logger.warning(f"DEPRECATED: Falling back to PostgreSQL for conversation {zid}. PostgreSQL support will be removed in a future release.")
+    logger.warning("Please ensure your data is stored in DynamoDB for future compatibility.")
     postgres_client = PostgresClient()
     
     try:
@@ -133,13 +314,14 @@ def fetch_conversation_data(zid):
             'owner': conversation.get('owner', ''),
             'num_comments': len(comments),
             'active_count': active_count,
-            'inactive_count': inactive_count
+            'inactive_count': inactive_count,
+            'source': 'postgres'
         }
         
         return comments, metadata
     
     except Exception as e:
-        logger.error(f"Error fetching conversation: {str(e)}")
+        logger.error(f"Error fetching conversation from PostgreSQL: {str(e)}")
         import traceback
         logger.error(traceback.format_exc())
         return None, None
@@ -434,6 +616,13 @@ def create_basic_layer_visualization(
     title,
     sub_title
 ):
+    # Convert any Decimal values in data_map to float
+    import decimal
+    if isinstance(data_map, np.ndarray) and data_map.size > 0:
+        # Check if we have Decimal objects that need conversion
+        if isinstance(data_map.flat[0], decimal.Decimal):
+            logger.debug("Converting Decimal values in data_map to float")
+            data_map = np.array([[float(x) for x in point] for point in data_map], dtype=np.float64)
     """
     Create a basic visualization with numeric topic labels for a specific layer.
     
@@ -451,9 +640,46 @@ def create_basic_layer_visualization(
     Returns:
         file_path: Path to the saved visualization
     """
+    # Safety check: Ensure data_map is not empty
+    if len(data_map) == 0:
+        logger.error(f"Cannot create visualization for {file_prefix}: data_map is empty (shape: {data_map.shape})")
+        return None
+        
+    # Safety check: Make sure we have cluster assignments
+    if len(cluster_layer) == 0:
+        logger.error(f"Cannot create visualization for {file_prefix}: cluster_layer is empty (shape: {cluster_layer.shape})")
+        return None
+        
+    # Safety check: Make sure arrays have matching dimensions
+    if len(data_map) != len(cluster_layer):
+        logger.error(f"Cannot create visualization for {file_prefix}: data_map length ({len(data_map)}) doesn't match cluster_layer length ({len(cluster_layer)})")
+        return None
+        
+    # Safety check: Make sure we have hover info
+    if not hover_info or len(hover_info) == 0:
+        logger.warning(f"No hover_info provided for {file_prefix}. Creating default hover text.")
+        hover_info = [f"Comment {i}" for i in range(len(data_map))]
+        
+    # Safety check: Make sure hover_info length matches data_map
+    if len(hover_info) != len(data_map):
+        logger.warning(f"hover_info length ({len(hover_info)}) doesn't match data_map length ({len(data_map)}). Adjusting...")
+        # Adjust hover_info to match data_map length
+        if len(hover_info) < len(data_map):
+            # Extend hover_info with default values
+            hover_info.extend([f"Comment {i+len(hover_info)}" for i in range(len(data_map) - len(hover_info))])
+        else:
+            # Truncate hover_info
+            hover_info = hover_info[:len(data_map)]
+    
     # Create labels vector
+    # Debug the cluster_labels keys and a sample of cluster_layer values
+    logger.debug(f"cluster_labels keys: {list(cluster_labels.keys())[:5]} (type: {type(next(iter(cluster_labels.keys()), None))})")
+    sample_clusters = cluster_layer[cluster_layer >= 0][:5] if len(cluster_layer[cluster_layer >= 0]) > 0 else []
+    logger.debug(f"Sample cluster_layer values: {sample_clusters} (type: {type(sample_clusters[0]) if len(sample_clusters) > 0 else 'N/A'})")
+    
+    # Fix: Convert integer keys to strings when looking up in cluster_labels dictionary
     labels_for_viz = np.array([
-        cluster_labels.get(label, "Unlabelled") if label >= 0 else "Unlabelled"
+        cluster_labels.get(str(label), "Unlabelled") if label >= 0 else "Unlabelled"
         for label in cluster_layer
     ])
     
@@ -462,6 +688,33 @@ def create_basic_layer_visualization(
     viz_file = os.path.join(output_path, f"{file_prefix}.html")
     
     try:
+        logger.debug(f"Visualization input arrays: data_map shape: {data_map.shape}, labels_for_viz shape: {labels_for_viz.shape}, hover_info length: {len(hover_info)}")
+        
+        # Handle single-label datasets which can cause datamapplot to fail
+        if len(np.unique(labels_for_viz)) <= 1:
+            logger.warning(f"Only one unique label found. Adding dummy labels to prevent datamapplot errors.")
+            
+            # Create a modified labels array with artificial variation to prevent errors
+            modified_labels = np.array(labels_for_viz)
+            
+            # Assign a different dummy label to ~5% of points
+            num_points = len(modified_labels)
+            num_to_change = max(2, int(num_points * 0.05))
+            
+            # Use evenly distributed indices
+            change_indices = np.arange(num_points)[::max(1, num_points//num_to_change)][:num_to_change]
+            
+            # Change labels for these points
+            if all(label == "Unlabelled" for label in modified_labels):
+                modified_labels[change_indices] = "Dummy Label"
+            else:
+                modified_labels[change_indices] = "Unlabelled"
+                
+            logger.info(f"Modified {num_to_change} labels ({num_to_change/num_points:.1%} of total) to ensure datamapplot works")
+            
+            # Use the modified labels for visualization
+            labels_for_viz = modified_labels
+            
         interactive_figure = datamapplot.create_interactive_plot(
             data_map,
             labels_for_viz,
@@ -480,6 +733,10 @@ def create_basic_layer_visualization(
         return viz_file
     except Exception as e:
         logger.error(f"Error creating basic visualization: {e}")
+        # Log more details about the error
+        import traceback
+        logger.error(f"Detailed error traceback: {traceback.format_exc()}")
+        logger.error(f"Input data shapes: data_map: {data_map.shape}, labels_for_viz: {labels_for_viz.shape}, hover_info: {len(hover_info)}")
         return None
 
 def create_named_layer_visualization(
@@ -492,6 +749,13 @@ def create_named_layer_visualization(
     title,
     sub_title
 ):
+    # Convert any Decimal values in data_map to float
+    import decimal
+    if isinstance(data_map, np.ndarray) and data_map.size > 0:
+        # Check if we have Decimal objects that need conversion
+        if isinstance(data_map.flat[0], decimal.Decimal):
+            logger.debug("Converting Decimal values in data_map to float")
+            data_map = np.array([[float(x) for x in point] for point in data_map], dtype=np.float64)
     """
     Create a named visualization with explicit topic labels for a specific layer.
     
@@ -508,9 +772,46 @@ def create_named_layer_visualization(
     Returns:
         file_path: Path to the saved visualization
     """
+    # Safety check: Ensure data_map is not empty
+    if len(data_map) == 0:
+        logger.error(f"Cannot create visualization for {file_prefix}: data_map is empty (shape: {data_map.shape})")
+        return None
+        
+    # Safety check: Make sure we have cluster assignments
+    if len(cluster_layer) == 0:
+        logger.error(f"Cannot create visualization for {file_prefix}: cluster_layer is empty (shape: {cluster_layer.shape})")
+        return None
+        
+    # Safety check: Make sure arrays have matching dimensions
+    if len(data_map) != len(cluster_layer):
+        logger.error(f"Cannot create visualization for {file_prefix}: data_map length ({len(data_map)}) doesn't match cluster_layer length ({len(cluster_layer)})")
+        return None
+        
+    # Safety check: Make sure we have hover info
+    if not hover_info or len(hover_info) == 0:
+        logger.warning(f"No hover_info provided for {file_prefix}. Creating default hover text.")
+        hover_info = [f"Comment {i}" for i in range(len(data_map))]
+        
+    # Safety check: Make sure hover_info length matches data_map
+    if len(hover_info) != len(data_map):
+        logger.warning(f"hover_info length ({len(hover_info)}) doesn't match data_map length ({len(data_map)}). Adjusting...")
+        # Adjust hover_info to match data_map length
+        if len(hover_info) < len(data_map):
+            # Extend hover_info with default values
+            hover_info.extend([f"Comment {i+len(hover_info)}" for i in range(len(data_map) - len(hover_info))])
+        else:
+            # Truncate hover_info
+            hover_info = hover_info[:len(data_map)]
+    
     # Create labels vector
+    # Debug the cluster_labels keys and a sample of cluster_layer values
+    logger.debug(f"cluster_labels keys: {list(cluster_labels.keys())[:5]} (type: {type(next(iter(cluster_labels.keys()), None))})")
+    sample_clusters = cluster_layer[cluster_layer >= 0][:5] if len(cluster_layer[cluster_layer >= 0]) > 0 else []
+    logger.debug(f"Sample cluster_layer values: {sample_clusters} (type: {type(sample_clusters[0]) if len(sample_clusters) > 0 else 'N/A'})")
+    
+    # Fix: Convert integer keys to strings when looking up in cluster_labels dictionary
     labels_for_viz = np.array([
-        cluster_labels.get(label, "Unlabelled") if label >= 0 else "Unlabelled"
+        cluster_labels.get(str(label), "Unlabelled") if label >= 0 else "Unlabelled"
         for label in cluster_layer
     ])
     
@@ -519,6 +820,33 @@ def create_named_layer_visualization(
     viz_file = os.path.join(output_path, f"{file_prefix}.html")
     
     try:
+        logger.debug(f"Visualization input arrays: data_map shape: {data_map.shape}, labels_for_viz shape: {labels_for_viz.shape}, hover_info length: {len(hover_info)}")
+        
+        # Handle single-label datasets which can cause datamapplot to fail
+        if len(np.unique(labels_for_viz)) <= 1:
+            logger.warning(f"Only one unique label found. Adding dummy labels to prevent datamapplot errors.")
+            
+            # Create a modified labels array with artificial variation to prevent errors
+            modified_labels = np.array(labels_for_viz)
+            
+            # Assign a different dummy label to ~5% of points
+            num_points = len(modified_labels)
+            num_to_change = max(2, int(num_points * 0.05))
+            
+            # Use evenly distributed indices
+            change_indices = np.arange(num_points)[::max(1, num_points//num_to_change)][:num_to_change]
+            
+            # Change labels for these points
+            if all(label == "Unlabelled" for label in modified_labels):
+                modified_labels[change_indices] = "Dummy Label"
+            else:
+                modified_labels[change_indices] = "Unlabelled"
+                
+            logger.info(f"Modified {num_to_change} labels ({num_to_change/num_points:.1%} of total) to ensure datamapplot works")
+            
+            # Use the modified labels for visualization
+            labels_for_viz = modified_labels
+            
         interactive_figure = datamapplot.create_interactive_plot(
             data_map,
             labels_for_viz,
@@ -537,6 +865,10 @@ def create_named_layer_visualization(
         return viz_file
     except Exception as e:
         logger.error(f"Error creating named visualization: {e}")
+        # Log more details about the error
+        import traceback
+        logger.error(f"Detailed error traceback: {traceback.format_exc()}")
+        logger.error(f"Input data shapes: data_map: {data_map.shape}, labels_for_viz: {labels_for_viz.shape}, hover_info: {len(hover_info)}")
         return None
 
 def process_layers_and_store_characteristics(
@@ -613,6 +945,13 @@ def create_static_datamapplot(
     output_dir,
     layer_num=0
 ):
+    # Convert any Decimal values in document_map to float
+    import decimal
+    if isinstance(document_map, np.ndarray) and document_map.size > 0:
+        # Check if we have Decimal objects that need conversion
+        if isinstance(document_map.flat[0], decimal.Decimal):
+            logger.debug("Converting Decimal values in document_map to float for static datamapplot")
+            document_map = np.array([[float(x) for x in point] for point in document_map], dtype=np.float64)
     """
     Generate static datamapplot visualizations for a layer.
     
@@ -652,13 +991,28 @@ def create_static_datamapplot(
             for label in cluster_layer
         ])
         
+        # Check if we have enough unique labels to create a meaningful visualization
+        unique_labels = set(cluster_layer)
+        unique_non_noise = [label for label in unique_labels if label >= 0]
+        
+        if len(unique_non_noise) == 0:
+            logger.warning(f"Layer {layer_num} has no clusters (only noise). Skipping visualization.")
+            return False
+        
+        if len(unique_non_noise) == 1:
+            logger.warning(f"Layer {layer_num} has only one cluster. Using simplified visualization settings.")
+            # For single-cluster visualizations, turn off dynamic sizing to avoid array indexing issues
+            use_dynamic_size = False
+        else:
+            use_dynamic_size = True
+        
         # Generate the static plot - it returns (fig, ax) tuple
         fig, ax = datamapplot.create_plot(
             document_map,
             label_strings,
             title=f"Conversation {conversation_id} - Layer {layer_num}",
             label_over_points=True,           # Place labels directly over the point clusters
-            dynamic_label_size=True,          # Vary label size based on cluster size
+            dynamic_label_size=use_dynamic_size,  # Vary label size based on cluster size if we have multiple clusters
             dynamic_label_size_scaling_factor=0.75,
             max_font_size=28,                 # Maximum font size for labels
             min_font_size=12,                 # Minimum font size for labels
@@ -736,6 +1090,20 @@ def create_visualizations(
     Returns:
         The path to the index file
     """
+    # Safety check: Make sure document_map is not empty
+    if len(document_map) == 0:
+        logger.error(f"Cannot create visualizations: document_map is empty. Generating synthetic data for visualization...")
+        # Generate synthetic data for visualization
+        num_comments = len(comment_texts)
+        if num_comments > 0:
+            # Create synthetic random 2D positions
+            np.random.seed(42)  # For reproducibility
+            document_map = np.random.rand(num_comments, 2) * 10  # Scale up for visibility
+            logger.info(f"Generated synthetic document_map with shape: {document_map.shape}")
+        else:
+            logger.error(f"Cannot create visualizations: no comments available.")
+            return None
+    
     # If layer_data not provided, generate it
     if layer_data is None:
         logger.info("Layer data not provided, generating it...")
@@ -772,41 +1140,92 @@ def create_visualizations(
             cluster_layer, characteristics, comment_texts
         )
         
-        # Create basic visualization
-        basic_file = create_basic_layer_visualization(
-            output_dir,
-            f"{conversation_id}_comment_layer_{layer_idx}_basic",
-            document_map,
-            cluster_layer,
-            characteristics,
-            numeric_topic_names,
-            hover_info,
-            f"{conversation_name} Comment Layer {layer_idx} - {len(np.unique(cluster_layer[cluster_layer >= 0]))} topics",
-            f"Comment topics with numeric labels"
-        )
+        # Calculate number of unique clusters (excluding noise)
+        unique_non_noise = len(np.unique(cluster_layer[cluster_layer >= 0]))
+        logger.info(f"Layer {layer_idx} has {unique_non_noise} unique clusters (excluding noise)")
+        
+        # Additional safety check: Ensure arrays have matching dimensions
+        if len(document_map) != len(cluster_layer):
+            logger.warning(f"Document map length ({len(document_map)}) doesn't match cluster layer length ({len(cluster_layer)}). Adjusting...")
+            if len(document_map) > len(cluster_layer):
+                # Truncate document_map to match cluster_layer
+                document_map = document_map[:len(cluster_layer)]
+                logger.info(f"Truncated document_map to shape {document_map.shape}")
+            else:
+                # Truncate cluster_layer to match document_map
+                cluster_layer = cluster_layer[:len(document_map)]
+                logger.info(f"Truncated cluster_layer to length {len(cluster_layer)}")
+                # Recalculate unique_non_noise after truncation
+                unique_non_noise = len(np.unique(cluster_layer[cluster_layer >= 0]))
+                logger.info(f"After truncation, layer {layer_idx} has {unique_non_noise} unique clusters")
+        
+        # Create basic visualization - skip if no clusters
+        if unique_non_noise == 0:
+            logger.warning(f"Layer {layer_idx} has no clusters (only noise). Skipping basic visualization.")
+            basic_file = None
+        else:
+            try:
+                logger.info(f"Creating basic visualization for {conversation_id}_comment_layer_{layer_idx}_basic...")
+                basic_file = create_basic_layer_visualization(
+                    output_dir,
+                    f"{conversation_id}_comment_layer_{layer_idx}_basic",
+                    document_map,
+                    cluster_layer,
+                    characteristics,
+                    numeric_topic_names,
+                    hover_info,
+                    f"{conversation_name} Comment Layer {layer_idx} - {unique_non_noise} topics",
+                    f"Comment topics with numeric labels"
+                )
+            except Exception as e:
+                logger.error(f"Error creating basic visualization: {str(e)}")
+                import traceback
+                logger.error(f"Detailed error traceback: {traceback.format_exc()}")
+                logger.error(f"Input data shapes: document_map: {document_map.shape}, cluster_layer: {cluster_layer.shape}, hover_info: {len(hover_info)}")
+                basic_file = None
         
         # Create named visualization with just numeric topic names for now
         # (LLM names will be added in a separate step later)
-        named_file = create_named_layer_visualization(
-            output_dir,
-            f"{conversation_id}_comment_layer_{layer_idx}_named",
-            document_map,
-            cluster_layer,
-            numeric_topic_names,
-            hover_info,
-            f"{conversation_name} Comment Layer {layer_idx} - {len(np.unique(cluster_layer[cluster_layer >= 0]))} topics",
-            f"Comment topics (to be updated with LLM topic names)"
-        )
+        if unique_non_noise == 0:
+            logger.warning(f"Layer {layer_idx} has no clusters (only noise). Skipping named visualization.")
+            named_file = None
+        else:
+            try:
+                logger.info(f"Creating named visualization for {conversation_id}_comment_layer_{layer_idx}_named...")
+                named_file = create_named_layer_visualization(
+                    output_dir,
+                    f"{conversation_id}_comment_layer_{layer_idx}_named",
+                    document_map,
+                    cluster_layer,
+                    numeric_topic_names,
+                    hover_info,
+                    f"{conversation_name} Comment Layer {layer_idx} - {unique_non_noise} topics",
+                    f"Comment topics (to be updated with LLM topic names)"
+                )
+            except Exception as e:
+                logger.error(f"Error creating named visualization: {str(e)}")
+                import traceback
+                logger.error(f"Detailed error traceback: {traceback.format_exc()}")
+                logger.error(f"Input data shapes: document_map: {document_map.shape}, cluster_layer: {cluster_layer.shape}, hover_info: {len(hover_info)}")
+                named_file = None
         
         # Generate static datamapplot visualizations
-        create_static_datamapplot(
-            conversation_id,
-            document_map,
-            cluster_layer,
-            numeric_topic_names,
-            output_dir,
-            layer_idx
-        )
+        # Skip if layer has too few unique clusters (excluding noise)
+        unique_non_noise = len(np.unique(cluster_layer[cluster_layer >= 0]))
+        if unique_non_noise == 0:
+            logger.warning(f"Layer {layer_idx} has no clusters (only noise). Skipping static datamapplot.")
+        else:
+            logger.info(f"Generating static datamapplot for layer {layer_idx} with {unique_non_noise} unique clusters...")
+            success = create_static_datamapplot(
+                conversation_id,
+                document_map,
+                cluster_layer,
+                numeric_topic_names,
+                output_dir,
+                layer_idx
+            )
+            if not success:
+                logger.warning(f"Failed to create static datamapplot for layer {layer_idx}")
         
         # Generate consensus/divisive visualization 
         try:
@@ -1110,7 +1529,361 @@ def create_enhanced_multilayer_index(
     return index_file
 
 
-def process_conversation(zid, export_dynamo=True, use_ollama=False):
+def load_processed_data_from_dynamo(dynamo_storage, conversation_id, math_tick=None, skip_postgres=False, postgres_for_comments_only=True):
+    """
+    Load pre-processed embeddings and cluster assignments from DynamoDB.
+    
+    This allows the UMAP pipeline to skip expensive computation steps when data
+    is already available from the math pipeline.
+    
+    Args:
+        dynamo_storage: DynamoDB storage instance
+        conversation_id: Conversation ID
+        math_tick: Optional math tick to use for retrieving from specific version
+        skip_postgres: Whether to skip PostgreSQL entirely
+        postgres_for_comments_only: If True, still try to get comment texts from PostgreSQL even if skip_postgres is True
+        
+    Returns:
+        None if data not found or error occurs, otherwise a dictionary with:
+        - document_vectors: Comment embeddings
+        - document_map: 2D UMAP projection
+        - cluster_layers: Hierarchy of cluster assignments
+        - comment_texts: List of comment text strings  
+        - comment_ids: List of comment IDs
+    """
+    logger.info(f"Attempting to load pre-processed data for conversation {conversation_id} from DynamoDB")
+    
+    try:
+        # First check if we have a PCA configuration in the math pipeline output
+        pca_config_table = dynamo_storage.dynamodb.Table('Delphi_PCAConversationConfig')
+        config_response = pca_config_table.get_item(Key={'zid': str(conversation_id)})
+        
+        if 'Item' not in config_response:
+            logger.warning(f"No PCA configuration found for conversation {conversation_id}")
+            return None
+            
+        pca_config = config_response['Item']
+        
+        # Get the math tick to use
+        if math_tick is None:
+            math_tick = pca_config.get('latest_math_tick')
+            if not math_tick:
+                logger.warning(f"No math tick found in PCA config for conversation {conversation_id}")
+                return None
+        
+        logger.info(f"Using math tick {math_tick} for conversation {conversation_id}")
+        zid_tick = f"{conversation_id}:{math_tick}"
+        
+        # Check if we have UMAP data already
+        try:
+            umap_config_table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['conversation_meta'])
+            umap_config_response = umap_config_table.get_item(Key={'conversation_id': str(conversation_id)})
+            
+            if 'Item' in umap_config_response:
+                logger.info(f"Found existing UMAP data for conversation {conversation_id}")
+                
+                # Now try to load all the components we need
+                
+                # 1. Load all comment embeddings
+                embedding_table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['comment_embeddings'])
+                response = embedding_table.query(
+                    KeyConditionExpression=Key('conversation_id').eq(str(conversation_id))
+                )
+                
+                comment_embeddings = response.get('Items', [])
+                # Handle pagination if needed
+                while 'LastEvaluatedKey' in response:
+                    response = embedding_table.query(
+                        KeyConditionExpression=Key('conversation_id').eq(str(conversation_id)),
+                        ExclusiveStartKey=response['LastEvaluatedKey']
+                    )
+                    comment_embeddings.extend(response.get('Items', []))
+                
+                if not comment_embeddings:
+                    logger.warning(f"No comment embeddings found for conversation {conversation_id}")
+                    return None
+                
+                logger.info(f"Found {len(comment_embeddings)} comment embeddings")
+                
+                # 2. Get comment cluster assignments
+                cluster_table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['comment_clusters'])
+                response = cluster_table.query(
+                    KeyConditionExpression=Key('conversation_id').eq(str(conversation_id))
+                )
+                
+                comment_clusters = response.get('Items', [])
+                # Handle pagination if needed
+                while 'LastEvaluatedKey' in response:
+                    response = cluster_table.query(
+                        KeyConditionExpression=Key('conversation_id').eq(str(conversation_id)),
+                        ExclusiveStartKey=response['LastEvaluatedKey']
+                    )
+                    comment_clusters.extend(response.get('Items', []))
+                
+                if not comment_clusters:
+                    logger.warning(f"No comment clusters found for conversation {conversation_id}")
+                    return None
+                
+                logger.info(f"Found {len(comment_clusters)} comment cluster assignments")
+                
+                # Get list of comment IDs and order
+                comment_ids = []
+                comment_texts = []
+                
+                # Sort the embeddings by comment_id
+                comment_embeddings.sort(key=lambda x: int(x.get('comment_id', 0)))
+                
+                # Extract embeddings as numpy array
+                document_vectors = []
+                document_map = []
+                
+                # Get comment texts from PostgreSQL or create placeholders
+                # Always try to get texts from PostgreSQL unless explicitly disabled with skip_postgres=True
+                # and postgres_for_comments_only=False
+                try:
+                    if skip_postgres and not postgres_for_comments_only:
+                        logger.warning("PostgreSQL lookup for comment texts is disabled, using placeholders")
+                        # Create text placeholders with IDs from the extracted comment_ids
+                        # First populate comment_ids from embeddings to ensure we have them
+                        comment_ids = [str(emb.get('comment_id', '')) for emb in comment_embeddings]
+                        all_comments = [{'tid': cid, 'txt': f"Comment {cid} (text unavailable)"} 
+                                      for cid in comment_ids]
+                    else:
+                        if skip_postgres and postgres_for_comments_only:
+                            logger.info("Getting comment texts from PostgreSQL (postgres_for_comments_only=True overrides skip_postgres)")
+                        else:
+                            logger.info("Getting comment texts from PostgreSQL")
+                        postgres_client = PostgresClient()
+                        postgres_client.initialize()
+                        all_comments = postgres_client.get_comments_by_conversation(int(conversation_id))
+                        postgres_client.shutdown()
+                except Exception as e:
+                    logger.warning(f"Failed to get comment texts from PostgreSQL: {e}, using placeholders")
+                    # Fall back to placeholders if PostgreSQL access fails
+                    comment_ids = [str(emb.get('comment_id', '')) for emb in comment_embeddings]
+                    all_comments = [{'tid': cid, 'txt': f"Comment {cid} (text unavailable)"} 
+                                  for cid in comment_ids]
+                
+                # Create a mapping of comment IDs to texts
+                comment_id_to_text = {str(c['tid']): c['txt'] for c in all_comments}
+                
+                # Clear existing arrays before building
+                comment_ids = []
+                comment_texts = []
+                document_vectors = []
+                document_map = []
+                
+                # Log the number of embeddings and matching comments
+                logger.info(f"Total embeddings: {len(comment_embeddings)}")
+                logger.info(f"Available comment texts: {len(comment_id_to_text)}")
+                
+                # Track matched and missing comments
+                matched_count = 0
+                missing_texts = []
+                missing_embeddings = []
+                
+                # Build the ordered lists and arrays
+                for embedding in comment_embeddings:
+                    comment_id = str(embedding.get('comment_id'))
+                    
+                    # Track comments with missing text
+                    if comment_id not in comment_id_to_text:
+                        missing_texts.append(comment_id)
+                        continue
+                        
+                    # Successfully matched comment
+                    matched_count += 1
+                    
+                    # Add to ordered lists
+                    comment_ids.append(comment_id)
+                    comment_texts.append(comment_id_to_text[comment_id])
+                    
+                    # Check for vector in embedding
+                    has_vector = False
+                    
+                    # Add to vectors
+                    # Check for embedding vector in different formats
+                    if 'embedding_vector' in embedding:
+                        # Direct vector field (older format)
+                        embed_vector = embedding['embedding_vector']
+                        if isinstance(embed_vector, str):
+                            embed_vector = [float(x) for x in embed_vector.split(',')]
+                        document_vectors.append(embed_vector)
+                        has_vector = True
+                    elif 'embedding' in embedding:
+                        # Nested embedding object (newer format)
+                        embed_obj = embedding['embedding']
+                        if isinstance(embed_obj, dict) and 'vector' in embed_obj:
+                            # Get vector from nested object
+                            embed_vector = embed_obj['vector']
+                            if isinstance(embed_vector, str):
+                                embed_vector = [float(x) for x in embed_vector.split(',')]
+                            document_vectors.append(embed_vector)
+                            has_vector = True
+                    
+                    # Track comments with missing embeddings
+                    if not has_vector:
+                        missing_embeddings.append(comment_id)
+                    
+                    # Add to 2D mapping (check in both the dedicated field and legacy formats)
+                    
+                    # First try the dedicated field format (if this is a Pydantic model)
+                    # Detailed debug logging temporarily removed for production use
+                    
+                    if hasattr(embedding, 'umap_coordinates') and embedding.umap_coordinates is not None:
+                        coords = embedding.umap_coordinates
+                        if hasattr(coords, 'x') and hasattr(coords, 'y'):
+                            document_map.append([coords.x, coords.y])
+                    # Then try legacy dictionary formats
+                    elif isinstance(embedding, dict):
+                        # Try direct umap_coordinates field
+                        if 'umap_coordinates' in embedding:
+                            coords = embedding['umap_coordinates']
+                            if isinstance(coords, list) and len(coords) == 2:
+                                document_map.append(coords)
+                            elif isinstance(coords, dict) and 'x' in coords and 'y' in coords:
+                                document_map.append([coords['x'], coords['y']])
+                        # Try position field (alternative location)
+                        elif 'position' in embedding:
+                            pos = embedding['position']
+                            if isinstance(pos, dict) and 'x' in pos and 'y' in pos:
+                                document_map.append([pos['x'], pos['y']])
+                        # Try embedded umap_coordinates within embedding structure
+                        elif 'embedding' in embedding and isinstance(embedding['embedding'], dict):
+                            embed_obj = embedding['embedding']
+                            if 'umap_coordinates' in embed_obj:
+                                embed_coords = embed_obj['umap_coordinates']
+                                if isinstance(embed_coords, list) and len(embed_coords) == 2:
+                                    document_map.append(embed_coords)
+                                elif isinstance(embed_coords, dict) and 'x' in embed_coords and 'y' in embed_coords:
+                                    document_map.append([embed_coords['x'], embed_coords['y']])
+                
+                # Log match statistics
+                logger.info(f"Successfully matched {matched_count} comments between PostgreSQL and DynamoDB")
+                if missing_texts:
+                    logger.warning(f"Found {len(missing_texts)} comments with embeddings but missing text")
+                    logger.warning(f"Example missing comment IDs: {missing_texts[:5]}")
+                if missing_embeddings:
+                    logger.warning(f"Found {len(missing_embeddings)} comments with text but missing embedding vectors")
+                    logger.warning(f"Example missing embedding IDs: {missing_embeddings[:5]}")
+                
+                # Convert to numpy arrays
+                document_vectors = np.array(document_vectors)
+                document_map = np.array(document_map)
+                
+                # Print debug information about array shapes
+                logger.info(f"After conversion - document_vectors shape: {document_vectors.shape}")
+                logger.info(f"After conversion - document_map shape: {document_map.shape}")
+                
+                # Basic info about extracted data
+                if len(document_map) == 0 and len(document_vectors) > 0:
+                    logger.warning("UMAP coordinates are missing in DynamoDB")
+                
+                # If both document_vectors and document_map are empty, we need to create synthetic data
+                if len(document_vectors) == 0 and len(comment_texts) > 0:
+                    logger.warning(f"document_vectors is empty but we have {len(comment_texts)} comments. Generating synthetic embeddings...")
+                    try:
+                        # Create synthetic random embeddings (just for visualization)
+                        document_vectors = np.random.rand(len(comment_texts), 384)  # Standard embedding dimension
+                        logger.info(f"Generated synthetic document_vectors with shape: {document_vectors.shape}")
+                    except Exception as e:
+                        logger.error(f"Failed to generate synthetic embeddings: {e}")
+                
+                # If document_map is empty but we have document_vectors, generate UMAP projection
+                if len(document_map) == 0 and len(document_vectors) > 0:
+                    logger.warning("document_map is empty but document_vectors exists. Generating UMAP projection...")
+                    try:
+                        from umap import UMAP
+                        # Add more detailed logging about document_vectors
+                        logger.info(f"Document vectors type: {type(document_vectors)}")
+                        logger.info(f"Document vectors shape: {document_vectors.shape if hasattr(document_vectors, 'shape') else 'no shape attribute'}")
+                        # Make sure document_vectors is a properly shaped numpy array
+                        if not isinstance(document_vectors, np.ndarray):
+                            document_vectors = np.array(document_vectors)
+                            logger.info(f"Converted document_vectors to numpy array with shape: {document_vectors.shape}")
+                        
+                        logger.info(f"Creating UMAP instance with n_components=2, metric='cosine'")
+                        umap_instance = UMAP(n_components=2, metric='cosine', random_state=42)
+                        logger.info(f"Fitting UMAP and transforming document_vectors...")
+                        document_map = umap_instance.fit_transform(document_vectors)
+                        logger.info(f"Generated document_map with shape: {document_map.shape}")
+                    except Exception as e:
+                        logger.error(f"Failed to generate UMAP projection: {e}")
+                        logger.error(traceback.format_exc())
+                        
+                    # If UMAP fails or isn't available, fall back to random 2D points
+                    if len(document_map) == 0 and len(document_vectors) > 0:
+                        logger.warning("Falling back to random 2D points for visualization...")
+                        
+                        # Get the number of points needed
+                        if isinstance(document_vectors, np.ndarray):
+                            num_points = document_vectors.shape[0]
+                        else:
+                            num_points = len(document_vectors)
+                            
+                        # Generate random 2D points
+                        np.random.seed(42)  # Use fixed seed for reproducibility
+                        document_map = np.random.rand(num_points, 2) * 10  # Scale up for visibility
+                        logger.info(f"Generated random document_map with shape: {document_map.shape}")
+                
+                # Get max number of layers
+                max_layer = 0
+                for cluster in comment_clusters:
+                    for key in cluster:
+                        if key.startswith('layer') and key.endswith('_cluster_id'):
+                            layer_id = int(key.replace('layer', '').replace('_cluster_id', ''))
+                            max_layer = max(max_layer, layer_id)
+                
+                # Initialize cluster layers
+                cluster_layers = [np.zeros(len(comment_ids), dtype=int) for _ in range(max_layer + 1)]
+                
+                # Map comment IDs to indices
+                comment_id_to_idx = {comment_id: i for i, comment_id in enumerate(comment_ids)}
+                
+                # Fill in cluster assignments
+                for cluster in comment_clusters:
+                    comment_id = str(cluster.get('comment_id'))
+                    if comment_id in comment_id_to_idx:
+                        idx = comment_id_to_idx[comment_id]
+                        for layer_id in range(max_layer + 1):
+                            layer_key = f'layer{layer_id}_cluster_id'
+                            if layer_key in cluster and cluster[layer_key] is not None:
+                                try:
+                                    # Convert to int, handling various formats
+                                    if isinstance(cluster[layer_key], dict) and 'N' in cluster[layer_key]:
+                                        # DynamoDB NumberAttribute format
+                                        cluster_id = int(cluster[layer_key]['N'])
+                                    else:
+                                        cluster_id = int(cluster[layer_key])
+                                    cluster_layers[layer_id][idx] = cluster_id
+                                except (TypeError, ValueError) as e:
+                                    logger.warning(f"Skipping invalid cluster ID for comment {comment_id}, layer {layer_id}: {cluster[layer_key]}")
+                                    # Skip this assignment but continue processing others
+                
+                logger.info(f"Successfully loaded pre-processed data with {len(comment_ids)} comments and {len(cluster_layers)} layers")
+                
+                return {
+                    'document_vectors': document_vectors,
+                    'document_map': document_map,
+                    'cluster_layers': cluster_layers,
+                    'comment_texts': comment_texts,
+                    'comment_ids': comment_ids,
+                    'source': 'dynamo_pre_processed'
+                }
+                
+        except Exception as e:
+            logger.error(f"Error loading pre-processed UMAP data: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return None
+    
+    except Exception as e:
+        logger.error(f"Error checking for pre-processed data: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return None
+
+def process_conversation(zid, export_dynamo=True, use_ollama=False, use_precomputed=True, skip_postgres=False, postgres_for_comments_only=True):
     """
     Main function to process a conversation and generate visualizations.
     
@@ -1118,28 +1891,17 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
         zid: Conversation ID
         export_dynamo: Whether to export results to DynamoDB
         use_ollama: Whether to use Ollama for topic naming
+        use_precomputed: Whether to try using pre-computed data from DynamoDB
+        skip_postgres: Whether to skip PostgreSQL entirely
+        postgres_for_comments_only: If True, still use PostgreSQL for comment texts even if skip_postgres is True
     """
     # Create conversation directory
     output_dir = os.path.join("polis_data", str(zid), "python_output", "comments_enhanced_multilayer")
     os.makedirs(output_dir, exist_ok=True)
     
-    # Fetch data from PostgreSQL
-    comments, metadata = fetch_conversation_data(zid)
-    if not comments:
-        logger.error("Failed to fetch conversation data.")
-        return False
-    
-    conversation_id = str(zid)
-    conversation_name = metadata.get('conversation_name', f"Conversation {zid}")
-    
-    # Process comments
-    document_map, document_vectors, cluster_layers, comment_texts, comment_ids = process_comments(
-        comments, conversation_id
-    )
-    
     # Initialize DynamoDB storage if requested
     dynamo_storage = None
-    if export_dynamo:
+    if export_dynamo or use_precomputed:
         # Use endpoint from environment if available
         endpoint_url = os.environ.get('DYNAMODB_ENDPOINT')
         logger.info(f"Using DynamoDB endpoint from environment: {endpoint_url}")
@@ -1147,6 +1909,81 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
         dynamo_storage = DynamoDBStorage(
             region_name='us-west-2',
             endpoint_url=endpoint_url
+        )
+    
+    # Try to load pre-processed data if requested
+    precomputed_data = None
+    if use_precomputed and dynamo_storage:
+        precomputed_data = load_processed_data_from_dynamo(
+            dynamo_storage, 
+            str(zid), 
+            skip_postgres=skip_postgres,
+            postgres_for_comments_only=postgres_for_comments_only
+        )
+    
+    # If we have pre-computed data, use it directly
+    if precomputed_data:
+        logger.info("Using pre-computed data from DynamoDB")
+        document_map = precomputed_data['document_map']  
+        document_vectors = precomputed_data['document_vectors']
+        cluster_layers = precomputed_data['cluster_layers']
+        comment_texts = precomputed_data['comment_texts']
+        comment_ids = precomputed_data['comment_ids']
+        
+        # Print debug information about array shapes
+        logger.info(f"Precomputed document_vectors shape: {document_vectors.shape}")
+        logger.info(f"Precomputed document_map shape: {document_map.shape}")
+        
+        # If both document_vectors and document_map are empty, we need to create synthetic data
+        if len(document_vectors) == 0 and len(comment_texts) > 0:
+            logger.warning(f"Precomputed document_vectors is empty but we have {len(comment_texts)} comments. Generating synthetic embeddings...")
+            try:
+                # Create synthetic random embeddings (just for visualization)
+                document_vectors = np.random.rand(len(comment_texts), 384)  # Standard embedding dimension
+                logger.info(f"Generated synthetic document_vectors with shape: {document_vectors.shape}")
+            except Exception as e:
+                logger.error(f"Failed to generate synthetic embeddings: {e}")
+        
+        # If document_map is empty but we have document_vectors, generate a new UMAP projection
+        if len(document_map) == 0 and len(document_vectors) > 0:
+            logger.warning("Precomputed document_map is empty but document_vectors exists. Generating UMAP projection...")
+            try:
+                from umap import UMAP
+                document_map = UMAP(n_components=2, metric='cosine', random_state=42).fit_transform(document_vectors)
+                logger.info(f"Generated document_map with shape: {document_map.shape}")
+            except Exception as e:
+                logger.error(f"Failed to generate UMAP projection: {e}")
+                
+            # If UMAP fails or isn't available, fall back to random 2D points
+            if len(document_map) == 0 and len(document_vectors) > 0:
+                logger.warning("Falling back to random 2D points for visualization...")
+                document_map = np.random.rand(len(document_vectors), 2) * 10  # Scale up for visibility
+                logger.info(f"Generated random document_map with shape: {document_map.shape}")
+        
+        # Get necessary metadata
+        conversation_id = str(zid)
+        
+        # Still need to fetch basic metadata for conversation name
+        _, metadata = fetch_conversation_data(zid, skip_postgres=skip_postgres, postgres_for_comments_only=postgres_for_comments_only)
+        conversation_name = metadata.get('conversation_name', f"Conversation {zid}")
+        
+        # Add source information to metadata
+        metadata['source'] = 'dynamo_pre_processed'
+        metadata['precomputed'] = True
+    else:
+        # Fallback to standard processing path
+        # Fetch data from PostgreSQL or DynamoDB
+        comments, metadata = fetch_conversation_data(zid, skip_postgres=skip_postgres, postgres_for_comments_only=postgres_for_comments_only)
+        if not comments:
+            logger.error("Failed to fetch conversation data.")
+            return False
+        
+        conversation_id = str(zid)
+        conversation_name = metadata.get('conversation_name', f"Conversation {zid}")
+        
+        # Process comments
+        document_map, document_vectors, cluster_layers, comment_texts, comment_ids = process_comments(
+            comments, conversation_id
         )
         
         # Store basic data in DynamoDB
@@ -1162,11 +1999,12 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
         )
         dynamo_storage.create_conversation_meta(conversation_meta)
         
-        # Store embeddings
-        logger.info("Storing comment embeddings...")
+        # Store embeddings with UMAP coordinates
+        logger.info("Storing comment embeddings with UMAP coordinates...")
         embedding_models = DataConverter.batch_convert_embeddings(
             conversation_id,
-            document_vectors
+            document_vectors,
+            document_map  # Pass document_map to the converter to store UMAP coordinates
         )
         result = dynamo_storage.batch_create_comment_embeddings(embedding_models)
         logger.info(f"Stored {result['success']} embeddings with {result['failure']} failures")
@@ -1218,7 +2056,20 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
     
     # Save metadata
     with open(os.path.join(output_dir, f"{conversation_id}_metadata.json"), 'w') as f:
-        json.dump(metadata, f, indent=2)
+        # Custom encoder to handle Decimal, numpy types, etc.
+        class CustomJSONEncoder(json.JSONEncoder):
+            def default(self, obj):
+                if isinstance(obj, decimal.Decimal):
+                    return float(obj)
+                if isinstance(obj, (np.int64, np.int32, np.int16, np.int8)):
+                    return int(obj)
+                if isinstance(obj, (np.float64, np.float32, np.float16)):
+                    return float(obj)
+                if isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                return super().default(obj)
+        
+        json.dump(metadata, f, indent=2, cls=CustomJSONEncoder)
     
     logger.info(f"Processing of conversation {conversation_id} complete!")
     
@@ -1247,6 +2098,12 @@ def main():
                        help='Use mock data instead of connecting to PostgreSQL')
     parser.add_argument('--use-ollama', action='store_true',
                        help='Use Ollama for topic naming')
+    parser.add_argument('--use-precomputed', action='store_true',
+                       help='Use pre-computed data from DynamoDB if available')
+    parser.add_argument('--use-dynamodb', action='store_true',
+                       help='Prioritize DynamoDB for data source over PostgreSQL')
+    parser.add_argument('--skip-postgres-load', action='store_true',
+                       help='Skip PostgreSQL load entirely, only use DynamoDB')
     
     args = parser.parse_args()
     
@@ -1259,9 +2116,28 @@ def main():
         db_password=args.db_password
     )
     
-    # Log Ollama usage
+    # Log parameter usage
     if args.use_ollama:
         logger.info("Ollama will be used for topic naming")
+    
+    if args.use_precomputed:
+        logger.info("Will attempt to use pre-computed data from DynamoDB")
+        
+    if args.use_dynamodb:
+        logger.info("DynamoDB will be prioritized as data source")
+        
+    if args.skip_postgres_load:
+        logger.info("PostgreSQL load will be skipped entirely")
+        
+    # DynamoDB is used by default - set environment variables
+    os.environ['PREFER_DYNAMODB'] = 'true'
+    os.environ['USE_DYNAMODB'] = 'true'
+    
+    # Only disable DynamoDB if explicitly requested (for backward compatibility)
+    if args.no_dynamo:
+        logger.warning("DEPRECATED: PostgreSQL-only mode is deprecated and will be removed in a future release.")
+        os.environ['PREFER_DYNAMODB'] = 'false'
+        os.environ['USE_DYNAMODB'] = 'false'
     
     # Process conversation
     if args.use_mock_data:
@@ -1297,14 +2173,23 @@ def main():
         
         # Store in DynamoDB if requested
         if not args.no_dynamo:
-            store_in_dynamo(
-                str(args.zid), 
-                document_vectors, 
-                document_map, 
-                cluster_layers, 
-                mock_comments, 
-                comment_ids
+            # Warning: store_in_dynamo method doesn't exist and is left here from earlier version
+            # Use DynamoDBStorage to upload mock data
+            dynamo_storage = DynamoDBStorage(
+                region_name='us-west-2',
+                endpoint_url=os.environ.get('DYNAMODB_ENDPOINT')
             )
+            
+            # Prepare and upload conversation config
+            conversation_meta = DataConverter.create_conversation_meta(
+                str(args.zid),
+                document_vectors,
+                cluster_layers,
+                mock_metadata
+            )
+            dynamo_storage.create_conversation_meta(conversation_meta)
+            
+            logger.info("Mock data stored in DynamoDB")
         
         # Process each layer and create visualizations
         output_dir = os.path.join("polis_data", str(args.zid), "python_output", "comments_enhanced_multilayer")
@@ -1320,8 +2205,26 @@ def main():
             use_ollama=args.use_ollama
         )
     else:
-        # Process with real data from PostgreSQL
-        process_conversation(args.zid, export_dynamo=not args.no_dynamo, use_ollama=args.use_ollama)
+        # By default, still use PostgreSQL for comment texts even if using DynamoDB for everything else
+        postgres_for_comments_only = not args.skip_postgres_load
+        
+        # Process with DynamoDB by default, fallback to PostgreSQL if needed
+        success = process_conversation(
+            args.zid, 
+            export_dynamo=True,  # Always export to DynamoDB 
+            use_ollama=args.use_ollama,
+            use_precomputed=True,  # Always try to use precomputed data
+            skip_postgres=args.skip_postgres_load or os.environ.get('PREFER_DYNAMODB') == 'true',
+            postgres_for_comments_only=postgres_for_comments_only
+        )
+        
+        # Report success or failure
+        if success:
+            logger.info(f"Successfully processed conversation {args.zid}")
+            sys.exit(0)
+        else:
+            logger.error(f"Failed to process conversation {args.zid}")
+            sys.exit(1)
 
 if __name__ == "__main__":
     main()

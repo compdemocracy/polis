@@ -41,12 +41,22 @@ def connect_to_db():
     """Connect to PostgreSQL database using environment variables or defaults."""
     import psycopg2
     try:
+        # Prefer POSTGRES_* environment variables, fall back to DATABASE_* and then defaults
+        dbname = os.environ.get("POSTGRES_DB", os.environ.get("DATABASE_NAME", "polisDB_prod_local_mar14"))
+        user = os.environ.get("POSTGRES_USER", os.environ.get("DATABASE_USER", "colinmegill"))
+        password = os.environ.get("POSTGRES_PASSWORD", os.environ.get("DATABASE_PASSWORD", ""))
+        host = os.environ.get("POSTGRES_HOST", os.environ.get("DATABASE_HOST", "localhost"))
+        port = os.environ.get("POSTGRES_PORT", os.environ.get("DATABASE_PORT", 5432))
+        
+        # Log connection information (without password)
+        logger.info(f"Connecting to PostgreSQL - host: {host}, port: {port}, dbname: {dbname}, user: {user}")
+        
         conn = psycopg2.connect(
-            dbname=os.environ.get("DATABASE_NAME", "polisDB_prod_local_mar14"),
-            user=os.environ.get("DATABASE_USER", "colinmegill"),
-            password=os.environ.get("DATABASE_PASSWORD", ""),
-            host=os.environ.get("DATABASE_HOST", "localhost"),
-            port=os.environ.get("DATABASE_PORT", 5432)
+            dbname=dbname,
+            user=user,
+            password=password,
+            host=host,
+            port=port
         )
         logger.info("Connected to database successfully")
         return conn

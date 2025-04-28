@@ -63,11 +63,15 @@ class ConversationMeta(BaseModel):
 class CommentEmbedding(BaseModel):
     """Embedding vector for a single comment.
     
-    Note: UMAP coordinates are stored as "position" in UMAPGraph table where source_id = target_id = comment_id.
+    Note: UMAP coordinates are stored both:
+    1. In this table for direct access to 2D coordinates
+    2. In the UMAPGraph table for graph-based operations
+    
     Nearest neighbors are stored as edges in UMAPGraph where either source_id or target_id = comment_id."""
     conversation_id: str
     comment_id: int
     embedding: Embedding
+    umap_coordinates: Optional[Coordinates] = None
 
 
 class CommentCluster(BaseModel):

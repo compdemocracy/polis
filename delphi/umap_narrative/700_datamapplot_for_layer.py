@@ -290,13 +290,13 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
         
         # If positions were not found, try to get them from UMAP graph
         if len(data["comment_positions"]) == 0:
-            logger.info("No positions found in CommentClusters, fetching from UMAPGraph...")
+            logger.info("No positions found in CommentClusters, fetching from Delphi_UMAPGraph...")
             
             # Try to get positions from the UMAPGraph table
             try:
-                # Get all edges from UMAPGraph for this conversation
+                # Get all edges from Delphi_UMAPGraph for this conversation
                 umap_table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['umap_graph'])
-                logger.debug(f"UMAPGraph table name: {dynamo_storage.table_names['umap_graph']}")
+                logger.debug(f"Delphi_UMAPGraph table name: {dynamo_storage.table_names['umap_graph']}")
                 
                 response = umap_table.query(
                     KeyConditionExpression=Key('conversation_id').eq(str(zid))
@@ -312,7 +312,7 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
                     )
                     edges.extend(response.get('Items', []))
                 
-                logger.info(f"Retrieved {len(edges)} edges from UMAPGraph")
+                logger.info(f"Retrieved {len(edges)} edges from Delphi_UMAPGraph")
                 
                 # No need to log edge details
                 # - intentionally blank
@@ -359,7 +359,7 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
                     if comment_id in positions:
                         data["comment_positions"][comment_id] = positions[comment_id]
                 
-                logger.info(f"Extracted {len(data['comment_positions'])} positions from UMAPGraph")
+                logger.info(f"Extracted {len(data['comment_positions'])} positions from Delphi_UMAPGraph")
                 
                 # If we still don't have all positions, check if we can use the comment embeddings
                 if len(data['comment_positions']) < len(data['cluster_assignments']):
@@ -369,7 +369,7 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
                     missing_ids = [cid for cid in data['cluster_assignments'].keys() if cid not in data['comment_positions']]
                     logger.debug(f"Sample missing comment IDs: {missing_ids[:5] if missing_ids else []}")
             except Exception as e:
-                logger.error(f"Error retrieving positions from UMAPGraph: {e}")
+                logger.error(f"Error retrieving positions from Delphi_UMAPGraph: {e}")
                 import traceback
                 logger.error(f"Traceback: {traceback.format_exc()}")
     except Exception as e:
@@ -428,6 +428,14 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
     return data
 
 def create_visualization(zid, layer_id, data, comment_texts, output_dir=None):
+    # Handle Decimal values in data - convert to float for NumPy operations
+    import decimal
+    if 'document_map' in data and isinstance(data['document_map'], np.ndarray) and data['document_map'].size > 0:
+        # Check if we have Decimal objects that need conversion
+        first_element = data['document_map'].flat[0]
+        if isinstance(first_element, decimal.Decimal):
+            logger.debug("Converting Decimal values in document_map to float")
+            data['document_map'] = np.array([[float(x) for x in point] for point in data['document_map']], dtype=np.float64)
     """
     Create and save a visualization for a specific layer.
     

@@ -1753,18 +1753,82 @@ async def main():
     args = parser.parse_args()
     
     # Set up environment variables for database connections
-    os.environ.setdefault('DATABASE_HOST', 'localhost')
-    os.environ.setdefault('DATABASE_PORT', '5432')
-    os.environ.setdefault('DATABASE_NAME', 'polisDB_prod_local_mar14')  # This is the correct database
-    os.environ.setdefault('DATABASE_USER', 'postgres')
-    os.environ.setdefault('DATABASE_PASSWORD', '')
+    # Priority: POSTGRES_* variables over DATABASE_* variables over defaults
+    
+    # 1. For HOST
+    if os.environ.get('POSTGRES_HOST'):
+        os.environ['DATABASE_HOST'] = os.environ.get('POSTGRES_HOST')
+    elif not os.environ.get('DATABASE_HOST'):
+        os.environ['DATABASE_HOST'] = 'host.docker.internal'
+        # Also set POSTGRES_HOST for consistency
+        if not os.environ.get('POSTGRES_HOST'):
+            os.environ['POSTGRES_HOST'] = 'host.docker.internal'
+    
+    # 2. For PORT
+    if os.environ.get('POSTGRES_PORT'):
+        os.environ['DATABASE_PORT'] = os.environ.get('POSTGRES_PORT')
+    elif not os.environ.get('DATABASE_PORT'):
+        os.environ['DATABASE_PORT'] = '5432'
+        # Also set POSTGRES_PORT for consistency
+        if not os.environ.get('POSTGRES_PORT'):
+            os.environ['POSTGRES_PORT'] = '5432'
+    
+    # 3. For DATABASE NAME
+    if os.environ.get('POSTGRES_DB'):
+        os.environ['DATABASE_NAME'] = os.environ.get('POSTGRES_DB')
+    elif not os.environ.get('DATABASE_NAME'):
+        os.environ['DATABASE_NAME'] = 'polisDB_prod_local_mar14'
+        # Also set POSTGRES_DB for consistency
+        if not os.environ.get('POSTGRES_DB'):
+            os.environ['POSTGRES_DB'] = 'polisDB_prod_local_mar14'
+    
+    # 4. For USER
+    if os.environ.get('POSTGRES_USER'):
+        os.environ['DATABASE_USER'] = os.environ.get('POSTGRES_USER')
+    elif not os.environ.get('DATABASE_USER'):
+        os.environ['DATABASE_USER'] = 'postgres'
+        # Also set POSTGRES_USER for consistency
+        if not os.environ.get('POSTGRES_USER'):
+            os.environ['POSTGRES_USER'] = 'postgres'
+    
+    # 5. For PASSWORD
+    if os.environ.get('POSTGRES_PASSWORD'):
+        os.environ['DATABASE_PASSWORD'] = os.environ.get('POSTGRES_PASSWORD')
+    elif not os.environ.get('DATABASE_PASSWORD'):
+        os.environ['DATABASE_PASSWORD'] = ''
+        # Also set POSTGRES_PASSWORD for consistency
+        if not os.environ.get('POSTGRES_PASSWORD'):
+            os.environ['POSTGRES_PASSWORD'] = ''
+    
+    # Ensure DATABASE_URL is set if not already - needed by some components
+    if not os.environ.get('DATABASE_URL'):
+        # Use POSTGRES_* variables if available, otherwise construct from DATABASE_* variables
+        host = os.environ.get('POSTGRES_HOST') or os.environ.get('DATABASE_HOST')
+        port = os.environ.get('POSTGRES_PORT') or os.environ.get('DATABASE_PORT')
+        db = os.environ.get('POSTGRES_DB') or os.environ.get('DATABASE_NAME')
+        user = os.environ.get('POSTGRES_USER') or os.environ.get('DATABASE_USER')
+        password = os.environ.get('POSTGRES_PASSWORD') or os.environ.get('DATABASE_PASSWORD')
+        
+        # Construct DATABASE_URL
+        if password:
+            os.environ['DATABASE_URL'] = f"postgresql://{user}:{password}@{host}:{port}/{db}"
+        else:
+            os.environ['DATABASE_URL'] = f"postgresql://{user}@{host}:{port}/{db}"
     
     # Print database connection info
     logger.info(f"Database connection info:")
-    logger.info(f"- HOST: {os.environ.get('DATABASE_HOST')}")
-    logger.info(f"- PORT: {os.environ.get('DATABASE_PORT')}")
-    logger.info(f"- DATABASE: {os.environ.get('DATABASE_NAME')}")
-    logger.info(f"- USER: {os.environ.get('DATABASE_USER')}")
+    logger.info(f"- HOST: {os.environ.get('POSTGRES_HOST') or os.environ.get('DATABASE_HOST')}")
+    logger.info(f"- PORT: {os.environ.get('POSTGRES_PORT') or os.environ.get('DATABASE_PORT')}")
+    logger.info(f"- DATABASE: {os.environ.get('POSTGRES_DB') or os.environ.get('DATABASE_NAME')}")
+    logger.info(f"- USER: {os.environ.get('POSTGRES_USER') or os.environ.get('DATABASE_USER')}")
+    # Print the DATABASE_URL with password masked
+    db_url = os.environ.get('DATABASE_URL', '')
+    if db_url:
+        masked_url = db_url
+        if os.environ.get('POSTGRES_PASSWORD') or os.environ.get('DATABASE_PASSWORD'):
+            password = os.environ.get('POSTGRES_PASSWORD') or os.environ.get('DATABASE_PASSWORD')
+            masked_url = db_url.replace(password, '******')
+        logger.info(f"- DATABASE_URL: {masked_url}")
     
     # Print execution summary
     logger.info(f"Running report generator with the following settings:")
