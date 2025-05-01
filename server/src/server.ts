@@ -4,6 +4,7 @@
 "use strict";
 
 import { jwtVerify, createRemoteJWKSet } from "jose";
+import { StackServerApp } from "@stackframe/js";
 import akismetLib from "akismet";
 import AWS from "aws-sdk";
 import badwords from "badwords/object";
@@ -144,6 +145,13 @@ if (devMode) {
 BluebirdPromise.onPossiblyUnhandledRejection(function (err: any) {
   logger.error("onPossiblyUnhandledRejection", err);
   // throw err; // not throwing since we're printing stack traces anyway
+});
+
+const stackServerApp = new StackServerApp({
+  projectId: Config.stackAuthProjectId,
+  publishableClientKey: Config.stackAuthPublishableKey,
+  secretServerKey: Config.stackAuthServerKey,
+  tokenStore: "memory",
 });
 
 const adminEmails = Config.adminEmails ? JSON.parse(Config.adminEmails) : [];
@@ -767,7 +775,7 @@ function initializePolisHelpers() {
         onDone(err);
       });
   }
-  function _auth(assigner: any, isOptional: boolean) {
+  function _auth(assigner: any, optional: boolean) {
     function getKey(
       req: {
         body: Body;
@@ -778,152 +786,66 @@ function initializePolisHelpers() {
     ) {
       return req.body[key] || req?.headers?.[key] || req?.query?.[key];
     }
-
-    function doAuth(
-      req: {
-        cookies: { [x: string]: any };
-        headers?: { [x: string]: any; authorization: any };
-        p: { uid?: any };
-        body: Body;
-      },
-      res: { status: (arg0: number) => void }
-    ) {
-      //var token = req.body.token;
-      let token = req.cookies[COOKIES.TOKEN];
-      let xPolisToken = req?.headers?.["x-polis"];
-
-      return new Promise(function (
-        resolve: (arg0: any) => void,
-        reject: (arg0: string) => void
-      ) {
-        function onDone(err?: string) {
-          if (err) {
-            reject(err);
-          }
-          if ((!req.p || !req.p.uid) && !isOptional) {
-            reject("polis_err_mandatory_auth_unsuccessful");
-          }
-          resolve(req.p && req.p.uid);
-        }
-        if (xPolisToken) {
-          logger.info("authtype: doHeaderAuth");
-          doHeaderAuth(assigner, isOptional, req, res, onDone);
-        } else if (getKey(req, "polisApiKey") && getKey(req, "ownerXid")) {
-          doXidApiKeyAuth(
-            assigner,
-            getKey(req, "polisApiKey"),
-            getKey(req, "ownerXid"),
-            isOptional,
-            req,
-            res,
-            onDone
-          );
-        } else if (getKey(req, "polisApiKey") && getKey(req, "xid")) {
-          doXidApiKeyAuth(
-            assigner,
-            getKey(req, "polisApiKey"),
-            getKey(req, "xid"),
-            isOptional,
-            req,
-            res,
-            onDone
-          );
-        } else if (getKey(req, "xid") && getKey(req, "conversation_id")) {
-          doXidConversationIdAuth(
-            assigner,
-            getKey(req, "xid"),
-            getKey(req, "conversation_id"),
-            isOptional,
-            req,
-            res,
-            onDone
-          );
-        } else if (req?.headers?.["x-sandstorm-app-polis-apikey"]) {
-          doApiKeyAuth(
-            assigner,
-            req?.headers?.["x-sandstorm-app-polis-apikey"],
-            isOptional,
-            req,
-            res,
-            onDone
-          );
-        } else if (req.body["polisApiKey"]) {
-          doApiKeyAuth(
-            assigner,
-            getKey(req, "polisApiKey"),
-            isOptional,
-            req,
-            res,
-            onDone
-          );
-        } else if (token) {
-          doCookieAuth(assigner, isOptional, req, res, onDone);
-        } else if (req?.headers?.authorization) {
-          doApiKeyBasicAuth(
-            assigner,
-            req.headers.authorization,
-            isOptional,
-            req,
-            res,
-            onDone
-          );
-        } else if (req.body.agid) {
-          // Auto Gen user  ID
-          createDummyUser()
-            .then(
-              function (uid?: any) {
-                let shouldAddCookies = _.isUndefined(req.body.xid);
-                if (!shouldAddCookies) {
-                  req.p = req.p || {};
-                  req.p.uid = uid;
-                  return onDone();
-                }
-                return startSessionAndAddCookies(req, res, uid).then(
-                  function () {
-                    req.p = req.p || {};
-                    req.p.uid = uid;
-                    onDone();
-                  },
-                  function (err: any) {
-                    res.status(500);
-                    logger.error("polis_err_auth_token_error_2343", err);
-                    onDone("polis_err_auth_token_error_2343");
-                  }
-                );
-              },
-              function (err: any) {
-                res.status(500);
-                logger.error("polis_err_auth_token_error_1241", err);
-                onDone("polis_err_auth_token_error_1241");
-              }
-            )
-            .catch(function (err: any) {
-              res.status(500);
-              logger.error("polis_err_auth_token_error_5345", err);
-              onDone("polis_err_auth_token_error_5345");
-            });
-        } else if (isOptional) {
-          onDone(); // didn't create user
-        } else {
-          res.status(401);
-          onDone("polis_err_auth_token_not_supplied");
-        }
-      });
-    }
-    return function (
+    return async function verifyJwt(
       req: any,
-      res: { status: (arg0: number) => void },
-      next: (arg0?: undefined) => void
+      res: { status: (arg0: number) => { send: (arg0: string) => void } },
+      next: NextFunction
     ) {
-      doAuth(req, res)
-        .then(() => {
+      try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader) {
+          if (getKey(req, "xid") && getKey(req, "conversation_id")) {
+            return doXidConversationIdAuth(
+              assigner,
+              getKey(req, "xid"),
+              getKey(req, "conversation_id"),
+              optional,
+              req,
+              res,
+              next
+            );
+          } else if (req.cookies[COOKIES.TOKEN]) {
+            return doCookieAuth(assigner, optional, req, res, next);
+          } else if (req.body["polisApiKey"]) {
+            doApiKeyAuth(
+              assigner,
+              getKey(req, "polisApiKey"),
+              optional,
+              req,
+              res,
+              next
+            );
+          }
+          return optional
+            ? next()
+            : res.status(401).send("Invalid authentication");
+        }
+
+        const token = authHeader.split(" ")[1];
+        const jwks = createRemoteJWKSet(new URL(`https://api.stack-auth.com/api/v1/projects/${Config.stackAuthProjectId}/.well-known/jwks.json`));
+        const { payload, protectedHeader } = await jwtVerify(
+          token as string,
+          jwks
+        );
+
+        const userInfo = await stackServerApp.getUser();
+
+        req.userAuth = { payload, protectedHeader, token, userInfo }; // Store auth data in req.userAuth
+        const uid = await User.getOrCreateUserIDWithEmail(
+          userInfo.email,
+          userInfo
+        );
+        return startSessionAndAddCookies(req, res, uid).then(() => {
+          assigner(req, "uid", uid);
           return next();
-        })
-        .catch((err: any) => {
-          res.status(500);
-          logger.error("polis_err_auth_error_432", err);
-          next(err || "polis_err_auth_error_432");
         });
+      } catch (error) {
+        if (optional) {
+          return next();
+        }
+        console.error("JWT verification failed:", error);
+        return res.status(401).send("Invalid authentication");
+      }
     };
   }
 

@@ -103,6 +103,9 @@ export default {
     process.env.READ_ONLY_DATABASE_URL || (process.env.DATABASE_URL as string),
   runPeriodicExportTests: isTrue(process.env.RUN_PERIODIC_EXPORT_TESTS),
   shouldUseTranslationAPI: setGoogleApplicationCredentials(),
+  stackAuthProjectId: process.env.PUBLIC_STACK_PROJECT_ID || "",
+  stackAuthPublishableKey:process.env.STACK_SECRET_SERVER_KEY || "",
+  stackAuthServerKey:process.env.PUBLIC_STACK_PUBLISHABLE_CLIENT_KEY || "",
   staticFilesAdminPort: parseInt(
     process.env.STATIC_FILES_ADMIN_PORT ||
     process.env.STATIC_FILES_PORT ||
