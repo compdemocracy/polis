@@ -22,16 +22,16 @@ from typing import Dict, List, Tuple, Any, Optional, Union
 
 # Configuration through environment variables with defaults
 DB_CONFIG = {
-    'host': os.environ.get('DATABASE_HOST', 'localhost'),
+    'host': os.environ.get('DATABASE_HOST', 'host.docker.internal'),
     'port': os.environ.get('DATABASE_PORT', '5432'),
-    'name': os.environ.get('DATABASE_NAME', 'polisDB_prod_local_mar14'),
-    'user': os.environ.get('DATABASE_USER', 'colinmegill'),
-    'password': os.environ.get('DATABASE_PASSWORD', ''),
+    'name': os.environ.get('DATABASE_NAME', 'polis'),
+    'user': os.environ.get('DATABASE_USER', 'christian'),
+    'password': os.environ.get('DATABASE_PASSWORD', 'polis123'),
     'ssl_mode': os.environ.get('DATABASE_SSL_MODE', 'disable')
 }
 
 DYNAMODB_CONFIG = {
-    'endpoint_url': os.environ.get('DYNAMODB_ENDPOINT', 'http://localhost:8000'),
+    'endpoint_url': os.environ.get('DYNAMODB_ENDPOINT', 'http://dynamodb:8000'),
     'region': os.environ.get('AWS_REGION', 'us-west-2'),
     'access_key': os.environ.get('AWS_ACCESS_KEY_ID', 'fakeMyKeyId'),
     'secret_key': os.environ.get('AWS_SECRET_ACCESS_KEY', 'fakeSecretAccessKey')
@@ -100,7 +100,7 @@ def load_data_from_dynamodb(zid, layer_num=0):
     logger.info(f'Loading UMAP positions and cluster data for conversation {zid}, layer {layer_num}')
     
     # Set up DynamoDB client
-    endpoint_url = os.environ.get('DYNAMODB_ENDPOINT', 'http://dynamodb-local:8000')
+    endpoint_url = os.environ.get('DYNAMODB_ENDPOINT', 'http://dynamodb:8000')
     dynamodb = boto3.resource('dynamodb', 
                              endpoint_url=endpoint_url,
                              region_name=os.environ.get('AWS_REGION', 'us-west-2'),
@@ -343,6 +343,15 @@ def load_comment_texts_and_extremity(zid, layer_num=0):
                 if math_main and math_main[0]:
                     data = math_main[0]
                     
+                    # Parse JSON if data is a string
+                    if isinstance(data, str):
+                        try:
+                            import json
+                            data = json.loads(data)
+                            logger.info("Successfully parsed JSON from math_main")
+                        except Exception as e:
+                            logger.error(f"Error parsing JSON data: {e}")
+                    
                     # Try different possible paths to extremity data
                     if 'repness' in data:
                         # Get repness data - this can be used as a proxy for extremity
@@ -401,6 +410,15 @@ def load_comment_texts_and_extremity(zid, layer_num=0):
         if math_main and math_main[0]:
             # Extract the data dictionary
             math_data = math_main[0]
+            
+            # Parse JSON if data is a string
+            if isinstance(math_data, str):
+                try:
+                    import json
+                    math_data = json.loads(math_data)
+                    logger.info("Successfully parsed JSON from math_main")
+                except Exception as e:
+                    logger.error(f"Error parsing JSON data: {e}")
             
             # Check for PCA comment-extremity data
             if 'pca' in math_data and 'comment-extremity' in math_data['pca'] and 'tids' in math_data:

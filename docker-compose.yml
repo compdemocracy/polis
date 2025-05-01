@@ -80,16 +80,27 @@ services:
       - POLL_INTERVAL=${POLL_INTERVAL:-2}
       # Ollama connection
       - OLLAMA_HOST=http://ollama:11434
-      - OLLAMA_MODEL=llama3.1:8b
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-llama3.1:8b}
       # AWS environment variables (will be provided in prod)
       - AWS_REGION=${AWS_REGION:-us-east-1}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      # API keys for LLM services
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      # PostgreSQL connection details for scripts that use them directly
+      - DATABASE_HOST=${POSTGRES_HOST:-host.docker.internal}
+      - DATABASE_PORT=${POSTGRES_PORT:-5432}
+      - DATABASE_NAME=${POSTGRES_DB:-polis}
+      - DATABASE_USER=${POSTGRES_USER:-christian}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-polis123}
+      - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
     depends_on:
       - dynamodb
       - ollama
     networks:
       - "polis-net"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     deploy:
       resources:
         limits:

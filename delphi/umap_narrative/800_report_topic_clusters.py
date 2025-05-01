@@ -257,7 +257,7 @@ class PolisConverter:
 class ReportGenerator:
     """Generate reports for Polis conversations."""
     
-    def __init__(self, conversation_id, model="gemma", no_cache=False, cluster_id=None):
+    def __init__(self, conversation_id, model="gemma", no_cache=False, cluster_id=None, use_postgres=True, skip_postgres=False):
         """Initialize the report generator.
         
         Args:
@@ -265,21 +265,32 @@ class ReportGenerator:
             model: Name of the LLM model to use
             no_cache: Whether to ignore cached report data
             cluster_id: Optional specific cluster ID to process
+            use_postgres: Whether to use PostgreSQL as fallback (default: True)
+            skip_postgres: Whether to skip using PostgreSQL completely (overrides use_postgres if True)
         """
         self.conversation_id = str(conversation_id)
         self.model = model
         self.no_cache = no_cache
         self.cluster_id = cluster_id
+        self.use_postgres = use_postgres and not skip_postgres
         
-        # Initialize PostgreSQL client
-        self.postgres_client = PostgresClient()
+        # Initialize DynamoDB storage for accessing math data
+        self.dynamodb_storage = DynamoDBStorage(
+            endpoint_url=os.environ.get('DYNAMODB_ENDPOINT')
+        )
         
-        # Initialize DynamoDB storage
+        # Initialize report storage (in DynamoDB)
         self.storage = ReportStorageService(disable_cache=no_cache)
         self.storage.init_table()
         
-        # Initialize group data processor
-        self.group_processor = GroupDataProcessor(self.postgres_client)
+        # Initialize PostgreSQL client (only if needed as fallback)
+        if self.use_postgres:
+            self.postgres_client = PostgresClient()
+            # Initialize group data processor for PostgreSQL fallback
+            self.group_processor = GroupDataProcessor(self.postgres_client)
+        else:
+            self.postgres_client = None
+            self.group_processor = None
         
         # Set up base path for prompt templates
         # Get the current script's directory and use it as base for prompt templates
@@ -573,50 +584,214 @@ class ReportGenerator:
                 }
             }
     
-    async def get_conversation_data(self):
-        """Get conversation data from PostgreSQL."""
+    def get_comments_from_dynamodb(self):
+        """Get comment data from DynamoDB.
+        
+        Returns:
+            Dictionary containing comments and processed data.
+        """
         try:
-            # Initialize connection
-            self.postgres_client.initialize()
+            # Get conversation ID as integer for fetching from Postgres if needed
+            zid = int(self.conversation_id)
             
-            # Get conversation metadata
-            conversation = self.postgres_client.get_conversation_by_id(int(self.conversation_id))
-            if not conversation:
-                logger.error(f"Conversation {self.conversation_id} not found in database.")
-                return None
+            # Get all comments from DynamoDB through relevant tables
+            comment_clusters = []
+            comment_embeddings = []
             
-            # Get comments
-            comments = self.postgres_client.get_comments_by_conversation(int(self.conversation_id))
-            logger.info(f"Retrieved {len(comments)} comments from conversation {self.conversation_id}")
+            # Get comment clusters from DynamoDB
+            clusters_table = self.dynamodb_storage.dynamodb.Table('Delphi_CommentHierarchicalClusterAssignments')
+            response = clusters_table.scan(
+                FilterExpression=boto3.dynamodb.conditions.Attr('conversation_id').eq(self.conversation_id)
+            )
+            comment_clusters = response.get('Items', [])
             
-            # Get processed group and vote data using the group processor
-            export_data = self.group_processor.get_export_data(int(self.conversation_id))
-            logger.info(f"Retrieved processed vote and group data for conversation {self.conversation_id}")
+            # Handle pagination if needed
+            while 'LastEvaluatedKey' in response:
+                response = clusters_table.scan(
+                    FilterExpression=boto3.dynamodb.conditions.Attr('conversation_id').eq(self.conversation_id),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                comment_clusters.extend(response.get('Items', []))
             
-            # Get math data with group assignments
-            math_data = export_data.get('math_result', {})
-            if math_data and math_data.get('group_assignments'):
-                logger.info(f"Retrieved math data with {len(math_data.get('group_assignments', {}))} group assignments")
-            else:
-                logger.warning(f"No group assignments found in math data")
+            logger.info(f"Retrieved {len(comment_clusters)} comment clusters from DynamoDB")
             
-            # Use the processed comments from the export data
-            processed_comments = export_data.get('comments', [])
+            # Get comment embeddings from DynamoDB
+            embeddings_table = self.dynamodb_storage.dynamodb.Table('Delphi_CommentEmbeddings')
+            response = embeddings_table.scan(
+                FilterExpression=boto3.dynamodb.conditions.Attr('conversation_id').eq(self.conversation_id)
+            )
+            comment_embeddings = response.get('Items', [])
             
+            # Handle pagination if needed
+            while 'LastEvaluatedKey' in response:
+                response = embeddings_table.scan(
+                    FilterExpression=boto3.dynamodb.conditions.Attr('conversation_id').eq(self.conversation_id),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                comment_embeddings.extend(response.get('Items', []))
+            
+            logger.info(f"Retrieved {len(comment_embeddings)} comment embeddings from DynamoDB")
+            
+            # Get comment texts from PostgreSQL if available (since they're only stored there)
+            comment_texts = {}
+            if self.use_postgres and self.postgres_client:
+                self.postgres_client.initialize()
+                try:
+                    postgres_comments = self.postgres_client.get_comments_by_conversation(zid)
+                    for comment in postgres_comments:
+                        tid = comment.get('tid')
+                        if tid is not None:
+                            comment_texts[str(tid)] = comment.get('txt', '')
+                    
+                    logger.info(f"Retrieved {len(comment_texts)} comment texts from PostgreSQL")
+                finally:
+                    self.postgres_client.shutdown()
+            
+            # Create conversation data structure
+            processed_comments = []
+            
+            # Process the clusters and embeddings into the expected format
+            for cluster in comment_clusters:
+                comment_id = str(cluster.get('comment_id'))
+                if not comment_id:
+                    continue
+                
+                # Find the corresponding embedding
+                embedding = next((e for e in comment_embeddings if str(e.get('comment_id')) == comment_id), None)
+                
+                # Get the comment text from PostgreSQL
+                comment_text = comment_texts.get(comment_id, "")
+                
+                # Create the processed comment record
+                comment_record = {
+                    "comment-id": comment_id,
+                    "comment": comment_text,
+                    "total-votes": 0,  # Will be updated from votes data if available
+                    "total-agrees": 0,
+                    "total-disagrees": 0,
+                    "total-passes": 0,
+                    "comment_id": comment_id,
+                    "votes": 0,
+                    "agrees": 0,
+                    "disagrees": 0,
+                    "passes": 0,
+                    # Add cluster information
+                    "layer0_cluster_id": cluster.get('layer0_cluster_id')
+                }
+                
+                # Add embedding information if available
+                if embedding and 'umap_coordinates' in embedding:
+                    # Handle potential different formats of UMAP coordinates
+                    umap_coords = embedding.get('umap_coordinates', {})
+                    if isinstance(umap_coords, dict) and 'M' in umap_coords:
+                        # Handle DynamoDB format
+                        x = float(umap_coords['M'].get('x', {}).get('N', 0))
+                        y = float(umap_coords['M'].get('y', {}).get('N', 0))
+                        comment_record["umap_coordinates"] = {"x": x, "y": y}
+                    elif isinstance(umap_coords, dict):
+                        # Handle standard Python dict format
+                        comment_record["umap_coordinates"] = umap_coords
+                
+                processed_comments.append(comment_record)
+            
+            # Get conversation metadata from DynamoDB
+            meta_data = {}
+            try:
+                # Try to get from Delphi_PCAConversationConfig
+                config_table = self.dynamodb_storage.dynamodb.Table('Delphi_PCAConversationConfig')
+                response = config_table.get_item(Key={'zid': self.conversation_id})
+                if 'Item' in response:
+                    meta_data = response['Item']
+                    logger.info(f"Retrieved conversation metadata from Delphi_PCAConversationConfig")
+                else:
+                    # Try to get from Delphi_UMAPConversationConfig as fallback
+                    umap_table = self.dynamodb_storage.dynamodb.Table('Delphi_UMAPConversationConfig')
+                    response = umap_table.get_item(Key={'conversation_id': self.conversation_id})
+                    if 'Item' in response:
+                        meta_data = response['Item']
+                        logger.info(f"Retrieved conversation metadata from Delphi_UMAPConversationConfig")
+            except Exception as e:
+                logger.error(f"Error getting conversation metadata from DynamoDB: {str(e)}")
+            
+            # Return the conversation data in the expected format
             return {
-                "conversation": conversation,
-                "comments": comments,
+                "conversation": {"zid": self.conversation_id},
+                "comments": [{"tid": c["comment_id"], "txt": c["comment"]} for c in processed_comments],
                 "processed_comments": processed_comments,
-                "math_data": math_data
+                "math_data": {
+                    "group_assignments": meta_data.get('group_assignments', {}),
+                    "n_groups": meta_data.get('n_groups', 0)
+                }
             }
+        
+        except Exception as e:
+            logger.error(f"Error getting data from DynamoDB: {str(e)}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return None
+            
+    async def get_conversation_data(self):
+        """Get conversation data prioritizing DynamoDB with PostgreSQL fallback."""
+        try:
+            # First try to get data from DynamoDB
+            dynamodb_data = self.get_comments_from_dynamodb()
+            
+            # Check if we got meaningful data from DynamoDB
+            if dynamodb_data and dynamodb_data.get('processed_comments'):
+                logger.info(f"Retrieved {len(dynamodb_data.get('processed_comments', []))} comments from DynamoDB")
+                return dynamodb_data
+            
+            # If DynamoDB data is insufficient or use_postgres is True, try PostgreSQL as a fallback
+            if self.use_postgres and self.postgres_client:
+                logger.info("Falling back to PostgreSQL for conversation data")
+                
+                # Initialize PostgreSQL connection
+                self.postgres_client.initialize()
+                
+                try:
+                    # Get conversation metadata
+                    conversation = self.postgres_client.get_conversation_by_id(int(self.conversation_id))
+                    if not conversation:
+                        logger.error(f"Conversation {self.conversation_id} not found in database.")
+                        return None
+                    
+                    # Get comments
+                    comments = self.postgres_client.get_comments_by_conversation(int(self.conversation_id))
+                    logger.info(f"Retrieved {len(comments)} comments from conversation {self.conversation_id}")
+                    
+                    # Get processed group and vote data using the group processor
+                    export_data = self.group_processor.get_export_data(int(self.conversation_id))
+                    logger.info(f"Retrieved processed vote and group data for conversation {self.conversation_id}")
+                    
+                    # Get math data with group assignments
+                    math_data = export_data.get('math_result', {})
+                    if math_data and math_data.get('group_assignments'):
+                        logger.info(f"Retrieved math data with {len(math_data.get('group_assignments', {}))} group assignments")
+                    else:
+                        logger.warning(f"No group assignments found in math data")
+                    
+                    # Use the processed comments from the export data
+                    processed_comments = export_data.get('comments', [])
+                    
+                    return {
+                        "conversation": conversation,
+                        "comments": comments,
+                        "processed_comments": processed_comments,
+                        "math_data": math_data
+                    }
+                finally:
+                    # Clean up connection
+                    self.postgres_client.shutdown()
+            
+            # If we made it here, we couldn't get data from either source
+            logger.error("Could not retrieve conversation data from DynamoDB or PostgreSQL")
+            return None
+        
         except Exception as e:
             logger.error(f"Error getting conversation data: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
             return None
-        finally:
-            # Clean up connection
-            self.postgres_client.shutdown()
     
     # Old processing method has been replaced by the GroupDataProcessor
     # which handles all the comment and vote processing
@@ -1637,7 +1812,7 @@ async def check_report_status(conversation_id, model, report_storage=None):
     
     return topic_reports
 
-async def process_all_layer0_clusters(conversation_id, model, no_cache=False, only_errors=True):
+async def process_all_layer0_clusters(conversation_id, model, no_cache=False, only_errors=True, use_postgres=True, skip_postgres=False):
     """Process all clusters in layer 0 for a specific conversation.
     
     Args:
@@ -1645,6 +1820,8 @@ async def process_all_layer0_clusters(conversation_id, model, no_cache=False, on
         model: Model to use for generation
         no_cache: Whether to ignore cached results
         only_errors: Only regenerate reports that have errors or are missing
+        use_postgres: Whether to use PostgreSQL as fallback
+        skip_postgres: Whether to skip using PostgreSQL completely
     """
     # Get all cluster IDs for layer 0
     dynamo_storage = DynamoDBStorage(
@@ -1704,7 +1881,9 @@ async def process_all_layer0_clusters(conversation_id, model, no_cache=False, on
                         conversation_id=conversation_id,
                         model=model,
                         no_cache=no_cache,
-                        cluster_id=cluster_id
+                        cluster_id=cluster_id,
+                        use_postgres=use_postgres,
+                        skip_postgres=skip_postgres
                     )
                     
                     # Generate the topic report
@@ -1750,6 +1929,10 @@ async def main():
                         help='Check status of existing reports without generating new ones')
     parser.add_argument('--regenerate-all', action='store_true',
                         help='Regenerate reports for all clusters (not just error ones)')
+    parser.add_argument('--skip-postgres', action='store_true',
+                        help='Skip using PostgreSQL as a fallback data source')
+    parser.add_argument('--postgres-only', action='store_true',
+                        help='Use only PostgreSQL (skip DynamoDB)')
     args = parser.parse_args()
     
     # Set up environment variables for database connections
@@ -1771,6 +1954,10 @@ async def main():
     logger.info(f"- Conversation ID: {args.conversation_id}")
     logger.info(f"- Model: {args.model}")
     logger.info(f"- Cache: {'disabled' if args.no_cache else 'enabled'}")
+    
+    # Print data source information
+    data_source = "PostgreSQL only" if args.postgres_only else "DynamoDB only" if args.skip_postgres else "DynamoDB with PostgreSQL fallback"
+    logger.info(f"- Data source: {data_source}")
     
     # Special case for just checking report status
     if args.check_reports:
@@ -1807,7 +1994,9 @@ async def main():
             args.conversation_id, 
             args.model, 
             args.no_cache, 
-            only_errors=not args.regenerate_all
+            only_errors=not args.regenerate_all,
+            use_postgres=not args.postgres_only,
+            skip_postgres=args.skip_postgres
         )
         return
     
@@ -1820,7 +2009,9 @@ async def main():
         conversation_id=args.conversation_id,
         model=args.model,
         no_cache=args.no_cache,
-        cluster_id=args.cluster_id
+        cluster_id=args.cluster_id,
+        use_postgres=not args.postgres_only,  # Use DynamoDB unless postgres-only is specified
+        skip_postgres=args.skip_postgres  # Skip PostgreSQL if specified
     )
     
     # Generate report
