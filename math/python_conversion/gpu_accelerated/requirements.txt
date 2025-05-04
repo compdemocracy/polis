@@ -1,0 +1,11 @@
+numpy>=1.20.0
+pandas>=1.3.0
+scipy>=1.7.0
+scikit-learn>=1.0.0
+matplotlib>=3.5.0
+seaborn>=0.11.0
+jupyterlab>=3.0.0
+psutil>=5.9.0
+# GPU dependencies - uncomment as needed
+# cupy-cuda11x>=10.0.0  # For NVIDIA GPUs with CUDA 11.x
+# torch>=1.12.0  # For PyTorch (works with both NVIDIA and Apple Silicon)
