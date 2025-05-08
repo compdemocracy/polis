@@ -5294,11 +5294,20 @@ Email verified! You can close this tab or hit the back button.
             vote = o.vote;
             let createdTime = vote.created;
             setTimeout(function () {
-              updateConversationModifiedTime(zid, createdTime);
-              updateLastInteractionTimeForConversation(zid, uid);
+              // Wrap each call in a Promise resolve/reject pattern to catch errors
+              Promise.resolve()
+                .then(() => updateConversationModifiedTime(zid, createdTime))
+                .catch(err => logger.error("Error in background updateConversationModifiedTime", { zid, createdTime, err }));
+
+              Promise.resolve()
+                .then(() => updateLastInteractionTimeForConversation(zid, uid))
+                .catch(err => logger.error("Error in background updateLastInteractionTimeForConversation", { zid, uid, err }));
 
               // NOTE: may be greater than number of comments, if they change votes
-              updateVoteCount(zid, pid);
+              Promise.resolve()
+                .then(() => updateVoteCount(zid, pid))
+                .catch(err => logger.error("Error in background updateVoteCount", { zid, pid, err }));
+                
             }, 100);
             if (_.isUndefined(req.p.starred)) {
               return;
