@@ -110,19 +110,21 @@ describe('Vote API', () => {
       expect(initialVoteResponse.status).toBe(200);
       expect(initialVoteResponse.body).toHaveProperty('currentPid');
       const { currentPid } = initialVoteResponse.body;
+      expect(currentPid).toBeDefined();
+      expect(typeof currentPid).toBe('number');
 
       // Change vote to DISAGREE
       const changedVoteResponse = await submitVote(participantAgent, {
         conversation_id: conversationId,
         tid: commentId,
         vote: 1, // 1 = DISAGREE in this system
-        pid: currentPid
+        pid: currentPid as string
       });
 
       expect(changedVoteResponse.status).toBe(200);
       expect(changedVoteResponse.body).toBeDefined();
 
-      const votes = await getVotes(participantAgent, conversationId, currentPid);
+      const votes = await getVotes(participantAgent, conversationId, currentPid as string);
       expect(votes.length).toBe(1);
       expect(votes[0].vote).toBe(1);
     });
@@ -142,9 +144,11 @@ describe('Vote API', () => {
       expect(voteResponse.status).toBe(200);
       expect(voteResponse.body).toHaveProperty('currentPid');
       const { currentPid } = voteResponse.body;
+      expect(currentPid).toBeDefined();
+      expect(typeof currentPid).toBe('number');
 
       // Retrieve votes
-      const votes = await getVotes(participantAgent, conversationId, currentPid);
+      const votes = await getVotes(participantAgent, conversationId, currentPid as string);
 
       expect(votes.length).toBe(1);
       expect(votes[0].vote).toBe(-1);
@@ -165,9 +169,11 @@ describe('Vote API', () => {
       expect(voteResponse.status).toBe(200);
       expect(voteResponse.body).toHaveProperty('currentPid');
       const { currentPid } = voteResponse.body;
+      expect(currentPid).toBeDefined();
+      expect(typeof currentPid).toBe('number');
 
       // Retrieve personal votes
-      const myVotes = await getMyVotes(participantAgent, conversationId, currentPid);
+      const myVotes = await getMyVotes(participantAgent, conversationId, currentPid as string);
 
       // NOTE: The legacy endpoint returns an empty array.
       expect(Array.isArray(myVotes)).toBe(true);

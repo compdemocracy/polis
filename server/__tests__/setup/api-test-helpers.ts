@@ -185,9 +185,9 @@ async function createComment(
     agid: 1,
     is_active: true,
     pid: 'mypid',
-    txt: `This is a test comment created at ${Date.now()}`,
     ...options,
-    conversation_id: options.conversation_id || conversationId
+    conversation_id: options.conversation_id || conversationId,
+    txt: options.txt || `This is a test comment created at ${Date.now()}`
   };
 
   const response = await agent.post('/api/v3/comments').send(defaultOptions);

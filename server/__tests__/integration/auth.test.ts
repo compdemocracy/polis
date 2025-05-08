@@ -10,7 +10,7 @@ import {
   submitVote
 } from '../setup/api-test-helpers';
 import type { Response } from 'supertest';
-import type { TestUser } from '../../types/test-helpers';
+import type { TestUser, VoteResponse as ActualVoteResponse } from '../../types/test-helpers';
 import { Agent } from 'supertest';
 
 interface UserResponse {
@@ -243,7 +243,7 @@ describe('Authentication with Supertest', () => {
       expect(cookies!.length).toBeGreaterThan(0);
 
       // STEP 2: Submit vote
-      const voteResponse: Response = await submitVote(agent, {
+      const voteResponse: ActualVoteResponse = await submitVote(agent, {
         conversation_id: conversationId,
         tid: commentId,
         vote: -1
@@ -277,7 +277,7 @@ describe('Authentication with Supertest', () => {
       expect(body).toHaveProperty('nextComment');
 
       // Submit a vote to verify XID association works
-      const voteResponse: Response = await submitVote(agent, {
+      const voteResponse: ActualVoteResponse = await submitVote(agent, {
         conversation_id: conversationId,
         tid: commentId,
         vote: 1
