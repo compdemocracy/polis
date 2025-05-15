@@ -5,17 +5,17 @@ var s = {};
 // Text on the card
 
 s.participantHelpWelcomeText =
-  "새로운 종류의 대화에 오신 것을 환영합니다 — </b>투표</b>하세요 다른 사람들의 의견에 — </b>많을수록 좋습니다.</b>";
+  "새로운 집단 지성 토론장에 오신 것을 환영합니다 — 의견에 대해 <b>투표</b>하거나 <b>의견을 작성</b>하세요";
 
 s.agree = "찬성";
 s.disagree = "반대";
 s.pass = "패스 / 불확실";
 
-s.writePrompt ="당신의 관점을 공유하세요 (답장하지 않고 — 독립적인 의견을 제출하세요)";
+s.writePrompt ="해당 주제에 대한 관점이나 의견을 올려주세요.";
 s.anonPerson = "익명";
 s.importantCheckbox = "중요/의미있는";
 s.importantCheckboxDesc =
-  "이 의견이 당신에게 특히 중요하거나 대화와 매우 관련이 있다고 생각하면 이 상자를 체크하세요. 투표와 관계없이 대화 분석에서 다른 투표에 비해 이 의견에 더 높은 우선순위를 부여합니다.";
+  "이 의견이 특히 중요하거나 토론과 매우 관련이 있다고 생각하면 상자에 체크하세요. 투표와 관계없이 토론 분석에서 다른 투표에 비해 이 의견에 더 높은 우선순위를 부여합니다.";
 s.howImportantPrompt = "이 의견이 얼마나 중요한가요?";
 s.howImportantLow = "낮음";
 s.howImportantMedium = "중간";
@@ -29,20 +29,20 @@ s.modSubmit = "완료, 다음 의견";
 
 s.x_wrote = "작성:";
 s.x_tweeted = "트윗:";
-s.comments_remaining = "{{num_comments}}개 남음";
-s.comments_remaining2 = "{{num_comments}}개의 남은 의견";
+s.comments_remaining = "미투표 의견 {{num_comments}}개 남음";
+s.comments_remaining2 = "{{num_comments}}개의 미투표 의견";
 
 // Text about phasing
 
 s.noCommentsYet = "아직 의견이 없습니다.";
-s.noCommentsYetSoWrite = "의견을 추가하여 이 대화를 시작하세요.";
+s.noCommentsYetSoWrite = "의견을 올려 주세요.";
 s.noCommentsYetSoInvite =
-  "더 많은 참가자를 초대하거나 의견을 추가하여 이 대화를 시작하세요.";
+  "더 많은 사람을 초대하거나 의견을 추가해 보세요.";
 s.noCommentsYouVotedOnAll = "모든 의견에 투표하셨습니다.";
 s.noCommentsTryWritingOne =
-  "추가하고 싶은 것이 있다면, 자신의 의견을 작성해 보세요.";
-s.convIsClosed = "이 대화는 종료되었습니다.";
-s.noMoreVotingAllowed = "더 이상의 투표는 허용되지 않습니다.";
+  "추가하고 싶은 것이 있다면, 의견을 작성해 보세요.";
+s.convIsClosed = "토론장이 종료되었습니다.";
+s.noMoreVotingAllowed = "더 이상 투표할 수 없습니다.";
 
 // For the visualization below
 
@@ -89,9 +89,9 @@ s.helpWhatAreGroupsDetail =
 
 s.helpWhatDoIDoTitle = " 무엇을 해야 하나요?";
 s.helpWhatDoIDo =
-  "'찬성' 또는 '반대'를 클릭하여 다른 사람들의 의견에 투표하세요. 의견을 작성하세요 (각각 하나의 아이디어로 유지하세요). 친구들을 대화에 초대하세요!";
+  "'찬성' 또는 '반대'를 클릭하여 다른 사람들의 의견에 투표하세요. 또는 의견을 작성하세요 (각각 하나의 아이디어로 유지하세요). 친구들을 토론에 초대하세요!";
 s.writeCommentHelpText =
-  "당신의 관점이나 경험이 대화에서 빠져 있나요? 그렇다면 아래 상자에 </b>추가하세요</b> — </b>한 번에 하나씩</b>.";
+  "좋은 의견은 토론에 큰 도움이 됩니다. 좋은 의견을 올리는 팁.";
 s.helpWriteListIntro = "좋은 의견이란 무엇인가요?";
 s.helpWriteListStandalone = "독립적인 아이디어";
 s.helpWriteListRaisNew = "새로운 관점, 경험 또는 이슈";
@@ -100,7 +100,7 @@ s.tip = "팁:";
 s.commentWritingTipsHintsHeader = "의견 작성 팁";
 s.tipCharLimit = "의견은 {{char_limit}}자로 제한됩니다.";
 s.tipCommentsRandom =
-  "의견은 무작위로 표시되며, 다른 사람들의 의견에 직접 답장하지 않습니다: <b>당신은 독립적인 의견을 추가하고 있습니다.<b>";
+  "<b>의견을 작성하면 투표 상자에 나타나게 됩니다.</b> 투표 상자에 나타나는 의견의 순서는 무작위이며, 다른 사람들의 의견에 답장하는 것은 아닙니다.";
 s.tipOneIdea =
   "여러 아이디어를 포함하는 긴 의견을 나누세요. 이렇게 하면 다른 사람들이 당신의 의견에 투표하기 쉬워집니다.";
 s.tipNoQuestions =
@@ -122,7 +122,7 @@ s.commentSendFailedDuplicate =
   "의견을 제출하는 중 오류가 발생했습니다 - 동일한 의견이 이미 존재합니다.";
 s.commentErrorDuplicate = "중복! 해당 의견이 이미 존재합니다.";
 s.commentErrorConversationClosed =
-  "이 대화는 종료되었습니다. 더 이상의 의견을 제출할 수 없습니다.";
+  "이 토론은 종료되었습니다. 더 이상의 의견을 제출할 수 없습니다.";
 s.commentIsEmpty = "의견이 비어있습니다";
 s.commentIsTooLong = "의견이 너무 깁니다";
 s.hereIsNextStatement = "투표 성공. 위로 이동하여 다음 의견을 확인하세요.";
@@ -153,13 +153,13 @@ s.thirdPartyTranslationDisclaimer = "서드파티에서 제공한 번역";
 // Text about notifications and subscriptions and embedding
 
 s.notificationsAlreadySubscribed =
-  "이 대화의 업데이트에 이미 구독하셨습니다.";
-s.notificationsGetNotified = "더 많은 의견이 도착하면 알림을 받으세요:";
+  "이 토론의 업데이트에 이미 구독하셨습니다.";
+s.notificationsGetNotified = "다른 의견에 대한 알림을 받으세요:";
 s.notificationsEnterEmail =
-  "더 많은 의견이 도착하면 알림을 받으려면 이메일 주소를 입력하세요:";
+  "다른 의견에 대한 알림을 받으려면 이메일 주소를 입력하세요:";
 s.labelEmail = "이메일";
-s.notificationsSubscribeButton = "구독";
-s.notificationsSubscribeErrorAlert = "구독 중 오류 발생";
+s.notificationsSubscribeButton = "알림 설정";
+s.notificationsSubscribeErrorAlert = "알림 설정 중 오류 발생";
 
 s.addPolisToYourSite =
   "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
