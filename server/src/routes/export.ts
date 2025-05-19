@@ -276,17 +276,17 @@ export async function sendParticipantVotesSummary(zid: number, res: Response) {
   const pca = await getPca(zid);
   
   // Define the getGroupId function
-  function getGroupId(pca: { asPOJO: any } | undefined, pid: number): number | undefined {
+  function getGroupId(pca: { asPOJO: PcaData } | undefined, pid: number): number | undefined {
     if (!pca || !pca.asPOJO) {
       return undefined;
     }
 
-    const pcaData = pca.asPOJO as PcaData;
+    const pcaData = pca.asPOJO;
     
     // Check if participant is in the conversation
     const inConv = pcaData["in-conv"];
     if (!inConv || !Array.isArray(inConv) || !inConv.includes(pid)) {
-      logger.info(`Participant ${pid} not found in in-conv array`);
+      // Participant not in PCA, so legitimately has no group
       return undefined;
     }
     
@@ -294,33 +294,40 @@ export async function sendParticipantVotesSummary(zid: number, res: Response) {
     const baseClusters = pcaData["base-clusters"];
     const groupClusters = pcaData["group-clusters"];
     
-    if (!baseClusters || !baseClusters.members || !Array.isArray(baseClusters.members)) {
-      logger.info(`No base clusters found in PCA data`);
+    if (!baseClusters || !baseClusters.members || !Array.isArray(baseClusters.members) || !baseClusters.id || !Array.isArray(baseClusters.id)) {
+      logger.warn(`Incomplete base-clusters data in PCA for zid while processing pid ${pid}.`);
       return undefined;
     }
     
     if (!groupClusters || !Array.isArray(groupClusters) || groupClusters.length === 0) {
-      logger.info(`No group clusters found in PCA data`);
+      logger.warn(`No group-clusters array found or empty in PCA data for zid while processing pid ${pid}.`);
       return undefined;
     }
     
-    // Step 1: Find which base cluster contains the participant
-    let baseClusterId = -1;
+    // Step 1: Find which base cluster (by index) contains the participant
+    let baseClusterIndex = -1;
     for (let i = 0; i < baseClusters.members.length; i++) {
-      const members = baseClusters.members[i];
-      if (Array.isArray(members) && members.includes(pid)) {
-        baseClusterId = i;
+      const membersInBaseCluster = baseClusters.members[i];
+      if (Array.isArray(membersInBaseCluster) && membersInBaseCluster.includes(pid)) {
+        baseClusterIndex = i;
         break;
       }
     }
     
-    if (baseClusterId === -1) {
-      // We couldn't find the participant in any base cluster
-      logger.info(`Could not find base cluster for participant ${pid}`);
+    if (baseClusterIndex === -1) {
+      // Participant is "in-conv" but not found in any base cluster's member list.
+      logger.info(`Participant ${pid} (in-conv) not found in any base-cluster's members list.`);
       return undefined;
     }
     
-    // Step 2: Find which group cluster contains this base cluster
+    // Retrieve the actual ID of the found base cluster
+    if (baseClusterIndex >= baseClusters.id.length) {
+        logger.warn(`Base cluster index ${baseClusterIndex} is out of bounds for baseClusters.id array (length ${baseClusters.id.length}) for pid ${pid}.`);
+        return undefined;
+    }
+    const baseClusterId = baseClusters.id[baseClusterIndex];
+    
+    // Step 2: Find which group cluster contains this baseClusterId
     for (const groupCluster of groupClusters) {
       if (groupCluster.members && Array.isArray(groupCluster.members) && 
           groupCluster.members.includes(baseClusterId)) {
@@ -328,8 +335,8 @@ export async function sendParticipantVotesSummary(zid: number, res: Response) {
       }
     }
 
-    // We couldn't find the participant in any group cluster
-    logger.info(`Could not find group cluster for participant ${pid}`);
+    // Participant was in a base cluster, but that base cluster ID was not found in any group cluster's members list.
+    logger.info(`Participant ${pid} in base_cluster_id ${baseClusterId}, but this base_cluster_id was not found in any group_cluster.members list.`);
     return undefined;
   }
   

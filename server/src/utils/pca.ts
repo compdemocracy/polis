@@ -51,7 +51,7 @@ export type PcaCacheItem = {
       agree: any[];
       disagree: any[];
     };
-    "meta-tids"?: any[];
+    "meta-tids"?: number[];
     "votes-base"?: Record<string, any>;
     "lastModTimestamp"?: number | null;
     "lastVoteTimestamp"?: number;

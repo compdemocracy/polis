@@ -446,5 +446,66 @@ describe("handle_GET_reportExport", () => {
 
       expect(mockRes.end).toHaveBeenCalled();
     });
+
+    it("sendParticipantVotesSummary should correctly map participants to groups when base-cluster IDs are not sequential", async () => {
+      const zid = 789;
+      const mockResNonSequential = createMockResponse();
+
+      // 1. Mock comment data (pgQueryP_readOnly)
+      (queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 101, pid: 10 }, // Participant 10 authored comment 101
+        { tid: 102, pid: 20 }, // Participant 20 authored comment 102
+        { tid: 103, pid: 30 }, // Participant 30 authored comment 103 (will be in-conv but no group)
+        { tid: 104, pid: 40 }, // Participant 40 authored comment 104 (not in PCA)
+      ] as never);
+
+      // 2. Mock PCA data (getPca)
+      const pcaDataWithNonSequentialBaseClusterIds = {
+        "in-conv": [10, 20, 30], // Participants 10, 20, 30 are in the conversation
+        "base-clusters": {
+          members: [
+            [10],     // Base cluster at index 0 (ID 55) has participant 10
+            [20],     // Base cluster at index 1 (ID 66) has participant 20
+            /* Participant 30 is in-conv but not in any base-cluster members list here to test that path */
+          ],
+          x: [0.1, 0.2],
+          y: [0.1, 0.2],
+          id: [55, 66], // Actual base cluster IDs are 55 and 66 (non-sequential with index)
+          count: [1, 1]
+        },
+        "group-clusters": [
+          { id: 7, center: [0.1, 0.1], members: [55] }, // Group 7 contains base cluster 55
+          { id: 8, center: [0.2, 0.2], members: [66] }, // Group 8 contains base cluster 66
+        ],
+        "user-vote-counts": { 10: 1, 20: 1, 30: 1 }
+      };
+      (getPca as jest.Mock).mockResolvedValue({
+        asPOJO: pcaDataWithNonSequentialBaseClusterIds,
+      } as never);
+
+      // 3. Mock votes data (stream_queryP_readOnly)
+      mockStreamWithRows([
+        { pid: 10, tid: 101, vote: -1 }, // Participant 10 voted on their comment (agree)
+        { pid: 20, tid: 102, vote: 1 },  // Participant 20 voted on their comment (disagree)
+        { pid: 30, tid: 103, vote: -1} // Participant 30 voted on their comment (agree)
+      ]);
+
+      await sendParticipantVotesSummary(zid, mockResNonSequential as any);
+
+      expect(mockResNonSequential.setHeader).toHaveBeenCalledWith("content-type", "text/csv");
+      // Header should now include all tids from the mocked queryP_readOnly call for comments
+      expect(mockResNonSequential.write).toHaveBeenCalledWith(
+        "participant,group-id,n-comments,n-votes,n-agree,n-disagree,101,102,103,104\n"
+      );
+
+      // Participant 10 (pid 10) should be in group 7
+      expect(mockResNonSequential.write).toHaveBeenCalledWith("10,7,1,1,1,0,1,,,\n");
+      // Participant 20 (pid 20) should be in group 8. Vote was 1, flipped to -1.
+      expect(mockResNonSequential.write).toHaveBeenCalledWith("20,8,1,1,0,1,,-1,,\n");
+      // Participant 30 (pid 30) is in-conv but not in a base-cluster that maps to a group cluster (or not in base-cluster.members)
+      // It has 1 comment, 1 vote (agree, which is -1, flipped to 1)
+      expect(mockResNonSequential.write).toHaveBeenCalledWith("30,,1,1,1,0,,,1,\n");
+      expect(mockResNonSequential.end).toHaveBeenCalled();
+    });
   });
 });
