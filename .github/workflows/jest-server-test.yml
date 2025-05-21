@@ -18,6 +18,25 @@ on:
 jobs:
   jest-run:
     runs-on: ubuntu-latest
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: PdwPNS2mDN73Vfbc
+      POSTGRES_DB: polis-test
+      POSTGRES_PORT: 5432
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ${{ env.POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ env.POSTGRES_DB }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d polis-test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,10 +53,13 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
-      - name: Copy test.env to .env
-        run: cp test.env .env
+      - name: Copy test.env to .env and configure for GHA service
+        run: |
+          cp test.env .env
+          echo "POSTGRES_HOST=host.docker.internal" >> .env
+          echo "DATABASE_URL=postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@host.docker.internal:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}" >> .env
 
-      - name: Build and start Docker containers
+      - name: Build and start Docker containers (excluding Postgres)
         run: |
           # Build with proper cache configuration
           docker buildx build \
@@ -51,27 +73,14 @@ jobs:
           rm -rf ${{ github.workspace }}/.buildx-cache
           mv ${{ github.workspace }}/.buildx-cache-new ${{ github.workspace }}/.buildx-cache
           
-          # Start containers
-          docker compose -f docker-compose.yml -f docker-compose.test.yml --profile postgres up -d --build
+          # Start containers - remove --profile postgres as GHA service handles postgres
+          docker compose -f docker-compose.yml -f docker-compose.test.yml up -d --build
         env:
           DOCKER_BUILDKIT: 1
           COMPOSE_DOCKER_CLI_BUILD: 1
 
-      # Add Postgres health check
-      - name: Wait for Postgres to be ready
-        run: |
-          # Wait for postgres to be ready
-          until docker exec $(docker ps -q -f name=postgres) pg_isready -U postgres; do
-            echo "Waiting for postgres..."
-            sleep 2
-          done
-          
-          # Verify we can actually connect with the test credentials
-          docker exec $(docker ps -q -f name=postgres) psql -U postgres -c "\l" polis-test
-
       - name: Run Jest tests
         run: |
-          # Run tests inside the server container using the container name pattern from docker-compose
           docker exec polis-test-server-1 npm test
 
       - name: Stop Docker containers
