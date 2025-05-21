@@ -56,8 +56,8 @@ jobs:
       - name: Copy test.env to .env and configure for GHA service
         run: |
           cp test.env .env
-          echo "POSTGRES_HOST=localhost" >> .env
-          echo "DATABASE_URL=postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@localhost:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}" >> .env
+          echo "POSTGRES_HOST=172.17.0.1" >> .env
+          echo "DATABASE_URL=postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@172.17.0.1:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}" >> .env
 
       - name: Build and start Docker containers (excluding Postgres)
         run: |
