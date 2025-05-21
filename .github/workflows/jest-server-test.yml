@@ -79,6 +79,18 @@ jobs:
           DOCKER_BUILDKIT: 1
           COMPOSE_DOCKER_CLI_BUILD: 1
 
+      - name: Run database migrations
+        env:
+          # Construct DATABASE_URL for the migration script
+          # using the same host (172.17.0.1) and credentials as the application
+          DATABASE_URL: postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@172.17.0.1:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
+        run: |
+          echo "Installing postgresql-client..."
+          sudo apt-get update -y
+          sudo apt-get install -y postgresql-client
+          echo "Running migrations..."
+          bash server/bin/run-migrations.sh
+
       - name: Run Jest tests
         run: |
           docker exec polis-test-server-1 npm test
