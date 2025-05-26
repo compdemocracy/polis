@@ -92,6 +92,45 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+def upload_to_s3(file_path, s3_key, bucket_name='polis-delphi'):
+    """
+    Upload a file to S3/MinIO.
+    
+    Args:
+        file_path: Local path to the file
+        s3_key: S3 key (path) for the uploaded file
+        bucket_name: S3 bucket name
+    
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        import boto3
+        
+        # Use environment variables for S3 configuration
+        s3_endpoint = os.environ.get('AWS_S3_ENDPOINT', 'http://minio:9000')
+        s3_access_key = os.environ.get('AWS_S3_ACCESS_KEY_ID', 'minioadmin')
+        s3_secret_key = os.environ.get('AWS_S3_SECRET_ACCESS_KEY', 'minioadmin')
+        s3_region = os.environ.get('AWS_REGION', 'us-east-1')
+        
+        # Create S3 client
+        s3_client = boto3.client(
+            's3',
+            endpoint_url=s3_endpoint,
+            aws_access_key_id=s3_access_key,
+            aws_secret_access_key=s3_secret_key,
+            region_name=s3_region
+        )
+        
+        # Upload file
+        s3_client.upload_file(file_path, bucket_name, s3_key)
+        logger.info(f'Uploaded {file_path} to s3://{bucket_name}/{s3_key}')
+        return True
+        
+    except Exception as e:
+        logger.warning(f'Failed to upload {file_path} to S3: {e}')
+        return False
+
 def load_data_from_dynamodb(zid, layer_num=0):
     """
     Load data from DynamoDB for visualization.
@@ -706,15 +745,27 @@ def create_consensus_divisive_datamapplot(zid, layer_num=0, output_dir=None):
         plt.savefig(output_file, dpi=300, bbox_inches='tight')
         logger.info(f'Saved visualization to {output_file}')
         
+        # Upload to S3
+        s3_key = f"visualizations/{zid}/consensus_divisive/{zid}_consensus_divisive_colored_map.png"
+        upload_to_s3(output_file, s3_key)
+        
         # 2. High-resolution PNG
         hires_file = os.path.join(vis_dir, f"{zid}_consensus_divisive_colored_map_hires.png")
         plt.savefig(hires_file, dpi=600, bbox_inches='tight')
         logger.info(f'Saved high-resolution visualization to {hires_file}')
         
+        # Upload to S3
+        s3_key_hires = f"visualizations/{zid}/consensus_divisive/{zid}_consensus_divisive_colored_map_hires.png"
+        upload_to_s3(hires_file, s3_key_hires)
+        
         # 3. SVG for vector graphics
         svg_file = os.path.join(vis_dir, f"{zid}_consensus_divisive_colored_map.svg")
         plt.savefig(svg_file, format='svg', bbox_inches='tight')
         logger.info(f'Saved vector SVG to {svg_file}')
+        
+        # Upload to S3
+        s3_key_svg = f"visualizations/{zid}/consensus_divisive/{zid}_consensus_divisive_colored_map.svg"
+        upload_to_s3(svg_file, s3_key_svg)
         
         # Save to custom output directory if provided
         if output_dir and output_dir != vis_dir:
@@ -767,6 +818,10 @@ def create_consensus_divisive_datamapplot(zid, layer_num=0, output_dir=None):
         alt_file = os.path.join(vis_dir, f"{zid}_consensus_divisive_enhanced.png")
         plt.savefig(alt_file, dpi=300, bbox_inches='tight')
         logger.info(f'Saved enhanced visualization to {alt_file}')
+        
+        # Upload enhanced visualization to S3
+        s3_key_enhanced = f"visualizations/{zid}/consensus_divisive/{zid}_consensus_divisive_enhanced.png"
+        upload_to_s3(alt_file, s3_key_enhanced)
         
         if output_dir and output_dir != vis_dir:
             out_enhanced = os.path.join(output_dir, f"{zid}_consensus_divisive_enhanced.png")
