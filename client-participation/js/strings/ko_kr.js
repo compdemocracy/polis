@@ -81,7 +81,7 @@ s.pctDisagreedOfGroupLong =
 s.participantHelpGroupsText =
   "당신은 파란색 원으로 표현되며, 당신의 관점을 공유하는 다른 사람들과 함께 그룹화됩니다.";
 s.participantHelpGroupsNotYetText =
-  "7명의 참가자가 투표를 시작하면 시각화가 나타납니다";
+  "7명 이상 투표하면 그래프가 나타납니다";
 s.helpWhatAreGroupsDetail =
   "<p>당신의 그룹이나 다른 그룹을 클릭하여 각 그룹의 의견을 탐색하세요.</p><p>다수 의견은 그룹 간에 가장 널리 공유되는 의견입니다.</p>";
 
