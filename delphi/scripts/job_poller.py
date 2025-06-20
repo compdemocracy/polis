@@ -7,6 +7,13 @@ and execute them.
 """
 
 import argparse
+from contextlib import contextmanager
+import sqlalchemy as sa
+from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session
+from sqlalchemy.dialects.postgresql import JSON, JSONB
+from sqlalchemy.pool import QueuePool
+from sqlalchemy.sql import text
+from typing import Any, Dict, List, Optional
 import boto3
 import json
 import logging
@@ -19,6 +26,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from botocore.exceptions import ClientError
+import urllib
 
 
 class PostgresConfig:
@@ -519,8 +527,8 @@ class JobProcessor:
             # Query for comment count. Assuming 'comments' table and 'zid' column.
             # Adjust table/column names if different.
             # The table is indeed 'comments' and the column is 'zid' per CLAUDE.md
-            sql_query = "SELECT COUNT(*) FROM comments WHERE zid = %s"
-            count_result = pg_client.query(sql_query, (conversation_id,))
+            sql_query = "SELECT COUNT(*) FROM comments WHERE zid = :zid"
+            count_result = pg_client.query(sql_query, {"zid": conversation_id})
             
             if count_result and count_result[0] is not None:
                 comment_count = count_result[0]['count']
