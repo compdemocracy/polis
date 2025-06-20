@@ -20,6 +20,334 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from botocore.exceptions import ClientError
 
+
+class PostgresConfig:
+    """Configuration for PostgreSQL connection."""
+    
+    def __init__(self, 
+                url: Optional[str] = None,
+                host: Optional[str] = None,
+                port: Optional[int] = None,
+                database: Optional[str] = None,
+                user: Optional[str] = None,
+                password: Optional[str] = None,
+                ssl_mode: Optional[str] = None):
+        """
+        Initialize PostgreSQL configuration.
+        
+        Args:
+            url: Database URL (overrides other connection parameters if provided)
+            host: Database host
+            port: Database port
+            database: Database name
+            user: Database user
+            password: Database password
+            ssl_mode: SSL mode (disable, allow, prefer, require, verify-ca, verify-full)
+        """
+        # Parse URL if provided
+        if url:
+            self._parse_url(url)
+        else:
+            self.host = host or os.environ.get('DATABASE_HOST', 'localhost')
+            self.port = port or int(os.environ.get('DATABASE_PORT', '5432'))
+            self.database = database or os.environ.get('DATABASE_NAME', 'polisDB_prod_local_mar14')
+            self.user = user or os.environ.get('DATABASE_USER', 'postgres')
+            self.password = password or os.environ.get('DATABASE_PASSWORD', '')
+        
+        # Set SSL mode
+        self.ssl_mode = ssl_mode or os.environ.get('DATABASE_SSL_MODE', 'require')
+    
+    def _parse_url(self, url: str) -> None:
+        """
+        Parse a database URL into components.
+        
+        Args:
+            url: Database URL in format postgresql://user:password@host:port/database
+        """
+        # Use environment variable if url is not provided
+        if not url:
+            url = os.environ.get('DATABASE_URL', '')
+        
+        if not url:
+            raise ValueError("No database URL provided")
+        
+        # Parse URL
+        parsed = urllib.parse.urlparse(url)
+        
+        # Extract components
+        self.user = parsed.username
+        self.password = parsed.password
+        self.host = parsed.hostname
+        self.port = parsed.port or 5432
+        
+        # Extract database name (remove leading '/')
+        path = parsed.path
+        if path.startswith('/'):
+            path = path[1:]
+        self.database = path
+    
+    def get_uri(self) -> str:
+        """
+        Get SQLAlchemy URI for database connection.
+        
+        Returns:
+            SQLAlchemy URI string
+        """
+        # Format password component if present
+        password_str = f":{self.password}" if self.password else ""
+        
+        # Build URI
+        uri = f"postgresql://{self.user}{password_str}@{self.host}:{self.port}/{self.database}"
+
+        if self.ssl_mode: # Check if self.ssl_mode is not None or empty
+            uri = f"{uri}?sslmode={self.ssl_mode}"
+        
+        return uri
+    
+    @classmethod
+    def from_env(cls) -> 'PostgresConfig':
+        """
+        Create a configuration from environment variables.
+        
+        Returns:
+            PostgresConfig instance
+        """
+        # Check for DATABASE_URL
+        url = os.environ.get('DATABASE_URL')
+        if url:
+            return cls(url=url)
+        
+        # Use individual environment variables
+        return cls(
+            host=os.environ.get('DATABASE_HOST'),
+            port=int(os.environ.get('DATABASE_PORT', '5432')),
+            database=os.environ.get('DATABASE_NAME'),
+            user=os.environ.get('DATABASE_USER'),
+            password=os.environ.get('DATABASE_PASSWORD')
+        )
+
+
+class PostgresClient:
+    """PostgreSQL client for accessing Polis data."""
+    
+    def __init__(self, config: Optional[PostgresConfig] = None):
+        """
+        Initialize PostgreSQL client.
+        
+        Args:
+            config: PostgreSQL configuration
+        """
+        self.config = config or PostgresConfig.from_env()
+        self.engine = None
+        self.session_factory = None
+        self.Session = None
+        self._initialized = False
+    
+    def initialize(self) -> None:
+        """
+        Initialize the database connection.
+        """
+        if self._initialized:
+            return
+        
+        # Create engine
+        uri = self.config.get_uri()
+        self.engine = sa.create_engine(
+            uri,
+            pool_size=5,
+            max_overflow=10,
+            pool_recycle=300  # Recycle connections after 5 minutes
+        )
+        
+        # Create session factory
+        self.session_factory = sessionmaker(bind=self.engine)
+        self.Session = scoped_session(self.session_factory)
+        
+        # Mark as initialized
+        self._initialized = True
+        
+        logger.info(f"Initialized PostgreSQL connection to {self.config.host}:{self.config.port}/{self.config.database}")
+    
+    def shutdown(self) -> None:
+        """
+        Shut down the database connection.
+        """
+        if not self._initialized:
+            return
+        
+        # Dispose of the engine
+        if self.engine:
+            self.engine.dispose()
+        
+        # Clear session factory
+        if self.Session:
+            self.Session.remove()
+            self.Session = None
+        
+        # Mark as not initialized
+        self._initialized = False
+        
+        logger.info("Shut down PostgreSQL connection")
+    
+    @contextmanager
+    def session(self):
+        """
+        Get a database session context.
+        
+        Yields:
+            SQLAlchemy session
+        """
+        if not self._initialized:
+            self.initialize()
+        
+        session = self.Session()
+        try:
+            yield session
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            session.close()
+    
+    def query(self, sql: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+        """
+        Execute a SQL query.
+        
+        Args:
+            sql: SQL query
+            params: Query parameters
+            
+        Returns:
+            List of dictionaries with query results
+        """
+        if not self._initialized:
+            self.initialize()
+        
+        with self.engine.connect() as conn:
+            result = conn.execute(text(sql), params or {})
+            
+            # Convert to dictionaries
+            columns = result.keys()
+            return [dict(zip(columns, row)) for row in result]
+    
+    def get_conversation_by_id(self, zid: int) -> Optional[Dict[str, Any]]:
+        """
+        Get conversation information by ID.
+        
+        Args:
+            zid: Conversation ID
+            
+        Returns:
+            Conversation data, or None if not found
+        """
+        sql = """
+        SELECT * FROM conversations WHERE zid = :zid
+        """
+        
+        results = self.query(sql, {"zid": zid})
+        return results[0] if results else None
+    
+    def get_comments_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
+        """
+        Get all comments in a conversation.
+        
+        Args:
+            zid: Conversation ID
+            
+        Returns:
+            List of comments
+        """
+        sql = """
+        SELECT 
+            tid, 
+            zid, 
+            pid, 
+            txt, 
+            created, 
+            mod,
+            active
+        FROM 
+            comments 
+        WHERE 
+            zid = :zid
+        ORDER BY 
+            tid
+        """
+        
+        return self.query(sql, {"zid": zid})
+    
+    def get_votes_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
+        """
+        Get all votes in a conversation.
+        
+        Args:
+            zid: Conversation ID
+            
+        Returns:
+            List of votes
+        """
+        sql = """
+        SELECT 
+            v.zid, 
+            v.pid, 
+            v.tid, 
+            v.vote
+        FROM 
+            votes_latest_unique v
+        WHERE 
+            v.zid = :zid
+        """
+        
+        return self.query(sql, {"zid": zid})
+    
+    def get_participants_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
+        """
+        Get all participants in a conversation.
+        
+        Args:
+            zid: Conversation ID
+            
+        Returns:
+            List of participants
+        """
+        sql = """
+        SELECT 
+            p.zid,
+            p.pid,
+            p.uid,
+            p.vote_count,
+            p.created
+        FROM 
+            participants p
+        WHERE 
+            p.zid = :zid
+        """
+        
+        return self.query(sql, {"zid": zid})
+    
+    def get_conversation_id_by_slug(self, conversation_slug: str) -> Optional[int]:
+        """
+        Get conversation ID by its slug (zinvite).
+        
+        Args:
+            conversation_slug: Conversation slug/zinvite
+            
+        Returns:
+            Conversation ID, or None if not found
+        """
+        sql = """
+        SELECT 
+            z.zid
+        FROM 
+            zinvites z
+        WHERE 
+            z.zinvite = :zinvite
+        """
+        
+        results = self.query(sql, {"zinvite": conversation_slug})
+        return results[0]['zid'] if results else None
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -45,6 +373,14 @@ class JobProcessor:
         self.worker_id = str(uuid.uuid4())
         raw_endpoint = endpoint_url or os.environ.get('DYNAMODB_ENDPOINT')
         self.endpoint_url = raw_endpoint if raw_endpoint and raw_endpoint.strip() else None
+
+        # Determine instance type from environment variable set by configure_instance.py
+        self.instance_type = os.environ.get('DELPHI_INSTANCE_TYPE', 'default') # Default to 'default' if not set
+        logger.info(f"Worker {self.worker_id} initialized for instance type: {self.instance_type}")
+        
+        # Initialize PostgresClient - it will be used per-query within poll_and_process
+        # No need to store it as self.postgres_client if we instantiate it on demand.
+        # If performance becomes an issue, connection pooling could be considered.
         
         logger.info(f"Connecting to DynamoDB at {self.endpoint_url or 'default AWS endpoint'}")
         self.dynamodb = boto3.resource('dynamodb', 
@@ -167,6 +503,38 @@ class JobProcessor:
             logger.error(f"Unexpected error claiming job {job_id}: {e}", exc_info=True)
             return None
         
+    def get_job_actual_size(self, conversation_id_str: str) -> str:
+        """
+        Queries PostgreSQL to determine the actual size of the job based on comment count.
+        Returns "large" or "normal".
+        """
+        pg_client = None
+        try:
+            # Ensure conversation_id is an integer for the query
+            conversation_id = int(conversation_id_str)
+            
+            pg_client = PostgresClient()
+            pg_client.initialize()
+            
+            # Query for comment count. Assuming 'comments' table and 'zid' column.
+            # Adjust table/column names if different.
+            # The table is indeed 'comments' and the column is 'zid' per CLAUDE.md
+            sql_query = "SELECT COUNT(*) FROM comments WHERE zid = %s"
+            count_result = pg_client.query(sql_query, (conversation_id,))
+            
+            if count_result and count_result[0] is not None:
+                comment_count = count_result[0]['count']
+                logger.info(f"Conversation {conversation_id} has {comment_count} comments.")
+                return "large" if comment_count > 5000 else "normal"
+            logger.warning(f"Could not retrieve comment count for conversation {conversation_id}. Defaulting to 'normal' size.")
+            return "normal"
+        except Exception as e:
+            logger.error(f"Error querying PostgreSQL for comment count (conv_id: {conversation_id_str}): {e}. Defaulting to 'normal' size.")
+            return "normal"
+        finally:
+            if pg_client:
+                pg_client.shutdown()
+
     def release_lock(self, job, is_still_processing=False):
         """Releases the lock on a job, optionally setting it to be re-checked."""
         job_id = job['job_id']
@@ -362,10 +730,33 @@ def poll_and_process(processor, interval=10):
             job_to_process = processor.find_pending_job()
             
             if job_to_process:
-                # Step 2: Attempt to claim the job we found.
+                conversation_id_str = job_to_process.get('conversation_id')
+                
+                if conversation_id_str:
+                    job_actual_size = processor.get_job_actual_size(conversation_id_str)
+                else:
+                    job_actual_size = "normal"
+                
+                can_process = False
+                instance_type = processor.instance_type
+                
+                if instance_type == "large":
+                    # A large instance ONLY processes large jobs.
+                    can_process = (job_actual_size == "large")
+                else: # This covers 'small' and the 'default' type.
+                    # Small/default instances ONLY process normal-sized jobs.
+                    can_process = (job_actual_size == "normal")
+
+                if not can_process:
+                    logger.info(f"Worker instance type '{instance_type}' cannot process job '{job_to_process['job_id']}' of size '{job_actual_size}'. Skipping for now.")
+                    # Sleep for the interval so this worker doesn't hammer the queue checking the same job.
+                    time.sleep(interval)
+                    continue # This correctly skips to the next iteration of the while loop.
+
+                # If we can process it, attempt to claim it.
                 claimed_job = processor.claim_job(job_to_process)
                 
-                # Step 3: Only process the job if the claim was successful.
+                # Only proceed if the claim was successful.
                 if claimed_job:
                     processor.process_job(claimed_job)
             else:
@@ -375,10 +766,9 @@ def poll_and_process(processor, interval=10):
         except Exception as e:
             logger.error(f"Critical error in polling loop for worker {processor.worker_id}: {e}", exc_info=True)
             if claimed_job:
-                # If an error happened after a job was claimed, mark it as FAILED to prevent a zombie job.
                 processor.complete_job(claimed_job, False, error="Polling loop crashed during processing")
-            # On error, wait longer before retrying to prevent rapid failure loops.
             time.sleep(interval * 6)
+
 def main():
     # This function is correct.
     parser = argparse.ArgumentParser(description='Delphi Job Poller Service')
