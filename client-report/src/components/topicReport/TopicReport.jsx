@@ -132,7 +132,7 @@ const TopicReport = ({ report_id, math, comments, conversation, ptptCount, forma
         
         {/* Comments list section - side by side */}
         {citationIds.length > 0 && comments && comments.length > 0 && (
-          <div className="topic-comments-column">
+          <div className="topic-comments-column" style={{ overflowX: "scroll"}}>
             <h3 style={{ marginBottom: '20px' }}>Comments Referenced in This Topic</h3>
             <CommentList
               conversation={conversation}
@@ -145,6 +145,9 @@ const TopicReport = ({ report_id, math, comments, conversation, ptptCount, forma
                 agree: "#21a53a",
                 disagree: "#e74c3c", 
                 pass: "#b3b3b3"
+              }}
+              style={{
+                width: "max-content"
               }}
             />
           </div>

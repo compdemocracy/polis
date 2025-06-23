@@ -151,7 +151,7 @@ const CommentRow = ({ comment, groups, voteColors }) => {
   );
 };
 
-const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors }) => {
+const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors, style }) => {
 
   const getGroupLabels = () => {
     function makeLabel(key, label, numMembers) {
@@ -197,7 +197,7 @@ const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors }) =>
   }, {});
 
   return (
-    <div>
+    <div style={style}>
       <div
         style={{
           marginBottom: 1,
