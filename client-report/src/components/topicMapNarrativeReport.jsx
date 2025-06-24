@@ -46,9 +46,6 @@ export default ({ conversation, report_id, ptptCountTotal, math, computeVoteTota
           </p>
         </div>
       </div>
-      <div style={{ marginBottom: 20 }}>
-        <RawDataExport conversation={conversation} report_id={report_id} />
-      </div>
       <section style={{ maxWidth: 1200, display: "flex", justifyContent: "space-between", gap: "1rem" }}>
         <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
           <h3>Participants</h3>
@@ -69,6 +66,9 @@ export default ({ conversation, report_id, ptptCountTotal, math, computeVoteTota
       </section>
       <TopicsVizReport report_id={report_id} />
       <TopicReport report_id={report_id} math={math} comments={comments} conversation={conversation} ptptCount={ptptCountTotal} formatTid={formatTid} voteColors={voteColors} />
+      <div style={{ marginTop: 20 }}>
+        <RawDataExport conversation={conversation} report_id={report_id} />
+      </div>
       <Footer />
     </div>
   </div>
