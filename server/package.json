@@ -39,6 +39,7 @@
     "@google-cloud/aiplatform": "^3.34.0",
     "@google-cloud/translate": "^8.5.1",
     "@google-cloud/vertexai": "^1.9.0",
+    "@google/genai": "^1.7.0",
     "@google/generative-ai": "^0.21.0",
     "@sinclair/typebox": "^0.34.3",
     "@tevko/sensemaking-tools": "^1.0.15",

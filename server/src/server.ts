@@ -12,6 +12,7 @@ import async from "async";
 import { google } from "googleapis";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import fs from "fs/promises";
 import replaceStream from "replacestream";
 import responseTime from "response-time";
 import request from "request-promise"; // includes Request, but adds promise methods
@@ -84,6 +85,9 @@ import {
   handle_POST_auth_pwresettoken,
 } from "./routes/password";
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const js2xmlparser = require("js2xmlparser");
+
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
@@ -114,10 +118,7 @@ import logger from "./utils/logger";
 // # notifications
 import emailSenders from "./email/senders";
 import config from "./config";
-import {
-  GenerateContentRequest,
-  GoogleGenerativeAI,
-} from "node_modules/@google/generative-ai/dist/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { convertXML } from "simple-xml-to-json";
 const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
@@ -4457,41 +4458,65 @@ Email verified! You can close this tab or hit the back button.
   async function analyzeComment(
     txt: string,
     convo_topic: string,
-    geographical_context?: string
+    geographical_context?: string // ip address if available
   ) {
     const fileContents = await fs.readFile(
-      "server/src/prompts/moderation/script.xml",
+      "src/prompts/moderation/script.xml",
+      "utf8"
+    );
+    const system_lore = await fs.readFile(
+      "src/prompts/report_experimental/system.xml",
       "utf8"
     );
     const json = await convertXML(fileContents);
+    const getRegionFromIP = async (ip: string): Promise<string> => {
+      if (!ip) {
+        return "US or Europe (EU)";
+      }
+      try {
+        // Using a free IP geolocation service.
+        // Consider replacing with a more robust, authenticated service for production.
+        const response = await request.get(`https://ip-api.com/json/${ip}`);
+        const data = JSON.parse(response);
+        if (data.status === "success" && data.country) {
+          const locationParts = [
+            data.city,
+            data.regionName,
+            data.country,
+          ].filter(Boolean);
+          return locationParts.join(", ");
+        }
+        return "US or Europe (EU)"; // fallback
+      } catch (error) {
+        logger.error("Error fetching region from IP:", { ip, error });
+        return "US or Europe (EU)"; // fallback on any error
+      }
+    };
+    const finalGeographicalContext = geographical_context
+      ? await getRegionFromIP(geographical_context)
+      : "US or Europe (EU)";
     json.polis_moderation_rubric.task.input = {
       comment_text: txt,
       conversation_topic: convo_topic,
-      geographical_context: geographical_context || "US or Europe (EU)",
+      geographical_context: finalGeographicalContext,
     };
 
-    const prompt_xml = js2xmlparser.parse(
-      "polis-comments-and-group-demographics",
-      json
-    );
+    const prompt_xml = js2xmlparser.parse("polis_moderation_rubric", json);
 
-    const genAI = config.geminiApiKey
-      ? new GoogleGenerativeAI(config.geminiApiKey)
-      : null;
-    const gemeniModel = genAI?.getGenerativeModel({
+    const genAI = new GoogleGenAI({ apiKey: config.geminiApiKey });
+    const respGem = await genAI.models.generateContent({
       model: "gemini-2.5-pro",
-      generationConfig: {
-        // https://cloud.google.com/vertex-ai/docs/reference/rest/v1/GenerationConfig
+      config: {
         responseMimeType: "application/json",
         maxOutputTokens: 50000, // high for reliability for now.
       },
-    });
-    const gemeniModelprompt: GenerateContentRequest = {
       contents: [
         {
           parts: [
             {
               text: `
+                  ${system_lore}
+
                   ${prompt_xml}
   
                   You MUST respond with a numerical score value ONLY. Nothing else is permitted.
@@ -4501,10 +4526,10 @@ Email verified! You can close this tab or hit the back button.
           role: "user",
         },
       ],
-      systemInstruction: system_lore,
-    };
-    const respGem = await gemeniModel.generateContent(gemeniModelprompt);
-    const result = await respGem.response.text();
+    });
+
+    const result = respGem.text;
+    console.log(result);
     return result;
   }
 
@@ -4766,10 +4791,6 @@ Email verified! You can close this tab or hit the back button.
         logger.error("isSpam failed", err);
         return false;
       });
-
-      logger.debug(5471);
-
-      const polisModerationPromise = analyzeComment(txt);
       const isModeratorPromise = isModerator(zid!, uid!);
       const conversationInfoPromise = getConversationInfo(zid!);
 
@@ -4801,14 +4822,12 @@ Email verified! You can close this tab or hit the back button.
         is_moderator,
         commentExistsAlready,
         spammy,
-        polisModResponse,
       ] = await Promise.all([
         pidPromise,
         conversationInfoPromise,
         isModeratorPromise,
         commentExistsPromise,
         isSpamPromise,
-        polisModerationPromise,
       ]);
 
       if (!is_moderator && mustBeModerator) {
@@ -4831,7 +4850,7 @@ Email verified! You can close this tab or hit the back button.
         return;
       }
 
-      logger.debug(5541);
+      const polisModResponse = await analyzeComment(txt, conv.topic, ip);
 
       const bad = hasBadWords(txt);
 
