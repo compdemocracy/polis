@@ -113,6 +113,12 @@ import logger from "./utils/logger";
 
 // # notifications
 import emailSenders from "./email/senders";
+import config from "./config";
+import {
+  GenerateContentRequest,
+  GoogleGenerativeAI,
+} from "node_modules/@google/generative-ai/dist/generative-ai";
+import { convertXML } from "simple-xml-to-json";
 const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
@@ -4448,32 +4454,58 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  const GOOGLE_DISCOVERY_URL =
-    "https://commentanalyzer.googleapis.com/$discovery/rest?version=v1alpha1";
+  async function analyzeComment(
+    txt: string,
+    convo_topic: string,
+    geographical_context?: string
+  ) {
+    const fileContents = await fs.readFile(
+      "server/src/prompts/moderation/script.xml",
+      "utf8"
+    );
+    const json = await convertXML(fileContents);
+    json.polis_moderation_rubric.task.input = {
+      comment_text: txt,
+      conversation_topic: convo_topic,
+      geographical_context: geographical_context || "US or Europe (EU)",
+    };
 
-  async function analyzeComment(txt: string) {
-    try {
-      const client = await google.discoverAPI(GOOGLE_DISCOVERY_URL);
+    const prompt_xml = js2xmlparser.parse(
+      "polis-comments-and-group-demographics",
+      json
+    );
 
-      const analyzeRequest = {
-        comment: {
-          text: txt,
+    const genAI = config.geminiApiKey
+      ? new GoogleGenerativeAI(config.geminiApiKey)
+      : null;
+    const gemeniModel = genAI?.getGenerativeModel({
+      model: "gemini-2.5-pro",
+      generationConfig: {
+        // https://cloud.google.com/vertex-ai/docs/reference/rest/v1/GenerationConfig
+        responseMimeType: "application/json",
+        maxOutputTokens: 50000, // high for reliability for now.
+      },
+    });
+    const gemeniModelprompt: GenerateContentRequest = {
+      contents: [
+        {
+          parts: [
+            {
+              text: `
+                  ${prompt_xml}
+  
+                  You MUST respond with a numerical score value ONLY. Nothing else is permitted.
+                `,
+            },
+          ],
+          role: "user",
         },
-        requestedAttributes: {
-          TOXICITY: {},
-        },
-      };
-
-      // @ts-ignore
-      const response = await client.comments.analyze({
-        key: Config.googleJigsawPerspectiveApiKey,
-        resource: analyzeRequest,
-      });
-
-      return response.data;
-    } catch (err) {
-      logger.error("analyzeComment error", err);
-    }
+      ],
+      systemInstruction: system_lore,
+    };
+    const respGem = await gemeniModel.generateContent(gemeniModelprompt);
+    const result = await respGem.response.text();
+    return result;
   }
 
   /* this is a concept and can be generalized to other handlers */
@@ -4737,13 +4769,7 @@ Email verified! You can close this tab or hit the back button.
 
       logger.debug(5471);
 
-      // Only analyze comments if we have a Jigsaw API key
-      const jigsawModerationPromise = Config.googleJigsawPerspectiveApiKey
-        ? analyzeComment(txt)
-        : Promise.resolve(null);
-
-      logger.debug(5478);
-
+      const polisModerationPromise = analyzeComment(txt);
       const isModeratorPromise = isModerator(zid!, uid!);
       const conversationInfoPromise = getConversationInfo(zid!);
 
@@ -4775,14 +4801,14 @@ Email verified! You can close this tab or hit the back button.
         is_moderator,
         commentExistsAlready,
         spammy,
-        jigsawResponse,
+        polisModResponse,
       ] = await Promise.all([
         pidPromise,
         conversationInfoPromise,
         isModeratorPromise,
         commentExistsPromise,
         isSpamPromise,
-        jigsawModerationPromise,
+        polisModerationPromise,
       ]);
 
       if (!is_moderator && mustBeModerator) {
@@ -4810,26 +4836,28 @@ Email verified! You can close this tab or hit the back button.
       const bad = hasBadWords(txt);
 
       const velocity = 1;
-      const jigsawToxicityThreshold = 0.8;
+      const commentToxicityThreshold = 100;
       let active = true;
       const classifications = [];
 
-      const toxicityScore =
-        jigsawResponse?.attributeScores?.TOXICITY?.summaryScore?.value;
+      const toxicityScore = polisModResponse;
 
       if (typeof toxicityScore === "number" && !isNaN(toxicityScore)) {
         logger.debug(
           `Jigsaw toxicity Score for comment "${txt}": ${toxicityScore}`
         );
 
-        if (toxicityScore > jigsawToxicityThreshold && conv.profanity_filter) {
+        if (
+          toxicityScore >= commentToxicityThreshold &&
+          conv.profanity_filter
+        ) {
           active = false;
           classifications.push("bad");
           logger.info(
-            "active=false because (jigsawToxicity && conv.profanity_filter)"
+            "active=false because (Toxicity && conv.profanity_filter)"
           );
         }
-        // Fall back to bad words filter if Jigsaw API is not available or fails to return a numeric value
+        // Fall back to bad words filter if filter API is not available or fails to return a numeric value
       } else if (bad && conv.profanity_filter) {
         active = false;
         classifications.push("bad");
