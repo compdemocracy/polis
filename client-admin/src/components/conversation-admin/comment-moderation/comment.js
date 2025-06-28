@@ -25,41 +25,51 @@ class Comment extends React.Component {
 
   render() {
     return (
-      <Card sx={{ mb: [3], minWidth: '35em' }} data-test-id="pending-comment">
+      <Card sx={{ mb: [3], minWidth: '35em' }} data-test-id='pending-comment'>
         <Box>
-          <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>{this.props.comment.active ? null : 'Comment flagged as toxic by Jigsaw Perspective API. Comment not shown to participants. Accept to override.'}</Text>
+          <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>
+            {this.props.comment.active
+              ? null
+              : 'Comment flagged Polis Auto Moderator API. Comment not shown to participants. Accept to override.'}
+          </Text>
           <Text sx={{ mb: [3] }}>{this.props.comment.txt}</Text>
           <Flex
             sx={{
               justifyContent: 'space-between',
               alignItems: 'center',
               width: '100%'
-            }}>
+            }}
+          >
             <Box>
               {this.props.acceptButton ? (
                 <Button
                   sx={{ mr: [3] }}
-                  onClick={this.onAcceptClicked.bind(this)}>
+                  onClick={this.onAcceptClicked.bind(this)}
+                >
                   {this.props.acceptButtonText}
                 </Button>
               ) : null}
               {this.props.rejectButton ? (
-                <Button onClick={this.onRejectClicked.bind(this)} data-test-id="reject-comment">
+                <Button
+                  onClick={this.onRejectClicked.bind(this)}
+                  data-test-id='reject-comment'
+                >
                   {this.props.rejectButtonText}
                 </Button>
               ) : null}
             </Box>
             <Flex sx={{ alignItems: 'center' }}>
               <Link
-                target="_blank"
+                target='_blank'
                 sx={{ mr: [2] }}
-                href="https://compdemocracy.org/metadata">
+                href='https://compdemocracy.org/metadata'
+              >
                 {this.props.isMetaCheckbox ? 'metadata' : null}
               </Link>
               {this.props.isMetaCheckbox ? (
                 <input
-                  type="checkbox"
-                  label="metadata"
+                  type='checkbox'
+                  label='metadata'
                   ref={(c) => (this.is_meta = c)}
                   checked={this.props.comment.is_meta}
                   onChange={this.onIsMetaClicked.bind(this)}

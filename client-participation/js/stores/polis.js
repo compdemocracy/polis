@@ -301,10 +301,8 @@ module.exports = function(params) {
   }
 
   function submitComment(model) {
-
-
     if (Utils.isDemoMode()) {
-      return $.Deferred().resolve();
+      return $.Deferred().resolve().promise();
     }
 
     model = $.extend(model, {
@@ -315,18 +313,30 @@ module.exports = function(params) {
 
     if (typeof model.txt !== "string" || model.txt.length === 0) {
       logger.error("bad comment");
-      return $.Deferred().reject().promise();
+      return $.Deferred().reject("Invalid comment text.").promise();
     }
-    return polisPost(commentsPath, model).pipe(function(response) {
 
-      setTimeout(PostMessageUtils.postCommentEvent);
+    // Fire the POST request, but do not return its promise chain to the caller.
+    polisPost(commentsPath, model)
+      .done(function(response) {
+        // This code runs when the background POST successfully completes.
+        console.log("Background comment post succeeded.");
 
-      // PID_FLOW
-      if (!_.isUndefined(response.currentPid)) {
-        processPidResponse(response.currentPid);
-      }
-    });
-  }
+        setTimeout(PostMessageUtils.postCommentEvent);
+
+        // PID_FLOW
+        if (!_.isUndefined(response.currentPid)) {
+          processPidResponse(response.currentPid);
+        }
+      })
+      .fail(function(jqXHR, textStatus, errorThrown) {
+        logger.error("Background comment submission failed:", textStatus, errorThrown);
+      });
+
+    // Immediately return a new, resolved promise to the caller
+    // to signal that the action was "successful" from the user's perspective.
+    return $.Deferred().resolve().promise();
+}
 
   function clearComment(tid) {
     delete commentsToVoteOn[tid];

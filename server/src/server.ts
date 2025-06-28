@@ -4508,7 +4508,7 @@ Email verified! You can close this tab or hit the back button.
       model: "gemini-2.5-pro",
       config: {
         responseMimeType: "application/json",
-        maxOutputTokens: 50000, // high for reliability for now.
+        maxOutputTokens: 50000,
       },
       contents: [
         {
@@ -4519,7 +4519,17 @@ Email verified! You can close this tab or hit the back button.
 
                   ${prompt_xml}
   
-                  You MUST respond with a numerical score value ONLY. Nothing else is permitted.
+                  You MUST respond with score object ONLY. Nothing else is permitted. The response structure should be as follows:
+                  {
+                    "output": {
+                      "base_score": "NUMBER",
+                      "substance_level": "STRING",
+                      "multiplier": "N/A | NUMBER",
+                      "final_score": "NUMBER",
+                      "decision": "STRING"
+                    }
+                  }
+                  KEEP THE EXACT STRUCTURE.
                 `,
             },
           ],
@@ -4859,7 +4869,9 @@ Email verified! You can close this tab or hit the back button.
       let active = true;
       const classifications = [];
 
-      const toxicityScore = polisModResponse;
+      const toxicityScore = Number(polisModResponse);
+
+      console.log(`TOXICITY: ${toxicityScore}`);
 
       if (typeof toxicityScore === "number" && !isNaN(toxicityScore)) {
         logger.debug(
