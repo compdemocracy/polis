@@ -11,6 +11,7 @@
 		<principle id="2">Comments scoring 100+ points are rejected</principle>
 		<principle id="3">Maximize participant time on meaningful voting tasks</principle>
 		<principle id="4">Maintain conversation quality and relevance</principle>
+        <principle id="5">Comments with profanity should be treated as hostile. Rate these more severely than non profane counterparts</principle>
 	</core_principles>
 	<moderation_schemes>
 		<scheme name="strict" type="whitelist">
@@ -41,11 +42,12 @@
 				</examples>
 			</subcategory>
 			<subcategory id="1C" name="Low-Effort Dismissals" points="100">
-				<description>Dismissive comments that add no value to the conversation</description>
+				<description>Dismissive comments that add no value to the conversation, or comments containing uncivil profanity</description>
 				<examples>
 					<example>lol whatever</example>
 					<example>who cares</example>
 					<example>boring</example>
+                    <example>corporate tax policy is fucked</example>
 				</examples>
 			</subcategory>
 		</category>

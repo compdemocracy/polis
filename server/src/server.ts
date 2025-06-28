@@ -12,7 +12,6 @@ import async from "async";
 import { google } from "googleapis";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
-import fs from "fs/promises";
 import replaceStream from "replacestream";
 import responseTime from "response-time";
 import request from "request-promise"; // includes Request, but adds promise methods
@@ -86,7 +85,6 @@ import {
 } from "./routes/password";
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const js2xmlparser = require("js2xmlparser");
 
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
@@ -117,9 +115,7 @@ import logger from "./utils/logger";
 
 // # notifications
 import emailSenders from "./email/senders";
-import config from "./config";
-import { GoogleGenAI } from "@google/genai";
-import { convertXML } from "simple-xml-to-json";
+import analyzeComment from "./utils/moderation";
 const sendTextEmail = emailSenders.sendTextEmail;
 const sendTextEmailWithBackupOnly = emailSenders.sendTextEmailWithBackupOnly;
 
@@ -4455,94 +4451,6 @@ Email verified! You can close this tab or hit the back button.
     });
   }
 
-  async function analyzeComment(
-    txt: string,
-    convo_topic: string,
-    geographical_context?: string // ip address if available
-  ) {
-    const fileContents = await fs.readFile(
-      "src/prompts/moderation/script.xml",
-      "utf8"
-    );
-    const system_lore = await fs.readFile(
-      "src/prompts/report_experimental/system.xml",
-      "utf8"
-    );
-    const json = await convertXML(fileContents);
-    const getRegionFromIP = async (ip: string): Promise<string> => {
-      if (!ip) {
-        return "US or Europe (EU)";
-      }
-      try {
-        // Using a free IP geolocation service.
-        // Consider replacing with a more robust, authenticated service for production.
-        const response = await request.get(`http://ip-api.com/json/${ip}`);
-        const data = JSON.parse(response);
-        if (data.status === "success" && data.country) {
-          const locationParts = [
-            data.city,
-            data.regionName,
-            data.country,
-          ].filter(Boolean);
-          return locationParts.join(", ");
-        }
-        return "US or Europe (EU)"; // fallback
-      } catch (error) {
-        logger.error("Error fetching region from IP:", { ip, error });
-        return "US or Europe (EU)"; // fallback on any error
-      }
-    };
-    const finalGeographicalContext = geographical_context
-      ? await getRegionFromIP(geographical_context)
-      : "US or Europe (EU)";
-    json.polis_moderation_rubric.children[11].task.children[1].input = {
-      comment_text: txt,
-      conversation_topic: convo_topic,
-      geographical_context: finalGeographicalContext,
-    };
-
-    const prompt_xml = js2xmlparser.parse("polis_moderation_rubric", json);
-
-    const genAI = new GoogleGenAI({ apiKey: config.geminiApiKey });
-    const respGem = await genAI.models.generateContent({
-      model: "gemini-2.5-pro",
-      config: {
-        responseMimeType: "application/json",
-        maxOutputTokens: 50000,
-      },
-      contents: [
-        {
-          parts: [
-            {
-              text: `
-                  ${system_lore}
-
-                  ${prompt_xml}
-  
-                  You MUST respond with score object ONLY. Nothing else is permitted. The response structure should be as follows:
-                  {
-                    "output": {
-                      "base_score": "NUMBER",
-                      "substance_level": "STRING",
-                      "multiplier": "N/A | NUMBER",
-                      "final_score": "NUMBER",
-                      "decision": "STRING"
-                    }
-                  }
-                  KEEP THE EXACT STRUCTURE.
-                `,
-            },
-          ],
-          role: "user",
-        },
-      ],
-    });
-
-    const result = respGem.text;
-    console.log(result);
-    return JSON.parse(result).output?.final_score;
-  }
-
   /* this is a concept and can be generalized to other handlers */
   interface PolisRequestParams {
     zid?: string;
@@ -4870,8 +4778,6 @@ Email verified! You can close this tab or hit the back button.
       const classifications = [];
 
       const toxicityScore = Number(polisModResponse);
-
-      console.log(`TOXICITY: ${toxicityScore}`);
 
       if (typeof toxicityScore === "number" && !isNaN(toxicityScore)) {
         logger.debug(
