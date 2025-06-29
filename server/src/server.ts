@@ -4768,7 +4768,9 @@ Email verified! You can close this tab or hit the back button.
         return;
       }
 
-      const polisModResponse = await analyzeComment(txt, conv.topic, ip);
+      const polisModResponse = is_moderator
+        ? 0
+        : await analyzeComment(txt, conv.topic, ip);
 
       const bad = hasBadWords(txt);
 
