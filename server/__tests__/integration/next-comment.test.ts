@@ -1,13 +1,13 @@
-import { beforeAll, describe, expect, test } from '@jest/globals';
-import type { Response } from 'supertest';
-import type { Agent } from 'supertest';
+import { beforeAll, describe, expect, test, jest } from "@jest/globals";
+import type { Response } from "supertest";
+import type { Agent } from "supertest";
 import {
   getTestAgent,
   getTextAgent,
   initializeParticipant,
   setupAuthAndConvo,
-  submitVote
-} from '../setup/api-test-helpers';
+  submitVote,
+} from "../setup/api-test-helpers";
 
 interface Comment {
   tid: number;
@@ -15,7 +15,66 @@ interface Comment {
   [key: string]: any;
 }
 
-describe('Next Comment Endpoint', () => {
+jest.mock("fs/promises", () => ({
+  readFile: jest.fn().mockImplementation((path) => {
+    if ((path as string).endsWith("script.xml")) {
+      return Promise.resolve(`
+        <polis_moderation_rubric>
+          <children></children> 
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children> 
+          <children>
+            <task>
+              <children></children> 
+              <children>
+                 
+              </children>
+            </task>
+          </children>
+        </polis_moderation_rubric>
+      `);
+    }
+    if ((path as string).endsWith("system.xml")) {
+      return Promise.resolve("<system_lore>System lore content</system_lore>");
+    }
+    return Promise.reject(new Error(`File not found in mock: ${path}`));
+  }),
+}));
+
+// @ts-expect-error mock
+const mockGenerateContent = jest.fn().mockResolvedValue({
+  text: JSON.stringify({
+    output: {
+      base_score: "0.9",
+      substance_level: "High",
+      multiplier: "1.2",
+      final_score: "1.08",
+      decision: "APPROVE",
+    },
+  }),
+});
+
+jest.mock("@google/genai", () => {
+  return {
+    GoogleGenAI: jest.fn().mockImplementation(() => {
+      return {
+        models: {
+          generateContent: mockGenerateContent,
+        },
+      };
+    }),
+  };
+});
+
+describe("Next Comment Endpoint", () => {
   // Declare agent variables
   let agent: Agent;
   let textAgent: Agent;
@@ -26,10 +85,10 @@ describe('Next Comment Endpoint', () => {
     // Initialize agents
     agent = await getTestAgent();
     textAgent = await getTextAgent();
-    
+
     // Setup auth and create test conversation with multiple comments
     const setup = await setupAuthAndConvo({
-      commentCount: 5
+      commentCount: 5,
     });
 
     conversationId = setup.conversationId;
@@ -39,9 +98,11 @@ describe('Next Comment Endpoint', () => {
     expect(commentIds.length).toBe(5);
   });
 
-  test('GET /nextComment - Get next comment for voting', async () => {
+  test("GET /nextComment - Get next comment for voting", async () => {
     // Request the next comment for voting
-    const response: Response = await agent.get(`/api/v3/nextComment?conversation_id=${conversationId}`);
+    const response: Response = await agent.get(
+      `/api/v3/nextComment?conversation_id=${conversationId}`
+    );
 
     // Validate response
     expect(response.status).toBe(200);
@@ -55,12 +116,14 @@ describe('Next Comment Endpoint', () => {
     expect(commentIds).toContain(response.body.tid);
   });
 
-  test('GET /nextComment - Anonymous users can get next comment', async () => {
+  test("GET /nextComment - Anonymous users can get next comment", async () => {
     // Initialize anonymous participant
     const { agent: anonAgent } = await initializeParticipant(conversationId!);
 
     // Request next comment as anonymous user
-    const response: Response = await anonAgent.get(`/api/v3/nextComment?conversation_id=${conversationId}`);
+    const response: Response = await anonAgent.get(
+      `/api/v3/nextComment?conversation_id=${conversationId}`
+    );
 
     // Validate response
     expect(response.status).toBe(200);
@@ -69,9 +132,11 @@ describe('Next Comment Endpoint', () => {
     expect(response.body.txt).toBeDefined();
   });
 
-  test('GET /nextComment - Respect not_voted_by_pid parameter', async () => {
+  test("GET /nextComment - Respect not_voted_by_pid parameter", async () => {
     // Initialize a new participant
-    const { agent: firstAgent, body: initBody } = await initializeParticipant(conversationId!);
+    const { agent: firstAgent, body: initBody } = await initializeParticipant(
+      conversationId!
+    );
     expect(initBody.nextComment).toBeDefined();
     const { nextComment: firstComment } = initBody;
 
@@ -79,35 +144,38 @@ describe('Next Comment Endpoint', () => {
     const firstVoteResponse = await submitVote(firstAgent, {
       tid: firstComment.tid,
       conversation_id: conversationId!,
-      vote: 0
+      vote: 0,
     });
 
     expect(firstVoteResponse.status).toBe(200);
-    expect(firstVoteResponse.body).toHaveProperty('currentPid');
-    expect(firstVoteResponse.body).toHaveProperty('nextComment');
+    expect(firstVoteResponse.body).toHaveProperty("currentPid");
+    expect(firstVoteResponse.body).toHaveProperty("nextComment");
 
-    const { currentPid: firstVoterPid, nextComment: secondComment } = firstVoteResponse.body;
+    const {
+      currentPid: firstVoterPid,
+      nextComment: secondComment,
+    } = firstVoteResponse.body;
 
     // Vote on 3 more comments
     const secondVoteResponse = await submitVote(firstAgent, {
       pid: firstVoterPid,
       tid: secondComment.tid,
       conversation_id: conversationId!,
-      vote: 0
+      vote: 0,
     });
 
     const thirdVoteResponse = await submitVote(firstAgent, {
       pid: firstVoterPid,
       tid: secondVoteResponse.body.nextComment.tid,
       conversation_id: conversationId!,
-      vote: 0
+      vote: 0,
     });
 
     const fourthVoteResponse = await submitVote(firstAgent, {
       pid: firstVoterPid,
       tid: thirdVoteResponse.body.nextComment.tid,
       conversation_id: conversationId!,
-      vote: 0
+      vote: 0,
     });
 
     const lastComment = fourthVoteResponse.body.nextComment;
@@ -126,16 +194,16 @@ describe('Next Comment Endpoint', () => {
     expect(nextResponse.body.tid).toBe(lastComment.tid);
   });
 
-  test('GET /nextComment - 400 for missing conversation_id', async () => {
+  test("GET /nextComment - 400 for missing conversation_id", async () => {
     // Request without required conversation_id
-    const response: Response = await textAgent.get('/api/v3/nextComment');
+    const response: Response = await textAgent.get("/api/v3/nextComment");
 
     // Validate response
     expect(response.status).toBe(400);
     expect(response.text).toMatch(/polis_err_param_missing_conversation_id/);
   });
 
-  test('GET /nextComment - Handles `without` parameter', async () => {
+  test("GET /nextComment - Handles `without` parameter", async () => {
     const withoutCommentIds = commentIds.slice(0, 4);
 
     // Request next comment without comments 0-3
