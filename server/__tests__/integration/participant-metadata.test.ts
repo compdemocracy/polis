@@ -30,21 +30,54 @@ interface MetadataResponse {
   kvp: Record<string, any>;
 }
 
-// Mock the @google/genai library
-jest.mock("@google/genai", () => {
-  // @ts-expect-error mock test
-  const mockGenerateContent = jest.fn().mockResolvedValue({
-    text: JSON.stringify({
-      output: {
-        base_score: "0.9",
-        substance_level: "High",
-        multiplier: "1.2",
-        final_score: "1.08",
-        decision: "APPROVE",
-      },
-    }),
-  });
+jest.mock("fs/promises", () => ({
+  readFile: jest.fn().mockImplementation((path) => {
+    if ((path as string).endsWith("script.xml")) {
+      return Promise.resolve(`
+        <polis_moderation_rubric>
+          <children></children> 
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children>
+          <children></children> 
+          <children>
+            <task>
+              <children></children> 
+              <children>
+                 
+              </children>
+            </task>
+          </children>
+        </polis_moderation_rubric>
+      `);
+    }
+    if ((path as string).endsWith("system.xml")) {
+      return Promise.resolve("<system_lore>System lore content</system_lore>");
+    }
+    return Promise.reject(new Error(`File not found in mock: ${path}`));
+  }),
+}));
 
+// @ts-expect-error mocks
+const mockGenerateContent = jest.fn().mockResolvedValue({
+  text: JSON.stringify({
+    output: {
+      base_score: "0.9",
+      substance_level: "High",
+      multiplier: "1.2",
+      final_score: "1.08",
+      decision: "APPROVE",
+    },
+  }),
+});
+
+jest.mock("@google/genai", () => {
   return {
     GoogleGenAI: jest.fn().mockImplementation(() => {
       return {
@@ -55,31 +88,6 @@ jest.mock("@google/genai", () => {
     }),
   };
 });
-
-// Mock the fs/promises module
-jest.mock("fs/promises", () => ({
-  readFile: jest.fn().mockImplementation((path) => {
-    if ((path as string).endsWith("script.xml")) {
-      return Promise.resolve(`<polis_moderation_rubric>
-        <task>
-          <input>
-            <comment_text></comment_text>
-            <conversation_topic></conversation_topic>
-            <geographical_context></geographical_context>
-          </input>
-        </task>
-        <task></task><task></task><task></task><task></task><task></task><task></task><task></task><task></task><task></task><task></task>
-        <task>
-          <input></input>
-        </task>
-      </polis_moderation_rubric>`);
-    }
-    if ((path as string).endsWith("system.xml")) {
-      return Promise.resolve("<system_lore>System lore content</system_lore>");
-    }
-    return Promise.reject(new Error("File not found"));
-  }),
-}));
 
 describe("Participant Metadata API", () => {
   let agent: Agent;
