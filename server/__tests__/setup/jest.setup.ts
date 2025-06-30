@@ -73,7 +73,3 @@ if (process.env.RESET_DB_BEFORE_TESTS === "true") {
     await resetDatabase();
   }, 60000); // Give reset more time if needed
 }
-
-module.exports = {
-  setupFilesAfterEnv: ["<rootDir>/server/__tests__/setup/jest.setup.ts"],
-};
