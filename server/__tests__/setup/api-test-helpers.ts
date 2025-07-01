@@ -1,22 +1,22 @@
-import crypto from 'crypto';
-import dotenv from 'dotenv';
-import request from 'supertest';
-import type { Response } from 'supertest';
-import type { Express } from 'express';
-import type { 
+import crypto from "crypto";
+import dotenv from "dotenv";
+import request from "supertest";
+import type { Response } from "supertest";
+import type { Express } from "express";
+import type {
   TestUser,
   AuthData,
-  ConvoData, 
+  ConvoData,
   ParticipantData,
   VoteData,
   VoteResponse,
   ConversationOptions,
   CommentOptions,
-  ValidationOptions
-} from '../../types/test-helpers';
+  ValidationOptions,
+} from "../../types/test-helpers";
 
 // Import the Express app via our controlled loader
-import { getApp } from '../app-loader';
+import { getApp } from "../app-loader";
 
 // Async version for more reliable initialization
 async function getAppInstance(): Promise<Express> {
@@ -27,8 +27,8 @@ async function getAppInstance(): Promise<Express> {
 dotenv.config({ override: false });
 
 // Set environment variables for testing
-process.env.NODE_ENV = 'test';
-process.env.TESTING = 'true';
+process.env.NODE_ENV = "test";
+process.env.TESTING = "true";
 
 // ASYNC getter functions
 async function getTestAgent(): Promise<ReturnType<typeof request.agent>> {
@@ -39,7 +39,7 @@ async function getTestAgent(): Promise<ReturnType<typeof request.agent>> {
   }
   // Ensure it's not null before returning
   if (!(globalThis as any).__TEST_AGENT__) {
-      throw new Error('Failed to initialize __TEST_AGENT__');
+    throw new Error("Failed to initialize __TEST_AGENT__");
   }
   return (globalThis as any).__TEST_AGENT__;
 }
@@ -51,9 +51,9 @@ async function getTextAgent(): Promise<ReturnType<typeof request.agent>> {
     const app = await getAppInstance();
     (globalThis as any).__TEXT_AGENT__ = createTextAgent(app);
   }
-   // Ensure it's not null before returning
+  // Ensure it's not null before returning
   if (!(globalThis as any).__TEXT_AGENT__) {
-      throw new Error('Failed to initialize __TEXT_AGENT__');
+    throw new Error("Failed to initialize __TEXT_AGENT__");
   }
   return (globalThis as any).__TEXT_AGENT__;
 }
@@ -80,12 +80,12 @@ async function newTextAgent(): Promise<ReturnType<typeof request.agent>> {
 function createTextAgent(app: Express): ReturnType<typeof request.agent> {
   const agent = request.agent(app);
   agent.parse((res, fn) => {
-    res.setEncoding('utf8');
-    res.text = '';
-    res.on('data', (chunk) => {
+    res.setEncoding("utf8");
+    res.text = "";
+    res.on("data", (chunk) => {
       res.text += chunk;
     });
-    res.on('end', () => {
+    res.on("end", () => {
       fn(null, res.text);
     });
   });
@@ -103,7 +103,7 @@ function generateTestUser(): TestUser {
   return {
     email: `test.user.${timestamp}.${randomSuffix}@example.com`,
     password: `TestPassword${randomSuffix}!`,
-    hname: `Test User ${timestamp}`
+    hname: `Test User ${timestamp}`,
   };
 }
 
@@ -122,7 +122,8 @@ function generateRandomXid(): string {
  * @param ms - Milliseconds to wait
  * @returns Promise that resolves after the specified time
  */
-const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+const wait = (ms: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Helper to create a test conversation using a supertest agent
@@ -131,7 +132,7 @@ const wait = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(
  * @returns Created conversation ID (zinvite)
  */
 async function createConversation(
-  agent: ReturnType<typeof request.agent>, 
+  agent: ReturnType<typeof request.agent>,
   options: ConversationOptions = {}
 ): Promise<string> {
   const timestamp = Date.now();
@@ -143,14 +144,18 @@ async function createConversation(
     is_draft: false,
     strict_moderation: false,
     profanity_filter: false, // Disable profanity filter for testing
-    ...options
+    ...options,
   };
 
-  const response = await agent.post('/api/v3/conversations').send(defaultOptions);
+  const response = await agent
+    .post("/api/v3/conversations")
+    .send(defaultOptions);
 
   // Validate response
   if (response.status !== 200) {
-    throw new Error(`Failed to create conversation: ${response.status} ${response.text}`);
+    throw new Error(
+      `Failed to create conversation: ${response.status} ${response.text}`
+    );
   }
 
   try {
@@ -159,7 +164,9 @@ async function createConversation(
     return jsonData.conversation_id;
   } catch (error) {
     if (error instanceof Error) {
-      throw new Error(`Failed to parse conversation response: ${error.message}, Response: ${response.text}`);
+      throw new Error(
+        `Failed to parse conversation response: ${error.message}, Response: ${response.text}`
+      );
     }
     throw error;
   }
@@ -173,33 +180,37 @@ async function createConversation(
  * @returns Created comment ID
  */
 async function createComment(
-  agent: ReturnType<typeof request.agent>, 
-  conversationId: string, 
+  agent: ReturnType<typeof request.agent>,
+  conversationId: string,
   options: CommentOptions = {} as CommentOptions
 ): Promise<number> {
   if (!conversationId) {
-    throw new Error('Conversation ID is required to create a comment');
+    throw new Error("Conversation ID is required to create a comment");
   }
 
   const defaultOptions = {
     agid: 1,
     is_active: true,
-    pid: 'mypid',
+    pid: "mypid",
     ...options,
     conversation_id: options.conversation_id || conversationId,
-    txt: options.txt || `This is a test comment created at ${Date.now()}`
+    txt: options.txt || `This is a test comment created at ${Date.now()}`,
   };
 
-  const response = await agent.post('/api/v3/comments').send(defaultOptions);
+  const response = await agent.post("/api/v3/comments").send(defaultOptions);
 
   // Validate response
   if (response.status !== 200) {
-    throw new Error(`Failed to create comment: ${response.status} ${response.text}`);
+    throw new Error(
+      `Failed to create comment: ${response.status} ${response.text}`
+    );
   }
+
+  console.log(response);
 
   const responseBody = parseResponseJSON(response);
   const commentId = responseBody.tid;
-  const cookies = response.headers['set-cookie'] || [];
+  const cookies = response.headers["set-cookie"] || [];
   authenticateAgent(agent, cookies);
 
   await wait(500); // Wait for comment to be created
@@ -213,26 +224,29 @@ async function createComment(
  * @param cookieName - Name of the cookie to extract
  * @returns Cookie value or null if not found
  */
-function extractCookieValue(cookies: string[] | string | undefined, cookieName: string): string | null {
+function extractCookieValue(
+  cookies: string[] | string | undefined,
+  cookieName: string
+): string | null {
   if (!cookies) {
     return null;
   }
-  
+
   // Handle string array
   if (Array.isArray(cookies)) {
     if (cookies.length === 0) {
       return null;
     }
-    
+
     for (const cookie of cookies) {
       if (cookie.startsWith(`${cookieName}=`)) {
-        return cookie.split(`${cookieName}=`)[1].split(';')[0];
+        return cookie.split(`${cookieName}=`)[1].split(";")[0];
       }
     }
-  } 
+  }
   // Handle single cookie string
-  else if (typeof cookies === 'string') {
-    const cookieParts = cookies.split(';');
+  else if (typeof cookies === "string") {
+    const cookieParts = cookies.split(";");
     for (const part of cookieParts) {
       const trimmed = part.trim();
       if (trimmed.startsWith(`${cookieName}=`)) {
@@ -251,7 +265,9 @@ function extractCookieValue(cookies: string[] | string | undefined, cookieName: 
  * @param userData - User data for registration
  * @returns Object containing authToken and userId
  */
-async function registerAndLoginUser(userData: TestUser | null = null): Promise<AuthData> {
+async function registerAndLoginUser(
+  userData: TestUser | null = null
+): Promise<AuthData> {
   // Use async agent getting to ensure app is initialized
   const agent = await getTestAgent();
   const textAgent = await getTextAgent();
@@ -260,32 +276,36 @@ async function registerAndLoginUser(userData: TestUser | null = null): Promise<A
   const testUser = userData || generateTestUser();
 
   // Register the user
-  const registerResponse = await textAgent.post('/api/v3/auth/new').send({
+  const registerResponse = await textAgent.post("/api/v3/auth/new").send({
     ...testUser,
     password2: testUser.password,
-    gatekeeperTosPrivacy: true
+    gatekeeperTosPrivacy: true,
   });
 
   // Validate registration response
   if (registerResponse.status !== 200) {
-    throw new Error(`Failed to register user: ${registerResponse.status} ${registerResponse.text}`);
+    throw new Error(
+      `Failed to register user: ${registerResponse.status} ${registerResponse.text}`
+    );
   }
 
   // Login with the user
-  const loginResponse = await agent.post('/api/v3/auth/login').send({
+  const loginResponse = await agent.post("/api/v3/auth/login").send({
     email: testUser.email,
-    password: testUser.password
+    password: testUser.password,
   });
 
   // Validate login response
   if (loginResponse.status !== 200) {
-    throw new Error(`Failed to login user: ${loginResponse.status} ${loginResponse.text}`);
+    throw new Error(
+      `Failed to login user: ${loginResponse.status} ${loginResponse.text}`
+    );
   }
 
   const loginBody = parseResponseJSON(loginResponse);
 
   // Get cookies for API compatibility
-  const loginCookies = loginResponse.headers['set-cookie'] || [];
+  const loginCookies = loginResponse.headers["set-cookie"] || [];
   authenticateGlobalAgents(loginCookies);
 
   // For compatibility with existing tests
@@ -294,7 +314,7 @@ async function registerAndLoginUser(userData: TestUser | null = null): Promise<A
     userId: loginBody.uid,
     agent, // Return the authenticated agent
     textAgent, // Return the text agent for error cases
-    testUser
+    testUser,
   };
 }
 
@@ -305,15 +325,22 @@ async function registerAndLoginUser(userData: TestUser | null = null): Promise<A
  * @param options - Options for setup
  * @returns Object containing auth token, userId, and conversation info
  */
-async function setupAuthAndConvo(options: {
-  createConvo?: boolean;
-  commentCount?: number;
-  conversationOptions?: ConversationOptions;
-  commentOptions?: CommentOptions;
-  userData?: TestUser;
-} = {}): Promise<ConvoData> {
-  const { createConvo = true, commentCount = 1, conversationOptions = {}, commentOptions = {} } = options;
-  
+async function setupAuthAndConvo(
+  options: {
+    createConvo?: boolean;
+    commentCount?: number;
+    conversationOptions?: ConversationOptions;
+    commentOptions?: CommentOptions;
+    userData?: TestUser;
+  } = {}
+): Promise<ConvoData> {
+  const {
+    createConvo = true,
+    commentCount = 1,
+    conversationOptions = {},
+    commentOptions = {},
+  } = options;
+
   // Use async agent getting to ensure app is initialized
   const agent = await getTestAgent();
 
@@ -322,7 +349,7 @@ async function setupAuthAndConvo(options: {
   const { userId } = await registerAndLoginUser(testUser);
 
   const commentIds: number[] = [];
-  let conversationId = '';
+  let conversationId = "";
 
   // Create test conversation if requested
   if (createConvo) {
@@ -335,13 +362,13 @@ async function setupAuthAndConvo(options: {
       is_draft: false,
       strict_moderation: false,
       profanity_filter: false,
-      ...conversationOptions
+      ...conversationOptions,
     };
 
     conversationId = await createConversation(agent, convoOptions);
 
     if (conversationId === null || conversationId === undefined) {
-      throw new Error('Failed to create conversation');
+      throw new Error("Failed to create conversation");
     }
 
     // Create test comments if commentCount is specified
@@ -350,13 +377,17 @@ async function setupAuthAndConvo(options: {
         const commentData = {
           conversation_id: conversationId,
           txt: `Test comment ${i + 1}`,
-          ...commentOptions
+          ...commentOptions,
         };
 
-        const commentId = await createComment(agent, conversationId, commentData);
+        const commentId = await createComment(
+          agent,
+          conversationId,
+          commentData
+        );
 
         if (commentId == null || commentId === undefined) {
-          throw new Error('Failed to create comment');
+          throw new Error("Failed to create comment");
         }
 
         commentIds.push(commentId);
@@ -368,7 +399,7 @@ async function setupAuthAndConvo(options: {
     userId,
     testUser,
     conversationId,
-    commentIds
+    commentIds,
   };
 }
 
@@ -378,7 +409,9 @@ async function setupAuthAndConvo(options: {
  * @param conversationId - Conversation zinvite
  * @returns Participant data with cookies, body, status and agent
  */
-async function initializeParticipant(conversationId: string): Promise<ParticipantData> {
+async function initializeParticipant(
+  conversationId: string
+): Promise<ParticipantData> {
   // Use async agent creation to ensure app is initialized
   const participantAgent = await newAgent();
 
@@ -387,18 +420,20 @@ async function initializeParticipant(conversationId: string): Promise<Participan
   );
 
   if (response.status !== 200) {
-    throw new Error(`Failed to initialize anonymous participant. Status: ${response.status}`);
+    throw new Error(
+      `Failed to initialize anonymous participant. Status: ${response.status}`
+    );
   }
 
   // Extract cookies
-  const cookies = response.headers['set-cookie'] || [];
+  const cookies = response.headers["set-cookie"] || [];
   authenticateAgent(participantAgent, cookies);
 
   return {
     cookies,
     body: parseResponseJSON(response),
     status: response.status,
-    agent: participantAgent // Return an authenticated agent for the participant
+    agent: participantAgent, // Return an authenticated agent for the participant
   };
 }
 
@@ -409,7 +444,10 @@ async function initializeParticipant(conversationId: string): Promise<Participan
  * @param xid - External ID (generated or provided)
  * @returns Participant data including cookies, body, status and agent
  */
-async function initializeParticipantWithXid(conversationId: string, xid: string | null = null): Promise<ParticipantData> {
+async function initializeParticipantWithXid(
+  conversationId: string,
+  xid: string | null = null
+): Promise<ParticipantData> {
   // Use async agent creation to ensure app is initialized
   const participantAgent = await newAgent();
 
@@ -421,11 +459,13 @@ async function initializeParticipantWithXid(conversationId: string, xid: string 
   );
 
   if (response.status !== 200) {
-    throw new Error(`Failed to initialize participant with XID. Status: ${response.status}`);
+    throw new Error(
+      `Failed to initialize participant with XID. Status: ${response.status}`
+    );
   }
 
   // Extract cookies
-  const cookies = response.headers['set-cookie'] || [];
+  const cookies = response.headers["set-cookie"] || [];
   authenticateAgent(participantAgent, cookies);
 
   return {
@@ -433,7 +473,7 @@ async function initializeParticipantWithXid(conversationId: string, xid: string 
     body: parseResponseJSON(response),
     status: response.status,
     agent: participantAgent, // Return an authenticated agent for the participant
-    xid: participantXid // Return the XID that was used
+    xid: participantXid, // Return the XID that was used
   };
 }
 
@@ -445,32 +485,32 @@ async function initializeParticipantWithXid(conversationId: string, xid: string 
  * @returns Vote response
  */
 async function submitVote(
-  agent: ReturnType<typeof request.agent> | null, 
+  agent: ReturnType<typeof request.agent> | null,
   options: VoteData = {} as VoteData
 ): Promise<VoteResponse> {
   // Error if options does not have tid or conversation_id
   // NOTE: 0 is a valid value for tid or conversation_id
   if (options.tid === undefined || options.conversation_id === undefined) {
-    throw new Error('Options must have tid or conversation_id to vote');
+    throw new Error("Options must have tid or conversation_id to vote");
   }
   // Ensure agent is initialized if not provided
-  const voterAgent = agent || await getTestAgent();
+  const voterAgent = agent || (await getTestAgent());
 
   // Create vote payload
   const voteData = {
     agid: 1,
     high_priority: false,
-    lang: 'en',
-    pid: 'mypid',
+    lang: "en",
+    pid: "mypid",
     ...options,
-    vote: options.vote !== undefined ? options.vote : 0
+    vote: options.vote !== undefined ? options.vote : 0,
   };
 
-  const response = await voterAgent.post('/api/v3/votes').send(voteData);
+  const response = await voterAgent.post("/api/v3/votes").send(voteData);
 
   await wait(500); // Wait for vote to be processed
 
-  const cookies = response.headers['set-cookie'] || [];
+  const cookies = response.headers["set-cookie"] || [];
   authenticateAgent(voterAgent, cookies);
 
   return {
@@ -478,7 +518,7 @@ async function submitVote(
     body: parseResponseJSON(response),
     text: response.text,
     status: response.status,
-    agent: voterAgent // Return the agent for chaining
+    agent: voterAgent, // Return the agent for chaining
   };
 }
 
@@ -490,17 +530,19 @@ async function submitVote(
  * @returns - Array of votes
  */
 async function getVotes(
-  agent: ReturnType<typeof request.agent>, 
-  conversationId: string, 
+  agent: ReturnType<typeof request.agent>,
+  conversationId: string,
   pid: string
 ): Promise<any[]> {
   // Get votes for the conversation
-  const response = await agent.get(`/api/v3/votes?conversation_id=${conversationId}&pid=${pid}`);
+  const response = await agent.get(
+    `/api/v3/votes?conversation_id=${conversationId}&pid=${pid}`
+  );
 
   // Validate response
   validateResponse(response, {
     expectedStatus: 200,
-    errorPrefix: 'Failed to get votes'
+    errorPrefix: "Failed to get votes",
   });
 
   return response.body;
@@ -514,17 +556,19 @@ async function getVotes(
  * @returns - Array of votes
  */
 async function getMyVotes(
-  agent: ReturnType<typeof request.agent>, 
-  conversationId: string, 
+  agent: ReturnType<typeof request.agent>,
+  conversationId: string,
   pid: string
 ): Promise<any[]> {
   // Get votes for the participant
-  const response = await agent.get(`/api/v3/votes/me?conversation_id=${conversationId}&pid=${pid}`);
+  const response = await agent.get(
+    `/api/v3/votes/me?conversation_id=${conversationId}&pid=${pid}`
+  );
 
   // Validate response
   validateResponse(response, {
     expectedStatus: 200,
-    errorPrefix: 'Failed to get my votes'
+    errorPrefix: "Failed to get my votes",
   });
 
   // NOTE: This endpoint seems to return a 200 status with an empty array.
@@ -538,14 +582,16 @@ async function getMyVotes(
  * @returns - API response
  */
 async function updateConversation(
-  agent: ReturnType<typeof request.agent>, 
-  params: { conversation_id: string; [key: string]: any } = { conversation_id: '' }
+  agent: ReturnType<typeof request.agent>,
+  params: { conversation_id: string; [key: string]: any } = {
+    conversation_id: "",
+  }
 ): Promise<Response> {
   if (params.conversation_id === undefined) {
-    throw new Error('conversation_id is required to update a conversation');
+    throw new Error("conversation_id is required to update a conversation");
   }
 
-  return agent.put('/api/v3/conversations').send(params);
+  return agent.put("/api/v3/conversations").send(params);
 }
 
 /**
@@ -557,7 +603,7 @@ async function updateConversation(
 function hasResponseProperty(response: any, propertyPath: string): boolean {
   if (!response) return false;
 
-  const parts = propertyPath.split('.');
+  const parts = propertyPath.split(".");
   let current = response;
 
   for (const part of parts) {
@@ -577,9 +623,11 @@ function hasResponseProperty(response: any, propertyPath: string): boolean {
  * @param prefix - Error message prefix
  * @returns - Formatted error message
  */
-function formatErrorMessage(response: Response, prefix = 'API error'): string {
+function formatErrorMessage(response: Response, prefix = "API error"): string {
   const errorMessage =
-    typeof response.body === 'string' ? response.body : response.text || JSON.stringify(response.body);
+    typeof response.body === "string"
+      ? response.body
+      : response.text || JSON.stringify(response.body);
   return `${prefix}: ${response.status} ${errorMessage}`;
 }
 
@@ -590,8 +638,15 @@ function formatErrorMessage(response: Response, prefix = 'API error'): string {
  * @returns - The response if valid
  * @throws - If response is invalid
  */
-function validateResponse(response: Response, options: ValidationOptions = {}): Response {
-  const { expectedStatus = 200, errorPrefix = 'API error', requiredProperties = [] } = options;
+function validateResponse(
+  response: Response,
+  options: ValidationOptions = {}
+): Response {
+  const {
+    expectedStatus = 200,
+    errorPrefix = "API error",
+    requiredProperties = [],
+  } = options;
 
   // Check status
   if (response.status !== expectedStatus) {
@@ -615,7 +670,7 @@ function validateResponse(response: Response, options: ValidationOptions = {}): 
  * @returns - The authenticated agent (for chaining)
  */
 function authenticateAgent(
-  agent: ReturnType<typeof request.agent>, 
+  agent: ReturnType<typeof request.agent>,
   token: string[] | string | undefined
 ): ReturnType<typeof request.agent> {
   if (!token || (Array.isArray(token) && token.length === 0)) {
@@ -624,14 +679,17 @@ function authenticateAgent(
 
   if (Array.isArray(token)) {
     // Handle cookie array
-    const cookieString = token.map((c) => c.split(';')[0]).join('; ');
-    agent.set('Cookie', cookieString);
-  } else if (typeof token === 'string' && (token.includes(';') || token.startsWith('token2='))) {
+    const cookieString = token.map((c) => c.split(";")[0]).join("; ");
+    agent.set("Cookie", cookieString);
+  } else if (
+    typeof token === "string" &&
+    (token.includes(";") || token.startsWith("token2="))
+  ) {
     // Handle cookie string
-    agent.set('Cookie', token);
-  } else if (typeof token === 'string') {
+    agent.set("Cookie", token);
+  } else if (typeof token === "string") {
     // Handle x-polis token
-    agent.set('x-polis', token);
+    agent.set("x-polis", token);
   }
 
   return agent;
@@ -644,16 +702,23 @@ function authenticateAgent(
  * @param token - Auth token or cookie array
  * @returns - Object containing both authenticated agents
  */
-function authenticateGlobalAgents(token: string[] | string | undefined): {
+function authenticateGlobalAgents(
+  token: string[] | string | undefined
+): {
   agent: ReturnType<typeof request.agent>;
   textAgent: ReturnType<typeof request.agent>;
 } {
   // Use type assertion for global access
-  if (!(globalThis as any).__TEST_AGENT__ || !(globalThis as any).__TEXT_AGENT__) {
-     // This might happen if called very early, before globalSetup or async getters run.
-     // Depending on usage, might need to make this function async and await getTestAgent()/getTextAgent().
-     // For now, throw error to highlight the potential issue.
-     throw new Error('Global agents not initialized. Cannot authenticate synchronously.'); 
+  if (
+    !(globalThis as any).__TEST_AGENT__ ||
+    !(globalThis as any).__TEXT_AGENT__
+  ) {
+    // This might happen if called very early, before globalSetup or async getters run.
+    // Depending on usage, might need to make this function async and await getTestAgent()/getTextAgent().
+    // For now, throw error to highlight the potential issue.
+    throw new Error(
+      "Global agents not initialized. Cannot authenticate synchronously."
+    );
   }
   const agent = (globalThis as any).__TEST_AGENT__; // Access directly AFTER ensuring they exist
   const textAgent = (globalThis as any).__TEXT_AGENT__; // Access directly AFTER ensuring they exist
@@ -664,17 +729,20 @@ function authenticateGlobalAgents(token: string[] | string | undefined): {
 
   if (Array.isArray(token)) {
     // Handle cookie array
-    const cookieString = token.map((c) => c.split(';')[0]).join('; ');
-    agent.set('Cookie', cookieString);
-    textAgent.set('Cookie', cookieString);
-  } else if (typeof token === 'string' && (token.includes(';') || token.startsWith('token2='))) {
+    const cookieString = token.map((c) => c.split(";")[0]).join("; ");
+    agent.set("Cookie", cookieString);
+    textAgent.set("Cookie", cookieString);
+  } else if (
+    typeof token === "string" &&
+    (token.includes(";") || token.startsWith("token2="))
+  ) {
     // Handle cookie string
-    agent.set('Cookie', token);
-    textAgent.set('Cookie', token);
-  } else if (typeof token === 'string') {
+    agent.set("Cookie", token);
+    textAgent.set("Cookie", token);
+  } else if (typeof token === "string") {
     // Handle x-polis token
-    agent.set('x-polis', token);
-    textAgent.set('x-polis', token);
+    agent.set("x-polis", token);
+    textAgent.set("x-polis", token);
   }
 
   return { agent, textAgent };
@@ -693,30 +761,35 @@ function parseResponseJSON(response: Response): any {
     }
     return {};
   } catch (e) {
-    console.error('Error parsing JSON response:', e);
+    console.error("Error parsing JSON response:", e);
     return {};
   }
 }
 
 // Utility function to create HMAC signature for email verification
-function createHmacSignature(email: string, conversationId: string, path = 'api/v3/notifications/subscribe'): string {
+function createHmacSignature(
+  email: string,
+  conversationId: string,
+  path = "api/v3/notifications/subscribe"
+): string {
   // This should match the server's HMAC generation logic
-  const serverKey = 'G7f387ylIll8yuskuf2373rNBmcxqWYFfHhdsd78f3uekfs77EOLR8wofw';
-  const hmac = crypto.createHmac('sha1', serverKey);
-  hmac.setEncoding('hex');
+  const serverKey =
+    "G7f387ylIll8yuskuf2373rNBmcxqWYFfHhdsd78f3uekfs77EOLR8wofw";
+  const hmac = crypto.createHmac("sha1", serverKey);
+  hmac.setEncoding("hex");
 
   // Create params object
   const params = {
     conversation_id: conversationId,
-    email: email
+    email: email,
   };
 
   // Create the full string exactly as the server does
-  path = path.replace(/\/$/, ''); // Remove trailing slash if present
+  path = path.replace(/\/$/, ""); // Remove trailing slash if present
   const paramString = Object.entries(params)
-    .sort(([a], [b]) => a > b ? 1 : -1)
+    .sort(([a], [b]) => (a > b ? 1 : -1))
     .map(([key, value]) => `${key}=${value}`)
-    .join('&');
+    .join("&");
 
   const fullString = `${path}?${paramString}`;
 
@@ -735,45 +808,64 @@ function createHmacSignature(email: string, conversationId: string, path = 'api/
  * @param options - Configuration options
  * @returns Object containing arrays of created participants, comments, and votes
  */
-async function populateConversationWithVotes(options: {
-  conversationId: string;
-  numParticipants?: number;
-  numComments?: number;
-} = { conversationId: '' }): Promise<{
+async function populateConversationWithVotes(
+  options: {
+    conversationId: string;
+    numParticipants?: number;
+    numComments?: number;
+  } = { conversationId: "" }
+): Promise<{
   participants: ReturnType<typeof request.agent>[];
   comments: number[];
-  votes: { participantIndex: number; commentId: number; vote: number; pid: string }[];
+  votes: {
+    participantIndex: number;
+    commentId: number;
+    vote: number;
+    pid: string;
+  }[];
   stats: { numParticipants: number; numComments: number; totalVotes: number };
 }> {
   const { conversationId, numParticipants = 3, numComments = 3 } = options;
 
   if (!conversationId) {
-    throw new Error('conversationId is required');
+    throw new Error("conversationId is required");
   }
 
   const participants: ReturnType<typeof request.agent>[] = [];
   const comments: number[] = [];
-  const votes: { participantIndex: number; commentId: number; vote: number; pid: string }[] = [];
+  const votes: {
+    participantIndex: number;
+    commentId: number;
+    vote: number;
+    pid: string;
+  }[] = [];
 
-  const voteGenerator = () => ([-1, 1, 0][Math.floor(Math.random() * 3)] as -1 | 0 | 1);
+  const voteGenerator = () =>
+    [-1, 1, 0][Math.floor(Math.random() * 3)] as -1 | 0 | 1;
 
   // Create comments first
   for (let i = 0; i < numComments; i++) {
     // Pass the result of the async getter
-    const commentId = await createComment(await getTestAgent(), conversationId, {
-      conversation_id: conversationId,
-      txt: `Test comment ${i + 1} created for data analysis`
-    });
+    const commentId = await createComment(
+      await getTestAgent(),
+      conversationId,
+      {
+        conversation_id: conversationId,
+        txt: `Test comment ${i + 1} created for data analysis`,
+      }
+    );
     comments.push(commentId);
   }
 
   // Create participants and their votes
   for (let i = 0; i < numParticipants; i++) {
     // Initialize participant
-    const { agent: participantAgent } = await initializeParticipant(conversationId);
+    const { agent: participantAgent } = await initializeParticipant(
+      conversationId
+    );
     participants.push(participantAgent);
 
-    let pid = 'mypid';
+    let pid = "mypid";
 
     // Have each participant vote on all comments
     for (let j = 0; j < comments.length; j++) {
@@ -783,7 +875,7 @@ async function populateConversationWithVotes(options: {
         tid: comments[j],
         conversation_id: conversationId,
         vote: vote,
-        pid: pid
+        pid: pid,
       });
 
       // Update pid for next vote
@@ -793,7 +885,7 @@ async function populateConversationWithVotes(options: {
         participantIndex: i,
         commentId: comments[j],
         vote: vote,
-        pid: pid
+        pid: pid,
       });
     }
   }
@@ -808,8 +900,8 @@ async function populateConversationWithVotes(options: {
     stats: {
       numParticipants,
       numComments,
-      totalVotes: votes.length
-    }
+      totalVotes: votes.length,
+    },
   };
 }
 
@@ -845,5 +937,5 @@ export {
   TestUser,
   ValidationOptions,
   VoteData,
-  VoteResponse
+  VoteResponse,
 };
