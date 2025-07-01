@@ -4783,7 +4783,7 @@ Email verified! You can close this tab or hit the back button.
 
       if (typeof toxicityScore === "number" && !isNaN(toxicityScore)) {
         logger.debug(
-          `Jigsaw toxicity Score for comment "${txt}": ${toxicityScore}`
+          `Polismod toxicity Score for comment "${txt}": ${toxicityScore}`
         );
 
         if (

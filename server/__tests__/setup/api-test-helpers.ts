@@ -206,8 +206,6 @@ async function createComment(
     );
   }
 
-  console.log(response);
-
   const responseBody = parseResponseJSON(response);
   const commentId = responseBody.tid;
   const cookies = response.headers["set-cookie"] || [];
