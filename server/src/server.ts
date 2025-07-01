@@ -4893,7 +4893,6 @@ Email verified! You can close this tab or hit the back button.
             createdTime = voteResult.vote.created;
           }
         } catch (err) {
-          console.log(err);
           fail(res, 500, "polis_err_vote_on_create", err);
           return;
         }
