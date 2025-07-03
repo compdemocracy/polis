@@ -120,6 +120,22 @@ def main():
 
     if extremity_exit_code != 0:
         print(f"{RED}Warning: Extremity calculation failed with exit code {extremity_exit_code}{NC}")
+        print("Continuing with priority calculation...")
+
+    # Calculate comment priorities using group-based extremity
+    print(f"{GREEN}Calculating comment priorities with group-based extremity...{NC}")
+    priority_command = [
+        "python", "/app/umap_narrative/502_calculate_priorities.py",
+        f"--conversation_id={zid}",
+    ]
+    if verbose_arg:
+        priority_command.append(verbose_arg)
+    
+    priority_process = subprocess.run(priority_command)
+    priority_exit_code = priority_process.returncode
+
+    if priority_exit_code != 0:
+        print(f"{RED}Warning: Priority calculation failed with exit code {priority_exit_code}{NC}")
         print("Continuing with visualization...")
 
     if pipeline_exit_code == 0:

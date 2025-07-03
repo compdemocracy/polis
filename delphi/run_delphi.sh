@@ -91,7 +91,7 @@ else
   BATCH_SIZE_ARG="--batch-size=50000"  # Default batch size
 fi
 
-# Run the math pipeline 
+# Run the math pipeline
 echo -e "${GREEN}Running math pipeline...${NC}"
 python /app/polismath/run_math_pipeline.py --zid=${ZID} ${MAX_VOTES_ARG} ${BATCH_SIZE_ARG}
 MATH_EXIT_CODE=$?
@@ -112,6 +112,15 @@ python /app/umap_narrative/501_calculate_comment_extremity.py --zid=${ZID} ${VER
 EXTREMITY_EXIT_CODE=$?
 if [ $EXTREMITY_EXIT_CODE -ne 0 ]; then
   echo -e "${RED}Warning: Extremity calculation failed with exit code ${EXTREMITY_EXIT_CODE}${NC}"
+  echo "Continuing with priority calculation..."
+fi
+
+# Calculate comment priorities using group-based extremity
+echo -e "${GREEN}Calculating comment priorities with group-based extremity...${NC}"
+python /app/umap_narrative/502_calculate_priorities.py --conversation_id=${ZID} ${VERBOSE}
+PRIORITY_EXIT_CODE=$?
+if [ $PRIORITY_EXIT_CODE -ne 0 ]; then
+  echo -e "${RED}Warning: Priority calculation failed with exit code ${PRIORITY_EXIT_CODE}${NC}"
   echo "Continuing with visualization..."
 fi
 
