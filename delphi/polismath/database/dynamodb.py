@@ -441,7 +441,7 @@ class DynamoDBClient:
                             # Create composite key for group representativeness
                             zid_tick_gid = f"{zid}:{math_tick}:{group_id}"
 
-                            logger.info(f"working on comment {comment_id}")
+                            logger.debug(f"working on comment {comment_id}")
                             
                             batch.put_item(Item={
                                 'zid_tick_gid': zid_tick_gid,
@@ -463,7 +463,7 @@ class DynamoDBClient:
                             # Create composite key for group representativeness
                             zid_tick_gid = f"{zid}:{math_tick}:{group_id}"
 
-                            logger.info(f"working on comment {comment_id}")
+                            logger.debug(f"working on comment {comment_id}")
                             
                             batch.put_item(Item={
                                 'zid_tick_gid': zid_tick_gid,

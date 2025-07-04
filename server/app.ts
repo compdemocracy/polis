@@ -25,6 +25,23 @@ import { handle_GET_delphi_visualizations } from "./src/routes/delphi/visualizat
 import { handle_POST_delphi_jobs } from "./src/routes/delphi/jobs";
 import { handle_GET_delphi_reports } from "./src/routes/delphi/reports";
 import { handle_POST_delphi_batch_reports } from "./src/routes/delphi/batchReports";
+
+import {
+  handle_GET_topicMod_topics,
+  handle_GET_topicMod_comments,
+  handle_POST_topicMod_moderate,
+  handle_GET_topicMod_proximity,
+  handle_GET_topicMod_hierarchy,
+  handle_GET_topicMod_stats,
+} from "./src/routes/delphi/topicMod";
+
+import {
+  handle_POST_topicAgenda_selections,
+  handle_GET_topicAgenda_selections,
+  handle_PUT_topicAgenda_selections,
+  handle_DELETE_topicAgenda_selections,
+} from "./src/routes/delphi/topicAgenda";
+
 import {
   handle_GET_feeds_directory,
   handle_GET_consensus_feed,
@@ -861,6 +878,148 @@ helpersInitialized.then(
       }
     });
 
+    // TopicMod endpoints for topic-based moderation
+    app.get("/api/v3/topicMod/topics", moveToBody, function (req, res) {
+      try {
+        handle_GET_topicMod_topics(req, res);
+      } catch (err) {
+        res.json({
+          status: "error",
+          message: "Internal server error in topicMod topics endpoint",
+          error: err.message || "Unknown error",
+        });
+      }
+    });
+
+    app.get(
+      "/api/v3/topicMod/topics/:topicKey/comments",
+      moveToBody,
+      function (req, res) {
+        try {
+          handle_GET_topicMod_comments(req, res);
+        } catch (err) {
+          res.json({
+            status: "error",
+            message: "Internal server error in topicMod comments endpoint",
+            error: err.message || "Unknown error",
+          });
+        }
+      }
+    );
+
+    app.post("/api/v3/topicMod/moderate", moveToBody, function (req, res) {
+      try {
+        handle_POST_topicMod_moderate(req, res);
+      } catch (err) {
+        res.json({
+          status: "error",
+          message: "Internal server error in topicMod moderate endpoint",
+          error: err.message || "Unknown error",
+        });
+      }
+    });
+
+    app.get("/api/v3/topicMod/proximity", moveToBody, function (req, res) {
+      try {
+        handle_GET_topicMod_proximity(req, res);
+      } catch (err) {
+        res.json({
+          status: "error",
+          message: "Internal server error in topicMod proximity endpoint",
+          error: err.message || "Unknown error",
+        });
+      }
+    });
+
+    app.get("/api/v3/topicMod/stats", moveToBody, function (req, res) {
+      try {
+        handle_GET_topicMod_stats(req, res);
+      } catch (err) {
+        res.json({
+          status: "error",
+          message: "Internal server error in topicMod stats endpoint",
+          error: err.message || "Unknown error",
+        });
+      }
+    });
+
+    app.get("/api/v3/topicMod/hierarchy", moveToBody, function (req, res) {
+      try {
+        handle_GET_topicMod_hierarchy(req, res);
+      } catch (err) {
+        res.json({
+          status: "error",
+          message: "Internal server error in topicMod hierarchy endpoint",
+          error: err.message || "Unknown error",
+        });
+      }
+    });
+
+    // Topic Agenda routes
+    app.post("/api/v3/topicAgenda/selections", 
+      auth(assignToP), 
+      moveToBody, 
+      function (req, res) {
+        try {
+          handle_POST_topicAgenda_selections(req, res);
+        } catch (err) {
+          res.json({
+            status: "error",
+            message: "Internal server error in topicAgenda selections endpoint",
+            error: err.message || "Unknown error",
+          });
+        }
+      }
+    );
+
+    app.get("/api/v3/topicAgenda/selections", 
+      auth(assignToP), 
+      moveToBody, 
+      function (req, res) {
+        try {
+          handle_GET_topicAgenda_selections(req, res);
+        } catch (err) {
+          res.json({
+            status: "error",
+            message: "Internal server error in topicAgenda selections endpoint",
+            error: err.message || "Unknown error",
+          });
+        }
+      }
+    );
+
+    app.put("/api/v3/topicAgenda/selections", 
+      auth(assignToP), 
+      moveToBody, 
+      function (req, res) {
+        try {
+          handle_PUT_topicAgenda_selections(req, res);
+        } catch (err) {
+          res.json({
+            status: "error",
+            message: "Internal server error in topicAgenda selections endpoint",
+            error: err.message || "Unknown error",
+          });
+        }
+      }
+    );
+
+    app.delete("/api/v3/topicAgenda/selections", 
+      auth(assignToP), 
+      moveToBody, 
+      function (req, res) {
+        try {
+          handle_DELETE_topicAgenda_selections(req, res);
+        } catch (err) {
+          res.json({
+            status: "error",
+            message: "Internal server error in topicAgenda selections endpoint",
+            error: err.message || "Unknown error",
+          });
+        }
+      }
+    );
+
     // RSS Feeds routes
     app.get("/feeds/:reportId", function (req, res) {
       try {
@@ -1668,6 +1827,20 @@ helpersInitialized.then(
       /^\/topicsVizReport\/r?[0-9][0-9A-Za-z]+(\/.*)?/,
       fetchIndexForReportPage
     );
+    // Topic Prioritize route for dense comment view and hierarchy analysis
+    app.get(
+      /^\/topicPrioritize\/r?[0-9][0-9A-Za-z]+(\/.*)?/,
+      function (req, res, next) {
+        return fetchIndexForReportPage(req, res, next);
+      }
+    );
+    // Topic Hierarchy route for circle pack visualization
+    app.get(
+      /^\/topicHierarchy\/r?[0-9][0-9A-Za-z]+(\/.*)?/,
+      function (req, res, next) {
+        return fetchIndexForReportPage(req, res, next);
+      }
+    );
     // Export Report route for data export interface
     app.get(
       /^\/exportReport\/r?[0-9][0-9A-Za-z]+(\/.*)?/,
@@ -1677,6 +1850,18 @@ helpersInitialized.then(
     );
     app.get(
       /^\/topicMapNarrativeReport\/r?[0-9][0-9A-Za-z]+(\/.*)?/,
+      function (req, res, next) {
+        return fetchIndexForReportPage(req, res, next);
+      }
+    );
+    app.get(
+      /^\/topicPrioritizeSimple\/r?[0-9][0-9A-Za-z]+(\/.*)?/,
+      function (req, res, next) {
+        return fetchIndexForReportPage(req, res, next);
+      }
+    );
+    app.get(
+      /^\/topicAgenda\/r?[0-9][0-9A-Za-z]+(\/.*)?/,
       function (req, res, next) {
         return fetchIndexForReportPage(req, res, next);
       }

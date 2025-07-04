@@ -1,0 +1,229 @@
+/* Topic Moderation CSS Enhancements */
+
+.topic-card {
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.topic-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.topic-card.expanded {
+  border-left: 4px solid #3b82f6;
+}
+
+.moderation-status-pending {
+  background-color: #f3f4f6;
+  border-left: 4px solid #9ca3af;
+}
+
+.moderation-status-accepted {
+  background-color: #f0fdf4;
+  border-left: 4px solid #22c55e;
+}
+
+.moderation-status-rejected {
+  background-color: #fef2f2;
+  border-left: 4px solid #ef4444;
+}
+
+.moderation-status-meta {
+  background-color: #fffbeb;
+  border-left: 4px solid #f59e0b;
+}
+
+.moderation-buttons {
+  display: flex;
+  gap: 8px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.topic-card:hover .moderation-buttons {
+  opacity: 1;
+}
+
+.proximity-point {
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.proximity-point:hover {
+  r: 6;
+  stroke-width: 2;
+}
+
+.cluster-background {
+  opacity: 0.2;
+  transition: opacity 0.3s ease;
+}
+
+.cluster-background:hover {
+  opacity: 0.4;
+}
+
+.stats-card {
+  transition: transform 0.2s ease;
+}
+
+.stats-card:hover {
+  transform: scale(1.05);
+}
+
+.progress-bar {
+  border-radius: 10px;
+  overflow: hidden;
+  background: linear-gradient(45deg, #f3f4f6, #e5e7eb);
+}
+
+.progress-segment {
+  transition: width 0.5s ease;
+  height: 100%;
+}
+
+.loading-shimmer {
+  animation: shimmer 1.5s infinite;
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.comment-card {
+  transition: all 0.2s ease;
+}
+
+.comment-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.comment-card.selected {
+  border-color: #3b82f6;
+  background-color: #eff6ff;
+}
+
+.bulk-actions-bar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  background-color: rgba(249, 250, 251, 0.9);
+}
+
+.layer-selector {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background-color: #f3f4f6;
+  border-radius: 8px;
+}
+
+.layer-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.layer-button:hover {
+  background-color: #e5e7eb;
+}
+
+.layer-button.active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+.visualization-container {
+  position: relative;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow: hidden;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
+}
+
+.legend {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  background-color: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 12px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid #fff;
+}
+
+.error-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #6b7280;
+}
+
+.error-state svg {
+  width: 48px;
+  height: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: #9ca3af;
+}
+
+.empty-state svg {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  opacity: 0.3;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .moderation-buttons {
+    flex-direction: column;
+    gap: 4px;
+  }
+  
+  .legend {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .layer-selector {
+    flex-wrap: wrap;
+  }
+}

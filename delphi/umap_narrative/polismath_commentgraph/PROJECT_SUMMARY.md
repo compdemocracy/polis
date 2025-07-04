@@ -22,7 +22,7 @@ This document summarizes the implementation of a serverless Lambda service for p
 
 ### 2. Comment Processing Pipeline
 
-- **Text Embedding**: Using SentenceTransformer (`all-MiniLM-L6-v2`) to generate 384-dimensional embeddings
+- **Text Embedding**: Using SentenceTransformer (configurable via `SENTENCE_TRANSFORMER_MODEL` env var, defaults to `all-MiniLM-L6-v2`) to generate 384-dimensional embeddings
 - **Dimensionality Reduction**: UMAP projection to 2D for visualization
 - **Hierarchical Clustering**: EVōC algorithm creates multiple layers of clusters
   - Fine-grained (most detailed)

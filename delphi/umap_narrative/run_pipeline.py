@@ -155,7 +155,9 @@ def process_comments(comments, conversation_id):
     
     # Generate embeddings with SentenceTransformer
     logger.info("Generating embeddings with SentenceTransformer...")
-    embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    model_name = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
+    logger.info(f"Using model: {model_name}")
+    embedding_model = SentenceTransformer(model_name)
     document_vectors = embedding_model.encode(comment_texts, show_progress_bar=True)
     
     # Generate 2D projection with UMAP
@@ -303,6 +305,8 @@ def generate_cluster_topic_labels(cluster_characteristics, comment_texts=None, l
                     
                     # Clean up various prefixes - extended list from 600_generate_llm_topic_names.py
                     prefixes_to_remove = [
+                        "Here is the list of topic labels:",
+                        "Here is the list of topic labels",
                         "Here are the topic labels:",
                         "Here are the topic labels",
                         "Here is the topic label:",
@@ -320,9 +324,18 @@ def generate_cluster_topic_labels(cluster_characteristics, comment_texts=None, l
                         "Label"
                     ]
                     
+                    # First, check if there's already a layer_cluster prefix (like "1_2:") and remove it
+                    import re
+                    layer_prefix_match = re.match(r'^\d+_\d+:\s*', raw_response)
+                    if layer_prefix_match:
+                        raw_response = raw_response[layer_prefix_match.end():]
+                    
                     for prefix in prefixes_to_remove:
                         if raw_response.startswith(prefix):
-                            raw_response = raw_response.replace(prefix, "", 1).strip()
+                            raw_response = raw_response.replace(prefix, "", 1)
+                    
+                    # Strip all whitespace including newlines BEFORE splitting
+                    raw_response = raw_response.strip()
                     
                     # Get just the first line, as we only want the label
                     topic = raw_response.split('\n')[0].strip()
@@ -346,7 +359,7 @@ def generate_cluster_topic_labels(cluster_characteristics, comment_texts=None, l
                     return topic
                 except Exception as e:
                     logger.error(f"Error generating topic with Ollama: {e}")
-                    return f"Topic {cluster_id}"
+                    return f"Topic {len(comments)}"
             
             # Generate labels using Ollama
             for cluster_id in cluster_characteristics.keys():

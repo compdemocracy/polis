@@ -80,6 +80,11 @@ Always use the commands above to determine the most substantial conversation whe
   - LLM API keys (Anthropic, OpenAI, etc.) are available in the parent `.env` file
   - Default Ollama model: `llama3.1:8b` (configurable via `OLLAMA_MODEL`)
 
+- **Sentence Transformer Configuration**:
+  - Default embedding model: `all-MiniLM-L6-v2` (configurable via `SENTENCE_TRANSFORMER_MODEL`)
+  - For multilingual support, set `SENTENCE_TRANSFORMER_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2`
+  - Both models produce 384-dimensional embeddings
+
 ## IMPORTANT: Finding All Logs
 
 **CRITICAL NOTE**: The FULL system logs are stored in the DynamoDB JobQueue table's job results! When debugging issues:
