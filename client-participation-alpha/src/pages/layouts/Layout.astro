@@ -1,0 +1,16 @@
+---
+import '../../styles/global.css';
+const surveyDetailsResponse = await fetch('https://jsonplaceholder.typicode.com/posts/1');
+const surveyDetails = await surveyDetailsResponse.json();
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{surveyDetails.title}</title>
+</head>
+<body>
+    <slot />
+</body>
+</html>
