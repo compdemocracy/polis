@@ -43,9 +43,10 @@ h1 {
 }
 
 .conversation-intro {
-  font-size: 0.9rem;
+  font-size: 16px;
   text-align: left;
   font-style: italic;
+  font-family: "times";
   color: #555;
   margin-bottom: 2rem;
 }
@@ -63,7 +64,7 @@ h1 {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
-  font-size: 0.9rem;
+  font-size: 16px;
   color: #666;
 }
 
@@ -97,7 +98,7 @@ h1 {
   border-radius: 20px;
   background-color: transparent;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 16px;
 }
 
 .agree {
@@ -117,7 +118,7 @@ h1 {
 .guidelines {
   text-align: left;
   margin-bottom: 2rem;
-  font-size: 0.9rem;
+  font-size: 16px;
   color: #555;
   font-style: italic;
 }
