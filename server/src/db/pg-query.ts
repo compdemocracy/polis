@@ -65,7 +65,7 @@ const readPool: Pool = new Pool(readsPgConnection as unknown as PoolConfig);
 
 // Same syntax as pg.client.query, but uses connection pool
 // Also takes care of calling 'done'.
-function queryImpl<T>(pool: Pool, queryString: string, ...args: any[]) {
+function queryImpl(pool: Pool, queryString: string, ...args: any[]) {
   // variable arity depending on whether or not query has params (default to [])
   let params: any[];
   let callback: ((arg0: any, arg1?: any) => void) | undefined;
@@ -111,12 +111,12 @@ function queryImpl<T>(pool: Pool, queryString: string, ...args: any[]) {
 const pgPoolLevelRanks = ["info", "verbose"]; // TODO investigate
 const pgPoolLoggingLevel = -1; // -1 to get anything more important than info and verbose. // pgPoolLevelRanks.indexOf("info");
 
-function query<T>(queryString: string, ...args: any[]) {
-  return queryImpl<T>(readWritePool, queryString, ...args);
+function query(queryString: string, ...args: any[]) {
+  return queryImpl(readWritePool, queryString, ...args);
 }
 
-function query_readOnly<T>(queryString: string, ...args: any[]) {
-  return queryImpl<T>(readPool, queryString, ...args);
+function query_readOnly(queryString: string, ...args: any[]) {
+  return queryImpl(readPool, queryString, ...args);
 }
 
 function queryP_impl<T>(pool: Pool, queryString?: string, params?: any[]) {
@@ -174,9 +174,7 @@ function queryP_metered_impl(
   if (isUndefined(name) || isUndefined(queryString) || isUndefined(params)) {
     throw new Error("polis_err_queryP_metered_impl missing params");
   }
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  return new MPromise(name, function (resolve, reject) {
+  return MPromise(name, function (resolve, reject) {
     f(queryString, params).then(resolve, reject);
   });
 }
@@ -225,17 +223,6 @@ function stream_queryP_readOnly(
     });
   });
 }
-
-export {
-  query,
-  query_readOnly,
-  queryP,
-  queryP_metered,
-  queryP_metered_readOnly,
-  queryP_readOnly,
-  queryP_readOnly_wRetryIfEmpty,
-  stream_queryP_readOnly,
-};
 
 export default {
   query,

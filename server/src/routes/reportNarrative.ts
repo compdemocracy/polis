@@ -1,5 +1,5 @@
 import { Response } from "express";
-import fail from "../utils/fail";
+import { failJson } from "../utils/fail";
 import { getZidForRid } from "../utils/zinvite";
 
 import Anthropic from "@anthropic-ai/sdk";
@@ -15,7 +15,7 @@ import { parse } from "csv-parse/sync";
 import { create } from "xmlbuilder2";
 import { sendCommentGroupsSummary } from "./export";
 import { getTopicsFromRID } from "../report_experimental/topics-example";
-import DynamoStorageService from "../utils/storage";
+import DynamoStorageService, { StorageError } from "../utils/storage";
 import { PathLike } from "fs";
 import config from "../config";
 import logger from "../utils/logger";
@@ -149,12 +149,34 @@ type QueryParams = {
   [key: string]: string | string[] | undefined;
 };
 
-const isFreshData = (timestamp: string) => {
-  const now = new Date().getTime();
-  const then = new Date(timestamp).getTime();
-  const elapsed = Math.abs(now - then);
-  return elapsed < config.maxReportCacheDuration;
-};
+function isFreshData(timestamp: any): boolean {
+  if (!timestamp) return false;
+
+  const timestampDate = new Date(timestamp);
+  const now = new Date();
+  const diffInHours =
+    (now.getTime() - timestampDate.getTime()) / (1000 * 60 * 60);
+  return diffInHours < 1; // Consider data fresh if less than 1 hour old
+}
+
+/**
+ * Handles storage errors gracefully and returns appropriate error responses
+ */
+function handleStorageError(error: StorageError, operation: string): string {
+  logger.error(`Storage error during ${operation}:`, error);
+
+  if (error.isTableNotFound) {
+    return "Service temporarily unavailable. The report storage system may not be fully initialized.";
+  } else if (error.isCredentialsError) {
+    return "Storage service configuration error. Please contact support.";
+  } else if (error.isNetworkError) {
+    return "Storage service connection error. Please try again later.";
+  } else if (error.isPermissionError) {
+    return "Storage service access error. Please contact support.";
+  } else {
+    return `Storage service error: ${error.message}`;
+  }
+}
 
 const getModelResponse = async (
   model: string,
@@ -323,6 +345,20 @@ const getGacThresholdByGroupCount = (numGroups: number): number => {
   return thresholds[numGroups] ?? 0.24;
 };
 
+// Define report sections configuration
+const getReportSections = () => [
+  {
+    name: "uncertainty_narrative",
+    templatePath:
+      "src/report_experimental/subtaskPrompts/uncertainty_narrative.xml",
+  },
+  {
+    name: "participant_groups",
+    templatePath:
+      "src/report_experimental/subtaskPrompts/participant_groups.xml",
+  },
+];
+
 export async function handle_GET_groupInformedConsensus(
   rid: string,
   storage: DynamoStorageService | undefined,
@@ -341,20 +377,39 @@ export async function handle_GET_groupInformedConsensus(
       getGacThresholdByGroupCount(v.num_groups),
   };
 
-  const cachedResponse = await storage?.queryItemsByRidSectionModel(
+  if (!storage) {
+    logger.error("Storage service not available");
+    res.write(
+      JSON.stringify({
+        [section.name]: {
+          error: "Storage service not available",
+          model,
+        },
+      }) + `|||`
+    );
+    (res as any).flush();
+    return;
+  }
+
+  const cachedResult = await storage.queryItemsByRidSectionModel(
     `${rid}#${section.name}#${model}`
   );
+
   // Use type assertion for filter function with different parameter shape but compatible runtime behavior
   const structured_comments = await getCommentsAsXML(
     zid,
     section.filter as any
   );
-  // send cached response first if avalable
-  if (Array.isArray(cachedResponse) && cachedResponse?.length) {
+
+  if (
+    cachedResult.success &&
+    Array.isArray(cachedResult.data) &&
+    cachedResult.data?.length
+  ) {
     res.write(
       JSON.stringify({
         [section.name]: {
-          modelResponse: cachedResponse[0].report_data,
+          modelResponse: cachedResult.data[0].report_data,
           model,
           errors:
             structured_comments?.trim().length === 0
@@ -364,6 +419,10 @@ export async function handle_GET_groupInformedConsensus(
       }) + `|||`
     );
   } else {
+    if (!cachedResult.success) {
+      logger.warn("Failed to query cached consensus:", cachedResult.error);
+    }
+
     const fileContents = await fs.readFile(section.templatePath, "utf8");
     const json = await convertXML(fileContents);
     json.polisAnalysisPrompt.children[
@@ -394,7 +453,11 @@ export async function handle_GET_groupInformedConsensus(
           : undefined,
     };
 
-    storage?.putItem(reportItem);
+    const putResult = await storage.putItem(reportItem);
+    if (!putResult.success) {
+      logger.warn("Failed to cache report item:", putResult.error);
+      // Continue execution - caching failure shouldn't stop the response
+    }
 
     res.write(
       JSON.stringify({
@@ -422,83 +485,111 @@ export async function handle_GET_uncertainty(
   zid: number | undefined,
   modelVersion?: string
 ) {
-  const section = {
-    name: "uncertainty",
-    templatePath: "src/report_experimental/subtaskPrompts/uncertainty.xml",
-    // Revert to original simple pass ratio check
-    filter: (v: { passes: number; votes: number }) => v.passes / v.votes >= 0.2,
-  };
+  const sections = getReportSections().filter((section) =>
+    section.name.includes("uncertainty")
+  );
 
-  const cachedResponse = await storage?.queryItemsByRidSectionModel(
-    `${rid}#${section.name}#${model}`
-  );
-  // Use type assertion for filter function with different parameter shape but compatible runtime behavior
-  const structured_comments = await getCommentsAsXML(
-    zid,
-    section.filter as any
-  );
-  // send cached response first if avalable
-  if (Array.isArray(cachedResponse) && cachedResponse?.length) {
-    res.write(
-      JSON.stringify({
-        [section.name]: {
-          modelResponse: cachedResponse[0].report_data,
+  await Promise.all(
+    sections.map(async (section) => {
+      if (!storage) {
+        logger.error("Storage service not available");
+        res.write(
+          JSON.stringify({
+            [section.name]: {
+              error: "Storage service not available",
+              model,
+            },
+          }) + `|||`
+        );
+        return;
+      }
+
+      const cachedResult = await storage.queryItemsByRidSectionModel(
+        `${rid}#${section.name}#${model}`
+      );
+
+      if (!cachedResult.success) {
+        const errorMessage = handleStorageError(
+          cachedResult.error!,
+          "query cached uncertainty"
+        );
+        res.write(
+          JSON.stringify({
+            [section.name]: {
+              error: errorMessage,
+              model,
+            },
+          }) + `|||`
+        );
+        return;
+      }
+
+      const cachedResponse = cachedResult.data;
+
+      if (Array.isArray(cachedResponse) && cachedResponse?.length) {
+        res.write(
+          JSON.stringify({
+            [section.name]: {
+              modelResponse: cachedResponse[0].report_data,
+              model,
+            },
+          }) + `|||`
+        );
+      } else {
+        const structured_comments = await getCommentsAsXML(zid);
+        const fileContents = await fs.readFile(section.templatePath, "utf8");
+        const json = await convertXML(fileContents);
+        json.polisAnalysisPrompt.children[
+          json.polisAnalysisPrompt.children.length - 1
+        ].data.content = { structured_comments };
+
+        const prompt_xml = js2xmlparser.parse(
+          "polis-comments-and-group-demographics",
+          json
+        );
+
+        const resp = await getModelResponse(
+          model,
+          system_lore,
+          prompt_xml,
+          modelVersion
+        );
+
+        const reportItem = {
+          rid_section_model: `${rid}#${section.name}#${model}`,
+          timestamp: new Date().toISOString(),
+          report_data: resp,
+          report_id: rid,
           model,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
               : undefined,
-        },
-      }) + `|||`
-    );
-  } else {
-    const fileContents = await fs.readFile(section.templatePath, "utf8");
-    const json = await convertXML(fileContents);
-    json.polisAnalysisPrompt.children[
-      json.polisAnalysisPrompt.children.length - 1
-    ].data.content = { structured_comments };
+        };
 
-    const prompt_xml = js2xmlparser.parse(
-      "polis-comments-and-group-demographics",
-      json
-    );
+        const putResult = await storage.putItem(reportItem);
+        if (!putResult.success) {
+          logger.warn("Failed to cache report item:", putResult.error);
+          // Continue execution - caching failure shouldn't stop the response
+        }
 
-    const resp = await getModelResponse(
-      model,
-      system_lore,
-      prompt_xml,
-      modelVersion
-    );
-
-    const reportItem = {
-      rid_section_model: `${rid}#${section.name}#${model}`,
-      timestamp: new Date().toISOString(),
-      report_data: resp,
-      report_id: rid,
-      model,
-      errors:
-        structured_comments?.trim().length === 0
-          ? "NO_CONTENT_AFTER_FILTER"
-          : undefined,
-    };
-
-    storage?.putItem(reportItem);
-
-    res.write(
-      JSON.stringify({
-        [section.name]: {
-          modelResponse: resp,
-          model,
-          errors:
-            structured_comments?.trim().length === 0
-              ? "NO_CONTENT_AFTER_FILTER"
-              : undefined,
-        },
-      }) + `|||`
-    );
-  }
-  // Express response has no flush method, but compression middleware adds it
-  (res as any).flush();
+        res.write(
+          JSON.stringify({
+            [section.name]: {
+              modelResponse: resp,
+              model,
+              errors:
+                structured_comments?.trim().length === 0
+                  ? "NO_CONTENT_AFTER_FILTER"
+                  : undefined,
+            },
+          }) + `|||`
+        );
+      }
+      // Express response has no flush method, but compression middleware adds it
+      (res as any).flush();
+    })
+  );
 }
 
 export async function handle_GET_groups(
@@ -510,84 +601,111 @@ export async function handle_GET_groups(
   zid: number | undefined,
   modelVersion?: string
 ) {
-  const section = {
-    name: "groups",
-    templatePath: "src/report_experimental/subtaskPrompts/groups.xml",
-    filter: (v: { comment_extremity: number }) => {
-      return (v.comment_extremity ?? 0) > 1;
-    },
-  };
+  const sections = getReportSections().filter((section) =>
+    section.name.includes("groups")
+  );
 
-  const cachedResponse = await storage?.queryItemsByRidSectionModel(
-    `${rid}#${section.name}#${model}`
-  );
-  // Use type assertion for filter function with different parameter shape but compatible runtime behavior
-  const structured_comments = await getCommentsAsXML(
-    zid,
-    section.filter as any
-  );
-  // send cached response first if avalable
-  if (Array.isArray(cachedResponse) && cachedResponse?.length) {
-    res.write(
-      JSON.stringify({
-        [section.name]: {
-          modelResponse: cachedResponse[0].report_data,
+  await Promise.all(
+    sections.map(async (section) => {
+      if (!storage) {
+        logger.error("Storage service not available");
+        res.write(
+          JSON.stringify({
+            [section.name]: {
+              error: "Storage service not available",
+              model,
+            },
+          }) + `|||`
+        );
+        return;
+      }
+
+      const cachedResult = await storage.queryItemsByRidSectionModel(
+        `${rid}#${section.name}#${model}`
+      );
+
+      if (!cachedResult.success) {
+        const errorMessage = handleStorageError(
+          cachedResult.error!,
+          "query cached groups"
+        );
+        res.write(
+          JSON.stringify({
+            [section.name]: {
+              error: errorMessage,
+              model,
+            },
+          }) + `|||`
+        );
+        return;
+      }
+
+      const cachedResponse = cachedResult.data;
+
+      if (Array.isArray(cachedResponse) && cachedResponse?.length) {
+        res.write(
+          JSON.stringify({
+            [section.name]: {
+              modelResponse: cachedResponse[0].report_data,
+              model,
+            },
+          }) + `|||`
+        );
+      } else {
+        const structured_comments = await getCommentsAsXML(zid);
+        const fileContents = await fs.readFile(section.templatePath, "utf8");
+        const json = await convertXML(fileContents);
+        json.polisAnalysisPrompt.children[
+          json.polisAnalysisPrompt.children.length - 1
+        ].data.content = { structured_comments };
+
+        const prompt_xml = js2xmlparser.parse(
+          "polis-comments-and-group-demographics",
+          json
+        );
+
+        const resp = await getModelResponse(
+          model,
+          system_lore,
+          prompt_xml,
+          modelVersion
+        );
+
+        const reportItem = {
+          rid_section_model: `${rid}#${section.name}#${model}`,
+          timestamp: new Date().toISOString(),
+          report_data: resp,
+          report_id: rid,
           model,
           errors:
             structured_comments?.trim().length === 0
               ? "NO_CONTENT_AFTER_FILTER"
               : undefined,
-        },
-      }) + `|||`
-    );
-  } else {
-    const fileContents = await fs.readFile(section.templatePath, "utf8");
-    const json = await convertXML(fileContents);
-    json.polisAnalysisPrompt.children[
-      json.polisAnalysisPrompt.children.length - 1
-    ].data.content = { structured_comments };
+        };
 
-    const prompt_xml = js2xmlparser.parse(
-      "polis-comments-and-group-demographics",
-      json
-    );
+        const putResult = await storage.putItem(reportItem);
+        if (!putResult.success) {
+          logger.warn("Failed to cache report item:", putResult.error);
+          // Continue execution - caching failure shouldn't stop the response
+        }
 
-    const resp = await getModelResponse(
-      model,
-      system_lore,
-      prompt_xml,
-      modelVersion
-    );
-
-    const reportItem = {
-      rid_section_model: `${rid}#${section.name}#${model}`,
-      timestamp: new Date().toISOString(),
-      report_data: resp,
-      report_id: rid,
-      model,
-      errors:
-        structured_comments?.trim().length === 0
-          ? "NO_CONTENT_AFTER_FILTER"
-          : undefined,
-    };
-
-    storage?.putItem(reportItem);
-
-    res.write(
-      JSON.stringify({
-        [section.name]: {
-          modelResponse: resp,
-          model,
-          errors:
-            structured_comments?.trim().length === 0
-              ? "NO_CONTENT_AFTER_FILTER"
-              : undefined,
-        },
-      }) + `|||`
-    );
-  }
-  // Express response has no flush method, but compression middleware adds it
-  (res as any).flush();
+        res.write(
+          JSON.stringify({
+            [section.name]: {
+              modelResponse: resp,
+              model,
+              errors:
+                structured_comments?.trim().length === 0
+                  ? "NO_CONTENT_AFTER_FILTER"
+                  : undefined,
+            },
+          }) + `|||`
+        );
+      }
+      // Express response has no flush method, but compression middleware adds it
+      (res as any).flush();
+    })
+  );
 }
 
 export async function handle_GET_topics(
@@ -600,24 +718,51 @@ export async function handle_GET_topics(
   modelVersion?: string
 ) {
   let topics;
-  const cachedTopics = await storage?.queryItemsByRidSectionModel(
+
+  if (!storage) {
+    logger.error("Storage service not available");
+    res.write(
+      JSON.stringify({
+        topics: {
+          error: "Storage service not available",
+          model,
+        },
+      }) + `|||`
+    );
+    res.end();
+    return;
+  }
+
+  const cachedTopicsResult = await storage.queryItemsByRidSectionModel(
     `${rid}#topics`
   );
 
-  if (cachedTopics?.length) {
-    topics = cachedTopics[0].report_data;
-  } else {
+  if (!cachedTopicsResult.success) {
+    logger.warn("Failed to query cached topics:", cachedTopicsResult.error);
+    // Continue with fresh topic generation
     topics = await getTopicsFromRID(zid);
-    const reportItemTopics = {
-      rid_section_model: `${rid}#topics`,
-      model,
-      report_id: rid,
-      timestamp: new Date().toISOString(),
-      report_data: topics,
-    };
+  } else {
+    const cachedTopics = cachedTopicsResult.data;
+    if (cachedTopics?.length) {
+      topics = cachedTopics[0].report_data;
+    } else {
+      topics = await getTopicsFromRID(zid);
+      const reportItemTopics = {
+        rid_section_model: `${rid}#topics`,
+        model,
+        report_id: rid,
+        timestamp: new Date().toISOString(),
+        report_data: topics,
+      };
 
-    storage?.putItem(reportItemTopics);
+      const putResult = await storage.putItem(reportItemTopics);
+      if (!putResult.success) {
+        logger.warn("Failed to cache topics:", putResult.error);
+        // Continue execution - caching failure shouldn't stop the response
+      }
+    }
   }
+
   const sections = topics.map(
     (topic: { name: string; citations: number[] }) => ({
       name: `topic_${topic.name.toLowerCase().replace(/\s+/g, "_")}`,
@@ -635,28 +780,31 @@ export async function handle_GET_topics(
         section: { name: any; templatePath: PathLike | fs.FileHandle },
         i: number
       ) => {
-        const cachedResponse = await storage?.queryItemsByRidSectionModel(
+        const cachedResult = await storage.queryItemsByRidSectionModel(
           `${rid}#${section.name}#${model}`
         );
+
         // @ts-expect-error function args ignore temp
         const structured_comments = await getCommentsAsXML(zid, section.filter);
-        // send cached response first if avalable
-        if (Array.isArray(cachedResponse) && cachedResponse?.length) {
-          await new Promise<void>((resolve) => {
-            res.write(
-              JSON.stringify({
-                [section.name]: {
-                  modelResponse: cachedResponse[0].report_data,
-                  model,
-                  errors:
-                    structured_comments?.trim().length === 0
-                      ? "NO_CONTENT_AFTER_FILTER"
-                      : undefined,
-                },
-              }) + `|||`
-            );
-            resolve();
-          });
+
+        // send cached response first if available
+        if (
+          cachedResult.success &&
+          Array.isArray(cachedResult.data) &&
+          cachedResult.data?.length
+        ) {
+          res.write(
+            JSON.stringify({
+              [section.name]: {
+                modelResponse: cachedResult.data[0].report_data,
+                model,
+                errors:
+                  structured_comments?.trim().length === 0
+                    ? "NO_CONTENT_AFTER_FILTER"
+                    : undefined,
+              },
+            }) + `|||`
+          );
         } else {
           await new Promise<void>((resolve) => {
             setTimeout(async () => {
@@ -694,7 +842,11 @@ export async function handle_GET_topics(
                     : undefined,
               };
 
-              storage?.putItem(reportItem);
+              const putResult = await storage.putItem(reportItem);
+              if (!putResult.success) {
+                logger.warn("Failed to cache topic report:", putResult.error);
+                // Continue execution - caching failure shouldn't stop the response
+              }
 
               res.write(
                 JSON.stringify({
@@ -730,7 +882,41 @@ export async function handle_GET_reportNarrative(
     "report_narrative_store",
     req.query.noCache === "true"
   );
-  await storage.initTable();
+
+  // Initialize storage with improved error handling
+  try {
+    const initResult = await storage.initTable();
+    if (!initResult.success) {
+      const error = initResult.error!;
+      logger.error("Failed to initialize storage:", error);
+
+      // Provide helpful error message based on error type
+      if (error.isTableNotFound) {
+        failJson(res, 503, "polis_err_report_storage_not_ready", {
+          hint: "The report storage system is not fully initialized. Please try again later or contact support if this persists.",
+        });
+      } else if (error.isCredentialsError) {
+        failJson(res, 503, "polis_err_report_storage_config", {
+          hint: "Storage service configuration error. Please contact support.",
+        });
+      } else if (error.isNetworkError) {
+        failJson(res, 503, "polis_err_report_storage_network", {
+          hint: "Cannot connect to storage service. Please try again later.",
+        });
+      } else {
+        failJson(res, 503, "polis_err_report_storage", {
+          hint: "Storage service error. Please try again later.",
+        });
+      }
+      return;
+    }
+  } catch (error) {
+    logger.error("Storage initialization failed:", error);
+    failJson(res, 503, "polis_err_report_storage", {
+      hint: "Storage service error. Please try again later.",
+    });
+    return;
+  }
 
   const modelParam = req.query.model || "openai";
   const modelVersionParam = req.query.modelVersion;
@@ -748,7 +934,7 @@ export async function handle_GET_reportNarrative(
 
   const zid = await getZidForRid(rid);
   if (!zid) {
-    fail(res, 404, "polis_error_report_narrative_notfound");
+    failJson(res, 404, "polis_error_report_narrative_notfound");
     return;
   }
 
@@ -767,16 +953,27 @@ export async function handle_GET_reportNarrative(
   // Express response has no flush method, but compression middleware adds it
   (res as any).flush();
   try {
-    const cachedResponse = await storage?.getAllByReportID(rid);
+    const cacheResult = await storage.getAllByReportID(rid);
     if (
-      Array.isArray(cachedResponse) &&
-      cachedResponse?.length &&
-      !isFreshData(cachedResponse[0].timestamp)
+      cacheResult.success &&
+      Array.isArray(cacheResult.data) &&
+      cacheResult.data?.length
     ) {
-      res.write(`POLIS-PING: pruining cache`);
-      await storage?.deleteAllByReportID(rid);
-      res.write(`POLIS-PING: cache pruined`);
+      const cachedResponse = cacheResult.data;
+      if (!isFreshData(cachedResponse[0].timestamp)) {
+        res.write(`POLIS-PING: pruning cache`);
+        const deleteResult = await storage.deleteAllByReportID(rid);
+        if (deleteResult.success) {
+          res.write(
+            `POLIS-PING: cache pruned (${deleteResult.deletedCount} items)`
+          );
+        } else {
+          logger.warn("Failed to prune cache:", deleteResult.error);
+          res.write(`POLIS-PING: cache prune failed, continuing`);
+        }
+      }
     }
+
     const promises = [
       handle_GET_groupInformedConsensus(
         rid,
@@ -819,11 +1016,11 @@ export async function handle_GET_reportNarrative(
   } catch (err) {
     // @ts-expect-error flush - calling due to use of compression
     res.flush();
-    logger.error(err);
+    logger.error("Report narrative generation error:", err);
     const msg =
       err instanceof Error && err.message && err.message.startsWith("polis_")
         ? err.message
         : "polis_err_report_narrative";
-    fail(res, 500, msg, err);
+    failJson(res, 500, msg, err);
   }
 }

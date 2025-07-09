@@ -53,8 +53,6 @@ const sql_conversations: any = sql.define({
 //   ],
 // });
 
-// 'sql_comments' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.ts(7022)
-// @ts-ignore
 const sql_comments = sql.define({
   name: "comments",
   columns: [
@@ -68,7 +66,6 @@ const sql_comments = sql.define({
     "active",
     "mod",
     "quote_src_url",
-    "anon",
   ],
 });
 
@@ -90,7 +87,6 @@ const baseParticipantsExtendedColumns = [
   "created",
   "modified",
   "show_translation_activated",
-  "permanent_cookie",
   "origin",
 ];
 
@@ -100,10 +96,10 @@ const sql_participants_extended: any = sql.define({
   columns:
     Config.applicationName === "PolisWebServer"
       ? [
-        ...baseParticipantsExtendedColumns,
-        "encrypted_ip_address",
-        "encrypted_x_forwarded_for",
-      ]
+          ...baseParticipantsExtendedColumns,
+          "encrypted_ip_address",
+          "encrypted_x_forwarded_for",
+        ]
       : baseParticipantsExtendedColumns,
 });
 
@@ -149,8 +145,6 @@ export {
   sql_users,
 };
 
-// 'default' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.ts(7022)
-// @ts-ignore
 export default {
   sql_conversations,
   sql_comments,

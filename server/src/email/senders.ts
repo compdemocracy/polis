@@ -115,12 +115,40 @@ function sendTextEmail(
   return promise;
 }
 
-export {
-  sendTextEmail,
-  sendTextEmailWithBackup as sendTextEmailWithBackupOnly,
-};
+function sendMultipleTextEmails(
+  sender: string | undefined,
+  recipientArray: any[],
+  subject: string,
+  text: string
+) {
+  recipientArray = recipientArray || [];
+  return Promise.all(
+    recipientArray.map(function (email: string) {
+      const promise = sendTextEmail(sender, email, subject, text);
+      promise.catch(function (err: any) {
+        logger.error("polis_err_failed_to_email_for_user", { email, err });
+      });
+      return promise;
+    })
+  );
+}
 
-export default {
-  sendTextEmail: sendTextEmail,
-  sendTextEmailWithBackupOnly: sendTextEmailWithBackup,
+function emailTeam(subject: string, body: string) {
+  const adminEmails = Config.adminEmails ? JSON.parse(Config.adminEmails) : [];
+
+  return sendMultipleTextEmails(
+    Config.polisFromAddress,
+    adminEmails,
+    subject,
+    body
+  ).catch(function (err: any) {
+    logger.error("polis_err_failed_to_email_team", err);
+  });
+}
+
+export {
+  sendMultipleTextEmails,
+  sendTextEmail,
+  sendTextEmailWithBackup,
+  emailTeam,
 };

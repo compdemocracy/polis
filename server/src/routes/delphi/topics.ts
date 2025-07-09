@@ -124,8 +124,7 @@ export function handle_GET_delphi(req: Request, res: Response) {
               return res.json({
                 status: "success",
                 message: `Table ${tableName} not found in DynamoDB.`,
-                hint:
-                  "The table may need to be created by running the Delphi pipeline",
+                hint: "The table may need to be created by running the Delphi pipeline",
                 report_id: report_id,
                 available_tables: tableNames,
                 topics: {},
@@ -219,7 +218,6 @@ export function handle_GET_delphi(req: Request, res: Response) {
             const runGroups: Record<string, any[]> = {}; // Key is job_id
 
             filteredItems.forEach((item) => {
-              const modelName = item.model_name || "unknown";
               const createdAt = item.created_at || "";
               const topicKey = (item.topic_key as string) || "";
 
@@ -288,7 +286,7 @@ export function handle_GET_delphi(req: Request, res: Response) {
 
             // Return all runs, with the most recent runs first
             const sortedRuns = Object.entries(allRuns)
-              .sort(([keyA, runA], [keyB, runB]) => {
+              .sort(([, runA], [, runB]) => {
                 // Sort by created_at (full timestamp) in descending order (newest first)
                 const dateA = runA.created_at || "";
                 const dateB = runB.created_at || "";
@@ -316,8 +314,7 @@ export function handle_GET_delphi(req: Request, res: Response) {
               return res.json({
                 status: "success",
                 message: "Delphi topic service not available yet",
-                hint:
-                  "The table may need to be created by running the Delphi pipeline",
+                hint: "The table may need to be created by running the Delphi pipeline",
                 report_id: report_id,
                 topics: {},
               });

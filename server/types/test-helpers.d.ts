@@ -1,14 +1,7 @@
-import { Response } from 'supertest';
-import { Express } from 'express';
-import { 
-  UserType, 
-  ConversationType, 
-  CommentType, 
-  Vote 
-} from '../src/d';
+import { Response } from "supertest";
 
 // Augment supertest's Response type
-declare module 'supertest' {
+declare module "supertest" {
   interface Response {
     text: string;
   }
@@ -23,11 +16,16 @@ export interface TestUser {
 
 // Data returned after user registration and login
 export interface AuthData {
-  cookies: string[] | string | undefined;
   userId: number;
   agent: any; // SuperTest agent
-  textAgent: any; // SuperTest text agent
   testUser?: TestUser;
+}
+
+// JWT authentication data
+export interface JwtAuthData {
+  agent: any; // SuperTest agent
+  token: string;
+  testUser: TestUser;
 }
 
 // Data returned after setting up a test conversation
@@ -40,11 +38,10 @@ export interface ConvoData {
 
 // Data returned after initializing a participant
 export interface ParticipantData {
-  cookies: string[] | string | undefined;
   body: any;
   status: number;
   agent: any; // SuperTest agent
-  xid?: string;
+  token?: string;
 }
 
 // Vote data structure
@@ -52,7 +49,7 @@ export interface VoteData {
   tid: number;
   conversation_id: string;
   vote: -1 | 0 | 1;
-  pid?: string;
+  pid?: number;
   xid?: string;
   high_priority?: boolean;
   lang?: string;
@@ -60,14 +57,30 @@ export interface VoteData {
 
 // Vote response data
 export interface VoteResponse extends Partial<Response> {
-  cookies: string[] | string | undefined;
   body: {
     currentPid?: string;
     [key: string]: any;
   };
   text: string;
   status: number;
-  agent: any; // SuperTest agent
+  headers: any;
+}
+
+// Comment response data
+export interface CommentResponse extends Partial<Response> {
+  body: {
+    tid?: number;
+    currentPid?: number;
+    auth?: {
+      token: string;
+      token_type: string;
+      expires_in: number;
+    };
+    [key: string]: any;
+  };
+  text: string;
+  status: number;
+  headers: any;
 }
 
 // Conversation options
@@ -86,7 +99,7 @@ export interface ConversationOptions {
 export interface CommentOptions {
   conversation_id?: string;
   txt: string;
-  pid?: string;
+  pid?: number;
   [key: string]: any;
 }
 

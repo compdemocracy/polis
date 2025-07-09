@@ -5,6 +5,7 @@ import { parse } from "csv-parse/sync";
 import { create } from "xmlbuilder2";
 import logger from "../../../utils/logger";
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const js2xmlparser = require("js2xmlparser");
 const report_id = process.argv[2];
 

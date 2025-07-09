@@ -1,0 +1,543 @@
+import _ from "underscore";
+import { addExtendedParticipantInfo, joinConversation } from "../participant";
+import { getConversationInfo, getXidRecord } from "../conversation";
+import { getPid, getUser, getPidPromise } from "../user";
+import { getVotesForSingleParticipant } from "./votes";
+import { getXids } from "./math";
+import { isConversationOwner, isOwner } from "../utils/common";
+import { MPromise } from "../utils/metered";
+import {
+  ParticipantFields,
+  ParticipantInfo,
+  ExpressResponse,
+  Headers,
+} from "../d";
+import pg from "../db/pg-query";
+import {
+  doFamousQuery,
+  updateLastInteractionTimeForConversation,
+  getNextComment,
+  getOneConversation,
+} from "../server-helpers";
+import { userHasAnsweredZeQuestions } from "../server-helpers";
+import { failJson } from "../utils/fail";
+import logger from "../utils/logger";
+import { sql_participants_extended } from "../db/sql";
+import { getPca } from "../utils/pca";
+import { issueXidJWT } from "../auth/xid-jwt";
+
+// basic defaultdict implementation
+function DD(this: any, f: () => { votes: number; comments: number }) {
+  this.m = {};
+  this.f = f;
+}
+// basic defaultarray implementation
+function DA(this: any, f: any) {
+  this.m = [];
+  this.f = f;
+}
+DD.prototype.g = DA.prototype.g = function (k: string | number) {
+  if (this.m.hasOwnProperty(k)) {
+    return this.m[k];
+  }
+  const v = this.f(k);
+  this.m[k] = v;
+  return v;
+};
+DD.prototype.s = DA.prototype.s = function (k: string | number, v: any) {
+  this.m[k] = v;
+};
+
+function isOwnerOrParticipant(
+  zid: number,
+  uid?: number,
+  callback?: { (): void; (arg0: null): void }
+) {
+  // TODO should be parallel.
+  // look into bluebird, use 'some' https://github.com/petkaantonov/bluebird
+  getPid(zid, uid, function (err: any, pid: number) {
+    if (err || pid < 0) {
+      isConversationOwner(zid, uid, function (err: any) {
+        callback?.(err);
+      });
+    } else {
+      callback?.(null);
+    }
+  });
+}
+
+// returns null if it's missing
+function getParticipant(zid: number, uid?: number) {
+  return MPromise(
+    "getParticipant",
+    function (resolve: (arg0: any) => void, reject: (arg0: Error) => any) {
+      pg.query_readOnly(
+        "SELECT * FROM participants WHERE zid = ($1) AND uid = ($2);",
+        [zid, uid],
+        function (err: any, results: { rows: any[] }) {
+          if (err) {
+            return reject(err);
+          }
+          if (!results || !results.rows) {
+            return reject(new Error("polis_err_getParticipant_failed"));
+          }
+          resolve(results.rows[0]);
+        }
+      );
+    }
+  );
+}
+
+function handle_GET_participants(
+  req: { p: { uid?: number; zid: number } },
+  res: ExpressResponse
+) {
+  // let pid = req.p.pid;
+  const uid = req.p.uid;
+  const zid = req.p.zid;
+
+  pg.queryP_readOnly(
+    "select * from participants where uid = ($1) and zid = ($2)",
+    [uid, zid]
+  )
+    .then(function (rows: string | any[]) {
+      const ptpt = (rows && rows.length && rows[0]) || null;
+      res.status(200).json(ptpt);
+    })
+    .catch(function (err: any) {
+      failJson(res, 500, "polis_err_get_participant", err);
+    });
+}
+
+function handle_POST_participants(
+  req: {
+    p: {
+      zid: number;
+      uid?: number;
+      answers: any;
+      parent_url: any;
+      referrer: any;
+    };
+  },
+  res: ExpressResponse
+) {
+  const zid = req.p.zid;
+  const uid = req.p.uid;
+  const answers = req.p.answers;
+  const info: ParticipantInfo = {};
+
+  // Use direct parameters - no cookie fallback
+  const parent_url = req.p.parent_url;
+  const referrer = req.p.referrer;
+
+  if (parent_url) {
+    info.parent_url = parent_url;
+  }
+  if (referrer) {
+    info.referrer = referrer;
+  }
+
+  function finish(ptpt: any) {
+    setTimeout(function () {
+      updateLastInteractionTimeForConversation(zid, uid);
+    }, 0);
+    res.status(200).json(ptpt);
+  }
+
+  function doJoin() {
+    userHasAnsweredZeQuestions(zid, answers).then(
+      function () {
+        joinConversation(zid, uid, info, answers).then(
+          function (ptpt: any) {
+            finish(ptpt);
+          },
+          function (err: any) {
+            failJson(res, 500, "polis_err_add_participant", err);
+          }
+        );
+      },
+      function (err: { message: any }) {
+        failJson(res, 400, err.message, err);
+      }
+    );
+  }
+
+  // Check if already in the conversation
+  getParticipant(zid, req.p.uid)
+    .then(
+      function (ptpt: { pid: number }) {
+        if (ptpt) {
+          finish(ptpt);
+          addExtendedParticipantInfo(zid, req.p.uid, info);
+          return;
+        }
+
+        getConversationInfo(zid)
+          .then(function () {
+            doJoin();
+          })
+          .catch(function (err: any) {
+            failJson(
+              res,
+              500,
+              "polis_err_post_participants_need_uid_to_check_lti_users_4",
+              err
+            );
+          });
+      },
+      function (err: any) {
+        failJson(res, 500, "polis_err_post_participants_db_err", err);
+      }
+    )
+    .catch(function (err: any) {
+      failJson(res, 500, "polis_err_post_participants_misc", err);
+    });
+}
+
+function handle_GET_participation(
+  req: { p: { zid: number; uid?: number; strict: any } },
+  res: ExpressResponse
+) {
+  const zid = req.p.zid;
+  const uid = req.p.uid;
+  const strict = req.p.strict;
+  isOwner(zid, uid)
+    .then(function (ok: any) {
+      if (!ok) {
+        failJson(res, 403, "polis_err_get_participation_auth");
+        return;
+      }
+
+      return Promise.all([
+        pg.queryP_readOnly(
+          "select pid, count(*) from votes where zid = ($1) group by pid;",
+          [zid]
+        ),
+        pg.queryP_readOnly(
+          "select pid, count(*) from comments where zid = ($1) group by pid;",
+          [zid]
+        ),
+        getXids(zid), //pgQueryP_readOnly("select pid, xid from xids inner join (select * from participants where zid = ($1)) as p on xids.uid = p.uid;", [zid]),
+      ]).then(function (o: any[]) {
+        const voteCountRows = o[0];
+        const commentCountRows = o[1];
+        const pidXidRows = o[2];
+        let i, r;
+
+        if (strict && !pidXidRows.length) {
+          failJson(
+            res,
+            409,
+            "polis_err_get_participation_missing_xids This conversation has no xids for its participants."
+          );
+          return;
+        }
+
+        // Build a map like this {xid -> {votes: 10, comments: 2}}
+        //           (property) votes: number
+        let result = new DD(function () {
+          return { votes: 0, comments: 0 };
+        });
+
+        // Count votes
+        for (i = 0; i < voteCountRows.length; i++) {
+          r = voteCountRows[i];
+          result.g(r.pid).votes = Number(r.count);
+        }
+        // Count comments
+        for (i = 0; i < commentCountRows.length; i++) {
+          r = commentCountRows[i];
+          result.g(r.pid).comments = Number(r.count);
+        }
+
+        // convert from DD to POJO
+        result = result.m;
+
+        if (pidXidRows && pidXidRows.length) {
+          // Convert from {pid -> foo} to {xid -> foo}
+          const pidToXid = {};
+          for (i = 0; i < pidXidRows.length; i++) {
+            pidToXid[pidXidRows[i].pid] = pidXidRows[i].xid;
+          }
+          const xidBasedResult = {};
+          let size = 0;
+          _.each(result, function (val: any, key: string | number) {
+            xidBasedResult[pidToXid[key]] = val;
+            size += 1;
+          });
+
+          if (
+            strict &&
+            (commentCountRows.length || voteCountRows.length) &&
+            size > 0
+          ) {
+            failJson(
+              res,
+              409,
+              "polis_err_get_participation_missing_xids This conversation is missing xids for some of its participants."
+            );
+            return;
+          }
+          res.status(200).json(xidBasedResult);
+        } else {
+          res.status(200).json(result);
+        }
+      });
+    })
+    .catch(function (err: any) {
+      failJson(res, 500, "polis_err_get_participation_misc", err);
+    });
+}
+
+async function handle_GET_participationInit(
+  req: {
+    p: {
+      conversation_id: string;
+      uid?: number;
+      lang: string;
+      zid: number;
+      xid: string;
+      owner_uid?: number;
+      pid: number;
+    };
+    headers?: Headers;
+  },
+  res: ExpressResponse
+) {
+  try {
+    // Handle language preference
+    const acceptLanguage =
+      req?.headers?.["accept-language"] ||
+      req?.headers?.["Accept-Language"] ||
+      "en-US";
+
+    if (req.p.lang === "acceptLang") {
+      req.p.lang = acceptLanguage.substr(0, 2);
+    }
+
+    // Build response object
+    const response: any = {
+      user: {},
+      ptpt: null,
+      nextComment: null,
+      conversation: null,
+      votes: [],
+      pca: null,
+      famous: null,
+      acceptLanguage: acceptLanguage,
+    };
+
+    // If no conversation ID, return minimal response
+    if (!req.p.conversation_id) {
+      const user = await getUser(
+        req.p.uid,
+        req.p.zid,
+        req.p.xid,
+        req.p.owner_uid
+      );
+      response.user = user;
+      return res.status(200).json(response);
+    }
+
+    // For XID users, resolve XID to UID first
+    let effectiveUidForUser = req.p.uid;
+    if (req.p.xid && !req.p.uid) {
+      try {
+        const xidRecords = await getXidRecord(req.p.xid, req.p.zid);
+        if (xidRecords && xidRecords.length > 0) {
+          effectiveUidForUser = xidRecords[0].uid;
+        }
+      } catch (err) {
+        logger.warn("Error looking up XID record for user resolution:", err);
+      }
+    }
+
+    // Fetch user and conversation data in parallel
+    const [user, ptpt, conv, pcaData] = await Promise.all([
+      getUser(effectiveUidForUser, req.p.zid, req.p.xid, req.p.owner_uid),
+      effectiveUidForUser
+        ? getParticipant(req.p.zid, effectiveUidForUser)
+        : Promise.resolve(null),
+      getOneConversation(req.p.zid, effectiveUidForUser, null),
+      getPca(req.p.zid, undefined),
+    ]);
+
+    response.user = user;
+    response.ptpt = ptpt;
+    response.conversation = conv;
+    response.pca = pcaData?.asPOJO ? pcaData : null;
+
+    // Determine the correct pid for this user
+    let effectivePid = req.p.pid;
+    let effectiveUid: number | undefined;
+
+    if (req.p.xid && typeof user === "object" && "xInfo" in user) {
+      // Handle XID users
+      const userWithXInfo = user as any;
+      if (userWithXInfo.xInfo?.uid !== undefined) {
+        effectiveUid = userWithXInfo.xInfo.uid;
+        try {
+          const actualPid = await getPidPromise(req.p.zid, effectiveUid);
+          if (actualPid >= 0) {
+            effectivePid = actualPid;
+          }
+        } catch (err) {
+          logger.warn("Error getting pid for XID user", err);
+        }
+      } else if (userWithXInfo.uid !== undefined && userWithXInfo.pid >= 0) {
+        effectiveUid = userWithXInfo.uid;
+        effectivePid = userWithXInfo.pid;
+      }
+    } else if (req.p.uid && typeof user === "object" && "pid" in user) {
+      const userWithPid = user as any;
+      if (userWithPid.pid >= 0) {
+        effectivePid = userWithPid.pid;
+      }
+    }
+
+    // Fetch data that depends on the effective pid
+    const [votes, nextComment, famous] = await Promise.all([
+      getVotesForSingleParticipant({
+        pid: effectivePid,
+        zid: req.p.zid,
+      }),
+      getNextComment(req.p.zid, effectivePid, [], true, req.p.lang),
+      doFamousQuery({
+        uid: req.p.uid,
+        zid: req.p.zid,
+        math_tick: response.pca?.math_tick || 0,
+        ptptoiLimit: 30,
+      }),
+    ]);
+
+    response.votes = votes || [];
+    response.nextComment = nextComment;
+    response.famous = famous || {};
+
+    // Issue JWT for XID users
+    if (req.p.xid && effectiveUid !== undefined && effectivePid >= 0) {
+      try {
+        const token = issueXidJWT(
+          req.p.xid,
+          req.p.conversation_id,
+          effectiveUid,
+          effectivePid
+        );
+
+        response.auth = {
+          token: token,
+          token_type: "Bearer",
+          expires_in: 24 * 60 * 60, // 24 hours
+        };
+
+        logger.debug("XID JWT issued successfully", {
+          xid: req.p.xid,
+          uid: effectiveUid,
+          pid: effectivePid,
+        });
+      } catch (error) {
+        logger.error("Failed to issue XID JWT:", error);
+      }
+    }
+    // Note: Anonymous JWTs are issued on first action (like voting), not on participationInit
+    // This matches the expected behavior where anonymous users get JWTs when they interact
+
+    // Clean up sensitive data
+    if (response.conversation) {
+      delete response.conversation.zid;
+      response.conversation.conversation_id = req.p.conversation_id;
+    }
+
+    if (response.ptpt) {
+      delete response.ptpt.zid;
+    }
+
+    response.votes.forEach((vote: any) => {
+      delete vote.zid;
+    });
+
+    if (response.nextComment && effectivePid !== undefined) {
+      response.nextComment.currentPid = effectivePid;
+    }
+
+    res.status(200).json(response);
+  } catch (err) {
+    logger.error("Error in handle_GET_participationInit:", err);
+    failJson(res, 500, "polis_err_get_participationInit", err);
+  }
+}
+
+function handle_PUT_participants_extended(
+  req: { p: { zid: number; uid?: number; show_translation_activated: any } },
+  res: ExpressResponse
+) {
+  const zid = req.p.zid;
+  const uid = req.p.uid;
+
+  const fields: ParticipantFields = {};
+  if (!_.isUndefined(req.p.show_translation_activated)) {
+    fields.show_translation_activated = req.p.show_translation_activated;
+  }
+
+  const q = sql_participants_extended
+    .update(fields)
+    .where(sql_participants_extended.zid.equals(zid))
+    .and(sql_participants_extended.uid.equals(uid));
+
+  pg.queryP(q.toString(), [])
+    .then((result: any) => {
+      res.json(result);
+    })
+    .catch((err: any) => {
+      failJson(res, 500, "polis_err_put_participants_extended", err);
+    });
+}
+
+function handle_POST_query_participants_by_metadata(
+  req: { p: { uid?: number; zid: number; pmaids: any } },
+  res: ExpressResponse
+) {
+  const uid = req.p.uid;
+  const zid = req.p.zid;
+  const pmaids = req.p.pmaids;
+
+  if (!pmaids.length) {
+    // empty selection
+    return res.status(200).json([]);
+  }
+
+  function doneChecking() {
+    // find list of participants who are not eliminated by the list of excluded choices.
+    pg.query_readOnly(
+      // 3. invert the selection of participants, so we get those who passed the filter.
+      "select pid from participants where zid = ($1) and pid not in " +
+        // 2. find the people who chose those answers
+        "(select pid from participant_metadata_choices where alive = TRUE and pmaid in " +
+        // 1. find the unchecked answers
+        "(select pmaid from participant_metadata_answers where alive = TRUE and zid = ($2) and pmaid not in (" +
+        pmaids.join(",") +
+        "))" +
+        ")" +
+        ";",
+      [zid, zid],
+      function (err: any, results: { rows: any }) {
+        if (err) {
+          failJson(res, 500, "polis_err_metadata_query", err);
+          return;
+        }
+        res.status(200).json(_.pluck(results.rows, "pid") as any[]);
+      }
+    );
+  }
+
+  isOwnerOrParticipant(zid, uid, doneChecking);
+}
+
+export {
+  handle_GET_participants,
+  handle_GET_participation,
+  handle_GET_participationInit,
+  handle_POST_participants,
+  handle_POST_query_participants_by_metadata,
+  handle_PUT_participants_extended,
+};

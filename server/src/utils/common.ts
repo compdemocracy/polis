@@ -1,17 +1,11 @@
 import _ from "underscore";
-import pg from "pg";
-import dbPgQuery, {
-  query as pgQuery,
-  query_readOnly as pgQuery_readOnly,
-  queryP as pgQueryP,
-  queryP_metered_readOnly as pgQueryP_metered_readOnly,
-  queryP_readOnly as pgQueryP_readOnly,
-  queryP_readOnly_wRetryIfEmpty as pgQueryP_readOnly_wRetryIfEmpty,
-} from "../db/pg-query";
+import { Client } from "pg";
+import pg from "../db/pg-query";
 import akismetLib from "akismet";
 import logger from "../utils/logger";
-import Conversation from "../conversation";
+import { getConversationInfo } from "../conversation";
 import Config from "../config";
+import { MPromise } from "./metered";
 
 type PolisTypes = {
   reactions: Reactions;
@@ -43,7 +37,7 @@ const serverUrl = Config.getServerUrl();
 
 const polisDevs = Config.adminUIDs ? JSON.parse(Config.adminUIDs) : [];
 
-let akismet = akismetLib.client({
+const akismet = akismetLib.client({
   blog: serverUrl,
   apiKey: Config.akismetAntispamApiKey,
 });
@@ -51,8 +45,6 @@ let akismet = akismetLib.client({
 akismet.verifyKey(function (err: any, verified: any) {
   if (verified) {
     logger.debug("Akismet: API key successfully verified.");
-  } else {
-    logger.debug("Akismet: Unable to verify API key.");
   }
 });
 
@@ -64,9 +56,7 @@ function isSpam(o: {
   user_agent: any;
   referrer: any;
 }) {
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  return new MPromise(
+  return MPromise(
     "isSpam",
     function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
       akismet.checkSpam(o, function (err: any, spam: any) {
@@ -97,7 +87,7 @@ function strToHex(str: string) {
 
 function hexToStr(hexString: string) {
   let j;
-  let hexes = hexString.match(/.{1,4}/g) || [];
+  const hexes = hexString.match(/.{1,4}/g) || [];
   let str = "";
   for (j = 0; j < hexes.length; j++) {
     str += String.fromCharCode(parseInt(hexes[j], 16));
@@ -105,7 +95,7 @@ function hexToStr(hexString: string) {
   return str;
 }
 
-let polisTypes: PolisTypes = {
+const polisTypes: PolisTypes = {
   reactions: {
     push: 1,
     pull: -1,
@@ -126,18 +116,18 @@ polisTypes.reactionValues = _.values(polisTypes.reactions);
 polisTypes.starValues = _.values(polisTypes.staractions);
 
 function isConversationOwner(
-  zid: any,
-  uid?: any,
+  zid: number,
+  uid?: number,
   callback?: {
     (err: any): void;
     (err: any): void;
     (err: any): void;
-    (err: any, foo: any): void;
-    (err: any, foo: any): void;
+    (err: any): void;
+    (err: any): void;
     (arg0: any): void;
   }
 ) {
-  pgQuery_readOnly(
+  pg.query_readOnly(
     "SELECT * FROM conversations WHERE zid = ($1) AND owner = ($2);",
     [zid, uid],
     function (err: number, docs: { rows: string | any[] }) {
@@ -149,20 +139,18 @@ function isConversationOwner(
   );
 }
 
-function isModerator(zid: any, uid?: any) {
+function isModerator(zid: number, uid?: number) {
   if (isPolisDev(uid)) {
     return Promise.resolve(true);
   }
-  return pgQueryP_readOnly(
-    "select count(*) from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($2))) and zid = ($1);",
-    [zid, uid]
-    //     Argument of type '(rows: { count: number; }[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
-    // Types of parameters 'rows' and 'value' are incompatible.
-    //     Type 'unknown' is not assignable to type '{ count: number; }[]'.ts(2345)
-    // @ts-ignore
-  ).then(function (rows: { count: number }[]) {
-    return rows[0].count >= 1;
-  });
+  return pg
+    .queryP_readOnly(
+      "select count(*) from conversations where owner in (select uid from users where site_id = (select site_id from users where uid = ($2))) and zid = ($1);",
+      [zid, uid]
+    )
+    .then(function (rows: { count: number }[]) {
+      return rows[0].count >= 1;
+    });
 }
 
 function doAddDataExportTask(
@@ -173,7 +161,7 @@ function doAddDataExportTask(
   format: string,
   task_bucket: number
 ) {
-  return pgQueryP(
+  return pg.queryP(
     "insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);",
     [
       math_env,
@@ -188,20 +176,20 @@ function doAddDataExportTask(
   );
 }
 
-function isOwner(zid: any, uid: string) {
-  return Conversation.getConversationInfo(zid).then(function (info: any) {
+function isOwner(zid: number, uid: number) {
+  return getConversationInfo(zid).then(function (info: any) {
     return info.owner === uid;
   });
 }
 
-const escapeLiteral = pg.Client.prototype.escapeLiteral;
+const escapeLiteral = Client.prototype.escapeLiteral;
 
 function isDuplicateKey(err: {
   code: string | number;
   sqlState: string | number;
   messagePrimary: string | string[];
 }) {
-  let isdup =
+  const isdup =
     err.code === 23505 ||
     err.code === "23505" ||
     err.sqlState === 23505 ||
@@ -210,32 +198,60 @@ function isDuplicateKey(err: {
   return isdup;
 }
 
+function ifDefinedSet(
+  name: string,
+  source: { [x: string]: any },
+  dest: { [x: string]: any }
+) {
+  if (!_.isUndefined(source[name])) {
+    dest[name] = source[name];
+  }
+}
+
+function isUserAllowedToCreateConversations(
+  uid?: any,
+  callback?: {
+    (err: any, isAllowed: any): void;
+    (err: any, isAllowed: any): void;
+    (arg0: null, arg1: boolean): void;
+  }
+) {
+  callback?.(null, true);
+}
+
+function ifDefinedFirstElseSecond(first: any, second: boolean) {
+  return _.isUndefined(first) ? second : first;
+}
+
 //todo: only one export
 
 export {
-  strToHex,
+  doAddDataExportTask,
+  escapeLiteral,
   hexToStr,
-  polisTypes,
+  ifDefinedFirstElseSecond,
+  ifDefinedSet,
   isConversationOwner,
+  isDuplicateKey,
   isModerator,
+  isOwner,
   isPolisDev,
   isSpam,
-  doAddDataExportTask,
-  isOwner,
-  escapeLiteral,
-  isDuplicateKey,
+  isUserAllowedToCreateConversations,
+  polisTypes,
+  strToHex,
 };
 
 export default {
-  strToHex,
+  doAddDataExportTask,
+  escapeLiteral,
   hexToStr,
-  polisTypes,
   isConversationOwner,
+  isDuplicateKey,
   isModerator,
+  isOwner,
   isPolisDev,
   isSpam,
-  doAddDataExportTask,
-  isOwner,
-  escapeLiteral,
-  isDuplicateKey,
+  polisTypes,
+  strToHex,
 };

@@ -189,8 +189,7 @@ export async function handle_GET_delphi(req: Request, res: Response) {
       return res.status(404).json({
         status: "error",
         message: "Delphi topic service not available yet.",
-        hint:
-          "The table may need to be created by running the Delphi pipeline.",
+        hint: "The table may need to be created by running the Delphi pipeline.",
         report_id,
       });
     }

@@ -64,10 +64,7 @@ export async function getTopicsFromRID(zId: number) {
 
     const comments = await parseCsvString(modified.join("\n"));
     const topics = await new Sensemaker({
-      defaultModel: new GoogleAIModel(
-        config.geminiApiKey,
-        "gemini-exp-1206"
-      ),
+      defaultModel: new GoogleAIModel(config.geminiApiKey, "gemini-exp-1206"),
     }).learnTopics(comments as Comment[], false);
     const categorizedComments = await new Sensemaker({
       defaultModel: new GoogleAIModel(

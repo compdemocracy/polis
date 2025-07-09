@@ -64,7 +64,7 @@ export async function handle_GET_feeds_directory(req: Request, res: Response) {
     // Check if we have any narrative reports or topic data
     const narrativeTableName = "Delphi_NarrativeReports";
     const narrativeGsiName = "ReportIdTimestampIndex";
-    
+
     const narrativeQueryParams = {
       TableName: narrativeTableName,
       IndexName: narrativeGsiName,
@@ -72,39 +72,45 @@ export async function handle_GET_feeds_directory(req: Request, res: Response) {
       ExpressionAttributeValues: { ":rid": requestReportId },
       Limit: 1,
     };
-    
-    const narrativeResult = await docClient.send(new QueryCommand(narrativeQueryParams));
-    const hasNarrativeData = narrativeResult.Items && narrativeResult.Items.length > 0;
+
+    const narrativeResult = await docClient.send(
+      new QueryCommand(narrativeQueryParams)
+    );
+    const hasNarrativeData =
+      narrativeResult.Items && narrativeResult.Items.length > 0;
 
     // Check for topic data (simplified - in real implementation would check Delphi topics table)
     const hasTopicData = hasNarrativeData; // For now, assume if we have narrative data we have topics
 
     const feeds = [];
-    
+
     if (hasNarrativeData) {
       feeds.push({
         title: "Consensus Updates",
         url: `/feeds/${requestReportId}/consensus`,
         description: "Cross-group consensus changes and updates",
-        type: "consensus"
+        type: "consensus",
       });
     }
-    
+
     if (hasTopicData) {
       feeds.push({
         title: "Topic Hierarchy",
         url: `/feeds/${requestReportId}/topics`,
         description: "Hierarchical clustering results and topic organization",
-        type: "topics"
+        type: "topics",
       });
     }
 
     // Return HTML directory listing
-    const feedLinks = feeds.map(feed => 
-      `<li><a href="${feed.url}">${feed.title}</a> - ${feed.description}</li>`
-    ).join('\n          ');
+    const feedLinks = feeds
+      .map(
+        (feed) =>
+          `<li><a href="${feed.url}">${feed.title}</a> - ${feed.description}</li>`
+      )
+      .join("\n          ");
 
-    res.set('Content-Type', 'text/html');
+    res.set("Content-Type", "text/html");
     res.send(`
       <html>
         <head>
@@ -120,14 +126,18 @@ export async function handle_GET_feeds_directory(req: Request, res: Response) {
           <h1>Available RSS Feeds</h1>
           <p class="meta">Report ID: ${requestReportId}</p>
           
-          ${feeds.length > 0 ? `
+          ${
+            feeds.length > 0
+              ? `
             <h2>Available Feeds</h2>
             <ul class="feed-list">
               ${feedLinks}
             </ul>
-          ` : `
+          `
+              : `
             <p>No feeds available yet. This report needs to be processed by Delphi to generate RSS feeds.</p>
-          `}
+          `
+          }
           
           <h2>What are these feeds?</h2>
           <ul>
@@ -142,7 +152,6 @@ export async function handle_GET_feeds_directory(req: Request, res: Response) {
         </body>
       </html>
     `);
-
   } catch (err: any) {
     logger.error(`Error in feeds directory: ${err.message}`);
     res.status(500).send(`
@@ -161,7 +170,7 @@ export async function handle_GET_consensus_feed(req: Request, res: Response) {
   const requestReportId = req.params.reportId;
 
   if (!requestReportId) {
-    return res.status(400).set('Content-Type', 'application/rss+xml').send(`
+    return res.status(400).set("Content-Type", "application/rss+xml").send(`
       <?xml version="1.0" encoding="UTF-8"?>
       <rss version="2.0">
         <channel>
@@ -176,7 +185,7 @@ export async function handle_GET_consensus_feed(req: Request, res: Response) {
     // Validate report exists
     const zid = await getZidFromReport(requestReportId);
     if (zid === null || zid === undefined) {
-      return res.status(404).set('Content-Type', 'application/rss+xml').send(`
+      return res.status(404).set("Content-Type", "application/rss+xml").send(`
         <?xml version="1.0" encoding="UTF-8"?>
         <rss version="2.0">
           <channel>
@@ -190,105 +199,121 @@ export async function handle_GET_consensus_feed(req: Request, res: Response) {
     // Fetch narrative reports
     const tableName = "Delphi_NarrativeReports";
     const gsiName = "ReportIdTimestampIndex";
-    
+
     const queryParams = {
       TableName: tableName,
       IndexName: gsiName,
       KeyConditionExpression: "report_id = :rid",
       ExpressionAttributeValues: { ":rid": requestReportId },
     };
-    
+
     const queryResult = await docClient.send(new QueryCommand(queryParams));
     const items = queryResult.Items || [];
 
     // Filter for consensus-related reports
-    const consensusItems = items.filter(item => {
+    const consensusItems = items.filter((item) => {
       const ridSectionModel = item.rid_section_model || "";
       const parts = ridSectionModel.split("#");
       const section = parts.length >= 2 ? parts[1] : "";
-      return section.includes("consensus") || section.includes("global_group_informed_consensus");
+      return (
+        section.includes("consensus") ||
+        section.includes("global_group_informed_consensus")
+      );
     });
 
     // Sort by timestamp (most recent first)
-    consensusItems.sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
+    consensusItems.sort((a, b) =>
+      (b.timestamp || "").localeCompare(a.timestamp || "")
+    );
 
     // Build rich RSS items with full narrative structure
-    const rssItems = consensusItems.slice(0, 10).map(item => {
-      const ridSectionModel = item.rid_section_model || "";
-      const parts = ridSectionModel.split("#");
-      const section = parts.length >= 2 ? parts[1] : "unknown";
-      const model = parts.length > 2 ? parts[2] : "unknown";
-      
-      const title = `Cross-Group Consensus Analysis`;
-      const pubDate = item.timestamp ? new Date(item.timestamp).toUTCString() : new Date().toUTCString();
-      const guid = `${requestReportId}-${section}-${item.timestamp}`;
-      const link = `https://pol.is/report/${requestReportId}#consensus-${section}`;
-      
-      // Parse and reconstruct the full narrative structure
-      let contentHtml = "<p>Consensus analysis available</p>";
-      let citationIds: number[] = [];
-      
-      try {
-        if (item.report_data && typeof item.report_data === "string") {
-          const data = JSON.parse(item.report_data);
-          
-          if (data.paragraphs && Array.isArray(data.paragraphs)) {
-            // Build HTML content from structured narrative
-            let htmlSections: string[] = [];
-            
-            data.paragraphs.forEach((paragraph: any) => {
-              if (paragraph.title) {
-                htmlSections.push(`<h3>${paragraph.title}</h3>`);
-              }
-              
-              if (paragraph.sentences && Array.isArray(paragraph.sentences)) {
-                paragraph.sentences.forEach((sentence: any) => {
-                  let sentenceText = "";
-                  let sentenceCitations: number[] = [];
-                  
-                  if (sentence.clauses && Array.isArray(sentence.clauses)) {
-                    sentence.clauses.forEach((clause: any) => {
-                      sentenceText += clause.text || "";
-                      
-                      if (clause.citations && Array.isArray(clause.citations)) {
-                        clause.citations.forEach((citation: any) => {
-                          if (typeof citation === "number") {
-                            sentenceCitations.push(citation);
-                            citationIds.push(citation);
-                          }
-                        });
-                      }
-                    });
-                  }
-                  
-                  // Add citations as superscript
-                  if (sentenceCitations.length > 0) {
-                    sentenceText += `<sup>[${sentenceCitations.join(', ')}]</sup>`;
-                  }
-                  
-                  htmlSections.push(`<p>${sentenceText}</p>`);
-                });
-              }
-            });
-            
-            contentHtml = htmlSections.join('\n');
+    const rssItems = consensusItems
+      .slice(0, 10)
+      .map((item) => {
+        const ridSectionModel = item.rid_section_model || "";
+        const parts = ridSectionModel.split("#");
+        const section = parts.length >= 2 ? parts[1] : "unknown";
+        const model = parts.length > 2 ? parts[2] : "unknown";
+
+        const title = `Cross-Group Consensus Analysis`;
+        const pubDate = item.timestamp
+          ? new Date(item.timestamp).toUTCString()
+          : new Date().toUTCString();
+        const guid = `${requestReportId}-${section}-${item.timestamp}`;
+        const link = `https://pol.is/report/${requestReportId}#consensus-${section}`;
+
+        // Parse and reconstruct the full narrative structure
+        let contentHtml = "<p>Consensus analysis available</p>";
+        let citationIds: number[] = [];
+
+        try {
+          if (item.report_data && typeof item.report_data === "string") {
+            const data = JSON.parse(item.report_data);
+
+            if (data.paragraphs && Array.isArray(data.paragraphs)) {
+              // Build HTML content from structured narrative
+              let htmlSections: string[] = [];
+
+              data.paragraphs.forEach((paragraph: any) => {
+                if (paragraph.title) {
+                  htmlSections.push(`<h3>${paragraph.title}</h3>`);
+                }
+
+                if (paragraph.sentences && Array.isArray(paragraph.sentences)) {
+                  paragraph.sentences.forEach((sentence: any) => {
+                    let sentenceText = "";
+                    let sentenceCitations: number[] = [];
+
+                    if (sentence.clauses && Array.isArray(sentence.clauses)) {
+                      sentence.clauses.forEach((clause: any) => {
+                        sentenceText += clause.text || "";
+
+                        if (
+                          clause.citations &&
+                          Array.isArray(clause.citations)
+                        ) {
+                          clause.citations.forEach((citation: any) => {
+                            if (typeof citation === "number") {
+                              sentenceCitations.push(citation);
+                              citationIds.push(citation);
+                            }
+                          });
+                        }
+                      });
+                    }
+
+                    // Add citations as superscript
+                    if (sentenceCitations.length > 0) {
+                      sentenceText += `<sup>[${sentenceCitations.join(
+                        ", "
+                      )}]</sup>`;
+                    }
+
+                    htmlSections.push(`<p>${sentenceText}</p>`);
+                  });
+                }
+              });
+
+              contentHtml = htmlSections.join("\n");
+            }
           }
+        } catch (e) {
+          logger.warn(`Error parsing consensus report data: ${e}`);
         }
-      } catch (e) {
-        logger.warn(`Error parsing consensus report data: ${e}`);
-      }
 
-      // Remove duplicates from citations
-      citationIds = [...new Set(citationIds)];
-      
-      // Add citation references to content
-      if (citationIds.length > 0) {
-        contentHtml += `\n<h4>Referenced Comments</h4>`;
-        contentHtml += `<p>This analysis references ${citationIds.length} comments: [${citationIds.join(', ')}]</p>`;
-        contentHtml += `<p><em>Full comment details and voting patterns available at: <a href="${link}">View Full Report</a></em></p>`;
-      }
+        // Remove duplicates from citations
+        citationIds = [...new Set(citationIds)];
 
-      return `
+        // Add citation references to content
+        if (citationIds.length > 0) {
+          contentHtml += `\n<h4>Referenced Comments</h4>`;
+          contentHtml += `<p>This analysis references ${
+            citationIds.length
+          } comments: [${citationIds.join(", ")}]</p>`;
+          contentHtml += `<p><em>Full comment details and voting patterns available at: <a href="${link}">View Full Report</a></em></p>`;
+        }
+
+        return `
         <item>
           <title><![CDATA[${title}]]></title>
           <description><![CDATA[${contentHtml}]]></description>
@@ -298,7 +323,8 @@ export async function handle_GET_consensus_feed(req: Request, res: Response) {
           <category>consensus</category>
           <source>model:${model}</source>
         </item>`;
-    }).join('\n');
+      })
+      .join("\n");
 
     const rssContent = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0">
@@ -313,12 +339,11 @@ export async function handle_GET_consensus_feed(req: Request, res: Response) {
   </channel>
 </rss>`;
 
-    res.set('Content-Type', 'application/rss+xml');
+    res.set("Content-Type", "application/rss+xml");
     res.send(rssContent);
-
   } catch (err: any) {
     logger.error(`Error generating consensus feed: ${err.message}`);
-    res.status(500).set('Content-Type', 'application/rss+xml').send(`
+    res.status(500).set("Content-Type", "application/rss+xml").send(`
       <?xml version="1.0" encoding="UTF-8"?>
       <rss version="2.0">
         <channel>
@@ -337,7 +362,7 @@ export async function handle_GET_topics_feed(req: Request, res: Response) {
   const requestReportId = req.params.reportId;
 
   if (!requestReportId) {
-    return res.status(400).set('Content-Type', 'application/rss+xml').send(`
+    return res.status(400).set("Content-Type", "application/rss+xml").send(`
       <?xml version="1.0" encoding="UTF-8"?>
       <rss version="2.0">
         <title>Error</title>
@@ -347,10 +372,10 @@ export async function handle_GET_topics_feed(req: Request, res: Response) {
   }
 
   try {
-    // Validate report exists  
+    // Validate report exists
     const zid = await getZidFromReport(requestReportId);
     if (zid === null || zid === undefined) {
-      return res.status(404).set('Content-Type', 'application/rss+xml').send(`
+      return res.status(404).set("Content-Type", "application/rss+xml").send(`
         <?xml version="1.0" encoding="UTF-8"?>
         <rss version="2.0">
           <channel>
@@ -364,9 +389,9 @@ export async function handle_GET_topics_feed(req: Request, res: Response) {
     // Fetch topic data from the same endpoint that CommentsReport uses
     const topicsTableName = "Delphi_CommentClustersLLMTopicNames";
     const conversationId = zid.toString();
-    
+
     logger.info(`Fetching topics for conversation_id: ${conversationId}`);
-    
+
     // Query the topics table
     const allItems: any[] = [];
     let lastEvaluatedKey;
@@ -387,7 +412,7 @@ export async function handle_GET_topics_feed(req: Request, res: Response) {
     } while (lastEvaluatedKey);
 
     if (allItems.length === 0) {
-      return res.set('Content-Type', 'application/rss+xml').send(`
+      return res.set("Content-Type", "application/rss+xml").send(`
         <?xml version="1.0" encoding="UTF-8"?>
         <rss version="2.0">
           <channel>
@@ -423,7 +448,7 @@ export async function handle_GET_topics_feed(req: Request, res: Response) {
     });
 
     if (sortedRunKeys.length === 0) {
-      return res.set('Content-Type', 'application/rss+xml').send(`
+      return res.set("Content-Type", "application/rss+xml").send(`
         <?xml version="1.0" encoding="UTF-8"?>
         <rss version="2.0">
           <channel>
@@ -437,7 +462,7 @@ export async function handle_GET_topics_feed(req: Request, res: Response) {
     // Process the most recent run
     const latestRunKey = sortedRunKeys[0];
     const latestRunItems = runGroups[latestRunKey];
-    
+
     // Group by layers
     const topicsByLayer: Record<string, Record<string, any>> = {};
     latestRunItems.forEach((item) => {
@@ -456,19 +481,19 @@ export async function handle_GET_topics_feed(req: Request, res: Response) {
 
     // Create RSS items for each individual topic
     const rssItems: string[] = [];
-    
+
     Object.keys(topicsByLayer)
       .sort((a, b) => parseInt(a) - parseInt(b)) // Sort layers numerically (0, 1, 2...)
-      .forEach(layer => {
+      .forEach((layer) => {
         const layerClusters = topicsByLayer[layer];
-        
+
         Object.entries(layerClusters).forEach(([clusterId, topic]) => {
           const topicData = topic as any;
           const title = topicData.topic_name || `Topic ${clusterId}`;
           const pubDate = new Date(topicData.created_at).toUTCString();
           const guid = `${requestReportId}-${layer}-${clusterId}-${topicData.created_at}`;
           const link = `https://pol.is/report/${requestReportId}#topic-${layer}-${clusterId}`;
-          
+
           rssItems.push(`
         <item>
           <title><![CDATA[${title}]]></title>
@@ -482,8 +507,8 @@ export async function handle_GET_topics_feed(req: Request, res: Response) {
         </item>`);
         });
       });
-    
-    const rssItemsString = rssItems.join('\n');
+
+    const rssItemsString = rssItems.join("\n");
 
     const rssContent = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:custom="https://pol.is/rss/custom">
@@ -498,12 +523,11 @@ export async function handle_GET_topics_feed(req: Request, res: Response) {
   </channel>
 </rss>`;
 
-    res.set('Content-Type', 'application/rss+xml');
+    res.set("Content-Type", "application/rss+xml");
     res.send(rssContent);
-
   } catch (err: any) {
     logger.error(`Error generating topics feed: ${err.message}`);
-    res.status(500).set('Content-Type', 'application/rss+xml').send(`
+    res.status(500).set("Content-Type", "application/rss+xml").send(`
       <?xml version="1.0" encoding="UTF-8"?>
       <rss version="2.0">
         <channel>
@@ -513,14 +537,4 @@ export async function handle_GET_topics_feed(req: Request, res: Response) {
       </rss>
     `);
   }
-}
-
-/**
- * Helper function to describe layer granularity
- */
-function getLayerDescription(layer: string, totalLayers: number): string {
-  const layerNum = parseInt(layer);
-  if (layerNum === 0) return "Finest granularity";
-  if (layerNum === totalLayers - 1) return "Coarsest granularity";
-  return "Medium granularity";
 }

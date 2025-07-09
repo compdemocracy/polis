@@ -1,4 +1,6 @@
 import _ from "underscore";
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const { Translate } = require("@google-cloud/translate").v2;
 
 import pg from "./db/pg-query";
@@ -7,19 +9,29 @@ import { MPromise } from "./utils/metered";
 import Utils from "./utils/common";
 
 import Config from "./config";
-import Conversation from "./conversation";
-import { CommentType } from "./d";
-
-// TODO should this be a number instead?
-type Id = string;
+import { getConversationInfo } from "./conversation";
+import { CommentType, ConversationInfo } from "./d";
 
 type Row = {
-  tid: Id;
+  tid: number;
   disagree_count: number;
   agree_count: number;
   vote: any;
   count: number;
   pass_count: number;
+  // Additional properties that are used in the code
+  txt?: string;
+  created?: any;
+  uid?: number;
+  quote_src_url?: string;
+  is_seed?: boolean;
+  is_meta?: boolean;
+  lang?: string;
+  pid?: number;
+  velocity?: number;
+  zid?: number;
+  mod?: number;
+  active?: boolean;
 };
 
 type Docs = {
@@ -29,39 +41,31 @@ type Docs = {
 const useTranslateApi: boolean = Config.shouldUseTranslationAPI;
 const translateClient = useTranslateApi ? new Translate() : null;
 
-function getComment(zid: Id, tid: Id) {
-  return (
-    pg
-      .queryP("select * from comments where zid = ($1) and tid = ($2);", [
-        zid,
-        tid,
-      ])
-
-      // Argument of type '(rows: Row[]) => Row' is not assignable to parameter of type '(value: unknown) => Row | PromiseLike<Row>'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      // Type 'unknown' is not assignable to type 'Row[]'.ts(2345)
-      // @ts-ignore
-      .then((rows: Row[]) => {
-        return (rows && rows[0]) || null;
-      })
-  );
+function getComment(zid: number, tid: number): Promise<Row | null> {
+  return pg
+    .queryP("select * from comments where zid = ($1) and tid = ($2);", [
+      zid,
+      tid,
+    ])
+    .then((rows: Row[]) => {
+      return (rows && rows[0]) || null;
+    });
 }
 
-function getComments(o: CommentType) {
-  let commentListPromise = o.moderation
-    ? _getCommentsForModerationList(o)
-    : _getCommentsList(o);
-  let convPromise = Conversation.getConversationInfo(o.zid);
+function getComments(o: CommentType): Promise<Row[]> {
+  const commentListPromise = o.moderation
+    ? _getCommentsForModerationList(o as any)
+    : _getCommentsList(o as any);
+  const convPromise = getConversationInfo(o.zid);
   return Promise.all([convPromise, commentListPromise])
-    .then(function (a) {
-      let rows = a[1];
-      let cols = [
+    .then(function (a: [any, Row[]]) {
+      let rows: Row[] = a[1];
+      const cols = [
         "txt",
         "tid",
         "created",
         "uid",
         "quote_src_url",
-        "anon",
         "is_seed",
         "is_meta",
         "lang",
@@ -77,8 +81,8 @@ function getComments(o: CommentType) {
         cols.push("pass_count"); //  in  moderation queries, we join in the vote count
         cols.push("count"); //  in  moderation queries, we join in the vote count
       }
-      rows = rows.map(function (row: Row) {
-        let x = _.pick(row, cols);
+      rows = rows.map(function (row: Row): Row {
+        const x = _.pick(row, cols) as Row;
         if (!_.isUndefined(x.count)) {
           x.count = Number(x.count);
         }
@@ -86,10 +90,9 @@ function getComments(o: CommentType) {
       });
       return rows;
     })
-    .then(function (comments) {
-      comments.forEach(function (c: { uid: any; anon: any }) {
+    .then(function (comments: Row[]): Row[] {
+      comments.forEach(function (c: { uid?: any }) {
         delete c.uid;
-        delete c.anon;
       });
       return comments;
     });
@@ -98,13 +101,13 @@ function getComments(o: CommentType) {
 function _getCommentsForModerationList(o: {
   include_voting_patterns: any;
   modIn: boolean;
-  zid: any;
+  zid: number;
   strict_moderation: any;
   mod: any;
   mod_gt: any;
-}) {
-  var strictCheck = Promise.resolve(null);
-  var include_voting_patterns = o.include_voting_patterns;
+}): Promise<Row[]> {
+  let strictCheck: Promise<any> = Promise.resolve(null);
+  const include_voting_patterns = o.include_voting_patterns;
 
   if (o.modIn) {
     strictCheck = pg
@@ -116,9 +119,9 @@ function _getCommentsForModerationList(o: {
       });
   }
 
-  return strictCheck.then((strict_moderation) => {
+  return strictCheck.then((strict_moderation): Promise<Row[]> => {
     let modClause = "";
-    let params = [o.zid];
+    const params = [o.zid];
     if (!_.isUndefined(o.mod)) {
       modClause = " and comments.mod = ($2)";
       params.push(o.mod);
@@ -145,22 +148,25 @@ function _getCommentsForModerationList(o: {
         "_getCommentsForModerationList",
         "select * from comments where comments.zid = ($1)" + modClause,
         params
-      );
+      ) as Promise<Row[]>;
     }
 
     return pg
       .queryP_metered_readOnly(
         "_getCommentsForModerationList",
         "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" +
-        modClause,
+          modClause,
         params
       )
       .then((rows: Row[]) => {
         // each comment will have up to three rows. merge those into one with agree/disagree/pass counts.
-        let adp: { [key: string]: Row } = {};
+        const adp: { [key: string]: Row } = {};
         for (let i = 0; i < rows.length; i++) {
-          let row = rows[i];
-          let o = (adp[row.tid] = adp[row.tid] || { tid: row.tid, vote: 0, count: 0,
+          const row = rows[i];
+          const o = (adp[row.tid] = adp[row.tid] || {
+            tid: row.tid,
+            vote: 0,
+            count: 0,
             agree_count: 0,
             disagree_count: 0,
             pass_count: 0,
@@ -173,12 +179,12 @@ function _getCommentsForModerationList(o: {
             o.pass_count = Number(row.count);
           }
         }
-        rows = _.uniq(rows, false, (row: { tid: Id }) => {
+        rows = _.uniq(rows, false, (row: { tid: number }) => {
           return row.tid;
         });
 
         for (let i = 0; i < rows.length; i++) {
-          let row = rows[i];
+          const row = rows[i];
           row.agree_count = adp[row.tid].agree_count;
           row.disagree_count = adp[row.tid].disagree_count;
           row.pass_count = adp[row.tid].pass_count;
@@ -190,25 +196,20 @@ function _getCommentsForModerationList(o: {
 }
 
 function _getCommentsList(o: {
-  zid: any;
-  pid: any;
+  zid: number;
+  pid: number;
   tids: any;
   mod: any;
-  not_voted_by_pid: any;
+  not_voted_by_pid: number;
   withoutTids: any;
   moderation: any;
   random: any;
   limit: any;
-}) {
-  // 'new' expression, whose target lacks a construct signature, implicitly has an 'any' type.ts(7009)
-  // @ts-ignore
-  return new MPromise(
+}): Promise<Row[]> {
+  return MPromise(
     "_getCommentsList",
     function (resolve: (rows: Row[]) => void, reject: (arg0: any) => void) {
-      Conversation.getConversationInfo(o.zid).then(function (conv: {
-        strict_moderation: any;
-        prioritize_seed: any;
-      }) {
+      getConversationInfo(o.zid).then(function (conv: ConversationInfo) {
         let q = SQL.sql_comments
           .select(SQL.sql_comments.star())
           .where(SQL.sql_comments.zid.equals(o.zid));
@@ -274,22 +275,27 @@ function _getCommentsList(o: {
         });
       });
     }
-  );
+  ) as Promise<Row[]>;
 }
 
-function getNumberOfCommentsRemaining(zid: any, pid: any) {
+function getNumberOfCommentsRemaining(zid: number, pid: number): Promise<any> {
   return pg.queryP(
     "with " +
-    "v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), " +
-    "c as (select * from get_visible_comments($1)), " +
-    "remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), " +
-    "total as (select count(*) as total from c) " +
-    "select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;",
+      "v as (select * from votes_latest_unique where zid = ($1) and pid = ($2)), " +
+      "c as (select * from get_visible_comments($1)), " +
+      "remaining as (select count(*) as remaining from c left join v on c.tid = v.tid where v.vote is null), " +
+      "total as (select count(*) as total from c) " +
+      "select cast(remaining.remaining as integer), cast(total.total as integer), cast(($2) as integer) as pid from remaining, total;",
     [zid, pid]
   );
 }
 
-function translateAndStoreComment(zid: any, tid: any, txt: any, lang: any) {
+function translateAndStoreComment(
+  zid: number,
+  tid: number,
+  txt: any,
+  lang: string
+): Promise<Row | null> {
   if (useTranslateApi) {
     return translateString(txt, lang).then((results: any[]) => {
       const translation = results[0];
@@ -297,13 +303,12 @@ function translateAndStoreComment(zid: any, tid: any, txt: any, lang: any) {
       return pg
         .queryP(
           "insert into comment_translations (zid, tid, txt, lang, src) values ($1, $2, $3, $4, $5) " +
-          "on conflict (zid, tid, src, lang) do update set " +
-          "txt = excluded.txt, " +
-          "modified = now_as_millis() " +
-          "returning *;",
+            "on conflict (zid, tid, src, lang) do update set " +
+            "txt = excluded.txt, " +
+            "modified = now_as_millis() " +
+            "returning *;",
           [zid, tid, translation, lang, src]
         )
-        // @ts-ignore
         .then((rows: Row[]) => {
           return rows[0];
         });
@@ -312,14 +317,16 @@ function translateAndStoreComment(zid: any, tid: any, txt: any, lang: any) {
   return Promise.resolve(null);
 }
 
-function translateString(txt: any, target_lang: any) {
+function translateString(txt: any, target_lang: any): Promise<any[] | null> {
   if (useTranslateApi) {
     return translateClient.translate(txt, target_lang);
   }
   return Promise.resolve(null);
 }
 
-function detectLanguage(txt: any) {
+function detectLanguage(
+  txt: any
+): Promise<Array<{ confidence: any; language: any }>> {
   if (useTranslateApi) {
     return translateClient.detect(txt);
   }

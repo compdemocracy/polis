@@ -10,14 +10,16 @@ dotenv.config();
 
 import Promise from "bluebird";
 import express from "express";
-// import compression from "compression";
-// import cookieParser from "cookie-parser";
-// import bodyParser from "body-parser";
 import morgan from "morgan";
+import timeout from "connect-timeout";
 
-import Config from "./src/config";
 import server from "./src/server";
+import Config from "./src/config";
+import { makeFileFetcher } from "./src/utils/file-fetcher";
 import logger from "./src/utils/logger";
+import { fetchIndexForConversation } from "./src/conversation";
+import { getPidForParticipant } from "./src/user";
+
 import { handle_GET_conversationUuid } from "./src/routes/conversationUuid";
 import { handle_GET_xidReport } from "./src/routes/export";
 import { handle_GET_delphi } from "./src/routes/delphi";
@@ -30,8 +32,128 @@ import {
   handle_GET_consensus_feed,
   handle_GET_topics_feed,
 } from "./src/routes/api/v3/feeds";
+import { handle_GET_reportExport } from "./src/routes/export";
+import { handle_GET_reportNarrative } from "./src/routes/reportNarrative";
+import {
+  handle_POST_auth_deregister_jwt,
+  handle_POST_joinWithInvite,
+} from "./src/auth";
+import {
+  handle_GET_comments_translations,
+  handle_GET_comments,
+  handle_GET_nextComment,
+  handle_POST_comments_bulk,
+  handle_POST_comments,
+  handle_PUT_comments,
+} from "./src/routes/comments";
+import {
+  handle_GET_conversationPreloadInfo,
+  handle_GET_conversations,
+  handle_GET_conversationsRecentActivity,
+  handle_GET_conversationsRecentlyStarted,
+  handle_GET_conversationStats,
+  handle_GET_iim_conversation,
+  handle_GET_iip_conversation,
+  handle_POST_conversation_close,
+  handle_POST_conversation_reopen,
+  handle_POST_conversations,
+  handle_POST_reserve_conversation_id,
+  handle_PUT_conversations,
+} from "./src/routes/conversations";
+import {
+  handle_DELETE_metadata_answers,
+  handle_DELETE_metadata_questions,
+  handle_GET_metadata_answers,
+  handle_GET_metadata_choices,
+  handle_GET_metadata_questions,
+  handle_GET_metadata,
+  handle_POST_metadata_answers,
+  handle_POST_metadata_questions,
+} from "./src/routes/metadata";
+import {
+  handle_GET_math_pca,
+  handle_GET_math_pca2,
+  handle_POST_math_update,
+  handle_GET_math_correlationMatrix,
+  handle_GET_bidToPid,
+  handle_GET_xids,
+  handle_POST_xidWhitelist,
+  handle_GET_bid,
+} from "./src/routes/math";
+import {
+  handle_GET_participants,
+  handle_GET_participation,
+  handle_GET_participationInit,
+  handle_POST_participants,
+  handle_POST_query_participants_by_metadata,
+  handle_PUT_participants_extended,
+} from "./src/routes/participation";
+import {
+  handle_GET_dataExport,
+  handle_GET_dataExport_results,
+} from "./src/routes/dataExport";
+import {
+  handle_GET_votes_famous,
+  handle_GET_votes_me,
+  handle_GET_votes,
+  handle_POST_votes,
+} from "./src/routes/votes";
+import { handle_GET_implicit_conversation_generation } from "./src/routes/implicitConversation";
+import {
+  handle_GET_users,
+  handle_PUT_users,
+  handle_POST_users_invite,
+} from "./src/routes/users";
+import {
+  handle_GET_notifications_subscribe,
+  handle_GET_notifications_unsubscribe,
+  handle_POST_convSubscriptions,
+  handle_POST_notifyTeam,
+} from "./src/routes/notify";
+import {
+  handle_GET_reports,
+  handle_POST_reports,
+  handle_PUT_reports,
+  handle_POST_reportCommentSelections,
+} from "./src/routes/reports";
+import { hybridAuth, hybridAuthOptional } from "./src/auth/hybrid-jwt";
+import {
+  addCorsHeader,
+  denyIfNotFromWhitelistedDomain,
+  handle_GET_domainWhitelist,
+  handle_POST_domainWhitelist,
+  makeRedirectorTo,
+  proxy,
+  redirectIfNotHttps,
+  writeDefaultHead,
+} from "./src/utils/domain";
+import {
+  assignToP,
+  assignToPCustom,
+  getArrayOfInt,
+  getArrayOfStringNonEmpty,
+  getBool,
+  getConversationIdFetchZid,
+  getEmail,
+  getInt,
+  getIntInRange,
+  getNumberInRange,
+  getOptionalStringLimitLength,
+  getReportIdFetchRid,
+  getStringLimitLength,
+  getUrlLimitLength,
+  moveToBody,
+  need,
+  resolve_pidThing,
+  want,
+  wantHeader,
+} from "./src/utils/parameter";
 
 const app = express();
+const hostname = Config.staticFilesHost;
+const staticFilesAdminPort = Config.staticFilesAdminPort;
+const staticFilesParticipationPort = Config.staticFilesParticipationPort;
+const HMAC_SIGNATURE_PARAM_NAME = "signature";
 
 // 'dev' format is
 // :method :url :status :response-time ms - :res[content-length]
@@ -42,172 +164,53 @@ app.use(morgan("dev"));
 // See: https://expressjs.com/en/guide/behind-proxies.html
 app.set("trust proxy", 1);
 
-var helpersInitialized = new Promise(function (resolve, reject) {
+const helpersInitialized = new Promise(function (resolve) {
   resolve(server.initializePolisHelpers());
 });
-/* @ts-ignore */
+
 helpersInitialized.then(
-  function (o) {
+  function (o: any) {
     const {
-      addCorsHeader,
-      auth,
-      authOptional,
-      COOKIES,
-      denyIfNotFromWhitelistedDomain,
-      devMode,
-      enableAgid,
-      fetchThirdPartyCookieTestPt1,
-      fetchThirdPartyCookieTestPt2,
       fetchIndexForAdminPage,
-      fetchIndexForConversation,
       fetchIndexForReportPage,
       fetchIndexWithoutPreloadData,
-      getPidForParticipant,
       haltOnTimeout,
-      HMAC_SIGNATURE_PARAM_NAME,
-      hostname,
-      makeFileFetcher,
-      makeRedirectorTo,
-      pidCache,
-      staticFilesAdminPort,
-      staticFilesParticipationPort,
-      proxy,
       redirectIfHasZidButNoConversationId,
-      redirectIfNotHttps,
-      timeout,
-      writeDefaultHead,
 
-      middleware_log_request_body,
-      middleware_log_middleware_errors,
       middleware_check_if_options,
+      middleware_log_middleware_errors,
+      middleware_log_request_body,
       middleware_responseTime_start,
 
-      handle_DELETE_metadata_answers,
-      handle_DELETE_metadata_questions,
-      handle_GET_bid,
-      handle_GET_bidToPid,
-      handle_GET_comments,
-      handle_GET_comments_translations,
       handle_GET_conditionalIndexFetcher,
       handle_GET_contexts,
-      handle_GET_conversationPreloadInfo,
-      handle_GET_conversations,
-      handle_GET_conversationsRecentActivity,
-      handle_GET_conversationsRecentlyStarted,
-      handle_GET_conversationStats,
-      handle_GET_math_correlationMatrix,
-      handle_GET_dataExport,
-      handle_GET_dataExport_results,
-      handle_GET_reportNarrative,
-      handle_GET_reportExport,
-      handle_GET_domainWhitelist,
       handle_GET_dummyButton,
       handle_GET_einvites,
-      handle_GET_iim_conversation,
-      handle_GET_iip_conversation,
-      handle_GET_implicit_conversation_generation,
-      handle_GET_launchPrep,
       handle_GET_locations,
-      handle_GET_math_pca,
-      handle_GET_math_pca2,
-      handle_GET_metadata,
-      handle_GET_metadata_answers,
-      handle_GET_metadata_choices,
-      handle_GET_metadata_questions,
-      handle_GET_nextComment,
-      handle_GET_notifications_subscribe,
-      handle_GET_notifications_unsubscribe,
-      handle_GET_participants,
-      handle_GET_participation,
-      handle_GET_participationInit,
       handle_GET_perfStats,
       handle_GET_ptptois,
-      handle_GET_reports,
       handle_GET_snapshot,
-
       handle_GET_testConnection,
       handle_GET_testDatabase,
-      handle_GET_tryCookie,
-      handle_GET_users,
       handle_GET_verification,
-      handle_GET_votes,
-      handle_GET_votes_famous,
-      handle_GET_votes_me,
-      handle_GET_xids,
       handle_GET_zinvites,
 
-      handle_POST_auth_deregister,
-      handle_POST_auth_login,
-      handle_POST_auth_new,
-      handle_POST_auth_password,
-      handle_POST_auth_pwresettoken,
-      handle_POST_comments,
       handle_POST_contexts,
       handle_POST_contributors,
-      handle_POST_conversation_close,
-      handle_POST_conversation_reopen,
-      handle_POST_conversations,
-      handle_POST_convSubscriptions,
-      handle_POST_domainWhitelist,
       handle_POST_einvites,
-      handle_POST_joinWithInvite,
-      handle_POST_math_update,
-      handle_POST_metadata_answers,
-      handle_POST_metadata_questions,
       handle_POST_metrics,
-      handle_POST_notifyTeam,
-      handle_POST_participants,
       handle_POST_ptptCommentMod,
-      handle_POST_query_participants_by_metadata,
-      handle_POST_reportCommentSelections,
-      handle_POST_reports,
-      handle_POST_reserve_conversation_id,
       handle_POST_sendCreatedLinkToEmail,
       handle_POST_sendEmailExportReady,
       handle_POST_stars,
       handle_POST_trashes,
       handle_POST_tutorial,
       handle_POST_upvotes,
-      handle_POST_users_invite,
-      handle_POST_votes,
-      handle_POST_xidWhitelist,
-      handle_POST_zinvites,
-      handle_PUT_comments,
-      handle_PUT_conversations,
-      handle_PUT_participants_extended,
-      handle_PUT_ptptois,
-      handle_PUT_reports,
-      handle_PUT_users,
-      handle_POST_comments_bulk,
-    } = o;
 
-    const {
-      assignToP,
-      assignToPCustom,
-      getArrayOfInt,
-      getArrayOfStringNonEmpty,
-      getArrayOfStringNonEmptyLimitLength,
-      getBool,
-      getConversationIdFetchZid,
-      getEmail,
-      getInt,
-      getIntInRange,
-      getNumberInRange,
-      getOptionalStringLimitLength,
-      getPassword,
-      getPasswordWithCreatePasswordRules,
-      getReportIdFetchRid,
-      getStringLimitLength,
-      getUrlLimitLength,
-      moveToBody,
-      need,
-      needCookie,
-      needHeader,
-      resolve_pidThing,
-      want,
-      wantCookie,
-      wantHeader,
-    } = require("./src/utils/parameter");
+      handle_POST_zinvites,
+
+      handle_PUT_ptptois,
+    } = o;
 
     app.disable("x-powered-by");
     // app.disable('etag'); // seems to be eating CPU, and we're not using etags yet. https://www.dropbox.com/s/hgfd5dm0e29728w/Screenshot%202015-06-01%2023.42.47.png?dl=0
@@ -231,11 +234,10 @@ helpersInitialized.then(
     app.use(middleware_responseTime_start);
 
     app.use(redirectIfNotHttps);
-    app.use(express.cookieParser());
     app.use(express.bodyParser());
     app.use(writeDefaultHead);
 
-    if (devMode) {
+    if (Config.isDevMode) {
       app.use(express.compress());
     } else {
       // Cloudflare would apply gzip if we didn't
@@ -297,7 +299,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/dataExport",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -321,7 +323,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/dataExport/results",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -335,7 +337,7 @@ helpersInitialized.then(
     // TODO doesn't scale, stop sending entire mapping.
     app.get(
       "/api/v3/bidToPid",
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       moveToBody,
       need(
         "conversation_id",
@@ -356,7 +358,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/xids",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -369,7 +371,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/bid",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -379,29 +381,12 @@ helpersInitialized.then(
       handle_GET_bid
     );
 
-    app.post(
-      "/api/v3/auth/password",
-      need("pwresettoken", getOptionalStringLimitLength(1000), assignToP),
-      need("newPassword", getPasswordWithCreatePasswordRules, assignToP),
-      handle_POST_auth_password
-    );
-
-    app.post(
-      "/api/v3/auth/pwresettoken",
-      need("email", getEmail, assignToP),
-      handle_POST_auth_pwresettoken
-    );
-
-    app.post(
-      "/api/v3/auth/deregister",
-      want("showPage", getStringLimitLength(1, 99), assignToP),
-      handle_POST_auth_deregister
-    );
+    app.post("/api/v3/auth/deregister", handle_POST_auth_deregister_jwt);
 
     app.get(
       "/api/v3/zinvites/:zid",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -413,7 +398,7 @@ helpersInitialized.then(
     app.post(
       "/api/v3/zinvites/:zid",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       want("short_url", getBool, assignToP),
       need(
         "conversation_id",
@@ -427,7 +412,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/participants",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -440,7 +425,7 @@ helpersInitialized.then(
       "/api/v3/dummyButton",
       moveToBody,
       need("button", getStringLimitLength(1, 999), assignToP),
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       handle_GET_dummyButton
     );
 
@@ -453,7 +438,7 @@ helpersInitialized.then(
 
     app.get(
       "/api/v3/conversations/recently_started",
-      auth(assignToP),
+      hybridAuth(assignToP),
       moveToBody,
       want("sinceUnixTimestamp", getStringLimitLength(99), assignToP),
       handle_GET_conversationsRecentlyStarted
@@ -461,7 +446,7 @@ helpersInitialized.then(
 
     app.get(
       "/api/v3/conversations/recent_activity",
-      auth(assignToP),
+      hybridAuth(assignToP),
       moveToBody,
       want("sinceUnixTimestamp", getStringLimitLength(99), assignToP),
       handle_GET_conversationsRecentActivity
@@ -469,7 +454,7 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/participants",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -511,7 +496,7 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/convSubscriptions",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -523,24 +508,12 @@ helpersInitialized.then(
     );
 
     app.post(
-      "/api/v3/auth/login",
-      need("password", getPassword, assignToP),
-      want("email", getEmail, assignToP),
-      handle_POST_auth_login
-    );
-
-    app.post(
       "/api/v3/joinWithInvite",
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
         assignToPCustom("zid")
-      ),
-      wantCookie(
-        COOKIES.PERMANENT_COOKIE,
-        getOptionalStringLimitLength(32),
-        assignToPCustom("permanentCookieToken")
       ),
       want("suzinvite", getOptionalStringLimitLength(32), assignToP),
       want("answers", getArrayOfInt, assignToP, []), // {pmqid: [pmaid, pmaid], ...} where the pmaids are checked choices
@@ -573,13 +546,13 @@ helpersInitialized.then(
     app.get(
       "/api/v3/domainWhitelist",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       handle_GET_domainWhitelist
     );
 
     app.post(
       "/api/v3/domainWhitelist",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "domain_whitelist",
         getOptionalStringLimitLength(999),
@@ -591,19 +564,15 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/xidWhitelist",
-      auth(assignToP),
-      need(
-        "xid_whitelist",
-        getArrayOfStringNonEmptyLimitLength(9999, 999),
-        assignToP
-      ),
+      hybridAuth(assignToP),
+      need("xid_whitelist", getArrayOfStringNonEmpty, assignToP),
       handle_POST_xidWhitelist
     );
 
     app.get(
       "/api/v3/conversationStats",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -617,7 +586,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/conversationUuid",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -629,7 +598,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/snapshot",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -639,24 +608,8 @@ helpersInitialized.then(
     );
 
     app.post(
-      "/api/v3/auth/new",
-      want("anon", getBool, assignToP),
-      want("password", getPasswordWithCreatePasswordRules, assignToP),
-      want("password2", getPasswordWithCreatePasswordRules, assignToP),
-      want("email", getOptionalStringLimitLength(999), assignToP),
-      want("hname", getOptionalStringLimitLength(999), assignToP),
-      want("oinvite", getOptionalStringLimitLength(999), assignToP),
-      want("encodedParams", getOptionalStringLimitLength(9999), assignToP), // TODO_SECURITY we need to add an additional key param to ensure this is secure. we don't want anyone adding themselves to other people's site_id groups.
-      want("zinvite", getOptionalStringLimitLength(999), assignToP),
-      want("organization", getOptionalStringLimitLength(999), assignToP),
-      want("gatekeeperTosPrivacy", getBool, assignToP),
-      want("owner", getBool, assignToP, true),
-      handle_POST_auth_new
-    );
-
-    app.post(
       "/api/v3/tutorial",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need("step", getInt, assignToP),
       handle_POST_tutorial
     );
@@ -664,15 +617,17 @@ helpersInitialized.then(
     app.get(
       "/api/v3/users",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       want("errIfNoAuth", getBool, assignToP),
+      want("xid", getStringLimitLength(1, 999), assignToP),
+      want("owner_uid", getInt, assignToP),
       handle_GET_users
     );
 
     app.get(
       "/api/v3/participation",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -685,7 +640,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/comments",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -712,17 +667,33 @@ helpersInitialized.then(
     // TODO probably need to add a retry mechanism like on joinConversation to handle possibility of duplicate tid race-condition exception
     app.post(
       "/api/v3/comments",
-      auth(assignToP),
+      hybridAuthOptional(assignToP),
       need(
         "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
+        (conversationId: string) => {
+          // First validate the conversation_id format
+          return getStringLimitLength(
+            1,
+            1000
+          )(conversationId).then(() => {
+            // Then fetch the zid
+            return getConversationIdFetchZid(conversationId);
+          });
+        },
+        (req: any, name: string, zid: number) => {
+          // Assign both the zid and preserve the original conversation_id
+          assignToP(req, "zid", zid);
+          assignToP(
+            req,
+            "conversation_id",
+            req.body.conversation_id || req.query.conversation_id
+          );
+        }
       ),
       want("txt", getOptionalStringLimitLength(997), assignToP),
       want("vote", getIntInRange(-1, 1), assignToP),
       want("quote_txt", getStringLimitLength(999), assignToP),
       want("quote_src_url", getUrlLimitLength(999), assignToP),
-      want("anon", getBool, assignToP),
       want("is_seed", getBool, assignToP),
       want("xid", getStringLimitLength(1, 999), assignToP),
       resolve_pidThing("pid", assignToP, "post:comments"),
@@ -732,7 +703,7 @@ helpersInitialized.then(
     // bulk upload csv of seed statements
     app.post(
       "/api/v3/comments-bulk",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -746,7 +717,7 @@ helpersInitialized.then(
 
     app.get(
       "/api/v3/comments/translations",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -760,7 +731,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/votes/me",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -772,7 +743,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/votes",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -787,7 +758,7 @@ helpersInitialized.then(
       "/api/v3/nextComment",
       timeout(15000),
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -918,7 +889,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/participationInit",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       want("ptptoiLimit", getInt, assignToP),
       want(
         "conversation_id",
@@ -942,7 +913,8 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/votes",
-      auth(assignToP),
+      hybridAuthOptional(assignToP),
+      want("agid", getInt, assignToP),
       need("tid", getInt, assignToP),
       need(
         "conversation_id",
@@ -960,7 +932,7 @@ helpersInitialized.then(
 
     app.put(
       "/api/v3/participants_extended",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -972,7 +944,7 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/ptptCommentMod",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need("tid", getInt, assignToP),
       need(
         "conversation_id",
@@ -989,13 +961,13 @@ helpersInitialized.then(
       want("as_offtopic", getBool, assignToP, null),
       want("as_spam", getBool, assignToP, null),
       want("as_unsure", getBool, assignToP, null),
-      getPidForParticipant(assignToP, pidCache),
+      getPidForParticipant(assignToP),
       handle_POST_ptptCommentMod
     );
 
     app.post(
       "/api/v3/upvotes",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1006,7 +978,7 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/stars",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need("tid", getInt, assignToP),
       need(
         "conversation_id",
@@ -1014,13 +986,13 @@ helpersInitialized.then(
         assignToPCustom("zid")
       ),
       need("starred", getIntInRange(0, 1), assignToP),
-      getPidForParticipant(assignToP, pidCache),
+      getPidForParticipant(assignToP),
       handle_POST_stars
     );
 
     app.post(
       "/api/v3/trashes",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need("tid", getInt, assignToP),
       need(
         "conversation_id",
@@ -1028,14 +1000,14 @@ helpersInitialized.then(
         assignToPCustom("zid")
       ),
       need("trashed", getIntInRange(0, 1), assignToP),
-      getPidForParticipant(assignToP, pidCache),
+      getPidForParticipant(assignToP),
       handle_POST_trashes
     );
 
     app.put(
       "/api/v3/comments",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1051,7 +1023,7 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/reportCommentSelections",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1066,7 +1038,7 @@ helpersInitialized.then(
     app.post(
       "/api/v3/conversation/close",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1078,7 +1050,7 @@ helpersInitialized.then(
     app.post(
       "/api/v3/conversation/reopen",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1090,7 +1062,7 @@ helpersInitialized.then(
     app.put(
       "/api/v3/conversations",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1131,7 +1103,7 @@ helpersInitialized.then(
     app.put(
       "/api/v3/users",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       want("email", getEmail, assignToP),
       want("hname", getOptionalStringLimitLength(9999), assignToP),
       want("uid_of_user", getInt, assignToP),
@@ -1141,7 +1113,7 @@ helpersInitialized.then(
     app.delete(
       "/api/v3/metadata/questions/:pmqid",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need("pmqid", getInt, assignToP),
       handle_DELETE_metadata_questions
     );
@@ -1149,7 +1121,7 @@ helpersInitialized.then(
     app.delete(
       "/api/v3/metadata/answers/:pmaid",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need("pmaid", getInt, assignToP),
       handle_DELETE_metadata_answers
     );
@@ -1157,7 +1129,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/metadata/questions",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1172,7 +1144,7 @@ helpersInitialized.then(
     app.post(
       "/api/v3/metadata/questions",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need("key", getOptionalStringLimitLength(999), assignToP),
       need(
         "conversation_id",
@@ -1185,7 +1157,7 @@ helpersInitialized.then(
     app.post(
       "/api/v3/metadata/answers",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1199,7 +1171,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/metadata/choices",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1211,7 +1183,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/metadata/answers",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1227,7 +1199,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/metadata",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1242,7 +1214,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/conversations",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       want("include_all_conversations_i_am_in", getBool, assignToP),
       want("is_active", getBool, assignToP),
       want("is_draft", getBool, assignToP),
@@ -1267,7 +1239,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/reports",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       want(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1279,6 +1251,7 @@ helpersInitialized.then(
 
     app.get(
       "/api/v3/reportNarrative",
+      hybridAuth(assignToP),
       moveToBody,
       need("report_id", getReportIdFetchRid, assignToPCustom("rid")),
       handle_GET_reportNarrative
@@ -1287,7 +1260,7 @@ helpersInitialized.then(
     app.post(
       "/api/v3/mathUpdate",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1299,7 +1272,7 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/reports",
-      auth(assignToP),
+      hybridAuth(assignToP),
       want(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1311,7 +1284,7 @@ helpersInitialized.then(
     app.put(
       "/api/v3/reports",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1339,27 +1312,27 @@ helpersInitialized.then(
     app.get(
       "/api/v3/contexts",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       handle_GET_contexts
     );
 
     app.post(
       "/api/v3/contexts",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need("name", getStringLimitLength(1, 300), assignToP),
       handle_POST_contexts
     );
 
     app.post(
       "/api/v3/reserve_conversation_id",
-      auth(assignToP),
+      hybridAuth(assignToP),
       handle_POST_reserve_conversation_id
     );
 
     // TODO check to see if ptpt has answered necessary metadata questions.
     app.post(
       "/api/v3/conversations",
-      auth(assignToP),
+      hybridAuth(assignToP),
       want("is_active", getBool, assignToP, true),
       want("is_draft", getBool, assignToP, false),
       want("is_anon", getBool, assignToP, false),
@@ -1379,7 +1352,7 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/query_participants_by_metadata",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1391,19 +1364,21 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/sendCreatedLinkToEmail",
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
+      // Preserve the original conversation_id for the email link
+      need("conversation_id", getStringLimitLength(1, 100), assignToP),
       handle_POST_sendCreatedLinkToEmail
     );
 
     app.get(
       "/api/v3/locations",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1416,7 +1391,7 @@ helpersInitialized.then(
     app.put(
       "/api/v3/ptptois",
       moveToBody,
-      auth(assignToP),
+      hybridAuth(assignToP),
       need("mod", getInt, assignToP),
       need(
         "conversation_id",
@@ -1430,7 +1405,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/ptptois",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       want("mod", getInt, assignToP),
       need(
         "conversation_id",
@@ -1444,7 +1419,7 @@ helpersInitialized.then(
     app.get(
       "/api/v3/votes/famous",
       moveToBody,
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1471,7 +1446,7 @@ helpersInitialized.then(
     app.post(
       "/api/v3/users/invite",
       // authWithApiKey(assignToP),
-      auth(assignToP),
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
@@ -1535,16 +1510,6 @@ helpersInitialized.then(
       handle_GET_iim_conversation
     );
 
-    // TODO this should probably be exempt from the CORS restrictions
-    app.get(
-      "/api/v3/launchPrep",
-      moveToBody,
-      need("dest", getStringLimitLength(1, 10000), assignToP),
-      handle_GET_launchPrep
-    );
-
-    app.get("/api/v3/tryCookie", moveToBody, handle_GET_tryCookie);
-
     app.get(
       "/api/v3/verify",
       moveToBody,
@@ -1554,7 +1519,7 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/contributors",
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need("agreement_version", getIntInRange(1, 999999), assignToP),
       need("name", getStringLimitLength(746), assignToP),
       need("email", getStringLimitLength(256), assignToP),
@@ -1565,7 +1530,7 @@ helpersInitialized.then(
 
     app.post(
       "/api/v3/metrics",
-      authOptional(assignToP),
+      hybridAuthOptional(assignToP),
       need("types", getArrayOfInt, assignToP),
       need("times", getArrayOfInt, assignToP),
       need("durs", getArrayOfInt, assignToP),
@@ -1574,7 +1539,7 @@ helpersInitialized.then(
     );
 
     function makeFetchIndexWithoutPreloadData() {
-      let port = staticFilesParticipationPort;
+      const port = staticFilesParticipationPort;
       return function (req, res) {
         return fetchIndexWithoutPreloadData(req, res, port);
       };
@@ -1682,9 +1647,6 @@ helpersInitialized.then(
       }
     );
 
-    app.get(/^\/thirdPartyCookieTestPt1\.html$/, fetchThirdPartyCookieTestPt1);
-    app.get(/^\/thirdPartyCookieTestPt2\.html$/, fetchThirdPartyCookieTestPt2);
-
     app.get(
       /^\/embed$/,
       makeFileFetcher(hostname, staticFilesAdminPort, "/embed.html", {
@@ -1763,7 +1725,7 @@ helpersInitialized.then(
         pathAndQuery = pathAndQuery.replace("/?", "?");
       }
 
-      let fullUrl = req.protocol + "://" + req.get("host") + pathAndQuery;
+      const fullUrl = req.protocol + "://" + req.get("host") + pathAndQuery;
 
       if (pathAndQuery !== req.originalUrl) {
         res.redirect(fullUrl);
@@ -1772,7 +1734,7 @@ helpersInitialized.then(
       }
     });
 
-    var missingFilesGet404 = false;
+    const missingFilesGet404 = false;
     if (missingFilesGet404) {
       // 404 everything else
       app.get(
@@ -1787,8 +1749,6 @@ helpersInitialized.then(
     }
 
     // move app.listen to index.ts
-    // app.listen(Config.serverPort);
-    // logger.info("started on port " + Config.serverPort);
   },
 
   function (err) {

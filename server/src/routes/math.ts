@@ -1,25 +1,27 @@
 import _ from "underscore";
 import { getPca, PcaCacheItem } from "../utils/pca";
 import { MPromise } from "../utils/metered";
-import fail from "../utils/fail";
-import { queryP as pgQueryP, query_readOnly as pgQuery_readOnly } from "../db/pg-query";
+import { failJson } from "../utils/fail";
+import pg from "../db/pg-query";
 import Utils from "../utils/common";
 import { getZidForRid } from "../utils/zinvite";
 import { getBidIndexToPidMapping } from "../utils/participants";
-
 import Config from "../config";
 import logger from "../utils/logger";
-import User from "../user";
+import { getPidPromise } from "../user";
 
 function handle_GET_math_pca(
   req: any,
   res: {
-    status: (
-      arg0: number
-    ) => { (): any; new (): any; end: { (): void; new (): any } };
+    status: (arg0: number) => {
+      (): any;
+      new (): any;
+      end: { (): void; new (): any };
+    };
   }
 ) {
-  // migrated off this path, old clients were causing timeout issues by polling repeatedly without waiting for a result for a previous poll.
+  // migrated off this path, old clients were causing timeout issues by polling
+  // repeatedly without waiting for a result for a previous poll.
   res.status(304).end();
 }
 
@@ -28,14 +30,14 @@ function handle_GET_math_pca(
 // zid -> boolean
 const pcaResultsExistForZid = {};
 
-const getPidPromise = User.getPidPromise;
-
 function handle_GET_math_pca2(
-  req: { p: { zid: any; math_tick: any; ifNoneMatch: any } },
+  req: { p: { zid: number; math_tick: any; ifNoneMatch: any } },
   res: {
-    status: (
-      arg0: number
-    ) => { (): any; new (): any; end: { (): void; new (): any } };
+    status: (arg0: number) => {
+      (): any;
+      new (): any;
+      end: { (): void; new (): any };
+    };
     set: (arg0: {
       "Content-Type": string;
       "Content-Encoding": string;
@@ -44,13 +46,13 @@ function handle_GET_math_pca2(
     send: (arg0: any) => void;
   }
 ) {
-  let zid = req.p.zid;
+  const zid = req.p.zid;
   let math_tick = req.p.math_tick;
 
-  let ifNoneMatch = req.p.ifNoneMatch;
+  const ifNoneMatch = req.p.ifNoneMatch;
   if (ifNoneMatch) {
     if (math_tick !== undefined) {
-      return fail(
+      return failJson(
         res,
         400,
         "Expected either math_tick param or If-Not-Match header, but not both."
@@ -59,7 +61,7 @@ function handle_GET_math_pca2(
     if (ifNoneMatch.includes("*")) {
       math_tick = 0;
     } else {
-      let entries = ifNoneMatch.split(/ *, */).map((x: string) => {
+      const entries = ifNoneMatch.split(/ *, */).map((x: string) => {
         return Number(
           x
             .replace(/^[wW]\//, "")
@@ -72,10 +74,8 @@ function handle_GET_math_pca2(
   } else if (math_tick === undefined) {
     math_tick = -1;
   }
+
   function finishWith304or404() {
-    // Element implicitly has an 'any' type
-    // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-    // @ts-ignore
     if (pcaResultsExistForZid[zid]) {
       res.status(304).end();
     } else {
@@ -90,9 +90,10 @@ function handle_GET_math_pca2(
   getPca(zid, math_tick)
     .then(function (data: PcaCacheItem | undefined) {
       if (data) {
-        // The buffer is gzipped beforehand to cut down on server effort in re-gzipping the same json string for each response.
-        // We can't cache this endpoint on Cloudflare because the response changes too freqently, so it seems like the best way
-        // is to cache the gzipped json'd buffer here on the server.
+        // The buffer is gzipped beforehand to cut down on server effort in re-gzipping
+        // the same json string for each response.
+        // We can't cache this endpoint on Cloudflare because the response changes too freqently,
+        // so it seems like the best way is to cache the gzipped json'd buffer here on the server.
         res.set({
           "Content-Type": "application/json",
           "Content-Encoding": "gzip",
@@ -101,17 +102,11 @@ function handle_GET_math_pca2(
         res.send(data.asBufferOfGzippedJson);
       } else {
         // check whether we should return a 304 or a 404
-        // Element implicitly has an 'any' type
-        // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-        // @ts-ignore
         if (pcaResultsExistForZid[zid] === undefined) {
           // This server doesn't know yet if there are any PCA results in the DB
           // So try querying from -1
           return getPca(zid, -1).then(function (data: any) {
-            let exists = !!data;
-            // Element implicitly has an 'any' type
-            // because expression of type 'any' can't be used to index type '{ } '.ts(7053)
-            // @ts-ignore
+            const exists = !!data;
             pcaResultsExistForZid[zid] = exists;
             finishWith304or404();
           });
@@ -121,43 +116,46 @@ function handle_GET_math_pca2(
       }
     })
     .catch(function (err: any) {
-      fail(res, 500, err);
+      failJson(res, 500, err);
     });
 }
 
 function handle_POST_math_update(
-  req: { p: { zid: any; uid?: any; math_update_type: any } },
+  req: { p: { zid: number; uid?: number; math_update_type: any } },
   res: {
-    status: (
-      arg0: number
-    ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
+    status: (arg0: number) => {
+      (): any;
+      new (): any;
+      json: { (arg0: {}): void; new (): any };
+    };
   }
 ) {
-  let zid = req.p.zid;
-  let uid = req.p.uid;
-  let math_env = Config.mathEnv;
-  let math_update_type = req.p.math_update_type;
+  const zid = req.p.zid;
+  const uid = req.p.uid;
+  const math_env = Config.mathEnv;
+  const math_update_type = req.p.math_update_type;
 
   Utils.isModerator(zid, uid).then((hasPermission: any) => {
     if (!hasPermission) {
-      return fail(res, 500, "handle_POST_math_update_permission");
+      return failJson(res, 500, "handle_POST_math_update_permission");
     }
-    return pgQueryP(
-      "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('update_math', $1, $2, $3);",
-      [
-        JSON.stringify({
-          zid: zid,
-          math_update_type: math_update_type,
-        }),
-        zid,
-        math_env,
-      ]
-    )
+    return pg
+      .queryP(
+        "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('update_math', $1, $2, $3);",
+        [
+          JSON.stringify({
+            zid: zid,
+            math_update_type: math_update_type,
+          }),
+          zid,
+          math_env,
+        ]
+      )
       .then(() => {
         res.status(200).json({});
       })
       .catch((err: any) => {
-        return fail(res, 500, "polis_err_POST_math_update", err);
+        return failJson(res, 500, "polis_err_POST_math_update", err);
       });
   });
 }
@@ -165,9 +163,7 @@ function handle_POST_math_update(
 function handle_GET_math_correlationMatrix(
   req: { p: { rid: any; math_tick: any } },
   res: {
-    status: (
-      arg0: number
-    ) => {
+    status: (arg0: number) => {
       (): any;
       new (): any;
       json: { (arg0: { status: string }): void; new (): any };
@@ -175,9 +171,9 @@ function handle_GET_math_correlationMatrix(
     json: (arg0: any) => void;
   }
 ) {
-  let rid = req.p.rid;
-  let math_env = Config.mathEnv;
-  let math_tick = req.p.math_tick;
+  const rid = req.p.rid;
+  const math_env = Config.mathEnv;
+  const math_tick = req.p.math_tick;
 
   function finishAsPending() {
     res.status(202).json({
@@ -186,20 +182,17 @@ function handle_GET_math_correlationMatrix(
   }
 
   function hasCommentSelections() {
-    return pgQueryP(
-      "select * from report_comment_selections where rid = ($1) and selection = 1;",
-      [rid]
-      // Argument of type '(rows: string | any[]) => boolean' is not assignable to parameter of type '(value: unknown) => boolean | PromiseLike<boolean>'.
-      // Types of parameters 'rows' and 'value' are incompatible.
-      // Type 'unknown' is not assignable to type 'string | any[]'.
-      //     Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-      // @ts-ignore
-    ).then((rows: string | any[]) => {
-      return rows.length > 0;
-    });
+    return pg
+      .queryP(
+        "select * from report_comment_selections where rid = ($1) and selection = 1;",
+        [rid]
+      )
+      .then((rows: string | any[]) => {
+        return rows.length > 0;
+      });
   }
 
-  let requestExistsPromise = pgQueryP(
+  const requestExistsPromise = pg.queryP(
     "select * from worker_tasks where task_type = 'generate_report_data' and math_env=($2) " +
       "and task_bucket = ($1) " +
       // "and attempts < 3 " +
@@ -208,21 +201,16 @@ function handle_GET_math_correlationMatrix(
     [rid, math_env, math_tick]
   );
 
-  let resultExistsPromise = pgQueryP(
+  const resultExistsPromise = pg.queryP(
     "select * from math_report_correlationmatrix where rid = ($1) and math_env = ($2) and math_tick >= ($3);",
     [rid, math_env, math_tick]
   );
 
   Promise.all([resultExistsPromise, getZidForRid(rid)])
     .then((a: any[]) => {
-      let rows = a[0];
-      let zid = a[1];
+      const rows = a[0];
+      const zid = a[1];
       if (!rows || !rows.length) {
-        //         Argument of type '(requests_rows: string | any[]) => globalThis.Promise<void> | undefined' is not assignable to parameter of type '(value: unknown) => void | PromiseLike<void | undefined> | undefined'.
-        // Types of parameters 'requests_rows' and 'value' are incompatible.
-        //   Type 'unknown' is not assignable to type 'string | any[]'.
-        //           Type 'unknown' is not assignable to type 'any[]'.ts(2345)
-        // @ts-ignore
         return requestExistsPromise.then((requests_rows: string | any[]) => {
           const shouldAddTask = !requests_rows || !requests_rows.length;
           // const shouldAddTask = true;
@@ -234,18 +222,20 @@ function handle_GET_math_correlationMatrix(
                   status: "polis_report_needs_comment_selection",
                 });
               }
-              return pgQueryP(
-                "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('generate_report_data', $1, $2, $3);",
-                [
-                  JSON.stringify({
-                    rid: rid,
-                    zid: zid,
-                    math_tick: math_tick,
-                  }),
-                  rid,
-                  math_env,
-                ]
-              ).then(finishAsPending);
+              return pg
+                .queryP(
+                  "insert into worker_tasks (task_type, task_data, task_bucket, math_env) values ('generate_report_data', $1, $2, $3);",
+                  [
+                    JSON.stringify({
+                      rid: rid,
+                      zid: zid,
+                      math_tick: math_tick,
+                    }),
+                    rid,
+                    math_env,
+                  ]
+                )
+                .then(finishAsPending);
             });
           }
           finishAsPending();
@@ -254,45 +244,51 @@ function handle_GET_math_correlationMatrix(
       res.json(rows[0].data);
     })
     .catch((err: any) => {
-      return fail(res, 500, "polis_err_GET_math_correlationMatrix", err);
+      return failJson(res, 500, "polis_err_GET_math_correlationMatrix", err);
     });
 }
 
 function handle_GET_bidToPid(
-  req: { p: { zid: any; math_tick: any } },
+  req: { p: { zid: number; math_tick: any } },
   res: {
     json: (arg0: { bidToPid: any }) => void;
-    status: (
-      arg0: number
-    ) => { (): any; new (): any; end: { (): void; new (): any } };
+    status: (arg0: number) => {
+      (): any;
+      new (): any;
+      end: { (): void; new (): any };
+    };
   }
 ) {
-  let zid = req.p.zid;
-  let math_tick = req.p.math_tick;
+  const zid = req.p.zid;
+  const math_tick = req.p.math_tick;
   getBidIndexToPidMapping(zid, math_tick).then(
     function (doc: { bidToPid: any }) {
-      let b2p = doc.bidToPid;
+      const b2p = doc.bidToPid;
       res.json({
         bidToPid: b2p,
       });
     },
-    function (err: any) {
+    function () {
       res.status(304).end();
     }
   );
 }
 
-
-function getXids(zid: number): Promise<{ pid: number, xid: string }[] | undefined> {
+function getXids(
+  zid: number
+): Promise<{ pid: number; xid: string }[] | undefined> {
   return MPromise(
     "getXids",
-    function (resolve: (arg0: { pid: number, xid: string }[]) => void, reject: (arg0: string) => void) {
-      pgQuery_readOnly(
+    function (
+      resolve: (arg0: { pid: number; xid: string }[]) => void,
+      reject: (arg0: string) => void
+    ) {
+      pg.query_readOnly(
         "select pid, xid from xids inner join " +
           "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
           " where owner in (select org_id from conversations where zid = ($1));",
         [zid],
-        function (err: any, result: { rows: { pid: number, xid: string }[] }) {
+        function (err: any, result: { rows: { pid: number; xid: string }[] }) {
           if (err) {
             reject("polis_err_fetching_xids");
             return;
@@ -301,19 +297,21 @@ function getXids(zid: number): Promise<{ pid: number, xid: string }[] | undefine
         }
       );
     }
-  ) as Promise<{ pid: number, xid: string }[] | undefined>;
+  ) as Promise<{ pid: number; xid: string }[] | undefined>;
 }
 
 function handle_GET_xids(
-  req: { p: { uid?: any; zid: any } },
+  req: { p: { uid?: number; zid: number } },
   res: {
-    status: (
-      arg0: number
-    ) => { (): any; new (): any; json: { (arg0: any): void; new (): any } };
+    status: (arg0: number) => {
+      (): any;
+      new (): any;
+      json: { (arg0: any): void; new (): any };
+    };
   }
 ) {
-  let uid = req.p.uid;
-  let zid = req.p.zid;
+  const uid = req.p.uid;
+  const zid = req.p.zid;
 
   Utils.isOwner(zid, uid).then(
     function (owner: any) {
@@ -323,15 +321,15 @@ function handle_GET_xids(
             res.status(200).json(xids);
           },
           function (err: any) {
-            fail(res, 500, "polis_err_get_xids", err);
+            failJson(res, 500, "polis_err_get_xids", err);
           }
         );
       } else {
-        fail(res, 403, "polis_err_get_xids_not_authorized");
+        failJson(res, 403, "polis_err_get_xids_not_authorized");
       }
     },
     function (err: any) {
-      fail(res, 500, "polis_err_get_xids", err);
+      failJson(res, 500, "polis_err_get_xids", err);
     }
   );
 }
@@ -339,9 +337,11 @@ function handle_GET_xids(
 function handle_POST_xidWhitelist(
   req: { p: { xid_whitelist: any; uid?: any } },
   res: {
-    status: (
-      arg0: number
-    ) => { (): any; new (): any; json: { (arg0: {}): void; new (): any } };
+    status: (arg0: number) => {
+      (): any;
+      new (): any;
+      json: { (arg0: {}): void; new (): any };
+    };
   }
 ) {
   const xid_whitelist = req.p.xid_whitelist;
@@ -349,45 +349,45 @@ function handle_POST_xidWhitelist(
   const owner = req.p.uid;
   const entries = [];
   try {
-    for (var i = 0; i < len; i++) {
-      entries.push("(" + Utils.escapeLiteral(xid_whitelist[i]) + "," + owner + ")");
+    for (let i = 0; i < len; i++) {
+      entries.push(
+        "(" + Utils.escapeLiteral(xid_whitelist[i]) + "," + owner + ")"
+      );
     }
   } catch (err) {
-    return fail(res, 400, "polis_err_bad_xid", err);
+    return failJson(res, 400, "polis_err_bad_xid", err);
   }
 
-  pgQueryP(
+  pg.queryP(
     "insert into xid_whitelist (xid, owner) values " +
       entries.join(",") +
       " on conflict do nothing;",
     []
   )
-    .then((result: any) => {
+    .then(() => {
       res.status(200).json({});
     })
     .catch((err: any) => {
-      return fail(res, 500, "polis_err_POST_xidWhitelist", err);
+      return failJson(res, 500, "polis_err_POST_xidWhitelist", err);
     });
 }
 
-function getBidsForPids(zid: any, math_tick: number, pids: any[]) {
-  let dataPromise = getBidIndexToPidMapping(zid, math_tick);
-  let mathResultsPromise = getPca(zid, math_tick);
+function getBidsForPids(zid: number, math_tick: number, pids: number[]) {
+  const dataPromise = getBidIndexToPidMapping(zid, math_tick);
+  const mathResultsPromise = getPca(zid, math_tick);
 
   return Promise.all([dataPromise, mathResultsPromise]).then(function (
-    items: { asPOJO: any }[]
+    items: { asPOJO: any; bidToPid: any }[]
   ) {
-    // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
-    // @ts-ignore
-    let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-    let mathResults = items[1].asPOJO;
-    function findBidForPid(pid: any) {
+    const b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
+    const mathResults = items[1].asPOJO;
+    function findBidForPid(pid: number) {
       let yourBidi = -1;
       // if (!b2p) {
       //     return yourBidi;
       // }
-      for (var bidi = 0; bidi < b2p.length; bidi++) {
-        let pids = b2p[bidi];
+      for (let bidi = 0; bidi < b2p.length; bidi++) {
+        const pids = b2p[bidi];
         if (pids.indexOf(pid) !== -1) {
           yourBidi = bidi;
           break;
@@ -403,49 +403,49 @@ function getBidsForPids(zid: any, math_tick: number, pids: any[]) {
       return yourBid;
     }
 
-    let indexToBid = mathResults["base-clusters"].id;
-    let bids = pids.map(findBidForPid);
-    let pidToBid = _.object(pids, bids);
+    const indexToBid = mathResults["base-clusters"].id;
+    const bids = pids.map(findBidForPid);
+    const pidToBid = _.object(pids, bids);
     return pidToBid;
   });
 }
 
 function handle_GET_bid(
-  req: { p: { uid?: any; zid: any; math_tick: any } },
+  req: { p: { uid?: number; zid: number; math_tick: any } },
   res: {
     json: (arg0: { bid: any }) => void;
-    status: (
-      arg0: number
-    ) => { (): any; new (): any; end: { (): void; new (): any } };
+    status: (arg0: number) => {
+      (): any;
+      new (): any;
+      end: { (): void; new (): any };
+    };
   }
 ) {
-  let uid = req.p.uid;
-  let zid = req.p.zid;
-  let math_tick = req.p.math_tick;
+  const uid = req.p.uid;
+  const zid = req.p.zid;
+  const math_tick = req.p.math_tick;
 
-  let dataPromise = getBidIndexToPidMapping(zid, math_tick);
-  let pidPromise = getPidPromise(zid, uid);
-  let mathResultsPromise = getPca(zid, math_tick);
+  const dataPromise = getBidIndexToPidMapping(zid, math_tick);
+  const pidPromise = getPidPromise(zid, uid);
+  const mathResultsPromise = getPca(zid, math_tick);
 
   Promise.all([dataPromise, pidPromise, mathResultsPromise])
     .then(
-      function (items: { asPOJO: any }[]) {
-        // Property 'bidToPid' does not exist on type '{ asPOJO: any; }'.ts(2339)
-        // @ts-ignore
-        let b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
-        let pid = items[1];
-        let mathResults = items[2].asPOJO;
-        if (((pid as unknown) as number) < 0) {
+      function (items: { asPOJO: any; bidToPid: any }[]) {
+        const b2p = items[0].bidToPid || []; // not sure yet if "|| []" is right here.
+        const pid = items[1];
+        const mathResults = items[2].asPOJO;
+        if ((pid as unknown as number) < 0) {
           // NOTE: this API should not be called in /demo mode
-          fail(res, 500, "polis_err_get_bid_bad_pid");
+          failJson(res, 500, "polis_err_get_bid_bad_pid");
           return;
         }
 
-        let indexToBid = mathResults["base-clusters"].id;
+        const indexToBid = mathResults["base-clusters"].id;
 
         let yourBidi = -1;
-        for (var bidi = 0; bidi < b2p.length; bidi++) {
-          let pids = b2p[bidi];
+        for (let bidi = 0; bidi < b2p.length; bidi++) {
+          const pids = b2p[bidi];
           if (pids.indexOf(pid) !== -1) {
             yourBidi = bidi;
             break;
@@ -463,24 +463,24 @@ function handle_GET_bid(
           bid: yourBid, // The user's current bid
         });
       },
-      function (err: any) {
+      function () {
         res.status(304).end();
       }
     )
     .catch(function (err: any) {
-      fail(res, 500, "polis_err_get_bid_misc", err);
+      failJson(res, 500, "polis_err_get_bid_misc", err);
     });
 }
 
 export {
+  getBidsForPids,
+  getXids,
+  handle_GET_bid,
+  handle_GET_bidToPid,
+  handle_GET_math_correlationMatrix,
   handle_GET_math_pca,
   handle_GET_math_pca2,
-  handle_POST_math_update,
-  handle_GET_math_correlationMatrix,
-  handle_GET_bidToPid,
-  getXids,
   handle_GET_xids,
+  handle_POST_math_update,
   handle_POST_xidWhitelist,
-  getBidsForPids,
-  handle_GET_bid
 };

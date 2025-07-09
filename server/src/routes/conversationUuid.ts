@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { queryP, queryP_readOnly } from "../db/pg-query";
+import pg from "../db/pg-query";
 import logger from "../utils/logger";
 
 function generateUuid(): string {
@@ -25,7 +25,10 @@ export async function handle_GET_conversationUuid(
 
   try {
     // First, check if a UUID already exists for this conversation
-    const queryResult = await queryP_readOnly("SELECT uuid FROM zinvites WHERE zid = $1", [zid]);
+    const queryResult = await pg.queryP_readOnly(
+      "SELECT uuid FROM zinvites WHERE zid = $1",
+      [zid]
+    );
     const existingRows = queryResult as ZinviteRow[];
 
     if (existingRows.length === 0) {
@@ -37,10 +40,10 @@ export async function handle_GET_conversationUuid(
     // If no UUID exists, generate and store a new one
     if (!uuid) {
       uuid = generateUuid();
-      await queryP(
-        "UPDATE zinvites SET uuid = $1 WHERE zid = $2",
-        [uuid, zid]
-      );
+      await pg.queryP("UPDATE zinvites SET uuid = $1 WHERE zid = $2", [
+        uuid,
+        zid,
+      ]);
     }
 
     res.json({
@@ -50,7 +53,7 @@ export async function handle_GET_conversationUuid(
     // Log the error and send a 500 response
     logger.error(`Error retrieving/creating UUID for zid ${zid}:`, err);
     res.json({
-      error: "Error retrieving or creating conversation UUID"
+      error: "Error retrieving or creating conversation UUID",
     });
   }
 }

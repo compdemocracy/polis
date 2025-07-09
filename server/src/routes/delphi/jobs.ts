@@ -5,6 +5,7 @@ import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import logger from "../../utils/logger";
 import { getZidFromReport } from "../../utils/parameter";
 import Config from "../../config";
+import pg from "../../db/pg-query";
 
 // Initialize DynamoDB client
 const dynamoDbConfig: any = {
@@ -240,16 +241,17 @@ async function getConversationIdFromReportId(
       WHERE zinvite = $1
     `;
 
-    // Connect to PostgreSQL using the pg module
-    const { pool } = require("../../db/pg-query");
-    const result = await pool.query(query, [normalized_report_id]);
+    // Connect to PostgreSQL using the imported query function
+    const rows = (await pg.queryP(query, [normalized_report_id])) as {
+      zid: string;
+    }[];
 
-    if (result.rows.length === 0) {
+    if (rows.length === 0) {
       logger.error(`No conversation found for report_id: ${report_id}`);
       return null;
     }
 
-    const zid = result.rows[0].zid;
+    const zid = rows[0].zid;
     logger.info(`Found conversation_id ${zid} for report_id: ${report_id}`);
 
     return zid.toString();
