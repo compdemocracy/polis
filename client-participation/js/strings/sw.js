@@ -11,7 +11,7 @@ s.agree = "Kubali";
 s.disagree = "Kataa";
 s.pass = "Puuza au Sina Uhakika";
 
-s.writePrompt ="Eleza mtazamo wako (kauli unayoweka si jibu — tuma kauli inayojitegemea)";
+s.writePrompt = "Eleza mtazamo wako (kauli unayoweka si jibu — tuma kauli inayojitegemea)";
 s.anonPerson = "Haionyeshi utambulisho";
 s.importantCheckbox = "Muhimu";
 s.importantCheckboxDesc =
@@ -36,11 +36,9 @@ s.comments_remaining2 = "{{num_comments}} kauli zilizosalia";
 
 s.noCommentsYet = "Bado hakuna kauli zozote.";
 s.noCommentsYetSoWrite = "Anzisha mazungumzo haya kwa kuweka kauli.";
-s.noCommentsYetSoInvite =
-  "Anzisha mazungumzo haya kwa kuwaalika washiriki wengine au uweke kauli.";
+s.noCommentsYetSoInvite = "Anzisha mazungumzo haya kwa kuwaalika washiriki wengine au uweke kauli.";
 s.noCommentsYouVotedOnAll = "Umepigia kura kauli zote.";
-s.noCommentsTryWritingOne =
-  "Ikiwa una chochote cha kuweka, jaribu kuandika kauli yako.";
+s.noCommentsTryWritingOne = "Ikiwa una chochote cha kuweka, jaribu kuandika kauli yako.";
 s.convIsClosed = "Mazungumzo haya yamekamilika.";
 s.noMoreVotingAllowed = "Haturuhusu kupiga kura tena.";
 
@@ -51,7 +49,6 @@ s.comment_123 = "Kauli:";
 s.majorityOpinion = "Maoni ya Wengi";
 s.majorityOpinionShort = "Wengi";
 s.info = "Maelezo";
-
 
 s.helpWhatAmISeeingTitle = "Je, ninaona nini?";
 s.helpWhatAmISeeing =
@@ -68,20 +65,17 @@ s.topComments = "Kauli Maarufu";
 s.divisiveComments = "Kauli Zilizogawa Washiriki";
 s.pctAgreed = "{{pct}}% Wamekubali";
 s.pctDisagreed = "{{pct}}% Wamekataa";
-s.pctAgreedLong =
-  "Asilimia {{pct}} ya watu waliopigia kura kauli ya {{comment_id}} wamekubali.";
+s.pctAgreedLong = "Asilimia {{pct}} ya watu waliopigia kura kauli ya {{comment_id}} wamekubali.";
 s.pctAgreedOfGroup = "Asilimia {{pct}} ya Kikundi cha {{group}} Wamekubali";
 s.pctDisagreedOfGroup = "Asilimia {{pct}} ya Kikundi cha {{group}} Wamekataa";
-s.pctDisagreedLong =
-  "Asilimia {{pct}}% ya watu waliopigia kura kauli ya {{comment_id}} wamekataa";
+s.pctDisagreedLong = "Asilimia {{pct}}% ya watu waliopigia kura kauli ya {{comment_id}} wamekataa";
 s.pctAgreedOfGroupLong =
   "Asilimia {{pct}} ya walio kwenye kikundi cha {{group}} waliopigia kura kauli ya {{comment_id}} wamekubali.";
 s.pctDisagreedOfGroupLong =
   "Asilimia {{pct}} ya walio kwenye kikundi cha {{group}} waliopigia kura kauli ya {{comment_id}}wamekataa.";
 s.participantHelpGroupsText =
   "Unawakilishwa na mduara wa buluu na umewekwa kwenye kikundi pamoja na watu walio na mtazamo kama wako.";
-s.participantHelpGroupsNotYetText =
-  "Picha itaonekana washiriki 7 watakapoanza kupiga kura";
+s.participantHelpGroupsNotYetText = "Picha itaonekana washiriki 7 watakapoanza kupiga kura";
 s.helpWhatAreGroupsDetail =
   "<p>Bofya kwenye kikundi chako au kingine ili ugundue maoni ya kila kikundi.</p><p>Maoni ya wengi ni yale yanayotumwa sana katika vikundi.</p>";
 
@@ -89,7 +83,7 @@ s.helpWhatAreGroupsDetail =
 
 s.helpWhatDoIDoTitle = " Nifanyeje?";
 s.helpWhatDoIDo =
-  "Pigia kura kauli za watu wengine kwa kubofya 'ninakubali' au 'ninakataa'. Andika kauli (weka kila kauli katika wazo moja). Waalike marafiki zako kwenye mazungumzo!";;
+  "Pigia kura kauli za watu wengine kwa kubofya 'ninakubali' au 'ninakataa'. Andika kauli (weka kila kauli katika wazo moja). Waalike marafiki zako kwenye mazungumzo!";
 s.writeCommentHelpText =
   "Je, mtazamo au hali ulizopitia hazipo kwenye mazungumzo? Ikiwa ndivyo,</b>waweke </b> kupitia kisanduku kilicho hapa chini — </b>mmoja baada ya mwingine</b>.";
 s.helpWriteListIntro = "Je, kauli nzuri inapaswa iweje?";
@@ -103,26 +97,20 @@ s.tipCommentsRandom =
   " Kauli zinaonyeshwa kwa unasibu na hazijibu moja kwa moja kauli za watu wengine: <b> unaweka kauli inayojitegemea.<b>";
 s.tipOneIdea =
   "Ainisha kauli ndefu zilizo na mawazo mengi. Kufanya hivyo huwarahisishia wengine kupigia kura kauli yako.";
-s.tipNoQuestions =
-  "Kauli hazipaswi kuwa katika muundo wa maswali. Washiriki watakubali au kukataa kauli unazoweka.";
-s.commentTooLongByChars =
-  "Urefu wa kauli umezidi kwa herufi {{CHARACTERS_COUNT}}.";
+s.tipNoQuestions = "Kauli hazipaswi kuwa katika muundo wa maswali. Washiriki watakubali au kukataa kauli unazoweka.";
+s.commentTooLongByChars = "Urefu wa kauli umezidi kwa herufi {{CHARACTERS_COUNT}}.";
 s.submitComment = "Tuma";
-s.commentSent =
-  "Kauli imetumwa! Ni washiriki wengine pekee ndio wataona kauli yako na kuikubali au kuikataa.";
+s.commentSent = "Kauli imetumwa! Ni washiriki wengine pekee ndio wataona kauli yako na kuikubali au kuikataa.";
 
 // Kubaini hitilafu
 
 s.commentSendFailed = "Hitilafu fulani imetokea wakati wa kutuma kauli yako.";
-s.commentSendFailedEmpty =
-  "Hitilafu fulani imetokea wakati wa kutuma kauli yako - Kauli inafaa kujazwa.";
-s.commentSendFailedTooLong =
-  "Hitilafu fulani imetokea wakati wa kutuma kauli yako - Kauli ni ndefu mno.";
+s.commentSendFailedEmpty = "Hitilafu fulani imetokea wakati wa kutuma kauli yako - Kauli inafaa kujazwa.";
+s.commentSendFailedTooLong = "Hitilafu fulani imetokea wakati wa kutuma kauli yako - Kauli ni ndefu mno.";
 s.commentSendFailedDuplicate =
   "Hitilafu fulani imetokea wakati wa kutuma kauli yako - Kauli kama hiyo tayari imewekwa.";
 s.commentErrorDuplicate = "Nakala! Kauli hiyo tayari imewekwa.";
-s.commentErrorConversationClosed =
-  "Mazungumzo haya yamekamilika. Huwezi kutuma kauli zaidi.";
+s.commentErrorConversationClosed = "Mazungumzo haya yamekamilika. Huwezi kutuma kauli zaidi.";
 s.commentIsEmpty = "Kauli haijawekwa";
 s.commentIsTooLong = "Kauli ni ndefu mno";
 s.hereIsNextStatement = "Umepiga kura. Nenda juu ili uone kauli inayofuata.";
@@ -135,17 +123,14 @@ s.thirdPartyTranslationDisclaimer = "Tafsiri imetolewa na mhusika mwingine";
 
 // Maandishi kuhusu arifa na usajili pamoja na upachikaji
 
-s.notificationsAlreadySubscribed =
-  "Umejisajili ili upate taarifa za mazungumzo haya.";
+s.notificationsAlreadySubscribed = "Umejisajili ili upate taarifa za mazungumzo haya.";
 s.notificationsGetNotified = "Pata arifa kunapokuwa na kauli zaidi:";
-s.notificationsEnterEmail =
-  "Weka anwani yako ya barua pepe ili uarifiwe kunapokuwa na kauli zaidi:";
+s.notificationsEnterEmail = "Weka anwani yako ya barua pepe ili uarifiwe kunapokuwa na kauli zaidi:";
 s.labelEmail = "Barua pepe";
 s.notificationsSubscribeButton = "Jisajili";
 s.notificationsSubscribeErrorAlert = "Hitilafu fulani imetokea wakati wa kujisajili";
 
-s.addPolisToYourSite =
-  "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
+s.addPolisToYourSite = "<img style='height: 20px; margin: 0px 4px;' src='{{URL}}'/>";
 
 // Kijachini
 
@@ -168,11 +153,9 @@ s.modSubmitInitialState = "Ruka (Zote zilizo hapo juu si muhimu), kauli inayofua
 s.modSubmit = "Nimemaliza, kauli inayofuata";
 
 s.topic_good_01 = "Je, tunafaa kufanya nini kuhusu chumba cha kuchezea tenisi ya mezani?";
-s.topic_good_01_reason =
-  "swali la kujieleza, mtu yeyote anaweza kutoa maoni kuhusu majibu ya swali hili";
+s.topic_good_01_reason = "swali la kujieleza, mtu yeyote anaweza kutoa maoni kuhusu majibu ya swali hili";
 s.topic_good_02 = "Una maoni yapi kuhusu pendekezo jipya?";
-s.topic_good_02_reason =
-  "swali la kujieleza, mtu yeyote anaweza kutoa maoni kuhusu majibu ya swali hili";
+s.topic_good_02_reason = "swali la kujieleza, mtu yeyote anaweza kutoa maoni kuhusu majibu ya swali hili";
 s.topic_good_03 = "Je, unaweza kufikiria kinachosababisha upungufu wa tija?";
 
 s.topic_bad_01 = "kila mtu aripoti alivyojiandaa kwa uzinduzi";
@@ -182,4 +165,3 @@ s.topic_bad_02 = "je, vipengele vyetu vya kusubirisha uzinduzi ni vipi?";
 s.topic_bad_02_reason = "";
 
 module.exports = s;
-

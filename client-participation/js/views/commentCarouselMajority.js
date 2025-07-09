@@ -1,7 +1,6 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-var CommentCarousel = require('./commentCarousel');
+var CommentCarousel = require("./commentCarousel");
 var carouselCommentMobileTemplate = require("../templates/carouselCommentMobile.handlebars");
 var carouselCommentTemplate = require("../templates/carouselComment.handlebars");
 var constants = require("../util/constants");
@@ -9,6 +8,8 @@ var display = require("../util/display");
 var template = require("../templates/commentCarouselMajority.handlebars");
 var Strings = require("../strings");
 var Utils = require("../util/utils");
+var _ = require("lodash");
+var $ = require("jquery");
 
 module.exports = CommentCarousel.extend({
   name: "comment-carousel-majority-view",
@@ -21,7 +22,7 @@ module.exports = CommentCarousel.extend({
   el_parent: "majorityCarouselParent",
   template: template,
 
-  generateItemsHTML: function() {
+  generateItemsHTML: function () {
     var that = this;
     // Copy comments out of collection. don't want to sort collection, since it's shared with Analyze View.
     var commentsAll = that.collection.models.slice(0);
@@ -32,21 +33,21 @@ module.exports = CommentCarousel.extend({
 
     var tidToConsensusInfo = _.keyBy(consensusComments, "tid");
 
-    var comments = _.filter(commentsAll, function(c) {
+    var comments = _.filter(commentsAll, function (c) {
       return !!tidToConsensusInfo[c.get("tid")];
     });
-    comments = _.map(comments, function(c) {
+    comments = _.map(comments, function (c) {
       c.set("p-success", tidToConsensusInfo[c.get("tid")]["p-success"]);
       return c;
     });
-    comments.sort(function(a, b) {
+    comments.sort(function (a, b) {
       return b.get("p-success") - a.get("p-success");
     });
 
-    var indexToTid  = [];
+    var indexToTid = [];
 
-    var items = _.map(comments, function(c) {
-      var tid = c.get('tid');
+    var items = _.map(comments, function (c) {
+      var tid = c.get("tid");
       indexToTid.push(tid);
       var info = tidToConsensusInfo[tid];
       var bodyColor = "#333";
@@ -56,14 +57,14 @@ module.exports = CommentCarousel.extend({
 
       var denominator = info["n-trials"];
 
-      var percent = forAgree ?
-        "<i class='fa fa-check-circle-o'></i> " + ((info["n-success"] / denominator * 100) >> 0) : // WARNING duplicated in analyze-comment.js
-        "<i class='fa fa-ban'></i>  " + ((info["n-success"] / denominator * 100) >> 0); // WARNING duplicated in analyze-comment.js
-      var leClass = forAgree ? "a": "d";
+      var percent = forAgree
+        ? "<i class='fa fa-check-circle-o'></i> " + (((info["n-success"] / denominator) * 100) >> 0) // WARNING duplicated in analyze-comment.js
+        : "<i class='fa fa-ban'></i>  " + (((info["n-success"] / denominator) * 100) >> 0); // WARNING duplicated in analyze-comment.js
+      var leClass = forAgree ? "a" : "d";
       var count = info["n-success"];
-      var agreedOrDisagreed = forAgree ?
-        "<span class='a'>"+Strings.pctAgreed+"</span>" :
-        "<span class='d'>"+Strings.pctDisagreed+"</span>";
+      var agreedOrDisagreed = forAgree
+        ? "<span class='a'>" + Strings.pctAgreed + "</span>"
+        : "<span class='d'>" + Strings.pctDisagreed + "</span>";
       agreedOrDisagreed = agreedOrDisagreed.replace("{{pct}}", percent);
 
       // var backgroundColor = forAgree ? "rgba(46, 204, 84, 0.07)" : "rgba(246, 208, 208, 1)";
@@ -74,7 +75,7 @@ module.exports = CommentCarousel.extend({
         name: Strings.anonPerson,
         img: Utils.getAnonPicUrl(),
         link: "",
-        anon: true,
+        anon: true
       };
 
       var tmpl = display.xs() ? carouselCommentMobileTemplate : carouselCommentTemplate;
@@ -87,7 +88,7 @@ module.exports = CommentCarousel.extend({
         tid: c.get("tid"),
         s: Strings,
         txt: c.get("txt"),
-        index: indexToTid.length-1,
+        index: indexToTid.length - 1,
         socialCtx: socialCtx,
         agreedOrDisagreed: agreedOrDisagreed,
         leClass: leClass,
@@ -96,7 +97,7 @@ module.exports = CommentCarousel.extend({
         repfullForAgree: forAgree,
         commentCarouselMinHeight: constants.commentCarouselMinHeight,
         total: that.getPtptCount(),
-        groupOrConversatonString: "the conversation",
+        groupOrConversatonString: "the conversation"
       });
 
       return {
@@ -107,22 +108,22 @@ module.exports = CommentCarousel.extend({
 
     return {
       items: items,
-      indexToTid: indexToTid,
+      indexToTid: indexToTid
     };
   },
 
-  context: function() {
+  context: function () {
     var ctx = CommentCarousel.prototype.context.apply(this, arguments);
     ctx.s = Strings;
 
     if (Utils.isIphone()) {
       var w = $(document).width();
-      ctx.carouselParentAdditionalStyles = "max-width:"+w+"px; overflow: hidden;";
+      ctx.carouselParentAdditionalStyles = "max-width:" + w + "px; overflow: hidden;";
     }
 
     return ctx;
   },
-  initialize: function(options) {
+  initialize: function (options) {
     CommentCarousel.prototype.initialize.apply(this, arguments);
     this.collection = options.collection;
     this.getTidsForConsensus = options.getTidsForConsensus;

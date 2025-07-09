@@ -28,7 +28,8 @@ s.anonPerson = "Anonym";
 s.helpWhatAmISeeingTitle = "Hvad er det jeg ser?";
 s.helpWhatAmISeeing = "Personer der stemmer tilsvarende grupperes. Klik på en gruppe for at se de holdninger de deler.";
 s.helpWhatDoIDoTitle = " Hvad skal jeg gøre?";
-s.helpWhatDoIDo = "Stem på andres kommentaterer ved at klikke 'enig' eller 'uenig. Skriv en kommentar (hold hver kommentar til én idé). Inviter andre venner til samtalen!";
+s.helpWhatDoIDo =
+  "Stem på andres kommentaterer ved at klikke 'enig' eller 'uenig. Skriv en kommentar (hold hver kommentar til én idé). Inviter andre venner til samtalen!";
 s.writeCommentHelpText = "Hvis dit perspektiv ikke er repræsenteret, så <strong>skriv</strong> en kommentar!</i>";
 s.helpWriteListIntro = "Hvad er en god kommentar?";
 s.helpWriteListStandalone = "Enkeltstående idé";
@@ -66,15 +67,19 @@ s.commentWritingTipsHintsHeader = "Råd til at skrive kommentarer";
 s.tipCharLimit = "Kommentarer er begrænset til {{char_limit}} tegn.";
 s.tipCommentsRandom = "Kommentarer vises tilfældigt. Du svarer ikke direkte til nogen.";
 s.tipOneIdea = "Bryd længere kommentarer op i flere. Det gør det nemmere for andre at stemme på din kommentar.";
-s.tipNoQuestions = "Kommentarer bør udtrykke holdninger i stedet for spørgsmål. Deltagere skal enten være enige eller uenige i dine kommentarer.";
+s.tipNoQuestions =
+  "Kommentarer bør udtrykke holdninger i stedet for spørgsmål. Deltagere skal enten være enige eller uenige i dine kommentarer.";
 s.commentTooLongByChars = "Længde på kommentar overskrider grænsen med {{CHARACTERS_COUNT}} tegn.";
 s.notSentSinceDemo = "(not really, this is a demo)";
 s.submitComment = "Indsend";
 s.tipStarred = "Markeret som vigtig.";
-s.participantHelpWelcomeText = "Velkommen til en ny slags samtale - <span style='font-weight: 700;'>stem</span> på personers holdninger og <span style='font-weight: 700;'>bidrag</span> med dine egne.";
-s.participantHelpGroupsText = "Personer der stemmer lig hinanden <span style='font-weight: 700;'>grupperes.</span> Klik på en gruppe for at se, hvilke synspunkter de deler <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...mere</a>";
+s.participantHelpWelcomeText =
+  "Velkommen til en ny slags samtale - <span style='font-weight: 700;'>stem</span> på personers holdninger og <span style='font-weight: 700;'>bidrag</span> med dine egne.";
+s.participantHelpGroupsText =
+  "Personer der stemmer lig hinanden <span style='font-weight: 700;'>grupperes.</span> Klik på en gruppe for at se, hvilke synspunkter de deler <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...mere</a>";
 s.participantHelpGroupsNotYetText = "Visualisering kan først ses når 7 deltagere har stemt";
-s.helpWhatAreGroupsDetail = "<p>Du har sikkert set 'anbefalede produkter' på Amazon eller 'anbefalede film' på Netflix. Tjenesterne grupperer dig med personer, der køber eller ser lignende ting, så du får anbefalet, hvad de købte eller så.</p> <p> Når du stemmer på en kommentar, bliver du grupperet med personer der stemte ligesom dig. Du kan se grupperne her. Hver gruppe er sammensat af personer med lignende holdninger. Der kan være fascinerende indsigt i dette - gå på opdagelse og se, hvad der gør grupperne unikke. </p>";
+s.helpWhatAreGroupsDetail =
+  "<p>Du har sikkert set 'anbefalede produkter' på Amazon eller 'anbefalede film' på Netflix. Tjenesterne grupperer dig med personer, der køber eller ser lignende ting, så du får anbefalet, hvad de købte eller så.</p> <p> Når du stemmer på en kommentar, bliver du grupperet med personer der stemte ligesom dig. Du kan se grupperne her. Hver gruppe er sammensat af personer med lignende holdninger. Der kan være fascinerende indsigt i dette - gå på opdagelse og se, hvad der gør grupperne unikke. </p>";
 s.showTranslationButton = "Aktiver oversættelse";
 
 s.hideTranslationButton = "Deaktiver oversættelse";
@@ -92,7 +97,6 @@ s.noCommentsTryWritingOne = "Hvis du har noget at tilføje, så prøv at skrive 
 s.convIsClosed = "Samtalen er lukket.";
 s.noMoreVotingAllowed = "Det er ikke muligt at stemme mere.";
 
-
 s.topic_good_01 = "Hvad skal vi gøre med bordtennis-rummet?";
 s.topic_good_01_reason = "åben samtale, enhver kan have en holdning til svar på dette spørgsmål";
 s.topic_good_02 = "Hvad synes du om det nye forslag??";
@@ -100,9 +104,9 @@ s.topic_good_02_reason = "åben samtale, enhver kan have en holdning til svar p�
 s.topic_good_03 = "Kan du komme i tanke om noget, der sænker produktiviteten?";
 
 s.topic_bad_01 = "alle må godt rapportere hvornår vi er klar";
-s.topic_bad_01_reason = "personer fra forskellige teams vil stemme på svar, men de har måske ikke nok viden til at stemme.";
+s.topic_bad_01_reason =
+  "personer fra forskellige teams vil stemme på svar, men de har måske ikke nok viden til at stemme.";
 s.topic_bad_02 = "hvorfor har vi ikke lanceret endnu?";
 s.topic_bad_02_reason = "";
-
 
 module.exports = s;

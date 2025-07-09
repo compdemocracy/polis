@@ -11,66 +11,23 @@ function millisSinceJoin() {
 }
 
 function daysSinceJoin() {
-  console.log('daysSinceJoin', millisSinceJoin(), millisPerDay);
+  console.log("daysSinceJoin", millisSinceJoin(), millisPerDay);
   return (millisSinceJoin() / millisPerDay) >> 0;
 }
 
 function mapObj(o, f) {
   var out = {};
 
-  var ff = _.isFunction(f) ? function(val, key) {
-    out[key] = f(val, key);
-  } : function(val, key) {
-    out[key] = o[key];
-  };
+  var ff = _.isFunction(f)
+    ? function (val, key) {
+        out[key] = f(val, key);
+      }
+    : function (val, key) {
+        out[key] = o[key];
+      };
   _.each(o, ff);
   return out;
 }
-
-// http://stackoverflow.com/questions/8112634/jquery-detecting-cookies-enabled
-function are_cookies_enabled() {
-  if (("" + document.cookie).length > 0) {
-    return true;
-  }
-  // var cookieEnabled = (navigator.cookieEnabled) ? true : false;
-
-  // if (typeof navigator.cookieEnabled == "undefined" && !cookieEnabled)
-  // {
-
-  // create a temporary cookie
-  var soon = new Date(Date.now() + 1000).toUTCString();
-  var teststring = "_polistest_cookiesenabled";
-  document.cookie = teststring + "=1; expires=" + soon;
-  // see if it worked
-  var cookieEnabled = document.cookie.indexOf(teststring) !== -1;
-  console.log("cookieEnabled  " + cookieEnabled + " " + document.cookie);
-
-  // clear the cookie
-  document.cookie = teststring + "=; expires=" + (new Date(0)).toUTCString();
-
-  // }
-  return cookieEnabled;
-}
-
-//http://stackoverflow.com/questions/19189785/is-there-a-good-cookie-library-for-javascript
-function getCookie(sName) {
-  sName = sName.toLowerCase();
-  var oCrumbles = document.cookie.split(";");
-  for (var i = 0; i < oCrumbles.length; i++) {
-    var oPair = oCrumbles[i].split("=");
-    var sKey = oPair[0].trim().toLowerCase();
-    var sValue = oPair.length > 1 ? oPair[1] : "";
-    if (sKey === sName) {
-      var val = decodeURIComponent(sValue);
-      if (val === "null") {
-        val = null;
-      }
-      return val;
-    }
-  }
-  return null;
-}
-
 
 function strToHex(str) {
   var hex, i;
@@ -116,26 +73,22 @@ function encodeParams(o) {
 }
 
 function isInIframe() {
-  /*eslint-disable */
-  /* jshint ignore:start */
   return window.top != window;
-  /* jshint ignore:end */
-  /*eslint-enable */
 }
 
 // http://www.html5rocks.com/en/tutorials/pagevisibility/intro/
 function getHiddenProp() {
-  var prefixes = ['webkit', 'moz', 'ms', 'o'];
+  var prefixes = ["webkit", "moz", "ms", "o"];
 
   // if 'hidden' is natively supported just return it
-  if ('hidden' in document) {
-    return 'hidden';
+  if ("hidden" in document) {
+    return "hidden";
   }
 
   // otherwise loop over all the known prefixes until we find one
   for (var i = 0; i < prefixes.length; i++) {
-    if ((prefixes[i] + 'Hidden') in document) {
-      return prefixes[i] + 'Hidden';
+    if (prefixes[i] + "Hidden" in document) {
+      return prefixes[i] + "Hidden";
     }
   }
 
@@ -167,8 +120,8 @@ function parseQueryParams(queryString) {
 
 function toQueryParamString(o) {
   var pairs = _.pairs(o);
-  pairs = _.map(pairs, function(pair) {
-    return pair[0] + '=' + encodeURIComponent(pair[1]);
+  pairs = _.map(pairs, function (pair) {
+    return pair[0] + "=" + encodeURIComponent(pair[1]);
   });
   return pairs.join("&");
 }
@@ -180,7 +133,6 @@ function toUnitVector(x, y) {
   }
   return [x / magnitude, y / magnitude];
 }
-
 
 function argMin(items, f) {
   var lowestVal = Infinity;
@@ -237,11 +189,11 @@ function evenlySample(items, maxSample) {
 }
 
 function getBestTranslation(translations, lang) {
-  var firstTwoOfLang = lang.substr(0,2);
-  var matchingLang = _.filter(translations, function(t) {
+  var firstTwoOfLang = lang.substr(0, 2);
+  var matchingLang = _.filter(translations, function (t) {
     return t.lang.indexOf(firstTwoOfLang) === 0;
   });
-  matchingLang.sort(function(a, b) {
+  matchingLang.sort(function (a, b) {
     if (a.lang !== b.lang) {
       // prefer exact language match
       if (a.lang === lang) {
@@ -262,69 +214,68 @@ function getBestTranslation(translations, lang) {
   return matchingLang;
 }
 
-
 function uiLanguage() {
   var params = parseQueryParams(window.location.search);
   var lang = params.ui_lang;
   if (_.isUndefined(lang)) {
-    return window.preload.acceptLanguage && window.preload.acceptLanguage.substr(0,2) || null;
+    return (window.preload.acceptLanguage && window.preload.acceptLanguage.substr(0, 2)) || null;
     // return null;
   }
   return lang;
 }
 
 function matchesUiLang(lang) {
-  var firstTwoOfLang = lang.substr(0,2);
-  var firstTwoOfUiLang = uiLanguage().substr(0,2);
+  var firstTwoOfLang = lang.substr(0, 2);
+  var firstTwoOfUiLang = uiLanguage().substr(0, 2);
   return firstTwoOfLang === firstTwoOfUiLang;
 }
 
 function userCanVote() {
   var params = parseQueryParams(window.location.search);
   var ucv = params.ucv;
-  ucv = (ucv === "true" || ucv === "1" || _.isUndefined(ucv));
+  ucv = ucv === "true" || ucv === "1" || _.isUndefined(ucv);
   return ucv;
 }
 
 function userCanWrite() {
   var params = parseQueryParams(window.location.search);
   var ucw = params.ucw;
-  ucw = (ucw === "true" || ucw === "1" || _.isUndefined(ucw));
+  ucw = ucw === "true" || ucw === "1" || _.isUndefined(ucw);
   return ucw;
 }
 
 function userCanSeeTopic() {
   var params = parseQueryParams(window.location.search);
   var ucst = params.ucst;
-  ucst = (ucst === "true" || ucst === "1" || _.isUndefined(ucst));
+  ucst = ucst === "true" || ucst === "1" || _.isUndefined(ucst);
   return ucst;
 }
 
 function userCanSeeDescription() {
   var params = parseQueryParams(window.location.search);
   var ucsd = params.ucsd;
-  ucsd = (ucsd === "true" || ucsd === "1" || _.isUndefined(ucsd));
+  ucsd = ucsd === "true" || ucsd === "1" || _.isUndefined(ucsd);
   return ucsd;
 }
 
 function userCanSeeVis() {
   var params = parseQueryParams(window.location.search);
   var ucsv = params.ucsv;
-  ucsv = (ucsv === "true" || ucsv === "1" || _.isUndefined(ucsv));
+  ucsv = ucsv === "true" || ucsv === "1" || _.isUndefined(ucsv);
   return ucsv;
 }
 
 function userCanSeeFooter() {
   var params = parseQueryParams(window.location.search);
   var ucsf = params.ucsf;
-  ucsf = (ucsf === "true" || ucsf === "1" || _.isUndefined(ucsf));
+  ucsf = ucsf === "true" || ucsf === "1" || _.isUndefined(ucsf);
   return ucsf;
 }
 
 function userCanSeeHelp() {
   var params = parseQueryParams(window.location.search);
   var ucsh = params.ucsh;
-  ucsh = (ucsh === "true" || ucsh === "1" || _.isUndefined(ucsh));
+  ucsh = ucsh === "true" || ucsh === "1" || _.isUndefined(ucsh);
   return ucsh;
 }
 
@@ -342,7 +293,7 @@ function getSubscribeType() {
 function userCanSeeSubscribePrompt() {
   var x = getSubscribeType();
   // 1 is for email, there are no other options yet.
-  x = (x === 1 || x === "1" || x === "true");
+  x = x === 1 || x === "1" || x === "true";
   return x;
 }
 
@@ -355,7 +306,6 @@ function getGroupAware() {
   var params = parseQueryParams(window.location.search);
   return params.groupAware;
 }
-
 
 // Return the {x: {min: #, max: #}, y: {min: #, max: #}}
 module.exports = {
@@ -372,7 +322,7 @@ module.exports = {
   argMax: argMax,
   argMin: argMin,
   mapObj: mapObj,
-  computeXySpans: function(points) {
+  computeXySpans: function (points) {
     var spans = {
       x: {
         min: Infinity,
@@ -398,43 +348,42 @@ module.exports = {
   toQueryParamString: toQueryParamString,
   parseQueryParams: parseQueryParams,
 
-  supportsSVG: function() {
-    return !!document.createElementNS && !!document.createElementNS('http://www.w3.org/2000/svg', 'svg').createSVGRect;
+  supportsSVG: function () {
+    return !!document.createElementNS && !!document.createElementNS("http://www.w3.org/2000/svg", "svg").createSVGRect;
   },
-  isIE8: function() {
+  isIE8: function () {
     return navigator.userAgent.match(/MSIE [89]/);
   },
-  isIphone: function() {
+  isIphone: function () {
     return navigator.userAgent.match(/iPhone/);
   },
-  isIpad: function() {
+  isIpad: function () {
     return navigator.userAgent.match(/iPad/);
   },
-  isIos: function() {
+  isIos: function () {
     return this.isIpad() || this.isIphone();
   },
-  isAndroid: function() {
+  isAndroid: function () {
     return navigator.userAgent.match(/Android/);
   },
-  isOldAndroid: function() {
+  isOldAndroid: function () {
     return navigator.userAgent.match(/Android [012]\.[0-3]/);
   },
-  isMobile: function() {
+  isMobile: function () {
     return this.isIphone() || this.isIpad() || this.isAndroid();
   },
-  isShortConversationId: function(conversation_id) {
+  isShortConversationId: function (conversation_id) {
     return conversation_id.length <= 6;
   },
-  supportsVis: function() {
+  supportsVis: function () {
     return this.supportsSVG() && !this.isIE8();
   },
-  getAnonPicUrl: function() {
+  getAnonPicUrl: function () {
     return anonPicBase64;
   },
   getBestTranslation: getBestTranslation,
-  getCookie: getCookie,
   getGroupAware: getGroupAware,
-  getGroupNameForGid: function(gid) {
+  getGroupNameForGid: function (gid) {
     if (gid < 0) {
       return gid;
     } else if (!_.isNumber(gid)) {
@@ -443,8 +392,8 @@ module.exports = {
     return gid + 1;
   },
   getXid: getXid,
-  isDemoMode: function() {
-    return document.location.pathname.indexOf('/demo') === 0;
+  isDemoMode: function () {
+    return document.location.pathname.indexOf("/demo") === 0;
   },
   // toPercent: function(ratio) {
   //   return ((ratio * 100) >> 0) + "%";
@@ -458,6 +407,5 @@ module.exports = {
   hexToStr: hexToStr,
   strToHex: strToHex,
   decodeParams: decodeParams,
-  encodeParams: encodeParams,
-  cookiesEnabled: are_cookies_enabled
+  encodeParams: encodeParams
 };

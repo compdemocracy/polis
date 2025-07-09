@@ -23,7 +23,7 @@
   background-size: $sm-screen;
 
   @media screen and (min-width: $sm-screen) {
-    padding: $default-whitespace*2 0 $default-whitespace;
+    padding: $default-whitespace * 2 0 $default-whitespace;
 
     background-size: 100%;
   }
@@ -60,7 +60,7 @@
   height: 140px;
   border-radius: 50%;
 
-  background-color: rgba(255,255,255,0.5);
+  background-color: rgba(255, 255, 255, 0.5);
 
   @media screen and (min-width: $sm-screen) {
     width: 160px;
@@ -80,7 +80,7 @@
   display: inline-block;
   border-radius: 50%;
 
-  background-color: #FFFFFF;
+  background-color: #ffffff;
   color: #000;
   @include font-size(18px);
   font-weight: normal;
@@ -125,7 +125,7 @@
 .bgOverlay {
   padding: $default-whitespace 0;
 
-  background-color: rgba(255,255,255,0.7);
+  background-color: rgba(255, 255, 255, 0.7);
 }
 
 .learnMore {

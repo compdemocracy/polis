@@ -2,14 +2,13 @@ var s = {};
 
 // په کارت باندې متن
 
-s.participantHelpWelcomeText =
-  `د نورو خلکو څرګندونو په اړه - <em>vote</em> د خبرو اترو نوي ډول ته ښه راغلاست - .";څومره چې ډېر وي هغومره ښه وي.`;
+s.participantHelpWelcomeText = `د نورو خلکو څرګندونو په اړه - <em>vote</em> د خبرو اترو نوي ډول ته ښه راغلاست - .";څومره چې ډېر وي هغومره ښه وي.`;
 
-s.agree= "غیر موافق";
-s.disagree= "غیر موافق";
-s.pass= "تیر شئ/ غیر ډاډه";
+s.agree = "غیر موافق";
+s.disagree = "غیر موافق";
+s.pass = "تیر شئ/ غیر ډاډه";
 
-s.writePrompt ="خپل نظر شریک کړئ (تاسو ځواب نه ورکوئ - یو خپلواک بیان وسپارئ)";
+s.writePrompt = "خپل نظر شریک کړئ (تاسو ځواب نه ورکوئ - یو خپلواک بیان وسپارئ)";
 s.anonPerson = "بې نومه";
 s.importantCheckbox = "مهم/ د پام وړ";
 s.importantCheckboxDesc =
@@ -34,11 +33,9 @@ s.comments_remaining2 = "{{num_comments}} پاتې بیانونه";
 
 s.noCommentsYet = "تراوسه هیڅ بیان نشته.";
 s.noCommentsYetSoWrite = "دا خبرې اترې د یوې بیانیې په اضافه کولو سره پیل کړئ.";
-s.noCommentsYetSoInvite =
-  "دا خبرې اترې د لازیاتو ګډونوالو په رابللو سره پیل کړئ، یا یوه اعلامیه اضافه کړئ.";
+s.noCommentsYetSoInvite = "دا خبرې اترې د لازیاتو ګډونوالو په رابللو سره پیل کړئ، یا یوه اعلامیه اضافه کړئ.";
 s.noCommentsYouVotedOnAll = "تاسو په ټولو بیانونو رایه ورکړې ده.";
-s.noCommentsTryWritingOne =
-  "که چیرې تاسو د اضافه کولو لپاره یو څه لرئ، نو د خپل بیان لیکلو هڅه وکړئ.";
+s.noCommentsTryWritingOne = "که چیرې تاسو د اضافه کولو لپاره یو څه لرئ، نو د خپل بیان لیکلو هڅه وکړئ.";
 s.convIsClosed = "دا خبرې اترې بندې شوې دي.";
 s.noMoreVotingAllowed = "نور د رایې ورکولو اجازه نشته.";
 
@@ -50,10 +47,8 @@ s.majorityOpinion = "د اکثریت نظر";
 s.majorityOpinionShort = "اکثریت";
 s.info = "معلومات";
 
-
 s.helpWhatAmISeeingTitle = "زه څه وینم؟";
-s.helpWhatAmISeeing =
-  "ستاسو د وودي حلقې لخوا استازیتوب کیږئ او د هغه نورو سره ډله کیږئ چې ستاسو لید شریکوي.";
+s.helpWhatAmISeeing = "ستاسو د وودي حلقې لخوا استازیتوب کیږئ او د هغه نورو سره ډله کیږئ چې ستاسو لید شریکوي.";
 s.heresHowGroupVoted = "دلته دا دي چې ګروپ څنګه {{GROUP_NUMBER}} رایه ورکړه:";
 s.one_person = "{{x}} کس";
 s.x_people = "{{x}} خلک";
@@ -66,20 +61,16 @@ s.topComments = "غوره بیانونه";
 s.divisiveComments = "تفرقه اچوونکې څرګندونې";
 s.pctAgreed = "{{pct}}% موافق";
 s.pctDisagreed = "{{pct}}% غیر موافق";
-s.pctAgreedLong =
-  "{{pct}}% هغو ټولو کسانو څخه چې په بیانیه کې یې رایه ورکړې وه {{comment_id}} موافق دي.";
+s.pctAgreedLong = "{{pct}}% هغو ټولو کسانو څخه چې په بیانیه کې یې رایه ورکړې وه {{comment_id}} موافق دي.";
 s.pctAgreedOfGroup = "{{pct}}% د ډلې څخه {{group}} موافق دي";
 s.pctDisagreedOfGroup = "{{pct}}% د ډلې څخه {{ګروپ}} غیر موافق دي";
-s.pctDisagreedLong =
-  "{{pct}}% هغو ټولو کسانو څخه چې په بیانیه کې یې رایه ورکړې وه {{comment_id}} غیر موافق دي.";
+s.pctDisagreedLong = "{{pct}}% هغو ټولو کسانو څخه چې په بیانیه کې یې رایه ورکړې وه {{comment_id}} غیر موافق دي.";
 s.pctAgreedOfGroupLong =
   "{{pct}}% د هغو کسانو څخه چې په ډله {{ګروپ}} کې وو او په بیانیه کې یې رایه ورکړه {{comment_id}} موافق دي.";
 s.pctDisagreedOfGroupLong =
   "{{pct}}% د هغو کسانو څخه چې په ډله {{ګروپ}} کې وو او په بیانیه کې یې رایه ورکړه {{comment_id}} غیر موافق دي.";
-s.participantHelpGroupsText =
-  "ستاسو د وودي حلقې لخوا استازیتوب کیږئ او د هغه نورو سره ډله کیږئ چې ستاسو لید شریکوي.";
-s.participantHelpGroupsNotYetText =
-  "انځور به هغه وخت څرګند شي کله چې 7 ګډونوال رایه ورکول پیل کړي";
+s.participantHelpGroupsText = "ستاسو د وودي حلقې لخوا استازیتوب کیږئ او د هغه نورو سره ډله کیږئ چې ستاسو لید شریکوي.";
+s.participantHelpGroupsNotYetText = "انځور به هغه وخت څرګند شي کله چې 7 ګډونوال رایه ورکول پیل کړي";
 s.helpWhatAreGroupsDetail =
   "<p>د هرې ډلې نظرونو سپړلو لپاره په خپل ډلې یا د نورو باندې کلیک وکړئ..</p><p>د اکثریت نظرونه هغه دي چې په ډلو کې تر ټولو پراخه شریک شوي دي.</p>";
 
@@ -101,26 +92,19 @@ s.tipCommentsRandom =
   "بیانونه په ناڅاپي ډول ښودل کیږي او تاسو د نورو خلکو بیانونو ته مستقیم ځواب نه ورکوئ: <b> تاسو یو جلا بیان اضافه کوئ.<b>";
 s.tipOneIdea =
   "هغه اوږدې څرګندونې جلا کړئ چې ګڼ نظرونه لري. دا د نورو لپاره ستاسو په بیان باندې رایه ورکول اسانه جوړوي.";
-s.tipNoQuestions =
-  "بیانونه باید د پوښتنې په بڼه نه وي. ګډونوال به ستاسو د څرګندونو سره موافق یا غیر موافق وي.";
-s.commentTooLongByChars =
-  "د بیان د اوږدوالي حد د {{CHARACTERS_COUNT}} حروفو څخه زیات شو.";
+s.tipNoQuestions = "بیانونه باید د پوښتنې په بڼه نه وي. ګډونوال به ستاسو د څرګندونو سره موافق یا غیر موافق وي.";
+s.commentTooLongByChars = "د بیان د اوږدوالي حد د {{CHARACTERS_COUNT}} حروفو څخه زیات شو.";
 s.submitComment = "وسپارئ";
-s.commentSent =
-  "بیانیه وسپارل شوه! یوازې نور ګډونوال به ستاسو بیانیه وګوري او موافق یا غیر موافق به وي.";
+s.commentSent = "بیانیه وسپارل شوه! یوازې نور ګډونوال به ستاسو بیانیه وګوري او موافق یا غیر موافق به وي.";
 
 // د تېروتنې خبرتیاوې
 
 s.commentSendFailed = "ستاسو د بیان په سپارلو کې یوه تېروتنه وه.";
-s.commentSendFailedEmpty =
-  "ستاسو د بیان په سپارلو کې یوه تېروتنه وه - بیان باید خالي نه وي.";
-s.commentSendFailedTooLong =
-  "ستاسو د بیان په سپارلو کې یوه تېروتنه وشوه - بیان ډېر اوږد دی.";
-s.commentSendFailedDuplicate =
-  "ستاسو د بیان په سپارلو کې یوه تېروتنه وشوه - یو ورته بیان له مخکې شتون لري.";
+s.commentSendFailedEmpty = "ستاسو د بیان په سپارلو کې یوه تېروتنه وه - بیان باید خالي نه وي.";
+s.commentSendFailedTooLong = "ستاسو د بیان په سپارلو کې یوه تېروتنه وشوه - بیان ډېر اوږد دی.";
+s.commentSendFailedDuplicate = "ستاسو د بیان په سپارلو کې یوه تېروتنه وشوه - یو ورته بیان له مخکې شتون لري.";
 s.commentErrorDuplicate = "نقل! دا بیان له مخکې شتون لري.";
-s.commentErrorConversationClosed =
-  "دا خبرې اترې بندې شوې دي. نور بیانونه نشي سپارل کیدی.";
+s.commentErrorConversationClosed = "دا خبرې اترې بندې شوې دي. نور بیانونه نشي سپارل کیدی.";
 s.commentIsEmpty = "بیان خالي دی";
 s.commentIsTooLong = "بیان ډېر اوږد دی";
 s.hereIsNextStatement = "د رایې ورکولو بریالیتوب. د راتلونکې بیان لیدلو لپاره پورته لاړ شئ.";
@@ -133,17 +117,14 @@ s.thirdPartyTranslationDisclaimer = "د دریمې ډلې لخوا چمتو شو
 
 // د خبرتیاوو، ګډونونو او نصبولو په اړه متن
 
-s.notificationsAlreadySubscribed =
-  "تاسو د دې خبرو اترو د تازه معلوماتو لپاره ګډون کړی دی.";
+s.notificationsAlreadySubscribed = "تاسو د دې خبرو اترو د تازه معلوماتو لپاره ګډون کړی دی.";
 s.notificationsGetNotified = "د نور بیانونو د راتل پرمهال څخه خبر شئ:";
-s.notificationsEnterEmail =
-  "د نورو بیانونو راتلو پرمهال د خبریدو لپاره خپل برېښنالیک پته دننه کړئ:";
+s.notificationsEnterEmail = "د نورو بیانونو راتلو پرمهال د خبریدو لپاره خپل برېښنالیک پته دننه کړئ:";
 s.labelEmail = "بریښنالیک";
 s.notificationsSubscribeButton = "ګډون وکړئ";
 s.notificationsSubscribeErrorAlert = "په ګډون کولو کې تیروتنه ده";
 
-s.addPolisToYourSite =
-  "<img style='لوړوالې: 20px; حاشیه: 0px 4px;' src='{{URL}}'/>";
+s.addPolisToYourSite = "<img style='لوړوالې: 20px; حاشیه: 0px 4px;' src='{{URL}}'/>";
 
 // د ویخ متن
 
@@ -166,11 +147,9 @@ s.modSubmitInitialState = "پریږدئ (له پورتنیو څخه هیڅ یو 
 s.modSubmit = "بشپړ شو، راتلونکی بیان";
 
 s.topic_good_01 = "د پینګ پانګ خونې په اړه باید څه وکړو؟";
-s.topic_good_01_reason =
-  "بې حده، هرڅوک کولی شي د دې پوښتنې په ځوابونو کې یو نظر ولري";
+s.topic_good_01_reason = "بې حده، هرڅوک کولی شي د دې پوښتنې په ځوابونو کې یو نظر ولري";
 s.topic_good_02 = "تاسو د نوي وړاندیز په اړه څه فکر کوئ؟";
-s.topic_good_02_reason =
-  "بې حده، هرڅوک کولی شي د دې پوښتنې په ځوابونو کې یو نظر ولري";
+s.topic_good_02_reason = "بې حده، هرڅوک کولی شي د دې پوښتنې په ځوابونو کې یو نظر ولري";
 s.topic_good_03 = "آیا تاسو د داسې څه په اړه فکر کولی شئ چې د تولید کچه ورو کوي؟";
 
 s.topic_bad_01 = "هرڅوک خپل د پیل چمتووالي راپور ورکړئ";
@@ -180,4 +159,3 @@ s.topic_bad_02 = "زموږ د پیل بلاکرونه کوم دي؟";
 s.topic_bad_02_reason = "";
 
 module.exports = s;
-

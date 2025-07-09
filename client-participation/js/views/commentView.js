@@ -4,6 +4,6 @@ var Handlebones = require("handlebones");
 var template = require("../templates/commentView.handlebars");
 
 module.exports = Handlebones.ModelView.extend({
-	name: "commentView",
-	template: template
+  name: "commentView",
+  template: template
 });

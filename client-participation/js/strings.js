@@ -2,6 +2,7 @@
 
 var preloadHelper = require("./util/preloadHelper");
 var Utils = require("./util/utils");
+var _ = require("lodash");
 
 var translations = {
   // Arabic
@@ -65,14 +66,12 @@ var translations = {
   zh_Hans: require("./strings/zh_Hans.js"),
   // Chinese (Taiwan)
   // zh-Hant is Traditional Chinese (TW, MO and HK can use the same file.)
-  zh_Hant: require("./strings/zh_Hant.js"),
+  zh_Hant: require("./strings/zh_Hant.js")
 };
-
-
 
 var strings = translations.en_us;
 
-preloadHelper.acceptLanguagePromise.then(function() {
+preloadHelper.acceptLanguagePromise.then(function () {
   var acceptLanguage = preload.acceptLanguage || "";
   var uiLang = Utils.uiLanguage();
   if (uiLang) {
@@ -84,17 +83,12 @@ preloadHelper.acceptLanguagePromise.then(function() {
   prioritized = prioritized || [];
   prioritized.reverse();
 
-
   prioritized.forEach(function (languageCode) {
     if (languageCode.match(/^en/)) {
       _.extend(strings, translations.en_us);
     } else if (languageCode.match(/^ja/)) {
       _.extend(strings, translations.ja);
-    } else if (
-      languageCode.match(/^zh-CN/) ||
-      languageCode.match(/^zh-SG/) ||
-      languageCode.match(/^zh-MY/)
-    ) {
+    } else if (languageCode.match(/^zh-CN/) || languageCode.match(/^zh-SG/) || languageCode.match(/^zh-MY/)) {
       _.extend(strings, translations.zh_Hans);
     } else if (languageCode.match(/^zh/) || languageCode.match(/^zh-TW/)) {
       _.extend(strings, translations.zh_Hant);
@@ -117,7 +111,7 @@ preloadHelper.acceptLanguagePromise.then(function() {
     } else if (languageCode.match(/^sk/)) {
       _.extend(strings, translations.sk);
     } else if (
-      languageCode.match(/^pt/) ||    // To help Portuguese participants until a specific translation is here
+      languageCode.match(/^pt/) || // To help Portuguese participants until a specific translation is here
       languageCode.match(/^pt-PT/) || // To help Portuguese participants until a specific translation is here
       languageCode.match(/^pt-BR/)
     ) {
@@ -156,15 +150,15 @@ preloadHelper.acceptLanguagePromise.then(function() {
   });
 });
 
-window.missingTranslations = function() {
+window.missingTranslations = function () {
   $(document.body).empty();
   var pre = $(document.body).append("<pre></pre>");
 
-  _.each(translations, function(keyToTranslatedStringMapping, code) {
+  _.each(translations, function (keyToTranslatedStringMapping, code) {
     pre.append("<h2>" + code + "</h2>");
-    _.each(translations.en_us, function(originalString, key) {
+    _.each(translations.en_us, function (originalString, key) {
       if (!keyToTranslatedStringMapping[key]) {
-        pre.append("<div>" + 's.' + key + ' = "' + originalString + '";' + "</div>");
+        pre.append("<div>" + "s." + key + ' = "' + originalString + '";' + "</div>");
       }
     });
   });

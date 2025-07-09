@@ -4,15 +4,7 @@ import * as globals from "./globals";
 import BarChartCompact from "./barChartCompact";
 import closestPoint from "../util/closestPointOnPath";
 
-const BarChartsForGroupVotes = ({
-  selectedComment,
-  allComments,
-  groups,
-  groupCornerAssignments,
-  hullElems
-}) => {
-
-
+const BarChartsForGroupVotes = ({ selectedComment, allComments, groups, groupCornerAssignments, hullElems }) => {
   const position_nw_0 = 0;
   const position_nw_1 = -globals.side;
 
@@ -29,9 +21,8 @@ const BarChartsForGroupVotes = ({
     [position_nw_0, position_nw_1],
     [position_sw_0, position_sw_1],
     [position_ne_0, position_ne_1],
-    [position_se_0, position_se_1],
+    [position_se_0, position_se_1]
   ];
-
 
   function getLabelAnchorForHull(hull) {
     const candidates = corners.map((c) => {
@@ -40,19 +31,19 @@ const BarChartsForGroupVotes = ({
       const dy = c[1] - pt[1];
       return {
         pt: pt,
-        dist: Math.sqrt(dx*dx + dy*dy),
+        dist: Math.sqrt(dx * dx + dy * dy)
       };
     });
     let pt = _.maxBy(candidates, (c) => {
       return -c.dist;
     }).pt;
 
-    if (pt[0] < globals.side/2) {
+    if (pt[0] < globals.side / 2) {
       pt[0] -= 90;
     } else {
       pt[0] -= 10;
     }
-    if (pt[1] < globals.side/4) {
+    if (pt[1] < globals.side / 4) {
       pt[1] += 10;
     } else {
       pt[1] -= 10;
@@ -60,12 +51,9 @@ const BarChartsForGroupVotes = ({
     return pt;
   }
 
-
-
   const drawBarChartsForGroupVotesOnSelectedComment = () => {
-    let arr = []
+    let arr = [];
     _.each(groups, (group, i) => {
-
       const closestPair = getLabelAnchorForHull(hullElems[group.id]);
 
       arr.push(
@@ -75,20 +63,16 @@ const BarChartsForGroupVotes = ({
             selectedComment={selectedComment}
             groupVotes={group /* hardcode first group for debug */}
             translate={closestPair}
-            ptptCount={"ptptCount doesn't matter and isn't used because this barchart is for a group, not global"}/>
+            ptptCount={"ptptCount doesn't matter and isn't used because this barchart is for a group, not global"}
+          />
         </g>
-      )
-    })
+      );
+    });
     return arr;
-  }
+  };
 
-  return (
-    <g>
-      {selectedComment ? drawBarChartsForGroupVotesOnSelectedComment() : null}
-    </g>
-  )
-
-}
+  return <g>{selectedComment ? drawBarChartsForGroupVotesOnSelectedComment() : null}</g>;
+};
 
 export default BarChartsForGroupVotes;
 

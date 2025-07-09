@@ -1,5 +1,7 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+var _ = require("lodash");
+var $ = require("jquery");
 var display = require("../util/display");
 var eb = require("../eventBus");
 var Handlebones = require("handlebones");
@@ -7,10 +9,8 @@ var Utils = require("../util/utils");
 
 var isMobile = Utils.isMobile();
 
-
 var iconFaAngleLeft = require("../templates/icon_fa_angle_left.handlebars");
 var iconFaAngleRight = require("../templates/icon_fa_angle_right.handlebars");
-
 
 function addMultipleOwlItems(htmlStrings, targetPosition) {
   var base = this,
@@ -47,28 +47,27 @@ function addMultipleOwlItems(htmlStrings, targetPosition) {
   base.setVars();
 }
 
-
 module.exports = Handlebones.View.extend({
   addMultipleOwlItems: addMultipleOwlItems,
-  getCarouselEl: function() {
+  getCarouselEl: function () {
     return $("#" + this.el_carouselSelector);
   },
-  getPrevButtonEl: function() {
+  getPrevButtonEl: function () {
     return $("#" + this.el_prevButton);
   },
-  getNextButtonEl: function() {
+  getNextButtonEl: function () {
     return $("#" + this.el_nextButton);
   },
-  getParentEl: function() {
+  getParentEl: function () {
     return $("#" + this.el_parent);
   },
-  getSmallWindowEl: function() {
+  getSmallWindowEl: function () {
     return $("#" + this.el_smallWindow);
   },
-  groupInfo: function() {
+  groupInfo: function () {
     return this.parent.groupInfo();
   },
-  renderItems: function(items, indexToTid) {
+  renderItems: function (items, indexToTid) {
     var that = this;
 
     function updateCarouselButtons() {
@@ -83,7 +82,7 @@ module.exports = Handlebones.View.extend({
         prevEl.css("opacity", 0.2);
         that.carouselPrevDisabled = true;
       }
-      if (this.currentItem >= (items.length - 1)) {
+      if (this.currentItem >= items.length - 1) {
         nextEl.css("opacity", 0.2);
         that.carouselNextDisabled = true;
       }
@@ -96,8 +95,8 @@ module.exports = Handlebones.View.extend({
     var results = that.getSmallWindowEl();
     results.addClass("owl-carousel");
 
-    if (results.data('owlCarousel')) {
-      results.data('owlCarousel').destroy();
+    if (results.data("owlCarousel")) {
+      results.data("owlCarousel").destroy();
     }
 
     results.owlCarousel({
@@ -105,14 +104,13 @@ module.exports = Handlebones.View.extend({
       singleItem: true,
       // autoHeight : true,
       //  transitionStyle: "fade", // this should enable CSS3 transitions
-      afterInit: function(elem) {
+      afterInit: function (elem) {
         var thatCarousel = this;
         if (!isMobile) {
           this.owlControls.prependTo(elem);
         }
         // setTimeout(function() {
-        el.fadeIn(0, function() {
-
+        el.fadeIn(0, function () {
           var circles = el.find(".owl-pagination").find(".owl-page > span");
           // var colors = _.map(items, "color");
           // for (var i = 0; i < circles.length; i++) {
@@ -123,56 +121,67 @@ module.exports = Handlebones.View.extend({
 
           var buttonOffset = display.xs() ? "-5px" : "0";
 
-          var groupCarouselPrevHTML = '<span ' +
-            'id="' + that.el_prevButton + '" ' +
+          var groupCarouselPrevHTML =
+            "<span " +
+            'id="' +
+            that.el_prevButton +
+            '" ' +
             'class="Btn-alt Btn-small Btn" ' +
             'style=" ' +
-            'z-index: 3;' +
-            'position: absolute;' +
-            'top: 40px;' +
-            'left:' + buttonOffset + ';' +
-            'box-shadow: none;' +
-            'cursor: pointer;' +
-            'color: black;' +
-            'background-color: rgba(0,0,0,0);' +
-            'border: none;' +
+            "z-index: 3;" +
+            "position: absolute;" +
+            "top: 40px;" +
+            "left:" +
+            buttonOffset +
+            ";" +
+            "box-shadow: none;" +
+            "cursor: pointer;" +
+            "color: black;" +
+            "background-color: rgba(0,0,0,0);" +
+            "border: none;" +
             '">' +
-
             '<i class="svgIcon" style="' +
-            'display: inline-block;' +
-            'position: relative;' +
-            'margin-inline-end: 2px;' +
-            'top: 6px;' +
-            'width: 48px;' +
-            'fill: black;' +
-            '">' + iconFaAngleLeft() + '</i>' +
-            '</span>';
+            "display: inline-block;" +
+            "position: relative;" +
+            "margin-inline-end: 2px;" +
+            "top: 6px;" +
+            "width: 48px;" +
+            "fill: black;" +
+            '">' +
+            iconFaAngleLeft() +
+            "</i>" +
+            "</span>";
 
-          var groupCarouselNextHTML = '<span ' +
-            'id="' + that.el_nextButton + '" ' +
+          var groupCarouselNextHTML =
+            "<span " +
+            'id="' +
+            that.el_nextButton +
+            '" ' +
             'class="Btn-alt Btn-small Btn" ' +
             'style=" ' +
-            'z-index: 3;' +
-            'position: absolute;' +
-            'top: 40px;' +
-            'right:' + buttonOffset + ';' +
-            'box-shadow: none;' +
-            'cursor: pointer;' +
-            'color: black;' +
-            'background-color: rgba(0,0,0,0);' +
-            'border: none;' +
+            "z-index: 3;" +
+            "position: absolute;" +
+            "top: 40px;" +
+            "right:" +
+            buttonOffset +
+            ";" +
+            "box-shadow: none;" +
+            "cursor: pointer;" +
+            "color: black;" +
+            "background-color: rgba(0,0,0,0);" +
+            "border: none;" +
             '">' +
             '<i class="svgIcon" style="' +
-            'display: inline-block;' +
-            'position: relative;' +
-            'margin-inline-end: 2px;' +
-            'top: 6px;' +
-            'width: 48px;' +
-            'fill: black;' +
-            '">' + iconFaAngleRight() + '</i>' +
-
-
-            '</span>';
+            "display: inline-block;" +
+            "position: relative;" +
+            "margin-inline-end: 2px;" +
+            "top: 6px;" +
+            "width: 48px;" +
+            "fill: black;" +
+            '">' +
+            iconFaAngleRight() +
+            "</i>" +
+            "</span>";
 
           that.getPrevButtonEl().remove();
           that.getNextButtonEl().remove();
@@ -188,37 +197,34 @@ module.exports = Handlebones.View.extend({
 
           prevEl.css("opacity", 0.2);
 
-          nextEl.on("click", function(e) {
+          nextEl.on("click", function (e) {
             if (!that.carouselNextDisabled) {
-              var owl = that.getSmallWindowEl().data('owlCarousel');
+              var owl = that.getSmallWindowEl().data("owlCarousel");
               owl.next();
             }
           });
 
-          prevEl.on("click", function(e) {
+          prevEl.on("click", function (e) {
             if (!that.carouselPrevDisabled) {
-              var owl = that.getSmallWindowEl().data('owlCarousel');
+              var owl = that.getSmallWindowEl().data("owlCarousel");
               owl.prev();
             }
           });
-
-
         });
         // }, 100);
-
       },
-      afterMove: function() {
+      afterMove: function () {
         var tid = indexToTid[this.currentItem];
 
         updateCarouselButtons.call(this);
-        setTimeout(function() {
+        setTimeout(function () {
           eb.trigger(eb.commentSelected, tid);
         }, 200);
       }
     });
 
-    el.on("click", function(e) {
-      var owl = that.getSmallWindowEl().data('owlCarousel');
+    el.on("click", function (e) {
+      var owl = that.getSmallWindowEl().data("owlCarousel");
       // var $comment = $(e);
       var index = $(e.target).data("idx");
       if (_.isNumber(index)) {
@@ -227,28 +233,26 @@ module.exports = Handlebones.View.extend({
       // alert(e);
     });
 
-    that.addMultipleOwlItems.call(results.data('owlCarousel'), _.map(items, "html"));
+    that.addMultipleOwlItems.call(results.data("owlCarousel"), _.map(items, "html"));
     // Auto-select the first comment.
     eb.trigger(eb.commentSelected, indexToTid[0]);
     // el.find(".query_result_item").first().trigger("click");
   },
 
-
-  renderWithCarousel: function() {
+  renderWithCarousel: function () {
     var that = this;
     this.carouselPrevDisabled = true;
     this.carouselNextDisabled = false;
 
     // let stack breathe
-    setTimeout(function() {
+    setTimeout(function () {
       var o = that.generateItemsHTML();
       var indexToTid = o.indexToTid;
       var items = o.items;
       // let stack breathe
-      setTimeout(function() {
+      setTimeout(function () {
         that.renderItems(items, indexToTid);
       }, 0);
     }, 0);
-  },
-
+  }
 });

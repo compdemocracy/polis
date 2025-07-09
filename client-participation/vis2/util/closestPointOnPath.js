@@ -7,10 +7,8 @@ export default function (pathNode, point) {
 
   // linear scan for coarse approximation
   for (var scan, scanLength = 0, scanDistance; scanLength <= pathLength; scanLength += precision) {
-    if (
-      (scanDistance = distance2(scan = pathNode.getPointAtLength(scanLength))) < bestDistance
-    ) {
-      best = scan, bestLength = scanLength, bestDistance = scanDistance;
+    if ((scanDistance = distance2((scan = pathNode.getPointAtLength(scanLength)))) < bestDistance) {
+      ((best = scan), (bestLength = scanLength), (bestDistance = scanDistance));
     }
   }
 
@@ -26,16 +24,14 @@ export default function (pathNode, point) {
 
     if (
       (beforeLength = bestLength - precision) >= 0 &&
-      (
-        beforeDistance = distance2(before = pathNode.getPointAtLength(beforeLength))
-      ) < bestDistance
+      (beforeDistance = distance2((before = pathNode.getPointAtLength(beforeLength)))) < bestDistance
     ) {
-      best = before, bestLength = beforeLength, bestDistance = beforeDistance;
+      ((best = before), (bestLength = beforeLength), (bestDistance = beforeDistance));
     } else if (
       (afterLength = bestLength + precision) <= pathLength &&
-      (afterDistance = distance2(after = pathNode.getPointAtLength(afterLength))) < bestDistance
+      (afterDistance = distance2((after = pathNode.getPointAtLength(afterLength)))) < bestDistance
     ) {
-      best = after, bestLength = afterLength, bestDistance = afterDistance;
+      ((best = after), (bestLength = afterLength), (bestDistance = afterDistance));
     } else {
       precision /= 2;
     }
@@ -47,7 +43,7 @@ export default function (pathNode, point) {
 
   function distance2(p) {
     var dx = p.x - point[0],
-        dy = p.y - point[1];
+      dy = p.y - point[1];
     return dx * dx + dy * dy;
   }
 }

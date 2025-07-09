@@ -14,7 +14,6 @@ import Curate from "./curate";
 import HullLabels from "./hullLabels";
 
 class Graph extends React.Component {
-
   constructor(props) {
     super(props);
     this.hullElems = [];
@@ -28,10 +27,9 @@ class Graph extends React.Component {
   }
 
   componentWillMount() {
-
     window.addEventListener("resize", () => {
-      this.setState({browserDimensions: window.innerWidth})
-    })
+      this.setState({ browserDimensions: window.innerWidth });
+    });
 
     // document.getElementById("helpTextGroups").style.display = "none";
     // document.getElementById("visualization_div").style.display = "none";
@@ -40,7 +38,6 @@ class Graph extends React.Component {
   }
 
   componentWillReceiveProps(nextProps, nextState) {
-
     if (!nextProps.math) {
       return;
     }
@@ -59,7 +56,7 @@ class Graph extends React.Component {
       hulls,
       groupCentroids,
       groupCornerAssignments,
-      ptptoisProjected,
+      ptptoisProjected
     } = graphUtil(nextProps.comments, nextProps.math, nextProps.badTids, nextProps.ptptois);
 
     commentsPoints = commentsPoints.filter((c) => {
@@ -70,10 +67,10 @@ class Graph extends React.Component {
       return !_.isUndefined(tidsToShowSet[c.tid]);
     });
 
-    let selectedComment = this.state.selectedComment
+    let selectedComment = this.state.selectedComment;
 
     if (this.state.selectedComment === null && this.state.selectedTidCuration !== null) {
-      selectedComment = tidCarouselComments[0]
+      selectedComment = tidCarouselComments[0];
     }
 
     this.setState({
@@ -91,8 +88,7 @@ class Graph extends React.Component {
       ptptoisProjected,
       selectedComment,
       tidCarouselComments
-    })
-
+    });
   }
 
   handleCommentHover(selectedComment) {
@@ -101,7 +97,7 @@ class Graph extends React.Component {
       this.setState({
         selectedComment
       });
-    }
+    };
   }
 
   handleCommentClick(selectedComment) {
@@ -110,21 +106,23 @@ class Graph extends React.Component {
       this.setState({
         selectedComment
       });
-    }
+    };
   }
 
   handleReturnToVoteClicked() {
     // document.getElementById("readReactView").style.display = "block";
-    this.setState({selectedComment: null})
+    this.setState({ selectedComment: null });
   }
-  handleCurateButtonClick (tidCuration) {
-
-    this.setState({
-      selectedTidCuration: tidCuration,
-      selectedComment: null
-    }, () => {
-      this.props.onCurationChange && this.props.onCurationChange(tidCuration);
-    });
+  handleCurateButtonClick(tidCuration) {
+    this.setState(
+      {
+        selectedTidCuration: tidCuration,
+        selectedComment: null
+      },
+      () => {
+        this.props.onCurationChange && this.props.onCurationChange(tidCuration);
+      }
+    );
   }
 
   getHullElems(gid) {
@@ -132,12 +130,11 @@ class Graph extends React.Component {
       if (elem !== null) {
         this.hullElems[gid] = elem;
       }
-    }
+    };
   }
 
   render() {
-
-    let ww = parseInt(getComputedStyle(document.getElementById('visualization_parent_div')).width, 10);
+    let ww = parseInt(getComputedStyle(document.getElementById("visualization_parent_div")).width, 10);
     let w = globals.sideWithPadding;
     let svgScale = 1;
     /*
@@ -153,13 +150,17 @@ class Graph extends React.Component {
 
     return (
       <div>
-        <svg width={globals.sideWithPadding} height={globals.svgHeightWithPadding} style={{
-          transform: "scale("+svgScale+")",
-          transformOrigin: "0% 0%",
-          marginBottom: svgNegativeMargin}
-        }>
+        <svg
+          width={globals.sideWithPadding}
+          height={globals.svgHeightWithPadding}
+          style={{
+            transform: "scale(" + svgScale + ")",
+            transformOrigin: "0% 0%",
+            marginBottom: svgNegativeMargin
+          }}
+        >
           <filter id="grayscale">
-             <feColorMatrix type="saturate" values="0"/>
+            <feColorMatrix type="saturate" values="0" />
           </filter>
           <g transform={`translate(${globals.padding}, ${globals.padding})`}>
             {/* Comment https://bl.ocks.org/mbostock/7555321 */}
@@ -170,29 +171,27 @@ class Graph extends React.Component {
                   fontSize: 14,
                   fontStyle: "italic"
                 }}
-                textAnchor="middle">
-
-              </text>
+                textAnchor="middle"
+              ></text>
             </g>
-            <Axes
-              xCenter={this.state.xCenter}
-              yCenter={this.state.yCenter}
-              report={this.props.report}/>
+            <Axes xCenter={this.state.xCenter} yCenter={this.state.yCenter} report={this.props.report} />
             <Hulls
               handleClick={this.handleCurateButtonClick.bind(this)}
               selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               getHullElems={this.getHullElems.bind(this)}
-              hulls={this.state.hulls} />
+              hulls={this.state.hulls}
+            />
             <Participants
               selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               points={this.state.baseClustersScaled}
-              ptptois={this.state.ptptoisProjected}/>
+              ptptois={this.state.ptptoisProjected}
+            />
             <HullLabels
               handleClick={this.handleCurateButtonClick.bind(this)}
               selectedGroup={_.isNumber(this.state.selectedTidCuration) ? this.state.selectedTidCuration : null}
               groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"] /* for labels */}
               centroids={this.state.groupCentroids}
-              />
+            />
             {/*<Comments
               commentsPoints={this.state.commentsPoints}
               selectedComment={this.state.selectedComment}
@@ -207,30 +206,32 @@ class Graph extends React.Component {
               allComments={this.props.comments}
               groups={this.props.math["group-votes"] || window.preload.firstMath["group-votes"]}
               groupCornerAssignments={this.state.groupCornerAssignments}
-              />
+            />
           </g>
         </svg>
-        <div style={{
+        <div
+          style={{
             display: "flex",
             alignItems: "baseline",
             flexWrap: "wrap",
             width: "100%",
             justifyContent: "center",
-            margin: "20px 0px",
-          }}>
+            margin: "20px 0px"
+          }}
+        >
           <Curate
             handleCurateButtonClick={this.handleCurateButtonClick.bind(this)}
             math={this.props.math}
             selectedTidCuration={this.state.selectedTidCuration}
             Strings={this.props.Strings}
-            />
+          />
           <TidCarousel
             selectedTidCuration={this.state.selectedTidCuration}
             commentsToShow={this.state.tidCarouselComments}
             handleCommentClick={this.handleCommentClick.bind(this)}
             selectedComment={this.state.selectedComment}
             Strings={this.props.Strings}
-            />
+          />
         </div>
         <ExploreTid
           browserDimensions={this.state.browserDimensions}
@@ -241,14 +242,14 @@ class Graph extends React.Component {
           math={this.props.math || window.preload.firstMath}
           onVoteClicked={this.props.onVoteClicked}
           Strings={this.props.Strings}
-          comments={this.props.comment}/>
+          comments={this.props.comment}
+        />
       </div>
     );
   }
 }
 
 export default Graph;
-
 
 /* heading */
 

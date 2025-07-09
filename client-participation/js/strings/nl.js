@@ -26,9 +26,11 @@ s.TOS = "Servicevoorwaarden";
 s.writePrompt = "Geef uw mening...";
 s.anonPerson = "Anoniem";
 s.helpWhatAmISeeingTitle = "Wat ben ik aan het bekijken?";
-s.helpWhatAmISeeing = "Mensen met een gelijkaardige mening zijn gegroepeerd. Klik op een groep om hun mening te bekijken.";
+s.helpWhatAmISeeing =
+  "Mensen met een gelijkaardige mening zijn gegroepeerd. Klik op een groep om hun mening te bekijken.";
 s.helpWhatDoIDoTitle = "Wat moet ik doen?";
-s.helpWhatDoIDo = "Stem op andere reacties door op 'akkoord' of 'niet akkoord' te klikken. Schrijf een reactie (blijf kort en bondig, één idee per lijn). Nodig vrienden uit om deel te nemen aan de discussie!";
+s.helpWhatDoIDo =
+  "Stem op andere reacties door op 'akkoord' of 'niet akkoord' te klikken. Schrijf een reactie (blijf kort en bondig, één idee per lijn). Nodig vrienden uit om deel te nemen aan de discussie!";
 s.writeCommentHelpText = "<strong>schrijf</strong> een reactie indien uw mening niet wordt vertegenwoordigd</i>";
 s.helpWriteListIntro = "Wat is een goed voorstel?";
 s.helpWriteListStandalone = "Een idee dat op zichzelf staat";
@@ -61,16 +63,21 @@ s.tip = "Tip:";
 s.commentWritingTipsHintsHeader = "Tips om reacties te schrijven";
 s.tipCharLimit = "De lengte van reacties zijn beperkt to {{char_limit}} tekens.";
 s.tipCommentsRandom = "Reacties zijn willekeurig gesorteerd. U bent op niemand aan het reageren";
-s.tipOneIdea = "Splits lange reacties op in verschillende ideeën. Dit maakt het makkelijker voor anderen om te stemmen.";
-s.tipNoQuestions = "Probeer vragen in uw reacties te vermijden. Deelnemers zullen vervolgens al dan niet akkoord gaan met uw stelling.";
+s.tipOneIdea =
+  "Splits lange reacties op in verschillende ideeën. Dit maakt het makkelijker voor anderen om te stemmen.";
+s.tipNoQuestions =
+  "Probeer vragen in uw reacties te vermijden. Deelnemers zullen vervolgens al dan niet akkoord gaan met uw stelling.";
 s.commentTooLongByChars = "De lengte van uw reactie werd met  {{CHARACTERS_COUNT}} karakters overschreden.";
 s.notSentSinceDemo = "(niet echt, dit is een demo)";
 s.submitComment = "Reageer";
 s.tipStarred = "Gemarkeerd als belangrijk.";
-s.participantHelpWelcomeText = "Welkom bij een nieuwe soort discussie - <span style='font-weight: 700.'>stem</span> op de meningen van personen en draag bij tot het gesprek door zelf te reageren.";
-s.participantHelpGroupsText = "Personen die gelijkaardig stemmen <span style='font-weight: 700.'>worden gegroepeerd.</span> Klik op een groep om te zien welk standpunt zij innemen <a style='font-weight: 700. cursor: pointer. text-decoration: underline' id='helpTextGroupsExpand'>...more</a>";
+s.participantHelpWelcomeText =
+  "Welkom bij een nieuwe soort discussie - <span style='font-weight: 700.'>stem</span> op de meningen van personen en draag bij tot het gesprek door zelf te reageren.";
+s.participantHelpGroupsText =
+  "Personen die gelijkaardig stemmen <span style='font-weight: 700.'>worden gegroepeerd.</span> Klik op een groep om te zien welk standpunt zij innemen <a style='font-weight: 700. cursor: pointer. text-decoration: underline' id='helpTextGroupsExpand'>...more</a>";
 s.participantHelpGroupsNotYetText = "De visualisatie zal verschijnen zodra er 7 personen zijn begonnen met stemmen";
-s.helpWhatAreGroupsDetail = "<p>U hebt allicht al 'aanbevolen artikels' op Amazon, of ‘aanbevolen films' op Netflix. Elk van deze services gebruiken statistieken om u te groeperen in bij personen die dezelfde dingen kopen of bekijken, vervolgend wordt er u getoond wat deze mensen kochten of naar welke film ze keken.</p> <p> Wanneer u een stem uitbrengt op een reactie wordt u vervolgens gegroepeerd met mensen die dezelfde stem uitbrachten! Onderaan kan u deze groepen bekijken. Elk van deze groepen bestaan uit personen met dezelfde opinie. Er zijn fascinerende inzichten de ontdekken elk van deze gesprekken. Wacht niet langer – klik op een groep om te zien wat hun bijeen bracht en wat hun uniek maakt! </p>";
+s.helpWhatAreGroupsDetail =
+  "<p>U hebt allicht al 'aanbevolen artikels' op Amazon, of ‘aanbevolen films' op Netflix. Elk van deze services gebruiken statistieken om u te groeperen in bij personen die dezelfde dingen kopen of bekijken, vervolgend wordt er u getoond wat deze mensen kochten of naar welke film ze keken.</p> <p> Wanneer u een stem uitbrengt op een reactie wordt u vervolgens gegroepeerd met mensen die dezelfde stem uitbrachten! Onderaan kan u deze groepen bekijken. Elk van deze groepen bestaan uit personen met dezelfde opinie. Er zijn fascinerende inzichten de ontdekken elk van deze gesprekken. Wacht niet langer – klik op een groep om te zien wat hun bijeen bracht en wat hun uniek maakt! </p>";
 s.showTranslationButton = "Toon vertalingen";
 s.hideTranslationButton = "Verberg vertalingen";
 
@@ -94,10 +101,9 @@ s.topic_good_02_reason = "vrijblijvend, iedereen kan een opinie of vraag hebben 
 s.topic_good_03 = "Kan u iets bedenken dat de productiviteit vertraagt?";
 
 s.topic_bad_01 = "iedereen moet rapporteren over hun vorderingen i.v.m. de start";
-s.topic_bad_01_reason = "verschillende mensen van verschillende teams zullen reageren op het antwoord, zij zullen echt niet allemaal de kennis hebben om vastbesloten te kunnen stemmen.";
+s.topic_bad_01_reason =
+  "verschillende mensen van verschillende teams zullen reageren op het antwoord, zij zullen echt niet allemaal de kennis hebben om vastbesloten te kunnen stemmen.";
 s.topic_bad_02 = "welke factoren remmen onze start af?";
 s.topic_bad_02_reason = "";
 
-
 module.exports = s;
-

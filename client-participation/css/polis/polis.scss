@@ -7,10 +7,10 @@
 // @import 'normalize';
 
 // BASE
-@import 'base/mixins';
-@import 'base/variables';
-@import 'base/base';
-@import 'base/content';
+@import "base/mixins";
+@import "base/variables";
+@import "base/base";
+@import "base/content";
 
 //LAYOUT
 // @import 'layout/grid';
@@ -31,12 +31,12 @@
 // @import 'modules/notifications';
 // @import 'modules/share';
 // @import 'modules/toggle';
-@import 'modules/visualization';
+@import "modules/visualization";
 
 // @import 'modules/starterComments';
 
 //STATES
-@import 'states/states';
+@import "states/states";
 
 // utilities
-@import 'base/utilities';
+@import "base/utilities";

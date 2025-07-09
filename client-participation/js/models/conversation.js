@@ -2,7 +2,6 @@
 
 var Model = require("../model");
 
-
 // hit moderation invite url
 
 // it seems necesary to create a list of moderators for each conversation.
@@ -14,13 +13,12 @@ var Model = require("../model");
 // if not, you can't PUT to the comments. (that's the least we can do)
 // we could prevent rendering the view too, but that's more work.
 
-
 module.exports = Model.extend({
   name: "conversation",
   path: "conversations",
   idAttribute: "conversation_id",
   urlRoot: "conversations",
-  url: function() {
+  url: function () {
     return this.urlRoot;
   },
   defaults: {
@@ -32,17 +30,17 @@ module.exports = Model.extend({
     created: 0,
     owner: undefined,
     participant_count: "",
-    url_force_vis: function() {
+    url_force_vis: function () {
       return "/" + this.conversation_id + "/?vis_type=1";
     },
-    url_moderate: function() {
+    url_moderate: function () {
       //        return "/m/" + this.conversation_id + "/" + this.minvite;
       return "/m/" + this.conversation_id;
     },
-    url_name: function() {
+    url_name: function () {
       return "/" + this.conversation_id;
     },
-    url_name_with_hostname: function() {
+    url_name_with_hostname: function () {
       // build the URL for the user to copy & paste
       var s = "";
       if (/pol.is/.exec(document.location.hostname)) {
@@ -50,10 +48,10 @@ module.exports = Model.extend({
         s += "https://";
       }
       s += document.location.hostname;
-      s += document.location.port ? (":" + document.location.port) : "";
+      s += document.location.port ? ":" + document.location.port : "";
       return s + this.url_name();
     },
-    url_name_with_production_hostname: function() {
+    url_name_with_production_hostname: function () {
       return "https://pol.is" + this.url_name();
     },
     is_anon: false,
@@ -64,6 +62,4 @@ module.exports = Model.extend({
     // if email address not empty string, email validation - ie., school email address.
     email_domain: undefined // @microsoft.com etc if require validation AND
   }
-
-
 });

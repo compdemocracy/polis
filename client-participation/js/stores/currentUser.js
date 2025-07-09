@@ -6,9 +6,9 @@ var $ = require("jquery");
 var preloadHelper = require("../util/preloadHelper");
 var currentUserModel = new Backbone.Model();
 
-currentUserModel.update = function() {
+currentUserModel.update = function () {
   var that = this;
-  return preloadHelper.firstUserPromise.then(function(user) {
+  return preloadHelper.firstUserPromise.then(function (user) {
     // set up global userObject
     window.userObject = $.extend(window.userObject, user);
 

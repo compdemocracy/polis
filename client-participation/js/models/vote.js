@@ -3,15 +3,18 @@
 var Model = require("../model");
 
 module.exports = Model.extend({
-    name: "vote",
-    idAttribute: "tid", // assumes it is used in a context where conversation_id=current conversation and pid=self
-    defaults: {
-      commentText: "",
-      tid: undefined, // commenTTTT id... must be provided by the view, because multiple are sent over at a time...
-      pid: undefined, // PPPParticipant id -- this is a unique id every participant has in every convo that starts at 0
-      conversation_id: undefined, // converSation id
-      votes: undefined, // agree = -1, pass = 0, disagree = 1
-      participantStarred: false,
-      high_priority: false,
-    }
-  });
+  name: "vote",
+  // assumes it is used in a context where conversation_id=current conversation and pid=self
+  idAttribute: "tid",
+  defaults: {
+    commentText: "",
+    // commenTTTT id... must be provided by the view, because multiple are sent over at a time...
+    tid: undefined,
+    // PPPParticipant id -- this is a unique id every participant has in every convo that starts at 0
+    pid: undefined,
+    conversation_id: undefined, // converSation id
+    votes: undefined, // agree = -1, pass = 0, disagree = 1
+    participantStarred: false,
+    high_priority: false
+  }
+});

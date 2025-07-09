@@ -1,6 +1,5 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 var Utils = require("./utils");
 
 function getPolisFrameId() {
@@ -21,44 +20,53 @@ function getPolisFrameId() {
 }
 
 function postResizeEvent(newHeight) {
-  console.log('postResizeEvent', newHeight);
-  window.top.postMessage({
-    name: "resize",
-    polisFrameId: getPolisFrameId(),
-    height: newHeight,
-  }, "*");
+  console.log("postResizeEvent", newHeight);
+  window.top.postMessage(
+    {
+      name: "resize",
+      polisFrameId: getPolisFrameId(),
+      height: newHeight
+    },
+    "*"
+  );
 }
 
 function postVoteEvent() {
-  window.top.postMessage({
-    name: "vote",
-    polisFrameId: getPolisFrameId(),
-  }, "*");
+  window.top.postMessage(
+    {
+      name: "vote",
+      polisFrameId: getPolisFrameId()
+    },
+    "*"
+  );
 }
 
 function postCommentEvent() {
-  window.top.postMessage({
-    name: "write",
-    polisFrameId: getPolisFrameId(),
-  }, "*");
+  window.top.postMessage(
+    {
+      name: "write",
+      polisFrameId: getPolisFrameId()
+    },
+    "*"
+  );
 }
 
 function postInitEvent(status) {
-  window.top.postMessage({
-    name: "init",
-    status: status,
-    conversation: window.preload.conversation,
-  }, "*");
+  window.top.postMessage(
+    {
+      name: "init",
+      status: status,
+      conversation: window.preload.conversation
+    },
+    "*"
+  );
 }
 
-
 module.exports = {
-
   postInitEvent: postInitEvent,
   postResizeEvent: postResizeEvent,
   postVoteEvent: postVoteEvent,
   postCommentEvent: postCommentEvent,
 
-  getPolisFrameId: getPolisFrameId,
-
+  getPolisFrameId: getPolisFrameId
 };

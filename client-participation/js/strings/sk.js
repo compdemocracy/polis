@@ -32,10 +32,13 @@ s.TOS = "TOS";
 s.writePrompt = "Zdieľajte váš názor, či návrh na riešenie...";
 s.anonPerson = "Anonym";
 s.helpWhatAmISeeingTitle = "Čo vidím?";
-s.helpWhatAmISeeing = "Ľudia, ktorí hlasovali podobne sú zoskupení v skupinách nižšie. Kliknite na konkrétnu skupinu pre zobrazenie ich názorov a postojov.";
+s.helpWhatAmISeeing =
+  "Ľudia, ktorí hlasovali podobne sú zoskupení v skupinách nižšie. Kliknite na konkrétnu skupinu pre zobrazenie ich názorov a postojov.";
 s.helpWhatDoIDoTitle = " Čo mám spraviť?";
-s.helpWhatDoIDo = "Hlasujte o ostatných návrhoch kliknutím na 'súhlasím' alebo 'nesúhlasím'. Napíšte váš názor a pozvite svojich priateľov do diskusie!";
-s.writeCommentHelpText = "Chýbajú vám v diskusii vaše skúsenosti s problémom či návrhy na jeho riešenie? Neváhajte ich <b>zadať</b> do políčka nižšie.";
+s.helpWhatDoIDo =
+  "Hlasujte o ostatných návrhoch kliknutím na 'súhlasím' alebo 'nesúhlasím'. Napíšte váš názor a pozvite svojich priateľov do diskusie!";
+s.writeCommentHelpText =
+  "Chýbajú vám v diskusii vaše skúsenosti s problémom či návrhy na jeho riešenie? Neváhajte ich <b>zadať</b> do políčka nižšie.";
 s.helpWriteListIntro = "Čo tvorí dobrý komentár?";
 s.helpWriteListStandalone = "Samostatná myšlienka";
 s.helpWriteListRaisNew = "Originálna perspektíva, či prehliadaný uhol pohľadu na vec";
@@ -72,17 +75,23 @@ s.hereIsNextStatement = "Váš hlas bol úspešne zaznamenaný. Prejdite vyšši
 s.tip = "Tip:";
 s.commentWritingTipsHintsHeader = "Tipy pre písanie výrokov";
 s.tipCharLimit = "Výroky sú limitované na {{char_limit}} znakov.";
-s.tipCommentsRandom = "Návrhy sa zobrazujú náhodne. Vaše návrhy sú nezávislými komentármi a nepredstavujú odpoveď na komentáre ostatných diskutujúcich.";
-s.tipOneIdea = "Rozložte dlhé výroky obsahujúce viacero myšlienok. Ostatným účastníkom sa tak bude ľahšie hlasovať o vašom výroku.";
-s.tipNoQuestions = 'Výroky by nemali byť v podobe otázok. Účastníci budú hlasovať "súhlasím" alebo "nesúhlasím" o vašich výrokoch.';
+s.tipCommentsRandom =
+  "Návrhy sa zobrazujú náhodne. Vaše návrhy sú nezávislými komentármi a nepredstavujú odpoveď na komentáre ostatných diskutujúcich.";
+s.tipOneIdea =
+  "Rozložte dlhé výroky obsahujúce viacero myšlienok. Ostatným účastníkom sa tak bude ľahšie hlasovať o vašom výroku.";
+s.tipNoQuestions =
+  'Výroky by nemali byť v podobe otázok. Účastníci budú hlasovať "súhlasím" alebo "nesúhlasím" o vašich výrokoch.';
 s.commentTooLongByChars = "Limit dĺžky výroku presiahnutý o {{CHARACTERS_COUNT}} znakov.";
 s.notSentSinceDemo = "(not really, this is a demo)";
 s.submitComment = "Zdieľať";
 s.tipStarred = "Označené ako dôležité.";
-s.participantHelpWelcomeText = "Vitajte v novom druhu online diskusie - <em>hlasujte</em> o návrhoch a zdieľajte vaše názory a skúsenosti. Len tak sa priblížime sa ku konsenzu";
-s.participantHelpGroupsText = "Diskutujúci, ktorí hlasovali podobne <span style='font-weight: 700;'>sú zoskupení v názorových skupinách.</span> Kliknite na jednotlivú skupinu pre zobrazenie názorov, ktoré zastávajú. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...ďalšie</a>";
+s.participantHelpWelcomeText =
+  "Vitajte v novom druhu online diskusie - <em>hlasujte</em> o návrhoch a zdieľajte vaše názory a skúsenosti. Len tak sa priblížime sa ku konsenzu";
+s.participantHelpGroupsText =
+  "Diskutujúci, ktorí hlasovali podobne <span style='font-weight: 700;'>sú zoskupení v názorových skupinách.</span> Kliknite na jednotlivú skupinu pre zobrazenie názorov, ktoré zastávajú. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...ďalšie</a>";
 s.participantHelpGroupsNotYetText = "Vizualizácia sa zobrazí keď 7 účastníkov začalo hlasovať";
-s.helpWhatAreGroupsDetail = '<p> Pravdepodobne ste už videli "odporúčané produkty" na Amazone, alebo "odporúčané filmy" na Netflixe. Všetky tieto internetové služby využívajú štatistiku na zoskupenie uživateľov, ktorí kupujú, či sledujú podobné veci. Tieto služby im následne odporúčajú produkty, ktoré si ľudia z ich skupiny už kúpili či pozreli.</p> <p> Keď účastník konverzácie hlasuje o jednotlivých komentároch, tak algoritmus ho zoskupí s účastníkmi, ktorí hlasovali podobne. Grafické vyobrazenie týchto skupín môžte vidieť nižšie. Každá skupina je zložená z ľudí, kotrí majú podobný názor na vec. Práve to nám umožňuje viesť konštruktívnu diskusiu a prehľadne zistiť čo si veľké skupiny ľudí myslia. Neváhajte, kliknite na ľubovolnú skupinu nižšie a zistite čo nás rozdeľuje a čo spája.</p>';
+s.helpWhatAreGroupsDetail =
+  '<p> Pravdepodobne ste už videli "odporúčané produkty" na Amazone, alebo "odporúčané filmy" na Netflixe. Všetky tieto internetové služby využívajú štatistiku na zoskupenie uživateľov, ktorí kupujú, či sledujú podobné veci. Tieto služby im následne odporúčajú produkty, ktoré si ľudia z ich skupiny už kúpili či pozreli.</p> <p> Keď účastník konverzácie hlasuje o jednotlivých komentároch, tak algoritmus ho zoskupí s účastníkmi, ktorí hlasovali podobne. Grafické vyobrazenie týchto skupín môžte vidieť nižšie. Každá skupina je zložená z ľudí, kotrí majú podobný názor na vec. Práve to nám umožňuje viesť konštruktívnu diskusiu a prehľadne zistiť čo si veľké skupiny ľudí myslia. Neváhajte, kliknite na ľubovolnú skupinu nižšie a zistite čo nás rozdeľuje a čo spája.</p>';
 s.showTranslationButton = "Preložiť";
 s.hideTranslationButton = "Deaktivujte preklad";
 s.thirdPartyTranslationDisclaimer = "Preklad je zabezpečovaný treťou stranou.";
@@ -101,7 +110,6 @@ s.noCommentsTryWritingOne = "Ak chcete zdieľať váš názor, napíšte vlastn�
 s.convIsClosed = "Táto konverzácia je uzavretá.";
 s.noMoreVotingAllowed = "Hlasovanie už nie je povolené.";
 
-
 s.topic_good_01 = "Čo by sme mali spraviť, aby sme vyriešili daný problém?";
 s.topic_good_01_reason = "otvorená téma, každý môže mať názor, alebo odpoveď na danú problematiku";
 s.topic_good_02 = "Čo si myslíte o novom návrhu?";
@@ -109,6 +117,7 @@ s.topic_good_02_reason = "otvorená téma, každý môže mať názor, alebo odp
 s.topic_good_03 = "Čo môže spomaľovať vašu produktivitu?";
 
 s.topic_bad_01 = "čo si myslíte o raketovej fyzike?";
-s.topic_bad_01_reason = "ľudia z róznych tímov budú hlasovať o výrokoch, ale nemusia mať dosť vedomostí na to, aby hlasovali sebavedomo.";
+s.topic_bad_01_reason =
+  "ľudia z róznych tímov budú hlasovať o výrokoch, ale nemusia mať dosť vedomostí na to, aby hlasovali sebavedomo.";
 
 module.exports = s;

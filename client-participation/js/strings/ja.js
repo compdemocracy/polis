@@ -1,6 +1,5 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
 var s = {};
 
 s.agree = "賛成";
@@ -20,7 +19,8 @@ s.privacy = "プライバシー";
 s.TOS = "TOS";
 s.writePrompt = "あなたの考え方を共有しよう……";
 s.anonPerson = "匿名";
-s.helpWhatAmISeeing = "投票傾向が似ている人々がグループ化されます。グループをクリックすると、どの視点を共有しているのかを確認できます。";
+s.helpWhatAmISeeing =
+  "投票傾向が似ている人々がグループ化されます。グループをクリックすると、どの視点を共有しているのかを確認できます。";
 s.writeCommentHelpText = "上記の質問に、あなたの意見やアイデアが含まれていない場合、";
 s.helpWriteListIntro = "";
 s.helpWriteListStandalone = "独立したアイデアであること";
@@ -67,9 +67,11 @@ s.notSentSinceDemo = "(これはデモンストレーションです)";
 s.submitComment = "提出";
 s.tipStarred = "重要マークを付ける";
 s.participantHelpWelcomeText = "新しい形式の会話へようこそ。他の人の意見に<em>投票</em>してみてください。";
-s.participantHelpGroupsText = "意見が似ている人は<span style='font-weight: 700;'>グループにまとめられます。</span>グループをクリックすると、そこの人の視点になれます。<a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...more</a>";
+s.participantHelpGroupsText =
+  "意見が似ている人は<span style='font-weight: 700;'>グループにまとめられます。</span>グループをクリックすると、そこの人の視点になれます。<a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...more</a>";
 s.participantHelpGroupsNotYetText = "7人以上が投票していると、図形が表示されます。";
-s.helpWhatAreGroupsDetail = "<p>Amazonの「お勧めの商品」、Netflixの「お勧めの映画」は、統計を使用して、類似のものを購入したり視聴しているユーザをグループ化し、同じグループの他のユーザが購入または視聴しているものを表示します。</p><p>Pol.isでも同様です。グループは以下で確認でき、似たような意見を持つ人々で構成されています。グループをクリックすると、何がそのグループの特徴となっているのかがわかります。</p>";
+s.helpWhatAreGroupsDetail =
+  "<p>Amazonの「お勧めの商品」、Netflixの「お勧めの映画」は、統計を使用して、類似のものを購入したり視聴しているユーザをグループ化し、同じグループの他のユーザが購入または視聴しているものを表示します。</p><p>Pol.isでも同様です。グループは以下で確認でき、似たような意見を持つ人々で構成されています。グループをクリックすると、何がそのグループの特徴となっているのかがわかります。</p>";
 
 s.notificationsAlreadySubscribed = "この会話を購読しました。";
 s.notificationsGetNotified = "新しい質問が追加されたときに通知を受け取る場合、Subscribeボタンを押してください。";
@@ -92,7 +94,6 @@ s.noCommentsYouVotedOnAll = "ありがとうございます！すべての質問
 s.noCommentsTryWritingOne = "何か言いたいことが有りましたら、意見を書いてみてください。";
 s.convIsClosed = "この会話は終了しました。";
 s.noMoreVotingAllowed = "投票は締め切りました。";
-
 
 s.showTranslationButton = "日本語に翻訳する";
 s.hideTranslationButton = "元の言語に戻す";

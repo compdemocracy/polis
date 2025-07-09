@@ -11,17 +11,16 @@ $light-gray: #717171;
 $medium-gray: #555555;
 $dark-gray: #171717;
 
-$darker1: rgba(0,0,0, 0.1);
-$darker2: rgba(0,0,0, 0.2);
-$darker3: rgba(0,0,0, 0.3);
-$darker4: rgba(0,0,0, 0.4);
-$darker5: rgba(0,0,0, 0.5);
-$darker6: rgba(0,0,0, 0.6);
-$darker7: rgba(0,0,0, 0.7);
-$darker8: rgba(0,0,0, 0.8);
-$darker9: rgba(0,0,0, 0.9);
-$darker10: rgba(0,0,0, 1);
-
+$darker1: rgba(0, 0, 0, 0.1);
+$darker2: rgba(0, 0, 0, 0.2);
+$darker3: rgba(0, 0, 0, 0.3);
+$darker4: rgba(0, 0, 0, 0.4);
+$darker5: rgba(0, 0, 0, 0.5);
+$darker6: rgba(0, 0, 0, 0.6);
+$darker7: rgba(0, 0, 0, 0.7);
+$darker8: rgba(0, 0, 0, 0.8);
+$darker9: rgba(0, 0, 0, 0.9);
+$darker10: rgba(0, 0, 0, 1);
 
 $light-blue-gray: #6f7c80;
 $blue-gray: #555f61;
@@ -30,7 +29,7 @@ $dark-blue-gray: #373d3f;
 $green: #2ecc71;
 $dark-green: #27ae60;
 
-$header-footer-color: #F4F4F4;
+$header-footer-color: #f4f4f4;
 
 // $brand-light-color: #4daae8;
 $brand-color: #3498db;
@@ -75,7 +74,7 @@ $default-leading: 1.5;
 // weight options: thin: 100; light: 300; regular: 400; medium: 500; bold: 700; black: 900
 // "brandon-grotesque", "Brandon Grotesque",
 
- // "canada-type-gibson","Futura", "Gill Sans",
+// "canada-type-gibson","Futura", "Gill Sans",
 
 $headline-font: "Helvetica Neue", Helvetica, sans-serif;
 $sans-font: "Helvetica Neue", Helvetica, sans-serif;
@@ -85,7 +84,6 @@ $sans-font: "Helvetica Neue", Helvetica, sans-serif;
 
 $serif-font: "Helvetica Neue", Helvetica, sans-serif;
 $serif-headline-font: "Helvetica Neue", Helvetica, sans-serif;
-
 
 // $serif-font: "canada-type-gibson", "Hoefler Text", "Baskerville", "Garamond", "Cambria", Georgia, serif;
 // $serif-headline-font:  "Chaparral Pro", "Hoefler Text", "Baskerville", "Garamond", "Cambria", Georgia, serif;
@@ -108,7 +106,7 @@ $tall-footer-height: 250px;
 // ----------------------------------------------------------------------------
 $color_agree: rgb(0, 181, 77);
 $color_disagree: #e74c3c; // ALIZARIN
-$color_pass: #BDC3C7; // SILVER
-$color_self: #0CF; // blue like the dot on a map
+$color_pass: #bdc3c7; // SILVER
+$color_self: #0cf; // blue like the dot on a map
 $color_star: yellow; // TODO find right color
 $color_selected_comment: #f7f7f7;

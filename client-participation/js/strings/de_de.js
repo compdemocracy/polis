@@ -34,10 +34,13 @@ s.TOS = "Nutzungsbedingungen";
 s.writePrompt = "Teilen Sie Ihre Meinung mit ...";
 s.anonPerson = "Anonym";
 s.helpWhatAmISeeingTitle = "Was wird hier angezeigt?";
-s.helpWhatAmISeeing = "Leute, die ähnlich abstimmen, werden zu einer Gruppe zusammengefasst. Klicken Sie auf eine Gruppe, um die gemeinsamen Standpunkte zu sehen.";
+s.helpWhatAmISeeing =
+  "Leute, die ähnlich abstimmen, werden zu einer Gruppe zusammengefasst. Klicken Sie auf eine Gruppe, um die gemeinsamen Standpunkte zu sehen.";
 s.helpWhatDoIDoTitle = "Was muss ich tun?";
-s.helpWhatDoIDo = "Stimmen Sie über die Statements anderer TeilnehmerInnen ab, indem Sie auf 'Ich stimme zu' oder 'Ich stimme nicht zu' klicken. Verfassen Sie selbst ein Statement (beschränken Sie sich dabei jeweils auf einen einzelnen Aspekt). Laden Sie Ihre Freunde und Bekannten zur Teilnahme an der Diskussion ein!";
-s.writeCommentHelpText = "Wenn Ihre Sichtweise noch nicht vertreten wird, <strong>verfassen</strong> Sie ein Statement!";
+s.helpWhatDoIDo =
+  "Stimmen Sie über die Statements anderer TeilnehmerInnen ab, indem Sie auf 'Ich stimme zu' oder 'Ich stimme nicht zu' klicken. Verfassen Sie selbst ein Statement (beschränken Sie sich dabei jeweils auf einen einzelnen Aspekt). Laden Sie Ihre Freunde und Bekannten zur Teilnahme an der Diskussion ein!";
+s.writeCommentHelpText =
+  "Wenn Ihre Sichtweise noch nicht vertreten wird, <strong>verfassen</strong> Sie ein Statement!";
 s.helpWriteListIntro = "Was macht ein gutes Statement aus?";
 s.helpWriteListStandalone = "Eine unabhängige Idee";
 s.helpWriteListRaisNew = "Bringen Sie neue Perspektiven, Erfahrungen und Probleme ein";
@@ -58,15 +61,21 @@ s.pctAgreedLong = "{{pct}}% aller TeilnehmerInnen, die Statement {{comment_id}} 
 s.pctAgreedOfGroup = "{{pct}}% von Gruppe {{group}} stimmten zu";
 s.pctDisagreedOfGroup = "{{pct}}% von Gruppe {{group}} stimmten nicht zu";
 s.pctDisagreedLong = "{{pct}}% aller TeilnehmerInnen, die Statement {{comment_id}} bewertet haben, stimmten nicht zu.";
-s.pctAgreedOfGroupLong = "{{pct}}% aller TeilnehmerInnen in Gruppe {{group}}, die Statement {{comment_id}} bewertet haben, stimmten zu.";
-s.pctDisagreedOfGroupLong = "{{pct}}% aller TeilnehmerInnen in Gruppe {{group}}, die Statement {{comment_id}} bewertet haben, stimmten nicht zu.";
-s.commentSent = "Statement wurde gesendet! Die anderen TeilnehmerInnen werden benachrichtigt und können über Ihr Statement abstimmen.";
+s.pctAgreedOfGroupLong =
+  "{{pct}}% aller TeilnehmerInnen in Gruppe {{group}}, die Statement {{comment_id}} bewertet haben, stimmten zu.";
+s.pctDisagreedOfGroupLong =
+  "{{pct}}% aller TeilnehmerInnen in Gruppe {{group}}, die Statement {{comment_id}} bewertet haben, stimmten nicht zu.";
+s.commentSent =
+  "Statement wurde gesendet! Die anderen TeilnehmerInnen werden benachrichtigt und können über Ihr Statement abstimmen.";
 s.commentSendFailed = "Es gab einen Fehler beim Einreichen deines Statements.";
-s.commentSendFailedEmpty = "Es gab einen Fehler beim Einreichen deines Statements – Eingabefeld sollte nicht leer bleiben.";
+s.commentSendFailedEmpty =
+  "Es gab einen Fehler beim Einreichen deines Statements – Eingabefeld sollte nicht leer bleiben.";
 s.commentSendFailedTooLong = "Es gab einen Fehler beim Einreichen deines Statements – Das Statement ist zu lang.";
-s.commentSendFailedDuplicate = "Es gab einen Fehler beim Einreichen deines Statements – Ein identisches Statement besteht bereits.";
+s.commentSendFailedDuplicate =
+  "Es gab einen Fehler beim Einreichen deines Statements – Ein identisches Statement besteht bereits.";
 s.commentErrorDuplicate = "Dopplung! Ein identisches Statement besteht bereits.";
-s.commentErrorConversationClosed = "Diese Diskussion ist beendet. Es können keine weiteren Statements eingereicht werden.";
+s.commentErrorConversationClosed =
+  "Diese Diskussion ist beendet. Es können keine weiteren Statements eingereicht werden.";
 s.commentIsEmpty = "Eingabefeld ist leer.";
 s.commentIsTooLong = "Statement ist zu lang.";
 s.hereIsNextStatement = "Bewertung war erfolgreich. Oben kannst du das nächste Statement sehen.";
@@ -74,17 +83,24 @@ s.hereIsNextStatement = "Bewertung war erfolgreich. Oben kannst du das nächste 
 s.tip = "Tipp:";
 s.commentWritingTipsHintsHeader = "Hinweise für dein Statement.";
 s.tipCharLimit = "Kommentare sind auf 140 Zeichen beschränkt.";
-s.tipCommentsRandom = "Statements werden in zufälliger Reihenfolge angezeigt. Ihre Antwort bezieht sich dabei nicht auf eine bestimmte Person.";
-s.tipOneIdea = "Teilen Sie längere Statements, die mehrere Aspekte beinhalten in einzelne Statements auf. Das erleichtert es den TeilnehmerInnen, über Ihr Statement abzustimmen.";
-s.tipNoQuestions = "Statements sollten als Standpunkte und nicht als Fragen formuliert werden. Die TeilnehmerInnen werden Ihrem Standpunkt zustimmen oder ihn ablehnen.";
+s.tipCommentsRandom =
+  "Statements werden in zufälliger Reihenfolge angezeigt. Ihre Antwort bezieht sich dabei nicht auf eine bestimmte Person.";
+s.tipOneIdea =
+  "Teilen Sie längere Statements, die mehrere Aspekte beinhalten in einzelne Statements auf. Das erleichtert es den TeilnehmerInnen, über Ihr Statement abzustimmen.";
+s.tipNoQuestions =
+  "Statements sollten als Standpunkte und nicht als Fragen formuliert werden. Die TeilnehmerInnen werden Ihrem Standpunkt zustimmen oder ihn ablehnen.";
 s.commentTooLongByChars = "Kommentarlänge um {{CHARACTERS_COUNTS)) Zeichen überschritten.";
 s.notSentSinceDemo = "(nicht wirklich, dies ist nur eine Demonstration)";
 s.submitComment = "Einreichen";
 s.tipStarred = "Als wichtig markiert.";
-s.participantHelpWelcomeText = "Willkommen zu einer neuen Art der Diskussion - <span style='font-weight: 700;'>stimme</span> über die Standpunkte der anderen TeilnehmerInnen <span style='font-weight: 700;'>ab</span> und <span style='font-weight: 700;'>teilen</span> Sie Ihren eigenen Standpunkt.";
-s.participantHelpGroupsText = "DiskussionsteilnehmerInnen, die ähnlich abstimmen, <span style='font-weight: 700;'>werden zu einer Gruppe zusammengefasst.</span> Klicken Sie auf eine Gruppe, um zu sehen, welche gemeinsamen Standpunkte diese Gruppe vertritt <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>... Mehr anzeigen</a>";
-s.participantHelpGroupsNotYetText = "Die Visualisierung startet, sobald mindestens sieben TeilnehmerInnen abgestimmt haben.";
-s.helpWhatAreGroupsDetail = "<p>Sie kennen wahrscheinlich 'Andere Kunden kauften auch' auf Amazon oder 'personalisierte Empfehlungen' auf Netflix. Diese Dienste verwenden Statistiken, um Nutzer mit gemeinsamen Interessen zuzammenzufassen und darauf basierend entsprechende Produkt- oder Filmempfehlungen zu geben.</p> <p> Wenn Sie auf Pol.is über einen Kommentar abstimmen, werden Sie mit anderen Nutzern, die eine ähnliche Abstimmungspräferenz haben, in einer Gruppe zusammengefasst. Diese Gruppen werden unten angezeigt. Jede Gruppe besteht aus TeilnehmerInnen, die ähnliche Meinungen haben. Jede Diskussion bietet deshalb faszinierende Einblicke in das allgemeine Meinungsbild. Legen Sie los - klicken Sie auf eine Gruppe und erfahren Sie, welche Standpunkte diese Gruppe teilt und was sie einzigartig macht! </p>";
+s.participantHelpWelcomeText =
+  "Willkommen zu einer neuen Art der Diskussion - <span style='font-weight: 700;'>stimme</span> über die Standpunkte der anderen TeilnehmerInnen <span style='font-weight: 700;'>ab</span> und <span style='font-weight: 700;'>teilen</span> Sie Ihren eigenen Standpunkt.";
+s.participantHelpGroupsText =
+  "DiskussionsteilnehmerInnen, die ähnlich abstimmen, <span style='font-weight: 700;'>werden zu einer Gruppe zusammengefasst.</span> Klicken Sie auf eine Gruppe, um zu sehen, welche gemeinsamen Standpunkte diese Gruppe vertritt <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>... Mehr anzeigen</a>";
+s.participantHelpGroupsNotYetText =
+  "Die Visualisierung startet, sobald mindestens sieben TeilnehmerInnen abgestimmt haben.";
+s.helpWhatAreGroupsDetail =
+  "<p>Sie kennen wahrscheinlich 'Andere Kunden kauften auch' auf Amazon oder 'personalisierte Empfehlungen' auf Netflix. Diese Dienste verwenden Statistiken, um Nutzer mit gemeinsamen Interessen zuzammenzufassen und darauf basierend entsprechende Produkt- oder Filmempfehlungen zu geben.</p> <p> Wenn Sie auf Pol.is über einen Kommentar abstimmen, werden Sie mit anderen Nutzern, die eine ähnliche Abstimmungspräferenz haben, in einer Gruppe zusammengefasst. Diese Gruppen werden unten angezeigt. Jede Gruppe besteht aus TeilnehmerInnen, die ähnliche Meinungen haben. Jede Diskussion bietet deshalb faszinierende Einblicke in das allgemeine Meinungsbild. Legen Sie los - klicken Sie auf eine Gruppe und erfahren Sie, welche Standpunkte diese Gruppe teilt und was sie einzigartig macht! </p>";
 
 s.showTranslationButton = "Übersetzung aktivieren.";
 s.hideTranslationButton = "Übersetzung ausschalten.";
@@ -96,22 +112,25 @@ s.labelEmail = "Email-Adresse";
 s.notificationsSubscribeButton = "Abonnieren";
 s.noCommentsYet = "Es sind noch keine Statements vorhanden.";
 s.noCommentsYetSoWrite = "Bringen Sie diese Diskussion in Schwung, indem Sie ein Statement erstellen.";
-s.noCommentsYetSoInvite = "Bringen Sie diese Diskussion in Schwung, indem Sie weitere TeilnehmerInnen einladen oder ein Statement erstellen.";
+s.noCommentsYetSoInvite =
+  "Bringen Sie diese Diskussion in Schwung, indem Sie weitere TeilnehmerInnen einladen oder ein Statement erstellen.";
 s.noCommentsYouVotedOnAll = "Sie haben über alle aktuell vorhandenen Statements abgestimmt.";
 s.noCommentsTryWritingOne = "Wenn Sie noch etwas hinzufügen möchten, erstellen Sie einfach ein eigenes Statement.";
 s.convIsClosed = "Diese Diskussion ist bereits geschlossen.";
 s.noMoreVotingAllowed = "Abstimmungen sind nicht mehr möglich.";
 
 s.topic_good_01 = "Wie sollen wir unseren Tischtennis-Raum gestalten?";
-s.topic_good_01_reason = "offene Frage, alle TeilnehmerInnen können sich eine Meinung zu den Antworten auf diese Frage bilden";
+s.topic_good_01_reason =
+  "offene Frage, alle TeilnehmerInnen können sich eine Meinung zu den Antworten auf diese Frage bilden";
 s.topic_good_02 = "Was ist Ihre Meinung zu diesem neuen Vorschlag?";
-s.topic_good_02_reason = "offene Frage, alle TeilnehmerInnen können sich eine Meinung zu den Antworten auf diese Frage bilden";
+s.topic_good_02_reason =
+  "offene Frage, alle TeilnehmerInnen können sich eine Meinung zu den Antworten auf diese Frage bilden";
 s.topic_good_03 = "Welche Hindernisse verringern Ihrer Meinung nach die Produktiviät?";
 
 s.topic_bad_01 = "Alle geben Bescheid, ob sie bereit sind, das Projekt zu starten";
-s.topic_bad_01_reason = "TeilnehmerInnen aus verschiedenen Teams werden über die Antworten abstimmen, dabei jedoch unter Umständen nicht genügend Informationen besitzen, um sinnvoll abstimmen zu können.";
+s.topic_bad_01_reason =
+  "TeilnehmerInnen aus verschiedenen Teams werden über die Antworten abstimmen, dabei jedoch unter Umständen nicht genügend Informationen besitzen, um sinnvoll abstimmen zu können.";
 s.topic_bad_02 = "Welche Hindernisse verhindern einen Projektstart?";
 s.topic_bad_02_reason = "";
-
 
 module.exports = s;

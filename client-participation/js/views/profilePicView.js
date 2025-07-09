@@ -1,16 +1,16 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+var _ = require("lodash");
 var Handlebones = require("handlebones");
 var template = require("../templates/profilePicView.handlebars");
 var Utils = require("../util/utils");
 
-
-module.exports =  Handlebones.ModelView.extend({
+module.exports = Handlebones.ModelView.extend({
   name: "profile-pic-view",
   tagName: "span",
   template: template,
 
-  context: function() {
+  context: function () {
     var ctx = _.extend({}, Handlebones.ModelView.prototype.context.apply(this, arguments));
     ctx.pic = Utils.getAnonPicUrl();
     if (ctx.hasXid) {
@@ -22,7 +22,7 @@ module.exports =  Handlebones.ModelView.extend({
     return ctx;
   },
 
-  initialize: function(options) {
+  initialize: function (options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     this.model = options.model;
   }

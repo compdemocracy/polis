@@ -4,7 +4,7 @@ module.exports = {
   VIS_TYPE: {
     OFF: 0,
     PCA: 1,
-    TOP_COMMENTS: 2,
+    TOP_COMMENTS: 2
   },
   CHARACTER_LIMIT: 140,
   commentCarouselMinHeight: 135, // based on CHARACTER_LIMIT and font size
@@ -18,5 +18,5 @@ module.exports = {
     UNMODERATED: 0,
     OK: 1
   },
-  GA_TRACKING_ID: process.env.GA_TRACKING_ID,
+  GA_TRACKING_ID: process.env.GA_TRACKING_ID
 };

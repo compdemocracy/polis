@@ -16,30 +16,42 @@ html {
 /* necessary for footer */
 // html,
 // body {
-  // height: 100%;
-  /* The html and body elements cannot have any padding or margin. */
+// height: 100%;
+/* The html and body elements cannot have any padding or margin. */
 // }
 
-*, *:before, *:after {
+*,
+*:before,
+*:after {
   box-sizing: inherit;
 }
 
 body {
   // background: $bg-color;
-  color: rgb(0,0,0);
+  color: rgb(0, 0, 0);
   font-family: $sans-font;
   line-height: $default-leading;
   text-rendering: optimizeLegibility;
 }
 
-h1, h2, h3, h4, h5, h6, p, ul, ol {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+ul,
+ol {
   margin-top: 0;
 
   font-family: inherit;
 }
 
 // bootstrap override
-p, ul, ol {
+p,
+ul,
+ol {
   font-size: 16px;
   font-weight: 300;
   line-height: $default-leading;
@@ -49,7 +61,8 @@ p, ul, ol {
 // Links
 //
 a {
-  &, &:link {
+  &,
+  &:link {
     color: $link-color;
     text-decoration: none;
   }
@@ -58,6 +71,7 @@ a {
   }
 }
 
-pre, code {
-  font-size: 14px
+pre,
+code {
+  font-size: 14px;
 }

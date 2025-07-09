@@ -25,9 +25,11 @@ s.TOS = "Termos de uso";
 s.writePrompt = "Inclua seu comentário...";
 s.anonPerson = "Da criadora";
 s.helpWhatAmISeeingTitle = "O que estou vendo?";
-s.helpWhatAmISeeing = "Pessoas que opinaram nos comentários de forma parecida estão agrupadas. Clique num grupo pra ver as opiniões que elas compartilham.";
+s.helpWhatAmISeeing =
+  "Pessoas que opinaram nos comentários de forma parecida estão agrupadas. Clique num grupo pra ver as opiniões que elas compartilham.";
 s.helpWhatDoIDoTitle = " Que faço?";
-s.helpWhatDoIDo = "Opine nos comentários das outras pessoas clicando em 'concordo' ou 'discordo'. Escreva comentários diretos e objetivos. Chame os amigos para a conversa!";
+s.helpWhatDoIDo =
+  "Opine nos comentários das outras pessoas clicando em 'concordo' ou 'discordo'. Escreva comentários diretos e objetivos. Chame os amigos para a conversa!";
 s.writeCommentHelpText = "Se o sua opinião não está representada ainda, <strong>escreva</strong> um comentário!</i>";
 s.heresHowGroupVoted = "Aqui é como o Grupo {{GROUP_NUMBER}} está decidindo:";
 s.one_person = "{{x}} pessoa";
@@ -44,19 +46,26 @@ s.pctAgreedOfGroup = "{{pct}}% do Grupo {{group}} Concordaram";
 s.pctDisagreedOfGroup = "{{pct}}% do Grupo {{group}} Discordaram";
 s.pctDisagreedLong = "{{pct}}% de todos que opinaram no comentário {{comment_id}} discordaram.";
 s.pctAgreedOfGroupLong = "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} concordaram.";
-s.pctDisagreedOfGroupLong = "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} discordaram.";
+s.pctDisagreedOfGroupLong =
+  "{{pct}}% de todos do grupo {{group}} que opinaram no comentário {{comment_id}} discordaram.";
 s.commentSent = "Comentário Enviado! Outros participantes vão ver seu comentário, podendo concordar ou discordar.";
 s.tip = "Dica:";
-s.tipCommentsRandom = "Comentários são embaralhados para ser exibidos. Quando escreve um comentário, você não está respondendo diretamente para ninguém.";
-s.tipOneIdea = "Divida comentários longos que contenham muitas ideias. Isso facilita para as pessoas entenderem e reagirem ao seu comentário.";
-s.tipNoQuestions = "Comentários podem ser afirmações em vez de perguntas. Os participantes vão concordar ou discordar das afirmações que você fizer.";
+s.tipCommentsRandom =
+  "Comentários são embaralhados para ser exibidos. Quando escreve um comentário, você não está respondendo diretamente para ninguém.";
+s.tipOneIdea =
+  "Divida comentários longos que contenham muitas ideias. Isso facilita para as pessoas entenderem e reagirem ao seu comentário.";
+s.tipNoQuestions =
+  "Comentários podem ser afirmações em vez de perguntas. Os participantes vão concordar ou discordar das afirmações que você fizer.";
 s.notSentSinceDemo = "(na real não, esse é um demo)";
 s.submitComment = "Enviar";
 s.tipStarred = "Marcado como importante.";
-s.participantHelpWelcomeText = "Bem vindo a um novo jeito de discutir - <span style='font-weight: 700;'>opine</span> sobre os comentários das pessoas e <span style='font-weight: 700;'>contribua</span> com o seu.";
-s.participantHelpGroupsText = "Pessoas que participam de forma parecida <span style='font-weight: 700;'>são agrupadas.</span> Clique num grupo para ver que pontos de vista elas compartilham <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...mais</a>";
+s.participantHelpWelcomeText =
+  "Bem vindo a um novo jeito de discutir - <span style='font-weight: 700;'>opine</span> sobre os comentários das pessoas e <span style='font-weight: 700;'>contribua</span> com o seu.";
+s.participantHelpGroupsText =
+  "Pessoas que participam de forma parecida <span style='font-weight: 700;'>são agrupadas.</span> Clique num grupo para ver que pontos de vista elas compartilham <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...mais</a>";
 s.participantHelpGroupsNotYetText = "A visualização dos grupos ira aparecer só depois de 7 participantes terem opinado";
-s.helpWhatAreGroupsDetail = "<p> Quando você opina sobre um ou mais comentários, é agrupado com pessoas que opinaram de um jeito parecido contigo! Você pode ver esses grupos abaixo. Cada um é formado por pessoas que tem opiniões parecidas. Há ideias fascinantes para descobrir em cada conversa. Vá em frente - clique num grupo para ver o que os uniu e o que faz eles serem únicos! </p>";
+s.helpWhatAreGroupsDetail =
+  "<p> Quando você opina sobre um ou mais comentários, é agrupado com pessoas que opinaram de um jeito parecido contigo! Você pode ver esses grupos abaixo. Cada um é formado por pessoas que tem opiniões parecidas. Há ideias fascinantes para descobrir em cada conversa. Vá em frente - clique num grupo para ver o que os uniu e o que faz eles serem únicos! </p>";
 
 s.notificationsAlreadySubscribed = "Você está inscrito para receber atualizações dessa discussão.";
 s.notificationsGetNotified = "Seja notificado quando mais comentários chegarem:";
@@ -78,7 +87,8 @@ s.topic_good_02_reason = "pergunta bem definida, todos podem ter opinião e resp
 s.topic_good_03 = "Você pode pensar em algo que está atrapalhando o grupo?";
 s.topic_good_03_reason = "pergunta bem definida, todos podem ter opinião e respostas a essa questão";
 s.topic_bad_01 = "O que você acha da lei que foi aprovada ontem?";
-s.topic_bad_01_reason = "As pessoas podem até tentar participar, mas podem não ter o conhecimento suficiente pra interagir com confiança.";
+s.topic_bad_01_reason =
+  "As pessoas podem até tentar participar, mas podem não ter o conhecimento suficiente pra interagir com confiança.";
 s.topic_bad_02 = "O que a gente deve fazer?";
 s.topic_bad_02_reason = "Aberta demais, não explica o objetivo da discussão, o resultado pode não ser aproveitável";
 

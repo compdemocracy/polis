@@ -8,7 +8,7 @@ var RootView = LayoutView.extend({
   template: rootTemplate
 });
 var instance;
-RootView.getInstance = function(target) {
+RootView.getInstance = function (target) {
   if (!instance) {
     instance = new RootView();
     instance.appendTo(target || document.body);

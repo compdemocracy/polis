@@ -18,16 +18,16 @@ module.exports = Handlebones.CollectionView.extend({
     className: "top-comments-item",
     template: itemTemplate,
     events: {
-      "render": "afterRender",
+      render: "afterRender"
     },
-    context: function() {
+    context: function () {
       var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
       ctx.width = width;
       ctx.percent = ctx.percentDisagree;
       ctx.color = "rgb(231, 76, 60)"; // disagree_red
       return ctx;
     },
-    render: function() {
+    render: function () {
       Handlebones.ModelView.prototype.render.apply(this, arguments);
       var i = 0;
       var that = this;
@@ -39,27 +39,29 @@ module.exports = Handlebones.CollectionView.extend({
           setTimeout(draw, 100);
           return;
         }
-        var drawCtx=c.getContext("2d");
+        var drawCtx = c.getContext("2d");
         drawCtx.beginPath();
 
         var fullArc = -Math.PI * 1.999999;
 
         var strokeWidth = 4;
-        var radius = width/2 - (strokeWidth+1);
+        var radius = width / 2 - (strokeWidth + 1);
 
-        var top = -Math.PI/2;
-        var endOfAgreeArc = fullArc * that.model.get("percentAgree") / 100 - Math.PI/2;
-        var endOfDisagreeArc = - fullArc * (that.model.get("percentDisagree") / 100) - Math.PI/2;
+        var top = -Math.PI / 2;
+        var endOfAgreeArc = (fullArc * that.model.get("percentAgree")) / 100 - Math.PI / 2;
+        var endOfDisagreeArc = -fullArc * (that.model.get("percentDisagree") / 100) - Math.PI / 2;
 
         drawCtx.lineWidth = strokeWidth;
         drawCtx.strokeStyle = "rgb(46, 204, 113)"; // agree_green
-        drawCtx.arc(width/2, width/2, radius,
+        drawCtx.arc(
+          width / 2,
+          width / 2,
+          radius,
           top, // arc starts at top
           endOfAgreeArc, // end angle of arc
           true // counterclockwise?
-          );
+        );
         drawCtx.stroke();
-
 
         // draw disagree part
         drawCtx.strokeStyle = "rgb(231, 76, 60)"; // disagree_red
@@ -70,26 +72,31 @@ module.exports = Handlebones.CollectionView.extend({
         //   );
         drawCtx.beginPath();
 
-        drawCtx.arc(width/2, width/2, radius,
+        drawCtx.arc(
+          width / 2,
+          width / 2,
+          radius,
           top, // arc starts at top
           endOfDisagreeArc, // end angle of arc
           false // counterclockwise?
-          );
+        );
         drawCtx.stroke();
 
         // draw pass part
         drawCtx.strokeStyle = "rgb(200, 200, 200)"; // pass_gray
         drawCtx.beginPath();
-        drawCtx.arc(width/2, width/2, radius,
+        drawCtx.arc(
+          width / 2,
+          width / 2,
+          radius,
           endOfAgreeArc,
           endOfDisagreeArc,
           true // counterclockwise?
-          );
+        );
         drawCtx.stroke();
-
       }
       setTimeout(draw, 100);
-    },
+    }
   }),
   // template: template,
   // emptyView: Handlebones.View.extend({
@@ -100,7 +107,7 @@ module.exports = Handlebones.CollectionView.extend({
     // "click #passButton": "participantPassed",
   },
 
-  initialize: function(options) {
+  initialize: function (options) {
     Handlebones.CollectionView.prototype.initialize.apply(this, arguments);
     // var that = this;
     // this.model = options.model;

@@ -16,14 +16,14 @@
 
 /*dedup with abstract class for btn & Btn-large */
 .Btn-small {
-  padding: 0.4em 1.00em;
+  padding: 0.4em 1em;
   border-radius: 4px;
   border: 0;
   font-size: 12px;
   font-family: $sans-font;
   font-weight: 700;
   text-transform: uppercase;
-  -webkit-box-shadow: 2px 2px 2px -2px #ACACAC;
+  -webkit-box-shadow: 2px 2px 2px -2px #acacac;
 }
 
 .Btn-primary {
@@ -31,7 +31,8 @@
   color: #fff;
   letter-spacing: 0.07em;
 
-  &:hover, &:focus {
+  &:hover,
+  &:focus {
     background-color: $btn-hover-color;
   }
 }
@@ -41,7 +42,8 @@
   color: $brand-color;
   letter-spacing: 0.05em;
 
-  &:hover, &:focus {
+  &:hover,
+  &:focus {
     background-color: #d9dadc;
     color: $brand-text-color;
   }
@@ -53,7 +55,8 @@
   letter-spacing: 0.05em;
   margin-inline-end: 5px;
 
-  &:hover, &:focus {
+  &:hover,
+  &:focus {
     background-color: #d9dadc;
     color: $dark-gray;
   }
@@ -64,7 +67,8 @@
   color: $gray;
   letter-spacing: 0.05em;
 
-  &:hover, &:focus {
+  &:hover,
+  &:focus {
     background-color: #d9dadc;
     color: $dark-gray;
   }
@@ -73,8 +77,9 @@
 //
 // Voting buttons: agree and disagree
 //
-#agreeButton, #disagreeButton {
-  border-inline-end: 0px
+#agreeButton,
+#disagreeButton {
+  border-inline-end: 0px;
 }
 
 .Btn-vote {
@@ -93,7 +98,8 @@
   color: $link-color;
   font-weight: bold;
 
-  &:hover, &:focus {
+  &:hover,
+  &:focus {
     color: $hover-color;
     outline: none;
     box-shadow: none;

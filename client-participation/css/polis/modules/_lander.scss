@@ -9,7 +9,7 @@
 
 .SectionLander {
   margin: 0;
-  padding: ($default-whitespace*2) 5px;
+  padding: ($default-whitespace * 2) 5px;
   width: 100%;
 
   color: $light-blue-gray;
@@ -24,7 +24,7 @@
   }
 
   @media screen and (min-width: $sm-screen) {
-    padding: ($default-whitespace*3) $default-whitespace;
+    padding: ($default-whitespace * 3) $default-whitespace;
 
     @include font-size(24px);
     line-height: 32px;
@@ -51,7 +51,7 @@
   color: #fff;
 
   @media screen and (min-width: $sm-screen) {
-    padding: ($default-whitespace*5) $default-whitespace;
+    padding: ($default-whitespace * 5) $default-whitespace;
     background-image: url("https://pol.is/landerImages/bg-spark_large.jpg");
   }
 

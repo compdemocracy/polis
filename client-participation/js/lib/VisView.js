@@ -3,15 +3,15 @@
 var eb = require("../eventBus");
 var display = require("../util/display");
 var Utils = require("../util/utils");
-var $ = require('jquery');
-var d3_old = require('d3');
-require('d3-tip');
+var $ = require("jquery");
+var _ = require("lodash");
+var d3_old = require("d3");
+require("d3-tip");
 
 // TODO are we using force Layout or not? not really. so it may be worth cleaning up to simplify.
 // Use a css animation to transition the position
 
 module.exports = function VisView(params) {
-
   var el_selector = params.el;
   var el_queryResultSelector = params.el_queryResultSelector;
   var getReactionsToComment = params.getReactionsToComment;
@@ -38,7 +38,6 @@ module.exports = function VisView(params) {
   var participantCount = 1;
   var nodes = [];
   var clusters = [];
-  var clusterParticipantTotals = [];
   var hulls = []; // NOTE hulls will be the same length as clusters
   var centroids = [];
   var visualization;
@@ -74,10 +73,10 @@ module.exports = function VisView(params) {
     basePtptoiRad = 9;
   }
   var maxradboost = 8;
-  var ptptOiRadius = basePtptoiRad + d3_old.scale.linear().range([0, maxradboost]).domain([350, 800]).clamp(true)(width);
+  var ptptOiRadius =
+    basePtptoiRad + d3_old.scale.linear().range([0, maxradboost]).domain([350, 800]).clamp(true)(width);
   var maxPtptoiRad = basePtptoiRad + maxradboost;
   var ptptOiDiameter = ptptOiRadius * 2;
-
 
   var haloWidth = d3_old.scale.linear().range([1, 1]).domain([350, 800]).clamp(true)(width);
   var haloVoteWidth = d3_old.scale.linear().range([2, 4]).domain([350, 800]).clamp(true)(width);
@@ -96,11 +95,8 @@ module.exports = function VisView(params) {
   // framerate can be low on mobile, so make it quick
   var speed = d3_old.scale.linear().range([0.8, 0.1]).domain([350, 800]).clamp(true)(width);
 
-
   // the length of the visible part of the pin. The pin can be longer, if it is under the circle.
   var pinLength = d3_old.scale.linear().range([14, 28]).domain([350, 800]).clamp(true)(width);
-
-
 
   var bidToGid = {};
   var bidToBucket = {};
@@ -122,7 +118,7 @@ module.exports = function VisView(params) {
   var colorPullLabel = "rgb(0, 181, 77)";
   var colorPush = "#e74c3c"; // ALIZARIN
   var colorSummaryBlob = "#F9F9F9";
-  window.color = function() {
+  window.color = function () {
     // colorPull = "rgb(0, 214, 195)";
     colorPull = "rgb(0, 182, 214)";
     colorPullLabel = "#6d9eeb";
@@ -186,11 +182,11 @@ module.exports = function VisView(params) {
   }
 
   var onMajorityTab = false;
-  eb.on("aftershow:majority", function() {
+  eb.on("aftershow:majority", function () {
     console.log("aftershow:majority");
     onMajorityTab = true;
   });
-  eb.on("beforehide:majority", function() {
+  eb.on("beforehide:majority", function () {
     console.log("beforehide:majority");
     onMajorityTab = false;
   });
@@ -203,17 +199,18 @@ module.exports = function VisView(params) {
     return r;
   }
 
-
   var dimensions = {
     width: params.w,
-    height: params.h + chooseRadiusForHullCorners({
-      isSummaryBucket: true
-    }) + 2, // the +2 is to give 1 pixel for the hull stroke, and 1 pixel of white
+    height:
+      params.h +
+      chooseRadiusForHullCorners({
+        isSummaryBucket: true
+      }) +
+      2 // the +2 is to give 1 pixel for the hull stroke, and 1 pixel of white
   };
 
-
-  $(el_selector)
-    .append("<svg>" +
+  $(el_selector).append(
+    "<svg>" +
       "<defs>" +
       "<marker class='helpArrow' id='ArrowTip'" +
       "viewBox='0 0 14 14'" +
@@ -224,8 +221,10 @@ module.exports = function VisView(params) {
       // "<path d='M 0 0 L 10 5 L 0 10 z' />" +
       "<circle cx = '6' cy = '6' r = '5' />" +
       "</marker>" +
-      "<clipPath id=\"clipCircle\">" +
-      "<circle r=\"" + ptptOiRadius + "\" cx=\"0\" cy=\"0\"/>" +
+      '<clipPath id="clipCircle">' +
+      '<circle r="' +
+      ptptOiRadius +
+      '" cx="0" cy="0"/>' +
       "</clipPath>" +
       "<filter id='colorMeMatrix'>" +
       "<feColorMatrix in='SourceGraphic'" +
@@ -235,7 +234,6 @@ module.exports = function VisView(params) {
       "0.33 0.33 0.33 0 0 " +
       "0 0 0 1 0' />" +
       "</filter>" +
-
       "<filter id='colorMeMatrixRed'>" +
       "<feColorMatrix in='SourceGraphic'" +
       "type='matrix'" +
@@ -244,7 +242,6 @@ module.exports = function VisView(params) {
       "0.10 0.10 0.20 0 0 " +
       "0 0 0 1 0' />" +
       "</filter>" +
-
       "<filter id='colorMeMatrixGreen'>" +
       "<feColorMatrix in='SourceGraphic'" +
       "type='matrix'" +
@@ -253,41 +250,42 @@ module.exports = function VisView(params) {
       "0.10 0.10 0.40 0 0 " +
       "0 0 0 1 0' />" +
       "</filter>" +
-
       "</defs>" +
       // "<g>" +
       // '<rect x="'+ (w-150) +'" y="0" width="150" height="25" rx="3" ry="3" fill="#e3e4e5"/>'+
       // '<text x="'+ (w-150) +'" y="10" width="150" height="25" rx="3" ry="3" fill="##3498db">SHOW LEGEND</text>'+
       // "</g>" +
-      "</svg>");
-
+      "</svg>"
+  );
 
   var helpLine;
   var helpArrowPoints = [];
 
   //create svg, appended to a div with the id #visualization_div, w and h values to be computed by jquery later
   //to connect viz to responsive layout if desired
-  visualization = d3_old.select(el_selector).select("svg")
-    .call(tip || function() {}) /* initialize d3-tip */
+  visualization = d3_old
+    .select(el_selector)
+    .select("svg")
+    .call(tip || function () {}) /* initialize d3-tip */
     // .attr("width", "100%")
     // .attr("height", "100%")
     .attr(dimensions)
     // .attr("viewBox", "0 0 " + w + " " + h )
     .classed("visualization", true)
-    .append(groupTag)
-    // .call(d3_old.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
-  ;
+    .append(groupTag);
+  // .call(d3_old.behavior.zoom().scaleExtent([1, 8]).on("zoom", zoom))
   $(el_selector).on("click", selectBackground);
-  $(el_selector).on("click", function() {
+  $(el_selector).on("click", function () {
     eb.trigger(eb.backgroundClicked);
   });
 
-
-  main_layer = visualization.append(groupTag)
+  main_layer = visualization
+    .append(groupTag)
     .attr("id", "main_layer")
     .attr("transform", "translate(" + xOffset + ")");
 
-  blocker_layer = visualization.append(groupTag)
+  blocker_layer = visualization
+    .append(groupTag)
     .attr("id", "blocker_layer")
     .attr("transform", "translate(" + xOffset + ")");
 
@@ -295,7 +293,8 @@ module.exports = function VisView(params) {
 
   helpLine = d3_old.svg.line();
 
-  overlay_layer.append("path")
+  overlay_layer
+    .append("path")
     .datum(helpArrowPoints)
     .classed("helpArrow", true)
     .classed("helpArrowLine", true)
@@ -303,10 +302,8 @@ module.exports = function VisView(params) {
   w = dimensions.width - xOffset; // $(el_selector).width() - xOffset;
   h = params.h; //dimensions.height; //$(el_selector).height();
 
-
   var clusterPointerFromBottom = display.xs();
   var clusterPointerOriginY = clusterPointerFromBottom ? h + 2 : 80;
-
 
   // function zoom() {
   //   // TODO what is event?
@@ -329,13 +326,13 @@ module.exports = function VisView(params) {
 
   //$(el_selector).prepend($($("#pca_vis_overlays_template").html()));
 
-
-  force = d3_old.layout.force()
+  force = d3_old.layout
+    .force()
     .nodes(nodes)
     .links([])
     .friction(0.9) // more like viscosity [0,1], defaults to 0.9
     .gravity(0)
-    .charge(function(d) {
+    .charge(function (d) {
       // slight overlap allowed
       if (isSummaryBucket(d)) {
         if (display.xs()) {
@@ -348,7 +345,6 @@ module.exports = function VisView(params) {
       }
     })
     .size([w, h]);
-
 
   // function zoomToHull(d){
 
@@ -367,11 +363,8 @@ module.exports = function VisView(params) {
   function showAllClustersAsActive() {
     var len = d3Hulls.length;
     for (var i = 0; i < len; i++) {
-      d3_old.select(d3Hulls[i][0][0])
-        .classed("active_group", true);
-      d3_old.select(d3HullSelections[i][0][0])
-        .classed("active_group", true)
-        .style("visibility", "visible");
+      d3_old.select(d3Hulls[i][0][0]).classed("active_group", true);
+      d3_old.select(d3HullSelections[i][0][0]).classed("active_group", true).style("visibility", "visible");
     }
   }
 
@@ -381,7 +374,7 @@ module.exports = function VisView(params) {
       d3_old.select(d3HullSelections[selectedCluster][0][0]).classed("active_group", true);
       // d3_old.select(d3HullShadows[selectedCluster][0][0]).classed("active_group", true);
     }
-    (function() {
+    (function () {
       for (var i = 0; i < d3Hulls.length; i++) {
         if (i === hoveredHullId) {
           d3_old.select(d3Hulls[i][0][0]).classed("hovered_group", true);
@@ -389,9 +382,8 @@ module.exports = function VisView(params) {
           // d3_old.select(d3HullShadows[selectedCluster][0][0]).classed("hovered_group", true);
         }
       }
-    }());
+    })();
   }
-
 
   function onClusterClicked(d) {
     return handleOnClusterClicked(d.hullId);
@@ -419,10 +411,7 @@ module.exports = function VisView(params) {
 
     // resetSelectedComment();
     // unhoverAll();
-    setClusterActive(gid)
-      .then(
-        updateHulls,
-        updateHulls);
+    setClusterActive(gid).then(updateHulls, updateHulls);
 
     if (!silent) {
       eb.trigger(eb.clusterClicked, gid);
@@ -447,11 +436,11 @@ module.exports = function VisView(params) {
   var hull_shadow_stroke_width = hull_stoke_width + hull_shadow_thickness;
   var hull_selection_stroke_width = hull_shadow_stroke_width + hull_seletion_thickness;
 
-
   function makeD3Hulls(hullClass, strokeWidth, translateX, translateY) {
-    return _.times(9, function(i) {
+    return _.times(9, function (i) {
       var hull = main_layer.append("path");
-      hull.classed(hullClass, true)
+      hull
+        .classed(hullClass, true)
         .on("click", onClusterClicked) //selection-results:1 handle the click event
         // .style("stroke-width", strokeWidth)
         .attr("hullId", i);
@@ -467,11 +456,10 @@ module.exports = function VisView(params) {
   d3HullSelections = makeD3Hulls("hull_selection", hull_selection_stroke_width, 0, 0);
   d3Hulls = makeD3Hulls("hull", hull_stoke_width);
 
-
   function updateHulls() {
     bidToBucket = _.fromPairs(_.map(nodes, "bid"), nodes);
-    hulls = clusters.map(function(cluster) {
-      var temp = _.map(cluster, function(bid) {
+    hulls = clusters.map(function (cluster) {
+      var temp = _.map(cluster, function (bid) {
         var bucket = bidToBucket[bid];
         if (_.isUndefined(bucket)) {
           return null;
@@ -480,7 +468,7 @@ module.exports = function VisView(params) {
         var y = bucket.y;
         return [x, y, bucket]; // [x,y] point with bucket tacked on for convenience. Ugly, sorry.
       });
-      temp = _.filter(temp, function(xy) {
+      temp = _.filter(temp, function (xy) {
         // filter out nulls
         return !!xy;
       });
@@ -525,7 +513,7 @@ module.exports = function VisView(params) {
 
     function updateHull(i) {
       var dfd = new $.Deferred();
-      setTimeout(function() {
+      setTimeout(function () {
         var hull = hulls[i];
 
         // var pointsToFeedToD3 = hull.map(function(pt) { return pt;});
@@ -543,18 +531,16 @@ module.exports = function VisView(params) {
         //         ]);
         // }
 
-
-
         // var hullPoints_WillBeMutated = d3_old.geom.hull(pointsToFeedToD3);
 
         if (!hull) {
           // TODO figure out what's up here
           hideHull(i);
-          console.error('cluster/hull count mismatch error');
+          console.error("cluster/hull count mismatch error");
           dfd.resolve();
           return;
         }
-        var pointsToFeedToCentroidFinder = hull.map(function(pt) {
+        var pointsToFeedToCentroidFinder = hull.map(function (pt) {
           return pt;
         });
 
@@ -567,11 +553,11 @@ module.exports = function VisView(params) {
         var DO_TESSELATE_POINTS = true;
         var chooseRadius;
         if (DO_TESSELATE_POINTS) {
-          chooseRadius = function(node) {
+          chooseRadius = function (node) {
             return chooseRadiusForHullCorners(node) + HULL_EXTRA_RADIUS;
           };
         } else {
-          chooseRadius = function(node) {
+          chooseRadius = function (node) {
             // return chooseRadiusForHullCorners(node);
             return 5;
           };
@@ -586,7 +572,7 @@ module.exports = function VisView(params) {
         //     });
         // }
 
-        (function() {
+        (function () {
           for (var pi = 0; pi < hullPoints.length; pi++) {
             var p = hullPoints[pi];
             // inset to prevent overlap caused by stroke width.
@@ -595,7 +581,7 @@ module.exports = function VisView(params) {
             p[0] = inset.x;
             p[1] = inset.y;
           }
-        }());
+        })();
 
         // another pass through the hull generator, to remove interior tesselated points.
         var points = d3_old.geom.hull(tessellatedPoints);
@@ -607,10 +593,10 @@ module.exports = function VisView(params) {
           var shape = makeHullShape(points);
           // If the cluster has only one participant, don't show the hull.
           // intead, make the hull into an extra large invisible touch target.
-          var color = (clusters[i].length > 1) ? "#eee" : "#f7f7f7";
+          var color = clusters[i].length > 1 ? "#eee" : "#f7f7f7";
           // var strokeWidth = (clusters[i].length > 1) ? "6px" : "40px";
 
-          var shadowStrokeWidth = (clusters[i].length > 1) ? "8px" : "0px";
+          var shadowStrokeWidth = clusters[i].length > 1 ? "8px" : "0px";
 
           if (selectedCluster === i) {
             // no shadow, since we'll show dashed line
@@ -619,16 +605,13 @@ module.exports = function VisView(params) {
               color = "#e9f0f7";
             }
 
-            d3HullSelections[i].datum(points)
-              .attr("d", shape)
-              .style("visibility", "visible");
+            d3HullSelections[i].datum(points).attr("d", shape).style("visibility", "visible");
           } else {
-            d3HullSelections[i].datum(points)
-              .attr("d", shape)
-              .style("visibility", "hidden");
+            d3HullSelections[i].datum(points).attr("d", shape).style("visibility", "hidden");
           }
 
-          d3Hulls[i].datum(points)
+          d3Hulls[i]
+            .datum(points)
             .attr("d", shape)
             // .style("fill-opacity", 1)
             // .style("fill", "white")
@@ -637,7 +620,6 @@ module.exports = function VisView(params) {
             .style("stroke-width", 1)
             .style("stroke-dasharray", "2px 4px")
             .style("visibility", "visible");
-
 
           // d3HullShadows[i].datum(points)
           //     .attr("d", shape)
@@ -654,7 +636,6 @@ module.exports = function VisView(params) {
           //         }
           //     })
           //     .style("visibility", "visible");
-
         }
         dfd.resolve();
       }, 0);
@@ -663,17 +644,14 @@ module.exports = function VisView(params) {
 
     updateHullPromises = _.map(_.range(hulls.length), updateHull);
 
-
     var p = $.when.apply($, updateHullPromises);
-    p.then(function() {
+    p.then(function () {
       // Remove empty clusters.
       var emptyClusterCount = d3Hulls.length - clusters.length;
       var startIndex = d3Hulls.length - emptyClusterCount;
       for (var i = startIndex; i < d3Hulls.length; i++) {
         hideHull(i);
       }
-
-
 
       if (clusterToShowLineTo >= 0) {
         updateLineToCluster(clusterToShowLineTo);
@@ -688,13 +666,12 @@ module.exports = function VisView(params) {
   var updateHullsThrottled = _.throttle(updateHulls, 1000 / hullFps);
 
   function updateNodesOnTick(e) {
-
     // Push nodes toward their designated focus.
     if (e && _.isNumber(e.alpha)) {
       // Force Layout scenario
       var k = speed * e.alpha;
       // if (k <= 0.004) { return; } // save some CPU (and save battery) may stop abruptly if this thresh is too high
-      nodes.forEach(function(o) {
+      nodes.forEach(function (o) {
         //o.x = o.targetX;
         //o.y = o.targetY;
         if (!o.x) {
@@ -710,17 +687,13 @@ module.exports = function VisView(params) {
       });
     } else {
       // move directly to destination scenario (no force)
-      nodes.forEach(function(o) {
+      nodes.forEach(function (o) {
         o.x = o.targetX;
         o.y = o.targetY;
       });
     }
 
-
-    main_layer.selectAll(".node")
-      .attr("transform", chooseTransformForRoots);
-
-
+    main_layer.selectAll(".node").attr("transform", chooseTransformForRoots);
 
     updateHullsThrottled();
   }
@@ -734,7 +707,6 @@ module.exports = function VisView(params) {
     // TEMPORARY HACK!
     // reduces the number of points to 3, since the general N code isn't producing good centroids.
     if (points.length > 3) {
-
       // cache var to reduce closure traversal during sort.
       var cpoy = clusterPointerOriginY;
 
@@ -743,7 +715,7 @@ module.exports = function VisView(params) {
       // casually reaching only as far as needed to point to the
       // cluster. This scheme also guarantees that the pointer
       // will point to a location where there are no participant dots.
-      points.sort(function(pairA, pairB) {
+      points.sort(function (pairA, pairB) {
         var xA = pairA[0];
         var xB = pairB[0];
         var yA = pairA[1];
@@ -765,19 +737,13 @@ module.exports = function VisView(params) {
 
         var distFromOriginA =
           // Math.sqrt(
-          xDistFromPointerOriginA * xDistFromPointerOriginA +
-          yDistFromPointerOriginA * yDistFromPointerOriginA
-          // ); // Omitting sqrt for perf
-        ;
-
+          xDistFromPointerOriginA * xDistFromPointerOriginA + yDistFromPointerOriginA * yDistFromPointerOriginA;
+        // ); // Omitting sqrt for perf
         var distFromOriginB =
           // Math.sqrt(
-          xDistFromPointerOriginB * xDistFromPointerOriginB +
-          yDistFromPointerOriginB * yDistFromPointerOriginB
-          // ); // Omitting sqrt for perf
-        ;
-
-        return (distFromOriginA - distFromOriginB);
+          xDistFromPointerOriginB * xDistFromPointerOriginB + yDistFromPointerOriginB * yDistFromPointerOriginB;
+        // ); // Omitting sqrt for perf
+        return distFromOriginA - distFromOriginB;
         // large number is kept
         // currently small x values of A make large values
         //   return xA - xB;
@@ -823,7 +789,6 @@ module.exports = function VisView(params) {
       };
     }
 
-
     // WARNING: this may be buggy
     // http://en.wikipedia.org/wiki/Centroid#Centroid_of_polygon
     var x = 0;
@@ -835,14 +800,14 @@ module.exports = function VisView(params) {
       var yi = points[i][1];
       var xi1 = points[i + 1][0];
       var yi1 = points[i + 1][1];
-      var foo = (xi * yi1 - xi1 * yi);
+      var foo = xi * yi1 - xi1 * yi;
       x += (xi + xi1) * foo;
       y += (yi + yi1) * foo;
       area += foo;
     }
     area /= 2;
-    x /= (6 * area);
-    y /= (6 * area);
+    x /= 6 * area;
+    y /= 6 * area;
     return {
       x: x,
       y: y
@@ -870,9 +835,7 @@ module.exports = function VisView(params) {
     return "inherit";
   }
 
-
   function chooseDisplayForOuterCircle(d) {
-
     return shouldDisplayOuterCircle(d) ? "inherit" : "none";
   }
 
@@ -890,22 +853,23 @@ module.exports = function VisView(params) {
       } else {
         size = 13;
       }
-
     }
     return size + "px";
   }
 
   function shouldDisplayOuterCircle(d) {
     // Hide the circle so we can show the up/down arrows
-    if ((commentIsSelected() &&
+    if (
+      (commentIsSelected() &&
         !isSelf(d) && // for now, always show circle - TODO fix up/down arrow for blue dot
         !d.ups &&
-        !d.downs) || isSelf(d)) {
+        !d.downs) ||
+      isSelf(d)
+    ) {
       return true;
     }
     return false;
   }
-
 
   function shouldDisplayArrows(d) {
     // Hide the circle so we can show the up/down arrows
@@ -918,7 +882,6 @@ module.exports = function VisView(params) {
   function chooseDisplayForArrows(d) {
     return shouldDisplayArrows(d) ? "inherit" : "none";
   }
-
 
   function chooseFilter(d) {
     if (!commentIsSelected()) {
@@ -939,8 +902,6 @@ module.exports = function VisView(params) {
     // return !shouldDisplayArrows(d) ? "inherit" : "none";
   }
 
-
-
   function chooseFill(d) {
     if (isParticipantOfInterest(d)) {
       return "rgba(0,0,0,0)";
@@ -950,7 +911,6 @@ module.exports = function VisView(params) {
       return colorSummaryBlob;
     }
   }
-
 
   function clusterIsSelected() {
     return _.isNumber(selectedCluster) && selectedCluster >= 0;
@@ -969,7 +929,7 @@ module.exports = function VisView(params) {
   }
 
   var TAU = Math.PI * 2;
-  var pieChartOrigin = 3 / 4 * TAU;
+  var pieChartOrigin = (3 / 4) * TAU;
 
   function chooseUpArrowPath(d) {
     if (!d.ups) {
@@ -985,14 +945,13 @@ module.exports = function VisView(params) {
     }
     r += haloWidth; // so it's outside the main outline
 
-    var start = pieChartOrigin - (TAU * ratio / 2); //degrees/2;
-    var end = pieChartOrigin + (TAU * ratio / 2); // -degrees/2;
+    var start = pieChartOrigin - (TAU * ratio) / 2; //degrees/2;
+    var end = pieChartOrigin + (TAU * ratio) / 2; // -degrees/2;
     var largeArcFlag = ratio > 0.5 ? 1 : 0;
     return generateWedgeString(0, 0, start, end, r, largeArcFlag, false);
   }
 
-
-  var generateWedgeString = function(startX, startY, startAngle, endAngle, radius, largeArcFlag, shouldClose) {
+  var generateWedgeString = function (startX, startY, startAngle, endAngle, radius, largeArcFlag, shouldClose) {
     var x1 = startX + radius * Math.cos(startAngle);
     var y1 = startY + radius * Math.sin(startAngle);
     var x2 = startX + radius * Math.cos(endAngle);
@@ -1029,15 +988,12 @@ module.exports = function VisView(params) {
     r += haloWidth; // so it's outside the main outline
 
     var TAU = Math.PI * 2;
-    var start = (pieChartOrigin - Math.PI) - (TAU * ratio / 2); //degrees/2;
-    var end = (pieChartOrigin - Math.PI) + (TAU * ratio / 2); // -degrees/2;
+    var start = pieChartOrigin - Math.PI - (TAU * ratio) / 2; //degrees/2;
+    var end = pieChartOrigin - Math.PI + (TAU * ratio) / 2; // -degrees/2;
 
     var largeArcFlag = ratio > 0.5 ? 1 : 0;
     return generateWedgeString(0, 0, start, end, r, largeArcFlag, false);
-
-
   }
-
 
   function getImageWidth(d) {
     if (!d.picture_size) {
@@ -1057,7 +1013,6 @@ module.exports = function VisView(params) {
     }
     return z;
   }
-
 
   // TODO this should probably inset along the normal of the lines connecting to the point in the hull.
   function getInsetTarget(d) {
@@ -1110,7 +1065,6 @@ module.exports = function VisView(params) {
     return r;
   }
 
-
   function isSelf(d) {
     return !!d.containsSelf;
   }
@@ -1119,17 +1073,12 @@ module.exports = function VisView(params) {
     return !!d.ptptoi;
   }
 
-
   function key(d) {
     return d.bid;
   }
 
-
   // clusters [[2,3,4],[1,5]]
   function upsertNode(updatedNodes, newClusters, newParticipantCount, comments) {
-
-
-
     participantCount = newParticipantCount;
 
     var MIN_PARTICIPANTS_FOR_VIS = 0;
@@ -1140,27 +1089,28 @@ module.exports = function VisView(params) {
     }
     if (visBlockerOn) {
       var neededCount = MIN_PARTICIPANTS_FOR_VIS - participantCount;
-      blocker_layer.selectAll(".visBlockerMainText")
+      blocker_layer
+        .selectAll(".visBlockerMainText")
         .text("Waiting for " + neededCount + " more participants")
         .attr("font-weight", 100)
         .attr("font-family", "brandon-grotesque")
-        .attr("font-size", (display.xs() || display.sm()) ? "1.5em" : "28px");
+        .attr("font-size", display.xs() || display.sm() ? "1.5em" : "28px");
 
-      blocker_layer.selectAll(".visBlockerGraphic")
-        .text(function(d) {
+      blocker_layer
+        .selectAll(".visBlockerGraphic")
+        .text(function (d) {
           var txt = "";
-          _.times(participantCount, function() {
+          _.times(participantCount, function () {
             txt += "\uf007 "; // uf118
           });
-          _.times(neededCount, function() {
+          _.times(neededCount, function () {
             txt += "_ ";
           });
           return txt;
         })
         .attr("font-weight", 100)
-        .attr("font-size", "30px")
-        // .attr("font-family", "brandon-grotesque")
-      ;
+        .attr("font-size", "30px");
+      // .attr("font-family", "brandon-grotesque")
     }
 
     var gids = _.map(_.keys(newClusters), Number);
@@ -1171,10 +1121,10 @@ module.exports = function VisView(params) {
     for (var id = 0; id < gids.length; id++) {
       gidToHullId[gids[id]] = id;
     }
-    clusters = _.map(gids, function(gid) {
+    clusters = _.map(gids, function (gid) {
       return newClusters[gid].members;
     });
-    clusterParticipantTotals = _.map(gids, function(gid) {
+    clusterParticipantTotals = _.map(gids, function (gid) {
       return newClusters[gid]["n-members"];
     });
 
@@ -1214,7 +1164,7 @@ module.exports = function VisView(params) {
     // bucketRadiusForCount = d3_old.scale.pow().exponent(.5).range([minRad, maxRad]).domain([1, maxCount]).clamp(true);
 
     var baseSquared = minRad * minRad;
-    bucketRadiusForCount = function(count) {
+    bucketRadiusForCount = function (count) {
       // 1 -> area of 25, rad of 5
       // 2 -> area of 50, rad of ~7
       // sqrt(base**2 * count)
@@ -1226,8 +1176,14 @@ module.exports = function VisView(params) {
       var spans = computeXySpans(updatedNodes);
       var border = padding; // this fudge factor has to account for the extra padding needed for the hulls
       return {
-        x: d3_old.scale.linear().range([0 + border, w - border]).domain([spans.x.min - eps, spans.x.max + eps]),
-        y: d3_old.scale.linear().range([0 + border, h - border]).domain([spans.y.min - eps, spans.y.max + eps])
+        x: d3_old.scale
+          .linear()
+          .range([0 + border, w - border])
+          .domain([spans.x.min - eps, spans.x.max + eps]),
+        y: d3_old.scale
+          .linear()
+          .range([0 + border, h - border])
+          .domain([spans.y.min - eps, spans.y.max + eps])
       };
     }
     // TODO pass all nodes, not just updated nodes, to createScales.
@@ -1235,7 +1191,7 @@ module.exports = function VisView(params) {
     var scaleX = scales.x;
     var scaleY = scales.y;
 
-    comments = comments.map(function(c) {
+    comments = comments.map(function (c) {
       c.target = {
         x: scaleX(-2 * c.proj.x),
         y: scaleY(-1 * c.proj.y)
@@ -1243,7 +1199,7 @@ module.exports = function VisView(params) {
       return c;
     });
 
-    var oldpositions = nodes.map(function(node) {
+    var oldpositions = nodes.map(function (node) {
       return {
         x: node.x,
         y: node.y,
@@ -1276,7 +1232,7 @@ module.exports = function VisView(params) {
 
     var bidToOldNode = _.keyBy(nodes, getBid);
 
-    (function() {
+    (function () {
       for (var i = 0; i < updatedNodes.length; i++) {
         var node = updatedNodes[i];
         var oldNode = bidToOldNode[node.bid];
@@ -1284,9 +1240,7 @@ module.exports = function VisView(params) {
           node.effects = oldNode.effects;
         }
       }
-    }());
-
-
+    })();
 
     nodes = updatedNodes.sort(sortWithSelfOnTop).map(computeTarget);
     var niceIndex = Math.floor(nodes.length / 4);
@@ -1300,8 +1254,8 @@ module.exports = function VisView(params) {
       nodes.push(nice[0]);
     }
 
-    oldpositions.forEach(function(oldNode) {
-      var newNode = nodes.find(n => n.bid === oldNode.bid);
+    oldpositions.forEach(function (oldNode) {
+      var newNode = nodes.find((n) => n.bid === oldNode.bid);
       if (!newNode) {
         console.warn("not sure why a node would disappear");
         return;
@@ -1310,20 +1264,15 @@ module.exports = function VisView(params) {
       newNode.y = oldNode.y;
     });
 
-
     force.nodes(nodes, key).start();
 
     // TODO use key to guarantee unique items
 
+    main_layer.selectAll(".node").attr("visibility", function (d) {
+      return d.count >= 1 ? "visbile" : "hidden";
+    });
 
-    main_layer.selectAll(".node")
-      .attr("visibility", function(d) {
-        return (d.count >= 1) ? "visbile" : "hidden";
-      });
-
-    var update = main_layer.selectAll(".ptpt")
-      .data(nodes, key)
-      .sort(sortWithSelfOnTop);
+    var update = main_layer.selectAll(".ptpt").data(nodes, key).sort(sortWithSelfOnTop);
 
     var exit = update.exit();
     exit.remove();
@@ -1334,16 +1283,13 @@ module.exports = function VisView(params) {
       .append(groupTag)
       .classed("ptpt", true)
       .classed("node", true)
-      .attr("data-bid", function(d) {
+      .attr("data-bid", function (d) {
         return d.bid;
       })
       .on("click", onParticipantClicked)
       .on("mouseover", showTip)
-      .on("mouseout", hideTip)
-      // .call(force.drag)
-    ;
-
-
+      .on("mouseout", hideTip);
+    // .call(force.drag)
     var pinEnter = g.filter(isParticipantOfInterest);
     pinEnter
       .append("line")
@@ -1354,12 +1300,12 @@ module.exports = function VisView(params) {
       .attr("y2", pinLength)
       .attr("stroke-linecap", "round")
       .attr("stroke", "rgb(160,160,160)")
-      .attr("stroke-width", function(d) {
+      .attr("stroke-width", function (d) {
         return "1px";
       });
     pinEnter
       .append("circle")
-      .attr("r", function(d) {
+      .attr("r", function (d) {
         if (display.xs()) {
           return 1;
         } else {
@@ -1374,12 +1320,13 @@ module.exports = function VisView(params) {
       var foo = main_layer.selectAll(".c").data(comments);
       var commentWidth = 2;
       var commentWidthHalf = commentWidth / 2;
-      var bar = foo.enter()
+      var bar = foo
+        .enter()
         .append("rect")
-        .attr("x", function(d) {
+        .attr("x", function (d) {
           return d.target.x - commentWidthHalf;
         })
-        .attr("y", function(d) {
+        .attr("y", function (d) {
           return d.target.y - commentWidthHalf;
         })
         .attr("width", commentWidth)
@@ -1398,26 +1345,24 @@ module.exports = function VisView(params) {
       .classed("up", true)
       .classed("bktv", true)
       .style("fill", colorPull)
-      .style("fill-opacity", opacityOuter)
-      // .style("stroke", colorPullOutline)
-      // .style("stroke-width", 1)
-    ;
+      .style("fill-opacity", opacityOuter);
+    // .style("stroke", colorPullOutline)
+    // .style("stroke-width", 1)
     g.append("polygon") // downArrowEnter
       .classed("down", true)
       .classed("bktv", true)
       .style("fill", colorPush)
-      .style("fill-opacity", opacityOuter)
-      // .style("stroke", colorPushOutline)
-      // .style("stroke-width", 1)
-    ;
+      .style("fill-opacity", opacityOuter);
+    // .style("stroke", colorPushOutline)
+    // .style("stroke-width", 1)
     var picEnter = g.append("image");
     picEnter
-    // .classed("circle", true)
+      // .classed("circle", true)
       .classed("bktv", true)
-      .attr("x", function(d) {
+      .attr("x", function (d) {
         return getImageWidth(d) * -0.5;
       })
-      .attr("y", function(d) {
+      .attr("y", function (d) {
         return getImageWidth(d) * -0.5;
       })
       .attr("filter", "")
@@ -1425,11 +1370,9 @@ module.exports = function VisView(params) {
       .attr("height", getImageWidth)
       .attr("width", getImageWidth)
       .attr("clip-path", "url(#clipCircle)")
-      .attr("xlink:href", function(d) {
+      .attr("xlink:href", function (d) {
         return d.pic;
-      })
-    ;
-
+      });
 
     var grayHaloEnter = g.append("circle");
     grayHaloEnter
@@ -1437,7 +1380,7 @@ module.exports = function VisView(params) {
       .attr("cx", 0)
       .attr("cy", 0)
       .classed("ptptoi", isParticipantOfInterest)
-      .attr("r", function(d) {
+      .attr("r", function (d) {
         if (isSummaryBucket(d)) {
           return anonBlobRadius;
         }
@@ -1450,7 +1393,7 @@ module.exports = function VisView(params) {
         return ptptOiRadius;
       })
       .attr("stroke", grayHaloColor)
-      .attr("stroke-width", function(d) {
+      .attr("stroke-width", function (d) {
         if (d.isSummaryBucket) {
           return 0;
         } else if (isSelf(d)) {
@@ -1460,7 +1403,6 @@ module.exports = function VisView(params) {
         }
       })
       .attr("fill", "rgba(0,0,0,0)");
-
 
     var beaconEnter = g.append("circle");
     beaconEnter
@@ -1474,14 +1416,12 @@ module.exports = function VisView(params) {
       .attr("opacity", 0)
       .attr("display", "none");
 
-
-
     // INNER SCALE-CHANGING SHAPES
-    g.append("path")  // upArrowEnterInner
+    g.append("path") // upArrowEnterInner
       .classed("up", true)
       .classed("bktvi", true)
       .style("fill", "rgba(0,0,0,0)")
-      .attr("stroke-width", function(d) {
+      .attr("stroke-width", function (d) {
         if (isSummaryBucket(d)) {
           return anonBlobHaloVoteWidth;
         } else {
@@ -1495,7 +1435,7 @@ module.exports = function VisView(params) {
       .classed("down", true)
       .classed("bktvi", true)
       .style("fill", "rgba(0,0,0,0)")
-      .attr("stroke-width", function(d) {
+      .attr("stroke-width", function (d) {
         if (d.isSummaryBucket) {
           return anonBlobHaloVoteWidth;
         } else {
@@ -1508,53 +1448,51 @@ module.exports = function VisView(params) {
     var self = g.filter(isSelf);
     self.classed("selfDot", true);
 
-
-
-    var edgeLengthToMatchCircleRadius = Math.sqrt(1 / 2) * ptptOiDiameter / 2;
-    var socialIconScale = ptptOiDiameter / 2 / maxPtptoiRad * 0.8;
+    var edgeLengthToMatchCircleRadius = (Math.sqrt(1 / 2) * ptptOiDiameter) / 2;
+    var socialIconScale = (ptptOiDiameter / 2 / maxPtptoiRad) * 0.8;
     if (retina) {
       socialIconScale *= 0.8;
     } else {
       socialIconScale *= 1.1;
     }
     var socialRoot = g.filter(isParticipantOfInterest).append("g");
-    socialRoot.attr("transform", "translate(" + edgeLengthToMatchCircleRadius + "," + edgeLengthToMatchCircleRadius + ")");
+    socialRoot.attr(
+      "transform",
+      "translate(" + edgeLengthToMatchCircleRadius + "," + edgeLengthToMatchCircleRadius + ")"
+    );
 
-    socialRoot.append("circle")
-      .style("fill", function(d) {
+    socialRoot
+      .append("circle")
+      .style("fill", function (d) {
         return "rgba(0,0,0,0)";
-
       })
       .attr("cx", 0)
       .attr("cy", 0)
-      .attr("r", ptptOiDiameter / 6)
-      // .classed("hideWhenGroupSelected", true)
-    ;
+      .attr("r", ptptOiDiameter / 6);
+    // .classed("hideWhenGroupSelected", true)
 
+    var labelG = g.filter(isSummaryBucket).append("g");
 
-    var labelG = g.filter(isSummaryBucket)
-      .append("g");
-
-    labelG.append("path")
+    labelG
+      .append("path")
       .style("fill", "gray")
       .attr("transform", "translate(-18,-8) scale(.008, 0.008)")
-      .attr("d", function(d) {
+      .attr("d", function (d) {
         return "M529 896q-162 5-265 128h-134q-82 0-138-40.5t-56-118.5q0-353 124-353 6 0 43.5 21t97.5 42.5 119 21.5q67 0 133-23-5 37-5 66 0 139 81 256zm1071 637q0 120-73 189.5t-194 69.5h-874q-121 0-194-69.5t-73-189.5q0-53 3.5-103.5t14-109 26.5-108.5 43-97.5 62-81 85.5-53.5 111.5-20q10 0 43 21.5t73 48 107 48 135 21.5 135-21.5 107-48 73-48 43-21.5q61 0 111.5 20t85.5 53.5 62 81 43 97.5 26.5 108.5 14 109 3.5 103.5zm-1024-1277q0 106-75 181t-181 75-181-75-75-181 75-181 181-75 181 75 75 181zm704 384q0 159-112.5 271.5t-271.5 112.5-271.5-112.5-112.5-271.5 112.5-271.5 271.5-112.5 271.5 112.5 112.5 271.5zm576 225q0 78-56 118.5t-138 40.5h-134q-103-123-265-128 81-117 81-256 0-29-5-66 66 23 133 23 59 0 119-21.5t97.5-42.5 43.5-21q124 0 124 353zm-128-609q0 106-75 181t-181 75-181-75-75-181 75-181 181-75 181 75 75 181z";
       });
 
     labelG
       .append("text")
       .classed("summaryLabel", true)
-      .text(function(d) {
+      .text(function (d) {
         return getGroupNameForGid(d.gid);
       })
       .style("font-family", "Helvetica, sans-serif") // Tahoma, Helvetica, sans-serif For the "AGREED"/"DISAGREED" label: Tahoma should be good at small sizes http://ux.stackexchange.com/questions/3330/what-is-the-best-font-for-extremely-limited-space-i-e-will-fit-the-most-readab
       .style("font-size", chooseSummaryLabelFontSize)
       .attr("text-anchor", "left")
       .attr("alignment-baseline", "middle")
-      .attr("fill", "rgba(0,0,0,0.5)")
-      // });
-    ;
+      .attr("fill", "rgba(0,0,0,0.5)");
+    // });
 
     updateNodes();
 
@@ -1565,7 +1503,6 @@ module.exports = function VisView(params) {
     }
 
     firstShowDeferred.resolve();
-
   } // END upsertNode
 
   function isNotSelf(d) {
@@ -1586,11 +1523,11 @@ module.exports = function VisView(params) {
   }
 
   function showHintYou() {
-
     var g = visualization.selectAll(".node");
 
     var selfNode = g.filter(isSelf);
-    selfNode.append("text")
+    selfNode
+      .append("text")
       .classed("help", true)
       .classed("help_text_you", true)
       .text("You")
@@ -1598,7 +1535,7 @@ module.exports = function VisView(params) {
       // .attr("fill", "rgba(0,0,0,1.0)")
       .attr("fill", colorSelf)
       .attr("stroke", colorSelfOutline)
-      .attr("transform", function(d) {
+      .attr("transform", function (d) {
         return "translate(12, 6)";
       });
   }
@@ -1646,19 +1583,21 @@ module.exports = function VisView(params) {
 
     getReactionsToComment(tid)
       // .done(unhoverAll)
-      .then(function(votes) {
-        for (i = 0; i < nodes.length; i++) {
-          var node = nodes[i];
-          node.ups = votes.A[node.bid] || 0;
-          node.downs = votes.D[node.bid] || 0;
-          node.seens = votes.S[node.bid] || 0;
-          node.gid = bidToGid[node.bid];
-
+      .then(
+        function (votes) {
+          for (i = 0; i < nodes.length; i++) {
+            var node = nodes[i];
+            node.ups = votes.A[node.bid] || 0;
+            node.downs = votes.D[node.bid] || 0;
+            node.seens = votes.S[node.bid] || 0;
+            node.gid = bidToGid[node.bid];
+          }
+          updateNodes();
+        },
+        function () {
+          console.error("failed to get reactions to comment: " + d.tid);
         }
-        updateNodes();
-      }, function() {
-        console.error("failed to get reactions to comment: " + d.tid);
-      });
+      );
   }
 
   function clickingPtptoiOpensProfile() {
@@ -1682,24 +1621,28 @@ module.exports = function VisView(params) {
     setTimeout(doUpdateNodes, 0);
   }
 
-
   function doUpdateNodes() {
-
     var update = visualization.selectAll(".node");
 
-    update.selectAll(".up.bktvi").data(nodes, key) // upArrowUpdateInner
+    update
+      .selectAll(".up.bktvi")
+      .data(nodes, key) // upArrowUpdateInner
       .style("display", chooseDisplayForArrows)
-      .attr("d", chooseUpArrowPath) // NOTE: using tranform to select the scale
-    ;
+      .attr("d", chooseUpArrowPath); // NOTE: using tranform to select the scale
 
-    update.selectAll("image.bktv").data(nodes, key) // imageUpdate
+    update
+      .selectAll("image.bktv")
+      .data(nodes, key) // imageUpdate
       .attr("filter", chooseFilter);
 
-    update.selectAll(".down.bktvi").data(nodes, key) // downArrowUpdateInner
+    update
+      .selectAll(".down.bktvi")
+      .data(nodes, key) // downArrowUpdateInner
       .style("display", chooseDisplayForArrows)
-      .attr("d", chooseDownArrowPath) // NOTE: using tranform to select the scale
-    ;
-    update.selectAll(".grayHalo").data(nodes, key) // grayHaloUpdate
+      .attr("d", chooseDownArrowPath); // NOTE: using tranform to select the scale
+    update
+      .selectAll(".grayHalo")
+      .data(nodes, key) // grayHaloUpdate
       .style("display", chooseDisplayForGrayHalo);
 
     if (clusterIsSelected()) {
@@ -1708,41 +1651,39 @@ module.exports = function VisView(params) {
       update.selectAll(".hideWhenGroupSelected").style("visibility", "visible");
     }
 
-    update.selectAll(".grayHalo")
-      .style("stroke", function(d) {
-        if (isSelf(d)) {
-          if (clusterIsSelected() || onMajorityTab) {
+    update.selectAll(".grayHalo").style("stroke", function (d) {
+      if (isSelf(d)) {
+        if (clusterIsSelected() || onMajorityTab) {
+          if (d.ups || d.downs) {
+            return grayHaloColorSelected;
+          } else {
+            return grayHaloColor; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
+          }
+        } else {
+          return colorSelf;
+        }
+      } else {
+        if (clusterIsSelected()) {
+          if (isParticipantOfInterest(d)) {
             if (d.ups || d.downs) {
               return grayHaloColorSelected;
             } else {
               return grayHaloColor; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
             }
           } else {
-            return colorSelf;
+            return grayHaloColorSelected; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
           }
         } else {
-          if (clusterIsSelected()) {
-            if (isParticipantOfInterest(d)) {
-              if (d.ups || d.downs) {
-                return grayHaloColorSelected;
-              } else {
-                return grayHaloColor; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
-              }
-            } else {
-              return grayHaloColorSelected; // returning this (instead of rgba(0,0,0,0)) since other halos will have this gray foundation behind a translucent red/green
-            }
-          } else {
-            return grayHaloColor;
-          }
+          return grayHaloColor;
         }
-      });
+      }
+    });
 
+    update.selectAll(".summaryLabel").style("font-size", chooseSummaryLabelFontSize);
 
-    update.selectAll(".summaryLabel")
-      .style("font-size", chooseSummaryLabelFontSize);
-
-
-    update.selectAll(".circle.bktv").data(nodes, key) // circleUpdate
+    update
+      .selectAll(".circle.bktv")
+      .data(nodes, key) // circleUpdate
       .style("display", chooseDisplayForOuterCircle)
       .attr("r", chooseCircleRadiusOuter)
       .style("fill", chooseFill)
@@ -1750,13 +1691,13 @@ module.exports = function VisView(params) {
       .filter(isSelf)
       .style("display", chooseDisplayForCircle)
       .style("fill-opacity", 0)
-      .attr("r", chooseCircleRadiusOuter)
-      // .style("fill", chooseFill)
-    ;
-    update.selectAll(".circle.bktvi").data(nodes, key) // circleUpdateInner
+      .attr("r", chooseCircleRadiusOuter);
+    // .style("fill", chooseFill)
+    update
+      .selectAll(".circle.bktvi")
+      .data(nodes, key) // circleUpdateInner
       .style("display", chooseDisplayForCircle)
-      .attr("r", chooseCircleRadius) // NOTE: using tranform to select the scale
-    ;
+      .attr("r", chooseCircleRadius); // NOTE: using tranform to select the scale
 
     var selfNode = _.filter(nodes, isSelf)[0];
     if (selfNode && !selfHasAppeared) {
@@ -1777,17 +1718,12 @@ module.exports = function VisView(params) {
     eb.trigger(eb.clusterSelectionChanged, selectedCluster);
   }
 
-
   function selectBackground() {
-
     selectComment(null);
 
     if (clusterIsSelected()) {
       resetSelection();
-      setClusterActive(-1)
-        .then(
-          updateHulls,
-          updateHulls);
+      setClusterActive(-1).then(updateHulls, updateHulls);
 
       updateHullColors();
     }
@@ -1799,7 +1735,8 @@ module.exports = function VisView(params) {
   function showVisBlocker() {
     visBlockerOn = true;
 
-    blocker_layer.append("rect")
+    blocker_layer
+      .append("rect")
       .classed("visBlocker", true)
       .style("fill", "#f7f7f7")
       .attr("x", 1) // inset so it doesn't get cut off on firefox
@@ -1809,42 +1746,37 @@ module.exports = function VisView(params) {
       // .style("stroke", "lightgray")
       .attr("rx", 5)
       .attr("ry", 5);
-    blocker_layer.append("text")
+    blocker_layer
+      .append("text")
       .classed("visBlocker", true)
       .classed("visBlockerMainText", true)
       .attr("text-anchor", "middle")
       .attr("fill", "#black")
-      .attr("transform", "translate(" +
-        w / 2 +
-        "," + (9 * h / 24) + ")");
-    blocker_layer.append("text")
+      .attr("transform", "translate(" + w / 2 + "," + (9 * h) / 24 + ")");
+    blocker_layer
+      .append("text")
       .classed("visBlocker", true)
       .classed("visBlockerGraphic", true)
-      .attr("transform", "translate(" +
-        w / 2 +
-        "," + (15 * h / 24) + ")")
+      .attr("transform", "translate(" + w / 2 + "," + (15 * h) / 24 + ")")
       .attr("text-anchor", "middle")
       .attr("fill", "#black")
-      .attr('font-family', 'FontAwesome')
-      .attr('font-size', function(d) {
-        return '2em';
+      .attr("font-family", "FontAwesome")
+      .attr("font-size", function (d) {
+        return "2em";
       });
-
   }
 
   function hideVisBlocker() {
     visBlockerOn = false;
 
-    blocker_layer.selectAll(".visBlocker")
-      .remove();
+    blocker_layer.selectAll(".visBlocker").remove();
   }
-
 
   // TODO account for Buckets
   function emphasizeParticipants(pids) {
     console.log("pids", pids.length);
     var hash = []; // sparse-ish array
-    getPidToBidMapping().then(function(o) {
+    getPidToBidMapping().then(function (o) {
       var pidToBid = o.p2b;
       var bidToPids = o.b2p;
       //bid = o.bid;
@@ -1854,7 +1786,6 @@ module.exports = function VisView(params) {
         hash[bid] |= 0; // init
         hash[bid] += 1; // count the person
       }
-
 
       function chooseTransformSubset(d) {
         var bid = d.bid;
@@ -1869,12 +1800,9 @@ module.exports = function VisView(params) {
         }
       }
 
-      visualization.selectAll(".bktvi")
-        .attr("transform", chooseTransformSubset)
-      ;
+      visualization.selectAll(".bktvi").attr("transform", chooseTransformSubset);
     });
   }
-
 
   function dist(start, b) {
     var dx = start[0] - b[0];
@@ -1906,7 +1834,6 @@ module.exports = function VisView(params) {
     return Math.sqrt(dx * dx + dy * dy + difference * difference);
   }
 
-
   function subdivideLongEdges(originalPoints, minLengthForSubdivision) {
     var points = [];
     for (var i = 0; i < originalPoints.length; i++) {
@@ -1933,7 +1860,6 @@ module.exports = function VisView(params) {
     return points;
   }
 
-
   function nearestPointOnCluster(gid, start) {
     var hull = hullPoints[gid];
     if (!hull) {
@@ -1943,13 +1869,13 @@ module.exports = function VisView(params) {
     // hull = subdivideLongEdges(hull, 20);
     // hull = subdivideLongEdges(hull, 20);
 
-    var distances = hull.map(function(pt) {
+    var distances = hull.map(function (pt) {
       return {
         dist: distWithNonSquarePenalty(start, pt),
         pt: pt
       };
     });
-    distances.sort(function(a, b) {
+    distances.sort(function (a, b) {
       return a.dist - b.dist;
     });
     return distances[0].pt;
@@ -1976,14 +1902,13 @@ module.exports = function VisView(params) {
     var start = [startX, clusterPointerOriginY];
     var center = nearestPointOnCluster(gid, start);
     if (clusterPointerFromBottom && center && center[0] < w / 3) {
-      startX = 4 * w / 5;
+      startX = (4 * w) / 5;
       start = [startX, clusterPointerOriginY];
       center = nearestPointOnCluster(gid, start);
     }
 
     if (!center) {
-      overlay_layer.selectAll(".helpArrow")
-        .style("display", "none");
+      overlay_layer.selectAll(".helpArrow").style("display", "none");
       return;
     }
     center[0] += xOffset;
@@ -2001,7 +1926,8 @@ module.exports = function VisView(params) {
     helpArrowPoints.push(center);
 
     // center = center.join(",");
-    overlay_layer.selectAll(".helpArrow")
+    overlay_layer
+      .selectAll(".helpArrow")
       .style("display", "block")
       .style("stroke-dasharray", "5,5")
       // .attr("marker-end", "url(#ArrowTip)")
@@ -2014,15 +1940,17 @@ module.exports = function VisView(params) {
     if (SELF_DOT_SHOW_INITIALLY) {
       selfDotTooltipShow = false; // no tooltip
 
-      var txt = self.append("text")
+      var txt = self
+        .append("text")
         .text(selfDotHintText)
         .attr("text-anchor", "middle")
         .attr("transform", "translate(0, -10)");
       if (SELF_DOT_HINT_HIDE_AFTER_DELAY) {
-        txt.transition(200)
+        txt
+          .transition(200)
           .delay(SELF_DOT_HINT_HIDE_AFTER_DELAY)
           .style("opacity", 0)
-          .each("end", function() {
+          .each("end", function () {
             selfDotTooltipShow = true;
             // need to remove the tooltip so it doesn't eat hover events
             d3_old.select(this).remove();
@@ -2031,8 +1959,7 @@ module.exports = function VisView(params) {
     }
   }
 
-
-  eb.on(eb.vote, function(voteType) {
+  eb.on(eb.vote, function (voteType) {
     var color = colorPass;
     if (voteType === "agree") {
       color = colorPull;
@@ -2083,7 +2010,6 @@ module.exports = function VisView(params) {
     hideHintYou: hideHintYou,
     getSelectedGid: getSelectedGid,
     getFirstShowDeferred: getFirstShowDeferred,
-    showAllClustersAsActive: showAllClustersAsActive,
+    showAllClustersAsActive: showAllClustersAsActive
   };
-
 };

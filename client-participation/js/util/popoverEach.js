@@ -2,16 +2,14 @@
 
 var $ = require("jquery");
 
-
 // not sure about these
 require("bootstrap-sass/assets/javascripts/bootstrap/tooltip");
 require("bootstrap-sass/assets/javascripts/bootstrap/popover");
 
-
 var originalPopover = $.fn.popover;
 var popoverTargets = [];
 
-$.fn.popover = function() {
+$.fn.popover = function () {
   if (arguments[0] === "show") {
     popoverTargets.push(this);
   }
@@ -25,6 +23,5 @@ function each() {
     el.popover.apply(el, arguments);
   }
 }
-
 
 module.exports = each;

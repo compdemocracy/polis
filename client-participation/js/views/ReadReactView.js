@@ -11,36 +11,38 @@ var VoteView = require("../views/vote-view");
 // var iOS = Utils.isIos();
 
 module.exports = Handlebones.ModelView.extend({
-	name: "readReactView",
-	template: template,
-	events: {
-		// "click #passButton": "participantPassed",
-	},
+  name: "readReactView",
+  template: template,
+  events: {
+    // "click #passButton": "participantPassed",
+  },
 
-  context: function() {
-		var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
-		// ctx.iOS = iOS;
-		return ctx;
-	},
+  context: function () {
+    var ctx = Handlebones.ModelView.prototype.context.apply(this, arguments);
+    // ctx.iOS = iOS;
+    return ctx;
+  },
 
-  initialize: function(options) {
-		Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+  initialize: function (options) {
+    Handlebones.ModelView.prototype.initialize.apply(this, arguments);
     var that = this;
-		this.model = options.model;
+    this.model = options.model;
 
-    this.voteView = this.addChild(new VoteView({
-				firstCommentPromise: options.firstCommentPromise,
-				serverClient: options.serverClient,
-				model: new CommentModel(),
-				conversationModel: options.conversationModel,
-				votesByMe: options.votesByMe,
-				is_public: options.is_public,
-				isSubscribed: options.isSubscribed,
-      conversation_id: options.conversation_id
-    }));
+    this.voteView = this.addChild(
+      new VoteView({
+        firstCommentPromise: options.firstCommentPromise,
+        serverClient: options.serverClient,
+        model: new CommentModel(),
+        conversationModel: options.conversationModel,
+        votesByMe: options.votesByMe,
+        is_public: options.is_public,
+        isSubscribed: options.isSubscribed,
+        conversation_id: options.conversation_id
+      })
+    );
 
-    eb.on("vote", function() {
-      that.model.set("voteCount", (that.model.get("voteCount") + 1) || 1);
-		});
+    eb.on("vote", function () {
+      that.model.set("voteCount", that.model.get("voteCount") + 1 || 1);
+    });
   }
 });

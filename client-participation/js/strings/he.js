@@ -35,9 +35,11 @@ s.TOS = "תנאי שימוש";
 s.writePrompt = "שתפו את נקודת מבטכם...";
 s.anonPerson = "אנונימי";
 s.helpWhatAmISeeingTitle = "מה אני רואה?";
-s.helpWhatAmISeeing = "אנשים שהצביעו באופן דומה נמצאים יחד בקבוצה. לחצו על קבוצה על מנת לראות אילו נקודות מבט הם חולקים.";
+s.helpWhatAmISeeing =
+  "אנשים שהצביעו באופן דומה נמצאים יחד בקבוצה. לחצו על קבוצה על מנת לראות אילו נקודות מבט הם חולקים.";
 s.helpWhatDoIDoTitle = " מה אני עושה?";
-s.helpWhatDoIDo = "הצביעו על אמירות של אנשים אחרים על ידי לחיצה על 'מסכים' או 'לא מסכים'. כתבו אמירה (הנוגעת לרעיון אחד מובחן). הזמינו חברים להצטרף לשיחה!";
+s.helpWhatDoIDo =
+  "הצביעו על אמירות של אנשים אחרים על ידי לחיצה על 'מסכים' או 'לא מסכים'. כתבו אמירה (הנוגעת לרעיון אחד מובחן). הזמינו חברים להצטרף לשיחה!";
 s.writeCommentHelpText = "האם הדעות והניסיון שלכם לא מקבלים ביטוי בשיחה? <b> הוסיפו אותם </b> בתיבה למטה.";
 s.helpWriteListIntro = "מהי אמירה טובה?";
 s.helpWriteListStandalone = "רעיון העומד בפני עצמו";
@@ -76,18 +78,22 @@ s.tip = "טיפ:";
 s.commentWritingTipsHintsHeader = "טיפים לכתיבת אמירות";
 s.tipCharLimit = "אמירות מוגבלות ל-{{char_limit}} תווים.";
 s.tipCommentsRandom = "זכרו, האמירות מוצגות בסדר אקראי, ואתם לא מגיבים ישירות לאמירות של משתתפים אחרים.";
-s.tipOneIdea = "Break up long statements that contain multiple ideas. This makes it easier for others to vote on your statement.";
+s.tipOneIdea =
+  "Break up long statements that contain multiple ideas. This makes it easier for others to vote on your statement.";
 s.tipOneIdea = "פצלו אמירות ארוכות שכוללות כמה רעיונות. כך קל יותר לאחרים להצביע על האמירה שלכם.";
-s.tipNoQuestions = "Statements should not be in the form of a question. Participants will agree or disagree with the statements you make.";
+s.tipNoQuestions =
+  "Statements should not be in the form of a question. Participants will agree or disagree with the statements you make.";
 s.tipNoQuestions = "אל תנסחו את האמירות כשאלה. המשתתפים בדיון יוכלו להסכים או לא להסכים עם האמירות שתוסיפו.";
 s.commentTooLongByChars = "האמירה חורגת ממגבלת האורך ב-{{CHARACTERS_COUNT}} תווים.";
 s.notSentSinceDemo = "(לא באמת, זה רק דמו)";
 s.submitComment = "לשלוח";
 s.tipStarred = "סומן כחשוב.";
 s.participantHelpWelcomeText = "ברוכים הבאים לסוג חדש של שיחה - <em>הצביעו</em> על אמירות של אנשים אחרים.";
-s.participantHelpGroupsText = "אנשים שהצביעו באופן דומה <span style='font-weight: 700;'>נמצאים יחד בקבוצה.</span> לחצו על קבוצה על מנת לראות אילו נקודות מבט הם חולקים. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...עוד</a>";
+s.participantHelpGroupsText =
+  "אנשים שהצביעו באופן דומה <span style='font-weight: 700;'>נמצאים יחד בקבוצה.</span> לחצו על קבוצה על מנת לראות אילו נקודות מבט הם חולקים. <a style='font-weight: 700; cursor: pointer; text-decoration: underline' id='helpTextGroupsExpand'>...עוד</a>";
 s.participantHelpGroupsNotYetText = "הגרפיקות יופיעו כאשר 7 משתתפים לפחות יצביעו.";
-s.helpWhatAreGroupsDetail = "<p>ודאי הוצעו לכם 'מוצרים מומלצים' באמזון או 'סרטים מומלצים' בנטפליקס. כל אחד מהשירותים האלהמשתמש בסטטיסטיקה על מנת לקבץ את המשתמשים עם אנשים שקנו וצפו בדברים דומים להם, ואז מציע להם את מה שאותם אנשים קנו או צפו בו. </p> <p> כאשר משתמשים מצביעים על אמירה, הם מקובצים יחד עם אנשים שהצביעו כמוהם! תוכלו לראות את הקבוצות הללו למטה. כל אחת מורכבת מאנשים שחולקים דעות דומות. ישנן תובנות מרתקות לגילוי בכל שיחה. נסו ללחוץ על קבוצה וראו אילו דעות איחדו אותם, ומה הופך אותם לייחודיים.</p>";
+s.helpWhatAreGroupsDetail =
+  "<p>ודאי הוצעו לכם 'מוצרים מומלצים' באמזון או 'סרטים מומלצים' בנטפליקס. כל אחד מהשירותים האלהמשתמש בסטטיסטיקה על מנת לקבץ את המשתמשים עם אנשים שקנו וצפו בדברים דומים להם, ואז מציע להם את מה שאותם אנשים קנו או צפו בו. </p> <p> כאשר משתמשים מצביעים על אמירה, הם מקובצים יחד עם אנשים שהצביעו כמוהם! תוכלו לראות את הקבוצות הללו למטה. כל אחת מורכבת מאנשים שחולקים דעות דומות. ישנן תובנות מרתקות לגילוי בכל שיחה. נסו ללחוץ על קבוצה וראו אילו דעות איחדו אותם, ומה הופך אותם לייחודיים.</p>";
 s.showTranslationButton = "הפעלת תרגום של ספק צד שלישי";
 s.hideTranslationButton = "כיבוי תרגום";
 s.thirdPartyTranslationDisclaimer = "התרגום מתבצע על ידי צד שלישי";
@@ -106,7 +112,6 @@ s.noCommentsTryWritingOne = "תרמו לשיחה על ידי הוספת אמיר
 s.convIsClosed = "השיחה הזו סגורה.";
 s.noMoreVotingAllowed = "ההצבעה נסגרה.";
 
-
 s.topic_good_01 = "מה כדאי לעשות בחדר הילדים?";
 s.topic_good_01_reason = "שאלה פתוחה, כל אחד יכול להוסיף דעה או תשובה לשאלה כזו.";
 s.topic_good_02 = "מה דעתכם על ההצעה החדשה?";
@@ -117,6 +122,5 @@ s.topic_bad_01 = "אנא דווחו מה מצבכם לקראת הפגישה";
 s.topic_bad_01_reason = "אנשים מצוותים שונים יצביעו על התגובות, אבל לא בטוח שיש להם די מידע על מנת להצביע באופן חשאי.";
 s.topic_bad_02 = "מה נותר לעשות לפני כינוס הפגישה?";
 s.topic_bad_02_reason = "";
-
 
 module.exports = s;

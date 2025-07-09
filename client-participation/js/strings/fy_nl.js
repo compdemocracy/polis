@@ -2,7 +2,7 @@
 
 var s = {};
 
-// Text on the card 
+// Text on the card
 
 s.participantHelpWelcomeText = "Wolkom by de nije manier fan oerlis - <em>stim</em> op reaksjes fan oare minsken.";
 
@@ -34,7 +34,8 @@ s.majorityOpinion = "Mearderheidsmiening";
 s.majorityOpinionShort = "Mearderheid";
 s.info = "Ynfo";
 s.helpWhatAmISeeingTitle = "Wat bin ik oan it besjen?";
-s.helpWhatAmISeeing = "Minsken mei in lykweardige miening binne groepearre. Klik op in groep om harren miening te besjen.";
+s.helpWhatAmISeeing =
+  "Minsken mei in lykweardige miening binne groepearre. Klik op in groep om harren miening te besjen.";
 s.heresHowGroupVoted = "Groep {{GROUP_NUMBER}} stimde:";
 s.one_person = "{{x}} persoan";
 s.x_people = "{{x}} persoanen";
@@ -52,15 +53,19 @@ s.pctAgreedOfGroup = "{{pct}}% fan Groep {{group}} is akkoard";
 s.pctDisagreedOfGroup = "{{pct}}% fan Groep {{group}} is net akkoard";
 s.pctDisagreedLong = "{{pct}}% fan elkenien dy’t stimd hawwe op {{comment_id}} is net akkoard.";
 s.pctAgreedOfGroupLong = "{{pct}}% fan de Groep {{group}} dy’t stimd hawwe op reaksje {{comment_id}} is akkoard.";
-s.pctDisagreedOfGroupLong = "{{pct}}% fan de Groep {{group}} dy’t stimd hawwe op reaksje {{comment_id}} is net akkoard.";
-s.participantHelpGroupsText = "Persoanen dy’t lykweardich stimme <span style='font-weight: 700.'>wurde groepearre.</span> Klik op in groep om te sjen hokker stânpunt se ynnimme <a style='font-weight: 700. cursor: pointer. text-decoration: underline' id='helpTextGroupsExpand'>…mear</a>";
+s.pctDisagreedOfGroupLong =
+  "{{pct}}% fan de Groep {{group}} dy’t stimd hawwe op reaksje {{comment_id}} is net akkoard.";
+s.participantHelpGroupsText =
+  "Persoanen dy’t lykweardich stimme <span style='font-weight: 700.'>wurde groepearre.</span> Klik op in groep om te sjen hokker stânpunt se ynnimme <a style='font-weight: 700. cursor: pointer. text-decoration: underline' id='helpTextGroupsExpand'>…mear</a>";
 s.participantHelpGroupsNotYetText = "De fisualisaasje sil ferskine, sa gau as der 7 persoanen begûn binne mei stimmen";
-s.helpWhatAreGroupsDetail = "<p>Jo hawwe miskien al ‘oanrekommandearre artikelen’ op Amazon, of ‘oanrekommandearre films’ op Netflix. Elk fan dizze tsjinsten brûke statistiken om jo te groepearjen by persoanen dy’t deselde dingen keapje of besjen, dernei wurdt der jo toand wat dizze minsken kochten of nei hokker film se sjoen hawwe.</p> <p> Wannear’t jo in stim útbringe op in reaksje wurde jo dêrnei groepearre mei minsken dy’t deselde stim útbrochten! Underoan kinne jo dizze groepen besjen. Elk fan dizze groepen bestean út persoanen mei deselde opiny. Der binne fassinearjende ynsichten te ûntdekken by elk fan dizze petearen. Wachtsje net langer – klik op in groep om te sjen wat harren by inoar brocht hat en wat harren unyk makket! </p>";
+s.helpWhatAreGroupsDetail =
+  "<p>Jo hawwe miskien al ‘oanrekommandearre artikelen’ op Amazon, of ‘oanrekommandearre films’ op Netflix. Elk fan dizze tsjinsten brûke statistiken om jo te groepearjen by persoanen dy’t deselde dingen keapje of besjen, dernei wurdt der jo toand wat dizze minsken kochten of nei hokker film se sjoen hawwe.</p> <p> Wannear’t jo in stim útbringe op in reaksje wurde jo dêrnei groepearre mei minsken dy’t deselde stim útbrochten! Underoan kinne jo dizze groepen besjen. Elk fan dizze groepen bestean út persoanen mei deselde opiny. Der binne fassinearjende ynsichten te ûntdekken by elk fan dizze petearen. Wachtsje net langer – klik op in groep om te sjen wat harren by inoar brocht hat en wat harren unyk makket! </p>";
 
 // Text about writing your own statement
 
 s.helpWhatDoIDoTitle = "Wat moat ik dwaan?";
-s.helpWhatDoIDo = "Stim op oare reaksjes troch op ‘Akkoard’ of ‘Net akkoard’ te klikken. Skriuw in reaksje (bliuw koart en bûnich, ien idee per rigel). Nûgje freonen út om diel te nimmen oan de diskusje!";
+s.helpWhatDoIDo =
+  "Stim op oare reaksjes troch op ‘Akkoard’ of ‘Net akkoard’ te klikken. Skriuw in reaksje (bliuw koart en bûnich, ien idee per rigel). Nûgje freonen út om diel te nimmen oan de diskusje!";
 s.writeCommentHelpText = "<strong>skriuw</strong> in reaksje as jo miening net fertsjinwurdige wurdt</i>";
 s.helpWriteListIntro = "Wat is in goed foarstel?";
 s.helpWriteListStandalone = "In idee dat op himsels stiet";
@@ -71,7 +76,8 @@ s.commentWritingTipsHintsHeader = "Tips om reaksjes te skriuwen";
 s.tipCharLimit = "De lingte fan reaksjes binne beheind ta {{char_limit}} tekens.";
 s.tipCommentsRandom = "Reaksjes binne troch inoar sortearre. Jo binne op net ien oan it reagearjen";
 s.tipOneIdea = "Splits lange reaksjes op yn ferskate ideeën. Dit makket it makliker foar oaren om te stimmen.";
-s.tipNoQuestions = "Probearje fragen yn jo reaksjes foar te kommen. Dielnimmers sille dernei al dan net akkoard gean mei jo reaksje.";
+s.tipNoQuestions =
+  "Probearje fragen yn jo reaksjes foar te kommen. Dielnimmers sille dernei al dan net akkoard gean mei jo reaksje.";
 s.commentTooLongByChars = "De lingte fan jo reaksje is {{CHARACTERS_COUNT}} karakters te lang.";
 s.submitComment = "Reagearje";
 s.commentSent = "Reaksje ferstjoerd! Oare dielnimmers sille jo reaksje sjen en akkoard wêze of net.";
@@ -132,7 +138,8 @@ s.topic_good_02_reason = "frijbliuwend, elkenien kin in opiny of fraach hawwe fo
 s.topic_good_03 = "Kinne jo wat betinke wat de produktiviteit fertraget?";
 
 s.topic_bad_01 = "elkenien moat rapportearje oer harren foarderingen y.f.m. de start";
-s.topic_bad_01_reason = "ferskate minsken fan ferskate teams sille reagearje op it antwurd, se sille echt net allegearre de kennis hawwe om fêstbesletten stimme te kinnen.";
+s.topic_bad_01_reason =
+  "ferskate minsken fan ferskate teams sille reagearje op it antwurd, se sille echt net allegearre de kennis hawwe om fêstbesletten stimme te kinnen.";
 s.topic_bad_02 = "hokker faktoaren remje ús start of?";
 s.topic_bad_02_reason = "";
 
