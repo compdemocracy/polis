@@ -12,8 +12,6 @@ import mod_ptpt_featured from './mod_ptpt_featured'
 import mod_ptpt_hidden from './mod_ptpt_hidden'
 import stats from './stats'
 import seed_comments from './seed_comments'
-import signout from './signout'
-import signin from './signin'
 import comments from './comments'
 import math from './math'
 import participants from './participants'
@@ -33,8 +31,6 @@ const rootReducer = combineReducers({
   mod_ptpt_hidden,
   seed_comments,
   stats,
-  signout,
-  signin
 })
 
 export default rootReducer

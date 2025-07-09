@@ -26,7 +26,7 @@ class ModerateCommentsSeed extends React.Component {
   handleSubmitSeed() {
     const comment = {
       txt: this.seed_form.value,
-      pid: 'mypid',
+      pid: -1,
       conversation_id: this.props.params.conversation_id,
       // vote: 0,
       is_seed: true

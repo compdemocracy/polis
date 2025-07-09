@@ -1,91 +1,186 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import URLs from './url'
-import _ from 'lodash'
 
 const urlPrefix = URLs.urlPrefix
 const basePath = ''
 
-// var pid = "unknownpid";
+// Auth0 token getter function - this should be set by the app when Auth0 is initialized
+let getAuth0AccessToken = null
 
-function polisAjax(api, data, type) {
-  if (!_.isString(api)) {
-    throw new Error('api param should be a string')
+// Function to set the Auth0 token getter from the Auth0 context
+export const setAuth0TokenGetter = (tokenGetter) => {
+  getAuth0AccessToken = tokenGetter
+}
+
+// Store Auth0 hooks for login redirect
+let auth0LoginRedirect = null
+
+export const setAuth0Actions = (loginWithRedirect) => {
+  auth0LoginRedirect = loginWithRedirect
+}
+
+const getAccessTokenSilentlySPA = async (options) => {
+  if (getAuth0AccessToken) {
+    try {
+      return await getAuth0AccessToken({
+        cacheMode: 'on', // Use cached token if valid
+        ...options
+      })
+    } catch (e) {
+      console.error('Error getting Auth0 token:', e)
+      
+      // Handle specific Auth0 errors
+      if (e.error === 'login_required' && auth0LoginRedirect) {
+        console.log('Login required, redirecting to Auth0')
+        auth0LoginRedirect()
+        return null
+      }
+      
+      // Let the error bubble up to be handled by the calling code
+      throw e
+    }
+  } else {
+    return Promise.resolve(undefined)
+  }
+}
+
+// Request interceptor for handling auth errors
+const handleAuthError = (error, response) => {
+  if (response && (response.status === 401 || response.status === 403)) {
+    console.warn('Authentication/authorization error:', response.status)
+    
+    // For 401 (unauthorized), try to redirect to login
+    if (response.status === 401 && auth0LoginRedirect) {
+      console.log('Token expired or invalid, redirecting to login')
+      setTimeout(() => {
+        auth0LoginRedirect()
+      }, 1000) // Small delay to allow error handling to complete
+    }
+  }
+  
+  throw error
+}
+
+async function polisFetch(api, data, type) {
+  if (typeof api !== 'string') {
+    throw new Error('api param should be a string');
   }
 
   if (api && api.length && api[0] === '/') {
-    api = api.slice(1)
+    api = api.slice(1);
   }
 
-  const url = urlPrefix + basePath + api
+  let url = urlPrefix + basePath + api;
 
-  // Add the auth token if needed.
-  // if (_.contains(authenticatedCalls, api)) {
-  //     var token = tokenStore.get();
-  //     if (!token) {
-  //         needAuthCallbacks.fire();
-  //         console.error("auth needed");
-  //         return $.Deferred().reject("auth needed");
-  //     }
-  //     //data = $.extend({ token: token}, data); // moving to cookies
-  // }
+  const headers = {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'max-age=0',
+  };
 
-  let promise
-  const config = {
-    url: url,
-    contentType: 'application/json; charset=utf-8',
-    headers: {
-      // "Cache-Control": "no-cache"  // no-cache
-      'Cache-Control': 'max-age=0'
-    },
-    xhrFields: {
-      withCredentials: true
-    },
-    // crossDomain: true,
-    dataType: 'json'
-  }
-  if (type === 'GET') {
-    promise = $.ajax(
-      $.extend(config, {
-        type: 'GET',
-        data: data
-      })
-    )
-  } else if (type === 'POST') {
-    promise = $.ajax(
-      $.extend(config, {
-        type: 'POST',
-        data: JSON.stringify(data)
-      })
-    )
+  let body = null;
+  let method = type ? type.toUpperCase() : 'GET';
+
+  if (method === 'GET' && data) {
+    const queryParams = new URLSearchParams(data);
+    url += `?${queryParams.toString()}`;
+  } else if (method === 'POST' && data) {
+    body = JSON.stringify(data);
   }
 
-  promise.fail(function (jqXHR, message, errorType) {
-    // sendEvent("Error", api, jqXHR.status);
-
-    // logger.error("SEND ERROR");
-    console.dir('polisAjax promise failed: ', arguments)
-    if (jqXHR.status === 403) {
-      // eb.trigger(eb.authNeeded);
+  // Debug token retrieval process
+  console.log('🔍 PolisFetch Debug - Starting request:', method, url);
+  console.log('🔍 Token getter available:', !!getAuth0AccessToken);
+  
+  try {
+    const token = await getAccessTokenSilentlySPA();
+    console.log('🔍 Token retrieval result:', {
+      hasToken: !!token,
+      tokenLength: token ? token.length : 0,
+      tokenStart: token ? token.substring(0, 20) + '...' : 'null'
+    });
+    
+    // Only add the header if a token exists
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+      console.log('✅ Authorization header added');
+    } else {
+      console.warn('⚠️ No token available - request will be sent without auth');
     }
-    // logger.dir(data);
-    // logger.dir(message);
-    // logger.dir(errorType);
-  })
-  return promise
+  } catch (error) {
+    console.error('❌ Error getting access token:', error);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      stack: error.stack
+    });
+    // Re-throw the error to be caught by the caller
+    throw error;
+  }
+
+  console.log('🔍 Final request headers:', Object.keys(headers));
+  console.log('🔍 Authorization header present:', !!headers.Authorization);
+
+  try {
+    const response = await fetch(url, {
+      method: method,
+      headers: headers,
+      body: body,
+    });
+
+    console.log('🔍 Response status:', response.status);
+
+    if (!response.ok) {
+      // Read the response body to include in the error
+      const errorBody = await response.text();
+      console.error('❌ API Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorBody
+      });
+      
+      // Create a new error object and attach the response body
+      const error = new Error(`Polis API Error: ${method} ${url} failed with status ${response.status} (${response.statusText})`);
+      error.responseText = errorBody;
+      error.status = response.status;
+
+      return handleAuthError(error, response);
+    }
+
+    const jsonResponse = await response.json();
+    console.log('✅ Request successful');
+    return jsonResponse;
+  } catch (error) {
+    console.error('❌ polisFetch error:', error);
+    throw error;
+  }
 }
 
-function polisPost(api, data) {
-  return polisAjax(api, data, 'POST')
+async function polisPost(api, data) {
+  return await polisFetch(api, data, 'POST')
 }
 
-function polisGet(api, data) {
-  return polisAjax(api, data, 'GET')
+async function polisGet(api, data) {
+  try {
+    const d = await polisFetch(api, data, 'GET')
+    return d
+  } catch (error) {
+    // If we have a 403, it might be the initial race condition. Retry once.
+    if (error.status === 403) {
+      console.warn('⚠️ Received 403 on GET, retrying request once after a short delay...');
+      await new Promise(resolve => setTimeout(resolve, 500)); // wait 500ms
+      return await polisFetch(api, data, 'GET'); // This is the retry
+    }
+    // For other errors, or if retry fails, log and re-throw.
+    console.log(error)
+    throw error;
+  }
 }
 
 const PolisNet = {
-  polisAjax: polisAjax,
+  polisFetch: polisFetch,
   polisPost: polisPost,
-  polisGet: polisGet
+  polisGet: polisGet,
+  getAccessTokenSilentlySPA
 }
 export default PolisNet

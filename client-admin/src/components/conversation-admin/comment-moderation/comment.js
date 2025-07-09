@@ -19,7 +19,7 @@ class Comment extends React.Component {
     this.props.rejectClickHandler(this.props.comment)
   }
 
-  onIsMetaClicked() {
+  async onIsMetaClicked() {
     this.props.toggleIsMetaHandler(this.props.comment, this.is_meta.checked)
   }
 
@@ -30,7 +30,7 @@ class Comment extends React.Component {
           <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>
             {this.props.comment.active
               ? null
-              : 'Comment flagged Polis Auto Moderator API. Comment not shown to participants. Accept to override.'}
+              : 'Comment flagged by Polis Auto Moderator API. Comment not shown to participants. Accept to override.'}
           </Text>
           <Text sx={{ mb: [3] }}>{this.props.comment.txt}</Text>
           <Flex

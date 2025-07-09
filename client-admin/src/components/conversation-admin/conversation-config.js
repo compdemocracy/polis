@@ -12,13 +12,25 @@ import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
 import { Heading, Box, Text, jsx } from 'theme-ui'
 import emoji from 'react-easy-emoji'
-
 import { CheckboxField } from './CheckboxField'
 import ModerateCommentsSeed from './seed-comment'
+import Spinner from '../framework/spinner'
 
-@connect((state) => state.user)
-@connect((state) => state.zid_metadata)
+@connect((state) => {
+  return {
+    user: state.user,
+    zid_metadata: state.zid_metadata.zid_metadata,
+    is_public: state.zid_metadata.zid_metadata.is_public,
+    is_draft: state.zid_metadata.zid_metadata.is_draft,
+    description: state.zid_metadata.zid_metadata.description,
+    loading: state.zid_metadata.loading
+  }
+})
 class ConversationConfig extends React.Component {
+  constructor(props) {
+    super(props)
+  }
+
   handleStringValueChange(field) {
     return () => {
       let val = this[field].value
@@ -46,6 +58,9 @@ class ConversationConfig extends React.Component {
   }
 
   render() {
+    if (this.props.loading) {
+      return <Spinner />
+    }
     if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
       return <NoPermission />
     }

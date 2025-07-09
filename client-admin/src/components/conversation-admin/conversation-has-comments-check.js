@@ -5,18 +5,45 @@ import PropTypes from 'prop-types'
 import strings from '../../strings/strings'
 import { connect } from 'react-redux'
 import { populateAllCommentStores } from '../../actions'
+import withAuth0Ready from '../../util/with-auth0-ready'
 
 @connect((state) => state.mod_comments_accepted)
 @connect((state) => state.mod_comments_rejected)
 @connect((state) => state.mod_comments_unmoderated)
 class ConversationHasCommentsCheck extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = {
+      hasAttemptedLoad: false
+    }
+  }
+
   componentDidMount() {
+    // Always try to load comments on mount, regardless of Auth0 state
+    this.loadCommentsIfNeeded()
+  }
+
+  componentDidUpdate(prevProps) {
+    // Try again if conversation_id changes or if we haven't attempted load yet
+    if (prevProps.conversation_id !== this.props.conversation_id || !this.state.hasAttemptedLoad) {
+      this.loadCommentsIfNeeded()
+    }
+  }
+
+  loadCommentsIfNeeded() {
+    if (!this.state.hasAttemptedLoad && this.props.conversation_id) {
+      this.setState({ hasAttemptedLoad: true })
+      this.loadComments()
+    }
+  }
+
+  loadComments() {
     this.props.dispatch(populateAllCommentStores(this.props.conversation_id))
   }
 
   createCommentMarkup() {
-    const numAccepted = this.props.accepted_comments.length
-    const numUnmoderated = this.props.unmoderated_comments.length
+    const numAccepted = this.props.accepted_comments?.length || 0
+    const numUnmoderated = this.props.unmoderated_comments?.length || 0
 
     const isStrictMod = this.props.strict_moderation
     const numVisible = numAccepted + (isStrictMod ? 0 : numUnmoderated)
@@ -40,11 +67,20 @@ class ConversationHasCommentsCheck extends React.Component {
       rejected_comments,
       unmoderated_comments
     } = this.props
+
+    // Check if any store is still loading
+    const isLoading = this.props.loading || 
+                     (!this.state.hasAttemptedLoad && !this.props.conversation_id)
+
+    // Show loading if we haven't attempted to load yet OR if comments are still null and we're loading
+    const shouldShowLoading = isLoading || 
+                             (accepted_comments === null || 
+                              rejected_comments === null || 
+                              unmoderated_comments === null)
+
     return (
       <div>
-        {accepted_comments !== null &&
-        rejected_comments !== null &&
-        unmoderated_comments !== null ? (
+        {!shouldShowLoading ? (
           this.createCommentMarkup()
         ) : (
           <span> Loading accepted comments... </span>
@@ -58,9 +94,14 @@ ConversationHasCommentsCheck.propTypes = {
   dispatch: PropTypes.func,
   conversation_id: PropTypes.string,
   strict_moderation: PropTypes.bool,
+  loading: PropTypes.bool,
   unmoderated_comments: PropTypes.arrayOf(PropTypes.object),
   accepted_comments: PropTypes.arrayOf(PropTypes.object),
   rejected_comments: PropTypes.arrayOf(PropTypes.object)
 }
 
-export default ConversationHasCommentsCheck
+export default withAuth0Ready(ConversationHasCommentsCheck, function(props) {
+  // The callback that gets called when Auth0 is ready
+  // But we also try loading in componentDidMount as a fallback
+  this.loadComments();
+});

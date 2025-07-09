@@ -6,10 +6,11 @@ import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { populateUserStore } from './actions'
 
-import _ from 'lodash'
-
 import { Switch, Route, Link, Redirect } from 'react-router-dom'
 import { Flex, Box, jsx } from 'theme-ui'
+
+import withAuth0 from './util/withAuth0'
+import Auth0Connector from './components/auth0-connector'
 
 /* landers */
 import Home from './components/landers/home'
@@ -52,7 +53,7 @@ const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
 }
 
 PrivateRoute.propTypes = {
-  component: PropTypes.element,
+  component: PropTypes.elementType,
   isLoading: PropTypes.bool,
   location: PropTypes.object,
   authed: PropTypes.bool
@@ -75,42 +76,53 @@ class App extends React.Component {
   }
 
   componentWillMount() {
-    this.loadUserData()
     const mql = window.matchMedia(`(min-width: 800px)`)
     mql.addListener(this.mediaQueryChanged.bind(this))
     this.setState({ mql: mql, docked: mql.matches })
   }
 
   isAuthed() {
-    let authed = false
-
-    if (!_.isUndefined(this.props.isLoggedIn) && this.props.isLoggedIn) {
-      authed = true
-    }
-
-    if (
-      (this.props.error && this.props.status === 401) ||
-      this.props.status === 403
-    ) {
-      authed = false
-    }
-
-    return authed
+    // Use Auth0 authentication state
+    return this.props.isAuthenticated && !this.props.error;
   }
 
   isLoading() {
-    const { isLoggedIn } = this.props
-
-    return _.isUndefined(
-      isLoggedIn
-    ) /* if isLoggedIn is undefined, the app is loading */
+    // Use Auth0 loading state
+    return this.props.isLoading;
   }
 
   componentDidMount() {
     this.mediaQueryChanged()
+    
+    // Listen for auth0Ready event to ensure token getter is available
+    const handleAuth0Ready = (event) => {
+      console.log('📡 Received auth0Ready event:', event.detail);
+      if (!this.isLoading() && this.isAuthed()) {
+        console.log('🚀 Loading user data after auth0Ready event');
+        this.loadUserData();
+      }
+    };
+    
+    window.addEventListener('auth0Ready', handleAuth0Ready);
+    
+    // Store the handler for cleanup
+    this.auth0ReadyHandler = handleAuth0Ready;
+    
+    // The fallback logic that was here was causing a race condition and has been removed.
+    // All data loading is now handled by the 'auth0Ready' event listener.
+  }
+
+  componentDidUpdate(prevProps) {
+    // This logic has been removed because it was creating a race condition.
+    // It was calling loadUserData() before the Auth0 token getter was guaranteed to be available.
+    // The 'auth0Ready' event listener in componentDidMount now safely handles loading user data.
   }
 
   componentWillUnmount() {
+    // Clean up event listener
+    if (this.auth0ReadyHandler) {
+      window.removeEventListener('auth0Ready', this.auth0ReadyHandler);
+    }
     this.state.mql.removeListener(this.mediaQueryChanged.bind(this))
   }
 
@@ -130,6 +142,7 @@ class App extends React.Component {
     const { location } = this.props
     return (
       <>
+        <Auth0Connector />
         <Switch>
           <Redirect from="/:url*(/+)" to={location.pathname.slice(0, -1)} />
           <Route exact path="/home" component={Home} />
@@ -148,9 +161,9 @@ class App extends React.Component {
             path="/signin/**/*"
             render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
           />
-          <Route exact path="/signout" component={SignOut} />
-          <Route exact path="/signout/*" component={SignOut} />
-          <Route exact path="/signout/**/*" component={SignOut} />
+          <Route exact path="/signout" render={() => <SignOut {...this.props} />} />
+          <Route exact path="/signout/*" render={() => <SignOut {...this.props} />} />
+          <Route exact path="/signout/**/*" render={() => <SignOut {...this.props} />} />
           <Route exact path="/createuser" component={CreateUser} />
           <Route exact path="/createuser/*" component={CreateUser} />
           <Route exact path="/createuser/**/*" component={CreateUser} />
@@ -259,4 +272,4 @@ App.propTypes = {
   })
 }
 
-export default App
+export default withAuth0(App)

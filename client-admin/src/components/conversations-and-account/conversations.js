@@ -9,6 +9,7 @@ import {
 } from '../../actions'
 
 import Url from '../../util/url'
+import withAuth0 from '../../util/withAuth0'
 import { Box, Heading, Button, Text } from 'theme-ui'
 import Conversation from './conversation'
 
@@ -20,16 +21,40 @@ class Conversations extends React.Component {
       filterMinParticipantCount: 0,
       sort: 'participant_count'
     }
+    this.auth0ReadyHandler = null;
+  }
+
+  componentDidMount() {
+    // Listen for auth0Ready event
+    this.auth0ReadyHandler = () => {
+      console.log(`📡 Conversations received auth0Ready event`);
+      this.loadConversations();
+    };
+    
+    window.addEventListener('auth0Ready', this.auth0ReadyHandler);
+    
+    // If auth0 is already ready, call loadConversations immediately
+    if (window.auth0Ready) {
+      console.log(`🚀 Auth0 was already ready, loading conversations immediately`);
+      this.loadConversations();
+    }
+  }
+
+  componentWillUnmount() {
+    // Clean up event listener
+    if (this.auth0ReadyHandler) {
+      window.removeEventListener('auth0Ready', this.auth0ReadyHandler);
+    }
   }
 
   onNewClicked() {
     this.props.dispatch(handleCreateConversationSubmit())
   }
 
-  componentDidMount() {
-    this.props.dispatch(populateConversationsStore())
-    // loading true or just do that in constructor
-    // check your connectivity and try again
+  loadConversations() {
+    if (!this.props.loading && !this.props.conversations) {
+      this.props.dispatch(populateConversationsStore());
+    }
   }
 
   goToConversation = (conversation_id) => {
@@ -63,7 +88,7 @@ class Conversations extends React.Component {
     return include
   }
 
-  firePopulateInboxAction() {
+  async firePopulateInboxAction() {
     this.props.dispatch(populateConversationsStore())
   }
 
@@ -139,4 +164,4 @@ Conversations.propTypes = {
   })
 }
 
-export default Conversations
+export default withAuth0(Conversations);

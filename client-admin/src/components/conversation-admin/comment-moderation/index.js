@@ -2,6 +2,7 @@
 /** @jsx jsx */
 
 import ComponentHelpers from '../../../util/component-helpers'
+import withAuth0Ready from '../../../util/with-auth0-ready'
 
 import NoPermission from '../no-permission'
 import React from 'react'
@@ -34,14 +35,14 @@ class CommentModeration extends React.Component {
     this.props.dispatch(populateAllCommentStores(match.params.conversation_id))
   }
 
-  componentWillMount() {
+  componentDidMount() {
+    // Load comments immediately when component mounts
+    this.loadComments()
+    
+    // Then set up polling to refresh comments periodically
     this.getCommentsRepeatedly = setInterval(() => {
       this.loadComments()
     }, pollFrequency)
-  }
-
-  componentDidMount() {
-    this.loadComments()
   }
 
   componentWillUnmount() {
@@ -129,4 +130,7 @@ class CommentModeration extends React.Component {
   }
 }
 
-export default CommentModeration
+export default withAuth0Ready(CommentModeration, function(props) {
+  // The callback that gets called when Auth0 is ready
+  this.loadComments();
+});

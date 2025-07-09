@@ -6,6 +6,7 @@ import PropTypes from 'prop-types'
 import Url from '../../../util/url'
 import { connect } from 'react-redux'
 import { Heading, Box, Button } from 'theme-ui'
+import withAuth0 from '../../../util/withAuth0'
 import { populateZidMetadataStore } from '../../../actions'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
@@ -18,6 +19,7 @@ class ReportsList extends React.Component {
       loading: true,
       reports: []
     }
+    this.auth0ReadyHandler = null;
   }
 
   getData() {
@@ -33,16 +35,38 @@ class ReportsList extends React.Component {
     })
   }
 
-  componentDidMount() {
-    const { zid_metadata } = this.props
-
+  loadInitialData() {
     this.props.dispatch(
       populateZidMetadataStore(this.props.match.params.conversation_id)
-    )
-
+    );
+    
     // If we already have is_mod, get the data
+    const { zid_metadata } = this.props;
     if (zid_metadata?.is_mod) {
-      this.getData()
+      this.getData();
+    }
+  }
+
+  componentDidMount() {
+    // Listen for auth0Ready event
+    this.auth0ReadyHandler = () => {
+      console.log(`📡 ReportsList received auth0Ready event`);
+      this.loadInitialData();
+    };
+    
+    window.addEventListener('auth0Ready', this.auth0ReadyHandler);
+    
+    // If auth0 is already ready, call loadInitialData immediately
+    if (window.auth0Ready) {
+      console.log(`🚀 Auth0 was already ready, loading initial data immediately`);
+      this.loadInitialData();
+    }
+  }
+
+  componentWillUnmount() {
+    // Clean up event listener
+    if (this.auth0ReadyHandler) {
+      window.removeEventListener('auth0Ready', this.auth0ReadyHandler);
     }
   }
 
@@ -119,4 +143,4 @@ ReportsList.propTypes = {
   })
 }
 
-export default ReportsList
+export default withAuth0(ReportsList);

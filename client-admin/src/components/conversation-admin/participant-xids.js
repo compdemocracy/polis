@@ -4,6 +4,8 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { Heading, Link, Text } from 'theme-ui'
 import Url from '../../util/url'
+import withAuth0Ready from '../../util/with-auth0-ready'
+import PolisNet from '../../util/net'
 
 const { urlPrefix } = Url
 
@@ -24,15 +26,11 @@ class ParticipantXids extends React.Component {
     error: null
   }
 
-  componentDidMount() {
-    // Direct API call without Redux
-    fetch(`/api/v3/conversationUuid?conversation_id=${this.props.conversation_id}`)
-      .then(response => {
-        if (!response.ok) {
-          throw new Error('Network response was not ok');
-        }
-        return response.json();
-      })
+  loadConversationUuid() {
+    // Use PolisNet.polisGet to ensure proper authorization header
+    PolisNet.polisGet('/api/v3/conversationUuid', {
+      conversation_id: this.props.conversation_id
+    })
       .then(data => {
         this.setState({
           conversationUuid: data.conversation_uuid,
@@ -200,4 +198,8 @@ ParticipantXids.propTypes = {
   conversation_id: PropTypes.string.isRequired
 }
 
-export default ParticipantXids; 
+// Wrap with Auth0 readiness check
+export default withAuth0Ready(ParticipantXids, function(props) {
+  // The callback that gets called when Auth0 is ready
+  this.loadConversationUuid();
+}); 

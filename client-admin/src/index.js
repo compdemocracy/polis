@@ -4,27 +4,55 @@ import $ from 'jquery'
 
 import React from 'react'
 import ReactDOM from 'react-dom'
-import { Provider } from 'react-redux'
-
-import configureStore from './store'
 import { ThemeProvider } from 'theme-ui'
-import theme from './theme'
-import App from './app'
-
+import { Auth0Provider } from '@auth0/auth0-react'
+import { Provider } from 'react-redux'
 import { BrowserRouter as Router, Route } from 'react-router-dom'
+import { createStore, applyMiddleware } from 'redux'
+import thunk from 'redux-thunk'
 
-const store = configureStore()
+import App from './app'
+import PolisReducers from './reducers/index'
+import theme from './theme'
+
+const store = createStore(PolisReducers, applyMiddleware(thunk))
+
+// Auth0 configuration - now required
+const auth0Domain = process.env.AUTH_ISSUER 
+  ? new URL(process.env.AUTH_ISSUER).host 
+  : undefined;
+
+const auth0ClientId = process.env.AUTH_CLIENT_ID;
+const auth0Audience = process.env.AUTH_AUDIENCE;
+
+if (!auth0Domain || !auth0ClientId || !auth0Audience) {
+  console.error("Auth0 configuration is incomplete. Please check environment variables:");
+  console.error("AUTH_ISSUER:", process.env.AUTH_ISSUER);
+  console.error("AUTH_CLIENT_ID:", auth0ClientId);
+  console.error("AUTH_AUDIENCE:", auth0Audience);
+  throw new Error("Auth0 configuration is required");
+}
 
 class Root extends React.Component {
   render() {
     return (
-      <ThemeProvider theme={theme}>
-        <Provider store={store}>
-          <Router>
-            <Route render={(routeProps) => <App {...routeProps} />}></Route>
-          </Router>
-        </Provider>
-      </ThemeProvider>
+      <Auth0Provider
+        domain={auth0Domain}
+        clientId={auth0ClientId}
+        cacheLocation="localstorage"
+        authorizationParams={{
+          redirect_uri: window.location.origin,
+          audience: auth0Audience,
+          scope: 'openid profile email'
+        }}>
+        <ThemeProvider theme={theme}>
+          <Provider store={store}>
+            <Router>
+              <Route render={(routeProps) => <App {...routeProps} />}></Route>
+            </Router>
+          </Provider>
+        </ThemeProvider>
+      </Auth0Provider>
     )
   }
 }

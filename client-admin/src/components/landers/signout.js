@@ -2,31 +2,26 @@
 
 import React from 'react'
 import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
-import StaticLayout from './lander-layout'
-import { Heading } from 'theme-ui'
 
-import { doSignout } from '../../actions'
+// Auth0 handles logout
+import withAuth0 from '../../util/withAuth0'
 
-@connect((state) => state.signout)
 class SignOut extends React.Component {
   componentDidMount() {
-    this.props.dispatch(doSignout('/home'))
+    this.props.logout({ returnTo: `${window.location.origin}/home`});
   }
 
   render() {
     return (
-      <StaticLayout>
-        <Heading as="h1" sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>
-          Signing Out
-        </Heading>
-      </StaticLayout>
+      <div>
+        Signing out...
+      </div>
     )
   }
 }
 
 SignOut.propTypes = {
-  dispatch: PropTypes.func
+  logout: PropTypes.func.isRequired
 }
 
-export default SignOut
+export default withAuth0(SignOut)

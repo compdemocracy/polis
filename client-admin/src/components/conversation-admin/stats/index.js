@@ -4,7 +4,11 @@
 import dateSetupUtil from '../../../util/data-export-date-setup'
 import React from 'react'
 import { connect } from 'react-redux'
-import { populateConversationStatsStore, populateZidMetadataStore } from '../../../actions'
+import {
+  populateConversationStatsStore,
+  populateZidMetadataStore
+} from '../../../actions'
+import withAuth0Ready from '../../../util/with-auth0-ready'
 import NumberCards from './conversation-stats-number-cards'
 import Voters from './voters'
 import Commenters from './commenters'
@@ -52,29 +56,46 @@ class ConversationStats extends React.Component {
   }
 
   componentDidMount() {
+    // Check if we already have metadata loaded for this conversation
     const { zid_metadata, match } = this.props
-
-    this.props.dispatch(
-      populateZidMetadataStore(match.params.conversation_id)
-    )
-
-    if (zid_metadata?.is_mod) {
+    if (zid_metadata?.conversation_id === match.params.conversation_id && zid_metadata?.is_mod) {
       this.startPolling()
     }
   }
 
+  loadInitialData() {
+    this.props.dispatch(populateZidMetadataStore(this.props.match.params.conversation_id));
+    
+    // Don't check zid_metadata?.is_mod here since the dispatch is async
+    // Let componentDidUpdate handle starting polling once metadata loads
+  }
+
   componentDidUpdate(prevProps) {
-    const { zid_metadata } = this.props
+    const { zid_metadata, match } = this.props
     const prevIsMod = prevProps.zid_metadata?.is_mod
     const currentIsMod = zid_metadata?.is_mod
+    const prevConversationId = prevProps.match?.params?.conversation_id
+    const currentConversationId = match?.params?.conversation_id
 
-    // Start polling only when is_mod changes from false to true
-    if (!prevIsMod && currentIsMod) {
+    // Start polling when:
+    // 1. is_mod changes from false/undefined to true, OR
+    // 2. conversation changes and user is mod
+    // Also ensure we have the correct conversation metadata loaded
+    const shouldStartPolling = 
+      zid_metadata?.conversation_id === currentConversationId &&
+      ((!prevIsMod && currentIsMod) || 
+       (prevConversationId !== currentConversationId && currentIsMod))
+
+    if (shouldStartPolling) {
       this.startPolling()
     }
   }
 
   componentWillUnmount() {
+    this.stopPolling();
+  }
+
+  stopPolling() {
     if (this.getStatsRepeatedly) {
       clearInterval(this.getStatsRepeatedly)
     }
@@ -134,4 +155,7 @@ class ConversationStats extends React.Component {
   }
 }
 
-export default ConversationStats
+export default withAuth0Ready(ConversationStats, function(props) {
+  // The callback that gets called when Auth0 is ready
+  this.loadInitialData();
+});
