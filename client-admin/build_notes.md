@@ -65,7 +65,6 @@ The new "prod" webpack configuration should:
    - outputs to `build/index_admin.html`
 
 4. **Optimization**
-   - Uses Lodash module replacement for tree-shaking
    - Minifies code in production
    - Compresses JS files in production
 

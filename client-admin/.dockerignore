@@ -32,3 +32,6 @@ npm-debug.log
 
 # VCS
 .git
+
+# ENV
+.env

@@ -1,6 +1,7 @@
+import { config } from 'dotenv'
+config()
 import path from 'path'
 import HtmlWebPackPlugin from 'html-webpack-plugin'
-import LodashModuleReplacementPlugin from 'lodash-webpack-plugin'
 import CompressionPlugin from 'compression-webpack-plugin'
 import CopyPlugin from 'copy-webpack-plugin'
 import TerserPlugin from 'terser-webpack-plugin'
@@ -8,6 +9,7 @@ import EventHooksPlugin from 'event-hooks-webpack-plugin'
 import * as glob from 'glob'
 import fs from 'fs'
 import { fileURLToPath } from 'url'
+import webpack from 'webpack'
 
 // Get __dirname equivalent in ESM
 const __filename = fileURLToPath(import.meta.url)
@@ -16,11 +18,19 @@ const __dirname = path.dirname(__filename)
 export default (env, argv) => {
   const isProduction = argv.mode === 'production'
   const isDevelopment = !isProduction
-
-  // Get API URL from CLI arg, env var, or default
-  const apiUrl = env?.apiUrl || process.env.API_URL || 'http://localhost:5000'
-
-  console.log(`Using API URL: ${apiUrl}`)
+  
+  // Debug Auth0 environment variables
+  console.log('Building with Auth0 configuration:')
+  console.log('  AUTH_CLIENT_ID:', process.env.AUTH_CLIENT_ID)
+  console.log('  AUTH_ISSUER:', process.env.AUTH_ISSUER)
+  console.log('  AUTH_AUDIENCE:', process.env.AUTH_AUDIENCE)
+  
+  let apiUrl  
+  if (isDevelopment) {
+    // Get API URL from CLI arg, env var, or default
+    apiUrl = env?.apiUrl || process.env.API_URL || 'http://localhost:5000'
+    console.log(`Using API URL: ${apiUrl}`)
+  }
 
   return {
     mode: isProduction ? 'production' : 'development',
@@ -76,11 +86,10 @@ export default (env, argv) => {
         filename: isProduction ? 'index_admin.html' : 'index.html',
         inject: 'body',
       }),
-
-      // Production-only plugins
-      isProduction && new LodashModuleReplacementPlugin({
-        collections: true,
-        shorthands: true
+      new webpack.DefinePlugin({
+        'process.env.AUTH_CLIENT_ID': JSON.stringify(process.env.AUTH_CLIENT_ID),
+        'process.env.AUTH_ISSUER': JSON.stringify(process.env.AUTH_ISSUER),
+        'process.env.AUTH_AUDIENCE': JSON.stringify(process.env.AUTH_AUDIENCE),
       }),
 
       isProduction && new CopyPlugin({
@@ -101,9 +110,10 @@ export default (env, argv) => {
 
       isProduction && new CompressionPlugin({
         test: /\.js$/,
+        exclude: /\.map$/,
         filename: '[path][base]',
         algorithm: 'gzip',
-        deleteOriginalAssets: true,
+        deleteOriginalAssets: 'keep-source-map',
       }),
 
       isProduction && new EventHooksPlugin({
