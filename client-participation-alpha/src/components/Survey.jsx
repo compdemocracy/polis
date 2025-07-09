@@ -1,20 +1,47 @@
 import React, { useState } from 'react';
-import Statement from './Statement';
-import SurveyForm from './SurveyForm';
+import { Statement } from './Statement';
 import EmailSubscribeForm from './EmailSubscribeForm';
 
-export function Survey({ initialStatements }) {
+// This is a mock of the 'vote' API call.
+// In a real app, it would POST to a polis endpoint with the vote,
+// and the response would contain the `nextComment`.
+const submitVoteAndGetNextCommentAPI = async (vote, participationInfo) => {
+  console.log('Submitting vote to polis:', { ...vote, ...participationInfo });
+  // MOCKING: Return a new comment after a delay.
+  return new Promise(resolve => {
+    setTimeout(() => {
+      const nextTid = Math.floor(Math.random() * 1000);
+      resolve({
+        success: true,
+        nextComment: {
+          tid: nextTid,
+          txt: `This is the next comment (id: ${nextTid}), fetched from the client after a vote.`
+        }
+      });
+    }, 800);
+  });
+};
+
+
+export default function Survey({ initialStatement, participationInfo, s }) {
+  const [statements, setStatements] = useState([initialStatement]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isFetchingNext, setIsFetchingNext] = useState(false);
 
-  // Add a 'remaining' count to each statement
-  const statements = initialStatements.map((stmt, index) => ({
-    ...stmt,
-    remaining: initialStatements.length - index,
-  }));
+  const handleVote = async (voteType, tid) => {
+    setIsFetchingNext(true);
+    
+    const vote = { vote: voteType, tid: tid };
+    const result = await submitVoteAndGetNextCommentAPI(vote, participationInfo);
 
-  const handleNextStatement = (cb) => {
-    setCurrentIndex(prevIndex => prevIndex + 1);
-    cb();
+    setIsFetchingNext(false);
+
+    if (result.success && result.nextComment) {
+      setStatements(prev => [...prev, result.nextComment]);
+      setCurrentIndex(prev => prev + 1);
+    } else {
+      setCurrentIndex(prev => prev + 1);
+    }
   };
 
   const currentStatement = statements[currentIndex];
@@ -22,21 +49,15 @@ export function Survey({ initialStatements }) {
   return (
     <>
       {currentStatement ? (
-        <>
-          <Statement
-            statement={currentStatement}
-            onVoteSuccess={handleNextStatement}
-          />
-          <SurveyForm />
-        </>
+        <Statement
+          statement={currentStatement}
+          onVote={handleVote}
+          isVoting={isFetchingNext}
+          s={s}
+        />
       ) : (
-        <div>
-          <p style={{ textAlign: 'center', marginBottom: '2rem' }}>All statements viewed.</p>
-          <EmailSubscribeForm />
-        </div>
+        <EmailSubscribeForm s={s} />
       )}
     </>
   );
 }
-
-export default Survey;

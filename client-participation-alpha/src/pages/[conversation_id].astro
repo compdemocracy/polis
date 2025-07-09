@@ -1,0 +1,93 @@
+---
+import Layout from './layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import Survey from '../components/Survey.jsx';
+import SurveyForm from '../components/SurveyForm.jsx';
+import { getTranslations } from '../strings/strings';
+
+const { conversation_id } = Astro.params;
+let initialData;
+let fetchError = null;
+
+try {
+  const response = await fetch(`https://pol.is/api/v3/participationInit?conversation_id=${conversation_id}`);
+  if (!response.ok) {
+    throw new Error(`API request failed with status: ${response.status}`);
+  }
+  initialData = await response.json();
+} catch (error) {
+  console.error("Failed to fetch conversation data:", error);
+  fetchError = "Could not load this conversation. Please check the ID and try again.";
+}
+
+// Load local UI strings.
+const s = await getTranslations();
+
+let surveyDetails, firstStatement, participationInfo;
+if (initialData) {
+  surveyDetails = {
+    title: initialData.conversation.topic,
+    description: initialData.conversation.description,
+  };
+  
+  // The API gives us the first comment to display
+  firstStatement = {
+    id: initialData.nextComment.tid,
+    text: initialData.nextComment.txt,
+  };
+
+  // We'll need this info for subsequent API calls (like voting)
+  participationInfo = {
+    pid: initialData.ptpt?.pid,
+    conversation_id: initialData.conversation.conversation_id,
+  };
+}
+---
+<Layout>
+  <div class="container">
+    <Header />
+
+    {fetchError ? (
+      <div class="error-message">
+        <h2>Oops!</h2>
+        <p>{fetchError}</p>
+      </div>
+    ) : (
+      <>
+        <h1>{surveyDetails?.title}</h1>
+        <p class="description" set:html={surveyDetails?.description}></p>
+        <p class="conversation-intro" set:html={s['vote-on-statements']}></p>
+
+        {/* Pass the initial data and participation info to the Survey component.
+          It will handle fetching subsequent comments on the client.
+        */}
+        <Survey 
+          client:load 
+          initialStatement={firstStatement}
+          participationInfo={participationInfo}
+          s={s} 
+        />
+        
+        {/* The form just needs the translation strings */}
+        <SurveyForm client:load s={s} />
+      </>
+    )}
+
+    <div style="margin-top: 3rem;">
+      <div class="logo">p.</div>
+    </div>
+  </div>
+</Layout>
+<style>
+  .error-message {
+    text-align: center;
+    padding: 3rem 1rem;
+    border: 1px solid #dc3545;
+    border-radius: 8px;
+    background-color: #f8d7da;
+  }
+  .error-message h2 {
+    margin-top: 0;
+    color: #721c24;
+  }
+</style>
