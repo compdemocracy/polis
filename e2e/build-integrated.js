@@ -23,7 +23,7 @@ const argv = require('yargs/yargs')(process.argv.slice(2))
     alias: 'url',
     describe: 'The base URL',
     type: 'string',
-    default: 'http://localhost',
+    default: process.env.BASE_URL || process.env.CYPRESS_BASE_URL || 'http://localhost',
   }).argv
 
 fs.readFile(inputFile, 'utf8', (err, data) => {

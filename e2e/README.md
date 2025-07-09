@@ -1,151 +1,90 @@
-# polis-e2e
-
-End-To-End Tests written with cypress.io
-
-## Dependencies
-
-- node `>= 18`
-
-## Quickstart
-
-from the polis root directory:
-
-```sh
-make TEST start
-```
-
-and in another shell:
-
-```sh
-make e2e-install
-make e2e-run
-```
+# Polis E2E Tests
 
 ## Setup
 
-(from within the e2e directory)
-
-```sh
+```bash
 npm install
 ```
 
-(or, from the root directory)
+## Run All Tests
 
-```sh
-make e2e-install
-```
-
-See [System Requirements](https://docs.cypress.io/guides/getting-started/installing-cypress#System-requirements) for additional needs that your operating system might have.
-
-There are few ways to run the end-to-end (e2e) test suite. They can be run in a browser, or headless. They can be run within a dockerized environment or directly on a development machine, or in a cloud system such as GitHub Actions. In any case, you need 3 things:
-
-1. A URL that points to a running instance of polis.
-2. A `maildev` service with port 1080 exposed.
-3. A Google Service Account Key (optional) to enable Google Translation API.
-
-Running `docker compose` with either the `docker-compose.dev.yml` or `docker-compose.test.yml` overlay will get you #1 and #2. (See the top-level documentation for configuring and running polis.)
-
-The helpful shortcut `make TEST start` will build (if necessary) and start all of the dockerized services in a test environment,
-making use of `docker-compose.test.yml` and the `test.env` configuration values. This is the preferred way.
-
-If you want to run tests that require integration with Google Translation API, refer to the Byzantine [documentation at Google Cloud](https://cloud.google.com/docs/authentication/client-libraries).
-
-## Running the tests
-
-To run the tests "headlessly" from the command line, simply run:
-
-(from within the e2e directory)
-
-```sh
+```bash
 npm test
 ```
 
-(or from the root directory)
+## Run Specific Test Categories
 
-```sh
-make e2e-run
+```bash
+# Run admin interface tests
+npm run test:admin
+
+# Run authentication tests
+npm run test:auth
+
+# Run participation & embed tests
+npm run test:participation
+
+# Run embed functionality tests
+npm run test:embed
+
+# Run site integration tests
+npm run test:integrated
+
+# Run specific conversation workflow tests
+npm run test:conversation
 ```
 
-To open a Cypress user interface and run the tests in a browser of your choosing, run:
+## Run Individual Tests
 
-```sh
-npm start
+### Method 1: Using --spec flag
+
+```bash
+# Run specific file
+npx cypress run --spec "cypress/e2e/client-admin/conversation.cy.js"
+
+# Or with npm script
+npm run cy:run -- --spec "cypress/e2e/client-admin/conversation.cy.js"
 ```
 
-You can also run one-off test files or groups of test files with commands like:
+### Method 2: Using .only() in test files
 
-```sh
-npm run cy:run -- --spec "cypress/e2e/my-spec.cy.js"
-npm run cy:run -- --spec "cypress/e2e/login/**/*"
-```
-
-Read more about the [Cypress command line options here](https://docs.cypress.io/guides/guides/command-line).
-
-## Notes
-
-- The default base url for running tests against, is <http://localhost>
-- The default browser is electron. On the command line the default is headless electron unless you include a `--browser` option.
-- You may override the base url with a command like so: `CYPRESS_BASE_URL=http://123.45.67.89.sslip.io npm test`
-- `cypress/support/commands.js`: where we keep oft-used commands, e.g., for logging in, creating conversations, etc.
-- Tests which require third-party credentials are confined to `cypress/e2e/third-party-integration` and are not included in the default test run `npm test`.
-  - To run all tests, you may use `npm run cy:run -- --spec "cypress/e2e/**/*"` or simply `npm run test:all`
-- We are not, as of yet, including any Component tests in this suite.
-- The docker compose `test` configuration, using the `docker-compose.test.yml` overlay and/or `make TEST ...` commands are intended for running polis in a prod-like way with a couple of exceptions: including a maildev server with port 1080 exposed, and passing along some modified environment variables found in `test.env`. This is especially useful for CI server situations and not really necessary for local development. Running the tests against the `dev` docker compose configuration should work fine too.
-- The test suite creates a lot of data and writes it to a Postgres database. It will generate fresh data with every run and so it is a good idea to drop the database (or docker volume) occasionally. However, having a database full of random data is sometimes helpful for manual testing and development. You will accumulate random test data in whatever environment the tests are run.
-  - **DON'T RUN CYPRESS TESTS IN PRODUCTION**
-
-## Testing Patterns
-
-The Cypress tests use the following patterns for common operations:
-
-### Authentication
+Add `.only()` to focus on specific tests:
 
 ```javascript
-// Log in a user via UI
-cy.login(user, true)
+// Focus on single describe block
+describe.only('Create New Conversation', () => {
+  // Only this block runs
+})
 
-// Log in a user via API
-cy.login(user)
-
-// Register a new user via UI
-cy.register(user, true)
-
-// Register a new user via API
-cy.register(user)
-
-// Ensure a user exists and is logged in
-cy.ensureUser('admin') // Uses user from fixtures/users.json
+// Focus on single test
+it.only('should create a new conversation', () => {
+  // Only this test runs
+})
 ```
 
-### Conversation Management
+**Remember to remove `.only()` after testing!**
 
-```javascript
-// Create a conversation (authenticated)
-cy.createConvo('Topic', 'Description', 'admin') // Using user from fixtures/users.json
-cy.createConvo('Topic', 'Description', user) // Using explicit user object
+## Open Cypress GUI
 
-// Add comments to a conversation
-cy.seedComment(convoId, 'Comment text', 'admin')
-
-// Find or create a conversation
-cy.ensureConversation('admin')
+```bash
+npm run cy:open
 ```
 
-### Participation
+In the GUI, you can click individual test files or specific tests to run them in isolation.
 
-```javascript
-// Vote on all comments in a conversation
-cy.voteOnConversation(convoId, 'optional-external-id')
-```
+## Embed Testing
 
-### Embedded Testing
+This e2e suite includes comprehensive testing for Polis embed functionality with JWT authentication:
 
-```javascript
-// Intercept embed requests
-cy.interceptEmbed()
+- **Embed Tests** (`embeds.cy.js`): Test single conversation embeds with various configuration options
+- **Integration Tests** (`integrated.cy.js`): Test site-wide conversation integration with automatic creation
 
-// Access iframe content
-cy.getIframeBody()
-```
+The embed testing infrastructure includes:
 
-These patterns help maintain consistency across tests and should be used when writing new tests.
+- HTML templates for generating test pages
+- Build scripts for creating embed configurations
+- Cookie-free JWT authentication
+- Environment-aware base URLs (respects `BASE_URL`/`CYPRESS_BASE_URL` variables)
+- Support for all embed display options (ucv, ucw, ucsh, etc.)
+
+For detailed documentation, see [README-EMBED-TESTING.md](./README-EMBED-TESTING.md).

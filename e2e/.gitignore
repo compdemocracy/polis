@@ -1,3 +1,4 @@
+.env
 .vscode
 cypress/downloads
 cypress/logs

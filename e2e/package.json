@@ -4,34 +4,35 @@
   "description": "End-to-End test suite for polis, using Cypress.js",
   "main": "index.js",
   "scripts": {
-    "start": "cypress open",
-    "test": "cypress run --spec 'cypress/e2e/!(third-party)/**/*.cy.js'",
-    "test:all": "cypress run --spec 'cypress/**/*.cy.js'",
-    "e2e": "npm test",
-    "e2e:chrome": "npm test -- --browser chrome",
-    "cy:run": "cypress run",
-    "cy:open": "cypress open",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
-    "format": "prettier --write .",
+    "start": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress open",
+    "test": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/**/*.cy.js'",
+    "test:admin": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/client-admin/**/*.cy.js'",
+    "test:auth": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/auth/**/*.cy.js'",
+    "test:participation": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/client-participation/**/*.cy.js'",
+    "test:embed": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/client-participation/embeds.cy.js'",
+    "test:integrated": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/client-participation/integrated.cy.js'",
+    "test:conversation": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/client-admin/conversation.cy.js'",
+    "cy:run": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run",
+    "cy:open": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress open",
     "build:embed": "node build-embed.js",
     "build:integrated": "node build-integrated.js",
-    "seed": "node scripts/seed.js"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write ."
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
-    "@faker-js/faker": "^9.6.0",
-    "cypress": "^14.2.0",
-    "cypress-terminal-report": "^7.1.0",
-    "yargs": "^17.7.2"
+    "@faker-js/faker": "^9.9.0",
+    "cypress": "^14.5.1",
+    "cypress-terminal-report": "^7.2.0",
+    "dotenv": "^17.1.0",
+    "yargs": "^18.0.0"
   },
   "devDependencies": {
-    "@eslint/js": "^9.22.0",
-    "eslint": "^9.22.0",
-    "eslint-config-prettier": "^10.1.1",
-    "eslint-plugin-cypress": "^4.2.0",
-    "eslint-plugin-mocha": "^10.5.0",
-    "prettier": "^3.5.3"
+    "@eslint/js": "^9.30.1",
+    "eslint": "^9.30.1",
+    "eslint-config-prettier": "^10.1.5",
+    "eslint-plugin-cypress": "^5.1.0",
+    "eslint-plugin-mocha": "^11.1.0",
+    "prettier": "^3.6.2"
   }
 }

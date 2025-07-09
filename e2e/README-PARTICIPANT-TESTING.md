@@ -1,0 +1,225 @@
+# Participant Authentication E2E Testing
+
+This document explains the improved e2e testing approach for participant authentication that aligns with how the system actually works.
+
+## Key Insights
+
+### How Participant Authentication Actually Works
+
+1. **Anonymous participants don't "log in"** - They receive JWT tokens when they take actions like voting
+2. **No default home page** - Participants access specific conversation URLs like `/9t6ra4ikkf`
+3. **Conversations must exist first** - Created by authenticated users (moderators/admins) before participant testing
+4. **JWT issuance is action-triggered** - Tokens are issued when participants vote, not when they visit
+
+### Critical: Avoiding Sticky Authentication
+
+When tests combine admin setup with participant actions, admin authentication can "stick" and cause participants to be incorrectly identified as admin users.
+
+**The Problem**: `cy.window()` contexts can hold authentication state that bleeds between test phases.
+
+**The Solution**: Isolate admin actions within their own `cy.window()` context:
+
+```javascript
+// ✅ Correct - Window context isolation prevents sticky auth
+it('admin creates conversation, participants vote', () => {
+  let conversationId
+
+  // Phase 1: Admin setup (isolated)
+  cy.window().then(() => {
+    loginStandardUserAPI('admin@polis.test', 'password')
+    // ... create conversation and comments ...
+    conversationId = result.conversation_id
+  })
+
+  // Phase 2: Clean participant context
+  cy.then(() => {
+    cy.visit(`/${conversationId}`)
+    cy.get('#agreeButton').click() // Creates participant with correct PID
+  })
+})
+```
+
+This pattern ensures participants get unique PIDs instead of being counted as the admin (PID=0).
+
+### What Changed
+
+#### Before (Incorrect Approach)
+
+```javascript
+// ❌ This was wrong - anonymous participants don't "log in"
+export function loginAnonymousParticipant() {
+  cy.visit('/') // ❌ No home page for participants
+  cy.wrap(win.localStorage).should('contain.key', 'participant_token') // ❌ No token until action
+}
+```
+
+#### After (Correct Approach)
+
+```javascript
+// ✅ This is correct - participants receive JWTs when they take actions
+export function participateAnonymously(conversationId) {
+  cy.visit(`/${conversationId}`) // ✅ Visit specific conversation
+  // JWT will be issued when participant votes, not immediately
+}
+```
+
+## New Helper Functions
+
+### Conversation Helpers (`conversation-helpers.js`)
+
+- `setupTestConversation()` - Creates conversation with comments for testing
+- `createTestConversation()` - Creates a basic test conversation
+- `addCommentToConversation()` - Adds comments to existing conversation
+- `visitConversationAsParticipant()` - Visits conversation as participant
+
+### Updated Auth Helpers (`auth-helpers.js`)
+
+- `participateAnonymously(conversationId)` - Replaces misleading "loginAnonymousParticipant"
+- `participateWithXID(conversationId, xid)` - Replaces "loginXIDParticipant"
+- `voteOnComment(voteType, commentIndex)` - Triggers JWT issuance by voting
+- `verifyJWTExists(tokenKey, expectedClaims)` - Verifies JWT structure and claims
+- `waitForJWTToken(tokenKey)` - Waits for JWT to be stored after actions
+
+## Test Flow Pattern
+
+### 1. Setup Phase
+
+```javascript
+before(() => {
+  // Create test conversation with comments
+  setupTestConversation({
+    topic: 'Test Conversation',
+    comments: ['Comment 1', 'Comment 2', 'Comment 3'],
+  }).then((conversation) => {
+    testConversation = conversation
+  })
+})
+```
+
+### 2. Anonymous Participant Testing
+
+```javascript
+it('should issue JWT when anonymous participant votes', () => {
+  // Visit conversation (no JWT yet)
+  visitConversationAsParticipant(testConversation.conversationId)
+
+  // Vote to trigger JWT issuance
+  voteOnComment('agree', 0)
+
+  // Wait for and verify JWT
+  waitForJWTToken('participant_token')
+  verifyJWTExists('participant_token', {
+    anonymous: true,
+    conversation_id: testConversation.conversationId,
+  })
+})
+```
+
+### 3. XID Participant Testing
+
+```javascript
+it('should issue JWT when XID participant votes', () => {
+  const testXid = `test-xid-${Date.now()}`
+
+  // Visit with XID parameter (no JWT yet)
+  visitConversationAsParticipant(testConversation.conversationId, { xid: testXid })
+
+  // Vote to trigger JWT issuance
+  voteOnComment('agree', 0)
+
+  // Wait for and verify JWT
+  waitForJWTToken('participant_token')
+  verifyJWTExists('participant_token', {
+    xid: testXid,
+    conversation_id: testConversation.conversationId,
+  })
+})
+```
+
+## Running the Tests
+
+```bash
+# Run all e2e tests
+npm run test
+
+# Run only participant authentication tests
+npx cypress run --spec "cypress/e2e/auth/participant-authentication.cy.js"
+
+# Open Cypress UI for debugging
+npm run cy:open
+```
+
+## Test Environment Requirements
+
+### Auth0 Simulator
+
+- Must be running for standard user authentication
+- Used to create conversations and comments
+- Default test users: `moderator@polis.test`, `admin@polis.test`
+
+### Environment Variables
+
+```bash
+# Auth0 configuration
+AUTH_ISSUER=https://localhost:3000/
+AUTH_CLIENT_ID=test-client-id
+AUTH_AUDIENCE=test-audience
+AUTH_NAMESPACE=https://polis.test/
+
+# Development server
+CYPRESS_BASE_URL=http://localhost:5000
+```
+
+## Key Test Scenarios Covered
+
+### Anonymous Participants
+
+- ✅ Visit conversation without initial JWT
+- ✅ Receive JWT when voting for the first time
+- ✅ Use JWT for subsequent API requests
+- ✅ JWT persists across page refreshes
+- ✅ JWT validates correctly on server
+
+### XID Participants
+
+- ✅ Visit conversation with XID parameter
+- ✅ Receive XID JWT when voting
+- ✅ Maintain XID identity across sessions
+- ✅ Handle different XID formats
+- ✅ XID JWT validates correctly on server
+
+### JWT Validation
+
+- ✅ Valid JWT signatures accepted by server
+- ✅ Invalid JWT tokens rejected
+- ✅ JWT tokens scoped to specific conversations
+
+## Benefits of New Approach
+
+1. **Realistic Testing** - Tests match actual user behavior
+2. **Reliable Setup** - Conversations exist before participant testing
+3. **Clear Flow** - Explicit JWT issuance verification
+4. **Better Coverage** - Tests both anonymous and XID scenarios
+5. **Easier Debugging** - Clear logging and error messages
+
+## Common Issues & Solutions
+
+### JWT Not Issued
+
+- **Cause**: Vote request failed or response not parsed
+- **Solution**: Check browser network tab, verify conversation exists
+
+### Test Timeouts
+
+- **Cause**: Waiting for non-existent elements
+- **Solution**: Adjust selectors in `voteOnComment()` function
+
+### Conversation Not Found
+
+- **Cause**: Test conversation creation failed
+- **Solution**: Verify Auth0 simulator is running and user credentials are correct
+
+### Cross-Conversation JWT Issues
+
+- **Cause**: JWT tokens are conversation-scoped
+- **Solution**: Create separate JWTs for each conversation test
