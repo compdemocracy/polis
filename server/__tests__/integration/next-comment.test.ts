@@ -2,18 +2,16 @@ import { beforeAll, describe, expect, test, jest } from "@jest/globals";
 import type { Response } from "supertest";
 import type { Agent } from "supertest";
 import {
-  getTestAgent,
-  getTextAgent,
+  createConversation,
+  getJwtAuthenticatedAgent,
+  newAgent,
+  setAgentJwt,
   initializeParticipant,
-  setupAuthAndConvo,
   submitVote,
 } from "../setup/api-test-helpers";
 
-interface Comment {
-  tid: number;
-  txt: string;
-  [key: string]: any;
-}
+import { getPooledTestUser } from "../setup/test-user-helpers";
+import type { TestUser } from "../../types/test-helpers";
 
 jest.mock("fs/promises", () => ({
   readFile: jest.fn().mockImplementation((path) => {
@@ -77,22 +75,49 @@ jest.mock("@google/genai", () => {
 describe("Next Comment Endpoint", () => {
   // Declare agent variables
   let agent: Agent;
-  let textAgent: Agent;
+  let testAgent: Agent;
   let conversationId: string | null = null;
   let commentIds: number[] = [];
+  let testUser: TestUser;
+  let token: string;
 
   beforeAll(async () => {
-    // Initialize agents
-    agent = await getTestAgent();
-    textAgent = await getTextAgent();
+    const pooledUser = getPooledTestUser(1);
+    testUser = {
+      email: pooledUser.email,
+      hname: pooledUser.name,
+      password: pooledUser.password,
+    };
 
-    // Setup auth and create test conversation with multiple comments
-    const setup = await setupAuthAndConvo({
-      commentCount: 5,
+    // Get JWT token and agent
+    const authResult = await getJwtAuthenticatedAgent(testUser);
+    agent = authResult.agent;
+    token = authResult.token;
+
+    // Create agent for handling responses
+    testAgent = await newAgent();
+    setAgentJwt(testAgent, token);
+
+    // Create test conversation
+    conversationId = await createConversation(agent, {
+      topic: "Next Comment Test Conversation",
     });
 
-    conversationId = setup.conversationId;
-    commentIds = setup.commentIds;
+    // Create multiple comments directly to avoid duplicates
+    const timestamp = Date.now();
+    commentIds = [];
+
+    for (let i = 1; i <= 5; i++) {
+      const createResponse: Response = await agent
+        .post("/api/v3/comments")
+        .send({
+          conversation_id: conversationId,
+          txt: `Test comment ${i} ${timestamp}`,
+        });
+      expect(createResponse.status).toBe(200);
+      const commentId = JSON.parse(createResponse.text).tid;
+      commentIds.push(commentId);
+    }
 
     // Ensure we have comments to work with
     expect(commentIds.length).toBe(5);
@@ -127,9 +152,12 @@ describe("Next Comment Endpoint", () => {
 
     // Validate response
     expect(response.status).toBe(200);
-    expect(response.body).toBeDefined();
-    expect(response.body.tid).toBeDefined();
-    expect(response.body.txt).toBeDefined();
+
+    // Response data is automatically parsed into response.body
+    const responseData = response.body;
+    expect(responseData).toBeDefined();
+    expect(responseData.tid).toBeDefined();
+    expect(responseData.txt).toBeDefined();
   });
 
   test("GET /nextComment - Respect not_voted_by_pid parameter", async () => {
@@ -151,28 +179,26 @@ describe("Next Comment Endpoint", () => {
     expect(firstVoteResponse.body).toHaveProperty("currentPid");
     expect(firstVoteResponse.body).toHaveProperty("nextComment");
 
-    const {
-      currentPid: firstVoterPid,
-      nextComment: secondComment,
-    } = firstVoteResponse.body;
+    const { currentPid: firstVoterPid, nextComment: secondComment } =
+      firstVoteResponse.body;
 
     // Vote on 3 more comments
     const secondVoteResponse = await submitVote(firstAgent, {
-      pid: firstVoterPid,
+      pid: Number(firstVoterPid),
       tid: secondComment.tid,
       conversation_id: conversationId!,
       vote: 0,
     });
 
     const thirdVoteResponse = await submitVote(firstAgent, {
-      pid: firstVoterPid,
+      pid: Number(firstVoterPid),
       tid: secondVoteResponse.body.nextComment.tid,
       conversation_id: conversationId!,
       vote: 0,
     });
 
     const fourthVoteResponse = await submitVote(firstAgent, {
-      pid: firstVoterPid,
+      pid: Number(firstVoterPid),
       tid: thirdVoteResponse.body.nextComment.tid,
       conversation_id: conversationId!,
       vote: 0,
@@ -190,13 +216,14 @@ describe("Next Comment Endpoint", () => {
 
     // Validate response - should return the comment not voted on by the first participant
     expect(nextResponse.status).toBe(200);
-    expect(nextResponse.body).toBeDefined();
-    expect(nextResponse.body.tid).toBe(lastComment.tid);
+    const nextResponseData = nextResponse.body;
+    expect(nextResponseData).toBeDefined();
+    expect(nextResponseData.tid).toBe(lastComment.tid);
   });
 
   test("GET /nextComment - 400 for missing conversation_id", async () => {
     // Request without required conversation_id
-    const response: Response = await textAgent.get("/api/v3/nextComment");
+    const response: Response = await testAgent.get("/api/v3/nextComment");
 
     // Validate response
     expect(response.status).toBe(400);

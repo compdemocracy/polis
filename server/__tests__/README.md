@@ -127,3 +127,51 @@ If tests timeout, try:
    ```
 
 2. Check for any blocking async operations that might not be resolving
+
+## Auth0 Simulator Setup (for JWT Tests)
+
+Integration tests for JWT-based authentication use `@simulacrum/auth0-simulator`. This simulator runs an HTTPS server and requires locally trusted SSL certificates. We use `mkcert` to generate these certificates.
+
+**One-time Setup:**
+
+1. **Install `mkcert`**:
+    Follow the installation instructions for your operating system on the [mkcert GitHub repository](https://github.com/FiloSottile/mkcert).
+    For example, on macOS with Homebrew:
+
+    ```bash
+    brew install mkcert
+    brew install nss # if you use Firefox
+    ```
+
+2. **Install a local Certificate Authority (CA)**:
+    This command creates a local CA and installs it in your system's trust stores. You may be prompted for your password.
+
+    ```bash
+    mkcert -install
+    ```
+
+3. **Generate Certificates for the Simulator**:
+    The Auth0 simulator, by default, looks for certificates in `~/.simulacrum/certs/`. Create these certificates for `localhost`:
+
+    ```bash
+    mkdir -p ~/.simulacrum/certs
+    (cd ~/.simulacrum/certs && mkcert localhost 127.0.0.1 ::1)
+    ```
+
+    This will create `localhost.pem` (certificate) and `localhost-key.pem` (private key) in that directory.
+
+**How it Works with Tests:**
+
+- The Auth0 simulator, when started within the Jest tests (`__tests__/integration/auth-jwt.test.ts`), will automatically find and use these certificates.
+- The application server (Node.js) needs to trust this local CA when fetching the JWKS URI from the simulator. The `npm test` script in `package.json` handles this by setting the `NODE_EXTRA_CA_CERTS` environment variable:
+
+    ```json
+    "scripts": {
+      "test": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem jest",
+      // ... other scripts
+    }
+    ```
+
+    This command dynamically finds the path to your `mkcert` root CA certificate (`rootCA.pem`) and tells Node.js to trust it.
+
+If you encounter SSL errors related to the Auth0 simulator or JWKS fetching during tests, ensure you have completed these `mkcert` setup steps.

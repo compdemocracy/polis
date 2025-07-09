@@ -1,113 +1,90 @@
 /**
+ * The Auth0 simulator must be running in Docker before running tests.
  * Global setup for Jest tests
  * This file is executed once before any test files are loaded
+ *
+ * Note: This setup is now optional - individual tests can create their own
+ * app instances using createAppInstance() for parallel execution.
  */
-import { AddressInfo } from "net";
-import { getApp } from "../app-loader";
-import { newAgent, newTextAgent } from "./api-test-helpers";
-import { deleteAllEmails } from "./email-helpers";
+import "dotenv/config";
+import request from "supertest";
+import { syncAllPooledUsers } from "./api-test-helpers";
 
 /**
- * Create a simplified server object for testing
- * This avoids actually binding to a port while still providing the server interface needed for tests
- *
- * @param port - The port number to use in the server address info
- * @returns A minimal implementation of http.Server with just what we need for tests
+ * Global test setup that runs once before all test suites
  */
-function createTestServer(port: number): import("http").Server {
-  const server = {
-    address: (): AddressInfo => ({
-      port,
-      family: "IPv4",
-      address: "127.0.0.1",
-    }),
-    close: (callback?: (err?: Error) => void) => {
-      if (callback) callback();
-    },
-  };
-  return server as import("http").Server;
-}
-
-export default async (): Promise<void> => {
+async function globalSetup() {
   console.log("Starting global test setup...");
 
-  // Check if a server is already running and close it to avoid port conflicts
-  // Use type assertion for global access
-  if ((globalThis as any).__SERVER__) {
-    try {
-      await new Promise<void>((resolve, reject) => {
-        // Add reject
-        // Use type assertion for global access
-        (globalThis as any).__SERVER__.close((err?: Error) => {
-          // Handle potential error
-          if (err) {
-            console.warn(
-              "Warning: Error closing existing server during setup:",
-              err.message
-            );
-            // Decide whether to reject or resolve even if close fails
-            // reject(err); // Option 1: Fail setup if closing fails
-            resolve(); // Option 2: Continue setup even if closing fails (might leave previous server lingering)
-          } else {
-            // Use type assertion for global access
-            console.log(
-              `Closed existing test server on port ${
-                (globalThis as any).__SERVER_PORT__
-              }`
-            );
-            resolve();
-          }
-        });
-      });
-    } catch (err) {
-      // Catch potential rejection from the promise
-      console.warn(
-        "Warning: Error closing existing server (caught promise rejection):",
-        err instanceof Error ? err.message : String(err)
-      );
-    }
-  }
+  // Set necessary environment variables for tests
+  process.env.NODE_ENV = "test";
+  process.env.TESTING = "true";
 
-  // Use a test server since we're using the app instance directly
-  const port = 5001; // Use a consistent port for tests
-  const server = createTestServer(port);
-
-  console.log(`Test server started on port ${port}`);
-
-  // Store the server and port in global variables for tests to use
-  // Use type assertion for global access
-  (globalThis as any).__SERVER__ = server;
-  (globalThis as any).__SERVER_PORT__ = port;
-
-  // Create agents that use the app instance directly
-  // Only create new agents if they don't already exist
   try {
-    // Initialize the app asynchronously, ensuring it's fully loaded
-    await getApp();
+    // Import and store app instance globally (optional - for backwards compatibility)
+    const { getApp } = await import("../app-loader");
+    const app = await getApp();
+    (globalThis as any).__APP_INSTANCE__ = app;
 
-    // Use type assertion for global access
-    if (!(globalThis as any).__TEST_AGENT__) {
-      (globalThis as any).__TEST_AGENT__ = await newAgent();
-      console.log("Created new global test agent");
+    // Start server on dynamic port (0 = OS assigns available port)
+    // This is optional - individual tests can create their own servers
+    const server = app.listen(0, () => {
+      const address = server.address();
+      if (address && typeof address === "object") {
+        const port = address.port;
+        console.log(`Global test server started on dynamic port: ${port}`);
+
+        // Store the dynamic port and server URL globally
+        process.env.TEST_SERVER_PORT = port.toString();
+        process.env.TEST_SERVER_URL = `http://localhost:${port}`;
+
+        // Store server instance and port for cleanup
+        (globalThis as any).__TEST_SERVER__ = server;
+        (globalThis as any).__TEST_SERVER_PORT__ = port;
+      }
+    });
+
+    // Wait for server to be ready
+    await new Promise<void>((resolve, reject) => {
+      server.once("listening", () => {
+        const address = server.address();
+        const port =
+          address && typeof address === "object" ? address.port : "unknown";
+        console.log(`Global test server listening on port: ${port}`);
+        resolve();
+      });
+
+      server.once("error", (error: Error) => {
+        console.error("Error starting global test server:", error);
+        reject(error);
+      });
+
+      // Timeout after 10 seconds
+      setTimeout(() => {
+        reject(
+          new Error("Global test server failed to start within 10 seconds")
+        );
+      }, 10000);
+    });
+
+    // Create and store global agent instances (optional)
+    if ((globalThis as any).__APP_INSTANCE__) {
+      (globalThis as any).__TEST_AGENT__ = request.agent(
+        (globalThis as any).__APP_INSTANCE__
+      );
+      console.log("Created global test agent");
     }
 
-    // Use type assertion for global access
-    if (!(globalThis as any).__TEXT_AGENT__) {
-      (globalThis as any).__TEXT_AGENT__ = await newTextAgent();
-      console.log("Created new global text agent");
-    }
-  } catch (err) {
-    console.error("Error initializing app or agents:", err);
-    throw err;
+    // Sync pooled users with the database
+    // This ensures test users exist in both Auth0 simulator and local database
+    await syncAllPooledUsers();
+
+    console.log("Global test setup completed successfully");
+  } catch (error) {
+    console.error("Error in global test setup:", error);
+    console.log("Tests will fall back to creating individual app instances");
+    // Don't throw - allow tests to create their own app instances
   }
+}
 
-  // Clear any existing emails
-  await deleteAllEmails();
-
-  // Store the API URL with the dynamic port
-  // Use type assertion for global access
-  (globalThis as any).__API_URL__ = `http://localhost:${port}`;
-  (globalThis as any).__API_PREFIX__ = "/api/v3";
-
-  console.log("Global test setup completed");
-};
+export default globalSetup;

@@ -1,14 +1,17 @@
-import { beforeAll, describe, expect, test } from '@jest/globals';
+import { beforeAll, describe, expect, test } from "@jest/globals";
 import {
   createComment,
-  getTestAgent,
-  getTextAgent,
+  createConversation,
+  getJwtAuthenticatedAgent,
+  newAgent,
+  setAgentJwt,
   initializeParticipant,
-  setupAuthAndConvo,
-  submitVote
-} from '../setup/api-test-helpers';
-import type { Response } from 'supertest';
-import type { Agent } from 'supertest';
+  submitVote,
+} from "../setup/api-test-helpers";
+import { getPooledTestUser } from "../setup/test-user-helpers";
+import type { Response } from "supertest";
+import type { Agent } from "supertest";
+import type { TestUser } from "../../types/test-helpers";
 
 interface Comment {
   tid: number;
@@ -25,32 +28,48 @@ interface VoteResponse {
   [key: string]: any;
 }
 
-describe('Extended Comment Endpoints', () => {
+describe("Extended Comment Endpoints", () => {
   let conversationId: string;
-  let commentId: number;
   let agent: Agent;
-  let textAgent: Agent;
+  let testAgent: Agent;
+  let testUser: TestUser;
+  let token: string;
 
   beforeAll(async () => {
-    agent = await getTestAgent();
-    textAgent = await getTextAgent();
+    const pooledUser = getPooledTestUser(1);
+    testUser = {
+      email: pooledUser.email,
+      hname: pooledUser.name,
+      password: pooledUser.password,
+    };
+
+    // Get JWT token and agent
+    const authResult = await getJwtAuthenticatedAgent(testUser);
+    agent = authResult.agent;
+    token = authResult.token;
+
+    // Create agent for handling responses
+    testAgent = await newAgent();
+    setAgentJwt(testAgent, token);
 
     // Set up auth and conversation with comments
-    const setup = await setupAuthAndConvo({ commentCount: 1 });
-    conversationId = setup.conversationId;
-    commentId = setup.commentIds[0];
+    conversationId = await createConversation(agent, {
+      topic: "Extended Comment Test Conversation",
+    });
   });
 
-  test('GET /comments with tids - Get specific comment by ID', async () => {
+  test("GET /comments with tids - Get specific comment by ID", async () => {
     // Create a new comment to ensure clean test data
     const timestamp = Date.now();
     const commentText = `Test comment for individual retrieval ${timestamp}`;
     const newCommentId: number = await createComment(agent, conversationId, {
-      txt: commentText
+      txt: commentText,
     });
 
     // Retrieve the specific comment by ID using the tids parameter
-    const commentsResponse: Response = await agent.get(`/api/v3/comments?conversation_id=${conversationId}&tids=${newCommentId}`);
+    const commentsResponse: Response = await agent.get(
+      `/api/v3/comments?conversation_id=${conversationId}&tids=${newCommentId}`
+    );
 
     expect(commentsResponse.status).toBe(200);
     const comments: Comment[] = JSON.parse(commentsResponse.text);
@@ -65,9 +84,9 @@ describe('Extended Comment Endpoints', () => {
     expect(comment.txt).toBe(commentText);
   });
 
-  test('GET /comments with non-existent tid returns empty array', async () => {
+  test("GET /comments with non-existent tid returns empty array", async () => {
     // Request a comment with an invalid ID
-    const nonExistentId: number = 999999999;
+    const nonExistentId = 999999999;
     const commentsResponse: Response = await agent.get(
       `/api/v3/comments?conversation_id=${conversationId}&tids=${nonExistentId}`
     );
@@ -80,23 +99,30 @@ describe('Extended Comment Endpoints', () => {
     expect(comments.length).toBe(0);
   });
 
-  test('PUT /comments - Moderate a comment', async () => {
-    // Create a new comment to test moderation
+  test("PUT /comments - Moderate a comment", async () => {
+    // Create a new comment directly without using helper to avoid duplicates
     const timestamp = Date.now();
     const commentText = `Comment for moderation test ${timestamp}`;
-    const moderationCommentId: number = await createComment(agent, conversationId, {
-      txt: commentText
+
+    const createResponse: Response = await agent.post("/api/v3/comments").send({
+      conversation_id: conversationId,
+      txt: commentText,
     });
 
+    expect(createResponse.status).toBe(200);
+    const moderationCommentId = JSON.parse(createResponse.text).tid;
+
     // Moderate the comment - this endpoint is for moderation, not updating text
-    const updateResponse: Response = await agent.put('/api/v3/comments').send({
-      tid: moderationCommentId,
-      conversation_id: conversationId,
-      active: true, // Required - determines if comment is active
-      mod: 1, // Required - moderation status (0=ok, 1=hidden, etc.)
-      is_meta: false, // Required - meta comment flag
-      velocity: 1 // Required - comment velocity (0-1)
-    });
+    const updateResponse: Response = await testAgent
+      .put("/api/v3/comments")
+      .send({
+        tid: moderationCommentId,
+        conversation_id: conversationId,
+        active: true, // Required - determines if comment is active
+        mod: 1, // Required - moderation status (0=ok, 1=hidden, etc.)
+        is_meta: false, // Required - meta comment flag
+        velocity: 1, // Required - comment velocity (0-1)
+      });
 
     // Validate update response
     expect(updateResponse.status).toBe(200);
@@ -119,12 +145,24 @@ describe('Extended Comment Endpoints', () => {
     expect(moderatedComment.txt).toBe(commentText);
   });
 
-  test('PUT /comments - Validation fails for missing required fields', async () => {
+  test("PUT /comments - Validation fails for missing required fields", async () => {
+    // Create a comment directly without using helper to avoid duplicates
+    const timestamp = Date.now();
+    const commentText = `A comment to fail to moderate ${timestamp}`;
+
+    const createResponse: Response = await agent.post("/api/v3/comments").send({
+      conversation_id: conversationId,
+      txt: commentText,
+    });
+
+    expect(createResponse.status).toBe(200);
+    const commentId = JSON.parse(createResponse.text).tid;
+
     // Try to update a comment with missing required fields
-    const response: Response = await textAgent.put('/api/v3/comments').send({
+    const response: Response = await testAgent.put("/api/v3/comments").send({
       // Missing various required fields
       tid: commentId,
-      conversation_id: conversationId
+      conversation_id: conversationId,
       // Missing: active, mod, is_meta, velocity
     });
 
@@ -132,29 +170,51 @@ describe('Extended Comment Endpoints', () => {
     expect(response.text).toMatch(/polis_err_param_missing/);
   });
 
-  test('GET /comments - Filtering by multiple parameters', async () => {
-    // Create multiple comments with different attributes
-    const comment1Id: number = await createComment(agent, conversationId, {
-      txt: `Comment for filtering test 1 ${Date.now()}`
-    });
+  test("GET /comments - Filtering by multiple parameters", async () => {
+    // Create multiple comments directly to avoid duplicates
+    const timestamp = Date.now();
 
-    const comment2Id: number = await createComment(agent, conversationId, {
-      txt: `Comment for filtering test 2 ${Date.now()}`
-    });
+    // Create comment 1
+    const create1Response: Response = await agent
+      .post("/api/v3/comments")
+      .send({
+        conversation_id: conversationId,
+        txt: `Comment for filtering test 1 ${timestamp}`,
+      });
+    expect(create1Response.status).toBe(200);
+    const comment1Id = JSON.parse(create1Response.text).tid;
 
-    const comment3Id: number = await createComment(agent, conversationId, {
-      txt: `Comment for filtering test 3 ${Date.now()}`
-    });
+    // Create comment 2
+    const create2Response: Response = await agent
+      .post("/api/v3/comments")
+      .send({
+        conversation_id: conversationId,
+        txt: `Comment for filtering test 2 ${timestamp}`,
+      });
+    expect(create2Response.status).toBe(200);
+    const comment2Id = JSON.parse(create2Response.text).tid;
 
-    // Moderate comment 2
-    const moderateResponse: Response = await agent.put('/api/v3/comments').send({
-      tid: comment2Id,
-      conversation_id: conversationId,
-      active: true,
-      mod: 1,
-      is_meta: false,
-      velocity: 1
-    });
+    // Create comment 3
+    const create3Response: Response = await agent
+      .post("/api/v3/comments")
+      .send({
+        conversation_id: conversationId,
+        txt: `Comment for filtering test 3 ${timestamp}`,
+      });
+    expect(create3Response.status).toBe(200);
+    const comment3Id = JSON.parse(create3Response.text).tid;
+
+    // Moderate comment 2 - use testAgent for moderation endpoint
+    const moderateResponse: Response = await testAgent
+      .put("/api/v3/comments")
+      .send({
+        tid: comment2Id,
+        conversation_id: conversationId,
+        active: true,
+        mod: 1,
+        is_meta: false,
+        velocity: 1,
+      });
 
     expect(moderateResponse.status).toBe(200);
 
@@ -190,30 +250,46 @@ describe('Extended Comment Endpoints', () => {
     expect(moderatedCommentIds).toContain(comment2Id);
   });
 
-  test('GET /comments - Filtering by not_voted_by_pid parameter', async () => {
-    // Create two new comments
-    const comment1Id: number = await createComment(agent, conversationId, {
-      txt: `Comment for not_voted_by_pid test 1 ${Date.now()}`
-    });
+  test("GET /comments - Filtering by not_voted_by_pid parameter", async () => {
+    // Create two new comments directly to avoid duplicates
+    const timestamp = Date.now();
 
-    const comment2Id: number = await createComment(agent, conversationId, {
-      txt: `Comment for not_voted_by_pid test 2 ${Date.now()}`
-    });
+    // Create comment 1
+    const create1Response: Response = await agent
+      .post("/api/v3/comments")
+      .send({
+        conversation_id: conversationId,
+        txt: `Comment for not_voted_by_pid test 1 ${timestamp}`,
+      });
+    expect(create1Response.status).toBe(200);
+    const comment1Id = JSON.parse(create1Response.text).tid;
+
+    // Create comment 2
+    const create2Response: Response = await agent
+      .post("/api/v3/comments")
+      .send({
+        conversation_id: conversationId,
+        txt: `Comment for not_voted_by_pid test 2 ${timestamp}`,
+      });
+    expect(create2Response.status).toBe(200);
+    const comment2Id = JSON.parse(create2Response.text).tid;
 
     // Initialize a participant
-    const { agent: participantAgent } = await initializeParticipant(conversationId);
+    const { agent: participantAgent } = await initializeParticipant(
+      conversationId
+    );
 
     // Vote on one of the comments as the participant
-    const voteResponse: Response = await submitVote(participantAgent, {
+    const voteResponse = await submitVote(participantAgent, {
       tid: comment1Id,
       conversation_id: conversationId,
-      vote: 1 // 1 is disagree in this system
+      vote: 1, // 1 is disagree in this system
     });
 
     expect(voteResponse.status).toBe(200);
 
     const voteData = voteResponse.body as VoteResponse;
-    expect(voteData).toHaveProperty('currentPid');
+    expect(voteData).toHaveProperty("currentPid");
     const currentPid: string = voteData.currentPid;
 
     // Get comments not voted on by this participant
@@ -235,9 +311,9 @@ describe('Extended Comment Endpoints', () => {
     expect(returnedIds).toContain(comment2Id);
   });
 
-  test('GET /comments/translations - returns 400 for missing conversation_id', async () => {
+  test("GET /comments/translations - returns 400 for missing conversation_id", async () => {
     const response: Response = await agent.get(
-      `/api/v3/comments/translations?conversation_id=${conversationId}&tid=${commentId}&lang=en`
+      `/api/v3/comments/translations?conversation_id=${conversationId}&tid=0&lang=en`
     );
 
     // NOTE: The legacy implementation has a bug (does not use moveToBody for GET params)

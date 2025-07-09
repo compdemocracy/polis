@@ -2,61 +2,216 @@
 
 This directory contains integration tests for the Polis API. These tests verify the correctness of API endpoints by making actual HTTP requests to the server and checking the responses.
 
+## Authentication Architecture
+
+As of the Auth0 JWT migration, the API supports multiple authentication methods in priority order:
+
+1. **Auth0 JWT** (preferred for standard users)
+2. **XID JWT** (for external integrations)  
+3. **Anonymous JWT** (for anonymous participants)
+4. **Legacy methods** (cookies, API keys) - deprecated, used as fallback
+
+### Auth0 Simulator Requirement
+
+**Important**: Integration tests require the Auth0 simulator to be running for JWT authentication tests.
+
+```bash
+# Start the Auth0 simulator (from project root)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up auth0-simulator
+
+# Or if using the full development stack
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+```
+
+The simulator provides pre-registered test users that are compatible with JWT authentication tests.
+
 ## Structure
 
 Each test file focuses on a specific aspect of the API:
 
-- `auth.test.js` - Authentication endpoints
-- `comment.test.js` - Comment creation and retrieval endpoints
-- `conversation.test.js` - Conversation creation and management endpoints
-- `health.test.js` - Health check endpoints
-- `participation.test.js` - Participation and initialization endpoints
-- `tutorial.test.js` - Tutorial step tracking endpoints
-- `vote.test.js` - Voting endpoints
+- `auth-jwt.test.ts` - Auth0 JWT authentication
+- `xid-auth.test.ts` - XID JWT authentication
+- `anonymous-jwt.test.ts` - Anonymous JWT authentication
+- `auth.test.ts` - Legacy authentication endpoints (deprecated)
+- `comment.test.ts` - Comment creation and retrieval endpoints
+- `conversation.test.ts` - Conversation creation and management endpoints
+- `conversation-details.test.ts` - Conversation details and stats endpoints
+- `conversation-preload.test.ts` - Conversation preload information
+- `health.test.ts` - Health check endpoints
+- `participation.test.ts` - Participation and initialization endpoints
+- `tutorial.test.ts` - Tutorial step tracking endpoints
+- `vote.test.ts` - Voting endpoints
+- `routes-jwt-validation.test.ts` - Comprehensive route authentication validation
+
+## Authentication Patterns
+
+### JWT Authentication (Recommended)
+
+For tests that need authenticated users, use the JWT authentication pattern:
+
+```typescript
+import { getJwtAuthenticatedAgent } from '../setup/api-test-helpers';
+import { getPooledTestUser } from '../setup/test-user-helpers';
+
+describe('My Authenticated Test', () => {
+  let agent: Agent;
+
+  beforeEach(async () => {
+    // Use pooled users (pre-registered in Auth0 simulator)
+    const pooledUser = getPooledTestUser(1);
+    const testUser = {
+      email: pooledUser.email,
+      hname: pooledUser.name,
+      password: pooledUser.password,
+    };
+    
+    // Get JWT authenticated agent
+    const { agent: jwtAgent } = await getJwtAuthenticatedAgent(testUser);
+    agent = jwtAgent;
+  });
+
+  test('should work with JWT auth', async () => {
+    const response = await agent.post('/api/v3/conversations').send({
+      topic: 'Test Conversation'
+    });
+    expect(response.status).toBe(200);
+  });
+});
+```
+
+### XID Authentication
+
+For external integration tests:
+
+```typescript
+import { getXidAuthenticatedAgent } from '../setup/xid-jwt-test-helpers';
+
+describe('XID Integration Test', () => {
+  test('should work with XID JWT', async () => {
+    const { agent } = await getXidAuthenticatedAgent({
+      xid: 'test-external-user',
+      ownerUid: 1
+    });
+    
+    const response = await agent.get('/api/v3/some-endpoint');
+    expect(response.status).toBe(200);
+  });
+});
+```
+
+### Anonymous Participation
+
+For anonymous user tests:
+
+```typescript
+import { initializeParticipant } from '../setup/api-test-helpers';
+
+describe('Anonymous Participation Test', () => {
+  test('should initialize anonymous participant', async () => {
+    const { agent, token } = await initializeParticipant(conversationId);
+    
+    // Agent is automatically configured with JWT token
+    const response = await agent.post('/api/v3/votes').send(voteData);
+    expect(response.status).toBe(200);
+  });
+});
+```
+
+### Legacy Authentication (Deprecated)
+
+**⚠️ Deprecated**: Avoid using `registerAndLoginUser()` for new tests. This pattern uses legacy cookie authentication which is being phased out.
+
+```typescript
+// ❌ Don't use this pattern for new tests
+const auth = await registerAndLoginUser();
+const agent = auth.agent;
+
+// ✅ Use JWT authentication instead  
+const { agent } = await getJwtAuthenticatedAgent(testUser);
+```
 
 ## Shared Test Helpers
 
-To maintain consistency and reduce duplication, all test files use shared helper functions from `__tests__/setup/api-test-helpers.js`. These include:
+To maintain consistency and reduce duplication, all test files use shared helper functions from `__tests__/setup/api-test-helpers.ts`. These include:
+
+### Authentication Helpers
+
+- `getJwtAuthenticatedAgent(testUser)` - Creates an agent with Auth0 JWT authentication
+- `getAuth0Token(user)` - Gets an Auth0 token from the simulator
+- `setAgentJwt(agent, token)` - Sets JWT authorization header on an existing agent
+
+### User Management Helpers
+
+- `getPooledTestUser(index)` - Gets a pre-registered test user from the Auth0 simulator
 
 ### Data Generation Helpers
 
-- `generateTestUser()` - Creates random user data for registration
 - `generateRandomXid()` - Creates random external IDs for testing
 
 ### Entity Creation Helpers
 
-- `createConversation()` - Creates a conversation with the specified options
-- `createComment()` - Creates a comment in a conversation
-- `registerAndLoginUser()` - Registers and logs in a user in one step
+- `createConversation(agent, options)` - Creates a conversation with the specified options
+- `createComment(agent, conversationId, options)` - Creates a comment in a conversation
+- `registerAndLoginUser(userData)` - **Deprecated**: Registers and logs in a user with cookies
 
 ### Participation and Voting Helpers
 
-- `initializeParticipant()` - Initializes an anonymous participant for voting
-- `initializeParticipantWithXid()` - Initializes a participant for voting with an external ID
-- `submitVote()` - Submits a vote on a comment
-- `getVotes()` - Retrieves votes for a conversation
-- `getMyVotes()` - Retrieves a participant's votes
+- `initializeParticipant(conversationId)` - Initializes an anonymous participant (now returns JWT)
+- `initializeParticipantWithXid(conversationId, xid)` - Initializes a participant with external ID (now returns JWT)
+- `submitVote(agent, options)` - Submits a vote on a comment
 
 ### Response Handling Utilities
 
-- `validateResponse()` - Validates API responses with proper status and property checks
-- `formatErrorMessage()` - Formats error messages consistently from API responses
-- `hasResponseProperty()` - Safely checks for properties in responses (handles falsy values correctly)
-- `getResponseProperty()` - Safely gets property values from responses (handles falsy values correctly)
-- `extractCookieValue()` - Extracts a cookie value from response headers
+- `validateResponse(response, options)` - Validates API responses with proper status and property checks
+- `formatErrorMessage(response, prefix)` - Formats error messages consistently from API responses
+- `hasResponseProperty(response, propertyPath)` - Safely checks for properties in responses (handles falsy values correctly)
+
 
 ### Test Setup Helpers
 
-- `setupAuthAndConvo()` - Sets up authentication, creates a conversation, and comments in one step
-- `wait()` - Pauses execution for a specified time
+- `setupAuthAndConvo(options)` - **Updated**: Now uses JWT authentication by default
+  - Automatically clears domain whitelist for test users to avoid domain restrictions
+  - Creates conversations with sensible defaults for testing
+  - Returns user ID, conversation ID, and comment IDs
+- `wait(ms)` - Pauses execution for a specified time
+
+## Migration Considerations
+
+When updating existing tests to use JWT authentication:
+
+1. **Replace authentication setup**:
+
+   ```typescript
+   // Before
+   const auth = await registerAndLoginUser();
+   const agent = auth.agent;
+   
+   // After  
+   const { agent } = await getJwtAuthenticatedAgent(testUser);
+   ```
+
+2. **Use pooled users** for Auth0 simulator compatibility:
+
+   ```typescript
+   const pooledUser = getPooledTestUser(1); // Users 1-3 are available
+   const testUser = {
+     email: pooledUser.email,
+     hname: pooledUser.name, 
+     password: pooledUser.password,
+   };
+   ```
+
+3. **Update test lifecycle**: Consider using `beforeEach` instead of `beforeAll` for better test isolation with fresh JWT tokens.
+
+4. **Check endpoint authentication**: Some endpoints that previously worked without authentication now require JWT due to the `hybridAuth()` middleware.
 
 ## Response Handling
 
 The test helpers are designed to handle various quirks of the legacy server:
 
-- **Content-Type Mismatches**: The legacy server sometimes sends plain text responses with `content-type: application/json`. Our test helpers handle this by attempting JSON parsing first, then falling back to raw text.
+- **Consistent JSON Responses**: The server now sends proper JSON responses for all endpoints, eliminating content-type mismatches.
   
-- **Error Response Format**: Error responses are often plain text error codes (e.g., `polis_err_param_missing_password`) rather than structured JSON objects. The test helpers check for both formats.
+- **Error Response Format**: Error responses are now properly structured JSON objects with error codes.
 
 - **Gzip Compression**: Some responses are gzipped, either with or without proper `content-encoding: gzip` headers. The helpers automatically detect and decompress gzipped content.
 
@@ -83,34 +238,33 @@ To use the email testing capabilities, ensure MailDev is running (included in th
 
 To simplify API testing and handle various response types properly, we've implemented a global test agent pattern:
 
-### Available Global Agents
+### Available Global Agent
 
-Two pre-configured test agents are available globally in all test files:
+A pre-configured test agent is available globally in all test files:
 
-- `global.__TEST_AGENT__`: A standard Supertest agent that maintains cookies across requests
-- `global.__TEXT_AGENT__`: A specialized agent that properly handles text responses with JSON content-type
+- `global.__TEST_AGENT__`: A standard Supertest agent that maintains auth across requests
 
-### Using the Global Agents
 
-Import the global agents in your test files:
+### Using the Global Agent
+
+Import the global agent in your test files:
 
 ```javascript
 describe('My API Test', () => {
-  // Access the global agents
+  // Access the global agent
   const agent = global.__TEST_AGENT__;
-  const textAgent = global.__TEXT_AGENT__;
   
   test('Test with JSON responses', async () => {
-    // Use standard agent for proper JSON responses
+    // All endpoints now return proper JSON
     const response = await agent.get('/api/v3/conversations');
     expect(response.status).toBe(200);
   });
   
-  test('Test with text/error responses', async () => {
-    // Use text agent for endpoints that return text errors
-    const response = await textAgent.post('/api/v3/auth/login').send({});
+  test('Test with error responses', async () => {
+    // Error responses are now JSON
+    const response = await agent.post('/api/v3/auth/login').send({});
     expect(response.status).toBe(400);
-    expect(response.text).toContain('polis_err_param_missing_password');
+    expect(response.body.error).toContain('polis_err_param_missing_password');
   });
 });
 ```
@@ -119,11 +273,8 @@ describe('My API Test', () => {
 
 You can use these standalone helper functions:
 
-- `makeTextRequest(app, method, path)`: Creates a single request with text parsing
-- `createTextAgent(app)`: Creates an agent with text parsing
 - `authenticateAgent(agent, token)`: Authenticates a single agent with a token
-- `authenticateGlobalAgents(token)`: Authenticates both global agents with the same token
-- `parseResponseJSON(response)`: Safely parses JSON response objects
+
 
 And these agent-based versions of common test operations:
 
@@ -137,17 +288,22 @@ See `__tests__/integration/example-global-agent.test.js` for a full example of t
 
 ### Best Practices
 
-1. First determine if a `.test.supertest.js` version should be created for parallel testing, or if the original file should be updated directly.
+1. **Choose the right authentication method**: Use JWT authentication (`getJwtAuthenticatedAgent`) for new tests unless specifically testing legacy functionality.
 
-2. Replace direct `http` or `request` imports with the global agents:
+2. **Use pooled users** for Auth0 compatibility:
+
+   ```typescript
+   const pooledUser = getPooledTestUser(Math.floor(Math.random() * 3) + 1);
+   ```
+
+3. Replace direct `http` or `request` imports with the global agent pattern:
 
 ```javascript
-// Access the global agents
-const agent = global.__TEST_AGENT__; // For JSON responses 
-const textAgent = global.__TEXT_AGENT__; // For handling text responses
+// Access the global agent
+const agent = global.__TEST_AGENT__;
 ```
 
-3. Replace direct HTTP requests with agent requests:
+4. Replace direct HTTP requests with agent requests:
 
 ```javascript
 // Before:
@@ -157,24 +313,16 @@ const response = await makeRequest('GET', '/conversations', null, authToken);
 const response = await agent.get('/api/v3/conversations');
 ```
 
-4. Be careful with response handling:
-   - Use `JSON.parse(response.text)` instead of `response.body` if needed
-   - For text responses, use `response.text` directly
-   - Use `textAgent` for endpoints that might return text errors
+5. Be careful with response handling:
+   - All responses now return proper JSON
+   - Access JSON data with `response.body`
+   - Error responses are also JSON objects
 
-5. Ensure cookies are properly handled when sharing sessions:
+6. **Handle authentication errors properly**: With JWT authentication, expect 401 "Unauthorized" for missing/invalid tokens and 403 "Forbidden" for insufficient permissions.
 
-```javascript
-// Set cookies on the agent
-const cookieString = cookies.map(c => c.split(';')[0]).join('; ');
-agent.set('Cookie', cookieString);
-```
-
-- Use `textAgent` for endpoints that might return error messages as text, even with a JSON content-type
-- Use `agent` for endpoints that reliably return valid JSON
-- For requests that need both cookie persistence and text handling, set the cookies on both agents
-- Use template literals for URL parameters: `` `/api/v3/nextComment?conversation_id=${conversationId}` ``
-- Don't forget the `/api/v3` prefix in routes when using the agents directly
+7. **URL construction**:
+   - Use template literals for URL parameters: `` `/api/v3/nextComment?conversation_id=${conversationId}` ``
+   - Don't forget the `/api/v3` prefix in routes when using the agents directly
 
 ### Running Tests
 
@@ -213,15 +361,15 @@ To improve test reliability and performance, we use shared test agents across al
 
 ### 1. Global Agents with Lazy Initialization
 
-- Global agent instances are stored in `global.__TEST_AGENT__` and `global.__TEXT_AGENT__`
-- Helper functions `getTestAgent()` and `getTextAgent()` ensure agents are always available
+- Global agent instance is stored in `global.__TEST_AGENT__`
+- Helper function `getTestAgent()` ensures the agent is always available
 - Lazy initialization creates agents only when needed
 
 ### 2. Lifecycle Management
 
 - `globalSetup.js` creates a test server on a dynamic port and initializes agents if needed
 - `globalTeardown.js` closes the server but preserves agent instances
-- This allows agents to maintain their state (cookies, etc.) across test files
+- This allows agents to maintain their state (auth, etc.) across test files
 
 ### Using Agents in Tests
 
@@ -252,3 +400,45 @@ describe('My Test Suite', () => {
   });
 });
 ```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Auth0 Simulator not running**: Ensure
+   `docker compose -f docker-compose.yml -f docker-compose.dev.yml up auth0-simulator`
+   is running before tests.
+
+2. **JWT validation failures**: Check that environment variables are set correctly:
+
+   ```bash
+   AUTH_ISSUER=https://localhost:3000/
+   AUTH_AUDIENCE=users
+   JWKS_URI=https://localhost:3000/.well-known/jwks.json
+   ```
+
+3. **User not found errors**: Use `getPooledTestUser()` for Auth0 compatibility
+4. **401 vs 403 errors**: 401 means missing/invalid JWT, 403 means valid JWT but insufficient permissions
+
+5. **Domain whitelist errors (403 polis_err_domain)**: The `participationInit` endpoint requires a valid referrer domain. The test helpers now automatically set a default origin that matches the whitelisted domains. You can override this if needed:
+
+   ```typescript
+       // Default behavior - uses dynamic test server URL automatically
+    const { agent } = await initializeParticipant(conversationId);
+   
+   // Override with custom origin if needed
+   const { agent } = await initializeParticipant(conversationId, { 
+     origin: 'http://custom-domain.com' 
+   });
+   ```
+
+### Migration Checklist
+
+When updating a test file to use JWT authentication:
+
+- [x] Replace `registerAndLoginUser()` with `getJwtAuthenticatedAgent()`
+- [x] Import `getPooledTestUser` and use pooled users
+- [x] Update imports to include new JWT helpers
+- [ ] Change `beforeAll` to `beforeEach` if test isolation is needed
+- [ ] Update error expectations (401 for auth failures, not 403)
+- [x] Test that the Auth0 simulator is running and accessible

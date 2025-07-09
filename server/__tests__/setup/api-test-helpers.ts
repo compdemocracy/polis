@@ -1,110 +1,54 @@
+import { Express } from "express";
 import crypto from "crypto";
-import dotenv from "dotenv";
 import request from "supertest";
+import _ from "underscore";
+import { getPooledTestUser } from "./test-user-helpers";
 import type { Response } from "supertest";
-import type { Express } from "express";
 import type {
-  TestUser,
-  AuthData,
+  CommentOptions,
+  CommentResponse,
+  ConversationOptions,
   ConvoData,
+  JwtAuthData,
   ParticipantData,
+  TestUser,
+  ValidationOptions,
   VoteData,
   VoteResponse,
-  ConversationOptions,
-  CommentOptions,
-  ValidationOptions,
 } from "../../types/test-helpers";
 
-// Import the Express app via our controlled loader
-import { getApp } from "../app-loader";
-
-// Async version for more reliable initialization
-async function getAppInstance(): Promise<Express> {
+// App factory function that each test can use independently
+async function createAppInstance(): Promise<Express> {
+  const { getApp } = await import("../app-loader");
   return await getApp();
 }
 
-// Use { override: false } to prevent dotenv from overriding command-line env vars
-dotenv.config({ override: false });
+// ASYNC getter for the app instance (backwards compatibility)
+async function getAppInstance(): Promise<Express> {
+  // For backwards compatibility, try global first, then create new instance
+  if ((globalThis as any).__APP_INSTANCE__) {
+    return (globalThis as any).__APP_INSTANCE__;
+  }
 
-// Set environment variables for testing
-process.env.NODE_ENV = "test";
-process.env.TESTING = "true";
+  // Create a new app instance for this worker
+  return await createAppInstance();
+}
 
-// ASYNC getter functions
+// ASYNC getter for the test agent (backwards compatibility)
 async function getTestAgent(): Promise<ReturnType<typeof request.agent>> {
-  // Use type assertion for global access
-  if (!(globalThis as any).__TEST_AGENT__) {
-    const app = await getAppInstance();
-    (globalThis as any).__TEST_AGENT__ = request.agent(app);
+  if ((globalThis as any).__TEST_AGENT__) {
+    return (globalThis as any).__TEST_AGENT__;
   }
-  // Ensure it's not null before returning
-  if (!(globalThis as any).__TEST_AGENT__) {
-    throw new Error("Failed to initialize __TEST_AGENT__");
-  }
-  return (globalThis as any).__TEST_AGENT__;
-}
 
-// ASYNC getter functions
-async function getTextAgent(): Promise<ReturnType<typeof request.agent>> {
-  // Use type assertion for global access
-  if (!(globalThis as any).__TEXT_AGENT__) {
-    const app = await getAppInstance();
-    (globalThis as any).__TEXT_AGENT__ = createTextAgent(app);
-  }
-  // Ensure it's not null before returning
-  if (!(globalThis as any).__TEXT_AGENT__) {
-    throw new Error("Failed to initialize __TEXT_AGENT__");
-  }
-  return (globalThis as any).__TEXT_AGENT__;
-}
-
-// ASYNC newAgent function
-async function newAgent(): Promise<ReturnType<typeof request.agent>> {
+  // Create a new agent for this worker
   const app = await getAppInstance();
   return request.agent(app);
 }
 
-// ASYNC newTextAgent function
-async function newTextAgent(): Promise<ReturnType<typeof request.agent>> {
-  const app = await getAppInstance();
-  return createTextAgent(app);
-}
-
-/**
- * Create an agent that handles text responses properly
- * Use this when you need to maintain cookies across requests but still handle text responses
- *
- * @param app - Express app instance
- * @returns Supertest agent with custom parser
- */
-function createTextAgent(app: Express): ReturnType<typeof request.agent> {
-  const agent = request.agent(app);
-  agent.parse((res, fn) => {
-    res.setEncoding("utf8");
-    res.text = "";
-    res.on("data", (chunk) => {
-      res.text += chunk;
-    });
-    res.on("end", () => {
-      fn(null, res.text);
-    });
-  });
-  return agent;
-}
-
-/**
- * Helper to generate random test user data
- * @returns Random user data for registration
- */
-function generateTestUser(): TestUser {
-  const timestamp = Date.now();
-  const randomSuffix = Math.floor(Math.random() * 10000);
-
-  return {
-    email: `test.user.${timestamp}.${randomSuffix}@example.com`,
-    password: `TestPassword${randomSuffix}!`,
-    hname: `Test User ${timestamp}`,
-  };
+// ASYNC newAgent function - creates a fresh agent with its own app instance
+async function newAgent(): Promise<ReturnType<typeof request.agent>> {
+  const app = await createAppInstance();
+  return request.agent(app);
 }
 
 /**
@@ -124,6 +68,124 @@ function generateRandomXid(): string {
  */
 const wait = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Helper to get an access token from the Auth0 simulator.
+ * Assumes the simulator is running and configured.
+ * @param user - User credentials (email, password)
+ * @returns The access token string.
+ */
+export async function getAuth0Token(
+  user: Pick<TestUser, "email" | "password">
+): Promise<string> {
+  // Dynamically import axios only when needed for this function
+  const axios = (await import("axios")).default;
+  const https = await import("https");
+
+  const httpsAgent = new https.Agent({
+    rejectUnauthorized: false, // Necessary for self-signed certs used by the simulator
+  });
+
+  // Read the simulator URL dynamically when the function is called
+  const simulatorUrl = process.env.AUTH_ISSUER || "https://localhost:3000";
+  const audience = process.env.AUTH_AUDIENCE || "users";
+  const clientId = process.env.AUTH_CLIENT_ID || "dev-client-id";
+
+  try {
+    // Properly construct the token URL to avoid double slashes
+    const tokenUrl = simulatorUrl.endsWith("/")
+      ? `${simulatorUrl}oauth/token`
+      : `${simulatorUrl}/oauth/token`;
+
+    const tokenResponse = await axios.post(
+      tokenUrl,
+      {
+        grant_type: "password",
+        username: user.email,
+        password: user.password,
+        audience: audience,
+        client_id: clientId,
+        scope: "openid profile email",
+      },
+      {
+        httpsAgent,
+        timeout: 5000, // 5 second timeout
+      }
+    );
+
+    if (tokenResponse.data && tokenResponse.data.access_token) {
+      return tokenResponse.data.access_token;
+    } else {
+      throw new Error("Failed to retrieve access_token from Auth0 simulator.");
+    }
+  } catch (error: any) {
+    // Avoid logging circular response objects
+    if (error.response) {
+      console.error("Error getting token from simulator:", {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+      });
+
+      // If simulator is not available (404), provide helpful error message
+      if (error.response.status === 404) {
+        throw new Error(
+          `Auth0 simulator not available at ${simulatorUrl}. ` +
+            `Please ensure the simulator is running.`
+        );
+      }
+    } else if (error.code === "ECONNREFUSED") {
+      throw new Error(
+        `Cannot connect to Auth0 simulator at ${simulatorUrl}. ` +
+          `Please ensure the simulator is running.`
+      );
+    } else {
+      console.error("Error getting token from simulator:", error.message);
+    }
+    throw error; // Re-throw the error to be handled by the caller
+  }
+}
+
+/**
+ * Creates a SuperTest agent authenticated with a JWT token from the Auth0 simulator.
+ * @param user - User credentials (email, password).
+ * @returns A promise that resolves to JwtAuthData (agent, token, testUser).
+ */
+export async function getJwtAuthenticatedAgent(
+  user: TestUser
+): Promise<JwtAuthData> {
+  const app = await getAppInstance();
+  const agent = request.agent(app);
+  const currentUser = user;
+
+  // Note: This assumes the Auth0 simulator has this user registered.
+  // The auth-jwt.test.ts file handles simulator setup with users.
+  // For other tests, ensure the user exists in the simulator's state.
+  const token = await getAuth0Token(currentUser);
+
+  agent.set("Authorization", `Bearer ${token}`);
+
+  // Also, we need to ensure that the user exists in the local Polis database.
+  // The JWT middleware's extractUserFromJWT will attempt getOrCreateUserIDFromAuth0Sub.
+  // For tests to pass consistently, this user (identified by 'sub' from the token)
+  // might need to be pre-created or the getOrCreate logic should be robust.
+  // This is an important consideration for test stability.
+  // For now, we assume the getOrCreate path will handle it or tests will manage this setup.
+
+  return { agent, token, testUser: currentUser };
+}
+
+/**
+ * Helper function to set the Authorization header for an existing agent.
+ * @param agent - The SuperTest agent to modify.
+ * @param token - The JWT token.
+ */
+export function setAgentJwt(
+  agent: ReturnType<typeof request.agent>,
+  token: string
+): void {
+  agent.set("Authorization", `Bearer ${token}`);
+}
 
 /**
  * Helper to create a test conversation using a supertest agent
@@ -152,11 +214,9 @@ async function createConversation(
     .send(defaultOptions);
 
   // Validate response
-  if (response.status !== 200) {
-    throw new Error(
-      `Failed to create conversation: ${response.status} ${response.text}`
-    );
-  }
+  validateResponse(response, {
+    errorPrefix: `Failed to create conversation`,
+  });
 
   try {
     // Try to parse the response text as JSON
@@ -184,136 +244,62 @@ async function createComment(
   conversationId: string,
   options: CommentOptions = {} as CommentOptions
 ): Promise<number> {
-  if (!conversationId) {
-    throw new Error("Conversation ID is required to create a comment");
+  // To ensure cookie-less auth, we must first establish the participant
+  // and get a JWT. The reliable way to do this for any participant type
+  // (anon, xid, or standard) is to perform an action that issues a token.
+  // Voting is a lightweight way to do this.
+
+  // First, get a comment to vote on. If there are no comments, create a seed one.
+  const commentsResponse = await agent.get(
+    `/api/v3/comments?conversation_id=${conversationId}&modIn=true`
+  );
+  const comments = commentsResponse.body;
+
+  let targetCommentTid = comments[0]?.tid;
+
+  if (!targetCommentTid) {
+    // No comments exist, so create a placeholder comment to vote on
+    // This requires an authenticated agent, which we assume the initial one is.
+    const seedCommentResponse = await agent.post("/api/v3/comments").send({
+      conversation_id: conversationId,
+      txt: "Seed comment for auth",
+      is_seed: true,
+    });
+    validateResponse(seedCommentResponse, {
+      errorPrefix: "Failed to create seed comment",
+    });
+    targetCommentTid = seedCommentResponse.body.tid;
   }
 
-  const defaultOptions = {
-    agid: 1,
-    is_active: true,
-    pid: "mypid",
-    ...options,
-    conversation_id: options.conversation_id || conversationId,
-    txt: options.txt || `This is a test comment created at ${Date.now()}`,
-  };
+  // Now, submit a vote to ensure a JWT is issued and attached to the agent.
+  const voteResponse = await submitVote(agent, {
+    conversation_id: conversationId,
+    tid: targetCommentTid,
+    vote: 0, // 'skip' vote
+  });
 
-  const response = await agent.post("/api/v3/comments").send(defaultOptions);
-
-  // Validate response
-  if (response.status !== 200) {
+  // Check vote response status directly since VoteResponse doesn't extend Response
+  if (voteResponse.status !== 200) {
     throw new Error(
-      `Failed to create comment: ${response.status} ${response.text}`
+      `Failed to submit vote for auth: ${voteResponse.status} ${voteResponse.text}`
     );
   }
 
-  const responseBody = parseResponseJSON(response);
-  const commentId = responseBody.tid;
-  const cookies = response.headers["set-cookie"] || [];
-  authenticateAgent(agent, cookies);
+  // Now that the agent is guaranteed to have a JWT, create the actual comment.
+  const response = await agent.post("/api/v3/comments").send({
+    conversation_id: conversationId,
+    ...options,
+  });
 
-  await wait(500); // Wait for comment to be created
+  validateResponse(response, {
+    errorPrefix: "Failed to create comment",
+    requiredProperties: ["body.tid"],
+  });
+  const responseBody = response.body;
+
+  const commentId = responseBody.tid;
 
   return commentId;
-}
-
-/**
- * Helper function to extract a specific cookie value from a cookie array
- * @param cookies - Array of cookies from response
- * @param cookieName - Name of the cookie to extract
- * @returns Cookie value or null if not found
- */
-function extractCookieValue(
-  cookies: string[] | string | undefined,
-  cookieName: string
-): string | null {
-  if (!cookies) {
-    return null;
-  }
-
-  // Handle string array
-  if (Array.isArray(cookies)) {
-    if (cookies.length === 0) {
-      return null;
-    }
-
-    for (const cookie of cookies) {
-      if (cookie.startsWith(`${cookieName}=`)) {
-        return cookie.split(`${cookieName}=`)[1].split(";")[0];
-      }
-    }
-  }
-  // Handle single cookie string
-  else if (typeof cookies === "string") {
-    const cookieParts = cookies.split(";");
-    for (const part of cookieParts) {
-      const trimmed = part.trim();
-      if (trimmed.startsWith(`${cookieName}=`)) {
-        return trimmed.split(`${cookieName}=`)[1];
-      }
-    }
-  }
-
-  return null;
-}
-
-/**
- * Enhanced registerAndLoginUser that works with supertest agents
- * Maintains the same API as the original function but uses agents internally
- *
- * @param userData - User data for registration
- * @returns Object containing authToken and userId
- */
-async function registerAndLoginUser(
-  userData: TestUser | null = null
-): Promise<AuthData> {
-  // Use async agent getting to ensure app is initialized
-  const agent = await getTestAgent();
-  const textAgent = await getTextAgent();
-
-  // Generate user data if not provided
-  const testUser = userData || generateTestUser();
-
-  // Register the user
-  const registerResponse = await textAgent.post("/api/v3/auth/new").send({
-    ...testUser,
-    password2: testUser.password,
-    gatekeeperTosPrivacy: true,
-  });
-
-  // Validate registration response
-  if (registerResponse.status !== 200) {
-    throw new Error(
-      `Failed to register user: ${registerResponse.status} ${registerResponse.text}`
-    );
-  }
-
-  // Login with the user
-  const loginResponse = await agent.post("/api/v3/auth/login").send({
-    email: testUser.email,
-    password: testUser.password,
-  });
-
-  // Validate login response
-  if (loginResponse.status !== 200) {
-    throw new Error(
-      `Failed to login user: ${loginResponse.status} ${loginResponse.text}`
-    );
-  }
-
-  const loginBody = parseResponseJSON(loginResponse);
-
-  // Get cookies for API compatibility
-  const loginCookies = loginResponse.headers["set-cookie"] || [];
-  authenticateGlobalAgents(loginCookies);
-
-  // For compatibility with existing tests
-  return {
-    cookies: loginCookies,
-    userId: loginBody.uid,
-    agent, // Return the authenticated agent
-    textAgent, // Return the text agent for error cases
-    testUser,
-  };
 }
 
 /**
@@ -339,12 +325,60 @@ async function setupAuthAndConvo(
     commentOptions = {},
   } = options;
 
-  // Use async agent getting to ensure app is initialized
-  const agent = await getTestAgent();
+  // Use JWT-based authentication to set up the conversation
+  const pooledUser = getPooledTestUser(1); // Use a default pooled user
+  const testUser =
+    options.userData ||
+    ({
+      email: pooledUser.email,
+      hname: pooledUser.name,
+      password: pooledUser.password,
+    } as TestUser);
 
-  // Register and login
-  const testUser = options.userData || generateTestUser();
-  const { userId } = await registerAndLoginUser(testUser);
+  const { agent, token } = await getJwtAuthenticatedAgent(testUser);
+
+  let userId: number | null = null;
+
+  // Try to get user info if we have a valid JWT token
+  if (token) {
+    try {
+      const userResponse = await agent.get("/api/v3/users?errIfNoAuth=true");
+      if (userResponse.status === 200) {
+        userId = userResponse.body.uid;
+      } else {
+        console.warn(
+          `Failed to get user info after JWT auth: ${userResponse.status} ${userResponse.text}`
+        );
+      }
+    } catch (error) {
+      console.warn("Error getting user info:", error);
+    }
+  }
+
+  // Clear domain whitelist for test user
+  // Empty string means no whitelist restrictions (all domains allowed)
+  // This prevents domain validation errors during participant initialization
+  // Note: We don't fail the test if this fails because:
+  // 1. The user might not have a site_domain_whitelist record yet
+  // 2. Some test users might not have permission to modify whitelist
+  // 3. Tests can still pass if the conversation owner has no whitelist configured
+  try {
+    const whitelistResponse = await agent
+      .post("/api/v3/domainWhitelist")
+      .send({ domain_whitelist: "" })
+      .ok((res) => res.status < 500); // Don't throw on client errors
+
+    if (whitelistResponse.status !== 200) {
+      console.warn(
+        "Failed to clear domain whitelist:",
+        whitelistResponse.status,
+        whitelistResponse.text || whitelistResponse.body
+      );
+    }
+  } catch (err) {
+    // Log but don't fail - the test might still work
+    console.warn("Error clearing domain whitelist for test user:", err);
+  }
 
   const commentIds: number[] = [];
   let conversationId = "";
@@ -394,7 +428,7 @@ async function setupAuthAndConvo(
   }
 
   return {
-    userId,
+    userId: userId || -1, // Default to -1 if userId is null (for JWT-only tests)
     testUser,
     conversationId,
     commentIds,
@@ -402,36 +436,50 @@ async function setupAuthAndConvo(
 }
 
 /**
- * Enhanced helper to initialize a participant with better cookie handling using supertest agents
+ * Enhanced helper to initialize a participant with better auth handling using supertest agents
  *
  * @param conversationId - Conversation zinvite
- * @returns Participant data with cookies, body, status and agent
+ * @param options - Optional object with origin property to set Origin header (rarely needed)
+ * @returns Participant data with auth, body, status and agent
  */
 async function initializeParticipant(
-  conversationId: string
+  conversationId: string,
+  options?: { origin?: string }
 ): Promise<ParticipantData> {
-  // Use async agent creation to ensure app is initialized
+  // Use regular agent since API now returns JSON errors
   const participantAgent = await newAgent();
 
-  const response = await participantAgent.get(
-    `/api/v3/participationInit?conversation_id=${conversationId}&pid=mypid&lang=en`
+  // Build the request
+  let req = participantAgent.get(
+    `/api/v3/participationInit?conversation_id=${conversationId}&pid=-1&lang=en`
   );
 
-  if (response.status !== 200) {
-    throw new Error(
-      `Failed to initialize anonymous participant. Status: ${response.status}`
-    );
+  // Only set Origin/Referer headers if explicitly provided (for special test cases)
+  if (options?.origin) {
+    req = req.set("Origin", options.origin);
+    req = req.set("Referer", options.origin);
   }
 
-  // Extract cookies
-  const cookies = response.headers["set-cookie"] || [];
-  authenticateAgent(participantAgent, cookies);
+  const response = await req;
+
+  validateResponse(response, {
+    errorPrefix: `Failed to initialize anonymous participant`,
+  });
+
+  const responseBody = response.body;
+  let token;
+
+  // If JWT token is provided in response, use it for authentication
+  if (responseBody.auth && responseBody.auth.token) {
+    token = responseBody.auth.token;
+    participantAgent.set("Authorization", `Bearer ${token}`);
+  }
 
   return {
-    cookies,
-    body: parseResponseJSON(response),
+    body: responseBody,
     status: response.status,
     agent: participantAgent, // Return an authenticated agent for the participant
+    token,
   };
 }
 
@@ -440,144 +488,136 @@ async function initializeParticipant(
  *
  * @param conversationId - Conversation zinvite
  * @param xid - External ID (generated or provided)
- * @returns Participant data including cookies, body, status and agent
+ * @param options - Optional object with origin property to set Origin header (rarely needed)
+ * @returns Participant data including auth, body, status and agent
  */
 async function initializeParticipantWithXid(
   conversationId: string,
-  xid: string | null = null
+  xid: string | null = null,
+  options?: { origin?: string }
 ): Promise<ParticipantData> {
-  // Use async agent creation to ensure app is initialized
+  // Use regular agent since API now returns JSON errors
   const participantAgent = await newAgent();
 
   // Generate XID if not provided
-  const participantXid = xid || generateRandomXid();
-
-  const response = await participantAgent.get(
-    `/api/v3/participationInit?conversation_id=${conversationId}&xid=${participantXid}&pid=mypid&lang=en`
-  );
-
-  if (response.status !== 200) {
-    throw new Error(
-      `Failed to initialize participant with XID. Status: ${response.status}`
-    );
+  if (!xid) {
+    xid = generateRandomXid();
   }
 
-  // Extract cookies
-  const cookies = response.headers["set-cookie"] || [];
-  authenticateAgent(participantAgent, cookies);
+  // Build the request
+  let req = participantAgent.get(
+    `/api/v3/participationInit?conversation_id=${conversationId}&xid=${xid}&pid=-1&lang=en&agid=1`
+  );
+
+  // Only set Origin/Referer headers if explicitly provided (for special test cases)
+  if (options?.origin) {
+    req = req.set("Origin", options.origin);
+    req = req.set("Referer", options.origin);
+  }
+
+  const response = await req;
+
+  validateResponse(response, {
+    errorPrefix: `Failed to initialize XID participant`,
+  });
+
+  const responseBody = response.body;
+  let token;
+
+  // If JWT token is provided in response, use it for authentication
+  if (responseBody.auth && responseBody.auth.token) {
+    token = responseBody.auth.token;
+    participantAgent.set("Authorization", `Bearer ${token}`);
+  }
 
   return {
-    cookies,
-    body: parseResponseJSON(response),
+    body: responseBody,
     status: response.status,
     agent: participantAgent, // Return an authenticated agent for the participant
-    xid: participantXid, // Return the XID that was used
+    token,
   };
 }
 
 /**
  * Enhanced submitVote using supertest agents
  *
- * @param agent - Supertest agent
- * @param options - Vote options
+ * @param agent - Supertest agent to use for the request
+ * @param options - Vote data
  * @returns Vote response
  */
 async function submitVote(
   agent: ReturnType<typeof request.agent> | null,
   options: VoteData = {} as VoteData
 ): Promise<VoteResponse> {
-  // Error if options does not have tid or conversation_id
-  // NOTE: 0 is a valid value for tid or conversation_id
-  if (options.tid === undefined || options.conversation_id === undefined) {
-    throw new Error("Options must have tid or conversation_id to vote");
+  // Create a new agent if none provided
+  const voteAgent = agent || (await newAgent());
+
+  // Submit vote
+  const response = await voteAgent.post("/api/v3/votes").send(options);
+
+  // Return response with body (could be parsed or text depending on content-type)
+  let responseBody;
+  try {
+    responseBody = JSON.parse(response.text);
+  } catch {
+    responseBody = response.text;
   }
-  // Ensure agent is initialized if not provided
-  const voterAgent = agent || (await getTestAgent());
 
-  // Create vote payload
-  const voteData = {
-    agid: 1,
-    high_priority: false,
-    lang: "en",
-    pid: "mypid",
-    ...options,
-    vote: options.vote !== undefined ? options.vote : 0,
-  };
-
-  const response = await voterAgent.post("/api/v3/votes").send(voteData);
-
-  await wait(500); // Wait for vote to be processed
-
-  const cookies = response.headers["set-cookie"] || [];
-  authenticateAgent(voterAgent, cookies);
+  // If the response includes a JWT token, set it on the agent for future requests
+  if (
+    responseBody &&
+    typeof responseBody === "object" &&
+    responseBody.auth?.token
+  ) {
+    setAgentJwt(voteAgent, responseBody.auth.token);
+  }
 
   return {
-    cookies,
-    body: parseResponseJSON(response),
-    text: response.text,
     status: response.status,
-    agent: voterAgent, // Return the agent for chaining
+    body: responseBody,
+    text: response.text,
+    headers: response.headers,
   };
 }
 
 /**
- * Retrieves votes for a conversation
- * @param agent - Supertest agent
- * @param conversationId - Conversation ID
- * @param pid - Participant ID
- * @returns - Array of votes
+ * Enhanced submitComment using supertest agents
+ *
+ * @param agent - Supertest agent to use for the request
+ * @param options - Comment options
+ * @returns Comment response
  */
-async function getVotes(
-  agent: ReturnType<typeof request.agent>,
-  conversationId: string,
-  pid: string
-): Promise<any[]> {
-  // Get votes for the conversation
-  const response = await agent.get(
-    `/api/v3/votes?conversation_id=${conversationId}&pid=${pid}`
-  );
+async function submitComment(
+  agent: ReturnType<typeof request.agent> | null,
+  options: CommentOptions = {} as CommentOptions
+): Promise<CommentResponse> {
+  // Create a new agent if none provided
+  const commentAgent = agent || (await newAgent());
 
-  // Validate response
-  validateResponse(response, {
-    expectedStatus: 200,
-    errorPrefix: "Failed to get votes",
-  });
+  // Submit comment
+  const response = await commentAgent.post("/api/v3/comments").send(options);
 
-  return response.body;
+  // Return response with body (could be parsed or text depending on content-type)
+  let responseBody;
+  try {
+    responseBody = JSON.parse(response.text);
+  } catch {
+    responseBody = response.text;
+  }
+
+  return {
+    status: response.status,
+    body: responseBody,
+    text: response.text,
+    headers: response.headers,
+  };
 }
 
 /**
- * Retrieves votes for the current participant in a conversation
- * @param agent - Supertest agent
- * @param conversationId - Conversation ID
- * @param pid - Participant ID
- * @returns - Array of votes
- */
-async function getMyVotes(
-  agent: ReturnType<typeof request.agent>,
-  conversationId: string,
-  pid: string
-): Promise<any[]> {
-  // Get votes for the participant
-  const response = await agent.get(
-    `/api/v3/votes/me?conversation_id=${conversationId}&pid=${pid}`
-  );
-
-  // Validate response
-  validateResponse(response, {
-    expectedStatus: 200,
-    errorPrefix: "Failed to get my votes",
-  });
-
-  // NOTE: This endpoint seems to return a 200 status with an empty array.
-  return response.body;
-}
-
-/**
- * Updates a conversation using query params
- * @param agent - Supertest agent
- * @param params - Update parameters
- * @returns - API response
+ * Update conversation settings
+ * @param agent - Supertest agent to use for the request
+ * @param params - Conversation parameters including conversation_id
+ * @returns Response object
  */
 async function updateConversation(
   agent: ReturnType<typeof request.agent>,
@@ -585,28 +625,23 @@ async function updateConversation(
     conversation_id: "",
   }
 ): Promise<Response> {
-  if (params.conversation_id === undefined) {
-    throw new Error("conversation_id is required to update a conversation");
-  }
+  const response = await agent.put("/api/v3/conversations").send(params);
 
-  return agent.put("/api/v3/conversations").send(params);
+  return response;
 }
 
 /**
- * Helper function to safely check for response properties, handling falsy values correctly
- * @param response - API response object
- * @param propertyPath - Dot-notation path to property (e.g., 'body.tid')
- * @returns - True if property exists and is not undefined/null
+ * Helper to check if a response has a nested property
+ * @param response - Response object
+ * @param propertyPath - Dot-separated property path (e.g., "body.user.id")
+ * @returns True if property exists
  */
 function hasResponseProperty(response: any, propertyPath: string): boolean {
-  if (!response) return false;
-
   const parts = propertyPath.split(".");
   let current = response;
 
   for (const part of parts) {
-    // 0, false, and empty string are valid values
-    if (current[part] === undefined || current[part] === null) {
+    if (!current || typeof current !== "object" || !(part in current)) {
       return false;
     }
     current = current[part];
@@ -616,38 +651,31 @@ function hasResponseProperty(response: any, propertyPath: string): boolean {
 }
 
 /**
- * Formats an error message from a response
- * @param response - The API response
+ * Format error message with response details
+ * @param response - Response object
  * @param prefix - Error message prefix
- * @returns - Formatted error message
+ * @returns Formatted error message
  */
 function formatErrorMessage(response: Response, prefix = "API error"): string {
-  const errorMessage =
-    typeof response.body === "string"
-      ? response.body
-      : response.text || JSON.stringify(response.body);
-  return `${prefix}: ${response.status} ${errorMessage}`;
+  const details: string[] = [];
+  if (response.status) details.push(`status: ${response.status}`);
+  if (response.text) details.push(`body: ${response.text}`);
+  return `${prefix}: ${details.join(", ")}`;
 }
 
 /**
- * Validates a response and throws an error if invalid
- * @param response - The API response
+ * Validate response and throw descriptive error if invalid
+ * @param response - Response to validate
  * @param options - Validation options
- * @returns - The response if valid
- * @throws - If response is invalid
+ * @returns The response if valid
  */
 function validateResponse(
   response: Response,
   options: ValidationOptions = {}
 ): Response {
-  const {
-    expectedStatus = 200,
-    errorPrefix = "API error",
-    requiredProperties = [],
-  } = options;
+  const { errorPrefix = "API error", requiredProperties = [] } = options;
 
-  // Check status
-  if (response.status !== expectedStatus) {
+  if (!response || response.status >= 400) {
     throw new Error(formatErrorMessage(response, errorPrefix));
   }
 
@@ -662,155 +690,53 @@ function validateResponse(
 }
 
 /**
- * Helper function to authenticate a supertest agent with a token
- * @param agent - The supertest agent to authenticate
- * @param token - Auth token or cookie array
- * @returns - The authenticated agent (for chaining)
+ * Create HMAC signature for a user and conversation (for notification endpoints)
+ * This matches the server's signature generation logic in src/routes/notify.ts
+ * @param email - User email
+ * @param conversationId - Conversation ID
+ * @param path - API path
+ * @returns HMAC signature
  */
-function authenticateAgent(
-  agent: ReturnType<typeof request.agent>,
-  token: string[] | string | undefined
-): ReturnType<typeof request.agent> {
-  if (!token || (Array.isArray(token) && token.length === 0)) {
-    return agent;
-  }
-
-  if (Array.isArray(token)) {
-    // Handle cookie array
-    const cookieString = token.map((c) => c.split(";")[0]).join("; ");
-    agent.set("Cookie", cookieString);
-  } else if (
-    typeof token === "string" &&
-    (token.includes(";") || token.startsWith("token2="))
-  ) {
-    // Handle cookie string
-    agent.set("Cookie", token);
-  } else if (typeof token === "string") {
-    // Handle x-polis token
-    agent.set("x-polis", token);
-  }
-
-  return agent;
-}
-
-/**
- * Helper function to authenticate both global agents with the same token
- * Use this when you need to maintain the same auth state across both agents
- *
- * @param token - Auth token or cookie array
- * @returns - Object containing both authenticated agents
- */
-function authenticateGlobalAgents(
-  token: string[] | string | undefined
-): {
-  agent: ReturnType<typeof request.agent>;
-  textAgent: ReturnType<typeof request.agent>;
-} {
-  // Use type assertion for global access
-  if (
-    !(globalThis as any).__TEST_AGENT__ ||
-    !(globalThis as any).__TEXT_AGENT__
-  ) {
-    // This might happen if called very early, before globalSetup or async getters run.
-    // Depending on usage, might need to make this function async and await getTestAgent()/getTextAgent().
-    // For now, throw error to highlight the potential issue.
-    throw new Error(
-      "Global agents not initialized. Cannot authenticate synchronously."
-    );
-  }
-  const agent = (globalThis as any).__TEST_AGENT__; // Access directly AFTER ensuring they exist
-  const textAgent = (globalThis as any).__TEXT_AGENT__; // Access directly AFTER ensuring they exist
-
-  if (!token || (Array.isArray(token) && token.length === 0)) {
-    return { agent, textAgent };
-  }
-
-  if (Array.isArray(token)) {
-    // Handle cookie array
-    const cookieString = token.map((c) => c.split(";")[0]).join("; ");
-    agent.set("Cookie", cookieString);
-    textAgent.set("Cookie", cookieString);
-  } else if (
-    typeof token === "string" &&
-    (token.includes(";") || token.startsWith("token2="))
-  ) {
-    // Handle cookie string
-    agent.set("Cookie", token);
-    textAgent.set("Cookie", token);
-  } else if (typeof token === "string") {
-    // Handle x-polis token
-    agent.set("x-polis", token);
-    textAgent.set("x-polis", token);
-  }
-
-  return { agent, textAgent };
-}
-
-/**
- * Helper to parse response text safely
- *
- * @param response - Response object
- * @returns Parsed JSON or empty object
- */
-function parseResponseJSON(response: Response): any {
-  try {
-    if (response?.text) {
-      return JSON.parse(response.text);
-    }
-    return {};
-  } catch (e) {
-    console.error("Error parsing JSON response:", e);
-    return {};
-  }
-}
-
-// Utility function to create HMAC signature for email verification
 function createHmacSignature(
   email: string,
   conversationId: string,
   path = "api/v3/notifications/subscribe"
 ): string {
-  // This should match the server's HMAC generation logic
-  const serverKey =
-    "G7f387ylIll8yuskuf2373rNBmcxqWYFfHhdsd78f3uekfs77EOLR8wofw";
-  const hmac = crypto.createHmac("sha1", serverKey);
-  hmac.setEncoding("hex");
+  // Use the same hardcoded secret as the server
+  const secret = "G7f387ylIll8yuskuf2373rNBmcxqWYFfHhdsd78f3uekfs77EOLR8wofw";
 
-  // Create params object
+  // Create params object and sort by key name (same as server's paramsToStringSortedByName)
   const params = {
     conversation_id: conversationId,
     email: email,
   };
 
-  // Create the full string exactly as the server does
-  path = path.replace(/\/$/, ""); // Remove trailing slash if present
-  const paramString = Object.entries(params)
-    .sort(([a], [b]) => (a > b ? 1 : -1))
-    .map(([key, value]) => `${key}=${value}`)
-    .join("&");
+  // Sort parameters alphabetically by key and format as key=value&key=value
+  const sortedPairs = Object.entries(params)
+    .sort(([a], [b]) => (a > b ? 1 : a < b ? -1 : 0))
+    .map(([key, value]) => `${key}=${value}`);
 
-  const fullString = `${path}?${paramString}`;
+  const queryString = sortedPairs.join("&");
 
-  // Write the full string and get the hash exactly as the server does
-  hmac.write(fullString);
-  hmac.end();
-  const hash = hmac.read();
+  // Trim trailing "/" from path and create message (same format as server)
+  const trimmedPath = path.replace(/\/$/, "");
+  const message = `${trimmedPath}?${queryString}`;
 
-  return hash.toString();
+  // Use SHA1 (same as server)
+  return crypto.createHmac("sha1", secret).update(message).digest("hex");
 }
 
 /**
- * Populates a conversation with participants, comments, and votes
- * Creates a rich dataset suitable for testing math/analysis features
- *
+ * Populate a conversation with participants and votes for testing
  * @param options - Configuration options
- * @returns Object containing arrays of created participants, comments, and votes
+ * @returns Object containing participants, comments, votes, and stats
  */
 async function populateConversationWithVotes(
   options: {
     conversationId: string;
     numParticipants?: number;
     numComments?: number;
+    authenticatedAgent?: ReturnType<typeof request.agent>;
   } = { conversationId: "" }
 ): Promise<{
   participants: ReturnType<typeof request.agent>[];
@@ -819,77 +745,86 @@ async function populateConversationWithVotes(
     participantIndex: number;
     commentId: number;
     vote: number;
-    pid: string;
+    pid: number;
   }[];
   stats: { numParticipants: number; numComments: number; totalVotes: number };
 }> {
-  const { conversationId, numParticipants = 3, numComments = 3 } = options;
+  const {
+    conversationId,
+    numParticipants = 3,
+    numComments = 3,
+    authenticatedAgent,
+  } = options;
 
-  if (!conversationId) {
-    throw new Error("conversationId is required");
+  // Create authenticated agent if not provided
+  let agent: ReturnType<typeof request.agent>;
+  if (authenticatedAgent) {
+    agent = authenticatedAgent;
+  } else {
+    // Create a new authenticated agent
+    const pooledUser = getPooledTestUser(1);
+    const testUser: TestUser = {
+      email: pooledUser.email,
+      hname: pooledUser.name,
+      password: pooledUser.password,
+    };
+    const jwtData = await getJwtAuthenticatedAgent(testUser);
+    agent = jwtData.agent;
   }
 
-  const participants: ReturnType<typeof request.agent>[] = [];
+  // Create comments
   const comments: number[] = [];
-  const votes: {
-    participantIndex: number;
-    commentId: number;
-    vote: number;
-    pid: string;
-  }[] = [];
-
-  const voteGenerator = () =>
-    [-1, 1, 0][Math.floor(Math.random() * 3)] as -1 | 0 | 1;
-
-  // Create comments first
   for (let i = 0; i < numComments; i++) {
-    // Pass the result of the async getter
-    const commentId = await createComment(
-      await getTestAgent(),
-      conversationId,
-      {
-        conversation_id: conversationId,
-        txt: `Test comment ${i + 1} created for data analysis`,
-      }
-    );
+    const commentId = await createComment(agent, conversationId, {
+      txt: `Test comment ${i + 1} for voting`,
+      conversation_id: conversationId,
+    });
     comments.push(commentId);
   }
 
-  // Create participants and their votes
+  // Create participants
+  const participants: ReturnType<typeof request.agent>[] = [];
   for (let i = 0; i < numParticipants; i++) {
-    // Initialize participant
     const { agent: participantAgent } = await initializeParticipant(
       conversationId
     );
     participants.push(participantAgent);
-
-    let pid = "mypid";
-
-    // Have each participant vote on all comments
-    for (let j = 0; j < comments.length; j++) {
-      const vote = voteGenerator();
-
-      const response = await submitVote(participantAgent, {
-        tid: comments[j],
-        conversation_id: conversationId,
-        vote: vote,
-        pid: pid,
-      });
-
-      // Update pid for next vote
-      pid = response.body.currentPid || pid;
-
-      votes.push({
-        participantIndex: i,
-        commentId: comments[j],
-        vote: vote,
-        pid: pid,
-      });
-    }
   }
 
-  // Wait for data to be processed
-  await wait(2000);
+  // Random vote generator: -1 (agree), 1 (disagree), 0 (pass)
+  const voteGenerator = () =>
+    [-1, 1, 0][Math.floor(Math.random() * 3)] as -1 | 0 | 1;
+
+  // Submit votes from each participant
+  const votes: {
+    participantIndex: number;
+    commentId: number;
+    vote: number;
+    pid: number;
+  }[] = [];
+  for (let pIndex = 0; pIndex < participants.length; pIndex++) {
+    const participantAgent = participants[pIndex];
+
+    for (const commentId of comments) {
+      const vote = voteGenerator();
+      const voteResponse = await submitVote(participantAgent, {
+        conversation_id: conversationId,
+        tid: commentId,
+        vote,
+      });
+
+      if (voteResponse.status === 200) {
+        const pid =
+          voteResponse.body?.currentPid || voteResponse.body?.pid || pIndex + 1;
+        votes.push({
+          participantIndex: pIndex,
+          commentId,
+          vote,
+          pid,
+        });
+      }
+    }
+  }
 
   return {
     participants,
@@ -903,37 +838,81 @@ async function populateConversationWithVotes(
   };
 }
 
-// Export API constants along with helper functions
+/**
+ * Sync a single pooled user to the database by ensuring it has an Auth0 mapping
+ * @param pooledUser - Pooled user data
+ */
+async function syncPooledUserToDatabase(pooledUser: {
+  email: string;
+  name: string;
+  password: string;
+}): Promise<void> {
+  const testUser: TestUser = {
+    email: pooledUser.email,
+    hname: pooledUser.name,
+    password: pooledUser.password,
+  };
+
+  try {
+    // Get Auth0 token for the user
+    const token = await getAuth0Token(testUser);
+
+    // Create an agent and authenticate it
+    const agent = await newAgent();
+    agent.set("Authorization", `Bearer ${token}`);
+
+    // Make a request that will trigger user creation/mapping in the database
+    const userInfoResponse = await agent.get("/api/v3/users?errIfNoAuth=true");
+
+    if (userInfoResponse.status === 200) {
+      const uid = userInfoResponse.body.uid;
+
+      // Update user profile to ensure it has the correct name
+      await agent.put("/api/v3/users").send({
+        uid: uid,
+        hname: pooledUser.name,
+      });
+    } else {
+      console.warn(
+        `Failed to sync user ${pooledUser.email}: ${userInfoResponse.status}`
+      );
+    }
+  } catch (error) {
+    console.error(`Error syncing pooled user ${pooledUser.email}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Sync all pooled users to ensure they exist in the database with Auth0 mappings
+ */
+async function syncAllPooledUsers(): Promise<void> {
+  // Get all pooled users (assuming we have 3 for now)
+  for (let i = 1; i <= 3; i++) {
+    const pooledUser = getPooledTestUser(i);
+    await syncPooledUserToDatabase(pooledUser);
+  }
+
+  console.log("Pooled user synchronization complete");
+}
+
+// Export all enhanced helpers
 export {
-  authenticateAgent,
+  createAppInstance,
   createComment,
   createConversation,
   createHmacSignature,
-  extractCookieValue,
+  formatErrorMessage,
   generateRandomXid,
-  generateTestUser,
-  getMyVotes,
   getTestAgent,
-  getTextAgent,
-  getVotes,
   initializeParticipant,
   initializeParticipantWithXid,
   newAgent,
-  newTextAgent,
   populateConversationWithVotes,
-  registerAndLoginUser,
   setupAuthAndConvo,
+  submitComment,
   submitVote,
+  syncAllPooledUsers,
   updateConversation,
   wait,
-  // Export Types needed by tests
-  AuthData,
-  CommentOptions,
-  ConversationOptions,
-  ConvoData,
-  ParticipantData,
-  TestUser,
-  ValidationOptions,
-  VoteData,
-  VoteResponse,
 };

@@ -1,4 +1,4 @@
-import http from 'node:http';
+import http from "node:http";
 
 // Email interface types
 interface EmailRecipient {
@@ -30,7 +30,7 @@ interface PasswordResetResult {
 }
 
 // MailDev server settings
-const MAILDEV_HOST = process.env.MAILDEV_HOST || 'localhost';
+const MAILDEV_HOST = process.env.MAILDEV_HOST || "localhost";
 const MAILDEV_PORT = process.env.MAILDEV_PORT || 1080;
 
 /**
@@ -42,16 +42,16 @@ async function getEmails(): Promise<EmailObject[]> {
     const options = {
       hostname: MAILDEV_HOST,
       port: MAILDEV_PORT,
-      path: '/email',
-      method: 'GET'
+      path: "/email",
+      method: "GET",
     };
 
     const req = http.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => {
+      let data = "";
+      res.on("data", (chunk) => {
         data += chunk;
       });
-      res.on('end', () => {
+      res.on("end", () => {
         try {
           const emails = JSON.parse(data) as EmailObject[];
           resolve(emails);
@@ -59,13 +59,13 @@ async function getEmails(): Promise<EmailObject[]> {
           if (e instanceof Error) {
             reject(new Error(`Failed to parse email response: ${e.message}`));
           } else {
-            reject(new Error('Failed to parse email response'));
+            reject(new Error("Failed to parse email response"));
           }
         }
       });
     });
 
-    req.on('error', (error) => {
+    req.on("error", (error) => {
       reject(new Error(`Failed to fetch emails: ${error.message}`));
     });
 
@@ -84,15 +84,15 @@ async function getEmail(id: string): Promise<EmailObject> {
       hostname: MAILDEV_HOST,
       port: MAILDEV_PORT,
       path: `/email/${id}`,
-      method: 'GET'
+      method: "GET",
     };
 
     const req = http.request(options, (res) => {
-      let data = '';
-      res.on('data', (chunk) => {
+      let data = "";
+      res.on("data", (chunk) => {
         data += chunk;
       });
-      res.on('end', () => {
+      res.on("end", () => {
         try {
           const email = JSON.parse(data) as EmailObject;
           resolve(email);
@@ -100,13 +100,13 @@ async function getEmail(id: string): Promise<EmailObject> {
           if (e instanceof Error) {
             reject(new Error(`Failed to parse email response: ${e.message}`));
           } else {
-            reject(new Error('Failed to parse email response'));
+            reject(new Error("Failed to parse email response"));
           }
         }
       });
     });
 
-    req.on('error', (error) => {
+    req.on("error", (error) => {
       reject(new Error(`Failed to fetch email: ${error.message}`));
     });
 
@@ -123,8 +123,8 @@ async function deleteAllEmails(): Promise<void> {
     const options = {
       hostname: MAILDEV_HOST,
       port: MAILDEV_PORT,
-      path: '/email/all',
-      method: 'DELETE'
+      path: "/email/all",
+      method: "DELETE",
     };
 
     const req = http.request(options, (res) => {
@@ -135,7 +135,7 @@ async function deleteAllEmails(): Promise<void> {
       }
     });
 
-    req.on('error', (error) => {
+    req.on("error", (error) => {
       reject(new Error(`Failed to delete emails: ${error.message}`));
     });
 
@@ -163,15 +163,28 @@ async function findEmailByRecipient(
 
     try {
       const emails = await getEmails();
-      const targetEmail = emails.find((email) =>
-        email.to?.some((to) => to.address.toLowerCase() === recipient.toLowerCase())
+      const targetEmails = emails.filter((email) =>
+        email.to?.some(
+          (to) => to.address.toLowerCase() === recipient.toLowerCase()
+        )
       );
 
-      if (targetEmail) {
-        return await getEmail(targetEmail.id);
+      if (targetEmails.length > 0) {
+        // Sort by date/time to get the most recent email
+        const sortedEmails = targetEmails.sort((a, b) => {
+          const dateA = new Date(a.date || a.time || 0).getTime();
+          const dateB = new Date(b.date || b.time || 0).getTime();
+          return dateB - dateA; // Most recent first
+        });
+
+        return await getEmail(sortedEmails[0].id);
       }
     } catch (error) {
-      console.warn(`Error fetching emails (attempt ${attempts}): ${error.message}`);
+      console.warn(
+        `Error fetching emails (attempt ${attempts}): ${
+          error instanceof Error ? error.message : String(error)
+        }`
+      );
     }
 
     if (attempts < maxAttempts) {
@@ -179,7 +192,9 @@ async function findEmailByRecipient(
     }
   }
 
-  throw new Error(`No email found for recipient ${recipient} after ${attempts} attempts`);
+  throw new Error(
+    `No email found for recipient ${recipient} after ${attempts} attempts`
+  );
 }
 
 /**
@@ -192,7 +207,9 @@ function extractPasswordResetUrl(email: EmailObject): PasswordResetResult {
     let token: string | null = null;
     let url: string | null = null;
 
-    const urlMatch = email.text.match(/(https?:\/\/[^\s]+pwreset\/([a-zA-Z0-9_-]+))/);
+    const urlMatch = email.text.match(
+      /(https?:\/\/[^\s]+pwreset\/([a-zA-Z0-9_-]+))/
+    );
 
     if (urlMatch?.[1]) {
       url = urlMatch[1];
@@ -211,16 +228,30 @@ function extractPasswordResetUrl(email: EmailObject): PasswordResetResult {
  * @param {FindEmailOptions} options - Options for email fetching
  * @returns {Promise<PasswordResetResult>} Object with url and token properties
  */
-async function getPasswordResetUrl(recipient: string, options: FindEmailOptions = {}): Promise<PasswordResetResult> {
+async function getPasswordResetUrl(
+  recipient: string,
+  options: FindEmailOptions = {}
+): Promise<PasswordResetResult> {
   const email = await findEmailByRecipient(recipient, options);
   const result = extractPasswordResetUrl(email);
-  
+
   if (!result.url) {
-    throw new Error('Password reset URL not found in email');
+    throw new Error("Password reset URL not found in email");
   }
 
   return result;
 }
 
-export { deleteAllEmails, findEmailByRecipient, getEmail, getEmails, getPasswordResetUrl };
-export type { EmailObject, EmailRecipient, FindEmailOptions, PasswordResetResult };
+export {
+  deleteAllEmails,
+  findEmailByRecipient,
+  getEmail,
+  getEmails,
+  getPasswordResetUrl,
+};
+export type {
+  EmailObject,
+  EmailRecipient,
+  FindEmailOptions,
+  PasswordResetResult,
+};
