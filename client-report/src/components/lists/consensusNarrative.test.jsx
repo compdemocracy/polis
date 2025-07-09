@@ -8,7 +8,7 @@ import CommentList from './commentList.jsx';
 
 jest.mock('../narrative/index.jsx', () => {
   return ({ sectionData, model }) => (
-    <div data-testid="mock-narrative">
+    <div data-test-id="mock-narrative">
       Narrative Component - Model: {model} - Data: {JSON.stringify(sectionData)}
     </div>
   );
@@ -16,7 +16,7 @@ jest.mock('../narrative/index.jsx', () => {
 
 jest.mock('./commentList.jsx', () => {
   return ({ conversation, ptptCount, math, formatTid, tidsToRender, comments, voteColors }) => (
-    <div data-testid="mock-comment-list">
+    <div data-test-id="mock-comment-list">
       CommentList Component - TIDs: {JSON.stringify(tidsToRender)}
     </div>
   );

@@ -4,7 +4,7 @@ import URLs from "./url";
 
 const urlPrefix = URLs.urlPrefix;
 
-function polisAjax(api, data, type) {
+function polisAjax(api, data, type, token) {
     if (typeof api !== "string") {
         throw "api param should be a string";
     }
@@ -20,6 +20,7 @@ function polisAjax(api, data, type) {
         headers: {
             "Content-Type": "application/json; charset=utf-8",
             "Cache-Control": "max-age=0",
+            ...(token && {"Authorization": `Bearer ${token}`})
         },
         credentials: "include", // This sends cookies with the request
     };
@@ -51,12 +52,12 @@ function polisAjax(api, data, type) {
         });
 }
 
-function polisPost(api, data) {
-    return polisAjax(api, data, "POST");
+function polisPost(api, data, token) {
+    return polisAjax(api, data, "POST", token);
 }
 
-function polisGet(api, data) {
-    return polisAjax(api, data, "GET");
+function polisGet(api, data, token) {
+    return polisAjax(api, data, "GET", token);
 }
 
 const PolisNet = {
@@ -66,4 +67,3 @@ const PolisNet = {
 };
 
 export default PolisNet;
-

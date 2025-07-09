@@ -2,13 +2,38 @@
 
 // React Core
 import React from "react";
+import { Auth0Provider } from "@auth0/auth0-react";
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from "./components/app.jsx";
 
 class Root extends React.Component {
+  getDomainFromIssuer(issuer) {
+    try {
+      // Extract domain from AUTH_ISSUER URL (e.g., "https://localhost:3000/" -> "localhost:3000")
+      return new URL(issuer).host;
+    } catch (e) {
+      // Fallback to production domain if AUTH_ISSUER is malformed
+      console.warn('Invalid AUTH_ISSUER, falling back to production domain:', e);
+      return "compdem.us.auth0.com";
+    }
+  }
+
   render() {
-    return (
+    const authDomain = this.getDomainFromIssuer(process.env.AUTH_ISSUER);
+
+    return process.env.AUTH_CLIENT_ID ? (
+      <Auth0Provider
+        domain={authDomain}
+        clientId={process.env.AUTH_CLIENT_ID}
+        authorizationParams={{
+          audience: "users",
+          redirect_uri: window.location.origin
+        }}
+      >
+        <App />
+      </Auth0Provider>
+    ) : (
       <div>
         <App />
       </div>

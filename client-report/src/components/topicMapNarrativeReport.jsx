@@ -6,7 +6,7 @@ import TopicsVizReport from "./topicsVizReport/TopicsVizReport.jsx";
 import TopicReport from "./topicReport/TopicReport.jsx";
 
 export default ({ conversation, report_id, ptptCountTotal, math, computeVoteTotal, globals, comments, formatTid, voteColors }) => (
-  <div style={{ margin: "0px 10px", maxWidth: "1200px", padding: "20px" }} data-testid="reports-overview">
+  <div style={{ margin: "0px 10px", maxWidth: "1200px", padding: "20px" }} data-test-id="reports-overview">
     <Heading conversation={conversation} />
     <div
       style={{
