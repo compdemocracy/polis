@@ -38,12 +38,9 @@ export default {
   // detectOpenHandles: true,
   forceExit: true,
   verbose: true,
-  setupFilesAfterEnv: [
-    "./__tests__/setup/jest.setup.ts",
-    "./__tests__/setup/jest.setup.ts",
-  ],
+  setupFilesAfterEnv: ["./__tests__/setup/jest.setup.ts"],
   // Custom reporter provides better error reporting
-  reporters: ["default", "./__tests__/setup/custom-jest-reporter.ts"],
+  reporters: ["default", "./__tests__/setup/custom-jest-reporter.js"],
   // Add global setup and teardown files
   globalSetup: "./__tests__/setup/globalSetup.ts",
   globalTeardown: "./__tests__/setup/globalTeardown.ts",

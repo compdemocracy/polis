@@ -3,7 +3,7 @@
 Polis is an AI-powered sentiment gathering platform. More organic than surveys, less effort than focus groups.
 
 If you don't want to deploy your own instance of Polis, you can sign up for our SaaS version (complete with advanced
-report functionality) [here](https://pol.is/home).
+report functionality) [Polis Home](https://pol.is/home).
 
 Polis [can be easily embedded](https://github.com/compdemocracy/polis-embed-examples) on your page as an iframe.
 

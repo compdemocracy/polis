@@ -1,7 +1,6 @@
 {
-    "jest.jestCommandLine": "npx jest --forceExit test",
-    "jest.autoRun": {
-      "watch": false,
-      "onSave": "test-src-file"
-    }
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  }
 }

@@ -26,9 +26,23 @@ module.exports = {
     "@typescript-eslint/no-empty-function": 1,
     "@typescript-eslint/no-explicit-any": 1,
     "@typescript-eslint/no-inferrable-types": 1,
+    "@typescript-eslint/no-non-null-assertion": 0,
+    "@typescript-eslint/no-unsafe-argument": 0,
+    "@typescript-eslint/no-unsafe-assignment": 0,
+    "@typescript-eslint/no-unsafe-call": 0,
+    "@typescript-eslint/no-unsafe-member-access": 0,
+    "@typescript-eslint/no-unsafe-return": 0,
+    "@typescript-eslint/no-unused-vars": [
+      2, 
+      { 
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "destructuredArrayIgnorePattern": "^_"
+      }
+    ],
     "@typescript-eslint/no-var-requires": 1,
     "no-case-declarations": 1,
-    'no-console': 2,
+    "no-console": 2,
     "no-constant-condition": 1,
     "no-empty": 1,
     "no-extra-boolean-cast": 1,

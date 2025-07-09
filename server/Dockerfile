@@ -7,7 +7,7 @@
 # For a dev build, use `--target dev`.
 # Should default to prod build, but you can also explicitly use `--target prod`
 
-FROM docker.io/node:20-alpine as base
+FROM docker.io/node:lts-alpine as base
 
 ARG NODE_ENV
 
