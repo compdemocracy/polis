@@ -40,10 +40,12 @@
     "webpack-dev-server": "^4.15.1"
   },
   "dependencies": {
+    "@auth0/auth0-react": "^2.3.0",
     "color": "~4.2.3",
     "d3": "~4.6.0",
     "d3-contour": "~1.1.2",
     "d3-scale-chromatic": "~1.1.1",
+    "dotenv": "^16.4.7",
     "hull.js": "~0.2.11",
     "jquery": "~3.6.3",
     "jsonrepair": "^3.12.0",
