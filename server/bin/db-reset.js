@@ -140,7 +140,7 @@ async function resetDatabase() {
       const migrationPath = path.join(migrationsDir, migrationFile);
 
       // Use psql to apply the migration
-      const { _stdout, stderr } = await execAsync(
+      const { stdout: _stdout, stderr } = await execAsync(
         `PGPASSWORD="${dbConfig.password}" psql -h ${dbConfig.host} -p ${dbConfig.port} -U ${dbConfig.username} -d ${dbConfig.database} -f "${migrationPath}"`
       );
 
