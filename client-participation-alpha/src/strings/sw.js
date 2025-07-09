@@ -181,5 +181,5 @@ s.topic_bad_01_reason =
 s.topic_bad_02 = "je, vipengele vyetu vya kusubirisha uzinduzi ni vipi?";
 s.topic_bad_02_reason = "";
 
-module.exports = s;
+export default s;
 

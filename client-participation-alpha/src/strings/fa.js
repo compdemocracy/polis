@@ -114,4 +114,4 @@ s.topic_bad_02 = "چه چیزهایی جلوی راه‌اندازی ما را �
 s.topic_bad_02_reason = "";
 
 
-module.exports = s;
+export default s;

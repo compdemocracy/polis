@@ -114,4 +114,4 @@ s.topic_bad_02 = "Welche Hindernisse verhindern einen Projektstart?";
 s.topic_bad_02_reason = "";
 
 
-module.exports = s;
+export default s;

@@ -181,4 +181,4 @@ s.topic_bad_01_reason =
 s.topic_bad_02 = "ما هي موانع الإطلاق؟";
 s.topic_bad_02_reason = "";
 
-module.exports = s;
+export default s;

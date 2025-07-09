@@ -140,4 +140,4 @@ s.topic_bad_02_reason = "";
 
 s.notSentSinceDemo = "(இது உண்மையானது அல்ல. விளக்கமளிக்கும் நோக்கத்துக்காக மட்டும்)";
 
-module.exports = s;
+export default s;

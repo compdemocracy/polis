@@ -98,4 +98,4 @@ s.showTranslationButton = "日本語に翻訳する";
 s.hideTranslationButton = "元の言語に戻す";
 s.thirdPartyTranslationDisclaimer = "翻訳サービスは外部から提供されたものです";
 
-module.exports = s;
+export default s;

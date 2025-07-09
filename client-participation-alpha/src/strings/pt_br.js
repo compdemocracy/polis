@@ -82,4 +82,4 @@ s.topic_bad_01_reason = "As pessoas podem até tentar participar, mas podem não
 s.topic_bad_02 = "O que a gente deve fazer?";
 s.topic_bad_02_reason = "Aberta demais, não explica o objetivo da discussão, o resultado pode não ser aproveitável";
 
-module.exports = s;
+export default s;

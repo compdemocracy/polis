@@ -111,4 +111,4 @@ s.topic_good_03 = "Čo môže spomaľovať vašu produktivitu?";
 s.topic_bad_01 = "čo si myslíte o raketovej fyzike?";
 s.topic_bad_01_reason = "ľudia z róznych tímov budú hlasovať o výrokoch, ale nemusia mať dosť vedomostí na to, aby hlasovali sebavedomo.";
 
-module.exports = s;
+export default s;

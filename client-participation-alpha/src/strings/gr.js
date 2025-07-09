@@ -115,4 +115,4 @@ s.topic_bad_02 = "τι εμποδίζει την εκκίνηση;";
 s.topic_bad_02_reason = "";
 
 
-module.exports = s;
+export default s;

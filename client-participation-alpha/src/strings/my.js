@@ -179,5 +179,5 @@ s.topic_bad_01_reason =
 s.topic_bad_02 = "ကျွန်ုပ်တို့၏ စတင်ရန်ပိတ်ဆို့မှုများကို ဖော်ပြပါ။";
 s.topic_bad_02_reason = "";
 
-module.exports = s;
+export default s;
 

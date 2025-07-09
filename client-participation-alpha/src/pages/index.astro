@@ -1,9 +1,9 @@
 ---
 import Layout from './layouts/Layout.astro';
 import Header from '../components/Header.astro';
-import SurveyForm from '../components/SurveyForm.jsx';
-import Statement from '../components/Statement.jsx';
-import { Survey } from '../components/Survey.jsx'; 
+import Survey from '../components/Survey.jsx'; 
+import { getTranslations } from '../strings/strings';
+
 
 // Mock API endpoint for survey details
 const surveyDetailsResponse = await fetch('https://jsonplaceholder.typicode.com/posts/1');
@@ -12,13 +12,16 @@ const surveyDetails = await surveyDetailsResponse.json();
 // Mock API endpoint for statements
 const statementsResponse = await fetch('https://jsonplaceholder.typicode.com/comments');
 const statements = await statementsResponse.json();
+
+// Translations
+const strings = await getTranslations();
 ---
 <Layout>
   <div class="container">
     <Header />
     <h1>{surveyDetails.title}</h1>
     <p class="description">{surveyDetails.body}</p>
-    <p class="conversation-intro">Welcome to a new kind of conversation — vote on other people's statements — the more the better.</p>
+    <p class="conversation-intro" set:html={strings.participantHelpWelcomeText}></p>
     
     <Survey client:load initialStatements={statements} />
 

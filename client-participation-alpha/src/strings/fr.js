@@ -95,4 +95,4 @@ s.convIsClosed = "Cette conversation est fermée.";
 s.noMoreVotingAllowed = "Aucun autre vote n’est autorisé.";
 
 
-module.exports = s;
+export default s;

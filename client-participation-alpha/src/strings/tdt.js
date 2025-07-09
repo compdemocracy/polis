@@ -65,4 +65,4 @@ s.hereIsNextStatement  = "Votu sucessu. Muda ba leten atu bele haree deklarasaun
 
 
 
-module.exports = s;
+export default s;

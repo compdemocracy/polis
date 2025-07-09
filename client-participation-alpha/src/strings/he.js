@@ -119,4 +119,4 @@ s.topic_bad_02 = "מה נותר לעשות לפני כינוס הפגישה?";
 s.topic_bad_02_reason = "";
 
 
-module.exports = s;
+export default s;

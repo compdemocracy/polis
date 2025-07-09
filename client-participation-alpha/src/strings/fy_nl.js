@@ -140,4 +140,4 @@ s.topic_bad_02_reason = "";
 
 s.notSentSinceDemo = "(net echt, dit is in demo)";
 
-module.exports = s;
+export default s;

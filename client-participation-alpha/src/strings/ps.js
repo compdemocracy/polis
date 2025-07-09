@@ -179,5 +179,5 @@ s.topic_bad_01_reason =
 s.topic_bad_02 = "زموږ د پیل بلاکرونه کوم دي؟";
 s.topic_bad_02_reason = "";
 
-module.exports = s;
+export default s;
 

@@ -180,6 +180,6 @@ s.topic_bad_01_reason =
 s.topic_bad_02 = "what are our launch blockers?";
 s.topic_bad_02_reason = "";
 
-module.exports = s;
+export default s;
 
 

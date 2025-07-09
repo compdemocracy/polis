@@ -166,7 +166,7 @@ let translationsStore = null;
  * It fetches the English strings as a base and merges the user's preferred language on top.
  * Results are cached after the first call.
  *
- * @returns {Promise<Object>} A promise that resolves to the final strings object.
+ * @returns {Promise<{[key: string]: string}>} A promise that resolves to the final strings object.
  */
 export async function getTranslations() {
   if (translationsStore) {

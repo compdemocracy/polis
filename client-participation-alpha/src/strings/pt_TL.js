@@ -63,4 +63,4 @@ s.commentIsEmpty  = "A declaração está vazia";
 s.commentIsTooLong  = "Declaração é muito longa";
 s.hereIsNextStatement  = "Votação bem-sucedida. Navegue para cima para ver a próxima declaração.";
 
-module.exports = s;
+export default s;

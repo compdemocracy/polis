@@ -101,4 +101,4 @@ s.noCommentsTryWritingOne = "Если вам есть что добавить, �
 s.convIsClosed = "Этот диалог закрыт.";
 s.noMoreVotingAllowed = "Голосование закрыто.";
 
-module.exports = s;
+export default s;

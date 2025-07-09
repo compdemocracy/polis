@@ -181,5 +181,5 @@ s.topic_bad_01_reason =
 s.topic_bad_02 = "¿Qué está impidiendo el lanzamiento?";
 s.topic_bad_02_reason = "";
 
-module.exports = s;
+export default s;
 
