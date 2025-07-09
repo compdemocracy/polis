@@ -4,23 +4,23 @@
 
 ### Base
 
-  * `/base` styles are the foundation of the site, which include:
-  ** `_base` - styles are applied directly to element using an element selector
+- `/base` styles are the foundation of the site, which include:
+  **`_base` - styles are applied directly to element using an element selector
   ** `_utilities` - not reflective of application state
-  ** `_variables` - site-wide variables such as fonts, colors, widths, etc.
+  **`_variables` - site-wide variables such as fonts, colors, widths, etc.
   ** `_content` - universal text and content styles reside here
 
 ### Layout
 
-  * `/layout` determine how sections of the page are structured.
+- `/layout` determine how sections of the page are structured.
 
 ### Modules
 
-  * `/modules` contain discrete components of the page, such as navigation, alert dialogs, buttons, etc. Any new feature or component will be added to this section.
+- `/modules` contain discrete components of the page, such as navigation, alert dialogs, buttons, etc. Any new feature or component will be added to this section.
 
 ### States
 
-  * `/states` augment and override all other styles, such as whether an element is expanded or collapsed, or if the element is in an error or active state.
+- `/states` augment and override all other styles, such as whether an element is expanded or collapsed, or if the element is in an error or active state.
 
 #### Distinguishing states and modifiers
 
@@ -36,22 +36,28 @@ BEM, meaning _block, element, modifier_, provides meaningful and easy to parse n
 
 ```scss
 /* Utility */
-.u-utilityName {}
+.u-utilityName {
+}
 
 /* Component */
-.ComponentName {}
+.ComponentName {
+}
 
 /* Component modifier */
-.ComponentName--modifierName {}
+.ComponentName--modifierName {
+}
 
 /* Component descendant */
-.ComponentName-descendant {}
+.ComponentName-descendant {
+}
 
 /* Component descendant modifier */
-.ComponentName-descendant--modifierName {}
+.ComponentName-descendant--modifierName {
+}
 
 /* Component state (scoped to component) */
-.ComponentName.is-stateOfComponent {}
+.ComponentName.is-stateOfComponent {
+}
 ```
 
 Note the camelCasing! It looks crazy at first, but it's really pretty pleasant. (It also maps really well to Components/Views).
