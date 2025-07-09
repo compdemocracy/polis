@@ -18,9 +18,16 @@ services:
       # But it will ignore your local node_modules and instead use a new container volume.
       - ./server:/app
       - /app/node_modules
+      # Mount mkcert root CA for TLS verification
+      - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
+      # Mount JWT keys for participant authentication
+      - ${AUTH_KEYS_PATH:-./server/keys}:/app/keys:ro
     ports:
       - "${API_SERVER_PORT:-5000}:${API_SERVER_PORT:-5000}"
       - "9229:9229"
+    environment:
+      # Tell Node.js to trust the mkcert CA for HTTPS connections
+      - NODE_EXTRA_CA_CERTS=/root/.simulacrum/certs/rootCA.pem
 
   math:
     # command: clojure -X:dev-poller
@@ -56,9 +63,21 @@ services:
       # SMTP port
       - "1025:1025"
 
-  # TODO: Add individual entries for each of the clients, with hot-code reloading set up
-  # Either:
-  #   * configure environment variables here so that the ports the server points to for these assets are the
-  #     live-code-reloaded ports
-  #   * leave the server pointing to the static builds, but have separate ports you can hit for the live-code
-  #     reloading (making sure to document the process)
+  auth0-simulator:
+    build:
+      context: ./auth0-simulator
+      dockerfile: Dockerfile
+    command: npm run dev
+    ports:
+      - "${AUTH_SIMULATOR_PORT:-3000}:${AUTH_SIMULATOR_PORT:-3000}"
+    volumes:
+      - ./auth0-simulator:/app
+      - /app/node_modules
+      - ~/.simulacrum/certs:/root/.simulacrum/certs:ro
+    environment:
+      - AUTH_AUDIENCE=${AUTH_AUDIENCE:-users}
+      - AUTH_CLIENT_ID=${AUTH_CLIENT_ID:-dev-client-id}
+      - AUTH_NAMESPACE=${AUTH_NAMESPACE:-https://pol.is/}
+      - AUTH_SIMULATOR_PORT=${AUTH_SIMULATOR_PORT:-3000}
+    networks:
+      - polis-net

@@ -109,6 +109,19 @@ extract-web-assets: ## Extract static web assets from file-server to `build` dir
 	/bin/rm -rf build
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} cp file-server:/app/build/ build
 
+generate-jwt-keys: ## Generate JWT keys for participant authentication
+	@echo "Generating JWT keys for participant authentication..."
+	@if [ -f server/keys/jwt-private.pem ]; then \
+		echo "JWT keys already exist. Use 'make regenerate-jwt-keys' to overwrite."; \
+	else \
+		node server/scripts/generate-jwt-keys.js; \
+	fi
+
+regenerate-jwt-keys: ## Regenerate JWT keys (overwrites existing)
+	@echo "Regenerating JWT keys for participant authentication..."
+	@rm -f server/keys/jwt-private.pem server/keys/jwt-public.pem
+	@node server/scripts/generate-jwt-keys.js
+
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
 
@@ -129,7 +142,7 @@ rbs: start-rebuild
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
 	start-recreate start-FULL-REBUILD rebuild-web e2e-install e2e-run e2e-run-all e2e-run-interactive \
-	build-web-assets extract-web-assets
+	build-web-assets extract-web-assets generate-jwt-keys regenerate-jwt-keys
 
 
 help:

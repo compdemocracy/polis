@@ -145,6 +145,8 @@ services:
       dockerfile: nginx.Dockerfile
     labels:
       polis_tag: ${TAG:-dev}
+    environment:
+      - API_SERVER_PORT=${API_SERVER_PORT:-5000}
     depends_on:
       - "server"
     networks:
@@ -159,6 +161,9 @@ services:
       context: ./
       dockerfile: file-server/Dockerfile
       args:
+        AUTH_AUDIENCE: ${AUTH_AUDIENCE}
+        AUTH_CLIENT_ID: ${AUTH_CLIENT_ID}
+        AUTH_ISSUER: ${AUTH_ISSUER}
         EMBED_SERVICE_HOSTNAME: ${EMBED_SERVICE_HOSTNAME}
         GA_TRACKING_ID: ${GA_TRACKING_ID}
         GIT_HASH: "${GIT_HASH:-placeholder}"
@@ -227,6 +232,7 @@ services:
 
 networks:
   polis-net:
+
 
 volumes:
   backups:

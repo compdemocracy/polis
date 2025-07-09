@@ -9,10 +9,17 @@
 
 services:
   server:
+    volumes:
+      # Mount mkcert root CA for TLS verification
+      - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
+      # Mount JWT keys for participant authentication
+      - ${AUTH_KEYS_PATH:-./server/keys}:/app/keys:ro
     environment:
       - GOOGLE_CREDENTIALS_BASE64
-      - NODE_ENV=development
       - MAILDEV_HOST=maildev
+      - NODE_ENV=development
+      # Tell Node.js to trust the mkcert CA for HTTPS connections
+      - NODE_EXTRA_CA_CERTS=/root/.simulacrum/certs/rootCA.pem
 
   maildev:
     image: docker.io/maildev/maildev:1.1.1
@@ -25,6 +32,22 @@ services:
       - "1080:1080"
       # SMTP port
       - "1025:1025"
+
+  auth0-simulator:
+    build:
+      context: ./auth0-simulator
+      dockerfile: Dockerfile
+    ports:
+      - "${AUTH_SIMULATOR_PORT:-3000}:${AUTH_SIMULATOR_PORT:-3000}"
+    volumes:
+      - ~/.simulacrum/certs:/root/.simulacrum/certs:ro
+    environment:
+      - AUTH_AUDIENCE=${AUTH_AUDIENCE:-users}
+      - AUTH_CLIENT_ID=${AUTH_CLIENT_ID:-dev-client-id}
+      - AUTH_NAMESPACE=${AUTH_NAMESPACE:-https://pol.is/}
+      - AUTH_SIMULATOR_PORT=${AUTH_SIMULATOR_PORT:-3000}
+    networks:
+      - polis-net
 
   postgres:
     ports:

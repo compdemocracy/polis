@@ -1,0 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Docker compose is used to run the polis app in development. see docker-compose.yml and docker-compose.dev.yml.
+A local .env file exists that is a modified version of example.env.
+Helpful shortcuts are specified in the Makefile. For example, to rebuilt the client web apps use `make DETACH=true rebuild-web`.
+To see server logs use `docker logs polis-dev-server-1`.
+To access the database use `psql postgresql://postgres:oiPorg3Nrz0yqDLE@localhost:5432/polis-dev` or similar.
+The "server" api app is configured to automatically rebuild and restart when server code is changed.
+However the client web apps (client-*) are not. Since they are prebuilt and served as static assets vie "file-server". Thus the `make DETACH=true rebuild web` command is very helpful.
+Changes in .env are not generally picked up by services until you run `make DETACH=true start-recreate`.
