@@ -36,6 +36,8 @@ var translations = {
   it: require("./strings/it.js"),
   // Japanese
   ja: require("./strings/ja.js"),
+  // Korean
+  ko_kr: require("./strings/ko_kr.js"),
   // Dutch
   nl: require("./strings/nl.js"),
   // Portuguese
@@ -90,6 +92,8 @@ preloadHelper.acceptLanguagePromise.then(function() {
       _.extend(strings, translations.en_us);
     } else if (languageCode.match(/^ja/)) {
       _.extend(strings, translations.ja);
+    } else if (languageCode.match(/^ko-KR/)) {
+      _.extend(strings, translations.ko_kr);
     } else if (
       languageCode.match(/^zh-CN/) ||
       languageCode.match(/^zh-SG/) ||

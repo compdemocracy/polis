@@ -34,6 +34,7 @@
     iframe.height = o.height || 900;
     iframe.style.border = "1px solid #ccc";
     iframe.style.borderRadius = "4px";
+    iframe.style.backgroundColor = "#333";
     parent.appendChild(iframe);
   }
 
