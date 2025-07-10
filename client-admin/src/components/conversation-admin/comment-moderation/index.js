@@ -70,7 +70,7 @@ class CommentModeration extends React.Component {
         </Heading>
         <Flex sx={{ mb: [4] }}>
           <Link
-            data-test-id="mod-queue"
+            data-testid="mod-queue"
             sx={{
               mr: [4],
               variant: url ? 'links.nav' : 'links.activeNav'
@@ -82,7 +82,7 @@ class CommentModeration extends React.Component {
               : null}
           </Link>
           <Link
-            data-test-id="filter-approved"
+            data-testid="filter-approved"
             sx={{
               mr: [4],
               variant: url === 'accepted' ? 'links.activeNav' : 'links.nav'
@@ -94,7 +94,7 @@ class CommentModeration extends React.Component {
               : null}
           </Link>
           <Link
-          data-test-id="filter-rejected"
+          data-testid="filter-rejected"
             sx={{
               mr: [4],
               variant: url === 'rejected' ? 'links.activeNav' : 'links.nav'

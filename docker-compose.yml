@@ -40,8 +40,6 @@ services:
         NODE_ENV: production
     labels:
       polis_tag: ${TAG:-dev}
-    depends_on:
-      - "file-server"
     networks:
       - "polis-net"
     # Scale the server container to a given number of instances.
@@ -232,7 +230,6 @@ services:
 
 networks:
   polis-net:
-
 
 volumes:
   backups:

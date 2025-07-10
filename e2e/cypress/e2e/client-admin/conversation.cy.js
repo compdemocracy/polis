@@ -42,8 +42,8 @@ describe('Client Admin: Conversation Management', () => {
       cy.get('h3').should('contain.text', 'Configure')
 
       // Should see topic and description fields
-      cy.get('input[data-test-id="topic"]').should('be.visible')
-      cy.get('textarea[data-test-id="description"]').should('be.visible')
+      cy.get('input[data-testid="topic"]').should('be.visible')
+      cy.get('textarea[data-testid="description"]').should('be.visible')
     })
 
     it('should allow configuring conversation details', () => {
@@ -68,7 +68,7 @@ describe('Client Admin: Conversation Management', () => {
       cy.intercept('PUT', '/api/v3/conversations').as('updateConversation')
 
       // Fill in topic
-      cy.get('input[data-test-id="topic"]').should('not.be.disabled').clear().type(testTopic).blur() // Trigger the onBlur save
+      cy.get('input[data-testid="topic"]').should('not.be.disabled').clear().type(testTopic).blur() // Trigger the onBlur save
 
       // Wait for the actual API call to complete
       cy.wait('@updateConversation').then((interception) => {
@@ -76,7 +76,7 @@ describe('Client Admin: Conversation Management', () => {
       })
 
       // Fill in description (ensure field is ready)
-      cy.get('textarea[data-test-id="description"]')
+      cy.get('textarea[data-testid="description"]')
         .should('not.be.disabled')
         .clear()
         .type(testDescription)
@@ -87,9 +87,9 @@ describe('Client Admin: Conversation Management', () => {
         expect(interception.response.statusCode).to.eq(200)
       })
 
-      // Test some of the actual checkboxes from the page using their data-test-id attributes
+      // Test some of the actual checkboxes from the page using their data-testid attributes
       // Toggle "vis_type" checkbox (Participants can see the visualization - unchecked by default)
-      cy.get('input[data-test-id="vis_type"]').should('not.be.checked').check()
+      cy.get('input[data-testid="vis_type"]').should('not.be.checked').check()
 
       // Wait for this checkbox change to save
       cy.wait('@updateConversation').then((interception) => {
@@ -97,7 +97,7 @@ describe('Client Admin: Conversation Management', () => {
       })
 
       // Toggle "write_type" checkbox (Participants can submit comments - checked by default)
-      cy.get('input[data-test-id="write_type"]').should('be.checked').uncheck()
+      cy.get('input[data-testid="write_type"]').should('be.checked').uncheck()
 
       // Wait for this checkbox change to save
       cy.wait('@updateConversation').then((interception) => {
@@ -226,7 +226,7 @@ describe('Client Admin: Conversation Management', () => {
       testComments.forEach((comment, index) => {
         cy.log(`Adding seed comment ${index + 1}/${testComments.length}: ${comment}`)
 
-        cy.get('textarea[data-test-id="seed_form"]').clear().type(comment)
+        cy.get('textarea[data-testid="seed_form"]').clear().type(comment)
 
         // Submit this comment
         cy.get('button')
@@ -329,7 +329,7 @@ describe('Client Admin: Conversation Management', () => {
             .click()
 
           // Navigate to Moderate section
-          cy.get('a[data-test-id="moderate-comments"], a').contains('Moderate').click()
+          cy.get('a[data-testid="moderate-comments"], a').contains('Moderate').click()
 
           cy.url().should('include', 'comments')
           cy.get('h1, h2, h3, body').should('contain.text', 'Moderate')
@@ -411,14 +411,14 @@ describe('Client Admin: Conversation Management', () => {
 
       // 2. Configure basic settings with specific selectors
       // Trigger the onBlur save
-      cy.get('input[data-test-id="topic"]').should('not.be.disabled').clear().type(testTopic).blur()
+      cy.get('input[data-testid="topic"]').should('not.be.disabled').clear().type(testTopic).blur()
 
       // Wait for the actual API call to complete
       cy.wait('@updateConversation').then((interception) => {
         expect(interception.response.statusCode).to.eq(200)
       })
 
-      cy.get('textarea[data-test-id="description"]')
+      cy.get('textarea[data-testid="description"]')
         .should('not.be.disabled')
         .clear()
         .type(testDescription)
@@ -441,7 +441,7 @@ describe('Client Admin: Conversation Management', () => {
       workflowComments.forEach((comment, index) => {
         cy.log(`Adding workflow comment ${index + 1}/${workflowComments.length}: ${comment}`)
 
-        cy.get('textarea[data-test-id="seed_form"]').clear().type(comment)
+        cy.get('textarea[data-testid="seed_form"]').clear().type(comment)
 
         cy.get('button')
           .contains(/submit/i)

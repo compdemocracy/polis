@@ -139,10 +139,10 @@ describe('Client Admin: Comment Moderation', () => {
       cy.log('📋 Checking for unmoderated comments')
 
       // Should be on unmoderated by default, but ensure we're on the right tab
-      cy.get('[data-test-id="mod-queue"]').click()
+      cy.get('[data-testid="mod-queue"]').click()
 
       // Verify we're on the unmoderated section
-      cy.get('[data-test-id="pending-comment"]').should('exist')
+      cy.get('[data-testid="pending-comment"]').should('exist')
 
       // Should see participant comments that need moderation
       participantComments.forEach((comment) => {
@@ -156,17 +156,17 @@ describe('Client Admin: Comment Moderation', () => {
       cy.log('📋 Checking accepted comments section')
 
       // Click on the accepted tab using the proper test ID
-      cy.get('[data-test-id="filter-approved"]').click()
+      cy.get('[data-testid="filter-approved"]').click()
 
       // Verify we're on the accepted section
-      cy.get('[data-test-id="approved-comments"]').should('exist')
+      cy.get('[data-testid="approved-comments"]').should('exist')
 
       // URL should include 'accepted'
       cy.url().should('include', '/accepted')
 
       // Seed comments should be here as they're auto-approved
       seedComments.forEach((comment) => {
-        cy.get('[data-test-id="approved-comments"]').should('contain.text', comment)
+        cy.get('[data-testid="approved-comments"]').should('contain.text', comment)
       })
 
       cy.log('✅ Accepted comments section accessible and shows seed comments')
@@ -176,10 +176,10 @@ describe('Client Admin: Comment Moderation', () => {
       cy.log('📋 Checking rejected comments section')
 
       // Click on the rejected tab using the proper test ID
-      cy.get('[data-test-id="filter-rejected"]').click()
+      cy.get('[data-testid="filter-rejected"]').click()
 
       // Verify we're on the rejected section
-      cy.get('[data-test-id="rejected-comments"]').should('exist')
+      cy.get('[data-testid="rejected-comments"]').should('exist')
 
       // URL should include 'rejected'
       cy.url().should('include', '/rejected')
@@ -202,13 +202,13 @@ describe('Client Admin: Comment Moderation', () => {
       cy.intercept('PUT', '/api/v3/comments').as('moderateComment')
 
       // Ensure we're on the unmoderated tab
-      cy.get('[data-test-id="mod-queue"]').click()
+      cy.get('[data-testid="mod-queue"]').click()
 
       // Find the first participant comment and approve it
       const testComment = participantComments[0].text
 
       // Find the comment card containing our test comment
-      cy.contains('[data-test-id="pending-comment"]', testComment).within(() => {
+      cy.contains('[data-testid="pending-comment"]', testComment).within(() => {
         // Click the accept button (text is "accept" based on the component)
         cy.contains('button', 'accept').click()
       })
@@ -223,8 +223,8 @@ describe('Client Admin: Comment Moderation', () => {
       })
 
       // Verify the comment moved to accepted section
-      cy.get('[data-test-id="filter-approved"]').click()
-      cy.get('[data-test-id="approved-comments"]').should('contain.text', testComment)
+      cy.get('[data-testid="filter-approved"]').click()
+      cy.get('[data-testid="approved-comments"]').should('contain.text', testComment)
     })
 
     it('should allow rejecting a comment', () => {
@@ -234,15 +234,15 @@ describe('Client Admin: Comment Moderation', () => {
       cy.intercept('PUT', '/api/v3/comments').as('moderateComment')
 
       // Ensure we're on the unmoderated tab
-      cy.get('[data-test-id="mod-queue"]').click()
+      cy.get('[data-testid="mod-queue"]').click()
 
       // Find the second participant comment and reject it
       const testComment = participantComments[1].text
 
       // Find the comment card containing our test comment
-      cy.contains('[data-test-id="pending-comment"]', testComment).within(() => {
+      cy.contains('[data-testid="pending-comment"]', testComment).within(() => {
         // Click the reject button using its test ID
-        cy.get('[data-test-id="reject-comment"]').click()
+        cy.get('[data-testid="reject-comment"]').click()
       })
 
       // Wait for API call
@@ -255,8 +255,8 @@ describe('Client Admin: Comment Moderation', () => {
       })
 
       // Verify the comment moved to rejected section
-      cy.get('[data-test-id="filter-rejected"]').click()
-      cy.get('[data-test-id="rejected-comments"]').should('contain.text', testComment)
+      cy.get('[data-testid="filter-rejected"]').click()
+      cy.get('[data-testid="rejected-comments"]').should('contain.text', testComment)
     })
   })
 
@@ -271,11 +271,11 @@ describe('Client Admin: Comment Moderation', () => {
 
       // Navigate to moderation and then accepted comments
       navigateToConversationSection(conversationId, 'moderate')
-      cy.get('[data-test-id="filter-approved"]').click()
+      cy.get('[data-testid="filter-approved"]').click()
 
       // All seed comments should be visible in accepted section
       seedComments.forEach((comment) => {
-        cy.get('[data-test-id="approved-comments"]').should('contain.text', comment)
+        cy.get('[data-testid="approved-comments"]').should('contain.text', comment)
       })
 
       cy.log('✅ All seed comments are automatically approved')
@@ -287,15 +287,15 @@ describe('Client Admin: Comment Moderation', () => {
       navigateToConversationSection(conversationId, 'moderate')
 
       // Should be on unmoderated by default, but ensure we're on the right tab
-      cy.get('[data-test-id="mod-queue"]').click()
+      cy.get('[data-testid="mod-queue"]').click()
 
       // Seed comments should NOT be in the unmoderated section
       seedComments.forEach((comment) => {
         // Check specifically within the pending comments container
         cy.get('body').then(($body) => {
-          if ($body.find('[data-test-id="pending-comment"]').length > 0) {
+          if ($body.find('[data-testid="pending-comment"]').length > 0) {
             // Only check if there are pending comments
-            cy.get('[data-test-id="pending-comment"]').each(($el) => {
+            cy.get('[data-testid="pending-comment"]').each(($el) => {
               cy.wrap($el).should('not.contain.text', comment)
             })
           }

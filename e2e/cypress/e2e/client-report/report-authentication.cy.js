@@ -180,7 +180,7 @@ describe('Reports - Authentication & Access Control', () => {
       cy.get('body').should('contain', 'Report')
 
       // Should see some report elements
-      cy.get('[data-test-id*="reports-overview"]').should('exist')
+      cy.get('[data-testid*="reports-overview"]').should('exist')
       cy.get('body').should('contain', 'Overview')
     })
 
@@ -209,7 +209,7 @@ describe('Reports - Authentication & Access Control', () => {
       cy.get('body').should('contain', 'Report')
 
       // Should see some report elements
-      cy.get('[data-test-id*="reports-overview"]').should('exist')
+      cy.get('[data-testid*="reports-overview"]').should('exist')
       cy.get('body').should('contain', 'Overview')
 
       cy.logout()
@@ -240,7 +240,7 @@ describe('Reports - Authentication & Access Control', () => {
       cy.get('body').should('contain', 'Report')
 
       // Should see some report elements
-      cy.get('[data-test-id*="reports-overview"]').should('exist')
+      cy.get('[data-testid*="reports-overview"]').should('exist')
       cy.get('body').should('contain', 'Overview')
 
       cy.logout()

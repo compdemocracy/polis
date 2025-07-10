@@ -95,18 +95,18 @@ export function createTestConversation(options = {}) {
   cy.get('h1, h2, h3').should('contain.text', 'Configure')
 
   // Wait for the form to be ready - check for the existence of key form elements
-  cy.get('input[data-test-id="topic"]').should('exist')
-  cy.get('textarea[data-test-id="description"]').should('exist')
+  cy.get('input[data-testid="topic"]').should('exist')
+  cy.get('textarea[data-testid="description"]').should('exist')
 
   // Set up API intercepts like the robust admin tests
   cy.intercept('PUT', '/api/v3/conversations').as('updateConversation')
 
   // Wait for topic input to be enabled and configured before typing
-  cy.get('input[data-test-id="topic"]')
+  cy.get('input[data-testid="topic"]')
     .should('exist')
     .should('be.visible')
     .should('not.be.disabled')
-    .should('have.attr', 'data-test-id', 'topic')
+    .should('have.attr', 'data-testid', 'topic')
     .clear()
     .type(topic)
     .blur() // Trigger the onBlur save
@@ -117,11 +117,11 @@ export function createTestConversation(options = {}) {
   })
 
   // Wait for description textarea to be enabled before typing
-  cy.get('textarea[data-test-id="description"]')
+  cy.get('textarea[data-testid="description"]')
     .should('exist')
     .should('be.visible')
     .should('not.be.disabled')
-    .should('have.attr', 'data-test-id', 'description')
+    .should('have.attr', 'data-testid', 'description')
     .clear()
     .type(description)
     .blur() // Trigger the onBlur save

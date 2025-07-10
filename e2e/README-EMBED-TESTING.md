@@ -74,7 +74,7 @@ Added helper commands in `cypress/support/commands.js` for cleaner test code:
 
 ```javascript
 // Get iframe body with better error handling
-cy.getIframeBody('iframe[data-test-id="polis-iframe"]')
+cy.getIframeBody('iframe[data-testid="polis-iframe"]')
 
 // Automatically intercept and serve embed HTML
 cy.interceptEmbed()
@@ -95,7 +95,7 @@ cy.get('iframe').then(($iframe) => {
 })
 
 // New approach (robust)
-cy.getIframeBody('iframe[data-test-id="polis-iframe"]').within(() => {
+cy.getIframeBody('iframe[data-testid="polis-iframe"]').within(() => {
   // Test iframe content
 })
 ```

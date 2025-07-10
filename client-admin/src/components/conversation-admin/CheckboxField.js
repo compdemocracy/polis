@@ -37,7 +37,7 @@ export const CheckboxField = ({
         <input
           type="checkbox"
           label={label}
-          data-test-id={field}
+          data-testid={field}
           checked={
             isIntegerBool ? zid_metadata[field] === 1 : zid_metadata[field]
           }

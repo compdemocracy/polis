@@ -40,7 +40,7 @@ services:
     ports:
       - "${AUTH_SIMULATOR_PORT:-3000}:${AUTH_SIMULATOR_PORT:-3000}"
     volumes:
-      - ~/.simulacrum/certs:/root/.simulacrum/certs:ro
+      - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
     environment:
       - AUTH_AUDIENCE=${AUTH_AUDIENCE:-users}
       - AUTH_CLIENT_ID=${AUTH_CLIENT_ID:-dev-client-id}

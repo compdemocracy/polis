@@ -223,7 +223,7 @@ describe('Client Admin: Share/Distribute', () => {
     it('should show embedded page info when parent_url exists', () => {
       // This test would need a conversation with parent_url set
       // The component calls constructEmbeddedOnMarkup() which creates:
-      // <p data-test-id="embed-page">
+      // <p data-testid="embed-page">
       //   Embedded on: <a target="blank" href={parent_url}>{parent_url}</a>
       // </p>
 
@@ -231,11 +231,11 @@ describe('Client Admin: Share/Distribute', () => {
 
       // Check if embedded page info is present
       cy.get('body').then(($body) => {
-        const hasEmbedInfo = $body.find('[data-test-id="embed-page"]').length > 0
+        const hasEmbedInfo = $body.find('[data-testid="embed-page"]').length > 0
 
         if (hasEmbedInfo) {
-          cy.get('[data-test-id="embed-page"]').should('contain.text', 'Embedded on:')
-          cy.get('[data-test-id="embed-page"] a[target="blank"]').should('exist')
+          cy.get('[data-testid="embed-page"]').should('contain.text', 'Embedded on:')
+          cy.get('[data-testid="embed-page"] a[target="blank"]').should('exist')
           cy.log('✅ Embedded page information displayed')
         } else {
           cy.log('ℹ️ No parent_url set - embedded info not shown (expected)')

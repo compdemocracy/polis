@@ -8,7 +8,7 @@ class Hull extends React.Component {
     return (
       <g>
         <path
-          data-test-id={`hull-${this.props.gid}`}
+          data-testid={`hull-${this.props.gid}`}
           onClick={() => {
             this.props.handleClick(this.props.gid);
           }}

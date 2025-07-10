@@ -38,7 +38,7 @@ class ModerateCommentsRejected extends React.Component {
 
   render() {
     return (
-      <div data-test-id="rejected-comments">
+      <div data-testid="rejected-comments">
         {this.props.rejected_comments !== null
           ? this.createCommentMarkup()
           : 'Loading rejected comments...'}

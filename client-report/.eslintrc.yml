@@ -24,8 +24,16 @@ overrides:
       browser: false
   - files:
     - "**/*.test.js"
+    - "**/*.test.jsx"
     env:
       jest: true
+    globals:
+      global: true
+    rules:
+      "@babel/no-unused-expressions": "off"  # Allow unused expressions in tests
+      no-unused-vars: "off"      # Allow unused imports (often needed for mocking)
+      react/display-name: "off"  # Allow anonymous components in mocks
+      react/prop-types: "off"    # Don't require prop-types in test files
 parser: "@babel/eslint-parser"
 parserOptions:
   ecmaVersion: latest

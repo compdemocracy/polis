@@ -95,7 +95,7 @@ describe('Reports - Admin Interface', () => {
 
       // Verify a report URL appears
       cy.get('a[href*="/report/"]', { timeout: 10000 }).should('exist')
-      cy.get('[data-test-id="report-list-item"]').should('have.length.at.least', 1)
+      cy.get('[data-testid="report-list-item"]').should('have.length.at.least', 1)
     })
 
     it('should display multiple reports after creating several', () => {
@@ -106,20 +106,20 @@ describe('Reports - Admin Interface', () => {
       cy.wait(1000)
 
       // Verify multiple report URLs are shown
-      cy.get('[data-test-id="report-list-item"]').should('have.length.at.least', 2)
+      cy.get('[data-testid="report-list-item"]').should('have.length.at.least', 2)
     })
 
     it('should have clickable report URLs that open in new tab', () => {
       // Create a report if none exist
       cy.get('body').then(($body) => {
-        if ($body.find('[data-test-id="report-list-item"]').length === 0) {
+        if ($body.find('[data-testid="report-list-item"]').length === 0) {
           cy.get('button').contains('Create report url').click()
           cy.wait(1000)
         }
       })
 
       // Verify report link has correct attributes
-      cy.get('[data-test-id="report-list-item"] a')
+      cy.get('[data-testid="report-list-item"] a')
         .first()
         .should('have.attr', 'target', '_blank')
         .and('have.attr', 'rel', 'noreferrer')
@@ -127,7 +127,7 @@ describe('Reports - Admin Interface', () => {
         .and('contain', '/report/')
 
       // Verify the report URL format
-      cy.get('[data-test-id="report-list-item"] a')
+      cy.get('[data-testid="report-list-item"] a')
         .first()
         .then(($link) => {
           const href = $link.attr('href')
@@ -172,7 +172,7 @@ describe('Reports - Admin Interface', () => {
       cy.wait('@getReports')
 
       // New report should appear in the list
-      cy.get('[data-test-id="report-list-item"]').should('exist')
+      cy.get('[data-testid="report-list-item"]').should('exist')
     })
   })
 })

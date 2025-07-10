@@ -157,7 +157,7 @@
     iframe.style.backgroundColor = "white";
     // iframe.style.backgroundColor = "rgb(247, 247, 247)";
     iframe.id = id;
-    iframe.setAttribute("data-test-id", "polis-iframe");
+    iframe.setAttribute("data-testid", "polis-iframe");
     parent.appendChild(iframe);
     iframes.push(iframe);
   }

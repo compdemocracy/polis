@@ -116,7 +116,7 @@ class ReportsList extends React.Component {
         </Box>
         {this.state.reports.map((report) => {
           return (
-            <Box sx={{ mb: [2] }} key={report.report_id} data-test-id="report-list-item">
+            <Box sx={{ mb: [2] }} key={report.report_id} data-testid="report-list-item">
               <a
                 target="_blank"
                 rel="noreferrer"

@@ -151,14 +151,14 @@ Integration tests for JWT-based authentication use `@simulacrum/auth0-simulator`
     ```
 
 3. **Generate Certificates for the Simulator**:
-    The Auth0 simulator, by default, looks for certificates in `~/.simulacrum/certs/`. Create these certificates for `localhost`:
+    The Auth0 simulator, by default, looks for certificates in `~/.simulacrum/certs/`. Create these certificates for `localhost` with custom file names:
 
     ```bash
     mkdir -p ~/.simulacrum/certs
-    (cd ~/.simulacrum/certs && mkcert localhost 127.0.0.1 ::1)
+    (cd ~/.simulacrum/certs && mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1)
     ```
 
-    This will create `localhost.pem` (certificate) and `localhost-key.pem` (private key) in that directory.
+    This will create `localhost.pem` (certificate) and `localhost-key.pem` (private key) in that directory, which are the specific file names expected by the Auth0 simulator.
 
 **How it Works with Tests:**
 

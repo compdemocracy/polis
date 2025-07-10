@@ -15,7 +15,7 @@ import ParticipantXids from './participant-xids'
 class ShareAndEmbed extends React.Component {
   constructEmbeddedOnMarkup() {
     return (
-      <p data-test-id="embed-page">
+      <p data-testid="embed-page">
         {'Embedded on: '}
         <a
           style={{ color: 'black' }}

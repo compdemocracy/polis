@@ -55,7 +55,7 @@ describe('Client Admin: Access Control', () => {
       cy.visit(`/m/${adminConversationId}`)
       cy.get('body').should('be.visible')
       cy.get('h1, h2, h3').should('contain.text', 'Configure')
-      cy.get('input[data-test-id="topic"]').should('exist')
+      cy.get('input[data-testid="topic"]').should('exist')
       verifyAdminInterfaceElements('configure')
     })
 

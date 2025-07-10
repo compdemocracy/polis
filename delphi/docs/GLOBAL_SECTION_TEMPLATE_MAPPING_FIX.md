@@ -7,6 +7,7 @@ The global section template mapping logic in `801_narrative_report_batch.py` had
 ### Root Cause
 
 **Original problematic code (line 991)**:
+
 ```python
 base_name = topic_name.replace("global_", "")
 ```
@@ -14,7 +15,7 @@ base_name = topic_name.replace("global_", "")
 **The Problem**: This logic assumed `topic_name` would be in the format `"global_groups"`, but actually:
 
 - **topic_name**: `"groups"` (just the short name)
-- **topic_key**: `"batch_report_r6vbnhffkxbd7ifmfbdrd_1749465598_b83d9a1b_global_groups"` (full versioned key) 
+- **topic_key**: `"batch_report_r6vbnhffkxbd7ifmfbdrd_1749465598_b83d9a1b_global_groups"` (full versioned key)
 - **section_name**: `"batch_report_r6vbnhffkxbd7ifmfbdrd_1749465598_b83d9a1b_global_groups"` (derived from topic_key)
 
 Since `topic_name` was just `"groups"` (not `"global_groups"`), the `.replace("global_", "")` operation did nothing, and the code worked by accident.
@@ -28,6 +29,7 @@ Since `topic_name` was just `"groups"` (not `"global_groups"`), the `.replace("g
 ## Solution Implemented
 
 **New robust code (lines 990-1007)**:
+
 ```python
 # Extract the base name from the section_name (works with both old and new formats)
 # Old format: "global_groups" -> "groups"  
@@ -65,17 +67,20 @@ else:
 ### Data Flow
 
 1. **Topic Generation** (`get_topics()` method):
+
    ```python
    global_topic_prefix = f"{self.job_id}_global"
    topic_key = f"{global_topic_prefix}_groups"  # → batch_report_xxx_global_groups
    ```
 
 2. **Section Name Conversion**:
+
    ```python
    section_name = topic_key.replace('#', '_')  # → batch_report_xxx_global_groups
    ```
 
 3. **Template Selection** (FIXED):
+
    ```python
    if section_name.endswith("_groups"):
        base_name = "groups"
@@ -105,10 +110,12 @@ This fix was implemented as part of the UI consistency work where both TopicRepo
 ## Related Work
 
 This fix is part of the broader effort to:
+
 1. Implement versioned topic keys for Smart Comment Filtering
 2. Resolve UI consistency issues between TopicReport and CommentsReport
 3. Support concurrent batch processing jobs without conflicts
 
 See also:
+
 - `SMART_COMMENT_FILTERING_PLAN.md`
 - UI component refactoring in `client-report/src/components/topicReport/`

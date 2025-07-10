@@ -100,7 +100,7 @@ const Checkbox = ({ isChecked, color = settings.darkGray, clickHandler =  (x) =>
         onMouseDown={activeHandler}
         onMouseUp={activeHandler}
         >
-        <span data-test-id="checkbox" style={styles}>
+        <span data-testid="checkbox" style={styles}>
         </span>
         <span style={getLabelStyles()}>
           {label}

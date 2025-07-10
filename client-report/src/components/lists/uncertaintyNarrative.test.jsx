@@ -2,8 +2,8 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import UncertaintyNarrative from './uncertaintyNarrative';
 import * as globals from '../globals.js'; // Mock globals if necessary
-jest.mock('../narrative/index.jsx', () => ({ model }) => <div data-test-id={`mock-narrative-${model}`} /> ); // Mock Narrative
-jest.mock('./commentList.jsx', () => () => <div data-test-id="mock-comment-list" />);
+jest.mock('../narrative/index.jsx', () => ({ model }) => <div data-testid={`mock-narrative-${model}`} /> ); // Mock Narrative
+jest.mock('./commentList.jsx', () => () => <div data-testid="mock-comment-list" />);
 import '@testing-library/jest-dom';
 
 describe('UncertaintyNarrative Component', () => {

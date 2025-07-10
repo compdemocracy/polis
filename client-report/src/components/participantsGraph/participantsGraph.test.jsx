@@ -107,7 +107,7 @@ test('renders participants graph with basic data', () => {
   expect(screen.getByRole('button', { name: 'Statements' })).toBeInTheDocument();
 
   // Check for group labels (if data includes group labels)
-  if (mockProps.math["group-clusters"][0].hasOwnProperty('label')) {
+  if (Object.prototype.hasOwnProperty.call(mockProps.math["group-clusters"][0], 'label')) {
     expect(screen.getByText(mockProps.math["group-clusters"][0].label)).toBeInTheDocument();
   }
 });

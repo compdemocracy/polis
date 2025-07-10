@@ -22,14 +22,17 @@ export TAG = $(call parse_env_value,TAG)
 export GIT_HASH = $(shell git rev-parse --short HEAD)
 POSTGRES_DOCKER_RAW = $(shell echo $(call parse_env_value,POSTGRES_DOCKER) | tr '[:upper:]' '[:lower:]')
 export POSTGRES_DOCKER = $(call parse_env_bool,$(POSTGRES_DOCKER_RAW))
+LOCAL_SERVICES_DOCKER_RAW = $(shell echo $(call parse_env_value,LOCAL_SERVICES_DOCKER) | tr '[:upper:]' '[:lower:]')
+export LOCAL_SERVICES_DOCKER = $(call parse_env_bool,$(LOCAL_SERVICES_DOCKER_RAW))
 
 # Support for detached mode
 DETACH ?= false
 DETACH_ARG = $(if $(filter true,$(DETACH)),-d,)
 
 # Default compose file args
-export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml --profile local-services
+export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml
 COMPOSE_FILE_ARGS += $(if $(POSTGRES_DOCKER),--profile postgres,)
+COMPOSE_FILE_ARGS += $(if $(LOCAL_SERVICES_DOCKER),--profile local-services,)
 
 # Set up environment-specific values
 define setup_env
@@ -37,8 +40,11 @@ define setup_env
 	$(eval TAG = $(call parse_env_value,TAG))
 	$(eval POSTGRES_DOCKER_RAW = $(shell echo $(call parse_env_value,POSTGRES_DOCKER) | tr '[:upper:]' '[:lower:]'))
 	$(eval POSTGRES_DOCKER = $(call parse_env_bool,$(POSTGRES_DOCKER_RAW)))
+	$(eval LOCAL_SERVICES_DOCKER_RAW = $(shell echo $(call parse_env_value,LOCAL_SERVICES_DOCKER) | tr '[:upper:]' '[:lower:]'))
+	$(eval LOCAL_SERVICES_DOCKER = $(call parse_env_bool,$(LOCAL_SERVICES_DOCKER_RAW)))
 	$(eval COMPOSE_FILE_ARGS = $(2))
 	$(eval COMPOSE_FILE_ARGS += $(if $(POSTGRES_DOCKER),--profile postgres,))
+	$(eval COMPOSE_FILE_ARGS += $(if $(LOCAL_SERVICES_DOCKER),--profile local-services,))
 endef
 
 PROD:
@@ -50,6 +56,7 @@ TEST:
 echo_vars:
 	@echo ENV_FILE=${ENV_FILE}
 	@echo POSTGRES_DOCKER=${POSTGRES_DOCKER}
+	@echo LOCAL_SERVICES_DOCKER=${LOCAL_SERVICES_DOCKER}
 	@echo TAG=${TAG}
 
 pull: echo_vars ## Pull most recent Docker container builds (nightlies)
@@ -93,10 +100,7 @@ start-rebuild: echo_vars ## Start all Docker containers, [re]building as needed
 
 start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker containers, volumes, and images (including db), as with rm-ALL
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build --no-cache
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG}
 
 rebuild-web: echo_vars ## Rebuild and restart just the file-server container and its static assets
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build --force-recreate file-server

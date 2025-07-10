@@ -38,7 +38,7 @@ class ModerateCommentsAccepted extends React.Component {
 
   render() {
     return (
-      <div data-test-id="approved-comments">
+      <div data-testid="approved-comments">
         {this.props.accepted_comments !== null
           ? this.createCommentMarkup()
           : 'Loading accepted comments...'}

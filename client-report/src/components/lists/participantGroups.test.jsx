@@ -11,9 +11,9 @@ jest.mock('../globals', () => ({
   paragraph: { fontSize: '16px' },
 }));
 
-jest.mock('./metadata.jsx', () => () => <div data-test-id="mock-metadata" />);
+jest.mock('./metadata.jsx', () => () => <div data-testid="mock-metadata" />);
 jest.mock('./participantGroup.jsx', () => ({ groupName }) => (
-  <div data-test-id={`mock-group-${groupName}`}>{groupName}</div>
+  <div data-testid={`mock-group-${groupName}`}>{groupName}</div>
 ));
 
 describe('ParticipantGroups Component', () => {

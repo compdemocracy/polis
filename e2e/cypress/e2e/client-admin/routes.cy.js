@@ -125,7 +125,7 @@ describe('Client Admin: Routes', () => {
 
       // Should see configuration interface
       cy.get('h1, h2, h3').should('contain.text', 'Configure')
-      cy.get('input[data-test-id="topic"], input[id*="topic"]').should('be.visible')
+      cy.get('input[data-testid="topic"], input[id*="topic"]').should('be.visible')
 
       cy.log(`✅ Configure page accessible at /m/${testConversationId}`)
     })

@@ -83,8 +83,8 @@ export function verifyAdminInterfaceElements(section = 'configure') {
 
   switch (section.toLowerCase()) {
     case 'configure':
-      cy.get('input[data-test-id="topic"], input[id*="topic"]').should('be.visible')
-      cy.get('textarea[data-test-id="description"]').should('be.visible')
+      cy.get('input[data-testid="topic"], input[id*="topic"]').should('be.visible')
+      cy.get('textarea[data-testid="description"]').should('be.visible')
       cy.get('body').should('contain.text', 'Seed Comments')
       cy.get('button')
         .contains(/submit/i)

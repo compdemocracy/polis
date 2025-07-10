@@ -25,7 +25,7 @@ class Comment extends React.Component {
 
   render() {
     return (
-      <Card sx={{ mb: [3], minWidth: '35em' }} data-test-id='pending-comment'>
+      <Card sx={{ mb: [3], minWidth: '35em' }} data-testid='pending-comment'>
         <Box>
           <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>
             {this.props.comment.active
@@ -52,7 +52,7 @@ class Comment extends React.Component {
               {this.props.rejectButton ? (
                 <Button
                   onClick={this.onRejectClicked.bind(this)}
-                  data-test-id='reject-comment'
+                  data-testid='reject-comment'
                 >
                   {this.props.rejectButtonText}
                 </Button>

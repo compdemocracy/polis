@@ -101,7 +101,7 @@ class ConversationAdminContainer extends React.Component {
               sx={{
                 variant: url === 'comments' ? 'links.activeNav' : 'links.nav'
               }}
-              data-test-id="moderate-comments"
+              data-testid="moderate-comments"
               to={`${match.url}/comments`}>
               Moderate
             </Link>

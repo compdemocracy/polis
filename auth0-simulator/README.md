@@ -41,7 +41,7 @@ Before using the Auth0 Simulator, you need to set up locally trusted SSL certifi
    ```bash
    mkdir -p ~/.simulacrum/certs
    cd ~/.simulacrum/certs
-   mkcert localhost 127.0.0.1 ::1 auth0-simulator
+   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1
    ```
 
    This creates a single certificate valid for:
@@ -153,13 +153,13 @@ AUTH_SIMULATOR_PORT=3001
 
 ### File Structure
 
-```
+```txt
 auth0-simulator/
 ├── src/
 │   └── index.ts          # Main application entry point
 ├── Dockerfile            # Container configuration
 ├── package.json          # Dependencies and scripts
-└── README.md            # This file
+└── README.md             # This file
 ```
 
 ### Scripts

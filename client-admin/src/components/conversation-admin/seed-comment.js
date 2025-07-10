@@ -104,7 +104,7 @@ class ModerateCommentsSeed extends React.Component {
             }}
             onChange={this.handleTextareaChange.bind(this)}
             maxLength='400'
-            data-test-id='seed_form'
+            data-testid='seed_form'
             value={seedText}
             ref={(c) => (this.seed_form = c)}
           />

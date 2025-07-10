@@ -97,6 +97,9 @@ export async function getAuth0Token(
       ? `${simulatorUrl}oauth/token`
       : `${simulatorUrl}/oauth/token`;
 
+    console.log(`Attempting to get token from: ${tokenUrl}`);
+    console.log(`Using audience: ${audience}, clientId: ${clientId}`);
+
     const tokenResponse = await axios.post(
       tokenUrl,
       {
@@ -109,7 +112,7 @@ export async function getAuth0Token(
       },
       {
         httpsAgent,
-        timeout: 5000, // 5 second timeout
+        timeout: 10000, // Increase timeout to 10 seconds for CI
       }
     );
 

@@ -35,6 +35,53 @@ jobs:
           echo "Disk space after targeted cleanup:"
           df -h
 
+      - name: Setup Auth Environment
+        run: |
+          echo "Installing mkcert..."
+          sudo apt-get update > /dev/null
+          sudo apt-get install -y libnss3-tools wget > /dev/null
+          MKCERT_VERSION="v1.4.4"
+          wget -q "https://github.com/FiloSottile/mkcert/releases/download/${MKCERT_VERSION}/mkcert-${MKCERT_VERSION}-linux-amd64" -O mkcert
+          chmod +x mkcert
+          sudo mv mkcert /usr/local/bin/
+          echo "Installing local CA..."
+          mkcert -install
+
+          echo "Generating certificates for Auth0 simulator..."
+          CERT_DIR="$HOME/.simulacrum/certs"
+          mkdir -p "$CERT_DIR"
+          CAROOT=$(mkcert -CAROOT)
+          cp "$CAROOT/rootCA.pem" "$CERT_DIR/"
+          
+          echo "Generating localhost certificates with custom names..."
+          (cd "$CERT_DIR" && mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 auth0-simulator)
+          
+          echo "Generated certificates:"
+          ls -la "$CERT_DIR"
+          
+          # Check if the certificate files have the expected names
+          if [ -f "$CERT_DIR/localhost.pem" ] && [ -f "$CERT_DIR/localhost-key.pem" ]; then
+            echo "✅ Certificate files generated successfully"
+          else
+            echo "⚠️  Certificate files not found with expected names:"
+            echo "Looking for: localhost.pem and localhost-key.pem"
+            echo "Available files:"
+            find "$CERT_DIR" -name "*.pem" -type f
+          fi
+
+          echo "Generating participant JWT signing keys..."
+          mkdir -p server/keys
+          node server/scripts/generate-jwt-keys.js
+          echo "Generated JWT keys:"
+          ls -l server/keys
+
+          echo "test.env is already configured for CI containerized environment."
+          
+          echo "Configuring .env for proper certificate paths..."
+          cp test.env .env
+          # Fix certificate path to use actual HOME directory
+          echo "AUTH_CERTS_PATH=$HOME/.simulacrum/certs" >> .env
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -49,6 +96,9 @@ jobs:
 
       - name: Build and start Docker containers
         run: |
+          echo "Certificate directory contents:"
+          ls -la $HOME/.simulacrum/certs/ || echo "Certificate directory not found"
+          
           # Build with proper cache configuration
           docker buildx build \
             --cache-from=type=local,src=${{ github.workspace }}/.buildx-cache \
@@ -61,14 +111,53 @@ jobs:
           rm -rf ${{ github.workspace }}/.buildx-cache
           mv ${{ github.workspace }}/.buildx-cache-new ${{ github.workspace }}/.buildx-cache
 
-          # Start containers
+          echo "Starting Docker containers..."
           # IS_GITHUB_ACTION (from step env) will be available as an environment variable for 'docker compose build'
           # if the Dockerfiles/compose files are set up to use it via build args.
           docker compose -f docker-compose.yml -f docker-compose.test.yml --env-file test.env --profile postgres --profile local-services up -d --build
+          
+          echo "Waiting for containers to start..."
+          sleep 10
+          
+          echo "Container status after startup:"
+          docker ps
+          
+          echo "Checking auth0-simulator build logs..."
+          docker logs polis-test-auth0-simulator-1 || echo "Auth0 simulator container not found"
         env:
           DOCKER_BUILDKIT: 1
           COMPOSE_DOCKER_CLI_BUILD: 1
           IS_GITHUB_ACTION: "true"
+
+      - name: Wait for Auth0 simulator to be ready
+        run: |
+          echo "Checking Docker containers status..."
+          docker ps
+          
+          echo "Checking auth0-simulator container logs..."
+          docker logs polis-test-auth0-simulator-1 || echo "Auth0 simulator container not found or not started"
+          
+          echo "Checking if auth0-simulator container exists..."
+          if ! docker ps --filter "name=polis-test-auth0-simulator-1" --format "{{.Names}}" | grep -q "polis-test-auth0-simulator-1"; then
+            echo "❌ Auth0 simulator container is not running!"
+            echo "Available containers:"
+            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+            exit 1
+          fi
+          
+          echo "Waiting for Auth0 simulator to be ready..."
+          timeout 60 sh -c '
+            until curl -k -s https://localhost:3000/.well-known/jwks.json > /dev/null 2>&1; do 
+              echo "Waiting for Auth0 simulator..."
+              # Also check container logs for errors
+              docker logs --tail 5 polis-test-auth0-simulator-1 2>/dev/null || true
+              sleep 2
+            done
+          '
+          echo "Auth0 simulator is ready!"
+          
+          echo "Testing simulator endpoint..."
+          curl -k -s https://localhost:3000/.well-known/jwks.json | head -c 100
 
       - name: Health Check the Server http response
         uses: jtalk/url-health-check-action@v4
@@ -76,6 +165,17 @@ jobs:
           url: http://localhost/api/v3/testConnection
           max-attempts: 10
           retry-delay: 10s
+
+      - name: Validate Auth Setup
+        run: |
+          echo "Installing e2e test dependencies..."
+          npm install --prefix e2e
+          
+          echo "Running auth setup validation..."
+          node e2e/test-auth-setup.js
+          
+          echo "Final container status check:"
+          docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
 
       - name: Cypress Run
         uses: cypress-io/github-action@v6

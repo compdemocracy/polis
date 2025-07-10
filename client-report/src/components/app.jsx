@@ -692,7 +692,7 @@ const App = (props) => {
 
   if (hasError) {
     return (
-      <div data-test-id="reports-overview">
+      <div data-testid="reports-overview">
         <div> Error Loading </div>
         <div> {errorText} </div>
       </div>
@@ -700,14 +700,14 @@ const App = (props) => {
   }
   if (nothingToShow) {
     return (
-      <div data-test-id="reports-overview">
+      <div data-testid="reports-overview">
         <div> Nothing to show yet </div>
       </div>
     );
   }
   if (loading) {
     return (
-      <div data-test-id="reports-overview">
+      <div data-testid="reports-overview">
         <div> Loading ... </div>
       </div>
     );
@@ -830,7 +830,7 @@ const App = (props) => {
   // Otherwise render the standard report
   console.log("RENDERING: Standard report");
   return (
-    <div style={{ margin: "0px 10px" }} data-test-id="reports-overview">
+    <div style={{ margin: "0px 10px" }} data-testid="reports-overview">
       <Heading conversation={conversation} />
       <div
         style={{

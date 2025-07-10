@@ -103,7 +103,7 @@ class ConversationConfig extends React.Component {
               border: '1px solid',
               borderColor: 'mediumGray'
             }}
-            data-test-id="topic"
+            data-testid="topic"
             onBlur={this.handleStringValueChange('topic').bind(this)}
             onChange={this.handleConfigInputTyping('topic').bind(this)}
             defaultValue={this.props.zid_metadata.topic}
@@ -126,7 +126,7 @@ class ConversationConfig extends React.Component {
               border: '1px solid',
               borderColor: 'mediumGray'
             }}
-            data-test-id="description"
+            data-testid="description"
             onBlur={this.handleStringValueChange('description').bind(this)}
             onChange={this.handleConfigInputTyping('description').bind(this)}
             defaultValue={this.props.zid_metadata.description}
