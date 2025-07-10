@@ -7,5 +7,5 @@ client-admin/node_modules/
 client-participation/dist
 client-participation/node_modules
 
-client-report/build
+client-report/dist
 client-report/node_modules

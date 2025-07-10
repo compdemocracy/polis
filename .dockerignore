@@ -1,0 +1,96 @@
+# Git and version control
+.git
+.gitignore
+.gitattributes
+
+# IDE and editor files
+.vscode
+.cursor
+.clj-kondo
+.lsp
+*.swp
+*.swo
+*~
+
+# Build artifacts and dependencies (but keep package*.json)
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn
+coverage
+.nyc_output
+
+# Logs
+logs
+*.log
+log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Documentation (except root README)
+docs
+*.md
+!README.md
+
+# CDK and deployment (separate from runtime)
+cdk
+deploy
+
+# Test and development files
+e2e
+__tests__
+test
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+.env.test
+.env.local
+cypress
+.cypress
+
+# Misc development files
+.DS_Store
+.env.example
+example.env
+.cache
+tmp
+temp
+
+# Binary and compiled files
+*.tar.gz
+*.zip
+*.exe
+
+# Database files
+*.db
+*.sqlite
+
+# Large data directories
+data
+uploads
+
+# Delphi specific (large ML/AI files)
+delphi/umap_narrative/cache
+delphi/umap_narrative/*.pkl
+delphi/umap_narrative/*.joblib
+delphi/eda_notebooks/*.ipynb
+delphi/tests/profile_data 
+
+# file-server and client apps
+build/
+
+client-admin/build
+client-admin/node_modules/
+
+client-participation/dist
+client-participation/node_modules
+
+client-report/dist
+client-report/node_modules
