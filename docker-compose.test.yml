@@ -46,6 +46,7 @@ services:
       - AUTH_CLIENT_ID=${AUTH_CLIENT_ID:-dev-client-id}
       - AUTH_NAMESPACE=${AUTH_NAMESPACE:-https://pol.is/}
       - AUTH_SIMULATOR_PORT=${AUTH_SIMULATOR_PORT:-3000}
+      - CERT_DIR=/root/.simulacrum/certs
     networks:
       - polis-net
 

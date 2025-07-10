@@ -61,7 +61,9 @@ async function checkMkcertSetup() {
 
     const fs = require('fs')
     const path = require('path')
-    const certsDir = path.join(process.env.HOME, '.simulacrum', 'certs')
+    // Use workspace-relative path or fallback to HOME for local development
+    const certsDir = process.env.AUTH_CERTS_PATH || 
+                     path.join(process.env.HOME || process.cwd(), '.simulacrum', 'certs')
 
     if (!fs.existsSync(certsDir)) {
       console.log(`❌ Simulacrum certs directory not found at: ${certsDir}`)

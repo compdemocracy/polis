@@ -9,9 +9,9 @@ const AUTH_SIMULATOR_PORT = parseInt(process.env.AUTH_SIMULATOR_PORT || "3000");
 // Allow configurable issuer to handle Docker vs localhost access
 const AUTH_ISSUER =
   process.env.AUTH_ISSUER || `https://localhost:${AUTH_SIMULATOR_PORT}/`;
+// Certificate configuration - use environment variable or default
+const CERT_DIR = process.env.CERT_DIR || "/root/.simulacrum/certs";
 
-// Certificate configuration
-const CERT_DIR = "/root/.simulacrum/certs";
 const CERT_FILE = path.join(CERT_DIR, "localhost.pem");
 const KEY_FILE = path.join(CERT_DIR, "localhost-key.pem");
 

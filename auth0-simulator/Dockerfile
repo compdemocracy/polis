@@ -1,8 +1,9 @@
 # Use an official Node.js runtime as a parent image
 FROM node:lts-slim
 
-# Install curl for health checks
-RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+# Install curl for health checks, openssl for certificate generation, and create certificate directory
+RUN apt-get update && apt-get install -y curl openssl && rm -rf /var/lib/apt/lists/* && \
+    mkdir -p /root/.simulacrum/certs
 
 # Set the working directory in the container
 WORKDIR /app

@@ -38,10 +38,20 @@ Before using the Auth0 Simulator, you need to set up locally trusted SSL certifi
 
 3. **Generate certificates for both localhost and Docker service name**:
 
+   For local development:
+
    ```bash
    mkdir -p ~/.simulacrum/certs
    cd ~/.simulacrum/certs
-   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1
+   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 auth0-simulator
+   ```
+
+   For CI/testing environments, certificates are created in the workspace:
+
+   ```bash
+   mkdir -p ./.simulacrum/certs
+   cd ./.simulacrum/certs
+   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 auth0-simulator
    ```
 
    This creates a single certificate valid for:
@@ -56,6 +66,7 @@ The simulator is configured through environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `AUTH_AUDIENCE` | `users` | JWT audience claim |
+| `AUTH_CERTS_PATH` | `~/.simulacrum/certs` | Path to SSL certificates (use `./.simulacrum/certs` for CI) |
 | `AUTH_CLIENT_ID` | `dev-client-id` | OAuth2 client ID |
 | `AUTH_NAMESPACE` | `https://pol.is/` | Auth0 namespace |
 | `AUTH_SIMULATOR_PORT` | `3000` | HTTPS port for the simulator |
@@ -148,6 +159,24 @@ If port 3000 is in use, change the port:
 # In your .env file
 AUTH_SIMULATOR_PORT=3001
 ```
+
+### CI/GitHub Actions Issues
+
+If you encounter Docker mount issues in CI:
+
+1. **Certificate path errors**: Ensure `AUTH_CERTS_PATH` uses workspace-relative paths:
+
+   ```bash
+   AUTH_CERTS_PATH=./.simulacrum/certs  # Not ~/.simulacrum/certs
+   ```
+
+2. **Docker mount denied**: Check that certificates are created in the workspace:
+
+   ```bash
+   mkdir -p ./.simulacrum/certs  # Workspace-relative
+   cd ./.simulacrum/certs
+   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 auth0-simulator
+   ```
 
 ## Development
 
