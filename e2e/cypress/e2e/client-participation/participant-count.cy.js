@@ -34,26 +34,24 @@ describe('Participant Count Test', function () {
 
             // Add comments
             const comments = ['Comment 1', 'Comment 2', 'Comment 3']
-            let commentChain = cy.wrap(null)
-
+            
+            // Create a chain of comment creation requests
             comments.forEach((comment) => {
-              commentChain = commentChain.then(() => {
-                return cy.request({
-                  method: 'POST',
-                  url: '/api/v3/comments',
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: {
-                    conversation_id: conversationId,
-                    txt: comment,
-                    is_seed: true,
-                  },
-                })
+              cy.request({
+                method: 'POST',
+                url: '/api/v3/comments',
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+                body: {
+                  conversation_id: conversationId,
+                  txt: comment,
+                  is_seed: true,
+                },
               })
             })
 
-            return commentChain.then(() => conversationId)
+            return cy.wrap(conversationId)
           })
           .then((conversationId) => {
             // Check participant count immediately after creation

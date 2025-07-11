@@ -29,11 +29,7 @@ const Auth0Connector = () => {
               scope: 'openid profile email',
             }
           });
-          console.log('✅ Token retrieved successfully:', {
-            hasToken: !!token,
-            tokenLength: token ? token.length : 0,
-            tokenStart: token ? token.substring(0, 20) + '...' : 'null'
-          });
+          console.log('✅ Token retrieved successfully');
           return token;
         } catch (error) {
           console.error('❌ Failed to get access token in tokenGetter:', error);
@@ -44,52 +40,11 @@ const Auth0Connector = () => {
       setAuth0TokenGetter(tokenGetter);
       console.log('✅ Auth0 token getter has been set');
       
-      // Robust readiness check - test multiple times to ensure stability
-      const testTokenReliability = async (attempt = 1, maxAttempts = 3) => {
-        try {
-          console.log(`🧪 Token reliability test ${attempt}/${maxAttempts}`);
-          const token = await tokenGetter();
-          
-          if (!token) {
-            throw new Error('Token getter returned null/undefined');
-          }
-          
-          // If this is the last test, we're confident it's working
-          if (attempt >= maxAttempts) {
-            console.log('🚀 Auth0 token getter is reliably working, firing auth0Ready event');
-            
-            // Set a global flag for components that mount after this event
-            window.auth0Ready = true;
-            
-            // Trigger a custom event to notify the app that auth is ready
-            window.dispatchEvent(new CustomEvent('auth0Ready', { 
-              detail: { 
-                tokenAvailable: true,
-                testedReliably: true 
-              } 
-            }));
-            return;
-          }
-          
-          // Test again after a short delay
-          setTimeout(() => testTokenReliability(attempt + 1, maxAttempts), 50);
-          
-        } catch (error) {
-          console.error(`🧪 Token reliability test ${attempt} failed:`, error);
-          
-          if (attempt >= maxAttempts) {
-            console.error('❌ Auth0 token getter failed reliability tests');
-            // Don't fire auth0Ready event - let components handle the lack of auth
-            return;
-          }
-          
-          // Retry after a longer delay on failure
-          setTimeout(() => testTokenReliability(attempt + 1, maxAttempts), 200);
-        }
-      };
-      
-      // Start the reliability testing
-      testTokenReliability();
+      // Dispatch auth0Ready event to notify other components
+      window.auth0Ready = true;
+      const event = new CustomEvent('auth0Ready', { detail: { isAuthenticated: true } });
+      window.dispatchEvent(event);
+      console.log('🚀 Dispatched auth0Ready event');
     } else {
       console.log('⏳ Not setting up token getter yet:', {
         hasClientId: !!process.env.AUTH_CLIENT_ID,

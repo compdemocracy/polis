@@ -203,7 +203,7 @@ const fetchConversations = () => {
         ...(token && { Authorization: `Bearer ${token}` })
       }
     }).then((response) => {
-      if (!response.ok) {
+      if (!response.ok && response.status !== 304) {
         // Create an error object with status information
         const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
         error.status = response.status;
@@ -264,7 +264,7 @@ const fetchZidMetadata = (conversation_id) => {
         ...(token && { Authorization: `Bearer ${token}` })
       }
     }).then((response) => {
-      if (!response.ok) {
+      if (!response.ok && response.status !== 304) {
         // Create an error object with status information
         const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
         error.status = response.status;
@@ -480,7 +480,7 @@ const postCreateConversation = () => {
   })
 }
 
-export const handleCreateConversationSubmit = (routeTo) => {
+export const handleCreateConversationSubmit = (history) => {
   return (dispatch) => {
     dispatch(createConversationStart())
     return postCreateConversation()
@@ -492,7 +492,13 @@ export const handleCreateConversationSubmit = (routeTo) => {
         (err) => dispatch(createConversationPostError(err))
       )
       .then((res) => {
-        window.location = '/m/' + res.conversation_id
+        if (history && history.push) {
+          // Use React Router navigation to avoid full page reload
+          history.push('/m/' + res.conversation_id)
+        } else {
+          // Fallback to window.location if history is not available
+          window.location = '/m/' + res.conversation_id
+        }
       })
   }
 }

@@ -259,7 +259,7 @@ const App = (props) => {
         }
       );
 
-      if (!response.ok) {
+      if (!response.ok && response.status !== 304) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 

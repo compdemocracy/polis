@@ -48,7 +48,7 @@ class Conversations extends React.Component {
   }
 
   onNewClicked() {
-    this.props.dispatch(handleCreateConversationSubmit())
+    this.props.dispatch(handleCreateConversationSubmit(this.props.history))
   }
 
   loadConversations() {

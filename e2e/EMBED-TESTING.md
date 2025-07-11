@@ -4,6 +4,8 @@
 
 This directory contains infrastructure for testing Polis embed functionality in the new JWT-based authentication system. The embed tests verify that Polis conversations can be properly embedded in external websites and that the various configuration options work correctly.
 
+**Note**: For general Cypress patterns and best practices, see [BEST-PRACTICES.md](./BEST-PRACTICES.md).
+
 ## Architecture
 
 The embed testing system consists of:
@@ -68,52 +70,10 @@ If these files are missing, you'll get `ENOENT: no such file or directory` error
 
 Based on analysis of the legacy test patterns, we've implemented several improvements:
 
-### 1. Custom Cypress Commands
-
-Added helper commands in `cypress/support/commands.js` for cleaner test code:
-
-```javascript
-// Get iframe body with better error handling
-cy.getIframeBody('iframe[data-testid="polis-iframe"]')
-
-// Automatically intercept and serve embed HTML
-cy.interceptEmbed()
-cy.interceptIntegrated()
-```
-
-### 2. More Robust Iframe Access
-
-Instead of manually accessing iframe documents, we now use a dedicated command that ensures the iframe is loaded and ready:
-
-```javascript
-// Old approach (error-prone)
-cy.get('iframe').then(($iframe) => {
-  const iframeDoc = $iframe[0].contentDocument
-  cy.wrap(iframeDoc).within(() => {
-    /* ... */
-  })
-})
-
-// New approach (robust)
-cy.getIframeBody('iframe[data-testid="polis-iframe"]').within(() => {
-  // Test iframe content
-})
-```
-
-### 3. Cleaner Test Organization
-
-- Tests automatically handle build commands during execution
-- No manual steps required before running tests
-- Better separation of concerns between setup and test logic
-
-### 4. NPM Scripts for Convenience
-
-Added dedicated npm scripts for targeted test runs:
-
-- `npm run test:embed` - Run only embed tests
-- `npm run test:integrated` - Run only integrated tests
-- `npm run build:embed` - Build embed HTML manually (for debugging)
-- `npm run build:integrated` - Build integrated HTML manually (for debugging)
+- **Custom Cypress Commands**: Added `cy.getIframeBody()`, `cy.interceptEmbed()`, and `cy.interceptIntegrated()` for cleaner test code
+- **Better Iframe Handling**: More robust iframe access patterns (see [BEST-PRACTICES.md](./BEST-PRACTICES.md#custom-cypress-commands))
+- **Cleaner Test Organization**: Tests automatically handle build commands during execution
+- **NPM Scripts**: Dedicated scripts for targeted test runs
 
 ## Usage
 
@@ -249,15 +209,7 @@ npm run build:embed -- --id=CONVERSATION_ID --url=http://custom-host:8080
 **Site ID shows "loading, try refreshing":**
 
 - **Issue**: React component hasn't finished loading user data yet
-- **Solution**: Wait for the actual site_id to load using `.should('not.contain', 'loading, try refreshing')`
-- **Example**:
-
-```javascript
-cy.get('pre')
-  .should('be.visible')
-  .should('not.contain', 'loading, try refreshing') // Wait for actual site_id
-  .invoke('text')
-```
+- **Solution**: Wait for the actual site_id to load using `.should('not.contain', 'loading, try refreshing')` (see [Waiting Strategies](./BEST-PRACTICES.md#waiting-strategies))
 
 **Integration page not accessible:**
 

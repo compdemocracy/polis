@@ -77,7 +77,7 @@ describe('Reports - Functionality & Features', () => {
 
                       reportId = getResponse.body[0].report_id
                       reportUrl = `/report/${reportId}`
-                      cy.wait(1000)
+                      cy.wait(1000) // wait for the report to be created
                       cy.log(`✅ Created report: ${reportId} with URL: ${reportUrl}`)
                     })
                 })
@@ -89,33 +89,51 @@ describe('Reports - Functionality & Features', () => {
 
   describe('Report Content Viewing', () => {
     it('should display basic report structure', () => {
+      // Intercept the report data API call
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
       cy.visit(reportUrl)
 
-      // Check for common report elements
-      cy.get('body').within(() => {
-        cy.contains('Report').should('exist')
-        cy.contains('Overview').should('exist')
+      // Wait for the report to load
+      cy.wait('@getReport')
 
-        // Should show participant count
-        cy.contains(/\d+\s*(people|participants)/i).should('exist')
+      // Check for common report elements using direct assertions
+      cy.contains('Report', { timeout: 10000 }).should('be.visible')
+      cy.contains('Overview', { timeout: 10000 }).should('be.visible')
 
-        // Should show vote count
-        cy.contains(/\d+\s*(votes|statements)/i).should('exist')
-      })
+      // Should show basic information about the report
+      cy.contains('people voted').should('be.visible')
+      cy.contains('people grouped').should('be.visible')
+      cy.contains('votes were cast').should('be.visible')
+      cy.contains('statements were submitted').should('be.visible')
+      cy.contains('votes per voter').should('be.visible')
+      cy.contains('statements per author').should('be.visible')
     })
 
     it('should show conversation overview section', () => {
+      // Intercept the report data API call
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
       cy.visit(reportUrl)
+
+      // Wait for the report to load
+      cy.wait('@getReport')
 
       // Look for overview content
       cy.get('body').should('contain.text', 'Overview')
 
-      // Should explain what Polis is
-      cy.contains(/survey|conversation|vote/i).should('exist')
+      // Should show the admin who ran the conversation
+      cy.contains('This pol.is conversation was run by Test Admin.').should('be.visible')
     })
 
     it('should display data export links', () => {
+      // Intercept the report data API call
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
       cy.visit(reportUrl)
+
+      // Wait for the report to load
+      cy.wait('@getReport')
 
       // Should have raw data export section
       cy.contains('Raw Data Export').should('exist')
@@ -186,11 +204,20 @@ describe('Reports - Functionality & Features', () => {
 
                       // Now test the empty report as anonymous user
                       cy.logout()
+                      
+                      // Intercept the report data API calls
+                      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+                      
                       cy.visit(emptyReportUrl)
+
+                      // Wait for the report to load (may return empty data)
+                      cy.wait('@getReport')
 
                       // Should still load without errors
                       cy.get('body').should('exist')
-                      cy.contains('0').should('exist') // Should show zero participants/votes
+                      
+                      // Empty reports show "Nothing to show yet"
+                      cy.contains('Nothing to show yet', { timeout: 10000 }).should('be.visible')
                     })
                 })
             })
@@ -316,32 +343,101 @@ describe('Reports - Functionality & Features', () => {
   })
 
   describe('Report Type Navigation', () => {
-    const reportTypes = [
-      { name: 'Standard Report', path: '/report/' },
-      { name: 'Narrative Report', path: '/narrativeReport/' },
-      { name: 'Statistics', path: '/stats/' },
-      { name: 'Comments Report', path: '/commentsReport/' },
-      { name: 'Topics Report', path: '/topicReport/' },
-    ]
+    it('should load Standard Report variant', () => {
+      // Intercept the report data API calls
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
+      const variantUrl = '/report/' + reportId
+      cy.visit(variantUrl, { failOnStatusCode: false })
 
-    reportTypes.forEach(({ name, path }) => {
+      // Wait for the report to load
+      cy.wait('@getReport')
 
-      it(`should load ${name} variant`, () => {
-        const variantUrl = path + reportId
-        cy.visit(variantUrl, { failOnStatusCode: false })
+      // Should load without error
+      cy.get('body').should('exist')
 
-        // Should load without error
-        cy.get('body').should('exist')
+      // URL should remain on the report type
+      cy.url().should('include', '/report/')
+    })
 
-        // URL should remain on the report type
-        cy.url().should('include', path)
-      })
+    it('should load Narrative Report variant', () => {
+      // Intercept the report data API calls
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
+      const variantUrl = '/narrativeReport/' + reportId
+      cy.visit(variantUrl, { failOnStatusCode: false })
+
+      // Wait for the report to load
+      cy.wait('@getReport')
+
+      // Should load without error
+      cy.get('body').should('exist')
+
+      // URL should remain on the report type
+      cy.url().should('include', '/narrativeReport/')
+    })
+
+    it('should load Statistics variant', () => {
+      // Intercept the report data API calls
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
+      const variantUrl = '/stats/' + reportId
+      cy.visit(variantUrl, { failOnStatusCode: false })
+
+      // Wait for the report to load
+      cy.wait('@getReport')
+
+      // Should load without error
+      cy.get('body').should('exist')
+
+      // URL should remain on the report type
+      cy.url().should('include', '/stats/')
+    })
+
+    it('should load Comments Report variant', () => {
+      // Intercept the report data API calls
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
+      const variantUrl = '/commentsReport/' + reportId
+      cy.visit(variantUrl, { failOnStatusCode: false })
+
+      // Wait for the report to load
+      cy.wait('@getReport')
+
+      // Should load without error
+      cy.get('body').should('exist')
+
+      // URL should remain on the report type
+      cy.url().should('include', '/commentsReport/')
+    })
+
+    it('should load Topics Report variant', () => {
+      // Intercept the report data API calls
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
+      const variantUrl = '/topicReport/' + reportId
+      cy.visit(variantUrl, { failOnStatusCode: false })
+
+      // Wait for the report to load
+      cy.wait('@getReport')
+
+      // Should load without error
+      cy.get('body').should('exist')
+
+      // URL should remain on the report type
+      cy.url().should('include', '/topicReport/')
     })
   })
 
   describe('Report Export Functionality', () => {
     it('should provide working CSV export links', () => {
+      // Intercept the report data API calls
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
       cy.visit(reportUrl)
+
+      // Wait for the report to load
+      cy.wait('@getReport')
 
       // Find CSV export links
       cy.get('a').each(($link) => {
@@ -359,7 +455,13 @@ describe('Reports - Functionality & Features', () => {
     })
 
     it('should show correct export endpoints', () => {
+      // Intercept the report data API calls
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
       cy.visit(reportUrl)
+
+      // Wait for the report to load
+      cy.wait('@getReport')
 
       // Expected export types
       const expectedExports = [
@@ -378,54 +480,65 @@ describe('Reports - Functionality & Features', () => {
   })
 
   describe('Report Responsiveness', () => {
-    const viewports = [
-      // { name: 'mobile', width: 375, height: 667 },
-      { name: 'tablet', width: 768, height: 1024 },
-      { name: 'desktop', width: 1920, height: 1080 },
-    ]
+    // Skipping mobile for now as it's not fully supported
+    it('should be responsive on tablet', () => {
+      cy.viewport(768, 1024)
 
-    viewports.forEach(({ name, width, height }) => {
+      // Intercept report data API calls to ensure content loads
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
 
-      it(`should be responsive on ${name}`, () => {
-        cy.viewport(width, height)
+      cy.visit(reportUrl)
 
-        // Intercept report data API calls to ensure content loads
-        cy.intercept('GET', '**/api/v3/reportExport/**').as('reportData')
-        cy.intercept('GET', '**/api/v3/conversations/**').as('conversationData')
+      // Wait for the report to load
+      cy.wait('@getReport')
 
-        cy.visit(reportUrl)
+      // Wait for key report content to load
+      cy.contains('Report', { timeout: 10000 }).should('be.visible')
+      cy.contains('Overview', { timeout: 10000 }).should('be.visible')
 
-        // Wait for key report content to load
-        cy.contains('Report', { timeout: 10000 }).should('be.visible')
-        cy.contains('Overview', { timeout: 10000 }).should('be.visible')
+      // Wait for export section which indicates full content load
+      cy.contains('Raw Data Export', { timeout: 10000 }).should('be.visible')
 
-        // Wait for export section which indicates full content load
-        cy.contains('Raw Data Export', { timeout: 10000 }).should('be.visible')
+      // Content should be visible
+      cy.get('body').should('be.visible')
+    })
 
-        // Content should be visible
-        cy.get('body').should('be.visible')
+    it('should be responsive on desktop', () => {
+      cy.viewport(1920, 1080)
 
-        // No horizontal scroll on mobile
-        // Currently disabled because the mobile view is not supported yet
-        if (name === 'mobile') {
-          cy.window().then((win) => {
-            const docWidth = win.document.documentElement.scrollWidth
-            const viewWidth = win.innerWidth
-            expect(docWidth).to.be.lte(viewWidth + 1) // Allow 1px tolerance
-          })
-        }
-      })
+      // Intercept report data API calls to ensure content loads
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+
+      cy.visit(reportUrl)
+
+      // Wait for the report to load
+      cy.wait('@getReport')
+
+      // Wait for key report content to load
+      cy.contains('Report', { timeout: 10000 }).should('be.visible')
+      cy.contains('Overview', { timeout: 10000 }).should('be.visible')
+
+      // Wait for export section which indicates full content load
+      cy.contains('Raw Data Export', { timeout: 10000 }).should('be.visible')
+
+      // Content should be visible
+      cy.get('body').should('be.visible')
     })
   })
 
   describe('Report Performance', () => {
     it('should load report within reasonable time', () => {
+      // Intercept the report data API calls
+      cy.intercept('GET', '/api/v3/reports*').as('getReport')
+      
       const startTime = Date.now()
 
       cy.visit(reportUrl)
 
-      // Wait for main content to appear
+      // Wait for the report to load
+      cy.wait('@getReport')
 
+      // Wait for main content to appear
       cy.contains('Report').should('exist')
       cy.contains('Overview')
         .should('exist')
@@ -434,17 +547,6 @@ describe('Reports - Functionality & Features', () => {
           // Report should load within 1 second
           expect(loadTime).to.be.lessThan(1000)
         })
-    })
-
-    // TODO: Generate a large conversation to test this
-    it.skip('should handle large conversations gracefully', () => {
-      // This test would ideally use a conversation with many comments/votes
-      // For now, just verify current report handles well
-      cy.visit(reportUrl)
-
-      // Should not show loading errors
-      cy.get('body').should('not.contain', 'Error')
-      cy.get('body').should('not.contain', 'Failed to load')
     })
   })
 })

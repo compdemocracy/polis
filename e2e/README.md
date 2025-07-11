@@ -6,6 +6,15 @@
 npm install
 ```
 
+## Documentation
+
+- **[BEST-PRACTICES.md](./BEST-PRACTICES.md)** - General Cypress patterns, gotchas, and best practices
+- **[E2E-AUTHENTICATION-GUIDE.md](./E2E-AUTHENTICATION-GUIDE.md)** - Authentication patterns for Auth0 and participant testing
+- **[JWT_TEST_SETUP.md](./JWT_TEST_SETUP.md)** - JWT test setup for anonymous participants
+- **[PARTICIPANT-TESTING.md](./PARTICIPANT-TESTING.md)** - Participant authentication testing guide
+- **[EMBED-TESTING.md](./EMBED-TESTING.md)** - Embed and integrated conversation testing guide
+- **[VISUALIZATION-TESTING.md](./VISUALIZATION-TESTING.md)** - Requirements for visualization tests
+
 ## Run All Tests
 
 ```bash
@@ -40,10 +49,10 @@ npm run test:conversation
 
 ```bash
 # Run specific file
-npx cypress run --spec "cypress/e2e/client-admin/conversation.cy.js"
+npx cypress run --spec cypress/e2e/client-admin/conversation.cy.js
 
 # Or with npm script
-npm run cy:run -- --spec "cypress/e2e/client-admin/conversation.cy.js"
+npm run cy:run -- --spec cypress/e2e/client-admin/conversation.cy.js
 ```
 
 ### Method 2: Using .only() in test files
@@ -87,4 +96,4 @@ The embed testing infrastructure includes:
 - Environment-aware base URLs (respects `BASE_URL`/`CYPRESS_BASE_URL` variables)
 - Support for all embed display options (ucv, ucw, ucsh, etc.)
 
-For detailed documentation, see [README-EMBED-TESTING.md](./README-EMBED-TESTING.md).
+For detailed documentation, see [EMBED-TESTING.md](./EMBED-TESTING.md).

@@ -58,10 +58,8 @@ describe('Client Admin: Comment Moderation', () => {
         logout()
 
         // Add participant comments sequentially
-        let participantChain = cy.wrap(null)
-
         participantComments.forEach((comment, index) => {
-          participantChain = participantChain.then(() => {
+          cy.then(() => {
             return participateInConversation(conversationId, {
               comments: [comment.text],
             }).then((participation) => {
@@ -72,7 +70,7 @@ describe('Client Admin: Comment Moderation', () => {
           })
         })
 
-        return participantChain
+        return cy.wrap(null)
       })
       .then(() => {
         cy.log('✅ All participant comments added')
@@ -103,12 +101,10 @@ describe('Client Admin: Comment Moderation', () => {
         })
 
         if (moderationCheckbox) {
-          const $cb = cy.wrap(moderationCheckbox)
-
-          // Check current state and toggle
-          $cb.invoke('prop', 'checked').then((isChecked) => {
+          // Work directly with the element wrapped in Cypress
+          cy.wrap(moderationCheckbox).invoke('prop', 'checked').then((isChecked) => {
             cy.log(`Moderation currently ${isChecked ? 'enabled' : 'disabled'}`)
-            $cb.click()
+            cy.wrap(moderationCheckbox).click()
 
             // Wait for update
             cy.wait('@updateModeration').then((interception) => {
@@ -117,7 +113,7 @@ describe('Client Admin: Comment Moderation', () => {
             })
 
             // Toggle back
-            $cb.click()
+            cy.wrap(moderationCheckbox).click()
             cy.wait('@updateModeration').then((interception) => {
               expect(interception.response.statusCode).to.eq(200)
               cy.log(`✅ Moderation toggled back to ${isChecked ? 'enabled' : 'disabled'}`)

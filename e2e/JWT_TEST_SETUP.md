@@ -29,7 +29,7 @@ Since the server has JWT keys (evidenced by browser working), the test failure i
 
 ```bash
 # From the e2e directory
-npm test -- --spec "cypress/e2e/client-participation/anonymous-jwt-flow.cy.js"
+npm test -- --spec cypress/e2e/client-participation/anonymous-jwt-flow.cy.js
 ```
 
 ## Debugging Tips

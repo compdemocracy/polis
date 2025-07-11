@@ -11,6 +11,7 @@ import { Flex, Box, jsx } from 'theme-ui'
 
 import withAuth0 from './util/withAuth0'
 import Auth0Connector from './components/auth0-connector'
+import Spinner from './components/framework/spinner'
 
 /* landers */
 import Home from './components/landers/home'
@@ -32,10 +33,38 @@ import Integrate from './components/conversations-and-account/integrate'
 
 import InteriorHeader from './components/interior-header'
 
+const AUTH_LOADING_TIMEOUT = 3000
+
 const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
-  if (isLoading) {
-    return null
+  // If we've been loading for more than AUTH_LOADING_TIMEOUT,
+  // assume something went wrong and proceed with authentication check
+  const [loadingTimeout, setLoadingTimeout] = React.useState(false)
+  
+  React.useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        setLoadingTimeout(true)
+      }, AUTH_LOADING_TIMEOUT)
+      
+      return () => clearTimeout(timer)
+    } else {
+      setLoadingTimeout(false)
+    }
+  }, [isLoading])
+
+  if (isLoading && !loadingTimeout) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '200px' 
+      }}>
+        <Spinner />
+      </div>
+    )
   }
+  
   return (
     <Route
       {...rest}
@@ -107,9 +136,6 @@ class App extends React.Component {
     
     // Store the handler for cleanup
     this.auth0ReadyHandler = handleAuth0Ready;
-    
-    // The fallback logic that was here was causing a race condition and has been removed.
-    // All data loading is now handled by the 'auth0Ready' event listener.
   }
 
   componentDidUpdate(prevProps) {

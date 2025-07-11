@@ -130,7 +130,7 @@ async function polisFetch(api, data, type) {
 
     console.log('🔍 Response status:', response.status);
 
-    if (!response.ok) {
+    if (!response.ok && response.status !== 304) {
       // Read the response body to include in the error
       const errorBody = await response.text();
       console.error('❌ API Error Response:', {

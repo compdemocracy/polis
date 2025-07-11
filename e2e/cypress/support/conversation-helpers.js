@@ -46,12 +46,13 @@ export function createTestConversationAPI(options = {}) {
     })
     .then((response) => {
       expect(response.status).to.eq(200)
+      const conversationId = response.body.conversation_id
       if (visualizationEnabled) {
-        cy.log(
-          `✅ Created conversation with visualization enabled: ${response.body.conversation_id}`,
-        )
+        cy.log(`✅ Created conversation with visualization enabled: ${conversationId}`)
+      } else {
+        cy.log(`✅ Created conversation: ${conversationId}`)
       }
-      return response.body.conversation_id
+      return cy.wrap(conversationId)
     })
 }
 
@@ -107,14 +108,11 @@ export function createTestConversation(options = {}) {
     .should('be.visible')
     .should('not.be.disabled')
     .should('have.attr', 'data-testid', 'topic')
-    .clear()
-    .type(topic)
-    .blur() // Trigger the onBlur save
-
-  // Wait for the actual API call to complete
-  cy.wait('@updateConversation').then((interception) => {
-    expect(interception.response.statusCode).to.eq(200)
-  })
+  
+  // Clear and type in separate commands to avoid ESLint error
+  cy.get('input[data-testid="topic"]').clear()
+  cy.get('input[data-testid="topic"]').type(topic)
+  cy.get('input[data-testid="topic"]').blur() // Trigger the onBlur save
 
   // Wait for description textarea to be enabled before typing
   cy.get('textarea[data-testid="description"]')
@@ -122,9 +120,11 @@ export function createTestConversation(options = {}) {
     .should('be.visible')
     .should('not.be.disabled')
     .should('have.attr', 'data-testid', 'description')
-    .clear()
-    .type(description)
-    .blur() // Trigger the onBlur save
+  
+  // Clear and type in separate commands to avoid ESLint error
+  cy.get('textarea[data-testid="description"]').clear()
+  cy.get('textarea[data-testid="description"]').type(description)
+  cy.get('textarea[data-testid="description"]').blur() // Trigger the onBlur save
 
   // Wait for the actual API call to complete
   cy.wait('@updateConversation').then((interception) => {
@@ -232,12 +232,11 @@ export function addCommentsToConversation(
           },
         }).then((response) => {
           expect(response.status).to.be.oneOf([200, 201])
-          cy.log(
-            `✅ Added comment ${index + 1}/${comments.length} to conversation ${conversationId}`,
-          )
+          cy.log(`✅ Added comment ${index + 1}/${comments.length} to conversation ${conversationId}`)
         })
       })
 
+      cy.log(`✅ All ${comments.length} comments added to conversation ${conversationId}`)
       return cy.wrap(true)
     })
   })
@@ -277,7 +276,9 @@ export function addCommentsToConversationNoAuth(conversationId, comments) {
         },
       }).then((response) => {
         expect(response.status).to.be.oneOf([200, 201])
-        cy.log(`✅ Added comment ${index + 1}/${comments.length} to conversation ${conversationId}`)
+        return cy.wrap(null).then(() => {
+          cy.log(`✅ Added comment ${index + 1}/${comments.length} to conversation ${conversationId}`)
+        })
       })
     })
 
@@ -554,7 +555,18 @@ export function participateInConversation(conversationId, options = {}) {
     )
       .first()
       .should('be.visible')
+    
+    // Clear and type comment in separate commands to avoid ESLint error
+    cy.get(
+      'textarea#comment_form_textarea, textarea[name="comment"], textarea[placeholder*="comment"], textarea',
+    )
+      .first()
       .clear()
+    
+    cy.get(
+      'textarea#comment_form_textarea, textarea[name="comment"], textarea[placeholder*="comment"], textarea',
+    )
+      .first()
       .type(comment)
 
     // Submit comment

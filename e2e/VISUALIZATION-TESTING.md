@@ -2,6 +2,8 @@
 
 ## Critical Requirements for E2E Visualization Tests
 
+**Note**: For general Cypress patterns including window context isolation, see [BEST-PRACTICES.md](./BEST-PRACTICES.md).
+
 ### 1. Visualization Must Be Explicitly Enabled
 
 Visualization (`vis_type: 1`) must be enabled **after** conversation creation using the PUT endpoint:
@@ -37,9 +39,7 @@ cy.request({
 
 Admin authentication from setup can contaminate participant sessions, causing all participants to be counted as the admin (pid=0).
 
-**Root Cause**: `cy.window()` contexts hold authentication state that bleeds between admin setup and participant creation phases.
-
-**Solution**: Isolate admin setup within its own `cy.window()` context:
+**Solution**: Use the window context isolation pattern described in [BEST-PRACTICES.md](./BEST-PRACTICES.md#window-context-isolation).
 
 ```javascript
 // ✅ Correct pattern for visualization tests
@@ -62,8 +62,6 @@ it('shows visualization with 7 participants', () => {
   })
 })
 ```
-
-**What's NOT necessary**: Explicit state clearing or intercept resetting. The `cy.window()` isolation alone prevents sticky authentication.
 
 ### 3. Minimum Participant Requirements
 

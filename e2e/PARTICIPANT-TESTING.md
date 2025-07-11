@@ -2,6 +2,8 @@
 
 This document explains the improved e2e testing approach for participant authentication that aligns with how the system actually works.
 
+**Note**: For general Cypress patterns and best practices, see [BEST-PRACTICES.md](./BEST-PRACTICES.md).
+
 ## Key Insights
 
 ### How Participant Authentication Actually Works
@@ -13,33 +15,21 @@ This document explains the improved e2e testing approach for participant authent
 
 ### Critical: Avoiding Sticky Authentication
 
-When tests combine admin setup with participant actions, admin authentication can "stick" and cause participants to be incorrectly identified as admin users.
+When tests combine admin setup with participant actions, admin authentication can "stick" and cause participants to be incorrectly identified as admin users. This is covered in detail in [Window Context Isolation](./BEST-PRACTICES.md#window-context-isolation) in the best practices guide.
 
-**The Problem**: `cy.window()` contexts can hold authentication state that bleeds between test phases.
-
-**The Solution**: Isolate admin actions within their own `cy.window()` context:
+**Key Pattern:**
 
 ```javascript
-// ✅ Correct - Window context isolation prevents sticky auth
-it('admin creates conversation, participants vote', () => {
-  let conversationId
+// Admin phase (isolated)
+cy.window().then(() => {
+  // Admin setup code
+})
 
-  // Phase 1: Admin setup (isolated)
-  cy.window().then(() => {
-    loginStandardUserAPI('admin@polis.test', 'password')
-    // ... create conversation and comments ...
-    conversationId = result.conversation_id
-  })
-
-  // Phase 2: Clean participant context
-  cy.then(() => {
-    cy.visit(`/${conversationId}`)
-    cy.get('#agreeButton').click() // Creates participant with correct PID
-  })
+// Participant phase (clean context)
+cy.then(() => {
+  // Participant code
 })
 ```
-
-This pattern ensures participants get unique PIDs instead of being counted as the admin (PID=0).
 
 ### What Changed
 

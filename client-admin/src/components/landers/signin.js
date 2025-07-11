@@ -45,10 +45,12 @@ class SignIn extends React.Component {
 
     return (
       <StaticLayout>
-        <Heading as="h1" sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>
-          Sign In
-        </Heading>
-        {this.drawLoginForm()}
+        <Box>
+          <Heading as="h1" sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>
+            Sign In
+          </Heading>
+          {this.drawLoginForm()}
+        </Box>
       </StaticLayout>
     )
   }

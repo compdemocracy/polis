@@ -48,8 +48,8 @@ describe('Reports - Admin Interface', () => {
     // Visit the reports URL directly instead of using the helper
     cy.visit(`/m/${conversationId}/reports`)
 
-    // Wait for page to load
-    cy.wait(1000)
+    // Wait for page to load - check for a specific element instead of arbitrary wait
+    cy.get('h1, h2, h3, h4').should('be.visible')
   })
 
   describe('Reports List', () => {
@@ -99,22 +99,34 @@ describe('Reports - Admin Interface', () => {
     })
 
     it('should display multiple reports after creating several', () => {
+      // Set up intercepts
+      cy.intercept('POST', '/api/v3/reports').as('createReport')
+      cy.intercept('GET', '/api/v3/reports*').as('getReports')
+      
       // Create multiple reports
       cy.get('button').contains('Create report url').click()
-      cy.wait(1000)
+      cy.wait('@createReport')
+      cy.wait('@getReports')
+      
       cy.get('button').contains('Create report url').click()
-      cy.wait(1000)
+      cy.wait('@createReport')
+      cy.wait('@getReports')
 
       // Verify multiple report URLs are shown
       cy.get('[data-testid="report-list-item"]').should('have.length.at.least', 2)
     })
 
     it('should have clickable report URLs that open in new tab', () => {
+      // Set up intercepts
+      cy.intercept('POST', '/api/v3/reports').as('createReport')
+      cy.intercept('GET', '/api/v3/reports*').as('getReports')
+      
       // Create a report if none exist
       cy.get('body').then(($body) => {
         if ($body.find('[data-testid="report-list-item"]').length === 0) {
           cy.get('button').contains('Create report url').click()
-          cy.wait(1000)
+          cy.wait('@createReport')
+          cy.wait('@getReports')
         }
       })
 

@@ -89,10 +89,12 @@ describe('Reports - Authentication & Access Control', () => {
 
       // Wait for login to complete
       cy.url().should('not.include', '/signin')
-      cy.wait(1000)
+      // Wait for page navigation to complete
+      cy.get('body').should('be.visible')
 
       cy.visit(`/m/${conversationId}/reports`)
-      cy.wait(1000)
+      // Wait for the reports page to load
+      cy.get('h1, h2, h3, h4').should('be.visible')
 
       // Should see create button
       cy.get('button').contains('Create report url').should('be.visible')
@@ -115,7 +117,8 @@ describe('Reports - Authentication & Access Control', () => {
 
       // Wait for login to complete
       cy.url().should('not.include', '/signin')
-      cy.wait(1000)
+      // Ensure we're on the main page
+      cy.get('body').should('be.visible')
 
       // Try to access the conversation admin page (reports section)
       cy.visit(`/m/${conversationId}/reports`, { failOnStatusCode: false })
@@ -169,19 +172,12 @@ describe('Reports - Authentication & Access Control', () => {
       cy.url().should('not.include', '/signin')
       cy.get('body').should('be.visible')
 
-      // Wait for any loading states to complete
-      cy.get('body').then(($body) => {
-        if ($body.text().includes('loading') || $body.text().includes('Loading')) {
-          cy.wait(1000) // Give time for report to load
-        }
-      })
-
-      // Should see report content
-      cy.get('body').should('contain', 'Report')
+      // Wait for report content to appear instead of arbitrary wait
+      cy.contains('Report', { timeout: 10000 }).should('exist')
+      cy.contains('Overview', { timeout: 10000 }).should('exist')
 
       // Should see some report elements
       cy.get('[data-testid*="reports-overview"]').should('exist')
-      cy.get('body').should('contain', 'Overview')
     })
 
     it('should allow owner to view reports', () => {
@@ -190,27 +186,17 @@ describe('Reports - Authentication & Access Control', () => {
 
       // Wait for login to complete
       cy.url().should('not.include', '/signin')
-      cy.wait(1000)
+      cy.get('body').should('be.visible')
 
       // Visit report URL
       cy.visit(reportUrl)
 
-      // Wait for the report to load
-      cy.get('body').should('be.visible')
-
-      // Wait for any loading states to complete
-      cy.get('body').then(($body) => {
-        if ($body.text().includes('loading') || $body.text().includes('Loading')) {
-          cy.wait(1000) // Give time for report to load
-        }
-      })
-
-      // Should see report content
-      cy.get('body').should('contain', 'Report')
+      // Wait for report content to appear
+      cy.contains('Report', { timeout: 10000 }).should('exist')
+      cy.contains('Overview', { timeout: 10000 }).should('exist')
 
       // Should see some report elements
       cy.get('[data-testid*="reports-overview"]').should('exist')
-      cy.get('body').should('contain', 'Overview')
 
       cy.logout()
     })
@@ -221,27 +207,17 @@ describe('Reports - Authentication & Access Control', () => {
 
       // Wait for login to complete
       cy.url().should('not.include', '/signin')
-      cy.wait(1000)
+      cy.get('body').should('be.visible')
 
       // Visit report URL
       cy.visit(reportUrl)
 
-      // Wait for the report to load
-      cy.get('body').should('be.visible')
-
-      // Wait for any loading states to complete
-      cy.get('body').then(($body) => {
-        if ($body.text().includes('loading') || $body.text().includes('Loading')) {
-          cy.wait(1000) // Give time for report to load
-        }
-      })
-
-      // Should see report content
-      cy.get('body').should('contain', 'Report')
+      // Wait for report content to appear
+      cy.contains('Report', { timeout: 10000 }).should('exist')
+      cy.contains('Overview', { timeout: 10000 }).should('exist')
 
       // Should see some report elements
       cy.get('[data-testid*="reports-overview"]').should('exist')
-      cy.get('body').should('contain', 'Overview')
 
       cy.logout()
     })
@@ -259,36 +235,155 @@ describe('Reports - Authentication & Access Control', () => {
   })
 
   describe('Report Types Access', () => {
-    const reportTypes = [
-      { type: 'report', path: '/report/' },
-      { type: 'narrativeReport', path: '/narrativeReport/' },
-      { type: 'stats', path: '/stats/' },
-      { type: 'commentsReport', path: '/commentsReport/' },
-      { type: 'topicReport', path: '/topicReport/' },
-      { type: 'topicsVizReport', path: '/topicsVizReport/' },
-      { type: 'exportReport', path: '/exportReport/' },
-      { type: 'topicMapNarrativeReport', path: '/topicMapNarrativeReport/' },
-    ]
+    it('should allow access to report without authentication', () => {
+      // Ensure logged out
+      cy.logout()
 
-    reportTypes.forEach(({ type, path }) => {
+      // Visit different report type URL
+      const typeUrl = '/report/' + reportId
+      cy.visit(typeUrl, { failOnStatusCode: false })
 
-      it(`should allow access to ${type} without authentication`, () => {
-        // Ensure logged out
-        cy.logout()
+      // Should not redirect to login
+      cy.url().should('include', '/report/')
 
-        // Visit different report type URL
-        const typeUrl = path + reportId
-        cy.visit(typeUrl, { failOnStatusCode: false })
+      // Should load some content (not error page)
+      cy.get('body').then(($body) => {
+        // Should not show server errors
+        expect($body.text()).to.not.include('Cannot GET')
+        expect($body.text()).to.not.include('404')
+      })
+    })
 
-        // Should not redirect to login
-        cy.url().should('include', path)
+    it('should allow access to narrativeReport without authentication', () => {
+      // Ensure logged out
+      cy.logout()
 
-        // Should load some content (not error page)
-        cy.get('body').then(($body) => {
-          // Should not show server errors
-          expect($body.text()).to.not.include('Cannot GET')
-          expect($body.text()).to.not.include('404')
-        })
+      // Visit different report type URL
+      const typeUrl = '/narrativeReport/' + reportId
+      cy.visit(typeUrl, { failOnStatusCode: false })
+
+      // Should not redirect to login
+      cy.url().should('include', '/narrativeReport/')
+
+      // Should load some content (not error page)
+      cy.get('body').then(($body) => {
+        // Should not show server errors
+        expect($body.text()).to.not.include('Cannot GET')
+        expect($body.text()).to.not.include('404')
+      })
+    })
+
+    it('should allow access to stats without authentication', () => {
+      // Ensure logged out
+      cy.logout()
+
+      // Visit different report type URL
+      const typeUrl = '/stats/' + reportId
+      cy.visit(typeUrl, { failOnStatusCode: false })
+
+      // Should not redirect to login
+      cy.url().should('include', '/stats/')
+
+      // Should load some content (not error page)
+      cy.get('body').then(($body) => {
+        // Should not show server errors
+        expect($body.text()).to.not.include('Cannot GET')
+        expect($body.text()).to.not.include('404')
+      })
+    })
+
+    it('should allow access to commentsReport without authentication', () => {
+      // Ensure logged out
+      cy.logout()
+
+      // Visit different report type URL
+      const typeUrl = '/commentsReport/' + reportId
+      cy.visit(typeUrl, { failOnStatusCode: false })
+
+      // Should not redirect to login
+      cy.url().should('include', '/commentsReport/')
+
+      // Should load some content (not error page)
+      cy.get('body').then(($body) => {
+        // Should not show server errors
+        expect($body.text()).to.not.include('Cannot GET')
+        expect($body.text()).to.not.include('404')
+      })
+    })
+
+    it('should allow access to topicReport without authentication', () => {
+      // Ensure logged out
+      cy.logout()
+
+      // Visit different report type URL
+      const typeUrl = '/topicReport/' + reportId
+      cy.visit(typeUrl, { failOnStatusCode: false })
+
+      // Should not redirect to login
+      cy.url().should('include', '/topicReport/')
+
+      // Should load some content (not error page)
+      cy.get('body').then(($body) => {
+        // Should not show server errors
+        expect($body.text()).to.not.include('Cannot GET')
+        expect($body.text()).to.not.include('404')
+      })
+    })
+
+    it('should allow access to topicsVizReport without authentication', () => {
+      // Ensure logged out
+      cy.logout()
+
+      // Visit different report type URL
+      const typeUrl = '/topicsVizReport/' + reportId
+      cy.visit(typeUrl, { failOnStatusCode: false })
+
+      // Should not redirect to login
+      cy.url().should('include', '/topicsVizReport/')
+
+      // Should load some content (not error page)
+      cy.get('body').then(($body) => {
+        // Should not show server errors
+        expect($body.text()).to.not.include('Cannot GET')
+        expect($body.text()).to.not.include('404')
+      })
+    })
+
+    it('should allow access to exportReport without authentication', () => {
+      // Ensure logged out
+      cy.logout()
+
+      // Visit different report type URL
+      const typeUrl = '/exportReport/' + reportId
+      cy.visit(typeUrl, { failOnStatusCode: false })
+
+      // Should not redirect to login
+      cy.url().should('include', '/exportReport/')
+
+      // Should load some content (not error page)
+      cy.get('body').then(($body) => {
+        // Should not show server errors
+        expect($body.text()).to.not.include('Cannot GET')
+        expect($body.text()).to.not.include('404')
+      })
+    })
+
+    it('should allow access to topicMapNarrativeReport without authentication', () => {
+      // Ensure logged out
+      cy.logout()
+
+      // Visit different report type URL
+      const typeUrl = '/topicMapNarrativeReport/' + reportId
+      cy.visit(typeUrl, { failOnStatusCode: false })
+
+      // Should not redirect to login
+      cy.url().should('include', '/topicMapNarrativeReport/')
+
+      // Should load some content (not error page)
+      cy.get('body').then(($body) => {
+        // Should not show server errors
+        expect($body.text()).to.not.include('Cannot GET')
+        expect($body.text()).to.not.include('404')
       })
     })
   })

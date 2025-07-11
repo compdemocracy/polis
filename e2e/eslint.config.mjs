@@ -32,11 +32,8 @@ export default [
     rules: {
       ...cypressPlugin.configs.recommended.rules,
       ...mochaPlugin.configs.recommended.rules,
-      'cypress/no-assigning-return-values': 'warn',
-      'cypress/no-unnecessary-waiting': 'warn',
-      'cypress/unsafe-to-chain-command': 'warn',
       'mocha/no-mocha-arrows': 'off',
-      'mocha/no-setup-in-describe': 'warn',
+      'cypress/no-unnecessary-waiting': 'warn',
     },
   },
   prettierConfig,

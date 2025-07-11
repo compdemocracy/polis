@@ -25,7 +25,7 @@ async function fetchConversationData(conversationId, apiBaseUrl = process.env.AP
       }
     });
 
-    if (!response.ok) {
+    if (!response.ok && response.status !== 304) {
       console.warn(`[Dev Helper] API responded with ${response.status} ${response.statusText}`);
 
       // Try to get the error response body
