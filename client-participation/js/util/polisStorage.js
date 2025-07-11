@@ -51,16 +51,6 @@ function getJwtToken() {
       console.log("[PolisStorage] auth_token:", token ? "present (length: " + token.length + ")" : "not found");
     }
 
-    // Finally check legacy polis_jwt_token
-    if (!token) {
-      token = window.localStorage
-        ? window.localStorage.getItem("polis_jwt_token")
-        : window.sessionStorage
-          ? window.sessionStorage.getItem("polis_jwt_token")
-          : null;
-      console.log("[PolisStorage] polis_jwt_token:", token ? "present (length: " + token.length + ")" : "not found");
-    }
-
     if (!token) {
       console.log("[PolisStorage] No JWT token found in any storage location");
       return null;
@@ -92,12 +82,9 @@ function setJwtToken(token) {
     // Store as participant_token (primary token for anonymous/XID users)
     if (window.localStorage) {
       window.localStorage.setItem("participant_token", token);
-      // Also store as legacy polis_jwt_token for backward compatibility
-      window.localStorage.setItem("polis_jwt_token", token);
       console.log("[PolisStorage] Token stored in localStorage");
     } else if (window.sessionStorage) {
       window.sessionStorage.setItem("participant_token", token);
-      window.sessionStorage.setItem("polis_jwt_token", token);
       console.log("[PolisStorage] Token stored in sessionStorage");
     } else {
       console.warn("[PolisStorage] No storage available for JWT token");
@@ -113,13 +100,11 @@ function clearJwtToken() {
     if (window.localStorage) {
       window.localStorage.removeItem("participant_token");
       window.localStorage.removeItem("auth_token");
-      window.localStorage.removeItem("polis_jwt_token");
       console.log("[PolisStorage] Tokens cleared from localStorage");
     }
     if (window.sessionStorage) {
       window.sessionStorage.removeItem("participant_token");
       window.sessionStorage.removeItem("auth_token");
-      window.sessionStorage.removeItem("polis_jwt_token");
       console.log("[PolisStorage] Tokens cleared from sessionStorage");
     }
   } catch (e) {

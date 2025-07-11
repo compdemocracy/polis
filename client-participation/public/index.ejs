@@ -133,15 +133,12 @@
           try {
             var token = window.localStorage && window.localStorage.getItem('participant_token');
             if (!token && window.localStorage) {
-              token = window.localStorage.getItem('auth_token');
-            }
-            if (!token && window.localStorage) {
-              token = window.localStorage.getItem('polis_jwt_token');
+              token = window.localStorage.getItem('participant_token') ||
+                      window.localStorage.getItem('auth_token');
             }
             if (!token && window.sessionStorage) {
               token = window.sessionStorage.getItem('participant_token') ||
-                      window.sessionStorage.getItem('auth_token') ||
-                      window.sessionStorage.getItem('polis_jwt_token');
+                      window.sessionStorage.getItem('auth_token');
             }
             if (token) {
               console.log("[Index] Adding JWT token to preload request");
@@ -192,12 +189,9 @@
             try {
               if (window.localStorage) {
                 window.localStorage.setItem('participant_token', response.auth.token);
-                // Also store as polis_jwt_token for backward compatibility
-                window.localStorage.setItem('polis_jwt_token', response.auth.token);
                 console.log("[Index] JWT token stored in localStorage");
               } else if (window.sessionStorage) {
                 window.sessionStorage.setItem('participant_token', response.auth.token);
-                window.sessionStorage.setItem('polis_jwt_token', response.auth.token);
                 console.log("[Index] JWT token stored in sessionStorage");
               }
             } catch (e) {
