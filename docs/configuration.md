@@ -126,6 +126,19 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`SERVICE_URL`** used by client-report to make API calls. Only necessary if client-report is hosted separately from the API service. Can be left blank.
 - **`STATIC_FILES_HOST`** Used by the API service to fetch static assets (the compiled client applications) from a static file server. Within the docker compose setup this is `file-server`, but could be an external hostname, such as a CDN or S3 bucket.
 
+### Authentication
+
+- **`AUTH_ISSUER`** The Auth0 tenant domain URL for standard user authentication (e.g. `https://your-tenant.auth0.com/`).
+- **`AUTH_AUDIENCE`** The API identifier/audience for Auth0 (e.g. `users` or `https://your-api.com`).
+- **`AUTH_CLIENT_ID`** The Auth0 SPA client ID for your application.
+- **`JWKS_URI`** The JWKS URI for your Auth0 tenant (e.g. `https://your-tenant.auth0.com/.well-known/jwks.json`).
+- **`POLIS_JWT_ISSUER`** The issuer for in-house JWTs (XID and anonymous participants). Defaults to `https://pol.is/`.
+- **`POLIS_JWT_AUDIENCE`** The audience for in-house JWTs. Defaults to `participants`.
+- **`JWT_PRIVATE_KEY_PATH`** Path to the RSA private key for signing in-house JWTs.
+- **`JWT_PUBLIC_KEY_PATH`** Path to the RSA public key for validating in-house JWTs.
+- **`JWT_PRIVATE_KEY`** Base64-encoded RSA private key (alternative to file path).
+- **`JWT_PUBLIC_KEY`** Base64-encoded RSA public key (alternative to file path).
+
 ### Third Party API Credentials
 
 (All are optional, and omitting them will disable the related feature.)

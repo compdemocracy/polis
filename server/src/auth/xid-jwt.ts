@@ -113,8 +113,8 @@ function issueXidJWT(
   pid: number
 ): string {
   const payload: XidJwtClaims = {
-    aud: Config.authAudience as string,
-    iss: Config.authIssuer as string,
+    aud: Config.polisJwtAudience as string,
+    iss: Config.polisJwtIssuer as string,
     pid,
     uid,
     xid,
@@ -145,8 +145,8 @@ const xidJwtValidation = expressjwt({
       throw error;
     }
   },
-  audience: Config.authAudience as string,
-  issuer: Config.authIssuer as string,
+  audience: Config.polisJwtAudience as string,
+  issuer: Config.polisJwtIssuer as string,
   algorithms: ["RS256"],
   requestProperty: "xidJwtPayload",
 });
@@ -164,8 +164,8 @@ const xidJwtValidationOptional = expressjwt({
       throw error;
     }
   },
-  audience: Config.authAudience as string,
-  issuer: Config.authIssuer as string,
+  audience: Config.polisJwtAudience as string,
+  issuer: Config.polisJwtIssuer as string,
   algorithms: ["RS256"],
   credentialsRequired: false,
   requestProperty: "xidJwtPayload",
@@ -239,8 +239,8 @@ function verifyXidJWT(token: string): XidJwtClaims {
   try {
     const publicKey = getPublicKey();
     const payload = jwt.verify(token, publicKey, {
-      audience: Config.authAudience as string,
-      issuer: Config.authIssuer as string,
+      audience: Config.polisJwtAudience as string,
+      issuer: Config.polisJwtIssuer as string,
       algorithms: ["RS256"],
     }) as XidJwtClaims;
 

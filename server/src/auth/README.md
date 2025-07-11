@@ -59,12 +59,14 @@ The hybrid middleware checks authentication in this order:
 ## Environment Variables
 
 ```bash
-# Auth0 Configuration
+# Auth0 Configuration (for standard users)
 AUTH_ISSUER=https://your-tenant.auth0.com/
-AUTH_AUDIENCE=your-api-audience
+AUTH_AUDIENCE=users
 JWKS_URI=https://your-tenant.auth0.com/.well-known/jwks.json
 
-# XID JWT Configuration
+# In-house JWT Configuration (for XID and anonymous participants)
+POLIS_JWT_ISSUER=https://pol.is/
+POLIS_JWT_AUDIENCE=participants
 JWT_PRIVATE_KEY_PATH=./keys/jwt-private.pem
 JWT_PUBLIC_KEY_PATH=./keys/jwt-public.pem
 ```

@@ -104,8 +104,8 @@ function issueAnonymousJWT(
   pid: number
 ): string {
   const payload: AnonymousJwtClaims = {
-    aud: Config.authAudience as string,
-    iss: Config.authIssuer as string,
+    aud: Config.polisJwtAudience as string,
+    iss: Config.polisJwtIssuer as string,
     pid,
     uid,
     sub: `anon:${uid}`,
@@ -138,8 +138,8 @@ const anonymousJwtValidation = expressjwt({
       throw error;
     }
   },
-  audience: Config.authAudience as string,
-  issuer: Config.authIssuer as string,
+  audience: Config.polisJwtAudience as string,
+  issuer: Config.polisJwtIssuer as string,
   algorithms: ["RS256"],
   requestProperty: "anonymousJwtPayload",
 });
@@ -157,8 +157,8 @@ const anonymousJwtValidationOptional = expressjwt({
       throw error;
     }
   },
-  audience: Config.authAudience as string,
-  issuer: Config.authIssuer as string,
+  audience: Config.polisJwtAudience as string,
+  issuer: Config.polisJwtIssuer as string,
   algorithms: ["RS256"],
   credentialsRequired: false,
   requestProperty: "anonymousJwtPayload",
@@ -229,8 +229,8 @@ function verifyAnonymousJWT(token: string): AnonymousJwtClaims {
   try {
     const publicKey = getPublicKey();
     const payload = jwt.verify(token, publicKey, {
-      audience: Config.authAudience as string,
-      issuer: Config.authIssuer as string,
+      audience: Config.polisJwtAudience as string,
+      issuer: Config.polisJwtIssuer as string,
       algorithms: ["RS256"],
     }) as AnonymousJwtClaims;
 

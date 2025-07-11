@@ -49,7 +49,7 @@ app.get('/api/v3/public', hybridAuthOptional(assignToP), handler);
 
 ```json
 {
-  "iss": "https://your-polis-server/",
+  "iss": "https://pol.is/",
   "sub": "xid:external-user-123",
   "xid": "external-user-123",
   "conversation_id": "abc123",
@@ -57,6 +57,20 @@ app.get('/api/v3/public', hybridAuthOptional(assignToP), handler);
   "pid": 789,
   "anonymous": true,
   "xid_participant": true
+}
+```
+
+**Anonymous JWT (Anonymous Participants)**
+
+```json
+{
+  "iss": "https://pol.is/",
+  "sub": "anon:456",
+  "uid": 456,
+  "pid": 789,
+  "conversation_id": "abc123",
+  "anonymous": true,
+  "anonymous_participant": true
 }
 ```
 
@@ -78,13 +92,15 @@ app.get('/api/v3/public', hybridAuthOptional(assignToP), handler);
 ## Environment Configuration
 
 ```bash
-# Auth0 Configuration
+# Auth0 Configuration (for standard users)
 AUTH_ISSUER=https://your-tenant.auth0.com/
-AUTH_AUDIENCE=your-api-audience
+AUTH_AUDIENCE=users
 AUTH_CLIENT_ID=your-client-id
 JWKS_URI=https://your-tenant.auth0.com/.well-known/jwks.json
 
-# XID JWT Configuration
+# In-house JWT Configuration (for XID and anonymous participants)
+POLIS_JWT_ISSUER=https://pol.is/
+POLIS_JWT_AUDIENCE=participants
 AUTH_CERTS_PATH=~/.simulacrum/certs
 AUTH_KEYS_PATH=./keys
 ```

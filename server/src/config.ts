@@ -103,6 +103,8 @@ export default {
   isTesting: isTrue(process.env.TESTING),
   openaiApiKey: process.env.OPENAI_API_KEY || null,
   polisFromAddress: process.env.POLIS_FROM_ADDRESS as string,
+  polisJwtIssuer: process.env.POLIS_JWT_ISSUER || "https://pol.is/",
+  polisJwtAudience: process.env.POLIS_JWT_AUDIENCE || "participants",
   readOnlyDatabaseURL:
     process.env.READ_ONLY_DATABASE_URL || (process.env.DATABASE_URL as string),
   runPeriodicExportTests: isTrue(process.env.RUN_PERIODIC_EXPORT_TESTS),
