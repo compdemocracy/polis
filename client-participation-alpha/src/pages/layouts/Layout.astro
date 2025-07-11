@@ -1,14 +1,13 @@
 ---
 import '../../styles/global.css';
-const surveyDetailsResponse = await fetch('https://jsonplaceholder.typicode.com/posts/1');
-const surveyDetails = await surveyDetailsResponse.json();
+const { title = 'Polis Conversation' } = Astro.props;
 ---
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width" />
-    <title>{surveyDetails.title}</title>
+    <title>{title}</title>
 </head>
 <body>
     <slot />
