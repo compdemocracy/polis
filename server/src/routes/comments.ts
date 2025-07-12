@@ -2,7 +2,7 @@ import _ from "underscore";
 import { parse } from "csv-parse/sync";
 import { addParticipant } from "../participant";
 import { CommentOptions, CommentType } from "../d";
-import { createXidRecordByZid, getConversationInfo } from "../conversation";
+import { createXidRecordByZid, getConversationInfo, getXidRecord } from "../conversation";
 import { detectLanguage, getComment, getComments } from "../comment";
 import {
   finishArray,
@@ -50,6 +50,12 @@ interface PolisRequestParams {
   without?: any;
   include_social?: any;
   conversation_id?: string;
+  jwt_conversation_mismatch?: boolean;
+  jwt_conversation_id?: string;
+  requested_conversation_id?: string;
+  jwt_xid?: string;
+  anonymous_participant?: boolean;
+  xid_participant?: boolean;
 }
 
 interface PolisRequest {
@@ -640,19 +646,20 @@ function buildCommentResponse(
   uid: number | undefined,
   finalPid: number,
   xid: string | undefined,
-  conversation_id: string | undefined
+  conversation_id: string | undefined,
+  needsNewJwt: boolean = false
 ): any {
   const response: any = {
     tid,
     currentPid,
   };
 
-  // Issue JWT for new participants or users
+  // Issue JWT for new participants/users OR when conversation mismatch requires new JWT
   if (
-    (newlyCreatedParticipant || newlyCreatedUser) &&
+    ((newlyCreatedParticipant || newlyCreatedUser || needsNewJwt) &&
     uid !== undefined &&
     finalPid !== undefined &&
-    conversation_id
+    conversation_id)
   ) {
     try {
       const token = xid
@@ -668,7 +675,7 @@ function buildCommentResponse(
       logger.debug(
         `${
           xid ? "XID" : "Anonymous"
-        } JWT issued successfully for comment author`
+        } JWT issued successfully for comment author${needsNewJwt ? " (conversation mismatch)" : ""}`
       );
     } catch (error) {
       logger.error("Failed to issue JWT on comment creation:", error);
@@ -690,6 +697,7 @@ async function handle_POST_comments(
   let finalPid = initialPid; // Declare at function level for error handling access
   let newlyCreatedParticipant = false;
   let newlyCreatedUser = false;
+  let needsNewJwt = false; // Track if we need to issue a new JWT due to conversation mismatch
 
   const validationResult = validateCommentInput(req);
   if (!validationResult.isValid) {
@@ -699,6 +707,53 @@ async function handle_POST_comments(
       validationResult.errorCode || "polis_err_post_comment_invalid_input"
     );
     return;
+  }
+
+  // Handle JWT conversation mismatches
+  if (req.p.jwt_conversation_mismatch) {
+    needsNewJwt = true;
+    
+    if (req.p.anonymous_participant) {
+      // Anonymous participant with JWT for different conversation - treat as new
+      logger.debug("Anonymous participant commenting with JWT for different conversation - treating as new");
+      uid = undefined;
+      pid = undefined;
+    } else if (req.p.xid_participant && xid) {
+      // XID participant - apply the same 4-case logic as participationInit and votes
+      const jwtXid = req.p.jwt_xid;
+      const requestXid = xid;
+      const xidMatches = jwtXid === requestXid;
+
+      // Check if XID exists for current conversation
+      let xidForCurrentConversation = false;
+      try {
+        const xidRecords = await getXidRecord(requestXid, zid!);
+        if (xidRecords && xidRecords.length > 0) {
+          xidForCurrentConversation = true;
+        }
+      } catch (err) {
+        // XID not found for this conversation
+      }
+
+      if (xidMatches) {
+        // Case 2: Token and XID align but are for different conversation
+        logger.debug("Case 2: XID participant commenting with matching JWT/XID for different conversation - treating as anonymous");
+        req.p.xid = undefined;  // Clear XID to treat as anonymous
+        uid = undefined;
+        pid = undefined;
+      } else if (!xidMatches && xidForCurrentConversation) {
+        // Case 3: Token for different conversation, but XID is for current
+        logger.debug("Case 3: XID participant commenting with mismatched JWT but XID for current conversation - maintaining XID");
+        uid = undefined;
+        pid = undefined;
+        // XID will be resolved below
+      } else {
+        // Case 4: Token for current conversation, but XID for different
+        logger.debug("Case 4: XID participant commenting with JWT for current conversation but XID for different - treating as anonymous");
+        req.p.xid = undefined;  // Clear XID
+        // Keep uid/pid from JWT
+      }
+    }
   }
 
   // Create anonymous user if uid is not provided
@@ -841,7 +896,8 @@ async function handle_POST_comments(
       uid,
       finalPid,
       xid,
-      conversation_id
+      conversation_id,
+      needsNewJwt
     );
 
     res.json(response);

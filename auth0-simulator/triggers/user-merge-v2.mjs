@@ -58,7 +58,7 @@ exports.onExecutePostLogin = async (event, api) => {
     });
 
   } catch (error) {
-    console.error("Error getting management token:", error.message);
+    console.error("Error getting management token:", error?.message || String(error) || 'Unknown error');
     // Continue with login but without merge functionality
     addCustomClaims(finalUser, api, namespace);
     return;
@@ -67,7 +67,7 @@ exports.onExecutePostLogin = async (event, api) => {
   try {
     // Search for all users with the same email
     const { data: users } = await management.usersByEmail.getByEmail({ 
-      email: event.user.email.toLowerCase() // Normalize email
+      email: event.user.email?.toLowerCase() || '' // Normalize email safely
     });
     
     console.log(`Found ${users.length} user(s) with email: ${event.user.email}`);
@@ -75,7 +75,7 @@ exports.onExecutePostLogin = async (event, api) => {
     if (users.length > 1) {
       // Find the primary account (oldest created_at)
       const sortedUsers = users.sort((a, b) => 
-        new Date(a.created_at) - new Date(b.created_at)
+        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
       );
       
       const primaryUser = sortedUsers[0];
@@ -140,12 +140,20 @@ exports.onExecutePostLogin = async (event, api) => {
     }
     
   } catch (err) {
-    console.error("Error during user merge logic:", err);
-    console.error("Error details:", JSON.stringify(err.response?.data || err.message));
+    const errorMessage = err?.message || String(err) || 'Unknown error';
+    console.error("Error during user merge logic:", errorMessage);
+    
+    // Safely extract error details
+    const errorDetails = err?.response?.data || errorMessage;
+    try {
+      console.error("Error details:", JSON.stringify(errorDetails));
+    } catch {
+      console.error("Error details:", String(errorDetails));
+    }
     
     // Add error information to token for debugging (remove in production)
     if (event.secrets.DEBUG_MODE === 'true') {
-      api.accessToken.setCustomClaim(`${namespace}merge_error`, err.message);
+      api.accessToken.setCustomClaim(`${namespace}merge_error`, errorMessage);
     }
     
     // Continue with login using original user

@@ -192,19 +192,10 @@ const extractUserFromXidJWT = (
           return next(new Error("Invalid XID JWT format"));
         }
 
-        // Validate conversation scoping: JWT's conversation_id must match requested conversation_id
+        // Check conversation scoping but don't error - just set flags
         const requestedConversationId =
           req.query?.conversation_id || req.body?.conversation_id;
-        if (
-          requestedConversationId &&
-          payload.conversation_id !== requestedConversationId
-        ) {
-          logger.warn(
-            `XID JWT conversation mismatch: token for ${payload.conversation_id}, request for ${requestedConversationId}`
-          );
-          return next(new Error("JWT not valid for this conversation"));
-        }
-
+        
         // Set up the request parameters for downstream handlers
         req.p = req.p || {};
         req.p.uid = payload.uid;
@@ -213,6 +204,22 @@ const extractUserFromXidJWT = (
         req.p.conversation_id = payload.conversation_id;
         req.p.anonymous = payload.anonymous;
         req.p.xid_participant = payload.xid_participant;
+        
+        // Set conversation mismatch flags
+        if (
+          requestedConversationId &&
+          payload.conversation_id !== requestedConversationId
+        ) {
+          req.p.jwt_conversation_mismatch = true;
+          req.p.jwt_conversation_id = payload.conversation_id;
+          req.p.requested_conversation_id = requestedConversationId;
+          req.p.jwt_xid = payload.xid; // Store the XID from the JWT
+          logger.debug(
+            `XID JWT conversation mismatch detected: token for ${payload.conversation_id}, request for ${requestedConversationId}, XID: ${payload.xid}`
+          );
+        } else {
+          req.p.jwt_conversation_mismatch = false;
+        }
 
         // Call the assigner function if provided (for compatibility with parameter middleware)
         if (assigner) {
@@ -221,7 +228,7 @@ const extractUserFromXidJWT = (
         }
 
         logger.debug(
-          `Successfully authenticated XID participant: ${payload.xid} -> uid: ${payload.uid}`
+          `Successfully extracted XID participant: ${payload.xid} -> uid: ${payload.uid}, mismatch: ${req.p.jwt_conversation_mismatch}`
         );
       } else {
         logger.warn("No XID JWT payload found in request");

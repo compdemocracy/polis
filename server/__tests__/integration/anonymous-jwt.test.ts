@@ -180,7 +180,7 @@ describe("Anonymous and XID JWT Authentication", () => {
       }
     });
 
-    test("XID users should not be able to participate in multiple conversations", async () => {
+    test("XID users should be able to participate in multiple conversations", async () => {
       // Create another conversation
       const { conversationId: otherConvId, commentIds: otherCommentIds } =
         await setupAuthAndConvo({
@@ -200,10 +200,10 @@ describe("Anonymous and XID JWT Authentication", () => {
         pid: -1,
       });
 
-      // Should fail with 401
-      expect(voteResponse.status).toBe(401);
-      expect(voteResponse.body).toHaveProperty("error");
-      expect(voteResponse.body.error).toBe("Invalid authentication token");
+      // Should succeed with 200
+      expect(voteResponse.status).toBe(200);
+      expect(voteResponse.body).toHaveProperty("currentPid");
+      expect(typeof voteResponse.body.currentPid).toBe("number");
     });
   });
 

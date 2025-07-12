@@ -184,19 +184,10 @@ const extractUserFromAnonymousJWT = (
           return next(new Error("Invalid anonymous JWT format"));
         }
 
-        // Validate conversation scoping: JWT's conversation_id must match requested conversation_id
+        // Check conversation scoping but don't error - just set flags
         const requestedConversationId =
           req.query?.conversation_id || req.body?.conversation_id;
-        if (
-          requestedConversationId &&
-          payload.conversation_id !== requestedConversationId
-        ) {
-          logger.warn(
-            `Anonymous JWT conversation mismatch: token for ${payload.conversation_id}, request for ${requestedConversationId}`
-          );
-          return next(new Error("JWT not valid for this conversation"));
-        }
-
+        
         // Set up the request parameters
         req.p = req.p || {};
         req.p.uid = payload.uid;
@@ -204,6 +195,21 @@ const extractUserFromAnonymousJWT = (
         req.p.conversation_id = payload.conversation_id;
         req.p.anonymous = payload.anonymous;
         req.p.anonymous_participant = payload.anonymous_participant;
+        
+        // Set conversation mismatch flag
+        if (
+          requestedConversationId &&
+          payload.conversation_id !== requestedConversationId
+        ) {
+          req.p.jwt_conversation_mismatch = true;
+          req.p.jwt_conversation_id = payload.conversation_id;
+          req.p.requested_conversation_id = requestedConversationId;
+          logger.debug(
+            `Anonymous JWT conversation mismatch detected: token for ${payload.conversation_id}, request for ${requestedConversationId}`
+          );
+        } else {
+          req.p.jwt_conversation_mismatch = false;
+        }
 
         // Call the assigner function if provided
         if (assigner) {
@@ -211,7 +217,7 @@ const extractUserFromAnonymousJWT = (
         }
 
         logger.debug(
-          `Successfully authenticated anonymous participant: uid: ${payload.uid}, pid: ${payload.pid}`
+          `Successfully extracted anonymous participant: uid: ${payload.uid}, pid: ${payload.pid}, mismatch: ${req.p.jwt_conversation_mismatch}`
         );
       } else {
         logger.warn("No anonymous JWT payload found in request");

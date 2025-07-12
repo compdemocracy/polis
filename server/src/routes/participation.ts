@@ -25,6 +25,7 @@ import logger from "../utils/logger";
 import { sql_participants_extended } from "../db/sql";
 import { getPca } from "../utils/pca";
 import { issueXidJWT } from "../auth/xid-jwt";
+import { issueAnonymousJWT } from "../auth/anonymous-jwt";
 
 // basic defaultdict implementation
 function DD(this: any, f: () => { votes: number; comments: number }) {
@@ -299,6 +300,12 @@ async function handle_GET_participationInit(
       xid: string;
       owner_uid?: number;
       pid: number;
+      jwt_conversation_mismatch?: boolean;
+      jwt_conversation_id?: string;
+      requested_conversation_id?: string;
+      jwt_xid?: string;
+      anonymous_participant?: boolean;
+      xid_participant?: boolean;
     };
     headers?: Headers;
   },
@@ -337,6 +344,54 @@ async function handle_GET_participationInit(
       );
       response.user = user;
       return res.status(200).json(response);
+    }
+
+    // Handle JWT conversation mismatches for anonymous participants
+    if (req.p.jwt_conversation_mismatch && req.p.anonymous_participant) {
+      logger.debug("Anonymous participant with JWT for different conversation - treating as new participant");
+      // Clear the uid/pid from the mismatched JWT
+      req.p.uid = undefined;
+      req.p.pid = -1;
+    }
+
+    // Handle JWT conversation mismatches for XID participants
+    if (req.p.jwt_conversation_mismatch && req.p.xid_participant && req.p.xid) {
+      // Determine which case we're in
+      const jwtXid = req.p.jwt_xid;
+      const requestXid = req.p.xid;
+
+      // Check if XID in request matches XID in JWT
+      const xidMatches = jwtXid === requestXid;
+
+      // Get XID record for the requested conversation
+      let xidForRequestedConversation = false;
+      try {
+        const xidRecords = await getXidRecord(requestXid, req.p.zid);
+        if (xidRecords && xidRecords.length > 0) {
+          xidForRequestedConversation = true;
+        }
+      } catch (err) {
+        // XID not found for this conversation
+      }
+
+      if (xidMatches) {
+        // Case 2: Token and XID align but are for a different conversation
+        logger.debug("Case 2: XID JWT and request XID match but for different conversation - treating as anonymous");
+        req.p.xid = "";  // Clear XID to treat as anonymous
+        req.p.uid = undefined;
+        req.p.pid = -1;
+      } else if (!xidMatches && xidForRequestedConversation) {
+        // Case 3: Token is for different conversation, but XID is for current conversation
+        logger.debug("Case 3: JWT for different conversation but XID is for current conversation - maintaining XID");
+        // Clear JWT-based uid/pid, will be resolved from XID below
+        req.p.uid = undefined;
+        req.p.pid = -1;
+      } else {
+        // Case 4: Token is for current conversation, but XID is for another conversation
+        logger.debug("Case 4: JWT for current conversation but XID for different conversation - treating as anonymous");
+        req.p.xid = "";  // Clear XID to treat as anonymous
+        // Keep the uid/pid from the JWT since it's for the current conversation
+      }
     }
 
     // For XID users, resolve XID to UID first
@@ -438,9 +493,30 @@ async function handle_GET_participationInit(
       } catch (error) {
         logger.error("Failed to issue XID JWT:", error);
       }
+    } else if (!req.p.xid && effectiveUid !== undefined && effectivePid >= 0) {
+      // Issue JWT for anonymous users if they already exist
+      try {
+        const token = issueAnonymousJWT(
+          req.p.conversation_id,
+          effectiveUid,
+          effectivePid
+        );
+
+        response.auth = {
+          token: token,
+          token_type: "Bearer",
+          expires_in: 24 * 60 * 60, // 24 hours
+        };
+
+        logger.debug("Anonymous JWT issued successfully", {
+          uid: effectiveUid,
+          pid: effectivePid,
+        });
+      } catch (error) {
+        logger.error("Failed to issue anonymous JWT:", error);
+      }
     }
-    // Note: Anonymous JWTs are issued on first action (like voting), not on participationInit
-    // This matches the expected behavior where anonymous users get JWTs when they interact
+    // Note: New anonymous participants get JWTs on first action (like voting), not on participationInit
 
     // Clean up sensitive data
     if (response.conversation) {

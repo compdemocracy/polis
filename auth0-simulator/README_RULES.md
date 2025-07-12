@@ -12,14 +12,6 @@ Adds custom namespace claims to JWT tokens for all users:
 - `https://pol.is/name`
 - `https://pol.is/email_verified`
 
-### 2. `merge-users.js`
-
-Basic merge detection based on user_id patterns. This is a simplified implementation for testing.
-
-### 3. `merge-users-enhanced.js` (disabled by default)
-
-A more sophisticated example showing how merge logic would work in production with proper duplicate detection.
-
 ## Limitations
 
 The simulacrum auth0-simulator has some limitations compared to real Auth0:

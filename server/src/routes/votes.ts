@@ -38,7 +38,14 @@ interface VoteResult {
 }
 
 interface VoteRequest {
-  p: Vote;
+  p: Vote & {
+    jwt_conversation_mismatch?: boolean;
+    jwt_conversation_id?: string;
+    requested_conversation_id?: string;
+    jwt_xid?: string;
+    anonymous_participant?: boolean;
+    xid_participant?: boolean;
+  };
   headers?: { [x: string]: any };
 }
 
@@ -358,6 +365,51 @@ async function handle_POST_votes(req: VoteRequest, res: any) {
   let pid = req.p.pid;
 
   try {
+    // Handle JWT conversation mismatches
+    if (req.p.jwt_conversation_mismatch) {
+      if (req.p.anonymous_participant) {
+        // Anonymous participant with JWT for different conversation - treat as new
+        logger.debug("Anonymous participant voting with JWT for different conversation - treating as new");
+        req.p.uid = undefined;
+        req.p.pid = undefined;
+      } else if (req.p.xid_participant && req.p.xid) {
+        // XID participant - apply the same 4-case logic as participationInit
+        const jwtXid = req.p.jwt_xid;
+        const requestXid = req.p.xid;
+        const xidMatches = jwtXid === requestXid;
+
+        // Check if XID exists for current conversation
+        let xidForCurrentConversation = false;
+        try {
+          const xidRecords = await getXidRecord(requestXid, zid);
+          if (xidRecords && xidRecords.length > 0) {
+            xidForCurrentConversation = true;
+          }
+        } catch (err) {
+          // XID not found for this conversation
+        }
+
+        if (xidMatches) {
+          // Case 2: Token and XID align but are for different conversation
+          logger.debug("Case 2: XID participant voting with matching JWT/XID for different conversation - treating as anonymous");
+          req.p.xid = undefined;  // Clear XID to treat as anonymous
+          req.p.uid = undefined;
+          req.p.pid = undefined;
+        } else if (!xidMatches && xidForCurrentConversation) {
+          // Case 3: Token for different conversation, but XID is for current
+          logger.debug("Case 3: XID participant voting with mismatched JWT but XID for current conversation - maintaining XID");
+          req.p.uid = undefined;
+          req.p.pid = undefined;
+          // XID will be resolved below
+        } else {
+          // Case 4: Token for current conversation, but XID for different
+          logger.debug("Case 4: XID participant voting with JWT for current conversation but XID for different - treating as anonymous");
+          req.p.xid = undefined;  // Clear XID
+          // Keep uid/pid from JWT
+        }
+      }
+    }
+
     // 1. Handle user identification and creation
     const finalUid = await handleUserIdentification(req);
 
