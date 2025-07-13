@@ -1,5 +1,5 @@
-import { exec } from "child_process";
-import path from "path";
+import { exec } from "node:child_process";
+import path from "node:path";
 import { promisify } from "util";
 import { beforeAll } from "@jest/globals";
 import dotenv from "dotenv";

@@ -2,18 +2,6 @@
 
 var _ = require("lodash");
 var anonPicBase64 = require("../images/anon_profile");
-var PolisStorage = require("./polisStorage");
-
-var millisPerDay = 1000 * 60 * 60 * 24;
-
-function millisSinceJoin() {
-  return Date.now() - PolisStorage.userCreated();
-}
-
-function daysSinceJoin() {
-  console.log("daysSinceJoin", millisSinceJoin(), millisPerDay);
-  return (millisSinceJoin() / millisPerDay) >> 0;
-}
 
 function mapObj(o, f) {
   var out = {};

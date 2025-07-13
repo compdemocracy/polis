@@ -1,12 +1,13 @@
 import _ from "underscore";
 import { isUri } from "valid-url";
 import LruCache from "lru-cache";
-import pg from "../db/pg-query";
+
 import { failJson } from "./fail";
-import logger from "./logger";
-import { getZidFromConversationId } from "../conversation";
 import { getPidPromise } from "../user";
+import { getZidFromConversationId } from "../conversation";
 import { MPromise } from "./metered";
+import logger from "./logger";
+import pg from "../db/pg-query";
 
 type Req = {
   query?: any;
@@ -31,9 +32,9 @@ function moveToBody(req: Req, res: any, next: () => void) {
 }
 
 function need(name: any, parserWhichReturnsPromise: any, assigner: any) {
-  return buildCallback({
+  return _buildCallback({
     name: name,
-    extractor: extractFromBody,
+    extractor: _extractFromBody,
     parserWhichReturnsPromise: parserWhichReturnsPromise,
     assigner: assigner,
     required: true,
@@ -46,28 +47,12 @@ function want(
   assigner: any,
   defaultVal?: any
 ) {
-  return buildCallback({
+  return _buildCallback({
     name: name,
-    extractor: extractFromBody,
+    extractor: _extractFromBody,
     parserWhichReturnsPromise: parserWhichReturnsPromise,
     assigner: assigner,
     required: false,
-    defaultVal: defaultVal,
-  });
-}
-
-function needHeader(
-  name: any,
-  parserWhichReturnsPromise: any,
-  assigner: any,
-  defaultVal: any
-) {
-  return buildCallback({
-    name: name,
-    extractor: extractFromHeader,
-    parserWhichReturnsPromise: parserWhichReturnsPromise,
-    assigner: assigner,
-    required: true,
     defaultVal: defaultVal,
   });
 }
@@ -78,9 +63,9 @@ function wantHeader(
   assigner: any,
   defaultVal?: any
 ) {
-  return buildCallback({
+  return _buildCallback({
     name: name,
-    extractor: extractFromHeader,
+    extractor: _extractFromHeader,
     parserWhichReturnsPromise: parserWhichReturnsPromise,
     assigner: assigner,
     required: false,
@@ -88,14 +73,14 @@ function wantHeader(
   });
 }
 
-function extractFromBody(req: Req, name: string | number) {
+function _extractFromBody(req: Req, name: string | number) {
   if (!req.body) {
     return void 0;
   }
   return req.body[name];
 }
 
-function extractFromHeader(
+function _extractFromHeader(
   req: { headers: { [x: string]: any } },
   name: string
 ) {
@@ -105,7 +90,7 @@ function extractFromHeader(
   return req.headers[name.toLowerCase()];
 }
 
-function buildCallback(config: {
+function _buildCallback(config: {
   name: any;
   extractor: any;
   parserWhichReturnsPromise: any;
@@ -166,34 +151,16 @@ function buildCallback(config: {
   };
 }
 
-function isEmail(s: string | string[]) {
+function _isEmail(s: string | string[]) {
   return typeof s === "string" && s.length < 999 && s.indexOf("@") > 0;
 }
 
 function getEmail(s: string) {
   return new Promise(function (resolve, reject) {
-    if (!isEmail(s)) {
+    if (!_isEmail(s)) {
       return reject("polis_fail_parse_email");
     }
     resolve(s);
-  });
-}
-
-function getPassword(s: string) {
-  return new Promise(function (resolve, reject) {
-    if (typeof s !== "string" || s.length > 999 || s.length === 0) {
-      return reject("polis_fail_parse_password");
-    }
-    resolve(s);
-  });
-}
-
-function getPasswordWithCreatePasswordRules(s: any) {
-  return getPassword(s).then(function (s) {
-    if (typeof s !== "string" || s.length < 6) {
-      throw new Error("polis_err_password_too_short");
-    }
-    return s;
   });
 }
 
@@ -247,16 +214,27 @@ function getUrlLimitLength(limit: any) {
   };
 }
 
+function _integerOrUndefined(rawValue: any): number | undefined {
+  if (typeof rawValue === "string") {
+    if (rawValue.trim() !== "") {
+      const parsed = parseInt(rawValue, 10);
+      if (!isNaN(parsed)) {
+        return parsed;
+      }
+    }
+  } else if (typeof rawValue === "number" && Number.isInteger(rawValue)) {
+    return rawValue;
+  }
+  return undefined;
+}
+
 function getInt(s: string): Promise<number> {
   return new Promise(function (resolve, reject) {
-    if (_.isNumber(s) && s >> 0 === s) {
-      return resolve(s);
-    }
-    const x: number = parseInt(s);
-    if (isNaN(x)) {
+    const parsed = _integerOrUndefined(s);
+    if (parsed === undefined) {
       return reject("polis_fail_parse_int " + s);
     }
-    resolve(x);
+    resolve(parsed);
   });
 }
 
@@ -293,13 +271,13 @@ function getIntInRange(min: number, max: number) {
   };
 }
 
-const reportIdToRidCache = new LruCache({
+const _reportIdToRidCache = new LruCache({
   max: 1000,
 });
 
-function getRidFromReportId(report_id: string) {
-  return MPromise("getRidFromReportId", function (resolve: any, reject: any) {
-    const cachedRid = reportIdToRidCache.get(report_id);
+function _getRidFromReportId(report_id: string) {
+  return MPromise("_getRidFromReportId", function (resolve: any, reject: any) {
+    const cachedRid = _reportIdToRidCache.get(report_id);
     if (cachedRid) {
       resolve(cachedRid);
       return;
@@ -318,7 +296,7 @@ function getRidFromReportId(report_id: string) {
           return reject("polis_err_fetching_rid_for_report_id");
         } else {
           const rid = results.rows[0].rid;
-          reportIdToRidCache.set(report_id, rid);
+          _reportIdToRidCache.set(report_id, rid);
           return resolve(rid);
         }
       }
@@ -356,10 +334,11 @@ function getZidFromReport(report_id: string): Promise<number | null> {
 }
 
 // conversation_id is the client/ public API facing string ID
-const parseConversationId = getStringLimitLength(1, 100);
+const _parseConversationId = getStringLimitLength(1, 100);
+const _parseReportId = getStringLimitLength(1, 100);
 
 function getConversationIdFetchZid(s: any) {
-  return parseConversationId(s).then(function (conversation_id) {
+  return _parseConversationId(s).then(function (conversation_id) {
     return getZidFromConversationId(conversation_id).then(function (
       zid: number
     ) {
@@ -368,17 +347,15 @@ function getConversationIdFetchZid(s: any) {
   });
 }
 
-const parseReportId = getStringLimitLength(1, 100);
-
 function getReportIdFetchRid(s: any) {
-  return parseReportId(s).then(function (report_id) {
-    return getRidFromReportId(report_id).then(function (rid: any) {
+  return _parseReportId(s).then(function (report_id) {
+    return _getRidFromReportId(report_id).then(function (rid: any) {
       return Number(rid);
     });
   });
 }
 
-function getNumber(s: string): Promise<number> {
+function _getNumber(s: string): Promise<number> {
   return new Promise(function (resolve, reject) {
     if (_.isNumber(s)) {
       return resolve(s);
@@ -393,7 +370,7 @@ function getNumber(s: string): Promise<number> {
 
 function getNumberInRange(min: number, max: number) {
   return function (s: string) {
-    return getNumber(s).then(function (x: number) {
+    return _getNumber(s).then(function (x: number) {
       if (x < min || max < x) {
         throw new Error("polis_fail_parse_number_out_of_range");
       }
@@ -402,7 +379,7 @@ function getNumberInRange(min: number, max: number) {
   };
 }
 
-function getArrayOfString(a: string): Promise<string[]> {
+function _getArrayOfString(a: string): Promise<string[]> {
   return new Promise(function (resolve, reject) {
     let result;
     if (_.isString(a)) {
@@ -419,7 +396,7 @@ function getArrayOfStringNonEmpty(a: string) {
   if (!a || !a.length) {
     return Promise.reject("polis_fail_parse_string_array_empty");
   }
-  return getArrayOfString(a);
+  return _getArrayOfString(a);
 }
 
 function getArrayOfInt(a: string[]) {
@@ -458,8 +435,8 @@ function resolve_pidThing(
   if (_.isUndefined(loggingString)) {
     loggingString = "";
   }
-  logger.debug("resolve_pidThing " + loggingString);
   return function (req: Req, res: any, next: (arg0?: string) => void) {
+    logger.debug("resolve_pidThing " + loggingString);
     if (!req.p) {
       failJson(
         res,
@@ -472,8 +449,8 @@ function resolve_pidThing(
     // Check if we already have a valid PID from JWT authentication BEFORE extracting URL params
     const jwtProvidedValue = req.p[pidThingStringName];
     const hasValidJwtPid = jwtProvidedValue && jwtProvidedValue >= 0;
-
-    const existingValue = extractFromBody(req, pidThingStringName);
+    const rawValue = _extractFromBody(req, pidThingStringName);
+    const pidNumber = _integerOrUndefined(rawValue);
 
     // If we already have a valid PID from JWT, preserve it regardless of URL params
     if (hasValidJwtPid) {
@@ -484,7 +461,15 @@ function resolve_pidThing(
       return;
     }
 
-    if (existingValue === -1 && req?.p?.zid && req.p.uid) {
+    logger.info("resolve_pidThing " + loggingString, {
+      pidNumber,
+      hasValidJwtPid,
+      jwtProvidedValue,
+      reqPZid: req.p.zid,
+      reqPUid: req.p.uid,
+    });
+
+    if (pidNumber === -1 && req?.p?.zid && req.p.uid) {
       logger.debug(
         `resolve_pidThing: looking up ${pidThingStringName} for uid=${req.p.uid}, zid=${req.p.zid}`
       );
@@ -502,19 +487,12 @@ function resolve_pidThing(
           failJson(res, 500, "polis_err_mypid_resolve_error", err);
           next(err);
         });
-    } else if (existingValue === -1 || existingValue === "") {
+    } else if (pidNumber === -1) {
       // don't assign anything, since we have no uid to look it up.
       next();
-    } else if (!_.isUndefined(existingValue)) {
-      getInt(existingValue)
-        .then(function (pidNumber: number) {
-          assigner(req, pidThingStringName, pidNumber);
-          next();
-        })
-        .catch(function (err) {
-          failJson(res, 500, "polis_err_pid_error", err);
-          next(err);
-        });
+    } else if (!_.isUndefined(pidNumber)) {
+      assigner(req, pidThingStringName, pidNumber);
+      next();
     } else {
       next();
     }
@@ -533,14 +511,12 @@ export {
   getIntInRange,
   getNumberInRange,
   getOptionalStringLimitLength,
-  getPasswordWithCreatePasswordRules,
   getReportIdFetchRid,
   getStringLimitLength,
   getUrlLimitLength,
   getZidFromReport,
   moveToBody,
   need,
-  needHeader,
   resolve_pidThing,
   want,
   wantHeader,

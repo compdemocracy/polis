@@ -17,11 +17,12 @@
  * - No refresh mechanism (participants must re-initialize)
  */
 
-import Config from "../config";
 import { expressjwt } from "express-jwt";
+import fs from "node:fs";
 import jwt from "jsonwebtoken";
-import fs from "fs";
-import path from "path";
+import path from "node:path";
+
+import Config from "../config";
 import logger from "../utils/logger";
 
 interface XidJwtClaims {
@@ -33,13 +34,12 @@ interface XidJwtClaims {
   sub: string; // "xid:<external_id>"
   uid: number; // Local user ID
   xid: string; // External ID
-  anonymous: boolean; // Anonymous flag
   conversation_id: string; // Conversation ID
   xid_participant: boolean; // XID participant flag
 }
 
 // Private key for signing XID JWTs (separate from Auth0)
-function getPrivateKey(): string {
+function _getPrivateKey(): string {
   const keyPath =
     Config.jwtPrivateKeyPath ||
     path.join(__dirname, "../../keys/jwt-private.pem");
@@ -60,7 +60,7 @@ function getPrivateKey(): string {
 }
 
 // Public key for validating XID JWTs
-function getPublicKey(): string {
+function _getPublicKey(): string {
   const keyPath =
     Config.jwtPublicKeyPath ||
     path.join(__dirname, "../../keys/jwt-public.pem");
@@ -93,12 +93,7 @@ function isXidJWT(token: string): boolean {
     const payload = decoded.payload;
 
     // XID JWTs have specific claims that Auth0 JWTs don't have
-    return !!(
-      payload.xid_participant &&
-      payload.xid &&
-      payload.sub?.startsWith("xid:") &&
-      payload.anonymous === true
-    );
+    return !!(payload.xid_participant && payload.xid);
   } catch (error) {
     logger.error("Error checking if token is XID JWT:", error);
     return false;
@@ -121,13 +116,12 @@ function issueXidJWT(
     sub: `xid:${xid}`,
     exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours
     iat: Math.floor(Date.now() / 1000),
-    anonymous: true,
     conversation_id: conversationId,
     xid_participant: true,
   };
 
   try {
-    const privateKey = getPrivateKey();
+    const privateKey = _getPrivateKey();
     return jwt.sign(payload, privateKey, { algorithm: "RS256" });
   } catch (error) {
     logger.error("Failed to sign XID JWT:", error);
@@ -139,7 +133,7 @@ function issueXidJWT(
 const xidJwtValidation = expressjwt({
   secret: () => {
     try {
-      return getPublicKey();
+      return _getPublicKey();
     } catch (error) {
       logger.error("Failed to get public key for XID JWT validation:", error);
       throw error;
@@ -155,7 +149,7 @@ const xidJwtValidation = expressjwt({
 const xidJwtValidationOptional = expressjwt({
   secret: () => {
     try {
-      return getPublicKey();
+      return _getPublicKey();
     } catch (error) {
       logger.error(
         "Failed to get public key for optional XID JWT validation:",
@@ -195,16 +189,15 @@ const extractUserFromXidJWT = (
         // Check conversation scoping but don't error - just set flags
         const requestedConversationId =
           req.query?.conversation_id || req.body?.conversation_id;
-        
+
         // Set up the request parameters for downstream handlers
         req.p = req.p || {};
         req.p.uid = payload.uid;
         req.p.xid = payload.xid;
         req.p.pid = payload.pid;
         req.p.conversation_id = payload.conversation_id;
-        req.p.anonymous = payload.anonymous;
         req.p.xid_participant = payload.xid_participant;
-        
+
         // Set conversation mismatch flags
         if (
           requestedConversationId &&
@@ -244,7 +237,7 @@ const extractUserFromXidJWT = (
 // Verify an XID JWT manually (for custom validation scenarios)
 function verifyXidJWT(token: string): XidJwtClaims {
   try {
-    const publicKey = getPublicKey();
+    const publicKey = _getPublicKey();
     const payload = jwt.verify(token, publicKey, {
       audience: Config.polisJwtAudience as string,
       issuer: Config.polisJwtIssuer as string,
@@ -268,12 +261,10 @@ function verifyXidJWT(token: string): XidJwtClaims {
 }
 
 export {
+  extractUserFromXidJWT,
   issueXidJWT,
   isXidJWT,
   verifyXidJWT,
   xidJwtValidation,
   xidJwtValidationOptional,
-  extractUserFromXidJWT,
 };
-
-export type { XidJwtClaims };

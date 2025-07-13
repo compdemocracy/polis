@@ -59,8 +59,6 @@ module.exports = ConversationView.extend({
   className: "participationView clickDeselectsHull",
   events: {
     "click .hideOnClick": "hideOnClick",
-    // "click #helpTextGroups": "hideHelpTextGroups",
-    // "click #helpTextWelcome": "hideHelpTextWelcome",
     "click #helpTextGroupsExpand": "expandHelpTextGroups"
   },
   firstMathPollResultDeferred: $.Deferred(),
@@ -71,12 +69,6 @@ module.exports = ConversationView.extend({
       $(".query_result_item").first().trigger("click");
     }
   },
-  // hideHelpTextWelcome: function() {
-  //   $("#helpTextWelcome").fadeOut();
-  // },
-  // hideHelpTextGroups: function() {
-  //   $("#helpTextGroups").fadeOut();
-  // },
   expandHelpTextGroups: function () {
     $("#helpTextGroupsExpand").hide();
     $("#helpTextGroupsMore").show();
@@ -121,35 +113,6 @@ module.exports = ConversationView.extend({
     ctx.direction = Strings.direction ? Strings.direction : "ltr";
     // var md_content = "Hello.\n======\n* This is markdown.\n * It is fun\n * Love it or leave it.\n* This is [an example](http://example.com/ \"Title\") inline link.\n\n![Alt text](https://62e528761d0685343e1c-f3d1b99a743ffa4142d9d7f1978d9686.ssl.cf2.rackcdn.com/files/67396/width668/image-20141216-14144-1fmodw7.jpg)"
     var md_content = ctx.description || "";
-
-    /*
-    // parse the markdown into a tree and grab the link references
-    var tree = markdown.parse( md_content ),
-        refs = tree[ 1 ].references;
-
-    // iterate through the tree finding link references
-    ( function find_link_refs( jsonml ) {
-      if ( jsonml[ 0 ] === "link_ref" ) {
-        var ref = jsonml[ 1 ].ref;
-        debugger;
-        // if there's no reference, define a wiki link
-        if ( !refs[ ref ] ) {
-          refs[ ref ] = {
-            href: "http://en.wikipedia.org/wiki/" + ref.replace(/\s+/, "_" )
-          };
-        }
-      }
-      else if ( Array.isArray( jsonml[ 1 ] ) ) {
-        jsonml[ 1 ].forEach( find_link_refs );
-      }
-      else if ( Array.isArray( jsonml[ 2 ] ) ) {
-        jsonml[ 2 ].forEach( find_link_refs );
-      }
-    } )( tree );
-
-    // convert the tree into html
-    var html = markdown.renderJsonML( markdown.toHTMLTree( tree ) );
-  */
 
     var html = markdown.toHTML(md_content);
     ctx.description = html;
@@ -291,14 +254,6 @@ module.exports = ConversationView.extend({
       return topTids.indexOf(c.tid) >= 0;
     });
 
-    // var topTids = this.serverClient.getTopTids(5);
-    // console.log(topTids);
-    // debugger;
-    // var topComments = _.map(topTids, function(tid) {
-    //   var temp = that.allCommentsCollection.get(tid);
-    //   return temp;
-    // });
-    // console.log(topComments);
     this.topCommentsCollection.reset(topComments);
     this.divisiveCommentsCollection.reset(divisiveComments);
   },
@@ -407,10 +362,6 @@ module.exports = ConversationView.extend({
   },
   updateLineToSelectedCluster: function (gid) {
     if (this.vis) {
-      // if (display.xs()) {
-      //   // don't show line on mobile
-      //   this.vis.showLineToCluster(-1);
-      // } else {
       gid = _.isUndefined(gid) ? this.selectedGid : gid;
       this.vis.showLineToCluster(gid);
       // }
@@ -422,9 +373,7 @@ module.exports = ConversationView.extend({
     );
   },
   initialize: function (options) {
-    // $("body").css("background-color", preload.firstConv.bgcolor || "#f7f7f7");
     ConversationView.prototype.initialize.apply(this, arguments);
-    console.log("ParticipationView initializing with JWT auth"); // Force rebuild
     var that = this;
     this.wipCommentFormText = options.wipCommentFormText;
     this.ptptModel = new ParticipantModel();
@@ -700,11 +649,6 @@ module.exports = ConversationView.extend({
       if (that.selectedGid >= 0) {
         vis.selectGroup(that.selectedGid, true);
       }
-      // if (display.xs()) {
-      //   $("#commentView").addClass("floating-side-panel-gradients");
-      // } else {
-      //   $("#commentView").removeClass("floating-side-panel-gradients");
-      // }
 
       that.serverClient.addPersonUpdateListener(onPersonUpdate); // TODO REMOVE DUPLICATE
 
@@ -718,52 +662,6 @@ module.exports = ConversationView.extend({
         }, 0);
         that.groupSelectionView.show();
       });
-
-      // that.tutorialController.setHandler("blueDot", function(){
-      //   that.$blueDotPopover = that.$(VIS_SELECTOR).popover({
-      //     title: "DOTS ARE PEOPLE",
-      //     content: "Each dot represents one or more people. The blue circle represents you. By reacting to a comment, you have caused your dot to move. As you and other participants react, you will move closer to people who reacted similarly to you, and further from people who reacted differently. <button type='button' id='blueDotPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-      //     html: true,
-      //     trigger: "manual",
-      //     placement: "bottom"
-      //   }).popover("show");
-      //   $('#blueDotPopoverButton').click(function(){
-      //     that.$blueDotPopover.popover("destroy");
-      //   });
-      // });
-      // that.tutorialController.setHandler("shadedGroup", function(){
-      //   that.$shadedGroupPopover = that.$(VIS_SELECTOR).popover({
-      //     title: "CLICK ON GROUPS",
-      //     content: "Shaded areas represent groups. Click on a shaded area to show comments that most represent this group's opinion, and separate this group from the other groups.<button type='button' id='shadedGroupPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-      //     html: true,
-      //     trigger: "manual",
-      //     placement: "bottom"
-      //   }).popover("show");
-      //   $('#shadedGroupPopoverButton').click(function(){
-      //     that.$shadedGroupPopover.popover("destroy");
-      //   });
-      // });
-      // that.tutorialController.setHandler("analyzePopover", function(){
-      //   setTimeout(function(){
-      //     if (!that.$el) {
-      //       return;
-      //     }
-      //     that.$analyzeViewPopover = that.$('.query_results > li').first().popover({
-      //       title: "COMMENTS FOR THIS GROUP",
-      //       content: "Clicking on a shaded area brings up the comments that brought this group together: comments that were agreed upon, and comments that were disagreed upon. Click on a comment to see which participants agreed (green/up) and which participants disagreed (red/down) across the whole conversation. Participants who haven't reacted to the selected comment disappear. <button type='button' id='analyzeViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-      //       html: true,
-      //       trigger: "manual",
-      //       placement: "bottom"
-      //     });
-      //     // that.$('.query_result_item').first().trigger('click');
-      //     that.$analyzeViewPopover.popover("show");
-      //     that.$('#analyzeViewPopoverButton').click(function(){
-      //       that.$analyzeViewPopover.popover("destroy");
-      //     })
-      //   },1500)
-      // })
-
-      // serverClient.updateMyProjection();
     } // end initPcaVis
 
     this.initPcaVis = initPcaVis;
@@ -921,13 +819,6 @@ module.exports = ConversationView.extend({
 
     this.writingTips = this.addChild(new WritingTipsView());
 
-    // this.commentView.on("vote", this.tutorialController.onVote);
-
-    // this.commentsByMe = new CommentsCollection({
-    //   conversation_id: conversation_id,
-    //   pid: -1,
-    // });
-
     this.commentForm = this.addChild(
       new CommentFormView({
         model: new Backbone.Model({}),
@@ -966,15 +857,7 @@ module.exports = ConversationView.extend({
       }
     });
 
-    // this.votesByMe.on("all", function(x) {
-    //   console.log("votesByMe.all", x);
-    // });
-    // this.votesByMe.on("change", function() {
-    //   console.log("votesByMe.change");
-    //   serverClient.updateMyProjection(that.votesByMe);
-    // });
     var updateMyProjectionAfterAddingVote = _.throttle(function () {
-      console.log("votesByMe.add");
       setTimeout(function () {
         serverClient.updateMyProjection(that.votesByMe);
       }, 300); // wait a bit to let the dot blink before moving it.
@@ -1082,46 +965,6 @@ module.exports = ConversationView.extend({
       }
     });
 
-    // window.playback = function() {
-    //   $.get("/api/v3/math/pcaPlaybackList?conversation_id="+that.conversation_id).then(function(result) {
-    //     if (!result) {
-    //       alert("couldn't find playback data");
-    //     }
-    //     result.sort(function(a, b) {
-    //       return a.lastVoteTimestamp - b.lastVoteTimestamp;
-    //     });
-    //     // var result = [
-    //     //   {lastVoteTimestamp: 123, n: 5, "n-cmts": 100},
-    //     //   {lastVoteTimestamp: 135, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 136, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 137, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 138, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 139, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 149, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 155, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 165, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 175, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 185, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 195, n: 6, "n-cmts": 102},
-    //     //   {lastVoteTimestamp: 235, n: 6, "n-cmts": 102},
-    //     //   ];
-    //     $("#visualization_div > #playbackLinks").remove();
-    //     $("#visualization_div").append("<div id='playbackLinks' style='max-height:100px; overflow:scroll;'></div>");
-    //     _.each(result, function(r) {
-    //       var label = [r.lastVoteTimestamp, r.n+" ptpts", r["n-cmts"]+" comments", (new Date(r.lastVoteTimestamp)).toLocaleTimeString()].join(", ");
-    //       $("#playbackLinks").append(
-    //         "<a class='playbacklink' id='"+ r.lastVoteTimestamp+"' data-foo='"+label+"'>" + r.n + " </a>");
-    //     });
-
-    //     $("#playbackLinks > .playbacklink").on("click", function(ev) {
-    //       var timestamp = Number(ev.target.id);
-    //       $("#playbackLinks > .playbacklink").css("background-color", "rgba(0,0,0,0)");
-    //       $(ev.target).css("background-color", "orange");
-    //       that.serverClient.jumpTo(timestamp);
-    //     });
-    //   });
-    // };
-
     this.listenTo(this, "render", function () {
       setTimeout(function () {
         if (window.preload.firstConv.participant_count < MIN_PTPTS) {
@@ -1184,58 +1027,6 @@ module.exports = ConversationView.extend({
             }
           });
         }
-
-        /*
-          that.commentView.on("showComment", _.once(function() {
-            if (!isMobile) {
-              that.$("#"+that.conversationTabs.VOTE_TAB).tooltip({
-                title: "Start here - read and react to comments submitted by others.",
-                placement: "top",
-                delay: { show: 300, hide: 200 },
-                container: "body"
-              });
-            }
-          }));
-          if (!isMobile) {
-            that.$("#" + that.conversationTabs.WRITE_TAB).tooltip({
-              title: "If your ideas aren't already represented, submit your own comments. Other participants will be able to react.",
-              placement: "top",
-              delay: { show: 300, hide: 200 },
-              container: "body"
-            });
-          }
-
-          if (!isMobile) {
-            that.$("#"+that.conversationTabs.MAJORITY_TAB).tooltip({
-              title: "See which comments have consensus, and which comments were representative of each group.",
-              placement: "top",
-              delay: { show: 300, hide: 200 },
-              container: "body"
-
-            // Wait until the first comment is shown before showing the tooltip
-            });
-          }
-          */
-
-        // that.commentView.on("showComment", _.once(function() {
-
-        //   that.$commentViewPopover = that.$("#commentView").popover({
-        //     title: "START HERE",
-        //     content: "Read comments submitted by other participants and react using these buttons. <button type='button' id='commentViewPopoverButton' class='Btn Btn-primary' style='display: block; margin-top:10px'> Ok, got it </button>",
-        //     html: true, //XSS risk, not important for now
-        //     trigger: "manual",
-        //     placement: "bottom"
-        //   });
-
-        //   setTimeout(function(){
-        //     if (that.conversationTabs.onVoteTab()) {
-        //       that.$commentViewPopover.popover("show");
-        //       $("#commentViewPopoverButton").click(function(){
-        //         that.$commentViewPopover.popover("destroy");
-        //       });
-        //     }
-        //   },2000);
-        // }));
 
         configureGutters();
         var windowWidth = $(window).width();

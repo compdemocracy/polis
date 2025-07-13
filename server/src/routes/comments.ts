@@ -1,9 +1,26 @@
 import _ from "underscore";
+import { google } from "googleapis";
 import { parse } from "csv-parse/sync";
+import badwords from "badwords/object";
+
 import { addParticipant } from "../participant";
 import { CommentOptions, CommentType } from "../d";
-import { createXidRecordByZid, getConversationInfo, getXidRecord } from "../conversation";
+import { createAnonUser, issueAnonymousJWT, issueXidJWT } from "../auth";
 import { detectLanguage, getComment, getComments } from "../comment";
+import { failJson } from "../utils/fail";
+import { getPidPromise, getXidStuff } from "../user";
+import { getZinvite } from "../utils/zinvite";
+import { MPromise } from "../utils/metered";
+import { translateAndStoreComment } from "../comment";
+import { votesPost } from "./votes";
+import Config from "../config";
+import logger from "../utils/logger";
+import pg from "../db/pg-query";
+import {
+  createXidRecordByZid,
+  getConversationInfo,
+  getXidRecord,
+} from "../conversation";
 import {
   finishArray,
   finishOne,
@@ -14,25 +31,12 @@ import {
   updateLastInteractionTimeForConversation,
   updateVoteCount,
 } from "../server-helpers";
-import { createAnonUser, getPidPromise, getXidStuff } from "../user";
-import { getZinvite } from "../utils/zinvite";
-import { google } from "googleapis";
 import {
   isModerator,
   isSpam,
   polisTypes,
   isDuplicateKey,
 } from "../utils/common";
-import { MPromise } from "../utils/metered";
-import pg from "../db/pg-query";
-import { translateAndStoreComment } from "../comment";
-import { votesPost } from "./votes";
-import badwords from "badwords/object";
-import Config from "../config";
-import { failJson } from "../utils/fail";
-import logger from "../utils/logger";
-import { issueAnonymousJWT } from "../auth/anonymous-jwt";
-import { issueXidJWT } from "../auth/xid-jwt";
 
 /* this is a concept and can be generalized to other handlers */
 interface PolisRequestParams {
@@ -656,10 +660,10 @@ function buildCommentResponse(
 
   // Issue JWT for new participants/users OR when conversation mismatch requires new JWT
   if (
-    ((newlyCreatedParticipant || newlyCreatedUser || needsNewJwt) &&
+    (newlyCreatedParticipant || newlyCreatedUser || needsNewJwt) &&
     uid !== undefined &&
     finalPid !== undefined &&
-    conversation_id)
+    conversation_id
   ) {
     try {
       const token = xid
@@ -675,7 +679,9 @@ function buildCommentResponse(
       logger.debug(
         `${
           xid ? "XID" : "Anonymous"
-        } JWT issued successfully for comment author${needsNewJwt ? " (conversation mismatch)" : ""}`
+        } JWT issued successfully for comment author${
+          needsNewJwt ? " (conversation mismatch)" : ""
+        }`
       );
     } catch (error) {
       logger.error("Failed to issue JWT on comment creation:", error);
@@ -712,10 +718,12 @@ async function handle_POST_comments(
   // Handle JWT conversation mismatches
   if (req.p.jwt_conversation_mismatch) {
     needsNewJwt = true;
-    
+
     if (req.p.anonymous_participant) {
       // Anonymous participant with JWT for different conversation - treat as new
-      logger.debug("Anonymous participant commenting with JWT for different conversation - treating as new");
+      logger.debug(
+        "Anonymous participant commenting with JWT for different conversation - treating as new"
+      );
       uid = undefined;
       pid = undefined;
     } else if (req.p.xid_participant && xid) {
@@ -737,20 +745,26 @@ async function handle_POST_comments(
 
       if (xidMatches) {
         // Case 2: Token and XID align but are for different conversation
-        logger.debug("Case 2: XID participant commenting with matching JWT/XID for different conversation - treating as anonymous");
-        req.p.xid = undefined;  // Clear XID to treat as anonymous
+        logger.debug(
+          "Case 2: XID participant commenting with matching JWT/XID for different conversation - treating as anonymous"
+        );
+        req.p.xid = undefined; // Clear XID to treat as anonymous
         uid = undefined;
         pid = undefined;
       } else if (!xidMatches && xidForCurrentConversation) {
         // Case 3: Token for different conversation, but XID is for current
-        logger.debug("Case 3: XID participant commenting with mismatched JWT but XID for current conversation - maintaining XID");
+        logger.debug(
+          "Case 3: XID participant commenting with mismatched JWT but XID for current conversation - maintaining XID"
+        );
         uid = undefined;
         pid = undefined;
         // XID will be resolved below
       } else {
         // Case 4: Token for current conversation, but XID for different
-        logger.debug("Case 4: XID participant commenting with JWT for current conversation but XID for different - treating as anonymous");
-        req.p.xid = undefined;  // Clear XID
+        logger.debug(
+          "Case 4: XID participant commenting with JWT for current conversation but XID for different - treating as anonymous"
+        );
+        req.p.xid = undefined; // Clear XID
         // Keep uid/pid from JWT
       }
     }

@@ -229,9 +229,7 @@ export default class DynamoStorageService {
     }
   }
 
-  async deleteAllByReportID(
-    reportIdPrefix: string
-  ): Promise<{
+  async deleteAllByReportID(reportIdPrefix: string): Promise<{
     success: boolean;
     error?: StorageError;
     deletedCount?: number;

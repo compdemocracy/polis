@@ -3,10 +3,10 @@ import { GetVerificationKey, expressJwtSecret } from "jwks-rsa";
 import os from "os";
 import Config from "../config";
 import logger from "../utils/logger";
-import { getOrCreateUserIDFromAuth0Sub } from "../user";
+import { getOrCreateUserIDFromAuth0Sub } from "./create-user";
 
 // JWT validation middleware using Auth0
-export const jwtValidation = expressjwt({
+const jwtValidation = expressjwt({
   // Dynamically provide signing key based on the kid in the header and the signing keys provided by JWKS endpoint
   secret: expressJwtSecret({
     cache: true,
@@ -33,7 +33,7 @@ export const jwtValidation = expressjwt({
 });
 
 // Optional JWT validation - doesn't fail if no token is present
-export const jwtValidationOptional = expressjwt({
+const jwtValidationOptional = expressjwt({
   secret: expressJwtSecret({
     cache: true,
     rateLimit: true,
@@ -61,7 +61,7 @@ export const jwtValidationOptional = expressjwt({
 });
 
 // Middleware to extract user info from JWT and assign to request
-export const extractUserFromJWT = (
+const extractUserFromJWT = (
   assigner?: (req: any, key: string, value: any) => void
 ) => {
   return async (req: any, res: any, next: any) => {
@@ -82,6 +82,7 @@ export const extractUserFromJWT = (
           req.p.auth0User = req.jwtPayload; // Keep the original Auth0 user data
           req.p.auth0Sub = auth0Sub; // Keep the Auth0 sub for reference
           req.p.emailVerified = req.jwtPayload.email_verified; // Store email verification status
+          req.p.uid = localUid; // Store the local user ID
 
           // Call the assigner function if provided (for compatibility with parameter middleware)
           if (assigner) {
@@ -122,3 +123,5 @@ export const extractUserFromJWT = (
     }
   };
 };
+
+export { extractUserFromJWT, jwtValidation, jwtValidationOptional };

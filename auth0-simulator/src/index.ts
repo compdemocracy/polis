@@ -184,6 +184,8 @@ async function start() {
     console.log(`Auth0 Simulator started on HTTPS port ${AUTH_SIMULATOR_PORT}`);
     console.log(`Auth Issuer: ${AUTH_ISSUER}`);
     console.log(`JWKS URI: ${AUTH_ISSUER}.well-known/jwks.json`);
+    console.log(`Auth0 Client ID: ${AUTH_CLIENT_ID}`);
+    console.log(`Auth0 Audience: ${AUTH_AUDIENCE}`);
     console.log(`Pre-populated with ${userPool.length} test users`);
     console.log(
       `Standard users (Auth0): admin@polis.test, moderator@polis.test`

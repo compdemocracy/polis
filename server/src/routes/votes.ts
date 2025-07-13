@@ -1,16 +1,25 @@
 import _ from "underscore";
-import pg from "../db/pg-query";
+import { addParticipantAndMetadata } from "../participant";
+import { failJson } from "../utils/fail";
+import { getPid, getPidPromise } from "../user";
+import { getZinvite } from "../utils/zinvite";
 import { isDuplicateKey, polisTypes } from "../utils/common";
+import { PidReadyResult, Vote, ConversationInfo } from "../d";
 import logger from "../utils/logger";
+import pg from "../db/pg-query";
+import SQL from "../db/sql";
+import {
+  createAnonUser,
+  issueAnonymousJWT,
+  issueStandardUserJWT,
+  issueXidJWT,
+} from "../auth";
 import {
   isXidWhitelisted,
   getConversationInfo,
   getXidRecord,
   createXidRecordByZid,
 } from "../conversation";
-import SQL from "../db/sql";
-
-import { addParticipantAndMetadata } from "../participant";
 import {
   addNoMoreCommentsRecord,
   addStar,
@@ -23,12 +32,6 @@ import {
   updateLastInteractionTimeForConversation,
   updateVoteCount,
 } from "../server-helpers";
-import { failJson } from "../utils/fail";
-import { getPid, createAnonUser, getPidPromise } from "../user";
-import { PidReadyResult, Vote, ConversationInfo } from "../d";
-import { issueAnonymousJWT } from "../auth/anonymous-jwt";
-import { issueXidJWT } from "../auth/xid-jwt";
-import { getZinvite } from "../utils/zinvite";
 
 const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
 
@@ -36,14 +39,16 @@ interface VoteResult {
   conv: ConversationInfo;
   vote: any;
 }
-
 interface VoteRequest {
   p: Vote & {
-    jwt_conversation_mismatch?: boolean;
-    jwt_conversation_id?: string;
-    requested_conversation_id?: string;
-    jwt_xid?: string;
     anonymous_participant?: boolean;
+    auth0_sub?: string;
+    auth0User?: any;
+    jwt_conversation_id?: string;
+    jwt_conversation_mismatch?: boolean;
+    jwt_xid?: string;
+    requested_conversation_id?: string;
+    standard_user_participant?: boolean;
     xid_participant?: boolean;
   };
   headers?: { [x: string]: any };
@@ -51,10 +56,10 @@ interface VoteRequest {
 
 interface VoteGetRequest {
   p: {
-    zid: number;
-    uid?: number;
     pid?: number;
     tid?: number;
+    uid?: number;
+    zid: number;
   };
 }
 
@@ -311,6 +316,8 @@ async function issueJWTIfNeeded(
     isNewlyCreated,
     hasAuthHeader: !!req.headers?.authorization,
     xid: req.p.xid,
+    auth0_sub: req.p.auth0_sub,
+    standard_user_participant: req.p.standard_user_participant,
   });
 
   // Skip JWT issuance only if participant already has a valid JWT
@@ -336,15 +343,30 @@ async function issueJWTIfNeeded(
 
     logger.debug("Got conversation ID for JWT", { conversationId, zid });
 
-    const token = req.p.xid
-      ? issueXidJWT(req.p.xid, conversationId, uid, pid)
-      : issueAnonymousJWT(conversationId, uid, pid);
+    // Determine which type of JWT to issue
+    let token;
+    let tokenType;
+
+    if (req.p.auth0_sub) {
+      // Standard user with Auth0 authentication
+      token = issueStandardUserJWT(req.p.auth0_sub, conversationId, uid, pid);
+      tokenType = "StandardUser";
+    } else if (req.p.xid) {
+      // XID participant
+      token = issueXidJWT(req.p.xid, conversationId, uid, pid);
+      tokenType = "XID";
+    } else {
+      // Anonymous participant
+      token = issueAnonymousJWT(conversationId, uid, pid);
+      tokenType = "Anonymous";
+    }
 
     logger.debug("JWT issued successfully", {
-      tokenType: req.p.xid ? "XID" : "Anonymous",
+      tokenType,
       uid,
       pid,
       conversationId,
+      auth0_sub: req.p.auth0_sub,
     });
 
     return {
@@ -369,7 +391,9 @@ async function handle_POST_votes(req: VoteRequest, res: any) {
     if (req.p.jwt_conversation_mismatch) {
       if (req.p.anonymous_participant) {
         // Anonymous participant with JWT for different conversation - treat as new
-        logger.debug("Anonymous participant voting with JWT for different conversation - treating as new");
+        logger.debug(
+          "Anonymous participant voting with JWT for different conversation - treating as new"
+        );
         req.p.uid = undefined;
         req.p.pid = undefined;
       } else if (req.p.xid_participant && req.p.xid) {
@@ -391,20 +415,26 @@ async function handle_POST_votes(req: VoteRequest, res: any) {
 
         if (xidMatches) {
           // Case 2: Token and XID align but are for different conversation
-          logger.debug("Case 2: XID participant voting with matching JWT/XID for different conversation - treating as anonymous");
-          req.p.xid = undefined;  // Clear XID to treat as anonymous
+          logger.debug(
+            "Case 2: XID participant voting with matching JWT/XID for different conversation - treating as anonymous"
+          );
+          req.p.xid = undefined; // Clear XID to treat as anonymous
           req.p.uid = undefined;
           req.p.pid = undefined;
         } else if (!xidMatches && xidForCurrentConversation) {
           // Case 3: Token for different conversation, but XID is for current
-          logger.debug("Case 3: XID participant voting with mismatched JWT but XID for current conversation - maintaining XID");
+          logger.debug(
+            "Case 3: XID participant voting with mismatched JWT but XID for current conversation - maintaining XID"
+          );
           req.p.uid = undefined;
           req.p.pid = undefined;
           // XID will be resolved below
         } else {
           // Case 4: Token for current conversation, but XID for different
-          logger.debug("Case 4: XID participant voting with JWT for current conversation but XID for different - treating as anonymous");
-          req.p.xid = undefined;  // Clear XID
+          logger.debug(
+            "Case 4: XID participant voting with JWT for current conversation but XID for different - treating as anonymous"
+          );
+          req.p.xid = undefined; // Clear XID
           // Keep uid/pid from JWT
         }
       }

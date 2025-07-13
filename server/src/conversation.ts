@@ -214,7 +214,6 @@ function fetchIndexForConversation(
   },
   res: any
 ) {
-  logger.debug("fetchIndexForConversation", req.path);
   const match = req.path.match(/[0-9][0-9A-Za-z]+/);
   let conversation_id: any;
   if (match && match.length) {

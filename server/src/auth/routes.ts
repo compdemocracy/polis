@@ -1,17 +1,18 @@
+import { createAnonUser } from "./create-user";
 import { failJson } from "../utils/fail";
+import { getConversationInfo, isXidWhitelisted } from "../conversation";
+import { getUserInfoForUid2 } from "../user";
+import { issueAnonymousJWT } from "./anonymous-jwt";
+import { joinConversation } from "../participant";
+import { userHasAnsweredZeQuestions } from "../server-helpers";
 import logger from "../utils/logger";
+import type { ParticipantInfo } from "../d";
 import {
-  getSUZinviteInfo,
-  xidExists,
   createXidEntry,
   deleteSuzinvite,
+  getSUZinviteInfo,
+  xidExists,
 } from "./auth";
-import { getConversationInfo, isXidWhitelisted } from "../conversation";
-import { getUserInfoForUid2, createAnonUser } from "../user";
-import type { ParticipantInfo } from "../d";
-import { userHasAnsweredZeQuestions } from "../server-helpers";
-import { joinConversation } from "../participant";
-import { issueAnonymousJWT } from "./anonymous-jwt";
 
 interface DeregisterRequest {
   p?: { showPage?: any };
@@ -79,15 +80,12 @@ function handle_POST_auth_deregister_jwt(
   });
 }
 
-// For backward compatibility during migration, alias the JWT handler
-const handle_POST_auth_deregister = handle_POST_auth_deregister_jwt;
-
 async function handle_POST_joinWithInvite(
   req: JoinRequest,
   res: JoinResponse
 ): Promise<void> {
   try {
-    const result = await joinWithZidOrSuzinvite({
+    const result = await _joinWithZidOrSuzinvite({
       answers: req.p.answers,
       existingAuth: !!req.p.uid,
       suzinvite: req.p.suzinvite,
@@ -125,7 +123,7 @@ async function handle_POST_joinWithInvite(
   }
 }
 
-async function joinWithZidOrSuzinvite(params: JoinParams): Promise<any> {
+async function _joinWithZidOrSuzinvite(params: JoinParams): Promise<any> {
   let o = { ...params };
 
   // Get suzinvite info or use zid
@@ -137,16 +135,12 @@ async function joinWithZidOrSuzinvite(params: JoinParams): Promise<any> {
   }
 
   // Get conversation info
-  logger.info("joinWithZidOrSuzinvite convinfo begin");
   const conv = await getConversationInfo(o.zid);
-  logger.info("joinWithZidOrSuzinvite convinfo done");
   o.conv = conv;
 
   // Get user info if uid exists
   if (o.uid) {
-    logger.info("joinWithZidOrSuzinvite userinfo begin");
     const user = await getUserInfoForUid2(o.uid);
-    logger.info("joinWithZidOrSuzinvite userinfo done");
     o.user = user;
   } else {
     // Create anonymous user
@@ -193,8 +187,4 @@ async function joinWithZidOrSuzinvite(params: JoinParams): Promise<any> {
   return o;
 }
 
-export {
-  handle_POST_auth_deregister,
-  handle_POST_auth_deregister_jwt,
-  handle_POST_joinWithInvite,
-};
+export { handle_POST_auth_deregister_jwt, handle_POST_joinWithInvite };

@@ -3,20 +3,7 @@ import _ from "lodash";
 import Graph from "./components/graph";
 import Header from "./components/header";
 import React from "react";
-import ReactDOM from "react-dom";
-
-// React Router
-// import { Router, Route, Link, IndexRoute, browserHistory } from 'react-router';
-// React Redux
-// import { Provider, connect } from 'react-redux';
-// Redux Devtools
-
-// import configureStore from "./store";
-
-// controller view
-// import App from "./components/app";
-
-// const store = configureStore();
+import ReactDOM from "react-dom/client";
 
 class Root extends React.Component {
   render() {
@@ -36,7 +23,6 @@ class Root extends React.Component {
       return n.length >= width ? n : new Array(width - n.length + 1).join(z) + n;
     }
     function formatTid(tid) {
-      let padded = "" + tid;
       return "#" + pad("" + tid, tidWidth);
     }
 
@@ -84,23 +70,23 @@ class Root extends React.Component {
     ) : null;
   }
 }
-// <App/>
 
-/*
-// for material ui
-import injectTapEventPlugin from "react-tap-event-plugin";
-
-//Needed for onTouchTap
-//Can go away when react 1.0 release
-//Check this repo:
-//https://github.com/zilverline/react-tap-event-plugin
-injectTapEventPlugin();
-*/
+const roots = new WeakMap();
 
 window.renderVis = function (rootEl, props) {
-  ReactDOM.render(React.createElement(Root, props, null), rootEl);
+  let root = roots.get(rootEl);
+  if (!root) {
+    root = ReactDOM.createRoot(rootEl);
+    roots.set(rootEl, root);
+  }
+  root.render(React.createElement(Root, props, null));
 };
 
 window.renderHeader = function (rootEl, props) {
-  ReactDOM.render(React.createElement(Header, props, null), rootEl);
+  let root = roots.get(rootEl);
+  if (!root) {
+    root = ReactDOM.createRoot(rootEl);
+    roots.set(rootEl, root);
+  }
+  root.render(React.createElement(Header, props, null));
 };

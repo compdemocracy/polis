@@ -78,25 +78,11 @@ function polisAjax(api, data, type, headers) {
   promise.then(function (data) {
     // Check if response contains a JWT token in auth field
     if (data && data.auth && data.auth.token) {
-      console.log("[Net] JWT token received from API:", api);
-      console.log("[Net] Token type:", data.auth.token_type);
-      console.log("[Net] Expires in:", data.auth.expires_in);
       PolisStorage.setJwtToken(data.auth.token);
-      console.log("[Net] JWT token stored successfully");
-    } else if (data && typeof data === "object") {
-      // Log if auth field is missing when we might expect it
-      if (api.includes("/votes") || api.includes("/comments")) {
-        console.log("[Net] No JWT in response from:", api);
-        console.log("[Net] Response keys:", Object.keys(data));
-      }
     }
   });
 
   promise.fail(function (jqXHR) {
-    // sendEvent("Error", api, jqXHR.status);
-
-    // logger.error("SEND ERROR");
-    console.dir(arguments);
     if (403 === jqXHR.status) {
       eb.trigger(eb.authNeeded);
     } else if (401 === jqXHR.status) {
@@ -104,9 +90,6 @@ function polisAjax(api, data, type, headers) {
       PolisStorage.clearJwtToken();
       eb.trigger(eb.authNeeded);
     }
-    //logger.dir(data);
-    //logger.dir(message);
-    //logger.dir(errorType);
   });
   return promise;
 }

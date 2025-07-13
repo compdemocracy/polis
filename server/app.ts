@@ -116,7 +116,7 @@ import {
   handle_PUT_reports,
   handle_POST_reportCommentSelections,
 } from "./src/routes/reports";
-import { hybridAuth, hybridAuthOptional } from "./src/auth/hybrid-jwt";
+import { hybridAuth, hybridAuthOptional } from "./src/auth";
 import {
   addCorsHeader,
   denyIfNotFromWhitelistedDomain,
@@ -711,7 +711,7 @@ helpersInitialized.then(
       ),
       want("is_seed", getBool, assignToP),
       want("xid", getStringLimitLength(1, 999), assignToP),
-      resolve_pidThing("pid", assignToP, "post:comments"),
+      resolve_pidThing("pid", assignToP, "post:comments-bulk"),
       handle_POST_comments_bulk
     );
 
@@ -898,16 +898,14 @@ helpersInitialized.then(
       ),
       want("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
       want("lang", getStringLimitLength(1, 10), assignToP), // preferred language of nextComment
-
       want(
         "domain_whitelist_override_key",
         getStringLimitLength(1, 1000),
         assignToP
       ),
       denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
-
       want("xid", getStringLimitLength(1, 999), assignToP),
-      resolve_pidThing("pid", assignToP, "get:votes"), // must be after zid getter
+      resolve_pidThing("pid", assignToP, "get:participationInit"), // must be after zid getter
       handle_GET_participationInit
     );
 
@@ -1398,7 +1396,7 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      resolve_pidThing("pid", assignToP),
+      resolve_pidThing("pid", assignToP, "put:ptptois"),
       handle_PUT_ptptois
     );
 

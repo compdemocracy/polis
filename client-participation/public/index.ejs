@@ -28,7 +28,7 @@
     <% } %>
 
     <script>
-      console.log("[Index] Initializing window objects");
+      console.log("[Index] Initializing window objects!!");
       window.userObject = {};
 
       window.preload = "REPLACE_THIS_WITH_PRELOAD_DATA";
@@ -89,6 +89,61 @@
           return params.ui_lang;
         }
 
+        function getAuth0Token() {
+          function _getAuth0TokenFromStorage(storage) {
+            if (!storage) return null;
+
+            for (var i = 0; i < storage.length; i++) {
+              var key = storage.key(i);
+              // key starts with @@auth0spajs@@ and does not end with @@user@@
+              if (
+                key &&
+                key.indexOf("@@auth0spajs@@") === 0 &&
+                key.indexOf("@@user@@") !== key.length - "@@user@@".length
+              ) {
+                try {
+                  var value = storage.getItem(key);
+                  if (value) {
+                    var parsed = JSON.parse(value);
+                    // Check for expiry and access_token
+                    if (
+                      parsed &&
+                      parsed.body &&
+                      parsed.body.access_token &&
+                      parsed.expiresAt &&
+                      parsed.expiresAt > Math.floor(Date.now() / 1000)
+                    ) {
+                      return parsed.body.access_token;
+                    }
+                  }
+                } catch (e) {
+                  // Not valid JSON or other error, continue
+                }
+              }
+            }
+            return null;
+          }
+
+          var token = _getAuth0TokenFromStorage(window.localStorage);
+          if (!token) {
+            token = _getAuth0TokenFromStorage(window.sessionStorage);
+          }
+          return token;
+        }
+
+        function getConversationIdFromPath() {
+          var pathname = document.location.pathname;
+          var match =
+            pathname.match(/^\/([0-9][0-9A-Za-z]+)/) ||
+            pathname.match(/^\/conversation\/([0-9][0-9A-Za-z]+)/) ||
+            pathname.match(/^\/m\/([0-9][0-9A-Za-z]+)/) ||
+            pathname.match(/^\/demo\/([0-9][0-9A-Za-z]+)/);
+          if (match) {
+            return match[match.length - 1];
+          }
+          return null;
+        }
+
         function ajaxGet(url, success, fail) {
           console.log("[Index] Making AJAX request to:", url);
           var xmlhttp;
@@ -131,14 +186,19 @@
           
           // Add JWT token to request if available
           try {
-            var token = window.localStorage && window.localStorage.getItem('participant_token');
-            if (!token && window.localStorage) {
-              token = window.localStorage.getItem('participant_token') ||
-                      window.localStorage.getItem('auth_token');
+            var token = null;
+            var conversationId = getConversationIdFromPath();
+            if (conversationId) {
+              var tokenKey = "participant_token_" + conversationId;
+              if (window.localStorage) {
+                token = window.localStorage.getItem(tokenKey);
+              }
+              if (!token && window.sessionStorage) {
+                token = window.sessionStorage.getItem(tokenKey);
+              }
             }
-            if (!token && window.sessionStorage) {
-              token = window.sessionStorage.getItem('participant_token') ||
-                      window.sessionStorage.getItem('auth_token');
+            if (!token) {
+              token = getAuth0Token();
             }
             if (token) {
               console.log("[Index] Adding JWT token to preload request");
@@ -187,12 +247,22 @@
             console.log("[Index] JWT token found in participationInit response");
             // Store the token for later use
             try {
-              if (window.localStorage) {
-                window.localStorage.setItem('participant_token', response.auth.token);
-                console.log("[Index] JWT token stored in localStorage");
-              } else if (window.sessionStorage) {
-                window.sessionStorage.setItem('participant_token', response.auth.token);
-                console.log("[Index] JWT token stored in sessionStorage");
+              var token = response.auth.token;
+              var parts = token.split('.');
+              if (parts.length === 3) {
+                var payload = JSON.parse(atob(parts[1]));
+                if (payload.conversation_id) {
+                  var tokenKey = "participant_token_" + payload.conversation_id;
+                   if (window.localStorage) {
+                    window.localStorage.setItem(tokenKey, token);
+                    console.log("[Index] JWT token stored in localStorage with key:", tokenKey);
+                  } else if (window.sessionStorage) {
+                    window.sessionStorage.setItem(tokenKey, token);
+                    console.log("[Index] JWT token stored in sessionStorage with key:", tokenKey);
+                  }
+                } else {
+                  console.warn("[Index] No conversation_id in JWT payload, not storing token.");
+                }
               }
             } catch (e) {
               console.error("[Index] Failed to store JWT token:", e);
@@ -284,12 +354,9 @@
 
         var path = document.location.pathname;
         console.log("[Index] Current path:", path);
-        var shouldPreload =
-          path.match(/^([0-9][0-9A-Za-z]+)/) ||
-          path.match(/^ot\/([0-9][0-9A-Za-z]+)/) ||
-          path.match(/^demo\/([0-9][0-9A-Za-z]+)/) ||
-          path.match(/^share\/([0-9][0-9A-Za-z]+)$/) ||
-          path.match(/^m\/([0-9][0-9A-Za-z]+)\/?(.*)$/);
+        var conversation_id = getConversationIdFromPath();
+
+        var shouldPreload = !!conversation_id;
 
         console.log("[Index] Should preload:", !!shouldPreload);
 
@@ -300,8 +367,8 @@
         };
 
         var qp = [];
-        if (p.conversation && p.conversation.conversation_id) {
-          qp.push("conversation_id=" + p.conversation.conversation_id);
+        if (conversation_id) {
+          qp.push("conversation_id=" + conversation_id);
           console.log("[Index] Added conversation_id to query params");
         }
         qp.push("pid=-1");

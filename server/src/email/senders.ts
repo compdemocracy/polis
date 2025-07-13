@@ -6,10 +6,10 @@
 // You should have received a copy of the GNU Affero General Public License along with this program.
 // If not, see < http://www.gnu.org/licenses/>.
 
-import fs from "fs";
 import AWS from "aws-sdk";
-import nodemailer from "nodemailer";
+import fs from "node:fs";
 import mg from "nodemailer-mailgun-transport";
+import nodemailer from "nodemailer";
 import Config from "../config";
 import logger from "../utils/logger";
 

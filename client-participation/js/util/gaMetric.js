@@ -6,29 +6,9 @@ var Constants = require("./constants");
 // Mapping of routing information to GA analytic tags.
 // Each key maps to an object that contains category and action to match gtag parameters.
 const methodToEventMap = {
-  createConversation: {
-    category: "Owner",
-    action: "createConversation"
-  },
-  createUser: {
-    category: "SignUp",
-    action: "createUser"
-  },
-  createUserViewFromEinvite: {
-    category: "SignUp",
-    action: "createUserViewFromEinvite"
-  },
   demoConversation: {
     category: "Demo",
     action: "demoConversation"
-  },
-  inbox: {
-    category: "Inbox",
-    action: "inbox"
-  },
-  landingPageView: {
-    category: "Landing",
-    action: "landingPageView"
   },
   participationView: {
     category: "Participation",
@@ -37,10 +17,6 @@ const methodToEventMap = {
   participationViewWithSuzinvite: {
     category: "Participation",
     action: "participationViewWithSuzinvite"
-  },
-  settings: {
-    category: "Account",
-    action: "settings"
   }
 };
 

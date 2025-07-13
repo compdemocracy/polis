@@ -27,7 +27,6 @@ interface AnonymousJwtClaims {
   pid: number;              // Participant ID
   sub: string;              // Subject format: "anon:<uid>"
   uid: number;              // Local user ID
-  anonymous: boolean;       // Always true for anonymous participants
   conversation_id: string;  // The conversation this token is valid for
   anonymous_participant: boolean; // Flag to identify anonymous JWTs
 }

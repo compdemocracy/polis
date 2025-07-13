@@ -1,31 +1,30 @@
 import _ from "underscore";
 import { addExtendedParticipantInfo, joinConversation } from "../participant";
+import { failJson } from "../utils/fail";
 import { getConversationInfo, getXidRecord } from "../conversation";
+import { getPca } from "../utils/pca";
 import { getPid, getUser, getPidPromise } from "../user";
 import { getVotesForSingleParticipant } from "./votes";
 import { getXids } from "./math";
 import { isConversationOwner, isOwner } from "../utils/common";
+import { issueAnonymousJWT, issueStandardUserJWT, issueXidJWT } from "../auth";
 import { MPromise } from "../utils/metered";
+import { sql_participants_extended } from "../db/sql";
+import { userHasAnsweredZeQuestions } from "../server-helpers";
+import logger from "../utils/logger";
+import pg from "../db/pg-query";
 import {
   ParticipantFields,
   ParticipantInfo,
   ExpressResponse,
   Headers,
 } from "../d";
-import pg from "../db/pg-query";
 import {
   doFamousQuery,
   updateLastInteractionTimeForConversation,
   getNextComment,
   getOneConversation,
 } from "../server-helpers";
-import { userHasAnsweredZeQuestions } from "../server-helpers";
-import { failJson } from "../utils/fail";
-import logger from "../utils/logger";
-import { sql_participants_extended } from "../db/sql";
-import { getPca } from "../utils/pca";
-import { issueXidJWT } from "../auth/xid-jwt";
-import { issueAnonymousJWT } from "../auth/anonymous-jwt";
 
 // basic defaultdict implementation
 function DD(this: any, f: () => { votes: number; comments: number }) {
@@ -49,7 +48,7 @@ DD.prototype.s = DA.prototype.s = function (k: string | number, v: any) {
   this.m[k] = v;
 };
 
-function isOwnerOrParticipant(
+function _isOwnerOrParticipant(
   zid: number,
   uid?: number,
   callback?: { (): void; (arg0: null): void }
@@ -68,9 +67,9 @@ function isOwnerOrParticipant(
 }
 
 // returns null if it's missing
-function getParticipant(zid: number, uid?: number) {
+function _getParticipant(zid: number, uid?: number) {
   return MPromise(
-    "getParticipant",
+    "_getParticipant",
     function (resolve: (arg0: any) => void, reject: (arg0: Error) => any) {
       pg.query_readOnly(
         "SELECT * FROM participants WHERE zid = ($1) AND uid = ($2);",
@@ -164,7 +163,7 @@ function handle_POST_participants(
   }
 
   // Check if already in the conversation
-  getParticipant(zid, req.p.uid)
+  _getParticipant(zid, req.p.uid)
     .then(
       function (ptpt: { pid: number }) {
         if (ptpt) {
@@ -293,25 +292,29 @@ function handle_GET_participation(
 async function handle_GET_participationInit(
   req: {
     p: {
+      anonymous_participant?: boolean;
+      auth0_sub?: string;
+      auth0User?: any;
       conversation_id: string;
-      uid?: number;
+      jwt_conversation_id?: string;
+      jwt_conversation_mismatch?: boolean;
+      jwt_xid?: string;
       lang: string;
-      zid: number;
-      xid: string;
       owner_uid?: number;
       pid: number;
-      jwt_conversation_mismatch?: boolean;
-      jwt_conversation_id?: string;
       requested_conversation_id?: string;
-      jwt_xid?: string;
-      anonymous_participant?: boolean;
+      standard_user_participant?: boolean;
+      uid?: number;
       xid_participant?: boolean;
+      xid: string;
+      zid: number;
     };
     headers?: Headers;
   },
   res: ExpressResponse
 ) {
   try {
+    logger.debug(`handle_GET_participationInit ${JSON.stringify(req.p)}`);
     // Handle language preference
     const acceptLanguage =
       req?.headers?.["accept-language"] ||
@@ -348,7 +351,9 @@ async function handle_GET_participationInit(
 
     // Handle JWT conversation mismatches for anonymous participants
     if (req.p.jwt_conversation_mismatch && req.p.anonymous_participant) {
-      logger.debug("Anonymous participant with JWT for different conversation - treating as new participant");
+      logger.debug(
+        "Anonymous participant with JWT for different conversation - treating as new participant"
+      );
       // Clear the uid/pid from the mismatched JWT
       req.p.uid = undefined;
       req.p.pid = -1;
@@ -376,20 +381,26 @@ async function handle_GET_participationInit(
 
       if (xidMatches) {
         // Case 2: Token and XID align but are for a different conversation
-        logger.debug("Case 2: XID JWT and request XID match but for different conversation - treating as anonymous");
-        req.p.xid = "";  // Clear XID to treat as anonymous
+        logger.debug(
+          "Case 2: XID JWT and request XID match but for different conversation - treating as anonymous"
+        );
+        req.p.xid = ""; // Clear XID to treat as anonymous
         req.p.uid = undefined;
         req.p.pid = -1;
       } else if (!xidMatches && xidForRequestedConversation) {
         // Case 3: Token is for different conversation, but XID is for current conversation
-        logger.debug("Case 3: JWT for different conversation but XID is for current conversation - maintaining XID");
+        logger.debug(
+          "Case 3: JWT for different conversation but XID is for current conversation - maintaining XID"
+        );
         // Clear JWT-based uid/pid, will be resolved from XID below
         req.p.uid = undefined;
         req.p.pid = -1;
       } else {
         // Case 4: Token is for current conversation, but XID is for another conversation
-        logger.debug("Case 4: JWT for current conversation but XID for different conversation - treating as anonymous");
-        req.p.xid = "";  // Clear XID to treat as anonymous
+        logger.debug(
+          "Case 4: JWT for current conversation but XID for different conversation - treating as anonymous"
+        );
+        req.p.xid = ""; // Clear XID to treat as anonymous
         // Keep the uid/pid from the JWT since it's for the current conversation
       }
     }
@@ -411,7 +422,7 @@ async function handle_GET_participationInit(
     const [user, ptpt, conv, pcaData] = await Promise.all([
       getUser(effectiveUidForUser, req.p.zid, req.p.xid, req.p.owner_uid),
       effectiveUidForUser
-        ? getParticipant(req.p.zid, effectiveUidForUser)
+        ? _getParticipant(req.p.zid, effectiveUidForUser)
         : Promise.resolve(null),
       getOneConversation(req.p.zid, effectiveUidForUser, null),
       getPca(req.p.zid, undefined),
@@ -469,8 +480,33 @@ async function handle_GET_participationInit(
     response.nextComment = nextComment;
     response.famous = famous || {};
 
-    // Issue JWT for XID users
-    if (req.p.xid && effectiveUid !== undefined && effectivePid >= 0) {
+    // Issue JWT based on user type
+    if (req.p.auth0_sub && effectiveUid !== undefined && effectivePid >= 0) {
+      // Issue JWT for standard users (Auth0 authenticated)
+      try {
+        const token = issueStandardUserJWT(
+          req.p.auth0_sub,
+          req.p.conversation_id,
+          effectiveUid,
+          effectivePid
+        );
+
+        response.auth = {
+          token: token,
+          token_type: "Bearer",
+          expires_in: 24 * 60 * 60, // 24 hours
+        };
+
+        logger.debug("Standard user JWT issued successfully", {
+          auth0_sub: req.p.auth0_sub,
+          uid: effectiveUid,
+          pid: effectivePid,
+        });
+      } catch (error) {
+        logger.error("Failed to issue standard user JWT:", error);
+      }
+    } else if (req.p.xid && effectiveUid !== undefined && effectivePid >= 0) {
+      // Issue JWT for XID users
       try {
         const token = issueXidJWT(
           req.p.xid,
@@ -606,7 +642,7 @@ function handle_POST_query_participants_by_metadata(
     );
   }
 
-  isOwnerOrParticipant(zid, uid, doneChecking);
+  _isOwnerOrParticipant(zid, uid, doneChecking);
 }
 
 export {

@@ -9,8 +9,7 @@ import { Promise as BluebirdPromise } from "bluebird";
 import responseTime from "response-time";
 import _ from "underscore";
 import { METRICS_IN_RAM, addInRamMetric } from "./utils/metered";
-import CreateUser from "./auth/create-user";
-import Password from "./auth/password";
+import { generateAndRegisterZinvite, generateTokenP } from "./auth";
 import pg from "./db/pg-query";
 import Config from "./config";
 import { failJson } from "./utils/fail";
@@ -48,8 +47,6 @@ import { isDuplicateKey, isModerator, isPolisDev } from "./utils/common";
 
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
-const generateAndRegisterZinvite = CreateUser.generateAndRegisterZinvite;
-const generateTokenP = Password.generateTokenP;
 
 if (devMode) {
   BluebirdPromise.longStackTraces();
@@ -1349,7 +1346,6 @@ Thanks for using Polis!
       addInRamMetric(path, time);
     }
   });
-  logger.debug("end initializePolisHelpers");
 
   const returnObject: any = {
     // app helpers

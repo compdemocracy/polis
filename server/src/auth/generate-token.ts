@@ -65,4 +65,3 @@ function generateTokenP(len: any, pseudoRandomOk: any) {
 }
 
 export { generateToken, generateTokenP };
-export default { generateToken, generateTokenP };

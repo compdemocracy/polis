@@ -1,6 +1,6 @@
 import _ from "underscore";
 import { failJson } from "../utils/fail";
-import { generateTokenP } from "../auth/password";
+import { generateTokenP } from "../auth";
 import { isModerator } from "../utils/common";
 import { sql_reports } from "../db/sql";
 import pg from "../db/pg-query";

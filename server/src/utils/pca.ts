@@ -169,7 +169,7 @@ export function getPca(
       });
       return Promise.resolve(undefined);
     } else {
-      logger.info("math from cache", { zid, math_tick });
+      logger.silly("math from cache", { zid, math_tick });
       return Promise.resolve(cached);
     }
   }

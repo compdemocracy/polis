@@ -1,23 +1,24 @@
-import {
-  ifDefinedSet,
-  isDuplicateKey,
-  isModerator,
-  isPolisDev,
-  isUserAllowedToCreateConversations,
-} from "../utils/common";
-import { failJson } from "../utils/fail";
-import pg from "../db/pg-query";
 import _ from "underscore";
+import { DEFAULTS } from "../utils/constants";
+import { failJson } from "../utils/fail";
+import { generateAndRegisterZinvite, generateToken } from "../auth";
+import { getUserInfoForUid2 } from "../user";
+import { getZinvite } from "../utils/zinvite";
+import { sql_conversations } from "../db/sql";
+import Config from "../config";
+import logger from "../utils/logger";
+import pg from "../db/pg-query";
+import {
+  doGetConversationPreloadInfo,
+  getZidFromConversationId,
+  getConversationInfo,
+} from "../conversation";
 import type {
   ConversationInfo,
   ConversationType,
   ExpressRequest,
   ExpressResponse,
 } from "../d";
-import { sql_conversations } from "../db/sql";
-import { generateToken } from "../auth/password";
-import { getUserInfoForUid2 } from "../user";
-import { getZinvite } from "../utils/zinvite";
 import {
   addConversationIds,
   buildConversationUrl,
@@ -27,15 +28,13 @@ import {
   sendEmailByUid,
   updateConversationModifiedTime,
 } from "../server-helpers";
-import logger from "../utils/logger";
-import Config from "../config";
-import { generateAndRegisterZinvite } from "../auth/create-user";
-import { DEFAULTS } from "../utils/constants";
 import {
-  doGetConversationPreloadInfo,
-  getZidFromConversationId,
-  getConversationInfo,
-} from "../conversation";
+  ifDefinedSet,
+  isDuplicateKey,
+  isModerator,
+  isPolisDev,
+  isUserAllowedToCreateConversations,
+} from "../utils/common";
 
 function failWithRetryRequest(res: {
   setHeader: (arg0: string, arg1: number) => void;

@@ -19,8 +19,6 @@ var PostMessageUtils = require("./util/postMessageUtils");
 var RootView = require("./views/root");
 var Utils = require("./util/utils");
 
-console.log("[Main] Core modules loaded");
-
 // These are required here to ensure they are included in the build.
 require("bootstrap-sass/assets/javascripts/bootstrap/affix");
 require("bootstrap-sass/assets/javascripts/bootstrap/alert");
@@ -32,8 +30,6 @@ require("bootstrap-sass/assets/javascripts/bootstrap/tab");
 require("bootstrap-sass/assets/javascripts/bootstrap/tooltip");
 require("bootstrap-sass/assets/javascripts/bootstrap/transition");
 require("./util/popoverEach");
-
-console.log("[Main] Bootstrap components loaded");
 
 // register partials
 var FooterPartial = require("./templates/footer.handlebars");
@@ -58,8 +54,6 @@ var IconFaTimes = require("./templates/icon_fa_times.handlebars");
 var Logo = require("./templates/logo.handlebars");
 var LogoInvert = require("./templates/logo_invert.handlebars");
 
-console.log("[Main] Templates loaded");
-
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
 var encodedParams = match ? match[0] : void 0;
 var forceEmbedded = false;
@@ -74,7 +68,6 @@ function getHeight() {
 }
 var oldDocumentHeight = getHeight();
 if (isEmbedded()) {
-  console.log("[Main] App is embedded, setting up height monitoring");
   setInterval(function () {
     var nu = getHeight();
     if (nu !== oldDocumentHeight) {
@@ -82,8 +75,6 @@ if (isEmbedded()) {
       PostMessageUtils.postResizeEvent(nu);
     }
   }, 200);
-} else {
-  console.log("[Main] App is not embedded");
 }
 
 function stripParams(paramsToStrip) {
@@ -104,17 +95,14 @@ function stripParams(paramsToStrip) {
 
 // remove wipCommentFormText after we've loaded it into the view.
 eb.on(eb.doneUsingWipCommentFormText, function () {
-  console.log("[Main] Event: doneUsingWipCommentFormText");
   stripParams(["wipCommentFormText"]);
 });
 
-eb.on(eb.reload, function (params) {
-  console.log("[Main] Event: reload with params:", params);
+eb.on(eb.reload, function () {
   location.reload();
 });
 
 eb.on(eb.reloadWithMoreParams, function (params) {
-  console.log("[Main] Event: reloadWithMoreParams with params:", params);
   var existingParams = encodedParams ? Utils.decodeParams(encodedParams) : {};
   var combinedParams = _.extend({}, existingParams, params);
   var ep = Utils.encodeParams(combinedParams);
@@ -129,60 +117,45 @@ eb.on(eb.reloadWithMoreParams, function (params) {
 });
 
 (function () {
-  console.log("[Main] Setting up AJAX prefilter and success handler");
   var p = window.location.pathname;
-  console.log("[Main] Current pathname:", p);
   // check for token within URL
-  if (
-    p.match(/^\/inbox\//) ||
-    p.match(/^\/settings\/ep1_[A-Za-z0-9]+/) ||
-    p.match(/^\/conversation\/create\//) ||
-    p.match(/^\/[0-9][A-Za-z0-9]+\/ep1_[A-Za-z0-9]+/)
-  ) {
-    console.log("[Main] URL matches special pattern, processing params");
+  if (p.match(/^\/[0-9][A-Za-z0-9]+\/ep1_[A-Za-z0-9]+/)) {
     var params = Utils.decodeParams(encodedParams);
-    console.log("[Main] Decoded params:", params);
     if (params.context) {
       window.context = params.context;
-      console.log("[Main] Set window.context:", window.context);
     }
     if (!_.isUndefined(params.forceEmbedded)) {
       forceEmbedded = !!params.forceEmbedded;
-      console.log("[Main] Set forceEmbedded:", forceEmbedded);
     }
   }
 
   $.ajaxPrefilter(function (options) {
-    console.log("[Main] AJAX prefilter - URL:", options.url);
     if (!options.beforeSend) {
       options.beforeSend = function (xhr) {
         // Add JWT token to Authorization header if available
         var jwtToken = PolisStorage.getJwtToken();
         if (jwtToken) {
-          console.log("[Main] Adding JWT token to AJAX request");
           xhr.setRequestHeader("Authorization", "Bearer " + jwtToken);
         } else {
-          console.log("[Main] No JWT token available for AJAX request");
+          console.warn("[Main] No JWT token available for AJAX request");
         }
       };
     }
   });
 
   // Listen for JWT tokens in response and store them
-  $(document).ajaxSuccess(function (event, xhr, settings) {
-    console.log("[Main] AJAX success for URL:", settings.url);
+  $(document).ajaxSuccess(function (event, xhr) {
     try {
       var responseText = xhr.responseText;
       if (responseText) {
         var response = JSON.parse(responseText);
         // Check if response contains a JWT token in auth field
         if (response && response.auth && response.auth.token) {
-          console.log("[Main] JWT token received in AJAX response, storing");
           PolisStorage.setJwtToken(response.auth.token);
         }
       }
     } catch {
-      console.log("[Main] AJAX response not JSON or no auth field");
+      console.warn("[Main] AJAX response not JSON or no auth field");
     }
   });
 })();
@@ -253,34 +226,11 @@ Handlebars.registerHelper("notUseCarousel", function (arg0) {
 
 Handlebars.registerHelper("ifAuthenticated", function (arg0) {
   var authenticated = PolisStorage.uid();
-  console.log("[Main] Handlebars ifAuthenticated check:", authenticated);
   return authenticated ? arg0.fn(this) : "";
 });
 Handlebars.registerHelper("ifNotAuthenticated", function (arg0) {
   var authenticated = PolisStorage.uid();
-  console.log("[Main] Handlebars ifNotAuthenticated check:", authenticated);
   return authenticated ? "" : arg0.fn(this);
-});
-
-Handlebars.registerHelper("logo_href", function () {
-  // var shouldSeeInbox = PolisStorage.hasEmail();
-  // return shouldSeeInbox ? "/inbox" : "/about";
-  return "/about";
-});
-
-Handlebars.registerHelper("settings_href", function () {
-  return "/settings" + (encodedParams ? "/" + encodedParams : "");
-});
-
-Handlebars.registerHelper("createConversationHref", function () {
-  return "/conversation/create" + (encodedParams ? "/" + encodedParams : "");
-});
-Handlebars.registerHelper("whatIsPolisHref", function () {
-  return "/about";
-});
-
-Handlebars.registerHelper("inboxHref", function () {
-  return "/inbox" + (encodedParams ? "/" + encodedParams : "");
 });
 
 Handlebars.registerHelper("ifDebugCommentProjection", function (arg0) {
@@ -342,32 +292,9 @@ if (!window.location.hostname.match(/polis/)) {
   window.document.title = window.location.port;
 }
 
-// debug convenience function for deregistering.
-window.deregister = function (dest) {
-  console.log("[Main] deregister() called with destination:", dest);
-  // Clear JWT token on logout
-  if (PolisStorage && PolisStorage.clearJwtToken) {
-    PolisStorage.clearJwtToken();
-  }
-
-  // Make logout request to server
-  return $.post("/api/v3/auth/deregister", {}).always(function () {
-    console.log("[Main] Logout request completed, redirecting");
-    window.location = dest || "/about";
-    // Backbone.history.navigate("/", {trigger: true});
-  });
-};
-
-console.log("[Main] Global functions defined");
-
 var uidPromise;
 // Initialize user state - remove cookie fallback since we're JWT-only now
-console.log("[Main] Initializing CurrentUserModel");
 uidPromise = CurrentUserModel.update();
-
-console.log("[Main] Checking preload promises");
-console.log("[Main] preloadHelper.firstConvPromise:", preloadHelper.firstConvPromise);
-console.log("[Main] preloadHelper.acceptLanguagePromise:", preloadHelper.acceptLanguagePromise);
 
 preloadHelper.firstConvPromise.then(
   function (data) {
@@ -381,16 +308,13 @@ preloadHelper.firstConvPromise.then(
 );
 
 $.when(preloadHelper.acceptLanguagePromise, uidPromise).always(function () {
-  console.log("[Main] Both acceptLanguagePromise and uidPromise completed");
   console.log("[Main] Arguments:", arguments);
 
   initialize(function (next) {
-    console.log("[Main] initialize() callback called");
     // Load any data that your app requires to boot
     // and initialize all routers here, the callback
     // `next` is provided in case the operations
     // needed are aysynchronous
-    console.log("[Main] Creating MainPolisRouter");
     var router = new MainPolisRouter();
 
     // set up the "exitConv" event
@@ -398,43 +322,32 @@ $.when(preloadHelper.acceptLanguagePromise, uidPromise).always(function () {
     router.on("route", function (route, params) {
       console.log("[Main] Router route changed from:", currentRoute, "to:", route, "params:", params);
       if (currentRoute === "conversationView") {
-        console.log("[Main] Triggering exitConv event");
         eb.trigger(eb.exitConv);
       }
       currentRoute = route;
     });
 
-    console.log("[Main] Initializing display");
     display.init();
-
-    console.log("[Main] Calling next() to proceed with initialization");
     next();
   });
 });
 
 function initialize(complete) {
-  console.log("[Main] initialize() called");
   $(function () {
-    console.log("[Main] DOM ready, starting Backbone history");
     Backbone.history.start({
       pushState: true,
       root: "/",
       silent: true
     });
-    console.log("[Main] Backbone history started");
 
     // RootView may use link or url helpers which
     // depend on Backbone history being setup
     // so need to wait to loadUrl() (which will)
     // actually execute the route
-    console.log("[Main] Creating RootView instance");
     RootView.getInstance(document.body);
 
-    console.log("[Main] Calling complete callback");
     complete(() => {
-      console.log("[Main] Loading initial URL via Backbone history");
       Backbone.history.loadUrl();
-      console.log("[Main] Initial URL loaded");
     });
   });
 }

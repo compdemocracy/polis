@@ -1,9 +1,9 @@
 import _ from "underscore";
 import httpProxy from "http-proxy";
-import pg from "../db/pg-query";
-import Config from "../config";
 import { failJson } from "../utils/fail";
+import Config from "../config";
 import logger from "../utils/logger";
+import pg from "../db/pg-query";
 import type { ExpressRequest, ExpressResponse } from "../d";
 
 function writeDefaultHead(
@@ -111,16 +111,20 @@ function addCorsHeader(
       .replace(/^([^\/]*\/\/[^\/]*).*/, "$1");
   }
 
-  // Validate domain if not overridden or route whitelisted
-  // Skip domain validation during testing
+  // Determine if domain validation should be skipped.
   const isTestingMode = Config.nodeEnv === "test" || Config.isTesting;
-  if (!Config.domainOverride && origin && !isTestingMode) {
-    // In development mode, be more permissive with localhost origins
-    if (Config.isDevMode && origin.includes("localhost")) {
-      logger.debug("Development mode: allowing localhost origin for CORS", {
-        origin,
-      });
-    } else if (!hasWhitelistMatches(origin)) {
+  const isDevAndLocalhost =
+    Config.isDevMode && origin && origin.includes("localhost");
+
+  const shouldSkipValidation =
+    Config.domainOverride || // Skip if domain override is set.
+    !origin || // Skip if there's no origin header.
+    isTestingMode || // Skip in test environments.
+    isDevAndLocalhost; // Skip for localhost in dev mode.
+
+  // If validation is not skipped, check the origin against the whitelist.
+  if (!shouldSkipValidation) {
+    if (!hasWhitelistMatches(origin)) {
       logger.info("CORS: domain not whitelisted", {
         origin,
         path: req.path,
@@ -286,10 +290,6 @@ async function denyIfNotFromWhitelistedDomain(
 
     // In development mode, be more permissive with localhost origins
     if (Config.isDevMode && domain && domain.startsWith("localhost")) {
-      logger.debug("Development mode: allowing localhost domain", {
-        domain,
-        zid,
-      });
       return next();
     }
 

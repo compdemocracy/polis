@@ -183,11 +183,9 @@ module.exports = function VisView(params) {
 
   var onMajorityTab = false;
   eb.on("aftershow:majority", function () {
-    console.log("aftershow:majority");
     onMajorityTab = true;
   });
   eb.on("beforehide:majority", function () {
-    console.log("beforehide:majority");
     onMajorityTab = false;
   });
 
@@ -1774,7 +1772,6 @@ module.exports = function VisView(params) {
 
   // TODO account for Buckets
   function emphasizeParticipants(pids) {
-    console.log("pids", pids.length);
     var hash = []; // sparse-ish array
     getPidToBidMapping().then(function (o) {
       var pidToBid = o.p2b;

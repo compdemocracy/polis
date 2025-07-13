@@ -51,7 +51,6 @@ describe("XID JWT Implementation", () => {
     expect(decoded.uid).toBe(testUid);
     expect(decoded.pid).toBe(testPid);
     expect(decoded.sub).toBe(`xid:${testXid}`);
-    expect(decoded.anonymous).toBe(true);
     expect(decoded.xid_participant).toBe(true);
 
     // Check standard JWT claims
@@ -74,7 +73,6 @@ describe("XID JWT Implementation", () => {
         sub: `xid:${testXid}`,
         exp: Math.floor(Date.now() / 1000) - 3600, // Expired 1 hour ago
         xid_participant: true,
-        anonymous: true,
       },
       "wrong-secret"
     );
@@ -113,7 +111,6 @@ describe("XID JWT Implementation", () => {
     expect(payload.conversation_id).toBe(testConversationId);
     expect(payload.uid).toBe(testUid);
     expect(payload.pid).toBe(testPid);
-    expect(payload.anonymous).toBe(true);
     expect(payload.xid_participant).toBe(true);
   });
 

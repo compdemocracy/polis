@@ -119,8 +119,6 @@ module.exports = Handlebones.ModelView.extend({
     "show.bs.tab": function (e) {
       var to = e.target;
       var from = e.relatedTarget;
-      // console.log("to", to.id);
-      // console.log("from", from.id);
       this.currentTab = to.id;
       if (to && to.id === this.WRITE_TAB) {
         this.trigger("beforeshow:write");
@@ -188,8 +186,6 @@ module.exports = Handlebones.ModelView.extend({
         // all other tabs cause pulsing
         this.maybeStartPulsingVoteTab();
       }
-      // console.log("setting from", to);
-      // this.from = to;
     }
   },
 

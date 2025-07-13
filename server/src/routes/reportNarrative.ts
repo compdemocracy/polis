@@ -16,7 +16,7 @@ import { create } from "xmlbuilder2";
 import { sendCommentGroupsSummary } from "./export";
 import { getTopicsFromRID } from "../report_experimental/topics-example";
 import DynamoStorageService, { StorageError } from "../utils/storage";
-import { PathLike } from "fs";
+import { PathLike } from "node:fs";
 import config from "../config";
 import logger from "../utils/logger";
 

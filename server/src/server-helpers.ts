@@ -2,7 +2,7 @@ import _ from "underscore";
 import LruCache from "lru-cache";
 
 import { CommentType, UserInfo } from "./d";
-import { generateToken } from "./auth/password";
+import { generateToken } from "./auth";
 import { getBidsForPids } from "./routes/math";
 import { getConversationHasMetadata } from "./routes/metadata";
 import { getConversationInfo } from "./conversation";
@@ -479,6 +479,15 @@ function getNextComment(
   include_social?: boolean,
   lang?: string
 ) {
+  logger.debug(
+    `getNextComment ${JSON.stringify({
+      zid,
+      pid,
+      withoutTids,
+      include_social,
+      lang,
+    })}`
+  );
   return getNextPrioritizedComment(zid, pid, withoutTids, include_social).then(
     (c: CommentType) => {
       if (lang && c) {
@@ -586,6 +595,14 @@ function getNextPrioritizedComment(
   withoutTids?: string | any[],
   include_social?: any
 ): Promise<CommentType | null> {
+  logger.debug(
+    `getNextPrioritizedComment ${JSON.stringify({
+      zid,
+      pid,
+      withoutTids,
+      include_social,
+    })}`
+  );
   const params: Partial<CommentType> = {
     zid: zid,
     not_voted_by_pid: pid,

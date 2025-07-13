@@ -1,5 +1,5 @@
 /* eslint-disable no-restricted-properties */
-import fs from "fs";
+import fs from "node:fs";
 import isTrue from "boolean";
 
 const devHostname: string = process.env.API_DEV_HOSTNAME || "localhost:5000";

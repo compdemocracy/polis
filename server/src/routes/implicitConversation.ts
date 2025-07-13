@@ -9,19 +9,19 @@
 import _ from "underscore";
 import { buildConversationUrl } from "../server-helpers";
 import { ConversationType, ExpressResponse } from "../d";
-import { generateAndRegisterZinvite } from "../auth/create-user";
+import { failJson } from "../utils/fail";
+import { generateAndRegisterZinvite } from "../auth";
 import { getZinvite } from "../utils/zinvite";
+import { sendMultipleTextEmails } from "../email/senders";
+import { sql_conversations } from "../db/sql";
+import Config from "../config";
+import logger from "../utils/logger";
+import pg from "../db/pg-query";
 import {
   ifDefinedSet,
   isDuplicateKey,
   isUserAllowedToCreateConversations,
 } from "../utils/common";
-import pg from "../db/pg-query";
-import { sql_conversations } from "../db/sql";
-import Config from "../config";
-import { failJson } from "../utils/fail";
-import logger from "../utils/logger";
-import { sendMultipleTextEmails } from "../email/senders";
 
 // Response type that requires redirect method
 type ImplicitConversationResponse = ExpressResponse & {

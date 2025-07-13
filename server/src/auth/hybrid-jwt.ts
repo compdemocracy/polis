@@ -1,10 +1,7 @@
 import { NextFunction, Request, Response } from "express";
-import {
-  isXidJWT,
-  xidJwtValidation,
-  xidJwtValidationOptional,
-  extractUserFromXidJWT,
-} from "./xid-jwt";
+import Config from "../config";
+import jwt from "jsonwebtoken";
+import logger from "../utils/logger";
 import {
   isAnonymousJWT,
   anonymousJwtValidation,
@@ -16,13 +13,46 @@ import {
   jwtValidationOptional,
   extractUserFromJWT,
 } from "./jwt-middleware";
-import logger from "../utils/logger";
+import {
+  isStandardUserJWT,
+  standardUserJwtValidation,
+  standardUserJwtValidationOptional,
+  extractUserFromStandardUserJWT,
+} from "./standard-user-jwt";
+import {
+  isXidJWT,
+  xidJwtValidation,
+  xidJwtValidationOptional,
+  extractUserFromXidJWT,
+} from "./xid-jwt";
+
+// Check if a token is a standard user JWT
+function _isAuth0JWT(token: string): boolean {
+  try {
+    const decoded = jwt.decode(token, { complete: true }) as any;
+
+    if (!decoded || !decoded.payload) {
+      return false;
+    }
+
+    const payload = decoded.payload;
+
+    // Standard user JWTs have specific claims
+    const isAuth0 = !!(
+      payload.aud === Config.authAudience && payload.iss === Config.authIssuer
+    );
+    return isAuth0;
+  } catch (error) {
+    logger.warn("Error checking if token is Auth0 JWT:", error);
+    return false;
+  }
+}
 
 /**
- * Hybrid JWT validation middleware that supports Auth0, XID, and Anonymous JWTs
+ * Hybrid JWT validation middleware that supports Auth0, XID, Anonymous, and Standard User JWTs
  * This allows the same endpoints to work with all authentication methods
  */
-function createHybridJwtMiddleware(
+function _createHybridJwtMiddleware(
   assigner?: (req: any, key: string, value: any) => void,
   isOptional = false
 ) {
@@ -104,7 +134,35 @@ function createHybridJwtMiddleware(
 
         logger.debug("Anonymous JWT validation successful");
         return next();
-      } else {
+      } else if (isStandardUserJWT(token)) {
+        logger.debug(
+          "Detected Standard User JWT, using standard user validation"
+        );
+
+        // Use Standard User JWT validation
+        const standardUserValidator = isOptional
+          ? standardUserJwtValidationOptional
+          : standardUserJwtValidation;
+
+        // First validate the token
+        await new Promise<void>((resolve, reject) => {
+          standardUserValidator(req, res, (err?: any) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+
+        // Then extract user info
+        await new Promise<void>((resolve, reject) => {
+          extractUserFromStandardUserJWT(assigner)(req, res, (err?: any) => {
+            if (err) reject(err);
+            else resolve();
+          });
+        });
+
+        logger.debug("Standard User JWT validation successful");
+        return next();
+      } else if (_isAuth0JWT(token)) {
         logger.debug("Detected Auth0 JWT, using Auth0 validation");
 
         // Use Auth0 JWT validation
@@ -130,6 +188,11 @@ function createHybridJwtMiddleware(
 
         logger.debug("Auth0 JWT validation successful");
         return next();
+      } else {
+        logger.debug("No JWT token found, authentication required");
+        return res.status(401).json({
+          error: "No authentication token found",
+        });
       }
     } catch (error) {
       logger.error("JWT validation failed:", error);
@@ -147,13 +210,14 @@ function createHybridJwtMiddleware(
 /**
  * Required hybrid JWT authentication
  */
-export const hybridAuth = (
-  assigner?: (req: any, key: string, value: any) => void
-) => createHybridJwtMiddleware(assigner, false);
+const hybridAuth = (assigner?: (req: any, key: string, value: any) => void) =>
+  _createHybridJwtMiddleware(assigner, false);
 
 /**
  * Optional hybrid JWT authentication
  */
-export const hybridAuthOptional = (
+const hybridAuthOptional = (
   assigner?: (req: any, key: string, value: any) => void
-) => createHybridJwtMiddleware(assigner, true);
+) => _createHybridJwtMiddleware(assigner, true);
+
+export { hybridAuth, hybridAuthOptional };

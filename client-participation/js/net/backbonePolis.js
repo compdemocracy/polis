@@ -5,49 +5,31 @@ var $ = require("jquery");
 var Backbone = require("backbone");
 var PolisStorage = require("../util/polisStorage");
 
-console.log("[BackbonePolis] Loading Backbone AJAX monkey patch");
-
 var urlPrefix = URLs.urlPrefix;
-
 var api_version = "v3";
-
 var originalAjax = Backbone.ajax;
-Backbone.ajax = function (url, options) {
-  console.log("[BackbonePolis] Backbone.ajax called with url:", url, "options:", options);
 
+Backbone.ajax = function (url, options) {
   // this block is from jQuery.ajax
   // If url is an object, simulate pre-1.5 signature
   if (typeof url === "object") {
     options = url;
     url = options.url; // this part is different than jQuery.ajax (it would set url to null)
-    console.log("[BackbonePolis] URL was object, extracted URL:", url);
   }
 
   var base_url = urlPrefix + "api/" + api_version + "/";
-  console.log("[BackbonePolis] Base URL:", base_url);
-
-  //var base_url = "http://localhost:5000/" + api_version;
   url = base_url + url;
-  console.log("[BackbonePolis] Final URL:", url);
 
   // Get JWT token if available
   var jwtToken = PolisStorage.getJwtToken();
-  console.log(
-    "[BackbonePolis] JWT token for request:",
-    jwtToken ? "present (length: " + jwtToken.length + ")" : "not available"
-  );
 
   var headers = {
     "Cache-Control": "max-age=0"
-    //"Cache-Control": "no-cache"
-    //"X-Parse-Application-Id": application_id,
-    //"X-Parse-REST-API-Key": rest_api_key
   };
 
   // Add JWT token to Authorization header if available
   if (jwtToken) {
     headers["Authorization"] = "Bearer " + jwtToken;
-    console.log("[BackbonePolis] Added Authorization header");
   }
 
   var request = {
@@ -65,8 +47,6 @@ Backbone.ajax = function (url, options) {
     }
   };
 
-  console.log("[BackbonePolis] Making request with config:", request);
   var result = originalAjax(url, $.extend(true, options, request));
-  console.log("[BackbonePolis] Request initiated, returning:", result);
   return result;
 };
