@@ -306,7 +306,8 @@ module.exports = (env, options) => {
               comments: false
             },
             compress: {
-              drop_console: !isDevBuild
+              // Keep console.log statements in production builds
+              drop_console: false
             }
           },
           extractComments: false

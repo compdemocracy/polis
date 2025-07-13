@@ -33,7 +33,7 @@ module.exports = PolisModelView.extend({
       this.votesByMe.fetch({
         data: $.param({
           conversation_id: this.conversation_id,
-          pid: this.ptptModel ? this.ptptModel.get('pid') : -1
+          pid: this.ptptModel ? this.ptptModel.get("pid") : -1
         }),
         reset: false
       });

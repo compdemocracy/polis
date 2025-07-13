@@ -12,7 +12,6 @@ function toNumberWithFalsyAsZero(val) {
 
 function getUidFromUserObject() {
   var uid = window.preload && window.preload.firstUser && window.preload.firstUser.uid;
-  console.log("[PolisStorage] getUidFromUserObject:", uid);
   return uid;
 }
 
@@ -95,7 +94,6 @@ function userCreated() {
   var created =
     toNumberWithFalsyAsZero(window.preload && window.preload.firstUser && window.preload.firstUser.created) ||
     Date.now();
-  console.log("[PolisStorage] userCreated:", created);
   return created;
 }
 
@@ -239,7 +237,6 @@ function getUidFromJwt() {
 
     var payload = JSON.parse(atob(parts[1]));
     var uid = payload.uid || null;
-    console.log("[PolisStorage] Extracted UID from JWT:", uid);
     return uid;
   } catch (e) {
     console.error("[PolisStorage] Error extracting uid from JWT:", e);

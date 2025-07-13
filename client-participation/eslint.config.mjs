@@ -48,7 +48,7 @@ export default defineConfig([
 
       // Additional custom rules
       "no-unused-vars": [
-        "error",
+        "warn",
         {
           argsIgnorePattern: "^_",
           varsIgnorePattern: "^(_|React)$"

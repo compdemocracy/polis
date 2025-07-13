@@ -1255,7 +1255,7 @@ module.exports = function VisView(params) {
     oldpositions.forEach(function (oldNode) {
       var newNode = nodes.find((n) => n.bid === oldNode.bid);
       if (!newNode) {
-        console.warn("not sure why a node would disappear");
+        // not sure why a node would disappear
         return;
       }
       newNode.x = oldNode.x;

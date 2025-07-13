@@ -28,14 +28,10 @@
     <% } %>
 
     <script>
-      console.log("[Index] Initializing window objects!!");
       window.userObject = {};
 
       window.preload = "REPLACE_THIS_WITH_PRELOAD_DATA";
       window.version = "<%= versionString %>";
-      
-      console.log("[Index] Initial preload data:", window.preload);
-      console.log("[Index] Version:", window.version);
     </script>
 
     <style>
@@ -60,9 +56,7 @@
     </style>
 
     <script> // Fire off this ajax first. it's slower than the other CDN delivered things.
-      (function() {
-        console.log("[Index] Starting preload script");
-        
+      (function() {        
         function parseQueryParams(queryString) {
           const params = new URLSearchParams(queryString);
           return Object.fromEntries(params);
@@ -145,17 +139,13 @@
         }
 
         function ajaxGet(url, success, fail) {
-          console.log("[Index] Making AJAX request to:", url);
           var xmlhttp;
           xmlhttp = new XMLHttpRequest();
           xmlhttp.onreadystatechange = function() {
             if (xmlhttp.readyState == XMLHttpRequest.DONE ) {
-              console.log("[Index] AJAX request completed with status:", xmlhttp.status);
               if(xmlhttp.status == 200){
-                console.log("[Index] AJAX request successful");
                 try {
                   var parsed = JSON.parse(xmlhttp.responseText);
-                  console.log("[Index] Parsed response:", parsed);
                   success(parsed);
                 } catch (e) {
                   console.error("[Index] Error parsing JSON response:", e);
@@ -174,7 +164,7 @@
                   }
                 } catch (e) {
                   // Keep original text response if JSON parsing fails
-                  console.log("[Index] Error response is not JSON, using as text");
+                  console.warn("[Index] Error response is not JSON, using as text");
                 }
                 
                 fail(xmlhttp.status, errorResponse);
@@ -201,10 +191,7 @@
               token = getAuth0Token();
             }
             if (token) {
-              console.log("[Index] Adding JWT token to preload request");
               xmlhttp.setRequestHeader('Authorization', 'Bearer ' + token);
-            } else {
-              console.log("[Index] No JWT token available for preload request");
             }
           } catch (e) {
             console.error("[Index] Error adding JWT token to request:", e);
@@ -216,21 +203,17 @@
         // bootstrap initial bulk ajax call.
         // we don't have promises until main bundle loads, so this is going to be a bit messy.
         var p = window.preload;
-        console.log("[Index] Working with preload object:", p);
 
         function fixupConversation(c) {
-          console.log("[Index] Fixing up conversation:", c);
           var t = c.translations
           if (t && t.length) {
             c.topic = t[0].topic;
             c.description = t[0].description;
-            console.log("[Index] Set topic and description from translations");
           }
           return c;
         }
 
         function onPreloadOk(response) {
-          console.log("[Index] onPreloadOk called with response:", response);
           var things = [
             {src:"nextComment", dst:"firstComment", cb:"firstCommentListener"},
             {src:"conversation", dst:"firstConv", cb:"firstConvListener", fn:fixupConversation},
@@ -244,7 +227,6 @@
           
           // Handle JWT token if present in response
           if (response && response.auth && response.auth.token) {
-            console.log("[Index] JWT token found in participationInit response");
             // Store the token for later use
             try {
               var token = response.auth.token;
@@ -255,10 +237,8 @@
                   var tokenKey = "participant_token_" + payload.conversation_id;
                    if (window.localStorage) {
                     window.localStorage.setItem(tokenKey, token);
-                    console.log("[Index] JWT token stored in localStorage with key:", tokenKey);
                   } else if (window.sessionStorage) {
                     window.sessionStorage.setItem(tokenKey, token);
-                    console.log("[Index] JWT token stored in sessionStorage with key:", tokenKey);
                   }
                 } else {
                   console.warn("[Index] No conversation_id in JWT payload, not storing token.");
@@ -267,13 +247,10 @@
             } catch (e) {
               console.error("[Index] Failed to store JWT token:", e);
             }
-          } else {
-            console.log("[Index] No JWT token in participationInit response");
           }
           
           for (var i = 0; i < things.length; i++) {
             var r = things[i], src = r.src, dst = r.dst, cb = r.cb;
-            console.log("[Index] Processing preload item:", src, "->", dst);
 
             if (response) {
               // Handle JSON parsing more safely
@@ -294,29 +271,22 @@
               } else {
                 p[dst] = response[src];
               }
-              console.log("[Index] Set preload." + dst + ":", p[dst]);
             }
 
             if (r.fn) {
               p[dst] = r.fn(p[dst]);
-              console.log("[Index] Applied fixup function to", dst);
             }
 
             // weird issue probably due to setting a prop named bgcolor on a global?
             // manually set the prop
             if (response && response[src] && response[src].bgcolor) {
               p[dst].bgcolor = response[src].bgcolor;
-              console.log("[Index] Set bgcolor property for", dst);
             }
 
             if (p[cb]) {
-              console.log("[Index] Calling callback:", cb);
               p[cb](0, p[dst]);
-            } else {
-              console.log("[Index] No callback found for:", cb);
             }
           }
-          console.log("[Index] Final preload object:", p);
         }
 
         function onPreloadFail(statusCode, failResponse) {
@@ -333,19 +303,17 @@
           ];
           for (var i = 0; i < cbs.length; i++) {
             if (p[cbs[i]]) {
-              console.log("[Index] Calling failure callback:", cbs[i]);
               p[cbs[i]](1);
             }
           }
           if (statusCode === 403 && failResponse.match(/^polis_err_domain/)) {
-            console.log("[Index] Domain error detected, showing bad domain message");
+            console.warn("[Index] Domain error detected, showing bad domain message");
             function updateDomainMessage() {
               var el = document.getElementById("badDomainMessage");
               if (el) {
                 el.className = el.className.replace( /(?:^|\s)displaynone(?!\S)/g , '');
                 document.getElementById("mainSpinner").className += " displaynone";
                 clearInterval(updateDomainIntervalRef);
-                console.log("[Index] Domain error message displayed");
               }
             }
             var updateDomainIntervalRef = setInterval(updateDomainMessage, 100);
@@ -353,12 +321,8 @@
         }
 
         var path = document.location.pathname;
-        console.log("[Index] Current path:", path);
         var conversation_id = getConversationIdFromPath();
-
         var shouldPreload = !!conversation_id;
-
-        console.log("[Index] Should preload:", !!shouldPreload);
 
         window.xsThresh = 600; // nexus 7
 
@@ -369,7 +333,6 @@
         var qp = [];
         if (conversation_id) {
           qp.push("conversation_id=" + conversation_id);
-          console.log("[Index] Added conversation_id to query params");
         }
         qp.push("pid=-1");
 
@@ -383,35 +346,29 @@
         if (typeof x_profile_image_url !== "undefined") {
           window.preload.x_profile_image_url = x_profile_image_url;
           qp.push("x_profile_image_url=" + encodeURIComponent(x_profile_image_url));
-          console.log("[Index] Added x_profile_image_url to query params");
         }
         var x_name = get_x_name();
         if (typeof x_name !== "undefined") {
           window.preload.x_name = x_name;
           qp.push("x_name=" + encodeURIComponent(x_name));
-          console.log("[Index] Added x_name to query params");
         }
         var dwok = get_domain_whitelist_override_key();
         if (typeof dwok !== "undefined") {
           qp.push("domain_whitelist_override_key=" + encodeURIComponent(dwok));
-          console.log("[Index] Added domain_whitelist_override_key to query params");
         }
 
         var ui_lang = getUiLang();
         if (ui_lang) {
           qp.push("lang=" + ui_lang);
           window.ui_lang = ui_lang;
-          console.log("[Index] Added ui_lang to query params:", ui_lang);
         } else {
           qp.push("lang=acceptLang");
-          console.log("[Index] Added default lang=acceptLang to query params");
         }
 
         var qp = qp.join("&");
         qp = qp.length > 1 ? ("?" + qp) : "";
         
         var finalUrl = "/api/v3/participationInit" + qp;
-        console.log("[Index] Making participationInit request to:", finalUrl);
 
         ajaxGet(finalUrl, onPreloadOk, onPreloadFail);
 
@@ -438,14 +395,11 @@
     <p id="badDomainMessage" class="HeadingC displaynone" style="text-align:center; margin: 40px;">This conversation can't be viewed from this domain. Contact the creator of the conversation to find out where you can access it.</p>
 
     <script>
-      console.log("[Index] Setting up spinner and language attributes");
       if (window.top !== window) {
-        console.log("[Index] In iframe, hiding spinner");
         document.getElementById("mainSpinner").classList.add("hidden");
       }
 
       if (window.ui_lang) {
-        console.log("[Index] Setting body lang attribute to:", window.ui_lang);
         document.getElementsByTagName("body")[0].setAttribute("lang", ui_lang);
       }
     </script>

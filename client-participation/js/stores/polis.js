@@ -987,8 +987,6 @@ module.exports = function (params) {
 
         if (_.isNumber(pcaData.math_tick)) {
           lastServerTokenForPCA = pcaData.math_tick;
-        } else {
-          console.error("got invlid math_tick");
         }
         consensusComments = pcaData.consensus;
         groupVotes = pcaData["group-votes"];
@@ -1003,10 +1001,12 @@ module.exports = function (params) {
 
         return getFamousVotes()
           .then(function () {
+            if (!pcaData.pca) {
+              return $.Deferred().reject("missing pca");
+            }
             // Check for missing comps... TODO solve
-            if (!pcaData.pca || !pcaData.pca.comps) {
-              console.error("missing comps");
-              return $.Deferred().reject();
+            if (!pcaData.pca.comps) {
+              return $.Deferred().reject("missing pca comps");
             }
             var buckets = arraysToObjects(pcaData["base-clusters"]);
             participantCount = sum(pcaData["base-clusters"].count);
@@ -1117,16 +1117,29 @@ module.exports = function (params) {
               gidToBigBucketId[b.gid] = b.bid;
             });
             votesForTidBid = {};
-            _.each(groupVotes[0].votes, function (o, tid) {
+            // Collect all unique tids from all groups to be robust
+            var allTids = {};
+            if (groupVotes) {
+              _.each(groupVotes, function (groupData) {
+                if (groupData && groupData.votes) {
+                  _.each(groupData.votes, function (voteData, tid) {
+                    allTids[tid] = true;
+                  });
+                }
+              });
+            }
+
+            _.each(_.keys(allTids), function (tid) {
               var A = {};
               var D = {};
               var S = {};
               _.each(clusters, function (cluster) {
                 var gid = cluster.id;
                 var bigBucketBid = gidToBigBucketId[gid];
-                A[bigBucketBid] = groupVotes[gid]["votes"][tid].A;
-                D[bigBucketBid] = groupVotes[gid]["votes"][tid].D;
-                S[bigBucketBid] = groupVotes[gid]["votes"][tid].S;
+                // Safely access nested properties, defaulting to 0
+                A[bigBucketBid] = _.get(groupVotes, [gid, "votes", tid, "A"], 0);
+                D[bigBucketBid] = _.get(groupVotes, [gid, "votes", tid, "D"], 0);
+                S[bigBucketBid] = _.get(groupVotes, [gid, "votes", tid, "S"], 0);
               });
               votesForTidBid[tid] = {
                 A: A,
@@ -1149,14 +1162,14 @@ module.exports = function (params) {
             return null;
           })
           .fail(function (err) {
-            console.error("[Polis] Error in PCA processing:", err);
+            console.warn("[Polis] Error in PCA processing:", err);
           });
       },
       function (xhr) {
         if (404 === xhr.status) {
           firstPcaCallPromise.resolve();
         } else if (500 === xhr.status) {
-          console.error("Error in PCA processing:", xhr);
+          console.error("Error in PCA request:", xhr);
         }
       }
     );

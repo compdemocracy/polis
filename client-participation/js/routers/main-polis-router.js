@@ -17,15 +17,12 @@ var Utils = require("../util/utils");
 var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
 var encodedParams = match ? match[0] : void 0;
 
-console.log("[Router] Initializing router with encodedParams:", encodedParams);
-
 var authenticatedDfd = $.Deferred();
 authenticatedDfd.done(function () {
   // link uid to GA user_id
   // TODO update this whenever auth changes
   if (Constants.GA_TRACKING_ID) {
     const userId = PolisStorage.uid();
-    console.log("[Router] Setting GA user_id:", userId);
     gtag("set", "user_properties", { user_id: userId });
   }
 });
@@ -43,17 +40,13 @@ function authenticated() {
 
   // Fallback to other auth methods (e.g., preloaded user data)
   var uid = PolisStorage.uid();
-  console.log("[Router] Fallback auth check - uid:", uid);
 
   var isAuthenticated = uid;
-  console.log("[Router] Final authentication result:", isAuthenticated);
   return isAuthenticated;
 }
 
 var polisRouter = Backbone.Router.extend({
-  gotoRoute: function (route, options) {
-    console.log("[Router] gotoRoute called:", route, options);
-    // this.navigate(route, options);
+  gotoRoute: function (route) {
     window.location = route;
   },
 
@@ -76,32 +69,24 @@ var polisRouter = Backbone.Router.extend({
   }, // end initialize
 
   r(pattern, methodNameToCall) {
-    console.log("[Router] Registering route:", pattern, "->", methodNameToCall);
     this.route(pattern, (...args) => {
-      console.log("[Router] Route matched:", methodNameToCall, "args:", args);
       metric.routeEvent(methodNameToCall, args);
       this[methodNameToCall].apply(this, args);
     });
   },
 
   bail: function () {
-    console.log("[Router] bail() called");
     this.gotoRoute("/", {
       trigger: true
     });
   },
 
   doLaunchConversation2: function (conversation_id, args) {
-    console.log("[Router] doLaunchConversation2() called with conversation_id:", conversation_id, "args:", args);
-
     // Since nextComment is pretty slow, fire off the request way early (this actually happens on the js on index.html now) and pass the promise into the participation view so it's (probably) ready when the page loads.
     var firstCommentPromise = preloadHelper.firstCommentPromise;
-    console.log("[Router] Using preloaded firstCommentPromise:", firstCommentPromise);
 
     this.getConversationModel(conversation_id).then(
       function (model) {
-        console.log("[Router] Conversation model loaded:", model.toJSON ? model.toJSON() : model);
-
         if (!_.isUndefined(args.vis_type)) {
           // allow turning on the vis from the URL.
           if (model.get("is_mod")) {
@@ -134,11 +119,6 @@ var polisRouter = Backbone.Router.extend({
 
     this.getConversationModel(conversation_id).then(
       function (model) {
-        console.log(
-          "[Router] Conversation model loaded for doLaunchConversation:",
-          model.toJSON ? model.toJSON() : model
-        );
-
         if (!_.isUndefined(args.vis_type)) {
           // allow turning on the vis from the URL.
           if (model.get("is_mod")) {
@@ -185,7 +165,6 @@ var polisRouter = Backbone.Router.extend({
       encodedStringifiedJson = encodedStringifiedJson.slice(1);
       try {
         params = Utils.decodeParams(encodedStringifiedJson);
-        console.log("[Router] Decoded params:", params);
       } catch (e) {
         console.error("[Router] Error decoding params:", e);
       }

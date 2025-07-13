@@ -58,10 +58,7 @@ var match = window.location.pathname.match(/ep1_[0-9A-Za-z]+$/);
 var encodedParams = match ? match[0] : void 0;
 var forceEmbedded = false;
 
-console.log("[Main] URL analysis - pathname:", window.location.pathname, "encodedParams:", encodedParams);
-
 // notify parent iframe when document changes height
-
 function getHeight() {
   var DOCUMENT_HEIGHT_FUDGE_FACTOR = 10; // prevent scrollbar, not sure why it's not correct without this.
   return $(document.body).outerHeight() + DOCUMENT_HEIGHT_FUDGE_FACTOR;
@@ -78,7 +75,6 @@ if (isEmbedded()) {
 }
 
 function stripParams(paramsToStrip) {
-  console.log("[Main] stripParams called with:", paramsToStrip);
   var params = Utils.decodeParams(encodedParams);
   var remainingParams = _.omit(params, paramsToStrip);
   var newEncodedParams = Utils.encodeParams(remainingParams);
@@ -90,7 +86,6 @@ function stripParams(paramsToStrip) {
   window.history.pushState("", "", path + newEncodedParams);
   // clobber the variable so we don't accidentally use it again
   encodedParams = newEncodedParams;
-  console.log("[Main] URL updated to:", window.location.href);
 }
 
 // remove wipCommentFormText after we've loaded it into the view.
@@ -136,8 +131,6 @@ eb.on(eb.reloadWithMoreParams, function (params) {
         var jwtToken = PolisStorage.getJwtToken();
         if (jwtToken) {
           xhr.setRequestHeader("Authorization", "Bearer " + jwtToken);
-        } else {
-          console.warn("[Main] No JWT token available for AJAX request");
         }
       };
     }
@@ -297,8 +290,7 @@ var uidPromise;
 uidPromise = CurrentUserModel.update();
 
 preloadHelper.firstConvPromise.then(
-  function (data) {
-    console.log("[Main] firstConvPromise resolved successfully with:", data);
+  function () {
     PostMessageUtils.postInitEvent("ok");
   },
   function (error) {
@@ -308,8 +300,6 @@ preloadHelper.firstConvPromise.then(
 );
 
 $.when(preloadHelper.acceptLanguagePromise, uidPromise).always(function () {
-  console.log("[Main] Arguments:", arguments);
-
   initialize(function (next) {
     // Load any data that your app requires to boot
     // and initialize all routers here, the callback
@@ -319,8 +309,7 @@ $.when(preloadHelper.acceptLanguagePromise, uidPromise).always(function () {
 
     // set up the "exitConv" event
     var currentRoute;
-    router.on("route", function (route, params) {
-      console.log("[Main] Router route changed from:", currentRoute, "to:", route, "params:", params);
+    router.on("route", function (route) {
       if (currentRoute === "conversationView") {
         eb.trigger(eb.exitConv);
       }
