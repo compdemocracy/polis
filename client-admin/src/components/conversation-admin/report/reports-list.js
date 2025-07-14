@@ -50,7 +50,6 @@ class ReportsList extends React.Component {
   componentDidMount() {
     // Listen for auth0Ready event
     this.auth0ReadyHandler = () => {
-      console.log(`📡 ReportsList received auth0Ready event`);
       this.loadInitialData();
     };
     
@@ -58,7 +57,6 @@ class ReportsList extends React.Component {
     
     // If auth0 is already ready, call loadInitialData immediately
     if (window.auth0Ready) {
-      console.log(`🚀 Auth0 was already ready, loading initial data immediately`);
       this.loadInitialData();
     }
   }

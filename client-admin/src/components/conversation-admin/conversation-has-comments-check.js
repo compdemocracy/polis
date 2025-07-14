@@ -51,8 +51,8 @@ class ConversationHasCommentsCheck extends React.Component {
   }
 
   createCommentMarkup() {
-    const numAccepted = this.props.accepted_comments?.length || 0
-    const numUnmoderated = this.props.unmoderated_comments?.length || 0
+    const numAccepted = Array.isArray(this.props.accepted_comments) ? this.props.accepted_comments.length : 0
+    const numUnmoderated = Array.isArray(this.props.unmoderated_comments) ? this.props.unmoderated_comments.length : 0
 
     const isStrictMod = this.props.strict_moderation
     const numVisible = numAccepted + (isStrictMod ? 0 : numUnmoderated)

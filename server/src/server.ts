@@ -6,9 +6,8 @@
 import akismetLib from "akismet";
 import AWS from "aws-sdk";
 import { Promise as BluebirdPromise } from "bluebird";
-import responseTime from "response-time";
 import _ from "underscore";
-import { METRICS_IN_RAM, addInRamMetric } from "./utils/metered";
+import { METRICS_IN_RAM } from "./utils/metered";
 import { generateAndRegisterZinvite, generateTokenP } from "./auth";
 import pg from "./db/pg-query";
 import Config from "./config";
@@ -1273,80 +1272,6 @@ Thanks for using Polis!
     };
   })();
 
-  function middleware_log_request_body(
-    req: ExpressRequest,
-    res: ExpressResponse,
-    next: () => void
-  ) {
-    if (devMode) {
-      // Skip logging if path includes 'pca2'
-      if (req.path.includes("pca2")) {
-        return next();
-      }
-
-      let b = "";
-      if (req.body) {
-        const temp = _.clone(req.body);
-        if (temp.password) {
-          temp.password = "some_password";
-        }
-        if (temp.newPassword) {
-          temp.newPassword = "some_password";
-        }
-        if (temp.password2) {
-          temp.password2 = "some_password";
-        }
-        if (temp.hname) {
-          temp.hname = "somebody";
-        }
-        if (temp.polisApiKey) {
-          temp.polisApiKey = "pkey_somePolisApiKey";
-        }
-        b = JSON.stringify(temp);
-      }
-      logger.debug("middleware_log_request_body", { path: req.path, body: b });
-    } else {
-      // don't log the route or params, since Heroku does that for us.
-    }
-    next();
-  }
-
-  function middleware_log_middleware_errors(
-    err: any,
-    req: ExpressRequest,
-    res: ExpressResponse,
-    next: (arg0?: any) => void
-  ) {
-    if (!err) {
-      return next();
-    }
-    logger.error("middleware_log_middleware_errors", err);
-    next(err);
-  }
-
-  function middleware_check_if_options(
-    req: { method: string },
-    res: { send: (arg0: number) => any },
-    next: () => any
-  ) {
-    if (req.method.toLowerCase() !== "options") {
-      return next();
-    }
-    return res.send(204);
-  }
-
-  const middleware_responseTime_start = responseTime(function (
-    req: { route: { path: any } },
-    res: any,
-    time: number
-  ) {
-    if (req && req.route && req.route.path) {
-      const path = req.route.path;
-      time = Math.trunc(time);
-      addInRamMetric(path, time);
-    }
-  });
-
   const returnObject: any = {
     // app helpers
     fetchIndexForAdminPage,
@@ -1354,11 +1279,6 @@ Thanks for using Polis!
     fetchIndexWithoutPreloadData,
     haltOnTimeout,
     redirectIfHasZidButNoConversationId,
-    // middlewares
-    middleware_check_if_options,
-    middleware_log_middleware_errors,
-    middleware_log_request_body,
-    middleware_responseTime_start,
     // handlers
     handle_GET_conditionalIndexFetcher,
     handle_GET_contexts,

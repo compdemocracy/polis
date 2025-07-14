@@ -190,9 +190,10 @@ const extractUserFromXidJWT = (
         const requestedConversationId =
           req.query?.conversation_id || req.body?.conversation_id;
 
-        // Set up the request parameters for downstream handlers
+        // Set up the request parameters for downstream handlers using assigner function
         req.p = req.p || {};
-        req.p.uid = payload.uid;
+
+        // Store XID-specific data that doesn't conflict with standard parameters
         req.p.xid = payload.xid;
         req.p.pid = payload.pid;
         req.p.conversation_id = payload.conversation_id;
@@ -214,7 +215,7 @@ const extractUserFromXidJWT = (
           req.p.jwt_conversation_mismatch = false;
         }
 
-        // Call the assigner function if provided (for compatibility with parameter middleware)
+        // Use the assigner function for standard parameters (canonical parameter middleware pattern)
         if (assigner) {
           assigner(req, "uid", payload.uid);
           assigner(req, "xid", payload.xid);

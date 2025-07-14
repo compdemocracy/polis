@@ -32,7 +32,7 @@ const getAccessTokenSilentlySPA = async (options) => {
       
       // Handle specific Auth0 errors
       if (e.error === 'login_required' && auth0LoginRedirect) {
-        console.log('Login required, redirecting to Auth0')
+        console.warn('Login required, redirecting to Auth0')
         auth0LoginRedirect()
         return null
       }
@@ -52,7 +52,7 @@ const handleAuthError = (error, response) => {
     
     // For 401 (unauthorized), try to redirect to login
     if (response.status === 401 && auth0LoginRedirect) {
-      console.log('Token expired or invalid, redirecting to login')
+      console.warn('Token expired or invalid, redirecting to login')
       setTimeout(() => {
         auth0LoginRedirect()
       }, 1000) // Small delay to allow error handling to complete
@@ -94,7 +94,6 @@ async function polisFetch(api, data, type) {
     // Only add the header if a token exists
     if (token) {
       headers.Authorization = `Bearer ${token}`;
-      console.log('✅ Authorization header added');
     } else {
       console.warn('⚠️ No token available - request will be sent without auth');
     }
@@ -157,7 +156,7 @@ async function polisGet(api, data) {
       return await polisFetch(api, data, 'GET'); // This is the retry
     }
     // For other errors, or if retry fails, log and re-throw.
-    console.log(error)
+    console.error('❌ polisGet error:', error)
     throw error;
   }
 }

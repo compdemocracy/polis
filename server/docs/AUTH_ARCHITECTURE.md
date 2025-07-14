@@ -22,15 +22,26 @@ Anonymous Participants: Browser → participationInit → Custom JWT → API val
 
 The system uses a unified middleware (`hybrid-jwt.ts`) that checks authentication in priority order:
 
-1. Auth0 JWT tokens (for standard users)
+1. Auth0 JWT tokens (for standard users, issued by Auth0)
 2. XID JWT tokens (for external participants)
 3. Anonymous JWT tokens (for anonymous participants)
+4. User JWT tokens (for standard users, issued by Polis)
 
 ```typescript
 // Usage in routes
 app.get('/api/v3/protected', hybridAuth(assignToP), handler);
 app.get('/api/v3/public', hybridAuthOptional(assignToP), handler);
 ```
+
+### Parameter Middleware System
+
+The authentication system integrates with Polis's parameter middleware system through the `assignToP` function. This ensures:
+
+- **Consistent parameter handling**: All route parameters follow the same validation pattern
+- **Clobbering detection**: Prevents accidental overwrites of existing parameters
+- **Error handling**: Standardized error responses for parameter validation
+
+JWT extraction functions use the assigner function (typically `assignToP`) rather than direct assignment to maintain compatibility with the existing parameter middleware architecture.
 
 ### JWT Token Structure
 
@@ -74,6 +85,23 @@ app.get('/api/v3/public', hybridAuthOptional(assignToP), handler);
 }
 ```
 
+**User JWT (Standard Users)**
+
+```json
+{
+  "iss": "https://pol.is/",
+  "sub": "user:auth0|507f1f77bcf86cd799439011",
+  "aud": "users",
+  "exp": 1715769600,
+  "iat": 1715766000,
+  "pid": 123,
+  "uid": 456,
+  "auth0_sub": "auth0|507f1f77bcf86cd799439011",
+  "conversation_id": "abc123",
+  "standard_user_participant": true
+}
+```
+
 ## Security Features
 
 ### XID Conversation Scoping
@@ -114,12 +142,13 @@ AUTH_KEYS_PATH=./keys
 - Hybrid authentication middleware
 - Database migration for Auth0 user mapping
 - Test infrastructure with Auth0 simulator
-
-🚧 **In Progress**
-
 - Anonymous user JWT tokens
 - Full route validation with JWT
 - Client SDK updates for localStorage
+
+🚧 **In Progress**
+
+- User JWT tokens for standard users
 
 ## Testing
 
@@ -129,5 +158,3 @@ The system includes comprehensive test coverage:
 - `xid-auth.test.ts` - XID participant flows
 - `anonymous-jwt.test.ts` - Anonymous participant flows
 - `routes-jwt-validation.test.ts` - Route-by-route validation
-
-See the [Migration Guide](./MIGRATION_GUIDE.md) for implementation details and next steps.

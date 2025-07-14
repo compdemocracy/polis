@@ -27,7 +27,6 @@ class Conversations extends React.Component {
   componentDidMount() {
     // Listen for auth0Ready event
     this.auth0ReadyHandler = () => {
-      console.log(`📡 Conversations received auth0Ready event`);
       this.loadConversations();
     };
     
@@ -35,7 +34,6 @@ class Conversations extends React.Component {
     
     // If auth0 is already ready, call loadConversations immediately
     if (window.auth0Ready) {
-      console.log(`🚀 Auth0 was already ready, loading conversations immediately`);
       this.loadConversations();
     }
   }

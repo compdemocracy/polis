@@ -8,17 +8,7 @@ const Auth0Connector = () => {
   const { getAccessTokenSilently, isAuthenticated, loginWithRedirect, isLoading, error } = useAuth0()
 
   useEffect(() => {
-    console.log('🔍 Auth0Connector - State changed:', {
-      isAuthenticated,
-      isLoading,
-      hasError: !!error,
-      hasGetTokenFunction: !!getAccessTokenSilently,
-      authClientId: process.env.AUTH_CLIENT_ID
-    });
-
     if (process.env.AUTH_CLIENT_ID && isAuthenticated) {
-      console.log('✅ Setting up Auth0 token getter - user is authenticated');
-      
       // Set up the token getter function for the network utility
       const tokenGetter = async () => {
         try {
@@ -41,13 +31,6 @@ const Auth0Connector = () => {
       window.auth0Ready = true;
       const event = new CustomEvent('auth0Ready', { detail: { isAuthenticated: true } });
       window.dispatchEvent(event);
-      console.log('🚀 Dispatched auth0Ready event');
-    } else {
-      console.log('⏳ Not setting up token getter yet:', {
-        hasClientId: !!process.env.AUTH_CLIENT_ID,
-        isAuthenticated,
-        reason: !process.env.AUTH_CLIENT_ID ? 'No client ID' : 'Not authenticated'
-      });
     }
 
     // Always set up auth actions for error handling

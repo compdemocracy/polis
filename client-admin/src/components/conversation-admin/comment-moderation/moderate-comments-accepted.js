@@ -20,6 +20,11 @@ class ModerateCommentsAccepted extends React.Component {
   }
 
   createCommentMarkup() {
+    // Add safety check to ensure accepted_comments is an array
+    if (!Array.isArray(this.props.accepted_comments)) {
+      return null
+    }
+
     const comments = this.props.accepted_comments.map((comment, i) => {
       return (
         <Comment
@@ -39,7 +44,7 @@ class ModerateCommentsAccepted extends React.Component {
   render() {
     return (
       <div data-testid="approved-comments">
-        {this.props.accepted_comments !== null
+        {this.props.accepted_comments !== null && Array.isArray(this.props.accepted_comments)
           ? this.createCommentMarkup()
           : 'Loading accepted comments...'}
       </div>

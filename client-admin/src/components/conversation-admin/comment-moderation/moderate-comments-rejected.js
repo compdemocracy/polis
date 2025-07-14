@@ -20,6 +20,11 @@ class ModerateCommentsRejected extends React.Component {
   }
 
   createCommentMarkup() {
+    // Add safety check to ensure rejected_comments is an array
+    if (!Array.isArray(this.props.rejected_comments)) {
+      return null
+    }
+
     const comments = this.props.rejected_comments.map((comment, i) => {
       return (
         <Comment
@@ -39,7 +44,7 @@ class ModerateCommentsRejected extends React.Component {
   render() {
     return (
       <div data-testid="rejected-comments">
-        {this.props.rejected_comments !== null
+        {this.props.rejected_comments !== null && Array.isArray(this.props.rejected_comments)
           ? this.createCommentMarkup()
           : 'Loading rejected comments...'}
       </div>

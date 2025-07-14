@@ -125,9 +125,7 @@ class App extends React.Component {
     
     // Listen for auth0Ready event to ensure token getter is available
     const handleAuth0Ready = (event) => {
-      console.log('📡 Received auth0Ready event:', event.detail);
       if (!this.isLoading() && this.isAuthed()) {
-        console.log('🚀 Loading user data after auth0Ready event');
         this.loadUserData();
       }
     };

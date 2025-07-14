@@ -38,7 +38,6 @@ class ConversationAdminContainer extends React.Component {
   componentDidMount() {
     // Listen for auth0Ready event
     this.auth0ReadyHandler = () => {
-      console.log(`📡 ConversationAdminContainer received auth0Ready event`);
       if (!this.props.loading) {
         this.loadZidMetadata();
       }
@@ -48,7 +47,6 @@ class ConversationAdminContainer extends React.Component {
     
     // If auth0 is already ready, call loadZidMetadata immediately
     if (window.auth0Ready && !this.props.loading) {
-      console.log(`🚀 Auth0 was already ready, loading zid metadata immediately`);
       this.loadZidMetadata();
     }
   }

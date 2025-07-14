@@ -20,6 +20,15 @@ import logger from "./src/utils/logger";
 import { fetchIndexForConversation } from "./src/conversation";
 import { getPidForParticipant } from "./src/user";
 
+import {
+  middleware_check_if_options,
+  middleware_log_middleware_errors,
+  middleware_log_request_body,
+  middleware_responseTime_start,
+  globalErrorHandler,
+  setupGlobalProcessHandlers,
+} from "./src/server-middleware";
+
 import { handle_GET_conversationUuid } from "./src/routes/conversationUuid";
 import { handle_GET_xidReport } from "./src/routes/export";
 import { handle_GET_delphi } from "./src/routes/delphi";
@@ -176,11 +185,6 @@ helpersInitialized.then(
       fetchIndexWithoutPreloadData,
       haltOnTimeout,
       redirectIfHasZidButNoConversationId,
-
-      middleware_check_if_options,
-      middleware_log_middleware_errors,
-      middleware_log_request_body,
-      middleware_responseTime_start,
 
       handle_GET_conditionalIndexFetcher,
       handle_GET_contexts,
@@ -1753,5 +1757,11 @@ helpersInitialized.then(
     logger.error("failed to init server", err);
   }
 );
+
+// Setup global error handling
+app.use(globalErrorHandler);
+
+// Initialize global process-level error handlers
+setupGlobalProcessHandlers();
 
 export default app;

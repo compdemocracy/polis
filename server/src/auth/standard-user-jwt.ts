@@ -185,9 +185,10 @@ const extractUserFromStandardUserJWT = (
         const requestedConversationId =
           req.query?.conversation_id || req.body?.conversation_id;
 
-        // Set up the request parameters
+        // Set up the request parameters using assigner function
         req.p = req.p || {};
-        req.p.uid = payload.uid;
+
+        // Store standard user-specific data that doesn't conflict with standard parameters
         req.p.pid = payload.pid;
         req.p.auth0_sub = payload.auth0_sub;
         req.p.conversation_id = payload.conversation_id;
@@ -208,13 +209,13 @@ const extractUserFromStandardUserJWT = (
           req.p.jwt_conversation_mismatch = false;
         }
 
-        // Call the assigner function if provided
+        // Use the assigner function for standard parameters (canonical parameter middleware pattern)
         if (assigner) {
           assigner(req, "uid", payload.uid);
         }
 
         logger.debug(
-          `Successfully extracted standard user participant: auth0_sub: ${payload.auth0_sub}, uid: ${payload.uid}, pid: ${payload.pid}, mismatch: ${req.p.jwt_conversation_mismatch}`
+          `Successfully extracted standard user participant: uid: ${payload.uid}, auth0_sub: ${payload.auth0_sub}`
         );
       } else {
         logger.warn("No standard user JWT payload found in request");

@@ -45,8 +45,12 @@ async function createAnonUser(): Promise<number> {
  */
 async function getOrCreateUserIDFromAuth0Sub(
   auth0Sub: string,
-  auth0User: any
+  auth0User: any,
+  retryCount = 0
 ): Promise<number> {
+  const maxRetries = 3;
+  const retryDelay = 100 + Math.random() * 200; // 100-300ms jitter
+
   // Extract email from either standard claims or custom namespace claims
   const namespace = Config.authNamespace;
   const email = auth0User.email || auth0User[`${namespace}email`];
@@ -229,88 +233,152 @@ async function getOrCreateUserIDFromAuth0Sub(
       error
     );
 
-    // If we still get a constraint violation, it means there was a race condition
-    // even with our transaction approach. In this case, make one final attempt
-    // to get the existing user and create the mapping
-    if (
-      error.code === "23505" &&
-      (error.constraint === "users_email_key" ||
-        error.constraint === "auth0_user_mappings_uid_key")
-    ) {
-      logger.warn(
-        `Constraint violation detected for ${email}, attempting recovery...`
-      );
+    // Handle specific constraint violations with retry logic
+    if (error.code === "23505") {
+      // Handle auth0_user_mappings primary key constraint violation
+      if (error.constraint === "auth0_user_mappings_pkey") {
+        if (retryCount < maxRetries) {
+          logger.warn(
+            `Auth0 mapping constraint violation (attempt ${retryCount + 1}/${
+              maxRetries + 1
+            }), retrying after ${retryDelay}ms for sub: ${auth0Sub}`
+          );
 
-      try {
-        // Try to find the existing user and handle mapping conflicts
-        const recoveryResult = await new Promise<number>((resolve, reject) => {
-          pg.query_readOnly(
-            "SELECT uid FROM users WHERE LOWER(email) = LOWER($1)",
-            [email],
-            (err: any, results: { rows: any[] }) => {
-              if (err) return reject(err);
-              if (!results.rows.length) {
-                return reject(
-                  new Error(
-                    `User with email ${email} not found during recovery`
-                  )
-                );
-              }
+          // Wait with jitter to reduce collision probability
+          await new Promise((resolve) => setTimeout(resolve, retryDelay));
 
-              const uid = results.rows[0].uid;
+          // Retry with incremented count
+          return getOrCreateUserIDFromAuth0Sub(
+            auth0Sub,
+            auth0User,
+            retryCount + 1
+          );
+        } else {
+          // Max retries exceeded, try to find existing mapping
+          logger.error(
+            `Max retries exceeded for Auth0 sub ${auth0Sub}, attempting final lookup`
+          );
 
-              // Check if there's already a mapping for this uid
+          try {
+            const finalResult = await new Promise<number>((resolve, reject) => {
               pg.query_readOnly(
-                "SELECT auth0_sub FROM auth0_user_mappings WHERE uid = $1",
-                [uid],
-                (mappingCheckErr: any, mappingCheckResult: { rows: any[] }) => {
-                  if (mappingCheckErr) return reject(mappingCheckErr);
-
-                  if (mappingCheckResult.rows.length > 0) {
-                    const existingAuth0Sub =
-                      mappingCheckResult.rows[0].auth0_sub;
-                    if (existingAuth0Sub === auth0Sub) {
-                      // Mapping already exists for this auth0_sub
-                      logger.info(
-                        `Recovery: mapping already exists for Auth0 sub ${auth0Sub}: uid ${uid}`
-                      );
-                      resolve(uid);
-                    } else {
-                      // Different mapping exists - this is expected with test data
-                      logger.warn(
-                        `Recovery: uid ${uid} already mapped to ${existingAuth0Sub}, not creating new mapping for ${auth0Sub}`
-                      );
-                      resolve(uid);
-                    }
-                  } else {
-                    // No mapping exists, create one
-                    pg.query(
-                      "INSERT INTO auth0_user_mappings (auth0_sub, uid, created) VALUES ($1, $2, now_as_millis()) ON CONFLICT (auth0_sub) DO NOTHING",
-                      [auth0Sub, uid],
-                      (mappingErr: any) => {
-                        if (mappingErr) return reject(mappingErr);
-                        logger.info(
-                          `Recovery successful: linked existing user ${uid} to Auth0 sub ${auth0Sub}`
-                        );
-                        resolve(uid);
-                      }
+                "SELECT uid FROM auth0_user_mappings WHERE auth0_sub = $1",
+                [auth0Sub],
+                (err: any, results: { rows: any[] }) => {
+                  if (err) return reject(err);
+                  if (!results.rows.length) {
+                    return reject(
+                      new Error(
+                        `Auth0 mapping not found after retries for sub: ${auth0Sub}`
+                      )
                     );
                   }
+                  logger.info(
+                    `Found existing mapping after retries for Auth0 sub ${auth0Sub}: uid ${results.rows[0].uid}`
+                  );
+                  resolve(results.rows[0].uid);
+                }
+              );
+            });
+            return finalResult;
+          } catch (lookupError) {
+            logger.error(
+              `Final lookup failed for Auth0 sub ${auth0Sub}:`,
+              lookupError
+            );
+            throw new Error(
+              `Unable to create or find user mapping for Auth0 sub: ${auth0Sub}. This may be due to high concurrency. Please try again.`
+            );
+          }
+        }
+      }
+
+      // Handle other constraint violations (users_email_key, auth0_user_mappings_uid_key)
+      else if (
+        error.constraint === "users_email_key" ||
+        error.constraint === "auth0_user_mappings_uid_key"
+      ) {
+        logger.warn(
+          `Constraint violation detected for ${email}, attempting recovery...`
+        );
+
+        try {
+          // Try to find the existing user and handle mapping conflicts
+          const recoveryResult = await new Promise<number>(
+            (resolve, reject) => {
+              pg.query_readOnly(
+                "SELECT uid FROM users WHERE LOWER(email) = LOWER($1)",
+                [email],
+                (err: any, results: { rows: any[] }) => {
+                  if (err) return reject(err);
+                  if (!results.rows.length) {
+                    return reject(
+                      new Error(
+                        `User with email ${email} not found during recovery`
+                      )
+                    );
+                  }
+
+                  const uid = results.rows[0].uid;
+
+                  // Check if there's already a mapping for this uid
+                  pg.query_readOnly(
+                    "SELECT auth0_sub FROM auth0_user_mappings WHERE uid = $1",
+                    [uid],
+                    (
+                      mappingCheckErr: any,
+                      mappingCheckResult: { rows: any[] }
+                    ) => {
+                      if (mappingCheckErr) return reject(mappingCheckErr);
+
+                      if (mappingCheckResult.rows.length > 0) {
+                        const existingAuth0Sub =
+                          mappingCheckResult.rows[0].auth0_sub;
+                        if (existingAuth0Sub === auth0Sub) {
+                          // Mapping already exists for this auth0_sub
+                          logger.info(
+                            `Recovery: mapping already exists for Auth0 sub ${auth0Sub}: uid ${uid}`
+                          );
+                          resolve(uid);
+                        } else {
+                          // Different mapping exists - this is expected with test data
+                          logger.warn(
+                            `Recovery: uid ${uid} already mapped to ${existingAuth0Sub}, not creating new mapping for ${auth0Sub}`
+                          );
+                          resolve(uid);
+                        }
+                      } else {
+                        // No mapping exists, create one
+                        pg.query(
+                          "INSERT INTO auth0_user_mappings (auth0_sub, uid, created) VALUES ($1, $2, now_as_millis()) ON CONFLICT (auth0_sub) DO NOTHING",
+                          [auth0Sub, uid],
+                          (mappingErr: any) => {
+                            if (mappingErr) return reject(mappingErr);
+                            logger.info(
+                              `Recovery successful: linked existing user ${uid} to Auth0 sub ${auth0Sub}`
+                            );
+                            resolve(uid);
+                          }
+                        );
+                      }
+                    }
+                  );
                 }
               );
             }
           );
-        });
 
-        return recoveryResult;
-      } catch (recoveryError) {
-        logger.error("Recovery attempt failed:", recoveryError);
-        throw new Error(
-          `Unable to create or find user for email: ${email}. Original error: ${error.message}, Recovery error: ${recoveryError}`
-        );
+          return recoveryResult;
+        } catch (recoveryError) {
+          logger.error("Recovery attempt failed:", recoveryError);
+          throw new Error(
+            `Unable to create or find user for email: ${email}. Original error: ${error.message}, Recovery error: ${recoveryError}`
+          );
+        }
       }
     }
 
+    // Re-throw other errors
     throw error;
   }
 }

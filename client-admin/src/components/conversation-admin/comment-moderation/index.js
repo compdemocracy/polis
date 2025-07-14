@@ -98,7 +98,7 @@ class CommentModeration extends React.Component {
             }}
             to={`${match.url}`}>
             Unmoderated{' '}
-            {this.props.unmoderated.unmoderated_comments
+            {Array.isArray(this.props.unmoderated.unmoderated_comments)
               ? this.props.unmoderated.unmoderated_comments.length
               : null}
           </Link>
@@ -110,7 +110,7 @@ class CommentModeration extends React.Component {
             }}
             to={`${match.url}/accepted`}>
             Accepted{' '}
-            {this.props.accepted.accepted_comments
+            {Array.isArray(this.props.accepted.accepted_comments)
               ? this.props.accepted.accepted_comments.length
               : null}
           </Link>
@@ -122,7 +122,7 @@ class CommentModeration extends React.Component {
             }}
             to={`${match.url}/rejected`}>
             Rejected{' '}
-            {this.props.rejected.rejected_comments
+            {Array.isArray(this.props.rejected.rejected_comments)
               ? this.props.rejected.rejected_comments.length
               : null}
           </Link>

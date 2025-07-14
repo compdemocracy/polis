@@ -25,6 +25,10 @@ class ModerateCommentsTodo extends React.Component {
   }
 
   createCommentMarkup(max) {
+    // Add safety check to ensure unmoderated_comments is an array
+    if (!Array.isArray(this.props.unmoderated_comments)) {
+      return null
+    }
 
     return this.props.unmoderated_comments.slice(0,max).map((comment, i) => {
       return (
@@ -51,7 +55,7 @@ class ModerateCommentsTodo extends React.Component {
       <div data-testid="pending-comment">
         <div>
           <p> Displays maximum {max} comments </p> 
-          {this.props.unmoderated_comments !== null
+          {this.props.unmoderated_comments !== null && Array.isArray(this.props.unmoderated_comments)
             ? this.createCommentMarkup(max)
             : 'Loading unmoderated comments...'}
         </div>
