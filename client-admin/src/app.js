@@ -10,7 +10,7 @@ import { Switch, Route, Link, Redirect } from 'react-router-dom'
 import { Flex, Box, jsx } from 'theme-ui'
 
 import { withAuth0 } from '@auth0/auth0-react'
-import OIDCConnector from './components/oidc-connector'
+import OidcConnector from './components/oidc-connector'
 import Spinner from './components/framework/spinner'
 
 /* landers */
@@ -39,13 +39,13 @@ const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
   // If we've been loading for more than AUTH_LOADING_TIMEOUT,
   // assume something went wrong and proceed with authentication check
   const [loadingTimeout, setLoadingTimeout] = React.useState(false)
-  
+
   React.useEffect(() => {
     if (isLoading) {
       const timer = setTimeout(() => {
         setLoadingTimeout(true)
       }, AUTH_LOADING_TIMEOUT)
-      
+
       return () => clearTimeout(timer)
     } else {
       setLoadingTimeout(false)
@@ -54,17 +54,18 @@ const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
 
   if (isLoading && !loadingTimeout) {
     return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: '200px' 
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          height: '200px'
+        }}>
         <Spinner />
       </div>
     )
   }
-  
+
   return (
     <Route
       {...rest}
@@ -72,9 +73,7 @@ const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
         authed === true ? (
           <Component {...props} />
         ) : (
-          <Redirect
-            to={{ pathname: '/signin', state: { from: props.location } }}
-          />
+          <Redirect to={{ pathname: '/signin', state: { from: props.location } }} />
         )
       }
     />
@@ -112,28 +111,28 @@ class App extends React.Component {
 
   isAuthed() {
     // Use Auth0 authentication state
-    return this.props.auth0.isAuthenticated && !this.props.auth0.error;
+    return this.props.auth0.isAuthenticated && !this.props.auth0.error
   }
 
   isLoading() {
     // Use Auth0 loading state
-    return this.props.auth0.isLoading;
+    return this.props.auth0.isLoading
   }
 
   componentDidMount() {
     this.mediaQueryChanged()
-    
+
     // Listen for oidcReady event to ensure token getter is available
     const handleAuth0Ready = (event) => {
       if (!this.isLoading() && this.isAuthed()) {
-        this.loadUserData();
+        this.loadUserData()
       }
-    };
-    
-    window.addEventListener('oidcReady', handleAuth0Ready);
-    
+    }
+
+    window.addEventListener('oidcReady', handleAuth0Ready)
+
     // Store the handler for cleanup
-    this.oidcReadyHandler = handleAuth0Ready;
+    this.oidcReadyHandler = handleAuth0Ready
   }
 
   componentDidUpdate(prevProps) {
@@ -145,7 +144,7 @@ class App extends React.Component {
   componentWillUnmount() {
     // Clean up event listener
     if (this.oidcReadyHandler) {
-      window.removeEventListener('oidcReady', this.oidcReadyHandler);
+      window.removeEventListener('oidcReady', this.oidcReadyHandler)
     }
     this.state.mql.removeListener(this.mediaQueryChanged.bind(this))
   }
@@ -166,7 +165,7 @@ class App extends React.Component {
     const { location } = this.props
     return (
       <>
-        <OIDCConnector />
+        <OidcConnector />
         <Switch>
           <Redirect from="/:url*(/+)" to={location.pathname.slice(0, -1)} />
           <Route exact path="/home" component={Home} />
@@ -195,11 +194,7 @@ class App extends React.Component {
           <Route exact path="/pwreset" component={PasswordReset} />
           <Route path="/pwreset/*" component={PasswordReset} />
           <Route exact path="/pwresetinit" component={PasswordResetInit} />
-          <Route
-            exact
-            path="/pwresetinit/done"
-            component={PasswordResetInitDone}
-          />
+          <Route exact path="/pwresetinit/done" component={PasswordResetInitDone} />
           <Route exact path="/tos" component={TOS} />
           <Route exact path="/privacy" component={Privacy} />
 

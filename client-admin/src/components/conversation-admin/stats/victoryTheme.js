@@ -5,14 +5,7 @@ const lime300 = '#DCE775'
 const lightGreen500 = '#8BC34A'
 const teal700 = '#00796B'
 const cyan900 = '#006064'
-const colors = [
-  deepOrange600,
-  yellow200,
-  lime300,
-  lightGreen500,
-  teal700,
-  cyan900
-]
+const colors = [deepOrange600, yellow200, lime300, lightGreen500, teal700, cyan900]
 const blueGrey50 = '#ECEFF1'
 const blueGrey300 = '#90A4AE'
 const blueGrey700 = '#455A64'
@@ -42,10 +35,7 @@ const baseLabelStyles = {
   strokeWidth: 0
 }
 
-const centeredLabelStyles = Object.assign(
-  { textAnchor: 'middle' },
-  baseLabelStyles
-)
+const centeredLabelStyles = Object.assign({ textAnchor: 'middle' }, baseLabelStyles)
 
 // Strokes
 const strokeDasharray = '10, 5'

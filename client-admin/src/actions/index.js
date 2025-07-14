@@ -42,8 +42,7 @@ export const COMMENTS_FETCH_ERROR = 'COMMENTS_FETCH_ERROR'
 
 export const REQUEST_UNMODERATED_COMMENTS = 'REQUEST_UNMODERATED_COMMENTS'
 export const RECEIVE_UNMODERATED_COMMENTS = 'RECEIVE_UNMODERATED_COMMENTS'
-export const UNMODERATED_COMMENTS_FETCH_ERROR =
-  'UNMODERATED_COMMENTS_FETCH_ERROR'
+export const UNMODERATED_COMMENTS_FETCH_ERROR = 'UNMODERATED_COMMENTS_FETCH_ERROR'
 
 export const REQUEST_ACCEPTED_COMMENTS = 'REQUEST_ACCEPTED_COMMENTS'
 export const RECEIVE_ACCEPTED_COMMENTS = 'RECEIVE_ACCEPTED_COMMENTS'
@@ -71,13 +70,11 @@ export const PARTICIPANTS_FETCH_ERROR = 'PARTICIPANTS_FETCH_ERROR'
 
 export const REQUEST_DEFAULT_PARTICIPANTS = 'REQUEST_DEFAULT_PARTICIPANTS'
 export const RECEIVE_DEFAULT_PARTICIPANTS = 'RECEIVE_DEFAULT_PARTICIPANTS'
-export const DEFAULT_PARTICIPANTS_FETCH_ERROR =
-  'DEFAULT_PARTICIPANTS_FETCH_ERROR'
+export const DEFAULT_PARTICIPANTS_FETCH_ERROR = 'DEFAULT_PARTICIPANTS_FETCH_ERROR'
 
 export const REQUEST_FEATURED_PARTICIPANTS = 'REQUEST_FEATURED_PARTICIPANTS'
 export const RECEIVE_FEATURED_PARTICIPANTS = 'RECEIVE_FEATURED_PARTICIPANTS'
-export const FEATURED_PARTICIPANTS_FETCH_ERROR =
-  'FEATURED_PARTICIPANTS_FETCH_ERROR'
+export const FEATURED_PARTICIPANTS_FETCH_ERROR = 'FEATURED_PARTICIPANTS_FETCH_ERROR'
 
 export const REQUEST_HIDDEN_PARTICIPANTS = 'REQUEST_HIDDEN_PARTICIPANTS'
 export const RECEIVE_HIDDEN_PARTICIPANTS = 'RECEIVE_HIDDEN_PARTICIPANTS'
@@ -205,12 +202,12 @@ const fetchConversations = () => {
     }).then((response) => {
       if (!response.ok && response.status !== 304) {
         // Create an error object with status information
-        const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
-        error.status = response.status;
-        error.statusText = response.statusText;
-        throw error;
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}`)
+        error.status = response.status
+        error.statusText = response.statusText
+        throw error
       }
-      return response.json();
+      return response.json()
     })
   )
 }
@@ -266,12 +263,12 @@ const fetchZidMetadata = (conversation_id) => {
     }).then((response) => {
       if (!response.ok && response.status !== 304) {
         // Create an error object with status information
-        const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
-        error.status = response.status;
-        error.statusText = response.statusText;
-        throw error;
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}`)
+        error.status = response.status
+        error.statusText = response.statusText
+        throw error
       }
-      return response.json();
+      return response.json()
     })
   )
 }
@@ -294,10 +291,7 @@ export const populateZidMetadataStore = (conversation_id) => {
     }
 
     // don"t fetch again if we already have data loaded for that conversation.
-    if (
-      hasConversationId &&
-      state.zid_metadata.zid_metadata.conversation_id === conversation_id
-    ) {
+    if (hasConversationId && state.zid_metadata.zid_metadata.conversation_id === conversation_id) {
       return
     }
 
@@ -571,12 +565,7 @@ const mathFetchError = (err) => {
 }
 
 const fetchMath = (conversation_id, math_tick) => {
-  return $.get(
-    '/api/v3/math/pca2?&math_tick=' +
-      math_tick +
-      '&conversation_id=' +
-      conversation_id
-  )
+  return $.get('/api/v3/math/pca2?&math_tick=' + math_tick + '&conversation_id=' + conversation_id)
 }
 
 export const populateMathStore = (conversation_id) => {
@@ -1288,12 +1277,7 @@ const dataExportError = () => {
   }
 }
 
-const dataExportGet = (
-  conversation_id,
-  format,
-  unixTimestamp,
-  untilEnabled
-) => {
+const dataExportGet = (conversation_id, format, unixTimestamp, untilEnabled) => {
   let url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}`
   if (untilEnabled) {
     url += `&unixTimestamp=${unixTimestamp}`
@@ -1308,20 +1292,10 @@ const dataExportGet = (
   )
 }
 
-export const startDataExport = (
-  conversation_id,
-  format,
-  unixTimestamp,
-  untilEnabled
-) => {
+export const startDataExport = (conversation_id, format, unixTimestamp, untilEnabled) => {
   return (dispatch) => {
     dispatch(dataExportStarted())
-    return dataExportGet(
-      conversation_id,
-      format,
-      unixTimestamp,
-      untilEnabled
-    ).then(
+    return dataExportGet(conversation_id, format, unixTimestamp, untilEnabled).then(
       (res) => dispatch(dataExportSuccess(res)),
       (err) => dispatch(dataExportError(err))
     )

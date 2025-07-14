@@ -33,18 +33,14 @@ class Account extends React.Component {
   }
 
   render() {
-    return (
-      <div>
-        {this.props.user?.hname ? this.buildAccountMarkup() : <Spinner />}
-      </div>
-    )
+    return <div>{this.props.user?.hname ? this.buildAccountMarkup() : <Spinner />}</div>
   }
 }
 
 Account.propTypes = {
   user: PropTypes.shape({
     hname: PropTypes.string,
-    email: PropTypes.string,
+    email: PropTypes.string
   })
 }
 

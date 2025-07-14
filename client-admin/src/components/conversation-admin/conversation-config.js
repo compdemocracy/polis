@@ -4,10 +4,7 @@
 
 import React from 'react'
 import { connect } from 'react-redux'
-import {
-  handleZidMetadataUpdate,
-  optimisticZidMetadataUpdateOnTyping
-} from '../../actions'
+import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from '../../actions'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
 import { Heading, Box, Text, jsx } from 'theme-ui'
@@ -39,20 +36,14 @@ class ConversationConfig extends React.Component {
           val = 'default'
         }
       }
-      this.props.dispatch(
-        handleZidMetadataUpdate(this.props.zid_metadata, field, val)
-      )
+      this.props.dispatch(handleZidMetadataUpdate(this.props.zid_metadata, field, val))
     }
   }
 
   handleConfigInputTyping(field) {
     return (e) => {
       this.props.dispatch(
-        optimisticZidMetadataUpdateOnTyping(
-          this.props.zid_metadata,
-          field,
-          e.target.value
-        )
+        optimisticZidMetadataUpdateOnTyping(this.props.zid_metadata, field, e.target.value)
       )
     }
   }
@@ -157,7 +148,8 @@ class ConversationConfig extends React.Component {
         </Heading>
 
         <CheckboxField field="importance_enabled" label="Importance Enabled">
-          [EXPERIMENTAL FEATURE] Participants can see the &quot;This comment is important&quot; checkbox
+          [EXPERIMENTAL FEATURE] Participants can see the &quot;This comment is important&quot;
+          checkbox
         </CheckboxField>
 
         <CheckboxField field="vis_type" label="Visualization" isIntegerBool>
@@ -176,10 +168,9 @@ class ConversationConfig extends React.Component {
           field="subscribe_type"
           label="Prompt participants to subscribe to updates"
           isIntegerBool>
-          Prompt participants to subscribe to updates. A prompt is shown to
-          users once they finish voting on all available comments. If enabled,
-          participants may optionally provide their email address to receive
-          notifications when there are new comments to vote on.
+          Prompt participants to subscribe to updates. A prompt is shown to users once they finish
+          voting on all available comments. If enabled, participants may optionally provide their
+          email address to receive notifications when there are new comments to vote on.
         </CheckboxField>
 
         <Heading

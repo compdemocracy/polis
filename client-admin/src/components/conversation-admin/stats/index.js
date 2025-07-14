@@ -4,10 +4,7 @@
 import dateSetupUtil from '../../../util/data-export-date-setup'
 import React from 'react'
 import { connect } from 'react-redux'
-import {
-  populateConversationStatsStore,
-  populateZidMetadataStore
-} from '../../../actions'
+import { populateConversationStatsStore, populateZidMetadataStore } from '../../../actions'
 import { withAuth0 } from '@auth0/auth0-react'
 import NumberCards from './conversation-stats-number-cards'
 import Voters from './voters'
@@ -50,9 +47,7 @@ class ConversationStats extends React.Component {
     const { match } = this.props
 
     const until = this.state.until
-    this.props.dispatch(
-      populateConversationStatsStore(match.params.conversation_id, until)
-    )
+    this.props.dispatch(populateConversationStatsStore(match.params.conversation_id, until))
   }
 
   componentDidMount() {
@@ -67,10 +62,11 @@ class ConversationStats extends React.Component {
   }
 
   componentDidUpdate(prevProps) {
-    // Try again if auth state changes  
-    const authStateChanged = prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
-                             prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
-    
+    // Try again if auth state changes
+    const authStateChanged =
+      prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
+      prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
+
     if (authStateChanged) {
       this.loadInitialDataIfNeeded()
     }
@@ -86,10 +82,10 @@ class ConversationStats extends React.Component {
     // 1. is_mod changes from false/undefined to true, OR
     // 2. conversation changes and user is mod
     // Also ensure we have the correct conversation metadata loaded
-    const shouldStartPolling = 
+    const shouldStartPolling =
       zid_metadata?.conversation_id === currentConversationId &&
-      ((!prevIsMod && currentIsMod) || 
-       (prevConversationId !== currentConversationId && currentIsMod))
+      ((!prevIsMod && currentIsMod) ||
+        (prevConversationId !== currentConversationId && currentIsMod))
 
     if (shouldStartPolling) {
       this.startPolling()
@@ -98,22 +94,20 @@ class ConversationStats extends React.Component {
 
   loadInitialDataIfNeeded() {
     // Only load if we have a conversation ID and Auth0 is ready (not loading)
-    if (this.props.conversation_id && 
-        this.props.auth0 && 
-        !this.props.auth0.isLoading) {
+    if (this.props.conversation_id && this.props.auth0 && !this.props.auth0.isLoading) {
       this.loadInitialData()
     }
   }
 
   loadInitialData() {
-    this.props.dispatch(populateZidMetadataStore(this.props.match.params.conversation_id));
-    
+    this.props.dispatch(populateZidMetadataStore(this.props.match.params.conversation_id))
+
     // Don't check zid_metadata?.is_mod here since the dispatch is async
     // Let componentDidUpdate handle starting polling once metadata loads
   }
 
   componentWillUnmount() {
-    this.stopPolling();
+    this.stopPolling()
   }
 
   stopPolling() {
@@ -143,9 +137,7 @@ class ConversationStats extends React.Component {
     }
 
     const { conversation_stats } = this.props
-    const loading =
-      !conversation_stats.firstCommentTimes ||
-      !conversation_stats.firstVoteTimes
+    const loading = !conversation_stats.firstCommentTimes || !conversation_stats.firstVoteTimes
 
     if (loading) return <Box>Loading...</Box>
 

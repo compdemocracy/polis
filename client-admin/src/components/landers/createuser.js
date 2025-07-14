@@ -19,19 +19,18 @@ class Createuser extends React.Component {
         <Button
           sx={{ my: [2] }}
           id="createUserButton"
-          onClick={() => this.props.auth0.loginWithRedirect({
-            authorizationParams: {
-              screen_hint: 'signup'
-            }
-          })}>
+          onClick={() =>
+            this.props.auth0.loginWithRedirect({
+              authorizationParams: {
+                screen_hint: 'signup'
+              }
+            })
+          }>
           Sign Up
         </Button>
         <Box sx={{ my: [4] }}>
           Already have an account?{' '}
-          <Link
-            tabIndex="6"
-            to={'/signin' + this.getDest()}
-            data-section="signup-select">
+          <Link tabIndex="6" to={'/signin' + this.getDest()} data-section="signup-select">
             Sign in
           </Link>
         </Box>

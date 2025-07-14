@@ -4,8 +4,9 @@ import { useEffect } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
 import { setOidcTokenGetter, setOidcActions } from '../util/net'
 
-const OIDCConnector = () => {
-  const { getAccessTokenSilently, isAuthenticated, loginWithRedirect, isLoading, error } = useAuth0()
+const OidcConnector = () => {
+  const { getAccessTokenSilently, isAuthenticated, loginWithRedirect, isLoading, error } =
+    useAuth0()
 
   useEffect(() => {
     if (process.env.AUTH_CLIENT_ID && isAuthenticated) {
@@ -15,30 +16,32 @@ const OIDCConnector = () => {
           const token = await getAccessTokenSilently({
             authorizationParams: {
               audience: process.env.AUTH_AUDIENCE,
-              scope: 'openid profile email',
+              scope: 'openid profile email'
             }
-          });
-          return token;
+          })
+          return token
         } catch (error) {
-          console.error('❌ Failed to get access token in tokenGetter:', error);
-          throw error;
+          console.error('❌ Failed to get access token in tokenGetter:', error)
+          throw error
         }
       }
-      
-      setOidcTokenGetter(tokenGetter);
-      
+
+      setOidcTokenGetter(tokenGetter)
+
       // Dispatch oidcReady event to notify other components
-      window.oidcReady = true;
-      const event = new CustomEvent('oidcReady', { detail: { isAuthenticated: true } });
-      window.dispatchEvent(event);
+      window.oidcReady = true
+      const event = new CustomEvent('oidcReady', {
+        detail: { isAuthenticated: true }
+      })
+      window.dispatchEvent(event)
     }
 
     // Always set up auth actions for error handling
-    setOidcActions(loginWithRedirect);
+    setOidcActions(loginWithRedirect)
   }, [getAccessTokenSilently, isAuthenticated, loginWithRedirect, isLoading, error])
 
   // This component doesn't render anything
   return null
 }
 
-export default OIDCConnector 
+export default OidcConnector

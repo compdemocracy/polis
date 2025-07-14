@@ -4,20 +4,20 @@ const helpers = {}
 
 helpers.shouldShowPermissionsError = (props) => {
   const hasMetadata = !!props.zid_metadata
-  
+
   // Check if metadata is an empty object (not loaded yet)
   const isMetadataEmpty = hasMetadata && Object.keys(props.zid_metadata).length === 0
-  
+
   const isOwner = props.zid_metadata?.is_owner || false
   const isMod = props.zid_metadata?.is_mod || false
-  
+
   // Don't show error if metadata hasn't loaded yet or if loading
   if (props.loading || isMetadataEmpty) {
     return false
   }
-  
+
   const shouldShow = hasMetadata && !isOwner && !isMod
-  
+
   return shouldShow
 }
 

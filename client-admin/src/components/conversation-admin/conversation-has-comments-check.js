@@ -25,22 +25,27 @@ class ConversationHasCommentsCheck extends React.Component {
 
   componentDidUpdate(prevProps) {
     // Try again if conversation_id changes, auth state changes, or if we haven't attempted load yet
-    const authStateChanged = prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
-                             prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
-    
-    if (prevProps.conversation_id !== this.props.conversation_id || 
-        authStateChanged || 
-        !this.state.hasAttemptedLoad) {
+    const authStateChanged =
+      prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
+      prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
+
+    if (
+      prevProps.conversation_id !== this.props.conversation_id ||
+      authStateChanged ||
+      !this.state.hasAttemptedLoad
+    ) {
       this.loadCommentsIfNeeded()
     }
   }
 
   loadCommentsIfNeeded() {
     // Only load if we have a conversation ID and Auth0 is ready (not loading)
-    if (!this.state.hasAttemptedLoad && 
-        this.props.conversation_id && 
-        this.props.auth0 && 
-        !this.props.auth0.isLoading) {
+    if (
+      !this.state.hasAttemptedLoad &&
+      this.props.conversation_id &&
+      this.props.auth0 &&
+      !this.props.auth0.isLoading
+    ) {
       this.setState({ hasAttemptedLoad: true })
       this.loadComments()
     }
@@ -51,8 +56,12 @@ class ConversationHasCommentsCheck extends React.Component {
   }
 
   createCommentMarkup() {
-    const numAccepted = Array.isArray(this.props.accepted_comments) ? this.props.accepted_comments.length : 0
-    const numUnmoderated = Array.isArray(this.props.unmoderated_comments) ? this.props.unmoderated_comments.length : 0
+    const numAccepted = Array.isArray(this.props.accepted_comments)
+      ? this.props.accepted_comments.length
+      : 0
+    const numUnmoderated = Array.isArray(this.props.unmoderated_comments)
+      ? this.props.unmoderated_comments.length
+      : 0
 
     const isStrictMod = this.props.strict_moderation
     const numVisible = numAccepted + (isStrictMod ? 0 : numUnmoderated)
@@ -71,23 +80,20 @@ class ConversationHasCommentsCheck extends React.Component {
   }
 
   render() {
-    const {
-      accepted_comments,
-      rejected_comments,
-      unmoderated_comments,
-      auth0
-    } = this.props
+    const { accepted_comments, rejected_comments, unmoderated_comments, auth0 } = this.props
 
     // Check if any store is still loading or if Auth0 is still loading
-    const isLoading = this.props.loading || 
-                     auth0?.isLoading ||
-                     (!this.state.hasAttemptedLoad && !this.props.conversation_id)
+    const isLoading =
+      this.props.loading ||
+      auth0?.isLoading ||
+      (!this.state.hasAttemptedLoad && !this.props.conversation_id)
 
     // Show loading if we haven't attempted to load yet OR if comments are still null and we're loading
-    const shouldShowLoading = isLoading || 
-                             (accepted_comments === null || 
-                              rejected_comments === null || 
-                              unmoderated_comments === null)
+    const shouldShowLoading =
+      isLoading ||
+      accepted_comments === null ||
+      rejected_comments === null ||
+      unmoderated_comments === null
 
     return (
       <div>

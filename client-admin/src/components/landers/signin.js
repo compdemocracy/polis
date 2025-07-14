@@ -22,10 +22,7 @@ class SignIn extends React.Component {
   drawLoginForm() {
     return (
       <Box>
-        <Button
-          sx={{ my: [2] }}
-          id="signinButton"
-          onClick={this.props.auth0.loginWithRedirect}>
+        <Button sx={{ my: [2] }} id="signinButton" onClick={this.props.auth0.loginWithRedirect}>
           Sign In
         </Button>
         <Text sx={{ my: 4 }}>

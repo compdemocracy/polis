@@ -13,9 +13,8 @@ class PasswordResetInit extends React.Component {
         <h1>Password Reset</h1>
         <Box sx={{ my: [4] }}>
           <Text>
-            Password reset is handled through Auth0. 
-            Please <Link to="/signin">sign in</Link> and use the 
-            &ldquo;Forgot Password?&rdquo; link on the Auth0 login page.
+            Password reset is handled through Auth0. Please <Link to="/signin">sign in</Link> and
+            use the &ldquo;Forgot Password?&rdquo; link on the Auth0 login page.
           </Text>
         </Box>
       </StaticLayout>

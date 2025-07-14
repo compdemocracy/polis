@@ -30,7 +30,7 @@ class ModerateCommentsTodo extends React.Component {
       return null
     }
 
-    return this.props.unmoderated_comments.slice(0,max).map((comment, i) => {
+    return this.props.unmoderated_comments.slice(0, max).map((comment, i) => {
       return (
         <Comment
           key={i}
@@ -46,16 +46,16 @@ class ModerateCommentsTodo extends React.Component {
         />
       )
     })
-    
   }
 
   render() {
-    const max = 100;
+    const max = 100
     return (
       <div data-testid="pending-comment">
         <div>
-          <p> Displays maximum {max} comments </p> 
-          {this.props.unmoderated_comments !== null && Array.isArray(this.props.unmoderated_comments)
+          <p> Displays maximum {max} comments </p>
+          {this.props.unmoderated_comments !== null &&
+          Array.isArray(this.props.unmoderated_comments)
             ? this.createCommentMarkup(max)
             : 'Loading unmoderated comments...'}
         </div>

@@ -1,14 +1,14 @@
-const eslint = require('@eslint/js');
-const globals = require('globals');
-const jsxA11yPlugin = require('eslint-plugin-jsx-a11y');
-const reactPlugin = require('eslint-plugin-react');
-const importPlugin = require('eslint-plugin-import');
-const babelParser = require('@babel/eslint-parser');
+const eslint = require('@eslint/js')
+const globals = require('globals')
+const jsxA11yPlugin = require('eslint-plugin-jsx-a11y')
+const reactPlugin = require('eslint-plugin-react')
+const importPlugin = require('eslint-plugin-import')
+const babelParser = require('@babel/eslint-parser')
 
 module.exports = [
   {
     // Base configuration for all files
-    ignores: ['build/**'],
+    ignores: ['build/**']
   },
   eslint.configs.recommended,
   {
@@ -16,7 +16,7 @@ module.exports = [
     files: ['**/*.js', '**/*.jsx'],
     name: 'import-recommended',
     rules: {
-      ...importPlugin.configs.recommended.rules,
+      ...importPlugin.configs.recommended.rules
     }
   },
   {
@@ -24,7 +24,7 @@ module.exports = [
     files: ['**/*.js', '**/*.jsx'],
     name: 'jsx-a11y-recommended',
     rules: {
-      ...jsxA11yPlugin.configs.recommended.rules,
+      ...jsxA11yPlugin.configs.recommended.rules
     }
   },
   {
@@ -32,7 +32,7 @@ module.exports = [
     files: ['**/*.js', '**/*.jsx'],
     name: 'react-recommended',
     rules: {
-      ...reactPlugin.configs.recommended.rules,
+      ...reactPlugin.configs.recommended.rules
     }
   },
   {
@@ -46,7 +46,7 @@ module.exports = [
         ecmaFeatures: {
           jsx: true
         },
-        requireConfigFile: false,
+        requireConfigFile: false
       },
       globals: {
         ...globals.browser,
@@ -54,13 +54,13 @@ module.exports = [
         process: 'readonly',
         // jQuery globals
         $: 'readonly',
-        jQuery: 'readonly',
-      },
+        jQuery: 'readonly'
+      }
     },
     plugins: {
       'jsx-a11y': jsxA11yPlugin,
-      'react': reactPlugin,
-      'import': importPlugin,
+      react: reactPlugin,
+      import: importPlugin
     },
     settings: {
       react: {
@@ -85,8 +85,8 @@ module.exports = [
     files: ['webpack.config.js', 'eslint.config.js'],
     languageOptions: {
       globals: {
-        ...globals.node,
-      },
-    },
+        ...globals.node
+      }
+    }
   }
-]; 
+]

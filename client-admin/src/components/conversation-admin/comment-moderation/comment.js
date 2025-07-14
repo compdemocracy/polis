@@ -25,7 +25,7 @@ class Comment extends React.Component {
 
   render() {
     return (
-      <Card sx={{ mb: [3], minWidth: '35em' }} data-testid='pending-comment'>
+      <Card sx={{ mb: [3], minWidth: '35em' }} data-testid="pending-comment">
         <Box>
           <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>
             {this.props.comment.active
@@ -38,38 +38,27 @@ class Comment extends React.Component {
               justifyContent: 'space-between',
               alignItems: 'center',
               width: '100%'
-            }}
-          >
+            }}>
             <Box>
               {this.props.acceptButton ? (
-                <Button
-                  sx={{ mr: [3] }}
-                  onClick={this.onAcceptClicked.bind(this)}
-                >
+                <Button sx={{ mr: [3] }} onClick={this.onAcceptClicked.bind(this)}>
                   {this.props.acceptButtonText}
                 </Button>
               ) : null}
               {this.props.rejectButton ? (
-                <Button
-                  onClick={this.onRejectClicked.bind(this)}
-                  data-testid='reject-comment'
-                >
+                <Button onClick={this.onRejectClicked.bind(this)} data-testid="reject-comment">
                   {this.props.rejectButtonText}
                 </Button>
               ) : null}
             </Box>
             <Flex sx={{ alignItems: 'center' }}>
-              <Link
-                target='_blank'
-                sx={{ mr: [2] }}
-                href='https://compdemocracy.org/metadata'
-              >
+              <Link target="_blank" sx={{ mr: [2] }} href="https://compdemocracy.org/metadata">
                 {this.props.isMetaCheckbox ? 'metadata' : null}
               </Link>
               {this.props.isMetaCheckbox ? (
                 <input
-                  type='checkbox'
-                  label='metadata'
+                  type="checkbox"
+                  label="metadata"
                   ref={(c) => (this.is_meta = c)}
                   checked={this.props.comment.is_meta}
                   onChange={this.onIsMetaClicked.bind(this)}

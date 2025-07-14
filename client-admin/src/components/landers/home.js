@@ -17,19 +17,16 @@ const Index = () => {
           lineHeight: 'body',
           mb: [4, null, 5]
         }}>
-        Polis is a real-time system for gathering, analyzing and understanding
-        what large groups of people think in their own words, enabled by
-        advanced statistics and machine learning.
+        Polis is a real-time system for gathering, analyzing and understanding what large groups of
+        people think in their own words, enabled by advanced statistics and machine learning.
       </Heading>
       <Box sx={{ mb: [4, null, 5] }}>
         <Text>
-          Polis has been used all over the world by governments, academics,
-          independent media and citizens, and is completely open source.
+          Polis has been used all over the world by governments, academics, independent media and
+          citizens, and is completely open source.
         </Text>
       </Box>
-      <Heading
-        as="h3"
-        sx={{ fontSize: [4], lineHeight: 'body', mb: [2, null, 3] }}>
+      <Heading as="h3" sx={{ fontSize: [4], lineHeight: 'body', mb: [2, null, 3] }}>
         Get Started
       </Heading>
       <Box sx={{ mb: [4, null, 5] }}>
@@ -39,9 +36,7 @@ const Index = () => {
       </Box>
       <Press />
       <ExploreKnowledgeBase />
-      <Heading
-        as="h3"
-        sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
+      <Heading as="h3" sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
         Contribute
       </Heading>
       <Box sx={{ mb: [4, null, 5] }}>

@@ -45,8 +45,8 @@ class DataExport extends React.Component {
     return (
       <div>
         <p>
-          Data from this conversation will be sent to your email. (This can take
-          a little while, especially for larger conversations).
+          Data from this conversation will be sent to your email. (This can take a little while,
+          especially for larger conversations).
         </p>
       </div>
     )
@@ -122,12 +122,10 @@ class DataExport extends React.Component {
             })}
           </select>
           <p>
-            By default, the entire dataset is returned. To limit the last
-            timestamp returned, enter a date here.
+            By default, the entire dataset is returned. To limit the last timestamp returned, enter
+            a date here.
           </p>
-          <button onClick={this.handleExportClicked().bind(this)}>
-            Export
-          </button>
+          <button onClick={this.handleExportClicked().bind(this)}>Export</button>
           {this.state.showHelpMessage ? this.showHelpMessage() : null}
         </div>
       </div>

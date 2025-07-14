@@ -10,14 +10,14 @@ import PolisNet from '../../util/net'
 const { urlPrefix } = Url
 
 const getCurrentTimestamp = () => {
-  const d = new Date();
-  const pad = n => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
-};
+  const d = new Date()
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`
+}
 
 const getDownloadFilename = (conversation_id) => {
-  return `${getCurrentTimestamp()}-${conversation_id}-xid.csv`;
-};
+  return `${getCurrentTimestamp()}-${conversation_id}-xid.csv`
+}
 
 class ParticipantXids extends React.Component {
   state = {
@@ -31,19 +31,19 @@ class ParticipantXids extends React.Component {
     PolisNet.polisGet('/api/v3/conversationUuid', {
       conversation_id: this.props.conversation_id
     })
-      .then(data => {
+      .then((data) => {
         this.setState({
           conversationUuid: data.conversation_uuid,
           isLoading: false
-        });
+        })
       })
-      .catch(error => {
-        console.error('Error fetching UUID:', error);
+      .catch((error) => {
+        console.error('Error fetching UUID:', error)
         this.setState({
           error: 'Failed to fetch conversation UUID',
           isLoading: false
-        });
-      });
+        })
+      })
   }
 
   componentDidMount() {
@@ -53,9 +53,10 @@ class ParticipantXids extends React.Component {
 
   componentDidUpdate(prevProps) {
     // Try again if conversation_id changes or auth state changes
-    const authStateChanged = prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
-                             prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
-    
+    const authStateChanged =
+      prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
+      prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
+
     if (prevProps.conversation_id !== this.props.conversation_id || authStateChanged) {
       this.loadConversationUuidIfNeeded()
     }
@@ -63,20 +64,22 @@ class ParticipantXids extends React.Component {
 
   loadConversationUuidIfNeeded() {
     // Only load if we have a conversation ID and Auth0 is ready (not loading)
-    if (this.props.conversation_id && 
-        this.props.auth0 && 
-        !this.props.auth0.isLoading && 
-        !this.state.conversationUuid) {
+    if (
+      this.props.conversation_id &&
+      this.props.auth0 &&
+      !this.props.auth0.isLoading &&
+      !this.state.conversationUuid
+    ) {
       this.loadConversationUuid()
     }
   }
 
   render() {
-    const { conversation_id } = this.props;
-    const { conversationUuid, isLoading, error } = this.state;
+    const { conversation_id } = this.props
+    const { conversationUuid, isLoading, error } = this.state
 
     // Only calculate these values if we have a UUID
-    const downloadFilename = getDownloadFilename(conversation_id);
+    const downloadFilename = getDownloadFilename(conversation_id)
 
     return (
       <div>
@@ -121,8 +124,7 @@ class ParticipantXids extends React.Component {
               <a
                 download={downloadFilename}
                 href={`${urlPrefix}api/v3/xid/${conversationUuid}-xid.csv`}
-                type="text/csv"
-              >
+                type="text/csv">
                 xid csv download: {downloadFilename}
               </a>
             </Text>
@@ -160,44 +162,101 @@ class ParticipantXids extends React.Component {
 
         <ul>
           <li>
-            Sometimes, the <Link target="_blank" href="https://compdemocracy.org/owner">owner</Link> of a <Link target="_blank" href="https://compdemocracy.org/conversation">conversation</Link> has some existing linkage to the identity of their <Link target="_blank" href="https://compdemocracy.org/participant">participants</Link>,
-            i.e., they are sending out an email campaign or people are participating behind a login wall where the
-            conversation is embedded
+            Sometimes, the{' '}
+            <Link target="_blank" href="https://compdemocracy.org/owner">
+              owner
+            </Link>{' '}
+            of a{' '}
+            <Link target="_blank" href="https://compdemocracy.org/conversation">
+              conversation
+            </Link>{' '}
+            has some existing linkage to the identity of their{' '}
+            <Link target="_blank" href="https://compdemocracy.org/participant">
+              participants
+            </Link>
+            , i.e., they are sending out an email campaign or people are participating behind a
+            login wall where the conversation is embedded
           </li>
 
           <li>
-            A note: using <Link target="_blank" href="https://compdemocracy.org/xid">xid</Link> assumes that the <Link target="_blank" href="https://compdemocracy.org/owners">owner</Link> has the token, this is different from <Link target="_blank" href="https://compdemocracy.org/creating-single-use-urls">creating single use urls</Link>
+            A note: using{' '}
+            <Link target="_blank" href="https://compdemocracy.org/xid">
+              xid
+            </Link>{' '}
+            assumes that the{' '}
+            <Link target="_blank" href="https://compdemocracy.org/owners">
+              owner
+            </Link>{' '}
+            has the token, this is different from{' '}
+            <Link target="_blank" href="https://compdemocracy.org/creating-single-use-urls">
+              creating single use urls
+            </Link>
           </li>
 
           <li>
-            <Link target="_blank" href="https://compdemocracy.org/xid">xid</Link> works in the embedded case — i.e., the <Link target="_blank" href="https://compdemocracy.org/owners">owner</Link> has added the <Link target="_blank" href="https://compdemocracy.org/embed-code">embed code</Link> to a page on their own web
-            property
+            <Link target="_blank" href="https://compdemocracy.org/xid">
+              xid
+            </Link>{' '}
+            works in the embedded case — i.e., the{' '}
+            <Link target="_blank" href="https://compdemocracy.org/owners">
+              owner
+            </Link>{' '}
+            has added the{' '}
+            <Link target="_blank" href="https://compdemocracy.org/embed-code">
+              embed code
+            </Link>{' '}
+            to a page on their own web property
           </li>
 
           <li>
-            Once the <Link target="_blank" href="https://compdemocracy.org/conversation">conversation</Link> has been embedded on a third party webpage, that page can, however it likes, via
-            JavaScript or via templating for instance, add the data attribute <code>data-xid=&quot;test&quot;</code>
+            Once the{' '}
+            <Link target="_blank" href="https://compdemocracy.org/conversation">
+              conversation
+            </Link>{' '}
+            has been embedded on a third party webpage, that page can, however it likes, via
+            JavaScript or via templating for instance, add the data attribute{' '}
+            <code>data-xid=&quot;test&quot;</code>
           </li>
 
           <li>
-            The <Link target="_blank" href="https://compdemocracy.org/xid">xid</Link> value for each participant will be available on the participation record in the <Link target="_blank" href="https://compdemocracy.org/export">export</Link>
+            The{' '}
+            <Link target="_blank" href="https://compdemocracy.org/xid">
+              xid
+            </Link>{' '}
+            value for each participant will be available on the participation record in the{' '}
+            <Link target="_blank" href="https://compdemocracy.org/export">
+              export
+            </Link>
           </li>
 
           <li>
-            <Link target="_blank" href="https://compdemocracy.org/xid">Example</Link>
+            <Link target="_blank" href="https://compdemocracy.org/xid">
+              Example
+            </Link>
             <ul>
               <li>
-                A common workflow for using <Link target="_blank" href="https://compdemocracy.org/xid">xid</Link> involves a table of demographic data available from a polling
-                provider
+                A common workflow for using{' '}
+                <Link target="_blank" href="https://compdemocracy.org/xid">
+                  xid
+                </Link>{' '}
+                involves a table of demographic data available from a polling provider
               </li>
 
               <li>
-                <Link target="_blank" href="https://compdemocracy.org/participant">Participants</Link> are sent an email and invited to participate
+                <Link target="_blank" href="https://compdemocracy.org/participant">
+                  Participants
+                </Link>{' '}
+                are sent an email and invited to participate
               </li>
 
               <li>
-                Then, when the <Link target="_blank" href="https://compdemocracy.org/participant">participant</Link> clicks through the email to a custom url, custom JavaScript written by
-                whoever is controlling the third party website on which polis is embedded grabs a token out of the url and adds it to the
+                Then, when the{' '}
+                <Link target="_blank" href="https://compdemocracy.org/participant">
+                  participant
+                </Link>{' '}
+                clicks through the email to a custom url, custom JavaScript written by whoever is
+                controlling the third party website on which polis is embedded grabs a token out of
+                the url and adds it to the
                 <div sx={{ display: 'inline-block' }}>
                   <code>data-xid=&quot;someTokenFromTheURLBarThatIdentifiesTheUser&quot;</code>
                 </div>
@@ -205,17 +264,16 @@ class ParticipantXids extends React.Component {
             </ul>
           </li>
 
-          <li>
-            Embed code parameter that allows login-less participation by known users
-          </li>
+          <li>Embed code parameter that allows login-less participation by known users</li>
 
           <li>
-            Usage: <code>data-xid=&quot;guid&quot;</code>, or <code>data-xid=&quot;5647434556754623&quot;</code>, or less anonymously and not
+            Usage: <code>data-xid=&quot;guid&quot;</code>, or{' '}
+            <code>data-xid=&quot;5647434556754623&quot;</code>, or less anonymously and not
             recommended <code>data-xid=&quot;foo@bar.com&quot;</code>
           </li>
         </ul>
       </div>
-    );
+    )
   }
 }
 
@@ -224,4 +282,4 @@ ParticipantXids.propTypes = {
   auth0: PropTypes.object
 }
 
-export default withAuth0(ParticipantXids) 
+export default withAuth0(ParticipantXids)

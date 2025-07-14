@@ -19,7 +19,7 @@ class ReportsList extends React.Component {
       loading: true,
       reports: []
     }
-    this.oidcReadyHandler = null;
+    this.oidcReadyHandler = null
   }
 
   getData() {
@@ -36,35 +36,33 @@ class ReportsList extends React.Component {
   }
 
   loadInitialData() {
-    this.props.dispatch(
-      populateZidMetadataStore(this.props.match.params.conversation_id)
-    );
-    
+    this.props.dispatch(populateZidMetadataStore(this.props.match.params.conversation_id))
+
     // If we already have is_mod, get the data
-    const { zid_metadata } = this.props;
+    const { zid_metadata } = this.props
     if (zid_metadata?.is_mod) {
-      this.getData();
+      this.getData()
     }
   }
 
   componentDidMount() {
     // Listen for oidcReady event
     this.oidcReadyHandler = () => {
-      this.loadInitialData();
-    };
-    
-    window.addEventListener('oidcReady', this.oidcReadyHandler);
-    
+      this.loadInitialData()
+    }
+
+    window.addEventListener('oidcReady', this.oidcReadyHandler)
+
     // If auth0 is already ready, call loadInitialData immediately
     if (window.oidcReady) {
-      this.loadInitialData();
+      this.loadInitialData()
     }
   }
 
   componentWillUnmount() {
     // Clean up event listener
     if (this.oidcReadyHandler) {
-      window.removeEventListener('oidcReady', this.oidcReadyHandler);
+      window.removeEventListener('oidcReady', this.oidcReadyHandler)
     }
   }
 
@@ -108,9 +106,7 @@ class ReportsList extends React.Component {
           Report
         </Heading>
         <Box sx={{ mb: [3, null, 4] }}>
-          <Button onClick={this.createReportClicked.bind(this)}>
-            Create report url
-          </Button>
+          <Button onClick={this.createReportClicked.bind(this)}>Create report url</Button>
         </Box>
         {this.state.reports.map((report) => {
           return (
@@ -141,4 +137,4 @@ ReportsList.propTypes = {
   })
 }
 
-export default withAuth0(ReportsList);
+export default withAuth0(ReportsList)

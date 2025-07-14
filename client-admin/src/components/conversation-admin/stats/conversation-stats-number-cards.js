@@ -7,9 +7,7 @@ import NumberCard from './conversation-stats-number-card'
 class NumberCards extends React.Component {
   render() {
     const data = this.props.data
-    const averageVotes = (
-      data.voteTimes.length / data.firstVoteTimes.length
-    ).toFixed(2)
+    const averageVotes = (data.voteTimes.length / data.firstVoteTimes.length).toFixed(2)
     return (
       <div>
         <NumberCard
@@ -17,20 +15,12 @@ class NumberCards extends React.Component {
           subheading="participants voted"
           icon="users"
         />
-        <NumberCard
-          datum={data.voteTimes.length}
-          subheading="votes were cast"
-          icon="tags"
-        />
+        <NumberCard datum={data.voteTimes.length} subheading="votes were cast" icon="tags" />
         <NumberCard
           datum={isNaN(averageVotes) ? 0 : Number(averageVotes)}
           subheading="votes per participant on average"
         />
-        <NumberCard
-          datum={data.firstCommentTimes.length}
-          subheading="commented"
-          icon="users"
-        />
+        <NumberCard datum={data.firstCommentTimes.length} subheading="commented" icon="users" />
         <NumberCard
           datum={data.commentTimes.length}
           subheading="comments submitted"

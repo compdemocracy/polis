@@ -5,12 +5,7 @@ import PropTypes from 'prop-types'
 
 import { handleZidMetadataUpdate } from '../../actions'
 
-export const CheckboxField = ({
-  field,
-  label = '',
-  children,
-  isIntegerBool = false
-}) => {
+export const CheckboxField = ({ field, label = '', children, isIntegerBool = false }) => {
   const { zid_metadata } = useSelector((state) => state.zid_metadata)
   const [state, setState] = useState(zid_metadata[field])
   const dispatch = useDispatch()
@@ -38,9 +33,7 @@ export const CheckboxField = ({
           type="checkbox"
           label={label}
           data-testid={field}
-          checked={
-            isIntegerBool ? zid_metadata[field] === 1 : zid_metadata[field]
-          }
+          checked={isIntegerBool ? zid_metadata[field] === 1 : zid_metadata[field]}
           onChange={
             isIntegerBool
               ? () => handleIntegerBoolValueChange(field)

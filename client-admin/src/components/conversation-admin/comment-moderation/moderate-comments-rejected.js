@@ -2,10 +2,7 @@
 
 import React from 'react'
 import PropTypes from 'prop-types'
-import {
-  changeCommentStatusToAccepted,
-  changeCommentCommentIsMeta
-} from '../../../actions'
+import { changeCommentStatusToAccepted, changeCommentCommentIsMeta } from '../../../actions'
 import { connect } from 'react-redux'
 import Comment from './comment'
 

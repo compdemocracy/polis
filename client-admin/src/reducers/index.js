@@ -30,7 +30,7 @@ const rootReducer = combineReducers({
   mod_ptpt_featured,
   mod_ptpt_hidden,
   seed_comments,
-  stats,
+  stats
 })
 
 export default rootReducer

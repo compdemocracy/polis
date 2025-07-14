@@ -8,15 +8,11 @@ import { withAuth0 } from '@auth0/auth0-react'
 
 class SignOut extends React.Component {
   componentDidMount() {
-    this.props.auth0.logout({ returnTo: `${window.location.origin}/home`});
+    this.props.auth0.logout({ returnTo: `${window.location.origin}/home` })
   }
 
   render() {
-    return (
-      <div>
-        Signing out...
-      </div>
-    )
+    return <div>Signing out...</div>
   }
 }
 

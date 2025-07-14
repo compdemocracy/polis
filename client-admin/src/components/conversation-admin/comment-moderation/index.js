@@ -42,9 +42,10 @@ class CommentModeration extends React.Component {
 
   componentDidUpdate(prevProps) {
     // Try again if conversation_id changes or auth state changes
-    const authStateChanged = prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
-                             prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
-    
+    const authStateChanged =
+      prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
+      prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
+
     if (prevProps.conversation_id !== this.props.conversation_id || authStateChanged) {
       this.loadCommentsIfNeeded()
     }
@@ -52,11 +53,9 @@ class CommentModeration extends React.Component {
 
   loadCommentsIfNeeded() {
     // Only load if we have a conversation ID and Auth0 is ready (not loading)
-    if (this.props.conversation_id && 
-        this.props.auth0 && 
-        !this.props.auth0.isLoading) {
+    if (this.props.conversation_id && this.props.auth0 && !this.props.auth0.isLoading) {
       this.loadComments()
-      
+
       // Set up polling if not already set up
       if (!this.getCommentsRepeatedly) {
         this.getCommentsRepeatedly = setInterval(() => {
@@ -115,7 +114,7 @@ class CommentModeration extends React.Component {
               : null}
           </Link>
           <Link
-          data-testid="filter-rejected"
+            data-testid="filter-rejected"
             sx={{
               mr: [4],
               variant: url === 'rejected' ? 'links.activeNav' : 'links.nav'
@@ -129,21 +128,9 @@ class CommentModeration extends React.Component {
         </Flex>
         <Box>
           <Switch>
-            <Route
-              exact
-              path={`${match.url}`}
-              component={ModerateCommentsTodo}
-            />
-            <Route
-              exact
-              path={`${match.url}/accepted`}
-              component={ModerateCommentsAccepted}
-            />
-            <Route
-              exact
-              path={`${match.url}/rejected`}
-              component={ModerateCommentsRejected}
-            />
+            <Route exact path={`${match.url}`} component={ModerateCommentsTodo} />
+            <Route exact path={`${match.url}/accepted`} component={ModerateCommentsAccepted} />
+            <Route exact path={`${match.url}/rejected`} component={ModerateCommentsRejected} />
           </Switch>
         </Box>
       </Box>

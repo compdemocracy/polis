@@ -29,14 +29,14 @@ const getAccessTokenSilentlySPA = async (options) => {
       })
     } catch (e) {
       console.error('Error getting Auth0 token:', e)
-      
+
       // Handle specific Auth0 errors
       if (e.error === 'login_required' && auth0LoginRedirect) {
         console.warn('Login required, redirecting to Auth0')
         auth0LoginRedirect()
         return null
       }
-      
+
       // Let the error bubble up to be handled by the calling code
       throw e
     }
@@ -49,7 +49,7 @@ const getAccessTokenSilentlySPA = async (options) => {
 const handleAuthError = (error, response) => {
   if (response && (response.status === 401 || response.status === 403)) {
     console.warn('Authentication/authorization error:', response.status)
-    
+
     // For 401 (unauthorized), try to redirect to login
     if (response.status === 401 && auth0LoginRedirect) {
       console.warn('Token expired or invalid, redirecting to login')
@@ -58,85 +58,87 @@ const handleAuthError = (error, response) => {
       }, 1000) // Small delay to allow error handling to complete
     }
   }
-  
+
   throw error
 }
 
 async function polisFetch(api, data, type) {
   if (typeof api !== 'string') {
-    throw new Error('api param should be a string');
+    throw new Error('api param should be a string')
   }
 
   if (api && api.length && api[0] === '/') {
-    api = api.slice(1);
+    api = api.slice(1)
   }
 
-  let url = urlPrefix + basePath + api;
+  let url = urlPrefix + basePath + api
 
   const headers = {
     'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'max-age=0',
-  };
+    'Cache-Control': 'max-age=0'
+  }
 
-  let body = null;
-  let method = type ? type.toUpperCase() : 'GET';
+  let body = null
+  let method = type ? type.toUpperCase() : 'GET'
 
   if (method === 'GET' && data) {
-    const queryParams = new URLSearchParams(data);
-    url += `?${queryParams.toString()}`;
+    const queryParams = new URLSearchParams(data)
+    url += `?${queryParams.toString()}`
   } else if (method === 'POST' && data) {
-    body = JSON.stringify(data);
+    body = JSON.stringify(data)
   }
-  
+
   try {
-    const token = await getAccessTokenSilentlySPA();
-    
+    const token = await getAccessTokenSilentlySPA()
+
     // Only add the header if a token exists
     if (token) {
-      headers.Authorization = `Bearer ${token}`;
+      headers.Authorization = `Bearer ${token}`
     } else {
-      console.warn('⚠️ No token available - request will be sent without auth');
+      console.warn('⚠️ No token available - request will be sent without auth')
     }
   } catch (error) {
-    console.error('❌ Error getting access token:', error);
+    console.error('❌ Error getting access token:', error)
     console.error('Error details:', {
       name: error.name,
       message: error.message,
       stack: error.stack
-    });
+    })
     // Re-throw the error to be caught by the caller
-    throw error;
+    throw error
   }
 
   try {
     const response = await fetch(url, {
       method: method,
       headers: headers,
-      body: body,
-    });
+      body: body
+    })
 
     if (!response.ok && response.status !== 304) {
       // Read the response body to include in the error
-      const errorBody = await response.text();
+      const errorBody = await response.text()
       console.error('❌ API Error Response:', {
         status: response.status,
         statusText: response.statusText,
         body: errorBody
-      });
-      
-      // Create a new error object and attach the response body
-      const error = new Error(`Polis API Error: ${method} ${url} failed with status ${response.status} (${response.statusText})`);
-      error.responseText = errorBody;
-      error.status = response.status;
+      })
 
-      return handleAuthError(error, response);
+      // Create a new error object and attach the response body
+      const error = new Error(
+        `Polis API Error: ${method} ${url} failed with status ${response.status} (${response.statusText})`
+      )
+      error.responseText = errorBody
+      error.status = response.status
+
+      return handleAuthError(error, response)
     }
 
-    const jsonResponse = await response.json();
-    return jsonResponse;
+    const jsonResponse = await response.json()
+    return jsonResponse
   } catch (error) {
-    console.error('❌ polisFetch error:', error);
-    throw error;
+    console.error('❌ polisFetch error:', error)
+    throw error
   }
 }
 
@@ -151,13 +153,13 @@ async function polisGet(api, data) {
   } catch (error) {
     // If we have a 403, it might be the initial race condition. Retry once.
     if (error.status === 403) {
-      console.warn('⚠️ Received 403 on GET, retrying request once after a short delay...');
-      await new Promise(resolve => setTimeout(resolve, 500)); // wait 500ms
-      return await polisFetch(api, data, 'GET'); // This is the retry
+      console.warn('⚠️ Received 403 on GET, retrying request once after a short delay...')
+      await new Promise((resolve) => setTimeout(resolve, 500)) // wait 500ms
+      return await polisFetch(api, data, 'GET') // This is the retry
     }
     // For other errors, or if retry fails, log and re-throw.
     console.error('❌ polisGet error:', error)
-    throw error;
+    throw error
   }
 }
 

@@ -21,10 +21,7 @@ class InteriorHeader extends React.Component {
             justifyContent: 'space-between'
           }}>
           <Link sx={{ variant: 'links.header' }} to="/">
-            <Logomark
-              style={{ marginRight: 10, position: 'relative', top: 6 }}
-              fill={'white'}
-            />
+            <Logomark style={{ marginRight: 10, position: 'relative', top: 6 }} fill={'white'} />
             Polis
           </Link>
           <Link id="signoutLink" sx={{ variant: 'links.header' }} to="/signout">

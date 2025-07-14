@@ -3,10 +3,7 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import {
-  populateConversationsStore,
-  handleCreateConversationSubmit
-} from '../../actions'
+import { populateConversationsStore, handleCreateConversationSubmit } from '../../actions'
 
 import Url from '../../util/url'
 import { withAuth0 } from '@auth0/auth0-react'
@@ -21,27 +18,27 @@ class Conversations extends React.Component {
       filterMinParticipantCount: 0,
       sort: 'participant_count'
     }
-    this.oidcReadyHandler = null;
+    this.oidcReadyHandler = null
   }
 
   componentDidMount() {
     // Listen for oidcReady event
     this.oidcReadyHandler = () => {
-      this.loadConversations();
-    };
-    
-    window.addEventListener('oidcReady', this.oidcReadyHandler);
-    
+      this.loadConversations()
+    }
+
+    window.addEventListener('oidcReady', this.oidcReadyHandler)
+
     // If auth0 is already ready, call loadConversations immediately
     if (window.oidcReady) {
-      this.loadConversations();
+      this.loadConversations()
     }
   }
 
   componentWillUnmount() {
     // Clean up event listener
     if (this.oidcReadyHandler) {
-      window.removeEventListener('oidcReady', this.oidcReadyHandler);
+      window.removeEventListener('oidcReady', this.oidcReadyHandler)
     }
   }
 
@@ -51,7 +48,7 @@ class Conversations extends React.Component {
 
   loadConversations() {
     if (!this.props.loading && !this.props.conversations) {
-      this.props.dispatch(populateConversationsStore());
+      this.props.dispatch(populateConversationsStore())
     }
   }
 
@@ -110,21 +107,12 @@ class Conversations extends React.Component {
           All Conversations
         </Heading>
         <Box sx={{ mb: [3, null, 4] }}>
-          <Button onClick={this.onNewClicked.bind(this)}>
-            Create new conversation
-          </Button>
+          <Button onClick={this.onNewClicked.bind(this)}>Create new conversation</Button>
         </Box>
         <Box>
-          <Box sx={{ mb: [3] }}>
-            {this.props.loading ? 'Loading conversations...' : null}
-          </Box>
+          <Box sx={{ mb: [3] }}>{this.props.loading ? 'Loading conversations...' : null}</Box>
           {err ? (
-            <Text>
-              {'Error loading conversations: ' +
-                err.status +
-                ' ' +
-                err.statusText}
-            </Text>
+            <Text>{'Error loading conversations: ' + err.status + ' ' + err.statusText}</Text>
           ) : null}
           {conversations
             ? conversations.map((c, i) => {
@@ -162,4 +150,4 @@ Conversations.propTypes = {
   })
 }
 
-export default withAuth0(Conversations);
+export default withAuth0(Conversations)

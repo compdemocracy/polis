@@ -10,8 +10,7 @@ import victoryTheme from './victoryTheme'
 class Voters extends React.Component {
   render() {
     const { size, firstVoteTimes } = this.props
-    if (firstVoteTimes.length <= 1)
-      return null /* no area chart with 1 data point */
+    if (firstVoteTimes.length <= 1) return null /* no area chart with 1 data point */
     return (
       <Box sx={{ mt: [5] }}>
         <Heading

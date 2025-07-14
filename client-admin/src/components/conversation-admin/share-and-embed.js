@@ -17,10 +17,7 @@ class ShareAndEmbed extends React.Component {
     return (
       <p data-testid="embed-page">
         {'Embedded on: '}
-        <a
-          style={{ color: 'black' }}
-          target="blank"
-          href={this.props.zid_metadata.parent_url}>
+        <a style={{ color: 'black' }} target="blank" href={this.props.zid_metadata.parent_url}>
           {this.props.zid_metadata.parent_url}
         </a>
       </p>
@@ -61,9 +58,7 @@ class ShareAndEmbed extends React.Component {
               display: 'block',
               mb: [2]
             }}>
-            <a
-              target="blank"
-              href={Url.urlPrefix + match.params.conversation_id}>
+            <a target="blank" href={Url.urlPrefix + match.params.conversation_id}>
               {Url.urlPrefix + match.params.conversation_id}
             </a>
           </Text>
@@ -92,15 +87,9 @@ class ShareAndEmbed extends React.Component {
               mt: [2]
             }}>
             This embed code can only be used to embed a single conversation.{' '}
-            <Link to="/integrate">
-              I want to integrate pol.is on my entire site.
-            </Link>
+            <Link to="/integrate">I want to integrate pol.is on my entire site.</Link>
           </Text>
-          <div>
-            {this.props.zid_metadata.parent_url
-              ? this.constructEmbeddedOnMarkup()
-              : ''}
-          </div>
+          <div>{this.props.zid_metadata.parent_url ? this.constructEmbeddedOnMarkup() : ''}</div>
         </Box>
 
         <ParticipantXids conversation_id={match.params.conversation_id} />
