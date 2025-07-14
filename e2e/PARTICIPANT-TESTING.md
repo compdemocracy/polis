@@ -141,7 +141,7 @@ npm run cy:open
 
 ## Test Environment Requirements
 
-### Auth0 Simulator
+### OIDC Simulator
 
 - Must be running for standard user authentication
 - Used to create conversations and comments
@@ -150,7 +150,7 @@ npm run cy:open
 ### Environment Variables
 
 ```bash
-# Auth0 configuration
+# OIDC configuration
 AUTH_ISSUER=https://localhost:3000/
 AUTH_CLIENT_ID=test-client-id
 AUTH_AUDIENCE=test-audience
@@ -207,7 +207,7 @@ CYPRESS_BASE_URL=http://localhost:5000
 ### Conversation Not Found
 
 - **Cause**: Test conversation creation failed
-- **Solution**: Verify Auth0 simulator is running and user credentials are correct
+- **Solution**: Verify OIDC simulator is running and user credentials are correct
 
 ### Cross-Conversation JWT Issues
 

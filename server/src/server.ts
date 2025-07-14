@@ -1250,7 +1250,7 @@ Thanks for using Polis!
   const handle_GET_conditionalIndexFetcher = (function () {
     return function (req: any, res: { redirect: (arg0: string) => void }) {
       if (Config.authIssuer) {
-        // Auth0 is configured - serve the admin page and let client-side handle auth
+        // OIDC is configured - serve the admin page and let client-side handle auth
         // @ts-ignore - Legacy Express v3 response type mismatch
         return fetchIndexForAdminPage(req, res);
       } else if (!browserSupportsPushState(req)) {
@@ -1263,9 +1263,9 @@ Thanks for using Polis!
         // @ts-ignore - Legacy Express v3 response type mismatch
         return fetchIndexForAdminPage(req, res);
       } else {
-        // No Auth0 configured - this shouldn't happen in production
+        // No OIDC configured - this shouldn't happen in production
         // Redirect to landing page
-        logger.warn("No Auth0 configured - redirecting to landing page");
+        logger.warn("No OIDC configured - redirecting to landing page");
         const url = getServerNameWithProtocol(req) + "/home";
         res.redirect(url);
       }

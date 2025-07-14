@@ -39,13 +39,13 @@ async function createAnonUser(): Promise<number> {
 }
 
 /**
- * Get or create a user ID based on Auth0 subject (sub)
- * This function handles the Auth0 → local user mapping using the auth0_user_mappings table
+ * Get or create a user ID based on OIDC subject (sub)
+ * This function handles the OIDC → local user mapping using the oidc_user_mappings table
  * Uses database-level upsert operations to handle race conditions more robustly
  */
-async function getOrCreateUserIDFromAuth0Sub(
-  auth0Sub: string,
-  auth0User: any,
+async function getOrCreateUserIDFromOidcSub(
+  oidcSub: string,
+  oidcUser: any,
   retryCount = 0
 ): Promise<number> {
   const maxRetries = 3;
@@ -53,21 +53,21 @@ async function getOrCreateUserIDFromAuth0Sub(
 
   // Extract email from either standard claims or custom namespace claims
   const namespace = Config.authNamespace;
-  const email = auth0User.email || auth0User[`${namespace}email`];
+  const email = oidcUser.email || oidcUser[`${namespace}email`];
   const name =
-    auth0User.name || auth0User[`${namespace}name`] || auth0User.nickname;
+    oidcUser.name || oidcUser[`${namespace}name`] || oidcUser.nickname;
 
   // Validate required fields upfront
   if (!email) {
     throw new Error(
-      `Auth0 user missing email. Sub: ${auth0Sub}, User: ${JSON.stringify(
-        auth0User
+      `OIDC user missing email. Sub: ${oidcSub}, User: ${JSON.stringify(
+        oidcUser
       )}`
     );
   }
 
-  const displayName = name || auth0User.nickname || email.split("@")[0];
-  const username = auth0User.nickname || email.split("@")[0];
+  const displayName = name || oidcUser.nickname || email.split("@")[0];
+  const username = oidcUser.nickname || email.split("@")[0];
 
   // Use a single transaction to handle the entire user creation/mapping process
   // This prevents race conditions by ensuring atomicity
@@ -81,8 +81,8 @@ async function getOrCreateUserIDFromAuth0Sub(
 
         // First, try to get existing mapping
         pg.query(
-          "SELECT uid FROM auth0_user_mappings WHERE auth0_sub = $1",
-          [auth0Sub],
+          "SELECT uid FROM oidc_user_mappings WHERE oidc_sub = $1",
+          [oidcSub],
           (mappingErr: any, mappingResult: { rows: any[] }) => {
             if (mappingErr) {
               return pg.query("ROLLBACK", [], () => reject(mappingErr));
@@ -124,9 +124,9 @@ async function getOrCreateUserIDFromAuth0Sub(
 
                 const uid = userResult.rows[0].uid;
 
-                // Check if this uid already has a mapping to a different auth0_sub
+                // Check if this uid already has a mapping to a different oidc_sub
                 pg.query(
-                  "SELECT auth0_sub FROM auth0_user_mappings WHERE uid = $1",
+                  "SELECT oidc_sub FROM oidc_user_mappings WHERE uid = $1",
                   [uid],
                   (
                     existingMappingErr: any,
@@ -139,33 +139,33 @@ async function getOrCreateUserIDFromAuth0Sub(
                     }
 
                     if (existingMappingResult.rows.length > 0) {
-                      const existingAuth0Sub =
-                        existingMappingResult.rows[0].auth0_sub;
-                      if (existingAuth0Sub === auth0Sub) {
+                      const existingOidcSub =
+                        existingMappingResult.rows[0].oidc_sub;
+                      if (existingOidcSub === oidcSub) {
                         // Same mapping already exists, just return the uid
                         return pg.query("COMMIT", [], (commitErr: any) => {
                           if (commitErr) return reject(commitErr);
                           logger.info(
-                            `Mapping already exists for Auth0 sub ${auth0Sub}: uid ${uid}`
+                            `Mapping already exists for OIDC sub ${oidcSub}: uid ${uid}`
                           );
                           resolve(uid);
                         });
                       } else {
-                        // Different Auth0 user is already mapped to this local user.
+                        // Different OIDC user is already mapped to this local user.
                         // This can happen if a user changes the email on their social login,
                         // or deletes and recreates their account. We want the new login to win.
                         logger.warn(
-                          `Local user ${uid} (${email}) was mapped to old Auth0 sub ${existingAuth0Sub}. Overwriting with new mapping for ${auth0Sub}.`
+                          `Local user ${uid} (${email}) was mapped to old OIDC sub ${existingOidcSub}. Overwriting with new mapping for ${oidcSub}.`
                         );
 
-                        // To prevent unique constraint violations on either uid or auth0_sub,
+                        // To prevent unique constraint violations on either uid or oidc_sub,
                         // we must first remove any existing mappings that would conflict.
                         const cleanupQuery =
-                          "DELETE FROM auth0_user_mappings WHERE auth0_sub = $1 OR uid = $2";
+                          "DELETE FROM oidc_user_mappings WHERE oidc_sub = $1 OR uid = $2";
 
                         pg.query(
                           cleanupQuery,
-                          [auth0Sub, uid],
+                          [oidcSub, uid],
                           (deleteErr: any) => {
                             if (deleteErr) {
                               return pg.query("ROLLBACK", [], () =>
@@ -175,8 +175,8 @@ async function getOrCreateUserIDFromAuth0Sub(
 
                             // Now that the coast is clear, insert the new mapping.
                             pg.query(
-                              "INSERT INTO auth0_user_mappings (auth0_sub, uid, created) VALUES ($1, $2, now_as_millis())",
-                              [auth0Sub, uid],
+                              "INSERT INTO oidc_user_mappings (oidc_sub, uid, created) VALUES ($1, $2, now_as_millis())",
+                              [oidcSub, uid],
                               (insertErr: any) => {
                                 if (insertErr) {
                                   return pg.query("ROLLBACK", [], () =>
@@ -197,8 +197,8 @@ async function getOrCreateUserIDFromAuth0Sub(
                     } else {
                       // No existing mapping for this uid, create new one
                       pg.query(
-                        "INSERT INTO auth0_user_mappings (auth0_sub, uid, created) VALUES ($1, $2, now_as_millis()) ON CONFLICT (auth0_sub) DO NOTHING",
-                        [auth0Sub, uid],
+                        "INSERT INTO oidc_user_mappings (oidc_sub, uid, created) VALUES ($1, $2, now_as_millis()) ON CONFLICT (oidc_sub) DO NOTHING",
+                        [oidcSub, uid],
                         (mappingInsertErr: any) => {
                           if (mappingInsertErr) {
                             return pg.query("ROLLBACK", [], () =>
@@ -210,7 +210,7 @@ async function getOrCreateUserIDFromAuth0Sub(
                           pg.query("COMMIT", [], (commitErr: any) => {
                             if (commitErr) return reject(commitErr);
                             logger.info(
-                              `Successfully created/linked user for Auth0 sub ${auth0Sub}: uid ${uid}`
+                              `Successfully created/linked user for OIDC sub ${oidcSub}: uid ${uid}`
                             );
                             resolve(uid);
                           });
@@ -229,52 +229,52 @@ async function getOrCreateUserIDFromAuth0Sub(
     return result;
   } catch (error: any) {
     logger.error(
-      `Failed to get or create user for Auth0 sub ${auth0Sub}:`,
+      `Failed to get or create user for OIDC sub ${oidcSub}:`,
       error
     );
 
     // Handle specific constraint violations with retry logic
     if (error.code === "23505") {
-      // Handle auth0_user_mappings primary key constraint violation
-      if (error.constraint === "auth0_user_mappings_pkey") {
+      // Handle oidc_user_mappings primary key constraint violation
+      if (error.constraint === "oidc_user_mappings_pkey") {
         if (retryCount < maxRetries) {
           logger.warn(
-            `Auth0 mapping constraint violation (attempt ${retryCount + 1}/${
+            `OIDC mapping constraint violation (attempt ${retryCount + 1}/${
               maxRetries + 1
-            }), retrying after ${retryDelay}ms for sub: ${auth0Sub}`
+            }), retrying after ${retryDelay}ms for sub: ${oidcSub}`
           );
 
           // Wait with jitter to reduce collision probability
           await new Promise((resolve) => setTimeout(resolve, retryDelay));
 
           // Retry with incremented count
-          return getOrCreateUserIDFromAuth0Sub(
-            auth0Sub,
-            auth0User,
+          return getOrCreateUserIDFromOidcSub(
+            oidcSub,
+            oidcUser,
             retryCount + 1
           );
         } else {
           // Max retries exceeded, try to find existing mapping
           logger.error(
-            `Max retries exceeded for Auth0 sub ${auth0Sub}, attempting final lookup`
+            `Max retries exceeded for OIDC sub ${oidcSub}, attempting final lookup`
           );
 
           try {
             const finalResult = await new Promise<number>((resolve, reject) => {
               pg.query_readOnly(
-                "SELECT uid FROM auth0_user_mappings WHERE auth0_sub = $1",
-                [auth0Sub],
+                "SELECT uid FROM oidc_user_mappings WHERE oidc_sub = $1",
+                [oidcSub],
                 (err: any, results: { rows: any[] }) => {
                   if (err) return reject(err);
                   if (!results.rows.length) {
                     return reject(
                       new Error(
-                        `Auth0 mapping not found after retries for sub: ${auth0Sub}`
+                        `OIDC mapping not found after retries for sub: ${oidcSub}`
                       )
                     );
                   }
                   logger.info(
-                    `Found existing mapping after retries for Auth0 sub ${auth0Sub}: uid ${results.rows[0].uid}`
+                    `Found existing mapping after retries for OIDC sub ${oidcSub}: uid ${results.rows[0].uid}`
                   );
                   resolve(results.rows[0].uid);
                 }
@@ -283,20 +283,20 @@ async function getOrCreateUserIDFromAuth0Sub(
             return finalResult;
           } catch (lookupError) {
             logger.error(
-              `Final lookup failed for Auth0 sub ${auth0Sub}:`,
+              `Final lookup failed for OIDC sub ${oidcSub}:`,
               lookupError
             );
             throw new Error(
-              `Unable to create or find user mapping for Auth0 sub: ${auth0Sub}. This may be due to high concurrency. Please try again.`
+              `Unable to create or find user mapping for OIDC sub: ${oidcSub}. This may be due to high concurrency. Please try again.`
             );
           }
         }
       }
 
-      // Handle other constraint violations (users_email_key, auth0_user_mappings_uid_key)
+      // Handle other constraint violations (users_email_key, oidc_user_mappings_uid_key)
       else if (
         error.constraint === "users_email_key" ||
-        error.constraint === "auth0_user_mappings_uid_key"
+        error.constraint === "oidc_user_mappings_uid_key"
       ) {
         logger.warn(
           `Constraint violation detected for ${email}, attempting recovery...`
@@ -323,7 +323,7 @@ async function getOrCreateUserIDFromAuth0Sub(
 
                   // Check if there's already a mapping for this uid
                   pg.query_readOnly(
-                    "SELECT auth0_sub FROM auth0_user_mappings WHERE uid = $1",
+                    "SELECT oidc_sub FROM oidc_user_mappings WHERE uid = $1",
                     [uid],
                     (
                       mappingCheckErr: any,
@@ -332,30 +332,30 @@ async function getOrCreateUserIDFromAuth0Sub(
                       if (mappingCheckErr) return reject(mappingCheckErr);
 
                       if (mappingCheckResult.rows.length > 0) {
-                        const existingAuth0Sub =
-                          mappingCheckResult.rows[0].auth0_sub;
-                        if (existingAuth0Sub === auth0Sub) {
-                          // Mapping already exists for this auth0_sub
+                        const existingOidcSub =
+                          mappingCheckResult.rows[0].oidc_sub;
+                        if (existingOidcSub === oidcSub) {
+                          // Mapping already exists for this oidc_sub
                           logger.info(
-                            `Recovery: mapping already exists for Auth0 sub ${auth0Sub}: uid ${uid}`
+                            `Recovery: mapping already exists for OIDC sub ${oidcSub}: uid ${uid}`
                           );
                           resolve(uid);
                         } else {
                           // Different mapping exists - this is expected with test data
                           logger.warn(
-                            `Recovery: uid ${uid} already mapped to ${existingAuth0Sub}, not creating new mapping for ${auth0Sub}`
+                            `Recovery: uid ${uid} already mapped to ${existingOidcSub}, not creating new mapping for ${oidcSub}`
                           );
                           resolve(uid);
                         }
                       } else {
                         // No mapping exists, create one
                         pg.query(
-                          "INSERT INTO auth0_user_mappings (auth0_sub, uid, created) VALUES ($1, $2, now_as_millis()) ON CONFLICT (auth0_sub) DO NOTHING",
-                          [auth0Sub, uid],
+                          "INSERT INTO oidc_user_mappings (oidc_sub, uid, created) VALUES ($1, $2, now_as_millis()) ON CONFLICT (oidc_sub) DO NOTHING",
+                          [oidcSub, uid],
                           (mappingErr: any) => {
                             if (mappingErr) return reject(mappingErr);
                             logger.info(
-                              `Recovery successful: linked existing user ${uid} to Auth0 sub ${auth0Sub}`
+                              `Recovery successful: linked existing user ${uid} to OIDC sub ${oidcSub}`
                             );
                             resolve(uid);
                           }
@@ -386,5 +386,5 @@ async function getOrCreateUserIDFromAuth0Sub(
 export {
   createAnonUser,
   generateAndRegisterZinvite,
-  getOrCreateUserIDFromAuth0Sub,
+  getOrCreateUserIDFromOidcSub,
 };

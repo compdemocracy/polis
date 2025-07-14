@@ -5,7 +5,6 @@ import { getUserInfoForUid2 } from "../user";
 import { issueAnonymousJWT } from "./anonymous-jwt";
 import { joinConversation } from "../participant";
 import { userHasAnsweredZeQuestions } from "../server-helpers";
-import logger from "../utils/logger";
 import type { ParticipantInfo } from "../d";
 import {
   createXidEntry,
@@ -72,7 +71,7 @@ function handle_POST_auth_deregister_jwt(
   // With JWT auth, the server doesn't need to do anything
   // The client is responsible for:
   // 1. Removing the JWT from localStorage/memory
-  // 2. Optionally calling Auth0's logout endpoint
+  // 2. Optionally calling OIDC logout endpoint
 
   res.status(200).json({
     status: "success",

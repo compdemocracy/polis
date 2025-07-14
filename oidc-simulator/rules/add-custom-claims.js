@@ -1,5 +1,5 @@
 function mergeUsers(user, context, callback) {
-  // This is a simplified rule for the Auth0 simulator.
+  // This is a simplified rule for the OIDC simulator.
   // The production merge logic is complex and cannot be fully replicated here
   // because the simulator's sandboxed rule environment does not allow
   // accessing a shared state (like the 'global' object) or a database

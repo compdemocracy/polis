@@ -2,9 +2,9 @@
 
 import { useEffect } from 'react'
 import { useAuth0 } from '@auth0/auth0-react'
-import { setAuth0TokenGetter, setAuth0Actions } from '../util/net'
+import { setOidcTokenGetter, setOidcActions } from '../util/net'
 
-const Auth0Connector = () => {
+const OIDCConnector = () => {
   const { getAccessTokenSilently, isAuthenticated, loginWithRedirect, isLoading, error } = useAuth0()
 
   useEffect(() => {
@@ -25,20 +25,20 @@ const Auth0Connector = () => {
         }
       }
       
-      setAuth0TokenGetter(tokenGetter);
+      setOidcTokenGetter(tokenGetter);
       
-      // Dispatch auth0Ready event to notify other components
-      window.auth0Ready = true;
-      const event = new CustomEvent('auth0Ready', { detail: { isAuthenticated: true } });
+      // Dispatch oidcReady event to notify other components
+      window.oidcReady = true;
+      const event = new CustomEvent('oidcReady', { detail: { isAuthenticated: true } });
       window.dispatchEvent(event);
     }
 
     // Always set up auth actions for error handling
-    setAuth0Actions(loginWithRedirect);
+    setOidcActions(loginWithRedirect);
   }, [getAccessTokenSilently, isAuthenticated, loginWithRedirect, isLoading, error])
 
   // This component doesn't render anything
   return null
 }
 
-export default Auth0Connector 
+export default OIDCConnector 

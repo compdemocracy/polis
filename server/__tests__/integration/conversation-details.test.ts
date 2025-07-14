@@ -32,7 +32,7 @@ describe("Conversation Details API", () => {
   let agent: Agent;
 
   beforeEach(async () => {
-    // Use JWT-based authentication with pooled users (which exist in Auth0 simulator)
+    // Use JWT-based authentication with pooled users (which exist in OIDC simulator)
     const pooledUser = getPooledTestUser(Math.floor(Math.random() * 3) + 1); // Use random pooled user
     const testUser = {
       email: pooledUser.email,

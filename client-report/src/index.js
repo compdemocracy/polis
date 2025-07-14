@@ -13,14 +13,17 @@ class Root extends React.Component {
       // Extract domain from AUTH_ISSUER URL (e.g., "https://localhost:3000/" -> "localhost:3000")
       return new URL(issuer).host;
     } catch (e) {
-      // Fallback to production domain if AUTH_ISSUER is malformed
-      console.warn('Invalid AUTH_ISSUER, falling back to production domain:', e);
-      return "compdem.us.auth0.com";
+      console.error('Invalid AUTH_ISSUER', e);
+      return null;
     }
   }
 
   render() {
     const authDomain = this.getDomainFromIssuer(process.env.AUTH_ISSUER);
+
+    if (!authDomain) {
+      return <div>Invalid AUTH_ISSUER</div>;
+    }
 
     return process.env.AUTH_CLIENT_ID ? (
       <Auth0Provider

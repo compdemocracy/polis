@@ -1,5 +1,5 @@
 /**
- * The Auth0 simulator must be running in Docker before running tests.
+ * The OIDC simulator must be running in Docker before running tests.
  * Global setup for Jest tests
  * This file is executed once before any test files are loaded
  *
@@ -76,7 +76,7 @@ async function globalSetup() {
     }
 
     // Sync pooled users with the database
-    // This ensures test users exist in both Auth0 simulator and local database
+    // This ensures test users exist in both OIDC simulator and local database
     await syncAllPooledUsers();
 
     console.log("Global test setup completed successfully");

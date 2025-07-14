@@ -33,9 +33,9 @@ services:
       # SMTP port
       - "1025:1025"
 
-  auth0-simulator:
+  oidc-simulator:
     build:
-      context: ./auth0-simulator
+      context: ./oidc-simulator
       dockerfile: Dockerfile
     ports:
       - "${AUTH_SIMULATOR_PORT:-3000}:${AUTH_SIMULATOR_PORT:-3000}"

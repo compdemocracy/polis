@@ -83,17 +83,16 @@
           return params.ui_lang;
         }
 
-        function getAuth0Token() {
-          function _getAuth0TokenFromStorage(storage) {
+        function getOidcToken() {
+          function _getOidcTokenFromStorage(storage) {
             if (!storage) return null;
 
             for (var i = 0; i < storage.length; i++) {
               var key = storage.key(i);
-              // key starts with @@auth0spajs@@ and does not end with @@user@@
               if (
                 key &&
-                key.indexOf("@@auth0spajs@@") === 0 &&
-                key.indexOf("@@user@@") !== key.length - "@@user@@".length
+                key.indexOf("<%= oidcCacheKeyPrefix %>") === 0 &&
+                key.indexOf("<%= oidcCacheKeyIdTokenSuffix %>") !== key.length - "<%= oidcCacheKeyIdTokenSuffix %>".length
               ) {
                 try {
                   var value = storage.getItem(key);
@@ -118,9 +117,9 @@
             return null;
           }
 
-          var token = _getAuth0TokenFromStorage(window.localStorage);
+          var token = _getOidcTokenFromStorage(window.localStorage);
           if (!token) {
-            token = _getAuth0TokenFromStorage(window.sessionStorage);
+            token = _getOidcTokenFromStorage(window.sessionStorage);
           }
           return token;
         }
@@ -188,7 +187,7 @@
               }
             }
             if (!token) {
-              token = getAuth0Token();
+              token = getOidcToken();
             }
             if (token) {
               xmlhttp.setRequestHeader('Authorization', 'Bearer ' + token);

@@ -1,9 +1,9 @@
 /**
  * Custom JWT implementation for anonymous and XID users
  *
- * Why not use Auth0 for these users?
- * 1. Auth0 is designed for authenticated identities, not anonymous sessions
- * 2. Creating Auth0 users for every anonymous participant would:
+ * Why not use OIDC for these users?
+ * 1. OIDC is designed for authenticated identities, not anonymous sessions
+ * 2. Creating OIDC users for every anonymous participant would:
  *    - Pollute the user database with temporary records
  *    - Incur unnecessary API calls and potential rate limits
  *    - Add complexity without benefit
@@ -38,7 +38,7 @@ interface XidJwtClaims {
   xid_participant: boolean; // XID participant flag
 }
 
-// Private key for signing XID JWTs (separate from Auth0)
+// Private key for signing XID JWTs (separate from OIDC)
 function _getPrivateKey(): string {
   const keyPath =
     Config.jwtPrivateKeyPath ||
@@ -92,7 +92,7 @@ function isXidJWT(token: string): boolean {
 
     const payload = decoded.payload;
 
-    // XID JWTs have specific claims that Auth0 JWTs don't have
+    // XID JWTs have specific claims that OIDC JWTs don't have
     return !!(payload.xid_participant && payload.xid);
   } catch (error) {
     logger.error("Error checking if token is XID JWT:", error);

@@ -6,7 +6,7 @@ import { Link, Redirect } from 'react-router-dom'
 import { Heading, Box, Text, Button, jsx } from 'theme-ui'
 import StaticLayout from './lander-layout'
 
-import withAuth0 from '../../util/withAuth0'
+import { withAuth0 } from '@auth0/auth0-react'
 
 class SignIn extends React.Component {
   static getDerivedStateFromError(error) {
@@ -25,7 +25,7 @@ class SignIn extends React.Component {
         <Button
           sx={{ my: [2] }}
           id="signinButton"
-          onClick={this.props.loginWithRedirect}>
+          onClick={this.props.auth0.loginWithRedirect}>
           Sign In
         </Button>
         <Text sx={{ my: 4 }}>

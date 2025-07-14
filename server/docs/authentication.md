@@ -1,6 +1,6 @@
 # Authentication Documentation
 
-Polis is migrating from cookie-based authentication to JWT-based authentication using Auth0 for standard users and custom JWTs for XID/anonymous participants.
+Polis is migrating from cookie-based authentication to JWT-based authentication using OIDC for standard users and custom JWTs for XID/anonymous participants.
 
 ## Documentation Structure
 
@@ -22,15 +22,6 @@ Complete documentation for XID (External ID) JWT authentication:
 - Setup instructions
 - Client integration examples
 
-### [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)
-
-Comprehensive guide for the Auth0 migration:
-
-- Current status and roadmap
-- Developer guide
-- Implementation checklist
-- Common issues and solutions
-
 ### [auth/README.md](../src/auth/README.md)
 
 Quick reference for the authentication module implementation:
@@ -44,5 +35,4 @@ Quick reference for the authentication module implementation:
 
 1. **For developers implementing authentication**: Start with [AUTH_ARCHITECTURE.md](./AUTH_ARCHITECTURE.md)
 2. **For XID integration**: See [XID_JWT.md](./XID_JWT.md)
-3. **For migration status**: Check [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)
-4. **For code implementation**: Reference [auth/README.md](../src/auth/README.md)
+3. **For code implementation**: Reference [auth/README.md](../src/auth/README.md)

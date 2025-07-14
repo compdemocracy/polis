@@ -17,7 +17,7 @@ import theme from './theme'
 
 const store = createStore(PolisReducers, applyMiddleware(thunk))
 
-// Auth0 configuration - now required
+// OIDC configuration - now required
 const auth0Domain = process.env.AUTH_ISSUER 
   ? new URL(process.env.AUTH_ISSUER).host 
   : undefined;
@@ -26,11 +26,11 @@ const auth0ClientId = process.env.AUTH_CLIENT_ID;
 const auth0Audience = process.env.AUTH_AUDIENCE;
 
 if (!auth0Domain || !auth0ClientId || !auth0Audience) {
-  console.error("Auth0 configuration is incomplete. Please check environment variables:");
+  console.error("OIDC configuration is incomplete. Please check environment variables:");
   console.error("AUTH_ISSUER:", process.env.AUTH_ISSUER);
   console.error("AUTH_CLIENT_ID:", auth0ClientId);
   console.error("AUTH_AUDIENCE:", auth0Audience);
-  throw new Error("Auth0 configuration is required");
+  throw new Error("OIDC configuration is required");
 }
 
 class Root extends React.Component {

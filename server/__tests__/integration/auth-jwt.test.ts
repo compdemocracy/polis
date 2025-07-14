@@ -7,7 +7,7 @@ import {
   newAgent,
 } from "../setup/api-test-helpers";
 
-describe("JWT Authentication with Auth0 Simulator", () => {
+describe("JWT Authentication with OIDC Simulator", () => {
   let baseTestUser: TestUser;
 
   beforeAll(async () => {
@@ -25,7 +25,7 @@ describe("JWT Authentication with Auth0 Simulator", () => {
     );
   });
 
-  test("should authenticate with a token from Auth0 simulator and retrieve user info", async () => {
+  test("should authenticate with a token from OIDC simulator and retrieve user info", async () => {
     const { agent, token } = await getJwtAuthenticatedAgent(baseTestUser);
     console.log("getJwtAuthenticatedAgent", {
       token: token ? "received" : "missing",
@@ -79,15 +79,15 @@ describe("JWT Authentication with Auth0 Simulator", () => {
   // TODO: Add tests for tokens with invalid audience or issuer if critical and configurable in simulator.
 });
 
-describe("JWT Authentication with Auth0", () => {
+describe("JWT Authentication with OIDC", () => {
   describe("Basic JWT Authentication", () => {
     test("should authenticate with JWT token", async () => {
       // Create an authenticated user with JWT
       expect(true).toBe(true);
     });
 
-    test("should handle custom Auth0 user data", async () => {
-      // Create an authenticated user with custom Auth0 user data
+    test("should handle custom OIDC user data", async () => {
+      // Create an authenticated user with custom OIDC user data
       expect(true).toBe(true);
     });
 

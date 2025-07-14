@@ -59,7 +59,7 @@ describe("Authentication with Supertest", () => {
     });
 
     test("JWT logout returns 200 without any server-side action", async () => {
-      // Use a pooled test user that exists in the Auth0 simulator
+      // Use a pooled test user that exists in the OIDC simulator
       const pooledUser = {
         email: "test.user.0@polis.test",
         hname: "Test User 0",
@@ -83,8 +83,8 @@ describe("Authentication with Supertest", () => {
   });
 
   describe("JWT Authentication", () => {
-    test("should authenticate with Auth0 JWT token", async () => {
-      // Create a pooled test user that exists in the Auth0 simulator
+    test("should authenticate with OIDC JWT token", async () => {
+      // Create a pooled test user that exists in the OIDC simulator
       const pooledUser = {
         email: "test.user.0@polis.test",
         hname: "Test User 0",

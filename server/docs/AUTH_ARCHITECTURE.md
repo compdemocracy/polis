@@ -4,14 +4,14 @@
 
 Polis uses a hybrid authentication system supporting three user types:
 
-1. **Standard Users** - Auth0 JWT authentication (email/password, social login) - can create/manage conversations
+1. **Standard Users** - OIDC JWT authentication (email/password, social login) - can create/manage conversations
 2. **XID Participants** - External ID users with custom JWT tokens - participate only
 3. **Anonymous Participants** - Custom JWT tokens issued by server - participate only
 
 ## Architecture Diagram
 
 ```txt
-Standard Users:       Browser → Auth0 → Auth0 JWT → API validates with JWKS
+Standard Users:       Browser → OIDC → OIDC JWT → API validates with JWKS
 XID Participants:     Browser → participationInit?xid=X → Custom JWT → API validates locally  
 Anonymous Participants: Browser → participationInit → Custom JWT → API validates locally
 ```
@@ -22,7 +22,7 @@ Anonymous Participants: Browser → participationInit → Custom JWT → API val
 
 The system uses a unified middleware (`hybrid-jwt.ts`) that checks authentication in priority order:
 
-1. Auth0 JWT tokens (for standard users, issued by Auth0)
+1. OIDC JWT tokens (for standard users, issued by OIDC)
 2. XID JWT tokens (for external participants)
 3. Anonymous JWT tokens (for anonymous participants)
 4. User JWT tokens (for standard users, issued by Polis)
@@ -45,7 +45,7 @@ JWT extraction functions use the assigner function (typically `assignToP`) rathe
 
 ### JWT Token Structure
 
-**Auth0 JWT (Standard Users)**
+**OIDC JWT (Standard Users)**
 
 ```json
 {
@@ -96,7 +96,7 @@ JWT extraction functions use the assigner function (typically `assignToP`) rathe
   "iat": 1715766000,
   "pid": 123,
   "uid": 456,
-  "auth0_sub": "auth0|507f1f77bcf86cd799439011",
+  "oidc_sub": "auth0|507f1f77bcf86cd799439011",
   "conversation_id": "abc123",
   "standard_user_participant": true
 }
@@ -120,7 +120,7 @@ JWT extraction functions use the assigner function (typically `assignToP`) rathe
 ## Environment Configuration
 
 ```bash
-# Auth0 Configuration (for standard users)
+# OIDC Configuration (for standard users)
 AUTH_ISSUER=https://your-tenant.auth0.com/
 AUTH_AUDIENCE=users
 AUTH_CLIENT_ID=your-client-id
@@ -137,11 +137,11 @@ AUTH_KEYS_PATH=./keys
 
 ✅ **Implemented**
 
-- Auth0 JWT authentication for standard users
+- OIDC JWT authentication for standard users
 - XID JWT infrastructure and validation
 - Hybrid authentication middleware
-- Database migration for Auth0 user mapping
-- Test infrastructure with Auth0 simulator
+- Database migration for OIDC user mapping
+- Test infrastructure with OIDC simulator
 - Anonymous user JWT tokens
 - Full route validation with JWT
 - Client SDK updates for localStorage
@@ -154,7 +154,7 @@ AUTH_KEYS_PATH=./keys
 
 The system includes comprehensive test coverage:
 
-- `auth-jwt.test.ts` - Auth0 JWT authentication
+- `auth-jwt.test.ts` - OIDC JWT authentication
 - `xid-auth.test.ts` - XID participant flows
 - `anonymous-jwt.test.ts` - Anonymous participant flows
 - `routes-jwt-validation.test.ts` - Route-by-route validation

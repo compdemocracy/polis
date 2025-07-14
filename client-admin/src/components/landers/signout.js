@@ -4,11 +4,11 @@ import React from 'react'
 import PropTypes from 'prop-types'
 
 // Auth0 handles logout
-import withAuth0 from '../../util/withAuth0'
+import { withAuth0 } from '@auth0/auth0-react'
 
 class SignOut extends React.Component {
   componentDidMount() {
-    this.props.logout({ returnTo: `${window.location.origin}/home`});
+    this.props.auth0.logout({ returnTo: `${window.location.origin}/home`});
   }
 
   render() {
@@ -21,7 +21,9 @@ class SignOut extends React.Component {
 }
 
 SignOut.propTypes = {
-  logout: PropTypes.func.isRequired
+  auth0: PropTypes.shape({
+    logout: PropTypes.func.isRequired
+  }).isRequired
 }
 
 export default withAuth0(SignOut)

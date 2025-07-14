@@ -4,20 +4,20 @@ This directory contains integration tests for the Polis API. These tests verify 
 
 ## Authentication Architecture
 
-As of the Auth0 JWT migration, the API supports multiple authentication methods in priority order:
+As of the OIDC JWT migration, the API supports multiple authentication methods in priority order:
 
-1. **Auth0 JWT** (preferred for standard users)
+1. **OIDC JWT** (preferred for standard users)
 2. **XID JWT** (for external integrations)  
 3. **Anonymous JWT** (for anonymous participants)
 4. **Legacy methods** (cookies, API keys) - deprecated, used as fallback
 
-### Auth0 Simulator Requirement
+### OIDC Simulator Requirement
 
-**Important**: Integration tests require the Auth0 simulator to be running for JWT authentication tests.
+**Important**: Integration tests require the OIDC simulator to be running for JWT authentication tests.
 
 ```bash
-# Start the Auth0 simulator (from project root)
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up auth0-simulator
+# Start the OIDC simulator (from project root)
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up oidc-simulator
 
 # Or if using the full development stack
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up
@@ -29,7 +29,7 @@ The simulator provides pre-registered test users that are compatible with JWT au
 
 Each test file focuses on a specific aspect of the API:
 
-- `auth-jwt.test.ts` - Auth0 JWT authentication
+- `auth-jwt.test.ts` - OIDC JWT authentication
 - `xid-auth.test.ts` - XID JWT authentication
 - `anonymous-jwt.test.ts` - Anonymous JWT authentication
 - `auth.test.ts` - Legacy authentication endpoints (deprecated)
@@ -57,7 +57,7 @@ describe('My Authenticated Test', () => {
   let agent: Agent;
 
   beforeEach(async () => {
-    // Use pooled users (pre-registered in Auth0 simulator)
+    // Use pooled users (pre-registered in OIDC simulator)
     const pooledUser = getPooledTestUser(1);
     const testUser = {
       email: pooledUser.email,
@@ -136,13 +136,13 @@ To maintain consistency and reduce duplication, all test files use shared helper
 
 ### Authentication Helpers
 
-- `getJwtAuthenticatedAgent(testUser)` - Creates an agent with Auth0 JWT authentication
-- `getAuth0Token(user)` - Gets an Auth0 token from the simulator
+- `getJwtAuthenticatedAgent(testUser)` - Creates an agent with OIDC JWT authentication
+- `getOidcToken(user)` - Gets an OIDC token from the simulator
 - `setAgentJwt(agent, token)` - Sets JWT authorization header on an existing agent
 
 ### User Management Helpers
 
-- `getPooledTestUser(index)` - Gets a pre-registered test user from the Auth0 simulator
+- `getPooledTestUser(index)` - Gets a pre-registered test user from the OIDC simulator
 
 ### Data Generation Helpers
 
@@ -190,7 +190,7 @@ When updating existing tests to use JWT authentication:
    const { agent } = await getJwtAuthenticatedAgent(testUser);
    ```
 
-2. **Use pooled users** for Auth0 simulator compatibility:
+2. **Use pooled users** for OIDC simulator compatibility:
 
    ```typescript
    const pooledUser = getPooledTestUser(1); // Users 1-3 are available
@@ -405,8 +405,8 @@ describe('My Test Suite', () => {
 
 ### Common Issues
 
-1. **Auth0 Simulator not running**: Ensure
-   `docker compose -f docker-compose.yml -f docker-compose.dev.yml up auth0-simulator`
+1. **OIDC Simulator not running**: Ensure
+   `docker compose -f docker-compose.yml -f docker-compose.dev.yml up oidc-simulator`
    is running before tests.
 
 2. **JWT validation failures**: Check that environment variables are set correctly:
@@ -441,4 +441,4 @@ When updating a test file to use JWT authentication:
 - [x] Update imports to include new JWT helpers
 - [ ] Change `beforeAll` to `beforeEach` if test isolation is needed
 - [ ] Update error expectations (401 for auth failures, not 403)
-- [x] Test that the Auth0 simulator is running and accessible
+- [x] Test that the OIDC simulator is running and accessible

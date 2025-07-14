@@ -6,7 +6,7 @@ This guide explains how to set up and run JWT-based integration tests for the Po
 
 The Polis server has been migrated from legacy cookie-based authentication to JWT-based authentication. The integration tests now support three types of authentication:
 
-1. **Auth0 JWT** - For standard users (admin, moderators)
+1. **OIDC JWT** - For standard users (admin, moderators)
 2. **XID JWT** - For external participants with XIDs
 3. **Anonymous JWT** - For anonymous participants
 
@@ -14,14 +14,14 @@ The Polis server has been migrated from legacy cookie-based authentication to JW
 
 ### 1. Docker
 
-Ensure Docker is running on your system. The Auth0 simulator runs in a Docker container.
+Ensure Docker is running on your system. The OIDC simulator runs in a Docker container.
 
 ### 2. Environment Variables
 
-Make sure your `.env` file contains the necessary Auth0 configuration:
+Make sure your `.env` file contains the necessary OIDC configuration:
 
 ```bash
-# Auth0 Simulator Configuration
+# OIDC Simulator Configuration
 AUTH_ISSUER=https://localhost:3000/
 AUTH_AUDIENCE=users
 AUTH_CLIENT_ID=dev-client-id
@@ -30,7 +30,7 @@ AUTH_SIMULATOR_PORT=3000
 
 ## Test User Accounts
 
-The Auth0 simulator comes pre-configured with test users:
+The OIDC simulator comes pre-configured with test users:
 
 | Email | Password | Role |
 |-------|----------|------|
@@ -61,17 +61,17 @@ The Auth0 simulator comes pre-configured with test users:
 
 ## Troubleshooting
 
-### Auth0 Simulator Not Starting
+### OIDC Simulator Not Starting
 
 ```bash
 # Check if the container is running
-docker ps | grep auth0-simulator
+docker ps | grep oidc-simulator
 
 # Check container logs
-docker logs auth0-simulator
+docker logs oidc-simulator
 
 # Restart the container
-docker restart auth0-simulator
+docker restart oidc-simulator
 ```
 
 ### Connection Refused Errors
@@ -82,7 +82,7 @@ docker restart auth0-simulator
 
 ### JWT Token Errors
 
-- Check that the Auth0 simulator is accessible at `https://localhost:3000`
+- Check that the OIDC simulator is accessible at `https://localhost:3000`
 - Verify environment variables are correctly set
 - Ensure test users exist in the simulator
 
@@ -100,7 +100,7 @@ docker restart auth0-simulator
 
 ## Simulator Endpoints
 
-The Auth0 simulator provides these endpoints for testing:
+The OIDC simulator provides these endpoints for testing:
 
 - `https://localhost:3000/.well-known/openid_configuration` - OpenID configuration
 - `https://localhost:3000/.well-known/jwks.json` - JSON Web Key Set

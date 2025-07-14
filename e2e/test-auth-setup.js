@@ -17,10 +17,10 @@ const http = require('http')
 const { execSync } = require('child_process')
 
 const config = {
-  auth0SimulatorUrl: process.env.AUTH0_ISSUER || 'https://localhost:3000',
-  serverUrl: process.env.CYPRESS_BASE_URL || 'http://localhost',
   authAudience: process.env.AUTH_AUDIENCE || 'users',
   authClientId: process.env.AUTH_CLIENT_ID || 'dev-client-id',
+  oidcSimulatorUrl: process.env.AUTH_ISSUER || 'https://localhost:3000',
+  serverUrl: process.env.CYPRESS_BASE_URL || 'http://localhost',
 }
 
 console.log('🔍 Validating Polis Authentication Setup...\n')
@@ -86,8 +86,8 @@ async function checkMkcertSetup() {
         `openssl x509 -in ${certPath} -text -noout | grep -A 2 "Subject Alternative Name"`,
         { encoding: 'utf8' },
       )
-      if (certInfo.includes('localhost') && certInfo.includes('auth0-simulator')) {
-        console.log('✅ Certificate covers both localhost and auth0-simulator')
+      if (certInfo.includes('localhost') && certInfo.includes('oidc-simulator')) {
+        console.log('✅ Certificate covers both localhost and oidc-simulator')
       } else {
         console.log('⚠️  Certificate may not cover all required hostnames')
         certsFound = false
@@ -112,7 +112,7 @@ async function checkMkcertSetup() {
 
 async function main() {
   console.log('Configuration:')
-  console.log(`  Auth0 Simulator: ${config.auth0SimulatorUrl}`)
+  console.log(`  OIDC Simulator: ${config.oidcSimulatorUrl}`)
   console.log(`  Server: ${config.serverUrl}`)
   console.log(`  Audience: ${config.authAudience}`)
   console.log(`  Client ID: ${config.authClientId}\n`)
@@ -120,11 +120,11 @@ async function main() {
   const checks = [
     () => checkMkcertSetup(),
     () =>
-      checkEndpoint(`${config.auth0SimulatorUrl}/.well-known/jwks.json`, 'Auth0 Simulator JWKS'),
+      checkEndpoint(`${config.oidcSimulatorUrl}/.well-known/jwks.json`, 'OIDC Simulator JWKS'),
     () =>
       checkEndpoint(
-        `${config.auth0SimulatorUrl}/authorize?response_type=code&client_id=${config.authClientId}`,
-        'Auth0 Simulator Authorize',
+        `${config.oidcSimulatorUrl}/authorize?response_type=code&client_id=${config.authClientId}`,
+        'OIDC Simulator Authorize',
       ),
     () =>
       checkEndpoint(

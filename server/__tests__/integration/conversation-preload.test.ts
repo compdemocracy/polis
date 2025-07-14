@@ -33,7 +33,7 @@ describe("Conversation Preload API", () => {
   let conversationId: string;
 
   beforeEach(async () => {
-    // Use JWT-based authentication with pooled users (which exist in Auth0 simulator)
+    // Use JWT-based authentication with pooled users (which exist in OIDC simulator)
     const pooledUser = getPooledTestUser(1);
     const testUser = {
       email: pooledUser.email,

@@ -2,7 +2,7 @@
  * Consolidated authentication module for Polis
  *
  * This module provides a unified interface for authentication during the
- * transition from cookie-based auth to Auth0 JWT authentication.
+ * transition from cookie-based auth to OIDC JWT authentication.
  *
  * Usage:
  * ```typescript
@@ -37,7 +37,7 @@ export {
 export {
   createAnonUser,
   generateAndRegisterZinvite,
-  getOrCreateUserIDFromAuth0Sub,
+  getOrCreateUserIDFromOidcSub,
 } from "./create-user";
 
 // Generate token utilities

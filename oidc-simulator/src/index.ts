@@ -35,7 +35,7 @@ function createUserPool(size = 50): Array<{
     created_at?: string;
   }> = [];
 
-  // Add specific test fixture users for standard users only (those who use Auth0)
+  // Add specific test fixture users for standard users only (those who use OIDC)
   const standardUsers = [
     {
       email: "admin@polis.test",
@@ -90,7 +90,7 @@ function createUserPool(size = 50): Array<{
  */
 async function start() {
   try {
-    console.log("Starting Auth0 simulator...");
+    console.log("Starting OIDC simulator...");
 
     // Check for certificate files
     console.log(`Checking for certificates in: ${CERT_DIR}`);
@@ -114,9 +114,9 @@ async function start() {
       console.log(`❌ Certificate directory not found: ${CERT_DIR}`);
     }
 
-    // Create the Auth0 simulator with a pool of test users
+    // Create the OIDC simulator with a pool of test users
     const userPool = createUserPool(50);
-    console.log("Auth0 simulator user pool created:");
+    console.log("OIDC simulator user pool created:");
     console.table(userPool.slice(0, 10), [
       "email",
       "password",
@@ -139,7 +139,7 @@ async function start() {
       );
     } else {
       console.log(`⚠️  Rules directory not found at: ${rulesDirectory}`);
-      console.log("Auth0 simulator will run without custom rules");
+      console.log("OIDC simulator will run without custom rules");
     }
 
     // Configure simulator options with HTTPS
@@ -181,16 +181,16 @@ async function start() {
     // Start the simulator
     await simulatorApp.listen(AUTH_SIMULATOR_PORT);
 
-    console.log(`Auth0 Simulator started on HTTPS port ${AUTH_SIMULATOR_PORT}`);
+    console.log(`OIDC Simulator started on HTTPS port ${AUTH_SIMULATOR_PORT}`);
     console.log(`Auth Issuer: ${AUTH_ISSUER}`);
     console.log(`JWKS URI: ${AUTH_ISSUER}.well-known/jwks.json`);
-    console.log(`Auth0 Client ID: ${AUTH_CLIENT_ID}`);
-    console.log(`Auth0 Audience: ${AUTH_AUDIENCE}`);
+    console.log(`Auth Client ID: ${AUTH_CLIENT_ID}`);
+    console.log(`Auth Audience: ${AUTH_AUDIENCE}`);
     console.log(`Pre-populated with ${userPool.length} test users`);
     console.log(
-      `Standard users (Auth0): admin@polis.test, moderator@polis.test`
+      `Standard users (OIDC): admin@polis.test, moderator@polis.test`
     );
-    console.log(`Note: Participants use custom JWTs, not Auth0`);
+    console.log(`Note: Participants use custom JWTs, not OIDC`);
     if (fs.existsSync(rulesDirectory)) {
       console.log(`✅ Custom namespace claims now supported via rules!`);
       console.log(`   Rules loaded from: ${rulesDirectory}`);
@@ -198,7 +198,7 @@ async function start() {
       console.log(`⚠️  No rules loaded - custom claims not available`);
     }
   } catch (err) {
-    console.error("Failed to start Auth0 simulator:", err);
+    console.error("Failed to start OIDC simulator:", err);
     process.exit(1);
   }
 }

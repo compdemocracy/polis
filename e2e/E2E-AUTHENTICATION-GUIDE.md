@@ -14,9 +14,9 @@ The e2e suite broke because critical helper functions were removed from `auth-he
 
 ## Authentication Patterns
 
-### 1. Standard Users (Auth0)
+### 1. Standard Users (OIDC)
 
-Standard users (`admin@polis.test`, `moderator@polis.test`) use Auth0 authentication and can access the admin interface.
+Standard users (`admin@polis.test`, `moderator@polis.test`) use OIDC authentication and can access the admin interface.
 
 #### UI Authentication (for Admin Interface)
 
@@ -68,10 +68,10 @@ verifyJWTExists('participant_token', { xid: 'test-xid-123' })
 
 These functions are **CRITICAL** and must not be removed:
 
-### Auth0 Functions
+### OIDC Functions
 
-- `checkAuth0Simulator()` - Verifies Auth0 simulator connectivity
-- `getAuth0AccessToken()` - Gets Auth0 access token from cache
+- `checkOidcSimulator()` - Verifies OIDC simulator connectivity
+- `getOidcAccessToken()` - Gets OIDC access token from cache
 - `verifyServerJWTValidation()` - Tests server JWT validation
 
 ### JWT Verification Functions
@@ -162,8 +162,8 @@ verifyJWTExists('participant_token')
 ### When Tests Show Login Page Instead of Admin Interface
 
 1. Check if using `loginStandardUser()` vs `loginStandardUserAPI()`
-2. Verify Auth0 simulator is running: `docker ps | grep auth0-simulator`
-3. Check browser localStorage for Auth0 tokens
+2. Verify OIDC simulator is running: `docker ps | grep oidc-simulator`
+3. Check browser localStorage for OIDC tokens
 
 ### When Participant Tests Fail
 
@@ -213,7 +213,7 @@ verifyJWTExists('participant_token')
 
 ✅ **Fully Working:**
 
-- `auth0-standard-users.cy.js` (4/4 tests)
+- `oidc-standard-users.cy.js` (4/4 tests)
 - `access-control.cy.js` (9/9 tests)
 
 ⚠️ **Minor Issues:**

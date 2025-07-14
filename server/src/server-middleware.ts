@@ -93,16 +93,16 @@ function globalErrorHandler(err: any, req: any, res: any, next: any) {
     stack: err.stack,
     url: req.originalUrl,
     method: req.method,
-    auth0Sub: req.jwtPayload?.sub || req.p?.auth0Sub,
+    oidcSub: req.jwtPayload?.sub || req.p?.oidcSub,
   });
 
   // Handle database constraint violations specifically
   if (err.code === "23505") {
-    if (err.constraint === "auth0_user_mappings_pkey") {
-      logger.warn("Global handler: Auth0 mapping constraint violation", {
+    if (err.constraint === "oidc_user_mappings_pkey") {
+      logger.warn("Global handler: OIDC mapping constraint violation", {
         constraint: err.constraint,
         url: req.originalUrl,
-        auth0Sub: req.jwtPayload?.sub,
+        oidcSub: req.jwtPayload?.sub,
       });
 
       return res.status(429).json({

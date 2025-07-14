@@ -96,7 +96,7 @@ const token = issueXidJWT(
 
 // Protect routes with hybrid auth
 app.post('/api/v3/votes', 
-  hybridAuthOptional(assignToP),  // Supports both Auth0 and XID JWT
+  hybridAuthOptional(assignToP),  // Supports both OIDC and XID JWT
   handleVote
 );
 ```
@@ -201,4 +201,4 @@ The system maintains full backward compatibility:
 - **No cookies required** - Works in third-party contexts
 - **Stateless** - No server-side session management
 - **Standard format** - Industry-standard JWT
-- **Auth0 compatible** - Coexists with Auth0 authentication
+- **OIDC compatible** - Coexists with OIDC authentication

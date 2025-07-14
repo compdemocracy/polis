@@ -9,7 +9,7 @@ import {
 } from '../../actions'
 
 import Url from '../../util/url'
-import withAuth0 from '../../util/withAuth0'
+import { withAuth0 } from '@auth0/auth0-react'
 import { Box, Heading, Button, Text } from 'theme-ui'
 import Conversation from './conversation'
 
@@ -21,27 +21,27 @@ class Conversations extends React.Component {
       filterMinParticipantCount: 0,
       sort: 'participant_count'
     }
-    this.auth0ReadyHandler = null;
+    this.oidcReadyHandler = null;
   }
 
   componentDidMount() {
-    // Listen for auth0Ready event
-    this.auth0ReadyHandler = () => {
+    // Listen for oidcReady event
+    this.oidcReadyHandler = () => {
       this.loadConversations();
     };
     
-    window.addEventListener('auth0Ready', this.auth0ReadyHandler);
+    window.addEventListener('oidcReady', this.oidcReadyHandler);
     
     // If auth0 is already ready, call loadConversations immediately
-    if (window.auth0Ready) {
+    if (window.oidcReady) {
       this.loadConversations();
     }
   }
 
   componentWillUnmount() {
     // Clean up event listener
-    if (this.auth0ReadyHandler) {
-      window.removeEventListener('auth0Ready', this.auth0ReadyHandler);
+    if (this.oidcReadyHandler) {
+      window.removeEventListener('oidcReady', this.oidcReadyHandler);
     }
   }
 

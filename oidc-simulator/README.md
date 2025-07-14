@@ -1,10 +1,10 @@
-# Auth0 Simulator
+# OIDC Simulator
 
-A standalone service that provides a local Auth0-compatible authentication server for development and testing. This service uses the [@simulacrum/auth0-simulator](https://github.com/thefrontside/simulacrum/tree/main/packages/auth0) package to simulate Auth0's authentication flow without requiring a real Auth0 tenant.
+A standalone service that provides a local OIDC-compatible authentication server for development and testing. This service uses the [@simulacrum/auth0-simulator](https://github.com/thefrontside/simulacrum/tree/main/packages/auth0) package to simulate Auth0's authentication flow without requiring a real OIDC tenant.
 
 ## What is it?
 
-The Auth0 Simulator provides:
+The OIDC Simulator provides:
 
 - **JWT Token Generation**: Issues valid JWT tokens for authenticated users
 - **JWKS Endpoint**: Serves JSON Web Key Sets for token verification
@@ -14,7 +14,7 @@ The Auth0 Simulator provides:
 
 ## Prerequisites
 
-Before using the Auth0 Simulator, you need to set up locally trusted SSL certificates using `mkcert`.
+Before using the OIDC Simulator, you need to set up locally trusted SSL certificates using `mkcert`.
 
 ### One-time Certificate Setup
 
@@ -43,7 +43,7 @@ Before using the Auth0 Simulator, you need to set up locally trusted SSL certifi
    ```bash
    mkdir -p ~/.simulacrum/certs
    cd ~/.simulacrum/certs
-   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 auth0-simulator
+   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator
    ```
 
    For CI/testing environments, certificates are created in the workspace:
@@ -51,12 +51,12 @@ Before using the Auth0 Simulator, you need to set up locally trusted SSL certifi
    ```bash
    mkdir -p ./.simulacrum/certs
    cd ./.simulacrum/certs
-   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 auth0-simulator
+   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator
    ```
 
    This creates a single certificate valid for:
    - `localhost` (browser access)
-   - `auth0-simulator` (Docker container access)
+   - `oidc-simulator` (Docker container access)
    - `127.0.0.1` and `::1` (IP-based access)
 
 ## Configuration
@@ -68,14 +68,14 @@ The simulator is configured through environment variables:
 | `AUTH_AUDIENCE` | `users` | JWT audience claim |
 | `AUTH_CERTS_PATH` | `~/.simulacrum/certs` | Path to SSL certificates (use `./.simulacrum/certs` for CI) |
 | `AUTH_CLIENT_ID` | `dev-client-id` | OAuth2 client ID |
-| `AUTH_NAMESPACE` | `https://pol.is/` | Auth0 namespace |
+| `AUTH_NAMESPACE` | `https://pol.is/` | OIDC namespace |
 | `AUTH_SIMULATOR_PORT` | `3000` | HTTPS port for the simulator |
 
 ## Pre-configured Test Users
 
 The simulator comes with a pool of test users for consistent testing:
 
-### Standard Users (for Auth0 authentication)
+### Standard Users (for OIDC authentication)
 
 - `admin@polis.test` / `Te$tP@ssw0rd*`
 - `moderator@polis.test` / `Te$tP@ssw0rd*`
@@ -93,7 +93,7 @@ The simulator comes with a pool of test users for consistent testing:
 The simulator runs automatically when you start the development environment:
 
 ```bash
-# Start all services including auth0-simulator
+# Start all services including oidc-simulator
 make start
 
 # Or with Docker Compose directly
@@ -103,14 +103,14 @@ docker compose --profile postgres -f docker-compose.yml -f docker-compose.dev.ym
 The simulator will be available at:
 
 - **Browser**: `https://localhost:3000/`
-- **Docker containers**: `https://auth0-simulator:3000/`
+- **Docker containers**: `https://oidc-simulator:3000/`
 
 ### Standalone Usage
 
 To run the simulator independently:
 
 ```bash
-cd auth0-simulator
+cd oidc-simulator
 npm install
 npm run dev
 ```
@@ -123,16 +123,16 @@ npm run dev
 
 ## Integration with Polis
 
-The Auth0 Simulator integrates with the Polis system for:
+The OIDC Simulator integrates with the Polis system for:
 
-1. **Admin/Moderator Authentication**: Standard users authenticate through Auth0-compatible flows
+1. **Admin/Moderator Authentication**: Standard users authenticate through OIDC-compatible flows
 2. **JWT Token Validation**: The Polis server validates tokens using the simulator's JWKS endpoint
 3. **Development Testing**: Provides consistent authentication for development and testing
 
 ### Important Notes
 
-- **Participants** in Polis conversations use a different JWT system (Anonymous/XID JWTs), not Auth0
-- Only **admin users and moderators** use the Auth0 simulator for authentication
+- **Participants** in Polis conversations use a different JWT system (Anonymous/XID JWTs), not OIDC
+- Only **admin users and moderators** use the OIDC simulator for authentication
 - The simulator is for **development and testing only** - never use in production
 
 ## Troubleshooting
@@ -148,8 +148,8 @@ If you encounter SSL/TLS errors:
 ### Connection Issues
 
 - **Browser**: Use `https://localhost:3000/`
-- **Docker containers**: Use `https://auth0-simulator:3000/`
-- **Server logs**: Check with `docker logs polis-dev-auth0-simulator-1`
+- **Docker containers**: Use `https://oidc-simulator:3000/`
+- **Server logs**: Check with `docker logs polis-dev-oidc-simulator-1`
 
 ### Port Conflicts
 
@@ -175,7 +175,7 @@ If you encounter Docker mount issues in CI:
    ```bash
    mkdir -p ./.simulacrum/certs  # Workspace-relative
    cd ./.simulacrum/certs
-   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 auth0-simulator
+   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator
    ```
 
 ## Development
@@ -183,7 +183,7 @@ If you encounter Docker mount issues in CI:
 ### File Structure
 
 ```txt
-auth0-simulator/
+oidc-simulator/
 ├── src/
 │   └── index.ts          # Main application entry point
 ├── Dockerfile            # Container configuration

@@ -10,7 +10,6 @@ import type { TestUser } from "../../types/test-helpers";
 
 /**
  * Comprehensive test suite to validate all routes work with JWT authentication
- * This is part of the Auth0 migration effort to ensure all endpoints support JWT
  */
 describe("JWT Route Validation Matrix", () => {
   let testUser: TestUser;

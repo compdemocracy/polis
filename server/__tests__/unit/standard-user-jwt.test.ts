@@ -6,7 +6,7 @@ import {
 import jwt from "jsonwebtoken";
 
 describe("Standard User JWT", () => {
-  const mockAuth0Sub = "auth0|123456789";
+  const mockOidcSub = "auth0|123456789";
   const mockConversationId = "test-conversation";
   const mockUid = 123;
   const mockPid = 456;
@@ -14,7 +14,7 @@ describe("Standard User JWT", () => {
   describe("issueStandardUserJWT", () => {
     it("should issue a valid JWT with correct claims", () => {
       const token = issueStandardUserJWT(
-        mockAuth0Sub,
+        mockOidcSub,
         mockConversationId,
         mockUid,
         mockPid
@@ -26,8 +26,8 @@ describe("Standard User JWT", () => {
       // Decode without verification to check structure
       const decoded = jwt.decode(token) as any;
       expect(decoded).toBeTruthy();
-      expect(decoded.auth0_sub).toBe(mockAuth0Sub);
-      expect(decoded.sub).toBe(`user:${mockAuth0Sub}`);
+      expect(decoded.oidc_sub).toBe(mockOidcSub);
+      expect(decoded.sub).toBe(`user:${mockOidcSub}`);
       expect(decoded.uid).toBe(mockUid);
       expect(decoded.pid).toBe(mockPid);
       expect(decoded.conversation_id).toBe(mockConversationId);
@@ -40,7 +40,7 @@ describe("Standard User JWT", () => {
 
     it("should create tokens with 24-hour expiration", () => {
       const token = issueStandardUserJWT(
-        mockAuth0Sub,
+        mockOidcSub,
         mockConversationId,
         mockUid,
         mockPid
@@ -55,7 +55,7 @@ describe("Standard User JWT", () => {
   describe("isStandardUserJWT", () => {
     it("should correctly identify standard user JWTs", () => {
       const token = issueStandardUserJWT(
-        mockAuth0Sub,
+        mockOidcSub,
         mockConversationId,
         mockUid,
         mockPid
@@ -70,7 +70,7 @@ describe("Standard User JWT", () => {
         {
           uid: 123,
           pid: 456,
-          // Missing standard_user_participant and auth0_sub
+          // Missing standard_user_participant and oidc_sub
         },
         "mock-secret"
       );
@@ -84,17 +84,17 @@ describe("Standard User JWT", () => {
     });
 
     it("should return false for JWTs with partial standard user claims", () => {
-      // Has auth0_sub but not standard_user_participant
+      // Has oidc_sub but not standard_user_participant
       const partialToken1 = jwt.sign(
         {
-          auth0_sub: mockAuth0Sub,
+          oidc_sub: mockOidcSub,
           uid: 123,
           pid: 456,
         },
         "mock-secret"
       );
 
-      // Has standard_user_participant but not auth0_sub
+      // Has standard_user_participant but not oidc_sub
       const partialToken2 = jwt.sign(
         {
           standard_user_participant: true,
@@ -112,15 +112,15 @@ describe("Standard User JWT", () => {
   describe("verifyStandardUserJWT", () => {
     it("should verify and return claims for valid standard user JWT", () => {
       const token = issueStandardUserJWT(
-        mockAuth0Sub,
+        mockOidcSub,
         mockConversationId,
         mockUid,
         mockPid
       );
 
       const claims = verifyStandardUserJWT(token);
-      expect(claims.auth0_sub).toBe(mockAuth0Sub);
-      expect(claims.sub).toBe(`user:${mockAuth0Sub}`);
+      expect(claims.oidc_sub).toBe(mockOidcSub);
+      expect(claims.sub).toBe(`user:${mockOidcSub}`);
       expect(claims.uid).toBe(mockUid);
       expect(claims.pid).toBe(mockPid);
       expect(claims.conversation_id).toBe(mockConversationId);
@@ -154,7 +154,7 @@ describe("Standard User JWT", () => {
   describe("Standard User JWT vs Other JWT Types", () => {
     it("should have different structure than XID JWT", () => {
       const standardUserToken = issueStandardUserJWT(
-        mockAuth0Sub,
+        mockOidcSub,
         mockConversationId,
         mockUid,
         mockPid
@@ -162,8 +162,8 @@ describe("Standard User JWT", () => {
 
       const decoded = jwt.decode(standardUserToken) as any;
 
-      // Standard user JWTs should have auth0_sub instead of xid
-      expect(decoded.auth0_sub).toBeTruthy();
+      // Standard user JWTs should have oidc_sub instead of xid
+      expect(decoded.oidc_sub).toBeTruthy();
       expect(decoded.xid).toBeUndefined();
       expect(decoded.xid_participant).toBeUndefined();
       expect(decoded.standard_user_participant).toBe(true);
@@ -171,7 +171,7 @@ describe("Standard User JWT", () => {
 
     it("should have different structure than Anonymous JWT", () => {
       const standardUserToken = issueStandardUserJWT(
-        mockAuth0Sub,
+        mockOidcSub,
         mockConversationId,
         mockUid,
         mockPid
@@ -179,8 +179,8 @@ describe("Standard User JWT", () => {
 
       const decoded = jwt.decode(standardUserToken) as any;
 
-      // Standard user JWTs should have auth0_sub
-      expect(decoded.auth0_sub).toBeTruthy();
+      // Standard user JWTs should have oidc_sub
+      expect(decoded.oidc_sub).toBeTruthy();
       expect(decoded.anonymous_participant).toBeUndefined();
       expect(decoded.standard_user_participant).toBe(true);
       expect(decoded.sub).toMatch(/^user:/);

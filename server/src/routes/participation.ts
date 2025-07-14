@@ -293,8 +293,8 @@ async function handle_GET_participationInit(
   req: {
     p: {
       anonymous_participant?: boolean;
-      auth0_sub?: string;
-      auth0User?: any;
+      oidc_sub?: string;
+      oidcUser?: any;
       conversation_id: string;
       jwt_conversation_id?: string;
       jwt_conversation_mismatch?: boolean;
@@ -481,11 +481,11 @@ async function handle_GET_participationInit(
     response.famous = famous || {};
 
     // Issue JWT based on user type
-    if (req.p.auth0_sub && effectiveUid !== undefined && effectivePid >= 0) {
-      // Issue JWT for standard users (Auth0 authenticated)
+    if (req.p.oidc_sub && effectiveUid !== undefined && effectivePid >= 0) {
+      // Issue JWT for standard users (OIDC authenticated)
       try {
         const token = issueStandardUserJWT(
-          req.p.auth0_sub,
+          req.p.oidc_sub,
           req.p.conversation_id,
           effectiveUid,
           effectivePid
@@ -498,7 +498,7 @@ async function handle_GET_participationInit(
         };
 
         logger.debug("Standard user JWT issued successfully", {
-          auth0_sub: req.p.auth0_sub,
+          oidc_sub: req.p.oidc_sub,
           uid: effectiveUid,
           pid: effectivePid,
         });

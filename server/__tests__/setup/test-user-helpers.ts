@@ -1,5 +1,5 @@
-// Utility functions for generating test users for Auth0 simulator integration tests.
-// The Auth0 simulator must be running in Docker before running tests.
+// Utility functions for generating test users for OIDC simulator integration tests.
+// The OIDC simulator must be running in Docker before running tests.
 
 export function getPooledTestUser(index: number): {
   email: string;

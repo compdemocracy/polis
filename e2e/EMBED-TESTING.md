@@ -45,7 +45,7 @@ If these files are missing, you'll get `ENOENT: no such file or directory` error
 ### ✅ JWT Authentication
 
 - **Old**: Cookie-based authentication with potential security issues
-- **New**: JWT tokens for all authentication (Auth0 for users, custom JWTs for participants)
+- **New**: JWT tokens for all authentication (OIDC for users, custom JWTs for participants)
 - **Impact**: More secure, stateless, works better across domains
 
 ### ✅ Environment-Aware Base URLs
@@ -157,14 +157,14 @@ npm run build:embed -- --id=CONVERSATION_ID --url=http://custom-host:8080
 
 ### For Embed Tests
 
-1. Admin creates conversation using Auth0 JWT
+1. Admin creates conversation using OIDC JWT
 2. Anonymous participants access embedded conversation
 3. JWTs issued automatically on first action (voting/commenting)
 4. No cookies involved in any step
 
 ### For Integrated Tests
 
-1. Admin gets site ID using Auth0 JWT
+1. Admin gets site ID using OIDC JWT
 2. Page visits create conversations automatically
 3. Participants get JWTs from participationInit endpoint
 4. All authentication stateless and secure
@@ -180,7 +180,7 @@ npm run build:embed -- --id=CONVERSATION_ID --url=http://custom-host:8080
 
 **Cypress tests fail:**
 
-- Verify Auth0 simulator is running: `docker compose up auth0-simulator`
+- Verify OIDC simulator is running: `docker compose up oidc-simulator`
 - Check that server is running on the expected port (check `BASE_URL` env var)
 - Ensure embed.js is being served by file-server
 
@@ -193,7 +193,7 @@ npm run build:embed -- --id=CONVERSATION_ID --url=http://custom-host:8080
 **Authentication errors:**
 
 - Verify .env file has correct AUTH\_\* variables
-- Check that Auth0 simulator has test users configured
+- Check that OIDC simulator has test users configured
 - Ensure JWT tokens are being stored in localStorage
 
 ### Debugging Tips
@@ -232,7 +232,7 @@ The new embed tests are **100% cookie-free** and use modern JWT authentication:
 ## Next Steps
 
 - Add tests for XID participant authentication
-- Add tests for Auth0 user participation in embeds
+- Add tests for OIDC user participation in embeds
 - Add performance testing for embed load times
 - Add accessibility testing for embedded conversations
 

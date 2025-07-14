@@ -9,14 +9,14 @@ const basePath = ''
 let getAuth0AccessToken = null
 
 // Function to set the Auth0 token getter from the Auth0 context
-export const setAuth0TokenGetter = (tokenGetter) => {
+export const setOidcTokenGetter = (tokenGetter) => {
   getAuth0AccessToken = tokenGetter
 }
 
 // Store Auth0 hooks for login redirect
 let auth0LoginRedirect = null
 
-export const setAuth0Actions = (loginWithRedirect) => {
+export const setOidcActions = (loginWithRedirect) => {
   auth0LoginRedirect = loginWithRedirect
 }
 

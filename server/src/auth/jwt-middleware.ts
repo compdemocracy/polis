@@ -3,9 +3,9 @@ import { GetVerificationKey, expressJwtSecret } from "jwks-rsa";
 import os from "os";
 import Config from "../config";
 import logger from "../utils/logger";
-import { getOrCreateUserIDFromAuth0Sub } from "./create-user";
+import { getOrCreateUserIDFromOidcSub } from "./create-user";
 
-// JWT validation middleware using Auth0
+// JWT validation middleware using OIDC
 const jwtValidation = expressjwt({
   // Dynamically provide signing key based on the kid in the header and the signing keys provided by JWKS endpoint
   secret: expressJwtSecret({
@@ -68,21 +68,21 @@ const extractUserFromJWT = (
     try {
       // The express-jwt middleware now adds the decoded token to req.jwtPayload instead of req.auth
       if (req.jwtPayload) {
-        // Map Auth0 sub to local user ID
-        const auth0Sub = req.jwtPayload.sub;
+        // Map OIDC sub to local user ID
+        const oidcSub = req.jwtPayload.sub;
 
         try {
-          const localUid = await getOrCreateUserIDFromAuth0Sub(
-            auth0Sub,
+          const localUid = await getOrCreateUserIDFromOidcSub(
+            oidcSub,
             req.jwtPayload
           );
 
           // Set up the request parameters for downstream handlers using assigner function
           req.p = req.p || {};
 
-          // Store Auth0-specific data that doesn't conflict with standard parameters
-          req.p.auth0User = req.jwtPayload; // Keep the original Auth0 user data
-          req.p.auth0Sub = auth0Sub; // Keep the Auth0 sub for reference
+          // Store OIDC-specific data that doesn't conflict with standard parameters
+          req.p.oidcUser = req.jwtPayload; // Keep the original OIDC user data
+          req.p.oidcSub = oidcSub; // Keep the OIDC sub for reference
           req.p.emailVerified = req.jwtPayload.email_verified; // Store email verification status
 
           // Use the assigner function for uid (canonical parameter middleware pattern)
@@ -91,7 +91,7 @@ const extractUserFromJWT = (
           }
         } catch (userCreationError: any) {
           logger.error("Error creating/mapping user from JWT:", {
-            auth0Sub: auth0Sub,
+            oidcSub: oidcSub,
             email: req.jwtPayload.email,
             error: userCreationError.message,
             errorCode: userCreationError.code,
@@ -108,7 +108,7 @@ const extractUserFromJWT = (
               retry_after: 1, // Suggest retry after 1 second
             });
           } else if (
-            userCreationError.message?.includes("Auth0 user missing email")
+            userCreationError.message?.includes("OIDC user missing email")
           ) {
             // Missing required user data
             return res.status(400).json({
@@ -118,7 +118,7 @@ const extractUserFromJWT = (
           } else if (userCreationError.code === "23505") {
             // Database constraint violation - likely a race condition that wasn't handled
             logger.warn("Unhandled constraint violation in JWT middleware:", {
-              auth0Sub,
+              oidcSub,
               constraint: userCreationError.constraint,
               error: userCreationError.message,
             });
@@ -148,7 +148,7 @@ const extractUserFromJWT = (
       logger.error("Unexpected error in JWT middleware:", {
         error: error.message,
         stack: error.stack,
-        auth0Sub: req.jwtPayload?.sub,
+        oidcSub: req.jwtPayload?.sub,
       });
 
       // Catch-all for any other unexpected errors to prevent crashes

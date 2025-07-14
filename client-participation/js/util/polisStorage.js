@@ -2,6 +2,9 @@
 
 var _ = require("lodash");
 
+const oidcCacheKeyPrefix = process.env.OIDC_CACHE_KEY_PREFIX;
+const oidcCacheKeyIdTokenSuffix = process.env.OIDC_CACHE_KEY_ID_TOKEN_SUFFIX;
+
 function toNumberWithFalsyAsZero(val) {
   if (_.isUndefined(val)) {
     return 0;
@@ -50,14 +53,13 @@ function _getConversationIdFromDecodedJwt(token) {
   }
 }
 
-// New helper to get the Auth0 access token
-function _getAuth0TokenFromStorage(storage) {
+function _getOidcTokenFromStorage(storage) {
   if (!storage) return null;
 
   for (let i = 0; i < storage.length; i++) {
     const key = storage.key(i);
     // The access token is in a key that does NOT end with @@user@@
-    if (key && key.startsWith("@@auth0spajs@@") && !key.endsWith("@@user@@")) {
+    if (key && key.startsWith(oidcCacheKeyPrefix) && !key.endsWith(oidcCacheKeyIdTokenSuffix)) {
       try {
         const value = storage.getItem(key);
         if (value) {
@@ -75,17 +77,17 @@ function _getAuth0TokenFromStorage(storage) {
         }
       } catch (e) {
         // Not valid JSON or other error, continue
-        console.warn("[PolisStorage] Error parsing Auth0 storage key " + key, e);
+        console.warn("[PolisStorage] Error parsing OIDC storage key " + key, e);
       }
     }
   }
   return null;
 }
 
-function getAuth0Token() {
-  let token = _getAuth0TokenFromStorage(window.localStorage);
+function getOidcToken() {
+  let token = _getOidcTokenFromStorage(window.localStorage);
   if (!token) {
-    token = _getAuth0TokenFromStorage(window.sessionStorage);
+    token = _getOidcTokenFromStorage(window.sessionStorage);
   }
   return token;
 }
@@ -113,9 +115,9 @@ function getJwtToken() {
           : null;
     }
 
-    // If no participant token, check for auth token (Auth0 users)
+    // If no participant token, check for auth token (OIDC users)
     if (!token) {
-      token = getAuth0Token();
+      token = getOidcToken();
     }
 
     if (!token) {

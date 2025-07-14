@@ -1,6 +1,6 @@
-# Auth0 Simulator Rules
+# OIDC Simulator Rules
 
-This directory contains Auth0-compatible rules that add custom functionality to the authentication flow.
+This directory contains OIDC-compatible rules that add custom functionality to the authentication flow.
 
 ## Available Rules
 
@@ -23,7 +23,7 @@ The simulacrum auth0-simulator has some limitations compared to real Auth0:
 
 ## Best Practices for Production
 
-In a real Auth0 environment, you would:
+In a real OIDC environment, you would:
 
 1. Use the Management API to find duplicate users by email
 2. Determine the primary account (usually the oldest)

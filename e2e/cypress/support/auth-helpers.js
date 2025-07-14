@@ -1,13 +1,13 @@
 /**
  * Authentication helpers for Polis E2E tests
  * Supports three authentication types:
- * 1. Standard users (Auth0)
+ * 1. Standard users (OIDC)
  * 2. Anonymous participants (custom JWT)
  * 3. XID participants (custom JWT)
  */
 
 /**
- * Helper to authenticate a standard user via Auth0 simulator using UI
+ * Helper to authenticate a standard user via OIDC simulator using UI
  * @param {string} email - User email
  * @param {string} password - User password
  */
@@ -27,7 +27,7 @@ export function loginStandardUser(email, password) {
       return
     }
 
-    // Click sign in button and fill Auth0 form
+    // Click sign in button and fill OIDC form
     cy.get('#signinButton').click()
 
     const authIssuer = Cypress.env('AUTH_ISSUER')
@@ -40,7 +40,7 @@ export function loginStandardUser(email, password) {
       cy.contains('button', 'Sign in').click()
     })
 
-    // Wait for redirect and Auth0 initialization
+    // Wait for redirect and OIDC initialization
     cy.url().should('not.include', authHost)
     cy.get('h3').should('contain.text', 'All Conversations')
 
@@ -49,12 +49,12 @@ export function loginStandardUser(email, password) {
 }
 
 /**
- * Get JWT token directly from Auth0 simulator API
+ * Get JWT token directly from OIDC simulator API
  * @param {string} email - User email
  * @param {string} password - User password
  * @returns {Promise<string>} JWT access token
  */
-function getAuth0TokenDirect(email, password) {
+function getOidcTokenDirect(email, password) {
   const authUrl = Cypress.env('AUTH_ISSUER')
   const audience = Cypress.env('AUTH_AUDIENCE')
   const clientId = Cypress.env('AUTH_CLIENT_ID')
@@ -93,7 +93,7 @@ export function loginStandardUserAPI(email, password) {
   logout()
 
   // Get JWT token, store it, set up intercept, and verify authentication
-  return getAuth0TokenDirect(email, password).then((token) => {
+  return getOidcTokenDirect(email, password).then((token) => {
     // Store the token
     cy.window().then((win) => {
       win.localStorage.setItem('auth_token', token)
@@ -171,10 +171,10 @@ export function participateWithXID(conversationId, xid) {
 }
 
 /**
- * Helper to get Auth0 access token from localStorage cache
+ * Helper to get OIDC access token from localStorage cache
  * @returns {Cypress.Chainable<string>} The access token
  */
-export function getAuth0AccessToken() {
+export function getOidcAccessToken() {
   return cy.window().then((win) => {
     // First try the simple approach - check if we stored the token directly
     const storedToken = win.localStorage.getItem('auth_token')
@@ -182,29 +182,29 @@ export function getAuth0AccessToken() {
       return storedToken
     }
 
-    // Fallback: Check if auth0TokenGetter is available
-    if (typeof win.auth0TokenGetter === 'function') {
-      return cy.wrap(win.auth0TokenGetter()).then((token) => {
+    // Fallback: Check if oidcTokenGetter is available
+    if (typeof win.oidcTokenGetter === 'function') {
+      return cy.wrap(win.oidcTokenGetter()).then((token) => {
         expect(token).to.be.a('string')
         expect(token.length).to.be.greaterThan(0)
         return token
       })
     }
 
-    // Fallback: Find Auth0 SDK cache for access tokens
-    const auth0Keys = Object.keys(win.localStorage).filter(
+    // Fallback: Find OIDC SDK cache for access tokens
+    const oidcKeys = Object.keys(win.localStorage).filter(
       (key) => key.includes('@@auth0spajs@@') && key.includes('::') && !key.includes('@@user@@'),
     )
 
-    if (auth0Keys.length === 0) {
-      throw new Error('No Auth0 access token found in localStorage')
+    if (oidcKeys.length === 0) {
+      throw new Error('No OIDC access token found in localStorage')
     }
 
-    const cacheKey = auth0Keys[0]
+    const cacheKey = oidcKeys[0]
     const cacheData = JSON.parse(win.localStorage.getItem(cacheKey))
 
     if (!cacheData || !cacheData.body || !cacheData.body.access_token) {
-      throw new Error('Access token not found in Auth0 cache')
+      throw new Error('Access token not found in OIDC cache')
     }
 
     return cacheData.body.access_token
@@ -213,13 +213,13 @@ export function getAuth0AccessToken() {
 
 /**
  * Helper to verify JWT token structure and claims
- * @param {string} tokenKey - localStorage key for the token OR 'auth0' to use Auth0 token getter
+ * @param {string} tokenKey - localStorage key for the token OR 'oidc' to use OIDC token getter
  * @param {object} expectedClaims - Claims to verify in the token
  */
 export function verifyJWTClaims(tokenKey, expectedClaims) {
-  if (tokenKey === 'auth0') {
-    // Use Auth0 token getter
-    return getAuth0AccessToken().then((token) => {
+  if (tokenKey === 'oidc') {
+    // Use OIDC token getter
+    return getOidcAccessToken().then((token) => {
       expect(token).to.exist
 
       // Decode JWT payload
@@ -232,7 +232,7 @@ export function verifyJWTClaims(tokenKey, expectedClaims) {
         const expectedValue = expectedClaims[claim]
         let actualValue
 
-        // For Auth0 access tokens, check custom namespace claims first, then standard claims
+        // For OIDC access tokens, check custom namespace claims first, then standard claims
         actualValue = payload[`${namespace}${claim}`] || payload[claim]
 
         expect(actualValue).to.equal(
@@ -279,13 +279,13 @@ export function verifyJWTClaims(tokenKey, expectedClaims) {
 
 /**
  * Helper to verify custom namespace claims in JWT token
- * @param {string} tokenKey - localStorage key for the token OR 'auth0' to use Auth0 token getter
+ * @param {string} tokenKey - localStorage key for the token OR 'oidc' to use OIDC token getter
  * @param {object} expectedClaims - Custom namespace claims to verify
  */
 export function verifyCustomNamespaceClaims(tokenKey, expectedClaims) {
-  if (tokenKey === 'auth0') {
-    // Use Auth0 token getter
-    return getAuth0AccessToken().then((token) => {
+  if (tokenKey === 'oidc') {
+    // Use OIDC token getter
+    return getOidcAccessToken().then((token) => {
       expect(token).to.exist
 
       // Decode JWT payload
@@ -324,28 +324,28 @@ export function verifyCustomNamespaceClaims(tokenKey, expectedClaims) {
 }
 
 /**
- * Helper to verify standard claims in ID token from Auth0 cache
+ * Helper to verify standard claims in ID token from OIDC cache
  * @param {object} expectedClaims - Standard claims to verify in ID token
  */
 export function verifyIDTokenClaims(expectedClaims) {
   return cy.window().then((win) => {
     // Auth0 stores ID token in its cache format: @@auth0spajs@@::client-id::@@user@@
-    const auth0UserKeys = Object.keys(win.localStorage).filter(
+    const oidcUserKeys = Object.keys(win.localStorage).filter(
       (key) => key.includes('@@auth0spajs@@') && key.includes('@@user@@'),
     )
 
-    if (auth0UserKeys.length === 0) {
+    if (oidcUserKeys.length === 0) {
       // ID token might not be issued by the simulator - this is expected
-      cy.log('⚠️ No Auth0 user cache found - ID token verification skipped')
+      cy.log('⚠️ No OIDC user cache found - ID token verification skipped')
       return
     }
 
-    const userCacheKey = auth0UserKeys[0]
+    const userCacheKey = oidcUserKeys[0]
     const userCacheData = JSON.parse(win.localStorage.getItem(userCacheKey))
 
     if (!userCacheData || !userCacheData.body || !userCacheData.body.id_token) {
       // ID token might not be issued by the simulator - this is expected
-      cy.log('⚠️ ID token not found in Auth0 cache - verification skipped')
+      cy.log('⚠️ ID token not found in OIDC cache - verification skipped')
       return
     }
 
@@ -501,12 +501,12 @@ export function waitForJWTToken(tokenKey = 'participant_token') {
 }
 
 /**
- * Helper to check Auth0 simulator connectivity
+ * Helper to check OIDC simulator connectivity
  */
-export function checkAuth0Simulator() {
+export function checkOidcSimulator() {
   const authUrl = Cypress.env('AUTH_ISSUER')
 
-  cy.log(`🔍 Checking Auth0 simulator connectivity: ${authUrl}`)
+  cy.log(`🔍 Checking OIDC simulator connectivity: ${authUrl}`)
 
   // Check JWKS endpoint
   cy.request({
@@ -517,18 +517,18 @@ export function checkAuth0Simulator() {
   }).then((response) => {
     expect(response.status).to.equal(200)
     expect(response.body.keys).to.exist
-    cy.log(`✅ Auth0 simulator JWKS accessible: ${response.body.keys.length} keys found`)
+    cy.log(`✅ OIDC simulator JWKS accessible: ${response.body.keys.length} keys found`)
   })
 }
 
 /**
- * Helper to verify server JWT validation using Auth0 access token
+ * Helper to verify server JWT validation using OIDC access token
  */
 export function verifyServerJWTValidation() {
-  cy.log('🔍 Verifying server JWT validation with Auth0 token')
+  cy.log('🔍 Verifying server JWT validation with OIDC token')
 
-  return getAuth0AccessToken().then((authToken) => {
-    cy.log('🔍 Using Auth0 access token for server validation:', authToken ? 'present' : 'missing')
+  return getOidcAccessToken().then((authToken) => {
+    cy.log('🔍 Using OIDC access token for server validation:', authToken ? 'present' : 'missing')
 
     // Make a request to a protected endpoint
     cy.request({

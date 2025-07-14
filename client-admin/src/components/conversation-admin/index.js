@@ -9,7 +9,7 @@ import { Switch, Route, Link } from 'react-router-dom'
 
 import ConversationConfig from './conversation-config'
 import ConversationStats from './stats'
-import withAuth0 from '../../util/withAuth0'
+import { withAuth0 } from '@auth0/auth0-react'
 
 import ModerateComments from './comment-moderation/'
 
@@ -22,7 +22,7 @@ import Reports from './report/reports'
 class ConversationAdminContainer extends React.Component {
   constructor(props) {
     super(props);
-    this.auth0ReadyHandler = null;
+    this.oidcReadyHandler = null;
   }
   
   loadZidMetadata() {
@@ -36,25 +36,25 @@ class ConversationAdminContainer extends React.Component {
   }
 
   componentDidMount() {
-    // Listen for auth0Ready event
-    this.auth0ReadyHandler = () => {
+    // Listen for oidcReady event
+    this.oidcReadyHandler = () => {
       if (!this.props.loading) {
         this.loadZidMetadata();
       }
     };
     
-    window.addEventListener('auth0Ready', this.auth0ReadyHandler);
+    window.addEventListener('oidcReady', this.oidcReadyHandler);
     
     // If auth0 is already ready, call loadZidMetadata immediately
-    if (window.auth0Ready && !this.props.loading) {
+    if (window.oidcReady && !this.props.loading) {
       this.loadZidMetadata();
     }
   }
 
   componentWillUnmount() {
     // Clean up event listener
-    if (this.auth0ReadyHandler) {
-      window.removeEventListener('auth0Ready', this.auth0ReadyHandler);
+    if (this.oidcReadyHandler) {
+      window.removeEventListener('oidcReady', this.oidcReadyHandler);
     }
     this.resetMetadata()
   }

@@ -22,8 +22,8 @@ export default (env, argv) => {
   const isProduction = argv.mode === 'production'
   const isDevelopment = !isProduction
   
-  // Debug Auth0 environment variables
-  console.log('Building with Auth0 configuration:')
+  // Debug OIDC environment variables
+  console.log('Building with OIDC configuration:')
   console.log('  AUTH_CLIENT_ID:', process.env.AUTH_CLIENT_ID)
   console.log('  AUTH_ISSUER:', process.env.AUTH_ISSUER)
   console.log('  AUTH_AUDIENCE:', process.env.AUTH_AUDIENCE)

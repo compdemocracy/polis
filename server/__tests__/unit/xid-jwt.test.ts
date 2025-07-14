@@ -24,8 +24,8 @@ describe("XID JWT Implementation", () => {
   test("should correctly identify XID JWTs", () => {
     expect(isXidJWT(testToken)).toBe(true);
 
-    // Create a fake Auth0 JWT to test discrimination
-    const fakeAuth0Token = jwt.sign(
+    // Create a fake OIDC JWT to test discrimination
+    const fakeOidcToken = jwt.sign(
       {
         sub: "auth0|123456",
         aud: "test-audience",
@@ -35,7 +35,7 @@ describe("XID JWT Implementation", () => {
       "fake-secret"
     );
 
-    expect(isXidJWT(fakeAuth0Token)).toBe(false);
+    expect(isXidJWT(fakeOidcToken)).toBe(false);
 
     // Test with invalid token
     expect(isXidJWT("invalid.token.here")).toBe(false);

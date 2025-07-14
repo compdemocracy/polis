@@ -1,37 +1,37 @@
 import {
   loginStandardUser,
   logout,
-  checkAuth0Simulator,
+  checkOidcSimulator,
   verifyJWTClaims,
   verifyCustomNamespaceClaims,
   verifyIDTokenClaims,
   verifyServerJWTValidation,
 } from '../../support/auth-helpers.js'
 
-describe('Auth0 Standard User Authentication', () => {
+describe('OIDC Standard User Authentication', () => {
   beforeEach(() => {
     // Clear any existing auth state
     logout()
 
-    // Check that Auth0 simulator is accessible
-    checkAuth0Simulator()
+    // Check that OIDC simulator is accessible
+    checkOidcSimulator()
   })
 
-  it('should authenticate admin user via Auth0 simulator', () => {
+  it('should authenticate admin user via OIDC simulator', () => {
     const email = 'admin@polis.test'
     const password = 'Te$tP@ssw0rd*'
 
     loginStandardUser(email, password)
 
     // Verify the access token contains expected custom namespace claims
-    verifyCustomNamespaceClaims('auth0', {
+    verifyCustomNamespaceClaims('oidc', {
       email: email,
       name: 'Test Admin',
       email_verified: true,
     })
 
     // Verify the access token contains standard claims
-    verifyJWTClaims('auth0', {
+    verifyJWTClaims('oidc', {
       aud: Cypress.env('AUTH_AUDIENCE'),
     })
 
@@ -46,21 +46,21 @@ describe('Auth0 Standard User Authentication', () => {
     verifyServerJWTValidation()
   })
 
-  it('should authenticate moderator user via Auth0 simulator', () => {
+  it('should authenticate moderator user via OIDC simulator', () => {
     const email = 'moderator@polis.test'
     const password = 'Te$tP@ssw0rd*'
 
     loginStandardUser(email, password)
 
     // Verify the access token contains expected custom namespace claims
-    verifyCustomNamespaceClaims('auth0', {
+    verifyCustomNamespaceClaims('oidc', {
       email: email,
       name: 'Test Moderator',
       email_verified: true,
     })
 
     // Verify the access token contains standard claims
-    verifyJWTClaims('auth0', {
+    verifyJWTClaims('oidc', {
       aud: Cypress.env('AUTH_AUDIENCE'),
     })
 
@@ -101,7 +101,7 @@ describe('Auth0 Standard User Authentication', () => {
     loginStandardUser(email, password)
 
     // Verify access token has expected custom namespace claims
-    verifyCustomNamespaceClaims('auth0', {
+    verifyCustomNamespaceClaims('oidc', {
       email: email,
       name: 'Test Admin',
       email_verified: true,

@@ -1,5 +1,5 @@
 {
-  "name": "auth0-simulator",
+  "name": "oidc-simulator",
   "version": "1.0.0",
   "description": "A standalone service for @simulacrum/auth0-simulator",
   "main": "dist/index.js",

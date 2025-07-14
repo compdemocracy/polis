@@ -1,14 +1,14 @@
 /**
- * JWT implementation for standard users (Auth0-authenticated) participating in conversations
+ * JWT implementation for standard users (OIDC-authenticated) participating in conversations
  *
- * This bridges Auth0 authentication with Polis's conversation-scoped participant system.
+ * This bridges OIDC authentication with Polis's conversation-scoped participant system.
  * Standard users get conversation-specific JWTs when they participate, maintaining
  * consistency with XID and anonymous participants.
  *
  * Key features:
- * - Links to existing Auth0 identity via auth0_sub
+ * - Links to existing OIDC identity via oidc_sub
  * - Conversation-scoped like other participant JWTs
- * - Maintains existing uid from auth0_user_mappings
+ * - Maintains existing uid from oidc_user_mappings
  * - 24-hour expiration
  */
 
@@ -24,9 +24,9 @@ interface StandardUserJwtClaims {
   iat: number; // Issued at time
   iss: string; // Issuer
   pid: number; // Participant ID
-  sub: string; // "user:<auth0_sub>"
+  sub: string; // "user:<oidc_sub>"
   uid: number; // Local user ID
-  auth0_sub: string; // Auth0 subject identifier
+  oidc_sub: string; // OIDC subject identifier
   conversation_id: string; // Conversation ID
   standard_user_participant: boolean; // Standard user participant flag
 }
@@ -80,7 +80,7 @@ function isStandardUserJWT(token: string): boolean {
     // Standard user JWTs have specific claims
     return !!(
       payload.standard_user_participant &&
-      payload.auth0_sub &&
+      payload.oidc_sub &&
       payload.sub?.startsWith("user:")
     );
   } catch (error) {
@@ -91,7 +91,7 @@ function isStandardUserJWT(token: string): boolean {
 
 // Issue a new standard user JWT
 function issueStandardUserJWT(
-  auth0Sub: string,
+  oidcSub: string,
   conversationId: string,
   uid: number,
   pid: number
@@ -101,8 +101,8 @@ function issueStandardUserJWT(
     iss: Config.polisJwtIssuer as string,
     pid,
     uid,
-    auth0_sub: auth0Sub,
-    sub: `user:${auth0Sub}`,
+    oidc_sub: oidcSub,
+    sub: `user:${oidcSub}`,
     exp: Math.floor(Date.now() / 1000) + 24 * 60 * 60, // 24 hours
     iat: Math.floor(Date.now() / 1000),
     conversation_id: conversationId,
@@ -174,7 +174,7 @@ const extractUserFromStandardUserJWT = (
         // Validate that this is actually a standard user JWT
         if (
           !payload.standard_user_participant ||
-          !payload.auth0_sub ||
+          !payload.oidc_sub ||
           !payload.sub?.startsWith("user:")
         ) {
           logger.error("Invalid standard user JWT claims:", payload);
@@ -190,7 +190,7 @@ const extractUserFromStandardUserJWT = (
 
         // Store standard user-specific data that doesn't conflict with standard parameters
         req.p.pid = payload.pid;
-        req.p.auth0_sub = payload.auth0_sub;
+        req.p.oidc_sub = payload.oidc_sub;
         req.p.conversation_id = payload.conversation_id;
         req.p.standard_user_participant = payload.standard_user_participant;
 
@@ -215,7 +215,7 @@ const extractUserFromStandardUserJWT = (
         }
 
         logger.debug(
-          `Successfully extracted standard user participant: uid: ${payload.uid}, auth0_sub: ${payload.auth0_sub}`
+          `Successfully extracted standard user participant: uid: ${payload.uid}, oidc_sub: ${payload.oidc_sub}`
         );
       } else {
         logger.warn("No standard user JWT payload found in request");
@@ -241,7 +241,7 @@ function verifyStandardUserJWT(token: string): StandardUserJwtClaims {
     // Additional validation
     if (
       !payload.standard_user_participant ||
-      !payload.auth0_sub ||
+      !payload.oidc_sub ||
       !payload.sub?.startsWith("user:")
     ) {
       throw new Error("Invalid standard user JWT claims");

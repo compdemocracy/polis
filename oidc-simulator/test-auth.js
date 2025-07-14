@@ -10,7 +10,7 @@ async function testAuth() {
   const clientId = 'dev-client-id';
   const namespace = 'https://pol.is/';
   
-  console.log('Testing Auth0 simulator with custom claims...\n');
+  console.log('Testing OIDC simulator with custom claims...\n');
   
   try {
     // First, let's check if the server is responding

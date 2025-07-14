@@ -126,7 +126,7 @@ describe('Reports - Authentication & Access Control', () => {
       // Wait for the page to load - first check that we're not on a redirect/login page
       cy.url().should('include', `/m/${conversationId}`)
 
-      // Wait for the Auth0 authentication and page loading to complete
+      // Wait for the OIDC authentication and page loading to complete
       // The page will show "Loading Reports..." first, then either the reports or no permission
       cy.get('body').should('be.visible')
 

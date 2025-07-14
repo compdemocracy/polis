@@ -42,8 +42,8 @@ interface VoteResult {
 interface VoteRequest {
   p: Vote & {
     anonymous_participant?: boolean;
-    auth0_sub?: string;
-    auth0User?: any;
+    oidc_sub?: string;
+    oidcUser?: any;
     jwt_conversation_id?: string;
     jwt_conversation_mismatch?: boolean;
     jwt_xid?: string;
@@ -316,7 +316,7 @@ async function issueJWTIfNeeded(
     isNewlyCreated,
     hasAuthHeader: !!req.headers?.authorization,
     xid: req.p.xid,
-    auth0_sub: req.p.auth0_sub,
+    oidc_sub: req.p.oidc_sub,
     standard_user_participant: req.p.standard_user_participant,
   });
 
@@ -347,9 +347,9 @@ async function issueJWTIfNeeded(
     let token;
     let tokenType;
 
-    if (req.p.auth0_sub) {
-      // Standard user with Auth0 authentication
-      token = issueStandardUserJWT(req.p.auth0_sub, conversationId, uid, pid);
+    if (req.p.oidc_sub) {
+      // Standard user with OIDC authentication
+      token = issueStandardUserJWT(req.p.oidc_sub, conversationId, uid, pid);
       tokenType = "StandardUser";
     } else if (req.p.xid) {
       // XID participant
@@ -366,7 +366,7 @@ async function issueJWTIfNeeded(
       uid,
       pid,
       conversationId,
-      auth0_sub: req.p.auth0_sub,
+      oidc_sub: req.p.oidc_sub,
     });
 
     return {

@@ -35,7 +35,7 @@ describe("Participant Metadata API", () => {
   let token: string;
 
   beforeAll(async () => {
-    // Use pooled user for Auth0 compatibility
+    // Use pooled user for OIDC compatibility
     const pooledUser = getPooledTestUser(1);
     const testUser = {
       email: pooledUser.email,

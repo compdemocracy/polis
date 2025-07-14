@@ -63,15 +63,15 @@ services:
       # SMTP port
       - "1025:1025"
 
-  auth0-simulator:
+  oidc-simulator:
     build:
-      context: ./auth0-simulator
+      context: ./oidc-simulator
       dockerfile: Dockerfile
     command: npm run dev
     ports:
       - "${AUTH_SIMULATOR_PORT:-3000}:${AUTH_SIMULATOR_PORT:-3000}"
     volumes:
-      - ./auth0-simulator:/app
+      - ./oidc-simulator:/app
       - /app/node_modules
       - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
     environment:

@@ -41,9 +41,9 @@ describe('Client Admin: Routes', () => {
     it('should display sign in page at /signin', () => {
       cy.visit('/signin')
 
-      // Should see sign in form or Auth0 redirect
+      // Should see sign in form or OIDC redirect
       cy.url().should('satisfy', (url) => {
-        return url.includes('/signin') || url.includes('auth0') || url.includes('authorize')
+        return url.includes('/signin') || url.includes('authorize')
       })
 
       cy.log('✅ Sign in page accessible at /signin')

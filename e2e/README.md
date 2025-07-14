@@ -9,7 +9,7 @@ npm install
 ## Documentation
 
 - **[BEST-PRACTICES.md](./BEST-PRACTICES.md)** - General Cypress patterns, gotchas, and best practices
-- **[E2E-AUTHENTICATION-GUIDE.md](./E2E-AUTHENTICATION-GUIDE.md)** - Authentication patterns for Auth0 and participant testing
+- **[E2E-AUTHENTICATION-GUIDE.md](./E2E-AUTHENTICATION-GUIDE.md)** - Authentication patterns for OIDC and participant testing
 - **[JWT_TEST_SETUP.md](./JWT_TEST_SETUP.md)** - JWT test setup for anonymous participants
 - **[PARTICIPANT-TESTING.md](./PARTICIPANT-TESTING.md)** - Participant authentication testing guide
 - **[EMBED-TESTING.md](./EMBED-TESTING.md)** - Embed and integrated conversation testing guide

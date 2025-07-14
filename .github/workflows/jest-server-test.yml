@@ -78,14 +78,14 @@ jobs:
           echo "Installing local CA..."
           mkcert -install
 
-          echo "Generating certificates for Auth0 simulator..."
+          echo "Generating certificates for OIDC simulator..."
           CERT_DIR="$HOME/.simulacrum/certs"
           mkdir -p "$CERT_DIR"
           CAROOT=$(mkcert -CAROOT)
           cp "$CAROOT/rootCA.pem" "$CERT_DIR/"
           
           echo "Generating localhost certificates with custom names..."
-          (cd "$CERT_DIR" && mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 auth0-simulator)
+          (cd "$CERT_DIR" && mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator)
           
           echo "Generated certificates:"
           ls -la "$CERT_DIR"
@@ -114,9 +114,9 @@ jobs:
           echo "DATABASE_URL=postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@172.17.0.1:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}" >> .env
           # Fix certificate path to use actual HOME directory
           echo "AUTH_CERTS_PATH=$HOME/.simulacrum/certs" >> .env
-          # Update Auth0 URLs to use auth0-simulator hostname for Docker networking
-          sed -i 's|AUTH_ISSUER=https://localhost:3000/|AUTH_ISSUER=https://auth0-simulator:3000/|g' .env
-          sed -i 's|JWKS_URI=https://host.docker.internal:3000/.well-known/jwks.json|JWKS_URI=https://auth0-simulator:3000/.well-known/jwks.json|g' .env
+          # Update OIDC URLs to use oidc-simulator hostname for Docker networking
+          sed -i 's|AUTH_ISSUER=https://localhost:3000/|AUTH_ISSUER=https://oidc-simulator:3000/|g' .env
+          sed -i 's|JWKS_URI=https://host.docker.internal:3000/.well-known/jwks.json|JWKS_URI=https://oidc-simulator:3000/.well-known/jwks.json|g' .env
 
       - name: Build and start Docker containers (excluding Postgres)
         run: |
@@ -146,8 +146,8 @@ jobs:
           echo "Container status after startup:"
           docker ps
           
-          echo "Checking auth0-simulator build logs..."
-          docker logs polis-test-auth0-simulator-1 || echo "Auth0 simulator container not found"
+          echo "Checking oidc-simulator build logs..."
+          docker logs polis-test-oidc-simulator-1 || echo "OIDC simulator container not found"
         env:
           DOCKER_BUILDKIT: 1
           COMPOSE_DOCKER_CLI_BUILD: 1
@@ -165,32 +165,32 @@ jobs:
           echo "Running migrations..."
           bash server/bin/run-migrations.sh
 
-      - name: Wait for Auth0 simulator to be ready
+      - name: Wait for OIDC simulator to be ready
         run: |
           echo "Checking Docker containers status..."
           docker ps
           
-          echo "Checking auth0-simulator container logs..."
-          docker logs polis-test-auth0-simulator-1 || echo "Auth0 simulator container not found or not started"
+          echo "Checking oidc-simulator container logs..."
+          docker logs polis-test-oidc-simulator-1 || echo "OIDC simulator container not found or not started"
           
-          echo "Checking if auth0-simulator container exists..."
-          if ! docker ps --filter "name=polis-test-auth0-simulator-1" --format "{{.Names}}" | grep -q "polis-test-auth0-simulator-1"; then
-            echo "❌ Auth0 simulator container is not running!"
+          echo "Checking if oidc-simulator container exists..."
+          if ! docker ps --filter "name=polis-test-oidc-simulator-1" --format "{{.Names}}" | grep -q "polis-test-oidc-simulator-1"; then
+            echo "❌ OIDC simulator container is not running!"
             echo "Available containers:"
             docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
             exit 1
           fi
           
-          echo "Waiting for Auth0 simulator to be ready..."
+          echo "Waiting for OIDC simulator to be ready..."
           timeout 60 sh -c '
             until curl -k -s https://localhost:3000/.well-known/jwks.json > /dev/null 2>&1; do 
-              echo "Waiting for Auth0 simulator..."
+              echo "Waiting for OIDC simulator..."
               # Also check container logs for errors
-              docker logs --tail 5 polis-test-auth0-simulator-1 2>/dev/null || true
+              docker logs --tail 5 polis-test-oidc-simulator-1 2>/dev/null || true
               sleep 2
             done
           '
-          echo "Auth0 simulator is ready!"
+          echo "OIDC simulator is ready!"
           
           echo "Testing simulator endpoint..."
           curl -k -s https://localhost:3000/.well-known/jwks.json | head -c 100
@@ -199,9 +199,9 @@ jobs:
         run: |
           echo "Checking container status..."
           docker ps
-          echo "Checking auth0-simulator logs..."
-          docker logs polis-test-auth0-simulator-1 || echo "Auth0 simulator logs not available"
-          echo "Testing auth0-simulator connectivity from host..."
+          echo "Checking oidc-simulator logs..."
+          docker logs polis-test-oidc-simulator-1 || echo "OIDC simulator logs not available"
+          echo "Testing oidc-simulator connectivity from host..."
           curl -k -s https://localhost:3000/.well-known/jwks.json || echo "Cannot reach simulator from host"
           echo "Running Jest tests..."
           docker exec polis-test-server-1 npm test

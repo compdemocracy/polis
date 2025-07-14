@@ -15,8 +15,8 @@ import type {
 } from "../../types/test-helpers";
 
 describe("JWT-Only Authentication Tests", () => {
-  describe("Auth0 JWT Authentication", () => {
-    test("should authenticate requests with valid Auth0 JWT", async () => {
+  describe("OIDC JWT Authentication", () => {
+    test("should authenticate requests with valid OIDC JWT", async () => {
       const pooledUser = {
         email: "test.user.0@polis.test",
         hname: "Test User 0",
@@ -71,7 +71,7 @@ describe("JWT-Only Authentication Tests", () => {
     });
   });
 
-  describe("Participant Authentication (Non-Auth0)", () => {
+  describe("Participant Authentication (Non-OIDC)", () => {
     let conversationId: string;
     let commentId: number;
 

@@ -166,6 +166,8 @@ services:
         GA_TRACKING_ID: ${GA_TRACKING_ID}
         GIT_HASH: "${GIT_HASH:-placeholder}"
         NODE_ENV: production
+        OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}
+        OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: ${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
     labels:
       polis_tag: ${TAG:-dev}
     environment:

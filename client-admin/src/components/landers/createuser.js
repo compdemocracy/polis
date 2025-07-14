@@ -6,7 +6,7 @@ import { Heading, Box, Button, jsx } from 'theme-ui'
 
 import { Link } from 'react-router-dom'
 import StaticLayout from './lander-layout'
-import withAuth0 from '../../util/withAuth0'
+import { withAuth0 } from '@auth0/auth0-react'
 
 class Createuser extends React.Component {
   getDest() {
@@ -19,7 +19,7 @@ class Createuser extends React.Component {
         <Button
           sx={{ my: [2] }}
           id="createUserButton"
-          onClick={() => this.props.loginWithRedirect({
+          onClick={() => this.props.auth0.loginWithRedirect({
             authorizationParams: {
               screen_hint: 'signup'
             }

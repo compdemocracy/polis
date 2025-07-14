@@ -9,8 +9,8 @@ import { populateUserStore } from './actions'
 import { Switch, Route, Link, Redirect } from 'react-router-dom'
 import { Flex, Box, jsx } from 'theme-ui'
 
-import withAuth0 from './util/withAuth0'
-import Auth0Connector from './components/auth0-connector'
+import { withAuth0 } from '@auth0/auth0-react'
+import OIDCConnector from './components/oidc-connector'
 import Spinner from './components/framework/spinner'
 
 /* landers */
@@ -112,40 +112,40 @@ class App extends React.Component {
 
   isAuthed() {
     // Use Auth0 authentication state
-    return this.props.isAuthenticated && !this.props.error;
+    return this.props.auth0.isAuthenticated && !this.props.auth0.error;
   }
 
   isLoading() {
     // Use Auth0 loading state
-    return this.props.isLoading;
+    return this.props.auth0.isLoading;
   }
 
   componentDidMount() {
     this.mediaQueryChanged()
     
-    // Listen for auth0Ready event to ensure token getter is available
+    // Listen for oidcReady event to ensure token getter is available
     const handleAuth0Ready = (event) => {
       if (!this.isLoading() && this.isAuthed()) {
         this.loadUserData();
       }
     };
     
-    window.addEventListener('auth0Ready', handleAuth0Ready);
+    window.addEventListener('oidcReady', handleAuth0Ready);
     
     // Store the handler for cleanup
-    this.auth0ReadyHandler = handleAuth0Ready;
+    this.oidcReadyHandler = handleAuth0Ready;
   }
 
   componentDidUpdate(prevProps) {
     // This logic has been removed because it was creating a race condition.
     // It was calling loadUserData() before the Auth0 token getter was guaranteed to be available.
-    // The 'auth0Ready' event listener in componentDidMount now safely handles loading user data.
+    // The 'oidcReady' event listener in componentDidMount now safely handles loading user data.
   }
 
   componentWillUnmount() {
     // Clean up event listener
-    if (this.auth0ReadyHandler) {
-      window.removeEventListener('auth0Ready', this.auth0ReadyHandler);
+    if (this.oidcReadyHandler) {
+      window.removeEventListener('oidcReady', this.oidcReadyHandler);
     }
     this.state.mql.removeListener(this.mediaQueryChanged.bind(this))
   }
@@ -166,7 +166,7 @@ class App extends React.Component {
     const { location } = this.props
     return (
       <>
-        <Auth0Connector />
+        <OIDCConnector />
         <Switch>
           <Redirect from="/:url*(/+)" to={location.pathname.slice(0, -1)} />
           <Route exact path="/home" component={Home} />
@@ -293,6 +293,13 @@ App.propTypes = {
     email: PropTypes.string,
     created: PropTypes.number,
     hname: PropTypes.string
+  }),
+  auth0: PropTypes.shape({
+    isAuthenticated: PropTypes.bool,
+    isLoading: PropTypes.bool,
+    error: PropTypes.object,
+    loginWithRedirect: PropTypes.func,
+    logout: PropTypes.func
   })
 }
 

@@ -70,12 +70,12 @@ const wait = (ms: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Helper to get an access token from the Auth0 simulator.
+ * Helper to get an access token from the OIDC simulator.
  * Assumes the simulator is running and configured.
  * @param user - User credentials (email, password)
  * @returns The access token string.
  */
-export async function getAuth0Token(
+export async function getOidcToken(
   user: Pick<TestUser, "email" | "password">
 ): Promise<string> {
   // Dynamically import axios only when needed for this function
@@ -119,7 +119,7 @@ export async function getAuth0Token(
     if (tokenResponse.data && tokenResponse.data.access_token) {
       return tokenResponse.data.access_token;
     } else {
-      throw new Error("Failed to retrieve access_token from Auth0 simulator.");
+      throw new Error("Failed to retrieve access_token from OIDC simulator.");
     }
   } catch (error: any) {
     // Avoid logging circular response objects
@@ -133,13 +133,13 @@ export async function getAuth0Token(
       // If simulator is not available (404), provide helpful error message
       if (error.response.status === 404) {
         throw new Error(
-          `Auth0 simulator not available at ${simulatorUrl}. ` +
+          `OIDC simulator not available at ${simulatorUrl}. ` +
             `Please ensure the simulator is running.`
         );
       }
     } else if (error.code === "ECONNREFUSED") {
       throw new Error(
-        `Cannot connect to Auth0 simulator at ${simulatorUrl}. ` +
+        `Cannot connect to OIDC simulator at ${simulatorUrl}. ` +
           `Please ensure the simulator is running.`
       );
     } else {
@@ -150,7 +150,7 @@ export async function getAuth0Token(
 }
 
 /**
- * Creates a SuperTest agent authenticated with a JWT token from the Auth0 simulator.
+ * Creates a SuperTest agent authenticated with a JWT token from the OIDC simulator.
  * @param user - User credentials (email, password).
  * @returns A promise that resolves to JwtAuthData (agent, token, testUser).
  */
@@ -161,15 +161,15 @@ export async function getJwtAuthenticatedAgent(
   const agent = request.agent(app);
   const currentUser = user;
 
-  // Note: This assumes the Auth0 simulator has this user registered.
+  // Note: This assumes the OIDC simulator has this user registered.
   // The auth-jwt.test.ts file handles simulator setup with users.
   // For other tests, ensure the user exists in the simulator's state.
-  const token = await getAuth0Token(currentUser);
+  const token = await getOidcToken(currentUser);
 
   agent.set("Authorization", `Bearer ${token}`);
 
   // Also, we need to ensure that the user exists in the local Polis database.
-  // The JWT middleware's extractUserFromJWT will attempt getOrCreateUserIDFromAuth0Sub.
+  // The JWT middleware's extractUserFromJWT will attempt getOrCreateUserIDFromOidcSub.
   // For tests to pass consistently, this user (identified by 'sub' from the token)
   // might need to be pre-created or the getOrCreate logic should be robust.
   // This is an important consideration for test stability.
@@ -842,7 +842,7 @@ async function populateConversationWithVotes(
 }
 
 /**
- * Sync a single pooled user to the database by ensuring it has an Auth0 mapping
+ * Sync a single pooled user to the database by ensuring it has an OIDC mapping
  * @param pooledUser - Pooled user data
  */
 async function syncPooledUserToDatabase(pooledUser: {
@@ -857,8 +857,8 @@ async function syncPooledUserToDatabase(pooledUser: {
   };
 
   try {
-    // Get Auth0 token for the user
-    const token = await getAuth0Token(testUser);
+    // Get OIDC token for the user
+    const token = await getOidcToken(testUser);
 
     // Create an agent and authenticate it
     const agent = await newAgent();
@@ -887,7 +887,7 @@ async function syncPooledUserToDatabase(pooledUser: {
 }
 
 /**
- * Sync all pooled users to ensure they exist in the database with Auth0 mappings
+ * Sync all pooled users to ensure they exist in the database with OIDC mappings
  */
 async function syncAllPooledUsers(): Promise<void> {
   // Get all pooled users (assuming we have 3 for now)

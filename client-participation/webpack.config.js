@@ -85,6 +85,8 @@ module.exports = (env, options) => {
   const conversationId = process.env.CONVERSATION_ID;
   const embedServiceHostname = process.env.EMBED_SERVICE_HOSTNAME || "pol.is";
   const gaTrackingId = process.env.GA_TRACKING_ID;
+  const oidcCacheKeyPrefix = process.env.OIDC_CACHE_KEY_PREFIX || "@@auth0spajs@@";
+  const oidcCacheKeyIdTokenSuffix = process.env.OIDC_CACHE_KEY_ID_TOKEN_SUFFIX || "@@user@@";
   const port = process.env.PORT || 3001;
 
   // Log important configuration values
@@ -226,6 +228,8 @@ module.exports = (env, options) => {
         templateParameters: {
           versionString: pkg.version,
           gaTrackingId: gaTrackingId,
+          oidcCacheKeyPrefix: oidcCacheKeyPrefix,
+          oidcCacheKeyIdTokenSuffix: oidcCacheKeyIdTokenSuffix,
           process: {
             env: {
               NODE_ENV: options.mode
@@ -248,7 +252,9 @@ module.exports = (env, options) => {
       }),
 
       new webpack.DefinePlugin({
-        "process.env.GA_TRACKING_ID": JSON.stringify(gaTrackingId)
+        "process.env.GA_TRACKING_ID": JSON.stringify(gaTrackingId),
+        "process.env.OIDC_CACHE_KEY_PREFIX": JSON.stringify(oidcCacheKeyPrefix),
+        "process.env.OIDC_CACHE_KEY_ID_TOKEN_SUFFIX": JSON.stringify(oidcCacheKeyIdTokenSuffix)
       }),
 
       // Add preload data in development mode if conversation ID exists

@@ -6,7 +6,7 @@ import PropTypes from 'prop-types'
 import Url from '../../../util/url'
 import { connect } from 'react-redux'
 import { Heading, Box, Button } from 'theme-ui'
-import withAuth0 from '../../../util/withAuth0'
+import { withAuth0 } from '@auth0/auth0-react'
 import { populateZidMetadataStore } from '../../../actions'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
@@ -19,7 +19,7 @@ class ReportsList extends React.Component {
       loading: true,
       reports: []
     }
-    this.auth0ReadyHandler = null;
+    this.oidcReadyHandler = null;
   }
 
   getData() {
@@ -48,23 +48,23 @@ class ReportsList extends React.Component {
   }
 
   componentDidMount() {
-    // Listen for auth0Ready event
-    this.auth0ReadyHandler = () => {
+    // Listen for oidcReady event
+    this.oidcReadyHandler = () => {
       this.loadInitialData();
     };
     
-    window.addEventListener('auth0Ready', this.auth0ReadyHandler);
+    window.addEventListener('oidcReady', this.oidcReadyHandler);
     
     // If auth0 is already ready, call loadInitialData immediately
-    if (window.auth0Ready) {
+    if (window.oidcReady) {
       this.loadInitialData();
     }
   }
 
   componentWillUnmount() {
     // Clean up event listener
-    if (this.auth0ReadyHandler) {
-      window.removeEventListener('auth0Ready', this.auth0ReadyHandler);
+    if (this.oidcReadyHandler) {
+      window.removeEventListener('oidcReady', this.oidcReadyHandler);
     }
   }
 

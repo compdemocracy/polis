@@ -27,7 +27,7 @@ import {
 } from "./xid-jwt";
 
 // Check if a token is a standard user JWT
-function _isAuth0JWT(token: string): boolean {
+function _isOidcJWT(token: string): boolean {
   try {
     const decoded = jwt.decode(token, { complete: true }) as any;
 
@@ -38,18 +38,18 @@ function _isAuth0JWT(token: string): boolean {
     const payload = decoded.payload;
 
     // Standard user JWTs have specific claims
-    const isAuth0 = !!(
+    const isOidc = !!(
       payload.aud === Config.authAudience && payload.iss === Config.authIssuer
     );
-    return isAuth0;
+    return isOidc;
   } catch (error) {
-    logger.warn("Error checking if token is Auth0 JWT:", error);
+    logger.warn("Error checking if token is OIDC JWT:", error);
     return false;
   }
 }
 
 /**
- * Hybrid JWT validation middleware that supports Auth0, XID, Anonymous, and Standard User JWTs
+ * Hybrid JWT validation middleware that supports OIDC, XID, Anonymous, and Standard User JWTs
  * This allows the same endpoints to work with all authentication methods
  */
 function _createHybridJwtMiddleware(
@@ -162,17 +162,17 @@ function _createHybridJwtMiddleware(
 
         logger.debug("Standard User JWT validation successful");
         return next();
-      } else if (_isAuth0JWT(token)) {
-        logger.debug("Detected Auth0 JWT, using Auth0 validation");
+      } else if (_isOidcJWT(token)) {
+        logger.debug("Detected OIDC JWT, using OIDC validation");
 
-        // Use Auth0 JWT validation
-        const auth0Validator = isOptional
+        // Use OIDC JWT validation
+        const oidcValidator = isOptional
           ? jwtValidationOptional
           : jwtValidation;
 
         // First validate the token
         await new Promise<void>((resolve, reject) => {
-          auth0Validator(req, res, (err?: any) => {
+          oidcValidator(req, res, (err?: any) => {
             if (err) reject(err);
             else resolve();
           });
@@ -186,7 +186,7 @@ function _createHybridJwtMiddleware(
           });
         });
 
-        logger.debug("Auth0 JWT validation successful");
+        logger.debug("OIDC JWT validation successful");
         return next();
       } else {
         logger.debug("No JWT token found, authentication required");
