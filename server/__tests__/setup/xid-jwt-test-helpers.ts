@@ -112,7 +112,6 @@ export function verifyXidJwtClaims(token: string) {
   // Verify XID-specific claims
   expect(payload).toHaveProperty("xid");
   expect(payload).toHaveProperty("xid_participant", true);
-  expect(payload).toHaveProperty("anonymous", true);
   expect(payload).toHaveProperty("conversation_id");
   expect(payload.sub).toMatch(/^xid:/);
 

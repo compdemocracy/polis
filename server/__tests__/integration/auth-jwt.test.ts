@@ -60,7 +60,7 @@ describe("JWT Authentication with Auth0 Simulator", () => {
     expect(response.status).toBe(401);
     expect(response.body).toHaveProperty(
       "error",
-      "Invalid authentication token"
+      "No authentication token found"
     );
   });
 

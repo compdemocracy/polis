@@ -918,4 +918,5 @@ export {
   syncAllPooledUsers,
   updateConversation,
   wait,
+  type TestUser,
 };
