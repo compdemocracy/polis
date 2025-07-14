@@ -30,8 +30,6 @@ const Index = () => {
         Get Started
       </Heading>
       <Box sx={{ mb: [4, null, 5] }}>
-        <Link href="/createuser">Sign up</Link>
-        {' or '}
         <Link href="/signin">Sign in</Link>
       </Box>
       <Press />

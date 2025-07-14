@@ -17,12 +17,8 @@ import Spinner from './components/framework/spinner'
 import Home from './components/landers/home'
 import TOS from './components/landers/tos'
 import Privacy from './components/landers/privacy'
-import PasswordReset from './components/landers/password-reset'
-import PasswordResetInit from './components/landers/password-reset-init'
-import PasswordResetInitDone from './components/landers/password-reset-init-done'
 import SignIn from './components/landers/signin'
 import SignOut from './components/landers/signout'
-import CreateUser from './components/landers/createuser'
 
 // /conversation-admin
 import ConversationAdminContainer from './components/conversation-admin/index'
@@ -187,14 +183,7 @@ class App extends React.Component {
           <Route exact path="/signout" render={() => <SignOut {...this.props} />} />
           <Route exact path="/signout/*" render={() => <SignOut {...this.props} />} />
           <Route exact path="/signout/**/*" render={() => <SignOut {...this.props} />} />
-          <Route exact path="/createuser" component={CreateUser} />
-          <Route exact path="/createuser/*" component={CreateUser} />
-          <Route exact path="/createuser/**/*" component={CreateUser} />
 
-          <Route exact path="/pwreset" component={PasswordReset} />
-          <Route path="/pwreset/*" component={PasswordReset} />
-          <Route exact path="/pwresetinit" component={PasswordResetInit} />
-          <Route exact path="/pwresetinit/done" component={PasswordResetInitDone} />
           <Route exact path="/tos" component={TOS} />
           <Route exact path="/privacy" component={Privacy} />
 
