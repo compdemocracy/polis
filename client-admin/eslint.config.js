@@ -81,8 +81,20 @@ module.exports = [
     }
   },
   {
+    // Override for Test files
+    files: ['**/*.test.js'],
+    languageOptions: {
+      globals: {
+        ...globals.jest
+      }
+    },
+    rules: {
+      'react/prop-types': 'off'
+    }
+  },
+  {
     // Override for Node.js files
-    files: ['webpack.config.js', 'eslint.config.js'],
+    files: ['webpack.config.js', 'eslint.config.js', 'babel.config.js', 'jest.config.js'],
     languageOptions: {
       globals: {
         ...globals.node

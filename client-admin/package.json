@@ -13,7 +13,8 @@
     "lint:fix": "eslint . --fix",
     "lint:verbose": "eslint .",
     "format": "prettier --write .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "test:watch": "jest --watch"
   },
   "author": "Colin Megill",
   "devDependencies": {
@@ -25,6 +26,9 @@
     "@babel/preset-env": "~7.28.0",
     "@babel/preset-react": "~7.27.1",
     "@mdx-js/loader": "^3.1.0",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^12.1.5",
+    "babel-jest": "^27.5.1",
     "babel-loader": "~10.0.0",
     "compression-webpack-plugin": "^11.1.0",
     "copy-webpack-plugin": "^13.0.0",
@@ -39,6 +43,9 @@
     "html-loader": "~5.1.0",
     "html-webpack-plugin": "~5.6.3",
     "html-webpack-tags-plugin": "~3.0.2",
+    "identity-obj-proxy": "^3.0.0",
+    "jest": "^27.5.1",
+    "jest-environment-jsdom": "^27.5.1",
     "prettier": "^3.6.2",
     "terser-webpack-plugin": "^5.3.14",
     "webpack": "~5.100.1",
