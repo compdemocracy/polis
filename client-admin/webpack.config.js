@@ -15,6 +15,9 @@ import webpack from 'webpack'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
+// Development port
+const port = process.env.PORT || 3002
+
 export default (env, argv) => {
   const isProduction = argv.mode === 'production'
   const isDevelopment = !isProduction
@@ -25,8 +28,8 @@ export default (env, argv) => {
   console.log('  AUTH_ISSUER:', process.env.AUTH_ISSUER)
   console.log('  AUTH_AUDIENCE:', process.env.AUTH_AUDIENCE)
   
-  let apiUrl  
-  if (isDevelopment) {
+  let apiUrl
+    if (isDevelopment) {
     // Get API URL from CLI arg, env var, or default
     apiUrl = env?.apiUrl || process.env.API_URL || 'http://localhost:5000'
     console.log(`Using API URL: ${apiUrl}`)
@@ -47,14 +50,17 @@ export default (env, argv) => {
     devServer: isDevelopment ? {
       historyApiFallback: true,
       hot: true,
-      port: 3000,
+      port: port,
       proxy: [
         {
           context: ['/api'],
           target: apiUrl,
-          secure: false,
+          changeOrigin: true,
+          logLevel: 'debug',
+          pathRewrite: { '^/api': '/api' },
+          secure: false
         }
-      ],
+      ]
     } : {},
     module: {
       rules: [

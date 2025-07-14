@@ -151,13 +151,17 @@ async function getOrCreateUserIDFromAuth0Sub(
                         // This can happen if a user changes the email on their social login,
                         // or deletes and recreates their account. We want the new login to win.
                         logger.warn(
-                          `Local user ${uid} (${email}) was mapped to an old Auth0 sub ${existingAuth0Sub}. Overwriting with new mapping for ${auth0Sub}.`
+                          `Local user ${uid} (${email}) was mapped to old Auth0 sub ${existingAuth0Sub}. Overwriting with new mapping for ${auth0Sub}.`
                         );
 
-                        // To be safe, we delete all existing mappings for this uid, then insert the new one.
+                        // To prevent unique constraint violations on either uid or auth0_sub,
+                        // we must first remove any existing mappings that would conflict.
+                        const cleanupQuery =
+                          "DELETE FROM auth0_user_mappings WHERE auth0_sub = $1 OR uid = $2";
+
                         pg.query(
-                          "DELETE FROM auth0_user_mappings WHERE uid = $1",
-                          [uid],
+                          cleanupQuery,
+                          [auth0Sub, uid],
                           (deleteErr: any) => {
                             if (deleteErr) {
                               return pg.query("ROLLBACK", [], () =>
@@ -165,7 +169,7 @@ async function getOrCreateUserIDFromAuth0Sub(
                               );
                             }
 
-                            // Now insert the new mapping.
+                            // Now that the coast is clear, insert the new mapping.
                             pg.query(
                               "INSERT INTO auth0_user_mappings (auth0_sub, uid, created) VALUES ($1, $2, now_as_millis())",
                               [auth0Sub, uid],
@@ -186,29 +190,29 @@ async function getOrCreateUserIDFromAuth0Sub(
                           }
                         );
                       }
-                    }
+                    } else {
+                      // No existing mapping for this uid, create new one
+                      pg.query(
+                        "INSERT INTO auth0_user_mappings (auth0_sub, uid, created) VALUES ($1, $2, now_as_millis()) ON CONFLICT (auth0_sub) DO NOTHING",
+                        [auth0Sub, uid],
+                        (mappingInsertErr: any) => {
+                          if (mappingInsertErr) {
+                            return pg.query("ROLLBACK", [], () =>
+                              reject(mappingInsertErr)
+                            );
+                          }
 
-                    // No existing mapping for this uid, create new one
-                    pg.query(
-                      "INSERT INTO auth0_user_mappings (auth0_sub, uid, created) VALUES ($1, $2, now_as_millis()) ON CONFLICT (auth0_sub) DO NOTHING",
-                      [auth0Sub, uid],
-                      (mappingInsertErr: any) => {
-                        if (mappingInsertErr) {
-                          return pg.query("ROLLBACK", [], () =>
-                            reject(mappingInsertErr)
-                          );
+                          // Commit the transaction
+                          pg.query("COMMIT", [], (commitErr: any) => {
+                            if (commitErr) return reject(commitErr);
+                            logger.info(
+                              `Successfully created/linked user for Auth0 sub ${auth0Sub}: uid ${uid}`
+                            );
+                            resolve(uid);
+                          });
                         }
-
-                        // Commit the transaction
-                        pg.query("COMMIT", [], (commitErr: any) => {
-                          if (commitErr) return reject(commitErr);
-                          logger.info(
-                            `Successfully created/linked user for Auth0 sub ${auth0Sub}: uid ${uid}`
-                          );
-                          resolve(uid);
-                        });
-                      }
-                    );
+                      );
+                    }
                   }
                 );
               }

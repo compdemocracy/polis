@@ -6,7 +6,7 @@ function Conversation({ c, i, goToConversation }) {
   return (
     <Card
       onClick={goToConversation}
-      sx={{ cursor: 'pointer', 'overflow-wrap': 'break-word', mb: [3] }}
+      sx={{ cursor: 'pointer', overflowWrap: 'break-word', mb: [3] }}
       key={i}>
       <Text sx={{ fontWeight: 700, mb: [2] }}>{c.topic}</Text>
       <Text>{c.description}</Text>

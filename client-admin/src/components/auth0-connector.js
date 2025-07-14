@@ -22,14 +22,12 @@ const Auth0Connector = () => {
       // Set up the token getter function for the network utility
       const tokenGetter = async () => {
         try {
-          console.log('🔍 Token getter called - attempting to get token');
           const token = await getAccessTokenSilently({
             authorizationParams: {
               audience: process.env.AUTH_AUDIENCE,
               scope: 'openid profile email',
             }
           });
-          console.log('✅ Token retrieved successfully');
           return token;
         } catch (error) {
           console.error('❌ Failed to get access token in tokenGetter:', error);
@@ -38,7 +36,6 @@ const Auth0Connector = () => {
       }
       
       setAuth0TokenGetter(tokenGetter);
-      console.log('✅ Auth0 token getter has been set');
       
       // Dispatch auth0Ready event to notify other components
       window.auth0Ready = true;

@@ -1,10 +1,10 @@
-// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation.
+// Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import React from 'react'
 import PropTypes from 'prop-types'
 import { Heading, Link, Text } from 'theme-ui'
 import Url from '../../util/url'
-import withAuth0Ready from '../../util/with-auth0-ready'
+import { withAuth0 } from '@auth0/auth0-react'
 import PolisNet from '../../util/net'
 
 const { urlPrefix } = Url
@@ -44,6 +44,31 @@ class ParticipantXids extends React.Component {
           isLoading: false
         });
       });
+  }
+
+  componentDidMount() {
+    // Try to load conversation UUID when component mounts
+    this.loadConversationUuidIfNeeded()
+  }
+
+  componentDidUpdate(prevProps) {
+    // Try again if conversation_id changes or auth state changes
+    const authStateChanged = prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
+                             prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
+    
+    if (prevProps.conversation_id !== this.props.conversation_id || authStateChanged) {
+      this.loadConversationUuidIfNeeded()
+    }
+  }
+
+  loadConversationUuidIfNeeded() {
+    // Only load if we have a conversation ID and Auth0 is ready (not loading)
+    if (this.props.conversation_id && 
+        this.props.auth0 && 
+        !this.props.auth0.isLoading && 
+        !this.state.conversationUuid) {
+      this.loadConversationUuid()
+    }
   }
 
   render() {
@@ -195,11 +220,8 @@ class ParticipantXids extends React.Component {
 }
 
 ParticipantXids.propTypes = {
-  conversation_id: PropTypes.string.isRequired
+  conversation_id: PropTypes.string.isRequired,
+  auth0: PropTypes.object
 }
 
-// Wrap with Auth0 readiness check
-export default withAuth0Ready(ParticipantXids, function(props) {
-  // The callback that gets called when Auth0 is ready
-  this.loadConversationUuid();
-}); 
+export default withAuth0(ParticipantXids) 

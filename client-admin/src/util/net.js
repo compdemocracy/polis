@@ -87,18 +87,9 @@ async function polisFetch(api, data, type) {
   } else if (method === 'POST' && data) {
     body = JSON.stringify(data);
   }
-
-  // Debug token retrieval process
-  console.log('🔍 PolisFetch Debug - Starting request:', method, url);
-  console.log('🔍 Token getter available:', !!getAuth0AccessToken);
   
   try {
     const token = await getAccessTokenSilentlySPA();
-    console.log('🔍 Token retrieval result:', {
-      hasToken: !!token,
-      tokenLength: token ? token.length : 0,
-      tokenStart: token ? token.substring(0, 20) + '...' : 'null'
-    });
     
     // Only add the header if a token exists
     if (token) {
@@ -118,17 +109,12 @@ async function polisFetch(api, data, type) {
     throw error;
   }
 
-  console.log('🔍 Final request headers:', Object.keys(headers));
-  console.log('🔍 Authorization header present:', !!headers.Authorization);
-
   try {
     const response = await fetch(url, {
       method: method,
       headers: headers,
       body: body,
     });
-
-    console.log('🔍 Response status:', response.status);
 
     if (!response.ok && response.status !== 304) {
       // Read the response body to include in the error
@@ -148,7 +134,6 @@ async function polisFetch(api, data, type) {
     }
 
     const jsonResponse = await response.json();
-    console.log('✅ Request successful');
     return jsonResponse;
   } catch (error) {
     console.error('❌ polisFetch error:', error);

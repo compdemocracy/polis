@@ -5,7 +5,7 @@ import PropTypes from 'prop-types'
 import strings from '../../strings/strings'
 import { connect } from 'react-redux'
 import { populateAllCommentStores } from '../../actions'
-import withAuth0Ready from '../../util/with-auth0-ready'
+import { withAuth0 } from '@auth0/auth0-react'
 
 @connect((state) => state.mod_comments_accepted)
 @connect((state) => state.mod_comments_rejected)
@@ -19,19 +19,28 @@ class ConversationHasCommentsCheck extends React.Component {
   }
 
   componentDidMount() {
-    // Always try to load comments on mount, regardless of Auth0 state
+    // Try to load comments when component mounts
     this.loadCommentsIfNeeded()
   }
 
   componentDidUpdate(prevProps) {
-    // Try again if conversation_id changes or if we haven't attempted load yet
-    if (prevProps.conversation_id !== this.props.conversation_id || !this.state.hasAttemptedLoad) {
+    // Try again if conversation_id changes, auth state changes, or if we haven't attempted load yet
+    const authStateChanged = prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
+                             prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
+    
+    if (prevProps.conversation_id !== this.props.conversation_id || 
+        authStateChanged || 
+        !this.state.hasAttemptedLoad) {
       this.loadCommentsIfNeeded()
     }
   }
 
   loadCommentsIfNeeded() {
-    if (!this.state.hasAttemptedLoad && this.props.conversation_id) {
+    // Only load if we have a conversation ID and Auth0 is ready (not loading)
+    if (!this.state.hasAttemptedLoad && 
+        this.props.conversation_id && 
+        this.props.auth0 && 
+        !this.props.auth0.isLoading) {
       this.setState({ hasAttemptedLoad: true })
       this.loadComments()
     }
@@ -65,11 +74,13 @@ class ConversationHasCommentsCheck extends React.Component {
     const {
       accepted_comments,
       rejected_comments,
-      unmoderated_comments
+      unmoderated_comments,
+      auth0
     } = this.props
 
-    // Check if any store is still loading
+    // Check if any store is still loading or if Auth0 is still loading
     const isLoading = this.props.loading || 
+                     auth0?.isLoading ||
                      (!this.state.hasAttemptedLoad && !this.props.conversation_id)
 
     // Show loading if we haven't attempted to load yet OR if comments are still null and we're loading
@@ -97,11 +108,8 @@ ConversationHasCommentsCheck.propTypes = {
   loading: PropTypes.bool,
   unmoderated_comments: PropTypes.arrayOf(PropTypes.object),
   accepted_comments: PropTypes.arrayOf(PropTypes.object),
-  rejected_comments: PropTypes.arrayOf(PropTypes.object)
+  rejected_comments: PropTypes.arrayOf(PropTypes.object),
+  auth0: PropTypes.object
 }
 
-export default withAuth0Ready(ConversationHasCommentsCheck, function(props) {
-  // The callback that gets called when Auth0 is ready
-  // But we also try loading in componentDidMount as a fallback
-  this.loadComments();
-});
+export default withAuth0(ConversationHasCommentsCheck)

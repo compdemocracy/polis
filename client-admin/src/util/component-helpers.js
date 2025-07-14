@@ -18,16 +18,6 @@ helpers.shouldShowPermissionsError = (props) => {
   
   const shouldShow = hasMetadata && !isOwner && !isMod
   
-  console.log('[shouldShowPermissionsError]', {
-    hasMetadata,
-    isMetadataEmpty,
-    isOwner,
-    isMod,
-    shouldShow,
-    loading: props.loading,
-    zid_metadata: props.zid_metadata
-  })
-  
   return shouldShow
 }
 

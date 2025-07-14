@@ -2,7 +2,7 @@
 /** @jsx jsx */
 
 import ComponentHelpers from '../../../util/component-helpers'
-import withAuth0Ready from '../../../util/with-auth0-ready'
+import { withAuth0 } from '@auth0/auth0-react'
 
 import NoPermission from '../no-permission'
 import React from 'react'
@@ -36,13 +36,34 @@ class CommentModeration extends React.Component {
   }
 
   componentDidMount() {
-    // Load comments immediately when component mounts
-    this.loadComments()
+    // Try to load comments when component mounts and set up polling
+    this.loadCommentsIfNeeded()
+  }
+
+  componentDidUpdate(prevProps) {
+    // Try again if conversation_id changes or auth state changes
+    const authStateChanged = prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
+                             prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
     
-    // Then set up polling to refresh comments periodically
-    this.getCommentsRepeatedly = setInterval(() => {
+    if (prevProps.conversation_id !== this.props.conversation_id || authStateChanged) {
+      this.loadCommentsIfNeeded()
+    }
+  }
+
+  loadCommentsIfNeeded() {
+    // Only load if we have a conversation ID and Auth0 is ready (not loading)
+    if (this.props.conversation_id && 
+        this.props.auth0 && 
+        !this.props.auth0.isLoading) {
       this.loadComments()
-    }, pollFrequency)
+      
+      // Set up polling if not already set up
+      if (!this.getCommentsRepeatedly) {
+        this.getCommentsRepeatedly = setInterval(() => {
+          this.loadComments()
+        }, pollFrequency)
+      }
+    }
   }
 
   componentWillUnmount() {
@@ -130,7 +151,4 @@ class CommentModeration extends React.Component {
   }
 }
 
-export default withAuth0Ready(CommentModeration, function(props) {
-  // The callback that gets called when Auth0 is ready
-  this.loadComments();
-});
+export default withAuth0(CommentModeration)

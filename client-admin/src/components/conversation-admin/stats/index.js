@@ -8,7 +8,7 @@ import {
   populateConversationStatsStore,
   populateZidMetadataStore
 } from '../../../actions'
-import withAuth0Ready from '../../../util/with-auth0-ready'
+import { withAuth0 } from '@auth0/auth0-react'
 import NumberCards from './conversation-stats-number-cards'
 import Voters from './voters'
 import Commenters from './commenters'
@@ -60,17 +60,22 @@ class ConversationStats extends React.Component {
     const { zid_metadata, match } = this.props
     if (zid_metadata?.conversation_id === match.params.conversation_id && zid_metadata?.is_mod) {
       this.startPolling()
+    } else {
+      // Try to load initial data when component mounts
+      this.loadInitialDataIfNeeded()
     }
   }
 
-  loadInitialData() {
-    this.props.dispatch(populateZidMetadataStore(this.props.match.params.conversation_id));
-    
-    // Don't check zid_metadata?.is_mod here since the dispatch is async
-    // Let componentDidUpdate handle starting polling once metadata loads
-  }
-
   componentDidUpdate(prevProps) {
+    // Try again if auth state changes  
+    const authStateChanged = prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
+                             prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
+    
+    if (authStateChanged) {
+      this.loadInitialDataIfNeeded()
+    }
+
+    // Also handle metadata loading and polling logic
     const { zid_metadata, match } = this.props
     const prevIsMod = prevProps.zid_metadata?.is_mod
     const currentIsMod = zid_metadata?.is_mod
@@ -89,6 +94,22 @@ class ConversationStats extends React.Component {
     if (shouldStartPolling) {
       this.startPolling()
     }
+  }
+
+  loadInitialDataIfNeeded() {
+    // Only load if we have a conversation ID and Auth0 is ready (not loading)
+    if (this.props.conversation_id && 
+        this.props.auth0 && 
+        !this.props.auth0.isLoading) {
+      this.loadInitialData()
+    }
+  }
+
+  loadInitialData() {
+    this.props.dispatch(populateZidMetadataStore(this.props.match.params.conversation_id));
+    
+    // Don't check zid_metadata?.is_mod here since the dispatch is async
+    // Let componentDidUpdate handle starting polling once metadata loads
   }
 
   componentWillUnmount() {
@@ -155,7 +176,4 @@ class ConversationStats extends React.Component {
   }
 }
 
-export default withAuth0Ready(ConversationStats, function(props) {
-  // The callback that gets called when Auth0 is ready
-  this.loadInitialData();
-});
+export default withAuth0(ConversationStats)
