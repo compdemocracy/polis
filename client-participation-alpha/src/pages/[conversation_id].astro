@@ -10,7 +10,7 @@ let initialData;
 let fetchError = null;
 
 try {
-  const response = await fetch(`${process.env.SERVICE_URL}/participationInit?conversation_id=${conversation_id}`);
+  const response = await fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/participationInit?conversation_id=${conversation_id}`);
   if (!response.ok) {
     throw new Error(`API request failed with status: ${response.status}`);
   }
@@ -32,8 +32,8 @@ if (initialData) {
   
   // The API gives us the first comment to display
   firstStatement = {
-    id: initialData.nextComment.tid,
-    text: initialData.nextComment.txt,
+    tid: initialData.nextComment.tid,
+    txt: initialData.nextComment.txt,
   };
 
   // We'll need this info for subsequent API calls (like voting)
@@ -64,7 +64,6 @@ if (initialData) {
         <Survey 
           client:load 
           initialStatement={firstStatement}
-          participationInfo={participationInfo}
           conversation_id={conversation_id}
           s={s} 
         />
