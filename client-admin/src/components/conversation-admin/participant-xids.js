@@ -21,7 +21,7 @@ const getDownloadFilename = (conversation_id) => {
 
 const ParticipantXids = ({ conversation_id }) => {
   const { isLoading, isAuthenticated } = useAuth0()
-  
+
   const [state, setState] = useState({
     conversationUuid: null,
     isLoading: true,
@@ -165,8 +165,8 @@ const ParticipantXids = ({ conversation_id }) => {
           <Link target="_blank" href="https://compdemocracy.org/participant">
             participants
           </Link>
-          , i.e., they are sending out an email campaign or people are participating behind a
-          login wall where the conversation is embedded
+          , i.e., they are sending out an email campaign or people are participating behind a login
+          wall where the conversation is embedded
         </li>
 
         <li>

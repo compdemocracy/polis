@@ -59,7 +59,6 @@
     "@reduxjs/toolkit": "^2.8.2",
     "@theme-ui/mdx": "^0.17.2",
     "d3-scale": "~3.3.0",
-    "jquery": "~2.2.4",
     "prop-types": "~15.8.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

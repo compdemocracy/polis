@@ -102,7 +102,12 @@ export const createTestStore = (preloadedState = {}) => {
 // Render with all providers
 export const renderWithProviders = (
   ui,
-  { preloadedState = {}, store = createTestStore(preloadedState), route = '/', ...renderOptions } = {}
+  {
+    preloadedState = {},
+    store = createTestStore(preloadedState),
+    route = '/',
+    ...renderOptions
+  } = {}
 ) => {
   window.history.pushState({}, 'Test page', route)
 

@@ -1,6 +1,5 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import $ from 'jquery'
 import PolisNet from '../util/net'
 
 /* ======= Types ======= */
@@ -568,7 +567,10 @@ const mathFetchError = (err) => {
 }
 
 const fetchMath = (conversation_id, math_tick) => {
-  return $.get('/api/v3/math/pca2?&math_tick=' + math_tick + '&conversation_id=' + conversation_id)
+  return PolisNet.polisGet('/api/v3/math/pca2', {
+    math_tick: math_tick,
+    conversation_id: conversation_id
+  })
 }
 
 export const populateMathStore = (conversation_id) => {
@@ -721,11 +723,11 @@ export const populateRejectedCommentsStore = (conversation_id) => {
 
 export const populateAllCommentStores = (conversation_id) => {
   return (dispatch) => {
-    return $.when(
+    return Promise.all([
       dispatch(populateUnmoderatedCommentsStore(conversation_id)),
       dispatch(populateAcceptedCommentsStore(conversation_id)),
       dispatch(populateRejectedCommentsStore(conversation_id))
-    )
+    ])
   }
 }
 
@@ -1064,11 +1066,11 @@ export const populateHiddenParticipantStore = (conversation_id) => {
 
 export const populateAllParticipantStores = (conversation_id) => {
   return (dispatch) => {
-    return $.when(
+    return Promise.all([
       dispatch(populateDefaultParticipantStore(conversation_id)),
       dispatch(populateFeaturedParticipantStore(conversation_id)),
       dispatch(populateHiddenParticipantStore(conversation_id))
-    )
+    ])
   }
 }
 

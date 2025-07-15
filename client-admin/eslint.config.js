@@ -51,10 +51,7 @@ module.exports = [
       globals: {
         ...globals.browser,
         ...globals.es2021,
-        process: 'readonly',
-        // jQuery globals
-        $: 'readonly',
-        jQuery: 'readonly'
+        process: 'readonly'
       }
     },
     plugins: {

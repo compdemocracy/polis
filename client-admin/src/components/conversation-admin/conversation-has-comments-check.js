@@ -10,11 +10,13 @@ import { useAuth0 } from '@auth0/auth0-react'
 const ConversationHasCommentsCheck = ({ conversation_id, strict_moderation, loading }) => {
   const dispatch = useDispatch()
   const { isLoading, isAuthenticated } = useAuth0()
-  
+
   const accepted_comments = useSelector((state) => state.mod_comments_accepted.accepted_comments)
   const rejected_comments = useSelector((state) => state.mod_comments_rejected.rejected_comments)
-  const unmoderated_comments = useSelector((state) => state.mod_comments_unmoderated.unmoderated_comments)
-  
+  const unmoderated_comments = useSelector(
+    (state) => state.mod_comments_unmoderated.unmoderated_comments
+  )
+
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
 
   const loadComments = () => {
@@ -23,11 +25,7 @@ const ConversationHasCommentsCheck = ({ conversation_id, strict_moderation, load
 
   const loadCommentsIfNeeded = () => {
     // Only load if we have a conversation ID and Auth0 is ready (not loading)
-    if (
-      !hasAttemptedLoad &&
-      conversation_id &&
-      !isLoading
-    ) {
+    if (!hasAttemptedLoad && conversation_id && !isLoading) {
       setHasAttemptedLoad(true)
       loadComments()
     }
@@ -82,11 +80,7 @@ const ConversationHasCommentsCheck = ({ conversation_id, strict_moderation, load
 
   return (
     <div>
-      {!shouldShowLoading ? (
-        createCommentMarkup()
-      ) : (
-        <span> Loading accepted comments... </span>
-      )}
+      {!shouldShowLoading ? createCommentMarkup() : <span> Loading accepted comments... </span>}
     </div>
   )
 }
