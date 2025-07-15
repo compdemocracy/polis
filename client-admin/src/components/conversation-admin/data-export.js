@@ -61,7 +61,7 @@ const DataExport = () => {
     setState((prev) => ({ ...prev, untilEnabled: !prev.untilEnabled }))
   }
 
-  if (ComponentHelpers.shouldShowPermissionsError(zid_metadata)) {
+  if (ComponentHelpers.shouldShowPermissionsError({ zid_metadata: zid_metadata.zid_metadata, loading: zid_metadata.loading })) {
     return <NoPermission />
   }
 
