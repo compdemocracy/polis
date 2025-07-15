@@ -2,8 +2,8 @@
 
 import React from 'react'
 
-class Spinner extends React.Component {
-  getSpinner() {
+const Spinner = () => {
+  const getSpinner = () => {
     return {
       __html: `
         <svg
@@ -224,9 +224,7 @@ class Spinner extends React.Component {
     }
   }
 
-  render() {
-    return <div dangerouslySetInnerHTML={this.getSpinner()} />
-  }
+  return <div dangerouslySetInnerHTML={getSpinner()} />
 }
 
 export default Spinner

@@ -9,14 +9,9 @@ import { ThemeUIProvider } from 'theme-ui'
 import { Auth0Provider } from '@auth0/auth0-react'
 import { Provider } from 'react-redux'
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router'
-import { createStore, applyMiddleware } from 'redux'
-import { thunk } from 'redux-thunk'
-
 import App from './app'
-import PolisReducers from './reducers/index'
+import store from './store'
 import theme from './theme'
-
-const store = createStore(PolisReducers, applyMiddleware(thunk))
 
 // OIDC configuration - now required
 const auth0Domain = process.env.AUTH_ISSUER ? new URL(process.env.AUTH_ISSUER).host : undefined

@@ -14,6 +14,7 @@
     "lint:verbose": "eslint .",
     "format": "prettier --write .",
     "test": "jest",
+    "test:coverage": " npx jest --coverage --coveragePathIgnorePatterns='src/test-utils.js'",
     "test:watch": "jest --watch"
   },
   "author": "Colin Megill",
@@ -55,6 +56,7 @@
   },
   "dependencies": {
     "@auth0/auth0-react": "^2.3.0",
+    "@reduxjs/toolkit": "^2.8.2",
     "@theme-ui/mdx": "^0.17.2",
     "d3-scale": "~3.3.0",
     "jquery": "~2.2.4",
