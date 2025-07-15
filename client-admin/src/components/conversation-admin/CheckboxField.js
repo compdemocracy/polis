@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Box, Flex, Text } from 'theme-ui'
 import PropTypes from 'prop-types'

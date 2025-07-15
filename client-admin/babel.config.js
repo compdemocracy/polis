@@ -6,10 +6,11 @@ module.exports = {
         loose: true
       }
     ],
-    ['@babel/preset-react', { runtime: 'automatic' }]
+    ['@babel/preset-react', { runtime: 'automatic', importSource: 'theme-ui' }]
   ],
   plugins: [
     ['@babel/plugin-proposal-decorators', { legacy: true }],
+    ['@babel/plugin-proposal-class-properties', { loose: true }],
     '@babel/plugin-transform-runtime'
   ]
 }

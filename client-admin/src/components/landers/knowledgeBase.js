@@ -1,4 +1,3 @@
-import React from 'react'
 import PropTypes from 'prop-types'
 import { Box, Link } from 'theme-ui'
 import emoji from 'react-easy-emoji'

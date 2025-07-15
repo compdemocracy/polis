@@ -1,6 +1,5 @@
-/** @jsx jsx */
 import { Component } from 'react'
-import { Box, Link, Heading, jsx } from 'theme-ui'
+import { Box, Link, Heading } from 'theme-ui'
 
 import emoji from 'react-easy-emoji'
 

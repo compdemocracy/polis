@@ -29,11 +29,7 @@ const createMockStore = (initialState = {}) => {
 
 const renderWithProviders = (component, { store } = {}) => {
   const mockStore = store || createMockStore()
-  return render(
-    <Provider store={mockStore}>
-      {component}
-    </Provider>
-  )
+  return render(<Provider store={mockStore}>{component}</Provider>)
 }
 
 describe('ConversationHasCommentsCheck', () => {
@@ -52,13 +48,10 @@ describe('ConversationHasCommentsCheck', () => {
     })
 
     renderWithProviders(
-      <ConversationHasCommentsCheck 
-        conversation_id="test123" 
-        strict_moderation={false} 
-      />,
+      <ConversationHasCommentsCheck conversation_id="test123" strict_moderation={false} />,
       { store }
     )
-    
+
     expect(screen.getByText(/Loading accepted comments.../)).toBeInTheDocument()
   })
 
@@ -71,10 +64,7 @@ describe('ConversationHasCommentsCheck', () => {
     })
 
     renderWithProviders(
-      <ConversationHasCommentsCheck 
-        conversation_id="test123" 
-        strict_moderation={false} 
-      />,
+      <ConversationHasCommentsCheck conversation_id="test123" strict_moderation={false} />,
       { store }
     )
 
@@ -87,14 +77,14 @@ describe('ConversationHasCommentsCheck', () => {
     const store = createMockStore({
       mod_comments_accepted: { accepted_comments: [], loading: false },
       mod_comments_rejected: { rejected_comments: [], loading: false },
-      mod_comments_unmoderated: { unmoderated_comments: [{ id: 1, text: 'test comment' }], loading: false }
+      mod_comments_unmoderated: {
+        unmoderated_comments: [{ id: 1, text: 'test comment' }],
+        loading: false
+      }
     })
 
     renderWithProviders(
-      <ConversationHasCommentsCheck 
-        conversation_id="test123" 
-        strict_moderation={true} 
-      />,
+      <ConversationHasCommentsCheck conversation_id="test123" strict_moderation={true} />,
       { store }
     )
 
@@ -105,16 +95,16 @@ describe('ConversationHasCommentsCheck', () => {
   it('should not display warning when there are visible comments', () => {
     // Test that no warning is shown when there are accepted comments
     const store = createMockStore({
-      mod_comments_accepted: { accepted_comments: [{ id: 1, text: 'accepted comment' }], loading: false },
+      mod_comments_accepted: {
+        accepted_comments: [{ id: 1, text: 'accepted comment' }],
+        loading: false
+      },
       mod_comments_rejected: { rejected_comments: [], loading: false },
       mod_comments_unmoderated: { unmoderated_comments: [], loading: false }
     })
 
     renderWithProviders(
-      <ConversationHasCommentsCheck 
-        conversation_id="test123" 
-        strict_moderation={false} 
-      />,
+      <ConversationHasCommentsCheck conversation_id="test123" strict_moderation={false} />,
       { store }
     )
 
@@ -125,7 +115,7 @@ describe('ConversationHasCommentsCheck', () => {
   it('should show loading when Auth is still loading', () => {
     // Test loading state when Auth is still initializing
     mockAuth.isLoading = true
-    
+
     const store = createMockStore({
       mod_comments_accepted: { accepted_comments: [], loading: false },
       mod_comments_rejected: { rejected_comments: [], loading: false },
@@ -133,13 +123,10 @@ describe('ConversationHasCommentsCheck', () => {
     })
 
     renderWithProviders(
-      <ConversationHasCommentsCheck 
-        conversation_id="test123" 
-        strict_moderation={false} 
-      />,
+      <ConversationHasCommentsCheck conversation_id="test123" strict_moderation={false} />,
       { store }
     )
 
     expect(screen.getByText(/Loading accepted comments.../)).toBeInTheDocument()
   })
-}) 
+})

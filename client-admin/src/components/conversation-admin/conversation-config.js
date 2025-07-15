@@ -1,13 +1,11 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-/** @jsx jsx */
-
 import { useRef } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from '../../actions'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
-import { Heading, Box, Text, jsx } from 'theme-ui'
+import { Heading, Box, Text } from 'theme-ui'
 import emoji from 'react-easy-emoji'
 import { CheckboxField } from './CheckboxField'
 import ModerateCommentsSeed from './seed-comment'

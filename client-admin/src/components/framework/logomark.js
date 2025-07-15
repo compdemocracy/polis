@@ -1,6 +1,4 @@
-/** @jsx jsx */
 import PropTypes from 'prop-types'
-import { jsx } from 'theme-ui'
 
 const Logomark = ({ style, fill }) => {
   return (

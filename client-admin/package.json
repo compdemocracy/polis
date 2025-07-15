@@ -50,7 +50,7 @@
     "jest-transform-stub": "^2.0.0",
     "prettier": "^3.6.2",
     "terser-webpack-plugin": "^5.3.14",
-    "webpack": "~5.100.1",
+    "webpack": "^5.100.2",
     "webpack-cli": "~6.0.1",
     "webpack-dev-server": "~5.2.2"
   },

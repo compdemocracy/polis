@@ -1,6 +1,5 @@
-/** @jsx jsx */
 import PropTypes from 'prop-types'
-import { Box, jsx } from 'theme-ui'
+import { Box } from 'theme-ui'
 import { Link } from 'react-router'
 import Logomark from './framework/logomark'
 

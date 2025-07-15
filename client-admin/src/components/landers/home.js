@@ -1,4 +1,3 @@
-import React from 'react'
 import Layout from './lander-layout'
 import { Heading, Box, Text, Link } from 'theme-ui'
 import ExploreKnowledgeBase from './exploreKnowledgeBase'

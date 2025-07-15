@@ -3,7 +3,7 @@
 import { configureStore } from '@reduxjs/toolkit'
 import rootReducer from '../reducers'
 
-export const store = configureStore({
+export default configureStore({
   reducer: rootReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
@@ -17,5 +17,3 @@ export const store = configureStore({
       }
     })
 })
-
-export default store

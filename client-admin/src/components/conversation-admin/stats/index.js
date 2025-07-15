@@ -1,5 +1,4 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
-/** @jsx jsx */
 
 import dateSetupUtil from '../../../util/data-export-date-setup'
 import { useState, useEffect, useRef } from 'react'
@@ -9,7 +8,7 @@ import { useAuth } from 'react-oidc-context'
 import NumberCards from './conversation-stats-number-cards'
 import Voters from './voters'
 import Commenters from './commenters'
-import { Heading, Box, jsx } from 'theme-ui'
+import { Heading, Box } from 'theme-ui'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
 import { useParams } from 'react-router'
@@ -106,7 +105,12 @@ const ConversationStats = () => {
     }
   }, [isLoading, isAuthenticated, zid_metadata, params.conversation_id])
 
-  if (ComponentHelpers.shouldShowPermissionsError({ zid_metadata: zid_metadata.zid_metadata, loading: zid_metadata.loading || stats.loading })) {
+  if (
+    ComponentHelpers.shouldShowPermissionsError({
+      zid_metadata: zid_metadata.zid_metadata,
+      loading: zid_metadata.loading || stats.loading
+    })
+  ) {
     return <NoPermission />
   }
 

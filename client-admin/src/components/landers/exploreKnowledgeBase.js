@@ -1,4 +1,3 @@
-import React from 'react'
 import { Box, Link, Heading } from 'theme-ui'
 import KnowledgeBase from './knowledgeBase'
 
