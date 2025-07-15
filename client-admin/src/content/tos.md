@@ -161,7 +161,7 @@ These Terms of Use are a legally binding contract between you and The Computatio
     Notwithstanding subsection 16.1, we both agree that nothing herein will be deemed to waive, preclude, or otherwise limit either of our right to (i) bring an individual action in small claims court, (ii) pursue enforcement actions through applicable federal, state, or local agencies where such actions are available, (iii) seek injunctive relief in a court of law, or (iv) to file suit in a court of law to address intellectual property infringement claims.
 19. **Arbitrator.** &nbsp;
     Any arbitration between you and The Computational Democracy Project will be governed by the Commercial Dispute Resolution Procedures and the Supplementary Procedures for Consumer Related Disputes (collectively, "AAA Rules") of the American Arbitration Association ("AAA"), as modified by these Terms, and will be administered by the AAA.
-    The AAA Rules and filing forms are available online at www.adr.org, by calling the AAA at 1-800-778-7879, or by contacting The Computational Democracy Project.
+    The AAA Rules and filing forms are available online at <www.adr.org>, by calling the AAA at 1-800-778-7879, or by contacting The Computational Democracy Project.
 
 20. **Notice; Process.** &nbsp;
     A party who intends to seek arbitration must first send a written notice of the dispute to the other, by certified mail or Federal Express (signature required), or in the event that we do not have a physical address on file for you, by electronic mail ("Notice").

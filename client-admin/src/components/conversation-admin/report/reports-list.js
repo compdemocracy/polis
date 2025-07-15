@@ -10,6 +10,7 @@ import { withAuth0 } from '@auth0/auth0-react'
 import { populateZidMetadataStore } from '../../../actions'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
+import { useParams } from 'react-router'
 
 @connect((state) => state.zid_metadata)
 class ReportsList extends React.Component {
@@ -17,70 +18,60 @@ class ReportsList extends React.Component {
     super(props)
     this.state = {
       loading: true,
-      reports: []
+      reports: [],
+      dataLoaded: false
     }
-    this.oidcReadyHandler = null
   }
 
   getData() {
-    const { match } = this.props
+    const { params } = this.props
     const reportsPromise = PolisNet.polisGet('/api/v3/reports', {
-      conversation_id: match.params.conversation_id
+      conversation_id: params.conversation_id
     })
     reportsPromise.then((reports) => {
       this.setState({
         loading: false,
-        reports: reports
+        reports: reports,
+        dataLoaded: true
       })
     })
   }
 
   loadInitialData() {
-    this.props.dispatch(populateZidMetadataStore(this.props.match.params.conversation_id))
-
-    // If we already have is_mod, get the data
-    const { zid_metadata } = this.props
-    if (zid_metadata?.is_mod) {
-      this.getData()
+    const { auth0, dispatch, params } = this.props
+    if (auth0.isAuthenticated) {
+      dispatch(populateZidMetadataStore(params.conversation_id))
     }
   }
 
   componentDidMount() {
-    // Listen for oidcReady event
-    this.oidcReadyHandler = () => {
-      this.loadInitialData()
-    }
+    this.loadInitialData()
 
-    window.addEventListener('oidcReady', this.oidcReadyHandler)
-
-    // If auth0 is already ready, call loadInitialData immediately
-    if (window.oidcReady) {
-      this.loadInitialData()
-    }
-  }
-
-  componentWillUnmount() {
-    // Clean up event listener
-    if (this.oidcReadyHandler) {
-      window.removeEventListener('oidcReady', this.oidcReadyHandler)
-    }
-  }
-
-  componentDidUpdate(prevProps) {
-    // Only call getData() if is_mod changed from false/undefined to true
+    // Check if user is already a moderator on mount
     const { zid_metadata } = this.props
-    const prevIsMod = prevProps.zid_metadata?.is_mod
-    const currentIsMod = zid_metadata?.is_mod
-
-    if (!prevIsMod && currentIsMod) {
+    if (zid_metadata?.is_mod && !this.state.dataLoaded) {
       this.getData()
     }
   }
 
+  componentDidUpdate(prevProps) {
+    const { zid_metadata, auth0 } = this.props
+    const currentIsMod = zid_metadata?.is_mod
+
+    // Load data if user is now a moderator and data hasn't been loaded
+    if (currentIsMod && !this.state.dataLoaded) {
+      this.getData()
+    }
+
+    if (!prevProps.auth0.isAuthenticated && auth0.isAuthenticated) {
+      this.loadInitialData()
+    }
+  }
+
   createReportClicked() {
-    const { match } = this.props
+    const { params } = this.props
     PolisNet.polisPost('/api/v3/reports', {
-      conversation_id: match.params.conversation_id
+      conversation_id: params.conversation_id
     }).then(() => {
       this.getData()
     })
@@ -127,14 +118,18 @@ class ReportsList extends React.Component {
 
 ReportsList.propTypes = {
   dispatch: PropTypes.func,
-  match: PropTypes.shape({
-    params: PropTypes.shape({
-      conversation_id: PropTypes.string
-    })
+  params: PropTypes.shape({
+    conversation_id: PropTypes.string
   }),
   zid_metadata: PropTypes.shape({
     is_mod: PropTypes.bool
-  })
+  }),
+  auth0: PropTypes.object
 }
 
-export default withAuth0(ReportsList)
+const ReportsListWrapper = (props) => {
+  const params = useParams()
+  return <ReportsList {...props} params={params} />
+}
+
+export default withAuth0(ReportsListWrapper)

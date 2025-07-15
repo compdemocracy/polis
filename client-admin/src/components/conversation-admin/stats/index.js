@@ -12,6 +12,8 @@ import Commenters from './commenters'
 import { Heading, Box, jsx } from 'theme-ui'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
+import { useParams } from 'react-router'
+import PropTypes from 'prop-types'
 
 @connect((state) => state.stats)
 @connect((state) => state.zid_metadata)
@@ -44,16 +46,16 @@ class ConversationStats extends React.Component {
   }
 
   loadStats() {
-    const { match } = this.props
+    const { params } = this.props
 
     const until = this.state.until
-    this.props.dispatch(populateConversationStatsStore(match.params.conversation_id, until))
+    this.props.dispatch(populateConversationStatsStore(params.conversation_id, until))
   }
 
   componentDidMount() {
     // Check if we already have metadata loaded for this conversation
-    const { zid_metadata, match } = this.props
-    if (zid_metadata?.conversation_id === match.params.conversation_id && zid_metadata?.is_mod) {
+    const { zid_metadata, params } = this.props
+    if (zid_metadata?.conversation_id === params.conversation_id && zid_metadata?.is_mod) {
       this.startPolling()
     } else {
       // Try to load initial data when component mounts
@@ -72,20 +74,23 @@ class ConversationStats extends React.Component {
     }
 
     // Also handle metadata loading and polling logic
-    const { zid_metadata, match } = this.props
+    const { zid_metadata, params } = this.props
     const prevIsMod = prevProps.zid_metadata?.is_mod
     const currentIsMod = zid_metadata?.is_mod
-    const prevConversationId = prevProps.match?.params?.conversation_id
-    const currentConversationId = match?.params?.conversation_id
+    const prevConversationId = prevProps.params?.conversation_id
+    const currentConversationId = params?.conversation_id
 
     // Start polling when:
     // 1. is_mod changes from false/undefined to true, OR
-    // 2. conversation changes and user is mod
-    // Also ensure we have the correct conversation metadata loaded
+    // 2. conversation changes and user is mod, OR
+    // 3. metadata is loaded for current conversation and user is mod but polling hasn't started
     const shouldStartPolling =
       zid_metadata?.conversation_id === currentConversationId &&
+      currentIsMod &&
+      !this.getStatsRepeatedly &&
       ((!prevIsMod && currentIsMod) ||
-        (prevConversationId !== currentConversationId && currentIsMod))
+        prevConversationId !== currentConversationId ||
+        prevProps.zid_metadata?.conversation_id !== currentConversationId)
 
     if (shouldStartPolling) {
       this.startPolling()
@@ -94,13 +99,13 @@ class ConversationStats extends React.Component {
 
   loadInitialDataIfNeeded() {
     // Only load if we have a conversation ID and Auth0 is ready (not loading)
-    if (this.props.conversation_id && this.props.auth0 && !this.props.auth0.isLoading) {
+    if (this.props.params.conversation_id && this.props.auth0 && !this.props.auth0.isLoading) {
       this.loadInitialData()
     }
   }
 
   loadInitialData() {
-    this.props.dispatch(populateZidMetadataStore(this.props.match.params.conversation_id))
+    this.props.dispatch(populateZidMetadataStore(this.props.params.conversation_id))
 
     // Don't check zid_metadata?.is_mod here since the dispatch is async
     // Let componentDidUpdate handle starting polling once metadata loads
@@ -168,4 +173,19 @@ class ConversationStats extends React.Component {
   }
 }
 
-export default withAuth0(ConversationStats)
+ConversationStats.propTypes = {
+  dispatch: PropTypes.func,
+  zid_metadata: PropTypes.object,
+  conversation_stats: PropTypes.object,
+  auth0: PropTypes.object,
+  params: PropTypes.shape({
+    conversation_id: PropTypes.string
+  })
+}
+
+const ConversationStatsWrapper = (props) => {
+  const params = useParams()
+  return <ConversationStats {...props} params={params} />
+}
+
+export default withAuth0(ConversationStatsWrapper)

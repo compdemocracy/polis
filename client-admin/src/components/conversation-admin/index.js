@@ -5,7 +5,7 @@ import React from 'react'
 import { connect } from 'react-redux'
 import { Flex, Box, jsx } from 'theme-ui'
 import { populateZidMetadataStore, resetMetadataStore } from '../../actions'
-import { Switch, Route, Link } from 'react-router-dom'
+import { Routes, Route, Link, useParams, useLocation } from 'react-router'
 
 import ConversationConfig from './conversation-config'
 import ConversationStats from './stats'
@@ -22,11 +22,10 @@ import Reports from './report/reports'
 class ConversationAdminContainer extends React.Component {
   constructor(props) {
     super(props)
-    this.oidcReadyHandler = null
   }
 
   loadZidMetadata() {
-    this.props.dispatch(populateZidMetadataStore(this.props.match.params.conversation_id))
+    this.props.dispatch(populateZidMetadataStore(this.props.params.conversation_id))
   }
 
   resetMetadata() {
@@ -34,39 +33,28 @@ class ConversationAdminContainer extends React.Component {
   }
 
   componentDidMount() {
-    // Listen for oidcReady event
-    this.oidcReadyHandler = () => {
-      if (!this.props.loading) {
-        this.loadZidMetadata()
-      }
-    }
-
-    window.addEventListener('oidcReady', this.oidcReadyHandler)
-
-    // If auth0 is already ready, call loadZidMetadata immediately
-    if (window.oidcReady && !this.props.loading) {
+    if (!this.props.loading && this.props.auth0.isAuthenticated) {
       this.loadZidMetadata()
     }
   }
 
   componentWillUnmount() {
-    // Clean up event listener
-    if (this.oidcReadyHandler) {
-      window.removeEventListener('oidcReady', this.oidcReadyHandler)
-    }
     this.resetMetadata()
   }
 
   componentDidUpdate(prevProps) {
-    if (prevProps.match.params.conversation_id !== this.props.match.params.conversation_id) {
+    if (prevProps.params.conversation_id !== this.props.params.conversation_id) {
+      this.loadZidMetadata()
+    }
+    if (!prevProps.auth0.isAuthenticated && this.props.auth0.isAuthenticated) {
       this.loadZidMetadata()
     }
   }
 
   render() {
-    const { match, location } = this.props
-
+    const { location, params } = this.props
     const url = location.pathname.split('/')[3]
+    const baseUrl = `/m/${params.conversation_id}`
 
     return (
       <Flex>
@@ -77,7 +65,7 @@ class ConversationAdminContainer extends React.Component {
             </Link>
           </Box>
           <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: url ? 'links.nav' : 'links.activeNav' }} to={`${match.url}`}>
+            <Link sx={{ variant: url ? 'links.nav' : 'links.activeNav' }} to={baseUrl}>
               Configure
             </Link>
           </Box>
@@ -86,7 +74,7 @@ class ConversationAdminContainer extends React.Component {
               sx={{
                 variant: url === 'share' ? 'links.activeNav' : 'links.nav'
               }}
-              to={`${match.url}/share`}>
+              to={`${baseUrl}/share`}>
               Distribute
             </Link>
           </Box>
@@ -96,7 +84,7 @@ class ConversationAdminContainer extends React.Component {
                 variant: url === 'comments' ? 'links.activeNav' : 'links.nav'
               }}
               data-testid="moderate-comments"
-              to={`${match.url}/comments`}>
+              to={`${baseUrl}/comments`}>
               Moderate
             </Link>
           </Box>
@@ -105,7 +93,7 @@ class ConversationAdminContainer extends React.Component {
               sx={{
                 variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
               }}
-              to={`${match.url}/stats`}>
+              to={`${baseUrl}/stats`}>
               Monitor
             </Link>
           </Box>
@@ -114,24 +102,30 @@ class ConversationAdminContainer extends React.Component {
               sx={{
                 variant: url === 'reports' ? 'links.activeNav' : 'links.nav'
               }}
-              to={`${match.url}/reports`}>
+              to={`${baseUrl}/reports`}>
               Report
             </Link>
           </Box>
         </Box>
         <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '60em', mx: [4] }}>
-          <Switch>
-            <Route exact path={`${match.path}/`} component={ConversationConfig} />
-            <Route exact path={`${match.path}/share`} component={ShareAndEmbed} />
-            <Route exact path={`${match.path}/reports`} component={Reports} />
-            <Route path={`${match.path}/comments`} component={ModerateComments} />
-            <Route exact path={`${match.path}/stats`} component={ConversationStats} />
-            {/* <Route exact path={`${match.path}/export`} component={DataExport} /> */}
-          </Switch>
+          <Routes>
+            <Route path="/" element={<ConversationConfig />} />
+            <Route path="share" element={<ShareAndEmbed />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="comments/*" element={<ModerateComments />} />
+            <Route path="stats" element={<ConversationStats />} />
+            {/* <Route path="export" element={<DataExport />} /> */}
+          </Routes>
         </Box>
       </Flex>
     )
   }
 }
 
-export default withAuth0(ConversationAdminContainer)
+function ConversationAdminContainerWrapper(props) {
+  const params = useParams()
+  const location = useLocation()
+  return <ConversationAdminContainer {...props} params={params} location={location} />
+}
+
+export default withAuth0(ConversationAdminContainerWrapper)

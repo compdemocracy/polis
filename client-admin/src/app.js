@@ -5,9 +5,10 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
 import { populateUserStore } from './actions'
+import { isAuthReady } from './util/net'
 
-import { Switch, Route, Link, Redirect } from 'react-router-dom'
-import { Flex, Box, jsx } from 'theme-ui'
+import { Routes, Route, Navigate } from 'react-router'
+import { jsx } from 'theme-ui'
 
 import { withAuth0 } from '@auth0/auth0-react'
 import OidcConnector from './components/oidc-connector'
@@ -27,13 +28,11 @@ import Conversations from './components/conversations-and-account/conversations'
 import Account from './components/conversations-and-account/account'
 import Integrate from './components/conversations-and-account/integrate'
 
-import InteriorHeader from './components/interior-header'
+import MainLayout from './components/main-layout'
 
 const AUTH_LOADING_TIMEOUT = 3000
 
-const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
-  // If we've been loading for more than AUTH_LOADING_TIMEOUT,
-  // assume something went wrong and proceed with authentication check
+const ProtectedRoute = ({ isAuthed, isLoading }) => {
   const [loadingTimeout, setLoadingTimeout] = React.useState(false)
 
   React.useEffect(() => {
@@ -62,25 +61,12 @@ const PrivateRoute = ({ component: Component, isLoading, authed, ...rest }) => {
     )
   }
 
-  return (
-    <Route
-      {...rest}
-      render={(props) =>
-        authed === true ? (
-          <Component {...props} />
-        ) : (
-          <Redirect to={{ pathname: '/signin', state: { from: props.location } }} />
-        )
-      }
-    />
-  )
+  return isAuthed ? <MainLayout /> : <Navigate to="/signin" replace />
 }
 
-PrivateRoute.propTypes = {
-  component: PropTypes.elementType,
-  isLoading: PropTypes.bool,
-  location: PropTypes.object,
-  authed: PropTypes.bool
+ProtectedRoute.propTypes = {
+  isAuthed: PropTypes.bool.isRequired,
+  isLoading: PropTypes.bool.isRequired
 }
 
 @connect((state) => {
@@ -89,20 +75,23 @@ PrivateRoute.propTypes = {
 class App extends React.Component {
   constructor(props) {
     super(props)
+
+    // Bind the method once for reuse
+    this.mediaQueryChanged = this.mediaQueryChanged.bind(this)
+
+    // Set up media query
+    const mql = window.matchMedia(`(min-width: 800px)`)
+    mql.addListener(this.mediaQueryChanged)
+
     this.state = {
-      sidebarOpen: false
-      // sidebarDocked: true,
+      sidebarOpen: false,
+      mql: mql,
+      docked: mql.matches
     }
   }
 
   loadUserData() {
     this.props.dispatch(populateUserStore())
-  }
-
-  componentWillMount() {
-    const mql = window.matchMedia(`(min-width: 800px)`)
-    mql.addListener(this.mediaQueryChanged.bind(this))
-    this.setState({ mql: mql, docked: mql.matches })
   }
 
   isAuthed() {
@@ -116,33 +105,55 @@ class App extends React.Component {
   }
 
   componentDidMount() {
-    this.mediaQueryChanged()
-
-    // Listen for oidcReady event to ensure token getter is available
-    const handleAuth0Ready = (event) => {
-      if (!this.isLoading() && this.isAuthed()) {
-        this.loadUserData()
-      }
+    // Listen for auth ready event
+    this.handleAuthReady = () => {
+      console.log('🎉 Auth ready event received in App')
+      this.loadUserDataIfNeeded()
     }
+    window.addEventListener('polisAuthReady', this.handleAuthReady)
 
-    window.addEventListener('oidcReady', handleAuth0Ready)
-
-    // Store the handler for cleanup
-    this.oidcReadyHandler = handleAuth0Ready
+    this.loadUserDataIfNeeded()
   }
 
   componentDidUpdate(prevProps) {
-    // This logic has been removed because it was creating a race condition.
-    // It was calling loadUserData() before the Auth0 token getter was guaranteed to be available.
-    // The 'oidcReady' event listener in componentDidMount now safely handles loading user data.
+    // Load user data when auth state changes from loading to authenticated
+    const wasLoading = prevProps.auth0.isLoading
+    const isNowAuthenticated = this.props.auth0.isAuthenticated && !this.props.auth0.isLoading
+
+    if (wasLoading && isNowAuthenticated) {
+      this.loadUserDataIfNeeded()
+    }
+  }
+
+  loadUserDataIfNeeded() {
+    const authSystemReady = isAuthReady()
+
+    console.log('👤 loadUserDataIfNeeded:', {
+      authIsLoading: this.props.auth0.isLoading,
+      isAuthenticated: this.props.auth0.isAuthenticated,
+      authSystemReady,
+      willLoad: !this.props.auth0.isLoading && this.props.auth0.isAuthenticated && authSystemReady
+    })
+
+    if (!this.props.auth0.isLoading && this.props.auth0.isAuthenticated && authSystemReady) {
+      console.log('📡 Loading user data')
+      this.loadUserData()
+    } else if (
+      !this.props.auth0.isLoading &&
+      this.props.auth0.isAuthenticated &&
+      !authSystemReady
+    ) {
+      console.log('⏳ Auth system not ready yet for user data')
+    }
   }
 
   componentWillUnmount() {
+    this.state.mql.removeListener(this.mediaQueryChanged)
+
     // Clean up event listener
-    if (this.oidcReadyHandler) {
-      window.removeEventListener('oidcReady', this.oidcReadyHandler)
+    if (this.handleAuthReady) {
+      window.removeEventListener('polisAuthReady', this.handleAuthReady)
     }
-    this.state.mql.removeListener(this.mediaQueryChanged.bind(this))
   }
 
   mediaQueryChanged() {
@@ -158,109 +169,29 @@ class App extends React.Component {
   }
 
   render() {
-    const { location } = this.props
+    const isAuthed = this.isAuthed()
+    const isLoading = this.isLoading()
+
     return (
       <>
         <OidcConnector />
-        <Switch>
-          <Redirect from="/:url*(/+)" to={location.pathname.slice(0, -1)} />
-          <Route exact path="/home" component={Home} />
-          <Route
-            exact
-            path="/signin"
-            render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
-          />
-          <Route
-            exact
-            path="/signin/*"
-            render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
-          />
-          <Route
-            exact
-            path="/signin/**/*"
-            render={() => <SignIn {...this.props} authed={this.isAuthed()} />}
-          />
-          <Route exact path="/signout" render={() => <SignOut {...this.props} />} />
-          <Route exact path="/signout/*" render={() => <SignOut {...this.props} />} />
-          <Route exact path="/signout/**/*" render={() => <SignOut {...this.props} />} />
+        <Routes>
+          {/* Public routes */}
+          <Route path="/home" element={<Home />} />
+          <Route path="/signin" element={<SignIn {...this.props} authed={isAuthed} />} />
+          <Route path="/signout" element={<SignOut {...this.props} />} />
+          <Route path="/tos" element={<TOS />} />
+          <Route path="/privacy" element={<Privacy />} />
 
-          <Route exact path="/tos" component={TOS} />
-          <Route exact path="/privacy" component={Privacy} />
-
-          <InteriorHeader>
-            <Route
-              render={(routeProps) => {
-                if (routeProps.location.pathname.split('/')[1] === 'm') {
-                  return null
-                }
-                return (
-                  <Flex>
-                    <Box sx={{ mr: [5], p: [4], flex: '0 0 auto' }}>
-                      <Box sx={{ mb: [3] }}>
-                        <Link sx={{ variant: 'links.nav' }} to={`/`}>
-                          Conversations
-                        </Link>
-                      </Box>
-                      <Box sx={{ mb: [3] }}>
-                        <Link sx={{ variant: 'links.nav' }} to={`/integrate`}>
-                          Integrate
-                        </Link>
-                      </Box>
-                      <Box sx={{ mb: [3] }}>
-                        <Link sx={{ variant: 'links.nav' }} to={`/account`}>
-                          Account
-                        </Link>
-                      </Box>
-                    </Box>
-                    <Box
-                      sx={{
-                        p: [4],
-                        flex: '0 0 auto',
-                        maxWidth: '35em',
-                        mx: [4]
-                      }}>
-                      <PrivateRoute
-                        isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
-                        exact
-                        path="/"
-                        component={Conversations}
-                      />
-                      <PrivateRoute
-                        isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
-                        exact
-                        path="/conversations"
-                        component={Conversations}
-                      />
-                      <PrivateRoute
-                        isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
-                        exact
-                        path="/account"
-                        component={Account}
-                      />
-                      <PrivateRoute
-                        isLoading={this.isLoading()}
-                        authed={this.isAuthed()}
-                        exact
-                        path="/integrate"
-                        component={Integrate}
-                      />
-                    </Box>
-                  </Flex>
-                )
-              }}
-            />
-
-            <PrivateRoute
-              isLoading={this.isLoading()}
-              path="/m/:conversation_id"
-              authed={this.isAuthed()}
-              component={ConversationAdminContainer}
-            />
-          </InteriorHeader>
-        </Switch>
+          {/* Protected routes */}
+          <Route element={<ProtectedRoute isAuthed={isAuthed} isLoading={isLoading} />}>
+            <Route path="/" element={<Conversations />} />
+            <Route path="/conversations" element={<Conversations />} />
+            <Route path="/integrate" element={<Integrate />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/m/:conversation_id/*" element={<ConversationAdminContainer />} />
+          </Route>
+        </Routes>
       </>
     )
   }

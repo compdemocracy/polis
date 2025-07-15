@@ -1,7 +1,7 @@
 /** @jsx jsx */
 import React from 'react'
 import { Box, jsx } from 'theme-ui'
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import Logomark from './framework/logomark'
 
 class InteriorHeader extends React.Component {

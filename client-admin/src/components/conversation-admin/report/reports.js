@@ -3,22 +3,18 @@
 import React from 'react'
 
 import ReportsList from './reports-list'
-import { Switch, Route } from 'react-router-dom'
+import { Routes, Route } from 'react-router'
 
 class Reports extends React.Component {
   render() {
     return (
       <div>
-        <Switch>
-          <Route exact component={ReportsList} />
-        </Switch>
+        <Routes>
+          <Route path="/" element={<ReportsList />} />
+        </Routes>
       </div>
     )
   }
 }
 
 export default Reports
-
-//
-// <Route path=":report_id" component={Container}>
-// </Route>

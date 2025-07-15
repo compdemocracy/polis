@@ -3,12 +3,14 @@
 import React from 'react'
 import PropTypes from 'prop-types'
 import { connect } from 'react-redux'
-import { populateConversationsStore, handleCreateConversationSubmit } from '../../actions'
+import { handleCreateConversationSubmit, populateConversationsStore } from '../../actions'
+import { isAuthReady } from '../../util/net'
 
 import Url from '../../util/url'
 import { withAuth0 } from '@auth0/auth0-react'
 import { Box, Heading, Button, Text } from 'theme-ui'
 import Conversation from './conversation'
+import { useLocation, useNavigate } from 'react-router'
 
 @connect((state) => state.conversations)
 class Conversations extends React.Component {
@@ -18,47 +20,99 @@ class Conversations extends React.Component {
       filterMinParticipantCount: 0,
       sort: 'participant_count'
     }
-    this.oidcReadyHandler = null
   }
 
   componentDidMount() {
-    // Listen for oidcReady event
-    this.oidcReadyHandler = () => {
-      this.loadConversations()
-    }
+    console.log('🗂️ Conversations componentDidMount:', {
+      isAuthenticated: this.props.auth0.isAuthenticated,
+      isLoading: this.props.auth0.isLoading,
+      timestamp: new Date().toISOString()
+    })
 
-    window.addEventListener('oidcReady', this.oidcReadyHandler)
-
-    // If auth0 is already ready, call loadConversations immediately
-    if (window.oidcReady) {
-      this.loadConversations()
+    // Listen for auth ready event
+    this.handleAuthReady = () => {
+      console.log('🎉 Auth ready event received in Conversations')
+      this.loadConversationsIfNeeded()
     }
+    window.addEventListener('polisAuthReady', this.handleAuthReady)
+
+    this.loadConversationsIfNeeded()
   }
 
   componentWillUnmount() {
     // Clean up event listener
-    if (this.oidcReadyHandler) {
-      window.removeEventListener('oidcReady', this.oidcReadyHandler)
+    if (this.handleAuthReady) {
+      window.removeEventListener('polisAuthReady', this.handleAuthReady)
+    }
+  }
+
+  componentDidUpdate(prevProps) {
+    // Load conversations when auth state changes from loading to authenticated
+    const wasLoading = prevProps.auth0.isLoading
+    const isNowAuthenticated = this.props.auth0.isAuthenticated && !this.props.auth0.isLoading
+
+    console.log('🗂️ Conversations componentDidUpdate:', {
+      wasLoading,
+      isNowAuthenticated,
+      currentAuth: {
+        isAuthenticated: this.props.auth0.isAuthenticated,
+        isLoading: this.props.auth0.isLoading
+      },
+      timestamp: new Date().toISOString()
+    })
+
+    if (wasLoading && isNowAuthenticated) {
+      this.loadConversationsIfNeeded()
     }
   }
 
   onNewClicked() {
-    this.props.dispatch(handleCreateConversationSubmit(this.props.history))
+    this.props.dispatch(handleCreateConversationSubmit(this.props.navigate))
+  }
+
+  loadConversationsIfNeeded() {
+    const { auth0, loading, conversations } = this.props
+    const authSystemReady = isAuthReady()
+
+    console.log('🗂️ loadConversationsIfNeeded:', {
+      authIsLoading: auth0.isLoading,
+      isAuthenticated: auth0.isAuthenticated,
+      authSystemReady,
+      dataLoading: loading,
+      hasConversations: !!conversations,
+      willLoad:
+        !auth0.isLoading && auth0.isAuthenticated && authSystemReady && !loading && !conversations
+    })
+
+    if (
+      !auth0.isLoading &&
+      auth0.isAuthenticated &&
+      authSystemReady &&
+      !loading &&
+      !conversations
+    ) {
+      console.log('📡 Dispatching populateConversationsStore')
+      this.props.dispatch(populateConversationsStore())
+    } else if (!auth0.isLoading && auth0.isAuthenticated && !authSystemReady) {
+      console.log('⏳ Auth system not ready yet, will retry when ready')
+      // The auth system will trigger a re-render when ready via the oidc-connector
+    }
   }
 
   loadConversations() {
-    if (!this.props.loading && !this.props.conversations) {
+    const { auth0, loading, conversations } = this.props
+    if (!auth0.isLoading && auth0.isAuthenticated && !loading && !conversations) {
       this.props.dispatch(populateConversationsStore())
     }
   }
 
   goToConversation = (conversation_id) => {
     return () => {
-      if (this.props.history.pathname === 'other-conversations') {
+      if (this.props.location.pathname === 'other-conversations') {
         window.open(`${Url.urlPrefix}${conversation_id}`, '_blank')
         return
       }
-      this.props.history.push(`/m/${conversation_id}`)
+      this.props.navigate(`/m/${conversation_id}`)
     }
   }
 
@@ -69,12 +123,12 @@ class Conversations extends React.Component {
       include = false
     }
 
-    if (this.props.history.pathname === 'other-conversations') {
+    if (this.props.location.pathname === 'other-conversations') {
       // filter out conversations i do own
       include = !c.is_owner
     }
 
-    if (this.props.history.pathname !== 'other-conversations' && !c.is_owner) {
+    if (this.props.location.pathname !== 'other-conversations' && !c.is_owner) {
       // if it's not other convos and i'm not the owner, don't show it
       // filter out convos i don't own
       include = false
@@ -144,10 +198,17 @@ Conversations.propTypes = {
       conversation_id: PropTypes.string
     })
   ),
-  history: PropTypes.shape({
-    pathname: PropTypes.string,
-    push: PropTypes.func
-  })
+  location: PropTypes.shape({
+    pathname: PropTypes.string
+  }),
+  navigate: PropTypes.func,
+  auth0: PropTypes.object
 }
 
-export default withAuth0(Conversations)
+const ConversationsWrapper = (props) => {
+  const location = useLocation()
+  const navigate = useNavigate()
+  return <Conversations {...props} location={location} navigate={navigate} />
+}
+
+export default withAuth0(ConversationsWrapper)

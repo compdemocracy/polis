@@ -2,7 +2,7 @@
 /** @jsx jsx */
 
 import React from 'react'
-import { Redirect } from 'react-router-dom'
+import { Navigate } from 'react-router'
 import { Heading, Box, Button, jsx } from 'theme-ui'
 import StaticLayout from './lander-layout'
 
@@ -22,7 +22,14 @@ class SignIn extends React.Component {
   drawLoginForm() {
     return (
       <Box>
-        <Button sx={{ my: [2] }} id="signinButton" onClick={this.props.auth0.loginWithRedirect}>
+        <Button
+          sx={{ my: [2] }}
+          id="signinButton"
+          onClick={() =>
+            this.props.auth0.loginWithRedirect({
+              appState: { returnTo: window.location.pathname }
+            })
+          }>
           Sign In
         </Button>
       </Box>
@@ -33,7 +40,7 @@ class SignIn extends React.Component {
     const { authed } = this.props
 
     if (authed) {
-      return <Redirect to={'/'} />
+      return <Navigate to={'/'} />
     }
 
     return (

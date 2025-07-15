@@ -8,7 +8,7 @@ import { withAuth0 } from '@auth0/auth0-react'
 
 class SignOut extends React.Component {
   componentDidMount() {
-    this.props.auth0.logout({ returnTo: `${window.location.origin}/home` })
+    this.props.auth0.logout({ logoutParams: { returnTo: `${window.location.origin}/home` } })
   }
 
   render() {

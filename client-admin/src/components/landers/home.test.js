@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen, within } from '@testing-library/react'
-import { BrowserRouter as Router } from 'react-router-dom'
-import { ThemeProvider } from 'theme-ui'
+import { BrowserRouter as Router } from 'react-router'
+import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../theme'
 import Home from './home'
 
@@ -20,8 +20,12 @@ jest.mock('./press', () => {
 
 const AllTheProviders = ({ children }) => {
   return (
-    <Router>
-      <ThemeProvider theme={theme}>{children}</ThemeProvider>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}>
+      <ThemeUIProvider theme={theme}>{children}</ThemeUIProvider>
     </Router>
   )
 }

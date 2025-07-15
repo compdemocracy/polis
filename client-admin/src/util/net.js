@@ -8,9 +8,38 @@ const basePath = ''
 // Auth0 token getter function - this should be set by the app when Auth0 is initialized
 let getAuth0AccessToken = null
 
-// Function to set the Auth0 token getter from the Auth0 context
-export const setOidcTokenGetter = (tokenGetter) => {
-  getAuth0AccessToken = tokenGetter
+let authReady = false
+let authReadyPromise = null
+let authReadyResolve = null
+
+// Create a promise that resolves when auth is ready
+const initAuthReadyPromise = () => {
+  authReadyPromise = new Promise((resolve) => {
+    authReadyResolve = resolve
+  })
+}
+
+// Initialize the promise immediately
+initAuthReadyPromise()
+
+export const setOidcTokenGetter = (getter) => {
+  console.log('🔧 setOidcTokenGetter called:', { hasGetter: !!getter, wasReady: authReady })
+
+  getAuth0AccessToken = getter
+
+  if (getter) {
+    // Auth is now ready
+    authReady = true
+    if (authReadyResolve) {
+      authReadyResolve()
+      console.log('✅ Auth system is now ready')
+    }
+  } else {
+    // Auth is being cleared, reset the ready state
+    authReady = false
+    initAuthReadyPromise()
+    console.log('🔒 Auth system reset')
+  }
 }
 
 // Store Auth0 hooks for login redirect
@@ -20,13 +49,33 @@ export const setOidcActions = (loginWithRedirect) => {
   auth0LoginRedirect = loginWithRedirect
 }
 
+// Export functions to check auth readiness
+export const isAuthReady = () => authReady
+export const waitForAuthReady = () => authReadyPromise
+
 const getAccessTokenSilentlySPA = async (options) => {
+  console.log(
+    '🔍 getAccessTokenSilentlySPA called, token getter available:',
+    !!getAuth0AccessToken,
+    'authReady:',
+    authReady
+  )
+
+  // Wait for auth to be ready
+  if (!authReady && authReadyPromise) {
+    console.log('⏳ Waiting for auth system to be ready...')
+    await authReadyPromise
+    console.log('✅ Auth system is ready, proceeding with token request')
+  }
+
   if (getAuth0AccessToken) {
     try {
-      return await getAuth0AccessToken({
+      const token = await getAuth0AccessToken({
         cacheMode: 'on', // Use cached token if valid
         ...options
       })
+      console.log('✅ Token retrieved successfully')
+      return token
     } catch (e) {
       console.error('Error getting Auth0 token:', e)
 
@@ -41,6 +90,7 @@ const getAccessTokenSilentlySPA = async (options) => {
       throw e
     }
   } else {
+    console.warn('⚠️ Token getter not available even after waiting')
     return Promise.resolve(undefined)
   }
 }

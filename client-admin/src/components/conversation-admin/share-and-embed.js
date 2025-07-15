@@ -5,7 +5,7 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import Url from '../../util/url'
 import { connect } from 'react-redux'
-import { Link } from 'react-router-dom'
+import { Link, useParams } from 'react-router'
 import { Heading, Text, Box } from 'theme-ui'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
@@ -29,7 +29,7 @@ class ShareAndEmbed extends React.Component {
       return <NoPermission />
     }
 
-    const { match } = this.props
+    const { params } = this.props
     return (
       <div>
         <Heading
@@ -42,7 +42,7 @@ class ShareAndEmbed extends React.Component {
           Distribute
         </Heading>
         <ConversationHasCommentsCheck
-          conversation_id={match.params.conversation_id}
+          conversation_id={params.conversation_id}
           strict_moderation={this.props.zid_metadata.strict_moderation}
         />
         <Box sx={{ mb: [3] }}>
@@ -58,8 +58,8 @@ class ShareAndEmbed extends React.Component {
               display: 'block',
               mb: [2]
             }}>
-            <a target="blank" href={Url.urlPrefix + match.params.conversation_id}>
-              {Url.urlPrefix + match.params.conversation_id}
+            <a target="blank" href={Url.urlPrefix + params.conversation_id}>
+              {Url.urlPrefix + params.conversation_id}
             </a>
           </Text>
         </Box>
@@ -75,7 +75,7 @@ class ShareAndEmbed extends React.Component {
             <pre>
               {'<div'}
               {" class='polis'"}
-              {" data-conversation_id='" + match.params.conversation_id + "'>"}
+              {" data-conversation_id='" + params.conversation_id + "'>"}
               {'</div>\n'}
               {"<script async src='" + Url.urlPrefix + "embed.js'></script>"}
             </pre>
@@ -92,17 +92,15 @@ class ShareAndEmbed extends React.Component {
           <div>{this.props.zid_metadata.parent_url ? this.constructEmbeddedOnMarkup() : ''}</div>
         </Box>
 
-        <ParticipantXids conversation_id={match.params.conversation_id} />
+        <ParticipantXids conversation_id={params.conversation_id} />
       </div>
     )
   }
 }
 
 ShareAndEmbed.propTypes = {
-  match: PropTypes.shape({
-    params: PropTypes.shape({
-      conversation_id: PropTypes.string
-    })
+  params: PropTypes.shape({
+    conversation_id: PropTypes.string
   }),
   zid_metadata: PropTypes.shape({
     parent_url: PropTypes.string,
@@ -110,4 +108,9 @@ ShareAndEmbed.propTypes = {
   })
 }
 
-export default ShareAndEmbed
+const ShareAndEmbedWrapper = (props) => {
+  const params = useParams()
+  return <ShareAndEmbed {...props} params={params} />
+}
+
+export default ShareAndEmbedWrapper

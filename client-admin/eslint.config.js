@@ -77,7 +77,8 @@ module.exports = [
       'jsx-a11y/tabindex-no-positive': 'warn',
       'object-shorthand': 'off',
       'no-unused-vars': ['error', { args: 'none' }],
-      'react/no-unknown-property': ['error', { ignore: ['sx'] }]
+      'react/no-unknown-property': ['error', { ignore: ['sx'] }],
+      'react/react-in-jsx-scope': 'off'
     }
   },
   {

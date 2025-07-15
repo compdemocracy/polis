@@ -7,7 +7,7 @@ import Press from './press'
 const Index = () => {
   return (
     <Layout>
-      <React.Fragment>
+      <>
         <Heading as="h1" sx={{ my: [4, null, 5], fontSize: [6, null, 7] }}>
           Input Crowd, Output Meaning
         </Heading>
@@ -44,7 +44,7 @@ const Index = () => {
             on Github
           </Link>
         </Box>
-      </React.Fragment>
+      </>
     </Layout>
   )
 }

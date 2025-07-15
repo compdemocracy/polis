@@ -2,7 +2,7 @@
 
 Last Updated: 2022/03/07
 
-This privacy policy (this "Policy") describes the collection of personal information by The Computational Democracy Project, a corporation Washington nonprofit ("The Computational Democracy Project," "we," or "us") from users of our Web site at "http://pol.is/" (the "Site"), as well as all related applications, widgets, software, tools, and other services provided by us and on which a link to this Policy is displayed (collectively, together with the Site, our "Services").
+This privacy policy (this "Policy") describes the collection of personal information by The Computational Democracy Project, a corporation Washington nonprofit ("The Computational Democracy Project," "we," or "us") from users of our Web site at "<http://pol.is/>" (the "Site"), as well as all related applications, widgets, software, tools, and other services provided by us and on which a link to this Policy is displayed (collectively, together with the Site, our "Services").
 This Policy also describes our use and disclosure of such information.
 By using our Services, you consent to the collection, use, and disclosure of personal information in accordance with this Policy.
 This Policy is incorporated by reference into the Terms of Use (<https://pol.is/tos>) and subject to the provisions of the Terms of Use.
