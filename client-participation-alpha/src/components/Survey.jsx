@@ -1,29 +1,42 @@
 import React, { useState } from 'react';
 import { Statement } from './Statement';
 import EmailSubscribeForm from './EmailSubscribeForm';
+import { getPreferredLanguages } from '../strings/strings';
 
-// This is a mock of the 'vote' API call.
-// In a real app, it would POST to a polis endpoint with the vote,
-// and the response would contain the `nextComment`.
-const submitVoteAndGetNextCommentAPI = async (vote, participationInfo) => {
+
+const submitVoteAndGetNextCommentAPI = async (vote, conversation_id) => {
   console.log('Submitting vote to polis:', { ...vote, ...participationInfo });
-  // MOCKING: Return a new comment after a delay.
-  return new Promise(resolve => {
-    setTimeout(() => {
-      const nextTid = Math.floor(Math.random() * 1000);
-      resolve({
-        success: true,
-        nextComment: {
-          tid: nextTid,
-          txt: `This is the next comment (id: ${nextTid}), fetched from the client after a vote.`
-        }
-      });
-    }, 800);
-  });
+  try {
+    const response = await fetch(`${process.env.SERVICE_URL}/votes`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        agid: 1, // todo - fix
+        conversation_id,
+        high_priority: false, // todo - fix
+        lang: getPreferredLanguages()[0],
+        pid: "mypid", // todo - fix
+        tid: 495, // todo - fix
+        vote,
+      }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      throw new Error('Vote failed');
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    
+  }
 };
 
 
-export default function Survey({ initialStatement, participationInfo, s }) {
+export default function Survey({ initialStatement, participationInfo, s, conversation_id }) {
   const [statements, setStatements] = useState([initialStatement]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFetchingNext, setIsFetchingNext] = useState(false);
@@ -32,7 +45,7 @@ export default function Survey({ initialStatement, participationInfo, s }) {
     setIsFetchingNext(true);
     
     const vote = { vote: voteType, tid: tid };
-    const result = await submitVoteAndGetNextCommentAPI(vote, participationInfo);
+    const result = await submitVoteAndGetNextCommentAPI(vote, conversation_id);
 
     setIsFetchingNext(false);
 

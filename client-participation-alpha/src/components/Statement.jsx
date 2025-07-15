@@ -19,13 +19,13 @@ export function Statement({ statement, onVote, isVoting, s }) {
       </div>
       <p className="statement-text">{statement.text}</p>
       <div className="vote-buttons">
-        <button className="vote-button agree" onClick={() => handleVoteClick('agree')} disabled={isVoting}>
+        <button className="vote-button agree" onClick={() => handleVoteClick(-1)} disabled={isVoting}>
           {isVoting ? s.voting : `✔ ${s.agree}`}
         </button>
-        <button className="vote-button disagree" onClick={() => handleVoteClick('disagree')} disabled={isVoting}>
+        <button className="vote-button disagree" onClick={() => handleVoteClick(1)} disabled={isVoting}>
           {isVoting ? s.voting : `✘ ${s.disagree}`}
         </button>
-        <button className="vote-button pass" onClick={() => handleVoteClick('pass')} disabled={isVoting}>
+        <button className="vote-button pass" onClick={() => handleVoteClick(0)} disabled={isVoting}>
           {isVoting ? s.voting : passUnsureText}
         </button>
       </div>

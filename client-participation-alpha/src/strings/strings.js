@@ -126,7 +126,7 @@ const languageMap = {
  * Gets the user's preferred languages from the browser or a URL parameter.
  * @returns {string[]} An array of language codes, ordered by preference.
  */
-function getPreferredLanguages() {
+export function getPreferredLanguages() {
   if (typeof window === 'undefined') {
     return ['en_us']; // Default for server-side rendering
   }
