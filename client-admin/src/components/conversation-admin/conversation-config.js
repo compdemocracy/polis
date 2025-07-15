@@ -2,8 +2,8 @@
 
 /** @jsx jsx */
 
-import React from 'react'
-import { connect } from 'react-redux'
+import { useRef } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
 import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from '../../actions'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './no-permission'
@@ -13,182 +13,165 @@ import { CheckboxField } from './CheckboxField'
 import ModerateCommentsSeed from './seed-comment'
 import Spinner from '../framework/spinner'
 
-@connect((state) => {
-  return {
-    user: state.user,
-    zid_metadata: state.zid_metadata.zid_metadata,
-    is_public: state.zid_metadata.zid_metadata.is_public,
-    is_draft: state.zid_metadata.zid_metadata.is_draft,
-    description: state.zid_metadata.zid_metadata.description,
-    loading: state.zid_metadata.loading
-  }
-})
-class ConversationConfig extends React.Component {
-  constructor(props) {
-    super(props)
-  }
+const ConversationConfig = () => {
+  const dispatch = useDispatch()
+  const user = useSelector((state) => state.user)
+  const { zid_metadata, loading, error } = useSelector((state) => state.zid_metadata)
 
-  handleStringValueChange(field) {
+  const topicRef = useRef(null)
+  const descriptionRef = useRef(null)
+
+  const handleStringValueChange = (field) => {
     return () => {
-      let val = this[field].value
+      let val = field === 'topic' ? topicRef.current.value : descriptionRef.current.value
       if (field === 'help_bgcolor' || field === 'help_color') {
         if (!val.length) {
           val = 'default'
         }
       }
-      this.props.dispatch(handleZidMetadataUpdate(this.props.zid_metadata, field, val))
+      dispatch(handleZidMetadataUpdate(zid_metadata, field, val))
     }
   }
 
-  handleConfigInputTyping(field) {
+  const handleConfigInputTyping = (field) => {
     return (e) => {
-      this.props.dispatch(
-        optimisticZidMetadataUpdateOnTyping(this.props.zid_metadata, field, e.target.value)
-      )
+      dispatch(optimisticZidMetadataUpdateOnTyping(zid_metadata, field, e.target.value))
     }
   }
 
-  render() {
-    if (this.props.loading) {
-      return <Spinner />
-    }
-    if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
-      return <NoPermission />
-    }
+  if (loading) {
+    return <Spinner />
+  }
+  if (ComponentHelpers.shouldShowPermissionsError({ user, zid_metadata, loading })) {
+    return <NoPermission />
+  }
 
-    return (
-      <Box>
-        <Heading
-          as="h3"
-          sx={{
-            fontSize: [3, null, 4],
-            lineHeight: 'body',
-            mb: [3, null, 4]
-          }}>
-          Configure
-        </Heading>
-        <Box sx={{ mb: [4] }}>
-          {this.props.loading ? (
-            <Text>{emoji('💾')} Saving</Text>
-          ) : (
-            <Text>{emoji('⚡')} Up to date</Text>
-          )}
-          {this.props.error ? <Text>Error Saving</Text> : null}
-        </Box>
-
-        <CheckboxField field="is_active" label="Conversation Is Open">
-          Conversation is open. Unchecking disables both voting and commenting.
-        </CheckboxField>
-
-        <Box sx={{ mb: [3] }}>
-          <Text sx={{ display: 'block', mb: [2] }}>Topic</Text>
-          <input
-            ref={(c) => (this.topic = c)}
-            sx={{
-              display: 'block',
-              fontFamily: 'body',
-              fontSize: [2],
-              width: '35em',
-              borderRadius: 2,
-              padding: [2],
-              border: '1px solid',
-              borderColor: 'mediumGray'
-            }}
-            data-testid="topic"
-            onBlur={this.handleStringValueChange('topic').bind(this)}
-            onChange={this.handleConfigInputTyping('topic').bind(this)}
-            defaultValue={this.props.zid_metadata.topic}
-          />
-        </Box>
-
-        <Box sx={{ mb: [3] }}>
-          <Text sx={{ display: 'block', mb: [2] }}>Description</Text>
-          <textarea
-            ref={(c) => (this.description = c)}
-            sx={{
-              display: 'block',
-              fontFamily: 'body',
-              fontSize: [2],
-              width: '35em',
-              height: '7em',
-              resize: 'none',
-              padding: [2],
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: 'mediumGray'
-            }}
-            data-testid="description"
-            onBlur={this.handleStringValueChange('description').bind(this)}
-            onChange={this.handleConfigInputTyping('description').bind(this)}
-            defaultValue={this.props.zid_metadata.description}
-          />
-        </Box>
-
-        <Heading
-          as="h6"
-          sx={{
-            fontSize: [1, null, 2],
-            lineHeight: 'body',
-            my: [3, null, 4]
-          }}>
-          Seed Comments
-        </Heading>
-        <ModerateCommentsSeed
-          params={{ conversation_id: this.props.zid_metadata.conversation_id }}
-        />
-
-        <Heading
-          as="h6"
-          sx={{
-            fontSize: [1, null, 2],
-            lineHeight: 'body',
-            my: [3, null, 4]
-          }}>
-          Customize the user interface
-        </Heading>
-
-        <CheckboxField field="importance_enabled" label="Importance Enabled">
-          [EXPERIMENTAL FEATURE] Participants can see the &quot;This comment is important&quot;
-          checkbox
-        </CheckboxField>
-
-        <CheckboxField field="vis_type" label="Visualization" isIntegerBool>
-          Participants can see the visualization
-        </CheckboxField>
-
-        <CheckboxField field="write_type" label="Comment form" isIntegerBool>
-          Participants can submit comments
-        </CheckboxField>
-
-        <CheckboxField field="help_type" label="Help text" isIntegerBool>
-          Show explanation text above voting and visualization
-        </CheckboxField>
-
-        <CheckboxField
-          field="subscribe_type"
-          label="Prompt participants to subscribe to updates"
-          isIntegerBool>
-          Prompt participants to subscribe to updates. A prompt is shown to users once they finish
-          voting on all available comments. If enabled, participants may optionally provide their
-          email address to receive notifications when there are new comments to vote on.
-        </CheckboxField>
-
-        <Heading
-          as="h6"
-          sx={{
-            fontSize: [1, null, 2],
-            lineHeight: 'body',
-            my: [3, null, 4]
-          }}>
-          Schemes
-        </Heading>
-
-        <CheckboxField field="strict_moderation">
-          No comments shown without moderator approval
-        </CheckboxField>
+  return (
+    <Box>
+      <Heading
+        as="h3"
+        sx={{
+          fontSize: [3, null, 4],
+          lineHeight: 'body',
+          mb: [3, null, 4]
+        }}>
+        Configure
+      </Heading>
+      <Box sx={{ mb: [4] }}>
+        {loading ? <Text>{emoji('💾')} Saving</Text> : <Text>{emoji('⚡')} Up to date</Text>}
+        {error ? <Text>Error Saving</Text> : null}
       </Box>
-    )
-  }
+
+      <CheckboxField field="is_active" label="Conversation Is Open">
+        Conversation is open. Unchecking disables both voting and commenting.
+      </CheckboxField>
+
+      <Box sx={{ mb: [3] }}>
+        <Text sx={{ display: 'block', mb: [2] }}>Topic</Text>
+        <input
+          ref={topicRef}
+          sx={{
+            display: 'block',
+            fontFamily: 'body',
+            fontSize: [2],
+            width: '35em',
+            borderRadius: 2,
+            padding: [2],
+            border: '1px solid',
+            borderColor: 'mediumGray'
+          }}
+          data-testid="topic"
+          onBlur={handleStringValueChange('topic')}
+          onChange={handleConfigInputTyping('topic')}
+          defaultValue={zid_metadata.topic}
+        />
+      </Box>
+
+      <Box sx={{ mb: [3] }}>
+        <Text sx={{ display: 'block', mb: [2] }}>Description</Text>
+        <textarea
+          ref={descriptionRef}
+          sx={{
+            display: 'block',
+            fontFamily: 'body',
+            fontSize: [2],
+            width: '35em',
+            height: '7em',
+            resize: 'none',
+            padding: [2],
+            borderRadius: 2,
+            border: '1px solid',
+            borderColor: 'mediumGray'
+          }}
+          data-testid="description"
+          onBlur={handleStringValueChange('description')}
+          onChange={handleConfigInputTyping('description')}
+          defaultValue={zid_metadata.description}
+        />
+      </Box>
+
+      <Heading
+        as="h6"
+        sx={{
+          fontSize: [1, null, 2],
+          lineHeight: 'body',
+          my: [3, null, 4]
+        }}>
+        Seed Comments
+      </Heading>
+      <ModerateCommentsSeed params={{ conversation_id: zid_metadata.conversation_id }} />
+
+      <Heading
+        as="h6"
+        sx={{
+          fontSize: [1, null, 2],
+          lineHeight: 'body',
+          my: [3, null, 4]
+        }}>
+        Customize the user interface
+      </Heading>
+
+      <CheckboxField field="importance_enabled" label="Importance Enabled">
+        [EXPERIMENTAL FEATURE] Participants can see the &quot;This comment is important&quot;
+        checkbox
+      </CheckboxField>
+
+      <CheckboxField field="vis_type" label="Visualization" isIntegerBool>
+        Participants can see the visualization
+      </CheckboxField>
+
+      <CheckboxField field="write_type" label="Comment form" isIntegerBool>
+        Participants can submit comments
+      </CheckboxField>
+
+      <CheckboxField field="help_type" label="Help text" isIntegerBool>
+        Show explanation text above voting and visualization
+      </CheckboxField>
+
+      <CheckboxField
+        field="subscribe_type"
+        label="Prompt participants to subscribe to updates"
+        isIntegerBool>
+        Prompt participants to subscribe to updates. A prompt is shown to users once they finish
+        voting on all available comments. If enabled, participants may optionally provide their
+        email address to receive notifications when there are new comments to vote on.
+      </CheckboxField>
+
+      <Heading
+        as="h6"
+        sx={{
+          fontSize: [1, null, 2],
+          lineHeight: 'body',
+          my: [3, null, 4]
+        }}>
+        Schemes
+      </Heading>
+
+      <CheckboxField field="strict_moderation">
+        No comments shown without moderator approval
+      </CheckboxField>
+    </Box>
+  )
 }
 
 export default ConversationConfig

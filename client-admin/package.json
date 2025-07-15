@@ -67,7 +67,6 @@
     "react-redux": "^9.2.0",
     "react-router": "^7.6.3",
     "redux": "^5.0.1",
-    "redux-thunk": "^3.1.0",
     "theme-ui": "^0.17.2",
     "victory": "~37.3.6"
   }

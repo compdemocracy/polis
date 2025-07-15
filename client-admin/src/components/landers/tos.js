@@ -4,14 +4,12 @@ import React from 'react'
 import StaticLayout from './lander-layout'
 import TOSContent from '../../content/tos.md'
 
-class TOS extends React.Component {
-  render() {
-    return (
-      <StaticLayout>
-        <TOSContent />
-      </StaticLayout>
-    )
-  }
+const TOS = () => {
+  return (
+    <StaticLayout>
+      <TOSContent />
+    </StaticLayout>
+  )
 }
 
 export default TOS

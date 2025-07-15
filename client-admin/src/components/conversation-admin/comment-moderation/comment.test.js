@@ -1,21 +1,23 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { createStore } from 'redux'
+import { configureStore } from '@reduxjs/toolkit'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../../theme'
 import Comment from './comment'
 
 // Create a mock store
 const createMockStore = (conversationData = {}) => {
-  return createStore(() => ({
-    zid_metadata: {
+  return configureStore({
+    reducer: () => ({
       zid_metadata: {
-        conversation_id: 'test123',
-        ...conversationData
+        zid_metadata: {
+          conversation_id: 'test123',
+          ...conversationData
+        }
       }
-    }
-  }))
+    })
+  })
 }
 
 // Wrapper to provide theme and store context

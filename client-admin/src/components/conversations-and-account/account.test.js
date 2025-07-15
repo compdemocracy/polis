@@ -1,20 +1,22 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { createStore } from 'redux'
+import { configureStore } from '@reduxjs/toolkit'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../theme'
 import Account from './account'
 
 // Create a mock store
 const createMockStore = (user = null) => {
-  return createStore(() => ({
-    user: {
-      user,
-      loading: false,
-      error: null
-    }
-  }))
+  return configureStore({
+    reducer: () => ({
+      user: {
+        user,
+        loading: false,
+        error: null
+      }
+    })
+  })
 }
 
 // Wrapper to provide theme and store context

@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { createStore } from 'redux'
+import { configureStore } from '@reduxjs/toolkit'
 import { ThemeUIProvider } from 'theme-ui'
 import { BrowserRouter as Router } from 'react-router'
 import theme from '../../theme'
@@ -29,17 +29,19 @@ jest.mock('react-router', () => ({
 
 // Create a mock store
 const createMockStore = (zidMetadata = {}) => {
-  return createStore(() => ({
-    zid_metadata: {
+  return configureStore({
+    reducer: () => ({
       zid_metadata: {
-        conversation_id: 'test123',
-        is_mod: true,
-        parent_url: null,
-        strict_moderation: false,
-        ...zidMetadata
+        zid_metadata: {
+          conversation_id: 'test123',
+          is_mod: true,
+          parent_url: null,
+          strict_moderation: false,
+          ...zidMetadata
+        }
       }
-    }
-  }))
+    })
+  })
 }
 
 // Wrapper to provide theme, store and router context

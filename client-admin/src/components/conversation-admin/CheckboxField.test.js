@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { createStore } from 'redux'
+import { configureStore } from '@reduxjs/toolkit'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../theme'
 import { CheckboxField } from './CheckboxField'
@@ -14,17 +14,19 @@ jest.mock('../../actions', () => ({
 
 // Create a mock store
 const createMockStore = (initialState = {}) => {
-  return createStore(() => ({
-    zid_metadata: {
+  return configureStore({
+    reducer: () => ({
       zid_metadata: {
-        is_active: true,
-        vis_type: 1,
-        write_type: 1,
-        help_type: 0,
-        ...initialState
+        zid_metadata: {
+          is_active: true,
+          vis_type: 1,
+          write_type: 1,
+          help_type: 0,
+          ...initialState
+        }
       }
-    }
-  }))
+    })
+  })
 }
 
 // Wrapper to provide theme and store context

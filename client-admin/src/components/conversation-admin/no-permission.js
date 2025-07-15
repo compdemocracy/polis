@@ -3,14 +3,12 @@
 import React from 'react'
 import strings from '../../strings/strings'
 
-class NoPermission extends React.Component {
-  render() {
-    return (
-      <div id="no-permission-warning">
-        <div>{strings('no_permission')}</div>
-      </div>
-    )
-  }
+const NoPermission = () => {
+  return (
+    <div id="no-permission-warning">
+      <div>{strings('no_permission')}</div>
+    </div>
+  )
 }
 
 export default NoPermission

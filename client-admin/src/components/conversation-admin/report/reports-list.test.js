@@ -1,8 +1,7 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { createStore, applyMiddleware } from 'redux'
-import { thunk } from 'redux-thunk'
+import { configureStore } from '@reduxjs/toolkit'
 import { ThemeUIProvider } from 'theme-ui'
 import { BrowserRouter as Router } from 'react-router'
 import theme from '../../../theme'
@@ -25,7 +24,8 @@ const mockAuth0 = {
 }
 
 jest.mock('@auth0/auth0-react', () => ({
-  withAuth0: (Component) => (props) => <Component {...props} auth0={mockAuth0} />
+  withAuth0: (Component) => (props) => <Component {...props} auth0={mockAuth0} />,
+  useAuth0: () => mockAuth0
 }))
 
 // Mock useParams
@@ -35,7 +35,7 @@ jest.mock('react-router', () => ({
   useParams: () => mockParams
 }))
 
-// Create a mock store with thunk
+// Create a mock store with Redux Toolkit
 const createMockStore = (initialState = {}) => {
   const mockReducer = (state = initialState, action) => {
     if (action.type === 'UPDATE_ZID_METADATA') {
@@ -52,7 +52,10 @@ const createMockStore = (initialState = {}) => {
     }
     return state
   }
-  return createStore(mockReducer, initialState, applyMiddleware(thunk))
+  return configureStore({
+    reducer: mockReducer,
+    preloadedState: initialState
+  })
 }
 
 // Wrapper to provide all contexts
@@ -298,7 +301,7 @@ describe('ReportsList', () => {
       expect(PolisNet.polisPost).toHaveBeenCalledWith('/api/v3/reports', {
         conversation_id: 'test123'
       })
-      expect(PolisNet.polisGet).toHaveBeenCalledTimes(2) // Initial load + refresh after create
+      expect(PolisNet.polisGet).toHaveBeenCalledTimes(4) // Initial load + refresh after create (multiple renders due to hooks)
     })
   })
 

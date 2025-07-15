@@ -1,8 +1,7 @@
 import React from 'react'
 import { render, screen, waitFor, act } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { createStore, applyMiddleware } from 'redux'
-import { thunk } from 'redux-thunk'
+import { configureStore } from '@reduxjs/toolkit'
 import { ThemeUIProvider } from 'theme-ui'
 import { BrowserRouter as Router } from 'react-router'
 import theme from '../../../theme'
@@ -49,7 +48,8 @@ const mockAuth0 = {
 }
 
 jest.mock('@auth0/auth0-react', () => ({
-  withAuth0: (Component) => (props) => <Component {...props} auth0={mockAuth0} />
+  withAuth0: (Component) => (props) => <Component {...props} auth0={mockAuth0} />,
+  useAuth0: () => mockAuth0
 }))
 
 // Mock useParams
@@ -59,7 +59,7 @@ jest.mock('react-router', () => ({
   useParams: () => mockParams
 }))
 
-// Create a mock store with thunk
+// Create a mock store with Redux Toolkit
 const createMockStore = (initialState = {}) => {
   const defaultState = {
     stats: {
@@ -110,7 +110,10 @@ const createMockStore = (initialState = {}) => {
     }
     return state
   }
-  return createStore(mockReducer, defaultState, applyMiddleware(thunk))
+  return configureStore({
+    reducer: mockReducer,
+    preloadedState: defaultState
+  })
 }
 
 // Wrapper to provide all contexts

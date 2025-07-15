@@ -4,14 +4,12 @@ import React from 'react'
 import StaticLayout from './lander-layout'
 import PrivacyContent from '../../content/privacy.md'
 
-class Privacy extends React.Component {
-  render() {
-    return (
-      <StaticLayout>
-        <PrivacyContent />
-      </StaticLayout>
-    )
-  }
+const Privacy = () => {
+  return (
+    <StaticLayout>
+      <PrivacyContent />
+    </StaticLayout>
+  )
 }
 
 export default Privacy

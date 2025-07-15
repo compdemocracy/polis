@@ -1,12 +1,11 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { createStore, applyMiddleware } from 'redux'
-import { thunk } from 'redux-thunk'
+import { configureStore } from '@reduxjs/toolkit'
 import { BrowserRouter } from 'react-router'
 import { ThemeUIProvider } from 'theme-ui'
 import App from './app'
-import PolisReducers from './reducers/index'
+import rootReducer from './reducers'
 import theme from './theme'
 
 // Mock the Auth0 hook
@@ -37,8 +36,10 @@ jest.mock('./components/conversations-and-account/conversations', () => {
   }
 })
 
-// Create store with thunk middleware
-const store = createStore(PolisReducers, applyMiddleware(thunk))
+// Create store with Redux Toolkit (same as production)
+const store = configureStore({
+  reducer: rootReducer
+})
 
 const renderWithProviders = (component) => {
   return render(

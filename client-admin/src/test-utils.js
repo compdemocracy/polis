@@ -3,12 +3,11 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import { render } from '@testing-library/react'
 import { Provider } from 'react-redux'
-import { createStore, applyMiddleware } from 'redux'
-import { thunk } from 'redux-thunk'
+import { configureStore } from '@reduxjs/toolkit'
 import { BrowserRouter as Router } from 'react-router'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from './theme'
-import PolisReducers from './reducers/index'
+import rootReducer from './reducers'
 
 // Mock Auth0 hook
 export const mockAuth0 = {
@@ -36,8 +35,8 @@ jest.mock('@auth0/auth0-react', () => ({
   withAuth0: (Component) => (props) => <Component {...props} auth0={mockAuth0} />
 }))
 
-// Create store with initial state
-export const createTestStore = (initialState = {}) => {
+// Create store with Redux Toolkit (same as production)
+export const createTestStore = (preloadedState = {}) => {
   const defaultState = {
     user: {
       user: null,
@@ -80,16 +79,30 @@ export const createTestStore = (initialState = {}) => {
       loading: false,
       error: null
     },
-    ...initialState
+    ...preloadedState
   }
 
-  return createStore(PolisReducers, defaultState, applyMiddleware(thunk))
+  return configureStore({
+    reducer: rootReducer,
+    preloadedState: defaultState,
+    middleware: (getDefaultMiddleware) =>
+      getDefaultMiddleware({
+        serializableCheck: {
+          // Ignore these action types
+          ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE'],
+          // Ignore these field paths in all actions
+          ignoredActionPaths: ['meta.arg', 'payload.timestamp'],
+          // Ignore these paths in the state
+          ignoredPaths: ['items.dates']
+        }
+      })
+  })
 }
 
 // Render with all providers
 export const renderWithProviders = (
   ui,
-  { initialState = {}, store = createTestStore(initialState), route = '/', ...renderOptions } = {}
+  { preloadedState = {}, store = createTestStore(preloadedState), route = '/', ...renderOptions } = {}
 ) => {
   window.history.pushState({}, 'Test page', route)
 
