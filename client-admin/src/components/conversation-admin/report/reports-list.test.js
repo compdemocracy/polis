@@ -8,6 +8,7 @@ import theme from '../../../theme'
 import ReportsList from './reports-list'
 import PolisNet from '../../../util/net'
 import * as actions from '../../../actions'
+import { mockAuth } from '../../../test-utils'
 
 // Mock dependencies
 jest.mock('../../../util/net')
@@ -15,17 +16,9 @@ jest.mock('../../../actions', () => ({
   populateZidMetadataStore: jest.fn()
 }))
 
-// Mock Auth0
-const mockAuth0 = {
-  isAuthenticated: true,
-  isLoading: false,
-  error: null,
-  user: { sub: 'test123' }
-}
-
-jest.mock('@auth0/auth0-react', () => ({
-  withAuth0: (Component) => (props) => <Component {...props} auth0={mockAuth0} />,
-  useAuth0: () => mockAuth0
+// Mock Auth
+jest.mock('react-oidc-context', () => ({
+  useAuth: () => mockAuth
 }))
 
 // Mock useParams
@@ -81,6 +74,8 @@ describe('ReportsList', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     actions.populateZidMetadataStore.mockReturnValue({ type: 'POPULATE_ZID_METADATA' })
+    mockAuth.isAuthenticated = true
+    mockAuth.isLoading = false
   })
 
   it('renders loading state initially', () => {

@@ -5,7 +5,7 @@ import React, { useState, useEffect } from 'react'
 import Url from '../../../util/url'
 import { useSelector, useDispatch } from 'react-redux'
 import { Heading, Box, Button } from 'theme-ui'
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 import { populateZidMetadataStore } from '../../../actions'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
@@ -14,7 +14,7 @@ import { useParams } from 'react-router'
 const ReportsList = () => {
   const dispatch = useDispatch()
   const params = useParams()
-  const { isAuthenticated } = useAuth0()
+  const { isAuthenticated } = useAuth()
   const zid_metadata = useSelector((state) => state.zid_metadata)
 
   const [state, setState] = useState({

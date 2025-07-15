@@ -9,7 +9,7 @@ import { Routes, Route, Link, useParams, useLocation } from 'react-router'
 
 import ConversationConfig from './conversation-config'
 import ConversationStats from './stats'
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 
 import ModerateComments from './comment-moderation/'
 
@@ -22,7 +22,7 @@ const ConversationAdminContainer = () => {
   const dispatch = useDispatch()
   const params = useParams()
   const location = useLocation()
-  const { isAuthenticated } = useAuth0()
+  const { isAuthenticated } = useAuth()
   const zid_metadata = useSelector((state) => state.zid_metadata)
 
   const loadZidMetadata = () => {
@@ -109,7 +109,7 @@ const ConversationAdminContainer = () => {
         <Routes>
           <Route path="/" element={<ConversationConfig />} />
           <Route path="share" element={<ShareAndEmbed />} />
-          <Route path="reports" element={<Reports />} />
+          <Route path="reports/*" element={<Reports />} />
           <Route path="comments/*" element={<ModerateComments />} />
           <Route path="stats" element={<ConversationStats />} />
           {/* <Route path="export" element={<DataExport />} /> */}

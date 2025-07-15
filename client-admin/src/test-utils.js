@@ -8,31 +8,46 @@ import { BrowserRouter as Router } from 'react-router'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from './theme'
 import rootReducer from './reducers'
+import { AuthContext } from 'react-oidc-context'
 
-// Mock Auth0 hook
-export const mockAuth0 = {
+// Mock oidc-client-ts
+jest.mock('oidc-client-ts', () => ({
+  WebStorageStateStore: jest.fn().mockImplementation(() => ({
+    set: jest.fn(),
+    get: jest.fn(),
+    remove: jest.fn(),
+    getAllKeys: jest.fn()
+  })),
+  // Mock other exports if needed
+  UserManager: jest.fn().mockImplementation(() => ({}))
+}))
+
+// Mock Auth hook for react-oidc-context
+export const mockAuth = {
   isAuthenticated: false,
   isLoading: false,
   error: null,
-  loginWithRedirect: jest.fn(),
-  logout: jest.fn(),
-  getAccessTokenSilently: jest.fn(),
-  user: null
+  user: null,
+  signinRedirect: jest.fn(),
+  signoutRedirect: jest.fn(),
+  removeUser: jest.fn(),
+  signinSilent: jest.fn()
 }
 
-// Mock Auth0Provider to avoid secure origin requirement
-const MockAuth0Provider = ({ children }) => {
-  return <>{children}</>
+// Mock AuthProvider
+const MockAuthProvider = ({ children, mockAuthValue = mockAuth }) => {
+  return <AuthContext.Provider value={mockAuthValue}>{children}</AuthContext.Provider>
 }
 
-MockAuth0Provider.propTypes = {
-  children: PropTypes.node.isRequired
+MockAuthProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+  mockAuthValue: PropTypes.object
 }
 
-jest.mock('@auth0/auth0-react', () => ({
-  Auth0Provider: MockAuth0Provider,
-  useAuth0: () => mockAuth0,
-  withAuth0: (Component) => (props) => <Component {...props} auth0={mockAuth0} />
+jest.mock('react-oidc-context', () => ({
+  AuthProvider: MockAuthProvider,
+  useAuth: () => mockAuth,
+  hasAuth: true
 }))
 
 // Create store with Redux Toolkit (same as production)

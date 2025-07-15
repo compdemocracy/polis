@@ -5,7 +5,8 @@ import PropTypes from 'prop-types'
 
 import { createRoot } from 'react-dom/client'
 import { ThemeUIProvider } from 'theme-ui'
-import { Auth0Provider } from '@auth0/auth0-react'
+import { AuthProvider } from 'react-oidc-context'
+import { WebStorageStateStore } from 'oidc-client-ts'
 import { Provider } from 'react-redux'
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router'
 import App from './app'
@@ -13,43 +14,38 @@ import store from './store'
 import theme from './theme'
 
 // OIDC configuration - now required
-const auth0Domain = process.env.AUTH_ISSUER ? new URL(process.env.AUTH_ISSUER).host : undefined
+const authority = process.env.AUTH_ISSUER
+const clientId = process.env.AUTH_CLIENT_ID
+const audience = process.env.AUTH_AUDIENCE
+const redirectUri = window.location.origin
 
-const auth0ClientId = process.env.AUTH_CLIENT_ID
-const auth0Audience = process.env.AUTH_AUDIENCE
-
-if (!auth0Domain || !auth0ClientId || !auth0Audience) {
+if (!authority || !clientId || !audience) {
   console.error('OIDC configuration is incomplete. Please check environment variables:')
   console.error('AUTH_ISSUER:', process.env.AUTH_ISSUER)
-  console.error('AUTH_CLIENT_ID:', auth0ClientId)
-  console.error('AUTH_AUDIENCE:', auth0Audience)
+  console.error('AUTH_CLIENT_ID:', clientId)
+  console.error('AUTH_AUDIENCE:', audience)
   throw new Error('OIDC configuration is required')
 }
 
-const Auth0ProviderWithRedirectCallback = ({ children }) => {
+const OidcProvider = ({ children }) => {
   const navigate = useNavigate()
 
-  const onRedirectCallback = (appState) => {
-    navigate(appState?.returnTo || window.location.pathname)
+  const oidcConfig = {
+    authority,
+    client_id: clientId,
+    redirect_uri: redirectUri,
+    scope: 'openid profile email',
+    userStore: new WebStorageStateStore({ store: window.localStorage }),
+    extraQueryParams: { audience },
+    onSigninCallback: (user) => {
+      navigate(user?.state?.returnTo || window.location.pathname)
+    }
   }
 
-  return (
-    <Auth0Provider
-      domain={auth0Domain}
-      clientId={auth0ClientId}
-      cacheLocation="localstorage"
-      authorizationParams={{
-        redirect_uri: window.location.origin,
-        audience: auth0Audience,
-        scope: 'openid profile email'
-      }}
-      onRedirectCallback={onRedirectCallback}>
-      {children}
-    </Auth0Provider>
-  )
+  return <AuthProvider {...oidcConfig}>{children}</AuthProvider>
 }
 
-Auth0ProviderWithRedirectCallback.propTypes = {
+OidcProvider.propTypes = {
   children: PropTypes.node.isRequired
 }
 
@@ -61,11 +57,11 @@ const Root = () => (
           v7_startTransition: true,
           v7_relativeSplatPath: true
         }}>
-        <Auth0ProviderWithRedirectCallback>
+        <OidcProvider>
           <Routes>
             <Route path="/*" element={<App />} />
           </Routes>
-        </Auth0ProviderWithRedirectCallback>
+        </OidcProvider>
       </Router>
     </Provider>
   </ThemeUIProvider>

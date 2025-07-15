@@ -4,20 +4,11 @@ import { BrowserRouter as Router } from 'react-router'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../theme'
 import SignIn from './signin'
+import { mockAuth } from '../../test-utils'
 
-// Mock Auth0
-const mockAuth0 = {
-  isAuthenticated: false,
-  isLoading: false,
-  error: null,
-  loginWithRedirect: jest.fn(),
-  logout: jest.fn(),
-  getAccessTokenSilently: jest.fn()
-}
-
-jest.mock('@auth0/auth0-react', () => ({
-  useAuth0: () => mockAuth0,
-  withAuth0: (Component) => (props) => <Component {...props} auth0={mockAuth0} />
+// Mock the useAuth hook directly for this test file
+jest.mock('react-oidc-context', () => ({
+  useAuth: () => mockAuth
 }))
 
 // Mock Navigate component
@@ -47,8 +38,8 @@ const renderWithProviders = (component, options = {}) => {
 describe('SignIn', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    mockAuth0.isAuthenticated = false
-    mockAuth0.isLoading = false
+    mockAuth.isAuthenticated = false
+    mockAuth.isLoading = false
   })
 
   it('renders sign in form when not authenticated', () => {
@@ -64,14 +55,14 @@ describe('SignIn', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/')
   })
 
-  it('calls loginWithRedirect when sign in button is clicked', () => {
+  it('calls signinRedirect when sign in button is clicked', () => {
     renderWithProviders(<SignIn authed={false} />)
 
     const signInButton = screen.getByRole('button', { name: 'Sign In' })
     fireEvent.click(signInButton)
 
-    expect(mockAuth0.loginWithRedirect).toHaveBeenCalledWith({
-      appState: { returnTo: '/' }
+    expect(mockAuth.signinRedirect).toHaveBeenCalledWith({
+      state: { returnTo: '/' }
     })
   })
 

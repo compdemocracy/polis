@@ -2,7 +2,7 @@
 /** @jsx jsx */
 
 import ComponentHelpers from '../../../util/component-helpers'
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 
 import NoPermission from '../no-permission'
 import { useEffect, useRef } from 'react'
@@ -22,7 +22,7 @@ const CommentModeration = () => {
   const dispatch = useDispatch()
   const params = useParams()
   const location = useLocation()
-  const { isLoading, isAuthenticated } = useAuth0()
+  const { isLoading, isAuthenticated } = useAuth()
 
   const zid_metadata = useSelector((state) => state.zid_metadata)
   const unmoderated = useSelector((state) => state.mod_comments_unmoderated)
@@ -36,7 +36,7 @@ const CommentModeration = () => {
   }
 
   const loadCommentsIfNeeded = () => {
-    // Only load if we have a conversation ID and Auth0 is ready (not loading)
+    // Only load if we have a conversation ID and Auth is ready (not loading)
     if (params.conversation_id && !isLoading) {
       loadComments()
 

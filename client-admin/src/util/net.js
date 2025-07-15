@@ -5,8 +5,8 @@ import URLs from './url'
 const urlPrefix = URLs.urlPrefix
 const basePath = ''
 
-// Auth0 token getter function - this should be set by the app when Auth0 is initialized
-let getAuth0AccessToken = null
+// Auth/OIDC token getter function - this should be set by the app when Auth is initialized
+let getOidcAccessToken = null
 
 let authReady = false
 let authReadyPromise = null
@@ -25,7 +25,7 @@ initAuthReadyPromise()
 export const setOidcTokenGetter = (getter) => {
   console.log('🔧 setOidcTokenGetter called:', { hasGetter: !!getter, wasReady: authReady })
 
-  getAuth0AccessToken = getter
+  getOidcAccessToken = getter
 
   if (getter) {
     // Auth is now ready
@@ -42,11 +42,11 @@ export const setOidcTokenGetter = (getter) => {
   }
 }
 
-// Store Auth0 hooks for login redirect
-let auth0LoginRedirect = null
+// Store Auth hooks for login redirect
+let oidcLoginRedirect = null
 
 export const setOidcActions = (loginWithRedirect) => {
-  auth0LoginRedirect = loginWithRedirect
+  oidcLoginRedirect = loginWithRedirect
 }
 
 // Export functions to check auth readiness
@@ -56,7 +56,7 @@ export const waitForAuthReady = () => authReadyPromise
 const getAccessTokenSilentlySPA = async (options) => {
   console.log(
     '🔍 getAccessTokenSilentlySPA called, token getter available:',
-    !!getAuth0AccessToken,
+    !!getOidcAccessToken,
     'authReady:',
     authReady
   )
@@ -68,21 +68,21 @@ const getAccessTokenSilentlySPA = async (options) => {
     console.log('✅ Auth system is ready, proceeding with token request')
   }
 
-  if (getAuth0AccessToken) {
+  if (getOidcAccessToken) {
     try {
-      const token = await getAuth0AccessToken({
+      const token = await getOidcAccessToken({
         cacheMode: 'on', // Use cached token if valid
         ...options
       })
       console.log('✅ Token retrieved successfully')
       return token
     } catch (e) {
-      console.error('Error getting Auth0 token:', e)
+      console.error('Error getting OIDC token:', e)
 
-      // Handle specific Auth0 errors
-      if (e.error === 'login_required' && auth0LoginRedirect) {
-        console.warn('Login required, redirecting to Auth0')
-        auth0LoginRedirect()
+      // Handle specific OIDC errors
+      if (e.error === 'login_required' && oidcLoginRedirect) {
+        console.warn('Login required, redirecting to OIDC provider')
+        oidcLoginRedirect()
         return null
       }
 
@@ -101,10 +101,10 @@ const handleAuthError = (error, response) => {
     console.warn('Authentication/authorization error:', response.status)
 
     // For 401 (unauthorized), try to redirect to login
-    if (response.status === 401 && auth0LoginRedirect) {
+    if (response.status === 401 && oidcLoginRedirect) {
       console.warn('Token expired or invalid, redirecting to login')
       setTimeout(() => {
-        auth0LoginRedirect()
+        oidcLoginRedirect()
       }, 1000) // Small delay to allow error handling to complete
     }
   }

@@ -6,10 +6,10 @@ import { Navigate } from 'react-router'
 import { Heading, Box, Button, jsx } from 'theme-ui'
 import StaticLayout from './lander-layout'
 
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 
 const SignIn = ({ authed }) => {
-  const { loginWithRedirect } = useAuth0()
+  const auth = useAuth()
 
   const drawLoginForm = () => {
     return (
@@ -18,8 +18,8 @@ const SignIn = ({ authed }) => {
           sx={{ my: [2] }}
           id="signinButton"
           onClick={() =>
-            loginWithRedirect({
-              appState: { returnTo: window.location.pathname }
+            auth.signinRedirect({
+              state: { returnTo: window.location.pathname }
             })
           }>
           Sign In

@@ -5,11 +5,11 @@ import PropTypes from 'prop-types'
 import strings from '../../strings/strings'
 import { useSelector, useDispatch } from 'react-redux'
 import { populateAllCommentStores } from '../../actions'
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 
 const ConversationHasCommentsCheck = ({ conversation_id, strict_moderation, loading }) => {
   const dispatch = useDispatch()
-  const { isLoading, isAuthenticated } = useAuth0()
+  const { isLoading, isAuthenticated } = useAuth()
 
   const accepted_comments = useSelector((state) => state.mod_comments_accepted.accepted_comments)
   const rejected_comments = useSelector((state) => state.mod_comments_rejected.rejected_comments)
@@ -24,7 +24,7 @@ const ConversationHasCommentsCheck = ({ conversation_id, strict_moderation, load
   }
 
   const loadCommentsIfNeeded = () => {
-    // Only load if we have a conversation ID and Auth0 is ready (not loading)
+    // Only load if we have a conversation ID and Auth is ready (not loading)
     if (!hasAttemptedLoad && conversation_id && !isLoading) {
       setHasAttemptedLoad(true)
       loadComments()
@@ -68,7 +68,7 @@ const ConversationHasCommentsCheck = ({ conversation_id, strict_moderation, load
     }
   }
 
-  // Check if any store is still loading or if Auth0 is still loading
+  // Check if any store is still loading or if Auth is still loading
   const isLoadingState = loading || isLoading || (!hasAttemptedLoad && !conversation_id)
 
   // Show loading if we haven't attempted to load yet OR if comments are still null and we're loading

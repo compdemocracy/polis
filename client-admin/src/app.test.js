@@ -7,26 +7,11 @@ import { ThemeUIProvider } from 'theme-ui'
 import App from './app'
 import rootReducer from './reducers'
 import theme from './theme'
+import { mockAuth } from './test-utils'
 
-// Mock the Auth0 hook
-const mockAuth0 = {
-  isAuthenticated: false,
-  isLoading: true,
-  error: null,
-  loginWithRedirect: jest.fn(),
-  logout: jest.fn(),
-  getAccessTokenSilently: jest.fn()
-}
-
-// Mock Auth0Provider to avoid secure origin requirement
-const MockAuth0Provider = ({ children }) => {
-  return <>{children}</>
-}
-
-jest.mock('@auth0/auth0-react', () => ({
-  Auth0Provider: MockAuth0Provider,
-  useAuth0: () => mockAuth0,
-  withAuth0: (Component) => (props) => <Component {...props} auth0={mockAuth0} />
+// Mock the useAuth hook directly for this test file
+jest.mock('react-oidc-context', () => ({
+  useAuth: () => mockAuth
 }))
 
 // Mock the conversations component to avoid deep component tree issues
@@ -55,14 +40,14 @@ describe('App Authentication Flow', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     // Reset mock state
-    mockAuth0.isAuthenticated = false
-    mockAuth0.isLoading = true
-    mockAuth0.error = null
+    mockAuth.isAuthenticated = false
+    mockAuth.isLoading = true
+    mockAuth.error = null
   })
 
-  test('shows loading spinner when Auth0 is loading', () => {
-    mockAuth0.isLoading = true
-    mockAuth0.isAuthenticated = false
+  test('shows loading spinner when Auth is loading', () => {
+    mockAuth.isLoading = true
+    mockAuth.isAuthenticated = false
 
     const { container } = renderWithProviders(<App />)
 
@@ -75,8 +60,8 @@ describe('App Authentication Flow', () => {
   })
 
   test('redirects to signin when not authenticated and not loading', () => {
-    mockAuth0.isLoading = false
-    mockAuth0.isAuthenticated = false
+    mockAuth.isLoading = false
+    mockAuth.isAuthenticated = false
 
     renderWithProviders(<App />)
 
@@ -87,8 +72,8 @@ describe('App Authentication Flow', () => {
   })
 
   test('shows protected content when authenticated and not loading', () => {
-    mockAuth0.isLoading = false
-    mockAuth0.isAuthenticated = true
+    mockAuth.isLoading = false
+    mockAuth.isAuthenticated = true
 
     renderWithProviders(<App />)
 

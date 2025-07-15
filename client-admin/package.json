@@ -55,14 +55,15 @@
     "webpack-dev-server": "~5.2.2"
   },
   "dependencies": {
-    "@auth0/auth0-react": "^2.3.0",
     "@reduxjs/toolkit": "^2.8.2",
     "@theme-ui/mdx": "^0.17.2",
     "d3-scale": "~3.3.0",
+    "oidc-client-ts": "^3.3.0",
     "prop-types": "~15.8.1",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-easy-emoji": "~1.8.1",
+    "react-oidc-context": "^3.3.0",
     "react-redux": "^9.2.0",
     "react-router": "^7.6.3",
     "redux": "^5.0.1",

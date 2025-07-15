@@ -10,7 +10,7 @@ import { isAuthReady } from './util/net'
 import { Routes, Route, Navigate } from 'react-router'
 import { jsx } from 'theme-ui'
 
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 import OidcConnector from './components/oidc-connector'
 import Spinner from './components/framework/spinner'
 
@@ -71,7 +71,7 @@ ProtectedRoute.propTypes = {
 
 const App = () => {
   const dispatch = useDispatch()
-  const { isAuthenticated, isLoading, error } = useAuth0()
+  const { isAuthenticated, isLoading, error } = useAuth()
 
   const [sidebarState, setSidebarState] = useState(() => {
     const mql = window.matchMedia(`(min-width: 800px)`)

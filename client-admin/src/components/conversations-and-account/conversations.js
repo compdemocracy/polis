@@ -6,7 +6,7 @@ import { handleCreateConversationSubmit, populateConversationsStore } from '../.
 import { isAuthReady } from '../../util/net'
 
 import Url from '../../util/url'
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 import { Box, Heading, Button, Text } from 'theme-ui'
 import Conversation from './conversation'
 import { useLocation, useNavigate } from 'react-router'
@@ -15,7 +15,7 @@ const Conversations = () => {
   const dispatch = useDispatch()
   const location = useLocation()
   const navigate = useNavigate()
-  const { isAuthenticated, isLoading } = useAuth0()
+  const { isAuthenticated, isLoading } = useAuth()
   const { conversations, loading, error } = useSelector((state) => state.conversations)
 
   const [filterState] = useState({

@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import { Heading, Link, Text } from 'theme-ui'
 import Url from '../../util/url'
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 import PolisNet from '../../util/net'
 
 const { urlPrefix } = Url
@@ -20,7 +20,7 @@ const getDownloadFilename = (conversation_id) => {
 }
 
 const ParticipantXids = ({ conversation_id }) => {
-  const { isLoading, isAuthenticated } = useAuth0()
+  const { isLoading, isAuthenticated } = useAuth()
 
   const [state, setState] = useState({
     conversationUuid: null,
@@ -51,7 +51,7 @@ const ParticipantXids = ({ conversation_id }) => {
   }
 
   const loadConversationUuidIfNeeded = () => {
-    // Only load if we have a conversation ID and Auth0 is ready (not loading)
+    // Only load if we have a conversation ID and Auth is ready (not loading)
     if (conversation_id && !isLoading && !state.conversationUuid) {
       loadConversationUuid()
     }

@@ -7,6 +7,7 @@ import { BrowserRouter as Router } from 'react-router'
 import theme from '../../../theme'
 import ConversationStats from './index'
 import * as actions from '../../../actions'
+import { mockAuth } from '../../../test-utils'
 
 // Mock child components to isolate the main component
 jest.mock('./conversation-stats-number-cards', () => {
@@ -39,17 +40,9 @@ jest.mock('../../../actions', () => ({
   populateZidMetadataStore: jest.fn()
 }))
 
-// Mock Auth0
-const mockAuth0 = {
-  isAuthenticated: true,
-  isLoading: false,
-  error: null,
-  user: { sub: 'test123' }
-}
-
-jest.mock('@auth0/auth0-react', () => ({
-  withAuth0: (Component) => (props) => <Component {...props} auth0={mockAuth0} />,
-  useAuth0: () => mockAuth0
+// Mock Auth
+jest.mock('react-oidc-context', () => ({
+  useAuth: () => mockAuth
 }))
 
 // Mock useParams
@@ -140,6 +133,8 @@ describe('ConversationStats', () => {
     jest.clearAllMocks()
     actions.populateConversationStatsStore.mockReturnValue({ type: 'POPULATE_STATS' })
     actions.populateZidMetadataStore.mockReturnValue({ type: 'POPULATE_ZID_METADATA' })
+    mockAuth.isAuthenticated = true
+    mockAuth.isLoading = false
   })
 
   afterEach(() => {

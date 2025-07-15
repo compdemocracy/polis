@@ -3,17 +3,11 @@ import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import ConversationHasCommentsCheck from './conversation-has-comments-check'
+import { mockAuth } from '../../test-utils'
 
-// Mock Auth0 to avoid secure origin requirement
-const mockAuth0 = {
-  isAuthenticated: true,
-  isLoading: false,
-  error: null,
-  user: { sub: 'test123' }
-}
-
-jest.mock('@auth0/auth0-react', () => ({
-  useAuth0: () => mockAuth0
+// Mock the useAuth hook directly for this test file
+jest.mock('react-oidc-context', () => ({
+  useAuth: () => mockAuth
 }))
 
 // Create a minimal mock store
@@ -44,9 +38,9 @@ const renderWithProviders = (component, { store } = {}) => {
 
 describe('ConversationHasCommentsCheck', () => {
   beforeEach(() => {
-    // Reset Auth0 mock state
-    mockAuth0.isLoading = false
-    mockAuth0.isAuthenticated = true
+    // Reset Auth mock state
+    mockAuth.isLoading = false
+    mockAuth.isAuthenticated = true
   })
 
   it('should show loading state when comments are null', () => {
@@ -128,9 +122,9 @@ describe('ConversationHasCommentsCheck', () => {
     expect(screen.queryByText(/Loading accepted comments/)).not.toBeInTheDocument()
   })
 
-  it('should show loading when Auth0 is still loading', () => {
-    // Test loading state when Auth0 is still initializing
-    mockAuth0.isLoading = true
+  it('should show loading when Auth is still loading', () => {
+    // Test loading state when Auth is still initializing
+    mockAuth.isLoading = true
     
     const store = createMockStore({
       mod_comments_accepted: { accepted_comments: [], loading: false },

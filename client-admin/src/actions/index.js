@@ -107,7 +107,7 @@ export const DATA_EXPORT_STARTED = 'DATA_EXPORT_STARTED'
 export const DATA_EXPORT_SUCCESS = 'DATA_EXPORT_SUCCESS'
 export const DATA_EXPORT_ERROR = 'DATA_EXPORT_ERROR'
 
-// Legacy auth types removed - Auth0 handles authentication
+// Legacy auth types removed - Auth/OIDC handles authentication
 
 export const SUBMIT_CONTRIB = 'SUBMIT_CONTRIB'
 export const SUBMIT_CONTRIB_SUCCESS = 'SUBMIT_CONTRIB_SUCCESS'
@@ -167,7 +167,7 @@ export const populateUserStore = () => {
   }
 }
 
-// Legacy auth functions removed - Auth0 handles authentication through loginWithRedirect
+// Legacy auth functions removed - Auth/OIDC handles authentication through loginWithRedirect
 
 /* Conversations */
 

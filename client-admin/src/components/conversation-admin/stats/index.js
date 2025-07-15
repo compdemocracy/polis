@@ -5,7 +5,7 @@ import dateSetupUtil from '../../../util/data-export-date-setup'
 import { useState, useEffect, useRef } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { populateConversationStatsStore, populateZidMetadataStore } from '../../../actions'
-import { useAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 import NumberCards from './conversation-stats-number-cards'
 import Voters from './voters'
 import Commenters from './commenters'
@@ -17,7 +17,7 @@ import { useParams } from 'react-router'
 const ConversationStats = () => {
   const dispatch = useDispatch()
   const params = useParams()
-  const { isAuthenticated, isLoading } = useAuth0()
+  const { isAuthenticated, isLoading } = useAuth()
 
   const stats = useSelector((state) => state.stats)
   const zid_metadata = useSelector((state) => state.zid_metadata)
@@ -44,7 +44,7 @@ const ConversationStats = () => {
   }
 
   const loadInitialDataIfNeeded = () => {
-    // Only load if we have a conversation ID and Auth0 is ready (not loading)
+    // Only load if we have a conversation ID and Auth is ready (not loading)
     if (params.conversation_id && !isLoading) {
       loadInitialData()
     }
