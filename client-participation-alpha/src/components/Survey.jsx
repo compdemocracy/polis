@@ -19,7 +19,7 @@ const submitVoteAndGetNextCommentAPI = async (vote, conversation_id, high_priori
         conversation_id,
         high_priority,
         lang: getPreferredLanguages()[0],
-        pid: decodedToken.pid || "mypid",
+        pid: decodedToken?.pid || "mypid",
         tid: vote.tid,
         vote: vote.vote,
       }),
@@ -33,7 +33,7 @@ const submitVoteAndGetNextCommentAPI = async (vote, conversation_id, high_priori
     const data = await response.json();
     return data;
   } catch (error) {
-    
+    console.log(error);
   }
 };
 
