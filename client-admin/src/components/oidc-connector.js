@@ -9,13 +9,6 @@ const OidcConnector = () => {
   const authWasReady = useRef(false)
 
   useEffect(() => {
-    console.log('🔐 OidcConnector useEffect running:', {
-      isAuthenticated: auth.isAuthenticated,
-      isLoading: auth.isLoading,
-      hasError: !!auth.error,
-      timestamp: new Date().toISOString()
-    })
-
     // Always set up auth actions for error handling and sign-in
     setOidcActions({
       signinRedirect: auth.signinRedirect,
@@ -24,18 +17,14 @@ const OidcConnector = () => {
 
     // Set up the token getter function for the network utility when authenticated
     if (process.env.AUTH_CLIENT_ID && auth.isAuthenticated && !auth.isLoading) {
-      console.log('✅ Setting up token getter - user is authenticated')
-
       const tokenGetter = async () => {
         try {
           // The access_token is available on the user object
           if (auth.user?.access_token) {
-            console.log('🔑 Token obtained successfully from auth context')
             return auth.user.access_token
           }
           // Fallback to signinSilent if needed, though usually not necessary
           // if the user object is populated.
-          console.log('🔑 Token not in context, trying signinSilent...')
           await auth.signinSilent()
           return auth.user?.access_token
         } catch (error) {
@@ -45,24 +34,16 @@ const OidcConnector = () => {
       }
 
       setOidcTokenGetter(tokenGetter)
-      console.log('✅ Token getter has been set')
 
       // Dispatch event when auth becomes ready for the first time
       if (!authWasReady.current) {
         authWasReady.current = true
-        console.log('🎉 Dispatching authReady event')
         window.dispatchEvent(new Event('polisAuthReady'))
       }
     } else if (!auth.isAuthenticated && !auth.isLoading) {
-      console.log('🔒 User not authenticated, clearing token getter')
       // Clear the token getter when not authenticated
       setOidcTokenGetter(null)
       authWasReady.current = false
-    } else {
-      console.log('⏳ Waiting for auth to settle...', {
-        isAuthenticated: auth.isAuthenticated,
-        isLoading: auth.isLoading
-      })
     }
   }, [auth])
 

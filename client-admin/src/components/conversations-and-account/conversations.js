@@ -26,33 +26,14 @@ const Conversations = () => {
   const loadConversationsIfNeeded = useCallback(() => {
     const authSystemReady = isAuthReady()
 
-    console.log('🗂️ loadConversationsIfNeeded:', {
-      authIsLoading: isLoading,
-      isAuthenticated,
-      authSystemReady,
-      dataLoading: loading,
-      hasConversations: !!conversations,
-      willLoad: !isLoading && isAuthenticated && authSystemReady && !loading && !conversations
-    })
-
     if (!isLoading && isAuthenticated && authSystemReady && !loading && !conversations) {
-      console.log('📡 Dispatching populateConversationsStore')
       dispatch(populateConversationsStore())
-    } else if (!isLoading && isAuthenticated && !authSystemReady) {
-      console.log('⏳ Auth system not ready yet, will retry when ready')
     }
   }, [isLoading, isAuthenticated, loading, conversations, dispatch])
 
   useEffect(() => {
-    console.log('🗂️ Conversations componentDidMount:', {
-      isAuthenticated,
-      isLoading,
-      timestamp: new Date().toISOString()
-    })
-
     // Listen for auth ready event
     const handleAuthReady = () => {
-      console.log('🎉 Auth ready event received in Conversations')
       loadConversationsIfNeeded()
     }
 
@@ -67,12 +48,6 @@ const Conversations = () => {
   }, [loadConversationsIfNeeded])
 
   useEffect(() => {
-    console.log('🗂️ Conversations componentDidUpdate:', {
-      isLoading,
-      isAuthenticated,
-      timestamp: new Date().toISOString()
-    })
-
     loadConversationsIfNeeded()
   }, [isAuthenticated, isLoading, loadConversationsIfNeeded])
 

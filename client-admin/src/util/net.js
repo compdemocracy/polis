@@ -23,8 +23,6 @@ const initAuthReadyPromise = () => {
 initAuthReadyPromise()
 
 export const setOidcTokenGetter = (getter) => {
-  console.log('🔧 setOidcTokenGetter called:', { hasGetter: !!getter, wasReady: authReady })
-
   getOidcAccessToken = getter
 
   if (getter) {
@@ -32,13 +30,11 @@ export const setOidcTokenGetter = (getter) => {
     authReady = true
     if (authReadyResolve) {
       authReadyResolve()
-      console.log('✅ Auth system is now ready')
     }
   } else {
     // Auth is being cleared, reset the ready state
     authReady = false
     initAuthReadyPromise()
-    console.log('🔒 Auth system reset')
   }
 }
 
@@ -54,18 +50,9 @@ export const isAuthReady = () => authReady
 export const waitForAuthReady = () => authReadyPromise
 
 const getAccessTokenSilentlySPA = async (options) => {
-  console.log(
-    '🔍 getAccessTokenSilentlySPA called, token getter available:',
-    !!getOidcAccessToken,
-    'authReady:',
-    authReady
-  )
-
   // Wait for auth to be ready
   if (!authReady && authReadyPromise) {
-    console.log('⏳ Waiting for auth system to be ready...')
     await authReadyPromise
-    console.log('✅ Auth system is ready, proceeding with token request')
   }
 
   if (getOidcAccessToken) {
@@ -74,7 +61,6 @@ const getAccessTokenSilentlySPA = async (options) => {
         cacheMode: 'on', // Use cached token if valid
         ...options
       })
-      console.log('✅ Token retrieved successfully')
       return token
     } catch (e) {
       console.error('Error getting OIDC token:', e)

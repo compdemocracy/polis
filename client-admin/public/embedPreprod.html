@@ -52,10 +52,7 @@
       ]
       polis.on.init = [
         function (o) {
-          if (o.status === 'ok') {
-            console.log('polis loaded')
-            console.log(o.conversation)
-          } else {
+          if (o.status !== 'ok') {
             console.error('error loading')
           }
         }

@@ -91,18 +91,8 @@ const App = () => {
   const loadUserDataIfNeeded = useCallback(() => {
     const authSystemReady = isAuthReady()
 
-    console.log('👤 loadUserDataIfNeeded:', {
-      authIsLoading: isLoading,
-      isAuthenticated,
-      authSystemReady,
-      willLoad: !isLoading && isAuthenticated && authSystemReady
-    })
-
     if (!isLoading && isAuthenticated && authSystemReady) {
-      console.log('📡 Loading user data')
       loadUserData()
-    } else if (!isLoading && isAuthenticated && !authSystemReady) {
-      console.log('⏳ Auth system not ready yet for user data')
     }
   }, [isLoading, isAuthenticated, loadUserData])
 
@@ -123,7 +113,6 @@ const App = () => {
   useEffect(() => {
     // Listen for auth ready event
     const handleAuthReady = () => {
-      console.log('🎉 Auth ready event received in App')
       loadUserDataIfNeeded()
     }
 

@@ -273,10 +273,8 @@ const fetchZidMetadata = (conversation_id) => {
 }
 
 export const populateZidMetadataStore = (conversation_id) => {
-  console.log('🔍 populateZidMetadataStore: called')
   return (dispatch, getState) => {
     const state = getState()
-    console.log('🔍 populateZidMetadataStore: getState()', state)
     const hasConversationId =
       state.zid_metadata &&
       state.zid_metadata.zid_metadata &&
@@ -286,7 +284,6 @@ export const populateZidMetadataStore = (conversation_id) => {
     // NOTE: if there are multiple calls outstanding this may be wrong.
     const isLoadingThisConversation =
       state.zid_metadata.conversation_id === conversation_id && isLoading
-    console.log('🔍 populateZidMetadataStore: isLoadingThisConversation', isLoadingThisConversation)
 
     if (isLoadingThisConversation) {
       return
