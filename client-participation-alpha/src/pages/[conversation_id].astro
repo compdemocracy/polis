@@ -1,9 +1,9 @@
 ---
-import Layout from './layouts/Layout.astro';
+import Layout from '../pages/layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Survey from '../components/Survey.jsx';
-import SurveyForm from '../components/SurveyForm.jsx';
-import { getTranslations } from '../strings/strings';
+import SurveyForm from '../components/SurveyForm.jsx'; 
+import { getTranslations } from '../strings/strings.js';
 
 const { conversation_id } = Astro.params;
 let initialData;
@@ -20,30 +20,29 @@ try {
   fetchError = "Could not load this conversation. Please check the ID and try again.";
 }
 
-// Load local UI strings.
 const s = await getTranslations();
 
-let surveyDetails, firstStatement, participationInfo;
+let surveyDetails, firstStatement, participationInfo, isConversationActive;
 if (initialData) {
   surveyDetails = {
     title: initialData.conversation.topic,
     description: initialData.conversation.description,
   };
   
-  // The API gives us the first comment to display
   firstStatement = {
-    tid: initialData.nextComment.tid,
-    txt: initialData.nextComment.txt,
+    tid: initialData.nextComment?.tid,
+    txt: initialData.nextComment?.txt,
   };
 
-  // We'll need this info for subsequent API calls (like voting)
   participationInfo = {
     pid: initialData.ptpt?.pid,
     conversation_id: initialData.conversation.conversation_id,
   };
+
+  isConversationActive = initialData.conversation.is_active;
 }
 ---
-<Layout title={surveyDetails?.title}>
+<Layout title={surveyDetails?.title ?? 'Loading Conversation...'}>
   <div class="container">
     <Header />
 
@@ -52,29 +51,40 @@ if (initialData) {
         <h2>Oops!</h2>
         <p>{fetchError}</p>
       </div>
-    ) : (
+    ) : initialData ? (
       <>
-        <h1>{surveyDetails?.title}</h1>
+        <h1>
+          {surveyDetails?.title}
+          {!isConversationActive && <span class="closed-badge">closed</span>}
+        </h1>
         <p class="description" set:html={surveyDetails?.description}></p>
-        <p class="conversation-intro" set:html={s['vote-on-statements']}></p>
 
-        {/* Pass the initial data and participation info to the Survey component.
-          It will handle fetching subsequent comments on the client.
-        */}
-        <Survey 
-          client:load 
-          initialStatement={firstStatement}
-          conversation_id={conversation_id}
-          s={s} 
-        />
-        
-        {/* The form just needs the translation strings */}
-        <SurveyForm client:load s={s} />
+        {/* Conditionally render the interactive components only if the conversation is active */}
+        {isConversationActive ? (
+          <>
+            <p class="conversation-intro" set:html={s['vote-on-statements']}></p>
+            <Survey 
+              client:load 
+              initialStatement={firstStatement}
+              conversation_id={conversation_id}
+              s={s} 
+            />
+            <SurveyForm client:load s={s} />
+          </>
+        ) : (
+          <div class="footer-spacer"></div>
+        )}
       </>
+    ) : (
+      <p>Loading...</p>
     )}
 
     <div style="margin-top: 3rem;">
       <div class="logo">p.</div>
+      <div class="footer-links">
+        <a href="#">Privacy</a>
+        <a href="#">TOS</a>
+      </div>
     </div>
   </div>
 </Layout>
@@ -89,5 +99,35 @@ if (initialData) {
   .error-message h2 {
     margin-top: 0;
     color: #721c24;
+  }
+  .closed-badge {
+    display: inline-block;
+    margin-left: 0.75rem;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.9rem;
+    font-weight: bold;
+    line-height: 1;
+    color: white;
+    background-color: #d9534f;
+    border-radius: 4px;
+    text-transform: uppercase;
+    vertical-align: middle;
+  }
+  .footer-spacer {
+    /* Adds space to push the footer down on closed pages */
+    min-height: 20vh;
+  }
+  .footer-links {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #666;
+  }
+  .footer-links a {
+    color: #666;
+    text-decoration: none;
+    margin: 0 0.5rem;
+  }
+  .footer-links a:hover {
+    text-decoration: underline;
   }
 </style>
