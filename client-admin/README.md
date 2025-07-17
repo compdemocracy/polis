@@ -6,10 +6,10 @@ The web interface for creating and administering polis conversations. It is buil
 
 ### Dependencies
 
-* Node `>= 16`
-We recommend installing [nvm](https://github.com/creationix/nvm) so that you can easily switch between your favorite
-flavors of node.
-* NPM `>= 8`
+- Node `>= 16`
+  We recommend installing [nvm](https://github.com/creationix/nvm) so that you can easily switch between your favorite
+  flavors of node.
+- NPM `>= 8`
 
 If using nvm, run the commands below to install node and the application dependencies.
 

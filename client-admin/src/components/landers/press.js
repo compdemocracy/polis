@@ -1,12 +1,9 @@
-import React from 'react'
 import { Box, Link, Heading } from 'theme-ui'
 
 const Press = () => {
   return (
     <Box>
-      <Heading
-        as="h3"
-        sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
+      <Heading as="h3" sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
         Read
       </Heading>
       <Box sx={{ mb: [4, null, 5], maxWidth: '35em' }}>
@@ -23,9 +20,7 @@ const Press = () => {
           MIT Tech Review
         </Link>
         ,{' '}
-        <Link
-          target="_blank"
-          href="https://www.wired.co.uk/article/taiwan-democracy-social-media">
+        <Link target="_blank" href="https://www.wired.co.uk/article/taiwan-democracy-social-media">
           Wired
         </Link>
         ,{' '}
@@ -41,15 +36,11 @@ const Press = () => {
           Center for Public Impact
         </Link>
         ,{' '}
-        <Link
-          target="_blank"
-          href="https://civichall.org/civicist/vtaiwan-democracy-frontier/">
+        <Link target="_blank" href="https://civichall.org/civicist/vtaiwan-democracy-frontier/">
           Civicist
         </Link>
         ,{' and a mini documentary from '}
-        <Link
-          target="_blank"
-          href="https://www.youtube.com/watch?v=VbCZvU7i7VY">
+        <Link target="_blank" href="https://www.youtube.com/watch?v=VbCZvU7i7VY">
           BBC
         </Link>
       </Box>

@@ -1,5 +1,4 @@
-/** @jsx jsx */
-import { jsx, Text, Card } from 'theme-ui'
+import { Text, Card } from 'theme-ui'
 import PropTypes from 'prop-types'
 
 function Conversation({ c, i, goToConversation }) {
@@ -8,12 +7,17 @@ function Conversation({ c, i, goToConversation }) {
       onClick={goToConversation}
       sx={{ cursor: 'pointer', overflowWrap: 'break-word', mb: [3] }}
       key={i}>
-      <Text sx={{ fontWeight: 700, mb: [2] }}>{c.topic}</Text>
-      <Text>{c.description}</Text>
-      <Text data-testid="embed-page">
-        {c.parent_url ? `Embedded on ${c.parent_url}` : null}
+      <Text as="span" sx={{ fontWeight: 700, mb: [2] }}>
+        {c.topic}
       </Text>
-      <Text sx={{ mt: [2] }}>{c.participant_count} participants</Text>
+      {c.description && <Text as="span"> {c.description}</Text>}
+      {c.parent_url && (
+        <Text as="span" data-testid="embed-page">
+          {' '}
+          {`Embedded on ${c.parent_url}`}
+        </Text>
+      )}
+      <Text as="span"> {c.participant_count} participants</Text>
     </Card>
   )
 }

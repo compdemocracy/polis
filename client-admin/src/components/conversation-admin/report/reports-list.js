@@ -1,144 +1,115 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import PolisNet from '../../../util/net'
-import React from 'react'
-import PropTypes from 'prop-types'
+import { useState, useEffect } from 'react'
 import Url from '../../../util/url'
-import { connect } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import { Heading, Box, Button } from 'theme-ui'
-import { withAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 import { populateZidMetadataStore } from '../../../actions'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
+import { useParams } from 'react-router'
 
-@connect((state) => state.zid_metadata)
-class ReportsList extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = {
-      loading: true,
-      reports: []
-    }
-    this.oidcReadyHandler = null;
-  }
+const ReportsList = () => {
+  const dispatch = useDispatch()
+  const params = useParams()
+  const { isAuthenticated } = useAuth()
+  const zid_metadata = useSelector((state) => state.zid_metadata)
 
-  getData() {
-    const { match } = this.props
+  const [state, setState] = useState({
+    loading: true,
+    reports: [],
+    dataLoaded: false
+  })
+
+  const getData = () => {
     const reportsPromise = PolisNet.polisGet('/api/v3/reports', {
-      conversation_id: match.params.conversation_id
+      conversation_id: params.conversation_id
     })
     reportsPromise.then((reports) => {
-      this.setState({
+      setState({
         loading: false,
-        reports: reports
+        reports: reports,
+        dataLoaded: true
       })
     })
   }
 
-  loadInitialData() {
-    this.props.dispatch(
-      populateZidMetadataStore(this.props.match.params.conversation_id)
-    );
-    
-    // If we already have is_mod, get the data
-    const { zid_metadata } = this.props;
-    if (zid_metadata?.is_mod) {
-      this.getData();
+  const loadInitialData = () => {
+    if (isAuthenticated) {
+      dispatch(populateZidMetadataStore(params.conversation_id))
     }
   }
 
-  componentDidMount() {
-    // Listen for oidcReady event
-    this.oidcReadyHandler = () => {
-      this.loadInitialData();
-    };
-    
-    window.addEventListener('oidcReady', this.oidcReadyHandler);
-    
-    // If auth0 is already ready, call loadInitialData immediately
-    if (window.oidcReady) {
-      this.loadInitialData();
+  useEffect(() => {
+    loadInitialData()
+
+    // Check if user is already a moderator on mount
+    if (zid_metadata?.zid_metadata?.is_mod && !state.dataLoaded) {
+      getData()
     }
-  }
+  }, [])
 
-  componentWillUnmount() {
-    // Clean up event listener
-    if (this.oidcReadyHandler) {
-      window.removeEventListener('oidcReady', this.oidcReadyHandler);
+  useEffect(() => {
+    const currentIsMod = zid_metadata?.zid_metadata?.is_mod
+
+    // Load data if user is now a moderator and data hasn't been loaded
+    if (currentIsMod && !state.dataLoaded) {
+      getData()
     }
-  }
 
-  componentDidUpdate(prevProps) {
-    // Only call getData() if is_mod changed from false/undefined to true
-    const { zid_metadata } = this.props
-    const prevIsMod = prevProps.zid_metadata?.is_mod
-    const currentIsMod = zid_metadata?.is_mod
-
-    if (!prevIsMod && currentIsMod) {
-      this.getData()
+    if (isAuthenticated && !zid_metadata?.zid_metadata) {
+      loadInitialData()
     }
-  }
+  }, [zid_metadata, isAuthenticated])
 
-  createReportClicked() {
-    const { match } = this.props
+  const createReportClicked = () => {
     PolisNet.polisPost('/api/v3/reports', {
-      conversation_id: match.params.conversation_id
+      conversation_id: params.conversation_id
     }).then(() => {
-      this.getData()
+      getData()
     })
   }
 
-  render() {
-    if (ComponentHelpers.shouldShowPermissionsError(this.props)) {
-      return <NoPermission />
-    }
+  if (
+    ComponentHelpers.shouldShowPermissionsError({
+      zid_metadata: zid_metadata.zid_metadata,
+      loading: zid_metadata.loading
+    })
+  ) {
+    return <NoPermission />
+  }
 
-    if (this.state.loading) {
-      return <div>Loading Reports...</div>
-    }
-    return (
-      <Box>
-        <Heading
-          as="h3"
-          sx={{
-            fontSize: [3, null, 4],
-            lineHeight: 'body',
-            mb: [3, null, 4]
-          }}>
-          Report
-        </Heading>
-        <Box sx={{ mb: [3, null, 4] }}>
-          <Button onClick={this.createReportClicked.bind(this)}>
-            Create report url
-          </Button>
-        </Box>
-        {this.state.reports.map((report) => {
-          return (
-            <Box sx={{ mb: [2] }} key={report.report_id} data-testid="report-list-item">
-              <a
-                target="_blank"
-                rel="noreferrer"
-                href={Url.urlPrefix + 'report/' + report.report_id}>
-                {Url.urlPrefix}report/{report.report_id}
-              </a>
-            </Box>
-          )
-        })}
+  if (state.loading) {
+    return <div>Loading Reports...</div>
+  }
+
+  return (
+    <Box>
+      <Heading
+        as="h3"
+        sx={{
+          fontSize: [3, null, 4],
+          lineHeight: 'body',
+          mb: [3, null, 4]
+        }}>
+        Report
+      </Heading>
+      <Box sx={{ mb: [3, null, 4] }}>
+        <Button onClick={createReportClicked}>Create report url</Button>
       </Box>
-    )
-  }
+      {state.reports.map((report) => {
+        return (
+          <Box sx={{ mb: [2] }} key={report.report_id} data-testid="report-list-item">
+            <a target="_blank" rel="noreferrer" href={Url.urlPrefix + 'report/' + report.report_id}>
+              {Url.urlPrefix}report/{report.report_id}
+            </a>
+          </Box>
+        )
+      })}
+    </Box>
+  )
 }
 
-ReportsList.propTypes = {
-  dispatch: PropTypes.func,
-  match: PropTypes.shape({
-    params: PropTypes.shape({
-      conversation_id: PropTypes.string
-    })
-  }),
-  zid_metadata: PropTypes.shape({
-    is_mod: PropTypes.bool
-  })
-}
-
-export default withAuth0(ReportsList);
+export default ReportsList

@@ -1,8 +1,8 @@
-
 # Pol.is Privacy Policy
+
 Last Updated: 2022/03/07
 
-This privacy policy (this "Policy") describes the collection of personal information by The Computational Democracy Project, a corporation Washington nonprofit ("The Computational Democracy Project," "we," or "us") from users of our Web site at "http://pol.is/" (the "Site"), as well as all related applications, widgets, software, tools, and other services provided by us and on which a link to this Policy is displayed (collectively, together with the Site, our "Services").
+This privacy policy (this "Policy") describes the collection of personal information by The Computational Democracy Project, a corporation Washington nonprofit ("The Computational Democracy Project," "we," or "us") from users of our Web site at "<http://pol.is/>" (the "Site"), as well as all related applications, widgets, software, tools, and other services provided by us and on which a link to this Policy is displayed (collectively, together with the Site, our "Services").
 This Policy also describes our use and disclosure of such information.
 By using our Services, you consent to the collection, use, and disclosure of personal information in accordance with this Policy.
 This Policy is incorporated by reference into the Terms of Use (<https://pol.is/tos>) and subject to the provisions of the Terms of Use.
@@ -25,23 +25,23 @@ We collect Personal Information that our users provide to us in a variety of way
 These include the following:
 
 1. **User Accounts and Profiles.** &nbsp;
- Our Services may give you the ability to register for a Company account or to create and update a user profile on the applicable Service.
- If we offer user account or profile functionality on the Services, we will collect the Personal Information that you provide to us in the course of registering for an account or creating or updating a user profile.
- This information may include, for example, name, postal address, telephone number, e-mail address, and related demographic information about you.
- We may indicate that some personal information is required for you to register for the account or to create the profile, while some is optional.
+   Our Services may give you the ability to register for a Company account or to create and update a user profile on the applicable Service.
+   If we offer user account or profile functionality on the Services, we will collect the Personal Information that you provide to us in the course of registering for an account or creating or updating a user profile.
+   This information may include, for example, name, postal address, telephone number, e-mail address, and related demographic information about you.
+   We may indicate that some personal information is required for you to register for the account or to create the profile, while some is optional.
 
 2. **Integrated Services** &nbsp;
- You may be given the option to access or register for the Services through the use of your user name and passwords for certain services provided by third parties (each an 'Integrated Service'), such as through the use of your Facebook credentials through Facebook Connect.
- By doing this, you authorize us to access and store the credentials you provide, your name, email address(es), date of birth, gender, current city, profile picture URL and other information that the Integrated Service makes available to us, and to use and disclose it in accordance with this Policy.
- You should check your Facebook or other Integrated Service privacy settings to understand and change the information sent to us through Facebook Connect or other Integrated Services.
- Please review each Integrated Service's terms of use and privacy policies carefully before using their services and connecting to our Services"
+   You may be given the option to access or register for the Services through the use of your user name and passwords for certain services provided by third parties (each an 'Integrated Service'), such as through the use of your Facebook credentials through Facebook Connect.
+   By doing this, you authorize us to access and store the credentials you provide, your name, email address(es), date of birth, gender, current city, profile picture URL and other information that the Integrated Service makes available to us, and to use and disclose it in accordance with this Policy.
+   You should check your Facebook or other Integrated Service privacy settings to understand and change the information sent to us through Facebook Connect or other Integrated Services.
+   Please review each Integrated Service's terms of use and privacy policies carefully before using their services and connecting to our Services"
 
 3. **Interactive Features.** &nbsp;
- Our Services may contain interactive functionality that allows you to engage with other users on the Services, post questions to other users, answer questions of other users, post comments to questions and other forums, to upload other content (the 'User Materials'), participate in surveys, and otherwise to interact with the Services and with other users.
- If you use any interactive functionality on our Services that request or permit you to provide us with personal information (including, for example, any services that allow you to post User Materials on any of our Services), we collect the Personal Information that you provide to us in the course of using these interactive features.
+   Our Services may contain interactive functionality that allows you to engage with other users on the Services, post questions to other users, answer questions of other users, post comments to questions and other forums, to upload other content (the 'User Materials'), participate in surveys, and otherwise to interact with the Services and with other users.
+   If you use any interactive functionality on our Services that request or permit you to provide us with personal information (including, for example, any services that allow you to post User Materials on any of our Services), we collect the Personal Information that you provide to us in the course of using these interactive features.
 
 4. **Correspondence.** &nbsp;
- If you contact us by e-mail, using a contact form on the Services, or by mail, fax, or other means, we collect the Personal Information contained within, and associated with, your correspondence.
+   If you contact us by e-mail, using a contact form on the Services, or by mail, fax, or other means, we collect the Personal Information contained within, and associated with, your correspondence.
 
 ### Automatically Collected Information
 
@@ -66,19 +66,20 @@ If we do so, this Policy governs any combined information that we maintain in pe
 We use Personal Information to provide services and information that you request; to enhance, improve, operate, and maintain our Services, our programs, services, Web sites, and other systems; to prevent fraudulent use of our Services and other systems; to prevent or take action against activities that are, or may be, in violation of our Terms of Use or applicable law; to tailor advertisements, content, and other aspects of your experience on and in connection with the Services; to maintain a record of our dealings with you; for other administrative purposes; and for any other purposes that we may disclose to you at the point at which we request your Personal Information, and pursuant to your consent.
 
 We may also use your Personal Information:
-* To process information you have directed us to process.
-* To communicate with you (such as through email) about services you have subscribed for, changes to our policies (such as this Privacy Policy and our Terms of Service), or to provide important notices.
-* To provide information or content that you’ve subscribed to receive.
-* To set up and maintain your account, and to do all other things required for providing our services, such as backing up and restoring your data.
-* To understand how our services are used, to monitor and prevent problems with our Site and/or services, and to improve our Site and/or services.
-* To provide customer support.
-* To detect and prevent fraudulent transactions and other illegal activities, to report spam, and to protect the rights and interests The Computational Democracy Project’s customers, third parties, and the public.
-* To update, modify, and analyze our records, and to identify prospective customers with their consent.
-* To identify and analyze trends, track user activity on the Site, and understand what Site visitors are looking for with their consent where necessary.
-* To create, monitor, and improve marketing campaigns with visitor consent.
-* To inform you of new services, upcoming events, offers, and other information that we believe will be of interest to you, with your consent.
-* To ask you to participate in a poll or survey, or to request feedback about our services, with your consent.
-* For any other purpose that we describe to you when you provide information to us and for which you provide your consent.
+
+- To process information you have directed us to process.
+- To communicate with you (such as through email) about services you have subscribed for, changes to our policies (such as this Privacy Policy and our Terms of Service), or to provide important notices.
+- To provide information or content that you’ve subscribed to receive.
+- To set up and maintain your account, and to do all other things required for providing our services, such as backing up and restoring your data.
+- To understand how our services are used, to monitor and prevent problems with our Site and/or services, and to improve our Site and/or services.
+- To provide customer support.
+- To detect and prevent fraudulent transactions and other illegal activities, to report spam, and to protect the rights and interests The Computational Democracy Project’s customers, third parties, and the public.
+- To update, modify, and analyze our records, and to identify prospective customers with their consent.
+- To identify and analyze trends, track user activity on the Site, and understand what Site visitors are looking for with their consent where necessary.
+- To create, monitor, and improve marketing campaigns with visitor consent.
+- To inform you of new services, upcoming events, offers, and other information that we believe will be of interest to you, with your consent.
+- To ask you to participate in a poll or survey, or to request feedback about our services, with your consent.
+- For any other purpose that we describe to you when you provide information to us and for which you provide your consent.
 
 ## Disclosure of Personal Information
 
@@ -95,21 +96,21 @@ Conversation participants may opt to use third party data collector and processo
 
 ### Technical Infrastructure
 
-* We use Akismet spam filter to filter out spam comments (can be configured through administrative access). Information about how Akismet uses your data when you use our Site can be found at: <https://automattic.com/privacy/>
-* We use Heroku’s web hosting services, including a hosted Postgres database, where we store all information. Information about how Heroku uses this data when you use our Site can be found at: <https://www.salesforce.com/company/privacy/>
-* We use Logentries for server logs, which may include personal information such as IP address necessary for debugging production issues. Information about how Logentries uses this data when you use our Site can be found at: <https://www.rapid7.com/privacy-policy/>
-* We use Amazon Web Services Simple Email Service for sending account confirmation and notification emails to users. We also use AWS Simple Storage Service (S3) for securely storing and managing data, ensuring reliability, scalability, and compliance with industry-standard security measures. Information about how AWS handles data can be found at: <https://aws.amazon.com/privacy/>
-* We use Google Translate for automatic machine translation of comments, and Google Analytics for site usage statistics. Information about how Google uses this data when you use our Site can be found at: <https://policies.google.com/privacy>
-* We use Google Vertex AI for machine learning workloads, including model training and inference. Information about how Google handles data within Vertex AI can be found at: <https://cloud.google.com/vertex-ai/docs/general/privacy>
-* We use Jigsaw Perspective API for comment moderation. This service analyzes the content of comments to detect potentially toxic or inappropriate language. Information about how Perspective API handles data can be found at: <https://www.perspectiveapi.com/>
-* We pass all Site web requests through a Cloudflare caching proxy. No personal information is cached at this level. Information about how Cloudflare uses your data can be found at: <https://www.cloudflare.com/privacypolicy/>
-* We use OpenAI, Anthropic, and Gemini large language models (LLMs) to analyze and contextualize data as part of the output of a Polis report. Information about how these services handle data can be found at:
+- We use Akismet spam filter to filter out spam comments (can be configured through administrative access). Information about how Akismet uses your data when you use our Site can be found at: <https://automattic.com/privacy/>
+- We use Heroku’s web hosting services, including a hosted Postgres database, where we store all information. Information about how Heroku uses this data when you use our Site can be found at: <https://www.salesforce.com/company/privacy/>
+- We use Logentries for server logs, which may include personal information such as IP address necessary for debugging production issues. Information about how Logentries uses this data when you use our Site can be found at: <https://www.rapid7.com/privacy-policy/>
+- We use Amazon Web Services Simple Email Service for sending account confirmation and notification emails to users. We also use AWS Simple Storage Service (S3) for securely storing and managing data, ensuring reliability, scalability, and compliance with industry-standard security measures. Information about how AWS handles data can be found at: <https://aws.amazon.com/privacy/>
+- We use Google Translate for automatic machine translation of comments, and Google Analytics for site usage statistics. Information about how Google uses this data when you use our Site can be found at: <https://policies.google.com/privacy>
+- We use Google Vertex AI for machine learning workloads, including model training and inference. Information about how Google handles data within Vertex AI can be found at: <https://cloud.google.com/vertex-ai/docs/general/privacy>
+- We use Jigsaw Perspective API for comment moderation. This service analyzes the content of comments to detect potentially toxic or inappropriate language. Information about how Perspective API handles data can be found at: <https://www.perspectiveapi.com/>
+- We pass all Site web requests through a Cloudflare caching proxy. No personal information is cached at this level. Information about how Cloudflare uses your data can be found at: <https://www.cloudflare.com/privacypolicy/>
+- We use OpenAI, Anthropic, and Gemini large language models (LLMs) to analyze and contextualize data as part of the output of a Polis report. Information about how these services handle data can be found at:
   - OpenAI: <https://openai.com/enterprise-privacy>
   - Anthropic: <https://www.anthropic.com/privacy>
   - Google Gemini: <https://policies.google.com/privacy>
-* We use GitHub for storing and managing source code repositories. Information about how GitHub handles data can be found at: <https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement>
-* We use Docker to manage containers, including specific images from the public repository. Our containers are not public, but we rely on publicly available images. Information about how Docker handles data can be found at: <https://www.docker.com/legal/privacy>
-* We use NPM packages from the NPM public registry to facilitate various tasks within our client-facing application. Information about how NPM handles data can be found at: <https://www.npmjs.com/policies/privacy>
+- We use GitHub for storing and managing source code repositories. Information about how GitHub handles data can be found at: <https://docs.github.com/en/site-policy/privacy-policies/github-privacy-statement>
+- We use Docker to manage containers, including specific images from the public repository. Our containers are not public, but we rely on publicly available images. Information about how Docker handles data can be found at: <https://www.docker.com/legal/privacy>
+- We use NPM packages from the NPM public registry to facilitate various tasks within our client-facing application. Information about how NPM handles data can be found at: <https://www.npmjs.com/policies/privacy>
 
 ## Public Areas and Syndicated Services
 
@@ -185,7 +186,7 @@ You should know that each region can have its own privacy and data security laws
 
 For those individual users of the Site who reside in the European Economic Area or Switzerland (collectively the “EU”), and for which the General Data Protection Regulation effective 25 May 2018 (the “GDPR”) applies, we have implemented the practices described below to provide you with control over your data that comprises “Personal Data” under the GDPR.
 Under the GDPR you are defined as a “Data Subject” and The Computational Democracy Project is a “Data Controller” for Personal Data that it obtains and processes pursuant to this Privacy Policy.
-Our Data Protection Officer is Christopher Small and can be reached at <admin@compdemocracy.org>. 
+Our Data Protection Officer is Christopher Small and can be reached at <admin@compdemocracy.org>.
 
 **Lawful Grounds for Processing Personal Data of Data Subjects:** (a) your consent; (b) contract; (c) legal obligation; vital interest; (d) public task; and (e) the legitimate interest of The Computational Democracy Project or a third-party.
 Where we rely on your consent as the legal grounds, you have the right to withdraw your consent at any time, but this will not affect any processing that has already taken place.
@@ -196,22 +197,22 @@ We make the transfer to the United States in the absence of an adequacy decision
 In the event such a transfer is made, we will employ appropriate safeguards such as binding corporate rules, contractual agreements, or certification mechanisms in conjunction with binding and enforceable commitments to protect the transferred Personal Data.
 
 **Individual Rights and Data Subject Requests:** You may exercise certain rights, described below, under the GDPR.
-In order to exercise any of the rights described below, please contact us at <admin@compdemocracy.org> and provide specific and detailed information about your request necessary for us to respond to and carry out your request. 
+In order to exercise any of the rights described below, please contact us at <admin@compdemocracy.org> and provide specific and detailed information about your request necessary for us to respond to and carry out your request.
 
-* **You may object to processing:** you may object to certain types of processing, including processing of your information for direct marketing purposes.
-* **You may request to be informed about our processing:** you may request information about how we process your Personal Data and your rights under the GDPR.
+- **You may object to processing:** you may object to certain types of processing, including processing of your information for direct marketing purposes.
+- **You may request to be informed about our processing:** you may request information about how we process your Personal Data and your rights under the GDPR.
   This Privacy Policy is intended to provide you with such information, but you may contact us if you believe this Privacy Policy does not do so.
-* **You may obtain access to your Personal Data:** you may obtain access to your Personal Data that we process.
-* **You may request rectification:** if you believe any Personal Data we process is incorrect or incomplete, you may request that we correct it.
-* **You may request deletion of your Personal Data:** you may request that we remove or delete your Personal Data if there is no legitimate reason for us to continue processing or storing it.
+- **You may obtain access to your Personal Data:** you may obtain access to your Personal Data that we process.
+- **You may request rectification:** if you believe any Personal Data we process is incorrect or incomplete, you may request that we correct it.
+- **You may request deletion of your Personal Data:** you may request that we remove or delete your Personal Data if there is no legitimate reason for us to continue processing or storing it.
   We may retain certain Personal Data to keep a record of our compliance with your request.
-* **You may restrict our processing of your Personal Data:** you may request that we cease further processing of your Personal Data.
+- **You may restrict our processing of your Personal Data:** you may request that we cease further processing of your Personal Data.
   If you make such a request, we may continue to store your Personal Data but will not make further use of it.
-* **You may withdraw consent:** if we are relying on consent as the lawful ground to process your Personal Data, you may withdraw your consent for such processing at any time without affecting the lawfulness of processing based upon your consent before it is withdrawn.
+- **You may withdraw consent:** if we are relying on consent as the lawful ground to process your Personal Data, you may withdraw your consent for such processing at any time without affecting the lawfulness of processing based upon your consent before it is withdrawn.
   We will endeavor to address your request within 30 days from receipt, but in some instances it may take longer.
   We will inform you within 30 days from receipt of your request if an extension is necessary and the reason for the delay.
   In addition to the above rights, you may submit a complaint about our processing of your Personal Data to your national data protection regulator.
-* **Retention of Personal Data:** Pursuant to the GDPR, we will permanently erase your Personal Data at such time there is no lawful basis or legal obligation for us to store or process the Personal Data.
+- **Retention of Personal Data:** Pursuant to the GDPR, we will permanently erase your Personal Data at such time there is no lawful basis or legal obligation for us to store or process the Personal Data.
 
 ## Updates to this Policy
 
@@ -227,5 +228,4 @@ If you have any questions or comments about this Policy, please contact us using
 
 The Computational Democracy Project<br/>
 PO Box 30877, Seattle WA, 98113, United States of America<br/>
-<admin@compdemocracy.org> 
-
+<admin@compdemocracy.org>

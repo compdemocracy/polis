@@ -1,60 +1,58 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import React from 'react'
+import { useState, useEffect } from 'react'
 import PropTypes from 'prop-types'
 import strings from '../../strings/strings'
-import { connect } from 'react-redux'
+import { useSelector, useDispatch } from 'react-redux'
 import { populateAllCommentStores } from '../../actions'
-import { withAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 
-@connect((state) => state.mod_comments_accepted)
-@connect((state) => state.mod_comments_rejected)
-@connect((state) => state.mod_comments_unmoderated)
-class ConversationHasCommentsCheck extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = {
-      hasAttemptedLoad: false
+const ConversationHasCommentsCheck = ({ conversation_id, strict_moderation, loading }) => {
+  const dispatch = useDispatch()
+  const { isLoading, isAuthenticated } = useAuth()
+
+  const accepted_comments = useSelector((state) => state.mod_comments_accepted.accepted_comments)
+  const rejected_comments = useSelector((state) => state.mod_comments_rejected.rejected_comments)
+  const unmoderated_comments = useSelector(
+    (state) => state.mod_comments_unmoderated.unmoderated_comments
+  )
+
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false)
+
+  const loadComments = () => {
+    dispatch(populateAllCommentStores(conversation_id))
+  }
+
+  const loadCommentsIfNeeded = () => {
+    // Only load if we have a conversation ID and Auth is ready (not loading)
+    if (!hasAttemptedLoad && conversation_id && !isLoading) {
+      setHasAttemptedLoad(true)
+      loadComments()
     }
   }
 
-  componentDidMount() {
+  useEffect(() => {
     // Try to load comments when component mounts
-    this.loadCommentsIfNeeded()
-  }
+    loadCommentsIfNeeded()
+  }, [])
 
-  componentDidUpdate(prevProps) {
+  useEffect(() => {
     // Try again if conversation_id changes, auth state changes, or if we haven't attempted load yet
-    const authStateChanged = prevProps.auth0?.isLoading !== this.props.auth0?.isLoading ||
-                             prevProps.auth0?.isAuthenticated !== this.props.auth0?.isAuthenticated
-    
-    if (prevProps.conversation_id !== this.props.conversation_id || 
-        authStateChanged || 
-        !this.state.hasAttemptedLoad) {
-      this.loadCommentsIfNeeded()
+    if (!hasAttemptedLoad) {
+      loadCommentsIfNeeded()
     }
-  }
+  }, [conversation_id, isLoading, isAuthenticated, hasAttemptedLoad])
 
-  loadCommentsIfNeeded() {
-    // Only load if we have a conversation ID and Auth0 is ready (not loading)
-    if (!this.state.hasAttemptedLoad && 
-        this.props.conversation_id && 
-        this.props.auth0 && 
-        !this.props.auth0.isLoading) {
-      this.setState({ hasAttemptedLoad: true })
-      this.loadComments()
-    }
-  }
+  // Reset hasAttemptedLoad when conversation_id changes
+  useEffect(() => {
+    setHasAttemptedLoad(false)
+  }, [conversation_id])
 
-  loadComments() {
-    this.props.dispatch(populateAllCommentStores(this.props.conversation_id))
-  }
+  const createCommentMarkup = () => {
+    const numAccepted = Array.isArray(accepted_comments) ? accepted_comments.length : 0
+    const numUnmoderated = Array.isArray(unmoderated_comments) ? unmoderated_comments.length : 0
 
-  createCommentMarkup() {
-    const numAccepted = Array.isArray(this.props.accepted_comments) ? this.props.accepted_comments.length : 0
-    const numUnmoderated = Array.isArray(this.props.unmoderated_comments) ? this.props.unmoderated_comments.length : 0
-
-    const isStrictMod = this.props.strict_moderation
+    const isStrictMod = strict_moderation
     const numVisible = numAccepted + (isStrictMod ? 0 : numUnmoderated)
 
     let s = ''
@@ -70,46 +68,27 @@ class ConversationHasCommentsCheck extends React.Component {
     }
   }
 
-  render() {
-    const {
-      accepted_comments,
-      rejected_comments,
-      unmoderated_comments,
-      auth0
-    } = this.props
+  // Check if any store is still loading or if Auth is still loading
+  const isLoadingState = loading || isLoading || (!hasAttemptedLoad && !conversation_id)
 
-    // Check if any store is still loading or if Auth0 is still loading
-    const isLoading = this.props.loading || 
-                     auth0?.isLoading ||
-                     (!this.state.hasAttemptedLoad && !this.props.conversation_id)
+  // Show loading if we haven't attempted to load yet OR if comments are still null and we're loading
+  const shouldShowLoading =
+    isLoadingState ||
+    accepted_comments === null ||
+    rejected_comments === null ||
+    unmoderated_comments === null
 
-    // Show loading if we haven't attempted to load yet OR if comments are still null and we're loading
-    const shouldShowLoading = isLoading || 
-                             (accepted_comments === null || 
-                              rejected_comments === null || 
-                              unmoderated_comments === null)
-
-    return (
-      <div>
-        {!shouldShowLoading ? (
-          this.createCommentMarkup()
-        ) : (
-          <span> Loading accepted comments... </span>
-        )}
-      </div>
-    )
-  }
+  return (
+    <div>
+      {!shouldShowLoading ? createCommentMarkup() : <span> Loading accepted comments... </span>}
+    </div>
+  )
 }
 
 ConversationHasCommentsCheck.propTypes = {
-  dispatch: PropTypes.func,
   conversation_id: PropTypes.string,
   strict_moderation: PropTypes.bool,
-  loading: PropTypes.bool,
-  unmoderated_comments: PropTypes.arrayOf(PropTypes.object),
-  accepted_comments: PropTypes.arrayOf(PropTypes.object),
-  rejected_comments: PropTypes.arrayOf(PropTypes.object),
-  auth0: PropTypes.object
+  loading: PropTypes.bool
 }
 
-export default withAuth0(ConversationHasCommentsCheck)
+export default ConversationHasCommentsCheck

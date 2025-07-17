@@ -1,83 +1,83 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import React from 'react'
-import PropTypes from 'prop-types'
-import { connect } from 'react-redux'
-import {
-  populateConversationsStore,
-  handleCreateConversationSubmit
-} from '../../actions'
+import { useState, useEffect, useCallback } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import { handleCreateConversationSubmit, populateConversationsStore } from '../../actions'
+import { isAuthReady } from '../../util/net'
 
 import Url from '../../util/url'
-import { withAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 import { Box, Heading, Button, Text } from 'theme-ui'
 import Conversation from './conversation'
+import { useLocation, useNavigate } from 'react-router'
 
-@connect((state) => state.conversations)
-class Conversations extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = {
-      filterMinParticipantCount: 0,
-      sort: 'participant_count'
+const Conversations = () => {
+  const dispatch = useDispatch()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const { isAuthenticated, isLoading } = useAuth()
+  const { conversations, loading, error } = useSelector((state) => state.conversations)
+
+  const [filterState] = useState({
+    filterMinParticipantCount: 0,
+    sort: 'participant_count'
+  })
+
+  const loadConversationsIfNeeded = useCallback(() => {
+    const authSystemReady = isAuthReady()
+
+    if (!isLoading && isAuthenticated && authSystemReady && !loading && !conversations) {
+      dispatch(populateConversationsStore())
     }
-    this.oidcReadyHandler = null;
-  }
+  }, [isLoading, isAuthenticated, loading, conversations, dispatch])
 
-  componentDidMount() {
-    // Listen for oidcReady event
-    this.oidcReadyHandler = () => {
-      this.loadConversations();
-    };
-    
-    window.addEventListener('oidcReady', this.oidcReadyHandler);
-    
-    // If auth0 is already ready, call loadConversations immediately
-    if (window.oidcReady) {
-      this.loadConversations();
+  useEffect(() => {
+    // Listen for auth ready event
+    const handleAuthReady = () => {
+      loadConversationsIfNeeded()
     }
-  }
 
-  componentWillUnmount() {
-    // Clean up event listener
-    if (this.oidcReadyHandler) {
-      window.removeEventListener('oidcReady', this.oidcReadyHandler);
-    }
-  }
+    window.addEventListener('polisAuthReady', handleAuthReady)
 
-  onNewClicked() {
-    this.props.dispatch(handleCreateConversationSubmit(this.props.history))
-  }
+    // Initial load
+    loadConversationsIfNeeded()
 
-  loadConversations() {
-    if (!this.props.loading && !this.props.conversations) {
-      this.props.dispatch(populateConversationsStore());
-    }
-  }
-
-  goToConversation = (conversation_id) => {
     return () => {
-      if (this.props.history.pathname === 'other-conversations') {
+      window.removeEventListener('polisAuthReady', handleAuthReady)
+    }
+  }, [loadConversationsIfNeeded])
+
+  useEffect(() => {
+    loadConversationsIfNeeded()
+  }, [isAuthenticated, isLoading, loadConversationsIfNeeded])
+
+  const onNewClicked = () => {
+    dispatch(handleCreateConversationSubmit(navigate))
+  }
+
+  const goToConversation = (conversation_id) => {
+    return () => {
+      if (location.pathname === 'other-conversations') {
         window.open(`${Url.urlPrefix}${conversation_id}`, '_blank')
         return
       }
-      this.props.history.push(`/m/${conversation_id}`)
+      navigate(`/m/${conversation_id}`)
     }
   }
 
-  filterCheck(c) {
+  const filterCheck = (c) => {
     let include = true
 
-    if (c.participant_count < this.state.filterMinParticipantCount) {
+    if (c.participant_count < filterState.filterMinParticipantCount) {
       include = false
     }
 
-    if (this.props.history.pathname === 'other-conversations') {
+    if (location.pathname === 'other-conversations') {
       // filter out conversations i do own
       include = !c.is_owner
     }
 
-    if (this.props.history.pathname !== 'other-conversations' && !c.is_owner) {
+    if (location.pathname !== 'other-conversations' && !c.is_owner) {
       // if it's not other convos and i'm not the owner, don't show it
       // filter out convos i don't own
       include = false
@@ -86,80 +86,42 @@ class Conversations extends React.Component {
     return include
   }
 
-  async firePopulateInboxAction() {
-    this.props.dispatch(populateConversationsStore())
-  }
+  const err = error
 
-  onFilterChange() {
-    this.setState()
-  }
-
-  render() {
-    const err = this.props.error
-    const { conversations } = this.props
-
-    return (
-      <Box>
-        <Heading
-          as="h3"
-          sx={{
-            fontSize: [3, null, 4],
-            lineHeight: 'body',
-            mb: [3, null, 4]
-          }}>
-          All Conversations
-        </Heading>
-        <Box sx={{ mb: [3, null, 4] }}>
-          <Button onClick={this.onNewClicked.bind(this)}>
-            Create new conversation
-          </Button>
-        </Box>
-        <Box>
-          <Box sx={{ mb: [3] }}>
-            {this.props.loading ? 'Loading conversations...' : null}
-          </Box>
-          {err ? (
-            <Text>
-              {'Error loading conversations: ' +
-                err.status +
-                ' ' +
-                err.statusText}
-            </Text>
-          ) : null}
-          {conversations
-            ? conversations.map((c, i) => {
-                return this.filterCheck(c) ? (
-                  <Conversation
-                    key={c.conversation_id}
-                    c={c}
-                    i={i}
-                    goToConversation={this.goToConversation(c.conversation_id)}
-                  />
-                ) : null
-              })
-            : null}
-        </Box>
+  return (
+    <Box>
+      <Heading
+        as="h3"
+        sx={{
+          fontSize: [3, null, 4],
+          lineHeight: 'body',
+          mb: [3, null, 4]
+        }}>
+        All Conversations
+      </Heading>
+      <Box sx={{ mb: [3, null, 4] }}>
+        <Button onClick={onNewClicked}>Create new conversation</Button>
       </Box>
-    )
-  }
+      <Box>
+        <Box sx={{ mb: [3] }}>{loading ? 'Loading conversations...' : null}</Box>
+        {err ? (
+          <Text>{'Error loading conversations: ' + err.status + ' ' + err.statusText}</Text>
+        ) : null}
+        {conversations
+          ? conversations.map((c, i) => {
+              return filterCheck(c) ? (
+                <Conversation
+                  key={c.conversation_id}
+                  c={c}
+                  i={i}
+                  goToConversation={goToConversation(c.conversation_id)}
+                />
+              ) : null
+            })
+          : null}
+      </Box>
+    </Box>
+  )
 }
 
-Conversations.propTypes = {
-  dispatch: PropTypes.func,
-  error: PropTypes.shape({
-    status: PropTypes.number,
-    statusText: PropTypes.string
-  }),
-  loading: PropTypes.bool,
-  conversations: PropTypes.arrayOf(
-    PropTypes.shape({
-      conversation_id: PropTypes.string
-    })
-  ),
-  history: PropTypes.shape({
-    pathname: PropTypes.string,
-    push: PropTypes.func
-  })
-}
-
-export default withAuth0(Conversations);
+export default Conversations

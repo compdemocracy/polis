@@ -1,14 +1,14 @@
-const eslint = require('@eslint/js');
-const globals = require('globals');
-const jsxA11yPlugin = require('eslint-plugin-jsx-a11y');
-const reactPlugin = require('eslint-plugin-react');
-const importPlugin = require('eslint-plugin-import');
-const babelParser = require('@babel/eslint-parser');
+const eslint = require('@eslint/js')
+const globals = require('globals')
+const jsxA11yPlugin = require('eslint-plugin-jsx-a11y')
+const reactPlugin = require('eslint-plugin-react')
+const importPlugin = require('eslint-plugin-import')
+const babelParser = require('@babel/eslint-parser')
 
 module.exports = [
   {
     // Base configuration for all files
-    ignores: ['build/**'],
+    ignores: ['build/**']
   },
   eslint.configs.recommended,
   {
@@ -16,7 +16,7 @@ module.exports = [
     files: ['**/*.js', '**/*.jsx'],
     name: 'import-recommended',
     rules: {
-      ...importPlugin.configs.recommended.rules,
+      ...importPlugin.configs.recommended.rules
     }
   },
   {
@@ -24,7 +24,7 @@ module.exports = [
     files: ['**/*.js', '**/*.jsx'],
     name: 'jsx-a11y-recommended',
     rules: {
-      ...jsxA11yPlugin.configs.recommended.rules,
+      ...jsxA11yPlugin.configs.recommended.rules
     }
   },
   {
@@ -32,7 +32,7 @@ module.exports = [
     files: ['**/*.js', '**/*.jsx'],
     name: 'react-recommended',
     rules: {
-      ...reactPlugin.configs.recommended.rules,
+      ...reactPlugin.configs.recommended.rules
     }
   },
   {
@@ -46,21 +46,18 @@ module.exports = [
         ecmaFeatures: {
           jsx: true
         },
-        requireConfigFile: false,
+        requireConfigFile: false
       },
       globals: {
         ...globals.browser,
         ...globals.es2021,
-        process: 'readonly',
-        // jQuery globals
-        $: 'readonly',
-        jQuery: 'readonly',
-      },
+        process: 'readonly'
+      }
     },
     plugins: {
       'jsx-a11y': jsxA11yPlugin,
-      'react': reactPlugin,
-      'import': importPlugin,
+      react: reactPlugin,
+      import: importPlugin
     },
     settings: {
       react: {
@@ -77,16 +74,29 @@ module.exports = [
       'jsx-a11y/tabindex-no-positive': 'warn',
       'object-shorthand': 'off',
       'no-unused-vars': ['error', { args: 'none' }],
-      'react/no-unknown-property': ['error', { ignore: ['sx'] }]
+      'react/no-unknown-property': ['error', { ignore: ['sx'] }],
+      'react/react-in-jsx-scope': 'off'
+    }
+  },
+  {
+    // Override for Test files
+    files: ['**/*.test.js'],
+    languageOptions: {
+      globals: {
+        ...globals.jest
+      }
+    },
+    rules: {
+      'react/prop-types': 'off'
     }
   },
   {
     // Override for Node.js files
-    files: ['webpack.config.js', 'eslint.config.js'],
+    files: ['webpack.config.js', 'eslint.config.js', 'babel.config.js', 'jest.config.js'],
     languageOptions: {
       globals: {
-        ...globals.node,
-      },
-    },
+        ...globals.node
+      }
+    }
   }
-]; 
+]

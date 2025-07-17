@@ -1,4 +1,3 @@
-import React from 'react'
 import PropTypes from 'prop-types'
 import Header from './lander-header'
 import Footer from './lander-footer'

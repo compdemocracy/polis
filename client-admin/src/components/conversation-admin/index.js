@@ -1,15 +1,14 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
-/** @jsx jsx */
 
-import React from 'react'
-import { connect } from 'react-redux'
-import { Flex, Box, jsx } from 'theme-ui'
+import { useEffect } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import { Flex, Box } from 'theme-ui'
 import { populateZidMetadataStore, resetMetadataStore } from '../../actions'
-import { Switch, Route, Link } from 'react-router-dom'
+import { Routes, Route, Link, useParams, useLocation } from 'react-router'
 
 import ConversationConfig from './conversation-config'
 import ConversationStats from './stats'
-import { withAuth0 } from '@auth0/auth0-react'
+import { useAuth } from 'react-oidc-context'
 
 import ModerateComments from './comment-moderation/'
 
@@ -18,139 +17,105 @@ import ShareAndEmbed from './share-and-embed'
 
 import Reports from './report/reports'
 
-@connect((state) => state.zid_metadata)
-class ConversationAdminContainer extends React.Component {
-  constructor(props) {
-    super(props);
-    this.oidcReadyHandler = null;
-  }
-  
-  loadZidMetadata() {
-    this.props.dispatch(
-      populateZidMetadataStore(this.props.match.params.conversation_id)
-    )
+const ConversationAdminContainer = () => {
+  const dispatch = useDispatch()
+  const params = useParams()
+  const location = useLocation()
+  const { isAuthenticated } = useAuth()
+  const zid_metadata = useSelector((state) => state.zid_metadata)
+
+  const loadZidMetadata = () => {
+    dispatch(populateZidMetadataStore(params.conversation_id))
   }
 
-  resetMetadata() {
-    this.props.dispatch(resetMetadataStore())
+  const resetMetadata = () => {
+    dispatch(resetMetadataStore())
   }
 
-  componentDidMount() {
-    // Listen for oidcReady event
-    this.oidcReadyHandler = () => {
-      if (!this.props.loading) {
-        this.loadZidMetadata();
-      }
-    };
-    
-    window.addEventListener('oidcReady', this.oidcReadyHandler);
-    
-    // If auth0 is already ready, call loadZidMetadata immediately
-    if (window.oidcReady && !this.props.loading) {
-      this.loadZidMetadata();
+  useEffect(() => {
+    if (!zid_metadata.loading && isAuthenticated) {
+      loadZidMetadata()
     }
-  }
+  }, [isAuthenticated])
 
-  componentWillUnmount() {
-    // Clean up event listener
-    if (this.oidcReadyHandler) {
-      window.removeEventListener('oidcReady', this.oidcReadyHandler);
+  useEffect(() => {
+    return () => {
+      resetMetadata()
     }
-    this.resetMetadata()
-  }
+  }, [])
 
-  componentDidUpdate(prevProps) {
-    if (prevProps.match.params.conversation_id !== this.props.match.params.conversation_id) {
-      this.loadZidMetadata()
+  useEffect(() => {
+    if (params.conversation_id) {
+      loadZidMetadata()
     }
-  }
+  }, [params.conversation_id])
 
-  render() {
-    const { match, location } = this.props
+  const url = location.pathname.split('/')[3]
+  const baseUrl = `/m/${params.conversation_id}`
 
-    const url = location.pathname.split('/')[3]
-
-    return (
-      <Flex>
-        <Box sx={{ mr: [5], p: [4], flex: '0 0 275' }}>
-          <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: 'links.nav' }} to={`/`}>
-              All
-            </Link>
-          </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link
-              sx={{ variant: url ? 'links.nav' : 'links.activeNav' }}
-              to={`${match.url}`}>
-              Configure
-            </Link>
-          </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link
-              sx={{
-                variant: url === 'share' ? 'links.activeNav' : 'links.nav'
-              }}
-              to={`${match.url}/share`}>
-              Distribute
-            </Link>
-          </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link
-              sx={{
-                variant: url === 'comments' ? 'links.activeNav' : 'links.nav'
-              }}
-              data-testid="moderate-comments"
-              to={`${match.url}/comments`}>
-              Moderate
-            </Link>
-          </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link
-              sx={{
-                variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
-              }}
-              to={`${match.url}/stats`}>
-              Monitor
-            </Link>
-          </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link
-              sx={{
-                variant: url === 'reports' ? 'links.activeNav' : 'links.nav'
-              }}
-              to={`${match.url}/reports`}>
-              Report
-            </Link>
-          </Box>
+  return (
+    <Flex>
+      <Box sx={{ mr: [5], p: [4], flex: '0 0 275' }}>
+        <Box sx={{ mb: [3] }}>
+          <Link sx={{ variant: 'links.nav' }} to={`/`}>
+            All
+          </Link>
         </Box>
-        <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '60em', mx: [4] }}>
-          <Switch>
-            <Route
-              exact
-              path={`${match.path}/`}
-              component={ConversationConfig}
-            />
-            <Route
-              exact
-              path={`${match.path}/share`}
-              component={ShareAndEmbed}
-            />
-            <Route exact path={`${match.path}/reports`} component={Reports} />
-            <Route
-              path={`${match.path}/comments`}
-              component={ModerateComments}
-            />
-            <Route
-              exact
-              path={`${match.path}/stats`}
-              component={ConversationStats}
-            />
-            {/* <Route exact path={`${match.path}/export`} component={DataExport} /> */}
-          </Switch>
+        <Box sx={{ mb: [3] }}>
+          <Link sx={{ variant: url ? 'links.nav' : 'links.activeNav' }} to={baseUrl}>
+            Configure
+          </Link>
         </Box>
-      </Flex>
-    )
-  }
+        <Box sx={{ mb: [3] }}>
+          <Link
+            sx={{
+              variant: url === 'share' ? 'links.activeNav' : 'links.nav'
+            }}
+            to={`${baseUrl}/share`}>
+            Distribute
+          </Link>
+        </Box>
+        <Box sx={{ mb: [3] }}>
+          <Link
+            sx={{
+              variant: url === 'comments' ? 'links.activeNav' : 'links.nav'
+            }}
+            data-testid="moderate-comments"
+            to={`${baseUrl}/comments`}>
+            Moderate
+          </Link>
+        </Box>
+        <Box sx={{ mb: [3] }}>
+          <Link
+            sx={{
+              variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
+            }}
+            to={`${baseUrl}/stats`}>
+            Monitor
+          </Link>
+        </Box>
+        <Box sx={{ mb: [3] }}>
+          <Link
+            sx={{
+              variant: url === 'reports' ? 'links.activeNav' : 'links.nav'
+            }}
+            to={`${baseUrl}/reports`}>
+            Report
+          </Link>
+        </Box>
+      </Box>
+      <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '60em', mx: [4] }}>
+        <Routes>
+          <Route path="/" element={<ConversationConfig />} />
+          <Route path="share" element={<ShareAndEmbed />} />
+          <Route path="reports/*" element={<Reports />} />
+          <Route path="comments/*" element={<ModerateComments />} />
+          <Route path="stats" element={<ConversationStats />} />
+          {/* <Route path="export" element={<DataExport />} /> */}
+        </Routes>
+      </Box>
+    </Flex>
+  )
 }
 
-export default withAuth0(ConversationAdminContainer);
+export default ConversationAdminContainer

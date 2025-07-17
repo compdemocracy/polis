@@ -1,6 +1,5 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import $ from 'jquery'
 import PolisNet from '../util/net'
 
 /* ======= Types ======= */
@@ -42,8 +41,7 @@ export const COMMENTS_FETCH_ERROR = 'COMMENTS_FETCH_ERROR'
 
 export const REQUEST_UNMODERATED_COMMENTS = 'REQUEST_UNMODERATED_COMMENTS'
 export const RECEIVE_UNMODERATED_COMMENTS = 'RECEIVE_UNMODERATED_COMMENTS'
-export const UNMODERATED_COMMENTS_FETCH_ERROR =
-  'UNMODERATED_COMMENTS_FETCH_ERROR'
+export const UNMODERATED_COMMENTS_FETCH_ERROR = 'UNMODERATED_COMMENTS_FETCH_ERROR'
 
 export const REQUEST_ACCEPTED_COMMENTS = 'REQUEST_ACCEPTED_COMMENTS'
 export const RECEIVE_ACCEPTED_COMMENTS = 'RECEIVE_ACCEPTED_COMMENTS'
@@ -71,13 +69,11 @@ export const PARTICIPANTS_FETCH_ERROR = 'PARTICIPANTS_FETCH_ERROR'
 
 export const REQUEST_DEFAULT_PARTICIPANTS = 'REQUEST_DEFAULT_PARTICIPANTS'
 export const RECEIVE_DEFAULT_PARTICIPANTS = 'RECEIVE_DEFAULT_PARTICIPANTS'
-export const DEFAULT_PARTICIPANTS_FETCH_ERROR =
-  'DEFAULT_PARTICIPANTS_FETCH_ERROR'
+export const DEFAULT_PARTICIPANTS_FETCH_ERROR = 'DEFAULT_PARTICIPANTS_FETCH_ERROR'
 
 export const REQUEST_FEATURED_PARTICIPANTS = 'REQUEST_FEATURED_PARTICIPANTS'
 export const RECEIVE_FEATURED_PARTICIPANTS = 'RECEIVE_FEATURED_PARTICIPANTS'
-export const FEATURED_PARTICIPANTS_FETCH_ERROR =
-  'FEATURED_PARTICIPANTS_FETCH_ERROR'
+export const FEATURED_PARTICIPANTS_FETCH_ERROR = 'FEATURED_PARTICIPANTS_FETCH_ERROR'
 
 export const REQUEST_HIDDEN_PARTICIPANTS = 'REQUEST_HIDDEN_PARTICIPANTS'
 export const RECEIVE_HIDDEN_PARTICIPANTS = 'RECEIVE_HIDDEN_PARTICIPANTS'
@@ -111,7 +107,7 @@ export const DATA_EXPORT_STARTED = 'DATA_EXPORT_STARTED'
 export const DATA_EXPORT_SUCCESS = 'DATA_EXPORT_SUCCESS'
 export const DATA_EXPORT_ERROR = 'DATA_EXPORT_ERROR'
 
-// Legacy auth types removed - Auth0 handles authentication
+// Legacy auth types removed - Auth/OIDC handles authentication
 
 export const SUBMIT_CONTRIB = 'SUBMIT_CONTRIB'
 export const SUBMIT_CONTRIB_SUCCESS = 'SUBMIT_CONTRIB_SUCCESS'
@@ -171,7 +167,7 @@ export const populateUserStore = () => {
   }
 }
 
-// Legacy auth functions removed - Auth0 handles authentication through loginWithRedirect
+// Legacy auth functions removed - Auth/OIDC handles authentication through loginWithRedirect
 
 /* Conversations */
 
@@ -205,12 +201,12 @@ const fetchConversations = () => {
     }).then((response) => {
       if (!response.ok && response.status !== 304) {
         // Create an error object with status information
-        const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
-        error.status = response.status;
-        error.statusText = response.statusText;
-        throw error;
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}`)
+        error.status = response.status
+        error.statusText = response.statusText
+        throw error
       }
-      return response.json();
+      return response.json()
     })
   )
 }
@@ -266,12 +262,12 @@ const fetchZidMetadata = (conversation_id) => {
     }).then((response) => {
       if (!response.ok && response.status !== 304) {
         // Create an error object with status information
-        const error = new Error(`HTTP ${response.status}: ${response.statusText}`);
-        error.status = response.status;
-        error.statusText = response.statusText;
-        throw error;
+        const error = new Error(`HTTP ${response.status}: ${response.statusText}`)
+        error.status = response.status
+        error.statusText = response.statusText
+        throw error
       }
-      return response.json();
+      return response.json()
     })
   )
 }
@@ -294,10 +290,7 @@ export const populateZidMetadataStore = (conversation_id) => {
     }
 
     // don"t fetch again if we already have data loaded for that conversation.
-    if (
-      hasConversationId &&
-      state.zid_metadata.zid_metadata.conversation_id === conversation_id
-    ) {
+    if (hasConversationId && state.zid_metadata.zid_metadata.conversation_id === conversation_id) {
       return
     }
 
@@ -571,12 +564,10 @@ const mathFetchError = (err) => {
 }
 
 const fetchMath = (conversation_id, math_tick) => {
-  return $.get(
-    '/api/v3/math/pca2?&math_tick=' +
-      math_tick +
-      '&conversation_id=' +
-      conversation_id
-  )
+  return PolisNet.polisGet('/api/v3/math/pca2', {
+    math_tick: math_tick,
+    conversation_id: conversation_id
+  })
 }
 
 export const populateMathStore = (conversation_id) => {
@@ -729,11 +720,11 @@ export const populateRejectedCommentsStore = (conversation_id) => {
 
 export const populateAllCommentStores = (conversation_id) => {
   return (dispatch) => {
-    return $.when(
+    return Promise.all([
       dispatch(populateUnmoderatedCommentsStore(conversation_id)),
       dispatch(populateAcceptedCommentsStore(conversation_id)),
       dispatch(populateRejectedCommentsStore(conversation_id))
-    )
+    ])
   }
 }
 
@@ -1072,11 +1063,11 @@ export const populateHiddenParticipantStore = (conversation_id) => {
 
 export const populateAllParticipantStores = (conversation_id) => {
   return (dispatch) => {
-    return $.when(
+    return Promise.all([
       dispatch(populateDefaultParticipantStore(conversation_id)),
       dispatch(populateFeaturedParticipantStore(conversation_id)),
       dispatch(populateHiddenParticipantStore(conversation_id))
-    )
+    ])
   }
 }
 
@@ -1288,12 +1279,7 @@ const dataExportError = () => {
   }
 }
 
-const dataExportGet = (
-  conversation_id,
-  format,
-  unixTimestamp,
-  untilEnabled
-) => {
+const dataExportGet = (conversation_id, format, unixTimestamp, untilEnabled) => {
   let url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}`
   if (untilEnabled) {
     url += `&unixTimestamp=${unixTimestamp}`
@@ -1308,20 +1294,10 @@ const dataExportGet = (
   )
 }
 
-export const startDataExport = (
-  conversation_id,
-  format,
-  unixTimestamp,
-  untilEnabled
-) => {
+export const startDataExport = (conversation_id, format, unixTimestamp, untilEnabled) => {
   return (dispatch) => {
     dispatch(dataExportStarted())
-    return dataExportGet(
-      conversation_id,
-      format,
-      unixTimestamp,
-      untilEnabled
-    ).then(
+    return dataExportGet(conversation_id, format, unixTimestamp, untilEnabled).then(
       (res) => dispatch(dataExportSuccess(res)),
       (err) => dispatch(dataExportError(err))
     )

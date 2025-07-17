@@ -3,5 +3,5 @@
 const urlPrefix = `${document.location.protocol}//${document.location.host}/`
 
 export default {
-  urlPrefix,
+  urlPrefix
 }

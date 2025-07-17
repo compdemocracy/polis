@@ -1,8 +1,7 @@
-/** @jsx jsx */
 import { Component } from 'react'
-import { Flex, Box, jsx } from 'theme-ui'
+import { Flex, Box } from 'theme-ui'
 
-import { Link } from 'react-router-dom'
+import { Link } from 'react-router'
 import Logomark from '../framework/logomark'
 
 class Header extends Component {

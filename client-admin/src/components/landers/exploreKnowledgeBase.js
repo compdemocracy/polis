@@ -1,13 +1,10 @@
-import React from 'react'
 import { Box, Link, Heading } from 'theme-ui'
 import KnowledgeBase from './knowledgeBase'
 
 const ExploreKnowledgeBase = () => {
   return (
     <Box>
-      <Heading
-        as="h3"
-        sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
+      <Heading as="h3" sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
         Explore
       </Heading>
       <Box sx={{ mb: [4, null, 5], maxWidth: '35em' }}>
@@ -22,47 +19,23 @@ const ExploreKnowledgeBase = () => {
           </Link>{' '}
           including
         </Box>
-        <KnowledgeBase
-          url="https://compdemocracy.org/Welcome"
-          e="👋"
-          txt="Welcome Guide"
-        />
-        <KnowledgeBase
-          url="https://compdemocracy.org/Quickstart"
-          e="🏎"
-          txt="Quickstart"
-        />
-        <KnowledgeBase
-          url="https://compdemocracy.org/Usage"
-          e="🔩"
-          txt="Usage Overview"
-        />
+        <KnowledgeBase url="https://compdemocracy.org/Welcome" e="👋" txt="Welcome Guide" />
+        <KnowledgeBase url="https://compdemocracy.org/Quickstart" e="🏎" txt="Quickstart" />
+        <KnowledgeBase url="https://compdemocracy.org/Usage" e="🔩" txt="Usage Overview" />
         {/* prettier-ignore */}
         <KnowledgeBase
           url="https://compdemocracy.org/FAQ"
           e="📖"
           txt="FAQ"
         />
-        <KnowledgeBase
-          url="https://compdemocracy.org/Case-studies"
-          e="⚗️"
-          txt="Case Studies"
-        />
-        <KnowledgeBase
-          url="https://compdemocracy.org/algorithms"
-          e="👾"
-          txt="Algorithms"
-        />
+        <KnowledgeBase url="https://compdemocracy.org/Case-studies" e="⚗️" txt="Case Studies" />
+        <KnowledgeBase url="https://compdemocracy.org/algorithms" e="👾" txt="Algorithms" />
         <KnowledgeBase
           url="https://compdemocracy.org/Moderation"
           e="👹"
           txt="Best Practices for Moderation"
         />
-        <KnowledgeBase
-          url="https://compdemocracy.org/Media-coverage"
-          e="🗞"
-          txt="Press"
-        />
+        <KnowledgeBase url="https://compdemocracy.org/Media-coverage" e="🗞" txt="Press" />
       </Box>
     </Box>
   )

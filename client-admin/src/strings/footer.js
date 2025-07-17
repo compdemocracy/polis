@@ -21,8 +21,7 @@ export default {
         links: [
           {
             title: 'FAQ',
-            url:
-              'https://compdemocracy.org/faq'
+            url: 'https://compdemocracy.org/faq'
           }
         ]
       },
