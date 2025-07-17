@@ -25,6 +25,19 @@
 # (by default, the Makefile will include --profile postgres, unless POSTGRES_DOCKER=false in your env)
 
 services:
+  client-participation-alpha:
+    build:
+      context: ./client-participation-alpha
+      dockerfile: Dockerfile
+    container_name: client-participation-alpha
+    restart: unless-stopped
+    networks:
+      - "polis-net"
+    environment:
+      # This URL should point to the backend API server within the Docker network.
+      - PUBLIC_SERVICE_URL=http://server:5000/api/v3
+    depends_on:
+      - server
   server:
     environment:
       - DATABASE_URL=${DATABASE_URL}
