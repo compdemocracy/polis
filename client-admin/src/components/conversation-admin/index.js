@@ -11,6 +11,7 @@ import ConversationConfig from './conversation-config'
 import ConversationStats from './stats'
 
 import ModerateComments from './comment-moderation/'
+import TopicModeration from './topic-moderation/'
 
 // import DataExport from "./data-export";
 import ShareAndEmbed from './share-and-embed'
@@ -85,6 +86,16 @@ class ConversationAdminContainer extends React.Component {
           <Box sx={{ mb: [3] }}>
             <Link
               sx={{
+                variant: url === 'topics' ? 'links.activeNav' : 'links.nav'
+              }}
+              data-test-id="moderate-topics"
+              to={`${match.url}/topics`}>
+              Topic Mod
+            </Link>
+          </Box>
+          <Box sx={{ mb: [3] }}>
+            <Link
+              sx={{
                 variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
               }}
               to={`${match.url}/stats`}>
@@ -117,6 +128,10 @@ class ConversationAdminContainer extends React.Component {
             <Route
               path={`${match.path}/comments`}
               component={ModerateComments}
+            />
+            <Route
+              path={`${match.path}/topics`}
+              render={(props) => <TopicModeration {...props} conversation_id={match.params.conversation_id} />}
             />
             <Route
               exact

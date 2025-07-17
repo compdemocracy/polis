@@ -6754,11 +6754,19 @@ Email verified! You can close this tab or hit the back button.
       getConversationHasMetadata(zid),
       _.isUndefined(uid) ? Promise.resolve({}) : getUserInfoForUid2(uid),
       getConversationTranslationsMinimal(zid, lang),
+      // Check if user is a moderator for this conversation
+      _.isUndefined(uid)
+        ? Promise.resolve([])
+        : pgQueryP_readOnly(
+            "select * from moderators where zid = ($1) and uid = ($2);",
+            [zid, uid]
+          ),
     ]).then(function (results: any[]) {
       let conv = results[0] && results[0][0];
       let convHasMetadata = results[1];
       let requestingUserInfo = results[2];
       let translations = results[3];
+      let moderatorResult = results[4];
 
       conv.auth_opt_allow_3rdparty = ifDefinedFirstElseSecond(
         conv.auth_opt_allow_3rdparty,
@@ -6777,8 +6785,16 @@ Email verified! You can close this tab or hit the back button.
         if (!_.isUndefined(ownername) && conv.context !== "hongkong2014") {
           conv.ownername = ownername;
         }
-        conv.is_mod = conv.site_id === requestingUserInfo.site_id;
-        conv.is_owner = conv.owner === uid;
+        // Check if user is moderator: either same site_id OR explicitly added as moderator
+        const isExplicitModerator =
+          moderatorResult && moderatorResult.length > 0;
+        conv.is_mod =
+          conv.site_id === requestingUserInfo.site_id ||
+          isExplicitModerator ||
+          (JSON.parse(Config.adminUIDs) as Array<string>).includes(uid);
+        conv.is_owner =
+          conv.owner === uid ||
+          (JSON.parse(Config.adminUIDs) as Array<string>).includes(uid);
         delete conv.uid; // conv.owner is what you want, uid shouldn't be returned.
         return conv;
       });

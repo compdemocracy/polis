@@ -162,7 +162,9 @@ def process_comments(comments, conversation_id):
     
     # Generate embeddings with SentenceTransformer
     logger.info("Generating embeddings with SentenceTransformer...")
-    embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    model_name = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
+    logger.info(f"Using model: {model_name}")
+    embedding_model = SentenceTransformer(model_name)
     document_vectors = embedding_model.encode(comment_texts, show_progress_bar=True)
     
     # Generate 2D projection with UMAP

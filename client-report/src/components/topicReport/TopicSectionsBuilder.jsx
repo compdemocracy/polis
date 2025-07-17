@@ -67,6 +67,7 @@ const TopicSectionsBuilder = ({ topicData, narrativeData, children }) => {
 
     const allTopics = [];
     const jobUuid = latestRun.job_uuid;
+    const maxLayer = Math.max(...Object.keys(latestRun.topics_by_layer).map(Number));
 
     Object.keys(latestRun.topics_by_layer).forEach(layer => {
       const clusters = latestRun.topics_by_layer[layer];
@@ -90,7 +91,7 @@ const TopicSectionsBuilder = ({ topicData, narrativeData, children }) => {
             key: sectionKey,
             displayKey: topicKey,
             name: topic.topic_name || topicKey,
-            sortKey: parseInt(layer) * 1000 + parseInt(clusterId)
+            sortKey: (maxLayer - parseInt(layer)) * 1000 + parseInt(clusterId)
           });
         });
       }

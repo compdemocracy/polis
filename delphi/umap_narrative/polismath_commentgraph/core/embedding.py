@@ -22,7 +22,7 @@ class EmbeddingEngine:
     
     def __init__(
         self, 
-        model_name: str = "all-MiniLM-L6-v2",
+        model_name: Optional[str] = None,
         cache_dir: Optional[str] = None,
         device: Optional[str] = None
     ):
@@ -34,10 +34,14 @@ class EmbeddingEngine:
             cache_dir: Optional directory to cache models
             device: Optional device to use (cpu, cuda, etc.)
         """
+        # Get model name from environment variable or use provided name, with fallback to default
+        if model_name is None:
+            model_name = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
+        
         logger.info(f"Initializing embedding engine with model: {model_name}")
         self.model_name = model_name
         self._model = None  # Lazy-loaded
-        self.vector_dim = 384  # Default for all-MiniLM-L6-v2
+        self.vector_dim = 384  # Default for all-MiniLM-L6-v2 and paraphrase-multilingual-MiniLM-L12-v2
         
         # Set up cache directory
         self.cache_dir = cache_dir or os.environ.get("MODEL_CACHE_DIR")

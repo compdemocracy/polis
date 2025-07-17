@@ -45,7 +45,7 @@ module.exports = {
   },
   performance: {
     // TODO: Find and remove orphan modules; Reduce bundle size.
-    hints: 'warning', // 'error' for errors, 'warning' for warnings, false to disable
+    hints: false, // 'error' for errors, 'warning' for warnings, false to disable
     maxAssetSize: 7100000, // Size limit in bytes, default is 250000 (250 KB)
     maxEntrypointSize: 7100000, // Size limit in bytes, default is 250000 (250 KB)
   },

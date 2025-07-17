@@ -6,10 +6,12 @@ export function useReportId() {
   useEffect(() => {
     // Parse the URL to extract the report ID
     const pathname = window.location.pathname;
-    
-    // Match patterns like /report/rid or /narrativeReport/rid or /commentsReport/rid
-    const match = pathname.match(/^\/(report|narrativeReport|commentsReport|topicMapNarrativeReport)\/([a-zA-Z0-9]+)/);
-    
+
+    // Match patterns like /report/rid or /narrativeReport/rid or /commentsReport/rid or /topicPrioritize/rid or /topicPrioritizeSimple/rid or /topicAgenda/rid or /topicHierarchy/rid
+    const match = pathname.match(
+      /^\/(report|narrativeReport|commentsReport|topicPrioritize|topicPrioritizeSimple|topicAgenda|topicMapNarrativeReport|topicHierarchy|topicReport|topicsVizReport|exportReport)\/([a-zA-Z0-9]+)/
+    );
+
     if (match && match[2]) {
       setReportId(match[2]);
     } else {

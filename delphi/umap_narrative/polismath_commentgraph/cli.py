@@ -56,7 +56,9 @@ def test_evoc(args):
     # Load sentence transformer model - same one used in successful examples
     logger.info("Loading SentenceTransformer model...")
     start_time = time.time()
-    embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
+    model_name = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
+    logger.info(f"Using model: {model_name}")
+    embedding_model = SentenceTransformer(model_name)
     logger.info(f"Model loaded in {time.time() - start_time:.2f}s")
     
     # Process each dataset

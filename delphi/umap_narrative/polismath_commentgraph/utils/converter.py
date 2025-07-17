@@ -4,6 +4,7 @@ Utilities for converting between data formats for the Polis comment graph micros
 
 import numpy as np
 import json
+import os
 from typing import Dict, List, Any, Optional, Tuple, Union
 import logging
 from datetime import datetime
@@ -143,7 +144,7 @@ class DataConverter:
             processed_date=datetime.now().isoformat(),
             num_comments=len(document_vectors),
             num_participants=metadata.get('num_participants', 0) if metadata else 0,
-            embedding_model='all-MiniLM-L6-v2',
+            embedding_model=os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2"),
             umap_parameters=umap_params,
             evoc_parameters=evoc_params,
             cluster_layers=cluster_layer_info,
@@ -173,7 +174,7 @@ class DataConverter:
         embedding = Embedding(
             vector=vector.tolist() if isinstance(vector, np.ndarray) else vector,
             dimensions=len(vector),
-            model='all-MiniLM-L6-v2'
+            model=os.environ.get("SENTENCE_TRANSFORMER_MODEL", "all-MiniLM-L6-v2")
         )
         
         # Create the model with just the embedding vector
