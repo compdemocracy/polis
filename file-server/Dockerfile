@@ -5,7 +5,7 @@
 
 ######################## POLIS CLIENT ADMIN ########################
 #FROM client-base AS client-admin # <- switch back to basing on client admin once we upgrade other clients
-FROM docker.io/node:20-alpine AS client-admin
+FROM docker.io/node:lts-alpine AS client-admin
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -19,17 +19,28 @@ RUN npm ci --production=false
 
 COPY client-admin/. .
 
+ARG AUTH_AUDIENCE
+ARG AUTH_CLIENT_ID
+ARG AUTH_ISSUER
+ENV AUTH_AUDIENCE=${AUTH_AUDIENCE}
+ENV AUTH_CLIENT_ID=${AUTH_CLIENT_ID}
+ENV AUTH_ISSUER=${AUTH_ISSUER}
+
 RUN npm run build:prod
 
 
 
 ##################### POLIS CLIENT PARTICIPATION #####################
-FROM docker.io/node:20-alpine AS client-participation
+FROM docker.io/node:lts-alpine AS client-participation
 
 ARG EMBED_SERVICE_HOSTNAME
 ARG GA_TRACKING_ID
+ARG OIDC_CACHE_KEY_PREFIX
+ARG OIDC_CACHE_KEY_ID_TOKEN_SUFFIX
 ENV EMBED_SERVICE_HOSTNAME=${EMBED_SERVICE_HOSTNAME}
 ENV GA_TRACKING_ID=${GA_TRACKING_ID}
+ENV OIDC_CACHE_KEY_PREFIX=${OIDC_CACHE_KEY_PREFIX}
+ENV OIDC_CACHE_KEY_ID_TOKEN_SUFFIX=${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -49,7 +60,7 @@ RUN npm run build:prod
 
 ######################## POLIS CLIENT REPORT ########################
 # FROM client-base AS client-report
-FROM docker.io/node:20-alpine AS client-report
+FROM docker.io/node:lts-alpine AS client-report
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -67,8 +78,15 @@ COPY client-report/. .
 
 # GIT_HASH will be set properly when running `make` (see Makefile).
 ARG GIT_HASH
-ARG SERVICE_URL
 ENV GIT_HASH=${GIT_HASH:-placeholder}
+
+ARG AUTH_AUDIENCE
+ARG AUTH_CLIENT_ID
+ARG AUTH_ISSUER
+ARG SERVICE_URL
+ENV AUTH_AUDIENCE=${AUTH_AUDIENCE}
+ENV AUTH_CLIENT_ID=${AUTH_CLIENT_ID}
+ENV AUTH_ISSUER=${AUTH_ISSUER}
 ENV SERVICE_URL=${SERVICE_URL}
 
 RUN npm run build:prod
@@ -76,7 +94,7 @@ RUN npm run build:prod
 
 
 ############################ FILE SERVER ############################
-FROM docker.io/node:20-alpine
+FROM docker.io/node:lts-alpine
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV

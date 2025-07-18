@@ -9,6 +9,8 @@ const { conversation_id } = Astro.params;
 let initialData;
 let fetchError = null;
 
+const url = `${import.meta.env.PUBLIC_SERVICE_URL}/participationInit?conversation_id=${conversation_id}`;
+
 try {
   const response = await fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/participationInit?conversation_id=${conversation_id}`);
   if (!response.ok) {
@@ -16,6 +18,7 @@ try {
   }
   initialData = await response.json();
 } catch (error) {
+  console.log(url);
   console.error("Failed to fetch conversation data:", error);
   fetchError = "Could not load this conversation. Please check the ID and try again.";
 }

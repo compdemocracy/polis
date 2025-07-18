@@ -29,15 +29,16 @@ services:
     build:
       context: ./client-participation-alpha
       dockerfile: Dockerfile
+      args:
+        PUBLIC_SERVICE_URL: http://nginx-proxy/api/v3
     container_name: client-participation-alpha
     restart: unless-stopped
     networks:
       - "polis-net"
     environment:
-      # This URL should point to the backend API server within the Docker network.
-      - PUBLIC_SERVICE_URL=http://server:5000/api/v3
+      - PUBLIC_SERVICE_URL=http://nginx-proxy/api/v3
     depends_on:
-      - server
+      - "server"
   server:
     environment:
       - DATABASE_URL=${DATABASE_URL}
@@ -158,6 +159,8 @@ services:
       dockerfile: nginx.Dockerfile
     labels:
       polis_tag: ${TAG:-dev}
+    environment:
+      - API_SERVER_PORT=${API_SERVER_PORT:-5000}
     depends_on:
       - "server"
     networks:
