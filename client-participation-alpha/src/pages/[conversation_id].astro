@@ -9,23 +9,42 @@ const { conversation_id } = Astro.params;
 let initialData;
 let fetchError = null;
 
-const url = `${import.meta.env.PUBLIC_SERVICE_URL}/participationInit?conversation_id=${conversation_id}`;
-
 try {
-  const response = await fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/participationInit?conversation_id=${conversation_id}`);
+  const apiParams = new URLSearchParams({
+    conversation_id: conversation_id,
+  });
+
+  const xid = Astro.url.searchParams.get('xid');
+  const x_name = Astro.url.searchParams.get('x_name');
+  const x_profile_image_url = Astro.url.searchParams.get('x_profile_image_url');
+
+  if (xid) {
+    apiParams.append('xid', xid);
+  }
+  if (x_name) {
+    apiParams.append('x_name', x_name);
+  }
+  if (x_profile_image_url) {
+    apiParams.append('x_profile_image_url', x_profile_image_url);
+  }
+
+  const apiUrl = `${import.meta.env.PUBLIC_SERVICE_URL}/participationInit?${apiParams.toString()}`;
+  
+  console.log("Fetching from URL:", apiUrl);
+
+  const response = await fetch(apiUrl);
   if (!response.ok) {
     throw new Error(`API request failed with status: ${response.status}`);
   }
   initialData = await response.json();
 } catch (error) {
-  console.log(url);
   console.error("Failed to fetch conversation data:", error);
   fetchError = "Could not load this conversation. Please check the ID and try again.";
 }
 
 const s = await getTranslations();
 
-let surveyDetails, firstStatement, participationInfo, isConversationActive;
+let surveyDetails, firstStatement, isConversationActive;
 if (initialData) {
   surveyDetails = {
     title: initialData.conversation.topic,
@@ -35,11 +54,6 @@ if (initialData) {
   firstStatement = {
     tid: initialData.nextComment?.tid,
     txt: initialData.nextComment?.txt,
-  };
-
-  participationInfo = {
-    pid: initialData.ptpt?.pid,
-    conversation_id: initialData.conversation.conversation_id,
   };
 
   isConversationActive = initialData.conversation.is_active;
@@ -62,7 +76,6 @@ if (initialData) {
         </h1>
         <p class="description" set:html={surveyDetails?.description}></p>
 
-        {/* Conditionally render the interactive components only if the conversation is active */}
         {isConversationActive ? (
           <>
             <p class="conversation-intro" set:html={s['vote-on-statements']}></p>
@@ -117,7 +130,6 @@ if (initialData) {
     vertical-align: middle;
   }
   .footer-spacer {
-    /* Adds space to push the footer down on closed pages */
     min-height: 20vh;
   }
   .footer-links {
@@ -132,5 +144,25 @@ if (initialData) {
   }
   .footer-links a:hover {
     text-decoration: underline;
+  }
+  .importance-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1rem;
+    gap: 0.5rem;
+  }
+  .info-icon {
+    cursor: pointer;
+    fill: #666;
+  }
+  .importance-desc {
+    font-size: 0.9rem;
+    color: #555;
+    background-color: #f0f0f0;
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin: 0.75rem 0 0 0;
+    text-align: center;
   }
 </style>
