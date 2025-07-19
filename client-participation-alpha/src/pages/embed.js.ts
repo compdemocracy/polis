@@ -114,15 +114,14 @@ const embedScriptTemplate = `
 
   window.addEventListener("message", handleIframeMessage, false);
 
-  document.addEventListener("DOMContentLoaded", () => {
-    const polisDivs = document.getElementsByClassName("polis");
-    for (const div of polisDivs) {
-      if (!div.querySelector("iframe")) {
-        const config = getConfig(div);
-        createPolisIframe(div, config);
-      }
+
+  const polisDivs = document.getElementsByClassName("polis");
+  for (const div of polisDivs) {
+    if (!div.querySelector("iframe")) {
+      const config = getConfig(div);
+      createPolisIframe(div, config);
     }
-  });
+  }
 
 }());
 `;

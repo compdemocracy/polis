@@ -53,7 +53,7 @@ export default function SurveyForm({ s }) {
           maxLength="140"
         />
         <button type="submit" className="submit-button" disabled={isSubmitting || !text.trim()}>
-          {isSubmitting ? ('Submitting...') : (s.submit)}
+          {isSubmitting ? ('Submitting...') : (s.submitComment)}
         </button>
       </form>
     </div>
