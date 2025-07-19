@@ -3,7 +3,7 @@ import type { APIRoute } from 'astro';
 /**
  *  usage - 
  * <div class='polis' data-conversation_id='9hhmb5fufv'></div>
- * <script async src="https://your-domain.com/alpha/embed.js"></script>
+ * <script async src="https://pol.is/alpha/embed.js"></script>
  * 
  *  */
 const embedScriptTemplate = `
@@ -133,10 +133,8 @@ export const GET: APIRoute = () => {
     return new Response("Configuration error: EMBED_SERVICE_HOSTNAME is not set.", { status: 500 });
   }
 
-  // 2. Replace the placeholder in the script with the actual hostname.
   const finalScript = embedScriptTemplate.replace("__HOSTNAME__", hostname);
 
-  // 3. Serve the final script with the correct JavaScript content type.
   return new Response(finalScript, {
     headers: {
       'Content-Type': 'application/javascript; charset=utf-8',
