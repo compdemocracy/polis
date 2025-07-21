@@ -85,7 +85,7 @@ if (initialData) {
               conversation_id={conversation_id}
               s={s} 
             />
-            <SurveyForm client:load s={s} />
+            <SurveyForm client:load s={s} conversation_id={conversation_id} />
           </>
         ) : (
           <div class="footer-spacer"></div>
@@ -164,5 +164,27 @@ if (initialData) {
     padding: 0.75rem;
     margin: 0.75rem 0 0 0;
     text-align: center;
+  }
+
+  .textarea-wrapper {
+  position: relative;
+  display: flex;
+  width: 100%;
+}
+
+  .submit-form textarea {
+    flex-grow: 1;
+    box-sizing: border-box;
+  }
+
+  .char-counter {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    font-size: 0.8rem;
+    color: #6c757d;
+    background-color: rgba(255, 255, 255, 0.7);
+    padding: 2px 5px;
+    border-radius: 4px;
   }
 </style>

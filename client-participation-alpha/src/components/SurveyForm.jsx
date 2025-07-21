@@ -1,34 +1,55 @@
 import React, { useState } from 'react';
+import { getJwtPayload } from '../lib/auth';
 
-const submitPerspectiveAPI = (text) => {
-  console.log(`Submitting new perspective: "${text}"`);
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      console.log('Perspective submitted successfully.');
-      resolve({ success: true });
-    }, 1000);
-  });
+const submitPerspectiveAPI = async (text, conversation_id) => {
+  const tokenKey = `participant_token_${conversation_id}`;
+  const decodedToken = getJwtPayload(tokenKey);
+  const pid = decodedToken?.pid;
+
+  if (!pid) {
+    console.error("Comment submission failed: Auth token not found.");
+    return;
+  }
+
+  try {
+    const response = await fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/comments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        txt: text.replace(/\n/g, " "),
+        conversation_id,
+        pid,
+        vote: -1,
+      }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`Comment submission failed with status ${response.status}:`, errorText);
+    }
+  } catch (error) {
+    console.error("Network error during comment submission:", error);
+  }
 };
 
-export default function SurveyForm({ s }) {
+
+export default function SurveyForm({ s, conversation_id }) {
   const [text, setText] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const maxLength = 400;
 
-  const handleSubmit = async (event) => {
+  const handleSubmit = (event) => {
     event.preventDefault();
-    if (isSubmitting || !text.trim()) return;
-
-    setIsSubmitting(true);
-    const result = await submitPerspectiveAPI(text);
-    setIsSubmitting(false);
-
-    if (result.success) {
-      setFeedback(s.commentSent);
-      setText('');
-    }
+    if (!text.trim()) return;
+    setFeedback(s.commentSent);
+    const submittedText = text;
+    setText('');
+    submitPerspectiveAPI(submittedText, conversation_id);
   };
-  
+
   if (feedback) {
     return <p style={{ textAlign: 'center', color: '#28a745', fontWeight: 'bold' }}>{feedback}</p>;
   }
@@ -46,14 +67,19 @@ export default function SurveyForm({ s }) {
         <p>{s.tipCommentsRandom}</p>
       </div>
       <form className="submit-form" onSubmit={handleSubmit}>
-        <textarea
-          placeholder={s.writePrompt}
-          onChange={(e) => setText(e.target.value)}
-          disabled={isSubmitting}
-          maxLength="140"
-        />
-        <button type="submit" className="submit-button" disabled={isSubmitting || !text.trim()}>
-          {isSubmitting ? ('Submitting...') : (s.submitComment)}
+        <div className="textarea-wrapper">
+          <textarea
+            placeholder={s.writePrompt}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            maxLength={maxLength}
+          />
+          <div className="char-counter">
+            {text.length} / {maxLength}
+          </div>
+        </div>
+        <button type="submit" className="submit-button" disabled={!text.trim()}>
+          {s.submitComment}
         </button>
       </form>
     </div>
