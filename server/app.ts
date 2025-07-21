@@ -25,6 +25,7 @@ import { handle_GET_delphi_visualizations } from "./src/routes/delphi/visualizat
 import { handle_POST_delphi_jobs } from "./src/routes/delphi/jobs";
 import { handle_GET_delphi_reports } from "./src/routes/delphi/reports";
 import { handle_POST_delphi_batch_reports } from "./src/routes/delphi/batchReports";
+import { handle_GET_participation_topicPrioritize } from "./src/routes/participation/topicPrioritize";
 
 import {
   handle_GET_topicMod_topics,
@@ -1097,6 +1098,18 @@ helpersInitialized.then(
       want("xid", getStringLimitLength(1, 999), assignToP),
       resolve_pidThing("pid", assignToP, "get:votes"), // must be after zid getter
       handle_GET_participationInit
+    );
+
+    // New endpoint for topic prioritization in participation interface
+    app.get(
+      "/api/v3/participation/topicPrioritize",
+      moveToBody,
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_participation_topicPrioritize
     );
 
     app.post(
