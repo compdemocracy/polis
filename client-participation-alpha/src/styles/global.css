@@ -19,17 +19,19 @@ body {
 }
 
 .logo {
-  width: 50px;
+  width: 44px;
   height: 50px;
-  background-color: #007bff;
+  background-color: #03a9f4;
   color: white;
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 2rem;
-  font-weight: bold;
-  border-radius: 8px;
+  font-size: 1.8rem;
+  font-family: Georgia, serif;
+  font-weight: normal;
   margin: 0 auto 1rem;
+  position: relative;
+  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
 }
 
 h1 {

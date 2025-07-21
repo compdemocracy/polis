@@ -116,7 +116,7 @@ export const useTopicData = (reportId) => {
       console.log("Fetching UMAP data for spatial filtering...");
 
       const response = await fetch(
-        `${import.meta.env.PUBLIC_SERVICE_URL}/api/v3/topicMod/proximity?conversation_id=${conversationId}&layer_id=all`
+        `${import.meta.env.PUBLIC_SERVICE_URL}/topicMod/proximity?conversation_id=${conversationId}&layer_id=all`
       );
       const data = await response.json();
 
