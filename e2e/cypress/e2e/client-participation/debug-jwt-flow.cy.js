@@ -87,8 +87,8 @@ describe('Debug Anonymous JWT Flow', function () {
 
       // Check if there's any auth state
       const token =
-        win.localStorage.getItem('participant_token') ||
-        win.sessionStorage.getItem('participant_token')
+        win.localStorage.getItem(`participant_token_${conversationId}`) ||
+        win.sessionStorage.getItem(`participant_token_${conversationId}`)
       if (token) {
         console.log('  ⚠️ Found existing token:', token)
       } else {
@@ -133,8 +133,8 @@ describe('Debug Anonymous JWT Flow', function () {
         console.log('  sessionStorage keys:', Object.keys(win.sessionStorage))
 
         const token =
-          win.localStorage.getItem('participant_token') ||
-          win.sessionStorage.getItem('participant_token')
+          win.localStorage.getItem(`participant_token_${conversationId}`) ||
+          win.sessionStorage.getItem(`participant_token_${conversationId}`)
         if (token) {
           console.log('  ✅ Found JWT token after vote:', token.substring(0, 50) + '...')
         } else {
@@ -147,8 +147,7 @@ describe('Debug Anonymous JWT Flow', function () {
     cy.wait(1000).then(() => {
       cy.task('log', '=== FINAL CHECK ===')
       cy.window().then((win) => {
-        const finalToken =
-          win.localStorage.getItem('participant_token')
+        const finalToken = win.localStorage.getItem(`participant_token_${conversationId}`)
         if (finalToken) {
           cy.task('log', '✅ JWT successfully stored in localStorage')
           expect(finalToken).to.exist

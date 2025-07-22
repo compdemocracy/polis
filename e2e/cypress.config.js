@@ -40,6 +40,7 @@ module.exports = defineConfig({
       AUTH_CLIENT_ID: process.env.AUTH_CLIENT_ID || 'dev-client-id',
       AUTH_ISSUER: process.env.AUTH_ISSUER || 'https://localhost:3000/',
       AUTH_NAMESPACE: process.env.AUTH_NAMESPACE || 'https://pol.is/',
+      OIDC_CACHE_KEY_PREFIX: process.env.OIDC_CACHE_KEY_PREFIX || 'oidc.user',
     },
   },
 })

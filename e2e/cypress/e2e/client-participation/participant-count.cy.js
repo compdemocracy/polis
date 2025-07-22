@@ -1,4 +1,4 @@
-import { loginStandardUserAPI, logout } from '../../support/auth-helpers.js'
+import { loginStandardUserAPI, logout, getAuthToken } from '../../support/auth-helpers.js'
 
 describe('Participant Count Test', function () {
   it('creates and counts participants correctly', function () {
@@ -9,9 +9,7 @@ describe('Participant Count Test', function () {
       // Login as admin
       loginStandardUserAPI('admin@polis.test', 'Te$tP@ssw0rd*')
 
-      cy.window().then((win) => {
-        const token = win.localStorage.getItem('auth_token')
-
+      getAuthToken().then((token) => {
         // Create conversation
         cy.request({
           method: 'POST',
@@ -34,7 +32,7 @@ describe('Participant Count Test', function () {
 
             // Add comments
             const comments = ['Comment 1', 'Comment 2', 'Comment 3']
-            
+
             // Create a chain of comment creation requests
             comments.forEach((comment) => {
               cy.request({
@@ -99,9 +97,12 @@ describe('Participant Count Test', function () {
 
       // Verify clean state before voting
       cy.window().then((win) => {
-        const authToken = win.localStorage.getItem('auth_token')
-        const participantToken = win.localStorage.getItem('participant_token')
-        cy.log(`🔍 Before voting - Auth token: ${authToken ? 'EXISTS' : 'NONE'}`)
+        // Check if any auth tokens exist
+        const hasOidcUser = Object.keys(win.localStorage).some((key) =>
+          key.startsWith('oidc.user:'),
+        )
+        const participantToken = win.localStorage.getItem(`participant_token_${testConversationId}`)
+        cy.log(`🔍 Before voting - OIDC user exists: ${hasOidcUser ? 'YES' : 'NO'}`)
         cy.log(`🔍 Before voting - Participant token: ${participantToken ? 'EXISTS' : 'NONE'}`)
       })
 

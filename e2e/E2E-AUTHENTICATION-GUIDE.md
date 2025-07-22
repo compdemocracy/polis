@@ -45,9 +45,9 @@ participateAnonymously(conversationId)
 // Vote to trigger JWT issuance
 voteOnComment('agree')
 
-// Verify JWT was issued
-waitForJWTToken('participant_token')
-verifyJWTExists('participant_token')
+// Verify JWT was issued (conversation-specific)
+waitForJWTToken(`participant_token_${conversationId}`)
+verifyJWTExists(`participant_token_${conversationId}`)
 ```
 
 #### XID Participants
@@ -59,9 +59,9 @@ participateWithXID(conversationId, 'test-xid-123')
 // Vote to trigger JWT issuance
 voteOnComment('agree')
 
-// Verify XID JWT was issued
-waitForJWTToken('participant_token')
-verifyJWTExists('participant_token', { xid: 'test-xid-123' })
+// Verify XID JWT was issued (conversation-specific)
+waitForJWTToken(`participant_token_${conversationId}`)
+verifyJWTExists(`participant_token_${conversationId}`, { xid: 'test-xid-123' })
 ```
 
 ## Required Helper Functions
@@ -81,6 +81,8 @@ These functions are **CRITICAL** and must not be removed:
 - `verifyIDTokenClaims(expectedClaims)` - Verifies ID token claims
 - `verifyJWTExists(tokenKey, expectedClaims)` - Verifies JWT exists and is valid
 - `waitForJWTToken(tokenKey, timeout)` - Waits for JWT to be stored
+
+**Note**: JWT tokens are now stored conversation-specifically as `participant_token_${conversationId}`. Helper functions should be called with the conversation-specific key.
 
 ### Participant Functions
 
@@ -145,16 +147,16 @@ cy.visit('/m/123') // Will show admin interface
 ```javascript
 voteOnComment('agree')
 // Immediately checking for JWT - may not be issued yet
-cy.window().then((win) => expect(win.localStorage.getItem('participant_token')).to.exist)
+cy.window().then((win) => expect(win.localStorage.getItem('participant_token_123')).to.exist)
 ```
 
 ✅ **Correct:**
 
 ```javascript
 voteOnComment('agree')
-// Wait for JWT to be issued and stored
-waitForJWTToken('participant_token')
-verifyJWTExists('participant_token')
+// Wait for JWT to be issued and stored (conversation-specific)
+waitForJWTToken(`participant_token_${conversationId}`)
+verifyJWTExists(`participant_token_${conversationId}`)
 ```
 
 ## Test Debugging
@@ -173,7 +175,7 @@ verifyJWTExists('participant_token')
 
 ### When JWT Validation Fails
 
-1. Check if JWT token exists in localStorage
+1. Check if JWT token exists in localStorage with conversation-specific key (`participant_token_${conversationId}`)
 2. Verify token format (3 parts separated by dots)
 3. Decode JWT payload to check claims
 

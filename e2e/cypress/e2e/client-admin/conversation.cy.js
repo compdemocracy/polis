@@ -1,10 +1,10 @@
 import { loginStandardUser, loginStandardUserAPI, logout } from '../../support/auth-helpers.js'
 
-import { 
-  getConversationDetails, 
+import {
+  getConversationDetails,
   conversationExists,
   createTestConversationAPI,
-  addCommentsToConversation 
+  addCommentsToConversation,
 } from '../../support/conversation-helpers.js'
 
 import { getPolisURL } from '../../support/admin-helpers.js'
@@ -20,18 +20,18 @@ describe('Client Admin: Conversation Management', () => {
         return createTestConversationAPI({
           topic: 'Pre-existing Test Conversation',
           description: 'This conversation exists before each test runs',
-          visualizationEnabled: true
+          visualizationEnabled: true,
         })
       })
       .then((convId) => {
         preExistingConversationId = convId
         cy.log(`✅ Created pre-existing conversation: ${preExistingConversationId}`)
-        
+
         // Add some comments to make it more interesting
         return addCommentsToConversation(preExistingConversationId, [
           'First comment on pre-existing conversation',
           'Second comment on pre-existing conversation',
-          'Third comment on pre-existing conversation'
+          'Third comment on pre-existing conversation',
         ])
       })
   })
@@ -156,10 +156,10 @@ describe('Client Admin: Conversation Management', () => {
       // Should see our pre-existing conversation in the list
       // Look for conversation cards by their content structure (topic + participants)
       cy.contains('participants').should('exist')
-      
+
       // Find the pre-existing conversation by its topic text
       cy.contains('Pre-existing Test Conversation').should('exist')
-      
+
       // Verify the conversation structure exists
       cy.contains('This conversation exists before each test runs').should('exist')
     })
@@ -230,7 +230,9 @@ describe('Client Admin: Conversation Management', () => {
 
         cy.get('textarea[data-testid="seed_form"]').clear()
         cy.get('textarea[data-testid="seed_form"]').type(comment)
-        cy.get('button').contains(/submit/i).click()
+        cy.get('button')
+          .contains(/submit/i)
+          .click()
 
         cy.wait('@addSeedComment').then((interception) => {
           expect(interception.response.statusCode).to.eq(200)
@@ -258,10 +260,10 @@ describe('Client Admin: Conversation Management', () => {
 
       // Check for conversation URL - be more flexible with the selector
       cy.get('body').should('contain', polisHost)
-      
+
       // Should see embed code section
       cy.contains('Embed').should('exist')
-      
+
       // Should see XID information
       cy.contains('XID').should('exist')
 
@@ -273,13 +275,9 @@ describe('Client Admin: Conversation Management', () => {
 
       const { host: polisHost } = getPolisURL()
 
-      // Look for any element containing the conversation URL
-      cy.get('body').then(($body) => {
-        const bodyText = $body.text()
-        const urlPattern = new RegExp(`${polisHost.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/${preExistingConversationId}`)
-        expect(bodyText).to.match(urlPattern)
-        cy.log(`✅ Found conversation URL in page`)
-      })
+      // Wait for the body to contain the conversation URL
+      cy.get('body').should('contain.text', `${polisHost}/${preExistingConversationId}`)
+      cy.log(`✅ Found conversation URL in page`)
     })
   })
 
@@ -290,7 +288,7 @@ describe('Client Admin: Conversation Management', () => {
       // Navigate to Moderate section
       cy.get('a').contains('Moderate').click()
       cy.url().should('include', 'comments')
-      
+
       // Should show moderation interface
       cy.get('h3').should('contain.text', 'Moderate')
 
@@ -335,7 +333,9 @@ describe('Client Admin: Conversation Management', () => {
 
       // 1. Create conversation
       cy.visit('/')
-      cy.get('button').contains(/create new conversation/i).click()
+      cy.get('button')
+        .contains(/create new conversation/i)
+        .click()
 
       cy.url().should('match', /\/m\/[a-zA-Z0-9]+$/)
 
@@ -371,7 +371,9 @@ describe('Client Admin: Conversation Management', () => {
       workflowComments.forEach((comment) => {
         cy.get('textarea[data-testid="seed_form"]').clear()
         cy.get('textarea[data-testid="seed_form"]').type(comment)
-        cy.get('button').contains(/submit/i).click()
+        cy.get('button')
+          .contains(/submit/i)
+          .click()
         cy.wait('@addWorkflowComment')
       })
 
@@ -386,7 +388,7 @@ describe('Client Admin: Conversation Management', () => {
 
       workflowSections.forEach((section) => {
         cy.log(`🧭 Testing workflow navigation to ${section.name}`)
-        
+
         cy.get('a').contains(section.name).click()
 
         // Wait for URL to change
@@ -398,7 +400,7 @@ describe('Client Admin: Conversation Management', () => {
 
         // Wait for page to load and heading to appear
         cy.contains('h1, h2, h3', section.name, { timeout: 10000 }).should('be.visible')
-        
+
         cy.log(`✅ Successfully navigated to ${section.name} in workflow`)
       })
 

@@ -22,7 +22,7 @@ describe('Anonymous Participation JWT Flow', function () {
   it('should issue JWT on first vote for anonymous participant', function () {
     // Clear storage
     cy.clearLocalStorage()
-    
+
     cy.visit(`/${conversationId}`)
 
     // Wait for page to load
@@ -30,7 +30,7 @@ describe('Anonymous Participation JWT Flow', function () {
 
     // Intercept the vote request
     cy.intercept('POST', '/api/v3/votes', (req) => {
-      req.continue((res) => {        
+      req.continue((res) => {
         expect(res.body.auth.token).to.exist
         expect(res.statusCode).to.eq(200)
         expect(res.body.currentPid).to.exist
@@ -50,18 +50,20 @@ describe('Anonymous Participation JWT Flow', function () {
 
     // Wait for vote
     cy.wait('@vote')
-    
+
     // Check localStorage
-    cy.window().its('localStorage').invoke('getItem', 'participant_token')
+    cy.window()
+      .its('localStorage')
+      .invoke('getItem', `participant_token_${conversationId}`)
       .should('exist', { timeout: 10000 })
-      .then((token) => {        
+      .then((token) => {
         // Verify JWT format
         const parts = token.split('.')
         expect(parts).to.have.length(3)
 
         // Decode payload
         const payload = JSON.parse(atob(parts[1]))
-        expect(payload.anonymous).to.be.true
+        expect(payload.anonymous_participant).to.be.true
         expect(payload.sub).to.match(/^anon:/)
       })
   })
@@ -76,7 +78,9 @@ describe('Anonymous Participation JWT Flow', function () {
     cy.get('#agreeButton').click()
 
     // Wait for JWT to be stored using should assertion for retry
-    cy.window().its('localStorage').invoke('getItem', 'participant_token')
+    cy.window()
+      .its('localStorage')
+      .invoke('getItem', `participant_token_${conversationId}`)
       .should('exist')
       .then((token) => {
         // Reload
@@ -84,7 +88,7 @@ describe('Anonymous Participation JWT Flow', function () {
 
         // Check persistence
         cy.window().then((newWin) => {
-          const persistedToken = newWin.localStorage.getItem('participant_token')
+          const persistedToken = newWin.localStorage.getItem(`participant_token_${conversationId}`)
           expect(persistedToken).to.equal(token)
           console.log('✅ JWT persisted across reload')
         })

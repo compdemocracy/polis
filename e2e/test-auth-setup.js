@@ -62,8 +62,9 @@ async function checkMkcertSetup() {
     const fs = require('fs')
     const path = require('path')
     // Use workspace-relative path or fallback to HOME for local development
-    const certsDir = process.env.AUTH_CERTS_PATH || 
-                     path.join(process.env.HOME || process.cwd(), '.simulacrum', 'certs')
+    const certsDir =
+      process.env.AUTH_CERTS_PATH ||
+      path.join(process.env.HOME || process.cwd(), '.simulacrum', 'certs')
 
     if (!fs.existsSync(certsDir)) {
       console.log(`❌ Simulacrum certs directory not found at: ${certsDir}`)
@@ -71,7 +72,9 @@ async function checkMkcertSetup() {
     }
 
     const files = fs.readdirSync(certsDir)
-    const certFile = files.find((f) => f.startsWith('localhost') && f.endsWith('.pem') && !f.includes('-key'))
+    const certFile = files.find(
+      (f) => f.startsWith('localhost') && f.endsWith('.pem') && !f.includes('-key'),
+    )
     const keyFile = files.find((f) => f.startsWith('localhost') && f.endsWith('-key.pem'))
     const rootCAPath = path.join(certsDir, 'rootCA.pem')
 
@@ -119,8 +122,7 @@ async function main() {
 
   const checks = [
     () => checkMkcertSetup(),
-    () =>
-      checkEndpoint(`${config.oidcSimulatorUrl}/.well-known/jwks.json`, 'OIDC Simulator JWKS'),
+    () => checkEndpoint(`${config.oidcSimulatorUrl}/.well-known/jwks.json`, 'OIDC Simulator JWKS'),
     () =>
       checkEndpoint(
         `${config.oidcSimulatorUrl}/authorize?response_type=code&client_id=${config.authClientId}`,

@@ -26,7 +26,7 @@ describe('Simple JWT Debug', function () {
     // Simple intercept to wait for the API call
     // Intercept the vote request
     cy.intercept('POST', '/api/v3/votes', (req) => {
-      req.continue((res) => {        
+      req.continue((res) => {
         expect(res.body.auth.token).to.exist
         expect(res.statusCode).to.eq(200)
         expect(res.body.currentPid).to.exist
@@ -41,7 +41,9 @@ describe('Simple JWT Debug', function () {
     cy.wait('@vote')
 
     // Check localStorage
-    cy.window().its('localStorage').invoke('getItem', 'participant_token')
+    cy.window()
+      .its('localStorage')
+      .invoke('getItem', `participant_token_${conversationId}`)
       .should('exist', { timeout: 10000 })
   })
 })

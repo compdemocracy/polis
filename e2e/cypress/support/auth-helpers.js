@@ -94,14 +94,47 @@ export function loginStandardUserAPI(email, password) {
 
   // Get JWT token, store it, set up intercept, and verify authentication
   return getOidcTokenDirect(email, password).then((token) => {
-    // Store the token
+    // Get OIDC configuration
+    const authority = Cypress.env('AUTH_ISSUER')
+    const clientId = Cypress.env('AUTH_CLIENT_ID')
+
+    // Store the user data in oidc-client-ts format
     cy.window().then((win) => {
-      win.localStorage.setItem('auth_token', token)
+      // Create a user object similar to what oidc-client-ts would create
+      const userData = {
+        access_token: token,
+        token_type: 'Bearer',
+        profile: {
+          email: email,
+          // Add other profile data if available from token
+        },
+        expires_at: Math.floor(Date.now() / 1000) + 3600, // 1 hour from now
+        scope: 'openid profile email',
+      }
+
+      // Store with the correct key format
+      const userKey = `oidc.user:${authority}:${clientId}`
+      win.localStorage.setItem(userKey, JSON.stringify(userData))
+
+      // Also set up the oidcTokenGetter if possible
+      win.oidcTokenGetter = () => token
     })
 
-    // Set up intercept with the token
+    // CRITICAL: Use a more specific intercept that only affects admin API calls
+    // This prevents the intercept from affecting participant requests
     cy.intercept('**/api/**', (req) => {
-      req.headers['Authorization'] = `Bearer ${token}`
+      // Only add auth header to admin-specific endpoints
+      if (
+        req.url.includes('/conversations') ||
+        req.url.includes('/comments') ||
+        req.url.includes('/users') ||
+        req.url.includes('/reports')
+      ) {
+        // Check if this is an admin context (not participant)
+        if (!req.url.includes('pid=') || req.url.includes('pid=-1')) {
+          req.headers['Authorization'] = `Bearer ${token}`
+        }
+      }
     }).as('authenticatedApiRequests')
 
     // Verify the authentication works and wait for intercept to be active
@@ -176,13 +209,11 @@ export function participateWithXID(conversationId, xid) {
  */
 export function getOidcAccessToken() {
   return cy.window().then((win) => {
-    // First try the simple approach - check if we stored the token directly
-    const storedToken = win.localStorage.getItem('auth_token')
-    if (storedToken) {
-      return storedToken
-    }
+    // Get OIDC configuration from environment
+    const authority = Cypress.env('AUTH_ISSUER')
+    const clientId = Cypress.env('AUTH_CLIENT_ID')
 
-    // Fallback: Check if oidcTokenGetter is available
+    // First check if oidcTokenGetter is available on window (set by oidc-connector)
     if (typeof win.oidcTokenGetter === 'function') {
       return cy.wrap(win.oidcTokenGetter()).then((token) => {
         expect(token).to.be.a('string')
@@ -191,24 +222,46 @@ export function getOidcAccessToken() {
       })
     }
 
-    // Fallback: Find OIDC SDK cache for access tokens
-    const oidcKeys = Object.keys(win.localStorage).filter(
-      (key) => key.includes('@@auth0spajs@@') && key.includes('::') && !key.includes('@@user@@'),
-    )
+    // Fallback: Look for oidc-client-ts user storage
+    // The key format is: oidc.user:${authority}:${clientId}
+    const userKey = `oidc.user:${authority}:${clientId}`
+    const userDataString = win.localStorage.getItem(userKey)
 
-    if (oidcKeys.length === 0) {
-      throw new Error('No OIDC access token found in localStorage')
+    if (!userDataString) {
+      // Try without trailing slash on authority
+      const authorityWithoutSlash = authority.replace(/\/$/, '')
+      const alternateKey = `oidc.user:${authorityWithoutSlash}:${clientId}`
+      const alternateData = win.localStorage.getItem(alternateKey)
+
+      if (!alternateData) {
+        throw new Error(
+          `No OIDC user data found. Looked for keys: "${userKey}" and "${alternateKey}"`,
+        )
+      }
+
+      const userData = JSON.parse(alternateData)
+      if (!userData.access_token) {
+        throw new Error('Access token not found in OIDC user data')
+      }
+      return userData.access_token
     }
 
-    const cacheKey = oidcKeys[0]
-    const cacheData = JSON.parse(win.localStorage.getItem(cacheKey))
-
-    if (!cacheData || !cacheData.body || !cacheData.body.access_token) {
-      throw new Error('Access token not found in OIDC cache')
+    const userData = JSON.parse(userDataString)
+    if (!userData.access_token) {
+      throw new Error('Access token not found in OIDC user data')
     }
 
-    return cacheData.body.access_token
+    return userData.access_token
   })
+}
+
+/**
+ * Helper to get the current authentication token
+ * This is a convenience wrapper around getOidcAccessToken for use in tests
+ * @returns {string} The access token
+ */
+export function getAuthToken() {
+  return getOidcAccessToken()
 }
 
 /**
@@ -224,6 +277,7 @@ export function verifyJWTClaims(tokenKey, expectedClaims) {
 
       // Decode JWT payload
       const payload = JSON.parse(atob(token.split('.')[1]))
+      cy.log('🔍 verifyJWTClaims::payload', payload)
 
       const namespace = Cypress.env('AUTH_NAMESPACE')
 
@@ -242,7 +296,7 @@ export function verifyJWTClaims(tokenKey, expectedClaims) {
       })
     })
   } else {
-    // Use localStorage key (original behavior)
+    // Use localStorage key (for participant tokens)
     return cy.window().then((win) => {
       const token = win.localStorage.getItem(tokenKey)
       expect(token).to.exist
@@ -250,23 +304,10 @@ export function verifyJWTClaims(tokenKey, expectedClaims) {
       // Decode JWT payload
       const payload = JSON.parse(atob(token.split('.')[1]))
 
-      // For access tokens, we need to check custom namespace claims
-      // For ID tokens, we can check standard claims
-      const namespace = Cypress.env('AUTH_NAMESPACE')
-
       // Verify expected claims
       Object.keys(expectedClaims).forEach((claim) => {
         const expectedValue = expectedClaims[claim]
-        let actualValue
-
-        // For access tokens, check custom namespace claims first, then standard claims
-        if (tokenKey === 'auth_token') {
-          // Access token - prefer custom namespace claims
-          actualValue = payload[`${namespace}${claim}`] || payload[claim]
-        } else {
-          // ID token or other tokens - check standard claims first
-          actualValue = payload[claim] || payload[`${namespace}${claim}`]
-        }
+        const actualValue = payload[claim]
 
         expect(actualValue).to.equal(
           expectedValue,
@@ -328,28 +369,29 @@ export function verifyCustomNamespaceClaims(tokenKey, expectedClaims) {
  * @param {object} expectedClaims - Standard claims to verify in ID token
  */
 export function verifyIDTokenClaims(expectedClaims) {
+  const oidcCacheKeyPrefix = Cypress.env('OIDC_CACHE_KEY_PREFIX')
+
   return cy.window().then((win) => {
-    // Auth0 stores ID token in its cache format: @@auth0spajs@@::client-id::@@user@@
-    const oidcUserKeys = Object.keys(win.localStorage).filter(
-      (key) => key.includes('@@auth0spajs@@') && key.includes('@@user@@'),
+    const oidcUserKeys = Object.keys(win.localStorage).filter((key) =>
+      key.includes(oidcCacheKeyPrefix),
     )
 
     if (oidcUserKeys.length === 0) {
-      // ID token might not be issued by the simulator - this is expected
-      cy.log('⚠️ No OIDC user cache found - ID token verification skipped')
-      return
+      cy.log('⚠️ No OIDC user cache found')
     }
+
+    expect(oidcUserKeys).to.have.length(1)
 
     const userCacheKey = oidcUserKeys[0]
     const userCacheData = JSON.parse(win.localStorage.getItem(userCacheKey))
 
-    if (!userCacheData || !userCacheData.body || !userCacheData.body.id_token) {
-      // ID token might not be issued by the simulator - this is expected
-      cy.log('⚠️ ID token not found in OIDC cache - verification skipped')
-      return
+    if (!userCacheData || !userCacheData.id_token) {
+      cy.log('⚠️ ID token not found in OIDC cache')
     }
 
-    const token = userCacheData.body.id_token
+    expect(userCacheData).to.have.property('id_token')
+
+    const token = userCacheData.id_token
 
     // Decode JWT payload
     const payload = JSON.parse(atob(token.split('.')[1]))
@@ -448,7 +490,7 @@ export function voteOnComment(voteType = 'agree') {
 
 /**
  * Helper to verify that a JWT token exists and is valid
- * @param {string} tokenKey - localStorage key for the token ('participant_token' or 'auth_token')
+ * @param {string} tokenKey - localStorage key for the token (e.g., 'participant_token_conversationId')
  * @param {object} expectedClaims - Expected claims in the JWT
  */
 export function verifyJWTExists(tokenKey = 'participant_token', expectedClaims = {}) {

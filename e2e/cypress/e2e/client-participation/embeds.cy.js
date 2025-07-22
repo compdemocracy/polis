@@ -1,4 +1,3 @@
-import { loginStandardUser } from '../../support/auth-helpers.js'
 import {
   createTestConversation,
   addCommentToConversation,
@@ -10,9 +9,6 @@ const description = 'Embedded Conversation Description'
 describe('Embedded Conversations', function () {
   before(function () {
     cy.log('🚀 Setting up embedded conversation test suite')
-
-    // Create conversation with authenticated admin user
-    loginStandardUser('admin@polis.test', 'Te$tP@ssw0rd*')
 
     createTestConversation({
       topic,

@@ -1,11 +1,9 @@
 import { loginStandardUser, logout } from '../../support/auth-helpers.js'
-
 import {
   createTestConversation,
   addCommentsToConversation,
   participateInConversation,
 } from '../../support/conversation-helpers.js'
-
 import { navigateToConversationSection } from '../../support/admin-helpers.js'
 
 describe('Client Admin: Comment Moderation', () => {
@@ -25,9 +23,8 @@ describe('Client Admin: Comment Moderation', () => {
   before(() => {
     cy.log('🔧 Setting up conversation for comment moderation tests')
 
-    // Login as admin
+    // Logout any existing user
     logout()
-    loginStandardUser('admin@polis.test', 'Te$tP@ssw0rd*')
 
     // Create a conversation and store the ID
     createTestConversation({
@@ -102,23 +99,25 @@ describe('Client Admin: Comment Moderation', () => {
 
         if (moderationCheckbox) {
           // Work directly with the element wrapped in Cypress
-          cy.wrap(moderationCheckbox).invoke('prop', 'checked').then((isChecked) => {
-            cy.log(`Moderation currently ${isChecked ? 'enabled' : 'disabled'}`)
-            cy.wrap(moderationCheckbox).click()
+          cy.wrap(moderationCheckbox)
+            .invoke('prop', 'checked')
+            .then((isChecked) => {
+              cy.log(`Moderation currently ${isChecked ? 'enabled' : 'disabled'}`)
+              cy.wrap(moderationCheckbox).click()
 
-            // Wait for update
-            cy.wait('@updateModeration').then((interception) => {
-              expect(interception.response.statusCode).to.eq(200)
-              cy.log(`✅ Moderation toggled to ${!isChecked ? 'enabled' : 'disabled'}`)
-            })
+              // Wait for update
+              cy.wait('@updateModeration').then((interception) => {
+                expect(interception.response.statusCode).to.eq(200)
+                cy.log(`✅ Moderation toggled to ${!isChecked ? 'enabled' : 'disabled'}`)
+              })
 
-            // Toggle back
-            cy.wrap(moderationCheckbox).click()
-            cy.wait('@updateModeration').then((interception) => {
-              expect(interception.response.statusCode).to.eq(200)
-              cy.log(`✅ Moderation toggled back to ${isChecked ? 'enabled' : 'disabled'}`)
+              // Toggle back
+              cy.wrap(moderationCheckbox).click()
+              cy.wait('@updateModeration').then((interception) => {
+                expect(interception.response.statusCode).to.eq(200)
+                cy.log(`✅ Moderation toggled back to ${isChecked ? 'enabled' : 'disabled'}`)
+              })
             })
-          })
         }
       })
     })

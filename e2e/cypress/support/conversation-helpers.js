@@ -3,7 +3,7 @@
  * Provides utilities for creating and managing conversations for participant testing
  */
 
-import { loginStandardUser, loginStandardUserAPI } from './auth-helpers.js'
+import { loginStandardUser, loginStandardUserAPI, getAuthToken } from './auth-helpers.js'
 
 /**
  * Helper to create a test conversation via API (for API auth tests)
@@ -23,12 +23,8 @@ export function createTestConversationAPI(options = {}) {
   cy.log(`🏗️ Creating test conversation via API: ${topic}`)
 
   // Create conversation via API using stored token
-  return cy
-    .window()
-    .then((win) => {
-      const token = win.localStorage.getItem('auth_token')
-      expect(token).to.exist
-
+  return getAuthToken()
+    .then((token) => {
       return cy.request({
         method: 'POST',
         url: '/api/v3/conversations',
@@ -108,7 +104,7 @@ export function createTestConversation(options = {}) {
     .should('be.visible')
     .should('not.be.disabled')
     .should('have.attr', 'data-testid', 'topic')
-  
+
   // Clear and type in separate commands to avoid ESLint error
   cy.get('input[data-testid="topic"]').clear()
   cy.get('input[data-testid="topic"]').type(topic)
@@ -120,7 +116,7 @@ export function createTestConversation(options = {}) {
     .should('be.visible')
     .should('not.be.disabled')
     .should('have.attr', 'data-testid', 'description')
-  
+
   // Clear and type in separate commands to avoid ESLint error
   cy.get('textarea[data-testid="description"]').clear()
   cy.get('textarea[data-testid="description"]').type(description)
@@ -162,10 +158,7 @@ export function addCommentToConversation(
 
   // Use API authentication which is more reliable for API calls
   return loginStandardUserAPI(userEmail, userPassword).then(() => {
-    return cy.window().then((win) => {
-      const token = win.localStorage.getItem('auth_token')
-      expect(token).to.exist
-
+    return getAuthToken().then((token) => {
       return cy
         .request({
           method: 'POST',
@@ -209,10 +202,7 @@ export function addCommentsToConversation(
 
   // Use API authentication which is more reliable for API calls
   return loginStandardUserAPI(userEmail, userPassword).then(() => {
-    return cy.window().then((win) => {
-      const token = win.localStorage.getItem('auth_token')
-      expect(token).to.exist
-
+    return getAuthToken().then((token) => {
       // Create a chain of API requests for sequential comment creation
       cy.wrap(comments).each((comment, index) => {
         cy.log(`💬 Adding comment ${index + 1}/${comments.length}: ${comment}`)
@@ -232,7 +222,9 @@ export function addCommentsToConversation(
           },
         }).then((response) => {
           expect(response.status).to.be.oneOf([200, 201])
-          cy.log(`✅ Added comment ${index + 1}/${comments.length} to conversation ${conversationId}`)
+          cy.log(
+            `✅ Added comment ${index + 1}/${comments.length} to conversation ${conversationId}`,
+          )
         })
       })
 
@@ -254,10 +246,7 @@ export function addCommentsToConversationNoAuth(conversationId, comments) {
     `💬 Adding ${comments.length} comments to conversation ${conversationId} (using existing auth)`,
   )
 
-  return cy.window().then((win) => {
-    const token = win.localStorage.getItem('auth_token')
-    expect(token).to.exist
-
+  return getAuthToken().then((token) => {
     // Create a chain of API requests for sequential comment creation
     cy.wrap(comments).each((comment, index) => {
       cy.log(`💬 Adding comment ${index + 1}/${comments.length}: ${comment}`)
@@ -277,7 +266,9 @@ export function addCommentsToConversationNoAuth(conversationId, comments) {
       }).then((response) => {
         expect(response.status).to.be.oneOf([200, 201])
         return cy.wrap(null).then(() => {
-          cy.log(`✅ Added comment ${index + 1}/${comments.length} to conversation ${conversationId}`)
+          cy.log(
+            `✅ Added comment ${index + 1}/${comments.length} to conversation ${conversationId}`,
+          )
         })
       })
     })
@@ -302,11 +293,8 @@ function enableVisualizationForConversation(
 
   // Ensure we're authenticated
   return loginStandardUserAPI(userEmail, userPassword).then(() => {
-    // Get the auth token from localStorage
-    return cy.window().then((win) => {
-      const token = win.localStorage.getItem('auth_token')
-      expect(token).to.exist
-
+    // Get the auth token
+    return getAuthToken().then((token) => {
       // First, get the current conversation metadata
       return cy
         .request({
@@ -468,32 +456,41 @@ export function visitConversationAsParticipant(conversationId, options = {}) {
     `👤 Visiting conversation as participant: ${conversationId}${xid ? ` (XID: ${xid})` : ' (anonymous)'}`,
   )
 
-  // CRITICAL: Clear all authentication state to ensure clean participant session
-  // This prevents admin authentication from interfering with participant JWT issuance
+  // CRITICAL: First visit a neutral page to break any context
+  cy.visit('/404', { failOnStatusCode: false })
+
+  // Clear all storage and cookies
+  cy.clearCookies()
   cy.clearLocalStorage()
+  cy.clearAllSessionStorage()
+
+  // Clear window state
   cy.window().then((win) => {
     win.sessionStorage.clear()
+    win.localStorage.clear()
+    // Clear any global variables that might hold auth state
+    if (win.oidcTokenGetter) delete win.oidcTokenGetter
+    if (win.user) delete win.user
+    if (win.auth) delete win.auth
   })
 
-  // CRITICAL: Remove any auth intercepts from previous tests
-  // This ensures participant requests don't include admin auth headers
-  cy.intercept('**/api/**', (req) => {
-    // Remove any authorization headers for participant requests
-    if (
-      req.url.includes('/participationInit') ||
-      req.url.includes('/votes') ||
-      req.url.includes('/nextComment') ||
-      req.url.includes('/comments') ||
-      req.url.includes('/math/pca2') ||
-      req.url.includes('/votes/famous')
-    ) {
-      delete req.headers['Authorization']
-      delete req.headers['authorization']
-    }
-  }).as('cleanParticipantRequests')
+  // Log storage state after clearing
+  cy.window().then((win) => {
+    const localStorageData = {}
+    const sessionStorageData = {}
 
-  // Set up polling intercepts to prevent Cypress from waiting for ongoing requests
-  // Only set these up if interceptPolling is true (default behavior)
+    // Convert storage objects to plain objects for logging
+    for (let i = 0; i < win.localStorage.length; i++) {
+      const key = win.localStorage.key(i)
+      localStorageData[key] = win.localStorage.getItem(key)
+    }
+    for (let i = 0; i < win.sessionStorage.length; i++) {
+      const key = win.sessionStorage.key(i)
+      sessionStorageData[key] = win.sessionStorage.getItem(key)
+    }
+  })
+
+  // Set up polling intercepts if needed
   if (interceptPolling) {
     cy.intercept('GET', '/api/v3/math/pca2*', { statusCode: 304, body: {} }).as('mathPolling')
     cy.intercept('GET', '/api/v3/comments*', { statusCode: 200, body: [] }).as('commentsPolling')
@@ -504,15 +501,17 @@ export function visitConversationAsParticipant(conversationId, options = {}) {
 
   const url = `/${conversationId}`
   const visitOptions = {}
-
-  if (xid) {
-    visitOptions.qs = { xid }
-  }
+  if (xid) visitOptions.qs = { xid }
 
   cy.visit(url, visitOptions)
 
   // Wait for the conversation to load
   cy.get('body').should('be.visible')
+
+  // Log current URL and query params
+  cy.url().then((currentUrl) => {
+    cy.log('Current URL:', currentUrl)
+  })
 
   // After page loads, clear any cached JWT tokens
   cy.window().then((win) => {
@@ -555,14 +554,14 @@ export function participateInConversation(conversationId, options = {}) {
     )
       .first()
       .should('be.visible')
-    
+
     // Clear and type comment in separate commands to avoid ESLint error
     cy.get(
       'textarea#comment_form_textarea, textarea[name="comment"], textarea[placeholder*="comment"], textarea',
     )
       .first()
       .clear()
-    
+
     cy.get(
       'textarea#comment_form_textarea, textarea[name="comment"], textarea[placeholder*="comment"], textarea',
     )

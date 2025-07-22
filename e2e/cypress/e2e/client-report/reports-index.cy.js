@@ -102,12 +102,12 @@ describe('Reports - Admin Interface', () => {
       // Set up intercepts
       cy.intercept('POST', '/api/v3/reports').as('createReport')
       cy.intercept('GET', '/api/v3/reports*').as('getReports')
-      
+
       // Create multiple reports
       cy.get('button').contains('Create report url').click()
       cy.wait('@createReport')
       cy.wait('@getReports')
-      
+
       cy.get('button').contains('Create report url').click()
       cy.wait('@createReport')
       cy.wait('@getReports')
@@ -120,7 +120,7 @@ describe('Reports - Admin Interface', () => {
       // Set up intercepts
       cy.intercept('POST', '/api/v3/reports').as('createReport')
       cy.intercept('GET', '/api/v3/reports*').as('getReports')
-      
+
       // Create a report if none exist
       cy.get('body').then(($body) => {
         if ($body.find('[data-testid="report-list-item"]').length === 0) {

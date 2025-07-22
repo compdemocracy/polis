@@ -210,7 +210,7 @@ it('admin and participant test', () => {
   cy.then(() => {
     // Visit neutral page to establish clean context
     cy.visit('/')
-    
+
     // Now subsequent actions work correctly
     cy.visit(`/${conversationId}`)
     cy.get('#agreeButton').click() // Clean state!
@@ -220,7 +220,90 @@ it('admin and participant test', () => {
 
 **Key Insight**: The critical fix is **isolating phases within their own `cy.window()` context** and using `cy.then()` to create a clean break.
 
+### Intercept Persistence and Sticky Authentication
+
+Another major cause of "sticky authentication" is persistent intercepts. Cypress intercepts are **additive** and persist for the entire test unless explicitly cleared.
+
+❌ **Problem - Persistent Global Intercept:**
+
+```javascript
+// In admin setup phase
+cy.intercept('**/api/**', (req) => {
+  req.headers['Authorization'] = `Bearer ${adminToken}`
+}).as('adminAuth')
+
+// Later in participant phase
+cy.visit('/conversation') // ALL requests still have admin auth!
+```
+
+✅ **Solution 1 - Use Specific Intercepts:**
+
+```javascript
+// Only intercept specific admin endpoints
+cy.intercept('**/api/**', (req) => {
+  if (req.url.includes('/conversations') || req.url.includes('/users')) {
+    req.headers['Authorization'] = `Bearer ${adminToken}`
+  }
+}).as('adminAuth')
+```
+
+✅ **Solution 2 - Use Middleware Intercepts with Priority:**
+
+```javascript
+// High-priority intercept to clean participant requests
+cy.intercept({ url: '**/api/**', middleware: true }, (req) => {
+  if (req.url.includes('/participationInit')) {
+    delete req.headers['Authorization']
+    delete req.headers['Cookie']
+  }
+})
+```
+
+✅ **Solution 3 - Visit Neutral Page Between Phases:**
+
+```javascript
+// Break context between admin and participant phases
+cy.visit('/404', { failOnStatusCode: false })
+cy.clearAllCookies()
+cy.clearAllLocalStorage()
+cy.clearAllSessionStorage()
+```
+
+### Key Rules for Avoiding Sticky State
+
+1. **Isolate test phases** with `cy.then()` blocks
+2. **Use specific intercepts** instead of global wildcards
+3. **Visit neutral pages** between different auth contexts
+4. **Clear ALL storage types** (cookies, localStorage, sessionStorage)
+5. **Use middleware intercepts** for high-priority header cleaning
+6. **Delete window globals** that might hold auth state
+
 ## Command Best Practices
+
+### Logging in Intercepts
+
+When using `cy.intercept()`, remember:
+
+- Use `console.log()` inside intercept callbacks for logging request details.
+- Do not use `cy.log()` inside intercept callbacks, as they are not part of the Cypress command chain and will cause errors.
+
+Example:
+
+```javascript
+cy.intercept('**/api/**', (req) => {
+  console.log('Intercepting request:', req.url)
+  console.log('Request headers:', req.headers)
+  delete req.headers['Authorization']
+}).as('cleanRequests')
+```
+
+For Cypress command chain logging, use `cy.log()` outside of intercept callbacks:
+
+```javascript
+cy.wait('@cleanRequests').then((interception) => {
+  cy.log('Intercepted request:', interception.request.url)
+})
+```
 
 ### Variables and Aliases
 
@@ -229,7 +312,7 @@ it('admin and participant test', () => {
 ```javascript
 let token
 cy.window().then((win) => {
-  token = win.localStorage.getItem('participant_token')
+  token = win.localStorage.getItem('participant_token_123') // conversation-specific key
 })
 // token is still undefined here!
 expect(token).to.exist // FAILS
@@ -239,7 +322,7 @@ expect(token).to.exist // FAILS
 
 ```javascript
 cy.window().then((win) => {
-  const token = win.localStorage.getItem('participant_token')
+  const token = win.localStorage.getItem('participant_token_123') // conversation-specific key
   expect(token).to.exist // Works!
 })
 ```
@@ -249,7 +332,7 @@ cy.window().then((win) => {
 ```javascript
 cy.window()
   .then((win) => {
-    return win.localStorage.getItem('participant_token')
+    return win.localStorage.getItem('participant_token_123') // conversation-specific key
   })
   .as('token')
 
@@ -286,7 +369,7 @@ function createConversation(topic) {
   cy.request({
     method: 'POST',
     url: '/api/v3/conversations',
-    body: { topic }
+    body: { topic },
   }).then((response) => {
     cy.log('Created conversation') // Cypress command
     return response.body.conversation_id // Sync return - BAD!
@@ -298,15 +381,17 @@ function createConversation(topic) {
 
 ```javascript
 function createConversation(topic) {
-  return cy.request({
-    method: 'POST',
-    url: '/api/v3/conversations',
-    body: { topic }
-  }).then((response) => {
-    const conversationId = response.body.conversation_id
-    cy.log(`Created conversation: ${conversationId}`)
-    return cy.wrap(conversationId) // Return Cypress chainable
-  })
+  return cy
+    .request({
+      method: 'POST',
+      url: '/api/v3/conversations',
+      body: { topic },
+    })
+    .then((response) => {
+      const conversationId = response.body.conversation_id
+      cy.log(`Created conversation: ${conversationId}`)
+      return cy.wrap(conversationId) // Return Cypress chainable
+    })
 }
 ```
 
@@ -350,9 +435,7 @@ cy.get('iframe').then(($iframe) => {
 1. **Wait for element visibility with timeout:**
 
    ```javascript
-   cy.get('pre')
-     .should('be.visible')
-     .should('not.contain', 'loading, try refreshing') // Wait for actual content
+   cy.get('pre').should('be.visible').should('not.contain', 'loading, try refreshing') // Wait for actual content
    ```
 
 2. **Wait for API responses:**
@@ -390,7 +473,7 @@ Only remove if the search returns no results across the entire e2e directory.
      // Create known test data
      createTestConversationAPI({
        topic: 'Pre-existing Test Conversation',
-       description: 'This conversation exists before each test runs'
+       description: 'This conversation exists before each test runs',
      }).then((convId) => {
        preExistingConversationId = convId
      })
@@ -425,8 +508,8 @@ Only remove if the search returns no results across the entire e2e directory.
 
    ```javascript
    cy.wait('@apiCall').then((interception) => {
-     const data = Array.isArray(interception.response.body) 
-       ? interception.response.body[0] 
+     const data = Array.isArray(interception.response.body)
+       ? interception.response.body[0]
        : interception.response.body
      // Use data...
    })
@@ -442,6 +525,82 @@ These patterns help avoid common Cypress pitfalls:
 4. **Be careful with `cy.intercept()`** callbacks - they change how `cy.wait()` works
 5. **Always search before removing functions** from helper files
 6. **Create predictable test data** and clean up between tests
+7. **Use conversation-specific JWT keys** - JWT tokens are stored as `participant_token_${conversationId}`
+
+## JWT Storage Pattern
+
+**Important**: JWT tokens are now stored conversation-specifically as `participant_token_${conversationId}`. This allows participants to maintain multiple JWTs simultaneously for different conversations.
+
+```javascript
+// Get JWT for specific conversation
+cy.window().then((win) => {
+  const conversationId = 'abc123'
+  const token = win.localStorage.getItem(`participant_token_${conversationId}`)
+  expect(token).to.exist
+})
+
+// Helper function to get conversation-specific JWT
+function getConversationJWT(conversationId) {
+  return cy.window().then((win) => {
+    return win.localStorage.getItem(`participant_token_${conversationId}`)
+  })
+}
+```
+
+### Key Changes
+
+The client apps now store JWT tokens conversation-specifically as `participant_token_${conversationId}` instead of a single `participant_token`. This allows:
+
+- **Multiple conversations**: Participants can maintain JWTs for multiple conversations simultaneously
+- **Better isolation**: Tests can run multiple conversation scenarios without JWT conflicts
+- **Realistic behavior**: Matches how users actually interact with multiple conversations
+
+### Updated Test Patterns
+
+```javascript
+// Old pattern (no longer works)
+cy.window().then((win) => {
+  const token = win.localStorage.getItem('participant_token')
+})
+
+// New pattern (conversation-specific)
+cy.window().then((win) => {
+  const token = win.localStorage.getItem(`participant_token_${conversationId}`)
+})
+
+// Helper function approach
+function getConversationJWT(conversationId) {
+  return cy.window().then((win) => {
+    return win.localStorage.getItem(`participant_token_${conversationId}`)
+  })
+}
+```
+
+### Testing Multiple Conversations
+
+```javascript
+it('should handle multiple conversations', () => {
+  // Setup two conversations
+  const conv1 = 'abc123'
+  const conv2 = 'def456'
+
+  // Visit first conversation and vote
+  cy.visit(`/${conv1}`)
+  voteOnComment('agree')
+  waitForJWTToken(`participant_token_${conv1}`)
+
+  // Visit second conversation and vote
+  cy.visit(`/${conv2}`)
+  voteOnComment('agree')
+  waitForJWTToken(`participant_token_${conv2}`)
+
+  // Both JWTs should exist independently
+  cy.window().then((win) => {
+    expect(win.localStorage.getItem(`participant_token_${conv1}`)).to.exist
+    expect(win.localStorage.getItem(`participant_token_${conv2}`)).to.exist
+  })
+})
+```
 
 For specific authentication patterns, see [E2E-AUTHENTICATION-GUIDE.md](./E2E-AUTHENTICATION-GUIDE.md).
 For participant testing patterns, see [PARTICIPANT-TESTING.md](./PARTICIPANT-TESTING.md).

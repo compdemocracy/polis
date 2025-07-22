@@ -57,9 +57,7 @@ describe('Client Admin: Routes', () => {
       cy.visit('/signout')
 
       // Should be logged out and redirected
-      cy.url().should('satisfy', (url) => {
-        return url.includes('/signin') || url === '/' || url.includes('createuser')
-      })
+      cy.url().should('include', '/home')
 
       // Verify we're actually logged out by trying to access admin page
       cy.visit(`/m/${testConversationId}`, { failOnStatusCode: false })

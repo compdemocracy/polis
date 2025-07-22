@@ -2,6 +2,7 @@ import {
   createTestConversationAPI,
   addCommentsToConversation,
 } from '../../support/conversation-helpers.js'
+import { getAuthToken } from '../../support/auth-helpers.js'
 
 describe('Reports - Functionality & Features', () => {
   let conversationId
@@ -42,10 +43,7 @@ describe('Reports - Functionality & Features', () => {
           })
           .then(() => {
             // Create report via API
-            return cy.window().then((win) => {
-              const token = win.localStorage.getItem('auth_token')
-              expect(token).to.exist
-
+            return getAuthToken().then((token) => {
               return cy
                 .request({
                   method: 'POST',
@@ -91,7 +89,7 @@ describe('Reports - Functionality & Features', () => {
     it('should display basic report structure', () => {
       // Intercept the report data API call
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       cy.visit(reportUrl)
 
       // Wait for the report to load
@@ -113,7 +111,7 @@ describe('Reports - Functionality & Features', () => {
     it('should show conversation overview section', () => {
       // Intercept the report data API call
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       cy.visit(reportUrl)
 
       // Wait for the report to load
@@ -129,7 +127,7 @@ describe('Reports - Functionality & Features', () => {
     it('should display data export links', () => {
       // Intercept the report data API call
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       cy.visit(reportUrl)
 
       // Wait for the report to load
@@ -145,10 +143,7 @@ describe('Reports - Functionality & Features', () => {
     it('should handle empty/minimal data gracefully', () => {
       // Create a new conversation with no data using API
       cy.loginStandardUserAPI('admin@polis.test', 'Te$tP@ssw0rd*').then(() => {
-        return cy.window().then((win) => {
-          const token = win.localStorage.getItem('auth_token')
-          expect(token).to.exist
-
+        return getAuthToken().then((token) => {
           return cy
             .request({
               method: 'POST',
@@ -204,10 +199,10 @@ describe('Reports - Functionality & Features', () => {
 
                       // Now test the empty report as anonymous user
                       cy.logout()
-                      
+
                       // Intercept the report data API calls
                       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-                      
+
                       cy.visit(emptyReportUrl)
 
                       // Wait for the report to load (may return empty data)
@@ -215,7 +210,7 @@ describe('Reports - Functionality & Features', () => {
 
                       // Should still load without errors
                       cy.get('body').should('exist')
-                      
+
                       // Empty reports show "Nothing to show yet"
                       cy.contains('Nothing to show yet', { timeout: 10000 }).should('be.visible')
                     })
@@ -234,10 +229,7 @@ describe('Reports - Functionality & Features', () => {
     it('should update report name', () => {
       const newReportName = 'Q4 2024 Community Feedback Report'
 
-      cy.window().then((win) => {
-        const token = win.localStorage.getItem('auth_token')
-        expect(token).to.exist
-
+      getAuthToken().then((token) => {
         cy.request({
           method: 'PUT',
           url: '/api/v3/reports',
@@ -275,10 +267,7 @@ describe('Reports - Functionality & Features', () => {
         label_y_neg: 'Libertarian',
       }
 
-      cy.window().then((win) => {
-        const token = win.localStorage.getItem('auth_token')
-        expect(token).to.exist
-
+      getAuthToken().then((token) => {
         cy.request({
           method: 'PUT',
           url: '/api/v3/reports',
@@ -319,10 +308,7 @@ describe('Reports - Functionality & Features', () => {
         label_group_3: 'Libertarians',
       }
 
-      cy.window().then((win) => {
-        const token = win.localStorage.getItem('auth_token')
-        expect(token).to.exist
-
+      getAuthToken().then((token) => {
         cy.request({
           method: 'PUT',
           url: '/api/v3/reports',
@@ -346,7 +332,7 @@ describe('Reports - Functionality & Features', () => {
     it('should load Standard Report variant', () => {
       // Intercept the report data API calls
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       const variantUrl = '/report/' + reportId
       cy.visit(variantUrl, { failOnStatusCode: false })
 
@@ -363,7 +349,7 @@ describe('Reports - Functionality & Features', () => {
     it('should load Narrative Report variant', () => {
       // Intercept the report data API calls
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       const variantUrl = '/narrativeReport/' + reportId
       cy.visit(variantUrl, { failOnStatusCode: false })
 
@@ -380,7 +366,7 @@ describe('Reports - Functionality & Features', () => {
     it('should load Statistics variant', () => {
       // Intercept the report data API calls
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       const variantUrl = '/stats/' + reportId
       cy.visit(variantUrl, { failOnStatusCode: false })
 
@@ -397,7 +383,7 @@ describe('Reports - Functionality & Features', () => {
     it('should load Comments Report variant', () => {
       // Intercept the report data API calls
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       const variantUrl = '/commentsReport/' + reportId
       cy.visit(variantUrl, { failOnStatusCode: false })
 
@@ -414,7 +400,7 @@ describe('Reports - Functionality & Features', () => {
     it('should load Topics Report variant', () => {
       // Intercept the report data API calls
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       const variantUrl = '/topicReport/' + reportId
       cy.visit(variantUrl, { failOnStatusCode: false })
 
@@ -433,7 +419,7 @@ describe('Reports - Functionality & Features', () => {
     it('should provide working CSV export links', () => {
       // Intercept the report data API calls
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       cy.visit(reportUrl)
 
       // Wait for the report to load
@@ -457,7 +443,7 @@ describe('Reports - Functionality & Features', () => {
     it('should show correct export endpoints', () => {
       // Intercept the report data API calls
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       cy.visit(reportUrl)
 
       // Wait for the report to load
@@ -530,7 +516,7 @@ describe('Reports - Functionality & Features', () => {
     it('should load report within reasonable time', () => {
       // Intercept the report data API calls
       cy.intercept('GET', '/api/v3/reports*').as('getReport')
-      
+
       const startTime = Date.now()
 
       cy.visit(reportUrl)

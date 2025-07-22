@@ -14,7 +14,7 @@ The anonymous JWT flow works correctly in the browser but fails in Cypress tests
 2. `/api/v3/participationInit` is called - NO JWT is issued at this point
 3. User casts their first vote via `/api/v3/votes`
 4. Server issues JWT token in the vote response
-5. Client stores JWT in localStorage as `participant_token`
+5. Client stores JWT in localStorage as `participant_token_${conversationId}` (conversation-specific)
 6. Subsequent requests include JWT in Authorization header
 
 ## The Real Issue
@@ -48,13 +48,14 @@ npm test -- --spec cypress/e2e/client-participation/anonymous-jwt-flow.cy.js
 
 3. Check browser developer tools:
    - Network tab: Look for `/api/v3/votes` response with `auth.token` field
-   - Application tab: Check localStorage for `participant_token`
+   - Application tab: Check localStorage for `participant_token_${conversationId}` (conversation-specific)
 
 ## Test Improvements
 
 The updated test now:
 
-1. Monitors localStorage.setItem calls to catch JWT storage
+1. Monitors localStorage.setItem calls to catch JWT storage with conversation-specific keys
 2. Uses a Promise to wait for asynchronous JWT storage
 3. Verifies JWT is used in subsequent requests
 4. Provides better debugging output
+5. Handles conversation-specific JWT storage pattern (`participant_token_${conversationId}`)

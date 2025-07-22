@@ -19,21 +19,27 @@ describe('Participant Authentication (Anonymous & XID)', () => {
   before(() => {
     cy.log('🚀 Setting up test conversation using working UI approach')
 
-    setupTestConversation({
-      topic: 'JWT Test Conversation',
-      description: 'Test conversation for JWT validation',
-      comments: [
-        'First test comment for voting',
-        'Second test comment for voting',
-        'Third test comment for voting',
-      ], // Multiple comments to support multiple voting tests
-    }).then((conversation) => {
-      testConversation = conversation
-      cy.log(`✅ Test conversation ready: ${conversation.conversationId}`)
+    // CRITICAL: Use cy.then() to isolate the setup phase
+    cy.then(() => {
+      setupTestConversation({
+        topic: 'JWT Test Conversation',
+        description: 'Test conversation for JWT validation',
+        comments: [
+          'First test comment for voting',
+          'Second test comment for voting',
+          'Third test comment for voting',
+        ],
+      }).then((conversation) => {
+        testConversation = conversation
+        cy.log(`✅ Test conversation ready: ${conversation.conversationId}`)
+      })
     })
   })
 
   beforeEach(() => {
+    // CRITICAL: Visit a neutral page first to break any lingering context
+    cy.visit('/')
+
     // Clear any existing auth state before each test
     logout()
 
@@ -48,7 +54,9 @@ describe('Participant Authentication (Anonymous & XID)', () => {
 
       // Verify no JWT token exists initially
       cy.window().then((win) => {
-        const token = win.localStorage.getItem('participant_token')
+        const token = win.localStorage.getItem(
+          `participant_token_${testConversation.conversationId}`,
+        )
         expect(token).to.be.null
       })
 
@@ -65,11 +73,11 @@ describe('Participant Authentication (Anonymous & XID)', () => {
       voteOnComment('agree')
 
       // Wait for JWT to be stored
-      waitForJWTToken('participant_token')
+      waitForJWTToken(`participant_token_${testConversation.conversationId}`)
 
       // Verify the JWT structure and claims
-      verifyJWTClaims('participant_token', {
-        anonymous: true,
+      verifyJWTClaims(`participant_token_${testConversation.conversationId}`, {
+        anonymous_participant: true,
         conversation_id: testConversation.conversationId,
       })
     })
@@ -78,11 +86,13 @@ describe('Participant Authentication (Anonymous & XID)', () => {
       // Visit conversation and vote to get JWT
       visitConversationAsParticipant(testConversation.conversationId)
       voteOnComment('disagree')
-      waitForJWTToken('participant_token')
+      waitForJWTToken(`participant_token_${testConversation.conversationId}`)
 
       // Get the initial token
       cy.window().then((win) => {
-        const initialToken = win.localStorage.getItem('participant_token')
+        const initialToken = win.localStorage.getItem(
+          `participant_token_${testConversation.conversationId}`,
+        )
         expect(initialToken).to.exist
 
         // Refresh the page
@@ -90,7 +100,9 @@ describe('Participant Authentication (Anonymous & XID)', () => {
 
         // Verify token persists
         cy.window().then((refreshedWin) => {
-          const persistedToken = refreshedWin.localStorage.getItem('participant_token')
+          const persistedToken = refreshedWin.localStorage.getItem(
+            `participant_token_${testConversation.conversationId}`,
+          )
           expect(persistedToken).to.equal(initialToken)
         })
       })
@@ -100,11 +112,13 @@ describe('Participant Authentication (Anonymous & XID)', () => {
       // Vote to get JWT
       visitConversationAsParticipant(testConversation.conversationId)
       voteOnComment('agree')
-      waitForJWTToken('participant_token')
+      waitForJWTToken(`participant_token_${testConversation.conversationId}`)
 
       // Make a subsequent authenticated API request to verify JWT is used
       cy.window().then((win) => {
-        const token = win.localStorage.getItem('participant_token')
+        const token = win.localStorage.getItem(
+          `participant_token_${testConversation.conversationId}`,
+        )
         expect(token).to.exist
 
         // Intercept the API request to verify JWT is included
@@ -134,7 +148,9 @@ describe('Participant Authentication (Anonymous & XID)', () => {
 
       // Verify no JWT token exists initially
       cy.window().then((win) => {
-        const token = win.localStorage.getItem('participant_token')
+        const token = win.localStorage.getItem(
+          `participant_token_${testConversation.conversationId}`,
+        )
         expect(token).to.be.null
       })
 
@@ -152,10 +168,10 @@ describe('Participant Authentication (Anonymous & XID)', () => {
       voteOnComment('agree')
 
       // Wait for JWT to be stored
-      waitForJWTToken('participant_token')
+      waitForJWTToken(`participant_token_${testConversation.conversationId}`)
 
       // Verify the JWT structure and XID claims
-      verifyJWTExists('participant_token', {
+      verifyJWTExists(`participant_token_${testConversation.conversationId}`, {
         xid: testXid,
         conversation_id: testConversation.conversationId,
       })
@@ -179,10 +195,10 @@ describe('Participant Authentication (Anonymous & XID)', () => {
         visitConversationAsParticipant(testConversation.conversationId, { xid })
         // Vote on whatever comment appears (random order)
         voteOnComment('agree')
-        waitForJWTToken('participant_token')
+        waitForJWTToken(`participant_token_${testConversation.conversationId}`)
 
         // Verify JWT contains the correct XID
-        verifyJWTExists('participant_token', {
+        verifyJWTExists(`participant_token_${testConversation.conversationId}`, {
           xid: xid,
           conversation_id: testConversation.conversationId,
         })
@@ -195,11 +211,13 @@ describe('Participant Authentication (Anonymous & XID)', () => {
       // First session: vote with XID to establish participant identity
       visitConversationAsParticipant(testConversation.conversationId, { xid: testXid })
       voteOnComment('agree')
-      waitForJWTToken('participant_token')
+      waitForJWTToken(`participant_token_${testConversation.conversationId}`)
 
       // Get the participant ID from the first session
       cy.window().then((win) => {
-        const token = win.localStorage.getItem('participant_token')
+        const token = win.localStorage.getItem(
+          `participant_token_${testConversation.conversationId}`,
+        )
         const payload = JSON.parse(atob(token.split('.')[1]))
         const firstSessionPid = payload.pid
 
@@ -237,11 +255,13 @@ describe('Participant Authentication (Anonymous & XID)', () => {
     it('should issue valid JWT signatures for anonymous participants', () => {
       visitConversationAsParticipant(testConversation.conversationId)
       voteOnComment('agree')
-      waitForJWTToken('participant_token')
+      waitForJWTToken(`participant_token_${testConversation.conversationId}`)
 
       // Make a server request to validate the JWT
       cy.window().then((win) => {
-        const token = win.localStorage.getItem('participant_token')
+        const token = win.localStorage.getItem(
+          `participant_token_${testConversation.conversationId}`,
+        )
 
         cy.request({
           url: `/api/v3/participationInit?conversation_id=${testConversation.conversationId}`,
@@ -261,11 +281,13 @@ describe('Participant Authentication (Anonymous & XID)', () => {
 
       visitConversationAsParticipant(testConversation.conversationId, { xid: testXid })
       voteOnComment('agree')
-      waitForJWTToken('participant_token')
+      waitForJWTToken(`participant_token_${testConversation.conversationId}`)
 
       // Make a server request to validate the JWT
       cy.window().then((win) => {
-        const token = win.localStorage.getItem('participant_token')
+        const token = win.localStorage.getItem(
+          `participant_token_${testConversation.conversationId}`,
+        )
 
         cy.request({
           url: `/api/v3/participationInit?conversation_id=${testConversation.conversationId}&xid=${testXid}`,
@@ -300,11 +322,13 @@ describe('Participant Authentication (Anonymous & XID)', () => {
       // Test that JWTs are properly scoped to the conversation they were issued for
       visitConversationAsParticipant(testConversation.conversationId)
       voteOnComment('agree')
-      waitForJWTToken('participant_token')
+      waitForJWTToken(`participant_token_${testConversation.conversationId}`)
 
       // Verify JWT was issued and contains correct conversation ID
       cy.window().then((win) => {
-        const token = win.localStorage.getItem('participant_token')
+        const token = win.localStorage.getItem(
+          `participant_token_${testConversation.conversationId}`,
+        )
         expect(token).to.exist
 
         // Verify JWT format

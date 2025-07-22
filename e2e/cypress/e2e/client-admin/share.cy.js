@@ -14,9 +14,8 @@ describe('Client Admin: Share/Distribute', () => {
   before(() => {
     cy.log('🔧 Setting up conversations for share tests')
 
-    // Login as admin
+    // Logout any existing user
     logout()
-    loginStandardUser('admin@polis.test', 'Te$tP@ssw0rd*')
 
     // Create conversation with comments
     createTestConversation({
@@ -36,6 +35,8 @@ describe('Client Admin: Share/Distribute', () => {
         'Te$tP@ssw0rd*',
       )
     })
+
+    logout()
 
     // Create conversation without comments
     createTestConversation({

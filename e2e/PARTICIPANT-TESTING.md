@@ -39,7 +39,7 @@ cy.then(() => {
 // ❌ This was wrong - anonymous participants don't "log in"
 export function loginAnonymousParticipant() {
   cy.visit('/') // ❌ No home page for participants
-  cy.wrap(win.localStorage).should('contain.key', 'participant_token') // ❌ No token until action
+  cy.wrap(win.localStorage).should('contain.key', 'participant_token_123') // ❌ No token until action
 }
 ```
 
@@ -50,6 +50,7 @@ export function loginAnonymousParticipant() {
 export function participateAnonymously(conversationId) {
   cy.visit(`/${conversationId}`) // ✅ Visit specific conversation
   // JWT will be issued when participant votes, not immediately
+  // JWT is stored as participant_token_${conversationId}
 }
 ```
 
@@ -69,6 +70,8 @@ export function participateAnonymously(conversationId) {
 - `voteOnComment(voteType, commentIndex)` - Triggers JWT issuance by voting
 - `verifyJWTExists(tokenKey, expectedClaims)` - Verifies JWT structure and claims
 - `waitForJWTToken(tokenKey)` - Waits for JWT to be stored after actions
+
+**Note**: JWT tokens are now stored conversation-specifically as `participant_token_${conversationId}`. Helper functions should be called with the conversation-specific key.
 
 ## Test Flow Pattern
 
@@ -96,10 +99,10 @@ it('should issue JWT when anonymous participant votes', () => {
   // Vote to trigger JWT issuance
   voteOnComment('agree', 0)
 
-  // Wait for and verify JWT
-  waitForJWTToken('participant_token')
-  verifyJWTExists('participant_token', {
-    anonymous: true,
+  // Wait for and verify JWT (conversation-specific)
+  waitForJWTToken(`participant_token_${testConversation.conversationId}`)
+  verifyJWTExists(`participant_token_${testConversation.conversationId}`, {
+    anonymous_participant: true,
     conversation_id: testConversation.conversationId,
   })
 })
@@ -117,9 +120,9 @@ it('should issue JWT when XID participant votes', () => {
   // Vote to trigger JWT issuance
   voteOnComment('agree', 0)
 
-  // Wait for and verify JWT
-  waitForJWTToken('participant_token')
-  verifyJWTExists('participant_token', {
+  // Wait for and verify JWT (conversation-specific)
+  waitForJWTToken(`participant_token_${testConversation.conversationId}`)
+  verifyJWTExists(`participant_token_${testConversation.conversationId}`, {
     xid: testXid,
     conversation_id: testConversation.conversationId,
   })
@@ -169,6 +172,7 @@ CYPRESS_BASE_URL=http://localhost:5000
 - ✅ Use JWT for subsequent API requests
 - ✅ JWT persists across page refreshes
 - ✅ JWT validates correctly on server
+- ✅ JWT stored conversation-specifically (`participant_token_${conversationId}`)
 
 ### XID Participants
 
@@ -177,12 +181,14 @@ CYPRESS_BASE_URL=http://localhost:5000
 - ✅ Maintain XID identity across sessions
 - ✅ Handle different XID formats
 - ✅ XID JWT validates correctly on server
+- ✅ JWT stored conversation-specifically (`participant_token_${conversationId}`)
 
 ### JWT Validation
 
 - ✅ Valid JWT signatures accepted by server
 - ✅ Invalid JWT tokens rejected
 - ✅ JWT tokens scoped to specific conversations
+- ✅ Multiple conversation JWTs can coexist simultaneously
 
 ## Benefits of New Approach
 
@@ -213,3 +219,4 @@ CYPRESS_BASE_URL=http://localhost:5000
 
 - **Cause**: JWT tokens are conversation-scoped
 - **Solution**: Create separate JWTs for each conversation test
+- **Note**: JWT tokens are now stored conversation-specifically, so multiple conversations can be tested simultaneously without conflicts

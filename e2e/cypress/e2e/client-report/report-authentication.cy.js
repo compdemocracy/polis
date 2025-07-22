@@ -2,6 +2,7 @@ import {
   createTestConversationAPI,
   addCommentsToConversation,
 } from '../../support/conversation-helpers.js'
+import { getAuthToken } from '../../support/auth-helpers.js'
 
 describe('Reports - Authentication & Access Control', () => {
   let conversationId
@@ -36,10 +37,7 @@ describe('Reports - Authentication & Access Control', () => {
           })
           .then(() => {
             // Create report via API
-            return cy.window().then((win) => {
-              const token = win.localStorage.getItem('auth_token')
-              expect(token).to.exist
-
+            return getAuthToken().then((token) => {
               return cy
                 .request({
                   method: 'POST',
@@ -143,16 +141,12 @@ describe('Reports - Authentication & Access Control', () => {
       cy.get('body').then(($body) => {
         const bodyText = $body.text()
 
-        // Check for the specific "No Permission" text from the strings
-        const hasNoPermission = bodyText.includes(
-          'Your account does not have the permissions to view this page',
+        // Should show the permissions error message
+        cy.get('body').should(
+          'contain.text',
+          'Your account does not have the permissions to view this page.',
         )
-
-        // Or check for the no-permission div ID
-        const hasNoPermissionDiv = $body.find('#no-permission-warning').length > 0
-
-        expect(hasNoPermission).to.be.true
-        expect(hasNoPermissionDiv).to.be.true
+        cy.get('#no-permission-warning').should('be.visible')
         expect(bodyText).to.not.include('Create report url')
       })
 
@@ -408,11 +402,8 @@ describe('Reports - Authentication & Access Control', () => {
     it('should allow authenticated users to fetch reports', () => {
       // Login and get auth token
       cy.loginStandardUserAPI('admin@polis.test', 'Te$tP@ssw0rd*').then(() => {
-        // Get auth token from localStorage
-        return cy.window().then((win) => {
-          const token = win.localStorage.getItem('auth_token')
-          expect(token).to.exist
-
+        // Get auth token
+        return getAuthToken().then((token) => {
           // Fetch reports for conversation
           return cy
             .request({
@@ -433,11 +424,8 @@ describe('Reports - Authentication & Access Control', () => {
 
     it('should allow fetching specific report by ID', () => {
       cy.loginStandardUserAPI('admin@polis.test', 'Te$tP@ssw0rd*').then(() => {
-        // Get auth token from localStorage
-        return cy.window().then((win) => {
-          const token = win.localStorage.getItem('auth_token')
-          expect(token).to.exist
-
+        // Get auth token
+        return getAuthToken().then((token) => {
           // Fetch specific report
           return cy
             .request({

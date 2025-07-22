@@ -17,26 +17,26 @@ const SignOut = () => {
       try {
         setIsSigningOut(true)
         setError(null)
-        
+
         // Clear local storage and cookies first
         localStorage.clear()
         sessionStorage.clear()
-        
+
         // The Auth0 simulator does not include "end_session_endpoint" in the discovery document,
         // so we need to handle signout manually.
         if (process.env.AUTH_CLIENT_ID === 'dev-client-id') {
-          await auth.removeUser();
+          await auth.removeUser()
           setTimeout(() => {
-            navigate('/home');
-          }, 1000);
+            navigate('/home')
+          }, 1000)
         } else {
-          await auth.signoutRedirect({ post_logout_redirect_uri: `${window.location.origin}/home` });
+          await auth.signoutRedirect({ post_logout_redirect_uri: `${window.location.origin}/home` })
         }
       } catch (err) {
         console.error('Signout error:', err)
         setError(err.message || 'Signout failed')
         setIsSigningOut(false)
-        
+
         // Fallback: redirect to home page after a delay
         setTimeout(() => {
           navigate('/home')
