@@ -8,7 +8,6 @@ body {
   align-items: center;
   min-height: 100vh;
 }
-
 .container {
   max-width: 800px;
   margin: 2rem;
@@ -17,7 +16,6 @@ body {
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
-
 .logo {
   width: 50px;
   height: 50px;
@@ -31,17 +29,14 @@ body {
   border-radius: 8px;
   margin: 0 auto 1rem;
 }
-
 h1 {
   font-size: 1.75rem;
   margin: 0;
 }
-
 .description {
   color: #666;
   margin-bottom: 2rem;
 }
-
 .conversation-intro {
   font-size: 16px;
   text-align: left;
@@ -58,7 +53,6 @@ h1 {
   margin-bottom: 2rem;
   text-align: left;
 }
-
 .statement-header {
   display: flex;
   justify-content: space-between;
@@ -67,12 +61,10 @@ h1 {
   font-size: 16px;
   color: #666;
 }
-
 .anonymous-user {
   display: flex;
   align-items: center;
 }
-
 .avatar {
   width: 24px;
   height: 24px;
@@ -80,7 +72,6 @@ h1 {
   border-radius: 50%;
   margin-right: 0.5rem;
 }
-
 .statement-text {
   font-size: 1.1rem;
   font-weight: bold;
@@ -91,7 +82,6 @@ h1 {
   display: flex;
   justify-content: space-between;
 }
-
 .vote-button {
   padding: 0.75rem 1rem;
   border: 1px solid #ddd;
@@ -100,17 +90,14 @@ h1 {
   cursor: pointer;
   font-size: 16px;
 }
-
 .agree {
   color: #28a745;
   border-color: #28a745;
 }
-
 .disagree {
   color: #dc3545;
   border-color: #dc3545;
 }
-
 .pass {
   color: #6c757d;
 }
@@ -122,22 +109,25 @@ h1 {
   color: #555;
   font-style: italic;
 }
-
 .guidelines h2 {
   font-size: 1rem;
   margin-bottom: 0.5rem;
 }
-
 .guidelines ul {
   list-style-type: disc;
   padding-left: 1.5rem;
 }
-
 .submit-form {
   display: flex;
-  align-items: center;
+  width: 100%;
+  align-items: stretch;
+  justify-content: space-between;
 }
-
+.textarea-wrapper {
+  position: relative;
+  display: flex;
+  flex-grow: 1;
+}
 .submit-form textarea {
   flex-grow: 1;
   padding: 0.75rem;
@@ -145,8 +135,18 @@ h1 {
   border-radius: 8px;
   resize: none;
   font-family: sans-serif;
+  box-sizing: border-box;
 }
-
+.char-counter {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  font-size: 0.8rem;
+  color: #6c757d;
+  background-color: rgba(255, 255, 255, 0.7);
+  padding: 2px 5px;
+  border-radius: 4px;
+}
 .submit-button {
   background-color: #007bff;
   color: white;
@@ -159,30 +159,106 @@ h1 {
 }
 
 .email-subscribe-container {
-border: 1px solid #ddd;
-border-radius: 8px;
-padding: 1.5rem 2rem;
-margin-bottom: 2rem;
-text-align: center;
-background-color: #f9f9f9;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 1.5rem 2rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  background-color: #f9f9f9;
 }
-
 .email-subscribe-container h2 {
   margin-top: 0;
   margin-bottom: 1rem;
   font-size: 1.2rem;
   color: #333;
 }
-
 .email-subscribe-form {
   display: flex;
   gap: 0.5rem;
 }
-
 .email-subscribe-form input {
   flex-grow: 1;
   padding: 0.75rem;
   border: 1px solid #ccc;
   border-radius: 8px;
   font-size: 1rem;
+}
+
+.error-message,
+.vote-error,
+.subscribe-error,
+.comment-error {
+  border: 1px solid #dc3545;
+  border-radius: 8px;
+  background-color: #f8d7da;
+  color: #721c24;
+  text-align: center;
+}
+.error-message {
+  padding: 3rem 1rem;
+}
+.error-message h2 {
+  margin-top: 0;
+  color: #721c24;
+}
+.vote-error, .subscribe-error {
+  margin-top: 1rem;
+  padding: 0.75rem;
+}
+.comment-error {
+  width: 100%;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  font-size: 0.9rem;
+}
+.closed-badge {
+  display: inline-block;
+  margin-left: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.9rem;
+  font-weight: bold;
+  line-height: 1;
+  color: white;
+  background-color: #d9534f;
+  border-radius: 4px;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.footer-spacer {
+  min-height: 20vh;
+}
+.footer-links {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
+}
+.footer-links a {
+  color: #666;
+  text-decoration: none;
+  margin: 0 0.5rem;
+}
+.footer-links a:hover {
+  text-decoration: underline;
+}
+.importance-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  gap: 0.5rem;
+}
+.info-icon {
+  cursor: pointer;
+  fill: #666;
+}
+.importance-desc {
+  font-size: 0.9rem;
+  color: #555;
+  background-color: #f0f0f0;
+  border-radius: 8px;
+  padding: 0.75rem;
+  margin: 0.75rem 0 0 0;
+  text-align: center;
 }

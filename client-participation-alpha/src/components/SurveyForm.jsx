@@ -57,7 +57,7 @@ export default function SurveyForm({ s, conversation_id }) {
   return (
     <div>
       <div className="guidelines">
-        <p>{s.writeCommentHelpText}</p>
+        <p dangerouslySetInnerHTML={{ __html: s.writeCommentHelpText }}/>
         <h2>{s.helpWriteListIntro}</h2>
         <ul>
           <li>{s.helpWriteListStandalone}</li>
