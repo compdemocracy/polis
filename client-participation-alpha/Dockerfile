@@ -1,0 +1,17 @@
+FROM node:20-alpine
+WORKDIR /app
+
+ARG PUBLIC_SERVICE_URL
+ARG INTERNAL_SERVICE_URL
+
+ENV PUBLIC_SERVICE_URL=$PUBLIC_SERVICE_URL
+ENV INTERNAL_SERVICE_URL=$INTERNAL_SERVICE_URL
+
+COPY package*.json ./
+RUN npm install
+COPY . .
+
+RUN npm run build
+
+EXPOSE 4321
+CMD ["node", "dist/server/entry.mjs"]

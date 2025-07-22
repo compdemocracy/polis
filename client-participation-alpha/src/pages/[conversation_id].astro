@@ -6,14 +6,34 @@ import SurveyForm from '../components/SurveyForm.jsx';
 import TopicAgenda from '../components/topicAgenda/TopicAgenda.jsx';
 import { getTranslations } from '../strings/strings.js';
 
-const { conversation_id: zinvite } = Astro.params; // This is actually the zinvite
+const { conversation_id } = Astro.params;
 let initialData;
 let fetchError = null;
 let reportData = null;
 let commentsData = null;
 
 try {
-  const response = await fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/participationInit?conversation_id=${zinvite}`);
+  const apiParams = new URLSearchParams({
+    conversation_id: conversation_id,
+  });
+
+  const xid = Astro.url.searchParams.get('xid');
+  const x_name = Astro.url.searchParams.get('x_name');
+  const x_profile_image_url = Astro.url.searchParams.get('x_profile_image_url');
+
+  if (xid) {
+    apiParams.append('xid', xid);
+  }
+  if (x_name) {
+    apiParams.append('x_name', x_name);
+  }
+  if (x_profile_image_url) {
+    apiParams.append('x_profile_image_url', x_profile_image_url);
+  }
+
+  const apiUrl = `${import.meta.env.INTERNAL_SERVICE_URL}/participationInit?conversation_id=${conversation_id}`;
+  
+  const response = await fetch(apiUrl);
   if (!response.ok) {
     throw new Error(`API request failed with status: ${response.status}`);
   }
@@ -24,7 +44,7 @@ try {
   // Check if topic prioritization is available for this conversation
   try {
     const topicPrioritizeResponse = await fetch(
-      `${import.meta.env.PUBLIC_SERVICE_URL}/participation/topicPrioritize?conversation_id=${zinvite}`
+      `${import.meta.env.PUBLIC_SERVICE_URL}/participation/topicPrioritize?conversation_id=${conversation_id}`
     );
     
     if (topicPrioritizeResponse.ok) {
@@ -40,7 +60,7 @@ try {
         // Also fetch comments for the TopicAgenda
         // Use the original zinvite for the comments API, not the numeric conversation_id
         const commentsResponse = await fetch(
-          `${import.meta.env.PUBLIC_SERVICE_URL}/comments?conversation_id=${zinvite}&moderation=true&include_voting_patterns=true`
+          `${import.meta.env.PUBLIC_SERVICE_URL}/comments?conversation_id=${conversation_id}&moderation=true&include_voting_patterns=true`
         );
         
         if (commentsResponse.ok) {
@@ -59,7 +79,7 @@ try {
 
 const s = await getTranslations();
 
-let surveyDetails, firstStatement, participationInfo, isConversationActive;
+let surveyDetails, firstStatement, isConversationActive;
 if (initialData) {
   surveyDetails = {
     title: initialData.conversation.topic,
@@ -69,11 +89,7 @@ if (initialData) {
   firstStatement = {
     tid: initialData.nextComment?.tid,
     txt: initialData.nextComment?.txt,
-  };
-
-  participationInfo = {
-    pid: initialData.ptpt?.pid,
-    conversation_id: initialData.conversation.conversation_id,
+    remaining: initialData.nextComment?.remaining,
   };
 
   isConversationActive = initialData.conversation.is_active;
@@ -96,17 +112,16 @@ if (initialData) {
         </h1>
         <p class="description" set:html={surveyDetails?.description}></p>
 
-        {/* Conditionally render the interactive components only if the conversation is active */}
         {isConversationActive ? (
           <>
-            <p class="conversation-intro" set:html={s['vote-on-statements']}></p>
+            <p class="conversation-intro" set:html={s.participantHelpWelcomeText}></p>
             <Survey 
               client:load 
               initialStatement={firstStatement}
               conversation_id={initialData.conversation.conversation_id}
               s={s} 
             />
-            <SurveyForm client:load s={s} />
+            <SurveyForm client:load s={s} conversation_id={conversation_id} />
             
             {/* Topic Agenda - only show if we have report and comments data */}
             {reportData && commentsData ? (
@@ -137,52 +152,12 @@ if (initialData) {
     <div style="margin-top: 3rem;">
       <div class="logo">p</div>
       <div class="footer-links">
-        <a href="#">Privacy</a>
-        <a href="#">TOS</a>
+        <a href="/privacy" target="_blank" rel="noopener noreferrer">{s.privacy}</a>
+        <a href="/tos" target="_blank" rel="noopener noreferrer">{s.TOS}</a>
       </div>
     </div>
   </div>
 </Layout>
 <style>
-  .error-message {
-    text-align: center;
-    padding: 3rem 1rem;
-    border: 1px solid #dc3545;
-    border-radius: 8px;
-    background-color: #f8d7da;
-  }
-  .error-message h2 {
-    margin-top: 0;
-    color: #721c24;
-  }
-  .closed-badge {
-    display: inline-block;
-    margin-left: 0.75rem;
-    padding: 0.25rem 0.6rem;
-    font-size: 0.9rem;
-    font-weight: bold;
-    line-height: 1;
-    color: white;
-    background-color: #d9534f;
-    border-radius: 4px;
-    text-transform: uppercase;
-    vertical-align: middle;
-  }
-  .footer-spacer {
-    /* Adds space to push the footer down on closed pages */
-    min-height: 20vh;
-  }
-  .footer-links {
-    margin-top: 0.5rem;
-    font-size: 0.9rem;
-    color: #666;
-  }
-  .footer-links a {
-    color: #666;
-    text-decoration: none;
-    margin: 0 0.5rem;
-  }
-  .footer-links a:hover {
-    text-decoration: underline;
-  }
+
 </style>

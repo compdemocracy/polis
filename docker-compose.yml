@@ -25,6 +25,21 @@
 # (by default, the Makefile will include --profile postgres, unless POSTGRES_DOCKER=false in your env)
 
 services:
+  client-participation-alpha:
+    build:
+      context: ./client-participation-alpha
+      dockerfile: Dockerfile
+      args:
+        - PUBLIC_SERVICE_URL=${PUBLIC_SERVICE_URL}
+    container_name: client-participation-alpha
+    restart: unless-stopped
+    networks:
+      - "polis-net"
+    environment:
+      - PUBLIC_SERVICE_URL=${PUBLIC_SERVICE_URL}
+      - INTERNAL_SERVICE_URL=${INTERNAL_SERVICE_URL}
+    depends_on:
+      - "server"
   server:
     environment:
       - DATABASE_URL=${DATABASE_URL}
@@ -145,6 +160,8 @@ services:
       dockerfile: nginx.Dockerfile
     labels:
       polis_tag: ${TAG:-dev}
+    environment:
+      - API_SERVER_PORT=${API_SERVER_PORT:-5000}
     depends_on:
       - "server"
     networks:
