@@ -30,13 +30,14 @@ services:
       context: ./client-participation-alpha
       dockerfile: Dockerfile
       args:
-        PUBLIC_SERVICE_URL: http://nginx-proxy/api/v3
+        - PUBLIC_SERVICE_URL=${PUBLIC_SERVICE_URL}
     container_name: client-participation-alpha
     restart: unless-stopped
     networks:
       - "polis-net"
     environment:
-      - PUBLIC_SERVICE_URL=http://nginx-proxy/api/v3
+      - PUBLIC_SERVICE_URL=${PUBLIC_SERVICE_URL}
+      - INTERNAL_SERVICE_URL=${INTERNAL_SERVICE_URL}
     depends_on:
       - "server"
   server:

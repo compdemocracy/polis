@@ -28,7 +28,7 @@ try {
     apiParams.append('x_profile_image_url', x_profile_image_url);
   }
 
-  const apiUrl = `${import.meta.env.PUBLIC_SERVICE_URL}/participationInit?${apiParams.toString()}`;
+  const apiUrl = `${import.meta.env.INTERNAL_SERVICE_URL}/participationInit?${apiParams.toString()}`;
   
   const response = await fetch(apiUrl);
   if (!response.ok) {
