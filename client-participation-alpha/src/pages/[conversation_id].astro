@@ -30,8 +30,6 @@ try {
 
   const apiUrl = `${import.meta.env.PUBLIC_SERVICE_URL}/participationInit?${apiParams.toString()}`;
   
-  console.log("Fetching from URL:", apiUrl);
-
   const response = await fetch(apiUrl);
   if (!response.ok) {
     throw new Error(`API request failed with status: ${response.status}`);
@@ -54,6 +52,7 @@ if (initialData) {
   firstStatement = {
     tid: initialData.nextComment?.tid,
     txt: initialData.nextComment?.txt,
+    remaining: initialData.nextComment?.remaining,
   };
 
   isConversationActive = initialData.conversation.is_active;
@@ -78,7 +77,7 @@ if (initialData) {
 
         {isConversationActive ? (
           <>
-            <p class="conversation-intro" set:html={s['vote-on-statements']}></p>
+            <p class="conversation-intro" set:html={s.participantHelpWelcomeText}></p>
             <Survey 
               client:load 
               initialStatement={firstStatement}
@@ -98,8 +97,8 @@ if (initialData) {
     <div style="margin-top: 3rem;">
       <div class="logo">p.</div>
       <div class="footer-links">
-        <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>
-        <a href="/tos" target="_blank" rel="noopener noreferrer">TOS</a>
+        <a href="/privacy" target="_blank" rel="noopener noreferrer">{s.privacy}</a>
+        <a href="/tos" target="_blank" rel="noopener noreferrer">{s.TOS}</a>
       </div>
     </div>
   </div>
@@ -165,18 +164,15 @@ if (initialData) {
     margin: 0.75rem 0 0 0;
     text-align: center;
   }
-
   .textarea-wrapper {
-  position: relative;
-  display: flex;
-  width: 100%;
-}
-
+    position: relative;
+    display: flex;
+    width: 100%;
+  }
   .submit-form textarea {
     flex-grow: 1;
     box-sizing: border-box;
   }
-
   .char-counter {
     position: absolute;
     bottom: 12px;
@@ -186,5 +182,25 @@ if (initialData) {
     background-color: rgba(255, 255, 255, 0.7);
     padding: 2px 5px;
     border-radius: 4px;
+  }
+  .vote-error, .subscribe-error {
+    margin-top: 1rem;
+    padding: 0.75rem;
+    border: 1px solid #dc3545;
+    border-radius: 8px;
+    background-color: #f8d7da;
+    color: #721c24;
+    text-align: center;
+  }
+  .comment-error {
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.5rem;
+    border: 1px solid #dc3545;
+    border-radius: 8px;
+    background-color: #f8d7da;
+    color: #721c24;
+    text-align: center;
+    font-size: 0.9rem;
   }
 </style>

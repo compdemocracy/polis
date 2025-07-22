@@ -60,14 +60,14 @@ export default function Survey({ initialStatement, s, conversation_id }) {
 
     } catch (error) {
       console.error("Vote submission failed:", error.message);
-      let errorMessage = s['vote-failed-generic'] || "Apologies, your vote failed to send. Please check your connection and try again.";
+      let errorMessage = s.commentSendFailed || "Apologies, your vote failed to send. Please check your connection and try again.";
 
       if (error.message === "polis_err_conversation_is_closed") {
-        errorMessage = s['vote-failed-closed'] || "This conversation is closed. No further voting is allowed.";
+        errorMessage = s.convIsClosed || "This conversation is closed. No further voting is allowed.";
       } else if (error.message === "polis_err_post_votes_social_needed") {
-        errorMessage = s['vote-failed-auth-required'] || "You need to sign in to vote.";
+        errorMessage = "You need to sign in to vote.";
       } else if (error.message === "polis_err_xid_not_whitelisted") {
-        errorMessage = s['vote-failed-xid-whitelist'] || "Sorry, you must be registered to vote. Please sign in or contact the conversation owner.";
+        errorMessage = "Sorry, you must be registered to vote. Please sign in or contact the conversation owner.";
       }
       
       setVoteError(errorMessage);
@@ -90,7 +90,7 @@ export default function Survey({ initialStatement, s, conversation_id }) {
           voteError={voteError}
         />
       ) : (
-        <EmailSubscribeForm s={s} />
+        <EmailSubscribeForm s={s} conversation_id={conversation_id} />
       )}
     </>
   );
