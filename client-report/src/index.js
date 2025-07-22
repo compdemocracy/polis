@@ -2,40 +2,40 @@
 
 // React Core
 import React from "react";
-import { Auth0Provider } from "@auth0/auth0-react";
+import { AuthProvider } from "react-oidc-context";
+import { WebStorageStateStore } from 'oidc-client-ts';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from "./components/app.jsx";
 
 class Root extends React.Component {
-  getDomainFromIssuer(issuer) {
-    try {
-      // Extract domain from AUTH_ISSUER URL (e.g., "https://localhost:3000/" -> "localhost:3000")
-      return new URL(issuer).host;
-    } catch (e) {
-      console.error('Invalid AUTH_ISSUER', e);
-      return null;
-    }
-  }
-
   render() {
-    const authDomain = this.getDomainFromIssuer(process.env.AUTH_ISSUER);
+    const authority = process.env.AUTH_ISSUER;
+    const clientId = process.env.AUTH_CLIENT_ID;
+    const audience = process.env.AUTH_AUDIENCE;
+    const redirectUri = window.location.origin;
 
-    if (!authDomain) {
-      return <div>Invalid AUTH_ISSUER</div>;
+    if (!authority || !clientId || !audience) {
+      console.error('OIDC configuration is incomplete. Please check environment variables:');
+      console.error('AUTH_ISSUER:', process.env.AUTH_ISSUER);
+      console.error('AUTH_CLIENT_ID:', clientId);
+      console.error('AUTH_AUDIENCE:', audience);
+      return <div>OIDC configuration is required</div>;
     }
+
+    const oidcConfig = {
+      authority,
+      client_id: clientId,
+      redirect_uri: redirectUri,
+      scope: 'openid profile email',
+      userStore: new WebStorageStateStore({ store: window.localStorage }),
+      extraQueryParams: { audience },
+    };
 
     return process.env.AUTH_CLIENT_ID ? (
-      <Auth0Provider
-        domain={authDomain}
-        clientId={process.env.AUTH_CLIENT_ID}
-        authorizationParams={{
-          audience: "users",
-          redirect_uri: window.location.origin
-        }}
-      >
+      <AuthProvider {...oidcConfig}>
         <App />
-      </Auth0Provider>
+      </AuthProvider>
     ) : (
       <div>
         <App />

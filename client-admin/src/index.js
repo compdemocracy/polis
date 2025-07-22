@@ -33,6 +33,7 @@ const OidcProvider = ({ children }) => {
     authority,
     client_id: clientId,
     redirect_uri: redirectUri,
+    post_logout_redirect_uri: `${redirectUri}/home`,
     scope: 'openid profile email',
     userStore: new WebStorageStateStore({ store: window.localStorage }),
     extraQueryParams: { audience },

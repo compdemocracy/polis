@@ -1,7 +1,7 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import React, { useState, useEffect } from "react";
-import { useAuth0 } from "@auth0/auth0-react";
+import { useAuth } from "react-oidc-context";
 
 import * as globals from "./globals.js";
 import URLs from "../util/url.js";
@@ -53,7 +53,7 @@ const computeVoteTotal = (users) => {
 };
 
 const App = (props) => {
-  const { isAuthenticated, isLoading: isAuthLoading, getAccessTokenSilently } = useAuth0();
+  const auth = useAuth();
   
   // Add token state to manage auth throughout the component
   const [token, setToken] = useState(null);
@@ -127,9 +127,10 @@ const App = (props) => {
   // Effect to get auth token when authentication state changes
   useEffect(() => {
     const getToken = async () => {
-      if (process.env.AUTH_CLIENT_ID && isAuthenticated && !isAuthLoading) {
+      if (process.env.AUTH_CLIENT_ID && auth.isAuthenticated && !auth.isLoading && auth.user) {
         try {
-          const authToken = await getAccessTokenSilently();
+          // With react-oidc-context, the access token is available directly on the user object
+          const authToken = auth.user.access_token;
           setToken(authToken);
         } catch (error) {
           console.warn("Failed to get access token:", error);
@@ -141,7 +142,7 @@ const App = (props) => {
     };
     
     getToken();
-  }, [isAuthenticated, isAuthLoading, getAccessTokenSilently]);
+  }, [auth.isAuthenticated, auth.isLoading, auth.user]);
 
   useEffect(() => {
     if (

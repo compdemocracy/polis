@@ -156,8 +156,6 @@ function setJwtToken(token) {
     var conversationId = _getConversationIdFromDecodedJwt(token);
     if (!conversationId) {
       console.error("[PolisStorage] No conversation_id in JWT, cannot store participant token securely.");
-      // Fallback or error? For now, let's not store it to prevent bugs.
-      // A general 'auth_token' should not be set here anyway.
       return;
     }
 
@@ -252,7 +250,6 @@ function finalUid() {
   var jwtUid = getUidFromJwt();
   var preloadUid = getUidFromUserObject();
   var finalUid = jwtUid || preloadUid;
-  console.log("[PolisStorage] finalUid() returning:", finalUid, "(jwt:", jwtUid, "preload:", preloadUid, ")");
   return finalUid;
 }
 

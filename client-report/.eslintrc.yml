@@ -38,6 +38,9 @@ parser: "@babel/eslint-parser"
 parserOptions:
   ecmaVersion: latest
   sourceType: module
+  requireConfigFile: false
+  ecmaFeatures:
+    jsx: true
 plugins:
   - react
 rules:
