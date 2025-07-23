@@ -2,9 +2,9 @@ name: Server Integration Tests
 
 on:
   push:
-    branches: [ main, br/gh-actions-auth ]
+    branches: [ edge, br/auth0-integration ]
   pull_request:
-    branches: [ main ]
+    branches: [ edge ]
 
 jobs:
   server-integration-tests:
