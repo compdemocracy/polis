@@ -49,9 +49,12 @@ jobs:
         # Update AUTH_CERTS_PATH to use workspace-relative path
         sed -i 's|AUTH_CERTS_PATH=.*|AUTH_CERTS_PATH=./.simulacrum/certs|' test.env
         
+        # Copy test.env to .env for docker-compose variable interpolation
+        cp test.env .env
+        
         # Show relevant env vars for debugging
         echo "Auth-related environment variables:"
-        grep -E "AUTH_|CERT" test.env || true
+        grep -E "AUTH_|CERT|DATABASE_URL|POSTGRES_" test.env || true
 
     - name: Build Docker images
       run: |
