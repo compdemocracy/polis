@@ -85,7 +85,7 @@ module.exports = (env, options) => {
   const conversationId = process.env.CONVERSATION_ID;
   const embedServiceHostname = process.env.EMBED_SERVICE_HOSTNAME || "pol.is";
   const gaTrackingId = process.env.GA_TRACKING_ID;
-  const oidcCacheKeyPrefix = process.env.OIDC_CACHE_KEY_PREFIX || "@@auth0spajs@@";
+  const oidcCacheKeyPrefix = process.env.OIDC_CACHE_KEY_PREFIX || "oidc.user";
   const oidcCacheKeyIdTokenSuffix = process.env.OIDC_CACHE_KEY_ID_TOKEN_SUFFIX || "@@user@@";
   const port = process.env.PORT || 3001;
 

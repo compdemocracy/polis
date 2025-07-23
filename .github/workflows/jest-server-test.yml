@@ -1,211 +1,145 @@
-name: Jest Tests
-
-concurrency:
-  group: ${{ github.ref }}
-  cancel-in-progress: true
+name: Server Integration Tests
 
 on:
   push:
-    branches:
-      - edge
-    paths-ignore:
-      - "**.md"
-
+    branches: [ main, br/gh-actions-auth ]
   pull_request:
-    paths-ignore:
-      - "**.md"
+    branches: [ main ]
 
 jobs:
-  jest-run:
+  server-integration-tests:
     runs-on: ubuntu-latest
-    env:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: PdwPNS2mDN73Vfbc
-      POSTGRES_DB: polis-test
-      POSTGRES_PORT: 5432
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_USER: ${{ env.POSTGRES_USER }}
-          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
-          POSTGRES_DB: ${{ env.POSTGRES_DB }}
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d polis-test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-      - name: Clean up runner space (Targeted)
-        run: |
-          echo "Initial disk space (before cleanup):"
-          df -h
-          echo "Removing large pre-installed software..."
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" /opt/hostedtoolcache /usr/local/lib/android/* || echo "Some paths not found or removal failed, continuing."
-          echo "Cleaning apt cache..."
-          sudo apt-get clean -y || echo "apt-get clean failed"
-          echo "Pruning Docker system..."
-          docker system prune -af --volumes || echo "docker system prune failed"
-          echo "Disk space after targeted cleanup:"
-          df -h
+    - name: Install mkcert
+      run: |
+        # Install mkcert for certificate generation
+        curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+        chmod +x mkcert-v*-linux-amd64
+        sudo cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+        
+        # Install CA in system trust store
+        mkcert -install
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+    - name: Generate certificates
+      run: |
+        # Create certificate directory in workspace (not home directory)
+        mkdir -p ./.simulacrum/certs
+        cd ./.simulacrum/certs
+        
+        # Generate certificates for all required hostnames
+        mkcert -cert-file localhost.pem -key-file localhost-key.pem \
+          localhost 127.0.0.1 ::1 oidc-simulator host.docker.internal
+        
+        # Copy mkcert root CA to the certs directory for Docker containers
+        cp "$(mkcert -CAROOT)/rootCA.pem" ./rootCA.pem
+        
+        # List generated files for debugging
+        echo "Generated certificates:"
+        ls -la
 
-      # Configure proper Docker layer caching
-      - name: Set up Docker Cache
-        uses: actions/cache@v3
-        with:
-          path: ${{ github.workspace }}/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-      - name: Setup Auth Environment
-        run: |
-          echo "Installing mkcert..."
-          sudo apt-get update > /dev/null
-          sudo apt-get install -y libnss3-tools wget > /dev/null
-          MKCERT_VERSION="v1.4.4"
-          wget -q "https://github.com/FiloSottile/mkcert/releases/download/${MKCERT_VERSION}/mkcert-${MKCERT_VERSION}-linux-amd64" -O mkcert
-          chmod +x mkcert
-          sudo mv mkcert /usr/local/bin/
-          echo "Installing local CA..."
-          mkcert -install
+    - name: Create test.env with CI-specific paths
+      run: |
+        # Update AUTH_CERTS_PATH to use workspace-relative path
+        sed -i 's|AUTH_CERTS_PATH=.*|AUTH_CERTS_PATH=./.simulacrum/certs|' test.env
+        # Update JWKS_URI to use localhost for OIDC simulator
+        sed -i 's|JWKS_URI=.*|JWKS_URI=https://localhost:3000/.well-known/jwks.json|' test.env
+        
+        # Copy test.env to .env for docker-compose variable interpolation
+        cp test.env .env
+        
+        # Also copy test.env to server directory for the test environment
+        cp test.env server/.env
+        
+        # Show relevant env vars for debugging
+        echo "Environment variables:"
+        grep -E "AUTH_|CERT|DATABASE_URL|POSTGRES_|JWT_|JWKS_URI" test.env || true
 
-          echo "Generating certificates for OIDC simulator..."
-          CERT_DIR="$HOME/.simulacrum/certs"
-          mkdir -p "$CERT_DIR"
-          CAROOT=$(mkcert -CAROOT)
-          cp "$CAROOT/rootCA.pem" "$CERT_DIR/"
-          
-          echo "Generating localhost certificates with custom names..."
-          (cd "$CERT_DIR" && mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator)
-          
-          echo "Generated certificates:"
-          ls -la "$CERT_DIR"
-          
-          # Check if the certificate files have the expected names
-          if [ -f "$CERT_DIR/localhost.pem" ] && [ -f "$CERT_DIR/localhost-key.pem" ]; then
-            echo "✅ Certificate files generated successfully"
-          else
-            echo "⚠️  Certificate files not found with expected names:"
-            echo "Looking for: localhost.pem and localhost-key.pem"
-            echo "Available files:"
-            find "$CERT_DIR" -name "*.pem" -type f
-          fi
+    - name: Build Docker images
+      run: |
+        # Build all services except server (tests run on host)
+        docker compose -f docker-compose.test.yml --env-file test.env build \
+          math postgres nginx-proxy file-server maildev oidc-simulator
 
-          echo "Generating participant JWT signing keys..."
-          mkdir -p server/keys
-          npm install --prefix server > /dev/null
-          node server/scripts/generate-jwt-keys.js
-          echo "Generated JWT keys:"
-          ls -l server/keys
+    - name: Start services
+      run: |
+        # Start only required services in detached mode (exclude server)
+        docker compose -f docker-compose.test.yml --env-file test.env up -d \
+          math postgres nginx-proxy file-server maildev oidc-simulator
+        
+        # Wait for services to be ready
+        echo "Waiting for services to start..."
+        sleep 30
+        
+        # Show running containers
+        docker compose -f docker-compose.test.yml ps
 
-      - name: Configure .env for GHA service
-        run: |
-          cp test.env .env
-          echo "POSTGRES_HOST=172.17.0.1" >> .env
-          echo "DATABASE_URL=postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@172.17.0.1:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}" >> .env
-          # Fix certificate path to use actual HOME directory
-          echo "AUTH_CERTS_PATH=$HOME/.simulacrum/certs" >> .env
-          # Update OIDC URLs to use oidc-simulator hostname for Docker networking
-          sed -i 's|AUTH_ISSUER=https://localhost:3000/|AUTH_ISSUER=https://oidc-simulator:3000/|g' .env
-          sed -i 's|JWKS_URI=https://host.docker.internal:3000/.well-known/jwks.json|JWKS_URI=https://oidc-simulator:3000/.well-known/jwks.json|g' .env
+    - name: Check service health
+      run: |
+        # Check if key services are responding
+        echo "Checking postgres..."
+        docker compose -f docker-compose.test.yml exec -T postgres pg_isready -U postgres || true
+        
+        echo "Checking oidc-simulator..."
+        curl -k -f https://localhost:3000/.well-known/jwks.json || true
 
-      - name: Build and start Docker containers (excluding Postgres)
-        run: |
-          echo "Certificate directory contents:"
-          ls -la $HOME/.simulacrum/certs/ || echo "Certificate directory not found"
-          
-          # Build with proper cache configuration
-          docker buildx build \
-            --cache-from=type=local,src=${{ github.workspace }}/.buildx-cache \
-            --cache-to=type=local,dest=${{ github.workspace }}/.buildx-cache-new,mode=max \
-            --load \
-            -f server/Dockerfile \
-            ./server
-          
-          # Move cache to prevent cache growth
-          rm -rf ${{ github.workspace }}/.buildx-cache
-          mv ${{ github.workspace }}/.buildx-cache-new ${{ github.workspace }}/.buildx-cache
-          
-          echo "Starting Docker containers..."
-          # IS_GITHUB_ACTION (from step env) will be available as an environment variable for 'docker compose build'
-          # if the Dockerfiles/compose files are set up to use it via build args.
-          docker compose -f docker-compose.yml -f docker-compose.test.yml --profile local-services up -d --build
-          
-          echo "Waiting for containers to start..."
-          sleep 10
-          
-          echo "Container status after startup:"
-          docker ps
-          
-          echo "Checking oidc-simulator build logs..."
-          docker logs polis-test-oidc-simulator-1 || echo "OIDC simulator container not found"
-        env:
-          DOCKER_BUILDKIT: 1
-          COMPOSE_DOCKER_CLI_BUILD: 1
-          IS_GITHUB_ACTION: "true"
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
 
-      - name: Run database migrations
-        env:
-          # Construct DATABASE_URL for the migration script
-          # using the same host (172.17.0.1) and credentials as the application
-          DATABASE_URL: postgres://${{ env.POSTGRES_USER }}:${{ env.POSTGRES_PASSWORD }}@172.17.0.1:${{ env.POSTGRES_PORT }}/${{ env.POSTGRES_DB }}
-        run: |
-          echo "Installing postgresql-client..."
-          sudo apt-get update -y
-          sudo apt-get install -y postgresql-client
-          echo "Running migrations..."
-          bash server/bin/run-migrations.sh
+    - name: Install server dependencies
+      run: |
+        cd server
+        npm ci
 
-      - name: Wait for OIDC simulator to be ready
-        run: |
-          echo "Checking Docker containers status..."
-          docker ps
-          
-          echo "Checking oidc-simulator container logs..."
-          docker logs polis-test-oidc-simulator-1 || echo "OIDC simulator container not found or not started"
-          
-          echo "Checking if oidc-simulator container exists..."
-          if ! docker ps --filter "name=polis-test-oidc-simulator-1" --format "{{.Names}}" | grep -q "polis-test-oidc-simulator-1"; then
-            echo "❌ OIDC simulator container is not running!"
-            echo "Available containers:"
-            docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-            exit 1
-          fi
-          
-          echo "Waiting for OIDC simulator to be ready..."
-          timeout 60 sh -c '
-            until curl -k -s https://localhost:3000/.well-known/jwks.json > /dev/null 2>&1; do 
-              echo "Waiting for OIDC simulator..."
-              # Also check container logs for errors
-              docker logs --tail 5 polis-test-oidc-simulator-1 2>/dev/null || true
-              sleep 2
-            done
-          '
-          echo "OIDC simulator is ready!"
-          
-          echo "Testing simulator endpoint..."
-          curl -k -s https://localhost:3000/.well-known/jwks.json | head -c 100
+    - name: Run server integration tests
+      run: |
+        cd server
+        
+        # Set environment variables for tests
+        export NODE_EXTRA_CA_CERTS=$(pwd)/../.simulacrum/certs/rootCA.pem
+        export CI=true
+        export NODE_ENV=test
+        
+        # Override service URLs to use localhost instead of Docker service names
+        export DATABASE_URL=postgres://postgres:PdwPNS2mDN73Vfbc@localhost:5432/polis-test
+        export MAILDEV_HOST=localhost
+        export STATIC_FILES_HOST=localhost
+        
+        # Run the tests on the host machine
+        npm test -- --ci --coverage --maxWorkers=2
 
-      - name: Run Jest tests
-        run: |
-          echo "Checking container status..."
-          docker ps
-          echo "Checking oidc-simulator logs..."
-          docker logs polis-test-oidc-simulator-1 || echo "OIDC simulator logs not available"
-          echo "Testing oidc-simulator connectivity from host..."
-          curl -k -s https://localhost:3000/.well-known/jwks.json || echo "Cannot reach simulator from host"
-          echo "Running Jest tests..."
-          docker exec polis-test-server-1 npm test
+    - name: Upload test coverage
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: server/coverage
+        if-no-files-found: ignore
 
-      - name: Stop Docker containers
-        if: always()
-        run: docker compose -f docker-compose.yml -f docker-compose.test.yml --profile postgres down
+    - name: Show service logs
+      if: failure()
+      run: |
+        # Show logs from critical services for debugging
+        echo "=== OIDC Simulator logs ==="
+        docker compose -f docker-compose.test.yml logs oidc-simulator | tail -100
+        
+        echo "=== Postgres logs ==="
+        docker compose -f docker-compose.test.yml logs postgres | tail -100
+        
+        echo "=== Math logs ==="
+        docker compose -f docker-compose.test.yml logs math | tail -50
+
+    - name: Clean up
+      if: always()
+      run: |
+        docker compose -f docker-compose.test.yml down -v

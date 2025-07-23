@@ -51,7 +51,7 @@ PROD:
 	$(call setup_env,prod.env,-f docker-compose.yml)
 
 TEST:
-	$(call setup_env,test.env,-f docker-compose.yml -f docker-compose.test.yml)
+	$(call setup_env,test.env,-f docker-compose.test.yml)
 
 echo_vars:
 	@echo ENV_FILE=${ENV_FILE}
