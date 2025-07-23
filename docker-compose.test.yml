@@ -8,8 +8,15 @@
 # For more information see https://docs.docker.com/compose/extends/
 
 services:
+  # Server service configuration for when it's needed (e.g., in e2e tests)
+  # Override the ECR image with a local build
   server:
-    image: docker.io/compdem/polis-server:${TAG:-dev}
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: dev
+      args:
+        NODE_ENV: development
     volumes:
       # Mount mkcert root CA for TLS verification
       - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
