@@ -9,6 +9,7 @@
 
 services:
   server:
+    image: docker.io/compdem/polis-server:${TAG:-dev}
     volumes:
       # Mount mkcert root CA for TLS verification
       - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
