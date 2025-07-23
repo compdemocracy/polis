@@ -1,4 +1,4 @@
-name: Test Auth Setup
+name: Server Integration Tests
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  test-auth-setup:
+  server-integration-tests:
     runs-on: ubuntu-latest
     
     steps:
@@ -52,21 +52,27 @@ jobs:
         # Copy test.env to .env for docker-compose variable interpolation
         cp test.env .env
         
+        # Also copy test.env to server directory for the test environment
+        cp test.env server/.env
+        
         # Show relevant env vars for debugging
-        echo "Auth-related environment variables:"
-        grep -E "AUTH_|CERT|DATABASE_URL|POSTGRES_" test.env || true
+        echo "Environment variables:"
+        grep -E "AUTH_|CERT|DATABASE_URL|POSTGRES_|JWT_" test.env || true
 
-    - name: Build Docker images
+    - name: Build Docker images (excluding server from services)
       run: |
-        # Build only required services (excluding delphi)
+        # Build all required services except server (we'll build it separately)
         docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env build \
-          server math postgres nginx-proxy file-server maildev oidc-simulator
+          math postgres nginx-proxy file-server maildev oidc-simulator
+        
+        # Build the server image separately (it won't run as a service)
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env build server
 
-    - name: Start services
+    - name: Start services (excluding server)
       run: |
-        # Start only required services in detached mode (excluding delphi)
+        # Start only required services in detached mode (excluding server)
         docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up -d \
-          server math postgres nginx-proxy file-server maildev oidc-simulator
+          math postgres nginx-proxy file-server maildev oidc-simulator
         
         # Wait for services to be ready
         echo "Waiting for services to start..."
@@ -83,66 +89,39 @@ jobs:
         
         echo "Checking oidc-simulator..."
         curl -k -f https://localhost:3000/.well-known/jwks.json || true
-        
-        echo "Checking server API..."
-        curl -f http://localhost/api/v3/participationInit || true
+
+    - name: Run server integration tests
+      run: |
+        # Run tests inside the server container with all necessary environment variables
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env run \
+          --rm \
+          -e NODE_EXTRA_CA_CERTS=/root/.simulacrum/certs/rootCA.pem \
+          -e CI=true \
+          -e NODE_ENV=test \
+          --no-deps \
+          server \
+          npm test -- --ci --coverage --maxWorkers=2
+
+    - name: Upload test coverage
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: server/coverage
+        if-no-files-found: ignore
 
     - name: Show service logs
-      if: always()
+      if: failure()
       run: |
         # Show logs from critical services for debugging
         echo "=== OIDC Simulator logs ==="
         docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs oidc-simulator | tail -100
         
-        echo "=== Server logs ==="
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs server | tail -100
-
-    - name: Run auth setup test
-      run: |
-        cd e2e
-        npm install dotenv
+        echo "=== Postgres logs ==="
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs postgres | tail -100
         
-        # Set environment variables for the test script
-        export AUTH_CERTS_PATH=../.simulacrum/certs
-        export CYPRESS_BASE_URL=http://localhost
-        export AUTH_ISSUER=https://localhost:3000/
-        
-        # Run the validation script
-        node test-auth-setup.js
-
-    - name: Install Cypress dependencies
-      run: |
-        cd e2e
-        npm ci
-
-    - name: Run Cypress E2E tests
-      run: |
-        cd e2e
-        
-        # Set environment variables for Cypress
-        export NODE_EXTRA_CA_CERTS=$(pwd)/../.simulacrum/certs/rootCA.pem
-        export CYPRESS_BASE_URL=http://localhost
-        export AUTH_ISSUER=https://localhost:3000/
-        export AUTH_CERTS_PATH=$(pwd)/../.simulacrum/certs
-        
-        # Run all Cypress tests
-        npm test
-
-    - name: Upload Cypress screenshots
-      if: failure()
-      uses: actions/upload-artifact@v4
-      with:
-        name: cypress-screenshots
-        path: e2e/cypress/screenshots
-        if-no-files-found: ignore
-
-    - name: Upload Cypress videos
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: cypress-videos
-        path: e2e/cypress/videos
-        if-no-files-found: ignore
+        echo "=== Math logs ==="
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs math | tail -50
 
     - name: Clean up
       if: always()
