@@ -55,13 +55,15 @@ jobs:
 
     - name: Build Docker images
       run: |
-        # Build all required services
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env build
+        # Build only required services (excluding delphi)
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env build \
+          server math postgres nginx-proxy file-server maildev oidc-simulator
 
     - name: Start services
       run: |
-        # Start all required services in detached mode
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up -d
+        # Start only required services in detached mode (excluding delphi)
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up -d \
+          server math postgres nginx-proxy file-server maildev oidc-simulator
         
         # Wait for services to be ready
         echo "Waiting for services to start..."
