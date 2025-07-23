@@ -100,6 +100,12 @@ jobs:
         cd e2e
         npm install dotenv
         
+        # Copy test.env to e2e directory for Cypress to read
+        cp ../test.env .env
+        
+        # Update AUTH_CERTS_PATH to be relative to e2e directory
+        sed -i 's|AUTH_CERTS_PATH=.*|AUTH_CERTS_PATH=../.simulacrum/certs|' .env
+        
         # Set environment variables for the test script
         export AUTH_CERTS_PATH=../.simulacrum/certs
         export CYPRESS_BASE_URL=http://localhost
