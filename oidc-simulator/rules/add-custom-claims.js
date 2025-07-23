@@ -9,7 +9,6 @@ function mergeUsers(user, context, callback) {
   // ensuring custom claims are correctly added to the access token.
 
   const namespace = 'https://pol.is/';
-  console.log('SIMULATOR: Skipping full merge logic. Applying custom claims directly.');
   addCustomClaims(user, context, namespace);
 
   /**
@@ -46,6 +45,6 @@ function mergeUsers(user, context, callback) {
     context.accessToken[`${namespace}simulator`] = true;
   }
 
-  console.log(`Enhanced merge rule executed for: ${userEmail}`);
+  console.log(`Enhanced merge rule executed for: ${user.email}`);
   callback(null, user, context);
 }
