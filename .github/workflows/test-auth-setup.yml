@@ -1,0 +1,111 @@
+name: Test Auth Setup
+
+on:
+  push:
+    branches: [ main, br/gh-actions-auth ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-auth-setup:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install mkcert
+      run: |
+        # Install mkcert for certificate generation
+        curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
+        chmod +x mkcert-v*-linux-amd64
+        sudo cp mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+        
+        # Install CA in system trust store
+        mkcert -install
+
+    - name: Generate certificates
+      run: |
+        # Create certificate directory in workspace (not home directory)
+        mkdir -p ./.simulacrum/certs
+        cd ./.simulacrum/certs
+        
+        # Generate certificates for all required hostnames
+        mkcert -cert-file localhost.pem -key-file localhost-key.pem \
+          localhost 127.0.0.1 ::1 oidc-simulator host.docker.internal
+        
+        # Copy mkcert root CA to the certs directory for Docker containers
+        cp "$(mkcert -CAROOT)/rootCA.pem" ./rootCA.pem
+        
+        # List generated files for debugging
+        echo "Generated certificates:"
+        ls -la
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Create test.env with CI-specific paths
+      run: |
+        # Update AUTH_CERTS_PATH to use workspace-relative path
+        sed -i 's|AUTH_CERTS_PATH=.*|AUTH_CERTS_PATH=./.simulacrum/certs|' test.env
+        
+        # Show relevant env vars for debugging
+        echo "Auth-related environment variables:"
+        grep -E "AUTH_|CERT" test.env || true
+
+    - name: Build Docker images
+      run: |
+        # Build all required services
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env build
+
+    - name: Start services
+      run: |
+        # Start all required services in detached mode
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up -d
+        
+        # Wait for services to be ready
+        echo "Waiting for services to start..."
+        sleep 30
+        
+        # Show running containers
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml ps
+
+    - name: Check service health
+      run: |
+        # Check if key services are responding
+        echo "Checking postgres..."
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml exec -T postgres pg_isready -U postgres || true
+        
+        echo "Checking oidc-simulator..."
+        curl -k -f https://localhost:3000/.well-known/jwks.json || true
+        
+        echo "Checking server API..."
+        curl -f http://localhost/api/v3/participationInit || true
+
+    - name: Show service logs
+      if: always()
+      run: |
+        # Show logs from critical services for debugging
+        echo "=== OIDC Simulator logs ==="
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs oidc-simulator | tail -100
+        
+        echo "=== Server logs ==="
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs server | tail -100
+
+    - name: Run auth setup test
+      run: |
+        cd e2e
+        npm install dotenv
+        
+        # Set environment variables for the test script
+        export AUTH_CERTS_PATH=../.simulacrum/certs
+        export CYPRESS_BASE_URL=http://localhost
+        export AUTH_ISSUER=https://localhost:3000/
+        
+        # Run the validation script
+        node test-auth-setup.js
+
+    - name: Clean up
+      if: always()
+      run: |
+        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml down -v
