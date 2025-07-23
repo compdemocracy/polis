@@ -22,7 +22,7 @@ const SignOut = () => {
         localStorage.clear()
         sessionStorage.clear()
 
-        // The Auth0 simulator does not include "end_session_endpoint" in the discovery document,
+        // The OIDC simulator does not include "end_session_endpoint" in the discovery document,
         // so we need to handle signout manually.
         if (process.env.AUTH_CLIENT_ID === 'dev-client-id') {
           await auth.removeUser()

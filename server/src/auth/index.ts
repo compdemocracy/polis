@@ -53,6 +53,20 @@ export {
   jwtValidationOptional,
 } from "./jwt-middleware";
 
+// JWT utilities (shared functionality)
+export {
+  getPrivateKey,
+  getPublicKey,
+  isParticipantJWT,
+  issueParticipantJWT,
+  verifyParticipantJWT,
+  type AnonymousJwtClaims,
+  type BaseParticipantJwtClaims,
+  type ParticipantJwtClaims,
+  type StandardUserJwtClaims,
+  type XidJwtClaims,
+} from "./jwt-utils";
+
 // Auth-related routes
 export {
   handle_POST_auth_deregister_jwt,

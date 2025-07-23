@@ -131,7 +131,7 @@ describe("Standard User JWT", () => {
       const invalidToken = "invalid.jwt.token";
 
       expect(() => verifyStandardUserJWT(invalidToken)).toThrow(
-        "Invalid standard user JWT"
+        "Invalid standard_user JWT"
       );
     });
 

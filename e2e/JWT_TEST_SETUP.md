@@ -4,7 +4,7 @@
 
 The anonymous JWT flow works correctly in the browser but fails in Cypress tests. This is because:
 
-1. JWT keys ARE properly configured in the server (via docker mount of `AUTH_KEYS_PATH`)
+1. JWT keys ARE properly configured in the server (via docker mount of `AUTH_KEYS_PATH`, or `JWT_PRIVATE_KEY` and `JWT_PUBLIC_KEY` environment variables)
 2. The browser successfully receives JWT tokens when voting
 3. The Cypress test environment might be missing something that the browser has
 

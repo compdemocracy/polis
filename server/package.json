@@ -100,7 +100,6 @@
     "xmlbuilder2": "^3.1.1"
   },
   "devDependencies": {
-    "@simulacrum/auth0-simulator": "^0.10.1",
     "@types/async": "~3.2.24",
     "@types/bcryptjs": "~2.4.6",
     "@types/bluebird": "~3.5.42",

@@ -123,14 +123,15 @@ JWT extraction functions use the assigner function (typically `assignToP`) rathe
 # OIDC Configuration (for standard users)
 AUTH_ISSUER=https://your-tenant.auth0.com/
 AUTH_AUDIENCE=users
+AUTH_CERTS_PATH=~/.simulacrum/certs
 AUTH_CLIENT_ID=your-client-id
 JWKS_URI=https://your-tenant.auth0.com/.well-known/jwks.json
 
 # In-house JWT Configuration (for XID and anonymous participants)
 POLIS_JWT_ISSUER=https://pol.is/
 POLIS_JWT_AUDIENCE=participants
-AUTH_CERTS_PATH=~/.simulacrum/certs
-AUTH_KEYS_PATH=./keys
+JWT_PRIVATE_KEY=[base64 encoded private key]
+JWT_PUBLIC_KEY=[base64 encoded public key]
 ```
 
 ## Current Status
