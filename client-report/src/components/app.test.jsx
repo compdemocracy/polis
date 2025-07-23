@@ -1,7 +1,19 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import App from './app';
+
+// Mock the useAuth hook from react-oidc-context
+jest.mock('react-oidc-context', () => ({
+  useAuth: () => ({
+    isAuthenticated: false,
+    isLoading: false,
+    user: null,
+    signinRedirect: jest.fn(),
+    signoutRedirect: jest.fn(),
+    removeUser: jest.fn(),
+  }),
+}));
 
 // Mock data for testing
 const mockData = {
@@ -22,8 +34,12 @@ jest.mock('./globals.js', () => ({
   enableMatrix: true,
 }));
 
-test('renders nothing to show message if there is no data', () => {
+test('renders nothing to show message if there is no data', async () => {
   render(<App {...mockData} nothingToShow={true} />);
-  const nothingToShowText = screen.getByText(/Nothing to show yet/);
-  expect(nothingToShowText).toBeInTheDocument();
+  
+  // Wait for the component to finish loading and rendering
+  await waitFor(() => {
+    const nothingToShowText = screen.getByText(/Nothing to show yet/);
+    expect(nothingToShowText).toBeInTheDocument();
+  });
 });
