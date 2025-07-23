@@ -2,9 +2,9 @@ name: E2E Tests
 
 on:
   push:
-    branches: [ edge, br/auth0-integration ]
+    branches: [ edge, stable ]
   pull_request:
-    branches: [ edge ]
+    branches: [ edge, stable ]
 
 jobs:
   cypress-run:
