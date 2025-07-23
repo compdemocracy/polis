@@ -188,14 +188,9 @@ describe("Vote API", () => {
   describe("GET /votes/me", () => {
     test("should retrieve votes for the current participant", async () => {
       // Create a participant and submit a vote
-      const { agent: participantAgent, token } = await initializeParticipant(
+      const { agent: participantAgent } = await initializeParticipant(
         conversationId
       );
-
-      // Ensure the agent has proper authentication for the /votes/me endpoint
-      if (token) {
-        participantAgent.set("Authorization", `Bearer ${token}`);
-      }
 
       const voteResponse = await submitVote(participantAgent, {
         conversation_id: conversationId,
@@ -224,25 +219,14 @@ describe("Vote API", () => {
         )}`
       );
 
-      // NOTE: The /votes/me endpoint requires full user authentication (not anonymous)
-      // Anonymous participants get Anonymous JWTs which may not work with this endpoint
-      // This is a known limitation of the legacy endpoint with anonymous participants
-      if (myVotesResponse.status === 401) {
-        // Expected behavior for anonymous participants - skip this part of the test
-        expect(myVotesResponse.status).toBe(401);
-        expect(myVotesResponse.text).toMatch(
-          /JWT validation failed|Authentication required|invalid signature|Invalid authentication/
-        );
-      } else {
-        // If authentication works, verify the response
-        expect(myVotesResponse.status).toBe(200);
+      // If authentication works, verify the response
+      expect(myVotesResponse.status).toBe(200);
 
-        // Votes are now automatically parsed into response.body
-        const myVotes = myVotesResponse.body;
-        expect(Array.isArray(myVotes)).toBe(true);
-        // NOTE: The legacy endpoint may return an empty array even with votes
-        expect(myVotes.length).toBeGreaterThanOrEqual(0);
-      }
+      // Votes are now automatically parsed into response.body
+      const myVotes = myVotesResponse.body;
+      expect(Array.isArray(myVotes)).toBe(true);
+      // NOTE: The legacy endpoint may return an empty array even with votes
+      expect(myVotes.length).toBeGreaterThanOrEqual(0);
     });
   });
 });
