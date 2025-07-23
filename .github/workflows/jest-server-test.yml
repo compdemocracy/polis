@@ -59,18 +59,15 @@ jobs:
         echo "Environment variables:"
         grep -E "AUTH_|CERT|DATABASE_URL|POSTGRES_|JWT_" test.env || true
 
-    - name: Build Docker images (excluding server from services)
+    - name: Build Docker images
       run: |
-        # Build all required services except server (we'll build it separately)
+        # Build only required services (server tests run on host)
         docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env build \
           math postgres nginx-proxy file-server maildev oidc-simulator
-        
-        # Build the server image separately (it won't run as a service)
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env build server
 
-    - name: Start services (excluding server)
+    - name: Start services
       run: |
-        # Start only required services in detached mode (excluding server)
+        # Start only required services in detached mode
         docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up -d \
           math postgres nginx-proxy file-server maildev oidc-simulator
         
@@ -90,17 +87,35 @@ jobs:
         echo "Checking oidc-simulator..."
         curl -k -f https://localhost:3000/.well-known/jwks.json || true
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+        cache-dependency-path: server/package-lock.json
+
+    - name: Install server dependencies
+      run: |
+        cd server
+        npm ci
+
     - name: Run server integration tests
       run: |
-        # Run tests inside the server container with all necessary environment variables
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env run \
-          --rm \
-          -e NODE_EXTRA_CA_CERTS=/root/.simulacrum/certs/rootCA.pem \
-          -e CI=true \
-          -e NODE_ENV=test \
-          --no-deps \
-          server \
-          npm test -- --ci --coverage --maxWorkers=2
+        cd server
+        
+        # Set environment variables for tests
+        export NODE_EXTRA_CA_CERTS=$(pwd)/../.simulacrum/certs/rootCA.pem
+        export CI=true
+        export NODE_ENV=test
+        
+        # Override service URLs to use localhost instead of Docker service names
+        export DATABASE_URL=postgres://postgres:PdwPNS2mDN73Vfbc@localhost:5432/polis-test
+        export MAILDEV_HOST=localhost
+        export STATIC_FILES_HOST=localhost
+        export MATH_URL=http://localhost:4000  # Default math service port
+        
+        # Run the tests on the host machine
+        npm test -- --ci --coverage --maxWorkers=2
 
     - name: Upload test coverage
       if: always()
