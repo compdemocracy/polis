@@ -23,7 +23,7 @@ services:
     labels:
       polis_tag: test
     networks:
-      - "polis-test"
+      - polis-test
     volumes:
       # Mount mkcert root CA for TLS verification
       - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
@@ -44,7 +44,7 @@ services:
       - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
       - WEBSERVER_PASS=${WEBSERVER_PASS}
     networks:
-      - "polis-test"
+      - polis-test
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -113,7 +113,7 @@ services:
     labels:
       polis_tag: test
     networks:
-      - "polis-test"
+      - polis-test
     ports:
       - 80:80
       - 443:443
@@ -137,7 +137,7 @@ services:
     labels:
       polis_tag: test
     networks:
-      - "polis-test"
+      - polis-test
 
-  networks:
-    polis-test:
+networks:
+  polis-test:
