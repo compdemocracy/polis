@@ -10,7 +10,7 @@ const jwtValidation = expressjwt({
   // Dynamically provide signing key based on the kid in the header and the signing keys provided by JWKS endpoint
   secret: expressJwtSecret({
     cache: true,
-    rateLimit: true,
+    rateLimit: Config.isDevMode ? false : true,
     jwksRequestsPerMinute: 5,
     jwksUri: Config.jwksUri as string,
     handleSigningKeyError: (err, cb) => {
@@ -36,7 +36,7 @@ const jwtValidation = expressjwt({
 const jwtValidationOptional = expressjwt({
   secret: expressJwtSecret({
     cache: true,
-    rateLimit: true,
+    rateLimit: Config.isDevMode ? false : true,
     jwksRequestsPerMinute: 5,
     jwksUri: Config.jwksUri as string,
     handleSigningKeyError: (err, cb) => {
