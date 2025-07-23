@@ -155,9 +155,9 @@ npm run cy:open
 ```bash
 # OIDC configuration
 AUTH_ISSUER=https://localhost:3000/
-AUTH_CLIENT_ID=test-client-id
-AUTH_AUDIENCE=test-audience
-AUTH_NAMESPACE=https://polis.test/
+AUTH_CLIENT_ID=dev-client-id
+AUTH_AUDIENCE=users
+AUTH_NAMESPACE=https://pol.is/
 
 # Development server
 CYPRESS_BASE_URL=http://localhost:5000
