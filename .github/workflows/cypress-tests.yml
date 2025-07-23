@@ -58,28 +58,26 @@ jobs:
 
     - name: Build Docker images
       run: |
-        # Build only required services (excluding delphi)
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env build \
-          server math postgres nginx-proxy file-server maildev oidc-simulator
+        # Build all services defined in test compose file
+        docker compose -f docker-compose.test.yml --env-file test.env build
 
     - name: Start services
       run: |
-        # Start only required services in detached mode (excluding delphi)
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up -d \
-          server math postgres nginx-proxy file-server maildev oidc-simulator
+        # Start all services in detached mode
+        docker compose -f docker-compose.test.yml --env-file test.env up -d
         
         # Wait for services to be ready
         echo "Waiting for services to start..."
         sleep 30
         
         # Show running containers
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml ps
+        docker compose -f docker-compose.test.yml ps
 
     - name: Check service health
       run: |
         # Check if key services are responding
         echo "Checking postgres..."
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml exec -T postgres pg_isready -U postgres || true
+        docker compose -f docker-compose.test.yml exec -T postgres pg_isready -U postgres || true
         
         echo "Checking oidc-simulator..."
         curl -k -f https://localhost:3000/.well-known/jwks.json || true
@@ -92,10 +90,10 @@ jobs:
       run: |
         # Show logs from critical services for debugging
         echo "=== OIDC Simulator logs ==="
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs oidc-simulator | tail -100
+        docker compose -f docker-compose.test.yml logs oidc-simulator | tail -100
         
         echo "=== Server logs ==="
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs server | tail -100
+        docker compose -f docker-compose.test.yml logs server | tail -100
 
     - name: Run auth setup test
       run: |
@@ -147,4 +145,4 @@ jobs:
     - name: Clean up
       if: always()
       run: |
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml down -v
+        docker compose -f docker-compose.test.yml down -v

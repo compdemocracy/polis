@@ -1,40 +1,60 @@
-# This file is an override to the original docker-compose.yml file, and as such is meant to
-# extend that configuration with some additional concerns for e2e tests, such as a maildev
-# server. DO NOT USE THIS IN PRODUCTION.
+# This file is an alternative to the original docker-compose.yml file.
+# It is intended to be used for CI test workflows.
+# DO NOT USE THIS IN PRODUCTION.
 
-# This configuration does not work on its own and must be run together with docker-compose.yml,
-# e.g. `docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up`.
-
-# For more information see https://docs.docker.com/compose/extends/
+# Run with: `docker compose -f docker-compose.test.yml --env-file test.env up --build`.
 
 services:
-  # Server service configuration for when it's needed (e.g., in e2e tests)
-  # Override the ECR image with a local build
   server:
+    environment:
+      - DATABASE_SSL=false
+      - DATABASE_URL=${DATABASE_URL}
+      - MAILDEV_HOST=maildev
+      - NODE_ENV=development
+      - NODE_EXTRA_CA_CERTS=/root/.simulacrum/certs/rootCA.pem
+    env_file:
+      - test.env
     build:
       context: ./server
       dockerfile: Dockerfile
-      target: dev
+      target: prod
       args:
-        NODE_ENV: development
+        NODE_ENV: production
+    labels:
+      polis_tag: test
+    networks:
+      - "polis-test"
     volumes:
       # Mount mkcert root CA for TLS verification
       - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
-      # Mount JWT keys for participant authentication
-      - ${AUTH_KEYS_PATH:-./server/keys}:/app/keys:ro
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  math:
+    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/math:latest
+    build:
+      context: ./math
+    labels:
+      polis_tag: test
     environment:
-      - GOOGLE_CREDENTIALS_BASE64
-      - MAILDEV_HOST=maildev
-      - NODE_ENV=development
-      # Tell Node.js to trust the mkcert CA for HTTPS connections
-      - NODE_EXTRA_CA_CERTS=/root/.simulacrum/certs/rootCA.pem
+      - DATABASE_URL=${DATABASE_URL}
+      - LOGGING_LEVEL=${MATH_LOG_LEVEL:-warn}
+      - MATH_ENV=${MATH_ENV:-prod}
+      - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
+      - WEBSERVER_PASS=${WEBSERVER_PASS}
+    networks:
+      - "polis-test"
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   maildev:
     image: docker.io/maildev/maildev:1.1.1
     labels:
-      polis_tag: ${TAG}
+      polis_tag: test
     networks:
-      - polis-net
+      - polis-test
     ports:
       # User interface
       - "1080:1080"
@@ -45,37 +65,79 @@ services:
     build:
       context: ./oidc-simulator
       dockerfile: Dockerfile
+    environment:
+      - AUTH_AUDIENCE=users
+      - AUTH_CLIENT_ID=dev-client-id
+      - AUTH_NAMESPACE=https://pol.is/
+      - AUTH_SIMULATOR_PORT=3000
+      - CERT_DIR=/root/.simulacrum/certs
+    labels:
+      polis_tag: test
+    networks:
+      - polis-test
     ports:
-      - "${AUTH_SIMULATOR_PORT:-3000}:${AUTH_SIMULATOR_PORT:-3000}"
+      - 3000:3000
     volumes:
       - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
-    environment:
-      - AUTH_AUDIENCE=${AUTH_AUDIENCE:-users}
-      - AUTH_CLIENT_ID=${AUTH_CLIENT_ID:-dev-client-id}
-      - AUTH_NAMESPACE=${AUTH_NAMESPACE:-https://pol.is/}
-      - AUTH_SIMULATOR_PORT=${AUTH_SIMULATOR_PORT:-3000}
-      - CERT_DIR=/root/.simulacrum/certs
-    networks:
-      - polis-net
 
   postgres:
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+    build:
+      context: ./server
+      dockerfile: Dockerfile-db
+      labels:
+        polis_tag: test
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
       timeout: 5s
       retries: 5
       start_period: 10s
+    networks:
+      - polis-test
+    ports:
+      - 5432:5432
+    restart: unless-stopped
+
+  nginx-proxy:
+    build:
+      context: ./file-server
+      dockerfile: nginx.Dockerfile
+    depends_on:
+      - "server"
     environment:
-      # Ensure these are explicitly set in test environment
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      - API_SERVER_PORT=5000
+    labels:
+      polis_tag: test
+    networks:
+      - "polis-test"
+    ports:
+      - 80:80
+      - 443:443
 
   file-server:
+    image: docker.io/compdem/polis-file-server:${TAG:-dev}
     build:
+      context: ./
+      dockerfile: file-server/Dockerfile
       args:
-        NODE_ENV: development
-    ports:
-      - ${STATIC_FILES_PORT:-8080}:${STATIC_FILES_PORT:-8080}
+        AUTH_AUDIENCE: users
+        AUTH_CLIENT_ID: dev-client-id
+        AUTH_ISSUER: https://pol.is/
+        EMBED_SERVICE_HOSTNAME: localhost
+        GIT_HASH: "${GIT_HASH:-placeholder}"
+        NODE_ENV: production
+        OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: ${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
+        OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}
+    environment:
+      - PORT=8080
+    labels:
+      polis_tag: test
+    networks:
+      - "polis-test"
+
+  networks:
+    polis-test:

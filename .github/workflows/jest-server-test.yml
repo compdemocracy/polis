@@ -61,14 +61,14 @@ jobs:
 
     - name: Build Docker images
       run: |
-        # Build only required services (server tests run on host)
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env build \
+        # Build all services except server (tests run on host)
+        docker compose -f docker-compose.test.yml --env-file test.env build \
           math postgres nginx-proxy file-server maildev oidc-simulator
 
     - name: Start services
       run: |
-        # Start only required services in detached mode
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml --env-file test.env up -d \
+        # Start only required services in detached mode (exclude server)
+        docker compose -f docker-compose.test.yml --env-file test.env up -d \
           math postgres nginx-proxy file-server maildev oidc-simulator
         
         # Wait for services to be ready
@@ -76,13 +76,13 @@ jobs:
         sleep 30
         
         # Show running containers
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml ps
+        docker compose -f docker-compose.test.yml ps
 
     - name: Check service health
       run: |
         # Check if key services are responding
         echo "Checking postgres..."
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml exec -T postgres pg_isready -U postgres || true
+        docker compose -f docker-compose.test.yml exec -T postgres pg_isready -U postgres || true
         
         echo "Checking oidc-simulator..."
         curl -k -f https://localhost:3000/.well-known/jwks.json || true
@@ -112,7 +112,6 @@ jobs:
         export DATABASE_URL=postgres://postgres:PdwPNS2mDN73Vfbc@localhost:5432/polis-test
         export MAILDEV_HOST=localhost
         export STATIC_FILES_HOST=localhost
-        export MATH_URL=http://localhost:4000  # Default math service port
         
         # Run the tests on the host machine
         npm test -- --ci --coverage --maxWorkers=2
@@ -130,15 +129,15 @@ jobs:
       run: |
         # Show logs from critical services for debugging
         echo "=== OIDC Simulator logs ==="
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs oidc-simulator | tail -100
+        docker compose -f docker-compose.test.yml logs oidc-simulator | tail -100
         
         echo "=== Postgres logs ==="
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs postgres | tail -100
+        docker compose -f docker-compose.test.yml logs postgres | tail -100
         
         echo "=== Math logs ==="
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml logs math | tail -50
+        docker compose -f docker-compose.test.yml logs math | tail -50
 
     - name: Clean up
       if: always()
       run: |
-        docker compose --profile postgres -f docker-compose.yml -f docker-compose.test.yml down -v
+        docker compose -f docker-compose.test.yml down -v
