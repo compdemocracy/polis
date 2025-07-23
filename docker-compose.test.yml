@@ -109,6 +109,8 @@ services:
     build:
       context: ./file-server
       dockerfile: nginx.Dockerfile
+    depends_on:
+      - server
     environment:
       - API_SERVER_PORT=5000
     labels:

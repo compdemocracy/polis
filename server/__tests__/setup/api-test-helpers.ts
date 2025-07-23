@@ -478,6 +478,8 @@ async function initializeParticipant(
     participantAgent.set("Authorization", `Bearer ${token}`);
   }
 
+  await wait(500);
+
   return {
     body: responseBody,
     status: response.status,

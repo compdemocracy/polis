@@ -1,0 +1,41 @@
+name: Run Jest Tests - client admin
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  pull_request:
+    paths:
+      - 'client-admin/**'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: client-admin/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: client-admin
+
+      - name: Run Jest tests with coverage
+        run: npm run test:coverage
+        working-directory: client-admin
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          directory: client-admin/coverage
+          flags: client-admin
+          name: client-admin-coverage
+          fail_ci_if_error: false

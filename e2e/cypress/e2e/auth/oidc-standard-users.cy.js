@@ -10,6 +10,10 @@ import {
 
 describe('OIDC Standard User Authentication', () => {
   beforeEach(() => {
+    // Ensure the page is fully loaded before starting tests
+    cy.visit('/')
+    cy.window().should('have.property', 'atob')
+
     // Clear any existing auth state
     logout()
 
