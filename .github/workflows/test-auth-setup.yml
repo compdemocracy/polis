@@ -110,6 +110,40 @@ jobs:
         # Run the validation script
         node test-auth-setup.js
 
+    - name: Install Cypress dependencies
+      run: |
+        cd e2e
+        npm ci
+
+    - name: Run Cypress E2E tests
+      run: |
+        cd e2e
+        
+        # Set environment variables for Cypress
+        export NODE_EXTRA_CA_CERTS=$(pwd)/../.simulacrum/certs/rootCA.pem
+        export CYPRESS_BASE_URL=http://localhost
+        export AUTH_ISSUER=https://localhost:3000/
+        export AUTH_CERTS_PATH=$(pwd)/../.simulacrum/certs
+        
+        # Run all Cypress tests
+        npm test
+
+    - name: Upload Cypress screenshots
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cypress-screenshots
+        path: e2e/cypress/screenshots
+        if-no-files-found: ignore
+
+    - name: Upload Cypress videos
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cypress-videos
+        path: e2e/cypress/videos
+        if-no-files-found: ignore
+
     - name: Clean up
       if: always()
       run: |
