@@ -29,9 +29,7 @@ describe("JWT-Only Authentication Tests", () => {
       expect(token.split(".")).toHaveLength(3); // Valid JWT format
 
       // Test authenticated request
-      const response: Response = await agent.get(
-        "/api/v3/users"
-      );
+      const response: Response = await agent.get("/api/v3/users");
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("uid");
       expect(response.body).toHaveProperty("email");
@@ -41,9 +39,7 @@ describe("JWT-Only Authentication Tests", () => {
     test("should reject requests without JWT", async () => {
       const agent = await newAgent();
 
-      const response: Response = await agent.get(
-        "/api/v3/users"
-      );
+      const response: Response = await agent.get("/api/v3/users");
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty("error", "Authentication required");
     });

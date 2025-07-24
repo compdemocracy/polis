@@ -69,7 +69,11 @@ const getAccessTokenSilentlySPA = async (options) => {
       return token
     } catch (e) {
       // Handle specific OIDC errors
-      if (e.error === 'login_required' && oidcLoginRedirect && typeof oidcLoginRedirect === 'function') {
+      if (
+        e.error === 'login_required' &&
+        oidcLoginRedirect &&
+        typeof oidcLoginRedirect === 'function'
+      ) {
         oidcLoginRedirect()
         return null
       }
@@ -148,12 +152,12 @@ async function polisFetch(api, data, type) {
   if (!response.ok && response.status !== 304) {
     // Read the response body to include in the error
     const errorBody = await response.text()
-      console.error('❌ API Error Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorBody
-      })
-    
+    console.error('❌ API Error Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      body: errorBody
+    })
+
     // Create a new error object and attach the response body
     const error = new Error(
       `Polis API Error: ${method} ${url} failed with status ${response.status} (${response.statusText})`

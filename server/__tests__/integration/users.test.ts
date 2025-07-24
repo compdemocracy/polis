@@ -46,9 +46,7 @@ describe("User Management Endpoints", () => {
     test("should get the current user info when authenticated (JWT)", async () => {
       const { agent: jwtAgent } = await getJwtAuthenticatedAgent(jwtTestUser1);
 
-      const response: Response = await jwtAgent.get(
-        "/api/v3/users"
-      );
+      const response: Response = await jwtAgent.get("/api/v3/users");
       expect(response.status).toBe(200);
 
       const userInfo = response.body as UserInfo;
@@ -60,9 +58,7 @@ describe("User Management Endpoints", () => {
 
     test("should require authentication", async () => {
       const unauthAgent = await newAgent();
-      const response: Response = await unauthAgent.get(
-        "/api/v3/users"
-      );
+      const response: Response = await unauthAgent.get("/api/v3/users");
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty("error");
     });

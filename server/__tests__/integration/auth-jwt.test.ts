@@ -32,9 +32,7 @@ describe("JWT Authentication with OIDC Simulator", () => {
     });
     expect(token).toBeDefined();
 
-    const response: Response = await agent.get(
-      "/api/v3/users"
-    );
+    const response: Response = await agent.get("/api/v3/users");
 
     expect(response.status).toBe(200);
     expect(response.body).not.toHaveProperty("error");
@@ -67,9 +65,7 @@ describe("JWT Authentication with OIDC Simulator", () => {
   test("should fail with 401 if no token is provided to a protected route", async () => {
     const agent = await newAgent();
 
-    const response: Response = await agent.get(
-      "/api/v3/users"
-    );
+    const response: Response = await agent.get("/api/v3/users");
 
     expect(response.status).toBe(401);
     expect(response.body).toHaveProperty("error", "Authentication required");

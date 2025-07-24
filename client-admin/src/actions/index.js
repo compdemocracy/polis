@@ -1192,7 +1192,7 @@ const fetchConversationStats = (conversation_id, until) => {
   if (until) {
     url += `&until=${until}`
   }
-  
+
   return PolisNet.polisGet(url)
 }
 

@@ -101,9 +101,7 @@ describe("Authentication with Supertest", () => {
       expect(token.split(".")).toHaveLength(3); // Valid JWT format
 
       // Test authenticated request
-      const response: Response = await jwtAgent.get(
-        "/api/v3/users"
-      );
+      const response: Response = await jwtAgent.get("/api/v3/users");
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("uid");
       expect(typeof response.body.uid).toBe("number");

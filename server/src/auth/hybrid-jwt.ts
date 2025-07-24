@@ -34,26 +34,25 @@ function _isOidcJWT(token: string): boolean {
     if (!decoded || !decoded.payload) {
       logger.warn("_isOidcJWT: Token decode failed", {
         hasDecoded: !!decoded,
-        hasPayload: !!(decoded?.payload)
+        hasPayload: !!decoded?.payload,
       });
       return false;
     }
 
     const payload = decoded.payload;
-    
+
     // Handle audience as either string or array (JWT spec allows both)
     let audMatch = false;
-    if (typeof payload.aud === 'string') {
+    if (typeof payload.aud === "string") {
       audMatch = payload.aud === Config.authAudience;
     } else if (Array.isArray(payload.aud)) {
       audMatch = payload.aud.includes(Config.authAudience);
     }
-    
-    
+
     // Standard user JWTs have specific claims
     const issMatch = payload.iss === Config.authIssuer;
     const isOidc = !!(audMatch && issMatch);
-    
+
     return isOidc;
   } catch (error) {
     logger.warn("Error checking if token is OIDC JWT:", error);
@@ -92,7 +91,7 @@ function _createHybridJwtMiddleware(
 
     // We have a Bearer token, so let's validate it.
     const token = authHeader.substring(7);
-    
+
     try {
       // Determine which validation to use based on token type
       if (isXidJWT(token)) {
@@ -191,7 +190,7 @@ function _createHybridJwtMiddleware(
                 error: err.message,
                 code: err.code,
                 name: err.name,
-                inner: err.inner
+                inner: err.inner,
               });
               reject(err);
             } else {
@@ -205,7 +204,7 @@ function _createHybridJwtMiddleware(
           extractUserFromJWT(assigner)(req, res, (err?: any) => {
             if (err) {
               logger.error("OIDC JWT user extraction failed", {
-                error: err.message
+                error: err.message,
               });
               reject(err);
             } else {
@@ -218,19 +217,19 @@ function _createHybridJwtMiddleware(
         return next();
       } else {
         logger.warn("Token does not match any known JWT type", {
-          tokenSample: token.substring(0, 50) + '...'
+          tokenSample: token.substring(0, 50) + "...",
         });
-        
+
         return res.status(401).json({
           error: "Invalid token format",
-          details: "Token does not match any supported JWT type"
+          details: "Token does not match any supported JWT type",
         });
       }
     } catch (error) {
       logger.error("JWT validation failed", {
         message: error instanceof Error ? error.message : "Unknown error",
         stack: error instanceof Error ? error.stack : undefined,
-        name: error instanceof Error ? error.name : undefined
+        name: error instanceof Error ? error.name : undefined,
       });
 
       // If a token was provided but is invalid, always return 401

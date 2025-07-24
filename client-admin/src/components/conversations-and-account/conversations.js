@@ -17,7 +17,7 @@ const Conversations = () => {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading } = useAuth()
   const { conversations, loading, error } = useSelector((state) => state.conversations)
-  
+
   const [filterState] = useState({
     filterMinParticipantCount: 0,
     sort: 'participant_count'
@@ -34,14 +34,14 @@ const Conversations = () => {
   useEffect(() => {
     // Listen for auth ready event
     const handleAuthReady = () => {
-        loadConversationsIfNeeded()
+      loadConversationsIfNeeded()
     }
 
     window.addEventListener('polisAuthReady', handleAuthReady)
 
     if (isAuthenticated && !isLoading) {
-        loadConversationsIfNeeded()
-      
+      loadConversationsIfNeeded()
+
       return () => {
         window.removeEventListener('polisAuthReady', handleAuthReady)
       }

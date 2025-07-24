@@ -41,9 +41,7 @@ describe("JWT Route Validation Matrix", () => {
   describe("User Management Routes", () => {
     test("GET /api/v3/users - Get current user info", async () => {
       const { agent } = await getJwtAuthenticatedAgent(testUser);
-      const response: Response = await agent.get(
-        "/api/v3/users"
-      );
+      const response: Response = await agent.get("/api/v3/users");
 
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("uid");
@@ -335,9 +333,7 @@ describe("JWT Route Validation Matrix", () => {
       const { newAgent } = await import("../setup/api-test-helpers");
       const unauthAgent = await newAgent();
 
-      const response: Response = await unauthAgent.get(
-        "/api/v3/users"
-      );
+      const response: Response = await unauthAgent.get("/api/v3/users");
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty("error", "Authentication required");
@@ -348,9 +344,7 @@ describe("JWT Route Validation Matrix", () => {
       const agent = await newAgent();
       agent.set("Authorization", "Bearer invalid.jwt.token");
 
-      const response: Response = await agent.get(
-        "/api/v3/users"
-      );
+      const response: Response = await agent.get("/api/v3/users");
 
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty(

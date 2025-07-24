@@ -106,9 +106,7 @@ describe("Email Invites API", () => {
     const { agent } = await getJwtAuthenticatedAgent(jwtTestUser);
 
     // First, get the actual email from the database
-    const userResponse: Response = await agent.get(
-      "/api/v3/users"
-    );
+    const userResponse: Response = await agent.get("/api/v3/users");
     const actualDatabaseEmail = userResponse.body.email;
 
     const response: Response = await agent

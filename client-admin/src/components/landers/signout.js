@@ -37,8 +37,8 @@ const SignOut = () => {
         } else {
           // For production, try the proper signout redirect
           try {
-            await auth.signoutRedirect({ 
-              post_logout_redirect_uri: `${window.location.origin}/home` 
+            await auth.signoutRedirect({
+              post_logout_redirect_uri: `${window.location.origin}/home`
             })
           } catch {
             // If signout redirect fails, fallback to manual redirect
@@ -48,7 +48,7 @@ const SignOut = () => {
       } catch (err) {
         console.error('Signout error:', err)
         setError(err.message || 'Signout failed')
-        
+
         // Force redirect to home page after a delay
         setTimeout(() => {
           window.location.href = '/home'

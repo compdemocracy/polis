@@ -28,8 +28,8 @@ const OidcConnector = () => {
             const expiresAt = auth.user.expires_at
             const now = Math.floor(Date.now() / 1000)
             const TOKEN_EXPIRY_BUFFER = 60 // 60 seconds buffer
-            
-            if (expiresAt && (now >= expiresAt - TOKEN_EXPIRY_BUFFER)) {
+
+            if (expiresAt && now >= expiresAt - TOKEN_EXPIRY_BUFFER) {
               // Token is expired or about to expire, attempt silent refresh
               try {
                 const user = await auth.signinSilent()
@@ -45,22 +45,22 @@ const OidcConnector = () => {
                 throw silentError
               }
             }
-            
+
             // Token is still valid
             return auth.user.access_token
           }
-          
+
           // If we don't have a token yet, try signinSilent to refresh
           const user = await auth.signinSilent()
           if (user?.access_token) {
             return user.access_token
           }
-          
+
           // Final check after signinSilent
           if (auth.user?.access_token) {
             return auth.user.access_token
           }
-          
+
           return null
         } catch (error) {
           // If it's a login_required error, don't throw - let the caller handle it
@@ -69,7 +69,7 @@ const OidcConnector = () => {
             await auth.removeUser()
             return null
           }
-          
+
           throw error
         }
       }
@@ -86,7 +86,7 @@ const OidcConnector = () => {
       setOidcTokenGetter(null)
       authWasReady.current = false
     }
-    
+
     // Clear actions on unmount or when auth object changes without required methods
     return () => {
       if (!auth.signinRedirect || !auth.removeUser) {
