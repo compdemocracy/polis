@@ -265,7 +265,7 @@ async function createComment(
     // This requires an authenticated agent, which we assume the initial one is.
     const seedCommentResponse = await agent.post("/api/v3/comments").send({
       conversation_id: conversationId,
-      txt: "Seed comment for auth",
+      txt: "Seed comment for auth " + Date.now(),
       is_seed: true,
     });
     validateResponse(seedCommentResponse, {

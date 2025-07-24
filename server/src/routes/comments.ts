@@ -6,6 +6,7 @@ import badwords from "badwords/object";
 import { addParticipant } from "../participant";
 import { CommentOptions, CommentType } from "../d";
 import { createAnonUser, issueAnonymousJWT, issueXidJWT } from "../auth";
+import { checkLegacyCookieAndIssueJWT } from "../auth/legacyCookies";
 import { detectLanguage, getComment, getComments } from "../comment";
 import { failJson } from "../utils/fail";
 import { getPidPromise, getXidStuff } from "../user";
@@ -770,6 +771,28 @@ async function handle_POST_comments(
     }
   }
 
+  // Check for legacy cookie before creating new user
+  let legacyCookieToken: string | undefined;
+  if (uid === undefined && !req.p.jwt_conversation_mismatch) {
+    const legacyResult = await checkLegacyCookieAndIssueJWT(
+      req,
+      zid!,
+      conversation_id,
+      xid
+    );
+    if (legacyResult.uid !== undefined && legacyResult.pid !== undefined) {
+      uid = legacyResult.uid;
+      pid = legacyResult.pid;
+      currentPid = pid;
+      needsNewJwt = legacyResult.needsNewJwt;
+      legacyCookieToken = legacyResult.token;
+      logger.info("Using existing participant from legacy cookie", {
+        uid,
+        pid,
+      });
+    }
+  }
+
   // Create anonymous user if uid is not provided
   // This allows anonymous participants to submit comments as their first action
   if (uid === undefined && !xid) {
@@ -913,6 +936,16 @@ async function handle_POST_comments(
       conversation_id,
       needsNewJwt
     );
+
+    // Override auth with legacy cookie token if available
+    if (legacyCookieToken && needsNewJwt) {
+      response.auth = {
+        token: legacyCookieToken,
+        token_type: "Bearer",
+        expires_in: 24 * 60 * 60, // 24 hours
+      };
+      logger.debug("Using JWT from legacy cookie lookup for comment response");
+    }
 
     res.json(response);
   } catch (err: any) {

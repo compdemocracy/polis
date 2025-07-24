@@ -14,6 +14,7 @@ import {
   issueStandardUserJWT,
   issueXidJWT,
 } from "../auth";
+import { checkLegacyCookieAndIssueJWT } from "../auth/legacyCookies";
 import {
   isXidWhitelisted,
   getConversationInfo,
@@ -440,6 +441,33 @@ async function handle_POST_votes(req: VoteRequest, res: any) {
       }
     }
 
+    // Check for legacy cookie before creating new user
+    let legacyCookieToken: string | undefined;
+    let isLegacyCookieUser = false;
+    if (req.p.uid === undefined && !req.p.jwt_conversation_mismatch) {
+      // Get conversation_id for the legacy cookie check
+      const conversationId = await getZinvite(zid);
+      if (conversationId) {
+        const legacyResult = await checkLegacyCookieAndIssueJWT(
+          req,
+          zid,
+          conversationId as string,
+          req.p.xid
+        );
+        if (legacyResult.uid !== undefined && legacyResult.pid !== undefined) {
+          req.p.uid = legacyResult.uid;
+          req.p.pid = legacyResult.pid;
+          pid = legacyResult.pid;
+          legacyCookieToken = legacyResult.token;
+          isLegacyCookieUser = true;
+          logger.info("Using existing participant from legacy cookie", {
+            uid: legacyResult.uid,
+            pid: legacyResult.pid,
+          });
+        }
+      }
+    }
+
     // 1. Handle user identification and creation
     const finalUid = await handleUserIdentification(req);
 
@@ -513,13 +541,27 @@ async function handle_POST_votes(req: VoteRequest, res: any) {
     }
 
     // 9. Issue JWT if needed
-    const authResult = await issueJWTIfNeeded(
-      req,
-      finalUid,
-      pid,
-      zid,
-      isNewlyCreated
-    );
+    let authResult;
+    if (isLegacyCookieUser && legacyCookieToken) {
+      // Use the JWT token from legacy cookie lookup
+      authResult = {
+        auth: {
+          token: legacyCookieToken,
+          token_type: "Bearer",
+          expires_in: 24 * 60 * 60, // 24 hours
+        },
+      };
+      logger.debug("Using JWT from legacy cookie lookup");
+    } else {
+      // Issue new JWT if needed
+      authResult = await issueJWTIfNeeded(
+        req,
+        finalUid,
+        pid,
+        zid,
+        isNewlyCreated
+      );
+    }
     Object.assign(result, authResult);
 
     finishOne(res, result);

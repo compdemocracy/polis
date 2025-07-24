@@ -347,10 +347,7 @@ describe("JWT Route Validation Matrix", () => {
       const response: Response = await agent.get("/api/v3/users");
 
       expect(response.status).toBe(401);
-      expect(response.body).toHaveProperty(
-        "error",
-        "Invalid token format"
-      );
+      expect(response.body).toHaveProperty("error", "Invalid token format");
     });
   });
 });

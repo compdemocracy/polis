@@ -25,6 +25,7 @@ import {
   getNextComment,
   getOneConversation,
 } from "../server-helpers";
+import { checkLegacyCookieAndIssueJWT } from "../auth/legacyCookies";
 
 // basic defaultdict implementation
 function DD(this: any, f: () => { votes: number; comments: number }) {
@@ -405,6 +406,33 @@ async function handle_GET_participationInit(
       }
     }
 
+    // Check for legacy cookie before proceeding
+    let legacyCookieToken: string | undefined;
+    if (
+      req.p.uid === undefined &&
+      !req.p.jwt_conversation_mismatch &&
+      req.p.conversation_id
+    ) {
+      const legacyResult = await checkLegacyCookieAndIssueJWT(
+        req,
+        req.p.zid,
+        req.p.conversation_id,
+        req.p.xid
+      );
+      if (legacyResult.uid !== undefined && legacyResult.pid !== undefined) {
+        req.p.uid = legacyResult.uid;
+        req.p.pid = legacyResult.pid;
+        legacyCookieToken = legacyResult.token;
+        logger.info(
+          "Using existing participant from legacy cookie in participationInit",
+          {
+            uid: legacyResult.uid,
+            pid: legacyResult.pid,
+          }
+        );
+      }
+    }
+
     // For XID users, resolve XID to UID first
     let effectiveUidForUser = req.p.uid;
     if (req.p.xid && !req.p.uid) {
@@ -481,7 +509,19 @@ async function handle_GET_participationInit(
     response.famous = famous || {};
 
     // Issue JWT based on user type
-    if (req.p.oidc_sub && effectiveUid !== undefined && effectivePid >= 0) {
+    if (legacyCookieToken) {
+      // Use the JWT from legacy cookie lookup
+      response.auth = {
+        token: legacyCookieToken,
+        token_type: "Bearer",
+        expires_in: 24 * 60 * 60, // 24 hours
+      };
+      logger.debug("Using JWT from legacy cookie lookup in participationInit");
+    } else if (
+      req.p.oidc_sub &&
+      effectiveUid !== undefined &&
+      effectivePid >= 0
+    ) {
       // Issue JWT for standard users (OIDC authenticated)
       try {
         const token = issueStandardUserJWT(

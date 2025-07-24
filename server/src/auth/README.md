@@ -16,6 +16,8 @@ The authentication system uses a hybrid approach with three user types:
 - `hybrid-jwt.ts` - Unified authentication middleware (OIDC + XID JWT)
 - `jwt-middleware.ts` - OIDC JWT validation
 - `xid-jwt.ts` - XID JWT signing and validation
+- `anonymous-jwt.ts` - Anonymous participant JWT signing and validation
+- `legacyCookies.ts` - Legacy permanent cookie support for backward compatibility
 - `routes.ts` - Authentication API endpoints
 - `password.ts` - Password utilities
 - `create-user.ts` - User creation logic
@@ -55,6 +57,7 @@ The hybrid middleware checks authentication in this order:
 1. **OIDC JWT** - Standard user authentication
 2. **XID JWT** - External participant authentication
 3. **Anonymous JWT** - Anonymous participant authentication
+4. **Legacy Cookie** - Permanent cookie (`pc`) lookup for existing participants (transitional)
 
 ## Environment Variables
 
@@ -98,8 +101,8 @@ npm test -- __tests__/integration/routes-jwt-validation.test.ts
 
 ## Migration Status
 
-✅ **Completed**: OIDC JWT, XID JWT infrastructure, hybrid middleware
+✅ **Completed**: OIDC JWT, XID JWT infrastructure, hybrid middleware, Anonymous JWT, legacy cookie support
 
-🚧 **In Progress**: Anonymous JWT, route validation, client updates
+🚧 **In Progress**: Route validation, client updates
 
 See the [Migration Guide](../../docs/MIGRATION_GUIDE.md) for detailed status and next steps.

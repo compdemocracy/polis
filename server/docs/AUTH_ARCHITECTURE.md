@@ -117,6 +117,17 @@ JWT extraction functions use the assigner function (typically `assignToP`) rathe
 - Strict audience and issuer validation
 - No sensitive data in JWT claims
 
+### Legacy Cookie Support
+
+The system maintains backward compatibility with legacy permanent cookies (`pc` cookie) for existing participants:
+
+- **Automatic JWT Issuance**: When a request contains a valid permanent cookie, the system looks up the existing participant and issues a new JWT
+- **Seamless Migration**: Participants with legacy cookies receive JWTs automatically, allowing them to transition to the new authentication system
+- **All Endpoints Supported**: Works with `/api/v3/votes`, `/api/v3/comments`, and `/api/v3/participationInit`
+- **Preserves Identity**: Maintains the same participant ID (pid) and user ID (uid) from the legacy system
+
+See [LEGACY_COOKIE.md](./LEGACY_COOKIE.md) for implementation details.
+
 ## Environment Configuration
 
 ```bash

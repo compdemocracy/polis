@@ -56,10 +56,7 @@ describe("JWT Authentication with OIDC Simulator", () => {
       .set("Authorization", `Bearer ${malformedToken}`);
 
     expect(response.status).toBe(401);
-    expect(response.body).toHaveProperty(
-      "error",
-      "Invalid token format"
-    );
+    expect(response.body).toHaveProperty("error", "Invalid token format");
   });
 
   test("should fail with 401 if no token is provided to a protected route", async () => {

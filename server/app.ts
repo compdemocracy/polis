@@ -239,6 +239,7 @@ helpersInitialized.then(
 
     app.use(redirectIfNotHttps);
     app.use(express.bodyParser());
+    app.use(express.cookieParser()); // Add cookie parser to access req.cookies
     app.use(writeDefaultHead);
 
     if (Config.isDevMode) {
