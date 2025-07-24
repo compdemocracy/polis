@@ -349,7 +349,7 @@ describe("JWT Route Validation Matrix", () => {
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty(
         "error",
-        "No authentication token found"
+        "Invalid token format"
       );
     });
   });
