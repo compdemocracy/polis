@@ -345,7 +345,7 @@ async function setupAuthAndConvo(
   // Try to get user info if we have a valid JWT token
   if (token) {
     try {
-      const userResponse = await agent.get("/api/v3/users?errIfNoAuth=true");
+      const userResponse = await agent.get("/api/v3/users");
       if (userResponse.status === 200) {
         userId = userResponse.body.uid;
       } else {
@@ -867,7 +867,7 @@ async function syncPooledUserToDatabase(pooledUser: {
     agent.set("Authorization", `Bearer ${token}`);
 
     // Make a request that will trigger user creation/mapping in the database
-    const userInfoResponse = await agent.get("/api/v3/users?errIfNoAuth=true");
+    const userInfoResponse = await agent.get("/api/v3/users");
 
     if (userInfoResponse.status === 200) {
       const uid = userInfoResponse.body.uid;

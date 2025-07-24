@@ -144,7 +144,7 @@ export function loginStandardUserAPI(email, password) {
     return cy
       .request({
         method: 'GET',
-        url: '/api/v3/users?errIfNoAuth=true',
+        url: '/api/v3/users',
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -628,7 +628,7 @@ export function logout() {
  * @param {string} expectedEmail - Expected email of logged in user
  */
 export function verifyCurrentUser(expectedEmail) {
-  cy.request('/api/v3/users?errIfNoAuth=true').then((response) => {
+  cy.request('/api/v3/users').then((response) => {
     expect(response.status).to.eq(200)
     expect(response.body.email).to.eq(expectedEmail)
   })

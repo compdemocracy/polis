@@ -10,25 +10,66 @@ const OidcConnector = () => {
 
   useEffect(() => {
     // Always set up auth actions for error handling and sign-in
-    setOidcActions({
-      signinRedirect: auth.signinRedirect,
-      removeUser: auth.removeUser
-    })
+    // Only set if the methods are available
+    if (auth.signinRedirect && auth.removeUser) {
+      setOidcActions({
+        signinRedirect: () => auth.signinRedirect(),
+        removeUser: () => auth.removeUser()
+      })
+    }
 
     // Set up the token getter function for the network utility when authenticated
     if (process.env.AUTH_CLIENT_ID && auth.isAuthenticated && !auth.isLoading) {
       const tokenGetter = async () => {
         try {
-          // The access_token is available on the user object
+          // Check if we have a user object with token
+          if (auth.user?.access_token) {
+            // Check if token is expired or about to expire
+            const expiresAt = auth.user.expires_at
+            const now = Math.floor(Date.now() / 1000)
+            const TOKEN_EXPIRY_BUFFER = 60 // 60 seconds buffer
+            
+            if (expiresAt && (now >= expiresAt - TOKEN_EXPIRY_BUFFER)) {
+              // Token is expired or about to expire, attempt silent refresh
+              try {
+                const user = await auth.signinSilent()
+                if (user?.access_token) {
+                  return user.access_token
+                }
+              } catch (silentError) {
+                // Token is stale and refresh failed - clear it
+                if (silentError.error === 'login_required') {
+                  await auth.removeUser()
+                  return null
+                }
+                throw silentError
+              }
+            }
+            
+            // Token is still valid
+            return auth.user.access_token
+          }
+          
+          // If we don't have a token yet, try signinSilent to refresh
+          const user = await auth.signinSilent()
+          if (user?.access_token) {
+            return user.access_token
+          }
+          
+          // Final check after signinSilent
           if (auth.user?.access_token) {
             return auth.user.access_token
           }
-          // Fallback to signinSilent if needed, though usually not necessary
-          // if the user object is populated.
-          await auth.signinSilent()
-          return auth.user?.access_token
+          
+          return null
         } catch (error) {
-          console.error('❌ Failed to get access token in tokenGetter:', error)
+          // If it's a login_required error, don't throw - let the caller handle it
+          if (error.error === 'login_required') {
+            // Clear any stale auth state
+            await auth.removeUser()
+            return null
+          }
+          
           throw error
         }
       }
@@ -44,6 +85,13 @@ const OidcConnector = () => {
       // Clear the token getter when not authenticated
       setOidcTokenGetter(null)
       authWasReady.current = false
+    }
+    
+    // Clear actions on unmount or when auth object changes without required methods
+    return () => {
+      if (!auth.signinRedirect || !auth.removeUser) {
+        setOidcActions(null)
+      }
     }
   }, [auth])
 

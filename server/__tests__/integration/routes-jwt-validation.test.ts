@@ -42,7 +42,7 @@ describe("JWT Route Validation Matrix", () => {
     test("GET /api/v3/users - Get current user info", async () => {
       const { agent } = await getJwtAuthenticatedAgent(testUser);
       const response: Response = await agent.get(
-        "/api/v3/users?errIfNoAuth=true"
+        "/api/v3/users"
       );
 
       expect(response.status).toBe(200);
@@ -336,7 +336,7 @@ describe("JWT Route Validation Matrix", () => {
       const unauthAgent = await newAgent();
 
       const response: Response = await unauthAgent.get(
-        "/api/v3/users?errIfNoAuth=true"
+        "/api/v3/users"
       );
 
       expect(response.status).toBe(401);
@@ -349,7 +349,7 @@ describe("JWT Route Validation Matrix", () => {
       agent.set("Authorization", "Bearer invalid.jwt.token");
 
       const response: Response = await agent.get(
-        "/api/v3/users?errIfNoAuth=true"
+        "/api/v3/users"
       );
 
       expect(response.status).toBe(401);

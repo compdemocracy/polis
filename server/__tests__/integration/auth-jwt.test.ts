@@ -33,7 +33,7 @@ describe("JWT Authentication with OIDC Simulator", () => {
     expect(token).toBeDefined();
 
     const response: Response = await agent.get(
-      "/api/v3/users?errIfNoAuth=true"
+      "/api/v3/users"
     );
 
     expect(response.status).toBe(200);
@@ -54,7 +54,7 @@ describe("JWT Authentication with OIDC Simulator", () => {
     const malformedToken = "this.is.not.a.jwt";
 
     const response: Response = await freshAgent
-      .get("/api/v3/users?errIfNoAuth=true")
+      .get("/api/v3/users")
       .set("Authorization", `Bearer ${malformedToken}`);
 
     expect(response.status).toBe(401);
@@ -68,7 +68,7 @@ describe("JWT Authentication with OIDC Simulator", () => {
     const agent = await newAgent();
 
     const response: Response = await agent.get(
-      "/api/v3/users?errIfNoAuth=true"
+      "/api/v3/users"
     );
 
     expect(response.status).toBe(401);
@@ -97,7 +97,7 @@ describe("JWT Authentication with OIDC", () => {
       const unauthenticatedAgent = await getTestAgent();
 
       const response: Response = await unauthenticatedAgent.get(
-        "/api/v3/users?errIfNoAuth=true"
+        "/api/v3/users"
       );
 
       // Should fail without auth

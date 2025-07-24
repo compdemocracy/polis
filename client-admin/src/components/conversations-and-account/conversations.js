@@ -17,7 +17,7 @@ const Conversations = () => {
   const navigate = useNavigate()
   const { isAuthenticated, isLoading } = useAuth()
   const { conversations, loading, error } = useSelector((state) => state.conversations)
-
+  
   const [filterState] = useState({
     filterMinParticipantCount: 0,
     sort: 'participant_count'
@@ -34,22 +34,23 @@ const Conversations = () => {
   useEffect(() => {
     // Listen for auth ready event
     const handleAuthReady = () => {
-      loadConversationsIfNeeded()
+        loadConversationsIfNeeded()
     }
 
     window.addEventListener('polisAuthReady', handleAuthReady)
 
-    // Initial load
-    loadConversationsIfNeeded()
+    if (isAuthenticated && !isLoading) {
+        loadConversationsIfNeeded()
+      
+      return () => {
+        window.removeEventListener('polisAuthReady', handleAuthReady)
+      }
+    }
 
     return () => {
       window.removeEventListener('polisAuthReady', handleAuthReady)
     }
-  }, [loadConversationsIfNeeded])
-
-  useEffect(() => {
-    loadConversationsIfNeeded()
-  }, [isAuthenticated, isLoading, loadConversationsIfNeeded])
+  }, [loadConversationsIfNeeded, isAuthenticated, isLoading])
 
   const onNewClicked = () => {
     dispatch(handleCreateConversationSubmit(navigate))

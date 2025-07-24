@@ -18,7 +18,6 @@ import Config from "../config";
 interface GetUsersRequest extends ExpressRequest {
   p: {
     uid?: number;
-    errIfNoAuth: boolean;
     xid: string;
     owner_uid?: number;
   };
@@ -50,9 +49,9 @@ async function handle_GET_users(
   req: GetUsersRequest,
   res: StandardResponse
 ): Promise<void> {
-  const { uid, errIfNoAuth, xid, owner_uid } = req.p;
+  const { uid, xid, owner_uid } = req.p;
 
-  if (errIfNoAuth && !uid) {
+  if (!uid) {
     failJson(res, 401, "Authentication required");
     return;
   }

@@ -107,7 +107,7 @@ describe("Email Invites API", () => {
 
     // First, get the actual email from the database
     const userResponse: Response = await agent.get(
-      "/api/v3/users?errIfNoAuth=true"
+      "/api/v3/users"
     );
     const actualDatabaseEmail = userResponse.body.email;
 

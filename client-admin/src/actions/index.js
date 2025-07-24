@@ -154,7 +154,7 @@ const userFetchError = (err) => {
 }
 
 const fetchUser = () => {
-  return PolisNet.polisGet('/api/v3/users', { errIfNoAuth: true })
+  return PolisNet.polisGet('/api/v3/users')
 }
 
 export const populateUserStore = () => {
@@ -166,8 +166,6 @@ export const populateUserStore = () => {
     )
   }
 }
-
-// Legacy auth functions removed - Auth/OIDC handles authentication through loginWithRedirect
 
 /* Conversations */
 
@@ -192,23 +190,9 @@ const conversationsError = (err) => {
 }
 
 const fetchConversations = () => {
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch('/api/v3/conversations?include_all_conversations_i_am_in=true', {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    }).then((response) => {
-      if (!response.ok && response.status !== 304) {
-        // Create an error object with status information
-        const error = new Error(`HTTP ${response.status}: ${response.statusText}`)
-        error.status = response.status
-        error.statusText = response.statusText
-        throw error
-      }
-      return response.json()
-    })
-  )
+  return PolisNet.polisGet('/api/v3/conversations', {
+    include_all_conversations_i_am_in: true
+  })
 }
 
 export const populateConversationsStore = () => {
@@ -253,23 +237,9 @@ export const resetMetadataStore = () => {
 }
 
 const fetchZidMetadata = (conversation_id) => {
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch(`/api/v3/conversations?conversation_id=${conversation_id}`, {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    }).then((response) => {
-      if (!response.ok && response.status !== 304) {
-        // Create an error object with status information
-        const error = new Error(`HTTP ${response.status}: ${response.statusText}`)
-        error.status = response.status
-        error.statusText = response.statusText
-        throw error
-      }
-      return response.json()
-    })
-  )
+  return PolisNet.polisGet('/api/v3/conversations', {
+    conversation_id: conversation_id
+  })
 }
 
 export const populateZidMetadataStore = (conversation_id) => {
@@ -327,20 +297,9 @@ const updateZidMetadataError = (err) => {
 const updateZidMetadata = (zm, field, value) => {
   const data = {}
   data[field] = value
-  const bodyData = JSON.stringify(Object.assign({}, zm, data))
+  const bodyData = Object.assign({}, zm, data)
 
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch('/api/v3/conversations', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'max-age=0',
-        ...(token && { Authorization: `Bearer ${token}` })
-      },
-      credentials: 'include',
-      body: bodyData
-    }).then((r) => r.json())
-  )
+  return PolisNet.polisPut('/api/v3/conversations', bodyData)
 }
 
 export const handleZidMetadataUpdate = (zm, field, value) => {
@@ -519,16 +478,11 @@ const commentsFetchError = (err) => {
 }
 
 const fetchAllComments = (conversation_id) => {
-  const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&conversation_id=${conversation_id}`
-
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch(url, {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    }).then((r) => r.json())
-  )
+  return PolisNet.polisGet('/api/v3/comments', {
+    moderation: true,
+    include_voting_patterns: false,
+    conversation_id: conversation_id
+  })
 }
 
 export const populateCommentsStore = (conversation_id) => {
@@ -1238,15 +1192,8 @@ const fetchConversationStats = (conversation_id, until) => {
   if (until) {
     url += `&until=${until}`
   }
-
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch(url, {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    }).then((r) => r.json())
-  )
+  
+  return PolisNet.polisGet(url)
 }
 
 export const populateConversationStatsStore = (conversation_id, until) => {
@@ -1284,14 +1231,7 @@ const dataExportGet = (conversation_id, format, unixTimestamp, untilEnabled) => 
   if (untilEnabled) {
     url += `&unixTimestamp=${unixTimestamp}`
   }
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch(url, {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    })
-  )
+  return PolisNet.polisGet(url)
 }
 
 export const startDataExport = (conversation_id, format, unixTimestamp, untilEnabled) => {

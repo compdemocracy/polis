@@ -102,7 +102,7 @@ describe("Authentication with Supertest", () => {
 
       // Test authenticated request
       const response: Response = await jwtAgent.get(
-        "/api/v3/users?errIfNoAuth=true"
+        "/api/v3/users"
       );
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("uid");
@@ -114,7 +114,7 @@ describe("Authentication with Supertest", () => {
       const unauthenticatedAgent = await newAgent();
 
       const response: Response = await unauthenticatedAgent.get(
-        "/api/v3/users?errIfNoAuth=true"
+        "/api/v3/users"
       );
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty("error", "Authentication required");

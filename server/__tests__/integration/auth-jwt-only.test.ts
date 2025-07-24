@@ -30,7 +30,7 @@ describe("JWT-Only Authentication Tests", () => {
 
       // Test authenticated request
       const response: Response = await agent.get(
-        "/api/v3/users?errIfNoAuth=true"
+        "/api/v3/users"
       );
       expect(response.status).toBe(200);
       expect(response.body).toHaveProperty("uid");
@@ -42,7 +42,7 @@ describe("JWT-Only Authentication Tests", () => {
       const agent = await newAgent();
 
       const response: Response = await agent.get(
-        "/api/v3/users?errIfNoAuth=true"
+        "/api/v3/users"
       );
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty("error", "Authentication required");

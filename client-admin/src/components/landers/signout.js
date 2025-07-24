@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from 'react-oidc-context'
 import { useNavigate } from 'react-router'
+import { setOidcTokenGetter } from '../../util/net'
 
 const SignOut = () => {
   const auth = useAuth()
@@ -18,29 +19,40 @@ const SignOut = () => {
         setIsSigningOut(true)
         setError(null)
 
-        // Clear local storage and cookies first
+        // Clear the token getter first to prevent any new API calls
+        setOidcTokenGetter(null)
+
+        // Clear all storage
         localStorage.clear()
         sessionStorage.clear()
 
+        // Always try to remove user locally first
+        await auth.removeUser()
+
         // The OIDC simulator does not include "end_session_endpoint" in the discovery document,
-        // so we need to handle signout manually.
+        // so we need to handle signout manually for dev environment
         if (process.env.AUTH_CLIENT_ID === 'dev-client-id') {
-          await auth.removeUser()
-          setTimeout(() => {
-            navigate('/home')
-          }, 1000)
+          // For dev environment, just redirect after local cleanup
+          window.location.href = '/home'
         } else {
-          await auth.signoutRedirect({ post_logout_redirect_uri: `${window.location.origin}/home` })
+          // For production, try the proper signout redirect
+          try {
+            await auth.signoutRedirect({ 
+              post_logout_redirect_uri: `${window.location.origin}/home` 
+            })
+          } catch {
+            // If signout redirect fails, fallback to manual redirect
+            window.location.href = '/home'
+          }
         }
       } catch (err) {
         console.error('Signout error:', err)
         setError(err.message || 'Signout failed')
-        setIsSigningOut(false)
-
-        // Fallback: redirect to home page after a delay
+        
+        // Force redirect to home page after a delay
         setTimeout(() => {
-          navigate('/home')
-        }, 2000)
+          window.location.href = '/home'
+        }, 1500)
       }
     }
 

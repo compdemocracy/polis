@@ -41,8 +41,13 @@ export const setOidcTokenGetter = (getter) => {
 // Store Auth hooks for login redirect
 let oidcLoginRedirect = null
 
-export const setOidcActions = (loginWithRedirect) => {
-  oidcLoginRedirect = loginWithRedirect
+export const setOidcActions = (actions) => {
+  if (actions && typeof actions === 'object') {
+    oidcLoginRedirect = actions.signinRedirect
+  } else {
+    // Clear if null/undefined passed
+    oidcLoginRedirect = null
+  }
 }
 
 // Export functions to check auth readiness
@@ -63,11 +68,8 @@ const getAccessTokenSilentlySPA = async (options) => {
       })
       return token
     } catch (e) {
-      console.error('Error getting OIDC token:', e)
-
       // Handle specific OIDC errors
-      if (e.error === 'login_required' && oidcLoginRedirect) {
-        console.warn('Login required, redirecting to OIDC provider')
+      if (e.error === 'login_required' && oidcLoginRedirect && typeof oidcLoginRedirect === 'function') {
         oidcLoginRedirect()
         return null
       }
@@ -85,13 +87,13 @@ const getAccessTokenSilentlySPA = async (options) => {
 const handleAuthError = (error, response) => {
   if (response && (response.status === 401 || response.status === 403)) {
     console.warn('Authentication/authorization error:', response.status)
-
     // For 401 (unauthorized), try to redirect to login
-    if (response.status === 401 && oidcLoginRedirect) {
-      console.warn('Token expired or invalid, redirecting to login')
-      setTimeout(() => {
+    if (response.status === 401) {
+      // Check if we should force signout
+      if (oidcLoginRedirect && typeof oidcLoginRedirect === 'function') {
         oidcLoginRedirect()
-      }, 1000) // Small delay to allow error handling to complete
+        return error
+      }
     }
   }
 
@@ -117,10 +119,10 @@ async function polisFetch(api, data, type) {
   let body = null
   let method = type ? type.toUpperCase() : 'GET'
 
-  if (method === 'GET' && data) {
+  if (method === 'GET' && data && Object.keys(data).length > 0) {
     const queryParams = new URLSearchParams(data)
     url += `?${queryParams.toString()}`
-  } else if (method === 'POST' && data) {
+  } else if ((method === 'POST' || method === 'PUT') && data && Object.keys(data).length > 0) {
     body = JSON.stringify(data)
   }
 
@@ -130,56 +132,48 @@ async function polisFetch(api, data, type) {
     // Only add the header if a token exists
     if (token) {
       headers.Authorization = `Bearer ${token}`
-    } else {
-      console.warn('⚠️ No token available - request will be sent without auth')
     }
   } catch (error) {
-    console.error('❌ Error getting access token:', error)
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    })
-    // Re-throw the error to be caught by the caller
-    throw error
+    // If getting the token fails, continue without it
+    // The server will decide if auth is required
+    console.warn('⚠️ Error getting access token:', error)
   }
 
-  try {
-    const response = await fetch(url, {
-      method: method,
-      headers: headers,
-      body: body
-    })
+  const response = await fetch(url, {
+    method: method,
+    headers: headers,
+    body: body
+  })
 
-    if (!response.ok && response.status !== 304) {
-      // Read the response body to include in the error
-      const errorBody = await response.text()
+  if (!response.ok && response.status !== 304) {
+    // Read the response body to include in the error
+    const errorBody = await response.text()
       console.error('❌ API Error Response:', {
         status: response.status,
         statusText: response.statusText,
         body: errorBody
       })
+    
+    // Create a new error object and attach the response body
+    const error = new Error(
+      `Polis API Error: ${method} ${url} failed with status ${response.status} (${response.statusText})`
+    )
+    error.responseText = errorBody
+    error.status = response.status
 
-      // Create a new error object and attach the response body
-      const error = new Error(
-        `Polis API Error: ${method} ${url} failed with status ${response.status} (${response.statusText})`
-      )
-      error.responseText = errorBody
-      error.status = response.status
-
-      return handleAuthError(error, response)
-    }
-
-    const jsonResponse = await response.json()
-    return jsonResponse
-  } catch (error) {
-    console.error('❌ polisFetch error:', error)
-    throw error
+    return handleAuthError(error, response)
   }
+
+  const jsonResponse = await response.json()
+  return jsonResponse
 }
 
 async function polisPost(api, data) {
   return await polisFetch(api, data, 'POST')
+}
+
+async function polisPut(api, data) {
+  return await polisFetch(api, data, 'PUT')
 }
 
 async function polisGet(api, data) {
@@ -202,6 +196,7 @@ async function polisGet(api, data) {
 const PolisNet = {
   polisFetch: polisFetch,
   polisPost: polisPost,
+  polisPut: polisPut,
   polisGet: polisGet,
   getAccessTokenSilentlySPA
 }

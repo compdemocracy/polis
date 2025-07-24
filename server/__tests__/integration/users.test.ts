@@ -47,7 +47,7 @@ describe("User Management Endpoints", () => {
       const { agent: jwtAgent } = await getJwtAuthenticatedAgent(jwtTestUser1);
 
       const response: Response = await jwtAgent.get(
-        "/api/v3/users?errIfNoAuth=true"
+        "/api/v3/users"
       );
       expect(response.status).toBe(200);
 
@@ -58,22 +58,13 @@ describe("User Management Endpoints", () => {
       expect(userInfo).toHaveProperty("hname");
     });
 
-    test("should require authentication when errIfNoAuth is true", async () => {
+    test("should require authentication", async () => {
       const unauthAgent = await newAgent();
       const response: Response = await unauthAgent.get(
-        "/api/v3/users?errIfNoAuth=true"
+        "/api/v3/users"
       );
       expect(response.status).toBe(401);
       expect(response.body).toHaveProperty("error");
-    });
-
-    test("should return empty response for anonymous users when errIfNoAuth is false", async () => {
-      const unauthAgent = await newAgent();
-      const response: Response = await unauthAgent.get(
-        "/api/v3/users?errIfNoAuth=false"
-      );
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({});
     });
 
     test("should handle user lookup by XID", async () => {

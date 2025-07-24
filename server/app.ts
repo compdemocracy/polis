@@ -622,7 +622,6 @@ helpersInitialized.then(
       "/api/v3/users",
       moveToBody,
       hybridAuthOptional(assignToP),
-      want("errIfNoAuth", getBool, assignToP),
       want("xid", getStringLimitLength(1, 999), assignToP),
       want("owner_uid", getInt, assignToP),
       handle_GET_users
