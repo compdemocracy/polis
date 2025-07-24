@@ -18,6 +18,10 @@ show_usage() {
   echo "  --zid=CONVERSATION_ID     The Polis conversation ID to process"
   echo
   echo "Optional arguments:"
+  echo "  --job-id=JOB_ID           Job ID for data correlation across pipeline stages"
+  echo "  --parent-job-id=JOB_ID    Parent job ID (if this is a child job)"
+  echo "  --root-job-id=JOB_ID      Root job ID in the job tree"
+  echo "  --job-stage=STAGE         Job stage identifier (UMAP, LLM, etc.)"
   echo "  --verbose                 Show detailed logs"
   echo "  --force                   Force reprocessing even if data exists"
   echo "  --validate                Run extra validation checks"
@@ -26,6 +30,10 @@ show_usage() {
 
 # Parse command line arguments
 ZID=""
+JOB_ID=""
+PARENT_JOB_ID=""
+ROOT_JOB_ID=""
+JOB_STAGE=""
 VERBOSE=""
 FORCE=""
 VALIDATE=""
@@ -34,6 +42,18 @@ for arg in "$@"; do
   case $arg in
     --zid=*)
       ZID="${arg#*=}"
+      ;;
+    --job-id=*)
+      JOB_ID="${arg#*=}"
+      ;;
+    --parent-job-id=*)
+      PARENT_JOB_ID="${arg#*=}"
+      ;;
+    --root-job-id=*)
+      ROOT_JOB_ID="${arg#*=}"
+      ;;
+    --job-stage=*)
+      JOB_STAGE="${arg#*=}"
       ;;
     --verbose)
       VERBOSE="--verbose"
@@ -75,6 +95,27 @@ export OLLAMA_HOST=${OLLAMA_HOST}
 export OLLAMA_MODEL=$MODEL
 export DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT}
 
+# Set job ID environment variables if provided
+if [ -n "$JOB_ID" ]; then
+  export DELPHI_JOB_ID="$JOB_ID"
+  echo -e "${YELLOW}Using job_id: $JOB_ID${NC}"
+fi
+
+if [ -n "$PARENT_JOB_ID" ]; then
+  export DELPHI_PARENT_JOB_ID="$PARENT_JOB_ID"
+  echo -e "${YELLOW}Using parent_job_id: $PARENT_JOB_ID${NC}"
+fi
+
+if [ -n "$ROOT_JOB_ID" ]; then
+  export DELPHI_ROOT_JOB_ID="$ROOT_JOB_ID"
+  echo -e "${YELLOW}Using root_job_id: $ROOT_JOB_ID${NC}"
+fi
+
+if [ -n "$JOB_STAGE" ]; then
+  export DELPHI_JOB_STAGE="$JOB_STAGE"
+  echo -e "${YELLOW}Using job_stage: $JOB_STAGE${NC}"
+fi
+
 # For testing with limited votes
 if [ -n "$MAX_VOTES" ]; then
   MAX_VOTES_ARG="--max-votes=${MAX_VOTES}"
@@ -103,12 +144,30 @@ fi
 
 # Run the UMAP narrative pipeline
 echo -e "${GREEN}Running UMAP narrative pipeline...${NC}"
-python /app/umap_narrative/run_pipeline.py --zid=${ZID} --use-ollama ${VERBOSE}
+# Prepare job ID parameters
+JOB_ID_ARGS=""
+if [ -n "$JOB_ID" ]; then
+  JOB_ID_ARGS="--job-id=${JOB_ID}"
+fi
+
+if [ -n "$PARENT_JOB_ID" ]; then
+  JOB_ID_ARGS="${JOB_ID_ARGS} --parent-job-id=${PARENT_JOB_ID}"
+fi
+
+if [ -n "$ROOT_JOB_ID" ]; then
+  JOB_ID_ARGS="${JOB_ID_ARGS} --root-job-id=${ROOT_JOB_ID}"
+fi
+
+if [ -n "$JOB_STAGE" ]; then
+  JOB_ID_ARGS="${JOB_ID_ARGS} --job-stage=${JOB_STAGE}"
+fi
+
+python /app/umap_narrative/run_pipeline.py --zid=${ZID} --use-ollama ${VERBOSE} ${JOB_ID_ARGS}
 PIPELINE_EXIT_CODE=$?
 
 # Calculate and store comment extremity values
 echo -e "${GREEN}Calculating comment extremity values...${NC}"
-python /app/umap_narrative/501_calculate_comment_extremity.py --zid=${ZID} ${VERBOSE} ${FORCE}
+python /app/umap_narrative/501_calculate_comment_extremity.py --zid=${ZID} ${VERBOSE} ${FORCE} ${JOB_ID_ARGS}
 EXTREMITY_EXIT_CODE=$?
 if [ $EXTREMITY_EXIT_CODE -ne 0 ]; then
   echo -e "${RED}Warning: Extremity calculation failed with exit code ${EXTREMITY_EXIT_CODE}${NC}"
@@ -123,7 +182,7 @@ if [ $PIPELINE_EXIT_CODE -eq 0 ]; then
   mkdir -p $OUTPUT_DIR
   
   # Generate layer 0 visualization
-  python /app/umap_narrative/700_datamapplot_for_layer.py --conversation_id=${ZID} --layer=0 --output_dir=$OUTPUT_DIR ${VERBOSE}
+  python /app/umap_narrative/700_datamapplot_for_layer.py --conversation_id=${ZID} --layer=0 --output_dir=$OUTPUT_DIR ${VERBOSE} ${JOB_ID_ARGS}
   
   echo -e "${GREEN}UMAP Narrative pipeline completed successfully!${NC}"
   echo "Results stored in DynamoDB and visualizations for conversation ${ZID}"

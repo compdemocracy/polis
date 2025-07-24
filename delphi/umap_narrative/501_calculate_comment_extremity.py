@@ -30,7 +30,7 @@ from polismath_commentgraph.utils.group_data import GroupDataProcessor
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def calculate_and_store_extremity(conversation_id: int, force_recalculation: bool = False) -> Dict[int, float]:
+def calculate_and_store_extremity(conversation_id: int, force_recalculation: bool = False, job_id: Optional[str] = None) -> Dict[int, float]:
     """
     Calculate and store extremity values for all comments in a conversation.
     
@@ -97,7 +97,7 @@ def calculate_and_store_extremity(conversation_id: int, force_recalculation: boo
         # Clean up PostgreSQL connection
         postgres_client.shutdown()
 
-def check_existing_extremity_values(conversation_id: int) -> Dict[int, float]:
+def check_existing_extremity_values(conversation_id: int, job_id: Optional[str] = None) -> Dict[int, float]:
     """
     Check if extremity values already exist in DynamoDB using GroupDataProcessor.
     
@@ -166,14 +166,30 @@ def main():
     parser.add_argument('--zid', type=int, required=True, help='Conversation ID')
     parser.add_argument('--force', action='store_true', help='Force recalculation of values')
     parser.add_argument('--verbose', action='store_true', help='Show detailed output')
+    
+    # Add job_id parameters for consistency with other scripts
+    parser.add_argument('--job-id', type=str, help='Job ID for data correlation')
+    parser.add_argument('--parent-job-id', type=str, help='Parent job ID')
+    parser.add_argument('--root-job-id', type=str, help='Root job ID')
+    parser.add_argument('--job-stage', type=str, help='Job stage')
+    
     args = parser.parse_args()
     
     # Set log level based on verbosity
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     
+    # Get job_id from args or environment
+    job_id = args.job_id
+    if not job_id:
+        job_id = os.environ.get("DELPHI_JOB_ID")
+    
+    # Log job correlation details if available
+    if job_id:
+        logger.info(f"Using job_id: {job_id}")
+    
     # Calculate and store extremity values
-    extremity_values = calculate_and_store_extremity(args.zid, args.force)
+    extremity_values = calculate_and_store_extremity(args.zid, args.force, job_id)
     
     # Print report
     print_extremity_report(extremity_values)

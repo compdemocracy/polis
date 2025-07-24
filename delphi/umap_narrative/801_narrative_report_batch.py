@@ -367,7 +367,7 @@ class BatchReportGenerator:
             self.postgres_client.shutdown()
     
     # (Inside the BatchReportGenerator class)
-    def load_comment_clusters_from_dynamodb(self, conversation_id):
+    def load_comment_clusters_from_dynamodb(self, conversation_id, job_id=None):
         """
         Load cluster assignments for comments from DynamoDB using an efficient Query.
         Returns a nested structure: {comment_id: {layer_id: cluster_id, ...}}
@@ -376,63 +376,168 @@ class BatchReportGenerator:
             clusters_table = self.dynamodb.Table('Delphi_CommentHierarchicalClusterAssignments')
             cluster_map = {}
             
-            logger.info(f"Querying for cluster assignments for conversation_id: {conversation_id}")
-            last_evaluated_key = None
-            available_layers = set()
-            
-            while True:
-                query_kwargs = {
-                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('conversation_id').eq(str(conversation_id))
-                }
-                if last_evaluated_key:
-                    query_kwargs['ExclusiveStartKey'] = last_evaluated_key
+            if job_id:
+                logger.info(f"Querying for cluster assignments for job_id: {job_id}")
+                last_evaluated_key = None
+                available_layers = set()
+                
+                while True:
+                    query_kwargs = {
+                        'IndexName': 'JobIdIndex',
+                        'KeyConditionExpression': boto3.dynamodb.conditions.Key('job_id').eq(job_id)
+                    }
+                    if last_evaluated_key:
+                        query_kwargs['ExclusiveStartKey'] = last_evaluated_key
 
-                response = clusters_table.query(**query_kwargs)
-                
-                for item in response.get('Items', []):
-                    comment_id = item.get('comment_id')
-                    if comment_id is not None:
-                        comment_id_str = str(comment_id)
-                        if comment_id_str not in cluster_map:
-                            cluster_map[comment_id_str] = {}
+                    response = clusters_table.query(**query_kwargs)
+                    
+                    for item in response.get('Items', []):
+                        comment_id = item.get('comment_id')
+                        if comment_id is not None:
+                            comment_id_str = str(comment_id)
+                            if comment_id_str not in cluster_map:
+                                cluster_map[comment_id_str] = {}
+                            
+                            # Extract all layer cluster assignments
+                            for key, value in item.items():
+                                if key.startswith('layer') and key.endswith('_cluster_id') and value is not None:
+                                    # Extract layer number from key like 'layer0_cluster_id'
+                                    layer_num_str = key.replace('layer', '').replace('_cluster_id', '')
+                                    try:
+                                        layer_num = int(layer_num_str)
+                                        cluster_map[comment_id_str][layer_num] = value
+                                        available_layers.add(layer_num)
+                                    except ValueError:
+                                        # Skip invalid layer keys
+                                        continue
+                    
+                    last_evaluated_key = response.get('LastEvaluatedKey')
+                    if not last_evaluated_key:
+                        break
                         
-                        # Extract all layer cluster assignments
-                        for key, value in item.items():
-                            if key.startswith('layer') and key.endswith('_cluster_id') and value is not None:
-                                # Extract layer number from key like 'layer0_cluster_id'
-                                layer_num_str = key.replace('layer', '').replace('_cluster_id', '')
-                                try:
-                                    layer_num = int(layer_num_str)
-                                    cluster_map[comment_id_str][layer_num] = value
-                                    available_layers.add(layer_num)
-                                except ValueError:
-                                    # Skip invalid layer keys
-                                    continue
+                if not cluster_map:
+                    raise ValueError(f"No cluster assignments found for job {job_id}. "
+                                   "The job may have failed during clustering phase.")
+            elif self.job_id:
+                # Use self.job_id as fallback
+                logger.warning(f"Using self.job_id ({self.job_id}) as fallback for cluster assignment queries")
+                last_evaluated_key = None
+                available_layers = set()
                 
-                last_evaluated_key = response.get('LastEvaluatedKey')
-                if not last_evaluated_key:
-                    break
+                while True:
+                    query_kwargs = {
+                        'IndexName': 'JobIdIndex',
+                        'KeyConditionExpression': boto3.dynamodb.conditions.Key('job_id').eq(self.job_id)
+                    }
+                    if last_evaluated_key:
+                        query_kwargs['ExclusiveStartKey'] = last_evaluated_key
+                        
+                    response = clusters_table.query(**query_kwargs)
+                    # Rest of the query code would be duplicated here
+                    # So instead we'll just check if we got any results
+                    if response.get('Items'):
+                        for item in response.get('Items', []):
+                            comment_id = item.get('comment_id')
+                            if comment_id is not None:
+                                comment_id_str = str(comment_id)
+                                if comment_id_str not in cluster_map:
+                                    cluster_map[comment_id_str] = {}
+                                
+                                # Extract all layer cluster assignments
+                                for key, value in item.items():
+                                    if key.startswith('layer') and key.endswith('_cluster_id') and value is not None:
+                                        # Extract layer number from key like 'layer0_cluster_id'
+                                        layer_num_str = key.replace('layer', '').replace('_cluster_id', '')
+                                        try:
+                                            layer_num = int(layer_num_str)
+                                            cluster_map[comment_id_str][layer_num] = value
+                                            available_layers.add(layer_num)
+                                        except ValueError:
+                                            # Skip invalid layer keys
+                                            continue
+                    
+                    last_evaluated_key = response.get('LastEvaluatedKey')
+                    if not last_evaluated_key:
+                        break
+                
+                if not cluster_map:
+                    raise ValueError(f"No cluster assignments found for job {self.job_id} (used as fallback). ")
+            else:
+                # Generate a fallback job_id as last resort
+                fallback_job_id = str(uuid.uuid4())
+                logger.error(f"No job_id available for cluster assignment queries. ")
+                logger.error(f"Cannot proceed without proper job correlation - no data will be available.")
+                # Return empty map as we can't query without a job_id
+                return {}
 
             logger.info(f"Loaded {len(cluster_map)} comment cluster assignments across {len(available_layers)} layers: {sorted(available_layers)}")
             return cluster_map
         except Exception as e:
             logger.error(f"Error loading cluster assignments from DynamoDB: {e}")
             return {}
+    
+    async def get_latest_successful_job_id(self):
+        """
+        Find the most recent successful job_id for this conversation by checking the job queue.
+        Returns the job_id of the most recent successful FULL_PIPELINE job for this conversation.
+        """
+        try:
+            job_queue_table = self.dynamodb.Table('Delphi_JobQueue')
+            
+            # Query using the ConversationIndex GSI, sorted by creation time (newest first)
+            response = job_queue_table.query(
+                IndexName='ConversationIndex',
+                KeyConditionExpression=boto3.dynamodb.conditions.Key('conversation_id').eq(self.conversation_id),
+                FilterExpression=boto3.dynamodb.conditions.Attr('job_type').eq('FULL_PIPELINE') & 
+                                boto3.dynamodb.conditions.Attr('status').eq('COMPLETED'),
+                ProjectionExpression='job_id, created_at',
+                ScanIndexForward=False  # Sort by created_at descending (newest first)
+            )
+            
+            jobs = response.get('Items', [])
+            if not jobs:
+                logger.error(f"No completed FULL_PIPELINE jobs found for conversation {self.conversation_id}")
+                return None
+            
+            # Sort by created_at to get the most recent
+            jobs.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+            latest_job_id = jobs[0]['job_id']
+            
+            logger.info(f"Found latest successful job_id: {latest_job_id} for conversation {self.conversation_id}")
+            return latest_job_id
+            
+        except Exception as e:
+            logger.error(f"Error finding latest successful job_id: {e}")
+            return None
 
     async def get_topics(self):
         """
-        Gets all topics for the conversation from DynamoDB, efficiently fetching
-        all necessary data with a minimal number of queries.
+        Gets all topics for the conversation from DynamoDB using proper job ID correlation.
+        Throws errors if proper job correlation cannot be established.
         """
         try:
-            # Fetch all topic names for the conversation
-            logger.info(f"Fetching all topic names for conversation {self.conversation_id}...")
+            # Determine which job_id to use for topic correlation
+            target_job_id = await self.get_latest_successful_job_id()
+            if not target_job_id:
+                raise ValueError(f"No successful UMAP job found for conversation {self.conversation_id}. "
+                               "Cannot generate narrative report without proper job correlation.")
+            
+            # Update self.job_id if it wasn't set (standalone mode)
+            if not self.job_id:
+                self.job_id = target_job_id
+                logger.info(f"Updated job_id to {target_job_id} for standalone mode")
+            
+            logger.info(f"Using job_id {target_job_id} for topic correlation")
+            
+            # Fetch topic names for the specific job_id
+            logger.info(f"Fetching topic names for job {target_job_id}...")
             topic_names_table = self.dynamodb.Table('Delphi_CommentClustersLLMTopicNames')
             topic_names_items = []
             last_key = None
             while True:
                 query_kwargs = {
-                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('conversation_id').eq(self.conversation_id)
+                    'IndexName': 'JobIdIndex',
+                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('job_id').eq(target_job_id)
                 }
                 if last_key:
                     query_kwargs['ExclusiveStartKey'] = last_key
@@ -441,16 +546,21 @@ class BatchReportGenerator:
                 last_key = response.get('LastEvaluatedKey')
                 if not last_key:
                     break
-            logger.info(f"Fetched {len(topic_names_items)} total topic name entries.")
+            logger.info(f"Fetched {len(topic_names_items)} topic name entries for job {target_job_id}")
+            
+            if not topic_names_items:
+                raise ValueError(f"No topic names found for job {target_job_id}. "
+                               "The job may have failed during topic generation phase.")
 
-            # Fetch all cluster structure/keyword data for the conversation at once
-            logger.info(f"Fetching all structure/keyword data for conversation {self.conversation_id}...")
+            # Fetch cluster structure/keyword data for the specific job_id
+            logger.info(f"Fetching structure/keyword data for job {target_job_id}...")
             keywords_table = self.dynamodb.Table('Delphi_CommentClustersStructureKeywords')
             keyword_items = []
             last_key = None
             while True:
                 query_kwargs = {
-                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('conversation_id').eq(self.conversation_id)
+                    'IndexName': 'JobIdIndex',
+                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('job_id').eq(target_job_id)
                 }
                 if last_key:
                     query_kwargs['ExclusiveStartKey'] = last_key
@@ -460,12 +570,17 @@ class BatchReportGenerator:
                 if not last_key:
                     break
             
-            # Create a fast, in-memory lookup map for keywords
-            keywords_lookup = {item['cluster_key']: item for item in keyword_items}
-            logger.info(f"Created lookup map for {len(keywords_lookup)} keyword entries.")
+            if not keyword_items:
+                logger.warning(f"No cluster structure/keyword data found for job {target_job_id}. "
+                              "Proceeding without structure/keywords data.")
+                keywords_lookup = {}
+            else:
+                # Create a fast, in-memory lookup map for keywords
+                keywords_lookup = {item['cluster_key']: item for item in keyword_items}
+                logger.info(f"Created lookup map for {len(keywords_lookup)} keyword entries.")
             
-            # Load all cluster assignments for all comments
-            all_clusters = await asyncio.to_thread(self.load_comment_clusters_from_dynamodb, self.conversation_id)
+            # Load all cluster assignments for all comments from the specific job
+            all_clusters = await asyncio.to_thread(self.load_comment_clusters_from_dynamodb, self.conversation_id, target_job_id)
             
             # --- Step 2: Process the fetched data ---
             
@@ -520,8 +635,10 @@ class BatchReportGenerator:
                     all_topics.append(topic)
 
             # --- Step 3: Add global sections ---
+            # Use job_id from instance, falling back to generating a new one if necessary
             if not self.job_id:
-                raise ValueError("job_id is required for versioned topic keys but is missing or empty")
+                self.job_id = str(uuid.uuid4())
+                logger.warning(f"Generated fallback job_id: {self.job_id} for versioned topic keys")
             
             global_topic_prefix = f"{self.job_id}_global"
             global_sections = [

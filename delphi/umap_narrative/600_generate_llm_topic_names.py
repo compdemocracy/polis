@@ -28,9 +28,10 @@ import argparse
 import numpy as np
 import pandas as pd
 from datetime import datetime
+import boto3
+from boto3.dynamodb.conditions import Key, Attr
 from tqdm import tqdm
 from pathlib import Path
-from boto3.dynamodb.conditions import Key, Attr
 
 # Import from local modules
 from polismath_commentgraph.utils.storage import DynamoDBStorage
@@ -164,15 +165,16 @@ def load_comment_texts(conversation_id, dynamo_storage=None, output_base_dir="po
         # Clean up connection
         postgres_client.shutdown()
 
-def load_layer_data(conversation_id, layer_id, dynamo_storage=None, output_base_dir="polis_data"):
+def load_layer_data(conversation_id, layer_id, dynamo_storage=None, output_base_dir="polis_data", job_id=None):
     """
-    Load cluster data for a specific layer.
+    Load cluster data for a specific layer using job_id correlation.
     
     Args:
         conversation_id: Conversation ID
         layer_id: Layer ID to load
         dynamo_storage: Optional DynamoDBStorage instance
         output_base_dir: Base directory for output files
+        job_id: Job ID for proper data correlation
         
     Returns:
         Dictionary with cluster data or None if not found
@@ -214,20 +216,28 @@ def load_layer_data(conversation_id, layer_id, dynamo_storage=None, output_base_
             logger.error(f"Layer {layer_id} does not exist in metadata")
             return None
         
-        # Query CommentClusters to get cluster assignments
-        logger.info(f"Loading clusters for layer {layer_id} from DynamoDB...")
-        
-        # Get all comment clusters for this conversation
+        # Query CommentClusters - prefer job_id if available, fall back to conversation_id
         table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['comment_clusters'])
-        response = table.query(
-            KeyConditionExpression=Key('conversation_id').eq(conversation_id)
-        )
+        
+        if job_id:
+            # Use JobIdIndex for job-based correlation
+            logger.info(f"Loading clusters for layer {layer_id} from DynamoDB using job_id: {job_id}")
+            response = table.query(
+                IndexName='JobIdIndex',
+                KeyConditionExpression=Key('job_id').eq(job_id)
+            )
+        else:
+            # Fall back to conversation-based query for backwards compatibility
+            logger.info(f"Loading clusters for layer {layer_id} from DynamoDB using conversation_id: {conversation_id}")
+            response = table.query(
+                KeyConditionExpression=Key('conversation_id').eq(str(conversation_id))
+            )
         clusters = response.get('Items', [])
         
         # Handle pagination if needed
         while 'LastEvaluatedKey' in response:
             response = table.query(
-                KeyConditionExpression=Key('conversation_id').eq(conversation_id),
+                KeyConditionExpression=Key('job_id').eq(job_id),
                 ExclusiveStartKey=response['LastEvaluatedKey']
             )
             clusters.extend(response.get('Items', []))
@@ -553,9 +563,18 @@ def save_topic_names(conversation_id, layer_id, topic_names, model_name, dynamo_
             else:
                 prefixed_topic_name = f"{layer_id}_{cluster_id}: {topic_name}" if topic_name.strip() else f"{layer_id}_{cluster_id}:"
             
+            # Get job_id from environment variable (set by job_poller.py)
+            job_id = os.environ.get('DELPHI_JOB_ID')
+            if not job_id:
+                # Generate a fallback job_id for standalone runs
+                job_id = f"standalone_{conversation_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                logger.warning(f"No DELPHI_JOB_ID found, using fallback: {job_id}")
+            
             model = {
+                'job_id': job_id,
                 'conversation_id': conversation_id,
                 'topic_key': topic_key,
+                'conversation_id_topic_key': f"{conversation_id}#{topic_key}",
                 'layer_id': layer_id,
                 'cluster_id': int(cluster_id),
                 'topic_name': prefixed_topic_name,
@@ -723,7 +742,7 @@ def update_conversation_with_ollama(conversation_id, layer_id=None, model_name=N
                 result = update_layer_with_ollama(
                     conversation_id, layer_id, conversation_name, 
                     model_name, output_base_dir, dynamo_storage,
-                    start_cluster, end_cluster
+                    start_cluster, end_cluster, job_id, parent_job_id, root_job_id
                 )
                 results.append(result)
             
@@ -737,7 +756,7 @@ def update_conversation_with_ollama(conversation_id, layer_id=None, model_name=N
                 result = update_layer_with_ollama(
                     conversation_id, layer_id, conversation_name, 
                     model_name, output_base_dir, dynamo_storage,
-                    start_cluster, end_cluster
+                    start_cluster, end_cluster, job_id, parent_job_id, root_job_id
                 )
                 results.append(result)
             
@@ -766,9 +785,15 @@ def update_layer_with_ollama(conversation_id, layer_id, conversation_name, model
     """
     logger.info(f"Processing layer {layer_id} for conversation {conversation_id}")
     
+    # Get job_id from environment variable
+    job_id = os.environ.get('DELPHI_JOB_ID')
+    if not job_id:
+        logger.error("DELPHI_JOB_ID environment variable is required for data correlation")
+        return False
+    
     # Load layer data
     layer_data = load_layer_data(
-        conversation_id, layer_id, dynamo_storage, output_base_dir
+        conversation_id, layer_id, dynamo_storage, output_base_dir, job_id
     )
     
     if not layer_data:

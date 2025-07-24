@@ -27,6 +27,10 @@ def show_usage():
 def main():
     parser = argparse.ArgumentParser(description="Process a Polis conversation with the Delphi analytics pipeline.", add_help=False)
     parser.add_argument("--zid", required=True, help="The Polis conversation ID to process")
+    parser.add_argument("--job_id", type=str, help="Job ID for this run (used to correlate data)")
+    parser.add_argument("--parent_job_id", type=str, help="Parent job ID if this is a child job")
+    parser.add_argument("--root_job_id", type=str, help="Root job ID in the job tree")
+    parser.add_argument("--job_stage", type=str, help="Current stage in the job pipeline")
     parser.add_argument("--verbose", action="store_true", help="Show detailed logs")
     parser.add_argument("--force", action="store_true", help="Force reprocessing even if data exists")
     parser.add_argument("--validate", action="store_true", help="Run extra validation checks")
@@ -98,6 +102,24 @@ def main():
         f"--zid={zid}",
         "--use-ollama"
     ]
+    
+    # Pass job_id and related fields if available
+    if args.job_id:
+        print(f"{YELLOW}Using job_id: {args.job_id}{NC}")
+        umap_command.append(f"--job_id={args.job_id}")
+        
+        # Pass parent_job_id if available
+        if args.parent_job_id:
+            umap_command.append(f"--parent_job_id={args.parent_job_id}")
+            
+        # Pass root_job_id if available
+        if args.root_job_id:
+            umap_command.append(f"--root_job_id={args.root_job_id}")
+            
+        # Pass job_stage if available
+        if args.job_stage:
+            umap_command.append(f"--job_stage={args.job_stage}")
+    
     if verbose_arg:
         umap_command.append(verbose_arg)
 
@@ -190,6 +212,11 @@ def main():
                 f"--layer={layer_id}",
                 f"--output_dir={output_dir}"
             ]
+            
+            # Pass job_id if available
+            if args.job_id:
+                datamap_command.append(f"--job_id={args.job_id}")
+                
             if verbose_arg:
                 datamap_command.append(verbose_arg)
             

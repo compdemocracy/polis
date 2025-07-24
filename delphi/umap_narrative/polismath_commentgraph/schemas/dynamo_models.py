@@ -65,17 +65,35 @@ class CommentEmbedding(BaseModel):
     
     Note: UMAP coordinates are stored as "position" in UMAPGraph table where source_id = target_id = comment_id.
     Nearest neighbors are stored as edges in UMAPGraph where either source_id or target_id = comment_id."""
+    # Natural business keys (backwards compatible)
     conversation_id: str
     comment_id: int
+    
+    # Job relationship fields (optional for backwards compatibility)
+    job_id: Optional[str] = None
+    parent_job_id: Optional[str] = None
+    root_job_id: Optional[str] = None
+    job_stage: Optional[str] = None
+    
+    # Embedding data
     embedding: Embedding
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 
 
 class CommentCluster(BaseModel):
     """Cluster assignments for a single comment across layers."""
+    # Natural business keys (backwards compatible)
     conversation_id: str
     comment_id: int
+    
+    # Job relationship fields (optional for backwards compatibility)
+    job_id: Optional[str] = None
+    parent_job_id: Optional[str] = None
+    root_job_id: Optional[str] = None
+    job_stage: Optional[str] = None
+    
+    # Cluster assignment fields
     is_outlier: bool = False
-    # We'll add layer-specific cluster IDs dynamically during initialization
     layer0_cluster_id: Optional[int] = None
     layer1_cluster_id: Optional[int] = None
     layer2_cluster_id: Optional[int] = None
@@ -83,6 +101,7 @@ class CommentCluster(BaseModel):
     layer4_cluster_id: Optional[int] = None
     distance_to_centroid: Optional[Dict[str, float]] = None
     cluster_confidence: Optional[Dict[str, float]] = None
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 
 
 class ClusterTopic(BaseModel):
@@ -99,6 +118,12 @@ class ClusterTopic(BaseModel):
     top_tfidf_scores: Optional[List[float]] = None
     parent_cluster: Optional[ClusterReference] = None
     child_clusters: Optional[List[ClusterReference]] = None
+    
+    # Job relationship fields (optional for backwards compatibility)
+    job_id: Optional[str] = None
+    parent_job_id: Optional[str] = None
+    root_job_id: Optional[str] = None
+    job_stage: Optional[str] = None
 
 
 class UMAPGraphEdge(BaseModel):
@@ -106,8 +131,17 @@ class UMAPGraphEdge(BaseModel):
     
     Note: When source_id equals target_id, this represents a node with its position.
     Otherwise, this represents an edge between two nodes."""
+    # Natural business keys (backwards compatible)
     conversation_id: str
     edge_id: str  # format: "{source_id}_{target_id}"
+    
+    # Job relationship fields (optional for backwards compatibility)
+    job_id: Optional[str] = None
+    parent_job_id: Optional[str] = None
+    root_job_id: Optional[str] = None
+    job_stage: Optional[str] = None
+    
+    # Edge data fields
     source_id: int
     target_id: int
     weight: float
@@ -115,18 +149,26 @@ class UMAPGraphEdge(BaseModel):
     is_nearest_neighbor: bool = True
     shared_cluster_layers: List[int] = []
     position: Optional[Coordinates] = None  # Only present when source_id = target_id
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
 
 
 class ClusterCharacteristic(BaseModel):
     """Characteristics of a cluster based on TF-IDF analysis."""
+    # Natural business keys (backwards compatible)
     conversation_id: str
     cluster_key: str  # format: "layer{layer_id}_{cluster_id}"
+    
+    # Job correlation field (optional for backwards compatibility) 
+    job_id: Optional[str] = None
+    
+    # Cluster data fields
     layer_id: int
     cluster_id: int
     size: int
     top_words: List[str]
     top_tfidf_scores: List[float]
     sample_comments: List[str]
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     
     @root_validator(pre=True)
     def create_cluster_key(cls, values):
@@ -138,11 +180,18 @@ class ClusterCharacteristic(BaseModel):
 
 class EnhancedTopicName(BaseModel):
     """Enhanced topic name with keywords, based on TF-IDF analysis."""
+    # Natural business keys (backwards compatible)
     conversation_id: str
     topic_key: str  # format: "layer{layer_id}_{cluster_id}"
+    
+    # Job correlation field (optional for backwards compatibility)
+    job_id: Optional[str] = None
+    
+    # Topic data fields
     layer_id: int
     cluster_id: int
     topic_name: str  # Format: "Keywords: word1, word2, word3, ..."
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     
     @root_validator(pre=True)
     def create_topic_key(cls, values):
@@ -154,8 +203,14 @@ class EnhancedTopicName(BaseModel):
 
 class LLMTopicName(BaseModel):
     """LLM-generated topic name."""
+    # Natural business keys (backwards compatible)
     conversation_id: str
     topic_key: str  # format: "layer{layer_id}_{cluster_id}"
+    
+    # Job correlation field (optional for backwards compatibility)
+    job_id: Optional[str] = None
+    
+    # Topic data fields
     layer_id: int
     cluster_id: int
     topic_name: str  # LLM-generated name

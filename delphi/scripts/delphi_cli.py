@@ -74,7 +74,11 @@ def submit_job(dynamodb, zid, job_type='FULL_PIPELINE', priority=50,
                no_cache_stage=False,
                # Parameters for AWAITING_NARRATIVE_BATCH jobs
                batch_id=None,
-               batch_job_id=None
+               batch_job_id=None,
+               # Job tree parameters
+               parent_job_id=None,
+               root_job_id=None,
+               job_stage=None
                ):
     """Submit a job to the Delphi job queue."""
     table = dynamodb.Table('Delphi_JobQueue')
@@ -162,6 +166,37 @@ def submit_job(dynamodb, zid, job_type='FULL_PIPELINE', priority=50,
             ]
         }
     
+    # Handle job tree parameters
+    if not root_job_id and parent_job_id:
+        # If parent_job_id is provided but root_job_id is not, try to get root_job_id from parent
+        parent_job = get_job_details(dynamodb, parent_job_id)
+        if parent_job:
+            # Use parent's root_job_id if it exists, otherwise use parent_job_id as the root
+            root_job_id = parent_job.get('root_job_id', parent_job_id)
+            if RICH_AVAILABLE and IS_TERMINAL:
+                console.print(f"[yellow]Using root_job_id {root_job_id} from parent job[/yellow]")
+            else:
+                print(f"Using root_job_id {root_job_id} from parent job")
+    
+    # If no root_job_id set, this job becomes the root of a new tree
+    if not root_job_id and not parent_job_id:
+        root_job_id = job_id
+        if RICH_AVAILABLE and IS_TERMINAL:
+            console.print(f"[yellow]Creating new job tree with root_job_id {root_job_id}[/yellow]")
+        else:
+            print(f"Creating new job tree with root_job_id {root_job_id}")
+    
+    # Set job_stage based on job_type if not explicitly provided
+    if not job_stage:
+        if job_type == 'FULL_PIPELINE':
+            job_stage = 'PIPELINE_ROOT'
+        elif job_type == 'CREATE_NARRATIVE_BATCH':
+            job_stage = 'NARRATIVE_BATCH'
+        elif job_type == 'AWAITING_NARRATIVE_BATCH':
+            job_stage = 'BATCH_STATUS_CHECK'
+        else:
+            job_stage = job_type  # Default to job_type as stage
+    
     # Create job item with version number for optimistic locking
     # Use empty strings instead of None for DynamoDB compatibility
     job_item = {
@@ -191,7 +226,12 @@ def submit_job(dynamodb, zid, job_type='FULL_PIPELINE', priority=50,
             ],
             'log_location': ""
         }),
-        'created_by': 'delphi_cli'
+        'created_by': 'delphi_cli',
+        # Job tree fields
+        'parent_job_id': parent_job_id or "NONE",  # Placeholder if None for GSI compatibility
+        'root_job_id': root_job_id or "NONE",      # Placeholder if None for GSI compatibility
+        'job_stage': job_stage or "NONE",          # Placeholder if None for GSI compatibility
+        'child_jobs': []                      # Initialize with empty array
     }
     
     # Add batch_id and batch_job_id for AWAITING_NARRATIVE_BATCH jobs
@@ -201,6 +241,30 @@ def submit_job(dynamodb, zid, job_type='FULL_PIPELINE', priority=50,
     
     # Put item in DynamoDB
     response = table.put_item(Item=job_item)
+    
+    # If this is a child job, update the parent's child_jobs array
+    if parent_job_id:
+        try:
+            # Get current parent job
+            parent_job = get_job_details(dynamodb, parent_job_id)
+            if parent_job:
+                # Update parent's child_jobs array
+                child_jobs = parent_job.get('child_jobs', [])
+                child_jobs.append(job_id)
+                
+                # Update the parent job
+                update_job(dynamodb, parent_job_id, {'child_jobs': child_jobs})
+                
+                if RICH_AVAILABLE and IS_TERMINAL:
+                    console.print(f"[green]Updated parent job {parent_job_id} with new child job[/green]")
+                else:
+                    print(f"Updated parent job {parent_job_id} with new child job")
+        except Exception as e:
+            # Log error but don't fail - this is a non-critical update
+            if RICH_AVAILABLE and IS_TERMINAL:
+                console.print(f"[red]Warning: Failed to update parent job's child_jobs array: {str(e)}[/red]")
+            else:
+                print(f"Warning: Failed to update parent job's child_jobs array: {str(e)}")
     
     return job_id
 
@@ -275,6 +339,47 @@ def display_jobs(jobs):
         )
     
     console.print(table)
+
+def update_job(dynamodb, job_id, updates):
+    """Update a job with new field values.
+    
+    Args:
+        dynamodb: DynamoDB resource
+        job_id: Job ID to update
+        updates: Dictionary of field:value pairs to update
+        
+    Returns:
+        Updated job item or None if update failed
+    """
+    table = dynamodb.Table('Delphi_JobQueue')
+    
+    # Build update expression and attribute values
+    update_expr = "SET updated_at = :updated_at"
+    expr_attr_values = {
+        ':updated_at': datetime.now().isoformat()
+    }
+    
+    # Add each update to the expression
+    for i, (key, value) in enumerate(updates.items()):
+        placeholder = f":val{i}"
+        update_expr += f", {key} = {placeholder}"
+        expr_attr_values[placeholder] = value
+    
+    try:
+        # Update the item with optimistic locking
+        response = table.update_item(
+            Key={'job_id': job_id},
+            UpdateExpression=update_expr,
+            ExpressionAttributeValues=expr_attr_values,
+            ReturnValues="ALL_NEW"
+        )
+        
+        if 'Attributes' in response:
+            return response['Attributes']
+        return None
+    except Exception as e:
+        print(f"Error updating job {job_id}: {str(e)}")
+        return None
 
 def get_job_details(dynamodb, job_id):
     """Get detailed information about a specific job."""
@@ -821,6 +926,240 @@ def display_conversation_status(status_data):
             border_style="green"
         ))
 
+def get_job_tree(dynamodb, root_job_id=None, job_id=None):
+    """Get the complete job tree for a given root_job_id or job_id.
+    
+    Args:
+        dynamodb: DynamoDB resource
+        root_job_id: Root job ID to get tree for (optional if job_id provided)
+        job_id: Job ID to get tree for (will find root_job_id from this job)
+        
+    Returns:
+        Dictionary with tree structure or None if not found
+    """
+    table = dynamodb.Table('Delphi_JobQueue')
+    
+    # If job_id provided but not root_job_id, get root_job_id from the job
+    if job_id and not root_job_id:
+        job = get_job_details(dynamodb, job_id)
+        if job and job.get('root_job_id'):
+            root_job_id = job.get('root_job_id')
+        elif job:
+            # This job might be its own root
+            root_job_id = job_id
+        else:
+            return None
+    
+    if not root_job_id:
+        return None
+    
+    # Get all jobs in this tree using the RootJobIndex
+    try:
+        jobs = []
+        last_evaluated_key = None
+        
+        while True:
+            if last_evaluated_key:
+                response = table.query(
+                    IndexName='RootJobIndex',
+                    KeyConditionExpression='root_job_id = :root_id',
+                    ExpressionAttributeValues={
+                        ':root_id': root_job_id
+                    },
+                    ExclusiveStartKey=last_evaluated_key
+                )
+            else:
+                response = table.query(
+                    IndexName='RootJobIndex',
+                    KeyConditionExpression='root_job_id = :root_id',
+                    ExpressionAttributeValues={
+                        ':root_id': root_job_id
+                    }
+                )
+            
+            if 'Items' in response:
+                jobs.extend(response['Items'])
+            
+            last_evaluated_key = response.get('LastEvaluatedKey')
+            if not last_evaluated_key:
+                break
+        
+        # If no jobs found with this root_job_id, try to find the root job directly
+        if not jobs and root_job_id:
+            root_job = get_job_details(dynamodb, root_job_id)
+            if root_job:
+                jobs = [root_job]
+        
+        if not jobs:
+            return None
+        
+        # Build tree structure
+        job_map = {job['job_id']: job for job in jobs}
+        tree_structure = {
+            'root_job_id': root_job_id,
+            'jobs': job_map,
+            'job_count': len(jobs)
+        }
+        
+        return tree_structure
+    
+    except Exception as e:
+        print(f"Error getting job tree: {str(e)}")
+        return None
+
+def validate_job_tree(dynamodb, root_job_id=None, job_id=None):
+    """Validate the consistency of a job tree.
+    
+    Args:
+        dynamodb: DynamoDB resource
+        root_job_id: Root job ID to validate tree for (optional if job_id provided)
+        job_id: Job ID to validate tree for (will find root_job_id from this job)
+        
+    Returns:
+        Dictionary with validation results
+    """
+    # Get the complete tree
+    tree = get_job_tree(dynamodb, root_job_id, job_id)
+    if not tree:
+        return {
+            'valid': False,
+            'errors': ["Tree not found"]
+        }
+    
+    # Validation checks
+    errors = []
+    warnings = []
+    job_map = tree['jobs']
+    
+    # Check 1: All jobs have the same root_job_id
+    for job_id, job in job_map.items():
+        if job.get('root_job_id') != tree['root_job_id']:
+            errors.append(f"Job {job_id} has incorrect root_job_id: {job.get('root_job_id')} (expected {tree['root_job_id']})")
+    
+    # Check 2: All parent-child relationships are consistent
+    for job_id, job in job_map.items():
+        # Check if parent exists when parent_job_id is set
+        parent_id = job.get('parent_job_id')
+        if parent_id and parent_id not in job_map:
+            errors.append(f"Job {job_id} references non-existent parent {parent_id}")
+        
+        # Check if parent's child_jobs list includes this job
+        if parent_id and parent_id in job_map:
+            parent_job = job_map[parent_id]
+            if 'child_jobs' in parent_job and job_id not in parent_job.get('child_jobs', []):
+                warnings.append(f"Parent job {parent_id} doesn't list {job_id} in its child_jobs array")
+        
+        # Check if all children in child_jobs exist
+        for child_id in job.get('child_jobs', []):
+            if child_id not in job_map:
+                warnings.append(f"Job {job_id} references non-existent child {child_id} in child_jobs array")
+    
+    # Return validation results
+    return {
+        'valid': len(errors) == 0,
+        'errors': errors,
+        'warnings': warnings,
+        'tree': tree
+    }
+
+def repair_job_tree(dynamodb, root_job_id=None, job_id=None, fix_issues=False):
+    """Check and optionally repair a job tree.
+    
+    Args:
+        dynamodb: DynamoDB resource
+        root_job_id: Root job ID to repair tree for (optional if job_id provided)
+        job_id: Job ID to repair tree for (will find root_job_id from this job)
+        fix_issues: If True, will attempt to fix issues found
+        
+    Returns:
+        Dictionary with repair results
+    """
+    # Validate the tree first
+    validation = validate_job_tree(dynamodb, root_job_id, job_id)
+    if not validation['valid'] and 'Tree not found' in validation['errors']:
+        return validation
+    
+    # If no issues or not fixing, just return validation results
+    if validation['valid'] and not validation['warnings'] or not fix_issues:
+        return validation
+    
+    # Fix issues
+    fixed = []
+    failed = []
+    tree = validation['tree']
+    job_map = tree['jobs']
+    
+    # Fix parent-child relationship inconsistencies
+    for job_id, job in job_map.items():
+        # Fix 1: Add missing children to parent's child_jobs array
+        parent_id = job.get('parent_job_id')
+        if parent_id and parent_id in job_map:
+            parent_job = job_map[parent_id]
+            if job_id not in parent_job.get('child_jobs', []):
+                try:
+                    # Update parent's child_jobs array
+                    child_jobs = parent_job.get('child_jobs', [])
+                    child_jobs.append(job_id)
+                    update_job(dynamodb, parent_id, {'child_jobs': child_jobs})
+                    fixed.append(f"Added job {job_id} to parent {parent_id}'s child_jobs array")
+                except Exception as e:
+                    failed.append(f"Failed to update parent {parent_id}'s child_jobs: {str(e)}")
+    
+    # Return repair results
+    return {
+        'validation': validation,
+        'fixed': fixed,
+        'failed': failed,
+        'repaired': len(fixed) > 0 and len(failed) == 0
+    }
+
+def create_child_job(dynamodb, parent_job_id, job_type, job_stage=None, conversation_id=None, priority=None, job_config=None):
+    """Create a child job linked to a parent job.
+    
+    Args:
+        dynamodb: DynamoDB resource
+        parent_job_id: Parent job ID
+        job_type: Type of job to create
+        job_stage: Stage in the pipeline (optional)
+        conversation_id: Conversation ID (optional, will inherit from parent if not provided)
+        priority: Job priority (optional, will inherit from parent if not provided)
+        job_config: Job configuration (optional)
+        
+    Returns:
+        Job ID of the created child job
+    """
+    # Get parent job
+    parent_job = get_job_details(dynamodb, parent_job_id)
+    if not parent_job:
+        raise ValueError(f"Parent job {parent_job_id} not found")
+    
+    # Inherit conversation_id from parent if not provided
+    if not conversation_id:
+        conversation_id = parent_job.get('conversation_id')
+        if not conversation_id:
+            raise ValueError("No conversation_id provided and none found in parent job")
+    
+    # Inherit priority from parent if not provided
+    if priority is None:
+        priority = parent_job.get('priority', 50)
+    
+    # Get root_job_id from parent
+    root_job_id = parent_job.get('root_job_id')
+    if not root_job_id:
+        # If parent has no root_job_id, it might be the root itself
+        root_job_id = parent_job_id
+    
+    # Create the child job
+    return submit_job(
+        dynamodb=dynamodb,
+        zid=conversation_id,
+        job_type=job_type,
+        priority=priority,
+        parent_job_id=parent_job_id,
+        root_job_id=root_job_id,
+        job_stage=job_stage
+    )
+
 def main():
     """Main entry point for the Delphi CLI."""
     # Parse command line arguments
@@ -850,6 +1189,11 @@ def main():
     # Arguments for AWAITING_NARRATIVE_BATCH jobs
     submit_parser.add_argument("--batch-id", help="Batch ID for AWAITING_NARRATIVE_BATCH jobs")
     submit_parser.add_argument("--batch-job-id", help="Original job ID that created the batch for AWAITING_NARRATIVE_BATCH jobs")
+    
+    # Job tree parameters
+    submit_parser.add_argument("--parent-job-id", help="Parent job ID if this is a child job")
+    submit_parser.add_argument("--root-job-id", help="Root job ID for the job tree")
+    submit_parser.add_argument("--job-stage", help="Stage in the pipeline (UMAP, LLM, REPORT, etc.)")
     
     # List command
     list_parser = subparsers.add_parser("list", help="List jobs")
@@ -891,6 +1235,30 @@ def main():
         interactive_mode()
         return
     
+    # Create child command
+    child_parser = subparsers.add_parser("create-child", help="Create a child job linked to a parent job")
+    child_parser.add_argument("--parent-job-id", required=True, help="Parent job ID")
+    child_parser.add_argument("--job-type", required=True, help="Type of job to create")
+    child_parser.add_argument("--job-stage", help="Stage in the pipeline")
+    child_parser.add_argument("--zid", help="Conversation ID (defaults to parent's conversation ID)")
+    child_parser.add_argument("--priority", type=int, help="Job priority (defaults to parent's priority)")
+    
+    # Tree command
+    tree_parser = subparsers.add_parser("tree", help="View a job tree")
+    tree_parser.add_argument("--job-id", help="Job ID to view tree for")
+    tree_parser.add_argument("--root-job-id", help="Root job ID to view tree for")
+    
+    # Validate command
+    validate_parser = subparsers.add_parser("validate", help="Validate a job tree")
+    validate_parser.add_argument("--job-id", help="Job ID to validate tree for")
+    validate_parser.add_argument("--root-job-id", help="Root job ID to validate tree for")
+    
+    # Repair command
+    repair_parser = subparsers.add_parser("repair", help="Repair a job tree")
+    repair_parser.add_argument("--job-id", help="Job ID to repair tree for")
+    repair_parser.add_argument("--root-job-id", help="Root job ID to repair tree for")
+    repair_parser.add_argument("--fix", action="store_true", help="Actually fix issues found")
+    
     # Handle commands
     if args.command == "submit":
         # Validate arguments for CREATE_NARRATIVE_BATCH
@@ -920,7 +1288,11 @@ def main():
             no_cache_stage=args.no_cache_stage,
             # AWAITING_NARRATIVE_BATCH specific params
             batch_id=args.batch_id,
-            batch_job_id=args.batch_job_id
+            batch_job_id=args.batch_job_id,
+            # Job tree parameters
+            parent_job_id=args.parent_job_id,
+            root_job_id=args.root_job_id,
+            job_stage=args.job_stage
         )
         
         if RICH_AVAILABLE and IS_TERMINAL:
@@ -956,6 +1328,186 @@ def main():
                 print(f"Error: {error}")
         else:
             display_conversation_status(status_data)
+    
+    elif args.command == "create-child":
+        try:
+            child_job_id = create_child_job(
+                dynamodb=dynamodb,
+                parent_job_id=args.parent_job_id,
+                job_type=args.job_type,
+                job_stage=args.job_stage,
+                conversation_id=args.zid,
+                priority=args.priority
+            )
+            
+            if RICH_AVAILABLE and IS_TERMINAL:
+                console.print(f"[bold green]Child job created with ID: {child_job_id}[/bold green]")
+            else:
+                print(f"Child job created with ID: {child_job_id}")
+        except Exception as e:
+            if RICH_AVAILABLE and IS_TERMINAL:
+                console.print(f"[bold red]Error creating child job: {str(e)}[/bold red]")
+            else:
+                print(f"Error creating child job: {str(e)}")
+    
+    elif args.command == "tree":
+        if not args.job_id and not args.root_job_id:
+            parser.error("Either --job-id or --root-job-id must be provided")
+            
+        tree = get_job_tree(dynamodb, args.root_job_id, args.job_id)
+        if not tree:
+            if RICH_AVAILABLE and IS_TERMINAL:
+                console.print("[bold red]Job tree not found[/bold red]")
+            else:
+                print("Job tree not found")
+        else:
+            # Display tree information
+            if RICH_AVAILABLE and IS_TERMINAL:
+                console.print(f"[bold blue]Job Tree for root {tree['root_job_id']}[/bold blue]")
+                console.print(f"Total jobs in tree: {tree['job_count']}")
+                
+                # Create a table of jobs
+                table = Table(title="Jobs in Tree")
+                table.add_column("Job ID", style="cyan")
+                table.add_column("Stage", style="green")
+                table.add_column("Status", style="magenta")
+                table.add_column("Created", style="yellow")
+                
+                # Add rows sorted by created_at
+                jobs = list(tree['jobs'].values())
+                jobs.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+                
+                for job in jobs:
+                    # Truncate job_id for display
+                    job_id_display = job['job_id']
+                    if len(job_id_display) > 8:
+                        job_id_display = job_id_display[:8] + '...'
+                        
+                    status_color = 'green' if job.get('status') == 'COMPLETED' else 'yellow' if job.get('status') == 'PENDING' else 'red'
+                    status_text = f"[{status_color}]{job.get('status', '')}[/{status_color}]"
+                    
+                    table.add_row(
+                        job_id_display,
+                        job.get('job_stage', ''),
+                        status_text,
+                        job.get('created_at', '')
+                    )
+                
+                console.print(table)
+            else:
+                print(f"Job Tree for root {tree['root_job_id']}")
+                print(f"Total jobs in tree: {tree['job_count']}")
+                print("\nJobs in tree:")
+                
+                # Display jobs sorted by created_at
+                jobs = list(tree['jobs'].values())
+                jobs.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+                
+                for job in jobs:
+                    print(f"Job ID: {job['job_id']}")
+                    print(f"Stage: {job.get('job_stage', '')}")
+                    print(f"Status: {job.get('status', '')}")
+                    print(f"Created: {job.get('created_at', '')}")
+                    print("-" * 40)
+    
+    elif args.command == "validate":
+        if not args.job_id and not args.root_job_id:
+            parser.error("Either --job-id or --root-job-id must be provided")
+            
+        validation = validate_job_tree(dynamodb, args.root_job_id, args.job_id)
+        if RICH_AVAILABLE and IS_TERMINAL:
+            if validation['valid']:
+                console.print("[bold green]Job tree is valid[/bold green]")
+            else:
+                console.print("[bold red]Job tree has errors[/bold red]")
+                
+            if validation.get('errors'):
+                console.print("\n[bold red]Errors:[/bold red]")
+                for error in validation['errors']:
+                    console.print(f"- {error}")
+                    
+            if validation.get('warnings'):
+                console.print("\n[bold yellow]Warnings:[/bold yellow]")
+                for warning in validation['warnings']:
+                    console.print(f"- {warning}")
+        else:
+            print(f"Job tree valid: {validation['valid']}")
+            
+            if validation.get('errors'):
+                print("\nErrors:")
+                for error in validation['errors']:
+                    print(f"- {error}")
+                    
+            if validation.get('warnings'):
+                print("\nWarnings:")
+                for warning in validation['warnings']:
+                    print(f"- {warning}")
+    
+    elif args.command == "repair":
+        if not args.job_id and not args.root_job_id:
+            parser.error("Either --job-id or --root-job-id must be provided")
+            
+        repair_result = repair_job_tree(dynamodb, args.root_job_id, args.job_id, fix_issues=args.fix)
+        
+        if RICH_AVAILABLE and IS_TERMINAL:
+            validation = repair_result.get('validation', {})
+            
+            if not args.fix:
+                console.print("[bold yellow]Dry run mode - no changes made[/bold yellow]")
+                
+            if validation.get('valid', False):
+                console.print("[bold green]Job tree is valid[/bold green]")
+            else:
+                console.print("[bold red]Job tree has errors[/bold red]")
+                
+            if validation.get('errors'):
+                console.print("\n[bold red]Errors:[/bold red]")
+                for error in validation['errors']:
+                    console.print(f"- {error}")
+                    
+            if validation.get('warnings'):
+                console.print("\n[bold yellow]Warnings:[/bold yellow]")
+                for warning in validation['warnings']:
+                    console.print(f"- {warning}")
+                    
+            if args.fix:
+                if repair_result.get('fixed'):
+                    console.print("\n[bold green]Fixed issues:[/bold green]")
+                    for fix in repair_result['fixed']:
+                        console.print(f"- {fix}")
+                        
+                if repair_result.get('failed'):
+                    console.print("\n[bold red]Failed fixes:[/bold red]")
+                    for fail in repair_result['failed']:
+                        console.print(f"- {fail}")
+        else:
+            validation = repair_result.get('validation', {})
+            
+            if not args.fix:
+                print("Dry run mode - no changes made")
+                
+            print(f"Job tree valid: {validation.get('valid', False)}")
+            
+            if validation.get('errors'):
+                print("\nErrors:")
+                for error in validation['errors']:
+                    print(f"- {error}")
+                    
+            if validation.get('warnings'):
+                print("\nWarnings:")
+                for warning in validation['warnings']:
+                    print(f"- {warning}")
+                    
+            if args.fix:
+                if repair_result.get('fixed'):
+                    print("\nFixed issues:")
+                    for fix in repair_result['fixed']:
+                        print(f"- {fix}")
+                        
+                if repair_result.get('failed'):
+                    print("\nFailed fixes:")
+                    for fail in repair_result['failed']:
+                        print(f"- {fail}")
 
 if __name__ == "__main__":
     main()

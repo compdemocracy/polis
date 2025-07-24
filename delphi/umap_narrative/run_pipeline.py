@@ -621,8 +621,9 @@ def process_layers_and_store_characteristics(
             characteristic_models = DataConverter.batch_convert_cluster_characteristics(
                 conversation_id,
                 cluster_characteristics,
-                layer_idx
-            ) # job_id is not directly part of characteristics PK, but good to have if we extend
+                layer_idx,
+                job_id=job_id
+            )
 
             result = dynamo_storage.batch_create_cluster_characteristics(characteristic_models)
             logger.info(f"Stored {result['success']} cluster characteristics with {result['failure']} failures")
@@ -1144,7 +1145,7 @@ def create_enhanced_multilayer_index(
     return index_file
 
 
-def process_conversation(zid, export_dynamo=True, use_ollama=False):
+def process_conversation(zid, export_dynamo=True, use_ollama=False, job_id=None, parent_job_id=None, root_job_id=None, job_stage=None):
     """
     Main function to process a conversation and generate visualizations.
     
@@ -1152,6 +1153,10 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
         zid: Conversation ID
         export_dynamo: Whether to export results to DynamoDB
         use_ollama: Whether to use Ollama for topic naming
+        job_id: Job ID for this run
+        parent_job_id: ID of the parent job (if this is a child job)
+        root_job_id: ID of the root job in the tree
+        job_stage: Position in the pipeline (UMAP, LLM, etc.)
     """
     # Create conversation directory
     output_dir = os.path.join("polis_data", str(zid), "python_output", "comments_enhanced_multilayer")
@@ -1162,11 +1167,19 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
     if not comments:
         logger.error("Failed to fetch conversation data.")
         return False
-
-    # Generate a job_id for this pipeline run
-    # If DELPHI_JOB_ID is set (e.g., by a calling script like run_delphi.py), use that.
-    job_id = os.environ.get("DELPHI_JOB_ID", f"pipeline_run_{uuid.uuid4()}")
-    logger.info(f"Using job_id: {job_id} for this pipeline run.")
+        
+    # Generate a job_id if not provided
+    if not job_id:
+        job_id = f"pipeline_run_{uuid.uuid4()}"
+    
+    # Set defaults for other job parameters if not provided
+    if not root_job_id:
+        root_job_id = job_id  # Default to job_id if no root specified
+    
+    if not job_stage:
+        job_stage = "UMAP"  # Default stage
+        
+    logger.info(f"Using job tree: job_id={job_id}, parent_job_id={parent_job_id}, root_job_id={root_job_id}, job_stage={job_stage}")
     
     conversation_id = str(zid)
     conversation_name = metadata.get('conversation_name', f"Conversation {zid}")
@@ -1206,7 +1219,11 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
         logger.info("Storing comment embeddings...")
         embedding_models = DataConverter.batch_convert_embeddings(
             conversation_id,
-            document_vectors
+            document_vectors,
+            job_id=job_id,
+            parent_job_id=parent_job_id,
+            root_job_id=root_job_id,
+            job_stage=job_stage
         )
         result = dynamo_storage.batch_create_comment_embeddings(embedding_models)
         logger.info(f"Stored {result['success']} embeddings with {result['failure']} failures")
@@ -1216,7 +1233,11 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
         edge_models = DataConverter.batch_convert_umap_edges(
             conversation_id,
             document_map,
-            cluster_layers
+            cluster_layers,
+            job_id=job_id,
+            parent_job_id=parent_job_id,
+            root_job_id=root_job_id,
+            job_stage=job_stage
         )
         result = dynamo_storage.batch_create_graph_edges(edge_models)
         logger.info(f"Stored {result['success']} UMAP graph edges with {result['failure']} failures")
@@ -1226,7 +1247,11 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
         cluster_models = DataConverter.batch_convert_clusters(
             conversation_id,
             cluster_layers,
-            document_map
+            document_map,
+            job_id=job_id,
+            parent_job_id=parent_job_id,
+            root_job_id=root_job_id,
+            job_stage=job_stage
         )
         result = dynamo_storage.batch_create_comment_clusters(cluster_models)
         logger.info(f"Stored {result['success']} cluster assignments with {result['failure']} failures")
@@ -1239,7 +1264,11 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
             document_map,
             topic_names={},  # No topic names yet
             characteristics={},  # No characteristics yet
-            comments=[{'body': comment['txt']} for comment in comments]
+            comments=[{'body': comment['txt']} for comment in comments],
+            job_id=job_id,
+            parent_job_id=parent_job_id,
+            root_job_id=root_job_id,
+            job_stage=job_stage
         )
         result = dynamo_storage.batch_create_cluster_topics(topic_models)
         logger.info(f"Stored {result['success']} topics with {result['failure']} failures")
@@ -1272,6 +1301,8 @@ def main():
     parser = argparse.ArgumentParser(description='Process Polis conversation from PostgreSQL')
     parser.add_argument('--zid', type=int, required=False, default=22154,
                       help='Conversation ID to process')
+    parser.add_argument('--conversation_id', type=str, required=False,
+                      help='Conversation ID to process (alternative to --zid)')
     parser.add_argument('--no-dynamo', action='store_true',
                       help='Skip exporting to DynamoDB')
     parser.add_argument('--db-host', type=str, default=None,
@@ -1289,6 +1320,16 @@ def main():
     parser.add_argument('--use-ollama', action='store_true',
                        help='Use Ollama for topic naming')
     
+    # Job tree parameters
+    parser.add_argument('--job_id', type=str, required=False,
+                      help='Job ID for this run')
+    parser.add_argument('--parent_job_id', type=str, default=None,
+                      help='Parent job ID if this is a child job')
+    parser.add_argument('--root_job_id', type=str, default=None,
+                      help='Root job ID of the job tree')
+    parser.add_argument('--job_stage', type=str, default="UMAP",
+                      help='Stage in the pipeline (UMAP, LLM, REPORT, etc.)')
+    
     args = parser.parse_args()
     
     # Set up environment
@@ -1299,6 +1340,28 @@ def main():
         db_user=args.db_user,
         db_password=args.db_password
     )
+    
+    # Determine conversation ID
+    zid = args.zid
+    if args.conversation_id:
+        zid = int(args.conversation_id)
+    
+    # Get job tree parameters
+    job_id = args.job_id
+    if not job_id:
+        # Generate a job_id if not provided
+        job_id = str(uuid.uuid4())
+        logger.info(f"Generated job_id: {job_id}")
+    
+    # Don't store job parameters in environment to avoid race conditions
+    # between concurrent jobs
+    
+    # Log job tree information
+    logger.info(f"Job tree parameters:")
+    logger.info(f"  - job_id: {job_id}")
+    logger.info(f"  - parent_job_id: {args.parent_job_id}")
+    logger.info(f"  - root_job_id: {args.root_job_id}")
+    logger.info(f"  - job_stage: {args.job_stage}")
     
     # Log Ollama usage
     if args.use_ollama:
@@ -1312,7 +1375,7 @@ def main():
         for i in range(100):
             mock_comments.append({
                 'tid': i,
-                'zid': args.zid,
+                'zid': zid,
                 'txt': f"This is a mock comment {i} for testing purposes without PostgreSQL connection.",
                 'created': datetime.now().isoformat(),
                 'pid': i % 20,  # Mock 20 different participants
@@ -1358,11 +1421,21 @@ def main():
             cluster_layers,
             comment_texts,
             output_dir,
-            use_ollama=args.use_ollama
+            use_ollama=args.use_ollama,
+            dynamo_storage=None,
+            job_id=job_id  # Pass job_id for correlation
         )
     else:
         # Process with real data from PostgreSQL
-        process_conversation(args.zid, export_dynamo=not args.no_dynamo, use_ollama=args.use_ollama)
+        process_conversation(
+            args.zid,
+            export_dynamo=not args.no_dynamo,
+            use_ollama=args.use_ollama,
+            job_id=job_id,
+            parent_job_id=args.parent_job_id,
+            root_job_id=args.root_job_id,
+            job_stage=args.job_stage
+        )
 
 if __name__ == "__main__":
     main()

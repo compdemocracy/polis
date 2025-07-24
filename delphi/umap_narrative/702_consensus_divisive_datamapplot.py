@@ -92,18 +92,30 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def load_data_from_dynamodb(zid, layer_num=0):
+def load_data_from_dynamodb(zid, layer_num=0, job_id=None):
     """
     Load data from DynamoDB for visualization.
     
     Args:
         zid: Conversation ID
         layer_num: Layer number (default 0)
+        job_id: Job ID for data correlation (if None, uses legacy mode)
         
     Returns:
         Dictionary with comment positions, cluster assignments, and topic names
     """
-    logger.info(f'Loading UMAP positions and cluster data for conversation {zid}, layer {layer_num}')
+    # job_id should be explicitly provided via command-line argument
+    # No fallback to environment variables to avoid race conditions
+    
+    # Determine operation mode based on job_id
+    job_mode = job_id is not None
+    
+    if job_mode:
+        logger.info(f'Loading data from DynamoDB in job mode for conversation {zid}, layer {layer_num}, job_id: {job_id}')
+    else:
+        logger.info(f'Loading data from DynamoDB in legacy mode for conversation {zid}, layer {layer_num}')
+        logger.warning('Operating in legacy mode with conversation_id-based data correlation')
+        logger.warning('This mode may lead to inconsistent data across pipeline components')
     
     # Set up DynamoDB client
     endpoint_url = os.environ.get('DYNAMODB_ENDPOINT')
@@ -139,9 +151,39 @@ def load_data_from_dynamodb(zid, layer_num=0):
         
         return items
     
-    # 1. Get positions from UMAPGraph
+    # 1. Get positions from UMAPGraph - prefer job_id if available, fall back to conversation_id
     try:
-        edges = scan_table('Delphi_UMAPGraph', 
+        from boto3.dynamodb.conditions import Key
+        table = dynamodb.Table('Delphi_UMAPGraph')
+        edges = []
+        
+        if job_id:
+            # Use JobIdIndex for job-based correlation
+            logger.info(f'Loading positions using job_id: {job_id}')
+            response = table.query(
+                IndexName='JobIdIndex',
+                KeyConditionExpression=Key('job_id').eq(job_id)
+            )
+            edges = response.get('Items', [])
+            
+            # Handle pagination if needed
+            while 'LastEvaluatedKey' in response:
+                response = table.query(
+                    IndexName='JobIdIndex',
+                    KeyConditionExpression=Key('job_id').eq(job_id),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                edges.extend(response.get('Items', []))
+                
+            # If no data found with job_id, fall back to legacy mode
+            if not edges and job_mode:
+                logger.warning(f'No positions found for job_id: {job_id}. Falling back to conversation_id-based query.')
+                job_mode = False  # Switch to legacy mode for subsequent queries
+                
+        if not job_id or not edges:
+            # Fall back to conversation-based query for backwards compatibility
+            logger.info(f'Loading positions using conversation_id: {zid}')
+            edges = scan_table('Delphi_UMAPGraph', 
                            filter_expr='conversation_id = :conversation_id',
                            expr_attr_values={':conversation_id': str(zid)})
         
@@ -161,11 +203,51 @@ def load_data_from_dynamodb(zid, layer_num=0):
         logger.error(f'Error retrieving positions from UMAPGraph: {e}')
         logger.error(traceback.format_exc())
     
-    # 2. Get cluster assignments
+    # 2. Get cluster assignments - prefer job_id if available, fall back to conversation_id
     try:
-        clusters = scan_table('Delphi_CommentHierarchicalClusterAssignments', 
-                              filter_expr='conversation_id = :conversation_id',
-                              expr_attr_values={':conversation_id': str(zid)})
+        from boto3.dynamodb.conditions import Key
+        table = dynamodb.Table('Delphi_CommentHierarchicalClusterAssignments')
+        
+        if job_id and job_mode:
+            # Use JobIdIndex for job-based correlation
+            logger.info(f'Loading cluster assignments using job_id: {job_id}')
+            response = table.query(
+                IndexName='JobIdIndex',
+                KeyConditionExpression=Key('job_id').eq(job_id)
+            )
+            
+            clusters = response.get('Items', [])
+            
+            # Handle pagination if needed
+            while 'LastEvaluatedKey' in response:
+                response = table.query(
+                    IndexName='JobIdIndex',
+                    KeyConditionExpression=Key('job_id').eq(job_id),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                clusters.extend(response.get('Items', []))
+                
+            # If no data found with job_id, fall back to legacy mode
+            if not clusters:
+                logger.warning(f'No cluster assignments found for job_id: {job_id}. Falling back to conversation_id-based query.')
+                job_mode = False  # Switch to legacy mode for subsequent queries
+        
+        # Fall back to conversation-based query if needed
+        if not job_id or not job_mode or not clusters:
+            logger.info(f'Loading cluster assignments using conversation_id: {zid}')
+            response = table.query(
+                KeyConditionExpression=Key('conversation_id').eq(str(zid))
+            )
+            
+            clusters = response.get('Items', [])
+            
+            # Handle pagination if needed
+            while 'LastEvaluatedKey' in response:
+                response = table.query(
+                    KeyConditionExpression=Key('conversation_id').eq(str(zid)),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                clusters.extend(response.get('Items', []))
         
         logger.info(f'Retrieved {len(clusters)} comment cluster assignments')
         
@@ -182,19 +264,61 @@ def load_data_from_dynamodb(zid, layer_num=0):
         logger.error(f'Error retrieving cluster assignments: {e}')
         logger.error(traceback.format_exc())
     
-    # 3. Get topic names
+    # 3. Get topic names - prefer job_id if available, fall back to conversation_id
     try:
-        topic_name_items = scan_table('Delphi_CommentClustersLLMTopicNames', 
-                                     filter_expr='conversation_id = :conversation_id AND layer_id = :layer_id',
-                                     expr_attr_values={':conversation_id': str(zid), ':layer_id': layer_num})
+        table = dynamodb.Table('Delphi_CommentClustersLLMTopicNames')
+        
+        if job_id and job_mode:
+            # Use JobIdIndex for job-based correlation
+            logger.info(f'Loading topic names using job_id: {job_id}')
+            response = table.query(
+                IndexName='JobIdIndex',
+                KeyConditionExpression=Key('job_id').eq(job_id)
+            )
+            
+            topic_name_items = response.get('Items', [])
+            
+            # Handle pagination if needed
+            while 'LastEvaluatedKey' in response:
+                response = table.query(
+                    IndexName='JobIdIndex',
+                    KeyConditionExpression=Key('job_id').eq(job_id),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                topic_name_items.extend(response.get('Items', []))
+                
+            # If no data found with job_id, fall back to legacy mode
+            if not topic_name_items:
+                logger.warning(f'No topic names found for job_id: {job_id}. Falling back to conversation_id-based query.')
+                job_mode = False
+        
+        # Fall back to conversation-based query if needed
+        if not job_id or not job_mode or not topic_name_items:
+            logger.info(f'Loading topic names using conversation_id: {zid}')
+            response = table.query(
+                KeyConditionExpression=Key('conversation_id').eq(str(zid))
+            )
+            
+            topic_name_items = response.get('Items', [])
+            
+            # Handle pagination if needed
+            while 'LastEvaluatedKey' in response:
+                response = table.query(
+                    KeyConditionExpression=Key('conversation_id').eq(str(zid)),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                topic_name_items.extend(response.get('Items', []))
         
         logger.info(f'Retrieved {len(topic_name_items)} topic names')
         
-        # Create topic name map
+        # Create topic name map - filter by layer_id
         for item in topic_name_items:
-            cluster_id = int(item.get('cluster_id', 0))
-            topic_name = item.get('topic_name', f'Topic {cluster_id}')
-            data["topic_names"][cluster_id] = topic_name
+            if item.get('layer_id') == layer_num:  # Filter by layer on client side
+                cluster_id = int(item.get('cluster_id', 0))
+                topic_name = item.get('topic_name', f'Topic {cluster_id}')
+                data["topic_names"][cluster_id] = topic_name
+        
+        logger.info(f'Extracted {len(data["topic_names"])} topic names for layer {layer_num}')
     
     except Exception as e:
         logger.error(f'Error retrieving topic names: {e}')
@@ -561,26 +685,42 @@ def load_comment_texts_and_extremity(zid, layer_num=0):
     logger.info(f'Final extremity values count: {len(extremity_values)}')
     return comment_texts, extremity_values
 
-def create_consensus_divisive_datamapplot(zid, layer_num=0, output_dir=None):
+def create_consensus_divisive_datamapplot(zid, layer_num=0, output_dir=None, job_id=None):
     """
-    Generate visualizations that color comments by consensus/divisiveness.
+    Generate visualizations that color comments by consensus/divisiveness using job_id correlation.
     
     Args:
         zid: Conversation ID
         layer_num: Layer number (default 0)
         output_dir: Optional output directory override
+        job_id: Job ID for data correlation
         
     Returns:
         Boolean indicating success
     """
-    logger.info(f'Generating consensus/divisive datamapplot for conversation {zid}, layer {layer_num}')
+    logger.info(f'Generating consensus/divisive datamapplot for conversation {zid}, layer {layer_num}, job_id: {job_id}')
     
     try:
-        # 1. Load data from DynamoDB
-        dynamo_data = load_data_from_dynamodb(zid, layer_num)
+        # 1. Load data from DynamoDB using job_id correlation
+        dynamo_data = load_data_from_dynamodb(zid, layer_num, job_id)
+        if not dynamo_data:
+            logger.error("Failed to load data from DynamoDB")
+            return False
+            
         positions = dynamo_data["positions"]
         clusters = dynamo_data["clusters"] 
         topic_names = dynamo_data["topic_names"]
+        
+        # Check if we have enough data to create a visualization
+        if not positions:
+            logger.error("No position data found for job_id. Cannot generate visualization.")
+            return False
+            
+        if not clusters:
+            logger.warning("No cluster assignments found for job_id. Visualization may be incomplete.")
+            
+        if not topic_names:
+            logger.warning("No topic names found for job_id. Using default topic names.")
         
         # 2. Load comment texts and extremity values
         comment_texts, extremity_values = load_comment_texts_and_extremity(zid, layer_num)
@@ -588,9 +728,20 @@ def create_consensus_divisive_datamapplot(zid, layer_num=0, output_dir=None):
         # 3. Prepare data for visualization
         logger.info('Preparing data for visualization')
         
+        # Check if we have any positions
+        if not positions:
+            logger.error("No position data found. Cannot generate visualization.")
+            return False
+            
         # Create arrays for plotting
         comment_ids = sorted(positions.keys())
         position_array = np.array([positions[cid] for cid in comment_ids])
+        
+        # Check position_array dimensions
+        if position_array.ndim == 1 or len(position_array) == 0:
+            logger.error("Position data is empty or has invalid dimensions. Cannot generate visualization.")
+            return False
+            
         cluster_array = np.array([clusters.get(cid, -1) for cid in comment_ids])
         
         # Create label strings
@@ -644,9 +795,14 @@ def create_consensus_divisive_datamapplot(zid, layer_num=0, output_dir=None):
         ax.set_facecolor('#f8f8f8')  # Light background
         
         # Plot the comments colored by extremity
-        scatter = ax.scatter(position_array[:, 0], position_array[:, 1], 
-                            c=normalized_extremity, cmap=consensus_cmap, s=80, alpha=0.8, 
-                            edgecolors='black', linewidths=0.3)
+        try:
+            scatter = ax.scatter(position_array[:, 0], position_array[:, 1], 
+                              c=normalized_extremity, cmap=consensus_cmap, s=80, alpha=0.8, 
+                              edgecolors='black', linewidths=0.3)
+        except IndexError as e:
+            logger.error(f"Error plotting scatter: {e}")
+            logger.error(f"Position array shape: {position_array.shape}")
+            return False
         
         # Add cluster labels
         # Get unique clusters
@@ -789,6 +945,8 @@ def main():
     parser.add_argument("--zid", type=str, required=True, help="Conversation ID")
     parser.add_argument("--layer", type=int, default=0, help="Layer number")
     parser.add_argument("--output_dir", type=str, help="Output directory")
+    parser.add_argument("--job_id", type=str, default=None, 
+                        help="Job ID for data correlation (default: use DELPHI_JOB_ID env var)")
     parser.add_argument("--extremity_threshold", type=float, 
                         help=f"Maximum extremity value (values above this are capped). Set to 0 or negative for adaptive percentile-based normalization (recommended). Default: {VIZ_CONFIG['extremity_threshold']}")
     parser.add_argument("--invert_extremity", action="store_true", 
@@ -813,7 +971,7 @@ def main():
     
     # Generate visualization
     try:
-        success = create_consensus_divisive_datamapplot(args.zid, args.layer, args.output_dir)
+        success = create_consensus_divisive_datamapplot(args.zid, args.layer, args.output_dir, args.job_id)
         
         if success:
             logger.info("Consensus/divisive datamapplot generation completed successfully")

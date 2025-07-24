@@ -165,7 +165,10 @@ def create_job_queue_table(dynamodb, delete_existing=False):
                 {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
                 {'AttributeName': 'job_type', 'AttributeType': 'S'},
                 {'AttributeName': 'priority', 'AttributeType': 'N'},
-                {'AttributeName': 'worker_id', 'AttributeType': 'S'}
+                {'AttributeName': 'worker_id', 'AttributeType': 'S'},
+                {'AttributeName': 'parent_job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'root_job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'job_stage', 'AttributeType': 'S'}
             ],
             'BillingMode': 'PAY_PER_REQUEST',
 
@@ -199,6 +202,31 @@ def create_job_queue_table(dynamodb, delete_existing=False):
                     'KeySchema': [
                         {'AttributeName': 'worker_id', 'KeyType': 'HASH'},
                         {'AttributeName': 'status', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                },
+                # Job tree-related indexes
+                {
+                    'IndexName': 'ParentJobIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'parent_job_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'created_at', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                },
+                {
+                    'IndexName': 'RootJobIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'root_job_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'job_stage', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                },
+                {
+                    'IndexName': 'JobStageIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'job_stage', 'KeyType': 'HASH'},
+                        {'AttributeName': 'created_at', 'KeyType': 'RANGE'}
                     ],
                     'Projection': {'ProjectionType': 'ALL'},
                 }
@@ -301,7 +329,29 @@ def create_evoc_tables(dynamodb, delete_existing=False):
             ],
             'AttributeDefinitions': [
                 {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'comment_id', 'AttributeType': 'N'}
+                {'AttributeName': 'comment_id', 'AttributeType': 'N'},
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'created_at', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'JobIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'job_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'conversation_id', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                },
+                {
+                    'IndexName': 'ConversationTimeIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'created_at', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -315,7 +365,29 @@ def create_evoc_tables(dynamodb, delete_existing=False):
             ],
             'AttributeDefinitions': [
                 {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'comment_id', 'AttributeType': 'N'}
+                {'AttributeName': 'comment_id', 'AttributeType': 'N'},
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'created_at', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'JobIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'job_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'conversation_id', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                },
+                {
+                    'IndexName': 'ConversationTimeIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'created_at', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -329,7 +401,29 @@ def create_evoc_tables(dynamodb, delete_existing=False):
             ],
             'AttributeDefinitions': [
                 {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'cluster_key', 'AttributeType': 'S'}
+                {'AttributeName': 'cluster_key', 'AttributeType': 'S'},
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'created_at', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'JobIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'job_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'conversation_id', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                },
+                {
+                    'IndexName': 'ConversationTimeIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'created_at', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -343,7 +437,19 @@ def create_evoc_tables(dynamodb, delete_existing=False):
             ],
             'AttributeDefinitions': [
                 {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'edge_id', 'AttributeType': 'S'}
+                {'AttributeName': 'edge_id', 'AttributeType': 'S'},
+                {'AttributeName': 'job_id', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'JobIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'job_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'conversation_id', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -354,12 +460,25 @@ def create_evoc_tables(dynamodb, delete_existing=False):
         # Extended tables
         'Delphi_CommentClustersFeatures': {
             'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
-                {'AttributeName': 'cluster_key', 'KeyType': 'RANGE'}
+                {'AttributeName': 'job_id', 'KeyType': 'HASH'},
+                {'AttributeName': 'conversation_id_cluster_key', 'KeyType': 'RANGE'}
             ],
             'AttributeDefinitions': [
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'conversation_id_cluster_key', 'AttributeType': 'S'},
                 {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'cluster_key', 'AttributeType': 'S'}
+                {'AttributeName': 'created_at', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'ConversationIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'created_at', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -373,7 +492,29 @@ def create_evoc_tables(dynamodb, delete_existing=False):
             ],
             'AttributeDefinitions': [
                 {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'topic_key', 'AttributeType': 'S'}
+                {'AttributeName': 'topic_key', 'AttributeType': 'S'},
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'created_at', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'JobIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'job_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'conversation_id', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                },
+                {
+                    'IndexName': 'ConversationTimeIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'created_at', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,

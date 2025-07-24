@@ -25,6 +25,11 @@ import { handle_GET_delphi_visualizations } from "./src/routes/delphi/visualizat
 import { handle_POST_delphi_jobs } from "./src/routes/delphi/jobs";
 import { handle_GET_delphi_reports } from "./src/routes/delphi/reports";
 import { handle_POST_delphi_batch_reports } from "./src/routes/delphi/batchReports";
+import { 
+  handle_GET_delphi_job_tree,
+  handle_GET_delphi_latest_job,
+  handle_POST_delphi_child_job
+} from "./src/routes/delphi/jobTree";
 import {
   handle_GET_feeds_directory,
   handle_GET_consensus_feed,
@@ -856,6 +861,43 @@ helpersInitialized.then(
         res.json({
           status: "error",
           message: "Internal server error in batch reports endpoint",
+          error: err.message || "Unknown error",
+        });
+      }
+    });
+
+    // Job tree endpoints
+    app.get("/api/v3/delphi/jobs/tree", moveToBody, function (req, res) {
+      try {
+        handle_GET_delphi_job_tree(req, res);
+      } catch (err) {
+        res.json({
+          status: "error",
+          message: "Internal server error in job tree endpoint",
+          error: err.message || "Unknown error",
+        });
+      }
+    });
+
+    app.get("/api/v3/delphi/jobs/latest", moveToBody, function (req, res) {
+      try {
+        handle_GET_delphi_latest_job(req, res);
+      } catch (err) {
+        res.json({
+          status: "error",
+          message: "Internal server error in latest job endpoint",
+          error: err.message || "Unknown error",
+        });
+      }
+    });
+
+    app.post("/api/v3/delphi/jobs/child", moveToBody, function (req, res) {
+      try {
+        handle_POST_delphi_child_job(req, res);
+      } catch (err) {
+        res.json({
+          status: "error",
+          message: "Internal server error in child job creation endpoint",
           error: err.message || "Unknown error",
         });
       }

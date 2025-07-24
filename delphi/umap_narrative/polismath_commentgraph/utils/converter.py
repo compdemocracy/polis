@@ -156,7 +156,11 @@ class DataConverter:
     def create_comment_embedding(
         conversation_id: str,
         comment_id: int,
-        vector: np.ndarray
+        vector: np.ndarray,
+        job_id: Optional[str] = None,
+        parent_job_id: Optional[str] = None,
+        root_job_id: Optional[str] = None,
+        job_stage: Optional[str] = None
     ) -> CommentEmbedding:
         """
         Create a CommentEmbedding model from raw data.
@@ -176,12 +180,25 @@ class DataConverter:
             model='all-MiniLM-L6-v2'
         )
         
-        # Create the model with just the embedding vector
-        model = CommentEmbedding(
-            conversation_id=conversation_id,
-            comment_id=int(comment_id),
-            embedding=embedding
-        )
+        # Create model data with required fields
+        model_data = {
+            'conversation_id': conversation_id,
+            'comment_id': int(comment_id),
+            'embedding': embedding
+        }
+        
+        # Add job relationship fields if provided
+        if job_id:
+            model_data['job_id'] = job_id
+        if parent_job_id:
+            model_data['parent_job_id'] = parent_job_id
+        if root_job_id:
+            model_data['root_job_id'] = root_job_id
+        if job_stage:
+            model_data['job_stage'] = job_stage
+            
+        # Create the model
+        model = CommentEmbedding(**model_data)
         
         return model
     
@@ -191,7 +208,11 @@ class DataConverter:
         comment_id: int,
         cluster_layers: List[np.ndarray],
         distances: Optional[Dict[str, float]] = None,
-        confidences: Optional[Dict[str, float]] = None
+        confidences: Optional[Dict[str, float]] = None,
+        job_id: str = None,
+        parent_job_id: Optional[str] = None,
+        root_job_id: Optional[str] = None,
+        job_stage: Optional[str] = None
     ) -> CommentCluster:
         """
         Create a CommentCluster model from raw data.
@@ -202,6 +223,7 @@ class DataConverter:
             cluster_layers: List of cluster label arrays, one per layer
             distances: Optional dictionary of distances to centroids
             confidences: Optional dictionary of cluster confidence scores
+            job_id: Job ID for this pipeline run
             
         Returns:
             CommentCluster model object
@@ -243,6 +265,19 @@ class DataConverter:
             # Convert all float values to Decimal for DynamoDB compatibility
             data['cluster_confidence'] = {k: float(v) for k, v in confidences.items()}
         
+        # Add job relationship fields (optional for backwards compatibility)
+        if job_id:
+            data['job_id'] = job_id
+            
+        if parent_job_id:
+            data['parent_job_id'] = parent_job_id
+            
+        if root_job_id:
+            data['root_job_id'] = root_job_id
+            
+        if job_stage:
+            data['job_stage'] = job_stage
+        
         # Create the model directly from the data dict
         # The model creation will use pydantic to validate the types
         # DataConverter.prepare_for_dynamodb will handle the proper conversion to Decimal
@@ -262,7 +297,11 @@ class DataConverter:
         top_words: Optional[List[str]] = None,
         top_tfidf_scores: Optional[List[float]] = None,
         parent_cluster: Optional[Dict[str, int]] = None,
-        child_clusters: Optional[List[Dict[str, int]]] = None
+        child_clusters: Optional[List[Dict[str, int]]] = None,
+        job_id: Optional[str] = None,
+        parent_job_id: Optional[str] = None,
+        root_job_id: Optional[str] = None,
+        job_stage: Optional[str] = None
     ) -> ClusterTopic:
         """
         Create a ClusterTopic model from raw data.
@@ -311,21 +350,34 @@ class DataConverter:
                 for child in child_clusters
             ]
         
+        # Create model data with required fields
+        model_data = {
+            'conversation_id': conversation_id,
+            'cluster_key': cluster_key,
+            'layer_id': layer_id,
+            'cluster_id': cluster_id,
+            'topic_label': topic_label,
+            'size': size,
+            'sample_comments': sample_comments,
+            'centroid_coordinates': centroid_coords,
+            'top_words': top_words,
+            'top_tfidf_scores': top_tfidf_scores,
+            'parent_cluster': parent_ref,
+            'child_clusters': child_refs
+        }
+        
+        # Add job relationship fields if provided
+        if job_id:
+            model_data['job_id'] = job_id
+        if parent_job_id:
+            model_data['parent_job_id'] = parent_job_id
+        if root_job_id:
+            model_data['root_job_id'] = root_job_id
+        if job_stage:
+            model_data['job_stage'] = job_stage
+            
         # Create the model
-        model = ClusterTopic(
-            conversation_id=conversation_id,
-            cluster_key=cluster_key,
-            layer_id=layer_id,
-            cluster_id=cluster_id,
-            topic_label=topic_label,
-            size=size,
-            sample_comments=sample_comments,
-            centroid_coordinates=centroid_coords,
-            top_words=top_words,
-            top_tfidf_scores=top_tfidf_scores,
-            parent_cluster=parent_ref,
-            child_clusters=child_refs
-        )
+        model = ClusterTopic(**model_data)
         
         return model
     
@@ -338,7 +390,11 @@ class DataConverter:
         distance: float,
         is_nearest_neighbor: bool,
         shared_layers: List[int],
-        position: Optional[np.ndarray] = None
+        position: Optional[np.ndarray] = None,
+        job_id: Optional[str] = None,
+        parent_job_id: Optional[str] = None,
+        root_job_id: Optional[str] = None,
+        job_stage: Optional[str] = None
     ) -> UMAPGraphEdge:
         """
         Create a UMAPGraphEdge model from raw data.
@@ -370,18 +426,31 @@ class DataConverter:
                 y=float(position[1])
             )
         
+        # Create model data with required fields
+        model_data = {
+            'conversation_id': conversation_id,
+            'edge_id': edge_id,
+            'source_id': int(source_id),
+            'target_id': int(target_id),
+            'weight': float(weight),
+            'distance': float(distance),
+            'is_nearest_neighbor': bool(is_nearest_neighbor),
+            'shared_cluster_layers': shared_layers,
+            'position': position_coords
+        }
+        
+        # Add job relationship fields if provided
+        if job_id:
+            model_data['job_id'] = job_id
+        if parent_job_id:
+            model_data['parent_job_id'] = parent_job_id
+        if root_job_id:
+            model_data['root_job_id'] = root_job_id
+        if job_stage:
+            model_data['job_stage'] = job_stage
+            
         # Create the model
-        model = UMAPGraphEdge(
-            conversation_id=conversation_id,
-            edge_id=edge_id,
-            source_id=int(source_id),
-            target_id=int(target_id),
-            weight=float(weight),
-            distance=float(distance),
-            is_nearest_neighbor=bool(is_nearest_neighbor),
-            shared_cluster_layers=shared_layers,
-            position=position_coords
-        )
+        model = UMAPGraphEdge(**model_data)
         
         return model
     
@@ -393,7 +462,8 @@ class DataConverter:
         size: int,
         top_words: List[str],
         top_tfidf_scores: List[float],
-        sample_comments: List[str]
+        sample_comments: List[str],
+        job_id: Optional[str] = None
     ) -> ClusterCharacteristic:
         """
         Create a ClusterCharacteristic model from raw data.
@@ -411,15 +481,21 @@ class DataConverter:
             ClusterCharacteristic model object
         """
         # Create the model
-        model = ClusterCharacteristic(
-            conversation_id=conversation_id,
-            layer_id=layer_id,
-            cluster_id=cluster_id,
-            size=size,
-            top_words=top_words,
-            top_tfidf_scores=top_tfidf_scores,
-            sample_comments=sample_comments
-        )
+        model_data = {
+            'conversation_id': conversation_id,
+            'layer_id': layer_id,
+            'cluster_id': cluster_id,
+            'size': size,
+            'top_words': top_words,
+            'top_tfidf_scores': top_tfidf_scores,
+            'sample_comments': sample_comments
+        }
+        
+        # Add job_id if provided
+        if job_id:
+            model_data['job_id'] = job_id
+            
+        model = ClusterCharacteristic(**model_data)
         
         return model
     
@@ -498,7 +574,8 @@ class DataConverter:
     def batch_convert_cluster_characteristics(
         conversation_id: str,
         characteristics_dict: Dict[str, Dict[str, Any]],
-        layer_id: int
+        layer_id: int,
+        job_id: Optional[str] = None
     ) -> List[ClusterCharacteristic]:
         """
         Convert batch of cluster characteristics from dictionary to model objects.
@@ -524,7 +601,8 @@ class DataConverter:
                     size=characteristic_data.get('size', 0),
                     top_words=characteristic_data.get('top_words', []),
                     top_tfidf_scores=characteristic_data.get('top_tfidf_scores', []),
-                    sample_comments=characteristic_data.get('sample_comments', [])
+                    sample_comments=characteristic_data.get('sample_comments', []),
+                    job_id=job_id
                 )
                 
                 characteristics.append(characteristic)
@@ -621,7 +699,11 @@ class DataConverter:
     @staticmethod
     def batch_convert_embeddings(
         conversation_id: str,
-        document_vectors: np.ndarray
+        document_vectors: np.ndarray,
+        job_id: Optional[str] = None,
+        parent_job_id: Optional[str] = None,
+        root_job_id: Optional[str] = None,
+        job_stage: Optional[str] = None
     ) -> List[CommentEmbedding]:
         """
         Convert batch of embeddings from NumPy arrays to model objects.
@@ -641,7 +723,11 @@ class DataConverter:
             embedding = DataConverter.create_comment_embedding(
                 conversation_id=conversation_id,
                 comment_id=i,
-                vector=document_vectors[i]
+                vector=document_vectors[i],
+                job_id=job_id,
+                parent_job_id=parent_job_id,
+                root_job_id=root_job_id,
+                job_stage=job_stage
             )
             
             embeddings.append(embedding)
@@ -653,7 +739,11 @@ class DataConverter:
         conversation_id: str,
         document_map: np.ndarray,
         cluster_layers: List[np.ndarray],
-        k_neighbors: int = 5
+        k_neighbors: int = 5,
+        job_id: Optional[str] = None,
+        parent_job_id: Optional[str] = None,
+        root_job_id: Optional[str] = None,
+        job_stage: Optional[str] = None
     ) -> List[UMAPGraphEdge]:
         """
         Convert UMAP projection data to graph edges and nodes with positions.
@@ -690,7 +780,11 @@ class DataConverter:
                 is_nearest_neighbor=False,
                 shared_layers=[layer_id for layer_id, layer in enumerate(cluster_layers) 
                               if i < len(layer) and layer[i] >= 0],
-                position=document_map[i]  # Store actual UMAP coordinates
+                position=document_map[i],  # Store actual UMAP coordinates
+                job_id=job_id,
+                parent_job_id=parent_job_id,
+                root_job_id=root_job_id,
+                job_stage=job_stage
             )
             
             edges.append(node)
@@ -730,7 +824,11 @@ class DataConverter:
                     weight=1.0 - distance,  # Convert distance to similarity
                     distance=float(distance),
                     is_nearest_neighbor=True,
-                    shared_layers=shared_layers
+                    shared_layers=shared_layers,
+                    job_id=job_id,
+                    parent_job_id=parent_job_id,
+                    root_job_id=root_job_id,
+                    job_stage=job_stage
                 )
                 
                 edges.append(edge)
@@ -741,7 +839,11 @@ class DataConverter:
     def batch_convert_clusters(
         conversation_id: str,
         cluster_layers: List[np.ndarray],
-        document_map: np.ndarray
+        document_map: np.ndarray,
+        job_id: str = None,
+        parent_job_id: Optional[str] = None,
+        root_job_id: Optional[str] = None,
+        job_stage: Optional[str] = None
     ) -> List[CommentCluster]:
         """
         Convert batch of clusters from NumPy arrays to model objects.
@@ -750,6 +852,7 @@ class DataConverter:
             conversation_id: ID of the conversation
             cluster_layers: List of cluster label arrays
             document_map: Matrix of 2D coordinates
+            job_id: Job ID for this pipeline run
             
         Returns:
             List of CommentCluster model objects
@@ -799,7 +902,11 @@ class DataConverter:
                 comment_id=comment_id,
                 cluster_layers=cluster_layers,
                 distances=distances_map.get(comment_id),
-                confidences=confidence_map.get(comment_id)
+                confidences=confidence_map.get(comment_id),
+                job_id=job_id,
+                parent_job_id=parent_job_id,
+                root_job_id=root_job_id,
+                job_stage=job_stage
             )
             
             clusters.append(cluster)
@@ -813,7 +920,11 @@ class DataConverter:
         document_map: np.ndarray,
         topic_names: Dict[str, Dict[str, str]] = None,
         characteristics: Dict[str, Dict[str, Any]] = None,
-        comments: List[Dict[str, Any]] = None
+        comments: List[Dict[str, Any]] = None,
+        job_id: Optional[str] = None,
+        parent_job_id: Optional[str] = None,
+        root_job_id: Optional[str] = None,
+        job_stage: Optional[str] = None
     ) -> List[ClusterTopic]:
         """
         Convert batch of topics from raw data to model objects.
@@ -964,7 +1075,11 @@ class DataConverter:
                     top_words=top_words,
                     top_tfidf_scores=top_tfidf_scores,
                     parent_cluster=parent_cluster,
-                    child_clusters=child_clusters
+                    child_clusters=child_clusters,
+                    job_id=job_id,
+                    parent_job_id=parent_job_id,
+                    root_job_id=root_job_id,
+                    job_stage=job_stage
                 )
                 
                 topics.append(topic)

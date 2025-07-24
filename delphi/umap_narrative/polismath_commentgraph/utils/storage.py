@@ -410,10 +410,13 @@ class DynamoDBStorage:
             'cluster_topics': 'Delphi_CommentClustersStructureKeywords',
             'umap_graph': 'Delphi_UMAPGraph',
             'cluster_characteristics': 'Delphi_CommentClustersFeatures',
-            'llm_topic_names': 'Delphi_CommentClustersLLMTopicNames'
+            'llm_topic_names': 'Delphi_CommentClustersLLMTopicNames',
+            'job_queue': 'Delphi_JobQueue',
             # Note: CommentTexts table is intentionally excluded
             # Comment texts are stored in PostgreSQL as the single source of truth
-        }
+            'pca_results': 'Delphi_PCAResults',
+            'narrative_reports': 'Delphi_NarrativeReports'
+}
         
         # Check if tables exist and are accessible
         self._validate_tables()
@@ -428,10 +431,42 @@ class DynamoDBStorage:
             
             # Check each required table
             for name, table_name in self.table_names.items():
-                if table_name not in existing_tables:
-                    logger.warning(f"Table {table_name} does not exist. Operations will fail.")
+                # Check for different table naming patterns in order of preference:
+                # 1. Original name with job_id schema (highest priority)
+                # 2. _New suffix for transition tables
+                # 3. Original name with conversation_id schema (lowest priority)
+                new_table_name = f"{table_name}_New"
+                
+                # First, check if the original table exists
+                if table_name in existing_tables:
+                    # Try to determine if it's using the job_id schema by checking key schema
+                    try:
+                        table = self.dynamodb.Table(table_name)
+                        key_schema = table.key_schema
+                        has_job_id_schema = any(key['AttributeName'] == 'job_id' for key in key_schema)
+                        
+                        if has_job_id_schema:
+                            logger.info(f"Table {table_name} exists with job_id schema.")
+                            self.table_names[name] = table_name
+                        else:
+                            # Check if _New table exists with job_id schema
+                            if new_table_name in existing_tables:
+                                logger.info(f"Using new schema table {new_table_name} for {name}")
+                                self.table_names[name] = new_table_name
+                            else:
+                                logger.info(f"Table {table_name} exists with conversation_id schema.")
+                                self.table_names[name] = table_name
+                    except Exception as schema_error:
+                        logger.warning(f"Error checking schema for {table_name}: {schema_error}")
+                        logger.info(f"Using existing table {table_name} for {name}")
+                        self.table_names[name] = table_name
+                        
+                # If original table doesn't exist, check for _New table
+                elif new_table_name in existing_tables:
+                    logger.info(f"Using new schema table {new_table_name} for {name}")
+                    self.table_names[name] = new_table_name
                 else:
-                    logger.info(f"Table {table_name} exists and is accessible.")
+                    logger.warning(f"Neither {table_name} nor {new_table_name} exist. Operations will fail.")
         except Exception as e:
             logger.error(f"Error validating DynamoDB tables: {str(e)}")
     
@@ -1251,47 +1286,585 @@ class DynamoDBStorage:
             'failure': failure_count
         }
     
-    # Note: Methods for storing comment texts in DynamoDB have been intentionally removed
-    # Comment texts are kept in PostgreSQL which serves as the single source of truth
-    # This design decision avoids data duplication and ensures data consistency
-    
-    def create_comment_text(self, comment: CommentText) -> bool:
+    def get_latest_job_for_conversation(self, conversation_id: str, status: str = "COMPLETED", job_stage: str = None) -> Optional[Dict[str, Any]]:
         """
-        Method stub that logs a reminder that comments are not stored in DynamoDB.
+        Get the latest job for a conversation with the specified status.
         
         Args:
-            comment: Comment text object (not used)
+            conversation_id: ID of the conversation
+            status: Job status to filter by (default: COMPLETED)
+            job_stage: Optional job stage to filter by (e.g., "UMAP", "FULL_PIPELINE")
             
         Returns:
-            Always False as operation is not supported
+            Latest job for the conversation or None if not found
         """
-        logger.warning(
-            f"Ignoring request to store comment {comment.comment_id} in DynamoDB. "
-            f"Comment texts are stored only in PostgreSQL."
-        )
-        return False
-    
-    def batch_create_comment_texts(self, comments: List[CommentText]) -> Dict[str, int]:
-        """
-        Method stub that logs a reminder that comments are not stored in DynamoDB.
-        
-        Args:
-            comments: List of comment text objects (not used)
+        try:
+            # Use boto3 to access the job queue table
+            job_queue_table = self.dynamodb.Table(self.table_names['job_queue'])
             
-        Returns:
-            Status dictionary showing 0 successes
-        """
-        if comments:
-            logger.warning(
-                f"Ignoring request to store {len(comments)} comments in DynamoDB. "
-                f"Comment texts are stored only in PostgreSQL."
+            # Query the ConversationIndex GSI
+            filter_expression = Attr('status').eq(status)
+            
+            # Add job_stage filter if provided
+            if job_stage:
+                filter_expression = filter_expression & Attr('job_stage').eq(job_stage)
+                
+            response = job_queue_table.query(
+                IndexName="ConversationIndex",
+                KeyConditionExpression=Key('conversation_id').eq(conversation_id),
+                FilterExpression=filter_expression,
+                ScanIndexForward=False,  # Descending order by created_at
+                Limit=1  # Get just the latest job
             )
-        
-        return {
-            'success': 0,
-            'failure': 0
-        }
+            
+            items = response.get('Items', [])
+            if items:
+                logger.info(f"Found latest {status} job for conversation {conversation_id}{' with stage ' + job_stage if job_stage else ''}: {items[0]['job_id']}")
+                return items[0]
+            else:
+                logger.info(f"No {status} jobs found for conversation {conversation_id}{' with stage ' + job_stage if job_stage else ''}")
+                return None
+                
+        except ClientError as e:
+            logger.error(f"Error getting latest job for conversation {conversation_id}: {str(e)}")
+            return None
     
+    def get_embeddings_by_job_id(self, job_id: str, conversation_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        """
+        Retrieve comment embeddings for a specific job.
+        
+        Args:
+            job_id: ID of the job
+            conversation_id: Optional conversation ID to filter by
+            
+        Returns:
+            List of comment embedding dictionaries
+        """
+        table = self.dynamodb.Table(self.table_names['comment_embeddings'])
+        
+        try:
+            # Try querying directly if job_id is the primary key
+            try:
+                response = table.query(
+                    KeyConditionExpression=Key('job_id').eq(job_id)
+                )
+                items = response.get('Items', [])
+                
+                # If we got results, we're using the new schema where job_id is the primary key
+                if items:
+                    logger.info(f"Retrieved {len(items)} comment embeddings for job: {job_id} (using primary key)")
+                    
+                    # Handle pagination if necessary (for large result sets)
+                    while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                        logger.info(f"Retrieving additional comment embeddings for job: {job_id}")
+                        response = table.query(
+                            KeyConditionExpression=Key('job_id').eq(job_id),
+                            ExclusiveStartKey=response['LastEvaluatedKey']
+                        )
+                        items.extend(response.get('Items', []))
+                        logger.info(f"Retrieved {len(response.get('Items', []))} additional comment embeddings")
+                    
+                    # Filter by conversation_id if provided
+                    if conversation_id:
+                        items = [item for item in items if item.get('conversation_id') == conversation_id]
+                    
+                    return items
+                    
+            except ClientError as e:
+                # If there was an error using job_id as the primary key, fall back to GSI
+                if "ValidationException" not in str(e):
+                    raise e
+                logger.info(f"Using GSI for job_id query (job_id is not the primary key): {job_id}")
+                
+            # Query by job_id using the JobIdIndex GSI
+            try:
+                response = table.query(
+                    IndexName='JobIdIndex',
+                    KeyConditionExpression=Key('job_id').eq(job_id)
+                )
+                
+                items = response.get('Items', [])
+                logger.info(f"Retrieved {len(items)} comment embeddings for job: {job_id} (using GSI)")
+                
+                # Handle pagination if necessary (for large result sets)
+                while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                    logger.info(f"Retrieving additional comment embeddings for job: {job_id}")
+                    response = table.query(
+                        IndexName='JobIdIndex',
+                        KeyConditionExpression=Key('job_id').eq(job_id),
+                        ExclusiveStartKey=response['LastEvaluatedKey']
+                    )
+                    items.extend(response.get('Items', []))
+                    logger.info(f"Retrieved {len(response.get('Items', []))} additional comment embeddings")
+                
+                # Filter by conversation_id if provided
+                if conversation_id:
+                    items = [item for item in items if item.get('conversation_id') == conversation_id]
+                
+                return items
+                
+            except ClientError as e:
+                # If JobIdIndex doesn't exist, fall back to scanning (inefficient but will work)
+                if "ResourceNotFoundException" in str(e) or "ValidationException" in str(e):
+                    logger.warning(f"JobIdIndex GSI not found on {self.table_names['comment_embeddings']} table. Falling back to scan (inefficient).")
+                    
+                    # This is inefficient but allows backward compatibility
+                    scan_filter = Attr('job_id').eq(job_id)
+                    if conversation_id:
+                        scan_filter = scan_filter & Attr('conversation_id').eq(conversation_id)
+                    
+                    response = table.scan(FilterExpression=scan_filter)
+                    items = response.get('Items', [])
+                    
+                    # Handle pagination if necessary
+                    while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                        response = table.scan(
+                            FilterExpression=scan_filter,
+                            ExclusiveStartKey=response['LastEvaluatedKey']
+                        )
+                        items.extend(response.get('Items', []))
+                    
+                    return items
+                else:
+                    raise e
+                
+        except Exception as e:
+            logger.error(f"Error retrieving comment embeddings by job: {str(e)}")
+            return []
+    
+    def get_positions_by_job_id(self, job_id: str, conversation_id: Optional[str] = None) -> Dict[int, Dict[str, float]]:
+        """
+        Retrieve UMAP graph positions for a specific job.
+        
+        Args:
+            job_id: ID of the job
+            conversation_id: Optional conversation ID to filter by
+            
+        Returns:
+            Dictionary mapping comment_id to position coordinates {comment_id: {x: float, y: float}}
+        """
+        table = self.dynamodb.Table(self.table_names['umap_graph'])
+        position_map = {}
+        
+        try:
+            # Try querying directly if job_id is the primary key
+            try:
+                response = table.query(
+                    KeyConditionExpression=Key('job_id').eq(job_id)
+                )
+                items = response.get('Items', [])
+                
+                # If we got results, we're using the new schema where job_id is the primary key
+                if items:
+                    logger.info(f"Retrieved {len(items)} UMAP positions for job: {job_id} (using primary key)")
+                    
+                    # Handle pagination if necessary (for large result sets)
+                    while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                        logger.info(f"Retrieving additional UMAP positions for job: {job_id}")
+                        response = table.query(
+                            KeyConditionExpression=Key('job_id').eq(job_id),
+                            ExclusiveStartKey=response['LastEvaluatedKey']
+                        )
+                        items.extend(response.get('Items', []))
+                        logger.info(f"Retrieved {len(response.get('Items', []))} additional UMAP positions")
+                    
+                    # Filter by conversation_id if provided
+                    if conversation_id:
+                        items = [item for item in items if item.get('conversation_id') == conversation_id]
+                    
+                    # Filter to only include self-edges (nodes with positions)
+                    # where source_id = target_id
+                    items = [item for item in items if item.get('source_id') == item.get('target_id')]
+                    
+                    # Extract positions
+                    for item in items:
+                        comment_id = int(item['source_id'])
+                        if 'position' in item and item['position']:
+                            position_map[comment_id] = item['position']
+                    
+                    return position_map
+                    
+            except ClientError as e:
+                # If there was an error using job_id as the primary key, fall back to GSI
+                if "ValidationException" not in str(e):
+                    raise e
+                logger.info(f"Using GSI for job_id query (job_id is not the primary key): {job_id}")
+                
+            # Query by job_id using the JobIdIndex GSI
+            try:
+                response = table.query(
+                    IndexName='JobIdIndex',
+                    KeyConditionExpression=Key('job_id').eq(job_id)
+                )
+                
+                items = response.get('Items', [])
+                logger.info(f"Retrieved {len(items)} UMAP positions for job: {job_id} (using GSI)")
+                
+                # Handle pagination if necessary (for large result sets)
+                while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                    logger.info(f"Retrieving additional UMAP positions for job: {job_id}")
+                    response = table.query(
+                        IndexName='JobIdIndex',
+                        KeyConditionExpression=Key('job_id').eq(job_id),
+                        ExclusiveStartKey=response['LastEvaluatedKey']
+                    )
+                    items.extend(response.get('Items', []))
+                    logger.info(f"Retrieved {len(response.get('Items', []))} additional UMAP positions")
+                
+                # Filter by conversation_id if provided
+                if conversation_id:
+                    items = [item for item in items if item.get('conversation_id') == conversation_id]
+                
+                # Filter to only include self-edges (nodes with positions)
+                # where source_id = target_id
+                items = [item for item in items if item.get('source_id') == item.get('target_id')]
+                
+                # Extract positions
+                for item in items:
+                    comment_id = int(item['source_id'])
+                    if 'position' in item and item['position']:
+                        position_map[comment_id] = item['position']
+                
+                return position_map
+                
+            except ClientError as e:
+                # If JobIdIndex doesn't exist, fall back to scanning (inefficient but will work)
+                if "ResourceNotFoundException" in str(e) or "ValidationException" in str(e):
+                    logger.warning(f"JobIdIndex GSI not found on {self.table_names['umap_graph']} table. Falling back to scan (inefficient).")
+                    
+                    # This is inefficient but allows backward compatibility
+                    scan_filter = Attr('job_id').eq(job_id)
+                    if conversation_id:
+                        scan_filter = scan_filter & Attr('conversation_id').eq(conversation_id)
+                    
+                    # Add filter for self-edges (where source_id = target_id)
+                    scan_filter = scan_filter & Attr('source_id').eq(Attr('target_id'))
+                    
+                    response = table.scan(FilterExpression=scan_filter)
+                    items = response.get('Items', [])
+                    
+                    # Handle pagination if necessary
+                    while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                        response = table.scan(
+                            FilterExpression=scan_filter,
+                            ExclusiveStartKey=response['LastEvaluatedKey']
+                        )
+                        items.extend(response.get('Items', []))
+                    
+                    # Extract positions
+                    for item in items:
+                        comment_id = int(item['source_id'])
+                        if 'position' in item and item['position']:
+                            position_map[comment_id] = item['position']
+                    
+                    return position_map
+                else:
+                    raise e
+                
+        except Exception as e:
+            logger.error(f"Error retrieving UMAP positions by job: {str(e)}")
+            return {}
+    
+    def get_comment_clusters_by_job(self, job_id: str) -> List[Dict[str, Any]]:
+        """
+        Retrieve comment cluster assignments for a specific job.
+        
+        Args:
+            job_id: ID of the job
+            
+        Returns:
+            List of comment cluster dictionaries
+        """
+        table = self.dynamodb.Table(self.table_names['comment_clusters'])
+        
+        try:
+            # Try querying directly if job_id is the primary key
+            try:
+                response = table.query(
+                    KeyConditionExpression=Key('job_id').eq(job_id)
+                )
+                items = response.get('Items', [])
+                
+                # If we got results, we're using the new schema where job_id is the primary key
+                if items:
+                    logger.info(f"Retrieved {len(items)} comment clusters for job: {job_id} (using primary key)")
+                    
+                    # Handle pagination if necessary (for large result sets)
+                    while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                        logger.info(f"Retrieving additional comment clusters for job: {job_id}")
+                        response = table.query(
+                            KeyConditionExpression=Key('job_id').eq(job_id),
+                            ExclusiveStartKey=response['LastEvaluatedKey']
+                        )
+                        items.extend(response.get('Items', []))
+                        logger.info(f"Retrieved {len(response.get('Items', []))} additional comment clusters")
+                    
+                    return items
+                    
+            except ClientError as e:
+                # If there was an error using job_id as the primary key, fall back to GSI
+                if "ValidationException" not in str(e):
+                    raise e
+                logger.info(f"Using GSI for job_id query (job_id is not the primary key): {job_id}")
+                
+            # Query by job_id using the JobIdIndex GSI
+            response = table.query(
+                IndexName='JobIdIndex',
+                KeyConditionExpression=Key('job_id').eq(job_id)
+            )
+            
+            items = response.get('Items', [])
+            logger.info(f"Retrieved {len(items)} comment clusters for job: {job_id} (using GSI)")
+            
+            # Handle pagination if necessary (for large result sets)
+            while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                logger.info(f"Retrieving additional comment clusters for job: {job_id}")
+                response = table.query(
+                    IndexName='JobIdIndex',
+                    KeyConditionExpression=Key('job_id').eq(job_id),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                items.extend(response.get('Items', []))
+                logger.info(f"Retrieved {len(response.get('Items', []))} additional comment clusters")
+            
+            return items
+        except ClientError as e:
+            logger.error(f"Error retrieving comment clusters by job: {str(e)}")
+            return []
+    
+    def get_llm_topic_names_by_job(self, job_id: str) -> List[Dict[str, Any]]:
+        """
+        Retrieve LLM-generated topic names for a specific job.
+        
+        Args:
+            job_id: ID of the job
+            
+        Returns:
+            List of LLM topic name dictionaries
+        """
+        table = self.dynamodb.Table(self.table_names['llm_topic_names'])
+        
+        try:
+            # Try querying directly if job_id is the primary key
+            try:
+                response = table.query(
+                    KeyConditionExpression=Key('job_id').eq(job_id)
+                )
+                items = response.get('Items', [])
+                
+                # If we got results, we're using the new schema where job_id is the primary key
+                if items:
+                    logger.info(f"Retrieved {len(items)} LLM topic names for job: {job_id} (using primary key)")
+                    
+                    # Handle pagination if necessary (for large result sets)
+                    while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                        logger.info(f"Retrieving additional LLM topic names for job: {job_id}")
+                        response = table.query(
+                            KeyConditionExpression=Key('job_id').eq(job_id),
+                            ExclusiveStartKey=response['LastEvaluatedKey']
+                        )
+                        items.extend(response.get('Items', []))
+                        logger.info(f"Retrieved {len(response.get('Items', []))} additional LLM topic names")
+                    
+                    return items
+                    
+            except ClientError as e:
+                # If there was an error using job_id as the primary key, fall back to GSI
+                if "ValidationException" not in str(e):
+                    raise e
+                logger.info(f"Using GSI for job_id query (job_id is not the primary key): {job_id}")
+                
+            # Query by job_id using the JobIdIndex GSI
+            response = table.query(
+                IndexName='JobIdIndex',
+                KeyConditionExpression=Key('job_id').eq(job_id)
+            )
+            
+            items = response.get('Items', [])
+            logger.info(f"Retrieved {len(items)} LLM topic names for job: {job_id} (using GSI)")
+            
+            # Handle pagination if necessary (for large result sets)
+            while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                logger.info(f"Retrieving additional LLM topic names for job: {job_id}")
+                response = table.query(
+                    IndexName='JobIdIndex',
+                    KeyConditionExpression=Key('job_id').eq(job_id),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                items.extend(response.get('Items', []))
+                logger.info(f"Retrieved {len(response.get('Items', []))} additional LLM topic names")
+            
+            return items
+        except ClientError as e:
+            logger.error(f"Error retrieving LLM topic names by job: {str(e)}")
+            return []
+    
+    
+        """
+        Retrieve PCA results for a specific job.
+        
+        Args:
+            job_id: ID of the job
+            
+        Returns:
+            List of PCA result dictionaries
+        """
+        # Get the PCAResults table
+        pca_table_name = 'Delphi_PCAResults'
+        try:
+            table = self.dynamodb.Table(pca_table_name)
+        except Exception as e:
+            logger.error(f"Error accessing {pca_table_name} table: {str(e)}")
+            return []
+        
+        try:
+            # Try querying directly if job_id is the primary key
+            try:
+                response = table.query(
+                    KeyConditionExpression=Key('job_id').eq(job_id)
+                )
+                items = response.get('Items', [])
+                
+                # If we got results, we're using the new schema where job_id is the primary key
+                if items:
+                    logger.info(f"Retrieved {len(items)} PCA results for job: {job_id} (using primary key)")
+                    
+                    # Handle pagination if necessary (for large result sets)
+                    while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                        logger.info(f"Retrieving additional PCA results for job: {job_id}")
+                        response = table.query(
+                            KeyConditionExpression=Key('job_id').eq(job_id),
+                            ExclusiveStartKey=response['LastEvaluatedKey']
+                        )
+                        items.extend(response.get('Items', []))
+                        logger.info(f"Retrieved {len(response.get('Items', []))} additional PCA results")
+                    
+                    return items
+                    
+            except ClientError as e:
+                # If there was an error using job_id as the primary key, fall back to GSI
+                if "ValidationException" not in str(e):
+                    raise e
+                logger.info(f"Using GSI for job_id query (job_id is not the primary key): {job_id}")
+                
+            # Query by job_id using the JobIdIndex GSI
+            try:
+                response = table.query(
+                    IndexName='JobIdIndex',
+                    KeyConditionExpression=Key('job_id').eq(job_id)
+                )
+                
+                items = response.get('Items', [])
+                logger.info(f"Retrieved {len(items)} PCA results for job: {job_id} (using GSI)")
+                
+                # Handle pagination if necessary (for large result sets)
+                while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                    logger.info(f"Retrieving additional PCA results for job: {job_id}")
+                    response = table.query(
+                        IndexName='JobIdIndex',
+                        KeyConditionExpression=Key('job_id').eq(job_id),
+                        ExclusiveStartKey=response['LastEvaluatedKey']
+                    )
+                    items.extend(response.get('Items', []))
+                    logger.info(f"Retrieved {len(response.get('Items', []))} additional PCA results")
+                
+                return items
+            except ClientError as e:
+                # If JobIdIndex doesn't exist, log error and return empty list
+                if "ResourceNotFoundException" in str(e) or "ValidationException" in str(e):
+                    logger.warning(f"JobIdIndex GSI not found on {pca_table_name} table")
+                    return []
+                else:
+                    raise e
+                    
+        except Exception as e:
+            logger.error(f"Error retrieving PCA results by job: {str(e)}")
+            return []
+
+
+    def get_narrative_reports_by_job(self, job_id: str) -> List[Dict[str, Any]]:
+        """
+        Retrieve narrative reports for a specific job.
+        
+        Args:
+            job_id: ID of the job
+            
+        Returns:
+            List of narrative report dictionaries
+        """
+        # Get the NarrativeReports table
+        narrative_table_name = 'Delphi_NarrativeReports'
+        try:
+            table = self.dynamodb.Table(narrative_table_name)
+        except Exception as e:
+            logger.error(f"Error accessing {narrative_table_name} table: {str(e)}")
+            return []
+        
+        try:
+            # Try querying directly if job_id is the primary key
+            try:
+                response = table.query(
+                    KeyConditionExpression=Key('job_id').eq(job_id)
+                )
+                items = response.get('Items', [])
+                
+                # If we got results, we're using the new schema where job_id is the primary key
+                if items:
+                    logger.info(f"Retrieved {len(items)} narrative reports for job: {job_id} (using primary key)")
+                    
+                    # Handle pagination if necessary (for large result sets)
+                    while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                        logger.info(f"Retrieving additional narrative reports for job: {job_id}")
+                        response = table.query(
+                            KeyConditionExpression=Key('job_id').eq(job_id),
+                            ExclusiveStartKey=response['LastEvaluatedKey']
+                        )
+                        items.extend(response.get('Items', []))
+                        logger.info(f"Retrieved {len(response.get('Items', []))} additional narrative reports")
+                    
+                    return items
+                    
+            except ClientError as e:
+                # If there was an error using job_id as the primary key, fall back to GSI
+                if "ValidationException" not in str(e):
+                    raise e
+                logger.info(f"Using GSI for job_id query (job_id is not the primary key): {job_id}")
+                
+            # Query by job_id using the JobIdIndex GSI
+            try:
+                response = table.query(
+                    IndexName='JobIdIndex',
+                    KeyConditionExpression=Key('job_id').eq(job_id)
+                )
+                
+                items = response.get('Items', [])
+                logger.info(f"Retrieved {len(items)} narrative reports for job: {job_id} (using GSI)")
+                
+                # Handle pagination if necessary (for large result sets)
+                while 'LastEvaluatedKey' in response and response['LastEvaluatedKey']:
+                    logger.info(f"Retrieving additional narrative reports for job: {job_id}")
+                    response = table.query(
+                        IndexName='JobIdIndex',
+                        KeyConditionExpression=Key('job_id').eq(job_id),
+                        ExclusiveStartKey=response['LastEvaluatedKey']
+                    )
+                    items.extend(response.get('Items', []))
+                    logger.info(f"Retrieved {len(response.get('Items', []))} additional narrative reports")
+                
+                return items
+            except ClientError as e:
+                # If JobIdIndex doesn't exist, log error and return empty list
+                if "ResourceNotFoundException" in str(e) or "ValidationException" in str(e):
+                    logger.warning(f"JobIdIndex GSI not found on {narrative_table_name} table")
+                    return []
+                else:
+                    raise e
+                    
+        except Exception as e:
+            logger.error(f"Error retrieving narrative reports by job: {str(e)}")
+            return []
+
+
     def create_graph_edge(self, edge: UMAPGraphEdge) -> bool:
         """
         Store a graph edge.
@@ -1479,7 +2052,6 @@ class DynamoDBStorage:
                 'comments': comment_data,
                 'clusters': cluster_data
             }
-            
         except ClientError as e:
             logger.error(f"Error retrieving visualization data: {str(e)}")
             return {
@@ -1488,3 +2060,44 @@ class DynamoDBStorage:
                 'comments': [],
                 'clusters': []
             }
+    
+    # Note: Methods for storing comment texts in DynamoDB have been intentionally removed
+    # Comment texts are kept in PostgreSQL which serves as the single source of truth
+    # This design decision avoids data duplication and ensures data consistency
+    
+    def create_comment_text(self, comment: CommentText) -> bool:
+        """
+        Method stub that logs a reminder that comments are not stored in DynamoDB.
+        
+        Args:
+            comment: Comment text object (not used)
+            
+        Returns:
+            Always False as operation is not supported
+        """
+        logger.warning(
+            f"Ignoring request to store comment {comment.comment_id} in DynamoDB. "
+            f"Comment texts are stored only in PostgreSQL."
+        )
+        return False
+    
+    def batch_create_comment_texts(self, comments: List[CommentText]) -> Dict[str, int]:
+        """
+        Method stub that logs a reminder that comments are not stored in DynamoDB.
+        
+        Args:
+            comments: List of comment text objects (not used)
+            
+        Returns:
+            Status dictionary showing 0 successes
+        """
+        if comments:
+            logger.warning(
+                f"Ignoring request to store {len(comments)} comments in DynamoDB. "
+                f"Comment texts are stored only in PostgreSQL."
+            )
+        
+        return {
+            'success': 0,
+            'failure': 0
+        }
