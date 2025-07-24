@@ -32,15 +32,28 @@ function _isOidcJWT(token: string): boolean {
     const decoded = jwt.decode(token, { complete: true }) as any;
 
     if (!decoded || !decoded.payload) {
+      logger.warn("_isOidcJWT: Token decode failed", {
+        hasDecoded: !!decoded,
+        hasPayload: !!(decoded?.payload)
+      });
       return false;
     }
 
     const payload = decoded.payload;
-
+    
+    // Handle audience as either string or array (JWT spec allows both)
+    let audMatch = false;
+    if (typeof payload.aud === 'string') {
+      audMatch = payload.aud === Config.authAudience;
+    } else if (Array.isArray(payload.aud)) {
+      audMatch = payload.aud.includes(Config.authAudience);
+    }
+    
+    
     // Standard user JWTs have specific claims
-    const isOidc = !!(
-      payload.aud === Config.authAudience && payload.iss === Config.authIssuer
-    );
+    const issMatch = payload.iss === Config.authIssuer;
+    const isOidc = !!(audMatch && issMatch);
+    
     return isOidc;
   } catch (error) {
     logger.warn("Error checking if token is OIDC JWT:", error);
@@ -79,7 +92,7 @@ function _createHybridJwtMiddleware(
 
     // We have a Bearer token, so let's validate it.
     const token = authHeader.substring(7);
-
+    
     try {
       // Determine which validation to use based on token type
       if (isXidJWT(token)) {
@@ -173,29 +186,52 @@ function _createHybridJwtMiddleware(
         // First validate the token
         await new Promise<void>((resolve, reject) => {
           oidcValidator(req, res, (err?: any) => {
-            if (err) reject(err);
-            else resolve();
+            if (err) {
+              logger.error("OIDC JWT validation failed", {
+                error: err.message,
+                code: err.code,
+                name: err.name,
+                inner: err.inner
+              });
+              reject(err);
+            } else {
+              resolve();
+            }
           });
         });
 
         // Then extract user info
         await new Promise<void>((resolve, reject) => {
           extractUserFromJWT(assigner)(req, res, (err?: any) => {
-            if (err) reject(err);
-            else resolve();
+            if (err) {
+              logger.error("OIDC JWT user extraction failed", {
+                error: err.message
+              });
+              reject(err);
+            } else {
+              resolve();
+            }
           });
         });
 
         logger.debug("OIDC JWT validation successful");
         return next();
       } else {
-        logger.debug("No JWT token found, authentication required");
+        logger.warn("Token does not match any known JWT type", {
+          tokenSample: token.substring(0, 50) + '...'
+        });
+        
         return res.status(401).json({
-          error: "No authentication token found",
+          error: "Invalid token format",
+          details: "Token does not match any supported JWT type"
         });
       }
     } catch (error) {
-      logger.error("JWT validation failed:", error);
+      logger.error("JWT validation failed", {
+        message: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined,
+        name: error instanceof Error ? error.name : undefined
+      });
 
       // If a token was provided but is invalid, always return 401
       // "Optional" auth only applies to missing tokens, not invalid ones
