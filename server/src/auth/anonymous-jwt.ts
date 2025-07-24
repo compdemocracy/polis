@@ -13,7 +13,7 @@
  * Security considerations:
  * - Uses same RSA-256 encryption as XID JWTs
  * - Tokens are conversation-scoped
- * - 24-hour expiration
+ * - 1-year expiration
  * - No refresh mechanism
  */
 

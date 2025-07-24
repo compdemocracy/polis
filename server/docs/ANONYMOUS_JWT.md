@@ -10,7 +10,7 @@ Anonymous participants now receive JWT tokens similar to XID participants, provi
 
 - **JWT-based auth**: Anonymous participants receive JWT tokens instead of relying on cookies
 - **Conversation-scoped**: Tokens are scoped to specific conversations, maintaining privacy
-- **24-hour expiration**: Tokens expire after 24 hours, requiring re-participation
+- **1-year expiration**: Tokens expire after 1 year, allowing participants to be recognized for extended periods
 
 ## Implementation Details
 
@@ -21,7 +21,7 @@ Anonymous JWTs contain the following claims:
 ```typescript
 interface AnonymousJwtClaims {
   aud: string;              // Audience (from Config.authAudience)
-  exp: number;              // Expiration time (24 hours from issuance)
+  exp: number;              // Expiration time (1 year from issuance)
   iat: number;              // Issued at time
   iss: string;              // Issuer (from Config.authIssuer)
   pid: number;              // Participant ID

@@ -35,7 +35,7 @@ Standard User JWTs contain the following claims:
 ```typescript
 interface StandardUserJwtClaims {
   aud: string;                       // Audience (Config.polisJwtAudience)
-  exp: number;                       // Expiration time (24 hours)
+  exp: number;                       // Expiration time (1 year)
   iat: number;                       // Issued at time
   iss: string;                       // Issuer (Config.polisJwtIssuer)
   pid: number;                       // Participant ID
@@ -132,7 +132,7 @@ Clients should be updated to:
 ## Security Considerations
 
 - Uses same RSA-256 encryption as XID/Anonymous JWTs
-- 24-hour expiration (no refresh mechanism)
+- 1-year expiration (no refresh mechanism)
 - Conversation-scoped to prevent cross-conversation usage
 - Maintains audit trail via oidc_sub link
 

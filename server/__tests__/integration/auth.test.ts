@@ -178,7 +178,7 @@ describe("Authentication with Supertest", () => {
         expect(voteResponse.body.auth.token).toBeDefined();
         expect(typeof voteResponse.body.auth.token).toBe("string");
         expect(voteResponse.body.auth.token_type).toBe("Bearer");
-        expect(voteResponse.body.auth.expires_in).toBe(24 * 60 * 60); // 24 hours
+        expect(voteResponse.body.auth.expires_in).toBe(365 * 24 * 60 * 60); // 1 year
       }
     });
 
@@ -205,7 +205,7 @@ describe("Authentication with Supertest", () => {
         expect(voteResponse.body.auth.token).toBeDefined();
         expect(typeof voteResponse.body.auth.token).toBe("string");
         expect(voteResponse.body.auth.token_type).toBe("Bearer");
-        expect(voteResponse.body.auth.expires_in).toBe(24 * 60 * 60); // 24 hours
+        expect(voteResponse.body.auth.expires_in).toBe(365 * 24 * 60 * 60); // 1 year
       }
     });
   });

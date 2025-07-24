@@ -12,7 +12,7 @@
  *
  * Security considerations:
  * - Uses RSA-256 with 2048-bit keys (industry standard)
- * - Tokens are short-lived (24 hours)
+ * - Tokens are long-lived (1 year)
  * - Tokens are scoped to specific conversations
  * - No refresh mechanism (participants must re-initialize)
  */

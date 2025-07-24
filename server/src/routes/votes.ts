@@ -374,7 +374,7 @@ async function issueJWTIfNeeded(
       auth: {
         token: token,
         token_type: "Bearer",
-        expires_in: 24 * 60 * 60, // 24 hours in seconds
+        expires_in: 365 * 24 * 60 * 60, // 1 year in seconds
       },
     };
   } catch (error) {
@@ -548,7 +548,7 @@ async function handle_POST_votes(req: VoteRequest, res: any) {
         auth: {
           token: legacyCookieToken,
           token_type: "Bearer",
-          expires_in: 24 * 60 * 60, // 24 hours
+          expires_in: 365 * 24 * 60 * 60, // 1 year
         },
       };
       logger.debug("Using JWT from legacy cookie lookup");

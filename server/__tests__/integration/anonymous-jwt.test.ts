@@ -62,7 +62,7 @@ describe("Anonymous and XID JWT Authentication", () => {
         expect(voteResponse.body.auth).toHaveProperty("token_type", "Bearer");
         expect(voteResponse.body.auth).toHaveProperty(
           "expires_in",
-          24 * 60 * 60
+          365 * 24 * 60 * 60
         );
         expect(typeof voteResponse.body.auth.token).toBe("string");
         expect(voteResponse.body.auth.token.split(".")).toHaveLength(3); // Valid JWT format
@@ -165,7 +165,7 @@ describe("Anonymous and XID JWT Authentication", () => {
         expect(voteResponse.body.auth).toHaveProperty("token_type", "Bearer");
         expect(voteResponse.body.auth).toHaveProperty(
           "expires_in",
-          24 * 60 * 60
+          365 * 24 * 60 * 60
         );
 
         const token = voteResponse.body.auth.token;

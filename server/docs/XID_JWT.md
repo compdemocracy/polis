@@ -172,7 +172,7 @@ JWT_PUBLIC_KEY=LS0tLS1CRUdJTi...
 
 - RSA-256 signing algorithm
 - 2048-bit key length
-- 24-hour expiration (no refresh)
+- 1-year expiration (no refresh)
 - No sensitive data in claims
 
 ## Testing

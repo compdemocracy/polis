@@ -100,7 +100,7 @@ describe("JWT-Only Authentication Tests", () => {
       if (voteResponse.body.auth) {
         expect(voteResponse.body.auth.token).toBeDefined();
         expect(voteResponse.body.auth.token_type).toBe("Bearer");
-        expect(voteResponse.body.auth.expires_in).toBe(24 * 60 * 60);
+        expect(voteResponse.body.auth.expires_in).toBe(365 * 24 * 60 * 60);
       }
     });
 

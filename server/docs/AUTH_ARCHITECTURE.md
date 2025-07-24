@@ -113,7 +113,7 @@ JWT extraction functions use the assigner function (typically `assignToP`) rathe
 ### Token Security
 
 - RSA-256 signing with 2048-bit keys
-- 24-hour expiration (no refresh)
+- 1-year expiration (no refresh)
 - Strict audience and issuer validation
 - No sensitive data in JWT claims
 

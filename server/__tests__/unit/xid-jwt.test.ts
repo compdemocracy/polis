@@ -59,10 +59,10 @@ describe("XID JWT Implementation", () => {
     expect(decoded.exp).toBeDefined();
     expect(decoded.iat).toBeDefined();
 
-    // Verify expiration is in the future (24 hours)
+    // Verify expiration is in the future (1 year)
     const now = Math.floor(Date.now() / 1000);
     expect(decoded.exp).toBeGreaterThan(now);
-    expect(decoded.exp).toBeLessThanOrEqual(now + 24 * 60 * 60 + 1); // Allow 1 second tolerance
+    expect(decoded.exp).toBeLessThanOrEqual(now + 365 * 24 * 60 * 60 + 1); // Allow 1 second tolerance
   });
 
   test("should reject invalid XID JWT", () => {

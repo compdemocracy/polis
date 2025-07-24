@@ -65,7 +65,7 @@ When a legacy cookie is recognized, the response includes a JWT:
   "auth": {
     "token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9...",
     "token_type": "Bearer",
-    "expires_in": 86400
+    "expires_in": 31536000
   },
   "currentPid": 123,
   // ... other response data

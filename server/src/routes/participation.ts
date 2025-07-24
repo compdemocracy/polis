@@ -514,7 +514,7 @@ async function handle_GET_participationInit(
       response.auth = {
         token: legacyCookieToken,
         token_type: "Bearer",
-        expires_in: 24 * 60 * 60, // 24 hours
+        expires_in: 365 * 24 * 60 * 60, // 1 year
       };
       logger.debug("Using JWT from legacy cookie lookup in participationInit");
     } else if (
@@ -534,7 +534,7 @@ async function handle_GET_participationInit(
         response.auth = {
           token: token,
           token_type: "Bearer",
-          expires_in: 24 * 60 * 60, // 24 hours
+          expires_in: 365 * 24 * 60 * 60, // 1 year
         };
 
         logger.debug("Standard user JWT issued successfully", {
@@ -558,7 +558,7 @@ async function handle_GET_participationInit(
         response.auth = {
           token: token,
           token_type: "Bearer",
-          expires_in: 24 * 60 * 60, // 24 hours
+          expires_in: 365 * 24 * 60 * 60, // 1 year
         };
 
         logger.debug("XID JWT issued successfully", {
@@ -581,7 +581,7 @@ async function handle_GET_participationInit(
         response.auth = {
           token: token,
           token_type: "Bearer",
-          expires_in: 24 * 60 * 60, // 24 hours
+          expires_in: 365 * 24 * 60 * 60, // 1 year
         };
 
         logger.debug("Anonymous JWT issued successfully", {

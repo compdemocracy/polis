@@ -172,7 +172,7 @@ describe("XID-based Authentication", () => {
       expect(secondResponse.body.auth).toHaveProperty("token_type", "Bearer");
       expect(secondResponse.body.auth).toHaveProperty(
         "expires_in",
-        24 * 60 * 60
+        365 * 24 * 60 * 60
       );
       expect(typeof secondResponse.body.auth.token).toBe("string");
       expect(secondResponse.body.auth.token.split(".")).toHaveLength(3); // JWT format

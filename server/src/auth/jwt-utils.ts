@@ -13,7 +13,7 @@ import logger from "../utils/logger";
 
 // Common JWT configuration
 const JWT_ALGORITHM = "RS256";
-const JWT_EXPIRATION_SECONDS = 24 * 60 * 60; // 24 hours
+const JWT_EXPIRATION_SECONDS = 365 * 24 * 60 * 60; // 1 year
 
 // Base interface for all participant JWT claims
 export interface BaseParticipantJwtClaims {

@@ -9,7 +9,7 @@
  * - Links to existing OIDC identity via oidc_sub
  * - Conversation-scoped like other participant JWTs
  * - Maintains existing uid from oidc_user_mappings
- * - 24-hour expiration
+ * - 1-year expiration
  */
 
 import {

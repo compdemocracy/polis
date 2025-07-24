@@ -38,7 +38,7 @@ describe("Standard User JWT", () => {
       expect(decoded.iat).toBeLessThanOrEqual(Date.now() / 1000);
     });
 
-    it("should create tokens with 24-hour expiration", () => {
+    it("should create tokens with 1-year expiration", () => {
       const token = issueStandardUserJWT(
         mockOidcSub,
         mockConversationId,
@@ -48,7 +48,7 @@ describe("Standard User JWT", () => {
 
       const decoded = jwt.decode(token) as any;
       const expirationTime = decoded.exp - decoded.iat;
-      expect(expirationTime).toBe(24 * 60 * 60); // 24 hours in seconds
+      expect(expirationTime).toBe(365 * 24 * 60 * 60); // 1 year in seconds
     });
   });
 
