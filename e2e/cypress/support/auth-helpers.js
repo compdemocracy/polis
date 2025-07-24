@@ -47,6 +47,9 @@ export function loginStandardUser(email, password) {
     cy.url().should('not.include', authHost)
     cy.get('h3').should('contain.text', 'All Conversations')
 
+    // Wait for the auth to be ready
+    cy.wait(1000)
+
     cy.log(`✅ User authenticated: ${email}`)
   })
 }
