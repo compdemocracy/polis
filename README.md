@@ -77,7 +77,6 @@ Copy the example.env file and modify as needed (although it should just work as 
 cp example.env .env
 ```
 
-
 ```sh
 docker compose --profile postgres --profile local-services up --build
 ```
@@ -140,6 +139,7 @@ make PROD start-rebuild
 ```
 
 ### Running without Local Cloud Service Emulators
+
 If you want to run the stack without the local MinIO and DynamoDB services (e.g., to test connecting to real AWS services configured in your .env file), simply omit the --profile local-services flag.
 
 Example: Run with the containerized DB but connect to external/real cloud services:
@@ -154,13 +154,25 @@ Example: Run with an external DB and external/real cloud services (closest to pr
 docker compose up
 ```
 
-
 ### Testing out your instance
 
 You can now test your setup by visiting `http://localhost:80/home`.
 
-Once the index page loads, you can create an account using the `/createuser` path.
-You'll be logged in right away; email validation is not required.
+#### Using Predefined Test Accounts
+
+When running with `make start` or the development configuration, an OIDC Simulator automatically starts with predefined test users. You can log in immediately using:
+
+- **Email**: `admin@polis.test`
+- **Password**: `Te$tP@ssw0rd*`
+
+Additional test users are available:
+
+- `moderator@polis.test` / `Te$tP@ssw0rd*`
+- `test.user.0@polis.test` through `test.user.49@polis.test` (all with password `Te$tP@ssw0rd*`)
+
+Due to limitations of the OIDC Simulator, you cannot register new admin users in development and test environments.
+
+#### Shutting down
 
 When you're done working, you can end the process using `Ctrl+C`, or typing `docker compose --profile postgres --profile local-services down`
 if you are running in "detached mode".
