@@ -265,19 +265,20 @@ def load_comment_texts(zid):
         # Clean up connection
         postgres_client.shutdown()
 
-def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
+def load_conversation_data_from_dynamo(zid, job_id, layer_id, dynamo_storage):
     """
     Load data from DynamoDB for a specific conversation and layer.
     
     Args:
         zid: Conversation ID
+        job_id: Job ID - used as the primary key for DynamoDB queries
         layer_id: Layer ID
         dynamo_storage: DynamoDBStorage instance
         
     Returns:
         Dictionary with data from DynamoDB
     """
-    logger.info(f"Loading data from DynamoDB for conversation {zid}, layer {layer_id}")
+    logger.info(f"Loading data from DynamoDB for job {job_id}, conversation {zid}, layer {layer_id}")
     
     # Initialize data dictionary
     data = {
@@ -288,8 +289,8 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
     
     # Try to get conversation metadata
     try:
-        logger.debug(f"Getting conversation metadata for {zid}...")
-        meta = dynamo_storage.get_conversation_meta(zid)
+        logger.debug(f"Getting conversation metadata for job {job_id}, conversation {zid}...")
+        meta = dynamo_storage.get_conversation_meta(job_id, zid)
         if not meta:
             logger.error(f"No metadata found for conversation {zid}")
             return None
@@ -305,13 +306,13 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
     
     # Load comment embeddings to get comment IDs in order
     try:
-        # Query CommentEmbeddings for this conversation
+        # Query CommentEmbeddings using job_id as the primary key
         logger.info(f"Loading comment embeddings to get full comment list...")
         table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['comment_embeddings'])
         logger.debug(f"CommentEmbeddings table name: {dynamo_storage.table_names['comment_embeddings']}")
         
         response = table.query(
-            KeyConditionExpression=Key('conversation_id').eq(str(zid))
+            KeyConditionExpression=Key('job_id').eq(str(job_id))
         )
         embeddings = response.get('Items', [])
         
@@ -319,7 +320,7 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
         while 'LastEvaluatedKey' in response:
             logger.debug(f"Handling pagination for comment embeddings...")
             response = table.query(
-                KeyConditionExpression=Key('conversation_id').eq(str(zid)),
+                KeyConditionExpression=Key('job_id').eq(str(job_id)),
                 ExclusiveStartKey=response['LastEvaluatedKey']
             )
             embeddings.extend(response.get('Items', []))
@@ -336,13 +337,13 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
         
     # Get comment clusters
     try:
-        # Query CommentClusters for this conversation
+        # Query CommentClusters using job_id as primary key
         logger.info(f"Loading cluster assignments from CommentClusters...")
         table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['comment_clusters'])
         logger.debug(f"CommentClusters table name: {dynamo_storage.table_names['comment_clusters']}")
         
         response = table.query(
-            KeyConditionExpression=Key('conversation_id').eq(str(zid))
+            KeyConditionExpression=Key('job_id').eq(str(job_id))
         )
         clusters = response.get('Items', [])
         
@@ -350,7 +351,7 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
         while 'LastEvaluatedKey' in response:
             logger.debug(f"Handling pagination for comment clusters...")
             response = table.query(
-                KeyConditionExpression=Key('conversation_id').eq(str(zid)),
+                KeyConditionExpression=Key('job_id').eq(str(job_id)),
                 ExclusiveStartKey=response['LastEvaluatedKey']
             )
             clusters.extend(response.get('Items', []))
@@ -404,12 +405,12 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
             
             # Try to get positions from the UMAPGraph table
             try:
-                # Get all edges from UMAPGraph for this conversation
+                # Get all edges from UMAPGraph using job_id as primary key
                 umap_table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['umap_graph'])
                 logger.debug(f"UMAPGraph table name: {dynamo_storage.table_names['umap_graph']}")
                 
                 response = umap_table.query(
-                    KeyConditionExpression=Key('conversation_id').eq(str(zid))
+                    KeyConditionExpression=Key('job_id').eq(str(job_id))
                 )
                 edges = response.get('Items', [])
                 
@@ -486,13 +487,13 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
     
     # Get topic names from LLMTopicNames
     try:
-        # Query LLMTopicNames for this conversation and layer
+        # Query LLMTopicNames using job_id as primary key
         logger.info(f"Loading topic names from LLMTopicNames...")
         table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['llm_topic_names'])
         logger.debug(f"LLMTopicNames table name: {dynamo_storage.table_names['llm_topic_names']}")
         
         response = table.query(
-            KeyConditionExpression=Key('conversation_id').eq(str(zid))
+            KeyConditionExpression=Key('job_id').eq(str(job_id))
         )
         topic_names = response.get('Items', [])
         
@@ -500,7 +501,7 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
         while 'LastEvaluatedKey' in response:
             logger.debug(f"Handling pagination for topic names...")
             response = table.query(
-                KeyConditionExpression=Key('conversation_id').eq(str(zid)),
+                KeyConditionExpression=Key('job_id').eq(str(job_id)),
                 ExclusiveStartKey=response['LastEvaluatedKey']
             )
             topic_names.extend(response.get('Items', []))
@@ -778,12 +779,13 @@ def create_visualization(zid, layer_id, data, comment_texts, output_dir=None):
         logger.error(f"Outer traceback: {traceback.format_exc()}")
         return None
 
-def generate_visualization(zid, layer_id=0, output_dir=None, dynamo_endpoint=None):
+def generate_visualization(zid, job_id, layer_id=0, output_dir=None, dynamo_endpoint=None):
     """
     Generate visualization for a specific conversation and layer.
     
     Args:
         zid: Conversation ID
+        job_id: Job ID - used as the primary key for DynamoDB queries
         layer_id: Optional Layer ID (default: 0)
         output_dir: Optional directory to save the visualization
         dynamo_endpoint: Optional DynamoDB endpoint URL
@@ -796,7 +798,7 @@ def generate_visualization(zid, layer_id=0, output_dir=None, dynamo_endpoint=Non
         setup_file_logging(zid)
         
         # Log environment information
-        logger.info(f"Starting visualization generation for conversation {zid}, layer {layer_id}")
+        logger.info(f"Starting visualization generation for conversation {zid}, job {job_id}, layer {layer_id}")
         log_environment_info()
         
         # Setup environment
@@ -828,8 +830,8 @@ def generate_visualization(zid, layer_id=0, output_dir=None, dynamo_endpoint=Non
         logger.info(f"Successfully loaded {len(comment_texts)} comment texts")
         
         # Load data from DynamoDB
-        logger.info(f"Loading data from DynamoDB for conversation {zid}, layer {layer_id}...")
-        data = load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage)
+        logger.info(f"Loading data from DynamoDB for job {job_id}, conversation {zid}, layer {layer_id}...")
+        data = load_conversation_data_from_dynamo(zid, job_id, layer_id, dynamo_storage)
         if not data:
             logger.error("Failed to load data from DynamoDB")
             return None
@@ -880,6 +882,8 @@ def main():
     parser = argparse.ArgumentParser(description='Generate DataMapPlot visualization for a layer of a conversation')
     parser.add_argument('--conversation_id', '--zid', type=str, required=True,
                       help='Conversation ID to process')
+    parser.add_argument('--job_id', type=str, required=True,
+                      help='Job ID - used as the primary key for DynamoDB queries')
     parser.add_argument('--layer', type=int, default=0,
                       help='Layer ID to visualize (default: 0)')
     parser.add_argument('--output_dir', type=str, default=None,
@@ -889,10 +893,11 @@ def main():
     
     args = parser.parse_args()
     
-    logger.info(f"Generating visualization for conversation {args.conversation_id}, layer {args.layer}")
+    logger.info(f"Generating visualization for conversation {args.conversation_id}, job {args.job_id}, layer {args.layer}")
     
     viz_file = generate_visualization(
         args.conversation_id,
+        args.job_id,
         layer_id=args.layer,
         output_dir=args.output_dir,
         dynamo_endpoint=args.dynamo_endpoint

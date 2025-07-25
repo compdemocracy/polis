@@ -460,18 +460,19 @@ class DynamoDBStorage:
             item = DataConverter.prepare_for_dynamodb(item)
             
             table.put_item(Item=item)
-            logger.info(f"Created conversation metadata for: {meta.conversation_id}")
+            logger.info(f"Created conversation metadata for job: {meta.job_id}, conversation: {meta.conversation_id}")
             return True
         except ClientError as e:
             logger.error(f"Error creating conversation metadata: {str(e)}")
             return False
     
-    def get_conversation_meta(self, conversation_id: str) -> Optional[Dict[str, Any]]:
+    def get_conversation_meta(self, job_id: str, conversation_id: str = None) -> Optional[Dict[str, Any]]:
         """
         Retrieve conversation metadata.
         
         Args:
-            conversation_id: ID of the conversation
+            job_id: ID of the job
+            conversation_id: ID of the conversation (optional)
             
         Returns:
             Conversation metadata dictionary or None if not found
@@ -479,16 +480,71 @@ class DynamoDBStorage:
         table = self.dynamodb.Table(self.table_names['conversation_meta'])
         
         try:
-            response = table.get_item(Key={'conversation_id': conversation_id})
-            if 'Item' in response:
-                logger.info(f"Retrieved metadata for conversation: {conversation_id}")
-                return response['Item']
+            # Always query by job_id first
+            response = table.query(
+                KeyConditionExpression=Key('job_id').eq(job_id)
+            )
+            
+            if 'Items' in response and response['Items']:
+                # If conversation_id is provided, filter the results
+                if conversation_id:
+                    filtered_items = [item for item in response['Items'] if item.get('conversation_id') == conversation_id]
+                    if filtered_items:
+                        logger.info(f"Retrieved metadata for job: {job_id}, conversation: {conversation_id}")
+                        return filtered_items[0]
+                    else:
+                        logger.warning(f"No metadata found for job: {job_id}, conversation: {conversation_id}")
+                        return None
+                else:
+                    # If no conversation_id provided, return the first item
+                    logger.info(f"Retrieved metadata for job: {job_id}")
+                    return response['Items'][0]
             else:
-                logger.warning(f"No metadata found for conversation: {conversation_id}")
+                logger.warning(f"No metadata found for job: {job_id}")
                 return None
         except ClientError as e:
             logger.error(f"Error retrieving conversation metadata: {str(e)}")
             return None
+            
+    def get_conversation_meta_by_conversation_id(self, conversation_id: str) -> List[Dict[str, Any]]:
+        """
+        Retrieve conversation metadata using the conversation_id through the GSI.
+        
+        Args:
+            conversation_id: ID of the conversation
+            
+        Returns:
+            List of conversation metadata dictionaries matching the conversation_id
+        """
+        table = self.dynamodb.Table(self.table_names['conversation_meta'])
+        
+        try:
+            # Query using the GSI
+            response = table.query(
+                IndexName='ConversationIdIndex',
+                KeyConditionExpression=Key('conversation_id').eq(conversation_id)
+            )
+            
+            items = response.get('Items', [])
+            
+            # Handle pagination if needed
+            while 'LastEvaluatedKey' in response:
+                response = table.query(
+                    IndexName='ConversationIdIndex',
+                    KeyConditionExpression=Key('conversation_id').eq(conversation_id),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                items.extend(response.get('Items', []))
+            
+            if items:
+                logger.info(f"Retrieved {len(items)} metadata entries for conversation: {conversation_id}")
+                return items
+            else:
+                logger.warning(f"No metadata found for conversation: {conversation_id}")
+                return []
+        except ClientError as e:
+            logger.error(f"Error retrieving conversation metadata by conversation_id: {str(e)}")
+            return []
     
     def list_conversations(self) -> List[Dict[str, Any]]:
         # NOT SURE IF THIS FUNCTION IS USED, BUT WE SHOULD REFACTOR IF USING TO AN GENERATOR USING YIELD, IN ORDER TO AVOID LOADING THE FULL TABLE INTO MEMORY, WHICH WILL CRASH THE APP IF IT GETS TO BIG
@@ -545,7 +601,7 @@ class DynamoDBStorage:
             
             logger.info(
                 f"Created embedding for comment {embedding.comment_id} "
-                f"in conversation {embedding.conversation_id}"
+                f"in job {embedding.job_id}, conversation {embedding.conversation_id}"
             )
             return True
         except ClientError as e:
@@ -554,11 +610,52 @@ class DynamoDBStorage:
     
     def get_comment_embedding(
         self, 
-        conversation_id: str, 
+        job_id: str, 
         comment_id: int
     ) -> Optional[Dict[str, Any]]:
         """
         Retrieve a comment embedding.
+        
+        Args:
+            job_id: ID of the job
+            comment_id: ID of the comment
+            
+        Returns:
+            Comment embedding dictionary or None if not found
+        """
+        table = self.dynamodb.Table(self.table_names['comment_embeddings'])
+        
+        try:
+            response = table.get_item(
+                Key={
+                    'job_id': job_id,
+                    'comment_id': comment_id
+                }
+            )
+            
+            if 'Item' in response:
+                logger.info(
+                    f"Retrieved embedding for comment {comment_id} "
+                    f"in job {job_id}"
+                )
+                return response['Item']
+            else:
+                logger.warning(
+                    f"No embedding found for comment {comment_id} "
+                    f"in job {job_id}"
+                )
+                return None
+        except ClientError as e:
+            logger.error(f"Error retrieving comment embedding: {str(e)}")
+            return None
+            
+    def get_comment_embedding_by_conversation_id(
+        self, 
+        conversation_id: str, 
+        comment_id: int
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve a comment embedding by conversation_id and comment_id using GSI.
         
         Args:
             conversation_id: ID of the conversation
@@ -570,19 +667,20 @@ class DynamoDBStorage:
         table = self.dynamodb.Table(self.table_names['comment_embeddings'])
         
         try:
-            response = table.get_item(
-                Key={
-                    'conversation_id': conversation_id,
-                    'comment_id': comment_id
-                }
+            # Query using the GSI
+            response = table.query(
+                IndexName='ConversationIdIndex',
+                KeyConditionExpression=Key('conversation_id').eq(conversation_id) & Key('comment_id').eq(comment_id)
             )
             
-            if 'Item' in response:
+            items = response.get('Items', [])
+            
+            if items:
                 logger.info(
                     f"Retrieved embedding for comment {comment_id} "
                     f"in conversation {conversation_id}"
                 )
-                return response['Item']
+                return items[0]  # Return the first match
             else:
                 logger.warning(
                     f"No embedding found for comment {comment_id} "
@@ -590,7 +688,7 @@ class DynamoDBStorage:
                 )
                 return None
         except ClientError as e:
-            logger.error(f"Error retrieving comment embedding: {str(e)}")
+            logger.error(f"Error retrieving comment embedding by conversation_id: {str(e)}")
             return None
     
     def batch_create_comment_embeddings(self, embeddings: List[CommentEmbedding]) -> Dict[str, int]:
@@ -684,7 +782,7 @@ class DynamoDBStorage:
             
             logger.info(
                 f"Created cluster assignment for comment {cluster.comment_id} "
-                f"in conversation {cluster.conversation_id}"
+                f"in job {cluster.job_id}, conversation {cluster.conversation_id}"
             )
             return True
         except ClientError as e:
@@ -811,7 +909,7 @@ class DynamoDBStorage:
             
             logger.info(
                 f"Created topic for cluster {topic.cluster_id} in layer {topic.layer_id} "
-                f"of conversation {topic.conversation_id}"
+                f"of job {topic.job_id}, conversation {topic.conversation_id}"
             )
             return True
         except ClientError as e:
@@ -879,13 +977,57 @@ class DynamoDBStorage:
             'failure': failure_count
         }
     
-    def get_cluster_topics_by_layer(
+    def get_cluster_topics_by_job_and_layer(
+        self, 
+        job_id: str, 
+        layer_id: int
+    ) -> List[Dict[str, Any]]:
+        """
+        Retrieve all topics for a specific job and layer.
+        
+        Args:
+            job_id: ID of the job
+            layer_id: Layer ID to retrieve topics for
+            
+        Returns:
+            List of cluster topic dictionaries
+        """
+        table = self.dynamodb.Table(self.table_names['cluster_topics'])
+        
+        try:
+            # Query by job ID and filter by layer_id
+            response = table.query(
+                KeyConditionExpression=Key('job_id').eq(job_id),
+                FilterExpression=Attr('layer_id').eq(layer_id)
+            )
+            
+            topics = response.get('Items', [])
+            
+            # Handle pagination if needed
+            while 'LastEvaluatedKey' in response:
+                response = table.query(
+                    KeyConditionExpression=Key('job_id').eq(job_id),
+                    FilterExpression=Attr('layer_id').eq(layer_id),
+                    ExclusiveStartKey=response['LastEvaluatedKey']
+                )
+                topics.extend(response.get('Items', []))
+            
+            logger.info(
+                f"Retrieved {len(topics)} topics for layer {layer_id} "
+                f"in job {job_id}"
+            )
+            return topics
+        except ClientError as e:
+            logger.error(f"Error retrieving cluster topics: {str(e)}")
+            return []
+            
+    def get_cluster_topics_by_conversation_and_layer(
         self, 
         conversation_id: str, 
         layer_id: int
     ) -> List[Dict[str, Any]]:
         """
-        Retrieve all topics for a specific layer.
+        Retrieve all topics for a specific conversation and layer using GSI.
         
         Args:
             conversation_id: ID of the conversation
@@ -897,8 +1039,9 @@ class DynamoDBStorage:
         table = self.dynamodb.Table(self.table_names['cluster_topics'])
         
         try:
-            # Query by conversation ID and filter by layer_id
+            # Query by conversation ID using the GSI and filter by layer_id
             response = table.query(
+                IndexName='ConversationIdIndex',
                 KeyConditionExpression=Key('conversation_id').eq(conversation_id),
                 FilterExpression=Attr('layer_id').eq(layer_id)
             )
@@ -908,6 +1051,7 @@ class DynamoDBStorage:
             # Handle pagination if needed
             while 'LastEvaluatedKey' in response:
                 response = table.query(
+                    IndexName='ConversationIdIndex',
                     KeyConditionExpression=Key('conversation_id').eq(conversation_id),
                     FilterExpression=Attr('layer_id').eq(layer_id),
                     ExclusiveStartKey=response['LastEvaluatedKey']
@@ -920,7 +1064,7 @@ class DynamoDBStorage:
             )
             return topics
         except ClientError as e:
-            logger.error(f"Error retrieving cluster topics: {str(e)}")
+            logger.error(f"Error retrieving cluster topics by conversation_id: {str(e)}")
             return []
             
     def create_cluster_characteristic(self, characteristic):
@@ -1019,13 +1163,14 @@ class DynamoDBStorage:
             'failure': failure_count
         }
     
-    def get_cluster_characteristics_by_layer(self, conversation_id, layer_id):
+    def get_cluster_characteristics_by_layer(self, job_id, layer_id, conversation_id=None):
         """
         Retrieve all cluster characteristics for a specific layer.
         
         Args:
-            conversation_id: ID of the conversation
+            job_id: ID of the job - used as the primary key for DynamoDB queries
             layer_id: Layer ID to retrieve characteristics for
+            conversation_id: Optional ID of the conversation (for filtering)
             
         Returns:
             List of cluster characteristic dictionaries
@@ -1033,9 +1178,9 @@ class DynamoDBStorage:
         table = self.dynamodb.Table(self.table_names['cluster_characteristics'])
         
         try:
-            # Query by conversation ID and filter by layer_id
+            # Query by job_id as primary key and filter by layer_id
             response = table.query(
-                KeyConditionExpression=Key('conversation_id').eq(conversation_id),
+                KeyConditionExpression=Key('job_id').eq(job_id),
                 FilterExpression=Attr('layer_id').eq(layer_id)
             )
             
@@ -1044,7 +1189,7 @@ class DynamoDBStorage:
             # Handle pagination if needed
             while 'LastEvaluatedKey' in response:
                 response = table.query(
-                    KeyConditionExpression=Key('conversation_id').eq(conversation_id),
+                    KeyConditionExpression=Key('job_id').eq(job_id),
                     FilterExpression=Attr('layer_id').eq(layer_id),
                     ExclusiveStartKey=response['LastEvaluatedKey']
                 )
@@ -1052,7 +1197,7 @@ class DynamoDBStorage:
             
             logger.info(
                 f"Retrieved {len(characteristics)} cluster characteristics for layer {layer_id} "
-                f"in conversation {conversation_id}"
+                f"in job {job_id}"
             )
             return characteristics
         except ClientError as e:
@@ -1320,6 +1465,7 @@ class DynamoDBStorage:
             # Store in DynamoDB
             table.put_item(Item=item)
             
+            logger.info(f"Created graph edge {edge.edge_id} in job {edge.job_id}")
             return True
         except ClientError as e:
             logger.error(f"Error creating graph edge: {str(e)}")
@@ -1388,14 +1534,14 @@ class DynamoDBStorage:
     
     def get_visualization_data(
         self, 
-        conversation_id: str, 
+        job_id: str,
         layer_id: int
     ) -> Dict[str, Any]:
         """
         Retrieve data needed for visualization.
         
         Args:
-            conversation_id: ID of the conversation
+            job_id: ID of the job
             layer_id: Layer ID to retrieve data for
             
         Returns:
@@ -1405,9 +1551,9 @@ class DynamoDBStorage:
         table = self.dynamodb.Table(self.table_names['comment_embeddings'])
         
         try:
-            # Query comments by conversation ID
+            # Query comments by job ID
             response = table.query(
-                KeyConditionExpression=Key('conversation_id').eq(conversation_id)
+                KeyConditionExpression=Key('job_id').eq(job_id)
             )
             
             comments = response.get('Items', [])
@@ -1415,16 +1561,19 @@ class DynamoDBStorage:
             # Handle pagination if needed
             while 'LastEvaluatedKey' in response:
                 response = table.query(
-                    KeyConditionExpression=Key('conversation_id').eq(conversation_id),
+                    KeyConditionExpression=Key('job_id').eq(job_id),
                     ExclusiveStartKey=response['LastEvaluatedKey']
                 )
                 comments.extend(response.get('Items', []))
+            
+            # Get conversation_id from the first comment (assuming all comments are from the same conversation)
+            conversation_id = comments[0]['conversation_id'] if comments else ""
             
             # Get all comment clusters
             clusters_table = self.dynamodb.Table(self.table_names['comment_clusters'])
             
             response = clusters_table.query(
-                KeyConditionExpression=Key('conversation_id').eq(conversation_id)
+                KeyConditionExpression=Key('job_id').eq(job_id)
             )
             
             clusters = response.get('Items', [])
@@ -1432,13 +1581,13 @@ class DynamoDBStorage:
             # Handle pagination if needed
             while 'LastEvaluatedKey' in response:
                 response = clusters_table.query(
-                    KeyConditionExpression=Key('conversation_id').eq(conversation_id),
+                    KeyConditionExpression=Key('job_id').eq(job_id),
                     ExclusiveStartKey=response['LastEvaluatedKey']
                 )
                 clusters.extend(response.get('Items', []))
             
             # Get all topics
-            topics = self.get_cluster_topics_by_layer(conversation_id, layer_id)
+            topics = self.get_cluster_topics_by_job_and_layer(job_id, layer_id)
             
             # Combine data into visualization format
             comment_data = []
@@ -1454,7 +1603,7 @@ class DynamoDBStorage:
                     
                     comment_data.append({
                         'id': comment['comment_id'],
-                        'coordinates': comment['umap_coordinates'],
+                        'coordinates': comment.get('umap_coordinates', {}),
                         'cluster_id': cluster_id
                     })
             

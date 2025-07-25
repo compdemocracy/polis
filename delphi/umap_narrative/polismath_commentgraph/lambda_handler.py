@@ -10,6 +10,7 @@ import logging
 import os
 import time
 import traceback
+import uuid
 from typing import Dict, Any, List, Optional
 import numpy as np
 from datetime import datetime
@@ -178,12 +179,17 @@ def process_conversation(conversation_id: str) -> Dict[str, Any]:
     logger.info("Storing results in DynamoDB")
     dynamo_start = time.time()
     
+    # Generate job_id for this processing run
+    job_id = str(uuid.uuid4())
+    logger.info(f"Generated job_id: {job_id} for conversation {conversation_id}")
+
     # Create and store conversation metadata
     conversation_meta = DataConverter.create_conversation_meta(
         conversation_id,
         embeddings,
         cluster_layers,
-        metadata
+        metadata,
+        job_id=job_id
     )
     dynamo_storage.create_conversation_meta(conversation_meta)
     
@@ -198,7 +204,8 @@ def process_conversation(conversation_id: str) -> Dict[str, Any]:
         model = DataConverter.create_comment_embedding(
             conversation_id,
             comment_ids[i] if i < len(comment_ids) else i,
-            embedding
+            embedding,
+            job_id=job_id
         )
         
         embedding_models.append(model)
@@ -211,7 +218,8 @@ def process_conversation(conversation_id: str) -> Dict[str, Any]:
     cluster_models = DataConverter.batch_convert_clusters(
         conversation_id,
         cluster_layers,
-        projection
+        projection,
+        job_id=job_id
     )
     
     # Batch store clusters
@@ -225,7 +233,8 @@ def process_conversation(conversation_id: str) -> Dict[str, Any]:
         projection,
         topic_names={},  # No topic names yet
         characteristics={},  # No characteristics yet
-        comments=[{'body': comment} for comment in comments]
+        comments=[{'body': comment} for comment in comments],
+        job_id=job_id
     )
     
     # Batch store topics
@@ -279,7 +288,8 @@ def process_conversation(conversation_id: str) -> Dict[str, Any]:
                 distance,
                 distance,
                 True,
-                shared_layers
+                shared_layers,
+                job_id=job_id
             )
             
             edges.append(edge)
@@ -364,26 +374,43 @@ def process_new_comment(comment_data: Dict[str, Any]) -> Dict[str, Any]:
     embedding = embedding_engine.embed_text(text)
     
     # Get existing data from DynamoDB
-    meta = dynamo_storage.get_conversation_meta(conversation_id)
-    if not meta:
-        logger.error(f"Conversation {conversation_id} not found in DynamoDB")
+    # First, look for job_id
+    jobs = dynamo_storage.get_jobs_by_conversation_id(conversation_id)
+    
+    if not jobs:
+        logger.error(f"No jobs found for conversation {conversation_id} in DynamoDB")
         return {
             'success': False,
-            'error': 'Conversation not found',
+            'error': 'No jobs found for conversation',
             'conversation_id': conversation_id
         }
     
-    # Get all existing comment embeddings
+    # Use the most recent job
+    job_id = jobs[0]['job_id']  # Assuming jobs are sorted by created_at in descending order
+    logger.info(f"Using job_id {job_id} for conversation {conversation_id}")
+    
+    # Get conversation metadata using job_id
+    meta = dynamo_storage.get_conversation_meta(job_id, conversation_id)
+    if not meta:
+        logger.error(f"Conversation {conversation_id} with job_id {job_id} not found in DynamoDB")
+        return {
+            'success': False,
+            'error': 'Conversation not found',
+            'conversation_id': conversation_id,
+            'job_id': job_id
+        }
+    
+    # Get all existing comment embeddings using job_id
     table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['comment_embeddings'])
     response = table.query(
-        KeyConditionExpression=Key('conversation_id').eq(conversation_id)
+        KeyConditionExpression=Key('job_id').eq(job_id)
     )
     existing_embeddings = response.get('Items', [])
     
     # Handle pagination if needed
     while 'LastEvaluatedKey' in response:
         response = table.query(
-            KeyConditionExpression=Key('conversation_id').eq(conversation_id),
+            KeyConditionExpression=Key('job_id').eq(job_id),
             ExclusiveStartKey=response['LastEvaluatedKey']
         )
         existing_embeddings.extend(response.get('Items', []))
@@ -427,6 +454,7 @@ def process_new_comment(comment_data: Dict[str, Any]) -> Dict[str, Any]:
     
     # Create and store comment embedding
     embedding_model = CommentEmbedding(
+        job_id=job_id,
         conversation_id=conversation_id,
         comment_id=int(comment_id),
         embedding=DataConverter.create_embedding_model(embedding)
@@ -436,6 +464,7 @@ def process_new_comment(comment_data: Dict[str, Any]) -> Dict[str, Any]:
     
     # Create and store comment cluster
     cluster_model = CommentCluster(
+        job_id=job_id,
         conversation_id=conversation_id,
         comment_id=int(comment_id),
         **new_clusters
@@ -461,6 +490,7 @@ def process_new_comment(comment_data: Dict[str, Any]) -> Dict[str, Any]:
                 shared_layers.append(layer_id)
         
         edge = UMAPGraphEdge(
+            job_id=job_id,
             conversation_id=conversation_id,
             edge_id=f"{comment_id}_{neighbor_id}",
             source_id=int(comment_id),

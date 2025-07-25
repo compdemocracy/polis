@@ -49,7 +49,8 @@ class ClusterReference(BaseModel):
 
 class ConversationMeta(BaseModel):
     """Metadata for a conversation."""
-    conversation_id: str
+    job_id: str  # Primary hash key
+    conversation_id: str  # Primary range key and used in GSI
     processed_date: str
     num_comments: int
     num_participants: int = 0
@@ -65,15 +66,17 @@ class CommentEmbedding(BaseModel):
     
     Note: UMAP coordinates are stored as "position" in UMAPGraph table where source_id = target_id = comment_id.
     Nearest neighbors are stored as edges in UMAPGraph where either source_id or target_id = comment_id."""
-    conversation_id: str
-    comment_id: int
+    job_id: str  # Primary hash key
+    comment_id: int  # Primary range key
+    conversation_id: str  # Regular attribute, used in GSI
     embedding: Embedding
 
 
 class CommentCluster(BaseModel):
     """Cluster assignments for a single comment across layers."""
-    conversation_id: str
-    comment_id: int
+    job_id: str  # Primary hash key
+    comment_id: int  # Primary range key
+    conversation_id: str  # Regular attribute, used in GSI
     is_outlier: bool = False
     # We'll add layer-specific cluster IDs dynamically during initialization
     layer0_cluster_id: Optional[int] = None
@@ -87,8 +90,9 @@ class CommentCluster(BaseModel):
 
 class ClusterTopic(BaseModel):
     """Topic information for a cluster."""
-    conversation_id: str
-    cluster_key: str  # format: "layer{layer_id}_{cluster_id}"
+    job_id: str  # Primary hash key
+    cluster_key: str  # Primary range key, format: "layer{layer_id}_{cluster_id}"
+    conversation_id: str  # Regular attribute, used in GSI
     layer_id: int
     cluster_id: int
     topic_label: str
@@ -106,8 +110,9 @@ class UMAPGraphEdge(BaseModel):
     
     Note: When source_id equals target_id, this represents a node with its position.
     Otherwise, this represents an edge between two nodes."""
-    conversation_id: str
-    edge_id: str  # format: "{source_id}_{target_id}"
+    job_id: str  # Primary hash key
+    edge_id: str  # Primary range key, format: "{source_id}_{target_id}"
+    conversation_id: str  # Regular attribute, used in GSI
     source_id: int
     target_id: int
     weight: float
@@ -119,8 +124,9 @@ class UMAPGraphEdge(BaseModel):
 
 class ClusterCharacteristic(BaseModel):
     """Characteristics of a cluster based on TF-IDF analysis."""
-    conversation_id: str
-    cluster_key: str  # format: "layer{layer_id}_{cluster_id}"
+    job_id: str  # Primary hash key
+    cluster_key: str  # Primary range key, format: "layer{layer_id}_{cluster_id}"
+    conversation_id: str  # Regular attribute, used in GSI
     layer_id: int
     cluster_id: int
     size: int
@@ -138,8 +144,9 @@ class ClusterCharacteristic(BaseModel):
 
 class EnhancedTopicName(BaseModel):
     """Enhanced topic name with keywords, based on TF-IDF analysis."""
-    conversation_id: str
-    topic_key: str  # format: "layer{layer_id}_{cluster_id}"
+    job_id: str  # Primary hash key
+    topic_key: str  # Primary range key, format: "layer{layer_id}_{cluster_id}"
+    conversation_id: str  # Regular attribute, used in GSI
     layer_id: int
     cluster_id: int
     topic_name: str  # Format: "Keywords: word1, word2, word3, ..."
@@ -154,8 +161,9 @@ class EnhancedTopicName(BaseModel):
 
 class LLMTopicName(BaseModel):
     """LLM-generated topic name."""
-    conversation_id: str
-    topic_key: str  # format: "layer{layer_id}_{cluster_id}"
+    job_id: str  # Primary hash key
+    topic_key: str  # Primary range key, format: "layer{layer_id}_{cluster_id}"
+    conversation_id: str  # Regular attribute, used in GSI
     layer_id: int
     cluster_id: int
     topic_name: str  # LLM-generated name

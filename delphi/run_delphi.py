@@ -3,6 +3,7 @@ import argparse
 import os
 import subprocess
 import sys
+import uuid
 
 # Define colors for output
 GREEN = '\033[0;32m'
@@ -93,6 +94,16 @@ def main():
 
     # Run the UMAP narrative pipeline
     print(f"{GREEN}Running UMAP narrative pipeline...{NC}")
+    # Generate job_id for this processing run
+    job_id = os.environ.get('DELPHI_JOB_ID', None)
+    if not job_id:
+        import uuid
+        job_id = str(uuid.uuid4())
+        os.environ['DELPHI_JOB_ID'] = job_id
+        print(f"{YELLOW}Generated job_id: {job_id}{NC}")
+    else:
+        print(f"{YELLOW}Using existing job_id: {job_id}{NC}")
+        
     umap_command = [
         "python", "/app/umap_narrative/run_pipeline.py",
         f"--zid={zid}",
@@ -150,7 +161,7 @@ def main():
             print(f"{YELLOW}Querying all items to discover available layers...{NC}")
             while True:
                 query_kwargs = {
-                    'KeyConditionExpression': Key('conversation_id').eq(str(zid))
+                    'KeyConditionExpression': Key('job_id').eq(str(job_id))
                 }
                 if last_key:
                     query_kwargs['ExclusiveStartKey'] = last_key
@@ -187,6 +198,7 @@ def main():
             datamap_command = [
                 "python", "/app/umap_narrative/700_datamapplot_for_layer.py",
                 f"--conversation_id={zid}",
+                f"--job_id={job_id}",
                 f"--layer={layer_id}",
                 f"--output_dir={output_dir}"
             ]

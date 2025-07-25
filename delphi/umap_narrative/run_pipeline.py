@@ -252,14 +252,16 @@ def characterize_comment_clusters(cluster_layer, comment_texts):
     
     return cluster_characteristics
 
-def generate_cluster_topic_labels(cluster_characteristics, comment_texts=None, layer=None, layer_idx=0, conversation_name=None, use_ollama=False):
+def generate_cluster_topic_labels(cluster_characteristics, job_id, comment_texts=None, layer=None, layer_idx=0, conversation_name=None, use_ollama=False):
     """
     Generate topic labels for clusters based on their characteristics.
     
     Args:
         cluster_characteristics: Dictionary with cluster characterizations
+        job_id: Job ID for this processing run
         comment_texts: List of comment text strings (used for Ollama naming)
         layer: Cluster assignments for the current layer (used for Ollama naming)
+        layer_idx: Index of the current layer
         conversation_name: Name of the conversation (used for Ollama naming) 
         use_ollama: Whether to use Ollama for topic naming
         
@@ -621,8 +623,9 @@ def process_layers_and_store_characteristics(
             characteristic_models = DataConverter.batch_convert_cluster_characteristics(
                 conversation_id,
                 cluster_characteristics,
-                layer_idx
-            ) # job_id is not directly part of characteristics PK, but good to have if we extend
+                layer_idx,
+                job_id=job_id
+            ) # job_id is now required for storing in DynamoDB
 
             result = dynamo_storage.batch_create_cluster_characteristics(characteristic_models)
             logger.info(f"Stored {result['success']} cluster characteristics with {result['failure']} failures")
@@ -955,6 +958,7 @@ def process_layers_and_create_visualizations(
             logger.info(f"Generating LLM topic names for layer {layer_idx} with Ollama...")
             cluster_labels = generate_cluster_topic_labels(
                 characteristics,
+                job_id=job_id,
                 comment_texts=comment_texts,
                 layer=cluster_layer,
                 layer_idx=layer_idx,
@@ -1198,7 +1202,8 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
             conversation_id,
             document_vectors,
             cluster_layers,
-            metadata
+            metadata,
+            job_id=job_id
         )
         dynamo_storage.create_conversation_meta(conversation_meta)
         
@@ -1206,7 +1211,8 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
         logger.info("Storing comment embeddings...")
         embedding_models = DataConverter.batch_convert_embeddings(
             conversation_id,
-            document_vectors
+            document_vectors,
+            job_id=job_id
         )
         result = dynamo_storage.batch_create_comment_embeddings(embedding_models)
         logger.info(f"Stored {result['success']} embeddings with {result['failure']} failures")
@@ -1216,7 +1222,8 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
         edge_models = DataConverter.batch_convert_umap_edges(
             conversation_id,
             document_map,
-            cluster_layers
+            cluster_layers,
+            job_id=job_id
         )
         result = dynamo_storage.batch_create_graph_edges(edge_models)
         logger.info(f"Stored {result['success']} UMAP graph edges with {result['failure']} failures")
@@ -1226,7 +1233,8 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
         cluster_models = DataConverter.batch_convert_clusters(
             conversation_id,
             cluster_layers,
-            document_map
+            document_map,
+            job_id=job_id
         )
         result = dynamo_storage.batch_create_comment_clusters(cluster_models)
         logger.info(f"Stored {result['success']} cluster assignments with {result['failure']} failures")
@@ -1239,7 +1247,8 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
             document_map,
             topic_names={},  # No topic names yet
             characteristics={},  # No characteristics yet
-            comments=[{'body': comment['txt']} for comment in comments]
+            comments=[{'body': comment['txt']} for comment in comments],
+            job_id=job_id
         )
         result = dynamo_storage.batch_create_cluster_topics(topic_models)
         logger.info(f"Stored {result['success']} topics with {result['failure']} failures")

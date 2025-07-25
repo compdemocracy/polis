@@ -284,10 +284,22 @@ def create_evoc_tables(dynamodb, delete_existing=False):
         # Core tables
         'Delphi_UMAPConversationConfig': {
             'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'}
+                {'AttributeName': 'job_id', 'KeyType': 'HASH'},
+                {'AttributeName': 'conversation_id', 'KeyType': 'RANGE'}
             ],
             'AttributeDefinitions': [
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
                 {'AttributeName': 'conversation_id', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'ConversationIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -296,12 +308,24 @@ def create_evoc_tables(dynamodb, delete_existing=False):
         },
         'Delphi_CommentEmbeddings': {
             'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                {'AttributeName': 'job_id', 'KeyType': 'HASH'},
                 {'AttributeName': 'comment_id', 'KeyType': 'RANGE'}
             ],
             'AttributeDefinitions': [
-                {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'comment_id', 'AttributeType': 'N'}
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'comment_id', 'AttributeType': 'N'},
+                {'AttributeName': 'conversation_id', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'ConversationIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'comment_id', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -310,12 +334,24 @@ def create_evoc_tables(dynamodb, delete_existing=False):
         },
         'Delphi_CommentHierarchicalClusterAssignments': {
             'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                {'AttributeName': 'job_id', 'KeyType': 'HASH'},
                 {'AttributeName': 'comment_id', 'KeyType': 'RANGE'}
             ],
             'AttributeDefinitions': [
-                {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'comment_id', 'AttributeType': 'N'}
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'comment_id', 'AttributeType': 'N'},
+                {'AttributeName': 'conversation_id', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'ConversationIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'comment_id', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -324,12 +360,24 @@ def create_evoc_tables(dynamodb, delete_existing=False):
         },
         'Delphi_CommentClustersStructureKeywords': {
             'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                {'AttributeName': 'job_id', 'KeyType': 'HASH'},
                 {'AttributeName': 'cluster_key', 'KeyType': 'RANGE'}
             ],
             'AttributeDefinitions': [
-                {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'cluster_key', 'AttributeType': 'S'}
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'cluster_key', 'AttributeType': 'S'},
+                {'AttributeName': 'conversation_id', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'ConversationIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'cluster_key', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -338,12 +386,24 @@ def create_evoc_tables(dynamodb, delete_existing=False):
         },
         'Delphi_UMAPGraph': {
             'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                {'AttributeName': 'job_id', 'KeyType': 'HASH'},
                 {'AttributeName': 'edge_id', 'KeyType': 'RANGE'}
             ],
             'AttributeDefinitions': [
-                {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'edge_id', 'AttributeType': 'S'}
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'edge_id', 'AttributeType': 'S'},
+                {'AttributeName': 'conversation_id', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'ConversationIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'edge_id', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -354,12 +414,24 @@ def create_evoc_tables(dynamodb, delete_existing=False):
         # Extended tables
         'Delphi_CommentClustersFeatures': {
             'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                {'AttributeName': 'job_id', 'KeyType': 'HASH'},
                 {'AttributeName': 'cluster_key', 'KeyType': 'RANGE'}
             ],
             'AttributeDefinitions': [
-                {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'cluster_key', 'AttributeType': 'S'}
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'cluster_key', 'AttributeType': 'S'},
+                {'AttributeName': 'conversation_id', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'ConversationIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'cluster_key', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
@@ -368,12 +440,24 @@ def create_evoc_tables(dynamodb, delete_existing=False):
         },
         'Delphi_CommentClustersLLMTopicNames': {
             'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                {'AttributeName': 'job_id', 'KeyType': 'HASH'},
                 {'AttributeName': 'topic_key', 'KeyType': 'RANGE'}
             ],
             'AttributeDefinitions': [
-                {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'topic_key', 'AttributeType': 'S'}
+                {'AttributeName': 'job_id', 'AttributeType': 'S'},
+                {'AttributeName': 'topic_key', 'AttributeType': 'S'},
+                {'AttributeName': 'conversation_id', 'AttributeType': 'S'}
+            ],
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'ConversationIdIndex',
+                    'KeySchema': [
+                        {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
+                        {'AttributeName': 'topic_key', 'KeyType': 'RANGE'}
+                    ],
+                    'Projection': {'ProjectionType': 'ALL'},
+                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+                }
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,

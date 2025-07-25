@@ -46,13 +46,13 @@ except ImportError:
                 'umap_graph': 'Delphi_UMAPGraph'
             }
 
-def load_data_from_dynamo(zid, layer_id):
+def load_data_from_dynamo(zid, job_id, layer_id):
     """
     Load data from DynamoDB for visualization, using same approach as 700_datamapplot_for_layer.py
     
     Returns: dictionary with comment positions, cluster assignments, and topic names
     """
-    logger.info(f"Loading data from DynamoDB for conversation {zid}, layer {layer_id}")
+    logger.info(f"Loading data from DynamoDB for job {job_id}, conversation {zid}, layer {layer_id}")
     
     # Initialize DynamoDB storage
     dynamo_storage = DynamoDBStorage(
@@ -74,14 +74,14 @@ def load_data_from_dynamo(zid, layer_id):
         logger.info(f"CommentClusters table name: {dynamo_storage.table_names['comment_clusters']}")
         
         response = table.query(
-            KeyConditionExpression=Key('conversation_id').eq(str(zid))
+            KeyConditionExpression=Key('job_id').eq(str(job_id))
         )
         clusters = response.get('Items', [])
         
         # Handle pagination if needed
         while 'LastEvaluatedKey' in response:
             response = table.query(
-                KeyConditionExpression=Key('conversation_id').eq(str(zid)),
+                KeyConditionExpression=Key('job_id').eq(str(job_id)),
                 ExclusiveStartKey=response['LastEvaluatedKey']
             )
             clusters.extend(response.get('Items', []))
@@ -189,14 +189,14 @@ def load_data_from_dynamo(zid, layer_id):
         logger.info(f"LLMTopicNames table name: {dynamo_storage.table_names['llm_topic_names']}")
         
         response = table.query(
-            KeyConditionExpression=Key('conversation_id').eq(str(zid))
+            KeyConditionExpression=Key('job_id').eq(str(job_id))
         )
         topic_names = response.get('Items', [])
         
         # Handle pagination if needed
         while 'LastEvaluatedKey' in response:
             response = table.query(
-                KeyConditionExpression=Key('conversation_id').eq(str(zid)),
+                KeyConditionExpression=Key('job_id').eq(str(job_id)),
                 ExclusiveStartKey=response['LastEvaluatedKey']
             )
             topic_names.extend(response.get('Items', []))
@@ -399,13 +399,13 @@ def s3_upload_file(local_file_path, s3_key):
         logger.error(traceback.format_exc())
         return False
 
-def generate_static_datamapplot(zid, layer_num=0, output_dir=None):
+def generate_static_datamapplot(zid, job_id, layer_num=0, output_dir=None):
     """Generate static datamapplot visualizations using datamapplot library"""
     logger.info(f"Generating static datamapplot for conversation {zid}, layer {layer_num}")
     
     try:
         # Load data from DynamoDB
-        data = load_data_from_dynamo(zid, layer_num)
+        data = load_data_from_dynamo(zid, job_id, layer_num)
         
         # Check if we have valid data
         if not data["comment_positions"]:
@@ -581,11 +581,12 @@ def generate_static_datamapplot(zid, layer_num=0, output_dir=None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate static datamapplot")
     parser.add_argument("--zid", type=str, required=True, help="Conversation ID")
+    parser.add_argument("--job_id", type=str, required=True, help="Job ID - used as the primary key for DynamoDB queries")
     parser.add_argument("--layer", type=int, default=0, help="Layer number")
     parser.add_argument("--output_dir", type=str, help="Output directory")
     
     args = parser.parse_args()
-    success = generate_static_datamapplot(args.zid, args.layer, args.output_dir)
+    success = generate_static_datamapplot(args.zid, args.job_id, args.layer, args.output_dir)
     
     if success:
         logger.info("Static datamapplot generation completed successfully")

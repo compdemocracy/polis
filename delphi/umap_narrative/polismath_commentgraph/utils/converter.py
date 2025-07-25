@@ -96,7 +96,8 @@ class DataConverter:
         conversation_id: str,
         document_vectors: np.ndarray,
         cluster_layers: List[np.ndarray],
-        metadata: Dict[str, Any] = None
+        metadata: Dict[str, Any] = None,
+        job_id: str = None
     ) -> ConversationMeta:
         """
         Create a ConversationMeta model from raw data.
@@ -137,8 +138,13 @@ class DataConverter:
         # Create EVOC parameters (with defaults)
         evoc_params = EVOCParameters()
         
+        # job_id is now required
+        if not job_id:
+            raise ValueError("job_id parameter is required for create_conversation_meta")
+            
         # Create the model
         meta = ConversationMeta(
+            job_id=job_id,
             conversation_id=conversation_id,
             processed_date=datetime.now().isoformat(),
             num_comments=len(document_vectors),
@@ -156,7 +162,8 @@ class DataConverter:
     def create_comment_embedding(
         conversation_id: str,
         comment_id: int,
-        vector: np.ndarray
+        vector: np.ndarray,
+        job_id: str = None
     ) -> CommentEmbedding:
         """
         Create a CommentEmbedding model from raw data.
@@ -176,10 +183,15 @@ class DataConverter:
             model='all-MiniLM-L6-v2'
         )
         
+        # job_id is now required
+        if not job_id:
+            raise ValueError("job_id parameter is required for create_comment_embedding")
+            
         # Create the model with just the embedding vector
         model = CommentEmbedding(
-            conversation_id=conversation_id,
+            job_id=job_id,
             comment_id=int(comment_id),
+            conversation_id=conversation_id,
             embedding=embedding
         )
         
@@ -191,7 +203,8 @@ class DataConverter:
         comment_id: int,
         cluster_layers: List[np.ndarray],
         distances: Optional[Dict[str, float]] = None,
-        confidences: Optional[Dict[str, float]] = None
+        confidences: Optional[Dict[str, float]] = None,
+        job_id: str = None
     ) -> CommentCluster:
         """
         Create a CommentCluster model from raw data.
@@ -206,10 +219,15 @@ class DataConverter:
         Returns:
             CommentCluster model object
         """
+        # job_id is now required
+        if not job_id:
+            raise ValueError("job_id parameter is required for create_comment_cluster")
+            
         # Create base data dictionary
         data = {
-            'conversation_id': conversation_id,
+            'job_id': job_id,
             'comment_id': comment_id,  # Will be converted to Decimal by Pydantic model
+            'conversation_id': conversation_id,
             'is_outlier': False
         }
         
@@ -262,7 +280,8 @@ class DataConverter:
         top_words: Optional[List[str]] = None,
         top_tfidf_scores: Optional[List[float]] = None,
         parent_cluster: Optional[Dict[str, int]] = None,
-        child_clusters: Optional[List[Dict[str, int]]] = None
+        child_clusters: Optional[List[Dict[str, int]]] = None,
+        job_id: str = None
     ) -> ClusterTopic:
         """
         Create a ClusterTopic model from raw data.
@@ -283,6 +302,10 @@ class DataConverter:
         Returns:
             ClusterTopic model object
         """
+        # job_id is now required
+        if not job_id:
+            raise ValueError("job_id parameter is required for create_cluster_topic")
+            
         # Create cluster key
         cluster_key = f'layer{layer_id}_{cluster_id}'
         
@@ -313,8 +336,9 @@ class DataConverter:
         
         # Create the model
         model = ClusterTopic(
-            conversation_id=conversation_id,
+            job_id=job_id,
             cluster_key=cluster_key,
+            conversation_id=conversation_id,
             layer_id=layer_id,
             cluster_id=cluster_id,
             topic_label=topic_label,
@@ -338,7 +362,8 @@ class DataConverter:
         distance: float,
         is_nearest_neighbor: bool,
         shared_layers: List[int],
-        position: Optional[np.ndarray] = None
+        position: Optional[np.ndarray] = None,
+        job_id: str = None
     ) -> UMAPGraphEdge:
         """
         Create a UMAPGraphEdge model from raw data.
@@ -356,6 +381,10 @@ class DataConverter:
         Returns:
             UMAPGraphEdge model object
         """
+        # job_id is now required
+        if not job_id:
+            raise ValueError("job_id parameter is required for create_graph_edge")
+            
         # For standard edges (not nodes), ensure source_id < target_id
         if source_id != target_id and source_id > target_id:
             source_id, target_id = target_id, source_id
@@ -372,8 +401,9 @@ class DataConverter:
         
         # Create the model
         model = UMAPGraphEdge(
-            conversation_id=conversation_id,
+            job_id=job_id,
             edge_id=edge_id,
+            conversation_id=conversation_id,
             source_id=int(source_id),
             target_id=int(target_id),
             weight=float(weight),
@@ -393,7 +423,8 @@ class DataConverter:
         size: int,
         top_words: List[str],
         top_tfidf_scores: List[float],
-        sample_comments: List[str]
+        sample_comments: List[str],
+        job_id: str = None
     ) -> ClusterCharacteristic:
         """
         Create a ClusterCharacteristic model from raw data.
@@ -410,8 +441,17 @@ class DataConverter:
         Returns:
             ClusterCharacteristic model object
         """
+        # job_id is now required
+        if not job_id:
+            raise ValueError("job_id parameter is required for create_cluster_characteristic")
+            
+        # Create cluster key for entity_id
+        cluster_key = f'layer{layer_id}_{cluster_id}'
+            
         # Create the model
         model = ClusterCharacteristic(
+            job_id=job_id,
+            cluster_key=cluster_key,
             conversation_id=conversation_id,
             layer_id=layer_id,
             cluster_id=cluster_id,
@@ -428,7 +468,8 @@ class DataConverter:
         conversation_id: str,
         layer_id: int,
         cluster_id: int,
-        topic_name: str
+        topic_name: str,
+        job_id: str = None
     ) -> EnhancedTopicName:
         """
         Create an EnhancedTopicName model from raw data.
@@ -442,8 +483,17 @@ class DataConverter:
         Returns:
             EnhancedTopicName model object
         """
+        # job_id is now required
+        if not job_id:
+            raise ValueError("job_id parameter is required for create_enhanced_topic_name")
+            
+        # Create topic key for entity_id
+        topic_key = f'layer{layer_id}_{cluster_id}'
+            
         # Create the model
         model = EnhancedTopicName(
+            job_id=job_id,
+            topic_key=topic_key,
             conversation_id=conversation_id,
             layer_id=layer_id,
             cluster_id=cluster_id,
@@ -459,7 +509,7 @@ class DataConverter:
         cluster_id: int,
         topic_name: str,
         model_name: str = "unknown",
-        job_id: Optional[str] = None  # Added job_id
+        job_id: str = None
     ) -> LLMTopicName:
         """
         Create an LLMTopicName model from raw data.
@@ -475,21 +525,20 @@ class DataConverter:
         Returns:
             LLMTopicName model object
         """
+        # job_id is now required
         if not job_id:
-            # Fallback if job_id is not provided, though it should be
-            logger.warning("job_id not provided to create_llm_topic_name, using 'unknown_job'")
-            job_id = "unknown_job"
+            raise ValueError("job_id parameter is required for create_llm_topic_name")
 
         # Create the model
         model = LLMTopicName(
+            job_id=job_id,
+            topic_key=f"layer{layer_id}_{cluster_id}",
             conversation_id=conversation_id,
-            topic_key=f"{job_id}#{layer_id}#{cluster_id}", # New topic_key format
-            layer_id=layer_id, # Stored for easier filtering if needed, though part of key
+            layer_id=layer_id,
             cluster_id=cluster_id,
             topic_name=topic_name,
             model_name=model_name,
-            created_at=datetime.now().isoformat(),
-            job_id=job_id # Store job_id as a top-level attribute
+            created_at=datetime.now().isoformat()
         )
         
         return model
@@ -498,7 +547,8 @@ class DataConverter:
     def batch_convert_cluster_characteristics(
         conversation_id: str,
         characteristics_dict: Dict[str, Dict[str, Any]],
-        layer_id: int
+        layer_id: int,
+        job_id: str = None
     ) -> List[ClusterCharacteristic]:
         """
         Convert batch of cluster characteristics from dictionary to model objects.
@@ -524,7 +574,8 @@ class DataConverter:
                     size=characteristic_data.get('size', 0),
                     top_words=characteristic_data.get('top_words', []),
                     top_tfidf_scores=characteristic_data.get('top_tfidf_scores', []),
-                    sample_comments=characteristic_data.get('sample_comments', [])
+                    sample_comments=characteristic_data.get('sample_comments', []),
+                    job_id=job_id
                 )
                 
                 characteristics.append(characteristic)
@@ -537,7 +588,8 @@ class DataConverter:
     def batch_convert_enhanced_topic_names(
         conversation_id: str,
         topic_names_dict: Dict[str, str],
-        layer_id: int
+        layer_id: int,
+        job_id: str = None
     ) -> List[EnhancedTopicName]:
         """
         Convert batch of enhanced topic names from dictionary to model objects.
@@ -560,7 +612,8 @@ class DataConverter:
                     conversation_id=conversation_id,
                     layer_id=layer_id,
                     cluster_id=cluster_id,
-                    topic_name=topic_name
+                    topic_name=topic_name,
+                    job_id=job_id
                 )
                 
                 topic_names.append(enhanced_topic_name)
@@ -575,7 +628,7 @@ class DataConverter:
         topic_names_dict: Dict[str, str],
         layer_id: int,
         model_name: str = "unknown",
-        job_id: Optional[str] = None # Added job_id
+        job_id: str = None
     ) -> List[LLMTopicName]:
         """
         Convert batch of LLM-generated topic names from dictionary to model objects.
@@ -621,7 +674,8 @@ class DataConverter:
     @staticmethod
     def batch_convert_embeddings(
         conversation_id: str,
-        document_vectors: np.ndarray
+        document_vectors: np.ndarray,
+        job_id: str = None
     ) -> List[CommentEmbedding]:
         """
         Convert batch of embeddings from NumPy arrays to model objects.
@@ -641,7 +695,8 @@ class DataConverter:
             embedding = DataConverter.create_comment_embedding(
                 conversation_id=conversation_id,
                 comment_id=i,
-                vector=document_vectors[i]
+                vector=document_vectors[i],
+                job_id=job_id
             )
             
             embeddings.append(embedding)
@@ -653,7 +708,8 @@ class DataConverter:
         conversation_id: str,
         document_map: np.ndarray,
         cluster_layers: List[np.ndarray],
-        k_neighbors: int = 5
+        k_neighbors: int = 5,
+        job_id: str = None
     ) -> List[UMAPGraphEdge]:
         """
         Convert UMAP projection data to graph edges and nodes with positions.
@@ -690,7 +746,8 @@ class DataConverter:
                 is_nearest_neighbor=False,
                 shared_layers=[layer_id for layer_id, layer in enumerate(cluster_layers) 
                               if i < len(layer) and layer[i] >= 0],
-                position=document_map[i]  # Store actual UMAP coordinates
+                position=document_map[i],  # Store actual UMAP coordinates
+                job_id=job_id
             )
             
             edges.append(node)
@@ -730,7 +787,8 @@ class DataConverter:
                     weight=1.0 - distance,  # Convert distance to similarity
                     distance=float(distance),
                     is_nearest_neighbor=True,
-                    shared_layers=shared_layers
+                    shared_layers=shared_layers,
+                    job_id=job_id
                 )
                 
                 edges.append(edge)
@@ -741,7 +799,8 @@ class DataConverter:
     def batch_convert_clusters(
         conversation_id: str,
         cluster_layers: List[np.ndarray],
-        document_map: np.ndarray
+        document_map: np.ndarray,
+        job_id: str = None
     ) -> List[CommentCluster]:
         """
         Convert batch of clusters from NumPy arrays to model objects.
@@ -799,7 +858,8 @@ class DataConverter:
                 comment_id=comment_id,
                 cluster_layers=cluster_layers,
                 distances=distances_map.get(comment_id),
-                confidences=confidence_map.get(comment_id)
+                confidences=confidence_map.get(comment_id),
+                job_id=job_id
             )
             
             clusters.append(cluster)
@@ -813,7 +873,8 @@ class DataConverter:
         document_map: np.ndarray,
         topic_names: Dict[str, Dict[str, str]] = None,
         characteristics: Dict[str, Dict[str, Any]] = None,
-        comments: List[Dict[str, Any]] = None
+        comments: List[Dict[str, Any]] = None,
+        job_id: str = None
     ) -> List[ClusterTopic]:
         """
         Convert batch of topics from raw data to model objects.
@@ -964,7 +1025,8 @@ class DataConverter:
                     top_words=top_words,
                     top_tfidf_scores=top_tfidf_scores,
                     parent_cluster=parent_cluster,
-                    child_clusters=child_clusters
+                    child_clusters=child_clusters,
+                    job_id=job_id
                 )
                 
                 topics.append(topic)

@@ -164,7 +164,7 @@ def load_comment_texts(conversation_id, dynamo_storage=None, output_base_dir="po
         # Clean up connection
         postgres_client.shutdown()
 
-def load_layer_data(conversation_id, layer_id, dynamo_storage=None, output_base_dir="polis_data"):
+def load_layer_data(conversation_id, job_id, layer_id, dynamo_storage=None, output_base_dir="polis_data"):
     """
     Load cluster data for a specific layer.
     
@@ -197,7 +197,7 @@ def load_layer_data(conversation_id, layer_id, dynamo_storage=None, output_base_
     # Load cluster assignments from DynamoDB using CommentClusters table
     try:
         # Get conversation metadata to make sure the layer exists
-        meta = dynamo_storage.get_conversation_meta(conversation_id)
+        meta = dynamo_storage.get_conversation_meta(job_id, conversation_id)
         if not meta or 'cluster_layers' not in meta:
             logger.error(f"No metadata or cluster_layers found for conversation {conversation_id}")
             return None
@@ -217,17 +217,17 @@ def load_layer_data(conversation_id, layer_id, dynamo_storage=None, output_base_
         # Query CommentClusters to get cluster assignments
         logger.info(f"Loading clusters for layer {layer_id} from DynamoDB...")
         
-        # Get all comment clusters for this conversation
+        # Get all comment clusters for this job
         table = dynamo_storage.dynamodb.Table(dynamo_storage.table_names['comment_clusters'])
         response = table.query(
-            KeyConditionExpression=Key('conversation_id').eq(conversation_id)
+            KeyConditionExpression=Key('job_id').eq(job_id)
         )
         clusters = response.get('Items', [])
         
         # Handle pagination if needed
         while 'LastEvaluatedKey' in response:
             response = table.query(
-                KeyConditionExpression=Key('conversation_id').eq(conversation_id),
+                KeyConditionExpression=Key('job_id').eq(job_id),
                 ExclusiveStartKey=response['LastEvaluatedKey']
             )
             clusters.extend(response.get('Items', []))
@@ -251,7 +251,7 @@ def load_layer_data(conversation_id, layer_id, dynamo_storage=None, output_base_
     try:
         logger.info(f"Loading cluster characteristics for layer {layer_id} from DynamoDB...")
         characteristics = dynamo_storage.get_cluster_characteristics_by_layer(
-            conversation_id, layer_id
+            job_id, layer_id, conversation_id
         )
         
         # Convert to dictionary
@@ -503,7 +503,7 @@ def generate_topic_names(layer_data, conversation_name=None, model_name=None, pr
     logger.info(f"Generated {len(cluster_topic_names)} topic names")
     return cluster_topic_names
 
-def save_topic_names(conversation_id, layer_id, topic_names, model_name, dynamo_storage=None, output_base_dir="polis_data"):
+def save_topic_names(conversation_id, job_id, layer_id, topic_names, model_name, dynamo_storage=None, output_base_dir="polis_data"):
     """
     Save generated topic names to DynamoDB.
     
@@ -554,8 +554,9 @@ def save_topic_names(conversation_id, layer_id, topic_names, model_name, dynamo_
                 prefixed_topic_name = f"{layer_id}_{cluster_id}: {topic_name}" if topic_name.strip() else f"{layer_id}_{cluster_id}:"
             
             model = {
-                'conversation_id': conversation_id,
+                'job_id': job_id,
                 'topic_key': topic_key,
+                'conversation_id': conversation_id,
                 'layer_id': layer_id,
                 'cluster_id': int(cluster_id),
                 'topic_name': prefixed_topic_name,
@@ -652,7 +653,7 @@ def update_visualization_with_llm_names(conversation_id, layer_id, topic_names, 
         logger.error(f"Error creating visualization: {e}")
         return None
 
-def update_conversation_with_ollama(conversation_id, layer_id=None, model_name=None, output_base_dir="polis_data", dynamo_endpoint=None, start_cluster=None, end_cluster=None):
+def update_conversation_with_ollama(conversation_id, job_id, layer_id=None, model_name=None, output_base_dir="polis_data", dynamo_endpoint=None, start_cluster=None, end_cluster=None):
     """
     Update a conversation with Ollama-generated topic names.
     
@@ -689,7 +690,7 @@ def update_conversation_with_ollama(conversation_id, layer_id=None, model_name=N
     # Get conversation metadata (for name)
     conversation_name = None
     try:
-        meta = dynamo_storage.get_conversation_meta(conversation_id)
+        meta = dynamo_storage.get_conversation_meta(job_id, conversation_id)
         if meta:
             conversation_name = meta.get('conversation_name') or meta.get('metadata', {}).get('conversation_name')
             if not conversation_name:
@@ -703,14 +704,14 @@ def update_conversation_with_ollama(conversation_id, layer_id=None, model_name=N
     # If layer_id is specified, process just that layer
     if layer_id is not None:
         return update_layer_with_ollama(
-            conversation_id, layer_id, conversation_name, 
+            conversation_id, job_id, layer_id, conversation_name, 
             model_name, output_base_dir, dynamo_storage,
             start_cluster, end_cluster
         )
     
     # Otherwise, try to get all available layers
     try:
-        meta = dynamo_storage.get_conversation_meta(conversation_id)
+        meta = dynamo_storage.get_conversation_meta(job_id, conversation_id)
         if meta and 'cluster_layers' in meta:
             layers = meta['cluster_layers']
             layer_ids = [layer['layer_id'] for layer in layers]
@@ -721,7 +722,7 @@ def update_conversation_with_ollama(conversation_id, layer_id=None, model_name=N
             results = []
             for layer_id in layer_ids:
                 result = update_layer_with_ollama(
-                    conversation_id, layer_id, conversation_name, 
+                    conversation_id, job_id, layer_id, conversation_name, 
                     model_name, output_base_dir, dynamo_storage,
                     start_cluster, end_cluster
                 )
@@ -735,7 +736,7 @@ def update_conversation_with_ollama(conversation_id, layer_id=None, model_name=N
             results = []
             for layer_id in range(3):
                 result = update_layer_with_ollama(
-                    conversation_id, layer_id, conversation_name, 
+                    conversation_id, job_id, layer_id, conversation_name, 
                     model_name, output_base_dir, dynamo_storage,
                     start_cluster, end_cluster
                 )
@@ -747,7 +748,7 @@ def update_conversation_with_ollama(conversation_id, layer_id=None, model_name=N
         logger.error(f"Error processing conversation layers: {e}")
         return False
 
-def update_layer_with_ollama(conversation_id, layer_id, conversation_name, model_name, output_base_dir, dynamo_storage, start_cluster=None, end_cluster=None):
+def update_layer_with_ollama(conversation_id, job_id, layer_id, conversation_name, model_name, output_base_dir, dynamo_storage, start_cluster=None, end_cluster=None):
     """
     Update a specific layer with Ollama-generated topic names.
     
@@ -768,7 +769,7 @@ def update_layer_with_ollama(conversation_id, layer_id, conversation_name, model
     
     # Load layer data
     layer_data = load_layer_data(
-        conversation_id, layer_id, dynamo_storage, output_base_dir
+        conversation_id, job_id, layer_id, dynamo_storage, output_base_dir
     )
     
     if not layer_data:
@@ -799,7 +800,7 @@ def update_layer_with_ollama(conversation_id, layer_id, conversation_name, model
     
     # Save topic names to DynamoDB only
     success = save_topic_names(
-        conversation_id, layer_id, topic_names, model_name, 
+        conversation_id, job_id, layer_id, topic_names, model_name, 
         dynamo_storage, output_base_dir
     )
     
@@ -810,6 +811,8 @@ def main():
     parser = argparse.ArgumentParser(description='Update cluster topics with Ollama-generated names')
     parser.add_argument('--conversation_id', type=str, required=True,
                       help='Conversation ID to process')
+    parser.add_argument('--job_id', type=str, required=True,
+                      help='Job ID - used as the primary key for DynamoDB queries')
     parser.add_argument('--layer', type=int, required=False, default=None,
                       help='Specific layer ID to update (default: all layers)')
     parser.add_argument('--model', type=str, default=None,
@@ -829,6 +832,7 @@ def main():
     
     success = update_conversation_with_ollama(
         args.conversation_id,
+        args.job_id,
         layer_id=args.layer,
         model_name=args.model,
         output_base_dir=args.output_dir,

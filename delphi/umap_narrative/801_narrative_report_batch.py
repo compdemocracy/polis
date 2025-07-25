@@ -371,47 +371,49 @@ class BatchReportGenerator:
         """
         Load cluster assignments for comments from DynamoDB using an efficient Query.
         Returns a nested structure: {comment_id: {layer_id: cluster_id, ...}}
-        """
+        """        
+        # Use self.job_id as the primary key if it's available
         try:
             clusters_table = self.dynamodb.Table('Delphi_CommentHierarchicalClusterAssignments')
             cluster_map = {}
             
-            logger.info(f"Querying for cluster assignments for conversation_id: {conversation_id}")
-            last_evaluated_key = None
-            available_layers = set()
-            
-            while True:
-                query_kwargs = {
-                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('conversation_id').eq(str(conversation_id))
-                }
-                if last_evaluated_key:
-                    query_kwargs['ExclusiveStartKey'] = last_evaluated_key
+            if self.job_id:
+                logger.info(f"Querying for cluster assignments for job_id: {self.job_id}")
+                last_evaluated_key = None
+                available_layers = set()
+                
+                while True:
+                    query_kwargs = {
+                        'KeyConditionExpression': boto3.dynamodb.conditions.Key('job_id').eq(str(self.job_id))
+                    }
+                    if last_evaluated_key:
+                        query_kwargs['ExclusiveStartKey'] = last_evaluated_key
 
-                response = clusters_table.query(**query_kwargs)
+                    response = clusters_table.query(**query_kwargs)
                 
-                for item in response.get('Items', []):
-                    comment_id = item.get('comment_id')
-                    if comment_id is not None:
-                        comment_id_str = str(comment_id)
-                        if comment_id_str not in cluster_map:
-                            cluster_map[comment_id_str] = {}
-                        
-                        # Extract all layer cluster assignments
-                        for key, value in item.items():
-                            if key.startswith('layer') and key.endswith('_cluster_id') and value is not None:
-                                # Extract layer number from key like 'layer0_cluster_id'
-                                layer_num_str = key.replace('layer', '').replace('_cluster_id', '')
-                                try:
-                                    layer_num = int(layer_num_str)
-                                    cluster_map[comment_id_str][layer_num] = value
-                                    available_layers.add(layer_num)
-                                except ValueError:
-                                    # Skip invalid layer keys
-                                    continue
-                
-                last_evaluated_key = response.get('LastEvaluatedKey')
-                if not last_evaluated_key:
-                    break
+                    for item in response.get('Items', []):
+                        comment_id = item.get('comment_id')
+                        if comment_id is not None:
+                            comment_id_str = str(comment_id)
+                            if comment_id_str not in cluster_map:
+                                cluster_map[comment_id_str] = {}
+                            
+                            # Extract all layer cluster assignments
+                            for key, value in item.items():
+                                if key.startswith('layer') and key.endswith('_cluster_id') and value is not None:
+                                    # Extract layer number from key like 'layer0_cluster_id'
+                                    layer_num_str = key.replace('layer', '').replace('_cluster_id', '')
+                                    try:
+                                        layer_num = int(layer_num_str)
+                                        cluster_map[comment_id_str][layer_num] = value
+                                        available_layers.add(layer_num)
+                                    except ValueError:
+                                        # Skip invalid layer keys
+                                        continue
+                    
+                    last_evaluated_key = response.get('LastEvaluatedKey')
+                    if not last_evaluated_key:
+                        break
 
             logger.info(f"Loaded {len(cluster_map)} comment cluster assignments across {len(available_layers)} layers: {sorted(available_layers)}")
             return cluster_map
@@ -432,7 +434,7 @@ class BatchReportGenerator:
             last_key = None
             while True:
                 query_kwargs = {
-                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('conversation_id').eq(self.conversation_id)
+                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('job_id').eq(str(self.job_id))
                 }
                 if last_key:
                     query_kwargs['ExclusiveStartKey'] = last_key
@@ -450,7 +452,7 @@ class BatchReportGenerator:
             last_key = None
             while True:
                 query_kwargs = {
-                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('conversation_id').eq(self.conversation_id)
+                    'KeyConditionExpression': boto3.dynamodb.conditions.Key('job_id').eq(str(self.job_id))
                 }
                 if last_key:
                     query_kwargs['ExclusiveStartKey'] = last_key
