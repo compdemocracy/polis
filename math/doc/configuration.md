@@ -25,3 +25,24 @@ You'll also need to pass database credentials. If using docker compose, this wil
   **`DATABASE_URL`**: url for the database:
 
   `postgres://<username>:<password>@<url>:<port>/<database-id>`
+
+## Database Connection Pooling
+
+The math service now uses HikariCP for enhanced connection pooling, which significantly improves performance under concurrent workloads (such as during testing).
+
+* **`DATABASE_POOL_SIZE`**: Maximum number of connections in the pool (default: 10)
+  * For development: 5-10 connections
+  * For testing: 8-15 connections  
+  * For production: 10-20 connections (adjust based on load)
+
+The connection pool automatically:
+
+* Maintains a minimum number of idle connections (25% of max pool size)
+* Validates connections before use with `SELECT 1`
+* Detects and prevents connection leaks
+* Optimizes prepared statement caching
+* Handles connection timeouts and retries gracefully
+
+### Connection Pool Monitoring
+
+The service logs connection pool configuration at startup and provides health check functionality. Connection failures are automatically retried up to 3 times with exponential backoff.

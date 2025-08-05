@@ -63,6 +63,8 @@ services:
       - MATH_ENV=${MATH_ENV:-prod}
       - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
       - WEBSERVER_PASS=${WEBSERVER_PASS}
+      # Database connection pool configuration for math service
+      - DATABASE_POOL_SIZE=${MATH_DATABASE_POOL_SIZE:-10}
     networks:
       - "polis-net"
     restart: unless-stopped

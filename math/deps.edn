@@ -43,6 +43,8 @@
 
         org.postgresql/postgresql {:mvn/version "42.5.2"}
         korma/korma {:mvn/version "0.4.3"}
+        ;; Enhanced connection pooling
+        com.zaxxer/HikariCP {:mvn/version "5.0.1"}
         clj-time/clj-time {:mvn/version "0.15.2"}
         ;clj-excel {:mvn/version "0.0.1"}
         semantic-csv/semantic-csv {:mvn/version "0.2.0"}
