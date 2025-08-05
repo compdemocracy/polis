@@ -1,7 +1,7 @@
 import _ from "underscore";
 import LruCache from "lru-cache";
 
-import { CommentType, UserInfo } from "./d";
+import { GetCommentsParams, UserInfo } from "./d";
 import { generateToken } from "./auth";
 import { getBidsForPids } from "./routes/math";
 import { getConversationHasMetadata } from "./routes/metadata";
@@ -489,7 +489,7 @@ function getNextComment(
     })}`
   );
   return getNextPrioritizedComment(zid, pid, withoutTids, include_social).then(
-    (c: CommentType) => {
+    (c: GetCommentsParams) => {
       if (lang && c) {
         const firstTwoCharsOfLang = lang.substr(0, 2);
         return getCommentTranslations(zid, c.tid).then((translations: any) => {
@@ -594,7 +594,7 @@ function getNextPrioritizedComment(
   pid: number,
   withoutTids?: string | any[],
   include_social?: any
-): Promise<CommentType | null> {
+): Promise<GetCommentsParams | null> {
   logger.debug(
     `getNextPrioritizedComment ${JSON.stringify({
       zid,
@@ -603,7 +603,7 @@ function getNextPrioritizedComment(
       include_social,
     })}`
   );
-  const params: Partial<CommentType> = {
+  const params: Partial<GetCommentsParams> = {
     zid: zid,
     not_voted_by_pid: pid,
     include_social: include_social,
@@ -613,7 +613,7 @@ function getNextPrioritizedComment(
   }
   // What should we set timestamp to below in getPca? Is 0 ok? What triggers updates?
   return Promise.all([
-    getComments(params as CommentType),
+    getComments(params as GetCommentsParams),
     getPca(zid, 0),
     getNumberOfCommentsRemaining(zid, pid),
   ]).then((results: any[]) => {

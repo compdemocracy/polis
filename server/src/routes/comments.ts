@@ -4,7 +4,7 @@ import { parse } from "csv-parse/sync";
 import badwords from "badwords/object";
 
 import { addParticipant } from "../participant";
-import { CommentOptions, CommentType } from "../d";
+import { CommentOptions, GetCommentsParams } from "../d";
 import { createAnonUser, issueAnonymousJWT, issueXidJWT } from "../auth";
 import { checkLegacyCookieAndIssueJWT } from "../auth/legacyCookies";
 import { detectLanguage, getComment, getComments } from "../comment";
@@ -180,7 +180,7 @@ function handle_GET_comments(
   res: any
 ): void {
   // The function is designed to work with partial parameters, where most fields are optional
-  getComments(req.p as CommentType)
+  getComments(req.p as GetCommentsParams)
     .then(function (comments: any[]) {
       if (req.p.rid) {
         return pg
@@ -1113,7 +1113,7 @@ function handle_GET_nextComment(
     req.p.lang
   )
     .then(
-      function (c: CommentType | null) {
+      function (c: GetCommentsParams | null) {
         if (req.timedout) {
           return;
         }

@@ -3,14 +3,13 @@ import _ from "underscore";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { Translate } = require("@google-cloud/translate").v2;
 
+import { GetCommentsParams, ConversationInfo } from "./d";
+import { getConversationInfo } from "./conversation";
+import { MPromise } from "./utils/metered";
+import Config from "./config";
 import pg from "./db/pg-query";
 import SQL from "./db/sql";
-import { MPromise } from "./utils/metered";
 import Utils from "./utils/common";
-
-import Config from "./config";
-import { getConversationInfo } from "./conversation";
-import { CommentType, ConversationInfo } from "./d";
 
 type Row = {
   tid: number;
@@ -52,7 +51,7 @@ function getComment(zid: number, tid: number): Promise<Row | null> {
     });
 }
 
-function getComments(o: CommentType): Promise<Row[]> {
+function getComments(o: GetCommentsParams): Promise<Row[]> {
   const commentListPromise = o.moderation
     ? _getCommentsForModerationList(o as any)
     : _getCommentsList(o as any);
@@ -213,9 +212,6 @@ function _getCommentsList(o: {
         let q = SQL.sql_comments
           .select(SQL.sql_comments.star())
           .where(SQL.sql_comments.zid.equals(o.zid));
-        if (!_.isUndefined(o.pid)) {
-          q = q.and(SQL.sql_comments.pid.equals(o.pid));
-        }
         if (!_.isUndefined(o.tids)) {
           q = q.and(SQL.sql_comments.tid.in(o.tids));
         }

@@ -70,7 +70,7 @@ export type CommentOptions = {
 
 type ModerationState = -1 | 0 | 1;
 
-export type CommentType = {
+export type GetCommentsParams = {
   zid: number;
   not_voted_by_pid?: number;
   include_social?: any;
