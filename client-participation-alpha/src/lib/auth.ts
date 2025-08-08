@@ -96,13 +96,10 @@ function _getOidcTokenFromStorage(storage: Storage) {
           const parsed = JSON.parse(value);
           // Check for expiry and access_token
           if (
-            parsed &&
-            parsed.body &&
-            parsed.body.access_token &&
-            parsed.expiresAt &&
-            parsed.expiresAt > Math.floor(Date.now() / 1000)
+            parsed?.access_token &&
+            parsed?.expires_at > Math.floor(Date.now() / 1000)
           ) {
-            return parsed.body.access_token;
+            return parsed.access_token;
           }
         }
       } catch (e) {

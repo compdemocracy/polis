@@ -134,7 +134,9 @@ const TopicAgenda = ({ conversation, conversation_id }) => {
                 setError("Failed to connect to the topicMod endpoint");
                 setIsLoading(false);
               });
-            }
+          } else {
+            setError("Failed to retrieve topic data");
+          }
         }
       } catch (error) {
         setError("Failed to retrieve topic data");
@@ -246,7 +248,7 @@ const TopicAgenda = ({ conversation, conversation_id }) => {
 
   console.log(`isLoading: ${isLoading}, err: ${err}, loadWidget: ${loadWidget}`)
 
-  if (isLoading) {
+  if (isLoading || err) {
     return null;
   }
 
