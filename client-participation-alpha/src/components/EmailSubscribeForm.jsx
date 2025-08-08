@@ -1,27 +1,12 @@
+import PolisNet from '../lib/net';
 import React, { useState } from 'react';
 
 const subscribeAPI = async (email, conversation_id) => {
-  const response = await fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/notifications`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      type: 1,
-      email: email,
-      conversation_id: conversation_id,
-    }),
-    credentials: 'include',
+  return await PolisNet.polisPost('/notifications', {
+    type: 1,
+    email,
+    conversation_id,
   });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    const error = new Error(errorText || 'Subscription failed');
-    error.status = response.status;
-    throw error;
-  }
-
-  return await response.json();
 };
 
 export default function EmailSubscribeForm({ s, conversation_id }) {

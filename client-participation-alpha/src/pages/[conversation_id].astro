@@ -5,15 +5,28 @@ import Survey from '../components/Survey.jsx';
 import SurveyForm from '../components/SurveyForm.jsx'; 
 import TopicAgenda from '../components/topicAgenda/TopicAgenda.jsx';
 import { getTranslations } from '../strings/strings.js';
+import PolisNet from '../lib/net';
 
 const { conversation_id } = Astro.params;
+
+// Validate conversation_id - reject common invalid requests
+if (!conversation_id || 
+    conversation_id === 'favicon.ico' || 
+    conversation_id === 'robots.txt' ||
+    conversation_id === 'sitemap.xml' ||
+    conversation_id.includes('.') || // Reject any ID with file extensions
+    conversation_id.length < 3) { // Reject very short IDs
+  return Astro.redirect('/404');
+}
+
 let initialData;
 let fetchError = null;
 
 try {
-  const apiParams = new URLSearchParams({
-    conversation_id: conversation_id as string,
-  });
+  const apiParams = new URLSearchParams();
+  if (conversation_id) {
+    apiParams.append('conversation_id', conversation_id);
+  }
 
   const xid = Astro.url.searchParams.get('xid');
   const x_name = Astro.url.searchParams.get('x_name');
@@ -31,38 +44,27 @@ try {
   }
 
 
-  const apiUrl = `${import.meta.env.INTERNAL_SERVICE_URL}/participationInit?conversation_id=${conversation_id}`;
-  
-  const response = await fetch(apiUrl);
-  if (!response.ok) {
-    throw new Error(`API request failed with status: ${response.status}`);
-  }
-  initialData = await response.json();
-  if (initialData?.auth?.token) {
-    // Store the token for later use
-    try {
-      const token = initialData.auth.token;
-      const parts = token.split('.');
-      if (parts.length === 3) {
-        const payload = JSON.parse(atob(parts[1]));
-        if (payload.conversation_id) {
-          const tokenKey = "participant_token_" + payload.conversation_id;
-            if (window.localStorage) {
-            window.localStorage.setItem(tokenKey, token);
-          } else if (window.sessionStorage) {
-            window.sessionStorage.setItem(tokenKey, token);
-          }
-        } else {
-          console.warn("[Index] No conversation_id in JWT payload, not storing token.");
-        }
-      }
-    } catch (e) {
-      console.error("[Index] Failed to store JWT token:", e);
-    }
-  }
-} catch (error) {
+  initialData = await PolisNet.polisGet('/participationInit', { conversation_id });
+  // Note: JWT token handling will be done client-side since this is SSR
+  // The handleJwtFromResponse function will be called when the page hydrates
+} catch (error: unknown) {
   console.error("Failed to fetch conversation data:", error);
-  fetchError = "Could not load this conversation. Please check the ID and try again.";
+  
+  // Type-safe error handling
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  const errorCause = error instanceof Error ? error.cause : undefined;
+  const errorCode = errorCause && typeof errorCause === 'object' && 'code' in errorCause 
+    ? String(errorCause.code) 
+    : undefined;
+  
+  console.error("[DEBUG] Error details:", {
+    message: errorMessage,
+    cause: errorCause,
+    code: errorCode,
+    stack: error instanceof Error ? error.stack : undefined
+  });
+
+  fetchError = `Could not load this conversation. Error: ${errorMessage}. Please check the ID and try again.`;
 }
 
 const s = await getTranslations();
@@ -86,6 +88,16 @@ if (initialData) {
 const hideHeader = Astro.url.searchParams.get('hide_header');
 ---
 <Layout title={surveyDetails?.title ?? 'Loading Conversation...'}>
+  {/* Handle JWT token from initial data on client side */}
+  <script define:vars={{ initialData }}>
+    if (initialData && initialData.auth && initialData.auth.token) {
+      // Import and use the centralized JWT handler
+      import('../lib/auth').then(({ setJwtToken }) => {
+        setJwtToken(initialData.auth.token);
+      });
+    }
+  </script>
+  
   <div class="container">
     {hideHeader ? null : <Header />}
 

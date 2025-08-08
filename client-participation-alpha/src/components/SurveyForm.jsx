@@ -1,56 +1,25 @@
 import React, { useState } from 'react';
 import { getConversationToken } from '../lib/auth';
+import PolisNet from '../lib/net';
 
 const submitPerspectiveAPI = async (text, conversation_id) => {
   const decodedToken = getConversationToken(conversation_id);
   const pid = decodedToken?.pid;
 
   try {
-    const response = await fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/comments`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        txt: text.replace(/\n/g, " "),
-        conversation_id,
-        pid,
-        vote: -1,
-      }),
-      credentials: 'include',
+    const resp = await PolisNet.polisPost('/comments', {
+      txt: text.replace(/\n/g, " "),
+      conversation_id,
+      pid,
+      vote: -1,
     });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Comment submission failed with status ${response.status}:`, errorText);
-    }
-
-    const resp = await response.json();
-
-    if (resp?.auth?.token) {
-      // Store the token for later use
-      try {
-        const token = resp.auth.token;
-        const parts = token.split('.');
-        if (parts.length === 3) {
-          const payload = JSON.parse(atob(parts[1]));
-          if (payload.conversation_id) {
-            const tokenKey = "participant_token_" + payload.conversation_id;
-              if (window.localStorage) {
-              window.localStorage.setItem(tokenKey, token);
-            } else if (window.sessionStorage) {
-              window.sessionStorage.setItem(tokenKey, token);
-            }
-          } else {
-            console.warn("[Index] No conversation_id in JWT payload, not storing token.");
-          }
-        }
-      } catch (e) {
-        console.error("[Index] Failed to store JWT token:", e);
-      }
-    }
+    
+    // The net module automatically handles JWT extraction and storage
+    return resp;
   } catch (error) {
-    console.error("Network error during comment submission:", error);
+    console.error("Comment submission failed:", error);
+    // Re-throw for caller to handle if needed
+    throw error;
   }
 };
 

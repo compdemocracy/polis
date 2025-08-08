@@ -1,3 +1,4 @@
+import PolisNet from '../../../lib/net';
 import { useState, useEffect, useCallback } from "react";
 
 export const useTopicData = (reportId, load) => {
@@ -110,15 +111,15 @@ export const useTopicData = (reportId, load) => {
     return groups;
   };
 
-  const fetchUMAPData = useCallback(async (conversation) => {
+    const fetchUMAPData = useCallback(async (conversation) => {
     try {
       const conversationId = conversation?.conversation_id || reportId;
       console.log("Fetching UMAP data for spatial filtering...");
 
-      const response = await fetch(
-        `${import.meta.env.PUBLIC_SERVICE_URL}/topicMod/proximity?conversation_id=${conversationId}&layer_id=all`
+      const data = await PolisNet.polisGet(
+        '/topicMod/proximity',
+        { conversation_id: conversationId, layer_id: 'all' }
       );
-      const data = await response.json();
 
       if (data.status === "success" && data.proximity_data) {
         console.log(`Loaded ${data.proximity_data.length} UMAP points for spatial filtering`);
@@ -140,8 +141,7 @@ export const useTopicData = (reportId, load) => {
     if (!reportId || load === false) return;
 
     setLoading(true);
-    fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/delphi?report_id=${reportId}`)
-      .then((response) => response.json())
+    PolisNet.polisGet('/delphi', { report_id: reportId })
       .then((response) => {
         console.log("TopicAgenda topics response:", response);
 

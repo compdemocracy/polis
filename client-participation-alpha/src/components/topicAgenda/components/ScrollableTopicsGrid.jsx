@@ -11,16 +11,15 @@ const ScrollableTopicsGrid = ({
 }) => {
   const [visibleLayers, setVisibleLayers] = useState(new Set());
 
-  if (!topicData || !hierarchyAnalysis) return null;
-
-  const runKeys = Object.keys(topicData.runs);
-  const firstRun = topicData.runs[runKeys[0]];
+  // Extract data with safe defaults to avoid early returns after hooks
+  const runKeys = topicData ? Object.keys(topicData.runs) : [];
+  const firstRun = runKeys.length > 0 ? topicData.runs[runKeys[0]] : null;
+  const topicsByLayer = firstRun?.topics_by_layer;
+  const layers = hierarchyAnalysis?.layers || [];
   
-  if (!firstRun.topics_by_layer) return null;
-
   // Get the two coarsest layers (highest numbers)
   // sortedLayers is ordered from highest to lowest (e.g., [7, 6, 5, 4, 3, 2, 1, 0])
-  const sortedLayers = [...hierarchyAnalysis.layers].sort((a, b) => b - a);
+  const sortedLayers = [...layers].sort((a, b) => b - a);
   const coarsestLayer = sortedLayers[0]; // e.g., 7
   const secondCoarsestLayer = sortedLayers[1]; // e.g., 6
 
@@ -64,7 +63,7 @@ const ScrollableTopicsGrid = ({
   // ================================================================
 
   useEffect(() => {
-    if (!firstRun || !firstRun.topics_by_layer) return;
+    if (!firstRun || !topicsByLayer) return;
     
     const newVisibleLayers = new Set();
     
@@ -75,7 +74,7 @@ const ScrollableTopicsGrid = ({
     Array.from(selections).forEach(topicKey => {
       // Find which layer this topic belongs to
       for (const layerId of sortedLayers) {
-        const topic = Object.values(firstRun.topics_by_layer[layerId] || {})
+        const topic = Object.values(topicsByLayer[layerId] || {})
           .find(t => t.topic_key === topicKey);
         if (topic) {
           if (!selectionsByLayer.has(layerId)) {
@@ -101,10 +100,10 @@ const ScrollableTopicsGrid = ({
     });
 
     setVisibleLayers(newVisibleLayers);
-  }, [selections, sortedLayers.join(','), !!firstRun]); // Stable dependencies
+  }, [selections, sortedLayers.join(','), !!firstRun, !!topicsByLayer]); // Stable dependencies
 
   const renderLayerTopics = (layerId, layerLabel, parentLayerId = null) => {
-    const allTopics = firstRun.topics_by_layer[layerId];
+    const allTopics = topicsByLayer?.[layerId];
     if (!allTopics) return null;
 
     let topicEntries;
@@ -115,7 +114,7 @@ const ScrollableTopicsGrid = ({
       
       // Get selections from the parent layer
       Array.from(selections).forEach(topicKey => {
-        const topic = Object.values(firstRun.topics_by_layer[parentLayerId] || {})
+        const topic = Object.values(topicsByLayer[parentLayerId] || {})
           .find(t => t.topic_key === topicKey);
         if (topic) {
           if (!selectionsByLayer.has(parentLayerId)) {
@@ -183,6 +182,11 @@ const ScrollableTopicsGrid = ({
     if (index === 2) return "SUPER SPECIFIC TOPICS";
     return null; // No labels for deeper layers
   };
+
+  // Return early after all hooks have been called
+  if (!topicData || !hierarchyAnalysis || !topicsByLayer) {
+    return null;
+  }
 
   return (
     <div className="topics-scroll-container">

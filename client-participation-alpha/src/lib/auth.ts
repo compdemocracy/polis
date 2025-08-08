@@ -1,10 +1,32 @@
+const oidcCacheKeyPrefix = import.meta.env.PUBLIC_OIDC_CACHE_KEY_PREFIX;
+const oidcCacheKeyIdTokenSuffix = import.meta.env.PUBLIC_OIDC_CACHE_KEY_ID_TOKEN_SUFFIX;
+
+/**
+ * Helper function to get conversation ID from current URL path
+ * Handles URLs like /alpha/2demo or just /2demo
+ */
+export function getConversationIdFromUrl(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  const pathname = window.location.pathname;
+  // Match patterns like /alpha/2demo or just /2demo
+  // Conversation IDs start with a digit followed by alphanumeric chars
+  const match = pathname.match(/^\/(?:alpha\/)?([0-9][0-9A-Za-z]+)/);
+  if (match) {
+    return match[1];
+  }
+  return null;
+}
+
 /**
  * Decodes a JWT from localStorage without verifying its signature.
  *
  * @param {string} key The localStorage key where the JWT is stored.
  * @returns {object|null} The decoded JWT payload as an object, or null if the token is not found or invalid.
  */
-export function getJwtPayload(key: string) {
+function _getJwtPayload(key: string) {
   if (typeof window === 'undefined' || !window.localStorage) {
     return null;
   }
@@ -30,17 +52,37 @@ export function getJwtPayload(key: string) {
 }
 
 export function getConversationToken(conversation_id: string) {
-  const token = getJwtPayload(`participant_token_${conversation_id}`);
-  if (!token) {
-    return getOidcToken();
+  if (typeof window === 'undefined') {
+    return null;
   }
-  return token;
+  const tokenKey = `participant_token_${conversation_id}`;
+  const rawToken = localStorage.getItem(tokenKey);
+  
+  if (!rawToken) {
+    // No conversation-specific token, try OIDC
+    const oidcToken = _getOidcToken();
+    if (oidcToken) {
+      return { token: oidcToken };
+    }
+    return null;
+  }
+  
+  // Decode the JWT to get the payload
+  const payload = _getJwtPayload(tokenKey);
+  if (!payload) {
+    return null;
+  }
+  
+  return {
+    token: rawToken,
+    ...payload
+  };
 }
 
-const oidcCacheKeyPrefix = import.meta.env.PUBLIC_OIDC_CACHE_KEY_PREFIX;
-const oidcCacheKeyIdTokenSuffix = import.meta.env.PUBLIC_OIDC_CACHE_KEY_ID_TOKEN_SUFFIX;
-
 export function setJwtToken(token: string) {
+  if (typeof window === 'undefined') {
+    return;
+  }
   try {
     if (!token) {
       console.warn("[PolisStorage] Attempted to set null/empty token");
@@ -58,8 +100,6 @@ export function setJwtToken(token: string) {
     // Store as participant_token_{conversationId}
     if (window.localStorage) {
       window.localStorage.setItem(tokenKey, token);
-    } else if (window.sessionStorage) {
-      window.sessionStorage.setItem(tokenKey, token);
     } else {
       console.warn("[PolisStorage] No storage available for JWT token");
     }
@@ -111,10 +151,24 @@ function _getOidcTokenFromStorage(storage: Storage) {
   return null;
 }
 
-export function getOidcToken() {
-  let token = _getOidcTokenFromStorage(window.localStorage);
-  if (!token) {
-    token = _getOidcTokenFromStorage(window.sessionStorage);
+function _getOidcToken() {
+  if (typeof window === 'undefined') {
+    return null;
   }
-  return token;
+
+  return _getOidcTokenFromStorage(window.localStorage);
+}
+
+/**
+ * Automatically extract and store JWT token from API response
+ * This should be called by the net module for all API responses
+ */
+export function handleJwtFromResponse(response: any): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  if (response && response.auth && response.auth.token) {
+    console.log("[Auth] JWT token found in response, storing...");
+    setJwtToken(response.auth.token);
+  }
 }

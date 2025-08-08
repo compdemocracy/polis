@@ -4,7 +4,7 @@ import { extractArchetypalComments } from "./utils/archetypeExtraction";
 import LayerHeader from "./components/LayerHeader";
 import ScrollableTopicsGrid from "./components/ScrollableTopicsGrid";
 import TopicAgendaStyles from "./components/TopicAgendaStyles";
-import { getOidcToken } from "../../lib/auth";
+import PolisNet from "../../lib/net";
 
 const TopicAgenda = ({ conversation, conversation_id }) => {
   const [loadWidget, setLoadWidget] = useState(false);
@@ -28,16 +28,13 @@ const TopicAgenda = ({ conversation, conversation_id }) => {
     const f = async () => {
       // Check if topic prioritization is available for this conversation
       try {
-        const topicPrioritizeResponse = await fetch(
-          `${import.meta.env.PUBLIC_SERVICE_URL}/participation/topicPrioritize?conversation_id=${conversation_id}`, 
-          {
-            method: 'GET',
-            credentials: 'include'
-          }
+        const topicPrioritizeResponse = await PolisNet.polisGet(
+          '/participation/topicPrioritize',
+          { conversation_id }
         );
         
-        if (topicPrioritizeResponse.ok) {
-          const topicPrioritizeData = await topicPrioritizeResponse.json();
+        if (topicPrioritizeResponse) {
+          const topicPrioritizeData = topicPrioritizeResponse;
           console.log('Topic prioritize check:', topicPrioritizeData);
           
           if (topicPrioritizeData.has_report && topicPrioritizeData.report_id) {
@@ -48,16 +45,13 @@ const TopicAgenda = ({ conversation, conversation_id }) => {
             
             // Also fetch comments for the TopicAgenda
             // Use the original zinvite for the comments API, not the numeric conversation_id
-            const commentsResponse = await fetch(
-              `${import.meta.env.PUBLIC_SERVICE_URL}/comments?conversation_id=${conversation_id}&moderation=true&include_voting_patterns=true`,
-              {
-                method: 'GET',
-                credentials: 'include'
-              }
+            const commentsResponse = await PolisNet.polisGet(
+              '/comments',
+              { conversation_id, moderation: 'true', include_voting_patterns: 'true' }
             );
             
-            if (commentsResponse.ok) {
-              const cd = await commentsResponse.json();
+            if (commentsResponse) {
+              const cd = commentsResponse;
               console.log(`Found ${cd.length} comments for topic prioritization`);
               setComments(cd);
             }
@@ -103,19 +97,15 @@ const TopicAgenda = ({ conversation, conversation_id }) => {
   useEffect(() => {
     const checkForData = async () => {
       try {
-        const topicPrioritizeResponse = await fetch(
-          `${import.meta.env.PUBLIC_SERVICE_URL}/participation/topicPrioritize?conversation_id=${conversation_id}`, 
-          {
-            method: 'GET',
-            credentials: 'include'
-          }
+        const topicPrioritizeResponse = await PolisNet.polisGet(
+          '/participation/topicPrioritize',
+          { conversation_id }
         );
         
-        if (topicPrioritizeResponse.ok) {
-          const topicPrioritizeData = await topicPrioritizeResponse.json();
+        if (topicPrioritizeResponse) {
+          const topicPrioritizeData = topicPrioritizeResponse;
           if (topicPrioritizeData.has_report && topicPrioritizeData.report_id) {
-            fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/delphi?report_id=${topicPrioritizeData.report_id}`)
-              .then((response) => response.json())
+            PolisNet.polisGet('/delphi', { report_id: topicPrioritizeData.report_id })
               .then((response) => {
                 if (response && response.status === "success") {
                   if (response.runs && Object.keys(response.runs).length > 0) {
@@ -149,22 +139,13 @@ const TopicAgenda = ({ conversation, conversation_id }) => {
 
   const loadPreviousSelections = async () => {
     try {
-      const token = getOidcToken();
-      const response = await fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/topicAgenda/selections?conversation_id=${conversation.conversation_id}`, {
-        method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      const result = await response.json();
-      
+      const result = await PolisNet.polisGet(
+        '/topicAgenda/selections',
+        { conversation_id: conversation.conversation_id }
+      );
       if (result.status === 'success' && result.data) {
-        // Convert stored selections back to topic keys
         const storedSelections = new Set();
-        result.data.archetypal_selections.forEach(selection => {
+        result.data.archetypal_selections.forEach((selection) => {
           storedSelections.add(selection.topic_key);
         });
         setSelections(storedSelections);
@@ -217,20 +198,14 @@ const TopicAgenda = ({ conversation, conversation_id }) => {
         }))
       }));
       
-      // Send to API
-      const response = await fetch(`${import.meta.env.PUBLIC_SERVICE_URL}/topicAgenda/selections`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      // Send to API (token storage handled centrally in PolisNet)
+      const result = await PolisNet.polisPost(
+        '/topicAgenda/selections',
+        {
           conversation_id: conversation.conversation_id,
-          selections: apiSelections
-        }),
-        credentials: 'include'
-      });
-      
-      const result = await response.json();
+          selections: apiSelections,
+        }
+      );
       
       if (result.status === 'success') {
         console.log('Topic agenda selections saved successfully:', result.data);
@@ -287,52 +262,55 @@ const TopicAgenda = ({ conversation, conversation_id }) => {
   }
 
 
+  // Render conditionally after all hooks are called
+  let content = null;
+
   if (error) {
-    return (
-      <div className="topic-agenda">
-        <div className="topic-agenda-widget">
-          <div className="error-message">
-            <h3>Error</h3>
-            <p>{error}</p>
+    content = (
+      <div className="topic-agenda-widget">
+        <div className="error-message">
+          <h3>Error</h3>
+          <p>{error}</p>
+        </div>
+      </div>
+    );
+  } else if (comments.length > 0 && Object.keys(reportData).length > 0) {
+    content = (
+      <div className="topic-agenda-widget">
+        <div className="current-layer">
+          <LayerHeader />
+          
+          <ScrollableTopicsGrid
+            topicData={topicData}
+            selections={selections}
+            onToggleSelection={toggleTopicSelection}
+            clusterGroups={clusterGroups}
+            hierarchyAnalysis={hierarchyAnalysis}
+          />
+          
+          <div className="done-button-container">
+            <button 
+              className="done-button"
+              onClick={handleDone}
+              disabled={selections.size === 0}
+            >
+              Done ({selections.size} selected)
+            </button>
           </div>
         </div>
-        <TopicAgendaStyles />
       </div>
     );
   }
 
-  if (comments.length > 0 && Object.keys(reportData).length > 0) {
-    return (
-      <div className="topic-agenda">
-        <div className="topic-agenda-widget">
-          <div className="current-layer">
-            <LayerHeader />
-            
-            <ScrollableTopicsGrid
-              topicData={topicData}
-              selections={selections}
-              onToggleSelection={toggleTopicSelection}
-              clusterGroups={clusterGroups}
-              hierarchyAnalysis={hierarchyAnalysis}
-            />
-            
-            <div className="done-button-container">
-              <button 
-                className="done-button"
-                onClick={handleDone}
-                disabled={selections.size === 0}
-              >
-                Done ({selections.size} selected)
-              </button>
-            </div>
-          </div>
-        </div>
-        <TopicAgendaStyles />
-      </div>
-    );
-  }
+  // Always return the same component structure
+  if (!content) return null;
 
-  return null;
+  return (
+    <div className="topic-agenda">
+      {content}
+      <TopicAgendaStyles />
+    </div>
+  );
 
 };
 

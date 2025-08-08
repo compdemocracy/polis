@@ -1,0 +1,47 @@
+---
+import Layout from './layouts/Layout.astro';
+import Header from '../components/Header.astro';
+import { getTranslations } from '../strings/strings.js';
+
+const s = await getTranslations();
+---
+
+<Layout title="Page Not Found">
+  <div class="container">
+    <Header />
+    
+    <div class="error-message">
+      <h1>404 - Page Not Found</h1>
+      <p>The page you're looking for doesn't exist.</p>
+    </div>
+
+    <div style="margin-top: 3rem;">
+      <div class="logo">p</div>
+      <div class="footer-links">
+        <a href="/privacy" target="_blank" rel="noopener noreferrer">{s.privacy}</a>
+        <a href="/tos" target="_blank" rel="noopener noreferrer">{s.TOS}</a>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<style>
+  .error-message {
+    text-align: center;
+    padding: 2rem 0;
+  }
+  
+  .error-message h1 {
+    color: #666;
+    margin-bottom: 1rem;
+  }
+  
+  .error-message a {
+    color: #007bff;
+    text-decoration: none;
+  }
+  
+  .error-message a:hover {
+    text-decoration: underline;
+  }
+</style> 
