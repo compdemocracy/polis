@@ -170,6 +170,7 @@ services:
     environment:
       - API_SERVER_PORT=${API_SERVER_PORT:-5000}
     depends_on:
+      - "client-participation-alpha"
       - "server"
     networks:
       - "polis-net"

@@ -60,9 +60,8 @@ export async function ensureJobQueueTableExists(): Promise<void> {
         KeySchema: [{ AttributeName: "job_id", KeyType: "HASH" }],
         AttributeDefinitions: [
           { AttributeName: "job_id", AttributeType: "S" },
-          { AttributeName: "status", AttributeType: "S" },
-          { AttributeName: "created_at", AttributeType: "S" },
           { AttributeName: "conversation_id", AttributeType: "S" },
+          { AttributeName: "created_at", AttributeType: "S" },
         ],
         BillingMode: "PAY_PER_REQUEST",
         GlobalSecondaryIndexes: [
