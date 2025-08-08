@@ -33,7 +33,7 @@ export default [
       ...cypressPlugin.configs.recommended.rules,
       ...mochaPlugin.configs.recommended.rules,
       'mocha/no-mocha-arrows': 'off',
-      'cypress/no-unnecessary-waiting': 'warn',
+      'cypress/no-unnecessary-waiting': 'off',
     },
   },
   prettierConfig,
