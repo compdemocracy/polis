@@ -591,7 +591,12 @@ const App = (props) => {
   };
 
   useEffect(() => {
-    const init = async () => {
+    const init = async () => {      
+      if (!report_id) {
+        console.error("No report_id found - API calls will not be made");
+        return;
+      }
+      
       await getData(token);
 
       // Call to the Delphi endpoint to get LLM-generated topic names

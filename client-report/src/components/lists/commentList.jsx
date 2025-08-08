@@ -6,34 +6,60 @@ import * as globals from "../globals";
 const BarChartCompact = ({ comment, voteCounts, nMembers, voteColors }) => {
   if (!comment) return null;
 
+  // Early validation for essential data
+  const safeNMembers = typeof nMembers === 'number' && nMembers > 0 ? nMembers : 0;
+  const hasValidVoteCounts = voteCounts && 
+    typeof voteCounts.A === 'number' && 
+    typeof voteCounts.D === 'number' && 
+    typeof voteCounts.S === 'number';
+
   let w = 100;
   let agrees = 0;
   let disagrees = 0;
   let sawTheComment = 0;
   let missingCounts = false;
 
-  if (typeof voteCounts != "undefined") {
-    agrees = voteCounts.A;
-    disagrees = voteCounts.D;
-    sawTheComment = voteCounts.S;
+  if (hasValidVoteCounts) {
+    agrees = Math.max(0, voteCounts.A || 0);
+    disagrees = Math.max(0, voteCounts.D || 0);
+    sawTheComment = Math.max(0, voteCounts.S || 0);
   } else {
     missingCounts = true;
   }
-  let passes = sawTheComment - (agrees + disagrees);
-  // let totalVotes = agrees + disagrees + passes;
 
-  const agree = (agrees / nMembers) * w;
-  const disagree = (disagrees / nMembers) * w;
-  const pass = (passes / nMembers) * w;
-  // const blank = nMembers - (sawTheComment / nMembers) * w;
+  // If we have missing counts or invalid data, show simplified view
+  if (missingCounts || safeNMembers === 0 || sawTheComment === 0) {
+    return (
+      <div>
+        <svg width={101} height={10} style={{ marginRight: 30 }}>
+          <g>
+            <rect x={0} width={w + 0.5} height={10} fill={"#f5f5f5"} stroke={"rgb(200,200,200)"} />
+          </g>
+        </svg>
+        <div>
+          <span style={{ fontSize: 12, marginRight: 4, color: "grey" }}>
+            {missingCounts ? "Missing vote counts" : "No votes yet"}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
-  const agreeSaw = (agrees / sawTheComment) * w;
-  const disagreeSaw = (disagrees / sawTheComment) * w;
-  const passSaw = (passes / sawTheComment) * w;
+  let passes = Math.max(0, sawTheComment - (agrees + disagrees));
 
-  const agreeString = (agreeSaw << 0) + "%";
-  const disagreeString = (disagreeSaw << 0) + "%";
-  const passString = (passSaw << 0) + "%";
+  // Safe division with fallbacks
+  const agree = safeNMembers > 0 ? (agrees / safeNMembers) * w : 0;
+  const disagree = safeNMembers > 0 ? (disagrees / safeNMembers) * w : 0;
+  const pass = safeNMembers > 0 ? (passes / safeNMembers) * w : 0;
+
+  const agreeSaw = sawTheComment > 0 ? (agrees / sawTheComment) * w : 0;
+  const disagreeSaw = sawTheComment > 0 ? (disagrees / sawTheComment) * w : 0;
+  const passSaw = sawTheComment > 0 ? (passes / sawTheComment) * w : 0;
+
+  // Ensure percentages are valid numbers
+  const agreeString = (isNaN(agreeSaw) ? 0 : Math.floor(agreeSaw)) + "%";
+  const disagreeString = (isNaN(disagreeSaw) ? 0 : Math.floor(disagreeSaw)) + "%";
+  const passString = (isNaN(passSaw) ? 0 : Math.floor(passSaw)) + "%";
 
   return (
     <div
@@ -51,9 +77,27 @@ const BarChartCompact = ({ comment, voteCounts, nMembers, voteColors }) => {
       <svg width={101} height={10} style={{ marginRight: 30 }}>
         <g>
           <rect x={0} width={w + 0.5} height={10} fill={"white"} stroke={"rgb(180,180,180)"} />
-          <rect x={0.5 + agree + disagree} width={pass} y={0.5} height={9} fill={voteColors.pass} />
-          <rect x={0.5} width={agree} y={0.5} height={9} fill={voteColors.agree} />
-          <rect x={0.5 + agree} width={disagree} y={0.5} height={9} fill={voteColors.disagree} />
+          <rect 
+            x={Math.max(0, 0.5 + (agree || 0) + (disagree || 0))} 
+            width={Math.max(0, pass || 0)} 
+            y={0.5} 
+            height={9} 
+            fill={voteColors.pass} 
+          />
+          <rect 
+            x={0.5} 
+            width={Math.max(0, agree || 0)} 
+            y={0.5} 
+            height={9} 
+            fill={voteColors.agree} 
+          />
+          <rect 
+            x={Math.max(0, 0.5 + (agree || 0))} 
+            width={Math.max(0, disagree || 0)} 
+            y={0.5} 
+            height={9} 
+            fill={voteColors.disagree} 
+          />
         </g>
       </svg>
       <div>
@@ -81,15 +125,24 @@ const CommentRow = ({ comment, groups, voteColors }) => {
     return null;
   }
 
+  const safeGroups = groups || {};
   let BarCharts = [];
   let totalMembers = 0;
 
   // groups
-  Object.entries(groups).forEach(([key, g]) => {
+  Object.entries(safeGroups).forEach(([key, g]) => {
     const i = parseInt(key, 10); // Parse the key to an integer
+    
+    // Add safety checks for group data
+    if (!g || typeof g["n-members"] !== 'number') {
+      return; // Skip this group if it's invalid
+    }
+    
     const nMembers = g["n-members"];
     totalMembers += nMembers;
-    const gVotes = g.votes[comment.tid];
+    
+    // Safely access votes data
+    const gVotes = g.votes && g.votes[comment.tid] ? g.votes[comment.tid] : undefined;
   
     BarCharts.push(
       <BarChartCompact
@@ -103,15 +156,16 @@ const CommentRow = ({ comment, groups, voteColors }) => {
     );
   });
 
+  // Add overall totals bar chart with safe data
   BarCharts.unshift(
     <BarChartCompact
       key={99}
       index={99}
       comment={comment}
       voteCounts={{
-        A: comment.agreed,
-        D: comment.disagreed,
-        S: comment.saw,
+        A: typeof comment.agreed === 'number' ? comment.agreed : 0,
+        D: typeof comment.disagreed === 'number' ? comment.disagreed : 0,
+        S: typeof comment.saw === 'number' ? comment.saw : 0,
       }}
       nMembers={totalMembers}
       voteColors={voteColors}
@@ -152,6 +206,12 @@ const CommentRow = ({ comment, groups, voteColors }) => {
 };
 
 const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors, style }) => {
+  // Add safety checks for required data
+  const safeComments = Array.isArray(comments) ? comments : [];
+  const safeMath = math || {};
+  const safePtptCount = typeof ptptCount === 'number' ? ptptCount : 0;
+  const safeTidsToRender = Array.isArray(tidsToRender) ? tidsToRender : [];
+  const safeGroupVotes = safeMath["group-votes"] || {};
 
   const getGroupLabels = () => {
     function makeLabel(key, label, numMembers) {
@@ -167,13 +227,13 @@ const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors, styl
             textTransform: "uppercase",
           }}
         >
-          {label}
+          {label || `Group ${key}`}
           <span
             style={{
               marginLeft: 5,
             }}
           >
-            {numMembers}
+            {typeof numMembers === 'number' ? numMembers : 0}
           </span>
         </span>
       );
@@ -181,18 +241,22 @@ const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors, styl
     let labels = [];
 
     // totals
-    labels.push(makeLabel(99, "Overall", ptptCount));
+    labels.push(makeLabel(99, "Overall", safePtptCount));
 
-    Object.entries(math["group-votes"]).forEach(([key, g]) => {
+    Object.entries(safeGroupVotes).forEach(([key, g]) => {
       const i = parseInt(key, 10);
-      labels.push(makeLabel(i, globals.groupLabels[i], g["n-members"]));
+      const groupLabel = globals.groupLabels && globals.groupLabels[i] ? globals.groupLabels[i] : `Group ${i}`;
+      const memberCount = g && typeof g["n-members"] === 'number' ? g["n-members"] : 0;
+      labels.push(makeLabel(i, groupLabel, memberCount));
     });
 
     return labels;
   }
 
-  const cs = comments.reduce((acc, comment) => {
-    acc[comment.tid] = comment;
+  const cs = safeComments.reduce((acc, comment) => {
+    if (comment && typeof comment.tid !== 'undefined') {
+      acc[comment.tid] = comment;
+    }
     return acc;
   }, {});
 
@@ -221,13 +285,17 @@ const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors, styl
 
         {getGroupLabels()}
       </div>
-      {tidsToRender.map((tid, i) => {
+      {safeTidsToRender.map((tid, i) => {
+        const comment = cs[tid];
+        if (!comment) {
+          return null; // Skip rendering if comment doesn't exist
+        }
         return (
           <CommentRow
             key={i}
             index={i}
-            groups={math["group-votes"]}
-            comment={cs[tid]}
+            groups={safeGroupVotes}
+            comment={comment}
             voteColors={voteColors}
           />
         );

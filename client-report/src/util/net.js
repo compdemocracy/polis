@@ -14,15 +14,15 @@ function polisAjax(api, data, type, token) {
     }
 
     let url = urlPrefix + api;
-
+    
     const options = {
         method: type,
         headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Cache-Control": "max-age=0",
+            "Content-Type": "application/json",
             ...(token && {"Authorization": `Bearer ${token}`})
         },
-        credentials: "include", // This sends cookies with the request
+        // For cross-origin requests, omit credentials to avoid CORS preflight issues
+        credentials: "omit",
     };
 
     if (type === "POST") {

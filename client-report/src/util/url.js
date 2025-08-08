@@ -24,19 +24,31 @@ const serviceUrl = process.env.SERVICE_URL;
 const hostname = self.location.hostname;
 const port = self.location.port;
 
-const getDomainPrefix = () => {
+const getDomainPrefix = () => {  
+  let prefix;
+  
   if (hostname === 'localhost') {
-    if (serviceUrl) return `${serviceUrl}/`;
-    if (port === '' || port === '80') return 'http://localhost/';
-    return 'http://localhost:5000/';
+    if (serviceUrl) {
+      prefix = serviceUrl;
+    } else if (port === '' || port === '80') {
+      prefix = 'http://localhost';
+    } else {
+      prefix = 'http://localhost:5000';
+    }
+  } else if (hostname.includes('pol.is')) {
+    prefix = `https://${hostname}`;
+  } else if (hostname.includes('polis.io')) {
+    prefix = `https://${hostname}`;
+  } else if (serviceUrl) {
+    prefix = serviceUrl;
+  } else {
+    prefix = self.origin;
   }
-
-  if (hostname.includes('pol.is')) return `https://${hostname}/`;
-  if (hostname.includes('polis.io')) return `https://${hostname}/`;
-
-  if (serviceUrl) return `${serviceUrl}/`;
-
-  return `${self.origin}/`;
+  
+  // Ensure we have exactly one trailing slash
+  prefix = prefix.replace(/\/+$/, '') + '/';
+  
+  return prefix;
 };
 
 const urlPrefix = getDomainPrefix();

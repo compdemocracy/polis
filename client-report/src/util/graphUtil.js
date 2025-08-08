@@ -4,75 +4,104 @@ import * as globals from "../components/globals";
 import createHull from "hull.js";
 
 const graphUtil = (comments, math, badTids) => {
+    // Add comprehensive type safety and default values
+    const safeComments = Array.isArray(comments) ? comments : [];
+    const safeMath = math || {};
+    const safeBadTids = badTids || {};
+    
+    // Check if we have the minimum required data
+    if (!safeMath.pca || !safeMath.pca['comment-projection'] || !Array.isArray(safeMath.tids)) {
+        console.warn('GraphUtil: Missing or invalid PCA data, returning empty results');
+        return {
+            xx: [],
+            yy: [],
+            commentsPoints: [],
+            xCenter: 0,
+            yCenter: 0,
+            baseClustersScaled: [],
+            commentScaleupFactorX: 1,
+            commentScaleupFactorY: 1,
+            hulls: []
+        };
+    }
 
     const allXs = [];
     const allYs = [];
 
-    const commentsByTid = comments.reduce((accumulator, comment) => {
-      accumulator[comment.tid] = comment;
+    const commentsByTid = safeComments.reduce((accumulator, comment) => {
+      if (comment && typeof comment.tid !== 'undefined') {
+        accumulator[comment.tid] = comment;
+      }
       return accumulator;
     }, {});
-    const indexToTid = math.tids;
+    
+    const indexToTid = safeMath.tids || [];
     const tidToIndex = [];
     for (let i = 0; i < indexToTid.length; i++) {
-      tidToIndex[indexToTid[i]] = i;
+      if (typeof indexToTid[i] !== 'undefined') {
+        tidToIndex[indexToTid[i]] = i;
+      }
     }
+    
     // comments
     const commentsPoints = [];
-    const projX = math.pca['comment-projection'][0];
-    const projY = math.pca['comment-projection'][1];
+    const projX = safeMath.pca['comment-projection'][0] || [];
+    const projY = safeMath.pca['comment-projection'][1] || [];
     // let rejectedCount = 0;
-    for (let i = 0; i < projX.length; i++) {
-      if (comments[i]) {
-        let tid = comments[i].tid;
+    for (let i = 0; i < Math.min(projX.length, projY.length, safeComments.length); i++) {
+      if (safeComments[i] && typeof safeComments[i].tid !== 'undefined') {
+        let tid = safeComments[i].tid;
         let index = tidToIndex[tid];
-        let x = projX[index];
-        let y = projY[index];
-        // if (i === 32) { // TODO_DEMO_HACK use force layout instead
-        //   x += 0.02;
-        //   y += 0.01;
-        // }
-        if (!badTids[tid]) {
-          if (commentsByTid[tid]) {
-            commentsPoints.push({
-              x: x,
-              y: y,
-              tid: tid,
-              txt: commentsByTid[tid].txt,
-            });
-          } else {
-            // rejectedCount += 1;
-            // console.log('skipping rejected', i, rejectedCount);
+        
+        // Ensure index is valid and projections exist
+        if (typeof index !== 'undefined' && 
+            typeof projX[index] === 'number' && 
+            typeof projY[index] === 'number') {
+          let x = projX[index];
+          let y = projY[index];
+          
+          if (!safeBadTids[tid]) {
+            if (commentsByTid[tid]) {
+              commentsPoints.push({
+                x: x,
+                y: y,
+                tid: tid,
+                txt: commentsByTid[tid].txt || '',
+              });
+            }
           }
-        } else {
-          // console.log('skipping bad', i);
         }
       }
     }
 
     const baseClusterIdToGid = (baseClusterId) => {
-      var clusters = math["group-clusters"];
+      var clusters = safeMath["group-clusters"] || [];
       for (let i = 0; i < clusters.length; i++) {
-        if (clusters[i].members.indexOf(baseClusterId) >= 0) {
+        if (clusters[i] && clusters[i].members && clusters[i].members.indexOf(baseClusterId) >= 0) {
           return clusters[i].id;
         }
       }
     }
 
     // participants
-    const clusterXs = math["base-clusters"].x;
-    const clusterYs = math["base-clusters"].y;
-    const bids = math["base-clusters"].id;
+    const baseClustersData = safeMath["base-clusters"] || {};
+    const clusterXs = baseClustersData.x || [];
+    const clusterYs = baseClustersData.y || [];
+    const bids = baseClustersData.id || [];
     let baseClusters = [];
-    for (let i = 0; i < clusterXs.length; i++) {
-      baseClusters.push({
-        x: clusterXs[i],
-        y: clusterYs[i],
-        id: bids[i],
-        gid: baseClusterIdToGid(bids[i]),
-      });
-      allXs.push(clusterXs[i]);
-      allYs.push(clusterYs[i]);
+    
+    const minLength = Math.min(clusterXs.length, clusterYs.length, bids.length);
+    for (let i = 0; i < minLength; i++) {
+      if (typeof clusterXs[i] === 'number' && typeof clusterYs[i] === 'number') {
+        baseClusters.push({
+          x: clusterXs[i],
+          y: clusterYs[i],
+          id: bids[i],
+          gid: baseClusterIdToGid(bids[i]),
+        });
+        allXs.push(clusterXs[i]);
+        allYs.push(clusterYs[i]);
+      }
     }
 
     let border = 100;
@@ -178,17 +207,30 @@ const graphUtil = (comments, math, badTids) => {
       // Destructure the group entry (key and value)
       const [groupName, groupPoints] = group;
     
-      // Create an array of coordinate pairs
-      const pairs = groupPoints.map((g) => [g.x, g.y]);
-    
-      // Calculate the convex hull
-      const hull = createHull(pairs, 400);
-    
-      // Push the result to hulls
-      hulls.push({
-        group: groupName,
-        hull,
-      });
+      // Only create hulls if we have enough points and valid data
+      if (Array.isArray(groupPoints) && groupPoints.length >= 3) {
+        try {
+          // Create an array of coordinate pairs, filtering out invalid coordinates
+          const pairs = groupPoints
+            .filter(g => g && typeof g.x === 'number' && typeof g.y === 'number' && 
+                        !isNaN(g.x) && !isNaN(g.y))
+            .map((g) => [g.x, g.y]);
+        
+          // Only create hull if we have enough valid points
+          if (pairs.length >= 3) {
+            const hull = createHull(pairs, 400);
+            
+            if (hull && hull.length > 0) {
+              hulls.push({
+                group: groupName,
+                hull,
+              });
+            }
+          }
+        } catch (error) {
+          console.warn(`Failed to create hull for group ${groupName}:`, error);
+        }
+      }
     }
 
     return {

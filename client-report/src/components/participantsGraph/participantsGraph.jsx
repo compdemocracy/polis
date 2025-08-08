@@ -24,25 +24,40 @@ const Contour = ({ contour }) => {
 };
 
 const Participants = ({ points, math }) => {
-  if (!points) {
+  if (!points || !Array.isArray(points)) {
     return null;
   }
+
+  // Safely access base-clusters count data
+  const baseClustersCount = math?.["base-clusters"]?.count || {};
 
   return (
     <g>
       {points.map((pt, i) => {
+        if (!pt || typeof pt.id === 'undefined') {
+          return null;
+        }
+        
+        // Use safe radius calculation with fallback
+        const count = baseClustersCount[pt.id] || 1;
+        const radius = Math.sqrt(Math.max(count, 1)) * 3;
+        
         return (
           <g key={i}>
             <circle
-              r={Math.sqrt(math["base-clusters"].count[pt.id]) * 3}
+              r={radius}
               fill={globals.groupColor(pt.gid)}
               fillOpacity=".3"
-              cx={pt.x}
-              cy={pt.y}
+              cx={pt.x || 0}
+              cy={pt.y || 0}
             />
-            <text fill={globals.groupColor(pt.gid)} fillOpacity=".8" x={pt.x - 5} y={pt.y + 5}>
-              {" "}
-              {globals.groupSymbols[pt.gid]}
+            <text 
+              fill={globals.groupColor(pt.gid)} 
+              fillOpacity=".8" 
+              x={(pt.x || 0) - 5} 
+              y={(pt.y || 0) + 5}
+            >
+              {globals.groupSymbols[pt.gid] || ""}
             </text>
           </g>
         );
