@@ -189,6 +189,8 @@ services:
     user: root
     labels:
       polis_tag: test
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 networks:
   polis-test:
