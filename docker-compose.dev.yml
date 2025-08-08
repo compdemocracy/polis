@@ -43,6 +43,22 @@ services:
     restart: no
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
+    # PostgreSQL configuration for development/testing
+    command: >
+      postgres 
+      -c max_connections=${POSTGRES_MAX_CONNECTIONS:-300}
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c wal_buffers=16MB
+      -c checkpoint_completion_target=0.9
+      -c checkpoint_timeout=10min
+      -c log_connections=on
+      -c log_disconnections=on
+      -c autovacuum=on
+      -c autovacuum_max_workers=3
+      -c autovacuum_naptime=30s
 
   file-server:
     build:
@@ -81,3 +97,20 @@ services:
       - AUTH_SIMULATOR_PORT=${AUTH_SIMULATOR_PORT:-3000}
     networks:
       - polis-net
+
+  dynamodb-admin:
+    image: aaronshaf/dynamodb-admin:latest
+    container_name: polis-dynamodb-admin
+    ports:
+      - "8001:8001"
+    environment:
+      - DYNAMO_ENDPOINT=${DYNAMODB_ENDPOINT}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+    networks:
+      - polis-net
+    depends_on:
+      - dynamodb
+    profiles:
+      - local-services

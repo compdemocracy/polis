@@ -156,68 +156,6 @@ module.exports = function (params) {
     return clusters;
   }
 
-  // TODO rename
-  function syncAllCommentsForCurrentStimulus() {
-    // more like sync?
-    var dfd = $.Deferred();
-    var params = {
-      lastServerToken: new Date(0).getTime(),
-      not_voted_by_pid: myPid,
-      conversation_id: conversation_id
-      //?
-    };
-
-    function fail() {
-      dfd.reject(0);
-    }
-    getComments(params).then(
-      function (comments) {
-        if (!comments) {
-          logger.log("no new comments for stimulus");
-          dfd.resolve(0);
-          return;
-        }
-        var IDs = _.map(comments, "tid");
-        var oldkeys = _.keys(commentsToVoteOn).map(function (tid) {
-          return parseInt(tid, 10);
-        });
-        var newIDs = _.difference(IDs, oldkeys);
-        comments.forEach(function (ev) {
-          var d = ev.created;
-          if (d > lastServerTokenForComments) {
-            lastServerTokenForComments = d;
-          }
-        });
-        var newComments = comments.filter(function (ev) {
-          return _.includes(newIDs, ev.tid);
-        });
-        for (var i = 0; i < newComments.length; i++) {
-          var tid = newComments[i].tid;
-          var alreadyVotedOn = !!votesByMe.findWhere({
-            tid: tid
-          });
-          if (!alreadyVotedOn) {
-            commentsToVoteOn[tid] = newComments[i];
-          }
-        }
-        var numComments = _.keys(commentsToVoteOn).length;
-        if (numComments) {
-          commentsAvailableCallbacks.fire();
-          dfd.resolve(numComments);
-        } else {
-          fail();
-        }
-        // }, fail);
-      },
-      function (err) {
-        logger.error("failed to fetch comments");
-        logger.dir(err);
-        fail();
-      }
-    );
-    return dfd.promise();
-  }
-
   function getNextComment(o) {
     var params = {
       not_voted_by_pid: myPid,
@@ -2137,7 +2075,6 @@ module.exports = function (params) {
     invite: invite,
     convSub: convSub,
     queryParticipantsByMetadata: queryParticipantsByMetadata,
-    syncAllCommentsForCurrentStimulus: syncAllCommentsForCurrentStimulus,
     addInitReadyListener: initReadyCallbacks.add,
     addAuthStatChangeListener: authStateChangeCallbacks.add,
     removePersonUpdateListener: personUpdateCallbacks.remove,

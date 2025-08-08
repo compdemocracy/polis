@@ -117,7 +117,7 @@ const ModerateCommentsSeed = ({ params }) => {
           Upload a CSV of seed comments
         </Heading>
         <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
-        <Button onClick={handleSubmitSeedBulk}>{getButtonText()}</Button>
+        <Button onClick={handleSubmitSeedBulk} data-testid="upload-csv-button">{getButtonText()}</Button>
       </Box>
     </Box>
   )

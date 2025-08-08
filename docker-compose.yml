@@ -37,6 +37,8 @@ services:
     restart: unless-stopped
     networks:
       - "polis-net"
+    ports:
+      - "4321:4321"
     environment:
       - PUBLIC_SERVICE_URL=${PUBLIC_SERVICE_URL}
       - INTERNAL_SERVICE_URL=${INTERNAL_SERVICE_URL}
@@ -44,6 +46,7 @@ services:
       - PUBLIC_OIDC_CACHE_KEY_ID_TOKEN_SUFFIX=${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
     depends_on:
       - "server"
+
   server:
     environment:
       - DATABASE_URL=${DATABASE_URL}
@@ -82,6 +85,8 @@ services:
       - MATH_ENV=${MATH_ENV:-prod}
       - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
       - WEBSERVER_PASS=${WEBSERVER_PASS}
+      # Database connection pool configuration for math service
+      - DATABASE_POOL_SIZE=${MATH_DATABASE_POOL_SIZE:-10}
     networks:
       - "polis-net"
     restart: unless-stopped

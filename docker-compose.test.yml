@@ -123,6 +123,22 @@ services:
     ports:
       - 5432:5432
     restart: unless-stopped
+    # PostgreSQL configuration for development/testing
+    command: >
+      postgres 
+      -c max_connections=${POSTGRES_MAX_CONNECTIONS:-300}
+      -c shared_buffers=256MB
+      -c effective_cache_size=1GB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c wal_buffers=16MB
+      -c checkpoint_completion_target=0.9
+      -c checkpoint_timeout=10min
+      -c log_connections=on
+      -c log_disconnections=on
+      -c autovacuum=on
+      -c autovacuum_max_workers=3
+      -c autovacuum_naptime=30s
 
   nginx-proxy:
     image: docker.io/compdem/polis-nginx-proxy:${TAG:-dev}
@@ -163,6 +179,18 @@ services:
       polis_tag: test
     networks:
       - polis-test
+
+  dynamodb:
+    image: amazon/dynamodb-local:latest
+    ports:
+      - "8000:8000"
+    networks:
+      - polis-test
+    environment:
+      - JAVA_OPTS=-Xmx1G
+    user: root
+    labels:
+      polis_tag: test
 
 networks:
   polis-test:
