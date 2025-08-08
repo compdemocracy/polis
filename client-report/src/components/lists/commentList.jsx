@@ -140,8 +140,12 @@ const CommentRow = ({ comment, groups, voteColors }) => {
       <span
         style={{
           fontSize: 12,
+          minWidth: 200,
           width: 200,
           marginRight: 50,
+          flexShrink: 0,
+          whiteSpace: "normal",
+          wordBreak: "break-word",
         }}
       >
         {comment.txt}
@@ -159,9 +163,10 @@ const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors, styl
         <span
           key={key}
           style={{
-            width: 101,
+            minWidth: 101,
             marginRight: 30,
             display: "inline-block",
+            whiteSpace: "nowrap",
             fontWeight: 400,
             fontSize: 14,
             textTransform: "uppercase",
@@ -203,6 +208,10 @@ const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors, styl
           marginBottom: 1,
           borderBottom: "2px solid black",
           position: "relative",
+          display: "flex",
+          alignItems: "baseline",
+          whiteSpace: "nowrap",
+          overflowX: "auto",
         }}
       >
         <span
@@ -214,6 +223,7 @@ const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors, styl
             fontWeight: 700,
             fontSize: 14,
             textTransform: "uppercase",
+            flexShrink: 0,
           }}
         >
           Statement

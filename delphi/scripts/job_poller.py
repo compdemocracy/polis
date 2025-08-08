@@ -720,7 +720,8 @@ class JobProcessor:
             
             elif job_type == 'CREATE_NARRATIVE_BATCH':
                 if success:
-                    logger.info(f"Job {job_id}: Async trigger successful. Status remains 'PROCESSING'.")
+                    logger.info(f"Job {job_id}: CREATE_NARRATIVE_BATCH completed successfully.")
+                    self.complete_job(job, True)
                 else:
                     self.complete_job(job, False, error=f"CREATE_NARRATIVE_BATCH script failed with exit code {return_code}")
 

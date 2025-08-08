@@ -215,6 +215,7 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 - `Delphi_CommentClustersLLMTopicNames` - LLM-generated topic names (formerly `LLMTopicNames`)
 - `Delphi_NarrativeReports` - Generated reports (formerly `report_narrative_store`)
 - `Delphi_JobQueue` - Job queue (formerly `DelphiJobQueue`)
+- `Delphi_CollectiveStatement` - Collective statements generated for topics
 
 > **Note:** All table names now use the `Delphi_` prefix for consistency.
 > For complete documentation on the table renaming, see `/Users/colinmegill/polis/delphi/docs/DATABASE_NAMING_PROPOSAL.md`

@@ -63,16 +63,6 @@ const ConversationAdminContainer = () => {
           </Link>
         </Box>
         <Box sx={{ mb: [3] }}>
-          <Link
-            sx={{
-              variant: url === 'topics' ? 'links.activeNav' : 'links.nav'
-            }}
-            data-test-id="moderate-topics"
-            to={`${baseUrl}/topics`}>
-            Topic Mod
-          </Link>
-        </Box>
-        <Box sx={{ mb: [3] }}>
           <Link sx={{ variant: url ? 'links.nav' : 'links.activeNav' }} to={baseUrl}>
             Configure
           </Link>

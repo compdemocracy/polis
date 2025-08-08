@@ -150,6 +150,22 @@ def delete_dynamodb_data(conversation_id: str, report_id: str = None):
     except Exception as e:
         if 'ResourceNotFoundException' not in str(e):
             logger.error(f"  ✗ Delphi_JobQueue: Scan failed - {e}")
+    
+    # Delete collective statements for this conversation
+    try:
+        table = dynamodb.Table('Delphi_CollectiveStatement')
+        # Scan for items where zid_topic_jobid contains the conversation_id
+        scan_kwargs = {'FilterExpression': Key('zid_topic_jobid').begins_with(f'{conversation_id}#')}
+        response = table.scan(**scan_kwargs)
+        items = response.get('Items', [])
+        while 'LastEvaluatedKey' in response:
+            scan_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
+            response = table.scan(**scan_kwargs)
+            items.extend(response.get('Items', []))
+        total_deleted_count += batch_delete_items(table, items, ['zid_topic_jobid'])
+    except Exception as e:
+        if 'ResourceNotFoundException' not in str(e):
+            logger.error(f"  ✗ Delphi_CollectiveStatement: Scan failed - {e}")
             
     return total_deleted_count
 

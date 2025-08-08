@@ -27,18 +27,30 @@ import CommentsReport from "./commentsReport/CommentsReport.jsx";
 import TopicReport from "./topicReport/TopicReport.jsx";
 import ExportReport from "./exportReport/ExportReport.jsx";
 import TopicsVizReport from "./topicsVizReport/TopicsVizReport.jsx";
-import TopicPrioritize from "./topicPrioritize/TopicPrioritize.jsx";
-import TopicPrioritizeSimple from "./topicPrioritizeSimple/TopicPrioritizeSimple.jsx";
-import TopicAgenda from "./topicAgenda/TopicAgenda.jsx";
 import TopicHierarchy from "./topicHierarchy/TopicHierarchy.jsx";
+import TopicMapNarrativeReport from "./topicMapNarrativeReport.jsx";
+import TopicStats from "./topicStats/TopicStats.jsx";
+import TopicPage from "./topicPage/TopicPage.jsx";
+import CollectiveStatementsReport from "./collectiveStatementsReport/CollectiveStatementsReport.jsx";
+import { enrichMathWithNormalizedConsensus } from "../util/normalizeConsensus.js";
 
-const pathname = window.location.pathname; // "/report/2arcefpshi" or "/commentsReport/2arcefpshi" or "/topicReport/2arcefpshi" or "/topicsVizReport/2arcefpshi" or "/exportReport/2arcefpshi" or "/topicPrioritize/2arcefpshi" or "/topicPrioritizeSimple/2arcefpshi" or "/topicAgenda/2arcefpshi" or "/topicHierarchy/2arcefpshi"
-const route_type = pathname.split("/")[1]; // "report", "narrativeReport", "commentsReport", "topicReport", "topicsVizReport", "exportReport", "topicPrioritize", "topicPrioritizeSimple", "topicAgenda", or "topicHierarchy"
+const pathname = window.location.pathname; // "/report/2arcefpshi" or "/commentsReport/2arcefpshi" or "/topicReport/2arcefpshi" or "/topicsVizReport/2arcefpshi" or "/exportReport/2arcefpshi" or "/topicHierarchy/2arcefpshi" or "/topicStats/2arcefpshi"
+const pathParts = pathname.split("/");
+const route_type = pathParts[1]; // "report", "narrativeReport", "commentsReport", "topicReport", "topicsVizReport", "exportReport", "topicHierarchy", or "topicStats"
 
-const report_id = pathname.split("/")[2];
+const report_id = pathParts[2];
+
+// For topic detail pages: /topicStats/report_id/topic_key
+// Topic key can be in format: uuid#layer#cluster or layer_cluster
+let topic_key = null;
+if (route_type === "topicStats" && pathParts.length > 3) {
+  // Get the topic key from the URL path and decode it
+  // Replace %23 with # to restore the original format
+  topic_key = pathParts[3].replace(/%23/g, '#');
+}
 
 // Debug the route
-console.log("ROUTE CHECK:", { pathname, route_type, report_id });
+console.log("ROUTE CHECK:", { pathname, route_type, report_id, topic_key });
 
 function assertExists(obj, key) {
   if (typeof obj[key] === "undefined") {
@@ -543,7 +555,10 @@ const App = (props) => {
         var uniqueCommenters = {};
         var voteTotals = DataUtils.getVoteTotals(mathResult);
         _comments = _comments.map((c) => {
-          c["group-aware-consensus"] = mathResult["group-aware-consensus"][c.tid];
+          // Use normalized consensus if available, fall back to raw
+          c["group-aware-consensus"] = mathResult["group-consensus-normalized"] ? 
+            mathResult["group-consensus-normalized"][c.tid] : 
+            mathResult["group-aware-consensus"][c.tid];
           uniqueCommenters[c.pid] = 1;
           c = Object.assign(c, voteTotals[c.tid]);
           return c;
@@ -557,6 +572,9 @@ const App = (props) => {
           votesPerVoterAvg: totalVotes / _ptptCountTotal,
           commentsPerCommenterAvg: _comments.length / numUniqueCommenters,
         };
+
+        // Enrich math results with normalized consensus values
+        mathResult = enrichMathWithNormalizedConsensus(mathResult);
 
         setLoading(false);
         setMath(mathResult);
@@ -747,9 +765,6 @@ const App = (props) => {
     shouldShowNarrativeReport: route_type === "narrativeReport",
     shouldShowTopicReport: route_type === "topicReport",
     shouldShowExportReport: route_type === "exportReport",
-    shouldShowTopicPrioritize: route_type === "topicPrioritize",
-    shouldShowTopicPrioritizeSimple: route_type === "topicPrioritizeSimple",
-    shouldShowTopicAgenda: route_type === "topicAgenda",
     shouldShowTopicHierarchy: route_type === "topicHierarchy",
   });
 
@@ -764,38 +779,8 @@ const App = (props) => {
     );
   }
 
-  // Directly render TopicPrioritize if the URL starts with /topicPrioritize
-  if (route_type === "topicPrioritize") {
-    console.log("RENDERING: TopicPrioritize");
-    return (
-      <TopicPrioritize
-        report_id={report_id}
-        math={math}
-        comments={comments}
-        conversation={conversation}
-        ptptCount={ptptCount}
-        formatTid={formatTid}
-        voteColors={voteColors}
-      />
-    );
-  }
 
-  // Directly render TopicPrioritizeSimple if the URL starts with /topicPrioritizeSimple
-  if (route_type === "topicPrioritizeSimple") {
-    console.log("RENDERING: TopicPrioritizeSimple");
-    return (
-      <TopicPrioritizeSimple
-        report_id={report_id}
-        conversation={conversation}
-      />
-    );
-  }
 
-  // Directly render TopicAgenda if the URL starts with /topicAgenda
-  if (route_type === "topicAgenda") {
-    console.log("RENDERING: TopicAgenda");
-    return <TopicAgenda report_id={report_id} conversation={conversation} comments={comments} />;
-  }
 
   // Directly render TopicHierarchy if the URL starts with /topicHierarchy
   if (route_type === "topicHierarchy") {
@@ -874,6 +859,58 @@ const App = (props) => {
         computeVoteTotal={computeVoteTotal}
         globals={globals}
         comments={comments}
+        formatTid={formatTid}
+        voteColors={voteColors}
+      />
+    )
+  }
+
+  if (route_type === "topicStats") {
+    // If we have a topic_key, render the individual topic page
+    if (topic_key) {
+      console.log("RENDERING: TopicPage for topic", topic_key);
+      return (
+        <TopicPage
+          conversation={conversation}
+          report_id={report_id}
+          topic_key={topic_key}
+          math={math}
+          comments={comments}
+          ptptCount={ptptCount}
+          formatTid={formatTid}
+          voteColors={voteColors}
+          onBack={() => {
+            // Navigate back to the topic stats overview
+            window.location.href = `/topicStats/${report_id}`;
+          }}
+        />
+      );
+    }
+    
+    // Otherwise render the topic stats overview
+    console.log("RENDERING: TopicStats");
+    return (
+      <TopicStats
+        conversation={conversation}
+        report_id={report_id}
+        math={math}
+        comments={comments}
+        ptptCount={ptptCount}
+        formatTid={formatTid}
+        voteColors={voteColors}
+      />
+    )
+  }
+
+  if (route_type === "collectiveStatements") {
+    console.log("RENDERING: CollectiveStatementsReport");
+    return (
+      <CollectiveStatementsReport
+        conversation={conversation}
+        report_id={report_id}
+        math={math}
+        comments={comments}
+        ptptCount={ptptCount}
         formatTid={formatTid}
         voteColors={voteColors}
       />

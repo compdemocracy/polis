@@ -407,6 +407,16 @@ def create_evoc_tables(dynamodb, delete_existing=False):
                 'ReadCapacityUnits': 5,
                 'WriteCapacityUnits': 5
             }
+        },
+        # Collective Statement table for storing AI-generated group statements
+        'Delphi_CollectiveStatement': {
+            'KeySchema': [
+                {'AttributeName': 'zid_topic_jobid', 'KeyType': 'HASH'}
+            ],
+            'AttributeDefinitions': [
+                {'AttributeName': 'zid_topic_jobid', 'AttributeType': 'S'}
+            ],
+            'BillingMode': 'PAY_PER_REQUEST'
         }
     }
     
