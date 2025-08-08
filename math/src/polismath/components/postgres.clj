@@ -1,66 +1,126 @@
 ;; Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns polismath.components.postgres
-  (:require [polismath.components.env :as env]
-            [polismath.util.pretty-printers :as pp]
-            [polismath.utils :as utils]
-            [cheshire.core :as ch]
-            ;; Replace with as util XXX
-            ;[polismath.utils :as utils :refer :all]
-            [clojure.stacktrace :refer :all]
+  (:require [cheshire.core :as cheshire]
             [taoensso.timbre :as log]
-            [clojure.tools.trace :as tr]
             [com.stuartsierra.component :as component]
-            [plumbing.core :as pc]
-            [korma.db :as kdb]
-            [cheshire.core :as cheshire]
             [clojure.java.jdbc :as jdbc]
             [honeysql.core :as sql]
-            [honeysql.helpers :as honey]
-            [honeysql.helpers :as sqlhelp])
-  (:import (org.postgresql.util PGobject)))
+            [honeysql.helpers :as honey])
+  (:import (org.postgresql.util PGobject)
+           (com.zaxxer.hikari HikariConfig HikariDataSource)))
             ;[alex-and-georges.debug-repl :as dbr]
 
 
 
-(defn heroku-db-spec
-  "Create a korma db-spec given a heroku db-uri"
-  [db-uri ignore-ssl]
+(defn create-hikari-datasource
+  "Create a HikariCP datasource for better connection pooling"
+  [db-uri pool-config]
   (let [[_ user password host port db] (re-matches #"postgres://(?:(.+):(.*)@)?([^:]+)(?::(\d+))?/(.+)" db-uri)
-        settings {:user user
-                  :password password
-                  :host host
-                  :port (or port 80)
-                  :db db
-                  :ssl false
-                  ;:ssl (-> ignore-ssl boolean not)
-                  :sslfactory "org.postgresql.ssl.NonValidatingFactory"}]
-        ;settings (if ignore-ssl
-                   ;(merge settings {:sslfactory "org.postgresql.ssl.NonValidatingFactory"})
-                   ;settings)]
-    (kdb/postgres settings)))
+        pool-size (get pool-config :pool-size 10)
+        config (doto (HikariConfig.)
+                 (.setJdbcUrl (str "jdbc:postgresql://" host ":" (or port 5432) "/" db))
+                 (.setUsername user)
+                 (.setPassword password)
+                 (.setDriverClassName "org.postgresql.Driver")
+                 ;; Connection pool settings optimized for concurrent workloads
+                 (.setMaximumPoolSize pool-size)
+                 (.setMinimumIdle (max 1 (int (/ pool-size 4))))  ; 25% of max as minimum
+                 (.setConnectionTimeout 30000)      ; 30 seconds
+                 (.setIdleTimeout 600000)           ; 10 minutes
+                 (.setMaxLifetime 1800000)          ; 30 minutes
+                 (.setLeakDetectionThreshold 60000) ; 1 minute - helps detect connection leaks
+                 ;; Validation settings
+                 (.setConnectionTestQuery "SELECT 1")
+                 (.setValidationTimeout 5000)
+                 ;; Performance optimizations
+                 (.addDataSourceProperty "cachePrepStmts" "true")
+                 (.addDataSourceProperty "prepStmtCacheSize" "250")
+                 (.addDataSourceProperty "prepStmtCacheSqlLimit" "2048")
+                 (.addDataSourceProperty "useServerPrepStmts" "true")
+                 (.addDataSourceProperty "useLocalSessionState" "true")
+                 (.addDataSourceProperty "rewriteBatchedStatements" "true")
+                 (.addDataSourceProperty "cacheResultSetMetadata" "true")
+                 (.addDataSourceProperty "cacheServerConfiguration" "true")
+                 (.addDataSourceProperty "elideSetAutoCommits" "true")
+                 (.addDataSourceProperty "maintainTimeStats" "false"))]
+    (HikariDataSource. config)))
+
+(defn heroku-db-spec
+  "Create a korma db-spec given a heroku db-uri with HikariCP connection pooling"
+  [db-uri _ignore-ssl pool-config]  ; ignore-ssl parameter kept for compatibility but not used with HikariCP
+  (let [datasource (create-hikari-datasource db-uri pool-config)]
+    {:datasource datasource}))
 
 
 
 ;; The executor function for honeysql queries (which we'll be rewriting everything in over time)
 
+(defn health-check
+  "Check if the database connection is healthy"
+  [component]
+  (try
+    (let [result (jdbc/query (:db-spec component) ["SELECT 1 as health"])]
+      (= 1 (:health (first result))))
+    (catch Exception e
+      (log/error "Database health check failed:" (.getMessage e))
+      false)))
+
+(defn query-with-retry
+  "Execute a query with retry logic for connection failures"
+  [component query-data & [retry-count]]
+  (let [max-retries (or retry-count 3)]
+    (loop [attempts 0]
+      (let [result (try
+                     {:success (if (map? query-data)
+                                 (jdbc/query (:db-spec component) (sql/format query-data))
+                                 (jdbc/query (:db-spec component) query-data))}
+                     (catch java.sql.SQLException e
+                       (if (and (< attempts max-retries)
+                                (or (.contains (.getMessage e) "connection")
+                                    (.contains (.getMessage e) "timeout")))
+                         {:retry true :error e :attempts attempts}
+                         {:error e}))
+                     (catch Exception e
+                       {:error e}))]
+        (cond
+          (:success result) (:success result)
+          (:retry result) (do
+                            (log/warn "Database query failed, retrying... attempt" (inc (:attempts result)) ":" (.getMessage (:error result)))
+                            (Thread/sleep (* 1000 (inc (:attempts result))))  ; Exponential backoff
+                            (recur (inc (:attempts result))))
+          :else (do
+                  (log/error "Database query failed:" (.getMessage (:error result)))
+                  (throw (:error result))))))))
+
 (defn query
   "Takes a postgres component and a query, and executes the query. The query can either be a postgres vector, or a map.
   Maps will be compiled via honeysql/format."
   [component query-data]
-  (if (map? query-data)
-    (query component (sql/format query-data))
-    (jdbc/query (:db-spec component) query-data)))
+  (query-with-retry component query-data))
 
 (defrecord Postgres [config db-spec]
   component/Lifecycle
   (start [component]
     (log/info ">> Starting Postgres component")
-    (let [database-url (-> config :database :url)]
+    (let [database-url (-> config :database :url)
+          pool-config (-> config :database)]
       (assert database-url "Missing database url. Make sure to set env variables.")
-      (assoc component :db-spec (heroku-db-spec database-url (-> config :database :ignore-ssl)))))
+      (log/info "Configuring PostgreSQL connection pool with size:" (get pool-config :pool-size 10))
+      (assoc component :db-spec (heroku-db-spec database-url 
+                                                (-> config :database :ignore-ssl)
+                                                pool-config))))
   (stop [component]
     (log/info "<< Stopping Postgres component")
+    ;; Properly close the HikariCP connection pool
+    (when-let [db-spec (:db-spec component)]
+      (try
+        (when-let [datasource (:datasource db-spec)]
+          (log/info "Closing HikariCP connection pool")
+          (when (instance? HikariDataSource datasource)
+            (.close ^HikariDataSource datasource)))
+        (catch Exception e
+          (log/warn "Error closing connection pool:" (.getMessage e)))))
     (assoc component :db-spec nil)))
 
 (defn create-postgres
@@ -171,8 +231,8 @@
   [conv]
   (-> conv
       ; core.matrix & monger workaround: convert to str with cheshire then back
-      ch/generate-string
-      ch/parse-string))
+      cheshire/generate-string
+      cheshire/parse-string))
 
 ; (defn collection-name
 ;   "math_env name based on math-env and math-schema-date config variables. Makes sure that
@@ -364,7 +424,7 @@
   (let [row (first (query postgres ["select * from math_main where zid = (?) and math_env = (?);" zid (-> postgres :config :math-env-string)]))]
     (if row
       ;; TODO Make sure this loads with keywords for map keys, except where they should be integers
-      (ch/parse-string
+      (cheshire/parse-string
         (.toString (:data row))
         (fn [x]
           (try
@@ -388,7 +448,6 @@
   (conv-poll postgres 18747 0)
   (get-zinvite-from-zid postgres 18747)
   (conv-mod-poll postgres 18747 0)
-  (get-)
 
 
   (get-math-exportstatus postgres 15077 "polis-export-9ma5xnjxpj-1491632824548.zip")
@@ -405,7 +464,7 @@
         (honey/value)))
 
   (try
-    (mark-task-complete! postgres 1)
+    (mark-task-complete! postgres :task-type 1)  ; Fixed: added missing task-type parameter
     (catch Exception e (log/error (.getNextException e))))
 
 
