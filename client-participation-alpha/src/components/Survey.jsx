@@ -48,10 +48,15 @@ export default function Survey({ initialStatement, s, conversation_id }) {
           lang
         });
 
-        if (!cancelled && resp && typeof resp.tid !== 'undefined') {
-          const mapped = { tid: resp.tid, txt: resp.txt, remaining: resp.remaining };
-          if (!statement || mapped.tid !== statement.tid) {
-            setStatement(mapped);
+        if (!cancelled) {
+          if (resp && typeof resp.tid !== 'undefined') {
+            const mapped = { tid: resp.tid, txt: resp.txt, remaining: resp.remaining };
+            if (!statement || mapped.tid !== statement.tid) {
+              setStatement(mapped);
+            }
+          } else {
+            // No personalized next comment available; hide the SSR fallback.
+            setStatement(undefined);
           }
         }
       } catch (e) {
