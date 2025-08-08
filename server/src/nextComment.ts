@@ -43,7 +43,9 @@ const dynamoDocClient = DynamoDBDocumentClient.from(dynamoClient, {
     removeUndefinedValues: true,
   },
 });
-const DELPHI_COMMENT_CLUSTERS_TABLE = "Delphi_CommentClusters";
+const DELPHI_COMMENT_HIERARCHICAL_TABLE =
+  "Delphi_CommentHierarchicalClusterAssignments";
+const DELPHI_TOPIC_NAMES_TABLE = "Delphi_CommentClustersLLMTopicNames";
 
 // This very much follows the outline of the random selection above, but factors out the probabilistic logic
 // to the selectProbabilistically fn above.
@@ -60,7 +62,7 @@ async function getNextPrioritizedComment(
     params.withoutTids = withoutTids;
   }
 
-  logger.info("polis_info_getNextPrioritizedComment", {
+  logger.debug("polis_info_getNextPrioritizedComment", {
     zid,
     pid,
     withoutTids,
@@ -142,7 +144,8 @@ function selectProbabilistically(
  * Fetch the set of tids (comment ids) for a participant's current topic agenda.
  * - Reads the most recent topic agenda selections from PostgreSQL for the pid+zid pair
  * - Extracts unique topic_keys from the stored selections
- * - For each topic_key, queries DynamoDB table "Delphi_CommentClusters" to list comment_ids
+ * - For each topic_key, queries DynamoDB table "Delphi_CommentClustersLLMTopicNames" to get layer_id and cluster_id
+ * - Then queries "Delphi_CommentHierarchicalClusterAssignments" using the appropriate layerX_cluster_id column
  * - Returns a de-duplicated array of tids
  *
  * If there is no record or selections are empty, returns an empty array.
@@ -201,16 +204,11 @@ export async function getTidsForParticipantTopicAgenda(
   const conversationZid = String(zid);
   const tidSet = new Set<number>();
 
-  logger.info("polis_info_getTidsForParticipantTopicAgenda", {
-    zid,
-    pid,
-    uniqueTopicKeys,
-  });
-
-  const queries = uniqueTopicKeys.map((topicKey) =>
+  // Step 1: Query Delphi_CommentClustersLLMTopicNames to get layer_id and cluster_id for each topic_key
+  const topicQueries = uniqueTopicKeys.map((topicKey) =>
     dynamoDocClient.send(
       new QueryCommand({
-        TableName: DELPHI_COMMENT_CLUSTERS_TABLE,
+        TableName: DELPHI_TOPIC_NAMES_TABLE,
         KeyConditionExpression: "conversation_id = :cid AND topic_key = :tk",
         ExpressionAttributeValues: {
           ":cid": conversationZid,
@@ -220,23 +218,78 @@ export async function getTidsForParticipantTopicAgenda(
     )
   );
 
-  const results = await Promise.allSettled(queries);
+  const topicResults = await Promise.allSettled(topicQueries);
+
+  // Collect layer_id/cluster_id pairs from topic lookup
+  type ClusterInfo = {
+    layer_id: number;
+    cluster_id: number;
+    topic_key: string;
+  };
+  const clusterInfos: ClusterInfo[] = [];
+
+  topicResults.forEach((result, idx) => {
+    if (result.status === "fulfilled") {
+      const items = result.value?.Items || [];
+      for (const item of items) {
+        // layer_id and cluster_id are stored as strings in DynamoDB
+        const layer_id = Number(item?.layer_id);
+        const cluster_id = Number(item?.cluster_id);
+        if (!Number.isNaN(layer_id) && !Number.isNaN(cluster_id)) {
+          clusterInfos.push({
+            layer_id,
+            cluster_id,
+            topic_key: uniqueTopicKeys[idx],
+          });
+        }
+      }
+    } else {
+      logger.error("polis_err_topic_names_dynamo_query_failed", {
+        topicKey: uniqueTopicKeys[idx],
+        error: result.reason,
+      });
+    }
+  });
+
+  if (clusterInfos.length === 0) {
+    logger.warn("polis_warn_no_cluster_info_found", { zid, pid });
+    return [];
+  }
+
+  // Step 2: Query Delphi_CommentHierarchicalClusterAssignments for each layer_id/cluster_id pair
+  // We need to build appropriate filter expressions based on layer_id
+  const hierarchicalQueries = clusterInfos.map((info) => {
+    const layerColumn = `layer${info.layer_id}_cluster_id`;
+
+    return dynamoDocClient.send(
+      new QueryCommand({
+        TableName: DELPHI_COMMENT_HIERARCHICAL_TABLE,
+        KeyConditionExpression: "conversation_id = :cid",
+        FilterExpression: `${layerColumn} = :cluster_id`,
+        ExpressionAttributeValues: {
+          ":cid": conversationZid,
+          ":cluster_id": info.cluster_id, // Keep as number for DynamoDB comparison
+        },
+      })
+    );
+  });
+
+  const hierarchicalResults = await Promise.allSettled(hierarchicalQueries);
 
   let numFulfilled = 0;
-  results.forEach((result, idx) => {
+  hierarchicalResults.forEach((result, idx) => {
     if (result.status === "fulfilled") {
       numFulfilled += 1;
-      const items =
-        (result.value?.Items as Array<{ comment_id?: string | number }>) || [];
+      const items = result.value?.Items || [];
       for (const item of items) {
-        const tid = Number(item?.comment_id as unknown as number);
+        const tid = Number(item?.comment_id);
         if (!Number.isNaN(tid)) {
           tidSet.add(tid);
         }
       }
     } else {
-      logger.error("polis_err_topic_agenda_dynamo_query_failed", {
-        topicKey: uniqueTopicKeys[idx],
+      logger.error("polis_err_hierarchical_dynamo_query_failed", {
+        cluster_info: clusterInfos[idx],
         error: result.reason,
       });
     }
@@ -246,10 +299,11 @@ export async function getTidsForParticipantTopicAgenda(
     throw new Error("polis_err_topic_agenda_no_dynamo_results");
   }
 
-  logger.info("polis_info_getTidsForParticipantTopicAgenda_results", {
+  logger.debug("polis_info_getTidsForParticipantTopicAgenda_results", {
     zid,
     pid,
-    tidSet,
+    tidSet: Array.from(tidSet),
+    total_tids: tidSet.size,
   });
 
   return Array.from(tidSet.values());
@@ -297,12 +351,6 @@ export async function getNextTopicalComment(
       tid: r.tid,
       txt: r.txt,
     };
-
-    logger.info("polis_info_next_topical_comment", {
-      zid,
-      tid: r.tid,
-      txt: r.txt,
-    });
 
     return comment;
   } catch (err) {
@@ -360,12 +408,6 @@ export async function getNextComment(
   if (!next) return next;
 
   await ensureTranslations(zid!, next, lang);
-
-  logger.info("polis_info_getNextComment_results", {
-    zid,
-    tid: next.tid,
-    txt: next.txt,
-  });
 
   return next;
 }
