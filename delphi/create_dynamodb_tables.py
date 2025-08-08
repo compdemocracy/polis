@@ -392,21 +392,6 @@ def create_evoc_tables(dynamodb, delete_existing=False):
                 'ReadCapacityUnits': 5,
                 'WriteCapacityUnits': 5
             }
-        },
-        # Topic Agenda table for storing user selections
-        'Delphi_TopicAgendaSelections': {
-            'KeySchema': [
-                {'AttributeName': 'conversation_id', 'KeyType': 'HASH'},
-                {'AttributeName': 'participant_id', 'KeyType': 'RANGE'}
-            ],
-            'AttributeDefinitions': [
-                {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
-                {'AttributeName': 'participant_id', 'AttributeType': 'S'}
-            ],
-            'ProvisionedThroughput': {
-                'ReadCapacityUnits': 5,
-                'WriteCapacityUnits': 5
-            }
         }
     }
     

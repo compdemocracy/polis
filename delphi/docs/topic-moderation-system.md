@@ -52,6 +52,7 @@ The Topic-Based Moderation System (TopicMod) is a powerful new feature that leve
 ##### PostgreSQL Updates
 
 The system updates the existing `comments` table in PostgreSQL:
+
 - `mod`: Moderation status (-1=rejected, 0=meta, 1=accepted)
 - `is_meta`: Boolean flag for meta comments
 
@@ -59,7 +60,7 @@ The system updates the existing `comments` table in PostgreSQL:
 
 #### React Component Hierarchy
 
-```
+```txt
 TopicModeration (index.js)
 ├── TopicTree (topic-tree.js)
 │   ├── Layer selection
@@ -81,6 +82,7 @@ TopicModeration (index.js)
 #### Navigation Integration
 
 The TopicMod system is integrated into the client-admin conversation management interface:
+
 - New "Topic Mod" tab in the conversation admin sidebar
 - Routes: `/m/:conversation_id/topics/*`
 - Follows existing patterns from comment moderation
@@ -90,8 +92,9 @@ The TopicMod system is integrated into the client-admin conversation management 
 ### Hierarchical Topic Organization
 
 Topics are organized in hierarchical layers (0-2) representing different levels of granularity:
+
 - **Layer 0**: Coarse-grained topics (broad themes)
-- **Layer 1**: Medium granularity 
+- **Layer 1**: Medium granularity
 - **Layer 2**: Fine-grained topics (specific subtopics)
 
 Moderators can view and work with any layer depending on their needs.
@@ -99,11 +102,13 @@ Moderators can view and work with any layer depending on their needs.
 ### Bulk Moderation Actions
 
 #### Topic-Level Actions
+
 - Accept/reject/mark as meta entire topics
 - Automatically applies to all comments in the topic
 - Maintains audit trail with moderator and timestamp
 
 #### Comment-Level Actions
+
 - Select multiple comments within a topic
 - Apply bulk actions to selected comments
 - Individual comment moderation when needed
@@ -111,6 +116,7 @@ Moderators can view and work with any layer depending on their needs.
 ### Proximity-Based Moderation
 
 The UMAP visualization provides spatial understanding of comment relationships:
+
 - Comments positioned by semantic similarity
 - Visual clustering shows related content
 - Color coding by moderation status
@@ -119,6 +125,7 @@ The UMAP visualization provides spatial understanding of comment relationships:
 ### Real-Time Statistics
 
 Comprehensive statistics tracking:
+
 - Total topics by status (pending, accepted, rejected, meta)
 - Completion rate progress bars
 - Visual progress indicators
@@ -175,18 +182,21 @@ python 700_datamapplot_for_layer.py
 ## Integration with Existing Systems
 
 ### Comment Moderation
+
 - TopicMod works alongside existing comment moderation
 - Updates flow to traditional mod queue
 - Maintains compatibility with Jigsaw Perspective API
 - Preserves existing moderation workflows
 
 ### Delphi Pipeline
+
 - Leverages existing topic generation infrastructure
 - Uses established DynamoDB schema patterns
 - Integrates with narrative report generation
 - Compatible with batch processing workflows
 
 ### UMAP Visualization
+
 - Built on existing EVōC clustering system
 - Uses DataMapPlot visualization framework
 - Maintains consistency with report visualizations
@@ -195,18 +205,21 @@ python 700_datamapplot_for_layer.py
 ## Performance Considerations
 
 ### Database Optimization
+
 - DynamoDB queries optimized for conversation-level access
 - PostgreSQL updates batched for efficiency
 - Minimal impact on existing comment moderation performance
 - Caching strategies for frequently accessed topics
 
 ### Frontend Performance
+
 - Component-level loading states
 - Incremental data fetching
 - Efficient re-rendering with React hooks
 - SVG-based visualizations for performance
 
 ### Scalability
+
 - Designed to handle conversations with thousands of comments
 - Layer-based organization reduces cognitive load
 - Bulk operations minimize API calls
@@ -215,16 +228,19 @@ python 700_datamapplot_for_layer.py
 ## Error Handling and Edge Cases
 
 ### Missing Topic Data
+
 - Graceful fallback when Delphi data unavailable
 - Clear messaging about pipeline requirements
 - Fallback to traditional comment moderation
 
 ### Network Failures
+
 - Retry mechanisms for failed requests
 - Optimistic UI updates with rollback
 - Clear error messaging and recovery options
 
 ### Data Consistency
+
 - Atomic operations for topic-level moderation
 - Transaction-like behavior for bulk actions
 - Conflict resolution for concurrent moderation
@@ -232,16 +248,19 @@ python 700_datamapplot_for_layer.py
 ## Security and Permissions
 
 ### Access Control
+
 - Inherits existing conversation-level permissions
 - Moderator role verification for all actions
 - Audit trail for all moderation decisions
 
 ### Data Protection
+
 - No additional PII exposure
 - Secure API endpoints with parameter validation
 - CORS and authentication following existing patterns
 
 ### Audit Trail
+
 - All moderation actions logged with timestamp
 - Moderator identity tracking
 - Reversible actions where appropriate
@@ -249,18 +268,21 @@ python 700_datamapplot_for_layer.py
 ## Future Enhancements
 
 ### Advanced Features
+
 - Machine learning suggestions for topic categorization
 - Automated pre-moderation based on topic patterns
 - Integration with external content analysis APIs
 - Custom topic naming and organization
 
 ### UI/UX Improvements
+
 - Drag-and-drop topic organization
 - Advanced filtering and search
 - Customizable dashboards
 - Mobile-responsive design
 
 ### Analytics Integration
+
 - Topic-level engagement metrics
 - Moderation efficiency tracking
 - Bias detection and reporting
@@ -269,18 +291,21 @@ python 700_datamapplot_for_layer.py
 ## Technical Requirements
 
 ### Server Dependencies
+
 - Node.js with TypeScript support
 - AWS SDK for DynamoDB access
 - PostgreSQL client libraries
 - Express.js framework
 
 ### Client Dependencies
+
 - React with hooks support
 - theme-ui for consistent styling
 - React Router for navigation
 - SVG manipulation for visualizations
 
 ### Infrastructure
+
 - DynamoDB tables with appropriate indices
 - PostgreSQL database with comment tables
 - Redis cache for performance optimization (optional)
@@ -289,18 +314,21 @@ python 700_datamapplot_for_layer.py
 ## Deployment Notes
 
 ### Development Setup
+
 1. Ensure Delphi pipeline is configured
 2. Create required DynamoDB tables
 3. Update client-admin routing
 4. Run both server and client builds
 
 ### Production Deployment
+
 1. Deploy server with new API endpoints
 2. Update client-admin bundle
 3. Run database migrations if needed
 4. Monitor performance and error rates
 
 ### Monitoring
+
 - API endpoint response times
 - DynamoDB read/write capacity
 - PostgreSQL query performance

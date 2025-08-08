@@ -12,46 +12,52 @@ This document outlines the design for storing user topic agenda selections as ar
 
 ## Data Model
 
-### DynamoDB Table: `Delphi_TopicAgendaSelections`
+### PostgreSQL Table: `topic_agenda_selections`
 
-**Primary Key Design:**
-- **Partition Key**: `conversation_id` (string) - The zid of the conversation
-- **Sort Key**: `participant_id` (string) - The pid of the participant
+**Table Design:**
 
-**Attributes:**
+- **Primary Key**: Composite key on (`zid`, `pid`)
+- **Foreign Keys**: References to `conversations(zid)` and `participants(zid, pid)`
+
+**Table Schema:**
+
+```sql
+CREATE TABLE topic_agenda_selections (
+  zid INTEGER NOT NULL,                   -- Conversation ID (foreign key)
+  pid INTEGER NOT NULL,                   -- Participant ID (foreign key)
+  archetypal_selections JSONB,            -- Array of selection objects
+  delphi_job_id TEXT,                     -- Delphi job ID that generated the topics
+  total_selections INTEGER NOT NULL,      -- Count of selected topics
+  created_at TIMESTAMP WITH TIME ZONE,    -- Record creation time
+  updated_at TIMESTAMP WITH TIME ZONE,    -- Last update time
+  PRIMARY KEY (zid, pid)
+);
+```
+
+**JSONB Data Structure:**
+
+The `archetypal_selections` column stores an array of selection objects:
+
 ```json
-{
-  "conversation_id": "string",      // zid as string
-  "participant_id": "string",       // pid as string
-  
-  "archetypal_selections": [
-    {
-      "layer_id": "number",         // 0, 1, 2, 3, etc.
-      "cluster_id": "string",       // The cluster within that layer
-      "topic_key": "string",        // Original topic key for reference
-      "archetypal_comments": [
-        {
-          "comment_id": "string",   // Stable comment identifier
-          "comment_text": "string", // Cached for display
-          "coordinates": {
-            "x": "number",          // UMAP x coordinate
-            "y": "number"           // UMAP y coordinate
-          },
-          "distance_to_centroid": "number"
-        }
-      ],
-      "selection_timestamp": "string" // ISO 8601 timestamp
-    }
-  ],
-  
-  "metadata": {
-    "job_id": "string",            // Delphi job ID these selections are from
-    "created_at": "string",        // ISO 8601 timestamp
-    "updated_at": "string",        // ISO 8601 timestamp
-    "version": "number",           // Schema version (start with 1)
-    "total_selections": "number"   // Count of selected topics
+[
+  {
+    "layer_id": 3,                  // Layer number
+    "cluster_id": "9",              // Cluster ID within layer
+    "topic_key": "layer3_9",        // Original topic key
+    "archetypal_comments": [
+      {
+        "comment_id": "123",        // Stable comment ID
+        "comment_text": "...",      // Cached text
+        "coordinates": {
+          "x": 1.23,               // UMAP x coordinate
+          "y": 4.56                // UMAP y coordinate
+        },
+        "distance_to_centroid": 0.15
+      }
+    ],
+    "selection_timestamp": "2024-01-15T10:30:00Z"
   }
-}
+]
 ```
 
 ## API Design
@@ -61,12 +67,14 @@ This document outlines the design for storing user topic agenda selections as ar
 **Endpoint:** `POST /api/v3/topicAgenda/selections`
 
 **Request Headers:**
+
 ```
 Content-Type: application/json
 Cookie: [authentication cookie]
 ```
 
 **Request Body:**
+
 ```json
 {
   "conversation_id": "string",
@@ -89,6 +97,7 @@ Cookie: [authentication cookie]
 ```
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -107,6 +116,7 @@ Cookie: [authentication cookie]
 **Endpoint:** `GET /api/v3/topicAgenda/selections?conversation_id={zid}`
 
 **Response:**
+
 ```json
 {
   "status": "success",
@@ -132,19 +142,22 @@ Same structure as POST, but replaces existing selections entirely.
 ## Implementation Plan
 
 ### Phase 1: Backend Infrastructure
-1. Create DynamoDB table with specified schema
-2. Implement data access layer in `/server/src/db/topicAgenda.ts`
-3. Create API routes in `/server/src/routes/delphi/topicAgenda.ts`
-4. Add authentication and authorization checks
-5. Implement input validation
+
+1. Create PostgreSQL table via migration (000012_create_topic_agenda_selections.sql)
+2. Implement API routes in `/server/src/routes/delphi/topicAgenda.ts`
+3. Add authentication and authorization checks via existing middleware
+4. Implement input validation
+5. Use existing pgQuery module for database operations
 
 ### Phase 2: Frontend Integration
+
 1. Update `TopicAgenda.jsx` to call save API on "Done" click
 2. Add loading states and error handling
 3. Implement retrieval on component mount
 4. Add confirmation UI for overwrites
 
 ### Phase 3: Cross-Run Persistence
+
 1. Implement comment matching algorithm for new Delphi runs
 2. Create migration logic for when clusters change
 3. Add fallback UI for missing comments
@@ -156,60 +169,50 @@ Same structure as POST, but replaces existing selections entirely.
 
 ```typescript
 // /server/src/routes/delphi/topicAgenda.ts
-import { Router } from 'express';
-import { DynamoDBDocumentClient, PutCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
-import { isAuthenticated } from '../../middleware/auth';
-import { getPidPromise } from '../../user';
-import Conversation from '../../conversation';
+import { Response } from 'express';
+import pgQuery from '../../db/pg-query';
+import { RequestWithP } from '../../d';
 
-const router = Router();
-const TABLE_NAME = 'Delphi_TopicAgendaSelections';
-
-router.post('/selections', isAuthenticated, async (req, res) => {
+export async function handle_POST_topicAgenda_selections(
+  req: RequestWithP,
+  res: Response
+) {
   try {
-    const { conversation_id, selections } = req.body;
-    const uid = req.user.uid;
+    const { selections } = req.body;
     
-    // Convert conversation_id to zid
-    const zid = await Conversation.getZidFromConversationId(conversation_id);
-    const zidStr = zid.toString();
+    // The middleware ensures we have a participant
+    const zid = req.p.zid!;
+    const pid = req.p.pid!;
     
-    // Get participant ID
-    const pid = await getPidPromise(zidStr, uid);
-    const pidStr = pid.toString();
+    // Get current Delphi job ID (from DynamoDB job queue)
+    const jobId = await getCurrentDelphiJobId(zid.toString());
     
-    // Get current Delphi job ID
-    const jobId = await getCurrentDelphiJobId(zidStr);
+    // Use UPSERT to handle both new and existing records
+    const query = `
+      INSERT INTO topic_agenda_selections 
+        (zid, pid, archetypal_selections, delphi_job_id, total_selections, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT (zid, pid) 
+      DO UPDATE SET 
+        archetypal_selections = EXCLUDED.archetypal_selections,
+        delphi_job_id = EXCLUDED.delphi_job_id,
+        total_selections = EXCLUDED.total_selections,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING zid, pid, total_selections
+    `;
     
-    // Prepare DynamoDB item
-    const item = {
-      conversation_id: zidStr,
-      participant_id: pidStr,
-      archetypal_selections: selections,
-      metadata: {
-        job_id: jobId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        version: 1,
-        total_selections: selections.length
-      }
-    };
-    
-    // Save to DynamoDB
-    const putParams = {
-      TableName: TABLE_NAME,
-      Item: item
-    };
-    
-    await docClient.send(new PutCommand(putParams));
+    const result = await pgQuery.queryP(
+      query,
+      [zid, pid, JSON.stringify(selections), jobId, selections.length]
+    );
     
     res.json({
       status: 'success',
       message: 'Topic agenda selections saved successfully',
       data: {
-        conversation_id: zidStr,
-        participant_id: pidStr,
-        selections_count: selections.length,
+        conversation_id: zid.toString(),
+        participant_id: pid.toString(),
+        selections_count: result[0]?.total_selections || selections.length,
         job_id: jobId
       }
     });
@@ -221,7 +224,7 @@ router.post('/selections', isAuthenticated, async (req, res) => {
       message: 'Failed to save topic agenda selections'
     });
   }
-});
+}
 ```
 
 ### Frontend Integration
