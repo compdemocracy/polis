@@ -15,26 +15,14 @@ import { failJson } from "./utils/fail";
 import { fetchAndCacheLatestPcaData } from "./utils/pca";
 import { getPidsForGid } from "./utils/participants";
 import { fetchIndex, makeFileFetcher } from "./utils/file-fetcher";
-import {
-  addNoMoreCommentsRecord,
-  addStar,
-  browserSupportsPushState,
-  finishOne,
-  getNextComment,
-  pullXInfoIntoSubObjects,
-  safeTimestampToMillis,
-  updateConversationModifiedTime,
-  updateLastInteractionTimeForConversation,
-} from "./server-helpers";
+import { browserSupportsPushState } from "./server-helpers";
 import {
   DetectLanguageResult,
-  ParticipantCommentModerationResult,
   UserType,
   ExpressRequest,
   ExpressResponse,
 } from "./d";
-import { getConversationInfo } from "./conversation";
-import Comment from "./comment";
+import { detectLanguage } from "./comment";
 import logger from "./utils/logger";
 import {
   emailTeam,
@@ -42,7 +30,6 @@ import {
   sendTextEmail,
   sendTextEmailWithBackup,
 } from "./email/senders";
-import { isDuplicateKey, isModerator, isPolisDev } from "./utils/common";
 
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
@@ -83,8 +70,6 @@ function haltOnTimeout(req: { timedout: any }, res: any, next: () => void) {
 }
 
 function initializePolisHelpers() {
-  const detectLanguage = Comment.detectLanguage;
-
   if (Config.backfillCommentLangDetection) {
     pg.queryP(
       "select tid, txt, zid from comments where lang is null;",
@@ -231,9 +216,7 @@ function initializePolisHelpers() {
       };
     },
     res: {
-      status: (
-        arg0: number
-      ) => {
+      status: (arg0: number) => {
         (): any;
         new (): any;
         json: { (arg0: {}): any; new (): any };
@@ -296,9 +279,7 @@ function initializePolisHelpers() {
     res: {
       writeHead: (arg0: number) => void;
       json: (arg0: { status: number }) => void;
-      status: (
-        arg0: number
-      ) => {
+      status: (arg0: number) => {
         (): any;
         new (): any;
         json: { (arg0: { codes: any }): void; new (): any };
@@ -358,9 +339,7 @@ function initializePolisHelpers() {
   function handle_POST_zinvites(
     req: { p: { short_url: any; zid: number; uid?: number } },
     res: {
-      status: (
-        arg0: number
-      ) => {
+      status: (arg0: number) => {
         (): any;
         new (): any;
         json: { (arg0: { zinvite: string }): void; new (): any };
@@ -504,9 +483,7 @@ Email verified! You can close this tab or hit the back button.
   function handle_GET_dummyButton(
     req: { p: { button: string; uid: string } },
     res: {
-      status: (
-        arg0: number
-      ) => {
+      status: (arg0: number) => {
         (): any;
         new (): any;
         end: { (): void; new (): any };
@@ -533,9 +510,7 @@ Email verified! You can close this tab or hit the back button.
   function handle_POST_tutorial(
     req: { p: { uid?: any; step: any } },
     res: {
-      status: (
-        arg0: number
-      ) => {
+      status: (arg0: number) => {
         (): any;
         new (): any;
         json: { (arg0: {}): void; new (): any };
@@ -551,230 +526,6 @@ Email verified! You can close this tab or hit the back button.
       .catch(function (err: any) {
         failJson(res, 500, "polis_err_saving_tutorial_state", err);
       });
-  }
-
-  function handle_POST_ptptCommentMod(
-    req: {
-      p: {
-        zid: number;
-        pid: number;
-        uid?: number;
-        tid: number;
-        as_abusive: any;
-        as_factual: any;
-        as_feeling: any;
-        as_important: any;
-        as_notfact: any;
-        as_notgoodidea: any;
-        as_notmyfeeling: any;
-        as_offtopic: any;
-        as_spam: any;
-        unsure: any;
-        lang: string;
-      };
-    },
-    res: any
-  ) {
-    const zid = req.p.zid;
-    const pid = req.p.pid;
-    const uid = req.p.uid;
-
-    return pg
-      .queryP(
-        "insert into crowd_mod (" +
-          "zid, " +
-          "pid, " +
-          "tid, " +
-          "as_abusive, " +
-          "as_factual, " +
-          "as_feeling, " +
-          "as_important, " +
-          "as_notfact, " +
-          "as_notgoodidea, " +
-          "as_notmyfeeling, " +
-          "as_offtopic, " +
-          "as_spam, " +
-          "as_unsure) values (" +
-          "$1, " +
-          "$2, " +
-          "$3, " +
-          "$4, " +
-          "$5, " +
-          "$6, " +
-          "$7, " +
-          "$8, " +
-          "$9, " +
-          "$10, " +
-          "$11, " +
-          "$12, " +
-          "$13);",
-        [
-          req.p.zid,
-          req.p.pid,
-          req.p.tid,
-          req.p.as_abusive,
-          req.p.as_factual,
-          req.p.as_feeling,
-          req.p.as_important,
-          req.p.as_notfact,
-          req.p.as_notgoodidea,
-          req.p.as_notmyfeeling,
-          req.p.as_offtopic,
-          req.p.as_spam,
-          req.p.unsure,
-        ]
-      )
-      .then((createdTime: any) => {
-        setTimeout(function () {
-          updateConversationModifiedTime(req.p.zid, createdTime);
-          updateLastInteractionTimeForConversation(zid, uid);
-        }, 100);
-      })
-      .then(function () {
-        return getNextComment(req.p.zid, pid, [], true, req.p.lang); // TODO req.p.lang is probably not defined
-      })
-      .then(function (nextComment: any) {
-        const result: ParticipantCommentModerationResult = {};
-        if (nextComment) {
-          result.nextComment = nextComment;
-        } else {
-          // no need to wait for this to finish
-          addNoMoreCommentsRecord(req.p.zid, pid);
-        }
-        // PID_FLOW This may be the first time the client gets the pid.
-        result.currentPid = req.p.pid;
-        finishOne(res, result);
-      })
-      .catch(function (err: string) {
-        if (err === "polis_err_ptptCommentMod_duplicate") {
-          failJson(res, 406, "polis_err_ptptCommentMod_duplicate", err); // TODO allow for changing votes?
-        } else if (err === "polis_err_conversation_is_closed") {
-          failJson(res, 403, "polis_err_conversation_is_closed", err);
-        } else {
-          failJson(res, 500, "polis_err_ptptCommentMod", err);
-        }
-      });
-  }
-
-  function handle_POST_upvotes(
-    req: { p: { uid?: number; zid: number } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: {}): void; new (): any };
-      };
-    }
-  ) {
-    const uid = req.p.uid;
-    const zid = req.p.zid;
-
-    pg.queryP("select * from upvotes where uid = ($1) and zid = ($2);", [
-      uid,
-      zid,
-    ]).then(
-      function (rows: string | any[]) {
-        if (rows && rows.length) {
-          failJson(res, 403, "polis_err_upvote_already_upvoted");
-        } else {
-          pg.queryP("insert into upvotes (uid, zid) VALUES ($1, $2);", [
-            uid,
-            zid,
-          ]).then(
-            function () {
-              pg.queryP(
-                "update conversations set upvotes = (select count(*) from upvotes where zid = ($1)) where zid = ($1);",
-                [zid]
-              ).then(
-                function () {
-                  res.status(200).json({});
-                },
-                function (err: any) {
-                  failJson(res, 500, "polis_err_upvote_update", err);
-                }
-              );
-            },
-            function (err: any) {
-              failJson(res, 500, "polis_err_upvote_insert", err);
-            }
-          );
-        }
-      },
-      function (err: any) {
-        failJson(res, 500, "polis_err_upvote_check", err);
-      }
-    );
-  }
-
-  function handle_POST_stars(
-    req: { p: { zid: number; tid: number; pid: number; starred: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: {}): void; new (): any };
-      };
-    }
-  ) {
-    addStar(req.p.zid, req.p.tid, req.p.pid, req.p.starred)
-      .then(function (result: { rows: { created: any }[] }) {
-        const createdTimeMillis = safeTimestampToMillis(result.rows[0].created);
-        setTimeout(function () {
-          updateConversationModifiedTime(req.p.zid, createdTimeMillis);
-        }, 100);
-        res.status(200).json({}); // TODO don't stop after the first one, map the inserts to deferreds.
-      })
-      .catch(function (err: any) {
-        if (err) {
-          if (isDuplicateKey(err)) {
-            failJson(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
-          } else {
-            failJson(res, 500, "polis_err_vote", err);
-          }
-        }
-      });
-  }
-
-  function handle_POST_trashes(
-    req: { p: { pid: number; zid: number; tid: number; trashed: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: {}): void; new (): any };
-      };
-    }
-  ) {
-    const query =
-      "INSERT INTO trashes (pid, zid, tid, trashed, created) VALUES ($1, $2, $3, $4, default);";
-    const params = [req.p.pid, req.p.zid, req.p.tid, req.p.trashed];
-    pg.query(
-      query,
-      params,
-      function (err: any, result: { rows: { created: any }[] }) {
-        if (err) {
-          if (isDuplicateKey(err)) {
-            failJson(res, 406, "polis_err_vote_duplicate", err); // TODO allow for changing votes?
-          } else {
-            failJson(res, 500, "polis_err_vote", err);
-          }
-          return;
-        }
-
-        const createdTimeMillis = safeTimestampToMillis(result.rows[0].created);
-        setTimeout(function () {
-          updateConversationModifiedTime(req.p.zid, createdTimeMillis);
-        }, 100);
-
-        res.status(200).json({}); // TODO don't stop after the first one, map the inserts to deferreds.
-      }
-    );
   }
 
   function handle_GET_contexts(req: ExpressRequest, res: ExpressResponse) {
@@ -901,9 +652,7 @@ Email verified! You can close this tab or hit the back button.
       };
     },
     res: {
-      status: (
-        arg0: number
-      ) => {
+      status: (arg0: number) => {
         (): any;
         new (): any;
         json: { (arg0: {}): void; new (): any };
@@ -942,54 +691,6 @@ Thanks for using Polis!
       });
   }
 
-  function getSocialParticipantsForMod_timed(
-    zid?: number,
-    limit?: any,
-    mod?: any,
-    convOwner?: any
-  ) {
-    return getSocialParticipantsForMod
-      .apply(null, [zid, limit, mod, convOwner])
-      .then(function (results: any) {
-        return results;
-      });
-  }
-
-  function getSocialParticipantsForMod(
-    zid: number,
-    limit: any,
-    mod: any,
-    owner: any
-  ) {
-    let modClause = "";
-    const params = [zid, limit, owner];
-    if (!_.isUndefined(mod)) {
-      modClause = " and mod = ($4)";
-      params.push(mod);
-    }
-
-    const q =
-      "with " +
-      "p as (select uid, pid, mod from participants where zid = ($1) " +
-      modClause +
-      "), " + // and vote_count >= 1
-      "final_set as (select * from p limit ($2)), " +
-      "xids_subset as (select * from xids where owner = ($3) and x_profile_image_url is not null), " +
-      "all_rows as (select " +
-      // "final_set.priority, " +
-      "final_set.mod, " +
-      "xids_subset.x_profile_image_url as x_profile_image_url, " +
-      "xids_subset.xid as xid, " +
-      "xids_subset.x_name as x_name, " +
-      "final_set.pid " +
-      "from final_set " +
-      "left join xids_subset on final_set.uid = xids_subset.uid " +
-      ") " +
-      "select * from all_rows where (xid is not null) " +
-      ";";
-    return pg.queryP(q, params);
-  }
-
   function getLocationsForParticipants(zid: number) {
     return pg.queryP_readOnly(
       "select * from participant_locations where zid = ($1);",
@@ -1000,9 +701,7 @@ Thanks for using Polis!
   function handle_GET_locations(
     req: { p: { zid: number; gid: any } },
     res: {
-      status: (
-        arg0: number
-      ) => {
+      status: (arg0: number) => {
         (): any;
         new (): any;
         json: { (arg0: any): void; new (): any };
@@ -1033,97 +732,6 @@ Thanks for using Polis!
         failJson(res, 500, "polis_err_locations_01", err);
       });
   }
-  function removeNullOrUndefinedProperties(o: { [x: string]: any }) {
-    for (const k in o) {
-      const v = o[k];
-      if (v === null || v === undefined) {
-        delete o[k];
-      }
-    }
-    return o;
-  }
-
-  function handle_PUT_ptptois(
-    req: { p: { zid: number; uid?: number; pid: number; mod: any } },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: {}): void; new (): any };
-      };
-    }
-  ) {
-    const zid = req.p.zid;
-    const uid = req.p.uid;
-    const pid = req.p.pid;
-    const mod = req.p.mod;
-    isModerator(zid, uid)
-      .then(function (isMod: any) {
-        if (!isMod) {
-          failJson(res, 403, "polis_err_ptptoi_permissions_123");
-          return;
-        }
-        return pg
-          .queryP(
-            "update participants set mod = ($3) where zid = ($1) and pid = ($2);",
-            [zid, pid, mod]
-          )
-          .then(function () {
-            res.status(200).json({});
-          });
-      })
-      .catch(function (err: any) {
-        failJson(res, 500, "polis_err_ptptoi_misc_234", err);
-      });
-  }
-  function handle_GET_ptptois(
-    req: {
-      p: { zid: number; mod: any; uid?: number; conversation_id: string };
-    },
-    res: {
-      status: (
-        arg0: number
-      ) => {
-        (): any;
-        new (): any;
-        json: { (arg0: any): void; new (): any };
-      };
-    }
-  ) {
-    const zid = req.p.zid;
-    const mod = req.p.mod;
-    const uid = req.p.uid;
-    const limit = 99999;
-
-    const convPromise = getConversationInfo(req.p.zid);
-    const socialPtptsPromise = convPromise.then((conv: { owner: any }) => {
-      return getSocialParticipantsForMod_timed(zid, limit, mod, conv.owner);
-    });
-
-    Promise.all([socialPtptsPromise, getConversationInfo(zid)])
-      .then(function (a: any[]) {
-        let ptptois = a[0];
-        const conv = a[1];
-        const isOwner = uid === conv.owner;
-        const isAllowed = isOwner || isPolisDev(req.p.uid) || conv.is_data_open;
-        if (isAllowed) {
-          ptptois = ptptois.map(pullXInfoIntoSubObjects);
-          ptptois = ptptois.map(removeNullOrUndefinedProperties);
-          ptptois = ptptois.map(function (p: { conversation_id: any }) {
-            p.conversation_id = req.p.conversation_id;
-            return p;
-          });
-        } else {
-          ptptois = [];
-        }
-        res.status(200).json(ptptois);
-      })
-      .catch(function (err: any) {
-        failJson(res, 500, "polis_err_ptptoi_misc", err);
-      });
-  }
 
   function doSendEinvite(req: any, email: any) {
     return generateTokenP(30, false).then(function (einvite: any) {
@@ -1141,9 +749,7 @@ Thanks for using Polis!
   function handle_POST_einvites(
     req: { p: { email: any } },
     res: {
-      status: (
-        arg0: number
-      ) => {
+      status: (arg0: number) => {
         (): any;
         new (): any;
         json: { (arg0: {}): void; new (): any };
@@ -1163,9 +769,7 @@ Thanks for using Polis!
   function handle_GET_einvites(
     req: { p: { einvite: any } },
     res: {
-      status: (
-        arg0: number
-      ) => {
+      status: (arg0: number) => {
         (): any;
         new (): any;
         json: { (arg0: any): void; new (): any };
@@ -1314,7 +918,6 @@ Thanks for using Polis!
     handle_GET_einvites,
     handle_GET_locations,
     handle_GET_perfStats,
-    handle_GET_ptptois,
     handle_GET_snapshot,
     handle_GET_testConnection,
     handle_GET_testDatabase,
@@ -1324,15 +927,10 @@ Thanks for using Polis!
     handle_POST_contributors,
     handle_POST_einvites,
     handle_POST_metrics,
-    handle_POST_ptptCommentMod,
     handle_POST_sendCreatedLinkToEmail,
     handle_POST_sendEmailExportReady,
-    handle_POST_stars,
-    handle_POST_trashes,
     handle_POST_tutorial,
-    handle_POST_upvotes,
     handle_POST_zinvites,
-    handle_PUT_ptptois,
   };
   return returnObject;
 } // End of initializePolisHelpers

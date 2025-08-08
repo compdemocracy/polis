@@ -436,7 +436,6 @@ function resolve_pidThing(
     loggingString = "";
   }
   return function (req: Req, res: any, next: (arg0?: string) => void) {
-    logger.debug("resolve_pidThing " + loggingString);
     if (!req.p) {
       failJson(
         res,
@@ -454,9 +453,6 @@ function resolve_pidThing(
 
     // If we already have a valid PID from JWT, preserve it regardless of URL params
     if (hasValidJwtPid) {
-      logger.debug(
-        `resolve_pidThing: preserving JWT-provided ${pidThingStringName}=${jwtProvidedValue} for uid=${req.p.uid}`
-      );
       next();
       return;
     }
@@ -470,14 +466,8 @@ function resolve_pidThing(
     });
 
     if (pidNumber === -1 && req?.p?.zid && req.p.uid) {
-      logger.debug(
-        `resolve_pidThing: looking up ${pidThingStringName} for uid=${req.p.uid}, zid=${req.p.zid}`
-      );
       getPidPromise(req.p.zid, req.p.uid)
         .then(function (pid: number) {
-          logger.debug(
-            `resolve_pidThing: found ${pidThingStringName}=${pid} for uid=${req.p.uid}`
-          );
           if (pid >= 0) {
             assigner(req, pidThingStringName, pid);
           }

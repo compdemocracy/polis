@@ -1,33 +1,19 @@
 import _ from "underscore";
-import { addParticipantAndMetadata } from "../participant";
+import { ConversationInfo, PidReadyResult, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
-import { getPid, getPidPromise } from "../user";
-import { getZinvite } from "../utils/zinvite";
+import { getNextComment } from "../nextComment";
+import { getPid } from "../user";
 import { isDuplicateKey, polisTypes } from "../utils/common";
-import { PidReadyResult, Vote, ConversationInfo } from "../d";
+import { isXidWhitelisted } from "../conversation";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import SQL from "../db/sql";
-import {
-  createAnonUser,
-  issueAnonymousJWT,
-  issueStandardUserJWT,
-  issueXidJWT,
-} from "../auth";
-import { checkLegacyCookieAndIssueJWT } from "../auth/legacyCookies";
-import {
-  isXidWhitelisted,
-  getConversationInfo,
-  getXidRecord,
-  createXidRecordByZid,
-} from "../conversation";
 import {
   addNoMoreCommentsRecord,
   addStar,
   doFamousQuery,
   finishArray,
   finishOne,
-  getNextComment,
   safeTimestampToMillis,
   updateConversationModifiedTime,
   updateLastInteractionTimeForConversation,
@@ -39,20 +25,6 @@ const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
 interface VoteResult {
   conv: ConversationInfo;
   vote: any;
-}
-interface VoteRequest {
-  p: Vote & {
-    anonymous_participant?: boolean;
-    oidc_sub?: string;
-    oidcUser?: any;
-    jwt_conversation_id?: string;
-    jwt_conversation_mismatch?: boolean;
-    jwt_xid?: string;
-    requested_conversation_id?: string;
-    standard_user_participant?: boolean;
-    xid_participant?: boolean;
-  };
-  headers?: { [x: string]: any };
 }
 
 interface VoteGetRequest {
@@ -213,304 +185,54 @@ async function handle_GET_votes(req: VoteGetRequest, res: any) {
 }
 
 /**
- * Handle user identification and creation for votes
- * Returns the final UID to use for the participant
+ * Simplified vote handler - all participant management is handled by middleware
  */
-async function handleUserIdentification(req: VoteRequest): Promise<number> {
-  const uid = req.p.uid;
-
-  if (uid !== undefined) {
-    return uid;
-  }
-
-  if (req.p.xid) {
-    // Handle XID users - look up or create their UID
-    const existingXidRecords = await getXidRecord(req.p.xid, req.p.zid);
-
-    if (existingXidRecords && existingXidRecords.length > 0) {
-      // XID user already exists
-      return existingXidRecords[0].uid;
-    }
-
-    // XID user doesn't exist, need to create one
-    const conv = await getConversationInfo(req.p.zid);
-    if (conv.use_xid_whitelist) {
-      const isWhitelisted = await isXidWhitelisted(conv.owner, req.p.xid);
-      if (!isWhitelisted) {
-        throw new Error("polis_err_xid_not_whitelisted");
-      }
-    }
-
-    // Create new anonymous user for this XID
-    const newUid = await createAnonUser();
-
-    // Create XID record linking the XID to the new user
-    await createXidRecordByZid(
-      req.p.zid,
-      newUid,
-      req.p.xid,
-      undefined,
-      undefined,
-      undefined
-    );
-
-    return newUid;
-  }
-
-  // Create anonymous user
-  const newUid = await createAnonUser();
-  req.p.uid = newUid; // Set uid in request for subsequent middleware
-  return newUid;
-}
-
-/**
- * Get or create participant for the given user and conversation
- * Returns the participant ID and whether it was newly created
- */
-async function getOrCreateParticipant(
-  zid: number,
-  uid: number,
-  existingPid: number | undefined,
-  req: VoteRequest
-): Promise<{ pid: number; isNewlyCreated: boolean }> {
-  if (existingPid !== undefined) {
-    return { pid: existingPid, isNewlyCreated: false };
-  }
-
-  // Check if participant already exists
-  const foundPid = await getPidPromise(zid, uid);
-
-  if (foundPid !== -1) {
-    return { pid: foundPid, isNewlyCreated: false };
-  }
-
-  // Create new participant with constraint violation protection
-  try {
-    const rows = await addParticipantAndMetadata(zid, uid, req);
-    return { pid: rows[0].pid, isNewlyCreated: true };
-  } catch (createError) {
-    // Handle race condition where another request created the participant
-    if (isDuplicateKey(createError)) {
-      const retryPid = await getPidPromise(zid, uid);
-      if (retryPid !== -1) {
-        return { pid: retryPid, isNewlyCreated: false };
-      }
-    }
-    throw createError;
-  }
-}
-
-/**
- * Issue JWT token for the participant if needed
- */
-async function issueJWTIfNeeded(
-  req: VoteRequest,
-  uid: number,
-  pid: number,
-  zid: number,
-  isNewlyCreated: boolean
-): Promise<any> {
-  logger.debug("issueJWTIfNeeded called", {
-    uid,
-    pid,
+async function handle_POST_votes(req: RequestWithP, res: any) {
+  const {
     zid,
-    isNewlyCreated,
-    hasAuthHeader: !!req.headers?.authorization,
-    xid: req.p.xid,
-    oidc_sub: req.p.oidc_sub,
-    standard_user_participant: req.p.standard_user_participant,
-  });
-
-  // Skip JWT issuance only if participant already has a valid JWT
-  if (req.headers?.authorization) {
-    logger.debug("Skipping JWT issuance - participant already has auth header");
-    return {}; // Already has JWT
-  }
-
-  // Issue JWT for:
-  // 1. Newly created participants
-  // 2. Existing participants who don't have a JWT yet (no auth header)
-  logger.debug("Proceeding with JWT issuance - participant needs JWT", {
-    isNewlyCreated,
-    hasAuthHeader: !!req.headers?.authorization,
-  });
+    pid,
+    uid,
+    tid,
+    vote,
+    weight,
+    high_priority,
+    starred,
+    lang,
+    xid,
+  } = req.p;
 
   try {
-    const conversationId = (await getZinvite(zid)) as string;
-
-    if (!conversationId) {
-      throw new Error(`Could not find conversation_id for zid ${zid}`);
-    }
-
-    logger.debug("Got conversation ID for JWT", { conversationId, zid });
-
-    // Determine which type of JWT to issue
-    let token;
-    let tokenType;
-
-    if (req.p.oidc_sub) {
-      // Standard user with OIDC authentication
-      token = issueStandardUserJWT(req.p.oidc_sub, conversationId, uid, pid);
-      tokenType = "StandardUser";
-    } else if (req.p.xid) {
-      // XID participant
-      token = issueXidJWT(req.p.xid, conversationId, uid, pid);
-      tokenType = "XID";
-    } else {
-      // Anonymous participant
-      token = issueAnonymousJWT(conversationId, uid, pid);
-      tokenType = "Anonymous";
-    }
-
-    logger.debug("JWT issued successfully", {
-      tokenType,
+    // 1. Submit the vote - that's all we need to do now!
+    const voteResult = await votesPost(
       uid,
       pid,
-      conversationId,
-      oidc_sub: req.p.oidc_sub,
-    });
-
-    return {
-      auth: {
-        token: token,
-        token_type: "Bearer",
-        expires_in: 365 * 24 * 60 * 60, // 1 year in seconds
-      },
-    };
-  } catch (error) {
-    logger.error("Failed to issue JWT on vote:", error);
-    return {}; // Continue without JWT - maintains backward compatibility
-  }
-}
-
-async function handle_POST_votes(req: VoteRequest, res: any) {
-  const zid = req.p.zid;
-  let pid = req.p.pid;
-
-  try {
-    // Handle JWT conversation mismatches
-    if (req.p.jwt_conversation_mismatch) {
-      if (req.p.anonymous_participant) {
-        // Anonymous participant with JWT for different conversation - treat as new
-        logger.debug(
-          "Anonymous participant voting with JWT for different conversation - treating as new"
-        );
-        req.p.uid = undefined;
-        req.p.pid = undefined;
-      } else if (req.p.xid_participant && req.p.xid) {
-        // XID participant - apply the same 4-case logic as participationInit
-        const jwtXid = req.p.jwt_xid;
-        const requestXid = req.p.xid;
-        const xidMatches = jwtXid === requestXid;
-
-        // Check if XID exists for current conversation
-        let xidForCurrentConversation = false;
-        try {
-          const xidRecords = await getXidRecord(requestXid, zid);
-          if (xidRecords && xidRecords.length > 0) {
-            xidForCurrentConversation = true;
-          }
-        } catch (err) {
-          // XID not found for this conversation
-        }
-
-        if (xidMatches) {
-          // Case 2: Token and XID align but are for different conversation
-          logger.debug(
-            "Case 2: XID participant voting with matching JWT/XID for different conversation - treating as anonymous"
-          );
-          req.p.xid = undefined; // Clear XID to treat as anonymous
-          req.p.uid = undefined;
-          req.p.pid = undefined;
-        } else if (!xidMatches && xidForCurrentConversation) {
-          // Case 3: Token for different conversation, but XID is for current
-          logger.debug(
-            "Case 3: XID participant voting with mismatched JWT but XID for current conversation - maintaining XID"
-          );
-          req.p.uid = undefined;
-          req.p.pid = undefined;
-          // XID will be resolved below
-        } else {
-          // Case 4: Token for current conversation, but XID for different
-          logger.debug(
-            "Case 4: XID participant voting with JWT for current conversation but XID for different - treating as anonymous"
-          );
-          req.p.xid = undefined; // Clear XID
-          // Keep uid/pid from JWT
-        }
-      }
-    }
-
-    // Check for legacy cookie before creating new user
-    let legacyCookieToken: string | undefined;
-    let isLegacyCookieUser = false;
-    if (req.p.uid === undefined && !req.p.jwt_conversation_mismatch) {
-      // Get conversation_id for the legacy cookie check
-      const conversationId = await getZinvite(zid);
-      if (conversationId) {
-        const legacyResult = await checkLegacyCookieAndIssueJWT(
-          req,
-          zid,
-          conversationId as string,
-          req.p.xid
-        );
-        if (legacyResult.uid !== undefined && legacyResult.pid !== undefined) {
-          req.p.uid = legacyResult.uid;
-          req.p.pid = legacyResult.pid;
-          pid = legacyResult.pid;
-          legacyCookieToken = legacyResult.token;
-          isLegacyCookieUser = true;
-          logger.info("Using existing participant from legacy cookie", {
-            uid: legacyResult.uid,
-            pid: legacyResult.pid,
-          });
-        }
-      }
-    }
-
-    // 1. Handle user identification and creation
-    const finalUid = await handleUserIdentification(req);
-
-    // 2. Get or create participant
-    const { pid: participantId, isNewlyCreated } = await getOrCreateParticipant(
       zid,
-      finalUid,
-      req.p.pid,
-      req
-    );
-    pid = participantId;
-
-    // 3. Submit the vote
-    const voteResult = await votesPost(
-      finalUid,
-      pid,
-      zid,
-      req.p.tid,
-      req.p.xid,
-      req.p.vote,
-      req.p.weight,
-      req.p.high_priority
+      tid,
+      xid,
+      vote,
+      weight,
+      high_priority
     );
 
-    const vote = voteResult.vote;
-    const createdTimeMillis = safeTimestampToMillis(vote.created);
+    const voteRecord = voteResult.vote;
+    const createdTimeMillis = safeTimestampToMillis(voteRecord.created);
 
-    // 4. Async updates (don't wait for them)
+    // 2. Async updates (don't wait for them)
     setTimeout(() => {
       updateConversationModifiedTime(zid, createdTimeMillis);
-      updateLastInteractionTimeForConversation(zid, finalUid);
+      updateLastInteractionTimeForConversation(zid, uid);
       updateVoteCount(zid, pid);
     }, 100);
 
-    // 5. Handle star if present
-    if (!_.isUndefined(req.p.starred)) {
-      await addStar(zid, req.p.tid, pid, req.p.starred, createdTimeMillis);
+    // 3. Handle star if present
+    if (!_.isUndefined(starred)) {
+      await addStar(zid, tid, pid, starred, createdTimeMillis);
     }
 
-    // 6. Get next comment
-    const nextComment = await getNextComment(zid, pid, [], true, req.p.lang);
+    // 4. Get next comment
+    const nextComment = await getNextComment(zid, pid, [], lang);
 
-    // 7. Build result
+    // 5. Build result
     const result: PidReadyResult = {};
     if (nextComment) {
       result.nextComment = nextComment;
@@ -519,10 +241,9 @@ async function handle_POST_votes(req: VoteRequest, res: any) {
       addNoMoreCommentsRecord(zid, pid);
     }
 
-    // PID_FLOW This may be the first time the client gets the pid.
     result.currentPid = pid;
 
-    // 8. Handle moderation options
+    // 6. Handle moderation options
     if (result.shouldMod) {
       result.modOptions = {};
       if (req.p.vote === polisTypes.reactions.pull) {
@@ -540,29 +261,7 @@ async function handle_POST_votes(req: VoteRequest, res: any) {
       }
     }
 
-    // 9. Issue JWT if needed
-    let authResult;
-    if (isLegacyCookieUser && legacyCookieToken) {
-      // Use the JWT token from legacy cookie lookup
-      authResult = {
-        auth: {
-          token: legacyCookieToken,
-          token_type: "Bearer",
-          expires_in: 365 * 24 * 60 * 60, // 1 year
-        },
-      };
-      logger.debug("Using JWT from legacy cookie lookup");
-    } else {
-      // Issue new JWT if needed
-      authResult = await issueJWTIfNeeded(
-        req,
-        finalUid,
-        pid,
-        zid,
-        isNewlyCreated
-      );
-    }
-    Object.assign(result, authResult);
+    // 7. Auth token will be automatically included by attachAuthToken middleware
 
     finishOne(res, result);
   } catch (err) {
@@ -595,9 +294,9 @@ async function handle_GET_votes_famous(req: { p: any }, res: any) {
 
 export {
   getVotesForSingleParticipant,
-  votesPost,
   handle_GET_votes_famous,
   handle_GET_votes_me,
   handle_GET_votes,
   handle_POST_votes,
+  votesPost,
 };

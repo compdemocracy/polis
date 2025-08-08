@@ -5,6 +5,7 @@ import {
   getTestAgent,
   initializeParticipant,
   submitVote,
+  wait,
 } from "../setup/api-test-helpers";
 import { getPooledTestUser } from "../setup/test-user-helpers";
 import type { Response } from "supertest";
@@ -140,6 +141,9 @@ describe("Data Export API", () => {
     await agent.post("/api/v3/reports").send({
       conversation_id: conversationId,
     });
+
+    // Wait for the report to be created
+    await wait(2000);
 
     // Get the report ID
     const getReportsResponse: Response = await agent.get(

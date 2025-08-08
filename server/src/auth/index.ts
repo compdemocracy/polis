@@ -46,6 +46,13 @@ export { generateToken, generateTokenP } from "./generate-token";
 // Hybrid JWT middleware
 export { hybridAuth, hybridAuthOptional } from "./hybrid-jwt";
 
+// Auth token attachment middleware
+export {
+  attachAuthToken,
+  attachAuthTokenConditional,
+  attachAuthTokenWithOptions,
+} from "./attach-auth-token";
+
 // JWT middleware (for direct use if needed)
 export {
   extractUserFromJWT,
@@ -92,3 +99,10 @@ export {
   xidJwtValidation,
   xidJwtValidationOptional,
 } from "./xid-jwt";
+
+// Participant management middleware
+export {
+  ensureParticipant,
+  ensureParticipantOptional,
+  ensureParticipantOnAction,
+} from "./ensure-participant";

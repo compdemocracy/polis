@@ -1,5 +1,4 @@
 import _ from "underscore";
-
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const { Translate } = require("@google-cloud/translate").v2;
 
@@ -11,7 +10,7 @@ import pg from "./db/pg-query";
 import SQL from "./db/sql";
 import Utils from "./utils/common";
 
-type Row = {
+export type CommentRow = {
   tid: number;
   disagree_count: number;
   agree_count: number;
@@ -31,34 +30,44 @@ type Row = {
   zid?: number;
   mod?: number;
   active?: boolean;
+  randomN?: number;
+};
+
+export type CommentTranslationRow = {
+  zid: number;
+  tid: number;
+  txt: string;
+  lang: string;
+  src: number;
+  modified?: any;
 };
 
 type Docs = {
-  rows: Row[];
+  rows: CommentRow[];
 };
 
 const useTranslateApi: boolean = Config.shouldUseTranslationAPI;
 const translateClient = useTranslateApi ? new Translate() : null;
 
-function getComment(zid: number, tid: number): Promise<Row | null> {
+function getComment(zid: number, tid: number): Promise<CommentRow | null> {
   return pg
     .queryP("select * from comments where zid = ($1) and tid = ($2);", [
       zid,
       tid,
     ])
-    .then((rows: Row[]) => {
+    .then((rows: CommentRow[]) => {
       return (rows && rows[0]) || null;
     });
 }
 
-function getComments(o: GetCommentsParams): Promise<Row[]> {
+function getComments(o: GetCommentsParams): Promise<CommentRow[]> {
   const commentListPromise = o.moderation
     ? _getCommentsForModerationList(o as any)
     : _getCommentsList(o as any);
   const convPromise = getConversationInfo(o.zid);
   return Promise.all([convPromise, commentListPromise])
-    .then(function (a: [any, Row[]]) {
-      let rows: Row[] = a[1];
+    .then(function (a: [any, CommentRow[]]) {
+      let rows: CommentRow[] = a[1];
       const cols = [
         "txt",
         "tid",
@@ -80,8 +89,8 @@ function getComments(o: GetCommentsParams): Promise<Row[]> {
         cols.push("pass_count"); //  in  moderation queries, we join in the vote count
         cols.push("count"); //  in  moderation queries, we join in the vote count
       }
-      rows = rows.map(function (row: Row): Row {
-        const x = _.pick(row, cols) as Row;
+      rows = rows.map(function (row: CommentRow): CommentRow {
+        const x = _.pick(row, cols) as CommentRow;
         if (!_.isUndefined(x.count)) {
           x.count = Number(x.count);
         }
@@ -89,7 +98,7 @@ function getComments(o: GetCommentsParams): Promise<Row[]> {
       });
       return rows;
     })
-    .then(function (comments: Row[]): Row[] {
+    .then(function (comments: CommentRow[]): CommentRow[] {
       comments.forEach(function (c: { uid?: any }) {
         delete c.uid;
       });
@@ -104,7 +113,7 @@ function _getCommentsForModerationList(o: {
   strict_moderation: any;
   mod: any;
   mod_gt: any;
-}): Promise<Row[]> {
+}): Promise<CommentRow[]> {
   let strictCheck: Promise<any> = Promise.resolve(null);
   const include_voting_patterns = o.include_voting_patterns;
 
@@ -118,7 +127,7 @@ function _getCommentsForModerationList(o: {
       });
   }
 
-  return strictCheck.then((strict_moderation): Promise<Row[]> => {
+  return strictCheck.then((strict_moderation): Promise<CommentRow[]> => {
     let modClause = "";
     const params = [o.zid];
     if (!_.isUndefined(o.mod)) {
@@ -147,7 +156,7 @@ function _getCommentsForModerationList(o: {
         "_getCommentsForModerationList",
         "select * from comments where comments.zid = ($1)" + modClause,
         params
-      ) as Promise<Row[]>;
+      ) as Promise<CommentRow[]>;
     }
 
     return pg
@@ -157,9 +166,9 @@ function _getCommentsForModerationList(o: {
           modClause,
         params
       )
-      .then((rows: Row[]) => {
+      .then((rows: CommentRow[]) => {
         // each comment will have up to three rows. merge those into one with agree/disagree/pass counts.
-        const adp: { [key: string]: Row } = {};
+        const adp: { [key: string]: CommentRow } = {};
         for (let i = 0; i < rows.length; i++) {
           const row = rows[i];
           const o = (adp[row.tid] = adp[row.tid] || {
@@ -204,10 +213,13 @@ function _getCommentsList(o: {
   moderation: any;
   random: any;
   limit: any;
-}): Promise<Row[]> {
+}): Promise<CommentRow[]> {
   return MPromise(
     "_getCommentsList",
-    function (resolve: (rows: Row[]) => void, reject: (arg0: any) => void) {
+    function (
+      resolve: (rows: CommentRow[]) => void,
+      reject: (arg0: any) => void
+    ) {
       getConversationInfo(o.zid).then(function (conv: ConversationInfo) {
         let q = SQL.sql_comments
           .select(SQL.sql_comments.star())
@@ -271,7 +283,7 @@ function _getCommentsList(o: {
         });
       });
     }
-  ) as Promise<Row[]>;
+  ) as Promise<CommentRow[]>;
 }
 
 function getNumberOfCommentsRemaining(zid: number, pid: number): Promise<any> {
@@ -291,7 +303,7 @@ function translateAndStoreComment(
   tid: number,
   txt: any,
   lang: string
-): Promise<Row | null> {
+): Promise<CommentTranslationRow | null> {
   if (useTranslateApi) {
     return translateString(txt, lang).then((results: any[]) => {
       const translation = results[0];
@@ -305,7 +317,7 @@ function translateAndStoreComment(
             "returning *;",
           [zid, tid, translation, lang, src]
         )
-        .then((rows: Row[]) => {
+        .then((rows: CommentTranslationRow[]) => {
           return rows[0];
         });
     });
@@ -335,21 +347,11 @@ function detectLanguage(
 }
 
 export {
+  detectLanguage,
   getComment,
   getComments,
-  _getCommentsForModerationList,
-  _getCommentsList,
   getNumberOfCommentsRemaining,
   translateAndStoreComment,
-  detectLanguage,
 };
 
-export default {
-  getComment,
-  getComments,
-  _getCommentsForModerationList,
-  _getCommentsList,
-  getNumberOfCommentsRemaining,
-  translateAndStoreComment,
-  detectLanguage,
-};
+// types already exported above via `export type`

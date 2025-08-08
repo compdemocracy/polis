@@ -143,7 +143,24 @@ import {
   handle_PUT_reports,
   handle_POST_reportCommentSelections,
 } from "./src/routes/reports";
-import { hybridAuth, hybridAuthOptional } from "./src/auth";
+import {
+  handle_GET_ptptois,
+  handle_PUT_ptptois,
+} from "./src/routes/participantsOfInterest";
+import {
+  handle_POST_ptptCommentMod,
+  handle_POST_upvotes,
+  handle_POST_stars,
+  handle_POST_trashes,
+} from "./src/routes/commentMod";
+
+import {
+  attachAuthToken,
+  ensureParticipant,
+  ensureParticipantOptional,
+  hybridAuth,
+  hybridAuthOptional,
+} from "./src/auth";
 import {
   addCorsHeader,
   denyIfNotFromWhitelistedDomain,
@@ -168,7 +185,7 @@ import {
   getOptionalStringLimitLength,
   getReportIdFetchRid,
   getStringLimitLength,
-  getUrlLimitLength,
+  // getUrlLimitLength,
   moveToBody,
   need,
   resolve_pidThing,
@@ -210,7 +227,6 @@ helpersInitialized.then(
       handle_GET_einvites,
       handle_GET_locations,
       handle_GET_perfStats,
-      handle_GET_ptptois,
       handle_GET_snapshot,
       handle_GET_testConnection,
       handle_GET_testDatabase,
@@ -221,17 +237,10 @@ helpersInitialized.then(
       handle_POST_contributors,
       handle_POST_einvites,
       handle_POST_metrics,
-      handle_POST_ptptCommentMod,
       handle_POST_sendCreatedLinkToEmail,
       handle_POST_sendEmailExportReady,
-      handle_POST_stars,
-      handle_POST_trashes,
       handle_POST_tutorial,
-      handle_POST_upvotes,
-
       handle_POST_zinvites,
-
-      handle_PUT_ptptois,
     } = o;
 
     app.disable("x-powered-by");
@@ -498,7 +507,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       need("email", getEmail, assignToP),
       handle_GET_notifications_subscribe
     );
@@ -512,7 +522,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       need("email", getEmail, assignToP),
       handle_GET_notifications_unsubscribe
     );
@@ -552,7 +563,8 @@ helpersInitialized.then(
       need("webserver_username", getStringLimitLength(1, 999), assignToP),
       need("webserver_pass", getStringLimitLength(1, 999), assignToP),
       need("email", getEmail, assignToP),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       need("filename", getStringLimitLength(9999), assignToP),
       handle_POST_sendEmailExportReady
     );
@@ -668,57 +680,33 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("report_id", getReportIdFetchRid, assignToPCustom("rid")), // if you want to get report-specific info
+      // if you want to get report-specific info
+      want("report_id", getReportIdFetchRid, assignToPCustom("rid")),
       want("tids", getArrayOfInt, assignToP),
       want("moderation", getBool, assignToP),
       want("mod", getInt, assignToP),
-      want("modIn", getBool, assignToP), // set this to true if you want to see the comments that are ptpt-visible given the current "strict mod" setting, or false for ptpt-invisible comments.
+      // set this to true if you want to see the comments that are ptpt-visible given the current "strict mod" setting, or false for ptpt-invisible comments.
+      want("modIn", getBool, assignToP),
       want("mod_gt", getInt, assignToP),
-      want("include_social", getBool, assignToP),
-      //    need('lastServerToken', _.identity, assignToP),
       want("include_voting_patterns", getBool, assignToP, false),
-      resolve_pidThing(
-        "not_voted_by_pid",
-        assignToP,
-        "get:comments:not_voted_by_pid"
-      ),
       resolve_pidThing("pid", assignToP, "get:comments:pid"),
       handle_GET_comments
     );
 
-    // TODO probably need to add a retry mechanism like on joinConversation to handle possibility of duplicate tid race-condition exception
     app.post(
       "/api/v3/comments",
       hybridAuthOptional(assignToP),
       need(
         "conversation_id",
-        (conversationId: string) => {
-          // First validate the conversation_id format
-          return getStringLimitLength(
-            1,
-            1000
-          )(conversationId).then(() => {
-            // Then fetch the zid
-            return getConversationIdFetchZid(conversationId);
-          });
-        },
-        (req: any, name: string, zid: number) => {
-          // Assign both the zid and preserve the original conversation_id
-          assignToP(req, "zid", zid);
-          assignToP(
-            req,
-            "conversation_id",
-            req.body.conversation_id || req.query.conversation_id
-          );
-        }
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
       ),
-      want("txt", getOptionalStringLimitLength(997), assignToP),
+      need("txt", getStringLimitLength(1, 997), assignToP),
       want("vote", getIntInRange(-1, 1), assignToP),
-      want("quote_txt", getStringLimitLength(999), assignToP),
-      want("quote_src_url", getUrlLimitLength(999), assignToP),
       want("is_seed", getBool, assignToP),
       want("xid", getStringLimitLength(1, 999), assignToP),
-      resolve_pidThing("pid", assignToP, "post:comments"),
+      ensureParticipant({ createIfMissing: true, issueJWT: true }),
+      attachAuthToken(),
       handle_POST_comments
     );
 
@@ -788,8 +776,9 @@ helpersInitialized.then(
       ),
       resolve_pidThing("not_voted_by_pid", assignToP, "get:nextComment"),
       want("without", getArrayOfInt, assignToP),
-      want("include_social", getBool, assignToP),
-      want("lang", getStringLimitLength(1, 10), assignToP), // preferred language of nextComment
+      // preferred language of nextComment
+      want("lang", getStringLimitLength(1, 10), assignToP),
+      ensureParticipantOptional({ createIfMissing: false, issueJWT: false }),
       haltOnTimeout,
       handle_GET_nextComment
     );
@@ -855,150 +844,124 @@ helpersInitialized.then(
     });
 
     // TopicMod endpoints for topic-based moderation
-    app.get("/api/v3/topicMod/topics", moveToBody, function (req, res) {
-      try {
-        handle_GET_topicMod_topics(req, res);
-      } catch (err) {
-        res.json({
-          status: "error",
-          message: "Internal server error in topicMod topics endpoint",
-          error: err.message || "Unknown error",
-        });
-      }
-    });
+    app.get(
+      "/api/v3/topicMod/topics",
+      moveToBody,
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_topicMod_topics
+    );
 
     app.get(
       "/api/v3/topicMod/topics/:topicKey/comments",
       moveToBody,
-      function (req, res) {
-        try {
-          handle_GET_topicMod_comments(req, res);
-        } catch (err) {
-          res.json({
-            status: "error",
-            message: "Internal server error in topicMod comments endpoint",
-            error: err.message || "Unknown error",
-          });
-        }
-      }
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_topicMod_comments
     );
 
-    app.post("/api/v3/topicMod/moderate", moveToBody, function (req, res) {
-      try {
-        handle_POST_topicMod_moderate(req, res);
-      } catch (err) {
-        res.json({
-          status: "error",
-          message: "Internal server error in topicMod moderate endpoint",
-          error: err.message || "Unknown error",
-        });
-      }
-    });
+    app.post(
+      "/api/v3/topicMod/moderate",
+      moveToBody,
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_POST_topicMod_moderate
+    );
 
-    app.get("/api/v3/topicMod/proximity", moveToBody, function (req, res) {
-      try {
-        handle_GET_topicMod_proximity(req, res);
-      } catch (err) {
-        res.json({
-          status: "error",
-          message: "Internal server error in topicMod proximity endpoint",
-          error: err.message || "Unknown error",
-        });
-      }
-    });
+    app.get(
+      "/api/v3/topicMod/proximity",
+      moveToBody,
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_topicMod_proximity
+    );
 
-    app.get("/api/v3/topicMod/stats", moveToBody, function (req, res) {
-      try {
-        handle_GET_topicMod_stats(req, res);
-      } catch (err) {
-        res.json({
-          status: "error",
-          message: "Internal server error in topicMod stats endpoint",
-          error: err.message || "Unknown error",
-        });
-      }
-    });
+    app.get(
+      "/api/v3/topicMod/stats",
+      moveToBody,
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_topicMod_stats
+    );
 
-    app.get("/api/v3/topicMod/hierarchy", moveToBody, function (req, res) {
-      try {
-        handle_GET_topicMod_hierarchy(req, res);
-      } catch (err) {
-        res.json({
-          status: "error",
-          message: "Internal server error in topicMod hierarchy endpoint",
-          error: err.message || "Unknown error",
-        });
-      }
-    });
+    app.get(
+      "/api/v3/topicMod/hierarchy",
+      moveToBody,
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_topicMod_hierarchy
+    );
 
     // Topic Agenda routes
     app.post(
       "/api/v3/topicAgenda/selections",
-      hybridAuth(assignToP),
+      hybridAuthOptional(assignToP),
       moveToBody,
-      function (req, res) {
-        try {
-          handle_POST_topicAgenda_selections(req, res);
-        } catch (err) {
-          res.json({
-            status: "error",
-            message: "Internal server error in topicAgenda selections endpoint",
-            error: err.message || "Unknown error",
-          });
-        }
-      }
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      ensureParticipant({ createIfMissing: true, issueJWT: true }),
+      attachAuthToken(),
+      handle_POST_topicAgenda_selections
     );
 
     app.get(
       "/api/v3/topicAgenda/selections",
-      hybridAuth(assignToP),
+      hybridAuthOptional(assignToP),
       moveToBody,
-      handle_GET_topicAgenda_selections,
-      function (req, res) {
-        try {
-          handle_GET_topicAgenda_selections(req, res);
-        } catch (err) {
-          res.json({
-            status: "error",
-            message: "Internal server error in topicAgenda selections endpoint",
-            error: err.message || "Unknown error",
-          });
-        }
-      }
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      ensureParticipantOptional({ createIfMissing: false, issueJWT: false }),
+      handle_GET_topicAgenda_selections
     );
 
     app.put(
       "/api/v3/topicAgenda/selections",
       hybridAuth(assignToP),
       moveToBody,
-      function (req, res) {
-        try {
-          handle_PUT_topicAgenda_selections(req, res);
-        } catch (err) {
-          res.json({
-            status: "error",
-            message: "Internal server error in topicAgenda selections endpoint",
-            error: err.message || "Unknown error",
-          });
-        }
-      }
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      ensureParticipant({ createIfMissing: false, issueJWT: false }),
+      handle_PUT_topicAgenda_selections
     );
 
     app.delete(
       "/api/v3/topicAgenda/selections",
       hybridAuth(assignToP),
       moveToBody,
-      function (req, res) {
-        try {
-          handle_DELETE_topicAgenda_selections(req, res);
-        } catch (err) {
-          res.json({
-            status: "error",
-            message: "Internal server error in topicAgenda selections endpoint",
-            error: err.message || "Unknown error",
-          });
-        }
-      }
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      ensureParticipant({ createIfMissing: false, issueJWT: false }),
+      handle_DELETE_topicAgenda_selections
     );
 
     // RSS Feeds routes
@@ -1074,7 +1037,10 @@ helpersInitialized.then(
       ),
       denyIfNotFromWhitelistedDomain, // this seems like the easiest place to enforce the domain whitelist. The index.html is cached on cloudflare, so that's not the right place.
       want("xid", getStringLimitLength(1, 999), assignToP),
-      resolve_pidThing("pid", assignToP, "get:participationInit"), // must be after zid getter
+      ensureParticipantOptional({
+        createIfMissing: false, // Don't create new participants
+        issueJWT: true, // Issue JWT for existing participants
+      }),
       handle_GET_participationInit
     );
 
@@ -1087,25 +1053,27 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
+      // Preserve the original conversation_id for the response
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       handle_GET_participation_topicPrioritize
     );
 
     app.post(
       "/api/v3/votes",
       hybridAuthOptional(assignToP),
-      want("agid", getInt, assignToP),
-      need("tid", getInt, assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
+      need("tid", getInt, assignToP),
       need("vote", getIntInRange(-1, 1), assignToP),
+      want("xid", getStringLimitLength(1, 999), assignToP),
       want("starred", getBool, assignToP),
       want("high_priority", getBool, assignToP, false),
-      resolve_pidThing("pid", assignToP, "post:votes"),
-      want("xid", getStringLimitLength(1, 999), assignToP),
-      want("lang", getStringLimitLength(1, 10), assignToP), // language of the next comment to be returned
+      want("lang", getStringLimitLength(1, 10), assignToP),
+      ensureParticipant({ createIfMissing: true, issueJWT: true }),
+      attachAuthToken(),
       handle_POST_votes
     );
 
@@ -1247,7 +1215,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       want("is_active", getBool, assignToP),
       want("is_anon", getBool, assignToP),
       want("is_draft", getBool, assignToP, false),
@@ -1631,7 +1600,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP), // we actually need conversation_id to build a url
+      // we actually need conversation_id to build a url
+      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
       // need('single_use_tokens', getBool, assignToP),
       need("emails", getArrayOfStringNonEmpty, assignToP),
       handle_POST_users_invite

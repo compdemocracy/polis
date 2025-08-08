@@ -62,6 +62,11 @@ export type PidReadyResult = {
   nextComment?: any;
   currentPid?: any;
   shouldMod?: any;
+  auth?: {
+    token: string;
+    token_type: string;
+    expires_in: number;
+  };
 };
 
 export type CommentOptions = {
@@ -73,7 +78,6 @@ type ModerationState = -1 | 0 | 1;
 export type GetCommentsParams = {
   zid: number;
   not_voted_by_pid?: number;
-  include_social?: any;
   withoutTids?: any;
   tid?: number;
   translations?: any;
@@ -255,16 +259,74 @@ export type ParticipantOption = {
   "base-clusters": any;
 };
 
-export type Vote = {
-  uid?: number;
-  zid: number;
-  pid: number;
-  lang: any;
-  tid: number;
-  xid: string;
-  vote: any;
-  weight: any;
-  starred: any;
-  parent_url: any;
-  high_priority: any;
-};
+// Centralized request type for routes that use the 'p' parameter pattern
+export interface RequestWithP extends Omit<ExpressRequest, "p"> {
+  p: {
+    // User and participant identifiers
+    uid?: number;
+    pid?: number;
+    zid?: number;
+    xid?: string;
+    conversation_id?: string;
+
+    // Authentication-related
+    oidc_sub?: string;
+    oidcUser?: any;
+    jwt_conversation_mismatch?: boolean;
+    jwt_conversation_id?: string;
+    jwt_xid?: string;
+    requested_conversation_id?: string;
+    anonymous_participant?: boolean;
+    xid_participant?: boolean;
+    standard_user_participant?: boolean;
+
+    // Participant info (added by middleware)
+    participantInfo?: {
+      uid: number;
+      pid: number;
+      isNewlyCreatedUser: boolean;
+      isNewlyCreatedParticipant: boolean;
+      needsNewJWT: boolean;
+      token?: string;
+      conversationId?: string;
+    } | null;
+
+    // Auth token (added by middleware)
+    authToken?: {
+      token: string;
+      token_type: string;
+      expires_in: number;
+    };
+
+    // Common request parameters
+    parent_url?: string;
+    referrer?: string;
+    answers?: any;
+    suzinvite?: string;
+
+    // Action-specific parameters
+    tid?: number;
+    txt?: string;
+    vote?: any;
+    weight?: any;
+    starred?: any;
+    high_priority?: any;
+    is_seed?: boolean;
+    lang?: string;
+
+    // Allow additional properties
+    [key: string]: any;
+  };
+
+  // Headers with common fields
+  headers: Headers;
+
+  // HTTP method
+  method: string;
+
+  // Cookies (optional in Express)
+  cookies?: {
+    pc?: string;
+    [key: string]: string | undefined;
+  };
+}

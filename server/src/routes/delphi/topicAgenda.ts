@@ -1,19 +1,14 @@
-import { Request, Response } from "express";
-import logger from "../../utils/logger";
+import _ from "underscore";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import {
-  DynamoDBDocumentClient,
-  PutCommand,
-  GetCommand,
-  UpdateCommand,
-  DeleteCommand,
-} from "@aws-sdk/lib-dynamodb";
-import Config from "../../config";
-import p from "../../db/pg-query";
-import { getZidFromConversationId } from "../../conversation";
-import { getPidPromise } from "../../user";
+import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import { Response } from "express";
 
-// DynamoDB configuration (reuse pattern from other Delphi routes)
+import { RequestWithP } from "../../d";
+import Config from "../../config";
+import logger from "../../utils/logger";
+import pgQuery from "../../db/pg-query";
+
+// DynamoDB configuration for job queries only
 const dynamoDBConfig: any = {
   region: Config.AWS_REGION || "us-east-1",
 };
@@ -24,44 +19,53 @@ if (Config.dynamoDbEndpoint) {
     accessKeyId: "DUMMYIDEXAMPLE",
     secretAccessKey: "DUMMYEXAMPLEKEY",
   };
-} else {
-  if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
-    dynamoDBConfig.credentials = {
-      accessKeyId: Config.AWS_ACCESS_KEY_ID,
-      secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,
-    };
-  }
+} else if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
+  dynamoDBConfig.credentials = {
+    accessKeyId: Config.AWS_ACCESS_KEY_ID,
+    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,
+  };
 }
 
-const client = new DynamoDBClient(dynamoDBConfig);
-const docClient = DynamoDBDocumentClient.from(client, {
+const dynamoClient = new DynamoDBClient(dynamoDBConfig);
+const docClient = DynamoDBDocumentClient.from(dynamoClient, {
   marshallOptions: {
     convertEmptyValues: true,
     removeUndefinedValues: true,
   },
 });
 
-const TABLE_NAME = "Delphi_TopicAgendaSelections";
-
 /**
  * Get the current Delphi job ID for a conversation
  */
 async function getCurrentDelphiJobId(zid: string): Promise<string | null> {
   try {
-    const query = `
-      SELECT job_id 
-      FROM delphi_jobs 
-      WHERE conversation_id = $1 
-        AND status = 'completed' 
-      ORDER BY created_at DESC 
-      LIMIT 1
-    `;
-    const result = (await p.queryP(query, [zid])) as {
-      rows: Array<{ job_id: string }>;
+    // Query the ConversationIndex GSI to find completed jobs for this conversation
+    const queryParams = {
+      TableName: "Delphi_JobQueue",
+      IndexName: "ConversationIndex",
+      KeyConditionExpression: "conversation_id = :zid",
+      FilterExpression: "#status = :status",
+      ExpressionAttributeNames: {
+        "#status": "status", // Use expression attribute name since 'status' might be reserved
+      },
+      ExpressionAttributeValues: {
+        ":zid": zid.toString(),
+        ":status": "COMPLETED",
+      },
+      ScanIndexForward: false, // Sort by created_at DESC
+      Limit: 1,
     };
-    return result.rows.length > 0 ? result.rows[0].job_id : null;
-  } catch (error) {
-    logger.error("Error getting current Delphi job ID", error);
+
+    const result = await docClient.send(new QueryCommand(queryParams));
+
+    if (result.Items && result.Items.length > 0) {
+      const jobId = result.Items[0].job_id;
+      return jobId;
+    }
+
+    return null;
+  } catch (error: any) {
+    logger.error("Error getting current Delphi job ID from DynamoDB", error);
     return null;
   }
 }
@@ -71,73 +75,62 @@ async function getCurrentDelphiJobId(zid: string): Promise<string | null> {
  * Save topic agenda selections for a user
  */
 export async function handle_POST_topicAgenda_selections(
-  req: Request & { user?: any },
+  req: RequestWithP,
   res: Response
 ) {
   try {
-    const { conversation_id, selections } = req.body;
+    const { selections } = req.body;
 
-    if (!conversation_id || !selections) {
+    if (!selections) {
       return res.status(400).json({
         status: "error",
-        message: "conversation_id and selections are required",
+        message: "selections are required",
       });
     }
 
-    if (!req.user || !req.user.uid) {
-      return res.status(401).json({
-        status: "error",
-        message: "Authentication required",
-      });
-    }
-
-    // Convert conversation_id to zid
-    const zid = await getZidFromConversationId(conversation_id);
-    const zidStr = zid.toString();
-
-    // Get participant ID
-    const pid = await getPidPromise(Number(zidStr), req.user.uid);
-    const pidStr = pid.toString();
+    // The middleware ensures we have a participant
+    const zid = req.p.zid!;
+    const pid = req.p.pid!;
 
     // Get current Delphi job ID
-    const jobId = await getCurrentDelphiJobId(zidStr);
+    const jobId = await getCurrentDelphiJobId(zid.toString());
 
-    // Prepare DynamoDB item
-    const item = {
-      conversation_id: zidStr,
-      participant_id: pidStr,
-      archetypal_selections: selections,
-      metadata: {
-        job_id: jobId,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        version: 1,
-        total_selections: selections.length,
-      },
-    };
+    // Use UPSERT (INSERT ... ON CONFLICT UPDATE) to handle both new and existing records
+    const query = `
+      INSERT INTO topic_agenda_selections (zid, pid, archetypal_selections, delphi_job_id, total_selections, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ON CONFLICT (zid, pid) 
+      DO UPDATE SET 
+        archetypal_selections = EXCLUDED.archetypal_selections,
+        delphi_job_id = EXCLUDED.delphi_job_id,
+        total_selections = EXCLUDED.total_selections,
+        updated_at = CURRENT_TIMESTAMP
+      RETURNING zid, pid, total_selections
+    `;
 
-    // Save to DynamoDB
-    const putParams = {
-      TableName: TABLE_NAME,
-      Item: item,
-    };
+    const result = await pgQuery.queryP(query, [
+      zid,
+      pid,
+      JSON.stringify(selections),
+      jobId,
+      selections.length,
+    ]);
 
-    await docClient.send(new PutCommand(putParams));
-
-    logger.info(
-      `Saved topic agenda selections for user ${pidStr} in conversation ${zidStr}`
-    );
-
-    res.json({
+    const response: any = {
       status: "success",
       message: "Topic agenda selections saved successfully",
       data: {
-        conversation_id: zidStr,
-        participant_id: pidStr,
-        selections_count: selections.length,
+        conversation_id: zid.toString(),
+        participant_id: pid.toString(),
+        selections_count:
+          (result as any)[0]?.total_selections || selections.length,
         job_id: jobId,
       },
-    });
+    };
+
+    // Auth token will be automatically included by attachAuthToken middleware
+
+    res.json(response);
   } catch (error) {
     logger.error("Error saving topic agenda selections", error);
     res.status(500).json({
@@ -152,46 +145,13 @@ export async function handle_POST_topicAgenda_selections(
  * Retrieve topic agenda selections for a user
  */
 export async function handle_GET_topicAgenda_selections(
-  req: Request & { user?: any },
+  req: RequestWithP,
   res: Response
 ) {
   try {
-    const conversation_id = req.query.conversation_id as string;
-
-    if (!conversation_id) {
-      return res.status(400).json({
-        status: "error",
-        message: "conversation_id is required",
-      });
-    }
-
-    if (!req.user || !req.user.uid) {
-      return res.status(401).json({
-        status: "error",
-        message: "Authentication required",
-      });
-    }
-
-    // Convert conversation_id to zid
-    const zid = await getZidFromConversationId(conversation_id);
-    const zidStr = zid.toString();
-
-    // Get participant ID
-    const pid = await getPidPromise(Number(zidStr), req.user.uid);
-    const pidStr = pid.toString();
-
-    // Retrieve from DynamoDB
-    const getParams = {
-      TableName: TABLE_NAME,
-      Key: {
-        conversation_id: zidStr,
-        participant_id: pidStr,
-      },
-    };
-
-    const result = await docClient.send(new GetCommand(getParams));
-
-    if (!result.Item) {
+    // Check if we have a participant (user is authenticated and has a participant record)
+    if (_.isUndefined(req.p.pid) || req.p.pid < 0) {
+      // No participant record - return empty response
       return res.json({
         status: "success",
         message: "No selections found",
@@ -199,13 +159,47 @@ export async function handle_GET_topicAgenda_selections(
       });
     }
 
-    logger.info(
-      `Retrieved topic agenda selections for user ${pidStr} in conversation ${zidStr}`
-    );
+    const zid = req.p.zid!;
+    const pid = req.p.pid;
+
+    // Retrieve from PostgreSQL
+    const query = `
+      SELECT 
+        zid as conversation_id,
+        pid as participant_id,
+        archetypal_selections,
+        delphi_job_id,
+        total_selections,
+        created_at,
+        updated_at
+      FROM topic_agenda_selections
+      WHERE zid = $1 AND pid = $2
+    `;
+
+    const result = await pgQuery.queryP(query, [zid, pid]);
+    const rows = result as any[];
+
+    if (!rows || rows.length === 0) {
+      return res.json({
+        status: "success",
+        message: "No selections found",
+        data: null,
+      });
+    }
+
+    const row = rows[0];
 
     res.json({
       status: "success",
-      data: result.Item,
+      data: {
+        conversation_id: row.conversation_id.toString(),
+        participant_id: row.participant_id.toString(),
+        archetypal_selections: row.archetypal_selections,
+        delphi_job_id: row.delphi_job_id,
+        total_selections: row.total_selections,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      },
     });
   } catch (error) {
     logger.error("Error retrieving topic agenda selections", error);
@@ -221,75 +215,94 @@ export async function handle_GET_topicAgenda_selections(
  * Update topic agenda selections for a user
  */
 export async function handle_PUT_topicAgenda_selections(
-  req: Request & { user?: any },
+  req: RequestWithP,
   res: Response
 ) {
   try {
-    const { conversation_id, selections } = req.body;
+    const { selections } = req.body;
 
-    if (!conversation_id || !selections) {
+    if (!selections) {
       return res.status(400).json({
         status: "error",
-        message: "conversation_id and selections are required",
+        message: "selections are required",
       });
     }
 
-    if (!req.user || !req.user.uid) {
+    // Check if we have a participant record
+    if (_.isUndefined(req.p.pid) || req.p.pid < 0) {
       return res.status(401).json({
         status: "error",
         message: "Authentication required",
       });
     }
 
-    // Convert conversation_id to zid
-    const zid = await getZidFromConversationId(conversation_id);
-    const zidStr = zid.toString();
-
-    // Get participant ID
-    const pid = await getPidPromise(Number(zidStr), req.user.uid);
-    const pidStr = pid.toString();
+    const zid = req.p.zid!;
+    const pid = req.p.pid;
 
     // Get current Delphi job ID
-    const jobId = await getCurrentDelphiJobId(zidStr);
+    const jobId = await getCurrentDelphiJobId(zid.toString());
 
-    // Update in DynamoDB
-    const updateParams = {
-      TableName: TABLE_NAME,
-      Key: {
-        conversation_id: zidStr,
-        participant_id: pidStr,
-      },
-      UpdateExpression:
-        "SET archetypal_selections = :selections, metadata = :metadata",
-      ExpressionAttributeValues: {
-        ":selections": selections,
-        ":metadata": {
+    // Update the record
+    const updateQuery = `
+      UPDATE topic_agenda_selections 
+      SET 
+        archetypal_selections = $3,
+        delphi_job_id = $4,
+        total_selections = $5,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE zid = $1 AND pid = $2
+      RETURNING zid, pid, total_selections
+    `;
+
+    const result = await pgQuery.queryP(updateQuery, [
+      zid,
+      pid,
+      JSON.stringify(selections),
+      jobId,
+      selections.length,
+    ]);
+    const rows = result as any[];
+
+    if (rows.length === 0) {
+      // Record doesn't exist, create it instead
+      const insertQuery = `
+        INSERT INTO topic_agenda_selections (zid, pid, archetypal_selections, delphi_job_id, total_selections, created_at, updated_at)
+        VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        RETURNING zid, pid, total_selections
+      `;
+
+      const insertResult = await pgQuery.queryP(insertQuery, [
+        zid,
+        pid,
+        JSON.stringify(selections),
+        jobId,
+        selections.length,
+      ]);
+      const insertRows = insertResult as any[];
+
+      res.json({
+        status: "success",
+        message: "Topic agenda selections created successfully",
+        data: {
+          conversation_id: zid.toString(),
+          participant_id: pid.toString(),
+          selections_count:
+            insertRows[0]?.total_selections || selections.length,
           job_id: jobId,
-          created_at: new Date().toISOString(), // Keep original creation time if exists
-          updated_at: new Date().toISOString(),
-          version: 1,
-          total_selections: selections.length,
         },
-      },
-      ReturnValues: "ALL_NEW" as const,
-    };
-
-    await docClient.send(new UpdateCommand(updateParams));
-
-    logger.info(
-      `Updated topic agenda selections for user ${pidStr} in conversation ${zidStr}`
-    );
-
-    res.json({
-      status: "success",
-      message: "Topic agenda selections updated successfully",
-      data: {
-        conversation_id: zidStr,
-        participant_id: pidStr,
-        selections_count: selections.length,
-        job_id: jobId,
-      },
-    });
+      });
+    } else {
+      res.json({
+        status: "success",
+        message: "Topic agenda selections updated successfully",
+        data: {
+          conversation_id: zid.toString(),
+          participant_id: pid.toString(),
+          selections_count: rows[0]?.total_selections || selections.length,
+          job_id: jobId,
+        },
+      });
+    }
   } catch (error) {
     logger.error("Error updating topic agenda selections", error);
     res.status(500).json({
@@ -304,48 +317,37 @@ export async function handle_PUT_topicAgenda_selections(
  * Delete topic agenda selections for a user
  */
 export async function handle_DELETE_topicAgenda_selections(
-  req: Request & { user?: any },
+  req: RequestWithP,
   res: Response
 ) {
   try {
-    const conversation_id = req.query.conversation_id as string;
-
-    if (!conversation_id) {
-      return res.status(400).json({
-        status: "error",
-        message: "conversation_id is required",
-      });
-    }
-
-    if (!req.user || !req.user.uid) {
+    // Check if we have a participant record
+    if (_.isUndefined(req.p.pid) || req.p.pid < 0) {
       return res.status(401).json({
         status: "error",
         message: "Authentication required",
       });
     }
 
-    // Convert conversation_id to zid
-    const zid = await getZidFromConversationId(conversation_id);
-    const zidStr = zid.toString();
+    const zid = req.p.zid!;
+    const pid = req.p.pid;
 
-    // Get participant ID
-    const pid = await getPidPromise(Number(zidStr), req.user.uid);
-    const pidStr = pid.toString();
+    // Delete from PostgreSQL
+    const deleteQuery = `
+      DELETE FROM topic_agenda_selections
+      WHERE zid = $1 AND pid = $2
+      RETURNING zid, pid
+    `;
 
-    // Delete from DynamoDB
-    const deleteParams = {
-      TableName: TABLE_NAME,
-      Key: {
-        conversation_id: zidStr,
-        participant_id: pidStr,
-      },
-    };
+    const result = await pgQuery.queryP(deleteQuery, [zid, pid]);
+    const rows = result as any[];
 
-    await docClient.send(new DeleteCommand(deleteParams));
-
-    logger.info(
-      `Deleted topic agenda selections for user ${pidStr} in conversation ${zidStr}`
-    );
+    if (rows.length === 0) {
+      return res.json({
+        status: "success",
+        message: "No selections to delete",
+      });
+    }
 
     res.json({
       status: "success",

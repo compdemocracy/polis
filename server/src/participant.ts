@@ -249,7 +249,7 @@ function addParticipantAndMetadata(
   zid: number,
   uid?: number,
   req?: {
-    p: { parent_url: any };
+    p: { parent_url?: any; [key: string]: any };
     headers?: { [x: string]: any };
   }
 ) {
@@ -358,15 +358,7 @@ function getSocialParticipants(
     });
 }
 
-export {
-  addExtendedParticipantInfo,
-  addParticipant,
-  addParticipantAndMetadata,
-  getSocialParticipants,
-  joinConversation,
-};
-
-export async function getParticipantByPermanentCookie(
+async function getParticipantByPermanentCookie(
   zid: number,
   permanentCookie: string
 ): Promise<{ uid: number; pid: number } | null> {
@@ -396,3 +388,12 @@ export async function getParticipantByPermanentCookie(
     );
   });
 }
+
+export {
+  addExtendedParticipantInfo,
+  addParticipant,
+  addParticipantAndMetadata,
+  getParticipantByPermanentCookie,
+  getSocialParticipants,
+  joinConversation,
+};

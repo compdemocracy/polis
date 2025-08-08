@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import logger from "../../utils/logger";
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import { DynamoDBClient, DynamoDBClientConfig } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
   QueryCommand,
@@ -9,10 +9,9 @@ import {
 } from "@aws-sdk/lib-dynamodb";
 import Config from "../../config";
 import p from "../../db/pg-query";
-import { getZidFromConversationId } from "../../conversation";
 
 // DynamoDB configuration (reuse from topics.ts)
-const dynamoDBConfig: any = {
+const dynamoDBConfig: DynamoDBClientConfig = {
   region: Config.AWS_REGION || "us-east-1",
 };
 
@@ -45,25 +44,8 @@ const docClient = DynamoDBDocumentClient.from(client, {
  */
 export async function handle_GET_topicMod_topics(req: Request, res: Response) {
   try {
-    const conversation_id = req.query.conversation_id as string;
     const job_id = req.query.job_id as string;
-
-    if (!conversation_id) {
-      return res.json({
-        status: "error",
-        message: "conversation_id is required",
-      });
-    }
-
-    // Get zid from conversation_id (which could be a zinvite)
-    const zid = await getZidFromConversationId(conversation_id);
-    if (!zid) {
-      return res.json({
-        status: "error",
-        message: "Could not find conversation for conversation_id",
-      });
-    }
-
+    const zid = req.p.zid as number;
     const conversation_zid = zid.toString();
     logger.info(`Fetching TopicMod topics for zid: ${conversation_zid}`);
 
@@ -105,7 +87,7 @@ export async function handle_GET_topicMod_topics(req: Request, res: Response) {
     let moderationData;
     try {
       moderationData = await docClient.send(new QueryCommand(moderationParams));
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Moderation table might not exist yet - that's okay
       logger.info("Moderation status table not found, using default status");
       moderationData = { Items: [] };
@@ -123,27 +105,45 @@ export async function handle_GET_topicMod_topics(req: Request, res: Response) {
     });
 
     // Combine topics with moderation status
-    const topicsWithStatus = topicsData.Items.map((topic) => {
-      const moderation = moderationMap.get(topic.topic_key) || {
-        status: "pending",
-        moderator: null,
-        moderated_at: null,
-        comment_count: 0,
-      };
+    type ModerationInfo = {
+      status: string;
+      moderator: unknown;
+      moderated_at: unknown;
+      comment_count: number;
+    };
+    type TopicWithStatus = {
+      topic_name: string;
+      model_name?: string;
+      created_at?: unknown;
+      topic_key: string;
+      layer_id?: string;
+      cluster_id?: string;
+      moderation: ModerationInfo;
+    };
 
-      return {
-        topic_name: topic.topic_name,
-        model_name: topic.model_name,
-        created_at: topic.created_at,
-        topic_key: topic.topic_key,
-        layer_id: topic.layer_id,
-        cluster_id: topic.cluster_id,
-        moderation: moderation,
-      };
-    });
+    const topicsWithStatus: TopicWithStatus[] = topicsData.Items.map(
+      (topic) => {
+        const moderation = moderationMap.get(topic.topic_key) || {
+          status: "pending",
+          moderator: null,
+          moderated_at: null,
+          comment_count: 0,
+        };
+
+        return {
+          topic_name: topic.topic_name,
+          model_name: topic.model_name,
+          created_at: topic.created_at,
+          topic_key: topic.topic_key,
+          layer_id: topic.layer_id,
+          cluster_id: topic.cluster_id,
+          moderation: moderation,
+        };
+      }
+    );
 
     // Group by layer for hierarchical display
-    const topicsByLayer: Record<string, any[]> = {};
+    const topicsByLayer: Record<string, TopicWithStatus[]> = {};
     topicsWithStatus.forEach((topic) => {
       const layerId = topic.layer_id || "0";
       if (!topicsByLayer[layerId]) {
@@ -165,12 +165,13 @@ export async function handle_GET_topicMod_topics(req: Request, res: Response) {
       topics_by_layer: topicsByLayer,
       total_topics: topicsWithStatus.length,
     });
-  } catch (err: any) {
-    logger.error(`Error in handle_GET_topicMod_topics: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Error in handle_GET_topicMod_topics: ${message}`);
     return res.json({
       status: "error",
       message: "Error retrieving topics",
-      error: err.message,
+      error: message,
     });
   }
 }
@@ -184,24 +185,16 @@ export async function handle_GET_topicMod_comments(
   res: Response
 ) {
   try {
-    const conversation_id = req.query.conversation_id as string;
     const topic_key = req.params.topicKey;
 
-    if (!conversation_id || !topic_key) {
+    if (!topic_key) {
       return res.json({
         status: "error",
-        message: "conversation_id and topic_key are required",
+        message: "topic_key is required",
       });
     }
 
-    const zid = await getZidFromConversationId(conversation_id);
-    if (!zid) {
-      return res.json({
-        status: "error",
-        message: "Could not find conversation for conversation_id",
-      });
-    }
-
+    const zid = req.p.zid as number;
     const comment_conversation_id = zid.toString();
     logger.info(
       `Fetching comments for topic ${topic_key} in conversation ${comment_conversation_id}`
@@ -244,12 +237,13 @@ export async function handle_GET_topicMod_comments(
       comments: comments,
       total_comments: comments.length,
     });
-  } catch (err: any) {
-    logger.error(`Error in handle_GET_topicMod_comments: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Error in handle_GET_topicMod_comments: ${message}`);
     return res.json({
       status: "error",
       message: "Error retrieving comments",
-      error: err.message,
+      error: message,
     });
   }
 }
@@ -263,18 +257,12 @@ export async function handle_POST_topicMod_moderate(
   res: Response
 ) {
   try {
-    const {
-      conversation_id,
-      topic_key,
-      comment_ids,
-      action,
-      moderator,
-    } = req.body;
+    const { topic_key, comment_ids, action, moderator } = req.body;
 
-    if (!conversation_id || !action || !moderator) {
+    if (!action || !moderator) {
       return res.json({
         status: "error",
-        message: "conversation_id, action, and moderator are required",
+        message: "action and moderator are required",
       });
     }
 
@@ -285,14 +273,7 @@ export async function handle_POST_topicMod_moderate(
       });
     }
 
-    const zid = await getZidFromConversationId(conversation_id);
-    if (!zid) {
-      return res.json({
-        status: "error",
-        message: "Could not find conversation for conversation_id",
-      });
-    }
-
+    const zid = req.p.zid as number;
     const moderate_conversation_id = zid.toString();
     const now = new Date().toISOString();
 
@@ -319,8 +300,13 @@ export async function handle_POST_topicMod_moderate(
 
       try {
         await docClient.send(new UpdateCommand(topicParams));
-      } catch (err: any) {
-        if (err.name === "ResourceNotFoundException") {
+      } catch (err: unknown) {
+        if (
+          err &&
+          typeof err === "object" &&
+          "name" in err &&
+          (err as { name?: string }).name === "ResourceNotFoundException"
+        ) {
           // Create the record if it doesn't exist
           const putParams = {
             TableName: "Delphi_TopicModerationStatus",
@@ -393,12 +379,13 @@ export async function handle_POST_topicMod_moderate(
       message: `Moderation action '${action}' applied successfully`,
       moderated_at: now,
     });
-  } catch (err: any) {
-    logger.error(`Error in handle_POST_topicMod_moderate: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Error in handle_POST_topicMod_moderate: ${message}`);
     return res.json({
       status: "error",
       message: "Error applying moderation action",
-      error: err.message,
+      error: message,
     });
   }
 }
@@ -412,24 +399,8 @@ export async function handle_GET_topicMod_proximity(
   res: Response
 ) {
   try {
-    const conversation_id = req.query.conversation_id as string;
     const layer_id = (req.query.layer_id as string) || "all";
-
-    if (!conversation_id) {
-      return res.json({
-        status: "error",
-        message: "conversation_id is required",
-      });
-    }
-
-    const zid = await getZidFromConversationId(conversation_id);
-    if (!zid) {
-      return res.json({
-        status: "error",
-        message: "Could not find conversation for conversation_id",
-      });
-    }
-
+    const zid = req.p.zid as number;
     const proximity_conversation_id = zid.toString();
     logger.info(
       `Fetching proximity data for conversation ${proximity_conversation_id}, layer ${layer_id}`
@@ -475,8 +446,9 @@ export async function handle_GET_topicMod_proximity(
         logger.info(
           `Found ${clusterData.Items?.length || 0} cluster assignments`
         );
-      } catch (err: any) {
-        logger.error(`Error fetching cluster assignments: ${err.message}`);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err);
+        logger.error(`Error fetching cluster assignments: ${message}`);
         clusterData = { Items: [] };
       }
 
@@ -687,12 +659,13 @@ export async function handle_GET_topicMod_proximity(
       proximity_data: proximityData,
       total_points: proximityData.length,
     });
-  } catch (err: any) {
-    logger.error(`Error in handle_GET_topicMod_proximity: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Error in handle_GET_topicMod_proximity: ${message}`);
     return res.json({
       status: "error",
       message: "Error retrieving proximity data",
-      error: err.message,
+      error: message,
     });
   }
 }
@@ -706,23 +679,7 @@ export async function handle_GET_topicMod_hierarchy(
   res: Response
 ) {
   try {
-    const conversation_id = req.query.conversation_id as string;
-
-    if (!conversation_id) {
-      return res.json({
-        status: "error",
-        message: "conversation_id is required",
-      });
-    }
-
-    const zid = await getZidFromConversationId(conversation_id);
-    if (!zid) {
-      return res.json({
-        status: "error",
-        message: "Could not find conversation for conversation_id",
-      });
-    }
-
+    const zid = req.p.zid as number;
     const hierarchy_conversation_id = zid.toString();
     logger.info(
       `Fetching hierarchy data for conversation ${hierarchy_conversation_id}`
@@ -882,12 +839,13 @@ export async function handle_GET_topicMod_hierarchy(
       totalClusters: clusters.length,
       layers: Array.from(layers.keys()).sort(),
     });
-  } catch (err: any) {
-    logger.error(`Error in handle_GET_topicMod_hierarchy: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Error in handle_GET_topicMod_hierarchy: ${message}`);
     return res.json({
       status: "error",
       message: "Error retrieving hierarchy data",
-      error: err.message,
+      error: message,
     });
   }
 }
@@ -898,23 +856,7 @@ export async function handle_GET_topicMod_hierarchy(
  */
 export async function handle_GET_topicMod_stats(req: Request, res: Response) {
   try {
-    const conversation_id = req.query.conversation_id as string;
-
-    if (!conversation_id) {
-      return res.json({
-        status: "error",
-        message: "conversation_id is required",
-      });
-    }
-
-    const zid = await getZidFromConversationId(conversation_id);
-    if (!zid) {
-      return res.json({
-        status: "error",
-        message: "Could not find conversation for conversation_id",
-      });
-    }
-
+    const zid = req.p.zid as number;
     const stats_conversation_id = zid.toString();
     logger.info(
       `Fetching moderation stats for conversation ${stats_conversation_id}`
@@ -932,8 +874,13 @@ export async function handle_GET_topicMod_stats(req: Request, res: Response) {
     let data;
     try {
       data = await docClient.send(new QueryCommand(params));
-    } catch (err: any) {
-      if (err.name === "ResourceNotFoundException") {
+    } catch (err: unknown) {
+      if (
+        err &&
+        typeof err === "object" &&
+        "name" in err &&
+        (err as { name?: string }).name === "ResourceNotFoundException"
+      ) {
         // No moderation data yet
         return res.json({
           status: "success",
@@ -972,12 +919,13 @@ export async function handle_GET_topicMod_stats(req: Request, res: Response) {
       message: "Moderation statistics retrieved successfully",
       stats: stats,
     });
-  } catch (err: any) {
-    logger.error(`Error in handle_GET_topicMod_stats: ${err.message}`);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Error in handle_GET_topicMod_stats: ${message}`);
     return res.json({
       status: "error",
       message: "Error retrieving moderation statistics",
-      error: err.message,
+      error: message,
     });
   }
 }

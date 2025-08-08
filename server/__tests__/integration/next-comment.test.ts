@@ -12,6 +12,15 @@ import {
 
 import { getPooledTestUser } from "../setup/test-user-helpers";
 import type { TestUser } from "../../types/test-helpers";
+import {
+  DynamoDBClient,
+  DynamoDBClientConfig,
+  DescribeTableCommand,
+  CreateTableCommand,
+} from "@aws-sdk/client-dynamodb";
+import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import Config from "../../src/config";
+import pg from "../../src/db/pg-query";
 
 jest.mock("fs/promises", () => ({
   readFile: jest.fn().mockImplementation((path) => {
@@ -242,5 +251,183 @@ describe("Next Comment Endpoint", () => {
     expect(response.status).toBe(200);
     expect(response.body.tid).toBe(commentIds[4]);
     expect(withoutCommentIds).not.toContain(response.body.tid);
+  });
+
+  describe("Topical next comment selection", () => {
+    const DELPHI_COMMENT_CLUSTERS_TABLE = "Delphi_CommentClusters";
+
+    async function ensureClustersTableExists(
+      client: DynamoDBClient,
+      tableName: string
+    ): Promise<void> {
+      try {
+        await client.send(new DescribeTableCommand({ TableName: tableName }));
+      } catch (e: unknown) {
+        const err = e as { name?: string };
+        if (err.name === "ResourceNotFoundException") {
+          const createParams: {
+            TableName: string;
+            BillingMode: "PAY_PER_REQUEST";
+            KeySchema: Array<{
+              AttributeName: string;
+              KeyType: "HASH" | "RANGE";
+            }>;
+            AttributeDefinitions: Array<{
+              AttributeName: string;
+              AttributeType: "S" | "N" | "B";
+            }>;
+          } = {
+            TableName: tableName,
+            BillingMode: "PAY_PER_REQUEST",
+            KeySchema: [
+              { AttributeName: "conversation_id", KeyType: "HASH" },
+              { AttributeName: "topic_key", KeyType: "RANGE" },
+            ],
+            AttributeDefinitions: [
+              { AttributeName: "conversation_id", AttributeType: "S" },
+              { AttributeName: "topic_key", AttributeType: "S" },
+            ],
+          } as const;
+          await client.send(new CreateTableCommand(createParams));
+          // No waiter; lightweight tests assume local Dynamo is instant, but guard with short delay
+          await new Promise((r) => setTimeout(r, 250));
+        } else {
+          throw e;
+        }
+      }
+    }
+
+    async function putClusterItems(
+      zid: number,
+      topicKey: string,
+      tids: number[]
+    ): Promise<void> {
+      const dynamoDBConfig: DynamoDBClientConfig = {
+        region: (Config.AWS_REGION as string) || "us-east-1",
+      };
+      if (Config.dynamoDbEndpoint) {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore - endpoint exists at runtime
+        dynamoDBConfig.endpoint = Config.dynamoDbEndpoint as unknown as string;
+        dynamoDBConfig.credentials = {
+          accessKeyId: "DUMMYIDEXAMPLE",
+          secretAccessKey: "DUMMYEXAMPLEKEY",
+        };
+      } else if (Config.AWS_ACCESS_KEY_ID && Config.AWS_SECRET_ACCESS_KEY) {
+        dynamoDBConfig.credentials = {
+          accessKeyId: Config.AWS_ACCESS_KEY_ID as string,
+          secretAccessKey: Config.AWS_SECRET_ACCESS_KEY as string,
+        };
+      }
+
+      const client = new DynamoDBClient(dynamoDBConfig);
+      const docClient = DynamoDBDocumentClient.from(client, {
+        marshallOptions: {
+          convertEmptyValues: true,
+          removeUndefinedValues: true,
+        },
+      });
+
+      await ensureClustersTableExists(client, DELPHI_COMMENT_CLUSTERS_TABLE);
+
+      for (const tid of tids) {
+        await docClient.send(
+          new PutCommand({
+            TableName: DELPHI_COMMENT_CLUSTERS_TABLE,
+            Item: {
+              conversation_id: String(zid),
+              topic_key: topicKey,
+              comment_id: String(tid),
+            },
+          })
+        );
+      }
+    }
+
+    test("GET /nextComment - honors topical selections and without filter when ratio=1", async () => {
+      // Resolve zid from database mapping (zinvites)
+      const zidRows = (await pg.queryP_readOnly(
+        "select zid from zinvites where zinvite = ($1) limit 1;",
+        [conversationId]
+      )) as Array<{ zid: number }>;
+      const zid = zidRows?.[0]?.zid;
+      expect(typeof zid).toBe("number");
+
+      // Create a participant for this conversation to ensure pid is set in session
+      const { agent: participantAgent } = await initializeParticipant(
+        conversationId!
+      );
+
+      // Choose a topic and map a specific comment id to it
+      const topicKey = "topic-topical-A";
+      const topicalTids = [commentIds[1]];
+
+      // Save selections for the participant using the API (include topic_key for server lookup)
+      const saveSelResp = await participantAgent
+        .post("/api/v3/topicAgenda/selections")
+        .send({
+          conversation_id: conversationId,
+          selections: [
+            { topic_key: topicKey, topic_id: topicKey, priority: 1 },
+          ],
+        });
+      expect(saveSelResp.status).toBe(200);
+      const pid = Number(saveSelResp.body?.data?.participant_id);
+      expect(Number.isFinite(pid)).toBe(true);
+
+      // Populate DynamoDB clusters for the chosen topic
+      await putClusterItems(zid, topicKey, topicalTids);
+
+      // Exclude a non-topical tid to verify it doesn't affect topical selection
+      const withoutParam = String(commentIds[0]);
+      const nextResp: Response = await participantAgent.get(
+        `/api/v3/nextComment?conversation_id=${conversationId}&without=${withoutParam}&not_voted_by_pid=${pid}`
+      );
+      expect(nextResp.status).toBe(200);
+      expect(nextResp.body).toBeDefined();
+      expect(nextResp.body.tid).toBeDefined();
+      // Should pick the topical tid and respect without (which excluded a non-topical tid)
+      expect(nextResp.body.tid).toBe(topicalTids[0]);
+    });
+
+    test("GET /nextComment - falls back to prioritized when topical pool exhausted by without", async () => {
+      // Get zid again from database
+      const zidRows = (await pg.queryP_readOnly(
+        "select zid from zinvites where zinvite = ($1) limit 1;",
+        [conversationId]
+      )) as Array<{ zid: number }>;
+      const zid: number = zidRows?.[0]?.zid;
+
+      const { agent: participantAgent } = await initializeParticipant(
+        conversationId!
+      );
+
+      const topicKey = "topic-topical-B";
+      const topicalTids = [commentIds[2], commentIds[3]];
+
+      // Save selections with topic_key
+      const saveSelResp2 = await participantAgent
+        .post("/api/v3/topicAgenda/selections")
+        .send({
+          conversation_id: conversationId,
+          selections: [
+            { topic_key: topicKey, topic_id: topicKey, priority: 1 },
+          ],
+        });
+      const pid2 = Number(saveSelResp2.body?.data?.participant_id);
+      expect(Number.isFinite(pid2)).toBe(true);
+
+      await putClusterItems(zid, topicKey, topicalTids);
+
+      // Exclude all topical tids to force fallback
+      const withoutParam = `${topicalTids[0]},${topicalTids[1]}`;
+      const nextResp: Response = await participantAgent.get(
+        `/api/v3/nextComment?conversation_id=${conversationId}&without=${withoutParam}&not_voted_by_pid=${pid2}`
+      );
+      expect(nextResp.status).toBe(200);
+      expect(nextResp.body.tid).toBeDefined();
+      // Should not be from topical set due to exclusion
+      expect(topicalTids).not.toContain(nextResp.body.tid);
+    });
   });
 });

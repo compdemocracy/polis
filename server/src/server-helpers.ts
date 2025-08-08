@@ -1,7 +1,7 @@
 import _ from "underscore";
 import LruCache from "lru-cache";
 
-import { GetCommentsParams, UserInfo } from "./d";
+import { UserInfo } from "./d";
 import { generateToken } from "./auth";
 import { getBidsForPids } from "./routes/math";
 import { getConversationHasMetadata } from "./routes/metadata";
@@ -18,11 +18,6 @@ import Config from "./config";
 import { failJson } from "./utils/fail";
 import logger from "./utils/logger";
 import pg from "./db/pg-query";
-import {
-  getComments,
-  getNumberOfCommentsRemaining,
-  translateAndStoreComment,
-} from "./comment";
 
 // TODO consider "p2a24a2dadadu15" format
 const votesForZidPidCache = new LruCache({
@@ -472,51 +467,6 @@ function addStar(
   return pg.queryP(query, params);
 }
 
-function getNextComment(
-  zid?: number,
-  pid?: number,
-  withoutTids?: any,
-  include_social?: boolean,
-  lang?: string
-) {
-  logger.debug(
-    `getNextComment ${JSON.stringify({
-      zid,
-      pid,
-      withoutTids,
-      include_social,
-      lang,
-    })}`
-  );
-  return getNextPrioritizedComment(zid, pid, withoutTids, include_social).then(
-    (c: GetCommentsParams) => {
-      if (lang && c) {
-        const firstTwoCharsOfLang = lang.substr(0, 2);
-        return getCommentTranslations(zid, c.tid).then((translations: any) => {
-          c.translations = translations;
-          const hasMatch = _.some(translations, (t: { lang: string }) => {
-            return t.lang.startsWith(firstTwoCharsOfLang);
-          });
-          if (!hasMatch) {
-            return translateAndStoreComment(zid, c.tid, c.txt, lang).then(
-              (translation: any) => {
-                if (translation) {
-                  c.translations.push(translation);
-                }
-                return c;
-              }
-            );
-          }
-          return c;
-        });
-      } else if (c) {
-        c.translations = [];
-      }
-      return c;
-    }
-  );
-}
-
 // NOTE: only call this in response to a vote. Don't call this from a poll, like /api/v3/nextComment
 function addNoMoreCommentsRecord(zid: number, pid: number) {
   return pg.queryP(
@@ -585,69 +535,6 @@ function getVotesForZidPidsWithTimestampCheck(
     const cachedPidToVotes = toObj(cachedVotes);
     return Object.assign(newPidToVotes, cachedPidToVotes);
   });
-}
-
-// This very much follows the outline of the random selection above, but factors out the probabilistic logic
-// to the selectProbabilistically fn above.
-function getNextPrioritizedComment(
-  zid: number,
-  pid: number,
-  withoutTids?: string | any[],
-  include_social?: any
-): Promise<GetCommentsParams | null> {
-  logger.debug(
-    `getNextPrioritizedComment ${JSON.stringify({
-      zid,
-      pid,
-      withoutTids,
-      include_social,
-    })}`
-  );
-  const params: Partial<GetCommentsParams> = {
-    zid: zid,
-    not_voted_by_pid: pid,
-    include_social: include_social,
-  };
-  if (!_.isUndefined(withoutTids) && withoutTids.length) {
-    params.withoutTids = withoutTids;
-  }
-  // What should we set timestamp to below in getPca? Is 0 ok? What triggers updates?
-  return Promise.all([
-    getComments(params as GetCommentsParams),
-    getPca(zid, 0),
-    getNumberOfCommentsRemaining(zid, pid),
-  ]).then((results: any[]) => {
-    const comments = results[0];
-    const math = results[1];
-    const numberOfCommentsRemainingRows = results[2];
-
-    if (!comments || !comments.length) {
-      return null;
-    } else if (
-      !numberOfCommentsRemainingRows ||
-      !numberOfCommentsRemainingRows.length
-    ) {
-      throw new Error(
-        "polis_err_getNumberOfCommentsRemaining_" + zid + "_" + pid
-      );
-    }
-    const commentPriorities = math
-      ? math.asPOJO["comment-priorities"] || {}
-      : {};
-    const nTotal = Number(numberOfCommentsRemainingRows[0].total);
-    const nRemaining = Number(numberOfCommentsRemainingRows[0].remaining);
-    const c = selectProbabilistically(comments, commentPriorities);
-    c.remaining = nRemaining;
-    c.total = nTotal;
-    return c;
-  });
-}
-
-function getCommentTranslations(zid: number, tid: number): Promise<any[]> {
-  return pg.queryP(
-    "select * from comment_translations where zid = ($1) and tid = ($2);",
-    [zid, tid]
-  ) as Promise<any[]>;
 }
 
 function getVotesForZidPidWithTimestampCheck(
@@ -739,40 +626,6 @@ function cacheVotesForZidPidWithTimestamp(
   const key = zid + "_" + pid;
   const val = math_tick + ":" + votes;
   votesForZidPidCache.set(key, val);
-}
-
-function selectProbabilistically(
-  comments: any[],
-  priorities: { [key: string]: number }
-): any {
-  // Here we go through all of the comments we might select for the user and add their priority values
-  const lookup = _.reduce(
-    comments,
-    (
-      o: { lastCount: number; lookup: [number, any][] },
-      comment: { tid: string | number }
-    ) => {
-      // If we like, we can use nTotal and nRemaining here to figure out how much we should emphasize the
-      // priority, potentially. Maybe we end up with different classes of priorities lists for this purpose?
-      // scaling this value in some way may also be helpful.
-      const lookup_val = o.lastCount + (priorities[comment.tid] || 1);
-      o.lookup.push([lookup_val, comment]);
-      o.lastCount = lookup_val;
-      return o;
-    },
-    { lastCount: 0, lookup: [] }
-  );
-  // We arrange a random number that should fall somewhere in the range of the lookup_vals
-  const randomN = Math.random() * lookup.lastCount;
-  // Return the first one that has a greater lookup; could eventually replace this with something smarter
-  // that does a bisectional lookup if performance becomes an issue. But I want to keep the implementation
-  // simple to reason about all other things being equal.
-  const result = _.find(lookup.lookup, (x: [number, any]) => x[0] > randomN);
-  const c = result?.[1];
-  if (c) {
-    c.randomN = randomN;
-  }
-  return c;
 }
 
 function sendEmailByUid(uid?: any, subject?: string, body?: string | number) {
@@ -901,7 +754,6 @@ export {
   finishArray,
   finishOne,
   generateSUZinvites,
-  getNextComment,
   getOneConversation,
   pullXInfoIntoSubObjects,
   safeTimestampToMillis,

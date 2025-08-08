@@ -108,7 +108,6 @@ export function fetchAndCacheLatestPcaData() {
 
         if (!rowsArray || !rowsArray.length) {
           // call again
-          logger.info("mathpoll done");
           setTimeout(pollForLatestPcaData, waitTime());
           return;
         }
@@ -149,6 +148,173 @@ export function fetchAndCacheLatestPcaData() {
 
   // Start the polling process
   pollForLatestPcaData();
+}
+
+/**
+ * Creates a minimal valid PCA structure for conversations with no votes.
+ * This allows reports to load and display properly even when there's no voting data.
+ */
+async function createEmptyPcaStructure(
+  zid: number
+): Promise<PcaCacheItem["asPOJO"]> {
+  // Fetch comment IDs if they exist
+  let tids: number[] = [];
+  let nCmts = 0;
+
+  try {
+    const commentsQuery = await pg.queryP_readOnly<Array<{ tid: number }>>(
+      "select tid from comments where zid = ($1) and mod >= 1 order by tid",
+      [zid]
+    );
+
+    if (commentsQuery && Array.isArray(commentsQuery)) {
+      tids = commentsQuery.map((row: { tid: number }) => row.tid);
+      nCmts = tids.length;
+    }
+  } catch (err) {
+    logger.error("Error fetching comments for empty PCA structure", err);
+  }
+
+  return {
+    "group-clusters": [],
+    "base-clusters": {
+      x: [],
+      y: [],
+      id: [],
+      count: [],
+      members: [],
+    },
+    "group-votes": {},
+    "group-aware-consensus": {},
+    "user-vote-counts": {},
+    "in-conv": [],
+    "n-cmts": nCmts,
+    pca: {
+      comps: [[], []],
+      center: [0, 0],
+      "comment-extremity": tids.map(() => 0), // Initialize with zeros for each comment
+      "comment-projection": {},
+    },
+    tids: tids,
+    n: 0,
+    repness: {},
+    consensus: {
+      agree: [],
+      disagree: [],
+    },
+    "votes-base": {},
+    lastModTimestamp: null,
+    lastVoteTimestamp: Date.now(),
+    "comment-priorities": {},
+    math_tick: 0,
+  };
+}
+
+/**
+ * Ensures all required PCA fields exist by merging incomplete data with empty structure
+ * This prevents client failures when PCA data exists but is missing required fields
+ */
+async function ensureCompletePcaStructure(
+  zid: number,
+  existingData?: any
+): Promise<PcaCacheItem["asPOJO"]> {
+  const emptyStructure = await createEmptyPcaStructure(zid);
+
+  if (!existingData) {
+    return emptyStructure;
+  }
+
+  // Merge existing data with empty structure, ensuring all required fields exist
+  const mergedData = {
+    ...emptyStructure,
+    ...existingData,
+    // Ensure nested objects are properly merged
+    pca: {
+      ...emptyStructure.pca,
+      ...existingData.pca,
+    },
+    consensus: {
+      ...emptyStructure.consensus,
+      ...existingData.consensus,
+    },
+    "base-clusters": {
+      ...emptyStructure["base-clusters"],
+      ...existingData["base-clusters"],
+    },
+  };
+
+  // Ensure arrays exist even if they're empty
+  if (!Array.isArray(mergedData["group-clusters"])) {
+    mergedData["group-clusters"] = emptyStructure["group-clusters"];
+  }
+  if (!Array.isArray(mergedData["in-conv"])) {
+    mergedData["in-conv"] = emptyStructure["in-conv"];
+  }
+  if (!Array.isArray(mergedData.tids)) {
+    mergedData.tids = emptyStructure.tids;
+  }
+  if (!Array.isArray(mergedData["mod-in"])) {
+    mergedData["mod-in"] = emptyStructure["mod-in"] || [];
+  }
+  if (!Array.isArray(mergedData["mod-out"])) {
+    mergedData["mod-out"] = emptyStructure["mod-out"] || [];
+  }
+  if (!Array.isArray(mergedData["meta-tids"])) {
+    mergedData["meta-tids"] = emptyStructure["meta-tids"] || [];
+  }
+
+  // Ensure objects exist even if they're empty
+  if (
+    !mergedData["group-votes"] ||
+    typeof mergedData["group-votes"] !== "object"
+  ) {
+    mergedData["group-votes"] = emptyStructure["group-votes"];
+  }
+  if (
+    !mergedData["group-aware-consensus"] ||
+    typeof mergedData["group-aware-consensus"] !== "object"
+  ) {
+    mergedData["group-aware-consensus"] =
+      emptyStructure["group-aware-consensus"];
+  }
+  if (
+    !mergedData["user-vote-counts"] ||
+    typeof mergedData["user-vote-counts"] !== "object"
+  ) {
+    mergedData["user-vote-counts"] = emptyStructure["user-vote-counts"];
+  }
+  if (!mergedData.repness || typeof mergedData.repness !== "object") {
+    mergedData.repness = emptyStructure.repness;
+  }
+  if (
+    !mergedData["votes-base"] ||
+    typeof mergedData["votes-base"] !== "object"
+  ) {
+    mergedData["votes-base"] = emptyStructure["votes-base"];
+  }
+  if (
+    !mergedData["comment-priorities"] ||
+    typeof mergedData["comment-priorities"] !== "object"
+  ) {
+    mergedData["comment-priorities"] = emptyStructure["comment-priorities"];
+  }
+
+  // Ensure required numeric fields exist
+  if (typeof mergedData.n !== "number") {
+    mergedData.n = emptyStructure.n;
+  }
+  if (typeof mergedData["n-cmts"] !== "number") {
+    mergedData["n-cmts"] = emptyStructure["n-cmts"];
+  }
+  if (typeof mergedData.math_tick !== "number") {
+    mergedData.math_tick = existingData.math_tick || emptyStructure.math_tick;
+  }
+  if (typeof mergedData.lastVoteTimestamp !== "number") {
+    mergedData.lastVoteTimestamp =
+      existingData.lastVoteTimestamp || emptyStructure.lastVoteTimestamp;
+  }
+
+  return mergedData;
 }
 
 export function getPca(
@@ -204,6 +370,20 @@ export function getPca(
             math_env: Config.mathEnv,
           }
         );
+
+        // If no PCA data exists and we're asking for the latest (math_tick -1 or undefined),
+        // return an empty structure instead of undefined to prevent report failures
+        if (math_tick === -1 || math_tick === undefined) {
+          logger.info(
+            "No PCA data found, returning empty structure for zid:",
+            zid
+          );
+          return ensureCompletePcaStructure(zid).then((completeData) => {
+            const dataWithZid = { ...completeData, zid: zid };
+            return updatePcaCache(zid, dataWithZid);
+          });
+        }
+
         return undefined;
       }
       const item = rowsArray[0].data;
@@ -226,7 +406,11 @@ export function getPca(
 
       processMathObject(item);
 
-      return updatePcaCache(zid, item);
+      // Ensure all required fields exist by merging with empty structure if needed
+      return ensureCompletePcaStructure(zid, item).then((completeData) => {
+        const dataWithZid = { ...completeData, zid: zid };
+        return updatePcaCache(zid, dataWithZid);
+      });
     });
 }
 

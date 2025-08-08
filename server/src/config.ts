@@ -62,6 +62,15 @@ export default {
     }
   },
 
+  getValidTopicalRatio(): number | null {
+    const raw = process.env.TOPICAL_COMMENT_RATIO;
+    if (raw === undefined || raw === null || raw === "") return null;
+    const val = parseFloat(raw);
+    if (!Number.isFinite(val)) return null;
+    if (val < 0 || val > 1) return null;
+    return val;
+  },
+
   adminEmailDataExport: process.env.ADMIN_EMAIL_DATA_EXPORT as string,
   adminEmailDataExportTest: process.env.ADMIN_EMAIL_DATA_EXPORT_TEST as string,
   adminEmailEmailTest: process.env.ADMIN_EMAIL_EMAIL_TEST as string,

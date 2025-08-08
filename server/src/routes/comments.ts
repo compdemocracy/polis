@@ -4,40 +4,33 @@ import { parse } from "csv-parse/sync";
 import badwords from "badwords/object";
 
 import { addParticipant } from "../participant";
-import { CommentOptions, GetCommentsParams } from "../d";
-import { createAnonUser, issueAnonymousJWT, issueXidJWT } from "../auth";
-import { checkLegacyCookieAndIssueJWT } from "../auth/legacyCookies";
-import { detectLanguage, getComment, getComments } from "../comment";
+import { CommentOptions, GetCommentsParams, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
-import { getPidPromise, getXidStuff } from "../user";
+import { getConversationInfo } from "../conversation";
+import { getNextComment } from "../nextComment";
+import { getPidPromise } from "../user";
 import { getZinvite } from "../utils/zinvite";
+import { isModerator, isSpam, polisTypes } from "../utils/common";
 import { MPromise } from "../utils/metered";
-import { translateAndStoreComment } from "../comment";
 import { votesPost } from "./votes";
 import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import {
-  createXidRecordByZid,
-  getConversationInfo,
-  getXidRecord,
-} from "../conversation";
+  detectLanguage,
+  getComment,
+  getComments,
+  translateAndStoreComment,
+} from "../comment";
 import {
   finishArray,
   finishOne,
-  getNextComment,
   safeTimestampToMillis,
   sendEmailByUid,
   updateConversationModifiedTime,
   updateLastInteractionTimeForConversation,
   updateVoteCount,
 } from "../server-helpers";
-import {
-  isModerator,
-  isSpam,
-  polisTypes,
-  isDuplicateKey,
-} from "../utils/common";
 
 /* this is a concept and can be generalized to other handlers */
 interface PolisRequestParams {
@@ -53,7 +46,6 @@ interface PolisRequestParams {
   lang?: string;
   not_voted_by_pid?: any;
   without?: any;
-  include_social?: any;
   conversation_id?: string;
   jwt_conversation_mismatch?: boolean;
   jwt_conversation_id?: string;
@@ -121,94 +113,71 @@ function hasBadWords(txt: string) {
   return false;
 }
 
-function commentExists(zid: number, txt: any) {
-  return pg
-    .queryP("select zid from comments where zid = ($1) and txt = ($2);", [
-      zid,
-      txt,
-    ])
-    .then(function (rows: string | any[]) {
-      return rows && rows.length;
-    });
+async function commentExists(zid: number, txt: string): Promise<boolean> {
+  const rows = (await pg.queryP(
+    "select zid from comments where zid = ($1) and txt = ($2);",
+    [zid, txt]
+  )) as Array<{ zid: number }>;
+  return Array.isArray(rows) && rows.length > 0;
 }
 
-function handle_GET_comments_translations(
+async function handle_GET_comments_translations(
   req: { p: { zid: number; tid: number; lang: string } },
-  res: {
-    status: (arg0: number) => {
-      (): any;
-      new (): any;
-      json: { (arg0: any): void; new (): any };
-    };
-  }
-): void {
-  const zid = req.p.zid;
-  const tid = req.p.tid;
-  const firstTwoCharsOfLang = req.p.lang.substr(0, 2);
+  res: { status: (code: number) => { json: (data: unknown) => void } }
+): Promise<void> {
+  try {
+    const { zid, tid, lang } = req.p;
+    const firstTwoCharsOfLang = lang.slice(0, 2);
 
-  getComment(zid, tid)
-    .then((comment: { txt?: any } | null) => {
-      if (!comment || !comment.txt) {
-        res.status(404).json({ error: "Comment not found" });
-        return;
-      }
-      return pg
-        .queryP(
-          "select * from comment_translations where zid = ($1) and tid = ($2) and lang LIKE '$3%';",
-          [zid, tid, firstTwoCharsOfLang]
-        )
-        .then((existingTranslations: any) => {
-          if (existingTranslations) {
-            return existingTranslations;
-          }
-          return translateAndStoreComment(zid, tid, comment.txt, req.p.lang);
-        })
-        .then((rows: any) => {
-          res.status(200).json(rows || []);
-        });
-    })
-    .catch((err: any) => {
-      failJson(res, 500, "polis_err_get_comments_translations", err);
-    });
+    const comment = await getComment(zid, tid);
+    if (!comment || !comment.txt) {
+      res.status(404).json({ error: "Comment not found" });
+      return;
+    }
+
+    const existingTranslations = await pg.queryP(
+      "select * from comment_translations where zid = ($1) and tid = ($2) and lang LIKE ($3 || '%');",
+      [zid, tid, firstTwoCharsOfLang]
+    );
+
+    const rows =
+      (existingTranslations as unknown as any[])?.length > 0
+        ? existingTranslations
+        : await translateAndStoreComment(zid, tid, comment.txt, lang);
+
+    res.status(200).json(rows || []);
+  } catch (err) {
+    failJson(res as any, 500, "polis_err_get_comments_translations", err);
+  }
 }
 
-function handle_GET_comments(
-  req: {
-    headers?: Headers;
-    p: { rid: any; zid: number; uid?: number };
-  },
-  res: any
-): void {
-  // The function is designed to work with partial parameters, where most fields are optional
-  getComments(req.p as GetCommentsParams)
-    .then(function (comments: any[]) {
-      if (req.p.rid) {
-        return pg
-          .queryP(
-            "select tid, selection from report_comment_selections where rid = ($1);",
-            [req.p.rid]
-          )
-          .then((selections: any) => {
-            const tidToSelection = _.indexBy(selections, "tid");
-            comments = comments.map(
-              (c: { includeInReport: any; tid: number }) => {
-                c.includeInReport =
-                  tidToSelection[c.tid] && tidToSelection[c.tid].selection > 0;
-                return c;
-              }
-            );
-            return comments;
-          });
-      } else {
-        return comments;
-      }
-    })
-    .then(function (comments: any[]) {
-      finishArray(res, comments);
-    })
-    .catch(function (err: any) {
-      failJson(res, 500, "polis_err_get_comments", err);
-    });
+async function handle_GET_comments(req: RequestWithP, res: any): Promise<void> {
+  try {
+    // The function is designed to work with partial parameters, where most fields are optional
+    let comments = (await getComments(req.p as GetCommentsParams)) as any[];
+    if (req.p.rid) {
+      const selections = (await pg.queryP(
+        "select tid, selection from report_comment_selections where rid = ($1);",
+        [req.p.rid]
+      )) as Array<{ tid: number; selection: number }>;
+
+      const tidToSelection = selections.reduce<
+        Record<number, { selection: number }>
+      >((acc, s) => {
+        acc[s.tid] = { selection: s.selection };
+        return acc;
+      }, {});
+
+      comments = (comments as any[]).map((c: any) => {
+        c.includeInReport =
+          tidToSelection[c.tid] && tidToSelection[c.tid].selection > 0;
+        return c;
+      });
+    }
+    finishArray(res, comments);
+  } catch (err) {
+    failJson(res, 500, "polis_err_get_comments", err);
+  }
 }
 
 function addNotificationTask(zid: number): Promise<any> {
@@ -218,28 +187,10 @@ function addNotificationTask(zid: number): Promise<any> {
   );
 }
 
-// Helper interfaces for handle_POST_comments
-interface CommentValidationResult {
-  isValid: boolean;
-  errorCode?: string;
-  statusCode?: number;
-}
-
 interface CommentModerationResult {
   active: boolean;
   mod: number;
   classifications: string[];
-}
-
-interface CommentCreationContext {
-  zid: number;
-  uid: number;
-  pid: number;
-  txt: string;
-  xid?: string;
-  conversation: any;
-  is_moderator: boolean;
-  is_seed?: boolean;
 }
 
 // Extract IP address from request
@@ -248,115 +199,6 @@ function getIpAddress(req: PolisRequest): string | undefined {
     req.connection?.remoteAddress ||
     req.socket?.remoteAddress ||
     req.connection?.socket?.remoteAddress) as string | undefined;
-}
-
-// Validate comment input parameters
-function validateCommentInput(req: PolisRequest): CommentValidationResult {
-  const { txt } = req.p;
-
-  if (!txt || txt === "") {
-    return {
-      isValid: false,
-      errorCode: "polis_err_param_missing_txt",
-      statusCode: 400,
-    };
-  }
-
-  return { isValid: true };
-}
-
-// Get or create participant ID for the comment
-async function resolveParticipantId(
-  zid: number,
-  uid: number,
-  xid?: string,
-  initialPid?: number
-): Promise<{
-  pid: number;
-  shouldCreateXidRecord: boolean;
-  newlyCreated: boolean;
-}> {
-  let shouldCreateXidRecord = false;
-  let newlyCreated = false;
-
-  // Handle XID user lookup
-  if (xid) {
-    const xidUser = await getXidStuff(xid, zid);
-    shouldCreateXidRecord =
-      xidUser === "noXidRecord" ||
-      (typeof xidUser === "object" && xidUser.pid === -1);
-
-    if (typeof xidUser === "object" && !shouldCreateXidRecord) {
-      return {
-        pid: xidUser.pid,
-        shouldCreateXidRecord: false,
-        newlyCreated: false,
-      };
-    }
-  }
-
-  // Create XID record if needed
-  if (shouldCreateXidRecord && xid) {
-    await createXidRecordByZid(zid, uid, xid, null, null, null);
-  }
-
-  // Get or create participant
-  if (_.isUndefined(initialPid) || Number(initialPid) === -1) {
-    const existingPid = await getPidPromise(zid, uid, true);
-
-    if (existingPid !== -1) {
-      return {
-        pid: existingPid,
-        shouldCreateXidRecord,
-        newlyCreated: false,
-      };
-    }
-
-    // Create new participant with retry logic
-    try {
-      const rows = await addParticipant(zid, uid);
-      logger.debug("addParticipant returned", {
-        zid,
-        uid,
-        rows,
-        rowsLength: rows?.length,
-      });
-
-      if (!rows || !Array.isArray(rows) || rows.length === 0) {
-        throw new Error(`Failed to create participant - empty result`);
-      }
-
-      const ptpt = rows[0];
-      if (!ptpt || typeof ptpt.pid === "undefined" || ptpt.pid === null) {
-        throw new Error(`Failed to create participant - invalid data`);
-      }
-
-      newlyCreated = true;
-      return {
-        pid: Number(ptpt.pid),
-        shouldCreateXidRecord,
-        newlyCreated,
-      };
-    } catch (createError: any) {
-      if (isDuplicateKey(createError)) {
-        const retryPid = await getPidPromise(zid, uid, true);
-        if (retryPid !== -1) {
-          return {
-            pid: retryPid,
-            shouldCreateXidRecord,
-            newlyCreated: false,
-          };
-        }
-      }
-      throw createError;
-    }
-  }
-
-  return {
-    pid: Number(initialPid),
-    shouldCreateXidRecord,
-    newlyCreated: false,
-  };
 }
 
 function moderateCommentQuery(
@@ -459,493 +301,126 @@ async function moderateComment(
   return { active, mod, classifications };
 }
 
-// Insert comment with retry logic
-async function insertComment(
-  context: CommentCreationContext,
-  active: boolean,
-  mod: number,
-  lang: string,
-  lang_confidence: number
-): Promise<any> {
-  const { zid, uid, pid, txt, is_seed } = context;
-  const velocity = 1;
-  let retryCount = 0;
-  const maxRetries = 3;
-  let currentPid = pid;
-
-  while (retryCount < maxRetries) {
-    try {
-      // Validate participant exists before insert
-      const participantExists = (await pg.queryP_readOnly(
-        "SELECT 1 FROM participants WHERE zid = $1 AND pid = $2 LIMIT 1",
-        [zid, currentPid]
-      )) as any[];
-
-      if (participantExists.length === 0) {
-        logger.warn(
-          `Participant ${currentPid} does not exist for conversation ${zid}, recreating`
-        );
-        const result = await resolveParticipantId(zid, uid);
-        currentPid = result.pid;
-      }
-
-      const insertedComment = await pg.queryP(
-        `INSERT INTO COMMENTS
-        (pid, zid, txt, velocity, active, mod, uid, anon, is_seed, created, tid, lang, lang_confidence)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, default, null, $10, $11)
-        RETURNING *;`,
-        [
-          currentPid,
-          zid,
-          txt,
-          velocity,
-          active,
-          mod,
-          uid,
-          false, // anon is deprecated and not used anywhere
-          is_seed || false,
-          lang,
-          lang_confidence,
-        ]
-      );
-
-      return { comment: insertedComment[0], finalPid: currentPid };
-    } catch (insertError: any) {
-      retryCount++;
-
-      if (
-        insertError.code === "23503" &&
-        insertError.constraint === "comments_zid_pid_fkey"
-      ) {
-        logger.warn(
-          `Comment insertion failed due to missing participant, retry ${retryCount}/${maxRetries}`
-        );
-
-        if (retryCount >= maxRetries) {
-          throw new Error(
-            `Failed to insert comment after ${maxRetries} retries due to participant race condition`
-          );
-        }
-
-        await new Promise((resolve) => setTimeout(resolve, 100 * retryCount));
-      } else {
-        throw insertError;
-      }
-    }
-  }
-
-  throw new Error("Failed to insert comment after max retries");
-}
-
-// Handle voting on comment creation (seed comments default to pass)
-async function handleCommentVote(
-  req: PolisRequest,
-  uid: number,
-  pid: number,
-  zid: number,
-  tid: number,
-  xid: string | undefined,
-  vote: number | undefined
-): Promise<number | undefined> {
-  // Handle seed comment default vote
-  const shouldDefaultVote =
-    req.p.is_seed && _.isUndefined(vote) && Number(zid) <= 17037;
-  const finalVote = shouldDefaultVote ? 0 : vote;
-
-  // Cast vote if specified
-  if (!_.isUndefined(finalVote)) {
-    const voteResult = await votesPost(
-      uid,
-      pid,
-      zid,
-      tid,
-      xid,
-      finalVote,
-      0,
-      false
-    );
-    if (voteResult?.vote?.created) {
-      return voteResult.vote.created;
-    }
-  }
-
-  return undefined;
-}
-
-// Handle post-insertion tasks
-async function handlePostInsertionTasks(
-  zid: number,
-  uid: number,
-  pid: number,
-  tid: number,
-  xid: string | undefined,
-  vote: number | undefined,
-  conversation: any,
-  req: PolisRequest,
-  needsModeration: boolean
-): Promise<void> {
-  let createdTime = new Date();
-
-  // Handle moderation notifications
-  if (needsModeration || conversation.strict_moderation) {
-    try {
-      const n = await getNumberOfCommentsWithModerationStatus(
-        zid,
-        polisTypes.mod.unmoderated
-      );
-      if (n !== 0) {
-        const users = (await pg.queryP_readOnly(
-          "SELECT * FROM users WHERE site_id = (SELECT site_id FROM page_ids WHERE zid = $1) UNION SELECT * FROM users WHERE uid = $2;",
-          [zid, conversation.owner]
-        )) as any[];
-        const uids = users.map((user: { uid: string }) => user.uid);
-        uids.forEach((uid: string) =>
-          sendCommentModerationEmail(req, Number(uid), zid, n)
-        );
-      }
-    } catch (err) {
-      logger.error("polis_err_getting_modstatus_comment_count", err);
-    }
-  } else {
-    addNotificationTask(zid);
-  }
-
-  // Handle voting
-  try {
-    const voteCreatedTime = await handleCommentVote(
-      req,
-      uid,
-      pid,
-      zid,
-      tid,
-      xid,
-      vote
-    );
-    if (voteCreatedTime) {
-      const voteCreatedTimeMillis = safeTimestampToMillis(voteCreatedTime);
-      createdTime = new Date(voteCreatedTimeMillis);
-    }
-  } catch (err) {
-    throw new Error("polis_err_vote_on_create");
-  }
-
-  // Schedule async updates
-  setTimeout(() => {
-    updateConversationModifiedTime(zid, createdTime);
-    updateLastInteractionTimeForConversation(zid, uid);
-    if (
-      !_.isUndefined(vote) ||
-      (req.p.is_seed && _.isUndefined(vote) && Number(zid) <= 17037)
-    ) {
-      updateVoteCount(zid, pid);
-    }
-  }, 100);
-}
-
-// Build response with optional JWT
-function buildCommentResponse(
-  tid: number,
-  currentPid: number,
-  newlyCreatedParticipant: boolean,
-  newlyCreatedUser: boolean,
-  uid: number | undefined,
-  finalPid: number,
-  xid: string | undefined,
-  conversation_id: string | undefined,
-  needsNewJwt: boolean = false
-): any {
-  const response: any = {
-    tid,
-    currentPid,
-  };
-
-  // Issue JWT for new participants/users OR when conversation mismatch requires new JWT
-  if (
-    (newlyCreatedParticipant || newlyCreatedUser || needsNewJwt) &&
-    uid !== undefined &&
-    finalPid !== undefined &&
-    conversation_id
-  ) {
-    try {
-      const token = xid
-        ? issueXidJWT(xid, conversation_id, Number(uid), finalPid)
-        : issueAnonymousJWT(conversation_id, Number(uid), finalPid);
-
-      response.auth = {
-        token,
-        token_type: "Bearer",
-        expires_in: 365 * 24 * 60 * 60, // 1 year
-      };
-
-      logger.debug(
-        `${
-          xid ? "XID" : "Anonymous"
-        } JWT issued successfully for comment author${
-          needsNewJwt ? " (conversation mismatch)" : ""
-        }`
-      );
-    } catch (error) {
-      logger.error("Failed to issue JWT on comment creation:", error);
-    }
-  }
-
-  return response;
-}
-
-async function handle_POST_comments(
-  req: PolisRequest,
-  res: Response & { json: (data: any) => void }
-): Promise<void> {
-  const { zid, xid, txt, pid: initialPid, is_seed, conversation_id } = req.p;
-  let { uid, vote } = req.p;
-
-  let pid = initialPid;
-  let currentPid = pid;
-  let finalPid = initialPid; // Declare at function level for error handling access
-  let newlyCreatedParticipant = false;
-  let newlyCreatedUser = false;
-  let needsNewJwt = false; // Track if we need to issue a new JWT due to conversation mismatch
-
-  const validationResult = validateCommentInput(req);
-  if (!validationResult.isValid) {
-    failJson(
-      res,
-      validationResult.statusCode || 500,
-      validationResult.errorCode || "polis_err_post_comment_invalid_input"
-    );
-    return;
-  }
-
-  // Handle JWT conversation mismatches
-  if (req.p.jwt_conversation_mismatch) {
-    needsNewJwt = true;
-
-    if (req.p.anonymous_participant) {
-      // Anonymous participant with JWT for different conversation - treat as new
-      logger.debug(
-        "Anonymous participant commenting with JWT for different conversation - treating as new"
-      );
-      uid = undefined;
-      pid = undefined;
-    } else if (req.p.xid_participant && xid) {
-      // XID participant - apply the same 4-case logic as participationInit and votes
-      const jwtXid = req.p.jwt_xid;
-      const requestXid = xid;
-      const xidMatches = jwtXid === requestXid;
-
-      // Check if XID exists for current conversation
-      let xidForCurrentConversation = false;
-      try {
-        const xidRecords = await getXidRecord(requestXid, zid!);
-        if (xidRecords && xidRecords.length > 0) {
-          xidForCurrentConversation = true;
-        }
-      } catch (err) {
-        // XID not found for this conversation
-      }
-
-      if (xidMatches) {
-        // Case 2: Token and XID align but are for different conversation
-        logger.debug(
-          "Case 2: XID participant commenting with matching JWT/XID for different conversation - treating as anonymous"
-        );
-        req.p.xid = undefined; // Clear XID to treat as anonymous
-        uid = undefined;
-        pid = undefined;
-      } else if (!xidMatches && xidForCurrentConversation) {
-        // Case 3: Token for different conversation, but XID is for current
-        logger.debug(
-          "Case 3: XID participant commenting with mismatched JWT but XID for current conversation - maintaining XID"
-        );
-        uid = undefined;
-        pid = undefined;
-        // XID will be resolved below
-      } else {
-        // Case 4: Token for current conversation, but XID for different
-        logger.debug(
-          "Case 4: XID participant commenting with JWT for current conversation but XID for different - treating as anonymous"
-        );
-        req.p.xid = undefined; // Clear XID
-        // Keep uid/pid from JWT
-      }
-    }
-  }
-
-  // Check for legacy cookie before creating new user
-  let legacyCookieToken: string | undefined;
-  if (uid === undefined && !req.p.jwt_conversation_mismatch) {
-    const legacyResult = await checkLegacyCookieAndIssueJWT(
-      req,
-      zid!,
-      conversation_id,
-      xid
-    );
-    if (legacyResult.uid !== undefined && legacyResult.pid !== undefined) {
-      uid = legacyResult.uid;
-      pid = legacyResult.pid;
-      currentPid = pid;
-      needsNewJwt = legacyResult.needsNewJwt;
-      legacyCookieToken = legacyResult.token;
-      logger.info("Using existing participant from legacy cookie", {
-        uid,
-        pid,
-      });
-    }
-  }
-
-  // Create anonymous user if uid is not provided
-  // This allows anonymous participants to submit comments as their first action
-  if (uid === undefined && !xid) {
-    try {
-      uid = await createAnonUser();
-      newlyCreatedUser = true;
-    } catch (err) {
-      logger.error("Failed to create anonymous user for comment", err);
-      failJson(res, 500, "polis_err_comment_anonymous_user_creation");
-      return;
-    }
-  }
+/**
+ * Simplified comment handler - all participant management is handled by middleware
+ */
+async function handle_POST_comments(req: RequestWithP, res: any) {
+  const { zid, uid, pid, txt, vote, is_seed, xid } = req.p;
 
   try {
-    // Early participant ID resolution for XID users
-    if (xid) {
-      const xidUser = await getXidStuff(xid, zid!);
-      const shouldCreateXidRecord =
-        xidUser === "noXidRecord" ||
-        (typeof xidUser === "object" && xidUser.pid === -1);
-
-      if (typeof xidUser === "object" && !shouldCreateXidRecord) {
-        uid = xidUser.uid;
-        pid = xidUser.pid;
-        currentPid = pid;
-      } else {
-        // Create anonymous user for XID if uid is not available
-        if (uid === undefined) {
-          uid = await createAnonUser();
-          newlyCreatedUser = true;
-        }
-        if (shouldCreateXidRecord) {
-          await createXidRecordByZid(zid!, uid!, xid, null, null, null);
-        }
-      }
-    }
-
-    // Resolve participant ID
-    const participantResult = await resolveParticipantId(zid!, uid!, xid, pid);
-    finalPid = participantResult.pid;
-    currentPid = finalPid;
-    newlyCreatedParticipant = participantResult.newlyCreated;
-
-    // Run all validation checks in parallel
-    const [conv, is_moderator, commentExistsAlready] = await Promise.all([
-      getConversationInfo(zid!),
-      isModerator(zid!, uid!),
-      commentExists(zid!, txt),
-    ]);
-
-    const conversation = conv;
-
-    if (finalPid && typeof finalPid === "number" && finalPid < 0) {
-      failJson(res, 500, "polis_err_post_comment_bad_pid");
+    // 1. Validate input
+    if (!txt || txt === "") {
+      failJson(res, 400, "polis_err_param_missing_txt");
       return;
     }
 
-    if (commentExistsAlready) {
+    // 2. Check for duplicates
+    const exists = await commentExists(zid, txt);
+    if (exists) {
       failJson(res, 409, "polis_err_post_comment_duplicate");
       return;
     }
+
+    // 3. Get conversation info and check moderation status
+    const [conversation, is_moderator] = await Promise.all([
+      getConversationInfo(zid),
+      isModerator(zid, uid),
+    ]);
 
     if (!conversation.is_active) {
       failJson(res, 403, "polis_err_conversation_is_closed");
       return;
     }
 
-    const { active, mod, classifications } = await moderateComment(
-      txt!,
+    // 4. Moderate the comment
+    const { active, mod } = await moderateComment(
+      txt,
       conversation,
       is_moderator,
-      is_seed,
-      req
+      is_seed
     );
 
-    const [detections] = await Promise.all([detectLanguage(txt!)]);
-
+    // 5. Detect language
+    const detections = await detectLanguage(txt);
     const detection = Array.isArray(detections) ? detections[0] : detections;
     const lang = detection.language;
     const lang_confidence = detection.confidence;
 
-    const insertResult = await insertComment(
-      {
-        zid: zid!,
-        uid: uid!,
-        pid: finalPid,
-        txt: txt!,
-        xid,
-        conversation,
-        is_moderator,
-        is_seed,
-      },
-      active,
-      mod,
-      lang,
-      lang_confidence
+    // 6. Insert the comment
+    const insertedComment = await pg.queryP(
+      `INSERT INTO COMMENTS
+      (pid, zid, txt, velocity, active, mod, uid, anon, is_seed, created, tid, lang, lang_confidence)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, default, null, $10, $11)
+      RETURNING *;`,
+      [
+        pid,
+        zid,
+        txt,
+        1, // velocity
+        active,
+        mod,
+        uid,
+        false, // anon
+        is_seed || false,
+        lang,
+        lang_confidence,
+      ]
     );
 
-    const comment = insertResult.comment;
+    const comment = insertedComment[0];
     const tid = comment.tid;
-    finalPid = insertResult.finalPid; // Update finalPid in case it changed during insert
 
-    const needsModeration =
-      classifications.length > 0 || conversation.strict_moderation;
+    // 7. Handle voting on the comment if specified
+    const shouldDefaultVote = req.p.is_seed && _.isUndefined(vote);
+    const finalVote = shouldDefaultVote ? 0 : vote;
 
-    // Ensure finalPid is a valid number (it should be at this point)
-    if (typeof finalPid !== "number" || finalPid < 0) {
-      failJson(res, 500, "polis_err_post_comment_invalid_pid");
-      return;
+    if (!_.isUndefined(finalVote)) {
+      await votesPost(uid, pid, zid, tid, xid, finalVote, 0, false);
     }
 
-    try {
-      await handlePostInsertionTasks(
-        zid!,
-        uid!,
-        finalPid,
-        tid,
-        xid,
-        vote,
-        conversation,
-        req,
-        needsModeration
-      );
-    } catch (err: any) {
-      if (err.message === "polis_err_vote_on_create") {
-        failJson(res, 500, "polis_err_vote_on_create", err);
-        return;
+    // 8. Handle moderation notifications
+    const needsModeration = !active || conversation.strict_moderation;
+
+    if (needsModeration || conversation.strict_moderation) {
+      try {
+        const n = await getNumberOfCommentsWithModerationStatus(
+          zid,
+          polisTypes.mod.unmoderated
+        );
+        if (n !== 0) {
+          const users = (await pg.queryP_readOnly(
+            "SELECT * FROM users WHERE site_id = (SELECT site_id FROM page_ids WHERE zid = $1) UNION SELECT * FROM users WHERE uid = $2;",
+            [zid, conversation.owner]
+          )) as any[];
+          const uids = users.map((user: { uid: string }) => user.uid);
+          uids.forEach((uid: string) =>
+            sendCommentModerationEmail(req, Number(uid), zid, n)
+          );
+        }
+      } catch (err) {
+        logger.error("polis_err_getting_modstatus_comment_count", err);
       }
-      // Log but don't fail for other post-insertion errors
-      logger.error("Error in post-insertion tasks", err);
+    } else {
+      addNotificationTask(zid);
     }
 
-    const response = buildCommentResponse(
+    // 9. Schedule async updates
+    const createdTimeMillis = safeTimestampToMillis(comment.created);
+    setTimeout(() => {
+      updateConversationModifiedTime(zid, new Date(createdTimeMillis));
+      updateLastInteractionTimeForConversation(zid, uid);
+      if (!_.isUndefined(finalVote)) {
+        updateVoteCount(zid, pid);
+      }
+    }, 100);
+
+    // 10. Build response
+    const response: any = {
       tid,
-      currentPid,
-      newlyCreatedParticipant,
-      newlyCreatedUser,
-      uid,
-      finalPid,
-      xid,
-      conversation_id,
-      needsNewJwt
-    );
+      currentPid: pid,
+    };
 
-    // Override auth with legacy cookie token if available
-    if (legacyCookieToken && needsNewJwt) {
-      response.auth = {
-        token: legacyCookieToken,
-        token_type: "Bearer",
-        expires_in: 365 * 24 * 60 * 60, // 1 year
-      };
-      logger.debug("Using JWT from legacy cookie lookup for comment response");
-    }
+    // 11. Auth token will be automatically included by attachAuthToken middleware
 
     res.json(response);
   } catch (err: any) {
@@ -953,7 +428,7 @@ async function handle_POST_comments(
     logger.error("Comment creation failed", {
       zid,
       uid,
-      pid: finalPid || initialPid,
+      pid,
       error: err.message,
       code: err.code,
       constraint: err.constraint,
@@ -972,7 +447,7 @@ async function handle_POST_comments(
         {
           zid,
           uid,
-          pid: finalPid || initialPid,
+          pid,
           error: err.message,
           constraint: err.constraint,
         }
@@ -991,7 +466,7 @@ async function handle_POST_comments(
       logger.error("Comment insertion failed after retries", {
         zid,
         uid,
-        pid: finalPid || initialPid,
+        pid,
         error: err.message,
       });
       failJson(
@@ -1005,7 +480,7 @@ async function handle_POST_comments(
       logger.error("Foreign key constraint violation in comment creation", {
         zid,
         uid,
-        pid: finalPid || initialPid,
+        pid,
         error: err.message,
         constraint: err.constraint,
       });
@@ -1015,7 +490,7 @@ async function handle_POST_comments(
       logger.error("Unexpected error in comment creation", {
         zid,
         uid,
-        pid: finalPid || initialPid,
+        pid,
         error: err.message,
         code: err.code,
         stack: err.stack,
@@ -1080,69 +555,50 @@ function handle_PUT_comments(
     });
 }
 
-function handle_GET_nextComment(
+async function handle_GET_nextComment(
   req: PolisRequest,
-  res: {
-    status: (arg0: number) => {
-      (): any;
-      new (): any;
-      json: { (arg0: {}): void; new (): any };
-    };
-  }
-): void {
+  res: { status: (code: number) => { json: (data: unknown) => void } }
+): Promise<void> {
   if (req.timedout) {
     return;
   }
 
-  /*
-  NOTE: I tried to speed up this query by adding db indexes, and by removing queries like
-  getConversationInfo and finishOne. They didn't help much, at least under current load, which is
-  negligible. pg:diagnose isn't complaining about indexes.
-  I think the direction to go as far as optimizing this is to asyncronously build up a synced in-ram list
-  of next comments for each participant, for currently active conversations.
-  (this would probably be a math-poller-esque process on another hostclass)
-  Along with this would be to cache in ram info about moderation status of each comment so we can filter
-  before returning a comment.
-  */
+  logger.info("polis_info_handle_GET_nextComment", {
+    zid: req.p.zid,
+    not_voted_by_pid: req.p.not_voted_by_pid,
+    without: req.p.without,
+    lang: req.p.lang,
+    pid: req.p.pid,
+  });
 
-  getNextComment(
-    req.p.zid,
-    req.p.not_voted_by_pid,
-    req.p.without,
-    req.p.include_social,
-    req.p.lang
-  )
-    .then(
-      function (c: GetCommentsParams | null) {
-        if (req.timedout) {
-          return;
-        }
-        if (c) {
-          if (!_.isUndefined(req.p.not_voted_by_pid)) {
-            c.currentPid = req.p.not_voted_by_pid;
-          }
-          finishOne(res, c);
-        } else {
-          const o: CommentOptions = {};
-          if (!_.isUndefined(req.p.not_voted_by_pid)) {
-            o.currentPid = req.p.not_voted_by_pid;
-          }
-          res.status(200).json(o);
-        }
-      },
-      function (err: any) {
-        if (req.timedout) {
-          return;
-        }
-        failJson(res, 500, "polis_err_get_next_comment2", err);
+  const pid = req.p.pid || req.p.not_voted_by_pid;
+
+  try {
+    const next = await getNextComment(
+      req.p.zid,
+      pid,
+      req.p.without,
+      req.p.lang
+    );
+
+    if (req.timedout) return;
+
+    if (next) {
+      if (!_.isUndefined(pid)) {
+        next.currentPid = pid;
       }
-    )
-    .catch(function (err: any) {
-      if (req.timedout) {
-        return;
+      finishOne(res as any, next);
+    } else {
+      const response: CommentOptions = {};
+      if (!_.isUndefined(pid)) {
+        response.currentPid = pid;
       }
-      failJson(res, 500, "polis_err_get_next_comment", err);
-    });
+      res.status(200).json(response);
+    }
+  } catch (err) {
+    if (req.timedout) return;
+    failJson(res as any, 500, "polis_err_get_next_comment", err);
+  }
 }
 
 // TODO: Use dynamic url domain

@@ -5,8 +5,6 @@ import {
   getJwtAuthenticatedAgent,
   newAgent,
   setAgentJwt,
-  initializeParticipant,
-  submitVote,
 } from "../setup/api-test-helpers";
 import { getPooledTestUser } from "../setup/test-user-helpers";
 import type { Response } from "supertest";
@@ -20,11 +18,6 @@ interface Comment {
   mod?: number;
   is_meta?: boolean;
   velocity?: number;
-  [key: string]: any;
-}
-
-interface VoteResponse {
-  currentPid: string;
   [key: string]: any;
 }
 
@@ -248,67 +241,6 @@ describe("Extended Comment Endpoints", () => {
     // The comment ID we just moderated should be in the results
     const moderatedCommentIds = filteredByMod.map((c) => c.tid);
     expect(moderatedCommentIds).toContain(comment2Id);
-  });
-
-  test("GET /comments - Filtering by not_voted_by_pid parameter", async () => {
-    // Create two new comments directly to avoid duplicates
-    const timestamp = Date.now();
-
-    // Create comment 1
-    const create1Response: Response = await agent
-      .post("/api/v3/comments")
-      .send({
-        conversation_id: conversationId,
-        txt: `Comment for not_voted_by_pid test 1 ${timestamp}`,
-      });
-    expect(create1Response.status).toBe(200);
-    const comment1Id = JSON.parse(create1Response.text).tid;
-
-    // Create comment 2
-    const create2Response: Response = await agent
-      .post("/api/v3/comments")
-      .send({
-        conversation_id: conversationId,
-        txt: `Comment for not_voted_by_pid test 2 ${timestamp}`,
-      });
-    expect(create2Response.status).toBe(200);
-    const comment2Id = JSON.parse(create2Response.text).tid;
-
-    // Initialize a participant
-    const { agent: participantAgent } = await initializeParticipant(
-      conversationId
-    );
-
-    // Vote on one of the comments as the participant
-    const voteResponse = await submitVote(participantAgent, {
-      tid: comment1Id,
-      conversation_id: conversationId,
-      vote: 1, // 1 is disagree in this system
-    });
-
-    expect(voteResponse.status).toBe(200);
-
-    const voteData = voteResponse.body as VoteResponse;
-    expect(voteData).toHaveProperty("currentPid");
-    const currentPid: string = voteData.currentPid;
-
-    // Get comments not voted on by this participant
-    const notVotedResponse: Response = await agent.get(
-      `/api/v3/comments?conversation_id=${conversationId}&not_voted_by_pid=${currentPid}`
-    );
-
-    expect(notVotedResponse.status).toBe(200);
-    const notVotedComments: Comment[] = JSON.parse(notVotedResponse.text);
-
-    // Should only return the second comment (not voted on)
-    expect(Array.isArray(notVotedComments)).toBe(true);
-
-    // Confirm comment1Id is not in the results (since we voted on it)
-    const returnedIds = notVotedComments.map((c) => c.tid);
-    expect(returnedIds).not.toContain(comment1Id);
-
-    // Confirm comment2Id is in the results (since we didn't vote on it)
-    expect(returnedIds).toContain(comment2Id);
   });
 
   test("GET /comments/translations - returns 400 for missing conversation_id", async () => {

@@ -28,7 +28,7 @@ function handle_GET_math_pca(
 // Cache the knowledge of whether there are any pca results for a given zid.
 // Needed to determine whether to return a 404 or a 304.
 // zid -> boolean
-const pcaResultsExistForZid = {};
+const pcaResultsExistForZid: Record<number, boolean> = {};
 
 function handle_GET_math_pca2(
   req: { p: { zid: number; math_tick: any; ifNoneMatch: any } },

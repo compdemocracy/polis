@@ -120,7 +120,13 @@ describe("Math and Analysis Endpoints", () => {
         if (
           pcaResponse.status === 200 &&
           pcaResponse.body &&
-          pcaResponse.body.pca
+          pcaResponse.body.pca &&
+          // Check for actual computed data vs empty structure
+          pcaResponse.body.n > 0 && // Has participants
+          pcaResponse.body.math_tick > 0 && // Has been computed
+          pcaResponse.body.pca.comps &&
+          pcaResponse.body.pca.comps[0] &&
+          pcaResponse.body.pca.comps[0].length > 0 // Has actual PCA components
         ) {
           pcaAvailable = true;
           break;
@@ -265,10 +271,42 @@ describe("Math and Analysis Endpoints", () => {
       `/api/v3/math/pca2?conversation_id=${emptyConvoId}`
     );
 
-    expect(status).toBe(304);
-    expect(body).toBe("");
+    expect(status).toBe(200);
+    expect(body).toBeDefined();
 
-    // TODO: Request correlation matrix for empty conversation
+    // Verify the response has the expected empty PCA structure
+    expect(body.pca).toBeDefined();
+    expect(body.pca.center).toEqual([0, 0]);
+    expect(body.pca.comps).toEqual([[], []]);
+    expect(body.pca["comment-extremity"]).toEqual([]);
+    expect(body.pca["comment-projection"]).toEqual({});
+
+    expect(body.consensus).toBeDefined();
+    expect(body.consensus.agree).toEqual([]);
+    expect(body.consensus.disagree).toEqual([]);
+
+    expect(body["base-clusters"]).toBeDefined();
+    expect(body["base-clusters"].x).toEqual([]);
+    expect(body["base-clusters"].y).toEqual([]);
+    expect(body["base-clusters"].id).toEqual([]);
+    expect(body["base-clusters"].count).toEqual([]);
+    expect(body["base-clusters"].members).toEqual([]);
+
+    expect(body["group-clusters"]).toEqual([]);
+    expect(body["group-votes"]).toEqual({});
+    expect(body["group-aware-consensus"]).toEqual({});
+    expect(body["user-vote-counts"]).toEqual({});
+    expect(body["in-conv"]).toEqual([]);
+    expect(body["votes-base"]).toEqual({});
+    expect(body["comment-priorities"]).toEqual({});
+    expect(body.repness).toEqual({});
+
+    expect(body.n).toBe(0);
+    expect(body["n-cmts"]).toBe(0);
+    expect(body.tids).toEqual([]);
+    expect(body.math_tick).toBe(0);
+    expect(body.lastVoteTimestamp).toBeDefined();
+    expect(typeof body.lastVoteTimestamp).toBe("number");
   });
 
   test("Math endpoints - Support math_tick parameter", async () => {
