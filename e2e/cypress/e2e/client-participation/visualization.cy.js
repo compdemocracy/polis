@@ -154,8 +154,9 @@ describe('Visualization', function () {
         cy.clearAllSessionStorage()
 
         // Step 2: Create 7 participants
-        cy.log('🧪 Creating 7 participants')
+        cy.log('🧪 Creating 7 participants sequentially')
 
+        // Define the participant creation function
         const createParticipant = (index) => {
           const xid = `clean-viz-${Date.now()}-${index}`
           cy.log(`👤 Creating participant ${index}/7 with XID: ${xid}`)
@@ -170,31 +171,59 @@ describe('Visualization', function () {
           // Visit with XID
           cy.visit(`/${conversationId}?xid=${xid}`)
 
-          // Wait for first vote button
-          cy.get('#agreeButton', { timeout: 15000 }).should('be.visible').click()
+          // Wait for page to be ready and first vote button to be stable
+          cy.get('body').should('be.visible')
+          cy.get('#agreeButton', { timeout: 15000 }).should('be.visible').should('not.be.disabled')
+          cy.get('#agreeButton').click()
           cy.wait('@voteRequest')
 
           // Second comment - vary the votes
           const voteButtons = ['#agreeButton', '#disagreeButton', '#passButton']
-          cy.get(voteButtons[index % 3], { timeout: 10000 })
-            .should('be.visible')
-            .click()
+          const secondButton = voteButtons[index % 3]
+          cy.get(secondButton, { timeout: 10000 }).should('be.visible').should('not.be.disabled')
+          cy.get(secondButton).click()
           cy.wait('@voteRequest')
 
           // Third comment
-          cy.get(voteButtons[(index + 1) % 3], { timeout: 10000 })
-            .should('be.visible')
-            .click()
+          const thirdButton = voteButtons[(index + 1) % 3]
+          cy.get(thirdButton, { timeout: 10000 }).should('be.visible').should('not.be.disabled')
+          cy.get(thirdButton).click()
           cy.wait('@voteRequest')
 
-          // Wait for completion
+          // Wait for completion message and ensure it's stable
           cy.contains("You've voted on all", { timeout: 10000 }).should('be.visible')
+          cy.log(`✅ Participant ${index} completed voting successfully`)
+
+          // Return a Cypress chainable
+          return cy.wrap(index)
         }
 
-        // Create all 7 participants
-        for (let i = 1; i <= 7; i++) {
-          createParticipant(i)
-        }
+        // Create all 7 participants sequentially using cy.then() chains
+        cy.log('🧪 Creating 7 participants sequentially')
+
+        // Start with participant 1 and chain through all 7
+        createParticipant(1)
+          .then(() => {
+            return createParticipant(2)
+          })
+          .then(() => {
+            return createParticipant(3)
+          })
+          .then(() => {
+            return createParticipant(4)
+          })
+          .then(() => {
+            return createParticipant(5)
+          })
+          .then(() => {
+            return createParticipant(6)
+          })
+          .then(() => {
+            return createParticipant(7)
+          })
+          .then(() => {
+            cy.log('🎉 All participant creation completed')
+          })
 
         // Step 3: Verify and trigger visualization
         cy.log('📊 Verifying participant count and triggering math')

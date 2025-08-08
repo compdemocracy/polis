@@ -380,6 +380,8 @@ export function verifyCustomNamespaceClaims(tokenKey, expectedClaims) {
  */
 export function verifyIDTokenClaims(expectedClaims) {
   const oidcCacheKeyPrefix = Cypress.env('OIDC_CACHE_KEY_PREFIX')
+  // Wait briefly for Auth to initialize
+  cy.wait(2000)
 
   return cy.window().then((win) => {
     const oidcUserKeys = Object.keys(win.localStorage).filter((key) =>
