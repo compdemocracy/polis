@@ -36,9 +36,6 @@ jobs:
         
         # Copy mkcert root CA for other containers
         cp "$(mkcert -CAROOT)/rootCA.pem" ./rootCA.pem
-        cp localhost.pem snakeoil.cert.pem
-        cp localhost-key.pem snakeoil.key.pem
-        chmod 644 localhost-key.pem snakeoil.key.pem
         
         # List generated files for debugging
         echo "Generated certificates:"
