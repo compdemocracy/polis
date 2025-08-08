@@ -20,6 +20,10 @@ async function globalSetup() {
   process.env.NODE_ENV = "test";
   process.env.TESTING = "true";
 
+  // Set topical ratio to 1.0 for deterministic testing of topical comment selection
+  // This only affects tests that have topic agendas configured
+  process.env.POLIS_TOPICAL_RATIO = "1.0";
+
   try {
     // Import and store app instance globally (optional - for backwards compatibility)
     const { getApp } = await import("../app-loader");
