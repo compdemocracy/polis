@@ -114,6 +114,7 @@ jobs:
         export DATABASE_URL=postgres://postgres:PdwPNS2mDN73Vfbc@localhost:5432/polis-test
         export MAILDEV_HOST=localhost
         export STATIC_FILES_HOST=localhost
+        export DYNAMODB_ENDPOINT=http://localhost:8000
         
         # Run the tests on the host machine
         npm test -- --ci --coverage --maxWorkers=2
