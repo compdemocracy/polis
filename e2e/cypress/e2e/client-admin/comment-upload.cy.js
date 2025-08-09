@@ -40,33 +40,17 @@ describe('Client Admin: Comment CSV Upload', () => {
           // Set up intercept for the bulk comments API call
           cy.intercept('POST', '/api/v3/comments-bulk').as('bulkComments')
 
-          // Upload the CSV file
-          cy.fixture('test-comments.csv').then((csvContent) => {
-            // Create a File object from the CSV content
-            const blob = new Blob([csvContent], { type: 'text/csv' })
-            const file = new File([blob], 'test-comments.csv', { type: 'text/csv' })
+          // Upload the CSV file using Cypress's built-in selectFile method
+          // This is more reliable across different environments, especially CI
+          cy.get('input[type="file"]')
+            .should('have.attr', 'accept', '.csv')
+            .selectFile('cypress/fixtures/test-comments.csv', { force: true })
 
-            // Use cy.get() to find the file input and attach the file
-            cy.get('input[type="file"]')
-              .should('have.attr', 'accept', '.csv')
-              .then(($input) => {
-                // Create a DataTransfer object and add the file
-                const dataTransfer = new DataTransfer()
-                dataTransfer.items.add(file)
+          // Wait a moment for the file to be processed
+          cy.wait(500)
 
-                // Set the files property of the input element
-                $input[0].files = dataTransfer.files
-
-                // Trigger the change event to simulate file selection
-                $input[0].dispatchEvent(new Event('change', { bubbles: true }))
-              })
-
-            // Wait a moment for the file to be processed
-            cy.wait(500)
-
-            // Click the submit button for bulk upload using data-testid
-            cy.get('[data-testid="upload-csv-button"]').click()
-          })
+          // Click the submit button for bulk upload using data-testid
+          cy.get('[data-testid="upload-csv-button"]').click()
 
           // Wait for the API call to complete
           cy.wait('@bulkComments').then((interception) => {
@@ -127,16 +111,14 @@ describe('Client Admin: Comment CSV Upload', () => {
           // Set up intercept for the bulk comments API call
           cy.intercept('POST', '/api/v3/comments-bulk').as('bulkComments')
 
-          // Upload the empty CSV file
-          const blob = new Blob([emptyCsv], { type: 'text/csv' })
-          const file = new File([blob], 'empty-comments.csv', { type: 'text/csv' })
-
-          cy.get('input[type="file"]').then(($input) => {
-            const dataTransfer = new DataTransfer()
-            dataTransfer.items.add(file)
-            $input[0].files = dataTransfer.files
-            $input[0].dispatchEvent(new Event('change', { bubbles: true }))
-          })
+          // Upload the empty CSV file using selectFile with contents option
+          cy.get('input[type="file"]')
+            .should('have.attr', 'accept', '.csv')
+            .selectFile({
+              contents: Cypress.Buffer.from(emptyCsv),
+              fileName: 'empty-comments.csv',
+              mimeType: 'text/csv'
+            }, { force: true })
 
           // Wait a moment for the file to be processed
           cy.wait(500)
@@ -173,18 +155,26 @@ describe('Client Admin: Comment CSV Upload', () => {
           // Wait for the page to load
           cy.get('h3').should('contain.text', 'Configure')
 
+          // Wait for the form to be fully loaded and ready
+          cy.wait(1000)
+
           // First, add a manual comment
           const manualComment = 'This is a manually entered test comment'
 
           cy.intercept('POST', '/api/v3/comments').as('manualComment')
 
           cy.get('textarea[data-testid="seed_form"]').should('be.visible')
+          cy.get('textarea[data-testid="seed_form"]').should('not.be.disabled')
           cy.get('textarea[data-testid="seed_form"]').clear()
           cy.get('textarea[data-testid="seed_form"]').type(manualComment)
 
           cy.get('button').contains('Submit').first().click()
 
           cy.wait('@manualComment').then((interception) => {
+            if (interception.response.statusCode !== 200) {
+              cy.log('❌ Manual comment failed with status:', interception.response.statusCode)
+              cy.log('Response body:', JSON.stringify(interception.response.body))
+            }
             expect(interception.response.statusCode).to.eq(200)
             cy.log('✅ Manual comment added successfully')
           })
@@ -193,26 +183,22 @@ describe('Client Admin: Comment CSV Upload', () => {
           cy.get('button').contains('Success!').should('be.visible')
 
           // Now upload CSV comments
-          cy.fixture('test-comments.csv').then((csvContent) => {
-            const blob = new Blob([csvContent], { type: 'text/csv' })
-            const file = new File([blob], 'test-comments.csv', { type: 'text/csv' })
+          cy.intercept('POST', '/api/v3/comments-bulk').as('bulkComments')
 
-            cy.intercept('POST', '/api/v3/comments-bulk').as('bulkComments')
+          // Upload CSV file using Cypress's built-in selectFile method
+          cy.get('input[type="file"]')
+            .should('have.attr', 'accept', '.csv')
+            .selectFile('cypress/fixtures/test-comments.csv', { force: true })
 
-            cy.get('input[type="file"]').then(($input) => {
-              const dataTransfer = new DataTransfer()
-              dataTransfer.items.add(file)
-              $input[0].files = dataTransfer.files
-              $input[0].dispatchEvent(new Event('change', { bubbles: true }))
-            })
+          // Wait a moment for the file to be processed
+          cy.wait(500)
 
-            // Click the submit button for CSV upload using data-testid
-            cy.get('[data-testid="upload-csv-button"]').click()
+          // Click the submit button for CSV upload using data-testid
+          cy.get('[data-testid="upload-csv-button"]').click()
 
-            cy.wait('@bulkComments').then((interception) => {
-              expect(interception.response.statusCode).to.eq(200)
-              cy.log('✅ CSV comments added successfully')
-            })
+          cy.wait('@bulkComments').then((interception) => {
+            expect(interception.response.statusCode).to.eq(200)
+            cy.log('✅ CSV comments added successfully')
           })
 
           // Verify both manual and CSV comments are present

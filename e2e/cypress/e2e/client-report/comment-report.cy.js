@@ -33,36 +33,36 @@ describe('Client Report: Comment Report Generation', () => {
         // Scroll down to find the CSV upload section
         cy.get('h6').contains('Upload a CSV of seed comments').should('be.visible')
 
-        // Set up intercept for the bulk comments API call
-        cy.intercept('POST', '/api/v3/comments-bulk').as('bulkComments')
+        // Set up intercept for the bulk comments API call with debugging
+        cy.intercept('POST', '/api/v3/comments-bulk', (req) => {
+          // Log request details for debugging
+          console.log('Bulk upload request headers:', req.headers)
+          console.log('Bulk upload request body type:', typeof req.body)
+          if (req.body instanceof FormData) {
+            console.log('Request is FormData')
+          } else {
+            console.log('Request body preview:', req.body ? req.body.toString().substring(0, 200) : 'empty')
+          }
+        }).as('bulkComments')
 
-        // Upload the CSV file
-        cy.fixture('test-comments.csv').then((csvContent) => {
-          // Create a File object from the CSV content
-          const blob = new Blob([csvContent], { type: 'text/csv' })
-          const file = new File([blob], 'test-comments.csv', { type: 'text/csv' })
+        // Upload the CSV file using Cypress's built-in selectFile method
+        // This is more reliable across different environments, especially CI
+        cy.get('input[type="file"]')
+          .should('have.attr', 'accept', '.csv')
+          .selectFile('cypress/fixtures/test-comments.csv', { force: true })
 
-          // Use cy.get() to find the file input and attach the file
-          cy.get('input[type="file"]')
-            .should('have.attr', 'accept', '.csv')
-            .then(($input) => {
-              // Create a DataTransfer object and add the file
-              const dataTransfer = new DataTransfer()
-              dataTransfer.items.add(file)
+        // Wait a moment for the file to be processed
+        cy.wait(500)
 
-              // Set the files property of the input element
-              $input[0].files = dataTransfer.files
-
-              // Trigger the change event to simulate file selection
-              $input[0].dispatchEvent(new Event('change', { bubbles: true }))
-            })
-
-          // Click the submit button for bulk upload using data-testid
-          cy.get('[data-testid="upload-csv-button"]').click()
-        })
+        // Click the submit button for bulk upload using data-testid
+        cy.get('[data-testid="upload-csv-button"]').click()
 
         // Wait for the API call to complete
         cy.wait('@bulkComments').then((interception) => {
+          if (interception.response.statusCode !== 200) {
+            cy.log('❌ Bulk upload failed with status:', interception.response.statusCode)
+            cy.log('Response body:', interception.response.body)
+          }
           expect(interception.response.statusCode).to.eq(200)
           cy.log('✅ CSV upload API call successful')
         })
