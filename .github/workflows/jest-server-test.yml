@@ -65,13 +65,13 @@ jobs:
       run: |
         # Build all services except server (tests run on host)
         docker compose -f docker-compose.test.yml --env-file test.env build \
-          math postgres file-server maildev oidc-simulator
+          math postgres file-server maildev oidc-simulator dynamodb
 
     - name: Start services
       run: |
         # Start only required services in detached mode (exclude server)
         docker compose -f docker-compose.test.yml --env-file test.env up -d \
-          math postgres file-server maildev oidc-simulator
+          math postgres file-server maildev oidc-simulator dynamodb
         
         # Wait for services to be ready
         echo "Waiting for services to start..."
@@ -88,6 +88,11 @@ jobs:
         
         echo "Checking oidc-simulator..."
         curl -k -f https://localhost:3000/.well-known/jwks.json || true
+        
+        echo "Checking DynamoDB..."
+        curl -f http://localhost:8000 || true
+        # Alternative check using AWS CLI if available
+        aws dynamodb list-tables --endpoint-url http://localhost:8000 --region us-east-1 2>/dev/null || true
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
@@ -139,6 +144,9 @@ jobs:
         
         echo "=== Math logs ==="
         docker compose -f docker-compose.test.yml logs math | tail -50
+        
+        echo "=== DynamoDB logs ==="
+        docker compose -f docker-compose.test.yml logs dynamodb | tail -100
 
     - name: Clean up
       if: always()
