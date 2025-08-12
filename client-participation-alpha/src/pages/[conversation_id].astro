@@ -74,6 +74,7 @@ if (initialData) {
   surveyDetails = {
     title: initialData.conversation.topic,
     description: initialData.conversation.description,
+    requiresInviteCode: initialData.conversation.requires_invite_code,
   };
   
   firstStatement = {
@@ -119,13 +120,15 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
             <TopicAgenda 
               client:only="react"
               conversation_id={conversation_id}
+              requiresInviteCode={surveyDetails?.requiresInviteCode}
             />
             <p class="conversation-intro" set:html={s.participantHelpWelcomeText}></p>
             <Survey 
               client:load 
               initialStatement={firstStatement}
               conversation_id={initialData.conversation.conversation_id}
-              s={s} 
+              s={s}
+              requiresInviteCode={surveyDetails?.requiresInviteCode}
             />
             <SurveyForm client:load s={s} conversation_id={conversation_id} />
           </>

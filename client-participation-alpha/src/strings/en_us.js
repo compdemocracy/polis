@@ -179,6 +179,12 @@ s.topic_bad_01_reason =
   "people from various teams will be voting on the responses, but may not have enough knowledge to vote confidently.";
 s.topic_bad_02 = "what are our launch blockers?";
 s.topic_bad_02_reason = "";
+s.invite_code_required_short = "Invite Code Required";
+s.invite_code_required_long = "An invite code is required to participate in this conversation";
+s.invite_code_prompt = "Enter Invite Code";
+s.submit_invite_code = "Submit Invite Code";
+s.invite_code_invalid = "The provided invite code was invalid. Please try again."
+
 
 export default s;
 

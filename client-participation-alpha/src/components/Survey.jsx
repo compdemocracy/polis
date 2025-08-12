@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Statement } from './Statement';
+import InviteCodeSubmissionForm from './InviteCodeSubmissionForm';
 import EmailSubscribeForm from './EmailSubscribeForm';
 import { getPreferredLanguages } from '../strings/strings';
 import { getConversationToken } from '../lib/auth';
@@ -28,11 +29,12 @@ const submitVoteAndGetNextCommentAPI = async (vote, conversation_id, high_priori
 };
 
 
-export default function Survey({ initialStatement, s, conversation_id }) {
+export default function Survey({ initialStatement, s, conversation_id, requiresInviteCode = true }) {
   const [statement, setStatement] = useState(initialStatement);
   const [isFetchingNext, setIsFetchingNext] = useState(false);
   const [isStatementImportant, setIsStatmentImportant] = useState(false);
   const [voteError, setVoteError] = useState(null);
+  const [isInviteCodeReceived, setInviteCodeReceived] = useState(false);
 
   // On hydration, fetch a participant-personalized next comment.
   // This replaces the SSR-provided generic comment if needed.
@@ -108,6 +110,12 @@ export default function Survey({ initialStatement, s, conversation_id }) {
       setIsFetchingNext(false);
     }
   };
+
+  if (requiresInviteCode && !isInviteCodeReceived) {
+    return (
+      <InviteCodeSubmissionForm s={s} conversation_id={conversation_id} setInviteCodeReceived={setInviteCodeReceived} />
+    );
+  }
 
 
   return (

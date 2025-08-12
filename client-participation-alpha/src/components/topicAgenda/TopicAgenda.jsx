@@ -6,7 +6,7 @@ import ScrollableTopicsGrid from "./components/ScrollableTopicsGrid";
 import TopicAgendaStyles from "./components/TopicAgendaStyles";
 import PolisNet from "../../lib/net";
 
-const TopicAgenda = ({ conversation_id }) => {
+const TopicAgenda = ({ conversation_id, requiresInviteCode = true }) => {
   const [loadWidget, setLoadWidget] = useState(false);
   const [selections, setSelections] = useState(new Set());
   const [commentMap, setCommentMap] = useState(new Map());
@@ -15,6 +15,7 @@ const TopicAgenda = ({ conversation_id }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [err, setError] = useState(null);
   const [conversation, setConversation] = useState(null);
+  const [inviteCodeRequired, setInviteCodeRequired] = useState(requiresInviteCode);
 
   const {
     loading,
@@ -24,6 +25,14 @@ const TopicAgenda = ({ conversation_id }) => {
     clusterGroups,
     fetchUMAPData
   } = useTopicData(reportData?.report_id, loadWidget);
+
+  useEffect(() => {
+    const cb = () => setInviteCodeRequired(false);
+    window.addEventListener('invite-code-submitted', cb);
+    return () => {
+      window.removeEventListener('invite-code-submitted', cb);
+    };
+  }, []);
 
   useEffect(() => {
     const f = async () => {
@@ -227,9 +236,7 @@ const TopicAgenda = ({ conversation_id }) => {
     }
   };
 
-  console.log(`isLoading: ${isLoading}, err: ${err}, loadWidget: ${loadWidget}`)
-
-  if (isLoading || err) {
+  if (isLoading || err || inviteCodeRequired) {
     return null;
   }
 
