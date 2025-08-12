@@ -248,7 +248,6 @@ const TopicAgenda = ({ conversation_id, requiresInviteCode = true }) => {
     return (
       <div 
         style={{ 
-          width: '800px', 
           height: '195px', 
           border: '1px solid #e0e0e0', 
           borderRadius: '8px',
