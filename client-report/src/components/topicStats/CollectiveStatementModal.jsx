@@ -303,7 +303,7 @@ const CollectiveStatementModal = ({
                   }}>
                     <div style={{ marginBottom: "20px" }}>
                       <h3 style={{ marginTop: 0, marginBottom: "5px", fontSize: "1.2em" }}>Candidate Collective Statement</h3>
-                      {statementMetadata && (
+                      {statementMetadata && !isNaN(new Date(statementMetadata.created_at).getTime()) && (
                         <p style={{ margin: 0, fontSize: "0.85em", color: "#666" }}>
                           Generated {new Date(statementMetadata.created_at).toLocaleDateString()} at {new Date(statementMetadata.created_at).toLocaleTimeString()} 
                           {statementMetadata.model && ` (${statementMetadata.model.includes('claude') ? 'Claude Opus 4' : statementMetadata.model})`}
