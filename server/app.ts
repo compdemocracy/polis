@@ -160,6 +160,10 @@ import {
   handle_POST_stars,
   handle_POST_trashes,
 } from "./src/routes/commentMod";
+import {
+  handle_GET_einvites,
+  handle_POST_einvites,
+} from "./src/invites/routes";
 
 import {
   attachAuthToken,
@@ -231,7 +235,6 @@ helpersInitialized.then(
       handle_GET_conditionalIndexFetcher,
       handle_GET_contexts,
       handle_GET_dummyButton,
-      handle_GET_einvites,
       handle_GET_locations,
       handle_GET_perfStats,
       handle_GET_snapshot,
@@ -242,7 +245,6 @@ helpersInitialized.then(
 
       handle_POST_contexts,
       handle_POST_contributors,
-      handle_POST_einvites,
       handle_POST_metrics,
       handle_POST_sendCreatedLinkToEmail,
       handle_POST_sendEmailExportReady,

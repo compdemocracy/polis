@@ -1,10 +1,12 @@
-import pg from "../db/pg-query";
-import Utils, { isConversationOwner } from "../utils/common";
+import async from "async";
+
+import { checkSuzinviteCodeValidity } from "../invites/suzinvites";
 import { failJson } from "../utils/fail";
-import logger from "../utils/logger";
 import { finishArray, finishOne } from "../server-helpers";
 import { sql_participant_metadata_answers } from "../db/sql";
-import async from "async";
+import logger from "../utils/logger";
+import pg from "../db/pg-query";
+import Utils, { isConversationOwner } from "../utils/common";
 
 function getZidForAnswer(
   pmaid: any,
@@ -218,24 +220,6 @@ function checkZinviteCodeValidity(
   pg.query_readOnly(
     "SELECT * FROM zinvites WHERE zid = ($1) AND zinvite = ($2);",
     [zid, zinvite],
-    function (err: any, results: { rows: string | any[] }) {
-      if (err || !results || !results.rows || !results.rows.length) {
-        callback(1);
-      } else {
-        callback(null); // ok
-      }
-    }
-  );
-}
-
-function checkSuzinviteCodeValidity(
-  zid: number,
-  suzinvite: string,
-  callback: (err: number | null) => void
-) {
-  pg.query(
-    "SELECT * FROM suzinvites WHERE zid = ($1) AND suzinvite = ($2);",
-    [zid, suzinvite],
     function (err: any, results: { rows: string | any[] }) {
       if (err || !results || !results.rows || !results.rows.length) {
         callback(1);

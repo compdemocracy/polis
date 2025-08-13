@@ -8,7 +8,7 @@ import AWS from "aws-sdk";
 import { Promise as BluebirdPromise } from "bluebird";
 import _ from "underscore";
 import { METRICS_IN_RAM } from "./utils/metered";
-import { generateAndRegisterZinvite, generateTokenP } from "./auth";
+import { generateAndRegisterZinvite } from "./auth";
 import pg from "./db/pg-query";
 import Config from "./config";
 import { failJson } from "./utils/fail";
@@ -419,23 +419,6 @@ ${message}`;
   }
   setInterval(trySendingBackupEmailTest, 1000 * 60 * 60 * 23); // try every 23 hours (so it should only try roughly once a day)
   trySendingBackupEmailTest();
-  function sendEinviteEmail(req: any, email: any, einvite: any) {
-    const serverName = getServerNameWithProtocol(req);
-    const body = `Welcome to pol.is!
-
-Click this link to open your account:
-
-${serverName}/welcome/${einvite}
-
-Thank you for using Polis`;
-
-    return sendTextEmail(
-      polisFromAddress,
-      email,
-      "Get Started with Polis",
-      body
-    );
-  }
 
   function handle_GET_verification(
     req: { p: { e: any } },
@@ -733,63 +716,6 @@ Thanks for using Polis!
       });
   }
 
-  function doSendEinvite(req: any, email: any) {
-    return generateTokenP(30, false).then(function (einvite: any) {
-      return pg
-        .queryP("insert into einvites (email, einvite) values ($1, $2);", [
-          email,
-          einvite,
-        ])
-        .then(function () {
-          return sendEinviteEmail(req, email, einvite);
-        });
-    });
-  }
-
-  function handle_POST_einvites(
-    req: { p: { email: any } },
-    res: {
-      status: (arg0: number) => {
-        (): any;
-        new (): any;
-        json: { (arg0: {}): void; new (): any };
-      };
-    }
-  ) {
-    const email = req.p.email;
-    doSendEinvite(req, email)
-      .then(function () {
-        res.status(200).json({});
-      })
-      .catch(function (err: any) {
-        failJson(res, 500, "polis_err_sending_einvite", err);
-      });
-  }
-
-  function handle_GET_einvites(
-    req: { p: { einvite: any } },
-    res: {
-      status: (arg0: number) => {
-        (): any;
-        new (): any;
-        json: { (arg0: any): void; new (): any };
-      };
-    }
-  ) {
-    const einvite = req.p.einvite;
-
-    pg.queryP("select * from einvites where einvite = ($1);", [einvite])
-      .then(function (rows: string | any[]) {
-        if (!rows.length) {
-          throw new Error("polis_err_missing_einvite");
-        }
-        res.status(200).json(rows[0]);
-      })
-      .catch(function (err: any) {
-        failJson(res, 500, "polis_err_fetching_einvite", err);
-      });
-  }
-
   function handle_POST_contributors(
     req: {
       p: {
@@ -915,7 +841,6 @@ Thanks for using Polis!
     handle_GET_conditionalIndexFetcher,
     handle_GET_contexts,
     handle_GET_dummyButton,
-    handle_GET_einvites,
     handle_GET_locations,
     handle_GET_perfStats,
     handle_GET_snapshot,
@@ -925,7 +850,6 @@ Thanks for using Polis!
     handle_GET_zinvites,
     handle_POST_contexts,
     handle_POST_contributors,
-    handle_POST_einvites,
     handle_POST_metrics,
     handle_POST_sendCreatedLinkToEmail,
     handle_POST_sendEmailExportReady,

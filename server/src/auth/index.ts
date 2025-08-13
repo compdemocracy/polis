@@ -26,12 +26,7 @@ export {
 } from "./anonymous-jwt";
 
 // Utility functions that are still needed
-export {
-  createXidEntry,
-  deleteSuzinvite,
-  getSUZinviteInfo,
-  xidExists,
-} from "./auth";
+export { createXidEntry, deleteSuzinvite, xidExists } from "./auth";
 
 // Create user utilities
 export {

@@ -1,18 +1,21 @@
-import { sql_users } from "../db/sql";
-import { failJson } from "../utils/fail";
-import { getUser } from "../user";
-import { isPolisDev, escapeLiteral } from "../utils/common";
 import _ from "underscore";
+import { failJson } from "../utils/fail";
+import { getConversationInfo } from "../conversation";
+import { getUser } from "../user";
+import { isPolisDev } from "../utils/common";
+import { sql_users } from "../db/sql";
 import pg from "../db/pg-query";
+import {
+  generateSUZinvites,
+  saveSuzinvites,
+  sendSuzinviteEmail,
+} from "../invites/suzinvites";
 import type {
   UserType,
   ExpressRequest,
   ExpressResponse,
   ConversationInfo,
 } from "../d";
-import { getConversationInfo } from "../conversation";
-import { sendTextEmail } from "../email/senders";
-import Config from "../config";
 
 // Types for better type safety
 interface GetUsersRequest extends ExpressRequest {
@@ -32,7 +35,7 @@ interface PutUsersRequest extends ExpressRequest {
   };
 }
 
-interface PostUsersInviteRequest extends ExpressRequest {
+export interface PostUsersInviteRequest extends ExpressRequest {
   p: {
     uid?: number;
     emails: string[];
@@ -98,45 +101,6 @@ async function handle_PUT_users(
   }
 }
 
-// Helper function to generate random invitation tokens
-function generateSUZinvites(count: number): string[] {
-  const invites: string[] = [];
-  for (let i = 0; i < count; i++) {
-    // Generate a random string similar to the original implementation
-    const invite =
-      Math.random().toString(36).substring(2, 15) +
-      Math.random().toString(36).substring(2, 15);
-    invites.push(invite);
-  }
-  return invites;
-}
-
-// Helper function to send invitation email
-async function sendSuzinviteEmail(
-  req: PostUsersInviteRequest,
-  email: string,
-  conversation_id: string,
-  suzinvite: string
-): Promise<void> {
-  const serverName = Config.getServerNameWithProtocol(req);
-  const body = [
-    "Welcome to pol.is!",
-    "",
-    "Click this link to open your account:",
-    "",
-    `${serverName}/ot/${conversation_id}/${suzinvite}`,
-    "",
-    "Thank you for using Polis",
-  ].join("\n");
-
-  await sendTextEmail(
-    Config.polisFromAddress,
-    email,
-    "Join the pol.is conversation!",
-    body
-  );
-}
-
 // Helper function to record inviter relationship
 async function addInviter(
   inviter_uid: number,
@@ -146,36 +110,6 @@ async function addInviter(
     "INSERT INTO inviters (inviter_uid, invited_email) VALUES ($1, $2)",
     [inviter_uid, invited_email]
   );
-}
-
-// Helper function to save invites to database
-async function saveSuzinvites(
-  emails: string[],
-  suzinvites: string[],
-  zid: number,
-  owner: number
-): Promise<void> {
-  const pairs = _.zip(emails, suzinvites) as [string, string][];
-
-  const valuesStatements = pairs.map(([email, suzinvite]) => {
-    const xid = escapeLiteral(email);
-    const suzinviteEscaped = escapeLiteral(suzinvite);
-    return `(${suzinviteEscaped}, ${xid}, ${zid}, ${owner})`;
-  });
-
-  const query = `INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES ${valuesStatements.join(
-    ","
-  )}`;
-
-  return new Promise((resolve, reject) => {
-    pg.query(query, [], (err: any) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve();
-      }
-    });
-  });
 }
 
 async function handle_POST_users_invite(
