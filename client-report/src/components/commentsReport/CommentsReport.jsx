@@ -5,7 +5,7 @@ import { useReportId } from "../framework/useReportId";
 import CommentList from "../lists/commentList.jsx";
 import "./CommentsReport.css";
 
-const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, voteColors, showControls = true }) => {
+const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, voteColors, showControls = true, authToken }) => {
   const { report_id } = useReportId();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -176,7 +176,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
       .polisPost("/api/v3/delphi/jobs", {
         report_id: report_id,
         ...jobFormData,
-      })
+      }, authToken)
       .then((response) => {
         console.log("Job creation response:", response);
 
@@ -239,7 +239,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
         report_id: report_id,
         model: "claude-opus-4-20250514",
         no_cache: false,
-      })
+      }, authToken)
       .then((response) => {
         console.log("Batch report response:", response);
 

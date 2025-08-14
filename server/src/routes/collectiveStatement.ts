@@ -213,6 +213,9 @@ export async function handle_POST_collectiveStatement(
   req: Request,
   res: Response
 ) {
+  if (!req.p.delphiEnabled) {
+    throw new Error("Unauthorized");
+  }
   logger.info("CollectiveStatement API request received");
 
   const { report_id, topic_key, topic_name, qualifying_tids } = req.body;

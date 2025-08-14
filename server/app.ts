@@ -797,17 +797,22 @@ helpersInitialized.then(
     app.get("/api/v3/delphi", moveToBody, handle_GET_delphi);
 
     // Add POST endpoint for creating Delphi jobs
-    app.post("/api/v3/delphi/jobs", moveToBody, function (req, res) {
-      try {
-        handle_POST_delphi_jobs(req, res);
-      } catch (err) {
-        res.json({
-          status: "error",
-          message: "Internal server error in job creation endpoint",
-          error: err.message || "Unknown error",
-        });
+    app.post(
+      "/api/v3/delphi/jobs",
+      moveToBody,
+      hybridAuth(assignToP),
+      function (req, res) {
+        try {
+          handle_POST_delphi_jobs(req, res);
+        } catch (err) {
+          res.json({
+            status: "error",
+            message: "Internal server error in job creation endpoint",
+            error: err.message || "Unknown error",
+          });
+        }
       }
-    });
+    );
 
     // Add GET endpoint for Delphi reports
     app.get("/api/v3/delphi/reports", moveToBody, function (req, res) {
@@ -838,17 +843,22 @@ helpersInitialized.then(
     });
 
     // Add POST endpoint for batch report generation
-    app.post("/api/v3/delphi/batchReports", moveToBody, function (req, res) {
-      try {
-        handle_POST_delphi_batch_reports(req, res);
-      } catch (err) {
-        res.json({
-          status: "error",
-          message: "Internal server error in batch reports endpoint",
-          error: err.message || "Unknown error",
-        });
+    app.post(
+      "/api/v3/delphi/batchReports",
+      moveToBody,
+      hybridAuth(assignToP),
+      function (req, res) {
+        try {
+          handle_POST_delphi_batch_reports(req, res);
+        } catch (err) {
+          res.json({
+            status: "error",
+            message: "Internal server error in batch reports endpoint",
+            error: err.message || "Unknown error",
+          });
+        }
       }
-    });
+    );
 
     // TopicMod endpoints for topic-based moderation
     app.get(
@@ -930,17 +940,22 @@ helpersInitialized.then(
     });
 
     // Collective Statement routes
-    app.post("/api/v3/collectiveStatement", moveToBody, function (req, res) {
-      try {
-        handle_POST_collectiveStatement(req, res);
-      } catch (err) {
-        res.json({
-          status: "error",
-          message: "Internal server error in collectiveStatement endpoint",
-          error: err.message || "Unknown error",
-        });
+    app.post(
+      "/api/v3/collectiveStatement",
+      moveToBody,
+      hybridAuth(assignToP),
+      function (req, res) {
+        try {
+          handle_POST_collectiveStatement(req, res);
+        } catch (err) {
+          res.json({
+            status: "error",
+            message: "Internal server error in collectiveStatement endpoint",
+            error: err.message || "Unknown error",
+          });
+        }
       }
-    });
+    );
 
     app.get("/api/v3/collectiveStatement", moveToBody, function (req, res) {
       try {

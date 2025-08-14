@@ -875,13 +875,17 @@ export async function handle_GET_topics(
 }
 
 export async function handle_GET_reportNarrative(
-  req: { p: { rid: string }; query: QueryParams },
+  req: { p: { rid: string; delphiEnabled: boolean }; query: QueryParams },
   res: Response
 ) {
   const storage = new DynamoStorageService(
     "report_narrative_store",
     req.query.noCache === "true"
   );
+
+  if (!req.p.delphiEnabled) {
+    throw new Error("Unauthorized");
+  }
 
   // Initialize storage with improved error handling
   try {
@@ -893,7 +897,8 @@ export async function handle_GET_reportNarrative(
       // Provide helpful error message based on error type
       if (error.isTableNotFound) {
         failJson(res, 503, "polis_err_report_storage_not_ready", {
-          hint: "The report storage system is not fully initialized. Please try again later or contact support if this persists.",
+          hint:
+            "The report storage system is not fully initialized. Please try again later or contact support if this persists.",
         });
       } else if (error.isCredentialsError) {
         failJson(res, 503, "polis_err_report_storage_config", {

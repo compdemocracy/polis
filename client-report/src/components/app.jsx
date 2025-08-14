@@ -825,6 +825,7 @@ const App = (props) => {
         ptptCount={ptptCount}
         formatTid={formatTid}
         voteColors={voteColors}
+        authToken={token}
       />
     );
   }

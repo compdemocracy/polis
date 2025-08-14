@@ -4,6 +4,7 @@ import os from "os";
 import Config from "../config";
 import logger from "../utils/logger";
 import { getOrCreateUserIDFromOidcSub } from "./create-user";
+import { config } from "node_modules/@types/bluebird";
 
 // JWT validation middleware using OIDC
 const jwtValidation = expressjwt({
@@ -84,6 +85,8 @@ const extractUserFromJWT = (
           req.p.oidcUser = req.jwtPayload; // Keep the original OIDC user data
           req.p.oidcSub = oidcSub; // Keep the OIDC sub for reference
           req.p.emailVerified = req.jwtPayload.email_verified; // Store email verification status
+          req.p.delphiEnabled =
+            req.jwtPayload[`${Config.authNamespace}delphi_enabled`];
 
           // Use the assigner function for uid (canonical parameter middleware pattern)
           if (assigner) {
