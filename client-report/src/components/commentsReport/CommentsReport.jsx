@@ -211,7 +211,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
         console.error("Error creating job:", err);
         setJobCreationResult({
           success: false,
-          message: `Error creating job: ${err.message || "Unknown error"}`,
+          message: `Error creating job: ${err.error ||err.message || "Unknown error"}`,
         });
       })
       .finally(() => {

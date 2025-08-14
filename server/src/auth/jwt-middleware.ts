@@ -4,7 +4,6 @@ import os from "os";
 import Config from "../config";
 import logger from "../utils/logger";
 import { getOrCreateUserIDFromOidcSub } from "./create-user";
-import { config } from "node_modules/@types/bluebird";
 
 // JWT validation middleware using OIDC
 const jwtValidation = expressjwt({

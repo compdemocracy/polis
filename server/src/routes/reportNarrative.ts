@@ -883,12 +883,11 @@ export async function handle_GET_reportNarrative(
     req.query.noCache === "true"
   );
 
-  if (!req.p.delphiEnabled) {
-    throw new Error("Unauthorized");
-  }
-
   // Initialize storage with improved error handling
   try {
+    if (!req.p.delphiEnabled) {
+      throw new Error("Unauthorized");
+    }
     const initResult = await storage.initTable();
     if (!initResult.success) {
       const error = initResult.error!;

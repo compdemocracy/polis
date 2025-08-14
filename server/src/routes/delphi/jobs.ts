@@ -39,10 +39,10 @@ export async function handle_POST_delphi_jobs(
   req: Request,
   res: Response
 ): Promise<void> {
-  if (!req.p.delphiEnabled) {
-    throw new Error("Unauthorized");
-  }
   try {
+    if (!req.p.delphiEnabled) {
+      throw new Error("Unauthorized");
+    }
     logger.info(
       `Creating Delphi job with parameters: ${JSON.stringify(req.body)}`
     );

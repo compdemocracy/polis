@@ -28,9 +28,6 @@ export async function handle_POST_delphi_batch_reports(
   req: Request,
   res: Response
 ) {
-  if (!req.p.delphiEnabled) {
-    throw new Error("Unauthorized");
-  }
   logger.info("Delphi Batch Reports API request received");
 
   // Get report_id from request
@@ -45,6 +42,9 @@ export async function handle_POST_delphi_batch_reports(
 
   // Extract zid from report_id
   try {
+    if (!req.p.delphiEnabled) {
+      throw new Error("Unauthorized");
+    }
     const zid = await getZidFromReport(report_id);
     if (!zid) {
       return res.json({
