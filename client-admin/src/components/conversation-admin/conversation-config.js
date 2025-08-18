@@ -37,7 +37,7 @@ const ConversationConfig = () => {
     }
   }
 
-  if (loading) {
+  if (loading && !topicRef.current && !descriptionRef.current) {
     return <Spinner />
   }
   if (ComponentHelpers.shouldShowPermissionsError({ user, zid_metadata, loading })) {
