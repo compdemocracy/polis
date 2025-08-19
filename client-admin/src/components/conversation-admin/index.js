@@ -18,6 +18,8 @@ import ShareAndEmbed from './share-and-embed'
 
 import Reports from './report/reports'
 
+import InviteCodes from './InviteCodes'
+
 const ConversationAdminContainer = () => {
   const dispatch = useDispatch()
   const params = useParams()
@@ -114,6 +116,17 @@ const ConversationAdminContainer = () => {
             Report
           </Link>
         </Box>
+        {/* {zid_metadata.requires_invite_codes && ( */}
+        <Box sx={{ mb: [3] }}>
+          <Link
+            sx={{
+              variant: url === 'invites' ? 'links.activeNav' : 'links.nav'
+            }}
+            to={`${baseUrl}/invites`}>
+            Invite Codes
+          </Link>
+        </Box>
+        {/* )} */}
       </Box>
       <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '60em', mx: [4] }}>
         <Routes>
@@ -128,6 +141,7 @@ const ConversationAdminContainer = () => {
               <TopicModeration {...props} conversation_id={params.conversation_id} />
             )}
           />
+          <Route path="invites" element={<InviteCodes />} />
           {/* <Route path="export" element={<DataExport />} /> */}
         </Routes>
       </Box>
