@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
+import { use, useState } from 'react'
 import { Heading, Box, Text } from 'theme-ui'
 import { useSelector, useDispatch } from 'react-redux'
 import { handleZidMetadataUpdate } from '../../actions'
@@ -7,6 +8,9 @@ import { handleZidMetadataUpdate } from '../../actions'
 const InviteCodes = () => {
   const dispatch = useDispatch()
   const zid_metadata = useSelector((state) => state.zid_metadata)
+  const [waves, setWaves] = useState({
+    wave1: undefined
+  })
 
   console.log('InviteCodes', zid_metadata)
 
@@ -39,9 +43,15 @@ const InviteCodes = () => {
         Initial Wave Size
       </Heading>
       <Text sx={{ display: 'block', mb: [2] }}>
-        Enter the initial amount of invite codes to be disperesed
+        Enter the initial amount of invite codes to be dispersed
       </Text>
-      <input type="number" min={5} max={1000} />
+      <input
+        type="number"
+        min={5}
+        max={1000}
+        onChange={(e) => setWaves({ wave1: e.target.value })}
+        value={waves.wave1 || 5}
+      />
     </Box>
   )
 }
