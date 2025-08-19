@@ -168,60 +168,12 @@ const ConversationConfig = () => {
       <CheckboxField field="strict_moderation">
         No comments shown without moderator approval
       </CheckboxField>
+
+      <CheckboxField field="require_invite_codes">
+        Require Invite Codes to participate in this conversation
+      </CheckboxField>
     </Box>
   )
 }
 
 export default ConversationConfig
-
-// checked={this.props.zid_metadata.is_data_open}
-// Comments, votes, and group data can be exported by any user
-
-/* <InputField
-            ref={"style_btn"}
-
-            style={{ width: 360 }}
-            onBlur={this.handleStringValueChange("style_btn").bind(this)}
-            hintText="ie., #e63082"
-            onChange={this.handleConfigInputTyping("style_btn")}
-            value={this.props.zid_metadata.style_btn}
-            floatingLabelText={
-              "Customize submit button color" + (canCustomizeColors ? "" : lockedIcon)
-            }
-            multiLine={true}
-          /> */
-
-/* <InputField
-            ref={"help_bgcolor"}
-
-            style={{ width: 360 }}
-            onBlur={this.handleStringValueChange("help_bgcolor").bind(this)}
-            onChange={this.handleConfigInputTyping("help_bgcolor")}
-            value={this.props.zid_metadata.help_bgcolor}
-            hintText="ie., #e63082"
-            floatingLabelText={
-              "Customize help text background" + (canCustomizeColors ? "" : lockedIcon)
-            }
-            multiLine={true}
-          /> */
-
-/* <InputField
-            ref={"help_color"}
-
-            style={{ width: 360 }}
-            onBlur={this.handleStringValueChange("help_color").bind(this)}
-            onChange={this.handleConfigInputTyping("help_color")}
-            value={this.props.zid_metadata.help_color}
-            hintText="ie., #e63082"
-            floatingLabelText={"Customize help text color" + (canCustomizeColors ? "" : lockedIcon)}
-            multiLine={true}
-          /> */
-
-/* <Checkbox
-            label="Social sharing buttons"
-            ref={"socialbtn_type"}
-            checked={this.props.zid_metadata.socialbtn_type === 1 ? true : false}
-            onCheck={this.handleIntegerBoolValueChange("socialbtn_type").bind(this)}
-
-
-          /> */
