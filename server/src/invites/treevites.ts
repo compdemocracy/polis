@@ -1,5 +1,43 @@
 import pg from "../db/pg-query";
 import { failJson } from "../utils/fail";
+import bcrypt from "bcryptjs";
+import crypto from "node:crypto";
+import Config from "../config";
+import { getZinvite } from "../utils/zinvite";
+import { issueAnonymousJWT } from "../auth/anonymous-jwt";
+
+function generateRandomCode(length: number = 10): string {
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return out;
+}
+
+async function insertInviteWithRetry(
+  params: {
+    zid: number;
+    waveId: number;
+    parentInviteId: number | null;
+    inviteOwnerPid: number | null;
+  },
+  maxAttempts: number = 5
+): Promise<number> {
+  const { zid, waveId, parentInviteId, inviteOwnerPid } = params;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const code = generateRandomCode(10);
+    const rows = await pg.queryP<{ id: number }>(
+      "insert into treevite_invites (zid, wave_id, parent_invite_id, invite_code, invite_owner_pid) values (($1), ($2), ($3), ($4), ($5)) on conflict (zid, invite_code) do nothing returning id;",
+      [zid, waveId, parentInviteId, code, inviteOwnerPid]
+    );
+    if (rows && (rows as any).length) {
+      return (rows as any)[0].id as number;
+    }
+  }
+  throw new Error("polis_err_treevite_invite_code_collision");
+}
 
 // POST /api/v3/treevite/waves
 // Creates the next wave for a conversation
@@ -60,7 +98,75 @@ export async function handle_POST_treevite_waves(req: any, res: any) {
       [zid, nextWave, parentWave, invitesPerUser, ownerInvites, derivedSize]
     );
 
-    res.status(201).json(insert && insert[0]);
+    const waveRow = insert && insert[0];
+
+    // Create invites now
+    const waveId = waveRow.id as number;
+
+    // Owner invites (parentInviteId null, owner pid null)
+    for (let i = 0; i < ownerInvites; i++) {
+      await insertInviteWithRetry({
+        zid,
+        waveId,
+        parentInviteId: null,
+        inviteOwnerPid: null,
+      });
+    }
+
+    // Per-user invites for members of parent wave
+    if (invitesPerUser > 0) {
+      if (parentWave > 0) {
+        // find parent wave id
+        const parentWaveRows = (await pg.queryP_readOnly(
+          "select id from treevite_waves where zid = ($1) and wave = ($2);",
+          [zid, parentWave]
+        )) as { id: number }[];
+        const parentWaveId =
+          parentWaveRows && parentWaveRows[0] && parentWaveRows[0].id;
+
+        if (!parentWaveId) {
+          failJson(res, 400, "polis_err_treevite_parent_wave_not_found");
+          return;
+        }
+
+        const parentMembers = (await pg.queryP_readOnly(
+          "select id as parent_invite_id, invite_used_by_pid from treevite_invites where wave_id = ($1) and invite_used_by_pid is not null;",
+          [parentWaveId]
+        )) as { parent_invite_id: number; invite_used_by_pid: number }[];
+
+        for (const member of parentMembers) {
+          const ownerPid = member.invite_used_by_pid || null;
+          for (let i = 0; i < invitesPerUser; i++) {
+            await insertInviteWithRetry({
+              zid,
+              waveId,
+              parentInviteId: member.parent_invite_id,
+              inviteOwnerPid: ownerPid,
+            });
+          }
+        }
+      } else {
+        // parentWave == 0 → create invites_per_user root invites
+        for (let i = 0; i < invitesPerUser; i++) {
+          await insertInviteWithRetry({
+            zid,
+            waveId,
+            parentInviteId: null,
+            inviteOwnerPid: null,
+          });
+        }
+      }
+    }
+
+    // Return the wave row and a summary of invites created
+    const countRows = await pg.queryP_readOnly(
+      "select count(*)::int as total from treevite_invites where wave_id = ($1);",
+      [waveId]
+    );
+    const totalInvites =
+      countRows && countRows[0] && (countRows[0] as any).total;
+
+    res.status(201).json({ ...waveRow, invites_created: totalInvites });
   } catch (err) {
     failJson(res, 500, "polis_err_treevite_create_wave", err);
   }
@@ -91,5 +197,230 @@ export async function handle_GET_treevite_waves(req: any, res: any) {
     res.status(200).json(rows);
   } catch (err) {
     failJson(res, 500, "polis_err_treevite_list_waves", err);
+  }
+}
+
+// Middleware: Deny participant actions if Treevite is enabled (until invite auth is implemented)
+export async function denyIfTreeviteEnabled(req: any, res: any, next: any) {
+  try {
+    const zid = req.p && req.p.zid;
+    if (typeof zid !== "number") {
+      return failJson(res, 400, "polis_err_treevite_missing_zid");
+    }
+    const rows = (await pg.queryP_readOnly(
+      "select treevite_enabled from conversations where zid = ($1);",
+      [zid]
+    )) as { treevite_enabled: boolean }[];
+    const enabled = rows && rows[0] && !!rows[0].treevite_enabled;
+    if (enabled) {
+      return failJson(res, 401, "polis_err_treevite_auth_required");
+    }
+    return next();
+  } catch (err) {
+    return failJson(res, 500, "polis_err_treevite_check_failed", err);
+  }
+}
+
+// Helpers for login code generation and storage
+function generateLoginCode(length: number = 16): string {
+  // Use a larger alphabet for participant login codes
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"; // exclude ambiguous chars
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return out;
+}
+
+function computeFingerprint(zid: number, pid: number, code: string): string {
+  const secret = Config.encryptionPassword || "polis_treevite_fingerprint_key";
+  const hmac = crypto.createHmac("sha256", secret);
+  hmac.update(`${zid}:${pid}:${code}`);
+  return hmac.digest("hex");
+}
+
+async function upsertLoginCode(
+  zid: number,
+  pid: number,
+  loginCode: string
+): Promise<void> {
+  const hash = await bcrypt.hash(loginCode, 10);
+  const fp = computeFingerprint(zid, pid, loginCode);
+  await pg.queryP(
+    "insert into treevite_login_codes (zid, pid, login_code_hash, login_code_fingerprint, fp_kid, revoked, last_used_at, updated_at) values (($1), ($2), ($3), ($4), 1, false, null, now()) on conflict (zid, pid) do update set login_code_hash = excluded.login_code_hash, login_code_fingerprint = excluded.login_code_fingerprint, fp_kid = excluded.fp_kid, revoked = false, updated_at = now();",
+    [zid, pid, hash, fp]
+  );
+}
+
+// POST /api/v3/treevite/acceptInvite
+// Exchange a valid invite code for participation and issue a login code + JWT
+export async function handle_POST_treevite_acceptInvite(req: any, res: any) {
+  try {
+    const zid = req.p.zid;
+    const inviteCode = (req.p.invite_code || "").trim();
+    if (typeof zid !== "number" || !inviteCode) {
+      failJson(res, 400, "polis_err_treevite_invalid_request");
+      return;
+    }
+
+    // Validate invite and mark as used atomically
+    const rows = (await pg.queryP(
+      "update treevite_invites set status = 1, invite_used_by_pid = coalesce(invite_used_by_pid, -1), invite_used_at = now(), updated_at = now() where zid = ($1) and invite_code = ($2) and status = 0 returning id, wave_id, parent_invite_id, invite_used_by_pid;",
+      [zid, inviteCode]
+    )) as {
+      id: number;
+      wave_id: number;
+      parent_invite_id: number | null;
+      invite_used_by_pid: number | null;
+    }[];
+
+    if (!rows || !rows.length) {
+      failJson(res, 400, "polis_err_treevite_invalid_or_used_invite");
+      return;
+    }
+
+    // Ensure participant exists and get pid
+    let pid: number | null = null;
+    if (rows[0].invite_used_by_pid && rows[0].invite_used_by_pid >= 0) {
+      pid = rows[0].invite_used_by_pid;
+    }
+
+    if (pid === null) {
+      // We need uid/pid to set as the consumer. Try to get uid/pid from participants table for current req user; if none, create anon user and participant flow
+      // Using existing helpers is involved here; for now, find or create a participant tied to the request's uid (if any)
+      // If req.p.uid is missing, create a new anonymous user via a shortcut: insert into users and participants
+      // However, to minimize scope, we map the used invite to an existing participant if provided in request (pid), else fail gracefully
+      // For this incremental step, we will create a placeholder participant on demand
+      const uidRows = (await pg.queryP(
+        "insert into users (is_owner, site_owner) values (false, false) returning uid;"
+      )) as { uid: number }[];
+      const uid = uidRows[0].uid;
+      const partRows = (await pg.queryP(
+        "insert into participants (uid, zid) values (($1), ($2)) returning pid;",
+        [uid, zid]
+      )) as { pid: number }[];
+      pid = partRows[0].pid;
+
+      // Update the invite's used_by to this pid
+      await pg.queryP(
+        "update treevite_invites set invite_used_by_pid = ($1) where id = ($2);",
+        [pid, rows[0].id]
+      );
+    }
+
+    // Issue login code
+    const loginCode = generateLoginCode(16);
+    await upsertLoginCode(zid, pid as number, loginCode);
+
+    // Issue participant JWT
+    const conversationId = (await getZinvite(zid)) as string;
+    const uidOfPidRows = (await pg.queryP_readOnly(
+      "select uid from participants where zid = ($1) and pid = ($2);",
+      [zid, pid]
+    )) as { uid: number }[];
+    const uid = uidOfPidRows[0].uid;
+    const token = issueAnonymousJWT(conversationId, uid, pid as number);
+
+    res.status(201).json({
+      status: "ok",
+      wave_id: rows[0].wave_id,
+      invite_id: rows[0].id,
+      login_code: loginCode,
+      auth: {
+        token,
+        token_type: "Bearer",
+        expires_in: 365 * 24 * 60 * 60,
+      },
+    });
+  } catch (err) {
+    failJson(res, 500, "polis_err_treevite_accept_invite", err);
+  }
+}
+
+// POST /api/v3/treevite/login
+// Submit a login_code to obtain a participant JWT
+export async function handle_POST_treevite_login(req: any, res: any) {
+  try {
+    const zid = req.p.zid;
+    const loginCode = (req.p.login_code || "").trim();
+    if (typeof zid !== "number" || !loginCode) {
+      failJson(res, 400, "polis_err_treevite_invalid_request");
+      return;
+    }
+
+    // Find candidate by fingerprint
+    // We do not know pid; search by fingerprint within zid
+    // Since fingerprint is unique per (zid, fp), this is efficient
+    // We need pid for JWT issuance
+    const fp = computeFingerprint(zid, 0, loginCode); // pid unknown; to retain uniqueness per participant we included pid in computeFingerprint; to search we need different strategy
+
+    // Search different strategy: scan all codes for zid is expensive; instead, derive fingerprint without pid for lookup
+    // For incremental implementation: store also a pid-agnostic fingerprint? Not in schema. Alternate: try all recent pids: too complex.
+    // Adjust approach: search by hashed comparison across records with the same zid. This requires fetching rows and bcrypt.compare.
+    const candidates = (await pg.queryP_readOnly(
+      "select pid, login_code_hash, revoked from treevite_login_codes where zid = ($1);",
+      [zid]
+    )) as { pid: number; login_code_hash: string; revoked: boolean }[];
+
+    let matched: { pid: number } | null = null;
+    for (const row of candidates) {
+      if (row.revoked) continue;
+      const ok = await bcrypt.compare(loginCode, row.login_code_hash);
+      if (ok) {
+        matched = { pid: row.pid };
+        break;
+      }
+    }
+
+    if (!matched) {
+      failJson(res, 401, "polis_err_treevite_login_code_invalid");
+      return;
+    }
+
+    const pid = matched.pid;
+    await pg.queryP(
+      "update treevite_login_codes set last_used_at = now(), updated_at = now() where zid = ($1) and pid = ($2);",
+      [zid, pid]
+    );
+
+    const conversationId = (await getZinvite(zid)) as string;
+    const uidOfPidRows = (await pg.queryP_readOnly(
+      "select uid from participants where zid = ($1) and pid = ($2);",
+      [zid, pid]
+    )) as { uid: number }[];
+    const uid = uidOfPidRows[0].uid;
+    const token = issueAnonymousJWT(conversationId, uid, pid);
+
+    res.status(200).json({
+      status: "ok",
+      auth: {
+        token,
+        token_type: "Bearer",
+        expires_in: 365 * 24 * 60 * 60,
+      },
+    });
+  } catch (err) {
+    failJson(res, 500, "polis_err_treevite_login_failed", err);
+  }
+}
+
+// GET /api/v3/treevite/myInvites
+// List invites owned by the participant to share
+export async function handle_GET_treevite_myInvites(req: any, res: any) {
+  try {
+    const zid = req.p.zid;
+    const pid = req.p.pid;
+    if (typeof zid !== "number" || typeof pid !== "number") {
+      failJson(res, 400, "polis_err_treevite_invalid_request");
+      return;
+    }
+
+    const rows = await pg.queryP_readOnly(
+      "select id, invite_code, status, created_at from treevite_invites where zid = ($1) and invite_owner_pid = ($2) and status = 0 order by id asc;",
+      [zid, pid]
+    );
+    res.status(200).json(rows);
+  } catch (err) {
+    failJson(res, 500, "polis_err_treevite_list_my_invites", err);
   }
 }

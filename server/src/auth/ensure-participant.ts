@@ -25,6 +25,8 @@ import { issueXidJWT } from "./xid-jwt";
 import { RequestWithP } from "../d";
 import { Response, NextFunction } from "express";
 import logger from "../utils/logger";
+import pg from "../db/pg-query";
+import { failJson } from "../utils/fail";
 import {
   createXidRecordByZid,
   getConversationInfo,
@@ -547,6 +549,58 @@ export function ensureParticipantOptional(
       next();
     }
   };
+}
+
+/**
+ * Require Treevite authorization for participant actions when enabled on conversation.
+ * Allows actions only if:
+ *  - conversation.treevite_enabled is false, OR
+ *  - req.p.pid exists AND participant has either a used invite or a non-revoked login code for this zid.
+ * Does NOT create participants.
+ */
+export async function requireTreeviteAuthForAction(
+  req: RequestWithP,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const zid = req.p?.zid;
+    if (!zid) {
+      return failJson(res, 400, "polis_err_treevite_missing_zid");
+    }
+    // Check if Treevite is enabled
+    const convRows = (await pg.queryP_readOnly(
+      "select treevite_enabled from conversations where zid = ($1);",
+      [zid]
+    )) as { treevite_enabled: boolean }[];
+    const enabled = !!(convRows && convRows[0] && convRows[0].treevite_enabled);
+    if (!enabled) {
+      return next();
+    }
+    const pid = req.p?.pid;
+    if (pid === undefined || pid === null) {
+      return failJson(res, 401, "polis_err_treevite_auth_required");
+    }
+    // Is participant authorized via used invite or active login code?
+    const authRows = (await pg.queryP_readOnly(
+      "select 1 from treevite_invites where zid = ($1) and invite_used_by_pid = ($2) and status = 1 limit 1;",
+      [zid, pid]
+    )) as any[];
+    if (authRows && authRows.length) {
+      return next();
+    }
+    const codeRows = (await pg.queryP_readOnly(
+      "select 1 from treevite_login_codes where zid = ($1) and pid = ($2) and revoked = false limit 1;",
+      [zid, pid]
+    )) as any[];
+    if (codeRows && codeRows.length) {
+      return next();
+    }
+    return failJson(res, 401, "polis_err_treevite_auth_required");
+  } catch (error) {
+    logger.error("requireTreeviteAuthForAction error", error);
+    return failJson(res, 500, "polis_err_treevite_auth_check_failed", error);
+  }
 }
 
 /**
