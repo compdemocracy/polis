@@ -21,6 +21,7 @@ const InviteCodes = () => {
     initialSize: 5,
     waves: []
   })
+  const [tempWave, setTempWave] = useState(null)
   const [isAddingWave, setIsAddingWave] = useState(false)
 
   console.log('InviteCodes', zid_metadata, waves)
@@ -64,6 +65,8 @@ const InviteCodes = () => {
       {waves.initialSize && (
         <Box sx={{ mb: [3], mt: [3] }}>
           <Button
+            disabled={waves.waves[waves.waves.length - 1] === 0}
+            sx={{ mt: [3] }}
             onClick={() => {
               setIsAddingWave(true)
             }}>
@@ -73,35 +76,47 @@ const InviteCodes = () => {
       )}
       {isAddingWave && (
         <Box sx={{ mb: [3] }}>
-          <select
-            onChange={(e) => {
-              const newWave = e.target.value
-              setWaves((w) => ({
-                initialSize: w.initialSize,
-                waves: [...w.waves, newWave]
-              }))
-            }}>
-            <option selected value={1}>
-              1
-            </option>
-            <option value={2}>2</option>
-            <option value={3}>3</option>
-            <option value={4}>4</option>
-            <option value={5}>5</option>
-          </select>
-          <Button
-            sx={{ ml: [3] }}
-            onClick={() => {
-              setIsAddingWave(false)
-            }}>
-            Submit
-          </Button>
+          <Text sx={{ display: 'block', mb: [2] }}>
+            Select the additional amount of invite codes invitees in this wave will receive. A size
+            of 0 will mean no new waves can be added.
+          </Text>
+          <Box>
+            <select
+              onChange={(e) => {
+                const newWave = e.target.value
+                setTempWave(newWave)
+              }}
+              sx={{
+                display: 'block'
+              }}>
+              <option selected value={0}>
+                0
+              </option>
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+              <option value={5}>5</option>
+            </select>
+            <Button
+              sx={{ mt: [3] }}
+              onClick={() => {
+                setIsAddingWave(false)
+                setWaves((w) => ({
+                  initialSize: w.initialSize,
+                  waves: [...w.waves, tempWave]
+                }))
+                setTempWave(null)
+              }}>
+              Submit
+            </Button>
+          </Box>
         </Box>
       )}
       <hr />
       {waves.waves.map((w, i) => (
         <Box key={i}>
-          Wave {i + 1} Invites: {w}
+          Wave {i + 1} Invites: {w || 0}
         </Box>
       ))}
       Total Invite Codes Scheduled: {getTotalInvitesSecheduled(waves)}
