@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
 import { use, useState } from 'react'
-import { Heading, Box, Text } from 'theme-ui'
+import { Heading, Box, Text, Button } from 'theme-ui'
 import { useSelector, useDispatch } from 'react-redux'
 import { handleZidMetadataUpdate } from '../../actions'
 
@@ -52,6 +52,14 @@ const InviteCodes = () => {
         onChange={(e) => setWaves({ wave1: e.target.value })}
         value={waves.wave1 || 5}
       />
+      {waves.wave1 && (
+        <Button
+          onClick={() =>
+            setWaves((w) => ({ ...w, [`wave${Object.keys(w).length + 1}`]: undefined }))
+          }>
+          Add Wave +
+        </Button>
+      )}
     </Box>
   )
 }
