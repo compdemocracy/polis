@@ -851,6 +851,9 @@ function handle_PUT_conversations(
       if (!_.isUndefined(req.p.importance_enabled)) {
         fields.importance_enabled = req.p.importance_enabled;
       }
+      if (!_.isUndefined((req.p as any).treevite_enabled)) {
+        (fields as any).treevite_enabled = (req.p as any).treevite_enabled;
+      }
       ifDefinedSet("auth_opt_allow_3rdparty", req.p, fields);
 
       if (!_.isUndefined(req.p.owner_sees_participation_stats)) {

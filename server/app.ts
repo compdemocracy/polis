@@ -164,6 +164,10 @@ import {
   handle_GET_einvites,
   handle_POST_einvites,
 } from "./src/invites/routes";
+import {
+  handle_POST_treevite_waves,
+  handle_GET_treevite_waves,
+} from "./src/invites/treevites";
 
 import {
   attachAuthToken,
@@ -1307,6 +1311,7 @@ helpersInitialized.then(
       want("context", getOptionalStringLimitLength(999), assignToP),
       want("link_url", getStringLimitLength(1, 9999), assignToP),
       want("subscribe_type", getInt, assignToP),
+      want("treevite_enabled", getBool, assignToP, false),
       handle_PUT_conversations
     );
 
@@ -1638,6 +1643,34 @@ helpersInitialized.then(
       want("math_tick", getInt, assignToP, -1),
       want("ptptoiLimit", getIntInRange(0, 99), assignToP),
       handle_GET_votes_famous
+    );
+
+    app.post(
+      "/api/v3/treevite/waves",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("invites_per_user", getInt, assignToP),
+      want("owner_invites", getInt, assignToP),
+      want("parent_wave", getInt, assignToP),
+      handle_POST_treevite_waves
+    );
+
+    app.get(
+      "/api/v3/treevite/waves",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("wave", getInt, assignToP),
+      handle_GET_treevite_waves
     );
 
     app.post(
