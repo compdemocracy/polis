@@ -64,4 +64,25 @@ function generateTokenP(len: any, pseudoRandomOk: any) {
   });
 }
 
-export { generateToken, generateTokenP };
+function generateRandomCode(length: number = 10): string {
+  const chars =
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return out;
+}
+
+// Helpers for login code generation and storage
+function generateLoginCode(length: number = 16): string {
+  // Use a larger alphabet for participant login codes
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"; // exclude ambiguous chars
+  let out = "";
+  for (let i = 0; i < length; i++) {
+    out += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return out;
+}
+
+export { generateToken, generateTokenP, generateRandomCode, generateLoginCode };

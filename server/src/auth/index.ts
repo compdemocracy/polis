@@ -36,7 +36,12 @@ export {
 } from "./create-user";
 
 // Generate token utilities
-export { generateToken, generateTokenP } from "./generate-token";
+export {
+  generateToken,
+  generateTokenP,
+  generateRandomCode,
+  generateLoginCode,
+} from "./generate-token";
 
 // Hybrid JWT middleware
 export { hybridAuth, hybridAuthOptional } from "./hybrid-jwt";
@@ -100,4 +105,5 @@ export {
   ensureParticipant,
   ensureParticipantOptional,
   ensureParticipantOnAction,
+  requireTreeviteAuthForAction,
 } from "./ensure-participant";

@@ -1,20 +1,12 @@
-import pg from "../db/pg-query";
-import { failJson } from "../utils/fail";
 import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
-import Config from "../config";
+
+import { failJson } from "../utils/fail";
+import { generateRandomCode, generateLoginCode } from "../auth/generate-token";
 import { getZinvite } from "../utils/zinvite";
 import { issueAnonymousJWT } from "../auth/anonymous-jwt";
-
-function generateRandomCode(length: number = 10): string {
-  const chars =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-  let out = "";
-  for (let i = 0; i < length; i++) {
-    out += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return out;
-}
+import Config from "../config";
+import pg from "../db/pg-query";
 
 async function insertInviteWithRetry(
   params: {
@@ -38,6 +30,32 @@ async function insertInviteWithRetry(
   }
   throw new Error("polis_err_treevite_invite_code_collision");
 }
+
+function computeFingerprint(zid: number, pid: number, code: string): string {
+  const secret = Config.encryptionPassword || "polis_treevite_fingerprint_key";
+  const hmac = crypto.createHmac("sha256", secret);
+  hmac.update(`${zid}:${pid}:${code}`);
+  return hmac.digest("hex");
+}
+
+async function upsertLoginCode(
+  zid: number,
+  pid: number,
+  loginCode: string
+): Promise<void> {
+  const hash = await bcrypt.hash(loginCode, 10);
+  const fp = computeFingerprint(zid, pid, loginCode);
+  const lookup = crypto
+    .createHash("sha256")
+    .update(loginCode + (Config.loginCodePepper || ""))
+    .digest("hex");
+  await pg.queryP(
+    "insert into treevite_login_codes (zid, pid, login_code_hash, login_code_fingerprint, login_code_lookup, fp_kid, revoked, last_used_at, updated_at) values (($1), ($2), ($3), ($4), ($5), 1, false, null, now()) on conflict (zid, pid) do update set login_code_hash = excluded.login_code_hash, login_code_fingerprint = excluded.login_code_fingerprint, login_code_lookup = excluded.login_code_lookup, fp_kid = excluded.fp_kid, revoked = false, updated_at = now();",
+    [zid, pid, hash, fp, lookup]
+  );
+}
+
+////// ROUTES //////
 
 // POST /api/v3/treevite/waves
 // Creates the next wave for a conversation
@@ -201,37 +219,6 @@ export async function handle_GET_treevite_waves(req: any, res: any) {
 }
 ``;
 
-// Helpers for login code generation and storage
-function generateLoginCode(length: number = 16): string {
-  // Use a larger alphabet for participant login codes
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789"; // exclude ambiguous chars
-  let out = "";
-  for (let i = 0; i < length; i++) {
-    out += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return out;
-}
-
-function computeFingerprint(zid: number, pid: number, code: string): string {
-  const secret = Config.encryptionPassword || "polis_treevite_fingerprint_key";
-  const hmac = crypto.createHmac("sha256", secret);
-  hmac.update(`${zid}:${pid}:${code}`);
-  return hmac.digest("hex");
-}
-
-async function upsertLoginCode(
-  zid: number,
-  pid: number,
-  loginCode: string
-): Promise<void> {
-  const hash = await bcrypt.hash(loginCode, 10);
-  const fp = computeFingerprint(zid, pid, loginCode);
-  await pg.queryP(
-    "insert into treevite_login_codes (zid, pid, login_code_hash, login_code_fingerprint, fp_kid, revoked, last_used_at, updated_at) values (($1), ($2), ($3), ($4), 1, false, null, now()) on conflict (zid, pid) do update set login_code_hash = excluded.login_code_hash, login_code_fingerprint = excluded.login_code_fingerprint, fp_kid = excluded.fp_kid, revoked = false, updated_at = now();",
-    [zid, pid, hash, fp]
-  );
-}
-
 // POST /api/v3/treevite/acceptInvite
 // Exchange a valid invite code for participation and issue a login code + JWT
 export async function handle_POST_treevite_acceptInvite(req: any, res: any) {
@@ -328,37 +315,28 @@ export async function handle_POST_treevite_login(req: any, res: any) {
       return;
     }
 
-    // Find candidate by fingerprint
-    // We do not know pid; search by fingerprint within zid
-    // Since fingerprint is unique per (zid, fp), this is efficient
-    // We need pid for JWT issuance
-    // pid unknown; to retain uniqueness per participant we included pid in computeFingerprint; to search we need different strategy
-    // const fp = computeFingerprint(zid, 0, loginCode);
-
-    // Search different strategy: scan all codes for zid is expensive; instead, derive fingerprint without pid for lookup
-    // For incremental implementation: store also a pid-agnostic fingerprint? Not in schema. Alternate: try all recent pids: too complex.
-    // Adjust approach: search by hashed comparison across records with the same zid. This requires fetching rows and bcrypt.compare.
-    const candidates = (await pg.queryP_readOnly(
-      "select pid, login_code_hash, revoked from treevite_login_codes where zid = ($1);",
-      [zid]
+    // Fast lookup by peppered SHA-256
+    const lookup = crypto
+      .createHash("sha256")
+      .update(loginCode + (Config.loginCodePepper || ""))
+      .digest("hex");
+    const candidateRows = (await pg.queryP_readOnly(
+      "select pid, login_code_hash, revoked from treevite_login_codes where zid = ($1) and login_code_lookup = ($2) limit 1;",
+      [zid, lookup]
     )) as { pid: number; login_code_hash: string; revoked: boolean }[];
 
-    let matched: { pid: number } | null = null;
-    for (const row of candidates) {
-      if (row.revoked) continue;
-      const ok = await bcrypt.compare(loginCode, row.login_code_hash);
-      if (ok) {
-        matched = { pid: row.pid };
-        break;
-      }
-    }
-
-    if (!matched) {
+    if (!candidateRows || !candidateRows.length || candidateRows[0].revoked) {
       failJson(res, 401, "polis_err_treevite_login_code_invalid");
       return;
     }
 
-    const pid = matched.pid;
+    const candidate = candidateRows[0];
+    const ok = await bcrypt.compare(loginCode, candidate.login_code_hash);
+    if (!ok) {
+      failJson(res, 401, "polis_err_treevite_login_code_invalid");
+      return;
+    }
+    const pid = candidate.pid;
     await pg.queryP(
       "update treevite_login_codes set last_used_at = now(), updated_at = now() where zid = ($1) and pid = ($2);",
       [zid, pid]

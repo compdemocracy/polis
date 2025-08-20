@@ -178,6 +178,7 @@ import {
   ensureParticipantOptional,
   hybridAuth,
   hybridAuthOptional,
+  requireTreeviteAuthForAction,
 } from "./src/auth";
 import {
   addCorsHeader,

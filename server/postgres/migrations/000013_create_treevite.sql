@@ -2,15 +2,9 @@
 
 -- 1) Conversation-level configuration
 ALTER TABLE conversations
-    ADD COLUMN IF NOT EXISTS treevite_enabled BOOLEAN DEFAULT FALSE,
-    ADD COLUMN IF NOT EXISTS treevite_initial_invite_count INTEGER,
-    ADD COLUMN IF NOT EXISTS treevite_max_waves INTEGER,
-    ADD COLUMN IF NOT EXISTS treevite_wave_invites_per_user INTEGER;
+    ADD COLUMN IF NOT EXISTS treevite_enabled BOOLEAN DEFAULT FALSE;
 
 COMMENT ON COLUMN conversations.treevite_enabled IS 'Enable wave-based invite (Treevite) for this conversation';
-COMMENT ON COLUMN conversations.treevite_initial_invite_count IS 'Number of root invites (wave 0/1) to generate when starting Treevite';
-COMMENT ON COLUMN conversations.treevite_max_waves IS 'Maximum number of waves allowed for this conversation (NULL means unlimited)';
-COMMENT ON COLUMN conversations.treevite_wave_invites_per_user IS 'Default invites-per-user granted in a wave (can be overridden per wave)';
 
 -- 2) Per-wave tracking
 CREATE TABLE IF NOT EXISTS treevite_waves (
@@ -108,6 +102,8 @@ CREATE TABLE IF NOT EXISTS treevite_login_codes (
 
     -- Indexable deterministic fingerprint (e.g., HMAC with server secret) for lookup
     login_code_fingerprint VARCHAR(128) NOT NULL,
+    -- Peppered SHA-256 lookup hash for O(1) lookups
+    login_code_lookup VARCHAR(128),
     fp_kid SMALLINT NOT NULL DEFAULT 1, -- key id for fingerprint secret rotation
 
     revoked BOOLEAN NOT NULL DEFAULT FALSE,
@@ -121,13 +117,17 @@ CREATE TABLE IF NOT EXISTS treevite_login_codes (
     CONSTRAINT treevite_login_codes_pid_unique
         UNIQUE (zid, pid),
     CONSTRAINT treevite_login_codes_fp_unique
-        UNIQUE (zid, login_code_fingerprint)
+        UNIQUE (zid, login_code_fingerprint),
+    CONSTRAINT treevite_login_codes_lookup_unique
+        UNIQUE (zid, login_code_lookup)
 );
 
 CREATE INDEX IF NOT EXISTS idx_treevite_login_codes_zid ON treevite_login_codes(zid);
 CREATE INDEX IF NOT EXISTS idx_treevite_login_codes_pid ON treevite_login_codes(pid);
 CREATE INDEX IF NOT EXISTS idx_treevite_login_codes_fp ON treevite_login_codes(login_code_fingerprint);
+CREATE INDEX IF NOT EXISTS idx_treevite_login_codes_lookup ON treevite_login_codes(zid, login_code_lookup);
 
 COMMENT ON TABLE treevite_login_codes IS 'Per-participant Treevite login codes: salted hash for verification plus HMAC fingerprint for lookup';
 COMMENT ON COLUMN treevite_login_codes.login_code_hash IS 'Slow salted hash (argon2/bcrypt) of the participant login code; the raw code is never stored';
 COMMENT ON COLUMN treevite_login_codes.login_code_fingerprint IS 'Indexable HMAC-derived fingerprint scoped by conversation for fast lookup';
+COMMENT ON COLUMN treevite_login_codes.login_code_lookup IS 'Peppered SHA-256 of login_code for O(1) lookup; verify with bcrypt hash after lookup';

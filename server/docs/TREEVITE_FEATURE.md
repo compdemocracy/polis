@@ -48,18 +48,12 @@
 ### Conversation-level variables
 
 - `treevite_enabled` (boolean): Whether treevites are enabled for this conversation.
-- `treevite_initial_invite_count` (number): The number of invites to generate for the first wave.
-- `treevite_max_waves` (number): The maximum number of waves allowed for this conversation.
-- `treevite_wave_invites_per_user` (number): The maximum number of invites per user allowed per wave.
 
 ## Data Model
 
 - `conversations` (existing table): per-conversation configuration
   - `zid` (number): Primary key
   - `treevite_enabled` (boolean): Whether Treevite is enabled
-  - `treevite_initial_invite_count` (number, nullable): Root invites to generate when starting
-  - `treevite_max_waves` (number, nullable): Maximum allowed waves (null = unlimited)
-  - `treevite_wave_invites_per_user` (number, nullable): Default invites-per-user for waves (can be overridden per-wave)
 
 - `treevite_waves` (table): per-wave configuration and summary
   - `id` (number): Primary key
@@ -90,12 +84,22 @@
   - `zid` (number), `pid` (number): Participant composite key
   - `login_code_hash` (text): Slow salted hash (argon2/bcrypt) of the login code; the raw code is never stored
   - `login_code_fingerprint` (string): HMAC-derived fingerprint for fast lookup; unique per conversation `(zid, login_code_fingerprint)`
+  - `login_code_lookup` (string): Peppered SHA-256 lookup hash; unique per conversation `(zid, login_code_lookup)` and indexed for O(1) lookup
   - `fp_kid` (smallint): Key id for fingerprint secret rotation
   - `revoked` (boolean, default false): Whether the login code is revoked
   - `expires_at` (timestamp, nullable)
   - `last_used_at` (timestamp, nullable)
   - `created_at` (timestamp)
   - `updated_at` (timestamp)
+
+### Login code lookup (peppered)
+
+- **Goal**: Make login-by-code efficient and secure without scanning all rows.
+- **Storage**: For each `login_code`, we store:
+  - `login_code_hash` (bcrypt) for secure verification
+  - `login_code_lookup` (peppered SHA-256) for fast lookup, where `lookup = sha256(login_code + PEPPER)`
+- **Lookup**: On `POST /api/v3/treevite/login`, compute the same lookup hash, fetch one row by `(zid, login_code_lookup)`, then verify with `bcrypt.compare`.
+- **Pepper**: Configured via environment variable `LOGIN_CODE_PEPPER` (falls back to `ENCRYPTION_PASSWORD_00001` in dev). The pepper is not stored in the DB.
 
 ## API Endpoints
 
