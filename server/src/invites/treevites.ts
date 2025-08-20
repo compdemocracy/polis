@@ -199,27 +199,7 @@ export async function handle_GET_treevite_waves(req: any, res: any) {
     failJson(res, 500, "polis_err_treevite_list_waves", err);
   }
 }
-
-// Middleware: Deny participant actions if Treevite is enabled (until invite auth is implemented)
-export async function denyIfTreeviteEnabled(req: any, res: any, next: any) {
-  try {
-    const zid = req.p && req.p.zid;
-    if (typeof zid !== "number") {
-      return failJson(res, 400, "polis_err_treevite_missing_zid");
-    }
-    const rows = (await pg.queryP_readOnly(
-      "select treevite_enabled from conversations where zid = ($1);",
-      [zid]
-    )) as { treevite_enabled: boolean }[];
-    const enabled = rows && rows[0] && !!rows[0].treevite_enabled;
-    if (enabled) {
-      return failJson(res, 401, "polis_err_treevite_auth_required");
-    }
-    return next();
-  } catch (err) {
-    return failJson(res, 500, "polis_err_treevite_check_failed", err);
-  }
-}
+``;
 
 // Helpers for login code generation and storage
 function generateLoginCode(length: number = 16): string {
@@ -352,7 +332,8 @@ export async function handle_POST_treevite_login(req: any, res: any) {
     // We do not know pid; search by fingerprint within zid
     // Since fingerprint is unique per (zid, fp), this is efficient
     // We need pid for JWT issuance
-    const fp = computeFingerprint(zid, 0, loginCode); // pid unknown; to retain uniqueness per participant we included pid in computeFingerprint; to search we need different strategy
+    // pid unknown; to retain uniqueness per participant we included pid in computeFingerprint; to search we need different strategy
+    // const fp = computeFingerprint(zid, 0, loginCode);
 
     // Search different strategy: scan all codes for zid is expensive; instead, derive fingerprint without pid for lookup
     // For incremental implementation: store also a pid-agnostic fingerprint? Not in schema. Alternate: try all recent pids: too complex.

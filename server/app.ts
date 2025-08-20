@@ -167,7 +167,6 @@ import {
 import {
   handle_POST_treevite_waves,
   handle_GET_treevite_waves,
-  denyIfTreeviteEnabled,
   handle_POST_treevite_acceptInvite,
   handle_POST_treevite_login,
   handle_GET_treevite_myInvites,
