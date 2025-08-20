@@ -21,7 +21,7 @@ const InviteCodes = () => {
     initialSize: 5,
     waves: []
   })
-  const [tempWave, setTempWave] = useState(null)
+  const [tempWave, setTempWave] = useState(0)
   const [isAddingWave, setIsAddingWave] = useState(false)
 
   console.log('InviteCodes', zid_metadata, waves)
@@ -65,7 +65,7 @@ const InviteCodes = () => {
       {waves.initialSize && (
         <Box sx={{ mb: [3], mt: [3] }}>
           <Button
-            disabled={waves.waves[waves.waves.length - 1] === 0}
+            disabled={Number(waves.waves[waves.waves.length - 1] === 0)}
             sx={{ mt: [3] }}
             onClick={() => {
               setIsAddingWave(true)
@@ -106,7 +106,7 @@ const InviteCodes = () => {
                   initialSize: w.initialSize,
                   waves: [...w.waves, tempWave]
                 }))
-                setTempWave(null)
+                setTempWave(0)
               }}>
               Submit
             </Button>
