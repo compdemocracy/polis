@@ -104,6 +104,4 @@ export {
 export {
   ensureParticipant,
   ensureParticipantOptional,
-  ensureParticipantOnAction,
-  requireTreeviteAuthForAction,
 } from "./ensure-participant";

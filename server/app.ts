@@ -178,7 +178,6 @@ import {
   ensureParticipantOptional,
   hybridAuth,
   hybridAuthOptional,
-  requireTreeviteAuthForAction,
 } from "./src/auth";
 import {
   addCorsHeader,
@@ -719,7 +718,6 @@ helpersInitialized.then(
         assignToPCustom("zid")
       ),
       ensureParticipant({ createIfMissing: true, issueJWT: true }),
-      requireTreeviteAuthForAction,
       need("txt", getStringLimitLength(1, 997), assignToP),
       want("vote", getIntInRange(-1, 1), assignToP),
       want("is_seed", getBool, assignToP),
@@ -1138,7 +1136,6 @@ helpersInitialized.then(
         assignToPCustom("zid")
       ),
       ensureParticipant({ createIfMissing: true, issueJWT: true }),
-      requireTreeviteAuthForAction,
       need("tid", getInt, assignToP),
       need("vote", getIntInRange(-1, 1), assignToP),
       want("xid", getStringLimitLength(1, 999), assignToP),

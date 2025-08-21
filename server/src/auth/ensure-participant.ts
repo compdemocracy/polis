@@ -414,12 +414,34 @@ async function _ensureParticipantInternal(
     throw new Error("polis_err_user_not_found");
   }
 
+  // Early Treevite check - before creating new participants
+  // Block unauthorized users from Treevite-enabled conversations
+  if ((!pid || pid === -1) && createIfMissing) {
+    // Check if this conversation requires Treevite authorization
+    const convRows = (await pg.queryP_readOnly(
+      "select treevite_enabled from conversations where zid = ($1);",
+      [zid]
+    )) as { treevite_enabled: boolean }[];
+
+    const treeviteEnabled = !!(
+      convRows &&
+      convRows[0] &&
+      convRows[0].treevite_enabled
+    );
+
+    if (treeviteEnabled) {
+      // This person wants to become a participant in a Treevite conversation
+      // but has no existing participation - block them
+      throw new Error("polis_err_treevite_auth_required");
+    }
+  }
+
   // Get or create participant if needed
   if (createIfMissing) {
     const participantResult = await _getOrCreateParticipant(zid, uid, pid, req);
     pid = participantResult.pid;
     isNewlyCreatedParticipant = participantResult.isNewlyCreated;
-  } else if (pid === undefined) {
+  } else if (pid === undefined || pid === -1) {
     // Just look up existing participant
     pid = await getPidPromise(zid, uid, true);
     if (pid === -1) {
@@ -502,7 +524,15 @@ export function ensureParticipant(options: EnsureParticipantOptions = {}) {
     } catch (error) {
       logger.error("Error in ensureParticipant middleware", error);
 
-      // Pass specific errors to the error handler
+      // Handle Treevite authentication errors with proper status code
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_treevite_auth_required"
+      ) {
+        return failJson(res, 401, "polis_err_treevite_auth_required");
+      }
+
+      // Pass other specific errors to the error handler
       if (error instanceof Error && error.message?.includes("polis_err")) {
         next(error);
       } else {
@@ -542,93 +572,19 @@ export function ensureParticipantOptional(
 
       next();
     } catch (error) {
+      // Handle Treevite authentication errors even in optional middleware
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_treevite_auth_required"
+      ) {
+        return failJson(res, 401, "polis_err_treevite_auth_required");
+      }
+
       // For optional middleware, we continue even if participant isn't found
       logger.debug("Participant not found (optional)", error);
       req.p = req.p || {};
       req.p.participantInfo = null;
       next();
-    }
-  };
-}
-
-/**
- * Require Treevite authorization for participant actions when enabled on conversation.
- * Allows actions only if:
- *  - conversation.treevite_enabled is false, OR
- *  - req.p.pid exists AND participant has either a used invite or a non-revoked login code for this zid.
- * Does NOT create participants.
- */
-export async function requireTreeviteAuthForAction(
-  req: RequestWithP,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const zid = req.p?.zid;
-    if (!zid) {
-      return failJson(res, 400, "polis_err_treevite_missing_zid");
-    }
-    // Check if Treevite is enabled
-    const convRows = (await pg.queryP_readOnly(
-      "select treevite_enabled from conversations where zid = ($1);",
-      [zid]
-    )) as { treevite_enabled: boolean }[];
-    const enabled = !!(convRows && convRows[0] && convRows[0].treevite_enabled);
-    if (!enabled) {
-      return next();
-    }
-    const pid = req.p?.pid;
-    if (pid === undefined || pid === null) {
-      return failJson(res, 401, "polis_err_treevite_auth_required");
-    }
-    // Is participant authorized via used invite or active login code?
-    const authRows = (await pg.queryP_readOnly(
-      "select 1 from treevite_invites where zid = ($1) and invite_used_by_pid = ($2) and status = 1 limit 1;",
-      [zid, pid]
-    )) as any[];
-    if (authRows && authRows.length) {
-      return next();
-    }
-    const codeRows = (await pg.queryP_readOnly(
-      "select 1 from treevite_login_codes where zid = ($1) and pid = ($2) and revoked = false limit 1;",
-      [zid, pid]
-    )) as any[];
-    if (codeRows && codeRows.length) {
-      return next();
-    }
-    return failJson(res, 401, "polis_err_treevite_auth_required");
-  } catch (error) {
-    logger.error("requireTreeviteAuthForAction error", error);
-    return failJson(res, 500, "polis_err_treevite_auth_check_failed", error);
-  }
-}
-
-/**
- * Middleware that only creates participant if they're taking an action
- * Useful for routes like participationInit that shouldn't create participants
- */
-export function ensureParticipantOnAction(
-  options: EnsureParticipantOptions = {}
-) {
-  return async function ensureParticipantOnActionMiddleware(
-    req: RequestWithP,
-    res: Response,
-    next: NextFunction
-  ) {
-    // Only create participant if this is an action (POST/PUT/DELETE)
-    const shouldCreate = ["POST", "PUT", "DELETE", "PATCH"].includes(
-      req.method
-    );
-
-    const finalOptions = {
-      ...options,
-      createIfMissing: shouldCreate,
-    };
-
-    if (shouldCreate) {
-      return ensureParticipant(finalOptions)(req, res, next);
-    } else {
-      return ensureParticipantOptional(finalOptions)(req, res, next);
     }
   };
 }
