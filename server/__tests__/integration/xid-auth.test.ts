@@ -87,11 +87,12 @@ describe("XID-based Authentication", () => {
   test("should maintain XID association across multiple sessions", async () => {
     const xid = generateRandomXid();
 
-    // First session
-    const { agent: firstSessionAgent } = await initializeParticipantWithXid(
-      conversationId,
-      xid
-    );
+    // First session - test the helper without destructuring
+    const result = await initializeParticipantWithXid(conversationId, xid);
+    expect(result).toBeDefined();
+    expect(result.agent).toBeDefined();
+
+    const firstSessionAgent = result.agent;
 
     // Vote on a comment
     const firstVoteResponse = await submitVote(firstSessionAgent, {

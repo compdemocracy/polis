@@ -717,11 +717,11 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
+      want("xid", getStringLimitLength(1, 999), assignToP), // Process XID before ensureParticipant
       ensureParticipant({ createIfMissing: true, issueJWT: true }),
       need("txt", getStringLimitLength(1, 997), assignToP),
       want("vote", getIntInRange(-1, 1), assignToP),
       want("is_seed", getBool, assignToP),
-      want("xid", getStringLimitLength(1, 999), assignToP),
       attachAuthToken(),
       handle_POST_comments
     );
@@ -1135,10 +1135,10 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
+      want("xid", getStringLimitLength(1, 999), assignToP), // Process XID before ensureParticipant
       ensureParticipant({ createIfMissing: true, issueJWT: true }),
       need("tid", getInt, assignToP),
       need("vote", getIntInRange(-1, 1), assignToP),
-      want("xid", getStringLimitLength(1, 999), assignToP),
       want("starred", getBool, assignToP),
       want("high_priority", getBool, assignToP, false),
       want("lang", getStringLimitLength(1, 10), assignToP),
