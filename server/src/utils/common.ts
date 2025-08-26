@@ -1,11 +1,8 @@
 import _ from "underscore";
 import { Client } from "pg";
 import pg from "../db/pg-query";
-import akismetLib from "akismet";
-import logger from "../utils/logger";
 import { getConversationInfo } from "../conversation";
 import Config from "../config";
-import { MPromise } from "./metered";
 
 type PolisTypes = {
   reactions: Reactions;
@@ -33,42 +30,7 @@ type Mod = {
   ok: number;
 };
 
-const serverUrl = Config.getServerUrl();
-
 const polisDevs = Config.adminUIDs ? JSON.parse(Config.adminUIDs) : [];
-
-const akismet = akismetLib.client({
-  blog: serverUrl,
-  apiKey: Config.akismetAntispamApiKey,
-});
-
-akismet.verifyKey(function (err: any, verified: any) {
-  if (verified) {
-    logger.debug("Akismet: API key successfully verified.");
-  }
-});
-
-function isSpam(o: {
-  comment_content: any;
-  comment_author: any;
-  permalink: string;
-  user_ip: any;
-  user_agent: any;
-  referrer: any;
-}) {
-  return MPromise(
-    "isSpam",
-    function (resolve: (arg0: any) => void, reject: (arg0: any) => void) {
-      akismet.checkSpam(o, function (err: any, spam: any) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(spam);
-        }
-      });
-    }
-  );
-}
 
 function isPolisDev(uid?: any) {
   return polisDevs.indexOf(uid) >= 0;
@@ -236,7 +198,6 @@ export {
   isModerator,
   isOwner,
   isPolisDev,
-  isSpam,
   isUserAllowedToCreateConversations,
   polisTypes,
   strToHex,
@@ -251,7 +212,6 @@ export default {
   isModerator,
   isOwner,
   isPolisDev,
-  isSpam,
   polisTypes,
   strToHex,
 };

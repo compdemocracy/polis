@@ -1,19 +1,21 @@
+/* eslint-disable no-console */
 import _ from "underscore";
-import { google } from "googleapis";
+import { ManagementClient } from "auth0";
 import { parse } from "csv-parse/sync";
 import badwords from "badwords/object";
 
 import { addParticipant } from "../participant";
 import { CommentOptions, GetCommentsParams, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
+import analyzeComment from "../utils/moderation";
 import { getConversationInfo } from "../conversation";
 import { getNextComment } from "../nextComment";
-import { getPidPromise } from "../user";
+import { getPidPromise, getUserInfoForUid2 } from "../user";
 import { getZinvite } from "../utils/zinvite";
-import { isModerator, isSpam, polisTypes } from "../utils/common";
+import Config from "../config";
+import { isModerator, polisTypes } from "../utils/common";
 import { MPromise } from "../utils/metered";
 import { votesPost } from "./votes";
-import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import {
@@ -75,33 +77,6 @@ interface PolisRequest {
   timedout?: any;
 }
 
-const GOOGLE_DISCOVERY_URL =
-  "https://commentanalyzer.googleapis.com/$discovery/rest?version=v1alpha1";
-
-async function analyzeComment(txt: string) {
-  try {
-    const client: any = await google.discoverAPI(GOOGLE_DISCOVERY_URL);
-
-    const analyzeRequest = {
-      comment: {
-        text: txt,
-      },
-      requestedAttributes: {
-        TOXICITY: {},
-      },
-    };
-
-    const response = await client.comments.analyze({
-      key: Config.googleJigsawPerspectiveApiKey,
-      resource: analyzeRequest,
-    });
-
-    return response.data;
-  } catch (err) {
-    logger.error("analyzeComment error", err);
-  }
-}
-
 function hasBadWords(txt: string) {
   txt = txt.toLowerCase();
   const tokens = txt.split(" ");
@@ -112,6 +87,12 @@ function hasBadWords(txt: string) {
   }
   return false;
 }
+
+const managementClient = new ManagementClient({
+  domain: Config.AUTH0DOMAIN!,
+  clientId: Config.AUTH0CLIENTID!,
+  clientSecret: Config.AUTH0CLIENTSECRET!,
+});
 
 async function commentExists(zid: number, txt: string): Promise<boolean> {
   const rows = (await pg.queryP(
@@ -141,7 +122,7 @@ async function handle_GET_comments_translations(
     );
 
     const rows =
-      (existingTranslations as unknown as any[])?.length > 0
+      ((existingTranslations as unknown) as any[])?.length > 0
         ? existingTranslations
         : await translateAndStoreComment(zid, tid, comment.txt, lang);
 
@@ -193,12 +174,35 @@ interface CommentModerationResult {
   classifications: string[];
 }
 
-// Extract IP address from request
-function getIpAddress(req: PolisRequest): string | undefined {
-  return (req.headers["x-forwarded-for"] ||
-    req.connection?.remoteAddress ||
-    req.socket?.remoteAddress ||
-    req.connection?.socket?.remoteAddress) as string | undefined;
+async function isProConvo(owner: number): Promise<boolean> {
+  try {
+    const { email } = await getUserInfoForUid2(owner);
+    if (!email) {
+      console.log(`No email found for owner ID: ${owner}`);
+      return false;
+    }
+    const users = await managementClient.usersByEmail.getByEmail({ email });
+
+    if (!users || users.data.length === 0) {
+      console.log(`No Auth0 user found for email: ${email}`);
+      return false;
+    }
+    const user = users.data[0];
+    const userId = user.user_id;
+
+    if (!userId) {
+      console.error(`Auth0 user object for ${email} is missing a user_id.`);
+      return false;
+    }
+    const roles = await managementClient.users.getRoles({ id: userId });
+
+    const hasRole = roles.data.some((role) => role.name === "delphi-enabled");
+
+    return hasRole;
+  } catch (error) {
+    console.error(error);
+    return false;
+  }
 }
 
 function moderateCommentQuery(
@@ -234,68 +238,46 @@ async function moderateComment(
   conversation: any,
   is_moderator: boolean,
   is_seed?: boolean,
-  req?: PolisRequest
+  req?: PolisRequest,
+  ip?: string | undefined
 ): Promise<CommentModerationResult> {
-  const jigsawToxicityThreshold = 0.8;
   let active = true;
   const classifications: string[] = [];
   let mod = 0;
 
   // Moderator seed comments always pass
-  if (is_moderator && is_seed) {
+  if (is_moderator || is_seed) {
     mod = polisTypes.mod.ok;
     return { active: true, mod, classifications };
   }
 
   // Run moderation checks in parallel
-  const [spammy, jigsawResponse, bad] = await Promise.all([
-    req
-      ? isSpam({
-          comment_content: txt,
-          comment_author: req.p.uid!,
-          // TODO: Use dynamic url domain
-          permalink: `https://pol.is/${req.p.zid}`,
-          user_ip: getIpAddress(req)!,
-          user_agent: req.headers["user-agent"] as string,
-          referrer: req.headers["referer"] as string,
-        }).catch(() => false)
-      : Promise.resolve(false),
-    Config.googleJigsawPerspectiveApiKey
-      ? analyzeComment(txt)
-      : Promise.resolve(null),
+  const [polisModResponse, bad] = await Promise.all([
+    analyzeComment(txt, conversation.topic, ip),
     Promise.resolve(hasBadWords(txt)),
   ]);
 
-  // Check toxicity
-  const toxicityScore =
-    jigsawResponse?.attributeScores?.TOXICITY?.summaryScore?.value;
-
-  if (typeof toxicityScore === "number" && !isNaN(toxicityScore)) {
-    logger.debug(
-      `Jigsaw toxicity Score for comment "${txt}": ${toxicityScore}`
-    );
-
-    if (
-      toxicityScore > jigsawToxicityThreshold &&
-      conversation.profanity_filter
-    ) {
-      active = false;
-      classifications.push("bad");
-      logger.info(
-        "active=false because (jigsawToxicity && conv.profanity_filter)"
-      );
-    }
-  } else if (bad && conversation.profanity_filter) {
+  if (bad && conversation.profanity_filter) {
     active = false;
     classifications.push("bad");
     logger.info("active=false because (bad && conv.profanity_filter)");
   }
 
-  // Check spam
-  if (spammy && conversation.spam_filter) {
-    active = false;
-    classifications.push("spammy");
-    logger.info("active=false because (spammy && conv.spam_filter)");
+  const commentToxicityThreshold = 100;
+
+  const toxicityScore = Number(polisModResponse);
+
+  if (typeof toxicityScore === "number" && !isNaN(toxicityScore)) {
+    logger.debug(
+      `Polismod toxicity Score for comment "${txt}": ${toxicityScore}`
+    );
+
+    if (toxicityScore >= commentToxicityThreshold) {
+      active = false;
+      mod = -1;
+      classifications.push("bad");
+      logger.info("active=false because (Toxicity)");
+    }
   }
 
   return { active, mod, classifications };
@@ -332,13 +314,16 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       return;
     }
 
+    const ip =
+      req.headers["x-forwarded-for"] ||
+      req.connection?.remoteAddress ||
+      req.socket?.remoteAddress ||
+      req.connection?.socket?.remoteAddress;
+
     // 4. Moderate the comment
-    const { active, mod } = await moderateComment(
-      txt,
-      conversation,
-      is_moderator,
-      is_seed
-    );
+    const { active, mod } = (await isProConvo(conversation.owner))
+      ? await moderateComment(txt, conversation, is_moderator, is_seed, ip)
+      : { active: true, mod: 0 };
 
     // 5. Detect language
     const detections = await detectLanguage(txt);
@@ -512,7 +497,9 @@ function handle_PUT_comments(
     };
   },
   res: {
-    status: (arg0: number) => {
+    status: (
+      arg0: number
+    ) => {
       (): any;
       new (): any;
       json: { (arg0: {}): void; new (): any };
