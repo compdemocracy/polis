@@ -185,6 +185,7 @@ services:
       dockerfile: file-server/Dockerfile
       args:
         AUTH_AUDIENCE: ${AUTH_AUDIENCE}
+        AUTH_NAMESPACE: ${AUTH_NAMESPACE}
         AUTH_CLIENT_ID: ${AUTH_CLIENT_ID}
         AUTH_ISSUER: ${AUTH_ISSUER}
         EMBED_SERVICE_HOSTNAME: ${EMBED_SERVICE_HOSTNAME}

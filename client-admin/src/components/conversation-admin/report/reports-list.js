@@ -2,6 +2,7 @@
 
 import PolisNet from '../../../util/net'
 import { useState, useEffect } from 'react'
+import { jwtDecode } from 'jwt-decode'
 import Url from '../../../util/url'
 import { useSelector, useDispatch } from 'react-redux'
 import { Heading, Box, Button } from 'theme-ui'
@@ -14,8 +15,9 @@ import { useParams } from 'react-router'
 const ReportsList = () => {
   const dispatch = useDispatch()
   const params = useParams()
-  const { isAuthenticated } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const zid_metadata = useSelector((state) => state.zid_metadata)
+  const [mod_level, setModLevel] = useState(-2)
 
   const [state, setState] = useState({
     loading: true,
@@ -66,7 +68,8 @@ const ReportsList = () => {
 
   const createReportClicked = () => {
     PolisNet.polisPost('/api/v3/reports', {
-      conversation_id: params.conversation_id
+      conversation_id: params.conversation_id,
+      mod_level
     }).then(() => {
       getData()
     })
@@ -97,6 +100,20 @@ const ReportsList = () => {
         Report
       </Heading>
       <Box sx={{ mb: [3, null, 4] }}>
+        {jwtDecode(user?.access_token)[`${process.env.AUTH_NAMESPACE}delphi_enabled`] && (
+          <Box>
+            Select which comments will be visible in this report:
+            <select
+              onChange={(e) => setModLevel(e.target.value)}
+              style={{ display: 'block', margin: '1em 0' }}>
+              <option selected value={-2}>
+                Include all comments
+              </option>
+              <option value={-1}>Include all comments except for moderation failures</option>
+              <option value={0}>Include only moderator approved comments</option>
+            </select>
+          </Box>
+        )}
         <Button onClick={createReportClicked}>Create report url</Button>
       </Box>
       {state.reports.map((report) => {
