@@ -1157,7 +1157,7 @@ def create_enhanced_multilayer_index(
     return index_file
 
 
-def process_conversation(zid, export_dynamo=True, use_ollama=False):
+def process_conversation(zid, export_dynamo=True, use_ollama=False, include_moderation=False):
     """
     Main function to process a conversation and generate visualizations.
     
@@ -1175,6 +1175,9 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False):
     if not comments:
         logger.error("Failed to fetch conversation data.")
         return False
+
+    if include_moderation:
+        comments = [comment for comment in comments if comment.mod != -1]
 
     # Generate a job_id for this pipeline run
     # If DELPHI_JOB_ID is set (e.g., by a calling script like run_delphi.py), use that.
@@ -1301,6 +1304,7 @@ def main():
                        help='Use mock data instead of connecting to PostgreSQL')
     parser.add_argument('--use-ollama', action='store_true',
                        help='Use Ollama for topic naming')
+    parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
     
     args = parser.parse_args()
     
@@ -1375,7 +1379,7 @@ def main():
         )
     else:
         # Process with real data from PostgreSQL
-        process_conversation(args.zid, export_dynamo=not args.no_dynamo, use_ollama=args.use_ollama)
+        process_conversation(args.zid, export_dynamo=not args.no_dynamo, use_ollama=args.use_ollama, include_moderation=args.include_moderation)
 
 if __name__ == "__main__":
     main()

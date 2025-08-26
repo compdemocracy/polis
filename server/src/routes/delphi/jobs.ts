@@ -57,6 +57,7 @@ export async function handle_POST_delphi_jobs(
       batch_size,
       model = "claude-3-7-sonnet-20250219",
       include_topics = true,
+      include_moderation = false, // ignore comments that recieve a failing moderation score
     } = req.body;
 
     // Validate required parameters
@@ -129,6 +130,7 @@ export async function handle_POST_delphi_jobs(
       jobConfig.visualizations = ["basic", "enhanced", "multilayer"];
     }
 
+    jobConfig.include_moderation = include_moderation;
     // Create job item with version number for optimistic locking
     const jobItem = {
       job_id: job_id, // Primary key

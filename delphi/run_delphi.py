@@ -33,6 +33,7 @@ def main():
     parser.add_argument("--force", action="store_true", help="Force reprocessing even if data exists")
     parser.add_argument("--validate", action="store_true", help="Run extra validation checks")
     parser.add_argument("--help", action="store_true", help="Show this help message")
+    parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
 
     args = parser.parse_args()
 
@@ -114,6 +115,7 @@ def main():
     umap_command = [
         "python", "/app/umap_narrative/run_pipeline.py",
         f"--zid={zid}",
+        f"--include_moderation={args.include_moderation}",
         "--use-ollama"
     ]
     if verbose_arg:
