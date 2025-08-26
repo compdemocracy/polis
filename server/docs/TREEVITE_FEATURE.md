@@ -6,23 +6,23 @@
 
  [x] Implement wave-based invite tree data model
  [x] Track invite tree parent-child relationships in database
- [ ] Create invite code generation and validation service
+ [x] Create invite code generation and validation service
  [ ] Integrate wave logic into participant onboarding flow - including special login code generation
 
 ### Phase 2 — Security & Access Control
 
- [ ] Block voting/commenting until valid invite code entered
+ [x] Block voting/commenting until valid invite code entered
  [ ] Add brute-force protection to invite code entry (eg debounce rate limit)
  [ ] Verify browser location proximity without storing location data (future work)
  [ ] Randomly issue location verification challenges to participants (future work)
 
 ### Phase 3 — Admin Tools & Configuration
 
- [ ] Add admin control to start/stop invite tree
- [ ] Implement manual “Open Next Wave” admin action
- [ ] Configure wave size (first wave only) and invites-per-user settings
- [ ] Allow admins to bulk-generate root invites for classes/events (future work)
- [ ] Support per-conversation invite tree toggle in admin UI
+ [x] Add admin control to start/stop invite tree
+ [x] Implement manual “Open Next Wave” admin action
+ [x] Configure waves' owner invites and invites-per-user settings
+ [x] Allow admins to bulk-generate root invites for classes/events (future work)
+ [x] Support per-conversation invite tree toggle in admin UI
  [ ] Allow flexible branching factor per wave (What is this?)
 
 ### Phase 4 — Participant Experience

@@ -5,20 +5,15 @@ import { useSelector, useDispatch } from 'react-redux'
 import { Flex, Box } from 'theme-ui'
 import { populateZidMetadataStore, resetMetadataStore } from '../../actions'
 import { Routes, Route, Link, useParams, useLocation } from 'react-router'
+import { useAuth } from 'react-oidc-context'
 
 import ConversationConfig from './conversation-config'
 import ConversationStats from './stats'
-import { useAuth } from 'react-oidc-context'
-
 import ModerateComments from './comment-moderation/'
 import TopicModeration from './topic-moderation/'
-
-// import DataExport from "./data-export";
 import ShareAndEmbed from './share-and-embed'
-
 import Reports from './report/reports'
-
-import InviteCodes from './InviteCodes'
+import InviteTree from './InviteTree'
 
 const ConversationAdminContainer = () => {
   const dispatch = useDispatch()
@@ -116,17 +111,15 @@ const ConversationAdminContainer = () => {
             Report
           </Link>
         </Box>
-        {/* {zid_metadata.requires_invite_codes && ( */}
         <Box sx={{ mb: [3] }}>
           <Link
             sx={{
-              variant: url === 'invites' ? 'links.activeNav' : 'links.nav'
+              variant: url === 'invite-tree' ? 'links.activeNav' : 'links.nav'
             }}
-            to={`${baseUrl}/invites`}>
-            Invite Codes
+            to={`${baseUrl}/invite-tree`}>
+            Invite Tree
           </Link>
         </Box>
-        {/* )} */}
       </Box>
       <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '60em', mx: [4] }}>
         <Routes>
@@ -136,13 +129,16 @@ const ConversationAdminContainer = () => {
           <Route path="comments/*" element={<ModerateComments />} />
           <Route path="stats" element={<ConversationStats />} />
           <Route
-            path={`${baseUrl}/topics`}
-            render={(props) => (
-              <TopicModeration {...props} conversation_id={params.conversation_id} />
-            )}
+            path="topics/*"
+            element={
+              <TopicModeration
+                conversation_id={params.conversation_id}
+                baseUrl={`${baseUrl}/topics`}
+                location={location}
+              />
+            }
           />
-          <Route path="invites" element={<InviteCodes />} />
-          {/* <Route path="export" element={<DataExport />} /> */}
+          <Route path="invite-tree" element={<InviteTree />} />
         </Routes>
       </Box>
     </Flex>

@@ -1,4 +1,8 @@
 {
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true
+  },
   "search.exclude": {
     "**/*.code-search": false,
     "**/node_modules": false

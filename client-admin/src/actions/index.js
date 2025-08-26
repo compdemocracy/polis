@@ -312,10 +312,10 @@ export const handleZidMetadataUpdate = (zm, field, value) => {
 }
 
 export const optimisticZidMetadataUpdateOnTyping = (zm, field, value) => {
-  zm[field] = value
+  const nextZm = Object.assign({}, zm, { [field]: value })
   return {
     type: OPTIMISTIC_ZID_METADATA_UPDATE,
-    data: zm
+    data: nextZm
   }
 }
 

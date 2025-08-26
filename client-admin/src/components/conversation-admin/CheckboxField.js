@@ -7,7 +7,12 @@ import { handleZidMetadataUpdate } from '../../actions'
 
 export const CheckboxField = ({ field, label = '', children, isIntegerBool = false }) => {
   const { zid_metadata } = useSelector((state) => state.zid_metadata)
-  const [state, setState] = useState(zid_metadata[field])
+  const initialState = isIntegerBool
+    ? Number(zid_metadata[field]) === 1
+      ? 1
+      : 0
+    : Boolean(zid_metadata[field])
+  const [state, setState] = useState(initialState)
   const dispatch = useDispatch()
 
   const handleBoolValueChange = (field) => {
@@ -33,7 +38,7 @@ export const CheckboxField = ({ field, label = '', children, isIntegerBool = fal
           type="checkbox"
           label={label}
           data-testid={field}
-          checked={isIntegerBool ? zid_metadata[field] === 1 : zid_metadata[field]}
+          checked={isIntegerBool ? Number(zid_metadata[field]) === 1 : Boolean(zid_metadata[field])}
           onChange={
             isIntegerBool
               ? () => handleIntegerBoolValueChange(field)

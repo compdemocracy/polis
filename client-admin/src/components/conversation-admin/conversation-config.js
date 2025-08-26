@@ -129,11 +129,6 @@ const ConversationConfig = () => {
         Customize the user interface
       </Heading>
 
-      <CheckboxField field="importance_enabled" label="Importance Enabled">
-        [EXPERIMENTAL FEATURE] Participants can see the &quot;This comment is important&quot;
-        checkbox
-      </CheckboxField>
-
       <CheckboxField field="vis_type" label="Visualization" isIntegerBool>
         Participants can see the visualization
       </CheckboxField>
@@ -155,22 +150,18 @@ const ConversationConfig = () => {
         email address to receive notifications when there are new comments to vote on.
       </CheckboxField>
 
-      <Heading
-        as="h6"
-        sx={{
-          fontSize: [1, null, 2],
-          lineHeight: 'body',
-          my: [3, null, 4]
-        }}>
-        Schemes
-      </Heading>
-
       <CheckboxField field="strict_moderation">
         No comments shown without moderator approval
       </CheckboxField>
 
-      <CheckboxField field="require_invite_codes">
-        Require Invite Codes to participate in this conversation
+      <CheckboxField field="treevite_enabled" label="Enable Invite Tree">
+        [EXPERIMENTAL FEATURE] Enable Invite Tree. Nobody can participate without an invite. Invites
+        are managed in waves.
+      </CheckboxField>
+
+      <CheckboxField field="importance_enabled" label="Importance Enabled">
+        [EXPERIMENTAL FEATURE] Participants can see the &quot;This comment is important&quot;
+        checkbox
       </CheckboxField>
     </Box>
   )

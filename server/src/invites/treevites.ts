@@ -15,7 +15,7 @@ async function insertInviteWithRetry(
     parentInviteId: number | null;
     inviteOwnerPid: number | null;
   },
-  maxAttempts: number = 5
+  maxAttempts = 5
 ): Promise<number> {
   const { zid, waveId, parentInviteId, inviteOwnerPid } = params;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
