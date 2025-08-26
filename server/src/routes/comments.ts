@@ -134,7 +134,6 @@ async function handle_GET_comments_translations(
 
 async function handle_GET_comments(req: RequestWithP, res: any): Promise<void> {
   try {
-    // The function is designed to work with partial parameters, where most fields are optional
     let comments = (await getComments(req.p as GetCommentsParams)) as any[];
     if (req.p.rid) {
       const selections = (await pg.queryP(
@@ -174,7 +173,7 @@ interface CommentModerationResult {
   classifications: string[];
 }
 
-async function isProConvo(owner: number): Promise<boolean> {
+export async function isProConvo(owner: number): Promise<boolean> {
   try {
     const { email } = await getUserInfoForUid2(owner);
     if (!email) {

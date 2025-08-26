@@ -234,12 +234,12 @@ const App = (props) => {
       });
   };
 
-  const getComments = (conversation_id, isStrictMod, authToken = null) => {
+  const getComments = (conversation_id, isStrictMod, authToken = null, level = 0) => {
     return net.polisGet("/api/v3/comments", {
       conversation_id: conversation_id,
       report_id: report_id,
       moderation: true,
-      mod_gt: -2,
+      mod_gt: level, // -2 = all, -1 = unmoderated, 0 = positive
       include_voting_patterns: true,
     }, authToken);
   };
