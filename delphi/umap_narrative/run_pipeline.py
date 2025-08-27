@@ -1177,7 +1177,7 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False, include_mode
         return False
 
     if include_moderation:
-        comments = [comment for comment in comments if comment.mod != -1]
+        comments = [comment for comment in comments if comment['mod'] > -1]
 
     # Generate a job_id for this pipeline run
     # If DELPHI_JOB_ID is set (e.g., by a calling script like run_delphi.py), use that.

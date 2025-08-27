@@ -216,6 +216,7 @@ class BatchReportGenerator:
         self.job_id = job_id or os.environ.get('DELPHI_JOB_ID')
         self.report_id = os.environ.get('DELPHI_REPORT_ID')
         self.postgres_client = PostgresClient()
+        self.include_moderation = include_moderation
 
         endpoint_url = os.environ.get('DYNAMODB_ENDPOINT') or None
         self.dynamodb = boto3.resource(
@@ -293,7 +294,7 @@ class BatchReportGenerator:
             logger.info(f"Retrieved {len(comments)} comments from conversation {self.conversation_id}")
 
             if self.include_moderation:
-                comments = [comment for comment in comments if comment.mod != -1]
+                comments = [comment for comment in comments if comment['mod'] > -1]
             
             # Get math data from the Clojure math pipeline (stored in math_main table)
             math_data = self._get_math_main_data(int(self.conversation_id))

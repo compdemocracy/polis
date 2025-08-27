@@ -672,11 +672,11 @@ class JobProcessor:
         try:
             # 1. Build the command
             job_config = json.loads(job.get('job_config', '{}'))
+            include_moderation = job_config.get('include_moderation', False)
             if job_type == 'CREATE_NARRATIVE_BATCH':
                 model = os.environ.get("ANTHROPIC_MODEL")
                 if not model: raise ValueError("ANTHROPIC_MODEL must be set")
                 max_batch_size = job_config.get('max_batch_size', 20)
-                include_moderation = job_config.get('include_moderation', False)
                 cmd = ['python', '/app/umap_narrative/801_narrative_report_batch.py', f'--conversation_id={conversation_id}', f'--model={model}', f'--include_moderation={include_moderation}', f'--max-batch-size={str(max_batch_size)}']
                 if job_config.get('no_cache'): cmd.append('--no-cache')
             elif job_type == 'AWAITING_NARRATIVE_BATCH':

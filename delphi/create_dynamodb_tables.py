@@ -91,12 +91,26 @@ def create_polis_math_tables(dynamodb, delete_existing=False):
             ],
             'AttributeDefinitions': [
                 {'AttributeName': 'zid_tick', 'AttributeType': 'S'},
-                {'AttributeName': 'comment_id', 'AttributeType': 'S'}
+                {'AttributeName': 'comment_id', 'AttributeType': 'S'},
+                {'AttributeName': 'zid', 'AttributeType': 'S'}
             ],
             'ProvisionedThroughput': {
                 'ReadCapacityUnits': 5,
                 'WriteCapacityUnits': 5
-            }
+            },
+            'GlobalSecondaryIndexes': [
+                {
+                    'IndexName': 'zid-index',
+                    'KeySchema': [
+                        {'AttributeName': 'zid', 'KeyType': 'HASH'}
+                    ],
+                    'Projection': { 'ProjectionType': 'ALL' },
+                    'ProvisionedThroughput': {
+                        'ReadCapacityUnits': 5,
+                        'WriteCapacityUnits': 5
+                    }
+                }
+            ]
         },
         # Representativeness data
         'Delphi_RepresentativeComments': {
@@ -259,7 +273,6 @@ def create_evoc_tables(dynamodb, delete_existing=False):
                     'Projection': {
                         'ProjectionType': 'ALL'
                     },
-                    'BillingMode': 'PAY_PER_REQUEST'
                 }
             ],
             'BillingMode': 'PAY_PER_REQUEST'

@@ -90,6 +90,7 @@ export async function handle_POST_delphi_batch_reports(
             max_batch_size: max_batch_size,
             no_cache: no_cache,
             report_id: report_id,
+            include_moderation: req.body.include_moderation,
           },
         },
       ],

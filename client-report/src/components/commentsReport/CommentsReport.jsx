@@ -26,6 +26,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
     batch_size: "",
     model: "claude-opus-4-20250514",
     include_topics: true,
+    include_moderation: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [jobCreationResult, setJobCreationResult] = useState(null);
@@ -616,6 +617,20 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
                 disabled={isSubmitting}
               />
               Generate topic names
+            </label>
+          </div>
+
+          <div className="form-group checkbox">
+            <label htmlFor="include_moderation">
+              <input
+                type="checkbox"
+                id="include_moderation"
+                name="include_moderation"
+                checked={jobFormData.include_moderation}
+                onChange={handleJobFormChange}
+                disabled={isSubmitting}
+              />
+              Only analyze comments that have passed moderation
             </label>
           </div>
 
