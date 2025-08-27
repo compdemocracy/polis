@@ -14,6 +14,7 @@ import TopicModeration from './topic-moderation/'
 import ShareAndEmbed from './share-and-embed'
 import Reports from './report/reports'
 import InviteTree from './InviteTree'
+import InviteCodes from './InviteCodes'
 
 const ConversationAdminContainer = () => {
   const dispatch = useDispatch()
@@ -120,6 +121,17 @@ const ConversationAdminContainer = () => {
             Invite Tree
           </Link>
         </Box>
+        {zid_metadata?.zid_metadata?.treevite_enabled && (
+          <Box sx={{ mb: [3] }}>
+            <Link
+              sx={{
+                variant: url === 'invite-codes' ? 'links.activeNav' : 'links.nav'
+              }}
+              to={`${baseUrl}/invite-codes`}>
+              Invite Codes
+            </Link>
+          </Box>
+        )}
       </Box>
       <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '60em', mx: [4] }}>
         <Routes>
@@ -139,6 +151,7 @@ const ConversationAdminContainer = () => {
             }
           />
           <Route path="invite-tree" element={<InviteTree />} />
+          <Route path="invite-codes" element={<InviteCodes />} />
         </Routes>
       </Box>
     </Flex>

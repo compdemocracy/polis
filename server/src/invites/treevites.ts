@@ -5,8 +5,14 @@ import { failJson } from "../utils/fail";
 import { generateRandomCode, generateLoginCode } from "../auth/generate-token";
 import { getZinvite } from "../utils/zinvite";
 import { issueAnonymousJWT } from "../auth/anonymous-jwt";
+import {
+  parsePagination,
+  applySqlPagination,
+  createPaginationMeta,
+} from "../utils/pagination";
 import Config from "../config";
 import pg from "../db/pg-query";
+import logger from "../utils/logger";
 
 async function insertInviteWithRetry(
   params: {
@@ -369,6 +375,9 @@ export async function handle_GET_treevite_myInvites(req: any, res: any) {
   try {
     const zid = req.p.zid;
     const pid = req.p.pid;
+    logger.debug(
+      `handle_GET_treevite_myInvites: ${JSON.stringify({ zid, pid })}`
+    );
     if (typeof zid !== "number" || typeof pid !== "number") {
       failJson(res, 400, "polis_err_treevite_invalid_request");
       return;
@@ -381,5 +390,77 @@ export async function handle_GET_treevite_myInvites(req: any, res: any) {
     res.status(200).json(rows);
   } catch (err) {
     failJson(res, 500, "polis_err_treevite_list_my_invites", err);
+  }
+}
+
+// GET /api/v3/treevite/invites
+// List owner invites for a conversation with pagination and filtering
+export async function handle_GET_treevite_invites(req: any, res: any) {
+  try {
+    const zid = req.p.zid;
+    const waveId = typeof req.p.wave_id === "number" ? req.p.wave_id : null;
+    const status = typeof req.p.status === "number" ? req.p.status : null;
+
+    if (typeof zid !== "number") {
+      failJson(res, 400, "polis_err_treevite_missing_zid");
+      return;
+    }
+
+    // Parse pagination parameters
+    const pagination = parsePagination(
+      {
+        limit: req.p.limit,
+        offset: req.p.offset,
+      },
+      {
+        defaultLimit: 50,
+        maxLimit: 500,
+      }
+    );
+
+    // Build base query and parameters
+    let baseQuery =
+      "select i.id, i.zid, i.wave_id, i.invite_code, i.status, i.invite_used_by_pid, i.invite_used_at, i.created_at, i.updated_at, w.wave from treevite_invites i left join treevite_waves w on i.wave_id = w.id where i.zid = ($1) and i.invite_owner_pid is null";
+    let countQuery =
+      "select count(*)::int as total from treevite_invites i where i.zid = ($1) and i.invite_owner_pid is null";
+    const baseParams: unknown[] = [zid];
+
+    // Add filters
+    if (waveId !== null) {
+      baseQuery += ` and i.wave_id = ($${baseParams.length + 1})`;
+      countQuery += ` and i.wave_id = ($${baseParams.length + 1})`;
+      baseParams.push(waveId);
+    }
+
+    if (status !== null) {
+      baseQuery += ` and i.status = ($${baseParams.length + 1})`;
+      countQuery += ` and i.status = ($${baseParams.length + 1})`;
+      baseParams.push(status);
+    }
+
+    // Add ordering and pagination
+    baseQuery += " order by i.created_at desc";
+    const paginationSql = applySqlPagination(baseParams, pagination);
+    const finalQuery = baseQuery + " " + paginationSql.sql;
+
+    // Execute queries in parallel
+    const [dataRows, countRows] = await Promise.all([
+      pg.queryP_readOnly(finalQuery, paginationSql.params),
+      pg.queryP_readOnly(countQuery, baseParams),
+    ]);
+
+    const total = countRows && countRows[0] && (countRows[0] as any).total;
+    const paginationMeta = createPaginationMeta(
+      pagination.limit,
+      pagination.offset,
+      total
+    );
+
+    res.status(200).json({
+      invites: dataRows || [],
+      pagination: paginationMeta,
+    });
+  } catch (err) {
+    failJson(res, 500, "polis_err_treevite_list_invites", err);
   }
 }

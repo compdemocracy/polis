@@ -170,6 +170,7 @@ import {
   handle_POST_treevite_acceptInvite,
   handle_POST_treevite_login,
   handle_GET_treevite_myInvites,
+  handle_GET_treevite_invites,
 } from "./src/invites/treevites";
 
 import {
@@ -1712,6 +1713,22 @@ helpersInitialized.then(
         assignToPCustom("zid")
       ),
       handle_GET_treevite_myInvites
+    );
+
+    app.get(
+      "/api/v3/treevite/invites",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("wave_id", getInt, assignToP),
+      want("status", getInt, assignToP),
+      want("limit", getInt, assignToP),
+      want("offset", getInt, assignToP),
+      handle_GET_treevite_invites
     );
 
     app.post(

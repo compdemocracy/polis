@@ -103,58 +103,61 @@
 
 ## API Endpoints
 
-Admin (hybridAuth required; `conversation_id` expected and mapped to `zid`):
+**Currently Implemented:**
 
-- `POST /api/v3/treevite/start`
-  - Start Treevite for a conversation; creates initial wave and root invites.
-  - Body: `conversation_id` (string), optional overrides: `initial_invite_count` (int)
-  - Returns: created wave summary and counts
+Admin (hybridAuth required; `conversation_id` expected and mapped to `zid`):
 
 - `POST /api/v3/treevite/waves`
   - Create a wave for a conversation. Parent defaults to latest wave (or 0 if none).
+  - Auth: hybridAuth (admin required)
   - Body: `conversation_id` (string), `invites_per_user` (int, optional), `owner_invites` (int, optional), `parent_wave` (int, optional)
   - Rules: at least one of `invites_per_user` or `owner_invites` must be > 0
-  - Returns: wave record with derived `size`
+  - Returns: wave record with derived `size` and `invites_created` count
 
 - `GET /api/v3/treevite/waves`
   - List waves for a conversation (optionally a single wave).
+  - Auth: hybridAuth (admin required)
   - Query/body: `conversation_id` (string), optional `wave` (int)
+  - Returns: array of wave records
 
 - `GET /api/v3/treevite/invites`
-  - List invites for a conversation; filterable and paginated.
-  - Query/body: `conversation_id` (string), optional filters: `wave_id` (int), `status` (int), `owner_pid` (int), `limit` (int), `offset` (int)
-
-- `POST /api/v3/treevite/invites/revoke`
-  - Revoke an invite (or multiple) by id/code/owner.
-  - Body: `conversation_id` (string), one of: `invite_id` (int), `invite_code` (string), or `owner_pid` (int)
-
-- `POST /api/v3/treevite/loginCodes/revoke`
-  - Revoke participant login codes.
-  - Body: `conversation_id` (string), `pid` (int) or `pids` (int[])
+  - List owner invites for a conversation (excludes participant-owned invites).
+  - Auth: hybridAuth (admin required)
+  - Query/body: `conversation_id` (string), optional `wave_id` (int), `status` (int), `limit` (int), `offset` (int)
+  - Returns: object with `invites` array and `pagination` metadata (limit, offset, total, hasMore)
 
 Participant:
 
 - `GET /api/v3/treevite/myInvites`
-  - View invites owned by the current participant to share with others.
+  - View unused invites owned by the current participant to share with others.
   - Auth: hybridAuth (participant)
   - Query/body: `conversation_id` (string)
+  - Returns: array of invite records with `id`, `invite_code`, `status`, `created_at`
 
 - `POST /api/v3/treevite/acceptInvite`
-  - Exchange a valid invite code for participation; issues a participant JWT and a login_code (hashed+fingerprint stored server-side).
+  - Exchange a valid invite code for participation; issues a participant JWT and a login_code.
   - Auth: hybridAuthOptional (works for new or existing sessions)
-  - Body: `conversation_id` (string), `invite_code` (string), optional `answers`, `referrer`, `parent_url`
-  - Returns: participant JWT, `login_code` (one-time display), and basic wave context
+  - Body: `conversation_id` (string), `invite_code` (string, 1-128 chars)
+  - Returns: `status`, `wave_id`, `invite_id`, `login_code`, and `auth` object with JWT token
+  - Creates new anonymous user/participant if none exists
 
 - `POST /api/v3/treevite/login`
   - Submit a login_code to obtain a fresh participant JWT for the conversation.
   - Auth: hybridAuthOptional
-  - Body: `conversation_id` (string), `login_code` (string)
-  - Returns: participant JWT
+  - Body: `conversation_id` (string), `login_code` (string, 1-256 chars)
+  - Returns: `status` and `auth` object with JWT token
 
-- `GET /api/v3/treevite/me`
-  - Convenience endpoint for participant Treevite context (e.g., current wave, remaining invites).
-  - Auth: hybridAuth (participant)
-  - Query/body: `conversation_id` (string)
+**Not Yet Implemented:**
+
+Admin:
+
+- `POST /api/v3/treevite/start` - Start Treevite for a conversation; creates initial wave and root invites
+- `POST /api/v3/treevite/invites/revoke` - Revoke invites by id/code/owner
+- `POST /api/v3/treevite/loginCodes/revoke` - Revoke participant login codes
+
+Participant:
+
+- `GET /api/v3/treevite/me` - Convenience endpoint for participant Treevite context
 
 ## Notes
 
