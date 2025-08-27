@@ -234,7 +234,7 @@ const App = (props) => {
       });
   };
 
-  const getComments = (conversation_id, isStrictMod, authToken = null, level = 0) => {
+  const getComments = (conversation_id, isStrictMod, authToken = null, level = -2) => {
     return net.polisGet("/api/v3/comments", {
       conversation_id: conversation_id,
       report_id: report_id,
@@ -386,7 +386,7 @@ const App = (props) => {
     });
     const commentsPromise = reportPromise.then((report) => {
       return conversationPromise.then((conv) => {
-        return getComments(report.conversation_id, conv.strict_moderation, authToken);
+        return getComments(report.conversation_id, conv.strict_moderation, authToken, report.mod_level);
       });
     });
     const participantsOfInterestPromise = reportPromise.then((report) => {

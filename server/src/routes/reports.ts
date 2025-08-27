@@ -47,29 +47,30 @@ function handle_POST_reportCommentSelections(
     });
 }
 
-function createReport(zid: number) {
+function createReport(zid: number, mod_level?: number) {
   return generateTokenP(20, false).then(function (report_id: string) {
     report_id = "r" + report_id;
-    return pg.queryP("insert into reports (zid, report_id) values ($1, $2);", [
-      zid,
-      report_id,
-    ]);
+    return pg.queryP(
+      "insert into reports (zid, report_id, mod_level) values ($1, $2, $3);", // need db migration, ui should read from report api, query API based on val
+      [zid, report_id, mod_level]
+    );
   });
 }
 
 function handle_POST_reports(
-  req: { p: { zid: number; uid?: number } },
+  req: { p: { zid: number; uid?: number; mod_level?: number } },
   res: { json: (arg0: {}) => void }
 ) {
   const zid = req.p.zid;
   const uid = req.p.uid;
+  const mod_level = req.p.mod_level;
 
   return isModerator(zid, uid)
     .then((isMod: any) => {
       if (!isMod) {
         return failJson(res, 403, "polis_err_post_reports_permissions");
       }
-      return createReport(zid).then(() => {
+      return createReport(zid, mod_level).then(() => {
         res.json({});
       });
     })

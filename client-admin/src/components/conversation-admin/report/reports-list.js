@@ -12,6 +12,12 @@ import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../no-permission'
 import { useParams } from 'react-router'
 
+const modMap = {
+  0: 'Showing only moderated comments',
+  '-1': 'Showing moderated and unmoderated comments',
+  '-2': 'Showing all comments, including those moderated out'
+}
+
 const ReportsList = () => {
   const dispatch = useDispatch()
   const params = useParams()
@@ -122,6 +128,9 @@ const ReportsList = () => {
             <a target="_blank" rel="noreferrer" href={Url.urlPrefix + 'report/' + report.report_id}>
               {Url.urlPrefix}report/{report.report_id}
             </a>
+            {jwtDecode(user?.access_token)[`${process.env.AUTH_NAMESPACE}delphi_enabled`] && (
+              <p>{modMap[String(report.mod_level)] || modMap[Number(report.mod_level)]}</p>
+            )}
           </Box>
         )
       })}
