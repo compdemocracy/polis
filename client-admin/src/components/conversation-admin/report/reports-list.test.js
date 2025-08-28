@@ -293,7 +293,8 @@ describe('ReportsList', () => {
 
     await waitFor(() => {
       expect(PolisNet.polisPost).toHaveBeenCalledWith('/api/v3/reports', {
-        conversation_id: 'test123'
+        conversation_id: 'test123',
+        mod_level: -2
       })
       expect(PolisNet.polisGet).toHaveBeenCalledTimes(4) // Initial load + refresh after create (multiple renders due to hooks)
     })
