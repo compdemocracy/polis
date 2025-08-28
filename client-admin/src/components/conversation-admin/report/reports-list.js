@@ -106,20 +106,21 @@ const ReportsList = () => {
         Report
       </Heading>
       <Box sx={{ mb: [3, null, 4] }}>
-        {jwtDecode(user?.access_token)[`${process.env.AUTH_NAMESPACE}delphi_enabled`] && (
-          <Box>
-            Select which comments will be visible in this report:
-            <select
-              onChange={(e) => setModLevel(e.target.value)}
-              style={{ display: 'block', margin: '1em 0' }}>
-              <option selected value={-2}>
-                Include all comments
-              </option>
-              <option value={-1}>Include all comments except for moderation failures</option>
-              <option value={0}>Include only moderator approved comments</option>
-            </select>
-          </Box>
-        )}
+        {user?.access_token &&
+          jwtDecode(user?.access_token)[`${process.env.AUTH_NAMESPACE}delphi_enabled`] && (
+            <Box>
+              Select which comments will be visible in this report:
+              <select
+                onChange={(e) => setModLevel(e.target.value)}
+                style={{ display: 'block', margin: '1em 0' }}>
+                <option selected value={-2}>
+                  Include all comments
+                </option>
+                <option value={-1}>Include all comments except for moderation failures</option>
+                <option value={0}>Include only moderator approved comments</option>
+              </select>
+            </Box>
+          )}
         <Button onClick={createReportClicked}>Create report url</Button>
       </Box>
       {state.reports.map((report) => {
@@ -128,9 +129,10 @@ const ReportsList = () => {
             <a target="_blank" rel="noreferrer" href={Url.urlPrefix + 'report/' + report.report_id}>
               {Url.urlPrefix}report/{report.report_id}
             </a>
-            {jwtDecode(user?.access_token)[`${process.env.AUTH_NAMESPACE}delphi_enabled`] && (
-              <p>{modMap[String(report.mod_level)] || modMap[Number(report.mod_level)]}</p>
-            )}
+            {user?.access_token &&
+              jwtDecode(user?.access_token)[`${process.env.AUTH_NAMESPACE}delphi_enabled`] && (
+                <p>{modMap[String(report.mod_level)] || modMap[Number(report.mod_level)]}</p>
+              )}
           </Box>
         )
       })}
