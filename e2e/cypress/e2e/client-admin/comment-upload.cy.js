@@ -70,18 +70,24 @@ describe('Client Admin: Comment CSV Upload', () => {
           // Verify that the uploaded comments are visible in the approved comments section
           // We should see at least some of the comments from our CSV
           cy.get('[data-testid="pending-comment"]').should('have.length.at.least', 1)
-          cy.get('body').should('contain.text', 'bike lanes over additional car lanes')
-          cy.get('body').should('contain.text', 'more frequent bus service')
-          cy.get('body').should('contain.text', 'Light rail should be extended')
-          cy.get('body').should('contain.text', 'parking meters should be free')
-          cy.get('body').should('contain.text', 'sidewalk snow removal')
-          cy.get('body').should('contain.text', 'Electric vehicle charging stations')
-          cy.get('body').should('contain.text', 'congestion pricing downtown')
-          cy.get('body').should('contain.text', 'affordable units')
-          cy.get('body').should('contain.text', 'Single-family zoning should be eliminated')
-          cy.get('body').should('contain.text', 'public housing')
-          cy.get('body').should('contain.text', 'Short-term rentals like Airbnb')
-          cy.get('body').should('contain.text', 'Property taxes are too high')
+          cy.get('.approved-comments').should(
+            'contain.text',
+            'bike lanes over additional car lanes',
+          )
+          cy.get('.approved-comments').should('contain.text', 'more frequent bus service')
+          cy.get('.approved-comments').should('contain.text', 'Light rail should be extended')
+          cy.get('.approved-comments').should('contain.text', 'parking meters should be free')
+          cy.get('.approved-comments').should('contain.text', 'sidewalk snow removal')
+          cy.get('.approved-comments').should('contain.text', 'Electric vehicle charging stations')
+          cy.get('.approved-comments').should('contain.text', 'congestion pricing downtown')
+          cy.get('.approved-comments').should('contain.text', 'affordable units')
+          cy.get('.approved-comments').should(
+            'contain.text',
+            'Single-family zoning should be eliminated',
+          )
+          cy.get('.approved-comments').should('contain.text', 'public housing')
+          cy.get('.approved-comments').should('contain.text', 'Short-term rentals like Airbnb')
+          cy.get('.approved-comments').should('contain.text', 'Property taxes are too high')
         })
     })
 
@@ -114,11 +120,14 @@ describe('Client Admin: Comment CSV Upload', () => {
           // Upload the empty CSV file using selectFile with contents option
           cy.get('input[type="file"]')
             .should('have.attr', 'accept', '.csv')
-            .selectFile({
-              contents: Cypress.Buffer.from(emptyCsv),
-              fileName: 'empty-comments.csv',
-              mimeType: 'text/csv'
-            }, { force: true })
+            .selectFile(
+              {
+                contents: Cypress.Buffer.from(emptyCsv),
+                fileName: 'empty-comments.csv',
+                mimeType: 'text/csv',
+              },
+              { force: true },
+            )
 
           // Wait a moment for the file to be processed
           cy.wait(500)
