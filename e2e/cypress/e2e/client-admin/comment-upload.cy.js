@@ -70,24 +70,48 @@ describe('Client Admin: Comment CSV Upload', () => {
           // Verify that the uploaded comments are visible in the approved comments section
           // We should see at least some of the comments from our CSV
           cy.get('[data-testid="pending-comment"]').should('have.length.at.least', 1)
-          cy.get('.approved-comments').should(
+          cy.get('[data-testid="approved-comments"]').should(
             'contain.text',
             'bike lanes over additional car lanes',
           )
-          cy.get('.approved-comments').should('contain.text', 'more frequent bus service')
-          cy.get('.approved-comments').should('contain.text', 'Light rail should be extended')
-          cy.get('.approved-comments').should('contain.text', 'parking meters should be free')
-          cy.get('.approved-comments').should('contain.text', 'sidewalk snow removal')
-          cy.get('.approved-comments').should('contain.text', 'Electric vehicle charging stations')
-          cy.get('.approved-comments').should('contain.text', 'congestion pricing downtown')
-          cy.get('.approved-comments').should('contain.text', 'affordable units')
-          cy.get('.approved-comments').should(
+          cy.get('[data-testid="approved-comments"]').should(
+            'contain.text',
+            'more frequent bus service',
+          )
+          cy.get('[data-testid="approved-comments"]').should(
+            'contain.text',
+            'Light rail should be extended',
+          )
+          cy.get('[data-testid="approved-comments"]').should(
+            'contain.text',
+            'parking meters should be free',
+          )
+          cy.get('[data-testid="approved-comments"]').should(
+            'contain.text',
+            'sidewalk snow removal',
+          )
+          cy.get('[data-testid="approved-comments"]').should(
+            'contain.text',
+            'Electric vehicle charging stations',
+          )
+          cy.get('[data-testid="approved-comments"]').should(
+            'contain.text',
+            'congestion pricing downtown',
+          )
+          cy.get('[data-testid="approved-comments"]').should('contain.text', 'affordable units')
+          cy.get('[data-testid="approved-comments"]').should(
             'contain.text',
             'Single-family zoning should be eliminated',
           )
-          cy.get('.approved-comments').should('contain.text', 'public housing')
-          cy.get('.approved-comments').should('contain.text', 'Short-term rentals like Airbnb')
-          cy.get('.approved-comments').should('contain.text', 'Property taxes are too high')
+          cy.get('[data-testid="approved-comments"]').should('contain.text', 'public housing')
+          cy.get('[data-testid="approved-comments"]').should(
+            'contain.text',
+            'Short-term rentals like Airbnb',
+          )
+          cy.get('[data-testid="approved-comments"]').should(
+            'contain.text',
+            'Property taxes are too high',
+          )
         })
     })
 
