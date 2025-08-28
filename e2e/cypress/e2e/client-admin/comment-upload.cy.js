@@ -241,11 +241,17 @@ describe('Client Admin: Comment CSV Upload', () => {
           cy.get('[data-testid="approved-comments"]').should('be.visible')
 
           // Verify manual comment is present
-          cy.get('body').should('contain.text', manualComment)
+          cy.get('[data-testid="approved-comments"]').should('contain.text', manualComment)
 
           // Verify some CSV comments are present
-          cy.get('body').should('contain.text', 'bike lanes over additional car lanes')
-          cy.get('body').should('contain.text', 'more frequent bus service')
+          cy.get('[data-testid="approved-comments"]').should(
+            'contain.text',
+            'bike lanes over additional car lanes',
+          )
+          cy.get('[data-testid="approved-comments"]').should(
+            'contain.text',
+            'more frequent bus service',
+          )
         })
     })
   })
