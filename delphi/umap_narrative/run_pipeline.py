@@ -1175,6 +1175,8 @@ def process_conversation(zid, export_dynamo=True, use_ollama=False, include_mode
     if not comments:
         logger.error("Failed to fetch conversation data.")
         return False
+    
+    logger.info(f"moderation status: {include_moderation}")
 
     if include_moderation:
         comments = [comment for comment in comments if comment['mod'] > -1]

@@ -638,7 +638,7 @@ class GroupDataProcessor:
             logger.error(f"Error retrieving extremity values: {str(e)}")
             return {}
             
-    def get_export_data(self, zid: int) -> Dict[str, Any]:
+    def get_export_data(self, zid: int, include_moderation: bool) -> Dict[str, Any]:
         """
         Get vote and comment data in the export format expected by the report generator.
         This simulates the format of the data from the export endpoint.
@@ -657,6 +657,8 @@ class GroupDataProcessor:
             
             # Get comments
             comments = self.postgres_client.get_comments_by_conversation(zid)
+            if include_moderation:
+                comments = [comment for comment in comments if comment['mod'] > -1]
             
             # Format data for export
             comment_data = []

@@ -218,6 +218,8 @@ class BatchReportGenerator:
         self.postgres_client = PostgresClient()
         self.include_moderation = include_moderation
 
+        logger.info(f"include_moderation: {include_moderation}")
+
         endpoint_url = os.environ.get('DYNAMODB_ENDPOINT') or None
         self.dynamodb = boto3.resource(
             'dynamodb',
@@ -320,7 +322,7 @@ class BatchReportGenerator:
                     consensus_map[str(tid)] = consensus_object[str(tid)]
             
             # Get basic comment and vote data (without recalculating metrics)
-            export_data = self.group_processor.get_export_data(int(self.conversation_id))
+            export_data = self.group_processor.get_export_data(int(self.conversation_id), self.include_moderation)
             processed_comments = export_data.get('comments', [])
             
             # Enrich comments with pre-calculated Clojure metrics

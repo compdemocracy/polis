@@ -810,6 +810,7 @@ const App = (props) => {
         formatTid={formatTid}
         voteColors={voteColors}
         authToken={token}
+        reportModLevel={report?.mod_level}
       />
     );
   }
