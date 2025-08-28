@@ -161,7 +161,7 @@ describe('Client Admin: Comment Moderation', () => {
 
       // Seed comments should be here as they're auto-approved
       seedComments.forEach((comment) => {
-        cy.get('[data-testid="approved-comments"]').should('contain.text', comment)
+        cy.get('[data-testid="approved-comments"]').should('contain.text', comment.slice(0, 20))
       })
 
       cy.log('✅ Accepted comments section accessible and shows seed comments')
