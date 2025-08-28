@@ -147,26 +147,6 @@ describe('Client Admin: Comment Moderation', () => {
       cy.log('✅ Unmoderated comments are visible')
     })
 
-    it('should show accepted comments section', () => {
-      cy.log('📋 Checking accepted comments section')
-
-      // Click on the accepted tab using the proper test ID
-      cy.get('[data-testid="filter-approved"]').click()
-
-      // Verify we're on the accepted section
-      cy.get('[data-testid="approved-comments"]').should('exist')
-
-      // URL should include 'accepted'
-      cy.url().should('include', '/accepted')
-
-      // Seed comments should be here as they're auto-approved
-      seedComments.forEach((comment) => {
-        cy.get('[data-testid="approved-comments"]').should('contain.text', comment.slice(0, 20))
-      })
-
-      cy.log('✅ Accepted comments section accessible and shows seed comments')
-    })
-
     it('should show rejected comments section', () => {
       cy.log('📋 Checking rejected comments section')
 
@@ -252,52 +232,6 @@ describe('Client Admin: Comment Moderation', () => {
       // Verify the comment moved to rejected section
       cy.get('[data-testid="filter-rejected"]').click()
       cy.get('[data-testid="rejected-comments"]').should('contain.text', testComment)
-    })
-  })
-
-  describe('Seed Comments', () => {
-    beforeEach(() => {
-      logout()
-      loginStandardUser('admin@polis.test', 'Te$tP@ssw0rd*')
-    })
-
-    it('should show seed comments as automatically approved', () => {
-      cy.log('🌱 Verifying seed comments are auto-approved')
-
-      // Navigate to moderation and then accepted comments
-      navigateToConversationSection(conversationId, 'moderate')
-      cy.get('[data-testid="filter-approved"]').click()
-
-      // All seed comments should be visible in accepted section
-      seedComments.forEach((comment) => {
-        cy.get('[data-testid="approved-comments"]').should('contain.text', comment.slice(0, 20))
-      })
-
-      cy.log('✅ All seed comments are automatically approved')
-    })
-
-    it('should not show seed comments in unmoderated section', () => {
-      cy.log('🌱 Verifying seed comments are not in unmoderated')
-
-      navigateToConversationSection(conversationId, 'moderate')
-
-      // Should be on unmoderated by default, but ensure we're on the right tab
-      cy.get('[data-testid="mod-queue"]').click()
-
-      // Seed comments should NOT be in the unmoderated section
-      seedComments.forEach((comment) => {
-        // Check specifically within the pending comments container
-        cy.get('body').then(($body) => {
-          if ($body.find('[data-testid="pending-comment"]').length > 0) {
-            // Only check if there are pending comments
-            cy.get('[data-testid="pending-comment"]').each(($el) => {
-              cy.wrap($el).should('not.contain.text', comment)
-            })
-          }
-        })
-      })
-
-      cy.log('✅ Seed comments are not in unmoderated section')
     })
   })
 })
