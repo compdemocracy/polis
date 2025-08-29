@@ -119,7 +119,7 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
 
         {isConversationActive ? (
           <>
-            <TreeviteLoginCodeModal client:only="react" s={s} />
+            {surveyDetails?.requiresInviteCode && (<TreeviteLoginCodeModal client:only="react" s={s} />)}
             <TopicAgenda 
               client:only="react"
               conversation_id={conversation_id}
@@ -134,7 +134,7 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
               requiresInviteCode={surveyDetails?.requiresInviteCode}
             />
             <SurveyForm client:load s={s} conversation_id={conversation_id} requiresInviteCode={surveyDetails?.requiresInviteCode} />
-            <TreeviteInvites client:only="react" conversation_id={conversation_id} s={s} />
+            {surveyDetails?.requiresInviteCode && (<TreeviteInvites client:only="react" conversation_id={conversation_id} s={s} />)}
           </>
         ) : (
           <div class="footer-spacer"></div>
