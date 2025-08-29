@@ -1,38 +1,62 @@
 import React, { useEffect, useState } from 'react';
 import PolisNet from '../lib/net';
 
-const submitInviteCode = (inviteCode, s, setInviteCodeReceived, conversation_id) => {
-  return async () => {
+export default function InviteCodeSubmissionForm({ s, conversation_id }) {
+  const [inviteCode, setInviteCode] = useState('');
+  const [loginCode, setLoginCode] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [submittingInvite, setSubmittingInvite] = useState(false);
+  const [submittingLogin, setSubmittingLogin] = useState(false);
+
+  const handleAcceptInvite = async () => {
+    if (!inviteCode) return;
+    setSubmittingInvite(true);
+    setError('');
     try {
-      const response = await PolisNet.polisPost('/inviteCode', { inviteCode });
-      if (response.success) {
-        window.localStorage.setItem(`invite-code-${conversation_id}`, inviteCode);
-        // fire custom event
-        dispatchEvent(new CustomEvent('invite-code-submitted', { bubbles: true }));
-        setInviteCodeReceived(true);
-      } else {
-        alert(s.invite_code_invalid);
-      }
-    } catch (error) {
-      alert(s.invite_code_invalid);
-      // stub code, delete later
-      window.localStorage.setItem(`invite-code-${conversation_id}`, inviteCode);
+      const response = await PolisNet.polisPost('/treevite/acceptInvite', {
+        conversation_id,
+        invite_code: inviteCode.trim(),
+      });
+
+      // Store JWT handled centrally in net.ts via handleJwtFromResponse
+      // Notify listeners that auth state changed
       dispatchEvent(new CustomEvent('invite-code-submitted', { bubbles: true }));
-      setInviteCodeReceived(true);
+
+      if (response && response.login_code) {
+        setMessage((s.invite_code_accepted_message || 'Invite accepted. Your login code is: {{login_code}}').replace('{{login_code}}', response.login_code));
+        // Emit a global event so a modal can display the code and block until dismissed
+        dispatchEvent(new CustomEvent('treevite-login-code-issued', { detail: { login_code: response.login_code }, bubbles: true }));
+      } else {
+        setMessage(s.invite_code_accepted_message_no_code || 'Invite accepted.');
+      }
+      setInviteCode('');
+    } catch (e) {
+      setError(s.invite_code_invalid || 'Invalid invite code.');
+    } finally {
+      setSubmittingInvite(false);
     }
   };
-};
 
-
-export default function InviteCodeSubmissionForm({ s, setInviteCodeReceived, conversation_id }) {
-  const [inviteCode, setInviteCode] = useState('');
-  useEffect(() => {
-    const storedInviteCode = window.localStorage.getItem(`invite-code-${conversation_id}`);
-    console.log('Stored invite code:', storedInviteCode);
-    if (storedInviteCode) {
-      submitInviteCode(storedInviteCode, s, setInviteCodeReceived, conversation_id)();
+  const handleLoginWithCode = async () => {
+    if (!loginCode) return;
+    setSubmittingLogin(true);
+    setError('');
+    try {
+      const response = await PolisNet.polisPost('/treevite/login', {
+        conversation_id,
+        login_code: loginCode.trim(),
+      });
+      // JWT handled in net.ts
+      dispatchEvent(new CustomEvent('login-code-submitted', { bubbles: true }));
+      setMessage(s.login_success || 'Success! You are now logged in.');
+      setLoginCode('');
+    } catch (e) {
+      setError(s.login_code_invalid || 'Invalid login code.');
+    } finally {
+      setSubmittingLogin(false);
     }
-  }, []);
+  };
 
   return (
     <>
@@ -40,9 +64,24 @@ export default function InviteCodeSubmissionForm({ s, setInviteCodeReceived, con
       <div className="invite-code-submission-form">
         <h2>{s.invite_code_required_short}</h2>
         <p>{s.invite_code_required_long}</p>
+
+        {message ? (
+          <div className="notice success" role="status">{message}</div>
+        ) : null}
+        {error ? (
+          <div className="notice error" role="alert">{error}</div>
+        ) : null}
+
         <div className="invite-code-submission-form-container">
           <input type="text" value={inviteCode} onChange={(e) => setInviteCode(e.target.value)} placeholder={s.invite_code_prompt} />
-          <button disabled={!inviteCode} onClick={submitInviteCode(inviteCode, s, setInviteCodeReceived, conversation_id)}>{s.submit_invite_code}</button>
+          <button disabled={!inviteCode || submittingInvite} onClick={handleAcceptInvite}>{submittingInvite ? (s.submitting || 'Submitting...') : s.submit_invite_code}</button>
+        </div>
+
+        <div className="or-separator">{s.or_text || 'or'}</div>
+
+        <div className="invite-code-submission-form-container">
+          <input type="text" value={loginCode} onChange={(e) => setLoginCode(e.target.value)} placeholder={s.login_code_prompt || 'Enter Login Code'} />
+          <button disabled={!loginCode || submittingLogin} onClick={handleLoginWithCode}>{submittingLogin ? (s.submitting || 'Submitting...') : (s.submit_login_code || 'Submit Login Code')}</button>
         </div>
       </div>
     </>
@@ -119,5 +158,27 @@ const invite_code_css = `
   background-color: #ccc;
   border-color: #bbb;
   cursor: not-allowed;
+}
+
+.or-separator {
+  text-align: center;
+  color: #777;
+  margin: 12px 0;
+}
+
+.notice {
+  padding: 8px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+.notice.success {
+  background-color: #e6f4ea;
+  border: 1px solid #b7e1c1;
+  color: #1e6c34;
+}
+.notice.error {
+  background-color: #fdecea;
+  border: 1px solid #f5c2c7;
+  color: #842029;
 }
 `;

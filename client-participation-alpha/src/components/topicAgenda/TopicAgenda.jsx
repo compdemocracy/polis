@@ -5,8 +5,9 @@ import LayerHeader from "./components/LayerHeader";
 import ScrollableTopicsGrid from "./components/ScrollableTopicsGrid";
 import TopicAgendaStyles from "./components/TopicAgendaStyles";
 import PolisNet from "../../lib/net";
+import { getConversationToken } from "../../lib/auth";
 
-const TopicAgenda = ({ conversation_id, requiresInviteCode = true }) => {
+const TopicAgenda = ({ conversation_id, requiresInviteCode = false }) => {
   const [loadWidget, setLoadWidget] = useState(false);
   const [selections, setSelections] = useState(new Set());
   const [commentMap, setCommentMap] = useState(new Map());
@@ -27,12 +28,19 @@ const TopicAgenda = ({ conversation_id, requiresInviteCode = true }) => {
   } = useTopicData(reportData?.report_id, loadWidget);
 
   useEffect(() => {
-    const cb = () => setInviteCodeRequired(false);
-    window.addEventListener('invite-code-submitted', cb);
+    const token = getConversationToken(conversation_id);
+    if (token && token.token) {
+      setInviteCodeRequired(false);
+    }
+    const cb1 = () => setInviteCodeRequired(false);
+    const cb2 = () => setInviteCodeRequired(false);
+    window.addEventListener('invite-code-submitted', cb1);
+    window.addEventListener('login-code-submitted', cb2);
     return () => {
-      window.removeEventListener('invite-code-submitted', cb);
+      window.removeEventListener('invite-code-submitted', cb1);
+      window.removeEventListener('login-code-submitted', cb2);
     };
-  }, []);
+  }, [conversation_id]);
 
   useEffect(() => {
     const f = async () => {

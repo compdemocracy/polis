@@ -7,7 +7,7 @@
  [x] Implement wave-based invite tree data model
  [x] Track invite tree parent-child relationships in database
  [x] Create invite code generation and validation service
- [ ] Integrate wave logic into participant onboarding flow - including special login code generation
+ [x] Integrate wave logic into participant onboarding flow - including special login code generation
 
 ### Phase 2 — Security & Access Control
 
@@ -23,11 +23,12 @@
  [x] Configure waves' owner invites and invites-per-user settings
  [x] Allow admins to bulk-generate root invites for classes/events (future work)
  [x] Support per-conversation invite tree toggle in admin UI
- [ ] Allow flexible branching factor per wave (What is this?)
+ [x] Allow flexible branching factor per wave (What is this?)
 
 ### Phase 4 — Participant Experience
 
- [ ] Build invite code entry screen with success/fail feedback
+ [x] Build invite code entry screen with success/fail feedback
+ [x] Add a "My Invites" page that shows the participant's own invites and allows them to share them with others
  [ ] Show “Help secure this conversation” public-good prompt (future work)
  [ ] Display participant wave position and invite availability (first wave hipster bragging rights)
 
@@ -113,6 +114,7 @@ Admin (hybridAuth required; `conversation_id` expected and mapped to `zid`):
   - Body: `conversation_id` (string), `invites_per_user` (int, optional), `owner_invites` (int, optional), `parent_wave` (int, optional)
   - Rules: at least one of `invites_per_user` or `owner_invites` must be > 0
   - Returns: wave record with derived `size` and `invites_created` count
+  - Creates owner invites immediately + retroactively creates participant invites for existing parent wave members
 
 - `GET /api/v3/treevite/waves`
   - List waves for a conversation (optionally a single wave).
@@ -133,19 +135,29 @@ Participant:
   - Auth: hybridAuth (participant)
   - Query/body: `conversation_id` (string)
   - Returns: array of invite records with `id`, `invite_code`, `status`, `created_at`
+  - Returns empty array if user hasn't participated in the conversation yet
 
 - `POST /api/v3/treevite/acceptInvite`
-  - Exchange a valid invite code for participation; issues a participant JWT and a login_code.
+  - Exchange a valid invite code for participation; creates participant and issues JWT + login_code in one step.
   - Auth: hybridAuthOptional (works for new or existing sessions)
   - Body: `conversation_id` (string), `invite_code` (string, 1-128 chars)
   - Returns: `status`, `wave_id`, `invite_id`, `login_code`, and `auth` object with JWT token
-  - Creates new anonymous user/participant if none exists
+  - Flow: validates invite → creates participant if needed → marks invite as used → creates invite codes for child waves → issues JWT and login_code
+  - Works with existing authenticated users or creates new anonymous participants
+  - Lazily creates invite codes for all existing child waves of the wave they joined
 
 - `POST /api/v3/treevite/login`
   - Submit a login_code to obtain a fresh participant JWT for the conversation.
   - Auth: hybridAuthOptional
   - Body: `conversation_id` (string), `login_code` (string, 1-256 chars)
   - Returns: `status` and `auth` object with JWT token
+
+- `GET /api/v3/treevite/me`
+  - Get current participant's Treevite context including wave info and owned invites.
+  - Auth: hybridAuth (participant)
+  - Query/body: `conversation_id` (string)
+  - Returns: object with `participant` (pid, zid), `wave` (wave info + join date), `invites` array
+  - Returns null values if user hasn't participated in the conversation yet
 
 **Not Yet Implemented:**
 
@@ -157,13 +169,30 @@ Admin:
 
 Participant:
 
-- `GET /api/v3/treevite/me` - Convenience endpoint for participant Treevite context
+(All participant endpoints have been implemented)
 
 ## Notes
 
-- We need to be able to generate a tree of invites for a given conversation.
-- We need to be able to track the parent-child relationships between invites.
-- We need to be able to block voting/commenting until a valid invite code is entered.
-- A "treevite" participant who registers with a treevite invite code, will remain "anonymous" (no email required), but will receive a
-  special login code (distinct from the invite code) that will allow them to login to the conversation.
-- This creates a new type of participant, kind of like an "XID" participant. But maybe they can be handled in the same way as anonymous participants (JWT-based).
+### Invite Code Creation Patterns
+
+The system uses two complementary approaches to ensure all participants get their invite codes:
+
+1. **Retroactive Creation (when wave is created)**:
+   - Admin creates new child wave with `invites_per_user: X`
+   - System immediately creates X invite codes for all existing participants in the parent wave
+   - Handles participants who joined the parent wave before the child wave existed
+
+2. **Lazy Creation (when participant accepts invite)**:
+   - New participant accepts invite and joins a wave
+   - System finds all existing child waves of the wave they joined
+   - Creates invite codes for each child wave based on that wave's `invites_per_user` setting
+   - Handles participants who join parent waves after child waves were already created
+
+This ensures every participant gets exactly the right number of invite codes for each applicable wave, regardless of timing.
+
+### Technical Notes
+
+- Tree structure tracks parent-child relationships between invites
+- Participants remain "anonymous" (no email required) but receive login codes for session continuity
+- Treevite participants use JWT-based authentication similar to anonymous participants
+- Access control blocks voting/commenting until valid invite code is entered

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { getConversationToken } from '../lib/auth';
 import PolisNet from '../lib/net';
 
@@ -24,10 +24,21 @@ const submitPerspectiveAPI = async (text, conversation_id) => {
 };
 
 
-export default function SurveyForm({ s, conversation_id }) {
+export default function SurveyForm({ s, conversation_id, requiresInviteCode = false }) {
   const [text, setText] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [isAuthed, setIsAuthed] = useState(!!getConversationToken(conversation_id)?.token);
   const maxLength = 400;
+
+  useEffect(() => {
+    const onInviteOrLogin = () => setIsAuthed(!!getConversationToken(conversation_id)?.token);
+    window.addEventListener('invite-code-submitted', onInviteOrLogin);
+    window.addEventListener('login-code-submitted', onInviteOrLogin);
+    return () => {
+      window.removeEventListener('invite-code-submitted', onInviteOrLogin);
+      window.removeEventListener('login-code-submitted', onInviteOrLogin);
+    };
+  }, [conversation_id]);
 
   const handleSubmit = (event) => {
     event.preventDefault();
@@ -37,6 +48,10 @@ export default function SurveyForm({ s, conversation_id }) {
     setText('');
     submitPerspectiveAPI(submittedText, conversation_id);
   };
+
+  if ((requiresInviteCode && !isAuthed)) {
+    return null;
+  }
 
   if (feedback) {
     return <p style={{ textAlign: 'center', color: '#28a745', fontWeight: 'bold' }}>{feedback}</p>;

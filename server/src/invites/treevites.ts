@@ -61,6 +61,101 @@ async function upsertLoginCode(
   );
 }
 
+/**
+ * Create invite codes for a participant for all child waves that already exist
+ * Called lazily when a participant joins a wave via acceptInvite
+ */
+async function createParticipantInviteCodes(
+  zid: number,
+  waveId: number,
+  parentInviteId: number,
+  pid: number
+): Promise<void> {
+  logger.info(
+    `Creating participant invite codes for pid ${pid} in wave ${waveId}`
+  );
+
+  // First, get the wave number of the wave they joined
+  const currentWaveRows = (await pg.queryP_readOnly(
+    "select wave from treevite_waves where id = ($1);",
+    [waveId]
+  )) as { wave: number }[];
+
+  if (!currentWaveRows || !currentWaveRows.length) {
+    logger.warn(`Wave not found for waveId ${waveId}`);
+    return;
+  }
+
+  const currentWave = currentWaveRows[0].wave;
+
+  // Find all child waves of the wave they joined (where parent_wave = currentWave)
+  const childWaveRows = (await pg.queryP_readOnly(
+    "select id, wave, invites_per_user from treevite_waves where zid = ($1) and parent_wave = ($2) and invites_per_user > 0;",
+    [zid, currentWave]
+  )) as { id: number; wave: number; invites_per_user: number }[];
+
+  let totalCodes = 0;
+
+  // Create invite codes for each child wave
+  for (const childWave of childWaveRows) {
+    logger.info(
+      `Creating ${childWave.invites_per_user} invite codes for pid ${pid} in child wave ${childWave.wave} (id: ${childWave.id})`
+    );
+
+    for (let i = 0; i < childWave.invites_per_user; i++) {
+      await insertInviteWithRetry({
+        zid,
+        waveId: childWave.id,
+        parentInviteId,
+        inviteOwnerPid: pid,
+      });
+      totalCodes++;
+    }
+  }
+
+  logger.info(
+    `Created ${totalCodes} invite codes for participant ${pid} across ${childWaveRows.length} child waves`
+  );
+}
+
+/**
+ * Create invite codes retroactively for existing participants when a new child wave is created
+ * This handles the case where participants joined the parent wave before the child wave existed
+ */
+async function createRetroactiveInviteCodes(
+  zid: number,
+  newWaveId: number,
+  parentWaveId: number,
+  invitesPerUser: number
+): Promise<void> {
+  // Find all participants who have already joined the parent wave
+  const existingParticipants = (await pg.queryP_readOnly(
+    "select id as parent_invite_id, invite_used_by_pid from treevite_invites where wave_id = ($1) and invite_used_by_pid is not null;",
+    [parentWaveId]
+  )) as { parent_invite_id: number; invite_used_by_pid: number }[];
+
+  let createdCount = 0;
+
+  // Create invite codes for each existing participant
+  for (const participant of existingParticipants) {
+    const ownerPid = participant.invite_used_by_pid;
+
+    for (let i = 0; i < invitesPerUser; i++) {
+      await insertInviteWithRetry({
+        zid,
+        waveId: newWaveId,
+        parentInviteId: participant.parent_invite_id,
+        inviteOwnerPid: ownerPid,
+      });
+      createdCount++;
+    }
+  }
+
+  logger.info(
+    `Created ${createdCount} retroactive invite codes for ${existingParticipants.length} existing participants in new wave ${newWaveId}`
+  );
+}
+
 ////// ROUTES //////
 
 // POST /api/v3/treevite/waves
@@ -182,6 +277,26 @@ export async function handle_POST_treevite_waves(req: any, res: any) {
       }
     }
 
+    // Create invite codes for existing participants from parent wave
+    if (invitesPerUser > 0 && parentWave > 0) {
+      // Find parent wave id for retroactive code creation
+      const parentWaveRows = (await pg.queryP_readOnly(
+        "select id from treevite_waves where zid = ($1) and wave = ($2);",
+        [zid, parentWave]
+      )) as { id: number }[];
+      const parentWaveId =
+        parentWaveRows && parentWaveRows[0] && parentWaveRows[0].id;
+
+      if (parentWaveId) {
+        await createRetroactiveInviteCodes(
+          zid,
+          waveId,
+          parentWaveId,
+          invitesPerUser
+        );
+      }
+    }
+
     // Return the wave row and a summary of invites created
     const countRows = await pg.queryP_readOnly(
       "select count(*)::int as total from treevite_invites where wave_id = ($1);",
@@ -223,7 +338,6 @@ export async function handle_GET_treevite_waves(req: any, res: any) {
     failJson(res, 500, "polis_err_treevite_list_waves", err);
   }
 }
-``;
 
 // POST /api/v3/treevite/acceptInvite
 // Exchange a valid invite code for participation and issue a login code + JWT
@@ -236,9 +350,9 @@ export async function handle_POST_treevite_acceptInvite(req: any, res: any) {
       return;
     }
 
-    // Validate invite and mark as used atomically
-    const rows = (await pg.queryP(
-      "update treevite_invites set status = 1, invite_used_by_pid = coalesce(invite_used_by_pid, -1), invite_used_at = now(), updated_at = now() where zid = ($1) and invite_code = ($2) and status = 0 returning id, wave_id, parent_invite_id, invite_used_by_pid;",
+    // First, validate the invite code without marking it as used
+    const inviteRows = (await pg.queryP_readOnly(
+      "select id, wave_id, parent_invite_id, invite_used_by_pid from treevite_invites where zid = ($1) and invite_code = ($2) and status = 0;",
       [zid, inviteCode]
     )) as {
       id: number;
@@ -247,57 +361,62 @@ export async function handle_POST_treevite_acceptInvite(req: any, res: any) {
       invite_used_by_pid: number | null;
     }[];
 
-    if (!rows || !rows.length) {
+    if (!inviteRows || !inviteRows.length) {
       failJson(res, 400, "polis_err_treevite_invalid_or_used_invite");
       return;
     }
 
-    // Ensure participant exists and get pid
-    let pid: number | null = null;
-    if (rows[0].invite_used_by_pid && rows[0].invite_used_by_pid >= 0) {
-      pid = rows[0].invite_used_by_pid;
-    }
+    const invite = inviteRows[0];
+    let uid: number;
+    let pid: number;
 
-    if (pid === null) {
-      // We need uid/pid to set as the consumer. Try to get uid/pid from participants table for current req user; if none, create anon user and participant flow
-      // Using existing helpers is involved here; for now, find or create a participant tied to the request's uid (if any)
-      // If req.p.uid is missing, create a new anonymous user via a shortcut: insert into users and participants
-      // However, to minimize scope, we map the used invite to an existing participant if provided in request (pid), else fail gracefully
-      // For this incremental step, we will create a placeholder participant on demand
+    // Check if we already have a participant from existing auth
+    if (req.p.uid && req.p.pid && req.p.pid > 0) {
+      // Use existing authenticated participant
+      uid = req.p.uid;
+      pid = req.p.pid;
+    } else {
+      // Create new anonymous user and participant
+      // This bypasses the normal treevite protection since we have a valid invite
       const uidRows = (await pg.queryP(
         "insert into users (is_owner, site_owner) values (false, false) returning uid;"
       )) as { uid: number }[];
-      const uid = uidRows[0].uid;
+      uid = uidRows[0].uid;
+
       const partRows = (await pg.queryP(
         "insert into participants (uid, zid) values (($1), ($2)) returning pid;",
         [uid, zid]
       )) as { pid: number }[];
       pid = partRows[0].pid;
-
-      // Update the invite's used_by to this pid
-      await pg.queryP(
-        "update treevite_invites set invite_used_by_pid = ($1) where id = ($2);",
-        [pid, rows[0].id]
-      );
     }
 
-    // Issue login code
+    // Now mark the invite as used with the actual pid (atomically)
+    const updateRows = (await pg.queryP(
+      "update treevite_invites set status = 1, invite_used_by_pid = ($1), invite_used_at = now(), updated_at = now() where id = ($2) and status = 0 returning id;",
+      [pid, invite.id]
+    )) as { id: number }[];
+
+    if (!updateRows || !updateRows.length) {
+      // Race condition - invite was used by someone else between our check and update
+      failJson(res, 400, "polis_err_treevite_invite_race_condition");
+      return;
+    }
+
+    // Issue login code for the participant
     const loginCode = generateLoginCode(16);
-    await upsertLoginCode(zid, pid as number, loginCode);
+    await upsertLoginCode(zid, pid, loginCode);
+
+    // Create participant's own invite codes (lazy creation based on wave settings)
+    await createParticipantInviteCodes(zid, invite.wave_id, invite.id, pid);
 
     // Issue participant JWT
     const conversationId = (await getZinvite(zid)) as string;
-    const uidOfPidRows = (await pg.queryP_readOnly(
-      "select uid from participants where zid = ($1) and pid = ($2);",
-      [zid, pid]
-    )) as { uid: number }[];
-    const uid = uidOfPidRows[0].uid;
-    const token = issueAnonymousJWT(conversationId, uid, pid as number);
+    const token = issueAnonymousJWT(conversationId, uid, pid);
 
     res.status(201).json({
       status: "ok",
-      wave_id: rows[0].wave_id,
-      invite_id: rows[0].id,
+      wave_id: invite.wave_id,
+      invite_id: invite.id,
       login_code: loginCode,
       auth: {
         token,
@@ -378,8 +497,15 @@ export async function handle_GET_treevite_myInvites(req: any, res: any) {
     logger.debug(
       `handle_GET_treevite_myInvites: ${JSON.stringify({ zid, pid })}`
     );
-    if (typeof zid !== "number" || typeof pid !== "number") {
-      failJson(res, 400, "polis_err_treevite_invalid_request");
+
+    if (typeof zid !== "number") {
+      failJson(res, 400, "polis_err_treevite_missing_zid");
+      return;
+    }
+
+    // If pid is undefined or -1, user hasn't participated in this conversation yet
+    if (typeof pid !== "number" || pid === -1) {
+      res.status(200).json([]);
       return;
     }
 
@@ -390,6 +516,73 @@ export async function handle_GET_treevite_myInvites(req: any, res: any) {
     res.status(200).json(rows);
   } catch (err) {
     failJson(res, 500, "polis_err_treevite_list_my_invites", err);
+  }
+}
+
+// GET /api/v3/treevite/me
+// Get current participant's treevite context (wave info + owned invites)
+export async function handle_GET_treevite_me(req: any, res: any) {
+  try {
+    const zid = req.p.zid;
+    const pid = req.p.pid;
+
+    if (typeof zid !== "number") {
+      failJson(res, 400, "polis_err_treevite_missing_zid");
+      return;
+    }
+
+    // If pid is undefined or -1, user hasn't participated in this conversation yet
+    if (typeof pid !== "number" || pid === -1) {
+      res.status(200).json({
+        participant: null,
+        wave: null,
+        invites: [],
+      });
+      return;
+    }
+
+    // Find which wave this participant entered through
+    const participantWaveRows = (await pg.queryP_readOnly(
+      "select ti.wave_id, tw.wave, tw.invites_per_user, tw.owner_invites, tw.size, ti.invite_used_at from treevite_invites ti join treevite_waves tw on ti.wave_id = tw.id where ti.zid = ($1) and ti.invite_used_by_pid = ($2) limit 1;",
+      [zid, pid]
+    )) as {
+      wave_id: number;
+      wave: number;
+      invites_per_user: number;
+      owner_invites: number;
+      size: number;
+      invite_used_at: string;
+    }[];
+
+    let waveInfo = null;
+    if (participantWaveRows && participantWaveRows.length > 0) {
+      const waveData = participantWaveRows[0];
+      waveInfo = {
+        wave_id: waveData.wave_id,
+        wave: waveData.wave,
+        invites_per_user: waveData.invites_per_user,
+        owner_invites: waveData.owner_invites,
+        size: waveData.size,
+        joined_at: waveData.invite_used_at,
+      };
+    }
+
+    // Get participant's owned invites
+    const inviteRows = await pg.queryP_readOnly(
+      "select id, invite_code, status, created_at, invite_used_by_pid, invite_used_at from treevite_invites where zid = ($1) and invite_owner_pid = ($2) order by created_at asc;",
+      [zid, pid]
+    );
+
+    res.status(200).json({
+      participant: {
+        pid,
+        zid,
+      },
+      wave: waveInfo,
+      invites: inviteRows || [],
+    });
+  } catch (err) {
+    failJson(res, 500, "polis_err_treevite_me", err);
   }
 }
 
