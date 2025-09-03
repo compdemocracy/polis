@@ -116,8 +116,8 @@ const ReportsList = () => {
                 <option selected value={-2}>
                   Include all comments
                 </option>
-                <option value={-1}>Include all comments except for moderation failures</option>
-                <option value={0}>Include only moderator approved comments</option>
+                <option value={-1}>Include all comments except for moderation rejections</option>
+                <option value={0}>Include only moderator accepted comments</option>
               </select>
             </Box>
           )}
