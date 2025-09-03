@@ -1,8 +1,7 @@
 import _ from "underscore";
 import LruCache from "lru-cache";
 
-import { UserInfo } from "./d";
-import { generateToken } from "./auth";
+import { failJson } from "./utils/fail";
 import { getBidsForPids } from "./routes/math";
 import { getConversationHasMetadata } from "./routes/metadata";
 import { getConversationInfo } from "./conversation";
@@ -14,8 +13,8 @@ import { ifDefinedFirstElseSecond, polisTypes } from "./utils/common";
 import { MPromise } from "./utils/metered";
 import { PcaCacheItem } from "./utils/pca";
 import { sendTextEmail } from "./email/senders";
+import { UserInfo } from "./d";
 import Config from "./config";
-import { failJson } from "./utils/fail";
 import logger from "./utils/logger";
 import pg from "./db/pg-query";
 
@@ -711,39 +710,6 @@ function buildConversationUrl(req: any, zinvite: string | null) {
   return Config.getServerNameWithProtocol(req) + "/" + zinvite;
 }
 
-function generateConversationURLPrefix() {
-  // not 1 or 0 since they look like "l" and "O"
-  return "" + _.random(2, 9);
-}
-
-function generateSUZinvites(numTokens: number) {
-  return new Promise(function (
-    resolve: (arg0: any) => void,
-    reject: (arg0: Error) => void
-  ) {
-    generateToken(
-      31 * numTokens,
-      // For now, pseodorandom bytes are probably ok. Anticipating API call will generate
-      // lots of these at once, possibly draining the entropy pool.
-      // Revisit this if the otzinvites really need to be unguessable.
-      true,
-      function (err: any, longStringOfTokens?: string) {
-        if (err) {
-          reject(new Error("polis_err_creating_otzinvite"));
-          return;
-        }
-        const otzinviteArrayRegexMatch = longStringOfTokens?.match(/.{1,31}/g);
-        // Base64 encoding expands to extra characters, so trim to the number of tokens we want.
-        let otzinviteArray = otzinviteArrayRegexMatch?.slice(0, numTokens);
-        otzinviteArray = otzinviteArray?.map(function (suzinvite: string) {
-          return generateConversationURLPrefix() + suzinvite;
-        });
-        resolve(otzinviteArray);
-      }
-    );
-  });
-}
-
 export {
   addConversationIds,
   addNoMoreCommentsRecord,
@@ -753,7 +719,6 @@ export {
   doFamousQuery,
   finishArray,
   finishOne,
-  generateSUZinvites,
   getOneConversation,
   pullXInfoIntoSubObjects,
   safeTimestampToMillis,

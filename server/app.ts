@@ -160,6 +160,19 @@ import {
   handle_POST_stars,
   handle_POST_trashes,
 } from "./src/routes/commentMod";
+import {
+  handle_GET_einvites,
+  handle_POST_einvites,
+} from "./src/invites/routes";
+import {
+  handle_POST_treevite_waves,
+  handle_GET_treevite_waves,
+  handle_POST_treevite_acceptInvite,
+  handle_POST_treevite_login,
+  handle_GET_treevite_myInvites,
+  handle_GET_treevite_invites,
+  handle_GET_treevite_me,
+} from "./src/invites/treevites";
 
 import {
   attachAuthToken,
@@ -231,7 +244,6 @@ helpersInitialized.then(
       handle_GET_conditionalIndexFetcher,
       handle_GET_contexts,
       handle_GET_dummyButton,
-      handle_GET_einvites,
       handle_GET_locations,
       handle_GET_perfStats,
       handle_GET_snapshot,
@@ -242,7 +254,6 @@ helpersInitialized.then(
 
       handle_POST_contexts,
       handle_POST_contributors,
-      handle_POST_einvites,
       handle_POST_metrics,
       handle_POST_sendCreatedLinkToEmail,
       handle_POST_sendEmailExportReady,
@@ -708,11 +719,11 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
+      want("xid", getStringLimitLength(1, 999), assignToP), // Process XID before ensureParticipant
+      ensureParticipant({ createIfMissing: true, issueJWT: true }),
       need("txt", getStringLimitLength(1, 997), assignToP),
       want("vote", getIntInRange(-1, 1), assignToP),
       want("is_seed", getBool, assignToP),
-      want("xid", getStringLimitLength(1, 999), assignToP),
-      ensureParticipant({ createIfMissing: true, issueJWT: true }),
       attachAuthToken(),
       handle_POST_comments
     );
@@ -1126,13 +1137,13 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
+      want("xid", getStringLimitLength(1, 999), assignToP), // Process XID before ensureParticipant
+      ensureParticipant({ createIfMissing: true, issueJWT: true }),
       need("tid", getInt, assignToP),
       need("vote", getIntInRange(-1, 1), assignToP),
-      want("xid", getStringLimitLength(1, 999), assignToP),
       want("starred", getBool, assignToP),
       want("high_priority", getBool, assignToP, false),
       want("lang", getStringLimitLength(1, 10), assignToP),
-      ensureParticipant({ createIfMissing: true, issueJWT: true }),
       attachAuthToken(),
       handle_POST_votes
     );
@@ -1305,6 +1316,7 @@ helpersInitialized.then(
       want("context", getOptionalStringLimitLength(999), assignToP),
       want("link_url", getStringLimitLength(1, 9999), assignToP),
       want("subscribe_type", getInt, assignToP),
+      want("treevite_enabled", getBool, assignToP, false),
       handle_PUT_conversations
     );
 
@@ -1637,6 +1649,102 @@ helpersInitialized.then(
       want("math_tick", getInt, assignToP, -1),
       want("ptptoiLimit", getIntInRange(0, 99), assignToP),
       handle_GET_votes_famous
+    );
+
+    app.post(
+      "/api/v3/treevite/waves",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("invites_per_user", getInt, assignToP),
+      want("owner_invites", getInt, assignToP),
+      want("parent_wave", getInt, assignToP),
+      handle_POST_treevite_waves
+    );
+
+    app.get(
+      "/api/v3/treevite/waves",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("wave", getInt, assignToP),
+      handle_GET_treevite_waves
+    );
+
+    app.post(
+      "/api/v3/treevite/acceptInvite",
+      moveToBody,
+      hybridAuthOptional(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      need("invite_code", getStringLimitLength(1, 128), assignToP),
+      handle_POST_treevite_acceptInvite
+    );
+
+    app.post(
+      "/api/v3/treevite/login",
+      moveToBody,
+      hybridAuthOptional(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      need("login_code", getStringLimitLength(1, 256), assignToP),
+      handle_POST_treevite_login
+    );
+
+    app.get(
+      "/api/v3/treevite/myInvites",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      ensureParticipantOptional({ createIfMissing: false, issueJWT: false }),
+      handle_GET_treevite_myInvites
+    );
+
+    app.get(
+      "/api/v3/treevite/invites",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("wave_id", getInt, assignToP),
+      want("status", getInt, assignToP),
+      want("limit", getInt, assignToP),
+      want("offset", getInt, assignToP),
+      handle_GET_treevite_invites
+    );
+
+    app.get(
+      "/api/v3/treevite/me",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      ensureParticipantOptional({ createIfMissing: false, issueJWT: false }),
+      handle_GET_treevite_me
     );
 
     app.post(

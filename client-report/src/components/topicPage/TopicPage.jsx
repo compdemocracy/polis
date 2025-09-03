@@ -8,7 +8,7 @@ import CommentList from "../lists/commentList.jsx";
 import * as globals from "../globals";
 import { canGenerateCollectiveStatement, getTopicConsensusValues } from "../../util/consensusThreshold";
 
-const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCount, formatTid, voteColors, onBack }) => {
+const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCount, formatTid, voteColors, onBack, token }) => {
   const [loading, setLoading] = useState(true);
   const [topicData, setTopicData] = useState(null);
   const [topicStats, setTopicStats] = useState(null);
@@ -205,7 +205,7 @@ const TopicPage = ({ conversation, report_id, topic_key, math, comments, ptptCou
         topic_name: topicData?.topic_name || "",
         group_consensus: relevantConsensus,
         qualifying_tids: qualifyingTids  // Send the list of qualifying comment IDs
-      });
+      }, token);
       
       console.log("Collective statement response:", response);
       

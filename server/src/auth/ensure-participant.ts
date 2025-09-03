@@ -25,6 +25,8 @@ import { issueXidJWT } from "./xid-jwt";
 import { RequestWithP } from "../d";
 import { Response, NextFunction } from "express";
 import logger from "../utils/logger";
+import pg from "../db/pg-query";
+import { failJson } from "../utils/fail";
 import {
   createXidRecordByZid,
   getConversationInfo,
@@ -45,8 +47,8 @@ function validateConversationId(conversation_id: string): string {
 }
 
 interface ParticipantCreationResult {
-  uid: number;
-  pid: number;
+  uid: number | undefined;
+  pid: number | undefined;
   isNewlyCreatedUser: boolean;
   isNewlyCreatedParticipant: boolean;
   needsNewJWT: boolean;
@@ -254,21 +256,26 @@ async function _issueJWTIfNeeded(
   pid: number,
   zid: number,
   isNewlyCreated: boolean,
-  needsNewJWT: boolean
+  needsNewJWT: boolean,
+  legacyCookieToken?: string
 ): Promise<{ token?: string; conversationId?: string }> {
   // Only issue JWT for:
   // 1. Newly created participants
   // 2. Participants that need a new JWT (conversation mismatch)
   // 3. Legacy cookie users who need migration
+  // 4. XID participants who don't have a JWT yet (first authenticated action)
   // AND when they don't already have a valid JWT
+  const isXidWithoutJWT =
+    req.p.xid && !req.headers?.authorization && !legacyCookieToken;
   const shouldIssueJWT =
-    (isNewlyCreated || needsNewJWT) &&
+    (isNewlyCreated || needsNewJWT || isXidWithoutJWT) &&
     (!req.headers?.authorization || req.p.jwt_conversation_mismatch);
 
   if (!shouldIssueJWT) {
     logger.debug("JWT not needed", {
       isNewlyCreated,
       needsNewJWT,
+      isXidWithoutJWT,
       hasAuthHeader: !!req.headers?.authorization,
       jwt_conversation_mismatch: req.p.jwt_conversation_mismatch,
     });
@@ -281,6 +288,7 @@ async function _issueJWTIfNeeded(
     zid,
     isNewlyCreated,
     needsNewJWT,
+    isXidWithoutJWT,
     hasAuthHeader: !!req.headers?.authorization,
   });
 
@@ -396,8 +404,9 @@ async function _ensureParticipantInternal(
       const existingXidRecords = await getXidRecord(req.p.xid, zid);
       if (existingXidRecords && existingXidRecords.length > 0) {
         uid = existingXidRecords[0].uid;
-      } else if (createIfMissing) {
-        // Only create new XID user if createIfMissing is true
+      } else {
+        // XID users should always be created on first visit, even in optional middleware
+        // This is different from anonymous users because XIDs are explicit identifiers
         uid = await _handleUserIdentification(req, zid);
         isNewlyCreatedUser = true;
       }
@@ -408,35 +417,72 @@ async function _ensureParticipantInternal(
     }
   }
 
-  if (uid === undefined) {
+  // Only throw error if we're supposed to create missing participants/users
+  // and we don't have an XID (since XID users start with undefined uid)
+  if (uid === undefined && createIfMissing && !req.p.xid) {
     throw new Error("polis_err_user_not_found");
   }
 
+  // Early Treevite check - before creating new participants
+  // Block unauthorized users from Treevite-enabled conversations
+  if ((!pid || pid === -1) && (createIfMissing || req.p.xid)) {
+    // Check if this conversation requires Treevite authorization
+    // Apply to both normal participant creation and XID user creation
+    const convRows = (await pg.queryP_readOnly(
+      "select treevite_enabled from conversations where zid = ($1);",
+      [zid]
+    )) as { treevite_enabled: boolean }[];
+
+    const treeviteEnabled = !!(
+      convRows &&
+      convRows[0] &&
+      convRows[0].treevite_enabled
+    );
+
+    if (treeviteEnabled) {
+      // This person wants to become a participant in a Treevite conversation
+      // but has no existing participation - block them
+      throw new Error("polis_err_treevite_auth_required");
+    }
+  }
+
   // Get or create participant if needed
-  if (createIfMissing) {
+  if ((createIfMissing || req.p.xid) && uid !== undefined) {
+    // Create participants for:
+    // 1. Normal cases when createIfMissing=true
+    // 2. XID users even when createIfMissing=false (they need participants on first visit)
     const participantResult = await _getOrCreateParticipant(zid, uid, pid, req);
     pid = participantResult.pid;
     isNewlyCreatedParticipant = participantResult.isNewlyCreated;
-  } else if (pid === undefined) {
-    // Just look up existing participant
-    pid = await getPidPromise(zid, uid, true);
-    if (pid === -1) {
-      throw new Error("polis_err_participant_not_found");
+  } else if ((pid === undefined || pid === -1) && uid !== undefined) {
+    // Just look up existing participant if we have a uid
+    const existingPid = await getPidPromise(zid, uid, true);
+    if (existingPid !== -1) {
+      pid = existingPid; // Found existing participant
     }
+    // For optional middleware (createIfMissing=false), don't throw if participant not found
+    // Let the handler decide what to do with pid=-1
   }
 
   // Issue JWT if needed
   let token = legacyCookieToken;
   let conversationId: string | undefined;
 
-  if (issueJWT && !legacyCookieToken) {
+  if (
+    issueJWT &&
+    !legacyCookieToken &&
+    uid !== undefined &&
+    pid !== undefined &&
+    pid !== -1
+  ) {
     const jwtResult = await _issueJWTIfNeeded(
       req,
       uid,
       pid,
       zid,
       isNewlyCreatedParticipant || isNewlyCreatedUser,
-      needsNewJWT
+      needsNewJWT,
+      legacyCookieToken
     );
     token = jwtResult.token;
     conversationId = jwtResult.conversationId;
@@ -445,7 +491,7 @@ async function _ensureParticipantInternal(
       req.p.conversation_id || ((await getZinvite(zid)) as string);
   }
 
-  // Update request with final values
+  // Update request with final values (may be undefined for optional middleware)
   req.p.uid = uid;
   req.p.pid = pid;
   req.p.zid = zid;
@@ -500,7 +546,15 @@ export function ensureParticipant(options: EnsureParticipantOptions = {}) {
     } catch (error) {
       logger.error("Error in ensureParticipant middleware", error);
 
-      // Pass specific errors to the error handler
+      // Handle Treevite authentication errors with proper status code
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_treevite_auth_required"
+      ) {
+        return failJson(res, 401, "polis_err_treevite_auth_required");
+      }
+
+      // Pass other specific errors to the error handler
       if (error instanceof Error && error.message?.includes("polis_err")) {
         next(error);
       } else {
@@ -540,41 +594,26 @@ export function ensureParticipantOptional(
 
       next();
     } catch (error) {
+      // Handle Treevite authentication errors even in optional middleware
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_treevite_auth_required"
+      ) {
+        return failJson(res, 401, "polis_err_treevite_auth_required");
+      }
+
       // For optional middleware, we continue even if participant isn't found
       logger.debug("Participant not found (optional)", error);
       req.p = req.p || {};
-      req.p.participantInfo = null;
+      req.p.participantInfo = {
+        uid: undefined,
+        pid: -1, // -1 indicates "not found"
+        isNewlyCreatedUser: false,
+        isNewlyCreatedParticipant: false,
+        needsNewJWT: false,
+      };
+      req.p.pid = req.p.pid !== undefined ? req.p.pid : -1;
       next();
-    }
-  };
-}
-
-/**
- * Middleware that only creates participant if they're taking an action
- * Useful for routes like participationInit that shouldn't create participants
- */
-export function ensureParticipantOnAction(
-  options: EnsureParticipantOptions = {}
-) {
-  return async function ensureParticipantOnActionMiddleware(
-    req: RequestWithP,
-    res: Response,
-    next: NextFunction
-  ) {
-    // Only create participant if this is an action (POST/PUT/DELETE)
-    const shouldCreate = ["POST", "PUT", "DELETE", "PATCH"].includes(
-      req.method
-    );
-
-    const finalOptions = {
-      ...options,
-      createIfMissing: shouldCreate,
-    };
-
-    if (shouldCreate) {
-      return ensureParticipant(finalOptions)(req, res, next);
-    } else {
-      return ensureParticipantOptional(finalOptions)(req, res, next);
     }
   };
 }

@@ -1,5 +1,6 @@
 import _ from "underscore";
 import { DEFAULTS } from "../utils/constants";
+import { createOneSuzinvite } from "../invites/suzinvites";
 import { failJson } from "../utils/fail";
 import { generateAndRegisterZinvite, generateToken } from "../auth";
 import { getUserInfoForUid2 } from "../user";
@@ -23,7 +24,6 @@ import {
   addConversationIds,
   buildConversationUrl,
   finishOne,
-  generateSUZinvites,
   getOneConversation,
   sendEmailByUid,
   updateConversationModifiedTime,
@@ -80,38 +80,6 @@ function generateSingleUseUrl(
     "/" +
     suzinvite
   );
-}
-
-function createOneSuzinvite(
-  xid: string,
-  zid: number,
-  owner: number,
-  generateSingleUseUrl: (arg0: any, arg1: any) => any
-) {
-  return generateSUZinvites(1).then(function (suzinviteArray: any[]) {
-    const suzinvite = suzinviteArray[0];
-    return pg
-      .queryP(
-        "INSERT INTO suzinvites (suzinvite, xid, zid, owner) VALUES ($1, $2, $3, $4);",
-        [suzinvite, xid, zid, owner]
-      )
-      .then(function () {
-        return getZinvite(zid);
-      })
-      .then(function (conversation_id: string) {
-        return {
-          zid: zid,
-          conversation_id: conversation_id,
-        };
-      })
-      .then(function (o: { zid: number; conversation_id: string }) {
-        return {
-          zid: o.zid,
-          conversation_id: o.conversation_id,
-          suurl: generateSingleUseUrl(o.conversation_id, suzinvite),
-        };
-      });
-  });
 }
 
 /**
@@ -882,6 +850,9 @@ function handle_PUT_conversations(
       }
       if (!_.isUndefined(req.p.importance_enabled)) {
         fields.importance_enabled = req.p.importance_enabled;
+      }
+      if (!_.isUndefined((req.p as any).treevite_enabled)) {
+        (fields as any).treevite_enabled = (req.p as any).treevite_enabled;
       }
       ifDefinedSet("auth_opt_allow_3rdparty", req.p, fields);
 

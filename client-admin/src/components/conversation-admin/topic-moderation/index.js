@@ -6,7 +6,7 @@ import NoPermission from '../no-permission'
 import React from 'react'
 import { connect } from 'react-redux'
 import { Heading, Flex, Box } from 'theme-ui'
-import { Switch, Route, Link } from 'react-router-dom'
+import { Routes, Route, Link } from 'react-router-dom'
 
 import TopicTree from './topic-tree'
 import TopicDetail from './topic-detail'
@@ -58,7 +58,7 @@ class TopicModeration extends React.Component {
       return <NoPermission />
     }
 
-    const { match, location } = this.props
+    const { baseUrl, location } = this.props
     const url = location.pathname.split('/')[4]
 
     return (
@@ -99,32 +99,15 @@ class TopicModeration extends React.Component {
           </Link>
         </Flex>
         <Box>
-          <Switch>
+          <Routes>
+            <Route path="/" element={<TopicTree conversation_id={this.props.conversation_id} />} />
+            <Route path="proximity" element={<div>Proximity Visualization Coming Soon</div>} />
             <Route
-              exact
-              path={`${match.url}`}
-              render={(props) => (
-                <TopicTree {...props} conversation_id={this.props.conversation_id} />
-              )}
+              path="stats"
+              element={<TopicStats conversation_id={this.props.conversation_id} />}
             />
-            <Route
-              exact
-              path={`${match.url}/proximity`}
-              render={() => <div>Proximity Visualization Coming Soon</div>}
-            />
-            <Route
-              exact
-              path={`${match.url}/stats`}
-              render={(props) => (
-                <TopicStats {...props} conversation_id={this.props.conversation_id} />
-              )}
-            />
-            <Route
-              exact
-              path={`${match.url}/topic/:topicKey`}
-              render={() => <div>Topic Detail Coming Soon</div>}
-            />
-          </Switch>
+            <Route path="topic/:topicKey" element={<div>Topic Detail Coming Soon</div>} />
+          </Routes>
         </Box>
       </Box>
     )

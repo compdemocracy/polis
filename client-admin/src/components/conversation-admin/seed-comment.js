@@ -116,8 +116,22 @@ const ModerateCommentsSeed = ({ params }) => {
           }}>
           Upload a CSV of seed comments
         </Heading>
+        CSV Format:
+        <pre>
+          <code>
+            comment_text
+            <br />
+            {/* prettier-ignore */}
+            This is sample comment one
+            <br />
+            {/* prettier-ignore */}
+            This is sample comment two
+          </code>
+        </pre>
         <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
-        <Button onClick={handleSubmitSeedBulk} data-testid="upload-csv-button">{getButtonText()}</Button>
+        <Button onClick={handleSubmitSeedBulk} data-testid="upload-csv-button">
+          {getButtonText()}
+        </Button>
       </Box>
     </Box>
   )

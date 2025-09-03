@@ -26,12 +26,7 @@ export {
 } from "./anonymous-jwt";
 
 // Utility functions that are still needed
-export {
-  createXidEntry,
-  deleteSuzinvite,
-  getSUZinviteInfo,
-  xidExists,
-} from "./auth";
+export { createXidEntry, deleteSuzinvite, xidExists } from "./auth";
 
 // Create user utilities
 export {
@@ -41,7 +36,12 @@ export {
 } from "./create-user";
 
 // Generate token utilities
-export { generateToken, generateTokenP } from "./generate-token";
+export {
+  generateToken,
+  generateTokenP,
+  generateRandomCode,
+  generateLoginCode,
+} from "./generate-token";
 
 // Hybrid JWT middleware
 export { hybridAuth, hybridAuthOptional } from "./hybrid-jwt";
@@ -104,5 +104,4 @@ export {
 export {
   ensureParticipant,
   ensureParticipantOptional,
-  ensureParticipantOnAction,
 } from "./ensure-participant";

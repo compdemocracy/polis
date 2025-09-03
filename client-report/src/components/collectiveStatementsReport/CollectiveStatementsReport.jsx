@@ -189,15 +189,15 @@ const CollectiveStatementsReport = ({ conversation, report_id, math, comments, p
       <div
         key={statement.zid_topic_jobid}
         style={{
-          minWidth: (cardWidth || 1400) + "px",
-          maxWidth: (cardWidth || 1400) + "px",
-          marginRight: "40px",
-          opacity: isActive ? 1 : 0.5,
-          transform: isActive ? "scale(1) translateY(0)" : "scale(0.95) translateY(0)",
+          minWidth: window.innerWidth < 779 ? "100%" : (cardWidth || 1400) + "px",
+          maxWidth: window.innerWidth < 779 ? "100%" : (cardWidth || 1400) + "px",
+          marginRight: window.innerWidth < 779 ? 0 : "40px",
+          opacity: window.innerWidth > 779 && (isActive ? 1 : 0.5),
+          transform: window.innerWidth > 779 && (isActive ? "scale(1) translateY(0)" : "scale(0.95) translateY(0)"),
           transition: "all 0.3s ease",
           backgroundColor: "white",
           borderRadius: "12px",
-          boxShadow: isActive ? "0 10px 40px rgba(0, 0, 0, 0.15)" : "0 5px 20px rgba(0, 0, 0, 0.1)",
+          boxShadow: window.innerWidth > 779 && (isActive ? "0 10px 40px rgba(0, 0, 0, 0.15)" : "0 5px 20px rgba(0, 0, 0, 0.1)"),
           overflow: "hidden",
           display: "flex",
           flexDirection: "column",
@@ -396,104 +396,124 @@ const CollectiveStatementsReport = ({ conversation, report_id, math, comments, p
         padding: "40px 0",
         overflow: "visible"
       }}>
-        {/* Statement Counter and Dots - moved to top */}
-        <div style={{
-          textAlign: "center",
-          marginBottom: "20px"
-        }}>
+        {window.innerWidth < 779 && (
           <div style={{
-            color: "#666",
-            fontSize: "0.9em",
-            marginBottom: "10px"
+            textAlign: "center",
+            marginBottom: "20px"
           }}>
-            {currentIndex + 1} of {statements.length} statements
+            <div style={{
+              color: "#666",
+              fontSize: "0.9em",
+              marginBottom: "10px"
+            }}>
+              {statements.length} statements
+            </div>
           </div>
-          
-          {/* Dots Indicator */}
+        )}
+        {window.innerWidth > 779 && (
           <div style={{
-            display: "flex",
-            justifyContent: "center",
-            gap: "8px"
+            textAlign: "center",
+            marginBottom: "20px"
           }}>
-            {statements.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => scrollToIndex(index)}
-                style={{
-                  width: index === currentIndex ? "24px" : "8px",
-                  height: "8px",
-                  borderRadius: "4px",
-                  border: "none",
-                  backgroundColor: index === currentIndex ? "#007bff" : "#ccc",
-                  cursor: "pointer",
-                  transition: "all 0.3s ease",
-                  padding: 0
-                }}
-              />
-            ))}
+            <div style={{
+              color: "#666",
+              fontSize: "0.9em",
+              marginBottom: "10px"
+            }}>
+              {currentIndex + 1} of {statements.length} statements
+            </div>
+            
+            {/* Dots Indicator */}
+              <div style={{
+                display: "flex",
+                justifyContent: "center",
+                gap: "8px"
+              }}>
+                {statements.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => scrollToIndex(index)}
+                    style={{
+                      width: index === currentIndex ? "24px" : "8px",
+                      height: "8px",
+                      borderRadius: "4px",
+                      border: "none",
+                      backgroundColor: index === currentIndex ? "#007bff" : "#ccc",
+                      cursor: "pointer",
+                      transition: "all 0.3s ease",
+                      padding: 0
+                    }}
+                  />
+                ))}
+              </div>
           </div>
-        </div>
+        )}
         {/* Navigation Buttons */}
-        <button
-          onClick={handlePrevious}
-          style={{
-            position: "absolute",
-            left: "20px",
-            top: "200px", // Fixed position near top of cards
-            zIndex: 10,
-            width: "50px",
-            height: "50px",
-            borderRadius: "50%",
-            border: "none",
-            backgroundColor: "white",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "20px",
-            color: "#333",
-            transition: "all 0.2s ease"
-          }}
-          onMouseEnter={(e) => e.target.style.transform = "scale(1.1)"}
-          onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
-        >
-          ←
-        </button>
+        {window.innerWidth > 779 && (
+          <>
+            <button
+              onClick={handlePrevious}
+              style={{
+                position: "absolute",
+                left: "20px",
+                top: "200px", // Fixed position near top of cards
+                zIndex: 10,
+                width: "50px",
+                height: "50px",
+                borderRadius: "50%",
+                border: "none",
+                backgroundColor: "white",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "20px",
+                color: "#333",
+                transition: "all 0.2s ease"
+              }}
+              onMouseEnter={(e) => e.target.style.transform = "scale(1.1)"}
+              onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+            >
+              ←
+            </button>
 
-        <button
-          onClick={handleNext}
-          style={{
-            position: "absolute",
-            right: "20px",
-            top: "200px", // Fixed position near top of cards
-            zIndex: 10,
-            width: "50px",
-            height: "50px",
-            borderRadius: "50%",
-            border: "none",
-            backgroundColor: "white",
-            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: "20px",
-            color: "#333",
-            transition: "all 0.2s ease"
-          }}
-          onMouseEnter={(e) => e.target.style.transform = "scale(1.1)"}
-          onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
-        >
-          →
-        </button>
+            <button
+              onClick={handleNext}
+              style={{
+                position: "absolute",
+                right: "20px",
+                top: "200px", // Fixed position near top of cards
+                zIndex: 10,
+                width: "50px",
+                height: "50px",
+                borderRadius: "50%",
+                border: "none",
+                backgroundColor: "white",
+                boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "20px",
+                color: "#333",
+                transition: "all 0.2s ease"
+              }}
+              onMouseEnter={(e) => e.target.style.transform = "scale(1.1)"}
+              onMouseLeave={(e) => e.target.style.transform = "scale(1)"}
+            >
+              →
+            </button>
+          </>
+        )}
+
 
         {/* Carousel Container */}
         <div 
           ref={containerRef}
           style={{
             overflow: "hidden",
-            margin: "0 80px",
+            margin: window.innerWidth < 779 ? "0 auto" : "0 80px",
             position: "relative"
           }}
           onTouchStart={onTouchStart}
@@ -503,9 +523,9 @@ const CollectiveStatementsReport = ({ conversation, report_id, math, comments, p
           <div
             ref={carouselRef}
             style={{
-              display: "flex",
-              transition: "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
-              transform: `translateX(-${currentIndex * (cardWidth + 40)}px)`
+              display: window.innerWidth > 779 ? "flex" : "block",
+              transition: window.innerWidth > 779 ? "transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)" : "none",
+              transform: window.innerWidth > 779 ? `translateX(-${currentIndex * (cardWidth + 40)}px)` : "none",
             }}
           >
             {statements.map((statement, index) => renderStatement(statement, index))}

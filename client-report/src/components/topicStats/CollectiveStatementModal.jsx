@@ -15,6 +15,7 @@ const CollectiveStatementModal = ({
   ptptCount,
   formatTid,
   voteColors,
+  token
 }) => {
   const [loading, setLoading] = useState(false);
   const [statementData, setStatementData] = useState(null);
@@ -124,7 +125,7 @@ const CollectiveStatementModal = ({
         topic_name: topicName,
         group_consensus: relevantConsensus,
         qualifying_tids: qualifyingTids  // Send the list of qualifying comment IDs
-      });
+      }, token);
 
       if (response.status === "success") {
         console.log("Collective statement response:", response);

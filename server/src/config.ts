@@ -96,7 +96,6 @@ export default {
   databaseURL: process.env.DATABASE_URL as string,
   dynamoDbEndpoint: process.env.DYNAMODB_ENDPOINT || null,
   emailTransportTypes: process.env.EMAIL_TRANSPORT_TYPES || null,
-  encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
   geminiApiKey: process.env.GEMINI_API_KEY || null,
   googleApiKey: process.env.GOOGLE_API_KEY || null,
   googleJigsawPerspectiveApiKey:
@@ -104,6 +103,10 @@ export default {
   jwksUri: process.env.JWKS_URI || null,
   logLevel: process.env.SERVER_LOG_LEVEL as string,
   logToFile: isTrue(process.env.SERVER_LOG_TO_FILE),
+  loginCodePepper:
+    process.env.LOGIN_CODE_PEPPER ||
+    process.env.ENCRYPTION_PASSWORD_00001 ||
+    "polis_treevite_pepper",
   mailgunApiKey: process.env.MAILGUN_API_KEY || null,
   mailgunDomain: process.env.MAILGUN_DOMAIN || null,
   maxReportCacheDuration: parseInt(
@@ -135,8 +138,6 @@ export default {
   ),
   staticFilesHost: process.env.STATIC_FILES_HOST as string,
   useNetworkHost: isTrue(process.env.USE_NETWORK_HOST),
-  webserverPass: process.env.WEBSERVER_PASS as string,
-  webserverUsername: process.env.WEBSERVER_USERNAME as string,
   DYNAMODB_ENDPOINT: process.env.DYNAMODB_ENDPOINT,
   AWS_REGION: process.env.AWS_REGION,
   AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
@@ -163,6 +164,11 @@ export default {
     process.env.DOMAIN_WHITELIST_ITEM_07 || null,
     process.env.DOMAIN_WHITELIST_ITEM_08 || null,
   ].filter((item) => item !== null) as string[],
+
+  // Deprecated
+  encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
+  webserverPass: process.env.WEBSERVER_PASS as string,
+  webserverUsername: process.env.WEBSERVER_USERNAME as string,
 };
 
 // Use this function when a value should default to true if not set.

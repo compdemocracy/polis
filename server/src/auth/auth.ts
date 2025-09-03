@@ -5,25 +5,6 @@ import _ from "underscore";
 
 // ===== UTILITY FUNCTIONS =====
 
-function getSUZinviteInfo(suzinvite: any) {
-  return new Promise(function (
-    resolve: (arg0: any) => void,
-    reject: (arg0: Error) => any
-  ) {
-    pg.query(
-      "SELECT * FROM suzinvites WHERE suzinvite = ($1);",
-      [suzinvite],
-      function (err: any, rows: any[]) {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(rows && rows[0]);
-        }
-      }
-    );
-  });
-}
-
 const deleteSuzinvite = async (suzinvite: string): Promise<void> => {
   try {
     await pg.query("DELETE FROM suzinvites WHERE suzinvite = ($1);", [
@@ -62,4 +43,4 @@ const createXidEntry = async (
   }
 };
 
-export { createXidEntry, deleteSuzinvite, getSUZinviteInfo, xidExists };
+export { createXidEntry, deleteSuzinvite, xidExists };

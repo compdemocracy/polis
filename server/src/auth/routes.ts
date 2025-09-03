@@ -1,17 +1,13 @@
 import { createAnonUser } from "./create-user";
+import { createXidEntry, deleteSuzinvite, xidExists } from "./auth";
 import { failJson } from "../utils/fail";
 import { getConversationInfo, isXidWhitelisted } from "../conversation";
+import { getSUZinviteInfo } from "../invites/suzinvites";
 import { getUserInfoForUid2 } from "../user";
 import { issueAnonymousJWT } from "./anonymous-jwt";
 import { joinConversation } from "../participant";
 import { userHasAnsweredZeQuestions } from "../server-helpers";
 import type { ParticipantInfo } from "../d";
-import {
-  createXidEntry,
-  deleteSuzinvite,
-  getSUZinviteInfo,
-  xidExists,
-} from "./auth";
 
 interface DeregisterRequest {
   p?: { showPage?: any };

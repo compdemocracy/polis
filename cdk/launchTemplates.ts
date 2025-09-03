@@ -172,6 +172,13 @@ ollamaUsrData.addCommands(
     securityGroup: mathWorkerSecurityGroup,
     keyPair: mathWorkerKeyPair,
     role: instanceRole,
+    blockDevices: [{
+      deviceName: '/dev/xvda',
+      volume: ec2.BlockDeviceVolume.ebs(20, {
+        volumeType: ec2.EbsDeviceVolumeType.GP3,
+        deleteOnTermination: true,
+      }),
+    }],
   });
   // Delphi Small Launch Template
   const delphiSmallLaunchTemplate = new ec2.LaunchTemplate(self, 'DelphiSmallLaunchTemplate', {

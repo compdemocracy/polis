@@ -179,7 +179,31 @@ s.topic_bad_01_reason =
   "people from various teams will be voting on the responses, but may not have enough knowledge to vote confidently.";
 s.topic_bad_02 = "what are our launch blockers?";
 s.topic_bad_02_reason = "";
+s.invite_code_required_short = "Invite Code Required";
+s.invite_code_required_long = "An invite code is required to participate in this conversation";
+s.invite_code_prompt = "Enter Invite Code";
+s.submit_invite_code = "Submit Invite Code";
+s.invite_code_invalid = "The provided invite code was invalid. Please try again."
+
+// Treevite login code strings
+s.invite_code_accepted_message = "Invite accepted. Your login code is: {{login_code}}. Treat this code like a password — save it in a secure place. You must use it to log in again later. It cannot be re-issued if lost.";
+s.invite_code_accepted_message_no_code = "Invite accepted.";
+s.login_code_prompt = "Enter Login Code";
+s.submit_login_code = "Submit Login Code";
+s.login_code_invalid = "The provided login code was invalid. Please try again.";
+s.login_success = "Success! You are now logged in.";
+s.submitting = "Submitting...";
+s.or_text = "or";
+s.copy = "Copy";
+s.copied = "Copied";
+s.ok_got_it = "OK, got it";
+s.invites_link = "Invites";
+s.invites_wave_sentence = "You are in wave {{wave}}. Joined {{date}}";
+s.invites_instructions = "Copy and share these invite codes to invite new participants:";
+s.invites_none = "You don't have any invites yet.";
+s.invite_status_unused = "unused";
+s.invite_status_used = "used";
+s.invite_status_revoked = "revoked";
+s.invite_status_expired = "expired";
 
 export default s;
-
-

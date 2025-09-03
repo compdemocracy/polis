@@ -207,12 +207,12 @@
     flex-direction: column;
     gap: 4px;
   }
-  
+
   .legend {
     flex-wrap: wrap;
     gap: 8px;
   }
-  
+
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
   }
@@ -222,7 +222,7 @@
   .stats-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .layer-selector {
     flex-wrap: wrap;
   }

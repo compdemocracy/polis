@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Statement } from './Statement';
+import InviteCodeSubmissionForm from './InviteCodeSubmissionForm';
 import EmailSubscribeForm from './EmailSubscribeForm';
 import { getPreferredLanguages } from '../strings/strings';
 import { getConversationToken } from '../lib/auth';
@@ -28,11 +29,12 @@ const submitVoteAndGetNextCommentAPI = async (vote, conversation_id, high_priori
 };
 
 
-export default function Survey({ initialStatement, s, conversation_id }) {
+export default function Survey({ initialStatement, s, conversation_id, requiresInviteCode = false }) {
   const [statement, setStatement] = useState(initialStatement);
   const [isFetchingNext, setIsFetchingNext] = useState(false);
   const [isStatementImportant, setIsStatmentImportant] = useState(false);
   const [voteError, setVoteError] = useState(null);
+  const [inviteGate, setInviteGate] = useState(requiresInviteCode);
 
   // On hydration, fetch a participant-personalized next comment.
   // This replaces the SSR-provided generic comment if needed.
@@ -64,13 +66,42 @@ export default function Survey({ initialStatement, s, conversation_id }) {
         console.warn('Personalized first comment fetch failed', e);
       }
     };
+    // Initial fetch (SSR may have random, we try to personalize even before auth if possible)
     loadPersonalizedFirst();
+
+    // Also re-fetch after login/invite acceptance to personalize post-auth
+    const onInviteAccepted = () => { loadPersonalizedFirst(); };
+    const onLoginSuccess = () => { loadPersonalizedFirst(); };
+    window.addEventListener('invite-code-submitted', onInviteAccepted);
+    window.addEventListener('login-code-submitted', onLoginSuccess);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('invite-code-submitted', onInviteAccepted);
+      window.removeEventListener('login-code-submitted', onLoginSuccess);
     };
   // Run once on mount for this conversation
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversation_id]);
+
+  // On mount, determine whether to show the invite/login gate based on JWT presence
+  useEffect(() => {
+    const token = getConversationToken(conversation_id);
+    if (token && token.token) {
+      setInviteGate(false);
+    } else {
+      setInviteGate(requiresInviteCode);
+    }
+
+    const onInviteAccepted = () => setInviteGate(false);
+    const onLoginSuccess = () => setInviteGate(false);
+    window.addEventListener('invite-code-submitted', onInviteAccepted);
+    window.addEventListener('login-code-submitted', onLoginSuccess);
+    return () => {
+      window.removeEventListener('invite-code-submitted', onInviteAccepted);
+      window.removeEventListener('login-code-submitted', onLoginSuccess);
+    };
+  }, [conversation_id, requiresInviteCode]);
 
   const handleVote = async (voteType, tid) => {
     setIsFetchingNext(true);
@@ -108,6 +139,12 @@ export default function Survey({ initialStatement, s, conversation_id }) {
       setIsFetchingNext(false);
     }
   };
+
+  if (inviteGate) {
+    return (
+      <InviteCodeSubmissionForm s={s} conversation_id={conversation_id} />
+    );
+  }
 
 
   return (

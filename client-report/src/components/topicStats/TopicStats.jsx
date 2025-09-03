@@ -11,7 +11,7 @@ import TopicOverviewScatterplot from "./visualizations/TopicOverviewScatterplot.
 import TopicTables from "./visualizations/TopicTables.jsx";
 import TopicPage from "../topicPage/TopicPage.jsx";
 
-const TopicStats = ({ conversation, report_id: propsReportId, math, comments, ptptCount, formatTid, voteColors }) => {
+const TopicStats = ({ conversation, report_id: propsReportId, math, comments, ptptCount, formatTid, voteColors, token }) => {
   const { report_id } = useReportId(propsReportId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -227,6 +227,7 @@ const TopicStats = ({ conversation, report_id: propsReportId, math, comments, pt
         ptptCount={ptptCount}
         formatTid={formatTid}
         voteColors={voteColors}
+        token={token}
       />
       
       <AllCommentsModal

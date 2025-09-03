@@ -5,8 +5,9 @@ import LayerHeader from "./components/LayerHeader";
 import ScrollableTopicsGrid from "./components/ScrollableTopicsGrid";
 import TopicAgendaStyles from "./components/TopicAgendaStyles";
 import PolisNet from "../../lib/net";
+import { getConversationToken } from "../../lib/auth";
 
-const TopicAgenda = ({ conversation_id }) => {
+const TopicAgenda = ({ conversation_id, requiresInviteCode = false }) => {
   const [loadWidget, setLoadWidget] = useState(false);
   const [selections, setSelections] = useState(new Set());
   const [commentMap, setCommentMap] = useState(new Map());
@@ -15,6 +16,7 @@ const TopicAgenda = ({ conversation_id }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [err, setError] = useState(null);
   const [conversation, setConversation] = useState(null);
+  const [inviteCodeRequired, setInviteCodeRequired] = useState(requiresInviteCode);
 
   const {
     loading,
@@ -24,6 +26,21 @@ const TopicAgenda = ({ conversation_id }) => {
     clusterGroups,
     fetchUMAPData
   } = useTopicData(reportData?.report_id, loadWidget);
+
+  useEffect(() => {
+    const token = getConversationToken(conversation_id);
+    if (token && token.token) {
+      setInviteCodeRequired(false);
+    }
+    const cb1 = () => setInviteCodeRequired(false);
+    const cb2 = () => setInviteCodeRequired(false);
+    window.addEventListener('invite-code-submitted', cb1);
+    window.addEventListener('login-code-submitted', cb2);
+    return () => {
+      window.removeEventListener('invite-code-submitted', cb1);
+      window.removeEventListener('login-code-submitted', cb2);
+    };
+  }, [conversation_id]);
 
   useEffect(() => {
     const f = async () => {
@@ -227,9 +244,7 @@ const TopicAgenda = ({ conversation_id }) => {
     }
   };
 
-  console.log(`isLoading: ${isLoading}, err: ${err}, loadWidget: ${loadWidget}`)
-
-  if (isLoading || err) {
+  if (isLoading || err || inviteCodeRequired) {
     return null;
   }
 
@@ -241,7 +256,6 @@ const TopicAgenda = ({ conversation_id }) => {
     return (
       <div 
         style={{ 
-          width: '800px', 
           height: '195px', 
           border: '1px solid #e0e0e0', 
           borderRadius: '8px',

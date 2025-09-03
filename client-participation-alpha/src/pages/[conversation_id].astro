@@ -4,6 +4,8 @@ import Header from '../components/Header.astro';
 import Survey from '../components/Survey.jsx';
 import SurveyForm from '../components/SurveyForm.jsx'; 
 import TopicAgenda from '../components/topicAgenda/TopicAgenda.jsx';
+import TreeviteLoginCodeModal from '../components/TreeviteLoginCodeModal.jsx';
+import TreeviteInvites from '../components/TreeviteInvites.jsx';
 import { getTranslations } from '../strings/strings.js';
 import PolisNet from '../lib/net';
 
@@ -74,6 +76,7 @@ if (initialData) {
   surveyDetails = {
     title: initialData.conversation.topic,
     description: initialData.conversation.description,
+    requiresInviteCode: initialData.conversation.treevite_enabled,
   };
   
   firstStatement = {
@@ -116,18 +119,22 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
 
         {isConversationActive ? (
           <>
+            {surveyDetails?.requiresInviteCode && (<TreeviteLoginCodeModal client:only="react" s={s} />)}
             <TopicAgenda 
               client:only="react"
               conversation_id={conversation_id}
+              requiresInviteCode={surveyDetails?.requiresInviteCode}
             />
             <p class="conversation-intro" set:html={s.participantHelpWelcomeText}></p>
             <Survey 
               client:load 
               initialStatement={firstStatement}
               conversation_id={initialData.conversation.conversation_id}
-              s={s} 
+              s={s}
+              requiresInviteCode={surveyDetails?.requiresInviteCode}
             />
-            <SurveyForm client:load s={s} conversation_id={conversation_id} />
+            <SurveyForm client:load s={s} conversation_id={conversation_id} requiresInviteCode={surveyDetails?.requiresInviteCode} />
+            {surveyDetails?.requiresInviteCode && (<TreeviteInvites client:only="react" conversation_id={conversation_id} s={s} />)}
           </>
         ) : (
           <div class="footer-spacer"></div>

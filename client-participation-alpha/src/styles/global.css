@@ -8,6 +8,11 @@ body {
   align-items: center;
   min-height: 100vh;
 }
+
+* {
+  box-sizing: border-box;
+}
+
 .container {
   max-width: 800px;
   margin: 2rem;
@@ -16,6 +21,14 @@ body {
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.1);
 }
+
+@media (max-width: 650px) {
+  .container {
+    padding: 1rem;
+    margin: 0;
+  }
+}
+
 .logo {
   width: 44px;
   height: 50px;
@@ -84,6 +97,23 @@ h1 {
   display: flex;
   justify-content: space-between;
 }
+
+@media (max-width: 650px) {
+  .vote-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .vote-button {
+    width: 100%;
+    margin-bottom: 0.5rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+}
+
 .vote-button {
   padding: 0.75rem 1rem;
   border: 1px solid #ddd;
@@ -125,6 +155,18 @@ h1 {
   align-items: stretch;
   justify-content: space-between;
 }
+
+@media (max-width: 650px) {
+  .submit-form {
+    flex-direction: column;
+
+    button {
+      margin-left: 0;
+      margin-top: 1rem;
+    }
+  }
+}
+
 .textarea-wrapper {
   position: relative;
   display: flex;
