@@ -63,7 +63,7 @@ function handle_POST_reports(
 ) {
   const zid = req.p.zid;
   const uid = req.p.uid;
-  const mod_level = req.p.mod_level || -2;
+  const mod_level = Number(req.p.mod_level ?? -2);
 
   return isModerator(zid, uid)
     .then((isMod: any) => {
@@ -71,7 +71,7 @@ function handle_POST_reports(
         return failJson(res, 403, "polis_err_post_reports_permissions");
       }
       return createReport(zid, mod_level).then(() => {
-        res.json({});
+        res.json({ mod_level });
       });
     })
     .catch((err: any) => {
