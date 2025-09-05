@@ -107,5 +107,6 @@
       fi && \
       \
       echo 'Starting job poller...' && \
-      python scripts/job_poller.py --interval=2\
+      python scripts/job_poller.py --interval=2 && \
+      DD_APM_INSTRUMENTATION_LIBRARIES=java:1,python:3,js:5,php:1,dotnet:3,ruby:2 DD_APM_INSTRUMENTATION_ENABLED=docker DD_NO_AGENT_INSTALL=true curl -L https://install.datadoghq.com/scripts/install_script_agent7.sh \
   "]
