@@ -293,6 +293,8 @@ services:
       - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
       - DD_APM_ENABLED=true
       - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_PROCESS_CONFIG_PROCESS_COLLECTION_ENABLED=true
+      - DD_LOGS_ENABLED=true
     volumes:
       # These volumes are essential for the agent to monitor the host and other containers
       - /var/run/docker.sock:/var/run/docker.sock:ro
