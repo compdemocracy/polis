@@ -95,7 +95,7 @@ GOOD: "We strongly believe cities should include nature in their designs[81]"
 BAD: "97% of participants believe cities should include nature[81]"
 BAD: "We believe cities should include nature, with 97% agreeing[81]"
 
-Base your analysis on the voting data, but express the results as collective statements without the statistics.
+Base your analysis on the voting data, but express the results as collective statements without the statistics. Ensure results match the statistics however, as they should align with voters_who_agreed_with_comment_text, voters_who_disagreed_with_comment_text, and voters_who_clicked_pass_instead_of_agree_or_disagree values. This alignment is the most critically important result. Double check your work.
 </task>
 
 <topic>
