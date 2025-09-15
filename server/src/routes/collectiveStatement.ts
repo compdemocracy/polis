@@ -59,13 +59,14 @@ async function generateCollectiveStatement(
 
   // Format comments data for the XML prompt
   const formattedComments = commentsData.map((comment: any) => ({
-    id: comment.comment_id,
-    text: comment.comment_text,
-    agrees: comment.agrees || 0,
-    disagrees: comment.disagrees || 0,
-    passes: comment.passes || 0,
-    total_votes: comment.total_votes || 0,
-    group_consensus: comment.group_consensus || null,
+    comment_id: comment.comment_id,
+    comment_text: comment.comment_text,
+    voters_who_agreed_with_comment_text: comment.agrees || 0,
+    voters_who_disagreed_with_comment_text: comment.disagrees || 0,
+    voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text:
+      comment.passes || 0,
+    total_voters_on_comment_text: comment.total_votes || 0,
+    group_consensus_on_comment_text: comment.group_consensus || null,
   }));
 
   // Build the XML prompt
