@@ -623,8 +623,8 @@ async function getCommentsForTopic(
         c.tid as comment_id,
         c.txt as comment_text,
         COALESCE(COUNT(DISTINCT v.pid), 0) as total_votes,
-        COALESCE(SUM(CASE WHEN v.vote = 1 THEN 1 ELSE 0 END), 0) as agrees,
-        COALESCE(SUM(CASE WHEN v.vote = -1 THEN 1 ELSE 0 END), 0) as disagrees,
+        COALESCE(SUM(CASE WHEN v.vote = 1 THEN 1 ELSE 0 END), 0) as disagrees,
+        COALESCE(SUM(CASE WHEN v.vote = -1 THEN 1 ELSE 0 END), 0) as agrees,
         COALESCE(SUM(CASE WHEN v.vote = 0 THEN 1 ELSE 0 END), 0) as passes
       FROM comments c
       LEFT JOIN votes_latest_unique v ON c.tid = v.tid AND c.zid = v.zid
