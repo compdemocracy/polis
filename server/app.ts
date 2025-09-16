@@ -25,6 +25,7 @@ import {
   middleware_log_middleware_errors,
   middleware_log_request_body,
   middleware_responseTime_start,
+  middleware_http_json_logger,
   globalErrorHandler,
   setupGlobalProcessHandlers,
 } from "./src/server-middleware";
@@ -219,9 +220,14 @@ const staticFilesAdminPort = Config.staticFilesAdminPort;
 const staticFilesParticipationPort = Config.staticFilesParticipationPort;
 const HMAC_SIGNATURE_PARAM_NAME = "signature";
 
-// 'dev' format is
-// :method :url :status :response-time ms - :res[content-length]
-app.use(morgan("dev"));
+// Dev-only http logger; Datadog JSON logger is enabled in prod via middleware
+if (Config.isDevMode) {
+  // 'dev' format is
+  // :method :url :status :response-time ms - :res[content-length]
+  app.use(morgan("dev"));
+} else {
+  app.use(middleware_http_json_logger);
+}
 
 // Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
 // See: https://github.com/pol-is/polis/issues/546
