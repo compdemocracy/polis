@@ -219,7 +219,7 @@ function globalErrorHandler(
     error: "internal_server_error",
     message: "An unexpected error occurred. Please try again.",
     // Include error details in development mode only
-    ...(Config.isDevMode && {
+    ...(devMode && {
       details: err.message,
       stack: err.stack,
     }),

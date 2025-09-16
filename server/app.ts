@@ -293,13 +293,7 @@ helpersInitialized.then(
     app.use(express.cookieParser()); // Add cookie parser to access req.cookies
     app.use(writeDefaultHead);
 
-    if (Config.isDevMode) {
-      app.use(express.compress());
-    } else {
-      // Cloudflare would apply gzip if we didn't
-      // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
-      app.use(express.compress());
-    }
+    app.use(express.compress());
     app.use(middleware_log_request_body);
     app.use(middleware_log_middleware_errors);
 
