@@ -110,12 +110,12 @@ const TopicAgenda = ({ conversation_id, requiresInviteCode = false }) => {
     }
   }, [topicData, conversation, fetchUMAPData, loadWidget]);
 
-  // Load previous selections when component mounts
+  // Load previous selections when widget loads
   useEffect(() => {
-    if (conversation && conversation.conversation_id) {
+    if (loadWidget && conversation_id) {
       loadPreviousSelections();
     }
-  }, [conversation, loadWidget]);
+  }, [conversation_id, loadWidget]);
 
   useEffect(() => {
     const checkForData = async () => {
@@ -164,7 +164,7 @@ const TopicAgenda = ({ conversation_id, requiresInviteCode = false }) => {
     try {
       const result = await PolisNet.polisGet(
         '/topicAgenda/selections',
-        { conversation_id: conversation.conversation_id }
+        { conversation_id }
       );
       if (result.status === 'success' && result.data) {
         const storedSelections = new Set();
@@ -225,7 +225,7 @@ const TopicAgenda = ({ conversation_id, requiresInviteCode = false }) => {
       const result = await PolisNet.polisPost(
         '/topicAgenda/selections',
         {
-          conversation_id: conversation.conversation_id,
+          conversation_id,
           selections: apiSelections,
         }
       );
