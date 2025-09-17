@@ -896,8 +896,7 @@ export async function handle_GET_reportNarrative(
       // Provide helpful error message based on error type
       if (error.isTableNotFound) {
         failJson(res, 503, "polis_err_report_storage_not_ready", {
-          hint:
-            "The report storage system is not fully initialized. Please try again later or contact support if this persists.",
+          hint: "The report storage system is not fully initialized. Please try again later or contact support if this persists.",
         });
       } else if (error.isCredentialsError) {
         failJson(res, 503, "polis_err_report_storage_config", {

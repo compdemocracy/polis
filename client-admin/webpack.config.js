@@ -93,11 +93,11 @@ export default (env, argv) => {
         inject: 'body'
       }),
       new webpack.DefinePlugin({
+        'process.env.ADMIN_UIDS': JSON.stringify(process.env.ADMIN_UIDS),
+        'process.env.AUTH_AUDIENCE': JSON.stringify(process.env.AUTH_AUDIENCE),
         'process.env.AUTH_CLIENT_ID': JSON.stringify(process.env.AUTH_CLIENT_ID),
         'process.env.AUTH_ISSUER': JSON.stringify(process.env.AUTH_ISSUER),
-        'process.env.AUTH_AUDIENCE': JSON.stringify(process.env.AUTH_AUDIENCE),
-        'process.env.AUTH_NAMESPACE': JSON.stringify(process.env.AUTH_NAMESPACE),
-        'process.env.ADMIN_UIDS': JSON.stringify(process.env.ADMIN_UIDS)
+        'process.env.AUTH_NAMESPACE': JSON.stringify(process.env.AUTH_NAMESPACE)
       }),
 
       isProduction &&

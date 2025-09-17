@@ -35,7 +35,6 @@ interface TopicMetrics {
   comment_tids: number[]; // List of comment IDs for client-side calculations
 }
 
-
 /**
  * Return basic topic info - all calculations done client-side
  */
@@ -99,24 +98,24 @@ export async function handle_GET_topicStats(req: Request, res: Response) {
     const clusterToTopic: Record<string, any> = {};
     topicsData.Items.forEach((topic) => {
       const topicKey = topic.topic_key;
-      
+
       // Handle both formats:
       // Old format: 'layer0_5' -> layer=0, cluster=5
       // New format: 'uuid#0#5' -> layer=0, cluster=5
-      
-      if (topicKey.includes('#')) {
+
+      if (topicKey.includes("#")) {
         // New format with job UUID
-        const parts = topicKey.split('#');
+        const parts = topicKey.split("#");
         if (parts.length >= 3) {
           const layer = parseInt(parts[1]);
           const cluster = parseInt(parts[2]);
           clusterToTopic[`${layer}_${cluster}`] = topic;
         }
-      } else if (topicKey.includes('_')) {
+      } else if (topicKey.includes("_")) {
         // Old format
-        const parts = topicKey.split('_');
-        if (parts.length >= 2 && parts[0].startsWith('layer')) {
-          const layer = parseInt(parts[0].replace('layer', ''));
+        const parts = topicKey.split("_");
+        if (parts.length >= 2 && parts[0].startsWith("layer")) {
+          const layer = parseInt(parts[0].replace("layer", ""));
           const cluster = parseInt(parts[1]);
           clusterToTopic[`${layer}_${cluster}`] = topic;
         }
@@ -158,7 +157,7 @@ export async function handle_GET_topicStats(req: Request, res: Response) {
 
     // Group comments by topic_key
     const commentsByTopic: Record<string, Set<number>> = {};
-    
+
     // Initialize all topics
     topicsData.Items.forEach((topic) => {
       commentsByTopic[topic.topic_key] = new Set<number>();
@@ -167,12 +166,16 @@ export async function handle_GET_topicStats(req: Request, res: Response) {
     // Map comments to topics based on cluster assignments
     allAssignments.forEach((assignment) => {
       const commentId = parseInt(assignment.comment_id);
-      
+
       // Check each layer - dynamically determine max layers from the data
       // Look for all layer fields in the assignment
-      const layerFields = Object.keys(assignment).filter(key => key.match(/^layer\d+_cluster_id$/));
-      const maxLayer = Math.max(...layerFields.map(field => parseInt(field.match(/layer(\d+)/)[1])));
-      
+      const layerFields = Object.keys(assignment).filter((key) =>
+        key.match(/^layer\d+_cluster_id$/)
+      );
+      const maxLayer = Math.max(
+        ...layerFields.map((field) => parseInt(field.match(/layer(\d+)/)[1]))
+      );
+
       for (let layer = 0; layer <= maxLayer; layer++) {
         const clusterId = assignment[`layer${layer}_cluster_id`];
         if (clusterId !== undefined && clusterId !== -1) {
@@ -184,11 +187,10 @@ export async function handle_GET_topicStats(req: Request, res: Response) {
         }
       }
     });
-    
 
     // Calculate metrics for each topic
     const topicStats: Record<string, TopicMetrics> = {};
-    
+
     for (const [topicKey, commentIdSet] of Object.entries(commentsByTopic)) {
       const commentIds = Array.from(commentIdSet);
       const metrics = await calculateTopicMetrics(zid, commentIds);
@@ -205,7 +207,7 @@ export async function handle_GET_topicStats(req: Request, res: Response) {
   } catch (err: any) {
     logger.error(`Error in handle_GET_topicStats: ${err.message}`);
     logger.error(`Error stack: ${err.stack}`);
-    
+
     return res.status(500).json({
       status: "error",
       message: "Error retrieving topic statistics",
