@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import _ from "underscore";
 import { ManagementClient } from "auth0";
 import { parse } from "csv-parse/sync";
@@ -7,15 +6,15 @@ import badwords from "badwords/object";
 import { addParticipant } from "../participant";
 import { CommentOptions, GetCommentsParams, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
-import analyzeComment from "../utils/moderation";
 import { getConversationInfo } from "../conversation";
 import { getNextComment } from "../nextComment";
 import { getPidPromise, getUserInfoForUid2 } from "../user";
 import { getZinvite } from "../utils/zinvite";
-import Config from "../config";
 import { isModerator, polisTypes } from "../utils/common";
 import { MPromise } from "../utils/metered";
 import { votesPost } from "./votes";
+import analyzeComment from "../utils/moderation";
+import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import {
@@ -178,20 +177,20 @@ export async function isProConvo(owner: number): Promise<boolean> {
   try {
     const { email } = await getUserInfoForUid2(owner);
     if (!email) {
-      console.log(`No email found for owner ID: ${owner}`);
+      logger.warn(`No email found for owner ID: ${owner}`);
       return false;
     }
     const users = await managementClient.usersByEmail.getByEmail({ email });
 
     if (!users || users.data.length === 0) {
-      console.log(`No Auth0 user found for email: ${email}`);
+      logger.warn(`No Auth0 user found for email: ${email}`);
       return false;
     }
     const user = users.data[0];
     const userId = user.user_id;
 
     if (!userId) {
-      console.error(`Auth0 user object for ${email} is missing a user_id.`);
+      logger.error(`Auth0 user object for ${email} is missing a user_id.`);
       return false;
     }
     const roles = await managementClient.users.getRoles({ id: userId });
@@ -200,7 +199,7 @@ export async function isProConvo(owner: number): Promise<boolean> {
 
     return hasRole;
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     return false;
   }
 }
