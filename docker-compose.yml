@@ -215,17 +215,17 @@ services:
       context: ./
       dockerfile: file-server/Dockerfile
       args:
+        ADMIN_UIDS: ${ADMIN_UIDS}
         AUTH_AUDIENCE: ${AUTH_AUDIENCE}
-        AUTH_NAMESPACE: ${AUTH_NAMESPACE}
         AUTH_CLIENT_ID: ${AUTH_CLIENT_ID}
         AUTH_ISSUER: ${AUTH_ISSUER}
-        ADMIN_UIDS: ${ADMIN_UIDS}
+        AUTH_NAMESPACE: ${AUTH_NAMESPACE}
         EMBED_SERVICE_HOSTNAME: ${EMBED_SERVICE_HOSTNAME}
         GA_TRACKING_ID: ${GA_TRACKING_ID}
         GIT_HASH: "${GIT_HASH:-placeholder}"
         NODE_ENV: production
-        OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}
         OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: ${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
+        OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}
     labels:
       polis_tag: ${TAG:-dev}
     environment:

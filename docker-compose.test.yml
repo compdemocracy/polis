@@ -163,9 +163,11 @@ services:
       context: ./
       dockerfile: file-server/Dockerfile
       args:
+        ADMIN_UIDS: ${ADMIN_UIDS}
         AUTH_AUDIENCE: users
         AUTH_CLIENT_ID: dev-client-id
         AUTH_ISSUER: https://localhost:3000/
+        AUTH_NAMESPACE: ${AUTH_NAMESPACE}
         EMBED_SERVICE_HOSTNAME: localhost
         GIT_HASH: "${GIT_HASH:-placeholder}"
         NODE_ENV: production
