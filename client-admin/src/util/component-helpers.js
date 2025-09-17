@@ -2,9 +2,22 @@
 
 const helpers = {}
 
+helpers.getAdminUids = () => {
+  // Derive admin UID list from env as produced by webpack DefinePlugin JSON.stringify
+  const adminUidsRaw = process.env.ADMIN_UIDS
+  if (typeof adminUidsRaw === 'string' && adminUidsRaw.trim() !== '') {
+    try {
+      const parsed = JSON.parse(adminUidsRaw)
+      if (Array.isArray(parsed)) return parsed
+    } catch {
+      // Ignore invalid JSON
+    }
+  }
+  return []
+}
+
 helpers.shouldShowPermissionsError = (props) => {
-  const isSuperAdminUser =
-    JSON.parse(process.env.ADMIN_UIDS || []).indexOf(props.user?.user?.uid) !== -1
+  const isSuperAdminUser = helpers.getAdminUids().indexOf(props.user?.user?.uid) !== -1
   if (isSuperAdminUser) return false
   const hasMetadata = !!props.zid_metadata
 

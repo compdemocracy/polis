@@ -66,7 +66,7 @@ const ReportsList = () => {
     // Load data if user is now a moderator and data hasn't been loaded
     if (
       (currentIsMod && !state.dataLoaded) ||
-      JSON.parse(process.env.ADMIN_UIDS || []).indexOf(userState?.user?.uid) !== -1
+      ComponentHelpers.getAdminUids().indexOf(userState?.user?.uid) !== -1
     ) {
       getData()
     }
