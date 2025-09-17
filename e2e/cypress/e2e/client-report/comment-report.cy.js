@@ -41,7 +41,10 @@ describe('Client Report: Comment Report Generation', () => {
           if (req.body instanceof FormData) {
             console.log('Request is FormData')
           } else {
-            console.log('Request body preview:', req.body ? req.body.toString().substring(0, 200) : 'empty')
+            console.log(
+              'Request body preview:',
+              req.body ? req.body.toString().substring(0, 200) : 'empty',
+            )
           }
         }).as('bulkComments')
 
