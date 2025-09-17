@@ -89,9 +89,9 @@ function hasBadWords(txt: string) {
 }
 
 const managementClient = new ManagementClient({
-  domain: Config.AUTH0DOMAIN!,
-  clientId: Config.AUTH0CLIENTID!,
-  clientSecret: Config.AUTH0CLIENTSECRET!,
+  domain: Config.authDomain!,
+  clientId: Config.authClientId!,
+  clientSecret: Config.authClientSecret!,
 });
 
 async function commentExists(zid: number, txt: string): Promise<boolean> {
@@ -122,7 +122,7 @@ async function handle_GET_comments_translations(
     );
 
     const rows =
-      ((existingTranslations as unknown) as any[])?.length > 0
+      (existingTranslations as unknown as any[])?.length > 0
         ? existingTranslations
         : await translateAndStoreComment(zid, tid, comment.txt, lang);
 
@@ -497,9 +497,7 @@ function handle_PUT_comments(
     };
   },
   res: {
-    status: (
-      arg0: number
-    ) => {
+    status: (arg0: number) => {
       (): any;
       new (): any;
       json: { (arg0: {}): void; new (): any };

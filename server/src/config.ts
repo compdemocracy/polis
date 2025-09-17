@@ -79,10 +79,12 @@ export default {
   akismetAntispamApiKey: process.env.AKISMET_ANTISPAM_API_KEY || null,
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || null,
   applicationName: process.env.APPLICATION_NAME || null,
-  AUTH0DOMAIN: process.env.AUTH0_DOMAIN || null,
-  AUTH0CLIENTID: process.env.AUTH0_CLIENT_ID || null,
-  AUTH0CLIENTSECRET: process.env.AUTH0_CLIENT_SECRET || null,
   authAudience: process.env.AUTH_AUDIENCE || null,
+  authDomain: process.env.AUTH_DOMAIN || process.env.AUTH0_DOMAIN || null,
+  authClientId:
+    process.env.AUTH_CLIENT_ID || process.env.AUTH0_CLIENT_ID || null,
+  authClientSecret:
+    process.env.AUTH_CLIENT_SECRET || process.env.AUTH0_CLIENT_SECRET || null,
   authIssuer: process.env.AUTH_ISSUER || null,
   authNamespace: process.env.AUTH_NAMESPACE || null,
   awsAccessKeyId: process.env.AWS_ACCESS_KEY_ID || ("local" as string),
