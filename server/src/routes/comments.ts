@@ -183,18 +183,17 @@ export async function isProConvo(owner: number): Promise<boolean> {
     const users = await managementClient.usersByEmail.getByEmail({ email });
 
     if (!users || users.data.length === 0) {
-      logger.warn(`No Auth0 user found for email: ${email}`);
+      logger.warn(`No OIDC user found for email: ${email}`);
       return false;
     }
     const user = users.data[0];
     const userId = user.user_id;
 
     if (!userId) {
-      logger.error(`Auth0 user object for ${email} is missing a user_id.`);
+      logger.error(`OIDC user object for ${email} is missing a user_id.`);
       return false;
     }
     const roles = await managementClient.users.getRoles({ id: userId });
-
     const hasRole = roles.data.some((role) => role.name === "delphi-enabled");
 
     return hasRole;
