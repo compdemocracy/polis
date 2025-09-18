@@ -15,9 +15,9 @@ describe('Client Admin: Comment Moderation', () => {
   ]
 
   const participantComments = [
-    { text: 'This comment needs moderation', pid: null },
-    { text: 'Another comment from a participant', pid: null },
-    { text: 'Third participant comment for testing', pid: null },
+    'This comment needs moderation',
+    'Another comment from a participant',
+    'Third participant comment for testing',
   ]
 
   before(() => {
@@ -26,14 +26,15 @@ describe('Client Admin: Comment Moderation', () => {
     // Logout any existing user
     logout()
 
-    // Create a conversation and store the ID
-    createTestConversation({
-      topic: 'Comment Moderation Test',
-      description: 'Testing comment moderation features',
-      userEmail: 'admin@polis.test',
-      userPassword: 'Te$tP@ssw0rd*',
-    })
-      .then((convId) => {
+    // Phase 1: Admin creates conversation and adds seed comments (isolated window context)
+    cy.window().then(() => {
+      // Create a conversation and store the ID
+      createTestConversation({
+        topic: 'Comment Moderation Test',
+        description: 'Testing comment moderation features',
+        userEmail: 'admin@polis.test',
+        userPassword: 'Te$tP@ssw0rd*',
+      }).then((convId) => {
         conversationId = convId
         cy.log(`✅ Created conversation: ${conversationId}`)
 
@@ -44,34 +45,18 @@ describe('Client Admin: Comment Moderation', () => {
           'admin@polis.test',
           'Te$tP@ssw0rd*',
         )
-      })
-      .then(() => {
+      }).then(() => {
         cy.log(`✅ Added ${seedComments.length} seed comments to conversation ${conversationId}`)
-
-        // Have participants add comments
-        cy.log('🗣️ Adding participant comments')
-
-        // Logout admin and participate as anonymous users
         logout()
-
-        // Add participant comments sequentially
-        participantComments.forEach((comment, index) => {
-          cy.then(() => {
-            return participateInConversation(conversationId, {
-              comments: [comment.text],
-            }).then((participation) => {
-              // Store the participant ID for later reference if needed
-              participantComments[index].pid = participation.pid
-              cy.log(`✅ Participant ${index + 1} added comment`)
-            })
-          })
-        })
-
-        return cy.wrap(null)
       })
-      .then(() => {
-        cy.log('✅ All participant comments added')
+    })
+
+    // Phase 2: Participants add comments (clean context)
+    cy.then(() => {
+      participateInConversation(conversationId, {
+        comments: participantComments
       })
+    })
   })
 
   describe('Moderation Settings', () => {
@@ -131,8 +116,6 @@ describe('Client Admin: Comment Moderation', () => {
     })
 
     it('should show unmoderated comments on the moderation page', () => {
-      cy.log('📋 Checking for unmoderated comments')
-
       // Should be on unmoderated by default, but ensure we're on the right tab
       cy.get('[data-testid="mod-queue"]').click()
 
@@ -141,15 +124,13 @@ describe('Client Admin: Comment Moderation', () => {
 
       // Should see participant comments that need moderation
       participantComments.forEach((comment) => {
-        cy.get('body').should('contain.text', comment.text)
+        cy.get('body').should('contain.text', comment)
       })
 
       cy.log('✅ Unmoderated comments are visible')
     })
 
     it('should show accepted comments section', () => {
-      cy.log('📋 Checking accepted comments section')
-
       // Click on the accepted tab using the proper test ID
       cy.get('[data-testid="filter-approved"]').click()
 
@@ -168,8 +149,6 @@ describe('Client Admin: Comment Moderation', () => {
     })
 
     it('should show rejected comments section', () => {
-      cy.log('📋 Checking rejected comments section')
-
       // Click on the rejected tab using the proper test ID
       cy.get('[data-testid="filter-rejected"]').click()
 
@@ -191,8 +170,6 @@ describe('Client Admin: Comment Moderation', () => {
     })
 
     it('should allow approving a comment', () => {
-      cy.log('✅ Testing comment approval')
-
       // Set up API intercept for comment moderation
       cy.intercept('PUT', '/api/v3/comments').as('moderateComment')
 
@@ -200,7 +177,7 @@ describe('Client Admin: Comment Moderation', () => {
       cy.get('[data-testid="mod-queue"]').click()
 
       // Find the first participant comment and approve it
-      const testComment = participantComments[0].text
+      const testComment = participantComments[0]
 
       // Find the comment card containing our test comment
       cy.contains('[data-testid="pending-comment"]', testComment).within(() => {
@@ -210,7 +187,7 @@ describe('Client Admin: Comment Moderation', () => {
 
       // Wait for API call
       cy.wait('@moderateComment').then((interception) => {
-        expect(interception.response.statusCode).to.be.oneOf([200, 204])
+        expect(interception.response.statusCode).to.eq(200)
         cy.log('✅ Comment approved successfully')
 
         // Verify the request body contains mod: 1 for approval
@@ -223,8 +200,6 @@ describe('Client Admin: Comment Moderation', () => {
     })
 
     it('should allow rejecting a comment', () => {
-      cy.log('❌ Testing comment rejection')
-
       // Set up API intercept for comment moderation
       cy.intercept('PUT', '/api/v3/comments').as('moderateComment')
 
@@ -232,7 +207,7 @@ describe('Client Admin: Comment Moderation', () => {
       cy.get('[data-testid="mod-queue"]').click()
 
       // Find the second participant comment and reject it
-      const testComment = participantComments[1].text
+      const testComment = participantComments[1]
 
       // Find the comment card containing our test comment
       cy.contains('[data-testid="pending-comment"]', testComment).within(() => {
@@ -242,7 +217,7 @@ describe('Client Admin: Comment Moderation', () => {
 
       // Wait for API call
       cy.wait('@moderateComment').then((interception) => {
-        expect(interception.response.statusCode).to.be.oneOf([200, 204])
+        expect(interception.response.statusCode).to.eq(200)
         cy.log('✅ Comment rejected successfully')
 
         // Verify the request body contains mod: -1 for rejection
