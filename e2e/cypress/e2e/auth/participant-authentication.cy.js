@@ -146,29 +146,27 @@ describe('Participant Authentication (Anonymous & XID)', () => {
       // Visit conversation with XID
       visitConversationAsParticipant(testConversation.conversationId, { xid: testXid })
 
-      // Verify no JWT token exists initially
-      cy.window().then((win) => {
-        const token = win.localStorage.getItem(
-          `participant_token_${testConversation.conversationId}`,
-        )
-        expect(token).to.be.null
+      // Wait for JWT to be stored
+      waitForJWTToken(`participant_token_${testConversation.conversationId}`)
+
+      // Verify JWT is issued from participationInit
+      verifyJWTExists(`participant_token_${testConversation.conversationId}`, {
+        xid: testXid,
+        conversation_id: testConversation.conversationId,
       })
 
       // Verify conversation loads with XID parameter
       cy.url().should('include', `xid=${testXid}`)
     })
 
-    it('should issue XID JWT when XID participant votes', () => {
+    it('should handle XID participant voting', () => {
       const testXid = `test-xid-${Date.now()}`
 
       // Visit conversation with XID
       visitConversationAsParticipant(testConversation.conversationId, { xid: testXid })
 
-      // Vote on a comment - this should trigger XID JWT issuance
+      // Vote on a comment
       voteOnComment('agree')
-
-      // Wait for JWT to be stored
-      waitForJWTToken(`participant_token_${testConversation.conversationId}`)
 
       // Verify the JWT structure and XID claims
       verifyJWTExists(`participant_token_${testConversation.conversationId}`, {
