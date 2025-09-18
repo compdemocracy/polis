@@ -167,5 +167,86 @@ describe('Client Admin: Comment CSV Upload', () => {
           })
         })
     })
+
+    it('should allow manual comment entry alongside CSV upload', () => {
+      // Create a test conversation
+      loginStandardUserAPI('admin@polis.test', 'Te$tP@ssw0rd*')
+        .then(() => {
+          return createTestConversationAPI({
+            topic: 'Manual + CSV Comments Test Conversation',
+            description: 'Testing manual comment entry with CSV upload',
+            visualizationEnabled: false,
+          })
+        })
+        .then((convId) => {
+          testConversationId = convId
+          cy.log(`✅ Created test conversation: ${testConversationId}`)
+
+          // Navigate to the conversation configuration page
+          cy.visit(`/m/${testConversationId}`)
+
+          // Wait for the page to load
+          cy.get('h3').should('contain.text', 'Configure')
+
+          // Wait for the form to be fully loaded and ready
+          cy.wait(1000)
+
+          // First, add a manual comment
+          const manualComment = 'This is a manually entered test comment'
+
+          cy.intercept('POST', '/api/v3/comments').as('manualComment')
+
+          cy.get('textarea[data-testid="seed_form"]').should('be.visible')
+          cy.get('textarea[data-testid="seed_form"]').should('not.be.disabled')
+          cy.get('textarea[data-testid="seed_form"]').clear()
+          cy.get('textarea[data-testid="seed_form"]').type(manualComment)
+
+          cy.get('button').contains('Submit').first().click()
+
+          cy.wait('@manualComment').then((interception) => {
+            if (interception.response.statusCode !== 200) {
+              cy.log('❌ Manual comment failed with status:', interception.response.statusCode)
+              cy.log('Response body:', JSON.stringify(interception.response.body))
+            }
+            expect(interception.response.statusCode).to.eq(200)
+            cy.log('✅ Manual comment added successfully')
+          })
+
+          // Verify success message
+          cy.get('button').contains('Success!').should('be.visible')
+
+          // Now upload CSV comments
+          cy.intercept('POST', '/api/v3/comments-bulk').as('bulkComments')
+
+          // Upload CSV file using Cypress's built-in selectFile method
+          cy.get('input[type="file"]')
+            .should('have.attr', 'accept', '.csv')
+            .selectFile('cypress/fixtures/test-comments.csv', { force: true })
+
+          // Wait a moment for the file to be processed
+          cy.wait(500)
+
+          // Click the submit button for CSV upload using data-testid
+          cy.get('[data-testid="upload-csv-button"]').click()
+
+          cy.wait('@bulkComments').then((interception) => {
+            expect(interception.response.statusCode).to.eq(200)
+            cy.log('✅ CSV comments added successfully')
+          })
+
+          // Verify both manual and CSV comments are present
+          cy.visit(`/m/${testConversationId}/comments/accepted`)
+
+          // Wait for comments to load
+          cy.get('[data-testid="approved-comments"]').should('be.visible')
+
+          // Verify manual comment is present
+          cy.get('body').should('contain.text', manualComment)
+
+          // Verify some CSV comments are present
+          cy.get('body').should('contain.text', 'bike lanes over additional car lanes')
+          cy.get('body').should('contain.text', 'more frequent bus service')
+        })
+    })
   })
 })

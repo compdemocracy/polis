@@ -394,7 +394,7 @@ describe('Reports - Authentication & Access Control', () => {
       // Should load some content (not error page)
       cy.get('body').then(($body) => {
         // cy.get('body').should('be.visible')
-  
+
         // Wait for report content to appear instead of arbitrary wait
         cy.contains('Report', { timeout: 10000 }).should('exist')
         cy.contains('Overview', { timeout: 10000 }).should('exist')
