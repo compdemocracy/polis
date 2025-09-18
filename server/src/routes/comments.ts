@@ -230,24 +230,16 @@ function moderateCommentQuery(
   });
 }
 
-// Perform content moderation checks
+// Perform content moderation checks (Pro feature - toxicity analysis and profanity filtering)
+// Note: Seed and moderator comments bypass this function entirely
 async function moderateComment(
   txt: string,
   conversation: any,
-  is_moderator: boolean,
-  is_seed?: boolean,
-  req?: PolisRequest,
   ip?: string | undefined
 ): Promise<CommentModerationResult> {
   let active = true;
   const classifications: string[] = [];
   let mod = 0;
-
-  // Moderator seed comments always pass
-  if (is_moderator || is_seed) {
-    mod = polisTypes.mod.ok;
-    return { active: true, mod, classifications };
-  }
 
   // Run moderation checks in parallel
   const [polisModResponse, bad] = await Promise.all([
@@ -319,9 +311,19 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       req.connection?.socket?.remoteAddress;
 
     // 4. Moderate the comment
-    const { active, mod } = (await isProConvo(conversation.owner))
-      ? await moderateComment(txt, conversation, is_moderator, is_seed, ip)
-      : { active: true, mod: is_seed || is_moderator ? polisTypes.mod.ok : 0 };
+    let active = true;
+    let mod = 0;
+    
+    // Always auto-approve seed comments regardless of pro status
+    if (is_seed || is_moderator) {
+      mod = polisTypes.mod.ok;
+      active = true;
+    } else if (await isProConvo(conversation.owner)) {
+      // Only apply pro moderation features to non-seed comments
+      const moderationResult = await moderateComment(txt, conversation, ip);
+      active = moderationResult.active;
+      mod = moderationResult.mod;
+    }
 
     // 5. Detect language
     const detections = await detectLanguage(txt);
@@ -546,14 +548,6 @@ async function handle_GET_nextComment(
     return;
   }
 
-  logger.info("polis_info_handle_GET_nextComment", {
-    zid: req.p.zid,
-    not_voted_by_pid: req.p.not_voted_by_pid,
-    without: req.p.without,
-    lang: req.p.lang,
-    pid: req.p.pid,
-  });
-
   const pid = req.p.pid || req.p.not_voted_by_pid;
 
   try {
@@ -746,7 +740,7 @@ async function handle_POST_comments_bulk(
         let active = true;
 
         let mod = 0;
-        if (is_moderator && is_seed) {
+        if (is_moderator || is_seed) {
           mod = polisTypes.mod.ok;
           active = true;
         }
