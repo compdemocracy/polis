@@ -321,7 +321,7 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
     // 4. Moderate the comment
     const { active, mod } = (await isProConvo(conversation.owner))
       ? await moderateComment(txt, conversation, is_moderator, is_seed, ip)
-      : { active: true, mod: 0 };
+      : { active: true, mod: is_seed || is_moderator ? polisTypes.mod.ok : 0 };
 
     // 5. Detect language
     const detections = await detectLanguage(txt);
