@@ -105,6 +105,9 @@ start-FULL-REBUILD: echo_vars stop rm-ALL ## Remove and restart all Docker conta
 rebuild-web: echo_vars ## Rebuild and restart just the file-server container and its static assets, and client-participation-alpha
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build --force-recreate file-server client-participation-alpha
 
+rebuild-server: echo_vars ## Rebuild and restart just the server container
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build --force-recreate server
+
 build-web-assets: ## Build and extract static web assets for cloud deployment to `build` dir
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} create --build --force-recreate file-server
 	$(MAKE) extract-web-assets
@@ -145,8 +148,8 @@ rbs: start-rebuild
 	@true
 
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
-	start-recreate start-FULL-REBUILD rebuild-web e2e-install e2e-run e2e-run-all e2e-run-interactive \
-	build-web-assets extract-web-assets generate-jwt-keys regenerate-jwt-keys
+	start-recreate start-FULL-REBUILD rebuild-web rebuild-server e2e-install e2e-run e2e-run-all \
+	e2e-run-interactive build-web-assets extract-web-assets generate-jwt-keys regenerate-jwt-keys
 
 
 help:
