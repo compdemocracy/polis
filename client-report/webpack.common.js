@@ -42,6 +42,9 @@ module.exports = {
       'process.env.AUTH_NAMESPACE': JSON.stringify(process.env.AUTH_NAMESPACE),
       'process.env.AUTH_CLIENT_ID': JSON.stringify(process.env.AUTH_CLIENT_ID),
       'process.env.AUTH_ISSUER': JSON.stringify(process.env.AUTH_ISSUER),
+      'process.env.DD_APPLICATION_ID': JSON.stringify(process.env.DD_APPLICATION_ID),
+      'process.env.DD_CLIENT_TOKEN': JSON.stringify(process.env.DD_CLIENT_TOKEN),
+      'process.env.DD_SITE': JSON.stringify(process.env.DD_SITE),
     }),
   ],
   externals: {

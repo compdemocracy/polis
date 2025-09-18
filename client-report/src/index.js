@@ -9,11 +9,17 @@ import './index.css';
 import App from "./components/app.jsx";
 import { datadogRum } from '@datadog/browser-rum';
 
-if (process.env.NODE_ENV === 'production') {
+const ddApplicationId = process.env.DD_APPLICATION_ID;
+const ddClientToken = process.env.DD_CLIENT_TOKEN;
+const ddSite = process.env.DD_SITE;
+
+const useDatadog = ddApplicationId && ddClientToken && ddSite;
+
+if (useDatadog) {
   datadogRum.init({
-    applicationId: 'bfa71c59-0473-4cc0-af24-3607529b690f',
-    clientToken: 'pubca7f154518abacbbdebca40002ac88b6',
-    site: 'us5.datadoghq.com',
+    applicationId: ddApplicationId,
+    clientToken: ddClientToken,
+    site: ddSite,
     service: 'client-report',
     env: 'prod',
     version: '1.0.0',

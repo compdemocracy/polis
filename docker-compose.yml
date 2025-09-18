@@ -220,6 +220,9 @@ services:
         AUTH_CLIENT_ID: ${AUTH_CLIENT_ID}
         AUTH_ISSUER: ${AUTH_ISSUER}
         AUTH_NAMESPACE: ${AUTH_NAMESPACE}
+        DD_APPLICATION_ID: ${DD_APPLICATION_ID}
+        DD_CLIENT_TOKEN: ${DD_CLIENT_TOKEN}
+        DD_SITE: ${DD_SITE}
         EMBED_SERVICE_HOSTNAME: ${EMBED_SERVICE_HOSTNAME}
         GA_TRACKING_ID: ${GA_TRACKING_ID}
         GIT_HASH: "${GIT_HASH:-placeholder}"
@@ -304,7 +307,7 @@ services:
       - "8126:8126/tcp"
     environment:
       - DD_API_KEY=${DD_API_KEY}
-      - DD_SITE=us5.datadoghq.com
+      - DD_SITE=${DD_SITE}
       - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
       - DD_APM_ENABLED=true
       - DD_APM_NON_LOCAL_TRAFFIC=true
