@@ -313,7 +313,7 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
     // 4. Moderate the comment
     let active = true;
     let mod = 0;
-    
+
     // Always auto-approve seed comments regardless of pro status
     if (is_seed || is_moderator) {
       mod = polisTypes.mod.ok;

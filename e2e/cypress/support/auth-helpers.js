@@ -10,16 +10,19 @@
  * Helper to authenticate a standard user via OIDC simulator using UI
  * @param {string} email - User email
  * @param {string} password - User password
+ * @param {object} options - Configuration options
+ * @param {number} options.timeout - Max time to wait for auth (default: 15000ms)
  */
-export function loginStandardUser(email, password) {
+export function loginStandardUser(email, password, options = {}) {
+  const { timeout = 15000 } = options
   cy.log(`🔐 Logging in via UI: ${email}`)
 
   // Always start fresh
   cy.visit('/')
-  cy.get('body').should('be.visible')
+  cy.get('body', { timeout }).should('be.visible')
 
   // Ensure browser APIs are available
-  cy.window().should('have.property', 'atob')
+  cy.window({ timeout }).should('have.property', 'atob')
 
   // Check if already authenticated
   cy.get('body').then(($body) => {
@@ -31,24 +34,30 @@ export function loginStandardUser(email, password) {
     }
 
     // Click sign in button and fill OIDC form
-    cy.get('#signinButton').click()
+    cy.get('#signinButton', { timeout }).should('be.visible').click()
 
     const authIssuer = Cypress.env('AUTH_ISSUER')
     const authOrigin = new URL(authIssuer).origin
     const authHost = new URL(authIssuer).host
 
-    cy.origin(authOrigin, { args: { email, password } }, ({ email, password }) => {
-      cy.get('input[type="email"]').type(email)
+    cy.origin(authOrigin, { args: { email, password, timeout } }, ({ email, password, timeout }) => {
+      cy.get('input[type="email"]', { timeout }).should('be.visible').type(email)
       cy.get('input[type="password"]').type(password)
       cy.contains('button', 'Sign in').click()
     })
 
-    // Wait for redirect and OIDC initialization
-    cy.url().should('not.include', authHost)
-    cy.get('h3').should('contain.text', 'All Conversations')
+    // Wait for redirect and OIDC initialization with proper assertions
+    cy.url({ timeout }).should('not.include', authHost)
+    cy.get('h3', { timeout }).should('contain.text', 'All Conversations')
 
-    // Wait for the auth to be ready
-    cy.wait(1000)
+    // Wait for OIDC tokens to be stored in localStorage
+    const oidcCacheKeyPrefix = Cypress.env('OIDC_CACHE_KEY_PREFIX')
+    cy.window({ timeout }).should((win) => {
+      const oidcUserKeys = Object.keys(win.localStorage).filter((key) =>
+        key.includes(oidcCacheKeyPrefix),
+      )
+      expect(oidcUserKeys, 'OIDC user cache should be present').to.have.length.greaterThan(0)
+    })
 
     cy.log(`✅ User authenticated: ${email}`)
   })
@@ -330,25 +339,55 @@ export function verifyJWTClaims(tokenKey, expectedClaims) {
  * Helper to verify custom namespace claims in JWT token
  * @param {string} tokenKey - localStorage key for the token OR 'oidc' to use OIDC token getter
  * @param {object} expectedClaims - Custom namespace claims to verify
+ * @param {object} options - Configuration options
+ * @param {number} options.timeout - Max time to wait for token (default: 10000ms)
  */
-export function verifyCustomNamespaceClaims(tokenKey, expectedClaims) {
+export function verifyCustomNamespaceClaims(tokenKey, expectedClaims, options = {}) {
+  const { timeout = 10000 } = options
+  
   if (tokenKey === 'oidc') {
-    // Use OIDC token getter
-    return getOidcAccessToken().then((token) => {
-      expect(token).to.exist
+    cy.log(`⏳ Waiting for OIDC access token (timeout: ${timeout}ms)...`)
+    
+    // Wait for token to be available with retry logic
+    return cy.window({ timeout }).should((win) => {
+      // Check if oidcTokenGetter exists
+      if (typeof win.oidcTokenGetter === 'function') {
+        const token = win.oidcTokenGetter()
+        expect(token, 'OIDC token from getter').to.be.a('string')
+      } else {
+        // Check localStorage
+        const authority = Cypress.env('AUTH_ISSUER')
+        const clientId = Cypress.env('AUTH_CLIENT_ID')
+        const userKey = `oidc.user:${authority}:${clientId}`
+        const alternateKey = `oidc.user:${authority.replace(/\/$/, '')}:${clientId}`
+        
+        const userData = win.localStorage.getItem(userKey) || win.localStorage.getItem(alternateKey)
+        expect(userData, 'OIDC user data in localStorage').to.exist
+        
+        const parsed = JSON.parse(userData)
+        expect(parsed.access_token, 'Access token in user data').to.exist
+      }
+    }).then(() => {
+      // Now get and verify the token
+      return getOidcAccessToken().then((token) => {
+        expect(token).to.exist
+        cy.log('✅ OIDC access token found, verifying claims...')
 
-      // Decode JWT payload using window.atob from browser context
-      return cy.window().then((win) => {
-        const payload = JSON.parse(win.atob(token.split('.')[1]))
-        const namespace = Cypress.env('AUTH_NAMESPACE')
+        // Decode JWT payload using window.atob from browser context
+        return cy.window().then((win) => {
+          const payload = JSON.parse(win.atob(token.split('.')[1]))
+          const namespace = Cypress.env('AUTH_NAMESPACE')
 
-        // Verify custom namespace claims
-        Object.keys(expectedClaims).forEach((claim) => {
-          const namespacedClaim = `${namespace}${claim}`
-          expect(payload[namespacedClaim]).to.equal(
-            expectedClaims[claim],
-            `Expected ${namespacedClaim} to be ${expectedClaims[claim]}, but got ${payload[namespacedClaim]}`,
-          )
+          // Verify custom namespace claims
+          Object.keys(expectedClaims).forEach((claim) => {
+            const namespacedClaim = `${namespace}${claim}`
+            expect(payload[namespacedClaim]).to.equal(
+              expectedClaims[claim],
+              `Expected ${namespacedClaim} to be ${expectedClaims[claim]}, but got ${payload[namespacedClaim]}`,
+            )
+          })
+          
+          cy.log('✅ Custom namespace claims verified successfully')
         })
       })
     })
@@ -377,37 +416,49 @@ export function verifyCustomNamespaceClaims(tokenKey, expectedClaims) {
 /**
  * Helper to verify standard claims in ID token from OIDC cache
  * @param {object} expectedClaims - Standard claims to verify in ID token
+ * @param {object} options - Configuration options
+ * @param {number} options.timeout - Max time to wait for token (default: 10000ms)
+ * @param {number} options.retryInterval - Time between retries (default: 500ms)
  */
-export function verifyIDTokenClaims(expectedClaims) {
+export function verifyIDTokenClaims(expectedClaims, options = {}) {
+  const { timeout = 10000 } = options
   const oidcCacheKeyPrefix = Cypress.env('OIDC_CACHE_KEY_PREFIX')
-  // Wait briefly for Auth to initialize
-  cy.wait(2000)
-
-  return cy.window().then((win) => {
+  
+  cy.log(`⏳ Waiting for OIDC ID token (timeout: ${timeout}ms)...`)
+  
+  // Use Cypress's built-in retry mechanism with should()
+  return cy.window({ timeout }).should((win) => {
     const oidcUserKeys = Object.keys(win.localStorage).filter((key) =>
       key.includes(oidcCacheKeyPrefix),
     )
-
-    if (oidcUserKeys.length === 0) {
-      cy.log('⚠️ No OIDC user cache found')
-    }
-
-    expect(oidcUserKeys).to.have.length(1)
-
+    
+    // This will cause a retry if the assertion fails
+    expect(oidcUserKeys, 'OIDC user cache keys').to.have.length.greaterThan(0)
+    
     const userCacheKey = oidcUserKeys[0]
     const userCacheData = JSON.parse(win.localStorage.getItem(userCacheKey))
-
-    if (!userCacheData || !userCacheData.id_token) {
-      cy.log('⚠️ ID token not found in OIDC cache')
-    }
-
-    expect(userCacheData).to.have.property('id_token')
-
+    
+    // These assertions will also cause retries if they fail
+    expect(userCacheData, 'OIDC user cache data').to.exist
+    expect(userCacheData, 'OIDC user cache').to.have.property('id_token')
+    
     const token = userCacheData.id_token
-
+    expect(token, 'ID token').to.be.a('string')
+    expect(token.split('.'), 'JWT format').to.have.length(3)
+  }).then((win) => {
+    // Now that we've confirmed the token exists, decode and verify it
+    const oidcUserKeys = Object.keys(win.localStorage).filter((key) =>
+      key.includes(oidcCacheKeyPrefix),
+    )
+    const userCacheKey = oidcUserKeys[0]
+    const userCacheData = JSON.parse(win.localStorage.getItem(userCacheKey))
+    const token = userCacheData.id_token
+    
+    cy.log('✅ ID token found, verifying claims...')
+    
     // Decode JWT payload using window.atob
     const payload = JSON.parse(win.atob(token.split('.')[1]))
-
+    
     // Verify standard claims
     Object.keys(expectedClaims).forEach((claim) => {
       expect(payload[claim]).to.equal(
@@ -415,6 +466,8 @@ export function verifyIDTokenClaims(expectedClaims) {
         `Expected ID token ${claim} to be ${expectedClaims[claim]}, but got ${payload[claim]}`,
       )
     })
+    
+    cy.log('✅ ID token claims verified successfully')
   })
 }
 
@@ -556,22 +609,46 @@ export function waitForJWTToken(tokenKey = 'participant_token') {
 
 /**
  * Helper to check OIDC simulator connectivity
+ * @param {object} options - Configuration options
+ * @param {number} options.timeout - Request timeout (default: 10000ms)
+ * @param {number} options.retries - Number of retries (default: 3)
  */
-export function checkOidcSimulator() {
+export function checkOidcSimulator(options = {}) {
+  const { timeout = 10000 } = options
   const authUrl = Cypress.env('AUTH_ISSUER')
 
   cy.log(`🔍 Checking OIDC simulator connectivity: ${authUrl}`)
 
-  // Check JWKS endpoint
+  // Check JWKS endpoint with retries for CI stability
   cy.request({
     url: `${authUrl}.well-known/jwks.json`,
     headers: {
       Accept: 'application/json',
     },
+    timeout: timeout,
+    retryOnStatusCodeFailure: true,
+    retryOnNetworkFailure: true,
   }).then((response) => {
     expect(response.status).to.equal(200)
     expect(response.body.keys).to.exist
     cy.log(`✅ OIDC simulator JWKS accessible: ${response.body.keys.length} keys found`)
+  })
+  
+  // Also check the OpenID configuration endpoint for completeness
+  cy.request({
+    url: `${authUrl}.well-known/openid-configuration`,
+    headers: {
+      Accept: 'application/json',
+    },
+    timeout: timeout,
+    retryOnNetworkFailure: true,
+    failOnStatusCode: false,  // Allow non-200 responses since this is non-critical
+  }).then((response) => {
+    if (response.status === 200) {
+      cy.log(`✅ OpenID configuration endpoint accessible`)
+    } else {
+      cy.log(`⚠️ OpenID configuration endpoint returned ${response.status} (non-critical)`)
+    }
   })
 }
 

@@ -34,27 +34,29 @@ describe('Client Admin: Comment Moderation', () => {
         description: 'Testing comment moderation features',
         userEmail: 'admin@polis.test',
         userPassword: 'Te$tP@ssw0rd*',
-      }).then((convId) => {
-        conversationId = convId
-        cy.log(`✅ Created conversation: ${conversationId}`)
-
-        // Add seed comments to the conversation using the same admin user
-        return addCommentsToConversation(
-          conversationId,
-          seedComments,
-          'admin@polis.test',
-          'Te$tP@ssw0rd*',
-        )
-      }).then(() => {
-        cy.log(`✅ Added ${seedComments.length} seed comments to conversation ${conversationId}`)
-        logout()
       })
+        .then((convId) => {
+          conversationId = convId
+          cy.log(`✅ Created conversation: ${conversationId}`)
+
+          // Add seed comments to the conversation using the same admin user
+          return addCommentsToConversation(
+            conversationId,
+            seedComments,
+            'admin@polis.test',
+            'Te$tP@ssw0rd*',
+          )
+        })
+        .then(() => {
+          cy.log(`✅ Added ${seedComments.length} seed comments to conversation ${conversationId}`)
+          logout()
+        })
     })
 
     // Phase 2: Participants add comments (clean context)
     cy.then(() => {
       participateInConversation(conversationId, {
-        comments: participantComments
+        comments: participantComments,
       })
     })
   })
