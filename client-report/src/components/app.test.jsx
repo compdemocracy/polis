@@ -3,6 +3,16 @@ import { render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import App from './app';
 
+// Silence noisy logs from route parsing during tests
+beforeAll(() => {
+  jest.spyOn(console, 'log').mockImplementation(() => {});
+  jest.spyOn(console, 'error').mockImplementation(() => {});
+});
+
+afterAll(() => {
+  jest.restoreAllMocks();
+});
+
 // Mock the useAuth hook from react-oidc-context
 jest.mock('react-oidc-context', () => ({
   useAuth: () => ({
