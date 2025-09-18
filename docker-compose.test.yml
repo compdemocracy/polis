@@ -52,6 +52,7 @@ services:
     depends_on:
       - oidc-simulator
       - postgres
+      - dynamodb-init
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -193,6 +194,31 @@ services:
       polis_tag: test
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  # One-time init container to create DynamoDB tables
+  dynamodb-init:
+    image: python:3.11-slim
+    networks:
+      - polis-test
+    environment:
+      - AWS_ACCESS_KEY_ID=DUMMYIDEXAMPLE
+      - AWS_SECRET_ACCESS_KEY=DUMMYEXAMPLEKEY
+      - AWS_REGION=us-east-1
+      - DYNAMODB_ENDPOINT=http://dynamodb:8000
+    volumes:
+      - ./delphi/create_dynamodb_tables.py:/create_dynamodb_tables.py:ro
+    depends_on:
+      - dynamodb
+    command: >
+      sh -c "
+        pip install boto3 --quiet &&
+        echo 'Waiting for DynamoDB to be ready...' &&
+        sleep 5 &&
+        python /create_dynamodb_tables.py --endpoint-url http://dynamodb:8000 --region us-east-1 &&
+        echo 'DynamoDB tables created successfully'
+      "
+    labels:
+      polis_tag: test
 
 networks:
   polis-test:
