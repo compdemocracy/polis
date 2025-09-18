@@ -100,9 +100,6 @@ export default {
   dynamoDbEndpoint: process.env.DYNAMODB_ENDPOINT || null,
   emailTransportTypes: process.env.EMAIL_TRANSPORT_TYPES || null,
   geminiApiKey: process.env.GEMINI_API_KEY || null,
-  googleApiKey: process.env.GOOGLE_API_KEY || null,
-  googleJigsawPerspectiveApiKey:
-    process.env.GOOGLE_JIGSAW_PERSPECTIVE_API_KEY || null,
   jwksUri: process.env.JWKS_URI || null,
   logLevel: process.env.SERVER_LOG_LEVEL as string,
   logToFile: isTrue(process.env.SERVER_LOG_TO_FILE),
