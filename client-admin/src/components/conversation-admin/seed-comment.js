@@ -21,9 +21,7 @@ const ModerateCommentsSeed = ({ params }) => {
   const handleSubmitSeed = () => {
     const comment = {
       txt: seedFormRef.current.value,
-      pid: -1,
       conversation_id: params.conversation_id,
-      // vote: 0,
       is_seed: true
     }
     dispatch(handleSeedCommentSubmit(comment))
@@ -33,9 +31,7 @@ const ModerateCommentsSeed = ({ params }) => {
     dispatch(
       handleBulkSeedCommentSubmit({
         csv: csvText,
-        pid: 'mypid',
         conversation_id: params.conversation_id,
-        // vote: 0,
         is_seed: true
       })
     )

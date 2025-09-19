@@ -188,9 +188,6 @@ describe('Client Admin: Comment CSV Upload', () => {
           // Wait for the page to load
           cy.get('h3').should('contain.text', 'Configure')
 
-          // Wait for the form to be fully loaded and ready
-          cy.wait(1000)
-
           // First, add a manual comment
           const manualComment = 'This is a manually entered test comment'
 
@@ -201,7 +198,7 @@ describe('Client Admin: Comment CSV Upload', () => {
           cy.get('textarea[data-testid="seed_form"]').clear()
           cy.get('textarea[data-testid="seed_form"]').type(manualComment)
 
-          cy.get('button').contains('Submit').first().click()
+          cy.contains('button, input[type="submit"]', /^Submit$/).should('be.visible').click()
 
           cy.wait('@manualComment').then((interception) => {
             if (interception.response.statusCode !== 200) {

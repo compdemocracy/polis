@@ -141,6 +141,7 @@ export function loginStandardUserAPI(email, password) {
       // Only add auth header to admin-specific endpoints
       if (
         req.url.includes('/conversations') ||
+        req.url.includes('/comments-bulk') ||
         req.url.includes('/comments') ||
         req.url.includes('/users') ||
         req.url.includes('/reports')

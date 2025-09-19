@@ -165,7 +165,7 @@ export async function getTidsForParticipantTopicAgenda(
   }>;
 
   if (!Array.isArray(rows) || rows.length === 0) {
-    logger.warn("polis_warn_getTidsForParticipantTopicAgenda_no_rows", {
+    logger.debug("polis_debug_getTidsForParticipantTopicAgenda_no_rows", {
       pid,
       zid,
     });
@@ -176,7 +176,7 @@ export async function getTidsForParticipantTopicAgenda(
   const selections =
     (record?.archetypal_selections as Array<{ topic_key?: string }>) || [];
   if (!Array.isArray(selections) || selections.length === 0) {
-    logger.warn("polis_warn_getTidsForParticipantTopicAgenda_no_selections", {
+    logger.debug("polis_debug_getTidsForParticipantTopicAgenda_no_selections", {
       pid,
       zid,
     });
@@ -325,7 +325,7 @@ export async function getNextTopicalComment(
     const tids = await getTidsForParticipantTopicAgenda(zid, pid);
     if (!tids || tids.length === 0) {
       // No topical pool → fallback to traditional behavior
-      logger.warn("polis_warn_next_topical_comment_no_tids", { pid, zid });
+      logger.debug("polis_debug_next_topical_comment_no_tids", { pid, zid });
       return getNextPrioritizedComment(zid, pid, withoutTids);
     }
 
@@ -342,7 +342,7 @@ export async function getNextTopicalComment(
     const r = rows && rows[0];
     if (!r) {
       // Pool exhausted or filtered out → fallback
-      logger.warn("polis_warn_next_topical_comment_no_rows", { pid, zid });
+      logger.debug("polis_debug_next_topical_comment_no_rows", { pid, zid });
       return getNextPrioritizedComment(zid, pid, withoutTids);
     }
 
@@ -356,7 +356,6 @@ export async function getNextTopicalComment(
   } catch (err) {
     logger.error("polis_err_next_topical_comment", err);
     // Defensive: on any failure, fallback to traditional behavior
-    logger.warn("polis_warn_next_topical_comment_error", err);
     return getNextPrioritizedComment(zid, pid, withoutTids);
   }
 }
@@ -379,7 +378,7 @@ export async function getNextComment(
 ) {
   const ratio = Config.getValidTopicalRatio();
   const shouldUseTopical =
-    typeof ratio === "number" && ratio > 0 && Math.random() < ratio;
+    typeof ratio === "number" && ratio > 0 && Math.random() < ratio && pid !== -1;
 
   logger.info("polis_info_getNextComment", {
     zid,
@@ -398,7 +397,7 @@ export async function getNextComment(
 
   // If topical path yielded nothing, try prioritized as a fallback
   if (!next && shouldUseTopical) {
-    logger.warn("polis_warn_next_topical_comment_no_rows_fallback", {
+    logger.debug("polis_debug_next_topical_comment_no_rows_fallback", {
       pid,
       zid,
     });
