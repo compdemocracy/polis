@@ -129,6 +129,7 @@ def main():
     extremity_command = [
         "python", "/app/umap_narrative/501_calculate_comment_extremity.py",
         f"--zid={zid}",
+        f"--include_moderation={args.include_moderation}"
     ]
     if verbose_arg:
         extremity_command.append(verbose_arg)
