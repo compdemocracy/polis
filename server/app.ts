@@ -173,6 +173,8 @@ import {
   handle_GET_treevite_myInvites,
   handle_GET_treevite_invites,
   handle_GET_treevite_me,
+  handle_GET_treevite_invites_csv,
+  handle_GET_treevite_myInvites_csv,
 } from "./src/invites/treevites";
 
 import {
@@ -1569,6 +1571,7 @@ helpersInitialized.then(
       want("conversation_id", getStringLimitLength(6, 300), assignToP, ""),
       want("is_data_open", getBool, assignToP, false),
       want("ownerXid", getStringLimitLength(1, 999), assignToP),
+      want("treevite_enabled", getBool, assignToP, false),
       handle_POST_conversations
     );
 
@@ -1736,6 +1739,18 @@ helpersInitialized.then(
     );
 
     app.get(
+      "/api/v3/treevite/invites/csv",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_treevite_invites_csv
+    );
+
+    app.get(
       "/api/v3/treevite/me",
       moveToBody,
       hybridAuth(assignToP),
@@ -1746,6 +1761,19 @@ helpersInitialized.then(
       ),
       ensureParticipantOptional({ createIfMissing: false, issueJWT: false }),
       handle_GET_treevite_me
+    );
+
+    app.get(
+      "/api/v3/treevite/myInvites/csv",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      ensureParticipantOptional({ createIfMissing: false, issueJWT: false }),
+      handle_GET_treevite_myInvites_csv
     );
 
     app.post(

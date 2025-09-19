@@ -19,6 +19,7 @@ const InviteCodes = () => {
   const [pagination, setPagination] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const [downloadLoading, setDownloadLoading] = useState(false)
 
   // Filtering and pagination state
   const [waveFilter, setWaveFilter] = useState('')
@@ -123,6 +124,46 @@ const InviteCodes = () => {
     }
   }
 
+  const handleDownloadCsv = async () => {
+    if (!conversationId) return
+    try {
+      setDownloadLoading(true)
+      const token = await PolisNet.getAccessTokenSilentlySPA()
+
+      const url = `/api/v3/treevite/invites/csv?conversation_id=${encodeURIComponent(
+        conversationId
+      )}`
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` })
+        }
+      })
+
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || `Failed to download CSV (status ${res.status})`)
+      }
+
+      const blob = await res.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const ts = new Date().toISOString().replace(/[:.]/g, '-')
+      a.href = blobUrl
+      a.download = `treevite_invites_${conversationId}_${ts}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(blobUrl)
+    } catch (e) {
+      // Keep errors local to the action to avoid hiding the table
+      alert(e?.message || 'Failed to download CSV')
+    } finally {
+      setDownloadLoading(false)
+    }
+  }
+
   return (
     <Box>
       <Heading
@@ -142,10 +183,25 @@ const InviteCodes = () => {
         </Text>
       ) : (
         <>
-          <Box sx={{ mb: [3] }}>
+          <Box
+            sx={{
+              mb: [3],
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: [2]
+            }}>
             <Text sx={{ display: 'block', mb: [2] }}>
               These are the invite codes for the owner of this conversation.
             </Text>
+            <Button
+              onClick={handleDownloadCsv}
+              variant="outline"
+              disabled={!conversationId || downloadLoading}
+              sx={{ fontSize: [1] }}>
+              {downloadLoading ? 'Preparing…' : 'Download CSV'}
+            </Button>
           </Box>
 
           {/* Filters */}
@@ -160,7 +216,7 @@ const InviteCodes = () => {
                   sx={{ minWidth: '120px' }}>
                   <option value="">All waves</option>
                   {availableWaves.map((wave) => (
-                    <option key={wave.id} value={wave.wave}>
+                    <option key={wave.id} value={wave.id}>
                       Wave {wave.wave}
                     </option>
                   ))}

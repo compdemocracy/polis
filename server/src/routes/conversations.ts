@@ -1030,6 +1030,7 @@ function handle_POST_conversations(
       auth_needed_to_write: any;
       auth_opt_allow_3rdparty: any;
       conversation_id: any;
+      treevite_enabled: any;
     };
   },
   res: any
@@ -1085,6 +1086,7 @@ function handle_POST_conversations(
               auth_opt_allow_3rdparty:
                 req.p.auth_opt_allow_3rdparty ||
                 DEFAULTS.auth_opt_allow_3rdparty,
+              treevite_enabled: !!req.p.treevite_enabled,
             })
             .returning("*")
             .toString();

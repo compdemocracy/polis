@@ -12,6 +12,7 @@ describe("Treevite API endpoints", () => {
   let adminAgent: Agent;
   let adminTestUser: TestUser;
   let conversationId: string;
+  let commentIds: number[] = [];
 
   beforeAll(async () => {
     // Set up admin agent with JWT authentication
@@ -31,6 +32,24 @@ describe("Treevite API endpoints", () => {
       description: "Testing wave-based invite system",
       treevite_enabled: true,
     });
+
+    // Add seed comments for testing
+    const seedComments = [
+      "This is the first seed comment for testing",
+      "Another seed comment to ensure voting works",
+      "Third seed comment for variety",
+    ];
+
+    for (const commentText of seedComments) {
+      const response = await adminAgent.post("/api/v3/comments").send({
+        conversation_id: conversationId,
+        txt: commentText,
+        is_seed: true,
+      });
+      if (response.status === 200 && response.body.tid !== undefined) {
+        commentIds.push(response.body.tid);
+      }
+    }
   });
 
   describe("POST /api/v3/treevite/waves", () => {
@@ -810,6 +829,91 @@ describe("Treevite API endpoints", () => {
       // Should have 2 invites for wave 2 (invites_per_user was 2)
       // Note: Wave 3 invites are not created because it's a child of wave 2, not wave 1
       expect(invitesCheck.body).toHaveLength(2);
+    });
+  });
+
+  describe("Owner participation without invites", () => {
+    test("should allow conversation owner to participate without an invite", async () => {
+      // Owner should be able to participate directly in the main treevite conversation
+      // even though it has treevite enabled and no invites were given to the owner
+
+      // First, get the next comment (which triggers participant creation)
+      const nextCommentResponse = await adminAgent.get(
+        `/api/v3/nextComment?conversation_id=${conversationId}`
+      );
+
+      expect(nextCommentResponse.status).toBe(200);
+      expect(nextCommentResponse.body).toHaveProperty("tid");
+
+      // Verify owner can vote (requires being a participant)
+      // Use one of the seed comments we created
+      const voteResponse = await adminAgent.post("/api/v3/votes").send({
+        conversation_id: conversationId,
+        tid: commentIds[0], // Use first seed comment
+        vote: -1, // Agree vote
+      });
+
+      expect(voteResponse.status).toBe(200);
+      // Vote response should succeed without treevite auth error
+      expect(voteResponse.body).not.toHaveProperty("error");
+
+      // Verify owner can vote on another comment
+      const secondVoteResponse = await adminAgent.post("/api/v3/votes").send({
+        conversation_id: conversationId,
+        tid: commentIds[1], // Use second seed comment
+        vote: 1, // Disagree vote
+      });
+
+      expect(secondVoteResponse.status).toBe(200);
+    });
+
+    test("should block non-owners from participating without invites", async () => {
+      // Admin creates a treevite-enabled conversation
+      const blockedConversationId = await createConversation(adminAgent, {
+        topic: "Non-Owner Block Test",
+        treevite_enabled: true,
+      });
+
+      // Add a seed comment so voting can be tested
+      const seedResponse = await adminAgent.post("/api/v3/comments").send({
+        conversation_id: blockedConversationId,
+        txt: "Test comment for blocked conversation",
+        is_seed: true,
+      });
+      const blockedCommentTid = seedResponse.body.tid;
+
+      // Create a wave with no available invites
+      await adminAgent.post("/api/v3/treevite/waves").send({
+        conversation_id: blockedConversationId,
+        owner_invites: 0,
+        invites_per_user: 1, // Only for participants who join
+      });
+
+      // Create a different user (not the owner)
+      const pooledUser = getPooledTestUser(2);
+      const nonOwnerUser: TestUser = {
+        email: pooledUser.email,
+        hname: pooledUser.name,
+        password: pooledUser.password,
+      };
+      const { agent: nonOwnerAgent } = await getJwtAuthenticatedAgent(
+        nonOwnerUser
+      );
+
+      // Non-owner should be blocked from participating
+      // Note: nextComment with ensureParticipantOptional might not block, so test voting directly
+
+      // Verify non-owner cannot vote (which requires participant creation)
+      const voteResponse = await nonOwnerAgent.post("/api/v3/votes").send({
+        conversation_id: blockedConversationId,
+        tid: blockedCommentTid,
+        vote: -1,
+      });
+
+      expect(voteResponse.status).toBe(401);
+      expect(voteResponse.body.error).toContain(
+        "polis_err_treevite_auth_required"
+      );
     });
   });
 

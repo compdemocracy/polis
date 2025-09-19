@@ -115,11 +115,14 @@ const invite_code_css = `
 .invite-code-submission-form-container {
   display: flex;
   align-items: center;
+  width: 100%;
+  max-width: 100%;
 }
 
 /* Styling for the text input field */
 .invite-code-submission-form-container input[type="text"] {
   flex-grow: 1; /* Allows the input to take up available space */
+  min-width: 0; /* Critical for flex children to avoid overflow on small screens */
   padding: 8px 12px;
   border: 1px solid #ccc;
   border-right: none; /* Removes the border between the input and button */
@@ -144,7 +147,7 @@ const invite_code_css = `
   font-size: 1rem;
   font-weight: 500;
   cursor: pointer;
-  white-space: nowrap; /* Prevents the button text from wrapping */
+  white-space: nowrap; /* Prevents the button text from wrapping; overridden on small screens */
   transition: background-color 0.2s ease;
 }
 
@@ -158,6 +161,24 @@ const invite_code_css = `
   background-color: #ccc;
   border-color: #bbb;
   cursor: not-allowed;
+}
+
+/* On narrow screens, stack input and button to prevent horizontal overflow */
+@media (max-width: 480px) {
+  .invite-code-submission-form-container {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .invite-code-submission-form-container input[type="text"] {
+    border-right: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 8px;
+  }
+  .invite-code-submission-form-container button {
+    border-radius: 4px;
+    white-space: normal; /* allow wrap if needed */
+    width: 100%;
+  }
 }
 
 .or-separator {
