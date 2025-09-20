@@ -423,8 +423,6 @@ async function _ensureParticipantInternal(
     throw new Error("polis_err_user_not_found");
   }
 
-  // Early Treevite check - before creating new participants
-  // Block unauthorized users from Treevite-enabled conversations (except owners)
   if ((pid === undefined || pid === -1) && (createIfMissing || req.p.xid)) {
     // Check if this conversation requires Treevite authorization
     // Apply to both normal participant creation and XID user creation

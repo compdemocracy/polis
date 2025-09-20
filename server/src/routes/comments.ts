@@ -277,13 +277,46 @@ async function moderateComment(
  * Simplified comment handler - all participant management is handled by middleware
  */
 async function handle_POST_comments(req: RequestWithP, res: any) {
-  const { zid, uid, pid, txt, vote, is_seed, xid } = req.p;
+  const { zid, uid, txt, vote, is_seed, xid } = req.p;
+  let { pid } = req.p; // pid may be reassigned if it's -1
 
   try {
     // 1. Validate input
     if (!txt || txt === "") {
       failJson(res, 400, "polis_err_param_missing_txt");
       return;
+    }
+
+    // 1a. Ensure we have a valid pid (handle edge cases where middleware didn't set it)
+    if (pid === undefined || pid === -1) {
+      logger.warn(
+        "Comment handler: pid not set by middleware, attempting to get/create participant",
+        { zid, uid, pid }
+      );
+      if (uid !== undefined) {
+        // Try to get existing pid or create participant
+        const existingPid = await getPidPromise(zid, uid, true);
+        if (existingPid === -1) {
+          // Need to create participant
+          const rows = await addParticipant(zid, uid);
+          pid = rows[0].pid;
+          logger.info("Comment handler: created participant", {
+            zid,
+            uid,
+            pid,
+          });
+        } else {
+          pid = existingPid;
+          logger.info("Comment handler: found existing participant", {
+            zid,
+            uid,
+            pid,
+          });
+        }
+      } else {
+        failJson(res, 400, "polis_err_missing_uid_and_pid");
+        return;
+      }
     }
 
     // 2. Check for duplicates

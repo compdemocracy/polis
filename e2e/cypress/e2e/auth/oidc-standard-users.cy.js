@@ -11,9 +11,17 @@ import {
 describe('OIDC Standard User Authentication', () => {
   before(() => {
     // One-time setup: ensure OIDC simulator is ready
-    cy.log('🔧 Initial setup: checking OIDC simulator readiness...')
-    const ciTimeout = Cypress.env('CI') ? 20000 : 10000
-    checkOidcSimulator({ timeout: ciTimeout, retries: 3 })
+    cy.log('🔧 Initial setup: ensuring OIDC system is fully ready...')
+    
+    // Use the more robust waitForOidcReady for initial setup
+    // This is especially important in CI where this may be the first test
+    if (Cypress.env('CI')) {
+      cy.waitForOidcReady({ timeout: 30000, retries: 5 })
+    } else {
+      // Lighter check for local development
+      const localTimeout = 10000
+      checkOidcSimulator({ timeout: localTimeout })
+    }
   })
   
   beforeEach(() => {
