@@ -3,6 +3,7 @@
 
   # Define a build argument to signal if running in GitHub Actions
   ARG IS_GITHUB_ACTION=false
+  ARG AWS_REGION
   
   ENV PYTHONDONTWRITEBYTECODE=1
   ENV PYTHONUNBUFFERED=1
@@ -68,6 +69,7 @@
   ENV PYTHONDONTWRITEBYTECODE=1
   ENV PYTHONUNBUFFERED=1
   ENV NUMBA_DISABLE_JIT=${NUMBA_DISABLE_JIT}
+  ENV AWS_REGION ${AWS_REGION:-us-east-1}
   
   RUN apt-get update && \
       apt-get install -y --no-install-recommends \
@@ -96,7 +98,7 @@
   
   CMD ["bash", "-c", "\
     echo 'Ensuring DynamoDB tables are set up (runs in all environments)...'; \
-    python create_dynamodb_tables.py && \
+    python create_dynamodb_tables.py --region ${AWS_REGION} && \
     echo 'DynamoDB table setup script finished.'; \
     \
     if [ -n \"${DYNAMODB_ENDPOINT}\" ]; then \

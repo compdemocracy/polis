@@ -39,7 +39,7 @@ class PriorityCalculator:
 
         # Prepare arguments for the boto3 resource.
         boto3_kwargs = {
-            'region_name': 'us-east-1',
+            'region_name': os.environ.get('AWS_REGION', 'us-east-1'),
             'aws_access_key_id': os.environ.get('AWS_ACCESS_KEY_ID', 'dummy'),
             'aws_secret_access_key': os.environ.get('AWS_SECRET_ACCESS_KEY', 'dummy')
         }
