@@ -49,7 +49,7 @@ endef
 
 # Function to open psql shell
 define psql_shell
-	@docker compose exec postgres \
+	@docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} exec postgres \
 	psql -U $(call parse_env_value,POSTGRES_USER) \
 	-d $(call parse_env_value,POSTGRES_DB)
 endef
@@ -148,7 +148,7 @@ e2e-run-all: ## Run E2E tests: all
 e2e-run-interactive: ## Run E2E tests: interactively
 	$(E2E_RUN) npx cypress open
 
-psql-shell: ## Open psql shell for the default environment
+psql-shell: echo_vars ## Open psql shell for the default environment
 		@if [ "${POSTGRES_DOCKER}" != "true" ]; then \
 				echo "PostgreSQL is not running in Docker. Exiting."; \
 				exit 1; \
