@@ -108,6 +108,9 @@ rebuild-web: echo_vars ## Rebuild and restart just the file-server container and
 rebuild-server: echo_vars ## Rebuild and restart just the server container
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build --force-recreate server
 
+rebuild-delphi: echo_vars ## Rebuild and restart just the delphi container
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG} --build --force-recreate delphi
+
 build-web-assets: ## Build and extract static web assets for cloud deployment to `build` dir
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} create --build --force-recreate file-server
 	$(MAKE) extract-web-assets

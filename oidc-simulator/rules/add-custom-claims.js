@@ -43,6 +43,17 @@ function mergeUsers(user, context, callback) {
 
     // Add simulator indicator
     context.accessToken[`${namespace}simulator`] = true;
+
+    // Add delphi_enabled role for specific test users in development
+    const delphiEnabledUsers = [
+      'admin@polis.test',
+      'moderator@polis.test'
+    ];
+    
+    if (delphiEnabledUsers.includes(user.email)) {
+      context.accessToken[`${namespace}delphi_enabled`] = true;
+      console.log(`Added delphi_enabled claim for user: ${user.email}`);
+    }
   }
 
   console.log(`Enhanced merge rule executed for: ${user.email}`);
