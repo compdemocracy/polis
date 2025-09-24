@@ -7,7 +7,6 @@ EVōC for clustering, and generates interactive visualizations with topic labeli
 """
 
 import os
-import sys
 import json
 import uuid  # For generating job_id
 import time
@@ -15,11 +14,7 @@ import logging
 import random
 import hashlib
 import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
 from datetime import datetime
-from pathlib import Path
-from tqdm.auto import tqdm
 
 # Import from installed packages
 import evoc
@@ -31,8 +26,6 @@ from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
 # Import from local modules
 from polismath_commentgraph.utils.storage import PostgresClient, DynamoDBStorage
 from polismath_commentgraph.utils.converter import DataConverter
-from polismath_commentgraph.core.embedding import EmbeddingEngine
-from polismath_commentgraph.core.clustering import ClusteringEngine
 
 # Configure logging
 logging.basicConfig(
@@ -72,7 +65,7 @@ def setup_environment(
         os.environ["DATABASE_PASSWORD"] = ""
 
     # Print database connection info
-    logger.info(f"Database connection info:")
+    logger.info("Database connection info:")
     logger.info(f"- HOST: {os.environ.get('DATABASE_HOST')}")
     logger.info(f"- PORT: {os.environ.get('DATABASE_PORT')}")
     logger.info(f"- DATABASE: {os.environ.get('DATABASE_NAME')}")
@@ -321,12 +314,18 @@ def generate_cluster_topic_labels(
             logger.info("Using Ollama for cluster naming")
 
             # Function to get topic labels via Ollama
-            def get_topic_name(comments, prompt_prefix=""):
-                prompt = f"{prompt_prefix}Read these comments and provide ONLY ONE short topic label (3–5 words) that captures their combined essence. Do not give one topic per comment. Do not include explanations, introductions, or multiple outputs. Reply with exactly one topic label, in quotation marks, on a single line.\n\nComments:\n"
+            def get_topic_name(comments):
+                prompt = (
+                    "Read these comments and provide ONLY ONE short topic label (3–5 words) "
+                    "that captures their combined essence. Do not give one topic per comment. "
+                    "Do not include explanations, introductions, or multiple outputs. "
+                    "Reply with exactly one topic label, in quotation marks, on a single line.\n\n"
+                    "Comments:\n"
+                )
                 for j, comment in enumerate(
                     comments[:5]
                 ):  # Use 5 pseudo-random comments as examples
-                    prompt += f"{j+1}. {comment}\n"
+                    prompt += f"{j + 1}. {comment}\n"
 
                 try:
                     # Get model name from environment variable or use default
@@ -425,7 +424,6 @@ def generate_cluster_topic_labels(
                 # Get topic name
                 topic_name = get_topic_name(
                     selected_comments,
-                    prompt_prefix=f"For conversation {conversation_name}: ",
                 )
                 # Add layer_cluster prefix to ensure uniqueness
                 # Use the passed layer_idx parameter, not the layer array
@@ -728,7 +726,7 @@ def process_layers_and_store_characteristics(
                 f"Stored {result['success']} cluster characteristics with {result['failure']} failures"
             )
 
-    logger.info(f"Processing of layers and storing characteristics complete!")
+    logger.info("Processing of layers and storing characteristics complete!")
     return layer_data
 
 
@@ -930,7 +928,7 @@ def create_visualizations(
         )
 
         # Create basic visualization
-        basic_file = create_basic_layer_visualization(
+        create_basic_layer_visualization(
             output_dir,
             f"{conversation_id}_comment_layer_{layer_idx}_basic",
             document_map,
@@ -939,7 +937,7 @@ def create_visualizations(
             numeric_topic_names,
             hover_info,
             f"{conversation_name} Comment Layer {layer_idx} - {len(np.unique(cluster_layer[cluster_layer >= 0]))} topics",
-            f"Comment topics with numeric labels",
+            "Comment topics with numeric labels",
         )
 
         # Create named visualization with just numeric topic names for now
@@ -952,7 +950,7 @@ def create_visualizations(
             numeric_topic_names,
             hover_info,
             f"{conversation_name} Comment Layer {layer_idx} - {len(np.unique(cluster_layer[cluster_layer >= 0]))} topics",
-            f"Comment topics (to be updated with LLM topic names)",
+            "Comment topics (to be updated with LLM topic names)",
         )
 
         # Generate static datamapplot visualizations
@@ -1011,7 +1009,7 @@ def create_visualizations(
         output_dir, conversation_id, layer_files, layer_info
     )
 
-    logger.info(f"Visualization creation complete!")
+    logger.info("Visualization creation complete!")
     logger.info(f"Index file available at: {index_file}")
 
     # Try to open in browser
@@ -1230,7 +1228,7 @@ def create_enhanced_multilayer_index(
 <body>
     <h1>{conversation_name} - Enhanced Multi-layer Comment Visualization</h1>
     <p>This page provides access to different layers of clustering granularity with topic labeling:</p>
-    
+
     <div class="button-container">
         <button class="button" onclick="window.location.reload();">Refresh Page</button>
     </div>
@@ -1273,21 +1271,21 @@ def create_enhanced_multilayer_index(
             <a href="{basic_view_file}" class="view-link " target="_blank">Basic View</a>
             <a href="{named_view_file}" class="view-link active" target="_blank">Named View (LLM-labeled)</a>
         </div>
-        
+
         <div class="static-downloads">
             <h3>Static Visualizations:</h3>
             <a href="{static_png}" target="_blank">Standard PNG</a>
             <a href="{presentation_png}" target="_blank">Presentation PNG (HiRes)</a>
             <a href="{static_svg}" target="_blank">Vector SVG</a>
         </div>
-        
+
         <div class="static-downloads">
             <h3>Consensus/Divisive Visualizations:</h3>
             <a href="{consensus_png}" target="_blank">Consensus Map</a>
             <a href="{consensus_enhanced}" target="_blank">Enhanced Consensus Map</a>
             <p><strong>Color legend:</strong> Green = Consensus Comments, Yellow = Mixed Opinions, Red = Divisive Comments</p>
         </div>
-        
+
         <iframe src="{named_view_file}"></iframe>
     </div>
 """
