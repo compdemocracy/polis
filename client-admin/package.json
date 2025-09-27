@@ -56,7 +56,6 @@
   "dependencies": {
     "@reduxjs/toolkit": "^2.9.0",
     "@theme-ui/mdx": "^0.17.2",
-    "d3-scale": "~3.3.0",
     "oidc-client-ts": "^3.3.0",
     "prop-types": "~15.8.1",
     "react": "^19.1.1",
