@@ -90,7 +90,8 @@ export default (env, argv) => {
       new HtmlWebPackPlugin({
         template: 'public/index.html',
         filename: isProduction ? 'index_admin.html' : 'index.html',
-        inject: 'body'
+        inject: 'body',
+        isProduction: isProduction // Pass isProduction to the template
       }),
       new webpack.DefinePlugin({
         'process.env.ADMIN_UIDS': JSON.stringify(process.env.ADMIN_UIDS),
