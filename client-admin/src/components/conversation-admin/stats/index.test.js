@@ -9,13 +9,13 @@ import * as actions from '../../../actions'
 import { mockAuth } from '../../../test-utils'
 
 // Mock child components to isolate the main component
-jest.mock('./conversation-stats-number-cards', () => {
+jest.mock('./NumberCards', () => {
   return function MockNumberCards({ data }) {
     return <div data-testid="number-cards">Number Cards: {JSON.stringify(data)}</div>
   }
 })
 
-jest.mock('./voters', () => {
+jest.mock('./Voters', () => {
   return function MockVoters({ firstVoteTimes }) {
     return (
       <div data-testid="voters-chart">Voters Chart: {firstVoteTimes?.length || 0} data points</div>
@@ -23,7 +23,7 @@ jest.mock('./voters', () => {
   }
 })
 
-jest.mock('./commenters', () => {
+jest.mock('./Commenters', () => {
   return function MockCommenters({ firstCommentTimes }) {
     return (
       <div data-testid="commenters-chart">

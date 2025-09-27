@@ -5,13 +5,13 @@ import theme from '../../theme'
 import Home from './home'
 
 // Mock child components for isolation
-jest.mock('./exploreKnowledgeBase', () => {
+jest.mock('./ExploreKnowledgeBase', () => {
   const MockComponent = () => <div data-testid="explore-kb-mock">ExploreKnowledgeBase</div>
   MockComponent.displayName = 'MockExploreKnowledgeBase'
   return MockComponent
 })
 
-jest.mock('./press', () => {
+jest.mock('./Press', () => {
   const MockComponent = () => <div data-testid="press-mock">Press</div>
   MockComponent.displayName = 'MockPress'
   return MockComponent

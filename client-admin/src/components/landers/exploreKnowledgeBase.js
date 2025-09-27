@@ -1,5 +1,5 @@
 import { Box, Link, Heading } from 'theme-ui'
-import KnowledgeBase from './knowledgeBase'
+import KnowledgeBase from './KnowledgeBase'
 
 const ExploreKnowledgeBase = () => {
   return (

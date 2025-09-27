@@ -8,7 +8,7 @@ import { isAuthReady } from '../../util/net'
 import Url from '../../util/url'
 import { useAuth } from 'react-oidc-context'
 import { Box, Heading, Button, Text } from 'theme-ui'
-import Conversation from './conversation'
+import Conversation from './Conversation'
 import { useLocation, useNavigate } from 'react-router'
 
 const Conversations = () => {

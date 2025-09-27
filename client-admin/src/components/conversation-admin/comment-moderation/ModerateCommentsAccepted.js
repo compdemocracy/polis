@@ -1,15 +1,15 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import { changeCommentStatusToAccepted, changeCommentCommentIsMeta } from '../../../actions'
 import { useSelector, useDispatch } from 'react-redux'
-import Comment from './comment'
+import { changeCommentStatusToRejected, changeCommentCommentIsMeta } from '../../../actions'
+import Comment from './Comment'
 
-const ModerateCommentsRejected = () => {
+const ModerateCommentsAccepted = () => {
   const dispatch = useDispatch()
-  const { rejected_comments } = useSelector((state) => state.mod_comments_rejected)
+  const { accepted_comments } = useSelector((state) => state.mod_comments_accepted)
 
-  const onCommentAccepted = (comment) => {
-    dispatch(changeCommentStatusToAccepted(comment))
+  const onCommentRejected = (comment) => {
+    dispatch(changeCommentStatusToRejected(comment))
   }
 
   const toggleIsMetaHandler = (comment, is_meta) => {
@@ -17,18 +17,18 @@ const ModerateCommentsRejected = () => {
   }
 
   const createCommentMarkup = () => {
-    // Add safety check to ensure rejected_comments is an array
-    if (!Array.isArray(rejected_comments)) {
+    // Add safety check to ensure accepted_comments is an array
+    if (!Array.isArray(accepted_comments)) {
       return null
     }
 
-    const comments = rejected_comments.map((comment, i) => {
+    const comments = accepted_comments.map((comment, i) => {
       return (
         <Comment
           key={i}
-          acceptButton
-          acceptButtonText="accept"
-          acceptClickHandler={onCommentAccepted}
+          rejectButton
+          rejectClickHandler={onCommentRejected}
+          rejectButtonText="reject"
           isMetaCheckbox
           toggleIsMetaHandler={toggleIsMetaHandler}
           comment={comment}
@@ -39,12 +39,12 @@ const ModerateCommentsRejected = () => {
   }
 
   return (
-    <div data-testid="rejected-comments">
-      {rejected_comments !== null && Array.isArray(rejected_comments)
+    <div data-testid="approved-comments">
+      {accepted_comments !== null && Array.isArray(accepted_comments)
         ? createCommentMarkup()
-        : 'Loading rejected comments...'}
+        : 'Loading accepted comments...'}
     </div>
   )
 }
 
-export default ModerateCommentsRejected
+export default ModerateCommentsAccepted

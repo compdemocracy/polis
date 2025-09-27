@@ -9,7 +9,7 @@ import { Heading, Box, Button } from 'theme-ui'
 import { useAuth } from 'react-oidc-context'
 import { populateZidMetadataStore } from '../../../actions'
 import ComponentHelpers from '../../../util/component-helpers'
-import NoPermission from '../no-permission'
+import NoPermission from '../NoPermission'
 import { useParams } from 'react-router'
 
 const modMap = {

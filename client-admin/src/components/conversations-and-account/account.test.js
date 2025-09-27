@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../theme'
-import Account from './account'
+import Account from './Account'
 
 // Create a mock store
 const createMockStore = (user = null) => {

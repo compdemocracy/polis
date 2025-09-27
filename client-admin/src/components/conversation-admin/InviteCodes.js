@@ -3,7 +3,7 @@ import { useSelector } from 'react-redux'
 import { Heading, Box, Text, Button, Select } from 'theme-ui'
 import { useParams } from 'react-router'
 import PolisNet from '../../util/net'
-import Spinner from '../framework/spinner'
+import Spinner from '../framework/Spinner'
 import Pagination from './Pagination'
 
 const InviteCodes = () => {

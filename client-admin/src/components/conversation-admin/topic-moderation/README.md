@@ -12,7 +12,7 @@ Main container component with tabbed navigation between different views:
 - Proximity Map visualization
 - Statistics dashboard
 
-### `topic-tree.js` - TopicTree
+### `TopicTree.js` - TopicTree
 
 Hierarchical display of topics organized by layers:
 
@@ -21,7 +21,7 @@ Hierarchical display of topics organized by layers:
 - Bulk topic-level actions (Accept/Reject/Meta)
 - Navigation to detailed comment view
 
-### `topic-detail.js` - TopicDetail
+### `TopicDetail.js` - TopicDetail
 
 Detailed view of comments within a specific topic:
 
@@ -30,7 +30,7 @@ Detailed view of comments within a specific topic:
 - UMAP coordinate display
 - Moderation status tracking
 
-### `proximity-visualization.js` - ProximityVisualization
+### `ProximityVisualization.js` - ProximityVisualization
 
 SVG-based UMAP visualization:
 
@@ -39,7 +39,7 @@ SVG-based UMAP visualization:
 - Color coding by moderation status
 - Layer selection for different granularities
 
-### `topic-stats.js` - TopicStats
+### `TopicStats.js` - TopicStats
 
 Statistics and progress tracking:
 

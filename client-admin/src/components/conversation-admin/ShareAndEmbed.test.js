@@ -4,16 +4,16 @@ import { configureStore } from '@reduxjs/toolkit'
 import { ThemeUIProvider } from 'theme-ui'
 import { BrowserRouter as Router } from 'react-router'
 import theme from '../../theme'
-import ShareAndEmbed from './share-and-embed'
+import ShareAndEmbed from './ShareAndEmbed'
 
 // Mock the child components
-jest.mock('./conversation-has-comments-check', () => {
+jest.mock('./ConversationHasCommentsCheck', () => {
   return function MockConversationHasCommentsCheck() {
     return <div>ConversationHasCommentsCheck</div>
   }
 })
 
-jest.mock('./participant-xids', () => {
+jest.mock('./ParticipantXids', () => {
   return function MockParticipantXids() {
     return <div>ParticipantXids</div>
   }

@@ -2,7 +2,7 @@
 
 import { Flex, Box } from 'theme-ui'
 import { Outlet, Link } from 'react-router'
-import InteriorHeader from './interior-header'
+import InteriorHeader from './InteriorHeader'
 
 const MainLayout = () => {
   return (

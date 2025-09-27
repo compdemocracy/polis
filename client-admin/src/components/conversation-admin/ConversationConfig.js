@@ -4,12 +4,12 @@ import { useRef } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from '../../actions'
 import ComponentHelpers from '../../util/component-helpers'
-import NoPermission from './no-permission'
+import NoPermission from './NoPermission'
 import { Heading, Box, Text } from 'theme-ui'
 import emoji from 'react-easy-emoji'
 import { CheckboxField } from './CheckboxField'
-import ModerateCommentsSeed from './seed-comment'
-import Spinner from '../framework/spinner'
+import ModerateCommentsSeed from './ModerateCommentSeed'
+import Spinner from '../framework/Spinner'
 
 const ConversationConfig = () => {
   const dispatch = useDispatch()

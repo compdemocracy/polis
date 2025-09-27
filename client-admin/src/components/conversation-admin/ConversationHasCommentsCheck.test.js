@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
-import ConversationHasCommentsCheck from './conversation-has-comments-check'
+import ConversationHasCommentsCheck from './ConversationHasCommentsCheck'
 import { mockAuth } from '../../test-utils'
 
 // Mock the useAuth hook directly for this test file

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../../theme'
-import NumberCard from './conversation-stats-number-card'
+import NumberCard from './NumberCard'
 
 // Wrapper to provide theme context
 const renderWithTheme = (component) => {

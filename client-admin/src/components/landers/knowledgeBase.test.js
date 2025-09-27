@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../theme'
-import KnowledgeBase from './knowledgeBase'
+import KnowledgeBase from './KnowledgeBase'
 
 // Wrapper to provide theme context
 const renderWithTheme = (component) => {

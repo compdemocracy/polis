@@ -3,7 +3,7 @@ import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../../theme'
-import Comment from './comment'
+import Comment from './Comment'
 
 // Create a mock store
 const createMockStore = (conversationData = {}) => {

@@ -9,24 +9,24 @@ import { isAuthReady } from './util/net'
 import { Routes, Route, Navigate } from 'react-router'
 
 import { useAuth } from 'react-oidc-context'
-import OidcConnector from './components/oidc-connector'
-import Spinner from './components/framework/spinner'
+import OidcConnector from './components/OidcConnector'
+import Spinner from './components/framework/Spinner'
 
 /* landers */
 import Home from './components/landers/home'
-import TOS from './components/landers/tos'
-import Privacy from './components/landers/privacy'
-import SignIn from './components/landers/signin'
-import SignOut from './components/landers/signout'
+import TOS from './components/landers/TOS'
+import Privacy from './components/landers/Privacy'
+import SignIn from './components/landers/SignIn'
+import SignOut from './components/landers/SignOut'
 
 // /conversation-admin
 import ConversationAdminContainer from './components/conversation-admin/index'
 
-import Conversations from './components/conversations-and-account/conversations'
-import Account from './components/conversations-and-account/account'
-import Integrate from './components/conversations-and-account/integrate'
+import Conversations from './components/conversations-and-account/Conversations'
+import Account from './components/conversations-and-account/Account'
+import Integrate from './components/conversations-and-account/Integrate'
 
-import MainLayout from './components/main-layout'
+import MainLayout from './components/MainLayout'
 
 const AUTH_LOADING_TIMEOUT = 3000
 

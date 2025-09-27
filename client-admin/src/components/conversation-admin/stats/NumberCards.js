@@ -2,7 +2,7 @@
 
 import React from 'react'
 import PropTypes from 'prop-types'
-import NumberCard from './conversation-stats-number-card'
+import NumberCard from './NumberCard'
 
 class NumberCards extends React.Component {
   render() {

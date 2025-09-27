@@ -3,7 +3,7 @@
 import { useSelector } from 'react-redux'
 import { Box, Heading } from 'theme-ui'
 
-import Spinner from '../framework/spinner'
+import Spinner from '../framework/Spinner'
 
 const Account = () => {
   const user = useSelector((state) => state.user)

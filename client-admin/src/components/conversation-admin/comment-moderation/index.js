@@ -3,15 +3,15 @@
 import ComponentHelpers from '../../../util/component-helpers'
 import { useAuth } from 'react-oidc-context'
 
-import NoPermission from '../no-permission'
+import NoPermission from '../NoPermission'
 import { useEffect, useRef } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 import { populateAllCommentStores } from '../../../actions'
 import { Heading, Flex, Box } from 'theme-ui'
 
-import ModerateCommentsTodo from './moderate-comments-todo'
-import ModerateCommentsAccepted from './moderate-comments-accepted'
-import ModerateCommentsRejected from './moderate-comments-rejected'
+import ModerateCommentsTodo from './ModerateCommentsTodo'
+import ModerateCommentsAccepted from './ModerateCommentsAccepted'
+import ModerateCommentsRejected from './ModerateCommentsRejected'
 
 import { Routes, Route, Link, useParams, useLocation } from 'react-router'
 

@@ -2,7 +2,7 @@ import { Component } from 'react'
 import { Flex, Box } from 'theme-ui'
 
 import { Link } from 'react-router'
-import Logomark from '../framework/logomark'
+import Logomark from '../framework/Logomark'
 
 class Header extends Component {
   render() {

@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types'
 import { Box } from 'theme-ui'
 import { Link } from 'react-router'
-import Logomark from './framework/logomark'
+import Logomark from './framework/Logomark'
 
 const InteriorHeader = ({ children }) => {
   return (

@@ -2,7 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { BrowserRouter as Router } from 'react-router'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../theme'
-import SignIn from './signin'
+import SignIn from './SignIn'
 import { mockAuth } from '../../test-utils'
 
 // Mock the useAuth hook directly for this test file

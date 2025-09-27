@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
 import theme from '../../../theme'
-import Voters from './voters'
+import Voters from './Voters'
 
 // Wrapper to provide theme context
 const renderWithTheme = (component) => {
