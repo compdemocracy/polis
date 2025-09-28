@@ -6,7 +6,7 @@ import { Routes, Route, Link, useParams, useLocation } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import React, { useEffect, useRef } from 'react'
 
-import { useUser } from '../../../util/auth'
+import { hasDelphiEnabled, useUser } from '../../../util/auth'
 import { useZidMetadata } from '../../../util/zid'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../NoPermission'
@@ -78,40 +78,52 @@ const TopicModeration = () => {
         }}>
         Topic Moderation
       </Heading>
-      <Flex sx={{ mb: [4] }}>
-        <Link
-          sx={{
-            mr: [4],
-            variant: url ? 'links.nav' : 'links.activeNav'
-          }}
-          to={baseUrl}>
-          Topics Tree
-        </Link>
-        <Link
-          sx={{
-            mr: [4],
-            variant: url === 'proximity' ? 'links.activeNav' : 'links.nav'
-          }}
-          to={`${baseUrl}/proximity`}>
-          Proximity Map
-        </Link>
-        <Link
-          sx={{
-            mr: [4],
-            variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
-          }}
-          to={`${baseUrl}/stats`}>
-          Statistics
-        </Link>
-      </Flex>
-      <Box>
-        <Routes>
-          <Route path="/" element={<TopicTree conversation_id={conversation_id} />} />
-          <Route path="proximity" element={<ProximityVisualization />} />
-          <Route path="stats" element={<TopicStats conversation_id={conversation_id} />} />
-          <Route path="topic/:topicKey" element={<TopicDetail />} />
-        </Routes>
-      </Box>
+      {hasDelphiEnabled(user) ? (
+        <Flex sx={{ mb: [4] }}>
+          <Link
+            sx={{
+              mr: [4],
+              variant: url ? 'links.nav' : 'links.activeNav'
+            }}
+            to={baseUrl}>
+            Topics Tree
+          </Link>
+          <Link
+            sx={{
+              mr: [4],
+              variant: url === 'proximity' ? 'links.activeNav' : 'links.nav'
+            }}
+            to={`${baseUrl}/proximity`}>
+            Proximity Map
+          </Link>
+          <Link
+            sx={{
+              mr: [4],
+              variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
+            }}
+            to={`${baseUrl}/stats`}>
+            Statistics
+          </Link>
+        </Flex>
+      ) : (
+        <>
+          <h3>Topic moderation is not enabled for this conversation.</h3>
+          <p>
+            This is a Pro feature. See <a href="https://pro.pol.is/">pro.pol.is</a> for more
+            information.
+          </p>
+        </>
+      )}
+      {hasDelphiEnabled(user) && (
+        <Box>
+          <Routes>
+            <Route path="/" element={<TopicTree conversation_id={conversation_id} />} />
+            <Route path="proximity" element={<ProximityVisualization />} />
+            <Route path="stats" element={<TopicStats conversation_id={conversation_id} />} />
+            <Route path="topic/:topicKey" element={<TopicDetail />} />
+          </Routes>
+        </Box>
+      )}
     </Box>
   )
 }

@@ -22,7 +22,7 @@ export const useUser = () => {
   return context
 }
 
-export const has_delphi_enabled = (user) => {
+export const hasDelphiEnabled = (user) => {
   const decoded = decodedJwt(user)
   return decoded && decoded[`${process.env.AUTH_NAMESPACE}delphi_enabled`]
 }

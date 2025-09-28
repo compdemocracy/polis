@@ -5,7 +5,7 @@ import { useAuth } from 'react-oidc-context'
 import { useParams } from 'react-router'
 import { useState, useEffect } from 'react'
 
-import { has_delphi_enabled, useUser } from '../../../util/auth'
+import { hasDelphiEnabled, useUser } from '../../../util/auth'
 import { useZidMetadata } from '../../../util/zid'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../NoPermission'
@@ -92,7 +92,7 @@ const ReportsList = () => {
         Report
       </Heading>
       <Box sx={{ mb: [3, null, 4] }}>
-        {has_delphi_enabled(authUser) && (
+        {hasDelphiEnabled(authUser) && (
           <Box>
             Select which comments will be visible in this report:
             <select
@@ -114,7 +114,7 @@ const ReportsList = () => {
             <a target="_blank" rel="noreferrer" href={Url.urlPrefix + 'report/' + report.report_id}>
               {Url.urlPrefix}report/{report.report_id}
             </a>
-            {has_delphi_enabled(authUser) && (
+            {hasDelphiEnabled(authUser) && (
               <p>{modMap[String(report.mod_level)] || modMap[Number(report.mod_level)]}</p>
             )}
           </Box>
