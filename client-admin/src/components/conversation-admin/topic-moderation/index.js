@@ -3,13 +3,10 @@
 
 import { Heading, Flex, Box } from 'theme-ui'
 import { Routes, Route, Link, useParams, useLocation } from 'react-router-dom'
-import { useSelector } from 'react-redux'
 import React, { useEffect, useRef } from 'react'
 
 import { hasDelphiEnabled, useUser } from '../../../util/auth'
 import { useZidMetadata } from '../../../util/zid'
-import ComponentHelpers from '../../../util/component-helpers'
-import NoPermission from '../NoPermission'
 import ProximityVisualization from './ProximityVisualization'
 import TopicDetail from './TopicDetail'
 import TopicStats from './TopicStats'
@@ -22,8 +19,6 @@ const TopicModeration = () => {
   const location = useLocation()
   const user = useUser()
   const zid_metadata = useZidMetadata()
-  const topics = useSelector((state) => state.topic_mod_topics)
-  const stats = useSelector((state) => state.topic_mod_stats)
   const getTopicsRepeatedly = useRef(null)
 
   const loadTopics = () => {
@@ -51,16 +46,6 @@ const TopicModeration = () => {
         <div>Loading...</div>
       </Box>
     )
-  }
-
-  if (
-    ComponentHelpers.shouldShowPermissionsError({
-      user,
-      zid_metadata: zid_metadata.zid_metadata,
-      loading: zid_metadata.loading
-    })
-  ) {
-    return <NoPermission />
   }
 
   const { conversation_id } = params

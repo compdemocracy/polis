@@ -7,13 +7,9 @@ import { useEffect, useRef } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 
 import { populateAllCommentStores } from '../../../actions'
-import { useUser } from '../../../util/auth'
-import { useZidMetadata } from '../../../util/zid'
-import ComponentHelpers from '../../../util/component-helpers'
 import ModerateCommentsAccepted from './ModerateCommentsAccepted'
 import ModerateCommentsRejected from './ModerateCommentsRejected'
 import ModerateCommentsTodo from './ModerateCommentsTodo'
-import NoPermission from '../NoPermission'
 
 const pollFrequency = 60000
 
@@ -22,11 +18,9 @@ const CommentModeration = () => {
   const params = useParams()
   const location = useLocation()
   const { isLoading, isAuthenticated } = useAuth()
-  const zid_metadata = useZidMetadata()
   const unmoderated = useSelector((state) => state.mod_comments_unmoderated)
   const accepted = useSelector((state) => state.mod_comments_accepted)
   const rejected = useSelector((state) => state.mod_comments_rejected)
-  const user = useUser()
   const getCommentsRepeatedlyRef = useRef(null)
 
   const loadComments = () => {
@@ -63,16 +57,6 @@ const CommentModeration = () => {
     // Try again if conversation_id changes or auth state changes
     loadCommentsIfNeeded()
   }, [params.conversation_id, isLoading, isAuthenticated])
-
-  if (
-    ComponentHelpers.shouldShowPermissionsError({
-      user,
-      zid_metadata: zid_metadata.zid_metadata,
-      loading: isLoading
-    })
-  ) {
-    return <NoPermission />
-  }
 
   const url = location.pathname.split('/')[4]
 

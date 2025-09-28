@@ -33,3 +33,32 @@ export const decodedJwt = (user) => {
   }
   return null
 }
+
+const getAdminUids = () => {
+  // Derive admin UID list from env as produced by webpack DefinePlugin JSON.stringify
+  const adminUidsRaw = process.env.ADMIN_UIDS
+  if (typeof adminUidsRaw === 'string' && adminUidsRaw.trim() !== '') {
+    try {
+      const parsed = JSON.parse(adminUidsRaw)
+      if (Array.isArray(parsed)) return parsed
+    } catch {
+      // Ignore invalid JSON
+    }
+  }
+  return []
+}
+
+export const checkConvoPermissions = (user, zid_metadata) => {
+  const isSuperAdmin = getAdminUids().includes(user?.user?.uid)
+  const isOwner = zid_metadata?.is_owner || false
+  const isMod = zid_metadata?.is_mod || false
+  const shouldShow = isSuperAdmin || isOwner || isMod
+
+  return shouldShow
+}
+
+export const isAdminOrMod = (user, zid_metadata) => {
+  const isSuperAdminUser = getAdminUids().includes(user?.user?.uid)
+  if (isSuperAdminUser) return true
+  return zid_metadata?.is_mod || zid_metadata?.is_owner
+}

@@ -1,56 +1,45 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import { Heading, Box, Text } from 'theme-ui'
+import { useCallback, useRef } from 'react'
 import { useDispatch } from 'react-redux'
-import { useRef } from 'react'
 import emoji from 'react-easy-emoji'
 
 import { CheckboxField } from './CheckboxField'
 import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from '../../actions'
-import { useUser } from '../../util/auth'
 import { useZidMetadata } from '../../util/zid'
-import ComponentHelpers from '../../util/component-helpers'
 import ModerateCommentsSeed from './ModerateCommentSeed'
-import NoPermission from './NoPermission'
 import Spinner from '../framework/Spinner'
 
 const ConversationConfig = () => {
   const dispatch = useDispatch()
-  const user = useUser()
   const zid_metadata = useZidMetadata()
   const { loading, error } = zid_metadata
   const topicRef = useRef(null)
   const descriptionRef = useRef(null)
 
-  const handleStringValueChange = (field) => {
-    return () => {
-      let val = field === 'topic' ? topicRef.current.value : descriptionRef.current.value
+  const handleStringValueChange = useCallback(
+    (field, value) => {
+      let val = value
       if (field === 'help_bgcolor' || field === 'help_color') {
         if (!val.length) {
           val = 'default'
         }
       }
       dispatch(handleZidMetadataUpdate(zid_metadata, field, val))
-    }
-  }
+    },
+    [dispatch, zid_metadata]
+  )
 
-  const handleConfigInputTyping = (field) => {
-    return (e) => {
-      dispatch(optimisticZidMetadataUpdateOnTyping(zid_metadata, field, e.target.value))
-    }
-  }
+  const handleConfigInputTyping = useCallback(
+    (field, value) => {
+      dispatch(optimisticZidMetadataUpdateOnTyping(zid_metadata, field, value))
+    },
+    [dispatch, zid_metadata]
+  )
 
   if (loading && !topicRef.current && !descriptionRef.current) {
     return <Spinner />
-  }
-  if (
-    ComponentHelpers.shouldShowPermissionsError({
-      user,
-      zid_metadata: zid_metadata.zid_metadata,
-      loading
-    })
-  ) {
-    return <NoPermission />
   }
 
   return (
@@ -88,9 +77,9 @@ const ConversationConfig = () => {
             borderColor: 'mediumGray'
           }}
           data-testid="topic"
-          onBlur={handleStringValueChange('topic')}
-          onChange={handleConfigInputTyping('topic')}
-          defaultValue={zid_metadata.zid_metadata.topic}
+          onBlur={(e) => handleStringValueChange('topic', e.target.value)}
+          onChange={(e) => handleConfigInputTyping('topic', e.target.value)}
+          value={zid_metadata.topic || ''}
         />
       </Box>
 
@@ -111,9 +100,9 @@ const ConversationConfig = () => {
             borderColor: 'mediumGray'
           }}
           data-testid="description"
-          onBlur={handleStringValueChange('description')}
-          onChange={handleConfigInputTyping('description')}
-          defaultValue={zid_metadata.zid_metadata.description}
+          onBlur={(e) => handleStringValueChange('description', e.target.value)}
+          onChange={(e) => handleConfigInputTyping('description', e.target.value)}
+          value={zid_metadata.description || ''}
         />
       </Box>
 

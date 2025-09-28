@@ -9,7 +9,7 @@ import Spinner from '../framework/Spinner'
 const InviteTree = () => {
   const params = useParams()
   const zid_metadata = useZidMetadata()
-  const enabled = Boolean(zid_metadata?.zid_metadata?.treevite_enabled)
+  const enabled = Boolean(zid_metadata?.treevite_enabled)
   const conversationId = useMemo(
     () => zid_metadata?.conversation_id || params.conversation_id,
     [zid_metadata?.conversation_id, params.conversation_id]

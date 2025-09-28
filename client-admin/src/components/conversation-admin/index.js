@@ -3,9 +3,10 @@
 import { Flex, Box } from 'theme-ui'
 import { Routes, Route, Link, useParams, useLocation } from 'react-router'
 import { useAuth } from 'react-oidc-context'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 
+import { checkConvoPermissions, useUser } from '../../util/auth'
 import { populateZidMetadataStore, resetMetadataStore } from '../../actions'
 import { ZidMetadataProvider, useZidMetadata } from '../../util/zid'
 import ConversationConfig from './ConversationConfig'
@@ -13,17 +14,78 @@ import ConversationStats from './stats'
 import InviteCodes from './InviteCodes'
 import InviteTree from './InviteTree'
 import ModerateComments from './comment-moderation/'
+import NoPermission from './NoPermission'
 import Reports from './report/Reports'
 import ShareAndEmbed from './ShareAndEmbed'
+import Spinner from '../framework/Spinner'
 import TopicModeration from './topic-moderation/'
 
 const ConversationAdmin = () => {
   const params = useParams()
   const location = useLocation()
   const zid_metadata = useZidMetadata()
+  const user = useUser()
+
+  const [permissionState, setPermissionState] = useState('CHECKING') // CHECKING, PERMITTED, DENIED
+
+  useEffect(() => {
+    // This effect determines the user's permission level for the conversation.
+    // It runs when the user or conversation changes, or when the metadata loads.
+    // It's "sticky": once permission is PERMITTED or DENIED, it won't change
+    // until the user or conversation_id changes, avoiding flicker from
+    // optimistic updates.
+
+    if (zid_metadata.loading || !zid_metadata || !user.user) {
+      // Not ready to check permissions yet.
+      return
+    }
+
+    if (permissionState === 'CHECKING') {
+      const hasPermission = checkConvoPermissions(user, zid_metadata)
+      setPermissionState(hasPermission ? 'PERMITTED' : 'DENIED')
+    }
+  }, [user, zid_metadata, permissionState])
+
+  useEffect(() => {
+    // Reset permission check when conversation changes
+    setPermissionState('CHECKING')
+  }, [params.conversation_id])
 
   const url = location.pathname.split('/')[3]
   const baseUrl = `/m/${params.conversation_id}`
+
+  const renderContent = () => {
+    switch (permissionState) {
+      case 'CHECKING':
+        return <Spinner />
+      case 'DENIED':
+        return <NoPermission />
+      case 'PERMITTED':
+        return (
+          <Routes>
+            <Route path="/" element={<ConversationConfig />} />
+            <Route path="share" element={<ShareAndEmbed />} />
+            <Route path="reports/*" element={<Reports />} />
+            <Route path="comments/*" element={<ModerateComments />} />
+            <Route path="stats" element={<ConversationStats />} />
+            <Route
+              path="topics/*"
+              element={
+                <TopicModeration
+                  conversation_id={params.conversation_id}
+                  baseUrl={`${baseUrl}/topics`}
+                  location={location}
+                />
+              }
+            />
+            <Route path="invite-tree" element={<InviteTree />} />
+            <Route path="invite-codes" element={<InviteCodes />} />
+          </Routes>
+        )
+      default:
+        return null
+    }
+  }
 
   return (
     <Flex>
@@ -94,7 +156,7 @@ const ConversationAdmin = () => {
             Invite Tree
           </Link>
         </Box>
-        {zid_metadata?.zid_metadata?.treevite_enabled && (
+        {zid_metadata?.treevite_enabled && (
           <Box sx={{ mb: [3] }}>
             <Link
               sx={{
@@ -106,27 +168,7 @@ const ConversationAdmin = () => {
           </Box>
         )}
       </Box>
-      <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '60em', mx: [4] }}>
-        <Routes>
-          <Route path="/" element={<ConversationConfig />} />
-          <Route path="share" element={<ShareAndEmbed />} />
-          <Route path="reports/*" element={<Reports />} />
-          <Route path="comments/*" element={<ModerateComments />} />
-          <Route path="stats" element={<ConversationStats />} />
-          <Route
-            path="topics/*"
-            element={
-              <TopicModeration
-                conversation_id={params.conversation_id}
-                baseUrl={`${baseUrl}/topics`}
-                location={location}
-              />
-            }
-          />
-          <Route path="invite-tree" element={<InviteTree />} />
-          <Route path="invite-codes" element={<InviteCodes />} />
-        </Routes>
-      </Box>
+      <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '60em', mx: [4] }}>{renderContent()}</Box>
     </Flex>
   )
 }

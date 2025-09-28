@@ -7,12 +7,9 @@ import { useSelector, useDispatch } from 'react-redux'
 import { useState, useEffect, useRef } from 'react'
 
 import { populateConversationStatsStore } from '../../../actions'
-import { useUser } from '../../../util/auth'
 import { useZidMetadata } from '../../../util/zid'
 import Commenters from './Commenters'
-import ComponentHelpers from '../../../util/component-helpers'
 import dateSetupUtil from '../../../util/data-export-date-setup'
-import NoPermission from '../NoPermission'
 import NumberCards from './NumberCards'
 import Voters from './Voters'
 
@@ -20,7 +17,6 @@ const ConversationStats = () => {
   const dispatch = useDispatch()
   const params = useParams()
   const { isAuthenticated, isLoading } = useAuth()
-  const user = useUser()
   const stats = useSelector((state) => state.stats)
   const zid_metadata = useZidMetadata()
   const { conversation_stats } = stats
@@ -68,7 +64,7 @@ const ConversationStats = () => {
 
   useEffect(() => {
     // Also handle metadata loading and polling logic
-    const currentIsMod = zid_metadata?.zid_metadata?.is_mod
+    const currentIsMod = zid_metadata?.is_mod
     const currentConversationId = params?.conversation_id
 
     // Start polling when metadata is loaded for current conversation and user is mod
@@ -81,16 +77,6 @@ const ConversationStats = () => {
       startPolling()
     }
   }, [isLoading, isAuthenticated, zid_metadata, params.conversation_id])
-
-  if (
-    ComponentHelpers.shouldShowPermissionsError({
-      user,
-      zid_metadata: zid_metadata.zid_metadata,
-      loading: isLoading
-    })
-  ) {
-    return <NoPermission />
-  }
 
   const loading = !conversation_stats.firstCommentTimes || !conversation_stats.firstVoteTimes
 

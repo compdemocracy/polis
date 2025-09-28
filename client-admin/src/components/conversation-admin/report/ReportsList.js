@@ -5,10 +5,8 @@ import { useAuth } from 'react-oidc-context'
 import { useParams } from 'react-router'
 import { useState, useEffect } from 'react'
 
-import { hasDelphiEnabled, useUser } from '../../../util/auth'
+import { hasDelphiEnabled, isAdminOrMod, useUser } from '../../../util/auth'
 import { useZidMetadata } from '../../../util/zid'
-import ComponentHelpers from '../../../util/component-helpers'
-import NoPermission from '../NoPermission'
 import PolisNet from '../../../util/net'
 import Url from '../../../util/url'
 
@@ -45,14 +43,8 @@ const ReportsList = () => {
   }
 
   useEffect(() => {
-    const currentIsMod = zid_metadata?.zid_metadata?.is_mod
-
     // Load data if user is now a moderator and data hasn't been loaded
-    if (
-      !state.dataLoaded &&
-      (currentIsMod ||
-        (user?.user?.uid && ComponentHelpers.getAdminUids().indexOf(user.user.uid) !== -1))
-    ) {
+    if (!state.dataLoaded && isAdminOrMod(user, zid_metadata)) {
       getData()
     }
   }, [zid_metadata, isAuthenticated, user, state.dataLoaded])
@@ -64,16 +56,6 @@ const ReportsList = () => {
     }).then(() => {
       getData()
     })
-  }
-
-  if (
-    ComponentHelpers.shouldShowPermissionsError({
-      user,
-      zid_metadata: zid_metadata.zid_metadata,
-      loading: state.loading
-    })
-  ) {
-    return <NoPermission />
   }
 
   if (state.loading) {

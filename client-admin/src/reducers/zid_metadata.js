@@ -5,7 +5,6 @@ import * as types from '../actions'
 const zid = (
   state = {
     loading: false,
-    zid_metadata: {},
     error: null,
     optimistic: 0 /* `h4x0rz` trigger render because shallow comparison https://github.com/reactjs/redux/issues/585 */
   },
@@ -13,46 +12,52 @@ const zid = (
 ) => {
   switch (action.type) {
     case types.REQUEST_ZID_METADATA:
-      return Object.assign({}, state, {
+      return {
+        ...state,
         conversation_id: action.data.conversation_id,
         loading: true,
         error: null
-      })
+      }
     case types.RECEIVE_ZID_METADATA:
-      return Object.assign({}, state, {
+      return {
+        ...state,
         loading: false,
-        zid_metadata: action.data,
+        ...action.data,
         error: null
-      })
+      }
     case types.ZID_METADATA_RESET:
-      return Object.assign({}, state, {
+      return {
         loading: false,
-        zid_metadata: {},
-        error: null
-      })
+        error: null,
+        optimistic: 0
+      }
     case types.OPTIMISTIC_ZID_METADATA_UPDATE:
-      return Object.assign({}, state, {
+      return {
+        ...state,
         loading: false,
-        zid_metadata: action.data,
+        ...action.data,
         error: null,
         optimistic: Math.random()
-      })
+      }
     case types.UPDATE_ZID_METADATA_STARTED:
-      return Object.assign({}, state, {
+      return {
+        ...state,
         loading: true,
         error: null
-      })
+      }
     case types.UPDATE_ZID_METADATA_SUCCESS:
-      return Object.assign({}, state, {
+      return {
+        ...state,
         loading: false,
-        zid_metadata: action.data,
+        ...action.data,
         error: null
-      })
+      }
     case types.UPDATE_ZID_METADATA_ERROR:
-      return Object.assign({}, state, {
+      return {
+        ...state,
         loading: false,
         error: action.data
-      })
+      }
     default:
       return state
   }

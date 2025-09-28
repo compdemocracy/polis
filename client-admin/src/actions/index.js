@@ -193,22 +193,17 @@ const fetchZidMetadata = (conversation_id) => {
 export const populateZidMetadataStore = (conversation_id) => {
   return (dispatch, getState) => {
     const state = getState()
-    const hasConversationId =
-      state.zid_metadata &&
-      state.zid_metadata.zid_metadata &&
-      state.zid_metadata.zid_metadata.conversation_id
+    const { loading, conversation_id: current_conversation_id } = state.zid_metadata
 
-    const isLoading = state.zid_metadata.loading
     // NOTE: if there are multiple calls outstanding this may be wrong.
-    const isLoadingThisConversation =
-      state.zid_metadata.conversation_id === conversation_id && isLoading
+    const isLoadingThisConversation = current_conversation_id === conversation_id && loading
 
     if (isLoadingThisConversation) {
       return
     }
 
-    // don"t fetch again if we already have data loaded for that conversation.
-    if (hasConversationId && state.zid_metadata.zid_metadata.conversation_id === conversation_id) {
+    // don't fetch again if we already have data loaded for that conversation.
+    if (current_conversation_id === conversation_id) {
       return
     }
 
@@ -260,7 +255,10 @@ export const handleZidMetadataUpdate = (zm, field, value) => {
 }
 
 export const optimisticZidMetadataUpdateOnTyping = (zm, field, value) => {
-  const nextZm = Object.assign({}, zm, { [field]: value })
+  const nextZm = {
+    ...zm,
+    [field]: value
+  }
   return {
     type: OPTIMISTIC_ZID_METADATA_UPDATE,
     data: nextZm

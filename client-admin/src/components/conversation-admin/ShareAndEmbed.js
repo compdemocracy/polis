@@ -3,38 +3,24 @@
 import { Heading, Text, Box } from 'theme-ui'
 import { Link, useParams } from 'react-router'
 
-import { useUser } from '../../util/auth'
 import { useZidMetadata } from '../../util/zid'
-import ComponentHelpers from '../../util/component-helpers'
 import ConversationHasCommentsCheck from './ConversationHasCommentsCheck'
-import NoPermission from './NoPermission'
 import ParticipantXids from './ParticipantXids'
 import Url from '../../util/url'
 
 const ShareAndEmbed = () => {
   const params = useParams()
   const zid_metadata = useZidMetadata()
-  const user = useUser()
 
   const constructEmbeddedOnMarkup = () => {
     return (
       <p data-testid="embed-page">
         {'Embedded on: '}
-        <a style={{ color: 'black' }} target="blank" href={zid_metadata.zid_metadata.parent_url}>
-          {zid_metadata.zid_metadata.parent_url}
+        <a style={{ color: 'black' }} target="blank" href={zid_metadata.parent_url}>
+          {zid_metadata.parent_url}
         </a>
       </p>
     )
-  }
-
-  if (
-    ComponentHelpers.shouldShowPermissionsError({
-      user,
-      zid_metadata: zid_metadata.zid_metadata,
-      loading: zid_metadata.loading
-    })
-  ) {
-    return <NoPermission />
   }
 
   return (
@@ -50,7 +36,7 @@ const ShareAndEmbed = () => {
       </Heading>
       <ConversationHasCommentsCheck
         conversation_id={params.conversation_id}
-        strict_moderation={zid_metadata.zid_metadata.strict_moderation}
+        strict_moderation={zid_metadata.strict_moderation}
       />
       <Box sx={{ mb: [3] }}>
         <Text
@@ -96,7 +82,7 @@ const ShareAndEmbed = () => {
           This embed code can only be used to embed a single conversation.{' '}
           <Link to="/integrate">I want to integrate pol.is on my entire site.</Link>
         </Text>
-        <div>{zid_metadata.zid_metadata.parent_url ? constructEmbeddedOnMarkup() : ''}</div>
+        <div>{zid_metadata.parent_url ? constructEmbeddedOnMarkup() : ''}</div>
       </Box>
 
       <ParticipantXids conversation_id={params.conversation_id} />
