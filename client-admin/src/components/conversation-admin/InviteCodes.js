@@ -85,7 +85,7 @@ const InviteCodes = () => {
     }
   }, [waveFilter, statusFilter])
 
-  const handlePageChange = (newOffset, newLimit) => {
+  const handlePageChange = (newOffset) => {
     loadInvites(newOffset)
   }
 

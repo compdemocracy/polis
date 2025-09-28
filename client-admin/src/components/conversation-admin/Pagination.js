@@ -1,7 +1,7 @@
 import { Box, Button, Text } from 'theme-ui'
 import PropTypes from 'prop-types'
 
-const Pagination = ({ pagination, onPageChange, loading = false, pageSize = 50 }) => {
+const Pagination = ({ pagination, onPageChange, loading = false }) => {
   if (!pagination || pagination.total === 0) {
     return null
   }

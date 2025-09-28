@@ -32,7 +32,8 @@ module.exports = [
     files: ['**/*.js', '**/*.jsx'],
     name: 'react-recommended',
     rules: {
-      ...reactPlugin.configs.recommended.rules
+      ...reactPlugin.configs.recommended.rules,
+      ...reactPlugin.configs['jsx-runtime'].rules
     }
   },
   {
@@ -68,14 +69,9 @@ module.exports = [
       }
     },
     rules: {
-      camelcase: 'off',
-      'import/namespace': 'warn',
-      'jsx-a11y/no-static-element-interactions': 'warn',
-      'jsx-a11y/tabindex-no-positive': 'warn',
-      'object-shorthand': 'off',
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
       'no-unused-vars': ['error', { args: 'none' }],
-      'react/no-unknown-property': ['error', { ignore: ['sx'] }],
-      'react/react-in-jsx-scope': 'off'
+      'react/no-unknown-property': ['error', { ignore: ['sx'] }]
     }
   },
   {
@@ -97,6 +93,9 @@ module.exports = [
       globals: {
         ...globals.node
       }
+    },
+    rules: {
+      'no-console': 'off'
     }
   }
 ]
