@@ -10,12 +10,12 @@ import emoji from 'react-easy-emoji'
 import { CheckboxField } from './CheckboxField'
 import ModerateCommentsSeed from './ModerateCommentSeed'
 import Spinner from '../framework/Spinner'
+import { useUser } from '../../util/auth'
 
 const ConversationConfig = () => {
   const dispatch = useDispatch()
-  const user = useSelector((state) => state.user)
+  const user = useUser()
   const { zid_metadata, loading, error } = useSelector((state) => state.zid_metadata)
-
   const topicRef = useRef(null)
   const descriptionRef = useRef(null)
 

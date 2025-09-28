@@ -12,17 +12,16 @@ import { Heading, Box } from 'theme-ui'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../NoPermission'
 import { useParams } from 'react-router'
+import { useUser } from '../../../util/auth'
 
 const ConversationStats = () => {
   const dispatch = useDispatch()
   const params = useParams()
   const { isAuthenticated, isLoading } = useAuth()
-
+  const user = useUser()
   const stats = useSelector((state) => state.stats)
   const zid_metadata = useSelector((state) => state.zid_metadata)
   const { conversation_stats } = stats
-  const user = useSelector((state) => state.user)
-
   const times = dateSetupUtil()
   const chartSize = 500
   const chartMargins = { top: 20, right: 20, bottom: 50, left: 70 }

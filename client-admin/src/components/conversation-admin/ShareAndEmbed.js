@@ -8,10 +8,12 @@ import { Heading, Text, Box } from 'theme-ui'
 import ComponentHelpers from '../../util/component-helpers'
 import NoPermission from './NoPermission'
 import ParticipantXids from './ParticipantXids'
+import { useUser } from '../../util/auth'
 
 const ShareAndEmbed = () => {
   const params = useParams()
   const zid_metadata = useSelector((state) => state.zid_metadata)
+  const user = useUser()
 
   const constructEmbeddedOnMarkup = () => {
     return (
@@ -26,6 +28,7 @@ const ShareAndEmbed = () => {
 
   if (
     ComponentHelpers.shouldShowPermissionsError({
+      user: user,
       zid_metadata: zid_metadata.zid_metadata,
       loading: zid_metadata.loading
     })

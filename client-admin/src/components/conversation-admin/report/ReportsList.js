@@ -2,8 +2,6 @@
 
 import PolisNet from '../../../util/net'
 import { useState, useEffect } from 'react'
-import { jwtDecode } from 'jwt-decode'
-import Url from '../../../util/url'
 import { useSelector, useDispatch } from 'react-redux'
 import { Heading, Box, Button } from 'theme-ui'
 import { useAuth } from 'react-oidc-context'
@@ -11,6 +9,8 @@ import { populateZidMetadataStore } from '../../../actions'
 import ComponentHelpers from '../../../util/component-helpers'
 import NoPermission from '../NoPermission'
 import { useParams } from 'react-router'
+import { has_delphi_enabled, useUser } from '../../../util/auth'
+import Url from '../../../util/url'
 
 const modMap = {
   0: 'Showing only moderated comments',
@@ -22,7 +22,7 @@ const ReportsList = () => {
   const dispatch = useDispatch()
   const params = useParams()
   const { isAuthenticated, user } = useAuth()
-  const userState = useSelector((state) => state.user)
+  const userState = useUser()
   const zid_metadata = useSelector((state) => state.zid_metadata)
   const [mod_level, setModLevel] = useState(-2)
 
@@ -111,21 +111,20 @@ const ReportsList = () => {
         Report
       </Heading>
       <Box sx={{ mb: [3, null, 4] }}>
-        {user?.access_token &&
-          jwtDecode(user?.access_token)[`${process.env.AUTH_NAMESPACE}delphi_enabled`] && (
-            <Box>
-              Select which comments will be visible in this report:
-              <select
-                onChange={(e) => setModLevel(e.target.value)}
-                style={{ display: 'block', margin: '1em 0' }}>
-                <option selected value={-2}>
-                  Include all comments
-                </option>
-                <option value={-1}>Include all comments except for moderation rejections</option>
-                <option value={0}>Include only moderator accepted comments</option>
-              </select>
-            </Box>
-          )}
+        {has_delphi_enabled(user) && (
+          <Box>
+            Select which comments will be visible in this report:
+            <select
+              onChange={(e) => setModLevel(e.target.value)}
+              style={{ display: 'block', margin: '1em 0' }}>
+              <option selected value={-2}>
+                Include all comments
+              </option>
+              <option value={-1}>Include all comments except for moderation rejections</option>
+              <option value={0}>Include only moderator accepted comments</option>
+            </select>
+          </Box>
+        )}
         <Button onClick={createReportClicked}>Create report url</Button>
       </Box>
       {state.reports.map((report) => {
@@ -134,10 +133,9 @@ const ReportsList = () => {
             <a target="_blank" rel="noreferrer" href={Url.urlPrefix + 'report/' + report.report_id}>
               {Url.urlPrefix}report/{report.report_id}
             </a>
-            {user?.access_token &&
-              jwtDecode(user?.access_token)[`${process.env.AUTH_NAMESPACE}delphi_enabled`] && (
-                <p>{modMap[String(report.mod_level)] || modMap[Number(report.mod_level)]}</p>
-              )}
+            {has_delphi_enabled(user) && (
+              <p>{modMap[String(report.mod_level)] || modMap[Number(report.mod_level)]}</p>
+            )}
           </Box>
         )
       })}

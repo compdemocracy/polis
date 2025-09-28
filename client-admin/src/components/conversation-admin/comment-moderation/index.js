@@ -14,7 +14,7 @@ import ModerateCommentsAccepted from './ModerateCommentsAccepted'
 import ModerateCommentsRejected from './ModerateCommentsRejected'
 
 import { Routes, Route, Link, useParams, useLocation } from 'react-router'
-
+import { useUser } from '../../../util/auth'
 const pollFrequency = 60000
 
 const CommentModeration = () => {
@@ -22,13 +22,11 @@ const CommentModeration = () => {
   const params = useParams()
   const location = useLocation()
   const { isLoading, isAuthenticated } = useAuth()
-
   const zid_metadata = useSelector((state) => state.zid_metadata)
   const unmoderated = useSelector((state) => state.mod_comments_unmoderated)
   const accepted = useSelector((state) => state.mod_comments_accepted)
   const rejected = useSelector((state) => state.mod_comments_rejected)
-  const user = useSelector((state) => state.user)
-
+  const user = useUser()
   const getCommentsRepeatedlyRef = useRef(null)
 
   const loadComments = () => {

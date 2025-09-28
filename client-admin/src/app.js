@@ -5,6 +5,7 @@ import PropTypes from 'prop-types'
 import { useDispatch } from 'react-redux'
 import { populateUserStore } from './actions'
 import { isAuthReady } from './util/net'
+import { UserProvider } from './util/auth'
 
 import { Routes, Route, Navigate } from 'react-router'
 
@@ -129,23 +130,25 @@ const App = () => {
   return (
     <>
       <OidcConnector />
-      <Routes>
-        {/* Public routes */}
-        <Route path="/home" element={<Home />} />
-        <Route path="/signin" element={<SignIn authed={isAuthed()} />} />
-        <Route path="/signout" element={<SignOut />} />
-        <Route path="/tos" element={<TOS />} />
-        <Route path="/privacy" element={<Privacy />} />
+      <UserProvider>
+        <Routes>
+          {/* Public routes */}
+          <Route path="/home" element={<Home />} />
+          <Route path="/signin" element={<SignIn authed={isAuthed()} />} />
+          <Route path="/signout" element={<SignOut />} />
+          <Route path="/tos" element={<TOS />} />
+          <Route path="/privacy" element={<Privacy />} />
 
-        {/* Protected routes */}
-        <Route element={<ProtectedRoute isAuthed={isAuthed()} isLoading={isLoading} />}>
-          <Route path="/" element={<Conversations />} />
-          <Route path="/conversations" element={<Conversations />} />
-          <Route path="/integrate" element={<Integrate />} />
-          <Route path="/account" element={<Account />} />
-          <Route path="/m/:conversation_id/*" element={<ConversationAdminContainer />} />
-        </Route>
-      </Routes>
+          {/* Protected routes */}
+          <Route element={<ProtectedRoute isAuthed={isAuthed()} isLoading={isLoading} />}>
+            <Route path="/" element={<Conversations />} />
+            <Route path="/conversations" element={<Conversations />} />
+            <Route path="/integrate" element={<Integrate />} />
+            <Route path="/account" element={<Account />} />
+            <Route path="/m/:conversation_id/*" element={<ConversationAdminContainer />} />
+          </Route>
+        </Routes>
+      </UserProvider>
     </>
   )
 }
