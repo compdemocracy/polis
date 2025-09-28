@@ -7,7 +7,7 @@ import { useSelector, useDispatch } from 'react-redux'
 import { useState, useEffect, useRef } from 'react'
 
 import { populateConversationStatsStore } from '../../../actions'
-import { useZidMetadata } from '../../../util/zid'
+import { useConversationData } from '../../../util/conversation_data'
 import Commenters from './Commenters'
 import dateSetupUtil from '../../../util/data-export-date-setup'
 import NumberCards from './NumberCards'
@@ -18,7 +18,7 @@ const ConversationStats = () => {
   const params = useParams()
   const { isAuthenticated, isLoading } = useAuth()
   const stats = useSelector((state) => state.stats)
-  const zid_metadata = useZidMetadata()
+  const conversationData = useConversationData()
   const { conversation_stats } = stats
   const times = dateSetupUtil()
   const chartSize = 500
@@ -64,19 +64,19 @@ const ConversationStats = () => {
 
   useEffect(() => {
     // Also handle metadata loading and polling logic
-    const currentIsMod = zid_metadata?.is_mod
+    const currentIsMod = conversationData?.is_mod
     const currentConversationId = params?.conversation_id
 
     // Start polling when metadata is loaded for current conversation and user is mod
     const shouldStartPolling =
-      zid_metadata?.conversation_id === currentConversationId &&
+      conversationData?.conversation_id === currentConversationId &&
       currentIsMod &&
       !getStatsRepeatedlyRef.current
 
     if (shouldStartPolling) {
       startPolling()
     }
-  }, [isLoading, isAuthenticated, zid_metadata, params.conversation_id])
+  }, [isLoading, isAuthenticated, conversationData, params.conversation_id])
 
   const loading = !conversation_stats.firstCommentTimes || !conversation_stats.firstVoteTimes
 

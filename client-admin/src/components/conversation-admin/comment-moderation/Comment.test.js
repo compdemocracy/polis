@@ -9,11 +9,9 @@ import Comment from './Comment'
 const createMockStore = (conversationData = {}) => {
   return configureStore({
     reducer: () => ({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          ...conversationData
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        ...conversationData
       }
     })
   })

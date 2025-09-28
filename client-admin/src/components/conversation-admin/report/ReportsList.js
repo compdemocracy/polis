@@ -6,7 +6,7 @@ import { useParams } from 'react-router'
 import { useState, useEffect } from 'react'
 
 import { hasDelphiEnabled, isAdminOrMod, useUser } from '../../../util/auth'
-import { useZidMetadata } from '../../../util/zid'
+import { useConversationData } from '../../../util/conversation_data'
 import PolisNet from '../../../util/net'
 import Url from '../../../util/url'
 
@@ -20,7 +20,7 @@ const ReportsList = () => {
   const params = useParams()
   const { isAuthenticated, user: authUser } = useAuth()
   const user = useUser()
-  const zid_metadata = useZidMetadata()
+  const conversationData = useConversationData()
   const [mod_level, setModLevel] = useState(-2)
 
   const [state, setState] = useState({
@@ -44,10 +44,10 @@ const ReportsList = () => {
 
   useEffect(() => {
     // Load data if user is now a moderator and data hasn't been loaded
-    if (!state.dataLoaded && isAdminOrMod(user, zid_metadata)) {
+    if (!state.dataLoaded && isAdminOrMod(user, conversationData)) {
       getData()
     }
-  }, [zid_metadata, isAuthenticated, user, state.dataLoaded])
+  }, [conversationData, isAuthenticated, user, state.dataLoaded])
 
   const createReportClicked = () => {
     PolisNet.polisPost('/api/v3/reports', {

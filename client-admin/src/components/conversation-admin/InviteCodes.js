@@ -2,18 +2,18 @@ import { Heading, Box, Text, Button, Select } from 'theme-ui'
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
 
-import { useZidMetadata } from '../../util/zid'
+import { useConversationData } from '../../util/conversation_data'
 import Pagination from './Pagination'
 import PolisNet from '../../util/net'
 import Spinner from '../framework/Spinner'
 
 const InviteCodes = () => {
   const params = useParams()
-  const zid_metadata = useZidMetadata()
-  const enabled = Boolean(zid_metadata?.treevite_enabled)
+  const conversationData = useConversationData()
+  const enabled = Boolean(conversationData?.treevite_enabled)
   const conversationId = useMemo(
-    () => zid_metadata?.conversation_id || params.conversation_id,
-    [zid_metadata?.conversation_id, params.conversation_id]
+    () => conversationData?.conversation_id || params.conversation_id,
+    [conversationData?.conversation_id, params.conversation_id]
   )
 
   const [invites, setInvites] = useState([])

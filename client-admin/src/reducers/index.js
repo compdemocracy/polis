@@ -9,7 +9,7 @@ import mod_comments_unmoderated from './mod_comments_unmoderated'
 import seed_comments from './seed_comments'
 import stats from './stats'
 import user from './user'
-import zid_metadata from './zid_metadata'
+import conversationData from './conversation_data'
 
 const rootReducer = combineReducers({
   comments,
@@ -20,7 +20,7 @@ const rootReducer = combineReducers({
   seed_comments,
   stats,
   user,
-  zid_metadata
+  conversationData
 })
 
 export default rootReducer

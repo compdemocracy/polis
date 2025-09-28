@@ -11,27 +11,27 @@ const zid = (
   action
 ) => {
   switch (action.type) {
-    case types.REQUEST_ZID_METADATA:
+    case types.REQUEST_CONVERSATION_DATA:
       return {
         ...state,
         conversation_id: action.data.conversation_id,
         loading: true,
         error: null
       }
-    case types.RECEIVE_ZID_METADATA:
+    case types.RECEIVE_CONVERSATION_DATA:
       return {
         ...state,
         loading: false,
         ...action.data,
         error: null
       }
-    case types.ZID_METADATA_RESET:
+    case types.CONVERSATION_DATA_RESET:
       return {
         loading: false,
         error: null,
         optimistic: 0
       }
-    case types.OPTIMISTIC_ZID_METADATA_UPDATE:
+    case types.OPTIMISTIC_CONVERSATION_DATA_UPDATE:
       return {
         ...state,
         loading: false,
@@ -39,20 +39,20 @@ const zid = (
         error: null,
         optimistic: Math.random()
       }
-    case types.UPDATE_ZID_METADATA_STARTED:
+    case types.UPDATE_CONVERSATION_DATA_STARTED:
       return {
         ...state,
         loading: true,
         error: null
       }
-    case types.UPDATE_ZID_METADATA_SUCCESS:
+    case types.UPDATE_CONVERSATION_DATA_SUCCESS:
       return {
         ...state,
         loading: false,
         ...action.data,
         error: null
       }
-    case types.UPDATE_ZID_METADATA_ERROR:
+    case types.UPDATE_CONVERSATION_DATA_ERROR:
       return {
         ...state,
         loading: false,

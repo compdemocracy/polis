@@ -6,15 +6,18 @@ import { useDispatch } from 'react-redux'
 import emoji from 'react-easy-emoji'
 
 import { CheckboxField } from './CheckboxField'
-import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from '../../actions'
-import { useZidMetadata } from '../../util/zid'
+import {
+  handleConversationDataUpdate,
+  optimisticConversationDataUpdateOnTyping
+} from '../../actions'
+import { useConversationData } from '../../util/conversation_data'
 import ModerateCommentsSeed from './ModerateCommentSeed'
 import Spinner from '../framework/Spinner'
 
 const ConversationConfig = () => {
   const dispatch = useDispatch()
-  const zid_metadata = useZidMetadata()
-  const { loading, error } = zid_metadata
+  const conversationData = useConversationData()
+  const { loading, error } = conversationData
   const topicRef = useRef(null)
   const descriptionRef = useRef(null)
 
@@ -26,16 +29,16 @@ const ConversationConfig = () => {
           val = 'default'
         }
       }
-      dispatch(handleZidMetadataUpdate(zid_metadata, field, val))
+      dispatch(handleConversationDataUpdate(conversationData, field, val))
     },
-    [dispatch, zid_metadata]
+    [dispatch, conversationData]
   )
 
   const handleConfigInputTyping = useCallback(
     (field, value) => {
-      dispatch(optimisticZidMetadataUpdateOnTyping(zid_metadata, field, value))
+      dispatch(optimisticConversationDataUpdateOnTyping(conversationData, field, value))
     },
-    [dispatch, zid_metadata]
+    [dispatch, conversationData]
   )
 
   if (loading && !topicRef.current && !descriptionRef.current) {
@@ -79,7 +82,7 @@ const ConversationConfig = () => {
           data-testid="topic"
           onBlur={(e) => handleStringValueChange('topic', e.target.value)}
           onChange={(e) => handleConfigInputTyping('topic', e.target.value)}
-          value={zid_metadata.topic || ''}
+          value={conversationData.topic || ''}
         />
       </Box>
 
@@ -102,7 +105,7 @@ const ConversationConfig = () => {
           data-testid="description"
           onBlur={(e) => handleStringValueChange('description', e.target.value)}
           onChange={(e) => handleConfigInputTyping('description', e.target.value)}
-          value={zid_metadata.description || ''}
+          value={conversationData.description || ''}
         />
       </Box>
 
@@ -115,7 +118,7 @@ const ConversationConfig = () => {
         }}>
         Seed Comments
       </Heading>
-      <ModerateCommentsSeed params={{ conversation_id: zid_metadata.conversation_id }} />
+      <ModerateCommentsSeed params={{ conversation_id: conversationData.conversation_id }} />
 
       <Heading
         as="h6"

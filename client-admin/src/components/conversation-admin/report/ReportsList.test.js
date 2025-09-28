@@ -12,7 +12,7 @@ import { mockAuth } from '../../../test-utils'
 // Mock dependencies
 jest.mock('../../../util/net')
 jest.mock('../../../actions', () => ({
-  populateZidMetadataStore: jest.fn()
+  populateConversationDataStore: jest.fn()
 }))
 
 // Mock Auth
@@ -30,15 +30,12 @@ jest.mock('react-router', () => ({
 // Create a mock store with Redux Toolkit
 const createMockStore = (initialState = {}) => {
   const mockReducer = (state = initialState, action) => {
-    if (action.type === 'UPDATE_ZID_METADATA') {
+    if (action.type === 'UPDATE_CONVERSATION_DATA') {
       return {
         ...state,
-        zid_metadata: {
-          ...state.zid_metadata,
-          zid_metadata: {
-            ...state.zid_metadata.zid_metadata,
-            ...action.payload
-          }
+        conversationData: {
+          ...state.conversationData,
+          ...action.payload
         }
       }
     }
@@ -72,18 +69,16 @@ const renderWithProviders = (component, { store } = {}) => {
 describe('ReportsList', () => {
   beforeEach(() => {
     jest.clearAllMocks()
-    actions.populateZidMetadataStore.mockReturnValue({ type: 'POPULATE_ZID_METADATA' })
+    actions.populateConversationDataStore.mockReturnValue({ type: 'POPULATE_CONVERSATION_DATA' })
     mockAuth.isAuthenticated = true
     mockAuth.isLoading = false
   })
 
   it('renders loading state initially', () => {
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: false
-        },
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: false,
         loading: true // Set loading to true to see loading state
       }
     })
@@ -94,11 +89,15 @@ describe('ReportsList', () => {
 
   it('loads metadata on mount when authenticated', () => {
     const store = createMockStore({
-      zid_metadata: { zid_metadata: {} }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: false,
+        loading: true
+      }
     })
 
     renderWithProviders(<ReportsList />, { store })
-    expect(actions.populateZidMetadataStore).toHaveBeenCalledWith('test123')
+    expect(actions.populateConversationDataStore).toHaveBeenCalledWith('test123')
   })
 
   it('loads reports data when user becomes moderator', async () => {
@@ -107,11 +106,10 @@ describe('ReportsList', () => {
       .mockResolvedValue([{ report_id: 'report1' }, { report_id: 'report2' }])
 
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: false
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: false,
+        loading: true
       }
     })
 
@@ -120,7 +118,7 @@ describe('ReportsList', () => {
     // Update store to make user a moderator
     act(() => {
       store.dispatch({
-        type: 'UPDATE_ZID_METADATA',
+        type: 'UPDATE_CONVERSATION_DATA',
         payload: { is_mod: true }
       })
     })
@@ -151,11 +149,10 @@ describe('ReportsList', () => {
     PolisNet.polisGet = jest.fn().mockResolvedValue([])
 
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: true // User is already a moderator
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: true, // User is already a moderator
+        loading: true
       }
     })
 
@@ -189,11 +186,10 @@ describe('ReportsList', () => {
 
     // Simulate the scenario after a hard refresh
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: undefined // Metadata not loaded yet
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: undefined, // Metadata not loaded yet
+        loading: true
       }
     })
 
@@ -202,7 +198,7 @@ describe('ReportsList', () => {
     // Simulate metadata loading after component mount
     act(() => {
       store.dispatch({
-        type: 'UPDATE_ZID_METADATA',
+        type: 'UPDATE_CONVERSATION_DATA',
         payload: { is_mod: true }
       })
     })
@@ -231,11 +227,10 @@ describe('ReportsList', () => {
     PolisNet.polisPost = jest.fn().mockResolvedValue({ report_id: 'new-report' })
 
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: true
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: true,
+        loading: true
       }
     })
 
@@ -244,7 +239,7 @@ describe('ReportsList', () => {
     // Trigger getData by changing is_mod
     act(() => {
       store.dispatch({
-        type: 'UPDATE_ZID_METADATA',
+        type: 'UPDATE_CONVERSATION_DATA',
         payload: { is_mod: false }
       })
     })
@@ -265,7 +260,7 @@ describe('ReportsList', () => {
 
     act(() => {
       store.dispatch({
-        type: 'UPDATE_ZID_METADATA',
+        type: 'UPDATE_CONVERSATION_DATA',
         payload: { is_mod: true }
       })
     })
@@ -306,11 +301,10 @@ describe('ReportsList', () => {
       .mockResolvedValue([{ report_id: 'report1' }, { report_id: 'report2' }])
 
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: false
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: false,
+        loading: true
       }
     })
 
@@ -318,7 +312,7 @@ describe('ReportsList', () => {
 
     act(() => {
       store.dispatch({
-        type: 'UPDATE_ZID_METADATA',
+        type: 'UPDATE_CONVERSATION_DATA',
         payload: { is_mod: true }
       })
     })
@@ -347,11 +341,10 @@ describe('ReportsList', () => {
 
   it('handles no permissions correctly', () => {
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: false
-        },
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: false,
+        loading: true,
         error: { status: 403 }
       }
     })

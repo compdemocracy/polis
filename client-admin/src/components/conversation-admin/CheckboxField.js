@@ -3,23 +3,23 @@ import { useDispatch } from 'react-redux'
 import { useState } from 'react'
 import PropTypes from 'prop-types'
 
-import { handleZidMetadataUpdate } from '../../actions'
-import { useZidMetadata } from '../../util/zid'
+import { handleConversationDataUpdate } from '../../actions'
+import { useConversationData } from '../../util/conversation_data'
 
 export const CheckboxField = ({ field, label = '', children, isIntegerBool = false }) => {
-  const { zid_metadata } = useZidMetadata()
+  const conversationData = useConversationData()
   const initialState = isIntegerBool
-    ? Number(zid_metadata[field]) === 1
+    ? Number(conversationData[field]) === 1
       ? 1
       : 0
-    : Boolean(zid_metadata[field])
+    : Boolean(conversationData[field])
   const [state, setState] = useState(initialState)
   const dispatch = useDispatch()
 
   const handleBoolValueChange = (field) => {
     const val = !state
     setState(val)
-    dispatch(handleZidMetadataUpdate(zid_metadata, field, val))
+    dispatch(handleConversationDataUpdate(conversationData, field, val))
   }
 
   const transformBoolToInt = (value) => {
@@ -29,7 +29,7 @@ export const CheckboxField = ({ field, label = '', children, isIntegerBool = fal
   const handleIntegerBoolValueChange = (field) => {
     const val = transformBoolToInt(!state)
     setState(val)
-    dispatch(handleZidMetadataUpdate(zid_metadata, field, val))
+    dispatch(handleConversationDataUpdate(conversationData, field, val))
   }
 
   return (
@@ -39,7 +39,9 @@ export const CheckboxField = ({ field, label = '', children, isIntegerBool = fal
           type="checkbox"
           label={label}
           data-testid={field}
-          checked={isIntegerBool ? Number(zid_metadata[field]) === 1 : Boolean(zid_metadata[field])}
+          checked={
+            isIntegerBool ? Number(conversationData[field]) === 1 : Boolean(conversationData[field])
+          }
           onChange={
             isIntegerBool
               ? () => handleIntegerBoolValueChange(field)

@@ -7,8 +7,8 @@ import { useEffect, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 
 import { checkConvoPermissions, useUser } from '../../util/auth'
-import { populateZidMetadataStore, resetMetadataStore } from '../../actions'
-import { ZidMetadataProvider, useZidMetadata } from '../../util/zid'
+import { populateConversationDataStore, resetMetadataStore } from '../../actions'
+import { ConversationDataProvider, useConversationData } from '../../util/conversation_data'
 import ConversationConfig from './ConversationConfig'
 import ConversationStats from './stats'
 import InviteCodes from './InviteCodes'
@@ -23,7 +23,7 @@ import TopicModeration from './topic-moderation/'
 const ConversationAdmin = () => {
   const params = useParams()
   const location = useLocation()
-  const zid_metadata = useZidMetadata()
+  const conversationData = useConversationData()
   const user = useUser()
 
   const [permissionState, setPermissionState] = useState('CHECKING') // CHECKING, PERMITTED, DENIED
@@ -35,16 +35,16 @@ const ConversationAdmin = () => {
     // until the user or conversation_id changes, avoiding flicker from
     // optimistic updates.
 
-    if (zid_metadata.loading || !zid_metadata || !user.user) {
+    if (conversationData.loading || !conversationData || !user.user) {
       // Not ready to check permissions yet.
       return
     }
 
     if (permissionState === 'CHECKING') {
-      const hasPermission = checkConvoPermissions(user, zid_metadata)
+      const hasPermission = checkConvoPermissions(user, conversationData)
       setPermissionState(hasPermission ? 'PERMITTED' : 'DENIED')
     }
-  }, [user, zid_metadata, permissionState])
+  }, [user, conversationData, permissionState])
 
   useEffect(() => {
     // Reset permission check when conversation changes
@@ -156,7 +156,7 @@ const ConversationAdmin = () => {
             Invite Tree
           </Link>
         </Box>
-        {zid_metadata?.treevite_enabled && (
+        {conversationData?.treevite_enabled && (
           <Box sx={{ mb: [3] }}>
             <Link
               sx={{
@@ -177,10 +177,10 @@ const ConversationAdminContainer = () => {
   const dispatch = useDispatch()
   const params = useParams()
   const { isAuthenticated } = useAuth()
-  const zid_metadata = useSelector((state) => state.zid_metadata)
+  const conversationData = useSelector((state) => state.conversationData)
 
-  const loadZidMetadata = () => {
-    dispatch(populateZidMetadataStore(params.conversation_id))
+  const loadConversationData = () => {
+    dispatch(populateConversationDataStore(params.conversation_id))
   }
 
   const resetMetadata = () => {
@@ -188,8 +188,8 @@ const ConversationAdminContainer = () => {
   }
 
   useEffect(() => {
-    if (!zid_metadata.loading && isAuthenticated) {
-      loadZidMetadata()
+    if (!conversationData.loading && isAuthenticated) {
+      loadConversationData()
     }
   }, [isAuthenticated])
 
@@ -201,14 +201,14 @@ const ConversationAdminContainer = () => {
 
   useEffect(() => {
     if (params.conversation_id) {
-      loadZidMetadata()
+      loadConversationData()
     }
   }, [params.conversation_id])
 
   return (
-    <ZidMetadataProvider>
+    <ConversationDataProvider>
       <ConversationAdmin />
-    </ZidMetadataProvider>
+    </ConversationDataProvider>
   )
 }
 

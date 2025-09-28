@@ -48,17 +48,17 @@ const getAdminUids = () => {
   return []
 }
 
-export const checkConvoPermissions = (user, zid_metadata) => {
+export const checkConvoPermissions = (user, conversationData) => {
   const isSuperAdmin = getAdminUids().includes(user?.user?.uid)
-  const isOwner = zid_metadata?.is_owner || false
-  const isMod = zid_metadata?.is_mod || false
+  const isOwner = conversationData?.is_owner || false
+  const isMod = conversationData?.is_mod || false
   const shouldShow = isSuperAdmin || isOwner || isMod
 
   return shouldShow
 }
 
-export const isAdminOrMod = (user, zid_metadata) => {
+export const isAdminOrMod = (user, conversationData) => {
   const isSuperAdminUser = getAdminUids().includes(user?.user?.uid)
   if (isSuperAdminUser) return true
-  return zid_metadata?.is_mod || zid_metadata?.is_owner
+  return conversationData?.is_mod || conversationData?.is_owner
 }

@@ -36,7 +36,7 @@ jest.mock('./Commenters', () => {
 // Mock dependencies
 jest.mock('../../../actions', () => ({
   populateConversationStatsStore: jest.fn(),
-  populateZidMetadataStore: jest.fn()
+  populateConversationDataStore: jest.fn()
 }))
 
 // Mock Auth
@@ -67,8 +67,7 @@ const createMockStore = (initialState = {}) => {
       loading: false,
       error: null
     },
-    zid_metadata: {
-      zid_metadata: {},
+    conversationData: {
       loading: false,
       error: null
     },
@@ -76,15 +75,12 @@ const createMockStore = (initialState = {}) => {
   }
 
   const mockReducer = (state = defaultState, action) => {
-    if (action.type === 'UPDATE_ZID_METADATA') {
+    if (action.type === 'UPDATE_CONVERSATION_DATA') {
       return {
         ...state,
-        zid_metadata: {
-          ...state.zid_metadata,
-          zid_metadata: {
-            ...state.zid_metadata.zid_metadata,
-            ...action.payload
-          }
+        conversationData: {
+          ...state.conversationData,
+          ...action.payload
         }
       }
     }
@@ -131,7 +127,7 @@ describe('ConversationStats', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     actions.populateConversationStatsStore.mockReturnValue({ type: 'POPULATE_STATS' })
-    actions.populateZidMetadataStore.mockReturnValue({ type: 'POPULATE_ZID_METADATA' })
+    actions.populateConversationDataStore.mockReturnValue({ type: 'POPULATE_CONVERSATION_DATA' })
     mockAuth.isAuthenticated = true
     mockAuth.isLoading = false
   })
@@ -156,18 +152,16 @@ describe('ConversationStats', () => {
 
   it('loads metadata on mount when authenticated', () => {
     renderWithProviders(<ConversationStats />)
-    expect(actions.populateZidMetadataStore).toHaveBeenCalledWith('test123')
+    expect(actions.populateConversationDataStore).toHaveBeenCalledWith('test123')
   })
 
   it('starts polling when user is already a moderator with loaded metadata', () => {
     jest.useFakeTimers()
 
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: true
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: true
       }
     })
 
@@ -185,11 +179,9 @@ describe('ConversationStats', () => {
 
   it('does NOT start polling when user is moderator but metadata not loaded', () => {
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'different-convo', // Wrong conversation
-          is_mod: true
-        }
+      conversationData: {
+        conversation_id: 'different-convo', // Wrong conversation
+        is_mod: true
       }
     })
 
@@ -201,11 +193,9 @@ describe('ConversationStats', () => {
 
   it('starts polling when user becomes moderator', async () => {
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: false
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: false
       }
     })
 
@@ -214,7 +204,7 @@ describe('ConversationStats', () => {
     // Update store to make user a moderator
     act(() => {
       store.dispatch({
-        type: 'UPDATE_ZID_METADATA',
+        type: 'UPDATE_CONVERSATION_DATA',
         payload: { is_mod: true }
       })
     })
@@ -249,11 +239,9 @@ describe('ConversationStats', () => {
           comment_count: 5
         }
       },
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: true
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: true
       }
     })
 
@@ -276,11 +264,9 @@ describe('ConversationStats', () => {
           comment_count: 1
         }
       },
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: true
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: true
       }
     })
 
@@ -298,11 +284,9 @@ describe('ConversationStats', () => {
     jest.useFakeTimers()
 
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: true
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: true
       }
     })
 
@@ -323,11 +307,9 @@ describe('ConversationStats', () => {
 
   it('handles no permissions correctly', () => {
     const store = createMockStore({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: false
-        },
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: false,
         error: { status: 403 }
       }
     })

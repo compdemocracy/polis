@@ -16,16 +16,16 @@ export const RECEIVE_CONVERSATIONS = 'RECEIVE_CONVERSATIONS'
 export const CONVERSATIONS_FETCH_ERROR = 'CONVERSATIONS_FETCH_ERROR'
 
 /* zid for clarity - this is conversation config */
-export const REQUEST_ZID_METADATA = 'REQUEST_ZID_METADATA'
-export const RECEIVE_ZID_METADATA = 'RECEIVE_ZID_METADATA'
-const ZID_METADATA_FETCH_ERROR = 'ZID_METADATA_FETCH_ERROR'
-export const ZID_METADATA_RESET = 'ZID_METADATA_RESET'
+export const REQUEST_CONVERSATION_DATA = 'REQUEST_CONVERSATION_DATA'
+export const RECEIVE_CONVERSATION_DATA = 'RECEIVE_CONVERSATION_DATA'
+const CONVERSATION_DATA_FETCH_ERROR = 'CONVERSATION_DATA_FETCH_ERROR'
+export const CONVERSATION_DATA_RESET = 'CONVERSATION_DATA_RESET'
 
-export const UPDATE_ZID_METADATA_STARTED = 'UPDATE_ZID_METADATA_STARTED'
-export const UPDATE_ZID_METADATA_SUCCESS = 'UPDATE_ZID_METADATA_SUCCESS'
-export const UPDATE_ZID_METADATA_ERROR = 'UPDATE_ZID_METADATA_ERROR'
+export const UPDATE_CONVERSATION_DATA_STARTED = 'UPDATE_CONVERSATION_DATA_STARTED'
+export const UPDATE_CONVERSATION_DATA_SUCCESS = 'UPDATE_CONVERSATION_DATA_SUCCESS'
+export const UPDATE_CONVERSATION_DATA_ERROR = 'UPDATE_CONVERSATION_DATA_ERROR'
 
-export const OPTIMISTIC_ZID_METADATA_UPDATE = 'OPTIMISTIC_ZID_METADATA_UPDATE'
+export const OPTIMISTIC_CONVERSATION_DATA_UPDATE = 'OPTIMISTIC_CONVERSATION_DATA_UPDATE'
 
 /* moderation */
 export const REQUEST_COMMENTS = 'REQUEST_COMMENTS'
@@ -153,47 +153,47 @@ export const populateConversationsStore = () => {
   }
 }
 
-/* zid metadata */
+/* conversation data */
 
-const requestZidMetadata = (conversation_id) => {
+const requestConversationData = (conversation_id) => {
   return {
-    type: REQUEST_ZID_METADATA,
+    type: REQUEST_CONVERSATION_DATA,
     data: {
       conversation_id: conversation_id
     }
   }
 }
 
-const receiveZidMetadata = (data) => {
+const receiveConversationData = (data) => {
   return {
-    type: RECEIVE_ZID_METADATA,
+    type: RECEIVE_CONVERSATION_DATA,
     data: data
   }
 }
 
-const zidMetadataFetchError = (err) => {
+const conversationDataFetchError = (err) => {
   return {
-    type: ZID_METADATA_FETCH_ERROR,
+    type: CONVERSATION_DATA_FETCH_ERROR,
     data: err
   }
 }
 
 export const resetMetadataStore = () => {
   return {
-    type: ZID_METADATA_RESET
+    type: CONVERSATION_DATA_RESET
   }
 }
 
-const fetchZidMetadata = (conversation_id) => {
+const fetchConversationData = (conversation_id) => {
   return PolisNet.polisGet('/api/v3/conversations', {
     conversation_id: conversation_id
   })
 }
 
-export const populateZidMetadataStore = (conversation_id) => {
+export const populateConversationDataStore = (conversation_id) => {
   return (dispatch, getState) => {
     const state = getState()
-    const { loading, conversation_id: current_conversation_id } = state.zid_metadata
+    const { loading, conversation_id: current_conversation_id } = state.conversationData
 
     // NOTE: if there are multiple calls outstanding this may be wrong.
     const isLoadingThisConversation = current_conversation_id === conversation_id && loading
@@ -207,60 +207,60 @@ export const populateZidMetadataStore = (conversation_id) => {
       return
     }
 
-    dispatch(requestZidMetadata(conversation_id))
-    return fetchZidMetadata(conversation_id).then(
-      (res) => dispatch(receiveZidMetadata(res)),
-      (err) => dispatch(zidMetadataFetchError(err))
+    dispatch(requestConversationData(conversation_id))
+    return fetchConversationData(conversation_id).then(
+      (res) => dispatch(receiveConversationData(res)),
+      (err) => dispatch(conversationDataFetchError(err))
     )
   }
 }
 
-/* zid metadata update */
+/* conversation data update */
 
-const updateZidMetadataStarted = () => {
+const updateConversationDataStarted = () => {
   return {
-    type: UPDATE_ZID_METADATA_STARTED
+    type: UPDATE_CONVERSATION_DATA_STARTED
   }
 }
 
-const updateZidMetadataSuccess = (data) => {
+const updateConversationDataSuccess = (data) => {
   return {
-    type: UPDATE_ZID_METADATA_SUCCESS,
+    type: UPDATE_CONVERSATION_DATA_SUCCESS,
     data: data
   }
 }
 
-const updateZidMetadataError = (err) => {
+const updateConversationDataError = (err) => {
   return {
-    type: UPDATE_ZID_METADATA_ERROR,
+    type: UPDATE_CONVERSATION_DATA_ERROR,
     data: err
   }
 }
 
-const updateZidMetadata = (zm, field, value) => {
+const updateConversationData = (conversationData, field, value) => {
   const data = {}
   data[field] = value
-  const bodyData = Object.assign({}, zm, data)
+  const bodyData = Object.assign({}, conversationData, data)
 
   return PolisNet.polisPut('/api/v3/conversations', bodyData)
 }
 
-export const handleZidMetadataUpdate = (zm, field, value) => {
+export const handleConversationDataUpdate = (conversationData, field, value) => {
   return (dispatch) => {
-    dispatch(updateZidMetadataStarted())
-    return updateZidMetadata(zm, field, value)
-      .then((res) => dispatch(updateZidMetadataSuccess(res)))
-      .catch((err) => dispatch(updateZidMetadataError(err)))
+    dispatch(updateConversationDataStarted())
+    return updateConversationData(conversationData, field, value)
+      .then((res) => dispatch(updateConversationDataSuccess(res)))
+      .catch((err) => dispatch(updateConversationDataError(err)))
   }
 }
 
-export const optimisticZidMetadataUpdateOnTyping = (zm, field, value) => {
+export const optimisticConversationDataUpdateOnTyping = (conversationData, field, value) => {
   const nextZm = {
-    ...zm,
+    ...conversationData,
     [field]: value
   }
   return {
-    type: OPTIMISTIC_ZID_METADATA_UPDATE,
+    type: OPTIMISTIC_CONVERSATION_DATA_UPDATE,
     data: nextZm
   }
 }

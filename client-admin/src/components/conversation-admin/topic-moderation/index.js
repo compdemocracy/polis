@@ -6,7 +6,7 @@ import { Routes, Route, Link, useParams, useLocation } from 'react-router-dom'
 import React, { useEffect, useRef } from 'react'
 
 import { hasDelphiEnabled, useUser } from '../../../util/auth'
-import { useZidMetadata } from '../../../util/zid'
+import { useConversationData } from '../../../util/conversation_data'
 import ProximityVisualization from './ProximityVisualization'
 import TopicDetail from './TopicDetail'
 import TopicStats from './TopicStats'
@@ -18,7 +18,7 @@ const TopicModeration = () => {
   const params = useParams()
   const location = useLocation()
   const user = useUser()
-  const zid_metadata = useZidMetadata()
+  const conversationData = useConversationData()
   const getTopicsRepeatedly = useRef(null)
 
   const loadTopics = () => {
@@ -39,8 +39,8 @@ const TopicModeration = () => {
     }
   }, [params.conversation_id])
 
-  // Check if zid_metadata is still loading
-  if (!zid_metadata || zid_metadata.loading) {
+  // Check if conversationData is still loading
+  if (!conversationData || conversationData.loading) {
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
         <div>Loading...</div>

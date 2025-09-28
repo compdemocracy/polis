@@ -27,17 +27,15 @@ jest.mock('react-router', () => ({
 }))
 
 // Create a mock store
-const createMockStore = (zidMetadata = {}) => {
+const createMockStore = (conversationData = {}) => {
   return configureStore({
     reducer: () => ({
-      zid_metadata: {
-        zid_metadata: {
-          conversation_id: 'test123',
-          is_mod: true,
-          parent_url: null,
-          strict_moderation: false,
-          ...zidMetadata
-        }
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: true,
+        parent_url: null,
+        strict_moderation: false,
+        ...conversationData
       }
     })
   })
