@@ -1,21 +1,24 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import { useRef } from 'react'
-import { useSelector, useDispatch } from 'react-redux'
-import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from '../../actions'
-import ComponentHelpers from '../../util/component-helpers'
-import NoPermission from './NoPermission'
 import { Heading, Box, Text } from 'theme-ui'
+import { useDispatch } from 'react-redux'
+import { useRef } from 'react'
 import emoji from 'react-easy-emoji'
+
 import { CheckboxField } from './CheckboxField'
-import ModerateCommentsSeed from './ModerateCommentSeed'
-import Spinner from '../framework/Spinner'
+import { handleZidMetadataUpdate, optimisticZidMetadataUpdateOnTyping } from '../../actions'
 import { useUser } from '../../util/auth'
+import { useZidMetadata } from '../../util/zid'
+import ComponentHelpers from '../../util/component-helpers'
+import ModerateCommentsSeed from './ModerateCommentSeed'
+import NoPermission from './NoPermission'
+import Spinner from '../framework/Spinner'
 
 const ConversationConfig = () => {
   const dispatch = useDispatch()
   const user = useUser()
-  const { zid_metadata, loading, error } = useSelector((state) => state.zid_metadata)
+  const zid_metadata = useZidMetadata()
+  const { loading, error } = zid_metadata
   const topicRef = useRef(null)
   const descriptionRef = useRef(null)
 
@@ -40,7 +43,13 @@ const ConversationConfig = () => {
   if (loading && !topicRef.current && !descriptionRef.current) {
     return <Spinner />
   }
-  if (ComponentHelpers.shouldShowPermissionsError({ user, zid_metadata, loading })) {
+  if (
+    ComponentHelpers.shouldShowPermissionsError({
+      user,
+      zid_metadata: zid_metadata.zid_metadata,
+      loading
+    })
+  ) {
     return <NoPermission />
   }
 
@@ -81,7 +90,7 @@ const ConversationConfig = () => {
           data-testid="topic"
           onBlur={handleStringValueChange('topic')}
           onChange={handleConfigInputTyping('topic')}
-          defaultValue={zid_metadata.topic}
+          defaultValue={zid_metadata.zid_metadata.topic}
         />
       </Box>
 
@@ -104,7 +113,7 @@ const ConversationConfig = () => {
           data-testid="description"
           onBlur={handleStringValueChange('description')}
           onChange={handleConfigInputTyping('description')}
-          defaultValue={zid_metadata.description}
+          defaultValue={zid_metadata.zid_metadata.description}
         />
       </Box>
 

@@ -1,12 +1,13 @@
-import { useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
 import { Box, Flex, Text } from 'theme-ui'
+import { useDispatch } from 'react-redux'
+import { useState } from 'react'
 import PropTypes from 'prop-types'
 
 import { handleZidMetadataUpdate } from '../../actions'
+import { useZidMetadata } from '../../util/zid'
 
 export const CheckboxField = ({ field, label = '', children, isIntegerBool = false }) => {
-  const { zid_metadata } = useSelector((state) => state.zid_metadata)
+  const { zid_metadata } = useZidMetadata()
   const initialState = isIntegerBool
     ? Number(zid_metadata[field]) === 1
       ? 1

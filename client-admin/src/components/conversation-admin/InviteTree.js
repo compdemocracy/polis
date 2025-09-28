@@ -1,17 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useSelector } from 'react-redux'
 import { Heading, Box, Text, Button } from 'theme-ui'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
+
+import { useZidMetadata } from '../../util/zid'
 import PolisNet from '../../util/net'
 import Spinner from '../framework/Spinner'
 
 const InviteTree = () => {
   const params = useParams()
-  const zid_metadata = useSelector((state) => state.zid_metadata)
+  const zid_metadata = useZidMetadata()
   const enabled = Boolean(zid_metadata?.zid_metadata?.treevite_enabled)
   const conversationId = useMemo(
-    () => zid_metadata?.zid_metadata?.conversation_id || params.conversation_id,
-    [zid_metadata?.zid_metadata?.conversation_id, params.conversation_id]
+    () => zid_metadata?.conversation_id || params.conversation_id,
+    [zid_metadata?.conversation_id, params.conversation_id]
   )
 
   const [waves, setWaves] = useState([])

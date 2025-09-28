@@ -1,20 +1,20 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import ComponentHelpers from '../../../util/component-helpers'
+import { Heading, Flex, Box } from 'theme-ui'
+import { Routes, Route, Link, useParams, useLocation } from 'react-router'
 import { useAuth } from 'react-oidc-context'
-
-import NoPermission from '../NoPermission'
 import { useEffect, useRef } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import { populateAllCommentStores } from '../../../actions'
-import { Heading, Flex, Box } from 'theme-ui'
 
-import ModerateCommentsTodo from './ModerateCommentsTodo'
+import { populateAllCommentStores } from '../../../actions'
+import { useUser } from '../../../util/auth'
+import { useZidMetadata } from '../../../util/zid'
+import ComponentHelpers from '../../../util/component-helpers'
 import ModerateCommentsAccepted from './ModerateCommentsAccepted'
 import ModerateCommentsRejected from './ModerateCommentsRejected'
+import ModerateCommentsTodo from './ModerateCommentsTodo'
+import NoPermission from '../NoPermission'
 
-import { Routes, Route, Link, useParams, useLocation } from 'react-router'
-import { useUser } from '../../../util/auth'
 const pollFrequency = 60000
 
 const CommentModeration = () => {
@@ -22,7 +22,7 @@ const CommentModeration = () => {
   const params = useParams()
   const location = useLocation()
   const { isLoading, isAuthenticated } = useAuth()
-  const zid_metadata = useSelector((state) => state.zid_metadata)
+  const zid_metadata = useZidMetadata()
   const unmoderated = useSelector((state) => state.mod_comments_unmoderated)
   const accepted = useSelector((state) => state.mod_comments_accepted)
   const rejected = useSelector((state) => state.mod_comments_rejected)
@@ -68,7 +68,7 @@ const CommentModeration = () => {
     ComponentHelpers.shouldShowPermissionsError({
       user,
       zid_metadata: zid_metadata.zid_metadata,
-      loading: zid_metadata.loading
+      loading: isLoading
     })
   ) {
     return <NoPermission />

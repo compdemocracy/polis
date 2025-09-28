@@ -1,18 +1,20 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import dateSetupUtil from '../../../util/data-export-date-setup'
-import { useState, useEffect, useRef } from 'react'
-import { useSelector, useDispatch } from 'react-redux'
-import { populateConversationStatsStore, populateZidMetadataStore } from '../../../actions'
+import { Heading, Box } from 'theme-ui'
 import { useAuth } from 'react-oidc-context'
+import { useParams } from 'react-router'
+import { useSelector, useDispatch } from 'react-redux'
+import { useState, useEffect, useRef } from 'react'
+
+import { populateConversationStatsStore } from '../../../actions'
+import { useUser } from '../../../util/auth'
+import { useZidMetadata } from '../../../util/zid'
+import Commenters from './Commenters'
+import ComponentHelpers from '../../../util/component-helpers'
+import dateSetupUtil from '../../../util/data-export-date-setup'
+import NoPermission from '../NoPermission'
 import NumberCards from './NumberCards'
 import Voters from './Voters'
-import Commenters from './Commenters'
-import { Heading, Box } from 'theme-ui'
-import ComponentHelpers from '../../../util/component-helpers'
-import NoPermission from '../NoPermission'
-import { useParams } from 'react-router'
-import { useUser } from '../../../util/auth'
 
 const ConversationStats = () => {
   const dispatch = useDispatch()
@@ -20,7 +22,7 @@ const ConversationStats = () => {
   const { isAuthenticated, isLoading } = useAuth()
   const user = useUser()
   const stats = useSelector((state) => state.stats)
-  const zid_metadata = useSelector((state) => state.zid_metadata)
+  const zid_metadata = useZidMetadata()
   const { conversation_stats } = stats
   const times = dateSetupUtil()
   const chartSize = 500
@@ -36,17 +38,6 @@ const ConversationStats = () => {
   const loadStats = () => {
     const until = state.until
     dispatch(populateConversationStatsStore(params.conversation_id, until))
-  }
-
-  const loadInitialData = () => {
-    dispatch(populateZidMetadataStore(params.conversation_id))
-  }
-
-  const loadInitialDataIfNeeded = () => {
-    // Only load if we have a conversation ID and Auth is ready (not loading)
-    if (params.conversation_id && !isLoading) {
-      loadInitialData()
-    }
   }
 
   const stopPolling = () => {
@@ -70,33 +61,19 @@ const ConversationStats = () => {
   }
 
   useEffect(() => {
-    // Check if we already have metadata loaded for this conversation
-    if (
-      zid_metadata?.zid_metadata?.conversation_id === params.conversation_id &&
-      zid_metadata?.zid_metadata?.is_mod
-    ) {
-      startPolling()
-    } else {
-      // Try to load initial data when component mounts
-      loadInitialDataIfNeeded()
-    }
-
     return () => {
       stopPolling()
     }
   }, [])
 
   useEffect(() => {
-    // Try again if auth state changes
-    loadInitialDataIfNeeded()
-
     // Also handle metadata loading and polling logic
     const currentIsMod = zid_metadata?.zid_metadata?.is_mod
     const currentConversationId = params?.conversation_id
 
     // Start polling when metadata is loaded for current conversation and user is mod
     const shouldStartPolling =
-      zid_metadata?.zid_metadata?.conversation_id === currentConversationId &&
+      zid_metadata?.conversation_id === currentConversationId &&
       currentIsMod &&
       !getStatsRepeatedlyRef.current
 
@@ -109,7 +86,7 @@ const ConversationStats = () => {
     ComponentHelpers.shouldShowPermissionsError({
       user,
       zid_metadata: zid_metadata.zid_metadata,
-      loading: zid_metadata.loading || stats.loading
+      loading: isLoading
     })
   ) {
     return <NoPermission />

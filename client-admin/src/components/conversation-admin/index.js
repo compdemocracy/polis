@@ -1,53 +1,26 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import { useEffect } from 'react'
-import { useSelector, useDispatch } from 'react-redux'
 import { Flex, Box } from 'theme-ui'
-import { populateZidMetadataStore, resetMetadataStore } from '../../actions'
 import { Routes, Route, Link, useParams, useLocation } from 'react-router'
 import { useAuth } from 'react-oidc-context'
+import { useEffect } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
 
+import { populateZidMetadataStore, resetMetadataStore } from '../../actions'
+import { ZidMetadataProvider, useZidMetadata } from '../../util/zid'
 import ConversationConfig from './ConversationConfig'
 import ConversationStats from './stats'
-import ModerateComments from './comment-moderation/'
-import TopicModeration from './topic-moderation/'
-import ShareAndEmbed from './ShareAndEmbed'
-import Reports from './report/Reports'
-import InviteTree from './InviteTree'
 import InviteCodes from './InviteCodes'
+import InviteTree from './InviteTree'
+import ModerateComments from './comment-moderation/'
+import Reports from './report/Reports'
+import ShareAndEmbed from './ShareAndEmbed'
+import TopicModeration from './topic-moderation/'
 
-const ConversationAdminContainer = () => {
-  const dispatch = useDispatch()
+const ConversationAdmin = () => {
   const params = useParams()
   const location = useLocation()
-  const { isAuthenticated } = useAuth()
-  const zid_metadata = useSelector((state) => state.zid_metadata)
-
-  const loadZidMetadata = () => {
-    dispatch(populateZidMetadataStore(params.conversation_id))
-  }
-
-  const resetMetadata = () => {
-    dispatch(resetMetadataStore())
-  }
-
-  useEffect(() => {
-    if (!zid_metadata.loading && isAuthenticated) {
-      loadZidMetadata()
-    }
-  }, [isAuthenticated])
-
-  useEffect(() => {
-    return () => {
-      resetMetadata()
-    }
-  }, [])
-
-  useEffect(() => {
-    if (params.conversation_id) {
-      loadZidMetadata()
-    }
-  }, [params.conversation_id])
+  const zid_metadata = useZidMetadata()
 
   const url = location.pathname.split('/')[3]
   const baseUrl = `/m/${params.conversation_id}`
@@ -155,6 +128,45 @@ const ConversationAdminContainer = () => {
         </Routes>
       </Box>
     </Flex>
+  )
+}
+
+const ConversationAdminContainer = () => {
+  const dispatch = useDispatch()
+  const params = useParams()
+  const { isAuthenticated } = useAuth()
+  const zid_metadata = useSelector((state) => state.zid_metadata)
+
+  const loadZidMetadata = () => {
+    dispatch(populateZidMetadataStore(params.conversation_id))
+  }
+
+  const resetMetadata = () => {
+    dispatch(resetMetadataStore())
+  }
+
+  useEffect(() => {
+    if (!zid_metadata.loading && isAuthenticated) {
+      loadZidMetadata()
+    }
+  }, [isAuthenticated])
+
+  useEffect(() => {
+    return () => {
+      resetMetadata()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (params.conversation_id) {
+      loadZidMetadata()
+    }
+  }, [params.conversation_id])
+
+  return (
+    <ZidMetadataProvider>
+      <ConversationAdmin />
+    </ZidMetadataProvider>
   )
 }
 
