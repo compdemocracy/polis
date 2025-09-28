@@ -4,31 +4,24 @@ import React from 'react'
 import PropTypes from 'prop-types'
 import NumberCard from './NumberCard'
 
-class NumberCards extends React.Component {
-  render() {
-    const data = this.props.data
-    const averageVotes = (data.voteTimes.length / data.firstVoteTimes.length).toFixed(2)
-    return (
-      <div>
-        <NumberCard
-          datum={data.firstVoteTimes.length}
-          subheading="participants voted"
-          icon="users"
-        />
-        <NumberCard datum={data.voteTimes.length} subheading="votes were cast" icon="tags" />
-        <NumberCard
-          datum={isNaN(averageVotes) ? 0 : Number(averageVotes)}
-          subheading="votes per participant on average"
-        />
-        <NumberCard datum={data.firstCommentTimes.length} subheading="commented" icon="users" />
-        <NumberCard
-          datum={data.commentTimes.length}
-          subheading="comments submitted"
-          icon="comments"
-        />
-      </div>
-    )
-  }
+const NumberCards = ({ data }) => {
+  const averageVotes = (data.voteTimes.length / data.firstVoteTimes.length).toFixed(2)
+  return (
+    <div>
+      <NumberCard datum={data.firstVoteTimes.length} subheading="participants voted" icon="users" />
+      <NumberCard datum={data.voteTimes.length} subheading="votes were cast" icon="tags" />
+      <NumberCard
+        datum={isNaN(averageVotes) ? 0 : Number(averageVotes)}
+        subheading="votes per participant on average"
+      />
+      <NumberCard datum={data.firstCommentTimes.length} subheading="commented" icon="users" />
+      <NumberCard
+        datum={data.commentTimes.length}
+        subheading="comments submitted"
+        icon="comments"
+      />
+    </div>
+  )
 }
 
 NumberCards.propTypes = {

@@ -1,122 +1,77 @@
 /* eslint-disable */
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import React from 'react'
-import { connect } from 'react-redux'
-import { jsx, Box, Flex, Heading, Text, Button, Checkbox, Label } from 'theme-ui'
-import { Link } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Box, Flex, Heading, Text, Button, Checkbox, Label } from 'theme-ui'
+import { Link, useParams } from 'react-router-dom'
 
-const mapStateToProps = (state) => {
-  return {
-    zid_metadata: state.zid_metadata
-  }
-}
+const TopicDetail = () => {
+  const [comments, setComments] = useState([])
+  const [selectedComments, setSelectedComments] = useState(new Set())
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [selectAll, setSelectAll] = useState(false)
+  const params = useParams()
+  const { conversation_id, topicKey: encodedTopicKey } = params
+  const topicKey = decodeURIComponent(encodedTopicKey)
 
-@connect(mapStateToProps)
-class TopicDetail extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = {
-      comments: [],
-      selectedComments: new Set(),
-      loading: true,
-      error: null,
-      topicInfo: null,
-      selectAll: false
-    }
-  }
-
-  componentDidMount() {
-    this.loadTopicComments()
-  }
-
-  componentDidUpdate(prevProps) {
-    if (prevProps.match.params.topicKey !== this.props.match.params.topicKey) {
-      this.loadTopicComments()
-    }
-  }
-
-  async loadTopicComments() {
+  const loadTopicComments = async () => {
     try {
-      this.setState({ loading: true, error: null })
-      const { match } = this.props
-      const conversation_id = match.params.conversation_id
-      const topicKey = decodeURIComponent(match.params.topicKey)
+      setLoading(true)
+      setError(null)
 
-      // Fetch comments for this specific topic
       const response = await fetch(
-        `/api/v3/topicMod/topics/${encodeURIComponent(topicKey)}/comments?report_id=${conversation_id}`
+        `/api/v3/topicMod/topics/${encodeURIComponent(
+          topicKey
+        )}/comments?report_id=${conversation_id}`
       )
       const data = await response.json()
 
       if (data.status === 'success') {
-        this.setState({
-          comments: data.comments || [],
-          loading: false,
-          selectedComments: new Set()
-        })
+        setComments(data.comments || [])
+        setSelectedComments(new Set())
       } else {
-        this.setState({
-          error: data.message || 'Failed to load comments',
-          loading: false
-        })
+        setError(data.message || 'Failed to load comments')
       }
     } catch (err) {
-      this.setState({
-        error: 'Network error loading comments',
-        loading: false
-      })
+      setError('Network error loading comments')
+    } finally {
+      setLoading(false)
     }
   }
 
-  toggleComment(commentId) {
-    const { selectedComments } = this.state
-    const newSelected = new Set(selectedComments)
+  useEffect(() => {
+    loadTopicComments()
+  }, [conversation_id, topicKey])
 
+  const toggleComment = (commentId) => {
+    const newSelected = new Set(selectedComments)
     if (newSelected.has(commentId)) {
       newSelected.delete(commentId)
     } else {
       newSelected.add(commentId)
     }
-
-    this.setState({
-      selectedComments: newSelected,
-      selectAll: newSelected.size === this.state.comments.length
-    })
+    setSelectedComments(newSelected)
+    setSelectAll(newSelected.size === comments.length)
   }
 
-  toggleSelectAll() {
-    const { selectAll, comments } = this.state
-
+  const toggleSelectAll = () => {
     if (selectAll) {
-      this.setState({
-        selectedComments: new Set(),
-        selectAll: false
-      })
+      setSelectedComments(new Set())
+      setSelectAll(false)
     } else {
-      this.setState({
-        selectedComments: new Set(comments.map((c) => c.comment_id)),
-        selectAll: true
-      })
+      setSelectedComments(new Set(comments.map((c) => c.comment_id)))
+      setSelectAll(true)
     }
   }
 
-  async moderateSelected(action) {
-    const { selectedComments } = this.state
-
-    if (selectedComments.size === 0) {
-      return
-    }
+  const moderateSelected = async (action) => {
+    if (selectedComments.size === 0) return
 
     try {
-      const { match } = this.props
-      const conversation_id = match.params.conversation_id
-
       const response = await fetch('/api/v3/topicMod/moderate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           report_id: conversation_id,
           comment_ids: Array.from(selectedComments),
@@ -124,12 +79,9 @@ class TopicDetail extends React.Component {
           moderator: 'admin' // TODO: Get from auth state
         })
       })
-
       const data = await response.json()
-
       if (data.status === 'success') {
-        // Reload comments to reflect changes
-        this.loadTopicComments()
+        loadTopicComments()
       } else {
         console.error('Moderation failed:', data.message)
       }
@@ -138,7 +90,7 @@ class TopicDetail extends React.Component {
     }
   }
 
-  getStatusColor(status) {
+  const getStatusColor = (status) => {
     switch (status) {
       case 'accepted':
       case 1:
@@ -154,7 +106,7 @@ class TopicDetail extends React.Component {
     }
   }
 
-  getStatusText(status) {
+  const getStatusText = (status) => {
     switch (status) {
       case 'accepted':
       case 1:
@@ -170,11 +122,9 @@ class TopicDetail extends React.Component {
     }
   }
 
-  renderComment(comment) {
-    const { selectedComments } = this.state
+  const renderComment = (comment) => {
     const isSelected = selectedComments.has(comment.comment_id)
     const status = comment.moderation_status || 'pending'
-
     return (
       <Box
         key={comment.comment_id}
@@ -187,12 +137,12 @@ class TopicDetail extends React.Component {
           bg: isSelected ? 'highlight' : 'background',
           cursor: 'pointer'
         }}
-        onClick={() => this.toggleComment(comment.comment_id)}>
+        onClick={() => toggleComment(comment.comment_id)}>
         <Flex sx={{ alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <Flex sx={{ alignItems: 'flex-start', flex: 1 }}>
             <Checkbox
               checked={isSelected}
-              onChange={() => this.toggleComment(comment.comment_id)}
+              onChange={() => toggleComment(comment.comment_id)}
               sx={{ mr: 3, mt: 1 }}
               onClick={(e) => e.stopPropagation()}
             />
@@ -210,15 +160,14 @@ class TopicDetail extends React.Component {
               </Flex>
             </Box>
           </Flex>
-
           <Box sx={{ textAlign: 'right' }}>
             <Text
               sx={{
                 fontSize: 0,
                 fontWeight: 'bold',
-                color: this.getStatusColor(status)
+                color: getStatusColor(status)
               }}>
-              {this.getStatusText(status)}
+              {getStatusText(status)}
             </Text>
           </Box>
         </Flex>
@@ -226,105 +175,91 @@ class TopicDetail extends React.Component {
     )
   }
 
-  render() {
-    const { match } = this.props
-    const { loading, error, comments, selectedComments, selectAll } = this.state
-    const topicKey = decodeURIComponent(match.params.topicKey)
-
-    if (loading) {
-      return (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Text>Loading comments...</Text>
-        </Box>
-      )
-    }
-
-    if (error) {
-      return (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Text sx={{ color: 'error' }}>Error: {error}</Text>
-          <Button sx={{ mt: 2 }} onClick={() => this.loadTopicComments()}>
-            Retry
-          </Button>
-        </Box>
-      )
-    }
-
+  if (loading) {
     return (
-      <Box>
-        <Flex sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
-          <Box>
-            <Link to={match.url.replace('/topic/' + encodeURIComponent(topicKey), '')}>
-              <Button variant="outline" size="small" sx={{ mr: 3 }}>
-                ← Back to Topics
-              </Button>
-            </Link>
-            <Heading as="h3" sx={{ display: 'inline' }}>
-              Topic: {topicKey}
-            </Heading>
-          </Box>
-          <Text sx={{ color: 'textSecondary' }}>{comments.length} comments</Text>
-        </Flex>
-
-        {comments.length > 0 && (
-          <>
-            <Flex
-              sx={{
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                mb: 4,
-                p: 3,
-                bg: 'muted',
-                borderRadius: 'default'
-              }}>
-              <Flex sx={{ alignItems: 'center' }}>
-                <Label sx={{ display: 'flex', alignItems: 'center', mr: 4 }}>
-                  <Checkbox
-                    checked={selectAll}
-                    onChange={() => this.toggleSelectAll()}
-                    sx={{ mr: 2 }}
-                  />
-                  Select All ({selectedComments.size} selected)
-                </Label>
-              </Flex>
-
-              <Flex sx={{ gap: 2 }}>
-                <Button
-                  variant="success"
-                  size="small"
-                  onClick={() => this.moderateSelected('accept')}
-                  disabled={selectedComments.size === 0}>
-                  Accept Selected
-                </Button>
-                <Button
-                  variant="danger"
-                  size="small"
-                  onClick={() => this.moderateSelected('reject')}
-                  disabled={selectedComments.size === 0}>
-                  Reject Selected
-                </Button>
-                <Button
-                  variant="warning"
-                  size="small"
-                  onClick={() => this.moderateSelected('meta')}
-                  disabled={selectedComments.size === 0}>
-                  Mark as Meta
-                </Button>
-              </Flex>
-            </Flex>
-
-            <Box>{comments.map((comment) => this.renderComment(comment))}</Box>
-          </>
-        )}
-
-        {comments.length === 0 && (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Text>No comments found for this topic.</Text>
-          </Box>
-        )}
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Text>Loading comments...</Text>
       </Box>
     )
   }
+
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Text sx={{ color: 'error' }}>Error: {error}</Text>
+        <Button sx={{ mt: 2 }} onClick={loadTopicComments}>
+          Retry
+        </Button>
+      </Box>
+    )
+  }
+
+  return (
+    <Box>
+      <Flex sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+        <Box>
+          <Link to={`/m/${conversation_id}/topics`}>
+            <Button variant="outline" size="small" sx={{ mr: 3 }}>
+              ← Back to Topics
+            </Button>
+          </Link>
+          <Heading as="h3" sx={{ display: 'inline' }}>
+            Topic: {topicKey}
+          </Heading>
+        </Box>
+        <Text sx={{ color: 'textSecondary' }}>{comments.length} comments</Text>
+      </Flex>
+      {comments.length > 0 && (
+        <>
+          <Flex
+            sx={{
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              mb: 4,
+              p: 3,
+              bg: 'muted',
+              borderRadius: 'default'
+            }}>
+            <Flex sx={{ alignItems: 'center' }}>
+              <Label sx={{ display: 'flex', alignItems: 'center', mr: 4 }}>
+                <Checkbox checked={selectAll} onChange={toggleSelectAll} sx={{ mr: 2 }} />
+                Select All ({selectedComments.size} selected)
+              </Label>
+            </Flex>
+            <Flex sx={{ gap: 2 }}>
+              <Button
+                variant="success"
+                size="small"
+                onClick={() => moderateSelected('accept')}
+                disabled={selectedComments.size === 0}>
+                Accept Selected
+              </Button>
+              <Button
+                variant="danger"
+                size="small"
+                onClick={() => moderateSelected('reject')}
+                disabled={selectedComments.size === 0}>
+                Reject Selected
+              </Button>
+              <Button
+                variant="warning"
+                size="small"
+                onClick={() => moderateSelected('meta')}
+                disabled={selectedComments.size === 0}>
+                Mark as Meta
+              </Button>
+            </Flex>
+          </Flex>
+          <Box>{comments.map(renderComment)}</Box>
+        </>
+      )}
+      {comments.length === 0 && (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Text>No comments found for this topic.</Text>
+        </Box>
+      )}
+    </Box>
+  )
 }
 
 export default TopicDetail

@@ -1,81 +1,22 @@
 /* eslint-disable */
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-import React from 'react'
-import { connect } from 'react-redux'
-import { jsx, Box, Flex, Heading, Text, Button, Select } from 'theme-ui'
+import React, { useState, useEffect, useRef } from 'react'
+import { useParams } from 'react-router-dom'
+import { Box, Flex, Heading, Text, Button, Select } from 'theme-ui'
 
-const mapStateToProps = (state) => {
-  return {
-    zid_metadata: state.zid_metadata
-  }
-}
+const ProximityVisualization = () => {
+  const [proximityData, setProximityData] = useState([])
+  const [selectedLayer, setSelectedLayer] = useState('0')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const svgRef = useRef(null)
+  const params = useParams()
 
-@connect(mapStateToProps)
-class ProximityVisualization extends React.Component {
-  constructor(props) {
-    super(props)
-    this.state = {
-      proximityData: [],
-      selectedLayer: '0',
-      loading: true,
-      error: null,
-      svgRef: React.createRef()
-    }
-  }
+  const renderVisualization = (data) => {
+    const svgElement = svgRef.current
 
-  componentDidMount() {
-    this.loadProximityData()
-  }
-
-  async loadProximityData() {
-    try {
-      this.setState({ loading: true, error: null })
-      const { match } = this.props
-      const { selectedLayer } = this.state
-      const conversation_id = match.params.conversation_id
-
-      // Fetch proximity data (UMAP coordinates)
-      const response = await fetch(
-        `/api/v3/topicMod/proximity?report_id=${conversation_id}&layer_id=${selectedLayer}`
-      )
-      const data = await response.json()
-
-      if (data.status === 'success') {
-        this.setState(
-          {
-            proximityData: data.proximity_data || [],
-            loading: false
-          },
-          () => {
-            this.renderVisualization()
-          }
-        )
-      } else {
-        this.setState({
-          error: data.message || 'Failed to load proximity data',
-          loading: false
-        })
-      }
-    } catch (err) {
-      this.setState({
-        error: 'Network error loading proximity data',
-        loading: false
-      })
-    }
-  }
-
-  componentDidUpdate(prevState) {
-    if (prevState.selectedLayer !== this.state.selectedLayer) {
-      this.loadProximityData()
-    }
-  }
-
-  renderVisualization() {
-    const { proximityData } = this.state
-    const svgElement = this.state.svgRef.current
-
-    if (!svgElement || proximityData.length === 0) return
+    if (!svgElement || data.length === 0) return
 
     // Clear previous content
     svgElement.innerHTML = ''
@@ -86,8 +27,8 @@ class ProximityVisualization extends React.Component {
     const margin = 50
 
     // Calculate bounds
-    const xValues = proximityData.map((d) => d.umap_x).filter((x) => x !== undefined)
-    const yValues = proximityData.map((d) => d.umap_y).filter((y) => y !== undefined)
+    const xValues = data.map((d) => d.umap_x).filter((x) => x !== undefined)
+    const yValues = data.map((d) => d.umap_y).filter((y) => y !== undefined)
 
     if (xValues.length === 0 || yValues.length === 0) {
       svgElement.innerHTML =
@@ -123,7 +64,7 @@ class ProximityVisualization extends React.Component {
 
     // Group by cluster for better visualization
     const clusters = {}
-    proximityData.forEach((point) => {
+    data.forEach((point) => {
       const clusterId = point.cluster_id || 0
       if (!clusters[clusterId]) clusters[clusterId] = []
       clusters[clusterId].push(point)
@@ -168,7 +109,7 @@ class ProximityVisualization extends React.Component {
     })
 
     // Render points
-    proximityData.forEach((point, index) => {
+    data.forEach((point, index) => {
       if (point.umap_x === undefined || point.umap_y === undefined) return
 
       const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle')
@@ -229,99 +170,125 @@ class ProximityVisualization extends React.Component {
     svgElement.appendChild(yLabel)
   }
 
-  render() {
-    const { loading, error, proximityData, selectedLayer } = this.state
+  const loadProximityData = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const conversation_id = params.conversation_id
 
-    if (loading) {
-      return (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Text>Loading proximity visualization...</Text>
-        </Box>
+      // Fetch proximity data (UMAP coordinates)
+      const response = await fetch(
+        `/api/v3/topicMod/proximity?report_id=${conversation_id}&layer_id=${selectedLayer}`
       )
-    }
+      const data = await response.json()
 
-    if (error) {
-      return (
-        <Box sx={{ textAlign: 'center', py: 4 }}>
-          <Text sx={{ color: 'error' }}>Error: {error}</Text>
-          <Button sx={{ mt: 2 }} onClick={() => this.loadProximityData()}>
-            Retry
-          </Button>
-        </Box>
-      )
+      if (data.status === 'success') {
+        setProximityData(data.proximity_data || [])
+        setLoading(false)
+        renderVisualization(data.proximity_data || [])
+      } else {
+        setError(data.message || 'Failed to load proximity data')
+        setLoading(false)
+      }
+    } catch (err) {
+      setError('Network error loading proximity data')
+      setLoading(false)
     }
+  }
 
+  useEffect(() => {
+    loadProximityData()
+  }, [selectedLayer, params.conversation_id])
+
+  if (loading) {
     return (
-      <Box>
-        <Flex sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
-          <Heading as="h3">Proximity Visualization</Heading>
-          <Flex sx={{ alignItems: 'center', gap: 2 }}>
-            <Text>Layer:</Text>
-            <Select
-              value={selectedLayer}
-              onChange={(e) => this.setState({ selectedLayer: e.target.value })}
-              sx={{ width: '100px' }}>
-              <option value="0">Layer 0</option>
-              <option value="1">Layer 1</option>
-              <option value="2">Layer 2</option>
-            </Select>
-          </Flex>
-        </Flex>
-
-        <Text sx={{ mb: 4, color: 'textSecondary' }}>
-          This visualization shows comments positioned by semantic similarity using UMAP
-          coordinates. Comments that are closer together are more semantically similar.
-        </Text>
-
-        {proximityData.length > 0 ? (
-          <Box>
-            <Box sx={{ mb: 3 }}>
-              <Flex sx={{ gap: 3, alignItems: 'center', fontSize: 0 }}>
-                <Flex sx={{ alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ width: '12px', height: '12px', bg: '#6b7280', borderRadius: '50%' }} />
-                  <Text>Pending</Text>
-                </Flex>
-                <Flex sx={{ alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ width: '12px', height: '12px', bg: '#22c55e', borderRadius: '50%' }} />
-                  <Text>Accepted</Text>
-                </Flex>
-                <Flex sx={{ alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ width: '12px', height: '12px', bg: '#ef4444', borderRadius: '50%' }} />
-                  <Text>Rejected</Text>
-                </Flex>
-                <Flex sx={{ alignItems: 'center', gap: 1 }}>
-                  <Box sx={{ width: '12px', height: '12px', bg: '#f59e0b', borderRadius: '50%' }} />
-                  <Text>Meta</Text>
-                </Flex>
-              </Flex>
-            </Box>
-
-            <Box
-              sx={{
-                border: '1px solid',
-                borderColor: 'border',
-                borderRadius: 'default',
-                overflow: 'hidden'
-              }}>
-              <svg
-                ref={this.state.svgRef}
-                width="800"
-                height="600"
-                style={{ display: 'block', margin: '0 auto' }}></svg>
-            </Box>
-
-            <Text sx={{ mt: 2, fontSize: 0, color: 'textSecondary', textAlign: 'center' }}>
-              Hover over points to see comment details. Points are grouped by semantic clusters.
-            </Text>
-          </Box>
-        ) : (
-          <Box sx={{ textAlign: 'center', py: 4 }}>
-            <Text>No proximity data available for this layer.</Text>
-          </Box>
-        )}
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Text>Loading proximity visualization...</Text>
       </Box>
     )
   }
+
+  if (error) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 4 }}>
+        <Text sx={{ color: 'error' }}>Error: {error}</Text>
+        <Button sx={{ mt: 2 }} onClick={loadProximityData}>
+          Retry
+        </Button>
+      </Box>
+    )
+  }
+
+  return (
+    <Box>
+      <Flex sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
+        <Heading as="h3">Proximity Visualization</Heading>
+        <Flex sx={{ alignItems: 'center', gap: 2 }}>
+          <Text>Layer:</Text>
+          <Select
+            value={selectedLayer}
+            onChange={(e) => setSelectedLayer(e.target.value)}
+            sx={{ width: '100px' }}>
+            <option value="0">Layer 0</option>
+            <option value="1">Layer 1</option>
+            <option value="2">Layer 2</option>
+          </Select>
+        </Flex>
+      </Flex>
+
+      <Text sx={{ mb: 4, color: 'textSecondary' }}>
+        This visualization shows comments positioned by semantic similarity using UMAP coordinates.
+        Comments that are closer together are more semantically similar.
+      </Text>
+
+      {proximityData.length > 0 ? (
+        <Box>
+          <Box sx={{ mb: 3 }}>
+            <Flex sx={{ gap: 3, alignItems: 'center', fontSize: 0 }}>
+              <Flex sx={{ alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: '12px', height: '12px', bg: '#6b7280', borderRadius: '50%' }} />
+                <Text>Pending</Text>
+              </Flex>
+              <Flex sx={{ alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: '12px', height: '12px', bg: '#22c55e', borderRadius: '50%' }} />
+                <Text>Accepted</Text>
+              </Flex>
+              <Flex sx={{ alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: '12px', height: '12px', bg: '#ef4444', borderRadius: '50%' }} />
+                <Text>Rejected</Text>
+              </Flex>
+              <Flex sx={{ alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: '12px', height: '12px', bg: '#f59e0b', borderRadius: '50%' }} />
+                <Text>Meta</Text>
+              </Flex>
+            </Flex>
+          </Box>
+
+          <Box
+            sx={{
+              border: '1px solid',
+              borderColor: 'border',
+              borderRadius: 'default',
+              overflow: 'hidden'
+            }}>
+            <svg
+              ref={svgRef}
+              width="800"
+              height="600"
+              style={{ display: 'block', margin: '0 auto' }}></svg>
+          </Box>
+
+          <Text sx={{ mt: 2, fontSize: 0, color: 'textSecondary', textAlign: 'center' }}>
+            Hover over points to see comment details. Points are grouped by semantic clusters.
+          </Text>
+        </Box>
+      ) : (
+        <Box sx={{ textAlign: 'center', py: 4 }}>
+          <Text>No proximity data available for this layer.</Text>
+        </Box>
+      )}
+    </Box>
+  )
 }
 
 export default ProximityVisualization
