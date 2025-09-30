@@ -3,9 +3,10 @@
 
 import { Heading, Flex, Box } from 'theme-ui'
 import { Routes, Route, Link, useParams, useLocation } from 'react-router-dom'
+import { useAuth } from 'react-oidc-context'
 import React, { useEffect, useRef } from 'react'
 
-import { hasDelphiEnabled, useUser } from '../../../util/auth'
+import { hasDelphiEnabled } from '../../../util/auth'
 import { useConversationData } from '../../../util/conversation_data'
 import ProximityVisualization from './ProximityVisualization'
 import TopicDetail from './TopicDetail'
@@ -17,9 +18,9 @@ const pollFrequency = 60000
 const TopicModeration = () => {
   const params = useParams()
   const location = useLocation()
-  const user = useUser()
   const conversationData = useConversationData()
   const getTopicsRepeatedly = useRef(null)
+  const { user: authUser } = useAuth()
 
   const loadTopics = () => {
     // Dispatch actions to load topics data
@@ -63,7 +64,7 @@ const TopicModeration = () => {
         }}>
         Topic Moderation
       </Heading>
-      {hasDelphiEnabled(user) ? (
+      {hasDelphiEnabled(authUser) ? (
         <Flex sx={{ mb: [4] }}>
           <Link
             sx={{
@@ -99,7 +100,7 @@ const TopicModeration = () => {
           </p>
         </>
       )}
-      {hasDelphiEnabled(user) && (
+      {hasDelphiEnabled(authUser) && (
         <Box>
           <Routes>
             <Route path="/" element={<TopicTree conversation_id={conversation_id} />} />
