@@ -1,8 +1,9 @@
-import { render, screen, within } from '@testing-library/react'
 import { BrowserRouter as Router } from 'react-router'
+import { render, screen, within } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
-import theme from '../../theme'
+
 import Home from './home'
+import theme from '../../theme'
 
 // Mock child components for isolation
 jest.mock('./ExploreKnowledgeBase', () => {

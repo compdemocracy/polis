@@ -1,13 +1,16 @@
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
-import { Provider } from 'react-redux'
-import { configureStore } from '@reduxjs/toolkit'
-import { ThemeUIProvider } from 'theme-ui'
 import { BrowserRouter as Router } from 'react-router'
-import theme from '../../../theme'
-import ReportsList from './ReportsList'
-import PolisNet from '../../../util/net'
-import * as actions from '../../../actions'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
+import { ThemeUIProvider } from 'theme-ui'
+
+import { ConversationDataProvider } from '../../../util/conversation_data'
 import { mockAuth } from '../../../test-utils'
+import { UserProvider } from '../../../util/auth'
+import * as actions from '../../../actions'
+import PolisNet from '../../../util/net'
+import ReportsList from './ReportsList'
+import theme from '../../../theme'
 
 // Mock dependencies
 jest.mock('../../../util/net')
@@ -29,7 +32,24 @@ jest.mock('react-router', () => ({
 
 // Create a mock store with Redux Toolkit
 const createMockStore = (initialState = {}) => {
-  const mockReducer = (state = initialState, action) => {
+  const defaultState = {
+    user: {
+      user: {
+        uid: 123,
+        email: 'test@example.com'
+      },
+      loading: false,
+      error: null
+    },
+    conversationData: {
+      conversation_id: 'test123',
+      is_mod: false,
+      loading: false
+    },
+    ...initialState
+  }
+
+  const mockReducer = (state = defaultState, action) => {
     if (action.type === 'UPDATE_CONVERSATION_DATA') {
       return {
         ...state,
@@ -43,7 +63,7 @@ const createMockStore = (initialState = {}) => {
   }
   return configureStore({
     reducer: mockReducer,
-    preloadedState: initialState
+    preloadedState: defaultState
   })
 }
 
@@ -59,7 +79,11 @@ const renderWithProviders = (component, { store } = {}) => {
           v7_relativeSplatPath: true
         }}>
         <ThemeUIProvider theme={theme}>
-          <Provider store={mockStore}>{component}</Provider>
+          <Provider store={mockStore}>
+            <UserProvider>
+              <ConversationDataProvider>{component}</ConversationDataProvider>
+            </UserProvider>
+          </Provider>
         </ThemeUIProvider>
       </Router>
     )
@@ -87,7 +111,7 @@ describe('ReportsList', () => {
     expect(screen.getByText('Loading Reports...')).toBeInTheDocument()
   })
 
-  it('loads metadata on mount when authenticated', () => {
+  it('does not load metadata itself (parent component handles this)', () => {
     const store = createMockStore({
       conversationData: {
         conversation_id: 'test123',
@@ -97,7 +121,8 @@ describe('ReportsList', () => {
     })
 
     renderWithProviders(<ReportsList />, { store })
-    expect(actions.populateConversationDataStore).toHaveBeenCalledWith('test123')
+    // ReportsList doesn't call populateConversationDataStore - that's done by ConversationAdminContainer
+    expect(actions.populateConversationDataStore).not.toHaveBeenCalled()
   })
 
   it('loads reports data when user becomes moderator', async () => {
@@ -230,54 +255,11 @@ describe('ReportsList', () => {
       conversationData: {
         conversation_id: 'test123',
         is_mod: true,
-        loading: true
+        loading: false
       }
     })
 
-    const { rerender } = renderWithProviders(<ReportsList />, { store })
-
-    // Trigger getData by changing is_mod
-    act(() => {
-      store.dispatch({
-        type: 'UPDATE_CONVERSATION_DATA',
-        payload: { is_mod: false }
-      })
-    })
-
-    rerender(
-      <Router
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true
-        }}>
-        <ThemeUIProvider theme={theme}>
-          <Provider store={store}>
-            <ReportsList />
-          </Provider>
-        </ThemeUIProvider>
-      </Router>
-    )
-
-    act(() => {
-      store.dispatch({
-        type: 'UPDATE_CONVERSATION_DATA',
-        payload: { is_mod: true }
-      })
-    })
-
-    rerender(
-      <Router
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true
-        }}>
-        <ThemeUIProvider theme={theme}>
-          <Provider store={store}>
-            <ReportsList />
-          </Provider>
-        </ThemeUIProvider>
-      </Router>
-    )
+    renderWithProviders(<ReportsList />, { store })
 
     await waitFor(() => {
       expect(screen.getByText('Create report url')).toBeInTheDocument()
@@ -291,7 +273,8 @@ describe('ReportsList', () => {
         conversation_id: 'test123',
         mod_level: -2
       })
-      expect(PolisNet.polisGet).toHaveBeenCalledTimes(4) // Initial load + refresh after create (multiple renders due to hooks)
+      // polisGet should be called at least twice: initial load + refresh after create
+      expect(PolisNet.polisGet).toHaveBeenCalledTimes(2)
     })
   })
 
@@ -303,33 +286,12 @@ describe('ReportsList', () => {
     const store = createMockStore({
       conversationData: {
         conversation_id: 'test123',
-        is_mod: false,
-        loading: true
+        is_mod: true,
+        loading: false
       }
     })
 
-    const { rerender } = renderWithProviders(<ReportsList />, { store })
-
-    act(() => {
-      store.dispatch({
-        type: 'UPDATE_CONVERSATION_DATA',
-        payload: { is_mod: true }
-      })
-    })
-
-    rerender(
-      <Router
-        future={{
-          v7_startTransition: true,
-          v7_relativeSplatPath: true
-        }}>
-        <ThemeUIProvider theme={theme}>
-          <Provider store={store}>
-            <ReportsList />
-          </Provider>
-        </ThemeUIProvider>
-      </Router>
-    )
+    renderWithProviders(<ReportsList />, { store })
 
     await waitFor(() => {
       const reportLinks = screen.getAllByTestId('report-list-item')
@@ -339,7 +301,7 @@ describe('ReportsList', () => {
     })
   })
 
-  it('handles no permissions correctly', () => {
+  it('renders regardless of is_mod flag (permission checking happens at parent level)', () => {
     const store = createMockStore({
       conversationData: {
         conversation_id: 'test123',
@@ -350,8 +312,8 @@ describe('ReportsList', () => {
     })
 
     renderWithProviders(<ReportsList />, { store })
-    // Should render NoPermission component
-    expect(screen.queryByText('Loading Reports...')).not.toBeInTheDocument()
-    expect(screen.queryByText('Report')).not.toBeInTheDocument()
+    // ReportsList doesn't check permissions itself - that's handled by the parent ConversationAdmin
+    // So it will show loading state even with is_mod: false
+    expect(screen.getByText('Loading Reports...')).toBeInTheDocument()
   })
 })

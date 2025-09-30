@@ -1,12 +1,14 @@
-import { render, screen, waitFor, act } from '@testing-library/react'
-import { Provider } from 'react-redux'
-import { configureStore } from '@reduxjs/toolkit'
-import { ThemeUIProvider } from 'theme-ui'
 import { BrowserRouter as Router } from 'react-router'
-import theme from '../../../theme'
-import ConversationStats from './index'
-import * as actions from '../../../actions'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { render, screen, waitFor, act } from '@testing-library/react'
+import { ThemeUIProvider } from 'theme-ui'
+
+import { ConversationDataProvider } from '../../../util/conversation_data'
 import { mockAuth } from '../../../test-utils'
+import * as actions from '../../../actions'
+import ConversationStats from './index'
+import theme from '../../../theme'
 
 // Mock child components to isolate the main component
 jest.mock('./NumberCards', () => {
@@ -116,7 +118,9 @@ const renderWithProviders = (component, { store } = {}) => {
           v7_relativeSplatPath: true
         }}>
         <ThemeUIProvider theme={theme}>
-          <Provider store={mockStore}>{component}</Provider>
+          <Provider store={mockStore}>
+            <ConversationDataProvider>{component}</ConversationDataProvider>
+          </Provider>
         </ThemeUIProvider>
       </Router>
     )
@@ -150,9 +154,10 @@ describe('ConversationStats', () => {
     expect(screen.getByText('Loading...')).toBeInTheDocument()
   })
 
-  it('loads metadata on mount when authenticated', () => {
+  it('does not load metadata itself (parent component handles this)', () => {
     renderWithProviders(<ConversationStats />)
-    expect(actions.populateConversationDataStore).toHaveBeenCalledWith('test123')
+    // ConversationStats doesn't call populateConversationDataStore - that's done by ConversationAdminContainer
+    expect(actions.populateConversationDataStore).not.toHaveBeenCalled()
   })
 
   it('starts polling when user is already a moderator with loaded metadata', () => {
@@ -217,7 +222,9 @@ describe('ConversationStats', () => {
         }}>
         <ThemeUIProvider theme={theme}>
           <Provider store={store}>
-            <ConversationStats />
+            <ConversationDataProvider>
+              <ConversationStats />
+            </ConversationDataProvider>
           </Provider>
         </ThemeUIProvider>
       </Router>
@@ -303,20 +310,5 @@ describe('ConversationStats', () => {
     expect(actions.populateConversationStatsStore).toHaveBeenCalledTimes(1)
 
     jest.useRealTimers()
-  })
-
-  it('handles no permissions correctly', () => {
-    const store = createMockStore({
-      conversationData: {
-        conversation_id: 'test123',
-        is_mod: false,
-        error: { status: 403 }
-      }
-    })
-
-    renderWithProviders(<ConversationStats />, { store })
-    // Should render NoPermission component
-    expect(screen.queryByText('Monitor')).not.toBeInTheDocument()
-    expect(screen.queryByText('Loading...')).not.toBeInTheDocument()
   })
 })

@@ -1,9 +1,10 @@
-import { render, screen, fireEvent } from '@testing-library/react'
-import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
-import theme from '../../../theme'
+
 import Comment from './Comment'
+import theme from '../../../theme'
 
 // Create a mock store
 const createMockStore = (conversationData = {}) => {

@@ -1,9 +1,11 @@
-import { render, screen } from '@testing-library/react'
-import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { render, screen } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
-import theme from '../../theme'
+
+import { UserProvider } from '../../util/auth'
 import Account from './Account'
+import theme from '../../theme'
 
 // Create a mock store
 const createMockStore = (user = null) => {
@@ -23,7 +25,9 @@ const renderWithProviders = (component, { store } = {}) => {
   const mockStore = store || createMockStore()
   return render(
     <ThemeUIProvider theme={theme}>
-      <Provider store={mockStore}>{component}</Provider>
+      <Provider store={mockStore}>
+        <UserProvider>{component}</UserProvider>
+      </Provider>
     </ThemeUIProvider>
   )
 }

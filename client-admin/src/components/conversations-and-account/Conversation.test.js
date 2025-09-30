@@ -1,7 +1,8 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
-import theme from '../../theme'
+
 import Conversation from './Conversation'
+import theme from '../../theme'
 
 // Wrapper to provide theme context
 const renderWithTheme = (component) => {

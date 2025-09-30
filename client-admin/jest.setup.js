@@ -4,6 +4,9 @@ global.TextEncoder = TextEncoder
 
 import '@testing-library/jest-dom'
 
+// Limit Testing Library's DOM output in error messages
+process.env.DEBUG_PRINT_LIMIT = '0'
+
 // Add fetch polyfill for tests
 global.fetch = jest.fn(() =>
   Promise.resolve({

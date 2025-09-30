@@ -1,9 +1,10 @@
-import { render, screen, fireEvent } from '@testing-library/react'
 import { BrowserRouter as Router } from 'react-router'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
-import theme from '../../theme'
-import SignIn from './SignIn'
+
 import { mockAuth } from '../../test-utils'
+import SignIn from './SignIn'
+import theme from '../../theme'
 
 // Mock the useAuth hook directly for this test file
 jest.mock('react-oidc-context', () => ({

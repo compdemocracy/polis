@@ -1,10 +1,12 @@
-import { render, screen } from '@testing-library/react'
-import { Provider } from 'react-redux'
-import { configureStore } from '@reduxjs/toolkit'
-import { ThemeUIProvider } from 'theme-ui'
 import { BrowserRouter as Router } from 'react-router'
-import theme from '../../theme'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { render, screen } from '@testing-library/react'
+import { ThemeUIProvider } from 'theme-ui'
+
+import { ConversationDataProvider } from '../../util/conversation_data'
 import ShareAndEmbed from './ShareAndEmbed'
+import theme from '../../theme'
 
 // Mock the child components
 jest.mock('./ConversationHasCommentsCheck', () => {
@@ -51,7 +53,9 @@ const renderWithProviders = (component, { store } = {}) => {
         v7_relativeSplatPath: true
       }}>
       <ThemeUIProvider theme={theme}>
-        <Provider store={mockStore}>{component}</Provider>
+        <Provider store={mockStore}>
+          <ConversationDataProvider>{component}</ConversationDataProvider>
+        </Provider>
       </ThemeUIProvider>
     </Router>
   )
@@ -106,10 +110,11 @@ describe('ShareAndEmbed', () => {
     expect(screen.getByText('ParticipantXids')).toBeInTheDocument()
   })
 
-  it('handles no permissions gracefully', () => {
+  it('renders regardless of is_mod flag (permission checking happens at parent level)', () => {
     const store = createMockStore({ is_mod: false })
     renderWithProviders(<ShareAndEmbed />, { store })
-    // Should render NoPermission component
-    expect(screen.queryByText('Distribute')).not.toBeInTheDocument()
+    // ShareAndEmbed doesn't check permissions itself - that's handled by the parent ConversationAdmin
+    // So it should still render even with is_mod: false
+    expect(screen.getByText('Distribute')).toBeInTheDocument()
   })
 })
