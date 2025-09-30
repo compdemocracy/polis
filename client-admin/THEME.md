@@ -73,14 +73,24 @@ This is the ONLY CSS file and ironically contains the BEST responsive patterns:
 
 ```css
 @media (max-width: 768px) {
-  .moderation-buttons { flex-direction: column; }
-  .legend { flex-wrap: wrap; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .moderation-buttons {
+    flex-direction: column;
+  }
+  .legend {
+    flex-wrap: wrap;
+  }
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 @media (max-width: 480px) {
-  .stats-grid { grid-template-columns: 1fr; }
-  .layer-selector { flex-wrap: wrap; }
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+  .layer-selector {
+    flex-wrap: wrap;
+  }
 }
 ```
 
@@ -184,9 +194,9 @@ The codebase upgraded from theme-ui v0.3.1 to v0.17.2 but hasn't adopted new fea
 ```js
 // src/theme/index.js
 export default {
-  breakpoints: ['40em', '52em', '64em'],  // 640px, 832px, 1024px
+  breakpoints: ['40em', '52em', '64em'], // 640px, 832px, 1024px
   // Or mobile-first breakpoints:
-  breakpoints: ['30em', '48em', '62em'],  // 480px, 768px, 992px
+  breakpoints: ['30em', '48em', '62em'] // 480px, 768px, 992px
   // ...
 }
 ```
@@ -202,7 +212,7 @@ Replace all `width: '35em'` and `maxWidth: '35em'` with responsive patterns:
 sx={{ width: '35em' }}
 
 // After
-sx={{ 
+sx={{
   width: '100%',
   maxWidth: ['100%', '35em', '45em']  // Fluid on mobile, constrained on desktop
 }}
@@ -213,19 +223,21 @@ sx={{
 ```jsx
 // MainLayout.js
 <Flex sx={{ flexDirection: ['column', 'column', 'row'] }}>
-  <Box sx={{ 
-    mr: [0, 0, 5], 
-    p: [3, 3, 4],
-    borderBottom: ['2px solid', null, 'none'],
-    borderRight: ['none', null, '2px solid']
-  }}>
+  <Box
+    sx={{
+      mr: [0, 0, 5],
+      p: [3, 3, 4],
+      borderBottom: ['2px solid', null, 'none'],
+      borderRight: ['none', null, '2px solid']
+    }}>
     {/* Sidebar - becomes horizontal nav on mobile */}
   </Box>
-  <Box sx={{
-    p: [3, 3, 4],
-    maxWidth: ['100%', '35em', '45em'],
-    width: '100%'
-  }}>
+  <Box
+    sx={{
+      p: [3, 3, 4],
+      maxWidth: ['100%', '35em', '45em'],
+      width: '100%'
+    }}>
     {/* Content */}
   </Box>
 </Flex>
@@ -236,7 +248,7 @@ sx={{
 Verify in `public/index.html`:
 
 ```html
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 ```
 
 ### Phase 2: Systematic Updates (Medium Priority)
@@ -310,9 +322,9 @@ export default {
   // ... existing tokens
   sizes: {
     container: ['100%', '48em', '64em', '80em'],
-    touchTarget: 44,  // Minimum 44px for accessibility
+    touchTarget: 44 // Minimum 44px for accessibility
   },
-  space: [0, 4, 8, 12, 16, 24, 32, 48, 64, 128, 256, 512],  // Add 12, 24, 48
+  space: [0, 4, 8, 12, 16, 24, 32, 48, 64, 128, 256, 512], // Add 12, 24, 48
   radii: {
     sm: 2,
     md: 4,
@@ -323,7 +335,7 @@ export default {
   shadows: {
     sm: '0 1px 3px rgba(0, 0, 0, 0.12)',
     md: '0 4px 6px rgba(0, 0, 0, 0.1)',
-    lg: '0 10px 20px rgba(0, 0, 0, 0.15)',
+    lg: '0 10px 20px rgba(0, 0, 0, 0.15)'
   }
 }
 ```
@@ -402,11 +414,11 @@ variants: {
 ```js
 // Progressive enhancement
 fontSizes: [
-  'clamp(0.75rem, 2vw, 0.875rem)',  // 12-14px
-  'clamp(0.875rem, 2.5vw, 1rem)',    // 14-16px
-  'clamp(1rem, 3vw, 1.25rem)',       // 16-20px
-  'clamp(1.25rem, 4vw, 1.5rem)',     // 20-24px
-  'clamp(1.5rem, 5vw, 2rem)',        // 24-32px
+  'clamp(0.75rem, 2vw, 0.875rem)', // 12-14px
+  'clamp(0.875rem, 2.5vw, 1rem)', // 14-16px
+  'clamp(1rem, 3vw, 1.25rem)', // 16-20px
+  'clamp(1.25rem, 4vw, 1.5rem)', // 20-24px
+  'clamp(1.5rem, 5vw, 2rem)' // 24-32px
   // ...
 ]
 ```

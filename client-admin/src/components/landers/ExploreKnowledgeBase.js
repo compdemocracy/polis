@@ -8,13 +8,9 @@ const ExploreKnowledgeBase = () => {
         Explore
       </Heading>
       <Box sx={{ mb: [4, null, 5], maxWidth: '35em' }}>
-        {/* prettier-ignore */}
         <Box style={{ mb: [5, null, 6] }}>
           Onboard with a{' '}
-          {/* prettier-ignore */}
-          <Link
-            target="_blank"
-            href="https://compdemocracy.org/knowledge-base">
+          <Link target="_blank" href="https://compdemocracy.org/knowledge-base">
             comprehensive knowledge base
           </Link>{' '}
           including
@@ -22,12 +18,7 @@ const ExploreKnowledgeBase = () => {
         <KnowledgeBase url="https://compdemocracy.org/Welcome" e="👋" txt="Welcome Guide" />
         <KnowledgeBase url="https://compdemocracy.org/Quickstart" e="🏎" txt="Quickstart" />
         <KnowledgeBase url="https://compdemocracy.org/Usage" e="🔩" txt="Usage Overview" />
-        {/* prettier-ignore */}
-        <KnowledgeBase
-          url="https://compdemocracy.org/FAQ"
-          e="📖"
-          txt="FAQ"
-        />
+        <KnowledgeBase url="https://compdemocracy.org/FAQ" e="📖" txt="FAQ" />
         <KnowledgeBase url="https://compdemocracy.org/Case-studies" e="⚗️" txt="Case Studies" />
         <KnowledgeBase url="https://compdemocracy.org/algorithms" e="👾" txt="Algorithms" />
         <KnowledgeBase

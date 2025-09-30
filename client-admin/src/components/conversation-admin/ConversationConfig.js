@@ -6,13 +6,13 @@ import { useDispatch } from 'react-redux'
 import emoji from 'react-easy-emoji'
 
 import { CheckboxField } from './CheckboxField'
+import { useConversationData } from '../../util/conversation_data'
+import ModerateCommentsSeed from './ModerateCommentSeed'
+import Spinner from '../framework/Spinner'
 import {
   handleConversationDataUpdate,
   optimisticConversationDataUpdateOnTyping
 } from '../../actions'
-import { useConversationData } from '../../util/conversation_data'
-import ModerateCommentsSeed from './ModerateCommentSeed'
-import Spinner from '../framework/Spinner'
 
 const ConversationConfig = () => {
   const dispatch = useDispatch()

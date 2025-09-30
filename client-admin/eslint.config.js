@@ -8,7 +8,7 @@ const babelParser = require('@babel/eslint-parser')
 module.exports = [
   {
     // Base configuration for all files
-    ignores: ['build/**']
+    ignores: ['build/**', 'coverage/**']
   },
   eslint.configs.recommended,
   {
@@ -76,10 +76,11 @@ module.exports = [
   },
   {
     // Override for Test files
-    files: ['**/*.test.js'],
+    files: ['**/*.test.js', 'jest.setup.js'],
     languageOptions: {
       globals: {
-        ...globals.jest
+        ...globals.jest,
+        ...globals.node // Adds 'global', 'process', etc.
       }
     },
     rules: {
