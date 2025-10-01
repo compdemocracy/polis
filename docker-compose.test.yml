@@ -168,9 +168,9 @@ services:
         AUTH_AUDIENCE: users
         AUTH_CLIENT_ID: dev-client-id
         AUTH_ISSUER: https://localhost:3000/
-        AUTH_NAMESPACE: ${AUTH_NAMESPACE}
+        AUTH_NAMESPACE: https://pol.is/
         EMBED_SERVICE_HOSTNAME: localhost
-        GIT_HASH: "${GIT_HASH:-placeholder}"
+        GIT_HASH: test
         NODE_ENV: production
         OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: ${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
         OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}
