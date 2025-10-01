@@ -212,7 +212,7 @@ const ProximityVisualization = () => {
     return (
       <Box sx={{ textAlign: 'center', py: 4 }}>
         <Text sx={{ color: 'error' }}>Error: {error}</Text>
-        <Button sx={{ mt: 2 }} onClick={loadProximityData}>
+        <Button sx={{ mt: 2, ml: 3 }} onClick={loadProximityData}>
           Retry
         </Button>
       </Box>
@@ -221,14 +221,23 @@ const ProximityVisualization = () => {
 
   return (
     <Box>
-      <Flex sx={{ alignItems: 'center', justifyContent: 'space-between', mb: 4 }}>
-        <Heading as="h3">Proximity Visualization</Heading>
+      <Flex
+        sx={{
+          alignItems: ['flex-start', 'center', 'center'],
+          justifyContent: 'space-between',
+          mb: 4,
+          flexDirection: ['column', 'row', 'row'],
+          gap: [2, 0, 0]
+        }}>
+        <Heading as="h3" sx={{ fontSize: [2, 3, 3] }}>
+          Proximity Visualization
+        </Heading>
         <Flex sx={{ alignItems: 'center', gap: 2 }}>
-          <Text>Layer:</Text>
+          <Text sx={{ fontSize: [1, 2, 2] }}>Layer:</Text>
           <Select
             value={selectedLayer}
             onChange={(e) => setSelectedLayer(e.target.value)}
-            sx={{ width: ['80px', '100px', '120px'] }}>
+            sx={{ width: ['80px', '100px', '120px'], fontSize: [1, 2, 2] }}>
             <option value="0">Layer 0</option>
             <option value="1">Layer 1</option>
             <option value="2">Layer 2</option>
@@ -244,22 +253,54 @@ const ProximityVisualization = () => {
       {proximityData.length > 0 ? (
         <Box>
           <Box sx={{ mb: 3 }}>
-            <Flex sx={{ gap: 3, alignItems: 'center', fontSize: 0 }}>
+            <Flex sx={{ gap: [2, 3, 3], alignItems: 'center', fontSize: 0, flexWrap: 'wrap' }}>
               <Flex sx={{ alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: '12px', height: '12px', bg: '#6b7280', borderRadius: '50%' }} />
-                <Text>Pending</Text>
+                <Box
+                  sx={{
+                    width: '12px',
+                    height: '12px',
+                    bg: '#6b7280',
+                    borderRadius: '50%',
+                    flexShrink: 0
+                  }}
+                />
+                <Text sx={{ whiteSpace: 'nowrap' }}>Pending</Text>
               </Flex>
               <Flex sx={{ alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: '12px', height: '12px', bg: '#22c55e', borderRadius: '50%' }} />
-                <Text>Accepted</Text>
+                <Box
+                  sx={{
+                    width: '12px',
+                    height: '12px',
+                    bg: '#22c55e',
+                    borderRadius: '50%',
+                    flexShrink: 0
+                  }}
+                />
+                <Text sx={{ whiteSpace: 'nowrap' }}>Accepted</Text>
               </Flex>
               <Flex sx={{ alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: '12px', height: '12px', bg: '#ef4444', borderRadius: '50%' }} />
-                <Text>Rejected</Text>
+                <Box
+                  sx={{
+                    width: '12px',
+                    height: '12px',
+                    bg: '#ef4444',
+                    borderRadius: '50%',
+                    flexShrink: 0
+                  }}
+                />
+                <Text sx={{ whiteSpace: 'nowrap' }}>Rejected</Text>
               </Flex>
               <Flex sx={{ alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: '12px', height: '12px', bg: '#f59e0b', borderRadius: '50%' }} />
-                <Text>Meta</Text>
+                <Box
+                  sx={{
+                    width: '12px',
+                    height: '12px',
+                    bg: '#f59e0b',
+                    borderRadius: '50%',
+                    flexShrink: 0
+                  }}
+                />
+                <Text sx={{ whiteSpace: 'nowrap' }}>Meta</Text>
               </Flex>
             </Flex>
           </Box>

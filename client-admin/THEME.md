@@ -283,7 +283,7 @@ const baseProps = {
 
 Consider using `react-resize-detector` or container queries.
 
-#### 2.3 Consolidate topic-moderation.css into Theme-UI
+#### 2.3 Consolidate topic-moderation.css into Theme-UI - COMPLETED
 
 Convert CSS media queries to theme-ui responsive patterns:
 

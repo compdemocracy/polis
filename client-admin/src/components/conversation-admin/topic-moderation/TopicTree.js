@@ -95,56 +95,93 @@ const TopicTree = ({ conversation_id }) => {
           border: '1px solid',
           borderColor: 'border',
           borderRadius: 'default',
-          p: 3,
+          p: [2, 3, 3],
           mb: 2,
           bg: 'background'
         }}>
-        <Flex sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
-          <Box sx={{ flex: 1 }}>
-            <Flex sx={{ alignItems: 'center', mb: 2 }}>
+        <Flex
+          sx={{
+            alignItems: ['flex-start', 'center', 'center'],
+            justifyContent: 'space-between',
+            flexDirection: ['column', 'row', 'row'],
+            gap: [2, 0, 0]
+          }}>
+          <Box sx={{ flex: 1, width: ['100%', 'auto', 'auto'] }}>
+            <Flex sx={{ alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: [1, 2, 2] }}>
               <Button
                 variant="outline"
                 size="small"
                 onClick={() => toggleTopic(topicKey)}
-                sx={{ mr: 2, p: 1, fontSize: 0 }}>
+                sx={{ p: 1, fontSize: 0, minWidth: '32px' }}>
                 {isExpanded ? '−' : '+'}
               </Button>
-              <Text sx={{ fontWeight: 'bold', color: getStatusColor(status) }}>
+              <Text sx={{ fontWeight: 'bold', color: getStatusColor(status), fontSize: [1, 2, 2] }}>
                 Layer {layerId}, Cluster {clusterId}
               </Text>
-              <Text sx={{ ml: 2, fontSize: 0, color: 'textSecondary' }}>Status: {status}</Text>
+              <Text sx={{ fontSize: 0, color: 'textSecondary' }}>Status: {status}</Text>
             </Flex>
-            <Text sx={{ mb: 2 }}>{topic.topic_name || 'Unnamed Topic'}</Text>
+            <Text sx={{ mb: 2, fontSize: [1, 2, 2], wordWrap: 'break-word' }}>
+              {topic.topic_name || 'Unnamed Topic'}
+            </Text>
             {topic.moderation?.comment_count && (
               <Text sx={{ fontSize: 0, color: 'textSecondary' }}>
                 {topic.moderation.comment_count} comments
               </Text>
             )}
           </Box>
-          <Flex sx={{ gap: 2 }}>
+          <Flex
+            sx={{
+              gap: [1, 2, 2],
+              flexDirection: ['column', 'row', 'row'],
+              width: ['100%', 'auto', 'auto'],
+              flexWrap: ['nowrap', 'wrap', 'nowrap']
+            }}>
             <Button
               variant="success"
               size="small"
               onClick={() => moderateTopic(topicKey, 'accept')}
-              disabled={status === 'accepted'}>
+              disabled={status === 'accepted'}
+              sx={{
+                fontSize: [0, 1, 1],
+                px: [2, 2, 2],
+                py: [1, 1, 1],
+                width: ['100%', 'auto', 'auto']
+              }}>
               Accept
             </Button>
             <Button
               variant="danger"
               size="small"
               onClick={() => moderateTopic(topicKey, 'reject')}
-              disabled={status === 'rejected'}>
+              disabled={status === 'rejected'}
+              sx={{
+                fontSize: [0, 1, 1],
+                px: [2, 2, 2],
+                py: [1, 1, 1],
+                width: ['100%', 'auto', 'auto']
+              }}>
               Reject
             </Button>
             <Button
               variant="warning"
               size="small"
               onClick={() => moderateTopic(topicKey, 'meta')}
-              disabled={status === 'meta'}>
+              disabled={status === 'meta'}
+              sx={{
+                fontSize: [0, 1, 1],
+                px: [2, 2, 2],
+                py: [1, 1, 1],
+                width: ['100%', 'auto', 'auto']
+              }}>
               Meta
             </Button>
-            <Link to={`/m/${conversation_id}/topics/topic/${encodeURIComponent(topicKey)}`}>
-              <Button variant="outline" size="small">
+            <Link
+              to={`/m/${conversation_id}/topics/topic/${encodeURIComponent(topicKey)}`}
+              sx={{ width: ['100%', 'auto', 'auto'] }}>
+              <Button
+                variant="outline"
+                size="small"
+                sx={{ fontSize: [0, 1, 1], px: [2, 2, 2], py: [1, 1, 1], width: '100%' }}>
                 View Comments
               </Button>
             </Link>
@@ -216,24 +253,38 @@ const TopicTree = ({ conversation_id }) => {
 
   return (
     <Box>
-      <Flex sx={{ mb: 4, gap: 2 }}>
-        <Text sx={{ fontWeight: 'bold' }}>View Layer:</Text>
-        {layers.map(([layerId]) => (
+      <Box sx={{ mb: 4 }}>
+        <Text sx={{ fontWeight: 'bold', mb: [2], display: 'block' }}>View Layer:</Text>
+        <Flex sx={{ gap: 2, flexWrap: 'wrap' }}>
+          {layers.map(([layerId]) => (
+            <Button
+              key={layerId}
+              variant={selectedLayer === layerId ? 'primary' : 'outline'}
+              size="small"
+              onClick={() => setSelectedLayer(layerId)}
+              sx={{
+                fontSize: [1, 2, 2],
+                px: [2, 3, 3],
+                py: [1, 2, 2],
+                minWidth: ['auto', 'auto', 'auto']
+              }}>
+              Layer {layerId}
+            </Button>
+          ))}
           <Button
-            key={layerId}
-            variant={selectedLayer === layerId ? 'primary' : 'outline'}
+            variant={selectedLayer === 'all' ? 'primary' : 'outline'}
             size="small"
-            onClick={() => setSelectedLayer(layerId)}>
-            Layer {layerId}
+            onClick={() => setSelectedLayer('all')}
+            sx={{
+              fontSize: [1, 2, 2],
+              px: [2, 3, 3],
+              py: [1, 2, 2],
+              minWidth: ['auto', 'auto', 'auto']
+            }}>
+            All Layers
           </Button>
-        ))}
-        <Button
-          variant={selectedLayer === 'all' ? 'primary' : 'outline'}
-          size="small"
-          onClick={() => setSelectedLayer('all')}>
-          All Layers
-        </Button>
-      </Flex>
+        </Flex>
+      </Box>
       {selectedLayer === 'all'
         ? layers.map(([layerId, topics]) => renderLayer(layerId, topics))
         : topicsData[selectedLayer] && renderLayer(selectedLayer, topicsData[selectedLayer])}

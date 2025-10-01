@@ -65,27 +65,27 @@ const TopicModeration = () => {
         Topic Moderation
       </Heading>
       {hasDelphiEnabled(authUser) ? (
-        <Flex sx={{ mb: [4] }}>
+        <Flex sx={{ mb: [4], gap: [2, 3, 4], flexWrap: 'wrap' }}>
           <Link
             sx={{
-              mr: [4],
-              variant: url ? 'links.nav' : 'links.activeNav'
+              variant: url ? 'links.nav' : 'links.activeNav',
+              whiteSpace: 'nowrap'
             }}
             to={baseUrl}>
             Topics Tree
           </Link>
           <Link
             sx={{
-              mr: [4],
-              variant: url === 'proximity' ? 'links.activeNav' : 'links.nav'
+              variant: url === 'proximity' ? 'links.activeNav' : 'links.nav',
+              whiteSpace: 'nowrap'
             }}
             to={`${baseUrl}/proximity`}>
             Proximity Map
           </Link>
           <Link
             sx={{
-              mr: [4],
-              variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
+              variant: url === 'stats' ? 'links.activeNav' : 'links.nav',
+              whiteSpace: 'nowrap'
             }}
             to={`${baseUrl}/stats`}>
             Statistics

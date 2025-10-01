@@ -69,9 +69,9 @@ The components are integrated into the conversation admin interface at:
 
 ## Styling
 
-Uses theme-ui variants and custom CSS in `topic-moderation.css` for:
+Uses theme-ui exclusively with `sx` props for:
 
-- Hover effects and transitions
+- Hover effects and transitions via pseudo-selectors
 - Status-based color coding
-- Responsive design
-- Loading states and animations
+- Responsive design with breakpoint arrays
+- Inline component-specific styling

@@ -6,9 +6,15 @@ import { Box, Flex, Heading, Text, Card } from 'theme-ui'
 import PropTypes from 'prop-types'
 
 const StatCard = ({ title, value, color = 'primary' }) => (
-  <Card sx={{ p: 3, textAlign: 'center', minWidth: '150px' }}>
-    <Text sx={{ fontSize: 3, fontWeight: 'bold', color: color }}>{value}</Text>
-    <Text sx={{ fontSize: 1, color: 'textSecondary', mt: 1 }}>{title}</Text>
+  <Card
+    sx={{
+      p: [2, 3, 3],
+      textAlign: 'center',
+      minWidth: ['120px', '140px', '150px'],
+      flex: ['1 1 45%', '0 0 auto', '0 0 auto']
+    }}>
+    <Text sx={{ fontSize: [2, 3, 3], fontWeight: 'bold', color: color }}>{value}</Text>
+    <Text sx={{ fontSize: [0, 1, 1], color: 'textSecondary', mt: 1, ml: [1, 2, 2] }}>{title}</Text>
   </Card>
 )
 
@@ -138,11 +144,18 @@ const TopicStats = ({ conversation_id }) => {
             </Flex>
           </Box>
 
-          <Flex sx={{ justifyContent: 'space-between', mt: 2, fontSize: 0 }}>
-            <Text sx={{ color: 'green' }}>Accepted: {stats.accepted}</Text>
-            <Text sx={{ color: 'red' }}>Rejected: {stats.rejected}</Text>
-            <Text sx={{ color: 'orange' }}>Meta: {stats.meta}</Text>
-            <Text sx={{ color: 'gray' }}>Pending: {stats.pending}</Text>
+          <Flex
+            sx={{
+              justifyContent: 'space-between',
+              mt: 2,
+              fontSize: 0,
+              flexWrap: 'wrap',
+              gap: [1, 2, 2]
+            }}>
+            <Text sx={{ color: 'green', whiteSpace: 'nowrap' }}>Accepted: {stats.accepted}</Text>
+            <Text sx={{ color: 'red', whiteSpace: 'nowrap' }}>Rejected: {stats.rejected}</Text>
+            <Text sx={{ color: 'orange', whiteSpace: 'nowrap' }}>Meta: {stats.meta}</Text>
+            <Text sx={{ color: 'gray', whiteSpace: 'nowrap' }}>Pending: {stats.pending}</Text>
           </Flex>
         </Box>
       </Box>
