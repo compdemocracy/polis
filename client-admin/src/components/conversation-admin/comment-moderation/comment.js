@@ -46,12 +46,12 @@ const Comment = ({
           }}>
           <Box>
             {acceptButton ? (
-              <Button sx={{ mr: [3] }} onClick={onAcceptClicked}>
+              <Button variant="success" sx={{ mr: [3] }} onClick={onAcceptClicked}>
                 {acceptButtonText}
               </Button>
             ) : null}
             {rejectButton ? (
-              <Button onClick={onRejectClicked} data-testid="reject-comment">
+              <Button variant="danger" onClick={onRejectClicked} data-testid="reject-comment">
                 {rejectButtonText}
               </Button>
             ) : null}

@@ -5,7 +5,7 @@ export default {
   // Example: fontSize: [2, 3, 4] applies fontSize 2 on mobile, 3 at ≥768px, 4 at ≥1200px
   breakpoints: ['48em', '75em'],
 
-  space: [0, 4, 8, 16, 32, 64, 128, 256, 512],
+  space: [0, 4, 8, 12, 16, 24, 32, 48, 64, 128, 256, 512],
   fonts: {
     body:
       // 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif',
@@ -20,24 +20,55 @@ export default {
     bold: 700
   },
   sizes: {
+    container: ['100%', '100%', '80em'],
+    touchTarget: 44, // Minimum touch target for accessibility
     maxWidth: {
-      paragraph: '35em' // right syntax? https://theme-ui.com/theme-spec
+      paragraph: '35em'
     }
+  },
+  radii: {
+    none: 0,
+    sm: 2,
+    default: 4,
+    md: 4,
+    lg: 8,
+    xl: 16,
+    full: 9999
+  },
+  shadows: {
+    none: 'none',
+    sm: '0 1px 3px rgba(0, 0, 0, 0.12)',
+    default: '0 0 8px rgba(0, 0, 0, 0.125)',
+    md: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    lg: '0 10px 20px rgba(0, 0, 0, 0.15)',
+    xl: '0 20px 40px rgba(0, 0, 0, 0.2)'
+  },
+  transitions: {
+    fast: 'all 0.15s ease',
+    default: 'all 0.2s ease',
+    slow: 'all 0.3s ease'
   },
   lineHeights: {
     body: 1.5,
     heading: 1.125
   },
   colors: {
-    // text: "#FFF",
     text: '#60656F',
-    // background: "#03a9f4",
-    // primary: "#FFF",
     background: '#FFF',
     primary: '#03a9f4',
     secondary: '#F6F7F8',
     mediumGray: '#60656F',
-    textSecondary: '#8A9099'
+    textSecondary: '#8A9099',
+    // Semantic colors for status/feedback
+    muted: '#F3F4F6',
+    border: '#E5E7EB',
+    success: '#22c55e',
+    error: '#ef4444',
+    warning: '#f59e0b',
+    info: '#3b82f6',
+    // Utility grays
+    gray: '#6b7280',
+    lightGray: '#9ca3af'
   },
   links: {
     nav: {
@@ -92,7 +123,86 @@ export default {
       color: 'background',
       bg: 'primary',
       fontFamily: 'body',
-      cursor: 'pointer'
+      cursor: 'pointer',
+      borderRadius: 'default',
+      border: 'none',
+      '&:hover': {
+        bg: '#0288d1'
+      },
+      '&:disabled': {
+        opacity: 0.5,
+        cursor: 'not-allowed'
+      }
+    },
+    secondary: {
+      color: 'text',
+      bg: 'secondary',
+      fontFamily: 'body',
+      cursor: 'pointer',
+      borderRadius: 'default',
+      border: 'none',
+      '&:hover': {
+        bg: 'mediumGray',
+        color: 'background'
+      }
+    },
+    outline: {
+      color: 'primary',
+      bg: 'transparent',
+      fontFamily: 'body',
+      cursor: 'pointer',
+      borderRadius: 'default',
+      border: '2px solid',
+      borderColor: 'primary',
+      '&:hover': {
+        bg: 'primary',
+        color: 'background'
+      }
+    },
+    success: {
+      color: 'background',
+      bg: 'success',
+      fontFamily: 'body',
+      cursor: 'pointer',
+      borderRadius: 'default',
+      border: 'none',
+      '&:hover': {
+        bg: '#16a34a'
+      },
+      '&:disabled': {
+        opacity: 0.5,
+        cursor: 'not-allowed'
+      }
+    },
+    danger: {
+      color: 'background',
+      bg: 'error',
+      fontFamily: 'body',
+      cursor: 'pointer',
+      borderRadius: 'default',
+      border: 'none',
+      '&:hover': {
+        bg: '#dc2626'
+      },
+      '&:disabled': {
+        opacity: 0.5,
+        cursor: 'not-allowed'
+      }
+    },
+    warning: {
+      color: 'background',
+      bg: 'warning',
+      fontFamily: 'body',
+      cursor: 'pointer',
+      borderRadius: 'default',
+      border: 'none',
+      '&:hover': {
+        bg: '#d97706'
+      },
+      '&:disabled': {
+        opacity: 0.5,
+        cursor: 'not-allowed'
+      }
     }
   },
   cards: {
@@ -100,8 +210,42 @@ export default {
       backgroundColor: 'background',
       color: 'mediumGray',
       padding: 3,
-      borderRadius: 4,
-      boxShadow: '0 0 8px rgba(0, 0, 0, 0.125)'
+      borderRadius: 'default',
+      boxShadow: 'default',
+      transition: 'all 0.2s ease',
+      '&:hover': {
+        boxShadow: 'md'
+      }
+    },
+    compact: {
+      backgroundColor: 'background',
+      color: 'text',
+      padding: 2,
+      borderRadius: 'sm',
+      boxShadow: 'sm',
+      border: '1px solid',
+      borderColor: 'border'
+    }
+  },
+  text: {
+    default: {
+      color: 'text',
+      fontFamily: 'body'
+    },
+    small: {
+      fontSize: 0,
+      color: 'textSecondary'
+    },
+    caps: {
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+      fontSize: 0,
+      fontWeight: 'bold'
+    },
+    heading: {
+      fontFamily: 'heading',
+      fontWeight: 'heading',
+      lineHeight: 'heading'
     }
   },
   styles: {
