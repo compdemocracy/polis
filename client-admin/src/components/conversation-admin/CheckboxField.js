@@ -49,7 +49,14 @@ export const CheckboxField = ({ field, label = '', children, isIntegerBool = fal
           }
         />
       </Box>
-      <Box sx={{ ml: [2], flexShrink: 0, maxWidth: '35em' }}>
+      <Box
+        sx={{
+          ml: [2],
+          flex: '1 1 auto',
+          maxWidth: ['100%', '100%', '35em'],
+          wordWrap: 'break-word',
+          overflowWrap: 'break-word'
+        }}>
         <Text>{children}</Text>
       </Box>
     </Flex>

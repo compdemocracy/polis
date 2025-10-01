@@ -1,4 +1,10 @@
 export default {
+  // Mobile-first breakpoints for responsive design
+  // Breakpoint values: ['48em', '75em'] = [768px, 1200px]
+  // Usage in responsive arrays: [mobile, tablet, desktop]
+  // Example: fontSize: [2, 3, 4] applies fontSize 2 on mobile, 3 at ≥768px, 4 at ≥1200px
+  breakpoints: ['48em', '75em'],
+
   space: [0, 4, 8, 16, 32, 64, 128, 256, 512],
   fonts: {
     body:
@@ -30,7 +36,8 @@ export default {
     background: '#FFF',
     primary: '#03a9f4',
     secondary: '#F6F7F8',
-    mediumGray: '#60656F'
+    mediumGray: '#60656F',
+    textSecondary: '#8A9099'
   },
   links: {
     nav: {
@@ -101,7 +108,15 @@ export default {
     root: {
       fontFamily: 'body',
       lineHeight: 'body',
-      fontWeight: 'body'
+      fontWeight: 'body',
+      boxSizing: 'border-box',
+      // Prevent horizontal scroll on mobile
+      overflowX: 'hidden',
+      width: '100%',
+      // Ensure all children inherit box-sizing
+      '*, *::before, *::after': {
+        boxSizing: 'border-box'
+      }
     },
     a: {
       color: 'primary',
@@ -120,6 +135,57 @@ export default {
       borderBottom: 'solid',
       borderWidth: 2,
       borderColor: 'background'
+    },
+    // Ensure form elements respect viewport width
+    input: {
+      maxWidth: '100%',
+      boxSizing: 'border-box'
+    },
+    textarea: {
+      maxWidth: '100%',
+      boxSizing: 'border-box'
+    },
+    select: {
+      maxWidth: '100%',
+      boxSizing: 'border-box'
+    },
+    // Prevent text from overflowing
+    p: {
+      wordWrap: 'break-word',
+      overflowWrap: 'break-word'
+    },
+    h1: {
+      wordWrap: 'break-word',
+      overflowWrap: 'break-word'
+    },
+    h2: {
+      wordWrap: 'break-word',
+      overflowWrap: 'break-word'
+    },
+    h3: {
+      wordWrap: 'break-word',
+      overflowWrap: 'break-word'
+    },
+    h4: {
+      wordWrap: 'break-word',
+      overflowWrap: 'break-word'
+    },
+    h5: {
+      wordWrap: 'break-word',
+      overflowWrap: 'break-word'
+    },
+    h6: {
+      wordWrap: 'break-word',
+      overflowWrap: 'break-word'
+    },
+    // Better checkbox and label handling
+    label: {
+      display: 'inline-flex',
+      alignItems: 'flex-start',
+      gap: 2,
+      wordWrap: 'break-word',
+      overflowWrap: 'break-word',
+      maxWidth: '100%'
     }
   }
 }

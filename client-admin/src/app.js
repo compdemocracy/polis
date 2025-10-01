@@ -12,6 +12,7 @@ import { Routes, Route, Navigate } from 'react-router'
 import { useAuth } from 'react-oidc-context'
 import OidcConnector from './components/OidcConnector'
 import Spinner from './components/framework/Spinner'
+import theme from './theme'
 
 /* landers */
 import Home from './components/landers/home'
@@ -73,7 +74,8 @@ const App = () => {
   const { isAuthenticated, isLoading, error } = useAuth()
 
   const [sidebarState, setSidebarState] = useState(() => {
-    const mql = window.matchMedia(`(min-width: 800px)`)
+    // Use desktop breakpoint from theme (62em = 992px) for sidebar docking
+    const mql = window.matchMedia(`(min-width: ${theme.breakpoints[2]})`)
     return {
       sidebarOpen: false,
       mql: mql,

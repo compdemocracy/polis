@@ -228,7 +228,7 @@ const ProximityVisualization = () => {
           <Select
             value={selectedLayer}
             onChange={(e) => setSelectedLayer(e.target.value)}
-            sx={{ width: '100px' }}>
+            sx={{ width: ['80px', '100px', '120px'] }}>
             <option value="0">Layer 0</option>
             <option value="1">Layer 1</option>
             <option value="2">Layer 2</option>
@@ -269,13 +269,21 @@ const ProximityVisualization = () => {
               border: '1px solid',
               borderColor: 'border',
               borderRadius: 'default',
-              overflow: 'hidden'
+              overflow: 'auto',
+              width: '100%'
             }}>
             <svg
               ref={svgRef}
               width="800"
               height="600"
-              style={{ display: 'block', margin: '0 auto' }}></svg>
+              viewBox="0 0 800 600"
+              preserveAspectRatio="xMidYMid meet"
+              style={{
+                display: 'block',
+                margin: '0 auto',
+                maxWidth: '100%',
+                height: 'auto'
+              }}></svg>
           </Box>
 
           <Text sx={{ mt: 2, fontSize: 0, color: 'textSecondary', textAlign: 'center' }}>

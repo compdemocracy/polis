@@ -17,7 +17,10 @@ function Conversation({ c, i, goToConversation }) {
           {`Embedded on ${c.parent_url}`}
         </Text>
       )}
-      <Text as="span"> {c.participant_count} participants</Text>
+      <Text as="span" sx={{ ml: [2], color: 'textSecondary', fontSize: [1] }}>
+        {' '}
+        {c.participant_count} participants
+      </Text>
     </Card>
   )
 }

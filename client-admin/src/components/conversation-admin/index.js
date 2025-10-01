@@ -88,19 +88,42 @@ const ConversationAdmin = () => {
   }
 
   return (
-    <Flex>
-      <Box sx={{ mr: [5], p: [4], flex: '0 0 275' }}>
-        <Box sx={{ mb: [3] }}>
+    <Flex
+      sx={{
+        flexDirection: ['column', 'column', 'row'], // Column on mobile/tablet/iPad, row on desktop
+        width: '100%',
+        maxWidth: '100vw',
+        overflowX: 'hidden'
+      }}>
+      {/* Conversation Navigation - horizontal on mobile/tablet/iPad, sidebar on large desktop */}
+      <Box
+        sx={{
+          py: [2, 2, 4],
+          px: [2, 3, 4],
+          flex: '0 0 auto',
+          width: ['100%', '100%', 'auto'],
+          borderBottom: ['2px solid', '2px solid', 'none'],
+          borderBottomColor: ['secondary', 'secondary', 'transparent'],
+          display: 'flex',
+          flexDirection: ['row', 'row', 'column'],
+          columnGap: [2, 3, 0],
+          rowGap: [2, 2, 0],
+          flexWrap: ['wrap', 'wrap', 'nowrap'],
+          justifyContent: ['flex-start', 'flex-start', 'flex-start'],
+          overflowX: ['auto', 'auto', 'visible'],
+          minWidth: 0
+        }}>
+        <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
           <Link sx={{ variant: 'links.nav' }} to={`/`}>
             All
           </Link>
         </Box>
-        <Box sx={{ mb: [3] }}>
+        <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
           <Link sx={{ variant: url ? 'links.nav' : 'links.activeNav' }} to={baseUrl}>
             Configure
           </Link>
         </Box>
-        <Box sx={{ mb: [3] }}>
+        <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
           <Link
             sx={{
               variant: url === 'share' ? 'links.activeNav' : 'links.nav'
@@ -109,7 +132,7 @@ const ConversationAdmin = () => {
             Distribute
           </Link>
         </Box>
-        <Box sx={{ mb: [3] }}>
+        <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
           <Link
             sx={{
               variant: url === 'comments' ? 'links.activeNav' : 'links.nav'
@@ -119,7 +142,7 @@ const ConversationAdmin = () => {
             Moderate
           </Link>
         </Box>
-        <Box sx={{ mb: [3] }}>
+        <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
           <Link
             sx={{
               variant: url === 'stats' ? 'links.activeNav' : 'links.nav'
@@ -128,7 +151,7 @@ const ConversationAdmin = () => {
             Monitor
           </Link>
         </Box>
-        <Box sx={{ mb: [3] }}>
+        <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
           <Link
             sx={{
               variant: url === 'reports' ? 'links.activeNav' : 'links.nav'
@@ -137,7 +160,7 @@ const ConversationAdmin = () => {
             Report
           </Link>
         </Box>
-        <Box sx={{ mb: [3] }}>
+        <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
           <Link
             sx={{
               variant: url === 'topics' ? 'links.activeNav' : 'links.nav'
@@ -147,7 +170,7 @@ const ConversationAdmin = () => {
             Topic Mod
           </Link>
         </Box>
-        <Box sx={{ mb: [3] }}>
+        <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
           <Link
             sx={{
               variant: url === 'invite-tree' ? 'links.activeNav' : 'links.nav'
@@ -157,7 +180,7 @@ const ConversationAdmin = () => {
           </Link>
         </Box>
         {conversationData?.treevite_enabled && (
-          <Box sx={{ mb: [3] }}>
+          <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
             <Link
               sx={{
                 variant: url === 'invite-codes' ? 'links.activeNav' : 'links.nav'
@@ -168,7 +191,21 @@ const ConversationAdmin = () => {
           </Box>
         )}
       </Box>
-      <Box sx={{ p: [4], flex: '0 0 auto', maxWidth: '60em', mx: [4] }}>{renderContent()}</Box>
+      {/* Content Area */}
+      <Box
+        sx={{
+          p: [2, 3, 4],
+          flex: '1 1 auto',
+          maxWidth: ['100%', '100%', '40em'],
+          width: '100%',
+          minWidth: 0,
+          mx: [0, 0, 4],
+          overflowX: 'auto', // Allow horizontal scroll if content needs it
+          wordWrap: 'break-word',
+          overflowWrap: 'break-word'
+        }}>
+        {renderContent()}
+      </Box>
     </Flex>
   )
 }

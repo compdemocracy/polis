@@ -5,28 +5,46 @@ import Logomark from './framework/Logomark'
 
 const InteriorHeader = ({ children }) => {
   return (
-    <Box>
+    <Box sx={{ width: '100%', overflowX: 'hidden' }}>
       <Box
         sx={{
           width: '100%',
           backgroundColor: 'primary',
           color: 'background',
           zIndex: 1000,
-          py: [3],
-          px: [4],
+          py: [2, 2, 3],
+          px: [2, 3, 4],
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between'
+          justifyContent: 'space-between',
+          gap: [1, 2, 3],
+          minHeight: 0
         }}>
-        <Link sx={{ variant: 'links.header' }} to="/">
-          <Logomark style={{ marginRight: 10, position: 'relative', top: 6 }} fill={'white'} />
-          Polis
+        <Link
+          sx={{
+            variant: 'links.header',
+            display: 'flex',
+            alignItems: 'center',
+            gap: [1, 2, 2],
+            flexShrink: 0
+          }}
+          to="/">
+          <Logomark style={{ position: 'relative', top: 2 }} fill={'white'} />
+          <Box sx={{ fontSize: [2, 2, 2], whiteSpace: 'nowrap' }}>Polis</Box>
         </Link>
-        <Link id="signoutLink" sx={{ variant: 'links.header' }} to="/signout">
+        <Link
+          id="signoutLink"
+          sx={{
+            variant: 'links.header',
+            fontSize: [1, 2, 2],
+            whiteSpace: 'nowrap',
+            flexShrink: 0
+          }}
+          to="/signout">
           sign out
         </Link>
       </Box>
-      <Box>{children}</Box>
+      <Box sx={{ width: '100%', overflowX: 'auto' }}>{children}</Box>
     </Box>
   )
 }

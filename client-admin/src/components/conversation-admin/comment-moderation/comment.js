@@ -30,7 +30,7 @@ const Comment = ({
   }
 
   return (
-    <Card sx={{ mb: [3], minWidth: '35em' }} data-testid="pending-comment">
+    <Card sx={{ mb: [3], minWidth: ['auto', 'auto', '35em'] }} data-testid="pending-comment">
       <Box>
         <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>
           {comment.active

@@ -7,30 +7,57 @@ import InteriorHeader from './InteriorHeader'
 const MainLayout = () => {
   return (
     <InteriorHeader>
-      <Flex>
-        <Box sx={{ mr: [5], p: [4], flex: '0 0 auto' }}>
-          <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: 'links.nav' }} to={`/`}>
+      <Flex
+        sx={{
+          flexDirection: ['column', 'column', 'row'],
+          width: '100%',
+          maxWidth: '100vw',
+          overflowX: 'hidden'
+        }}>
+        {/* Navigation Sidebar - stacks vertically on mobile/tablet, sidebar on desktop */}
+        <Box
+          sx={{
+            py: [2, 2, 4],
+            px: [2, 3, 4],
+            flex: '0 0 auto',
+            width: ['100%', '100%', 'auto'],
+            borderBottom: ['2px solid', '2px solid', 'none'],
+            borderBottomColor: ['secondary', 'secondary', 'transparent'],
+            display: 'flex',
+            flexDirection: ['row', 'row', 'column'],
+            gap: [2, 3, 0],
+            flexWrap: ['wrap', 'wrap', 'nowrap'],
+            justifyContent: ['center', 'center', 'flex-start'],
+            minWidth: 0
+          }}>
+          <Box sx={{ mb: [0, 0, 3] }}>
+            <Link sx={{ variant: 'links.nav', whiteSpace: 'nowrap' }} to={`/`}>
               Conversations
             </Link>
           </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: 'links.nav' }} to={`/integrate`}>
+          <Box sx={{ mb: [0, 0, 3] }}>
+            <Link sx={{ variant: 'links.nav', whiteSpace: 'nowrap' }} to={`/integrate`}>
               Integrate
             </Link>
           </Box>
-          <Box sx={{ mb: [3] }}>
-            <Link sx={{ variant: 'links.nav' }} to={`/account`}>
+          <Box sx={{ mb: [0, 0, 3] }}>
+            <Link sx={{ variant: 'links.nav', whiteSpace: 'nowrap' }} to={`/account`}>
               Account
             </Link>
           </Box>
         </Box>
+        {/* Main Content Area */}
         <Box
           sx={{
-            p: [4],
-            flex: '0 0 auto',
-            maxWidth: '35em',
-            mx: [4]
+            p: [2, 3, 4],
+            flex: '1 1 auto',
+            maxWidth: ['100%', '100%', '65em'],
+            width: '100%',
+            minWidth: 0,
+            mx: [0, 0, 4],
+            overflowX: 'auto', // Allow horizontal scroll if content needs it
+            wordWrap: 'break-word',
+            overflowWrap: 'break-word'
           }}>
           <Outlet />
         </Box>
