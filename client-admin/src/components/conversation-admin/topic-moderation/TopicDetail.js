@@ -23,7 +23,7 @@ const TopicDetail = () => {
       const response = await fetch(
         `/api/v3/topicMod/topics/${encodeURIComponent(
           topicKey
-        )}/comments?report_id=${conversation_id}`
+        )}/comments?conversation_id=${conversation_id}`
       )
       const data = await response.json()
 
@@ -94,13 +94,13 @@ const TopicDetail = () => {
     switch (status) {
       case 'accepted':
       case 1:
-        return 'success'
+        return 'primary'
       case 'rejected':
       case -1:
         return 'error'
       case 'meta':
       case 0:
-        return 'warning'
+        return 'lightGray'
       default:
         return 'gray'
     }
@@ -228,7 +228,7 @@ const TopicDetail = () => {
             </Flex>
             <Flex sx={{ gap: 2 }}>
               <Button
-                variant="success"
+                variant="primary"
                 size="small"
                 onClick={() => moderateSelected('accept')}
                 disabled={selectedComments.size === 0}>
@@ -240,13 +240,6 @@ const TopicDetail = () => {
                 onClick={() => moderateSelected('reject')}
                 disabled={selectedComments.size === 0}>
                 Reject Selected
-              </Button>
-              <Button
-                variant="warning"
-                size="small"
-                onClick={() => moderateSelected('meta')}
-                disabled={selectedComments.size === 0}>
-                Mark as Meta
               </Button>
             </Flex>
           </Flex>

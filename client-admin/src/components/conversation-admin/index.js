@@ -160,7 +160,7 @@ const ConversationAdmin = () => {
             Report
           </Link>
         </Box>
-        <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
+        {/* <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
           <Link
             sx={{
               variant: url === 'topics' ? 'links.activeNav' : 'links.nav'
@@ -169,7 +169,7 @@ const ConversationAdmin = () => {
             to={`${baseUrl}/topics`}>
             Topic Mod
           </Link>
-        </Box>
+        </Box> */}
         <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
           <Link
             sx={{

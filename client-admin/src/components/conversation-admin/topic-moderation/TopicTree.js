@@ -49,11 +49,9 @@ const TopicTree = ({ conversation_id }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'accepted':
-        return 'success'
+        return 'primary'
       case 'rejected':
         return 'error'
-      case 'meta':
-        return 'warning'
       default:
         return 'gray'
     }
@@ -88,6 +86,7 @@ const TopicTree = ({ conversation_id }) => {
     const topicKey = topic.topic_key || `${layerId}_${clusterId}`
     const isExpanded = expandedTopics.has(topicKey)
     const status = topic.moderation?.status || 'pending'
+    const commentCount = Number(topic.moderation?.comment_count || 0)
     return (
       <Box
         key={topicKey}
@@ -118,16 +117,14 @@ const TopicTree = ({ conversation_id }) => {
               <Text sx={{ fontWeight: 'bold', color: getStatusColor(status), fontSize: [1, 2, 2] }}>
                 Layer {layerId}, Cluster {clusterId}
               </Text>
-              <Text sx={{ fontSize: 0, color: 'textSecondary' }}>Status: {status}</Text>
+              <Text sx={{ fontSize: 0, color: 'textSecondary', ml: 2 }}>Status: {status}</Text>
             </Flex>
             <Text sx={{ mb: 2, fontSize: [1, 2, 2], wordWrap: 'break-word' }}>
               {topic.topic_name || 'Unnamed Topic'}
             </Text>
-            {topic.moderation?.comment_count && (
-              <Text sx={{ fontSize: 0, color: 'textSecondary' }}>
-                {topic.moderation.comment_count} comments
-              </Text>
-            )}
+            <Text sx={{ fontSize: 0, color: 'textSecondary', ml: 2 }}>
+              {commentCount > 0 ? commentCount + ' comments' : 'No comments'}
+            </Text>
           </Box>
           <Flex
             sx={{
@@ -137,7 +134,7 @@ const TopicTree = ({ conversation_id }) => {
               flexWrap: ['nowrap', 'wrap', 'nowrap']
             }}>
             <Button
-              variant="success"
+              variant="primary"
               size="small"
               onClick={() => moderateTopic(topicKey, 'accept')}
               disabled={status === 'accepted'}
@@ -161,19 +158,6 @@ const TopicTree = ({ conversation_id }) => {
                 width: ['100%', 'auto', 'auto']
               }}>
               Reject
-            </Button>
-            <Button
-              variant="warning"
-              size="small"
-              onClick={() => moderateTopic(topicKey, 'meta')}
-              disabled={status === 'meta'}
-              sx={{
-                fontSize: [0, 1, 1],
-                px: [2, 2, 2],
-                py: [1, 1, 1],
-                width: ['100%', 'auto', 'auto']
-              }}>
-              Meta
             </Button>
             <Link
               to={`/m/${conversation_id}/topics/topic/${encodeURIComponent(topicKey)}`}

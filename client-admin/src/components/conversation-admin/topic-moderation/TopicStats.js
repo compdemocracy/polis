@@ -91,9 +91,8 @@ const TopicStats = ({ conversation_id }) => {
       <Flex sx={{ gap: 3, mb: 4, flexWrap: 'wrap' }}>
         <StatCard title="Total Topics" value={stats.total_topics} />
         <StatCard title="Pending" value={stats.pending} color="gray" />
-        <StatCard title="Accepted" value={stats.accepted} color="success" />
+        <StatCard title="Accepted" value={stats.accepted} color="primary" />
         <StatCard title="Rejected" value={stats.rejected} color="error" />
-        <StatCard title="Meta" value={stats.meta} color="warning" />
         <StatCard title="Completion Rate" value={`${completionRate}%`} color="info" />
       </Flex>
 
@@ -118,7 +117,7 @@ const TopicStats = ({ conversation_id }) => {
             <Flex sx={{ height: '100%' }}>
               <Box
                 sx={{
-                  bg: 'success',
+                  bg: 'primary',
                   width: `${
                     stats.total_topics > 0 ? (stats.accepted / stats.total_topics) * 100 : 0
                   }%`,
@@ -134,13 +133,6 @@ const TopicStats = ({ conversation_id }) => {
                   transition: 'width 0.3s ease'
                 }}
               />
-              <Box
-                sx={{
-                  bg: 'warning',
-                  width: `${stats.total_topics > 0 ? (stats.meta / stats.total_topics) * 100 : 0}%`,
-                  transition: 'width 0.3s ease'
-                }}
-              />
             </Flex>
           </Box>
 
@@ -152,9 +144,8 @@ const TopicStats = ({ conversation_id }) => {
               flexWrap: 'wrap',
               gap: [1, 2, 2]
             }}>
-            <Text sx={{ color: 'success', whiteSpace: 'nowrap' }}>Accepted: {stats.accepted}</Text>
+            <Text sx={{ color: 'primary', whiteSpace: 'nowrap' }}>Accepted: {stats.accepted}</Text>
             <Text sx={{ color: 'error', whiteSpace: 'nowrap' }}>Rejected: {stats.rejected}</Text>
-            <Text sx={{ color: 'warning', whiteSpace: 'nowrap' }}>Meta: {stats.meta}</Text>
             <Text sx={{ color: 'gray', whiteSpace: 'nowrap' }}>Pending: {stats.pending}</Text>
           </Flex>
         </Box>

@@ -18,7 +18,7 @@ Hierarchical display of topics organized by layers:
 
 - Layer selection (0, 1, 2, or all)
 - Topic cards with moderation controls
-- Bulk topic-level actions (Accept/Reject/Meta)
+- Bulk topic-level actions (Accept/Reject)
 - Navigation to detailed comment view
 
 ### `TopicDetail.js` - TopicDetail
@@ -44,7 +44,7 @@ SVG-based UMAP visualization:
 Statistics and progress tracking:
 
 - Moderation completion rates
-- Status distribution (pending/accepted/rejected/meta)
+- Status distribution (pending/accepted/rejected)
 - Progress bars and visual indicators
 - Overview dashboard
 

@@ -11,6 +11,9 @@ import Url from '../../util/url'
 const ShareAndEmbed = () => {
   const params = useParams()
   const conversationData = useConversationData()
+  const participantUrl = conversationData.treevite_enabled
+    ? Url.urlPrefix + 'alpha/' + params.conversation_id
+    : Url.urlPrefix + params.conversation_id
 
   const constructEmbeddedOnMarkup = () => {
     return (
@@ -51,8 +54,8 @@ const ShareAndEmbed = () => {
             display: 'block',
             mb: [2]
           }}>
-          <a target="blank" href={Url.urlPrefix + params.conversation_id}>
-            {Url.urlPrefix + params.conversation_id}
+          <a target="blank" href={participantUrl}>
+            {participantUrl}
           </a>
         </Text>
       </Box>

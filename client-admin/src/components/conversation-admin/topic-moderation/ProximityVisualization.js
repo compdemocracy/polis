@@ -50,13 +50,13 @@ const ProximityVisualization = () => {
       switch (status) {
         case 'accepted':
         case 1:
-          return theme.colors.success
+          return theme.colors.primary
         case 'rejected':
         case -1:
           return theme.colors.error
         case 'meta':
         case 0:
-          return theme.colors.warning
+          return theme.colors.lightGray
         default:
           return theme.colors.gray
       }
@@ -178,7 +178,7 @@ const ProximityVisualization = () => {
 
       // Fetch proximity data (UMAP coordinates)
       const response = await fetch(
-        `/api/v3/topicMod/proximity?report_id=${conversation_id}&layer_id=${selectedLayer}`
+        `/api/v3/topicMod/proximity?conversation_id=${conversation_id}&layer_id=${selectedLayer}`
       )
       const data = await response.json()
 
@@ -271,7 +271,7 @@ const ProximityVisualization = () => {
                   sx={{
                     width: '12px',
                     height: '12px',
-                    bg: 'success',
+                    bg: 'primary',
                     borderRadius: '50%',
                     flexShrink: 0
                   }}
@@ -295,7 +295,7 @@ const ProximityVisualization = () => {
                   sx={{
                     width: '12px',
                     height: '12px',
-                    bg: 'warning',
+                    bg: 'lightGray',
                     borderRadius: '50%',
                     flexShrink: 0
                   }}

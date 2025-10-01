@@ -211,7 +211,7 @@ describe('ConversationAdminContainer', () => {
         expect(screen.getByText('Moderate')).toBeInTheDocument()
         expect(screen.getByText('Monitor')).toBeInTheDocument()
         expect(screen.getByText('Report')).toBeInTheDocument()
-        expect(screen.getByText('Topic Mod')).toBeInTheDocument()
+        // expect(screen.getByText('Topic Mod')).toBeInTheDocument()
         expect(screen.getByText('Invite Tree')).toBeInTheDocument()
       })
     })
@@ -382,14 +382,14 @@ describe('ConversationAdminContainer', () => {
       expect(screen.getByText('Report')).toBeInTheDocument()
     })
 
-    it('renders without crashing at /topics route', () => {
-      const { container } = renderWithProviders(<ConversationAdminContainer />, {
-        route: '/m/test-conv-123/topics'
-      })
+    // it('renders without crashing at /topics route', () => {
+    //   const { container } = renderWithProviders(<ConversationAdminContainer />, {
+    //     route: '/m/test-conv-123/topics'
+    //   })
 
-      expect(container).toBeInTheDocument()
-      expect(screen.getByText('Topic Mod')).toBeInTheDocument()
-    })
+    //   expect(container).toBeInTheDocument()
+    //   expect(screen.getByText('Topic Mod')).toBeInTheDocument()
+    // })
 
     it('renders without crashing at /invite-tree route', () => {
       const { container } = renderWithProviders(<ConversationAdminContainer />, {

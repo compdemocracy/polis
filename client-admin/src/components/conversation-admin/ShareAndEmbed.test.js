@@ -117,4 +117,12 @@ describe('ShareAndEmbed', () => {
     // So it should still render even with is_mod: false
     expect(screen.getByText('Distribute')).toBeInTheDocument()
   })
+
+  it('includes /alpha/ in participant URL when treevite_enabled is true', () => {
+    const store = createMockStore({ treevite_enabled: true })
+    renderWithProviders(<ShareAndEmbed />, { store })
+
+    const link = screen.getByRole('link', { name: /test123/ })
+    expect(link).toHaveAttribute('href', expect.stringContaining('/alpha/test123'))
+  })
 })
