@@ -7,7 +7,7 @@ const ExploreKnowledgeBase = () => {
       <Heading as="h3" sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
         Explore
       </Heading>
-      <Box sx={{ mb: [4, null, 5], maxWidth: '35em' }}>
+      <Box sx={{ mb: [4, null, 5], maxWidth: ['100%', '100%', '35em'] }}>
         <Box style={{ mb: [5, null, 6] }}>
           Onboard with a{' '}
           <Link target="_blank" href="https://compdemocracy.org/knowledge-base">

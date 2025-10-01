@@ -85,7 +85,7 @@ const ModerateCommentsSeed = ({ params }) => {
             fontFamily: 'body',
             fontSize: [2],
             width: ['100%', '100%', '35em'],
-            maxWidth: '35em',
+            maxWidth: ['100%', '100%', '35em'],
             height: '7em',
             resize: 'none',
             padding: [2],

@@ -76,7 +76,7 @@ const ShareAndEmbed = () => {
         <Text
           sx={{
             display: 'block',
-            maxWidth: '35em',
+            maxWidth: ['100%', '100%', '35em'],
             mt: [2]
           }}>
           This embed code can only be used to embed a single conversation.{' '}

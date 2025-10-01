@@ -6,7 +6,7 @@ const Press = () => {
       <Heading as="h3" sx={{ fontSize: [4], lineHeight: 'body', my: [2, null, 3] }}>
         Read
       </Heading>
-      <Box sx={{ mb: [4, null, 5], maxWidth: '35em' }}>
+      <Box sx={{ mb: [4, null, 5], maxWidth: ['100%', '100%', '35em'] }}>
         Press coverage from{' '}
         <Link
           target="_blank"
