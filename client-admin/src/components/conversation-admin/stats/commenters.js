@@ -18,19 +18,21 @@ const Commenters = ({ size, firstCommentTimes }) => {
         }}>
         Commenters over time, by time of first comment
       </Heading>
-      <VictoryChart
-        theme={victoryTheme}
-        height={size}
-        width={size}
-        domainPadding={{ x: 0, y: [0, 20] }}
-        scale={{ x: 'time' }}>
-        <VictoryArea
-          style={{ data: { fill: '#03a9f4' } }}
-          data={firstCommentTimes.map((d, i) => {
-            return { x: new Date(d), y: i }
-          })}
-        />
-      </VictoryChart>
+      <Box sx={{ overflow: 'hidden', width: '100%' }}>
+        <VictoryChart
+          theme={victoryTheme}
+          height={size}
+          width={size}
+          domainPadding={{ x: 0, y: [0, 20] }}
+          scale={{ x: 'time' }}>
+          <VictoryArea
+            style={{ data: { fill: '#03a9f4' } }}
+            data={firstCommentTimes.map((d, i) => {
+              return { x: new Date(d), y: i }
+            })}
+          />
+        </VictoryChart>
+      </Box>
     </Box>
   )
 }

@@ -21,7 +21,17 @@ const ConversationStats = () => {
   const conversationData = useConversationData()
   const { conversation_stats } = stats
   const times = dateSetupUtil()
-  const chartSize = 500
+
+  // Responsive chart sizing based on viewport
+  const getChartSize = () => {
+    if (typeof window === 'undefined') return 350
+    const width = window.innerWidth
+    if (width < 480) return Math.min(width - 64, 350) // Mobile: viewport - padding
+    if (width < 768) return 400 // Tablet
+    return 500 // Desktop
+  }
+
+  const [chartSize, setChartSize] = useState(getChartSize())
   const chartMargins = { top: 20, right: 20, bottom: 50, left: 70 }
 
   const [state] = useState({
@@ -30,6 +40,16 @@ const ConversationStats = () => {
   })
 
   const getStatsRepeatedlyRef = useRef(null)
+
+  // Update chart size on window resize
+  useEffect(() => {
+    const handleResize = () => {
+      setChartSize(getChartSize())
+    }
+
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
 
   const loadStats = () => {
     const until = state.until

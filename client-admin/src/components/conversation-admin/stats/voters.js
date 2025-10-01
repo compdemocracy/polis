@@ -18,19 +18,21 @@ const Voters = ({ size, firstVoteTimes }) => {
         }}>
         Voters over time, by time of first vote
       </Heading>
-      <VictoryChart
-        theme={victoryTheme}
-        height={size}
-        width={size}
-        domainPadding={{ x: 0, y: [0, 20] }}
-        scale={{ x: 'time' }}>
-        <VictoryArea
-          style={{ data: { fill: '#03a9f4' } }}
-          data={firstVoteTimes.map((d, i) => {
-            return { x: new Date(d), y: i }
-          })}
-        />
-      </VictoryChart>
+      <Box sx={{ overflow: 'hidden', width: '100%' }}>
+        <VictoryChart
+          theme={victoryTheme}
+          height={size}
+          width={size}
+          domainPadding={{ x: 0, y: [0, 20] }}
+          scale={{ x: 'time' }}>
+          <VictoryArea
+            style={{ data: { fill: '#03a9f4' } }}
+            data={firstVoteTimes.map((d, i) => {
+              return { x: new Date(d), y: i }
+            })}
+          />
+        </VictoryChart>
+      </Box>
     </Box>
   )
 }
