@@ -94,13 +94,13 @@ const TopicDetail = () => {
     switch (status) {
       case 'accepted':
       case 1:
-        return 'green'
+        return 'success'
       case 'rejected':
       case -1:
-        return 'red'
+        return 'error'
       case 'meta':
       case 0:
-        return 'orange'
+        return 'warning'
       default:
         return 'gray'
     }

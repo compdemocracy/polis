@@ -101,7 +101,7 @@ const ParticipantXids = ({ conversation_id }) => {
           sx={{
             display: 'block',
             mb: [3],
-            color: 'red'
+            color: 'error'
           }}>
           Could not load conversation UUID for XID download
         </Text>

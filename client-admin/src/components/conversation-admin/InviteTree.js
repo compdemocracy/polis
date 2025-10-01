@@ -117,7 +117,7 @@ const InviteTree = () => {
           {loading ? (
             <Spinner />
           ) : error ? (
-            <Text sx={{ color: 'red' }}>{String(error)}</Text>
+            <Text sx={{ color: 'error' }}>{String(error)}</Text>
           ) : hasWaves ? (
             <Box as="ul" sx={{ pl: [3], mb: [3] }}>
               {waves.map((w) => (

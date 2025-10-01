@@ -4,6 +4,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { Box, Flex, Heading, Text, Button, Select } from 'theme-ui'
+import theme from '../../../theme'
 
 const ProximityVisualization = () => {
   const [proximityData, setProximityData] = useState([])
@@ -31,8 +32,7 @@ const ProximityVisualization = () => {
     const yValues = data.map((d) => d.umap_y).filter((y) => y !== undefined)
 
     if (xValues.length === 0 || yValues.length === 0) {
-      svgElement.innerHTML =
-        '<text x="50%" y="50%" text-anchor="middle" fill="#666">No coordinate data available</text>'
+      svgElement.innerHTML = `<text x="50%" y="50%" text-anchor="middle" fill="${theme.colors.gray}">No coordinate data available</text>`
       return
     }
 
@@ -50,15 +50,15 @@ const ProximityVisualization = () => {
       switch (status) {
         case 'accepted':
         case 1:
-          return '#22c55e'
+          return theme.colors.success
         case 'rejected':
         case -1:
-          return '#ef4444'
+          return theme.colors.error
         case 'meta':
         case 0:
-          return '#f59e0b'
+          return theme.colors.warning
         default:
-          return '#6b7280'
+          return theme.colors.gray
       }
     }
 
@@ -91,8 +91,8 @@ const ProximityVisualization = () => {
       circle.setAttribute('cx', centerX)
       circle.setAttribute('cy', centerY)
       circle.setAttribute('r', maxRadius)
-      circle.setAttribute('fill', '#f3f4f6')
-      circle.setAttribute('stroke', '#d1d5db')
+      circle.setAttribute('fill', theme.colors.clusterBg)
+      circle.setAttribute('stroke', theme.colors.clusterStroke)
       circle.setAttribute('stroke-width', '1')
       circle.setAttribute('opacity', '0.3')
       svgElement.appendChild(circle)
@@ -102,7 +102,7 @@ const ProximityVisualization = () => {
       text.setAttribute('x', centerX)
       text.setAttribute('y', centerY - maxRadius + 15)
       text.setAttribute('text-anchor', 'middle')
-      text.setAttribute('fill', '#6b7280')
+      text.setAttribute('fill', theme.colors.gray)
       text.setAttribute('font-size', '12')
       text.textContent = `Cluster ${clusterId}`
       svgElement.appendChild(text)
@@ -138,7 +138,7 @@ const ProximityVisualization = () => {
     xAxis.setAttribute('y1', height - margin)
     xAxis.setAttribute('x2', width - margin)
     xAxis.setAttribute('y2', height - margin)
-    xAxis.setAttribute('stroke', '#d1d5db')
+    xAxis.setAttribute('stroke', theme.colors.clusterStroke)
     xAxis.setAttribute('stroke-width', '1')
     svgElement.appendChild(xAxis)
 
@@ -147,7 +147,7 @@ const ProximityVisualization = () => {
     yAxis.setAttribute('y1', margin)
     yAxis.setAttribute('x2', margin)
     yAxis.setAttribute('y2', height - margin)
-    yAxis.setAttribute('stroke', '#d1d5db')
+    yAxis.setAttribute('stroke', theme.colors.clusterStroke)
     yAxis.setAttribute('stroke-width', '1')
     svgElement.appendChild(yAxis)
 
@@ -156,7 +156,7 @@ const ProximityVisualization = () => {
     xLabel.setAttribute('x', width / 2)
     xLabel.setAttribute('y', height - 10)
     xLabel.setAttribute('text-anchor', 'middle')
-    xLabel.setAttribute('fill', '#6b7280')
+    xLabel.setAttribute('fill', theme.colors.gray)
     xLabel.textContent = 'UMAP Dimension 1'
     svgElement.appendChild(xLabel)
 
@@ -164,7 +164,7 @@ const ProximityVisualization = () => {
     yLabel.setAttribute('x', 15)
     yLabel.setAttribute('y', height / 2)
     yLabel.setAttribute('text-anchor', 'middle')
-    yLabel.setAttribute('fill', '#6b7280')
+    yLabel.setAttribute('fill', theme.colors.gray)
     yLabel.setAttribute('transform', `rotate(-90, 15, ${height / 2})`)
     yLabel.textContent = 'UMAP Dimension 2'
     svgElement.appendChild(yLabel)
@@ -259,7 +259,7 @@ const ProximityVisualization = () => {
                   sx={{
                     width: '12px',
                     height: '12px',
-                    bg: '#6b7280',
+                    bg: 'gray',
                     borderRadius: '50%',
                     flexShrink: 0
                   }}
@@ -271,7 +271,7 @@ const ProximityVisualization = () => {
                   sx={{
                     width: '12px',
                     height: '12px',
-                    bg: '#22c55e',
+                    bg: 'success',
                     borderRadius: '50%',
                     flexShrink: 0
                   }}
@@ -283,7 +283,7 @@ const ProximityVisualization = () => {
                   sx={{
                     width: '12px',
                     height: '12px',
-                    bg: '#ef4444',
+                    bg: 'error',
                     borderRadius: '50%',
                     flexShrink: 0
                   }}
@@ -295,7 +295,7 @@ const ProximityVisualization = () => {
                   sx={{
                     width: '12px',
                     height: '12px',
-                    bg: '#f59e0b',
+                    bg: 'warning',
                     borderRadius: '50%',
                     flexShrink: 0
                   }}

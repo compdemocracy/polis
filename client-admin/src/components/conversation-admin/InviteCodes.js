@@ -113,13 +113,13 @@ const InviteCodes = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 0:
-        return 'green'
+        return 'success'
       case 1:
-        return 'blue'
+        return 'info'
       case 2:
-        return 'red'
+        return 'error'
       case 3:
-        return 'orange'
+        return 'warning'
       default:
         return 'gray'
     }
@@ -249,7 +249,7 @@ const InviteCodes = () => {
           {loading ? (
             <Spinner />
           ) : error ? (
-            <Text sx={{ color: 'red' }}>{String(error)}</Text>
+            <Text sx={{ color: 'error' }}>{String(error)}</Text>
           ) : invites.length > 0 ? (
             <Box>
               <Text sx={{ mb: [2], fontWeight: 'bold' }}>

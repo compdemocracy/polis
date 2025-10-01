@@ -49,11 +49,11 @@ const TopicTree = ({ conversation_id }) => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'accepted':
-        return 'green'
+        return 'success'
       case 'rejected':
-        return 'red'
+        return 'error'
       case 'meta':
-        return 'orange'
+        return 'warning'
       default:
         return 'gray'
     }

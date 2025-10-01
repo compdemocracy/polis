@@ -32,7 +32,7 @@ const Comment = ({
   return (
     <Card sx={{ mb: [3], minWidth: ['auto', 'auto', '35em'] }} data-testid="pending-comment">
       <Box>
-        <Text sx={{ mb: [3], color: 'red', fontSize: 12 }}>
+        <Text sx={{ mb: [3], color: 'error', fontSize: 12 }}>
           {comment.active
             ? null
             : 'Comment flagged by Polis Auto Moderator API. Comment not shown to participants. Accept to override.'}

@@ -342,29 +342,9 @@ export default {
 
 ### Phase 3: Enhancement (Lower Priority)
 
-#### 3.1 Implement Color Modes
+#### 3.1 Normalize Color Palette - COMPLETED
 
-```js
-// Add to theme
-colors: {
-  text: '#60656F',
-  background: '#FFF',
-  primary: '#03a9f4',
-  secondary: '#F6F7F8',
-  mediumGray: '#60656F',
-  modes: {
-    dark: {
-      text: '#E0E0E0',
-      background: '#1A1A1A',
-      primary: '#4FC3F7',
-      secondary: '#2C2C2C',
-      mediumGray: '#9E9E9E',
-    }
-  }
-}
-```
-
-Add color mode toggle in header.
+See COLORS.md for the new color palette.
 
 #### 3.2 Expand Component Variants
 
@@ -386,7 +366,7 @@ buttons: {
   },
   danger: {
     color: 'background',
-    bg: '#ef4444',
+    bg: '#f06273',
     cursor: 'pointer'
   }
 }

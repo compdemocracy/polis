@@ -53,22 +53,29 @@ export default {
     heading: 1.125
   },
   colors: {
-    text: '#60656F',
+    text: '#60656f',
     background: '#FFF',
     primary: '#03a9f4',
-    secondary: '#F6F7F8',
-    mediumGray: '#60656F',
-    textSecondary: '#8A9099',
+    secondary: '#f6f7f8',
+    mediumGray: '#60656f',
+    textSecondary: '#8a9099',
     // Semantic colors for status/feedback
-    muted: '#F3F4F6',
-    border: '#E5E7EB',
-    success: '#22c55e',
-    error: '#ef4444',
-    warning: '#f59e0b',
-    info: '#3b82f6',
+    muted: '#f3f4f6',
+    border: '#e5e7eb',
+    success: '#4dd599',
+    successHover: '#3dbd85',
+    error: '#f06273',
+    errorHover: '#e04d60',
+    warning: '#ffb74d',
+    warningHover: '#f5a732',
+    info: '#03a9f4',
+    infoHover: '#0288d1',
     // Utility grays
     gray: '#6b7280',
-    lightGray: '#9ca3af'
+    lightGray: '#9ca3af',
+    // Cluster/visualization colors
+    clusterBg: '#f3f4f6',
+    clusterStroke: '#d1d5db'
   },
   links: {
     nav: {
@@ -127,7 +134,7 @@ export default {
       borderRadius: 'default',
       border: 'none',
       '&:hover': {
-        bg: '#0288d1'
+        bg: 'infoHover'
       },
       '&:disabled': {
         opacity: 0.5,
@@ -167,7 +174,7 @@ export default {
       borderRadius: 'default',
       border: 'none',
       '&:hover': {
-        bg: '#16a34a'
+        bg: 'successHover'
       },
       '&:disabled': {
         opacity: 0.5,
@@ -182,7 +189,7 @@ export default {
       borderRadius: 'default',
       border: 'none',
       '&:hover': {
-        bg: '#dc2626'
+        bg: 'errorHover'
       },
       '&:disabled': {
         opacity: 0.5,
@@ -197,7 +204,7 @@ export default {
       borderRadius: 'default',
       border: 'none',
       '&:hover': {
-        bg: '#d97706'
+        bg: 'warningHover'
       },
       '&:disabled': {
         opacity: 0.5,

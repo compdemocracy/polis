@@ -91,10 +91,10 @@ const TopicStats = ({ conversation_id }) => {
       <Flex sx={{ gap: 3, mb: 4, flexWrap: 'wrap' }}>
         <StatCard title="Total Topics" value={stats.total_topics} />
         <StatCard title="Pending" value={stats.pending} color="gray" />
-        <StatCard title="Accepted" value={stats.accepted} color="green" />
-        <StatCard title="Rejected" value={stats.rejected} color="red" />
-        <StatCard title="Meta" value={stats.meta} color="orange" />
-        <StatCard title="Completion Rate" value={`${completionRate}%`} color="blue" />
+        <StatCard title="Accepted" value={stats.accepted} color="success" />
+        <StatCard title="Rejected" value={stats.rejected} color="error" />
+        <StatCard title="Meta" value={stats.meta} color="warning" />
+        <StatCard title="Completion Rate" value={`${completionRate}%`} color="info" />
       </Flex>
 
       <Box sx={{ mt: 4 }}>
@@ -118,7 +118,7 @@ const TopicStats = ({ conversation_id }) => {
             <Flex sx={{ height: '100%' }}>
               <Box
                 sx={{
-                  bg: 'green',
+                  bg: 'success',
                   width: `${
                     stats.total_topics > 0 ? (stats.accepted / stats.total_topics) * 100 : 0
                   }%`,
@@ -127,7 +127,7 @@ const TopicStats = ({ conversation_id }) => {
               />
               <Box
                 sx={{
-                  bg: 'red',
+                  bg: 'error',
                   width: `${
                     stats.total_topics > 0 ? (stats.rejected / stats.total_topics) * 100 : 0
                   }%`,
@@ -136,7 +136,7 @@ const TopicStats = ({ conversation_id }) => {
               />
               <Box
                 sx={{
-                  bg: 'orange',
+                  bg: 'warning',
                   width: `${stats.total_topics > 0 ? (stats.meta / stats.total_topics) * 100 : 0}%`,
                   transition: 'width 0.3s ease'
                 }}
@@ -152,9 +152,9 @@ const TopicStats = ({ conversation_id }) => {
               flexWrap: 'wrap',
               gap: [1, 2, 2]
             }}>
-            <Text sx={{ color: 'green', whiteSpace: 'nowrap' }}>Accepted: {stats.accepted}</Text>
-            <Text sx={{ color: 'red', whiteSpace: 'nowrap' }}>Rejected: {stats.rejected}</Text>
-            <Text sx={{ color: 'orange', whiteSpace: 'nowrap' }}>Meta: {stats.meta}</Text>
+            <Text sx={{ color: 'success', whiteSpace: 'nowrap' }}>Accepted: {stats.accepted}</Text>
+            <Text sx={{ color: 'error', whiteSpace: 'nowrap' }}>Rejected: {stats.rejected}</Text>
+            <Text sx={{ color: 'warning', whiteSpace: 'nowrap' }}>Meta: {stats.meta}</Text>
             <Text sx={{ color: 'gray', whiteSpace: 'nowrap' }}>Pending: {stats.pending}</Text>
           </Flex>
         </Box>

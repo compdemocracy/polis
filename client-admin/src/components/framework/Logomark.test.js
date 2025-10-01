@@ -27,9 +27,9 @@ describe('Logomark', () => {
   })
 
   it('applies custom fill color', () => {
-    const { container } = renderWithTheme(<Logomark fill="#ff0000" />)
+    const { container } = renderWithTheme(<Logomark fill="#03a9f4" />)
     const path = container.querySelector('path')
-    expect(path).toHaveAttribute('fill', '#ff0000')
+    expect(path).toHaveAttribute('fill', '#03a9f4')
   })
 
   it('applies custom style prop', () => {

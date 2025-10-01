@@ -3,6 +3,7 @@
 import { Box, Heading } from 'theme-ui'
 import { VictoryChart, VictoryArea } from 'victory'
 import victoryTheme from './victoryTheme'
+import theme from '../../../theme'
 import PropTypes from 'prop-types'
 
 const Commenters = ({ size, firstCommentTimes }) => {
@@ -26,7 +27,7 @@ const Commenters = ({ size, firstCommentTimes }) => {
           domainPadding={{ x: 0, y: [0, 20] }}
           scale={{ x: 'time' }}>
           <VictoryArea
-            style={{ data: { fill: '#03a9f4' } }}
+            style={{ data: { fill: theme.colors.primary } }}
             data={firstCommentTimes.map((d, i) => {
               return { x: new Date(d), y: i }
             })}
