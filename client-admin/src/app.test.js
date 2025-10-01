@@ -15,7 +15,7 @@ jest.mock('react-oidc-context', () => ({
 }))
 
 // Mock the conversations component to avoid deep component tree issues
-jest.mock('./components/conversations-and-account/conversations', () => {
+jest.mock('./components/conversations-and-account/Conversations', () => {
   return function MockConversations() {
     return <div>All Conversations</div>
   }
