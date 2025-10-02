@@ -15,21 +15,21 @@ UserProvider.propTypes = {
 }
 
 export const useUser = () => {
-  const context = useContext(UserContext)
-  if (context === undefined) {
+  const userContext = useContext(UserContext)
+  if (userContext === undefined) {
     throw new Error('useUser must be used within a UserProvider')
   }
-  return context
+  return userContext
 }
 
-export const hasDelphiEnabled = (user) => {
-  const decoded = decodedJwt(user)
+export const hasDelphiEnabled = (authUser) => {
+  const decoded = decodedJwt(authUser)
   return decoded && decoded[`${process.env.AUTH_NAMESPACE}delphi_enabled`]
 }
 
-export const decodedJwt = (user) => {
-  if (user && user?.access_token) {
-    return jwtDecode(user.access_token)
+export const decodedJwt = (authUser) => {
+  if (authUser && authUser?.access_token) {
+    return jwtDecode(authUser.access_token)
   }
   return null
 }
@@ -48,17 +48,19 @@ const getAdminUids = () => {
   return []
 }
 
-export const checkConvoPermissions = (user, conversationData) => {
-  const isSuperAdmin = getAdminUids().includes(user?.user?.uid)
+export const isSuperAdmin = (userContext) => {
+  return getAdminUids().includes(userContext?.user?.uid)
+}
+
+export const checkConvoPermissions = (userContext, conversationData) => {
+  const isSuper = isSuperAdmin(userContext)
   const isOwner = conversationData?.is_owner || false
   const isMod = conversationData?.is_mod || false
-  const shouldShow = isSuperAdmin || isOwner || isMod
+  const shouldShow = isSuper || isOwner || isMod
 
   return shouldShow
 }
 
-export const isAdminOrMod = (user, conversationData) => {
-  const isSuperAdminUser = getAdminUids().includes(user?.user?.uid)
-  if (isSuperAdminUser) return true
-  return conversationData?.is_mod || conversationData?.is_owner
+export const isAdminOrMod = (userContext, conversationData) => {
+  return isSuperAdmin(userContext) || conversationData?.is_mod || conversationData?.is_owner
 }

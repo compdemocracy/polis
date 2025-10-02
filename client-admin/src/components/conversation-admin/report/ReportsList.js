@@ -19,7 +19,7 @@ const modMap = {
 const ReportsList = () => {
   const params = useParams()
   const { isAuthenticated, user: authUser } = useAuth()
-  const user = useUser()
+  const userContext = useUser()
   const conversationData = useConversationData()
   const [mod_level, setModLevel] = useState(-2)
 
@@ -44,10 +44,10 @@ const ReportsList = () => {
 
   useEffect(() => {
     // Load data if user is now a moderator and data hasn't been loaded
-    if (!state.dataLoaded && isAdminOrMod(user, conversationData)) {
+    if (!state.dataLoaded && isAdminOrMod(userContext, conversationData)) {
       getData()
     }
-  }, [conversationData, isAuthenticated, user, state.dataLoaded])
+  }, [conversationData, isAuthenticated, userContext, state.dataLoaded])
 
   const createReportClicked = () => {
     PolisNet.polisPost('/api/v3/reports', {

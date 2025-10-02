@@ -24,7 +24,7 @@ const ConversationAdmin = () => {
   const params = useParams()
   const location = useLocation()
   const conversationData = useConversationData()
-  const user = useUser()
+  const userContext = useUser()
 
   const [permissionState, setPermissionState] = useState('CHECKING') // CHECKING, PERMITTED, DENIED
 
@@ -35,16 +35,16 @@ const ConversationAdmin = () => {
     // until the user or conversation_id changes, avoiding flicker from
     // optimistic updates.
 
-    if (conversationData.loading || !conversationData || !user.user) {
+    if (conversationData.loading || !conversationData || !userContext.user) {
       // Not ready to check permissions yet.
       return
     }
 
     if (permissionState === 'CHECKING') {
-      const hasPermission = checkConvoPermissions(user, conversationData)
+      const hasPermission = checkConvoPermissions(userContext, conversationData)
       setPermissionState(hasPermission ? 'PERMITTED' : 'DENIED')
     }
-  }, [user, conversationData, permissionState])
+  }, [userContext, conversationData, permissionState])
 
   useEffect(() => {
     // Reset permission check when conversation changes

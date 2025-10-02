@@ -6,7 +6,7 @@ import Spinner from '../framework/Spinner'
 import { useUser } from '../../util/auth'
 
 const Account = () => {
-  const user = useUser()
+  const userContext = useUser()
 
   const buildAccountMarkup = () => {
     return (
@@ -21,17 +21,17 @@ const Account = () => {
             }}>
             Account
           </Heading>
-          <p>Hi {user?.user?.hname?.split(' ')[0]}!</p>
+          <p>Hi {userContext?.user?.hname?.split(' ')[0]}!</p>
           <Box>
-            <p>{user?.user?.hname}</p>
-            <p>{user?.user?.email}</p>
+            <p>{userContext?.user?.hname}</p>
+            <p>{userContext?.user?.email}</p>
           </Box>
         </Box>
       </>
     )
   }
 
-  return <div>{user?.user?.hname ? buildAccountMarkup() : <Spinner />}</div>
+  return <div>{userContext?.user?.hname ? buildAccountMarkup() : <Spinner />}</div>
 }
 
 export default Account

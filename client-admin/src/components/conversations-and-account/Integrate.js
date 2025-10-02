@@ -5,8 +5,18 @@ import Url from '../../util/url'
 import { useUser } from '../../util/auth'
 
 const Integrate = () => {
-  const user = useUser()
-  const userSiteId = user?.user === null ? '__loading, try refreshing__' : user?.user?.site_ids?.[0]
+  const userContext = useUser()
+  const userSiteId =
+    userContext?.user === null ? '__loading, try refreshing__' : userContext?.user?.site_ids?.[0]
+
+  const snippet = `
+    <div
+      class="polis"
+      data-page_id="PAGE_ID"
+      data-site_id="${userSiteId}">
+    </div>
+    <script async src="${Url.urlPrefix}embed.js"></script>
+  `
 
   return (
     <Box>
@@ -41,16 +51,7 @@ const Integrate = () => {
           </li>
         </ul>
         <Box>
-          <pre>
-            {`
-<div
-  class="polis"
-  data-page_id="PAGE_ID"
-  data-site_id="${userSiteId}">
-</div>
-<script async src="${Url.urlPrefix}embed.js"></script>
-              `}
-          </pre>
+          <pre>{snippet}</pre>
         </Box>
       </Box>
     </Box>
