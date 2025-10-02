@@ -377,7 +377,11 @@ export async function getNextComment(
   lang?: string
 ) {
   const ratio = Config.getValidTopicalRatio();
-  const shouldUseTopical = typeof ratio === "number" && ratio > 0 && Math.random() < ratio && pid !== -1;
+  const shouldUseTopical =
+    typeof ratio === "number" &&
+    ratio > 0 &&
+    Math.random() < ratio &&
+    pid !== -1;
 
   logger.info("polis_info_getNextComment", {
     zid,
