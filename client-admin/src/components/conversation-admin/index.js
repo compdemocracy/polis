@@ -157,7 +157,7 @@ const ConversationAdmin = () => {
               variant: url === 'reports' ? 'links.activeNav' : 'links.nav'
             }}
             to={`${baseUrl}/reports`}>
-            Report
+            Reports
           </Link>
         </Box>
         {/* <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
@@ -196,7 +196,7 @@ const ConversationAdmin = () => {
         sx={{
           p: [2, 3, 4],
           flex: '1 1 auto',
-          maxWidth: ['100%', '100%', '40em'],
+          maxWidth: ['100%', '100%', '60em'],
           width: '100%',
           minWidth: 0,
           mx: [0, 0, 4],
