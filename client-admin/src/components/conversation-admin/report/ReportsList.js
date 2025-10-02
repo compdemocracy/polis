@@ -273,11 +273,6 @@ const ReportsList = () => {
                         urlPrefix={`${Url.reportUrlPrefix}narrativeReport/${report.report_id}`}
                       />
                       <ReportLink
-                        title="Comments"
-                        href={`${Url.reportUrlPrefix}commentsReport/${report.report_id}`}
-                        urlPrefix={`${Url.reportUrlPrefix}commentsReport/${report.report_id}`}
-                      />
-                      <ReportLink
                         title="Topic"
                         href={`${Url.reportUrlPrefix}topicReport/${report.report_id}`}
                         urlPrefix={`${Url.reportUrlPrefix}topicReport/${report.report_id}`}
