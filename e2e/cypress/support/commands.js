@@ -49,7 +49,12 @@ Cypress.Commands.add('interceptIntegrated', () => {
 // Import the helper functions
 import { createTestConversation, addCommentToConversation } from './conversation-helpers.js'
 import { navigateToConversationSection } from './admin-helpers.js'
-import { loginStandardUser, loginStandardUserAPI, logout, checkOidcSimulator } from './auth-helpers.js'
+import {
+  loginStandardUser,
+  loginStandardUserAPI,
+  logout,
+  checkOidcSimulator,
+} from './auth-helpers.js'
 
 // Register conversation creation command
 Cypress.Commands.add('createConversation', (options = {}) => {
@@ -123,7 +128,7 @@ Cypress.Commands.add('waitForOidcReady', (options = {}) => {
           timeout: perRequestTimeout,
           retryOnNetworkFailure: true,
           failOnStatusCode: false,
-        })
+        }),
       )
       .then((resp) => {
         openIdStatus = resp.status
@@ -136,12 +141,14 @@ Cypress.Commands.add('waitForOidcReady', (options = {}) => {
         }
 
         if (attempt < retries) {
-          cy.log(`⚠️ OIDC not ready yet (jwks: ${jwksStatus}, openid: ${openIdStatus}), retrying in ${attempt * 1000}ms...`)
+          cy.log(
+            `⚠️ OIDC not ready yet (jwks: ${jwksStatus}, openid: ${openIdStatus}), retrying in ${attempt * 1000}ms...`,
+          )
           return cy.wait(attempt * 1000).then(() => checkOnce())
         }
 
         throw new Error(
-          `OIDC system failed to become ready after ${retries} attempts (jwks: ${jwksStatus}, openid: ${openIdStatus})`
+          `OIDC system failed to become ready after ${retries} attempts (jwks: ${jwksStatus}, openid: ${openIdStatus})`,
         )
       })
   }
@@ -152,7 +159,7 @@ Cypress.Commands.add('waitForOidcReady', (options = {}) => {
 /**
  * Setup OIDC readiness check for test suites
  * Use this in test files that require OIDC authentication
- * 
+ *
  * Usage in test files:
  *   describe('My Test', () => {
  *     before(() => cy.setupOidcReadiness())
@@ -161,30 +168,30 @@ Cypress.Commands.add('waitForOidcReady', (options = {}) => {
  */
 Cypress.Commands.add('setupOidcReadiness', (options = {}) => {
   const { skipIfAlreadyChecked = true } = options
-  
+
   // Store check status in Cypress environment
   if (skipIfAlreadyChecked && Cypress.env('oidcReadinessChecked')) {
     cy.log('⚡ OIDC readiness already verified in previous test')
     return
   }
-  
+
   cy.log('🔐 Ensuring OIDC authentication system is ready...')
-  
+
   // In CI, use the robust wait with retries
   if (Cypress.env('CI')) {
     cy.log('🔄 CI Environment detected - using robust OIDC readiness check')
-    cy.waitForOidcReady({ 
-      timeout: 30000,  // 30 seconds total timeout
-      retries: 5       // Up to 5 retry attempts with progressive backoff
+    cy.waitForOidcReady({
+      timeout: 30000, // 30 seconds total timeout
+      retries: 5, // Up to 5 retry attempts with progressive backoff
     })
     Cypress.env('oidcReadinessChecked', true)
   } else {
     // In local dev, use a quicker check
     cy.log('💻 Local environment - using quick OIDC check')
-    
+
     // Use checkOidcSimulator from auth-helpers (already imported at top of file)
     checkOidcSimulator({ timeout: 10000 })
   }
-  
+
   cy.log('✅ OIDC system confirmed ready')
 })

@@ -278,10 +278,21 @@ describe('ReportsList', () => {
     })
   })
 
-  it('renders report links correctly', async () => {
-    PolisNet.polisGet = jest
-      .fn()
-      .mockResolvedValue([{ report_id: 'report1' }, { report_id: 'report2' }])
+  it('renders report cards correctly', async () => {
+    const mockReports = [
+      {
+        report_id: 'report1',
+        modified: Date.now() - 3600000, // 1 hour ago
+        mod_level: -2
+      },
+      {
+        report_id: 'report2',
+        modified: Date.now() - 7200000, // 2 hours ago
+        mod_level: 0
+      }
+    ]
+
+    PolisNet.polisGet = jest.fn().mockResolvedValue(mockReports)
 
     const store = createMockStore({
       conversationData: {
@@ -294,10 +305,54 @@ describe('ReportsList', () => {
     renderWithProviders(<ReportsList />, { store })
 
     await waitFor(() => {
-      const reportLinks = screen.getAllByTestId('report-list-item')
-      expect(reportLinks).toHaveLength(2)
-      expect(reportLinks[0]).toHaveTextContent('report/report1')
-      expect(reportLinks[1]).toHaveTextContent('report/report2')
+      const reportCards = screen.getAllByTestId('report-list-item')
+      expect(reportCards).toHaveLength(2)
+
+      // Check that cards contain the report IDs
+      expect(reportCards[0]).toHaveTextContent('Report ID: report1')
+      expect(reportCards[1]).toHaveTextContent('Report ID: report2')
+
+      // Check that cards contain timestamps
+      expect(reportCards[0]).toHaveTextContent('Modified')
+      expect(reportCards[1]).toHaveTextContent('Modified')
+    })
+  })
+
+  it('allows expanding report cards to show report URLs', async () => {
+    const mockReports = [
+      {
+        report_id: 'report1',
+        modified: Date.now() - 3600000,
+        mod_level: -2
+      }
+    ]
+
+    PolisNet.polisGet = jest.fn().mockResolvedValue(mockReports)
+
+    const store = createMockStore({
+      conversationData: {
+        conversation_id: 'test123',
+        is_mod: true,
+        loading: false
+      }
+    })
+
+    renderWithProviders(<ReportsList />, { store })
+
+    await waitFor(() => {
+      const reportCard = screen.getByTestId('report-list-item')
+      expect(reportCard).toBeInTheDocument()
+
+      // Initially, no report URLs should be visible
+      expect(screen.queryByText('Report URLs')).not.toBeInTheDocument()
+
+      // Click the card to expand it
+      fireEvent.click(reportCard)
+
+      // Now the report URLs should be visible
+      expect(screen.getByText('Report URLs')).toBeInTheDocument()
+      expect(screen.getByText('Standard Report:')).toBeInTheDocument()
+      expect(screen.getByText('Data Export:')).toBeInTheDocument()
     })
   })
 

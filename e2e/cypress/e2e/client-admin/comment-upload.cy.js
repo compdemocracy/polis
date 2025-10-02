@@ -198,7 +198,9 @@ describe('Client Admin: Comment CSV Upload', () => {
           cy.get('textarea[data-testid="seed_form"]').clear()
           cy.get('textarea[data-testid="seed_form"]').type(manualComment)
 
-          cy.contains('button, input[type="submit"]', /^Submit$/).should('be.visible').click()
+          cy.contains('button, input[type="submit"]', /^Submit$/)
+            .should('be.visible')
+            .click()
 
           cy.wait('@manualComment').then((interception) => {
             if (interception.response.statusCode !== 200) {

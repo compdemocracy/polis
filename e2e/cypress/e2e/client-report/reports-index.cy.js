@@ -93,9 +93,15 @@ describe('Reports - Admin Interface', () => {
         expect(interception.response.statusCode).to.eq(200)
       })
 
-      // Verify a report URL appears
-      cy.get('a[href*="/report/"]', { timeout: 10000 }).should('exist')
+      // Verify a report card appears
       cy.get('[data-testid="report-list-item"]').should('have.length.at.least', 1)
+
+      // Click on the report card to expand it
+      cy.get('[data-testid="report-list-item"]').first().click()
+
+      // Verify that the expanded panel shows report URLs
+      cy.contains('Report URLs').should('be.visible')
+      cy.get('a[href*="/report/"]').should('exist')
     })
 
     it('should display multiple reports after creating several', () => {
@@ -130,8 +136,17 @@ describe('Reports - Admin Interface', () => {
         }
       })
 
-      // Verify report link has correct attributes
-      cy.get('[data-testid="report-list-item"] a')
+      // Verify report card exists
+      cy.get('[data-testid="report-list-item"]').should('exist')
+
+      // Click on the report card to expand it
+      cy.get('[data-testid="report-list-item"]').first().click()
+
+      // Wait for expansion animation
+      cy.contains('Report URLs').should('be.visible')
+
+      // Now verify the links inside the expanded panel
+      cy.get('a[href*="/report/"]')
         .first()
         .should('have.attr', 'target', '_blank')
         .and('have.attr', 'rel', 'noreferrer')
@@ -139,7 +154,7 @@ describe('Reports - Admin Interface', () => {
         .and('contain', '/report/')
 
       // Verify the report URL format
-      cy.get('[data-testid="report-list-item"] a')
+      cy.get('a[href*="/report/"]')
         .first()
         .then(($link) => {
           const href = $link.attr('href')

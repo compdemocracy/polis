@@ -210,7 +210,7 @@ describe('ConversationAdminContainer', () => {
         expect(screen.getByText('Distribute')).toBeInTheDocument()
         expect(screen.getByText('Moderate')).toBeInTheDocument()
         expect(screen.getByText('Monitor')).toBeInTheDocument()
-        expect(screen.getByText('Report')).toBeInTheDocument()
+        expect(screen.getByText('Reports')).toBeInTheDocument()
         // expect(screen.getByText('Topic Mod')).toBeInTheDocument()
         expect(screen.getByText('Invite Tree')).toBeInTheDocument()
       })
@@ -379,7 +379,7 @@ describe('ConversationAdminContainer', () => {
       })
 
       expect(container).toBeInTheDocument()
-      expect(screen.getByText('Report')).toBeInTheDocument()
+      expect(screen.getByText('Reports')).toBeInTheDocument()
     })
 
     // it('renders without crashing at /topics route', () => {
