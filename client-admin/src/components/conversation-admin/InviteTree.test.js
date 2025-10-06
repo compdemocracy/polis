@@ -60,6 +60,9 @@ const renderWithProviders = (component, { store } = {}) => {
 describe('InviteTree', () => {
   beforeEach(() => {
     jest.clearAllMocks()
+    // Explicitly clear and reset PolisNet mocks to ensure clean state
+    PolisNet.polisGet.mockClear()
+    PolisNet.polisPost.mockClear()
   })
 
   it('renders the Invite Tree heading', () => {
@@ -338,6 +341,7 @@ describe('InviteTree', () => {
       })
 
       it('shows success message after wave created', async () => {
+        PolisNet.polisGet.mockResolvedValue([])
         PolisNet.polisPost.mockResolvedValue({ wave: 2, invites_created: 25 })
 
         const store = createMockStore({ treevite_enabled: true })
@@ -357,13 +361,25 @@ describe('InviteTree', () => {
       })
 
       it('reloads waves after creating new wave', async () => {
-        PolisNet.polisGet.mockResolvedValueOnce([])
+        // Clear any previous mock implementations
+        PolisNet.polisGet.mockClear()
+        PolisNet.polisPost.mockClear()
+
+        // Set up specific mock implementations for this test
+        PolisNet.polisGet
+          .mockResolvedValueOnce([]) // First call on mount
+          .mockResolvedValueOnce([{ id: 1, wave: 1 }]) // Second call after creation
         PolisNet.polisPost.mockResolvedValue({ wave: 1, invites_created: 10 })
-        PolisNet.polisGet.mockResolvedValueOnce([{ id: 1, wave: 1 }])
 
         const store = createMockStore({ treevite_enabled: true })
         renderWithProviders(<InviteTree />, { store })
 
+        // Wait for initial load to complete
+        await waitFor(() => {
+          expect(PolisNet.polisGet).toHaveBeenCalledTimes(1)
+        })
+
+        // Create wave
         await waitFor(() => {
           const input = screen.getAllByRole('spinbutton')[0]
           fireEvent.change(input, { target: { value: '5' } })
@@ -372,8 +388,8 @@ describe('InviteTree', () => {
           fireEvent.click(button)
         })
 
+        // Wait for reload after creation
         await waitFor(() => {
-          // Should have called polisGet twice: once on mount, once after creating
           expect(PolisNet.polisGet).toHaveBeenCalledTimes(2)
         })
       })
