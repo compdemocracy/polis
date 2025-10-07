@@ -102,6 +102,7 @@ services:
       - DATABASE_POOL_SIZE=${MATH_DATABASE_POOL_SIZE:-10}
       - DD_AGENT_HOST=datadog-agent
       - DD_TRACE_ENABLED=true
+      - DD_TRACE_SAMPLE_RATE="1"
       - DD_SERVICE=math
       - DD_ENV=prod
       - DD_LOGS_INJECTION=true
@@ -214,17 +215,20 @@ services:
       context: ./
       dockerfile: file-server/Dockerfile
       args:
+        ADMIN_UIDS: ${ADMIN_UIDS}
         AUTH_AUDIENCE: ${AUTH_AUDIENCE}
-        AUTH_NAMESPACE: ${AUTH_NAMESPACE}
         AUTH_CLIENT_ID: ${AUTH_CLIENT_ID}
         AUTH_ISSUER: ${AUTH_ISSUER}
-        ADMIN_UIDS: ${ADMIN_UIDS}
+        AUTH_NAMESPACE: ${AUTH_NAMESPACE}
+        DD_APPLICATION_ID: ${DD_APPLICATION_ID}
+        DD_CLIENT_TOKEN: ${DD_CLIENT_TOKEN}
+        DD_SITE: ${DD_SITE}
         EMBED_SERVICE_HOSTNAME: ${EMBED_SERVICE_HOSTNAME}
         GA_TRACKING_ID: ${GA_TRACKING_ID}
         GIT_HASH: "${GIT_HASH:-placeholder}"
         NODE_ENV: production
-        OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}
         OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: ${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
+        OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}
     labels:
       polis_tag: ${TAG:-dev}
     environment:
@@ -303,7 +307,7 @@ services:
       - "8126:8126/tcp"
     environment:
       - DD_API_KEY=${DD_API_KEY}
-      - DD_SITE=us5.datadoghq.com
+      - DD_SITE=${DD_SITE}
       - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
       - DD_APM_ENABLED=true
       - DD_APM_NON_LOCAL_TRAFFIC=true

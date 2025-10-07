@@ -68,11 +68,12 @@ def upload_file(s3_client, file_path, bucket, base_path):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--bucket", required=True, help="S3 bucket name")
+    parser.add_argument("--source", default="build", help="Source directory for static assets")
     args = parser.parse_args()
 
     s3_client = boto3.client("s3")
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    build_path = os.path.normpath(os.path.join(script_dir, "..", "build"))
+    build_path = os.path.normpath(os.path.join(script_dir, "..", args.source))
 
     if not os.path.exists(build_path):
         print(f"Error: Build directory not found at {build_path}")

@@ -175,7 +175,7 @@ export function addCommentToConversation(
           },
         })
         .then((response) => {
-          expect(response.status).to.be.oneOf([200, 201])
+          expect(response.status).to.eq(200)
           cy.log(`✅ Added comment to conversation ${conversationId}`)
           return cy.wrap(true)
         })
@@ -221,7 +221,7 @@ export function addCommentsToConversation(
             // Don't specify pid - let the server create/find the participant automatically
           },
         }).then((response) => {
-          expect(response.status).to.be.oneOf([200, 201])
+          expect(response.status).to.eq(200)
           cy.log(
             `✅ Added comment ${index + 1}/${comments.length} to conversation ${conversationId}`,
           )
@@ -264,7 +264,7 @@ export function addCommentsToConversationNoAuth(conversationId, comments) {
           is_seed: true,
         },
       }).then((response) => {
-        expect(response.status).to.be.oneOf([200, 201])
+        expect(response.status).to.eq(200)
         return cy.wrap(null).then(() => {
           cy.log(
             `✅ Added comment ${index + 1}/${comments.length} to conversation ${conversationId}`,
@@ -539,10 +539,22 @@ export function participateInConversation(conversationId, options = {}) {
   cy.log(`💬 Will add ${comments.length} comment(s)`)
 
   // Visit conversation as participant
-  visitConversationAsParticipant(conversationId, { xid })
+  visitConversationAsParticipant(conversationId, { xid, interceptPolling: false })
 
   // Intercept comment submissions
-  cy.intercept('POST', '/api/v3/comments').as('submitComment')
+  let commentRequestData = {}
+  cy.intercept('POST', '/api/v3/comments', (req) => {
+    commentRequestData = {
+      headers: req.headers,
+      body: req.body,
+      hasAuth: !!(req.headers.authorization || req.headers.Authorization),
+    }
+
+    req.continue((res) => {
+      commentRequestData.response = res.body
+      commentRequestData.responseStatus = res.statusCode
+    })
+  }).as('submitComment')
 
   // Add each comment
   comments.forEach((comment, index) => {
@@ -570,12 +582,12 @@ export function participateInConversation(conversationId, options = {}) {
 
     // Submit comment
     cy.get('button, input[type="submit"]')
-      .contains(/submit|post|add/i)
+      .contains(/submit/i)
       .click()
 
     // Wait for submission
     cy.wait('@submitComment').then((interception) => {
-      expect(interception.response.statusCode).to.be.oneOf([200, 201])
+      expect(interception.response.statusCode).to.eq(200)
       cy.log(`✅ Comment ${index + 1} submitted`)
     })
   })

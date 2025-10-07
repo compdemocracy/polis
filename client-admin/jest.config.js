@@ -8,5 +8,5 @@ module.exports = {
   transform: {
     '^.+\\.(js|jsx)$': 'babel-jest'
   },
-  transformIgnorePatterns: ['node_modules/(?!(theme-ui|@theme-ui|@mdx-js/react|d3-scale)/)']
+  transformIgnorePatterns: ['node_modules/(?!(theme-ui|@theme-ui|@mdx-js/react)/)']
 }

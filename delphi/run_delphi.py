@@ -34,6 +34,7 @@ def main():
     parser.add_argument("--validate", action="store_true", help="Run extra validation checks")
     parser.add_argument("--help", action="store_true", help="Show this help message")
     parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
+    parser.add_argument('--region', type=str, default='us-east-1', help='AWS region')
 
     args = parser.parse_args()
 
@@ -129,6 +130,7 @@ def main():
     extremity_command = [
         "python", "/app/umap_narrative/501_calculate_comment_extremity.py",
         f"--zid={zid}",
+        f"--include_moderation={args.include_moderation}"
     ]
     if verbose_arg:
         extremity_command.append(verbose_arg)
@@ -182,7 +184,7 @@ def main():
                                          aws_access_key_id='dummy',
                                          aws_secret_access_key='dummy')
             else:
-                dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+                dynamodb = boto3.resource('dynamodb', region_name=args.region)
 
 
             table = dynamodb.Table('Delphi_CommentHierarchicalClusterAssignments')

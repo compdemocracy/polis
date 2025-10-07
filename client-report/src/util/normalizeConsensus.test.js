@@ -79,6 +79,10 @@ describe('enrichMathWithNormalizedConsensus', () => {
     
     expect(enriched["group-consensus-normalized"]).toBeDefined();
     expect(enriched["group-consensus-normalized"][123]).toBeCloseTo(0.833, 2);
-    expect(enriched["group-consensus-normalized"][456]).toBeCloseTo(0.167, 2);
+    // For tid 456:
+    // Group 0: (0+1)/(0+10+2) = 1/12 ≈ 0.0833
+    // Group 1: (1+1)/(1+9+2) = 2/12 ≈ 0.1667
+    // Average: (0.0833 + 0.1667) / 2 = 0.125
+    expect(enriched["group-consensus-normalized"][456]).toBeCloseTo(0.125, 2);
   });
 });

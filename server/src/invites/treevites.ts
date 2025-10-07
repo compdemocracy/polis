@@ -156,6 +156,35 @@ async function createRetroactiveInviteCodes(
   );
 }
 
+// CSV helper utilities
+function _escapeCsv(value: unknown): string {
+  const s = value === null || value === undefined ? "" : String(value);
+  const needsQuoting = /[",\n]/.test(s);
+  const escaped = s.replace(/"/g, '""');
+  return needsQuoting ? `"${escaped}"` : escaped;
+}
+
+function _statusToString(s: number | null | undefined): string {
+  switch (s) {
+    case 0:
+      return "unused";
+    case 1:
+      return "used";
+    case 2:
+      return "revoked";
+    case 3:
+      return "expired";
+    default:
+      return s === null || s === undefined ? "" : String(s);
+  }
+}
+
+function _formatDate(v: string | null): string {
+  if (!v) return "";
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? String(v) : d.toDateString();
+}
+
 ////// ROUTES //////
 
 // POST /api/v3/treevite/waves
@@ -655,5 +684,144 @@ export async function handle_GET_treevite_invites(req: any, res: any) {
     });
   } catch (err) {
     failJson(res, 500, "polis_err_treevite_list_invites", err);
+  }
+}
+
+// GET /api/v3/treevite/invites/csv
+// Download all owner invites for a conversation as CSV (no filtering, no pagination)
+export async function handle_GET_treevite_invites_csv(req: any, res: any) {
+  try {
+    const zid = req.p.zid;
+
+    if (typeof zid !== "number") {
+      failJson(res, 400, "polis_err_treevite_missing_zid");
+      return;
+    }
+
+    // Fetch all owner invites for the conversation
+    const rows = (await pg.queryP_readOnly(
+      "select i.id, i.zid, i.wave_id, w.wave, i.invite_code, i.status, i.invite_used_by_pid, i.invite_used_at, i.created_at, i.updated_at from treevite_invites i left join treevite_waves w on i.wave_id = w.id where i.zid = ($1) and i.invite_owner_pid is null order by i.created_at desc;",
+      [zid]
+    )) as {
+      id: number;
+      zid: number;
+      wave_id: number | null;
+      wave: number | null;
+      invite_code: string;
+      status: number;
+      invite_used_by_pid: number | null;
+      invite_used_at: string | null;
+      created_at: string;
+      updated_at: string;
+    }[];
+
+    // Build CSV (simplified)
+    // Columns: wave, invite_code, status (string), invite_used_at (date), created_at (date)
+    const headers = [
+      "wave",
+      "invite_code",
+      "status",
+      "invite_used_at",
+      "created_at",
+    ];
+
+    const escapeCsv = _escapeCsv;
+
+    const statusToString = _statusToString;
+    const formatDate = _formatDate;
+
+    const lines: string[] = [];
+    lines.push(headers.join(","));
+    for (const row of rows) {
+      const values = [
+        row.wave ?? "",
+        row.invite_code,
+        statusToString(row.status),
+        formatDate(row.invite_used_at),
+        formatDate(row.created_at),
+      ].map(escapeCsv);
+      lines.push(values.join(","));
+    }
+
+    const csv = lines.join("\n");
+
+    // Filename with conversation_id for clarity
+    const conversationId = (await getZinvite(zid)) as string;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="treevite_invites_${conversationId}_${timestamp}.csv"`
+    );
+    res.status(200).send(csv);
+  } catch (err) {
+    failJson(res, 500, "polis_err_treevite_list_invites_csv", err);
+  }
+}
+
+// GET /api/v3/treevite/myInvites/csv
+// Download participant-owned invites as CSV (no filtering, no pagination)
+export async function handle_GET_treevite_myInvites_csv(req: any, res: any) {
+  try {
+    const zid = req.p.zid;
+    const pid = req.p.pid;
+
+    if (typeof zid !== "number") {
+      failJson(res, 400, "polis_err_treevite_missing_zid");
+      return;
+    }
+
+    // If pid is undefined or -1, user hasn't participated in this conversation yet
+    if (typeof pid !== "number" || pid === -1) {
+      const headers = ["invite_code", "status", "created_at"]; // simplified columns
+      const csv = headers.join(",") + "\n"; // header-only CSV
+      const conversationId = (await getZinvite(zid)) as string;
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="my_treevite_invites_${conversationId}_${timestamp}.csv"`
+      );
+      res.status(200).send(csv);
+      return;
+    }
+
+    const rows = (await pg.queryP_readOnly(
+      "select id, invite_code, status, created_at from treevite_invites where zid = ($1) and invite_owner_pid = ($2) and status = 0 order by id asc;",
+      [zid, pid]
+    )) as {
+      id: number;
+      invite_code: string;
+      status: number;
+      created_at: string;
+    }[];
+
+    const headers = ["invite_code", "status", "created_at"]; // simplified columns
+    const escapeCsv = _escapeCsv;
+    const statusToString = _statusToString;
+    const formatDate = _formatDate;
+
+    const lines: string[] = [];
+    lines.push(headers.join(","));
+    for (const row of rows) {
+      const values = [
+        row.invite_code,
+        statusToString(row.status),
+        formatDate(row.created_at),
+      ].map(escapeCsv);
+      lines.push(values.join(","));
+    }
+
+    const csv = lines.join("\n");
+    const conversationId = (await getZinvite(zid)) as string;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="my_treevite_invites_${conversationId}_${timestamp}.csv"`
+    );
+    res.status(200).send(csv);
+  } catch (err) {
+    failJson(res, 500, "polis_err_treevite_list_my_invites_csv", err);
   }
 }

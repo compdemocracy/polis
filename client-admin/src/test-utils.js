@@ -57,8 +57,8 @@ export const createTestStore = (preloadedState = {}) => {
       loading: false,
       error: null
     },
-    zid_metadata: {
-      zid_metadata: {},
+    conversationData: {
+      conversation_id: 'test123',
       loading: false,
       error: null
     },

@@ -809,10 +809,13 @@ def generate_visualization(zid, layer_id=0, output_dir=None, dynamo_endpoint=Non
             os.environ['DYNAMODB_ENDPOINT'] = dynamo_endpoint
         
         logger.info(f"DynamoDB endpoint: {os.environ.get('DYNAMODB_ENDPOINT')}")
+
+        region = os.environ.get('AWS_REGION')
         
         # Initialize DynamoDB storage
         dynamo_storage = DynamoDBStorage(
-            endpoint_url=os.environ.get('DYNAMODB_ENDPOINT')
+            endpoint_url=os.environ.get('DYNAMODB_ENDPOINT'),
+            region_name=region
         )
         logger.debug("DynamoDB storage initialized")
         

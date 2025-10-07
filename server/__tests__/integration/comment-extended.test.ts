@@ -112,7 +112,7 @@ describe("Extended Comment Endpoints", () => {
         tid: moderationCommentId,
         conversation_id: conversationId,
         active: true, // Required - determines if comment is active
-        mod: 1, // Required - moderation status (0=ok, 1=hidden, etc.)
+        mod: 1, // Required - moderation status (-1=reject, 0=no action, 1=accept)
         is_meta: false, // Required - meta comment flag
         velocity: 1, // Required - comment velocity (0-1)
       });
@@ -204,7 +204,7 @@ describe("Extended Comment Endpoints", () => {
         tid: comment2Id,
         conversation_id: conversationId,
         active: true,
-        mod: 1,
+        mod: -1,
         is_meta: false,
         velocity: 1,
       });
@@ -213,7 +213,7 @@ describe("Extended Comment Endpoints", () => {
 
     // Test filtering by specific tids
     const filteredByTidsResponse: Response = await agent.get(
-      `/api/v3/comments?conversation_id=${conversationId}&tids=${comment2Id},${comment3Id}`
+      `/api/v3/comments?conversation_id=${conversationId}&tids=${comment1Id},${comment3Id}`
     );
 
     expect(filteredByTidsResponse.status).toBe(200);
@@ -224,7 +224,7 @@ describe("Extended Comment Endpoints", () => {
 
     // The comment IDs we just created should be in the results
     const filteredCommentIds = filteredByTids.map((c) => c.tid);
-    expect(filteredCommentIds).toContain(comment2Id);
+    expect(filteredCommentIds).toContain(comment1Id);
     expect(filteredCommentIds).toContain(comment3Id);
 
     // Test filtering by moderation status and tids
@@ -236,11 +236,12 @@ describe("Extended Comment Endpoints", () => {
     const filteredByMod: Comment[] = JSON.parse(filteredByModResponse.text);
 
     expect(Array.isArray(filteredByMod)).toBe(true);
-    expect(filteredByMod.length).toBe(1);
+    expect(filteredByMod.length).toBe(2);
 
     // The comment ID we just moderated should be in the results
     const moderatedCommentIds = filteredByMod.map((c) => c.tid);
-    expect(moderatedCommentIds).toContain(comment2Id);
+    expect(moderatedCommentIds).toContain(comment1Id);
+    expect(moderatedCommentIds).toContain(comment3Id);
   });
 
   test("GET /comments/translations - returns 400 for missing conversation_id", async () => {

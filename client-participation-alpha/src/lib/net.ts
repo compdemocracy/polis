@@ -283,11 +283,108 @@ async function polisGet<T = any>(api: string, data?: Record<string, any>): Promi
   }
 }
 
+// Download a CSV (or other blob) while including the correct Authorization header
+async function downloadCsv(
+  api: string,
+  data?: Record<string, any>,
+  filename?: string
+): Promise<void> {
+  if (typeof api !== 'string') {
+    throw new Error('api param should be a string');
+  }
+
+  // Build URL
+  let url: string;
+  const isAbsolute = /^(https?:)?\/\//i.test(api);
+  if (isAbsolute) {
+    url = api;
+  } else {
+    const apiPath = api.startsWith('/') ? api : `/${api}`;
+    url = `${SERVICE_BASE}${apiPath}`;
+  }
+
+  const method = 'GET';
+  if (data && Object.keys(data).length > 0) {
+    const queryParams = new URLSearchParams(data);
+    url += `?${queryParams.toString()}`
+  }
+
+  const headers: Record<string, string> = {
+    'Accept': 'text/csv'
+  };
+
+  // Authorization: prefer OIDC access token, fall back to conversation JWT
+  try {
+    const oidcToken = await getAccessTokenSilentlySPA();
+    if (oidcToken) {
+      headers.Authorization = `Bearer ${oidcToken}`;
+    } else {
+      let conversationId: string | null = null;
+      if (data && (data as any).conversation_id) {
+        conversationId = (data as any).conversation_id;
+      } else if (typeof window !== 'undefined') {
+        conversationId = getConversationIdFromUrl();
+      }
+      if (conversationId) {
+        const conversationToken = getConversationToken(conversationId);
+        if (conversationToken && conversationToken.token) {
+          headers.Authorization = `Bearer ${conversationToken.token}`;
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('⚠️ Error getting access token for CSV download:', error);
+  }
+
+  // Timeout
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method,
+      headers,
+      signal: controller.signal
+    });
+  } catch (err: any) {
+    if (err && err.name === 'AbortError') {
+      const error: PolisApiError = new Error(`Request timed out after ${REQUEST_TIMEOUT_MS}ms: ${method} ${url}`);
+      (error as any).status = 408;
+      throw error;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    const error: PolisApiError = new Error(`Polis API Error: ${method} ${url} failed with status ${response.status} (${response.statusText})`);
+    error.responseText = errorText;
+    error.status = response.status;
+    handleAuthError(error, response);
+    throw error;
+  }
+
+  const blob = await response.blob();
+  const downloadUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const convId = (data && (data as any).conversation_id) || (typeof window !== 'undefined' ? getConversationIdFromUrl() : '') || '';
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  a.href = downloadUrl;
+  a.download = filename || `my_treevite_invites_${convId}_${ts}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(downloadUrl), 0);
+}
+
 const PolisNet = {
   polisFetch: polisFetch,
   polisPost: polisPost,
   polisPut: polisPut,
   polisGet: polisGet,
-  getAccessTokenSilentlySPA
+  getAccessTokenSilentlySPA,
+  downloadCsv
 }
 export default PolisNet

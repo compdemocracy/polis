@@ -1,7 +1,7 @@
 import Layout from './lander-layout'
 import { Heading, Box, Text, Link } from 'theme-ui'
-import ExploreKnowledgeBase from './exploreKnowledgeBase'
-import Press from './press'
+import ExploreKnowledgeBase from './ExploreKnowledgeBase'
+import Press from './Press'
 
 const Index = () => {
   return (

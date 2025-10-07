@@ -30,7 +30,7 @@ from polismath_commentgraph.utils.group_data import GroupDataProcessor
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def calculate_and_store_extremity(conversation_id: int, force_recalculation: bool = False) -> Dict[int, float]:
+def calculate_and_store_extremity(conversation_id: int, force_recalculation: bool = False, include_moderation: bool = False) -> Dict[int, float]:
     """
     Calculate and store extremity values for all comments in a conversation.
     
@@ -58,7 +58,7 @@ def calculate_and_store_extremity(conversation_id: int, force_recalculation: boo
                 
         # Process the conversation data - this will calculate comment extremity 
         # values and store them in DynamoDB
-        export_data = group_processor.get_export_data(int(conversation_id))
+        export_data = group_processor.get_export_data(int(conversation_id), include_moderation)
         
         # Extract extremity values from the processed data
         extremity_values = {}
@@ -166,6 +166,8 @@ def main():
     parser.add_argument('--zid', type=int, required=True, help='Conversation ID')
     parser.add_argument('--force', action='store_true', help='Force recalculation of values')
     parser.add_argument('--verbose', action='store_true', help='Show detailed output')
+    parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
+    args = parser.parse_args()
     args = parser.parse_args()
     
     # Set log level based on verbosity
@@ -173,7 +175,7 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
     
     # Calculate and store extremity values
-    extremity_values = calculate_and_store_extremity(args.zid, args.force)
+    extremity_values = calculate_and_store_extremity(args.zid, args.force, args.include_moderation)
     
     # Print report
     print_extremity_report(extremity_values)

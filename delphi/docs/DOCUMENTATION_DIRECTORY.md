@@ -51,6 +51,7 @@ This document provides an overview of key documentation files in the Delphi syst
 | Document | Description |
 |----------|-------------|
 | [algorithm_analysis.md](algorithm_analysis.md) | Analysis of the core algorithms used in Delphi |
+| [TOPIC_NAMING.md](TOPIC_NAMING.md) | Topic naming pipeline: exact prompt, deterministic 5‑comment sampling, logging, storage |
 | [usage_examples.md](usage_examples.md) | Examples of system usage and output interpretations |
 
 ## Testing and Development

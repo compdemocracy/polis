@@ -423,15 +423,13 @@ async function _ensureParticipantInternal(
     throw new Error("polis_err_user_not_found");
   }
 
-  // Early Treevite check - before creating new participants
-  // Block unauthorized users from Treevite-enabled conversations
-  if ((!pid || pid === -1) && (createIfMissing || req.p.xid)) {
+  if ((pid === undefined || pid === -1) && (createIfMissing || req.p.xid)) {
     // Check if this conversation requires Treevite authorization
     // Apply to both normal participant creation and XID user creation
     const convRows = (await pg.queryP_readOnly(
-      "select treevite_enabled from conversations where zid = ($1);",
+      "select treevite_enabled, owner from conversations where zid = ($1);",
       [zid]
-    )) as { treevite_enabled: boolean }[];
+    )) as { treevite_enabled: boolean; owner: number }[];
 
     const treeviteEnabled = !!(
       convRows &&
@@ -440,9 +438,15 @@ async function _ensureParticipantInternal(
     );
 
     if (treeviteEnabled) {
-      // This person wants to become a participant in a Treevite conversation
-      // but has no existing participation - block them
-      throw new Error("polis_err_treevite_auth_required");
+      // Check if the current user is the conversation owner
+      const isOwner = uid !== undefined && convRows[0].owner === uid;
+
+      if (!isOwner) {
+        // This person wants to become a participant in a Treevite conversation
+        // but has no existing participation and is not the owner - block them
+        throw new Error("polis_err_treevite_auth_required");
+      }
+      // Owners are allowed to participate without an invite
     }
   }
 

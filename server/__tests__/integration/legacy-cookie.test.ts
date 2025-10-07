@@ -9,10 +9,14 @@ import { v4 as uuidv4 } from "uuid";
 async function addPermanentCookie(zid: number, uid: number): Promise<string> {
   const permanentCookie = uuidv4().replace(/-/g, ""); // Generate a unique cookie
 
+  // Use INSERT ... ON CONFLICT to ensure the row exists
   await new Promise((resolve, reject) => {
     pg.query(
-      "UPDATE participants_extended SET permanent_cookie = $1 WHERE zid = $2 AND uid = $3",
-      [permanentCookie, zid, uid],
+      `INSERT INTO participants_extended (zid, uid, permanent_cookie) 
+       VALUES ($1, $2, $3)
+       ON CONFLICT (zid, uid) 
+       DO UPDATE SET permanent_cookie = $3`,
+      [zid, uid, permanentCookie],
       (err: any) => {
         if (err) reject(err);
         else resolve(true);

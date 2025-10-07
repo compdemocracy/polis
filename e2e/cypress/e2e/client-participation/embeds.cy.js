@@ -113,7 +113,7 @@ describe('Embedded Conversations', function () {
 
       // Test that we can generate embed HTML with different configurations
       cy.exec(`npm run build:embed -- --id=${this.convoId} --url=${embedUrl}`).then((result) => {
-        expect(result.code).to.equal(0)
+        expect(result.exitCode).to.equal(0)
         expect(result.stdout).to.contain(
           `Generated ./embed/index.html with Conversation ID ${this.convoId}`,
         )
@@ -134,7 +134,7 @@ describe('Embedded Conversations', function () {
       cy.exec(
         `npm run build:embed -- --id=${this.convoId} --url=${embedUrl} --ucv=false --ucw=false --ucsf=false`,
       ).then((result) => {
-        expect(result.code).to.equal(0)
+        expect(result.exitCode).to.equal(0)
       })
 
       // Verify the generated file contains custom parameters

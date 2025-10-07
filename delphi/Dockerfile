@@ -3,6 +3,7 @@
 
   # Define a build argument to signal if running in GitHub Actions
   ARG IS_GITHUB_ACTION=false
+  ARG AWS_REGION
   
   ENV PYTHONDONTWRITEBYTECODE=1
   ENV PYTHONUNBUFFERED=1
@@ -68,6 +69,7 @@
   ENV PYTHONDONTWRITEBYTECODE=1
   ENV PYTHONUNBUFFERED=1
   ENV NUMBA_DISABLE_JIT=${NUMBA_DISABLE_JIT}
+  ENV AWS_REGION ${AWS_REGION:-us-east-1}
   
   RUN apt-get update && \
       apt-get install -y --no-install-recommends \
@@ -94,9 +96,9 @@
   COPY scripts/setup_ollama.sh ./setup_ollama.sh
   RUN chmod +x run_delphi.py setup_ollama.sh
   
-  CMD ["bash", "-c", "\
-    echo 'Ensuring DynamoDB tables are set up (runs in all environments)...'; \
-    python create_dynamodb_tables.py && \
+  CMD ["bash", "-c", \
+    "echo 'Ensuring DynamoDB tables are set up (runs in all environments)...'; \
+    python create_dynamodb_tables.py --region ${AWS_REGION} && \
     echo 'DynamoDB table setup script finished.'; \
     \
     if [ -n \"${DYNAMODB_ENDPOINT}\" ]; then \
@@ -107,7 +109,12 @@
       python scripts/job_poller.py --interval=2; \
     else \
       echo 'DYNAMODB_ENDPOINT is not set, assuming production-like environment. Skipping local setup scripts.'; \
-      echo 'Starting job poller WITH ddtrace...' && \
-      ddtrace-run python scripts/job_poller.py --interval=2; \
+      if [ \"${AWS_REGION}\" = \"us-east-1\" ]; then \
+        echo 'Starting job poller WITH ddtrace in us-east-1...' && \
+        ddtrace-run python scripts/job_poller.py --interval=2 --region ${AWS_REGION}; \
+      else \
+        echo 'Starting job poller WITHOUT ddtrace in other regions...' && \
+        python scripts/job_poller.py --interval=2 --region ${AWS_REGION}; \
+      fi; \
     fi \
   "]

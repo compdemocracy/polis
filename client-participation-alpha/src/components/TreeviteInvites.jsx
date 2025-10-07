@@ -92,6 +92,14 @@ export default function TreeviteInvites({ conversation_id, s }) {
     } catch (_) {}
   };
 
+  const onDownloadCsv = async () => {
+    try {
+      await PolisNet.downloadCsv('/treevite/myInvites/csv', { conversation_id });
+    } catch (e) {
+      // noop: errors are surfaced via network logs; keep UI simple
+    }
+  };
+
   return (
     <div className="tv-invites" style={{ marginTop: '1rem' }}>
       <style>{styles}</style>
@@ -115,7 +123,10 @@ export default function TreeviteInvites({ conversation_id, s }) {
           {waveText && <p style={{ marginTop: 0 }}>{waveText}</p>}
           {hasInvites ? (
             <>
-              <p style={{ marginBottom: '8px' }}>{s.invites_instructions || 'Copy and share these invite codes to invite new participants:'}</p>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '8px' }}>
+                <p style={{ margin: 0 }}>{s.invites_instructions || 'Copy and share these invite codes to invite new participants:'}</p>
+                <button className="tv-download-btn" onClick={onDownloadCsv}>{s.download_invites_csv || 'Download CSV'}</button>
+              </div>
               <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
                 {me.invites.map((inv) => (
                   <li key={inv.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #f1f1f1' }}>
@@ -173,6 +184,13 @@ const styles = `
   cursor: pointer;
 }
 .tv-copy-btn.copied { background: #d1e7dd; border-color: #a3cfbb; color: #0f5132; }
+.tv-download-btn {
+  border: 1px solid #ccc;
+  background: #fafafa;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
 `;
 
 

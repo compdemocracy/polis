@@ -183,10 +183,9 @@ export async function handle_GET_delphi_visualizations(
           .replace(/^https?:\/\//, "")
           .replace(/\/$/, "");
         const protocol = publicEndpoint.startsWith("https") ? "https" : "http";
-        url =
-          publicEndpoint === "https://polis-delphi.s3.us-east-1.amazonaws.com"
-            ? `${publicEndpoint}/${key}`
-            : `${protocol}://${cleanEndpoint}/${bucketName}/${key}`;
+        url = publicEndpoint.startsWith("https://polis-delphi")
+          ? `${publicEndpoint}/${key}`
+          : `${protocol}://${cleanEndpoint}/${bucketName}/${key}`;
       } catch (err: any) {
         logger.error(
           `Error generating signed URL for ${key}: ${err.message || err}`

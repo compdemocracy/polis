@@ -25,6 +25,7 @@ import {
   middleware_log_middleware_errors,
   middleware_log_request_body,
   middleware_responseTime_start,
+  middleware_http_json_logger,
   globalErrorHandler,
   setupGlobalProcessHandlers,
 } from "./src/server-middleware";
@@ -172,6 +173,8 @@ import {
   handle_GET_treevite_myInvites,
   handle_GET_treevite_invites,
   handle_GET_treevite_me,
+  handle_GET_treevite_invites_csv,
+  handle_GET_treevite_myInvites_csv,
 } from "./src/invites/treevites";
 
 import {
@@ -214,14 +217,20 @@ import {
 } from "./src/utils/parameter";
 
 const app = express();
+const devMode = Config.isDevMode;
 const hostname = Config.staticFilesHost;
 const staticFilesAdminPort = Config.staticFilesAdminPort;
 const staticFilesParticipationPort = Config.staticFilesParticipationPort;
 const HMAC_SIGNATURE_PARAM_NAME = "signature";
 
-// 'dev' format is
-// :method :url :status :response-time ms - :res[content-length]
-app.use(morgan("dev"));
+// Dev-only http logger; Datadog JSON logger is enabled in prod via middleware
+if (devMode) {
+  // 'dev' format is
+  // :method :url :status :response-time ms - :res[content-length]
+  app.use(morgan("dev"));
+} else {
+  app.use(middleware_http_json_logger);
+}
 
 // Trust the X-Forwarded-Proto and X-Forwarded-Host, but only on private subnets.
 // See: https://github.com/pol-is/polis/issues/546
@@ -287,13 +296,7 @@ helpersInitialized.then(
     app.use(express.cookieParser()); // Add cookie parser to access req.cookies
     app.use(writeDefaultHead);
 
-    if (Config.isDevMode) {
-      app.use(express.compress());
-    } else {
-      // Cloudflare would apply gzip if we didn't
-      // but it's about 2x faster if we do the gzip (for the inbox query on mike's account)
-      app.use(express.compress());
-    }
+    app.use(express.compress());
     app.use(middleware_log_request_body);
     app.use(middleware_log_middleware_errors);
 
@@ -1568,6 +1571,7 @@ helpersInitialized.then(
       want("conversation_id", getStringLimitLength(6, 300), assignToP, ""),
       want("is_data_open", getBool, assignToP, false),
       want("ownerXid", getStringLimitLength(1, 999), assignToP),
+      want("treevite_enabled", getBool, assignToP, false),
       handle_POST_conversations
     );
 
@@ -1735,6 +1739,18 @@ helpersInitialized.then(
     );
 
     app.get(
+      "/api/v3/treevite/invites/csv",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_treevite_invites_csv
+    );
+
+    app.get(
       "/api/v3/treevite/me",
       moveToBody,
       hybridAuth(assignToP),
@@ -1745,6 +1761,19 @@ helpersInitialized.then(
       ),
       ensureParticipantOptional({ createIfMissing: false, issueJWT: false }),
       handle_GET_treevite_me
+    );
+
+    app.get(
+      "/api/v3/treevite/myInvites/csv",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      ensureParticipantOptional({ createIfMissing: false, issueJWT: false }),
+      handle_GET_treevite_myInvites_csv
     );
 
     app.post(

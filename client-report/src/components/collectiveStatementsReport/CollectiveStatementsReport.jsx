@@ -242,7 +242,7 @@ const CollectiveStatementsReport = ({ conversation, report_id, math, comments, p
           flex: 1,
           display: "flex",
           flexDirection: windowWidth < 992 ? "column" : "row",
-          overflow: "hidden",
+          overflow: "scroll",
           height: cardHeight
         }}>
           {/* Statement Text */}
@@ -295,8 +295,9 @@ const CollectiveStatementsReport = ({ conversation, report_id, math, comments, p
           <div style={{
             flex: windowWidth < 992 ? "1 1 auto" : "0 0 60%",
             padding: "30px",
-            overflowY: windowWidth < 992 ? "hidden" : "auto",
-            overflowX: windowWidth < 992 ? "auto" : "hidden",
+            overflowY: "scroll",
+            width: "100%",
+            overflowX: "visible",
             backgroundColor: "#fafafa",
             minHeight: 0
           }}>

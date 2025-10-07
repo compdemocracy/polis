@@ -46,6 +46,51 @@ function middleware_log_request_body(
   next();
 }
 
+// Datadog-friendly HTTP access log middleware (prod only)
+function middleware_http_json_logger(
+  req: ExpressRequest,
+  res: ExpressResponse,
+  next: () => void
+) {
+  if (devMode) {
+    return next();
+  }
+
+  const startNs = process.hrtime.bigint();
+
+  res.on("finish", () => {
+    const durationMs = Number(process.hrtime.bigint() - startNs) / 1e6;
+    const statusCode = res.statusCode;
+
+    const log: Record<string, unknown> = {
+      message: "http_request",
+      service: "server",
+      env: Config.ddEnv || "prod",
+      http: {
+        method: req.method,
+        url: req.originalUrl,
+        route: (req as unknown as { route?: { path?: string } }).route?.path,
+        status_code: statusCode,
+      },
+      network: { client: { ip: req.ip } },
+      useragent: (req.headers as Record<string, string | string[] | undefined>)[
+        "user-agent"
+      ],
+      duration_ms: durationMs,
+    };
+
+    // status level for Datadog coloring
+    let level: "error" | "warn" | "info";
+    if (statusCode >= 500) level = "error";
+    else if (statusCode >= 400) level = "warn";
+    else level = "info";
+
+    logger.log(level, "http_request", log);
+  });
+
+  next();
+}
+
 function middleware_log_middleware_errors(
   err: any,
   req: ExpressRequest,
@@ -84,16 +129,27 @@ const middleware_responseTime_start = responseTime(function (
 
 // Global error handler to prevent crashes from database constraint violations
 // This is a safety net for errors that might not be caught in route handlers
-function globalErrorHandler(err: any, req: any, res: any, next: any) {
-  // Log the error for debugging
-  logger.error("Global error handler caught error:", {
-    error: err.message,
+function globalErrorHandler(
+  err: any,
+  req: ExpressRequest,
+  res: ExpressResponse,
+  next: (e?: any) => void
+) {
+  // Datadog-friendly structured error log
+  const status = res.statusCode >= 400 ? res.statusCode : 500;
+  logger.error("request_error", {
+    status: status >= 500 ? "error" : "warn",
+    service: "server",
+    env: Config.ddEnv || "prod",
+    http: {
+      method: req.method,
+      url: req.originalUrl,
+      status_code: status,
+    },
+    error: { kind: err.name, stack: err.stack, message: err.message },
     code: err.code,
     constraint: err.constraint,
-    stack: err.stack,
-    url: req.originalUrl,
-    method: req.method,
-    oidcSub: req.jwtPayload?.sub || req.p?.oidcSub,
+    oidcSub: (req as any).jwtPayload?.sub || (req as any).p?.oidcSub,
   });
 
   // Handle database constraint violations specifically
@@ -163,7 +219,7 @@ function globalErrorHandler(err: any, req: any, res: any, next: any) {
     error: "internal_server_error",
     message: "An unexpected error occurred. Please try again.",
     // Include error details in development mode only
-    ...(Config.isDevMode && {
+    ...(devMode && {
       details: err.message,
       stack: err.stack,
     }),
@@ -223,6 +279,7 @@ export {
   middleware_log_middleware_errors,
   middleware_check_if_options,
   middleware_responseTime_start,
+  middleware_http_json_logger,
   globalErrorHandler,
   setupGlobalProcessHandlers,
 };
