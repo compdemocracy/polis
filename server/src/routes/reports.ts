@@ -63,7 +63,7 @@ function handle_POST_reports(
 ) {
   const zid = req.p.zid;
   const uid = req.p.uid;
-  const mod_level = req.p.mod_level || -2;
+  const mod_level = Number(req.p.mod_level ?? -2);
 
   return isModerator(zid, uid)
     .then((isMod: any) => {

@@ -1,14 +1,14 @@
 // Colors
-const yellow200 = '#FFF59D'
-const deepOrange600 = '#F4511E'
-const lime300 = '#DCE775'
-const lightGreen500 = '#8BC34A'
-const teal700 = '#00796B'
+const yellow200 = '#fff59d'
+const deepOrange600 = '#f4511e'
+const lime300 = '#dce775'
+const lightGreen500 = '#8bc34a'
+const teal700 = '#00796b'
 const cyan900 = '#006064'
 const colors = [deepOrange600, yellow200, lime300, lightGreen500, teal700, cyan900]
-const blueGrey50 = '#ECEFF1'
-const blueGrey300 = '#90A4AE'
-const blueGrey700 = '#455A64'
+const blueGrey50 = '#eceff1'
+const blueGrey300 = '#90a4ae'
+const blueGrey700 = '#455a64'
 const grey900 = '#212121'
 
 // Typography

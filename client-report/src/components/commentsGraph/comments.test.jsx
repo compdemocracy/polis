@@ -23,16 +23,18 @@ describe('Comments Component', () => {
 
   it('renders comments correctly', () => {
     render(
-      <Comments
-        points={mockPoints}
-        formatTid={mockFormatTid}
-        handleClick={mockHandleClick}
-        comments={mockComments}
-        xCenter={mockXCenter}
-        xScaleup={mockXScaleup}
-        yCenter={mockYCenter}
-        yScaleup={mockYScaleup}
-      />
+      <svg>
+        <Comments
+          points={mockPoints}
+          formatTid={mockFormatTid}
+          handleClick={mockHandleClick}
+          comments={mockComments}
+          xCenter={mockXCenter}
+          xScaleup={mockXScaleup}
+          yCenter={mockYCenter}
+          yScaleup={mockYScaleup}
+        />
+      </svg>
     );
 
     // Check if the correct number of comments are rendered (excluding the meta comment)
@@ -41,16 +43,18 @@ describe('Comments Component', () => {
 
   it('calls handleClick when a comment is clicked', () => {
     render(
-      <Comments
-        points={mockPoints}
-        formatTid={mockFormatTid}
-        handleClick={mockHandleClick}
-        comments={mockComments}
-        xCenter={mockXCenter}
-        xScaleup={mockXScaleup}
-        yCenter={mockYCenter}
-        yScaleup={mockYScaleup}
-      />
+      <svg>
+        <Comments
+          points={mockPoints}
+          formatTid={mockFormatTid}
+          handleClick={mockHandleClick}
+          comments={mockComments}
+          xCenter={mockXCenter}
+          xScaleup={mockXScaleup}
+          yCenter={mockYCenter}
+          yScaleup={mockYScaleup}
+        />
+      </svg>
     );
 
     // Simulate click on the first comment

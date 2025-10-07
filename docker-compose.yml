@@ -44,6 +44,10 @@ services:
       - INTERNAL_SERVICE_URL=${INTERNAL_SERVICE_URL}
       - PUBLIC_OIDC_CACHE_KEY_PREFIX=${OIDC_CACHE_KEY_PREFIX}
       - PUBLIC_OIDC_CACHE_KEY_ID_TOKEN_SUFFIX=${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_ENABLED=true
+      - DD_SERVICE=cpa
+      - DD_ENV=prod
     depends_on:
       - "server"
 
@@ -51,6 +55,13 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - DATABASE_SSL=${DATABASE_SSL}
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_ENABLED=true
+      - DD_SERVICE=server
+      - DD_ENV=prod 
+      - DD_LOGS_INJECTION=true
+      - DD_TRACE_SAMPLE_RATE="1"
+      - DD_GIT_REPOSITORY_URL="github.com/compdemocracy/polis"
     env_file:
       - ${SERVER_ENV_FILE:-.env}
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/server:latest
@@ -62,6 +73,7 @@ services:
         NODE_ENV: production
     labels:
       polis_tag: ${TAG:-dev}
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "server"}]'
     networks:
       - "polis-net"
     # Scale the server container to a given number of instances.
@@ -79,6 +91,7 @@ services:
       context: ./math
     labels:
       polis_tag: ${TAG:-dev}
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "math"}]'
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - LOGGING_LEVEL=${MATH_LOG_LEVEL:-warn}
@@ -87,6 +100,12 @@ services:
       - WEBSERVER_PASS=${WEBSERVER_PASS}
       # Database connection pool configuration for math service
       - DATABASE_POOL_SIZE=${MATH_DATABASE_POOL_SIZE:-10}
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_ENABLED=true
+      - DD_TRACE_SAMPLE_RATE="1"
+      - DD_SERVICE=math
+      - DD_ENV=prod
+      - DD_LOGS_INJECTION=true
     networks:
       - "polis-net"
     restart: unless-stopped
@@ -99,6 +118,7 @@ services:
       context: ./delphi
     labels:
       polis_tag: ${TAG:-dev}
+      com.datadoghq.ad.logs: '[{"source": "python", "service": "delphi"}]'
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
@@ -130,6 +150,13 @@ services:
       - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
       - NUMBA_DISABLE_JIT=${NUMBA_DISABLE_JIT:-1}
       - INSTANCE_SIZE=${INSTANCE_SIZE:-default}
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_ENABLED=true
+      - DD_SERVICE=delphi
+      - DD_ENV=prod
+      - DD_LOGS_INJECTION=true
+      - DD_TRACE_SAMPLE_RATE="1" 
+      - DD_GIT_REPOSITORY_URL="github.com/compdemocracy/polis"
     networks:
       - "polis-net"
     extra_hosts:
@@ -152,6 +179,10 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_USER=${POSTGRES_USER}
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_ENABLED=true
+      - DD_SERVICE=postgress
+      - DD_ENV=prod
     networks:
       - "polis-net"
     volumes:
@@ -184,16 +215,20 @@ services:
       context: ./
       dockerfile: file-server/Dockerfile
       args:
+        ADMIN_UIDS: ${ADMIN_UIDS}
         AUTH_AUDIENCE: ${AUTH_AUDIENCE}
-        AUTH_NAMESPACE: ${AUTH_NAMESPACE}
         AUTH_CLIENT_ID: ${AUTH_CLIENT_ID}
         AUTH_ISSUER: ${AUTH_ISSUER}
+        AUTH_NAMESPACE: ${AUTH_NAMESPACE}
+        DD_APPLICATION_ID: ${DD_APPLICATION_ID}
+        DD_CLIENT_TOKEN: ${DD_CLIENT_TOKEN}
+        DD_SITE: ${DD_SITE}
         EMBED_SERVICE_HOSTNAME: ${EMBED_SERVICE_HOSTNAME}
         GA_TRACKING_ID: ${GA_TRACKING_ID}
         GIT_HASH: "${GIT_HASH:-placeholder}"
         NODE_ENV: production
-        OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}
         OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: ${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
+        OIDC_CACHE_KEY_PREFIX: ${OIDC_CACHE_KEY_PREFIX}
     labels:
       polis_tag: ${TAG:-dev}
     environment:
@@ -226,6 +261,11 @@ services:
     container_name: ollama
     ports:
       - "11434:11434"
+    environment:
+      - DD_AGENT_HOST=datadog-agent
+      - DD_TRACE_ENABLED=true
+      - DD_SERVICE=ollama
+      - DD_ENV=prod
     volumes:
       - ollama-models:/root/.ollama
     networks:
@@ -233,6 +273,7 @@ services:
     # Run ollama server
     command: serve
     restart: unless-stopped
+    
 
   # MinIO S3-compatible storage
   minio:
@@ -255,6 +296,47 @@ services:
       - "polis-net"
     profiles:
       - local-services
+  
+  # datadog
+  datadog-agent:
+    image: datadog/agent:7
+    container_name: dd-agent
+    networks:
+      - "polis-net"
+    ports:
+      - "8126:8126/tcp"
+    environment:
+      - DD_API_KEY=${DD_API_KEY}
+      - DD_SITE=${DD_SITE}
+      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
+      - DD_APM_ENABLED=true
+      - DD_APM_NON_LOCAL_TRAFFIC=true
+      - DD_PROCESS_CONFIG_PROCESS_COLLECTION_ENABLED=true
+      - DD_LOGS_ENABLED=true
+      - DD_SYSTEM_PROBE_NETWORK_ENABLED=true
+      - DD_PROCESS_AGENT_ENABLED=true
+      - DD_APM_INSTRUMENTATION_ENABLED=host
+      - DD_APM_ERROR_TRACKING_STANDALONE=true
+      - DD_APM_INSTRUMENTATION_LIBRARIES=js:5,python:3,java:1
+    volumes:
+      # These volumes are essential for the agent to monitor the host and other containers
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /proc/:/host/proc/:ro
+      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
+      - /sys/kernel/debug:/sys/kernel/debug
+    cap_add:
+      - SYS_ADMIN
+      - SYS_RESOURCE
+      - SYS_PTRACE
+      - NET_ADMIN
+      - NET_BROADCAST
+      - NET_RAW
+      - IPC_LOCK
+      - CHOWN
+    security_opt:
+      - apparmor:unconfined
+    profiles:
+      - prod
 
 networks:
   polis-net:

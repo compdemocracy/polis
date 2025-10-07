@@ -1,28 +1,28 @@
-import { render, screen, fireEvent } from '@testing-library/react'
-import { Provider } from 'react-redux'
 import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
-import theme from '../../theme'
+
 import { CheckboxField } from './CheckboxField'
+import { ConversationDataProvider } from '../../util/conversation_data'
 import * as actions from '../../actions'
+import theme from '../../theme'
 
 // Mock the actions
 jest.mock('../../actions', () => ({
-  handleZidMetadataUpdate: jest.fn()
+  handleConversationDataUpdate: jest.fn()
 }))
 
 // Create a mock store
 const createMockStore = (initialState = {}) => {
   return configureStore({
     reducer: () => ({
-      zid_metadata: {
-        zid_metadata: {
-          is_active: true,
-          vis_type: 1,
-          write_type: 1,
-          help_type: 0,
-          ...initialState
-        }
+      conversationData: {
+        is_active: true,
+        vis_type: 1,
+        write_type: 1,
+        help_type: 0,
+        ...initialState
       }
     })
   })
@@ -33,7 +33,9 @@ const renderWithProviders = (component, { store } = {}) => {
   const mockStore = store || createMockStore()
   return render(
     <ThemeUIProvider theme={theme}>
-      <Provider store={mockStore}>{component}</Provider>
+      <Provider store={mockStore}>
+        <ConversationDataProvider>{component}</ConversationDataProvider>
+      </Provider>
     </ThemeUIProvider>
   )
 }
@@ -65,7 +67,7 @@ describe('CheckboxField', () => {
   })
 
   it('handles boolean field changes', () => {
-    actions.handleZidMetadataUpdate.mockReturnValue({ type: 'TEST' })
+    actions.handleConversationDataUpdate.mockReturnValue({ type: 'TEST' })
 
     renderWithProviders(
       <CheckboxField field="is_active" label="Active">
@@ -76,11 +78,11 @@ describe('CheckboxField', () => {
     const checkbox = screen.getByRole('checkbox')
     fireEvent.click(checkbox)
 
-    expect(actions.handleZidMetadataUpdate).toHaveBeenCalled()
+    expect(actions.handleConversationDataUpdate).toHaveBeenCalled()
   })
 
   it('handles integer boolean field changes', () => {
-    actions.handleZidMetadataUpdate.mockReturnValue({ type: 'TEST' })
+    actions.handleConversationDataUpdate.mockReturnValue({ type: 'TEST' })
 
     renderWithProviders(
       <CheckboxField field="vis_type" label="Visualization" isIntegerBool>
@@ -91,7 +93,7 @@ describe('CheckboxField', () => {
     const checkbox = screen.getByRole('checkbox')
     fireEvent.click(checkbox)
 
-    expect(actions.handleZidMetadataUpdate).toHaveBeenCalled()
+    expect(actions.handleConversationDataUpdate).toHaveBeenCalled()
   })
 
   it('renders unchecked for false boolean value', () => {

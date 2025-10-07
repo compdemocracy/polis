@@ -61,6 +61,7 @@
     "connect-timeout": "~1.9.0",
     "csv-parse": "^5.6.0",
     "csv-to-xml": "^2.0.0",
+    "dd-trace": "^5.65.0",
     "diff": "^7.0.0",
     "dotenv": "^16.6.1",
     "express": "~3.21.2",

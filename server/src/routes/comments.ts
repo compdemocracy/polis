@@ -1,4 +1,3 @@
-/* eslint-disable no-console */
 import _ from "underscore";
 import { ManagementClient } from "auth0";
 import { parse } from "csv-parse/sync";
@@ -7,15 +6,15 @@ import badwords from "badwords/object";
 import { addParticipant } from "../participant";
 import { CommentOptions, GetCommentsParams, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
-import analyzeComment from "../utils/moderation";
 import { getConversationInfo } from "../conversation";
 import { getNextComment } from "../nextComment";
 import { getPidPromise, getUserInfoForUid2 } from "../user";
 import { getZinvite } from "../utils/zinvite";
-import Config from "../config";
 import { isModerator, polisTypes } from "../utils/common";
 import { MPromise } from "../utils/metered";
 import { votesPost } from "./votes";
+import analyzeComment from "../utils/moderation";
+import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import {
@@ -89,9 +88,9 @@ function hasBadWords(txt: string) {
 }
 
 const managementClient = new ManagementClient({
-  domain: Config.AUTH0DOMAIN!,
-  clientId: Config.AUTH0CLIENTID!,
-  clientSecret: Config.AUTH0CLIENTSECRET!,
+  domain: Config.authDomain!,
+  clientId: Config.authClientId!,
+  clientSecret: Config.authClientSecret!,
 });
 
 async function commentExists(zid: number, txt: string): Promise<boolean> {
@@ -122,7 +121,7 @@ async function handle_GET_comments_translations(
     );
 
     const rows =
-      ((existingTranslations as unknown) as any[])?.length > 0
+      (existingTranslations as unknown as any[])?.length > 0
         ? existingTranslations
         : await translateAndStoreComment(zid, tid, comment.txt, lang);
 
@@ -178,29 +177,28 @@ export async function isProConvo(owner: number): Promise<boolean> {
   try {
     const { email } = await getUserInfoForUid2(owner);
     if (!email) {
-      console.log(`No email found for owner ID: ${owner}`);
+      logger.warn(`No email found for owner ID: ${owner}`);
       return false;
     }
     const users = await managementClient.usersByEmail.getByEmail({ email });
 
     if (!users || users.data.length === 0) {
-      console.log(`No Auth0 user found for email: ${email}`);
+      logger.warn(`No OIDC user found for email: ${email}`);
       return false;
     }
     const user = users.data[0];
     const userId = user.user_id;
 
     if (!userId) {
-      console.error(`Auth0 user object for ${email} is missing a user_id.`);
+      logger.error(`OIDC user object for ${email} is missing a user_id.`);
       return false;
     }
     const roles = await managementClient.users.getRoles({ id: userId });
-
     const hasRole = roles.data.some((role) => role.name === "delphi-enabled");
 
     return hasRole;
   } catch (error) {
-    console.error(error);
+    logger.error(error);
     return false;
   }
 }
@@ -232,24 +230,16 @@ function moderateCommentQuery(
   });
 }
 
-// Perform content moderation checks
+// Perform content moderation checks (Pro feature - toxicity analysis and profanity filtering)
+// Note: Seed and moderator comments bypass this function entirely
 async function moderateComment(
   txt: string,
   conversation: any,
-  is_moderator: boolean,
-  is_seed?: boolean,
-  req?: PolisRequest,
   ip?: string | undefined
 ): Promise<CommentModerationResult> {
   let active = true;
   const classifications: string[] = [];
   let mod = 0;
-
-  // Moderator seed comments always pass
-  if (is_moderator || is_seed) {
-    mod = polisTypes.mod.ok;
-    return { active: true, mod, classifications };
-  }
 
   // Run moderation checks in parallel
   const [polisModResponse, bad] = await Promise.all([
@@ -287,13 +277,84 @@ async function moderateComment(
  * Simplified comment handler - all participant management is handled by middleware
  */
 async function handle_POST_comments(req: RequestWithP, res: any) {
-  const { zid, uid, pid, txt, vote, is_seed, xid } = req.p;
+  const { zid, uid, txt, vote, is_seed, xid } = req.p;
+  let { pid } = req.p; // pid may be reassigned if it's -1
 
   try {
     // 1. Validate input
     if (!txt || txt === "") {
       failJson(res, 400, "polis_err_param_missing_txt");
       return;
+    }
+
+    // 1a. Ensure we have a valid pid that exists in the database
+    // Even if middleware set pid, verify it exists to avoid race conditions
+    if (uid === undefined) {
+      failJson(res, 400, "polis_err_missing_uid");
+      return;
+    }
+
+    // Always verify/get the participant to avoid foreign key constraint violations
+    if (pid === undefined || pid === -1) {
+      logger.debug(
+        "Comment handler: pid not set by middleware, getting/creating participant",
+        { zid, uid, pid }
+      );
+      // Try to get existing pid or create participant
+      const existingPid = await getPidPromise(zid, uid, true);
+      if (existingPid === -1) {
+        // Need to create participant
+        const rows = await addParticipant(zid, uid);
+        pid = rows[0].pid;
+        logger.info("Comment handler: created participant", {
+          zid,
+          uid,
+          pid,
+        });
+      } else {
+        pid = existingPid;
+        logger.debug("Comment handler: found existing participant", {
+          zid,
+          uid,
+          pid,
+        });
+      }
+    } else {
+      // Middleware set a pid, but verify it exists to prevent race conditions
+      logger.debug("Comment handler: verifying participant exists", {
+        zid,
+        uid,
+        pid,
+      });
+      const verifiedPid = await getPidPromise(zid, uid, true);
+      if (verifiedPid === -1) {
+        // Participant doesn't exist, create it
+        logger.warn(
+          "Comment handler: middleware provided pid but participant doesn't exist, creating",
+          { zid, uid, middlewarePid: pid }
+        );
+        const rows = await addParticipant(zid, uid);
+        pid = rows[0].pid;
+        logger.info("Comment handler: created participant after verification", {
+          zid,
+          uid,
+          pid,
+        });
+      } else if (verifiedPid !== pid) {
+        // Middleware provided wrong pid, use the correct one
+        logger.warn(
+          "Comment handler: middleware pid mismatch, using verified pid",
+          { zid, uid, middlewarePid: pid, verifiedPid }
+        );
+        pid = verifiedPid;
+      } else {
+        // All good, participant exists
+        logger.debug("Comment handler: participant verified", {
+          zid,
+          uid,
+          pid,
+        });
+      }
     }
 
     // 2. Check for duplicates
@@ -321,9 +382,19 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       req.connection?.socket?.remoteAddress;
 
     // 4. Moderate the comment
-    const { active, mod } = (await isProConvo(conversation.owner))
-      ? await moderateComment(txt, conversation, is_moderator, is_seed, ip)
-      : { active: true, mod: 0 };
+    let active = true;
+    let mod = 0;
+
+    // Always auto-approve seed comments regardless of pro status
+    if (is_seed || is_moderator) {
+      mod = polisTypes.mod.ok;
+      active = true;
+    } else if (await isProConvo(conversation.owner)) {
+      // Only apply pro moderation features to non-seed comments
+      const moderationResult = await moderateComment(txt, conversation, ip);
+      active = moderationResult.active;
+      mod = moderationResult.mod;
+    }
 
     // 5. Detect language
     const detections = await detectLanguage(txt);
@@ -497,9 +568,7 @@ function handle_PUT_comments(
     };
   },
   res: {
-    status: (
-      arg0: number
-    ) => {
+    status: (arg0: number) => {
       (): any;
       new (): any;
       json: { (arg0: {}): void; new (): any };
@@ -549,14 +618,6 @@ async function handle_GET_nextComment(
   if (req.timedout) {
     return;
   }
-
-  logger.info("polis_info_handle_GET_nextComment", {
-    zid: req.p.zid,
-    not_voted_by_pid: req.p.not_voted_by_pid,
-    without: req.p.without,
-    lang: req.p.lang,
-    pid: req.p.pid,
-  });
 
   const pid = req.p.pid || req.p.not_voted_by_pid;
 
@@ -750,7 +811,7 @@ async function handle_POST_comments_bulk(
         let active = true;
 
         let mod = 0;
-        if (is_moderator && is_seed) {
+        if (is_moderator || is_seed) {
           mod = polisTypes.mod.ok;
           active = true;
         }

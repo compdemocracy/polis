@@ -19,11 +19,13 @@
 ### Phase 3 — Admin Tools & Configuration
 
  [x] Add admin control to start/stop invite tree
- [x] Implement manual “Open Next Wave” admin action
+ [x] Implement manual "Open Next Wave" admin action
  [x] Configure waves' owner invites and invites-per-user settings
  [x] Allow admins to bulk-generate root invites for classes/events (future work)
  [x] Support per-conversation invite tree toggle in admin UI
  [x] Allow flexible branching factor per wave (What is this?)
+ [x] Allow conversation owners to participate without requiring an invite
+ [x] CSV export functionality for invite codes (admin & participant)
 
 ### Phase 4 — Participant Experience
 
@@ -166,10 +168,22 @@ Admin:
 - `POST /api/v3/treevite/start` - Start Treevite for a conversation; creates initial wave and root invites
 - `POST /api/v3/treevite/invites/revoke` - Revoke invites by id/code/owner
 - `POST /api/v3/treevite/loginCodes/revoke` - Revoke participant login codes
+- `GET /api/v3/treevite/invites/csv` - Download all owner invites as CSV (no pagination/filtering)
+  - Auth: hybridAuth (admin required)
+  - Query: `conversation_id` (string)
+  - Returns: CSV file with columns: id, invite_code, wave, status, invite_used_by_pid, invite_used_at, created_at
+  - Content-Type: text/csv
+  - Content-Disposition: attachment; filename="treevite_invites_{conversation_id}_{timestamp}.csv"
 
 Participant:
 
-(All participant endpoints have been implemented)
+- `GET /api/v3/treevite/myInvites/csv` - Download participant's own invites as CSV
+  - Auth: hybridAuth (participant)
+  - Query: `conversation_id` (string)
+  - Returns: CSV file with columns: id, invite_code, status, created_at
+  - Content-Type: text/csv
+  - Content-Disposition: attachment; filename="my_treevite_invites_{conversation_id}_{timestamp}.csv"
+
 
 ## Notes
 
@@ -195,4 +209,31 @@ This ensures every participant gets exactly the right number of invite codes for
 - Tree structure tracks parent-child relationships between invites
 - Participants remain "anonymous" (no email required) but receive login codes for session continuity
 - Treevite participants use JWT-based authentication similar to anonymous participants
-- Access control blocks voting/commenting until valid invite code is entered
+- Access control blocks voting/commenting until valid invite code is entered (except for conversation owners)
+
+### Owner Participation Without Invites
+
+- **Rationale**: Conversation owners should be able to participate in their own treevite-enabled conversations without consuming an invite code
+- **Implementation**: The `ensure-participant` middleware automatically detects conversation owners and bypasses the treevite authentication requirement
+- **How it works**: 
+  - When a new participant is being created for a treevite-enabled conversation
+  - The middleware checks if the current user's UID matches the conversation owner's UID
+  - If they match, the owner is allowed to participate without an invite
+  - If they don't match, non-owners must have a valid invite to participate
+- **Owner privileges**:
+  - Owners don't belong to any specific wave
+  - Owners don't receive wave-specific participant invite codes
+  - Owners already have access to special "owner invites" for distribution
+  - Owners can manage waves and view all invite statistics
+
+### CSV Export Functionality
+
+- **Purpose**: Enable bulk distribution and management of invite codes
+- **Admin Export**: Includes all owner invites with full metadata (usage status, who used it, when)
+- **Participant Export**: Limited to participant's own unused invites for sharing
+- **Format**: Standard CSV with headers, suitable for spreadsheet applications
+- **Security**: CSV endpoints respect the same authentication requirements as their JSON counterparts
+- **Use Cases**:
+  - Administrators can export codes for offline distribution (e.g., printing for events)
+  - Participants can easily share their invite codes via email or messaging apps
+  - Data analysis and tracking of invite usage patterns

@@ -7,32 +7,25 @@ export const REQUEST_USER = 'REQUEST_USER'
 export const RECEIVE_USER = 'RECEIVE_USER'
 export const USER_FETCH_ERROR = 'USER_FETCH_ERROR'
 
-export const CREATE_NEW_CONVERSATION = 'CREATE_NEW_CONVERSATION'
-export const CREATE_NEW_CONVERSATION_SUCCESS = 'CREATE_NEW_CONVERSATION_SUCCESS'
-export const CREATE_NEW_CONVERSATION_ERROR = 'CREATE_NEW_CONVERSATION_ERROR'
+const CREATE_NEW_CONVERSATION = 'CREATE_NEW_CONVERSATION'
+const CREATE_NEW_CONVERSATION_SUCCESS = 'CREATE_NEW_CONVERSATION_SUCCESS'
+const CREATE_NEW_CONVERSATION_ERROR = 'CREATE_NEW_CONVERSATION_ERROR'
 
 export const REQUEST_CONVERSATIONS = 'REQUEST_CONVERSATIONS'
 export const RECEIVE_CONVERSATIONS = 'RECEIVE_CONVERSATIONS'
 export const CONVERSATIONS_FETCH_ERROR = 'CONVERSATIONS_FETCH_ERROR'
 
 /* zid for clarity - this is conversation config */
-export const REQUEST_ZID_METADATA = 'REQUEST_ZID_METADATA'
-export const RECEIVE_ZID_METADATA = 'RECEIVE_ZID_METADATA'
-export const ZID_METADATA_FETCH_ERROR = 'ZID_METADATA_FETCH_ERROR'
-export const ZID_METADATA_RESET = 'ZID_METADATA_RESET'
+export const REQUEST_CONVERSATION_DATA = 'REQUEST_CONVERSATION_DATA'
+export const RECEIVE_CONVERSATION_DATA = 'RECEIVE_CONVERSATION_DATA'
+const CONVERSATION_DATA_FETCH_ERROR = 'CONVERSATION_DATA_FETCH_ERROR'
+export const CONVERSATION_DATA_RESET = 'CONVERSATION_DATA_RESET'
 
-export const UPDATE_ZID_METADATA_STARTED = 'UPDATE_ZID_METADATA_STARTED'
-export const UPDATE_ZID_METADATA_SUCCESS = 'UPDATE_ZID_METADATA_SUCCESS'
-export const UPDATE_ZID_METADATA_ERROR = 'UPDATE_ZID_METADATA_ERROR'
+export const UPDATE_CONVERSATION_DATA_STARTED = 'UPDATE_CONVERSATION_DATA_STARTED'
+export const UPDATE_CONVERSATION_DATA_SUCCESS = 'UPDATE_CONVERSATION_DATA_SUCCESS'
+export const UPDATE_CONVERSATION_DATA_ERROR = 'UPDATE_CONVERSATION_DATA_ERROR'
 
-export const OPTIMISTIC_ZID_METADATA_UPDATE = 'OPTIMISTIC_ZID_METADATA_UPDATE'
-
-/* report */
-export const UPDATE_REPORT_STARTED = 'UPDATE_REPORT_STARTED'
-export const UPDATE_REPORT_SUCCESS = 'UPDATE_REPORT_SUCCESS'
-export const UPDATE_REPORT_ERROR = 'UPDATE_REPORT_ERROR'
-
-export const OPTIMISTIC_REPORT_UPDATE = 'OPTIMISTIC_REPORT_UPDATE'
+export const OPTIMISTIC_CONVERSATION_DATA_UPDATE = 'OPTIMISTIC_CONVERSATION_DATA_UPDATE'
 
 /* moderation */
 export const REQUEST_COMMENTS = 'REQUEST_COMMENTS'
@@ -41,52 +34,27 @@ export const COMMENTS_FETCH_ERROR = 'COMMENTS_FETCH_ERROR'
 
 export const REQUEST_UNMODERATED_COMMENTS = 'REQUEST_UNMODERATED_COMMENTS'
 export const RECEIVE_UNMODERATED_COMMENTS = 'RECEIVE_UNMODERATED_COMMENTS'
-export const UNMODERATED_COMMENTS_FETCH_ERROR = 'UNMODERATED_COMMENTS_FETCH_ERROR'
+const UNMODERATED_COMMENTS_FETCH_ERROR = 'UNMODERATED_COMMENTS_FETCH_ERROR'
 
 export const REQUEST_ACCEPTED_COMMENTS = 'REQUEST_ACCEPTED_COMMENTS'
 export const RECEIVE_ACCEPTED_COMMENTS = 'RECEIVE_ACCEPTED_COMMENTS'
-export const ACCEPTED_COMMENTS_FETCH_ERROR = 'ACCEPTED_COMMENTS_FETCH_ERROR'
+const ACCEPTED_COMMENTS_FETCH_ERROR = 'ACCEPTED_COMMENTS_FETCH_ERROR'
 
 export const REQUEST_REJECTED_COMMENTS = 'REQUEST_REJECTED_COMMENTS'
 export const RECEIVE_REJECTED_COMMENTS = 'RECEIVE_REJECTED_COMMENTS'
-export const REJECTED_COMMENTS_FETCH_ERROR = 'REJECTED_COMMENTS_FETCH_ERROR'
+const REJECTED_COMMENTS_FETCH_ERROR = 'REJECTED_COMMENTS_FETCH_ERROR'
 
-export const ACCEPT_COMMENT = 'ACCEPT_COMMENT'
-export const ACCEPT_COMMENT_SUCCESS = 'ACCEPT_COMMENT_SUCCESS'
-export const ACCEPT_COMMENT_ERROR = 'ACCEPT_COMMENT_ERROR'
+const ACCEPT_COMMENT = 'ACCEPT_COMMENT'
+const ACCEPT_COMMENT_SUCCESS = 'ACCEPT_COMMENT_SUCCESS'
+const ACCEPT_COMMENT_ERROR = 'ACCEPT_COMMENT_ERROR'
 
-export const REJECT_COMMENT = 'REJECT_COMMENT'
-export const REJECT_COMMENT_SUCCESS = 'REJECT_COMMENT_SUCCESS'
-export const REJECT_COMMENT_ERROR = 'REJECT_COMMENT_ERROR'
+const REJECT_COMMENT = 'REJECT_COMMENT'
+const REJECT_COMMENT_SUCCESS = 'REJECT_COMMENT_SUCCESS'
+const REJECT_COMMENT_ERROR = 'REJECT_COMMENT_ERROR'
 
-export const COMMENT_IS_META = 'COMMENT_IS_META'
-export const COMMENT_IS_META_SUCCESS = 'COMMENT_IS_META_SUCCESS'
-export const COMMENT_IS_META_ERROR = 'COMMENT_IS_META_ERROR'
-
-export const REQUEST_PARTICIPANTS = 'REQUEST_PARTICIPANTS'
-export const RECEIVE_PARTICIPANTS = 'RECEIVE_PARTICIPANTS'
-export const PARTICIPANTS_FETCH_ERROR = 'PARTICIPANTS_FETCH_ERROR'
-
-export const REQUEST_DEFAULT_PARTICIPANTS = 'REQUEST_DEFAULT_PARTICIPANTS'
-export const RECEIVE_DEFAULT_PARTICIPANTS = 'RECEIVE_DEFAULT_PARTICIPANTS'
-export const DEFAULT_PARTICIPANTS_FETCH_ERROR = 'DEFAULT_PARTICIPANTS_FETCH_ERROR'
-
-export const REQUEST_FEATURED_PARTICIPANTS = 'REQUEST_FEATURED_PARTICIPANTS'
-export const RECEIVE_FEATURED_PARTICIPANTS = 'RECEIVE_FEATURED_PARTICIPANTS'
-export const FEATURED_PARTICIPANTS_FETCH_ERROR = 'FEATURED_PARTICIPANTS_FETCH_ERROR'
-
-export const REQUEST_HIDDEN_PARTICIPANTS = 'REQUEST_HIDDEN_PARTICIPANTS'
-export const RECEIVE_HIDDEN_PARTICIPANTS = 'RECEIVE_HIDDEN_PARTICIPANTS'
-export const HIDDEN_PARTICIPANTS_FETCH_ERROR = 'HIDDEN_PARTICIPANTS_FETCH_ERROR'
-
-/* participant actions */
-export const FEATURE_PARTICIPANT = 'FEATURE_PARTICIPANT'
-export const FEATURE_PARTICIPANT_SUCCESS = 'FEATURE_PARTICIPANT_SUCCESS'
-export const FEATURE_PARTICIPANT_ERROR = 'FEATURE_PARTICIPANT_ERROR'
-
-export const HIDE_PARTICIPANT = 'HIDE_PARTICIPANT'
-export const HIDE_PARTICIPANT_SUCCESS = 'HIDE_PARTICIPANT_SUCCESS'
-export const HIDE_PARTICIPANT_ERROR = 'HIDE_PARTICIPANT_ERROR'
+const COMMENT_IS_META = 'COMMENT_IS_META'
+const COMMENT_IS_META_SUCCESS = 'COMMENT_IS_META_SUCCESS'
+const COMMENT_IS_META_ERROR = 'COMMENT_IS_META_ERROR'
 
 /* submit seed comment */
 export const SEED_COMMENT_LOCAL_UPDATE = 'SEED_COMMENT_LOCAL_UPDATE'
@@ -94,30 +62,10 @@ export const SUBMIT_SEED_COMMENT = 'SUBMIT_SEED_COMMENT'
 export const SUBMIT_SEED_COMMENT_SUCCESS = 'SUBMIT_SEED_COMMENT_SUCCESS'
 export const SUBMIT_SEED_COMMENT_ERROR = 'SUBMIT_SEED_COMMENT_ERROR'
 
-export const REQUEST_SEED_COMMENTS = 'REQUEST_SEED_COMMENTS'
-export const RECEIVE_SEED_COMMENTS = 'RECEIVE_SEED_COMMENTS'
-export const SEED_COMMENTS_FETCH_ERROR = 'SEED_COMMENTS_FETCH_ERROR'
-
 /* conversation stats */
 export const REQUEST_CONVERSATION_STATS = 'REQUEST_CONVERSATION_STATS'
 export const RECEIVE_CONVERSATION_STATS = 'RECEIVE_CONVERSATION_STATS'
-export const CONVERSATION_STATS_FETCH_ERROR = 'CONVERSATION_STATS_FETCH_ERROR'
-
-export const DATA_EXPORT_STARTED = 'DATA_EXPORT_STARTED'
-export const DATA_EXPORT_SUCCESS = 'DATA_EXPORT_SUCCESS'
-export const DATA_EXPORT_ERROR = 'DATA_EXPORT_ERROR'
-
-// Legacy auth types removed - Auth/OIDC handles authentication
-
-export const SUBMIT_CONTRIB = 'SUBMIT_CONTRIB'
-export const SUBMIT_CONTRIB_SUCCESS = 'SUBMIT_CONTRIB_SUCCESS'
-export const SUBMIT_CONTRIB_ERROR = 'SUBMIT_CONTRIB_ERROR'
-
-/* MATH */
-
-export const REQUEST_MATH = 'REQUEST_MATH'
-export const RECEIVE_MATH = 'RECEIVE_MATH'
-export const MATH_FETCH_ERROR = 'MATH_FETCH_ERROR'
+const CONVERSATION_STATS_FETCH_ERROR = 'CONVERSATION_STATS_FETCH_ERROR'
 
 /* ======= Actions ======= */
 
@@ -205,116 +153,114 @@ export const populateConversationsStore = () => {
   }
 }
 
-/* zid metadata */
+/* conversation data */
 
-const requestZidMetadata = (conversation_id) => {
+const requestConversationData = (conversation_id) => {
   return {
-    type: REQUEST_ZID_METADATA,
+    type: REQUEST_CONVERSATION_DATA,
     data: {
       conversation_id: conversation_id
     }
   }
 }
 
-const receiveZidMetadata = (data) => {
+const receiveConversationData = (data) => {
   return {
-    type: RECEIVE_ZID_METADATA,
+    type: RECEIVE_CONVERSATION_DATA,
     data: data
   }
 }
 
-const zidMetadataFetchError = (err) => {
+const conversationDataFetchError = (err) => {
   return {
-    type: ZID_METADATA_FETCH_ERROR,
+    type: CONVERSATION_DATA_FETCH_ERROR,
     data: err
   }
 }
 
 export const resetMetadataStore = () => {
   return {
-    type: ZID_METADATA_RESET
+    type: CONVERSATION_DATA_RESET
   }
 }
 
-const fetchZidMetadata = (conversation_id) => {
+const fetchConversationData = (conversation_id) => {
   return PolisNet.polisGet('/api/v3/conversations', {
     conversation_id: conversation_id
   })
 }
 
-export const populateZidMetadataStore = (conversation_id) => {
+export const populateConversationDataStore = (conversation_id) => {
   return (dispatch, getState) => {
     const state = getState()
-    const hasConversationId =
-      state.zid_metadata &&
-      state.zid_metadata.zid_metadata &&
-      state.zid_metadata.zid_metadata.conversation_id
+    const { loading, conversation_id: current_conversation_id } = state.conversationData
 
-    const isLoading = state.zid_metadata.loading
     // NOTE: if there are multiple calls outstanding this may be wrong.
-    const isLoadingThisConversation =
-      state.zid_metadata.conversation_id === conversation_id && isLoading
+    const isLoadingThisConversation = current_conversation_id === conversation_id && loading
 
     if (isLoadingThisConversation) {
       return
     }
 
-    // don"t fetch again if we already have data loaded for that conversation.
-    if (hasConversationId && state.zid_metadata.zid_metadata.conversation_id === conversation_id) {
+    // don't fetch again if we already have data loaded for that conversation.
+    if (current_conversation_id === conversation_id) {
       return
     }
 
-    dispatch(requestZidMetadata(conversation_id))
-    return fetchZidMetadata(conversation_id).then(
-      (res) => dispatch(receiveZidMetadata(res)),
-      (err) => dispatch(zidMetadataFetchError(err))
+    dispatch(requestConversationData(conversation_id))
+    return fetchConversationData(conversation_id).then(
+      (res) => dispatch(receiveConversationData(res)),
+      (err) => dispatch(conversationDataFetchError(err))
     )
   }
 }
 
-/* zid metadata update */
+/* conversation data update */
 
-const updateZidMetadataStarted = () => {
+const updateConversationDataStarted = () => {
   return {
-    type: UPDATE_ZID_METADATA_STARTED
+    type: UPDATE_CONVERSATION_DATA_STARTED
   }
 }
 
-const updateZidMetadataSuccess = (data) => {
+const updateConversationDataSuccess = (data) => {
   return {
-    type: UPDATE_ZID_METADATA_SUCCESS,
+    type: UPDATE_CONVERSATION_DATA_SUCCESS,
     data: data
   }
 }
 
-const updateZidMetadataError = (err) => {
+const updateConversationDataError = (err) => {
   return {
-    type: UPDATE_ZID_METADATA_ERROR,
+    type: UPDATE_CONVERSATION_DATA_ERROR,
     data: err
   }
 }
 
-const updateZidMetadata = (zm, field, value) => {
+const updateConversationData = (conversationData, field, value) => {
   const data = {}
   data[field] = value
-  const bodyData = Object.assign({}, zm, data)
+  const bodyData = Object.assign({}, conversationData, data)
 
   return PolisNet.polisPut('/api/v3/conversations', bodyData)
 }
 
-export const handleZidMetadataUpdate = (zm, field, value) => {
+export const handleConversationDataUpdate = (conversationData, field, value) => {
   return (dispatch) => {
-    dispatch(updateZidMetadataStarted())
-    return updateZidMetadata(zm, field, value)
-      .then((res) => dispatch(updateZidMetadataSuccess(res)))
-      .catch((err) => dispatch(updateZidMetadataError(err)))
+    dispatch(updateConversationDataStarted())
+    return updateConversationData(conversationData, field, value)
+      .then((res) => dispatch(updateConversationDataSuccess(res)))
+      .catch((err) => dispatch(updateConversationDataError(err)))
   }
 }
 
-export const optimisticZidMetadataUpdateOnTyping = (zm, field, value) => {
-  const nextZm = Object.assign({}, zm, { [field]: value })
+export const optimisticConversationDataUpdateOnTyping = (conversationData, field, value) => {
+  const nextZm = {
+    ...conversationData,
+    [field]: value
+  }
   return {
-    type: OPTIMISTIC_ZID_METADATA_UPDATE,
+    type: OPTIMISTIC_CONVERSATION_DATA_UPDATE,
     data: nextZm
   }
 }
@@ -377,32 +323,6 @@ export const handleSeedCommentSubmit = (comment) => {
   }
 }
 
-// FIXME
-// eslint-disable-next-line no-unused-vars
-const makeStandardStart = (type) => {
-  return {
-    type: type
-  }
-}
-
-// FIXME
-// eslint-disable-next-line no-unused-vars
-const makeStandardError = (type, err) => {
-  return {
-    type: type,
-    data: err
-  }
-}
-
-// FIXME
-// eslint-disable-next-line no-unused-vars
-const makeStandardSuccess = (type, data) => {
-  return {
-    type: type,
-    data: data
-  }
-}
-
 /* create conversation */
 
 const createConversationStart = () => {
@@ -452,86 +372,6 @@ export const handleCreateConversationSubmit = (history) => {
           window.location = '/m/' + res.conversation_id
         }
       })
-  }
-}
-
-/* request all comments */
-
-const requestComments = () => {
-  return {
-    type: REQUEST_COMMENTS
-  }
-}
-
-const receiveComments = (data) => {
-  return {
-    type: RECEIVE_COMMENTS,
-    data: data
-  }
-}
-
-const commentsFetchError = (err) => {
-  return {
-    type: COMMENTS_FETCH_ERROR,
-    data: err
-  }
-}
-
-const fetchAllComments = (conversation_id) => {
-  return PolisNet.polisGet('/api/v3/comments', {
-    moderation: true,
-    include_voting_patterns: false,
-    conversation_id: conversation_id
-  })
-}
-
-export const populateCommentsStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestComments())
-    return fetchAllComments(conversation_id).then(
-      (res) => dispatch(receiveComments(res)),
-      (err) => dispatch(commentsFetchError(err))
-    )
-  }
-}
-
-/* request math */
-
-const requestMath = () => {
-  return {
-    type: REQUEST_MATH
-  }
-}
-
-const receiveMath = (data) => {
-  return {
-    type: RECEIVE_MATH,
-    data: data
-  }
-}
-
-const mathFetchError = (err) => {
-  return {
-    type: MATH_FETCH_ERROR,
-    data: err
-  }
-}
-
-const fetchMath = (conversation_id, math_tick) => {
-  return PolisNet.polisGet('/api/v3/math/pca2', {
-    math_tick: math_tick,
-    conversation_id: conversation_id
-  })
-}
-
-export const populateMathStore = (conversation_id) => {
-  return (dispatch, getState) => {
-    dispatch(requestMath())
-    const math_tick = getState().math.math_tick
-    return fetchMath(conversation_id, math_tick).then(
-      (res) => dispatch(receiveMath(res)),
-      (err) => dispatch(mathFetchError(err))
-    )
   }
 }
 
@@ -660,7 +500,7 @@ const fetchRejectedComments = (conversation_id) => {
   )
 }
 
-export const populateRejectedCommentsStore = (conversation_id) => {
+const populateRejectedCommentsStore = (conversation_id) => {
   return (dispatch) => {
     dispatch(requestRejectedComments())
     return fetchRejectedComments(conversation_id).then(
@@ -681,9 +521,6 @@ export const populateAllCommentStores = (conversation_id) => {
     ])
   }
 }
-
-// export const populateAllCommentStores = (conversation) => {
-// }
 
 /* moderator clicked accept comment */
 
@@ -833,338 +670,6 @@ export const changeCommentCommentIsMeta = (comment, is_meta) => {
   }
 }
 
-/* request participants */
-
-const requestParticipants = () => {
-  return {
-    type: REQUEST_PARTICIPANTS
-  }
-}
-
-const receiveParticipants = (data) => {
-  return {
-    type: RECEIVE_PARTICIPANTS,
-    data: data
-  }
-}
-
-const participantsFetchError = (err) => {
-  return {
-    type: PARTICIPANTS_FETCH_ERROR,
-    data: err
-  }
-}
-
-const fetchParticipants = (conversation_id) => {
-  const url = `/api/v3/ptptois?conversation_id=${conversation_id}`
-
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch(url, {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    }).then((r) => r.json())
-  )
-}
-
-export const populateParticipantsStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestParticipants())
-    return fetchParticipants(conversation_id).then(
-      (res) => dispatch(receiveParticipants(res)),
-      (err) => dispatch(participantsFetchError(err))
-    )
-  }
-}
-
-/* request default participants for ptpt moderation view */
-
-const requestDefaultParticipants = () => {
-  return {
-    type: REQUEST_DEFAULT_PARTICIPANTS
-  }
-}
-
-const receiveDefaultParticipants = (data) => {
-  return {
-    type: RECEIVE_DEFAULT_PARTICIPANTS,
-    data: data
-  }
-}
-
-const defaultParticipantFetchError = (err) => {
-  return {
-    type: DEFAULT_PARTICIPANTS_FETCH_ERROR,
-    data: err
-  }
-}
-
-const fetchDefaultParticipants = (conversation_id) => {
-  const url = `/api/v3/ptptois?mod=0&conversation_id=${conversation_id}`
-
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch(url, {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    }).then((r) => r.json())
-  )
-}
-
-export const populateDefaultParticipantStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestDefaultParticipants())
-    return fetchDefaultParticipants(conversation_id).then(
-      (res) => dispatch(receiveDefaultParticipants(res)),
-      (err) => dispatch(defaultParticipantFetchError(err))
-    )
-  }
-}
-
-/* request featured participants for ptpt moderation view */
-
-const requestFeaturedParticipants = () => {
-  return {
-    type: REQUEST_FEATURED_PARTICIPANTS
-  }
-}
-
-const receiveFeaturedParticipants = (data) => {
-  return {
-    type: RECEIVE_FEATURED_PARTICIPANTS,
-    data: data
-  }
-}
-
-const featuredParticipantFetchError = (err) => {
-  return {
-    type: FEATURED_PARTICIPANTS_FETCH_ERROR,
-    data: err
-  }
-}
-
-const fetchFeaturedParticipants = (conversation_id) => {
-  const url = `/api/v3/ptptois?mod=1&conversation_id=${conversation_id}`
-
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch(url, {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    }).then((r) => r.json())
-  )
-}
-
-export const populateFeaturedParticipantStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestFeaturedParticipants())
-    return fetchFeaturedParticipants(conversation_id).then(
-      (res) => dispatch(receiveFeaturedParticipants(res)),
-      (err) => dispatch(featuredParticipantFetchError(err))
-    )
-  }
-}
-
-/* request hidden participants for ptpt moderation view */
-
-const requestHiddenParticipants = () => {
-  return {
-    type: REQUEST_HIDDEN_PARTICIPANTS
-  }
-}
-
-const receiveHiddenParticipants = (data) => {
-  return {
-    type: RECEIVE_HIDDEN_PARTICIPANTS,
-    data: data
-  }
-}
-
-const hiddenParticipantFetchError = (err) => {
-  return {
-    type: HIDDEN_PARTICIPANTS_FETCH_ERROR,
-    data: err
-  }
-}
-
-const fetchHiddenParticipants = (conversation_id) => {
-  const url = `/api/v3/ptptois?mod=-1&conversation_id=${conversation_id}`
-
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch(url, {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    }).then((r) => r.json())
-  )
-}
-
-export const populateHiddenParticipantStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestHiddenParticipants())
-    return fetchHiddenParticipants(conversation_id).then(
-      (res) => dispatch(receiveHiddenParticipants(res)),
-      (err) => dispatch(hiddenParticipantFetchError(err))
-    )
-  }
-}
-
-/* populate ALL stores todo/accept/reject/seed */
-
-export const populateAllParticipantStores = (conversation_id) => {
-  return (dispatch) => {
-    return Promise.all([
-      dispatch(populateDefaultParticipantStore(conversation_id)),
-      dispatch(populateFeaturedParticipantStore(conversation_id)),
-      dispatch(populateHiddenParticipantStore(conversation_id))
-    ])
-  }
-}
-
-/* moderator clicked feature ptpt */
-
-const optimisticFeatureParticipant = (participant) => {
-  return {
-    type: FEATURE_PARTICIPANT,
-    participant: participant
-  }
-}
-
-const featureParticipantSuccess = (data) => {
-  return {
-    type: FEATURE_PARTICIPANT_SUCCESS,
-    data: data
-  }
-}
-
-const featureParticipantError = (err) => {
-  return {
-    type: FEATURE_PARTICIPANT_ERROR,
-    data: err
-  }
-}
-
-const putFeatureParticipant = (participant) => {
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch('/api/v3/ptptois', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-      },
-      body: JSON.stringify(Object.assign(participant, { mod: 1 }))
-    }).then((r) => r.json())
-  )
-}
-
-export const changeParticipantStatusToFeatured = (participant) => {
-  return (dispatch) => {
-    dispatch(optimisticFeatureParticipant(participant))
-    return putFeatureParticipant(participant).then(
-      (res) => dispatch(featureParticipantSuccess(res)),
-      (err) => dispatch(featureParticipantError(err))
-    )
-  }
-}
-/* moderator clicked hide ptpt */
-
-const optimisticHideParticipant = (participant) => {
-  return {
-    type: FEATURE_PARTICIPANT,
-    participant: participant
-  }
-}
-
-const hideParticipantSuccess = (data) => {
-  return {
-    type: FEATURE_PARTICIPANT_SUCCESS,
-    data: data
-  }
-}
-
-const hideParticipantError = (err) => {
-  return {
-    type: FEATURE_PARTICIPANT_ERROR,
-    data: err
-  }
-}
-
-const putHideParticipant = (participant) => {
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch('/api/v3/ptptois', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-      },
-      body: JSON.stringify(Object.assign(participant, { mod: -1 }))
-    }).then((r) => r.json())
-  )
-}
-
-export const changeParticipantStatusToHidden = (participant) => {
-  return (dispatch) => {
-    dispatch(optimisticHideParticipant(participant))
-    return putHideParticipant(participant).then(
-      (res) => dispatch(hideParticipantSuccess(res)),
-      (err) => dispatch(hideParticipantError(err))
-    )
-  }
-}
-
-/* moderator clicked unmoderate ptpt */
-const optimisticUnmoderateParticipant = (participant) => {
-  return {
-    type: FEATURE_PARTICIPANT,
-    participant: participant
-  }
-}
-
-// FIXME
-// eslint-disable-next-line no-unused-vars
-const unmoderateParticipantSuccess = (data) => {
-  return {
-    type: FEATURE_PARTICIPANT_SUCCESS,
-    data: data
-  }
-}
-
-// FIXME
-// eslint-disable-next-line no-unused-vars
-const unmoderateParticipantError = (err) => {
-  return {
-    type: FEATURE_PARTICIPANT_ERROR,
-    data: err
-  }
-}
-
-const putUnmoderateParticipant = (participant) => {
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch('/api/v3/ptptois', {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token && { Authorization: `Bearer ${token}` })
-      },
-      body: JSON.stringify(Object.assign(participant, { mod: 0 }))
-    }).then((r) => r.json())
-  )
-}
-
-export const changeParticipantStatusToUnmoderated = (participant) => {
-  return (dispatch) => {
-    dispatch(optimisticUnmoderateParticipant(participant))
-    return putUnmoderateParticipant(participant).then(
-      (res) => dispatch(hideParticipantSuccess(res)),
-      (err) => dispatch(hideParticipantError(err))
-    )
-  }
-}
-
 /* request conversation stats */
 
 const requestConversationStats = () => {
@@ -1202,44 +707,6 @@ export const populateConversationStatsStore = (conversation_id, until) => {
     return fetchConversationStats(conversation_id, until).then(
       (res) => dispatch(receiveConversationStats(res)),
       (err) => dispatch(conversationStatsFetchError(err))
-    )
-  }
-}
-
-/* data export */
-
-const dataExportStarted = () => {
-  return {
-    type: DATA_EXPORT_STARTED
-  }
-}
-
-const dataExportSuccess = () => {
-  return {
-    type: DATA_EXPORT_SUCCESS
-  }
-}
-
-const dataExportError = () => {
-  return {
-    type: DATA_EXPORT_ERROR
-  }
-}
-
-const dataExportGet = (conversation_id, format, unixTimestamp, untilEnabled) => {
-  let url = `/api/v3/dataExport?conversation_id=${conversation_id}&format=${format}`
-  if (untilEnabled) {
-    url += `&unixTimestamp=${unixTimestamp}`
-  }
-  return PolisNet.polisGet(url)
-}
-
-export const startDataExport = (conversation_id, format, unixTimestamp, untilEnabled) => {
-  return (dispatch) => {
-    dispatch(dataExportStarted())
-    return dataExportGet(conversation_id, format, unixTimestamp, untilEnabled).then(
-      (res) => dispatch(dataExportSuccess(res)),
-      (err) => dispatch(dataExportError(err))
     )
   }
 }

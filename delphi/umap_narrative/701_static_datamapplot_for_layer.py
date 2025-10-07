@@ -56,7 +56,7 @@ def load_data_from_dynamo(zid, layer_id):
     
     # Initialize DynamoDB storage
     dynamo_storage = DynamoDBStorage(
-        endpoint_url=os.environ.get('DYNAMODB_ENDPOINT', 'http://dynamodb-local:8000')
+        endpoint_url=os.environ.get('DYNAMODB_ENDPOINT', 'http://dynamodb-local:8000'),
     )
     
     # Initialize data dictionary

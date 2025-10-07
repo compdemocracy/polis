@@ -275,7 +275,7 @@ const CommentList = ({ comments, math, ptptCount, tidsToRender, voteColors, styl
           display: "flex",
           alignItems: "baseline",
           whiteSpace: "nowrap",
-          overflowX: "auto",
+          overflowX: "visible",
         }}
       >
         <span

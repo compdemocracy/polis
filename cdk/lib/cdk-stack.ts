@@ -8,9 +8,14 @@ import * as sns from 'aws-cdk-lib/aws-sns';
 import * as subscriptions from 'aws-cdk-lib/aws-sns-subscriptions';
 import * as efs from 'aws-cdk-lib/aws-efs';
 import { Construct } from 'constructs';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as ssm from 'aws-cdk-lib/aws-ssm';
 
 // custom constructs for code organization
 import createPolisVPC from '../vpc';
+import { createDBBackupLambda } from '../lambda/lambda';
 import {
   instanceTypeWeb,
   machineImageWeb,
@@ -115,7 +120,7 @@ export class CdkStack extends cdk.Stack {
     const delphiLargeKeyPair = getKeyPair('DelphiLargeKeyPair', props.delphiLargeKeyPairName);
     const ollamaKeyPair = getKeyPair('OllamaKeyPair', props.ollamaKeyPairName);
 
-    const { instanceRole, codeDeployRole } = createRoles(this);
+    const { instanceRole, codeDeployRole, dbBackupLambdaRole } = createRoles(this);
 
     // ALB Security Group
     const lbSecurityGroup = new ec2.SecurityGroup(this, 'LBSecurityGroup', {
@@ -275,6 +280,54 @@ export class CdkStack extends cdk.Stack {
     db.connections.allowFrom(asgMathWorker, ec2.Port.tcp(5432), 'Allow database access from math ASG');
     db.connections.allowFrom(asgDelphiSmall, ec2.Port.tcp(5432), 'Allow database access from Delphi small ASG');
     db.connections.allowFrom(asgDelphiLarge, ec2.Port.tcp(5432), 'Allow database access from Delphi large ASG');
+
+    // S3 for DB backups
+    const dbBackupBucket = new s3.Bucket(this, 'DBBackupBucket', {
+      bucketName: 'polis-db-backups',
+      encryption: s3.BucketEncryption.S3_MANAGED,
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    db.secret!.grantRead(dbBackupLambdaRole);
+    dbBackupBucket.grantWrite(dbBackupLambdaRole);
+
+    dbBackupLambdaRole.addToPolicy(new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/polis/db-secret-arn`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/polis/db-host`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/polis/db-port`,
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/polis/db-backup-bucket-name`,
+        ],
+    }));
+
+    dbBackupLambdaRole.addToPolicy(new iam.PolicyStatement({
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: ['*'],
+    }));
+
+    const bucketNameParameter = new ssm.StringParameter(this, 'DBBackupBucketNameParameter', {
+      parameterName: '/polis/db-backup-bucket-name',
+      stringValue: dbBackupBucket.bucketName,
+      description: 'The name of the S3 bucket for database backups',
+    });
+
+    dbBackupBucket.grantWrite(dbBackupLambdaRole);
+
+    const lambda = createDBBackupLambda(this, db, vpc, dbBackupBucket, dbBackupLambdaRole);
+
+    new events.Rule(this, 'DBBackupScheduleRule', {
+      schedule: events.Schedule.cron({
+        minute: '23',
+        hour: '0',
+        weekDay: 'TUE',
+      }),
+      targets: [new targets.LambdaFunction(lambda)],
+    });
+
+    db.connections.allowFrom(lambda, ec2.Port.tcp(5432), 'Allow connection from backup Lambda');
 
     // ALB & DNS
     const {

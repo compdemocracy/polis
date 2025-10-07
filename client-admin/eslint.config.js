@@ -8,7 +8,7 @@ const babelParser = require('@babel/eslint-parser')
 module.exports = [
   {
     // Base configuration for all files
-    ignores: ['build/**']
+    ignores: ['build/**', 'coverage/**']
   },
   eslint.configs.recommended,
   {
@@ -32,7 +32,8 @@ module.exports = [
     files: ['**/*.js', '**/*.jsx'],
     name: 'react-recommended',
     rules: {
-      ...reactPlugin.configs.recommended.rules
+      ...reactPlugin.configs.recommended.rules,
+      ...reactPlugin.configs['jsx-runtime'].rules
     }
   },
   {
@@ -68,22 +69,18 @@ module.exports = [
       }
     },
     rules: {
-      camelcase: 'off',
-      'import/namespace': 'warn',
-      'jsx-a11y/no-static-element-interactions': 'warn',
-      'jsx-a11y/tabindex-no-positive': 'warn',
-      'object-shorthand': 'off',
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
       'no-unused-vars': ['error', { args: 'none' }],
-      'react/no-unknown-property': ['error', { ignore: ['sx'] }],
-      'react/react-in-jsx-scope': 'off'
+      'react/no-unknown-property': ['error', { ignore: ['sx'] }]
     }
   },
   {
     // Override for Test files
-    files: ['**/*.test.js'],
+    files: ['**/*.test.js', 'jest.setup.js'],
     languageOptions: {
       globals: {
-        ...globals.jest
+        ...globals.jest,
+        ...globals.node // Adds 'global', 'process', etc.
       }
     },
     rules: {
@@ -97,6 +94,9 @@ module.exports = [
       globals: {
         ...globals.node
       }
+    },
+    rules: {
+      'no-console': 'off'
     }
   }
 ]

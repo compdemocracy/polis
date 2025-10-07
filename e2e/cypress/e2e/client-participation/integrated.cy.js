@@ -150,7 +150,7 @@ describe('Integrated Conversations', function () {
       cy.exec(
         `npm run build:integrated -- --siteId=${this.siteId} --pageId=${pageId} --baseUrl=${embedUrl}`,
       ).then((result) => {
-        expect(result.code).to.equal(0)
+        expect(result.exitCode).to.equal(0)
         expect(result.stdout).to.contain(
           `Generated ./embed/integrated-index.html with Site ID ${this.siteId}`,
         )

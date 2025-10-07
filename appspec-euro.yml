@@ -1,0 +1,26 @@
+version: 0.0
+os: linux
+files:
+  - source: appspec.yml
+    destination: /opt/polis/appspec.yml
+  - source: scripts-euro/
+    destination: /opt/polis/scripts/
+  - source: docker-compose.yml
+    destination: /opt/polis/docker-compose.yml
+hooks:
+  BeforeInstall:
+    - location: scripts-euro/before_install.sh
+      timeout: 300
+      runas: root
+  AfterInstall:
+    - location: scripts-euro/after_install.sh
+      timeout: 1000
+      runas: root
+  ApplicationStart:
+    - location: scripts-euro/application_start.sh
+      timeout: 300
+      runas: root
+  ApplicationStop:
+    - location: scripts-euro/application_stop.sh
+      timeout: 300
+      runas: root

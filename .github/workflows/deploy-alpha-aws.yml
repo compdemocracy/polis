@@ -3,15 +3,19 @@ name: Deploy to AWS on Push
 on: workflow_dispatch
 
 jobs:
-  deploy:
+  # ==========================================================
+  # ==      JOB 1: BUILD & PUSH DOCKER IMAGES (US ONLY)     ==
+  # ==========================================================
+  build-and-push-images:
+    name: Build and Push Docker Images
     runs-on: ubuntu-latest
-    environment: production # or your desired environment
+    environment: production
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (for US ECR)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -26,39 +30,94 @@ jobs:
         run: |
           sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           sudo chmod +x /usr/local/bin/docker-compose
-          docker-compose --version # Verify installation
-        
-      - name: Copy .env file
-        run: |
-          echo "Copying example.env to .env"
-          cp example.env .env
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
 
       - name: Build and push Docker images
-        id: docker-build-push
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           docker-compose build server
-          docker push 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/server:latest
+          docker push $ECR_REGISTRY/polis/server:latest
 
-          # Build and push math image
           docker-compose build math
-          docker push 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/math:latest
+          docker push $ECR_REGISTRY/polis/math:latest
 
-      - name: Create deployment package
-        run: |
-          zip -r deployment.zip appspec.yml scripts/* docker-compose.yml
-  
-      - name: Upload deployment package to S3
-        run: |
-          aws s3 cp deployment.zip s3://polis-deployment-packages-050917022930-us-east-1/deployments/deployment.zip
-  
-      - name: Create CodeDeploy deployment
+  # =====================================================
+  # ==      JOB 2: DEPLOY TO PRODUCTION (US)           ==
+  # =====================================================
+  deploy-us:
+    name: Deploy to Production (US)
+    runs-on: ubuntu-latest
+    needs: build-and-push-images
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials for US
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Create US deployment package
+        run: zip -r deployment-us.zip appspec.yml scripts/* docker-compose.yml
+
+      - name: Upload US deployment package to S3
+        run: aws s3 cp deployment-us.zip s3://polis-deployment-packages-050917022930-us-east-1/deployments/deployment.zip
+
+      - name: Create US CodeDeploy deployment
         run: |
           aws deploy create-deployment \
             --application-name PolisApplication \
             --deployment-group-name PolisDeploymentGroup \
-            --deployment-config-name CodeDeployDefault.OneAtATime \
             --revision revisionType=S3,s3Location="{bucket=polis-deployment-packages-050917022930-us-east-1,key=deployments/deployment.zip,bundleType=zip}" \
             --region us-east-1
+
+  # ================================================
+  # ==      JOB 3: DEPLOY TO EUROPE               ==
+  # ================================================
+  deploy-euro:
+    name: Deploy to Europe
+    runs-on: ubuntu-latest
+    needs: build-and-push-images
+    environment: europe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS credentials for Europe
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_EURO }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_EURO }}
+          aws-region: eu-central-1
+
+      - name: Create Euro deployment package
+        run: |
+          # 1. Create a clean staging directory
+          mkdir staging_dir
+
+          # 2. Copy and RENAME appspec-euro.yml to appspec.yml inside the staging dir
+          cp appspec-euro.yml staging_dir/appspec.yml
+
+          # 3. Copy the other necessary files and directories into the staging dir
+          cp -r scripts-euro staging_dir/
+          cp docker-compose.yml staging_dir/
+
+          # 4. Go into the staging directory and create the zip from there
+          cd staging_dir
+          zip -r ../deployment-euro.zip .
+
+      - name: Upload Euro deployment package to S3
+        run: aws s3 cp deployment-euro.zip s3://polis-deployment-packages-954495807218-eu-central-1/deployments/deployment.zip
+
+      - name: Create Euro CodeDeploy deployment
+        run: |
+          aws deploy create-deployment \
+            --application-name PolisApplication \
+            --deployment-group-name PolisDeploymentGroup \
+            --revision revisionType=S3,s3Location="{bucket=polis-deployment-packages-954495807218-eu-central-1,key=deployments/deployment.zip,bundleType=zip}" \
+            --region eu-central-1

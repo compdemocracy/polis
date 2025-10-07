@@ -102,8 +102,7 @@ async function analyzeComment(
     });
 
     const result = respGem.text;
-    // eslint-disable-next-line no-console
-    console.log(`${txt} moderation result: ${result}`);
+    logger.debug(`${txt} moderation result: ${result}`);
     return JSON.parse(result).output?.final_score;
   } catch (error) {
     return;

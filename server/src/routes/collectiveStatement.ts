@@ -59,13 +59,14 @@ async function generateCollectiveStatement(
 
   // Format comments data for the XML prompt
   const formattedComments = commentsData.map((comment: any) => ({
-    id: comment.comment_id,
-    text: comment.comment_text,
-    agrees: comment.agrees || 0,
-    disagrees: comment.disagrees || 0,
-    passes: comment.passes || 0,
-    total_votes: comment.total_votes || 0,
-    group_consensus: comment.group_consensus || null,
+    comment_id: comment.comment_id,
+    comment_text: comment.comment_text,
+    voters_who_agreed_with_comment_text: comment.agrees || 0,
+    voters_who_disagreed_with_comment_text: comment.disagrees || 0,
+    voters_who_clicked_pass_instead_of_agree_or_disagree_on_comment_text:
+      comment.passes || 0,
+    total_voters_on_comment_text: comment.total_votes || 0,
+    group_consensus_on_comment_text: comment.group_consensus || null,
   }));
 
   // Build the XML prompt
@@ -94,7 +95,7 @@ GOOD: "We strongly believe cities should include nature in their designs[81]"
 BAD: "97% of participants believe cities should include nature[81]"
 BAD: "We believe cities should include nature, with 97% agreeing[81]"
 
-Base your analysis on the voting data, but express the results as collective statements without the statistics.
+Base your analysis on the voting data, but express the results as collective statements without the statistics. Ensure results match the statistics however, as they should align with voters_who_agreed_with_comment_text, voters_who_disagreed_with_comment_text, and voters_who_clicked_pass_instead_of_agree_or_disagree values. This alignment is the most critically important result. Double check your work.
 </task>
 
 <topic>
@@ -622,8 +623,8 @@ async function getCommentsForTopic(
         c.tid as comment_id,
         c.txt as comment_text,
         COALESCE(COUNT(DISTINCT v.pid), 0) as total_votes,
-        COALESCE(SUM(CASE WHEN v.vote = 1 THEN 1 ELSE 0 END), 0) as agrees,
-        COALESCE(SUM(CASE WHEN v.vote = -1 THEN 1 ELSE 0 END), 0) as disagrees,
+        COALESCE(SUM(CASE WHEN v.vote = 1 THEN 1 ELSE 0 END), 0) as disagrees,
+        COALESCE(SUM(CASE WHEN v.vote = -1 THEN 1 ELSE 0 END), 0) as agrees,
         COALESCE(SUM(CASE WHEN v.vote = 0 THEN 1 ELSE 0 END), 0) as passes
       FROM comments c
       LEFT JOIN votes_latest_unique v ON c.tid = v.tid AND c.zid = v.zid

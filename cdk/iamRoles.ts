@@ -18,6 +18,13 @@ export default (self: Construct) => {
     actions: ['s3:PutObject', 's3:PutObjectAcl', 's3:AbortMultipartUpload', 's3:ListBucket', 's3:GetObject', 's3:DeleteObject'],
     resources: ['arn:aws:s3:::*', 'arn:aws:s3:::*/*'],
   }));
+
+  const dbBackupLambdaRole = new iam.Role(self, 'DBBackupLambdaRole', {
+    assumedBy: new iam.ServicePrincipal('lambda.amazonaws.com'),
+    managedPolicies: [
+      iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AWSLambdaVPCAccessExecutionRole'),
+    ],
+  });
   
   // IAM Role for CodeDeploy
   const codeDeployRole = new iam.Role(self, 'CodeDeployRole', {
@@ -52,5 +59,5 @@ export default (self: Construct) => {
     ],
   }));
 
-  return { instanceRole, codeDeployRole }
+  return { instanceRole, codeDeployRole, dbBackupLambdaRole }
 }

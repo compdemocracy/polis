@@ -2,7 +2,8 @@ import { Component } from 'react'
 import { Flex, Box } from 'theme-ui'
 
 import { Link } from 'react-router'
-import Logomark from '../framework/logomark'
+import Logomark from '../framework/Logomark'
+import theme from '../../theme'
 
 class Header extends Component {
   render() {
@@ -20,7 +21,7 @@ class Header extends Component {
             <Link sx={{ variant: 'links.nav' }} to="/home">
               <Logomark
                 style={{ marginRight: 10, position: 'relative', top: 6 }}
-                fill={'#03a9f4'}
+                fill={theme.colors.primary}
               />
               Polis
             </Link>

@@ -154,56 +154,117 @@ function tryToJoinConversation(
 async function addParticipant(zid: number, uid?: number): Promise<any> {
   logger.debug("addParticipant starting", { zid, uid });
 
-  try {
-    // First insert into participants_extended
-    await pg.queryP(
-      "INSERT INTO participants_extended (zid, uid) VALUES ($1, $2);",
-      [zid, uid]
-    );
-    logger.debug("participants_extended insert successful", { zid, uid });
-  } catch (extendedError: any) {
-    logger.error("participants_extended insert failed", {
-      zid,
-      uid,
-      error: extendedError.message,
-      code: extendedError.code,
-      constraint: extendedError.constraint,
-    });
+  // Use a transaction to ensure atomicity
+  return new Promise((resolve, reject) => {
+    pg.query("BEGIN", [], (beginErr: any) => {
+      if (beginErr) {
+        logger.error("Failed to begin transaction:", beginErr);
+        return reject(beginErr);
+      }
 
-    // If it's a duplicate key error on participants_extended, that's not critical
-    // We can continue with the participants insert
-    if (extendedError.code !== "23505") {
-      throw extendedError;
-    }
-    logger.debug("participants_extended duplicate key error ignored", {
-      zid,
-      uid,
-    });
-  }
+      // First insert into participants_extended (ignore duplicates)
+      pg.query(
+        "INSERT INTO participants_extended (zid, uid) VALUES ($1, $2) ON CONFLICT (zid, uid) DO NOTHING;",
+        [zid, uid],
+        (extErr: any) => {
+          if (extErr) {
+            return pg.query("ROLLBACK", [], () => {
+              logger.error("participants_extended insert failed", {
+                zid,
+                uid,
+                error: extErr.message,
+                code: extErr.code,
+              });
+              reject(extErr);
+            });
+          }
 
-  try {
-    // Second insert into participants table
-    const result = await pg.queryP(
-      "INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;",
-      [zid, uid]
-    );
-    logger.debug("participants insert successful", {
-      zid,
-      uid,
-      resultLength: Array.isArray(result) ? result.length : "unknown",
-      result: Array.isArray(result) && result.length > 0 ? result[0] : "empty",
+          logger.debug("participants_extended insert/skip successful", {
+            zid,
+            uid,
+          });
+
+          // Second insert into participants table
+          pg.query(
+            "INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;",
+            [zid, uid],
+            (partErr: any, partResult: { rows: any[] }) => {
+              if (partErr) {
+                // Check if it's a duplicate key error
+                if (partErr.code === "23505") {
+                  // Rollback and fetch existing participant
+                  return pg.query("ROLLBACK", [], () => {
+                    logger.debug(
+                      "Participant already exists, fetching existing record",
+                      { zid, uid }
+                    );
+                    pg.query(
+                      "SELECT * FROM participants WHERE zid = $1 AND uid = $2;",
+                      [zid, uid],
+                      (selectErr: any, selectResult: { rows: any[] }) => {
+                        if (selectErr) {
+                          logger.error(
+                            "Failed to fetch existing participant",
+                            selectErr
+                          );
+                          return reject(selectErr);
+                        }
+                        if (selectResult.rows && selectResult.rows.length > 0) {
+                          logger.debug("Found existing participant", {
+                            zid,
+                            uid,
+                            pid: selectResult.rows[0].pid,
+                          });
+                          return resolve(selectResult.rows);
+                        }
+                        reject(
+                          new Error("Could not find or create participant")
+                        );
+                      }
+                    );
+                  });
+                } else {
+                  // Other error, rollback and reject
+                  return pg.query("ROLLBACK", [], () => {
+                    logger.error("participants insert failed", {
+                      zid,
+                      uid,
+                      error: partErr.message,
+                      code: partErr.code,
+                      constraint: partErr.constraint,
+                    });
+                    reject(partErr);
+                  });
+                }
+              }
+
+              // Success, commit the transaction
+              pg.query("COMMIT", [], (commitErr: any) => {
+                if (commitErr) {
+                  logger.error("Failed to commit transaction", commitErr);
+                  return reject(commitErr);
+                }
+
+                logger.debug("participants insert successful", {
+                  zid,
+                  uid,
+                  resultLength: partResult.rows
+                    ? partResult.rows.length
+                    : "unknown",
+                  result:
+                    partResult.rows && partResult.rows.length > 0
+                      ? partResult.rows[0]
+                      : "empty",
+                });
+
+                resolve(partResult.rows);
+              });
+            }
+          );
+        }
+      );
     });
-    return result;
-  } catch (participantsError: any) {
-    logger.error("participants insert failed", {
-      zid,
-      uid,
-      error: participantsError.message,
-      code: participantsError.code,
-      constraint: participantsError.constraint,
-    });
-    throw participantsError;
-  }
+  });
 }
 
 function joinConversation(

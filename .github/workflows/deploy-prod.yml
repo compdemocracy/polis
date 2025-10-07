@@ -6,7 +6,11 @@ on:
       - stable
 
 jobs:
-  deploy-static:
+  # ==========================================================
+  # ==      JOB 1: DEPLOY STATIC ASSETS TO PRODUCTION (US)  ==
+  # ==========================================================
+  deploy-static-us:
+    name: Deploy Static Assets (US)
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -17,17 +21,17 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Configure AWS Credentials
+      - name: Configure AWS Credentials (US)
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{secrets.AWS_PROD_ROLE_ARN}}
-          role-session-name: GitHubActionsDeployProd
+          role-session-name: GitHubActionsDeployProdUS
           aws-region: us-east-1
 
       - name: Create empty .env file
         run: touch .env
 
-      - name: Build static assets
+      - name: Build static assets (US)
         env:
           EMBED_SERVICE_HOSTNAME: pol.is
           GA_TRACKING_ID: G-WVP78N35QR
@@ -38,6 +42,8 @@ jobs:
           NODE_ENV: production
           OIDC_CACHE_KEY_PREFIX: oidc.user
           OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: "@@user@@"
+          AUTH_NAMESPACE: https://pol.is/
+          ADMIN_UIDS: ${{secrets.ADMIN_UIDS}}
         run: |
           docker compose create --build --force-recreate file-server
           CONTAINER_ID=$(docker ps -qaf name=file-server)
@@ -50,9 +56,62 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: |
-          python -m pip install -r deploy/requirements.txt
+        run: python -m pip install -r deploy/requirements.txt
 
-      - name: Deploy to S3
+      - name: Deploy to S3 (US)
+        run: python deploy/deploy-static-assets.py --source build --bucket prod.static-assets.pol.is
+
+  # =====================================================
+  # ==      JOB 2: DEPLOY STATIC ASSETS TO EUROPE      ==
+  # =====================================================
+  deploy-static-euro:
+    name: Deploy Static Assets (Europe)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure AWS Credentials (Europe)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{secrets.AWS_EURO_ROLE_ARN}}
+          role-session-name: GitHubActionsDeployProdEuro
+          aws-region: eu-central-1
+
+      - name: Create empty .env file
+        run: touch .env
+
+      - name: Build static assets (Europe)
+        env:
+          EMBED_SERVICE_HOSTNAME: euro.pol.is
+          GA_TRACKING_ID: G-WVP78N35QR
+          SERVICE_URL: https://euro.pol.is
+          AUTH_AUDIENCE: users
+          AUTH_CLIENT_ID: ${{secrets.AUTH_CLIENT_ID_EURO}}
+          AUTH_ISSUER: https://compdem.eu.auth0.com/
+          NODE_ENV: production
+          OIDC_CACHE_KEY_PREFIX: oidc.user
+          OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: "@@user@@"
+          AUTH_NAMESPACE: https://euro.pol.is/
+          ADMIN_UIDS: ${{secrets.ADMIN_UIDS}}
         run: |
-          python deploy/deploy-static-assets.py --bucket prod.static-assets.pol.is
+          docker compose create --build --force-recreate file-server
+          CONTAINER_ID=$(docker ps -qaf name=file-server)
+          # Euro build is copied to its own separate directory
+          docker cp ${CONTAINER_ID}:/app/build/ ./build-euro
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: python -m pip install -r deploy/requirements.txt
+
+      - name: Deploy to S3 (Europe)
+        run: python deploy/deploy-static-assets.py --source build-euro --bucket euro.static-assets.pol.is

@@ -37,14 +37,21 @@ class PriorityCalculator:
         self.conversation_id = conversation_id
         self.endpoint_url = endpoint_url
 
-        # Initialize DynamoDB connection
-        self.dynamodb = boto3.resource(
-            'dynamodb',
-            endpoint_url=endpoint_url,
-            region_name='us-east-1',
-            aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID', 'dummy'),
-            aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY', 'dummy')
-        )
+        # Prepare arguments for the boto3 resource.
+        boto3_kwargs = {
+            'region_name': os.environ.get('AWS_REGION', 'us-east-1'),
+            'aws_access_key_id': os.environ.get('AWS_ACCESS_KEY_ID', 'dummy'),
+            'aws_secret_access_key': os.environ.get('AWS_SECRET_ACCESS_KEY', 'dummy')
+        }
+
+        # Only add the endpoint_url if it's actually provided.
+        # If it's None (like in a production environment), boto3 will correctly
+        # use its default AWS endpoint resolution.
+        if endpoint_url:
+            boto3_kwargs['endpoint_url'] = endpoint_url
+
+        # Initialize DynamoDB connection using the prepared arguments
+        self.dynamodb = boto3.resource('dynamodb', **boto3_kwargs)
 
         # Get table references
         self.comment_routing_table = self.dynamodb.Table('Delphi_CommentRouting')
@@ -270,7 +277,16 @@ def main():
     """Main function."""
     parser = argparse.ArgumentParser(description='Calculate comment priorities using group-based extremity')
     parser.add_argument('--conversation_id', '--zid', type=int, required=True, help='Conversation ID to process')
-    parser.add_argument('--endpoint-url', type=str, default=os.environ.get('DYNAMODB_ENDPOINT', 'http://host.docker.internal:8000'), help='DynamoDB endpoint URL')
+    
+    # If the DYNAMODB_ENDPOINT env var is not set, the default will be None,
+    # which is the correct behavior for production environments.
+    parser.add_argument(
+        '--endpoint-url', 
+        type=str, 
+        default=os.environ.get('DYNAMODB_ENDPOINT'), 
+        help='DynamoDB endpoint URL for local development (e.g., http://localhost:8000)'
+    )
+    
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
     
     args = parser.parse_args()

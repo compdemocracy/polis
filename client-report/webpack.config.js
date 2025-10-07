@@ -35,8 +35,10 @@ module.exports = {
       filename: 'report_style.[contenthash].css',
     }),
     new webpack.DefinePlugin({
-      'process.env.NODE_ENV': JSON.stringify('production'),
-      'process.env.SERVICE_URL': null,
+      'process.env': {
+        NODE_ENV: JSON.stringify('production'),
+        SERVICE_URL: null
+      }
     })
   ],
   performance: {
