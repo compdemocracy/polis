@@ -76,7 +76,7 @@
     "mimelib": "~0.3.1",
     "morgan": "^1.10.0",
     "nan": "~2.22.2",
-    "nodemailer": "~6.10.1",
+    "nodemailer": "~7.0.7",
     "nodemailer-mailgun-transport": "~2.1.5",
     "oauth": "~0.10.2",
     "openai": "^4.104.0",
