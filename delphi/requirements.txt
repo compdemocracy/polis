@@ -25,10 +25,10 @@ colorlog>=6.9.0
 
 # PyTorch dependencies
 # These versions will be installed in non-GitHub Action builds.
-# In GitHub Action builds, the +cpu versions (e.g., torch==2.3.1+cpu) are installed
+# In GitHub Action builds, the +cpu versions (e.g., torch==2.8.0+cpu) are installed
 # by the Dockerfile before this requirements.txt is processed.
 # Pip should correctly satisfy these with the pre-installed +cpu versions.
-torch==2.3.1
+torch==2.8.0
 torchvision==0.18.1
 torchaudio==2.3.1
 

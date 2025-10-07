@@ -52,7 +52,7 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 
 ### General Settings
 
-- **`ADMIN_UIDS`** an array of user UUIDs for site admins. These users will have moderator capabilities on all conversations hosted on the site.
+- **`ADMIN_UIDS`** an array of user UIDs for site admins. These users will have moderator capabilities on all conversations hosted on the site.
 - **`EMAIL_TRANSPORT_TYPES`** comma-separated list of email services to use (see [Email Transports](#email-transports) below)
 - **`GIT_HASH`** Set programmatically using `git rev-parse HEAD` (e.g. in `Makefile`) to tag docker container versions and other release assets. Can be left blank.
 - **`MATH_ENV`** Set to `prod` (default), `preprod`, `dev` or arbitrary feature flag. In cases where a single database is used for multiple environments, this value is used by the API service to request the correct data. (Using a single DB for multiple environments in this fashion is no longer recommended, and so the default value of `prod` is recommended.)

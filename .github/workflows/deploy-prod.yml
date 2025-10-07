@@ -96,7 +96,7 @@ jobs:
           NODE_ENV: production
           OIDC_CACHE_KEY_PREFIX: oidc.user
           OIDC_CACHE_KEY_ID_TOKEN_SUFFIX: "@@user@@"
-          AUTH_NAMESPACE: https://eu.pol.is/
+          AUTH_NAMESPACE: https://euro.pol.is/
           ADMIN_UIDS: ${{secrets.ADMIN_UIDS}}
         run: |
           docker compose create --build --force-recreate file-server

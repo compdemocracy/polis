@@ -1,18 +1,19 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useSelector } from 'react-redux'
 import { Heading, Box, Text, Button, Select } from 'theme-ui'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
-import PolisNet from '../../util/net'
-import Spinner from '../framework/spinner'
+
+import { useConversationData } from '../../util/conversation_data'
 import Pagination from './Pagination'
+import PolisNet from '../../util/net'
+import Spinner from '../framework/Spinner'
 
 const InviteCodes = () => {
   const params = useParams()
-  const zid_metadata = useSelector((state) => state.zid_metadata)
-  const enabled = Boolean(zid_metadata?.zid_metadata?.treevite_enabled)
+  const conversationData = useConversationData()
+  const enabled = Boolean(conversationData?.treevite_enabled)
   const conversationId = useMemo(
-    () => zid_metadata?.zid_metadata?.conversation_id || params.conversation_id,
-    [zid_metadata?.zid_metadata?.conversation_id, params.conversation_id]
+    () => conversationData?.conversation_id || params.conversation_id,
+    [conversationData?.conversation_id, params.conversation_id]
   )
 
   const [invites, setInvites] = useState([])
@@ -85,7 +86,7 @@ const InviteCodes = () => {
     }
   }, [waveFilter, statusFilter])
 
-  const handlePageChange = (newOffset, newLimit) => {
+  const handlePageChange = (newOffset) => {
     loadInvites(newOffset)
   }
 
@@ -112,13 +113,13 @@ const InviteCodes = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 0:
-        return 'green'
+        return 'success'
       case 1:
-        return 'blue'
+        return 'info'
       case 2:
-        return 'red'
+        return 'error'
       case 3:
-        return 'orange'
+        return 'warning'
       default:
         return 'gray'
     }
@@ -248,7 +249,7 @@ const InviteCodes = () => {
           {loading ? (
             <Spinner />
           ) : error ? (
-            <Text sx={{ color: 'red' }}>{String(error)}</Text>
+            <Text sx={{ color: 'error' }}>{String(error)}</Text>
           ) : invites.length > 0 ? (
             <Box>
               <Text sx={{ mb: [2], fontWeight: 'bold' }}>

@@ -112,30 +112,33 @@ describe('Client Report: Comment Report Generation', () => {
         cy.log('✅ Report creation API call successful')
       })
 
-      // Verify that a report item has been added to the list
+      // Verify that a report card has been added to the list
       cy.get('[data-testid="report-list-item"]').should('exist')
 
-      // Verify that the report item contains a link with the correct href format
-      cy.get('[data-testid="report-list-item"]').within(() => {
-        cy.get('a')
-          .should('have.attr', 'href')
-          .and('match', /\/report\/[a-zA-Z0-9]+/)
-        cy.get('a').should('have.attr', 'target', '_blank')
-        cy.get('a').should('have.attr', 'rel', 'noreferrer')
-      })
+      // Click on the report card to expand it
+      cy.get('[data-testid="report-list-item"]').first().click()
+
+      // Wait for the expansion animation
+      cy.contains('Report URLs').should('be.visible')
+
+      // Verify that the expanded panel contains links with the correct href format
+      cy.get('a[href*="/report/"]')
+        .should('have.attr', 'href')
+        .and('match', /\/report\/[a-zA-Z0-9]+/)
+      cy.get('a[href*="/report/"]').should('have.attr', 'target', '_blank')
+      cy.get('a[href*="/report/"]').should('have.attr', 'rel', 'noreferrer')
 
       // Verify that the generated URL is displayed
       cy.get('body').should('contain.text', 'http://localhost/report/')
 
       // Get the generated report URL and navigate to it to verify it loads without errors
       let reportUrl
-      cy.get('[data-testid="report-list-item"]').within(() => {
-        cy.get('a')
-          .invoke('attr', 'href')
-          .then((url) => {
-            reportUrl = url
-          })
-      })
+      cy.get('a[href*="/report/"]')
+        .first()
+        .invoke('attr', 'href')
+        .then((url) => {
+          reportUrl = url
+        })
 
       // Now navigate to the report URL outside of the within() block
       cy.then(() => {

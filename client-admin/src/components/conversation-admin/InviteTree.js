@@ -1,17 +1,18 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useSelector } from 'react-redux'
 import { Heading, Box, Text, Button } from 'theme-ui'
+import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router'
+
+import { useConversationData } from '../../util/conversation_data'
 import PolisNet from '../../util/net'
-import Spinner from '../framework/spinner'
+import Spinner from '../framework/Spinner'
 
 const InviteTree = () => {
   const params = useParams()
-  const zid_metadata = useSelector((state) => state.zid_metadata)
-  const enabled = Boolean(zid_metadata?.zid_metadata?.treevite_enabled)
+  const conversationData = useConversationData()
+  const enabled = Boolean(conversationData?.treevite_enabled)
   const conversationId = useMemo(
-    () => zid_metadata?.zid_metadata?.conversation_id || params.conversation_id,
-    [zid_metadata?.zid_metadata?.conversation_id, params.conversation_id]
+    () => conversationData?.conversation_id || params.conversation_id,
+    [conversationData?.conversation_id, params.conversation_id]
   )
 
   const [waves, setWaves] = useState([])
@@ -116,7 +117,7 @@ const InviteTree = () => {
           {loading ? (
             <Spinner />
           ) : error ? (
-            <Text sx={{ color: 'red' }}>{String(error)}</Text>
+            <Text sx={{ color: 'error' }}>{String(error)}</Text>
           ) : hasWaves ? (
             <Box as="ul" sx={{ pl: [3], mb: [3] }}>
               {waves.map((w) => (

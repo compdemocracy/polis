@@ -1,12 +1,13 @@
-import { render, screen } from '@testing-library/react'
-import { Provider } from 'react-redux'
-import { configureStore } from '@reduxjs/toolkit'
 import { BrowserRouter } from 'react-router'
+import { configureStore } from '@reduxjs/toolkit'
+import { Provider } from 'react-redux'
+import { render, screen } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
+
+import { mockAuth } from './test-utils'
 import App from './app'
 import rootReducer from './reducers'
 import theme from './theme'
-import { mockAuth } from './test-utils'
 
 // Mock the useAuth hook directly for this test file
 jest.mock('react-oidc-context', () => ({
@@ -14,7 +15,7 @@ jest.mock('react-oidc-context', () => ({
 }))
 
 // Mock the conversations component to avoid deep component tree issues
-jest.mock('./components/conversations-and-account/conversations', () => {
+jest.mock('./components/conversations-and-account/Conversations', () => {
   return function MockConversations() {
     return <div>All Conversations</div>
   }

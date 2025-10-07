@@ -12,16 +12,16 @@ Main container component with tabbed navigation between different views:
 - Proximity Map visualization
 - Statistics dashboard
 
-### `topic-tree.js` - TopicTree
+### `TopicTree.js` - TopicTree
 
 Hierarchical display of topics organized by layers:
 
 - Layer selection (0, 1, 2, or all)
 - Topic cards with moderation controls
-- Bulk topic-level actions (Accept/Reject/Meta)
+- Bulk topic-level actions (Accept/Reject)
 - Navigation to detailed comment view
 
-### `topic-detail.js` - TopicDetail
+### `TopicDetail.js` - TopicDetail
 
 Detailed view of comments within a specific topic:
 
@@ -30,7 +30,7 @@ Detailed view of comments within a specific topic:
 - UMAP coordinate display
 - Moderation status tracking
 
-### `proximity-visualization.js` - ProximityVisualization
+### `ProximityVisualization.js` - ProximityVisualization
 
 SVG-based UMAP visualization:
 
@@ -39,12 +39,12 @@ SVG-based UMAP visualization:
 - Color coding by moderation status
 - Layer selection for different granularities
 
-### `topic-stats.js` - TopicStats
+### `TopicStats.js` - TopicStats
 
 Statistics and progress tracking:
 
 - Moderation completion rates
-- Status distribution (pending/accepted/rejected/meta)
+- Status distribution (pending/accepted/rejected)
 - Progress bars and visual indicators
 - Overview dashboard
 
@@ -69,9 +69,9 @@ The components are integrated into the conversation admin interface at:
 
 ## Styling
 
-Uses theme-ui variants and custom CSS in `topic-moderation.css` for:
+Uses theme-ui exclusively with `sx` props for:
 
-- Hover effects and transitions
+- Hover effects and transitions via pseudo-selectors
 - Status-based color coding
-- Responsive design
-- Loading states and animations
+- Responsive design with breakpoint arrays
+- Inline component-specific styling

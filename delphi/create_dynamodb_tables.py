@@ -263,7 +263,6 @@ def create_evoc_tables(dynamodb, delete_existing=False):
                         {'AttributeName': 'conversation_id', 'KeyType': 'RANGE'}
                     ],
                     'Projection': {'ProjectionType': 'ALL'},
-                    'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
                 },
                 {
                     'IndexName': 'zid-index',

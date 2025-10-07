@@ -69,7 +69,7 @@ class NarrativeReportService:
             self.dynamodb = boto3.resource(
                 'dynamodb',
                 endpoint_url=endpoint_url,
-                region_name=os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
+                region_name=os.environ.get('AWS_REGION', 'us-east-1')
             )
         
         self.table = self.dynamodb.Table(self.table_name)
@@ -224,7 +224,7 @@ class BatchReportGenerator:
         self.dynamodb = boto3.resource(
             'dynamodb',
             endpoint_url=endpoint_url,
-            region_name=os.environ.get('AWS_DEFAULT_REGION', 'us-east-1')
+            region_name=os.environ.get('AWS_REGION', 'us-east-1')
         )
 
         self.report_storage = NarrativeReportService(dynamodb_resource=self.dynamodb)

@@ -287,35 +287,73 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
       return;
     }
 
-    // 1a. Ensure we have a valid pid (handle edge cases where middleware didn't set it)
+    // 1a. Ensure we have a valid pid that exists in the database
+    // Even if middleware set pid, verify it exists to avoid race conditions
+    if (uid === undefined) {
+      failJson(res, 400, "polis_err_missing_uid");
+      return;
+    }
+
+    // Always verify/get the participant to avoid foreign key constraint violations
     if (pid === undefined || pid === -1) {
-      logger.warn(
-        "Comment handler: pid not set by middleware, attempting to get/create participant",
+      logger.debug(
+        "Comment handler: pid not set by middleware, getting/creating participant",
         { zid, uid, pid }
       );
-      if (uid !== undefined) {
-        // Try to get existing pid or create participant
-        const existingPid = await getPidPromise(zid, uid, true);
-        if (existingPid === -1) {
-          // Need to create participant
-          const rows = await addParticipant(zid, uid);
-          pid = rows[0].pid;
-          logger.info("Comment handler: created participant", {
-            zid,
-            uid,
-            pid,
-          });
-        } else {
-          pid = existingPid;
-          logger.info("Comment handler: found existing participant", {
-            zid,
-            uid,
-            pid,
-          });
-        }
+      // Try to get existing pid or create participant
+      const existingPid = await getPidPromise(zid, uid, true);
+      if (existingPid === -1) {
+        // Need to create participant
+        const rows = await addParticipant(zid, uid);
+        pid = rows[0].pid;
+        logger.info("Comment handler: created participant", {
+          zid,
+          uid,
+          pid,
+        });
       } else {
-        failJson(res, 400, "polis_err_missing_uid_and_pid");
-        return;
+        pid = existingPid;
+        logger.debug("Comment handler: found existing participant", {
+          zid,
+          uid,
+          pid,
+        });
+      }
+    } else {
+      // Middleware set a pid, but verify it exists to prevent race conditions
+      logger.debug("Comment handler: verifying participant exists", {
+        zid,
+        uid,
+        pid,
+      });
+      const verifiedPid = await getPidPromise(zid, uid, true);
+      if (verifiedPid === -1) {
+        // Participant doesn't exist, create it
+        logger.warn(
+          "Comment handler: middleware provided pid but participant doesn't exist, creating",
+          { zid, uid, middlewarePid: pid }
+        );
+        const rows = await addParticipant(zid, uid);
+        pid = rows[0].pid;
+        logger.info("Comment handler: created participant after verification", {
+          zid,
+          uid,
+          pid,
+        });
+      } else if (verifiedPid !== pid) {
+        // Middleware provided wrong pid, use the correct one
+        logger.warn(
+          "Comment handler: middleware pid mismatch, using verified pid",
+          { zid, uid, middlewarePid: pid, verifiedPid }
+        );
+        pid = verifiedPid;
+      } else {
+        // All good, participant exists
+        logger.debug("Comment handler: participant verified", {
+          zid,
+          uid,
+          pid,
+        });
       }
     }
 

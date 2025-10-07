@@ -365,6 +365,7 @@ def process_conversation(zid, export_dynamo=True):
     
     conversation_id = str(zid)
     conversation_name = metadata.get('conversation_name', f"Conversation {zid}")
+    region = os.environ.get('AWS_REGION')
     
     # Process comments
     document_map, document_vectors, cluster_layers, comment_texts, comment_ids = process_comments(
@@ -375,7 +376,7 @@ def process_conversation(zid, export_dynamo=True):
     dynamo_storage = None
     if export_dynamo:
         dynamo_storage = DynamoDBStorage(
-            region_name='us-east-1',
+            region_name=region,
             endpoint_url=os.environ.get('DYNAMODB_ENDPOINT')
         )
         

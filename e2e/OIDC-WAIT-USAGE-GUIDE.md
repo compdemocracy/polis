@@ -28,9 +28,9 @@ For test suites with many files using OIDC authentication:
 // Option A: Use the setupOidcReadiness command (Recommended)
 describe('My Test Suite', () => {
   before(() => {
-    cy.setupOidcReadiness()  // Automatically handles CI vs local
+    cy.setupOidcReadiness() // Automatically handles CI vs local
   })
-  
+
   it('should work', () => {
     // OIDC will be ready before this runs
   })
@@ -62,20 +62,20 @@ afterEach(() => {
 
 ```javascript
 cy.waitForOidcReady({
-  timeout: 30000,  // Total timeout in milliseconds (default: 30000)
-  retries: 5       // Number of retry attempts (default: 5)
+  timeout: 30000, // Total timeout in milliseconds (default: 30000)
+  retries: 5, // Number of retry attempts (default: 5)
 })
 ```
 
 ## Comparison: `waitForOidcReady` vs `checkOidcSimulator`
 
-| Feature | `waitForOidcReady` | `checkOidcSimulator` |
-|---------|-------------------|---------------------|
-| **Retry Logic** | ✅ Progressive backoff | ❌ Single attempt |
-| **Multiple Endpoints** | ✅ Checks JWKS + OpenID config | ✅ Same |
-| **Error Recovery** | ✅ Catches and retries | ❌ Fails immediately |
-| **Best For** | CI, first test, unstable networks | Local dev, quick checks |
-| **Typical Time** | 1-30 seconds (depends on retries) | < 1 second |
+| Feature                | `waitForOidcReady`                | `checkOidcSimulator`    |
+| ---------------------- | --------------------------------- | ----------------------- |
+| **Retry Logic**        | ✅ Progressive backoff            | ❌ Single attempt       |
+| **Multiple Endpoints** | ✅ Checks JWKS + OpenID config    | ✅ Same                 |
+| **Error Recovery**     | ✅ Catches and retries            | ❌ Fails immediately    |
+| **Best For**           | CI, first test, unstable networks | Local dev, quick checks |
+| **Typical Time**       | 1-30 seconds (depends on retries) | < 1 second              |
 
 ## Implementation Strategy
 
@@ -91,7 +91,7 @@ cy.waitForOidcReady({
    ```javascript
    describe('Your Test', () => {
      before(() => {
-       cy.setupOidcReadiness()  // Add this line
+       cy.setupOidcReadiness() // Add this line
      })
      // ... rest of your tests
    })
@@ -117,7 +117,7 @@ describe('Admin Features', () => {
   beforeEach(() => {
     loginStandardUser('admin@polis.test', 'password')
   })
-  
+
   it('should work', () => {
     // Test may fail if OIDC isn't ready
   })
@@ -129,13 +129,13 @@ describe('Admin Features', () => {
 ```javascript
 describe('Admin Features', () => {
   before(() => {
-    cy.setupOidcReadiness()  // ← Add this to ensure OIDC is ready
+    cy.setupOidcReadiness() // ← Add this to ensure OIDC is ready
   })
-  
+
   beforeEach(() => {
     loginStandardUser('admin@polis.test', 'password')
   })
-  
+
   it('should work', () => {
     // OIDC guaranteed ready before this runs
   })
@@ -185,9 +185,9 @@ If `waitForOidcReady` fails after all retries:
 
 ```javascript
 // Debug configuration
-cy.waitForOidcReady({ 
-  timeout: 60000,  // 1 minute for very slow CI
-  retries: 10      // More retries for unstable networks
+cy.waitForOidcReady({
+  timeout: 60000, // 1 minute for very slow CI
+  retries: 10, // More retries for unstable networks
 })
 ```
 

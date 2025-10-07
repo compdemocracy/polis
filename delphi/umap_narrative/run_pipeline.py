@@ -1350,9 +1350,10 @@ def process_conversation(
         raw_endpoint = os.environ.get("DYNAMODB_ENDPOINT")
         endpoint_url = raw_endpoint if raw_endpoint and raw_endpoint.strip() else None
         logger.info(f"Using DynamoDB endpoint from environment: {endpoint_url}")
+        region = os.environ.get("AWS_REGION", "us-east-1")
 
         dynamo_storage = DynamoDBStorage(
-            region_name="us-east-1", endpoint_url=endpoint_url
+            region_name=region, endpoint_url=endpoint_url
         )
 
         # Store basic data in DynamoDB
