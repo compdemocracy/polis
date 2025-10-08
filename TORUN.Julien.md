@@ -7,6 +7,7 @@ However, as of commit `b8c9c130`, it throws some errors, which we explain here, 
 ## TLDR:
 - Revert Dependabot's commit `a7a060b` which updated  torch versions, to solve a dependency issue in the math python worker.
 - Set `MATH_ENV=dev` instead of `=prod` in `.env`, to solve an infinite reboot loop of the clojure worker due to failing to load Datadog profiler -- which is skipped in development environment.
+- Set up certificates by following the instructions at `oidc-simulator/README.md`, to allow actual sign-in.
 
  
 ## Torch dependencies issues
@@ -80,5 +81,44 @@ The `MATH_ENV` variable is set in `.env` and passed to the container via [docker
 | `dev` or other | ❌ Disabled | None | `clojure -M:run full` |
 
 Both run with a 4-hour timeout (`14400` seconds).
+
+## Set up certificates for login simulator
+
+### Problem
+The "Sign In" button at `localhost/signin` doesn't work. The `oidc-simulator` container is unhealthy and crashes with:
+```
+NoSSLError: no self signed certificate.
+```
+
+### Root Cause
+The OIDC simulator requires HTTPS with locally-trusted SSL certificates to authenticate admin users. The certificates are **not** automatically generated during build.
+
+### Solution
+Install `mkcert` and generate certificates (one-time setup):
+
+```bash
+# Install mkcert
+brew install mkcert
+brew install nss  # for Firefox support
+
+# Install local Certificate Authority
+mkcert -install
+
+# Generate certificates
+mkdir -p ~/.simulacrum/certs
+cd ~/.simulacrum/certs
+mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator
+```
+
+Then restart the services with `make start`.
+
+### Test Sign-In
+Visit [localhost/signin](http://localhost/signin) and use:
+- **Email**: `admin@polis.test`
+- **Password**: `Te$tP@ssw0rd*`
+
+### Documentation
+- Full details: [oidc-simulator/README.md](oidc-simulator/README.md#prerequisites)
+- Note: This requirement is documented in the simulator README and error logs, but not in the main README's Quick Start section
 
 ---
