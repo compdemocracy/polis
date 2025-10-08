@@ -85,13 +85,18 @@ Both run with a 4-hour timeout (`14400` seconds).
 ## Set up certificates for login simulator
 
 ### Problem
-The "Sign In" button at `localhost/signin` doesn't work. The `oidc-simulator` container is unhealthy and crashes with:
-```
-NoSSLError: no self signed certificate.
-```
+The "Sign In" button at `localhost/signin` doesn't work. Multiple certificate-related errors occur:
+1. **OIDC simulator crashes** with: `NoSSLError: no self signed certificate`
+2. **Server fails JWT validation** with: `unable to verify the first certificate` (missing root CA)
+3. **Hostname mismatch error**: `Host: host.docker.internal. is not in the cert's altnames`
 
 ### Root Cause
-The OIDC simulator requires HTTPS with locally-trusted SSL certificates to authenticate admin users. The certificates are **not** automatically generated during build.
+The OIDC simulator requires HTTPS with locally-trusted SSL certificates. Three components are needed:
+1. Certificate and key files for the OIDC simulator to serve HTTPS
+2. Root CA certificate for the server to trust the self-signed certificate
+3. Certificate must include `host.docker.internal` as a valid hostname (Docker containers use this to reach the host)
+
+None of these are automatically generated during build.
 
 ### Solution
 Install `mkcert` and generate certificates (one-time setup):
@@ -104,18 +109,30 @@ brew install nss  # for Firefox support
 # Install local Certificate Authority
 mkcert -install
 
-# Generate certificates
+# Generate certificates with all required hostnames
 mkdir -p ~/.simulacrum/certs
 cd ~/.simulacrum/certs
-mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator
+mkcert -cert-file localhost.pem -key-file localhost-key.pem \
+  localhost 127.0.0.1 ::1 oidc-simulator host.docker.internal
+
+# Copy the root CA so the server can trust the certificate
+cp "$(mkcert -CAROOT)/rootCA.pem" .
 ```
 
-Then restart the services with `make start`.
+Then restart the affected services:
+```bash
+docker restart polis-dev-oidc-simulator-1 polis-dev-server-1
+```
 
 ### Test Sign-In
 Visit [localhost/signin](http://localhost/signin) and use:
 - **Email**: `admin@polis.test`
 - **Password**: `Te$tP@ssw0rd*`
+
+### What Each Component Does
+- **localhost.pem & localhost-key.pem**: OIDC simulator uses these to serve HTTPS on port 3000
+- **rootCA.pem**: Server container needs this to trust the self-signed certificate when fetching JWKS from the simulator
+- **host.docker.internal**: Docker containers use this hostname to reach services on the host machine. The certificate must include it or you'll get `ERR_TLS_CERT_ALTNAME_INVALID` errors
 
 ### Documentation
 - Full details: [oidc-simulator/README.md](oidc-simulator/README.md#prerequisites)

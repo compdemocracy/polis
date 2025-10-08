@@ -43,7 +43,7 @@ Before using the OIDC Simulator, you need to set up locally trusted SSL certific
    ```bash
    mkdir -p ~/.simulacrum/certs
    cd ~/.simulacrum/certs
-   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator
+   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator host.docker.internal
    ```
 
    For CI/testing environments, certificates are created in the workspace:
@@ -51,13 +51,28 @@ Before using the OIDC Simulator, you need to set up locally trusted SSL certific
    ```bash
    mkdir -p ./.simulacrum/certs
    cd ./.simulacrum/certs
-   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator
+   mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator host.docker.internal
    ```
 
    This creates a single certificate valid for:
    - `localhost` (browser access)
    - `oidc-simulator` (Docker container access)
+   - `host.docker.internal` (Docker-to-host communication)
    - `127.0.0.1` and `::1` (IP-based access)
+
+4. **Copy the root CA certificate**:
+
+   The server container needs the root CA to trust the self-signed certificate:
+
+   ```bash
+   cp "$(mkcert -CAROOT)/rootCA.pem" ~/.simulacrum/certs/
+   ```
+
+   For CI/testing environments:
+
+   ```bash
+   cp "$(mkcert -CAROOT)/rootCA.pem" ./.simulacrum/certs/
+   ```
 
 ## Configuration
 
