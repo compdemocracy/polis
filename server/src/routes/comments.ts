@@ -731,7 +731,7 @@ async function handle_POST_comments_bulk(
   req: PolisRequest,
   res: Response & { json: (data: any) => void }
 ): Promise<void> {
-  const { zid, uid, pid: initialPid, is_seed } = req.p;
+  const { zid, uid, pid: initialPid, is_seed, xid } = req.p;
   // @ts-expect-error body parsing
   const csv = req.body.csv;
   let pid = initialPid;
@@ -849,6 +849,15 @@ async function handle_POST_comments_bulk(
 
         if (createdTime > lastInteractionTime) {
           lastInteractionTime = createdTime;
+        }
+
+        // Handle default vote for seed comments (matching handle_POST_comments behavior)
+        if (is_seed) {
+          await votesPost(uid!, finalPid, zid!, tid, xid, 0, 0, false);
+          // Schedule vote count update
+          setTimeout(() => {
+            updateVoteCount(zid!, finalPid);
+          }, 100);
         }
 
         if (!active) {
