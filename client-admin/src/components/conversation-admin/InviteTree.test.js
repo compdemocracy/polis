@@ -368,30 +368,47 @@ describe('InviteTree', () => {
         // Set up specific mock implementations for this test
         PolisNet.polisGet
           .mockResolvedValueOnce([]) // First call on mount
-          .mockResolvedValueOnce([{ id: 1, wave: 1 }]) // Second call after creation
+          .mockResolvedValue([{ id: 1, wave: 1 }]) // All subsequent calls return the created wave
         PolisNet.polisPost.mockResolvedValue({ wave: 1, invites_created: 10 })
 
         const store = createMockStore({ treevite_enabled: true })
         renderWithProviders(<InviteTree />, { store })
 
-        // Wait for initial load to complete
+        // Wait for initial load to complete (should show "no waves" message)
         await waitFor(() => {
-          expect(PolisNet.polisGet).toHaveBeenCalledTimes(1)
+          expect(
+            screen.getByText('No waves yet. Create the initial wave below.')
+          ).toBeInTheDocument()
         })
+
+        // Verify initial load happened
+        expect(PolisNet.polisGet).toHaveBeenCalledWith('/api/v3/treevite/waves', {
+          conversation_id: 'test123'
+        })
+        const initialCallCount = PolisNet.polisGet.mock.calls.length
 
         // Create wave
-        await waitFor(() => {
-          const input = screen.getAllByRole('spinbutton')[0]
-          fireEvent.change(input, { target: { value: '5' } })
+        const input = screen.getAllByRole('spinbutton')[0]
+        fireEvent.change(input, { target: { value: '5' } })
 
-          const button = screen.getByRole('button', { name: /Create Wave/ })
-          fireEvent.click(button)
+        const button = screen.getByRole('button', { name: /Create Wave/ })
+        fireEvent.click(button)
+
+        // Wait for wave creation to complete
+        await waitFor(() => {
+          expect(PolisNet.polisPost).toHaveBeenCalledWith('/api/v3/treevite/waves', {
+            conversation_id: 'test123',
+            invites_per_user: 5
+          })
         })
 
-        // Wait for reload after creation
+        // Wait for reload after creation by checking that the wave now appears in the list
         await waitFor(() => {
-          expect(PolisNet.polisGet).toHaveBeenCalledTimes(2)
+          expect(screen.getByText(/Wave 1 \(parent 0\)/)).toBeInTheDocument()
         })
+
+        // Verify that polisGet was called at least once more after the initial load
+        expect(PolisNet.polisGet.mock.calls.length).toBeGreaterThan(initialCallCount)
       })
 
       it('shows error message when wave creation fails', async () => {
