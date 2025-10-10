@@ -268,11 +268,6 @@ const ReportsList = () => {
                   {hasDelphiEnabled(authUser) && (
                     <>
                       <ReportLink
-                        title="Narrative"
-                        href={`${Url.reportUrlPrefix}narrativeReport/${report.report_id}`}
-                        urlPrefix={`${Url.reportUrlPrefix}narrativeReport/${report.report_id}`}
-                      />
-                      <ReportLink
                         title="Topic"
                         href={`${Url.reportUrlPrefix}topicReport/${report.report_id}`}
                         urlPrefix={`${Url.reportUrlPrefix}topicReport/${report.report_id}`}
