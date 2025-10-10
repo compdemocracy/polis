@@ -106,6 +106,7 @@ services:
       - DD_SERVICE=math
       - DD_ENV=prod
       - DD_LOGS_INJECTION=true
+      - DD_ENABLED=true
     networks:
       - "polis-net"
     restart: unless-stopped

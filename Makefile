@@ -183,7 +183,7 @@ rbs: start-rebuild
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
 	start-recreate start-FULL-REBUILD rebuild-web rebuild-server e2e-install e2e-run e2e-run-all \
 	e2e-run-interactive build-web-assets extract-web-assets generate-jwt-keys regenerate-jwt-keys \
-	psql-shell start-prodclone
+	psql-shell start-prodclone rebuild-delphi
 
 
 help:

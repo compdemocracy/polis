@@ -37,7 +37,8 @@ services:
       # nrepl port
       - "18975:18975"
     environment:
-      CHOKIDAR_USEPOLLING: "true"
+      - CHOKIDAR_USEPOLLING=true
+      - DD_ENABLED=false
 
   postgres:
     restart: no
