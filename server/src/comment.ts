@@ -61,6 +61,91 @@ function getComment(zid: number, tid: number): Promise<CommentRow | null> {
     });
 }
 
+function getCommentsCount(o: GetCommentsParams): Promise<number> {
+  return getConversationInfo(o.zid).then(function (conv: ConversationInfo) {
+    let query = "";
+    const params: any[] = [o.zid];
+
+    if (o.moderation) {
+      // Count query for moderation list
+      let modClause = "";
+      if (!_.isUndefined(o.mod)) {
+        modClause = " and comments.mod = ($2)";
+        params.push(o.mod);
+      } else if (!_.isUndefined(o.mod_gt)) {
+        modClause = " and comments.mod > ($2)";
+        params.push(o.mod_gt);
+      } else if (!_.isUndefined(o.modIn)) {
+        if (o.modIn === true) {
+          if (conv.strict_moderation) {
+            modClause = " and comments.mod > 0";
+          } else {
+            modClause = " and comments.mod >= 0";
+          }
+        } else if (o.modIn === false) {
+          if (conv.strict_moderation) {
+            modClause = " and comments.mod <= 0";
+          } else {
+            modClause = " and comments.mod < 0";
+          }
+        }
+      }
+      query =
+        "select count(*) from comments where comments.zid = ($1)" + modClause;
+    } else {
+      // Count query for regular list
+      let conditions = "zid = ($1) AND active = true AND velocity > 0";
+      let paramIndex = 2;
+
+      if (!_.isUndefined(o.tids)) {
+        conditions += ` AND tid = ANY($${paramIndex}::int[])`;
+        params.push(o.tids);
+        paramIndex++;
+      }
+
+      if (!_.isUndefined(o.mod)) {
+        conditions += ` AND mod = ($${paramIndex})`;
+        params.push(o.mod);
+        paramIndex++;
+      }
+
+      if (conv.strict_moderation) {
+        conditions += ` AND mod = ${Utils.polisTypes.mod.ok}`;
+      } else {
+        conditions += ` AND mod != ${Utils.polisTypes.mod.ban}`;
+      }
+
+      if (!_.isUndefined(o.not_voted_by_pid)) {
+        query = `
+          SELECT count(*) FROM comments 
+          WHERE ${conditions} 
+          AND tid NOT IN (
+            SELECT tid FROM votes_latest_unique 
+            WHERE zid = ($1) AND pid = ($${paramIndex})
+          )
+        `;
+        params.push(o.not_voted_by_pid);
+        paramIndex++;
+      } else {
+        query = `SELECT count(*) FROM comments WHERE ${conditions}`;
+      }
+
+      if (!_.isUndefined(o.withoutTids) && o.withoutTids.length > 0) {
+        query = query.replace(
+          "WHERE",
+          `WHERE tid != ALL($${paramIndex}::int[]) AND`
+        );
+        params.push(o.withoutTids);
+      }
+    }
+
+    return pg.queryP_readOnly(query, params).then((rows: any[]) => {
+      const count = rows[0]?.count || 0;
+      return Number(count);
+    });
+  });
+}
+
 function getComments(o: GetCommentsParams): Promise<CommentRow[]> {
   const commentListPromise = o.moderation
     ? _getCommentsForModerationList(o as any)
@@ -114,6 +199,8 @@ function _getCommentsForModerationList(o: {
   strict_moderation: any;
   mod: any;
   mod_gt: any;
+  limit?: any;
+  offset?: any;
 }): Promise<CommentRow[]> {
   let strictCheck: Promise<any> = Promise.resolve(null);
   const include_voting_patterns = o.include_voting_patterns;
@@ -163,18 +250,42 @@ function _getCommentsForModerationList(o: {
           }
         }
         if (!include_voting_patterns) {
+          let query =
+            "select * from comments where comments.zid = ($1)" + modClause;
+
+          // Add pagination if provided
+          if (!_.isUndefined(o.limit)) {
+            const limitParam = params.length + 1;
+            const offsetParam = params.length + 2;
+            query += ` LIMIT ($${limitParam}) OFFSET ($${offsetParam})`;
+            params.push(o.limit);
+            params.push(o.offset || 0);
+          }
+
           return pg.queryP_metered_readOnly(
             "_getCommentsForModerationList",
-            "select * from comments where comments.zid = ($1)" + modClause,
+            query,
             params
           ) as Promise<CommentRow[]>;
+        }
+
+        let votingQuery =
+          "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" +
+          modClause;
+
+        // Add pagination if provided
+        if (!_.isUndefined(o.limit)) {
+          const limitParam = params.length + 1;
+          const offsetParam = params.length + 2;
+          votingQuery += ` LIMIT ($${limitParam}) OFFSET ($${offsetParam})`;
+          params.push(o.limit);
+          params.push(o.offset || 0);
         }
 
         return pg
           .queryP_metered_readOnly(
             "_getCommentsForModerationList",
-            "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" +
-              modClause,
+            votingQuery,
             params
           )
           .then((rows: CommentRow[]) => {
@@ -225,6 +336,7 @@ function _getCommentsList(o: {
   moderation: any;
   random: any;
   limit: any;
+  offset?: any;
 }): Promise<CommentRow[]> {
   return MPromise(
     "_getCommentsList",
@@ -280,7 +392,10 @@ function _getCommentsList(o: {
         if (!_.isUndefined(o.limit)) {
           q = q.limit(o.limit);
         } else {
-          q = q.limit(999); // TODO paginate
+          q = q.limit(999); // Default limit for backward compatibility
+        }
+        if (!_.isUndefined(o.offset)) {
+          q = q.offset(o.offset);
         }
         return pg.query(q.toString(), [], function (err: any, docs: Docs) {
           if (err) {
@@ -362,6 +477,7 @@ export {
   detectLanguage,
   getComment,
   getComments,
+  getCommentsCount,
   getNumberOfCommentsRemaining,
   translateAndStoreComment,
 };

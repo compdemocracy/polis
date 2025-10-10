@@ -21,10 +21,11 @@ import {
   detectLanguage,
   getComment,
   getComments,
+  getCommentsCount,
   translateAndStoreComment,
 } from "../comment";
 import {
-  finishArray,
+  addConversationIds,
   finishOne,
   safeTimestampToMillis,
   sendEmailByUid,
@@ -32,6 +33,7 @@ import {
   updateLastInteractionTimeForConversation,
   updateVoteCount,
 } from "../server-helpers";
+import { parsePagination, createPaginationMeta } from "../utils/pagination";
 
 /* this is a concept and can be generalized to other handlers */
 interface PolisRequestParams {
@@ -133,8 +135,25 @@ async function handle_GET_comments_translations(
 
 async function handle_GET_comments(req: RequestWithP, res: any): Promise<void> {
   try {
-    // The function is designed to work with partial parameters, where most fields are optional
-    let comments = (await getComments(req.p as GetCommentsParams)) as any[];
+    // Parse pagination parameters
+    const pagination = parsePagination(
+      { limit: req.p.limit, offset: req.p.offset },
+      { defaultLimit: 50, maxLimit: 500 }
+    );
+
+    // Get total count
+    const total = await getCommentsCount(req.p as GetCommentsParams);
+
+    // Get comments with pagination
+    const params = {
+      ...req.p,
+      limit: pagination.limit,
+      offset: pagination.offset,
+    } as GetCommentsParams;
+
+    let comments = (await getComments(params)) as any[];
+
+    // Handle report selections if needed
     if (req.p.rid) {
       const selections = (await pg.queryP(
         "select tid, selection from report_comment_selections where rid = ($1);",
@@ -154,7 +173,27 @@ async function handle_GET_comments(req: RequestWithP, res: any): Promise<void> {
         return c;
       });
     }
-    finishArray(res, comments);
+
+    // Add conversation_ids and remove zid
+    const commentsWithConvIds = await addConversationIds(comments);
+    commentsWithConvIds.forEach((c: any) => {
+      if (c.zid) {
+        delete c.zid;
+      }
+    });
+
+    // Create pagination metadata
+    const paginationMeta = createPaginationMeta(
+      pagination.limit,
+      pagination.offset,
+      total
+    );
+
+    // Return wrapped response with pagination
+    res.status(200).json({
+      comments: commentsWithConvIds,
+      pagination: paginationMeta,
+    });
   } catch (err) {
     failJson(res, 500, "polis_err_get_comments", err);
   }

@@ -90,7 +90,9 @@ describe("JWT Route Validation Matrix", () => {
       );
 
       expect(response.status).toBe(200);
-      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveProperty("comments");
+      expect(response.body).toHaveProperty("pagination");
+      expect(Array.isArray(response.body.comments)).toBe(true);
     });
 
     test("POST /api/v3/comments - Create comment", async () => {

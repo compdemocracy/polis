@@ -713,6 +713,8 @@ helpersInitialized.then(
       want("modIn", getBool, assignToP),
       want("mod_gt", getInt, assignToP),
       want("include_voting_patterns", getBool, assignToP, false),
+      want("limit", getInt, assignToP),
+      want("offset", getInt, assignToP),
       resolve_pidThing("pid", assignToP, "get:comments:pid"),
       handle_GET_comments
     );

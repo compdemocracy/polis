@@ -88,6 +88,7 @@ export type GetCommentsParams = {
   tids?: any;
   random?: any;
   limit?: any;
+  offset?: any;
   moderation?: any;
   strict_moderation?: any;
   mod?: ModerationState;
