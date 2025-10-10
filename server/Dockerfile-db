@@ -1,5 +1,10 @@
-FROM docker.io/postgres:13.4-alpine
+# Example Usage:
+# docker build -t polis-db:local -f Dockerfile-db .
+# docker network create polis-net
+# docker run --rm --name polis-db --network polis-net -p 5432:5432 \
+# -e POSTGRES_DB=polis-dev -e POSTGRES_PASSWORD=postgres polis-db:local
 
+FROM postgres:17-alpine
 # Used when no existing database on postgres volume, including first initialization.
 # See: docs/deployment.md#database-migrations
 # See: https://github.com/docker-library/docs/blob/master/postgres/README.md#initialization-scripts

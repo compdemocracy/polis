@@ -25,6 +25,12 @@ export POSTGRES_DOCKER = $(call parse_env_bool,$(POSTGRES_DOCKER_RAW))
 LOCAL_SERVICES_DOCKER_RAW = $(shell echo $(call parse_env_value,LOCAL_SERVICES_DOCKER) | tr '[:upper:]' '[:lower:]')
 export LOCAL_SERVICES_DOCKER = $(call parse_env_bool,$(LOCAL_SERVICES_DOCKER_RAW))
 
+# Prodclone support: USE_PRODCLONE controls database initialization mode
+USE_PRODCLONE_RAW = $(shell echo $(call parse_env_value,USE_PRODCLONE) | tr '[:upper:]' '[:lower:]')
+USE_PRODCLONE = $(call parse_env_bool,$(USE_PRODCLONE_RAW))
+export DB_INIT_MODE = $(if $(filter true,$(USE_PRODCLONE)),pdb,db)
+export POSTGRES_VOLUME = $(if $(filter true,$(USE_PRODCLONE)),prodclone_data,postgres_data)
+
 # Support for detached mode
 DETACH ?= false
 DETACH_ARG = $(if $(filter true,$(DETACH)),-d,)
@@ -42,6 +48,10 @@ define setup_env
 	$(eval POSTGRES_DOCKER = $(call parse_env_bool,$(POSTGRES_DOCKER_RAW)))
 	$(eval LOCAL_SERVICES_DOCKER_RAW = $(shell echo $(call parse_env_value,LOCAL_SERVICES_DOCKER) | tr '[:upper:]' '[:lower:]'))
 	$(eval LOCAL_SERVICES_DOCKER = $(call parse_env_bool,$(LOCAL_SERVICES_DOCKER_RAW)))
+	$(eval USE_PRODCLONE_RAW = $(shell echo $(call parse_env_value,USE_PRODCLONE) | tr '[:upper:]' '[:lower:]'))
+	$(eval USE_PRODCLONE = $(call parse_env_bool,$(USE_PRODCLONE_RAW)))
+	$(eval DB_INIT_MODE = $(if $(filter true,$(USE_PRODCLONE)),pdb,db))
+	$(eval POSTGRES_VOLUME = $(if $(filter true,$(USE_PRODCLONE)),prodclone_data,postgres_data))
 	$(eval COMPOSE_FILE_ARGS = $(2))
 	$(eval COMPOSE_FILE_ARGS += $(if $(POSTGRES_DOCKER),--profile postgres,))
 	$(eval COMPOSE_FILE_ARGS += $(if $(LOCAL_SERVICES_DOCKER),--profile local-services,))
@@ -64,6 +74,9 @@ echo_vars:
 	@echo ENV_FILE=${ENV_FILE}
 	@echo POSTGRES_DOCKER=${POSTGRES_DOCKER}
 	@echo LOCAL_SERVICES_DOCKER=${LOCAL_SERVICES_DOCKER}
+	@echo USE_PRODCLONE=${USE_PRODCLONE}
+	@echo DB_INIT_MODE=${DB_INIT_MODE}
+	@echo POSTGRES_VOLUME=${POSTGRES_VOLUME}
 	@echo TAG=${TAG}
 
 pull: echo_vars ## Pull most recent Docker container builds (nightlies)
@@ -158,6 +171,9 @@ psql-shell: echo_vars ## Open psql shell for the default environment
 		fi
 		$(call psql_shell)
 
+start-prodclone: ## Start with production clone database (USE_PRODCLONE=true)
+	$(MAKE) USE_PRODCLONE=true start
+
 # Helpful CLI shortcuts
 rbs: start-rebuild
 
@@ -167,7 +183,7 @@ rbs: start-rebuild
 .PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
 	start-recreate start-FULL-REBUILD rebuild-web rebuild-server e2e-install e2e-run e2e-run-all \
 	e2e-run-interactive build-web-assets extract-web-assets generate-jwt-keys regenerate-jwt-keys \
-	psql-shell
+	psql-shell start-prodclone
 
 
 help:

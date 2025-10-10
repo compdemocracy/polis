@@ -172,9 +172,11 @@ services:
     restart: always
     build:
       context: ./server
-      dockerfile: Dockerfile-db
-      labels:
-        polis_tag: ${TAG:-dev}
+      # Dockerfile-db (default): migrations-based initialization
+      # Dockerfile-pdb: production dump restoration (requires prodclone.dump)
+      dockerfile: Dockerfile-${DB_INIT_MODE:-db}
+    labels:
+      polis_tag: ${TAG:-dev}
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -186,8 +188,10 @@ services:
     networks:
       - "polis-net"
     volumes:
-      - "backups:/backups"
-      - "postgres:/var/lib/postgresql/data"
+      # Use separate volumes for different initialization modes to allow clean switching
+      - ${POSTGRES_VOLUME:-postgres_data}:/var/lib/postgresql/data
+      # Mount dump file only when using prodclone mode (DB_INIT_MODE=pdb)
+      - ./prodclone.dump:/docker-entrypoint-initdb.d/prodclone.dump
     profiles:
       - postgres
 
@@ -342,10 +346,10 @@ networks:
   polis-net:
 
 volumes:
-  backups:
+  postgres_data:
     labels:
       polis_tag: ${TAG:-dev}
-  postgres:
+  prodclone_data:
     labels:
       polis_tag: ${TAG:-dev}
   server-logs:
