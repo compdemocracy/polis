@@ -183,7 +183,9 @@ msgpack==1.1.2
 multipledispatch==1.0.0
     # via datashader
 narwhals==2.9.0
-    # via bokeh
+    # via
+    #   bokeh
+    #   plotly
 networkx==3.5
     # via
     #   scikit-image
@@ -232,6 +234,7 @@ packaging==25.0
     #   huggingface-hub
     #   lazy-loader
     #   matplotlib
+    #   plotly
     #   scikit-image
     #   transformers
     #   xarray
@@ -261,6 +264,8 @@ pillow==12.0.0
     #   torchvision
 platformdirs==4.5.0
     # via datamapplot
+plotly==6.3.1
+    # via delphi-polis (pyproject.toml)
 protobuf==6.33.0
     # via ddtrace
 psutil==7.1.1
