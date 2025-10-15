@@ -12,6 +12,7 @@ import Config from "../config";
 import Anthropic from "@anthropic-ai/sdk";
 import { v4 as uuidv4 } from "uuid";
 import pgQuery from "../db/pg-query";
+import { getCommentIdsForCluster } from "../utils/commentClusters";
 
 const dynamoDBConfig: any = {
   region: Config.AWS_REGION || "us-east-1",
@@ -530,9 +531,6 @@ async function getCommentsForTopic(
   topicKey: string
 ): Promise<any[]> {
   try {
-    // First, get comment IDs assigned to this topic from DynamoDB
-    const conversation_id = zid.toString();
-
     // Parse topic key to get layer and cluster
     let layer: number, cluster: number;
 
@@ -558,51 +556,8 @@ async function getCommentsForTopic(
       throw new Error(`Invalid topic key format: ${topicKey}`);
     }
 
-    // Query DynamoDB for comment assignments
-    const assignmentsParams = {
-      TableName: "Delphi_CommentHierarchicalClusterAssignments",
-      KeyConditionExpression: "conversation_id = :cid",
-      ExpressionAttributeValues: {
-        ":cid": conversation_id,
-      },
-    };
-
-    const allAssignments: any[] = [];
-    let lastEvaluatedKey;
-
-    do {
-      const params: any = {
-        ...assignmentsParams,
-        ExclusiveStartKey: lastEvaluatedKey,
-      };
-
-      const data = await docClient.send(new QueryCommand(params));
-      if (data.Items) {
-        allAssignments.push(...data.Items);
-      }
-      lastEvaluatedKey = data.LastEvaluatedKey;
-    } while (lastEvaluatedKey);
-
-    // Log first assignment to see structure
-    if (allAssignments.length > 0) {
-      logger.info(
-        `Sample assignment structure: ${JSON.stringify(allAssignments[0])}`
-      );
-    }
-
-    // Filter comments for this specific topic
-    const commentIds: number[] = [];
-    allAssignments.forEach((assignment) => {
-      const clusterId = assignment[`layer${layer}_cluster_id`];
-      // Convert to number for comparison since cluster is a number
-      if (clusterId !== undefined && parseInt(clusterId) === cluster) {
-        commentIds.push(parseInt(assignment.comment_id));
-      }
-    });
-
-    logger.info(
-      `Topic ${topicKey} - Layer: ${layer}, Cluster: ${cluster}, Found ${commentIds.length} comment assignments`
-    );
+    // Get comment IDs for this cluster using centralized utility
+    const commentIds = await getCommentIdsForCluster(zid, layer, cluster);
 
     // Debug: Log the comment IDs found
     if (commentIds.length > 0) {

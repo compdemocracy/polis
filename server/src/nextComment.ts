@@ -14,6 +14,7 @@ import {
   getNumberOfCommentsRemaining,
   translateAndStoreComment,
 } from "./comment";
+import { getCommentIdsForClusters } from "./utils/commentClusters";
 
 // DynamoDB client for topic agenda lookups
 const dynamoDBConfig: DynamoDBClientConfig = {
@@ -43,8 +44,6 @@ const dynamoDocClient = DynamoDBDocumentClient.from(dynamoClient, {
     removeUndefinedValues: true,
   },
 });
-const DELPHI_COMMENT_HIERARCHICAL_TABLE =
-  "Delphi_CommentHierarchicalClusterAssignments";
 const DELPHI_TOPIC_NAMES_TABLE = "Delphi_CommentClustersLLMTopicNames";
 
 // This very much follows the outline of the random selection above, but factors out the probabilistic logic
@@ -202,7 +201,6 @@ export async function getTidsForParticipantTopicAgenda(
   }
 
   const conversationZid = String(zid);
-  const tidSet = new Set<number>();
 
   // Step 1: Query Delphi_CommentClustersLLMTopicNames to get layer_id and cluster_id for each topic_key
   const topicQueries = uniqueTopicKeys.map((topicKey) =>
@@ -256,57 +254,25 @@ export async function getTidsForParticipantTopicAgenda(
     return [];
   }
 
-  // Step 2: Query Delphi_CommentHierarchicalClusterAssignments for each layer_id/cluster_id pair
-  // We need to build appropriate filter expressions based on layer_id
-  const hierarchicalQueries = clusterInfos.map((info) => {
-    const layerColumn = `layer${info.layer_id}_cluster_id`;
-
-    return dynamoDocClient.send(
-      new QueryCommand({
-        TableName: DELPHI_COMMENT_HIERARCHICAL_TABLE,
-        KeyConditionExpression: "conversation_id = :cid",
-        FilterExpression: `${layerColumn} = :cluster_id`,
-        ExpressionAttributeValues: {
-          ":cid": conversationZid,
-          ":cluster_id": info.cluster_id, // Keep as number for DynamoDB comparison
-        },
-      })
-    );
-  });
-
-  const hierarchicalResults = await Promise.allSettled(hierarchicalQueries);
-
-  let numFulfilled = 0;
-  hierarchicalResults.forEach((result, idx) => {
-    if (result.status === "fulfilled") {
-      numFulfilled += 1;
-      const items = result.value?.Items || [];
-      for (const item of items) {
-        const tid = Number(item?.comment_id);
-        if (!Number.isNaN(tid)) {
-          tidSet.add(tid);
-        }
-      }
-    } else {
-      logger.error("polis_err_hierarchical_dynamo_query_failed", {
-        cluster_info: clusterInfos[idx],
-        error: result.reason,
-      });
-    }
-  });
-
-  if (numFulfilled === 0) {
-    throw new Error("polis_err_topic_agenda_no_dynamo_results");
-  }
+  // Step 2: Get comment IDs for all cluster specs using centralized utility
+  // Use cache for better performance - stale data is acceptable for nextComment
+  const tids = await getCommentIdsForClusters(
+    zid,
+    clusterInfos.map((info) => ({
+      layerId: info.layer_id,
+      clusterId: info.cluster_id,
+    })),
+    true // useCache = true for high-frequency nextComment requests
+  );
 
   logger.debug("polis_info_getTidsForParticipantTopicAgenda_results", {
     zid,
     pid,
-    tidSet: Array.from(tidSet),
-    total_tids: tidSet.size,
+    tids,
+    total_tids: tids.length,
   });
 
-  return Array.from(tidSet.values());
+  return tids;
 }
 
 /**

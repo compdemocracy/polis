@@ -8,6 +8,7 @@ import { getXids } from "./math";
 import { getPca } from "../utils/pca";
 import { failJson } from "../utils/fail";
 import logger from "../utils/logger";
+import { getCommentsWithClusters } from "../utils/commentClusters";
 
 type Formatters<T> = Record<string, (row: T) => string>;
 
@@ -702,6 +703,115 @@ export async function sendCommentGroupsSummary(
   }
 }
 
+export async function sendCommentClustersSummary(zid: number, res: Response) {
+  try {
+    logger.info(`Generating comment-clusters export for zid ${zid}`);
+
+    // Get comments with cluster assignments
+    const comments = await getCommentsWithClusters(zid);
+
+    if (comments.length === 0) {
+      logger.warn(`No comments found for zid ${zid}`);
+      res.setHeader("content-type", "text/csv");
+      res.send("No comments found for this conversation");
+      return;
+    }
+
+    // Dynamically determine which layers exist by scanning all comments
+    // Note: We look at the KEYS (layer IDs like "0", "1", "2") not the VALUES
+    // (cluster IDs which can be -1 for outliers, or 0+ for normal clusters)
+    const layersFound = new Set<string>();
+    for (const comment of comments) {
+      Object.keys(comment.cluster_assignments).forEach((layerId) =>
+        layersFound.add(layerId)
+      );
+      Object.keys(comment.distances).forEach((layerId) =>
+        layersFound.add(layerId)
+      );
+      Object.keys(comment.confidences).forEach((layerId) =>
+        layersFound.add(layerId)
+      );
+    }
+
+    // Sort layers numerically
+    const sortedLayers = Array.from(layersFound)
+      .map(Number)
+      .filter((n) => !isNaN(n))
+      .sort((a, b) => a - b)
+      .map(String);
+
+    logger.info(
+      `Found ${sortedLayers.length} layers: ${sortedLayers.join(", ")}`
+    );
+
+    // Build dynamic CSV headers
+    const headers = ["comment-id", "moderated", "active"];
+
+    // Add cluster ID columns for each layer
+    sortedLayers.forEach((layer) => {
+      headers.push(`layer${layer}-cluster-id`);
+    });
+
+    // Add distance columns for each layer
+    sortedLayers.forEach((layer) => {
+      headers.push(`layer${layer}-distance`);
+    });
+
+    // Add confidence columns for each layer
+    sortedLayers.forEach((layer) => {
+      headers.push(`layer${layer}-confidence`);
+    });
+
+    // Add comment body last
+    headers.push("comment-body");
+
+    res.setHeader("content-type", "text/csv");
+    res.write(headers.join(",") + sep);
+
+    // Write data rows
+    for (const comment of comments) {
+      const row: string[] = [
+        String(comment.tid),
+        String(comment.mod),
+        String(comment.active ? 1 : 0),
+      ];
+
+      // Add cluster IDs for each layer
+      // Note: cluster_id can be -1 (outlier), 0+, or missing (empty string)
+      sortedLayers.forEach((layer) => {
+        const clusterId = comment.cluster_assignments[layer];
+        row.push(clusterId !== undefined ? String(clusterId) : "");
+      });
+
+      // Add distances for each layer
+      sortedLayers.forEach((layer) => {
+        const distance = comment.distances[layer];
+        row.push(distance !== undefined ? distance.toFixed(4) : "");
+      });
+
+      // Add confidences for each layer
+      sortedLayers.forEach((layer) => {
+        const confidence = comment.confidences[layer];
+        row.push(confidence !== undefined ? confidence.toFixed(4) : "");
+      });
+
+      // Add comment body
+      row.push(formatEscapedText(comment.txt));
+
+      res.write(row.join(",") + sep);
+    }
+
+    res.end();
+
+    logger.info(
+      `Successfully generated comment-clusters export for zid ${zid} with ${comments.length} comments and ${sortedLayers.length} layers`
+    );
+  } catch (err) {
+    logger.error("polis_err_report_comment_clusters", err);
+    failJson(res, 500, "polis_err_data_export", err);
+  }
+}
+
 export async function sendParticipantXidsSummary(zid: number, res: Response) {
   try {
     // const pca = await getPca(zid, -1);
@@ -769,6 +879,10 @@ export async function handle_GET_reportExport(
 
       case "comment-groups.csv":
         await sendCommentGroupsSummary(zid, res);
+        break;
+
+      case "comment-clusters.csv":
+        await sendCommentClustersSummary(zid, res);
         break;
 
       default:

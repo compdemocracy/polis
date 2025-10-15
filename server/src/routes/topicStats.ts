@@ -4,6 +4,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { getZidFromReport } from "../utils/parameter";
 import Config from "../config";
+import { getClusterAssignments } from "../utils/commentClusters";
 
 const dynamoDBConfig: any = {
   region: Config.AWS_REGION || "us-east-1",
@@ -122,32 +123,10 @@ export async function handle_GET_topicStats(req: Request, res: Response) {
       }
     });
 
-    // Query all comment assignments from DynamoDB
-    const assignmentsParams = {
-      TableName: "Delphi_CommentHierarchicalClusterAssignments",
-      KeyConditionExpression: "conversation_id = :cid",
-      ExpressionAttributeValues: {
-        ":cid": conversation_id,
-      },
-    };
+    // Get all cluster assignments using centralized utility
+    const clusterAssignmentsMap = await getClusterAssignments(zid);
 
-    const allAssignments: any[] = [];
-    let lastEvaluatedKey;
-
-    do {
-      const params: any = {
-        ...assignmentsParams,
-        ExclusiveStartKey: lastEvaluatedKey,
-      };
-
-      const data = await docClient.send(new QueryCommand(params));
-      if (data.Items) {
-        allAssignments.push(...data.Items);
-      }
-      lastEvaluatedKey = data.LastEvaluatedKey;
-    } while (lastEvaluatedKey);
-
-    if (allAssignments.length === 0) {
+    if (clusterAssignmentsMap.size === 0) {
       return res.json({
         status: "success",
         message: "No comment assignments found",
@@ -164,20 +143,12 @@ export async function handle_GET_topicStats(req: Request, res: Response) {
     });
 
     // Map comments to topics based on cluster assignments
-    allAssignments.forEach((assignment) => {
-      const commentId = parseInt(assignment.comment_id);
-
-      // Check each layer - dynamically determine max layers from the data
-      // Look for all layer fields in the assignment
-      const layerFields = Object.keys(assignment).filter((key) =>
-        key.match(/^layer\d+_cluster_id$/)
-      );
-      const maxLayer = Math.max(
-        ...layerFields.map((field) => parseInt(field.match(/layer(\d+)/)[1]))
-      );
-
-      for (let layer = 0; layer <= maxLayer; layer++) {
-        const clusterId = assignment[`layer${layer}_cluster_id`];
+    for (const [commentId, assignment] of clusterAssignmentsMap.entries()) {
+      // Check each layer (0-4)
+      for (let layer = 0; layer <= 4; layer++) {
+        const clusterIdKey =
+          `layer${layer}_cluster_id` as keyof typeof assignment;
+        const clusterId = assignment[clusterIdKey];
         if (clusterId !== undefined && clusterId !== -1) {
           const topicLookupKey = `${layer}_${clusterId}`;
           const topic = clusterToTopic[topicLookupKey];
@@ -186,7 +157,7 @@ export async function handle_GET_topicStats(req: Request, res: Response) {
           }
         }
       }
-    });
+    }
 
     // Calculate metrics for each topic
     const topicStats: Record<string, TopicMetrics> = {};
