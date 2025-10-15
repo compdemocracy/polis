@@ -11,8 +11,6 @@ import json
 import uuid  # For generating job_id
 import time
 import logging
-import random
-import hashlib
 import numpy as np
 from datetime import datetime
 
@@ -277,6 +275,7 @@ def generate_cluster_topic_labels(
     layer_idx=0,
     conversation_name=None,
     use_ollama=False,
+    document_map=None,
 ):
     """
     Generate topic labels for clusters based on their characteristics.
@@ -285,8 +284,10 @@ def generate_cluster_topic_labels(
         cluster_characteristics: Dictionary with cluster characterizations
         comment_texts: List of comment text strings (used for Ollama naming)
         layer: Cluster assignments for the current layer (used for Ollama naming)
+        layer_idx: Index of the current layer
         conversation_name: Name of the conversation (used for Ollama naming)
         use_ollama: Whether to use Ollama for topic naming
+        document_map: 2D UMAP coordinates for selecting representative comments
 
     Returns:
         cluster_labels: Dictionary mapping cluster IDs to topic labels
@@ -406,19 +407,30 @@ def generate_cluster_topic_labels(
 
                 # Get comments for this cluster
                 cluster_indices = np.where(layer == cluster_id)[0]
-                cluster_indices_list = [int(i) for i in cluster_indices.tolist()]
-                # Deterministic pseudo-random sample of up to 5 indices per (conversation, layer, cluster)
-                if len(cluster_indices_list) > 5:
-                    seed_material = (
-                        f"{conversation_name}|{layer_idx}|{cluster_id}".encode("utf-8")
+
+                # Select the 5 most representative comments (closest to centroid)
+                if len(cluster_indices) > 5 and document_map is not None:
+                    # Calculate centroid of the cluster in document_map space
+                    centroid = np.mean(document_map[cluster_indices], axis=0)
+
+                    # Calculate distance from each comment to the centroid
+                    distances = np.sqrt(
+                        np.sum((document_map[cluster_indices] - centroid) ** 2, axis=1)
                     )
-                    seed_int = int(hashlib.sha1(seed_material).hexdigest(), 16) % (
-                        2**32
+
+                    # Get indices of the 5 comments closest to centroid
+                    closest_indices = np.argsort(distances)[:5]
+                    selected_indices = cluster_indices[closest_indices].tolist()
+
+                    logger.info(
+                        f"Selected {len(selected_indices)} most representative comments "
+                        f"for layer {layer_idx}, cluster {cluster_id} "
+                        f"(distances: {distances[closest_indices]})"
                     )
-                    rng = random.Random(seed_int)
-                    selected_indices = rng.sample(cluster_indices_list, 5)
                 else:
-                    selected_indices = cluster_indices_list
+                    # If 5 or fewer comments, use all of them
+                    selected_indices = cluster_indices.tolist()
+
                 selected_comments = [comment_texts[i] for i in selected_indices]
 
                 # Get topic name
@@ -1090,6 +1102,7 @@ def process_layers_and_create_visualizations(
                 layer_idx=layer_idx,
                 conversation_name=conversation_name,
                 use_ollama=True,
+                document_map=document_map,
             )
 
             # Save LLM topic names
@@ -1352,9 +1365,7 @@ def process_conversation(
         logger.info(f"Using DynamoDB endpoint from environment: {endpoint_url}")
         region = os.environ.get("AWS_REGION", "us-east-1")
 
-        dynamo_storage = DynamoDBStorage(
-            region_name=region, endpoint_url=endpoint_url
-        )
+        dynamo_storage = DynamoDBStorage(region_name=region, endpoint_url=endpoint_url)
 
         # Store basic data in DynamoDB
         logger.info(

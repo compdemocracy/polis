@@ -31,15 +31,16 @@ Comments:
 
 The 1–5 comment items are filled by the sampling strategy below.
 
-## Sampling strategy (deterministic pseudo‑random 5)
+## Sampling strategy (centroid-based selection)
 
 - For each (conversation, `layer_idx`, `cluster_id`) we select up to 5 comments from that cluster.
 - If a cluster has 5 or fewer comments, we use all of them.
-- If it has more than 5, we sample 5 using a deterministic seed so results are reproducible across runs:
-  - Seed = `SHA1("{conversation_name}|{layer_idx}|{cluster_id}")`, reduced to a 32‑bit integer.
-  - A `random.Random(seed)` instance samples 5 comment indices from the cluster.
+- If it has more than 5, we select the 5 comments closest to the cluster centroid in UMAP space:
+  - Calculate the centroid (mean position) of all comments in the cluster
+  - Compute the Euclidean distance from each comment to the centroid
+  - Select the 5 comments with the smallest distances
 
-Rationale: avoids bias from “first N” comments, while keeping runs reproducible (important for debugging and auditability).
+Rationale: Comments closest to the centroid are the most representative of the cluster's core themes, leading to more accurate and coherent topic labels from the LLM.
 
 ## Name cleanup
 
