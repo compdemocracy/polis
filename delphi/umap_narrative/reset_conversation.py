@@ -79,13 +79,16 @@ def delete_dynamodb_data(conversation_id: str, report_id: str = None):
             logger.error(f"  ✗ {table_name}: Error - {e}")
     
     query_tables = {
-        'Delphi_CommentEmbeddings': ['conversation_id', 'comment_id'],
-        'Delphi_CommentHierarchicalClusterAssignments': ['conversation_id', 'comment_id'],
-        'Delphi_CommentClustersStructureKeywords': ['conversation_id', 'topic_key'],
-        'Delphi_CommentClustersFeatures': ['conversation_id', 'topic_key'],
-        'Delphi_CommentClustersLLMTopicNames': ['conversation_id', 'topic_key'],
-        'Delphi_UMAPGraph': ['conversation_id', 'edge_id'],
-        'Delphi_CommentExtremity': ['conversation_id', 'comment_id'],
+        "Delphi_CommentEmbeddings": ["conversation_id", "comment_id"],
+        "Delphi_CommentHierarchicalClusterAssignments": [
+            "conversation_id",
+            "comment_id",
+        ],
+        "Delphi_CommentClustersStructureKeywords": ["conversation_id", "cluster_key"],
+        "Delphi_CommentClustersFeatures": ["conversation_id", "cluster_key"],
+        "Delphi_CommentClustersLLMTopicNames": ["conversation_id", "topic_key"],
+        "Delphi_UMAPGraph": ["conversation_id", "edge_id"],
+        "Delphi_CommentExtremity": ["conversation_id", "comment_id"],
     }
     for table_name, keys in query_tables.items():
         try:

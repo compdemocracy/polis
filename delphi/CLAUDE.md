@@ -7,7 +7,7 @@ This document provides comprehensive guidance for working with the Delphi system
 For a comprehensive list of all documentation files with descriptions, see:
 [delphi/docs/DOCUMENTATION_DIRECTORY.md](docs/DOCUMENTATION_DIRECTORY.md)
 
-## Current work todos are located in:
+## Current work todos are located in
 
 delphi/docs/JOB_QUEUE_SCHEMA.md
 delphi/docs/DISTRIBUTED_SYSTEM_ROADMAP.md
@@ -105,6 +105,7 @@ Always use the commands above to determine the most substantial conversation whe
    ```
 
 2. For even more detailed logs, check the job's log entries:
+
    ```bash
    docker exec polis-dev-delphi-1 python -c "
    import boto3, json
@@ -195,7 +196,7 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 
 ### Key Tables
 
-#### Polis Math Tables (Now with Delphi\_ prefix):
+#### Polis Math Tables (Now with Delphi\_ prefix)
 
 - `Delphi_PCAConversationConfig` - Conversation metadata (formerly `PolisMathConversations`)
 - `Delphi_PCAResults` - PCA and cluster data (formerly `PolisMathAnalysis`)
@@ -204,7 +205,7 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 - `Delphi_RepresentativeComments` - Representativeness data (formerly `PolisMathRepness`)
 - `Delphi_PCAParticipantProjections` - Participant projection data (formerly `PolisMathProjections`)
 
-#### EVōC/UMAP Tables (Now with Delphi\_ prefix):
+#### EVōC/UMAP Tables (Now with Delphi\_ prefix)
 
 - `Delphi_UMAPConversationConfig` - Metadata for conversations (formerly `ConversationMeta`)
 - `Delphi_CommentEmbeddings` - Embedding vectors for comments (formerly `CommentEmbeddings`)
@@ -225,19 +226,27 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 To completely remove all data for a single conversation from the Delphi system:
 
 ```bash
-# Reset by report_id or zid
-./reset_conversation.sh r3p4ryckema3wfitndk6m
+# Reset by zid (conversation ID)
 ./reset_conversation.sh 12345
+
+# Reset by zid with report_id for full cleanup
+./reset_conversation.sh 12345 r3p4ryckema3wfitndk6m
 ```
 
 Or run the comprehensive cleanup directly:
+
 ```bash
-docker exec polis-dev-delphi-1 python /app/scripts/reset_conversation.py r3p4ryckema3wfitndk6m
+# For zid only:
+docker exec polis-dev-delphi-1 python /app/umap_narrative/reset_conversation.py --zid 12345
+
+# For zid with report_id:
+docker exec polis-dev-delphi-1 python /app/umap_narrative/reset_conversation.py --zid 12345 --rid r3p4ryckema3wfitndk6m
 ```
 
 This removes data from ALL Delphi DynamoDB tables including:
+
 - Math/PCA pipeline data (clusters, projections, etc.)
-- UMAP/Topic pipeline data (embeddings, topic names, etc.) 
+- UMAP/Topic pipeline data (embeddings, topic names, etc.)
 - Narrative reports and job queue entries
 
 See [RESET_SINGLE_CONVERSATION.md](docs/RESET_SINGLE_CONVERSATION.md) for detailed documentation.
@@ -275,6 +284,7 @@ For production environments, use the job queue system:
    ```
 
 3. Monitor job status:
+
    ```bash
    ./delphi list
    ./delphi details [JOB_ID]

@@ -86,9 +86,9 @@ docker-stop: ## Stop Docker containers
 reset-db: ## Reset all DynamoDB tables
 	./scripts/reset_database.sh
 
-reset-conversation: ## Reset specific conversation (requires ZID=conversation_id)
-	@if [ -z "$(ZID)" ]; then echo "Usage: make reset-conversation ZID=12345"; exit 1; fi
-	./reset_conversation.sh $(ZID)
+reset-conversation: ## Reset specific conversation (requires ZID=conversation_id, optional RID=report_id)
+	@if [ -z "$(ZID)" ]; then echo "Usage: make reset-conversation ZID=12345 [RID=report_id]"; exit 1; fi
+	@if [ -n "$(RID)" ]; then ./reset_conversation.sh $(ZID) $(RID); else ./reset_conversation.sh $(ZID); fi
 
 # CLI helpers
 cli: ## Run Delphi CLI in interactive mode
