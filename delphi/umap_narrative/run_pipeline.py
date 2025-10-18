@@ -6,26 +6,28 @@ This script fetches conversation data from PostgreSQL, processes it using
 EVōC for clustering, and generates interactive visualizations with topic labeling.
 """
 
-import os
-import json
-import uuid  # For generating job_id
-import time
-import logging
-import random
 import hashlib
-import numpy as np
+import json
+import logging
+import os
+import random
+import time
+import traceback
+import uuid  # For generating job_id
 from datetime import datetime
+
+import datamapplot
 
 # Import from installed packages
 import evoc
-import datamapplot
-from sentence_transformers import SentenceTransformer
-from umap import UMAP
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+import numpy as np
+from polismath_commentgraph.utils.converter import DataConverter
 
 # Import from local modules
-from polismath_commentgraph.utils.storage import PostgresClient, DynamoDBStorage
-from polismath_commentgraph.utils.converter import DataConverter
+from polismath_commentgraph.utils.storage import DynamoDBStorage, PostgresClient
+from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from umap import UMAP
 
 # Configure logging
 logging.basicConfig(
@@ -157,8 +159,13 @@ def process_comments(comments, conversation_id):
     )
 
     # Extract comment texts and IDs
-    comment_texts = [c["txt"] for c in comments if c["txt"] and c["txt"].strip()]
-    comment_ids = [c["tid"] for c in comments if c["txt"] and c["txt"].strip()]
+    comment_texts, comment_ids = map(
+        list,
+        zip(
+            *[(c["txt"], c["tid"]) for c in comments if c["txt"] and c["txt"].strip()],
+            strict=True,
+        ),
+    )
 
     # Generate embeddings with SentenceTransformer
     logger.info("Generating embeddings with SentenceTransformer...")
@@ -189,6 +196,7 @@ def process_comments(comments, conversation_id):
 
     except Exception as e:
         logger.error(f"Error during EVōC clustering: {e}")
+        logger.error(traceback.format_exc())
         # Fallback to simple clustering
         from sklearn.cluster import KMeans
 
@@ -1352,9 +1360,7 @@ def process_conversation(
         logger.info(f"Using DynamoDB endpoint from environment: {endpoint_url}")
         region = os.environ.get("AWS_REGION", "us-east-1")
 
-        dynamo_storage = DynamoDBStorage(
-            region_name=region, endpoint_url=endpoint_url
-        )
+        dynamo_storage = DynamoDBStorage(region_name=region, endpoint_url=endpoint_url)
 
         # Store basic data in DynamoDB
         logger.info(
@@ -1371,7 +1377,7 @@ def process_conversation(
         # Store embeddings
         logger.info("Storing comment embeddings...")
         embedding_models = DataConverter.batch_convert_embeddings(
-            conversation_id, document_vectors
+            conversation_id, document_vectors, comment_ids
         )
         result = dynamo_storage.batch_create_comment_embeddings(embedding_models)
         logger.info(
@@ -1381,7 +1387,7 @@ def process_conversation(
         # Store UMAP graph edges
         logger.info("Storing UMAP graph edges...")
         edge_models = DataConverter.batch_convert_umap_edges(
-            conversation_id, document_map, cluster_layers
+            conversation_id, document_map, cluster_layers, comment_ids=comment_ids
         )
         result = dynamo_storage.batch_create_graph_edges(edge_models)
         logger.info(
@@ -1391,7 +1397,7 @@ def process_conversation(
         # Store cluster assignments
         logger.info("Storing comment cluster assignments...")
         cluster_models = DataConverter.batch_convert_clusters(
-            conversation_id, cluster_layers, document_map
+            conversation_id, cluster_layers, document_map, comment_ids
         )
         result = dynamo_storage.batch_create_comment_clusters(cluster_models)
         logger.info(
@@ -1404,9 +1410,9 @@ def process_conversation(
             conversation_id,
             cluster_layers,
             document_map,
+            comment_texts,
             topic_names={},  # No topic names yet
             characteristics={},  # No characteristics yet
-            comments=[{"body": comment["txt"]} for comment in comments],
         )
         result = dynamo_storage.batch_create_cluster_topics(topic_models)
         logger.info(
@@ -1525,17 +1531,6 @@ def main():
         document_map, document_vectors, cluster_layers, comment_texts, comment_ids = (
             process_comments(mock_comments, str(args.zid))
         )
-
-        # Store in DynamoDB if requested
-        if not args.no_dynamo:
-            store_in_dynamo(
-                str(args.zid),
-                document_vectors,
-                document_map,
-                cluster_layers,
-                mock_comments,
-                comment_ids,
-            )
 
         # Process each layer and create visualizations
         output_dir = os.path.join(
