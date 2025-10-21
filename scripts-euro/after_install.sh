@@ -94,6 +94,12 @@ echo "Docker cache cleared"
 
 sudo /usr/local/bin/docker-compose config
 
+if [ -f "/etc/app-info/log_group_name.txt" ]; then
+  LOG_GROUP_NAME=$(cat "/etc/app-info/log_group_name.txt")
+  export AWS_LOG_GROUP_NAME=$LOG_GROUP_NAME
+  printf "\nAWS_LOG_GROUP_NAME=%s\n" "$LOG_GROUP_NAME" | sudo tee -a .env > /dev/null
+fi
+
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
   #  stop nginx for now

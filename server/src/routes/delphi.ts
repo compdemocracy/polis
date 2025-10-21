@@ -241,8 +241,11 @@ const getLogs = async (
       filterPattern,
     });
 
+    logger.info(`COMMAND TO SEND AWS FOR LOGS: ${JSON.stringify(command)}`);
+
     try {
       const response = await logsClient.send(command);
+      logger.info(`RESPONSE FROM LOGS: ${JSON.stringify(response)}`);
       return response.events;
     } catch (err) {
       logger.error("Error fetching logs:", err);
@@ -253,18 +256,20 @@ const getLogs = async (
 
 export async function handle_GET_delphi_job_logs(req: Request, res: Response) {
   const job_id = req.query.job_id as string;
-  const oneHourAgo = Date.now() - 3600 * 1000;
+  const threeHoursAgo = Date.now() - 3 * 3600 * 1000;
   try {
     const logs = await getLogs(
       Config.awsLogGroupName,
-      oneHourAgo * 3,
+      threeHoursAgo,
       Date.now(),
-      `[DELPHI JOB ${job_id.slice(-8)}] INFO`,
+      `"[DELPHI JOB ${job_id.slice(0, 8)}"`,
       job_id
     );
     return res.json(logs);
   } catch (error) {
     logger.error(`Failed to retrieve logs for id ${job_id}`, error);
-    throw error;
+    return res
+      .status(500)
+      .json({ status: "error", message: "Failed to retrieve logs" });
   }
 }

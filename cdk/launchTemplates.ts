@@ -57,7 +57,7 @@ export default (
       'sudo yum install -y jq',
       `export SERVICE=${service}`,
       instanceSize ? `export INSTANCE_SIZE=${instanceSize}` : '',
-      CLOUDWATCH_LOG_GROUP_NAME ? `export AWS_LOG_GROUP_NAME=${CLOUDWATCH_LOG_GROUP_NAME}` : '',
+      CLOUDWATCH_LOG_GROUP_NAME ? `echo "${CLOUDWATCH_LOG_GROUP_NAME}" | sudo tee ${persistentConfigDir}/log_group_name.txt` : '',
       'exec 1>>/var/log/user-data.log 2>&1',
       'echo "Finished User Data Execution at $(date)"',
       'sudo mkdir -p /etc/docker',

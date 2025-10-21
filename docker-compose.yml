@@ -160,6 +160,7 @@ services:
       - DD_LOGS_INJECTION=true
       - DD_TRACE_SAMPLE_RATE="1" 
       - DD_GIT_REPOSITORY_URL="github.com/compdemocracy/polis"
+      - AWS_LOG_GROUP_NAME=${AWS_LOG_GROUP_NAME}
     networks:
       - "polis-net"
     extra_hosts:
