@@ -1,0 +1,54 @@
+# Development-only pyproject.toml for IDE support
+# This file is NOT used in Lambda deployment (uses requirements.txt)
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "polismath_commentgraph"
+version = "1.0.0"
+description = "Polis comment graph microservice for clustering and embeddings"
+requires-python = ">=3.10"
+
+# Install parent project in development mode
+# This gives us access to all dependencies including evoc
+dependencies = [
+    # Core Lambda runtime dependencies (keep in sync with requirements.txt)
+    "boto3>=1.26.0",
+    "numpy>=1.20.0",
+    "scipy>=1.7.0",
+    "pandas>=1.3.0",
+    "scikit-learn>=1.3.0",
+    "torch>=1.11.0",
+    "sentence-transformers>=2.2.2",
+    "umap-learn>=0.5.3",
+    "hdbscan>=0.8.29",
+    "fastapi>=0.88.0",
+    "uvicorn>=0.20.0",
+    "pydantic>=1.10.0",
+    "python-dotenv>=0.21.0",
+    "requests>=2.25.0",
+    "PyYAML>=6.0",
+    "tqdm>=4.64.0",
+    "matplotlib>=3.5.0",
+    "joblib>=1.1.0",
+    "psycopg2-binary>=2.9.5",
+    "sqlalchemy>=1.4.46",
+    "aws-lambda-powertools>=2.15.0",
+    "aws-xray-sdk>=2.12.0",
+    "numba>=0.56.4",
+    "llvmlite>=0.39.0",
+    "evoc>=0.1.3",  # This is the key one for IDE resolution
+]
+
+[project.optional-dependencies]
+dev = [
+    # Reference the parent project for development
+    # This allows us to use shared dev tools while keeping Lambda isolated
+]
+
+# Hatchling configuration - simplified for development
+[tool.hatch.build.targets.wheel]
+# Just include the Python modules in the current directory
+packages = ["."]

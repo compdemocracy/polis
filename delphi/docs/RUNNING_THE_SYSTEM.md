@@ -27,13 +27,13 @@ This document provides a comprehensive guide on how to set up, run, and test the
 cd delphi
 
 # Create a virtual environment
-python -m venv polis_env
+python -m venv delphi-env
 
 # Activate the virtual environment
 # On Linux/macOS
-source polis_env/bin/activate
+source delphi-env/bin/activate
 # On Windows
-polis_env\Scripts\activate
+delphi-env\Scripts\activate
 ```
 
 ## Package Installation

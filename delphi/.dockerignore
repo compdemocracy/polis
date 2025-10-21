@@ -15,6 +15,7 @@ build/
 # Virtual environments
 polis_env/
 delphi_env/
+delphi-dev-env/
 venv/
 ENV/
 env/
@@ -55,3 +56,37 @@ logs/
 
 # Generated files
 *.so
+
+# Testing
+tests/
+*.test.py
+*_test.py
+test_*.py
+.tox/
+.nox/
+
+# Documentation
+docs/
+*.md
+!README.md
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.circleci/
+.pre-commit-config.yaml
+
+# Development tools
+.bandit
+bandit-report.json
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# Notebooks
+notebooks/
+*.ipynb
+
+# Build artifacts
+requirements-dev.txt
+requirements-prod.txt

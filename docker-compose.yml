@@ -152,7 +152,6 @@ services:
       - DATABASE_USER=${POSTGRES_USER:-christian}
       - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-polis123}
       - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
-      - NUMBA_DISABLE_JIT=${NUMBA_DISABLE_JIT:-1}
       - INSTANCE_SIZE=${INSTANCE_SIZE:-default}
       - DD_AGENT_HOST=datadog-agent
       - DD_TRACE_ENABLED=true

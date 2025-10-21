@@ -24,8 +24,8 @@ This document records the testing process for the Python implementation of Pol.i
 
 1. Created a new virtual environment:
    ```bash
-   python3 -m venv new_polis_env
-   source new_polis_env/bin/activate
+   python3 -m venv delphi-env
+   source delphi-env/bin/activate
    ```
 
 2. Installed the package in development mode:

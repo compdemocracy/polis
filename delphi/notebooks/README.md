@@ -28,7 +28,7 @@ To run these notebooks:
 
    ```bash
    cd delphi
-   source polis_env/bin/activate
+   source delphi-env/bin/activate
    jupyter lab
    ```
 

@@ -47,8 +47,8 @@ The service follows a serverless architecture:
 
 1. Setup a local environment:
    ```bash
-   python -m venv .venv
-   source .venv/bin/activate
+   python -m venv delphi-env
+   source delphi-env/bin/activate
    pip install -r requirements.txt
    
    # Install EVOC from local directory

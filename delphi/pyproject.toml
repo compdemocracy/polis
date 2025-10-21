@@ -1,0 +1,112 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "delphi-polis"
+version = "0.1.0"
+description = "Mathematical analytics pipeline for Polis conversations"
+requires-python = ">=3.10"
+
+dependencies = [
+    "numpy>=1.26.4,<2.0",
+    "pandas>=2.1.4",
+    "sqlalchemy==2.0.29",
+    "psycopg2-binary==2.9.10",
+    "boto3==1.34.70",
+    "scikit-learn>=1.4.2",
+    "scipy>=1.12.0",
+    "tqdm==4.66.2",
+    "matplotlib==3.10.6",
+    "ddtrace==3.13.0",
+    # API dependencies
+    "fastapi==0.115.0",
+    "uvicorn>=0.20.0",
+    "starlette>=0.22.0",
+    "python-multipart>=0.0.5",
+    "itsdangerous>=2.0.0",
+    "jinja2>=3.0.0",
+    "pydantic>=2.11.9",
+    "python-dotenv>=0.21.0",
+    # Orchestrator
+    "colorlog>=6.9.0",
+    # PyTorch dependencies
+    "torch==2.8.0",
+    "torchvision==0.23.0",
+    "torchaudio==2.8.0",
+    # UMAP narrative dependencies
+    "umap-learn>=0.5.7",
+    "sentence-transformers>=2.2.0",
+    "hdbscan>=0.8.40",
+    "numba>=0.61.2",
+    "evoc>=0.1.3",  # Embedding Vector Oriented Clustering
+    # Visualization
+    "datamapplot>=0.6.4",
+    # AWS and DynamoDB
+    "pynamodb>=5.4.0",
+    "aws-lambda-powertools>=2.15.0",
+    "aws-xray-sdk>=2.12.0",
+    # LLM and reporting
+    "requests>=2.28.0",
+    "xmltodict>=0.13.0",
+    "anthropic>=0.5.0",
+    "ollama>=0.5.1",
+    "llvmlite>=0.44.0",
+    # CLI
+    "rich>=13.0.0",
+    # Type compatibility (Python < 3.11)
+    "typing_extensions>=4.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "httpx>=0.23.0",
+    "moto>=4.1.0",
+    # Code quality - streamlined modern stack
+    "pre-commit>=4.3.0",
+    # Dependency management
+    "pip-tools>=7.5.1",
+    # Type stubs
+    "types-requests",
+    "types-psycopg2",
+]
+
+notebook = [
+    "jupyter>=1.0.0",
+    "ipython>=8.0.0",
+    "matplotlib>=3.10.6",
+    "seaborn>=0.12.0",
+]
+
+[project.scripts]
+delphi = "scripts.delphi_cli:main"
+run-delphi = "run_delphi:main"
+# Pipeline entry points
+run-math-pipeline = "polismath.run_math_pipeline:main"
+run-umap-pipeline = "umap_narrative.run_pipeline:main"
+calculate-extremity = "umap_narrative.501_calculate_comment_extremity:main"
+calculate-priorities = "umap_narrative.502_calculate_priorities:main"
+# Utility entry points
+reset-conversation = "umap_narrative.reset_conversation:main"
+create-datamapplot = "umap_narrative.700_datamapplot_for_layer:main"
+setup-minio = "setup_minio:setup_minio_bucket"
+
+# Hatchling configuration
+[tool.hatch.build.targets.wheel]
+packages = ["polismath", "umap_narrative"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/polismath",
+    "/umap_narrative",
+    "/scripts",
+    "/tests",
+    "/docs",
+    "*.py",
+    "*.md",
+    "*.toml",
+    "*.txt",
+]

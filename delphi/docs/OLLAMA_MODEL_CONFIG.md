@@ -71,7 +71,7 @@ If you encounter issues with the Ollama model:
 
 3. Check the Delphi container logs for any model-related errors:
    ```bash
-   docker logs delphi-app
+   docker logs polis-dev-delphi-1
    ```
 
 4. Make sure the Ollama service is running and accessible:

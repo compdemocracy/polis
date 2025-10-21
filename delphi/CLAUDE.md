@@ -125,7 +125,7 @@ The system uses Docker Compose with three main services:
 
 1. `dynamodb-local`: Local DynamoDB instance for development
 2. `ollama`: Ollama service for local LLM processing
-3. `delphi-app`: Main application container
+3. `polis-dev-delphi-1`: Main application container
 
 ## DynamoDB Configuration
 
@@ -174,7 +174,7 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 
    ```bash
    aws dynamodb delete-table --table-name DelphiJobQueue --endpoint-url http://localhost:8000 && \
-   docker exec -e PYTHONPATH=/app delphi-app python /app/create_dynamodb_tables.py --endpoint-url http://host.docker.internal:8000
+   docker exec -e PYTHONPATH=/app polis-dev-delphi-1 python /app/create_dynamodb_tables.py --endpoint-url http://host.docker.internal:8000
    ```
 
 4. **DynamoDB Best Practices**:
@@ -287,7 +287,7 @@ For production environments, use the job queue system:
    ```bash
    # Drop and recreate the table
    aws dynamodb delete-table --table-name Delphi_JobQueue --endpoint-url http://localhost:8000
-   docker exec -e PYTHONPATH=/app delphi-app python /app/create_dynamodb_tables.py --endpoint-url http://host.docker.internal:8000
+   docker exec -e PYTHONPATH=/app polis-dev-delphi-1 python /app/create_dynamodb_tables.py --endpoint-url http://host.docker.internal:8000
    ```
 
    Or use the reset_database.sh script to recreate all tables:

@@ -15,15 +15,15 @@ It's recommended to create a fresh virtual environment:
 cd delphi
 
 # Create a new virtual environment
-python3 -m venv new_polis_env
+python3 -m venv delphi-env
 
 # Activate the virtual environment
-source new_polis_env/bin/activate  # On Linux/macOS
+source delphi-env/bin/activate  # On Linux/macOS
 # or
-new_polis_env\Scripts\activate     # On Windows
+delphi-env\Scripts\activate     # On Windows
 ```
 
-Your command prompt should now show `(new_polis_env)` indicating the environment is active.
+Your command prompt should now show `(delphi-env)` indicating the environment is active.
 
 ### Installing Dependencies
 

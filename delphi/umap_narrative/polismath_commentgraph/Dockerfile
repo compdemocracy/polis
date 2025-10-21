@@ -8,16 +8,12 @@ RUN yum update -y && yum install -y \
     git \
     && yum clean all
 
-# Copy requirements and install dependencies
+# Copy requirements and install dependencies  
+# Note: Uses requirements.txt instead of pyproject.toml for Lambda deployment simplicity
+# The pyproject.toml is only for local development/IDE support
 COPY requirements.txt ${LAMBDA_TASK_ROOT}/
 
-# Install EVOC from the local directory
-COPY ../evoc-main ${LAMBDA_TASK_ROOT}/evoc-main
-WORKDIR ${LAMBDA_TASK_ROOT}/evoc-main
-RUN pip install -e .
-WORKDIR ${LAMBDA_TASK_ROOT}
-
-# Install other dependencies
+# Install dependencies (including evoc from requirements.txt)
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
