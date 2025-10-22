@@ -6,7 +6,8 @@ import {
   sendVotesSummary,
   sendParticipantVotesSummary,
   sendParticipantXidsSummary,
-} from "../../src/routes/export";
+  sendParticipantImportance,
+} from "../../src/report";
 import pg from "../../src/db/pg-query";
 import { getZinvite } from "../../src/utils/zinvite";
 import { getPca } from "../../src/utils/pca";
@@ -290,7 +291,7 @@ describe("handle_GET_reportExport", () => {
       // Use the original require approach since it's more compatible with jest.spyOn
       const formatDatetimeSpy = jest.spyOn(
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require("../../src/routes/export"),
+        require("../../src/report"),
         "formatDatetime"
       );
       formatDatetimeSpy.mockReturnValue(
@@ -324,7 +325,7 @@ describe("handle_GET_reportExport", () => {
       // Use the original require approach since it's more compatible with jest.spyOn
       const formatDatetimeSpy = jest.spyOn(
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        require("../../src/routes/export"),
+        require("../../src/report"),
         "formatDatetime"
       );
       formatDatetimeSpy.mockReturnValue(
@@ -585,6 +586,164 @@ describe("handle_GET_reportExport", () => {
         "30,,1,1,1,0,,,1,\n"
       );
       expect(mockResNonSequential.end).toHaveBeenCalled();
+    });
+  });
+
+  describe("Participant importance summary", () => {
+    // Common PCA data structure for participant tests
+    const basePcaData = {
+      "in-conv": [1, 2],
+      "base-clusters": {
+        members: [
+          [1], // Base cluster 0 contains participant 1
+          [2], // Base cluster 1 contains participant 2
+        ],
+        x: [0, 1],
+        y: [0, 1],
+        id: [0, 1],
+        count: [1, 1],
+      },
+      "group-clusters": [
+        { id: 1, center: [0, 0], members: [0] }, // Group 1 contains base cluster 0
+        { id: 2, center: [1, 1], members: [1] }, // Group 2 contains base cluster 1
+      ],
+      "user-vote-counts": { 1: 2, 2: 1 },
+    };
+
+    it("sendParticipantImportance should send the participant importance summary as CSV", async () => {
+      // Mock pg.queryP_readOnly to return comment data
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 1, pid: 1 },
+        { tid: 2, pid: 1 },
+        { tid: 3, pid: 2 },
+      ] as never);
+
+      // Mock getPca to return properly structured PCA data
+      (getPca as jest.Mock).mockResolvedValue({
+        asPOJO: basePcaData,
+      } as never);
+
+      // Mock stream with vote rows including high_priority
+      mockStreamWithRows([
+        { pid: 1, tid: 1, vote: -1, high_priority: true },
+        { pid: 1, tid: 2, vote: 1, high_priority: false },
+        { pid: 2, tid: 3, vote: -1, high_priority: true },
+      ]);
+
+      await sendParticipantImportance(zid, mockRes as any);
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        "content-type",
+        "text/csv"
+      );
+      expect(mockRes.write).toHaveBeenCalledWith(
+        "participant,group-id,n-comments,n-votes,n-important,1,2,3\n"
+      );
+      // Participant 1: 2 total votes, 1 important vote, votes on comments 1 and 2
+      expect(mockRes.write).toHaveBeenCalledWith("1,1,2,2,1,1,0,\n");
+      // Participant 2: 1 total vote, 1 important vote, vote on comment 3 (didn't vote on 1 or 2)
+      expect(mockRes.write).toHaveBeenCalledWith("2,2,1,1,1,,,1\n");
+      expect(mockRes.end).toHaveBeenCalled();
+    });
+
+    it("sendParticipantImportance should handle participants with no important votes", async () => {
+      // Mock pg.queryP_readOnly to return comment data
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 1, pid: 1 },
+        { tid: 2, pid: 1 },
+      ] as never);
+
+      // Mock getPca to return properly structured PCA data
+      (getPca as jest.Mock).mockResolvedValue({
+        asPOJO: basePcaData,
+      } as never);
+
+      // Mock stream with vote rows where high_priority is false
+      mockStreamWithRows([
+        { pid: 1, tid: 1, vote: -1, high_priority: false },
+        { pid: 1, tid: 2, vote: 1, high_priority: false },
+      ]);
+
+      await sendParticipantImportance(zid, mockRes as any);
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        "content-type",
+        "text/csv"
+      );
+      expect(mockRes.write).toHaveBeenCalledWith(
+        "participant,group-id,n-comments,n-votes,n-important,1,2\n"
+      );
+      // Participant 1: 2 total votes, 0 important votes
+      expect(mockRes.write).toHaveBeenCalledWith("1,1,2,2,0,0,0\n");
+      expect(mockRes.end).toHaveBeenCalled();
+    });
+
+    it("sendParticipantImportance should handle errors during participant importance export", async () => {
+      const mockError = new Error("Test error");
+
+      // Mock pg.queryP_readOnly to return an empty array
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([] as never);
+
+      // Mock stream with error
+      mockStreamWithRows([], true, mockError);
+
+      await sendParticipantImportance(zid, mockRes as any);
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "polis_err_report_participant_importance",
+        mockError
+      );
+      expect(failJson).toHaveBeenCalledWith(
+        mockRes,
+        500,
+        "polis_err_data_export",
+        mockError
+      );
+    });
+
+    it("sendParticipantImportance should handle participants not found in any base cluster", async () => {
+      // Mock pg.queryP_readOnly to return comment data
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 1, pid: 1 },
+        { tid: 2, pid: 3 }, // Participant 3 is in in-conv but not in any base cluster
+      ] as never);
+
+      // Create a modified PCA data with participant 3 in in-conv but not in any base cluster
+      const modifiedPcaData = {
+        ...basePcaData,
+        "in-conv": [1, 2, 3], // Participant 3 is in in-conv
+        "user-vote-counts": { 1: 1, 3: 1 },
+      };
+
+      // Mock getPca with the modified data
+      (getPca as jest.Mock).mockResolvedValue({
+        asPOJO: modifiedPcaData,
+      } as never);
+
+      // Mock stream with vote rows
+      mockStreamWithRows([
+        { pid: 1, tid: 1, vote: -1, high_priority: true },
+        { pid: 3, tid: 2, vote: -1, high_priority: false },
+      ]);
+
+      await sendParticipantImportance(zid, mockRes as any);
+
+      expect(mockRes.setHeader).toHaveBeenCalledWith(
+        "content-type",
+        "text/csv"
+      );
+      expect(mockRes.write).toHaveBeenCalledWith(
+        "participant,group-id,n-comments,n-votes,n-important,1,2\n"
+      );
+
+      // Participant 1 should have a group ID
+      expect(mockRes.write).toHaveBeenCalledWith("1,1,1,1,1,1,\n");
+
+      // Participant 3 should not have a group ID (empty field)
+      // Voted on comment 2 but not comment 1, and the vote was not high priority
+      expect(mockRes.write).toHaveBeenCalledWith("3,,1,1,0,,0\n");
+
+      expect(mockRes.end).toHaveBeenCalled();
     });
   });
 });

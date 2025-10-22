@@ -475,4 +475,74 @@ describe("Data Export API with Importance Enabled", () => {
 
     expect(highPriorityCount).toBe(testData.highPriorityVotes);
   });
+
+  test("GET /api/v3/reportExport/:report_id/participant-importance.csv - should export participant importance data", async () => {
+    const response: Response = await testAgent.get(
+      `/api/v3/reportExport/${reportId}/participant-importance.csv`
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/csv");
+
+    // Should contain expected headers
+    expect(response.text).toContain("participant");
+    expect(response.text).toContain("group-id");
+    expect(response.text).toContain("n-comments");
+    expect(response.text).toContain("n-votes");
+    expect(response.text).toContain("n-important");
+
+    // Should contain comment IDs as columns
+    testData.comments.forEach((commentId) => {
+      expect(response.text).toContain(commentId.toString());
+    });
+
+    // Verify we have the expected number of participant rows
+    const dataLines = response.text
+      .split("\n")
+      .slice(1) // Skip header
+      .filter((line) => line.trim().length > 0);
+
+    // Should have one row per participant (3 participants in test setup)
+    expect(dataLines.length).toBe(numParticipants);
+
+    // Verify n-important values are correct
+    // Pattern: first participant should have 2 important votes, second should have 1, third should have 0
+    const firstParticipantLine = dataLines.find((line) =>
+      line.startsWith("0,")
+    );
+    const secondParticipantLine = dataLines.find((line) =>
+      line.startsWith("1,")
+    );
+    const thirdParticipantLine = dataLines.find((line) =>
+      line.startsWith("2,")
+    );
+
+    if (firstParticipantLine) {
+      const cols = firstParticipantLine.split(",");
+      const nImportant = cols[4]; // n-important is the 5th column (0-indexed)
+      expect(nImportant).toBe("2"); // First participant had 2 high priority votes
+    }
+
+    if (secondParticipantLine) {
+      const cols = secondParticipantLine.split(",");
+      const nImportant = cols[4]; // n-important is the 5th column (0-indexed)
+      expect(nImportant).toBe("1"); // Second participant had 1 high priority vote
+    }
+
+    if (thirdParticipantLine) {
+      const cols = thirdParticipantLine.split(",");
+      const nImportant = cols[4]; // n-important is the 5th column (0-indexed)
+      expect(nImportant).toBe("0"); // Third participant had 0 high priority votes
+    }
+
+    // Verify that comment columns contain 1 for high priority votes, 0 for regular votes, empty for no votes
+    dataLines.forEach((line) => {
+      const cols = line.split(",");
+      // Skip metadata columns (first 5: participant, group-id, n-comments, n-votes, n-important)
+      for (let i = 5; i < cols.length; i++) {
+        const value = cols[i];
+        expect(value === "" || value === "0" || value === "1").toBe(true); // Should be empty, "0", or "1"
+      }
+    });
+  });
 });

@@ -38,7 +38,7 @@ const RawDataExport = ({ conversation, report_id }) => {
         <a href="https://compdemocracy.org/export/"> https://compdemocracy.org/export/ </a>
       </p>
       <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
-        {`--------Summary: `}
+        {`----------Summary: `}
         <a
           download={getDownloadFilename("summary", conversation)}
           href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/summary.csv`}
@@ -48,7 +48,7 @@ const RawDataExport = ({ conversation, report_id }) => {
         </a>
       </p>
       <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
-        {`-------Comments: `}
+        {`---------Comments: `}
         <a
           download={getDownloadFilename("comments", conversation)}
           href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/comments.csv`}
@@ -59,7 +59,7 @@ const RawDataExport = ({ conversation, report_id }) => {
         {` (may take up to several minutes)`}
       </p>
       <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
-        {`--Votes history: `}
+        {`----Votes history: `}
         <a
           download={getDownloadFilename("votes", conversation)}
           href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/votes.csv`}
@@ -70,7 +70,7 @@ const RawDataExport = ({ conversation, report_id }) => {
         {` (as event log)`}
       </p>
       <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
-        {`---Votes matrix: `}
+        {`-----Votes matrix: `}
         <a
           download={getDownloadFilename("participant-votes", conversation)}
           href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-votes.csv`}
@@ -80,8 +80,21 @@ const RawDataExport = ({ conversation, report_id }) => {
         </a>
         {` (as comments x participants matrix)`}
       </p>
+      {conversation.importance_enabled && (
+        <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
+          {`Importance matrix: `}
+          <a
+            download={getDownloadFilename("participant-importance", conversation)}
+            href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-importance.csv`}
+            type="text/csv"
+          >
+            {getDownloadFilename("participant-importance", conversation)}
+          </a>
+          {` (as comments x participants matrix)`}
+        </p>
+      )}
       <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
-        {`Comment groups: `}
+        {`---Comment groups: `}
         <a
           download={getDownloadFilename("comment-groups", conversation)}
           href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/comment-groups.csv`}
@@ -107,6 +120,11 @@ const RawDataExport = ({ conversation, report_id }) => {
         <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
           {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-votes.csv`}
         </p>
+        {conversation.importance_enabled && (
+          <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
+            {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/participant-importance.csv`}
+          </p>
+        )}
         <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
           {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/comment-groups.csv`}
         </p>
