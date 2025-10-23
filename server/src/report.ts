@@ -90,6 +90,7 @@ const formatEscapedText = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
 type ParticipantExportContext = {
   commentIds: number[];
+  commentIdSet: Set<number>;
   participantCommentCounts: Map<number, number>;
   getGroupId: (pid: number) => number | undefined;
 };
@@ -187,6 +188,7 @@ async function loadParticipantExportContext(
   const commentRows = (commentRowsRaw as { tid: number; pid: number }[]) || [];
 
   const commentIds = commentRows.map((row) => row.tid);
+  const commentIdSet = new Set(commentIds);
   const participantCommentCounts = new Map<number, number>();
   for (const row of commentRows) {
     const count = participantCommentCounts.get(row.pid) || 0;
@@ -197,6 +199,7 @@ async function loadParticipantExportContext(
 
   return {
     commentIds,
+    commentIdSet,
     participantCommentCounts,
     getGroupId: createGroupIdResolver(pcaData, zid),
   };
@@ -444,6 +447,7 @@ export async function sendParticipantVotesSummary(
   const currentParticipantVotes = new Map<number, number>();
 
   const sendCurrentParticipantRow = () => {
+    const totalVotes = currentParticipantVotes.size;
     let agrees = 0;
     let disagrees = 0;
     for (const vote of currentParticipantVotes.values()) {
@@ -454,7 +458,7 @@ export async function sendParticipantVotesSummary(
       currentParticipantId,
       getGroupId(currentParticipantId),
       participantCommentCounts.get(currentParticipantId) || 0,
-      currentParticipantVotes.size,
+      totalVotes,
       agrees,
       disagrees,
       ...commentIds.map((tid) => currentParticipantVotes.get(tid)),
@@ -467,7 +471,7 @@ export async function sendParticipantVotesSummary(
   };
 
   pg.stream_queryP_readOnly(
-    "SELECT pid, tid, vote FROM votes WHERE zid = ($1) ORDER BY pid",
+    "SELECT pid, tid, vote FROM votes WHERE zid = ($1) ORDER BY pid, tid",
     [zid],
     (row) => {
       const pid: number = row.pid;
@@ -504,7 +508,7 @@ export async function sendParticipantImportance(
   //   "1" - participant voted on this comment with high_priority = true
   //   "0" - participant voted on this comment with high_priority = false
   //   "" (empty) - participant did not vote on this comment
-  const { commentIds, participantCommentCounts, getGroupId } =
+  const { commentIds, commentIdSet, participantCommentCounts, getGroupId } =
     await loadParticipantExportContext(zid);
 
   res.setHeader("content-type", "text/csv");
@@ -526,10 +530,9 @@ export async function sendParticipantImportance(
   const currentParticipantVotedComments = new Set<number>();
 
   const sendCurrentParticipantRow = () => {
-    let totalVotes = 0;
+    const totalVotes = currentParticipantVotes.size;
     let importantVotes = 0;
-    for (const [tid] of currentParticipantVotes.entries()) {
-      totalVotes += 1;
+    for (const tid of currentParticipantVotedComments) {
       if (currentParticipantImportance.get(tid)) {
         importantVotes += 1;
       }
@@ -558,7 +561,7 @@ export async function sendParticipantImportance(
   };
 
   pg.stream_queryP_readOnly(
-    "SELECT pid, tid, vote, high_priority FROM votes WHERE zid = ($1) ORDER BY pid",
+    "SELECT pid, tid, vote, high_priority FROM votes WHERE zid = ($1) ORDER BY pid, tid",
     [zid],
     (row) => {
       const pid: number = row.pid;
@@ -570,6 +573,9 @@ export async function sendParticipantImportance(
         currentParticipantVotes.clear();
         currentParticipantImportance.clear();
         currentParticipantVotedComments.clear();
+      }
+      if (!commentIdSet.has(row.tid)) {
+        return;
       }
       currentParticipantVotes.set(row.tid, -row.vote);
       currentParticipantImportance.set(row.tid, row.high_priority || false);

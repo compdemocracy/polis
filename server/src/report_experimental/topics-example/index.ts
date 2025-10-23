@@ -4,7 +4,7 @@
 //   - citations: All comment IDs associated with this topic (including subtopic citations)
 //   - subtopics: Array of subtopics, each with their specific citations
 
-import { sendCommentGroupsSummary } from "../../routes/export";
+import { sendCommentGroupsSummary } from "../../report";
 import { Sensemaker } from "@tevko/sensemaking-tools/src/sensemaker";
 import { GoogleAIModel } from "@tevko/sensemaking-tools/src/models/aiStudio_model";
 import { Comment, VoteTally, Topic } from "@tevko/sensemaking-tools/src/types";

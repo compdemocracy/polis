@@ -13,7 +13,7 @@ import { convertXML } from "simple-xml-to-json";
 import fs from "fs/promises";
 import { parse } from "csv-parse/sync";
 import { create } from "xmlbuilder2";
-import { sendCommentGroupsSummary } from "./export";
+import { sendCommentGroupsSummary } from "../report";
 import { getTopicsFromRID } from "../report_experimental/topics-example";
 import DynamoStorageService, { StorageError } from "../utils/storage";
 import { PathLike } from "node:fs";

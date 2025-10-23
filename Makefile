@@ -31,7 +31,8 @@ define get_env_vars
 	$(eval USE_PRODCLONE = $(call parse_env_bool,$(USE_PRODCLONE_RAW)))
 	$(eval export DB_INIT_MODE = $(if $(filter true,$(USE_PRODCLONE)),pdb,db))
 	$(eval export POSTGRES_VOLUME = $(if $(filter true,$(USE_PRODCLONE)),prodclone_data,postgres_data))
-	$(eval export COMPOSE_FILE_ARGS = -f docker-compose.yml -f docker-compose.dev.yml)
+	# Only set COMPOSE_FILE_ARGS if not already set by environment-specific targets
+	$(eval COMPOSE_FILE_ARGS ?= -f docker-compose.yml -f docker-compose.dev.yml)
 	$(eval COMPOSE_FILE_ARGS += $(if $(POSTGRES_DOCKER),--profile postgres,))
 	$(eval COMPOSE_FILE_ARGS += $(if $(LOCAL_SERVICES_DOCKER),--profile local-services,))
 endef
