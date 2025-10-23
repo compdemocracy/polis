@@ -57,12 +57,6 @@ export const checkConvoPermissions = (userContext, conversationData) => {
   const isOwner = conversationData?.is_owner || false
   const isMod = conversationData?.is_mod || false
   const shouldShow = isSuper || isOwner || isMod
-  console.log('checkConvoPermissions', {
-    isSuper,
-    isOwner,
-    isMod,
-    shouldShow
-  })
 
   return shouldShow
 }
