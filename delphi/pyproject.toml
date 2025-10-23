@@ -18,7 +18,7 @@ dependencies = [
     "scipy>=1.12.0",
     "tqdm==4.66.2",
     "matplotlib==3.10.6",
-    "ddtrace==3.13.0",
+    "ddtrace>=3.16.2",
     # API dependencies
     "fastapi==0.115.0",
     "uvicorn>=0.20.0",
