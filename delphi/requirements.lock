@@ -70,7 +70,7 @@ datamapplot==0.6.4
     # via delphi-polis (pyproject.toml)
 datashader==0.18.2
     # via datamapplot
-ddtrace==3.13.0
+ddtrace==3.16.2
     # via delphi-polis (pyproject.toml)
 distributed==2024.12.1
     # via dask
@@ -414,7 +414,6 @@ typing-extensions==4.15.0
     #   anthropic
     #   aws-lambda-powertools
     #   datamapplot
-    #   ddtrace
     #   delphi-polis (pyproject.toml)
     #   fastapi
     #   huggingface-hub
@@ -438,7 +437,7 @@ urllib3==2.5.0
     #   requests
 uvicorn==0.38.0
     # via delphi-polis (pyproject.toml)
-wrapt==2.0.0
+wrapt==1.17.3
     # via
     #   aws-xray-sdk
     #   ddtrace
