@@ -3,7 +3,7 @@
 import { Heading, Flex, Box } from 'theme-ui'
 import { Routes, Route, Link, useParams, useLocation } from 'react-router'
 import { useAuth } from 'react-oidc-context'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 
 import { populateAllCommentStores } from '../../../actions'
@@ -23,13 +23,24 @@ const CommentModeration = () => {
   const rejected = useSelector((state) => state.mod_comments_rejected)
   const getCommentsRepeatedlyRef = useRef(null)
 
-  const loadComments = () => {
-    dispatch(populateAllCommentStores(params.conversation_id))
+  // Pagination state
+  const [pageSize] = useState(50) // Default page size
+  const [currentPage, setCurrentPage] = useState(0) // 0-based page index
+
+  const loadComments = (page = currentPage) => {
+    const offset = page * pageSize
+    dispatch(populateAllCommentStores(params.conversation_id, pageSize, offset))
   }
 
-  const loadCommentsIfNeeded = () => {
-    // Only load if we have a conversation ID and Auth is ready (not loading)
-    if (params.conversation_id && !isLoading) {
+  const handlePageChange = (newOffset, limit) => {
+    const newPage = Math.floor(newOffset / limit)
+    setCurrentPage(newPage)
+    loadComments(newPage)
+  }
+
+  useEffect(() => {
+    // Only load if we have a conversation ID, Auth is ready (not loading), and user is authenticated
+    if (params.conversation_id && !isLoading && isAuthenticated) {
       loadComments()
 
       // Set up polling if not already set up
@@ -39,11 +50,6 @@ const CommentModeration = () => {
         }, pollFrequency)
       }
     }
-  }
-
-  useEffect(() => {
-    // Try to load comments when component mounts and set up polling
-    loadCommentsIfNeeded()
 
     return () => {
       if (getCommentsRepeatedlyRef.current) {
@@ -51,11 +57,6 @@ const CommentModeration = () => {
         getCommentsRepeatedlyRef.current = null
       }
     }
-  }, [])
-
-  useEffect(() => {
-    // Try again if conversation_id changes or auth state changes
-    loadCommentsIfNeeded()
   }, [params.conversation_id, isLoading, isAuthenticated])
 
   const url = location.pathname.split('/')[4]
@@ -80,9 +81,11 @@ const CommentModeration = () => {
           }}
           to="../comments">
           Unmoderated{' '}
-          {Array.isArray(unmoderated.unmoderated_comments)
-            ? unmoderated.unmoderated_comments.length
-            : null}
+          {unmoderated.pagination?.total !== undefined
+            ? unmoderated.pagination.total
+            : Array.isArray(unmoderated.unmoderated_comments)
+              ? unmoderated.unmoderated_comments.length
+              : null}
         </Link>
         <Link
           data-testid="filter-approved"
@@ -92,7 +95,11 @@ const CommentModeration = () => {
           }}
           to="../comments/accepted">
           Accepted{' '}
-          {Array.isArray(accepted.accepted_comments) ? accepted.accepted_comments.length : null}
+          {accepted.pagination?.total !== undefined
+            ? accepted.pagination.total
+            : Array.isArray(accepted.accepted_comments)
+              ? accepted.accepted_comments.length
+              : null}
         </Link>
         <Link
           data-testid="filter-rejected"
@@ -102,14 +109,45 @@ const CommentModeration = () => {
           }}
           to="../comments/rejected">
           Rejected{' '}
-          {Array.isArray(rejected.rejected_comments) ? rejected.rejected_comments.length : null}
+          {rejected.pagination?.total !== undefined
+            ? rejected.pagination.total
+            : Array.isArray(rejected.rejected_comments)
+              ? rejected.rejected_comments.length
+              : null}
         </Link>
       </Flex>
       <Box>
         <Routes>
-          <Route path="/" element={<ModerateCommentsTodo />} />
-          <Route path="accepted" element={<ModerateCommentsAccepted />} />
-          <Route path="rejected" element={<ModerateCommentsRejected />} />
+          <Route
+            path="/"
+            element={
+              <ModerateCommentsTodo
+                pagination={unmoderated.pagination}
+                onPageChange={handlePageChange}
+                loading={unmoderated.loading}
+              />
+            }
+          />
+          <Route
+            path="accepted"
+            element={
+              <ModerateCommentsAccepted
+                pagination={accepted.pagination}
+                onPageChange={handlePageChange}
+                loading={accepted.loading}
+              />
+            }
+          />
+          <Route
+            path="rejected"
+            element={
+              <ModerateCommentsRejected
+                pagination={rejected.pagination}
+                onPageChange={handlePageChange}
+                loading={rejected.loading}
+              />
+            }
+          />
         </Routes>
       </Box>
     </Box>

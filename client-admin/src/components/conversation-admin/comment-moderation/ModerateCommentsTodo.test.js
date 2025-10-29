@@ -81,12 +81,6 @@ describe('ModerateCommentsTodo', () => {
     expect(screen.getByText('Loading unmoderated comments...')).toBeInTheDocument()
   })
 
-  it('displays max comments message', () => {
-    const store = createMockStore()
-    renderWithProviders(<ModerateCommentsTodo />, { store })
-    expect(screen.getByText('Displays maximum 100 comments')).toBeInTheDocument()
-  })
-
   it('renders list of unmoderated comments', () => {
     const mockComments = [
       { tid: 1, txt: 'First comment', created: 123 },
@@ -105,31 +99,6 @@ describe('ModerateCommentsTodo', () => {
     expect(screen.getByText('First comment')).toBeInTheDocument()
     expect(screen.getByText('Second comment')).toBeInTheDocument()
     expect(screen.getByText('Third comment')).toBeInTheDocument()
-  })
-
-  it('limits display to maximum 100 comments', () => {
-    // Create 150 mock comments
-    const mockComments = Array.from({ length: 150 }, (_, i) => ({
-      tid: i,
-      txt: `Comment ${i}`,
-      created: 1000 + i
-    }))
-
-    const store = createMockStore({
-      mod_comments_unmoderated: {
-        unmoderated_comments: mockComments
-      }
-    })
-
-    renderWithProviders(<ModerateCommentsTodo />, { store })
-
-    // First 100 should be rendered
-    expect(screen.getByText('Comment 0')).toBeInTheDocument()
-    expect(screen.getByText('Comment 99')).toBeInTheDocument()
-
-    // Comment 100 and beyond should not be rendered
-    expect(screen.queryByText('Comment 100')).not.toBeInTheDocument()
-    expect(screen.queryByText('Comment 149')).not.toBeInTheDocument()
   })
 
   it('renders empty list when there are no unmoderated comments', () => {

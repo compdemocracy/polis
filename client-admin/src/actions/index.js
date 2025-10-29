@@ -375,30 +375,24 @@ export const handleCreateConversationSubmit = (history) => {
   }
 }
 
-/* unmoderated comments */
+/* moderation comments - unified implementation */
 
-const requestUnmoderatedComments = () => {
-  return {
-    type: REQUEST_UNMODERATED_COMMENTS
-  }
+// Helper function to create action creators for moderation types
+const createModerationActions = (requestType, receiveType, errorType) => {
+  const request = () => ({ type: requestType })
+  const receive = (data) => ({ type: receiveType, data })
+  const error = (err) => ({ type: errorType, data: err })
+  return { request, receive, error }
 }
 
-const receiveUnmoderatedComments = (data) => {
-  return {
-    type: RECEIVE_UNMODERATED_COMMENTS,
-    data: data
-  }
-}
+// Unified fetch function for all moderation types
+const fetchModeratedComments = (conversation_id, mod, limit = 50, offset = 0) => {
+  let url = `/api/v3/comments?moderation=true&include_voting_patterns=false&mod=${mod}&conversation_id=${conversation_id}`
 
-const unmoderatedCommentsFetchError = (err) => {
-  return {
-    type: UNMODERATED_COMMENTS_FETCH_ERROR,
-    data: err
+  // Add pagination parameters if limit is provided
+  if (limit) {
+    url += `&limit=${limit}&offset=${offset}`
   }
-}
-
-const fetchUnmoderatedComments = (conversation_id) => {
-  const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&mod=0&conversation_id=${conversation_id}`
 
   return PolisNet.getAccessTokenSilentlySPA().then((token) =>
     fetch(url, {
@@ -410,114 +404,55 @@ const fetchUnmoderatedComments = (conversation_id) => {
   )
 }
 
-export const populateUnmoderatedCommentsStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestUnmoderatedComments())
-    return fetchUnmoderatedComments(conversation_id).then(
-      (res) => dispatch(receiveUnmoderatedComments(res)),
-      (err) => dispatch(unmoderatedCommentsFetchError(err))
-    )
+// Create action creators for each moderation type
+const unmoderatedActions = createModerationActions(
+  REQUEST_UNMODERATED_COMMENTS,
+  RECEIVE_UNMODERATED_COMMENTS,
+  UNMODERATED_COMMENTS_FETCH_ERROR
+)
+
+const acceptedActions = createModerationActions(
+  REQUEST_ACCEPTED_COMMENTS,
+  RECEIVE_ACCEPTED_COMMENTS,
+  ACCEPTED_COMMENTS_FETCH_ERROR
+)
+
+const rejectedActions = createModerationActions(
+  REQUEST_REJECTED_COMMENTS,
+  RECEIVE_REJECTED_COMMENTS,
+  REJECTED_COMMENTS_FETCH_ERROR
+)
+
+// Unified populate function factory
+const createPopulateModerationStore = (actions, mod) => {
+  return (conversation_id, limit = 50, offset = 0) => {
+    return (dispatch) => {
+      dispatch(actions.request())
+      return fetchModeratedComments(conversation_id, mod, limit, offset).then(
+        (res) => dispatch(actions.receive(res)),
+        (err) => dispatch(actions.error(err))
+      )
+    }
   }
 }
+
+/* unmoderated comments */
+export const populateUnmoderatedCommentsStore = createPopulateModerationStore(unmoderatedActions, 0)
 
 /* accepted comments */
-
-const requestAcceptedComments = () => {
-  return {
-    type: REQUEST_ACCEPTED_COMMENTS
-  }
-}
-
-const receiveAcceptedComments = (data) => {
-  return {
-    type: RECEIVE_ACCEPTED_COMMENTS,
-    data: data
-  }
-}
-
-const acceptedCommentsFetchError = (err) => {
-  return {
-    type: ACCEPTED_COMMENTS_FETCH_ERROR,
-    data: err
-  }
-}
-
-const fetchAcceptedComments = (conversation_id) => {
-  const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&mod=1&conversation_id=${conversation_id}`
-
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch(url, {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    }).then((r) => r.json())
-  )
-}
-
-export const populateAcceptedCommentsStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestAcceptedComments())
-    return fetchAcceptedComments(conversation_id).then(
-      (res) => dispatch(receiveAcceptedComments(res)),
-      (err) => dispatch(acceptedCommentsFetchError(err))
-    )
-  }
-}
+export const populateAcceptedCommentsStore = createPopulateModerationStore(acceptedActions, 1)
 
 /* rejected comments */
-
-const requestRejectedComments = () => {
-  return {
-    type: REQUEST_REJECTED_COMMENTS
-  }
-}
-
-const receiveRejectedComments = (data) => {
-  return {
-    type: RECEIVE_REJECTED_COMMENTS,
-    data: data
-  }
-}
-
-const rejectedCommentsFetchError = (err) => {
-  return {
-    type: REJECTED_COMMENTS_FETCH_ERROR,
-    data: err
-  }
-}
-
-const fetchRejectedComments = (conversation_id) => {
-  const url = `/api/v3/comments?moderation=true&include_voting_patterns=false&mod=-1&conversation_id=${conversation_id}`
-
-  return PolisNet.getAccessTokenSilentlySPA().then((token) =>
-    fetch(url, {
-      method: 'GET',
-      headers: {
-        ...(token && { Authorization: `Bearer ${token}` })
-      }
-    }).then((r) => r.json())
-  )
-}
-
-const populateRejectedCommentsStore = (conversation_id) => {
-  return (dispatch) => {
-    dispatch(requestRejectedComments())
-    return fetchRejectedComments(conversation_id).then(
-      (res) => dispatch(receiveRejectedComments(res)),
-      (err) => dispatch(rejectedCommentsFetchError(err))
-    )
-  }
-}
+const populateRejectedCommentsStore = createPopulateModerationStore(rejectedActions, -1)
 
 /* populate ALL stores todo/accept/reject/seed */
 
-export const populateAllCommentStores = (conversation_id) => {
+export const populateAllCommentStores = (conversation_id, limit = 50, offset = 0) => {
   return (dispatch) => {
     return Promise.all([
-      dispatch(populateUnmoderatedCommentsStore(conversation_id)),
-      dispatch(populateAcceptedCommentsStore(conversation_id)),
-      dispatch(populateRejectedCommentsStore(conversation_id))
+      dispatch(populateUnmoderatedCommentsStore(conversation_id, limit, offset)),
+      dispatch(populateAcceptedCommentsStore(conversation_id, limit, offset)),
+      dispatch(populateRejectedCommentsStore(conversation_id, limit, offset))
     ])
   }
 }
