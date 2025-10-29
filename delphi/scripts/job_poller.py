@@ -765,6 +765,10 @@ def poll_and_process(processor, interval=10):
                     # Small/default instances ONLY process normal-sized jobs.
                     can_process = (job_actual_size == "normal")
 
+                if instance_type == "omnipotent":
+                    # Omnipotent instances can process any job size.
+                    can_process = True
+
                 if not can_process:
                     logger.info(f"Worker instance type '{instance_type}' cannot process job '{job_to_process['job_id']}' of size '{job_actual_size}'. Skipping for now.")
                     # Sleep for the interval so this worker doesn't hammer the queue checking the same job.
