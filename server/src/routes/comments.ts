@@ -26,6 +26,7 @@ import {
 } from "../comment";
 import {
   addConversationIds,
+  finishArray,
   finishOne,
   safeTimestampToMillis,
   sendEmailByUid,
@@ -135,6 +136,39 @@ async function handle_GET_comments_translations(
 
 async function handle_GET_comments(req: RequestWithP, res: any): Promise<void> {
   try {
+    // Check if pagination is explicitly requested for backwards compatibility
+    const isPaginationRequested = req.p.limit !== undefined;
+
+    if (!isPaginationRequested) {
+      // Legacy response format: return array directly via finishArray
+      let comments = (await getComments(req.p as GetCommentsParams)) as any[];
+
+      // Handle report selections if needed
+      if (req.p.rid) {
+        const selections = (await pg.queryP(
+          "select tid, selection from report_comment_selections where rid = ($1);",
+          [req.p.rid]
+        )) as Array<{ tid: number; selection: number }>;
+
+        const tidToSelection = selections.reduce<
+          Record<number, { selection: number }>
+        >((acc, s) => {
+          acc[s.tid] = { selection: s.selection };
+          return acc;
+        }, {});
+
+        comments = (comments as any[]).map((c: any) => {
+          c.includeInReport =
+            tidToSelection[c.tid] && tidToSelection[c.tid].selection > 0;
+          return c;
+        });
+      }
+
+      finishArray(res, comments);
+      return;
+    }
+
+    // New paginated response format
     // Parse pagination parameters
     const pagination = parsePagination(
       { limit: req.p.limit, offset: req.p.offset },
