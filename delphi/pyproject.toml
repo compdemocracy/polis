@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "delphi-polis"
 version = "0.1.0"
 description = "Mathematical analytics pipeline for Polis conversations"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 dependencies = [
     "numpy>=1.26.4,<2.0",
@@ -66,6 +66,10 @@ dev = [
     "httpx>=0.23.0",
     "moto>=4.1.0",
     # Code quality - streamlined modern stack
+    "ruff>=0.14.0",      # Replaces flake8, isort, and many others
+    "black>=25.9.0",    # Formatter
+    "mypy>=1.18.2",      # Type checker
+    "bandit[toml]>=1.8.6",  # Security scanner
     "pre-commit>=4.3.0",
     # Dependency management
     "pip-tools>=7.5.1",
@@ -109,4 +113,168 @@ include = [
     "*.md",
     "*.toml",
     "*.txt",
+]
+
+# Testing configuration
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--tb=short",
+    "--cov=polismath",
+    "--cov=umap_narrative",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-fail-under=70",
+]
+filterwarnings = [
+    "error",
+    "ignore::UserWarning",
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "real_data: marks tests that use real data",
+]
+
+# Black code formatting
+[tool.black]
+line-length = 120
+target-version = ["py312", "py313", "py314"]
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+# Ruff linting (replaces flake8, isort, and many plugins)
+[tool.ruff]
+target-version = "py312"
+line-length = 120  # Match Black
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+    "PL",  # pylint
+    "N",   # pep8-naming
+]
+ignore = [
+    "E501",    # line too long, handled by black
+    "B008",    # do not perform function calls in argument defaults
+    "C901",    # too complex
+    # Docstring rules - disabled for existing codebase
+    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",  # missing docstrings
+    "D200", "D201", "D202", "D203", "D204", "D205", "D206", "D207",  # docstring formatting
+    "D208", "D209", "D210", "D211", "D212", "D213", "D214", "D215",  # docstring style
+    "D400", "D401", "D402", "D403", "D404", "D405", "D406", "D407",  # docstring content
+    "D408", "D409", "D410", "D411", "D412", "D413", "D414", "D415",  # docstring sections
+    "D416", "D417", "D418", "D419",  # docstring sections
+    "PLR0913", # too many arguments
+    "PLR0912", # too many branches
+    "PLR0915", # too many statements
+    "PLR2004", # magic values in comparisons
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["PLR2004"]  # Magic value used in comparison
+"scripts/*" = ["T201"]   # Print statements are OK in scripts
+
+[tool.ruff.lint.isort]
+known-first-party = ["polismath", "umap_narrative"]
+
+# isort configuration
+[tool.isort]
+profile = "black"
+known_first_party = ["polismath", "umap_narrative"]
+skip = ["delphi-env", ".venv", "venv"]
+
+# MyPy type checking
+[tool.mypy]
+python_version = "3.12"
+mypy_path = "stubs"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    "boto3.*",
+    "botocore.*",
+    "sklearn.*",
+    "umap.*",
+    "hdbscan.*",
+    "sentence_transformers.*",
+    "torch.*",
+    "torchvision.*",
+    "torchaudio.*",
+    "datamapplot.*",
+    "evoc.*",
+]
+ignore_missing_imports = true
+
+
+# Bandit security configuration
+[tool.bandit]
+exclude_dirs = ["tests", "scripts"]
+skips = ["B101", "B601"]  # Skip assert statements and shell injection in tests
+
+# Coverage configuration
+[tool.coverage.run]
+source = ["polismath", "umap_narrative"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/conftest.py",
+    "*/__pycache__/*",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
 ]

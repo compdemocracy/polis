@@ -34,8 +34,9 @@ The repository includes several key scripts:
 
 1. Clone the repository
 2. Install dependencies:
+
 ```bash
-pip install -r requirements.txt
+pip install -e ".[dev,notebook]"  # From delphi root (eg $HOME/polis/delphi)
 ```
 
 ### Running the visualization
@@ -43,10 +44,11 @@ pip install -r requirements.txt
 To generate multi-layer visualizations with topic labeling:
 
 ```bash
-python integrate_topic_labeling.py --conversation [conversation_name] --data-type [participant/comment/both]
+python umap_narrative/integrate_topic_labeling.py --conversation [conversation_name] --data-type [participant/comment/both]
 ```
 
 Where:
+
 - `conversation_name` is one of: biodiversity, sji, bg2050, vw
 - `data-type` specifies which data to process: participant, comment, or both
 

@@ -41,18 +41,21 @@ This document outlines the changes made to transform the polismath_commentgraph 
 
 ## Architecture Changes
 
-### Before:
+### Before
+
 - FastAPI microservice running on containers
 - File-based input from `/polis_data` directory
 - Limited error handling and no direct database access
 
-### After:
+### After
+
 - AWS Lambda function triggered by events
 - Direct PostgreSQL integration with RDS
 - Extended error handling and monitoring
 - Serverless architecture for better scalability
 
 ## Data Flow
+
 1. Event triggers Lambda function (SNS, SQS, or API Gateway)
 2. Lambda reads comments from PostgreSQL
 3. EVōC processes comments and generates clusters
@@ -60,6 +63,7 @@ This document outlines the changes made to transform the polismath_commentgraph 
 5. Status is returned to caller
 
 ## Database Schema
+
 - PostgreSQL: Using existing Polis schema (conversations, comments, participants, votes)
 - DynamoDB: Using optimized schema for visualization and clustering
 

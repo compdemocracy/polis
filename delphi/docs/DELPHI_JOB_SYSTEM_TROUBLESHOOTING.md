@@ -3,6 +3,7 @@
 ## 🚨 CRITICAL UI CONSISTENCY ISSUE
 
 **The two report interfaces use different API endpoints:**
+
 - **TopicReport.jsx**: `/api/v3/delphi` (LLM topic names from DynamoDB)
 - **CommentsReport.jsx**: `/api/v3/delphi/reports` (narrative reports from NarrativeReports table)
 
@@ -24,6 +25,7 @@ The Delphi job processing system consists of:
 ### 1. Jobs Getting Stuck in PROCESSING State
 
 **Symptoms**:
+
 - Jobs remain in PROCESSING state indefinitely
 - Subsequent steps aren't triggered
 - No error message in job record
@@ -33,10 +35,11 @@ The Delphi job processing system consists of:
 1. **Vague State Management**
    - **Problem**: Using the same status (PROCESSING) for different logical states causes confusion
    - **Solution**: Use explicit job types instead of relying solely on status:
+
      ```python
      # Instead of:
      job['status'] = 'PROCESSING'
-     
+
      # Use job types with clearer semantics:
      job['job_type'] = 'CREATE_NARRATIVE_BATCH'
      job['job_type'] = 'AWAITING_NARRATIVE_BATCH'
@@ -45,6 +48,7 @@ The Delphi job processing system consists of:
 2. **DynamoDB Reserved Keywords**
    - **Problem**: 'status' is a reserved keyword in DynamoDB
    - **Solution**: Always use ExpressionAttributeNames when updating status:
+
      ```python
      table.update_item(
          Key={'job_id': job_id},
@@ -61,6 +65,7 @@ The Delphi job processing system consists of:
 3. **Script Selection Logic**
    - **Problem**: Job poller might run the wrong script based on ambiguous conditions
    - **Solution**: Use job_type to explicitly determine which script to run:
+
      ```python
      if job_type == 'CREATE_NARRATIVE_BATCH':
          # Run 801_narrative_report_batch.py
@@ -73,6 +78,7 @@ The Delphi job processing system consists of:
 ### 2. DynamoDB Data Retrieval Issues
 
 **Symptoms**:
+
 - Data exists in DynamoDB but API returns empty results
 - Browser interface shows no reports
 
@@ -81,10 +87,11 @@ The Delphi job processing system consists of:
 1. **Key Format Mismatch**
    - **Problem**: Database keys aren't formatted as expected by server code
    - **Solution**: Ensure consistent key formatting across the system:
+
      ```python
      # Server expects this format:
      ":prefix": `${conversation_id}#`
-     
+
      # Make sure 803_check_batch_status.py uses:
      rid_section_model = f"{report_id}#{section_name}#{model}"
      ```
@@ -92,6 +99,7 @@ The Delphi job processing system consists of:
 2. **Report/Conversation Mapping**
    - **Problem**: Missing entry in PostgreSQL `reports` table linking report_id to zid
    - **Solution**: Verify the mapping exists:
+
      ```sql
      SELECT * FROM reports WHERE report_id = 'your_report_id';
      ```
@@ -99,6 +107,7 @@ The Delphi job processing system consists of:
 3. **Scan vs Query**
    - **Problem**: Inefficient or incorrect DynamoDB access patterns
    - **Solution**: Use the appropriate access pattern based on your data structure:
+
      ```javascript
      // For prefix scanning:
      FilterExpression: "begins_with(rid_section_model, :prefix)",
@@ -110,6 +119,7 @@ The Delphi job processing system consists of:
 ### 3. Job Poller Script Selection Issues
 
 **Symptoms**:
+
 - Jobs are picked up but the wrong script runs
 - Logs show unexpected script execution
 - Jobs fail with "Cannot import module" errors
@@ -119,19 +129,21 @@ The Delphi job processing system consists of:
 1. **Ambiguous Script Selection Logic**
    - **Problem**: Job poller selects script based on ambiguous conditions
    - **Solution**: Create explicit mapping between job types and scripts:
+
      ```python
      SCRIPT_MAPPING = {
          'CREATE_NARRATIVE_BATCH': '/app/umap_narrative/801_narrative_report_batch.py',
          'AWAITING_NARRATIVE_BATCH': '/app/umap_narrative/803_check_batch_status.py',
          'FULL_PIPELINE': '/app/run_delphi.sh'
      }
-     
+
      cmd = ['python', SCRIPT_MAPPING.get(job_type, DEFAULT_SCRIPT)]
      ```
 
 2. **Missing Job Type**
    - **Problem**: Job record doesn't specify job_type field
    - **Solution**: Always include job_type when creating jobs:
+
      ```python
      job = {
          'job_id': job_id,
@@ -144,21 +156,23 @@ The Delphi job processing system consists of:
 ### 4. External API Integration Issues
 
 **Symptoms**:
+
 - Jobs fail when interacting with external services like Anthropic
 - TypeErrors or unexpected response formats
 
 **Causes and Solutions**:
 
 1. **API Response Format Changes**
-   - **Problem**: External API changes its response format 
+   - **Problem**: External API changes its response format
    - **Solution**: Use robust response parsing that handles different formats:
+
      ```python
      # Don't assume specific object structure:
      try:
          # Try direct API call with robust parsing
          response = requests.get(api_url, headers=headers)
          response.raise_for_status()
-         
+
          # Process each line separately for JSONL
          for line in response.text.strip().split('\n'):
              if line.strip():
@@ -174,6 +188,7 @@ The Delphi job processing system consists of:
 2. **Missing API Keys**
    - **Problem**: Environment variables not properly passed to containers
    - **Solution**: Verify and explicitly pass environment variables:
+
      ```python
      # When spawning a process, pass environment variables
      env = os.environ.copy()

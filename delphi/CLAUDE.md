@@ -11,6 +11,7 @@ For a comprehensive list of all documentation files with descriptions, see:
 
 delphi/docs/JOB_QUEUE_SCHEMA.md
 delphi/docs/DISTRIBUTED_SYSTEM_ROADMAP.md
+delphi/docs/BETTER_PYTHON_TODO.md
 
 ## Helpful terminology
 
@@ -57,8 +58,8 @@ Always use the commands above to determine the most substantial conversation whe
 
 ### Environment Files
 
-- Main project uses a `.env` file in the parent directory (`/Users/colinmegill/polis/.env`)
-- Example environment file is available at `/Users/colinmegill/polis/delphi/example.env`
+- Main project uses a `.env` file in the parent directory (`$HOME/polis/.env`)
+- Example environment file is available at `$HOME/polis/delphi/example.env`
 
 ### Key Environment Variables
 
@@ -72,7 +73,6 @@ Always use the commands above to determine the most substantial conversation whe
 
 - **Docker Configuration**:
 
-  - `PYTHONPATH=/app` is set in the container
   - DynamoDB local endpoint: `http://dynamodb-local:8000`
   - Ollama endpoint: `http://ollama:11434`
 
@@ -124,28 +124,26 @@ Always use the commands above to determine the most substantial conversation whe
 
 The system uses Docker Compose with three main services:
 
-1. `dynamodb-local`: Local DynamoDB instance for development
+1. `dynamodb`: Local DynamoDB instance for development
 2. `ollama`: Ollama service for local LLM processing
 3. `polis-dev-delphi-1`: Main application container
 
 ## DynamoDB Configuration
 
-### Docker Services
-
-- The primary DynamoDB service is defined in the main `/docker-compose.yml` file
+- The primary DynamoDB service is defined in the parent project's `/docker-compose.yml` file
 - Service name is `dynamodb` and container name is `polis-dynamodb-local`
 - Exposed on port 8000
 - Uses persistent storage via Docker volume `dynamodb-data`
 - Access URL from the host: `http://localhost:8000`
 - Access URL from Delphi containers: `http://host.docker.internal:8000`
 
-**Important Update:** The Delphi-specific DynamoDB service (`dynamodb-local` in delphi/docker-compose.yml) has been deprecated. All DynamoDB operations now use the centralized instance from the main docker-compose.yml file.
+**Important Update:** The Delphi-specific DynamoDB service (`dynamodb-local` in delphi/docker-compose.yml) has been deprecated. All DynamoDB operations now use the centralized instance from the parent project's `/docker-compose.yml` file.
 
 ### Connection Details
 
 When connecting to DynamoDB from the Delphi container, use these settings:
 
-```
+```txt
 DYNAMODB_ENDPOINT=http://host.docker.internal:8000
 AWS_ACCESS_KEY_ID=dummy
 AWS_SECRET_ACCESS_KEY=dummy
@@ -219,7 +217,7 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 - `Delphi_CollectiveStatement` - Collective statements generated for topics
 
 > **Note:** All table names now use the `Delphi_` prefix for consistency.
-> For complete documentation on the table renaming, see `/Users/colinmegill/polis/delphi/docs/DATABASE_NAMING_PROPOSAL.md`
+> For complete documentation on the table renaming, see `$HOME/polis/delphi/docs/DATABASE_NAMING_PROPOSAL.md`
 
 ## Reset Single Conversation
 

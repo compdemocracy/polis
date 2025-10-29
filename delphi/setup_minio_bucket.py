@@ -4,11 +4,18 @@ This script creates the required MinIO bucket for Delphi visualizations.
 Run this script after starting the MinIO container to ensure the bucket exists.
 """
 
+import logging
 import os
 import sys
-import logging
+import traceback
+from typing import Any
+
 import boto3
+from botocore.config import Config
 from botocore.exceptions import ClientError
+
+# Use flexible typing for boto3 clients
+S3Client = Any
 
 # Configure logging
 logging.basicConfig(
@@ -27,14 +34,14 @@ def setup_minio_bucket():
     bucket_name = os.environ.get("AWS_S3_BUCKET_NAME", "delphi")
     region = os.environ.get("AWS_REGION", "us-east-1")
 
-    logger.info(f"S3 settings:")
+    logger.info("S3 settings:")
     logger.info(f"  Endpoint: {endpoint_url}")
     logger.info(f"  Bucket: {bucket_name}")
     logger.info(f"  Region: {region}")
 
     try:
         # Create S3 client
-        s3_client = boto3.client(
+        s3_client: S3Client = boto3.client(
             "s3",
             endpoint_url=endpoint_url,
             aws_access_key_id=access_key,
@@ -53,7 +60,7 @@ def setup_minio_bucket():
             error_code = e.response.get("Error", {}).get("Code")
 
             # If bucket doesn't exist (404) or we're not allowed to access it (403)
-            if error_code == "404" or error_code == "403":
+            if error_code in ["403", "404"]:
                 logger.info(f"Creating bucket '{bucket_name}'...")
                 # Create bucket
                 if region == "us-east-1":
@@ -78,7 +85,7 @@ def setup_minio_bucket():
         )
         test_key = "test/setup_script.py"
 
-        logger.info(f"Uploading test file to verify bucket...")
+        logger.info("Uploading test file to verify bucket...")
         s3_client.upload_file(
             test_file_path,
             bucket_name,
@@ -91,7 +98,6 @@ def setup_minio_bucket():
         return True
     except Exception as e:
         logger.error(f"Error setting up MinIO bucket: {e}")
-        import traceback
 
         logger.error(traceback.format_exc())
         return False

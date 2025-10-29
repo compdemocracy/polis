@@ -60,7 +60,7 @@ services:
       - DD_AGENT_HOST=datadog-agent
       - DD_TRACE_ENABLED=true
       - DD_SERVICE=server
-      - DD_ENV=prod 
+      - DD_ENV=prod
       - DD_LOGS_INJECTION=true
       - DD_TRACE_SAMPLE_RATE="1"
       - DD_GIT_REPOSITORY_URL="github.com/compdemocracy/polis"
@@ -120,13 +120,13 @@ services:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
       context: ./delphi
+    container_name: delphi-app
     labels:
       polis_tag: ${TAG:-dev}
       com.datadoghq.ad.logs: '[{"source": "python", "service": "delphi"}]'
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
-      - DELPHI_DEV_OR_PROD=${DELPHI_DEV_OR_PROD:-prod}
       # DynamoDB connection settings for local mode (will be overridden in prod)
       - DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT}
       - POLL_INTERVAL=${POLL_INTERVAL:-2}
@@ -149,8 +149,8 @@ services:
       - DATABASE_HOST=${POSTGRES_HOST}
       - DATABASE_PORT=${POSTGRES_PORT}
       - DATABASE_NAME=${POSTGRES_DB}
-      - DATABASE_USER=${POSTGRES_USER:-christian}
-      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-polis123}
+      - DATABASE_USER=${POSTGRES_USER}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD}
       - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
       - INSTANCE_SIZE=${INSTANCE_SIZE:-default}
       - DD_AGENT_HOST=datadog-agent
@@ -158,7 +158,7 @@ services:
       - DD_SERVICE=delphi
       - DD_ENV=prod
       - DD_LOGS_INJECTION=true
-      - DD_TRACE_SAMPLE_RATE="1" 
+      - DD_TRACE_SAMPLE_RATE="1"
       - DD_GIT_REPOSITORY_URL="github.com/compdemocracy/polis"
       - AWS_LOG_GROUP_NAME=${AWS_LOG_GROUP_NAME}
     networks:
@@ -262,7 +262,7 @@ services:
       polis_tag: ${TAG:-dev}
     profiles:
       - local-services
-  
+
   ses-local:
     image: dasprid/aws-ses-v2-local:latest
     container_name: polis-ses-local
@@ -298,7 +298,6 @@ services:
     # Run ollama server
     command: serve
     restart: unless-stopped
-    
 
   # MinIO S3-compatible storage
   minio:
@@ -321,7 +320,7 @@ services:
       - "polis-net"
     profiles:
       - local-services
-  
+
   # datadog
   datadog-agent:
     image: datadog/agent:7.71.1

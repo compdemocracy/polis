@@ -3,9 +3,11 @@
 Test script to verify MinIO/S3 connection and list objects in the bucket.
 """
 
+import logging
 import os
 import sys
-import logging
+import traceback
+
 import boto3
 
 # Configure logging
@@ -25,7 +27,7 @@ def test_s3_access():
     bucket_name = os.environ.get("AWS_S3_BUCKET_NAME", "delphi")
     region = os.environ.get("AWS_REGION", "us-east-1")
 
-    logger.info(f"S3 settings:")
+    logger.info("S3 settings:")
     logger.info(f"  Endpoint: {endpoint_url}")
     logger.info(f"  Bucket: {bucket_name}")
     logger.info(f"  Region: {region}")
@@ -64,7 +66,7 @@ def test_s3_access():
 
                 # Print first 10 objects
                 for i, obj in enumerate(objects[:10]):
-                    logger.info(f"  {i+1}. {obj.get('Key')} ({obj.get('Size')} bytes)")
+                    logger.info(f"  {i + 1}. {obj.get('Key')} ({obj.get('Size')} bytes)")
 
                 if len(objects) > 10:
                     logger.info(f"  ... and {len(objects) - 10} more")
@@ -78,8 +80,6 @@ def test_s3_access():
 
     except Exception as e:
         logger.error(f"Error connecting to S3/MinIO: {e}")
-        import traceback
-
         logger.error(traceback.format_exc())
         return False
 

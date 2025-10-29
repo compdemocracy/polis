@@ -5,25 +5,20 @@ This module provides functionality for connecting to PostgreSQL and
 performing database operations for the Pol.is math system.
 """
 
-import os
-import json
 import logging
-import time
+import os
 import threading
-from typing import Dict, List, Optional, Tuple, Union, Any, Set, Callable
-from datetime import datetime
-import re
+import time
 import urllib.parse
+from collections.abc import Generator
 from contextlib import contextmanager
-import asyncio
+from datetime import datetime
+from typing import Any
 
 import sqlalchemy as sa
-from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session
-from sqlalchemy.dialects.postgresql import JSON, JSONB
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import DeclarativeBase, scoped_session, sessionmaker
 from sqlalchemy.sql import text
-import numpy as np
-import pandas as pd
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -41,16 +36,16 @@ class PostgresConfig:
 
     def __init__(
         self,
-        url: Optional[str] = None,
-        host: Optional[str] = None,
-        port: Optional[int] = None,
-        database: Optional[str] = None,
-        user: Optional[str] = None,
-        password: Optional[str] = None,
-        pool_size: Optional[int] = None,
-        max_overflow: Optional[int] = None,
-        ssl_mode: Optional[str] = None,
-        math_env: Optional[str] = None,
+        url: str | None = None,
+        host: str | None = None,
+        port: int | None = None,
+        database: str | None = None,
+        user: str | None = None,
+        password: str | None = None,
+        pool_size: int | None = None,
+        max_overflow: int | None = None,
+        ssl_mode: str | None = None,
+        math_env: str | None = None,
     ):
         """
         Initialize PostgreSQL configuration.
@@ -72,7 +67,7 @@ class PostgresConfig:
             self._parse_url(url)
         else:
             self.host = host or os.environ.get("DATABASE_HOST", "localhost")
-            self.port = port or int(os.environ.get("DATABASE_PORT", 5432))
+            self.port = port or int(os.environ.get("DATABASE_PORT", "5432"))
             self.database = database or os.environ.get("DATABASE_NAME", "polis")
             self.user = user or os.environ.get("DATABASE_USER", "postgres")
             self.password = password or os.environ.get("DATABASE_PASSWORD", "")
@@ -82,9 +77,7 @@ class PostgresConfig:
         self.pool_size = pool_size or (int(pool_size_str) if pool_size_str else 5)
 
         max_overflow_str = os.environ.get("DATABASE_MAX_OVERFLOW", "")
-        self.max_overflow = max_overflow or (
-            int(max_overflow_str) if max_overflow_str else 10
-        )
+        self.max_overflow = max_overflow or (int(max_overflow_str) if max_overflow_str else 10)
 
         # Set SSL mode
         self.ssl_mode = ssl_mode or os.environ.get("DATABASE_SSL_MODE", "require")
@@ -134,7 +127,7 @@ class PostgresConfig:
         # Build URI
         uri = f"postgresql://{self.user}{password_str}@{self.host}:{self.port}/{self.database}"
 
-        if self.ssl_mode: # Check if self.ssl_mode is not None or empty
+        if self.ssl_mode:  # Check if self.ssl_mode is not None or empty
             uri = f"{uri}?sslmode={self.ssl_mode}"
 
         return uri
@@ -155,7 +148,7 @@ class PostgresConfig:
         # Use individual environment variables
         return cls(
             host=os.environ.get("DATABASE_HOST"),
-            port=int(os.environ.get("DATABASE_PORT", 5432)),
+            port=int(os.environ.get("DATABASE_PORT", "5432")),
             database=os.environ.get("DATABASE_NAME"),
             user=os.environ.get("DATABASE_USER"),
             password=os.environ.get("DATABASE_PASSWORD"),
@@ -177,7 +170,7 @@ class MathMain(Base):
     math_tick = sa.Column(sa.BigInteger, nullable=False, default=-1)
     modified = sa.Column(sa.BigInteger, server_default=text("now_as_millis()"))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MathMain(zid={self.zid}, math_env='{self.math_env}')>"
 
 
@@ -190,11 +183,9 @@ class MathTicks(Base):
     math_env = sa.Column(sa.String, primary_key=True)
     math_tick = sa.Column(sa.BigInteger, nullable=False, default=0)
     caching_tick = sa.Column(sa.BigInteger, nullable=False, default=0)
-    modified = sa.Column(
-        sa.BigInteger, nullable=False, server_default=text("now_as_millis()")
-    )
+    modified = sa.Column(sa.BigInteger, nullable=False, server_default=text("now_as_millis()"))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MathTicks(zid={self.zid}, math_env='{self.math_env}', math_tick={self.math_tick})>"
 
 
@@ -209,7 +200,7 @@ class MathPtptStats(Base):
     data = sa.Column(JSONB, nullable=False)
     modified = sa.Column(sa.BigInteger, server_default=text("now_as_millis()"))
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<MathPtptStats(zid={self.zid}, math_env='{self.math_env}')>"
 
 
@@ -224,10 +215,8 @@ class MathReportCorrelationMatrix(Base):
     math_tick = sa.Column(sa.BigInteger, nullable=False, default=-1)
     modified = sa.Column(sa.BigInteger, server_default=text("now_as_millis()"))
 
-    def __repr__(self):
-        return (
-            f"<MathReportCorrelationMatrix(rid={self.rid}, math_env='{self.math_env}')>"
-        )
+    def __repr__(self) -> str:
+        return f"<MathReportCorrelationMatrix(rid={self.rid}, math_env='{self.math_env}')>"
 
 
 class WorkerTasks(Base):
@@ -236,9 +225,7 @@ class WorkerTasks(Base):
     __tablename__ = "worker_tasks"
 
     # Use composite primary key of created + math_env
-    created = sa.Column(
-        sa.BigInteger, server_default=text("now_as_millis()"), primary_key=True
-    )
+    created = sa.Column(sa.BigInteger, server_default=text("now_as_millis()"), primary_key=True)
     math_env = sa.Column(sa.String, nullable=False, primary_key=True)
     attempts = sa.Column(sa.SmallInteger, nullable=False, default=0)
     task_data = sa.Column(JSONB, nullable=False)
@@ -246,14 +233,14 @@ class WorkerTasks(Base):
     task_bucket = sa.Column(sa.BigInteger)
     finished_time = sa.Column(sa.BigInteger)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<WorkerTasks(task_type='{self.task_type}', finished_time={self.finished_time})"
 
 
 class PostgresClient:
     """PostgreSQL client for Pol.is math."""
 
-    def __init__(self, config: Optional[PostgresConfig] = None):
+    def __init__(self, config: PostgresConfig | None = None):
         """
         Initialize PostgreSQL client.
 
@@ -261,9 +248,9 @@ class PostgresClient:
             config: PostgreSQL configuration
         """
         self.config = config or PostgresConfig.from_env()
-        self.engine = None
-        self.session_factory = None
-        self.Session = None
+        self.engine: sa.Engine | None = None
+        self.session_factory: sessionmaker[sa.orm.Session] | None = None
+        self.Session: scoped_session[sa.orm.Session] | None = None
         self._lock = threading.RLock()
         self._initialized = False
 
@@ -308,9 +295,10 @@ class PostgresClient:
                 self.engine.dispose()
 
             # Clear session factory
-            if self.Session:
+            if self.Session is not None:
                 self.Session.remove()
                 self.Session = None
+            self.Session = None
 
             # Mark as not initialized
             self._initialized = False
@@ -318,7 +306,7 @@ class PostgresClient:
             logger.info("Shut down PostgreSQL connection")
 
     @contextmanager
-    def session(self):
+    def session(self) -> Generator[sa.orm.Session, None, None]:
         """
         Get a database session context.
 
@@ -328,7 +316,10 @@ class PostgresClient:
         if not self._initialized:
             self.initialize()
 
-        session = self.Session()
+        session = self.Session() if self.Session else None
+        if session is None:
+            raise ValueError("Session is None")
+
         try:
             yield session
             session.commit()
@@ -338,9 +329,7 @@ class PostgresClient:
         finally:
             session.close()
 
-    def query(
-        self, sql: str, params: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+    def query(self, sql: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """
         Execute a SQL query.
 
@@ -359,9 +348,9 @@ class PostgresClient:
 
             # Convert to dictionaries
             columns = result.keys()
-            return [dict(zip(columns, row)) for row in result]
+            return [dict(zip(columns, row, strict=False)) for row in result]
 
-    def execute(self, sql: str, params: Optional[Dict[str, Any]] = None) -> int:
+    def execute(self, sql: str, params: dict[str, Any] | None = None) -> int:
         """
         Execute a SQL statement.
 
@@ -375,11 +364,14 @@ class PostgresClient:
         if not self._initialized:
             self.initialize()
 
+        if self.engine is None:
+            raise ValueError("Engine is None")
+
         with self.engine.connect() as conn:
             result = conn.execute(text(sql), params or {})
             return result.rowcount
 
-    def get_zinvite_from_zid(self, zid: int) -> Optional[str]:
+    def get_zinvite_from_zid(self, zid: int) -> str | None:
         """
         Get the zinvite (conversation code) for a conversation ID.
 
@@ -393,11 +385,11 @@ class PostgresClient:
         result = self.query(sql, {"zid": zid})
 
         if result:
-            return result[0]["zinvite"]
+            return result[0]["zinvite"] if result[0]["zinvite"] else None
 
         return None
 
-    def get_zid_from_zinvite(self, zinvite: str) -> Optional[int]:
+    def get_zid_from_zinvite(self, zinvite: str) -> int | None:
         """
         Get the conversation ID for a zinvite code.
 
@@ -411,13 +403,11 @@ class PostgresClient:
         result = self.query(sql, {"zinvite": zinvite})
 
         if result:
-            return result[0]["zid"]
+            return result[0]["zid"] if result[0]["zid"] else None
 
         return None
 
-    def poll_votes(
-        self, zid: int, since: Optional[datetime] = None
-    ) -> List[Dict[str, Any]]:
+    def poll_votes(self, zid: int, since: datetime | None = None) -> list[dict[str, Any]]:
         """
         Poll for new votes in a conversation.
 
@@ -447,7 +437,7 @@ class PostgresClient:
         # Add timestamp filter if provided
         if since:
             sql += " AND created > :since"
-            params["since"] = since
+            params["since"] = int(since.timestamp() * 1000)
 
         # Execute query
         votes = self.query(sql, params)
@@ -463,9 +453,7 @@ class PostgresClient:
             for v in votes
         ]
 
-    def poll_moderation(
-        self, zid: int, since: Optional[datetime] = None
-    ) -> Dict[str, Any]:
+    def poll_moderation(self, zid: int, since: datetime | None = None) -> dict[str, Any]:
         """
         Poll for moderation changes in a conversation.
 
@@ -494,7 +482,7 @@ class PostgresClient:
         # Add timestamp filter if provided
         if since:
             sql_mods += " AND modified > :since"
-            params["since"] = since
+            params["since"] = int(since.timestamp() * 1000)
 
         # Execute query
         mods = self.query(sql_mods, params)
@@ -509,9 +497,9 @@ class PostgresClient:
 
             # Check moderation status with support for string values
             mod_value = m["mod"]
-            if mod_value == 1 or mod_value == '1':
+            if mod_value in {1, "1"}:
                 mod_in_tids.append(tid)
-            elif mod_value == -1 or mod_value == '-1':
+            elif mod_value in {-1, "-1"}:
                 mod_out_tids.append(tid)
 
             # Check meta status
@@ -542,7 +530,7 @@ class PostgresClient:
             "mod_out_ptpts": mod_out_ptpts,
         }
 
-    def load_math_main(self, zid: int) -> Optional[Dict[str, Any]]:
+    def load_math_main(self, zid: int) -> dict[str, Any] | None:
         """
         Load math results for a conversation.
 
@@ -554,11 +542,7 @@ class PostgresClient:
         """
         with self.session() as session:
             # Query for math main data
-            math_main = (
-                session.query(MathMain)
-                .filter_by(zid=zid, math_env=self.config.math_env)
-                .first()
-            )
+            math_main = session.query(MathMain).filter_by(zid=zid, math_env=self.config.math_env).first()
 
             if not math_main:
                 return None
@@ -577,10 +561,10 @@ class PostgresClient:
     def write_math_main(
         self,
         zid: int,
-        data: Dict[str, Any],
-        last_vote_timestamp: Optional[int] = None,
-        caching_tick: Optional[int] = None,
-        math_tick: Optional[int] = None,
+        data: dict[str, Any],
+        last_vote_timestamp: int | None = None,
+        caching_tick: int | None = None,
+        math_tick: int | None = None,
     ) -> None:
         """
         Write math results for a conversation.
@@ -594,11 +578,7 @@ class PostgresClient:
         """
         with self.session() as session:
             # Check if record exists
-            math_main = (
-                session.query(MathMain)
-                .filter_by(zid=zid, math_env=self.config.math_env)
-                .first()
-            )
+            math_main = session.query(MathMain).filter_by(zid=zid, math_env=self.config.math_env).first()
 
             if math_main:
                 # Update existing record
@@ -621,7 +601,7 @@ class PostgresClient:
                 )
                 session.add(math_main)
 
-    def write_participant_stats(self, zid: int, data: Dict[str, Any]) -> None:
+    def write_participant_stats(self, zid: int, data: dict[str, Any]) -> None:
         """
         Write participant statistics for a conversation.
 
@@ -631,23 +611,17 @@ class PostgresClient:
         """
         with self.session() as session:
             # Check if record exists
-            ptpt_stats = (
-                session.query(MathPtptStats)
-                .filter_by(zid=zid, math_env=self.config.math_env)
-                .first()
-            )
+            ptpt_stats = session.query(MathPtptStats).filter_by(zid=zid, math_env=self.config.math_env).first()
 
             if ptpt_stats:
                 # Update existing record
                 ptpt_stats.data = data
             else:
                 # Create new record
-                ptpt_stats = MathPtptStats(
-                    zid=zid, math_env=self.config.math_env, data=data
-                )
+                ptpt_stats = MathPtptStats(zid=zid, math_env=self.config.math_env, data=data)
                 session.add(ptpt_stats)
 
-    def write_correlation_matrix(self, rid: int, data: Dict[str, Any]) -> None:
+    def write_correlation_matrix(self, rid: int, data: dict[str, Any]) -> None:
         """
         Write correlation matrix for a report.
 
@@ -658,9 +632,7 @@ class PostgresClient:
         with self.session() as session:
             # Check if record exists
             corr_matrix = (
-                session.query(MathReportCorrelationMatrix)
-                .filter_by(rid=rid, math_env=self.config.math_env)
-                .first()
+                session.query(MathReportCorrelationMatrix).filter_by(rid=rid, math_env=self.config.math_env).first()
             )
 
             if corr_matrix:
@@ -688,11 +660,7 @@ class PostgresClient:
         """
         with self.session() as session:
             # Check if record exists
-            math_ticks = (
-                session.query(MathTicks)
-                .filter_by(zid=zid, math_env=self.config.math_env)
-                .first()
-            )
+            math_ticks = session.query(MathTicks).filter_by(zid=zid, math_env=self.config.math_env).first()
 
             if math_ticks:
                 # Update existing record
@@ -700,9 +668,7 @@ class PostgresClient:
                 new_math_tick = math_ticks.math_tick
             else:
                 # Create new record
-                math_ticks = MathTicks(
-                    zid=zid, math_env=self.config.math_env, math_tick=1
-                )
+                math_ticks = MathTicks(zid=zid, math_env=self.config.math_env, math_tick=1)
                 session.add(math_ticks)
                 new_math_tick = 1
 
@@ -710,9 +676,7 @@ class PostgresClient:
             session.commit()
             return new_math_tick
 
-    def poll_tasks(
-        self, task_type: str, last_timestamp: int = 0, limit: int = 10
-    ) -> List[Dict[str, Any]]:
+    def poll_tasks(self, task_type: str, last_timestamp: int = 0, limit: int = 10) -> list[dict[str, Any]]:
         """
         Poll for pending worker tasks.
 
@@ -779,8 +743,8 @@ class PostgresClient:
     def create_task(
         self,
         task_type: str,
-        task_data: Dict[str, Any],
-        task_bucket: Optional[int] = None,
+        task_data: dict[str, Any],
+        task_bucket: int | None = None,
     ) -> None:
         """
         Create a new worker task.
@@ -814,7 +778,7 @@ class PostgresManager:
     _lock = threading.RLock()
 
     @classmethod
-    def get_client(cls, config: Optional[PostgresConfig] = None) -> PostgresClient:
+    def get_client(cls, config: PostgresConfig | None = None) -> PostgresClient:
         """
         Get the PostgreSQL client instance.
 
@@ -828,7 +792,7 @@ class PostgresManager:
             if cls._client is None:
                 # Create a new client
                 cls._client = PostgresClient(config)
-                
+
                 # Make sure to actually initialize the client
                 try:
                     logger.info("Initializing PostgreSQL client...")
@@ -839,7 +803,7 @@ class PostgresManager:
                     # Reset client to None to allow retry
                     cls._client = None
                     raise e
-            
+
             # Make sure client is initialized before returning
             if cls._client and not cls._client._initialized:
                 try:
@@ -850,7 +814,7 @@ class PostgresManager:
                     # Reset client to None to allow retry
                     cls._client = None
                     raise e
-                
+
             return cls._client
 
     @classmethod

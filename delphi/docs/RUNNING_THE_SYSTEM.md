@@ -16,7 +16,7 @@ This document provides a comprehensive guide on how to set up, run, and test the
 
 ### Prerequisites
 
-- Python 3.8+ (Python 3.12 recommended)
+- Python 3.12+ (Python 3.12 recommended)
 - pip (Python package manager)
 - Virtual environment (optional but recommended)
 
@@ -41,11 +41,17 @@ delphi-env\Scripts\activate
 Once your environment is set up, install the package in development mode:
 
 ```bash
-# Make sure you're in the delphi directory
-pip install -e .
+# Install with development and notebook dependencies
+pip install -e ".[dev,notebook]"
 ```
 
 This will install all the required dependencies and make the `polismath` package available in your environment.
+
+**Note**: For the quickest setup, you can use the automated setup script:
+
+```bash
+./setup_dev.sh
+```
 
 ## Running Tests
 
@@ -62,9 +68,6 @@ python run_tests.py --unit
 
 # Run only real data tests
 python run_tests.py --real
-
-# Run only demo scripts
-python run_tests.py --demo
 
 # Run only simplified test scripts
 python run_tests.py --simplified
@@ -226,18 +229,6 @@ python simplified_repness_test.py
 
 These scripts demonstrate the core algorithms without depending on the full package structure and can be useful for understanding the underlying mathematics.
 
-## Running the Demo Scripts
-
-The repository includes demo scripts that demonstrate the system's capabilities:
-
-```bash
-# Run the simple demo
-python simple_demo.py
-
-# Run the final demo
-python final_demo.py
-```
-
 ## Troubleshooting
 
 ### Common Issues
@@ -258,6 +249,7 @@ python final_demo.py
 ### Getting Help
 
 If you encounter issues, check:
+
 1. The README.md file for the latest documentation
 2. The tests/TESTING_RESULTS.md for known issues
 3. The GitHub repository for open issues

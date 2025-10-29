@@ -203,7 +203,7 @@ test_*.py
 .ruff_cache/
 
 # Virtual environments
-delphi-dev-env/
+delphi-env/
 venv/
 
 # Documentation

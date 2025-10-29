@@ -14,7 +14,7 @@ build/
 
 # Virtual environments
 polis_env/
-delphi_env/
+delphi-env/
 delphi-dev-env/
 venv/
 ENV/

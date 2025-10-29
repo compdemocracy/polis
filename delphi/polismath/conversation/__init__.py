@@ -8,3 +8,5 @@ representative comments.
 
 from polismath.conversation.conversation import Conversation
 from polismath.conversation.manager import ConversationManager
+
+__all__ = ["Conversation", "ConversationManager"]

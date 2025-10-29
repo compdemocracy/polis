@@ -10,6 +10,42 @@ install: ## Install production dependencies
 
 install-dev: ## Install development dependencies
 	pip install -e ".[dev,notebook]"
+	pre-commit install
+
+# Testing
+test: ## Run all tests
+	pytest -v
+
+test-unit: ## Run unit tests only
+	pytest tests/ -v -m "not slow and not real_data and not integration"
+
+test-integration: ## Run integration tests
+	pytest tests/ -v -m "integration"
+
+test-slow: ## Run slow tests (real data tests)
+	pytest tests/ -v -m "slow or real_data"
+
+test-cov: ## Run tests with coverage
+	pytest tests/ -v --cov=polismath --cov=umap_narrative --cov-report=html --cov-report=term-missing
+
+# Code Quality - Streamlined Modern Tools
+lint: ## Run all linters (Ruff replaces flake8, isort, and more)
+	ruff check .
+	black --check .
+
+format: ## Format code (Black + Ruff auto-fix)
+	black .
+	ruff check --fix .
+
+type-check: ## Run type checking
+	mypy polismath umap_narrative
+
+security: ## Run security checks
+	bandit -r polismath umap_narrative -f json -o bandit-report.json
+	@echo "Security report generated: bandit-report.json"
+
+quality: ## Run all quality checks
+	lint type-check security test-unit
 
 # Setup and maintenance
 setup-dev: install-dev ## Set up development environment
@@ -137,3 +173,6 @@ check-deps: ## Check for dependency updates
 	else \
 		echo "Install pip-tools first: pip install pip-tools"; \
 	fi
+
+# Development workflow
+dev-workflow: format lint type-check test-unit ## Complete development workflow check

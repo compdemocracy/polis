@@ -10,8 +10,8 @@ echo ""
 
 # Create and activate a temporary virtual environment
 echo "Setting up Python environment..."
-python3 -m venv /tmp/delphi-venv
-source /tmp/delphi-venv/bin/activate
+python3 -m venv /tmp/delphi-temp-env
+source /tmp/delphi-temp-env/bin/activate
 
 # Install boto3
 echo "Installing boto3..."
@@ -25,7 +25,7 @@ python create_dynamodb_tables.py --delete-existing --endpoint-url http://localho
 # Clean up
 echo "Cleaning up..."
 deactivate
-rm -rf /tmp/delphi-venv
+rm -rf /tmp/delphi-temp-env
 
 echo ""
 echo "Database reset complete!"

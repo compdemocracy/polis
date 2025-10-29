@@ -24,12 +24,6 @@ This document summarizes the current state of the Python conversion testing. All
 - Correctly identifies clusters and representative comments
 - Matches expected output structure
 
-### Demo Scripts
-✅ **Status**: Fully passing
-- Both simple_demo.py and final_demo.py run successfully
-- Demonstrate the core functionality with synthetic data
-- All pipeline components work correctly together
-
 ## Fixed Issues
 
 During our testing process, we identified and fixed the following key issues:

@@ -8,7 +8,7 @@ This pipeline processes Polis conversations through a series of steps:
 
 ## Setup
 
-1. Install dependencies: `pip install -r requirements.txt`
+1. Install dependencies: `pip install -e ".[dev,notebook]"` (from project root)
 2. Start local DynamoDB: `docker run -p 8000:8000 amazon/dynamodb-local`
 3. Create tables: `python create_dynamodb_tables.py`
 

@@ -3,31 +3,31 @@ Schema definitions for the Polis comment graph microservice.
 """
 
 from .dynamo_models import (
-    ConversationMeta,
-    CommentEmbedding,
-    CommentCluster,
+    ClusterAssignmentResponse,
     ClusterTopic,
-    UMAPGraphEdge,
+    CommentCluster,
+    CommentEmbedding,
     # CommentText - removed to avoid data duplication
     CommentRequest,
+    ConversationMeta,
     EmbeddingResponse,
-    ClusterAssignmentResponse,
-    SimilarCommentResponse,
     RoutingResponse,
-    VisualizationDataResponse
+    SimilarCommentResponse,
+    UMAPGraphEdge,
+    VisualizationDataResponse,
 )
 
 __all__ = [
-    'ConversationMeta',
-    'CommentEmbedding',
-    'CommentCluster',
-    'ClusterTopic',
-    'UMAPGraphEdge',
+    "ConversationMeta",
+    "CommentEmbedding",
+    "CommentCluster",
+    "ClusterTopic",
+    "UMAPGraphEdge",
     # 'CommentText' - removed to avoid data duplication
-    'CommentRequest',
-    'EmbeddingResponse',
-    'ClusterAssignmentResponse',
-    'SimilarCommentResponse',
-    'RoutingResponse',
-    'VisualizationDataResponse'
+    "CommentRequest",
+    "EmbeddingResponse",
+    "ClusterAssignmentResponse",
+    "SimilarCommentResponse",
+    "RoutingResponse",
+    "VisualizationDataResponse",
 ]

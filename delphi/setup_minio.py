@@ -9,11 +9,18 @@ The bucket_name is optional - if not provided, the script will use AWS_S3_BUCKET
 or default to 'delphi'.
 """
 
-import os
 import json
-import sys
-import boto3
 import logging
+import os
+import sys
+import traceback
+from typing import Any
+
+import boto3
+from botocore.config import Config
+
+# Use flexible typing for boto3 clients
+S3Client = Any
 
 # Configure logging
 logging.basicConfig(
@@ -36,7 +43,7 @@ def setup_minio_bucket(bucket_name=None):
 
     try:
         # Create S3 client
-        s3_client = boto3.client(
+        s3_client: S3Client = boto3.client(
             "s3",
             endpoint_url=endpoint_url,
             aws_access_key_id=access_key,
@@ -47,12 +54,10 @@ def setup_minio_bucket(bucket_name=None):
         )
 
         # Check if bucket exists
-        bucket_exists = False
         try:
             s3_client.head_bucket(Bucket=bucket_name)
             logger.info(f"Bucket '{bucket_name}' already exists")
-            bucket_exists = True
-        except:
+        except Exception:
             logger.info(f"Bucket '{bucket_name}' doesn't exist, creating...")
 
             # Create bucket - no region needed for minio/us-east-1
@@ -152,7 +157,6 @@ def setup_minio_bucket(bucket_name=None):
         return True
     except Exception as e:
         logger.error(f"Error setting up MinIO bucket: {e}")
-        import traceback
 
         logger.error(traceback.format_exc())
         return False

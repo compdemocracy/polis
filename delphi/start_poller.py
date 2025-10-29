@@ -1,16 +1,15 @@
 import os
+
 # import subprocess # No longer needed
 import sys
-
-# Get the directory of this script
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-SCRIPTS_SUBDIR = os.path.join(SCRIPT_DIR, "scripts")
-
-# Removed sys.path manipulation
 
 # Import the main function from job_poller using package import
 # This requires delphi/scripts/__init__.py to exist
 from scripts.job_poller import main as job_poller_main
+
+# Get the directory of this script
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SCRIPTS_SUBDIR = os.path.join(SCRIPT_DIR, "scripts")
 
 # Path to the Python poller script (for argv[0] and potentially for job_poller itself if it uses __file__)
 POLLER_SCRIPT_PATH = os.path.join(SCRIPTS_SUBDIR, "job_poller.py")
@@ -22,9 +21,9 @@ LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
 MAX_WORKERS = os.environ.get("MAX_WORKERS", "1")
 
 # Colors for output
-GREEN = '\\033[0;32m'
-YELLOW = '\\033[0;33m'
-NC = '\\033[0m' # No Color
+GREEN = "\\033[0;32m"
+YELLOW = "\\033[0;33m"
+NC = "\\033[0m"  # No Color
 
 print(f"{GREEN}Starting Delphi Job Poller Service (Python Direct Call){NC}")
 print(f"{YELLOW}DynamoDB Endpoint:{NC} {ENDPOINT_URL}")
@@ -39,11 +38,11 @@ additional_args_from_caller = sys.argv[1:]
 # Construct the arguments list for job_poller.main()
 # sys.argv[0] should be the script name
 poller_argv = [
-    POLLER_SCRIPT_PATH, # Argv[0] is the script name for job_poller's argparse
+    POLLER_SCRIPT_PATH,  # Argv[0] is the script name for job_poller's argparse
     f"--endpoint-url={ENDPOINT_URL}",
     f"--interval={POLL_INTERVAL}",
     f"--log-level={LOG_LEVEL}",
-    f"--max-workers={MAX_WORKERS}"
+    f"--max-workers={MAX_WORKERS}",
 ] + additional_args_from_caller
 
 # Store original sys.argv and set the new one for job_poller.main
@@ -62,4 +61,4 @@ except Exception as e:
     sys.exit(1)
 finally:
     # Restore original sys.argv (good practice, though script exits here)
-    sys.argv = original_argv 
+    sys.argv = original_argv

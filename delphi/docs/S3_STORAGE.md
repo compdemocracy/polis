@@ -35,25 +35,28 @@ To set up MinIO:
 
 1. Start the docker containers:
 
-   ```
-   docker compose up -d
+   From the root directory (e.g. $HOME/polis/),
+
+   ```bash
+   make DETACH=true start
    ```
 
 2. The MinIO server should be running on ports 9000 (API) and 9001 (Web UI).
 
 3. Run the setup script to create the bucket:
 
-   ```
-   python delphi/setup_minio_bucket.py
+   ```bash
+   python delphi/setup_minio.py
    ```
 
-4. You can access the MinIO web interface at http://localhost:9001 with the credentials:
+4. You can access the MinIO web interface at <http://localhost:9001> with the credentials:
 
    - Username: minioadmin
    - Password: minioadmin
 
 5. To test S3 access, run:
-   ```
+
+   ```bash
    python delphi/test_minio_access.py
    ```
 
@@ -61,7 +64,7 @@ To set up MinIO:
 
 Visualization files are stored in S3 with the following structure:
 
-```
+```txt
 visualizations/{zid}/layer_{layer_id}_datamapplot.html
 visualizations/{zid}/layer_{layer_id}_datamapplot_static.png
 visualizations/{zid}/layer_{layer_id}_datamapplot_presentation.png
@@ -75,7 +78,7 @@ Where:
 
 ## Accessing Visualization Files
 
-In local development, you can access the files via the MinIO web interface at http://localhost:9001.
+In local development, you can access the files via the MinIO web interface at <http://localhost:9001>.
 
 In the code, S3 URLs for stored visualizations are also saved to local files:
 
@@ -100,5 +103,5 @@ If you encounter issues with S3 storage:
 2. Verify that the environment variables are set correctly.
 3. Check for error messages in the Delphi logs.
 4. Run the test script to verify connectivity: `python delphi/test_minio_access.py`
-5. If using MinIO, check the MinIO web interface at http://localhost:9001 to see if the bucket exists.
+5. If using MinIO, check the MinIO web interface at <http://localhost:9001> to see if the bucket exists.
 6. If using AWS S3, check the AWS S3 console to see if the bucket exists and if the IAM permissions are set up correctly.

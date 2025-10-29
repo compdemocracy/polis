@@ -9,7 +9,7 @@ To run Delphi:
 
 ```bash
 # From the project root directory
-cd /Users/colinmegill/polis/
+cd $HOME/polis/
 docker-compose up -d
 ```
 

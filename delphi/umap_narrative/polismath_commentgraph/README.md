@@ -6,7 +6,7 @@ This service processes Polis conversation comments using EVōC clustering and ge
 
 The service follows a serverless architecture:
 
-1. **PostgreSQL Integration**: 
+1. **PostgreSQL Integration**:
    - Reads comments, participants, and votes from Polis PostgreSQL database
    - Supports both RDS and local development PostgreSQL instances
 
@@ -45,17 +45,27 @@ The service follows a serverless architecture:
 
 ### Local Development
 
+**Note**: This Lambda service uses a **hybrid setup** for development vs deployment:
+
+- **Development**: Uses local `pyproject.toml` for IDE support and dependency resolution
+- **Deployment**: Uses `requirements.txt` for simple, reliable Lambda builds
+
 1. Setup a local environment:
+
    ```bash
    python -m venv delphi-env
    source delphi-env/bin/activate
    pip install -r requirements.txt
    
-   # Install EVOC from local directory
-   pip install -e ../evoc-main
+   # Option A: Install from local pyproject.toml (recommended for IDE support)
+   pip install -e "."
+   
+   # Option B: Install from parent project root (alternative)
+   pip install -e "../..[dev]"
    ```
 
 2. Test PostgreSQL connection:
+
    ```bash
    python -m polismath_commentgraph.cli test-postgres \
      --pg-host localhost \
@@ -66,6 +76,7 @@ The service follows a serverless architecture:
    ```
 
 3. Test with a specific conversation:
+
    ```bash
    python -m polismath_commentgraph.cli test-postgres \
      --pg-host localhost \
@@ -77,6 +88,7 @@ The service follows a serverless architecture:
    ```
 
 4. Run the Lambda handler locally:
+
    ```bash
    python -m polismath_commentgraph.cli lambda-local \
      --conversation-id 12345 \
@@ -90,11 +102,13 @@ The service follows a serverless architecture:
 ### Deployment
 
 1. Build the Docker image:
+
    ```bash
    docker build -t polis-comment-graph-lambda .
    ```
 
 2. Push to ECR:
+
    ```bash
    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 123456789012.dkr.ecr.us-east-1.amazonaws.com
    docker tag polis-comment-graph-lambda:latest 123456789012.dkr.ecr.us-east-1.amazonaws.com/polis-comment-graph-lambda:latest
@@ -102,6 +116,7 @@ The service follows a serverless architecture:
    ```
 
 3. Create Lambda function using the AWS CLI:
+
    ```bash
    aws lambda create-function \
      --function-name polis-comment-graph-lambda \
@@ -177,13 +192,13 @@ Then create the required tables:
 ```python
 python -c "
 import boto3
-dynamodb = boto3.resource('dynamodb', endpoint_url='http://localhost:8000', 
+dynamodb = boto3.resource('dynamodb', endpoint_url='http://localhost:8000',
                          region_name='us-east-1',
                          aws_access_key_id='fakeMyKeyId',
                          aws_secret_access_key='fakeSecretAccessKey')
 
 # Create tables
-for table_name in ['ConversationMeta', 'CommentEmbeddings', 'CommentClusters', 
+for table_name in ['ConversationMeta', 'CommentEmbeddings', 'CommentClusters',
                    'ClusterTopics', 'UMAPGraph', 'CommentTexts']:
     # Define schema based on table
     if table_name == 'ConversationMeta':
@@ -216,7 +231,7 @@ for table_name in ['ConversationMeta', 'CommentEmbeddings', 'CommentClusters',
             {'AttributeName': 'conversation_id', 'AttributeType': 'S'},
             {'AttributeName': 'edge_id', 'AttributeType': 'S'}
         ]
-    
+
     # Create table
     try:
         table = dynamodb.create_table(

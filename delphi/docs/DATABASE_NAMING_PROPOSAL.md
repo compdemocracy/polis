@@ -141,7 +141,7 @@ We have completed the database table renaming migration. Below is a summary of t
    - `umap_narrative/800_report_topic_clusters.py` - Updated hard-coded table references
 
 2. ✅ Updated Reset DB Script:
-   - Enhanced `/Users/colinmegill/polis/delphi/reset_database.sh` to properly handle the new table names
+   - Enhanced `$HOME/polis/delphi/reset_database.sh` to properly handle the new table names
    - Added functionality to delete legacy tables when recreating tables
    - Tested that running the script successfully recreates all tables with new names
 

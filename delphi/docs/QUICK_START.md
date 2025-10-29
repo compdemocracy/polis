@@ -4,7 +4,7 @@ This guide provides the essential steps to get started with the Python implement
 
 ## Environment Setup
 
-The Python implementation requires Python 3.8+ (ideally Python 3.12) and several dependencies.
+The Python implementation requires Python 3.12+ and several dependencies.
 
 ### Creating a New Virtual Environment
 
@@ -30,11 +30,8 @@ Your command prompt should now show `(delphi-env)` indicating the environment is
 With your virtual environment activated, install the package and its dependencies:
 
 ```bash
-# Install the polismath package in development mode
-pip install -e .
-
-# Install additional packages for visualization and notebooks
-pip install matplotlib seaborn jupyter
+# Install the package with development dependencies
+pip install -e ".[dev,notebook]"
 ```
 
 This will install the package in development mode with all required dependencies.
@@ -89,6 +86,7 @@ python run_analysis.py
 ```
 
 This will:
+
 1. Load data from the biodiversity dataset
 2. Process votes and comments
 3. Run PCA and clustering
@@ -136,8 +134,7 @@ Here are the key files to understand the system:
 5. **End-to-End Examples:**
    - `eda_notebooks/biodiversity_analysis.ipynb` - Complete analysis of a real conversation
    - `eda_notebooks/run_analysis.py` - Script version of the notebook analysis
-   - `simple_demo.py` - Simple demonstration of core functionality
-   - `final_demo.py` - More comprehensive demonstration
+   - `tests/run_system_test.py` - Programmatic example of running the full pipeline
 
 ## Documentation
 
@@ -158,12 +155,13 @@ To work with your own data:
    - Comments: columns `comment-id` and `comment-body`
 
 2. Use the Conversation class:
+
    ```python
    from polismath.conversation.conversation import Conversation
-   
+
    # Create a conversation
    conv = Conversation("my-conversation-id")
-   
+
    # Process votes in the format that conv.update_votes expects:
    votes_list = []
    for _, row in votes_df.iterrows():
@@ -172,14 +170,14 @@ To work with your own data:
            'tid': str(row['comment-id']),
            'vote': float(row['vote'])
        })
-   
+
    # IMPORTANT: Update the conversation with votes and CAPTURE the return value
    # Also set recompute=True to ensure all computations are performed
    conv = conv.update_votes({"votes": votes_list}, recompute=True)
-   
+
    # If needed, explicitly force recomputation
    conv = conv.recompute()
-   
+
    # Access results
    rating_matrix = conv.rating_mat
    pca_results = conv.pca

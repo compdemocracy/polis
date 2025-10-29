@@ -9,7 +9,7 @@ build-backend = "hatchling.build"
 name = "polismath_commentgraph"
 version = "1.0.0"
 description = "Polis comment graph microservice for clustering and embeddings"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 
 # Install parent project in development mode
 # This gives us access to all dependencies including evoc
@@ -52,3 +52,8 @@ dev = [
 [tool.hatch.build.targets.wheel]
 # Just include the Python modules in the current directory
 packages = ["."]
+
+# Tool configuration (inherits from parent project)
+[tool.mypy]
+python_version = "3.12"
+ignore_missing_imports = true

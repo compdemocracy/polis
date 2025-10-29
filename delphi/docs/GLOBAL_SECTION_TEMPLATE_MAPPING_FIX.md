@@ -32,7 +32,7 @@ Since `topic_name` was just `"groups"` (not `"global_groups"`), the `.replace("g
 
 ```python
 # Extract the base name from the section_name (works with both old and new formats)
-# Old format: "global_groups" -> "groups"  
+# Old format: "global_groups" -> "groups"
 # New format: "batch_report_xxx_global_groups" -> "groups"
 if section_name.endswith("_groups"):
     base_name = "groups"
@@ -92,14 +92,14 @@ else:
 The fix ensures that:
 
 - ✅ **Old format sections** (`global_groups`) still work
-- ✅ **New format sections** (`batch_report_xxx_global_groups`) work correctly  
+- ✅ **New format sections** (`batch_report_xxx_global_groups`) work correctly
 - ✅ **Multiple concurrent jobs** can't interfere with each other
 - ✅ **Template selection** is deterministic and explicit
 - ✅ **Debugging** is improved with better logging
 
 ## Files Modified
 
-- **File**: `/Users/colinmegill/polis/delphi/umap_narrative/801_narrative_report_batch.py`
+- **File**: `$HOME/polis/delphi/umap_narrative/801_narrative_report_batch.py`
 - **Lines**: 981-1007 (template selection logic)
 - **Change Type**: Bug fix + robustness improvement
 

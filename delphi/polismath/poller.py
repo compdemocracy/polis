@@ -6,18 +6,16 @@ moderation actions, and tasks, and sending them to the conversation manager
 for processing.
 """
 
-import asyncio
 import logging
+import queue
 import threading
 import time
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Tuple, Union, Any, Set, Callable
-import queue
-import json
+from datetime import datetime
+from typing import Any
 
-from polismath.database import PostgresManager
-from polismath.conversation import ConversationManager
 from polismath.components.config import Config
+from polismath.conversation import ConversationManager
+from polismath.database import PostgresManager
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -28,9 +26,7 @@ class Poller:
     Polls the database for new votes, moderation actions, and tasks.
     """
 
-    def __init__(
-        self, conversation_manager: ConversationManager, config: Optional[Config] = None
-    ):
+    def __init__(self, conversation_manager: ConversationManager, config: Config | None = None):
         """
         Initialize a poller.
 
@@ -45,15 +41,15 @@ class Poller:
         self.db = PostgresManager.get_client()
 
         # Timestamps for polling (using bigint for postgres compatibility)
-        self._last_vote_timestamps: Dict[int, int] = {}
-        self._last_modified_timestamps: Dict[int, int] = {}
+        self._last_vote_timestamps: dict[int, int] = {}
+        self._last_modified_timestamps: dict[int, int] = {}
 
         # Default to polling from 10 days ago
         self._default_timestamp = int(time.time() * 1000)  # Convert to millis
 
         # Status flags
         self._running = False
-        self._threads = []
+        self._threads: list[threading.Thread] = []
         self._stop_event = threading.Event()
 
         # Conversation allowlist/blocklist
@@ -61,7 +57,7 @@ class Poller:
         self._blocklist = self.config.get("poller.blocklist", [])
 
         # Queue for tasks to process
-        self._task_queue = queue.Queue()
+        self._task_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 
         # Polling intervals
         self._vote_interval = self.config.get("poller.vote_interval", 1.0)
@@ -79,9 +75,7 @@ class Poller:
         self._stop_event.clear()
 
         # Start vote polling thread
-        vote_thread = threading.Thread(
-            target=self._vote_polling_loop, name="vote-poller"
-        )
+        vote_thread = threading.Thread(target=self._vote_polling_loop, name="vote-poller")
         vote_thread.daemon = True
         vote_thread.start()
         self._threads.append(vote_thread)
@@ -93,17 +87,13 @@ class Poller:
         self._threads.append(mod_thread)
 
         # Start task polling thread
-        task_thread = threading.Thread(
-            target=self._task_polling_loop, name="task-poller"
-        )
+        task_thread = threading.Thread(target=self._task_polling_loop, name="task-poller")
         task_thread.daemon = True
         task_thread.start()
         self._threads.append(task_thread)
 
         # Start task processing thread
-        process_thread = threading.Thread(
-            target=self._task_processing_loop, name="task-processor"
-        )
+        process_thread = threading.Thread(target=self._task_processing_loop, name="task-processor")
         process_thread.daemon = True
         process_thread.start()
         self._threads.append(process_thread)
@@ -240,13 +230,11 @@ class Poller:
                 continue
 
             # Get last timestamp for this conversation
-            last_timestamp = self._last_vote_timestamps.get(
-                zid, self._default_timestamp
-            )
+            last_timestamp = self._last_vote_timestamps.get(zid, self._default_timestamp)
 
             try:
                 # Poll for new votes
-                votes = self.db.poll_votes(zid, last_timestamp)
+                votes = self.db.poll_votes(zid, datetime.fromtimestamp(last_timestamp / 1000))
 
                 # Skip if no new votes
                 if not votes:
@@ -289,13 +277,11 @@ class Poller:
                 continue
 
             # Get last timestamp for this conversation
-            last_timestamp = self._last_modified_timestamps.get(
-                zid, self._default_timestamp
-            )
+            last_timestamp = self._last_modified_timestamps.get(zid, self._default_timestamp)
 
             try:
                 # Poll for new moderation actions
-                moderation = self.db.poll_moderation(zid, last_timestamp)
+                moderation = self.db.poll_moderation(zid, datetime.fromtimestamp(last_timestamp / 1000))
 
                 # Skip if no new moderation actions
                 if not any(moderation.values()):
@@ -328,7 +314,7 @@ class Poller:
         except Exception as e:
             logger.error(f"Error polling tasks: {e}")
 
-    def _process_task(self, task: Dict[str, Any]) -> None:
+    def _process_task(self, task: dict[str, Any]) -> None:
         """
         Process a task.
 
@@ -341,6 +327,7 @@ class Poller:
         try:
             # Get task type
             task_type = task_data.get("task_type")
+            task_bucket = task_data.get("task_bucket")
 
             if task_type == "recompute":
                 # Recompute conversation
@@ -360,11 +347,11 @@ class Poller:
                 logger.warning(f"Unknown task type: {task_type}")
 
             # Mark task as complete
-            self.db.mark_task_complete(task_id)
+            self.db.mark_task_complete(task_id, task_bucket)
         except Exception as e:
             logger.error(f"Error processing task {task_id}: {e}")
 
-    def _get_active_conversation_ids(self) -> List[int]:
+    def _get_active_conversation_ids(self) -> list[int]:
         """
         Get IDs of all active conversations.
 
@@ -399,9 +386,7 @@ class Poller:
 
             if math_data and math_data.get("data"):
                 # Create conversation from data
-                self.conversation_manager.import_conversation_from_data(
-                    str(zid), math_data["data"]
-                )
+                self.conversation_manager.import_conversation_from_data(str(zid), math_data["data"])
 
                 # Update timestamps
                 if math_data.get("last_vote_timestamp"):
@@ -477,9 +462,7 @@ class PollerManager:
     _lock = threading.RLock()
 
     @classmethod
-    def get_poller(
-        cls, conversation_manager: ConversationManager, config: Optional[Config] = None
-    ) -> Poller:
+    def get_poller(cls, conversation_manager: ConversationManager, config: Config | None = None) -> Poller:
         """
         Get the poller instance.
 

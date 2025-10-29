@@ -17,7 +17,6 @@ The following environment variables control the container's behavior:
 - `POLL_INTERVAL`: Polling interval in seconds for the job poller (default: 2)
 - `LOG_LEVEL`: Logging level (default: INFO)
 - `DATABASE_URL`: PostgreSQL database URL for math pipeline
-- `DELPHI_DEV_OR_PROD`: Environment setting (dev/prod)
 
 ## Container Services
 
