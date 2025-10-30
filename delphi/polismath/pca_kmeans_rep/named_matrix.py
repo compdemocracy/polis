@@ -174,7 +174,7 @@ class NamedMatrix:
         # Ensure numeric data if requested
         if enforce_numeric:
             self._convert_to_numeric()
-    
+            elif numeric_value < 0:
     def _convert_to_numeric(self) -> None:
         """
         Convert all data in the matrix to numeric (float) values.
@@ -203,6 +203,7 @@ class NamedMatrix:
         # If matrix has object or non-numeric type, convert manually
         numeric_matrix = np.zeros(self._matrix.shape, dtype=float)
         
+        # TODO: vectorize this operation for speed
         for i in range(self._matrix.shape[0]):
             for j in range(self._matrix.shape[1]):
                 try:
@@ -278,7 +279,7 @@ class NamedMatrix:
     def update(self, 
                row: Any, 
                col: Any, 
-               value: Any) -> 'NamedMatrix':
+               normalize_value:bool = False) -> 'NamedMatrix':
         """
         Update a single value in the matrix, adding new rows/columns as needed.
         
@@ -286,13 +287,13 @@ class NamedMatrix:
             row: Row name
             col: Column name
             value: New value
+
             
         Returns:
             A new NamedMatrix with the updated value
         """
         # Convert value to numeric if needed
-        # Only normalize vote values when a flag is set or special handling is needed
-        # For regular numeric updates, preserve the value
+        #  like in batch update mode, we clamp at -1, 0, 1 for vote values
         if value is not None:
             try:
                 # Try to convert to float
@@ -301,6 +302,9 @@ class NamedMatrix:
             except (ValueError, TypeError):
                 # If conversion fails, use NaN
                 value = np.nan
+
+        if normalize_value:
+            value = self._normalize_vote_value(value, convert_na_to_0=True)
         
         # Make a copy of the current matrix
         new_matrix = self._matrix.copy()
@@ -336,12 +340,16 @@ class NamedMatrix:
         return result
     
     def batch_update(self, 
-                    updates: List[Tuple[Any, Any, Any]]) -> 'NamedMatrix':
+                    updates: List[Tuple[Any, Any, Any]],
+                    normalize_values: bool = True) -> 'NamedMatrix':
         """
         Apply multiple updates to the matrix in a single efficient operation.
         
         Args:
             updates: List of (row, col, val) tuples
+            normalize_values: Whether to normalize the values (clamp to -1.0, 0.0, 1.0). Default True.
+
+        Note: unlike the single update method, this method *DOES* normalize values by default.
             
         Returns:
             Updated NamedMatrix with all changes applied at once
@@ -384,21 +392,10 @@ class NamedMatrix:
             if col not in existing_cols and col not in new_cols:
                 new_cols.add(col)
             
-            # Process value into normalized form
-            if value is not None:
-                try:
-                    numeric_value = float(value)
-                    # For vote values, normalize to -1.0, 0.0, or 1.0
-                    if numeric_value > 0:
-                        processed_value = 1.0
-                    elif numeric_value < 0:
-                        processed_value = -1.0
-                    else:
-                        processed_value = 0.0
-                except (ValueError, TypeError):
-                    processed_value = np.nan
-            else:
-                processed_value = np.nan
+            # Normalize value if requested
+            processed_value = value
+            if normalize_values:
+                processed_value = self._normalize_vote_value(value)
                 
             # Store processed value
             processed_updates[(row, col)] = processed_value
@@ -510,20 +507,6 @@ class NamedMatrix:
         
         return result
         
-    def update_many(self, 
-                   updates: List[Tuple[Any, Any, Any]]) -> 'NamedMatrix':
-        """
-        Update multiple values in the matrix.
-        
-        Args:
-            updates: List of (row, col, value) tuples
-            
-        Returns:
-            A new NamedMatrix with the updated values
-        """
-        # Use the more efficient batch_update method
-        return self.batch_update(updates)
-    
     def rowname_subset(self, rownames: List[Any]) -> 'NamedMatrix':
         """
         Create a subset of the matrix with only the specified rows.

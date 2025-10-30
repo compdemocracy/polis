@@ -118,7 +118,7 @@ class TestNamedMatrix:
         assert nmat.colnames() == ['c1', 'c2', 'c3']
         assert np.array_equal(nmat.values, df.values)
     
-    def test_update(self):
+    def test_update_normalized(self):
         """Test updating a single value in the matrix."""
         nmat = NamedMatrix(
             np.array([[1, 2], [3, 4]]),
@@ -127,7 +127,7 @@ class TestNamedMatrix:
         )
         
         # Update existing value
-        nmat2 = nmat.update('r1', 'c1', 10)
+        nmat2 = nmat.update('r1', 'c1', 10, normalize_value=True)
         # The implementation normalizes values to 1.0, -1.0, or 0.0 for vote data
         # So 10 becomes 1.0
         assert nmat2.matrix.loc['r1', 'c1'] == 1.0
@@ -136,22 +136,22 @@ class TestNamedMatrix:
         assert nmat.matrix.loc['r1', 'c1'] == 1
         
         # Update with new row
-        nmat3 = nmat.update('r3', 'c1', 5)
+        nmat3 = nmat.update('r3', 'c1', 5, normalize_value=True)
         assert nmat3.matrix.loc['r3', 'c1'] == 1.0  # 5 is normalized to 1.0
         assert nmat3.rownames() == ['r1', 'r2', 'r3']
         
         # Update with new column
-        nmat4 = nmat.update('r1', 'c3', 6)
+        nmat4 = nmat.update('r1', 'c3', 6, normalize_value=True)
         assert nmat4.matrix.loc['r1', 'c3'] == 1.0  # 6 is normalized to 1.0
         assert nmat4.colnames() == ['c1', 'c2', 'c3']
         
         # Update with new row and column
-        nmat5 = nmat.update('r3', 'c3', 9)
+        nmat5 = nmat.update('r3', 'c3', 9, normalize_value=True)
         assert nmat5.matrix.loc['r3', 'c3'] == 1.0  # 9 is normalized to 1.0
         assert nmat5.rownames() == ['r1', 'r2', 'r3']
         assert nmat5.colnames() == ['c1', 'c2', 'c3']
     
-    def test_update_many(self):
+    def test_batch_update(self):
         """Test updating multiple values."""
         nmat = NamedMatrix(
             np.array([[1, 2], [3, 4]]),
@@ -160,7 +160,7 @@ class TestNamedMatrix:
         )
         
         updates = [('r1', 'c1', 10), ('r2', 'c2', 20), ('r3', 'c3', 30)]
-        nmat2 = nmat.update_many(updates)
+        nmat2 = nmat.batch_update(updates)
         
         # Values are normalized to 1.0, -1.0, or 0.0
         assert nmat2.matrix.loc['r1', 'c1'] == 1.0  # 10 becomes 1.0
