@@ -206,6 +206,8 @@ class Conversation:
             batch_start = time.time()
             result.raw_rating_mat = result.raw_rating_mat.batch_update(vote_updates)
             logger.info(f"[{time.time() - start_time:.2f}s] Batch update completed in {time.time() - batch_start:.2f}s")
+        else:
+            logger.info(f"[{time.time() - start_time:.2f}s] No new votes to apply.")
         
         # Update last updated timestamp
         result.last_updated = max(
