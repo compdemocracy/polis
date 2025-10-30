@@ -416,84 +416,11 @@ class NamedMatrix:
         all_rows = sorted(list(existing_rows) + list(new_rows))
         all_cols = sorted(list(existing_cols) + list(new_cols))
         
-        # Create a new DataFrame with all rows and columns at once
-        # This creates a clean DataFrame without fragmentation
-        matrix_creation_start = time.time()
-        if new_rows or new_cols or self._matrix.empty:
-            # Create new DataFrame with all rows and columns
-            matrix_copy = pd.DataFrame(
-                index=all_rows,
-                columns=all_cols,
-                dtype=float
-            )
-            
-            # Fill with NaN
-            matrix_copy.values[:] = np.nan
-            
-            if should_report:
-                logger.info(f"[{time.time() - start_time:.2f}s] New DataFrame created in {time.time() - matrix_creation_start:.2f}s")
-                logger.info(f"[{time.time() - start_time:.2f}s] Copying existing values...")
-            
-            # Copy existing values from original matrix
-            if not self._matrix.empty:
-                copy_start = time.time()
-                total_values = len(self._matrix.index) * len(self._matrix.columns)
-                
-                # Use vectorized operations if possible to copy faster
-                try:
-                    # Extract existing data as a numpy array
-                    existing_data = self._matrix.values
-                    
-                    # Convert to row/column indices in the new matrix
-                    row_indices = [all_rows.index(row) for row in self._matrix.index]
-                    col_indices = [all_cols.index(col) for col in self._matrix.columns]
-                    
-                    # Use advanced indexing to copy values
-                    for i, row_idx in enumerate(row_indices):
-                        for j, col_idx in enumerate(col_indices):
-                            matrix_copy.values[row_idx, col_idx] = existing_data[i, j]
-
-                    copy_time = time.time() - copy_start
-                    if should_report:
-                        logger.info(f"[{time.time() - start_time:.2f}s] Copied {total_values} values in {copy_time:.2f}s")
-                    
-                    # Reindex will automatically align and copy values, filling missing with NaN
-                    start_time_ju = time.time()
-                    matrix_copy_ju = self._matrix.reindex(index=all_rows, columns=all_cols, fill_value=np.nan)
-                    copy_time_ju = time.time() - start_time_ju
-                    logger.info(f"[{time.time() - start_time:.2f}s] Copied {total_values} values in {copy_time_ju:.2f}s using reindex")
-                    logger.info(f"Speed up reindex: {copy_time / copy_time_ju:.2f}x")
-
-                    # compare matrix_copy and matrix_copy_ju
-                    if not matrix_copy.equals(matrix_copy_ju):
-                        logger.warning(f"[{time.time() - start_time:.2f}s] Warning: reindex result differs from manual copy")
-                    else:
-                        logger.info(f"[{time.time() - start_time:.2f}s] Verified reindex matches manual copy")
-
-                
-                except Exception as e:
-                    # Fallback to slower method if vectorized approach fails
-                    if should_report:
-                        logger.warning(f"[{time.time() - start_time:.2f}s] Vectorized copy failed: {e}, falling back to element-wise copy")
-                    
-                    # Element-wise copy
-                    for i, row in enumerate(self._matrix.index):
-                        for j, col in enumerate(self._matrix.columns):
-                            matrix_copy.at[row, col] = self._matrix.iloc[i, j]
-                            
-                            # Report progress for large matrices
-                            if should_report and total_values > REPORT_THRESHOLD and (i * len(self._matrix.columns) + j + 1) % PROGRESS_INTERVAL == 0:
-                                copied = i * len(self._matrix.columns) + j + 1
-                                pct = (copied / total_values) * 100
-                                logger.info(f"[{time.time() - start_time:.2f}s] Copied {copied}/{total_values} values ({pct:.1f}%)")
-                    
-                    if should_report:
-                        logger.info(f"[{time.time() - start_time:.2f}s] Completed element-wise copy in {time.time() - copy_start:.2f}s")
-        else:
-            # No new rows or columns needed, just make a copy
-            matrix_copy = self._matrix.copy()
-            if should_report:
-                logger.info(f"[{time.time() - start_time:.2f}s] No resizing needed, created copy in {time.time() - matrix_creation_start:.2f}s")
+        # Use vectorized operations if possible to copy faster
+        # Reindex will automatically align and copy values, filling missing with NaN
+        if should_report:
+            logger.info(f"[{time.time() - start_time:.2f}s] Copying existing values...")
+        matrix_copy = self._matrix.reindex(index=all_rows, columns=all_cols, fill_value=np.nan, copy=True)
         
         # Apply all updates at once
         if should_report:

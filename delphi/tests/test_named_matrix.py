@@ -257,29 +257,134 @@ class TestNamedMatrix:
         assert subset.colnames() == ['c1', 'c2', 'c3']
 
 
+    def test_batch_update_large_scale(self):
+        """Test large-scale batch update with proper index ordering and NaN handling."""
+        # Set random seed for reproducibility
+        np.random.seed(42)
+
+        # Create a 1000x400 random matrix with named rows and columns
+        original_rows = 1000
+        original_cols = 400
+        original_data = np.random.rand(original_rows, original_cols)
+
+        # Generate row and column names with leading zeros (4 digits)
+        rownames = [f"row_{i:04d}_original" for i in range(original_rows)]
+        colnames = [f"col_{j:04d}_original" for j in range(original_cols)]
+
+        # Initialize the NamedMatrix A
+        A = NamedMatrix(original_data, rownames, colnames)
+
+        # Create new block B with:
+        # - rows: row_0005_new through row_0010_new (6 rows)
+        # - columns: column_0020_new through column_0030_new (11 columns)
+        new_row_indices = list(range(5, 11))  # 05 to 10 inclusive
+        new_col_indices = list(range(20, 31))  # 20 to 30 inclusive
+
+        new_rownames = [f"row_{i:04d}_new" for i in new_row_indices]
+        new_colnames = [f"col_{j:04d}_new" for j in new_col_indices]
+
+        # Generate random data for block B
+        B_data = np.random.rand(len(new_rownames), len(new_colnames))
+
+        # Create batch updates for all cells in block B
+        updates = []
+        for i, row in enumerate(new_rownames):
+            for j, col in enumerate(new_colnames):
+                updates.append((row, col, B_data[i, j]))
+
+        # Apply batch update
+        A_updated = A.batch_update(updates, normalize_values=False)
+
+        # Test 1: The subset at new indices matches B
+        subset_new = A_updated.matrix.loc[new_rownames, new_colnames]
+        assert subset_new.shape == B_data.shape, \
+            f"New block shape mismatch: expected {B_data.shape}, got {subset_new.shape}"
+
+        for i, row in enumerate(new_rownames):
+            for j, col in enumerate(new_colnames):
+                expected = B_data[i, j]
+                actual = subset_new.loc[row, col]
+                assert abs(actual - expected) < 1e-10, \
+                    f"Value mismatch at ({row}, {col}): expected {expected}, got {actual}"
+
+        # Test 2: Original data outside new indices is unchanged
+        for i, row in enumerate(rownames):
+            for j, col in enumerate(colnames):
+                expected = original_data[i, j]
+                actual = A_updated.matrix.loc[row, col]
+                assert abs(actual - expected) < 1e-10, \
+                    f"Original value changed at ({row}, {col}): expected {expected}, got {actual}"
+
+        # Test 3: Check alphabetic ordering of row and column indices
+        final_rownames = A_updated.rownames()
+        final_colnames = A_updated.colnames()
+
+        # Verify rows are sorted alphabetically
+        assert final_rownames == sorted(final_rownames), \
+            "Row names are not in alphabetic order"
+
+        # Verify columns are sorted alphabetically
+        assert final_colnames == sorted(final_colnames), \
+            "Column names are not in alphabetic order"
+
+        # Verify specific interweaving for rows
+        # Expected pattern: row_0004_original, row_0005_new, row_0005_original, row_0006_new, ...new
+        lower_unchanged_row = "row_0004_original"
+        assert final_rownames.index(lower_unchanged_row) == A.rownames().index(lower_unchanged_row), "wrong index for lower unchanged row" 
+        for i in new_row_indices:
+            original_name = f"row_{i:04d}_original"
+            idx_original_name = final_rownames.index(original_name)
+            new_name = f"row_{i:04d}_new"
+            idx_new_name = final_rownames.index(new_name)
+            assert idx_original_name == idx_new_name + 1, f"row {original_name} is as idx {idx_original_name} but should be before {new_name} at idx {idx_new_name}"
+
+        lower_unchanged_col = "col_0019_original"
+        assert final_colnames.index(lower_unchanged_col) == A.colnames().index(lower_unchanged_col) , "wrong index for lower unchanged column"
+        for i in new_col_indices:
+            original_name = f"col_{i:04d}_original"
+            idx_original_name = final_colnames.index(original_name)
+            new_name = f"col_{i:04d}_new"
+            idx_new_name = final_colnames.index(new_name)
+            assert idx_original_name == idx_new_name + 1, f"col {original_name} is as idx {idx_original_name} but should be before {new_name} at idx {idx_new_name}"
+
+        # Test 4: Existing rows at new columns are NaN
+        for row in rownames:
+            for col in new_colnames:
+                value = A_updated.matrix.loc[row, col]
+                assert pd.isna(value), \
+                    f"Expected NaN at existing row {row} and new column {col}, but got {value}"
+
+        # Test 5: Existing columns at new rows are NaN
+        for row in new_rownames:
+            for col in colnames:
+                value = A_updated.matrix.loc[row, col]
+                assert pd.isna(value), \
+                    f"Expected NaN at new row {row} and existing column {col}, but got {value}"
+
+
 class TestCreateNamedMatrix:
     """Tests for the create_named_matrix function."""
-    
+
     def test_create_with_lists(self):
         """Test creating a NamedMatrix from lists."""
         data = [[1, 2, 3], [4, 5, 6]]
         rownames = ['r1', 'r2']
         colnames = ['c1', 'c2', 'c3']
-        
+
         nmat = create_named_matrix(data, rownames, colnames)
-        
+
         assert nmat.rownames() == rownames
         assert nmat.colnames() == colnames
         assert np.array_equal(nmat.values, np.array(data))
-    
+
     def test_create_with_numpy(self):
         """Test creating a NamedMatrix from a numpy array."""
         data = np.array([[1, 2, 3], [4, 5, 6]])
         rownames = ['r1', 'r2']
         colnames = ['c1', 'c2', 'c3']
-        
+
         nmat = create_named_matrix(data, rownames, colnames)
-        
+
         assert nmat.rownames() == rownames
         assert nmat.colnames() == colnames
         assert np.array_equal(nmat.values, data)
