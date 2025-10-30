@@ -361,6 +361,73 @@ class TestNamedMatrix:
                 assert pd.isna(value), \
                     f"Expected NaN at new row {row} and existing column {col}, but got {value}"
 
+    def test_batch_update_last_value_wins(self):
+        """Test that when multiple updates target the same cell, the last value wins."""
+        # Create a simple 2x2 matrix
+        nmat = NamedMatrix(
+            np.array([[1, 2], [3, 4]]),
+            ['r1', 'r2'],
+            ['c1', 'c2']
+        )
+
+        # Test 1: Multiple updates to the same existing cell
+        updates = [
+            ('r1', 'c1', 10),
+            ('r1', 'c1', 20),
+            ('r1', 'c1', 30),  # This should be the final value
+        ]
+        nmat2 = nmat.batch_update(updates, normalize_values=False)
+        assert nmat2.matrix.loc['r1', 'c1'] == 30, \
+            f"Expected last value 30, got {nmat2.matrix.loc['r1', 'c1']}"
+
+        # Test 2: Multiple updates to a new cell
+        updates = [
+            ('r3', 'c3', 100),
+            ('r3', 'c3', 200),
+            ('r3', 'c3', 300),  # This should be the final value
+        ]
+        nmat3 = nmat.batch_update(updates, normalize_values=False)
+        assert nmat3.matrix.loc['r3', 'c3'] == 300, \
+            f"Expected last value 300, got {nmat3.matrix.loc['r3', 'c3']}"
+
+        # Test 3: Multiple updates mixed with other updates
+        updates = [
+            ('r1', 'c1', 10),
+            ('r1', 'c2', 50),
+            ('r1', 'c1', 20),  # Second update to r1,c1
+            ('r2', 'c1', 60),
+            ('r1', 'c1', 30),  # Third update to r1,c1 (should win)
+        ]
+        nmat4 = nmat.batch_update(updates, normalize_values=False)
+        assert nmat4.matrix.loc['r1', 'c1'] == 30, \
+            f"Expected last value 30 at r1,c1, got {nmat4.matrix.loc['r1', 'c1']}"
+        assert nmat4.matrix.loc['r1', 'c2'] == 50, \
+            f"Expected value 50 at r1,c2, got {nmat4.matrix.loc['r1', 'c2']}"
+        assert nmat4.matrix.loc['r2', 'c1'] == 60, \
+            f"Expected value 60 at r2,c1, got {nmat4.matrix.loc['r2', 'c1']}"
+
+        # Test 4: Multiple updates with normalized values
+        updates = [
+            ('r1', 'c1', 5),    # Would normalize to 1.0
+            ('r1', 'c1', -3),   # Would normalize to -1.0
+            ('r1', 'c1', 0),    # Would normalize to 0.0 (should win)
+        ]
+        nmat5 = nmat.batch_update(updates, normalize_values=True)
+        assert nmat5.matrix.loc['r1', 'c1'] == 0.0, \
+            f"Expected normalized value 0.0, got {nmat5.matrix.loc['r1', 'c1']}"
+
+        # Test 5: Many updates to the same cell (stress test)
+        updates = [(f'r_new', f'c_new', i) for i in range(1000)]
+        nmat6 = nmat.batch_update(updates, normalize_values=False)
+        assert nmat6.matrix.loc['r_new', 'c_new'] == 999, \
+            f"Expected last value 999, got {nmat6.matrix.loc['r_new', 'c_new']}"
+
+        # Verify original data is still unchanged in test 5
+        assert nmat6.matrix.loc['r1', 'c2'] == 2, \
+            f"Expected original value 2 at r1,c2, got {nmat6.matrix.loc['r1', 'c2']}"
+        assert nmat6.matrix.loc['r2', 'c1'] == 3, \
+            f"Expected original value 3 at r2,c1, got {nmat6.matrix.loc['r2', 'c1']}"
+
 
 class TestCreateNamedMatrix:
     """Tests for the create_named_matrix function."""
