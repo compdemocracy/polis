@@ -174,7 +174,34 @@ class NamedMatrix:
         # Ensure numeric data if requested
         if enforce_numeric:
             self._convert_to_numeric()
+
+    @staticmethod
+    def _normalize_vote_value(v: Any, convert_na_to_0: bool = True) -> float:
+        """ Normalize a vote value to -1.0, 0.0, or 1.0
+        
+        Args:
+            v: The value to normalize
+            convert_na_to_0: Whether to keep NaN values as NaN or convert them to 0.0. Default False.
+        """
+        # Process value into normalized form
+        if v is None:
+            return np.nan
+        
+        if not convert_na_to_0 and pd.isna(v):
+            return np.nan 
+
+        try:
+            numeric_value = float(v)
+            if numeric_value > 0:
+                return 1.0
             elif numeric_value < 0:
+                return -1.0
+            else:
+                # Note: np.nan is captured here
+                return 0.0
+        except (ValueError, TypeError):
+            return np.nan
+    
     def _convert_to_numeric(self) -> None:
         """
         Convert all data in the matrix to numeric (float) values.
@@ -206,29 +233,7 @@ class NamedMatrix:
         # TODO: vectorize this operation for speed
         for i in range(self._matrix.shape[0]):
             for j in range(self._matrix.shape[1]):
-                try:
-                    val = self._matrix.iloc[i, j]
-                    
-                    if pd.isna(val) or val is None:
-                        numeric_matrix[i, j] = np.nan
-                    else:
-                        try:
-                            # Try to convert to float
-                            numeric_value = float(val)
-                            
-                            # For vote values, normalize to -1.0, 0.0, or 1.0
-                            if numeric_value > 0:
-                                numeric_matrix[i, j] = 1.0
-                            elif numeric_value < 0:
-                                numeric_matrix[i, j] = -1.0
-                            else:
-                                numeric_matrix[i, j] = 0.0
-                        except (ValueError, TypeError):
-                            # If conversion fails, use NaN
-                            numeric_matrix[i, j] = np.nan
-                except IndexError:
-                    # Handle out of bounds access
-                    continue
+                numeric_matrix[i, j] = self._normalize_vote_value(self._matrix.iloc[i, j], convert_na_to_0=True)
         
         # Create a new DataFrame with the numeric values
         self._matrix = pd.DataFrame(
@@ -279,6 +284,7 @@ class NamedMatrix:
     def update(self, 
                row: Any, 
                col: Any, 
+               value: Any,
                normalize_value:bool = False) -> 'NamedMatrix':
         """
         Update a single value in the matrix, adding new rows/columns as needed.
@@ -287,7 +293,9 @@ class NamedMatrix:
             row: Row name
             col: Column name
             value: New value
+            normalize_value: Whether to normalize the value (clamp to -1.0, 0.0, 1.0). Default False.
 
+        Note: Unlike batch_update, this method does *NOT* normalize values by default.
             
         Returns:
             A new NamedMatrix with the updated value
@@ -444,9 +452,24 @@ class NamedMatrix:
                     for i, row_idx in enumerate(row_indices):
                         for j, col_idx in enumerate(col_indices):
                             matrix_copy.values[row_idx, col_idx] = existing_data[i, j]
-                    
+
+                    copy_time = time.time() - copy_start
                     if should_report:
-                        logger.info(f"[{time.time() - start_time:.2f}s] Copied {total_values} values in {time.time() - copy_start:.2f}s")
+                        logger.info(f"[{time.time() - start_time:.2f}s] Copied {total_values} values in {copy_time:.2f}s")
+                    
+                    # Reindex will automatically align and copy values, filling missing with NaN
+                    start_time_ju = time.time()
+                    matrix_copy_ju = self._matrix.reindex(index=all_rows, columns=all_cols, fill_value=np.nan)
+                    copy_time_ju = time.time() - start_time_ju
+                    logger.info(f"[{time.time() - start_time:.2f}s] Copied {total_values} values in {copy_time_ju:.2f}s using reindex")
+                    logger.info(f"Speed up reindex: {copy_time / copy_time_ju:.2f}x")
+
+                    # compare matrix_copy and matrix_copy_ju
+                    if not matrix_copy.equals(matrix_copy_ju):
+                        logger.warning(f"[{time.time() - start_time:.2f}s] Warning: reindex result differs from manual copy")
+                    else:
+                        logger.info(f"[{time.time() - start_time:.2f}s] Verified reindex matches manual copy")
+
                 
                 except Exception as e:
                     # Fallback to slower method if vectorized approach fails
