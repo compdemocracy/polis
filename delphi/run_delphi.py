@@ -77,7 +77,8 @@ def main():
     print(f"{YELLOW}Using Ollama model: {model}{NC}")
 
     # Set up environment for the pipeline
-    os.environ["PYTHONPATH"] = f"/app:{os.environ.get('PYTHONPATH', '')}"
+    app_path = os.environ.get('DELPHI_APP_PATH', '/app')
+    os.environ["PYTHONPATH"] = f"{app_path}:{os.environ.get('PYTHONPATH', '')}"
     os.environ["OLLAMA_HOST"] = os.environ.get("OLLAMA_HOST", "http://ollama:11434")
     # OLLAMA_MODEL is already set and checked
     max_votes = os.environ.get("MAX_VOTES")
@@ -96,7 +97,7 @@ def main():
     # Run the math pipeline
     print(f"{GREEN}Running math pipeline...{NC}")
     math_command = [
-        "python", "/app/polismath/run_math_pipeline.py",
+        "python", f"{app_path}/polismath/run_math_pipeline.py",
         f"--zid={zid}",
     ]
     if max_votes_arg:
@@ -114,7 +115,7 @@ def main():
     # Run the UMAP narrative pipeline
     print(f"{GREEN}Running UMAP narrative pipeline...{NC}")
     umap_command = [
-        "python", "/app/umap_narrative/run_pipeline.py",
+        "python", f"{app_path}/umap_narrative/run_pipeline.py",
         f"--zid={zid}",
         f"--include_moderation={args.include_moderation}",
         "--use-ollama"
@@ -128,7 +129,7 @@ def main():
     # Calculate and store comment extremity values
     print(f"{GREEN}Calculating comment extremity values...{NC}")
     extremity_command = [
-        "python", "/app/umap_narrative/501_calculate_comment_extremity.py",
+        "python", f"{app_path}/umap_narrative/501_calculate_comment_extremity.py",
         f"--zid={zid}",
         f"--include_moderation={args.include_moderation}"
     ]
@@ -147,7 +148,7 @@ def main():
     # Calculate comment priorities using group-based extremity
     print(f"{GREEN}Calculating comment priorities with group-based extremity...{NC}")
     priority_command = [
-        "python", "/app/umap_narrative/502_calculate_priorities.py",
+        "python", f"{app_path}/umap_narrative/502_calculate_priorities.py",
         f"--conversation_id={zid}",
     ]
     if verbose_arg:
@@ -164,7 +165,7 @@ def main():
         print(f"{YELLOW}Creating visualizations with datamapplot...{NC}")
 
         # Create output directory
-        output_dir = f"/app/polis_data/{zid}/python_output/comments_enhanced_multilayer"
+        output_dir = f"{app_path}/polis_data/{zid}/python_output/comments_enhanced_multilayer"
         os.makedirs(output_dir, exist_ok=True)
 
         # Generate visualizations for all available layers
@@ -230,7 +231,7 @@ def main():
         for layer_id in available_layers:
             print(f"{YELLOW}Generating visualization for layer {layer_id}...{NC}")
             datamap_command = [
-                "python", "/app/umap_narrative/700_datamapplot_for_layer.py",
+                "python", f"{app_path}/umap_narrative/700_datamapplot_for_layer.py",
                 f"--conversation_id={zid}",
                 f"--layer={layer_id}",
                 f"--output_dir={output_dir}"

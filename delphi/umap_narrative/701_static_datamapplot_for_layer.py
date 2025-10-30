@@ -25,7 +25,8 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 # Import directly from the existing codebase
-sys.path.insert(0, '/app')
+app_path = os.environ.get('DELPHI_APP_PATH', '/app')
+sys.path.insert(0, app_path)
 try:
     from polismath_commentgraph.utils.storage import DynamoDBStorage, PostgresClient
 except ImportError:
@@ -416,7 +417,8 @@ def generate_static_datamapplot(zid, layer_num=0, output_dir=None):
         comment_texts = load_comment_texts(zid)
         
         # Setup output directories
-        container_dir = f"/app/visualizations/{zid}"
+        app_path = os.environ.get('DELPHI_APP_PATH', '/app')
+        container_dir = f"{app_path}/visualizations/{zid}"
         host_dir = f"/visualizations/{zid}"
         local_dir = f"/Users/colinmegill/polis/delphi/visualizations/{zid}"
         
