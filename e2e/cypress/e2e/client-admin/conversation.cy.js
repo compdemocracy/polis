@@ -12,6 +12,11 @@ import { getPolisURL } from '../../support/admin-helpers.js'
 describe('Client Admin: Conversation Management', () => {
   let testConversationId
   let preExistingConversationId
+  const preExistingSeedComments = [
+    'First comment on pre-existing conversation',
+    'Second comment on pre-existing conversation',
+    'Third comment on pre-existing conversation',
+  ]
 
   before(() => {
     // Create a conversation that will exist for all tests
@@ -28,11 +33,7 @@ describe('Client Admin: Conversation Management', () => {
         cy.log(`✅ Created pre-existing conversation: ${preExistingConversationId}`)
 
         // Add some comments to make it more interesting
-        return addCommentsToConversation(preExistingConversationId, [
-          'First comment on pre-existing conversation',
-          'Second comment on pre-existing conversation',
-          'Third comment on pre-existing conversation',
-        ])
+        return addCommentsToConversation(preExistingConversationId, preExistingSeedComments)
       })
   })
 
@@ -292,8 +293,11 @@ describe('Client Admin: Conversation Management', () => {
       // Should show moderation interface
       cy.get('h3').should('contain.text', 'Moderate')
 
-      // Should see the comments we added earlier
-      cy.contains('comment', { matchCase: false }).should('exist')
+      // Navigate to Accepted and verify pre-existing seed comments are visible
+      cy.get('[data-testid="filter-approved"]').click()
+      preExistingSeedComments.forEach((txt) => {
+        cy.get('body').should('contain.text', txt)
+      })
 
       cy.log('✅ Moderation interface accessible')
     })

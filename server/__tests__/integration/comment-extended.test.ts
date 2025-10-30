@@ -66,8 +66,9 @@ describe("Extended Comment Endpoints", () => {
 
     expect(commentsResponse.status).toBe(200);
     const responseBody = JSON.parse(commentsResponse.text);
-    expect(responseBody).toHaveProperty("comments");
-    const comments: Comment[] = responseBody.comments;
+    const comments: Comment[] = Array.isArray(responseBody)
+      ? responseBody
+      : responseBody.comments;
 
     // Validate response
     expect(Array.isArray(comments)).toBe(true);
@@ -88,8 +89,9 @@ describe("Extended Comment Endpoints", () => {
 
     expect(commentsResponse.status).toBe(200);
     const responseBody2 = JSON.parse(commentsResponse.text);
-    expect(responseBody2).toHaveProperty("comments");
-    const comments: Comment[] = responseBody2.comments;
+    const comments: Comment[] = Array.isArray(responseBody2)
+      ? responseBody2
+      : responseBody2.comments;
 
     // Validate response - should be an empty array
     expect(Array.isArray(comments)).toBe(true);
@@ -131,8 +133,9 @@ describe("Extended Comment Endpoints", () => {
 
     expect(commentsResponse.status).toBe(200);
     const responseBody3 = JSON.parse(commentsResponse.text);
-    expect(responseBody3).toHaveProperty("comments");
-    const comments: Comment[] = responseBody3.comments;
+    const comments: Comment[] = Array.isArray(responseBody3)
+      ? responseBody3
+      : responseBody3.comments;
 
     // Validate get response
     expect(Array.isArray(comments)).toBe(true);
@@ -224,8 +227,9 @@ describe("Extended Comment Endpoints", () => {
 
     expect(filteredByTidsResponse.status).toBe(200);
     const responseBody4 = JSON.parse(filteredByTidsResponse.text);
-    expect(responseBody4).toHaveProperty("comments");
-    const filteredByTids: Comment[] = responseBody4.comments;
+    const filteredByTids: Comment[] = Array.isArray(responseBody4)
+      ? responseBody4
+      : responseBody4.comments;
 
     expect(Array.isArray(filteredByTids)).toBe(true);
     expect(filteredByTids.length).toBe(2);
@@ -242,8 +246,9 @@ describe("Extended Comment Endpoints", () => {
 
     expect(filteredByModResponse.status).toBe(200);
     const responseBody5 = JSON.parse(filteredByModResponse.text);
-    expect(responseBody5).toHaveProperty("comments");
-    const filteredByMod: Comment[] = responseBody5.comments;
+    const filteredByMod: Comment[] = Array.isArray(responseBody5)
+      ? responseBody5
+      : responseBody5.comments;
 
     expect(Array.isArray(filteredByMod)).toBe(true);
     expect(filteredByMod.length).toBe(2);

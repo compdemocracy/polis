@@ -132,6 +132,28 @@ describe('Client Admin: Comment Moderation', () => {
       cy.log('✅ Unmoderated comments are visible')
     })
 
+    it('should display pagination controls and metadata', () => {
+      // Ensure we're on the unmoderated tab
+      cy.get('[data-testid="mod-queue"]').click()
+
+      // Pagination summary text should be visible when pagination metadata is present
+      cy.contains(/Showing\s+\d+-\d+\s+of\s+\d+\s+items/i).should('exist')
+      cy.contains(/Page\s+\d+\s+of\s+\d+/i).should('exist')
+
+      // Pagination buttons should exist
+      cy.contains('button', 'First').should('exist')
+      cy.contains('button', 'Previous').should('exist')
+      cy.contains('button', 'Next').should('exist')
+      cy.contains('button', 'Last').should('exist')
+
+      // With few comments, we should be on page 1 and Next/Last are disabled
+      cy.contains('button', 'Next').should('be.disabled')
+      cy.contains('button', 'Last').should('be.disabled')
+      // First/Previous should be disabled on first page
+      cy.contains('button', 'First').should('be.disabled')
+      cy.contains('button', 'Previous').should('be.disabled')
+    })
+
     it('should show accepted comments section', () => {
       // Click on the accepted tab using the proper test ID
       cy.get('[data-testid="filter-approved"]').click()

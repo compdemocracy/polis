@@ -171,35 +171,35 @@ describe('CommentModeration', () => {
   it('loads comments on mount', () => {
     renderWithProviders(<CommentModeration />)
 
-    expect(actions.populateAllCommentStores).toHaveBeenCalledWith('test123')
+    expect(actions.populateAllCommentStores).toHaveBeenCalledWith('test123', 50, 0)
   })
 
   it('starts polling after mount', async () => {
     renderWithProviders(<CommentModeration />)
 
-    // Component loads comments twice on mount (mount effect + dependency effect)
-    expect(actions.populateAllCommentStores).toHaveBeenCalledTimes(2)
+    // Component loads comments once on mount
+    expect(actions.populateAllCommentStores).toHaveBeenCalledTimes(1)
 
     // Advance time by 60 seconds
     jest.advanceTimersByTime(60000)
 
     await waitFor(() => {
-      expect(actions.populateAllCommentStores).toHaveBeenCalledTimes(3)
+      expect(actions.populateAllCommentStores).toHaveBeenCalledTimes(2)
     })
 
     // Advance another 60 seconds
     jest.advanceTimersByTime(60000)
 
     await waitFor(() => {
-      expect(actions.populateAllCommentStores).toHaveBeenCalledTimes(4)
+      expect(actions.populateAllCommentStores).toHaveBeenCalledTimes(3)
     })
   })
 
   it('stops polling on unmount', () => {
     const { unmount } = renderWithProviders(<CommentModeration />)
 
-    // Component loads comments twice on mount (mount effect + dependency effect)
-    expect(actions.populateAllCommentStores).toHaveBeenCalledTimes(2)
+    // Component loads comments once on mount
+    expect(actions.populateAllCommentStores).toHaveBeenCalledTimes(1)
 
     unmount()
 
@@ -207,7 +207,7 @@ describe('CommentModeration', () => {
     jest.advanceTimersByTime(120000)
 
     // Should not have made any more calls after unmount
-    expect(actions.populateAllCommentStores).toHaveBeenCalledTimes(2)
+    expect(actions.populateAllCommentStores).toHaveBeenCalledTimes(1)
   })
 
   it('does not load comments when auth is loading', () => {
@@ -243,7 +243,7 @@ describe('CommentModeration', () => {
     )
 
     await waitFor(() => {
-      expect(actions.populateAllCommentStores).toHaveBeenCalledWith('test123')
+      expect(actions.populateAllCommentStores).toHaveBeenCalledWith('test123', 50, 0)
     })
   })
 
