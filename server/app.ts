@@ -86,6 +86,7 @@ import {
 } from "./src/routes/comments";
 import {
   handle_GET_conversationPreloadInfo,
+  handle_GET_all_conversations,
   handle_GET_conversations,
   handle_GET_conversationsRecentActivity,
   handle_GET_conversationsRecentlyStarted,
@@ -1456,6 +1457,15 @@ helpersInitialized.then(
       want("context", getStringLimitLength(1, 999), assignToP),
       want("xid", getStringLimitLength(1, 999), assignToP),
       handle_GET_conversations
+    );
+
+    app.get(
+      "/api/v3/all_conversations",
+      moveToBody,
+      hybridAuth(assignToP),
+      want("limit", getIntInRange(1, 9999), assignToP),
+      want("offset", getIntInRange(0, 99999999), assignToP),
+      handle_GET_all_conversations
     );
 
     app.get(

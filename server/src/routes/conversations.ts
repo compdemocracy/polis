@@ -9,6 +9,7 @@ import { sql_conversations } from "../db/sql";
 import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
+import { parsePagination, createPaginationMeta } from "../utils/pagination";
 import {
   doGetConversationPreloadInfo,
   getZidFromConversationId,
@@ -263,6 +264,54 @@ export async function getConversations(req: { p: ConversationType }, res: any) {
   } catch (error) {
     logger.error("Error getting conversations:", error);
     failJson(res, 500, "polis_err_get_conversations", error);
+  }
+}
+
+/**
+ * Admin-only: Get all conversations (paginated)
+ */
+async function handle_GET_all_conversations(
+  req: { p: ConversationType },
+  res: any
+) {
+  try {
+    if (!isPolisDev(req.p.uid)) {
+      failJson(res, 403, "polis_err_no_access_for_this_user");
+      return;
+    }
+
+    // Always use pagination
+    const pagination = parsePagination(
+      { limit: req.p.limit, offset: (req.p as any).offset },
+      { defaultLimit: 50, maxLimit: 500 }
+    );
+
+    // Total count
+    const totalRows = (await pg.queryP_readOnly(
+      "select count(*) from conversations;",
+      []
+    )) as Array<{ count: string }>;
+    const total = Number(totalRows?.[0]?.count || 0);
+
+    // Page of conversations
+    const rows = (await pg.queryP_readOnly(
+      `select * from conversations order by created desc ${pagination.sql};`,
+      pagination.params
+    )) as any[];
+
+    // Process like normal conversation listing (no site-admin map for global list)
+    const data = await processConversationData(rows, req, {});
+
+    const meta = createPaginationMeta(
+      pagination.limit,
+      pagination.offset,
+      total
+    );
+
+    res.status(200).json({ conversations: data, pagination: meta });
+  } catch (error) {
+    logger.error("Error getting all conversations:", error);
+    failJson(res, 500, "polis_err_get_all_conversations", error);
   }
 }
 
@@ -1115,6 +1164,7 @@ function handle_GET_iim_conversation(
 
 export {
   handle_GET_conversationPreloadInfo,
+  handle_GET_all_conversations,
   handle_GET_conversations,
   handle_GET_conversationsRecentActivity,
   handle_GET_conversationsRecentlyStarted,
