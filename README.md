@@ -48,6 +48,45 @@ If you're interested in doing the legwork to support alternative infrastructure,
 
 ### Quick Start
 
+#### 1. Install and Configure SSL Certificates
+
+Polis uses locally trusted SSL certificates for the OIDC authentication simulator. This is a one-time setup:
+
+```sh
+# Install mkcert (macOS with Homebrew)
+brew install mkcert
+brew install nss  # if you use Firefox
+
+# Other platforms: https://github.com/FiloSottile/mkcert#installation
+```
+
+```sh
+# Install the local Certificate Authority
+mkcert -install
+
+# Generate certificates for localhost
+mkdir -p ~/.simulacrum/certs
+cd ~/.simulacrum/certs
+mkcert -cert-file localhost.pem -key-file localhost-key.pem localhost 127.0.0.1 ::1 oidc-simulator host.docker.internal
+
+# Copy the root CA certificate (needed for server-to-server communication)
+cp "$(mkcert -CAROOT)/rootCA.pem" ~/.simulacrum/certs/
+```
+
+**Important**: After running `mkcert -install`, completely restart your browser to trust the certificates.
+
+#### 2. Generate JWT Keys
+
+Polis uses JWT keys for participant authentication. Generate them with:
+
+```sh
+make generate-jwt-keys
+```
+
+This creates `server/keys/jwt-private.pem` and `server/keys/jwt-public.pem`.
+
+#### 3. Start Polis
+
 ```sh
 cp example.env .env
 make start

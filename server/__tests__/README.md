@@ -144,6 +144,15 @@ Integration tests for JWT-based authentication use `@simulacrum/auth0-simulator`
 
    This will create `localhost.pem` (certificate) and `localhost-key.pem` (private key) in that directory, which are the specific file names expected by the OIDC simulator.
 
+4. **Generate JWT Keys for Participant Authentication**:
+   From the project root directory:
+
+   ```bash
+   make generate-jwt-keys
+   ```
+
+   This creates `server/keys/jwt-private.pem` and `server/keys/jwt-public.pem` which are used for participant JWT tokens in tests.
+
 **How it Works with Tests:**
 
 - The OIDC simulator, when started within the Jest tests (`__tests__/integration/auth-jwt.test.ts`), will automatically find and use these certificates.

@@ -74,6 +74,16 @@ Before using the OIDC Simulator, you need to set up locally trusted SSL certific
    cp "$(mkcert -CAROOT)/rootCA.pem" ./.simulacrum/certs/
    ```
 
+5. **Generate JWT keys for participant authentication**:
+
+   From the project root directory:
+
+   ```bash
+   make generate-jwt-keys
+   ```
+
+   This creates `server/keys/jwt-private.pem` and `server/keys/jwt-public.pem` which are used for participant JWT tokens (separate from OIDC admin authentication).
+
 ## Configuration
 
 The simulator is configured through environment variables:
