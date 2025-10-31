@@ -80,7 +80,7 @@
                                            :subgroup-clusterings-silhouettes
                                            :subgroup-clusterings))
 
-; zid, email_domain, participant_count, context, parent_url
+; zid, participant_count, context, parent_url
 ;(shell/sh "dot" "-Tsvg" "-o" "conv-comp-graph.svg" "/tmp/conv-comp-graph.dot")
 ;(graphviz-graph "/tmp/foobar" {:x (plumb/fnk [a]) :y (plumb/fnk [a x])})
 ;; then check /tmp/foobar.svg

@@ -191,7 +191,6 @@ function doGetConversationPreloadInfo(conversation_id: any) {
         write_type: conv.write_type,
         importance_enabled: conv.importance_enabled,
         help_type: conv.help_type,
-        socialbtn_type: conv.socialbtn_type,
         bgcolor: conv.bgcolor,
         help_color: conv.help_color,
         help_bgcolor: conv.help_bgcolor,

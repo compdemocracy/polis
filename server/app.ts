@@ -1313,7 +1313,6 @@ helpersInitialized.then(
       want("vis_type", getInt, assignToP),
       want("help_type", getInt, assignToP),
       want("write_type", getInt, assignToP),
-      want("socialbtn_type", getInt, assignToP),
       want("bgcolor", getOptionalStringLimitLength(20), assignToP),
       want("help_color", getOptionalStringLimitLength(20), assignToP),
       want("help_bgcolor", getOptionalStringLimitLength(20), assignToP),
@@ -1448,18 +1447,11 @@ helpersInitialized.then(
       want("include_all_conversations_i_am_in", getBool, assignToP),
       want("is_active", getBool, assignToP),
       want("is_draft", getBool, assignToP),
-      want("course_invite", getStringLimitLength(1, 32), assignToP),
       want(
         "conversation_id",
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("want_upvoted", getBool, assignToP),
-      want("want_mod_url", getBool, assignToP), // NOTE - use this for API only!
-      want("want_inbox_item_admin_url", getBool, assignToP), // NOTE - use this for API only!
-      want("want_inbox_item_participant_url", getBool, assignToP), // NOTE - use this for API only!
-      want("want_inbox_item_admin_html", getBool, assignToP), // NOTE - use this for API only!
-      want("want_inbox_item_participant_html", getBool, assignToP), // NOTE - use this for API only!
       want("limit", getIntInRange(1, 9999), assignToP), // not allowing a super high limit to prevent DOS attacks
       want("context", getStringLimitLength(1, 999), assignToP),
       want("xid", getStringLimitLength(1, 999), assignToP),

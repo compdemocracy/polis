@@ -16,7 +16,6 @@ interface ConversationPreloadResponse {
   vis_type: number;
   write_type: number;
   help_type: number;
-  socialbtn_type: number;
   bgcolor: string;
   help_color: string;
   help_bgcolor: string;
@@ -67,7 +66,6 @@ describe("Conversation Preload API", () => {
     expect(preloadInfo).toHaveProperty("vis_type");
     expect(preloadInfo).toHaveProperty("write_type");
     expect(preloadInfo).toHaveProperty("help_type");
-    expect(preloadInfo).toHaveProperty("socialbtn_type");
     expect(preloadInfo).toHaveProperty("bgcolor");
     expect(preloadInfo).toHaveProperty("help_color");
     expect(preloadInfo).toHaveProperty("help_bgcolor");

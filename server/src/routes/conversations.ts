@@ -49,25 +49,6 @@ function failWithRetryRequest(res: {
   res.writeHead(500).send(57493875);
 }
 
-function createModerationUrl(
-  req: { p?: ConversationType; protocol?: string; headers?: Headers },
-  zinvite: string
-) {
-  let server = Config.getServerUrl();
-  if (Config.domainOverride) {
-    server = req?.protocol + "://" + Config.domainOverride;
-  }
-
-  if (
-    typeof (req?.headers as any)?.host === "string" &&
-    (req.headers as any).host.includes("preprod.pol.is")
-  ) {
-    server = "https://preprod.pol.is";
-  }
-  const url = server + "/m/" + zinvite;
-  return url;
-}
-
 function generateSingleUseUrl(
   req: any,
   conversation_id: string,
@@ -157,9 +138,6 @@ function buildConversationsQuery(
 
   query = query.where(orClauses);
 
-  if (!_.isUndefined(req.p.course_invite)) {
-    query = query.and(sql_conversations.course_id.equals(req.p.course_id));
-  }
   if (!_.isUndefined(req.p.is_active)) {
     query = query.and(sql_conversations.is_active.equals(req.p.is_active));
   }
@@ -198,13 +176,6 @@ async function processConversationData(
 ): Promise<any[]> {
   const uid = req.p.uid;
   const xid = req.p.xid;
-  const want_upvoted = req.p.want_upvoted;
-  const want_mod_url = req.p.want_mod_url;
-  const want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
-  const want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
-  const want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
-  const want_inbox_item_participant_html =
-    req.p.want_inbox_item_participant_html;
 
   try {
     // Add conversation IDs
@@ -224,76 +195,19 @@ async function processConversationData(
         )
       : Promise.resolve();
 
-    // Handle upvotes if requested
-    const upvotesPromise =
-      uid && want_upvoted
-        ? pg.queryP_readOnly("select zid from upvotes where uid = ($1);", [uid])
-        : Promise.resolve();
-
-    const [suurlData, upvotes] = await Promise.all([
-      suurlsPromise,
-      upvotesPromise,
-    ]);
+    const [suurlData] = await Promise.all([suurlsPromise]);
 
     const suurlIndex = suurlData ? _.indexBy(suurlData, "zid") : null;
-    const upvotesIndex = upvotes ? _.indexBy(upvotes, "zid") : null;
 
     // Process each conversation
     data.forEach(function (conv: any) {
       // Set ownership flag
       conv.is_owner = uid !== undefined && conv.owner === uid;
 
-      const root = Config.getServerNameWithProtocol(req);
-
-      if (want_mod_url) {
-        conv.mod_url = createModerationUrl(req, conv.conversation_id);
-      }
-      if (want_inbox_item_admin_url) {
-        conv.inbox_item_admin_url = root + "/iim/" + conv.conversation_id;
-      }
-      if (want_inbox_item_participant_url) {
-        conv.inbox_item_participant_url = root + "/iip/" + conv.conversation_id;
-      }
-      if (want_inbox_item_admin_html) {
-        conv.inbox_item_admin_html =
-          "<a href='" +
-          root +
-          "/" +
-          conv.conversation_id +
-          "'>" +
-          (conv.topic || conv.created) +
-          "</a>" +
-          " <a href='" +
-          root +
-          "/m/" +
-          conv.conversation_id +
-          "'>moderate</a>";
-        conv.inbox_item_admin_html_escaped = conv.inbox_item_admin_html.replace(
-          /'/g,
-          "\\'"
-        );
-      }
-      if (want_inbox_item_participant_html) {
-        conv.inbox_item_participant_html =
-          "<a href='" +
-          root +
-          "/" +
-          conv.conversation_id +
-          "'>" +
-          (conv.topic || conv.created) +
-          "</a>";
-        conv.inbox_item_participant_html_escaped =
-          conv.inbox_item_participant_html.replace(/'/g, "\\'");
-      }
-
       if (suurlIndex) {
         conv.url = suurlIndex[conv.zid || ""].suurl;
       } else {
         conv.url = buildConversationUrl(req, conv.conversation_id);
-      }
-
-      if (upvotesIndex && upvotesIndex[conv.zid || ""]) {
-        conv.upvoted = true;
       }
 
       conv.created = Number(conv.created);
@@ -750,7 +664,6 @@ function handle_PUT_conversations(
       description: string;
       vis_type: any;
       help_type: any;
-      socialbtn_type: any;
       bgcolor: string;
       help_color: string;
       help_bgcolor: string;
@@ -817,9 +730,6 @@ function handle_PUT_conversations(
       }
       if (!_.isUndefined(req.p.help_type)) {
         fields.help_type = req.p.help_type;
-      }
-      if (!_.isUndefined(req.p.socialbtn_type)) {
-        fields.socialbtn_type = req.p.socialbtn_type;
       }
       if (!_.isUndefined(req.p.bgcolor)) {
         if (req.p.bgcolor === "default") {
@@ -954,41 +864,25 @@ function handle_GET_conversations(
   },
   res: any
 ) {
-  let courseIdPromise = Promise.resolve();
-  if (req.p.course_invite) {
-    courseIdPromise = pg
-      .queryP_readOnly(
-        "select course_id from courses where course_invite = ($1);",
-        [req.p.course_invite]
+  const lang = null; // for now just return the default
+  if (req.p.zid) {
+    getOneConversation(req.p.zid, req.p.uid, lang)
+      .then(
+        function (data: any) {
+          finishOne(res, data);
+        },
+        function (err: any) {
+          failJson(res, 500, "polis_err_get_conversations_2", err);
+        }
       )
-      .then(function (rows: { course_id: any }[]) {
-        return rows[0].course_id;
+      .catch(function (err: any) {
+        failJson(res, 500, "polis_err_get_conversations_1", err);
       });
+  } else if (req.p.uid || req.p.context) {
+    getConversations(req, res);
+  } else {
+    failJson(res, 403, "polis_err_need_auth");
   }
-  courseIdPromise.then(function (course_id: any) {
-    if (course_id) {
-      req.p.course_id = course_id;
-    }
-    const lang = null; // for now just return the default
-    if (req.p.zid) {
-      getOneConversation(req.p.zid, req.p.uid, lang)
-        .then(
-          function (data: any) {
-            finishOne(res, data);
-          },
-          function (err: any) {
-            failJson(res, 500, "polis_err_get_conversations_2", err);
-          }
-        )
-        .catch(function (err: any) {
-          failJson(res, 500, "polis_err_get_conversations_1", err);
-        });
-    } else if (req.p.uid || req.p.context) {
-      getConversations(req, res);
-    } else {
-      failJson(res, 403, "polis_err_need_auth");
-    }
-  });
 }
 
 function handle_POST_reserve_conversation_id(
