@@ -1,5 +1,5 @@
 # Use an official Node.js runtime as a parent image
-FROM node:lts-slim
+FROM node:24-slim
 
 # Install curl for health checks, openssl for certificate generation, and create certificate directory
 RUN apt-get update && apt-get install -y curl openssl && rm -rf /var/lib/apt/lists/* && \

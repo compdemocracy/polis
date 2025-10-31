@@ -28,7 +28,9 @@
   },
   "author": "",
   "license": "AGPL-3.0",
-  "engine": ">=22.11.0",
+  "engines": {
+    "node": ">=22 <25"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.55.1",
     "@anthropic-ai/tokenizer": "^0.0.4",

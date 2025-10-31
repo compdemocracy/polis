@@ -5,7 +5,7 @@
 
 ######################## POLIS CLIENT ADMIN ########################
 #FROM client-base AS client-admin # <- switch back to basing on client admin once we upgrade other clients
-FROM docker.io/node:lts-alpine AS client-admin
+FROM docker.io/node:24-alpine AS client-admin
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -35,7 +35,7 @@ RUN npm run build:prod
 
 
 ##################### POLIS CLIENT PARTICIPATION #####################
-FROM docker.io/node:lts-alpine AS client-participation
+FROM docker.io/node:24-alpine AS client-participation
 
 ARG EMBED_SERVICE_HOSTNAME
 ARG GA_TRACKING_ID
@@ -64,7 +64,7 @@ RUN npm run build:prod
 
 ######################## POLIS CLIENT REPORT ########################
 # FROM client-base AS client-report
-FROM docker.io/node:lts-alpine AS client-report
+FROM docker.io/node:24-alpine AS client-report
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV
@@ -106,7 +106,7 @@ RUN npm run build:prod
 
 
 ############################ FILE SERVER ############################
-FROM docker.io/node:lts-alpine
+FROM docker.io/node:24-alpine
 
 # Set default NODE_ENV to production unless overridden at build time with --build-arg NODE_ENV=development
 ARG NODE_ENV

@@ -20,11 +20,9 @@ for it to connect to.)
 
 ### Dependencies
 
-- PostgreSql `(~ 13.4)`
-- Node `>= 16`
-  We recommend installing [nvm](https://github.com/creationix/nvm) so that you can easily switch between your favorite
-  flavors of node.
-- NPM `>= 8`
+- PostgreSql `16`
+- Node `24` (via [mise](https://mise.jdx.dev))
+- NPM `>= 10`
 
 ### Setup
 
@@ -37,7 +35,7 @@ cp example.env .env
 and edit as needed. that for running in "dev mode" on a local machine, in order to avoid http ->
 https rerouting and other issues, you'll want to run with `DEV_MODE=true` (in .env or via CLI)
 
-2\. [Create a new database](https://www.postgresql.org/docs/13/sql-createdatabase.html). You can name it whatever you
+2\. [Create a new database](https://www.postgresql.org/docs/16/sql-createdatabase.html). You can name it whatever you
 please. For example, in a `psql` shell:
 
 ```psql
@@ -92,14 +90,10 @@ DATABASE_URL=postgres://your_pg_username:your_pg_password@localhost:5432/your_pg
 
 _Note that by default postgres tries to use port 5432 but can be set to something else._
 
-5\. Install or set Node version. For example, if using [nvm](https://github.com/nvm-sh/nvm)
+5\. Install or set Node version using mise
 
 ```sh
-# Install
-$ nvm install 20
-
-# Set correct node version.
-$ nvm use 20
+mise use node@24
 ```
 
 6\. Run the start-up script. This will install the dependencies, compile the typescript and start the server in
