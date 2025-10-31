@@ -765,8 +765,8 @@ def poll_and_process(processor, interval=10):
                     # Small/default instances ONLY process normal-sized jobs.
                     can_process = (job_actual_size == "normal")
 
-                if instance_type == "omnipotent":
-                    # Omnipotent instances can process any job size.
+                if instance_type == "dev":
+                    # Dev instances can process any job size.
                     can_process = True
 
                 if not can_process:
