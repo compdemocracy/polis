@@ -3,11 +3,12 @@
 Generate participation timeline visualizations for Polis conversations.
 
 Usage:
-    python participation_timeline.py <zinvite1> [zinvite2 ...]
+    python participation_timeline.py [--stats-only] <zinvite1> [zinvite2 ...]
 """
 
 import sys
 import os
+import argparse
 import psycopg2
 import pandas as pd
 import numpy as np
@@ -420,7 +421,7 @@ def print_statistics(sorted_matrix, participant_df, all_days):
     print(f"    Peak participation: {daily_participants.max()} people on {all_days[peak_day]}")
 
 
-def process_zinvite(conn, zinvite, output_dir):
+def process_zinvite(conn, zinvite, output_dir, stats_only=False):
     """Process a single zinvite."""
     print(f"\n{'='*60}")
     print(f"Processing zinvite: {zinvite}")
@@ -439,6 +440,26 @@ def process_zinvite(conn, zinvite, output_dir):
         # Load and process data
         print(f"  Loading votes...")
         votes_df = load_votes(conn, zid)
+
+        # Calculate duplicate statistics
+        total_votes = len(votes_df)
+        unique_pairs = votes_df[['pid', 'tid']].drop_duplicates()
+        n_unique_pairs = len(unique_pairs)
+        n_duplicate_pairs = total_votes - n_unique_pairs
+        duplicate_percentage = (n_duplicate_pairs / total_votes * 100) if total_votes > 0 else 0
+
+        n_participants = votes_df['pid'].nunique()
+        n_comments = votes_df['tid'].nunique()
+        matrix_size = n_participants * n_comments
+        sparseness_percentage = ((matrix_size - n_unique_pairs) / matrix_size * 100) if matrix_size > 0 else 0
+
+        print(f"  Duplicate (participant, comment) pairs: {n_duplicate_pairs} ({duplicate_percentage:.2f}% of total votes)")
+        print(f"  Vote matrix sparseness: {sparseness_percentage:.2f}% ({n_participants} participants × {n_comments} comments)")
+
+        # If stats-only mode, stop here
+        if stats_only:
+            print(f"\n  ✓ Statistics printed for {zinvite} (stats-only mode)")
+            return True
 
         print(f"  Computing participation matrix...")
         participation_matrix, participants, all_days, start_date = compute_participation_matrix(votes_df)
@@ -465,21 +486,26 @@ def process_zinvite(conn, zinvite, output_dir):
 
 def main():
     """Main entry point."""
-    if len(sys.argv) < 2:
-        print("Usage: python participation_timeline.py <zinvite1> [zinvite2 ...]")
-        print("\nExample:")
-        print("  python participation_timeline.py 3yjmwkrw4c 69hm3zfanb")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description='Generate participation timeline visualizations for Polis conversations.',
+        epilog='Example: python participation_timeline.py 3yjmwkrw4c 69hm3zfanb'
+    )
+    parser.add_argument('zinvites', nargs='+', help='One or more zinvite codes to process')
+    parser.add_argument('--stats-only', action='store_true',
+                        help='Only print statistics without generating visualizations')
 
-    zinvites = sys.argv[1:]
+    args = parser.parse_args()
 
     print(f"Participation Timeline Generator")
-    print(f"Processing {len(zinvites)} zinvite(s)")
+    print(f"Processing {len(args.zinvites)} zinvite(s)")
+    if args.stats_only:
+        print(f"Mode: Statistics only (no visualizations)")
 
-    # Create output directory
+    # Create output directory (only needed if not stats-only)
     output_dir = './timeline_output'
-    os.makedirs(output_dir, exist_ok=True)
-    print(f"Output directory: {output_dir}")
+    if not args.stats_only:
+        os.makedirs(output_dir, exist_ok=True)
+        print(f"Output directory: {output_dir}")
 
     # Connect to database
     print("\nConnecting to database...")
@@ -490,8 +516,8 @@ def main():
     successful = 0
     failed = 0
 
-    for zinvite in zinvites:
-        if process_zinvite(conn, zinvite, output_dir):
+    for zinvite in args.zinvites:
+        if process_zinvite(conn, zinvite, output_dir, stats_only=args.stats_only):
             successful += 1
         else:
             failed += 1
@@ -503,10 +529,11 @@ def main():
     print(f"\n{'='*60}")
     print(f"SUMMARY")
     print(f"{'='*60}")
-    print(f"  Total: {len(zinvites)}")
+    print(f"  Total: {len(args.zinvites)}")
     print(f"  Successful: {successful}")
     print(f"  Failed: {failed}")
-    print(f"  Output: {output_dir}/")
+    if not args.stats_only:
+        print(f"  Output: {output_dir}/")
     print()
 
 
