@@ -156,6 +156,19 @@ regenerate-jwt-keys: ## Regenerate JWT keys (overwrites existing)
 	@rm -f server/keys/jwt-private.pem server/keys/jwt-public.pem
 	@node server/scripts/generate-jwt-keys.js
 
+# Database refresh helpers
+refresh-db: echo_vars ## Stop stack, drop current DB volume (${POSTGRES_VOLUME}), and restart (re-inits from migrations or prodclone.dump)
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
+	@echo 'removing database volume ${POSTGRES_VOLUME} (polis_tag=${TAG})'
+	@-docker volume rm -f $(shell docker volume ls -q --filter "label=polis_tag=${TAG}" --filter "name=${POSTGRES_VOLUME}")
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG}
+
+refresh-prodclone: ## Force prodclone mode, drop prodclone volume, and restart from prodclone.dump
+	$(MAKE) USE_PRODCLONE=true refresh-db
+
+refresh-devdb: ## Force dev DB mode (migrations), drop postgres_data volume, and restart
+	$(MAKE) USE_PRODCLONE=false refresh-db
+
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
 
@@ -184,10 +197,14 @@ rbs: start-rebuild
 %:
 	@true
 
-.PHONY: help pull start stop rm-containers rm-volumes rm-images rm-ALL hash build-no-cache start-rebuild \
-	start-recreate start-FULL-REBUILD rebuild-web rebuild-server e2e-install e2e-run e2e-run-all \
-	e2e-run-interactive build-web-assets extract-web-assets generate-jwt-keys regenerate-jwt-keys \
-	psql-shell start-prodclone rebuild-delphi
+.PHONY: help start stop \
+	build-no-cache build-web-assets \
+	e2e-install e2e-run e2e-run-all e2e-run-interactive \
+	extract-web-assets generate-jwt-keys hash psql-shell pull \
+	rebuild-delphi rebuild-server rebuild-web 
+	refresh-db refresh-devdb refresh-prodclone regenerate-jwt-keys \
+	rm-ALL rm-containers rm-images rm-volumes \
+	start-FULL-REBUILD start-prodclone start-rebuild start-recreate
 
 
 help: ## Show this help message
