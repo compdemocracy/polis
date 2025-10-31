@@ -379,72 +379,76 @@ class NamedMatrix:
         
         if should_report:
             logger.info(f"[{time.time() - start_time:.2f}s] Found {len(existing_rows)} existing rows and {len(existing_cols)} existing columns")
-            logger.info(f"[{time.time() - start_time:.2f}s] First pass: identifying new rows/columns and processing values")
-        
-        # First pass: identify new rows/columns and process values
-        new_rows = set()
-        new_cols = set()
-        processed_updates = {}  # (row, col) -> processed_value
-        
-        for i, (row, col, value) in enumerate(updates):
-            # Progress reporting
-            if should_report and i > 0 and i % PROGRESS_INTERVAL == 0:
-                progress_pct = (i / total_updates) * 100
-                elapsed = time.time() - start_time
-                remaining = (elapsed / i) * (total_updates - i) if i > 0 else 0
-                logger.info(f"[{elapsed:.2f}s] Processed {i}/{total_updates} updates ({progress_pct:.1f}%) - Est. remaining: {remaining:.2f}s")
-            
-            # Track new rows and columns
-            if row not in existing_rows and row not in new_rows:
-                new_rows.add(row)
-            if col not in existing_cols and col not in new_cols:
-                new_cols.add(col)
-            
-            # Normalize value if requested
-            processed_value = value
-            if normalize_values:
-                processed_value = self._normalize_vote_value(value)
-                
-            # Store processed value
-            processed_updates[(row, col)] = processed_value
-        
+
+        # Vectorized batch processing of updates
+
+        # Step 1: Convert the list to a DataFrame with columns "row", "col", "value"
+        if should_report:
+            logger.info(f"[{time.time() - start_time:.2f}s] Converting updates to DataFrame...")
+
+        updates_df = pd.DataFrame(updates, columns=['row', 'col', 'value'])
+
+        # Step 2: Keep only the last update for each (row, col) pair
+        original_count = len(updates_df)
+        updates_df = updates_df.drop_duplicates(subset=['row', 'col'], keep='last')
+        unique_count = len(updates_df)
+        duplicates_removed = original_count - unique_count
+
+        if should_report:
+            logger.info(f"[{time.time() - start_time:.2f}s] Removed {duplicates_removed} duplicate updates "
+                       f"({duplicates_removed/original_count*100:.1f}%), kept {unique_count} unique updates")
+
+        # Step 3: Normalize values if requested using vectorized operations
+        if normalize_values:
+            if should_report:
+                logger.info(f"[{time.time() - start_time:.2f}s] Normalizing values...")
+
+            # Vectorized normalization: convert to numeric, then apply sign function
+            values = pd.to_numeric(updates_df['value'], errors='coerce')
+
+            # Apply normalization: positive -> 1.0, negative -> -1.0, zero/NaN -> 0.0
+            normalized = np.sign(values)
+            # Convert NaN from np.sign (which returns NaN for NaN input) to 0.0
+            normalized = normalized.fillna(0.0)
+
+            updates_df['value'] = normalized
+
+        # Step 4: Get new rows and columns by set difference
+        if should_report:
+            logger.info(f"[{time.time() - start_time:.2f}s] Identifying new rows and columns...")
+
+        all_update_rows = set(updates_df['row'].unique())
+        all_update_cols = set(updates_df['col'].unique())
+
+        new_rows = all_update_rows - existing_rows
+        new_cols = all_update_cols - existing_cols
+
         if should_report:
             logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
-            logger.info(f"[{time.time() - start_time:.2f}s] Creating new matrix with {len(existing_rows) + len(new_rows)} rows and {len(existing_cols) + len(new_cols)} columns")
-        
-        # Create complete row and column lists (existing + new)
+
+        # Step 5: Create complete row and column lists and reindex
         all_rows = sorted(list(existing_rows) + list(new_rows))
         all_cols = sorted(list(existing_cols) + list(new_cols))
-        
-        # Use vectorized operations if possible to copy faster
-        # Reindex will automatically align and copy values, filling missing with NaN
+
         if should_report:
-            logger.info(f"[{time.time() - start_time:.2f}s] Copying existing values...")
+            logger.info(f"[{time.time() - start_time:.2f}s] Creating new matrix with {len(all_rows)} rows and {len(all_cols)} columns")
+            logger.info(f"[{time.time() - start_time:.2f}s] Reindexing existing matrix...")
+
         matrix_copy = self._matrix.reindex(index=all_rows, columns=all_cols, fill_value=np.nan, copy=True)
-        
-        # Apply all updates at once
+
+        # Step 6: Apply all updates at once
         if should_report:
-            logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(processed_updates)} updates...")
-        
+            logger.info(f"[{time.time() - start_time:.2f}s] Applying {unique_count} updates...")
+
         update_start = time.time()
-        update_count = 0
-        
-        for (row, col), value in processed_updates.items():
-            matrix_copy.at[row, col] = value
-            update_count += 1
-            
-            # Report progress for large update sets
-            if should_report and update_count % PROGRESS_INTERVAL == 0:
-                progress_pct = (update_count / len(processed_updates)) * 100
-                elapsed = time.time() - update_start
-                estimated_total = (elapsed / update_count) * len(processed_updates)
-                remaining = estimated_total - elapsed
-                logger.info(f"[{time.time() - start_time:.2f}s] Applied {update_count}/{len(processed_updates)} updates ({progress_pct:.1f}%) - Est. remaining: {remaining:.2f}s")
-        
+
+        # Use .at for efficient individual cell updates
+        for idx, row_data in updates_df.iterrows():
+            matrix_copy.at[row_data['row'], row_data['col']] = row_data['value']
+
         if should_report:
             logger.info(f"[{time.time() - start_time:.2f}s] Updates applied in {time.time() - update_start:.2f}s")
-            logger.info(f"[{time.time() - start_time:.2f}s] Creating result NamedMatrix...")
-        
+
         # Create a new NamedMatrix with the updated data
         result = NamedMatrix.__new__(NamedMatrix)
         result._matrix = matrix_copy
@@ -598,6 +602,15 @@ class NamedMatrix:
         """
         return (f"NamedMatrix with {len(self.rownames())} rows and "
                 f"{len(self.colnames())} columns\n{self._matrix}")
+
+    def memory_usage_mb(self) -> float:
+        """
+        Estimate the memory usage of the matrix in megabytes.
+        
+        Returns:
+            Estimated memory usage in MB
+        """
+        return self._matrix.memory_usage(deep=True).sum() / (1024 * 1024)
 
 
 # Utility functions

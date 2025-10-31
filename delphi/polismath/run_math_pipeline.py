@@ -193,6 +193,36 @@ def fetch_moderation(conn, conversation_id):
         'mod_out_ptpts': mod_out_ptpts
     }
 
+import sys
+
+def memory_usage_mb(obj, seen=None):
+    return memory_usage(obj) / (1024 * 1024)
+
+def memory_usage(obj, seen=None):
+    """Recursively calculate size of objects"""
+    size = sys.getsizeof(obj)
+    if seen is None:
+        seen = set()
+    
+    obj_id = id(obj)
+    if obj_id in seen:
+        return 0
+    
+    # Mark as seen to avoid counting duplicates
+    seen.add(obj_id)
+    
+    # Handle different types
+    if isinstance(obj, dict):
+        size += sum([memory_usage(v, seen) for v in obj.values()])
+        size += sum([memory_usage(k, seen) for k in obj.keys()])
+    elif hasattr(obj, '__dict__'):
+        size += memory_usage(obj.__dict__, seen)
+    elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
+        size += sum([memory_usage(i, seen) for i in obj])
+    
+    return size
+
+
 def main():
     parser = argparse.ArgumentParser(description='Run math pipeline for a Polis conversation')
     parser.add_argument('--zid', type=int, required=True, help='Conversation ID to process')
@@ -277,6 +307,7 @@ def main():
             
             transform_time = time.time()
             logger.info(f"[{time.time() - start_time:.2f}s] Data transformation completed in {transform_time - db_fetch_time:.2f}s")
+            logger.info(f"[{time.time() - start_time:.2f}s] Size of votes list of dict: {memory_usage_mb(votes_list):.2f} MB")
             
             batch_votes = {'votes': votes_list}
             update_start = time.time()
@@ -285,7 +316,9 @@ def main():
             
             logger.info(f"[{time.time() - start_time:.2f}s] Vote update completed in {update_end - update_start:.2f}s")
             logger.info(f"[{time.time() - start_time:.2f}s] Total batch processing time: {time.time() - batch_start_time:.2f}s")
+            logger.info(f"[{time.time() - start_time:.2f}s] Memory used by the matrix of votes so far: {conv.raw_rating_mat.memory_usage_mb():.2f} MB")
 
+        
         logger.info(f"[{time.time() - start_time:.2f}s] Running final computation with detailed timing...")
         
         # PCA computation

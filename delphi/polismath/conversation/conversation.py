@@ -122,8 +122,9 @@ class Conversation:
         null_count = 0
         
         # Progress tracking
-        progress_interval = 10000  # Report every N votes
+        progress_interval = 200000  # Report every N votes
         
+        # TODO: we could probably vectorize this further for speed...
         for i, vote in enumerate(vote_data):
             # Report progress for large datasets
             if i > 0 and i % progress_interval == 0:
