@@ -1,6 +1,6 @@
 import pg from "./db/pg-query";
 import { getZinvite } from "./utils/zinvite";
-import { getXids } from "./routes/math";
+import { getXids } from "./routes/xids";
 import { getPca } from "./utils/pca";
 import { failJson } from "./utils/fail";
 import logger from "./utils/logger";

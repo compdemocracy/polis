@@ -271,7 +271,18 @@ export async function getConversations(req: { p: ConversationType }, res: any) {
  * Admin-only: Get all conversations (paginated)
  */
 async function handle_GET_all_conversations(
-  req: { p: ConversationType },
+  req: {
+    p: ConversationType & {
+      sort_by?: string;
+      sort_dir?: string;
+      owner_email?: string;
+      is_active?: boolean;
+      recently_updated_days?: number;
+      recently_created_days?: number;
+      min_comment_count?: number;
+      min_participant_count?: number;
+    };
+  },
   res: any
 ) {
   try {
@@ -286,18 +297,119 @@ async function handle_GET_all_conversations(
       { defaultLimit: 50, maxLimit: 500 }
     );
 
-    // Total count
-    const totalRows = (await pg.queryP_readOnly(
-      "select count(*) from conversations;",
-      []
-    )) as Array<{ count: string }>;
-    const total = Number(totalRows?.[0]?.count || 0);
+    // Build dynamic WHERE clauses and ORDER BY for filters/sorting
+    const where: string[] = [];
+    const params: any[] = [];
 
-    // Page of conversations
-    const rows = (await pg.queryP_readOnly(
-      `select * from conversations order by created desc ${pagination.sql};`,
-      pagination.params
-    )) as any[];
+    if (!_.isUndefined(req.p.is_active)) {
+      params.push(req.p.is_active);
+      where.push(`c.is_active = ($${params.length})`);
+    }
+
+    if (!_.isUndefined(req.p.owner_email) && req.p.owner_email) {
+      params.push(`%${req.p.owner_email}%`);
+      where.push(`u.email ILIKE ($${params.length})`);
+    }
+
+    const nowMs = Date.now();
+    if (!_.isUndefined(req.p.recently_updated_days)) {
+      const ms = nowMs - Number(req.p.recently_updated_days) * 24 * 60 * 60 * 1000;
+      params.push(ms);
+      where.push(`c.modified >= ($${params.length})`);
+    }
+    if (!_.isUndefined(req.p.recently_created_days)) {
+      const ms = nowMs - Number(req.p.recently_created_days) * 24 * 60 * 60 * 1000;
+      params.push(ms);
+      where.push(`c.created >= ($${params.length})`);
+    }
+
+    // Filter on aggregated counts (these need to be in WHERE clause after joins)
+    if (!_.isUndefined(req.p.min_comment_count)) {
+      params.push(Number(req.p.min_comment_count));
+      where.push(`COALESCE(cc.comment_count, 0) >= ($${params.length})`);
+    }
+    if (!_.isUndefined(req.p.min_participant_count)) {
+      params.push(Number(req.p.min_participant_count));
+      where.push(`COALESCE(pc.participant_count, 0) >= ($${params.length})`);
+    }
+
+    // Combine all WHERE conditions into a single WHERE clause
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const sortByRaw = (req.p.sort_by || "created").toLowerCase();
+    const sortDirRaw = (req.p.sort_dir || "desc").toLowerCase();
+    const sortDir = sortDirRaw === "asc" ? "asc" : "desc";
+    let sortBy;
+    switch (sortByRaw) {
+      case "updated":
+      case "modified":
+        sortBy = "c.modified";
+        break;
+      case "participant_count":
+        sortBy = "pc.participant_count";
+        break;
+      case "comment_count":
+        sortBy = "cc.comment_count";
+        break;
+      case "created":
+      default:
+        sortBy = "c.created";
+        break;
+    }
+
+    // Build query with pagination params appended at end
+    const pageParamsStartIndex = params.length + 1;
+    const paginationSql = `LIMIT ($${pageParamsStartIndex})::bigint OFFSET ($${pageParamsStartIndex + 1})::bigint`;
+
+    const sql = `
+      SELECT 
+        c.*, 
+        COALESCE(pc.participant_count, 0) AS participant_count,
+        COALESCE(cc.comment_count, 0) AS comment_count,
+        u.email AS owner_email
+      FROM conversations c
+      LEFT JOIN (
+        SELECT zid, COUNT(DISTINCT pid) AS participant_count
+        FROM participants
+        GROUP BY zid
+      ) pc ON pc.zid = c.zid
+      LEFT JOIN (
+        SELECT zid, COUNT(*) AS comment_count
+        FROM comments
+        WHERE is_meta = FALSE
+        GROUP BY zid
+      ) cc ON cc.zid = c.zid
+      LEFT JOIN users u ON u.uid = c.owner
+      ${whereSql}
+      ORDER BY ${sortBy} ${sortDir}
+      ${paginationSql};
+    `;
+
+    const rows = (await pg.queryP_readOnly(sql, [...params, ...pagination.params])) as any[];
+
+    // Compute filtered total count using same filters
+    const totalSql = `
+      SELECT COUNT(*) AS count
+      FROM (
+        SELECT c.zid
+        FROM conversations c
+        LEFT JOIN (
+          SELECT zid, COUNT(DISTINCT pid) AS participant_count
+          FROM participants
+          GROUP BY zid
+        ) pc ON pc.zid = c.zid
+        LEFT JOIN (
+          SELECT zid, COUNT(*) AS comment_count
+          FROM comments
+          WHERE is_meta = FALSE
+          GROUP BY zid
+        ) cc ON cc.zid = c.zid
+        LEFT JOIN users u ON u.uid = c.owner
+        ${whereSql}
+      ) t;
+    `;
+    const totalRows = (await pg.queryP_readOnly(totalSql, params)) as Array<{ count: string }>;
+    const total = Number(totalRows?.[0]?.count || 0);
 
     // Process like normal conversation listing (no site-admin map for global list)
     const data = await processConversationData(rows, req, {});

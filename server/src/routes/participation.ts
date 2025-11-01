@@ -6,7 +6,7 @@ import { getNextComment } from "../nextComment";
 import { getPca } from "../utils/pca";
 import { getPid, getUser } from "../user";
 import { getVotesForSingleParticipant } from "./votes";
-import { getXids } from "./math";
+import { getXids } from "./xids";
 import { isConversationOwner, isOwner } from "../utils/common";
 import { MPromise } from "../utils/metered";
 import { sql_participants_extended } from "../db/sql";

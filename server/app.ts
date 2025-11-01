@@ -115,10 +115,9 @@ import {
   handle_POST_math_update,
   handle_GET_math_correlationMatrix,
   handle_GET_bidToPid,
-  handle_GET_xids,
-  handle_POST_xidWhitelist,
   handle_GET_bid,
 } from "./src/routes/math";
+import { handle_GET_xids, handle_POST_xidWhitelist } from "./src/routes/xids";
 import {
   handle_GET_participants,
   handle_GET_participation,
@@ -1465,6 +1464,14 @@ helpersInitialized.then(
       hybridAuth(assignToP),
       want("limit", getIntInRange(1, 9999), assignToP),
       want("offset", getIntInRange(0, 99999999), assignToP),
+      want("sort_by", getStringLimitLength(1, 50), assignToP),
+      want("sort_dir", getStringLimitLength(1, 4), assignToP),
+      want("owner_email", getOptionalStringLimitLength(999), assignToP),
+      want("is_active", getBool, assignToP),
+      want("recently_updated_days", getIntInRange(0, 36500), assignToP),
+      want("recently_created_days", getIntInRange(0, 36500), assignToP),
+      want("min_comment_count", getIntInRange(0, 100000000), assignToP),
+      want("min_participant_count", getIntInRange(0, 100000000), assignToP),
       handle_GET_all_conversations
     );
 

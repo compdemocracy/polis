@@ -11,7 +11,7 @@ import {
 import pg from "../../src/db/pg-query";
 import { getZinvite } from "../../src/utils/zinvite";
 import { getPca } from "../../src/utils/pca";
-import { getXids } from "../../src/routes/math";
+import { getXids } from "../../src/routes/xids";
 import { jest } from "@jest/globals";
 import logger from "../../src/utils/logger";
 import { failJson } from "../../src/utils/fail";
