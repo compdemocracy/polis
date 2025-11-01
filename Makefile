@@ -158,9 +158,13 @@ regenerate-jwt-keys: ## Regenerate JWT keys (overwrites existing)
 
 # Database refresh helpers
 refresh-db: echo_vars ## Stop stack, drop current DB volume (${POSTGRES_VOLUME}), and restart (re-inits from migrations or prodclone.dump)
-	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} down --remove-orphans
+	@echo 'removing any containers still referencing volume ${POSTGRES_VOLUME}'
+	@-docker rm -f $$(docker ps -aq --filter "volume=${COMPOSE_PROJECT_NAME}_${POSTGRES_VOLUME}") >/dev/null 2>&1 || true
 	@echo 'removing database volume ${POSTGRES_VOLUME} (polis_tag=${TAG})'
 	@-docker volume rm -f $(shell docker volume ls -q --filter "label=polis_tag=${TAG}" --filter "name=${POSTGRES_VOLUME}")
+	@echo 'rebuilding postgres image using Dockerfile-${DB_INIT_MODE} (USE_PRODCLONE=${USE_PRODCLONE})'
+	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} build --no-cache postgres
 	docker compose ${COMPOSE_FILE_ARGS} --env-file ${ENV_FILE} up ${DETACH_ARG}
 
 refresh-prodclone: ## Force prodclone mode, drop prodclone volume, and restart from prodclone.dump
