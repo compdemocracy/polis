@@ -100,9 +100,10 @@ def _fetch_and_delete_items(dynamodb, table_name, key_config, operation_type, op
     try:
         # Track timing for the operation
         start_time = time.time()
+
         operation_name = 'Query' if operation_type == 'query' else 'Scan'
 
-        logger.info(f"[{time.time() - start_time:.2f}s] Starting {operation_name.lower()} for {table_name}...")
+        logger.info(f"Starting {operation_name.lower()} for {table_name}...")
 
         table = dynamodb.Table(table_name)
 
@@ -112,15 +113,17 @@ def _fetch_and_delete_items(dynamodb, table_name, key_config, operation_type, op
         # Start fetching items
         fetch_start = time.time()
         items = []
-        response = operation(**operation_kwargs)
+        # Shallow copy to avoid mutating the original during pagination
+        local_operation_kwargs = operation_kwargs.copy()
+        response = operation(**local_operation_kwargs)
         items.extend(response.get('Items', []))
 
         # Track pagination
         page_count = 1
 
         while 'LastEvaluatedKey' in response:
-            operation_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
-            response = operation(**operation_kwargs)
+            local_operation_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
+            response = operation(**local_operation_kwargs)
             items.extend(response.get('Items', []))
             page_count += 1
 
