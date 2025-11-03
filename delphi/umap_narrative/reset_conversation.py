@@ -8,6 +8,7 @@ and live AWS environments.
 import os
 import argparse
 import logging
+import time
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 
@@ -96,8 +97,6 @@ def _fetch_and_delete_items(dynamodb, table_name, key_config, operation_type, op
     Returns:
         Number of items deleted
     """
-    import time
-
     try:
         # Track timing for the operation
         start_time = time.time()
