@@ -181,7 +181,7 @@ class NamedMatrix:
         
         Args:
             v: The value to normalize
-            convert_na_to_0: Whether to keep NaN values as NaN or convert them to 0.0. Default False.
+            convert_na_to_0: Whether to keep NaN values as NaN or convert them to 0.0. Default True.
         """
         # Process value into normalized form
         if v is None:
@@ -293,7 +293,7 @@ class NamedMatrix:
             row: Row name
             col: Column name
             value: New value
-            normalize_value: Whether to normalize the value (clamp to -1.0, 0.0, 1.0). Default False.
+            normalize_value: Whether to normalize the value (convert positive values to 1.0, negative values to -1.0, and zero/NaN to 0.0). Default False.
 
         Note: Unlike batch_update, this method does *NOT* normalize values by default.
             
@@ -301,7 +301,7 @@ class NamedMatrix:
             A new NamedMatrix with the updated value
         """
         # Convert value to numeric if needed
-        #  like in batch update mode, we clamp at -1, 0, 1 for vote values
+        # Like in batch update mode, we normalize to -1, 0, 1 for vote values
         if value is not None:
             try:
                 # Try to convert to float
@@ -355,7 +355,7 @@ class NamedMatrix:
         
         Args:
             updates: List of (row, col, val) tuples
-            normalize_values: Whether to normalize the values (clamp to -1.0, 0.0, 1.0). Default True.
+            normalize_values: Whether to normalize the values (convert positive values to 1.0, negative values to -1.0, and zero/NaN to 0.0). Default True.
 
         Note: unlike the single update method, this method *DOES* normalize values by default.
             

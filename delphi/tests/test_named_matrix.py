@@ -336,7 +336,7 @@ class TestNamedMatrix:
             idx_original_name = final_rownames.index(original_name)
             new_name = f"row_{i:04d}_new"
             idx_new_name = final_rownames.index(new_name)
-            assert idx_original_name == idx_new_name + 1, f"row {original_name} is as idx {idx_original_name} but should be before {new_name} at idx {idx_new_name}"
+            assert idx_original_name == idx_new_name + 1, f"row {original_name} is at idx {idx_original_name} but should be before {new_name} at idx {idx_new_name}"
 
         lower_unchanged_col = "col_0019_original"
         assert final_colnames.index(lower_unchanged_col) == A.colnames().index(lower_unchanged_col) , "wrong index for lower unchanged column"
@@ -345,7 +345,7 @@ class TestNamedMatrix:
             idx_original_name = final_colnames.index(original_name)
             new_name = f"col_{i:04d}_new"
             idx_new_name = final_colnames.index(new_name)
-            assert idx_original_name == idx_new_name + 1, f"col {original_name} is as idx {idx_original_name} but should be before {new_name} at idx {idx_new_name}"
+            assert idx_original_name == idx_new_name + 1, f"col {original_name} is at idx {idx_original_name} but should be before {new_name} at idx {idx_new_name}"
 
         # Test 4: Existing rows at new columns are NaN
         for row in rownames:
