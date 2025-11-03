@@ -117,7 +117,7 @@ def _fetch_and_delete_items(dynamodb, table_name, key_config, operation_type, op
         items.extend(response.get('Items', []))
 
         # Track pagination
-        page_count = 0
+        page_count = 1
 
         while 'LastEvaluatedKey' in response:
             operation_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
