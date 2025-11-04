@@ -187,7 +187,7 @@ class NamedMatrix:
         if v is None:
             return np.nan
         
-        if not convert_na_to_0 and pd.isna(v):
+        if pd.isna(v) and not convert_na_to_0:
             return np.nan 
 
         try:
@@ -293,26 +293,42 @@ class NamedMatrix:
             row: Row name
             col: Column name
             value: New value
-            normalize_value: Whether to normalize the value (convert positive values to 1.0, negative values to -1.0, and zero/NaN to 0.0). Default False.
+            normalize_value: Whether to normalize the value (convert positive values to 1.0, negative values to -1.0, and zero to 0.0). Default False.
 
         Note: Unlike batch_update, this method does *NOT* normalize values by default.
+
+        Using the legacy behaviour here:
+            update with strings:
+                normalize_value = True ->  NaN
+                normalize_value = False (default) ->  NaN
+
+            update with NaN:
+                normalize_values = True ->  0.0
+                normalize_values = False (default) ->  NaN
+
             
         Returns:
             A new NamedMatrix with the updated value
         """
         # Convert value to numeric if needed
         # Like in batch update mode, we normalize to -1, 0, 1 for vote values
+        if pd.isna(value):
+            if normalize_value:
+                value = 0.0
+
+        if type(value) == str:
+            value = np.nan
+
         if value is not None:
             try:
                 # Try to convert to float
                 numeric_value = float(value)
                 value = numeric_value
+                if normalize_value:
+                    value = self._normalize_vote_value(value, convert_na_to_0=False)
             except (ValueError, TypeError):
                 # If conversion fails, use NaN
                 value = np.nan
-
-        if normalize_value:
-            value = self._normalize_vote_value(value, convert_na_to_0=True)
         
         # Make a copy of the current matrix
         new_matrix = self._matrix.copy()
@@ -358,6 +374,16 @@ class NamedMatrix:
             normalize_values: Whether to normalize the values (convert positive values to 1.0, negative values to -1.0, and zero/NaN to 0.0). Default True.
 
         Note: unlike the single update method, this method *DOES* normalize values by default.
+        
+        Using legacy behaviour:
+         
+            batch_update  with strings:
+                normalize_values = True (default) -> NaN
+                normalize_values = False -> NaN
+
+            batch_update with NaN:
+                normalize_values = True (default) -> return 0.0 (as per legacy behavior)
+                normalize_values = False -> NaN
             
         Returns:
             Updated NamedMatrix with all changes applied at once
@@ -394,6 +420,10 @@ class NamedMatrix:
         unique_count = len(updates_df)
         duplicates_removed = original_count - unique_count
 
+        # Spot all strings in updates_df by 0.0
+        are_strings = updates_df['value'].apply(lambda v: isinstance(v, str))
+        updates_df.loc[are_strings,'value'] = np.nan
+
         if should_report:
             logger.info(f"[{time.time() - start_time:.2f}s] Removed {duplicates_removed} duplicate updates "
                        f"({duplicates_removed/original_count*100:.1f}%), kept {unique_count} unique updates")
@@ -403,15 +433,19 @@ class NamedMatrix:
             if should_report:
                 logger.info(f"[{time.time() - start_time:.2f}s] Normalizing values...")
 
+
             # Vectorized normalization: convert to numeric, then apply sign function
             values = pd.to_numeric(updates_df['value'], errors='coerce')
 
             # Apply normalization: positive -> 1.0, negative -> -1.0, zero -> 0.0, nan -> nan
             normalized = np.sign(values)
-            # Convert NaN from np.sign (which returns NaN for NaN input) to 0.0
-            normalized = normalized.fillna(0.0)
+            normalized.fillna(0.0, inplace=True)  # Convert NaN to 0.0 as per legacy behavior
 
             updates_df['value'] = normalized
+
+
+        # Revert all strings to NaN
+        updates_df.loc[are_strings,'value'] = np.nan
 
         # Step 4: Get new rows and columns by set difference
         if should_report:
