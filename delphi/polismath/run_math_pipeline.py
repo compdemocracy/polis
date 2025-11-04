@@ -213,12 +213,12 @@ def memory_usage(obj, seen=None):
     
     # Handle different types
     if isinstance(obj, dict):
-        size += sum([memory_usage(v, seen) for v in obj.values()])
-        size += sum([memory_usage(k, seen) for k in obj.keys()])
+        size += sum(memory_usage(v, seen) for v in obj.values())
+        size += sum(memory_usage(k, seen) for k in obj.keys())
     elif hasattr(obj, '__dict__'):
         size += memory_usage(obj.__dict__, seen)
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
-        size += sum([memory_usage(i, seen) for i in obj])
+        size += sum(memory_usage(i, seen) for i in obj)
     
     return size
 
