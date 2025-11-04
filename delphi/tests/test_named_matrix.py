@@ -455,3 +455,76 @@ class TestCreateNamedMatrix:
         assert nmat.rownames() == rownames
         assert nmat.colnames() == colnames
         assert np.array_equal(nmat.values, data)
+
+
+class TestNaNHandling:
+    """Tests for NaN handling in NamedMatrix update methods."""
+
+    def test_batch_update_converts_nan_to_zero_with_normalization(self):
+        """
+        Test that batch_update converts NaN values to 0.0 when normalize_values=True (default).
+
+        1. Creates a NamedMatrix
+        2. Prepares an update with a np.nan in the update
+        3. Calls batch_update on the matrix with that update
+        4. Checks that the NaN is now 0.0
+        """
+        # Step 1: Create a NamedMatrix
+        matrix = NamedMatrix(
+            matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
+            rownames=['row1', 'row2'],
+            colnames=['col1', 'col2']
+        )
+
+        # Step 2: Prepare an update with a np.nan in the update
+        updates = [
+            ('row1', 'col1', np.nan),  # Update existing cell with NaN
+            ('row2', 'col2', np.nan),  # Update another existing cell with NaN
+            ('row3', 'col3', np.nan),  # Add new cell with NaN
+        ]
+
+        # Step 3: Call batch_update on the matrix with that update (normalize_values=True is default)
+        updated_matrix = matrix.batch_update(updates, normalize_values=True)
+
+        # Step 4: Check that the NaN is now 0.0
+        assert updated_matrix.matrix.loc['row1', 'col1'] == 0.0, \
+            f"Expected 0.0 for row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
+        assert updated_matrix.matrix.loc['row2', 'col2'] == 0.0, \
+            f"Expected 0.0 for row2,col2 but got {updated_matrix.matrix.loc['row2', 'col2']}"
+        assert updated_matrix.matrix.loc['row3', 'col3'] == 0.0, \
+            f"Expected 0.0 for new cell row3,col3 but got {updated_matrix.matrix.loc['row3', 'col3']}"
+
+        # Verify no NaN values remain in updated cells
+        assert not np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
+            "NaN found in row1,col1 when it should be 0.0"
+        assert not np.isnan(updated_matrix.matrix.loc['row2', 'col2']), \
+            "NaN found in row2,col2 when it should be 0.0"
+        assert not np.isnan(updated_matrix.matrix.loc['row3', 'col3']), \
+            "NaN found in row3,col3 when it should be 0.0"
+
+    def test_update_preserves_nan_without_normalization(self):
+        """
+        Test that update() (not batch) keeps NaN values as NaN when normalize_value=False (default).
+
+        1. Creates a NamedMatrix
+        2. Uses update() with np.nan
+        3. Checks that the NaN is still nan
+        """
+        # Step 1: Create a NamedMatrix
+        matrix = NamedMatrix(
+            matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
+            rownames=['row1', 'row2'],
+            colnames=['col1', 'col2']
+        )
+
+        # Step 2: Use update() with np.nan (normalize_value=False is the default for update())
+        updated_matrix = matrix.update('row1', 'col1', np.nan, normalize_value=False)
+
+        # Step 3: Check that the NaN is still NaN
+        assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
+            f"Expected NaN for row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
+
+        # Also test adding a new cell with NaN
+        updated_matrix2 = matrix.update('row3', 'col3', np.nan, normalize_value=False)
+        assert np.isnan(updated_matrix2.matrix.loc['row3', 'col3']), \
+            f"Expected NaN for new cell row3,col3 but got {updated_matrix2.matrix.loc['row3', 'col3']}"

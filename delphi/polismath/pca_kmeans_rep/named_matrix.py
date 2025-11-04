@@ -181,7 +181,7 @@ class NamedMatrix:
         
         Args:
             v: The value to normalize
-            convert_na_to_0: Whether to keep NaN values as NaN or convert them to 0.0. Default True.
+            convert_na_to_0: Whether to keep NaN values as NaN (and NA converts to NaN), or convert them to 0.0. Default True.
         """
         # Process value into normalized form
         if v is None:
@@ -197,7 +197,7 @@ class NamedMatrix:
             elif numeric_value < 0:
                 return -1.0
             else:
-                # Note: np.nan is captured here
+                # Note: np.nan is captured here if it has not been captured in (not convert_na_to_0)
                 return 0.0
         except (ValueError, TypeError):
             return np.nan
@@ -406,7 +406,7 @@ class NamedMatrix:
             # Vectorized normalization: convert to numeric, then apply sign function
             values = pd.to_numeric(updates_df['value'], errors='coerce')
 
-            # Apply normalization: positive -> 1.0, negative -> -1.0, zero/NaN -> 0.0
+            # Apply normalization: positive -> 1.0, negative -> -1.0, zero -> 0.0, nan -> nan
             normalized = np.sign(values)
             # Convert NaN from np.sign (which returns NaN for NaN input) to 0.0
             normalized = normalized.fillna(0.0)
