@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "delphi-polis"
 version = "0.1.0"
 description = "Mathematical analytics pipeline for Polis conversations"
-requires-python = ">=3.10"
+requires-python = ">=3.12,<3.13" # Pin to Python 3.12.x
 
 dependencies = [
     "numpy>=1.26.4,<2.0",

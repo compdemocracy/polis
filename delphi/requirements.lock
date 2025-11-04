@@ -40,7 +40,6 @@ click==8.3.0
     # via
     #   dask
     #   distributed
-    #   typer-slim
     #   uvicorn
 cloudpickle==3.1.2
     # via
@@ -121,7 +120,7 @@ idna==3.11
     #   anyio
     #   httpx
     #   requests
-imageio==2.37.0
+imageio==2.37.2
     # via scikit-image
 importlib-metadata==8.7.0
     # via opentelemetry-api
@@ -181,7 +180,7 @@ msgpack==1.1.2
     # via distributed
 multipledispatch==1.0.0
     # via datashader
-narwhals==2.10.1
+narwhals==2.10.2
     # via
     #   bokeh
     #   plotly
@@ -428,7 +427,6 @@ typing-extensions==4.15.0
     #   sentence-transformers
     #   sqlalchemy
     #   torch
-    #   typer-slim
     #   typing-inspection
 typing-inspection==0.4.2
     # via pydantic
