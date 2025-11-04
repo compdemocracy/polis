@@ -837,6 +837,7 @@ function handle_PUT_conversations(
       send_created_email: any;
       conversation_id: string;
       context: any;
+      use_xid_whitelist?: any;
     };
   },
   res: any
@@ -936,6 +937,14 @@ function handle_PUT_conversations(
       }
 
       ifDefinedSet("subscribe_type", req.p, fields);
+
+      if (!_.isUndefined((req.p as any).xid_required)) {
+        (fields as any).xid_required = !!(req.p as any).xid_required;
+      }
+
+      if (!_.isUndefined(req.p.use_xid_whitelist)) {
+        fields.use_xid_whitelist = !!req.p.use_xid_whitelist;
+      }
 
       const q = sql_conversations
         .update(fields)

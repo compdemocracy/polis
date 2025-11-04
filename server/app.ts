@@ -420,6 +420,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
+      want("limit", getInt, assignToP),
+      want("offset", getInt, assignToP),
       handle_GET_xids
     );
 
@@ -1321,11 +1323,14 @@ helpersInitialized.then(
       want("auth_needed_to_write", getBool, assignToP),
       want("auth_opt_allow_3rdparty", getBool, assignToP),
       want("verifyMeta", getBool, assignToP),
-      want("send_created_email", getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
+      // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
+      want("send_created_email", getBool, assignToP),
       want("context", getOptionalStringLimitLength(999), assignToP),
       want("link_url", getStringLimitLength(1, 9999), assignToP),
       want("subscribe_type", getInt, assignToP),
       want("treevite_enabled", getBool, assignToP, false),
+      want("use_xid_whitelist", getBool, assignToP),
+      want("xid_required", getBool, assignToP),
       handle_PUT_conversations
     );
 

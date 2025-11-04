@@ -232,6 +232,8 @@ export type ConversationType = {
   owner_sees_participation_stats?: boolean;
   link_url?: string;
   zid?: number;
+  use_xid_whitelist?: boolean;
+  xid_required?: boolean;
   uid?: number;
   context?: string;
   xid?: string;
