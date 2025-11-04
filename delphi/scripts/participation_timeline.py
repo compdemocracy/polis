@@ -453,7 +453,7 @@ def process_zinvite(conn, zinvite, output_dir, stats_only=False):
         matrix_size = n_participants * n_comments
         sparseness_percentage = ((matrix_size - n_unique_pairs) / matrix_size * 100) if matrix_size > 0 else 0
 
-        print(f"  Duplicate (participant, comment) pairs: {n_duplicate_pairs} ({duplicate_percentage:.2f}% of total votes)")
+        print(f"  Duplicated (participant, comment) pairs: {n_duplicate_pairs} ({duplicate_percentage:.2f}% of total votes)")
         print(f"  Vote matrix sparseness: {sparseness_percentage:.2f}% ({n_participants} participants × {n_comments} comments)")
 
         # If stats-only mode, stop here
