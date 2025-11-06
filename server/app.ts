@@ -117,7 +117,11 @@ import {
   handle_GET_bidToPid,
   handle_GET_bid,
 } from "./src/routes/math";
-import { handle_GET_xids, handle_POST_xidWhitelist } from "./src/routes/xids";
+import {
+  handle_GET_xids,
+  handle_GET_xidAllowList,
+  handle_POST_xidAllowList,
+} from "./src/routes/xids";
 import {
   handle_GET_participants,
   handle_GET_participation,
@@ -411,20 +415,6 @@ helpersInitialized.then(
       handle_GET_xidReport
     );
 
-    app.get(
-      "/api/v3/xids",
-      moveToBody,
-      hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      want("limit", getInt, assignToP),
-      want("offset", getInt, assignToP),
-      handle_GET_xids
-    );
-
     // TODO cache
     app.get(
       "/api/v3/bid",
@@ -623,11 +613,44 @@ helpersInitialized.then(
       handle_POST_domainWhitelist
     );
 
-    app.post(
-      "/api/v3/xidWhitelist",
+    app.get(
+      "/api/v3/xids",
+      moveToBody,
       hybridAuth(assignToP),
-      need("xid_whitelist", getArrayOfStringNonEmpty, assignToP),
-      handle_POST_xidWhitelist
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("limit", getInt, assignToP),
+      want("offset", getInt, assignToP),
+      handle_GET_xids
+    );
+
+    app.get(
+      "/api/v3/xidAllowList",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("limit", getInt, assignToP),
+      want("offset", getInt, assignToP),
+      handle_GET_xidAllowList
+    );
+
+    app.post(
+      "/api/v3/xidAllowList",
+      hybridAuth(assignToP),
+      need("xid_allow_list", getArrayOfStringNonEmpty, assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_POST_xidAllowList
     );
 
     app.get(

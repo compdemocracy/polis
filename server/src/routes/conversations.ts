@@ -313,12 +313,14 @@ async function handle_GET_all_conversations(
 
     const nowMs = Date.now();
     if (!_.isUndefined(req.p.recently_updated_days)) {
-      const ms = nowMs - Number(req.p.recently_updated_days) * 24 * 60 * 60 * 1000;
+      const ms =
+        nowMs - Number(req.p.recently_updated_days) * 24 * 60 * 60 * 1000;
       params.push(ms);
       where.push(`c.modified >= ($${params.length})`);
     }
     if (!_.isUndefined(req.p.recently_created_days)) {
-      const ms = nowMs - Number(req.p.recently_created_days) * 24 * 60 * 60 * 1000;
+      const ms =
+        nowMs - Number(req.p.recently_created_days) * 24 * 60 * 60 * 1000;
       params.push(ms);
       where.push(`c.created >= ($${params.length})`);
     }
@@ -359,7 +361,9 @@ async function handle_GET_all_conversations(
 
     // Build query with pagination params appended at end
     const pageParamsStartIndex = params.length + 1;
-    const paginationSql = `LIMIT ($${pageParamsStartIndex})::bigint OFFSET ($${pageParamsStartIndex + 1})::bigint`;
+    const paginationSql = `LIMIT ($${pageParamsStartIndex})::bigint OFFSET ($${
+      pageParamsStartIndex + 1
+    })::bigint`;
 
     const sql = `
       SELECT 
@@ -385,7 +389,10 @@ async function handle_GET_all_conversations(
       ${paginationSql};
     `;
 
-    const rows = (await pg.queryP_readOnly(sql, [...params, ...pagination.params])) as any[];
+    const rows = (await pg.queryP_readOnly(sql, [
+      ...params,
+      ...pagination.params,
+    ])) as any[];
 
     // Compute filtered total count using same filters
     const totalSql = `
@@ -408,7 +415,9 @@ async function handle_GET_all_conversations(
         ${whereSql}
       ) t;
     `;
-    const totalRows = (await pg.queryP_readOnly(totalSql, params)) as Array<{ count: string }>;
+    const totalRows = (await pg.queryP_readOnly(totalSql, params)) as Array<{
+      count: string;
+    }>;
     const total = Number(totalRows?.[0]?.count || 0);
 
     // Process like normal conversation listing (no site-admin map for global list)

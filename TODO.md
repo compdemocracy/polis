@@ -10,5 +10,5 @@
 [x] Participant Management - use pagination for the XID table (or XID Whitelist table)
 [x] Participant Management - allow admin to toggle the use_xid_whitelist flag for the conversation
 [ ] XID Whitelist table has only two columns: xid and participant (pid or "unused" if no pid is associated with the xid). See `sendParticipantXidsSummary` for very similar data in the server (server/src/report.ts)
-[ ] Participant Management - allow admin to upload a new xid whitelist file (csv with one xid per line), see `handle_POST_xidWhitelist` in server/src/routes/math.ts
+[ ] Participant Management - allow admin to upload a new xid whitelist file (csv with one xid per line), see `handle_POST_xidAllowList` in server/src/routes/math.ts
 [ ] Participant Management - allow admin to download the XID Whitelist table as a csv

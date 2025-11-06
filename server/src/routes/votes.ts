@@ -1,10 +1,11 @@
 import _ from "underscore";
+
 import { ConversationInfo, PidReadyResult, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
 import { getNextComment } from "../nextComment";
 import { getPid } from "../user";
 import { isDuplicateKey, polisTypes } from "../utils/common";
-import { isXidWhitelisted } from "../conversation";
+import { isXidWhitelisted } from "../xids";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import SQL from "../db/sql";
@@ -99,7 +100,7 @@ async function votesPost(
   }
 
   if (conv.use_xid_whitelist) {
-    const is_whitelisted = await isXidWhitelisted(conv.owner!, xid!);
+    const is_whitelisted = await isXidWhitelisted(xid!, zid, conv.owner!);
     if (!is_whitelisted) {
       throw "polis_err_xid_not_whitelisted";
     }

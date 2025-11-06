@@ -71,7 +71,7 @@ jest.mock("../../src/utils/zinvite", () => ({
   getZidForRid: jest.fn(),
 }));
 
-jest.mock("../../src/routes/math", () => ({
+jest.mock("../../src/routes/xids", () => ({
   getXids: jest.fn(),
 }));
 

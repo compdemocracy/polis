@@ -26,12 +26,12 @@ const ParticipantManagement = () => {
   const [error, setError] = useState(null)
   const [limit] = useState(50)
 
-  const useXidWhitelist = Boolean(conversationData?.use_xid_whitelist)
+  const useXidAllowList = Boolean(conversationData?.use_xid_whitelist)
   const xidRequired = Boolean(conversationData?.xid_required)
   const [activeTab, setActiveTab] = useState('inUse') // 'inUse' | 'allowList'
 
-  const handleXidWhitelistToggle = () => {
-    const newValue = !useXidWhitelist
+  const handleXidAllowListToggle = () => {
+    const newValue = !useXidAllowList
     dispatch(handleConversationDataUpdate(conversationData, 'use_xid_whitelist', newValue))
   }
 
@@ -82,9 +82,7 @@ const ParticipantManagement = () => {
         }}>
         Participant Management
       </Heading>
-      <Text sx={{ mb: [3] }}>
-        Manage participants for conversation {conversationId}.
-      </Text>
+      <Text sx={{ mb: [3] }}>Manage participants for conversation {conversationId}.</Text>
 
       <Flex sx={{ alignItems: 'flex-start', mb: [2] }}>
         <Box sx={{ flexShrink: 0, position: 'relative', top: -0.5 }}>
@@ -93,7 +91,7 @@ const ParticipantManagement = () => {
             data-testid="xid_required"
             checked={xidRequired}
             onChange={handleXidRequiredToggle}
-            disabled={useXidWhitelist}
+            disabled={useXidAllowList}
           />
         </Box>
         <Box
@@ -105,7 +103,7 @@ const ParticipantManagement = () => {
             overflowWrap: 'break-word'
           }}>
           <Text>XID Required to Vote</Text>
-          {useXidWhitelist && (
+          {useXidAllowList && (
             <Text sx={{ ml: [2], color: 'mediumGray', fontSize: [0] }}>
               Required because XID Allow List is enabled.
             </Text>
@@ -118,8 +116,8 @@ const ParticipantManagement = () => {
           <input
             type="checkbox"
             data-testid="use_xid_whitelist"
-            checked={useXidWhitelist}
-            onChange={handleXidWhitelistToggle}
+            checked={useXidAllowList}
+            onChange={handleXidAllowListToggle}
           />
         </Box>
         <Box
@@ -139,15 +137,13 @@ const ParticipantManagement = () => {
         <Button
           variant={activeTab === 'inUse' ? 'primary' : 'outline'}
           size="small"
-          onClick={() => setActiveTab('inUse')}
-        >
+          onClick={() => setActiveTab('inUse')}>
           XIDs in Use
         </Button>
         <Button
           variant={activeTab === 'allowList' ? 'primary' : 'outline'}
           size="small"
-          onClick={() => setActiveTab('allowList')}
-        >
+          onClick={() => setActiveTab('allowList')}>
           XIDs Allowed
         </Button>
       </Flex>
@@ -157,20 +153,14 @@ const ParticipantManagement = () => {
       ) : activeTab === 'inUse' && error ? (
         <Text sx={{ color: 'error', mb: [3] }}>{error}</Text>
       ) : activeTab === 'inUse' && xids.length === 0 ? (
-        <Text sx={{ color: 'mediumGray', mb: [3] }}>
-          No XIDs found for this conversation.
-        </Text>
+        <Text sx={{ color: 'mediumGray', mb: [3] }}>No XIDs found for this conversation.</Text>
       ) : activeTab === 'inUse' ? (
         <>
           <XidsInUseTable xids={xids} />
-          <Pagination
-            pagination={pagination}
-            onPageChange={handlePageChange}
-            loading={loading}
-          />
+          <Pagination pagination={pagination} onPageChange={handlePageChange} loading={loading} />
         </>
       ) : (
-        <XidAllowListTable />
+        <XidAllowListTable conversationId={conversationId} />
       )}
     </Box>
   )

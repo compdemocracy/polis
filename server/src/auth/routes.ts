@@ -1,10 +1,12 @@
 import { createAnonUser } from "./create-user";
-import { createXidEntry, deleteSuzinvite, xidExists } from "./auth";
+import { createXidRecord, xidExists } from "../xids";
+import { deleteSuzinvite } from "./auth";
 import { failJson } from "../utils/fail";
-import { getConversationInfo, isXidWhitelisted } from "../conversation";
+import { getConversationInfo } from "../conversation";
 import { getSUZinviteInfo } from "../invites/suzinvites";
 import { getUserInfoForUid2 } from "../user";
 import { issueAnonymousJWT } from "./anonymous-jwt";
+import { isXidWhitelisted } from "../xids";
 import { joinConversation } from "../participant";
 import { userHasAnsweredZeQuestions } from "../server-helpers";
 import type { ParticipantInfo } from "../d";
@@ -163,11 +165,11 @@ async function _joinWithZidOrSuzinvite(params: JoinParams): Promise<any> {
     const exists = await xidExists(o.xid, o.conv.org_id, o.uid);
     if (!exists) {
       const shouldCreateXidEntry = o.conv.use_xid_whitelist
-        ? await isXidWhitelisted(o.conv.owner, o.xid)
+        ? await isXidWhitelisted(o.xid, o.zid, o.conv.owner)
         : true;
 
       if (shouldCreateXidEntry) {
-        await createXidEntry(o.xid, o.conv.org_id, o.uid);
+        await createXidRecord(o.xid, o.conv.owner, o.uid, o.zid);
       } else {
         throw new Error("polis_err_xid_not_whitelisted");
       }

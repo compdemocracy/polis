@@ -2,6 +2,7 @@ import _ from "underscore";
 import { failJson } from "../utils/fail";
 import { getConversationInfo } from "../conversation";
 import { getUser } from "../user";
+import { getXidRecord } from "../xids";
 import { isPolisDev } from "../utils/common";
 import { sql_users } from "../db/sql";
 import pg from "../db/pg-query";
@@ -52,7 +53,8 @@ async function handle_GET_users(
   req: GetUsersRequest,
   res: StandardResponse
 ): Promise<void> {
-  const { uid, xid, owner_uid } = req.p;
+  let { uid } = req.p;
+  const { xid, owner_uid } = req.p;
 
   if (!uid) {
     failJson(res, 401, "Authentication required");
@@ -60,6 +62,14 @@ async function handle_GET_users(
   }
 
   try {
+    // If looking up by XID, first get the XID user's uid
+    if (xid && owner_uid) {
+      const xidRecords = await getXidRecord(xid, undefined, owner_uid);
+      if (xidRecords && xidRecords.length > 0) {
+        uid = xidRecords[0].uid;
+      }
+    }
+
     const user = await getUser(uid, null, xid, owner_uid);
     res.status(200).json(user);
   } catch (error) {

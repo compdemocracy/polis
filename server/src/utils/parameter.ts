@@ -379,21 +379,31 @@ function getNumberInRange(min: number, max: number) {
   };
 }
 
-function _getArrayOfString(a: string): Promise<string[]> {
+function _getArrayOfString(a: string | string[]): Promise<string[]> {
   return new Promise(function (resolve, reject) {
     let result;
-    if (_.isString(a)) {
-      result = a.split(",");
+    if (_.isArray(a)) {
+      // Already an array (from JSON POST body)
+      result = a;
+    } else if (_.isString(a)) {
+      // Comma-separated string (from query string or form data)
+      result = a.split(",").map((s) => s.trim());
+    } else {
+      return reject("polis_fail_parse_string_array");
     }
     if (!_.isArray(result)) {
-      return reject("polis_fail_parse_int_array");
+      return reject("polis_fail_parse_string_array");
     }
     resolve(result);
   });
 }
 
-function getArrayOfStringNonEmpty(a: string) {
-  if (!a || !a.length) {
+function getArrayOfStringNonEmpty(a: string | string[]) {
+  if (
+    !a ||
+    (_.isArray(a) && a.length === 0) ||
+    (_.isString(a) && a.length === 0)
+  ) {
     return Promise.reject("polis_fail_parse_string_array_empty");
   }
   return _getArrayOfString(a);

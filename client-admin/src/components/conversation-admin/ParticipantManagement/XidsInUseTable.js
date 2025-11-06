@@ -94,5 +94,3 @@ XidsInUseTable.propTypes = {
 }
 
 export default XidsInUseTable
-
-

@@ -173,15 +173,17 @@ export interface ConversationInfo {
   [key: string]: any;
 }
 
-// XidInfo type for external ID records
-export interface XidInfo {
-  uid: number;
-  owner: number;
-  xid: string;
-  x_profile_image_url?: string;
-  x_name?: string;
-  x_email?: string;
+export interface XidRecord {
   created?: number;
+  modified?: number;
+  owner: number;
+  pid?: number;
+  uid: number;
+  x_email?: string;
+  x_name?: string;
+  x_profile_image_url?: string;
+  xid: string;
+  zid?: number;
 }
 
 // TODO rename this to User after converting

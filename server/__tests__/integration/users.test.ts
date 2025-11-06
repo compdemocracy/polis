@@ -95,7 +95,7 @@ describe("User Management Endpoints", () => {
       });
       expect(voteResponse.status).toBe(200);
 
-      // Get conversation details to find the org_id
+      // Get conversation details to find the owner uid
       const conversationResponse = await ownerAgent.get(
         `/api/v3/conversations?conversation_id=${conversationId}`
       );
@@ -111,13 +111,13 @@ describe("User Management Endpoints", () => {
 
       expect(conversation).toBeDefined();
 
-      // The org_id should be the same as owner for test conversations
-      const orgId = conversation.org_id || conversation.owner;
-      expect(orgId).toBeDefined();
+      // XID records are now scoped by conversation owner's uid
+      const ownerUid = conversation.owner;
+      expect(ownerUid).toBeDefined();
 
-      // Now the XID user should be lookup-able using the conversation's org_id
+      // Now the XID user should be lookup-able using the conversation owner's uid
       const lookupResponse: Response = await ownerAgent.get(
-        `/api/v3/users?owner_uid=${orgId}&xid=${testXid}`
+        `/api/v3/users?owner_uid=${ownerUid}&xid=${testXid}`
       );
       expect(lookupResponse.status).toBe(200);
 

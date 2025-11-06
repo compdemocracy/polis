@@ -70,9 +70,8 @@ describe("conversations routes - handle_GET_all_conversations", () => {
   it("returns paginated conversations for admin users", async () => {
     (isPolisDev as jest.Mock).mockReturnValue(true);
 
-    // First call: count(*), Second call: page rows
+    // First call: main SELECT query (page rows), Second call: COUNT query
     (pg.queryP_readOnly as jest.Mock)
-      .mockResolvedValueOnce([{ count: "3" }])
       .mockResolvedValueOnce([
         {
           zid: 1,
@@ -96,7 +95,8 @@ describe("conversations routes - handle_GET_all_conversations", () => {
           is_public: true,
           context: null,
         },
-      ]);
+      ])
+      .mockResolvedValueOnce([{ count: "3" }]);
 
     const req = { p: { uid: 1, limit: 2, offset: 0 } } as any;
     const res = createRes();
