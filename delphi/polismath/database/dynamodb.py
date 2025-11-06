@@ -237,31 +237,36 @@ class DynamoDBClient:
         """
         Write a conversation's mathematical analysis data to DynamoDB,
         including all projections for all participants.
-        
+
         Args:
             conv: Conversation object with math analysis data
-            
+
         Returns:
             Success status
         """
         import decimal
-        
+
         try:
+            # Track timing for the entire write operation
+            start_time = time.time()
+
             # Get conversation ID as string
             zid = str(conv.conversation_id)
-            logger.info(f"Writing conversation {zid} to DynamoDB")
-            
+            logger.info(f"[{time.time() - start_time:.2f}s] Writing conversation {zid} to DynamoDB")
+
             # Convert conversation to optimized DynamoDB format
             dynamo_data = conv.to_dynamo_dict() if hasattr(conv, 'to_dynamo_dict') else None
-            
+
             # Generate a math tick (version identifier)
             # Use the one from dynamo_data if available, otherwise create a new one
             math_tick = dynamo_data.get('math_tick', int(time.time())) if dynamo_data else int(time.time())
-            
+
             # Create composite ID for related tables
             zid_tick = f"{zid}:{math_tick}"
-            
+
             # 1. Write to Delphi_PCAConversationConfig table
+            step1_start = time.time()
+            logger.info(f"[{time.time() - start_time:.2f}s] Step 1: Writing to Delphi_PCAConversationConfig table...")
             conversations_table = self.tables.get('Delphi_PCAConversationConfig')
             if conversations_table:
                 if dynamo_data:
@@ -284,11 +289,13 @@ class DynamoDBClient:
                         'group_count': len(conv.group_clusters) if hasattr(conv, 'group_clusters') else 0,
                         'last_updated': int(time.time())
                     })
-                logger.info(f"Written conversation metadata for {zid}")
+                logger.info(f"[{time.time() - start_time:.2f}s] Step 1 completed: Written conversation metadata for {zid} in {time.time() - step1_start:.2f}s")
             else:
-                logger.warning("Delphi_PCAConversationConfig table not available")
-            
+                logger.warning(f"[{time.time() - start_time:.2f}s] Delphi_PCAConversationConfig table not available")
+
             # 2. Write to Delphi_PCAResults table
+            step2_start = time.time()
+            logger.info(f"[{time.time() - start_time:.2f}s] Step 2: Writing to Delphi_PCAResults table...")
             analysis_table = self.tables.get('Delphi_PCAResults')
             if analysis_table:
                 if dynamo_data:
@@ -329,11 +336,13 @@ class DynamoDBClient:
                         'pca': pca_data,
                         'consensus_comments': consensus_comments
                     })
-                logger.info(f"Written analysis data for {zid}")
+                logger.info(f"[{time.time() - start_time:.2f}s] Step 2 completed: Written analysis data for {zid} in {time.time() - step2_start:.2f}s")
             else:
-                logger.warning("Delphi_PCAResults table not available")
-            
+                logger.warning(f"[{time.time() - start_time:.2f}s] Delphi_PCAResults table not available")
+
             # 3. Write to Delphi_KMeansClusters table
+            step3_start = time.time()
+            logger.info(f"[{time.time() - start_time:.2f}s] Step 3: Writing to Delphi_KMeansClusters table...")
             groups_table = self.tables.get('Delphi_KMeansClusters')
             if groups_table:
                 if dynamo_data and 'group_clusters' in dynamo_data:
@@ -370,11 +379,13 @@ class DynamoDBClient:
                                 'member_count': len(members),
                                 'members': self._numpy_to_list(members),
                             })
-                logger.info(f"Written group data for {zid}")
+                logger.info(f"[{time.time() - start_time:.2f}s] Step 3 completed: Written group data for {zid} in {time.time() - step3_start:.2f}s")
             else:
-                logger.warning("Delphi_KMeansClusters table not available or no group data")
-            
+                logger.warning(f"[{time.time() - start_time:.2f}s] Delphi_KMeansClusters table not available or no group data")
+
             # 4. Write to Delphi_CommentRouting table
+            step4_start = time.time()
+            logger.info(f"[{time.time() - start_time:.2f}s] Step 4: Writing to Delphi_CommentRouting table...")
             comments_table = self.tables.get('Delphi_CommentRouting')
             if comments_table:
                 if dynamo_data and 'votes_base' in dynamo_data:
@@ -424,11 +435,13 @@ class DynamoDBClient:
                                 'stats': stats,
                                 'consensus_score': consensus_score
                             })
-                logger.info(f"Written comment data for {zid}")
+                logger.info(f"[{time.time() - start_time:.2f}s] Step 4 completed: Written comment data for {zid} in {time.time() - step4_start:.2f}s")
             else:
-                logger.warning("Delphi_CommentRouting table not available")
-            
+                logger.warning(f"[{time.time() - start_time:.2f}s] Delphi_CommentRouting table not available")
+
             # 5. Write to Delphi_RepresentativeComments table
+            step5_start = time.time()
+            logger.info(f"[{time.time() - start_time:.2f}s] Step 5: Writing to Delphi_RepresentativeComments table...")
             repness_table = self.tables.get('Delphi_RepresentativeComments')
             if repness_table:
                 if dynamo_data and 'repness' in dynamo_data and 'comment_repness' in dynamo_data['repness']:
@@ -471,14 +484,16 @@ class DynamoDBClient:
                                 'repness': repness_value,
                                 'group_id': group_id
                             })
-                logger.info(f"Written representativeness data for {zid}")
+                logger.info(f"[{time.time() - start_time:.2f}s] Step 5 completed: Written representativeness data for {zid} in {time.time() - step5_start:.2f}s")
             else:
-                logger.warning("Delphi_RepresentativeComments table not available or no repness data")
-            
+                logger.warning(f"[{time.time() - start_time:.2f}s] Delphi_RepresentativeComments table not available or no repness data")
+
             # 6. Write to Delphi_PCAParticipantProjections table (most time-consuming for large conversations)
+            step6_start = time.time()
+            logger.info(f"[{time.time() - start_time:.2f}s] Step 6: Writing to Delphi_PCAParticipantProjections table...")
             projections_table = self.tables.get('Delphi_PCAParticipantProjections')
             if projections_table and hasattr(conv, 'proj'):
-                logger.info(f"Writing projection data for {len(conv.proj)} participants...")
+                logger.info(f"[{time.time() - start_time:.2f}s] Writing projection data for {len(conv.proj)} participants...")
                 
                 # Create a mapping of participants to their groups
                 participant_groups = {}
@@ -499,7 +514,7 @@ class DynamoDBClient:
                 last_log_time = time.time()
                 
                 # Process projections
-                logger.info(f"Starting batch processing of {total_participants} participant projections")
+                logger.info(f"[{time.time() - start_time:.2f}s] Starting batch processing of {total_participants} participant projections")
                 proj_start = time.time()
                 
                 for participant_id, coords in conv.proj.items():
@@ -532,7 +547,7 @@ class DynamoDBClient:
                             item_rate = processed_count / elapsed if elapsed > 0 else 0
                             remaining = (total_participants - processed_count) / item_rate if item_rate > 0 else 0
                             
-                            logger.info(f"Written {processed_count}/{total_participants} participants ({progress_pct:.1f}%) - "
+                            logger.info(f"[{time.time() - start_time:.2f}s] Written {processed_count}/{total_participants} participants ({progress_pct:.1f}%) - "
                                       f"{item_rate:.1f} items/sec, est. remaining: {remaining:.1f}s")
                             
                             # Update last log time
@@ -543,14 +558,14 @@ class DynamoDBClient:
                 
                 # Log completion for the entire projection process
                 proj_time = time.time() - proj_start
-                logger.info(f"Participant projection processing completed in {proj_time:.2f}s - "
+                logger.info(f"[{time.time() - start_time:.2f}s] Participant projection processing completed in {proj_time:.2f}s - "
                           f"average rate: {total_participants/proj_time:.1f} items/sec")
-                
-                logger.info(f"Written projection data for {zid}")
+
+                logger.info(f"[{time.time() - start_time:.2f}s] Step 6 completed: Written projection data for {zid} in {time.time() - step6_start:.2f}s")
             else:
-                logger.warning("Delphi_PCAParticipantProjections table not available or no projection data")
+                logger.warning(f"[{time.time() - start_time:.2f}s] Delphi_PCAParticipantProjections table not available or no projection data")
             
-            logger.info(f"Successfully written conversation data for {zid}")
+            logger.info(f"[{time.time() - start_time:.2f}s] Successfully written all conversation data for {zid} in {time.time() - start_time:.2f}s total")
             return True
             
         except Exception as e:

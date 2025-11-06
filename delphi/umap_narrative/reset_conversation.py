@@ -8,6 +8,7 @@ and live AWS environments.
 import os
 import argparse
 import logging
+import time
 import boto3
 from boto3.dynamodb.conditions import Key, Attr
 
@@ -38,6 +39,177 @@ def get_boto_resource(service_name: str):
     return boto3.resource(service_name, **resource_args)
 
 
+def delete_single_item(dynamodb, table_name, key_config):
+    """
+    Delete a single item from a DynamoDB table.
+
+    Args:
+        dynamodb: DynamoDB resource object
+        table_name: Name of the table
+        key_config: Dict with 'key_name' and 'key_value' for the item to delete
+
+    Returns:
+        Number of items deleted (0 or 1)
+    """
+    try:
+        table = dynamodb.Table(table_name)
+        table.delete_item(Key={key_config['key_name']: key_config['key_value']})
+        logger.info(f"  ✓ {table_name}: 1 item deleted.")
+        return 1
+    except Exception as e:
+        if 'ResourceNotFoundException' in str(e):
+            logger.debug(f"  - {table_name}: Table does not exist")
+            return 0
+        elif 'ConditionalCheckFailedException' in str(e):
+            logger.debug(f"  - {table_name}: Item did not exist")
+            return 0
+        else:
+            logger.error(f"  ✗ {table_name}: Error - {e}")
+            return 0
+
+def batch_delete_items(table, items, primary_keys):
+    """Helper to perform batch deletion and handle errors."""
+    if not items:
+        return 0
+    try:
+        with table.batch_writer() as batch:
+            for item in items:
+                key_to_delete = {pk: item[pk] for pk in primary_keys}
+                batch.delete_item(Key=key_to_delete)
+        logger.info(f"  ✓ {table.name}: {len(items)} items deleted.")
+        return len(items)
+    except Exception as e:
+        logger.error(f"  ✗ {table.name}: Batch delete failed - {e}")
+        return 0
+
+
+def _fetch_and_delete_items(dynamodb, table_name, key_config, operation_type, operation_kwargs):
+    """
+    Generic helper to fetch items from DynamoDB and delete them.
+
+    Args:
+        dynamodb: DynamoDB resource object
+        table_name: Name of the table
+        key_config: Dict with 'keys' (list of key names)
+        operation_type: 'query' or 'scan'
+        operation_kwargs: Kwargs for the query/scan operation
+
+    Returns:
+        Number of items deleted
+    """
+    try:
+        # Track timing for the operation
+        start_time = time.time()
+
+        operation_name = 'Query' if operation_type == 'query' else 'Scan'
+
+        logger.info(f"Starting {operation_name.lower()} for {table_name}...")
+
+        table = dynamodb.Table(table_name)
+
+        # Get the appropriate operation method
+        operation = getattr(table, operation_type)
+
+        # Start fetching items
+        fetch_start = time.time()
+        items = []
+        # Shallow copy to avoid mutating the original during pagination
+        local_operation_kwargs = operation_kwargs.copy()
+        response = operation(**local_operation_kwargs)
+        items.extend(response.get('Items', []))
+
+        # Track pagination
+        page_count = 1
+
+        while 'LastEvaluatedKey' in response:
+            local_operation_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
+            response = operation(**local_operation_kwargs)
+            items.extend(response.get('Items', []))
+            page_count += 1
+
+        fetch_time = time.time() - fetch_start
+        logger.info(f"[{time.time() - start_time:.2f}s] {table_name}: Fetched {len(items)} items across {page_count} pages in {fetch_time:.2f}s")
+
+        # Delete items in batches
+        if items:
+            delete_start = time.time()
+            deleted_count = batch_delete_items(table, items, key_config['keys'])
+            delete_time = time.time() - delete_start
+            logger.info(f"[{time.time() - start_time:.2f}s] {table_name}: Deletion completed in {delete_time:.2f}s")
+
+            total_time = time.time() - start_time
+            logger.info(f"[{time.time() - start_time:.2f}s] {table_name}: Total operation completed in {total_time:.2f}s")
+
+            return deleted_count
+        else:
+            logger.info(f"[{time.time() - start_time:.2f}s] {table_name}: No items to delete")
+            return 0
+
+    except Exception as e:
+        if 'ResourceNotFoundException' in str(e):
+            logger.debug(f"  - {table_name}: Table does not exist")
+            return 0
+        else:
+            operation_name = 'Query' if operation_type == 'query' else 'Scan'
+            logger.error(f"  ✗ {table_name}: {operation_name} failed - {e}")
+            return 0
+
+
+def query_and_delete(dynamodb, table_name, key_config):
+    """
+    Query a DynamoDB table using a partition key and delete matching items.
+
+    Args:
+        dynamodb: DynamoDB resource object
+        table_name: Name of the table to query
+        key_config: Dict with 'keys' (list of key names) and 'partition_value'
+
+    Returns:
+        Number of items deleted
+    """
+    operation_kwargs = {
+        'KeyConditionExpression': Key(key_config['keys'][0]).eq(key_config['partition_value'])
+    }
+    return _fetch_and_delete_items(dynamodb, table_name, key_config, 'query', operation_kwargs)
+
+
+def scan_and_delete_with_prefix(dynamodb, table_name, key_config):
+    """
+    Scan a DynamoDB table for items matching a prefix and delete them.
+
+    Args:
+        dynamodb: DynamoDB resource object
+        table_name: Name of the table to scan
+        key_config: Dict with 'keys' (list of key names) and 'prefix' (prefix to match)
+
+    Returns:
+        Number of items deleted
+    """
+    operation_kwargs = {
+        'FilterExpression': Key(key_config['keys'][0]).begins_with(key_config['prefix'])
+    }
+    return _fetch_and_delete_items(dynamodb, table_name, key_config, 'scan', operation_kwargs)
+
+
+def scan_and_delete_with_attribute(dynamodb, table_name, key_config):
+    """
+    Scan a DynamoDB table for items where an attribute contains a value and delete them.
+
+    Args:
+        dynamodb: DynamoDB resource object
+        table_name: Name of the table to scan
+        key_config: Dict with 'keys' (list of key names), 'attribute' name, and 'contains_value'
+
+    Returns:
+        Number of items deleted
+    """
+    operation_kwargs = {
+        'FilterExpression': Attr(key_config['attribute']).contains(key_config['contains_value'])
+    }
+    return _fetch_and_delete_items(dynamodb, table_name, key_config, 'scan', operation_kwargs)
+
+
+
 def delete_dynamodb_data(conversation_id: str, report_id: str = None):
     """
     Deletes all data from DynamoDB tables for a given conversation_id.
@@ -46,130 +218,117 @@ def delete_dynamodb_data(conversation_id: str, report_id: str = None):
     dynamodb = get_boto_resource('dynamodb')
     total_deleted_count = 0
 
-    def batch_delete_items(table, items, primary_keys):
-        """Helper to perform batch deletion and handle errors."""
-        if not items:
-            return 0
-        try:
-            with table.batch_writer() as batch:
-                for item in items:
-                    key_to_delete = {pk: item[pk] for pk in primary_keys}
-                    batch.delete_item(Key=key_to_delete)
-            logger.info(f"  ✓ {table.name}: {len(items)} items deleted.")
-            return len(items)
-        except Exception as e:
-            logger.error(f"  ✗ {table.name}: Batch delete failed - {e}")
-            return 0
-
     logger.info(f"\nDeleting DynamoDB data for conversation {conversation_id}...")
 
+    # Single-item tables (direct delete by primary key)
     single_key_tables = {
-        'Delphi_PCAConversationConfig': 'zid',
-        'Delphi_UMAPConversationConfig': 'conversation_id',
+        'Delphi_PCAConversationConfig': {
+            'key_name': 'zid',
+            'key_value': conversation_id
+        },
+        'Delphi_UMAPConversationConfig': {
+            'key_name': 'conversation_id',
+            'key_value': conversation_id
+        },
     }
-    for table_name, key_name in single_key_tables.items():
-        try:
-            table = dynamodb.Table(table_name)
-            table.delete_item(Key={key_name: conversation_id})
-            logger.info(f"  ✓ {table_name}: 1 item deleted.")
-            total_deleted_count += 1
-        except Exception as e:
-            if 'ResourceNotFoundException' in str(e): continue
-            if 'ConditionalCheckFailedException' in str(e): continue # Item didn't exist
-            logger.error(f"  ✗ {table_name}: Error - {e}")
-    
+
+    # Process single-item deletions
+    for table_name, config in single_key_tables.items():
+        deleted_count = delete_single_item(dynamodb, table_name, config)
+        total_deleted_count += deleted_count
+
+    # Query-based tables (efficient query by partition key)
     query_tables = {
-        "Delphi_CommentEmbeddings": ["conversation_id", "comment_id"],
-        "Delphi_CommentHierarchicalClusterAssignments": [
-            "conversation_id",
-            "comment_id",
-        ],
-        "Delphi_CommentClustersStructureKeywords": ["conversation_id", "cluster_key"],
-        "Delphi_CommentClustersFeatures": ["conversation_id", "cluster_key"],
-        "Delphi_CommentClustersLLMTopicNames": ["conversation_id", "topic_key"],
-        "Delphi_UMAPGraph": ["conversation_id", "edge_id"],
-        "Delphi_CommentExtremity": ["conversation_id", "comment_id"],
+        'Delphi_CommentEmbeddings': {
+            'keys': ['conversation_id', 'comment_id'],
+            'partition_value': conversation_id
+        },
+        'Delphi_CommentHierarchicalClusterAssignments': {
+            'keys': ['conversation_id', 'comment_id'],
+            'partition_value': conversation_id
+        },
+        'Delphi_CommentClustersStructureKeywords': {
+            'keys': ['conversation_id', 'cluster_key'],
+            'partition_value': conversation_id
+        },
+        'Delphi_CommentClustersFeatures': {
+            'keys': ['conversation_id', 'cluster_key'],
+            'partition_value': conversation_id
+        },
+        'Delphi_CommentClustersLLMTopicNames': {
+            'keys': ['conversation_id', 'topic_key'],
+            'partition_value': conversation_id
+        },
+        'Delphi_UMAPGraph': {
+            'keys': ['conversation_id', 'edge_id'],
+            'partition_value': conversation_id
+        },
+        'Delphi_CommentExtremity': {
+            'keys': ['conversation_id', 'comment_id'],
+            'partition_value': conversation_id
+        },
     }
-    for table_name, keys in query_tables.items():
-        try:
-            table = dynamodb.Table(table_name)
-            response = table.query(KeyConditionExpression=Key(keys[0]).eq(conversation_id))
-            items = response.get('Items', [])
-            while 'LastEvaluatedKey' in response:
-                response = table.query(KeyConditionExpression=Key(keys[0]).eq(conversation_id), ExclusiveStartKey=response['LastEvaluatedKey'])
-                items.extend(response.get('Items', []))
-            total_deleted_count += batch_delete_items(table, items, keys)
-        except Exception as e:
-            if 'ResourceNotFoundException' in str(e): continue
-            logger.error(f"  ✗ {table_name}: Query failed - {e}")
 
+    # Process query-based deletions
+    for table_name, config in query_tables.items():
+        logger.info(f"Processing table {table_name}...")
+        deleted_count = query_and_delete(dynamodb, table_name, config)
+        total_deleted_count += deleted_count
+
+    # Prefix-scan tables (scan with prefix filter)
     prefix_scan_tables = {
-        'Delphi_CommentRouting': {'keys': ['zid_tick', 'comment_id'], 'prefix': f'{conversation_id}:'},
-        'Delphi_PCAResults': {'keys': ['zid', 'math_tick'], 'prefix': conversation_id},
-        'Delphi_KMeansClusters': {'keys': ['zid_tick', 'group_id'], 'prefix': f'{conversation_id}:'},
-        'Delphi_RepresentativeComments': {'keys': ['zid_tick_gid', 'comment_id'], 'prefix': f'{conversation_id}:'},
-        'Delphi_PCAParticipantProjections': {'keys': ['zid_tick', 'participant_id'], 'prefix': f'{conversation_id}:'},
+        'Delphi_CommentRouting': {
+            'keys': ['zid_tick', 'comment_id'],
+            'prefix': f'{conversation_id}:'
+        },
+        'Delphi_PCAResults': {
+            'keys': ['zid', 'math_tick'],
+            'prefix': conversation_id
+        },
+        'Delphi_KMeansClusters': {
+            'keys': ['zid_tick', 'group_id'],
+            'prefix': f'{conversation_id}:'
+        },
+        'Delphi_RepresentativeComments': {
+            'keys': ['zid_tick_gid', 'comment_id'],
+            'prefix': f'{conversation_id}:'
+        },
+        'Delphi_PCAParticipantProjections': {
+            'keys': ['zid_tick', 'participant_id'],
+            'prefix': f'{conversation_id}:'
+        },
+        'Delphi_CollectiveStatement': {
+            'keys': ['zid_topic_jobid'],
+            'prefix': f'{conversation_id}#'
+        },
     }
-    for table_name, config in prefix_scan_tables.items():
-        try:
-            table = dynamodb.Table(table_name)
-            scan_kwargs = {'FilterExpression': Key(config['keys'][0]).begins_with(config['prefix'])}
-            response = table.scan(**scan_kwargs)
-            items = response.get('Items', [])
-            while 'LastEvaluatedKey' in response:
-                scan_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
-                response = table.scan(**scan_kwargs)
-                items.extend(response.get('Items', []))
-            total_deleted_count += batch_delete_items(table, items, config['keys'])
-        except Exception as e:
-            if 'ResourceNotFoundException' in str(e): continue
-            logger.error(f"  ✗ {table_name}: Scan failed - {e}")
-            
-    if report_id:
-        try:
-            table = dynamodb.Table('Delphi_NarrativeReports')
-            scan_kwargs = {'FilterExpression': Key('rid_section_model').begins_with(report_id)}
-            response = table.scan(**scan_kwargs)
-            items = response.get('Items', [])
-            while 'LastEvaluatedKey' in response:
-                scan_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
-                response = table.scan(**scan_kwargs)
-                items.extend(response.get('Items', []))
-            total_deleted_count += batch_delete_items(table, items, ['rid_section_model', 'timestamp'])
-        except Exception as e:
-            if 'ResourceNotFoundException' not in str(e):
-                logger.error(f"  ✗ Delphi_NarrativeReports: Scan failed - {e}")
 
-    try:
-        table = dynamodb.Table('Delphi_JobQueue')
-        scan_kwargs = {'FilterExpression': Attr('job_params').contains(conversation_id)}
-        response = table.scan(**scan_kwargs)
-        items = response.get('Items', [])
-        while 'LastEvaluatedKey' in response:
-            scan_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
-            response = table.scan(**scan_kwargs)
-            items.extend(response.get('Items', []))
-        total_deleted_count += batch_delete_items(table, items, ['job_id'])
-    except Exception as e:
-        if 'ResourceNotFoundException' not in str(e):
-            logger.error(f"  ✗ Delphi_JobQueue: Scan failed - {e}")
-    
-    # Delete collective statements for this conversation
-    try:
-        table = dynamodb.Table('Delphi_CollectiveStatement')
-        # Scan for items where zid_topic_jobid contains the conversation_id
-        scan_kwargs = {'FilterExpression': Key('zid_topic_jobid').begins_with(f'{conversation_id}#')}
-        response = table.scan(**scan_kwargs)
-        items = response.get('Items', [])
-        while 'LastEvaluatedKey' in response:
-            scan_kwargs['ExclusiveStartKey'] = response['LastEvaluatedKey']
-            response = table.scan(**scan_kwargs)
-            items.extend(response.get('Items', []))
-        total_deleted_count += batch_delete_items(table, items, ['zid_topic_jobid'])
-    except Exception as e:
-        if 'ResourceNotFoundException' not in str(e):
-            logger.error(f"  ✗ Delphi_CollectiveStatement: Scan failed - {e}")
-            
+    if report_id:
+        prefix_scan_tables['Delphi_NarrativeReports'] = {
+            'keys': ['rid_section_model', 'timestamp'],
+            'prefix': report_id
+        }
+
+    # Process prefix-scan deletions
+    for table_name, config in prefix_scan_tables.items():
+        deleted_count = scan_and_delete_with_prefix(dynamodb, table_name, config)
+        total_deleted_count += deleted_count
+
+
+    # Attribute-contains tables (scan with attribute filter)
+    attribute_scan_tables = {
+        'Delphi_JobQueue': {
+            'keys': ['job_id'],
+            'attribute': 'job_params',
+            'contains_value': conversation_id
+        },
+    }
+
+    # Process attribute-contains scan deletions
+    for table_name, config in attribute_scan_tables.items():
+        deleted_count = scan_and_delete_with_attribute(dynamodb, table_name, config)
+        total_deleted_count += deleted_count
+
     return total_deleted_count
 
 def delete_s3_data(bucket_name: str, report_id: str):
