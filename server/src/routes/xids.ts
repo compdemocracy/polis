@@ -30,6 +30,7 @@ interface PostXidAllowListRequest extends RequestWithP {
     xid_allow_list: string[];
     zid: number;
     uid?: number;
+    replace_all?: boolean;
   };
 }
 
@@ -46,9 +47,9 @@ async function getXidsPaginated(
   offset: number
 ): Promise<XidRecord[]> {
   const sql =
-    "select pid, xid from xids inner join " +
+    "select p.pid, xids.xid from xids inner join " +
     "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
-    " where owner in (select owner from conversations where zid = ($1))" +
+    " where xids.owner in (select owner from conversations where zid = ($1))" +
     ` LIMIT ($2) OFFSET ($3)`;
   const params: number[] = [zid, limit, offset];
 
@@ -65,7 +66,7 @@ async function getXidsCount(zid: number): Promise<number> {
   const result = await pg.queryP_readOnly<{ count: string }>(
     "select count(*) as count from xids inner join " +
       "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
-      " where owner in (select owner from conversations where zid = ($1));",
+      " where xids.owner in (select owner from conversations where zid = ($1));",
     [zid]
   );
   return result && result[0] ? parseInt(result[0].count, 10) : 0;
@@ -275,13 +276,14 @@ async function handle_GET_xidAllowList(
 /**
  * POST /api/v3/xidAllowList
  * Adds XIDs to the allow list for a conversation.
+ * If replace_all is true, removes existing XIDs that are not in the incoming list.
  * Requires the user to be an admin, moderator, or owner of the conversation.
  */
 async function handle_POST_xidAllowList(
   req: PostXidAllowListRequest,
   res: ExpressResponse
 ): Promise<void> {
-  const { xid_allow_list, zid, uid } = req.p;
+  const { xid_allow_list, zid, uid, replace_all } = req.p;
 
   // Check if uid is present - authentication may have succeeded but uid extraction failed
   if (!uid) {
@@ -337,7 +339,7 @@ async function handle_POST_xidAllowList(
     const conv = await getConversationInfo(zid);
     const owner = conv.owner;
 
-    const entries: string[] = [];
+    // Validate all XIDs first
     for (const xid of xid_allow_list) {
       if (typeof xid !== "string" || xid.length === 0) {
         failJson(
@@ -348,21 +350,239 @@ async function handle_POST_xidAllowList(
         );
         return;
       }
+    }
+
+    // If replace_all is true, delete existing XIDs that are not in the incoming list
+    // This preserves existing pids for XIDs that are being kept
+    if (replace_all) {
+      logger.debug("handle_POST_xidAllowList: replace_all is true, deleting non-matching XIDs", {
+        zid,
+        incomingCount: xid_allow_list.length,
+      });
+
+      // Create a set of incoming XIDs for efficient lookup
+      const incomingXidSet = new Set(xid_allow_list.map((xid) => xid.toLowerCase()));
+
+      // Get all existing XIDs for this conversation (zid matches or legacy owner matches)
+      const existingRows = await pg.queryP_readOnly<{ xid: string }>(
+        "SELECT xid FROM xid_whitelist WHERE (zid = $1) OR (zid IS NULL AND owner = $2);",
+        [zid, owner]
+      );
+
+      if (Array.isArray(existingRows) && existingRows.length > 0) {
+        // Find XIDs to delete (those not in incoming list)
+        const xidsToDelete: string[] = [];
+        for (const row of existingRows) {
+          if (!incomingXidSet.has(row.xid.toLowerCase())) {
+            xidsToDelete.push(row.xid);
+          }
+        }
+
+        // Delete XIDs that are not in the incoming list
+        if (xidsToDelete.length > 0) {
+          logger.debug("handle_POST_xidAllowList: deleting XIDs not in incoming list", {
+            zid,
+            deleteCount: xidsToDelete.length,
+          });
+
+          // Delete by matching zid + xid (preferred) or owner + xid (legacy)
+          // Use parameterized query for safety
+          const xidPlaceholders = xidsToDelete.map((_, idx) => `$${idx + 1}`).join(",");
+          const deleteParams = xidsToDelete.map((xid) => xid);
+
+          await pg.queryP(
+            "DELETE FROM xid_whitelist WHERE xid IN (" +
+              xidPlaceholders +
+              ") AND ((zid = $" +
+              (xidsToDelete.length + 1) +
+              ") OR (zid IS NULL AND owner = $" +
+              (xidsToDelete.length + 2) +
+              "));",
+            [...deleteParams, zid, owner]
+          );
+        }
+      }
+    }
+
+    // Insert all incoming XIDs (will preserve existing ones due to on conflict do nothing)
+    const entries: string[] = [];
+    for (const xid of xid_allow_list) {
       // Insert with zid and owner (preferred method)
       entries.push(`(${Utils.escapeLiteral(xid)},${zid},${owner})`);
     }
 
     // Insert with zid (preferred) and owner
     // The order is: xid, zid, owner
+    // on conflict do nothing preserves existing records (including their pids if any)
     await pg.queryP(
       "insert into xid_whitelist (xid, zid, owner) values " +
         entries.join(",") +
         " on conflict do nothing;",
       []
     );
+
+    logger.debug("handle_POST_xidAllowList: completed", {
+      zid,
+      insertedCount: xid_allow_list.length,
+      replaceAll: replace_all || false,
+    });
+
     res.status(200).json({});
   } catch (err) {
     failJson(res, 500, "polis_err_POST_xidAllowList", err);
+  }
+}
+
+/**
+ * Escapes a value for CSV format.
+ * @param value - Value to escape
+ * @returns Escaped CSV string
+ */
+function escapeCsv(value: unknown): string {
+  const s = value === null || value === undefined ? "" : String(value);
+  const needsQuoting = /[",\n]/.test(s);
+  const escaped = s.replace(/"/g, '""');
+  return needsQuoting ? `"${escaped}"` : escaped;
+}
+
+/**
+ * GET /api/v3/xids/csv
+ * Downloads XID records for participants in a conversation as CSV.
+ * Requires the user to be the owner of the conversation.
+ */
+async function handle_GET_xids_csv(
+  req: GetXidsRequest,
+  res: ExpressResponse
+): Promise<void> {
+  const { uid, zid } = req.p;
+
+  // Check if uid is present - authentication may have succeeded but uid extraction failed
+  if (!uid) {
+    logger.warn("handle_GET_xids_csv: uid is missing from request", {
+      zid,
+      hasP: !!req.p,
+      pKeys: req.p ? Object.keys(req.p) : [],
+    });
+    failJson(res, 401, "polis_err_get_xids_csv_authentication_required");
+    return;
+  }
+
+  try {
+    logger.debug("handle_GET_xids_csv: Checking moderator permissions", {
+      zid,
+      uid,
+    });
+    const isMod = await Utils.isModerator(zid, uid);
+
+    if (!isMod) {
+      logger.warn("handle_GET_xids_csv: User is not moderator", { zid, uid });
+      failJson(res, 403, "polis_err_get_xids_csv_not_authorized");
+      return;
+    }
+
+    // Get all XIDs (no pagination)
+    const xids = await getXidsPaginated(zid, 1000000, 0); // Get all records
+
+    // Build CSV
+    const headers = ["pid", "xid"];
+    const lines: string[] = [];
+    lines.push(headers.join(","));
+    for (const xidRecord of xids) {
+      const values = [
+        xidRecord.pid ?? "",
+        xidRecord.xid ?? "",
+      ].map(escapeCsv);
+      lines.push(values.join(","));
+    }
+
+    const csv = lines.join("\n");
+
+    // Set headers for CSV download
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="xids_in_use_${zid}_${timestamp}.csv"`
+    );
+    // Type assertion needed because ExpressResponse.send is optional in type definition
+    (res as { send: (data: string) => void }).send(csv);
+  } catch (err) {
+    failJson(res, 500, "polis_err_get_xids_csv", err);
+  }
+}
+
+/**
+ * GET /api/v3/xidAllowList/csv
+ * Downloads XID allow list records for a conversation as CSV.
+ * Requires the user to be an admin, moderator, or owner of the conversation.
+ */
+async function handle_GET_xidAllowList_csv(
+  req: GetXidAllowListRequest,
+  res: ExpressResponse
+): Promise<void> {
+  const { uid, zid } = req.p;
+
+  // Check if uid is present - authentication may have succeeded but uid extraction failed
+  if (!uid) {
+    logger.warn("handle_GET_xidAllowList_csv: uid is missing from request", {
+      zid,
+      hasP: !!req.p,
+      pKeys: req.p ? Object.keys(req.p) : [],
+    });
+    failJson(res, 401, "polis_err_get_xidAllowList_csv_authentication_required");
+    return;
+  }
+
+  try {
+    logger.debug("handle_GET_xidAllowList_csv: Checking moderator permissions", {
+      zid,
+      uid,
+    });
+
+    // Check if user is moderator (includes Polis dev and site admins)
+    const isMod = await Utils.isModerator(zid, uid);
+
+    if (!isMod) {
+      logger.warn("handle_GET_xidAllowList_csv: User is not moderator", {
+        zid,
+        uid,
+      });
+      failJson(res, 403, "polis_err_get_xidAllowList_csv_not_authorized");
+      return;
+    }
+
+    // Get conversation info to retrieve owner
+    const conv = await getConversationInfo(zid);
+    const owner = conv.owner;
+
+    // Get all XID allow list records (no pagination)
+    const xids = await getXidAllowListPaginated(zid, owner, 1000000, 0); // Get all records
+
+    // Build CSV
+    const headers = ["pid", "xid"];
+    const lines: string[] = [];
+    lines.push(headers.join(","));
+    for (const xidRecord of xids) {
+      const values = [
+        xidRecord.pid ?? "",
+        xidRecord.xid ?? "",
+      ].map(escapeCsv);
+      lines.push(values.join(","));
+    }
+
+    const csv = lines.join("\n");
+
+    // Set headers for CSV download
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="xid_allow_list_${zid}_${timestamp}.csv"`
+    );
+    // Type assertion needed because ExpressResponse.send is optional in type definition
+    (res as { send: (data: string) => void }).send(csv);
+  } catch (err) {
+    failJson(res, 500, "polis_err_get_xidAllowList_csv", err);
   }
 }
 
@@ -371,4 +591,6 @@ export {
   handle_GET_xids,
   handle_GET_xidAllowList,
   handle_POST_xidAllowList,
+  handle_GET_xids_csv,
+  handle_GET_xidAllowList_csv,
 };

@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict lrD1yIvoBNDGCIuFu0JDqnanxQ4WaLd3Ankh34ZbfdkqGZUvHxmwBgt4STQ5UUi
+\restrict ZuTT5v8YTYzMtKWq70d0gkNuGdRU0paPlHKUMtzblcYz2cIg5JJ8HVGULeAI8MJ
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 18.0
@@ -20,78 +20,13 @@ SET client_min_messages = warning;
 SET row_security = off;
 
 --
--- Name: pg_stat_statements; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA public;
-
-
---
--- Name: EXTENSION pg_stat_statements; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION pg_stat_statements IS 'track execution statistics of all SQL statements executed';
-
-
---
--- Name: tablefunc; Type: EXTENSION; Schema: -; Owner: -
---
-
-CREATE EXTENSION IF NOT EXISTS tablefunc WITH SCHEMA public;
-
-
---
--- Name: EXTENSION tablefunc; Type: COMMENT; Schema: -; Owner: -
---
-
-COMMENT ON EXTENSION tablefunc IS 'functions that manipulate whole tables, including crosstab';
-
-
---
--- Name: animal_grp; Type: TYPE; Schema: public; Owner: -
---
-
-CREATE TYPE public.animal_grp AS ENUM (
-    'fish',
-    'mammal',
-    'bird'
-);
-
-
---
--- Name: animals_id_auto(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.animals_id_auto() RETURNS trigger
-    LANGUAGE plpgsql STRICT
-    AS $$
-DECLARE
-    _rel_id constant int := 'animals'::regclass::int;
-    _grp_id int;
-BEGIN
-    _grp_id = array_length(enum_range(NULL, NEW.grp), 1);
-
-    -- Obtain an advisory lock on this table/group.
-    PERFORM pg_advisory_lock(_rel_id, _grp_id);
-
-    SELECT  COALESCE(MAX(id) + 1, 1)
-    INTO    NEW.id
-    FROM    animals
-    WHERE   grp = NEW.grp;
-
-    RETURN NEW;
-END;
-$$;
-
-
---
 -- Name: get_times_for_most_recent_visible_comments(); Type: FUNCTION; Schema: public; Owner: -
 --
 
 CREATE FUNCTION public.get_times_for_most_recent_visible_comments() RETURNS TABLE(zid integer, modified bigint)
     LANGUAGE sql
     AS $$
-    select zid, max(modified) from (select comments.*, conversations.strict_moderation from comments left join conversations on comments.zid = conversations.zid) as c where c.mod >= (CASE WHEN c.strict_moderation=TRUE then 1 else 0 END) group by c.zid order by c.zid;    
+    select zid, max(modified) from (select comments.*, conversations.strict_moderation from comments left join conversations on comments.zid = conversations.zid) as c where c.mod >= (CASE WHEN c.strict_moderation=TRUE then 1 else 0 END) group by c.zid order by c.zid;
 $$;
 
 
@@ -120,53 +55,6 @@ CREATE FUNCTION public.now_as_millis() RETURNS bigint
             -- SEE: http://www.postgresql.org/docs/8.4/static/functions-datetime.html
             RETURN 1000*FLOOR(EXTRACT(EPOCH FROM temp)) + FLOOR(EXTRACT(MILLISECONDS FROM temp)) - 1000*FLOOR(EXTRACT(SECOND FROM temp));
         END;
-$$;
-
-
---
--- Name: oid_auto(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.oid_auto() RETURNS trigger
-    LANGUAGE plpgsql STRICT
-    AS $$
-DECLARE
-    _magic_id constant int := 873791984; -- This is a magic key used for locking conversation row-sets within the opinions table. TODO keep track of these 
-    _opinion_id int;
-BEGIN
-    _opinion_id = NEW.oid;
-
-    -- Obtain an advisory lock on the opinions table, limited to this conversation
-    PERFORM pg_advisory_lock(_magic_id, _opinion_id);
-
-    SELECT  COALESCE(MAX(oid) + 1, 1)
-    INTO    NEW.oid
-    FROM    opinions
-    WHERE   oid = NEW.oid;
-
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: oid_auto_unlock(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.oid_auto_unlock() RETURNS trigger
-    LANGUAGE plpgsql STRICT
-    AS $$
-DECLARE
-    _magic_id constant int := 873791984;
-    _opinion_id int;
-BEGIN
-    _opinion_id = NEW.oid;
-
-    -- Release the lock.
-    PERFORM pg_advisory_unlock(_magic_id, _opinion_id);
-
-    RETURN NEW;
-END;
 $$;
 
 
@@ -223,53 +111,6 @@ $$;
 
 
 --
--- Name: ptpt_id_auto(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.ptpt_id_auto() RETURNS trigger
-    LANGUAGE plpgsql STRICT
-    AS $$
-DECLARE
-    _rel_id constant int := 873791983; -- This is a magic key used for locking conversation row-sets within the participants table. TODO keep track of these 
-    _grp_id int;
-BEGIN
-    _grp_id = NEW.conv_id;
-
-    -- Obtain an advisory lock on the participants table, limited to this conversation
-    PERFORM pg_advisory_lock(_rel_id, _grp_id);
-
-    SELECT  COALESCE(MAX(ptpt_id) + 1, 1)
-    INTO    NEW.ptpt_id
-    FROM    participants
-    WHERE   conv_id = NEW.conv_id;
-
-    RETURN NEW;
-END;
-$$;
-
-
---
--- Name: ptpt_id_auto_unlock(); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.ptpt_id_auto_unlock() RETURNS trigger
-    LANGUAGE plpgsql STRICT
-    AS $$
-DECLARE
-    _rel_id constant int := 873791983;
-    _grp_id int;
-BEGIN
-    _grp_id = NEW.conv_id;
-
-    -- Release the lock.
-    PERFORM pg_advisory_unlock(_rel_id, _grp_id);
-
-    RETURN NEW;
-END;
-$$;
-
-
---
 -- Name: random_polis_site_id(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -277,17 +118,6 @@ CREATE FUNCTION public.random_polis_site_id() RETURNS text
     LANGUAGE sql
     AS $$
 -- 18 so it's 32 long, not much thought went into this so far
-SELECT 'polis_site_id_' || random_string(18);
-$$;
-
-
---
--- Name: random_polis_site_id(integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.random_polis_site_id(integer) RETURNS text
-    LANGUAGE sql
-    AS $$
 SELECT 'polis_site_id_' || random_string(18);
 $$;
 
@@ -385,59 +215,9 @@ CREATE FUNCTION public.to_zid(associated_zinvite text) RETURNS integer
 $$;
 
 
---
--- Name: to_zinvite(integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.to_zinvite(associated_zid integer) RETURNS text
-    LANGUAGE plpgsql
-    AS $$
-        BEGIN
-            RETURN (select zinvite from zinvites where zid = associated_zid);
-        END;
-$$;
-
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
-
---
--- Name: votes; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.votes (
-    zid integer NOT NULL,
-    pid integer NOT NULL,
-    tid integer NOT NULL,
-    vote smallint,
-    created bigint DEFAULT public.now_as_millis(),
-    weight_x_32767 smallint DEFAULT 0,
-    high_priority boolean DEFAULT false NOT NULL
-);
-
-
---
--- Name: votes_foo(integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.votes_foo(integer) RETURNS SETOF public.votes
-    LANGUAGE sql
-    AS $_$
-    select * from votes where zid = $1;
-$_$;
-
-
---
--- Name: votes_lastest_unique(integer); Type: FUNCTION; Schema: public; Owner: -
---
-
-CREATE FUNCTION public.votes_lastest_unique(integer) RETURNS SETOF public.votes
-    LANGUAGE sql
-    AS $_$
-    WITH m AS (SELECT zid, pid, tid, MAX(created) AS created FROM votes WHERE zid = $1 GROUP BY zid, pid, tid) SELECT v.* FROM m LEFT JOIN votes v ON m.zid = v.zid AND m.pid = v.pid AND m.tid = v.tid WHERE m.created = v.created;
-$_$;
-
 
 --
 -- Name: apikeysndvweifu; Type: TABLE; Schema: public; Owner: -
@@ -496,21 +276,20 @@ CREATE TABLE public.comments (
     tid integer NOT NULL,
     zid integer NOT NULL,
     pid integer NOT NULL,
-    txt character varying(1000) NOT NULL,
+    uid integer NOT NULL,
     created bigint DEFAULT public.now_as_millis(),
-    velocity real DEFAULT 1,
-    mod integer DEFAULT 0 NOT NULL,
-    active boolean DEFAULT true NOT NULL,
     modified bigint DEFAULT public.now_as_millis(),
-    uid integer DEFAULT 0 NOT NULL,
+    txt character varying(1000) NOT NULL,
+    velocity real DEFAULT 1 NOT NULL,
+    mod integer DEFAULT 0 NOT NULL,
+    lang character varying(10),
+    lang_confidence real,
+    active boolean DEFAULT true NOT NULL,
+    is_meta boolean DEFAULT false NOT NULL,
     tweet_id bigint,
     quote_src_url character varying(1000),
     anon boolean DEFAULT false NOT NULL,
-    is_seed boolean DEFAULT false NOT NULL,
-    curation smallint DEFAULT 0 NOT NULL,
-    is_meta boolean DEFAULT false NOT NULL,
-    lang_confidence real,
-    lang character varying(10)
+    is_seed boolean DEFAULT false NOT NULL
 );
 
 
@@ -532,6 +311,7 @@ CREATE TABLE public.contexts (
 --
 
 CREATE SEQUENCE public.contexts_context_id_seq
+    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -562,44 +342,6 @@ CREATE TABLE public.contributer_agreement_signatures (
 
 
 --
--- Name: contributor_agreement_signatures; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.contributor_agreement_signatures (
-    uid integer,
-    name character varying(746) NOT NULL,
-    github_id character varying(256),
-    email character varying(256) NOT NULL,
-    agreement_version integer NOT NULL,
-    created bigint DEFAULT public.now_as_millis(),
-    company_name character varying(746)
-);
-
-
---
--- Name: conversation_invite_codes; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.conversation_invite_codes (
-    zid integer NOT NULL,
-    code character varying(300) NOT NULL,
-    created timestamp with time zone DEFAULT now()
-);
-
-
---
--- Name: conversation_subscriptions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.conversation_subscriptions (
-    zid integer NOT NULL,
-    uid integer NOT NULL,
-    time_last_notified bigint DEFAULT 0,
-    created bigint DEFAULT public.now_as_millis()
-);
-
-
---
 -- Name: conversation_translations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -622,46 +364,44 @@ CREATE TABLE public.conversations (
     zid integer NOT NULL,
     topic character varying(1000),
     description character varying(50000),
+    link_url character varying(9999),
+    parent_url character varying(9999),
+    upvotes integer DEFAULT 1 NOT NULL,
+    participant_count integer DEFAULT 0,
     is_anon boolean DEFAULT true,
     is_active boolean DEFAULT false,
     is_draft boolean DEFAULT false,
     is_public boolean DEFAULT true,
-    email_domain character varying(200),
-    owner integer,
-    participant_count integer DEFAULT 0,
-    created bigint DEFAULT public.now_as_millis(),
-    strict_moderation boolean DEFAULT false,
+    is_data_open boolean DEFAULT false,
     profanity_filter boolean DEFAULT true,
     spam_filter boolean DEFAULT true,
-    context character varying(1000),
-    modified bigint DEFAULT public.now_as_millis(),
-    owner_sees_participation_stats boolean DEFAULT false,
-    course_id integer,
-    link_url character varying(9999),
-    upvotes integer DEFAULT 1 NOT NULL,
-    parent_url character varying(9999),
+    strict_moderation boolean DEFAULT false,
+    prioritize_seed boolean DEFAULT false,
     vis_type integer DEFAULT 0 NOT NULL,
     write_type integer DEFAULT 1 NOT NULL,
-    bgcolor character varying(20),
     help_type integer DEFAULT 1 NOT NULL,
-    socialbtn_type integer DEFAULT 0 NOT NULL,
+    write_hint_type integer DEFAULT 1 NOT NULL,
     style_btn character varying(500),
-    auth_needed_to_vote boolean DEFAULT false,
-    auth_needed_to_write boolean DEFAULT true,
-    auth_opt_fb boolean DEFAULT true,
-    auth_opt_tw boolean DEFAULT true,
-    auth_opt_allow_3rdparty boolean DEFAULT true,
+    socialbtn_type integer DEFAULT 0 NOT NULL,
+    subscribe_type integer DEFAULT 1 NOT NULL,
+    branding_type integer DEFAULT 1 NOT NULL,
+    bgcolor character varying(20),
     help_bgcolor character varying(20),
     help_color character varying(20),
-    is_data_open boolean DEFAULT false,
-    is_curated boolean DEFAULT false,
-    dataset_explanation character varying(50000),
-    write_hint_type integer DEFAULT 1 NOT NULL,
-    subscribe_type integer DEFAULT 1 NOT NULL,
-    org_id integer,
-    need_suzinvite boolean DEFAULT false,
+    email_domain character varying(200),
     use_xid_whitelist boolean DEFAULT false,
-    prioritize_seed boolean DEFAULT false,
+    owner integer,
+    org_id integer,
+    context character varying(1000),
+    course_id integer,
+    owner_sees_participation_stats boolean DEFAULT false,
+    auth_needed_to_vote boolean,
+    auth_needed_to_write boolean,
+    auth_opt_fb boolean,
+    auth_opt_tw boolean,
+    auth_opt_allow_3rdparty boolean,
+    modified bigint DEFAULT public.now_as_millis(),
+    created bigint DEFAULT public.now_as_millis(),
     importance_enabled boolean DEFAULT false NOT NULL,
     treevite_enabled boolean DEFAULT false,
     xid_required boolean DEFAULT false NOT NULL
@@ -680,6 +420,7 @@ COMMENT ON COLUMN public.conversations.treevite_enabled IS 'Enable wave-based in
 --
 
 CREATE SEQUENCE public.conversations_zid_seq
+    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -703,8 +444,8 @@ CREATE TABLE public.courses (
     topic character varying(1000),
     description character varying(1000),
     owner integer,
-    created bigint DEFAULT public.now_as_millis(),
-    course_invite character varying(32)
+    course_invite character varying(32),
+    created bigint DEFAULT public.now_as_millis()
 );
 
 
@@ -713,6 +454,7 @@ CREATE TABLE public.courses (
 --
 
 CREATE SEQUENCE public.courses_course_id_seq
+    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -788,19 +530,6 @@ CREATE TABLE public.email_validations (
 
 
 --
--- Name: error_reports; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.error_reports (
-    uid integer NOT NULL,
-    zid integer NOT NULL,
-    error_code character varying(99),
-    data character varying(9999),
-    created bigint DEFAULT public.now_as_millis()
-);
-
-
---
 -- Name: event_ptpt_no_more_comments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -829,32 +558,20 @@ CREATE TABLE public.facebook_friends (
 CREATE TABLE public.facebook_users (
     uid integer NOT NULL,
     fb_user_id text,
+    fb_name character varying(9999),
+    fb_link character varying(9999),
     fb_public_profile text,
     fb_login_status text,
     fb_auth_response text,
     fb_access_token text,
     fb_granted_scopes text,
+    fb_location_id character varying(100),
+    location character varying(9999),
     response text,
     fb_friends_response text,
     created bigint DEFAULT public.now_as_millis(),
-    location character varying(9999),
-    fb_location_id character varying(100),
-    fb_name character varying(9999),
-    fb_link character varying(9999),
     modified bigint DEFAULT public.now_as_millis()
 );
-
-
---
--- Name: foobar; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.foobar
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
 
 
 --
@@ -885,9 +602,9 @@ CREATE TABLE public.jianiuevyew (
 CREATE TABLE public.math_bidtopid (
     zid integer NOT NULL,
     math_env character varying(999) NOT NULL,
-    data json NOT NULL,
-    modified bigint DEFAULT public.now_as_millis(),
-    math_tick bigint DEFAULT '-1'::integer NOT NULL
+    math_tick bigint DEFAULT '-1'::integer NOT NULL,
+    data jsonb NOT NULL,
+    modified bigint DEFAULT public.now_as_millis()
 );
 
 
@@ -898,7 +615,7 @@ CREATE TABLE public.math_bidtopid (
 CREATE TABLE public.math_cache (
     zid integer NOT NULL,
     math_env character varying(999) NOT NULL,
-    data json NOT NULL,
+    data jsonb NOT NULL,
     modified bigint DEFAULT public.now_as_millis()
 );
 
@@ -911,7 +628,7 @@ CREATE TABLE public.math_exportstatus (
     zid integer NOT NULL,
     math_env character varying(999) NOT NULL,
     filename character varying(9999) NOT NULL,
-    data json NOT NULL,
+    data jsonb NOT NULL,
     modified bigint DEFAULT public.now_as_millis()
 );
 
@@ -923,11 +640,11 @@ CREATE TABLE public.math_exportstatus (
 CREATE TABLE public.math_main (
     zid integer NOT NULL,
     math_env character varying(999) NOT NULL,
-    data json NOT NULL,
+    data jsonb NOT NULL,
     last_vote_timestamp bigint NOT NULL,
-    modified bigint DEFAULT public.now_as_millis(),
+    caching_tick bigint DEFAULT 0 NOT NULL,
     math_tick bigint DEFAULT '-1'::integer NOT NULL,
-    caching_tick bigint DEFAULT 0 NOT NULL
+    modified bigint DEFAULT public.now_as_millis()
 );
 
 
@@ -938,7 +655,7 @@ CREATE TABLE public.math_main (
 CREATE TABLE public.math_profile (
     zid integer NOT NULL,
     math_env character varying(999) NOT NULL,
-    data json NOT NULL,
+    data jsonb NOT NULL,
     modified bigint DEFAULT public.now_as_millis()
 );
 
@@ -950,9 +667,9 @@ CREATE TABLE public.math_profile (
 CREATE TABLE public.math_ptptstats (
     zid integer NOT NULL,
     math_env character varying(999) NOT NULL,
-    data json NOT NULL,
-    modified bigint DEFAULT public.now_as_millis(),
-    math_tick bigint DEFAULT '-1'::integer NOT NULL
+    math_tick bigint DEFAULT '-1'::integer NOT NULL,
+    data jsonb NOT NULL,
+    modified bigint DEFAULT public.now_as_millis()
 );
 
 
@@ -964,19 +681,8 @@ CREATE TABLE public.math_report_correlationmatrix (
     rid bigint NOT NULL,
     math_env character varying(999) NOT NULL,
     data jsonb,
-    modified bigint DEFAULT public.now_as_millis(),
-    math_tick bigint DEFAULT '-1'::integer NOT NULL
-);
-
-
---
--- Name: math_results_dev01; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.math_results_dev01 (
-    zid integer NOT NULL,
-    last_timestamp bigint NOT NULL,
-    data text
+    math_tick bigint DEFAULT '-1'::integer NOT NULL,
+    modified bigint DEFAULT public.now_as_millis()
 );
 
 
@@ -987,6 +693,7 @@ CREATE TABLE public.math_results_dev01 (
 CREATE TABLE public.math_ticks (
     zid integer,
     math_tick bigint DEFAULT 0 NOT NULL,
+    caching_tick bigint DEFAULT 0 NOT NULL,
     math_env character varying(999) NOT NULL,
     modified bigint DEFAULT public.now_as_millis() NOT NULL
 );
@@ -1000,29 +707,7 @@ CREATE TABLE public.metrics (
     uid integer,
     type integer NOT NULL,
     dur integer,
-    created bigint DEFAULT public.now_as_millis(),
-    hashedpc integer
-);
-
-
---
--- Name: minvites; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.minvites (
-    zid integer NOT NULL,
-    minvite character varying(300) NOT NULL,
-    created bigint DEFAULT public.now_as_millis()
-);
-
-
---
--- Name: moderators; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.moderators (
-    zid integer NOT NULL,
-    uid integer,
+    hashedpc integer,
     created bigint DEFAULT public.now_as_millis()
 );
 
@@ -1034,20 +719,6 @@ CREATE TABLE public.moderators (
 CREATE TABLE public.notification_tasks (
     zid integer NOT NULL,
     modified bigint DEFAULT public.now_as_millis()
-);
-
-
---
--- Name: nyt_users; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.nyt_users (
-    uid integer NOT NULL,
-    nyt_user_id bigint NOT NULL,
-    nyt_name character varying(9999),
-    nyt_img character varying(9999),
-    modified bigint DEFAULT public.now_as_millis() NOT NULL,
-    created bigint DEFAULT public.now_as_millis() NOT NULL
 );
 
 
@@ -1139,6 +810,7 @@ CREATE TABLE public.participant_metadata_answers (
 --
 
 CREATE SEQUENCE public.participant_metadata_answers_pmaid_seq
+    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -1185,6 +857,7 @@ CREATE TABLE public.participant_metadata_questions (
 --
 
 CREATE SEQUENCE public.participant_metadata_questions_pmqid_seq
+    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -1207,13 +880,13 @@ CREATE TABLE public.participants (
     pid integer NOT NULL,
     uid integer NOT NULL,
     zid integer NOT NULL,
-    created bigint DEFAULT public.now_as_millis(),
     vote_count integer DEFAULT 0 NOT NULL,
     last_interaction bigint DEFAULT 0 NOT NULL,
     subscribed integer DEFAULT 0 NOT NULL,
     last_notified bigint DEFAULT 0,
+    nsli smallint DEFAULT 0 NOT NULL,
     mod integer DEFAULT 0 NOT NULL,
-    nsli smallint DEFAULT 0 NOT NULL
+    created bigint DEFAULT public.now_as_millis()
 );
 
 
@@ -1227,14 +900,11 @@ CREATE TABLE public.participants_extended (
     referrer character varying(9999),
     parent_url character varying(9999),
     created bigint DEFAULT public.now_as_millis(),
-    permanent_cookie character varying(32),
-    origin character varying(9999),
-    encrypted_ip_address character varying(9999),
-    encrypted_x_forwarded_for character varying(9999),
-    country_iso_code character varying(10),
     modified bigint DEFAULT public.now_as_millis() NOT NULL,
+    subscribe_email character varying(256),
     show_translation_activated boolean,
-    subscribe_email character varying(256)
+    permanent_cookie character varying(32),
+    origin character varying(9999)
 );
 
 
@@ -1261,33 +931,13 @@ CREATE TABLE public.permanentcookiezidjoins (
 
 
 --
--- Name: polismath_mod_claims; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.polismath_mod_claims (
-    n integer NOT NULL,
-    created bigint DEFAULT public.now_as_millis() NOT NULL
-);
-
-
---
 -- Name: pwreset_tokens; Type: TABLE; Schema: public; Owner: -
 --
 
 CREATE TABLE public.pwreset_tokens (
-    token character varying(100),
     uid integer,
-    created bigint DEFAULT public.now_as_millis()
-);
-
-
---
--- Name: queue; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.queue (
-    itemid integer NOT NULL,
-    is_done boolean DEFAULT false NOT NULL
+    created bigint DEFAULT public.now_as_millis(),
+    token character varying(250)
 );
 
 
@@ -1296,11 +946,11 @@ CREATE TABLE public.queue (
 --
 
 CREATE TABLE public.report_comment_selections (
+    zid integer NOT NULL,
     rid bigint NOT NULL,
     tid integer NOT NULL,
     selection smallint NOT NULL,
-    modified bigint DEFAULT public.now_as_millis(),
-    zid integer NOT NULL
+    modified bigint DEFAULT public.now_as_millis()
 );
 
 
@@ -1314,10 +964,11 @@ CREATE TABLE public.reports (
     zid integer NOT NULL,
     created bigint DEFAULT public.now_as_millis(),
     modified bigint DEFAULT public.now_as_millis(),
+    report_name character varying(999),
     label_x_neg character varying(999),
+    label_x_pos character varying(999),
     label_y_neg character varying(999),
     label_y_pos character varying(999),
-    label_x_pos character varying(999),
     label_group_0 character varying(999),
     label_group_1 character varying(999),
     label_group_2 character varying(999),
@@ -1328,7 +979,6 @@ CREATE TABLE public.reports (
     label_group_7 character varying(999),
     label_group_8 character varying(999),
     label_group_9 character varying(999),
-    report_name character varying(999),
     mod_level smallint DEFAULT '-2'::integer NOT NULL
 );
 
@@ -1359,61 +1009,9 @@ ALTER SEQUENCE public.reports_rid_seq OWNED BY public.reports.rid;
 CREATE TABLE public.site_domain_whitelist (
     site_id character varying(256) NOT NULL,
     domain_whitelist character varying(999),
+    domain_whitelist_override_key character varying(999),
     modified bigint DEFAULT public.now_as_millis() NOT NULL,
-    created bigint DEFAULT public.now_as_millis() NOT NULL,
-    domain_whitelist_override_key character varying(999)
-);
-
-
---
--- Name: slack_participants_waiting_for_comments; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.slack_participants_waiting_for_comments (
-    zid integer NOT NULL,
-    uid integer NOT NULL,
-    slack_team character varying(20) NOT NULL,
-    slack_user_id character varying(20) NOT NULL,
-    slack_channel_id character varying(20) NOT NULL,
-    created bigint DEFAULT public.now_as_millis()
-);
-
-
---
--- Name: slack_state_heap; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.slack_state_heap (
-    slack_team character varying(20) NOT NULL,
-    slack_user_id character varying(20) NOT NULL,
-    heap_data jsonb NOT NULL,
-    modified bigint DEFAULT public.now_as_millis(),
-    created bigint DEFAULT public.now_as_millis(),
-    active boolean DEFAULT true NOT NULL,
-    expires bigint DEFAULT 0
-);
-
-
---
--- Name: slack_state_stack; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.slack_state_stack (
-    slack_team character varying(20) NOT NULL,
-    slack_user_id character varying(20) NOT NULL,
-    stack_data jsonb NOT NULL,
-    created bigint DEFAULT public.now_as_millis()
-);
-
-
---
--- Name: slack_team_tokens; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.slack_team_tokens (
-    slack_team character varying(20) NOT NULL,
-    slack_bot_access_token character varying(200) NOT NULL,
-    created bigint DEFAULT public.now_as_millis()
+    created bigint DEFAULT public.now_as_millis() NOT NULL
 );
 
 
@@ -1449,9 +1047,7 @@ CREATE TABLE public.suzinvites (
     zid integer NOT NULL,
     xid text NOT NULL,
     created bigint DEFAULT public.now_as_millis(),
-    suzinvite character varying(32),
-    uid integer,
-    modified bigint DEFAULT public.now_as_millis()
+    suzinvite character varying(32)
 );
 
 
@@ -1758,15 +1354,15 @@ CREATE TABLE public.twitter_users (
     uid integer NOT NULL,
     twitter_user_id bigint NOT NULL,
     screen_name character varying(999) NOT NULL,
+    name character varying(9999),
     followers_count integer NOT NULL,
     friends_count integer NOT NULL,
     verified boolean NOT NULL,
     profile_image_url_https character varying(9999),
-    modified bigint DEFAULT public.now_as_millis() NOT NULL,
-    created bigint DEFAULT public.now_as_millis() NOT NULL,
     location character varying(9999),
     response json,
-    name character varying(9999)
+    modified bigint DEFAULT public.now_as_millis() NOT NULL,
+    created bigint DEFAULT public.now_as_millis() NOT NULL
 );
 
 
@@ -1787,17 +1383,15 @@ CREATE TABLE public.upvotes (
 CREATE TABLE public.users (
     uid integer NOT NULL,
     hname character varying(746),
-    pwhash character varying(128),
+    created bigint DEFAULT public.now_as_millis(),
     username character varying(128),
     email character varying(256),
     is_owner boolean DEFAULT false,
     zinvite character varying(300),
     oinvite character varying(300),
-    created bigint DEFAULT public.now_as_millis(),
     tut smallint DEFAULT 0,
     site_id character varying(256) DEFAULT public.random_polis_site_id() NOT NULL,
-    site_owner boolean DEFAULT true,
-    test boolean DEFAULT false
+    site_owner boolean DEFAULT true
 );
 
 
@@ -1806,6 +1400,7 @@ CREATE TABLE public.users (
 --
 
 CREATE SEQUENCE public.users_uid_seq
+    AS integer
     START WITH 1
     INCREMENT BY 1
     NO MINVALUE
@@ -1818,6 +1413,21 @@ CREATE SEQUENCE public.users_uid_seq
 --
 
 ALTER SEQUENCE public.users_uid_seq OWNED BY public.users.uid;
+
+
+--
+-- Name: votes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.votes (
+    zid integer NOT NULL,
+    pid integer NOT NULL,
+    tid integer NOT NULL,
+    vote smallint,
+    weight_x_32767 smallint DEFAULT 0,
+    created bigint DEFAULT public.now_as_millis(),
+    high_priority boolean DEFAULT false NOT NULL
+);
 
 
 --
@@ -1839,13 +1449,13 @@ CREATE TABLE public.votes_latest_unique (
 --
 
 CREATE TABLE public.worker_tasks (
-    task_data jsonb NOT NULL,
     created bigint DEFAULT public.now_as_millis(),
-    finished_time bigint,
-    task_type text,
     math_env character varying(999) NOT NULL,
+    attempts smallint DEFAULT 0 NOT NULL,
+    task_data jsonb NOT NULL,
+    task_type character varying(99),
     task_bucket bigint,
-    attempts smallint DEFAULT 0 NOT NULL
+    finished_time bigint
 );
 
 
@@ -1869,11 +1479,13 @@ CREATE TABLE public.xids (
     uid integer NOT NULL,
     owner integer NOT NULL,
     xid text NOT NULL,
-    created bigint DEFAULT public.now_as_millis(),
     x_profile_image_url character varying(3000),
     x_name character varying(746),
+    x_email character varying(256),
+    created bigint DEFAULT public.now_as_millis(),
     modified bigint DEFAULT public.now_as_millis() NOT NULL,
-    x_email character varying(256)
+    zid integer,
+    pid integer
 );
 
 
@@ -1992,35 +1604,19 @@ ALTER TABLE ONLY public.comment_translations
 
 
 --
--- Name: comments comments_tid_unique_constraint; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: comments comments_zid_tid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.comments
-    ADD CONSTRAINT comments_tid_unique_constraint UNIQUE (zid, tid);
+    ADD CONSTRAINT comments_zid_tid_key UNIQUE (zid, tid);
 
 
 --
--- Name: comments comments_txt_unique_constraint; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: comments comments_zid_txt_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.comments
-    ADD CONSTRAINT comments_txt_unique_constraint UNIQUE (zid, txt);
-
-
---
--- Name: conversation_invite_codes conversation_invite_codes_code_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.conversation_invite_codes
-    ADD CONSTRAINT conversation_invite_codes_code_key UNIQUE (code);
-
-
---
--- Name: conversation_subscriptions conversation_subscriptions_zid_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.conversation_subscriptions
-    ADD CONSTRAINT conversation_subscriptions_zid_uid_key UNIQUE (zid, uid);
+    ADD CONSTRAINT comments_zid_txt_key UNIQUE (zid, txt);
 
 
 --
@@ -2048,11 +1644,19 @@ ALTER TABLE ONLY public.courses
 
 
 --
--- Name: demographic_data demographic_data_unique_uid; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: courses courses_course_invite_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.courses
+    ADD CONSTRAINT courses_course_invite_key UNIQUE (course_invite);
+
+
+--
+-- Name: demographic_data demographic_data_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.demographic_data
-    ADD CONSTRAINT demographic_data_unique_uid UNIQUE (uid);
+    ADD CONSTRAINT demographic_data_uid_key UNIQUE (uid);
 
 
 --
@@ -2061,14 +1665,6 @@ ALTER TABLE ONLY public.demographic_data
 
 ALTER TABLE ONLY public.einvites
     ADD CONSTRAINT einvites_einvite_key UNIQUE (einvite);
-
-
---
--- Name: users email_unique_check; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.users
-    ADD CONSTRAINT email_unique_check UNIQUE (email);
 
 
 --
@@ -2160,14 +1756,6 @@ ALTER TABLE ONLY public.math_report_correlationmatrix
 
 
 --
--- Name: math_results_dev01 math_results_dev01_zid_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.math_results_dev01
-    ADD CONSTRAINT math_results_dev01_zid_key UNIQUE (zid);
-
-
---
 -- Name: math_ticks math_ticks_zid_math_env_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2176,43 +1764,11 @@ ALTER TABLE ONLY public.math_ticks
 
 
 --
--- Name: minvites minvites_minvite_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.minvites
-    ADD CONSTRAINT minvites_minvite_key UNIQUE (minvite);
-
-
---
--- Name: moderators moderators_zid_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.moderators
-    ADD CONSTRAINT moderators_zid_uid_key UNIQUE (zid, uid);
-
-
---
 -- Name: notification_tasks notification_tasks_zid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.notification_tasks
     ADD CONSTRAINT notification_tasks_zid_key UNIQUE (zid);
-
-
---
--- Name: nyt_users nyt_users_nyt_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.nyt_users
-    ADD CONSTRAINT nyt_users_nyt_user_id_key UNIQUE (nyt_user_id);
-
-
---
--- Name: nyt_users nyt_users_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.nyt_users
-    ADD CONSTRAINT nyt_users_uid_key UNIQUE (uid);
 
 
 --
@@ -2320,11 +1876,19 @@ ALTER TABLE ONLY public.participants
 
 
 --
--- Name: password_reset_tokens password_reset_tokens_pwresettoken_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: pwreset_tokens password_reset_tokens_pwresettoken_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.pwreset_tokens
+    ADD CONSTRAINT password_reset_tokens_pwresettoken_key UNIQUE (token);
+
+
+--
+-- Name: password_reset_tokens password_reset_tokens_pwresettoken_key1; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.password_reset_tokens
-    ADD CONSTRAINT password_reset_tokens_pwresettoken_key UNIQUE (token);
+    ADD CONSTRAINT password_reset_tokens_pwresettoken_key1 UNIQUE (token);
 
 
 --
@@ -2333,22 +1897,6 @@ ALTER TABLE ONLY public.password_reset_tokens
 
 ALTER TABLE ONLY public.permanentcookiezidjoins
     ADD CONSTRAINT permanentcookiezidjoins_zid_cookie_key UNIQUE (zid, cookie);
-
-
---
--- Name: pwreset_tokens pwreset_tokens_token_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.pwreset_tokens
-    ADD CONSTRAINT pwreset_tokens_token_key UNIQUE (token);
-
-
---
--- Name: queue queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.queue
-    ADD CONSTRAINT queue_pkey PRIMARY KEY (itemid);
 
 
 --
@@ -2373,46 +1921,6 @@ ALTER TABLE ONLY public.reports
 
 ALTER TABLE ONLY public.reports
     ADD CONSTRAINT reports_rid_key UNIQUE (rid);
-
-
---
--- Name: slack_participants_waiting_for_comments slack_participants_waiting_for_slack_team_slack_user_id_zid_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.slack_participants_waiting_for_comments
-    ADD CONSTRAINT slack_participants_waiting_for_slack_team_slack_user_id_zid_key UNIQUE (slack_team, slack_user_id, zid);
-
-
---
--- Name: slack_state_heap slack_state_heap_slack_team_slack_user_id_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.slack_state_heap
-    ADD CONSTRAINT slack_state_heap_slack_team_slack_user_id_key UNIQUE (slack_team, slack_user_id);
-
-
---
--- Name: slack_state_stack slack_state_stack_slack_team_slack_user_id_created_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.slack_state_stack
-    ADD CONSTRAINT slack_state_stack_slack_team_slack_user_id_created_key UNIQUE (slack_team, slack_user_id, created);
-
-
---
--- Name: slack_team_tokens slack_team_tokens_slack_team_slack_bot_access_token_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.slack_team_tokens
-    ADD CONSTRAINT slack_team_tokens_slack_team_slack_bot_access_token_key UNIQUE (slack_team, slack_bot_access_token);
-
-
---
--- Name: social_settings social_settings_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.social_settings
-    ADD CONSTRAINT social_settings_uid_key UNIQUE (uid);
 
 
 --
@@ -2520,6 +2028,14 @@ ALTER TABLE ONLY public.upvotes
 
 
 --
+-- Name: users users_email_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.users
+    ADD CONSTRAINT users_email_key UNIQUE (email);
+
+
+--
 -- Name: users users_uid_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2552,14 +2068,6 @@ ALTER TABLE ONLY public.xids
 
 
 --
--- Name: xids xids_unique_owner_uid_constraint; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.xids
-    ADD CONSTRAINT xids_unique_owner_uid_constraint UNIQUE (owner, uid);
-
-
---
 -- Name: zinvites zinvites_zinvite_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2579,13 +2087,6 @@ CREATE INDEX apikeysndvweifu_apikey_idx ON public.apikeysndvweifu USING btree (a
 --
 
 CREATE INDEX apikeysndvweifu_uid_idx ON public.apikeysndvweifu USING btree (uid);
-
-
---
--- Name: auth_tokens_token_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX auth_tokens_token_idx ON public.auth_tokens USING btree (token);
 
 
 --
@@ -2614,13 +2115,6 @@ CREATE INDEX conversation_translations_idx ON public.conversation_translations U
 --
 
 CREATE INDEX conversations_owner_idx ON public.conversations USING btree (owner);
-
-
---
--- Name: conversations_zid_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX conversations_zid_index ON public.conversations USING btree (zid);
 
 
 --
@@ -2764,10 +2258,52 @@ CREATE INDEX idx_treevite_waves_zid ON public.treevite_waves USING btree (zid);
 
 
 --
+-- Name: idx_xid_whitelist_xid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xid_whitelist_xid ON public.xid_whitelist USING btree (xid);
+
+
+--
 -- Name: idx_xid_whitelist_zid; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_xid_whitelist_zid ON public.xid_whitelist USING btree (zid);
+
+
+--
+-- Name: idx_xids_pid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xids_pid ON public.xids USING btree (pid);
+
+
+--
+-- Name: idx_xids_uid_zid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xids_uid_zid ON public.xids USING btree (uid, zid);
+
+
+--
+-- Name: idx_xids_xid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xids_xid ON public.xids USING btree (xid);
+
+
+--
+-- Name: idx_xids_zid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xids_zid ON public.xids USING btree (zid);
+
+
+--
+-- Name: idx_xids_zid_xid; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_xids_zid_xid ON public.xids USING btree (zid, xid);
 
 
 --
@@ -2834,20 +2370,6 @@ CREATE INDEX participants_conv_uid_idx ON public.participants USING btree (uid);
 
 
 --
--- Name: participants_uid_index; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX participants_uid_index ON public.participants USING btree (uid);
-
-
---
--- Name: pwreset_tokens_token_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX pwreset_tokens_token_idx ON public.pwreset_tokens USING btree (token);
-
-
---
 -- Name: site_domain_whitelist_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2873,13 +2395,6 @@ CREATE INDEX users_uid_idx ON public.users USING btree (uid);
 --
 
 CREATE INDEX votes_latest_unique_zid_tid_idx ON public.votes USING btree (zid, tid);
-
-
---
--- Name: votes_zid_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX votes_zid_idx ON public.votes USING btree (zid);
 
 
 --
@@ -2972,11 +2487,11 @@ ALTER TABLE ONLY public.comment_translations
 
 
 --
--- Name: comments comments_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: comments comments_zid_pid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.comments
-    ADD CONSTRAINT comments_zid_fkey FOREIGN KEY (zid, pid) REFERENCES public.participants(zid, pid);
+    ADD CONSTRAINT comments_zid_pid_fkey FOREIGN KEY (zid, pid) REFERENCES public.participants(zid, pid);
 
 
 --
@@ -2988,43 +2503,11 @@ ALTER TABLE ONLY public.contexts
 
 
 --
--- Name: contributor_agreement_signatures contributer_agreement_signatures_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.contributor_agreement_signatures
-    ADD CONSTRAINT contributer_agreement_signatures_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
-
-
---
--- Name: contributer_agreement_signatures contributer_agreement_signatures_uid_fkey1; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: contributer_agreement_signatures contributer_agreement_signatures_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.contributer_agreement_signatures
-    ADD CONSTRAINT contributer_agreement_signatures_uid_fkey1 FOREIGN KEY (uid) REFERENCES public.users(uid);
-
-
---
--- Name: conversation_invite_codes conversation_invite_codes_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.conversation_invite_codes
-    ADD CONSTRAINT conversation_invite_codes_zid_fkey FOREIGN KEY (zid) REFERENCES public.conversations(zid);
-
-
---
--- Name: conversation_subscriptions conversation_subscriptions_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.conversation_subscriptions
-    ADD CONSTRAINT conversation_subscriptions_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
-
-
---
--- Name: conversation_subscriptions conversation_subscriptions_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.conversation_subscriptions
-    ADD CONSTRAINT conversation_subscriptions_zid_fkey FOREIGN KEY (zid) REFERENCES public.conversations(zid);
+    ADD CONSTRAINT contributer_agreement_signatures_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
 
 
 --
@@ -3036,19 +2519,19 @@ ALTER TABLE ONLY public.conversation_translations
 
 
 --
--- Name: conversations conversations_actual_ownr_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.conversations
-    ADD CONSTRAINT conversations_actual_ownr_fkey FOREIGN KEY (org_id) REFERENCES public.users(uid);
-
-
---
 -- Name: conversations conversations_course_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.conversations
     ADD CONSTRAINT conversations_course_id_fkey FOREIGN KEY (course_id) REFERENCES public.courses(course_id);
+
+
+--
+-- Name: conversations conversations_org_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.conversations
+    ADD CONSTRAINT conversations_org_id_fkey FOREIGN KEY (org_id) REFERENCES public.users(uid);
 
 
 --
@@ -3073,22 +2556,6 @@ ALTER TABLE ONLY public.courses
 
 ALTER TABLE ONLY public.demographic_data
     ADD CONSTRAINT demographic_data_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
-
-
---
--- Name: error_reports error_reports_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.error_reports
-    ADD CONSTRAINT error_reports_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
-
-
---
--- Name: error_reports error_reports_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.error_reports
-    ADD CONSTRAINT error_reports_zid_fkey FOREIGN KEY (zid) REFERENCES public.conversations(zid);
 
 
 --
@@ -3220,43 +2687,11 @@ ALTER TABLE ONLY public.metrics
 
 
 --
--- Name: minvites minvites_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.minvites
-    ADD CONSTRAINT minvites_zid_fkey FOREIGN KEY (zid) REFERENCES public.conversations(zid);
-
-
---
--- Name: moderators moderators_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.moderators
-    ADD CONSTRAINT moderators_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
-
-
---
--- Name: moderators moderators_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.moderators
-    ADD CONSTRAINT moderators_zid_fkey FOREIGN KEY (zid) REFERENCES public.conversations(zid);
-
-
---
 -- Name: notification_tasks notification_tasks_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.notification_tasks
     ADD CONSTRAINT notification_tasks_zid_fkey FOREIGN KEY (zid) REFERENCES public.conversations(zid);
-
-
---
--- Name: nyt_users nyt_users_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.nyt_users
-    ADD CONSTRAINT nyt_users_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
 
 
 --
@@ -3324,11 +2759,11 @@ ALTER TABLE ONLY public.participant_metadata_choices
 
 
 --
--- Name: participant_metadata_choices participant_metadata_choices_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: participant_metadata_choices participant_metadata_choices_zid_pid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.participant_metadata_choices
-    ADD CONSTRAINT participant_metadata_choices_zid_fkey FOREIGN KEY (zid, pid) REFERENCES public.participants(zid, pid);
+    ADD CONSTRAINT participant_metadata_choices_zid_pid_fkey FOREIGN KEY (zid, pid) REFERENCES public.participants(zid, pid);
 
 
 --
@@ -3372,19 +2807,19 @@ ALTER TABLE ONLY public.participants
 
 
 --
--- Name: password_reset_tokens password_reset_tokens_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: pwreset_tokens password_reset_tokens_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.password_reset_tokens
+ALTER TABLE ONLY public.pwreset_tokens
     ADD CONSTRAINT password_reset_tokens_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
 
 
 --
--- Name: pwreset_tokens pwreset_tokens_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: password_reset_tokens password_reset_tokens_uid_fkey1; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.pwreset_tokens
-    ADD CONSTRAINT pwreset_tokens_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
+ALTER TABLE ONLY public.password_reset_tokens
+    ADD CONSTRAINT password_reset_tokens_uid_fkey1 FOREIGN KEY (uid) REFERENCES public.users(uid);
 
 
 --
@@ -3412,22 +2847,6 @@ ALTER TABLE ONLY public.reports
 
 
 --
--- Name: slack_participants_waiting_for_comments slack_participants_waiting_for_comments_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.slack_participants_waiting_for_comments
-    ADD CONSTRAINT slack_participants_waiting_for_comments_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
-
-
---
--- Name: slack_participants_waiting_for_comments slack_participants_waiting_for_comments_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.slack_participants_waiting_for_comments
-    ADD CONSTRAINT slack_participants_waiting_for_comments_zid_fkey FOREIGN KEY (zid) REFERENCES public.conversations(zid);
-
-
---
 -- Name: social_settings social_settings_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3441,14 +2860,6 @@ ALTER TABLE ONLY public.social_settings
 
 ALTER TABLE ONLY public.suzinvites
     ADD CONSTRAINT suzinvites_owner_fkey FOREIGN KEY (owner) REFERENCES public.users(uid);
-
-
---
--- Name: suzinvites suzinvites_uid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.suzinvites
-    ADD CONSTRAINT suzinvites_uid_fkey FOREIGN KEY (uid) REFERENCES public.users(uid);
 
 
 --
@@ -3572,6 +2983,14 @@ ALTER TABLE ONLY public.xids
 
 
 --
+-- Name: xids xids_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.xids
+    ADD CONSTRAINT xids_zid_fkey FOREIGN KEY (zid) REFERENCES public.conversations(zid) ON DELETE CASCADE;
+
+
+--
 -- Name: zinvites zinvites_zid_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3583,5 +3002,5 @@ ALTER TABLE ONLY public.zinvites
 -- PostgreSQL database dump complete
 --
 
-\unrestrict lrD1yIvoBNDGCIuFu0JDqnanxQ4WaLd3Ankh34ZbfdkqGZUvHxmwBgt4STQ5UUi
+\unrestrict ZuTT5v8YTYzMtKWq70d0gkNuGdRU0paPlHKUMtzblcYz2cIg5JJ8HVGULeAI8MJ
 

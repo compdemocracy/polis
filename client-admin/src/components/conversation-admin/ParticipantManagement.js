@@ -156,7 +156,7 @@ const ParticipantManagement = () => {
         <Text sx={{ color: 'mediumGray', mb: [3] }}>No XIDs found for this conversation.</Text>
       ) : activeTab === 'inUse' ? (
         <>
-          <XidsInUseTable xids={xids} />
+          <XidsInUseTable xids={xids} conversationId={conversationId} />
           <Pagination pagination={pagination} onPageChange={handlePageChange} loading={loading} />
         </>
       ) : (

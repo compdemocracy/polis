@@ -1,9 +1,10 @@
-import { Box, Text } from 'theme-ui'
+import { Box, Text, Button, Flex } from 'theme-ui'
 import { useEffect, useState } from 'react'
 import PropTypes from 'prop-types'
 import PolisNet from '../../../util/net'
 import Spinner from '../../framework/Spinner'
 import Pagination from '../Pagination'
+import UploadXidsModal from './UploadXidsModal'
 
 const XidAllowListTable = ({ conversationId }) => {
   const [xids, setXids] = useState([])
@@ -11,6 +12,8 @@ const XidAllowListTable = ({ conversationId }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
   const [limit] = useState(50)
+  const [downloadLoading, setDownloadLoading] = useState(false)
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false)
 
   const loadXidAllowList = async (newOffset = 0) => {
     if (!conversationId) return
@@ -43,6 +46,68 @@ const XidAllowListTable = ({ conversationId }) => {
     loadXidAllowList(newOffset)
   }
 
+  const handleDownloadCsv = async () => {
+    if (!conversationId) return
+    try {
+      setDownloadLoading(true)
+      const token = await PolisNet.getAccessTokenSilentlySPA()
+
+      const url = `/api/v3/xidAllowList/csv?conversation_id=${encodeURIComponent(
+        conversationId
+      )}`
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` })
+        }
+      })
+
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || `Failed to download CSV (status ${res.status})`)
+      }
+
+      const blob = await res.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const ts = new Date().toISOString().replace(/[:.]/g, '-')
+      a.href = blobUrl
+      a.download = `xid_allow_list_${conversationId}_${ts}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(blobUrl)
+    } catch (e) {
+      alert(e?.message || 'Failed to download CSV')
+    } finally {
+      setDownloadLoading(false)
+    }
+  }
+
+  const handleUploadXids = async (xidsList, replaceAll = false) => {
+    if (!conversationId || !xidsList || xidsList.length === 0) {
+      return
+    }
+
+    try {
+      setLoading(true)
+      await PolisNet.polisPost('/api/v3/xidAllowList', {
+        xid_allow_list: xidsList,
+        conversation_id: conversationId,
+        replace_all: replaceAll
+      })
+
+      // Close modal and reload list after successful upload
+      setIsUploadModalOpen(false)
+      await loadXidAllowList(0) // Reload after upload
+    } catch (e) {
+      alert(e?.responseText || e?.message || 'Failed to upload XIDs')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   if (loading && !xids.length) {
     return <Spinner />
   }
@@ -53,14 +118,60 @@ const XidAllowListTable = ({ conversationId }) => {
 
   if (xids.length === 0) {
     return (
-      <Text sx={{ color: 'mediumGray', mb: [3] }}>
-        No XIDs in the allow list for this conversation.
-      </Text>
+      <>
+        <Flex sx={{ justifyContent: 'flex-end', mb: [2], gap: [2] }}>
+          <Button
+            variant="outline"
+            size="small"
+            onClick={() => setIsUploadModalOpen(true)}
+            disabled={!conversationId}>
+            Upload XIDs
+          </Button>
+          <Button
+            variant="outline"
+            size="small"
+            onClick={handleDownloadCsv}
+            disabled={downloadLoading || !conversationId}>
+            {downloadLoading ? 'Preparing…' : 'Download CSV'}
+          </Button>
+        </Flex>
+        <UploadXidsModal
+          isOpen={isUploadModalOpen}
+          onClose={() => setIsUploadModalOpen(false)}
+          onUpload={handleUploadXids}
+          conversationId={conversationId}
+        />
+        <Text sx={{ color: 'mediumGray', mb: [3] }}>
+          No XIDs in the allow list for this conversation.
+        </Text>
+      </>
     )
   }
 
   return (
     <>
+      <Flex sx={{ justifyContent: 'flex-end', mb: [2], gap: [2] }}>
+        <Button
+          variant="outline"
+          size="small"
+          onClick={() => setIsUploadModalOpen(true)}
+          disabled={!conversationId}>
+          Upload XIDs
+        </Button>
+        <Button
+          variant="outline"
+          size="small"
+          onClick={handleDownloadCsv}
+          disabled={downloadLoading || !conversationId}>
+          {downloadLoading ? 'Preparing…' : 'Download CSV'}
+        </Button>
+      </Flex>
+      <UploadXidsModal
+        isOpen={isUploadModalOpen}
+        onClose={() => setIsUploadModalOpen(false)}
+        onUpload={handleUploadXids}
+        conversationId={conversationId}
+      />
       <Box
         as="table"
         sx={{

@@ -121,6 +121,8 @@ import {
   handle_GET_xids,
   handle_GET_xidAllowList,
   handle_POST_xidAllowList,
+  handle_GET_xids_csv,
+  handle_GET_xidAllowList_csv,
 } from "./src/routes/xids";
 import {
   handle_GET_participants,
@@ -650,7 +652,32 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
+      want("replace_all", getBool, assignToP, false),
       handle_POST_xidAllowList
+    );
+
+    app.get(
+      "/api/v3/xids/csv",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_xids_csv
+    );
+
+    app.get(
+      "/api/v3/xidAllowList/csv",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_xidAllowList_csv
     );
 
     app.get(

@@ -142,7 +142,7 @@ async function getXids(zid: number): Promise<XidRecord[]> {
   const rows = await pg.queryP_readOnly<XidRecord>(
     "select p.pid, xids.xid from xids inner join " +
       "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
-      " where owner in (select owner from conversations where zid = ($1));",
+      " where xids.owner in (select owner from conversations where zid = ($1));",
     [zid]
   );
   return Array.isArray(rows) ? rows : [];

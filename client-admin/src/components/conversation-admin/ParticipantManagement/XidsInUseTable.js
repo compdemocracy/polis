@@ -1,15 +1,68 @@
-import { Box } from 'theme-ui'
+import { Box, Button, Flex } from 'theme-ui'
 import PropTypes from 'prop-types'
+import { useState } from 'react'
+import PolisNet from '../../../util/net'
 
-const XidsInUseTable = ({ xids = [] }) => {
+const XidsInUseTable = ({ xids = [], conversationId }) => {
+  const [downloadLoading, setDownloadLoading] = useState(false)
+
+  const handleDownloadCsv = async () => {
+    if (!conversationId) return
+    try {
+      setDownloadLoading(true)
+      const token = await PolisNet.getAccessTokenSilentlySPA()
+
+      const url = `/api/v3/xids/csv?conversation_id=${encodeURIComponent(
+        conversationId
+      )}`
+
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` })
+        }
+      })
+
+      if (!res.ok) {
+        const msg = await res.text()
+        throw new Error(msg || `Failed to download CSV (status ${res.status})`)
+      }
+
+      const blob = await res.blob()
+      const blobUrl = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const ts = new Date().toISOString().replace(/[:.]/g, '-')
+      a.href = blobUrl
+      a.download = `xids_in_use_${conversationId}_${ts}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(blobUrl)
+    } catch (e) {
+      alert(e?.message || 'Failed to download CSV')
+    } finally {
+      setDownloadLoading(false)
+    }
+  }
+
   return (
-    <Box
-      as="table"
-      sx={{
-        width: '100%',
-        borderCollapse: 'collapse',
-        mb: [3]
-      }}>
+    <>
+      <Flex sx={{ justifyContent: 'flex-end', mb: [2] }}>
+        <Button
+          variant="outline"
+          size="small"
+          onClick={handleDownloadCsv}
+          disabled={downloadLoading || !conversationId}>
+          {downloadLoading ? 'Preparing…' : 'Download CSV'}
+        </Button>
+      </Flex>
+      <Box
+        as="table"
+        sx={{
+          width: '100%',
+          borderCollapse: 'collapse',
+          mb: [3]
+        }}>
       <Box
         as="thead"
         sx={{
@@ -81,6 +134,7 @@ const XidsInUseTable = ({ xids = [] }) => {
         ))}
       </Box>
     </Box>
+    </>
   )
 }
 
@@ -90,7 +144,8 @@ XidsInUseTable.propTypes = {
       pid: PropTypes.number.isRequired,
       xid: PropTypes.string.isRequired
     })
-  )
+  ),
+  conversationId: PropTypes.string
 }
 
 export default XidsInUseTable
