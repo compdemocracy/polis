@@ -112,6 +112,10 @@ async function handle_POST_joinWithInvite(
   } catch (err: any) {
     if (err?.message?.match(/polis_err_need_full_user/)) {
       failJson(res, 403, err.message, err);
+    } else if (err?.message?.match(/polis_err_xid_required/)) {
+      failJson(res, 403, err.message, err);
+    } else if (err?.message?.match(/polis_err_xid_not_whitelisted/)) {
+      failJson(res, 403, err.message, err);
     } else if (err?.message) {
       failJson(res, 500, err.message, err);
     } else {
@@ -160,19 +164,27 @@ async function _joinWithZidOrSuzinvite(params: JoinParams): Promise<any> {
   const ptpt = await joinConversation(o.zid, o.uid, info, o.answers);
   o = Object.assign(o, ptpt);
 
+  // XID validation logic
+  if (o.conv.use_xid_whitelist) {
+    if (o.xid) {
+      const isWhitelisted = await isXidWhitelisted(o.xid, o.zid, o.conv.owner);
+      if (!isWhitelisted) {
+        throw new Error("polis_err_xid_not_whitelisted");
+      }
+    } else {
+      throw new Error("polis_err_xid_required");
+    }
+  } else if (o.conv.xid_required) {
+    if (!o.xid) {
+      throw new Error("polis_err_xid_required");
+    }
+  }
+
   // Handle XID if present
   if (o.xid) {
     const exists = await xidExists(o.xid, o.conv.org_id, o.uid);
     if (!exists) {
-      const shouldCreateXidEntry = o.conv.use_xid_whitelist
-        ? await isXidWhitelisted(o.xid, o.zid, o.conv.owner)
-        : true;
-
-      if (shouldCreateXidEntry) {
-        await createXidRecord(o.xid, o.conv.owner, o.uid, o.zid);
-      } else {
-        throw new Error("polis_err_xid_not_whitelisted");
-      }
+      await createXidRecord(o.xid, o.conv.owner, o.uid, o.zid);
     }
   }
 

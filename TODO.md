@@ -13,6 +13,6 @@
 [x] Participant Management - allow admin to download the XID Whitelist table as a csv
 [x] Participant Management - allow admin to upload a new xid whitelist file (csv with xids header, or plain text with one xid per line)
 [x] Indicate the % comments voted on for each xid
-[ ] Block participation without an xid when xid_required is true
+[x] Block participation without an xid when xid_required is true
 [ ] Enable ?xid param in client-participation-alpha
 [ ] Warn signed-in users who arrived with an xid param.

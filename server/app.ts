@@ -779,7 +779,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("xid", getStringLimitLength(1, 999), assignToP), // Process XID before ensureParticipant
+      // Process XID before ensureParticipant
+      want("xid", getStringLimitLength(1, 999), assignToP),
       ensureParticipant({ createIfMissing: true, issueJWT: true }),
       need("txt", getStringLimitLength(1, 997), assignToP),
       want("vote", getIntInRange(-1, 1), assignToP),
@@ -1199,7 +1200,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("xid", getStringLimitLength(1, 999), assignToP), // Process XID before ensureParticipant
+      // Process XID before ensureParticipant
+      want("xid", getStringLimitLength(1, 999), assignToP),
       ensureParticipant({ createIfMissing: true, issueJWT: true }),
       need("tid", getInt, assignToP),
       need("vote", getIntInRange(-1, 1), assignToP),

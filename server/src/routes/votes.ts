@@ -5,7 +5,6 @@ import { failJson } from "../utils/fail";
 import { getNextComment } from "../nextComment";
 import { getPid } from "../user";
 import { isDuplicateKey, polisTypes } from "../utils/common";
-import { isXidWhitelisted } from "../xids";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import SQL from "../db/sql";
@@ -80,7 +79,6 @@ async function votesPost(
   pid?: number,
   zid?: number,
   tid?: number,
-  xid?: string,
   voteType?: number,
   weight?: number,
   high_priority?: boolean
@@ -99,12 +97,7 @@ async function votesPost(
     throw "polis_err_conversation_is_closed";
   }
 
-  if (conv.use_xid_whitelist) {
-    const is_whitelisted = await isXidWhitelisted(xid!, zid, conv.owner!);
-    if (!is_whitelisted) {
-      throw "polis_err_xid_not_whitelisted";
-    }
-  }
+  // Note: XID validation is handled by ensureParticipant middleware before this function is called
 
   return doVotesPost(uid, pid, conv, tid, voteType, weight, high_priority);
 }
@@ -199,7 +192,6 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
     high_priority,
     starred,
     lang,
-    xid,
   } = req.p;
 
   try {
@@ -209,7 +201,6 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
       pid,
       zid,
       tid,
-      xid,
       vote,
       weight,
       high_priority

@@ -107,9 +107,11 @@ s.commentSendFailedTooLong = "There was an error submitting your statement - Sta
 s.commentSendFailedDuplicate = "There was an error submitting your statement - An identical statement already exists.";
 s.commentErrorDuplicate = "Duplicate! That statement already exists.";
 s.commentErrorConversationClosed = "This conversation is closed. No further statements can be submitted.";
+s.xidRequired = "Sorry, you must be registered to participate. Please contact the conversation owner to get access.";
 s.commentIsEmpty = "Statement is empty";
 s.commentIsTooLong = "Statement is too long";
 s.hereIsNextStatement = "Vote success. Navigate up to see the next statement.";
+s.voteErrorGeneric = "Apologies, your vote failed to send. Please check your connection and try again.";
 
 // Text for the third party translation that appears on the cards
 

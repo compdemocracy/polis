@@ -167,6 +167,24 @@ async function _handleUserIdentification(
     return uid;
   }
 
+  const conv = await getConversationInfo(zid);
+
+  // XID validation logic
+  if (conv.use_xid_whitelist) {
+    if (req.p.xid) {
+      const isWhitelisted = await isXidWhitelisted(req.p.xid, zid, conv.owner);
+      if (!isWhitelisted) {
+        throw new Error("polis_err_xid_not_whitelisted");
+      }
+    } else {
+      throw new Error("polis_err_xid_required");
+    }
+  } else if (conv.xid_required) {
+    if (!req.p.xid) {
+      throw new Error("polis_err_xid_required");
+    }
+  }
+
   if (req.p.xid) {
     // Handle XID users - look up or create their UID
     const existingXidRecords = await getXidRecord(req.p.xid, zid);
@@ -174,14 +192,6 @@ async function _handleUserIdentification(
     if (existingXidRecords && existingXidRecords.length > 0) {
       // XID user already exists
       return existingXidRecords[0].uid;
-    }
-
-    const conv = await getConversationInfo(zid);
-    if (conv.use_xid_whitelist) {
-      const isWhitelisted = await isXidWhitelisted(req.p.xid, zid, conv.owner);
-      if (!isWhitelisted) {
-        throw new Error("polis_err_xid_not_whitelisted");
-      }
     }
 
     // Create new anonymous user for this XID
@@ -546,6 +556,21 @@ export function ensureParticipant(options: EnsureParticipantOptions = {}) {
     } catch (error) {
       logger.error("Error in ensureParticipant middleware", error);
 
+      // Handle XID authentication errors with proper status codes
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_xid_required"
+      ) {
+        return failJson(res, 403, "polis_err_xid_required");
+      }
+
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_xid_not_whitelisted"
+      ) {
+        return failJson(res, 403, "polis_err_xid_not_whitelisted");
+      }
+
       // Handle Treevite authentication errors with proper status code
       if (
         error instanceof Error &&
@@ -594,6 +619,21 @@ export function ensureParticipantOptional(
 
       next();
     } catch (error) {
+      // Handle XID authentication errors even in optional middleware
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_xid_required"
+      ) {
+        return failJson(res, 403, "polis_err_xid_required");
+      }
+
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_xid_not_whitelisted"
+      ) {
+        return failJson(res, 403, "polis_err_xid_not_whitelisted");
+      }
+
       // Handle Treevite authentication errors even in optional middleware
       if (
         error instanceof Error &&
