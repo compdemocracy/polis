@@ -355,13 +355,18 @@ async function handle_POST_xidAllowList(
     // If replace_all is true, delete existing XIDs that are not in the incoming list
     // This preserves existing pids for XIDs that are being kept
     if (replace_all) {
-      logger.debug("handle_POST_xidAllowList: replace_all is true, deleting non-matching XIDs", {
-        zid,
-        incomingCount: xid_allow_list.length,
-      });
+      logger.debug(
+        "handle_POST_xidAllowList: replace_all is true, deleting non-matching XIDs",
+        {
+          zid,
+          incomingCount: xid_allow_list.length,
+        }
+      );
 
       // Create a set of incoming XIDs for efficient lookup
-      const incomingXidSet = new Set(xid_allow_list.map((xid) => xid.toLowerCase()));
+      const incomingXidSet = new Set(
+        xid_allow_list.map((xid) => xid.toLowerCase())
+      );
 
       // Get all existing XIDs for this conversation (zid matches or legacy owner matches)
       const existingRows = await pg.queryP_readOnly<{ xid: string }>(
@@ -380,14 +385,19 @@ async function handle_POST_xidAllowList(
 
         // Delete XIDs that are not in the incoming list
         if (xidsToDelete.length > 0) {
-          logger.debug("handle_POST_xidAllowList: deleting XIDs not in incoming list", {
-            zid,
-            deleteCount: xidsToDelete.length,
-          });
+          logger.debug(
+            "handle_POST_xidAllowList: deleting XIDs not in incoming list",
+            {
+              zid,
+              deleteCount: xidsToDelete.length,
+            }
+          );
 
           // Delete by matching zid + xid (preferred) or owner + xid (legacy)
           // Use parameterized query for safety
-          const xidPlaceholders = xidsToDelete.map((_, idx) => `$${idx + 1}`).join(",");
+          const xidPlaceholders = xidsToDelete
+            .map((_, idx) => `$${idx + 1}`)
+            .join(",");
           const deleteParams = xidsToDelete.map((xid) => xid);
 
           await pg.queryP(
@@ -530,15 +540,22 @@ async function handle_GET_xidAllowList_csv(
       hasP: !!req.p,
       pKeys: req.p ? Object.keys(req.p) : [],
     });
-    failJson(res, 401, "polis_err_get_xidAllowList_csv_authentication_required");
+    failJson(
+      res,
+      401,
+      "polis_err_get_xidAllowList_csv_authentication_required"
+    );
     return;
   }
 
   try {
-    logger.debug("handle_GET_xidAllowList_csv: Checking moderator permissions", {
-      zid,
-      uid,
-    });
+    logger.debug(
+      "handle_GET_xidAllowList_csv: Checking moderator permissions",
+      {
+        zid,
+        uid,
+      }
+    );
 
     // Check if user is moderator (includes Polis dev and site admins)
     const isMod = await Utils.isModerator(zid, uid);
@@ -564,10 +581,7 @@ async function handle_GET_xidAllowList_csv(
     const lines: string[] = [];
     lines.push(headers.join(","));
     for (const xidRecord of xids) {
-      const values = [
-        xidRecord.pid ?? "",
-        xidRecord.xid ?? "",
-      ].map(escapeCsv);
+      const values = [xidRecord.pid ?? "", xidRecord.xid ?? ""].map(escapeCsv);
       lines.push(values.join(","));
     }
 

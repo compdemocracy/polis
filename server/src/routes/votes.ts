@@ -182,17 +182,8 @@ async function handle_GET_votes(req: VoteGetRequest, res: any) {
  * Simplified vote handler - all participant management is handled by middleware
  */
 async function handle_POST_votes(req: RequestWithP, res: any) {
-  const {
-    zid,
-    pid,
-    uid,
-    tid,
-    vote,
-    weight,
-    high_priority,
-    starred,
-    lang,
-  } = req.p;
+  const { zid, pid, uid, tid, vote, weight, high_priority, starred, lang } =
+    req.p;
 
   try {
     // 1. Submit the vote - that's all we need to do now!

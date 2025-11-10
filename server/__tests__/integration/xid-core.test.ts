@@ -3,7 +3,13 @@ import {
   generateRandomXid,
   setupAuthAndConvo,
 } from "../setup/api-test-helpers";
-import { createXidRecord, getXidRecord, getXids, isXidAllowed, xidExists } from "../../src/xids";
+import {
+  createXidRecord,
+  getXidRecord,
+  getXids,
+  isXidAllowed,
+  xidExists,
+} from "../../src/xids";
 import { getZidFromConversationId } from "../../src/conversation";
 import pg from "../../src/db/pg-query";
 
@@ -47,7 +53,9 @@ describe("Core XID Functions", () => {
       expect(records[0].owner).toBe(ownerUid);
       expect(records[0].uid).toBe(ownerUid);
       expect(records[0].zid).toBe(zid);
-      expect(records[0].x_profile_image_url).toBe("https://example.com/avatar.jpg");
+      expect(records[0].x_profile_image_url).toBe(
+        "https://example.com/avatar.jpg"
+      );
       expect(records[0].x_name).toBe("Test User");
       expect(records[0].x_email).toBe("test@example.com");
     });
@@ -59,7 +67,13 @@ describe("Core XID Functions", () => {
       await createXidRecord(xid, ownerUid, ownerUid, zid);
 
       // Create again with new data (should upsert)
-      await createXidRecord(xid, ownerUid, ownerUid, zid, "https://new-avatar.com");
+      await createXidRecord(
+        xid,
+        ownerUid,
+        ownerUid,
+        zid,
+        "https://new-avatar.com"
+      );
 
       // Should still have only one record with updated data
       const records = await getXidRecord(xid, zid);
@@ -118,10 +132,10 @@ describe("Core XID Functions", () => {
       expect(isAllowed).toBe(true);
 
       // Clean up
-      await pg.queryP(
-        "DELETE FROM xid_whitelist WHERE xid = $1 AND zid = $2",
-        [xid, zid]
-      );
+      await pg.queryP("DELETE FROM xid_whitelist WHERE xid = $1 AND zid = $2", [
+        xid,
+        zid,
+      ]);
     });
 
     test("should return false for non-allowed XID", async () => {
@@ -149,7 +163,7 @@ describe("Core XID Functions", () => {
 
   describe("getXids()", () => {
     test("should return empty array for conversation with no XID participants", async () => {
-      const {  conversationId: newConvId } = await setupAuthAndConvo({
+      const { conversationId: newConvId } = await setupAuthAndConvo({
         createConvo: true,
         commentCount: 0,
       });
@@ -161,4 +175,3 @@ describe("Core XID Functions", () => {
     });
   });
 });
-
