@@ -91,9 +91,22 @@ const XidsInUseTable = ({ xids = [], conversationId }) => {
               py: [2],
               textAlign: 'left',
               fontWeight: 'bold',
-              fontSize: [1]
+              fontSize: [1],
+              borderRight: '1px solid',
+              borderColor: 'mediumGray'
             }}>
             XID
+          </Box>
+          <Box
+            as="th"
+            sx={{
+              px: [2, 3],
+              py: [2],
+              textAlign: 'left',
+              fontWeight: 'bold',
+              fontSize: [1]
+            }}>
+            Votes
           </Box>
         </Box>
       </Box>
@@ -126,9 +139,20 @@ const XidsInUseTable = ({ xids = [], conversationId }) => {
                 px: [2, 3],
                 py: [2],
                 fontSize: [1],
-                wordBreak: 'break-all'
+                wordBreak: 'break-all',
+                borderRight: '1px solid',
+                borderColor: 'lightGray'
               }}>
               {xidRecord.xid}
+            </Box>
+            <Box
+              as="td"
+              sx={{
+                px: [2, 3],
+                py: [2],
+                fontSize: [1]
+              }}>
+              {xidRecord.vote_count ?? 0}
             </Box>
           </Box>
         ))}
@@ -142,7 +166,8 @@ XidsInUseTable.propTypes = {
   xids: PropTypes.arrayOf(
     PropTypes.shape({
       pid: PropTypes.number.isRequired,
-      xid: PropTypes.string.isRequired
+      xid: PropTypes.string.isRequired,
+      vote_count: PropTypes.number
     })
   ),
   conversationId: PropTypes.string

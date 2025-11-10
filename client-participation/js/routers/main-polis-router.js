@@ -63,8 +63,6 @@ var polisRouter = Backbone.Router.extend({
     var authStatus = authenticated();
     if (authStatus) {
       authenticatedDfd.resolve();
-    } else {
-      console.warn("[Router] User not authenticated during initialization");
     }
   }, // end initialize
 

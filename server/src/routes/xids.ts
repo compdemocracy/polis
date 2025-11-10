@@ -47,7 +47,7 @@ async function getXidsPaginated(
   offset: number
 ): Promise<XidRecord[]> {
   const sql =
-    "select p.pid, xids.xid from xids inner join " +
+    "select p.pid, xids.xid, COALESCE(p.vote_count, 0) as vote_count from xids inner join " +
     "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
     " where xids.owner in (select owner from conversations where zid = ($1))" +
     ` LIMIT ($2) OFFSET ($3)`;
@@ -484,13 +484,14 @@ async function handle_GET_xids_csv(
     const xids = await getXidsPaginated(zid, 1000000, 0); // Get all records
 
     // Build CSV
-    const headers = ["pid", "xid"];
+    const headers = ["pid", "xid", "vote_count"];
     const lines: string[] = [];
     lines.push(headers.join(","));
     for (const xidRecord of xids) {
       const values = [
         xidRecord.pid ?? "",
         xidRecord.xid ?? "",
+        xidRecord.vote_count ?? 0,
       ].map(escapeCsv);
       lines.push(values.join(","));
     }

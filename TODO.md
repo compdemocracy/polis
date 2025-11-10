@@ -10,9 +10,9 @@
 [x] Participant Management - use pagination for the XID table (or XID Whitelist table)
 [x] Participant Management - allow admin to toggle the use_xid_whitelist flag for the conversation
 [x] XID Whitelist table has only two columns: xid and pid. See `sendParticipantXidsSummary` for very similar data in the server (server/src/report.ts)
-[ ] Indicate the % comments voted on for each xid
-[ ] Participant Management - allow admin to download the XID Whitelist table as a csv
-[ ] Participant Management - allow admin to upload a new xid whitelist file (csv with xids header, or plain text with one xid per line)
+[x] Participant Management - allow admin to download the XID Whitelist table as a csv
+[x] Participant Management - allow admin to upload a new xid whitelist file (csv with xids header, or plain text with one xid per line)
+[x] Indicate the % comments voted on for each xid
 [ ] Block participation without an xid when xid_required is true
 [ ] Enable ?xid param in client-participation-alpha
 [ ] Warn signed-in users who arrived with an xid param.

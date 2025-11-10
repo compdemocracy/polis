@@ -176,7 +176,6 @@ async function _handleUserIdentification(
       return existingXidRecords[0].uid;
     }
 
-    // XID user doesn't exist, need to create one
     const conv = await getConversationInfo(zid);
     if (conv.use_xid_whitelist) {
       const isWhitelisted = await isXidWhitelisted(req.p.xid, zid, conv.owner);

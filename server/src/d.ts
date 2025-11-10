@@ -184,6 +184,7 @@ export interface XidRecord {
   x_profile_image_url?: string;
   xid: string;
   zid?: number;
+  vote_count?: number;
 }
 
 // TODO rename this to User after converting
