@@ -130,7 +130,7 @@ export default function Survey({ initialStatement, s, conversation_id, requiresI
         errorMessage = s.convIsClosed || "This conversation is closed. No further voting is allowed.";
       } else if (errorText.includes("polis_err_post_votes_social_needed")) {
         errorMessage = "You need to sign in to vote.";
-      } else if (errorText.includes("polis_err_xid_not_whitelisted")) {
+      } else if (errorText.includes("polis_err_xid_not_allowed")) {
         errorMessage = "Sorry, you must be registered to vote. Please sign in or contact the conversation owner.";
       }
       

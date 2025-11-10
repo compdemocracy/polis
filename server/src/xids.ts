@@ -148,7 +148,7 @@ async function getXids(zid: number): Promise<XidRecord[]> {
   return Array.isArray(rows) ? rows : [];
 }
 
-async function isXidWhitelisted(
+async function isXidAllowed(
   xid: string,
   zid?: number,
   owner?: number
@@ -189,4 +189,4 @@ function xidExists(xid: string, owner: number, uid?: number) {
     });
 }
 
-export { createXidRecord, getXidRecord, getXids, isXidWhitelisted, xidExists };
+export { createXidRecord, getXidRecord, getXids, isXidAllowed, xidExists };

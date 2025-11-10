@@ -18,7 +18,7 @@ import { Response, NextFunction } from "express";
 import { addParticipantAndMetadata } from "../participant";
 import { checkLegacyCookieAndIssueJWT } from "./legacyCookies";
 import { createAnonUser } from "./create-user";
-import { createXidRecord, getXidRecord, isXidWhitelisted } from "../xids";
+import { createXidRecord, getXidRecord, isXidAllowed } from "../xids";
 import { failJson } from "../utils/fail";
 import { getConversationInfo, getZidFromConversationId } from "../conversation";
 import { getPidPromise } from "../user";
@@ -172,9 +172,9 @@ async function _handleUserIdentification(
   // XID validation logic
   if (conv.use_xid_whitelist) {
     if (req.p.xid) {
-      const isWhitelisted = await isXidWhitelisted(req.p.xid, zid, conv.owner);
-      if (!isWhitelisted) {
-        throw new Error("polis_err_xid_not_whitelisted");
+      const isAllowed = await isXidAllowed(req.p.xid, zid, conv.owner);
+      if (!isAllowed) {
+        throw new Error("polis_err_xid_not_allowed");
       }
     } else {
       throw new Error("polis_err_xid_required");
@@ -566,9 +566,9 @@ export function ensureParticipant(options: EnsureParticipantOptions = {}) {
 
       if (
         error instanceof Error &&
-        error.message === "polis_err_xid_not_whitelisted"
+        error.message === "polis_err_xid_not_allowed"
       ) {
-        return failJson(res, 403, "polis_err_xid_not_whitelisted");
+        return failJson(res, 403, "polis_err_xid_not_allowed");
       }
 
       // Handle Treevite authentication errors with proper status code
@@ -629,9 +629,9 @@ export function ensureParticipantOptional(
 
       if (
         error instanceof Error &&
-        error.message === "polis_err_xid_not_whitelisted"
+        error.message === "polis_err_xid_not_allowed"
       ) {
-        return failJson(res, 403, "polis_err_xid_not_whitelisted");
+        return failJson(res, 403, "polis_err_xid_not_allowed");
       }
 
       // Handle Treevite authentication errors even in optional middleware

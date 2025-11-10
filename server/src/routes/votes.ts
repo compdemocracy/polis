@@ -265,8 +265,8 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
       failJson(res, 403, "polis_err_conversation_is_closed", err);
     } else if (err === "polis_err_post_votes_social_needed") {
       failJson(res, 403, "polis_err_post_votes_social_needed", err);
-    } else if (err === "polis_err_xid_not_whitelisted") {
-      failJson(res, 403, "polis_err_xid_not_whitelisted", err);
+    } else if (err === "polis_err_xid_not_allowed") {
+      failJson(res, 403, "polis_err_xid_not_allowed", err);
     } else if (err === "polis_err_vote_anonymous_user_creation") {
       failJson(res, 500, "polis_err_vote_anonymous_user_creation", err);
     } else {

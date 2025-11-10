@@ -115,7 +115,7 @@ module.exports = Handlebones.ModelView.extend({
     this.hideMessage("#comment_send_failed_duplicate_message");
     this.hideMessage("#comment_send_failed_conversation_closed_message");
     this.hideMessage("#comment_send_failed_xid_required_message");
-    this.hideMessage("#comment_send_failed_xid_not_whitelisted_message");
+    this.hideMessage("#comment_send_failed_xid_not_allowed_message");
     var form = $(arguments[0].target);
     var formText = form.val();
     var len = formText.length;
@@ -201,7 +201,7 @@ module.exports = Handlebones.ModelView.extend({
     this.hideMessage("#comment_send_failed_duplicate_message");
     this.hideMessage("#comment_send_failed_conversation_closed_message");
     this.hideMessage("#comment_send_failed_xid_required_message");
-    this.hideMessage("#comment_send_failed_xid_not_whitelisted_message");
+    this.hideMessage("#comment_send_failed_xid_not_allowed_message");
 
     function doSubmitComment() {
       if (that.buttonActive) {
@@ -298,8 +298,8 @@ module.exports = Handlebones.ModelView.extend({
             that.showMessage("#comment_send_failed_conversation_closed_message");
           } else if (errorCode === "polis_err_xid_required") {
             that.showMessage("#comment_send_failed_xid_required_message");
-          } else if (errorCode === "polis_err_xid_not_whitelisted") {
-            that.showMessage("#comment_send_failed_xid_not_whitelisted_message");
+          } else if (errorCode === "polis_err_xid_not_allowed") {
+            that.showMessage("#comment_send_failed_xid_not_allowed_message");
           } else {
             that.showMessage("#comment_send_failed_message");
           }

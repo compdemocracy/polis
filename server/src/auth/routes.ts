@@ -6,7 +6,7 @@ import { getConversationInfo } from "../conversation";
 import { getSUZinviteInfo } from "../invites/suzinvites";
 import { getUserInfoForUid2 } from "../user";
 import { issueAnonymousJWT } from "./anonymous-jwt";
-import { isXidWhitelisted } from "../xids";
+import { isXidAllowed } from "../xids";
 import { joinConversation } from "../participant";
 import { userHasAnsweredZeQuestions } from "../server-helpers";
 import type { ParticipantInfo } from "../d";
@@ -114,7 +114,7 @@ async function handle_POST_joinWithInvite(
       failJson(res, 403, err.message, err);
     } else if (err?.message?.match(/polis_err_xid_required/)) {
       failJson(res, 403, err.message, err);
-    } else if (err?.message?.match(/polis_err_xid_not_whitelisted/)) {
+    } else if (err?.message?.match(/polis_err_xid_not_allowed/)) {
       failJson(res, 403, err.message, err);
     } else if (err?.message) {
       failJson(res, 500, err.message, err);
@@ -167,9 +167,9 @@ async function _joinWithZidOrSuzinvite(params: JoinParams): Promise<any> {
   // XID validation logic
   if (o.conv.use_xid_whitelist) {
     if (o.xid) {
-      const isWhitelisted = await isXidWhitelisted(o.xid, o.zid, o.conv.owner);
-      if (!isWhitelisted) {
-        throw new Error("polis_err_xid_not_whitelisted");
+      const isAllowed = await isXidAllowed(o.xid, o.zid, o.conv.owner);
+      if (!isAllowed) {
+        throw new Error("polis_err_xid_not_allowed");
       }
     } else {
       throw new Error("polis_err_xid_required");

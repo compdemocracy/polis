@@ -322,7 +322,7 @@ module.exports = Handlebones.ModelView.extend({
         });
       } else if (errorCode === "polis_err_xid_required") {
         alert(Strings.xidRequired);
-      } else if (errorCode === "polis_err_xid_not_whitelisted") {
+      } else if (errorCode === "polis_err_xid_not_allowed") {
         alert(Strings.xidRequired);
       } else {
         alert(Strings.voteErrorGeneric);

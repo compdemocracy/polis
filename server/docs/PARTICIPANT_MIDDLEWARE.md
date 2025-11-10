@@ -11,7 +11,7 @@ The middleware handles:
 1. **JWT Conversation Mismatches** - When a participant has a JWT for a different conversation
 2. **Legacy Cookie Support** - Migrating users from the old cookie-based system
 3. **Anonymous User Creation** - Creating anonymous users on their first interaction
-4. **XID User Management** - Handling external ID users and their whitelisting
+4. **XID User Management** - Handling external ID users and their allowed listing
 5. **Participant Creation** - Creating participant records with proper race condition handling
 6. **JWT Issuance** - Issuing appropriate JWTs (Anonymous, XID, or Standard User) for new participants
 

@@ -196,15 +196,15 @@ describe("XID-based Authentication", () => {
   });
 
   test("should format XID allow list properly", async () => {
-    // Create XIDs to whitelist
+    // Create XIDs to allow list
     const xids = [
       generateRandomXid(),
       generateRandomXid(),
       generateRandomXid(),
     ];
 
-    // Whitelist XIDs as an array (required format)
-    const whitelistResponse: Response = await agent
+    // Allow list XIDs as an array (required format)
+    const allowListResponse: Response = await agent
       .post("/api/v3/xidAllowList")
       .send({
         conversation_id: conversationId,
@@ -212,7 +212,7 @@ describe("XID-based Authentication", () => {
       });
 
     // Returns 200 with empty body
-    expect(whitelistResponse.status).toBe(200);
-    expect(whitelistResponse.body).toEqual({});
+    expect(allowListResponse.status).toBe(200);
+    expect(allowListResponse.body).toEqual({});
   });
 });

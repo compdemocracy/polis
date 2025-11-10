@@ -3,7 +3,7 @@ import {
   generateRandomXid,
   setupAuthAndConvo,
 } from "../setup/api-test-helpers";
-import { createXidRecord, getXidRecord, getXids, isXidWhitelisted, xidExists } from "../../src/xids";
+import { createXidRecord, getXidRecord, getXids, isXidAllowed, xidExists } from "../../src/xids";
 import { getZidFromConversationId } from "../../src/conversation";
 import pg from "../../src/db/pg-query";
 
@@ -104,18 +104,18 @@ describe("Core XID Functions", () => {
     });
   });
 
-  describe("isXidWhitelisted()", () => {
-    test("should check whitelist by zid", async () => {
+  describe("isXidAllowed()", () => {
+    test("should check allow list by zid", async () => {
       const xid = generateRandomXid();
 
-      // Add to whitelist
+      // Add to allow list
       await pg.queryP(
         "INSERT INTO xid_whitelist (xid, zid, owner) VALUES ($1, $2, $3)",
         [xid, zid, ownerUid]
       );
 
-      const isWhitelisted = await isXidWhitelisted(xid, zid);
-      expect(isWhitelisted).toBe(true);
+      const isAllowed = await isXidAllowed(xid, zid);
+      expect(isAllowed).toBe(true);
 
       // Clean up
       await pg.queryP(
@@ -124,10 +124,10 @@ describe("Core XID Functions", () => {
       );
     });
 
-    test("should return false for non-whitelisted XID", async () => {
-      const nonWhitelistedXid = "not-whitelisted-xid-123";
-      const isWhitelisted = await isXidWhitelisted(nonWhitelistedXid, zid);
-      expect(isWhitelisted).toBe(false);
+    test("should return false for non-allowed XID", async () => {
+      const nonAllowedXid = "not-allowed-xid-123";
+      const isAllowed = await isXidAllowed(nonAllowedXid, zid);
+      expect(isAllowed).toBe(false);
     });
   });
 
