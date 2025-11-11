@@ -21,6 +21,81 @@ export function getConversationIdFromUrl(): string | null {
 }
 
 /**
+ * Get XID from URL query parameters
+ */
+export function getXidFromUrl(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  const params = new URLSearchParams(window.location.search);
+  return params.get('xid');
+}
+
+/**
+ * Get x_name from URL query parameters
+ */
+export function getXNameFromUrl(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  const params = new URLSearchParams(window.location.search);
+  return params.get('x_name');
+}
+
+/**
+ * Get x_profile_image_url from URL query parameters
+ */
+export function getXProfileImageUrlFromUrl(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  
+  const params = new URLSearchParams(window.location.search);
+  return params.get('x_profile_image_url');
+}
+
+/**
+ * Check if user is authenticated via OIDC
+ * Returns true if any valid OIDC token exists (access_token or id_token)
+ */
+export function isOidcAuthenticated(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const checkStorage = (storage: Storage | null): boolean => {
+    if (!storage) return false;
+    
+    for (let i = 0; i < storage.length; i++) {
+      const key = storage.key(i);
+      if (key && key.startsWith(oidcCacheKeyPrefix)) {
+        try {
+          const value = storage.getItem(key);
+          if (value) {
+            const parsed = JSON.parse(value);
+            // Check for any valid token (access_token or id_token) that hasn't expired
+            if (parsed && (parsed.access_token || parsed.id_token)) {
+              // Check expiry if present
+              if (parsed.expires_at && parsed.expires_at <= Math.floor(Date.now() / 1000)) {
+                continue; // Token expired, keep looking
+              }
+              return true;
+            }
+          }
+        } catch (e) {
+          // Not valid JSON or other error, continue
+        }
+      }
+    }
+    return false;
+  };
+
+  return checkStorage(window.localStorage) || checkStorage(window.sessionStorage);
+}
+
+/**
  * Decodes a JWT from localStorage without verifying its signature.
  *
  * @param {string} key The localStorage key where the JWT is stored.

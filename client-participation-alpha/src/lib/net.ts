@@ -1,4 +1,11 @@
-import { handleJwtFromResponse, getConversationToken, getConversationIdFromUrl } from './auth';
+import { 
+  handleJwtFromResponse, 
+  getConversationToken, 
+  getConversationIdFromUrl,
+  getXidFromUrl,
+  getXNameFromUrl,
+  getXProfileImageUrlFromUrl
+} from './auth';
 
 // Simplified service base resolution (both env vars are required)
 const SERVICE_BASE: string = (
@@ -162,11 +169,29 @@ async function polisFetch<T = any>(
   let body: string | null = null;
   let method = type ? type.toUpperCase() : 'GET';
 
-  if (method === 'GET' && data && Object.keys(data).length > 0) {
-    const queryParams = new URLSearchParams(data);
+  // Add XID parameters from URL if present (unless already in data)
+  const enrichedData = { ...data };
+  if (typeof window !== 'undefined') {
+    const xid = getXidFromUrl();
+    const x_name = getXNameFromUrl();
+    const x_profile_image_url = getXProfileImageUrlFromUrl();
+    
+    if (xid && !enrichedData.xid) {
+      enrichedData.xid = xid;
+    }
+    if (x_name && !enrichedData.x_name) {
+      enrichedData.x_name = x_name;
+    }
+    if (x_profile_image_url && !enrichedData.x_profile_image_url) {
+      enrichedData.x_profile_image_url = x_profile_image_url;
+    }
+  }
+
+  if (method === 'GET' && enrichedData && Object.keys(enrichedData).length > 0) {
+    const queryParams = new URLSearchParams(enrichedData);
     url += `?${queryParams.toString()}`
-  } else if ((method === 'POST' || method === 'PUT') && data && Object.keys(data).length > 0) {
-    body = JSON.stringify(data);
+  } else if ((method === 'POST' || method === 'PUT') && enrichedData && Object.keys(enrichedData).length > 0) {
+    body = JSON.stringify(enrichedData);
   }
 
   try {
@@ -304,8 +329,27 @@ async function downloadCsv(
   }
 
   const method = 'GET';
-  if (data && Object.keys(data).length > 0) {
-    const queryParams = new URLSearchParams(data);
+  
+  // Add XID parameters from URL if present (unless already in data)
+  const enrichedData = { ...data };
+  if (typeof window !== 'undefined') {
+    const xid = getXidFromUrl();
+    const x_name = getXNameFromUrl();
+    const x_profile_image_url = getXProfileImageUrlFromUrl();
+    
+    if (xid && !enrichedData.xid) {
+      enrichedData.xid = xid;
+    }
+    if (x_name && !enrichedData.x_name) {
+      enrichedData.x_name = x_name;
+    }
+    if (x_profile_image_url && !enrichedData.x_profile_image_url) {
+      enrichedData.x_profile_image_url = x_profile_image_url;
+    }
+  }
+  
+  if (enrichedData && Object.keys(enrichedData).length > 0) {
+    const queryParams = new URLSearchParams(enrichedData);
     url += `?${queryParams.toString()}`
   }
 

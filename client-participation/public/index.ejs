@@ -126,6 +126,36 @@
           return token;
         }
 
+        function isOidcAuthenticated() {
+          function _hasOidcInStorage(storage) {
+            if (!storage) return false;
+            for (var i = 0; i < storage.length; i++) {
+              var key = storage.key(i);
+              if (key && key.indexOf("<%= oidcCacheKeyPrefix %>") === 0) {
+                try {
+                  var value = storage.getItem(key);
+                  if (value) {
+                    var parsed = JSON.parse(value);
+                    // Check for any valid token (access_token or id_token) that hasn't expired
+                    if (parsed && (parsed.access_token || parsed.id_token)) {
+                      // Check expiry if present
+                      if (parsed.expires_at && parsed.expires_at <= Math.floor(Date.now() / 1000)) {
+                        continue; // Token expired, keep looking
+                      }
+                      return true;
+                    }
+                  }
+                } catch (e) {
+                  // Not valid JSON or other error, continue
+                }
+              }
+            }
+            return false;
+          }
+
+          return _hasOidcInStorage(window.localStorage) || _hasOidcInStorage(window.sessionStorage);
+        }
+
         try {
             let XPT__ = getOidcToken();
             window.POLIS_DELPHI_ENABLED = jwt_decode(XPT__)['<%= authNamespace %>delphi_enabled'];
@@ -350,6 +380,11 @@
           window.preload.xid = xid;
           qp.push("xid=" + encodeURIComponent(xid));
           console.log("[Index] Added xid to query params:", xid);
+          
+          // Check if user is also authenticated via OIDC
+          if (isOidcAuthenticated()) {
+            alert("Warning, you are currently signed-in to polis, but have opened a conversation with an XID token. To participate with an XID, please log out of your polis account.");
+          }
         }
         var x_profile_image_url = get_x_profile_image_url();
         if (typeof x_profile_image_url !== "undefined") {

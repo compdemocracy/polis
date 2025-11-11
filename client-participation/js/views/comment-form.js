@@ -256,7 +256,7 @@ module.exports = Handlebones.ModelView.extend({
     attrs.conversation_id = this.conversation_id;
     // participants' comments are automatically agreed to. Needed for now since math assumes every comment has at least one vote.
     attrs.vote = Constants.REACTIONS.AGREE;
-    
+
     if (/^\s*$/.exec(attrs.txt)) {
       alert(Strings.commentIsEmpty);
       return reject();
