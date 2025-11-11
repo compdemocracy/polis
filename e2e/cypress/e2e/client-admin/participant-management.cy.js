@@ -5,7 +5,7 @@ import {
 } from '../../support/auth-helpers.js'
 import {
   createTestConversationAPI,
-  addCommentsToConversation,
+  addCommentsToConversationNoAuth,
 } from '../../support/conversation-helpers.js'
 
 const ADMIN_EMAIL = 'admin@polis.test'
@@ -17,7 +17,7 @@ function createConversationWithSeedComment(topicSuffix = 'Conversation') {
   const description = 'Conversation created by Cypress for participant management tests'
 
   return createTestConversationAPI({ topic, description }).then((conversationId) => {
-    return addCommentsToConversation(conversationId, ['Seed comment for participant testing']).then(
+    return addCommentsToConversationNoAuth(conversationId, ['Seed comment for participant testing']).then(
       () => conversationId,
     )
   })
