@@ -115,7 +115,7 @@ The embed script automatically converts data attributes to query parameters.
 | Error Code | User-Facing Message |
 |------------|-------------------|
 | `polis_err_xid_required` | "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you." |
-| `polis_err_xid_not_allowed` | "Sorry, you must be registered to vote/comment. Please sign in or contact the conversation owner." |
+| `polis_err_xid_not_allowed` | "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you." |
 | OIDC + XID conflict | "Warning: You are currently signed-in to polis, but have opened a conversation with an XID token. To participate with an XID, please log out of your polis account." |
 
 ## Testing Checklist

@@ -188,7 +188,7 @@ describe('Client Admin: Participant Management', () => {
       cy.get('@missingXidAlert')
         .should('have.been.called')
         .its('firstCall.args.0')
-        .should('contain', 'Sorry, you must be registered')
+        .should('contain', 'This conversation requires an XID')
 
       cy.clearAllLocalStorage()
       cy.clearAllCookies()
@@ -232,7 +232,7 @@ describe('Client Admin: Participant Management', () => {
       cy.get('@missingXidAlert')
         .should('have.been.called')
         .its('firstCall.args.0')
-        .should('contain', 'Sorry, you must be registered')
+        .should('contain', 'This conversation requires an XID')
 
       cy.clearAllLocalStorage()
       cy.clearAllCookies()
