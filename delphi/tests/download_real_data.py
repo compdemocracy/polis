@@ -12,27 +12,37 @@ This script downloads data from a running Polis instance:
 3. Saves all files to the real_data/<report_id>/ folder
 
 Usage:
-    # From command line with report IDs
-    python download_real_data.py <report_id> [<report_id2> ...]
-
-    # From environment variable (set TEST_REPORT_IDS in .env)
+    # Download all datasets from config (skip existing)
     python download_real_data.py
 
-Examples:
-    python download_real_data.py rabc123xyz456
+    # Force re-download all datasets
+    python download_real_data.py --force
+
+    # Download specific datasets by name
+    python download_real_data.py --datasets biodiversity vw
+
+    # Download specific report IDs
     python download_real_data.py rabc123xyz456 rdef789uvw012
+
+Examples:
+    python download_real_data.py
+    python download_real_data.py --force
+    python download_real_data.py --datasets vw bg2018
 """
 
-import argparse
 import json
 import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 
+import click
 import psycopg2
 import requests
+from tqdm import tqdm
+
+from dataset_config import list_available_datasets, get_dataset_report_id
 
 
 def get_db_connection():
@@ -49,7 +59,7 @@ def get_db_connection():
 
 def fetch_csv_export(report_id: str, export_type: str, base_url: str = "http://localhost") -> Optional[str]:
     """
-    Fetch CSV export from the report endpoint.
+    Fetch CSV export from the report endpoint with progress bar.
 
     Args:
         report_id: The report ID to export
@@ -62,15 +72,40 @@ def fetch_csv_export(report_id: str, export_type: str, base_url: str = "http://l
     url = f"{base_url}/api/v3/reportExport/{report_id}/{export_type}.csv"
 
     try:
-        print(f"Fetching {export_type} from {url}...")
-        response = requests.get(url, timeout=30)
+        # Make request with streaming enabled
+        response = requests.get(url, timeout=30, stream=True)
         response.raise_for_status()
 
         # Check if we got CSV content
         if 'text/csv' not in response.headers.get('content-type', ''):
             print(f"Warning: Response is not CSV (content-type: {response.headers.get('content-type')})")
 
-        return response.text
+        # Get total size if available (0 if server doesn't send Content-Length)
+        total_size = int(response.headers.get('content-length', 0))
+
+        # Set up progress bar - always show it
+        desc = f"Downloading {export_type}"
+        chunks = []
+
+        # If total_size is 0 (unknown), show bytes downloaded without percentage
+        # Otherwise show progress percentage
+        if total_size == 0:
+            # Unknown size - show indeterminate progress
+            with tqdm(unit='B', unit_scale=True, desc=desc, miniters=1) as pbar:
+                for chunk in response.iter_content(chunk_size=8192, decode_unicode=True):
+                    if chunk:
+                        chunks.append(chunk)
+                        pbar.update(len(chunk.encode('utf-8')))
+        else:
+            # Known size - show progress bar with percentage
+            with tqdm(total=total_size, unit='B', unit_scale=True, desc=desc) as pbar:
+                for chunk in response.iter_content(chunk_size=8192, decode_unicode=True):
+                    if chunk:
+                        chunks.append(chunk)
+                        pbar.update(len(chunk.encode('utf-8')))
+
+        return ''.join(chunks)
+
     except requests.exceptions.RequestException as e:
         print(f"Error fetching {export_type}: {e}")
         return None
@@ -101,17 +136,19 @@ def extract_math_blob(report_id: str) -> Optional[dict]:
             LIMIT 1
         """
 
-        print(f"Querying database for math blob (report_id: {report_id})...")
-        cursor.execute(query, (report_id,))
-        result = cursor.fetchone()
+        with tqdm(total=1, desc="Querying database for math blob", bar_format='{desc}', leave=False) as pbar:
+            cursor.execute(query, (report_id,))
+            result = cursor.fetchone()
+            pbar.update(1)
 
         if result:
             # The data column is already a JSON object in psycopg2
             math_blob = result[0]
-            print(f"Successfully extracted math blob (size: {len(json.dumps(math_blob))} bytes)")
+            size_kb = len(json.dumps(math_blob)) / 1024
+            print(f"✓ Extracted math blob ({size_kb:.1f} KB)")
             return math_blob
         else:
-            print(f"No math blob found for report_id: {report_id}")
+            print(f"✗ No math blob found for report_id: {report_id}")
             return None
 
     except Exception as e:
@@ -124,7 +161,50 @@ def extract_math_blob(report_id: str) -> Optional[dict]:
             conn.close()
 
 
-def save_test_data(report_id: str, output_dir: Path, base_url: str = "http://localhost") -> bool:
+def check_existing_files(output_dir: Path, report_id: str) -> dict:
+    """
+    Check which files already exist for a report.
+
+    Args:
+        output_dir: Directory to check
+        report_id: The report ID
+
+    Returns:
+        Dict with keys 'comments', 'votes', 'summary', 'math_blob' and boolean values
+    """
+    existing = {}
+
+    # Check CSV files (use glob to match timestamped filenames)
+    for csv_type in ['comments', 'votes', 'summary']:
+        pattern = f"*-{report_id}-{csv_type}.csv"
+        matches = list(output_dir.glob(pattern))
+        existing[csv_type] = len(matches) > 0
+
+    # Check math blob
+    math_filename = f"{report_id}_math_blob.json"
+    existing['math_blob'] = (output_dir / math_filename).exists()
+
+    return existing
+
+
+def get_dataset_name_from_report_id(report_id: str) -> Optional[str]:
+    """
+    Get dataset name from report ID by looking up in config.
+
+    Args:
+        report_id: The report ID to look up
+
+    Returns:
+        Dataset name if found, None otherwise
+    """
+    datasets = list_available_datasets()
+    for name, info in datasets.items():
+        if info['report_id'] == report_id:
+            return name
+    return None
+
+
+def save_test_data(report_id: str, output_dir: Path, base_url: str = "http://localhost", force: bool = False) -> bool:
     """
     Download and save test data for a given report ID.
 
@@ -132,16 +212,40 @@ def save_test_data(report_id: str, output_dir: Path, base_url: str = "http://loc
         report_id: The report ID to process
         output_dir: Directory to save the files
         base_url: Base URL for the Polis instance
+        force: If True, download even if files exist; if False, skip existing files
 
     Returns:
         True if successful, False otherwise
     """
+    # Get dataset name if available
+    dataset_name = get_dataset_name_from_report_id(report_id)
+
     print(f"\n{'='*60}")
-    print(f"Processing report ID: {report_id}")
+    if dataset_name:
+        print(f"Processing: {dataset_name} ({report_id})")
+    else:
+        print(f"Processing report ID: {report_id}")
     print(f"{'='*60}\n")
 
     # Create output directory if it doesn't exist
     output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Check existing files if not forcing download
+    if not force and output_dir.exists():
+        existing = check_existing_files(output_dir, report_id)
+        all_exist = all(existing.values())
+
+        if all_exist:
+            print(f"✓ All files already exist for {report_id} (skipping)")
+            print(f"  Use --force to re-download")
+            return True
+
+        # Show which files exist
+        if any(existing.values()):
+            print(f"Some files already exist:")
+            for file_type, exists in existing.items():
+                if exists:
+                    print(f"  ✓ {file_type}")
 
     # Generate timestamp for filenames (matching the format in test files)
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M")
@@ -161,7 +265,8 @@ def save_test_data(report_id: str, output_dir: Path, base_url: str = "http://loc
             with open(filepath, 'w', encoding='utf-8') as f:
                 f.write(csv_content)
 
-            print(f"✓ Saved {csv_type} to {filepath}")
+            size_kb = len(csv_content.encode('utf-8')) / 1024
+            print(f"✓ Saved {csv_type} ({size_kb:.1f} KB)")
         else:
             print(f"✗ Failed to download {csv_type}")
             success = False
@@ -177,7 +282,8 @@ def save_test_data(report_id: str, output_dir: Path, base_url: str = "http://loc
         with open(math_filepath, 'w', encoding='utf-8') as f:
             json.dump(math_blob, f, indent=2)
 
-        print(f"✓ Saved math blob to {math_filepath}")
+        size_kb = len(json.dumps(math_blob)) / 1024
+        print(f"✓ Saved math_blob ({size_kb:.1f} KB)")
     else:
         print(f"✗ Failed to extract math blob")
         success = False
@@ -191,97 +297,147 @@ def save_test_data(report_id: str, output_dir: Path, base_url: str = "http://loc
     return success
 
 
-def main():
-    """Main entry point for the script."""
-    parser = argparse.ArgumentParser(
-        description="Download real test data from Polis exports",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Download test data for a single report
-  python download_real_data.py rabc123xyz456
+@click.command()
+@click.argument('report_ids', nargs=-1)
+@click.option(
+    '--datasets',
+    multiple=True,
+    help='Dataset names from config to download (e.g., biodiversity vw). Can be specified multiple times.'
+)
+@click.option(
+    '--base-url',
+    default='http://localhost',
+    help='Base URL for the Polis instance'
+)
+@click.option(
+    '--output-dir',
+    type=click.Path(path_type=Path),
+    default=None,
+    help='Output directory (default: real_data/<report_id>)'
+)
+@click.option(
+    '--force',
+    is_flag=True,
+    help='Force re-download even if files already exist'
+)
+def main(report_ids: tuple, datasets: tuple, base_url: str, output_dir: Optional[Path], force: bool):
+    """
+    Download real test data from Polis exports.
 
-  # Download test data for multiple reports
-  python download_real_data.py rabc123xyz456 rdef789uvw012
+    If no arguments are provided, downloads all datasets from config.
+    Otherwise, downloads specified datasets or report IDs.
 
-  # Load report IDs from TEST_REPORT_IDS environment variable (.env)
-  python download_real_data.py
+    Examples:
 
-  # Specify custom base URL
-  python download_real_data.py --base-url http://localhost:5000 rabc123xyz456
+        \b
+        # Download all datasets from config (skip existing)
+        python download_real_data.py
 
-  # Specify custom output directory
-  python download_real_data.py --output-dir /path/to/output rabc123xyz456
-        """
-    )
+        \b
+        # Force re-download all datasets from config
+        python download_real_data.py --force
 
-    parser.add_argument(
-        'report_ids',
-        nargs='*',
-        help='One or more report IDs to process (if not specified, uses TEST_REPORT_IDS from .env)'
-    )
+        \b
+        # Download specific datasets by name
+        python download_real_data.py --datasets biodiversity --datasets vw
 
-    parser.add_argument(
-        '--base-url',
-        default='http://localhost',
-        help='Base URL for the Polis instance (default: http://localhost)'
-    )
+        \b
+        # Download specific datasets by report ID
+        python download_real_data.py rabc123xyz456 rdef789uvw012
 
-    parser.add_argument(
-        '--output-dir',
-        type=Path,
-        default=None,
-        help='Output directory (default: real_data/<report_id>)'
-    )
+        \b
+        # Specify custom base URL
+        python download_real_data.py --base-url http://localhost:5000
 
-    args = parser.parse_args()
+        \b
+        # Specify custom output directory
+        python download_real_data.py --output-dir /path/to/output
+    """
+    # Determine which datasets to download
+    download_report_ids = []
 
-    # Get report IDs from command line or environment variable
-    report_ids = args.report_ids
-    if not report_ids:
-        # Try to load from environment variable
-        env_report_ids = os.getenv('TEST_REPORT_IDS', '').strip()
-        if env_report_ids:
-            # Split by comma and/or whitespace, filter empty strings
-            report_ids = [rid.strip() for rid in env_report_ids.replace(',', ' ').split() if rid.strip()]
-            print(f"Loaded {len(report_ids)} report IDs from TEST_REPORT_IDS environment variable")
-        else:
-            parser.error("No report IDs provided. Either pass them as arguments or set TEST_REPORT_IDS in .env")
+    # Option 1: Specific dataset names from --datasets flag
+    if datasets:
+        available_datasets = list_available_datasets()
+        for dataset_name in datasets:
+            if dataset_name not in available_datasets:
+                available = ', '.join(available_datasets.keys())
+                click.echo(f"Error: Unknown dataset: {dataset_name}", err=True)
+                click.echo(f"Available datasets: {available}", err=True)
+                raise click.Abort()
+            report_id = get_dataset_report_id(dataset_name)
+            download_report_ids.append(report_id)
+        click.echo(f"Downloading {len(download_report_ids)} dataset(s) from config: {', '.join(datasets)}")
+
+    # Option 2: Specific report IDs from command line
+    elif report_ids:
+        download_report_ids = list(report_ids)
+        click.echo(f"Downloading {len(download_report_ids)} report ID(s) from command line")
+
+    # Option 3: Default - all datasets from config
+    else:
+        available_datasets = list_available_datasets()
+        download_report_ids = [dataset['report_id'] for dataset in available_datasets.values()]
+        click.echo(f"No datasets specified. Downloading all {len(download_report_ids)} dataset(s) from config:")
+        for name, info in available_datasets.items():
+            click.echo(f"  - {name}: {info['report_id']} ({info['description']})")
+        click.echo()
 
     # Get the delphi directory (parent of tests directory where this script lives)
     delphi_dir = Path(__file__).parent.parent
 
     # Process each report ID
     results = {}
-    for report_id in report_ids:
+    for report_id in download_report_ids:
         # Determine output directory
-        if args.output_dir:
-            output_dir = args.output_dir / report_id
+        # Use format "reportID-name" if name is available from config
+        dataset_name = get_dataset_name_from_report_id(report_id)
+        if dataset_name:
+            dir_name = f"{report_id}-{dataset_name}"
         else:
-            output_dir = delphi_dir / 'real_data' / report_id
+            dir_name = report_id
 
-        results[report_id] = save_test_data(report_id, output_dir, args.base_url)
+        if output_dir:
+            out_dir = output_dir / dir_name
+        else:
+            out_dir = delphi_dir / 'real_data' / dir_name
+
+        results[report_id] = save_test_data(report_id, out_dir, base_url, force=force)
 
     # Print summary
-    print(f"\n{'='*60}")
-    print("SUMMARY")
-    print(f"{'='*60}\n")
+    click.echo(f"\n{'='*60}")
+    click.echo("SUMMARY")
+    click.echo(f"{'='*60}\n")
 
     successful = [rid for rid, success in results.items() if success]
     failed = [rid for rid, success in results.items() if not success]
 
-    print(f"Successful: {len(successful)}/{len(results)}")
+    click.echo(f"Total: {len(results)} dataset(s)")
+    click.echo(f"Successful: {len(successful)}")
+    if failed:
+        click.echo(f"Failed: {len(failed)}")
+
     if successful:
+        click.echo(f"\n✓ Successful:")
         for rid in successful:
-            print(f"  ✓ {rid}")
+            dataset_name = get_dataset_name_from_report_id(rid)
+            if dataset_name:
+                click.echo(f"  {rid} ({dataset_name})")
+            else:
+                click.echo(f"  {rid}")
 
     if failed:
-        print(f"\nFailed: {len(failed)}/{len(results)}")
+        click.echo(f"\n✗ Failed:")
         for rid in failed:
-            print(f"  ✗ {rid}")
+            dataset_name = get_dataset_name_from_report_id(rid)
+            if dataset_name:
+                click.echo(f"  {rid} ({dataset_name})")
+            else:
+                click.echo(f"  {rid}")
+        click.echo("\nSome datasets failed to download!", err=True)
         sys.exit(1)
     else:
-        print("\n✓ All report IDs processed successfully!")
+        click.echo("\n✓ All datasets processed successfully!")
 
 
 if __name__ == '__main__':
