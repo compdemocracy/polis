@@ -22,6 +22,14 @@ DATASETS = {
         'report_id': 'r6vbnhffkxbd7ifmfbdrd',
         'description': 'VW Conversation'
     },
+    'bg2018': {
+        'report_id': 'r2xcn2cdbmrzjmmuuytdk',
+        'description': 'BG2018'
+    },
+    'bg2050': {
+        'report_id': 'r7wehfsmutrwndviddnii',
+        'description': 'BG2050'
+    },
 }
 
 
@@ -40,7 +48,52 @@ def get_real_data_dir() -> Path:
     return real_data_dir.resolve()
 
 
-def find_dataset_file(report_id: str, suffix: str) -> str:
+def get_dataset_directory(report_id: str, dataset_name: Optional[str] = None) -> Path:
+    """
+    Get the directory path for a dataset, supporting both old and new naming conventions.
+
+    The new convention uses format: <report_id>-<dataset_name>
+    The old convention uses format: <report_id>
+
+    Args:
+        report_id: Report ID (e.g., 'r4tykwac8thvzv35jrn53')
+        dataset_name: Optional dataset name (e.g., 'biodiversity')
+
+    Returns:
+        Path to the dataset directory
+
+    Raises:
+        FileNotFoundError: If no matching directory is found
+    """
+    real_data_dir = get_real_data_dir()
+
+    # Try new format first: <report_id>-<dataset_name>
+    if dataset_name:
+        new_format_dir = real_data_dir / f"{report_id}-{dataset_name}"
+        if new_format_dir.exists():
+            return new_format_dir
+
+    # Fall back to old format: <report_id>
+    old_format_dir = real_data_dir / report_id
+    if old_format_dir.exists():
+        return old_format_dir
+
+    # If neither exists, raise an error with helpful message
+    if dataset_name:
+        raise FileNotFoundError(
+            f"Dataset directory not found. Tried:\n"
+            f"  - {real_data_dir / f'{report_id}-{dataset_name}'}\n"
+            f"  - {real_data_dir / report_id}\n"
+            f"Make sure you have downloaded the test data for {dataset_name} ({report_id})"
+        )
+    else:
+        raise FileNotFoundError(
+            f"Report directory not found: {real_data_dir / report_id}\n"
+            f"Make sure you have downloaded the test data for report {report_id}"
+        )
+
+
+def find_dataset_file(report_id: str, suffix: str, dataset_name: Optional[str] = None) -> str:
     """
     Find a file in the real_data directory by report ID and suffix.
 
@@ -54,6 +107,7 @@ def find_dataset_file(report_id: str, suffix: str) -> str:
             - 'comments.csv' - Comment data
             - 'summary.csv' - Summary statistics
             - 'math_blob.json' - Clojure math computation output
+        dataset_name: Optional dataset name for new directory format
 
     Returns:
         Absolute path to the file
@@ -63,20 +117,13 @@ def find_dataset_file(report_id: str, suffix: str) -> str:
         ValueError: If multiple matching files are found
 
     Examples:
-        >>> find_dataset_file('r4tykwac8thvzv35jrn53', 'votes.csv')
-        '/path/to/real_data/r4tykwac8thvzv35jrn53/2025-11-07-1035-r4tykwac8thvzv35jrn53-votes.csv'
+        >>> find_dataset_file('r4tykwac8thvzv35jrn53', 'votes.csv', 'biodiversity')
+        '/path/to/real_data/r4tykwac8thvzv35jrn53-biodiversity/2025-11-07-1035-r4tykwac8thvzv35jrn53-votes.csv'
 
-        >>> find_dataset_file('r4tykwac8thvzv35jrn53', 'math_blob.json')
-        '/path/to/real_data/r4tykwac8thvzv35jrn53/r4tykwac8thvzv35jrn53_math_blob.json'
+        >>> find_dataset_file('r4tykwac8thvzv35jrn53', 'math_blob.json', 'biodiversity')
+        '/path/to/real_data/r4tykwac8thvzv35jrn53-biodiversity/r4tykwac8thvzv35jrn53_math_blob.json'
     """
-    real_data_dir = get_real_data_dir()
-    report_dir = real_data_dir / report_id
-
-    if not report_dir.exists():
-        raise FileNotFoundError(
-            f"Report directory not found: {report_dir}\n"
-            f"Make sure you have downloaded the test data for report {report_id}"
-        )
+    report_dir = get_dataset_directory(report_id, dataset_name)
 
     # Build the search pattern based on suffix
     if suffix == 'math_blob.json':
@@ -140,17 +187,16 @@ def get_dataset_files(dataset_name: str) -> Dict[str, str]:
         )
 
     report_id = DATASETS[dataset_name]['report_id']
-    real_data_dir = get_real_data_dir()
-    data_dir = real_data_dir / report_id
+    data_dir = get_dataset_directory(report_id, dataset_name)
 
     # Find all required files
     files = {
         'report_id': report_id,
         'data_dir': str(data_dir),
-        'votes': find_dataset_file(report_id, 'votes.csv'),
-        'comments': find_dataset_file(report_id, 'comments.csv'),
-        'summary': find_dataset_file(report_id, 'summary.csv'),
-        'math_blob': find_dataset_file(report_id, 'math_blob.json'),
+        'votes': find_dataset_file(report_id, 'votes.csv', dataset_name),
+        'comments': find_dataset_file(report_id, 'comments.csv', dataset_name),
+        'summary': find_dataset_file(report_id, 'summary.csv', dataset_name),
+        'math_blob': find_dataset_file(report_id, 'math_blob.json', dataset_name),
     }
 
     return files
@@ -205,6 +251,6 @@ def get_dataset_file_optional(dataset_name: str, suffix: str) -> Optional[str]:
     """
     try:
         report_id = get_dataset_report_id(dataset_name)
-        return find_dataset_file(report_id, suffix)
+        return find_dataset_file(report_id, suffix, dataset_name)
     except (FileNotFoundError, ValueError):
         return None
