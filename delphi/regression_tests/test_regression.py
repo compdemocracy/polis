@@ -1,0 +1,175 @@
+"""
+Pytest integration for regression testing system.
+
+This test module integrates the regression testing system with pytest,
+allowing it to be run as part of the regular test suite.
+"""
+
+import pytest
+import numpy as np
+from pathlib import Path
+
+from regression_tests.regression_lib import ConversationRecorder, ConversationComparer
+
+
+@pytest.fixture(scope="session")
+def ensure_golden():
+    """
+    Ensure golden snapshots exist for all test datasets.
+
+    This fixture runs once per test session and creates any missing
+    golden snapshots. If you need to update golden snapshots, use:
+        python regression_tests/regression_test.py update --datasets biodiversity,vw --force
+    """
+    recorder = ConversationRecorder()
+    datasets_created = []
+
+    for dataset in ["biodiversity", "vw"]:
+        golden_path = recorder.golden_dir / f"{dataset}_golden.json"
+        if not golden_path.exists():
+            print(f"\nCreating missing golden snapshot for {dataset}...")
+            try:
+                recorder.record_golden(dataset)
+                datasets_created.append(dataset)
+            except Exception as e:
+                pytest.skip(f"Could not create golden snapshot for {dataset}: {e}")
+
+    if datasets_created:
+        print(f"\nCreated golden snapshots for: {', '.join(datasets_created)}")
+        print("Note: These are initial snapshots. Verify results and re-record if needed.")
+
+    return recorder
+
+
+@pytest.mark.parametrize("dataset", ["biodiversity", "vw"])
+def test_conversation_regression(ensure_golden, dataset):
+    """
+    Test that current implementation matches golden snapshot.
+
+    This test runs the full Conversation computation pipeline and compares
+    the results with previously recorded golden snapshots to detect any
+    unintended changes in behavior.
+
+    Args:
+        ensure_golden: Fixture that ensures golden snapshots exist
+        dataset: Dataset name to test
+    """
+    comparer = ConversationComparer()
+
+    # Run comparison
+    result = comparer.compare_with_golden(dataset)
+
+    # Check for errors
+    if "error" in result:
+        # Special handling for MD5 mismatch - this might mean test data was updated
+        if "MD5 mismatch" in result.get("error", ""):
+            pytest.fail(
+                f"Dataset files have changed for {dataset}!\n"
+                f"Golden votes MD5: {result.get('golden_votes_md5', 'N/A')}\n"
+                f"Current votes MD5: {result.get('current_votes_md5', 'N/A')}\n"
+                f"Golden comments MD5: {result.get('golden_comments_md5', 'N/A')}\n"
+                f"Current comments MD5: {result.get('current_comments_md5', 'N/A')}\n"
+                f"\nIf this is expected, update golden snapshots with:\n"
+                f"  python regression_tests/regression_test.py update --datasets {dataset} --force"
+            )
+        else:
+            pytest.fail(f"Error in comparison: {result.get('error')}")
+
+    # Check comparison results
+    assert result["overall_match"], (
+        f"Regression detected in {dataset}!\n"
+        f"{comparer.generate_report(result)}\n"
+        f"\nTo update golden snapshots after verified changes:\n"
+        f"  python regression_tests/regression_test.py update --datasets {dataset} --force"
+    )
+
+
+@pytest.mark.parametrize("dataset", ["biodiversity", "vw"])
+def test_conversation_stages_individually(ensure_golden, dataset):
+    """
+    Test each computation stage individually for more granular failure detection.
+
+    This test checks each stage of the computation pipeline separately,
+    making it easier to identify exactly where a regression occurs.
+
+    Args:
+        ensure_golden: Fixture that ensures golden snapshots exist
+        dataset: Dataset name to test
+    """
+    comparer = ConversationComparer()
+
+    # Run comparison
+    result = comparer.compare_with_golden(dataset)
+
+    # Skip if there's an error (this is tested in the main test)
+    if "error" in result:
+        pytest.skip(f"Skipping stage tests due to error: {result.get('error')}")
+
+    # Test each stage individually
+    stages_to_test = [
+        ("empty", "Empty conversation initialization"),
+        ("after_load_no_compute", "Vote loading without computation"),
+        ("after_pca", "PCA computation"),
+        ("after_clustering", "Clustering computation"),
+        ("after_full_recompute", "Full recompute pipeline"),
+        ("full_data_export", "Full data export")
+    ]
+
+    for stage_name, stage_description in stages_to_test:
+        if stage_name in result.get("stages_compared", {}):
+            stage_result = result["stages_compared"][stage_name]
+            assert stage_result["match"], (
+                f"Stage '{stage_description}' failed for {dataset}\n"
+                f"Path: {stage_result.get('path', 'unknown')}\n"
+                f"Reason: {stage_result.get('reason', 'unknown')}"
+            )
+
+
+class TestRegressionSystemIntegrity:
+    """Tests for the regression testing system itself."""
+
+    def test_recorder_creates_all_stages(self, tmp_path):
+        """Test that recorder creates all expected stages."""
+        # This would require mocking or using a test dataset
+        # For now, just verify the recorder can be instantiated
+        recorder = ConversationRecorder()
+        assert recorder.golden_dir.exists()
+
+    def test_comparer_handles_missing_golden(self):
+        """Test that comparer properly handles missing golden snapshots."""
+        comparer = ConversationComparer()
+        result = comparer.compare_with_golden("nonexistent_dataset")
+        assert "error" in result
+        assert "No golden snapshot found" in result["error"]
+
+    def test_comparer_numeric_tolerance(self):
+        """Test numeric comparison with tolerances."""
+        comparer = ConversationComparer(abs_tolerance=1e-6, rel_tolerance=0.01)
+
+        # Test exact match
+        result = comparer._compare_dicts(1.0, 1.0)
+        assert result["match"]
+
+        # Test within tolerance
+        result = comparer._compare_dicts(1.0, 1.000001)
+        assert result["match"]
+
+        # Test outside tolerance
+        result = comparer._compare_dicts(1.0, 1.1)
+        assert not result["match"]
+
+        # Test NaN handling
+        result = comparer._compare_dicts(np.nan, np.nan)
+        assert result["match"]
+
+        # Test infinity handling
+        result = comparer._compare_dicts(np.inf, np.inf)
+        assert result["match"]
+
+        result = comparer._compare_dicts(np.inf, -np.inf)
+        assert not result["match"]
+
+
+if __name__ == "__main__":
+    # Allow running this file directly for debugging
+    pytest.main([__file__, "-v"])

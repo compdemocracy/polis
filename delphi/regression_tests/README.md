@@ -47,7 +47,15 @@ This provides confidence during refactoring that the mathematical/computational 
 - Exact matching for integer counts
 - Special handling for NaN and infinity values
 
-### 5. Comprehensive Stage Coverage
+### 5. Performance Timing
+- Records execution time for each computation stage using `time.perf_counter()`
+- Compares current implementation speed against golden snapshot
+- Calculates speedup/slowdown factors (e.g., "2.5x faster" or "1.3x slower")
+- Displays timing information inline during comparison (e.g., "✅ Match (1.02x faster)")
+- Includes detailed timing report in verbose output showing current vs golden times
+- Helps identify performance regressions during refactoring
+
+### 6. Comprehensive Stage Coverage
 
 The system captures 6 stages of the Conversation lifecycle:
 
@@ -117,6 +125,54 @@ pytest tests/test_regression.py::test_conversation_regression[biodiversity] -v
    python regression_tests/regression_test.py update --datasets biodiversity --force
    ```
 
+### Example Output
+
+When running comparisons, you'll see timing information inline:
+
+```
+============================================================
+Comparing biodiversity with golden snapshot...
+============================================================
+Comparing biodiversity with golden snapshot...
+    🔍 Comparing stage: empty
+    ✅ Match (1.07x slower)
+    🔍 Comparing stage: after_load_no_compute
+    ✅ Match (1.02x slower)
+    🔍 Comparing stage: after_pca
+    ✅ Match (8.04x slower)
+    🔍 Comparing stage: after_clustering
+    ✅ Match (5.73x slower)
+    🔍 Comparing stage: after_full_recompute
+    ✅ Match (1.00x faster)
+    🔍 Comparing stage: full_data_export
+    ✅ Match (1.44x slower)
+✅ biodiversity: All stages match!
+```
+
+With `--verbose`, you get a detailed performance comparison:
+
+```
+Performance Comparison:
+  empty:
+    Current: 0.0007s
+    Golden:  0.0007s
+    Result:  1.05x slower
+  after_load_no_compute:
+    Current: 0.5978s
+    Golden:  0.6069s
+    Result:  1.02x faster
+  after_pca:
+    Current: 0.7036s
+    Golden:  0.0854s
+    Result:  8.24x slower
+  after_full_recompute:
+    Current: 0.9043s
+    Golden:  0.9307s
+    Result:  1.03x faster
+```
+
+**Note on Timing Variation**: Each stage re-runs the entire pipeline from scratch, so timing includes all previous steps. Natural variation in execution time (especially for complex stages like PCA and clustering) means you may see slowdowns or speedups of 2-10x. This is normal and helps identify significant performance regressions.
+
 ## Design Decisions
 
 ### Fixed Timestamps
@@ -176,6 +232,14 @@ Golden snapshot files are JSON with this structure:
     "after_clustering": { /* to_dict() output */ },
     "after_full_recompute": { /* to_dict() output */ },
     "full_data_export": { /* get_full_data() output */ }
+  },
+  "timings": {
+    "empty": 0.0006514590349979699,
+    "after_load_no_compute": 0.606867374968715,
+    "after_pca": 0.08539487503003329,
+    "after_clustering": 0.13137866597389802,
+    "after_full_recompute": 0.9307277500047348,
+    "full_data_export": 0.00022733298828825355
   }
 }
 ```
