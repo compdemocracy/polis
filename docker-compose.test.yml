@@ -182,6 +182,32 @@ services:
     networks:
       - polis-test
 
+  delphi:
+    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
+    build:
+      context: ./delphi
+    labels:
+      polis_tag: test
+    environment:
+      - DATABASE_HOST=${POSTGRES_HOST}
+      - DATABASE_PORT=${POSTGRES_PORT}
+      - DATABASE_NAME=${POSTGRES_DB}
+      - DATABASE_USER=${POSTGRES_USER}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+      - DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT}
+      - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT}
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - AWS_S3_BUCKET_NAME=polis-delphi
+      - LOG_LEVEL=DEBUG
+    networks:
+      - "polis-test"
+    depends_on:
+      - postgres
+      - dynamodb-init
+    command: tail -f /dev/null
+    restart: unless-stopped
+
   dynamodb:
     image: amazon/dynamodb-local:latest
     ports:

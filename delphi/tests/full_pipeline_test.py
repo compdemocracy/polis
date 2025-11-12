@@ -19,6 +19,7 @@ import os
 import sys
 import json
 import traceback
+import pytest
 import time
 from typing import Dict, List, Any
 
@@ -110,7 +111,7 @@ def save_results(dataset_name: str, conversation: Conversation) -> None:
     
     print(f"Results saved to {file_path}")
 
-
+@pytest.mark.parametrize("dataset_name", ["biodiversity", "vw"])
 def test_full_pipeline(dataset_name: str) -> None:
     """
     Run the full pipeline test for a dataset.

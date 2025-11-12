@@ -35,7 +35,10 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
+from dotenv import load_dotenv
+
+load_dotenv(Path(__file__).parent.parent.parent / '.env')
 
 import click
 import psycopg2
@@ -49,11 +52,11 @@ def get_db_connection():
     """Create a connection to the Postgres database using environment variables."""
     # These will be automatically loaded from .env by pyauto-dotenv when running from delphi directory
     return psycopg2.connect(
-        host=os.getenv("DATABASE_HOST", "localhost"),
-        port=int(os.getenv("DATABASE_PORT", "5432")),
-        database=os.getenv("DATABASE_NAME", "polis-dev"),
-        user=os.getenv("DATABASE_USER", "postgres"),
-        password=os.getenv("DATABASE_PASSWORD", "postgres")
+        database=os.environ.get('POSTGRES_DB', 'polismath'),
+            user=os.environ.get('POSTGRES_USER', 'postgres'),
+            password=os.environ.get('POSTGRES_PASSWORD', 'postgres'),
+            host=os.environ.get('POSTGRES_HOST', 'localhost'),
+            port=os.environ.get('POSTGRES_PORT', '5432')
     )
 
 

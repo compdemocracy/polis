@@ -26,10 +26,7 @@ def run_unit_tests():
     
     # Skip real data tests, comparison tests, and fixture-dependent tests
     result = pytest.main([
-        '-v', test_dir, 
-        # Skip `test_serialization` from `test_conversation.py` until https://github.com/compdemocracy/polis/issues/2284 is resolved
-        # Not clear why test_real_data and test_comparison and test_pca_projection are excluded, but keeping as per original
-        '-k', 'not test_real_data and not test_comparison and not test_pca_projection and not test_serialization',
+        '-k', 'not test_real_data and not test_comparison and not test_pca_projection',
         '--log-cli-level=DEBUG',
         '-r', 'A'  # Show all test results
     ])

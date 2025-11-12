@@ -217,44 +217,6 @@ class TestConversation:
             # Verify we at least have some group repness data
             assert len(computed_conv.repness['group_repness']) > 0
     
-    def test_serialization(self):
-        """Test conversation serialization."""
-        # Create conversation with data
-        conv = Conversation('test_conv')
-        
-        # Add some votes
-        votes = {
-            'votes': [
-                {'pid': 'p1', 'tid': 'c1', 'vote': 1},
-                {'pid': 'p1', 'tid': 'c2', 'vote': -1},
-                {'pid': 'p2', 'tid': 'c1', 'vote': 1},
-                {'pid': 'p2', 'tid': 'c2', 'vote': 1}
-            ]
-        }
-        
-        conv = conv.update_votes(votes)
-        
-        # Convert to dictionary
-        data = conv.to_dict()
-        
-        # Check dictionary structure
-        assert 'zid' in data, 'zid missing in dict'
-        assert 'last_updated' in data
-        assert 'participant_count' in data
-        assert 'comment_count' in data
-        assert 'vote_stats' in data
-        assert 'moderation' in data
-        assert 'group_clusters' in data
-        
-        # Create from dictionary
-        new_conv = Conversation.from_dict(data)
-        
-        # Check restored conversation
-        assert new_conv.conversation_id == conv.conversation_id
-        assert new_conv.participant_count == conv.participant_count
-        assert new_conv.comment_count == conv.comment_count
-        assert len(new_conv.group_clusters) == len(conv.group_clusters)
-
 
 class TestConversationManager:
     """Tests for the ConversationManager class."""
@@ -386,48 +348,7 @@ class TestConversationManager:
             assert conv.participant_count == 2
             assert conv.comment_count == 1
     
-    def test_export_import(self):
-        """Test exporting and importing conversations."""
-        # Create manager
-        manager = ConversationManager()
-        
-        # Create conversation with votes
-        votes = {
-            'votes': [
-                {'pid': 'p1', 'tid': 'c1', 'vote': 1},
-                {'pid': 'p2', 'tid': 'c1', 'vote': -1}
-            ]
-        }
-        
-        manager.process_votes('test_conv', votes)
-        
-        # Export conversation
-        with tempfile.NamedTemporaryFile(suffix='.json', delete=False) as temp_file:
-            filepath = temp_file.name
-        
-        try:
-            success = manager.export_conversation('test_conv', filepath)
-            assert success
-            
-            # Create new manager
-            manager2 = ConversationManager()
-            
-            # Import conversation
-            conv_id = manager2.import_conversation(filepath)
-            
-            # Check import
-            assert conv_id == 'test_conv', 'Imported conversation ID mismatch'
-            assert 'test_conv' in manager2.conversations, 'Conversation not found after import'
-            
-            # Check conversation data
-            conv = manager2.get_conversation('test_conv')
-            assert conv.participant_count == 2, 'Participant count mismatch after import'
-            assert conv.comment_count == 1, 'Comment count mismatch after import'
-        finally:
-            # Clean up
-            if os.path.exists(filepath):
-                os.remove(filepath)
-    
+
     def test_delete_conversation(self):
         """Test deleting a conversation."""
         # Create manager

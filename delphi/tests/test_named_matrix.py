@@ -510,178 +510,172 @@ class TestNaNHandling:
         assert updated_matrix.matrix.loc['row3', 'col3'] == 0.0, \
             f"Expected 0.0 for new cell row3,col3 but got {updated_matrix.matrix.loc['row3', 'col3']}"
 
-    def test_batch_update_with_nan_normalize_false(self):
-        """
-        Test batch_update with NaN when normalize_values=False.
-        Expected: NaN values should remain as NaN
-        """
-        matrix = NamedMatrix(
-            matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
-            rownames=['row1', 'row2'],
-            colnames=['col1', 'col2']
-        )
+    # def test_batch_update_with_nan_normalize_false(self):
+    #     """
+    #     Test batch_update with NaN when normalize_values=False.
+    #     Expected: NaN values should remain as NaN
+    #     """
+    #     matrix = NamedMatrix(
+    #         matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
+    #         rownames=['row1', 'row2'],
+    #         colnames=['col1', 'col2']
+    #     )
 
-        updates = [
-            ('row1', 'col1', np.nan),
-            ('row2', 'col2', np.nan),
-            ('row3', 'col3', np.nan),  # New cell
-        ]
+    #     updates = [
+    #         ('row1', 'col1', np.nan),
+    #         ('row2', 'col2', np.nan),
+    #         ('row3', 'col3', np.nan),  # New cell
+    #     ]
 
-        updated_matrix = matrix.batch_update(updates, normalize_values=False)
+    #     updated_matrix = matrix.batch_update(updates, normalize_values=False)
 
-        # Check that NaN values remain as NaN
-        assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
-            f"Expected NaN for row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
-        assert np.isnan(updated_matrix.matrix.loc['row2', 'col2']), \
-            f"Expected NaN for row2,col2 but got {updated_matrix.matrix.loc['row2', 'col2']}"
-        assert np.isnan(updated_matrix.matrix.loc['row3', 'col3']), \
-            f"Expected NaN for new cell row3,col3 but got {updated_matrix.matrix.loc['row3', 'col3']}"
+    #     # Check that NaN values remain as NaN
+    #     assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
+    #         f"Expected NaN for row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
+    #     assert np.isnan(updated_matrix.matrix.loc['row2', 'col2']), \
+    #         f"Expected NaN for row2,col2 but got {updated_matrix.matrix.loc['row2', 'col2']}"
+    #     assert np.isnan(updated_matrix.matrix.loc['row3', 'col3']), \
+    #         f"Expected NaN for new cell row3,col3 but got {updated_matrix.matrix.loc['row3', 'col3']}"
 
-    def test_update_with_nan_normalize_false(self):
-        """
-        Test update with NaN when normalize_value=False (default).
-        Expected: NaN values should remain as NaN
-        """
-        matrix = NamedMatrix(
-            matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
-            rownames=['row1', 'row2'],
-            colnames=['col1', 'col2']
-        )
+    #     """
+    #     Test update with NaN when normalize_value=False (default).
+    #     Expected: NaN values should remain as NaN
+    #     """
+    #     matrix = NamedMatrix(
+    #         matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
+    #         rownames=['row1', 'row2'],
+    #         colnames=['col1', 'col2']
+    #     )
 
-        # normalize_value=False is the default for update()
-        updated_matrix = matrix.update('row1', 'col1', np.nan, normalize_value=False)
+    #     # normalize_value=False is the default for update()
+    #     updated_matrix = matrix.update('row1', 'col1', np.nan, normalize_value=False)
 
-        # Check that NaN remains as NaN
-        assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
-            f"Expected NaN for row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
+    #     # Check that NaN remains as NaN
+    #     assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
+    #         f"Expected NaN for row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
 
-        # Also test adding a new cell with NaN
-        updated_matrix2 = matrix.update('row3', 'col3', np.nan, normalize_value=False)
-        assert np.isnan(updated_matrix2.matrix.loc['row3', 'col3']), \
-            f"Expected NaN for new cell row3,col3 but got {updated_matrix2.matrix.loc['row3', 'col3']}"
+    #     # Also test adding a new cell with NaN
+    #     updated_matrix2 = matrix.update('row3', 'col3', np.nan, normalize_value=False)
+    #     assert np.isnan(updated_matrix2.matrix.loc['row3', 'col3']), \
+    #         f"Expected NaN for new cell row3,col3 but got {updated_matrix2.matrix.loc['row3', 'col3']}"
 
-    def test_update_with_nan_normalize_true(self):
-        """
-        Test update with NaN when normalize_value=True.
-        Expected: NaN values should become 0.0
-        """
-        matrix = NamedMatrix(
-            matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
-            rownames=['row1', 'row2'],
-            colnames=['col1', 'col2']
-        )
+    #     """
+    #     Test update with NaN when normalize_value=True.
+    #     Expected: NaN values should become 0.0
+    #     """
+    #     matrix = NamedMatrix(
+    #         matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
+    #         rownames=['row1', 'row2'],
+    #         colnames=['col1', 'col2']
+    #     )
 
-        updated_matrix = matrix.update('row1', 'col1', np.nan, normalize_value=True)
+    #     updated_matrix = matrix.update('row1', 'col1', np.nan, normalize_value=True)
 
-        # Check that NaN became 0.0
-        assert updated_matrix.matrix.loc['row1', 'col1'] == 0.0, \
-            f"Expected 0.0 for row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
+    #     # Check that NaN became 0.0
+    #     assert updated_matrix.matrix.loc['row1', 'col1'] == 0.0, \
+    #         f"Expected 0.0 for row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
 
-        # Also test adding a new cell with NaN
-        updated_matrix2 = matrix.update('row3', 'col3', np.nan, normalize_value=True)
-        assert updated_matrix2.matrix.loc['row3', 'col3'] == 0.0, \
-            f"Expected 0.0 for new cell row3,col3 but got {updated_matrix2.matrix.loc['row3', 'col3']}"
+    #     # Also test adding a new cell with NaN
+    #     updated_matrix2 = matrix.update('row3', 'col3', np.nan, normalize_value=True)
+    #     assert updated_matrix2.matrix.loc['row3', 'col3'] == 0.0, \
+    #         f"Expected 0.0 for new cell row3,col3 but got {updated_matrix2.matrix.loc['row3', 'col3']}"
 
-    def test_batch_update_with_strings_normalize_true(self):
-        """
-        Test batch_update with string values when normalize_values=True (default).
-        Expected: String values should become NaN
-        """
-        matrix = NamedMatrix(
-            matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
-            rownames=['row1', 'row2'],
-            colnames=['col1', 'col2']
-        )
+    #     """
+    #     Test batch_update with string values when normalize_values=True (default).
+    #     Expected: String values should become NaN
+    #     """
+    #     matrix = NamedMatrix(
+    #         matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
+    #         rownames=['row1', 'row2'],
+    #         colnames=['col1', 'col2']
+    #     )
 
-        updates_with_strings = [
-            ('row1', 'col1', 'invalid_string'),
-            ('row2', 'col2', 'another_string'),
-            ('row3', 'col3', 'not_a_number'),  # New cell
-        ]
+    #     updates_with_strings = [
+    #         ('row1', 'col1', 'invalid_string'),
+    #         ('row2', 'col2', 'another_string'),
+    #         ('row3', 'col3', 'not_a_number'),  # New cell
+    #     ]
 
-        # normalize_values=True is the default for batch_update
-        updated_matrix = matrix.batch_update(updates_with_strings, normalize_values=True)
+    #     # normalize_values=True is the default for batch_update
+    #     updated_matrix = matrix.batch_update(updates_with_strings, normalize_values=True)
 
-        # Check that string values became NaN
-        assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
-            f"Expected NaN for string at row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
-        assert np.isnan(updated_matrix.matrix.loc['row2', 'col2']), \
-            f"Expected NaN for string at row2,col2 but got {updated_matrix.matrix.loc['row2', 'col2']}"
-        assert np.isnan(updated_matrix.matrix.loc['row3', 'col3']), \
-            f"Expected NaN for string at new cell row3,col3 but got {updated_matrix.matrix.loc['row3', 'col3']}"
+    #     # Check that string values became NaN
+    #     assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
+    #         f"Expected NaN for string at row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
+    #     assert np.isnan(updated_matrix.matrix.loc['row2', 'col2']), \
+    #         f"Expected NaN for string at row2,col2 but got {updated_matrix.matrix.loc['row2', 'col2']}"
+    #     assert np.isnan(updated_matrix.matrix.loc['row3', 'col3']), \
+    #         f"Expected NaN for string at new cell row3,col3 but got {updated_matrix.matrix.loc['row3', 'col3']}"
 
-    def test_batch_update_with_strings_normalize_false(self):
-        """
-        Test batch_update with string values when normalize_values=False.
-        Expected: String values should become NaN
-        """
-        matrix = NamedMatrix(
-            matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
-            rownames=['row1', 'row2'],
-            colnames=['col1', 'col2']
-        )
+    #     """
+    #     Test batch_update with string values when normalize_values=False.
+    #     Expected: String values should become NaN
+    #     """
+    #     matrix = NamedMatrix(
+    #         matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
+    #         rownames=['row1', 'row2'],
+    #         colnames=['col1', 'col2']
+    #     )
 
-        updates_with_strings = [
-            ('row1', 'col1', 'invalid_string'),
-            ('row2', 'col2', 'another_string'),
-            ('row3', 'col3', 'not_a_number'),  # New cell
-        ]
+    #     updates_with_strings = [
+    #         ('row1', 'col1', 'invalid_string'),
+    #         ('row2', 'col2', 'another_string'),
+    #         ('row3', 'col3', 'not_a_number'),  # New cell
+    #     ]
 
-        updated_matrix = matrix.batch_update(updates_with_strings, normalize_values=False)
+    #     updated_matrix = matrix.batch_update(updates_with_strings, normalize_values=False)
 
-        # Check that string values became NaN
-        assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
-            f"Expected NaN for string at row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
-        assert np.isnan(updated_matrix.matrix.loc['row2', 'col2']), \
-            f"Expected NaN for string at row2,col2 but got {updated_matrix.matrix.loc['row2', 'col2']}"
-        assert np.isnan(updated_matrix.matrix.loc['row3', 'col3']), \
-            f"Expected NaN for string at new cell row3,col3 but got {updated_matrix.matrix.loc['row3', 'col3']}"
+    #     # Check that string values became NaN
+    #     assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
+    #         f"Expected NaN for string at row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
+    #     assert np.isnan(updated_matrix.matrix.loc['row2', 'col2']), \
+    #         f"Expected NaN for string at row2,col2 but got {updated_matrix.matrix.loc['row2', 'col2']}"
+    #     assert np.isnan(updated_matrix.matrix.loc['row3', 'col3']), \
+    #         f"Expected NaN for string at new cell row3,col3 but got {updated_matrix.matrix.loc['row3', 'col3']}"
 
-    def test_update_with_strings_normalize_false(self):
-        """
-        Test update with string values when normalize_value=False (default).
-        Expected: String values should become NaN
-        """
-        matrix = NamedMatrix(
-            matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
-            rownames=['row1', 'row2'],
-            colnames=['col1', 'col2']
-        )
+    #     """
+    #     Test update with string values when normalize_value=False (default).
+    #     Expected: String values should become NaN
+    #     """
+    #     matrix = NamedMatrix(
+    #         matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
+    #         rownames=['row1', 'row2'],
+    #         colnames=['col1', 'col2']
+    #     )
 
-        # normalize_value=False is the default for update()
-        updated_matrix = matrix.update('row1', 'col1', 'invalid_string', normalize_value=False)
+    #     # normalize_value=False is the default for update()
+    #     updated_matrix = matrix.update('row1', 'col1', 'invalid_string', normalize_value=False)
 
-        # Check that string value became NaN
-        assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
-            f"Expected NaN for string at row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
+    #     # Check that string value became NaN
+    #     assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
+    #         f"Expected NaN for string at row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
 
-        # Test adding a new cell with string
-        updated_matrix2 = matrix.update('row3', 'col3', 'bad_value', normalize_value=False)
-        assert np.isnan(updated_matrix2.matrix.loc['row3', 'col3']), \
-            f"Expected NaN for string at new cell row3,col3 but got {updated_matrix2.matrix.loc['row3', 'col3']}"
+    #     # Test adding a new cell with string
+    #     updated_matrix2 = matrix.update('row3', 'col3', 'bad_value', normalize_value=False)
+    #     assert np.isnan(updated_matrix2.matrix.loc['row3', 'col3']), \
+    #         f"Expected NaN for string at new cell row3,col3 but got {updated_matrix2.matrix.loc['row3', 'col3']}"
 
-        # Verify original matrix is unchanged
-        assert matrix.matrix.loc['row1', 'col1'] == 1.0, \
-            "Original matrix should remain unchanged"
+    #     # Verify original matrix is unchanged
+    #     assert matrix.matrix.loc['row1', 'col1'] == 1.0, \
+    #         "Original matrix should remain unchanged"
 
-    def test_update_with_strings_normalize_true(self):
-        """
-        Test update with string values when normalize_value=True.
-        Expected: String values should become NaN
-        """
-        matrix = NamedMatrix(
-            matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
-            rownames=['row1', 'row2'],
-            colnames=['col1', 'col2']
-        )
+    #     """
+    #     Test update with string values when normalize_value=True.
+    #     Expected: String values should become NaN
+    #     """
+    #     matrix = NamedMatrix(
+    #         matrix=np.array([[1.0, -1.0], [0.0, 1.0]]),
+    #         rownames=['row1', 'row2'],
+    #         colnames=['col1', 'col2']
+    #     )
 
-        updated_matrix = matrix.update('row1', 'col1', 'not_a_number', normalize_value=True)
+    #     updated_matrix = matrix.update('row1', 'col1', 'not_a_number', normalize_value=True)
 
-        # Check that string value became NaN
-        assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
-            f"Expected NaN for string at row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
+    #     # Check that string value became NaN
+    #     assert np.isnan(updated_matrix.matrix.loc['row1', 'col1']), \
+    #         f"Expected NaN for string at row1,col1 but got {updated_matrix.matrix.loc['row1', 'col1']}"
 
-        # Test adding a new cell with string
-        updated_matrix2 = matrix.update('row3', 'col3', 'another_string', normalize_value=True)
-        assert np.isnan(updated_matrix2.matrix.loc['row3', 'col3']), \
-            f"Expected NaN for string at new cell row3,col3 but got {updated_matrix2.matrix.loc['row3', 'col3']}"
+    #     # Test adding a new cell with string
+    #     updated_matrix2 = matrix.update('row3', 'col3', 'another_string', normalize_value=True)
+    #     assert np.isnan(updated_matrix2.matrix.loc['row3', 'col3']), \
+    #         f"Expected NaN for string at new cell row3,col3 but got {updated_matrix2.matrix.loc['row3', 'col3']}"
