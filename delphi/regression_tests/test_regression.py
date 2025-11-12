@@ -10,6 +10,11 @@ import numpy as np
 from pathlib import Path
 
 from regression_tests.regression_lib import ConversationRecorder, ConversationComparer
+from tests.dataset_config import list_available_datasets
+
+
+# Get all available datasets from central config
+AVAILABLE_DATASETS = list(list_available_datasets().keys())
 
 
 def _check_golden_exists(dataset: str):
@@ -37,7 +42,7 @@ def _check_golden_exists(dataset: str):
         )
 
 
-@pytest.mark.parametrize("dataset", ["biodiversity", "vw"])
+@pytest.mark.parametrize("dataset", AVAILABLE_DATASETS)
 def test_conversation_regression(dataset):
     """
     Test that current implementation matches golden snapshot.
@@ -82,7 +87,7 @@ def test_conversation_regression(dataset):
     )
 
 
-@pytest.mark.parametrize("dataset", ["biodiversity", "vw"])
+@pytest.mark.parametrize("dataset", AVAILABLE_DATASETS)
 def test_conversation_stages_individually(dataset):
     """
     Test each computation stage individually for more granular failure detection.

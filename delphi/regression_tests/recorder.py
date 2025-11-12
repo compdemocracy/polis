@@ -7,16 +7,48 @@ This is a thin wrapper around the ConversationRecorder class from regression_lib
 
 import click
 from regression_lib import ConversationRecorder
+from tests.dataset_config import list_available_datasets
 
 
 @click.command()
-@click.argument('dataset', default='biodiversity')
+@click.argument('datasets', nargs=-1)
 @click.option('--force', is_flag=True, default=False, help='Force overwrite existing golden snapshot')
 @click.option('--benchmark/--no-benchmark', default=True, help='Enable/disable timing measurements (default: enabled)')
-def main(dataset: str, force: bool, benchmark: bool):
-    """Record golden snapshot for a dataset."""
+def main(datasets: tuple, force: bool, benchmark: bool):
+    """
+    Record golden snapshots for datasets.
+
+    If no datasets are specified, records for all available datasets.
+    Otherwise, records only the specified datasets.
+
+    Examples:
+        python recorder.py                    # Record all datasets
+        python recorder.py biodiversity       # Record only biodiversity
+        python recorder.py biodiversity vw    # Record biodiversity and vw
+    """
     recorder = ConversationRecorder()
-    recorder.record_golden(dataset, force=force, benchmark=benchmark)
+
+    # If no datasets specified, use all available datasets
+    if not datasets:
+        available_datasets = list_available_datasets()
+        datasets = list(available_datasets.keys())
+        click.echo(f"No datasets specified. Recording all available datasets: {', '.join(datasets)}\n")
+    else:
+        # Validate that specified datasets exist
+        available_datasets = list_available_datasets()
+        invalid_datasets = [d for d in datasets if d not in available_datasets]
+        if invalid_datasets:
+            available = ', '.join(available_datasets.keys())
+            click.echo(f"Error: Unknown dataset(s): {', '.join(invalid_datasets)}", err=True)
+            click.echo(f"Available datasets: {available}", err=True)
+            raise click.Abort()
+
+    # Record each dataset
+    for dataset in datasets:
+        click.echo(f"\n{'='*60}")
+        click.echo(f"Recording golden snapshot for: {dataset}")
+        click.echo(f"{'='*60}")
+        recorder.record_golden(dataset, force=force, benchmark=benchmark)
 
 
 if __name__ == "__main__":
