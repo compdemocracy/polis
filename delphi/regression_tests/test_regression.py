@@ -12,37 +12,33 @@ from pathlib import Path
 from regression_tests.regression_lib import ConversationRecorder, ConversationComparer
 
 
-@pytest.fixture(scope="session")
-def ensure_golden():
+def _check_golden_exists(dataset: str):
     """
-    Ensure golden snapshots exist for all test datasets.
+    Check if golden snapshot exists for a specific dataset.
 
-    This fixture runs once per test session and creates any missing
-    golden snapshots. If you need to update golden snapshots, use:
-        python regression_tests/regression_test.py update --datasets biodiversity,vw --force
+    This function checks for a single dataset's golden file and fails the test
+    if it's missing. This allows tests for other datasets to run independently.
+
+    Args:
+        dataset: Dataset name to check
+
+    Raises:
+        pytest.fail: If golden snapshot is missing for this dataset
     """
     recorder = ConversationRecorder()
-    datasets_created = []
+    golden_path = recorder.golden_dir / f"{dataset}_golden.json"
 
-    for dataset in ["biodiversity", "vw"]:
-        golden_path = recorder.golden_dir / f"{dataset}_golden.json"
-        if not golden_path.exists():
-            print(f"\nCreating missing golden snapshot for {dataset}...")
-            try:
-                recorder.record_golden(dataset)
-                datasets_created.append(dataset)
-            except Exception as e:
-                pytest.skip(f"Could not create golden snapshot for {dataset}: {e}")
-
-    if datasets_created:
-        print(f"\nCreated golden snapshots for: {', '.join(datasets_created)}")
-        print("Note: These are initial snapshots. Verify results and re-record if needed.")
-
-    return recorder
+    if not golden_path.exists():
+        pytest.fail(
+            f"Missing golden snapshot for dataset: {dataset}\n"
+            f"Golden snapshots must be created explicitly using recorder.py:\n"
+            f"  cd delphi/regression_tests\n"
+            f"  python recorder.py {dataset}\n"
+        )
 
 
 @pytest.mark.parametrize("dataset", ["biodiversity", "vw"])
-def test_conversation_regression(ensure_golden, dataset):
+def test_conversation_regression(dataset):
     """
     Test that current implementation matches golden snapshot.
 
@@ -51,9 +47,11 @@ def test_conversation_regression(ensure_golden, dataset):
     unintended changes in behavior.
 
     Args:
-        ensure_golden: Fixture that ensures golden snapshots exist
         dataset: Dataset name to test
     """
+    # Check that golden file exists for THIS specific dataset
+    _check_golden_exists(dataset)
+
     comparer = ConversationComparer()
 
     # Run comparison
@@ -85,7 +83,7 @@ def test_conversation_regression(ensure_golden, dataset):
 
 
 @pytest.mark.parametrize("dataset", ["biodiversity", "vw"])
-def test_conversation_stages_individually(ensure_golden, dataset):
+def test_conversation_stages_individually(dataset):
     """
     Test each computation stage individually for more granular failure detection.
 
@@ -93,9 +91,11 @@ def test_conversation_stages_individually(ensure_golden, dataset):
     making it easier to identify exactly where a regression occurs.
 
     Args:
-        ensure_golden: Fixture that ensures golden snapshots exist
         dataset: Dataset name to test
     """
+    # Check that golden file exists for THIS specific dataset
+    _check_golden_exists(dataset)
+
     comparer = ConversationComparer()
 
     # Run comparison
