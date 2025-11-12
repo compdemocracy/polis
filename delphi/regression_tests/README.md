@@ -47,13 +47,21 @@ This provides confidence during refactoring that the mathematical/computational 
 - Exact matching for integer counts
 - Special handling for NaN and infinity values
 
-### 5. Performance Timing
-- Records execution time for each computation stage using `time.perf_counter()`
-- Compares current implementation speed against golden snapshot
-- Calculates speedup/slowdown factors (e.g., "2.5x faster" or "1.3x slower")
-- Displays timing information inline during comparison (e.g., "✅ Match (1.02x faster)")
-- Includes detailed timing report in verbose output showing current vs golden times
-- Helps identify performance regressions during refactoring
+### 5. Statistical Performance Benchmarking
+- **Multiple runs**: Each computation stage runs 3 times to collect statistically meaningful timing data
+- **Statistical metrics**: Records mean, standard deviation, and raw timing values
+- **T-test analysis**: Performs independent two-sample t-tests to determine if performance differences are statistically significant
+- **P-value reporting**: Shows p-values with interpretation (significant if p < 0.05)
+- **Visual indicators**: Displays emoji symbols for quick interpretation:
+  - **🚀**: Significantly faster (p < 0.05) - real performance improvement
+  - **⚠️**: Significantly slower (p < 0.05) - real performance regression
+  - **No emoji**: No significant difference (p ≥ 0.05) - normal variation
+- **Compact format**: Single-line display per stage showing:
+  - Status (✅/❌), stage name, current vs golden timing, performance result, and p-value
+  - Example: `✅ after_pca: 101ms ± 4ms vs 94ms ± 8ms │ 1.08x slower, p=0.2461`
+  - Times automatically formatted in appropriate units (µs, ms, or s)
+- **Interpretation**: Small p-values (< 0.05) indicate real performance changes, while large p-values suggest natural variation
+- Helps distinguish real performance regressions from measurement noise
 
 ### 6. Comprehensive Stage Coverage
 
@@ -84,9 +92,6 @@ python regression_tests/regression_test.py compare --datasets biodiversity,vw
 
 # Update golden snapshots after verified changes
 python regression_tests/regression_test.py update --datasets biodiversity --force
-
-# Compare with verbose output
-python regression_tests/regression_test.py compare --datasets biodiversity --verbose
 
 # Adjust comparison tolerances
 python regression_tests/regression_test.py compare --datasets biodiversity \
@@ -127,51 +132,98 @@ pytest tests/test_regression.py::test_conversation_regression[biodiversity] -v
 
 ### Example Output
 
-When running comparisons, you'll see timing information inline:
+When recording, the system runs 3 iterations for statistical benchmarking:
 
 ```
-============================================================
+Recording golden snapshot for biodiversity...
+  Computing all stages with benchmarking...
+  Running 3 iterations for benchmarking...
+    Iteration 1/3 complete
+    Iteration 2/3 complete
+    Iteration 3/3 complete
+  Saving golden snapshot to .../biodiversity_golden.json
+Successfully recorded golden snapshot for biodiversity
+```
+
+When comparing, you'll see timing information with statistical significance:
+
+```
 Comparing biodiversity with golden snapshot...
-============================================================
-Comparing biodiversity with golden snapshot...
-    🔍 Comparing stage: empty
-    ✅ Match (1.07x slower)
-    🔍 Comparing stage: after_load_no_compute
-    ✅ Match (1.02x slower)
-    🔍 Comparing stage: after_pca
-    ✅ Match (8.04x slower)
-    🔍 Comparing stage: after_clustering
-    ✅ Match (5.73x slower)
-    🔍 Comparing stage: after_full_recompute
-    ✅ Match (1.00x faster)
-    🔍 Comparing stage: full_data_export
-    ✅ Match (1.44x slower)
+  Running 3 iterations for benchmarking...
+    Iteration 1/3 complete
+    Iteration 2/3 complete
+    Iteration 3/3 complete
 ✅ biodiversity: All stages match!
+
+============================================================
+REGRESSION TEST REPORT
+============================================================
+Dataset: biodiversity
+Overall Result: ✅ PASS
+
+Metadata:
+  dataset_name: biodiversity
+  report_id: r4tykwac8thvzv35jrn53
+  votes_csv_md5: cf32750948416aa7741832f16d004aea
+  comments_csv_md5: 6b961ecb3dd6b5a277139b0f39f83861
+  n_votes_in_csv: 29802
+  n_comments_in_csv: 316
+  n_participants_in_csv: 536
+  fixed_timestamp: 1700000000000
+  recorded_at: 2025-11-12T13:52:26.966074
+
+Numerical comparison:
+  (Tolerances: abs=1e-06, rel=1.0%)
+  ✅ Match      empty                      (= 1.02x slower, p=0.8388)
+  ✅ Match      after_load_no_compute      (= 1.02x faster, p=0.0710)
+  ✅ Match      after_pca                  (= 1.08x slower, p=0.2461)
+  ✅ Match      after_clustering           (= 1.00x faster, p=0.9855)
+  ✅ Match      after_full_recompute       (- 1.07x slower, p=0.0018)
+  ✅ Match      full_data_export           (= 1.03x slower, p=0.8889)
+
+Speed comparison:
+  Status Stage                     Current (mean ± std)  Golden (mean ± std)     Performance
+  ✅ empty                      300µs ± 10µs         vs 300µs ± 10µs          │ 1.02x slower, p=0.8388
+  ✅ after_load_no_compute      605ms ± 7ms          vs 614ms ± 1ms           │ 1.02x faster, p=0.0710
+  ✅ after_pca                  101ms ± 4ms          vs 94ms ± 8ms            │ 1.08x slower, p=0.2461
+  ✅ after_clustering           131ms ± 21ms         vs 132ms ± 0ms           │ 1.00x faster, p=0.9855
+  ✅ after_full_recompute       954ms ± 11ms         vs 891ms ± 10ms          │ ⚠️1.07x slower, p=0.0018
+  ✅ full_data_export           300µs ± 100µs        vs 300µs ± 100µs         │ 1.03x slower, p=0.8889
+============================================================
 ```
 
-With `--verbose`, you get a detailed performance comparison:
+**Interpreting the Output:**
 
-```
-Performance Comparison:
-  empty:
-    Current: 0.0007s
-    Golden:  0.0007s
-    Result:  1.05x slower
-  after_load_no_compute:
-    Current: 0.5978s
-    Golden:  0.6069s
-    Result:  1.02x faster
-  after_pca:
-    Current: 0.7036s
-    Golden:  0.0854s
-    Result:  8.24x slower
-  after_full_recompute:
-    Current: 0.9043s
-    Golden:  0.9307s
-    Result:  1.03x faster
-```
+The report is organized into two sections:
 
-**Note on Timing Variation**: Each stage re-runs the entire pipeline from scratch, so timing includes all previous steps. Natural variation in execution time (especially for complex stages like PCA and clustering) means you may see slowdowns or speedups of 2-10x. This is normal and helps identify significant performance regressions.
+**1. Numerical comparison:**
+Shows the result of comparing numerical values within tolerances:
+- **First line**: Shows the tolerance values used (absolute and relative)
+- **One line per stage**: Compact format showing status, stage name, and optional performance summary
+- **✅ Match / ❌ Mismatch**: Shows whether the numerical values match within tolerances
+- **Performance symbols** (in parentheses):
+  - **"="**: No significant difference (p ≥ 0.05)
+  - **"+"**: Significantly faster (p < 0.05)
+  - **"-"**: Significantly slower (p < 0.05)
+
+**2. Speed comparison:**
+Shows aligned, formatted timing metrics with a header row:
+- **Header line**: Clarifies which column is Current vs Golden timing
+- **Status emoji**: ✅ for passing stages, ❌ for failing stages
+- **Stage name**: Left-aligned with fixed width for visual alignment
+- **Current timing**: Shows mean ± std dev for new implementation
+- **Golden timing**: Shows mean ± std dev for golden snapshot
+- **Performance emoji indicators**:
+  - **🚀**: Significantly faster (p < 0.05) - real performance improvement detected
+  - **⚠️**: Significantly slower (p < 0.05) - real performance regression detected
+  - **No emoji**: No significant difference (p ≥ 0.05) - normal variation
+- **Performance metrics**: Speedup/slowdown ratio with p-value
+- **Time units**: Automatically formatted (µs for < 1ms, ms for < 1s, s otherwise)
+
+In the example above:
+- The Numerical comparison shows all stages match with tolerance abs=1e-06, rel=1.0%
+- Most stages show **"="** (no significant performance difference)
+- `after_full_recompute` shows **"-"** with p=0.0018 and ⚠️ emoji, indicating a real performance regression worth investigating
 
 ## Design Decisions
 
@@ -233,13 +285,37 @@ Golden snapshot files are JSON with this structure:
     "after_full_recompute": { /* to_dict() output */ },
     "full_data_export": { /* get_full_data() output */ }
   },
-  "timings": {
-    "empty": 0.0006514590349979699,
-    "after_load_no_compute": 0.606867374968715,
-    "after_pca": 0.08539487503003329,
-    "after_clustering": 0.13137866597389802,
-    "after_full_recompute": 0.9307277500047348,
-    "full_data_export": 0.00022733298828825355
+  "timing_stats": {
+    "empty": {
+      "mean": 0.0006514590349979699,
+      "std": 0.00001234,
+      "raw": [0.00065, 0.00066, 0.00065]
+    },
+    "after_load_no_compute": {
+      "mean": 0.606867374968715,
+      "std": 0.0012345,
+      "raw": [0.6056, 0.6069, 0.6081]
+    },
+    "after_pca": {
+      "mean": 0.08539487503003329,
+      "std": 0.0083456,
+      "raw": [0.0854, 0.0930, 0.0777]
+    },
+    "after_clustering": {
+      "mean": 0.13137866597389802,
+      "std": 0.0213245,
+      "raw": [0.1121, 0.1500, 0.1320]
+    },
+    "after_full_recompute": {
+      "mean": 0.9307277500047348,
+      "std": 0.0103456,
+      "raw": [0.9307, 0.9200, 0.9415]
+    },
+    "full_data_export": {
+      "mean": 0.00022733298828825355,
+      "std": 0.00001000,
+      "raw": [0.00023, 0.00022, 0.00023]
+    }
   }
 }
 ```

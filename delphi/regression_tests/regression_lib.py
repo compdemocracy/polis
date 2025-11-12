@@ -11,11 +11,12 @@ import hashlib
 import time
 import numpy as np
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional, List
 from datetime import datetime
 import pandas as pd
 import sys
 import os
+from scipy import stats
 
 # Add parent directory to path to import polismath modules
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
@@ -122,6 +123,61 @@ def compute_all_stages(dataset_name: str, votes_dict: Dict, fixed_timestamp: int
     return {
         "stages": stages,
         "timings": timings
+    }
+
+
+def compute_all_stages_with_benchmark(
+    dataset_name: str,
+    votes_dict: Dict,
+    fixed_timestamp: int,
+    n_runs: int = 3
+) -> Dict[str, Any]:
+    """
+    Compute all conversation stages multiple times and collect timing statistics.
+
+    This function runs the full computation pipeline multiple times to get
+    statistically meaningful timing measurements including mean, standard
+    deviation, and raw timing values for statistical testing.
+
+    Args:
+        dataset_name: Name of the dataset
+        votes_dict: Dictionary containing votes data
+        fixed_timestamp: Fixed timestamp for reproducibility
+        n_runs: Number of times to run the computation (default: 3)
+
+    Returns:
+        Dictionary with:
+        - 'stages': Dict mapping stage names to their serialized output (from last run)
+        - 'timing_stats': Dict mapping stage names to timing statistics:
+            * 'mean': Average execution time across runs
+            * 'std': Standard deviation of execution times
+            * 'raw': List of raw timing values for each run
+    """
+    all_timings = []
+    stages = None
+
+    print(f"  Running {n_runs} iterations for benchmarking...")
+    for i in range(n_runs):
+        result = compute_all_stages(dataset_name, votes_dict, fixed_timestamp)
+        if stages is None or i == n_runs - 1:
+            # Keep the last run's stages
+            stages = result["stages"]
+        all_timings.append(result["timings"])
+        print(f"    Iteration {i+1}/{n_runs} complete")
+
+    # Aggregate timing statistics across all runs
+    timing_stats = {}
+    for stage_name in all_timings[0].keys():
+        times = [run[stage_name] for run in all_timings]
+        timing_stats[stage_name] = {
+            "mean": float(np.mean(times)),
+            "std": float(np.std(times, ddof=1)),  # Sample standard deviation
+            "raw": times
+        }
+
+    return {
+        "stages": stages,
+        "timing_stats": timing_stats
     }
 
 
@@ -263,16 +319,21 @@ class ConversationRecorder:
         snapshot = {
             "metadata": metadata,
             "stages": {},
-            "timings": {} if benchmark else None
+            "timing_stats": {} if benchmark else None
         }
 
         # Compute all stages using shared function
-        print("  Computing all stages...")
-        results = compute_all_stages(dataset_name, votes_dict, metadata["fixed_timestamp"])
-        snapshot["stages"] = results["stages"]
-
         if benchmark:
-            snapshot["timings"] = results["timings"]
+            print("  Computing all stages with benchmarking...")
+            results = compute_all_stages_with_benchmark(
+                dataset_name, votes_dict, metadata["fixed_timestamp"]
+            )
+            snapshot["stages"] = results["stages"]
+            snapshot["timing_stats"] = results["timing_stats"]
+        else:
+            print("  Computing all stages...")
+            results = compute_all_stages(dataset_name, votes_dict, metadata["fixed_timestamp"])
+            snapshot["stages"] = results["stages"]
 
         # Save golden snapshot using shared function
         print(f"  Saving golden snapshot to {golden_path}")
@@ -320,10 +381,20 @@ class ConversationComparer:
         golden, golden_path = load_golden_snapshot(dataset_name, self.golden_dir)
 
         if golden is None:
-            return {
+            error_result = {
                 "error": f"No golden snapshot found for {dataset_name}. Run recorder first.",
                 "golden_path": str(golden_path)
             }
+            # Print error report
+            print("\n" + "=" * 60)
+            print("REGRESSION TEST REPORT")
+            print("=" * 60)
+            print(f"ERROR: {error_result['error']}")
+            for key, value in error_result.items():
+                if key != 'error':
+                    print(f"  {key}: {value}")
+            print("=" * 60)
+            return error_result
 
         print(f"Comparing {dataset_name} with golden snapshot...")
 
@@ -346,50 +417,83 @@ class ConversationComparer:
         results = {
             "dataset": dataset_name,
             "stages_compared": {},
-            "timings_compared": {} if benchmark else None,
+            "timing_stats_compared": {} if benchmark else None,
             "overall_match": True,
             "metadata": golden["metadata"]
         }
 
         # Compute all stages using shared function
-        print("  Computing all stages...")
-        current_results = compute_all_stages(dataset_name, votes_dict, metadata["fixed_timestamp"])
-        current_stages = current_results["stages"]
-        current_timings = current_results["timings"] if benchmark else {}
+        if benchmark:
+            print("  Computing all stages with benchmarking...")
+            current_results = compute_all_stages_with_benchmark(
+                dataset_name, votes_dict, metadata["fixed_timestamp"]
+            )
+            current_stages = current_results["stages"]
+            current_timing_stats = current_results["timing_stats"]
+        else:
+            print("  Computing all stages...")
+            current_results = compute_all_stages(dataset_name, votes_dict, metadata["fixed_timestamp"])
+            current_stages = current_results["stages"]
+            current_timing_stats = {}
 
-        # Compare each stage
+        # Compare each stage - buffer comparison results for later
+        comparison_results = []
         for stage_name in golden["stages"]:
-            print(f"    🔍 Comparing stage: {stage_name}")
-
             # Check if this stage was computed
             if stage_name not in current_stages:
-                print(f"    ⚠️  Skipping {stage_name} - not computed")
+                comparison_results.append((stage_name, "⚠️  Skipping - not computed", None))
                 continue
 
             current_dict = current_stages[stage_name]
 
             # Handle timing comparison if enabled
             timing_info = {}
-            if benchmark and golden.get("timings"):
-                current_time = current_timings.get(stage_name)
-                golden_time = golden.get("timings", {}).get(stage_name)
+            if benchmark and golden.get("timing_stats"):
+                current_stats = current_timing_stats.get(stage_name, {})
+                golden_stats = golden.get("timing_stats", {}).get(stage_name, {})
 
-                timing_info = {
-                    "current_time": current_time,
-                    "golden_time": golden_time
-                }
+                if current_stats and golden_stats:
+                    current_mean = current_stats.get("mean")
+                    current_std = current_stats.get("std")
+                    golden_mean = golden_stats.get("mean")
+                    golden_std = golden_stats.get("std")
+                    current_raw = current_stats.get("raw", [])
+                    golden_raw = golden_stats.get("raw", [])
 
-                if golden_time is not None and golden_time > 0 and current_time is not None:
-                    speedup_factor = golden_time / current_time
-                    timing_info["speedup_factor"] = speedup_factor
-                    if speedup_factor > 1.0:
-                        timing_info["performance"] = f"{speedup_factor:.2f}x faster"
-                    elif speedup_factor < 1.0:
-                        timing_info["performance"] = f"{1/speedup_factor:.2f}x slower"
-                    else:
-                        timing_info["performance"] = "same speed"
+                    timing_info = {
+                        "current_mean": current_mean,
+                        "current_std": current_std,
+                        "golden_mean": golden_mean,
+                        "golden_std": golden_std
+                    }
 
-                results["timings_compared"][stage_name] = timing_info
+                    # Compute speedup factor based on means
+                    if golden_mean is not None and golden_mean > 0 and current_mean is not None:
+                        speedup_factor = golden_mean / current_mean
+                        timing_info["speedup_factor"] = speedup_factor
+                        if speedup_factor > 1.0:
+                            timing_info["performance"] = f"{speedup_factor:.2f}x faster"
+                        elif speedup_factor < 1.0:
+                            timing_info["performance"] = f"{1/speedup_factor:.2f}x slower"
+                        else:
+                            timing_info["performance"] = "same speed"
+
+                    # Perform t-test if we have raw values
+                    if current_raw and golden_raw and len(current_raw) > 1 and len(golden_raw) > 1:
+                        try:
+                            t_stat, p_value = stats.ttest_ind(current_raw, golden_raw)
+                            timing_info["t_statistic"] = float(t_stat)
+                            timing_info["p_value"] = float(p_value)
+
+                            # Interpret p-value
+                            if p_value > 0.05:
+                                timing_info["significance"] = "not significant (p > 0.05)"
+                            else:
+                                timing_info["significance"] = f"significant (p = {p_value:.4f})"
+                        except Exception as e:
+                            timing_info["t_test_error"] = str(e)
+
+                    results["timing_stats_compared"][stage_name] = timing_info
 
             # Compare the dictionaries
             stage_result = self._compare_dicts(
@@ -401,13 +505,130 @@ class ConversationComparer:
             results["stages_compared"][stage_name] = stage_result
             if not stage_result["match"]:
                 results["overall_match"] = False
-                print(f"    ❌ Mismatch: {stage_result.get('reason', 'unknown')}")
+                comparison_results.append((stage_name, f"❌ Mismatch: {stage_result.get('reason', 'unknown')}", None))
             else:
-                # Show timing info on success if available
+                # Determine performance string if available
+                perf_str = None
                 if benchmark and "performance" in timing_info:
-                    print(f"    ✅ Match ({timing_info['performance']})")
+                    perf_str = timing_info['performance']
+
+                    # Add statistical significance symbol
+                    if "p_value" in timing_info and "speedup_factor" in timing_info:
+                        p_val = timing_info["p_value"]
+                        speedup = timing_info["speedup_factor"]
+
+                        if p_val < 0.05:
+                            # Statistically significant difference
+                            if speedup > 1.0:
+                                symbol = "+"  # Significantly faster
+                            else:
+                                symbol = "-"  # Significantly slower
+                        else:
+                            # No significant difference
+                            symbol = "="
+
+                        perf_str = f"({symbol} {perf_str}, p={p_val:.4f})"
+
+                comparison_results.append((stage_name, "✅ Match", perf_str))
+
+        # Print overall status
+        if results["overall_match"]:
+            print(f"✅ {dataset_name}: All stages match!")
+        else:
+            print(f"❌ {dataset_name}: Some stages failed!")
+
+        # Print detailed report
+        print("\n" + "=" * 60)
+        print("REGRESSION TEST REPORT")
+        print("=" * 60)
+        print(f"Dataset: {results['dataset']}")
+        print(f"Overall Result: {'✅ PASS' if results['overall_match'] else '❌ FAIL'}")
+        print("")
+
+        if "metadata" in results:
+            print("Metadata:")
+            for key, value in results["metadata"].items():
+                print(f"  {key}: {value}")
+            print("")
+
+        # Print numerical comparison section
+        print("Numerical comparison:")
+        print(f"  (Tolerances: abs={self.abs_tol:.0e}, rel={self.rel_tol:.1%})")
+        for stage_name, result, perf_str in comparison_results:
+            if perf_str:
+                print(f"  {result:12} {stage_name:25} {perf_str}")
+            else:
+                print(f"  {result:12} {stage_name}")
+        print("")
+
+        # Only print speed comparison if benchmarking is enabled
+        if benchmark:
+            print("Speed comparison:")
+            print(f"  {'Status':3} {'Stage':25} {'Current (mean ± std)':21} {'Golden (mean ± std)':23} {'Performance':15}")
+
+            # Find the longest stage name for alignment
+            max_stage_len = max(len(name) for name in results.get("stages_compared", {}).keys()) if results.get("stages_compared") else 0
+            max_stage_len = max(max_stage_len, 25)  # Minimum width
+
+            for stage_name, stage_result in results.get("stages_compared", {}).items():
+                status = "✅" if stage_result["match"] else "❌"
+
+                # Get timing info if available
+                timing_info = results.get("timing_stats_compared", {}).get(stage_name, {})
+
+                if not stage_result["match"]:
+                    # Failed stage - show detailed error
+                    print(f"  {status} {stage_name}")
+                    print(f"      Path: {stage_result.get('path', 'unknown')}")
+                    print(f"      Reason: {stage_result.get('reason', 'unknown')}")
+                elif timing_info:
+                    # Passed stage with timing - show compact format with alignment
+                    current_mean = timing_info.get("current_mean")
+                    current_std = timing_info.get("current_std")
+                    golden_mean = timing_info.get("golden_mean")
+                    golden_std = timing_info.get("golden_std")
+                    performance = timing_info.get("performance", "N/A")
+                    p_value = timing_info.get("p_value")
+                    speedup = timing_info.get("speedup_factor", 1.0)
+
+                    # Choose emoji based on statistical significance
+                    perf_emoji = ""
+                    if p_value is not None and p_value < 0.05:
+                        if speedup > 1.0:
+                            perf_emoji = "🚀"  # Significantly faster
+                        else:
+                            perf_emoji = "⚠️"   # Significantly slower
+
+                    # Format times in appropriate units
+                    def format_time(t):
+                        if t < 0.001:
+                            return f"{t*1000000:.0f}µs"
+                        elif t < 1.0:
+                            return f"{t*1000:.0f}ms"
+                        else:
+                            return f"{t:.2f}s"
+
+                    current_str = f"{format_time(current_mean)} ± {format_time(current_std)}"
+                    golden_str = f"{format_time(golden_mean)} ± {format_time(golden_std)}"
+
+                    # Build aligned result line with fixed-width fields
+                    # Format: status + stage_name (padded) + current time (20 chars) + vs + golden time (20 chars) + │ + performance
+                    stage_padded = f"{stage_name}".ljust(max_stage_len)
+                    current_padded = current_str.ljust(20)
+                    golden_padded = golden_str.ljust(20)
+
+                    result_str = f"{status} {stage_padded} {current_padded} vs {golden_padded}"
+                    if p_value is not None:
+                        result_str += f" │ {performance}, p={p_value:.4f}  {perf_emoji}"
+                    else:
+                        result_str += f" │ {performance}"
+
+                    print(f"  {result_str}")
                 else:
-                    print(f"    ✅ Match")
+                    # Passed stage without timing (shouldn't happen when benchmark=True)
+                    print(f"  {status} {stage_name}")
+
+        print("=" * 60)
 
         return results
 
@@ -610,29 +831,70 @@ class ConversationComparer:
                 lines.append(f"  {key}: {value}")
             lines.append("")
 
-        lines.append("Stage Results:")
+        lines.append("Speed comparison:")
+        lines.append(f"  {'Status':3} {'Stage':25} {'Current (mean ± std)':21} {'Golden (mean ± std)':23} {'Performance':15}")
+
+        # Find the longest stage name for alignment
+        max_stage_len = max(len(name) for name in results.get("stages_compared", {}).keys()) if results.get("stages_compared") else 0
+        max_stage_len = max(max_stage_len, 25)  # Minimum width
+
         for stage_name, stage_result in results.get("stages_compared", {}).items():
             status = "✅" if stage_result["match"] else "❌"
-            lines.append(f"  {status} {stage_name}")
+
+            # Get timing info if available
+            timing_info = results.get("timing_stats_compared", {}).get(stage_name, {})
+
             if not stage_result["match"]:
+                # Failed stage - show detailed error
+                lines.append(f"  {status} {stage_name}")
                 lines.append(f"      Path: {stage_result.get('path', 'unknown')}")
                 lines.append(f"      Reason: {stage_result.get('reason', 'unknown')}")
-
-        # Add timing information if available and requested
-        if show_timing and results.get("timings_compared"):
-            lines.append("")
-            lines.append("Performance Comparison:")
-            for stage_name, timing_info in results["timings_compared"].items():
-                current_time = timing_info.get("current_time")
-                golden_time = timing_info.get("golden_time")
+            elif show_timing and timing_info:
+                # Passed stage with timing - show compact format with alignment
+                current_mean = timing_info.get("current_mean")
+                current_std = timing_info.get("current_std")
+                golden_mean = timing_info.get("golden_mean")
+                golden_std = timing_info.get("golden_std")
                 performance = timing_info.get("performance", "N/A")
+                p_value = timing_info.get("p_value")
+                speedup = timing_info.get("speedup_factor", 1.0)
 
-                if current_time is not None:
-                    lines.append(f"  {stage_name}:")
-                    lines.append(f"    Current: {current_time:.4f}s")
-                    if golden_time is not None:
-                        lines.append(f"    Golden:  {golden_time:.4f}s")
-                        lines.append(f"    Result:  {performance}")
+                # Choose emoji based on statistical significance
+                perf_emoji = ""
+                if p_value is not None and p_value < 0.05:
+                    if speedup > 1.0:
+                        perf_emoji = "🚀"  # Significantly faster
+                    else:
+                        perf_emoji = "⚠️"   # Significantly slower
+
+                # Format times in appropriate units
+                def format_time(t):
+                    if t < 0.001:
+                        return f"{t*1000000:.0f}µs"
+                    elif t < 1.0:
+                        return f"{t*1000:.0f}ms"
+                    else:
+                        return f"{t:.2f}s"
+
+                current_str = f"{format_time(current_mean)} ± {format_time(current_std)}"
+                golden_str = f"{format_time(golden_mean)} ± {format_time(golden_std)}"
+
+                # Build aligned result line with fixed-width fields
+                # Format: status + stage_name (padded) + current time (20 chars) + vs + golden time (20 chars) + │ + performance
+                stage_padded = f"{stage_name}".ljust(max_stage_len)
+                current_padded = current_str.ljust(20)
+                golden_padded = golden_str.ljust(20)
+
+                result_str = f"{status} {stage_padded} {current_padded} vs {golden_padded}"
+                if p_value is not None:
+                    result_str += f" │ {perf_emoji}{performance}, p={p_value:.4f}"
+                else:
+                    result_str += f" │ {performance}"
+
+                lines.append(f"  {result_str}")
+            else:
+                # Passed stage without timing
+                lines.append(f"  {status} {stage_name}")
 
         lines.append("=" * 60)
         return "\n".join(lines)
