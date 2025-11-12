@@ -100,7 +100,15 @@ class ConversationRecorder:
         # Stage 2: After loading votes (no recompute)
         print("  Loading votes without recompute...")
         conv = Conversation(dataset_name, last_updated=fixed_timestamp)
-        conv.update_votes(votes_dict, recompute=False)
+        conv = conv.update_votes(votes_dict, recompute=False)
+
+        # Validation: Ensure votes were actually loaded
+        if conv.participant_count == 0 or conv.comment_count == 0:
+            raise ValueError(
+                f"Failed to load votes! participant_count={conv.participant_count}, "
+                f"comment_count={conv.comment_count}"
+            )
+
         snapshot["stages"]["after_load_no_compute"] = conv.to_dict()
 
         # Stage 3: After PCA computation only
@@ -117,7 +125,15 @@ class ConversationRecorder:
         # Stage 5: Full recompute (includes repness and participant_info)
         print("  Running full recompute...")
         conv_full = Conversation(dataset_name, last_updated=fixed_timestamp)
-        conv_full.update_votes(votes_dict, recompute=True)
+        conv_full = conv_full.update_votes(votes_dict, recompute=True)
+
+        # Validation: Ensure full computation was performed
+        if conv_full.participant_count == 0 or len(conv_full.group_clusters) == 0:
+            raise ValueError(
+                f"Failed to compute! participant_count={conv_full.participant_count}, "
+                f"n_clusters={len(conv_full.group_clusters)}"
+            )
+
         snapshot["stages"]["after_full_recompute"] = conv_full.to_dict()
 
         # Stage 6: Also capture get_full_data() output if available

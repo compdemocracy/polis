@@ -103,7 +103,7 @@ class ConversationComparer:
 
         # Compare each stage
         for stage_name in golden["stages"]:
-            print(f"  Comparing stage: {stage_name}")
+            print(f"    🔍 Comparing stage: {stage_name}")
 
             # Generate current output for this stage
             if stage_name == "empty":
@@ -112,25 +112,25 @@ class ConversationComparer:
 
             elif stage_name == "after_load_no_compute":
                 current_conv = Conversation(dataset_name, last_updated=fixed_timestamp)
-                current_conv.update_votes(votes_dict, recompute=False)
+                current_conv = current_conv.update_votes(votes_dict, recompute=False)
                 current_dict = current_conv.to_dict()
 
             elif stage_name == "after_pca":
                 current_conv = Conversation(dataset_name, last_updated=fixed_timestamp)
-                current_conv.update_votes(votes_dict, recompute=False)
+                current_conv = current_conv.update_votes(votes_dict, recompute=False)
                 current_conv._compute_pca()
                 current_dict = current_conv.to_dict()
 
             elif stage_name == "after_clustering":
                 current_conv = Conversation(dataset_name, last_updated=fixed_timestamp)
-                current_conv.update_votes(votes_dict, recompute=False)
+                current_conv = current_conv.update_votes(votes_dict, recompute=False)
                 current_conv._compute_pca()
                 current_conv._compute_clusters()
                 current_dict = current_conv.to_dict()
 
             elif stage_name == "after_full_recompute":
                 current_conv = Conversation(dataset_name, last_updated=fixed_timestamp)
-                current_conv.update_votes(votes_dict, recompute=True)
+                current_conv = current_conv.update_votes(votes_dict, recompute=True)
                 current_dict = current_conv.to_dict()
 
             elif stage_name == "full_data_export":
@@ -204,24 +204,31 @@ class ConversationComparer:
 
         # Handle dictionaries
         if isinstance(golden, dict):
-            golden_keys = set(golden.keys())
-            current_keys = set(current.keys())
+            # Normalize keys: JSON converts int keys to strings, so we need to handle both
+            def normalize_key(k):
+                """Convert to string for comparison, as JSON stores dict keys as strings"""
+                return str(k)
 
-            if golden_keys != current_keys:
-                only_golden = golden_keys - current_keys
-                only_current = current_keys - golden_keys
+            golden_keys_normalized = {normalize_key(k): k for k in golden.keys()}
+            current_keys_normalized = {normalize_key(k): k for k in current.keys()}
+
+            if set(golden_keys_normalized.keys()) != set(current_keys_normalized.keys()):
+                only_golden = set(golden_keys_normalized.keys()) - set(current_keys_normalized.keys())
+                only_current = set(current_keys_normalized.keys()) - set(golden_keys_normalized.keys())
                 return {
                     "match": False,
                     "path": path,
                     "reason": f"Keys mismatch. Only in golden: {only_golden}, Only in current: {only_current}"
                 }
 
-            # Compare all values
-            for key in golden_keys:
+            # Compare all values using normalized keys
+            for norm_key in golden_keys_normalized:
+                golden_key = golden_keys_normalized[norm_key]
+                current_key = current_keys_normalized[norm_key]
                 result = self._compare_dicts(
-                    golden[key],
-                    current[key],
-                    f"{path}.{key}" if path else key
+                    golden[golden_key],
+                    current[current_key],
+                    f"{path}.{norm_key}" if path else norm_key
                 )
                 if not result["match"]:
                     return result
