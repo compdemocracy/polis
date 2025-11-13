@@ -35,10 +35,10 @@ class TestConversation:
         assert conv.comment_count == 0
         
         # Check empty matrices
-        assert isinstance(conv.raw_rating_mat, NamedMatrix)
-        assert isinstance(conv.rating_mat, NamedMatrix)
-        assert len(conv.raw_rating_mat.rownames()) == 0
-        assert len(conv.raw_rating_mat.colnames()) == 0
+        assert isinstance(conv.raw_rating_mat, pd.DataFrame)
+        assert isinstance(conv.rating_mat, pd.DataFrame)
+        assert len(conv.raw_rating_mat.index) == 0
+        assert len(conv.raw_rating_mat.columns) == 0
     
     def test_update_votes(self):
         """Test updating a conversation with votes."""

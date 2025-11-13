@@ -60,8 +60,8 @@ class Conversation:
         self.last_updated = last_updated or int(time.time() * 1000)
         
         # Initialize empty state
-        self.raw_rating_mat = NamedMatrix()  # All votes
-        self.rating_mat = NamedMatrix()      # Filtered for moderation
+        self.raw_rating_mat = pd.DataFrame()  # All votes
+        self.rating_mat = pd.DataFrame()      # Filtered for moderation
         
         # Participant and comment info
         self.participant_count = 0
@@ -96,7 +96,7 @@ class Conversation:
         Update the conversation with new votes.
         
         Args:
-            votes: Dictionary of votes
+            votes: Dictionary of votes, with entries 'votes', 'lastVoteTimestamp'
             recompute: Whether to recompute the clustering
             
         Returns:
@@ -200,15 +200,42 @@ class Conversation:
         
         # Log validation results
         logger.info(f"[{time.time() - start_time:.2f}s] Vote processing summary: {len(vote_updates)} valid, {invalid_count} invalid, {null_count} null")
+
+        # Get existing row and column indices
+        existing_rows = self.raw_rating_mat.index
+        existing_cols = self.raw_rating_mat.columns
         
+        logger.info(f"[{time.time() - start_time:.2f}s] Found {len(existing_rows)} existing rows and {len(existing_cols)} existing columns")
+
+        # Step 1: Convert the list to a DataFrame with columns "row", "col", "value"
+        logger.info(f"[{time.time() - start_time:.2f}s] Converting updates to DataFrame...")
+
+        updates_df = pd.DataFrame(vote_updates, columns=['row', 'col', 'value'])
+
+        # Step 2: Keep only the last update for each (row, col) pair
+        original_count = len(updates_df)
+        updates_df = updates_df.drop_duplicates(subset=['row', 'col'], keep='last')
+        duplicates_removed = original_count - len(updates_df)
+        
+        # Step 4: Get new rows and columns by set difference
+        logger.info(f"[{time.time() - start_time:.2f}s] Identifying new rows and columns...")
+
+        new_rows = set(updates_df['row']) - set(existing_rows)
+        new_cols = set(updates_df['col']) - set(existing_cols)
+
+        logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
+
         # Apply all updates in a single batch operation for better performance
-        if vote_updates:
-            logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(vote_updates)} votes as batch update...")
-            batch_start = time.time()
-            result.raw_rating_mat = result.raw_rating_mat.batch_update(vote_updates)
-            logger.info(f"[{time.time() - start_time:.2f}s] Batch update completed in {time.time() - batch_start:.2f}s")
-        else:
-            logger.info(f"[{time.time() - start_time:.2f}s] No new votes to apply.")
+        # Honestly, we should probably keep the matrix of votes in long-form,
+        # and only convert to wide-form when requested.
+        
+        logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(vote_updates)} votes as batch update...")
+        batch_start = time.time()
+        result.raw_rating_mat.loc[updates_df['row'], updates_df['col']] = updates_df['value']
+        # For backward compatibility, sort the rows and columns by label.
+        result.raw_rating_mat.sort_index(axis='index', inplace=True)
+        result.raw_rating_mat.sort_index(axis='columns', inplace=True)
+        logger.info(f"[{time.time() - start_time:.2f}s] Batch update completed in {time.time() - batch_start:.2f}s")
         
         # Update last updated timestamp
         result.last_updated = max(
@@ -217,8 +244,7 @@ class Conversation:
         )
         
         # Update count stats
-        result.participant_count = len(result.raw_rating_mat.rownames())
-        result.comment_count = len(result.raw_rating_mat.colnames())
+        result.participant_count, result.comment_count = result.raw_rating_mat.shape
         
         # Apply moderation and create filtered rating matrix
         result._apply_moderation()
@@ -240,17 +266,12 @@ class Conversation:
         """
         Apply moderation settings to create filtered rating matrix.
         """
-        # Get all row and column names
-        all_ptpts = self.raw_rating_mat.rownames()
-        all_comments = self.raw_rating_mat.colnames()
-        
         # Filter out moderated participants and comments
-        valid_ptpts = [p for p in all_ptpts if p not in self.mod_out_ptpts]
-        valid_comments = [c for c in all_comments if c not in self.mod_out_tids]
+        keep_ptpts = set(self.raw_rating_mat.index) - set(self.mod_out_ptps)
+        keep_comments = set(self.raw_rating_mat.columns) - set(self.mod_out_tids)
         
         # Create filtered matrix
-        self.rating_mat = self.raw_rating_mat.rowname_subset(valid_ptpts)
-        self.rating_mat = self.rating_mat.colname_subset(valid_comments)
+        self.rating_mat = self.raw_rating_mat.loc[keep_ptpts, keep_comments]
     
     def _compute_vote_stats(self) -> None:
         """
@@ -458,36 +479,8 @@ class Conversation:
         Returns:
             Clean NamedMatrix
         """
-        # Make a copy of the matrix
-        matrix_values = self.rating_mat.values.copy()
-        
-        # Ensure the matrix contains numeric values
-        if not np.issubdtype(matrix_values.dtype, np.number):
-            # Convert to numeric matrix with proper NaN handling
-            numeric_matrix = np.zeros(matrix_values.shape, dtype=float)
-            for i in range(matrix_values.shape[0]):
-                for j in range(matrix_values.shape[1]):
-                    val = matrix_values[i, j]
-                    if pd.isna(val) or val is None:
-                        numeric_matrix[i, j] = np.nan
-                    else:
-                        try:
-                            numeric_matrix[i, j] = float(val)
-                        except (ValueError, TypeError):
-                            numeric_matrix[i, j] = np.nan
-            matrix_values = numeric_matrix
-        
-        # Create a DataFrame with proper indexing
-        import pandas as pd
-        df = pd.DataFrame(
-            matrix_values,
-            index=self.rating_mat.rownames(),
-            columns=self.rating_mat.colnames()
-        )
-        
-        # Create a new NamedMatrix
-        from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-        return NamedMatrix(df)
+        # Convert all entries to float64, with np.nan for pd.NA and for strings
+        return self.rating_mat.apply(pd.to_numeric, errors='coerce')
     
     def _compute_clusters(self) -> None:
         """
