@@ -9,8 +9,6 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Tuple, Union, Any
 
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-
 
 def normalize_vector(v: np.ndarray) -> np.ndarray:
     """
@@ -540,9 +538,9 @@ def align_with_clojure(pca_results: Dict[str, np.ndarray]) -> Dict[str, np.ndarr
     return result
 
 
-def pca_project_named_matrix(nmat: NamedMatrix, 
-                           n_comps: int = 2,
-                           align_with_clojure_output: bool = True) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+def pca_project_named_matrix(nmat: pd.DataFrame,
+                            n_comps: int = 2,
+                            align_with_clojure_output: bool = True) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """
     Perform PCA on a DataFrame and project the data.
     
@@ -578,7 +576,7 @@ def pca_project_named_matrix(nmat: NamedMatrix,
             'comps': np.zeros((min(n_comps, 2), n_cols))
         }
         # Create minimal projections (all zeros)
-        proj_dict = {pid: np.zeros(2) for pid in nmat.rownames()}
+        proj_dict = {pid: np.zeros(2) for pid in nmat.index}
         return pca_results, proj_dict
     
     # Set fixed random seed for reproducibility
