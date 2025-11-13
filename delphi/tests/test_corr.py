@@ -58,7 +58,7 @@ class TestMatrixOperations:
         assert cleaned.columns.tolist() == colnames
     
     def test_transpose_named_matrix(self):
-        """Test transposing a NamedMatrix."""
+        """Test transposing a votes matrix."""
         # Create a matrix
         data = np.array([
             [1.0, 2.0, 3.0],

@@ -14,7 +14,6 @@ import logging
 import sys
 from datetime import datetime
 
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
 from polismath.pca_kmeans_rep.clusters import cluster_named_matrix
 from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
@@ -34,12 +33,6 @@ if not logger.handlers:
     # Do not override existing log level if already set
     if logger.level == logging.NOTSET:
         logger.setLevel(logging.INFO)
-
-    # Also set up the NamedMatrix logger
-    matrix_logger = logging.getLogger('polismath.math.named_matrix')
-    matrix_logger.addHandler(handler)
-    if matrix_logger.level == logging.NOTSET:
-        matrix_logger.setLevel(logging.INFO)
 
 
 class Conversation:
@@ -492,12 +485,12 @@ class Conversation:
             }
             self.proj = {pid: np.zeros(2) for pid in self.rating_mat.index}
     
-    def _get_clean_matrix(self) -> NamedMatrix:
+    def _get_clean_matrix(self) -> pd.DataFrame:
         """
         Get a clean copy of the rating matrix with proper numeric values.
         
         Returns:
-            Clean NamedMatrix
+            Clean DataFrame with numeric values
         """
         # Convert all entries to float64, with np.nan for pd.NA and for strings
         return self.rating_mat.apply(pd.to_numeric, errors='coerce')

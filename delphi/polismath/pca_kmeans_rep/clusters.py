@@ -12,7 +12,6 @@ from typing import Dict, List, Optional, Tuple, Union, Any
 import random
 from copy import deepcopy
 
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 from polismath.utils.general import weighted_mean, weighted_means
 
 
@@ -585,13 +584,13 @@ def clusters_from_dict(clusters_dict: List[Dict],
     return result
 
 
-def determine_k(nmat: NamedMatrix, base_k: int = 2) -> int:
+def determine_k(nmat: pd.DataFrame, base_k: int = 2) -> int:
     """
     Determine the optimal number of clusters based on data size.
     Uses a simple and consistent heuristic formula.
     
     Args:
-        nmat: NamedMatrix to analyze
+        nmat: pd.Dataframe of vote matrix to analyze
         base_k: Base number of clusters (minimum)
         
     Returns:
@@ -631,10 +630,10 @@ def cluster_named_matrix(nmat: pd.DataFrame,
                         last_clusters: Optional[List[Dict]] = None,
                         weights: Optional[Dict[Any, float]] = None) -> List[Dict]:
     """
-    Cluster a NamedMatrix and return the result in dictionary format.
+    Cluster a votes matrix and return the result in dictionary format.
     
     Args:
-        nmat: NamedMatrix to cluster
+        nmat: pd.DataFrame of vote matrix to cluster
         k: Number of clusters (if None, auto-determined)
         max_iters: Maximum number of iterations
         last_clusters: Previous clustering result for continuity

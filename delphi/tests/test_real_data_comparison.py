@@ -16,7 +16,6 @@ from typing import Dict, List, Any, Union, Optional
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.conversation.conversation import Conversation
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 from tests.dataset_config import get_dataset_files
 
 # Tolerance for numerical comparisons
@@ -252,13 +251,11 @@ def run_manual_pipeline(conv: Conversation) -> Conversation:
         
         # Create a new matrix with cleaned values
         import pandas as pd
-        clean_df = pd.DataFrame(
+        clean_matrix = pd.DataFrame(
             matrix_values,
             index=matrix.rownames(),
             columns=matrix.colnames()
         )
-        from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-        clean_matrix = NamedMatrix(clean_df)
         
         # Perform PCA
         try:
@@ -505,8 +502,7 @@ def run_real_data_comparison(dataset_name: str, votes_limit: Optional[int] = Non
         # Create raw matrix directly from numeric updates
         import pandas as pd
         import numpy as np
-        from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-        
+
         # Get unique participant and comment IDs
         ptpt_ids = sorted(set(upd[0] for upd in numeric_updates))
         cmt_ids = sorted(set(upd[1] for upd in numeric_updates))
@@ -524,10 +520,9 @@ def run_real_data_comparison(dataset_name: str, votes_limit: Optional[int] = Non
             c_idx = cmt_map.get(cmt_id)
             if r_idx is not None and c_idx is not None:
                 matrix_data[r_idx, c_idx] = vote_val
-        
-        # Create the NamedMatrix
-        df = pd.DataFrame(matrix_data, index=ptpt_ids, columns=cmt_ids)
-        clean_conv.raw_rating_mat = NamedMatrix(df, enforce_numeric=True)
+
+        # Create the DataFrame
+        clean_conv.raw_rating_mat = pd.DataFrame(matrix_data, index=ptpt_ids, columns=cmt_ids, dtype=np.float64)
         
         # Update conversation properties
         clean_conv.participant_count = len(ptpt_ids)

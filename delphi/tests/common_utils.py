@@ -12,7 +12,6 @@ from typing import Any
 import sys
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 from polismath.conversation.conversation import Conversation
 from tests.dataset_config import get_dataset_files
 
@@ -76,14 +75,12 @@ def create_test_conversation(dataset_name: str) -> Conversation:
         vote_matrix[r_idx, c_idx] = vote_val
 
     # Convert to DataFrame
-    df_matrix = pd.DataFrame(
+    named_matrix = pd.DataFrame(
         vote_matrix,
         index=[str(pid) for pid in ptpt_ids],
-        columns=[str(cid) for cid in cmt_ids]
+        columns=[str(cid) for cid in cmt_ids],
+        dtype = float
     )
-
-    # Create a NamedMatrix
-    named_matrix = NamedMatrix(df_matrix, enforce_numeric=True)
 
     # Create a Conversation object
     conv = Conversation(dataset_name)

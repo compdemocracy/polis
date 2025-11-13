@@ -14,8 +14,6 @@ import scipy.cluster.hierarchy as hcluster
 from scipy.spatial.distance import pdist, squareform
 import json
 
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-
 
 def clean_named_matrix(nmat: pd.DataFrame) -> pd.DataFrame:
     """
@@ -31,7 +29,7 @@ def clean_named_matrix(nmat: pd.DataFrame) -> pd.DataFrame:
     values = nmat.to_numpy(copy=True)
     values = np.nan_to_num(values, nan=0.0)
     
-    # Create a new NamedMatrix with the cleaned values
+    # Create a new DataFrame with the cleaned values
     return pd.DataFrame(
         data=values,
         index=nmat.index,
@@ -52,7 +50,7 @@ def transpose_named_matrix(nmat: pd.DataFrame) -> pd.DataFrame:
     # Transpose the matrix values
     values = nmat.values.T
     
-    # Create a new NamedMatrix with rows and columns swapped
+    # Create a new DataFrame with rows and columns swapped
     return pd.DataFrame(
         data=values,
         index=nmat.columns,

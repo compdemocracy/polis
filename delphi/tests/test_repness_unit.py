@@ -19,7 +19,6 @@ from polismath.pca_kmeans_rep.repness import (
     calculate_kl_divergence, select_consensus_comments, conv_repness,
     participant_stats
 )
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 
 
 class TestStatisticalFunctions:
@@ -467,7 +466,7 @@ class TestIntegration:
         row_names = ['p1', 'p2', 'p3', 'p4']
         col_names = ['c1', 'c2', 'c3', 'c4']
         
-        vote_matrix = NamedMatrix(vote_data, row_names, col_names)
+        vote_matrix = pd.DataFrame(vote_data, index=row_names, columns=col_names)
         
         # Create group clusters
         group_clusters = [
@@ -508,7 +507,7 @@ class TestIntegration:
         row_names = ['p1', 'p2', 'p3', 'p4']
         col_names = ['c1', 'c2', 'c3', 'c4']
         
-        vote_matrix = NamedMatrix(vote_data, row_names, col_names)
+        vote_matrix = pd.DataFrame(vote_data, index=row_names, columns=col_names)
         
         # Create group clusters
         group_clusters = [

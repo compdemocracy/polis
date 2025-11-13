@@ -12,7 +12,6 @@ from copy import deepcopy
 import math
 from scipy import stats
 
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 from polismath.utils.general import agree, disagree, pass_vote
 
 
@@ -589,12 +588,12 @@ def conv_repness(vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]
     return result
 
 
-def participant_stats(vote_matrix: NamedMatrix, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
+def participant_stats(vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Calculate statistics about participants.
     
     Args:
-        vote_matrix: NamedMatrix of votes
+        vote_matrix: pd.DataFrame of votes
         group_clusters: List of group clusters
         
     Returns:

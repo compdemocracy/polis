@@ -98,7 +98,7 @@ class TestPCAImplementation:
         assert vote_matrix.shape[0] > 0
         assert vote_matrix.shape[1] > 0
 
-        logger.debug(f"Matrix shape: {vote_matrix.values.shape}")
+        logger.debug(f"Matrix shape: {vote_matrix.shape}")
 
         pca_results, projections = pca_project_named_matrix(vote_matrix)
 

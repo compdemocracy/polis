@@ -544,7 +544,7 @@ class TestClusterSerialization:
         assert clusters_mapped[1].members == [2, 3]
 
 
-class TestClusterNamedMatrix:
+class TestClusterVotesMatrix:
     """Tests for clustering a votes matrix."""
     
     def test_cluster_named_matrix(self):

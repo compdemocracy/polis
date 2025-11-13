@@ -238,7 +238,6 @@ def main():
 
     # Import polismath modules
     from polismath.conversation.conversation import Conversation
-    from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 
     # Connect to database
     logger.info(f"[{time.time() - start_time:.2f}s] Connecting to database...")
