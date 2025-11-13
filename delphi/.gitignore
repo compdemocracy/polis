@@ -241,6 +241,3 @@ data/
 output/
 results/
 visualization_output/
-
-# Real data for the tests
-real_data/

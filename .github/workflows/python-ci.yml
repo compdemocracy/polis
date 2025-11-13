@@ -33,57 +33,53 @@ jobs:
         fi
         
         # Add hostnames for container-to-container networking
+        # The 'delphi' service in 'docker-compose.test.yml' reads these
         echo "POSTGRES_HOST=postgres" >> .env
         echo "DYNAMODB_ENDPOINT=http://dynamodb:8000" >> .env
         echo "AWS_S3_ENDPOINT=http://minio:9000" >> .env
 
     - name: 3. Build Docker images
       run: |
-        # Build all services in the test file (now including delphi)
+        # Build all services in the test file (including delphi)
         docker compose -f docker-compose.test.yml --env-file .env build
 
     - name: 4. Start all services
       run: |
         # Start all services (including delphi) in detached mode
+        # The 'delphi' container will start and run 'tail -f /dev/null'
         docker compose -f docker-compose.test.yml --env-file .env up -d
         
         echo "Waiting for services to be healthy..."
-        sleep 30 
+        sleep 20 # Wait for containers to start
         docker compose -f docker-compose.test.yml ps
 
     - name: 5. Check service health
       run: |
+        # Wait for postgres to be ready
         echo "Checking postgres..."
-        # This command is correct
-        docker compose -f docker-compose.test.yml exec -T postgres pg_isready -U postgres
+        docker compose -f docker-compose.test.yml exec -T postgres \
+          bash -c 'until pg_isready -U $POSTGRES_USER; do sleep 5; done'
+        echo "Postgres is ready."
 
-        echo "Checking server API..."
-        # This command is fixed:
-        # 1. Changed 'bash' to 'sh'
-        # 2. Changed 'apt-get update/install' to 'apk add'
-        docker compose -f docker-compose.test.yml exec -T nginx-proxy \
-          sh -c 'apk add --no-cache curl && \
-          echo "Waiting for server..." && \
-          curl -f --retry 12 --retry-delay 10 --retry-connrefused http://server:5000/api/v3/participationInit'
-        
-        echo "All services are ready!"
-
-    - name: 6. Download Data and Run Delphi Pytest
+    - name: 6. Run Delphi Pytest
       run: |
-        # Use 'docker compose exec' to run commands INSIDE the
-        # already-running 'delphi' container.
+        echo "Copying test files into container..."
+        docker compose -f docker-compose.test.yml cp delphi/tests delphi:/app/tests
+        docker compose -f docker-compose.test.yml cp delphi/real_data delphi:/app/real_data
+
+        echo "Running tests..."
         docker compose \
           -f docker-compose.test.yml \
           --env-file .env \
           exec -T \
+          -e AWS_DEFAULT_REGION=us-east-1 \
+          -e AWS_REGION=us-east-1 \
+          -e AWS_ACCESS_KEY_ID=dummy \
+          -e AWS_SECRET_ACCESS_KEY=dummy \
           delphi \
           bash -c " \
-            echo '--- Starting Data Download ---'; \
-            python /app/tests/download_real_data.py \
-              --base-url http://nginx-proxy \
-              r4tykwac8thvzv35jrn53 r6vbnhffkxbd7ifmfbdrd; \
-            echo '--- Data Download Finished. Listing data: ---'; \
-            ls -lR /app/real_data; \
+            echo '--- Setting up DynamoDB Tables ---'; \
+            python create_dynamodb_tables.py --region us-east-1; \
             echo '--- Installing Pytest ---'; \
             pip install pytest; \
             echo '--- Running Pytest ---'; \
@@ -99,8 +95,6 @@ jobs:
         docker compose -f docker-compose.test.yml logs postgres || true
         echo "=== DynamoDB service logs ==="
         docker compose -f docker-compose.test.yml logs dynamodb || true
-        echo "=== Nginx service logs ==="
-        docker compose -f docker-compose.test.yml logs nginx-proxy || true
 
     - name: 8. Clean up services
       if: always()

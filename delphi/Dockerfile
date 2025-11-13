@@ -28,22 +28,28 @@
   COPY pyproject.toml requirements.lock ./
 
   # Conditionally install PyTorch CPU versions if IS_GITHUB_ACTION is true
-  RUN if [ "$IS_GITHUB_ACTION" = "true" ]; then \
-          echo "IS_GITHUB_ACTION is true. Installing PyTorch CPU versions..."; \
-          pip install --mount=type=cache,target=/root/.cache/pip \
-              --index-url https://download.pytorch.org/whl/cpu \
-              torch==2.8.0+cpu \
-              torchvision==0.23.0+cpu \
-              torchaudio==2.8.0+cpu; \
-      else \
-          echo "IS_GITHUB_ACTION is false or not set. Skipping explicit PyTorch CPU-specific installation."; \
-          echo "PyTorch (if required) will be installed from requirements.lock."; \
-      fi
+  RUN --mount=type=cache,target=/root/.cache/pip \
+      if [ "$IS_GITHUB_ACTION" = "true" ]; then \
+              echo "IS_GITHUB_ACTION is true. Installing PyTorch CPU versions..."; \
+              pip install \
+                  --index-url https://download.pytorch.org/whl/cpu \
+                  torch==2.8.0+cpu \
+                  torchvision==0.23.0+cpu \
+                  torchaudio==2.8.0+cpu; \
+          else \
+              echo "IS_GITHUB_ACTION is false or not set. Skipping explicit PyTorch CPU-specific installation."; \
+              echo "PyTorch (if required) will be installed from requirements.lock."; \
+          fi
 
   # Install dependencies from lock file (cached layer - reused unless requirements.lock changes)
   # BuildKit cache mount keeps pip cache between builds for faster rebuilds
   RUN --mount=type=cache,target=/root/.cache/pip \
-      pip install -r requirements.lock
+      if [ "$IS_GITHUB_ACTION" = "true" ]; then \
+              echo "IS_GITHUB_ACTION is true. Skipping requirements.lock (already installed CPU deps)."; \
+          else \
+              echo "IS_GITHUB_ACTION is false. Installing from requirements.lock..."; \
+              pip install -r requirements.lock; \
+          fi
 
   # ===== OPTIMIZATION: Copy source code LAST (busts cache on code changes) =====
   # Copy source code - this layer rebuilds when code changes but reuses dependency layers above

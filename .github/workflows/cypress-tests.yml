@@ -11,6 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    
+    - name: 1. Free up disk space on runner
+      run: |
+        echo "Starting disk cleanup..."
+        df -h
+        sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android /usr/local/share/powershell
+        echo "Disk space after cleanup:"
+        df -h
     - name: Checkout code
       uses: actions/checkout@v4
 
@@ -59,7 +67,9 @@ jobs:
     - name: Build Docker images
       run: |
         # Build all services defined in test compose file
-        docker compose -f docker-compose.test.yml --env-file test.env build
+        # Pass IS_GITHUB_ACTION=true to build the smaller, CPU-only delphi image
+        docker compose -f docker-compose.test.yml --env-file test.env build \
+          --build-arg IS_GITHUB_ACTION=true
 
     - name: Start services
       run: |

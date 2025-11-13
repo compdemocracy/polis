@@ -221,6 +221,8 @@ services:
       polis_tag: test
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    # This is the new line that fixes the error
+    command: "-jar DynamoDBLocal.jar -sharedDb -inMemory"
 
   # One-time init container to create DynamoDB tables
   dynamodb-init:
