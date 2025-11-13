@@ -31,12 +31,15 @@ if not logger.handlers:
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+    # Do not override existing log level if already set
+    if logger.level == logging.NOTSET:
+        logger.setLevel(logging.INFO)
 
     # Also set up the NamedMatrix logger
     matrix_logger = logging.getLogger('polismath.math.named_matrix')
     matrix_logger.addHandler(handler)
-    matrix_logger.setLevel(logging.INFO)
+    if matrix_logger.level == logging.NOTSET:
+        matrix_logger.setLevel(logging.INFO)
 
 
 class Conversation:
@@ -60,8 +63,8 @@ class Conversation:
         self.last_updated = last_updated or int(time.time() * 1000)
         
         # Initialize empty state
-        self.raw_rating_mat = pd.DataFrame()  # All votes
-        self.rating_mat = pd.DataFrame()      # Filtered for moderation
+        self.raw_rating_mat = pd.DataFrame(dtype='float64')  # All votes
+        self.rating_mat = pd.DataFrame(dtype='float64')      # Filtered for moderation
         
         # Participant and comment info
         self.participant_count = 0
@@ -208,6 +211,7 @@ class Conversation:
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(existing_rows)} existing rows and {len(existing_cols)} existing columns")
 
         # Step 1: Convert the list to a DataFrame with columns "row", "col", "value"
+        # By now it contain only -1, +1, or 0 as values
         logger.info(f"[{time.time() - start_time:.2f}s] Converting updates to DataFrame...")
 
         updates_df = pd.DataFrame(vote_updates, columns=['row', 'col', 'value'])
@@ -220,8 +224,14 @@ class Conversation:
         # Step 4: Get new rows and columns by set difference
         logger.info(f"[{time.time() - start_time:.2f}s] Identifying new rows and columns...")
 
-        new_rows = set(updates_df['row']) - set(existing_rows)
-        new_cols = set(updates_df['col']) - set(existing_cols)
+        existing_rows = set(existing_rows)
+        existing_cols = set(existing_cols)
+
+        new_rows = set(updates_df['row']) - existing_rows
+        new_cols = set(updates_df['col']) - existing_cols
+        
+        all_rows = existing_rows.union(new_rows)
+        all_cols = existing_cols.union(new_cols) 
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
 
@@ -231,10 +241,19 @@ class Conversation:
         
         logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(vote_updates)} votes as batch update...")
         batch_start = time.time()
-        result.raw_rating_mat.loc[updates_df['row'], updates_df['col']] = updates_df['value']
         # For backward compatibility, sort the rows and columns by label.
-        result.raw_rating_mat.sort_index(axis='index', inplace=True)
-        result.raw_rating_mat.sort_index(axis='columns', inplace=True)
+        result.raw_rating_mat = result.raw_rating_mat.reindex(index=sorted(all_rows), columns=sorted(all_cols), fill_value=np.nan)
+        # NOTE: we cannot use .loc(rows, cols) = values with rows,cols,and values being Series 
+        # for example `result.raw_rating_mat.loc[updates_df['row'], updates_df['col']] = updates_df['value'].values`
+        # because pandas then tries to assign to the Cartesian product of rows and cols, and it gets very messy
+        # and is definitely *not* what we intended. 
+        # We could convert to integer indices with get_loc, then use .value to use numpy assignment (which does not
+        # do any cartesian product), but a/ it's less legible, b/ there is *no* guarantee at all that .value is always
+        # a view and not a copy, so we might end up modifying a copy of the data frame.
+        # Therefore, for simplicity and readability, sticking to an ugly for loop.
+        # If you have a better idea, let me know at julien@cornebise.com, I would love to know :)
+        for idx, row_data in updates_df.iterrows():
+            result.raw_rating_mat.at[row_data['row'], row_data['col']] = row_data['value']
         logger.info(f"[{time.time() - start_time:.2f}s] Batch update completed in {time.time() - batch_start:.2f}s")
         
         # Update last updated timestamp
@@ -257,7 +276,7 @@ class Conversation:
             try:
                 result = result.recompute()
             except Exception as e:
-                print(f"Error during recompute: {e}")
+                logger.error(f"Error during recompute: {e}")
                 # If recompute fails, return the conversation with just the new votes
         
         return result
@@ -267,8 +286,8 @@ class Conversation:
         Apply moderation settings to create filtered rating matrix.
         """
         # Filter out moderated participants and comments
-        keep_ptpts = set(self.raw_rating_mat.index) - set(self.mod_out_ptps)
-        keep_comments = set(self.raw_rating_mat.columns) - set(self.mod_out_tids)
+        keep_ptpts = list(set(self.raw_rating_mat.index) - set(self.mod_out_ptpts))
+        keep_comments = list(set(self.raw_rating_mat.columns) - set(self.mod_out_tids))
         
         # Create filtered matrix
         self.rating_mat = self.raw_rating_mat.loc[keep_ptpts, keep_comments]
@@ -295,8 +314,9 @@ class Conversation:
         try:
             # Make a clean copy that's definitely numeric
             clean_mat = self._get_clean_matrix()
-            values = clean_mat.values
-            
+            # TODO: we can probably count without needing to convert to numpy array
+            values = clean_mat.to_numpy()
+
             # Count votes safely
             try:
                 # Create masks, handling non-numeric data
@@ -309,7 +329,7 @@ class Conversation:
                 self.vote_stats['n_disagree'] = int(np.sum(disagree_mask))
                 self.vote_stats['n_pass'] = int(np.sum(np.isnan(values)))
             except Exception as e:
-                print(f"Error counting votes: {e}")
+                logger.error(f"Error counting votes: {e}")
                 # Set defaults if counting fails
                 self.vote_stats['n_votes'] = 0
                 self.vote_stats['n_agree'] = 0
@@ -317,7 +337,7 @@ class Conversation:
                 self.vote_stats['n_pass'] = 0
             
             # Compute comment stats
-            for i, cid in enumerate(clean_mat.colnames()):
+            for i, cid in enumerate(clean_mat.columns):
                 if i >= values.shape[1]:
                     continue
                     
@@ -334,7 +354,7 @@ class Conversation:
                         'agree_ratio': float(n_agree / max(n_votes, 1))
                     }
                 except Exception as e:
-                    print(f"Error computing stats for comment {cid}: {e}")
+                    logger.error(f"Error computing stats for comment {cid}: {e}")
                     self.vote_stats['comment_stats'][cid] = {
                         'n_votes': 0,
                         'n_agree': 0,
@@ -343,7 +363,7 @@ class Conversation:
                     }
             
             # Compute participant stats
-            for i, pid in enumerate(clean_mat.rownames()):
+            for i, pid in enumerate(clean_mat.index):
                 if i >= values.shape[0]:
                     continue
                     
@@ -360,7 +380,7 @@ class Conversation:
                         'agree_ratio': float(n_agree / max(n_votes, 1))
                     }
                 except Exception as e:
-                    print(f"Error computing stats for participant {pid}: {e}")
+                    logger.error(f"Error computing stats for participant {pid}: {e}")
                     self.vote_stats['participant_stats'][pid] = {
                         'n_votes': 0,
                         'n_agree': 0,
@@ -368,7 +388,7 @@ class Conversation:
                         'agree_ratio': 0.0
                     }
         except Exception as e:
-            print(f"Error in vote stats computation: {e}")
+            logger.error(f"Error in vote stats computation: {e}")
             # Initialize with empty stats if computation fails
             self.vote_stats = {
                 'n_votes': 0,
@@ -438,14 +458,14 @@ class Conversation:
         import pandas as pd
         
         # Check if we have enough data
-        if self.rating_mat.values.shape[0] < 2 or self.rating_mat.values.shape[1] < 2:
+        if self.rating_mat.shape[0] < 2 or self.rating_mat.shape[1] < 2:
             # Not enough data for PCA, create minimal results
-            cols = max(self.rating_mat.values.shape[1], 1)
+            cols = max(self.rating_mat.shape[1], 1)
             self.pca = {
                 'center': np.zeros(cols),
                 'comps': np.zeros((min(n_components, 2), cols))
             }
-            self.proj = {pid: np.zeros(2) for pid in self.rating_mat.rownames()}
+            self.proj = {pid: np.zeros(2) for pid in self.rating_mat.rows}
             return
         
         try:
@@ -458,19 +478,19 @@ class Conversation:
             self.pca = pca_results
             self.proj = proj_dict
         
-        except Exception as e:
+        except Exception as r:
             # If PCA fails, create minimal results
-            print(f"Error in PCA computation: {e}")
+            logger.error(f"Error in PCA computation: {e}")
             # Make sure we have numpy and pandas
             import numpy as np
             import pandas as pd
             
-            cols = self.rating_mat.values.shape[1]
+            cols = self.rating_mat.shape[1]
             self.pca = {
                 'center': np.zeros(cols),
                 'comps': np.zeros((min(n_components, 2), cols))
             }
-            self.proj = {pid: np.zeros(2) for pid in self.rating_mat.rownames()}
+            self.proj = {pid: np.zeros(2) for pid in self.rating_mat.index}
     
     def _get_clean_matrix(self) -> NamedMatrix:
         """
@@ -502,10 +522,10 @@ class Conversation:
         proj_values = np.array([self.proj[pid] for pid in ptpt_ids])
         
         # Create projection matrix
-        proj_matrix = NamedMatrix(
-            matrix=proj_values,
-            rownames=ptpt_ids,
-            colnames=['x', 'y']
+        proj_matrix = pd.DataFrame(
+            data=proj_values,
+            index=ptpt_ids,
+            columns=['x', 'y']
         )
         
         # Use auto-determination of k based on data size
@@ -540,7 +560,7 @@ class Conversation:
         # Check if we have groups
         if not self.group_clusters:
             self.repness = {
-                'comment_ids': self.rating_mat.colnames(),
+                'comment_ids': self.rating_mat.columns,
                 'group_repness': {},
                 'consensus_comments': []
             }
@@ -549,7 +569,7 @@ class Conversation:
         # Compute representativeness
         self.repness = conv_repness(self.rating_mat, self.group_clusters)
     
-    def _compute_participant_info_optimized(self, vote_matrix: NamedMatrix, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def _compute_participant_info_optimized(self, vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Optimized version of the participant info computation.
         
@@ -567,29 +587,21 @@ class Conversation:
             return {}
         
         # Extract values and ensure they're numeric
-        matrix_values = vote_matrix.values.copy()
+        matrix_values = vote_matrix.to_numpy(copy=True)
         
         # Convert to numeric matrix with NaN for missing values
         if not np.issubdtype(matrix_values.dtype, np.number):
-            numeric_values = np.zeros(matrix_values.shape, dtype=float)
-            for i in range(matrix_values.shape[0]):
-                for j in range(matrix_values.shape[1]):
-                    val = matrix_values[i, j]
-                    if pd.isna(val) or val is None:
-                        numeric_values[i, j] = np.nan
-                    else:
-                        try:
-                            numeric_values[i, j] = float(val)
-                        except (ValueError, TypeError):
-                            numeric_values[i, j] = np.nan
-            matrix_values = numeric_values
+            try:
+                matrix_values = matrix_values.astype(float)
+            except (ValueError, TypeError):
+                matrix_values = vote_matrix.apply(pd.to_numeric, errors='coerce').to_numpy()
         
         # Replace NaNs with zeros for correlation calculation
         matrix_values = np.nan_to_num(matrix_values, nan=0.0)
         
         # Create result structure
         result = {
-            'participant_ids': vote_matrix.rownames(),
+            'participant_ids': vote_matrix.index,
             'stats': {}
         }
         
@@ -597,13 +609,13 @@ class Conversation:
         logger.info(f"Participant stats prep time: {prep_time:.2f}s")
         
         # For each participant, calculate statistics
-        participant_count = len(vote_matrix.rownames())
+        participant_count = len(vote_matrix.index)
         logger.info(f"Processing statistics for {participant_count} participants...")
         
         # OPTIMIZATION 1: Precompute mappings and lookup tables
         
         # Precompute mapping of participant IDs to indices for faster lookups
-        ptpt_idx_map = {ptpt_id: idx for idx, ptpt_id in enumerate(vote_matrix.rownames())}
+        ptpt_idx_map = {ptpt_id: idx for idx, ptpt_id in enumerate(vote_matrix.index)}
         
         # Precompute group membership lookups
         ptpt_group_map = {}
@@ -649,7 +661,7 @@ class Conversation:
         process_start = time.time()
         batch_start = time.time()
         
-        for p_idx, participant_id in enumerate(vote_matrix.rownames()):
+        for p_idx, participant_id in enumerate(vote_matrix.index):
             if p_idx >= matrix_values.shape[0]:
                 continue
                 
@@ -775,7 +787,7 @@ class Conversation:
         result = deepcopy(self)
         
         # Check if we have enough data
-        if result.rating_mat.values.shape[0] == 0 or result.rating_mat.values.shape[1] == 0:
+        if result.rating_mat.size == 0:
             # Not enough data, return early
             return result
         
@@ -914,7 +926,7 @@ class Conversation:
         import numpy as np
         
         # Get all comment IDs
-        comment_ids = self.rating_mat.colnames()
+        comment_ids = self.rating_mat.columns
         
         # Helper functions to identify vote types (like utils/agree?, utils/disagree? in Clojure)
         def agree_vote(x):
@@ -931,8 +943,7 @@ class Conversation:
         for tid in comment_ids:
             # Get the column for this comment
             try:
-                col_idx = self.rating_mat.colnames().index(tid)
-                votes = self.rating_mat.values[:, col_idx]
+                votes = self.rating_mat[:, 'tid'].to_numpy()
                 
                 # Count vote types
                 agree_votes = np.sum(agree_vote(votes))
@@ -982,7 +993,7 @@ class Conversation:
             row_indices = []
             for member in members:
                 try:
-                    member_idx = self.rating_mat.rownames().index(member)
+                    member_idx = self.rating_mat.index.get_loc(member)
                     row_indices.append(member_idx)
                 except ValueError:
                     # Skip members not found in matrix
@@ -990,7 +1001,7 @@ class Conversation:
                     
             # Get the column index for this comment
             try:
-                col_idx = self.rating_mat.colnames().index(comment_id)
+                col_idx = self.rating_mat.columns.get_loc(comment_id)
             except ValueError:
                 # If comment not found, return 0
                 return 0
@@ -1020,7 +1031,7 @@ class Conversation:
             
             # Get vote counts for each comment
             votes = {}
-            for comment_id in self.rating_mat.colnames():
+            for comment_id in self.rating_mat.columns:
                 votes[comment_id] = {
                     'A': count_votes_for_group(group_id, comment_id, 'A'),
                     'D': count_votes_for_group(group_id, comment_id, 'D'),
@@ -1044,12 +1055,12 @@ class Conversation:
         """
         import time
         start_time = time.time()
-        logger.info(f"Starting _compute_user_vote_counts for {len(self.rating_mat.rownames())} participants")
+        logger.info(f"Starting _compute_user_vote_counts for {self.rating_mat.shape[0]} participants")
         
         vote_counts = {}
         
         # Use more efficient approach for large datasets
-        if len(self.rating_mat.rownames()) > 1000:
+        if self.rating_mat[0] > 1000:
             # Create a mask of non-nan values across the entire matrix
             non_nan_mask = ~np.isnan(self.rating_mat.values)
             
@@ -1057,7 +1068,7 @@ class Conversation:
             row_sums = np.sum(non_nan_mask, axis=1)
             
             # Convert to dictionary
-            for i, pid in enumerate(self.rating_mat.rownames()):
+            for i, pid in enumerate(self.rating_mat.index):
                 if i < len(row_sums):
                     vote_counts[pid] = int(row_sums[i])
                 else:
@@ -1067,7 +1078,7 @@ class Conversation:
             logger.info(f"Computed vote counts for {len(vote_counts)} participants using vectorized approach in {time.time() - start_time:.4f}s")
         else:
             # Original approach for smaller datasets
-            for i, pid in enumerate(self.rating_mat.rownames()):
+            for i, pid in enumerate(self.rating_mat.index):
                 # Get row of votes for this participant
                 row = self.rating_mat.values[i, :]
                 
@@ -1251,7 +1262,7 @@ class Conversation:
         # Using a list comprehension with try/except inline for performance
         result['tids'] = [
             int(tid) if tid.isdigit() else tid 
-            for tid in self.rating_mat.colnames()
+            for tid in self.rating_mat.columns
         ]
         
         # Add count values with Clojure naming
@@ -1263,13 +1274,13 @@ class Conversation:
         
         # Use more efficient batch processing approach from to_dynamo_dict
         user_vote_counts = {}
-        if len(self.rating_mat.rownames()) > 0:
+        if len(self.rating_mat.index) > 0:
             # Create a mask of non-nan values and sum across rows
             non_nan_mask = ~np.isnan(self.rating_mat.values)
             row_sums = np.sum(non_nan_mask, axis=1)
             
             # Convert to dictionary with integer keys where possible
-            for i, pid in enumerate(self.rating_mat.rownames()):
+            for i, pid in enumerate(self.rating_mat.index):
                 if i < len(row_sums):
                     # Try to convert participant ID to integer for Clojure compatibility
                     try:
@@ -1290,7 +1301,7 @@ class Conversation:
         
         # Compute votes base with vectorized operations
         votes_base = {}
-        for j, tid in enumerate(self.rating_mat.colnames()):
+        for j, tid in enumerate(self.rating_mat.columns):
             if j >= self.rating_mat.values.shape[1]:
                 continue
                 
@@ -1316,7 +1327,7 @@ class Conversation:
         
         if self.group_clusters:
             # Precompute indices for each participant for faster lookups
-            ptpt_indices = {ptpt_id: i for i, ptpt_id in enumerate(self.rating_mat.rownames())}
+            ptpt_indices = {ptpt_id: i for i, ptpt_id in enumerate(self.rating_mat.index)}
             
             # Process each group
             for group in self.group_clusters:
@@ -1340,7 +1351,7 @@ class Conversation:
                 
                 # Calculate vote stats for each comment using vectorized operations
                 votes = {}
-                for j, comment_id in enumerate(self.rating_mat.colnames()):
+                for j, comment_id in enumerate(self.rating_mat.columns):
                     if j >= group_matrix.shape[1]:
                         continue
                     
@@ -1384,7 +1395,7 @@ class Conversation:
         # Compute in one pass using existing structure
         if 'group-votes' in result:
             # Store consensus values per comment ID
-            for tid in self.rating_mat.colnames():
+            for tid in self.rating_mat.columns:
                 # Try converting to integer for consistent keys
                 try:
                     tid_key = int(tid)
@@ -1790,7 +1801,7 @@ class Conversation:
         # Add comment IDs list (tids)
         logger.info(f"[{time.time() - start_time:.2f}s] Processing comment IDs...")
         tid_integers = []
-        for tid in self.rating_mat.colnames():
+        for tid in self.rating_mat.columns:
             try:
                 tid_integers.append(int(tid))
             except (ValueError, TypeError):
@@ -1823,7 +1834,7 @@ class Conversation:
         # Add user vote counts (more efficient approach)
         logger.info(f"[{time.time() - start_time:.2f}s] Computing user vote counts...")
         user_vote_counts = {}
-        for i, pid in enumerate(self.rating_mat.rownames()):
+        for i, pid in enumerate(self.rating_mat.index):
             # Skip if index is out of bounds
             if i >= self.rating_mat.values.shape[0]:
                 continue
@@ -1862,7 +1873,7 @@ class Conversation:
         valid_mask = ~np.isnan(self.rating_mat.values)
         
         # Process column by column
-        for j, tid in enumerate(self.rating_mat.colnames()):
+        for j, tid in enumerate(self.rating_mat.columns):
             if j >= self.rating_mat.values.shape[1]:
                 continue
                 
@@ -1896,7 +1907,7 @@ class Conversation:
         if self.group_clusters:
             # Precompute indices for each participant
             ptpt_indices = {}
-            for i, ptpt_id in enumerate(self.rating_mat.rownames()):
+            for i, ptpt_id in enumerate(self.rating_mat.index):
                 ptpt_indices[ptpt_id] = i
             
             # Process each group
@@ -1921,7 +1932,7 @@ class Conversation:
                 
                 # Calculate votes for each comment
                 group_votes = {}
-                for j, comment_id in enumerate(self.rating_mat.colnames()):
+                for j, comment_id in enumerate(self.rating_mat.columns):
                     if j >= group_matrix.shape[1]:
                         continue
                         
@@ -1968,7 +1979,7 @@ class Conversation:
             group_votes = result['group_votes']
             
             # Process each comment across all groups
-            for tid in self.rating_mat.colnames():
+            for tid in self.rating_mat.columns:
                 try:
                     tid_key = int(tid)
                 except (ValueError, TypeError):

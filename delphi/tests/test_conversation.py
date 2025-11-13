@@ -61,30 +61,30 @@ class TestConversation:
         updated_conv = conv.update_votes(votes)
         
         # Check that original was not modified
-        assert len(conv.raw_rating_mat.rownames()) == 0
+        assert len(conv.raw_rating_mat.index) == 0
         
         # Check updated conversation
         assert updated_conv.participant_count == 3
         assert updated_conv.comment_count == 3
-        assert len(updated_conv.raw_rating_mat.rownames()) == 3
-        assert len(updated_conv.raw_rating_mat.colnames()) == 3
+        assert len(updated_conv.raw_rating_mat.index) == 3
+        assert len(updated_conv.raw_rating_mat.columns) == 3
         
         # Check vote matrix
         expected_ptpts = ['p1', 'p2', 'p3']
         expected_cmts = ['c1', 'c2', 'c3']
         
         for ptpt in expected_ptpts:
-            assert ptpt in updated_conv.raw_rating_mat.rownames()
+            assert ptpt in updated_conv.raw_rating_mat.index
         
         for cmt in expected_cmts:
-            assert cmt in updated_conv.raw_rating_mat.colnames()
+            assert cmt in updated_conv.raw_rating_mat.columns
         
         # Check specific vote values
-        assert updated_conv.raw_rating_mat.matrix.loc['p1', 'c1'] == 1
-        assert updated_conv.raw_rating_mat.matrix.loc['p1', 'c2'] == -1
-        assert updated_conv.raw_rating_mat.matrix.loc['p2', 'c1'] == 1
-        assert updated_conv.raw_rating_mat.matrix.loc['p2', 'c2'] == 1
-        assert updated_conv.raw_rating_mat.matrix.loc['p3', 'c3'] == -1
+        assert updated_conv.raw_rating_mat.loc['p1', 'c1'] == 1
+        assert updated_conv.raw_rating_mat.loc['p1', 'c2'] == -1
+        assert updated_conv.raw_rating_mat.loc['p2', 'c1'] == 1
+        assert updated_conv.raw_rating_mat.loc['p2', 'c2'] == 1
+        assert updated_conv.raw_rating_mat.loc['p3', 'c3'] == -1
         
         # Check vote stats
         assert updated_conv.vote_stats['n_votes'] == 5
@@ -109,12 +109,12 @@ class TestConversation:
         updated_conv = conv.update_votes(votes)
         
         # Check vote matrix
-        assert updated_conv.raw_rating_mat.matrix.loc['p1', 'c1'] == 1.0
-        assert updated_conv.raw_rating_mat.matrix.loc['p1', 'c2'] == -1.0
+        assert updated_conv.raw_rating_mat.loc['p1', 'c1'] == 1.0
+        assert updated_conv.raw_rating_mat.loc['p1', 'c2'] == -1.0
         
         # Verify 'pass' vote doesn't appear in the matrix (it's filtered out in line 159-160)
         # This behavior is different from the test expectation - the implementation skips null votes
-        assert 'p2' not in updated_conv.raw_rating_mat.rownames() or 'c1' not in updated_conv.raw_rating_mat.colnames() or pd.isna(updated_conv.raw_rating_mat.matrix.loc['p2', 'c1'])
+        assert 'p2' not in updated_conv.raw_rating_mat.index or 'c1' not in updated_conv.raw_rating_mat.columns or pd.isna(updated_conv.raw_rating_mat.loc['p2', 'c1'])
     
     def test_moderation(self):
         """Test conversation moderation."""

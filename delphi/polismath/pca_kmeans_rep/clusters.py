@@ -625,7 +625,7 @@ def determine_k(nmat: NamedMatrix, base_k: int = 2) -> int:
     return max(base_k, k)
 
 
-def cluster_named_matrix(nmat: NamedMatrix, 
+def cluster_named_matrix(nmat: pd.DataFrame, 
                         k: Optional[int] = None,
                         max_iters: int = 20,
                         last_clusters: Optional[List[Dict]] = None,
@@ -644,7 +644,7 @@ def cluster_named_matrix(nmat: NamedMatrix,
         List of cluster dictionaries
     """
     # Extract matrix data
-    matrix_data = nmat.values
+    matrix_data = nmat.to_numpy()
     
     # Handle NaN values
     matrix_data = np.nan_to_num(matrix_data)
@@ -652,18 +652,18 @@ def cluster_named_matrix(nmat: NamedMatrix,
     # Auto-determine k if not specified
     if k is None:
         k = determine_k(nmat)
-        print(f"Auto-determined k={k} based on dataset size {len(nmat.rownames())}")
+        print(f"Auto-determined k={k} based on dataset size {len(nmat.index)}")
     
     # Convert weights to array if provided
     weights_array = None
     if weights is not None:
-        weights_array = np.array([weights.get(name, 1.0) for name in nmat.rownames()])
+        weights_array = np.array([weights.get(name, 1.0) for name in nmat.index])
     
     # Convert last_clusters to internal format if provided
     last_clusters_internal = None
     if last_clusters is not None:
         # Create mapping from row names to indices
-        row_to_idx = {name: i for i, name in enumerate(nmat.rownames())}
+        row_to_idx = {name: i for i, name in enumerate(nmat.index)}
         last_clusters_internal = clusters_from_dict(last_clusters, row_to_idx)
     
     # Use fixed random seed for initialization to be more consistent
