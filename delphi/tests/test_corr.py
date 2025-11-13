@@ -21,14 +21,13 @@ from polismath.pca_kmeans_rep.corr import (
     prepare_correlation_export, save_correlation_to_json,
     participant_correlation, participant_correlation_matrix
 )
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 
 
 class TestMatrixOperations:
     """Tests for matrix operations."""
     
     def test_clean_named_matrix(self):
-        """Test cleaning a NamedMatrix."""
+        """Test cleaning a votes matrix."""
         # Create a matrix with NaN values
         data = np.array([
             [1.0, np.nan, 3.0],
@@ -38,7 +37,7 @@ class TestMatrixOperations:
         rownames = ['r1', 'r2', 'r3']
         colnames = ['c1', 'c2', 'c3']
         
-        nmat = NamedMatrix(data, rownames, colnames)
+        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Clean the matrix
         cleaned = clean_named_matrix(nmat)
@@ -55,8 +54,8 @@ class TestMatrixOperations:
         )
         
         # Check that row and column names were preserved
-        assert cleaned.rownames() == rownames
-        assert cleaned.colnames() == colnames
+        assert cleaned.index.tolist() == rownames
+        assert cleaned.columns.tolist() == colnames
     
     def test_transpose_named_matrix(self):
         """Test transposing a NamedMatrix."""
@@ -68,7 +67,7 @@ class TestMatrixOperations:
         rownames = ['r1', 'r2']
         colnames = ['c1', 'c2', 'c3']
         
-        nmat = NamedMatrix(data, rownames, colnames)
+        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Transpose the matrix
         transposed = transpose_named_matrix(nmat)
@@ -77,8 +76,8 @@ class TestMatrixOperations:
         assert np.array_equal(transposed.values, data.T)
         
         # Check that row and column names were swapped
-        assert transposed.rownames() == colnames
-        assert transposed.colnames() == rownames
+        assert transposed.index.tolist() == colnames
+        assert transposed.columns.tolist() == rownames
 
 
 class TestCorrelation:
@@ -96,7 +95,7 @@ class TestCorrelation:
         rownames = ['r1', 'r2', 'r3', 'r4']
         colnames = ['c1', 'c2', 'c3', 'c4', 'c5']
         
-        nmat = NamedMatrix(data, rownames, colnames)
+        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Compute correlation matrix
         corr = correlation_matrix(nmat)
@@ -138,7 +137,7 @@ class TestCorrelation:
         rownames = ['p1', 'p2', 'p3', 'p4']
         colnames = ['c1', 'c2', 'c3', 'c4']
         
-        vote_matrix = NamedMatrix(data, rownames, colnames)
+        vote_matrix = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Test correlations
         p1_p2_corr = participant_correlation(vote_matrix, 'p1', 'p2')
@@ -162,7 +161,7 @@ class TestCorrelation:
         rownames = ['p1', 'p2', 'p3', 'p4']
         colnames = ['c1', 'c2', 'c3', 'c4']
         
-        vote_matrix = NamedMatrix(data, rownames, colnames)
+        vote_matrix = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Compute correlation matrix
         result = participant_correlation_matrix(vote_matrix)
@@ -202,7 +201,7 @@ class TestHierarchicalClustering:
         rownames = ['r1', 'r2', 'r3', 'r4']
         colnames = ['c1', 'c2', 'c3', 'c4']
         
-        nmat = NamedMatrix(data, rownames, colnames)
+        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Perform hierarchical clustering
         hclust = hierarchical_cluster(nmat)
@@ -267,7 +266,7 @@ class TestIntegration:
         rownames = ['p1', 'p2', 'p3', 'p4']
         colnames = ['c1', 'c2', 'c3', 'c4']
         
-        vote_matrix = NamedMatrix(data, rownames, colnames)
+        vote_matrix = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Compute correlation
         result = compute_correlation(vote_matrix)

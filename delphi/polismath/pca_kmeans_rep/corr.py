@@ -53,7 +53,7 @@ def transpose_named_matrix(nmat: pd.DataFrame) -> pd.DataFrame:
     values = nmat.values.T
     
     # Create a new NamedMatrix with rows and columns swapped
-    return DataFrame(
+    return pd.DataFrame(
         data=values,
         index=nmat.columns,
         columns=nmat.index
