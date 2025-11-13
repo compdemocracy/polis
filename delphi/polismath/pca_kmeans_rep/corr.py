@@ -17,62 +17,62 @@ import json
 from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 
 
-def clean_named_matrix(nmat: NamedMatrix) -> NamedMatrix:
+def clean_named_matrix(nmat: pd.DataFrame) -> pd.DataFrame:
     """
     Clean a named matrix by replacing NaN values with zeros.
     
     Args:
-        nmat: NamedMatrix to clean
+        nmat: pd.DataFrame to clean
         
     Returns:
-        Cleaned NamedMatrix
+        Cleaned DataFrame
     """
     # Get the matrix values and replace NaN with zeros
-    values = nmat.values.copy()
+    values = nmat.to_numpy(copy=True)
     values = np.nan_to_num(values, nan=0.0)
     
     # Create a new NamedMatrix with the cleaned values
-    return NamedMatrix(
-        matrix=values,
-        rownames=nmat.rownames(),
-        colnames=nmat.colnames()
+    return pd.DataFrame(
+        data=values,
+        index=nmat.index,
+        columns=nmat.columns
     )
 
 
-def transpose_named_matrix(nmat: NamedMatrix) -> NamedMatrix:
+def transpose_named_matrix(nmat: pd.DataFrame) -> pd.DataFrame:
     """
     Transpose a named matrix.
     
     Args:
-        nmat: NamedMatrix to transpose
+        nmat: pd.DataFrame to transpose
         
     Returns:
-        Transposed NamedMatrix
+        Transposed DataFrame
     """
     # Transpose the matrix values
     values = nmat.values.T
     
     # Create a new NamedMatrix with rows and columns swapped
-    return NamedMatrix(
-        matrix=values,
-        rownames=nmat.colnames(),
-        colnames=nmat.rownames()
+    return DataFrame(
+        data=values,
+        index=nmat.columns,
+        columns=nmat.index
     )
 
 
-def correlation_matrix(nmat: NamedMatrix, method: str = 'pearson') -> np.ndarray:
+def correlation_matrix(nmat: pd.DataFrame, method: str = 'pearson') -> np.ndarray:
     """
-    Compute correlation matrix for a NamedMatrix.
+    Compute correlation matrix for a DataFrame.
     
     Args:
-        nmat: NamedMatrix to compute correlations for
+        nmat: pd.DataFrame to compute correlations for
         method: Correlation method ('pearson', 'spearman', or 'kendall')
         
     Returns:
         Correlation matrix as numpy array
     """
     # Clean the matrix values
-    values = nmat.values.copy()
+    values = nmat.to_numpy(copy = True)
     values = np.nan_to_num(values, nan=0.0)
     
     # Compute correlation matrix
@@ -96,15 +96,15 @@ def correlation_matrix(nmat: NamedMatrix, method: str = 'pearson') -> np.ndarray
     return corr
 
 
-def hierarchical_cluster(nmat: NamedMatrix, 
+def hierarchical_cluster(nmat: pd.DataFrame, 
                         method: str = 'complete',
                         metric: str = 'correlation',
                         transpose: bool = False) -> Dict[str, Any]:
     """
-    Perform hierarchical clustering on a NamedMatrix.
+    Perform hierarchical clustering on a DataFrame.
     
     Args:
-        nmat: NamedMatrix to cluster
+        nmat: pd.DataFrame to cluster
         method: Linkage method ('single', 'complete', 'average', 'weighted', 'centroid', 'median', 'ward')
         metric: Distance metric ('correlation', 'euclidean', 'cityblock', etc.)
         transpose: Whether to transpose the matrix before clustering
@@ -120,8 +120,8 @@ def hierarchical_cluster(nmat: NamedMatrix,
         clean_nmat = transpose_named_matrix(clean_nmat)
     
     # Extract names and values
-    names = clean_nmat.rownames()
-    values = clean_nmat.values
+    names = clean_nmat.index
+    values = clean_nmat.to_numpy()
     
     # Compute distance matrix
     distances = pdist(values, metric=metric)
@@ -182,7 +182,7 @@ def blockify_correlation_matrix(corr_matrix: np.ndarray,
     return reordered
 
 
-def compute_correlation(vote_matrix: NamedMatrix, 
+def compute_correlation(vote_matrix: pd.DataFrame, 
                        method: str = 'pearson',
                        cluster_method: str = 'complete',
                        metric: str = 'correlation') -> Dict[str, Any]:
@@ -190,7 +190,7 @@ def compute_correlation(vote_matrix: NamedMatrix,
     Compute correlations and hierarchical clustering for a vote matrix.
     
     Args:
-        vote_matrix: NamedMatrix containing votes
+        vote_matrix: pd.DataFrame containing votes
         method: Correlation method
         cluster_method: Hierarchical clustering method
         metric: Distance metric
@@ -223,7 +223,7 @@ def compute_correlation(vote_matrix: NamedMatrix,
         'reordered_correlation': reordered_corr.tolist(),
         'hierarchical_clustering': hclust_result,
         'comment_order': flatten_hierarchical_cluster(hclust_result),
-        'comment_ids': comment_matrix.rownames()
+        'comment_ids': comment_matrix.index
     }
 
 
@@ -278,7 +278,7 @@ def save_correlation_to_json(corr_result: Dict[str, Any], filepath: str) -> None
         json.dump(export_data, f)
 
 
-def participant_correlation(vote_matrix: NamedMatrix, 
+def participant_correlation(vote_matrix: pd.DataFrame, 
                           p1_id: str, 
                           p2_id: str,
                           method: str = 'pearson') -> float:
@@ -286,7 +286,7 @@ def participant_correlation(vote_matrix: NamedMatrix,
     Compute correlation between two participants.
     
     Args:
-        vote_matrix: NamedMatrix containing votes
+        vote_matrix: pd.DataFrame containing votes
         p1_id: ID of first participant
         p2_id: ID of second participant
         method: Correlation method
@@ -295,12 +295,12 @@ def participant_correlation(vote_matrix: NamedMatrix,
         Correlation coefficient
     """
     # Get the row indices
-    p1_idx = vote_matrix.rownames().index(p1_id)
-    p2_idx = vote_matrix.rownames().index(p2_id)
+    p1_idx = vote_matrix.index.get_loc(p1_id)
+    p2_idx = vote_matrix.index.get_loc(p2_id)
     
     # Get the participant votes
-    p1_votes = vote_matrix.values[p1_idx]
-    p2_votes = vote_matrix.values[p2_idx]
+    p1_votes = vote_matrix.loc[p1_id].to_numpy()
+    p2_votes = vote_matrix.loc[p2_id].to_numpy()
     
     # Find comments both participants voted on
     mask = ~np.isnan(p1_votes) & ~np.isnan(p2_votes)
@@ -330,19 +330,19 @@ def participant_correlation(vote_matrix: NamedMatrix,
     return corr
 
 
-def participant_correlation_matrix(vote_matrix: NamedMatrix, 
+def participant_correlation_matrix(vote_matrix: pd.DataFrame, 
                                  method: str = 'pearson') -> Dict[str, Any]:
     """
     Compute correlation matrix for all participants.
     
     Args:
-        vote_matrix: NamedMatrix containing votes
+        vote_matrix: pd.DataFrame containing votes
         method: Correlation method
         
     Returns:
         Dictionary with correlation matrix and participant IDs
     """
-    participant_ids = vote_matrix.rownames()
+    participant_ids = vote_matrix.index
     n_participants = len(participant_ids)
     
     # Initialize correlation matrix

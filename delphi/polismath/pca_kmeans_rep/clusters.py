@@ -598,7 +598,7 @@ def determine_k(nmat: NamedMatrix, base_k: int = 2) -> int:
         Recommended number of clusters
     """
     # Get dimensions
-    n_rows = len(nmat.rownames())
+    n_rows = nmat.shape[0]
     
     # Simple logarithmic formula for cluster count based on dataset size
     # - Very small datasets (< 10): Use 2 clusters
@@ -686,4 +686,4 @@ def cluster_named_matrix(nmat: pd.DataFrame,
         cluster.id = i
     
     # Convert result to dictionary format with row names
-    return clusters_to_dict(clusters_result, nmat.rownames())
+    return clusters_to_dict(clusters_result, nmat.index)

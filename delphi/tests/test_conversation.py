@@ -150,12 +150,12 @@ class TestConversation:
         assert 'p3' in moderated_conv.mod_out_ptpts
         
         # Check filtered rating matrix
-        assert 'c2' not in moderated_conv.rating_mat.colnames()
-        assert 'p3' not in moderated_conv.rating_mat.rownames()
+        assert 'c2' not in moderated_conv.rating_mat.columns
+        assert 'p3' not in moderated_conv.rating_mat.index
         
         # Raw matrix should still have all data
-        assert 'c2' in moderated_conv.raw_rating_mat.colnames()
-        assert 'p3' in moderated_conv.raw_rating_mat.rownames()
+        assert 'c2' in moderated_conv.raw_rating_mat.columns
+        assert 'p3' in moderated_conv.raw_rating_mat.index
     
     def test_recompute(self):
         """Test recomputing conversation data."""
@@ -293,7 +293,7 @@ class TestConversationManager:
         
         # Check moderation was applied
         assert 'c2' in conv.mod_out_tids
-        assert 'c2' not in conv.rating_mat.colnames()
+        assert 'c2' not in conv.rating_mat.columns
     
     def test_recompute(self):
         """Test recomputing conversation data."""

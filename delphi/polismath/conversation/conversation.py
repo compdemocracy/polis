@@ -465,7 +465,7 @@ class Conversation:
                 'center': np.zeros(cols),
                 'comps': np.zeros((min(n_components, 2), cols))
             }
-            self.proj = {pid: np.zeros(2) for pid in self.rating_mat.rows}
+            self.proj = {pid: np.zeros(2) for pid in self.rating_mat.index}
             return
         
         try:
