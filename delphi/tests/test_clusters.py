@@ -19,7 +19,6 @@ from polismath.pca_kmeans_rep.clusters import (
     kmeans, distance_matrix, silhouette, clusters_to_dict, clusters_from_dict,
     cluster_named_matrix
 )
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 
 
 # Set random seed for reproducibility
@@ -546,11 +545,11 @@ class TestClusterSerialization:
 
 
 class TestClusterNamedMatrix:
-    """Tests for clustering a NamedMatrix."""
+    """Tests for clustering a votes matrix."""
     
     def test_cluster_named_matrix(self):
-        """Test clustering a NamedMatrix."""
-        # Create a NamedMatrix
+        """Test clustering a vote matreix."""
+        # Create a DataFrame
         data = np.array([
             [1.0, 1.0],
             [1.5, 1.5],
@@ -560,7 +559,7 @@ class TestClusterNamedMatrix:
         rownames = ['a', 'b', 'c', 'd']
         colnames = ['x', 'y']
         
-        nmat = NamedMatrix(data, rownames, colnames)
+        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Cluster the matrix
         clusters_dict = cluster_named_matrix(nmat, 2)
