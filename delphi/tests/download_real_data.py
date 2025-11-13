@@ -51,13 +51,18 @@ from dataset_config import list_available_datasets, get_dataset_report_id
 def get_db_connection():
     """Create a connection to the Postgres database using environment variables."""
     # These will be automatically loaded from .env by pyauto-dotenv when running from delphi directory
-    return psycopg2.connect(
-        database=os.environ.get('POSTGRES_DB', 'polismath'),
-            user=os.environ.get('POSTGRES_USER', 'postgres'),
-            password=os.environ.get('POSTGRES_PASSWORD', 'postgres'),
-            host=os.environ.get('POSTGRES_HOST', 'localhost'),
-            port=os.environ.get('POSTGRES_PORT', '5432')
-    )
+    # Try to use DATABASE_URL first (connection string), fall back to individual parameters
+    database_url = os.environ.get('DATABASE_URL')
+    return psycopg2.connect(database_url)
+
+    # Fallback to individual parameters
+    # return psycopg2.connect(
+    #     database=os.environ.get('POSTGRES_DB', 'polismath'),
+    #     user=os.environ.get('POSTGRES_USER', 'postgres'),
+    #     password=os.environ.get('POSTGRES_PASSWORD', 'postgres'),
+    #     host=os.environ.get('POSTGRES_HOST', 'localhost'),
+    #     port=os.environ.get('POSTGRES_PORT', '5432')
+    # )
 
 
 def fetch_csv_export(report_id: str, export_type: str, base_url: str = "http://localhost") -> Optional[str]:
