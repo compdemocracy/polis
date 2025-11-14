@@ -52,7 +52,7 @@
             "cwd": "${workspaceFolder}/delphi"
         },
         "group": {
-            "kind": "build",
+            "kind": "build"
         },
         "presentation": {
             "reveal": "always",
