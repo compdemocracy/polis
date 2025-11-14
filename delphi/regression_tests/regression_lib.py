@@ -365,6 +365,7 @@ class ConversationComparer:
         self.golden_dir = Path(__file__).parent / "golden"
         self.abs_tol = abs_tolerance
         self.rel_tol = rel_tolerance
+        self.all_differences = []  # Collect all differences for detailed reporting
 
     def compare_with_golden(self, dataset_name: str, benchmark: bool = True) -> Dict:
         """
@@ -377,6 +378,9 @@ class ConversationComparer:
         Returns:
             Dictionary containing comparison results
         """
+        # Reset differences collection for this comparison
+        self.all_differences = []
+
         # Load golden snapshot using shared function
         golden, golden_path = load_golden_snapshot(dataset_name, self.golden_dir)
 
@@ -499,7 +503,8 @@ class ConversationComparer:
             stage_result = self._compare_dicts(
                 golden["stages"][stage_name],
                 current_dict,
-                path=stage_name
+                path=stage_name,
+                stage_name=stage_name
             )
 
             results["stages_compared"][stage_name] = stage_result
@@ -531,11 +536,21 @@ class ConversationComparer:
 
                 comparison_results.append((stage_name, "✅ Match", perf_str))
 
+        # Write differences to log file if any were found
+        diff_log_path = None
+        if self.all_differences:
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            diff_log_path = Path(__file__).parent / f"comparer-differences-{timestamp}.log"
+            self._write_differences_log(diff_log_path, dataset_name)
+            results["diff_log_path"] = str(diff_log_path)
+
         # Print overall status
         if results["overall_match"]:
             print(f"✅ {dataset_name}: All stages match!")
         else:
             print(f"❌ {dataset_name}: Some stages failed!")
+            if diff_log_path:
+                print(f"   Detailed differences written to: {diff_log_path}")
 
         # Print detailed report
         print("\n" + "=" * 60)
@@ -560,6 +575,24 @@ class ConversationComparer:
             else:
                 print(f"  {result:12} {stage_name}")
         print("")
+
+        # Print differences summary if there are any
+        if self.all_differences:
+            print("Differences found:")
+            print(f"  Total differences: {len(self.all_differences)}")
+            print(f"  First {min(10, len(self.all_differences))} differences:")
+            for i, diff in enumerate(self.all_differences[:10]):
+                print(f"    {i+1}. Stage: {diff['stage_name']}")
+                print(f"       Path: {diff['path']}")
+                print(f"       Reason: {diff['reason']}")
+                if 'golden_value' in diff and 'current_value' in diff:
+                    print(f"       Golden: {diff['golden_value']}")
+                    print(f"       Current: {diff['current_value']}")
+            if len(self.all_differences) > 10:
+                print(f"  ... and {len(self.all_differences) - 10} more differences (see log file for details)")
+            if diff_log_path:
+                print(f"  Full details: {diff_log_path}")
+            print("")
 
         # Only print speed comparison if benchmarking is enabled
         if benchmark:
@@ -632,7 +665,7 @@ class ConversationComparer:
 
         return results
 
-    def _compare_dicts(self, golden: Any, current: Any, path: str = "") -> Dict:
+    def _compare_dicts(self, golden: Any, current: Any, path: str = "", stage_name: str = "") -> Dict:
         """
         Recursively compare two dictionaries/values with numeric tolerance.
 
@@ -640,6 +673,7 @@ class ConversationComparer:
             golden: Golden value/dictionary
             current: Current value/dictionary
             path: Current path in the structure (for error reporting)
+            stage_name: Name of the stage being compared (for difference logging)
 
         Returns:
             Dictionary with comparison results
@@ -653,10 +687,18 @@ class ConversationComparer:
         if golden is None and current is None:
             return {"match": True, "path": path}
         if golden is None or current is None:
+            reason = f"None mismatch: golden={golden is not None}, current={current is not None}"
+            self.all_differences.append({
+                "stage_name": stage_name,
+                "path": path,
+                "reason": reason,
+                "golden_value": golden,
+                "current_value": current
+            })
             return {
                 "match": False,
                 "path": path,
-                "reason": f"None mismatch: golden={golden is not None}, current={current is not None}"
+                "reason": reason
             }
 
         # Handle different types
@@ -666,10 +708,18 @@ class ConversationComparer:
                 # Continue to numeric comparison below
                 pass
             else:
+                reason = f"Type mismatch: golden={type(golden).__name__}, current={type(current).__name__}"
+                self.all_differences.append({
+                    "stage_name": stage_name,
+                    "path": path,
+                    "reason": reason,
+                    "golden_value": str(type(golden).__name__),
+                    "current_value": str(type(current).__name__)
+                })
                 return {
                     "match": False,
                     "path": path,
-                    "reason": f"Type mismatch: golden={type(golden).__name__}, current={type(current).__name__}"
+                    "reason": reason
                 }
 
         # Handle dictionaries
@@ -682,46 +732,67 @@ class ConversationComparer:
             golden_keys_normalized = {normalize_key(k): k for k in golden.keys()}
             current_keys_normalized = {normalize_key(k): k for k in current.keys()}
 
+            overall_match = True
+
             if set(golden_keys_normalized.keys()) != set(current_keys_normalized.keys()):
                 only_golden = set(golden_keys_normalized.keys()) - set(current_keys_normalized.keys())
                 only_current = set(current_keys_normalized.keys()) - set(golden_keys_normalized.keys())
-                return {
-                    "match": False,
+                reason = f"Keys mismatch. Only in golden: {only_golden}, Only in current: {only_current}"
+                self.all_differences.append({
+                    "stage_name": stage_name,
                     "path": path,
-                    "reason": f"Keys mismatch. Only in golden: {only_golden}, Only in current: {only_current}"
-                }
+                    "reason": reason,
+                    "golden_value": f"Keys: {list(golden_keys_normalized.keys())}",
+                    "current_value": f"Keys: {list(current_keys_normalized.keys())}"
+                })
+                overall_match = False
 
-            # Compare all values using normalized keys
-            for norm_key in golden_keys_normalized:
+            # Compare all values using normalized keys (only for common keys)
+            common_keys = set(golden_keys_normalized.keys()) & set(current_keys_normalized.keys())
+            for norm_key in common_keys:
                 golden_key = golden_keys_normalized[norm_key]
                 current_key = current_keys_normalized[norm_key]
                 result = self._compare_dicts(
                     golden[golden_key],
                     current[current_key],
-                    f"{path}.{norm_key}" if path else norm_key
+                    f"{path}.{norm_key}" if path else norm_key,
+                    stage_name=stage_name
                 )
                 if not result["match"]:
-                    return result
-            return {"match": True, "path": path}
+                    overall_match = False
+
+            return {"match": overall_match, "path": path}
 
         # Handle lists
         if isinstance(golden, list):
-            if len(golden) != len(current):
-                return {
-                    "match": False,
-                    "path": path,
-                    "reason": f"List length mismatch: golden={len(golden)}, current={len(current)}"
-                }
+            overall_match = True
 
-            for i, (g_val, c_val) in enumerate(zip(golden, current)):
+            if len(golden) != len(current):
+                reason = f"List length mismatch: golden={len(golden)}, current={len(current)}"
+                self.all_differences.append({
+                    "stage_name": stage_name,
+                    "path": path,
+                    "reason": reason,
+                    "golden_value": f"length={len(golden)}",
+                    "current_value": f"length={len(current)}"
+                })
+                overall_match = False
+                # Still compare common elements
+                min_len = min(len(golden), len(current))
+            else:
+                min_len = len(golden)
+
+            for i in range(min_len):
                 result = self._compare_dicts(
-                    g_val,
-                    c_val,
-                    f"{path}[{i}]"
+                    golden[i],
+                    current[i],
+                    f"{path}[{i}]",
+                    stage_name=stage_name
                 )
                 if not result["match"]:
-                    return result
-            return {"match": True, "path": path}
+                    overall_match = False
+
+            return {"match": overall_match, "path": path}
 
         # Handle numeric values
         if isinstance(golden, (int, float)):
@@ -733,10 +804,18 @@ class ConversationComparer:
             if np.isnan(golden_float) and np.isnan(current_float):
                 return {"match": True, "path": path}
             if np.isnan(golden_float) or np.isnan(current_float):
+                reason = f"NaN mismatch: golden={golden_float}, current={current_float}"
+                self.all_differences.append({
+                    "stage_name": stage_name,
+                    "path": path,
+                    "reason": reason,
+                    "golden_value": golden_float,
+                    "current_value": current_float
+                })
                 return {
                     "match": False,
                     "path": path,
-                    "reason": f"NaN mismatch: golden={golden_float}, current={current_float}"
+                    "reason": reason
                 }
 
             # Check for infinity
@@ -744,10 +823,18 @@ class ConversationComparer:
                 if np.sign(golden_float) == np.sign(current_float):
                     return {"match": True, "path": path}
                 else:
+                    reason = f"Infinity sign mismatch: golden={golden_float}, current={current_float}"
+                    self.all_differences.append({
+                        "stage_name": stage_name,
+                        "path": path,
+                        "reason": reason,
+                        "golden_value": golden_float,
+                        "current_value": current_float
+                    })
                     return {
                         "match": False,
                         "path": path,
-                        "reason": f"Infinity sign mismatch: golden={golden_float}, current={current_float}"
+                        "reason": reason
                     }
 
             # For integers (or values that should be exact), use exact comparison
@@ -755,10 +842,18 @@ class ConversationComparer:
                 if golden == current:
                     return {"match": True, "path": path}
                 else:
+                    reason = f"Integer mismatch: golden={golden}, current={current}, diff={abs(golden - current)}"
+                    self.all_differences.append({
+                        "stage_name": stage_name,
+                        "path": path,
+                        "reason": reason,
+                        "golden_value": golden,
+                        "current_value": current
+                    })
                     return {
                         "match": False,
                         "path": path,
-                        "reason": f"Integer mismatch: golden={golden}, current={current}, diff={abs(golden - current)}"
+                        "reason": reason
                     }
 
             # For floats, use tolerance-based comparison
@@ -767,10 +862,18 @@ class ConversationComparer:
             else:
                 diff = abs(golden_float - current_float)
                 rel_diff = diff / max(abs(golden_float), 1e-10)
+                reason = f"Numeric mismatch: golden={golden_float:.6e}, current={current_float:.6e}, abs_diff={diff:.6e}, rel_diff={rel_diff:.6%}"
+                self.all_differences.append({
+                    "stage_name": stage_name,
+                    "path": path,
+                    "reason": reason,
+                    "golden_value": golden_float,
+                    "current_value": current_float
+                })
                 return {
                     "match": False,
                     "path": path,
-                    "reason": f"Numeric mismatch: golden={golden_float:.6e}, current={current_float:.6e}, abs_diff={diff:.6e}, rel_diff={rel_diff:.6%}"
+                    "reason": reason
                 }
 
         # Handle strings
@@ -782,21 +885,80 @@ class ConversationComparer:
                 max_len = 50
                 golden_show = golden[:max_len] + "..." if len(golden) > max_len else golden
                 current_show = current[:max_len] + "..." if len(current) > max_len else current
+                reason = f"String mismatch: golden='{golden_show}', current='{current_show}'"
+                self.all_differences.append({
+                    "stage_name": stage_name,
+                    "path": path,
+                    "reason": reason,
+                    "golden_value": golden,
+                    "current_value": current
+                })
                 return {
                     "match": False,
                     "path": path,
-                    "reason": f"String mismatch: golden='{golden_show}', current='{current_show}'"
+                    "reason": reason
                 }
 
         # Handle booleans and other exact match types
         if golden == current:
             return {"match": True, "path": path}
         else:
+            reason = f"Value mismatch: golden={golden}, current={current}"
+            self.all_differences.append({
+                "stage_name": stage_name,
+                "path": path,
+                "reason": reason,
+                "golden_value": golden,
+                "current_value": current
+            })
             return {
                 "match": False,
                 "path": path,
-                "reason": f"Value mismatch: golden={golden}, current={current}"
+                "reason": reason
             }
+
+    def _write_differences_log(self, log_path: Path, dataset_name: str) -> None:
+        """
+        Write all collected differences to a log file.
+
+        Args:
+            log_path: Path to the log file
+            dataset_name: Name of the dataset being compared
+        """
+        with open(log_path, 'w') as f:
+            f.write("=" * 80 + "\n")
+            f.write(f"COMPARISON DIFFERENCES LOG\n")
+            f.write(f"Dataset: {dataset_name}\n")
+            f.write(f"Generated: {datetime.now().isoformat()}\n")
+            f.write(f"Total differences: {len(self.all_differences)}\n")
+            f.write("=" * 80 + "\n\n")
+
+            for i, diff in enumerate(self.all_differences):
+                f.write(f"Difference #{i+1}\n")
+                f.write("-" * 80 + "\n")
+                f.write(f"  Stage: {diff['stage_name']}\n")
+                f.write(f"  Path: {diff['path']}\n")
+                f.write(f"  Reason: {diff['reason']}\n")
+
+                if 'golden_value' in diff:
+                    golden_val = diff['golden_value']
+                    # Truncate long values for readability
+                    if isinstance(golden_val, str) and len(golden_val) > 200:
+                        golden_val = golden_val[:200] + "... (truncated)"
+                    f.write(f"  Golden value: {golden_val}\n")
+
+                if 'current_value' in diff:
+                    current_val = diff['current_value']
+                    # Truncate long values for readability
+                    if isinstance(current_val, str) and len(current_val) > 200:
+                        current_val = current_val[:200] + "... (truncated)"
+                    f.write(f"  Current value: {current_val}\n")
+
+                f.write("\n")
+
+            f.write("=" * 80 + "\n")
+            f.write("END OF LOG\n")
+            f.write("=" * 80 + "\n")
 
     def generate_report(self, results: Dict, show_timing: bool = True) -> str:
         """

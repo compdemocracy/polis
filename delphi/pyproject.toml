@@ -57,6 +57,7 @@ dependencies = [
     "rich>=13.0.0",
     # Type compatibility (Python < 3.11)
     "typing_extensions>=4.0.0",
+    "natsort>=8.4.0",
 ]
 
 [project.optional-dependencies]

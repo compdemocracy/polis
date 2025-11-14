@@ -94,7 +94,7 @@ class TestConversation:
         """Test handling text vote values."""
         # Create empty conversation
         conv = Conversation('test_conv')
-        
+
         # Create votes with text values
         votes = {
             'votes': [
@@ -103,17 +103,213 @@ class TestConversation:
                 {'pid': 'p2', 'tid': 'c1', 'vote': 'pass'}
             ]
         }
-        
+
         # Update with votes
         updated_conv = conv.update_votes(votes)
-        
+
         # Check vote matrix
         assert updated_conv.raw_rating_mat.loc['p1', 'c1'] == 1.0
         assert updated_conv.raw_rating_mat.loc['p1', 'c2'] == -1.0
-        
+
         # Verify 'pass' vote doesn't appear in the matrix (it's filtered out in line 159-160)
         # This behavior is different from the test expectation - the implementation skips null votes
         assert 'p2' not in updated_conv.raw_rating_mat.index or 'c1' not in updated_conv.raw_rating_mat.columns or pd.isna(updated_conv.raw_rating_mat.loc['p2', 'c1'])
+
+    def test_tids_are_sorted_numeric(self):
+        """Test that numeric comment IDs (tids) are sorted numerically in the internal matrix."""
+        # Create empty conversation
+        conv = Conversation('test_conv')
+
+        # Create votes with deliberately unsorted numeric comment IDs
+        # Using numeric IDs that would sort differently lexicographically vs numerically
+        # Lexicographic: [0, 1, 10, 100, 5, 50]
+        # Numeric: [0, 1, 5, 10, 50, 100]
+        votes = {
+            'votes': [
+                {'pid': 'p1', 'tid': 100, 'vote': 1},
+                {'pid': 'p1', 'tid': 10, 'vote': 1},
+                {'pid': 'p1', 'tid': 1, 'vote': -1},
+                {'pid': 'p2', 'tid': 0, 'vote': 1},
+                {'pid': 'p2', 'tid': 50, 'vote': -1},
+                {'pid': 'p2', 'tid': 5, 'vote': 1},
+            ]
+        }
+
+        # Update with votes
+        updated_conv = conv.update_votes(votes)
+
+        # Get the column indices (tids) from the matrix
+        tids = list(updated_conv.raw_rating_mat.columns)
+
+        # Check that tids are sorted numerically
+        expected_numeric_order = [0, 1, 5, 10, 50, 100]
+        assert tids == expected_numeric_order, f"Numeric tids are not sorted numerically: {tids} != {expected_numeric_order}"
+
+        # Also check the to_dict output
+        conv_dict = updated_conv.to_dict()
+        exported_tids = conv_dict.get('tids', [])
+        assert exported_tids == expected_numeric_order, f"Exported numeric tids are not sorted numerically: {exported_tids} != {expected_numeric_order}"
+
+    def test_tids_are_sorted_string_as_numeric(self):
+        """Test that string comment IDs with 'c' prefix are sorted in numeric order, not lexicographic order."""
+        # Create empty conversation
+        conv = Conversation('test_conv')
+
+        # Create votes with string IDs that have a 'c' prefix (common pattern for comment IDs)
+        # Lexicographic sort would give: ["c1", "c10", "c100", "c2", "c20", "c3"]
+        # Numeric sort should give: ["c1", "c2", "c3", "c10", "c20", "c100"]
+        votes = {
+            'votes': [
+                {'pid': 'p1', 'tid': 'c100', 'vote': 1},
+                {'pid': 'p1', 'tid': 'c10', 'vote': 1},
+                {'pid': 'p1', 'tid': 'c1', 'vote': -1},
+                {'pid': 'p2', 'tid': 'c2', 'vote': 1},
+                {'pid': 'p2', 'tid': 'c20', 'vote': -1},
+                {'pid': 'p2', 'tid': 'c3', 'vote': 1},
+            ]
+        }
+
+        # Update with votes
+        updated_conv = conv.update_votes(votes)
+
+        # Get the column indices (tids) from the matrix
+        tids = list(updated_conv.raw_rating_mat.columns)
+
+        # Check that tids are sorted numerically (not lexicographically)
+        # Lexicographic order would be: ["c1", "c10", "c100", "c2", "c20", "c3"]
+        # Numeric order should be: ["c1", "c2", "c3", "c10", "c20", "c100"]
+        lexicographic_order = ['c1', 'c10', 'c100', 'c2', 'c20', 'c3']
+        numeric_order = ['c1', 'c2', 'c3', 'c10', 'c20', 'c100']
+
+        assert tids != lexicographic_order, f"String tids should NOT be sorted lexicographically: {tids} == {lexicographic_order}"
+        assert tids == numeric_order, f"String tids with 'c' prefix are not sorted numerically: {tids} != {numeric_order}"
+
+        # Also check the to_dict output
+        conv_dict = updated_conv.to_dict()
+        exported_tids = conv_dict.get('tids', [])
+        assert exported_tids != lexicographic_order, f"Exported tids should NOT be sorted lexicographically"
+        assert exported_tids == numeric_order, f"Exported string tids are not sorted numerically: {exported_tids} != {numeric_order}"
+
+    def test_pids_are_sorted_numeric(self):
+        """Test that numeric participant IDs (pids) are sorted numerically."""
+        # Create empty conversation
+        conv = Conversation('test_conv')
+
+        # Create votes with deliberately unsorted numeric participant IDs
+        votes = {
+            'votes': [
+                {'pid': 100, 'tid': 'c1', 'vote': 1},
+                {'pid': 10, 'tid': 'c1', 'vote': 1},
+                {'pid': 1, 'tid': 'c1', 'vote': -1},
+                {'pid': 0, 'tid': 'c2', 'vote': 1},
+                {'pid': 50, 'tid': 'c2', 'vote': -1},
+                {'pid': 5, 'tid': 'c2', 'vote': 1},
+            ]
+        }
+
+        # Update with votes
+        updated_conv = conv.update_votes(votes)
+
+        # Get the row indices (pids) from the matrix
+        pids = list(updated_conv.raw_rating_mat.index)
+
+        # Check that pids are sorted numerically
+        expected_numeric_order = [0, 1, 5, 10, 50, 100]
+        assert pids == expected_numeric_order, f"Numeric pids are not sorted numerically: {pids} != {expected_numeric_order}"
+
+    def test_pids_are_sorted_string_as_numeric(self):
+        """Test that string participant IDs with 'p' prefix are sorted in numeric order, not lexicographic order."""
+        # Create empty conversation
+        conv = Conversation('test_conv')
+
+        # Create votes with string IDs that have a 'p' prefix (common pattern for participant IDs)
+        # Lexicographic sort would give: ["p1", "p10", "p100", "p2", "p20", "p3"]
+        # Numeric sort should give: ["p1", "p2", "p3", "p10", "p20", "p100"]
+        votes = {
+            'votes': [
+                {'pid': 'p100', 'tid': 'c1', 'vote': 1},
+                {'pid': 'p10', 'tid': 'c1', 'vote': 1},
+                {'pid': 'p1', 'tid': 'c1', 'vote': -1},
+                {'pid': 'p2', 'tid': 'c2', 'vote': 1},
+                {'pid': 'p20', 'tid': 'c2', 'vote': -1},
+                {'pid': 'p3', 'tid': 'c2', 'vote': 1},
+            ]
+        }
+
+        # Update with votes
+        updated_conv = conv.update_votes(votes)
+
+        # Get the row indices (pids) from the matrix
+        pids = list(updated_conv.raw_rating_mat.index)
+
+        # Check that pids are sorted numerically (not lexicographically)
+        # Lexicographic order would be: ["p1", "p10", "p100", "p2", "p20", "p3"]
+        # Numeric order should be: ["p1", "p2", "p3", "p10", "p20", "p100"]
+        lexicographic_order = ['p1', 'p10', 'p100', 'p2', 'p20', 'p3']
+        numeric_order = ['p1', 'p2', 'p3', 'p10', 'p20', 'p100']
+
+        assert pids != lexicographic_order, f"String pids should NOT be sorted lexicographically: {pids} == {lexicographic_order}"
+        assert pids == numeric_order, f"String pids with 'p' prefix are not sorted numerically: {pids} != {numeric_order}"
+
+    def test_incremental_updates_maintain_sorting(self):
+        """Test that incremental updates maintain sorted order for both tids and pids."""
+        # Create empty conversation
+        conv = Conversation('test_conv')
+
+        # First batch of votes with numeric-looking string IDs
+        # This tests that numeric ordering is maintained even with string IDs
+        votes1 = {
+            'votes': [
+                {'pid': 5, 'tid': 10, 'vote': 1},
+                {'pid': 3, 'tid': 5, 'vote': 1},
+            ]
+        }
+
+        conv = conv.update_votes(votes1)
+
+        # Check initial sorting in internal matrix
+        tids = list(conv.raw_rating_mat.columns)
+        pids = list(conv.raw_rating_mat.index)
+        assert tids == sorted(tids), f"Initial tids not sorted: {tids}"
+        assert pids == sorted(pids), f"Initial pids not sorted: {pids}"
+
+        # Check initial sorting in exported data
+        conv_dict = conv.to_dict()
+        exported_tids = conv_dict.get('tids', [])
+        assert exported_tids == sorted(exported_tids), f"Initial exported tids not sorted: {exported_tids}"
+
+        # Second batch adds new participants and comments in unsorted order
+        # These should be inserted in numeric order, not lexicographic
+        votes2 = {
+            'votes': [
+                {'pid': 1, 'tid': 1, 'vote': 1},    # Should go first
+                {'pid': 9, 'tid': 20, 'vote': -1},  # Should go last
+                {'pid': 4, 'tid': 3, 'vote': 1},    # Should go in middle
+            ]
+        }
+
+        conv = conv.update_votes(votes2)
+
+        # Check that sorting is maintained after incremental update in internal matrix
+        tids = list(conv.raw_rating_mat.columns)
+        pids = list(conv.raw_rating_mat.index)
+        assert tids == sorted(tids), f"Tids not sorted after update: {tids}"
+        assert pids == sorted(pids), f"Pids not sorted after update: {pids}"
+
+        # Verify the expected NUMERIC order (not lexicographic)
+        # Lexicographic would be: [1, 10, 20, 3, 5]
+        # Numeric should be: [1, 3, 5, 10, 20]
+        expected_tids = [1, 3, 5, 10, 20]
+        expected_pids = [1, 3, 4, 5, 9]
+        assert tids == expected_tids, f"Tids order incorrect (should be numeric): {tids} != {expected_tids}"
+        assert pids == expected_pids, f"Pids order incorrect (should be numeric): {pids} != {expected_pids}"
+
+        # Check that sorting is maintained in exported data
+        conv_dict = conv.to_dict()
+        exported_tids = conv_dict.get('tids', [])
+        assert exported_tids == sorted(exported_tids), f"Exported tids not sorted after update: {exported_tids}"
+        # Verify the expected order matches (numeric, not lexicographic)
+        assert exported_tids == expected_tids, f"Exported tids order incorrect (should be numeric): {exported_tids} != {expected_tids}"
     
     def test_moderation(self):
         """Test conversation moderation."""
@@ -385,7 +581,12 @@ class TestConversationManager:
             conv = manager2.get_conversation('test_conv')
             assert conv.participant_count == 2
             assert conv.comment_count == 1
-    
+
+
+    # TODO: Add test_data_export tests:
+    #   - test_to_dict_export: Check comments are ordered, Check participants are ordered
+    #   - test_get_full_data_export: Check comments are ordered, Check participants are ordered
+    #   - test_incremental_export_ordering: Check ordering maintained after incremental updates
 
     # def test_export_import(self):
     #     """Test exporting and importing conversations."""
