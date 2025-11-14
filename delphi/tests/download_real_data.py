@@ -13,6 +13,7 @@ This script downloads data from a running Polis instance:
 
 Usage:
     # Download all datasets from config (skip existing)
+    # From environment variable (if TEST_REPORT_IDS set .env)
     python download_real_data.py
 
     # Force re-download all datasets
@@ -55,7 +56,8 @@ def get_db_connection():
     database_url = os.environ.get('DATABASE_URL')
     return psycopg2.connect(database_url)
 
-    # Fallback to individual parameters
+    # TODO: Uncomment once sorted the difference between env var names between delphi and rest of polis
+    ## Fallback to individual parameters
     # return psycopg2.connect(
     #     database=os.environ.get('POSTGRES_DB', 'polismath'),
     #     user=os.environ.get('POSTGRES_USER', 'postgres'),
@@ -81,6 +83,7 @@ def fetch_csv_export(report_id: str, export_type: str, base_url: str = "http://l
 
     try:
         # Make request with streaming enabled
+        print(f"Fetching {export_type} from {url}...")
         response = requests.get(url, timeout=30, stream=True)
         response.raise_for_status()
 
@@ -144,10 +147,9 @@ def extract_math_blob(report_id: str) -> Optional[dict]:
             LIMIT 1
         """
 
-        with tqdm(total=1, desc="Querying database for math blob", bar_format='{desc}', leave=False) as pbar:
-            cursor.execute(query, (report_id,))
-            result = cursor.fetchone()
-            pbar.update(1)
+        print(f"Querying database for math blob (report_id: {report_id})...")
+        cursor.execute(query, (report_id,))
+        result = cursor.fetchone()
 
         if result:
             # The data column is already a JSON object in psycopg2
@@ -363,6 +365,7 @@ def main(report_ids: tuple, datasets: tuple, base_url: str, output_dir: Optional
     """
     # Determine which datasets to download
     download_report_ids = []
+    env_report_ids = os.getenv('TEST_REPORT_IDS', '').strip()
 
     # Option 1: Specific dataset names from --datasets flag
     if datasets:
@@ -376,13 +379,15 @@ def main(report_ids: tuple, datasets: tuple, base_url: str, output_dir: Optional
             report_id = get_dataset_report_id(dataset_name)
             download_report_ids.append(report_id)
         click.echo(f"Downloading {len(download_report_ids)} dataset(s) from config: {', '.join(datasets)}")
-
     # Option 2: Specific report IDs from command line
     elif report_ids:
         download_report_ids = list(report_ids)
         click.echo(f"Downloading {len(download_report_ids)} report ID(s) from command line")
-
-    # Option 3: Default - all datasets from config
+    # Option 3: environment variable
+    elif env_report_ids:
+        download_report_ids = [rid.strip() for rid in env_report_ids.replace(',', ' ').split() if rid.strip()]
+        click.echo(f"Downloading {len(report_ids)} report IDs from TEST_REPORT_IDS environment variable")
+    # Option 4: Default - all datasets from config
     else:
         available_datasets = list_available_datasets()
         download_report_ids = [dataset['report_id'] for dataset in available_datasets.values()]
