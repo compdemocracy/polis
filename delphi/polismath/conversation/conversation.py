@@ -473,7 +473,7 @@ class Conversation:
             self.pca = pca_results
             self.proj = proj_dict
         
-        except Exception as r:
+        except Exception as e:
             # If PCA fails, create minimal results
             logger.error(f"Error in PCA computation: {e}")
             # Make sure we have numpy and pandas
@@ -495,7 +495,30 @@ class Conversation:
             Clean DataFrame with numeric values
         """
         # Convert all entries to float64, with np.nan for pd.NA and for strings
-        return self.rating_mat.apply(pd.to_numeric, errors='coerce')
+        matrix_data = self.rating_mat.to_numpy(copy=True)
+        if not np.issubdtype(matrix_data.dtype, np.floating):
+            try:
+                matrix_data = matrix_data.astype(float)
+            except (ValueError, TypeError) as e:
+                # Handle mixed types using vectorized pandas operations
+                # Step 1: Identify original None/NaN values
+                df = pd.DataFrame(matrix_data)
+                original_nulls = df.isna()
+
+                # Step 2: Convert to numeric, coercing errors to NaN
+                df_numeric = df.apply(pd.to_numeric, errors='coerce')
+
+                # Step 3: Find values that became NaN but weren't originally NaN
+                # These are the non-convertible strings that should become 0.0
+                newly_nan = df_numeric.isna() & ~original_nulls
+
+                # Step 4: Replace newly created NaNs with 0.0
+                df_numeric[newly_nan] = 0.0
+
+                # Step 5: Convert back to numpy array
+                matrix_data = df_numeric.to_numpy(dtype='float64')
+
+        return pd.DataFrame(matrix_data, index=self.rating_mat.index, columns=self.rating_mat.columns)
     
     def _compute_clusters(self) -> None:
         """
@@ -588,7 +611,7 @@ class Conversation:
         if not np.issubdtype(matrix_values.dtype, np.number):
             try:
                 matrix_values = matrix_values.astype(float)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError) as e:
                 matrix_values = vote_matrix.apply(pd.to_numeric, errors='coerce').to_numpy()
         
         # Replace NaNs with zeros for correlation calculation
@@ -774,6 +797,7 @@ class Conversation:
         Returns:
             Updated conversation
         """
+
         # Make sure numpy and pandas are imported
         import numpy as np
         import pandas as pd
@@ -910,6 +934,7 @@ class Conversation:
         logger.info(f"Total get_full_data time: {time.time() - start_time:.4f}s")
         return result
     
+    # TODO(julien): why is that not called anywhere ?
     def _compute_votes_base(self) -> Dict[str, Any]:
         """
         Compute votes base structure which maps each comment ID to aggregated vote counts.
@@ -938,6 +963,7 @@ class Conversation:
         for tid in comment_ids:
             # Get the column for this comment
             try:
+                # TODO(julien): how can that even work ?? Should be self.rating_mat[tid]
                 votes = self.rating_mat[:, 'tid'].to_numpy()
                 
                 # Count vote types

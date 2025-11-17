@@ -9,7 +9,6 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Tuple, Union, Any
 
-
 def normalize_vector(v: np.ndarray) -> np.ndarray:
     """
     Normalize a vector to unit length.
@@ -561,7 +560,7 @@ def pca_project_named_matrix(nmat: pd.DataFrame,
             matrix_data = matrix_data.astype(float)
         except (ValueError, TypeError):
             # Handle mixed types by manually converting
-            matrix_data = self.rating_mat.apply(pd.to_numeric, errors='coerce'.to_numpy(dtype='float64'))
+            matrix_data = self.rating_mat.apply(pd.to_numeric, errors='coerce').to_numpy(dtype='float64')
     
     # Handle NaN values by replacing with zeros (for PCA calculation)
     # This is safe because we're working with a copy
