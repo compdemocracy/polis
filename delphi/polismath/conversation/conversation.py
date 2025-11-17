@@ -131,8 +131,8 @@ class Conversation:
                 logger.info(f"[{elapsed:.2f}s] Processed {i}/{total_votes} votes ({progress_pct:.1f}%) - Est. remaining: {remaining:.2f}s")
             
             try:
-                ptpt_id = vote.get('pid') # does not need to be a string
-                comment_id = vote.get('tid') # does not need to be a string
+                ptpt_id = str(vote.get('pid')) # does not need to be a string
+                comment_id = str(vote.get('tid')) # does not need to be a string
                 vote_value = vote.get('vote')
                 created = vote.get('created', last_vote_timestamp)
                 
@@ -224,8 +224,8 @@ class Conversation:
         new_rows = set(updates_df['row']) - existing_rows
         new_cols = set(updates_df['col']) - existing_cols
         
-        all_rows = existing_rows.union(new_rows)
-        all_cols = existing_cols.union(new_cols) 
+        all_rows = sorted(existing_rows.union(new_rows))
+        all_cols = sorted(existing_cols.union(new_cols))
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
 
@@ -236,7 +236,7 @@ class Conversation:
         logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(vote_updates)} votes as batch update...")
         batch_start = time.time()
         # For backward compatibility, sort the rows and columns by label.
-        result.raw_rating_mat = result.raw_rating_mat.reindex(index=natsorted(all_rows), columns=natsorted(all_cols), fill_value=np.nan)
+        result.raw_rating_mat = result.raw_rating_mat.reindex(index=all_rows, columns=all_cols, fill_value=np.nan)
         # NOTE: we cannot use .loc(rows, cols) = values with rows,cols,and values being Series 
         # for example `result.raw_rating_mat.loc[updates_df['row'], updates_df['col']] = updates_df['value'].values`
         # because pandas then tries to assign to the Cartesian product of rows and cols, and it gets very messy
@@ -280,8 +280,8 @@ class Conversation:
         Apply moderation settings to create filtered rating matrix.
         """
         # Filter out moderated participants and comments
-        keep_ptpts = natsorted(list(set(self.raw_rating_mat.index) - set(self.mod_out_ptpts)))
-        keep_comments = natsorted(list(set(self.raw_rating_mat.columns) - set(self.mod_out_tids)))
+        keep_ptpts = list(set(self.raw_rating_mat.index) - set(self.mod_out_ptpts))
+        keep_comments = list(set(self.raw_rating_mat.columns) - set(self.mod_out_tids))
         
         # Create filtered matrix
         self.rating_mat = self.raw_rating_mat.loc[keep_ptpts, keep_comments]
@@ -1254,7 +1254,11 @@ class Conversation:
         
         # Convert and add tids (comment IDs) efficiently
         # Using a list comprehension with try/except inline for performance
-        result['tids'] = list(self.rating_mat.columns)
+        # TODO: figure out if really needed, as per https://github.com/compdemocracy/polis/issues/2290
+        result['tids'] = [
+            int(tid) if tid.isdigit() else tid 
+            for tid in sorted(self.rating_mat.columns, key=str)
+        ]
         
         # Add count values with Clojure naming
         result['n'] = self.participant_count

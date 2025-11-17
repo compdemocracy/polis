@@ -538,11 +538,37 @@ class ConversationComparer:
 
         # Write differences to log file if any were found
         diff_log_path = None
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        output_dir = Path(__file__).parent
+
         if self.all_differences:
-            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-            diff_log_path = Path(__file__).parent / f"comparer-differences-{timestamp}.log"
+            diff_log_path = output_dir / f"comparer-differences-{timestamp}.log"
             self._write_differences_log(diff_log_path, dataset_name)
             results["diff_log_path"] = str(diff_log_path)
+
+        # Save full results as JSON
+        # Use dataset_name or fall back to report_id for the filename
+        identifier = dataset_name if dataset_name else golden["metadata"].get("report_id", "unknown")
+        json_filename = f"{identifier}-comparer-results-{timestamp}.json"
+        json_path = output_dir / json_filename
+
+        # Save JSON results
+        with open(json_path, 'w') as f:
+            json.dump(results, f, indent=2, default=str)
+
+        results["json_results_path"] = str(json_path)
+
+        # Create or update symlink to latest results
+        symlink_name = f"{identifier}_latest.json"
+        symlink_path = output_dir / symlink_name
+
+        # Remove existing symlink if it exists
+        if symlink_path.exists() or symlink_path.is_symlink():
+            symlink_path.unlink()
+
+        # Create new symlink pointing to the JSON file (relative path for portability)
+        symlink_path.symlink_to(json_filename)
+        results["latest_symlink_path"] = str(symlink_path)
 
         # Print overall status
         if results["overall_match"]:
@@ -551,6 +577,10 @@ class ConversationComparer:
             print(f"❌ {dataset_name}: Some stages failed!")
             if diff_log_path:
                 print(f"   Detailed differences written to: {diff_log_path}")
+
+        # Always inform about JSON results
+        print(f"   JSON results saved to: {json_path}")
+        print(f"   Latest results symlink: {symlink_path}")
 
         # Print detailed report
         print("\n" + "=" * 60)
