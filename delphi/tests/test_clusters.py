@@ -17,7 +17,7 @@ from polismath.pca_kmeans_rep.clusters import (
     assign_points_to_clusters, update_cluster_centers, filter_empty_clusters,
     cluster_step, most_distal, split_cluster, clean_start_clusters,
     kmeans, distance_matrix, silhouette, clusters_to_dict, clusters_from_dict,
-    cluster_named_matrix
+    cluster_dataframe
 )
 
 
@@ -547,8 +547,8 @@ class TestClusterSerialization:
 class TestClusterVotesMatrix:
     """Tests for clustering a votes matrix."""
     
-    def test_cluster_named_matrix(self):
-        """Test clustering a vote matreix."""
+    def test_cluster_dataframe(self):
+        """Test clustering a vote DataFrame."""
         # Create a DataFrame
         data = np.array([
             [1.0, 1.0],
@@ -558,23 +558,23 @@ class TestClusterVotesMatrix:
         ])
         rownames = ['a', 'b', 'c', 'd']
         colnames = ['x', 'y']
-        
-        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
-        
+
+        df = pd.DataFrame(data, index=rownames, columns=colnames)
+
         # Cluster the matrix
-        clusters_dict = cluster_named_matrix(nmat, 2)
-        
+        clusters_dict = cluster_dataframe(df, 2)
+
         assert len(clusters_dict) == 2
-        
+
         # Check that all row names are in clusters
         all_members = []
         for cluster in clusters_dict:
             all_members.extend(cluster['members'])
-        
+
         assert set(all_members) == set(rownames)
-        
+
         # Test with weights
         weights = {'a': 1.0, 'b': 3.0, 'c': 1.0, 'd': 1.0}
-        clusters_weighted = cluster_named_matrix(nmat, 2, weights=weights)
+        clusters_weighted = cluster_dataframe(df, 2, weights=weights)
         
         assert len(clusters_weighted) == 2

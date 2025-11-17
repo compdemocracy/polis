@@ -20,7 +20,7 @@ from typing import Dict
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
+from polismath.pca_kmeans_rep.pca import pca_project_dataframe
 from dataset_config import get_dataset_files, list_available_datasets
 
 logger = logging.getLogger(__name__)
@@ -100,7 +100,7 @@ class TestPCAImplementation:
 
         logger.debug(f"Matrix shape: {vote_matrix.shape}")
 
-        pca_results, projections = pca_project_named_matrix(vote_matrix)
+        pca_results, projections = pca_project_dataframe(vote_matrix)
 
         assert pca_results is not None
         assert projections is not None
@@ -118,7 +118,7 @@ class TestPCAImplementation:
         """Test PCA projections have reasonable statistical properties."""
         logger.debug(f"Testing projection statistics for {dataset_name}")
 
-        pca_results, projections = pca_project_named_matrix(vote_matrix)
+        pca_results, projections = pca_project_dataframe(vote_matrix)
         proj_array = np.array(list(projections.values()))
 
         assert proj_array.ndim == 2
@@ -143,7 +143,7 @@ class TestPCAImplementation:
         """Test PCA projections can be used for clustering."""
         logger.debug(f"Testing clustering for {dataset_name}")
 
-        pca_results, projections = pca_project_named_matrix(vote_matrix)
+        pca_results, projections = pca_project_dataframe(vote_matrix)
         proj_array = np.array(list(projections.values()))
 
         from sklearn.cluster import KMeans

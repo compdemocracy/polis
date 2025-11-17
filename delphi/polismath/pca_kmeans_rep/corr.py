@@ -15,46 +15,46 @@ from scipy.spatial.distance import pdist, squareform
 import json
 
 
-def clean_named_matrix(nmat: pd.DataFrame) -> pd.DataFrame:
+def clean_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Clean a named matrix by replacing NaN values with zeros.
-    
+    Clean a DataFrame by replacing NaN values with zeros.
+
     Args:
-        nmat: pd.DataFrame to clean
-        
+        df: pd.DataFrame to clean
+
     Returns:
         Cleaned DataFrame
     """
     # Get the matrix values and replace NaN with zeros
-    values = nmat.to_numpy(copy=True)
+    values = df.to_numpy(copy=True)
     values = np.nan_to_num(values, nan=0.0)
-    
+
     # Create a new DataFrame with the cleaned values
     return pd.DataFrame(
         data=values,
-        index=nmat.index,
-        columns=nmat.columns
+        index=df.index,
+        columns=df.columns
     )
 
 
-def transpose_named_matrix(nmat: pd.DataFrame) -> pd.DataFrame:
+def transpose_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Transpose a named matrix.
-    
+    Transpose a DataFrame.
+
     Args:
-        nmat: pd.DataFrame to transpose
-        
+        df: pd.DataFrame to transpose
+
     Returns:
         Transposed DataFrame
     """
     # Transpose the matrix values
-    values = nmat.values.T
-    
+    values = df.values.T
+
     # Create a new DataFrame with rows and columns swapped
     return pd.DataFrame(
         data=values,
-        index=nmat.columns,
-        columns=nmat.index
+        index=df.columns,
+        columns=df.index
     )
 
 
@@ -111,11 +111,11 @@ def hierarchical_cluster(nmat: pd.DataFrame,
         Dictionary with hierarchical clustering results
     """
     # Clean the matrix
-    clean_nmat = clean_named_matrix(nmat)
-    
+    clean_nmat = clean_dataframe(nmat)
+
     # Transpose if requested
     if transpose:
-        clean_nmat = transpose_named_matrix(clean_nmat)
+        clean_nmat = transpose_dataframe(clean_nmat)
     
     # Extract names and values
     names = clean_nmat.index
@@ -197,7 +197,7 @@ def compute_correlation(vote_matrix: pd.DataFrame,
         Dictionary with correlation and clustering results
     """
     # Transpose to get comment correlations
-    comment_matrix = transpose_named_matrix(vote_matrix)
+    comment_matrix = transpose_dataframe(vote_matrix)
     
     # Compute correlation matrix
     corr = correlation_matrix(comment_matrix, method)

@@ -75,7 +75,7 @@ def create_test_conversation(dataset_name: str) -> Conversation:
         vote_matrix[r_idx, c_idx] = vote_val
 
     # Convert to DataFrame
-    named_matrix = pd.DataFrame(
+    df = pd.DataFrame(
         vote_matrix,
         index=[str(pid) for pid in ptpt_ids],
         columns=[str(cid) for cid in cmt_ids],
@@ -86,8 +86,8 @@ def create_test_conversation(dataset_name: str) -> Conversation:
     conv = Conversation(dataset_name)
 
     # Set the raw_rating_mat and update stats
-    conv.raw_rating_mat = named_matrix
-    conv.rating_mat = named_matrix  # No moderation
+    conv.raw_rating_mat = df
+    conv.rating_mat = df  # No moderation
     conv.participant_count = len(ptpt_ids)
     conv.comment_count = len(cmt_ids)
 

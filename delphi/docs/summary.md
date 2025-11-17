@@ -5,7 +5,7 @@
 The conversion of the Pol.is math codebase from Clojure to Python is now complete. All components have been converted to Python with equivalent functionality:
 
 1. **Core Data Structures**
-   - `NamedMatrix`: Implemented using pandas DataFrame as the underlying storage
+   - **Vote Matrices**: Using pandas DataFrame directly (legacy `NamedMatrix` class deprecated)
    - Utility functions for matrix operations and data manipulation
 
 2. **Mathematical Algorithms**
@@ -96,7 +96,7 @@ tests/
 
 Key technical decisions that have guided the conversion:
 
-1. **Data Structures**: Using pandas DataFrame for the `NamedMatrix` implementation provides efficient named indexing and compatibility with the NumPy ecosystem.
+1. **Data Structures**: Using pandas DataFrame directly (deprecating the custom `NamedMatrix` wrapper) provides efficient named indexing and compatibility with the NumPy ecosystem.
 
 2. **Web Framework**: FastAPI for its modern features, automatic documentation, and performance.
 

@@ -209,8 +209,8 @@ def compare_group_clusters(python_clusters, clojure_clusters):
 
 def run_manual_pipeline(conv: Conversation) -> Conversation:
     """Run a modified version of the recompute pipeline with better error handling."""
-    from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
-    from polismath.pca_kmeans_rep.clusters import cluster_named_matrix
+    from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+    from polismath.pca_kmeans_rep.clusters import cluster_dataframe
     from polismath.pca_kmeans_rep.repness import conv_repness
     
     # First, make a deep copy to avoid modifying the original
@@ -259,7 +259,7 @@ def run_manual_pipeline(conv: Conversation) -> Conversation:
         
         # Perform PCA
         try:
-            pca_results, proj = pca_project_named_matrix(clean_matrix)
+            pca_results, proj = pca_project_dataframe(clean_matrix)
             result.pca = pca_results
             result.proj = proj
         except Exception as e:
@@ -278,7 +278,7 @@ def run_manual_pipeline(conv: Conversation) -> Conversation:
             else:
                 k = 3
                 
-            clusters = cluster_named_matrix(clean_matrix, k=k)
+            clusters = cluster_dataframe(clean_matrix, k=k)
             result.group_clusters = clusters
         except Exception as e:
             print(f"Error in clustering: {e}")

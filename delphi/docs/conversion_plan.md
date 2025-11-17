@@ -8,7 +8,7 @@ This document outlines the plan for converting the Pol.is math codebase from Clo
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| NamedMatrix | ✅ Completed | Implemented with pandas DataFrame |
+| Vote Matrix (DataFrame) | ✅ Completed | Using pandas DataFrame directly (legacy NamedMatrix class deprecated) |
 | Utility Functions | ✅ Completed | Implemented in utils/general.py |
 
 ### Mathematical Algorithms
@@ -37,7 +37,7 @@ This document outlines the plan for converting the Pol.is math codebase from Clo
 
 ### Core Data Structures
 
-The `NamedMatrix` implementation uses pandas DataFrames as the underlying data structure, providing efficient named indexing and compatibility with the NumPy ecosystem. Utility functions provide common operations needed throughout the system.
+Vote matrices now use pandas DataFrames directly, providing efficient named indexing and compatibility with the NumPy ecosystem. The legacy `NamedMatrix` class has been deprecated in favor of direct DataFrame usage. Utility functions provide common operations needed throughout the system.
 
 ### Mathematical Algorithms
 

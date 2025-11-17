@@ -14,8 +14,8 @@ from typing import Dict, List, Any, Optional
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
-from polismath.pca_kmeans_rep.clusters import cluster_named_matrix, determine_k
+from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+from polismath.pca_kmeans_rep.clusters import cluster_dataframe, determine_k
 from dataset_config import get_dataset_files
 
 
@@ -279,7 +279,7 @@ def run_direct_comparison(dataset_name: str) -> Dict[str, Any]:
     # Perform PCA with our fixed implementation
     try:
         print("Running Python PCA...")
-        pca_results, projections = pca_project_named_matrix(votes_matrix)
+        pca_results, projections = pca_project_dataframe(votes_matrix)
         print(f"PCA successful: {pca_results['comps'].shape} components generated")
         
         # Get the optimal k for clustering
@@ -288,7 +288,7 @@ def run_direct_comparison(dataset_name: str) -> Dict[str, Any]:
         
         # Perform clustering
         print("Running Python clustering...")
-        clusters = cluster_named_matrix(votes_matrix, k=auto_k)
+        clusters = cluster_dataframe(votes_matrix, k=auto_k)
         print(f"Clustering successful: {len(clusters)} clusters generated")
         
         # Get Clojure projections

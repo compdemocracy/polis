@@ -33,7 +33,7 @@ This provides confidence during refactoring that the mathematical/computational 
 
 ### 2. Native Serialization
 - Uses `Conversation.to_dict()` and `Conversation.get_full_data()` methods
-- No access to internal NamedMatrix representation
+- Uses pandas DataFrame for vote matrices
 - JSON-serializable outputs only
 
 ### 3. Data Integrity
@@ -418,7 +418,7 @@ if "cluster" in path and "members" in path:
 
 ## Limitations
 
-1. **No internal state checking** - Only compares serialized outputs, not internal NamedMatrix state
+1. **No internal state checking** - Only compares serialized outputs, not internal DataFrame state
 2. **Limited to test datasets** - Only works with datasets that have CSV files available
 3. **No partial updates** - Must record/update entire stage sets
 4. **Fixed tolerance values** - Same tolerances apply to all numeric fields

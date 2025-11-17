@@ -13,7 +13,7 @@ import pytest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.pca_kmeans_rep.pca import (
-    pca_project_named_matrix, powerit_pca, power_iteration,
+    pca_project_dataframe, powerit_pca, power_iteration,
     sparsity_aware_project_ptpt, sparsity_aware_project_ptpts
 )
 
@@ -158,10 +158,10 @@ def test_sparsity_aware_project_ptpts():
         # Result should not contain NaNs
         assert not np.any(np.isnan(result))
 
-def test_pca_project_named_matrix():
-    """Test that pca_project_named_matrix handles problematic data."""
+def test_pca_project_dataframe():
+    """Test that pca_project_dataframe handles problematic data."""
     # Create a variety of test matrices
-    
+
     # 1. Regular matrix
     matrix1 = pd.DataFrame(
         np.array([
@@ -171,7 +171,7 @@ def test_pca_project_named_matrix():
         index=["p1", "p2"],
         columns=["c1", "c2", "c3"]
     )
-    
+
     # 2. Matrix with NaNs
     matrix2 = pd.DataFrame(
         np.array([
@@ -181,26 +181,26 @@ def test_pca_project_named_matrix():
         index=["p1", "p2"],
         columns=["c1", "c2", "c3"]
     )
-    
+
     # 3. Small matrix
     matrix3 = pd.DataFrame(
         np.array([[1.0]]),
         index=["p1"],
         columns=["c1"]
     )
-    
+
     # 4. Matrix with just one element (minimal case)
     matrix4 = pd.DataFrame(
         np.array([[1.0]]),
         index=["p_min"],
         columns=["c_min"]
     )
-    
+
     # Test all matrices
     for i, matrix in enumerate([matrix1, matrix2, matrix3, matrix4]):
         try:
             # Should not raise an exception
-            pca_results, proj_dict = pca_project_named_matrix(matrix)
+            pca_results, proj_dict = pca_project_dataframe(matrix)
             
             # Check results format
             assert isinstance(pca_results, dict)
@@ -258,13 +258,13 @@ def test_pca_complex_matrix():
         
         vote_matrix[i] = votes
     
-    # Create named matrix
+    # Create DataFrame
     row_names = [f"p{i}" for i in range(n_ptpts)]
     col_names = [f"c{i}" for i in range(n_comments)]
-    nmat = pd.DataFrame(vote_matrix, index=row_names, columns=col_names)
-    
+    df = pd.DataFrame(vote_matrix, index=row_names, columns=col_names)
+
     # Perform PCA
-    pca_results, proj_dict = pca_project_named_matrix(nmat)
+    pca_results, proj_dict = pca_project_dataframe(df)
     
     # Verify results
     assert 'center' in pca_results
@@ -297,7 +297,7 @@ if __name__ == "__main__":
     test_powerit_pca_with_nans()
     test_sparsity_aware_project_ptpt()
     test_sparsity_aware_project_ptpts()
-    test_pca_project_named_matrix()
+    test_pca_project_dataframe()
     test_pca_complex_matrix()
     
     print("All tests passed!")

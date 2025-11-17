@@ -15,8 +15,8 @@ import sys
 from datetime import datetime
 from natsort import natsorted
 
-from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
-from polismath.pca_kmeans_rep.clusters import cluster_named_matrix
+from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+from polismath.pca_kmeans_rep.clusters import cluster_dataframe
 from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
 from polismath.pca_kmeans_rep.corr import compute_correlation
 from polismath.utils.general import agree, disagree, pass_vote
@@ -467,7 +467,7 @@ class Conversation:
             # Make a clean copy of the rating matrix
             clean_matrix = self._get_clean_matrix()
             
-            pca_results, proj_dict = pca_project_named_matrix(clean_matrix, n_components)
+            pca_results, proj_dict = pca_project_dataframe(clean_matrix, n_components)
             
             # Store results
             self.pca = pca_results
@@ -548,11 +548,9 @@ class Conversation:
         
         # Use auto-determination of k based on data size
         # The determine_k function will handle this appropriately
-        from polismath.pca_kmeans_rep.clusters import cluster_named_matrix
-        
         # Let the clustering function auto-determine the appropriate number of clusters
         # Pass k=None to use the built-in determine_k function
-        base_clusters = cluster_named_matrix(proj_matrix, k=None)
+        base_clusters = cluster_dataframe(proj_matrix, k=None)
         
         # Convert base clusters to group clusters
         # Group clusters are high-level groups based on base clusters

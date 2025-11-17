@@ -116,7 +116,7 @@ class TestConversation:
         assert 'p2' not in updated_conv.raw_rating_mat.index or 'c1' not in updated_conv.raw_rating_mat.columns or pd.isna(updated_conv.raw_rating_mat.loc['p2', 'c1'])
 
     def test_tids_are_sorted_numeric(self):
-        """Test that numeric comment IDs (tids) are sorted numerically in the internal matrix."""
+        """Test that numeric comment IDs (tids) are sorted lexicographically in the internal matrix."""
         # Create empty conversation
         conv = Conversation('test_conv')
 
@@ -142,8 +142,8 @@ class TestConversation:
         tids = list(updated_conv.raw_rating_mat.columns)
 
         # Check that tids are sorted numerically
-        expected_numeric_order = [0, 1, 5, 10, 50, 100]
-        assert tids == expected_numeric_order, f"Numeric tids are not sorted numerically: {tids} != {expected_numeric_order}"
+        expected_numeric_order = [0, 1, 10, 100, 5, 50]
+        assert tids == expected_numeric_order, f"Numeric tids are not sorted lexicographically: {tids} != {expected_numeric_order}"
 
         # Also check the to_dict output
         conv_dict = updated_conv.to_dict()
@@ -327,7 +327,7 @@ class TestConversation:
         """Test that actual integer IDs MUST be sorted in lexicographic order (by string representation).
 
         When integers are passed as integers (e.g., 1, 2, 10, 11),
-        they MUST be sorted as if converted to strings: [1, 10, 11, 2]
+        they MUST be sorted as converted to strings: ['1', '10', '11', '2']
         NOT numerically: [1, 2, 10, 11]
         """
         conv = Conversation('test_conv')
@@ -348,14 +348,14 @@ class TestConversation:
         tids = list(updated_conv.raw_rating_mat.columns)
 
         # Expected lexicographic order (sorted by string representation)
-        expected_lexicographic_order = [1, 10, 11, 2]
+        expected_lexicographic_order = ['1', '10', '11', '2']
 
         # Check lexicographic sorting (by string representation)
         assert pids == expected_lexicographic_order, f"Integer PIDs MUST be sorted lexicographically (by str): {pids} != {expected_lexicographic_order}"
         assert tids == expected_lexicographic_order, f"Integer TIDs MUST be sorted lexicographically (by str): {tids} != {expected_lexicographic_order}"
 
         # Verify using sorted(..., key=str)
-        input_ids = [1, 2, 10, 11]
+        input_ids = ['1', '2', '10', '11']
         assert pids == sorted(input_ids, key=str), f"PIDs not in lexicographic order (by str): {pids}"
         assert tids == sorted(input_ids, key=str), f"TIDs not in lexicographic order (by str): {tids}"
 

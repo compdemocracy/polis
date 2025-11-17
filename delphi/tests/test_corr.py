@@ -15,7 +15,7 @@ from scipy.spatial.distance import pdist
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.pca_kmeans_rep.corr import (
-    clean_named_matrix, transpose_named_matrix, correlation_matrix,
+    clean_dataframe, transpose_dataframe, correlation_matrix,
     hierarchical_cluster, flatten_hierarchical_cluster,
     blockify_correlation_matrix, compute_correlation,
     prepare_correlation_export, save_correlation_to_json,
@@ -26,8 +26,8 @@ from polismath.pca_kmeans_rep.corr import (
 class TestMatrixOperations:
     """Tests for matrix operations."""
     
-    def test_clean_named_matrix(self):
-        """Test cleaning a votes matrix."""
+    def test_clean_dataframe(self):
+        """Test cleaning a votes DataFrame."""
         # Create a matrix with NaN values
         data = np.array([
             [1.0, np.nan, 3.0],
@@ -36,11 +36,11 @@ class TestMatrixOperations:
         ])
         rownames = ['r1', 'r2', 'r3']
         colnames = ['c1', 'c2', 'c3']
-        
-        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
-        
-        # Clean the matrix
-        cleaned = clean_named_matrix(nmat)
+
+        df = pd.DataFrame(data, index=rownames, columns=colnames)
+
+        # Clean the DataFrame
+        cleaned = clean_dataframe(df)
         
         # Check that NaN values were replaced with zeros
         assert not np.isnan(cleaned.values).any()
@@ -57,8 +57,8 @@ class TestMatrixOperations:
         assert cleaned.index.tolist() == rownames
         assert cleaned.columns.tolist() == colnames
     
-    def test_transpose_named_matrix(self):
-        """Test transposing a votes matrix."""
+    def test_transpose_dataframe(self):
+        """Test transposing a votes DataFrame."""
         # Create a matrix
         data = np.array([
             [1.0, 2.0, 3.0],
@@ -66,11 +66,11 @@ class TestMatrixOperations:
         ])
         rownames = ['r1', 'r2']
         colnames = ['c1', 'c2', 'c3']
-        
-        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
-        
-        # Transpose the matrix
-        transposed = transpose_named_matrix(nmat)
+
+        df = pd.DataFrame(data, index=rownames, columns=colnames)
+
+        # Transpose the DataFrame
+        transposed = transpose_dataframe(df)
         
         # Check that values were transposed
         assert np.array_equal(transposed.values, data.T)

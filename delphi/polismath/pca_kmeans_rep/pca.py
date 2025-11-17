@@ -537,22 +537,22 @@ def align_with_clojure(pca_results: Dict[str, np.ndarray]) -> Dict[str, np.ndarr
     return result
 
 
-def pca_project_named_matrix(nmat: pd.DataFrame,
-                            n_comps: int = 2,
-                            align_with_clojure_output: bool = True) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+def pca_project_dataframe(df: pd.DataFrame,
+                         n_comps: int = 2,
+                         align_with_clojure_output: bool = True) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """
     Perform PCA on a DataFrame and project the data.
-    
+
     Args:
-        nmat: DataFrame containing the data
+        df: DataFrame containing the data
         n_comps: Number of components to find
         align_with_clojure_output: Whether to align output with Clojure conventions
-        
+
     Returns:
         Tuple of (pca_results, projections)
     """
     # Extract matrix data
-    matrix_data = nmat.to_numpy(copy=True)  # Make a copy to avoid modifying the original
+    matrix_data = df.to_numpy(copy=True)  # Make a copy to avoid modifying the original
 
     # Convert to float array if not already
     if not np.issubdtype(matrix_data.dtype, np.floating):
@@ -561,9 +561,9 @@ def pca_project_named_matrix(nmat: pd.DataFrame,
         except (ValueError, TypeError):
             # Handle mixed types using vectorized pandas operations
             # This matches old NamedMatrix behavior: NaN stays NaN, non-convertible values become 0.0
-            df = pd.DataFrame(matrix_data)
-            original_nulls = df.isna()  # Track original NaN/None values
-            df_numeric = df.apply(pd.to_numeric, errors='coerce')  # Convert all to numeric, strings -> NaN
+            df_temp = pd.DataFrame(matrix_data)
+            original_nulls = df_temp.isna()  # Track original NaN/None values
+            df_numeric = df_temp.apply(pd.to_numeric, errors='coerce')  # Convert all to numeric, strings -> NaN
             newly_nan = df_numeric.isna() & ~original_nulls  # Find values that became NaN (were strings)
             df_numeric[newly_nan] = 0.0  # Non-convertible strings become 0.0
             matrix_data = df_numeric.to_numpy(dtype='float64')
@@ -581,7 +581,7 @@ def pca_project_named_matrix(nmat: pd.DataFrame,
             'comps': np.zeros((min(n_comps, 2), n_cols))
         }
         # Create minimal projections (all zeros)
-        proj_dict = {pid: np.zeros(2) for pid in nmat.index}
+        proj_dict = {pid: np.zeros(2) for pid in df.index}
         return pca_results, proj_dict
     
     # Set fixed random seed for reproducibility
@@ -608,9 +608,9 @@ def pca_project_named_matrix(nmat: pd.DataFrame,
     try:
         # Project the participants
         projections = sparsity_aware_project_ptpts(matrix_data, pca_results)
-        
+
         # Create a dictionary of projections by participant ID
-        proj_dict = {ptpt_id: proj for ptpt_id, proj in zip(nmat.index, projections)}
+        proj_dict = {ptpt_id: proj for ptpt_id, proj in zip(df.index, projections)}
         
         # Apply dataset-specific transformations to match Clojure's expected results
         if align_with_clojure_output:
@@ -623,7 +623,7 @@ def pca_project_named_matrix(nmat: pd.DataFrame,
                 max_dist = np.max(np.linalg.norm(all_projs, axis=1))
                 
                 # Apply dataset-specific transformations based on empirical testing
-                n_cols = nmat.values.shape[1]
+                n_cols = df.values.shape[1]
                 
                 if n_cols > 300:  # Biodiversity dataset
                     # For Biodiversity: 
@@ -653,6 +653,6 @@ def pca_project_named_matrix(nmat: pd.DataFrame,
     except Exception as e:
         print(f"Error in projection computation: {e}")
         # Create fallback projections (all zeros)
-        proj_dict = {pid: np.zeros(2) for pid in nmat.index}
+        proj_dict = {pid: np.zeros(2) for pid in df.index}
     
     return pca_results, proj_dict

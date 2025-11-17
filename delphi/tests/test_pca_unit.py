@@ -14,7 +14,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from polismath.pca_kmeans_rep.pca import (
     normalize_vector, vector_length, proj_vec, factor_matrix,
     power_iteration, wrapped_pca, sparsity_aware_project_ptpt,
-    sparsity_aware_project_ptpts, pca_project_named_matrix
+    sparsity_aware_project_ptpts, pca_project_dataframe
 )
 
 
@@ -244,9 +244,9 @@ class TestProjection:
         assert np.allclose(projections[1], [3.0, 4.0])
         assert np.allclose(projections[2], [5.0, 6.0])
     
-    def test_pca_project_named_matrix(self):
+    def test_pca_project_dataframe(self):
         """Test PCA projection of a DataFrame."""
-        # Create a named matrix
+        # Create a DataFrame
         data = np.array([
             [1.0, 2.0, 3.0],
             [4.0, 5.0, 6.0],
@@ -254,11 +254,11 @@ class TestProjection:
         ])
         rownames = ['p1', 'p2', 'p3']
         colnames = ['c1', 'c2', 'c3']
-        
-        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
-        
+
+        df = pd.DataFrame(data, index=rownames, columns=colnames)
+
         # Perform PCA projection
-        pca_results, proj_dict = pca_project_named_matrix(nmat)
+        pca_results, proj_dict = pca_project_dataframe(df)
         
         # Check results
         assert 'center' in pca_results
