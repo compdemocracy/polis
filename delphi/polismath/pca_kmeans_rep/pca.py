@@ -559,19 +559,14 @@ def pca_project_named_matrix(nmat: pd.DataFrame,
         try:
             matrix_data = matrix_data.astype(float)
         except (ValueError, TypeError):
-            # Handle mixed types by manually converting (matching old NamedMatrix behavior)
-            temp_data = np.zeros(matrix_data.shape, dtype=float)
-            for i in range(matrix_data.shape[0]):
-                for j in range(matrix_data.shape[1]):
-                    val = matrix_data[i, j]
-                    if pd.isna(val) or val is None:
-                        temp_data[i, j] = np.nan
-                    else:
-                        try:
-                            temp_data[i, j] = float(val)
-                        except (ValueError, TypeError):
-                            temp_data[i, j] = 0.0
-            matrix_data = temp_data
+            # Handle mixed types using vectorized pandas operations
+            # This matches old NamedMatrix behavior: NaN stays NaN, non-convertible values become 0.0
+            df = pd.DataFrame(matrix_data)
+            original_nulls = df.isna()  # Track original NaN/None values
+            df_numeric = df.apply(pd.to_numeric, errors='coerce')  # Convert all to numeric, strings -> NaN
+            newly_nan = df_numeric.isna() & ~original_nulls  # Find values that became NaN (were strings)
+            df_numeric[newly_nan] = 0.0  # Non-convertible strings become 0.0
+            matrix_data = df_numeric.to_numpy(dtype='float64')
     
     # Handle NaN values by replacing with zeros (for PCA calculation)
     # This is safe because we're working with a copy
