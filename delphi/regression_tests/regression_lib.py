@@ -776,8 +776,8 @@ class ConversationComparer:
             overall_match = True
 
             if set(golden_keys_normalized.keys()) != set(current_keys_normalized.keys()):
-                only_golden = set(golden_keys_normalized.keys()) - set(current_keys_normalized.keys())
-                only_current = set(current_keys_normalized.keys()) - set(golden_keys_normalized.keys())
+                only_golden = sorted(set(golden_keys_normalized.keys()) - set(current_keys_normalized.keys()))
+                only_current = sorted(set(current_keys_normalized.keys()) - set(golden_keys_normalized.keys()))
                 reason = f"Keys mismatch. Only in golden: {only_golden}, Only in current: {only_current}"
                 self.all_differences.append({
                     "stage_name": stage_name,
@@ -790,7 +790,10 @@ class ConversationComparer:
 
             # Compare all values using normalized keys (only for common keys)
             common_keys = set(golden_keys_normalized.keys()) & set(current_keys_normalized.keys())
-            for norm_key in common_keys:
+            # Iterate in the order keys appear in the current dictionary
+            for norm_key in current_keys_normalized.keys():
+                if norm_key not in common_keys:
+                    continue
                 golden_key = golden_keys_normalized[norm_key]
                 current_key = current_keys_normalized[norm_key]
                 result = self._compare_dicts(
