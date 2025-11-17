@@ -22,13 +22,13 @@ DATASETS = {
         'report_id': 'r6vbnhffkxbd7ifmfbdrd',
         'description': 'VW Conversation'
     },
-    'bg2018': {
-        'report_id': 'r2xcn2cdbmrzjmmuuytdk',
-        'description': 'BG2018'
-    },
-# Very large conversation, great for manual testing but not for automated tests,
+# BG held very large conversations, great for manual testing but not for automated tests,
 # plus, we will probably want to compress it or dynamically download it, rather
 # than committing it to the repo as we currently do for the datasets.
+#    'bg2018': {
+#        'report_id': 'r2xcn2cdbmrzjmmuuytdk',
+#        'description': 'BG2018'
+#    },
 #    'bg2050': {
 #        'report_id': 'r7wehfsmutrwndviddnii',
 #        'description': 'BG2050'
