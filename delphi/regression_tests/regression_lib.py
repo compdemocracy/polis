@@ -85,6 +85,35 @@ def compute_all_stages(dataset_name: str, votes_dict: Dict, fixed_timestamp: int
 
     stages["after_load_no_compute"] = conv.to_dict()
 
+    # DEBUG: Capture the matrix that goes into PCA
+    debug_info = {}
+    try:
+        # Get the clean matrix that PCA will use
+        if hasattr(conv, '_get_clean_matrix'):
+            clean_matrix = conv._get_clean_matrix()
+            # Save first 5x5 section of the matrix for debugging
+            if not clean_matrix.empty:
+                debug_info["pca_input_matrix_sample"] = {
+                    "shape": list(clean_matrix.shape),
+                    "rows_first_10": list(clean_matrix.index[:10]),
+                    "cols_first_10": list(clean_matrix.columns[:10]),
+                    "sample_5x5": clean_matrix.iloc[:5, :5].to_dict(),
+                    "dtype": str(clean_matrix.dtypes.iloc[0] if len(clean_matrix.dtypes) > 0 else "unknown")
+                }
+                # Check for NaN values
+                nan_info = {
+                    "total_cells": clean_matrix.size,
+                    "nan_count": clean_matrix.isna().sum().sum(),
+                    "nan_percentage": (clean_matrix.isna().sum().sum() / clean_matrix.size * 100) if clean_matrix.size > 0 else 0
+                }
+                debug_info["nan_info"] = nan_info
+
+        # Save debug info to a separate file
+        with open(f"pca_debug_{dataset_name}.json", "w") as f:
+            json.dump(debug_info, f, indent=2, default=str)
+    except Exception as e:
+        print(f"Debug capture failed: {e}")
+
     # Stage 3: After PCA computation only
     start_time = time.perf_counter()
     conv._compute_pca()
