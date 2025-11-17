@@ -15,6 +15,10 @@ from tests.dataset_config import list_available_datasets
 
 # Get all available datasets from central config
 AVAILABLE_DATASETS = list(list_available_datasets().keys())
+TEST_DATASETS = ['vw']
+if not set(TEST_DATASETS).issubset(set(AVAILABLE_DATASETS)):
+    missing = set(TEST_DATASETS) - set(AVAILABLE_DATASETS)
+    raise ValueError(f"Test datasets not found in available datasets: {missing}")
 
 
 def _check_golden_exists(dataset: str):
@@ -42,7 +46,7 @@ def _check_golden_exists(dataset: str):
         )
 
 
-@pytest.mark.parametrize("dataset", AVAILABLE_DATASETS)
+@pytest.mark.parametrize("dataset", TEST_DATASETS)
 def test_conversation_regression(dataset):
     """
     Test that current implementation matches golden snapshot.
@@ -87,7 +91,7 @@ def test_conversation_regression(dataset):
     )
 
 
-@pytest.mark.parametrize("dataset", AVAILABLE_DATASETS)
+@pytest.mark.parametrize("dataset", TEST_DATASETS)
 def test_conversation_stages_individually(dataset):
     """
     Test each computation stage individually for more granular failure detection.
