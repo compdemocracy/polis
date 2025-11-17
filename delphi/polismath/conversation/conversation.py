@@ -224,8 +224,8 @@ class Conversation:
         new_rows = set(updates_df['row']) - existing_rows
         new_cols = set(updates_df['col']) - existing_cols
         
-        all_rows = sorted(existing_rows.union(new_rows))
-        all_cols = sorted(existing_cols.union(new_cols))
+        all_rows = sorted(existing_rows.union(new_rows), key=str)
+        all_cols = sorted(existing_cols.union(new_cols), key=str)
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
 
@@ -279,9 +279,10 @@ class Conversation:
         """
         Apply moderation settings to create filtered rating matrix.
         """
-        # Filter out moderated participants and comments
-        keep_ptpts = list(set(self.raw_rating_mat.index) - set(self.mod_out_ptpts))
-        keep_comments = list(set(self.raw_rating_mat.columns) - set(self.mod_out_tids))
+        # Filter out moderated participants and comments, and keep them sorted!
+        # Note: set operations are unordered, hence the extra sort.
+        keep_ptpts = sorted(list(set(self.raw_rating_mat.index) - set(self.mod_out_ptpts)), key=str)
+        keep_comments = sorted(list(set(self.raw_rating_mat.columns) - set(self.mod_out_tids)), key=str)
         
         # Create filtered matrix
         self.rating_mat = self.raw_rating_mat.loc[keep_ptpts, keep_comments]
