@@ -546,20 +546,31 @@ class ConversationComparer:
             self._write_differences_log(diff_log_path, dataset_name)
             results["diff_log_path"] = str(diff_log_path)
 
-        # Save full results as JSON
+        # Save current computation output as JSON (the data being compared, not the comparison results)
         # Use dataset_name or fall back to report_id for the filename
         identifier = dataset_name if dataset_name else golden["metadata"].get("report_id", "unknown")
-        json_filename = f"{identifier}-comparer-results-{timestamp}.json"
+        json_filename = f"{identifier}-comparer-output-{timestamp}.json"
         json_path = output_dir / json_filename
 
-        # Save JSON results
+        # Build output snapshot structure similar to golden format
+        output_snapshot = {
+            "metadata": metadata,
+            "stages": current_stages,
+            "computed_at": datetime.now().isoformat()
+        }
+
+        # Add timing stats if benchmarking was enabled
+        if benchmark and current_timing_stats:
+            output_snapshot["timing_stats"] = current_timing_stats
+
+        # Save current computation output to JSON
         with open(json_path, 'w') as f:
-            json.dump(results, f, indent=2, default=str)
+            json.dump(output_snapshot, f, indent=2, default=str)
 
-        results["json_results_path"] = str(json_path)
+        results["json_output_path"] = str(json_path)
 
-        # Create or update symlink to latest results
-        symlink_name = f"{identifier}_latest.json"
+        # Create or update symlink to latest output
+        symlink_name = f"{identifier}-latest.json"
         symlink_path = output_dir / symlink_name
 
         # Remove existing symlink if it exists
@@ -578,9 +589,9 @@ class ConversationComparer:
             if diff_log_path:
                 print(f"   Detailed differences written to: {diff_log_path}")
 
-        # Always inform about JSON results
-        print(f"   JSON results saved to: {json_path}")
-        print(f"   Latest results symlink: {symlink_path}")
+        # Always inform about JSON output
+        print(f"   Computation output saved to: {json_path}")
+        print(f"   Latest output symlink: {symlink_path}")
 
         # Print detailed report
         print("\n" + "=" * 60)
