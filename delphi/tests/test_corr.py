@@ -9,6 +9,7 @@ import sys
 import os
 import tempfile
 import json
+import warnings
 from scipy.spatial.distance import pdist
 
 # Add the parent directory to the path to import the module
@@ -96,10 +97,22 @@ class TestCorrelation:
         colnames = ['c1', 'c2', 'c3', 'c4', 'c5']
         
         nmat = pd.DataFrame(data, index=rownames, columns=colnames)
-        
-        # Compute correlation matrix
-        corr = correlation_matrix(nmat)
-        
+
+        # Compute correlation matrix - expect RuntimeWarning due to degenerate row
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            corr = correlation_matrix(nmat)
+
+            # Verify we got the expected warning about the degenerate row
+            assert len(w) >= 1, f"Expected at least 1 warning, got {len(w)}"
+            assert any(issubclass(warning.category, RuntimeWarning) for warning in w), \
+                f"Expected RuntimeWarning, got {[warning.category for warning in w]}"
+            # Check that it's about division or invalid value
+            runtime_warnings = [warning for warning in w if issubclass(warning.category, RuntimeWarning)]
+            assert any("divide" in str(warning.message).lower() or "invalid" in str(warning.message).lower()
+                      for warning in runtime_warnings), \
+                f"Expected warning about division/invalid value, got {[str(warning.message) for warning in runtime_warnings]}"
+
         # Check that we have a correlation matrix
         assert corr.shape == (4, 4)
         
