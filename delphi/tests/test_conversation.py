@@ -251,120 +251,113 @@ class TestConversation:
         assert pids != lexicographic_order, f"String pids should NOT be sorted lexicographically: {pids} == {lexicographic_order}"
         assert pids == numeric_order, f"String pids with 'p' prefix are not sorted numerically: {pids} != {numeric_order}"
 
-    def test_lexicographic_sorting_alphabetical_ids(self):
-        """Test that purely alphabetical string IDs are sorted in lexicographic order."""
-        # Create empty conversation
-        conv = Conversation('test_conv')
+    @pytest.mark.parametrize("test_desc,ptpt_ids,comment_ids,expected_ptpt_types,expected_ptpts_sorted,expected_comment_types,expected_comments_sorted", [
+        (
+            "integer_ids",
+            [1, 10, 2, 100, 5, 50],
+            [3, 30, 20, 4],
+            ['int', 'int', 'int', 'int', 'int', 'int'],
+            [1, 2, 5, 10, 50, 100],  # Natural/numeric order
+            ['int', 'int', 'int', 'int'],
+            [3, 4, 20, 30]  # Natural/numeric order
+        ),
+        (
+            "numeric_strings",
+            ['1', '10', '2', '100', '5', '50'],
+            ['3', '30', '20', '4'],
+            ['str', 'str', 'str', 'str', 'str', 'str'],
+            ['1', '2', '5', '10', '50', '100'],  # Natural/numeric order
+            ['str', 'str', 'str', 'str'],
+            ['3', '4', '20', '30']  # Natural/numeric order
+        ),
+        (
+            "alphanumeric_user_comment",
+            ['user1', 'user10', 'user2', 'user100'],
+            ['comment1', 'comment10', 'comment2'],
+            ['str', 'str', 'str', 'str'],
+            ['user1', 'user2', 'user10', 'user100'],  # Natural order
+            ['str', 'str', 'str'],
+            ['comment1', 'comment2', 'comment10']  # Natural order
+        ),
+        (
+            "alphanumeric_short",
+            ['p1', 'p10', 'p2', 'p100', 'p5', 'p50'],
+            ['c1', 'c10', 'c2', 'c20'],
+            ['str', 'str', 'str', 'str', 'str', 'str'],
+            ['p1', 'p2', 'p5', 'p10', 'p50', 'p100'],  # Natural order
+            ['str', 'str', 'str', 'str'],
+            ['c1', 'c2', 'c10', 'c20']  # Natural order
+        ),
+        (
+            "float_ids",
+            [1.0, 10.0, 2.0, 100.0, 5.0, 50.0],
+            [3.0, 30.0, 20.0, 4.0],
+            ['float', 'float', 'float', 'float', 'float', 'float'],
+            [1.0, 2.0, 5.0, 10.0, 50.0, 100.0],  # Numeric order
+            ['float', 'float', 'float', 'float'],
+            [3.0, 4.0, 20.0, 30.0]  # Numeric order
+        ),
+        (
+            "alphabetical_strings",
+            ['omega', 'alpha', 'theta', 'beta', 'zeta', 'gamma'],
+            ['gamma', 'zeta', 'alpha', 'omega', 'beta', 'theta'],
+            ['str', 'str', 'str', 'str', 'str', 'str'],
+            ['alpha', 'beta', 'gamma', 'omega', 'theta', 'zeta'],
+            ['str', 'str', 'str', 'str', 'str', 'str'],
+            ['alpha', 'beta', 'gamma', 'omega', 'theta', 'zeta']
+        ),
+    ], ids=lambda test_desc, *args: test_desc if isinstance(test_desc, str) else str(test_desc))
+    def test_natural_sorting_homogeneous_types(self, test_desc, ptpt_ids, comment_ids, expected_ptpt_types, expected_ptpts_sorted, expected_comment_types, expected_comments_sorted):
+        """Test natural sorting with homogeneous ID types (all same type).
 
-        # Create votes with purely alphabetic string IDs (no numeric components)
-        votes = {
-            'votes': [
-                {'pid': 'omega', 'tid': 'gamma', 'vote': 1},
-                {'pid': 'alpha', 'tid': 'zeta', 'vote': 1},
-                {'pid': 'theta', 'tid': 'alpha', 'vote': -1},
-                {'pid': 'beta', 'tid': 'omega', 'vote': 1},
-                {'pid': 'zeta', 'tid': 'beta', 'vote': -1},
-                {'pid': 'gamma', 'tid': 'theta', 'vote': 1},
-            ]
-        }
-
-        # Update with votes
-        updated_conv = conv.update_votes(votes)
-
-        # Get the row indices (pids) and column indices (tids) from the matrix
-        pids = list(updated_conv.raw_rating_mat.index)
-        tids = list(updated_conv.raw_rating_mat.columns)
-
-        # Expected lexicographic order
-        expected_pids_lex = ['alpha', 'beta', 'gamma', 'omega', 'theta', 'zeta']
-        expected_tids_lex = ['alpha', 'beta', 'gamma', 'omega', 'theta', 'zeta']
-
-        # Check that both pids and tids are sorted lexicographically
-        assert pids == expected_pids_lex, f"String pids are not sorted lexicographically: {pids} != {expected_pids_lex}"
-        assert tids == expected_tids_lex, f"String tids are not sorted lexicographically: {tids} != {expected_tids_lex}"
-
-        # Also verify using Python's sorted() function
-        assert pids == sorted(pids), f"Pids are not in lexicographic order: {pids}"
-        assert tids == sorted(tids), f"Tids are not in lexicographic order: {tids}"
-
-    def test_lexicographic_sorting_numeric_string_ids(self):
-        """Test that numeric IDs passed as strings MUST be sorted in lexicographic order.
-
-        When integers are passed as strings (e.g., "1", "2", "10", "11"),
-        they MUST be sorted lexicographically: ["1", "10", "11", "2"]
-        NOT numerically: ["1", "2", "10", "11"]
+        Types should be preserved and IDs should be sorted in natural order.
         """
         conv = Conversation('test_conv')
 
-        # Create votes with string representations of numbers
-        # Deliberately ordered to differ between lexicographic and numeric sorting
-        votes = {
-            'votes': [
-                {'pid': '2', 'tid': '11', 'vote': 1},
-                {'pid': '10', 'tid': '2', 'vote': 1},
-                {'pid': '1', 'tid': '10', 'vote': -1},
-                {'pid': '11', 'tid': '1', 'vote': 1},
-            ]
-        }
+        # Create votes: each participant votes on each comment
+        votes = []
+        for ptpt_id in ptpt_ids:
+            for comment_id in comment_ids:
+                # Alternate between 1 and -1 votes
+                vote_val = 1 if (hash(str(ptpt_id)) + hash(str(comment_id))) % 2 == 0 else -1
+                votes.append({
+                    'pid': ptpt_id,
+                    'tid': comment_id,
+                    'vote': vote_val
+                })
 
-        updated_conv = conv.update_votes(votes)
+        # Update conversation with votes
+        conv = conv.update_votes({'votes': votes})
 
-        pids = list(updated_conv.raw_rating_mat.index)
-        tids = list(updated_conv.raw_rating_mat.columns)
+        # Get resulting row and column names from rating matrix
+        result_ptpts = list(conv.rating_mat.index)
+        result_tids = list(conv.rating_mat.columns)
 
-        # Expected lexicographic order (string sorting)
-        expected_lexicographic_order = ['1', '10', '11', '2']
+        # Check that types are preserved
+        result_ptpt_types = [type(x).__name__ for x in result_ptpts]
+        result_comment_types = [type(x).__name__ for x in result_tids]
 
-        # Check that IDs are sorted lexicographically
-        assert pids == expected_lexicographic_order, f"String PIDs MUST be sorted lexicographically: {pids} != {expected_lexicographic_order}"
-        assert tids == expected_lexicographic_order, f"String TIDs MUST be sorted lexicographically: {tids} != {expected_lexicographic_order}"
+        assert result_ptpt_types == expected_ptpt_types, \
+            f"[{test_desc}] TYPE CHECK FAILED (participants): got {result_ptpt_types}, expected {expected_ptpt_types}"
+        assert result_comment_types == expected_comment_types, \
+            f"[{test_desc}] TYPE CHECK FAILED (comments): got {result_comment_types}, expected {expected_comment_types}"
 
-        # Verify using sorted() (which sorts strings lexicographically by default)
-        assert pids == sorted(pids), f"PIDs not in lexicographic order: {pids}"
-        assert tids == sorted(tids), f"TIDs not in lexicographic order: {tids}"
+        # Check that IDs are sorted correctly (natural order)
+        assert result_ptpts == expected_ptpts_sorted, \
+            f"[{test_desc}] SORT CHECK FAILED (participants): got {result_ptpts}, expected {expected_ptpts_sorted}"
+        assert result_tids == expected_comments_sorted, \
+            f"[{test_desc}] SORT CHECK FAILED (comments): got {result_tids}, expected {expected_comments_sorted}"
 
-    def test_lexicographic_sorting_integer_ids(self):
-        """Test that actual integer IDs MUST be sorted in lexicographic order (by string representation).
+    def test_natural_sorting_mixed_types(self):
+        """Test that mixed type IDs (integers and strings) are sorted in natural order.
 
-        When integers are passed as integers (e.g., 1, 2, 10, 11),
-        they MUST be sorted as converted to strings: ['1', '10', '11', '2']
-        NOT numerically: [1, 2, 10, 11]
-        """
-        conv = Conversation('test_conv')
+        When both integer and string IDs are present, they are sorted naturally:
+        - Numeric values (int or numeric strings) are sorted numerically
+        - Non-numeric strings are sorted alphabetically
+        - Numbers come before non-numeric strings
+        - Types are preserved (int stays int, str stays str)
 
-        # Create votes with actual integer IDs
-        votes = {
-            'votes': [
-                {'pid': 2, 'tid': 11, 'vote': 1},
-                {'pid': 10, 'tid': 2, 'vote': 1},
-                {'pid': 1, 'tid': 10, 'vote': -1},
-                {'pid': 11, 'tid': 1, 'vote': 1},
-            ]
-        }
-
-        updated_conv = conv.update_votes(votes)
-
-        pids = list(updated_conv.raw_rating_mat.index)
-        tids = list(updated_conv.raw_rating_mat.columns)
-
-        # Expected lexicographic order (sorted by string representation)
-        expected_lexicographic_order = ['1', '10', '11', '2']
-
-        # Check lexicographic sorting (by string representation)
-        assert pids == expected_lexicographic_order, f"Integer PIDs MUST be sorted lexicographically (by str): {pids} != {expected_lexicographic_order}"
-        assert tids == expected_lexicographic_order, f"Integer TIDs MUST be sorted lexicographically (by str): {tids} != {expected_lexicographic_order}"
-
-        # Verify using sorted(..., key=str)
-        input_ids = ['1', '2', '10', '11']
-        assert pids == sorted(input_ids, key=str), f"PIDs not in lexicographic order (by str): {pids}"
-        assert tids == sorted(input_ids, key=str), f"TIDs not in lexicographic order (by str): {tids}"
-
-    def test_lexicographic_sorting_mixed_type_ids(self):
-        """Test that mixed type IDs (integers and strings) MUST be sorted in lexicographic order.
-
-        When both integer and string IDs are present, they MUST be sorted
-        as if all converted to strings: sorted(..., key=str)
-        This means "1" < "10" < "2" < "alpha" < "beta" < "gamma"
+        Example: [1, '2', '10', 21, 100, 'alpha', 'beta']
         """
         conv = Conversation('test_conv')
 
@@ -385,40 +378,73 @@ class TestConversation:
         pids = list(updated_conv.raw_rating_mat.index)
         tids = list(updated_conv.raw_rating_mat.columns)
 
-        print(f"\nMixed type IDs sorting:")
-        print(f"  PIDs: {pids}")
-        print(f"  TIDs: {tids}")
-        print(f"  PID types: {[type(p).__name__ for p in pids]}")
-        print(f"  TID types: {[type(t).__name__ for t in tids]}")
+        # Expected natural order:
+        # Numbers first (sorted numerically): 1, 2, 10
+        # Then strings (sorted alphabetically): 'alpha', 'beta', 'gamma'
+        expected_pids = [1, 2, 10, 'alpha', 'beta', 'gamma']
+        expected_tids = [1, 2, 10, 'alpha', 'beta', 'zeta']
 
-        # Expected order when sorted after str() conversion (lexicographic on strings)
-        # All IDs are converted to strings first, then sorted
-        # For PIDs: str(1), str(10), str(2), 'alpha', 'beta', 'gamma'
-        # → '1', '10', '2', 'alpha', 'beta', 'gamma'
-        # Sorted: '1', '10', '2', 'alpha', 'beta', 'gamma'
-        input_pids = ['1', '10', '2', 'alpha', 'beta', 'gamma']
-        expected_pids = sorted(input_pids)
+        # Check natural ordering
+        assert pids == expected_pids, f"Mixed PIDs must be sorted naturally: {pids} != {expected_pids}"
+        assert tids == expected_tids, f"Mixed TIDs must be sorted naturally: {tids} != {expected_tids}"
 
-        # For TIDs: str(1), str(10), str(2), 'alpha', 'beta', 'zeta'
-        # → '1', '10', '2', 'alpha', 'beta', 'zeta'
-        # Sorted: '1', '10', '2', 'alpha', 'beta', 'zeta'
-        input_tids = ['1', '10', '2', 'alpha', 'beta', 'zeta']
-        expected_tids = sorted(input_tids)
+        # Check that types are preserved
+        expected_pid_types = ['int', 'int', 'int', 'str', 'str', 'str']
+        expected_tid_types = ['int', 'int', 'int', 'str', 'str', 'str']
+        assert [type(p).__name__ for p in pids] == expected_pid_types, f"PID types not preserved"
+        assert [type(t).__name__ for t in tids] == expected_tid_types, f"TID types not preserved"
 
-        print(f"  Expected PIDs (sorted by str): {expected_pids}")
-        print(f"  Expected TIDs (sorted by str): {expected_tids}")
+    def test_natural_sorting_numeric_only_with_export(self):
+        """Test natural sorting with ONLY numeric IDs and verify export behavior.
 
-        # Check that IDs are sorted as if converted to strings (lexicographic order)
-        assert pids == expected_pids, f"Mixed PIDs MUST be sorted lexicographically (by str): {pids} != {expected_pids}"
-        assert tids == expected_tids, f"Mixed TIDs MUST be sorted lexicographically (by str): {tids} != {expected_tids}"
+        Types should be preserved (integers stay integers) and sorted naturally (numerically).
+        Export should maintain the same types and order.
+        """
+        conv = Conversation('test_conv')
+
+        votes = {
+            'votes': [
+                {'pid': 5, 'tid': 10, 'vote': 1},
+                {'pid': 3, 'tid': 5, 'vote': 1},
+                {'pid': 1, 'tid': 20, 'vote': -1},
+            ]
+        }
+
+        conv = conv.update_votes(votes)
+
+        # Check internal storage
+        pids = list(conv.rating_mat.index)
+        tids = list(conv.rating_mat.columns)
+
+        # Types should be preserved (integers)
+        assert all(isinstance(p, int) for p in pids), \
+            f"Not all PIDs are ints: {[type(p).__name__ for p in pids]}"
+        assert all(isinstance(t, int) for t in tids), \
+            f"Not all TIDs are ints: {[type(t).__name__ for t in tids]}"
+
+        # Check natural order (numeric)
+        expected_pids = [1, 3, 5]
+        expected_tids = [5, 10, 20]  # Natural/numeric order
+
+        assert pids == expected_pids, f"PIDs not in natural order: {pids} != {expected_pids}"
+        assert tids == expected_tids, f"TIDs not in natural order: {tids} != {expected_tids}"
+
+        # Check exported data maintains same order and types
+        conv_dict = conv.to_dict()
+        exported_tids = conv_dict.get('tids', [])
+
+        assert all(isinstance(t, int) for t in exported_tids), \
+            f"Not all exported TIDs are ints: {[type(t).__name__ for t in exported_tids]}"
+
+        assert exported_tids == expected_tids, \
+            f"Exported TIDs not in expected order: {exported_tids} != {expected_tids}"
 
     def test_incremental_updates_maintain_sorting(self):
-        """Test that incremental updates maintain sorted order for both tids and pids."""
+        """Test that incremental updates maintain natural sorted order for both tids and pids."""
         # Create empty conversation
         conv = Conversation('test_conv')
 
-        # First batch of votes with numeric-looking string IDs
-        # This tests that numeric ordering is maintained even with string IDs
+        # First batch of votes with integer IDs
         votes1 = {
             'votes': [
                 {'pid': 5, 'tid': 10, 'vote': 1},
@@ -428,22 +454,28 @@ class TestConversation:
 
         conv = conv.update_votes(votes1)
 
-        # Check initial sorting in internal matrix
+        # Check initial sorting in internal matrix (natural/numeric order)
         tids = list(conv.raw_rating_mat.columns)
         pids = list(conv.raw_rating_mat.index)
-        assert tids == sorted(tids), f"Initial tids not sorted: {tids}"
-        assert pids == sorted(pids), f"Initial pids not sorted: {pids}"
+
+        # Expected natural order for integers
+        expected_initial_tids = [5, 10]
+        expected_initial_pids = [3, 5]
+
+        assert tids == expected_initial_tids, f"Initial tids not sorted naturally: {tids} != {expected_initial_tids}"
+        assert pids == expected_initial_pids, f"Initial pids not sorted naturally: {pids} != {expected_initial_pids}"
+
+        # Check types are preserved
+        assert all(isinstance(t, int) for t in tids), f"TID types not preserved"
+        assert all(isinstance(p, int) for p in pids), f"PID types not preserved"
 
         # Check initial sorting in exported data
         conv_dict = conv.to_dict()
         exported_tids = conv_dict.get('tids', [])
-        # Note: Exported tids are in lexicographic order (as strings), then converted to int
-        # So [10, 5] is correct ('10' < '5' as strings)
-        expected_initial_exported = [10, 5]  # Lexicographic as strings, converted to int
-        assert exported_tids == expected_initial_exported, f"Initial exported tids incorrect: {exported_tids} != {expected_initial_exported}"
+        assert exported_tids == expected_initial_tids, f"Initial exported tids incorrect: {exported_tids} != {expected_initial_tids}"
 
         # Second batch adds new participants and comments in unsorted order
-        # These should be inserted in lexicographic order (sorted as strings)
+        # These should be inserted in natural order (numeric)
         votes2 = {
             'votes': [
                 {'pid': 1, 'tid': 1, 'vote': 1},    # Should go first
@@ -454,28 +486,25 @@ class TestConversation:
 
         conv = conv.update_votes(votes2)
 
-        # Check that sorting is maintained after incremental update in internal matrix
+        # Check that natural sorting is maintained after incremental update
         tids = list(conv.raw_rating_mat.columns)
         pids = list(conv.raw_rating_mat.index)
-        assert tids == sorted(tids), f"Tids not sorted after update: {tids}"
-        assert pids == sorted(pids), f"Pids not sorted after update: {pids}"
 
-        # IDs are converted to strings by str(), then sorted lexicographically
-        # Lexicographic order for string IDs: ['1', '10', '20', '3', '5']
-        # This matches the old version's behavior
-        expected_tids = ['1', '10', '20', '3', '5']
-        expected_pids = ['1', '3', '4', '5', '9']
-        assert tids == expected_tids, f"Tids order incorrect (should be lexicographic strings): {tids} != {expected_tids}"
-        assert pids == expected_pids, f"Pids order incorrect (should be lexicographic strings): {pids} != {expected_pids}"
+        # Expected natural order (numeric): [1, 3, 5, 10, 20] and [1, 3, 4, 5, 9]
+        expected_tids = [1, 3, 5, 10, 20]
+        expected_pids = [1, 3, 4, 5, 9]
+
+        assert tids == expected_tids, f"Tids order incorrect (should be natural/numeric): {tids} != {expected_tids}"
+        assert pids == expected_pids, f"Pids order incorrect (should be natural/numeric): {pids} != {expected_pids}"
+
+        # Check types are still preserved
+        assert all(isinstance(t, int) for t in tids), f"TID types not preserved after update"
+        assert all(isinstance(p, int) for p in pids), f"PID types not preserved after update"
 
         # Check that sorting is maintained in exported data
         conv_dict = conv.to_dict()
         exported_tids = conv_dict.get('tids', [])
-        # Exported tids are in lexicographic string order, then converted back to int
-        # Internal: ['1', '10', '20', '3', '5'] (lexicographic)
-        # Exported: [1, 10, 20, 3, 5] (same order, converted to int)
-        expected_tids_exported = [1, 10, 20, 3, 5]  # Lexicographic order, converted back to int
-        assert exported_tids == expected_tids_exported, f"Exported tids order incorrect: {exported_tids} != {expected_tids_exported}"
+        assert exported_tids == expected_tids, f"Exported tids order incorrect: {exported_tids} != {expected_tids}"
     
     def test_moderation(self):
         """Test conversation moderation."""
