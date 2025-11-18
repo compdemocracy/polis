@@ -46,7 +46,7 @@ import psycopg2
 import requests
 from tqdm import tqdm
 
-from dataset_config import list_available_datasets, get_dataset_report_id
+from polismath.regression import list_available_datasets, get_dataset_report_id
 
 
 def get_db_connection():

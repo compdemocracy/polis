@@ -33,7 +33,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from polismath.conversation.conversation import Conversation
 from tests.common_utils import create_test_conversation
-from tests.dataset_config import get_dataset_files
+from polismath.regression import get_dataset_files
 
 
 def save_results(dataset_name: str, conversation: Conversation) -> None:

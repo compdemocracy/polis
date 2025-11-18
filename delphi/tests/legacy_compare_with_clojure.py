@@ -18,7 +18,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from polismath.pca_kmeans_rep.pca import pca_project_dataframe
 from polismath.pca_kmeans_rep.clusters import cluster_dataframe, determine_k
-from dataset_config import get_dataset_files
+from polismath.regression import get_dataset_files
 
 
 def load_votes_from_csv(votes_path: str) -> pd.DataFrame:

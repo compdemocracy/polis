@@ -17,7 +17,7 @@ import sys
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 from polismath.conversation.conversation import Conversation
-from tests.dataset_config import get_dataset_files
+from polismath.regression import get_dataset_files
 
 
 def create_test_conversation(dataset_name: str) -> Conversation:

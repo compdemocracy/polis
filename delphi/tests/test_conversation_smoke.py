@@ -15,7 +15,7 @@ import os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from common_utils import create_test_conversation
-from dataset_config import list_available_datasets
+from polismath.regression import list_available_datasets
 
 logger = logging.getLogger(__name__)
 

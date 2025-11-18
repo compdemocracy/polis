@@ -9,8 +9,8 @@ import pytest
 import numpy as np
 from pathlib import Path
 
-from polismath.regression import ConversationRecorder, ConversationComparer, load_golden_snapshot
-from tests.dataset_config import list_available_datasets
+from polismath.regression import ConversationRecorder, ConversationComparer, list_available_datasets
+from polismath.regression.utils import load_golden_snapshot
 
 
 # Get all available datasets from central config

@@ -15,7 +15,7 @@ import json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.conversation.conversation import Conversation
-from tests.dataset_config import get_dataset_files
+from polismath.regression import get_dataset_files
 from tests.common_utils import load_votes, load_comments, load_clojure_output
 
 

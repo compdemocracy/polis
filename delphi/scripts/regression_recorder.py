@@ -37,8 +37,7 @@ def main(datasets: tuple, force: bool, benchmark: bool, log_level: str):
     )
 
     # Import after logging is configured to ensure conversation module uses root logger
-    from polismath.regression import ConversationRecorder
-    from tests.dataset_config import list_available_datasets
+    from polismath.regression import ConversationRecorder, list_available_datasets
 
     recorder = ConversationRecorder()
 
