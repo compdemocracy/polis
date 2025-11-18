@@ -69,7 +69,7 @@ dev = [
     # Code quality - streamlined modern stack
     "pre-commit>=4.3.0",
     # Dependency management
-    "pip-tools>=7.5.1",
+    "pip-tools>=7.5.2",
     # Type stubs
     "types-requests",
     "types-psycopg2",

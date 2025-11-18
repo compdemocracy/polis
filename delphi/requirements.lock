@@ -6,18 +6,18 @@
 #
 annotated-types==0.7.0
     # via pydantic
-anthropic==0.72.0
+anthropic==0.74.0
     # via delphi-polis (pyproject.toml)
 anyio==4.11.0
     # via
     #   anthropic
     #   httpx
     #   starlette
-aws-lambda-powertools==3.22.0
+aws-lambda-powertools==3.23.0
     # via delphi-polis (pyproject.toml)
 aws-xray-sdk==2.15.0
     # via delphi-polis (pyproject.toml)
-bokeh==3.8.0
+bokeh==3.8.1
     # via dask
 boto3==1.34.70
     # via delphi-polis (pyproject.toml)
@@ -29,14 +29,14 @@ botocore==1.34.162
     #   s3transfer
 bytecode==0.17.0
     # via ddtrace
-certifi==2025.10.5
+certifi==2025.11.12
     # via
     #   httpcore
     #   httpx
     #   requests
 charset-normalizer==3.4.4
     # via requests
-click==8.3.0
+click==8.3.1
     # via
     #   dask
     #   distributed
@@ -70,7 +70,7 @@ datamapplot==0.6.4
     # via delphi-polis (pyproject.toml)
 datashader==0.18.2
     # via datamapplot
-ddtrace==3.17.2
+ddtrace==3.18.1
     # via delphi-polis (pyproject.toml)
 distributed==2024.12.1
     # via dask
@@ -136,7 +136,7 @@ jinja2==3.1.6
     #   delphi-polis (pyproject.toml)
     #   distributed
     #   torch
-jiter==0.11.1
+jiter==0.12.0
     # via anthropic
 jmespath==1.0.1
     # via
@@ -180,7 +180,7 @@ msgpack==1.1.2
     # via distributed
 multipledispatch==1.0.0
     # via datashader
-narwhals==2.10.2
+narwhals==2.12.0
     # via
     #   bokeh
     #   plotly
@@ -219,7 +219,7 @@ numpy==1.26.4
     #   transformers
     #   umap-learn
     #   xarray
-ollama==0.6.0
+ollama==0.6.1
     # via delphi-polis (pyproject.toml)
 opentelemetry-api==1.38.0
     # via ddtrace
@@ -246,7 +246,7 @@ pandas==2.3.3
     #   delphi-polis (pyproject.toml)
     #   pylabeladjust
     #   xarray
-param==2.2.1
+param==2.3.0
     # via
     #   datashader
     #   pyct
@@ -262,9 +262,9 @@ pillow==12.0.0
     #   torchvision
 platformdirs==4.5.0
     # via datamapplot
-plotly==6.3.1
+plotly==6.5.0
     # via delphi-polis (pyproject.toml)
-protobuf==6.33.0
+protobuf==6.33.1
     # via ddtrace
 psutil==7.1.3
     # via distributed
@@ -277,13 +277,13 @@ pyarrow==22.0.0
     #   datamapplot
 pyct==0.6.0
     # via datashader
-pydantic==2.12.3
+pydantic==2.12.4
     # via
     #   anthropic
     #   delphi-polis (pyproject.toml)
     #   fastapi
     #   ollama
-pydantic-core==2.41.4
+pydantic-core==2.41.5
     # via pydantic
 pygments==2.19.2
     # via rich
@@ -373,7 +373,7 @@ starlette==0.38.6
     #   fastapi
 sympy==1.14.0
     # via torch
-tblib==3.2.1
+tblib==3.2.2
     # via distributed
 threadpoolctl==3.6.0
     # via scikit-learn
@@ -441,11 +441,11 @@ urllib3==2.5.0
     #   requests
 uvicorn==0.38.0
     # via delphi-polis (pyproject.toml)
-wrapt==1.17.3
+wrapt==2.0.1
     # via
     #   aws-xray-sdk
     #   ddtrace
-xarray==2025.10.1
+xarray==2025.11.0
     # via datashader
 xmltodict==1.0.2
     # via delphi-polis (pyproject.toml)
