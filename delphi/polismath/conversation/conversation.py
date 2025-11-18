@@ -131,8 +131,8 @@ class Conversation:
                 logger.info(f"[{elapsed:.2f}s] Processed {i}/{total_votes} votes ({progress_pct:.1f}%) - Est. remaining: {remaining:.2f}s")
             
             try:
-                ptpt_id = str(vote.get('pid')) # does not need to be a string
-                comment_id = str(vote.get('tid')) # does not need to be a string
+                ptpt_id = str(vote.get('pid'))  # Convert to string (matches old version)
+                comment_id = str(vote.get('tid'))  # Convert to string (matches old version)
                 vote_value = vote.get('vote')
                 created = vote.get('created', last_vote_timestamp)
                 
@@ -223,9 +223,11 @@ class Conversation:
 
         new_rows = set(updates_df['row']) - existing_rows
         new_cols = set(updates_df['col']) - existing_cols
-        
-        all_rows = sorted(existing_rows.union(new_rows), key=str)
-        all_cols = sorted(existing_cols.union(new_cols), key=str)
+
+        # Sort by actual value (numeric for numbers, lexicographic for strings)
+        # Matches old NamedMatrix behavior without key=str
+        all_rows = sorted(existing_rows.union(new_rows))
+        all_cols = sorted(existing_cols.union(new_cols))
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
 
@@ -281,8 +283,9 @@ class Conversation:
         """
         # Filter out moderated participants and comments, and keep them sorted!
         # Note: set operations are unordered, hence the extra sort.
-        keep_ptpts = sorted(list(set(self.raw_rating_mat.index) - set(self.mod_out_ptpts)), key=str)
-        keep_comments = sorted(list(set(self.raw_rating_mat.columns) - set(self.mod_out_tids)), key=str)
+        # Sort by actual value (numeric for numbers, lexicographic for strings)
+        keep_ptpts = sorted(list(set(self.raw_rating_mat.index) - set(self.mod_out_ptpts)))
+        keep_comments = sorted(list(set(self.raw_rating_mat.columns) - set(self.mod_out_tids)))
         
         # Create filtered matrix
         self.rating_mat = self.raw_rating_mat.loc[keep_ptpts, keep_comments]
@@ -1278,11 +1281,11 @@ class Conversation:
         result['lastModTimestamp'] = self.last_updated
         
         # Convert and add tids (comment IDs) efficiently
-        # Using a list comprehension with try/except inline for performance
+        # Preserve original types (int stays int, str stays str, etc.)
         # TODO: figure out if really needed, as per https://github.com/compdemocracy/polis/issues/2290
         result['tids'] = [
-            int(tid) if tid.isdigit() else tid 
-            for tid in sorted(self.rating_mat.columns, key=str)
+            int(tid) if isinstance(tid, str) and tid.isdigit() else tid
+            for tid in sorted(self.rating_mat.columns)
         ]
         
         # Add count values with Clojure naming
