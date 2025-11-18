@@ -57,8 +57,8 @@ Always use the commands above to determine the most substantial conversation whe
 
 ### Environment Files
 
-- Main project uses a `.env` file in the parent directory (`/Users/colinmegill/polis/.env`)
-- Example environment file is available at `/Users/colinmegill/polis/delphi/example.env`
+- Main project uses a `.env` file in the parent directory (`../polis/.env`)
+- Example environment file is available at `example.env`
 
 ### Key Environment Variables
 
