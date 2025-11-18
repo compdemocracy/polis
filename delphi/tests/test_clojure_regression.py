@@ -6,85 +6,14 @@ import pytest
 import pytest_check as check
 import os
 import sys
-import pandas as pd
-import numpy as np
 import json
-from datetime import datetime
 
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.conversation.conversation import Conversation
 from tests.dataset_config import get_dataset_files
-
-
-
-
-def load_votes(votes_path):
-    """Load votes from a CSV file into a format suitable for conversion."""
-    # Read CSV
-    df = pd.read_csv(votes_path)
-    
-    # Convert to the format expected by the Conversation class
-    votes_list = []
-    
-    for _, row in df.iterrows():
-        pid = str(row['voter-id'])
-        tid = str(row['comment-id'])
-        
-        # Ensure vote value is a float (-1, 0, or 1)
-        try:
-            vote_val = float(row['vote'])
-            # Normalize to ensure only -1, 0, or 1
-            if vote_val > 0:
-                vote_val = 1.0
-            elif vote_val < 0:
-                vote_val = -1.0
-            else:
-                vote_val = 0.0
-        except ValueError:
-            # Handle text values
-            vote_text = str(row['vote']).lower()
-            if vote_text == 'agree':
-                vote_val = 1.0
-            elif vote_text == 'disagree':
-                vote_val = -1.0
-            else:
-                vote_val = 0.0  # Pass or unknown
-        
-        votes_list.append({
-            'pid': pid,
-            'tid': tid,
-            'vote': vote_val
-        })
-    
-    # Pack into the expected votes format
-    return {
-        'votes': votes_list
-    }
-
-
-def load_comments(comments_path):
-    """Load comments from a CSV file into a format suitable for the Conversation."""
-    # Read CSV
-    df = pd.read_csv(comments_path)
-    
-    # Convert to the expected format
-    comments_list = []
-    
-    for _, row in df.iterrows():
-        # Only include comments that aren't moderated out (moderated = 1)
-        if row['moderated'] == 1:
-            comments_list.append({
-                'tid': str(row['comment-id']),
-                'created': int(row['timestamp']),
-                'txt': row['comment-body'],
-                'is_seed': False
-            })
-    
-    return {
-        'comments': comments_list
-    }
+from tests.common_utils import load_votes, load_comments, load_clojure_output
 
 
 @pytest.fixture(scope="module", params=["biodiversity", "vw"])
@@ -103,8 +32,7 @@ def conversation_data(request):
     data_dir = dataset_files['data_dir']
 
     # Load the Clojure output for comparison
-    with open(clojure_output_path, 'r') as f:
-        clojure_output = json.load(f)
+    clojure_output = load_clojure_output(clojure_output_path)
 
     # Create a new conversation
     conv = Conversation(dataset_name)

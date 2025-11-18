@@ -65,7 +65,8 @@ The tests are organized as follows:
    - `test_corr.py` - Tests for correlation calculations
 
 2. **Real Data Tests** - Validate the system with real Polis conversation data:
-   - `test_real_data.py` - Tests the complete system using real conversation data
+   - `test_clojure_regression.py` - Regression tests comparing Python vs Clojure implementation
+   - `test_pipeline_integrity.py` - Integration tests verifying pipeline runs successfully
 
 ## Test Data
 

@@ -56,19 +56,20 @@ These tests validate the individual components of the codebase:
 
 These tests validate the system with real Pol.is conversation data:
 
-1. **`test_real_data.py`**
-   - Tests the entire system with real conversation data
+1. **`test_clojure_regression.py`** (formerly `test_real_data.py`)
+   - Regression tests comparing Python vs Clojure implementation
+   - Uses fixture-based structure with soft assertions
    - Verifies end-to-end processing from votes to results
    - Tests with both biodiversity and VW datasets
-   - Validates output formats and structures
-   - Serves as an integration test for all components
+   - Compares group clustering, sizes, and membership overlap
+   - Validates comment priorities match Clojure output
 
-2. **`test_real_data_comparison.py`**
-   - Compares Python outputs with Clojure reference outputs
-   - Measures similarity between Python and Clojure results
-   - Focuses on cluster assignments and representative comments
-   - Validates projection coordinate transformations
-   - Quantifies match rates for representativeness calculation
+2. **`test_pipeline_integrity.py`** (formerly `full_pipeline_test.py`)
+   - Integration tests verifying pipeline runs successfully
+   - Focuses on pipeline robustness, not correctness vs Clojure
+   - Tests PCA, clustering, representativeness, and participant stats
+   - Validates output formats and structures
+   - Saves detailed diagnostics for manual inspection
 
 3. **`test_real_data_simple.py`**
    - Simplified version of the real data test
@@ -170,8 +171,8 @@ Unit Tests ────── Core Math Tests ─────┬─── test_p
   │                    └─── System Component Tests ──── test_conversation.py
   │
   │
-Real Data Tests ─┬─── Integration Tests ────────┬─── test_real_data.py
-                 │                              └─── test_real_data_comparison.py
+Real Data Tests ─┬─── Integration Tests ────────┬─── test_clojure_regression.py
+                 │                              └─── test_pipeline_integrity.py
                  │
                  └─── Algorithm-Specific Tests ─┬─── test_pca_real_data.py
                                                 ├─── test_pca_robustness.py
