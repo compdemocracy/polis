@@ -283,7 +283,7 @@ export class CdkStack extends cdk.Stack {
 
     // S3 for DB backups
     const dbBackupBucket = new s3.Bucket(this, 'DBBackupBucket', {
-      bucketName: 'polis-db-backups',
+      // bucketName removed - CDK will auto-generate a unique name like 'cdkstack-dbbackupbucket-<hash>'
       encryption: s3.BucketEncryption.S3_MANAGED,
       blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
