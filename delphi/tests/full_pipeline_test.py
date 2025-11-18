@@ -59,7 +59,7 @@ def save_results(dataset_name: str, conversation: Conversation) -> None:
         cluster_info = {
             'id': cluster.get('id', i),
             'members_count': len(cluster.get('members', [])),
-            'center': cluster.get('center', [0, 0]).tolist()
+            'center': cluster.get('center', [0, 0])
         }
         result['clusters'].append(cluster_info)
     
