@@ -80,8 +80,6 @@ jobs:
           bash -c " \
             echo '--- Setting up DynamoDB Tables ---'; \
             python create_dynamodb_tables.py --region us-east-1; \
-            echo '--- Installing Pytest ---'; \
-            pip install pytest; \
             echo '--- Running Pytest ---'; \
             pytest /app/tests \
           "

@@ -321,17 +321,42 @@ You can create custom Makefile targets for specific scenarios:
 ```makefile
 # Fast dev build (reuse all caches)
 docker-build-dev:
-	DOCKER_BUILDKIT=1 docker build \
-		--target builder \
-		-t polis/delphi:dev .
+ DOCKER_BUILDKIT=1 docker build \
+  --target builder \
+  -t polis/delphi:dev .
 
 # Production build (optimized final image)
 docker-build-prod:
-	DOCKER_BUILDKIT=1 docker build \
-		--target final \
-		--no-cache \
-		-t polis/delphi:prod .
+ DOCKER_BUILDKIT=1 docker build \
+  --target final \
+  --no-cache \
+  -t polis/delphi:prod .
+
+# Test/CI build (includes dev dependencies and CPU-only torch)
+docker-build-test:
+ DOCKER_BUILDKIT=1 docker build \
+  --target test \
+  --build-arg USE_CPU_TORCH=true \
+  -t polis/delphi:test .
 ```
+
+## CI/CD Integration
+
+The `Dockerfile` includes a `test` stage specifically for CI/CD pipelines:
+
+1. **Base layers**: Can be optimized for CPU environments via `USE_CPU_TORCH=true`.
+2. **Test layer**: Installs additional dev dependencies from `pyproject.toml` (e.g., `pytest`).
+3. **Usage**:
+
+   ```yaml
+   services:
+     delphi:
+       build:
+         context: ./delphi
+         target: test
+         args:
+           USE_CPU_TORCH: "true"  # Saves ~800MB by using CPU-only PyTorch wheels
+   ```
 
 ## References
 
