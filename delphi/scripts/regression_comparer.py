@@ -5,15 +5,16 @@ Comparer CLI for comparing current Conversation outputs with golden snapshots.
 This is a thin wrapper around the ConversationComparer class from polismath.regression.
 """
 
+import logging
 import click
-from polismath.regression import ConversationComparer
-from tests.dataset_config import list_available_datasets
 
 
 @click.command()
 @click.argument('datasets', nargs=-1)
 @click.option('--benchmark', is_flag=True, help='Enable timing comparison')
-def main(datasets: tuple, benchmark: bool):
+@click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False),
+              default='INFO', help='Set logging level (default: INFO). Use DEBUG to save detailed comparison output.')
+def main(datasets: tuple, benchmark: bool, log_level: str):
     """
     Compare current implementation with golden snapshots.
 
@@ -24,7 +25,20 @@ def main(datasets: tuple, benchmark: bool):
         python comparer.py                    # Compare all datasets
         python comparer.py biodiversity       # Compare only biodiversity
         python comparer.py biodiversity vw    # Compare biodiversity and vw
+        python comparer.py --log-level DEBUG  # Compare with debug logging
     """
+    # Configure logging - must be done before imports to prevent conversation module
+    # from adding its own handler
+    logging.basicConfig(
+        level=getattr(logging, log_level.upper()),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        force=True  # Force reconfiguration if already configured
+    )
+
+    # Import after logging is configured to ensure conversation module uses root logger
+    from polismath.regression import ConversationComparer
+    from tests.dataset_config import list_available_datasets
+
     comparer = ConversationComparer()
 
     # If no datasets specified, use all available datasets

@@ -8,6 +8,7 @@ shared utility functions used by both operations.
 
 import json
 import hashlib
+import logging
 import time
 import numpy as np
 from pathlib import Path
@@ -23,6 +24,9 @@ sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
 from tests.dataset_config import get_dataset_files, list_available_datasets
 from polismath.conversation.conversation import Conversation
+
+# Set up logger
+logger = logging.getLogger(__name__)
 
 
 def compute_file_md5(filepath: str) -> str:
@@ -85,34 +89,39 @@ def compute_all_stages(dataset_name: str, votes_dict: Dict, fixed_timestamp: int
 
     stages["after_load_no_compute"] = conv.to_dict()
 
-    # DEBUG: Capture the matrix that goes into PCA
-    debug_info = {}
-    try:
-        # Get the clean matrix that PCA will use
-        if hasattr(conv, '_get_clean_matrix'):
-            clean_matrix = conv._get_clean_matrix()
-            # Save first 5x5 section of the matrix for debugging
-            if not clean_matrix.empty:
-                debug_info["pca_input_matrix_sample"] = {
-                    "shape": list(clean_matrix.shape),
-                    "rows_first_10": list(clean_matrix.index[:10]),
-                    "cols_first_10": list(clean_matrix.columns[:10]),
-                    "sample_5x5": clean_matrix.iloc[:5, :5].to_dict(),
-                    "dtype": str(clean_matrix.dtypes.iloc[0] if len(clean_matrix.dtypes) > 0 else "unknown")
-                }
-                # Check for NaN values
-                nan_info = {
-                    "total_cells": clean_matrix.size,
-                    "nan_count": clean_matrix.isna().sum().sum(),
-                    "nan_percentage": (clean_matrix.isna().sum().sum() / clean_matrix.size * 100) if clean_matrix.size > 0 else 0
-                }
-                debug_info["nan_info"] = nan_info
+    # DEBUG: Capture the matrix that goes into PCA (only when DEBUG logging is enabled)
+    if logger.isEnabledFor(logging.DEBUG):
+        debug_info = {}
+        try:
+            # Get the clean matrix that PCA will use
+            if hasattr(conv, '_get_clean_matrix'):
+                clean_matrix = conv._get_clean_matrix()
+                # Save first 5x5 section of the matrix for debugging
+                if not clean_matrix.empty:
+                    debug_info["pca_input_matrix_sample"] = {
+                        "shape": list(clean_matrix.shape),
+                        "rows_first_10": list(clean_matrix.index[:10]),
+                        "cols_first_10": list(clean_matrix.columns[:10]),
+                        "sample_5x5": clean_matrix.iloc[:5, :5].to_dict(),
+                        "dtype": str(clean_matrix.dtypes.iloc[0] if len(clean_matrix.dtypes) > 0 else "unknown")
+                    }
+                    # Check for NaN values
+                    nan_info = {
+                        "total_cells": clean_matrix.size,
+                        "nan_count": clean_matrix.isna().sum().sum(),
+                        "nan_percentage": (clean_matrix.isna().sum().sum() / clean_matrix.size * 100) if clean_matrix.size > 0 else 0
+                    }
+                    debug_info["nan_info"] = nan_info
 
-        # Save debug info to a separate file
-        with open(f"pca_debug_{dataset_name}.json", "w") as f:
-            json.dump(debug_info, f, indent=2, default=str)
-    except Exception as e:
-        print(f"Debug capture failed: {e}")
+            # Save debug info to .test_outputs/debug directory
+            debug_dir = Path(__file__).parent.parent / ".test_outputs" / "debug"
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            debug_path = debug_dir / f"pca_debug_{dataset_name}.json"
+            with open(debug_path, "w") as f:
+                json.dump(debug_info, f, indent=2, default=str)
+            logger.debug(f"Saved PCA debug info to {debug_path}")
+        except Exception as e:
+            logger.error(f"Debug capture failed: {e}")
 
     # Stage 3: After PCA computation only
     start_time = time.perf_counter()
@@ -185,14 +194,14 @@ def compute_all_stages_with_benchmark(
     all_timings = []
     stages = None
 
-    print(f"  Running {n_runs} iterations for benchmarking...")
+    logger.info(f"Running {n_runs} iterations for benchmarking...")
     for i in range(n_runs):
         result = compute_all_stages(dataset_name, votes_dict, fixed_timestamp)
         if stages is None or i == n_runs - 1:
             # Keep the last run's stages
             stages = result["stages"]
         all_timings.append(result["timings"])
-        print(f"    Iteration {i+1}/{n_runs} complete")
+        logger.debug(f"Iteration {i+1}/{n_runs} complete")
 
     # Aggregate timing statistics across all runs
     timing_stats = {}
@@ -342,11 +351,11 @@ class ConversationRecorder:
         golden, golden_path = load_golden_snapshot(dataset_name)
 
         if golden is not None and not force:
-            print(f"Golden snapshot already exists for {dataset_name}.")
-            print(f"Use force=True to overwrite.")
+            logger.warning(f"Golden snapshot already exists for {dataset_name}.")
+            logger.warning(f"Use force=True to overwrite.")
             return golden_path
 
-        print(f"Recording golden snapshot for {dataset_name}...")
+        logger.info(f"Recording golden snapshot for {dataset_name}...")
 
         # Prepare votes data and metadata using shared function
         votes_dict, metadata = prepare_votes_data(dataset_name)
@@ -361,29 +370,29 @@ class ConversationRecorder:
 
         # Compute all stages using shared function
         if benchmark:
-            print("  Computing all stages with benchmarking...")
+            logger.info("Computing all stages with benchmarking...")
             results = compute_all_stages_with_benchmark(
                 dataset_name, votes_dict, metadata["fixed_timestamp"]
             )
             snapshot["stages"] = results["stages"]
             snapshot["timing_stats"] = results["timing_stats"]
         else:
-            print("  Computing all stages...")
+            logger.info("Computing all stages...")
             results = compute_all_stages(dataset_name, votes_dict, metadata["fixed_timestamp"])
             snapshot["stages"] = results["stages"]
 
         # Save golden snapshot using shared function
-        print(f"  Saving golden snapshot to {golden_path}")
+        logger.info(f"Saving golden snapshot to {golden_path}")
         save_golden_snapshot(snapshot, golden_path)
 
         # Print summary
-        print(f"Successfully recorded golden snapshot for {dataset_name}")
-        print(f"  - Votes: {metadata['n_votes_in_csv']}")
-        print(f"  - Comments: {metadata['n_comments_in_csv']}")
-        print(f"  - Participants: {metadata['n_participants_in_csv']}")
-        print(f"  - Stages captured: {len(snapshot['stages'])}")
+        logger.info(f"Successfully recorded golden snapshot for {dataset_name}")
+        logger.info(f"  - Votes: {metadata['n_votes_in_csv']}")
+        logger.info(f"  - Comments: {metadata['n_comments_in_csv']}")
+        logger.info(f"  - Participants: {metadata['n_participants_in_csv']}")
+        logger.info(f"  - Stages captured: {len(snapshot['stages'])}")
         if benchmark:
-            print(f"  - Timing enabled: Yes")
+            logger.info(f"  - Timing enabled: Yes")
 
         return golden_path
 
@@ -426,12 +435,12 @@ class ConversationComparer:
                 "error": str(e),
                 "dataset": dataset_name
             }
-            # Print error report
-            print("\n" + "=" * 60)
-            print("REGRESSION TEST REPORT")
-            print("=" * 60)
-            print(f"ERROR: {error_result['error']}")
-            print("=" * 60)
+            # Log error report
+            logger.error("=" * 60)
+            logger.error("REGRESSION TEST REPORT")
+            logger.error("=" * 60)
+            logger.error(f"ERROR: {error_result['error']}")
+            logger.error("=" * 60)
             return error_result
 
         if golden is None:
@@ -439,18 +448,18 @@ class ConversationComparer:
                 "error": f"No golden snapshot found for {dataset_name}. Run recorder first.",
                 "golden_path": str(golden_path)
             }
-            # Print error report
-            print("\n" + "=" * 60)
-            print("REGRESSION TEST REPORT")
-            print("=" * 60)
-            print(f"ERROR: {error_result['error']}")
+            # Log error report
+            logger.error("=" * 60)
+            logger.error("REGRESSION TEST REPORT")
+            logger.error("=" * 60)
+            logger.error(f"ERROR: {error_result['error']}")
             for key, value in error_result.items():
                 if key != 'error':
-                    print(f"  {key}: {value}")
-            print("=" * 60)
+                    logger.error(f"  {key}: {value}")
+            logger.error("=" * 60)
             return error_result
 
-        print(f"Comparing {dataset_name} with golden snapshot...")
+        logger.info(f"Comparing {dataset_name} with golden snapshot...")
 
         # Prepare votes data using shared function
         votes_dict, metadata = prepare_votes_data(dataset_name)
@@ -478,14 +487,14 @@ class ConversationComparer:
 
         # Compute all stages using shared function
         if benchmark:
-            print("  Computing all stages with benchmarking...")
+            logger.info("Computing all stages with benchmarking...")
             current_results = compute_all_stages_with_benchmark(
                 dataset_name, votes_dict, metadata["fixed_timestamp"]
             )
             current_stages = current_results["stages"]
             current_timing_stats = current_results["timing_stats"]
         else:
-            print("  Computing all stages...")
+            logger.info("Computing all stages...")
             current_results = compute_all_stages(dataset_name, votes_dict, metadata["fixed_timestamp"])
             current_stages = current_results["stages"]
             current_timing_stats = {}
@@ -633,64 +642,64 @@ class ConversationComparer:
         symlink_path.symlink_to(json_filename)
         results["latest_symlink_path"] = str(symlink_path)
 
-        # Print overall status
+        # Log overall status
         if results["overall_match"]:
-            print(f"✅ {dataset_name}: All stages match!")
+            logger.info(f"✅ {dataset_name}: All stages match!")
         else:
-            print(f"❌ {dataset_name}: Some stages failed!")
+            logger.warning(f"❌ {dataset_name}: Some stages failed!")
             if diff_log_path:
-                print(f"   Detailed differences written to: {diff_log_path}")
+                logger.info(f"Detailed differences written to: {diff_log_path}")
 
         # Always inform about JSON output
-        print(f"   Computation output saved to: {json_path}")
-        print(f"   Latest output symlink: {symlink_path}")
+        logger.debug(f"Computation output saved to: {json_path}")
+        logger.debug(f"Latest output symlink: {symlink_path}")
 
-        # Print detailed report
-        print("\n" + "=" * 60)
-        print("REGRESSION TEST REPORT")
-        print("=" * 60)
-        print(f"Dataset: {results['dataset']}")
-        print(f"Overall Result: {'✅ PASS' if results['overall_match'] else '❌ FAIL'}")
-        print("")
+        # Log detailed report
+        logger.info("=" * 60)
+        logger.info("REGRESSION TEST REPORT")
+        logger.info("=" * 60)
+        logger.info(f"Dataset: {results['dataset']}")
+        logger.info(f"Overall Result: {'✅ PASS' if results['overall_match'] else '❌ FAIL'}")
+        logger.info("")
 
         if "metadata" in results:
-            print("Metadata:")
+            logger.info("Metadata:")
             for key, value in results["metadata"].items():
-                print(f"  {key}: {value}")
-            print("")
+                logger.info(f"  {key}: {value}")
+            logger.info("")
 
-        # Print numerical comparison section
-        print("Numerical comparison:")
-        print(f"  (Tolerances: abs={self.abs_tol:.0e}, rel={self.rel_tol:.1%})")
+        # Log numerical comparison section
+        logger.info("Numerical comparison:")
+        logger.info(f"  (Tolerances: abs={self.abs_tol:.0e}, rel={self.rel_tol:.1%})")
         for stage_name, result, perf_str in comparison_results:
             if perf_str:
-                print(f"  {result:12} {stage_name:25} {perf_str}")
+                logger.info(f"  {result:12} {stage_name:25} {perf_str}")
             else:
-                print(f"  {result:12} {stage_name}")
-        print("")
+                logger.info(f"  {result:12} {stage_name}")
+        logger.info("")
 
-        # Print differences summary if there are any
+        # Log differences summary if there are any
         if self.all_differences:
-            print("Differences found:")
-            print(f"  Total differences: {len(self.all_differences)}")
-            print(f"  First {min(10, len(self.all_differences))} differences:")
+            logger.warning("Differences found:")
+            logger.warning(f"  Total differences: {len(self.all_differences)}")
+            logger.warning(f"  First {min(10, len(self.all_differences))} differences:")
             for i, diff in enumerate(self.all_differences[:10]):
-                print(f"    {i+1}. Stage: {diff['stage_name']}")
-                print(f"       Path: {diff['path']}")
-                print(f"       Reason: {diff['reason']}")
+                logger.warning(f"    {i+1}. Stage: {diff['stage_name']}")
+                logger.warning(f"       Path: {diff['path']}")
+                logger.warning(f"       Reason: {diff['reason']}")
                 if 'golden_value' in diff and 'current_value' in diff:
-                    print(f"       Golden: {diff['golden_value']}")
-                    print(f"       Current: {diff['current_value']}")
+                    logger.warning(f"       Golden: {diff['golden_value']}")
+                    logger.warning(f"       Current: {diff['current_value']}")
             if len(self.all_differences) > 10:
-                print(f"  ... and {len(self.all_differences) - 10} more differences (see log file for details)")
+                logger.warning(f"  ... and {len(self.all_differences) - 10} more differences (see log file for details)")
             if diff_log_path:
-                print(f"  Full details: {diff_log_path}")
-            print("")
+                logger.info(f"  Full details: {diff_log_path}")
+            logger.info("")
 
         # Only print speed comparison if benchmarking is enabled
         if benchmark:
-            print("Speed comparison:")
-            print(f"  {'Status':3} {'Stage':25} {'Current (mean ± std)':21} {'Golden (mean ± std)':23} {'Performance':15}")
+            logger.info("Speed comparison:")
+            logger.info(f"  {'Status':3} {'Stage':25} {'Current (mean ± std)':21} {'Golden (mean ± std)':23} {'Performance':15}")
 
             # Find the longest stage name for alignment
             max_stage_len = max(len(name) for name in results.get("stages_compared", {}).keys()) if results.get("stages_compared") else 0
@@ -704,9 +713,9 @@ class ConversationComparer:
 
                 if not stage_result["match"]:
                     # Failed stage - show detailed error
-                    print(f"  {status} {stage_name}")
-                    print(f"      Path: {stage_result.get('path', 'unknown')}")
-                    print(f"      Reason: {stage_result.get('reason', 'unknown')}")
+                    logger.info(f"  {status} {stage_name}")
+                    logger.info(f"      Path: {stage_result.get('path', 'unknown')}")
+                    logger.info(f"      Reason: {stage_result.get('reason', 'unknown')}")
                 elif timing_info:
                     # Passed stage with timing - show compact format with alignment
                     current_mean = timing_info.get("current_mean")
@@ -749,12 +758,12 @@ class ConversationComparer:
                     else:
                         result_str += f" │ {performance}"
 
-                    print(f"  {result_str}")
+                    logger.info(f"  {result_str}")
                 else:
                     # Passed stage without timing (shouldn't happen when benchmark=True)
-                    print(f"  {status} {stage_name}")
+                    logger.info(f"  {status} {stage_name}")
 
-        print("=" * 60)
+        logger.info("=" * 60)
 
         return results
 

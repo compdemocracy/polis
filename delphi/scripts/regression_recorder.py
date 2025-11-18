@@ -5,16 +5,17 @@ Recorder CLI for capturing golden snapshots of Conversation computation outputs.
 This is a thin wrapper around the ConversationRecorder class from polismath.regression.
 """
 
+import logging
 import click
-from polismath.regression import ConversationRecorder
-from tests.dataset_config import list_available_datasets
 
 
 @click.command()
 @click.argument('datasets', nargs=-1)
 @click.option('--force', is_flag=True, default=False, help='Force overwrite existing golden snapshot')
 @click.option('--benchmark/--no-benchmark', default=True, help='Enable/disable timing measurements (default: enabled)')
-def main(datasets: tuple, force: bool, benchmark: bool):
+@click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False),
+              default='INFO', help='Set logging level (default: INFO). Use DEBUG to save PCA debug output.')
+def main(datasets: tuple, force: bool, benchmark: bool, log_level: str):
     """
     Record golden snapshots for datasets.
 
@@ -25,7 +26,20 @@ def main(datasets: tuple, force: bool, benchmark: bool):
         python recorder.py                    # Record all datasets
         python recorder.py biodiversity       # Record only biodiversity
         python recorder.py biodiversity vw    # Record biodiversity and vw
+        python recorder.py --log-level DEBUG  # Record with debug logging
     """
+    # Configure logging - must be done before imports to prevent conversation module
+    # from adding its own handler
+    logging.basicConfig(
+        level=getattr(logging, log_level.upper()),
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        force=True  # Force reconfiguration if already configured
+    )
+
+    # Import after logging is configured to ensure conversation module uses root logger
+    from polismath.regression import ConversationRecorder
+    from tests.dataset_config import list_available_datasets
+
     recorder = ConversationRecorder()
 
     # If no datasets specified, use all available datasets

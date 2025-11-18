@@ -25,15 +25,14 @@ from polismath.utils.general import agree, disagree, pass_vote
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Set up better logging if not already configured
-if not logger.handlers:
+# Set up default logging only if root logger is not configured
+# This prevents duplicate handlers when logging is configured externally
+if not logging.root.handlers:
     handler = logging.StreamHandler(sys.stdout)
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
     handler.setFormatter(formatter)
     logger.addHandler(handler)
-    # Do not override existing log level if already set
-    if logger.level == logging.NOTSET:
-        logger.setLevel(logging.INFO)
+    logger.setLevel(logging.INFO)
 
 
 class Conversation:
