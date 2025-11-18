@@ -152,13 +152,12 @@ def get_dataset_files(dataset_name: str) -> Dict[str, Path]:
 
     Returns:
         Dictionary with keys:
-            - 'votes_csv': Path to votes CSV file
-            - 'comments_csv': Path to comments CSV file
-            - 'summary_csv': Path to summary CSV file
+            - 'votes': Path to votes CSV file
+            - 'comments': Path to comments CSV file
+            - 'summary': Path to summary CSV file
             - 'math_blob': Path to math blob JSON file
             - 'data_dir': Path to the dataset directory
             - 'report_id': The report ID for this dataset
-            - 'golden_path': Path to the golden snapshot file
 
     Raises:
         ValueError: If dataset_name is not recognized
@@ -166,8 +165,8 @@ def get_dataset_files(dataset_name: str) -> Dict[str, Path]:
 
     Examples:
         >>> files = get_dataset_files('biodiversity')
-        >>> print(files['votes_csv'])
-        Path('/path/to/real_data/r4tykwac8thvzv35jrn53-biodiversity/2025-11-07-1035-r4tykwac8thvzv35jrn53-votes.csv')
+        >>> print(files['votes'])
+        '/path/to/real_data/r4tykwac8thvzv35jrn53-biodiversity/2025-11-07-1035-r4tykwac8thvzv35jrn53-votes.csv'
     """
     if dataset_name not in DATASETS:
         available = ', '.join(DATASETS.keys())
@@ -182,12 +181,11 @@ def get_dataset_files(dataset_name: str) -> Dict[str, Path]:
     # Find all required files
     files = {
         'report_id': report_id,
-        'data_dir': data_dir,
-        'votes_csv': Path(find_dataset_file(report_id, 'votes.csv', dataset_name)),
-        'comments_csv': Path(find_dataset_file(report_id, 'comments.csv', dataset_name)),
-        'summary_csv': Path(find_dataset_file(report_id, 'summary.csv', dataset_name)),
-        'math_blob': Path(find_dataset_file(report_id, 'math_blob.json', dataset_name)),
-        'golden_path': data_dir / 'golden_snapshot.json',
+        'data_dir': str(data_dir),
+        'votes': find_dataset_file(report_id, 'votes.csv', dataset_name),
+        'comments': find_dataset_file(report_id, 'comments.csv', dataset_name),
+        'summary': find_dataset_file(report_id, 'summary.csv', dataset_name),
+        'math_blob': find_dataset_file(report_id, 'math_blob.json', dataset_name),
     }
 
     return files

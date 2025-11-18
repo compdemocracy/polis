@@ -41,152 +41,173 @@ def compute_file_md5(filepath: str) -> str:
 
 def compute_all_stages(dataset_name: str, votes_dict: Dict, fixed_timestamp: int) -> Dict[str, Dict[str, Any]]:
     """
-    Compute all stages of Conversation processing.
+    Compute all conversation stages with timing information.
 
-    Returns a dictionary containing:
-    - 'stages': Dictionary of stage snapshots
+    This function performs all the computation steps and records timing
+    for each stage. Both the recorder and comparer call this function
+    to ensure they're measuring exactly the same operations.
+
+    Args:
+        dataset_name: Name of the dataset
+        votes_dict: Dictionary containing votes data with format:
+                   {'votes': [...], 'lastVoteTimestamp': timestamp}
+        fixed_timestamp: Fixed timestamp for reproducibility
+
+    Returns:
+        Dictionary with two keys:
+        - 'stages': Dict mapping stage names to their serialized output
+        - 'timings': Dict mapping stage names to execution time in seconds
     """
-    # Initialize conversation with fixed timestamp
-    conv = Conversation(
-        dataset_name=dataset_name,
-        base_path="real_data",
-        fixed_timestamp=fixed_timestamp
-    )
-
-    # Initialize stages dictionary
     stages = {}
+    timings = {}
 
-    # Stage 1: Initial state (empty)
-    stages["initial"] = conv.to_dict()
+    # Stage 1: Empty conversation (with fixed timestamp)
+    start_time = time.perf_counter()
+    conv_empty = Conversation(dataset_name, last_updated=fixed_timestamp)
+    timings["empty"] = time.perf_counter() - start_time
+    stages["empty"] = conv_empty.to_dict()
 
-    # Stage 2: After votes (process votes)
-    conv.process_votes(votes_dict)
-    stages["after_votes"] = conv.to_dict()
+    # Stage 2: After loading votes (no recompute)
+    conv = Conversation(dataset_name, last_updated=fixed_timestamp)
+    start_time = time.perf_counter()
+    conv = conv.update_votes(votes_dict, recompute=False)
+    timings["after_load_no_compute"] = time.perf_counter() - start_time
 
-    # Stage 3: After PCA
-    conv.compute_pca()
-    stages["after_pca"] = conv.to_dict()
+    # Validation: Ensure votes were actually loaded
+    if conv.participant_count == 0 or conv.comment_count == 0:
+        raise ValueError(
+            f"Failed to load votes! participant_count={conv.participant_count}, "
+            f"comment_count={conv.comment_count}"
+        )
 
-    # Stage 4: After clustering
-    conv.compute_clustering()
-    stages["after_clustering"] = conv.to_dict()
+    stages["after_load_no_compute"] = conv.to_dict()
 
-    # Stage 5: After processing votes again to see that new user assignments work
-    conv.process_votes(votes_dict)
-    stages["after_reprocess"] = conv.to_dict()
-
-    # Stage 6: After computing participant information (representative comments, etc.)
-    conv.compute_participant_info()
-    stages["after_participant_info"] = conv.to_dict()
-
-    # Capture PCA debug output if DEBUG logging is enabled
+    # DEBUG: Capture the matrix that goes into PCA (only when DEBUG logging is enabled)
     if logger.isEnabledFor(logging.DEBUG):
         debug_info = {}
+        try:
+            # Get the clean matrix that PCA will use
+            if hasattr(conv, '_get_clean_matrix'):
+                clean_matrix = conv._get_clean_matrix()
+                # Save first 5x5 section of the matrix for debugging
+                if not clean_matrix.empty:
+                    debug_info["pca_input_matrix_sample"] = {
+                        "shape": list(clean_matrix.shape),
+                        "rows_first_10": list(clean_matrix.index[:10]),
+                        "cols_first_10": list(clean_matrix.columns[:10]),
+                        "sample_5x5": clean_matrix.iloc[:5, :5].to_dict(),
+                        "dtype": str(clean_matrix.dtypes.iloc[0] if len(clean_matrix.dtypes) > 0 else "unknown")
+                    }
+                    # Check for NaN values
+                    nan_info = {
+                        "total_cells": clean_matrix.size,
+                        "nan_count": clean_matrix.isna().sum().sum(),
+                        "nan_percentage": (clean_matrix.isna().sum().sum() / clean_matrix.size * 100) if clean_matrix.size > 0 else 0
+                    }
+                    debug_info["nan_info"] = nan_info
 
-        # Basic debug info
-        if hasattr(conv, 'df'):
-            debug_info['df_shape'] = conv.df.shape if conv.df is not None else None
-        if hasattr(conv, 'pca'):
-            debug_info['pca_components'] = conv.pca.n_components if conv.pca else None
+            # Save debug info to .test_outputs/debug directory
+            debug_dir = Path(__file__).parent.parent / ".test_outputs" / "debug"
+            debug_dir.mkdir(parents=True, exist_ok=True)
+            debug_path = debug_dir / f"pca_debug_{dataset_name}.json"
+            with open(debug_path, "w") as f:
+                json.dump(debug_info, f, indent=2, default=str)
+            logger.debug(f"Saved PCA debug info to {debug_path}")
+        except Exception as e:
+            logger.error(f"Debug capture failed: {e}")
 
-        # Additional PCA info
-        if hasattr(conv, 'pca_df') and conv.pca_df is not None:
-            debug_info['pca_df_shape'] = conv.pca_df.shape
-            debug_info['pca_df_columns'] = list(conv.pca_df.columns)
+    # Stage 3: After PCA computation only
+    start_time = time.perf_counter()
+    conv._compute_pca()
+    timings["after_pca"] = time.perf_counter() - start_time
+    stages["after_pca"] = conv.to_dict()
 
-        if hasattr(conv, 'pca') and conv.pca is not None:
-            debug_info['explained_variance_ratio'] = conv.pca.explained_variance_ratio_.tolist() if hasattr(conv.pca, 'explained_variance_ratio_') else None
-            debug_info['singular_values'] = conv.pca.singular_values_.tolist() if hasattr(conv.pca, 'singular_values_') else None
+    # Stage 4: After PCA + clustering
+    start_time = time.perf_counter()
+    conv._compute_pca()
+    conv._compute_clusters()
+    timings["after_clustering"] = time.perf_counter() - start_time
+    stages["after_clustering"] = conv.to_dict()
 
-        # Save debug info to file
-        debug_dir = Path(__file__).parent.parent.parent / ".test_outputs" / "debug"
-        debug_dir.mkdir(parents=True, exist_ok=True)
-        debug_path = debug_dir / f"pca_debug_{dataset_name}.json"
+    # Stage 5: Full recompute (includes repness and participant_info)
+    conv_full = Conversation(dataset_name, last_updated=fixed_timestamp)
+    start_time = time.perf_counter()
+    conv_full = conv_full.update_votes(votes_dict, recompute=True)
+    timings["after_full_recompute"] = time.perf_counter() - start_time
 
-        with open(debug_path, 'w') as f:
-            json.dump(debug_info, f, indent=2)
+    # Validation: Ensure full computation was performed
+    if conv_full.participant_count == 0 or len(conv_full.group_clusters) == 0:
+        raise ValueError(
+            f"Failed to compute! participant_count={conv_full.participant_count}, "
+            f"n_clusters={len(conv_full.group_clusters)}"
+        )
 
-        logger.debug(f"Saved PCA debug info to {debug_path}")
+    stages["after_full_recompute"] = conv_full.to_dict()
 
-    # Stage 7: Full report data
-    stages["full_data"] = conv.get_full_data()
+    # Stage 6: Also capture get_full_data() output if available
+    if hasattr(conv_full, 'get_full_data'):
+        start_time = time.perf_counter()
+        full_data = conv_full.get_full_data()
+        timings["full_data_export"] = time.perf_counter() - start_time
+        stages["full_data_export"] = full_data
 
-    return {"stages": stages}
+    return {
+        "stages": stages,
+        "timings": timings
+    }
 
 
 def compute_all_stages_with_benchmark(
     dataset_name: str,
     votes_dict: Dict,
     fixed_timestamp: int,
-    n_iterations: int = 3
+    n_runs: int = 3
 ) -> Dict[str, Any]:
     """
-    Compute all stages with benchmarking (multiple iterations for timing).
+    Compute all conversation stages multiple times and collect timing statistics.
 
-    Returns a dictionary containing:
-    - 'stages': Dictionary of stage snapshots (from first iteration)
-    - 'timing_stats': Dictionary of timing statistics for each stage
+    This function runs the full computation pipeline multiple times to get
+    statistically meaningful timing measurements including mean, standard
+    deviation, and raw timing values for statistical testing.
+
+    Args:
+        dataset_name: Name of the dataset
+        votes_dict: Dictionary containing votes data
+        fixed_timestamp: Fixed timestamp for reproducibility
+        n_runs: Number of times to run the computation (default: 3)
+
+    Returns:
+        Dictionary with:
+        - 'stages': Dict mapping stage names to their serialized output (from last run)
+        - 'timing_stats': Dict mapping stage names to timing statistics:
+            * 'mean': Average execution time across runs
+            * 'std': Standard deviation of execution times
+            * 'raw': List of raw timing values for each run
     """
-    # First iteration for recording data
-    logger.info("Recording golden snapshot data...")
-    first_result = compute_all_stages(dataset_name, votes_dict, fixed_timestamp)
+    all_timings = []
+    stages = None
 
-    # Multiple iterations for timing
-    logger.info(f"Running {n_iterations} iterations for timing...")
-    timings = {stage: [] for stage in ["votes", "pca", "clustering", "reprocess", "participant_info", "full_data", "total"]}
+    logger.info(f"Running {n_runs} iterations for benchmarking...")
+    for i in range(n_runs):
+        result = compute_all_stages(dataset_name, votes_dict, fixed_timestamp)
+        if stages is None or i == n_runs - 1:
+            # Keep the last run's stages
+            stages = result["stages"]
+        all_timings.append(result["timings"])
+        logger.debug(f"Iteration {i+1}/{n_runs} complete")
 
-    for i in range(n_iterations):
-        start_total = time.perf_counter()
-
-        # Initialize fresh conversation for each iteration
-        conv = Conversation(
-            dataset_name=dataset_name,
-            base_path="real_data",
-            fixed_timestamp=fixed_timestamp
-        )
-
-        # Time each stage
-        start = time.perf_counter()
-        conv.process_votes(votes_dict)
-        timings["votes"].append(time.perf_counter() - start)
-
-        start = time.perf_counter()
-        conv.compute_pca()
-        timings["pca"].append(time.perf_counter() - start)
-
-        start = time.perf_counter()
-        conv.compute_clustering()
-        timings["clustering"].append(time.perf_counter() - start)
-
-        start = time.perf_counter()
-        conv.process_votes(votes_dict)
-        timings["reprocess"].append(time.perf_counter() - start)
-
-        start = time.perf_counter()
-        conv.compute_participant_info()
-        timings["participant_info"].append(time.perf_counter() - start)
-
-        start = time.perf_counter()
-        _ = conv.get_full_data()
-        timings["full_data"].append(time.perf_counter() - start)
-
-        timings["total"].append(time.perf_counter() - start_total)
-
-        logger.debug(f"Iteration {i+1}/{n_iterations} complete")
-
-    # Compute statistics
+    # Aggregate timing statistics across all runs
     timing_stats = {}
-    for stage, times in timings.items():
-        timing_stats[stage] = {
+    for stage_name in all_timings[0].keys():
+        times = [run[stage_name] for run in all_timings]
+        timing_stats[stage_name] = {
             "mean": float(np.mean(times)),
-            "std": float(np.std(times)),
-            "min": float(np.min(times)),
-            "max": float(np.max(times)),
-            "iterations": n_iterations
+            "std": float(np.std(times, ddof=1)),  # Sample standard deviation
+            "raw": times
         }
 
     return {
-        "stages": first_result["stages"],
+        "stages": stages,
         "timing_stats": timing_stats
     }
 
@@ -195,60 +216,64 @@ def prepare_votes_data(dataset_name: str) -> Tuple[Dict, Dict[str, Any]]:
     """
     Prepare votes data for a dataset.
 
+    Reads CSV files in the new export format (voter-id, comment-id, vote, timestamp)
+    and converts them to the format expected by Conversation.update_votes().
+
     Returns:
         Tuple of (votes_dict, metadata)
     """
     # Import here to avoid circular dependency
     from polismath.regression.datasets import get_dataset_files
 
-    # Get file paths for dataset
-    file_info = get_dataset_files(dataset_name)
-    votes_csv = file_info["votes_csv"]
-    comments_csv = file_info.get("comments_csv")
+    # Get dataset files
+    dataset_files = get_dataset_files(dataset_name)
+    votes_csv = Path(dataset_files['votes'])
+    comments_csv = Path(dataset_files['comments']) if dataset_files.get('comments') else None
 
-    if not votes_csv.exists():
-        raise FileNotFoundError(f"Votes file not found: {votes_csv}")
+    # Compute MD5 checksums of source data files
+    votes_md5 = compute_file_md5(str(votes_csv))
+    comments_md5 = compute_file_md5(str(comments_csv)) if comments_csv else None
 
-    # Load votes
+    # Count rows in CSV files for metadata
     votes_df = pd.read_csv(votes_csv)
-
-    # Count statistics from CSV
     n_votes = len(votes_df)
-    n_participants = votes_df['participant'].nunique() if 'participant' in votes_df else 0
-    n_comments = votes_df['comment'].nunique() if 'comment' in votes_df else 0
+    n_participants = votes_df['voter-id'].nunique()
 
-    # If comments CSV exists, use it for comment count
+    # Count comments
     if comments_csv and comments_csv.exists():
         comments_df = pd.read_csv(comments_csv)
         n_comments = len(comments_df)
+    else:
+        n_comments = votes_df['comment-id'].nunique()
 
-    # Create metadata
-    metadata = {
-        "dataset_name": dataset_name,
-        "votes_csv": str(votes_csv),
-        "comments_csv": str(comments_csv) if comments_csv else None,
-        "n_votes_in_csv": n_votes,
-        "n_participants_in_csv": n_participants,
-        "n_comments_in_csv": n_comments,
-        "votes_csv_md5": compute_file_md5(str(votes_csv)),
-        "comments_csv_md5": compute_file_md5(str(comments_csv)) if comments_csv else None,
-        "fixed_timestamp": 1234567890
-    }
+    # Use a fixed timestamp for reproducibility in testing
+    fixed_timestamp = 1700000000000  # Fixed timestamp in milliseconds
 
-    # Prepare votes dict
-    votes = []
+    # Convert votes DataFrame to the format expected by update_votes
+    # Expected format: {'pid': voter_id, 'tid': comment_id, 'vote': vote_value, 'created': timestamp}
+    votes_list = []
     for _, row in votes_df.iterrows():
-        vote = {
-            'participant': int(row['participant']),
-            'comment': int(row['comment']),
-            'vote': int(row['vote']),
-            'created': int(row['created']) if 'created' in row else metadata["fixed_timestamp"]
-        }
-        votes.append(vote)
+        votes_list.append({
+            'pid': row['voter-id'],
+            'tid': row['comment-id'],
+            'vote': row['vote'],
+            'created': int(row['timestamp']) if 'timestamp' in votes_df.columns else fixed_timestamp
+        })
 
     votes_dict = {
-        "votes": votes,
-        "lastVoteTimestamp": max(v['created'] for v in votes) if votes else metadata["fixed_timestamp"]
+        'votes': votes_list,
+        'lastVoteTimestamp': fixed_timestamp
+    }
+
+    metadata = {
+        "dataset_name": dataset_name,
+        "report_id": dataset_files['report_id'],
+        "votes_csv_md5": votes_md5,
+        "comments_csv_md5": comments_md5,
+        "n_votes_in_csv": n_votes,
+        "n_comments_in_csv": n_comments,
+        "n_participants_in_csv": n_participants,
+        "fixed_timestamp": fixed_timestamp
     }
 
     return votes_dict, metadata
@@ -256,31 +281,37 @@ def prepare_votes_data(dataset_name: str) -> Tuple[Dict, Dict[str, Any]]:
 
 def load_golden_snapshot(dataset_name: str, golden_dir: Optional[Path] = None) -> Tuple[Optional[Dict], Optional[Path]]:
     """
-    Load golden snapshot for a dataset.
+    Load a golden snapshot from disk.
 
     Args:
         dataset_name: Name of the dataset
-        golden_dir: Optional directory to look for golden snapshot
+        golden_dir: Directory containing golden snapshots (default: ./golden)
 
     Returns:
-        Tuple of (snapshot_dict, golden_path)
-        Returns (None, golden_path) if snapshot doesn't exist
+        Tuple of (golden_snapshot_dict, golden_path) or (None, path) if not found
     """
-    # Import here to avoid circular dependency
-    from polismath.regression.datasets import get_dataset_files
+    if golden_dir is None:
+        # Check if dataset is configured
+        from polismath.regression.datasets import get_dataset_files, list_available_datasets
 
-    # Get the golden path from dataset config
-    file_info = get_dataset_files(dataset_name)
-    golden_path = file_info.get("golden_path")
+        available_datasets = list_available_datasets()
+        if dataset_name not in available_datasets:
+            raise ValueError(f"Unknown dataset: {dataset_name}. Available datasets: {', '.join(available_datasets.keys())}")
 
-    if golden_path is None:
-        raise ValueError(f"No golden path configured for dataset: {dataset_name}")
+        # Get the dataset directory from dataset_config
+        dataset_files = get_dataset_files(dataset_name)
+        dataset_dir = Path(dataset_files['data_dir'])
+        golden_dir = dataset_dir
 
-    if golden_path.exists():
-        with open(golden_path, 'r') as f:
-            return json.load(f), golden_path
+    golden_path = golden_dir / "golden_snapshot.json"
 
-    return None, golden_path
+    if not golden_path.exists():
+        return None, golden_path
+
+    with open(golden_path, 'r') as f:
+        golden = json.load(f)
+
+    return golden, golden_path
 
 
 def save_golden_snapshot(snapshot: Dict, golden_path: Path) -> None:
@@ -294,5 +325,17 @@ def save_golden_snapshot(snapshot: Dict, golden_path: Path) -> None:
     # Ensure parent directory exists
     golden_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Custom JSON encoder that converts numpy types to Python native types
+    def convert_numpy_types(obj):
+        """Convert numpy types to Python native types for JSON serialization."""
+        import numpy as np
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
     with open(golden_path, 'w') as f:
-        json.dump(snapshot, f, indent=2)
+        json.dump(snapshot, f, indent=2, default=convert_numpy_types)

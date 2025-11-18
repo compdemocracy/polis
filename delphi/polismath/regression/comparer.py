@@ -430,8 +430,15 @@ class ConversationComparer:
 
         # Handle different types
         if type(golden).__name__ != type(current).__name__:
-            # Special case: int vs float comparison for numeric values
-            if isinstance(golden, (int, float)) and isinstance(current, (int, float)):
+            # Special case: numeric types (int, float, numpy types) should be comparable
+            # This handles the case where golden snapshot has Python int/float but current has numpy int64/float64
+            import numpy as np
+
+            def is_numeric(val):
+                """Check if value is any numeric type (Python or numpy)"""
+                return isinstance(val, (int, float, np.integer, np.floating))
+
+            if is_numeric(golden) and is_numeric(current):
                 # Continue to numeric comparison below
                 pass
             else:
@@ -524,8 +531,9 @@ class ConversationComparer:
 
             return {"match": overall_match, "path": path}
 
-        # Handle numeric values
-        if isinstance(golden, (int, float)):
+        # Handle numeric values (including numpy types)
+        import numpy as np
+        if isinstance(golden, (int, float, np.integer, np.floating)):
             # Convert both to float for comparison
             golden_float = float(golden)
             current_float = float(current)

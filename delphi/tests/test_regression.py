@@ -17,7 +17,7 @@ from polismath.regression.utils import load_golden_snapshot
 AVAILABLE_DATASETS = list(list_available_datasets().keys())
 
 # Optionally, modify the line below to limit to specific, fast datasets
-TEST_DATASETS = AVAILABLE_DATASETS # e.g., ['biodiversity', 'vw']
+TEST_DATASETS = AVAILABLE_DATASETS # e.g., ['vw']
 if not set(TEST_DATASETS).issubset(set(AVAILABLE_DATASETS)):
     missing = set(TEST_DATASETS) - set(AVAILABLE_DATASETS)
     raise ValueError(f"Test datasets not found in available datasets: {missing}")
