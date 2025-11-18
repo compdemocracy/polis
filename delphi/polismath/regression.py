@@ -21,7 +21,7 @@ from scipy import stats
 # Add parent directory to path to import polismath modules
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
 
-from tests.dataset_config import get_dataset_files
+from tests.dataset_config import get_dataset_files, list_available_datasets
 from polismath.conversation.conversation import Conversation
 
 
@@ -286,9 +286,17 @@ def load_golden_snapshot(dataset_name: str, golden_dir: Optional[Path] = None) -
         Tuple of (golden_snapshot_dict, golden_path) or (None, path) if not found
     """
     if golden_dir is None:
-        golden_dir = Path(__file__).parent / "golden"
+        # Check if dataset is configured
+        available_datasets = list_available_datasets()
+        if dataset_name not in available_datasets:
+            raise ValueError(f"Unknown dataset: {dataset_name}. Available datasets: {', '.join(available_datasets.keys())}")
 
-    golden_path = golden_dir / f"{dataset_name}_golden.json"
+        # Get the dataset directory from dataset_config
+        dataset_files = get_dataset_files(dataset_name)
+        dataset_dir = Path(dataset_files['data_dir'])
+        golden_dir = dataset_dir
+
+    golden_path = golden_dir / "golden_snapshot.json"
 
     if not golden_path.exists():
         return None, golden_path
@@ -315,8 +323,8 @@ class ConversationRecorder:
     """Records golden snapshots of Conversation computations for regression testing."""
 
     def __init__(self):
-        self.golden_dir = Path(__file__).parent / "golden"
-        self.golden_dir.mkdir(exist_ok=True)
+        # Golden snapshots are now stored in dataset-specific directories in real_data
+        pass
 
     def record_golden(self, dataset_name: str, force: bool = False, benchmark: bool = True) -> Path:
         """
@@ -331,7 +339,7 @@ class ConversationRecorder:
             Path to the saved golden snapshot file
         """
         # Check if golden snapshot exists
-        golden, golden_path = load_golden_snapshot(dataset_name, self.golden_dir)
+        golden, golden_path = load_golden_snapshot(dataset_name)
 
         if golden is not None and not force:
             print(f"Golden snapshot already exists for {dataset_name}.")
@@ -391,7 +399,6 @@ class ConversationComparer:
             abs_tolerance: Absolute tolerance for numeric comparisons
             rel_tolerance: Relative tolerance for numeric comparisons
         """
-        self.golden_dir = Path(__file__).parent / "golden"
         self.abs_tol = abs_tolerance
         self.rel_tol = rel_tolerance
         self.all_differences = []  # Collect all differences for detailed reporting
@@ -411,7 +418,21 @@ class ConversationComparer:
         self.all_differences = []
 
         # Load golden snapshot using shared function
-        golden, golden_path = load_golden_snapshot(dataset_name, self.golden_dir)
+        try:
+            golden, golden_path = load_golden_snapshot(dataset_name)
+        except ValueError as e:
+            # Dataset not found
+            error_result = {
+                "error": str(e),
+                "dataset": dataset_name
+            }
+            # Print error report
+            print("\n" + "=" * 60)
+            print("REGRESSION TEST REPORT")
+            print("=" * 60)
+            print(f"ERROR: {error_result['error']}")
+            print("=" * 60)
+            return error_result
 
         if golden is None:
             error_result = {
@@ -568,7 +589,9 @@ class ConversationComparer:
         # Write differences to log file if any were found
         diff_log_path = None
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        output_dir = Path(__file__).parent
+        # Output to .test_outputs/regression directory
+        output_dir = Path(__file__).parent.parent / ".test_outputs" / "regression"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         if self.all_differences:
             diff_log_path = output_dir / f"comparer-differences-{timestamp}.log"

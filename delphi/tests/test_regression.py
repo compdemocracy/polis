@@ -9,13 +9,15 @@ import pytest
 import numpy as np
 from pathlib import Path
 
-from regression_tests.regression_lib import ConversationRecorder, ConversationComparer
+from polismath.regression import ConversationRecorder, ConversationComparer, load_golden_snapshot
 from tests.dataset_config import list_available_datasets
 
 
 # Get all available datasets from central config
 AVAILABLE_DATASETS = list(list_available_datasets().keys())
-TEST_DATASETS = ['vw']
+
+# Optionally, modify the line below to limit to specific, fast datasets
+TEST_DATASETS = AVAILABLE_DATASETS # e.g., ['biodiversity', 'vw']
 if not set(TEST_DATASETS).issubset(set(AVAILABLE_DATASETS)):
     missing = set(TEST_DATASETS) - set(AVAILABLE_DATASETS)
     raise ValueError(f"Test datasets not found in available datasets: {missing}")
@@ -34,15 +36,14 @@ def _check_golden_exists(dataset: str):
     Raises:
         pytest.fail: If golden snapshot is missing for this dataset
     """
-    recorder = ConversationRecorder()
-    golden_path = recorder.golden_dir / f"{dataset}_golden.json"
+    golden, golden_path = load_golden_snapshot(dataset)
 
-    if not golden_path.exists():
+    if golden is None:
         pytest.fail(
             f"Missing golden snapshot for dataset: {dataset}\n"
-            f"Golden snapshots must be created explicitly using recorder.py:\n"
-            f"  cd delphi/regression_tests\n"
-            f"  python recorder.py {dataset}\n"
+            f"Golden snapshots must be created explicitly using regression_recorder.py:\n"
+            f"  cd delphi\n"
+            f"  python scripts/regression_recorder.py {dataset}\n"
         )
 
 
@@ -142,14 +143,15 @@ class TestRegressionSystemIntegrity:
         # This would require mocking or using a test dataset
         # For now, just verify the recorder can be instantiated
         recorder = ConversationRecorder()
-        assert recorder.golden_dir.exists()
+        # Recorder no longer has a golden_dir since files are stored with datasets
+        assert recorder is not None
 
     def test_comparer_handles_missing_golden(self):
-        """Test that comparer properly handles missing golden snapshots."""
+        """Test that comparer properly handles unknown datasets."""
         comparer = ConversationComparer()
         result = comparer.compare_with_golden("nonexistent_dataset")
         assert "error" in result
-        assert "No golden snapshot found" in result["error"]
+        assert "Unknown dataset: nonexistent_dataset" in result["error"]
 
     def test_comparer_numeric_tolerance(self):
         """Test numeric comparison with tolerances."""

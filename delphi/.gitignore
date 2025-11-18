@@ -211,6 +211,9 @@ polis_data/
 bandit-report.json
 .coverage.*
 
+# Test outputs (hidden directory for all test-generated files)
+.test_outputs/
+
 # Generated dependency files (can be recreated from pyproject.toml)
 requirements-prod.txt
 requirements-dev.txt

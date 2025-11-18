@@ -2,11 +2,11 @@
 """
 Comparer CLI for comparing current Conversation outputs with golden snapshots.
 
-This is a thin wrapper around the ConversationComparer class from regression_lib.
+This is a thin wrapper around the ConversationComparer class from polismath.regression.
 """
 
 import click
-from regression_lib import ConversationComparer
+from polismath.regression import ConversationComparer
 from tests.dataset_config import list_available_datasets
 
 

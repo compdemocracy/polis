@@ -2,11 +2,11 @@
 """
 Recorder CLI for capturing golden snapshots of Conversation computation outputs.
 
-This is a thin wrapper around the ConversationRecorder class from regression_lib.
+This is a thin wrapper around the ConversationRecorder class from polismath.regression.
 """
 
 import click
-from regression_lib import ConversationRecorder
+from polismath.regression import ConversationRecorder
 from tests.dataset_config import list_available_datasets
 
 

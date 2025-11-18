@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+Legacy: Comparison with Clojure implementation. Will be removed once Clojure is phased out.
+
 Script to directly compare Python PCA output with Clojure output.
 This script analyzes the results from our recent improvements.
 """
@@ -321,7 +323,7 @@ def run_direct_comparison(dataset_name: str) -> Dict[str, Any]:
         }
         
         # Save results
-        output_dir = os.path.join(data_dir, 'python_output')
+        output_dir = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset_name)
         os.makedirs(output_dir, exist_ok=True)
         with open(os.path.join(output_dir, 'direct_comparison.json'), 'w') as f:
             json.dump(results, f, indent=2, default=str)

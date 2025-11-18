@@ -1,5 +1,8 @@
 """
-Tests for the conversion with real data from conversations.
+Legacy: Comparison with Clojure implementation. Will be removed once Clojure is phased out.
+
+Tests for the conversion with real data from conversations, comparing Python output
+against the old Clojure implementation's math_blob outputs.
 """
 
 import pytest
@@ -77,7 +80,7 @@ def conversation_data(request):
                 print(f"  {i+1}. Comment {comment_id} (Repness: {rep_item['repness']:.4f}): {comment_txt[:50]}...")
 
     # Save the Python conversion results for manual inspection
-    output_dir = os.path.join(data_dir, 'python_output')
+    output_dir = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset_name)
     os.makedirs(output_dir, exist_ok=True)
 
     # Save the conversation data

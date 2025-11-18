@@ -483,7 +483,7 @@ def run_real_data_comparison(dataset_name: str, votes_limit: Optional[int] = Non
     }
     
     # Save the comparison results and Python output
-    output_dir = os.path.join(data_dir, 'python_output')
+    output_dir = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset)
     os.makedirs(output_dir, exist_ok=True)
     
     with open(os.path.join(output_dir, 'comparison_results.json'), 'w') as f:

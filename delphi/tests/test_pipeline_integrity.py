@@ -49,7 +49,7 @@ def save_results(dataset_name: str, conversation: Conversation) -> None:
     data_dir = dataset_files['data_dir']
 
     # Use standardized output directory structure
-    output_dir = os.path.join(data_dir, 'python_output')
+    output_dir = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset_name)
     os.makedirs(output_dir, exist_ok=True)
     
     # Create result object

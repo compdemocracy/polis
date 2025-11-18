@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+Legacy: Comparison with Clojure implementation. Will be removed once Clojure is phased out.
+
 Comparison tests for representativeness calculation between Python and Clojure.
 
 ⚠️ WARNING: These tests compare Python implementation against Clojure reference
