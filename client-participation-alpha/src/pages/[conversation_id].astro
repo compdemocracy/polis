@@ -11,6 +11,7 @@ import { getTranslations } from '../strings/strings.js';
 import PolisNet from '../lib/net';
 import { marked } from 'marked';
 import DonateMessage from '../components/DonateMessage';
+import VisualizationContainer from '../components/VisualizationContainer';
 
 const { conversation_id } = Astro.params;
 
@@ -153,6 +154,8 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
         ) : (
           <div class="footer-spacer"></div>
         )}
+
+        <VisualizationContainer client:only="react" conversation_id={conversation_id} />
       </>
     ) : (
       <p>Loading...</p>

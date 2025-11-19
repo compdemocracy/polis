@@ -1,3 +1,13 @@
+:root {
+  --color-axis-line: #e5e7eb;
+  --color-text: #374151;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f3f4f6;
+  --color-border: #d1d5db;
+  --color-button-bg: #03a9f4;
+  --color-button-text: #ffffff;
+}
+
 body {
   font-family: sans-serif;
   background-color: #f7f7f7;
@@ -308,4 +318,10 @@ h1 {
   padding: 0.75rem;
   margin: 0.75rem 0 0 0;
   text-align: center;
+}
+
+.section-card {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--color-border);
 }
