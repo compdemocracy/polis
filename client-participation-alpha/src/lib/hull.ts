@@ -460,6 +460,8 @@ class PointGrid {
                 }
             }
         }
+        
+        return points
     }
 
     /**
@@ -626,6 +628,11 @@ function _bBoxAround(edge: [Point, Point]): Bbox {
 }
 
 function _midPoint(edge: [Point, Point], innerPoints: Point[], convex: Point[]): Point | null {
+    // Safety check: ensure innerPoints is defined and is an array
+    if (!innerPoints || !Array.isArray(innerPoints) || innerPoints.length === 0) {
+        return null
+    }
+
     let point: Point | null = null
     let angle1Cos = MAX_CONCAVE_ANGLE_COS
     let angle2Cos = MAX_CONCAVE_ANGLE_COS

@@ -14,6 +14,11 @@ const submitPerspectiveAPI = async (text, conversation_id) => {
       vote: -1,
     });
     
+    // Dispatch event to notify visualization to update
+    window.dispatchEvent(new CustomEvent('polis-comment-submitted', {
+      detail: { conversation_id }
+    }));
+    
     // The net module automatically handles JWT extraction and storage
     return resp;
   } catch (error) {
@@ -22,7 +27,6 @@ const submitPerspectiveAPI = async (text, conversation_id) => {
     throw error;
   }
 };
-
 
 export default function SurveyForm({ s, conversation_id, requiresInviteCode = false }) {
   const [text, setText] = useState('');

@@ -64,6 +64,7 @@ export interface PCAData {
   repness?: {
     [groupId: string]: RepnessItem[];
   };
+  mathTick?: number;
 }
 
 export async function fetchPCAData(conversationId: string): Promise<PCAData> {

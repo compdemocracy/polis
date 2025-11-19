@@ -56,7 +56,7 @@ function CheckCircleIcon({ fill, size = 22 }: { fill: string; size?: number }) {
       style={{ display: 'block' }}
     >
       <path
-        d="M1299 813l-422 422q-19 19-45 19t-45-19l-294-294q-19-19-19-45t19-45l102-102q19-19 45-19t45 19l147 147 275-275q19-19 45-19t45 19l102 102q19 19 19 45t-19 45zm141 83q0-148-73-273t-198-198-273-73-273 73-198 198-73 273 73 273-73 198-198 73-273zm224 0q0 209-103 385.5t-279.5 279.5-385.5 103-385.5-103-279.5-279.5-103-385.5 103-385.5 279.5-279.5 385.5-103 385.5 103 279.5 279.5 103 385.5z"
+        d="M1299 813l-422 422q-19 19-45 19t-45-19l-294-294q-19-19-19-45t19-45l102-102q19-19 45-19t45 19l147 147 275-275q19-19 45-19t45 19l102 102q19 19 19 45t-19 45zm141 83q0-148-73-273t-198-198-273-73-273 73-198 198-73 273 73 273 198 198 273 73 273-73 198-198 73-273zm224 0q0 209-103 385.5t-279.5 279.5-385.5 103-385.5-103-279.5-279.5-103-385.5 103-385.5 279.5-279.5 385.5-103 385.5 103 279.5 279.5 103 385.5z"
         fill={fill}
       />
     </svg>
@@ -417,18 +417,27 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
             const groupKey = `group-${groupId}`;
 
             if (hull) {
+              const pathString = `M${hull.map((point: [number, number]) => point.join(',')).join('L')}Z`;
               return (
                 <motion.path
                   key={`${groupKey}-hull`}
-                  d={`M${hull.map((point: [number, number]) => point.join(',')).join('L')}Z`}
+                  d={pathString}
                   fill={color}
                   fillOpacity={isSelected ? 0.35 : 0.2}
                   stroke={color}
                   strokeWidth={isSelected ? 3 : 2}
                   strokeOpacity={isSelected ? 1 : 1}
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ duration: 1, delay: i * 0.2 }}
+                  initial={false}
+                  animate={{ 
+                    d: pathString,
+                    fill: color,
+                    fillOpacity: isSelected ? 0.35 : 0.2,
+                    strokeWidth: isSelected ? 3 : 2,
+                  }}
+                  transition={{ 
+                    duration: 0.8, 
+                    ease: "easeInOut" 
+                  }}
                 />
               );
             }
@@ -444,9 +453,16 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   stroke={color}
                   strokeWidth={isSelected ? 3 : 2}
                   strokeLinecap="round"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 1, delay: i * 0.2 }}
+                  initial={false}
+                  animate={{ 
+                    x1: points[0][0],
+                    y1: points[0][1],
+                    x2: points[1][0],
+                    y2: points[1][1],
+                    stroke: color,
+                    strokeWidth: isSelected ? 3 : 2,
+                  }}
+                  transition={{ duration: 0.8, ease: "easeInOut" }}
                 />
               );
             }
@@ -479,22 +495,40 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   <feColorMatrix type="saturate" values="0" />
                 </filter>
               </defs>
-              <circle
+              <motion.circle
                 cx={userPosition.x}
                 cy={userPosition.y}
                 r={13}
                 fill="none"
                 stroke="#03a9f4"
                 strokeWidth={4}
+                initial={false}
+                animate={{ 
+                  cx: userPosition.x, 
+                  cy: userPosition.y 
+                }}
+                transition={{ 
+                  duration: 0.8, 
+                  ease: "easeInOut" 
+                }}
               />
-              <circle
+              <motion.circle
                 cx={userPosition.x}
                 cy={userPosition.y}
                 r={11}
                 fill="url(#user-profile-pattern)"
                 filter="url(#grayscale-filter)"
+                initial={false}
+                animate={{ 
+                  cx: userPosition.x, 
+                  cy: userPosition.y 
+                }}
+                transition={{ 
+                  duration: 0.8, 
+                  ease: "easeInOut" 
+                }}
               />
-              <text
+              <motion.text
                 x={userPosition.x}
                 y={userPosition.y - 18}
                 textAnchor="middle"
@@ -502,9 +536,18 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                 fontWeight="bold"
                 fill="#000"
                 style={{ textShadow: '0 1px 2px rgba(255,255,255,0.8)' }}
+                initial={false}
+                animate={{ 
+                  x: userPosition.x, 
+                  y: userPosition.y - 18 
+                }}
+                transition={{ 
+                  duration: 0.8, 
+                  ease: "easeInOut" 
+                }}
               >
                 You
-              </text>
+              </motion.text>
             </Group>
           )}
 

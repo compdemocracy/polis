@@ -20,6 +20,11 @@ const submitVoteAndGetNextCommentAPI = async (vote, conversation_id, high_priori
       vote: vote.vote,
     });
     
+    // Dispatch event to notify visualization to update
+    window.dispatchEvent(new CustomEvent('polis-vote-submitted', {
+      detail: { conversation_id }
+    }));
+    
     return resp;
   } catch (error) {
     // The net module already handles JWT extraction and storage
