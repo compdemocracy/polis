@@ -1,0 +1,3 @@
+[submodule "client-visualization"]
+	path = client-visualization
+	url = ./client-visualization
