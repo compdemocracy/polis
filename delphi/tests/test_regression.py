@@ -246,7 +246,92 @@ class TestRegressionSystemIntegrity:
         # Verify it rejects non-PCA paths
         assert not comparer_with_tolerance._is_pca_related_path("after_load.vote_counts")
         assert not comparer_with_tolerance._is_pca_related_path("after_clustering.cluster_assignments")
-        assert not comparer_with_tolerance._is_pca_related_path("after_pca.proj.1[0]")  # projections are not comps
+
+        # Verify it now ACCEPTS projections (changed from earlier implementation)
+        assert comparer_with_tolerance._is_pca_related_path("after_pca.proj.1[0]")
+        assert comparer_with_tolerance._is_pca_related_path("after_clustering.proj.2")
+
+    def test_pca_scaling_factor_detection(self):
+        """Test that scaling factors are detected and reported for PCA components and projections."""
+        comparer = ConversationComparer()
+
+        # Test data: lists with constant scaling
+        golden_list = [1.0, 2.0, 3.0, 4.0, 5.0]
+        scaled_list_5x = [5.0, 10.0, 15.0, 20.0, 25.0]  # Scaled by 5.0
+        scaled_list_half = [0.5, 1.0, 1.5, 2.0, 2.5]  # Scaled by 0.5
+        scaled_list_neg = [-2.0, -4.0, -6.0, -8.0, -10.0]  # Scaled by -2.0
+
+        # Test 1: PCA component with 5x scaling - should detect factor
+        pca_path = "after_pca.pca.comps[0]"
+        result = comparer._compare_dicts(
+            golden_list, scaled_list_5x, path=pca_path, stage_name="after_pca"
+        )
+        assert not result["match"], "Scaled PCA component should not match"
+        assert "scaling" in result.get("reason", "").lower(), "Should mention scaling in reason"
+        assert "5.0" in result.get("reason", ""), f"Should report factor 5.0, got: {result.get('reason')}"
+
+        # Test 2: PCA component with 0.5x scaling
+        result = comparer._compare_dicts(
+            golden_list, scaled_list_half, path=pca_path, stage_name="after_pca"
+        )
+        assert not result["match"], "Scaled PCA component should not match"
+        assert "0.5" in result.get("reason", ""), f"Should report factor 0.5, got: {result.get('reason')}"
+
+        # Test 3: PCA component with negative scaling (-2x)
+        result = comparer._compare_dicts(
+            golden_list, scaled_list_neg, path=pca_path, stage_name="after_pca"
+        )
+        assert not result["match"], "Scaled PCA component should not match"
+        assert "-2.0" in result.get("reason", ""), f"Should report factor -2.0, got: {result.get('reason')}"
+
+        # Test 4: Projection with scaling - should also detect factor
+        proj_path = "after_pca.proj.1"
+        result = comparer._compare_dicts(
+            golden_list, scaled_list_5x, path=proj_path, stage_name="after_pca"
+        )
+        assert not result["match"], "Scaled projection should not match"
+        assert "scaling" in result.get("reason", "").lower(), "Should mention scaling in reason"
+        assert "5.0" in result.get("reason", ""), f"Should report factor 5.0 for projection"
+
+        # Test 5: Non-PCA path with scaling - should NOT report scaling factor
+        vote_path = "after_load.vote_counts"
+        result = comparer._compare_dicts(
+            golden_list, scaled_list_5x, path=vote_path, stage_name="after_load"
+        )
+        assert not result["match"], "Scaled non-PCA data should not match"
+        # Should not mention scaling since it's not a PCA path
+        assert "scaling" not in result.get("reason", "").lower(), (
+            "Should NOT mention scaling for non-PCA paths"
+        )
+
+        # Test 6: Non-constant scaling - should NOT detect a factor
+        inconsistent_list = [5.0, 11.0, 15.0, 20.0, 25.0]  # Not constant factor
+        result = comparer._compare_dicts(
+            golden_list, inconsistent_list, path=pca_path, stage_name="after_pca"
+        )
+        assert not result["match"], "Non-constant scaled data should not match"
+        # Should not mention a specific scaling factor
+        reason = result.get("reason", "")
+        # The error might be at element level or might not detect scaling
+        # Just verify it's reported as a mismatch
+
+        # Test 7: _detect_scaling_factor method directly
+        factor = comparer._detect_scaling_factor(golden_list, scaled_list_5x)
+        assert factor is not None, "Should detect scaling factor"
+        assert abs(factor - 5.0) < 0.001, f"Should detect factor 5.0, got {factor}"
+
+        factor = comparer._detect_scaling_factor(golden_list, scaled_list_half)
+        assert factor is not None, "Should detect scaling factor 0.5"
+        assert abs(factor - 0.5) < 0.001, f"Should detect factor 0.5, got {factor}"
+
+        factor = comparer._detect_scaling_factor(golden_list, inconsistent_list)
+        assert factor is None, "Should NOT detect scaling factor for inconsistent data"
+
+        # Test 8: Exact match - no scaling factor
+        factor = comparer._detect_scaling_factor(golden_list, golden_list)
+        # Could be 1.0 or None, both are acceptable
+        if factor is not None:
+            assert abs(factor - 1.0) < 0.001, f"Exact match should have factor 1.0, got {factor}"
 
 
 if __name__ == "__main__":

@@ -532,14 +532,33 @@ class ConversationComparer:
             else:
                 min_len = len(golden)
 
-            # Check for PCA sign flip before element-by-element comparison
-            # Only apply to PCA-specific fields (pca.comps, proj)
-            if self.ignore_pca_sign_flip and min_len == len(golden) and len(golden) > 0:
-                if self._is_pca_related_path(path):
+            # For PCA-related paths, check for sign flips and scaling before element-by-element comparison
+            if min_len == len(golden) and len(golden) > 0 and self._is_pca_related_path(path):
+                # Check for sign flip (if enabled)
+                if self.ignore_pca_sign_flip:
                     sign_flip_detected = self._check_sign_flip(golden, current, path, stage_name)
                     if sign_flip_detected:
                         return {"match": True, "path": path, "note": "Sign flip detected but ignored"}
 
+                # Check for scaling factor (always check for PCA paths to provide better error messages)
+                scaling_factor = self._detect_scaling_factor(golden, current)
+                if scaling_factor is not None and abs(scaling_factor - 1.0) > 0.01:
+                    # Scaling factor detected and it's not approximately 1.0
+                    reason = f"PCA scaling mismatch: values differ by constant factor {scaling_factor:.6f}"
+                    # Record this difference
+                    self.all_differences.append({
+                        "stage_name": stage_name,
+                        "path": path,
+                        "reason": reason,
+                        "scaling_factor": scaling_factor
+                    })
+                    return {
+                        "match": False,
+                        "path": path,
+                        "reason": reason
+                    }
+
+            # Do element-by-element comparison
             for i in range(min_len):
                 result = self._compare_dicts(
                     golden[i],
@@ -678,25 +697,27 @@ class ConversationComparer:
 
     def _is_pca_related_path(self, path: str) -> bool:
         """
-        Check if a path corresponds to PCA-related data that can have arbitrary sign.
+        Check if a path corresponds to PCA-related data that can have arbitrary sign or scaling.
 
-        PCA components can be flipped by -1 and still be mathematically valid.
-        This checks if we're comparing PCA component vectors or projections.
+        PCA components can be flipped by -1 and scaled by a constant factor and still
+        be mathematically valid. This checks if we're comparing PCA component vectors
+        or projections.
 
         Args:
-            path: The path in the data structure (e.g., "after_pca.pca.comps[0]")
+            path: The path in the data structure (e.g., "after_pca.pca.comps[0]", "after_pca.proj.1")
 
         Returns:
-            True if this is a PCA-related field that can have sign flips
+            True if this is a PCA-related field
         """
         # Check for PCA component fields
         # Examples: "after_pca.pca.comps[0]", "after_clustering.pca.comps[1]"
         if ".pca.comps" in path:
             return True
 
-        # Could also check for projections if needed:
-        # if ".proj." in path:
-        #     return True
+        # Check for projections
+        # Examples: "after_pca.proj.1", "after_clustering.proj.2[0]"
+        if ".proj." in path:
+            return True
 
         return False
 
@@ -750,6 +771,66 @@ class ConversationComparer:
             return True
 
         return False
+
+    def _detect_scaling_factor(self, golden: list, current: list) -> float | None:
+        """
+        Detect if two lists differ by a constant scaling factor.
+
+        This is useful for PCA components and projections where the magnitude
+        can vary by a constant factor due to different normalization conventions.
+
+        Args:
+            golden: Golden list
+            current: Current list
+
+        Returns:
+            Scaling factor if detected (current = golden * factor), None otherwise
+        """
+        import numpy as np
+
+        # Lists must be same length
+        if len(golden) != len(current):
+            return None
+
+        # Check if all elements are numeric
+        def is_numeric(val):
+            return isinstance(val, (int, float, np.integer, np.floating))
+
+        if not all(is_numeric(g) and is_numeric(c) for g, c in zip(golden, current)):
+            return None
+
+        # Convert to numpy arrays
+        golden_array = np.array([float(g) for g in golden])
+        current_array = np.array([float(c) for c in current])
+
+        # Filter out zero pairs and pairs where golden is too close to zero
+        # to avoid division issues
+        valid_indices = np.abs(golden_array) > 1e-10
+
+        if not np.any(valid_indices):
+            # All golden values are essentially zero
+            # Check if current values are also essentially zero
+            if np.allclose(current_array, 0, atol=self.abs_tol):
+                return 1.0  # Scaling factor doesn't matter for zeros
+            return None
+
+        # Compute ratios for valid indices
+        ratios = current_array[valid_indices] / golden_array[valid_indices]
+
+        # Check if all ratios are approximately the same
+        if len(ratios) == 0:
+            return None
+
+        mean_ratio = np.mean(ratios)
+
+        # Check if all ratios are close to the mean ratio
+        # Use relative tolerance for the ratio consistency check
+        if np.allclose(ratios, mean_ratio, rtol=self.rel_tol, atol=1e-10):
+            # Verify that applying this factor makes the arrays match
+            if np.allclose(golden_array * mean_ratio, current_array, rtol=self.rel_tol, atol=self.abs_tol):
+                return float(mean_ratio)
+
+        return None
 
     def _write_differences_log(self, log_path: Path, dataset_name: str) -> None:
         """
