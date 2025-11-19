@@ -258,8 +258,8 @@ class TestProjection:
         df = pd.DataFrame(data, index=rownames, columns=colnames)
 
         # Perform PCA projection
-        pca_results, proj_dict = pca_project_dataframe(df)
-        
+        pca_results, proj_dict = pca_project_dataframe(df, align_with_clojure_output=False)
+
         # Check results
         assert 'center' in pca_results
         assert 'comps' in pca_results

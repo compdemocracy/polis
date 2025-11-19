@@ -507,6 +507,7 @@ def align_with_clojure(pca_results: Dict[str, np.ndarray]) -> Dict[str, np.ndarr
         neg_sum = np.sum(np.abs(comp[comp < 0]))
         
         # Biodiversity dataset needs a specific orientation
+        # TODO(julien): Remove this hard-coded check. I wonder how many other convos need this.
         if comp.shape[0] > 300:  # Biodiversity has 314 comments
             # Biodiversity: First component should have more positive weight
             if pos_sum < neg_sum:

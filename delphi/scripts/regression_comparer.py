@@ -12,9 +12,10 @@ import click
 @click.command()
 @click.argument('datasets', nargs=-1)
 @click.option('--benchmark', is_flag=True, help='Enable timing comparison')
+@click.option('-i', '--ignore-pca-sign-flip', is_flag=True, help='Ignore sign flips in PCA components (multiplication by -1)')
 @click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False),
               default='INFO', help='Set logging level (default: INFO). Use DEBUG to save detailed comparison output.')
-def main(datasets: tuple, benchmark: bool, log_level: str):
+def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, log_level: str):
     """
     Compare current implementation with golden snapshots.
 
@@ -22,10 +23,12 @@ def main(datasets: tuple, benchmark: bool, log_level: str):
     Otherwise, compares only the specified datasets.
 
     Examples:
-        python comparer.py                    # Compare all datasets
-        python comparer.py biodiversity       # Compare only biodiversity
-        python comparer.py biodiversity vw    # Compare biodiversity and vw
-        python comparer.py --log-level DEBUG  # Compare with debug logging
+        python comparer.py                              # Compare all datasets
+        python comparer.py biodiversity                 # Compare only biodiversity
+        python comparer.py biodiversity vw              # Compare biodiversity and vw
+        python comparer.py --log-level DEBUG            # Compare with debug logging
+        python comparer.py -i biodiversity              # Compare with PCA sign flip tolerance
+        python comparer.py --ignore-pca-sign-flip vw    # Compare with PCA sign flip tolerance
     """
     # Configure logging - must be done before imports to prevent conversation module
     # from adding its own handler
@@ -38,7 +41,7 @@ def main(datasets: tuple, benchmark: bool, log_level: str):
     # Import after logging is configured to ensure conversation module uses root logger
     from polismath.regression import ConversationComparer, list_available_datasets
 
-    comparer = ConversationComparer()
+    comparer = ConversationComparer(ignore_pca_sign_flip=ignore_pca_sign_flip)
 
     # If no datasets specified, use all available datasets
     if not datasets:

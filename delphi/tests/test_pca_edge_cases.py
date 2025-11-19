@@ -200,8 +200,8 @@ def test_pca_project_dataframe():
     for i, matrix in enumerate([matrix1, matrix2, matrix3, matrix4]):
         try:
             # Should not raise an exception
-            pca_results, proj_dict = pca_project_dataframe(matrix)
-            
+            pca_results, proj_dict = pca_project_dataframe(matrix, align_with_clojure_output=False)
+
             # Check results format
             assert isinstance(pca_results, dict)
             assert 'center' in pca_results
@@ -264,8 +264,8 @@ def test_pca_complex_matrix():
     df = pd.DataFrame(vote_matrix, index=row_names, columns=col_names)
 
     # Perform PCA
-    pca_results, proj_dict = pca_project_dataframe(df)
-    
+    pca_results, proj_dict = pca_project_dataframe(df, align_with_clojure_output=False)
+
     # Verify results
     assert 'center' in pca_results
     assert 'comps' in pca_results

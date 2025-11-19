@@ -469,7 +469,7 @@ class Conversation:
             # Make a clean copy of the rating matrix
             clean_matrix = self._get_clean_matrix()
             
-            pca_results, proj_dict = pca_project_dataframe(clean_matrix, n_components)
+            pca_results, proj_dict = pca_project_dataframe(clean_matrix, n_components, align_with_clojure_output=False)
             
             # Store results
             self.pca = pca_results

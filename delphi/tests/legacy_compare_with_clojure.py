@@ -281,7 +281,7 @@ def run_direct_comparison(dataset_name: str) -> Dict[str, Any]:
     # Perform PCA with our fixed implementation
     try:
         print("Running Python PCA...")
-        pca_results, projections = pca_project_dataframe(votes_matrix)
+        pca_results, projections = pca_project_dataframe(votes_matrix, align_with_clojure_output=False)
         print(f"PCA successful: {pca_results['comps'].shape} components generated")
         
         # Get the optimal k for clustering
