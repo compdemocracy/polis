@@ -12,6 +12,6 @@ export interface Comment {
 }
 
 export async function fetchComments(conversationId: string): Promise<Comment[]> {
-  return await PolisNet.polisGet('/api/v3/comments', { conversation_id: conversationId });
+  return await PolisNet.polisGet('/comments', { conversation_id: conversationId });
 }
 

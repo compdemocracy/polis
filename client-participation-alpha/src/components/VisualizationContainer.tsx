@@ -64,7 +64,7 @@ export default function VisualizationContainer({ conversation_id }: Visualizatio
 
   return (
     <div className="visualization-container">
-      <PCAVisualization data={pcaData} comments={comments} />
+      <PCAVisualization data={pcaData} comments={comments} conversationId={conversation_id} />
     </div>
   );
 }

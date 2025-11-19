@@ -6,6 +6,7 @@ import type { PCAData } from '../api/pca';
 import type { Comment } from '../api/comments';
 import { concaveHull } from '../utils/concaveHull';
 import GroupIcon from './icons/GroupIcon';
+import { getConversationToken } from '../lib/auth';
 
 interface BaseCluster {
   id: number;
@@ -13,11 +14,13 @@ interface BaseCluster {
   y: number;
   count: number;
   groupId: number;
+  members: number[];
 }
 
 interface PCAVisualizationProps {
   data: PCAData;
   comments?: Comment[] | null;
+  conversationId?: string;
 }
 
 const CONCAVITY = 300;
@@ -53,7 +56,7 @@ function CheckCircleIcon({ fill, size = 22 }: { fill: string; size?: number }) {
       style={{ display: 'block' }}
     >
       <path
-        d="M1299 813l-422 422q-19 19-45 19t-45-19l-294-294q-19-19-19-45t19-45l102-102q19-19 45-19t45 19l147 147 275-275q19-19 45-19t45 19l102 102q19 19 19 45t-19 45zm141 83q0-148-73-273t-198-198-273-73-273 73-198 198-73 273 73 273 198 198 273 73 273-73 198-198 73-273zm224 0q0 209-103 385.5t-279.5 279.5-385.5 103-385.5-103-279.5-279.5-103-385.5 103-385.5 279.5-279.5 385.5-103 385.5 103 279.5 279.5 103 385.5z"
+        d="M1299 813l-422 422q-19 19-45 19t-45-19l-294-294q-19-19-19-45t19-45l102-102q19-19 45-19t45 19l147 147 275-275q19-19 45-19t45 19l102 102q19 19 19 45t-19 45zm141 83q0-148-73-273t-198-198-273-73-273 73-198 198-73 273 73 273-73 198-198 73-273zm224 0q0 209-103 385.5t-279.5 279.5-385.5 103-385.5-103-279.5-279.5-103-385.5 103-385.5 279.5-279.5 385.5-103 385.5 103 279.5 279.5 103 385.5z"
         fill={fill}
       />
     </svg>
@@ -122,7 +125,7 @@ function selectTopConsensusItems(
   return selectedTids;
 }
 
-export default function PCAVisualization({ data, comments }: PCAVisualizationProps) {
+export default function PCAVisualization({ data, comments, conversationId }: PCAVisualizationProps) {
   const [isConsensusSelected, setisConsensusSelected] = useState(false);
   const [selectedGroup, setSelectedGroup] = useState<number | null>(null);
   const [selectedStatement, setSelectedStatement] = useState<{
@@ -131,6 +134,34 @@ export default function PCAVisualization({ data, comments }: PCAVisualizationPro
     type: 'agree' | 'disagree';
     context: StatementContext;
   } | null>(null);
+  const [userPid, setUserPid] = useState<number | null>(null);
+
+  // Get current user's PID
+  useEffect(() => {
+    const updatePid = () => {
+      if (conversationId) {
+        const token = getConversationToken(conversationId);
+        if (token && typeof token.pid === 'number' && token.pid >= 0) {
+          setUserPid(token.pid);
+        } else {
+          // PID is -1 or invalid - user hasn't voted yet, so they don't have a position on the PCA
+          setUserPid(null);
+        }
+      }
+    };
+
+    updatePid();
+
+    const handleTokenUpdate = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.conversation_id === conversationId) {
+        updatePid();
+      }
+    };
+
+    window.addEventListener('polis-token-update', handleTokenUpdate);
+    return () => window.removeEventListener('polis-token-update', handleTokenUpdate);
+  }, [conversationId]);
 
   // Find the comment text for the selected statement
   const selectedComment = useMemo(() => {
@@ -276,6 +307,7 @@ export default function PCAVisualization({ data, comments }: PCAVisualizationPro
       y: baseClustersData.y[index],
       count: baseClustersData.count[index],
       groupId: clusterToGroup.get(id) ?? -1,
+      members: baseClustersData.members ? baseClustersData.members[index] : [],
     }));
   }, [data]);
 
@@ -331,6 +363,19 @@ export default function PCAVisualization({ data, comments }: PCAVisualizationPro
   // Calculate origin line positions
   const originX = useMemo(() => xScale(0), [xScale]);
   const originY = useMemo(() => yScale(0), [yScale]);
+
+  // Find user's cluster position
+  const userPosition = useMemo(() => {
+    if (userPid === null || userPid < 0) return null;
+    
+    const userCluster = baseClusters.find(cluster => cluster.members.includes(userPid));
+    if (!userCluster) return null;
+
+    return {
+      x: xScale(userCluster.x),
+      y: yScale(userCluster.y)
+    };
+  }, [userPid, baseClusters, xScale, yScale]);
 
   return (
     <section className="section-card">
@@ -408,6 +453,60 @@ export default function PCAVisualization({ data, comments }: PCAVisualizationPro
 
             return null;
           })}
+
+          {/* User position indicator */}
+          {userPosition && (
+            <Group>
+              <defs>
+                <pattern
+                  id="user-profile-pattern"
+                  x="0"
+                  y="0"
+                  width="1"
+                  height="1"
+                  patternContentUnits="objectBoundingBox"
+                >
+                  <image
+                    x="0"
+                    y="0"
+                    width="1"
+                    height="1"
+                    xlinkHref="/anonProfile.svg"
+                    preserveAspectRatio="xMidYMid slice"
+                  />
+                </pattern>
+                <filter id="grayscale-filter">
+                  <feColorMatrix type="saturate" values="0" />
+                </filter>
+              </defs>
+              <circle
+                cx={userPosition.x}
+                cy={userPosition.y}
+                r={13}
+                fill="none"
+                stroke="#03a9f4"
+                strokeWidth={4}
+              />
+              <circle
+                cx={userPosition.x}
+                cy={userPosition.y}
+                r={11}
+                fill="url(#user-profile-pattern)"
+                filter="url(#grayscale-filter)"
+              />
+              <text
+                x={userPosition.x}
+                y={userPosition.y - 18}
+                textAnchor="middle"
+                fontSize={12}
+                fontWeight="bold"
+                fill="#000"
+                style={{ textShadow: '0 1px 2px rgba(255,255,255,0.8)' }}
+              >
+                You
+              </text>
+            </Group>
+          )}
 
           {/* Group labels (rendered above shapes) */}
           {hulls.map(({ groupId, participantCount, center }) => {
@@ -781,4 +880,3 @@ export default function PCAVisualization({ data, comments }: PCAVisualizationPro
     </section>
   );
 }
-

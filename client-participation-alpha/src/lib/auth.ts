@@ -175,6 +175,10 @@ export function setJwtToken(token: string) {
     // Store as participant_token_{conversationId}
     if (window.localStorage) {
       window.localStorage.setItem(tokenKey, token);
+      // Dispatch event to notify components that a new token is available
+      window.dispatchEvent(new CustomEvent('polis-token-update', { 
+        detail: { conversation_id: conversationId } 
+      }));
     } else {
       console.warn("[PolisStorage] No storage available for JWT token");
     }

@@ -11,6 +11,7 @@ export interface BaseClusters {
   y: number[];
   id: number[];
   count: number[];
+  members?: number[][];
 }
 
 export interface ConsensusItem {
@@ -66,6 +67,6 @@ export interface PCAData {
 }
 
 export async function fetchPCAData(conversationId: string): Promise<PCAData> {
-  return await PolisNet.polisGet('/api/v3/math/pca2', { conversation_id: conversationId });
+  return await PolisNet.polisGet('/math/pca2', { conversation_id: conversationId });
 }
 

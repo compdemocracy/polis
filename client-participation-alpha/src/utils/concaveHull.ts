@@ -1,4 +1,4 @@
-import hull from '../../lib/hull';
+import hull from '../lib/hull';
 
 type Point = [number, number];
 

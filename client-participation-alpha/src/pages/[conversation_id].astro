@@ -103,13 +103,32 @@ if (initialData) {
 const hideHeader = Astro.url.searchParams.get('hide_header');
 ---
 <Layout title={surveyDetails?.title ?? 'Loading Conversation...'}>
-  {/* Handle JWT token from initial data on client side */}
-  <script define:vars={{ initialData }}>
+  {/* Handle JWT token from initial data on client side - MUST be synchronous to avoid race conditions */}
+  <script define:vars={{ initialData }} is:inline>
     if (initialData && initialData.auth && initialData.auth.token) {
-      // Import and use the centralized JWT handler
-      import('../lib/auth').then(({ setJwtToken }) => {
-        setJwtToken(initialData.auth.token);
-      });
+      // Store the token synchronously before any React components try to read it
+      const token = initialData.auth.token;
+      
+      try {
+        // Decode JWT to get conversation_id
+        const parts = token.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(atob(parts[1]));
+          const conversationId = payload.conversation_id;
+          
+          if (conversationId && window.localStorage) {
+            const tokenKey = "participant_token_" + conversationId;
+            window.localStorage.setItem(tokenKey, token);
+            
+            // Dispatch event to notify components
+            window.dispatchEvent(new CustomEvent('polis-token-update', { 
+              detail: { conversation_id: conversationId } 
+            }));
+          }
+        }
+      } catch (e) {
+        console.error('[Token] Error storing JWT:', e);
+      }
     }
   </script>
   
