@@ -692,6 +692,7 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
             if (newValue) {
               setSelectedGroup(null); // Clear group selection when consensus is selected
             }
+            setSelectedStatement(null); // Reset selected statement
           }}
           style={{
             padding: '0.5rem 1rem',
@@ -739,6 +740,7 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                     setSelectedGroup(groupId);
                     setisConsensusSelected(false); // Clear consensus selection when group is selected
                   }
+                  setSelectedStatement(null); // Reset selected statement
                 }}
                 style={{
                   padding: '0.5rem 1rem',
