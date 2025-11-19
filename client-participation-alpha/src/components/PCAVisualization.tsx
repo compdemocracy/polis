@@ -23,7 +23,8 @@ interface PCAVisualizationProps {
   conversationId?: string;
 }
 
-const CONCAVITY = 300;
+const CONCAVITY = 3;
+const LENGTH_THRESHOLD = 200;
 
 const width = 800;
 const height = 600;
@@ -32,18 +33,9 @@ const margin = { top: 40, right: 40, bottom: 60, left: 60 };
 const xMax = width - margin.left - margin.right;
 const yMax = height - margin.top - margin.bottom;
 
-// Colors for up to five groups
-const groupColors = ['#4ecdc4', '#ff6b6b', '#6c5ce7', '#f7b731', '#26de81'];
+// Colors for up to five groups - grayscale
+const groupColors = ['#e0e0e0', '#e0e0e0', '#e0e0e0', '#e0e0e0', '#e0e0e0'];
 const groupLetters = ['A', 'B', 'C', 'D', 'E'];
-
-// Helper function to darken a hex color
-function darkenColor(hex: string, percent: number): string {
-  const num = parseInt(hex.replace('#', ''), 16);
-  const r = Math.max(0, Math.floor((num >> 16) * (1 - percent)));
-  const g = Math.max(0, Math.floor(((num >> 8) & 0x00FF) * (1 - percent)));
-  const b = Math.max(0, Math.floor((num & 0x0000FF) * (1 - percent)));
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
 
 // Icon components for agree/disagree
 function CheckCircleIcon({ fill, size = 22 }: { fill: string; size?: number }) {
@@ -355,7 +347,7 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
         ? ([xScale(groupCluster.center[0]), yScale(groupCluster.center[1])] as [number, number])
         : undefined;
 
-      const hull = concaveHull(points, CONCAVITY);
+      const hull = concaveHull(points, CONCAVITY, LENGTH_THRESHOLD);
       return { groupId: groupCluster.id, hull, points, participantCount, center };
     });
   }, [data, baseClusters, xScale, yScale]);
@@ -408,16 +400,16 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
 
           {/* Group hull polygons (animated) */}
           {hulls.map(({ groupId, hull, points }, i) => {
-            const baseColor = groupColors[groupId] ?? '#999';
+            const baseColor = groupColors[groupId] ?? '#e0e0e0';
             const isSelected = selectedGroup === groupId;
             
-            // Darken the color when selected
-            const color = isSelected ? darkenColor(baseColor, 0.2) : baseColor;
+            // Darker when selected, base gray when not
+            const color = isSelected ? '#555555' : baseColor;
             
             const groupKey = `group-${groupId}`;
 
             if (hull) {
-              const pathString = `M${hull.map((point: [number, number]) => point.join(',')).join('L')}Z`;
+              const pathString = `M${hull.map((point: number[]) => point.join(',')).join('L')}Z`;
               return (
                 <motion.path
                   key={`${groupKey}-hull`}
@@ -425,7 +417,7 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   fill={color}
                   fillOpacity={isSelected ? 0.35 : 0.2}
                   stroke={color}
-                  strokeWidth={isSelected ? 3 : 2}
+                  strokeWidth={isSelected ? 4 : 2}
                   strokeOpacity={isSelected ? 1 : 1}
                   initial={false}
                   animate={{ 
@@ -451,7 +443,7 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   x2={points[1][0]}
                   y2={points[1][1]}
                   stroke={color}
-                  strokeWidth={isSelected ? 3 : 2}
+                  strokeWidth={isSelected ? 4 : 2}
                   strokeLinecap="round"
                   initial={false}
                   animate={{ 
@@ -528,26 +520,6 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   ease: "easeInOut" 
                 }}
               />
-              <motion.text
-                x={userPosition.x}
-                y={userPosition.y - 18}
-                textAnchor="middle"
-                fontSize={12}
-                fontWeight="bold"
-                fill="#000"
-                style={{ textShadow: '0 1px 2px rgba(255,255,255,0.8)' }}
-                initial={false}
-                animate={{ 
-                  x: userPosition.x, 
-                  y: userPosition.y - 18 
-                }}
-                transition={{ 
-                  duration: 0.8, 
-                  ease: "easeInOut" 
-                }}
-              >
-                You
-              </motion.text>
             </Group>
           )}
 
@@ -555,13 +527,26 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
           {hulls.map(({ groupId, participantCount, center }) => {
             if (!center || participantCount <= 0) return null;
 
+            const isSelected = selectedGroup === groupId;
             const labelLetter = groupLetters[groupId] ?? '';
             const iconSize = 16;
-            const labelOffsetY = 28;
+            let labelOffsetY = 28;
             const padding = 6;
+
+            // Adjust label position to avoid obscuring user circle
+            if (userPosition) {
+              // Estimate label center (default position is above the hull center)
+              const defaultLabelY = center[1] - 28;
+              const dist = Math.hypot(center[0] - userPosition.x, defaultLabelY - userPosition.y);
+              
+              // If user is too close to the default label position, push the label further up
+              if (dist < 45) {
+                labelOffsetY = 60;
+              }
+            }
             const cornerRadius = 6;
             const textStyle = {
-              fill: 'currentColor',
+              fill: isSelected ? '#ffffff' : 'currentColor',
               fontSize: 12,
               fontWeight: 600,
             } as const;
@@ -586,14 +571,14 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
             
             // Calculate offset to center the content group
             const contentCenterX = (contentLeft + contentRight) / 2;
-
+            
             return (
               <Group
                 key={`group-label-${groupId}`}
                 left={center[0] - contentCenterX}
                 top={center[1] - labelOffsetY}
                 pointerEvents="none"
-                style={{ color: 'var(--color-text)' }}
+                style={{ color: isSelected ? '#ffffff' : 'var(--color-text)' }}
               >
                 {/* Background rectangle */}
                 <rect
@@ -603,8 +588,8 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   height={labelHeight}
                   rx={cornerRadius}
                   ry={cornerRadius}
-                  fill="var(--color-surface)"
-                  stroke="var(--color-border)"
+                  fill={isSelected ? '#03a9f4' : 'var(--color-surface)'}
+                  stroke={isSelected ? '#03a9f4' : 'var(--color-border)'}
                   strokeWidth={1}
                 />
                 <text
@@ -616,7 +601,7 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   {labelLetter}
                 </text>
                 <g transform={`translate(${iconX}, ${-iconSize / 2})`}>
-                  <GroupIcon size={iconSize} />
+                  <GroupIcon size={iconSize} fill={isSelected ? '#ffffff' : undefined} />
                 </g>
                 <text x={numberX} y={iconSize / 2 - 4} textAnchor="start" {...textStyle}>
                   {participantCount}
@@ -713,10 +698,10 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
             borderRadius: '8px',
             border: '1px solid var(--color-border)',
             backgroundColor: isConsensusSelected
-              ? 'var(--color-button-bg)'
+              ? '#03a9f4'
               : 'var(--color-surface)',
             color: isConsensusSelected
-              ? 'var(--color-button-text)'
+              ? '#ffffff'
               : 'var(--color-text)',
             cursor: 'pointer',
             fontSize: '0.95rem',
@@ -761,8 +746,8 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   border: selectedGroup === groupId 
                     ? '3px solid #000000' 
                     : '2px solid transparent',
-                  backgroundColor: color,
-                  color: '#ffffff',
+                  backgroundColor: selectedGroup === groupId ? '#03a9f4' : color,
+                  color: selectedGroup === groupId ? '#ffffff' : '#333333',
                   cursor: 'pointer',
                   fontSize: '0.95rem',
                   fontWeight: selectedGroup === groupId ? 700 : 600,

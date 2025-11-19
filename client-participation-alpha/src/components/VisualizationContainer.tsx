@@ -3,7 +3,7 @@ import PCAVisualization from './PCAVisualization';
 import { fetchPCAData, type PCAData } from '../api/pca';
 import { fetchComments, type Comment } from '../api/comments';
 
-const REFRESH_DELAY_MS = 500;
+const REFRESH_DELAY_MS = 1000;
 
 interface VisualizationContainerProps {
   conversation_id: string;

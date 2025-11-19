@@ -174,7 +174,9 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
           <div class="footer-spacer"></div>
         )}
 
-        <VisualizationContainer client:only="react" conversation_id={conversation_id} />
+        {initialData.conversation.vis_type === 1 && (
+          <VisualizationContainer client:only="react" conversation_id={conversation_id} />
+        )}
       </>
     ) : (
       <p>Loading...</p>

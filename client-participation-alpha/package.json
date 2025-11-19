@@ -1,5 +1,4 @@
 {
-  "name": "",
   "type": "module",
   "version": "0.0.1",
   "scripts": {
@@ -12,8 +11,7 @@
   "dependencies": {
     "@astrojs/node": "9.4.6",
     "@astrojs/react": "4.4.0",
-    "@types/react": "^19.1.8",
-    "@types/react-dom": "^19.1.6",
+
     "@visx/axis": "^3.12.0",
     "@visx/grid": "^3.12.0",
     "@visx/group": "^3.12.0",
@@ -23,6 +21,7 @@
     "@visx/shape": "^3.12.0",
     "@visx/tooltip": "^3.12.0",
     "astro": "5.14.4",
+    "concaveman": "^2.0.0",
     "d3-polygon": "^3.0.1",
     "d3-scale": "^4.0.2",
     "d3-shape": "^3.2.0",
@@ -32,10 +31,16 @@
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
   "devDependencies": {
+    "@types/concaveman": "^1.1.6",
     "@types/d3-polygon": "^3.0.2",
     "@types/d3-scale": "^4.0.9",
-    "@types/d3-shape": "^3.1.7"
+    "@types/d3-shape": "^3.1.7",
+    "@types/react-dom": "^19.1.6",
+    "@types/react": "^19.1.8"
+  },
+  "overrides": {
+    "react": "$react",
+    "react-dom": "$react-dom"
   }
 }
