@@ -979,7 +979,7 @@ module.exports = ConversationView.extend({
 
         if (window.POLIS_DELPHI_ENABLED) {
           try {
-            $("#polis-donate").hide(); 
+            $("#polis-donate").hide();
           } catch (e) {
             console.error(e);
           }

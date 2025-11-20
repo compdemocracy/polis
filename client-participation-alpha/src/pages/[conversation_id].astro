@@ -6,6 +6,7 @@ import SurveyForm from '../components/SurveyForm.jsx';
 import TopicAgenda from '../components/topicAgenda/TopicAgenda.jsx';
 import TreeviteLoginCodeModal from '../components/TreeviteLoginCodeModal.jsx';
 import TreeviteInvites from '../components/TreeviteInvites.jsx';
+import XidOidcConflictWarning from '../components/XidOidcConflictWarning.jsx';
 import { getTranslations } from '../strings/strings.js';
 import PolisNet from '../lib/net';
 import { marked } from 'marked';
@@ -23,32 +24,33 @@ if (!conversation_id ||
   return Astro.redirect('/404');
 }
 
+// Load translations first so we can use them in error messages
+const s = await getTranslations();
+
 let initialData;
 let fetchError = null;
 
 try {
-  const apiParams = new URLSearchParams();
-  if (conversation_id) {
-    apiParams.append('conversation_id', conversation_id);
-  }
-
   const xid = Astro.url.searchParams.get('xid');
   const x_name = Astro.url.searchParams.get('x_name');
   const x_profile_image_url = Astro.url.searchParams.get('x_profile_image_url');
 
+  const apiParams: Record<string, any> = {
+    conversation_id,
+    includePCA: false
+  };
 
   if (xid) {
-    apiParams.append('xid', xid);
+    apiParams.xid = xid;
   }
   if (x_name) {
-    apiParams.append('x_name', x_name);
+    apiParams.x_name = x_name;
   }
   if (x_profile_image_url) {
-    apiParams.append('x_profile_image_url', x_profile_image_url);
+    apiParams.x_profile_image_url = x_profile_image_url;
   }
 
-
-  initialData = await PolisNet.polisGet('/participationInit', { conversation_id, includePCA: false });
+  initialData = await PolisNet.polisGet('/participationInit', apiParams);
   // Note: JWT token handling will be done client-side since this is SSR
   // The handleJwtFromResponse function will be called when the page hydrates
 } catch (error: unknown) {
@@ -56,6 +58,9 @@ try {
   
   // Type-safe error handling
   const errorMessage = error instanceof Error ? error.message : String(error);
+  const errorResponseText = error && typeof error === 'object' && 'responseText' in error 
+    ? String(error.responseText) 
+    : '';
   const errorCause = error instanceof Error ? error.cause : undefined;
   const errorCode = errorCause && typeof errorCause === 'object' && 'code' in errorCause 
     ? String(errorCause.code) 
@@ -63,15 +68,19 @@ try {
   
   console.error("[DEBUG] Error details:", {
     message: errorMessage,
+    responseText: errorResponseText,
     cause: errorCause,
     code: errorCode,
     stack: error instanceof Error ? error.stack : undefined
   });
 
-  fetchError = `Could not load this conversation. Error: ${errorMessage}. Please check the ID and try again.`;
+  // Handle specific error cases
+  if (errorResponseText.includes('polis_err_xid_required')) {
+    fetchError = s.xidRequired || "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.";
+  } else {
+    fetchError = `Could not load this conversation. Error: ${errorMessage}. Please check the ID and try again.`;
+  }
 }
-
-const s = await getTranslations();
 
 let surveyDetails, firstStatement, isConversationActive;
 if (initialData) {
@@ -105,6 +114,8 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
   
   <div class="container">
     {hideHeader ? null : <Header />}
+    
+    <XidOidcConflictWarning client:load s={s} />
 
     {fetchError ? (
       <div class="error-message">
@@ -126,6 +137,7 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
               client:only="react"
               conversation_id={conversation_id}
               requiresInviteCode={surveyDetails?.requiresInviteCode}
+              s={s}
             />
             <p class="conversation-intro" set:html={s.participantHelpWelcomeText}></p>
             <Survey 

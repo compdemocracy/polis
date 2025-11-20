@@ -1,10 +1,11 @@
 import pg from "./db/pg-query";
 import { getZinvite } from "./utils/zinvite";
-import { getXids } from "./routes/math";
+import { getXids } from "./routes/xids";
 import { getPca } from "./utils/pca";
 import { failJson } from "./utils/fail";
 import logger from "./utils/logger";
 import { getCommentsWithClusters } from "./utils/commentClusters";
+import type { XidRecord } from "./d";
 
 type Formatters<T> = Record<string, (row: T) => string>;
 
@@ -928,8 +929,11 @@ export async function sendParticipantXidsSummary(
       throw new Error("polis_error_no_xid_response");
     }
 
-    // Sort xids by pid
-    xids.sort((a, b) => a.pid - b.pid);
+    // Filter to only records with pid (should always be present for participants)
+    // and sort by pid
+    const xidsWithPid = xids
+      .filter((x): x is XidRecord & { pid: number } => x.pid !== undefined)
+      .sort((a, b) => a.pid - b.pid);
 
     // Define formatters for the CSV columns
     const formatters: Formatters<{ pid: number; xid: string }> = {
@@ -939,7 +943,7 @@ export async function sendParticipantXidsSummary(
 
     // Generate and send the CSV
     res.setHeader("content-type", "text/csv");
-    res.send(formatCSV(formatters, xids));
+    res.send(formatCSV(formatters, xidsWithPid));
   } catch (err) {
     logger.error("polis_err_report_participant_xids", err);
     failJson(res, 500, "polis_err_data_export", err);

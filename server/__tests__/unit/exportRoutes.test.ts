@@ -11,7 +11,7 @@ import {
 import pg from "../../src/db/pg-query";
 import { getZinvite } from "../../src/utils/zinvite";
 import { getPca } from "../../src/utils/pca";
-import { getXids } from "../../src/routes/math";
+import { getXids } from "../../src/routes/xids";
 import { jest } from "@jest/globals";
 import logger from "../../src/utils/logger";
 import { failJson } from "../../src/utils/fail";
@@ -71,7 +71,7 @@ jest.mock("../../src/utils/zinvite", () => ({
   getZidForRid: jest.fn(),
 }));
 
-jest.mock("../../src/routes/math", () => ({
+jest.mock("../../src/routes/xids", () => ({
   getXids: jest.fn(),
 }));
 

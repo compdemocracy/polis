@@ -130,8 +130,10 @@ export default function Survey({ initialStatement, s, conversation_id, requiresI
         errorMessage = s.convIsClosed || "This conversation is closed. No further voting is allowed.";
       } else if (errorText.includes("polis_err_post_votes_social_needed")) {
         errorMessage = "You need to sign in to vote.";
-      } else if (errorText.includes("polis_err_xid_not_whitelisted")) {
-        errorMessage = "Sorry, you must be registered to vote. Please sign in or contact the conversation owner.";
+      } else if (errorText.includes("polis_err_xid_not_allowed")) {
+        errorMessage = "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.";
+      } else if (errorText.includes("polis_err_xid_required")) {
+        errorMessage = s.xidRequired || "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.";
       }
       
       setVoteError(errorMessage);

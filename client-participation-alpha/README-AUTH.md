@@ -104,6 +104,39 @@ Conversation IDs always start with a digit followed by alphanumeric characters.
    - Conversation-specific JWTs used as fallback (based on current URL)
    - No token sent if neither available (anonymous access)
 
+## XID (External Identifier) Support
+
+The alpha client supports XID-based authentication for integrating with external systems:
+
+### How XID Works
+
+1. **XID Detection**
+   - XID is read from URL query parameters: `?xid=user123`
+   - Additional params supported: `?x_name=John&x_profile_image_url=https://...`
+   - For embeds, use data attributes: `<div data-xid="user123" data-x_name="John">`
+
+2. **Automatic XID Inclusion**
+   - `net.ts` automatically includes XID params in all API requests
+   - XID from URL is preserved across all API calls during the session
+   - No manual handling needed - it's automatic like JWT
+
+3. **XID Error Handling**
+   - `polis_err_xid_required`: Shown when conversation requires XID but none provided
+   - Error messages displayed inline using existing UI components
+   - User-friendly error messages from string files
+
+4. **OIDC + XID Conflict Warning**
+   - If user has both OIDC token AND XID parameter, a warning banner appears
+   - Warning is dismissible but alerts user to potential conflict
+   - Recommendation: Log out of OIDC account to participate with XID
+
+### XID Functions in auth.ts
+
+- `getXidFromUrl()` - Get XID from current URL query params
+- `getXNameFromUrl()` - Get x_name from URL
+- `getXProfileImageUrlFromUrl()` - Get x_profile_image_url from URL
+- `isOidcAuthenticated()` - Check if user is logged in via OIDC (for conflict detection)
+
 ## Migration from Manual JWT Handling
 
 ### Before (Manual JWT Handling)

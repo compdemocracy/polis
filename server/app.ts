@@ -86,6 +86,7 @@ import {
 } from "./src/routes/comments";
 import {
   handle_GET_conversationPreloadInfo,
+  handle_GET_all_conversations,
   handle_GET_conversations,
   handle_GET_conversationsRecentActivity,
   handle_GET_conversationsRecentlyStarted,
@@ -114,10 +115,15 @@ import {
   handle_POST_math_update,
   handle_GET_math_correlationMatrix,
   handle_GET_bidToPid,
-  handle_GET_xids,
-  handle_POST_xidWhitelist,
   handle_GET_bid,
 } from "./src/routes/math";
+import {
+  handle_GET_xids,
+  handle_GET_xidAllowList,
+  handle_POST_xidAllowList,
+  handle_GET_xids_csv,
+  handle_GET_xidAllowList_csv,
+} from "./src/routes/xids";
 import {
   handle_GET_participants,
   handle_GET_participation,
@@ -411,18 +417,6 @@ helpersInitialized.then(
       handle_GET_xidReport
     );
 
-    app.get(
-      "/api/v3/xids",
-      moveToBody,
-      hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      handle_GET_xids
-    );
-
     // TODO cache
     app.get(
       "/api/v3/bid",
@@ -621,11 +615,69 @@ helpersInitialized.then(
       handle_POST_domainWhitelist
     );
 
-    app.post(
-      "/api/v3/xidWhitelist",
+    app.get(
+      "/api/v3/xids",
+      moveToBody,
       hybridAuth(assignToP),
-      need("xid_whitelist", getArrayOfStringNonEmpty, assignToP),
-      handle_POST_xidWhitelist
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("limit", getInt, assignToP),
+      want("offset", getInt, assignToP),
+      handle_GET_xids
+    );
+
+    app.get(
+      "/api/v3/xidAllowList",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("limit", getInt, assignToP),
+      want("offset", getInt, assignToP),
+      handle_GET_xidAllowList
+    );
+
+    app.post(
+      "/api/v3/xidAllowList",
+      hybridAuth(assignToP),
+      need("xid_allow_list", getArrayOfStringNonEmpty, assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      want("replace_all", getBool, assignToP, false),
+      handle_POST_xidAllowList
+    );
+
+    app.get(
+      "/api/v3/xids/csv",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_xids_csv
+    );
+
+    app.get(
+      "/api/v3/xidAllowList/csv",
+      moveToBody,
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      handle_GET_xidAllowList_csv
     );
 
     app.get(
@@ -727,7 +779,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("xid", getStringLimitLength(1, 999), assignToP), // Process XID before ensureParticipant
+      // Process XID before ensureParticipant
+      want("xid", getStringLimitLength(1, 999), assignToP),
       ensureParticipant({ createIfMissing: true, issueJWT: true }),
       need("txt", getStringLimitLength(1, 997), assignToP),
       want("vote", getIntInRange(-1, 1), assignToP),
@@ -1147,7 +1200,8 @@ helpersInitialized.then(
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("xid", getStringLimitLength(1, 999), assignToP), // Process XID before ensureParticipant
+      // Process XID before ensureParticipant
+      want("xid", getStringLimitLength(1, 999), assignToP),
       ensureParticipant({ createIfMissing: true, issueJWT: true }),
       need("tid", getInt, assignToP),
       need("vote", getIntInRange(-1, 1), assignToP),
@@ -1313,7 +1367,6 @@ helpersInitialized.then(
       want("vis_type", getInt, assignToP),
       want("help_type", getInt, assignToP),
       want("write_type", getInt, assignToP),
-      want("socialbtn_type", getInt, assignToP),
       want("bgcolor", getOptionalStringLimitLength(20), assignToP),
       want("help_color", getOptionalStringLimitLength(20), assignToP),
       want("help_bgcolor", getOptionalStringLimitLength(20), assignToP),
@@ -1322,11 +1375,14 @@ helpersInitialized.then(
       want("auth_needed_to_write", getBool, assignToP),
       want("auth_opt_allow_3rdparty", getBool, assignToP),
       want("verifyMeta", getBool, assignToP),
-      want("send_created_email", getBool, assignToP), // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
+      // ideally the email would be sent on the post, but we post before they click create to allow owner to prepopulate comments.
+      want("send_created_email", getBool, assignToP),
       want("context", getOptionalStringLimitLength(999), assignToP),
       want("link_url", getStringLimitLength(1, 9999), assignToP),
       want("subscribe_type", getInt, assignToP),
       want("treevite_enabled", getBool, assignToP, false),
+      want("use_xid_whitelist", getBool, assignToP),
+      want("xid_required", getBool, assignToP),
       handle_PUT_conversations
     );
 
@@ -1448,22 +1504,32 @@ helpersInitialized.then(
       want("include_all_conversations_i_am_in", getBool, assignToP),
       want("is_active", getBool, assignToP),
       want("is_draft", getBool, assignToP),
-      want("course_invite", getStringLimitLength(1, 32), assignToP),
       want(
         "conversation_id",
         getConversationIdFetchZid,
         assignToPCustom("zid")
       ),
-      want("want_upvoted", getBool, assignToP),
-      want("want_mod_url", getBool, assignToP), // NOTE - use this for API only!
-      want("want_inbox_item_admin_url", getBool, assignToP), // NOTE - use this for API only!
-      want("want_inbox_item_participant_url", getBool, assignToP), // NOTE - use this for API only!
-      want("want_inbox_item_admin_html", getBool, assignToP), // NOTE - use this for API only!
-      want("want_inbox_item_participant_html", getBool, assignToP), // NOTE - use this for API only!
       want("limit", getIntInRange(1, 9999), assignToP), // not allowing a super high limit to prevent DOS attacks
       want("context", getStringLimitLength(1, 999), assignToP),
       want("xid", getStringLimitLength(1, 999), assignToP),
       handle_GET_conversations
+    );
+
+    app.get(
+      "/api/v3/all_conversations",
+      moveToBody,
+      hybridAuth(assignToP),
+      want("limit", getIntInRange(1, 9999), assignToP),
+      want("offset", getIntInRange(0, 99999999), assignToP),
+      want("sort_by", getStringLimitLength(1, 50), assignToP),
+      want("sort_dir", getStringLimitLength(1, 4), assignToP),
+      want("owner_email", getOptionalStringLimitLength(999), assignToP),
+      want("is_active", getBool, assignToP),
+      want("recently_updated_days", getIntInRange(0, 36500), assignToP),
+      want("recently_created_days", getIntInRange(0, 36500), assignToP),
+      want("min_comment_count", getIntInRange(0, 100000000), assignToP),
+      want("min_participant_count", getIntInRange(0, 100000000), assignToP),
+      handle_GET_all_conversations
     );
 
     app.get(

@@ -1,6 +1,5 @@
 import _ from "underscore";
 import { getPca, PcaCacheItem } from "../utils/pca";
-import { MPromise } from "../utils/metered";
 import { failJson } from "../utils/fail";
 import pg from "../db/pg-query";
 import Utils from "../utils/common";
@@ -274,104 +273,6 @@ function handle_GET_bidToPid(
   );
 }
 
-function getXids(
-  zid: number
-): Promise<{ pid: number; xid: string }[] | undefined> {
-  return MPromise(
-    "getXids",
-    function (
-      resolve: (arg0: { pid: number; xid: string }[]) => void,
-      reject: (arg0: string) => void
-    ) {
-      pg.query_readOnly(
-        "select pid, xid from xids inner join " +
-          "(select * from participants where zid = ($1)) as p on xids.uid = p.uid " +
-          " where owner in (select org_id from conversations where zid = ($1));",
-        [zid],
-        function (err: any, result: { rows: { pid: number; xid: string }[] }) {
-          if (err) {
-            reject("polis_err_fetching_xids");
-            return;
-          }
-          resolve(result.rows);
-        }
-      );
-    }
-  ) as Promise<{ pid: number; xid: string }[] | undefined>;
-}
-
-function handle_GET_xids(
-  req: { p: { uid?: number; zid: number } },
-  res: {
-    status: (arg0: number) => {
-      (): any;
-      new (): any;
-      json: { (arg0: any): void; new (): any };
-    };
-  }
-) {
-  const uid = req.p.uid;
-  const zid = req.p.zid;
-
-  Utils.isOwner(zid, uid).then(
-    function (owner: any) {
-      if (owner) {
-        getXids(zid).then(
-          function (xids: any) {
-            res.status(200).json(xids);
-          },
-          function (err: any) {
-            failJson(res, 500, "polis_err_get_xids", err);
-          }
-        );
-      } else {
-        failJson(res, 403, "polis_err_get_xids_not_authorized");
-      }
-    },
-    function (err: any) {
-      failJson(res, 500, "polis_err_get_xids", err);
-    }
-  );
-}
-
-function handle_POST_xidWhitelist(
-  req: { p: { xid_whitelist: any; uid?: any } },
-  res: {
-    status: (arg0: number) => {
-      (): any;
-      new (): any;
-      json: { (arg0: {}): void; new (): any };
-    };
-  }
-) {
-  const xid_whitelist = req.p.xid_whitelist;
-  const len = xid_whitelist.length;
-  const owner = req.p.uid;
-  const entries = [];
-  try {
-    for (let i = 0; i < len; i++) {
-      entries.push(
-        "(" + Utils.escapeLiteral(xid_whitelist[i]) + "," + owner + ")"
-      );
-    }
-  } catch (err) {
-    return failJson(res, 400, "polis_err_bad_xid", err);
-  }
-
-  pg.queryP(
-    "insert into xid_whitelist (xid, owner) values " +
-      entries.join(",") +
-      " on conflict do nothing;",
-    []
-  )
-    .then(() => {
-      res.status(200).json({});
-    })
-    .catch((err: any) => {
-      return failJson(res, 500, "polis_err_POST_xidWhitelist", err);
-    });
-}
-
 function getBidsForPids(zid: number, math_tick: number, pids: number[]) {
   const dataPromise = getBidIndexToPidMapping(zid, math_tick);
   const mathResultsPromise = getPca(zid, math_tick);
@@ -474,13 +375,10 @@ function handle_GET_bid(
 
 export {
   getBidsForPids,
-  getXids,
   handle_GET_bid,
   handle_GET_bidToPid,
   handle_GET_math_correlationMatrix,
   handle_GET_math_pca,
   handle_GET_math_pca2,
-  handle_GET_xids,
   handle_POST_math_update,
-  handle_POST_xidWhitelist,
 };

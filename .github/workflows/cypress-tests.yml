@@ -67,9 +67,7 @@ jobs:
     - name: Build Docker images
       run: |
         # Build all services defined in test compose file
-        # Pass IS_GITHUB_ACTION=true to build the smaller, CPU-only delphi image
-        docker compose -f docker-compose.test.yml --env-file test.env build \
-          --build-arg IS_GITHUB_ACTION=true
+        docker compose -f docker-compose.test.yml --env-file test.env build
 
     - name: Start services
       run: |

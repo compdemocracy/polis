@@ -158,7 +158,6 @@ export interface ConversationInfo {
   description?: string;
   vis_type?: number;
   help_type?: number;
-  socialbtn_type?: number;
   bgcolor?: string | null;
   help_color?: string;
   help_bgcolor?: string;
@@ -167,8 +166,6 @@ export interface ConversationInfo {
   importance_enabled?: boolean;
   owner_sees_participation_stats?: boolean;
   link_url?: string;
-  course_invite?: string;
-  course_id?: string;
   context?: string;
   auth_opt_allow_3rdparty?: boolean;
   created?: number;
@@ -176,15 +173,18 @@ export interface ConversationInfo {
   [key: string]: any;
 }
 
-// XidInfo type for external ID records
-export interface XidInfo {
-  uid: number;
-  owner: number;
-  xid: string;
-  x_profile_image_url?: string;
-  x_name?: string;
-  x_email?: string;
+export interface XidRecord {
   created?: number;
+  modified?: number;
+  owner: number;
+  pid?: number;
+  uid: number;
+  x_email?: string;
+  x_name?: string;
+  x_profile_image_url?: string;
+  xid: string;
+  zid?: number;
+  vote_count?: number;
 }
 
 // TODO rename this to User after converting
@@ -226,7 +226,6 @@ export type ConversationType = {
   description?: string;
   vis_type?: number;
   help_type?: number;
-  socialbtn_type?: number;
   bgcolor?: string | null;
   help_color?: string;
   help_bgcolor?: string;
@@ -235,19 +234,13 @@ export type ConversationType = {
   importance_enabled?: boolean;
   owner_sees_participation_stats?: boolean;
   link_url?: string;
-  course_invite?: string;
-  course_id?: string;
   zid?: number;
+  use_xid_whitelist?: boolean;
+  xid_required?: boolean;
   uid?: number;
   context?: string;
   xid?: string;
   include_all_conversations_i_am_in?: boolean;
-  want_mod_url?: boolean;
-  want_upvoted?: boolean;
-  want_inbox_item_admin_url?: boolean;
-  want_inbox_item_participant_url?: boolean;
-  want_inbox_item_admin_html?: boolean;
-  want_inbox_item_participant_html?: boolean;
   limit?: number;
   parent_url?: string;
   auth_opt_allow_3rdparty?: boolean;

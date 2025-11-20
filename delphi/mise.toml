@@ -1,7 +1,2 @@
 [tools]
 python = "3.12"
-# Note: pip version should be < 25.3 for compatibility with pip-tools 7.5.1
-# pip-tools 7.5.1 supports pip up to 25.2 (see changelog)
-# Install with: pip install 'pip<25.3'
-# Recommended: pip 25.2
-# See https://github.com/jazzband/pip-tools/issues/2252

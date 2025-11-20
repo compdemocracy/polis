@@ -28,8 +28,6 @@ venv: ## Create canonical virtual environment (delphi-env)
 	else \
 		echo "✓ Virtual environment already exists"; \
 	fi
-	@echo "Installing compatible pip version (< 25.3 for pip-tools 7.5.1 compatibility)..."
-	@delphi-env/bin/pip install --upgrade 'pip<25.3' || echo "⚠️  Could not install pip version constraint"
 	@echo "To activate: source delphi-env/bin/activate"
 	@echo "Then run: make install-dev"
 
@@ -41,15 +39,7 @@ venv-check: ## Check virtual environment status
 		echo "Python location: $$(which python)"; \
 		pip_version=$$(pip --version 2>/dev/null | cut -d' ' -f2); \
 		if [ -n "$$pip_version" ]; then \
-			major=$$(echo $$pip_version | cut -d'.' -f1); \
-			minor=$$(echo $$pip_version | cut -d'.' -f2); \
-			if [ $$major -eq 25 ] && [ $$minor -ge 3 ]; then \
-				echo "⚠️  WARNING: pip version $$pip_version is >= 25.3"; \
-				echo "   pip-tools 7.5.1 supports pip up to 25.2"; \
-				echo "   Downgrade with: pip install 'pip<25.3'"; \
-			else \
-				echo "✓ pip version: $$pip_version (compatible)"; \
-			fi; \
+			echo "pip version: $$pip_version"; \
 		fi; \
 	else \
 		echo "❌ No virtual environment active"; \

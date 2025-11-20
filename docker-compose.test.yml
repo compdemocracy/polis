@@ -186,6 +186,9 @@ services:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
       context: ./delphi
+      target: test
+      args:
+        USE_CPU_TORCH: "true"
     labels:
       polis_tag: test
     environment:

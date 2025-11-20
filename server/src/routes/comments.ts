@@ -350,7 +350,7 @@ async function moderateComment(
  * Simplified comment handler - all participant management is handled by middleware
  */
 async function handle_POST_comments(req: RequestWithP, res: any) {
-  const { zid, uid, txt, vote, is_seed, xid } = req.p;
+  const { zid, uid, txt, vote, is_seed } = req.p;
   let { pid } = req.p; // pid may be reassigned if it's -1
 
   try {
@@ -504,7 +504,7 @@ async function handle_POST_comments(req: RequestWithP, res: any) {
     const finalVote = shouldDefaultVote ? 0 : vote;
 
     if (!_.isUndefined(finalVote)) {
-      await votesPost(uid, pid, zid, tid, xid, finalVote, 0, false);
+      await votesPost(uid, pid, zid, tid, finalVote, 0, false);
     }
 
     // 8. Handle moderation notifications
@@ -804,7 +804,7 @@ async function handle_POST_comments_bulk(
   req: PolisRequest,
   res: Response & { json: (data: any) => void }
 ): Promise<void> {
-  const { zid, uid, pid: initialPid, is_seed, xid } = req.p;
+  const { zid, uid, pid: initialPid, is_seed } = req.p;
   // @ts-expect-error body parsing
   const csv = req.body.csv;
   let pid = initialPid;
@@ -926,7 +926,7 @@ async function handle_POST_comments_bulk(
 
         // Handle default vote for seed comments (matching handle_POST_comments behavior)
         if (is_seed) {
-          await votesPost(uid!, finalPid, zid!, tid, xid, 0, 0, false);
+          await votesPost(uid!, finalPid, zid!, tid, 0, 0, false);
           // Schedule vote count update
           setTimeout(() => {
             updateVoteCount(zid!, finalPid);

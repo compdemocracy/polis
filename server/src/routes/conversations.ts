@@ -9,6 +9,7 @@ import { sql_conversations } from "../db/sql";
 import Config from "../config";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
+import { parsePagination, createPaginationMeta } from "../utils/pagination";
 import {
   doGetConversationPreloadInfo,
   getZidFromConversationId,
@@ -47,25 +48,6 @@ function failWithRetryRequest(res: {
   res.setHeader("Retry-After", 0);
   logger.warn("failWithRetryRequest");
   res.writeHead(500).send(57493875);
-}
-
-function createModerationUrl(
-  req: { p?: ConversationType; protocol?: string; headers?: Headers },
-  zinvite: string
-) {
-  let server = Config.getServerUrl();
-  if (Config.domainOverride) {
-    server = req?.protocol + "://" + Config.domainOverride;
-  }
-
-  if (
-    typeof (req?.headers as any)?.host === "string" &&
-    (req.headers as any).host.includes("preprod.pol.is")
-  ) {
-    server = "https://preprod.pol.is";
-  }
-  const url = server + "/m/" + zinvite;
-  return url;
 }
 
 function generateSingleUseUrl(
@@ -157,9 +139,6 @@ function buildConversationsQuery(
 
   query = query.where(orClauses);
 
-  if (!_.isUndefined(req.p.course_invite)) {
-    query = query.and(sql_conversations.course_id.equals(req.p.course_id));
-  }
   if (!_.isUndefined(req.p.is_active)) {
     query = query.and(sql_conversations.is_active.equals(req.p.is_active));
   }
@@ -198,13 +177,6 @@ async function processConversationData(
 ): Promise<any[]> {
   const uid = req.p.uid;
   const xid = req.p.xid;
-  const want_upvoted = req.p.want_upvoted;
-  const want_mod_url = req.p.want_mod_url;
-  const want_inbox_item_admin_url = req.p.want_inbox_item_admin_url;
-  const want_inbox_item_participant_url = req.p.want_inbox_item_participant_url;
-  const want_inbox_item_admin_html = req.p.want_inbox_item_admin_html;
-  const want_inbox_item_participant_html =
-    req.p.want_inbox_item_participant_html;
 
   try {
     // Add conversation IDs
@@ -224,76 +196,19 @@ async function processConversationData(
         )
       : Promise.resolve();
 
-    // Handle upvotes if requested
-    const upvotesPromise =
-      uid && want_upvoted
-        ? pg.queryP_readOnly("select zid from upvotes where uid = ($1);", [uid])
-        : Promise.resolve();
-
-    const [suurlData, upvotes] = await Promise.all([
-      suurlsPromise,
-      upvotesPromise,
-    ]);
+    const [suurlData] = await Promise.all([suurlsPromise]);
 
     const suurlIndex = suurlData ? _.indexBy(suurlData, "zid") : null;
-    const upvotesIndex = upvotes ? _.indexBy(upvotes, "zid") : null;
 
     // Process each conversation
     data.forEach(function (conv: any) {
       // Set ownership flag
       conv.is_owner = uid !== undefined && conv.owner === uid;
 
-      const root = Config.getServerNameWithProtocol(req);
-
-      if (want_mod_url) {
-        conv.mod_url = createModerationUrl(req, conv.conversation_id);
-      }
-      if (want_inbox_item_admin_url) {
-        conv.inbox_item_admin_url = root + "/iim/" + conv.conversation_id;
-      }
-      if (want_inbox_item_participant_url) {
-        conv.inbox_item_participant_url = root + "/iip/" + conv.conversation_id;
-      }
-      if (want_inbox_item_admin_html) {
-        conv.inbox_item_admin_html =
-          "<a href='" +
-          root +
-          "/" +
-          conv.conversation_id +
-          "'>" +
-          (conv.topic || conv.created) +
-          "</a>" +
-          " <a href='" +
-          root +
-          "/m/" +
-          conv.conversation_id +
-          "'>moderate</a>";
-        conv.inbox_item_admin_html_escaped = conv.inbox_item_admin_html.replace(
-          /'/g,
-          "\\'"
-        );
-      }
-      if (want_inbox_item_participant_html) {
-        conv.inbox_item_participant_html =
-          "<a href='" +
-          root +
-          "/" +
-          conv.conversation_id +
-          "'>" +
-          (conv.topic || conv.created) +
-          "</a>";
-        conv.inbox_item_participant_html_escaped =
-          conv.inbox_item_participant_html.replace(/'/g, "\\'");
-      }
-
       if (suurlIndex) {
         conv.url = suurlIndex[conv.zid || ""].suurl;
       } else {
         conv.url = buildConversationUrl(req, conv.conversation_id);
-      }
-
-      if (upvotesIndex && upvotesIndex[conv.zid || ""]) {
-        conv.upvoted = true;
       }
 
       conv.created = Number(conv.created);
@@ -349,6 +264,175 @@ export async function getConversations(req: { p: ConversationType }, res: any) {
   } catch (error) {
     logger.error("Error getting conversations:", error);
     failJson(res, 500, "polis_err_get_conversations", error);
+  }
+}
+
+/**
+ * Admin-only: Get all conversations (paginated)
+ */
+async function handle_GET_all_conversations(
+  req: {
+    p: ConversationType & {
+      sort_by?: string;
+      sort_dir?: string;
+      owner_email?: string;
+      is_active?: boolean;
+      recently_updated_days?: number;
+      recently_created_days?: number;
+      min_comment_count?: number;
+      min_participant_count?: number;
+    };
+  },
+  res: any
+) {
+  try {
+    if (!isPolisDev(req.p.uid)) {
+      failJson(res, 403, "polis_err_no_access_for_this_user");
+      return;
+    }
+
+    // Always use pagination
+    const pagination = parsePagination(
+      { limit: req.p.limit, offset: (req.p as any).offset },
+      { defaultLimit: 50, maxLimit: 500 }
+    );
+
+    // Build dynamic WHERE clauses and ORDER BY for filters/sorting
+    const where: string[] = [];
+    const params: any[] = [];
+
+    if (!_.isUndefined(req.p.is_active)) {
+      params.push(req.p.is_active);
+      where.push(`c.is_active = ($${params.length})`);
+    }
+
+    if (!_.isUndefined(req.p.owner_email) && req.p.owner_email) {
+      params.push(`%${req.p.owner_email}%`);
+      where.push(`u.email ILIKE ($${params.length})`);
+    }
+
+    const nowMs = Date.now();
+    if (!_.isUndefined(req.p.recently_updated_days)) {
+      const ms =
+        nowMs - Number(req.p.recently_updated_days) * 24 * 60 * 60 * 1000;
+      params.push(ms);
+      where.push(`c.modified >= ($${params.length})`);
+    }
+    if (!_.isUndefined(req.p.recently_created_days)) {
+      const ms =
+        nowMs - Number(req.p.recently_created_days) * 24 * 60 * 60 * 1000;
+      params.push(ms);
+      where.push(`c.created >= ($${params.length})`);
+    }
+
+    // Filter on aggregated counts (these need to be in WHERE clause after joins)
+    if (!_.isUndefined(req.p.min_comment_count)) {
+      params.push(Number(req.p.min_comment_count));
+      where.push(`COALESCE(cc.comment_count, 0) >= ($${params.length})`);
+    }
+    if (!_.isUndefined(req.p.min_participant_count)) {
+      params.push(Number(req.p.min_participant_count));
+      where.push(`COALESCE(pc.participant_count, 0) >= ($${params.length})`);
+    }
+
+    // Combine all WHERE conditions into a single WHERE clause
+    const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+
+    const sortByRaw = (req.p.sort_by || "created").toLowerCase();
+    const sortDirRaw = (req.p.sort_dir || "desc").toLowerCase();
+    const sortDir = sortDirRaw === "asc" ? "asc" : "desc";
+    let sortBy;
+    switch (sortByRaw) {
+      case "updated":
+      case "modified":
+        sortBy = "c.modified";
+        break;
+      case "participant_count":
+        sortBy = "pc.participant_count";
+        break;
+      case "comment_count":
+        sortBy = "cc.comment_count";
+        break;
+      case "created":
+      default:
+        sortBy = "c.created";
+        break;
+    }
+
+    // Build query with pagination params appended at end
+    const pageParamsStartIndex = params.length + 1;
+    const paginationSql = `LIMIT ($${pageParamsStartIndex})::bigint OFFSET ($${
+      pageParamsStartIndex + 1
+    })::bigint`;
+
+    const sql = `
+      SELECT 
+        c.*, 
+        COALESCE(pc.participant_count, 0) AS participant_count,
+        COALESCE(cc.comment_count, 0) AS comment_count,
+        u.email AS owner_email
+      FROM conversations c
+      LEFT JOIN (
+        SELECT zid, COUNT(DISTINCT pid) AS participant_count
+        FROM participants
+        GROUP BY zid
+      ) pc ON pc.zid = c.zid
+      LEFT JOIN (
+        SELECT zid, COUNT(*) AS comment_count
+        FROM comments
+        WHERE is_meta = FALSE
+        GROUP BY zid
+      ) cc ON cc.zid = c.zid
+      LEFT JOIN users u ON u.uid = c.owner
+      ${whereSql}
+      ORDER BY ${sortBy} ${sortDir}
+      ${paginationSql};
+    `;
+
+    const rows = (await pg.queryP_readOnly(sql, [
+      ...params,
+      ...pagination.params,
+    ])) as any[];
+
+    // Compute filtered total count using same filters
+    const totalSql = `
+      SELECT COUNT(*) AS count
+      FROM (
+        SELECT c.zid
+        FROM conversations c
+        LEFT JOIN (
+          SELECT zid, COUNT(DISTINCT pid) AS participant_count
+          FROM participants
+          GROUP BY zid
+        ) pc ON pc.zid = c.zid
+        LEFT JOIN (
+          SELECT zid, COUNT(*) AS comment_count
+          FROM comments
+          WHERE is_meta = FALSE
+          GROUP BY zid
+        ) cc ON cc.zid = c.zid
+        LEFT JOIN users u ON u.uid = c.owner
+        ${whereSql}
+      ) t;
+    `;
+    const totalRows = (await pg.queryP_readOnly(totalSql, params)) as Array<{
+      count: string;
+    }>;
+    const total = Number(totalRows?.[0]?.count || 0);
+
+    // Process like normal conversation listing (no site-admin map for global list)
+    const data = await processConversationData(rows, req, {});
+
+    const meta = createPaginationMeta(
+      pagination.limit,
+      pagination.offset,
+      total
+    );
+
+    res.status(200).json({ conversations: data, pagination: meta });
+  } catch (error) {
+    logger.error("Error getting all conversations:", error);
+    failJson(res, 500, "polis_err_get_all_conversations", error);
   }
 }
 
@@ -750,7 +834,6 @@ function handle_PUT_conversations(
       description: string;
       vis_type: any;
       help_type: any;
-      socialbtn_type: any;
       bgcolor: string;
       help_color: string;
       help_bgcolor: string;
@@ -763,6 +846,7 @@ function handle_PUT_conversations(
       send_created_email: any;
       conversation_id: string;
       context: any;
+      use_xid_whitelist?: any;
     };
   },
   res: any
@@ -818,9 +902,6 @@ function handle_PUT_conversations(
       if (!_.isUndefined(req.p.help_type)) {
         fields.help_type = req.p.help_type;
       }
-      if (!_.isUndefined(req.p.socialbtn_type)) {
-        fields.socialbtn_type = req.p.socialbtn_type;
-      }
       if (!_.isUndefined(req.p.bgcolor)) {
         if (req.p.bgcolor === "default") {
           fields.bgcolor = null;
@@ -865,6 +946,14 @@ function handle_PUT_conversations(
       }
 
       ifDefinedSet("subscribe_type", req.p, fields);
+
+      if (!_.isUndefined((req.p as any).xid_required)) {
+        (fields as any).xid_required = !!(req.p as any).xid_required;
+      }
+
+      if (!_.isUndefined(req.p.use_xid_whitelist)) {
+        fields.use_xid_whitelist = !!req.p.use_xid_whitelist;
+      }
 
       const q = sql_conversations
         .update(fields)
@@ -954,41 +1043,25 @@ function handle_GET_conversations(
   },
   res: any
 ) {
-  let courseIdPromise = Promise.resolve();
-  if (req.p.course_invite) {
-    courseIdPromise = pg
-      .queryP_readOnly(
-        "select course_id from courses where course_invite = ($1);",
-        [req.p.course_invite]
+  const lang = null; // for now just return the default
+  if (req.p.zid) {
+    getOneConversation(req.p.zid, req.p.uid, lang)
+      .then(
+        function (data: any) {
+          finishOne(res, data);
+        },
+        function (err: any) {
+          failJson(res, 500, "polis_err_get_conversations_2", err);
+        }
       )
-      .then(function (rows: { course_id: any }[]) {
-        return rows[0].course_id;
+      .catch(function (err: any) {
+        failJson(res, 500, "polis_err_get_conversations_1", err);
       });
+  } else if (req.p.uid || req.p.context) {
+    getConversations(req, res);
+  } else {
+    failJson(res, 403, "polis_err_need_auth");
   }
-  courseIdPromise.then(function (course_id: any) {
-    if (course_id) {
-      req.p.course_id = course_id;
-    }
-    const lang = null; // for now just return the default
-    if (req.p.zid) {
-      getOneConversation(req.p.zid, req.p.uid, lang)
-        .then(
-          function (data: any) {
-            finishOne(res, data);
-          },
-          function (err: any) {
-            failJson(res, 500, "polis_err_get_conversations_2", err);
-          }
-        )
-        .catch(function (err: any) {
-          failJson(res, 500, "polis_err_get_conversations_1", err);
-        });
-    } else if (req.p.uid || req.p.context) {
-      getConversations(req, res);
-    } else {
-      failJson(res, 403, "polis_err_need_auth");
-    }
-  });
 }
 
 function handle_POST_reserve_conversation_id(
@@ -1221,6 +1294,7 @@ function handle_GET_iim_conversation(
 
 export {
   handle_GET_conversationPreloadInfo,
+  handle_GET_all_conversations,
   handle_GET_conversations,
   handle_GET_conversationsRecentActivity,
   handle_GET_conversationsRecentlyStarted,
