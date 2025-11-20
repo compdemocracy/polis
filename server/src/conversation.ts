@@ -1,91 +1,12 @@
 import LruCache from "lru-cache";
 
-import pg from "./db/pg-query";
-import logger from "./utils/logger";
 import { ConversationInfo } from "./d";
-import { fetchIndex, makeFileFetcher } from "./utils/file-fetcher";
-import Config from "./config";
-import { ifDefinedFirstElseSecond } from "./utils/common";
 import { DEFAULTS } from "./utils/constants";
-
-interface XidRecord {
-  uid: number;
-  owner: number;
-  xid: string;
-  x_profile_image_url?: string;
-  x_name?: string;
-  x_email?: string;
-  created?: number;
-}
-
-async function createXidRecord(
-  ownerUid: number,
-  uid: number,
-  xid: string,
-  x_profile_image_url?: string,
-  x_name?: string,
-  x_email?: string
-): Promise<void> {
-  await pg.queryP(
-    "insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ($1, $2, $3, $4, $5, $6) " +
-      "on conflict (owner, xid) do nothing;",
-    [
-      ownerUid,
-      uid,
-      xid,
-      x_profile_image_url || null,
-      x_name || null,
-      x_email || null,
-    ]
-  );
-}
-
-async function createXidRecordByZid(
-  zid: number,
-  uid: number,
-  xid: string,
-  x_profile_image_url?: string,
-  x_name?: string,
-  x_email?: string
-): Promise<void> {
-  const conv = await getConversationInfo(zid);
-
-  if (conv.use_xid_whitelist) {
-    const isWhitelisted = await isXidWhitelisted(conv.owner, xid);
-    if (!isWhitelisted) {
-      throw new Error("polis_err_xid_not_whitelisted_2");
-    }
-  }
-
-  await pg.queryP(
-    "insert into xids (owner, uid, xid, x_profile_image_url, x_name, x_email) values ((select org_id from conversations where zid = ($1)), $2, $3, $4, $5, $6) " +
-      "on conflict (owner, xid) do nothing;",
-    [
-      zid,
-      uid,
-      xid,
-      x_profile_image_url || null,
-      x_name || null,
-      x_email || null,
-    ]
-  );
-}
-
-async function getXidRecord(xid: string, zid: number): Promise<XidRecord[]> {
-  const rows = await pg.queryP(
-    "select * from xids where xid = ($1) and owner = (select org_id from conversations where zid = ($2));",
-    [xid, zid]
-  );
-  return rows as XidRecord[];
-}
-
-async function isXidWhitelisted(owner: number, xid: string): Promise<boolean> {
-  const rows = await pg.queryP(
-    "select * from xid_whitelist where owner = ($1) and xid = ($2);",
-    [owner, xid]
-  );
-  return Array.isArray(rows) && rows.length > 0;
-}
+import { fetchIndex, makeFileFetcher } from "./utils/file-fetcher";
+import { ifDefinedFirstElseSecond } from "./utils/common";
+import Config from "./config";
+import logger from "./utils/logger";
+import pg from "./db/pg-query";
 
 function getConversationInfo(zid: number): Promise<ConversationInfo> {
   return new Promise((resolve, reject) => {
@@ -191,7 +112,6 @@ function doGetConversationPreloadInfo(conversation_id: any) {
         write_type: conv.write_type,
         importance_enabled: conv.importance_enabled,
         help_type: conv.help_type,
-        socialbtn_type: conv.socialbtn_type,
         bgcolor: conv.bgcolor,
         help_color: conv.help_color,
         help_bgcolor: conv.help_bgcolor,
@@ -237,13 +157,9 @@ function fetchIndexForConversation(
 }
 
 export {
-  createXidRecord,
-  createXidRecordByZid,
   doGetConversationPreloadInfo,
   fetchIndexForConversation,
   getConversationInfo,
   getConversationInfoByConversationId,
-  getXidRecord,
   getZidFromConversationId,
-  isXidWhitelisted,
 };

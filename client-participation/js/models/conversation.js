@@ -56,10 +56,6 @@ module.exports = Model.extend({
     },
     is_anon: false,
     is_draft: false,
-    is_active: false,
-    // is_public: false, // if false, must validate and have account.
-    // if no domain specified, sms validation.
-    // if email address not empty string, email validation - ie., school email address.
-    email_domain: undefined // @microsoft.com etc if require validation AND
+    is_active: false
   }
 });

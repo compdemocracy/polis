@@ -125,6 +125,8 @@ s.commentErrorConversationClosed =
 s.commentIsEmpty = "Statement is empty";
 s.commentIsTooLong = "Statement is too long";
 s.hereIsNextStatement = "Vote success. Navigate up to see the next statement.";
+s.xidRequired = "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.";
+s.xidOidcConflictWarning = "Warning: You are currently signed-in to polis, but have opened a conversation with an XID token. To participate with an XID, please log out of your polis account.";
 
 // Text for the third party translation that appears on the cards
 

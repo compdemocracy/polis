@@ -366,16 +366,16 @@ async function setupAuthAndConvo(
   // 2. Some test users might not have permission to modify whitelist
   // 3. Tests can still pass if the conversation owner has no whitelist configured
   try {
-    const whitelistResponse = await agent
+    const allowListResponse = await agent
       .post("/api/v3/domainWhitelist")
       .send({ domain_whitelist: "" })
       .ok((res) => res.status < 500); // Don't throw on client errors
 
-    if (whitelistResponse.status !== 200) {
+    if (allowListResponse.status !== 200) {
       console.warn(
         "Failed to clear domain whitelist:",
-        whitelistResponse.status,
-        whitelistResponse.text || whitelistResponse.body
+        allowListResponse.status,
+        allowListResponse.text || allowListResponse.body
       );
     }
   } catch (err) {

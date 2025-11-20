@@ -44,18 +44,27 @@ const Pagination = ({ pagination, onPageChange, loading = false }) => {
     <Box
       sx={{
         display: 'flex',
+        flexDirection: ['column', 'row'],
         alignItems: 'center',
         justifyContent: 'space-between',
+        gap: [3, 0],
         mt: [3],
         pt: [3],
         borderTop: '1px solid',
         borderColor: 'lightGray'
       }}>
-      <Text sx={{ fontSize: [1] }}>
+      <Text sx={{ fontSize: [1], mb: [3, 0] }}>
         Showing {startItem}-{endItem} of {total} items
       </Text>
 
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: [2] }}>
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          justifyContent: 'center',
+          gap: [2]
+        }}>
         <Button
           variant="outline"
           size="small"

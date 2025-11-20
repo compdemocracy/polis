@@ -235,7 +235,7 @@ module.exports = (env, options) => {
           process: {
             env: {
               NODE_ENV: options.mode,
-              AUTH_NAMESPACE: authNamespace,
+              AUTH_NAMESPACE: authNamespace
             }
           }
         },

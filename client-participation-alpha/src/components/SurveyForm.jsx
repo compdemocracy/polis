@@ -27,6 +27,7 @@ const submitPerspectiveAPI = async (text, conversation_id) => {
 export default function SurveyForm({ s, conversation_id, requiresInviteCode = false }) {
   const [text, setText] = useState('');
   const [feedback, setFeedback] = useState('');
+  const [error, setError] = useState('');
   const [isAuthed, setIsAuthed] = useState(!!getConversationToken(conversation_id)?.token);
   const maxLength = 400;
 
@@ -40,25 +41,57 @@ export default function SurveyForm({ s, conversation_id, requiresInviteCode = fa
     };
   }, [conversation_id]);
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (!text.trim()) return;
-    setFeedback(s.commentSent);
+    
+    setFeedback('');
+    setError('');
     const submittedText = text;
     setText('');
-    submitPerspectiveAPI(submittedText, conversation_id);
+    
+    try {
+      await submitPerspectiveAPI(submittedText, conversation_id);
+      setFeedback(s.commentSent);
+    } catch (err) {
+      console.error("Comment submission failed:", err);
+      
+      // Parse error message
+      const errorText = err.responseText || err.message || '';
+      let errorMessage = s.commentSendFailed || "There was an error submitting your statement.";
+      
+      if (errorText.includes("polis_err_conversation_is_closed")) {
+        errorMessage = s.commentErrorConversationClosed || "This conversation is closed. No further statements can be submitted.";
+      } else if (errorText.includes("polis_err_comment_duplicate")) {
+        errorMessage = s.commentErrorDuplicate || "Duplicate! That statement already exists.";
+      } else if (errorText.includes("polis_err_xid_required")) {
+        errorMessage = s.xidRequired || "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.";
+      } else if (errorText.includes("polis_err_xid_not_allowed")) {
+        errorMessage = s.xidRequired || "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.";
+      }
+      
+      setError(errorMessage);
+      // Restore the text so user doesn't lose their work
+      setText(submittedText);
+    }
   };
 
   if ((requiresInviteCode && !isAuthed)) {
     return null;
   }
 
-  if (feedback) {
-    return <p style={{ textAlign: 'center', color: '#28a745', fontWeight: 'bold' }}>{feedback}</p>;
-  }
-
   return (
     <div>
+      {feedback && (
+        <p style={{ textAlign: 'center', color: '#28a745', fontWeight: 'bold', marginBottom: '1rem' }}>
+          {feedback}
+        </p>
+      )}
+      {error && (
+        <p style={{ textAlign: 'center', color: '#dc3545', fontWeight: 'bold', marginBottom: '1rem' }}>
+          {error}
+        </p>
+      )}
       <div className="guidelines">
         <p dangerouslySetInnerHTML={{ __html: s.writeCommentHelpText }}/>
         <h2>{s.helpWriteListIntro}</h2>

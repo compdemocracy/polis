@@ -13,9 +13,14 @@
  */
 
 import _ from "underscore";
+import { Response, NextFunction } from "express";
+
 import { addParticipantAndMetadata } from "../participant";
 import { checkLegacyCookieAndIssueJWT } from "./legacyCookies";
 import { createAnonUser } from "./create-user";
+import { createXidRecord, getXidRecord, isXidAllowed } from "../xids";
+import { failJson } from "../utils/fail";
+import { getConversationInfo, getZidFromConversationId } from "../conversation";
 import { getPidPromise } from "../user";
 import { getZinvite } from "../utils/zinvite";
 import { isDuplicateKey } from "../utils/common";
@@ -23,17 +28,8 @@ import { issueAnonymousJWT } from "./anonymous-jwt";
 import { issueStandardUserJWT } from "./standard-user-jwt";
 import { issueXidJWT } from "./xid-jwt";
 import { RequestWithP } from "../d";
-import { Response, NextFunction } from "express";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
-import { failJson } from "../utils/fail";
-import {
-  createXidRecordByZid,
-  getConversationInfo,
-  getXidRecord,
-  isXidWhitelisted,
-  getZidFromConversationId,
-} from "../conversation";
 
 // Validation function for conversation_id (same as in parameter.ts)
 function validateConversationId(conversation_id: string): string {
@@ -171,6 +167,24 @@ async function _handleUserIdentification(
     return uid;
   }
 
+  const conv = await getConversationInfo(zid);
+
+  // XID validation logic
+  if (conv.use_xid_whitelist) {
+    if (req.p.xid) {
+      const isAllowed = await isXidAllowed(req.p.xid, zid, conv.owner);
+      if (!isAllowed) {
+        throw new Error("polis_err_xid_not_allowed");
+      }
+    } else {
+      throw new Error("polis_err_xid_required");
+    }
+  } else if (conv.xid_required) {
+    if (!req.p.xid) {
+      throw new Error("polis_err_xid_required");
+    }
+  }
+
   if (req.p.xid) {
     // Handle XID users - look up or create their UID
     const existingXidRecords = await getXidRecord(req.p.xid, zid);
@@ -180,23 +194,15 @@ async function _handleUserIdentification(
       return existingXidRecords[0].uid;
     }
 
-    // XID user doesn't exist, need to create one
-    const conv = await getConversationInfo(zid);
-    if (conv.use_xid_whitelist) {
-      const isWhitelisted = await isXidWhitelisted(conv.owner, req.p.xid);
-      if (!isWhitelisted) {
-        throw new Error("polis_err_xid_not_whitelisted");
-      }
-    }
-
     // Create new anonymous user for this XID
     const newUid = await createAnonUser();
 
     // Create XID record linking the XID to the new user
-    await createXidRecordByZid(
-      zid,
-      newUid,
+    await createXidRecord(
       req.p.xid,
+      conv.owner,
+      newUid,
+      zid,
       undefined,
       undefined,
       undefined
@@ -550,6 +556,21 @@ export function ensureParticipant(options: EnsureParticipantOptions = {}) {
     } catch (error) {
       logger.error("Error in ensureParticipant middleware", error);
 
+      // Handle XID authentication errors with proper status codes
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_xid_required"
+      ) {
+        return failJson(res, 403, "polis_err_xid_required");
+      }
+
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_xid_not_allowed"
+      ) {
+        return failJson(res, 403, "polis_err_xid_not_allowed");
+      }
+
       // Handle Treevite authentication errors with proper status code
       if (
         error instanceof Error &&
@@ -598,6 +619,21 @@ export function ensureParticipantOptional(
 
       next();
     } catch (error) {
+      // Handle XID authentication errors even in optional middleware
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_xid_required"
+      ) {
+        return failJson(res, 403, "polis_err_xid_required");
+      }
+
+      if (
+        error instanceof Error &&
+        error.message === "polis_err_xid_not_allowed"
+      ) {
+        return failJson(res, 403, "polis_err_xid_not_allowed");
+      }
+
       // Handle Treevite authentication errors even in optional middleware
       if (
         error instanceof Error &&

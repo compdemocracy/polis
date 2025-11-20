@@ -7,7 +7,7 @@ import TopicAgendaStyles from "./components/TopicAgendaStyles";
 import PolisNet from "../../lib/net";
 import { getConversationToken } from "../../lib/auth";
 
-const TopicAgenda = ({ conversation_id, requiresInviteCode = false }) => {
+const TopicAgenda = ({ conversation_id, requiresInviteCode = false, s = {} }) => {
   const [loadWidget, setLoadWidget] = useState(false);
   const [selections, setSelections] = useState(new Set());
   const [commentMap, setCommentMap] = useState(new Map());
@@ -17,6 +17,8 @@ const TopicAgenda = ({ conversation_id, requiresInviteCode = false }) => {
   const [err, setError] = useState(null);
   const [conversation, setConversation] = useState(null);
   const [inviteCodeRequired, setInviteCodeRequired] = useState(requiresInviteCode);
+  const [submissionError, setSubmissionError] = useState(null);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
 
   const {
     loading,
@@ -190,6 +192,9 @@ const TopicAgenda = ({ conversation_id, requiresInviteCode = false }) => {
   };
 
   const handleDone = async () => {
+    setSubmissionError(null);
+    setSubmissionSuccess(false);
+    
     try {
       // Convert topic selections to archetypal comments
       console.log("Selected topics:", Array.from(selections));
@@ -232,15 +237,32 @@ const TopicAgenda = ({ conversation_id, requiresInviteCode = false }) => {
       
       if (result.status === 'success') {
         console.log('Topic agenda selections saved successfully:', result.data);
-        // TODO: Show success UI feedback
+        setSubmissionSuccess(true);
+        // Auto-hide success message after 3 seconds
+        setTimeout(() => setSubmissionSuccess(false), 3000);
       } else {
         console.error('Failed to save selections:', result.message);
-        // TODO: Show error UI feedback
+        setSubmissionError(result.message || 'Failed to save topic selections');
       }
       
     } catch (error) {
       console.error('Error saving topic agenda selections:', error);
-      // TODO: Show error UI feedback
+      
+      // Parse error message
+      const errorText = error.responseText || error.message || '';
+      let errorMessage = 'Failed to save topic selections. Please try again.';
+      
+      if (errorText.includes('polis_err_xid_required')) {
+        errorMessage = s.xidRequired || 'This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.';
+      } else if (errorText.includes('polis_err_xid_not_allowed')) {
+        errorMessage = s.xidRequired || 'This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.';
+      } else if (errorText.includes('polis_err_conversation_is_closed')) {
+        errorMessage = s.convIsClosed || 'This conversation is closed.';
+      } else if (errorText.includes('polis_err_post_votes_social_needed')) {
+        errorMessage = 'You need to sign in to participate.';
+      }
+      
+      setSubmissionError(errorMessage);
     }
   };
 
@@ -307,6 +329,36 @@ const TopicAgenda = ({ conversation_id, requiresInviteCode = false }) => {
             clusterGroups={clusterGroups}
             hierarchyAnalysis={hierarchyAnalysis}
           />
+          
+          {submissionError && (
+            <div style={{
+              backgroundColor: '#f8d7da',
+              border: '1px solid #f5c6cb',
+              borderRadius: '4px',
+              padding: '12px 16px',
+              margin: '12px 0',
+              color: '#721c24',
+              fontSize: '14px',
+              textAlign: 'center'
+            }}>
+              {submissionError}
+            </div>
+          )}
+          
+          {submissionSuccess && (
+            <div style={{
+              backgroundColor: '#d4edda',
+              border: '1px solid #c3e6cb',
+              borderRadius: '4px',
+              padding: '12px 16px',
+              margin: '12px 0',
+              color: '#155724',
+              fontSize: '14px',
+              textAlign: 'center'
+            }}>
+              Topic selections saved successfully!
+            </div>
+          )}
           
           <div className="done-button-container">
             <button 

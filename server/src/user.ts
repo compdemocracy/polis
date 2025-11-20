@@ -1,16 +1,10 @@
 import _ from "underscore";
 import LruCache from "lru-cache";
 
-import { createAnonUser } from "./auth";
-import { UserInfo, XidInfo } from "./d";
+import { getXidRecord } from "./xids";
+import { UserInfo, XidRecord } from "./d";
 import logger from "./utils/logger";
 import pg from "./db/pg-query";
-import {
-  createXidRecord,
-  getXidRecord,
-  getConversationInfo,
-  isXidWhitelisted,
-} from "./conversation";
 
 interface UserResponse {
   uid: number;
@@ -51,31 +45,27 @@ async function getUser(
   zid_optional?: number,
   xid_optional?: string,
   owner_uid_optional?: number
-): Promise<UserResponse | {}> {
+): Promise<UserResponse | object> {
   if (!uid) {
     // this api may be called by a new user, so we don't want to trigger a failure here.
     return {};
   }
 
-  let xidInfoPromise: Promise<XidInfo[] | null> = Promise.resolve(null);
+  let XidRecordPromise: Promise<XidRecord[]> = Promise.resolve([]);
 
-  if (zid_optional && xid_optional) {
-    xidInfoPromise = getXidRecord(xid_optional, zid_optional);
-  } else if (xid_optional && owner_uid_optional) {
-    xidInfoPromise = getXidRecordByXidOwnerId(
+  // Look up XID record if xid and either zid or owner is available
+  // The function will prefer zid-based lookup if both are provided
+  if (xid_optional && (zid_optional || owner_uid_optional)) {
+    XidRecordPromise = getXidRecord(
       xid_optional,
-      owner_uid_optional,
       zid_optional,
-      null,
-      null,
-      null,
-      false
+      owner_uid_optional
     );
   }
 
   const [info, xInfo] = await Promise.all([
     getUserInfoForUid2(uid),
-    xidInfoPromise,
+    XidRecordPromise,
   ]);
 
   const hasXid = xInfo && xInfo.length && xInfo[0];
@@ -201,88 +191,10 @@ function getPidForParticipant(
   };
 }
 
-async function getXidRecordByXidOwnerId(
-  xid: string,
-  owner: number,
-  zid_optional?: number,
-  x_profile_image_url?: string,
-  x_name?: string,
-  x_email?: string,
-  createIfMissing?: boolean
-): Promise<XidInfo[] | null> {
-  const rows = (await pg.queryP(
-    "select * from xids where xid = ($1) and owner = ($2);",
-    [xid, owner]
-  )) as XidInfo[];
-
-  if (!rows || !rows.length) {
-    logger.warn("getXidRecordByXidOwnerId: no xInfo yet");
-    if (!createIfMissing) {
-      return null;
-    }
-
-    const shouldCreateXidEntry = !zid_optional
-      ? true
-      : await getConversationInfo(zid_optional).then((conv) => {
-          return conv.use_xid_whitelist ? isXidWhitelisted(owner, xid) : true;
-        });
-
-    if (!shouldCreateXidEntry) {
-      return null;
-    }
-
-    const newUid = await createAnonUser();
-    await createXidRecord(
-      owner,
-      newUid,
-      xid,
-      x_profile_image_url || null,
-      x_name || null,
-      x_email || null
-    );
-
-    return [
-      {
-        uid: newUid,
-        owner: owner,
-        xid: xid,
-        x_profile_image_url: x_profile_image_url,
-        x_name: x_name,
-        x_email: x_email,
-      },
-    ];
-  }
-
-  return rows;
-}
-
-async function getXidStuff(
-  xid: string,
-  zid: number
-): Promise<string | (XidInfo & { pid: number })> {
-  const rows = await getXidRecord(xid, zid);
-
-  if (!rows || !rows.length) {
-    return "noXidRecord";
-  }
-
-  const xidRecordForPtpt = rows[0];
-  if (xidRecordForPtpt) {
-    const pidForXid = await getPidPromise(zid, xidRecordForPtpt.uid, true);
-    return {
-      ...xidRecordForPtpt,
-      pid: pidForXid,
-    };
-  }
-
-  return xidRecordForPtpt as XidInfo & { pid: number };
-}
-
 export {
   getPid,
   getPidForParticipant,
   getPidPromise,
   getUser,
   getUserInfoForUid2,
-  getXidStuff,
 };

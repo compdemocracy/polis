@@ -114,6 +114,8 @@ module.exports = Handlebones.ModelView.extend({
     this.hideMessage("#comment_send_failed_too_long_message");
     this.hideMessage("#comment_send_failed_duplicate_message");
     this.hideMessage("#comment_send_failed_conversation_closed_message");
+    this.hideMessage("#comment_send_failed_xid_required_message");
+    this.hideMessage("#comment_send_failed_xid_not_allowed_message");
     var form = $(arguments[0].target);
     var formText = form.val();
     var len = formText.length;
@@ -198,6 +200,8 @@ module.exports = Handlebones.ModelView.extend({
     this.hideMessage("#comment_send_failed_too_long_message");
     this.hideMessage("#comment_send_failed_duplicate_message");
     this.hideMessage("#comment_send_failed_conversation_closed_message");
+    this.hideMessage("#comment_send_failed_xid_required_message");
+    this.hideMessage("#comment_send_failed_xid_not_allowed_message");
 
     function doSubmitComment() {
       if (that.buttonActive) {
@@ -250,7 +254,8 @@ module.exports = Handlebones.ModelView.extend({
     var that = this; //that = the view
     attrs.pid = -1;
     attrs.conversation_id = this.conversation_id;
-    attrs.vote = Constants.REACTIONS.AGREE; // participants' comments are automatically agreed to. Needed for now since math assumes every comment has at least one vote.
+    // participants' comments are automatically agreed to. Needed for now since math assumes every comment has at least one vote.
+    attrs.vote = Constants.REACTIONS.AGREE;
 
     if (/^\s*$/.exec(attrs.txt)) {
       alert(Strings.commentIsEmpty);
@@ -276,38 +281,27 @@ module.exports = Handlebones.ModelView.extend({
     } else {
       promise.then(
         function () {
-          that.trigger("commentSubmitted"); // view.trigger
-          // $("#comment_form_textarea").hide();
-          // $("#commentSentAlert").fadeIn(300);
-          // setTimeout(function() {
-          //   $("#commentSentAlert").fadeOut(500, function() {
-          //     $("#comment_form_textarea").fadeIn(400);
-          //   });
-          // }, 1500);
+          that.trigger("commentSubmitted");
         },
         function (err) {
+          // Parse error from JSON response or fall back to plain text
+          var errorCode = null;
+          if (err && err.responseJSON && err.responseJSON.error) {
+            errorCode = err.responseJSON.error;
+          } else if (err && err.responseText) {
+            errorCode = err.responseText;
+          }
+
           if (err.status === 409) {
-            // that.model.set({
-            //   error: "Duplicate!",
-            //   errorExtra: "That comment already exists.",
-            // });
-            // alert(Strings.commentErrorDuplicate);
             that.showMessage("#comment_send_failed_duplicate_message");
-          } else if (err.responseText === "polis_err_conversation_is_closed") {
-            // that.model.set({
-            //   error: "This conversation is closed.",
-            //   errorExtra: "No further commenting is allowed.",
-            // });
-            // alert(Strings.commentErrorConversationClosed);
+          } else if (errorCode === "polis_err_conversation_is_closed") {
             that.showMessage("#comment_send_failed_conversation_closed_message");
+          } else if (errorCode === "polis_err_xid_required") {
+            that.showMessage("#comment_send_failed_xid_required_message");
+          } else if (errorCode === "polis_err_xid_not_allowed") {
+            that.showMessage("#comment_send_failed_xid_not_allowed_message");
           } else {
-            // that.model.set({
-            //   error: "Error sending comment.",
-            //   errorExtra: "Please try again later.",
-            // });
-            // alert(Strings.commentSendFailed);
             that.showMessage("#comment_send_failed_message");
-            // this.showMessage("#comment_send_failed_message");
           }
         }
       );
@@ -319,9 +313,6 @@ module.exports = Handlebones.ModelView.extend({
     this.model = options.model;
     this.conversation_id = options.conversation_id;
     this.collection = options.collection;
-    // this.commentsByMeView = this.addChild(new CommentsByMeView({
-    //   collection: options.collection
-    // }));
     this.serverClient = options.serverClient;
 
     this.profilePicView = this.addChild(

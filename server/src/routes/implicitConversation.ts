@@ -221,7 +221,6 @@ function handle_GET_implicit_conversation_generation(
   if (!_.isUndefined(req.p.bg_white)) {
     o.bgcolor = req.p.bg_white ? "#fff" : null;
   }
-  o.socialbtn_type = req.p.show_share ? 1 : 0;
 
   function appendParams(url: string) {
     // These are needed to disambiguate postMessages from multiple polis conversations embedded on one page.

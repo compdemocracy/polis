@@ -6,7 +6,7 @@ import { useAuth } from 'react-oidc-context'
 import { useEffect, useState } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
 
-import { checkConvoPermissions, useUser } from '../../util/auth'
+import { checkConvoPermissions, useUser, hasDelphiEnabled } from '../../util/auth'
 import { populateConversationDataStore, resetMetadataStore } from '../../actions'
 import { ConversationDataProvider, useConversationData } from '../../util/conversation_data'
 import ConversationConfig from './ConversationConfig'
@@ -15,6 +15,7 @@ import InviteCodes from './InviteCodes'
 import InviteTree from './InviteTree'
 import ModerateComments from './comment-moderation/'
 import NoPermission from './NoPermission'
+import ParticipantManagement from './ParticipantManagement'
 import Reports from './report/Reports'
 import ShareAndEmbed from './ShareAndEmbed'
 import Spinner from '../framework/Spinner'
@@ -25,6 +26,7 @@ const ConversationAdmin = () => {
   const location = useLocation()
   const conversationData = useConversationData()
   const userContext = useUser()
+  const { user: authUser } = useAuth()
 
   const [permissionState, setPermissionState] = useState('CHECKING') // CHECKING, PERMITTED, DENIED
 
@@ -80,6 +82,9 @@ const ConversationAdmin = () => {
             />
             <Route path="invite-tree" element={<InviteTree />} />
             <Route path="invite-codes" element={<InviteCodes />} />
+            {hasDelphiEnabled(authUser) && (
+              <Route path="participants" element={<ParticipantManagement />} />
+            )}
           </Routes>
         )
       default:
@@ -187,6 +192,17 @@ const ConversationAdmin = () => {
               }}
               to={`${baseUrl}/invite-codes`}>
               Invite Codes
+            </Link>
+          </Box>
+        )}
+        {hasDelphiEnabled(authUser) && (
+          <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
+            <Link
+              sx={{
+                variant: url === 'participants' ? 'links.activeNav' : 'links.nav'
+              }}
+              to={`${baseUrl}/participants`}>
+              Participants
             </Link>
           </Box>
         )}

@@ -1,19 +1,21 @@
 import _ from "underscore";
+
 import { addExtendedParticipantInfo, joinConversation } from "../participant";
 import { failJson } from "../utils/fail";
-import { getConversationInfo, getXidRecord } from "../conversation";
+import { getConversationInfo } from "../conversation";
 import { getNextComment } from "../nextComment";
 import { getPca } from "../utils/pca";
 import { getPid, getUser } from "../user";
 import { getVotesForSingleParticipant } from "./votes";
-import { getXids } from "./math";
+import { getXidRecord } from "../xids";
+import { getXids } from "./xids";
 import { isConversationOwner, isOwner } from "../utils/common";
 import { MPromise } from "../utils/metered";
+import { ParticipantFields, ParticipantInfo, ExpressResponse } from "../d";
 import { sql_participants_extended } from "../db/sql";
 import { userHasAnsweredZeQuestions } from "../server-helpers";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
-import { ParticipantFields, ParticipantInfo, ExpressResponse } from "../d";
 import {
   doFamousQuery,
   updateLastInteractionTimeForConversation,

@@ -218,7 +218,6 @@ module.exports = Handlebones.ModelView.extend({
     eb.on(eb.exitConv, cleanup);
 
     function cleanup() {
-      //alert('cleanup');
       eb.off(eb.exitConv, cleanup);
     }
     var serverClient = (this.serverClient = options.serverClient);
@@ -307,16 +306,26 @@ module.exports = Handlebones.ModelView.extend({
       this.animateIn();
       console.error(err);
 
-      if (err && err.responseText === "polis_err_conversation_is_closed") {
-        alert("This conversation is closed. No further voting is allowed.");
-      } else if (err && err.responseText === "polis_err_post_votes_social_needed") {
+      // Parse error from JSON response or fall back to plain text
+      var errorCode = null;
+      if (err && err.responseJSON && err.responseJSON.error) {
+        errorCode = err.responseJSON.error;
+      } else if (err && err.responseText) {
+        errorCode = err.responseText;
+      }
+
+      if (errorCode === "polis_err_conversation_is_closed") {
+        alert(Strings.convIsClosed);
+      } else if (errorCode === "polis_err_post_votes_social_needed") {
         that.model.set({
           needSocial: true
         });
-      } else if (err && err.responseText === "polis_err_xid_not_whitelisted") {
-        alert("Sorry, you must be registered to vote. Please sign in or contact the conversation owner.");
+      } else if (errorCode === "polis_err_xid_required") {
+        alert(Strings.xidRequired);
+      } else if (errorCode === "polis_err_xid_not_allowed") {
+        alert(Strings.xidRequired);
       } else {
-        alert("Apologies, your vote failed to send. Please check your connection and try again.");
+        alert(Strings.voteErrorGeneric);
       }
     }
 
@@ -427,7 +436,6 @@ module.exports = Handlebones.ModelView.extend({
             that.isSubscribed(1); // TODO this is totally crappy
             that.$(".email").val("");
             that.model.set("foo", Math.random()); // trigger render
-            // alert("you have subscribed");
           },
           function (err) {
             alert(Strings.notificationsSubscribeErrorAlert);
@@ -548,17 +556,6 @@ module.exports = Handlebones.ModelView.extend({
 
     pollForComments(options.firstCommentPromise); // call immediately using a promise for the first comment (latency reduction hack)
     this.listenTo(this, "rendered", function () {
-      // this.$("#agreeButton").tooltip({
-      //   title: "This comment represents my opinion",
-      //   placement: "right",
-      //   delay: { show: 500, hide: 0 },
-      //   container: "body"
-      // });
-      // this.$("#disagreeButton").tooltip({
-      //   title: "This comment does not represent my opinion",
-      //   placement: "top",
-      //   delay: { show: 500, hide: 0 }
-      // });
       this.$("#passButton").tooltip({
         title: "'No reaction', or 'I am unsure'",
         placement: "top",

@@ -1,7 +1,6 @@
-import pg from "../db/pg-query";
-import logger from "../utils/logger";
-
 import _ from "underscore";
+import logger from "../utils/logger";
+import pg from "../db/pg-query";
 
 // ===== UTILITY FUNCTIONS =====
 
@@ -15,32 +14,4 @@ const deleteSuzinvite = async (suzinvite: string): Promise<void> => {
   }
 };
 
-function xidExists(xid: string, owner: number, uid?: number) {
-  return pg
-    .queryP(
-      "select * from xids where xid = ($1) and owner = ($2) and uid = ($3);",
-      [xid, owner, uid]
-    )
-    .then(function (rows: string | any[]) {
-      return rows && rows.length;
-    });
-}
-
-const createXidEntry = async (
-  xid: string,
-  owner: number,
-  uid?: number
-): Promise<void> => {
-  try {
-    await pg.queryP("INSERT INTO xids (uid, owner, xid) VALUES ($1, $2, $3);", [
-      uid,
-      owner,
-      xid,
-    ]);
-  } catch (err) {
-    logger.error("polis_err_adding_xid_entry", err);
-    throw new Error("polis_err_adding_xid_entry");
-  }
-};
-
-export { createXidEntry, deleteSuzinvite, xidExists };
+export { deleteSuzinvite };

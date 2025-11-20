@@ -1,10 +1,10 @@
 import _ from "underscore";
+
 import { ConversationInfo, PidReadyResult, RequestWithP } from "../d";
 import { failJson } from "../utils/fail";
 import { getNextComment } from "../nextComment";
 import { getPid } from "../user";
 import { isDuplicateKey, polisTypes } from "../utils/common";
-import { isXidWhitelisted } from "../conversation";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import SQL from "../db/sql";
@@ -79,7 +79,6 @@ async function votesPost(
   pid?: number,
   zid?: number,
   tid?: number,
-  xid?: string,
   voteType?: number,
   weight?: number,
   high_priority?: boolean
@@ -98,12 +97,7 @@ async function votesPost(
     throw "polis_err_conversation_is_closed";
   }
 
-  if (conv.use_xid_whitelist) {
-    const is_whitelisted = await isXidWhitelisted(conv.owner!, xid!);
-    if (!is_whitelisted) {
-      throw "polis_err_xid_not_whitelisted";
-    }
-  }
+  // Note: XID validation is handled by ensureParticipant middleware before this function is called
 
   return doVotesPost(uid, pid, conv, tid, voteType, weight, high_priority);
 }
@@ -188,18 +182,8 @@ async function handle_GET_votes(req: VoteGetRequest, res: any) {
  * Simplified vote handler - all participant management is handled by middleware
  */
 async function handle_POST_votes(req: RequestWithP, res: any) {
-  const {
-    zid,
-    pid,
-    uid,
-    tid,
-    vote,
-    weight,
-    high_priority,
-    starred,
-    lang,
-    xid,
-  } = req.p;
+  const { zid, pid, uid, tid, vote, weight, high_priority, starred, lang } =
+    req.p;
 
   try {
     // 1. Submit the vote - that's all we need to do now!
@@ -208,7 +192,6 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
       pid,
       zid,
       tid,
-      xid,
       vote,
       weight,
       high_priority
@@ -273,8 +256,8 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
       failJson(res, 403, "polis_err_conversation_is_closed", err);
     } else if (err === "polis_err_post_votes_social_needed") {
       failJson(res, 403, "polis_err_post_votes_social_needed", err);
-    } else if (err === "polis_err_xid_not_whitelisted") {
-      failJson(res, 403, "polis_err_xid_not_whitelisted", err);
+    } else if (err === "polis_err_xid_not_allowed") {
+      failJson(res, 403, "polis_err_xid_not_allowed", err);
     } else if (err === "polis_err_vote_anonymous_user_creation") {
       failJson(res, 500, "polis_err_vote_anonymous_user_creation", err);
     } else {
