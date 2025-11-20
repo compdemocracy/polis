@@ -10,13 +10,23 @@ export function Statement({ statement, onVote, isVoting, s, isStatementImportant
 
   const passUnsureText = s.pass;
 
+  const remaining = statement.remaining;
+  const remainingText = remaining != null && remaining > 0 
+    ? (remaining >= 100 ? '100+ remaining' : `${remaining} remaining`)
+    : null;
+
   return (
     <div className="statement-card">
       <div className="statement-header">
         <div className="anonymous-user">
-          <div className="avatar"></div>
+          <img src="/anonProfile.svg" alt="" className="avatar" />
           <span>{s.anonPerson || 'Anonymous'} {s.x_wrote || 'wrote:'}</span>
         </div>
+        {remainingText && (
+          <span style={{ fontSize: '0.875rem', fontStyle: 'italic', marginLeft: 'auto' }}>
+            {remainingText}
+          </span>
+        )}
       </div>
       <p className="statement-text">{statement.txt}</p>
 
