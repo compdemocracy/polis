@@ -446,6 +446,9 @@ def sparsity_aware_project_ptpts(vote_matrix: np.ndarray,
         # For numpy array, use tolist()
         votes_list = vote_matrix.tolist()
     except (AttributeError, TypeError):
+        # TODO(Julien): if we have this problem here, we should fix upstream to ensure proper types,
+        # and thus remove this fallback.
+
         # If not a numpy array or conversion fails, try row by row
         votes_list = []
         for i in range(vote_matrix.shape[0]):
