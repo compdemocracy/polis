@@ -55,7 +55,7 @@ def test_run_pipeline_with_mock_data(tmp_path):
     assert expected_output_dir.is_dir(), f"Output directory was not created at {expected_output_dir}"
 
     # Check for the main index file
-    expected_index_file = expected_output_dir / f"{conversation_name}_comment_enhanced_index.html"
+    expected_index_file = expected_output_dir / f"{zid}_comment_enhanced_index.html"
     assert expected_index_file.is_file(), f"Main index HTML file was not created: {expected_index_file}"
 
     # The mock data processing should result in 3 cluster layers.
