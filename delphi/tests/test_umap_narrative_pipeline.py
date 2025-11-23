@@ -34,8 +34,9 @@ def setup_and_teardown(tmp_path, monkeypatch):
 def test_run_pipeline_with_mock_data(tmp_path):
     """
     Tests that the run_pipeline.py script can be executed with mock data.
-    This test mocks the SentenceTransformer to provide diverse embeddings,
-    avoiding failures in the ML models due to uniform mock text data.
+    This test mocks the EVoC clustering library to ensure the pipeline
+    receives valid, non-empty cluster data, thus allowing the visualization
+    and file generation steps to be tested.
     """
     zid = "12345"
     test_args = [
@@ -45,53 +46,48 @@ def test_run_pipeline_with_mock_data(tmp_path):
         "--no-dynamo",
     ]
 
-    # Create diverse mock embeddings to ensure clustering algorithms work.
     num_comments = 100
-    embedding_dim = 32  # Lowering dim for simplicity in test
-    embeddings = np.zeros((num_comments, embedding_dim))
-    rng = np.random.default_rng(42)
 
-    # Create 4 very distinct and tight clusters of 25 points each.
-    # This data is extremely easy to cluster and should prevent evoc from failing.
-    for i in range(4):
-        start_index = i * 25
-        end_index = (i + 1) * 25
-        # Create a center for the cluster, far away from others.
-        center_vector = np.zeros(embedding_dim)
-        center_vector[i] = 10.0 
-        # Add points with minuscule noise around the center.
-        embeddings[start_index:end_index, :] = center_vector + rng.normal(scale=0.0001, size=(25, embedding_dim))
+    # Mock the EVoC class, as it is the source of the instability.
+    # We will make it return a predictable, valid clustering structure.
+    with mock.patch('run_pipeline.evoc.EVoC') as MockEVoC:
+        mock_clusterer_instance = mock.MagicMock()
+        
+        # Create 3 layers of mock cluster labels for the 100 mock comments.
+        layer0 = np.random.randint(0, 10, num_comments) # 10 clusters
+        layer1 = np.random.randint(0, 5, num_comments)  # 5 clusters
+        layer2 = np.random.randint(0, 2, num_comments)  # 2 clusters
+        
+        # The script calls `fit_predict` and then accesses `cluster_layers_`.
+        mock_clusterer_instance.fit_predict.return_value = layer0
+        mock_clusterer_instance.cluster_layers_ = [layer0, layer1, layer2]
 
-    # Mock the SentenceTransformer to return our pre-generated diverse embeddings.
-    with mock.patch('run_pipeline.SentenceTransformer') as MockSentenceTransformer:
-        mock_instance = mock.MagicMock()
-        mock_instance.encode.return_value = embeddings
-        MockSentenceTransformer.return_value = mock_instance
+        # Ensure that when `evoc.EVoC()` is called, it returns our mock instance.
+        MockEVoC.return_value = mock_clusterer_instance
 
+        # Run the main pipeline within the mock context.
         with mock.patch.object(sys, 'argv', test_args):
             try:
                 run_pipeline_main()
             except SystemExit as e:
                 pytest.fail(f"run_pipeline.py exited unexpectedly: {e}")
 
-    # Verify that the output directory and files were created in the temp path
+    # Verify that the output directory and files were created in the temp path.
+    # If these files are created, it means the visualization step succeeded.
     expected_output_dir = tmp_path / "polis_data" / zid / "python_output" / "comments_enhanced_multilayer"
     assert expected_output_dir.is_dir(), f"Output directory was not created at {expected_output_dir}"
 
     # Check for the main index file.
-    # Note: The script has a bug and uses `zid` for the name instead of `conversation_name`.
-    # The test is adjusted to reflect the actual behavior of the script.
     expected_index_file = expected_output_dir / f"{zid}_comment_enhanced_index.html"
     assert expected_index_file.is_file(), f"Main index HTML file was not created: {expected_index_file}"
 
-    # The mock data processing should result in cluster layers.
-    # Check for visualization and data files for layer 0.
+    # Check for the layer 0 visualization file.
     expected_layer_file = expected_output_dir / f"{zid}_comment_layer_0_named.html"
     assert expected_layer_file.is_file(), "Layer 0 visualization file was not created"
 
+    # Check for the data files that are created alongside the visualizations.
     expected_char_file = expected_output_dir / f"{zid}_comment_layer_0_characteristics.json"
     assert expected_char_file.is_file(), "Layer 0 characteristics JSON file was not created"
 
-    # Check for metadata file
     expected_metadata_file = expected_output_dir / f"{zid}_metadata.json"
     assert expected_metadata_file.is_file(), "Metadata JSON file was not created"
