@@ -31,26 +31,14 @@ def setup_and_teardown(tmp_path, monkeypatch):
     # Restore original working directory
     os.chdir(cwd)
 
-@mock.patch('run_pipeline.process_comments')
-def test_run_pipeline_with_mock_data(mock_process_comments, tmp_path):
+def test_run_pipeline_with_mock_data(tmp_path):
     """
-    Tests that the run_pipeline.py script can be executed, mocking the
-    ML portion to ensure the data processing and visualization file
-    generation part of the pipeline works correctly.
+    Tests that the run_pipeline.py script can be executed with mock data.
+    This test mocks the SentenceTransformer to provide diverse embeddings,
+    avoiding failures in the ML models due to uniform mock text data.
     """
     zid = "12345"
-    num_comments = 100
-    
-    # Mock the return value of the expensive/problematic process_comments function
-    # to simulate a successful ML processing run.
-    mock_process_comments.return_value = (
-        np.random.rand(num_comments, 2),  # document_map
-        np.random.rand(num_comments, 32), # document_vectors
-        [np.random.randint(0, 5, num_comments) for _ in range(3)], # cluster_layers
-        [f"comment text {i}" for i in range(num_comments)], # comment_texts
-        [i for i in range(num_comments)] # comment_ids
-    )
-
+    conversation_name = f"Mock Conversation {zid}"
     test_args = [
         "run_pipeline.py",
         "--use-mock-data",
@@ -58,11 +46,26 @@ def test_run_pipeline_with_mock_data(mock_process_comments, tmp_path):
         "--no-dynamo",
     ]
 
-    with mock.patch.object(sys, 'argv', test_args):
-        try:
-            run_pipeline_main()
-        except SystemExit as e:
-            pytest.fail(f"run_pipeline.py exited unexpectedly: {e}")
+    # Create diverse mock embeddings to ensure clustering algorithms work.
+    num_comments = 100
+    embedding_dim = 384  # Dimension for all-MiniLM-L6-v2
+    embeddings = np.zeros((num_comments, embedding_dim))
+    # Create two distinct clusters in the embedding space
+    embeddings[:50, :] = np.random.normal(loc=0.5, scale=0.1, size=(50, embedding_dim))
+    embeddings[50:, :] = np.random.normal(loc=-0.5, scale=0.1, size=(50, embedding_dim))
+
+    # Mock the SentenceTransformer to return our pre-generated diverse embeddings.
+    # This avoids the error caused by uniform text data in the pipeline's ML steps.
+    with mock.patch('run_pipeline.SentenceTransformer') as MockSentenceTransformer:
+        mock_instance = mock.MagicMock()
+        mock_instance.encode.return_value = embeddings
+        MockSentenceTransformer.return_value = mock_instance
+
+        with mock.patch.object(sys, 'argv', test_args):
+            try:
+                run_pipeline_main()
+            except SystemExit as e:
+                pytest.fail(f"run_pipeline.py exited unexpectedly: {e}")
 
     # Verify that the output directory and files were created in the temp path
     expected_output_dir = tmp_path / "polis_data" / zid / "python_output" / "comments_enhanced_multilayer"
