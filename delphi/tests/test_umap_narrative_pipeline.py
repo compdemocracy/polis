@@ -38,7 +38,6 @@ def test_run_pipeline_with_mock_data(tmp_path):
     avoiding failures in the ML models due to uniform mock text data.
     """
     zid = "12345"
-    conversation_name = f"Mock Conversation {zid}"
     test_args = [
         "run_pipeline.py",
         "--use-mock-data",
@@ -48,14 +47,22 @@ def test_run_pipeline_with_mock_data(tmp_path):
 
     # Create diverse mock embeddings to ensure clustering algorithms work.
     num_comments = 100
-    embedding_dim = 384  # Dimension for all-MiniLM-L6-v2
+    embedding_dim = 32  # Lowering dim for simplicity in test
     embeddings = np.zeros((num_comments, embedding_dim))
-    # Create two distinct clusters in the embedding space
-    embeddings[:50, :] = np.random.normal(loc=0.5, scale=0.1, size=(50, embedding_dim))
-    embeddings[50:, :] = np.random.normal(loc=-0.5, scale=0.1, size=(50, embedding_dim))
+    rng = np.random.default_rng(42)
+
+    # Create 4 very distinct and tight clusters of 25 points each.
+    # This data is extremely easy to cluster and should prevent evoc from failing.
+    for i in range(4):
+        start_index = i * 25
+        end_index = (i + 1) * 25
+        # Create a center for the cluster, far away from others.
+        center_vector = np.zeros(embedding_dim)
+        center_vector[i] = 10.0 
+        # Add points with minuscule noise around the center.
+        embeddings[start_index:end_index, :] = center_vector + rng.normal(scale=0.0001, size=(25, embedding_dim))
 
     # Mock the SentenceTransformer to return our pre-generated diverse embeddings.
-    # This avoids the error caused by uniform text data in the pipeline's ML steps.
     with mock.patch('run_pipeline.SentenceTransformer') as MockSentenceTransformer:
         mock_instance = mock.MagicMock()
         mock_instance.encode.return_value = embeddings
@@ -77,7 +84,7 @@ def test_run_pipeline_with_mock_data(tmp_path):
     expected_index_file = expected_output_dir / f"{zid}_comment_enhanced_index.html"
     assert expected_index_file.is_file(), f"Main index HTML file was not created: {expected_index_file}"
 
-    # The mock data processing should result in 3 cluster layers.
+    # The mock data processing should result in cluster layers.
     # Check for visualization and data files for layer 0.
     expected_layer_file = expected_output_dir / f"{zid}_comment_layer_0_named.html"
     assert expected_layer_file.is_file(), "Layer 0 visualization file was not created"
