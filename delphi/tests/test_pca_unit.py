@@ -258,7 +258,7 @@ class TestProjection:
         df = pd.DataFrame(data, index=rownames, columns=colnames)
 
         # Perform PCA projection
-        pca_results, proj_dict = pca_project_dataframe(df, align_with_clojure_output=False)
+        pca_results, proj_dict = pca_project_dataframe(df)
 
         # Check results
         assert 'center' in pca_results
@@ -384,8 +384,8 @@ class TestProjection:
         df_filled = pd.DataFrame(data_filled, index=['p1', 'p2', 'p3', 'p4'])
 
         # Run PCA on both
-        pca_nan, _ = pca_project_dataframe(df_with_nan, align_with_clojure_output=False)
-        pca_filled, _ = pca_project_dataframe(df_filled, align_with_clojure_output=False)
+        pca_nan, _ = pca_project_dataframe(df_with_nan)
+        pca_filled, _ = pca_project_dataframe(df_filled)
 
         # Centers should match (both computed on column-mean-filled data)
         np.testing.assert_allclose(
@@ -429,7 +429,7 @@ class TestProjection:
 
         # Run PCA on the actual NaN data (should use column mean internally)
         df_nan = pd.DataFrame(data_with_nan, index=['p1', 'p2', 'p3', 'p4'])
-        pca_result, _ = pca_project_dataframe(df_nan, align_with_clojure_output=False)
+        pca_result, _ = pca_project_dataframe(df_nan)
 
         # Compare centers
         center_colmean = np.mean(data_colmean, axis=0)

@@ -100,7 +100,7 @@ class TestPCAImplementation:
 
         logger.debug(f"Matrix shape: {vote_matrix.shape}")
 
-        pca_results, projections = pca_project_dataframe(vote_matrix, align_with_clojure_output=False)
+        pca_results, projections = pca_project_dataframe(vote_matrix)
 
         assert pca_results is not None
         assert projections is not None
@@ -118,7 +118,7 @@ class TestPCAImplementation:
         """Test PCA projections have reasonable statistical properties."""
         logger.debug(f"Testing projection statistics for {dataset_name}")
 
-        pca_results, projections = pca_project_dataframe(vote_matrix, align_with_clojure_output=False)
+        pca_results, projections = pca_project_dataframe(vote_matrix)
         proj_array = np.array(list(projections.values()))
 
         assert proj_array.ndim == 2
@@ -143,7 +143,7 @@ class TestPCAImplementation:
         """Test PCA projections can be used for clustering."""
         logger.debug(f"Testing clustering for {dataset_name}")
 
-        pca_results, projections = pca_project_dataframe(vote_matrix, align_with_clojure_output=False)
+        pca_results, projections = pca_project_dataframe(vote_matrix)
         proj_array = np.array(list(projections.values()))
 
         from sklearn.cluster import KMeans
