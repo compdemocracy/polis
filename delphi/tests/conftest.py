@@ -66,6 +66,20 @@ def pytest_addoption(parser):
         default=False,
         help="Include datasets from real_data/.local/ in tests"
     )
+    parser.addoption(
+        "--datasets",
+        action="store",
+        default=None,
+        help="Comma-separated list of datasets to run (e.g., --datasets=biodiversity,vw)"
+    )
+
+
+def _get_requested_datasets(config) -> set[str] | None:
+    """Get the set of datasets requested via --datasets, or None for all."""
+    datasets_opt = config.getoption("--datasets")
+    if datasets_opt:
+        return {d.strip() for d in datasets_opt.split(",")}
+    return None
 
 
 def pytest_configure(config):
@@ -99,35 +113,70 @@ def pytest_generate_tests(metafunc):
 
     Tests that have a 'dataset' parameter will be parametrized with all
     valid regression datasets. Use --include-local to include datasets
-    from real_data/.local/.
+    from real_data/.local/. Use --datasets to limit to specific datasets.
 
     Uses xdist_group markers for efficient parallel execution with pytest-xdist.
     """
     if "dataset" in metafunc.fixturenames:
-        # Check if this test uses the regression dataset parametrization
-        # by looking for the marker or checking the test module
         include_local = metafunc.config.getoption("--include-local")
+        requested = _get_requested_datasets(metafunc.config)
 
         # Get datasets valid for regression testing
         datasets = list_regression_datasets(include_local=include_local)
+
+        # Filter to requested datasets if specified
+        if requested:
+            datasets = [d for d in datasets if d in requested]
 
         # Parametrize with xdist_group markers for parallel execution
         params = make_dataset_params(datasets)
         metafunc.parametrize("dataset", params)
 
 
+def _extract_dataset_from_test(item) -> str | None:
+    """Extract dataset name from test item's parameter, if present."""
+    # Check for parametrized marker with dataset/dataset_name parameter
+    for marker in item.iter_markers("parametrize"):
+        argnames = marker.args[0] if marker.args else ""
+        if "dataset" in argnames:
+            # Get the parameter value from callspec
+            if hasattr(item, 'callspec'):
+                for param_name in ['dataset', 'dataset_name']:
+                    if param_name in item.callspec.params:
+                        return item.callspec.params[param_name]
+    return None
+
+
 def pytest_collection_modifyitems(config, items):
     """
     Modify test collection:
     1. Skip local_dataset tests unless --include-local is passed
-    2. Add xdist_group marker for parallel execution by dataset
+    2. Deselect tests for datasets not in --datasets list
     """
     include_local = config.getoption("--include-local")
+    requested = _get_requested_datasets(config)
+
+    selected = []
+    deselected = []
 
     for item in items:
         # Skip local dataset tests unless --include-local
         if not include_local and "local_dataset" in item.keywords:
             item.add_marker(pytest.mark.skip(reason="need --include-local option to run"))
+
+        # Filter by --datasets if specified
+        if requested:
+            dataset = _extract_dataset_from_test(item)
+            if dataset is not None and dataset not in requested:
+                deselected.append(item)
+                continue
+
+        selected.append(item)
+
+    # Apply deselection
+    if deselected:
+        config.hook.pytest_deselected(items=deselected)
+        items[:] = selected
 
 
 
@@ -135,6 +184,7 @@ def pytest_collection_modifyitems(config, items):
 def pytest_report_header(config):
     """Add dataset discovery info to pytest header."""
     include_local = config.getoption("--include-local")
+    requested = _get_requested_datasets(config)
     datasets = discover_datasets(include_local=include_local)
     regression_valid = [
         name for name, info in datasets.items()
@@ -148,6 +198,9 @@ def pytest_report_header(config):
         f"Datasets discovered: {len(datasets)} total ({committed_count} committed, {local_count} local)",
         f"Valid for regression: {len(regression_valid)} ({', '.join(sorted(regression_valid)) or 'none'})",
     ]
+
+    if requested:
+        lines.append(f"Filtered to: {', '.join(sorted(requested))}")
 
     if not include_local:
         lines.append("Use --include-local to include datasets from real_data/.local/")
