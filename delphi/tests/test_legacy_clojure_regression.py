@@ -219,9 +219,23 @@ class TestClojureRegression:
             print(f"  PC{i+1} correlation: {correlation:.6f}")
 
             # Angle between vectors (should be 0° or 180°, we take min with 180-angle)
+            # NOTE: This assumes both vectors are unit-normalized. If not, the angle will be wrong.
             dot_product = np.clip(np.abs(np.dot(py_pc, clj_pc)), -1, 1)
             angle_deg = np.arccos(dot_product) * 180 / np.pi
             print(f"  PC{i+1} angle difference: {angle_deg:.2f}°")
+
+            # Normalized angle (correct even if vectors have different norms)
+            py_norm = np.linalg.norm(py_pc)
+            clj_norm = np.linalg.norm(clj_pc)
+            cos_sim = np.dot(py_pc, clj_pc) / (py_norm * clj_norm) if py_norm > 0 and clj_norm > 0 else 0
+            # Clip for numerical stability: arccos domain is [-1, 1], but floating-point
+            # errors can produce values slightly outside this range (e.g., 1.0000000002).
+            # Assert we're only clipping by a tiny amount - large deviations indicate a bug.
+            abs_cos_sim = np.abs(cos_sim)
+            assert abs_cos_sim < 1.0 + 1e-6, f"cos_sim={cos_sim} is too far outside [-1, 1]"
+            norm_angle_deg = np.arccos(np.clip(abs_cos_sim, -1, 1)) * 180 / np.pi
+            print(f"  PC{i+1} angle after normalization: {norm_angle_deg:.2f}°")
+            print(f"  PC{i+1} norms: Python={py_norm:.4f}, Clojure={clj_norm:.4f}")
 
             # Assert correlation is close to ±1 (allow 2% tolerance for numerical differences)
             check.almost_equal(abs(correlation), 1.0, rel=0.02,
@@ -229,8 +243,8 @@ class TestClojureRegression:
 
             # Assert angle is small (allow 10° for power iteration numerical differences)
             # 10° ≈ 98.5% correlation - catches major regressions while allowing numerical variance
-            check.less_equal(angle_deg, 10.0,
-                            f"PC{i+1} angle difference should be ≤10° (got {angle_deg:.2f}°)")
+            check.less_equal(norm_angle_deg, 10.0,
+                            f"PC{i+1} angle difference should be ≤10° (got {norm_angle_deg:.2f}°)")
 
     @pytest.mark.skip(reason="Clojure regression tests not yet fully implemented - clustering algorithms may differ")
     def test_group_clustering(self, conversation_data):
