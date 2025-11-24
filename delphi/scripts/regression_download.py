@@ -14,21 +14,21 @@ This script downloads data from a running Polis instance:
 
 Usage:
     # Download a new dataset (saves to .local/ by default)
-    python download_real_data.py rexample1234 myconvo
+    python regression_download.py rexample1234 myconvo
 
     # Download to committed location (for public datasets)
-    python download_real_data.py rexample1234 myconvo --commit
+    python regression_download.py rexample1234 myconvo --commit
 
     # Force re-download all configured datasets
-    python download_real_data.py --force
+    python regression_download.py --force
 
     # Download specific datasets by name (from config)
-    python download_real_data.py --datasets biodiversity vw
+    python regression_download.py --datasets biodiversity vw
 
 Examples:
-    python download_real_data.py rexample1234 myconvo          # Downloads to .local/
-    python download_real_data.py rexample1234 myconvo --commit # Downloads to real_data/
-    python download_real_data.py --datasets vw                 # Downloads configured dataset
+    python regression_download.py rexample1234 myconvo          # Downloads to .local/
+    python regression_download.py rexample1234 myconvo --commit # Downloads to real_data/
+    python regression_download.py --datasets vw                 # Downloads configured dataset
 """
 
 import json
@@ -348,23 +348,23 @@ def main(report_id: Optional[str], dataset_name: Optional[str], datasets: tuple,
 
         \b
         # Download a new dataset to .local/ (git-ignored)
-        python download_real_data.py rexample1234 myconvo
+        python regression_download.py rexample1234 myconvo
 
         \b
         # Download a dataset for committing to the repo
-        python download_real_data.py rexample1234 myconvo --commit
+        python regression_download.py rexample1234 myconvo --commit
 
         \b
         # Download configured datasets by name
-        python download_real_data.py --datasets biodiversity --datasets vw
+        python regression_download.py --datasets biodiversity --datasets vw
 
         \b
         # Force re-download all configured datasets
-        python download_real_data.py --force
+        python regression_download.py --force
 
         \b
         # Specify custom base URL
-        python download_real_data.py --base-url http://localhost:5000
+        python regression_download.py --base-url http://localhost:5000
     """
     # Get the delphi directory (parent of tests directory where this script lives)
     delphi_dir = Path(__file__).parent.parent
