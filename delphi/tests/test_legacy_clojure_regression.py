@@ -27,11 +27,14 @@ from tests.common_utils import load_votes, load_comments, load_clojure_output
 
 
 def _get_clojure_datasets(include_local: bool) -> list[str]:
-    """Get datasets that have Clojure math_blob for comparison."""
+    """Get datasets that have Clojure math_blob for comparison.
+
+    Only requires votes, comments, and math_blob - does NOT require golden_snapshot.
+    """
     datasets = discover_datasets(include_local=include_local)
     return [
         name for name, info in datasets.items()
-        if info.is_valid and info.has_clojure_reference
+        if info.has_votes and info.has_comments and info.has_clojure_reference
     ]
 
 
