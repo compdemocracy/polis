@@ -239,8 +239,9 @@ def powerit_pca(data: np.ndarray,
                     numeric_data[i, j] = 0.0
         data = numeric_data
     
-    # Replace any remaining NaNs with zeros
-    data = np.nan_to_num(data, nan=0.0)
+    # NaN values must be handled by caller (e.g., pca_project_dataframe) before calling this.
+    if np.any(np.isnan(data)):
+        raise ValueError("powerit_pca received data containing NaN. Caller must preprocess NaN values.")
     
     # Center the data
     center = np.mean(data, axis=0)
@@ -446,6 +447,9 @@ def sparsity_aware_project_ptpts(vote_matrix: np.ndarray,
         # For numpy array, use tolist()
         votes_list = vote_matrix.tolist()
     except (AttributeError, TypeError):
+        # TODO(Julien): if we have this problem here, we should fix upstream to ensure proper types,
+        # and thus remove this fallback.
+
         # If not a numpy array or conversion fails, try row by row
         votes_list = []
         for i in range(vote_matrix.shape[0]):
@@ -507,6 +511,7 @@ def align_with_clojure(pca_results: Dict[str, np.ndarray]) -> Dict[str, np.ndarr
         neg_sum = np.sum(np.abs(comp[comp < 0]))
         
         # Biodiversity dataset needs a specific orientation
+        # TODO(julien): Remove this hard-coded check. I wonder how many other convos need this.
         if comp.shape[0] > 300:  # Biodiversity has 314 comments
             # Biodiversity: First component should have more positive weight
             if pos_sum < neg_sum:
@@ -568,9 +573,14 @@ def pca_project_dataframe(df: pd.DataFrame,
             df_numeric[newly_nan] = 0.0  # Non-convertible strings become 0.0
             matrix_data = df_numeric.to_numpy(dtype='float64')
     
-    # Handle NaN values by replacing with zeros (for PCA calculation)
-    # This is safe because we're working with a copy
-    matrix_data_no_nan = np.nan_to_num(matrix_data, nan=0.0)
+    # Replace NaNs with column means for PCA calculation (matches Clojure behavior).
+    # Why column mean instead of 0? Using 0 biases covariance estimates for sparse data.
+    # Column mean is imperfect (pulls participants toward center, assumes Gaussian data
+    # while votes are ternary) but matches Clojure and is better than 0.
+    col_means = np.nanmean(matrix_data, axis=0)
+    nan_indices = np.where(np.isnan(matrix_data))
+    matrix_data_no_nan = matrix_data.copy()
+    matrix_data_no_nan[nan_indices] = col_means[nan_indices[1]]
     
     # Verify there are enough rows and columns for PCA
     n_rows, n_cols = matrix_data_no_nan.shape

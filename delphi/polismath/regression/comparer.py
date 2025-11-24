@@ -24,17 +24,20 @@ logger = logging.getLogger(__name__)
 class ConversationComparer:
     """Compares current Conversation outputs with golden snapshots."""
 
-    def __init__(self, abs_tolerance: float = 1e-6, rel_tolerance: float = 0.01):
+    def __init__(self, abs_tolerance: float = 1e-6, rel_tolerance: float = 0.01, ignore_pca_sign_flip: bool = False):
         """
         Initialize the comparer with numeric tolerances.
 
         Args:
             abs_tolerance: Absolute tolerance for numeric comparisons
             rel_tolerance: Relative tolerance for numeric comparisons
+            ignore_pca_sign_flip: If True, ignore sign flips in PCA components (default: False)
         """
         self.abs_tol = abs_tolerance
         self.rel_tol = rel_tolerance
+        self.ignore_pca_sign_flip = ignore_pca_sign_flip
         self.all_differences = []  # Collect all differences for detailed reporting
+        self.sign_flip_warnings = []  # Collect sign flip warnings when ignore_pca_sign_flip is True
 
     def compare_with_golden(self, dataset_name: str, benchmark: bool = True) -> Dict:
         """
@@ -49,6 +52,7 @@ class ConversationComparer:
         """
         # Reset differences collection for this comparison
         self.all_differences = []
+        self.sign_flip_warnings = []
 
         # Load golden snapshot using shared function
         try:
@@ -320,6 +324,15 @@ class ConversationComparer:
                 logger.info(f"  Full details: {diff_log_path}")
             logger.info("")
 
+        # Log sign flip warnings if any
+        if self.sign_flip_warnings:
+            logger.warning("PCA sign flips detected (ignored due to ignore_pca_sign_flip=True):")
+            logger.warning(f"  Total sign flips: {len(self.sign_flip_warnings)}")
+            for i, warning in enumerate(self.sign_flip_warnings):
+                logger.warning(f"    {i+1}. Stage: {warning['stage_name']}")
+                logger.warning(f"       Path: {warning['path']}")
+            logger.info("")
+
         # Only print speed comparison if benchmarking is enabled
         if benchmark:
             logger.info("Speed comparison:")
@@ -518,6 +531,33 @@ class ConversationComparer:
             else:
                 min_len = len(golden)
 
+            # For PCA-related paths, check for sign flips and scaling before element-by-element comparison
+            if min_len == len(golden) and len(golden) > 0 and self._is_pca_related_path(path):
+                # Check for sign flip (if enabled)
+                if self.ignore_pca_sign_flip:
+                    sign_flip_detected = self._check_sign_flip(golden, current, path, stage_name)
+                    if sign_flip_detected:
+                        return {"match": True, "path": path, "note": "Sign flip detected but ignored"}
+
+                # Check for scaling factor (always check for PCA paths to provide better error messages)
+                scaling_factor = self._detect_scaling_factor(golden, current)
+                if scaling_factor is not None and abs(scaling_factor - 1.0) > 0.01:
+                    # Scaling factor detected and it's not approximately 1.0
+                    reason = f"PCA scaling mismatch: values differ by constant factor {scaling_factor:.6f}"
+                    # Record this difference
+                    self.all_differences.append({
+                        "stage_name": stage_name,
+                        "path": path,
+                        "reason": reason,
+                        "scaling_factor": scaling_factor
+                    })
+                    return {
+                        "match": False,
+                        "path": path,
+                        "reason": reason
+                    }
+
+            # Do element-by-element comparison
             for i in range(min_len):
                 result = self._compare_dicts(
                     golden[i],
@@ -653,6 +693,143 @@ class ConversationComparer:
                 "path": path,
                 "reason": reason
             }
+
+    def _is_pca_related_path(self, path: str) -> bool:
+        """
+        Check if a path corresponds to PCA-related data that can have arbitrary sign or scaling.
+
+        PCA components can be flipped by -1 and scaled by a constant factor and still
+        be mathematically valid. This checks if we're comparing PCA component vectors
+        or projections.
+
+        Args:
+            path: The path in the data structure (e.g., "after_pca.pca.comps[0]", "after_pca.proj.1")
+
+        Returns:
+            True if this is a PCA-related field
+        """
+        # Check for PCA component fields
+        # Examples: "after_pca.pca.comps[0]", "after_clustering.pca.comps[1]"
+        if ".pca.comps" in path:
+            return True
+
+        # Check for projections
+        # Examples: "after_pca.proj.1", "after_clustering.proj.2[0]"
+        if ".proj." in path:
+            return True
+
+        return False
+
+    def _check_sign_flip(self, golden: list, current: list, path: str, stage_name: str) -> bool:
+        """
+        Check if two lists are equal up to a sign flip (multiplication by -1).
+
+        This is useful for PCA components where the direction is arbitrary.
+
+        Args:
+            golden: Golden list
+            current: Current list
+            path: Current path in the structure (for logging)
+            stage_name: Name of the stage being compared (for logging)
+
+        Returns:
+            True if sign flip detected, False otherwise
+        """
+        import numpy as np
+
+        # Lists must be same length
+        if len(golden) != len(current):
+            return False
+
+        # Check if all elements are numeric
+        def is_numeric(val):
+            return isinstance(val, (int, float, np.integer, np.floating))
+
+        if not all(is_numeric(g) and is_numeric(c) for g, c in zip(golden, current)):
+            return False
+
+        # Convert to numpy arrays for easier comparison
+        golden_array = np.array([float(g) for g in golden])
+        current_array = np.array([float(c) for c in current])
+
+        # Check if arrays are equal (with tolerance)
+        if np.allclose(golden_array, current_array, rtol=self.rel_tol, atol=self.abs_tol):
+            # Already equal, not a sign flip
+            return False
+
+        # Check if arrays are equal when one is negated
+        if np.allclose(golden_array, -current_array, rtol=self.rel_tol, atol=self.abs_tol):
+            # Sign flip detected!
+            warning_msg = f"PCA sign flip detected at {path} in stage {stage_name}"
+            logger.warning(warning_msg)
+            self.sign_flip_warnings.append({
+                "stage_name": stage_name,
+                "path": path,
+                "message": warning_msg
+            })
+            return True
+
+        return False
+
+    def _detect_scaling_factor(self, golden: list, current: list) -> float | None:
+        """
+        Detect if two lists differ by a constant scaling factor.
+
+        This is useful for PCA components and projections where the magnitude
+        can vary by a constant factor due to different normalization conventions.
+
+        Args:
+            golden: Golden list
+            current: Current list
+
+        Returns:
+            Scaling factor if detected (current = golden * factor), None otherwise
+        """
+        import numpy as np
+
+        # Lists must be same length
+        if len(golden) != len(current):
+            return None
+
+        # Check if all elements are numeric
+        def is_numeric(val):
+            return isinstance(val, (int, float, np.integer, np.floating))
+
+        if not all(is_numeric(g) and is_numeric(c) for g, c in zip(golden, current)):
+            return None
+
+        # Convert to numpy arrays
+        golden_array = np.array([float(g) for g in golden])
+        current_array = np.array([float(c) for c in current])
+
+        # Filter out zero pairs and pairs where golden is too close to zero
+        # to avoid division issues
+        valid_indices = np.abs(golden_array) > 1e-10
+
+        if not np.any(valid_indices):
+            # All golden values are essentially zero
+            # Check if current values are also essentially zero
+            if np.allclose(current_array, 0, atol=self.abs_tol):
+                return 1.0  # Scaling factor doesn't matter for zeros
+            return None
+
+        # Compute ratios for valid indices
+        ratios = current_array[valid_indices] / golden_array[valid_indices]
+
+        # Check if all ratios are approximately the same
+        if len(ratios) == 0:
+            return None
+
+        mean_ratio = np.mean(ratios)
+
+        # Check if all ratios are close to the mean ratio
+        # Use relative tolerance for the ratio consistency check
+        if np.allclose(ratios, mean_ratio, rtol=self.rel_tol, atol=1e-10):
+            # Verify that applying this factor makes the arrays match
+            if np.allclose(golden_array * mean_ratio, current_array, rtol=self.rel_tol, atol=self.abs_tol):
+                return float(mean_ratio)
+
+        return None
 
     def _write_differences_log(self, log_path: Path, dataset_name: str) -> None:
         """

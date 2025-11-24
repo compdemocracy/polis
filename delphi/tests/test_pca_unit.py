@@ -258,8 +258,8 @@ class TestProjection:
         df = pd.DataFrame(data, index=rownames, columns=colnames)
 
         # Perform PCA projection
-        pca_results, proj_dict = pca_project_dataframe(df)
-        
+        pca_results, proj_dict = pca_project_dataframe(df, align_with_clojure_output=False)
+
         # Check results
         assert 'center' in pca_results
         assert 'comps' in pca_results
@@ -270,3 +270,177 @@ class TestProjection:
         assert set(proj_dict.keys()) == set(rownames)
         for proj in proj_dict.values():
             assert proj.shape == (2,)
+
+    def test_projection_flips_with_pca_components(self):
+        """Test that flipping PCA components flips projections by the same factor.
+
+        PCA eigenvectors are only defined up to sign - flipping a component by -1
+        gives an equally valid PCA result. This test verifies that when we flip
+        the PCA components, the projections flip accordingly.
+
+        This property is important because:
+        1. Different PCA implementations may produce opposite signs
+        2. The Clojure and Python implementations may differ in sign conventions
+        3. Downstream code must be invariant to these sign choices
+        """
+        # Create test data with some missing values (NaN)
+        np.random.seed(42)
+        votes = np.random.randn(10, 5)
+        votes[votes < -0.5] = np.nan  # Add some missing values
+
+        # Compute PCA on non-NaN data
+        pca_results = wrapped_pca(np.nan_to_num(votes), n_comps=2)
+
+        # Create flipped PCA (both components negated)
+        flipped_pca = {
+            'center': pca_results['center'].copy(),
+            'comps': -pca_results['comps'].copy()
+        }
+
+        # Project with original components
+        proj_original = sparsity_aware_project_ptpts(votes, pca_results)
+
+        # Project with flipped components
+        proj_flipped = sparsity_aware_project_ptpts(votes, flipped_pca)
+
+        # Projections should be negated when components are negated
+        np.testing.assert_allclose(
+            proj_original, -proj_flipped, rtol=1e-10,
+            err_msg="Flipping PCA components should negate projections"
+        )
+
+    def test_projection_single_component_flip(self):
+        """Test flipping only one PCA component flips only that projection axis.
+
+        If we flip only PC1, the x-coordinate of projections should flip,
+        but the y-coordinate should remain unchanged (and vice versa for PC2).
+        """
+        # Create simple PCA with orthogonal components
+        center = np.array([0.0, 0.0, 0.0])
+        comps = np.array([
+            [1.0, 0.0, 0.0],  # PC1 along first dimension
+            [0.0, 1.0, 0.0]   # PC2 along second dimension
+        ])
+        pca_results = {'center': center, 'comps': comps}
+
+        # Test votes
+        votes = np.array([
+            [1.0, 2.0, 3.0],
+            [4.0, 5.0, 6.0]
+        ])
+
+        # Original projection
+        proj_original = sparsity_aware_project_ptpts(votes, pca_results)
+
+        # Flip only PC1
+        pca_flip_pc1 = {
+            'center': center,
+            'comps': np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+        }
+        proj_flip_pc1 = sparsity_aware_project_ptpts(votes, pca_flip_pc1)
+
+        # X should be negated, Y should be unchanged
+        np.testing.assert_allclose(proj_flip_pc1[:, 0], -proj_original[:, 0], rtol=1e-10)
+        np.testing.assert_allclose(proj_flip_pc1[:, 1], proj_original[:, 1], rtol=1e-10)
+
+        # Flip only PC2
+        pca_flip_pc2 = {
+            'center': center,
+            'comps': np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
+        }
+        proj_flip_pc2 = sparsity_aware_project_ptpts(votes, pca_flip_pc2)
+
+        # X should be unchanged, Y should be negated
+        np.testing.assert_allclose(proj_flip_pc2[:, 0], proj_original[:, 0], rtol=1e-10)
+        np.testing.assert_allclose(proj_flip_pc2[:, 1], -proj_original[:, 1], rtol=1e-10)
+
+    def test_nan_handling_uses_column_mean(self):
+        """Test that NaN values are filled with column means, not zeros.
+
+        This is important because:
+        1. Using 0 biases covariance estimates for sparse data
+        2. Column mean matches Clojure behavior
+        3. The PCA components should be identical whether we pre-fill with
+           column means or let pca_project_dataframe handle it
+        """
+        np.random.seed(42)
+
+        # Create data with some NaN values
+        data_with_nan = np.array([
+            [1.0, 2.0, np.nan],
+            [4.0, np.nan, 6.0],
+            [7.0, 8.0, 9.0],
+            [np.nan, 11.0, 12.0],
+        ])
+
+        # Manually fill NaN with column means
+        col_means = np.nanmean(data_with_nan, axis=0)
+        data_filled = data_with_nan.copy()
+        for j in range(data_filled.shape[1]):
+            data_filled[np.isnan(data_filled[:, j]), j] = col_means[j]
+
+        # Create DataFrames
+        df_with_nan = pd.DataFrame(data_with_nan, index=['p1', 'p2', 'p3', 'p4'])
+        df_filled = pd.DataFrame(data_filled, index=['p1', 'p2', 'p3', 'p4'])
+
+        # Run PCA on both
+        pca_nan, _ = pca_project_dataframe(df_with_nan, align_with_clojure_output=False)
+        pca_filled, _ = pca_project_dataframe(df_filled, align_with_clojure_output=False)
+
+        # Centers should match (both computed on column-mean-filled data)
+        np.testing.assert_allclose(
+            pca_nan['center'], pca_filled['center'], rtol=1e-10,
+            err_msg="Center should be same whether NaN is pre-filled or handled internally"
+        )
+
+        # Components should match (up to sign)
+        for i in range(2):
+            # Check if components match or are negated (both are valid PCA results)
+            dot_product = np.dot(pca_nan['comps'][i], pca_filled['comps'][i])
+            assert np.isclose(abs(dot_product), 1.0, rtol=1e-6), \
+                f"PC{i+1} should match (possibly with opposite sign), got dot product {dot_product}"
+
+    def test_nan_handling_differs_from_zero_fill(self):
+        """Test that column-mean fill produces different results than zero-fill.
+
+        This verifies that we're actually using column means, not zeros.
+        """
+        np.random.seed(42)
+
+        # Create data where column means are far from zero
+        data_with_nan = np.array([
+            [10.0, 20.0, np.nan],
+            [12.0, np.nan, 35.0],
+            [11.0, 22.0, 33.0],
+            [np.nan, 21.0, 34.0],
+        ])
+
+        # Column means are approximately [11, 21, 34] - far from 0
+        col_means = np.nanmean(data_with_nan, axis=0)
+        assert all(col_means > 5), "Test setup: column means should be far from zero"
+
+        # Fill with column means
+        data_colmean = data_with_nan.copy()
+        for j in range(data_colmean.shape[1]):
+            data_colmean[np.isnan(data_colmean[:, j]), j] = col_means[j]
+
+        # Fill with zeros
+        data_zero = np.nan_to_num(data_with_nan, nan=0.0)
+
+        # Run PCA on the actual NaN data (should use column mean internally)
+        df_nan = pd.DataFrame(data_with_nan, index=['p1', 'p2', 'p3', 'p4'])
+        pca_result, _ = pca_project_dataframe(df_nan, align_with_clojure_output=False)
+
+        # Compare centers
+        center_colmean = np.mean(data_colmean, axis=0)
+        center_zero = np.mean(data_zero, axis=0)
+
+        # Our PCA center should match column-mean fill, not zero fill
+        np.testing.assert_allclose(
+            pca_result['center'], center_colmean, rtol=1e-10,
+            err_msg="PCA center should match column-mean-filled data"
+        )
+
+        # And should NOT match zero-filled center
+        assert not np.allclose(pca_result['center'], center_zero, rtol=0.01), \
+            "PCA center should differ from zero-filled center"
