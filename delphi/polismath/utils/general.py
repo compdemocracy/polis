@@ -12,6 +12,9 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Ty
 T = TypeVar('T')
 U = TypeVar('U')
 
+AGREE = 1
+DISAGREE = -1
+PASS = 0
 
 def xor(a: bool, b: bool) -> bool:
     """
@@ -39,45 +42,6 @@ def round_to(n: float, digits: int = 0) -> float:
         Rounded number
     """
     return round(n, digits)
-
-
-def agree(vote: Optional[float]) -> bool:
-    """
-    Check if a vote is an agreement.
-    
-    Args:
-        vote: Vote value (1 for agree, -1 for disagree, None for pass)
-        
-    Returns:
-        True if the vote is an agreement
-    """
-    return vote == 1
-
-
-def disagree(vote: Optional[float]) -> bool:
-    """
-    Check if a vote is a disagreement.
-    
-    Args:
-        vote: Vote value (1 for agree, -1 for disagree, None for pass)
-        
-    Returns:
-        True if the vote is a disagreement
-    """
-    return vote == -1
-
-
-def pass_vote(vote: Optional[float]) -> bool:
-    """
-    Check if a vote is a pass.
-    
-    Args:
-        vote: Vote value (1 for agree, -1 for disagree, None for pass)
-        
-    Returns:
-        True if the vote is a pass (None)
-    """
-    return vote is None
 
 
 def zip_collections(*colls: Iterable[T]) -> List[Tuple[T, ...]]:
