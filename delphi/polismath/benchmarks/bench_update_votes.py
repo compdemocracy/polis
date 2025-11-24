@@ -12,48 +12,20 @@ Example:
 # TODO(datasets): Once PR https://github.com/compdemocracy/polis/pull/2312 is merged,
 # use the datasets package with include_local=True instead of requiring a path argument.
 
-import argparse
 import time
-import sys
 from pathlib import Path
 
-import pandas as pd
+import click
+
+from polismath.benchmarks.benchmark_utils import (
+    load_votes_from_csv,
+    extract_dataset_name,
+    votes_csv_argument,
+    runs_option,
+)
 
 
-def load_votes_from_csv(votes_csv: Path) -> dict:
-    """
-    Load votes from a CSV file into the format expected by Conversation.update_votes().
-
-    Args:
-        votes_csv: Path to votes CSV file with columns: voter-id, comment-id, vote, timestamp
-
-    Returns:
-        Dictionary with 'votes' list and 'lastVoteTimestamp'
-    """
-    df = pd.read_csv(votes_csv)
-
-    # Fixed timestamp for reproducibility
-    fixed_timestamp = 1700000000000
-
-    # Use vectorized pandas operations instead of iterrows() for efficiency
-    df = df.rename(columns={
-        'voter-id': 'pid',
-        'comment-id': 'tid',
-    })
-    if 'timestamp' in df.columns:
-        df['created'] = df['timestamp'].astype(int)
-    else:
-        df['created'] = fixed_timestamp
-
-    votes_list = df[['pid', 'tid', 'vote', 'created']].to_dict('records')
-
-    return {
-        'votes': votes_list,
-        'lastVoteTimestamp': fixed_timestamp
-    }
-
-
-def benchmark_update_votes(votes_csv: str, runs: int = 3) -> dict:
+def benchmark_update_votes(votes_csv: Path, runs: int = 3) -> dict:
     """
     Benchmark update_votes on a dataset.
 
@@ -66,19 +38,10 @@ def benchmark_update_votes(votes_csv: str, runs: int = 3) -> dict:
     """
     from polismath.conversation import Conversation
 
-    votes_path = Path(votes_csv)
-    if not votes_path.exists():
-        raise FileNotFoundError(f"Votes CSV not found: {votes_csv}")
-
-    # Extract dataset name from path (e.g., "r7wehfsmutrwndviddnii-bg2050" -> "bg2050")
-    parent_name = votes_path.parent.name
-    if '-' in parent_name:
-        dataset_name = parent_name.split('-', 1)[1]
-    else:
-        dataset_name = parent_name
+    dataset_name = extract_dataset_name(votes_csv)
 
     print(f"Loading votes from '{votes_csv}'...")
-    votes_dict = load_votes_from_csv(votes_path)
+    votes_dict = load_votes_from_csv(votes_csv)
     n_votes = len(votes_dict['votes'])
     print(f"Loaded {n_votes:,} votes")
     print()
@@ -116,18 +79,12 @@ def benchmark_update_votes(votes_csv: str, runs: int = 3) -> dict:
     }
 
 
-def main():
-    parser = argparse.ArgumentParser(description='Benchmark update_votes performance')
-    parser.add_argument('votes_csv', help='Path to votes CSV file')
-    parser.add_argument('--runs', type=int, default=3,
-                        help='Number of benchmark runs (default: 3)')
-    args = parser.parse_args()
-
-    try:
-        benchmark_update_votes(args.votes_csv, args.runs)
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        sys.exit(1)
+@click.command()
+@votes_csv_argument
+@runs_option
+def main(votes_csv: Path, runs: int):
+    """Benchmark update_votes performance."""
+    benchmark_update_votes(votes_csv, runs)
 
 
 if __name__ == '__main__':
