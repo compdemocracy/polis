@@ -447,14 +447,18 @@ class Conversation:
     def _compute_pca(self, n_components: int = 2) -> None:
         """
         Compute PCA on the vote matrix.
-        
+
         Args:
             n_components: Number of principal components
         """
+        import time
+        start_time = time.time()
+        logger.info(f"Starting PCA computation (matrix shape: {self.rating_mat.shape})...")
+
         # Make sure pandas and numpy are imported
         import numpy as np
         import pandas as pd
-        
+
         # Check if we have enough data
         if self.rating_mat.shape[0] < 2 or self.rating_mat.shape[1] < 2:
             # Not enough data for PCA, create minimal results
@@ -464,32 +468,35 @@ class Conversation:
                 'comps': np.zeros((min(n_components, 2), cols))
             }
             self.proj = {pid: np.zeros(2) for pid in self.rating_mat.index}
+            logger.info(f"PCA computation completed in {time.time() - start_time:.2f}s (insufficient data)")
             return
         
         try:
             # Make a clean copy of the rating matrix
             clean_matrix = self._get_clean_matrix()
-            
+
             pca_results, proj_dict = pca_project_dataframe(clean_matrix, n_components)
-            
+
             # Store results
             self.pca = pca_results
             self.proj = proj_dict
-        
+            logger.info(f"PCA computation completed in {time.time() - start_time:.2f}s")
+
         except Exception as e:
             # If PCA fails, create minimal results
             logger.error(f"Error in PCA computation: {e}")
             # Make sure we have numpy and pandas
             import numpy as np
             import pandas as pd
-            
+
             cols = self.rating_mat.shape[1]
             self.pca = {
                 'center': np.zeros(cols),
                 'comps': np.zeros((min(n_components, 2), cols))
             }
             self.proj = {pid: np.zeros(2) for pid in self.rating_mat.index}
-    
+            logger.info(f"PCA computation completed in {time.time() - start_time:.2f}s (with errors)")
+
     def _get_clean_matrix(self) -> pd.DataFrame:
         """
         Get a clean copy of the rating matrix with proper numeric values.
@@ -527,55 +534,64 @@ class Conversation:
         """
         Compute participant clusters using auto-determination of optimal k.
         """
+        import time
+        start_time = time.time()
+        logger.info(f"Starting clustering computation ({len(self.proj)} participants)...")
+
         # Make sure numpy and pandas are imported
         import numpy as np
         import pandas as pd
-        
+
         # Check if we have projections
         if not self.proj:
             self.base_clusters = []
             self.group_clusters = []
             self.subgroup_clusters = {}
+            logger.info(f"Clustering completed in {time.time() - start_time:.2f}s (no projections)")
             return
-        
+
         # Prepare data for clustering
         ptpt_ids = list(self.proj.keys())
         proj_values = np.array([self.proj[pid] for pid in ptpt_ids])
-        
+
         # Create projection matrix
         proj_matrix = pd.DataFrame(
             data=proj_values,
             index=ptpt_ids,
             columns=['x', 'y']
         )
-        
+
         # Use auto-determination of k based on data size
         # The determine_k function will handle this appropriately
         # Let the clustering function auto-determine the appropriate number of clusters
         # Pass k=None to use the built-in determine_k function
         base_clusters = cluster_dataframe(proj_matrix, k=None)
-        
+
         # Convert base clusters to group clusters
         # Group clusters are high-level groups based on base clusters
         group_clusters = base_clusters
-        
+
         # Store results
         self.base_clusters = base_clusters
         self.group_clusters = group_clusters
-        
+
         # Compute subgroup clusters if needed
         self.subgroup_clusters = {}
-        
-        # TODO: Implement subgroup clustering if needed
-    
+
+        logger.info(f"Clustering completed in {time.time() - start_time:.2f}s ({len(group_clusters)} groups)")
+
     def _compute_repness(self) -> None:
         """
         Compute comment representativeness.
         """
+        import time
+        start_time = time.time()
+        logger.info(f"Starting representativeness computation ({len(self.group_clusters)} groups, {self.rating_mat.shape[1]} comments)...")
+
         # Make sure numpy and pandas are imported
         import numpy as np
         import pandas as pd
-        
+
         # Check if we have groups
         if not self.group_clusters:
             self.repness = {
@@ -583,11 +599,13 @@ class Conversation:
                 'group_repness': {},
                 'consensus_comments': []
             }
+            logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s (no groups)")
             return
-        
+
         # Compute representativeness
         self.repness = conv_repness(self.rating_mat, self.group_clusters)
-    
+        logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s")
+
     def _compute_participant_info_optimized(self, vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
         """
         Optimized version of the participant info computation.
