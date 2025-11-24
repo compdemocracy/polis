@@ -310,12 +310,10 @@ class Conversation:
     
     def _compute_vote_stats(self) -> None:
         """
-        Compute statistics on votes.
+        Compute statistics on votes using vectorized operations.
         """
-        # Make sure pandas is imported
         import numpy as np
-        import pandas as pd
-        
+
         # Initialize stats
         self.vote_stats = {
             'n_votes': 0,
@@ -325,84 +323,65 @@ class Conversation:
             'comment_stats': {},
             'participant_stats': {}
         }
-        
-        # Get matrix values and ensure they are numeric
+
         try:
-            # Make a clean copy that's definitely numeric
+            # Get clean numeric matrix
             clean_mat = self._get_clean_matrix()
-            # TODO: we can probably count without needing to convert to numpy array
             values = clean_mat.to_numpy()
 
-            # Count votes safely
+            # Create boolean masks once for the entire matrix.
+            # These are 2D arrays of the same shape as values.
+            non_null_mask = ~np.isnan(values)
+            agree_mask = np.abs(values - 1.0) < 0.001  # Close to 1
+            disagree_mask = np.abs(values + 1.0) < 0.001  # Close to -1
+
+            # Global stats: sum over entire matrix
             try:
-                # Create masks, handling non-numeric data
-                non_null_mask = ~np.isnan(values)
-                agree_mask = np.abs(values - 1.0) < 0.001  # Close to 1
-                disagree_mask = np.abs(values + 1.0) < 0.001  # Close to -1
-                
                 self.vote_stats['n_votes'] = int(np.sum(non_null_mask))
                 self.vote_stats['n_agree'] = int(np.sum(agree_mask))
                 self.vote_stats['n_disagree'] = int(np.sum(disagree_mask))
-                self.vote_stats['n_pass'] = int(np.sum(np.isnan(values)))
+                self.vote_stats['n_pass'] = int(np.sum(~non_null_mask))
             except Exception as e:
-                logger.error(f"Error counting votes: {e}")
-                # Set defaults if counting fails
-                self.vote_stats['n_votes'] = 0
-                self.vote_stats['n_agree'] = 0
-                self.vote_stats['n_disagree'] = 0
-                self.vote_stats['n_pass'] = 0
-            
-            # Compute comment stats
-            for i, cid in enumerate(clean_mat.columns):
-                if i >= values.shape[1]:
-                    continue
-                    
-                try:
-                    col = values[:, i]
-                    n_votes = np.sum(~np.isnan(col))
-                    n_agree = np.sum(np.abs(col - 1.0) < 0.001)
-                    n_disagree = np.sum(np.abs(col + 1.0) < 0.001)
-                    
+                logger.error(f"Error counting global votes: {e}")
+
+            # Per-comment stats: sum along axis=0 (columns).
+            # axis=0 sums over rows, giving one value per column (comment).
+            try:
+                comment_n_votes = np.sum(non_null_mask, axis=0)
+                comment_n_agree = np.sum(agree_mask, axis=0)
+                comment_n_disagree = np.sum(disagree_mask, axis=0)
+                # Avoid division by zero: use np.maximum to ensure denominator >= 1
+                comment_agree_ratio = comment_n_agree / np.maximum(comment_n_votes, 1)
+
+                # Build comment_stats dict from the arrays.
+                for i, cid in enumerate(clean_mat.columns):
                     self.vote_stats['comment_stats'][cid] = {
-                        'n_votes': int(n_votes),
-                        'n_agree': int(n_agree),
-                        'n_disagree': int(n_disagree),
-                        'agree_ratio': float(n_agree / max(n_votes, 1))
+                        'n_votes': int(comment_n_votes[i]),
+                        'n_agree': int(comment_n_agree[i]),
+                        'n_disagree': int(comment_n_disagree[i]),
+                        'agree_ratio': float(comment_agree_ratio[i])
                     }
-                except Exception as e:
-                    logger.error(f"Error computing stats for comment {cid}: {e}")
-                    self.vote_stats['comment_stats'][cid] = {
-                        'n_votes': 0,
-                        'n_agree': 0,
-                        'n_disagree': 0,
-                        'agree_ratio': 0.0
-                    }
-            
-            # Compute participant stats
-            for i, pid in enumerate(clean_mat.index):
-                if i >= values.shape[0]:
-                    continue
-                    
-                try:
-                    row = values[i, :]
-                    n_votes = np.sum(~np.isnan(row))
-                    n_agree = np.sum(np.abs(row - 1.0) < 0.001)
-                    n_disagree = np.sum(np.abs(row + 1.0) < 0.001)
-                    
+            except Exception as e:
+                logger.error(f"Error computing comment stats: {e}")
+
+            # Per-participant stats: sum along axis=1 (rows).
+            # axis=1 sums over columns, giving one value per row (participant).
+            try:
+                ptpt_n_votes = np.sum(non_null_mask, axis=1)
+                ptpt_n_agree = np.sum(agree_mask, axis=1)
+                ptpt_n_disagree = np.sum(disagree_mask, axis=1)
+                ptpt_agree_ratio = ptpt_n_agree / np.maximum(ptpt_n_votes, 1)
+
+                # Build participant_stats dict from the arrays.
+                for i, pid in enumerate(clean_mat.index):
                     self.vote_stats['participant_stats'][pid] = {
-                        'n_votes': int(n_votes),
-                        'n_agree': int(n_agree),
-                        'n_disagree': int(n_disagree),
-                        'agree_ratio': float(n_agree / max(n_votes, 1))
+                        'n_votes': int(ptpt_n_votes[i]),
+                        'n_agree': int(ptpt_n_agree[i]),
+                        'n_disagree': int(ptpt_n_disagree[i]),
+                        'agree_ratio': float(ptpt_agree_ratio[i])
                     }
-                except Exception as e:
-                    logger.error(f"Error computing stats for participant {pid}: {e}")
-                    self.vote_stats['participant_stats'][pid] = {
-                        'n_votes': 0,
-                        'n_agree': 0,
-                        'n_disagree': 0,
-                        'agree_ratio': 0.0
-                    }
+            except Exception as e:
+                logger.error(f"Error computing participant stats: {e}")
         except Exception as e:
             logger.error(f"Error in vote stats computation: {e}")
             # Initialize with empty stats if computation fails
