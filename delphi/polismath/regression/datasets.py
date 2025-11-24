@@ -5,7 +5,10 @@ Datasets are auto-discovered from real_data/ and real_data/.local/ based on
 directory naming: <report_id>-<name>/
 
 Required files for regression testing:
-- *-votes.csv, *-comments.csv, {report_id}_math_blob.json, golden_snapshot.json
+- *-votes.csv, *-comments.csv, golden_snapshot.json
+
+Optional files:
+- {report_id}_math_blob.json (for Clojure comparison - requires database access to download)
 """
 
 import glob
@@ -38,8 +41,13 @@ class DatasetInfo:
 
     @property
     def is_valid(self) -> bool:
-        """Has all files needed for regression testing."""
-        return all([self.has_golden, self.has_math_blob, self.has_votes, self.has_comments])
+        """Has all files needed for regression testing (math_blob is optional)."""
+        return all([self.has_golden, self.has_votes, self.has_comments])
+
+    @property
+    def has_clojure_reference(self) -> bool:
+        """Has math_blob for comparison with Clojure implementation."""
+        return self.has_math_blob
 
     @property
     def description(self) -> str:
@@ -117,6 +125,7 @@ def list_available_datasets(include_local: bool = False) -> Dict[str, dict]:
             'is_local': d.is_local,
             'has_golden': d.has_golden,
             'has_math_blob': d.has_math_blob,
+            'has_clojure_reference': d.has_clojure_reference,
         }
         for name, d in discover_datasets(include_local).items()
     }
