@@ -18,7 +18,6 @@ import time
 from pathlib import Path
 
 import click
-from line_profiler import LineProfiler
 
 from polismath.benchmarks.benchmark_utils import (
     load_votes_from_csv,
@@ -143,6 +142,8 @@ def profile_repness(votes_csv: Path) -> None:
     Args:
         votes_csv: Path to votes CSV file
     """
+    from line_profiler import LineProfiler
+
     conv, _, _, _ = setup_conversation(votes_csv)
 
     # Setup line profiler
