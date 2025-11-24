@@ -440,19 +440,19 @@ def select_consensus_comments(all_stats: List[Dict[str, Any]]) -> List[Dict[str,
     return consensus_candidates[:2]
 
 
-def conv_repness(vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
+def conv_repness(vote_matrix_df: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Calculate representativeness for all comments and groups.
     
     Args:
-        vote_matrix: pd.DataFrame of votes
+        vote_matrix_df: pd.DataFrame of matrix of votes
         group_clusters: List of group clusters
         
     Returns:
         Dictionary with representativeness data for each group
     """
     # Extract and clean the matrix values
-    matrix_values = vote_matrix.to_numpy(copy = True)
+    matrix_values = vote_matrix_df.to_numpy(copy = True)
     
     # Ensure the matrix contains numeric values
     if not np.issubdtype(matrix_values.dtype, np.number):
@@ -475,7 +475,7 @@ def conv_repness(vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]
     
     # Create empty-result structure in case we need to return early
     empty_result = {
-        'comment_ids': vote_matrix.columns.tolist(),
+        'comment_ids': vote_matrix_df.columns.tolist(),
         'group_repness': {group['id']: [] for group in group_clusters},
         'consensus_comments': [],
         'comment_repness': []  # Add a list for all comment repness data
@@ -487,7 +487,7 @@ def conv_repness(vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]
     
     # Result will hold repness data for each group
     result = {
-        'comment_ids': vote_matrix.columns.tolist(),
+        'comment_ids': vote_matrix_df.columns.tolist(),
         'group_repness': {},
         'comment_repness': []  # Add a list for all comment repness data
     }
@@ -502,8 +502,8 @@ def conv_repness(vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]
         group_members = []
         for m in group['members']:
             try:
-                if m in vote_matrix.index:
-                    idx = vote_matrix.index.get_loc(m)
+                if m in vote_matrix_df.index:
+                    idx = vote_matrix_df.index.get_loc(m)
                     # Question: why would idx ever *not* be within matrix_values.shape ?
                     if 0 <= idx < matrix_values.shape[0]:
                         group_members.append(idx)
@@ -522,10 +522,11 @@ def conv_repness(vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]
         # Stats for each comment
         group_stats = []
         
-        for c_idx, comment_id in enumerate(vote_matrix.columns):
-            if c_idx >= matrix_values.shape[1]:
-                continue
-                
+        
+
+        # TODO: we can probably vectorize over comments, possibly even on groups afterwards...
+        for c_idx, comment_id in enumerate(vote_matrix_df.columns):
+
             comment_votes = matrix_values[:, c_idx]
             
             # Skip comments with no votes
