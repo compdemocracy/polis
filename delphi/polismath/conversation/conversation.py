@@ -246,10 +246,6 @@ class Conversation:
             values='value',
             aggfunc='last'
         )
-        # Use float32 for the intermediate matrix to save memory (~200MB vs
-        # ~400MB for 8k comments and 8k participants).  float32 can exactly
-        # represent -1, 0, +1 and NaN.
-        update_matrix = update_matrix.astype('float32')
 
         # Expand the existing matrix to include any new rows/columns.
         # fill_value=np.nan ensures new cells start as "no vote".
