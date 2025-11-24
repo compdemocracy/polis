@@ -10,9 +10,10 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from polismath.conversation.conversation import Conversation
 from common_utils import create_test_conversation
 from tests.dataset_config import get_dataset_files
+from conftest import make_dataset_params
 
 @pytest.mark.xfail(reason="Discrepancies between Python and Clojure implementations")
-@pytest.mark.parametrize("dataset_name", ["biodiversity", "vw"])
+@pytest.mark.parametrize("dataset_name", make_dataset_params(["biodiversity", "vw"]))
 def test_compare_to_golden_data(dataset_name):
     """
     Runs the full pipeline and compares the output to the 'golden' Clojure data.

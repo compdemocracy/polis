@@ -21,7 +21,8 @@ from typing import Dict
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from polismath.pca_kmeans_rep.pca import pca_project_dataframe
-from polismath.regression import get_dataset_files, list_available_datasets
+from polismath.regression import get_dataset_files
+from conftest import get_available_dataset_params
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,7 @@ class TestPCAImplementation:
         )
         return df_matrix.apply(pd.to_numeric, errors='coerce')
 
-    @pytest.mark.parametrize("dataset_name", list(list_available_datasets().keys()))
+    @pytest.mark.parametrize("dataset_name", get_available_dataset_params())
     def test_pca_runs_without_error(self, dataset_name: str, vote_matrix):
         """Test PCA functions run successfully on real data (smoke test)."""
         logger.info(f"Testing PCA on {dataset_name} dataset")
@@ -113,7 +114,7 @@ class TestPCAImplementation:
 
         logger.info(f"✓ PCA runs without error for {dataset_name}")
 
-    @pytest.mark.parametrize("dataset_name", list(list_available_datasets().keys()))
+    @pytest.mark.parametrize("dataset_name", get_available_dataset_params())
     def test_pca_projection_statistics(self, dataset_name: str, vote_matrix):
         """Test PCA projections have reasonable statistical properties."""
         logger.debug(f"Testing projection statistics for {dataset_name}")
@@ -138,7 +139,7 @@ class TestPCAImplementation:
 
         logger.debug(f"✓ Projection statistics validated")
 
-    @pytest.mark.parametrize("dataset_name", list(list_available_datasets().keys()))
+    @pytest.mark.parametrize("dataset_name", get_available_dataset_params())
     def test_pca_with_clustering(self, dataset_name: str, vote_matrix):
         """Test PCA projections can be used for clustering."""
         logger.debug(f"Testing clustering for {dataset_name}")
