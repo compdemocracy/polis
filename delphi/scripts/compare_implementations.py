@@ -203,7 +203,7 @@ def run_manual_pipeline(conv: Conversation) -> Conversation:
         
         # Perform PCA
         try:
-            pca_results, proj = pca_project_dataframe(clean_matrix, align_with_clojure_output=False)
+            pca_results, proj = pca_project_dataframe(clean_matrix)
             result.pca = pca_results
             result.proj = proj
         except Exception as e:

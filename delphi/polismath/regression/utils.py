@@ -292,7 +292,11 @@ def load_golden_snapshot(dataset_name: str, golden_dir: Optional[Path] = None) -
         # Check if dataset is configured
         from polismath.regression.datasets import get_dataset_files, list_available_datasets
 
-        available_datasets = list_available_datasets()
+        # Always search both locations (include_local=True) because this is a lookup-by-name.
+        # If someone explicitly requests a dataset, we should find it regardless of where
+        # it lives. The include_local flag is for listing operations, not lookups.
+        # This must be consistent with get_dataset_info() which also uses include_local=True.
+        available_datasets = list_available_datasets(include_local=True)
         if dataset_name not in available_datasets:
             raise ValueError(f"Unknown dataset: {dataset_name}. Available datasets: {', '.join(available_datasets.keys())}")
 
