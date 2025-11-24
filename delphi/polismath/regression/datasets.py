@@ -154,7 +154,8 @@ def get_dataset_files(name: str) -> Dict[str, str]:
         if not matches:
             raise FileNotFoundError(f"No file matching {pattern} in {info.path}")
         if len(matches) > 1:
-            raise ValueError(f"Multiple files matching {pattern} in {info.path}: {matches}")
+            # Multiple files - take the most recent (filename includes timestamp)
+            matches.sort(key=lambda p: p.name, reverse=True)
         return str(matches[0].resolve())
 
     return {

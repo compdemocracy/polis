@@ -680,12 +680,14 @@ class Conversation:
         process_start = time.time()
         batch_start = time.time()
         
+        UPDATE_EVERY = 2000
+        
         for p_idx, participant_id in enumerate(vote_matrix.index):
             if p_idx >= matrix_values.shape[0]:
                 continue
                 
             # Print progress for large participant sets
-            if participant_count > 100 and p_idx % 100 == 0:
+            if participant_count > UPDATE_EVERY and p_idx % UPDATE_EVERY == 0:
                 now = time.time()
                 elapsed = now - process_start
                 batch_time = now - batch_start
