@@ -480,6 +480,60 @@ def main(report_id: Optional[str], dataset_name: Optional[str], datasets: tuple,
     else:
         click.echo("\n✓ All datasets processed successfully!")
 
+    # Check for missing golden snapshots and offer to create them
+    if successful:
+        _offer_golden_snapshot_creation(download_items, rid_to_name, base_data_dir, output_dir)
+
+
+def _offer_golden_snapshot_creation(download_items: list, rid_to_name: dict,
+                                     base_data_dir: Path, output_dir: Optional[Path]):
+    """Check for missing golden snapshots and offer to create them."""
+    # Find datasets missing golden snapshots
+    missing_golden = []
+    for rid, ds_name in download_items:
+        dir_name = f"{rid}-{ds_name}"
+        if output_dir:
+            ds_dir = output_dir / dir_name
+        else:
+            ds_dir = base_data_dir / dir_name
+
+        golden_path = ds_dir / "golden_snapshot.json"
+        if not golden_path.exists():
+            missing_golden.append(ds_name)
+
+    if not missing_golden:
+        return
+
+    click.echo(f"\n{'='*60}")
+    click.echo("GOLDEN SNAPSHOTS")
+    click.echo(f"{'='*60}\n")
+    click.echo("The following datasets are missing golden snapshots:")
+    for name in missing_golden:
+        click.echo(f"  - {name}")
+
+    click.echo("\n⚠️  Without golden snapshots, these datasets cannot be used for regression testing.")
+    click.echo("   Golden snapshots capture the expected output at a known-good commit.")
+    click.echo("\n   To create golden snapshots later, run:")
+    click.echo(f"     python scripts/regression_recorder.py {' '.join(missing_golden)}")
+
+    if click.confirm("\nWould you like to create golden snapshots now?", default=True):
+        click.echo()
+        # Import here to avoid circular imports and speed up script loading
+        from polismath.regression import ConversationRecorder
+        recorder = ConversationRecorder()
+
+        for ds_name in missing_golden:
+            click.echo(f"\n{'='*60}")
+            click.echo(f"Recording golden snapshot for: {ds_name}")
+            click.echo(f"{'='*60}")
+            try:
+                recorder.record_golden(ds_name, force=False, benchmark=True)
+                click.echo(f"✓ Created golden snapshot for {ds_name}")
+            except Exception as e:
+                click.echo(f"✗ Failed to create golden snapshot for {ds_name}: {e}", err=True)
+
+        click.echo("\n✓ Golden snapshot creation complete!")
+
 
 if __name__ == '__main__':
     main()

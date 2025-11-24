@@ -3,6 +3,12 @@ Legacy: Comparison with Clojure implementation. Will be removed once Clojure is 
 
 Tests for the conversion with real data from conversations, comparing Python output
 against the old Clojure implementation's math_blob outputs.
+
+Datasets are auto-discovered from:
+- real_data/ (committed datasets, always included)
+- real_data/.local/ (local datasets, included with --include-local flag)
+
+Only datasets with math_blob (has_clojure_reference=True) are included.
 """
 
 import pytest
@@ -16,16 +22,34 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.conversation.conversation import Conversation
 from polismath.regression import get_dataset_files
+from polismath.regression.datasets import discover_datasets
 from tests.common_utils import load_votes, load_comments, load_clojure_output
 
 
-@pytest.fixture(scope="module", params=["biodiversity", "vw"])
-def conversation_data(request):
+def _get_clojure_datasets(include_local: bool) -> list[str]:
+    """Get datasets that have Clojure math_blob for comparison."""
+    datasets = discover_datasets(include_local=include_local)
+    return [
+        name for name, info in datasets.items()
+        if info.is_valid and info.has_clojure_reference
+    ]
+
+
+def pytest_generate_tests(metafunc):
+    """Parametrize fixtures that need clojure datasets."""
+    if "clojure_dataset" in metafunc.fixturenames:
+        include_local = metafunc.config.getoption("--include-local", default=False)
+        datasets = _get_clojure_datasets(include_local)
+        metafunc.parametrize("clojure_dataset", datasets, scope="module")
+
+
+@pytest.fixture(scope="module")
+def conversation_data(clojure_dataset):
     """
     Module-scoped fixture that loads and computes conversation once per dataset.
     This avoids redundant computation when running multiple comparison tests.
     """
-    dataset_name = request.param
+    dataset_name = clojure_dataset
 
     # Get dataset files using central configuration
     dataset_files = get_dataset_files(dataset_name)
