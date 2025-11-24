@@ -18,12 +18,21 @@ import time
 from pathlib import Path
 
 import click
+from line_profiler import LineProfiler
 
 from polismath.benchmarks.benchmark_utils import (
     load_votes_from_csv,
     extract_dataset_name,
     votes_csv_argument,
     runs_option,
+)
+from polismath.conversation import Conversation
+from polismath.pca_kmeans_rep.repness import (
+    conv_repness,
+    comment_stats,
+    add_comparative_stats,
+    finalize_cmt_stats,
+    select_rep_comments,
 )
 
 
@@ -32,6 +41,40 @@ profile_option = click.option(
     is_flag=True,
     help='Run with line profiler on conv_repness',
 )
+
+
+def setup_conversation(votes_csv: Path) -> tuple[Conversation, str, int, float]:
+    """
+    Load votes and setup conversation with PCA and clusters.
+
+    Args:
+        votes_csv: Path to votes CSV file
+
+    Returns:
+        Tuple of (conversation, dataset_name, n_votes, setup_time)
+    """
+    dataset_name = extract_dataset_name(votes_csv)
+
+    print(f"Loading votes from '{votes_csv}'...")
+    votes_dict = load_votes_from_csv(votes_csv)
+    n_votes = len(votes_dict['votes'])
+    print(f"Loaded {n_votes:,} votes")
+    print()
+
+    print("Setting up conversation with votes and clusters...")
+    setup_start = time.perf_counter()
+    conv = Conversation(dataset_name)
+    conv = conv.update_votes(votes_dict, recompute=False)
+    conv._compute_pca()
+    conv._compute_clusters()
+    setup_time = time.perf_counter() - setup_start
+
+    print(f"Setup completed in {setup_time:.2f}s")
+    print(f"  Matrix shape: {conv.raw_rating_mat.shape}")
+    print(f"  Number of groups: {len(conv.group_clusters)}")
+    print()
+
+    return conv, dataset_name, n_votes, setup_time
 
 
 def benchmark_repness(votes_csv: Path, runs: int = 3) -> dict:
@@ -45,30 +88,7 @@ def benchmark_repness(votes_csv: Path, runs: int = 3) -> dict:
     Returns:
         Dictionary with benchmark results
     """
-    from polismath.conversation import Conversation
-
-    dataset_name = extract_dataset_name(votes_csv)
-
-    print(f"Loading votes from '{votes_csv}'...")
-    votes_dict = load_votes_from_csv(votes_csv)
-    n_votes = len(votes_dict['votes'])
-    print(f"Loaded {n_votes:,} votes")
-    print()
-
-    # First, create a conversation with votes and run clustering (pre-requisite for repness)
-    print("Setting up conversation with votes and clusters...")
-    setup_start = time.perf_counter()
-    conv = Conversation(dataset_name)
-    conv = conv.update_votes(votes_dict, recompute=False)
-
-    # Run PCA and clustering (required before repness)
-    conv._compute_pca()
-    conv._compute_clusters()
-    setup_time = time.perf_counter() - setup_start
-    print(f"Setup completed in {setup_time:.2f}s")
-    print(f"  Matrix shape: {conv.raw_rating_mat.shape}")
-    print(f"  Number of groups: {len(conv.group_clusters)}")
-    print()
+    conv, dataset_name, n_votes, setup_time = setup_conversation(votes_csv)
 
     # Benchmark repness computation
     print(f"Benchmarking repness computation ({runs} runs)...")
@@ -123,33 +143,7 @@ def profile_repness(votes_csv: Path) -> None:
     Args:
         votes_csv: Path to votes CSV file
     """
-    from line_profiler import LineProfiler
-    from polismath.conversation import Conversation
-    from polismath.pca_kmeans_rep.repness import (
-        conv_repness,
-        comment_stats,
-        add_comparative_stats,
-        finalize_cmt_stats,
-        select_rep_comments,
-    )
-
-    dataset_name = extract_dataset_name(votes_csv)
-
-    print(f"Loading votes from '{votes_csv}'...")
-    votes_dict = load_votes_from_csv(votes_csv)
-    n_votes = len(votes_dict['votes'])
-    print(f"Loaded {n_votes:,} votes")
-    print()
-
-    # Setup conversation with votes and clusters
-    print("Setting up conversation with votes and clusters...")
-    conv = Conversation(dataset_name)
-    conv = conv.update_votes(votes_dict, recompute=False)
-    conv._compute_pca()
-    conv._compute_clusters()
-    print(f"  Matrix shape: {conv.raw_rating_mat.shape}")
-    print(f"  Number of groups: {len(conv.group_clusters)}")
-    print()
+    conv, _, _, _ = setup_conversation(votes_csv)
 
     # Setup line profiler
     profiler = LineProfiler()
