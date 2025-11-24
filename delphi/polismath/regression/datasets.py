@@ -132,7 +132,13 @@ def list_available_datasets(include_local: bool = False) -> Dict[str, dict]:
 
 
 def get_dataset_info(name: str) -> DatasetInfo:
-    """Get dataset by name (searches both locations)."""
+    """Get dataset by name (searches both locations).
+
+    Note: This always uses include_local=True because it's a lookup-by-name function.
+    If someone explicitly requests a dataset by name, we should find it regardless of
+    where it lives. The include_local flag is meant for listing/discovery operations
+    (e.g., "run all datasets") where you want to control what appears in the list.
+    """
     datasets = discover_datasets(include_local=True)
     if name not in datasets:
         raise ValueError(f"Unknown dataset: {name}. Available: {', '.join(sorted(datasets))}")

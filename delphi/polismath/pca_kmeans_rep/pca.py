@@ -476,82 +476,14 @@ def sparsity_aware_project_ptpts(vote_matrix: np.ndarray,
     return np.array(projections)
 
 
-def align_with_clojure(pca_results: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
-    """
-    Modify PCA components and eigenvectors to align with Clojure's conventions.
-    
-    The Clojure implementation has specific conventions for the signs of eigenvectors:
-    1. The direction of eigenvectors can be flipped (multiplied by -1)
-    2. Components may be oriented differently
-    
-    This function ensures our results align with Clojure's expected orientation.
-    
-    Args:
-        pca_results: Dictionary with 'center' and 'comps' from PCA
-        
-    Returns:
-        Modified PCA results for better Clojure alignment
-    """
-    # Make a copy to avoid modifying the original
-    result = {k: v.copy() if isinstance(v, np.ndarray) else v for k, v in pca_results.items()}
-    
-    if 'comps' not in result or len(result['comps']) == 0:
-        return result
-    
-    # Force orientations to match the typical Clojure output
-    # These specific orientations were determined through empirical testing
-    # with real data benchmarks
-    
-    # For component 1 (x-axis)
-    if len(result['comps']) > 0:
-        comp = result['comps'][0]
-        
-        # Determine the quadrant with most variance 
-        pos_sum = np.sum(comp[comp > 0])
-        neg_sum = np.sum(np.abs(comp[comp < 0]))
-        
-        # Biodiversity dataset needs a specific orientation
-        # TODO(julien): Remove this hard-coded check. I wonder how many other convos need this.
-        if comp.shape[0] > 300:  # Biodiversity has 314 comments
-            # Biodiversity: First component should have more positive weight
-            if pos_sum < neg_sum:
-                result['comps'][0] = -comp
-        else:  # VW dataset has 125 comments
-            # VW: First component should have more negative weight
-            if pos_sum > neg_sum:
-                result['comps'][0] = -comp
-    
-    # For component 2 (y-axis) - similar logic
-    if len(result['comps']) > 1:
-        comp = result['comps'][1]
-        
-        # Determine the quadrant with most variance
-        pos_sum = np.sum(comp[comp > 0])
-        neg_sum = np.sum(np.abs(comp[comp < 0]))
-        
-        # Again, specific orientations based on dataset size
-        if comp.shape[0] > 300:  # Biodiversity
-            # Biodiversity: Second component should have more negative weight
-            if pos_sum > neg_sum:
-                result['comps'][1] = -comp
-        else:  # VW
-            # VW: Second component should have more positive weight
-            if pos_sum < neg_sum:
-                result['comps'][1] = -comp
-    
-    return result
-
-
 def pca_project_dataframe(df: pd.DataFrame,
-                         n_comps: int = 2,
-                         align_with_clojure_output: bool = True) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+                         n_comps: int = 2) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """
     Perform PCA on a DataFrame and project the data.
 
     Args:
         df: DataFrame containing the data
         n_comps: Number of components to find
-        align_with_clojure_output: Whether to align output with Clojure conventions
 
     Returns:
         Tuple of (pca_results, projections)
@@ -600,11 +532,6 @@ def pca_project_dataframe(df: pd.DataFrame,
     # Perform PCA with error handling
     try:
         pca_results = wrapped_pca(matrix_data_no_nan, n_comps)
-        
-        # Align with Clojure conventions if requested
-        if align_with_clojure_output:
-            pca_results = align_with_clojure(pca_results)
-            
     except Exception as e:
         print(f"Error in PCA computation: {e}")
         # Create fallback PCA results
@@ -621,45 +548,6 @@ def pca_project_dataframe(df: pd.DataFrame,
 
         # Create a dictionary of projections by participant ID
         proj_dict = {ptpt_id: proj for ptpt_id, proj in zip(df.index, projections)}
-        
-        # Apply dataset-specific transformations to match Clojure's expected results
-        if align_with_clojure_output:
-            # Calculate current scale and adjust
-            all_projs = np.array(list(proj_dict.values()))
-            
-            # Avoid empty projections
-            if all_projs.size > 0:
-                # Normalize scaling
-                max_dist = np.max(np.linalg.norm(all_projs, axis=1))
-                
-                # Apply dataset-specific transformations based on empirical testing
-                n_cols = df.values.shape[1]
-                
-                if n_cols > 300:  # Biodiversity dataset
-                    # For Biodiversity: 
-                    # 1. Flip x-axis
-                    # 2. Scale to typical Clojure range
-                    for pid in proj_dict:
-                        proj_dict[pid][0] = -proj_dict[pid][0]  # Flip x
-                        
-                    # Apply scaling factor
-                    scale_factor = 3.0 / max_dist if max_dist > 0 else 1.0
-                    for pid in proj_dict:
-                        proj_dict[pid] = proj_dict[pid] * scale_factor
-                        
-                else:  # VW dataset
-                    # For VW: 
-                    # 1. Flip both axes
-                    # 2. Scale to typical Clojure range
-                    for pid in proj_dict:
-                        proj_dict[pid][0] = -proj_dict[pid][0]  # Flip x
-                        proj_dict[pid][1] = -proj_dict[pid][1]  # Flip y
-                    
-                    # Apply scaling factor
-                    scale_factor = 2.0 / max_dist if max_dist > 0 else 1.0
-                    for pid in proj_dict:
-                        proj_dict[pid] = proj_dict[pid] * scale_factor
-        
     except Exception as e:
         print(f"Error in projection computation: {e}")
         # Create fallback projections (all zeros)

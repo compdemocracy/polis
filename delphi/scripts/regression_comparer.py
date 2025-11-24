@@ -13,9 +13,10 @@ import click
 @click.argument('datasets', nargs=-1)
 @click.option('--benchmark', is_flag=True, help='Enable timing comparison')
 @click.option('-i', '--ignore-pca-sign-flip', is_flag=True, help='Ignore sign flips in PCA components (multiplication by -1)')
+@click.option('--include-local', is_flag=True, default=False, help='Include datasets from real_data/.local/')
 @click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False),
               default='INFO', help='Set logging level (default: INFO). Use DEBUG to save detailed comparison output.')
-def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, log_level: str):
+def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, include_local: bool, log_level: str):
     """
     Compare current implementation with golden snapshots.
 
@@ -26,6 +27,7 @@ def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, log_level
         python comparer.py                              # Compare all datasets
         python comparer.py biodiversity                 # Compare only biodiversity
         python comparer.py biodiversity vw              # Compare biodiversity and vw
+        python comparer.py --include-local              # Include datasets from real_data/.local/
         python comparer.py --log-level DEBUG            # Compare with debug logging
         python comparer.py -i biodiversity              # Compare with PCA sign flip tolerance
         python comparer.py --ignore-pca-sign-flip vw    # Compare with PCA sign flip tolerance
@@ -45,12 +47,12 @@ def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, log_level
 
     # If no datasets specified, use all available datasets
     if not datasets:
-        available_datasets = list_available_datasets()
+        available_datasets = list_available_datasets(include_local=include_local)
         datasets = list(available_datasets.keys())
         click.echo(f"No datasets specified. Comparing all available datasets: {', '.join(datasets)}\n")
     else:
         # Validate that specified datasets exist
-        available_datasets = list_available_datasets()
+        available_datasets = list_available_datasets(include_local=include_local)
         invalid_datasets = [d for d in datasets if d not in available_datasets]
         if invalid_datasets:
             available = ', '.join(available_datasets.keys())
