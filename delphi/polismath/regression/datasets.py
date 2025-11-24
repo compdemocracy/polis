@@ -59,8 +59,8 @@ def get_local_data_dir() -> Path:
 def _check_files(path: Path, report_id: str) -> dict:
     """Check which required files exist."""
     return {
-        'has_votes': bool(list(path.glob(f"*-{report_id}-votes.csv"))),
-        'has_comments': bool(list(path.glob(f"*-{report_id}-comments.csv"))),
+        'has_votes': any(path.glob(f"*-{report_id}-votes.csv")),
+        'has_comments': any(path.glob(f"*-{report_id}-comments.csv")),
         'has_math_blob': (path / f"{report_id}_math_blob.json").exists(),
         'has_golden': (path / "golden_snapshot.json").exists(),
     }
@@ -134,6 +134,8 @@ def get_dataset_files(name: str) -> Dict[str, str]:
         matches = list(info.path.glob(pattern))
         if not matches:
             raise FileNotFoundError(f"No file matching {pattern} in {info.path}")
+        if len(matches) > 1:
+            raise ValueError(f"Multiple files matching {pattern} in {info.path}: {matches}")
         return str(matches[0].resolve())
 
     return {

@@ -16,7 +16,7 @@ from polismath.regression.datasets import (
 )
 
 
-class TestDirPattern:
+class TestDirectoryPattern:
     """Tests for directory naming pattern."""
 
     def test_valid_patterns(self):
