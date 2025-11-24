@@ -76,6 +76,8 @@ dev = [
     # Type stubs
     "types-requests",
     "types-psycopg2",
+    # Profiling
+    "line_profiler>=4.0.0",
 ]
 
 notebook = [
