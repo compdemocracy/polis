@@ -45,7 +45,12 @@ def pytest_generate_tests(metafunc):
     if "dataset_name" in metafunc.fixturenames:
         include_local = metafunc.config.getoption("--include-local", default=False)
         datasets = _get_clojure_datasets(include_local)
-        metafunc.parametrize("dataset_name", datasets, scope="class")
+        # Add xdist_group marker to each parameter for parallel execution
+        params = [
+            pytest.param(ds, marks=pytest.mark.xdist_group(ds))
+            for ds in datasets
+        ]
+        metafunc.parametrize("dataset_name", params, scope="class")
 
 
 def _cleanup_previous_datasets(current_dataset: str):

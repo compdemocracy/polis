@@ -122,8 +122,8 @@ include = [
 
 # Pytest configuration
 [tool.pytest.ini_options]
-# When using pytest-xdist (-n), group tests by class/module for efficient fixture sharing
-addopts = "--dist=loadscope"
+# When using pytest-xdist (-n), group tests by xdist_group marker for efficient fixture sharing
+addopts = "--dist=loadgroup"
 filterwarnings = [
     # Ignore python_multipart deprecation warning from ddtrace (third-party)
     "ignore:Please use `import python_multipart`:PendingDeprecationWarning:ddtrace.internal.module",
