@@ -470,9 +470,6 @@ def conv_repness(vote_matrix_df: pd.DataFrame, group_clusters: List[Dict[str, An
                         numeric_matrix[i, j] = np.nan
         matrix_values = numeric_matrix
     
-    # Replace NaNs with None for the algorithm
-    matrix_values = np.where(np.isnan(matrix_values), None, matrix_values)
-    
     # Create empty-result structure in case we need to return early
     empty_result = {
         'comment_ids': vote_matrix_df.columns.tolist(),
@@ -530,7 +527,7 @@ def conv_repness(vote_matrix_df: pd.DataFrame, group_clusters: List[Dict[str, An
             comment_votes = matrix_values[:, c_idx]
             
             # Skip comments with no votes
-            if not any(v is not None for v in comment_votes):
+            if np.all(np.isnan(comment_votes)):
                 continue
                 
             try:
