@@ -22,18 +22,24 @@ from polismath.conversation.conversation import Conversation
 from polismath.regression import get_dataset_files
 from polismath.regression.datasets import discover_datasets
 from tests.common_utils import load_votes, load_comments, load_clojure_output
+from conftest import _get_requested_datasets, make_dataset_params
 
 
-def _get_clojure_datasets(include_local: bool) -> list[str]:
+def _get_clojure_datasets(include_local: bool, requested: set[str] | None = None) -> list[str]:
     """Get datasets that have Clojure math_blob for comparison.
 
     Only requires votes, comments, and math_blob - does NOT require golden_snapshot.
+    Filters by requested datasets if specified.
     """
     datasets = discover_datasets(include_local=include_local)
-    return [
+    result = [
         name for name, info in datasets.items()
         if info.has_votes and info.has_comments and info.has_clojure_reference
     ]
+    # Filter by --datasets if specified
+    if requested:
+        result = [d for d in result if d in requested]
+    return result
 
 
 # Module-level cache for conversation data - survives across fixture calls
@@ -44,12 +50,10 @@ def pytest_generate_tests(metafunc):
     """Parametrize tests with clojure datasets at collection time."""
     if "dataset_name" in metafunc.fixturenames:
         include_local = metafunc.config.getoption("--include-local", default=False)
-        datasets = _get_clojure_datasets(include_local)
+        requested = _get_requested_datasets(metafunc.config)
+        datasets = _get_clojure_datasets(include_local, requested)
         # Add xdist_group marker to each parameter for parallel execution
-        params = [
-            pytest.param(ds, marks=pytest.mark.xdist_group(ds))
-            for ds in datasets
-        ]
+        params = make_dataset_params(datasets)
         metafunc.parametrize("dataset_name", params, scope="class")
 
 
