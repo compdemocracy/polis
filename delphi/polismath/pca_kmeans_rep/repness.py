@@ -12,7 +12,7 @@ from copy import deepcopy
 import math
 from scipy import stats
 
-from polismath.utils.general import agree, disagree, pass_vote
+from polismath.utils.general import AGREE, DISAGREE, PASS
 
 
 # Statistical constants
@@ -113,11 +113,11 @@ def comment_stats(votes: np.ndarray, group_members: List[int]) -> Dict[str, Any]
         Dictionary of statistics
     """
     # Filter votes to only include group members
-    group_votes = [votes[i] for i in group_members if i < len(votes)]
-    
+    group_votes = votes[group_members]
+
     # Count agrees, disagrees, and total votes
-    n_agree = sum(1 for v in group_votes if agree(v))
-    n_disagree = sum(1 for v in group_votes if disagree(v))
+    n_agree = np.sum(group_votes == AGREE)
+    n_disagree = np.sum(group_votes == DISAGREE)
     n_votes = n_agree + n_disagree
     
     # Calculate probabilities with pseudocounts (Bayesian smoothing)
