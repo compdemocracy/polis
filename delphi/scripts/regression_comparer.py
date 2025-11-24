@@ -56,7 +56,6 @@ def main(datasets: tuple, benchmark: bool, log_level: str):
             raise click.Abort()
 
     # Compare each dataset
-    all_passed = True
     results_summary = {}
 
     for dataset in datasets:
@@ -69,9 +68,6 @@ def main(datasets: tuple, benchmark: bool, log_level: str):
         # Track results
         passed = "error" not in result and result.get("overall_match", False)
         results_summary[dataset] = passed
-
-        if not passed:
-            all_passed = False
 
     # Print summary
     click.echo(f"\n{'='*60}")

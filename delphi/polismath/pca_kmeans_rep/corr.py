@@ -292,10 +292,6 @@ def participant_correlation(vote_matrix: pd.DataFrame,
     Returns:
         Correlation coefficient
     """
-    # Get the row indices
-    p1_idx = vote_matrix.index.get_loc(p1_id)
-    p2_idx = vote_matrix.index.get_loc(p2_id)
-    
     # Get the participant votes
     p1_votes = vote_matrix.loc[p1_id].to_numpy()
     p2_votes = vote_matrix.loc[p2_id].to_numpy()

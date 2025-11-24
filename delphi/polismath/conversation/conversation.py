@@ -209,11 +209,12 @@ class Conversation:
 
         updates_df = pd.DataFrame(vote_updates, columns=['row', 'col', 'value'])
 
-        # Step 2: Keep only the last update for each (row, col) pair
+        # Step 2: Keep only the most recent vote for each (participant, comment) pair
         original_count = len(updates_df)
         updates_df = updates_df.drop_duplicates(subset=['row', 'col'], keep='last')
-        duplicates_removed = original_count - len(updates_df)
-        
+        superseded_votes = original_count - len(updates_df)
+        logger.info(f"[{time.time() - start_time:.2f}s] Discarded {superseded_votes} superseded votes (sequential votes on same comment by same participant)")
+
         # Step 4: Get new rows and columns by set difference
         logger.info(f"[{time.time() - start_time:.2f}s] Identifying new rows and columns...")
 

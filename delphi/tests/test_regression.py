@@ -7,7 +7,6 @@ allowing it to be run as part of the regular test suite.
 
 import pytest
 import numpy as np
-from pathlib import Path
 
 from polismath.regression import ConversationRecorder, ConversationComparer, list_available_datasets
 from polismath.regression.utils import load_golden_snapshot

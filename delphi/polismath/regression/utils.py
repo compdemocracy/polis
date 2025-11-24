@@ -12,10 +12,8 @@ import logging
 import time
 import numpy as np
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional, List
-from datetime import datetime
+from typing import Dict, Any, Tuple, Optional
 import pandas as pd
-from scipy import stats
 
 from polismath.conversation.conversation import Conversation
 

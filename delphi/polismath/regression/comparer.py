@@ -5,7 +5,6 @@ Comparer for comparing current Conversation outputs with golden snapshots.
 
 import json
 import logging
-import numpy as np
 from pathlib import Path
 from typing import Dict, Any
 from datetime import datetime
