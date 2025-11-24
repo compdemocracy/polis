@@ -22,7 +22,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.conversation.conversation import Conversation
 from polismath.database.postgres import PostgresClient, PostgresConfig
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 
 
 def init_dynamodb():
@@ -1051,6 +1050,7 @@ def inspect_dynamodb_data():
             # Just show the list of conversations already displayed
     
     return True
+
 
 
 # def test_conversation_client_api():

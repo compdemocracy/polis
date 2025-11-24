@@ -12,7 +12,6 @@ from typing import Dict, List, Optional, Tuple, Union, Any
 import random
 from copy import deepcopy
 
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 from polismath.utils.general import weighted_mean, weighted_means
 
 
@@ -585,20 +584,20 @@ def clusters_from_dict(clusters_dict: List[Dict],
     return result
 
 
-def determine_k(nmat: NamedMatrix, base_k: int = 2) -> int:
+def determine_k(nmat: pd.DataFrame, base_k: int = 2) -> int:
     """
     Determine the optimal number of clusters based on data size.
     Uses a simple and consistent heuristic formula.
     
     Args:
-        nmat: NamedMatrix to analyze
+        nmat: pd.Dataframe of vote matrix to analyze
         base_k: Base number of clusters (minimum)
         
     Returns:
         Recommended number of clusters
     """
     # Get dimensions
-    n_rows = len(nmat.rownames())
+    n_rows = nmat.shape[0]
     
     # Simple logarithmic formula for cluster count based on dataset size
     # - Very small datasets (< 10): Use 2 clusters
@@ -625,65 +624,65 @@ def determine_k(nmat: NamedMatrix, base_k: int = 2) -> int:
     return max(base_k, k)
 
 
-def cluster_named_matrix(nmat: NamedMatrix, 
-                        k: Optional[int] = None,
-                        max_iters: int = 20,
-                        last_clusters: Optional[List[Dict]] = None,
-                        weights: Optional[Dict[Any, float]] = None) -> List[Dict]:
+def cluster_dataframe(df: pd.DataFrame,
+                     k: Optional[int] = None,
+                     max_iters: int = 20,
+                     last_clusters: Optional[List[Dict]] = None,
+                     weights: Optional[Dict[Any, float]] = None) -> List[Dict]:
     """
-    Cluster a NamedMatrix and return the result in dictionary format.
-    
+    Cluster a votes DataFrame and return the result in dictionary format.
+
     Args:
-        nmat: NamedMatrix to cluster
+        df: pd.DataFrame of vote matrix to cluster
         k: Number of clusters (if None, auto-determined)
         max_iters: Maximum number of iterations
         last_clusters: Previous clustering result for continuity
         weights: Optional weights for each row (by row name)
-        
+
     Returns:
         List of cluster dictionaries
     """
     # Extract matrix data
-    matrix_data = nmat.values
-    
+    matrix_data = df.to_numpy()
+
     # Handle NaN values
     matrix_data = np.nan_to_num(matrix_data)
-    
+
     # Auto-determine k if not specified
     if k is None:
-        k = determine_k(nmat)
-        print(f"Auto-determined k={k} based on dataset size {len(nmat.rownames())}")
-    
+        k = determine_k(df)
+        print(f"Auto-determined k={k} based on dataset size {len(df.index)}")
+
     # Convert weights to array if provided
     weights_array = None
     if weights is not None:
-        weights_array = np.array([weights.get(name, 1.0) for name in nmat.rownames()])
-    
+        weights_array = np.array([weights.get(name, 1.0) for name in df.index])
+
     # Convert last_clusters to internal format if provided
     last_clusters_internal = None
     if last_clusters is not None:
         # Create mapping from row names to indices
-        row_to_idx = {name: i for i, name in enumerate(nmat.rownames())}
+        row_to_idx = {name: i for i, name in enumerate(df.index)}
         last_clusters_internal = clusters_from_dict(last_clusters, row_to_idx)
-    
+
     # Use fixed random seed for initialization to be more consistent
     np.random.seed(42)
-    
+
     # Perform clustering
     clusters_result = kmeans(
-        matrix_data, 
-        k, 
-        max_iters, 
-        last_clusters_internal, 
+        matrix_data,
+        k,
+        max_iters,
+        last_clusters_internal,
         weights_array
     )
-    
+
     # Sort clusters by size (descending) to match Clojure behavior
     clusters_result.sort(key=lambda x: len(x.members), reverse=True)
-    
+
     # Reassign IDs based on sorted order to match Clojure behavior
     for i, cluster in enumerate(clusters_result):
         cluster.id = i
-    
+
     # Convert result to dictionary format with row names
-    return clusters_to_dict(clusters_result, nmat.rownames())
+    return clusters_to_dict(clusters_result, df.index)

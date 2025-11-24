@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+Legacy: Comparison with Clojure implementation. Will be removed once Clojure is phased out.
+
 Script to directly compare Python PCA output with Clojure output.
 This script analyzes the results from our recent improvements.
 """
@@ -14,14 +16,13 @@ from typing import Dict, List, Any, Optional
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
-from polismath.pca_kmeans_rep.clusters import cluster_named_matrix, determine_k
-from dataset_config import get_dataset_files
+from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+from polismath.pca_kmeans_rep.clusters import cluster_dataframe, determine_k
+from polismath.regression import get_dataset_files
 
 
-def load_votes_from_csv(votes_path: str) -> NamedMatrix:
-    """Load votes from a CSV file and create a NamedMatrix."""
+def load_votes_from_csv(votes_path: str) -> pd.DataFrame:
+    """Load votes from a CSV file and create a votes matrix."""
     # Read CSV
     df = pd.read_csv(votes_path)
     
@@ -63,12 +64,12 @@ def load_votes_from_csv(votes_path: str) -> NamedMatrix:
         # Add vote to matrix
         vote_matrix[ptpt_map[pid], cmt_map[cid]] = vote_val
     
-    # Create and return a NamedMatrix
-    return NamedMatrix(
-        matrix=vote_matrix,
-        rownames=[str(pid) for pid in ptpt_ids],
-        colnames=[str(cid) for cid in cmt_ids],
-        enforce_numeric=True
+    # Create and return a DataFrame votes matrix 
+    return pd.DataFrame(
+        data=vote_matrix,
+        index=[str(pid) for pid in ptpt_ids],
+        columns=[str(cid) for cid in cmt_ids],
+        dtype=float
     )
 
 
@@ -269,7 +270,7 @@ def run_direct_comparison(dataset_name: str) -> Dict[str, Any]:
     
     print(f"Running direct comparison for {dataset_name} dataset")
     
-    # Load votes into a NamedMatrix
+    # Load votes into a votes matrix
     votes_matrix = load_votes_from_csv(votes_path)
     print(f"Loaded vote matrix: {votes_matrix.values.shape}")
     
@@ -280,7 +281,7 @@ def run_direct_comparison(dataset_name: str) -> Dict[str, Any]:
     # Perform PCA with our fixed implementation
     try:
         print("Running Python PCA...")
-        pca_results, projections = pca_project_named_matrix(votes_matrix)
+        pca_results, projections = pca_project_dataframe(votes_matrix)
         print(f"PCA successful: {pca_results['comps'].shape} components generated")
         
         # Get the optimal k for clustering
@@ -289,7 +290,7 @@ def run_direct_comparison(dataset_name: str) -> Dict[str, Any]:
         
         # Perform clustering
         print("Running Python clustering...")
-        clusters = cluster_named_matrix(votes_matrix, k=auto_k)
+        clusters = cluster_dataframe(votes_matrix, k=auto_k)
         print(f"Clustering successful: {len(clusters)} clusters generated")
         
         # Get Clojure projections
@@ -322,7 +323,7 @@ def run_direct_comparison(dataset_name: str) -> Dict[str, Any]:
         }
         
         # Save results
-        output_dir = os.path.join(data_dir, 'python_output')
+        output_dir = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset_name)
         os.makedirs(output_dir, exist_ok=True)
         with open(os.path.join(output_dir, 'direct_comparison.json'), 'w') as f:
             json.dump(results, f, indent=2, default=str)

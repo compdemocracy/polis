@@ -20,9 +20,8 @@ from typing import Dict
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
-from dataset_config import get_dataset_files, list_available_datasets
+from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+from polismath.regression import get_dataset_files, list_available_datasets
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +43,8 @@ class TestPCAImplementation:
         )
 
     @pytest.fixture
-    def vote_matrix(self, dataset_name: str) -> NamedMatrix:
-        """Load votes and create NamedMatrix."""
+    def vote_matrix(self, dataset_name: str) -> pd.DataFrame:
+        """Load votes and create a DataFrame."""
         dataset_files = get_dataset_files(dataset_name)
         votes_path = dataset_files['votes']
         logger.debug(f"Loading votes from {votes_path}")
@@ -88,7 +87,7 @@ class TestPCAImplementation:
             index=[str(pid) for pid in ptpt_ids],
             columns=[str(cid) for cid in cmt_ids]
         )
-        return NamedMatrix(df_matrix, enforce_numeric=True)
+        return df_matrix.apply(pd.to_numeric, errors='coerce')
 
     @pytest.mark.parametrize("dataset_name", list(list_available_datasets().keys()))
     def test_pca_runs_without_error(self, dataset_name: str, vote_matrix):
@@ -96,12 +95,12 @@ class TestPCAImplementation:
         logger.info(f"Testing PCA on {dataset_name} dataset")
 
         assert vote_matrix is not None
-        assert vote_matrix.values.shape[0] > 0
-        assert vote_matrix.values.shape[1] > 0
+        assert vote_matrix.shape[0] > 0
+        assert vote_matrix.shape[1] > 0
 
-        logger.debug(f"Matrix shape: {vote_matrix.values.shape}")
+        logger.debug(f"Matrix shape: {vote_matrix.shape}")
 
-        pca_results, projections = pca_project_named_matrix(vote_matrix)
+        pca_results, projections = pca_project_dataframe(vote_matrix)
 
         assert pca_results is not None
         assert projections is not None
@@ -119,7 +118,7 @@ class TestPCAImplementation:
         """Test PCA projections have reasonable statistical properties."""
         logger.debug(f"Testing projection statistics for {dataset_name}")
 
-        pca_results, projections = pca_project_named_matrix(vote_matrix)
+        pca_results, projections = pca_project_dataframe(vote_matrix)
         proj_array = np.array(list(projections.values()))
 
         assert proj_array.ndim == 2
@@ -144,7 +143,7 @@ class TestPCAImplementation:
         """Test PCA projections can be used for clustering."""
         logger.debug(f"Testing clustering for {dataset_name}")
 
-        pca_results, projections = pca_project_named_matrix(vote_matrix)
+        pca_results, projections = pca_project_dataframe(vote_matrix)
         proj_array = np.array(list(projections.values()))
 
         from sklearn.cluster import KMeans

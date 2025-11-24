@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """
+Legacy: Comparison with Clojure implementation. Will be removed once Clojure is phased out.
+
 Script to directly read and analyze the Clojure output files.
+Analysis and comparison of Clojure math_blob outputs with Python implementation.
 """
 
 import os
@@ -12,7 +15,7 @@ from typing import Dict, Any, List
 
 # Add parent to path
 sys.path.append(os.path.abspath(os.path.dirname(os.path.dirname(__file__))))
-from tests.dataset_config import get_dataset_files, list_available_datasets
+from polismath.regression import get_dataset_files, list_available_datasets
 
 # Datasets to analyze
 DATASETS = list(list_available_datasets().keys())
@@ -81,7 +84,7 @@ def load_python_output(dataset_name: str) -> Dict[str, Any]:
     dataset_files = get_dataset_files(dataset_name)
     data_dir = dataset_files['data_dir']
 
-    output_path = os.path.join(data_dir, 'python_output', 'python_output.json')
+    output_path = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset_name, 'python_output.json')
     
     # Check if the file exists
     if not os.path.exists(output_path):
@@ -156,7 +159,7 @@ def main():
         # Get dataset files using central configuration
         dataset_files = get_dataset_files(dataset)
         data_dir = dataset_files['data_dir']
-        output_dir = os.path.join(data_dir, 'python_output')
+        output_dir = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset)
 
         os.makedirs(output_dir, exist_ok=True)
         

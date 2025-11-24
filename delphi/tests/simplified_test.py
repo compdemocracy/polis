@@ -14,7 +14,7 @@ import traceback
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from dataset_config import get_dataset_files
+from polismath.regression import get_dataset_files
 
 # Define simplified versions of the core math functions
 

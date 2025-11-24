@@ -12,7 +12,6 @@ from copy import deepcopy
 import math
 from scipy import stats
 
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 from polismath.utils.general import agree, disagree, pass_vote
 
 
@@ -441,19 +440,19 @@ def select_consensus_comments(all_stats: List[Dict[str, Any]]) -> List[Dict[str,
     return consensus_candidates[:2]
 
 
-def conv_repness(vote_matrix: NamedMatrix, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
+def conv_repness(vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Calculate representativeness for all comments and groups.
     
     Args:
-        vote_matrix: NamedMatrix of votes
+        vote_matrix: pd.DataFrame of votes
         group_clusters: List of group clusters
         
     Returns:
         Dictionary with representativeness data for each group
     """
     # Extract and clean the matrix values
-    matrix_values = vote_matrix.values.copy()
+    matrix_values = vote_matrix.to_numpy(copy = True)
     
     # Ensure the matrix contains numeric values
     if not np.issubdtype(matrix_values.dtype, np.number):
@@ -476,7 +475,7 @@ def conv_repness(vote_matrix: NamedMatrix, group_clusters: List[Dict[str, Any]])
     
     # Create empty-result structure in case we need to return early
     empty_result = {
-        'comment_ids': vote_matrix.colnames(),
+        'comment_ids': vote_matrix.columns.tolist(),
         'group_repness': {group['id']: [] for group in group_clusters},
         'consensus_comments': [],
         'comment_repness': []  # Add a list for all comment repness data
@@ -488,7 +487,7 @@ def conv_repness(vote_matrix: NamedMatrix, group_clusters: List[Dict[str, Any]])
     
     # Result will hold repness data for each group
     result = {
-        'comment_ids': vote_matrix.colnames(),
+        'comment_ids': vote_matrix.columns.tolist(),
         'group_repness': {},
         'comment_repness': []  # Add a list for all comment repness data
     }
@@ -503,8 +502,9 @@ def conv_repness(vote_matrix: NamedMatrix, group_clusters: List[Dict[str, Any]])
         group_members = []
         for m in group['members']:
             try:
-                if m in vote_matrix.rownames():
-                    idx = vote_matrix.rownames().index(m)
+                if m in vote_matrix.index:
+                    idx = vote_matrix.index.get_loc(m)
+                    # Question: why would idx ever *not* be within matrix_values.shape ?
                     if 0 <= idx < matrix_values.shape[0]:
                         group_members.append(idx)
             except (ValueError, TypeError) as e:
@@ -522,7 +522,7 @@ def conv_repness(vote_matrix: NamedMatrix, group_clusters: List[Dict[str, Any]])
         # Stats for each comment
         group_stats = []
         
-        for c_idx, comment_id in enumerate(vote_matrix.colnames()):
+        for c_idx, comment_id in enumerate(vote_matrix.columns):
             if c_idx >= matrix_values.shape[1]:
                 continue
                 
@@ -588,12 +588,12 @@ def conv_repness(vote_matrix: NamedMatrix, group_clusters: List[Dict[str, Any]])
     return result
 
 
-def participant_stats(vote_matrix: NamedMatrix, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
+def participant_stats(vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     Calculate statistics about participants.
     
     Args:
-        vote_matrix: NamedMatrix of votes
+        vote_matrix: pd.DataFrame of votes
         group_clusters: List of group clusters
         
     Returns:
@@ -625,12 +625,12 @@ def participant_stats(vote_matrix: NamedMatrix, group_clusters: List[Dict[str, A
     
     # Create result structure
     result = {
-        'participant_ids': vote_matrix.rownames(),
+        'participant_ids': vote_matrix.index.tolist(),
         'stats': {}
     }
     
     # For each participant, calculate statistics
-    for p_idx, participant_id in enumerate(vote_matrix.rownames()):
+    for p_idx, participant_id in enumerate(vote_matrix.index):
         if p_idx >= matrix_values.shape[0]:
             continue
             
@@ -663,8 +663,8 @@ def participant_stats(vote_matrix: NamedMatrix, group_clusters: List[Dict[str, A
                 # Get group member indices
                 group_members = []
                 for m in group['members']:
-                    if m in vote_matrix.rownames():
-                        idx = vote_matrix.rownames().index(m)
+                    if m in vote_matrix.index:
+                        idx = vote_matrix.index.get_loc(m)
                         if 0 <= idx < matrix_values.shape[0]:
                             group_members.append(idx)
                 

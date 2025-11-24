@@ -1,18 +1,17 @@
 """
-Central configuration for test datasets.
+Dataset configuration for regression testing.
 
-This module provides a single source of truth for dataset paths and file discovery,
-eliminating hard-coded paths scattered across test files.
+This module provides centralized configuration for test datasets, including
+paths to data files and golden snapshots.
 """
 
 import os
+import glob
 from pathlib import Path
 from typing import Dict, Optional
-import glob
 
 
 # Dataset configuration mapping dataset names to report IDs
-# Only includes datasets currently used in tests
 DATASETS = {
     'biodiversity': {
         'report_id': 'r4tykwac8thvzv35jrn53',
@@ -22,17 +21,6 @@ DATASETS = {
         'report_id': 'r6vbnhffkxbd7ifmfbdrd',
         'description': 'VW Conversation'
     },
-# BG held very large conversations, great for manual testing but not for automated tests,
-# plus, we will probably want to compress it or dynamically download it, rather
-# than committing it to the repo as we currently do for the datasets.
-#    'bg2018': {
-#        'report_id': 'r2xcn2cdbmrzjmmuuytdk',
-#        'description': 'BG2018'
-#    },
-#    'bg2050': {
-#        'report_id': 'r7wehfsmutrwndviddnii',
-#        'description': 'BG2050'
-#    },
 }
 
 
@@ -43,9 +31,10 @@ def get_real_data_dir() -> Path:
     Returns:
         Path to the real_data directory (delphi/real_data)
     """
-    # This file is in delphi/tests, so go up one level to delphi, then into real_data
-    tests_dir = Path(__file__).parent
-    delphi_dir = tests_dir.parent
+    # This file is in delphi/polismath/regression, so go up three levels to delphi, then into real_data
+    module_dir = Path(__file__).parent
+    polismath_dir = module_dir.parent
+    delphi_dir = polismath_dir.parent
     real_data_dir = delphi_dir / 'real_data'
 
     return real_data_dir.resolve()
@@ -122,9 +111,6 @@ def find_dataset_file(report_id: str, suffix: str, dataset_name: Optional[str] =
     Examples:
         >>> find_dataset_file('r4tykwac8thvzv35jrn53', 'votes.csv', 'biodiversity')
         '/path/to/real_data/r4tykwac8thvzv35jrn53-biodiversity/2025-11-07-1035-r4tykwac8thvzv35jrn53-votes.csv'
-
-        >>> find_dataset_file('r4tykwac8thvzv35jrn53', 'math_blob.json', 'biodiversity')
-        '/path/to/real_data/r4tykwac8thvzv35jrn53-biodiversity/r4tykwac8thvzv35jrn53_math_blob.json'
     """
     report_dir = get_dataset_directory(report_id, dataset_name)
 
@@ -156,7 +142,7 @@ def find_dataset_file(report_id: str, suffix: str, dataset_name: Optional[str] =
     return os.path.abspath(matches[0])
 
 
-def get_dataset_files(dataset_name: str) -> Dict[str, str]:
+def get_dataset_files(dataset_name: str) -> Dict[str, Path]:
     """
     Get file paths for a dataset by name.
 
@@ -180,7 +166,7 @@ def get_dataset_files(dataset_name: str) -> Dict[str, str]:
     Examples:
         >>> files = get_dataset_files('biodiversity')
         >>> print(files['votes'])
-        '/path/to/real_data/r4tykwac8thvzv35jrn53/2025-11-07-1035-r4tykwac8thvzv35jrn53-votes.csv'
+        '/path/to/real_data/r4tykwac8thvzv35jrn53-biodiversity/2025-11-07-1035-r4tykwac8thvzv35jrn53-votes.csv'
     """
     if dataset_name not in DATASETS:
         available = ', '.join(DATASETS.keys())

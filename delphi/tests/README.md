@@ -34,14 +34,14 @@ python -m pytest tests/
 To run a specific test file:
 
 ```bash
-python -m pytest tests/test_named_matrix.py
+python -m pytest tests/test_pca.py
 ```
 
 To run a specific test class or function:
 
 ```bash
-python -m pytest tests/test_named_matrix.py::TestNamedMatrix
-python -m pytest tests/test_named_matrix.py::TestNamedMatrix::test_update
+python -m pytest tests/test_pca.py::TestPCAUtils
+python -m pytest tests/test_pca.py::TestPCAUtils::test_normalize_vector
 ```
 
 ## Test Coverage
@@ -57,7 +57,6 @@ python -m pytest --cov=polismath tests/
 The tests are organized as follows:
 
 1. **Unit Tests** - Validate individual components of the codebase:
-   - `test_named_matrix.py` - Tests for the named matrix data structure
    - `test_pca.py` - Tests for PCA implementation
    - `test_clusters.py` - Tests for clustering algorithms
    - `test_repness.py` - Tests for representativeness calculations
@@ -66,7 +65,8 @@ The tests are organized as follows:
    - `test_corr.py` - Tests for correlation calculations
 
 2. **Real Data Tests** - Validate the system with real Polis conversation data:
-   - `test_real_data.py` - Tests the complete system using real conversation data
+   - `test_clojure_regression.py` - Regression tests comparing Python vs Clojure implementation
+   - `test_pipeline_integrity.py` - Integration tests verifying pipeline runs successfully
 
 ## Test Data
 
