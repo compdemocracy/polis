@@ -16,7 +16,7 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import the main function from the script we want to test
-from run_math_pipeline import main as run_math_pipeline_main
+from polismath.run_math_pipeline import main as run_math_pipeline_main
 
 # --- Define Mock Data Paths ---
 # FIX: Corrected path inside the container. The 'delphi' part is removed
@@ -221,8 +221,8 @@ def test_run_math_pipeline_e2e(mock_connect, dynamodb_resource, mock_comments_da
 
     # --- Mock the helper functions ---
     # The script uses these *before* the batching logic
-    with mock.patch('run_math_pipeline.fetch_comments', return_value=mock_comments_data), \
-         mock.patch('run_math_pipeline.fetch_moderation', return_value=mock_moderation_data):
+    with mock.patch('polismath.run_math_pipeline.fetch_comments', return_value=mock_comments_data), \
+         mock.patch('polismath.run_math_pipeline.fetch_moderation', return_value=mock_moderation_data):
         
         # 1. Mock command-line arguments
         test_args = [

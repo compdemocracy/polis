@@ -68,8 +68,6 @@ jobs:
         docker compose -f docker-compose.test.yml cp delphi/real_data delphi:/app/real_data
         echo "Copying coverage script into container..."
         docker compose -f docker-compose.test.yml cp delphi/generate_coverage_md.py delphi:/app/generate_coverage_md.py
-        echo "Copying script to be tested into container..."
-        docker compose -f docker-compose.test.yml cp delphi/polismath/run_math_pipeline.py delphi:/app/run_math_pipeline.py
 
         echo "Running tests and generating coverage report..."
         docker compose \
@@ -90,7 +88,7 @@ jobs:
             python create_dynamodb_tables.py --region us-east-1; \
             echo '--- Running Pytest ---'; \
             export PYTHONPATH=\$PYTHONPATH:/app; \
-            pytest --cov=polismath --cov=run_math_pipeline --cov-report=xml:/app/coverage.xml /app/tests --ignore=/app/tests/test_pakistan_conversation.py
+            pytest --cov=polismath --cov-report=xml:/app/coverage.xml /app/tests --ignore=/app/tests/test_pakistan_conversation.py
             echo '--- Generating Coverage Comment Text ---'; \
             python /app/generate_coverage_md.py > /app/coverage-comment.md \
           "
