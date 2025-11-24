@@ -1,245 +1,172 @@
 """
-Dataset configuration for regression testing.
+Dataset auto-discovery for regression testing.
 
-This module provides centralized configuration for test datasets, including
-paths to data files and golden snapshots.
+Datasets are auto-discovered from real_data/ and real_data/.local/ based on
+directory naming: <report_id>-<name>/
+
+Required files for regression testing:
+- *-votes.csv, *-comments.csv, {report_id}_math_blob.json, golden_snapshot.json
 """
 
-import os
 import glob
+import re
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
-
-# Dataset configuration mapping dataset names to report IDs
-DATASETS = {
-    'biodiversity': {
-        'report_id': 'r4tykwac8thvzv35jrn53',
-        'description': 'NZ Biodiversity Strategy'
-    },
-    'vw': {
-        'report_id': 'r6vbnhffkxbd7ifmfbdrd',
-        'description': 'VW Conversation'
-    },
+# Optional metadata for known datasets
+DATASET_METADATA = {
+    'biodiversity': 'NZ Biodiversity Strategy',
+    'vw': 'VW Conversation',
 }
+
+# Pattern: <report_id>-<name> where report_id starts with 'r'
+_DIR_PATTERN = re.compile(r'^(r[a-z0-9]+)-(.+)$')
+
+
+@dataclass
+class DatasetInfo:
+    """Auto-discovered dataset information."""
+    name: str
+    report_id: str
+    path: Path
+    is_local: bool
+    has_golden: bool
+    has_math_blob: bool
+    has_votes: bool
+    has_comments: bool
+
+    @property
+    def is_valid(self) -> bool:
+        """Has all files needed for regression testing."""
+        return all([self.has_golden, self.has_math_blob, self.has_votes, self.has_comments])
+
+    @property
+    def description(self) -> str:
+        return DATASET_METADATA.get(self.name, f'Dataset: {self.name}')
 
 
 def get_real_data_dir() -> Path:
-    """
-    Get the absolute path to the real_data directory.
-
-    Returns:
-        Path to the real_data directory (delphi/real_data)
-    """
-    # This file is in delphi/polismath/regression, so go up three levels to delphi, then into real_data
-    module_dir = Path(__file__).parent
-    polismath_dir = module_dir.parent
-    delphi_dir = polismath_dir.parent
-    real_data_dir = delphi_dir / 'real_data'
-
-    return real_data_dir.resolve()
+    """Path to delphi/real_data/"""
+    return (Path(__file__).parent.parent.parent / 'real_data').resolve()
 
 
+def get_local_data_dir() -> Path:
+    """Path to delphi/real_data/.local/"""
+    return get_real_data_dir() / '.local'
+
+
+def _check_files(path: Path, report_id: str) -> dict:
+    """Check which required files exist."""
+    return {
+        'has_votes': bool(list(path.glob(f"*-{report_id}-votes.csv"))),
+        'has_comments': bool(list(path.glob(f"*-{report_id}-comments.csv"))),
+        'has_math_blob': (path / f"{report_id}_math_blob.json").exists(),
+        'has_golden': (path / "golden_snapshot.json").exists(),
+    }
+
+
+def _discover_in_dir(search_dir: Path, is_local: bool) -> Dict[str, DatasetInfo]:
+    """Discover datasets in a directory."""
+    if not search_dir.exists():
+        return {}
+
+    datasets = {}
+    for item in search_dir.iterdir():
+        if not item.is_dir():
+            continue
+        match = _DIR_PATTERN.match(item.name)
+        if match:
+            report_id, name = match.groups()
+            datasets[name] = DatasetInfo(
+                name=name, report_id=report_id, path=item, is_local=is_local,
+                **_check_files(item, report_id)
+            )
+    return datasets
+
+
+def discover_datasets(include_local: bool = False) -> Dict[str, DatasetInfo]:
+    """Auto-discover datasets from real_data/ and optionally .local/"""
+    datasets = _discover_in_dir(get_real_data_dir(), is_local=False)
+    if include_local:
+        datasets.update(_discover_in_dir(get_local_data_dir(), is_local=True))
+    return datasets
+
+
+def list_regression_datasets(include_local: bool = False) -> List[str]:
+    """List dataset names valid for regression testing."""
+    return [n for n, d in discover_datasets(include_local).items() if d.is_valid]
+
+
+def list_available_datasets(include_local: bool = False) -> Dict[str, dict]:
+    """List datasets in legacy dict format for backward compatibility."""
+    return {
+        name: {
+            'report_id': d.report_id,
+            'description': d.description,
+            'is_local': d.is_local,
+            'has_golden': d.has_golden,
+            'has_math_blob': d.has_math_blob,
+        }
+        for name, d in discover_datasets(include_local).items()
+    }
+
+
+def get_dataset_info(name: str) -> DatasetInfo:
+    """Get dataset by name (searches both locations)."""
+    datasets = discover_datasets(include_local=True)
+    if name not in datasets:
+        raise ValueError(f"Unknown dataset: {name}. Available: {', '.join(sorted(datasets))}")
+    return datasets[name]
+
+
+def get_dataset_report_id(name: str) -> str:
+    """Get report_id for a dataset name."""
+    return get_dataset_info(name).report_id
+
+
+def get_dataset_files(name: str) -> Dict[str, str]:
+    """Get file paths for a dataset."""
+    info = get_dataset_info(name)
+    rid = info.report_id
+
+    def find_file(pattern: str) -> str:
+        matches = list(info.path.glob(pattern))
+        if not matches:
+            raise FileNotFoundError(f"No file matching {pattern} in {info.path}")
+        return str(matches[0].resolve())
+
+    return {
+        'report_id': rid,
+        'data_dir': str(info.path),
+        'votes': find_file(f"*-{rid}-votes.csv"),
+        'comments': find_file(f"*-{rid}-comments.csv"),
+        'summary': find_file(f"*-{rid}-summary.csv"),
+        'math_blob': str(info.path / f"{rid}_math_blob.json"),
+    }
+
+
+# Legacy aliases
 def get_dataset_directory(report_id: str, dataset_name: Optional[str] = None) -> Path:
-    """
-    Get the directory path for a dataset, supporting both old and new naming conventions.
-
-    The new convention uses format: <report_id>-<dataset_name>
-    The old convention uses format: <report_id>
-
-    Args:
-        report_id: Report ID (e.g., 'r4tykwac8thvzv35jrn53')
-        dataset_name: Optional dataset name (e.g., 'biodiversity')
-
-    Returns:
-        Path to the dataset directory
-
-    Raises:
-        FileNotFoundError: If no matching directory is found
-    """
-    real_data_dir = get_real_data_dir()
-
-    # Try new format first: <report_id>-<dataset_name>
-    if dataset_name:
-        new_format_dir = real_data_dir / f"{report_id}-{dataset_name}"
-        if new_format_dir.exists():
-            return new_format_dir
-
-    # Fall back to old format: <report_id>
-    old_format_dir = real_data_dir / report_id
-    if old_format_dir.exists():
-        return old_format_dir
-
-    # If neither exists, raise an error with helpful message
-    if dataset_name:
-        raise FileNotFoundError(
-            f"Dataset directory not found. Tried:\n"
-            f"  - {real_data_dir / f'{report_id}-{dataset_name}'}\n"
-            f"  - {real_data_dir / report_id}\n"
-            f"Make sure you have downloaded the test data for {dataset_name} ({report_id})"
-        )
-    else:
-        raise FileNotFoundError(
-            f"Report directory not found: {real_data_dir / report_id}\n"
-            f"Make sure you have downloaded the test data for report {report_id}"
-        )
+    """Find dataset directory by report_id."""
+    for search_dir in [get_real_data_dir(), get_local_data_dir()]:
+        if not search_dir.exists():
+            continue
+        if dataset_name:
+            path = search_dir / f"{report_id}-{dataset_name}"
+            if path.exists():
+                return path
+        path = search_dir / report_id
+        if path.exists():
+            return path
+    raise FileNotFoundError(f"Dataset not found: {report_id}")
 
 
 def find_dataset_file(report_id: str, suffix: str, dataset_name: Optional[str] = None) -> str:
-    """
-    Find a file in the real_data directory by report ID and suffix.
-
-    This function uses glob patterns to find files with timestamped names,
-    allowing tests to work regardless of when the data was downloaded.
-
-    Args:
-        report_id: Report ID (e.g., 'r4tykwac8thvzv35jrn53')
-        suffix: File suffix to search for. Supported suffixes:
-            - 'votes.csv' - Vote data
-            - 'comments.csv' - Comment data
-            - 'summary.csv' - Summary statistics
-            - 'math_blob.json' - Clojure math computation output
-        dataset_name: Optional dataset name for new directory format
-
-    Returns:
-        Absolute path to the file
-
-    Raises:
-        FileNotFoundError: If no matching file is found
-        ValueError: If multiple matching files are found
-
-    Examples:
-        >>> find_dataset_file('r4tykwac8thvzv35jrn53', 'votes.csv', 'biodiversity')
-        '/path/to/real_data/r4tykwac8thvzv35jrn53-biodiversity/2025-11-07-1035-r4tykwac8thvzv35jrn53-votes.csv'
-    """
+    """Find a file by report_id and suffix."""
     report_dir = get_dataset_directory(report_id, dataset_name)
-
-    # Build the search pattern based on suffix
-    if suffix == 'math_blob.json':
-        # Math blob uses format: {report_id}_math_blob.json
-        pattern = f"{report_id}_math_blob.json"
-    else:
-        # CSV files use format: {timestamp}-{report_id}-{suffix}
-        pattern = f"*-{report_id}-{suffix}"
-
-    search_path = report_dir / pattern
-    matches = glob.glob(str(search_path))
-
+    pattern = f"{report_id}_math_blob.json" if suffix == 'math_blob.json' else f"*-{report_id}-{suffix}"
+    matches = glob.glob(str(report_dir / pattern))
     if not matches:
-        raise FileNotFoundError(
-            f"No file found matching pattern: {search_path}\n"
-            f"Available files in {report_dir}:\n" +
-            "\n".join(f"  - {f.name}" for f in sorted(report_dir.glob('*')))
-        )
-
-    if len(matches) > 1:
-        raise ValueError(
-            f"Multiple files found matching pattern: {search_path}\n" +
-            "\n".join(f"  - {m}" for m in matches) +
-            "\nPlease clean up old files or specify a more specific pattern."
-        )
-
-    return os.path.abspath(matches[0])
-
-
-def get_dataset_files(dataset_name: str) -> Dict[str, Path]:
-    """
-    Get file paths for a dataset by name.
-
-    Args:
-        dataset_name: Dataset name (e.g., 'biodiversity', 'vw')
-                     Must be a key in the DATASETS dictionary
-
-    Returns:
-        Dictionary with keys:
-            - 'votes': Path to votes CSV file
-            - 'comments': Path to comments CSV file
-            - 'summary': Path to summary CSV file
-            - 'math_blob': Path to math blob JSON file
-            - 'data_dir': Path to the dataset directory
-            - 'report_id': The report ID for this dataset
-
-    Raises:
-        ValueError: If dataset_name is not recognized
-        FileNotFoundError: If any required files are missing
-
-    Examples:
-        >>> files = get_dataset_files('biodiversity')
-        >>> print(files['votes'])
-        '/path/to/real_data/r4tykwac8thvzv35jrn53-biodiversity/2025-11-07-1035-r4tykwac8thvzv35jrn53-votes.csv'
-    """
-    if dataset_name not in DATASETS:
-        available = ', '.join(DATASETS.keys())
-        raise ValueError(
-            f"Unknown dataset: {dataset_name}\n"
-            f"Available datasets: {available}"
-        )
-
-    report_id = DATASETS[dataset_name]['report_id']
-    data_dir = get_dataset_directory(report_id, dataset_name)
-
-    # Find all required files
-    files = {
-        'report_id': report_id,
-        'data_dir': str(data_dir),
-        'votes': find_dataset_file(report_id, 'votes.csv', dataset_name),
-        'comments': find_dataset_file(report_id, 'comments.csv', dataset_name),
-        'summary': find_dataset_file(report_id, 'summary.csv', dataset_name),
-        'math_blob': find_dataset_file(report_id, 'math_blob.json', dataset_name),
-    }
-
-    return files
-
-
-def get_dataset_report_id(dataset_name: str) -> str:
-    """
-    Get the report ID for a dataset by name.
-
-    Args:
-        dataset_name: Dataset name (e.g., 'biodiversity', 'vw')
-
-    Returns:
-        The report ID string
-
-    Raises:
-        ValueError: If dataset_name is not recognized
-    """
-    if dataset_name not in DATASETS:
-        available = ', '.join(DATASETS.keys())
-        raise ValueError(
-            f"Unknown dataset: {dataset_name}\n"
-            f"Available datasets: {available}"
-        )
-
-    return DATASETS[dataset_name]['report_id']
-
-
-def list_available_datasets() -> Dict[str, Dict[str, str]]:
-    """
-    List all available datasets and their information.
-
-    Returns:
-        Dictionary mapping dataset names to their configuration
-    """
-    return DATASETS.copy()
-
-
-def get_dataset_file_optional(dataset_name: str, suffix: str) -> Optional[str]:
-    """
-    Get a dataset file path, returning None if the file doesn't exist.
-
-    This is useful for files that may not always be present (e.g., math_blob.json
-    when only CSV files were downloaded).
-
-    Args:
-        dataset_name: Dataset name (e.g., 'biodiversity', 'vw')
-        suffix: File suffix (e.g., 'votes.csv', 'math_blob.json')
-
-    Returns:
-        Absolute path to the file, or None if not found
-    """
-    try:
-        report_id = get_dataset_report_id(dataset_name)
-        return find_dataset_file(report_id, suffix, dataset_name)
-    except (FileNotFoundError, ValueError):
-        return None
+        raise FileNotFoundError(f"No {suffix} in {report_dir}")
+    return matches[0]

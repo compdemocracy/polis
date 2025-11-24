@@ -9,26 +9,26 @@ This script downloads data from a running Polis instance:
    - Requires: Postgres database with the reports and math_main table populated
    - Note: Math blobs may not be available if the database is not accessible or
      if the Clojure math computation hasn't run for the given report
-3. Saves all files to the real_data/<report_id>/ folder
+3. Saves all files to real_data/.local/<report_id>-<name>/ by default
+   (use --commit to save to real_data/ for committed datasets)
 
 Usage:
-    # Download all datasets from config (skip existing)
-    # From environment variable (if TEST_REPORT_IDS set .env)
-    python download_real_data.py
+    # Download a new dataset (saves to .local/ by default)
+    python download_real_data.py rexample1234 myconvo
 
-    # Force re-download all datasets
+    # Download to committed location (for public datasets)
+    python download_real_data.py rexample1234 myconvo --commit
+
+    # Force re-download all configured datasets
     python download_real_data.py --force
 
-    # Download specific datasets by name
+    # Download specific datasets by name (from config)
     python download_real_data.py --datasets biodiversity vw
 
-    # Download specific report IDs
-    python download_real_data.py rabc123xyz456 rdef789uvw012
-
 Examples:
-    python download_real_data.py
-    python download_real_data.py --force
-    python download_real_data.py --datasets vw bg2018
+    python download_real_data.py rexample1234 myconvo          # Downloads to .local/
+    python download_real_data.py rexample1234 myconvo --commit # Downloads to real_data/
+    python download_real_data.py --datasets vw                 # Downloads configured dataset
 """
 
 import json
@@ -308,7 +308,8 @@ def save_test_data(report_id: str, output_dir: Path, base_url: str = "http://loc
 
 
 @click.command()
-@click.argument('report_ids', nargs=-1)
+@click.argument('report_id', required=False)
+@click.argument('dataset_name', required=False)
 @click.option(
     '--datasets',
     multiple=True,
@@ -323,99 +324,123 @@ def save_test_data(report_id: str, output_dir: Path, base_url: str = "http://loc
     '--output-dir',
     type=click.Path(path_type=Path),
     default=None,
-    help='Output directory (default: real_data/<report_id>)'
+    help='Output directory (overrides default location)'
+)
+@click.option(
+    '--commit',
+    is_flag=True,
+    help='Save to real_data/ instead of real_data/.local/ (for public datasets to commit)'
 )
 @click.option(
     '--force',
     is_flag=True,
     help='Force re-download even if files already exist'
 )
-def main(report_ids: tuple, datasets: tuple, base_url: str, output_dir: Optional[Path], force: bool):
+def main(report_id: Optional[str], dataset_name: Optional[str], datasets: tuple,
+         base_url: str, output_dir: Optional[Path], commit: bool, force: bool):
     """
     Download real test data from Polis exports.
 
-    If no arguments are provided, downloads all datasets from config.
-    Otherwise, downloads specified datasets or report IDs.
+    By default, downloads to real_data/.local/ (git-ignored).
+    Use --commit to download to real_data/ for datasets intended to be committed.
 
     Examples:
 
         \b
-        # Download all datasets from config (skip existing)
-        python download_real_data.py
+        # Download a new dataset to .local/ (git-ignored)
+        python download_real_data.py rexample1234 myconvo
 
         \b
-        # Force re-download all datasets from config
-        python download_real_data.py --force
+        # Download a dataset for committing to the repo
+        python download_real_data.py rexample1234 myconvo --commit
 
         \b
-        # Download specific datasets by name
+        # Download configured datasets by name
         python download_real_data.py --datasets biodiversity --datasets vw
 
         \b
-        # Download specific datasets by report ID
-        python download_real_data.py rabc123xyz456 rdef789uvw012
+        # Force re-download all configured datasets
+        python download_real_data.py --force
 
         \b
         # Specify custom base URL
         python download_real_data.py --base-url http://localhost:5000
-
-        \b
-        # Specify custom output directory
-        python download_real_data.py --output-dir /path/to/output
     """
-    # Determine which datasets to download
-    download_report_ids = []
-    env_report_ids = os.getenv('TEST_REPORT_IDS', '').strip()
-
-    # Option 1: Specific dataset names from --datasets flag
-    if datasets:
-        available_datasets = list_available_datasets()
-        for dataset_name in datasets:
-            if dataset_name not in available_datasets:
-                available = ', '.join(available_datasets.keys())
-                click.echo(f"Error: Unknown dataset: {dataset_name}", err=True)
-                click.echo(f"Available datasets: {available}", err=True)
-                raise click.Abort()
-            report_id = get_dataset_report_id(dataset_name)
-            download_report_ids.append(report_id)
-        click.echo(f"Downloading {len(download_report_ids)} dataset(s) from config: {', '.join(datasets)}")
-    # Option 2: Specific report IDs from command line
-    elif report_ids:
-        download_report_ids = list(report_ids)
-        click.echo(f"Downloading {len(download_report_ids)} report ID(s) from command line")
-    # Option 3: environment variable
-    elif env_report_ids:
-        download_report_ids = [rid.strip() for rid in env_report_ids.replace(',', ' ').split() if rid.strip()]
-        click.echo(f"Downloading {len(report_ids)} report IDs from TEST_REPORT_IDS environment variable")
-    # Option 4: Default - all datasets from config
-    else:
-        available_datasets = list_available_datasets()
-        download_report_ids = [dataset['report_id'] for dataset in available_datasets.values()]
-        click.echo(f"No datasets specified. Downloading all {len(download_report_ids)} dataset(s) from config:")
-        for name, info in available_datasets.items():
-            click.echo(f"  - {name}: {info['report_id']} ({info['description']})")
-        click.echo()
-
     # Get the delphi directory (parent of tests directory where this script lives)
     delphi_dir = Path(__file__).parent.parent
 
-    # Process each report ID
+    # Determine base directory: .local/ by default, real_data/ with --commit
+    if commit:
+        base_data_dir = delphi_dir / 'real_data'
+        location_msg = "real_data/ (will be committed)"
+    else:
+        base_data_dir = delphi_dir / 'real_data' / '.local'
+        location_msg = "real_data/.local/ (git-ignored)"
+
+    # Ensure .local directory exists
+    if not commit:
+        base_data_dir.mkdir(parents=True, exist_ok=True)
+
+    # Determine which datasets to download
+    download_items = []  # List of (report_id, name) tuples
+    env_report_ids = os.getenv('TEST_REPORT_IDS', '').strip()
+
+    # Option 1: Positional arguments (report_id and dataset_name)
+    if report_id:
+        if not dataset_name:
+            click.echo("Error: dataset_name is required when specifying report_id", err=True)
+            click.echo("Usage: python download_real_data.py <report_id> <dataset_name>", err=True)
+            raise click.Abort()
+        download_items.append((report_id, dataset_name))
+        click.echo(f"Downloading dataset '{dataset_name}' ({report_id}) to {location_msg}")
+
+    # Option 2: Specific dataset names from --datasets flag
+    elif datasets:
+        available_datasets = list_available_datasets(include_local=True)
+        for ds_name in datasets:
+            if ds_name not in available_datasets:
+                available = ', '.join(available_datasets.keys())
+                click.echo(f"Error: Unknown dataset: {ds_name}", err=True)
+                click.echo(f"Available datasets: {available}", err=True)
+                raise click.Abort()
+            ds_report_id = get_dataset_report_id(ds_name)
+            download_items.append((ds_report_id, ds_name))
+        click.echo(f"Downloading {len(download_items)} dataset(s) from config: {', '.join(datasets)}")
+        click.echo(f"Saving to: {location_msg}")
+
+    # Option 3: Environment variable
+    elif env_report_ids:
+        for rid in env_report_ids.replace(',', ' ').split():
+            rid = rid.strip()
+            if rid:
+                ds_name = get_dataset_name_from_report_id(rid)
+                download_items.append((rid, ds_name or rid))
+        click.echo(f"Downloading {len(download_items)} report IDs from TEST_REPORT_IDS")
+        click.echo(f"Saving to: {location_msg}")
+
+    # Option 4: Default - all configured datasets
+    else:
+        available_datasets = list_available_datasets(include_local=True)
+        for ds_name, info in available_datasets.items():
+            download_items.append((info['report_id'], ds_name))
+        click.echo(f"No datasets specified. Downloading all {len(download_items)} dataset(s) from config:")
+        for ds_name, info in available_datasets.items():
+            click.echo(f"  - {ds_name}: {info['report_id']} ({info['description']})")
+        click.echo(f"Saving to: {location_msg}")
+        click.echo()
+
+    # Process each dataset
     results = {}
-    for report_id in download_report_ids:
+    for rid, ds_name in download_items:
         # Determine output directory
-        # Use format "reportID-name" if name is available from config
-        dataset_name = get_dataset_name_from_report_id(report_id)
-        if dataset_name:
-            dir_name = f"{report_id}-{dataset_name}"
-        else:
-            dir_name = report_id
+        dir_name = f"{rid}-{ds_name}"
 
         if output_dir:
             out_dir = output_dir / dir_name
         else:
-            out_dir = delphi_dir / 'real_data' / dir_name
+            out_dir = base_data_dir / dir_name
 
-        results[report_id] = save_test_data(report_id, out_dir, base_url, force=force)
+        results[rid] = save_test_data(rid, out_dir, base_url, force=force)
 
     # Print summary
     click.echo(f"\n{'='*60}")
@@ -430,21 +455,24 @@ def main(report_ids: tuple, datasets: tuple, base_url: str, output_dir: Optional
     if failed:
         click.echo(f"Failed: {len(failed)}")
 
+    # Build a map of report_id -> dataset_name for display
+    rid_to_name = {rid: ds_name for rid, ds_name in download_items}
+
     if successful:
         click.echo(f"\n✓ Successful:")
         for rid in successful:
-            dataset_name = get_dataset_name_from_report_id(rid)
-            if dataset_name:
-                click.echo(f"  {rid} ({dataset_name})")
+            ds_name = rid_to_name.get(rid) or get_dataset_name_from_report_id(rid)
+            if ds_name:
+                click.echo(f"  {rid} ({ds_name})")
             else:
                 click.echo(f"  {rid}")
 
     if failed:
         click.echo(f"\n✗ Failed:")
         for rid in failed:
-            dataset_name = get_dataset_name_from_report_id(rid)
-            if dataset_name:
-                click.echo(f"  {rid} ({dataset_name})")
+            ds_name = rid_to_name.get(rid) or get_dataset_name_from_report_id(rid)
+            if ds_name:
+                click.echo(f"  {rid} ({ds_name})")
             else:
                 click.echo(f"  {rid}")
         click.echo("\nSome datasets failed to download!", err=True)
