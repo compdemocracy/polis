@@ -4,32 +4,78 @@ Benchmark script for update_votes performance.
 
 Usage:
     cd delphi
-    ../.venv/bin/python -m polismath.benchmarks.bench_update_votes [dataset_name] [--runs N]
+    ../.venv/bin/python -m polismath.benchmarks.bench_update_votes <votes_csv_path> [--runs N]
 
 Example:
-    ../.venv/bin/python -m polismath.benchmarks.bench_update_votes bg2050 --runs 3
+    ../.venv/bin/python -m polismath.benchmarks.bench_update_votes real_data/.local/r7wehfsmutrwndviddnii-bg2050/2025-11-25-1909-r7wehfsmutrwndviddnii-votes.csv --runs 3
 """
+# TODO(datasets): Once PR https://github.com/compdemocracy/polis/pull/2312 is merged,
+# use the datasets package with include_local=True instead of requiring a path argument.
+
 import argparse
 import time
 import sys
+from pathlib import Path
+
+import pandas as pd
 
 
-def benchmark_update_votes(dataset_name: str = 'bg2050', runs: int = 3) -> dict:
+def load_votes_from_csv(votes_csv: Path) -> dict:
+    """
+    Load votes from a CSV file into the format expected by Conversation.update_votes().
+
+    Args:
+        votes_csv: Path to votes CSV file with columns: voter-id, comment-id, vote, timestamp
+
+    Returns:
+        Dictionary with 'votes' list and 'lastVoteTimestamp'
+    """
+    df = pd.read_csv(votes_csv)
+
+    # Fixed timestamp for reproducibility
+    fixed_timestamp = 1700000000000
+
+    votes_list = []
+    for _, row in df.iterrows():
+        votes_list.append({
+            'pid': row['voter-id'],
+            'tid': row['comment-id'],
+            'vote': row['vote'],
+            'created': int(row['timestamp']) if 'timestamp' in df.columns else fixed_timestamp
+        })
+
+    return {
+        'votes': votes_list,
+        'lastVoteTimestamp': fixed_timestamp
+    }
+
+
+def benchmark_update_votes(votes_csv: str, runs: int = 3) -> dict:
     """
     Benchmark update_votes on a dataset.
 
     Args:
-        dataset_name: Name of the dataset to benchmark
+        votes_csv: Path to votes CSV file
         runs: Number of runs to average
 
     Returns:
         Dictionary with benchmark results
     """
     from polismath.conversation import Conversation
-    from polismath.regression.utils import prepare_votes_data
 
-    print(f"Loading dataset '{dataset_name}'...")
-    votes_dict, metadata = prepare_votes_data(dataset_name)
+    votes_path = Path(votes_csv)
+    if not votes_path.exists():
+        raise FileNotFoundError(f"Votes CSV not found: {votes_csv}")
+
+    # Extract dataset name from path (e.g., "r7wehfsmutrwndviddnii-bg2050" -> "bg2050")
+    parent_name = votes_path.parent.name
+    if '-' in parent_name:
+        dataset_name = parent_name.split('-', 1)[1]
+    else:
+        dataset_name = parent_name
+
+    print(f"Loading votes from '{votes_csv}'...")
+    votes_dict = load_votes_from_csv(votes_path)
     n_votes = len(votes_dict['votes'])
     print(f"Loaded {n_votes:,} votes")
     print()
@@ -69,14 +115,13 @@ def benchmark_update_votes(dataset_name: str = 'bg2050', runs: int = 3) -> dict:
 
 def main():
     parser = argparse.ArgumentParser(description='Benchmark update_votes performance')
-    parser.add_argument('dataset', nargs='?', default='bg2050',
-                        help='Dataset name (default: bg2050)')
+    parser.add_argument('votes_csv', help='Path to votes CSV file')
     parser.add_argument('--runs', type=int, default=3,
                         help='Number of benchmark runs (default: 3)')
     args = parser.parse_args()
 
     try:
-        benchmark_update_votes(args.dataset, args.runs)
+        benchmark_update_votes(args.votes_csv, args.runs)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
