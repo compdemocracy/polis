@@ -231,25 +231,43 @@ class Conversation:
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
 
-        # Apply all updates in a single batch operation for better performance
-        # Honestly, we should probably keep the matrix of votes in long-form,
-        # and only convert to wide-form when requested.
-        
-        logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(vote_updates)} votes as batch update...")
+        # Apply all updates using vectorized pivot_table approach.
+        # This is much faster than row-by-row iteration because pandas/numpy
+        # can use optimized C code for the reshape operation.
+
+        logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(updates_df)} votes as batch update...")
         batch_start = time.time()
-        # For backward compatibility, sort the rows and columns by label.
-        result.raw_rating_mat = result.raw_rating_mat.reindex(index=all_rows, columns=all_cols, fill_value=np.nan)
-        # NOTE: we cannot use .loc(rows, cols) = values with rows,cols,and values being Series 
-        # for example `result.raw_rating_mat.loc[updates_df['row'], updates_df['col']] = updates_df['value'].values`
-        # because pandas then tries to assign to the Cartesian product of rows and cols, and it gets very messy
-        # and is definitely *not* what we intended. 
-        # We could convert to integer indices with get_loc, then use .value to use numpy assignment (which does not
-        # do any cartesian product), but a/ it's less legible, b/ there is *no* guarantee at all that .value is always
-        # a view and not a copy, so we might end up modifying a copy of the data frame.
-        # Therefore, for simplicity and readability, sticking to an ugly for loop.
-        # If you have a better idea, let me know at julien@cornebise.com, I would love to know :)
-        for idx, row_data in updates_df.iterrows():
-            result.raw_rating_mat.at[row_data['row'], row_data['col']] = row_data['value']
+
+        # Build a wide-form matrix from the long-form updates using pivot_table.
+        # aggfunc='last' keeps the last vote if any duplicates remain after dedup.
+        update_matrix = updates_df.pivot_table(
+            index='row',
+            columns='col',
+            values='value',
+            aggfunc='last'
+        )
+        # Use float32 for the intermediate matrix to save memory (~200MB vs
+        # ~400MB for 8k comments and 8k participants).  float32 can exactly
+        # represent -1, 0, +1 and NaN.
+        update_matrix = update_matrix.astype('float32')
+
+        # Expand the existing matrix to include any new rows/columns.
+        # fill_value=np.nan ensures new cells start as "no vote".
+        result.raw_rating_mat = result.raw_rating_mat.reindex(
+            index=all_rows, columns=all_cols, fill_value=np.nan
+        )
+
+        # Align the update matrix to the same shape (new cells become NaN).
+        update_matrix = update_matrix.reindex(index=all_rows, columns=all_cols)
+
+        # Merge: where update_matrix has a value, use it; otherwise keep original.
+        # DataFrame.where(cond, other) keeps self where cond is True, uses other where False.
+        # So: keep raw_rating_mat where update_matrix is NaN, else use update_matrix.
+        result.raw_rating_mat = result.raw_rating_mat.where(
+            update_matrix.isna(),  # condition: True where update has no value
+            update_matrix          # other: use update value where condition is False
+        )
+
         logger.info(f"[{time.time() - start_time:.2f}s] Batch update completed in {time.time() - batch_start:.2f}s")
         
         # Update last updated timestamp
