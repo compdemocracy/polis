@@ -92,8 +92,10 @@ real_data/
 **Required files per dataset:**
 - `*-votes.csv` - Vote data
 - `*-comments.csv` - Comment data
-- `{report_id}_math_blob.json` - Clojure math output
 - `golden_snapshot.json` - For regression testing
+
+**Optional files:**
+- `{report_id}_math_blob.json` - Clojure math output (for Clojure comparison, requires database access)
 
 ### Running Tests with Local Datasets
 

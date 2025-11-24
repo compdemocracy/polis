@@ -38,9 +38,25 @@ class TestDatasetInfo:
         info = DatasetInfo("t", "r1", Path("/x"), False, True, True, True, True)
         assert info.is_valid
 
-    def test_is_valid_missing_file(self):
+    def test_is_valid_without_math_blob(self):
+        """Math blob is optional for regression testing."""
+        # has_golden=True, has_math_blob=False, has_votes=True, has_comments=True
+        info = DatasetInfo("t", "r1", Path("/x"), False, True, False, True, True)
+        assert info.is_valid
+        assert not info.has_clojure_reference
+
+    def test_is_valid_missing_required_file(self):
+        """Missing golden/votes/comments makes dataset invalid."""
+        # Missing golden
         info = DatasetInfo("t", "r1", Path("/x"), False, False, True, True, True)
         assert not info.is_valid
+
+    def test_has_clojure_reference(self):
+        """has_clojure_reference reflects math_blob presence."""
+        with_blob = DatasetInfo("t", "r1", Path("/x"), False, True, True, True, True)
+        without_blob = DatasetInfo("t", "r1", Path("/x"), False, True, False, True, True)
+        assert with_blob.has_clojure_reference
+        assert not without_blob.has_clojure_reference
 
 
 class TestCheckFiles:
