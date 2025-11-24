@@ -388,8 +388,8 @@ def main(report_id: Optional[str], dataset_name: Optional[str], datasets: tuple,
     # Option 1: Positional arguments (report_id and dataset_name)
     if report_id:
         if not dataset_name:
-            click.echo("Error: dataset_name is required when specifying report_id", err=True)
-            click.echo("Usage: python download_real_data.py <report_id> <dataset_name>", err=True)
+            click.echo("Error: Both report_id and dataset_name are required when downloading a single dataset", err=True)
+            click.echo("Usage: python scripts/regression_download.py <report_id> <dataset_name>", err=True)
             raise click.Abort()
         download_items.append((report_id, dataset_name))
         click.echo(f"Downloading dataset '{dataset_name}' ({report_id}) to {location_msg}")

@@ -65,11 +65,8 @@ def pytest_generate_tests(metafunc):
         # Get datasets valid for regression testing
         datasets = list_regression_datasets(include_local=include_local)
 
-        if datasets:
-            metafunc.parametrize("dataset", datasets)
-        else:
-            # If no datasets found, skip with a clear message
-            pytest.skip("No valid regression datasets found")
+        # Parametrize with discovered datasets (empty list = no test instances)
+        metafunc.parametrize("dataset", datasets)
 
 
 def pytest_collection_modifyitems(config, items):

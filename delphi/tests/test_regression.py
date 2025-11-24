@@ -8,7 +8,7 @@ Datasets are auto-discovered from:
 - real_data/ (committed datasets, always included)
 - real_data/.local/ (local datasets, included with --include-local flag)
 
-Usage:
+Usage (from delphi/ directory):
     pytest tests/test_regression.py              # Run with committed datasets only
     pytest tests/test_regression.py --include-local  # Include local datasets
 """
@@ -16,7 +16,7 @@ Usage:
 import pytest
 import numpy as np
 
-from polismath.regression import ConversationRecorder, ConversationComparer, list_regression_datasets
+from polismath.regression import ConversationRecorder, ConversationComparer
 from polismath.regression.utils import load_golden_snapshot
 
 
