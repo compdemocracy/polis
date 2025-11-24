@@ -5,9 +5,11 @@ Benchmark script for repness (representativeness) computation performance.
 Usage:
     cd delphi
     ../.venv/bin/python -m polismath.benchmarks.bench_repness <votes_csv_path> [--runs N]
+    ../.venv/bin/python -m polismath.benchmarks.bench_repness <votes_csv_path> --profile
 
 Example:
     ../.venv/bin/python -m polismath.benchmarks.bench_repness real_data/.local/r7wehfsmutrwndviddnii-bg2050/2025-11-25-1909-r7wehfsmutrwndviddnii-votes.csv --runs 3
+    ../.venv/bin/python -m polismath.benchmarks.bench_repness real_data/.local/r7wehfsmutrwndviddnii-bg2050/2025-11-25-1909-r7wehfsmutrwndviddnii-votes.csv --profile
 """
 # TODO(datasets): Once PR https://github.com/compdemocracy/polis/pull/2312 is merged,
 # use the datasets package with include_local=True instead of requiring a path argument.
@@ -22,6 +24,13 @@ from polismath.benchmarks.benchmark_utils import (
     extract_dataset_name,
     votes_csv_argument,
     runs_option,
+)
+
+
+profile_option = click.option(
+    '--profile', '-p',
+    is_flag=True,
+    help='Run with line profiler on conv_repness',
 )
 
 
@@ -107,12 +116,71 @@ def benchmark_repness(votes_csv: Path, runs: int = 3) -> dict:
     }
 
 
+def profile_repness(votes_csv: Path) -> None:
+    """
+    Run line profiler on conv_repness.
+
+    Args:
+        votes_csv: Path to votes CSV file
+    """
+    from line_profiler import LineProfiler
+    from polismath.conversation import Conversation
+    from polismath.pca_kmeans_rep.repness import (
+        conv_repness,
+        comment_stats,
+        add_comparative_stats,
+        finalize_cmt_stats,
+        select_rep_comments,
+    )
+
+    dataset_name = extract_dataset_name(votes_csv)
+
+    print(f"Loading votes from '{votes_csv}'...")
+    votes_dict = load_votes_from_csv(votes_csv)
+    n_votes = len(votes_dict['votes'])
+    print(f"Loaded {n_votes:,} votes")
+    print()
+
+    # Setup conversation with votes and clusters
+    print("Setting up conversation with votes and clusters...")
+    conv = Conversation(dataset_name)
+    conv = conv.update_votes(votes_dict, recompute=False)
+    conv._compute_pca()
+    conv._compute_clusters()
+    print(f"  Matrix shape: {conv.raw_rating_mat.shape}")
+    print(f"  Number of groups: {len(conv.group_clusters)}")
+    print()
+
+    # Setup line profiler
+    profiler = LineProfiler()
+    profiler.add_function(conv_repness)
+    profiler.add_function(comment_stats)
+    profiler.add_function(add_comparative_stats)
+    profiler.add_function(finalize_cmt_stats)
+    profiler.add_function(select_rep_comments)
+
+    # Run profiled
+    print("Running conv_repness with line profiler...")
+    profiler.runcall(conv_repness, conv.rating_mat, conv.group_clusters)
+
+    # Print results
+    print()
+    print("=" * 70)
+    print("LINE PROFILE RESULTS")
+    print("=" * 70)
+    profiler.print_stats()
+
+
 @click.command()
 @votes_csv_argument
 @runs_option
-def main(votes_csv: Path, runs: int):
+@profile_option
+def main(votes_csv: Path, runs: int, profile: bool):
     """Benchmark repness computation performance."""
-    benchmark_repness(votes_csv, runs)
+    if profile:
+        profile_repness(votes_csv)
+    else:
+        benchmark_repness(votes_csv, runs)
 
 
 if __name__ == '__main__':
