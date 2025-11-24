@@ -128,6 +128,9 @@ filterwarnings = [
     # Ignore botocore datetime.utcnow() deprecation warning (third-party)
     "ignore:datetime.datetime.utcnow\\(\\) is deprecated:DeprecationWarning:botocore",
 ]
+markers = [
+    "local_dataset: mark test as using local (non-committed) datasets from real_data/.local/",
+]
 
 [tool.coverage.run]
 relative_files = true

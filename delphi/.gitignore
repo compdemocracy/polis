@@ -214,6 +214,9 @@ bandit-report.json
 # Test outputs (hidden directory for all test-generated files)
 .test_outputs/
 
+# Local datasets (confidential or too large to commit)
+real_data/.local/
+
 # Generated dependency files (can be recreated from pyproject.toml)
 requirements-prod.txt
 requirements-dev.txt

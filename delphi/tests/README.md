@@ -70,66 +70,59 @@ The tests are organized as follows:
 
 ## Test Data
 
-The real data tests use conversation data from the following sources:
+Datasets are **auto-discovered** from two locations:
 
-1. **Biodiversity** - A conversation about biodiversity strategy
-2. **VW** - A conversation related to Volkswagen
+### Committed Datasets (`real_data/`)
+Version-controlled, always available:
+- **biodiversity** - NZ Biodiversity Strategy
+- **vw** - VW Conversation
 
-The test data is located in the `real_data` directory and includes:
-- Votes CSV files
-- Comments CSV files
-- Summary CSV files
-- Math blob JSON (from Clojure math computation)
+### Local Datasets (`real_data/.local/`)
+Git-ignored, for confidential or large datasets. Just drop data here and it's auto-discovered.
 
-### Downloading Real Test Data
+**Directory structure:**
+```
+real_data/
+├── r...-vw/                # Committed
+├── r...-biodiversity/      # Committed
+└── .local/                 # Git-ignored
+    └── r...-myconvo/       # Auto-discovered
+```
 
-**Note:** This script is only needed if you were not provided with a `real_data` folder containing allowed test data. If you already have test data available, you can skip this section.
+**Required files per dataset:**
+- `*-votes.csv` - Vote data
+- `*-comments.csv` - Comment data
+- `{report_id}_math_blob.json` - Clojure math output
+- `golden_snapshot.json` - For regression testing
 
-The `download_real_data.py` script allows you to download real conversation data from a running Polis instance for testing purposes.
+### Running Tests with Local Datasets
+
+```bash
+# Default: committed datasets only
+pytest tests/test_regression.py
+
+# Include local datasets
+pytest tests/test_regression.py --include-local
+```
+
+### Downloading Test Data
+
+```bash
+cd delphi
+
+# Download to .local/ (git-ignored, default)
+python scripts/regression_download.py rexample1234 myconvo
+
+# Download to real_data/ (for committing)
+python scripts/regression_download.py rexample1234 myconvo --commit
+
+# Re-download existing configured datasets
+python scripts/regression_download.py --datasets vw --force
+```
 
 **Requirements:**
-- Polis web server running (default: http://localhost) for CSV exports
-- Postgres database accessible with populated `math_main` table for math blobs
-  - **Important:** The math blob will only be downloaded if you have a local Polis PostgreSQL instance running with data matching the specified report IDs. Without this, only CSV files will be downloaded.
-
-**Usage:**
-
-```bash
-cd delphi/tests
-
-# Download data for specific report IDs
-python download_real_data.py rabc123xyz456 rdef789uvw012
-
-# Load report IDs from TEST_REPORT_IDS environment variable in .env
-python download_real_data.py
-
-# Specify custom base URL
-python download_real_data.py --base-url http://localhost:5000 rabc123xyz456
-```
-
-**Setting up TEST_REPORT_IDS in .env:**
-
-Add the following to your `delphi/.env` file:
-
-```bash
-# Comma or space-separated list of report IDs to download
-TEST_REPORT_IDS="rabc123xyz456 rdef789uvw012 rxyz789abc123"
-```
-
-**What gets downloaded:**
-
-For each report ID, the script downloads:
-1. **comments.csv** - All comments with metadata (timestamp, author, moderation status, etc.)
-2. **votes.csv** - All votes (timestamp, voter ID, comment ID, vote value)
-3. **summary.csv** - Conversation summary statistics
-4. **math_blob.json** - The complete Clojure math computation output from the `math_main` table
-
-Files are saved to `../real_data/<report_id>/` with timestamped filenames.
-
-**Important Notes:**
-- The math blob JSON will only be downloaded if you have a local Polis PostgreSQL instance accessible with math computation results for the given report IDs in the `math_main` table
-- CSV files (comments, votes, summary) only require the Polis web server to be running and will be downloaded regardless of database availability
-- If you don't have a local PostgreSQL instance with the required data, you will only receive CSV files, and tests that depend on the math blob will not be able to run
+- Polis web server running (default: http://localhost)
+- Postgres database for math blobs (optional - CSV files work without it)
 
 ## Expected Output
 

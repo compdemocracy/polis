@@ -3,23 +3,21 @@ Pytest integration for regression testing system.
 
 This test module integrates the regression testing system with pytest,
 allowing it to be run as part of the regular test suite.
+
+Datasets are auto-discovered from:
+- real_data/ (committed datasets, always included)
+- real_data/.local/ (local datasets, included with --include-local flag)
+
+Usage:
+    pytest tests/test_regression.py              # Run with committed datasets only
+    pytest tests/test_regression.py --include-local  # Include local datasets
 """
 
 import pytest
 import numpy as np
 
-from polismath.regression import ConversationRecorder, ConversationComparer, list_available_datasets
+from polismath.regression import ConversationRecorder, ConversationComparer, list_regression_datasets
 from polismath.regression.utils import load_golden_snapshot
-
-
-# Get all available datasets from central config
-AVAILABLE_DATASETS = list(list_available_datasets().keys())
-
-# Optionally, modify the line below to limit to specific, fast datasets
-TEST_DATASETS = AVAILABLE_DATASETS # e.g., ['vw']
-if not set(TEST_DATASETS).issubset(set(AVAILABLE_DATASETS)):
-    missing = set(TEST_DATASETS) - set(AVAILABLE_DATASETS)
-    raise ValueError(f"Test datasets not found in available datasets: {missing}")
 
 
 def _check_golden_exists(dataset: str):
@@ -46,7 +44,6 @@ def _check_golden_exists(dataset: str):
         )
 
 
-@pytest.mark.parametrize("dataset", TEST_DATASETS)
 def test_conversation_regression(dataset):
     """
     Test that current implementation matches golden snapshot.
@@ -91,7 +88,6 @@ def test_conversation_regression(dataset):
     )
 
 
-@pytest.mark.parametrize("dataset", TEST_DATASETS)
 def test_conversation_stages_individually(dataset):
     """
     Test each computation stage individually for more granular failure detection.
