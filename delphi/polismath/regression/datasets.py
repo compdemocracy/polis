@@ -89,7 +89,17 @@ def discover_datasets(include_local: bool = False) -> Dict[str, DatasetInfo]:
     """Auto-discover datasets from real_data/ and optionally .local/"""
     datasets = _discover_in_dir(get_real_data_dir(), is_local=False)
     if include_local:
-        datasets.update(_discover_in_dir(get_local_data_dir(), is_local=True))
+        local_datasets = _discover_in_dir(get_local_data_dir(), is_local=True)
+        # Warn about name collisions (local would shadow committed)
+        collisions = set(datasets.keys()) & set(local_datasets.keys())
+        if collisions:
+            import warnings
+            warnings.warn(
+                f"Local datasets shadow committed datasets with same name: {', '.join(sorted(collisions))}. "
+                f"Local versions will be used.",
+                UserWarning
+            )
+        datasets.update(local_datasets)
     return datasets
 
 

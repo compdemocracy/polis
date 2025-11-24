@@ -88,6 +88,16 @@ class TestIntegration:
         result = discover_datasets(include_local=False)
         assert len(result) > 0
 
+    def test_discover_with_include_local(self):
+        """Should include local datasets when flag is set."""
+        without_local = discover_datasets(include_local=False)
+        with_local = discover_datasets(include_local=True)
+        # With local should have >= datasets (may have more if .local/ has data)
+        assert len(with_local) >= len(without_local)
+        # All committed datasets should still be present
+        for name in without_local:
+            assert name in with_local
+
     def test_list_regression_datasets(self):
         result = list_regression_datasets()
         assert isinstance(result, list)
@@ -101,3 +111,36 @@ class TestIntegration:
     def test_paths_exist(self):
         assert get_real_data_dir().exists()
         assert get_local_data_dir().parent.exists()
+
+
+class TestNameCollision:
+    def test_warns_on_name_collision(self, tmp_path, monkeypatch):
+        """Should warn when local dataset shadows committed dataset."""
+        import warnings
+        from polismath.regression import datasets
+
+        # Create mock directories
+        real_data = tmp_path / "real_data"
+        local_data = real_data / ".local"
+        real_data.mkdir()
+        local_data.mkdir()
+
+        # Create dataset with same name in both locations
+        (real_data / "rabc123-test").mkdir()
+        (local_data / "rdef456-test").mkdir()  # Same name "test", different report_id
+
+        # Patch the directory functions
+        monkeypatch.setattr(datasets, "get_real_data_dir", lambda: real_data)
+        monkeypatch.setattr(datasets, "get_local_data_dir", lambda: local_data)
+
+        # Should warn about collision
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            result = datasets.discover_datasets(include_local=True)
+            assert len(w) == 1
+            assert "shadow" in str(w[0].message)
+            assert "test" in str(w[0].message)
+
+        # Local version should win
+        assert result["test"].report_id == "rdef456"
+        assert result["test"].is_local
