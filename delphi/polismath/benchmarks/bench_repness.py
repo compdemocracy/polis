@@ -32,6 +32,11 @@ from polismath.pca_kmeans_rep.repness import (
     add_comparative_stats,
     finalize_cmt_stats,
     select_rep_comments,
+    compute_group_comment_stats_df,
+    select_rep_comments_df,
+    select_consensus_comments_df,
+    prop_test_vectorized,
+    two_prop_test_vectorized
 )
 
 
@@ -143,16 +148,16 @@ def profile_repness(votes_csv: Path) -> None:
         votes_csv: Path to votes CSV file
     """
     from line_profiler import LineProfiler
-
     conv, _, _, _ = setup_conversation(votes_csv)
 
     # Setup line profiler
     profiler = LineProfiler()
     profiler.add_function(conv_repness)
-    profiler.add_function(comment_stats)
-    profiler.add_function(add_comparative_stats)
-    profiler.add_function(finalize_cmt_stats)
-    profiler.add_function(select_rep_comments)
+    profiler.add_function(compute_group_comment_stats_df)
+    profiler.add_function(select_rep_comments_df)
+    profiler.add_function(select_consensus_comments_df)
+    profiler.add_function(prop_test_vectorized)
+    profiler.add_function(two_prop_test_vectorized)
 
     # Run profiled
     print("Running conv_repness with line profiler...")
