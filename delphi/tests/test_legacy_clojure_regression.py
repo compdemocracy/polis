@@ -258,3 +258,61 @@ def test_comment_priorities(conversation_data):
     check.greater(total, 0, "Should have comment priorities to compare with Clojure")
     check.greater_equal(match_percentage, 70.0,
                       f"Priority match rate with Clojure should be ≥70% (got {match_percentage:.1f}%)")
+
+
+def test_pca_components_match_clojure(conversation_data):
+    """
+    Test that PCA components match the Clojure implementation.
+
+    This test compares the principal components computed by Python against
+    the Clojure implementation. PCA eigenvectors are only defined up to sign,
+    so we check correlation (should be ±1) and angle (should be 0°).
+
+    Note: The centers will be negated due to vote sign convention difference
+    (Python: agree=+1, Clojure: agree=-1), but the eigenvectors should match.
+    """
+    import numpy as np
+
+    dataset_name = conversation_data['dataset_name']
+    conv = conversation_data['conv']
+    clojure_output = conversation_data['clojure_output']
+
+    print(f"\n[{dataset_name}] Testing PCA components match Clojure...")
+
+    # Get PCA components
+    if 'pca' not in clojure_output or 'comps' not in clojure_output['pca']:
+        check.is_in('pca', clojure_output, "Clojure output should contain pca")
+        return
+
+    py_comps = np.array(conv.pca['comps'])
+    clj_comps = np.array(clojure_output['pca']['comps'])
+
+    # Check dimensions match
+    check.equal(py_comps.shape, clj_comps.shape,
+                f"PCA component dimensions should match: Python {py_comps.shape} vs Clojure {clj_comps.shape}")
+
+    if py_comps.shape != clj_comps.shape:
+        return
+
+    # Compare each component
+    for i in range(min(2, len(py_comps))):
+        py_pc = py_comps[i]
+        clj_pc = clj_comps[i]
+
+        # Correlation should be ±1 (components match up to sign)
+        correlation = np.corrcoef(py_pc, clj_pc)[0, 1]
+        print(f"  PC{i+1} correlation: {correlation:.6f}")
+
+        # Angle between vectors (should be 0° or 180°, we take min with 180-angle)
+        dot_product = np.clip(np.abs(np.dot(py_pc, clj_pc)), -1, 1)
+        angle_deg = np.arccos(dot_product) * 180 / np.pi
+        print(f"  PC{i+1} angle difference: {angle_deg:.2f}°")
+
+        # Assert correlation is close to ±1 (allow 2% tolerance for numerical differences)
+        check.almost_equal(abs(correlation), 1.0, rel=0.02,
+                          msg=f"PC{i+1} correlation should be ±1 (got {correlation:.4f})")
+
+        # Assert angle is small (allow 10° for power iteration numerical differences)
+        # 10° ≈ 98.5% correlation - catches major regressions while allowing numerical variance
+        check.less_equal(angle_deg, 10.0,
+                        f"PC{i+1} angle difference should be ≤10° (got {angle_deg:.2f}°)")

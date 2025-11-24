@@ -108,7 +108,7 @@ from polismath.pca_kmeans_rep.pca import pca_project_dataframe
 from polismath.pca_kmeans_rep.clusters import cluster_dataframe
 
 # Perform PCA
-pca_results, projections = pca_project_dataframe(df)
+pca_results, projections = pca_project_dataframe(df, align_with_clojure_output=False)
 
 # Cluster the DataFrame
 clusters = cluster_dataframe(df, k=3)
