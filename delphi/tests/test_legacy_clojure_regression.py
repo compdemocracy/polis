@@ -36,32 +36,45 @@ def _get_clojure_datasets(include_local: bool) -> list[str]:
     ]
 
 
-def pytest_generate_tests(metafunc):
-    """Parametrize tests with clojure datasets at collection time.
+# Module-level cache for conversation data - survives across fixture calls
+_CONVERSATION_CACHE: dict = {}
 
-    Using indirect=True ensures the fixture is only instantiated once per
-    parameter value when combined with scope="class".
-    """
-    if "clojure_dataset" in metafunc.fixturenames:
+
+def pytest_generate_tests(metafunc):
+    """Parametrize tests with clojure datasets at collection time."""
+    if "dataset_name" in metafunc.fixturenames:
         include_local = metafunc.config.getoption("--include-local", default=False)
         datasets = _get_clojure_datasets(include_local)
-        metafunc.parametrize("clojure_dataset", datasets, indirect=True, scope="class")
+        metafunc.parametrize("dataset_name", datasets, scope="class")
+
+
+def _cleanup_previous_datasets(current_dataset: str):
+    """Clear cached datasets except the current one to manage memory."""
+    global _CONVERSATION_CACHE
+    for ds in list(_CONVERSATION_CACHE.keys()):
+        if ds != current_dataset:
+            print(f"[{ds}] Cleaning up previous dataset...")
+            _CONVERSATION_CACHE.pop(ds, None)
+            Conversation._reset_conversion_cache()
+            gc.collect()
 
 
 @pytest.fixture(scope="class")
-def clojure_dataset(request):
-    """Fixture that receives the dataset name via indirect parametrization."""
-    return request.param
-
-
-@pytest.fixture(scope="class")
-def conversation_data(clojure_dataset):
+def conversation_data(dataset_name):
     """
     Class-scoped fixture computed once per dataset.
-    Returns dict with all data needed by tests.
-    Teardown clears cache and forces garbage collection.
+    Uses module-level cache to avoid recomputation.
     """
-    dataset_name = clojure_dataset
+    global _CONVERSATION_CACHE
+
+    # Clean up previous datasets to manage memory
+    _cleanup_previous_datasets(dataset_name)
+
+    # Return cached data if available
+    if dataset_name in _CONVERSATION_CACHE:
+        return _CONVERSATION_CACHE[dataset_name]
+
+    # Compute the data
 
     # Get dataset files using central configuration
     dataset_files = get_dataset_files(dataset_name)
@@ -118,23 +131,22 @@ def conversation_data(clojure_dataset):
 
     print(f"[{dataset_name}] Saved results to {output_path}")
 
-    yield {
+    # Cache for sharing across test methods
+    data = {
         'conv': conv,
         'clojure_output': clojure_output,
         'dataset_name': dataset_name,
         'comments': comments,
     }
+    _CONVERSATION_CACHE[dataset_name] = data
 
-    # TEARDOWN: Clear cache and force garbage collection
-    print(f"[{dataset_name}] Cleaning up...")
-    Conversation._reset_conversion_cache()
-    gc.collect()
+    return data
 
 
 class TestClojureRegression:
     """
     Test class for Clojure regression comparisons.
-    Parametrized per-dataset, with class-scoped fixture for efficiency.
+    Parametrized per-dataset, with module-level cache for efficiency.
     """
 
     def test_basic_outputs(self, conversation_data):
