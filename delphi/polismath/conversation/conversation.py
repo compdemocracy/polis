@@ -231,25 +231,39 @@ class Conversation:
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
 
-        # Apply all updates in a single batch operation for better performance
-        # Honestly, we should probably keep the matrix of votes in long-form,
-        # and only convert to wide-form when requested.
-        
-        logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(vote_updates)} votes as batch update...")
+        # Apply all updates using vectorized pivot_table approach.
+        # This is much faster than row-by-row iteration because pandas/numpy
+        # can use optimized C code for the reshape operation.
+
+        logger.info(f"[{time.time() - start_time:.2f}s] Applying {len(updates_df)} votes as batch update...")
         batch_start = time.time()
-        # For backward compatibility, sort the rows and columns by label.
-        result.raw_rating_mat = result.raw_rating_mat.reindex(index=all_rows, columns=all_cols, fill_value=np.nan)
-        # NOTE: we cannot use .loc(rows, cols) = values with rows,cols,and values being Series 
-        # for example `result.raw_rating_mat.loc[updates_df['row'], updates_df['col']] = updates_df['value'].values`
-        # because pandas then tries to assign to the Cartesian product of rows and cols, and it gets very messy
-        # and is definitely *not* what we intended. 
-        # We could convert to integer indices with get_loc, then use .value to use numpy assignment (which does not
-        # do any cartesian product), but a/ it's less legible, b/ there is *no* guarantee at all that .value is always
-        # a view and not a copy, so we might end up modifying a copy of the data frame.
-        # Therefore, for simplicity and readability, sticking to an ugly for loop.
-        # If you have a better idea, let me know at julien@cornebise.com, I would love to know :)
-        for idx, row_data in updates_df.iterrows():
-            result.raw_rating_mat.at[row_data['row'], row_data['col']] = row_data['value']
+
+        # Build a wide-form matrix from the long-form updates using pivot_table.
+        # aggfunc='last' keeps the last vote if any duplicates remain after dedup.
+        update_matrix = updates_df.pivot_table(
+            index='row',
+            columns='col',
+            values='value',
+            aggfunc='last'
+        )
+
+        # Expand the existing matrix to include any new rows/columns.
+        # fill_value=np.nan ensures new cells start as "no vote".
+        result.raw_rating_mat = result.raw_rating_mat.reindex(
+            index=all_rows, columns=all_cols, fill_value=np.nan
+        )
+
+        # Align the update matrix to the same shape (new cells become NaN).
+        update_matrix = update_matrix.reindex(index=all_rows, columns=all_cols)
+
+        # Merge: where update_matrix has a value, use it; otherwise keep original.
+        # DataFrame.where(cond, other) keeps self where cond is True, uses other where False.
+        # So: keep raw_rating_mat where update_matrix is NaN, else use update_matrix.
+        result.raw_rating_mat = result.raw_rating_mat.where(
+            update_matrix.isna(),  # condition: True where update has no value
+            update_matrix          # other: use update value where condition is False
+        )
+
         logger.info(f"[{time.time() - start_time:.2f}s] Batch update completed in {time.time() - batch_start:.2f}s")
         
         # Update last updated timestamp
@@ -292,12 +306,10 @@ class Conversation:
     
     def _compute_vote_stats(self) -> None:
         """
-        Compute statistics on votes.
+        Compute statistics on votes using vectorized operations.
         """
-        # Make sure pandas is imported
         import numpy as np
-        import pandas as pd
-        
+
         # Initialize stats
         self.vote_stats = {
             'n_votes': 0,
@@ -307,84 +319,65 @@ class Conversation:
             'comment_stats': {},
             'participant_stats': {}
         }
-        
-        # Get matrix values and ensure they are numeric
+
         try:
-            # Make a clean copy that's definitely numeric
+            # Get clean numeric matrix
             clean_mat = self._get_clean_matrix()
-            # TODO: we can probably count without needing to convert to numpy array
             values = clean_mat.to_numpy()
 
-            # Count votes safely
+            # Create boolean masks once for the entire matrix.
+            # These are 2D arrays of the same shape as values.
+            non_null_mask = ~np.isnan(values)
+            agree_mask = np.abs(values - 1.0) < 0.001  # Close to 1
+            disagree_mask = np.abs(values + 1.0) < 0.001  # Close to -1
+
+            # Global stats: sum over entire matrix
             try:
-                # Create masks, handling non-numeric data
-                non_null_mask = ~np.isnan(values)
-                agree_mask = np.abs(values - 1.0) < 0.001  # Close to 1
-                disagree_mask = np.abs(values + 1.0) < 0.001  # Close to -1
-                
                 self.vote_stats['n_votes'] = int(np.sum(non_null_mask))
                 self.vote_stats['n_agree'] = int(np.sum(agree_mask))
                 self.vote_stats['n_disagree'] = int(np.sum(disagree_mask))
-                self.vote_stats['n_pass'] = int(np.sum(np.isnan(values)))
+                self.vote_stats['n_pass'] = int(np.sum(~non_null_mask))
             except Exception as e:
-                logger.error(f"Error counting votes: {e}")
-                # Set defaults if counting fails
-                self.vote_stats['n_votes'] = 0
-                self.vote_stats['n_agree'] = 0
-                self.vote_stats['n_disagree'] = 0
-                self.vote_stats['n_pass'] = 0
-            
-            # Compute comment stats
-            for i, cid in enumerate(clean_mat.columns):
-                if i >= values.shape[1]:
-                    continue
-                    
-                try:
-                    col = values[:, i]
-                    n_votes = np.sum(~np.isnan(col))
-                    n_agree = np.sum(np.abs(col - 1.0) < 0.001)
-                    n_disagree = np.sum(np.abs(col + 1.0) < 0.001)
-                    
+                logger.error(f"Error counting global votes: {e}")
+
+            # Per-comment stats: sum along axis=0 (columns).
+            # axis=0 sums over rows, giving one value per column (comment).
+            try:
+                comment_n_votes = np.sum(non_null_mask, axis=0)
+                comment_n_agree = np.sum(agree_mask, axis=0)
+                comment_n_disagree = np.sum(disagree_mask, axis=0)
+                # Avoid division by zero: use np.maximum to ensure denominator >= 1
+                comment_agree_ratio = comment_n_agree / np.maximum(comment_n_votes, 1)
+
+                # Build comment_stats dict from the arrays.
+                for i, cid in enumerate(clean_mat.columns):
                     self.vote_stats['comment_stats'][cid] = {
-                        'n_votes': int(n_votes),
-                        'n_agree': int(n_agree),
-                        'n_disagree': int(n_disagree),
-                        'agree_ratio': float(n_agree / max(n_votes, 1))
+                        'n_votes': int(comment_n_votes[i]),
+                        'n_agree': int(comment_n_agree[i]),
+                        'n_disagree': int(comment_n_disagree[i]),
+                        'agree_ratio': float(comment_agree_ratio[i])
                     }
-                except Exception as e:
-                    logger.error(f"Error computing stats for comment {cid}: {e}")
-                    self.vote_stats['comment_stats'][cid] = {
-                        'n_votes': 0,
-                        'n_agree': 0,
-                        'n_disagree': 0,
-                        'agree_ratio': 0.0
-                    }
-            
-            # Compute participant stats
-            for i, pid in enumerate(clean_mat.index):
-                if i >= values.shape[0]:
-                    continue
-                    
-                try:
-                    row = values[i, :]
-                    n_votes = np.sum(~np.isnan(row))
-                    n_agree = np.sum(np.abs(row - 1.0) < 0.001)
-                    n_disagree = np.sum(np.abs(row + 1.0) < 0.001)
-                    
+            except Exception as e:
+                logger.error(f"Error computing comment stats: {e}")
+
+            # Per-participant stats: sum along axis=1 (rows).
+            # axis=1 sums over columns, giving one value per row (participant).
+            try:
+                ptpt_n_votes = np.sum(non_null_mask, axis=1)
+                ptpt_n_agree = np.sum(agree_mask, axis=1)
+                ptpt_n_disagree = np.sum(disagree_mask, axis=1)
+                ptpt_agree_ratio = ptpt_n_agree / np.maximum(ptpt_n_votes, 1)
+
+                # Build participant_stats dict from the arrays.
+                for i, pid in enumerate(clean_mat.index):
                     self.vote_stats['participant_stats'][pid] = {
-                        'n_votes': int(n_votes),
-                        'n_agree': int(n_agree),
-                        'n_disagree': int(n_disagree),
-                        'agree_ratio': float(n_agree / max(n_votes, 1))
+                        'n_votes': int(ptpt_n_votes[i]),
+                        'n_agree': int(ptpt_n_agree[i]),
+                        'n_disagree': int(ptpt_n_disagree[i]),
+                        'agree_ratio': float(ptpt_agree_ratio[i])
                     }
-                except Exception as e:
-                    logger.error(f"Error computing stats for participant {pid}: {e}")
-                    self.vote_stats['participant_stats'][pid] = {
-                        'n_votes': 0,
-                        'n_agree': 0,
-                        'n_disagree': 0,
-                        'agree_ratio': 0.0
-                    }
+            except Exception as e:
+                logger.error(f"Error computing participant stats: {e}")
         except Exception as e:
             logger.error(f"Error in vote stats computation: {e}")
             # Initialize with empty stats if computation fails
