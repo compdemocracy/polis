@@ -35,14 +35,17 @@ def load_votes_from_csv(votes_csv: Path) -> dict:
     # Fixed timestamp for reproducibility
     fixed_timestamp = 1700000000000
 
-    votes_list = []
-    for _, row in df.iterrows():
-        votes_list.append({
-            'pid': row['voter-id'],
-            'tid': row['comment-id'],
-            'vote': row['vote'],
-            'created': int(row['timestamp']) if 'timestamp' in df.columns else fixed_timestamp
-        })
+    # Use vectorized pandas operations instead of iterrows() for efficiency
+    df = df.rename(columns={
+        'voter-id': 'pid',
+        'comment-id': 'tid',
+    })
+    if 'timestamp' in df.columns:
+        df['created'] = df['timestamp'].astype(int)
+    else:
+        df['created'] = fixed_timestamp
+
+    votes_list = df[['pid', 'tid', 'vote', 'created']].to_dict('records')
 
     return {
         'votes': votes_list,
