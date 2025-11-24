@@ -71,19 +71,17 @@ def pytest_generate_tests(metafunc):
 
 def pytest_collection_modifyitems(config, items):
     """
-    Modify test collection based on --include-local flag.
-
-    Tests marked with @pytest.mark.local_dataset will be skipped unless
-    --include-local is passed.
+    Modify test collection:
+    1. Skip local_dataset tests unless --include-local is passed
+    2. Add xdist_group marker for parallel execution by dataset
     """
-    if config.getoption("--include-local"):
-        # --include-local passed, don't skip any local dataset tests
-        return
+    include_local = config.getoption("--include-local")
 
-    skip_local = pytest.mark.skip(reason="need --include-local option to run")
     for item in items:
-        if "local_dataset" in item.keywords:
-            item.add_marker(skip_local)
+        # Skip local dataset tests unless --include-local
+        if not include_local and "local_dataset" in item.keywords:
+            item.add_marker(pytest.mark.skip(reason="need --include-local option to run"))
+
 
 
 # Provide summary of discovered datasets at start of test run
