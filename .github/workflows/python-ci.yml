@@ -98,9 +98,19 @@ jobs:
       run: |
         echo "Copying coverage-comment.md from delphi container..."
         docker compose -f docker-compose.test.yml cp delphi:/app/coverage-comment.md .
+        echo "=== Coverage Report ==="
+        cat coverage-comment.md
 
-    - name: 8. Post Coverage Comment
+    - name: 8. Upload Coverage Report
+      if: success()
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coverage-comment.md
+
+    - name: 9. Post Coverage Comment
       if: success() && github.event_name == 'pull_request'
+      continue-on-error: true
       uses: actions/github-script@v6
       with:
         github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -115,7 +125,7 @@ jobs:
             body: "## Coverage Report\n\n" + commentBody
           });
 
-    - name: 9. Show service logs on failure
+    - name: 10. Show service logs on failure
       if: failure()
       run: |
         echo "=== Delphi service logs ==="
@@ -125,7 +135,7 @@ jobs:
         echo "=== DynamoDB service logs ==="
         docker compose -f docker-compose.test.yml logs dynamodb || true
 
-    - name: 10. Clean up services
+    - name: 11. Clean up services
       if: always()
       run: |
         echo "Cleaning up services..."
