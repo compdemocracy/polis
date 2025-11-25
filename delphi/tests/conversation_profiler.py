@@ -324,40 +324,6 @@ def instrument_conversation_class():
     # Replace the update_votes method with our instrumented version
     setattr(Conversation, 'update_votes', detailed_update_votes)
     
-    # Add special instrumentation for named_matrix.update method
-    from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-    original_named_matrix_update = NamedMatrix.update
-    
-    @wraps(original_named_matrix_update)
-    def detailed_matrix_update(self, row, col, val):
-        """Instrumented NamedMatrix.update with timing."""
-        update_start = time.time()
-        result = original_named_matrix_update(self, row, col, val)
-        update_time = time.time() - update_start
-        
-        # Only log unusually slow matrix updates
-        if update_time > 0.05:
-            elapsed = time.time() - profile_data.get('process_start_time', update_start)
-            print(f"[{elapsed:.2f}s] SLOW MATRIX UPDATE for row={row}, col={col}: {update_time:.4f}s")
-            
-            # Store details about matrix dimensions for slow updates
-            detail = {
-                'method': 'NamedMatrix.update',
-                'time': update_time,
-                'row': row,
-                'col': col,
-                'matrix_dims': f"{self.values.shape if hasattr(self, 'values') and hasattr(self.values, 'shape') else 'unknown'}"
-            }
-            
-            if 'slow_matrix_updates' not in profile_data:
-                profile_data['slow_matrix_updates'] = []
-            profile_data['slow_matrix_updates'].append(detail)
-            
-        return result
-    
-    # Replace the NamedMatrix.update method
-    setattr(NamedMatrix, 'update', detailed_matrix_update)
-    
     print("Instrumentation complete!")
     
 def restore_original_methods():
@@ -368,12 +334,6 @@ def restore_original_methods():
     
     for method_name, original_method in ORIGINAL_METHODS.items():
         setattr(Conversation, method_name, original_method)
-    
-    # Also restore NamedMatrix.update
-    from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-    # This assumes we've saved the original elsewhere
-    if hasattr(NamedMatrix, '_original_update'):
-        setattr(NamedMatrix, 'update', getattr(NamedMatrix, '_original_update'))
     
     print("Original methods restored!")
 
@@ -421,7 +381,3 @@ def print_profiling_summary():
         print(f"\nTotal slow matrix updates: {len(slow_updates)}")
     
     print("\n===== End of Profiling Summary =====")
-
-# Store the original NamedMatrix.update method
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-NamedMatrix._original_update = NamedMatrix.update

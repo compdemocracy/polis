@@ -2,25 +2,24 @@
 
 This document analyzes the core mathematical algorithms in the Polis math codebase, focusing on implementation details that would be critical for Python conversion.
 
-## 1. Named Matrix
+## 1. DataFrames for Vote Matrices
 
 ### Overview
-The NamedMatrix is a fundamental data structure used throughout the codebase, providing a matrix with labeled rows and columns.
+The vote matrix is a fundamental data structure used throughout the codebase, providing a matrix with labeled rows (participants) and columns (comments).
 
 ### Implementation Details
-- Uses `clojure.core.matrix` library for matrix operations
-- Maintains separate indices for row and column names
+- Uses `pandas.DataFrame` for efficient labeled data operations
+- Maintains row indices for participant IDs and column indices for comment IDs
 - Provides efficient lookups, subsets, and updates
-- Handles sparse data efficiently
+- Handles sparse data efficiently through pandas' optimized operations
 
-### Python Conversion Considerations
-- **Alternatives**: `pandas.DataFrame` is the most natural equivalent, providing labeled rows and columns
-- Numpy arrays with separate row and column name mappings could be used for performance
-- Ensure efficient implementation of operations like:
-  - Getting rows/columns by name
-  - Updating values
-  - Creating subsets
-  - Handling sparse matrices
+### Key Operations
+- **DataFrame operations**: Direct pandas operations replace the legacy NamedMatrix class
+- Efficient implementation of operations like:
+  - Getting rows/columns by name using `.loc[]` accessor
+  - Updating values using `.at[]` for single values or `.loc[]` for slices
+  - Creating subsets using boolean indexing or `.loc[]`
+  - Handling sparse matrices with NaN values
 
 ## 2. PCA (Principal Component Analysis)
 

@@ -74,13 +74,13 @@ imported_id = manager.import_conversation("/path/to/export.json")
 
 ## Advanced Usage
 
-### Working with the Named Matrix
+### Working with DataFrames
 
 ```python
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
+import pandas as pd
 import numpy as np
 
-# Create a named matrix
+# Create a DataFrame with vote data
 data = np.array([
     [1, -1, 0],
     [1, 0, 1],
@@ -89,29 +89,29 @@ data = np.array([
 row_names = ["participant1", "participant2", "participant3"]
 col_names = ["comment1", "comment2", "comment3"]
 
-nmat = NamedMatrix(data, row_names, col_names)
+df = pd.DataFrame(data, index=row_names, columns=col_names)
 
 # Update a value
-nmat = nmat.update("participant1", "comment3", 1)
+df.at["participant1", "comment3"] = 1
 
 # Create a subset
-group1_matrix = nmat.rowname_subset(["participant1", "participant2"])
+group1_matrix = df.loc[["participant1", "participant2"]]
 
 # Get a row by name
-votes = nmat.get_row_by_name("participant1")
+votes = df.loc["participant1"].values
 ```
 
 ### PCA and Clustering
 
 ```python
-from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
-from polismath.pca_kmeans_rep.clusters import cluster_named_matrix
+from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+from polismath.pca_kmeans_rep.clusters import cluster_dataframe
 
 # Perform PCA
-pca_results, projections = pca_project_named_matrix(nmat)
+pca_results, projections = pca_project_dataframe(df)
 
-# Cluster the projections
-clusters = cluster_named_matrix(nmat, k=3)
+# Cluster the DataFrame
+clusters = cluster_dataframe(df, k=3)
 
 # Examine clusters
 for cluster in clusters:
@@ -124,7 +124,7 @@ for cluster in clusters:
 from polismath.pca_kmeans_rep.repness import conv_repness
 
 # Calculate representativeness
-repness = conv_repness(nmat, clusters)
+repness = conv_repness(df, clusters)
 
 # Get representative comments for each group
 for group_id, comments in repness["group_repness"].items():

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 """
+Legacy: Comparison with Clojure implementation. Will be removed once Clojure is phased out.
+
 Comparison tests for representativeness calculation between Python and Clojure.
 
 ⚠️ WARNING: These tests compare Python implementation against Clojure reference
@@ -19,7 +21,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
 from common_utils import create_test_conversation
-from dataset_config import get_dataset_files, list_available_datasets
+from polismath.regression import get_dataset_files, list_available_datasets
 import json
 
 logger = logging.getLogger(__name__)

@@ -9,26 +9,26 @@ import sys
 import os
 import tempfile
 import json
+import warnings
 from scipy.spatial.distance import pdist
 
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.pca_kmeans_rep.corr import (
-    clean_named_matrix, transpose_named_matrix, correlation_matrix,
+    clean_dataframe, transpose_dataframe, correlation_matrix,
     hierarchical_cluster, flatten_hierarchical_cluster,
     blockify_correlation_matrix, compute_correlation,
     prepare_correlation_export, save_correlation_to_json,
     participant_correlation, participant_correlation_matrix
 )
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 
 
 class TestMatrixOperations:
     """Tests for matrix operations."""
     
-    def test_clean_named_matrix(self):
-        """Test cleaning a NamedMatrix."""
+    def test_clean_dataframe(self):
+        """Test cleaning a votes DataFrame."""
         # Create a matrix with NaN values
         data = np.array([
             [1.0, np.nan, 3.0],
@@ -37,11 +37,11 @@ class TestMatrixOperations:
         ])
         rownames = ['r1', 'r2', 'r3']
         colnames = ['c1', 'c2', 'c3']
-        
-        nmat = NamedMatrix(data, rownames, colnames)
-        
-        # Clean the matrix
-        cleaned = clean_named_matrix(nmat)
+
+        df = pd.DataFrame(data, index=rownames, columns=colnames)
+
+        # Clean the DataFrame
+        cleaned = clean_dataframe(df)
         
         # Check that NaN values were replaced with zeros
         assert not np.isnan(cleaned.values).any()
@@ -55,11 +55,11 @@ class TestMatrixOperations:
         )
         
         # Check that row and column names were preserved
-        assert cleaned.rownames() == rownames
-        assert cleaned.colnames() == colnames
+        assert cleaned.index.tolist() == rownames
+        assert cleaned.columns.tolist() == colnames
     
-    def test_transpose_named_matrix(self):
-        """Test transposing a NamedMatrix."""
+    def test_transpose_dataframe(self):
+        """Test transposing a votes DataFrame."""
         # Create a matrix
         data = np.array([
             [1.0, 2.0, 3.0],
@@ -67,18 +67,18 @@ class TestMatrixOperations:
         ])
         rownames = ['r1', 'r2']
         colnames = ['c1', 'c2', 'c3']
-        
-        nmat = NamedMatrix(data, rownames, colnames)
-        
-        # Transpose the matrix
-        transposed = transpose_named_matrix(nmat)
+
+        df = pd.DataFrame(data, index=rownames, columns=colnames)
+
+        # Transpose the DataFrame
+        transposed = transpose_dataframe(df)
         
         # Check that values were transposed
         assert np.array_equal(transposed.values, data.T)
         
         # Check that row and column names were swapped
-        assert transposed.rownames() == colnames
-        assert transposed.colnames() == rownames
+        assert transposed.index.tolist() == colnames
+        assert transposed.columns.tolist() == rownames
 
 
 class TestCorrelation:
@@ -96,11 +96,23 @@ class TestCorrelation:
         rownames = ['r1', 'r2', 'r3', 'r4']
         colnames = ['c1', 'c2', 'c3', 'c4', 'c5']
         
-        nmat = NamedMatrix(data, rownames, colnames)
-        
-        # Compute correlation matrix
-        corr = correlation_matrix(nmat)
-        
+        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
+
+        # Compute correlation matrix - expect RuntimeWarning due to degenerate row
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            corr = correlation_matrix(nmat)
+
+            # Verify we got the expected warning about the degenerate row
+            assert len(w) >= 1, f"Expected at least 1 warning, got {len(w)}"
+            assert any(issubclass(warning.category, RuntimeWarning) for warning in w), \
+                f"Expected RuntimeWarning, got {[warning.category for warning in w]}"
+            # Check that it's about division or invalid value
+            runtime_warnings = [warning for warning in w if issubclass(warning.category, RuntimeWarning)]
+            assert any("divide" in str(warning.message).lower() or "invalid" in str(warning.message).lower()
+                      for warning in runtime_warnings), \
+                f"Expected warning about division/invalid value, got {[str(warning.message) for warning in runtime_warnings]}"
+
         # Check that we have a correlation matrix
         assert corr.shape == (4, 4)
         
@@ -138,7 +150,7 @@ class TestCorrelation:
         rownames = ['p1', 'p2', 'p3', 'p4']
         colnames = ['c1', 'c2', 'c3', 'c4']
         
-        vote_matrix = NamedMatrix(data, rownames, colnames)
+        vote_matrix = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Test correlations
         p1_p2_corr = participant_correlation(vote_matrix, 'p1', 'p2')
@@ -162,7 +174,7 @@ class TestCorrelation:
         rownames = ['p1', 'p2', 'p3', 'p4']
         colnames = ['c1', 'c2', 'c3', 'c4']
         
-        vote_matrix = NamedMatrix(data, rownames, colnames)
+        vote_matrix = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Compute correlation matrix
         result = participant_correlation_matrix(vote_matrix)
@@ -202,7 +214,7 @@ class TestHierarchicalClustering:
         rownames = ['r1', 'r2', 'r3', 'r4']
         colnames = ['c1', 'c2', 'c3', 'c4']
         
-        nmat = NamedMatrix(data, rownames, colnames)
+        nmat = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Perform hierarchical clustering
         hclust = hierarchical_cluster(nmat)
@@ -267,7 +279,7 @@ class TestIntegration:
         rownames = ['p1', 'p2', 'p3', 'p4']
         colnames = ['c1', 'c2', 'c3', 'c4']
         
-        vote_matrix = NamedMatrix(data, rownames, colnames)
+        vote_matrix = pd.DataFrame(data, index=rownames, columns=colnames)
         
         # Compute correlation
         result = compute_correlation(vote_matrix)

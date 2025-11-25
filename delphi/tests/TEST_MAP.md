@@ -8,41 +8,35 @@ These tests validate the individual components of the codebase:
 
 ### Core Math Tests
 
-1. **`test_named_matrix.py`**
-   - Tests the `NamedMatrix` data structure
-   - Verifies operations like initialization, updating, adding/removing rows and columns
-   - Ensures proper matrix operations (getting rows/columns, slicing, etc.)
-   - Validates type handling, especially for mixed data types
-
-2. **`test_pca.py`**
+1. **`test_pca.py`**
    - Tests the core PCA implementation
    - Verifies power iteration algorithm for computing eigenvectors
    - Tests PCA projection of data points
    - Validates handling of missing values and edge cases
    - Ensures consistent results with fixed random seeds
 
-3. **`test_clusters.py`**
+2. **`test_clusters.py`**
    - Tests the k-means clustering implementation
    - Verifies cluster initialization strategies
    - Tests clustering with weighted and unweighted data
    - Validates silhouette calculation for cluster quality
    - Ensures consistent results with fixed random seeds
 
-4. **`test_repness.py`**
+3. **`test_repness.py`**
    - Tests the representativeness calculation algorithm
    - Verifies comment statistics computation
    - Tests participant statistics and correlations
    - Validates significance tests for agreement proportions
    - Ensures proper handling of edge cases (small samples, extreme proportions)
 
-5. **`test_stats.py`**
+4. **`test_stats.py`**
    - Tests statistical utility functions
    - Verifies correlation calculation
    - Tests proportion test for comparing groups
    - Validates standard error and confidence interval calculation
    - Ensures proper handling of numerical edge cases
 
-6. **`test_corr.py`**
+5. **`test_corr.py`**
    - Tests correlation calculation functions
    - Verifies hierarchical clustering of correlation matrices
    - Tests comment correlation computation
@@ -51,7 +45,7 @@ These tests validate the individual components of the codebase:
 
 ### System Component Tests
 
-7. **`test_conversation.py`**
+6. **`test_conversation.py`**
    - Tests the `Conversation` class and state management
    - Verifies vote processing and update methods
    - Tests computation of PCA, clusters, and representativeness
@@ -62,19 +56,20 @@ These tests validate the individual components of the codebase:
 
 These tests validate the system with real Pol.is conversation data:
 
-1. **`test_real_data.py`**
-   - Tests the entire system with real conversation data
+1. **`test_clojure_regression.py`** (formerly `test_real_data.py`)
+   - Regression tests comparing Python vs Clojure implementation
+   - Uses fixture-based structure with soft assertions
    - Verifies end-to-end processing from votes to results
    - Tests with both biodiversity and VW datasets
-   - Validates output formats and structures
-   - Serves as an integration test for all components
+   - Compares group clustering, sizes, and membership overlap
+   - Validates comment priorities match Clojure output
 
-2. **`test_real_data_comparison.py`**
-   - Compares Python outputs with Clojure reference outputs
-   - Measures similarity between Python and Clojure results
-   - Focuses on cluster assignments and representative comments
-   - Validates projection coordinate transformations
-   - Quantifies match rates for representativeness calculation
+2. **`test_pipeline_integrity.py`** (formerly `full_pipeline_test.py`)
+   - Integration tests verifying pipeline runs successfully
+   - Focuses on pipeline robustness, not correctness vs Clojure
+   - Tests PCA, clustering, representativeness, and participant stats
+   - Validates output formats and structures
+   - Saves detailed diagnostics for manual inspection
 
 3. **`test_real_data_simple.py`**
    - Simplified version of the real data test
@@ -167,8 +162,7 @@ python -m pytest tests/test_pca.py::TestPCA::test_power_iteration
 The tests are organized in a hierarchical manner, with unit tests focused on individual components and real data tests integrating these components:
 
 ```
-Unit Tests ────── Core Math Tests ─────┬─── test_named_matrix.py
-  │                    │               ├─── test_pca.py
+Unit Tests ────── Core Math Tests ─────┬─── test_pca.py
   │                    │               ├─── test_clusters.py
   │                    │               ├─── test_repness.py
   │                    │               ├─── test_stats.py
@@ -177,8 +171,8 @@ Unit Tests ────── Core Math Tests ─────┬─── test_n
   │                    └─── System Component Tests ──── test_conversation.py
   │
   │
-Real Data Tests ─┬─── Integration Tests ────────┬─── test_real_data.py
-                 │                              └─── test_real_data_comparison.py
+Real Data Tests ─┬─── Integration Tests ────────┬─── test_clojure_regression.py
+                 │                              └─── test_pipeline_integrity.py
                  │
                  └─── Algorithm-Specific Tests ─┬─── test_pca_real_data.py
                                                 ├─── test_pca_robustness.py

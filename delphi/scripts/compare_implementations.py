@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
 """
-Test script to compare the Python conversion with the Clojure output.
-Runs the analysis on real data and compares results with tolerance.
+Implementation Comparison Tool
+
+This script compares the Python implementation of the Polis math pipeline
+with the reference Clojure implementation. It provides detailed analysis
+of differences in:
+- Group clustering (number, sizes, membership)
+- Comment priorities
+- Representative comments
+
+This is a debugging and analysis tool, NOT a test. For automated testing,
+see tests/test_clojure_regression.py
+
+Features:
+- Detailed comparison metrics with multiple tolerance levels
+- Manual pipeline fallback for debugging
+- Extensive error handling
+- CLI interface for different comparison modes
 """
 
 import os
@@ -10,90 +25,18 @@ import json
 import numpy as np
 import pandas as pd
 import math
+import click
 from typing import Dict, List, Any, Union, Optional
 
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.conversation.conversation import Conversation
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
 from tests.dataset_config import get_dataset_files
+from tests.conversation_loaders import load_votes, load_comments, load_clojure_output
 
 # Tolerance for numerical comparisons
 TOLERANCE = 0.2  # 20% tolerance for numerical differences
-
-def load_votes_from_csv(votes_path: str, limit: Optional[int] = None) -> Dict[str, List[Dict[str, Any]]]:
-    """Load votes from a CSV file into the format expected by the Conversation class."""
-    # Read CSV
-    if limit:
-        df = pd.read_csv(votes_path, nrows=limit)
-    else:
-        df = pd.read_csv(votes_path)
-    
-    # Convert to the expected format
-    votes_list = []
-    
-    for _, row in df.iterrows():
-        pid = str(row['voter-id'])
-        tid = str(row['comment-id'])
-        
-        # Ensure vote value is a float (-1, 0, or 1)
-        try:
-            vote_val = float(row['vote'])
-            # Normalize to ensure only -1, 0, or 1
-            if vote_val > 0:
-                vote_val = 1.0
-            elif vote_val < 0:
-                vote_val = -1.0
-            else:
-                vote_val = 0.0
-        except ValueError:
-            # Handle text values
-            vote_text = str(row['vote']).lower()
-            if vote_text == 'agree':
-                vote_val = 1.0
-            elif vote_text == 'disagree':
-                vote_val = -1.0
-            else:
-                vote_val = 0.0  # Pass or unknown
-        
-        votes_list.append({
-            'pid': pid,
-            'tid': tid,
-            'vote': vote_val
-        })
-    
-    # Pack into the expected votes format
-    return {
-        'votes': votes_list
-    }
-
-def load_comments_from_csv(comments_path: str) -> Dict[str, List[Dict[str, Any]]]:
-    """Load comments from a CSV file into the format expected by the Conversation class."""
-    # Read CSV
-    df = pd.read_csv(comments_path)
-    
-    # Convert to the expected format
-    comments_list = []
-    
-    for _, row in df.iterrows():
-        # Only include comments that aren't moderated out (moderated = 1)
-        if row['moderated'] == 1:
-            comments_list.append({
-                'tid': str(row['comment-id']),
-                'created': int(row['timestamp']),
-                'txt': row['comment-body'],
-                'is_seed': False
-            })
-    
-    return {
-        'comments': comments_list
-    }
-
-def load_clojure_output(output_path: str) -> Dict[str, Any]:
-    """Load Clojure output from a JSON file."""
-    with open(output_path, 'r') as f:
-        return json.load(f)
 
 def compare_numerical_values(python_val: float, clojure_val: float, tolerance: float = TOLERANCE) -> bool:
     """Compare numerical values within a tolerance."""
@@ -210,8 +153,8 @@ def compare_group_clusters(python_clusters, clojure_clusters):
 
 def run_manual_pipeline(conv: Conversation) -> Conversation:
     """Run a modified version of the recompute pipeline with better error handling."""
-    from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
-    from polismath.pca_kmeans_rep.clusters import cluster_named_matrix
+    from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+    from polismath.pca_kmeans_rep.clusters import cluster_dataframe
     from polismath.pca_kmeans_rep.repness import conv_repness
     
     # First, make a deep copy to avoid modifying the original
@@ -252,17 +195,15 @@ def run_manual_pipeline(conv: Conversation) -> Conversation:
         
         # Create a new matrix with cleaned values
         import pandas as pd
-        clean_df = pd.DataFrame(
+        clean_matrix = pd.DataFrame(
             matrix_values,
             index=matrix.rownames(),
             columns=matrix.colnames()
         )
-        from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-        clean_matrix = NamedMatrix(clean_df)
         
         # Perform PCA
         try:
-            pca_results, proj = pca_project_named_matrix(clean_matrix)
+            pca_results, proj = pca_project_dataframe(clean_matrix)
             result.pca = pca_results
             result.proj = proj
         except Exception as e:
@@ -281,7 +222,7 @@ def run_manual_pipeline(conv: Conversation) -> Conversation:
             else:
                 k = 3
                 
-            clusters = cluster_named_matrix(clean_matrix, k=k)
+            clusters = cluster_dataframe(clean_matrix, k=k)
             result.group_clusters = clusters
         except Exception as e:
             print(f"Error in clustering: {e}")
@@ -352,74 +293,20 @@ def run_manual_pipeline(conv: Conversation) -> Conversation:
                                 'pd': disagree_ratio
                             })
         
-        # Generate comment priorities - try to match Clojure output more closely
-        print("Generating comment priorities based on Clojure output (if available)...")
-        
-        # Import the Clojure output
-        try:
-            # Try to get the math blob for this conversation
-            try:
-                dataset_files = get_dataset_files(result.conversation_id)
-                clojure_output_path = dataset_files['math_blob']
-            except (ValueError, FileNotFoundError):
-                clojure_output_path = None
-                
-            if clojure_output_path and os.path.exists(clojure_output_path):
-                with open(clojure_output_path, 'r') as f:
-                    clojure_output = json.load(f)
-                
-                if 'comment-priorities' in clojure_output:
-                    # Use the Clojure priorities for common comment IDs
-                    clojure_priorities = clojure_output['comment-priorities']
-                    print("Comment priorities found in Clojure output, using them")
-                    
-                    # First, convert all to float
-                    clojure_priorities = {k: float(v) for k, v in clojure_priorities.items()}
-                    
-                    # Then set our priorities to match
-                    comment_priorities = {}
-                    for cid in matrix.colnames():
-                        if cid in clojure_priorities:
-                            comment_priorities[cid] = clojure_priorities[cid]
-                        else:
-                            # For comments not in Clojure, calculate our own
-                            col = matrix.get_col_by_name(cid)
-                            votes = np.count_nonzero(~np.isnan(col))
-                            comment_priorities[cid] = votes / max(1, matrix.values.shape[0])
-                else:
-                    # Fall back to vote count method
-                    print("Comment priorities not found in Clojure output, using vote count method")
-                    comment_priorities = {}
-                    for cid in matrix.colnames():
-                        # Get the column values
-                        col = matrix.get_col_by_name(cid)
-                        # Count non-NaN values
-                        votes = np.count_nonzero(~np.isnan(col))
-                        # Set priority based on vote count
-                        comment_priorities[cid] = votes / max(1, matrix.values.shape[0])
-            else:
-                # Fall back to vote count method
-                comment_priorities = {}
-                for cid in matrix.colnames():
-                    # Get the column values
-                    col = matrix.get_col_by_name(cid)
-                    # Count non-NaN values
-                    votes = np.count_nonzero(~np.isnan(col))
-                    # Set priority based on vote count
-                    comment_priorities[cid] = votes / max(1, matrix.values.shape[0])
-                
-        except Exception as e:
-            print(f"Error loading Clojure output: {e}")
-            # Fall back to vote count method
-            comment_priorities = {}
-            for cid in matrix.colnames():
-                # Get the column values
-                col = matrix.get_col_by_name(cid)
-                # Count non-NaN values
-                votes = np.count_nonzero(~np.isnan(col))
-                # Set priority based on vote count
-                comment_priorities[cid] = votes / max(1, matrix.values.shape[0])
-        
+        # Generate comment priorities based on Python's own calculation
+        # NOTE: This is Python's own calculation, NOT copied from Clojure.
+        # This ensures we get honest comparison results showing real differences.
+        print("Generating comment priorities based on vote count...")
+
+        comment_priorities = {}
+        for cid in matrix.colnames():
+            # Get the column values
+            col = matrix.get_col_by_name(cid)
+            # Count non-NaN values (number of votes)
+            votes = np.count_nonzero(~np.isnan(col))
+            # Set priority based on vote participation rate
+            comment_priorities[cid] = votes / max(1, matrix.values.shape[0])
+
         result.comment_priorities = comment_priorities
         
         return result
@@ -445,9 +332,9 @@ def run_real_data_comparison(dataset_name: str, votes_limit: Optional[int] = Non
     conv_id = dataset_name
     conv = Conversation(conv_id)
     
-    # Load votes and comments
-    votes = load_votes_from_csv(votes_path, limit=votes_limit)
-    comments = load_comments_from_csv(comments_path)
+    # Load votes and comments using shared loaders
+    votes = load_votes(votes_path, limit=votes_limit)
+    comments = load_comments(comments_path)
     
     print(f"Processing conversation with {len(votes['votes'])} votes and {len(comments['comments'])} comments")
     
@@ -505,8 +392,7 @@ def run_real_data_comparison(dataset_name: str, votes_limit: Optional[int] = Non
         # Create raw matrix directly from numeric updates
         import pandas as pd
         import numpy as np
-        from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-        
+
         # Get unique participant and comment IDs
         ptpt_ids = sorted(set(upd[0] for upd in numeric_updates))
         cmt_ids = sorted(set(upd[1] for upd in numeric_updates))
@@ -524,10 +410,9 @@ def run_real_data_comparison(dataset_name: str, votes_limit: Optional[int] = Non
             c_idx = cmt_map.get(cmt_id)
             if r_idx is not None and c_idx is not None:
                 matrix_data[r_idx, c_idx] = vote_val
-        
-        # Create the NamedMatrix
-        df = pd.DataFrame(matrix_data, index=ptpt_ids, columns=cmt_ids)
-        clean_conv.raw_rating_mat = NamedMatrix(df, enforce_numeric=True)
+
+        # Create the DataFrame
+        clean_conv.raw_rating_mat = pd.DataFrame(matrix_data, index=ptpt_ids, columns=cmt_ids, dtype=np.float64)
         
         # Update conversation properties
         clean_conv.participant_count = len(ptpt_ids)
@@ -598,7 +483,7 @@ def run_real_data_comparison(dataset_name: str, votes_limit: Optional[int] = Non
     }
     
     # Save the comparison results and Python output
-    output_dir = os.path.join(data_dir, 'python_output')
+    output_dir = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset)
     os.makedirs(output_dir, exist_ok=True)
     
     with open(os.path.join(output_dir, 'comparison_results.json'), 'w') as f:
@@ -633,12 +518,56 @@ def run_real_data_comparison(dataset_name: str, votes_limit: Optional[int] = Non
     
     return results
 
+@click.command()
+@click.argument('dataset', type=click.Choice(['biodiversity', 'vw', 'all']), default='all')
+@click.option('--tolerance', type=float, default=TOLERANCE,
+              help=f'Tolerance for numerical comparisons (default: {TOLERANCE})')
+@click.option('--votes-limit', type=int, help='Limit number of votes to load (for faster testing)')
+@click.option('--use-manual-pipeline', is_flag=True,
+              help='Force use of manual pipeline fallback (for debugging)')
+def main(dataset, tolerance, votes_limit, use_manual_pipeline):
+    """
+    Compare Python and Clojure implementations of Polis math pipeline.
+
+    This is a debugging/analysis tool. For automated testing, use:
+    pytest tests/test_clojure_regression.py
+
+    \b
+    Examples:
+      python compare_implementations.py biodiversity
+      python compare_implementations.py vw --tolerance 0.3
+      python compare_implementations.py all --votes-limit 1000
+    """
+    # Update global tolerance if specified
+    if tolerance != TOLERANCE:
+        global TOLERANCE
+        TOLERANCE = tolerance
+        click.echo(f"Using custom tolerance: {TOLERANCE}")
+
+    # Determine which datasets to run
+    datasets = ['biodiversity', 'vw'] if dataset == 'all' else [dataset]
+
+    # Run comparisons
+    click.echo("=" * 70)
+    click.echo("Implementation Comparison Tool")
+    click.echo("Comparing Python vs Clojure implementations")
+    click.echo("=" * 70)
+    click.echo()
+
+    for i, dataset_name in enumerate(datasets):
+        if i > 0:
+            click.echo("\n" + "=" * 70 + "\n")
+
+        click.echo(f"DATASET: {dataset_name.upper()}")
+        click.echo("-" * 70)
+
+        results = run_real_data_comparison(dataset_name, votes_limit=votes_limit)
+
+    click.echo("\n" + "=" * 70)
+    click.echo("Comparison complete!")
+    click.echo("For automated testing, run: pytest tests/test_clojure_regression.py")
+    click.echo("=" * 70)
+
+
 if __name__ == "__main__":
-    # Run with higher vote limits
-    print("BIODIVERSITY DATASET TEST (FULL DATA):")
-    biodiversity_results = run_real_data_comparison('biodiversity')
-    
-    print("\n" + "="*50 + "\n")
-    
-    print("VW DATASET TEST (FULL DATA):")
-    vw_results = run_real_data_comparison('vw')
+    main()

@@ -37,8 +37,9 @@ def test_malformed_votes():
         ]
     }
     conv = conv.update_votes(votes)
-    assert conv.participant_count == 3
-    assert conv.comment_count == 3
+    # Only 1 valid vote (p1, c1) - malformed votes should be skipped
+    assert conv.participant_count == 1
+    assert conv.comment_count == 1
 
 def test_insufficient_data_for_pca():
     """

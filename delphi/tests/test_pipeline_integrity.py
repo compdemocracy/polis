@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """
-Full Pipeline Test for Pol.is Math Module
+Pipeline Integrity Test for Pol.is Math Module
 
 This script performs a complete end-to-end test of the entire Polis math pipeline
-using real-world data. It processes votes through the full conversation pipeline,
-including:
+using real-world data. It verifies that the pipeline runs successfully without errors,
+focusing on pipeline robustness rather than correctness vs Clojure implementation.
+
+Pipeline stages tested:
 - PCA for dimensionality reduction
 - Clustering to identify opinion groups
 - Representativeness to find comments that best represent each group
@@ -13,6 +15,9 @@ including:
 The test uses two real datasets:
 1. Biodiversity dataset (larger)
 2. VW dataset (smaller)
+
+Note: This test does NOT compare results with Clojure. For Clojure regression tests,
+see test_clojure_regression.py
 """
 
 import os
@@ -27,20 +32,25 @@ from typing import Dict, List, Any
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from polismath.conversation.conversation import Conversation
-from common_utils import create_test_conversation
+from tests.common_utils import create_test_conversation
+from polismath.regression import get_dataset_files
 
 
 def save_results(dataset_name: str, conversation: Conversation) -> None:
     """
     Save the results of the pipeline to a JSON file.
-    
+
     Args:
         dataset_name: Name of the dataset
         conversation: Conversation object with results
     """
-    # Create results directory if it doesn't exist
-    results_dir = os.path.join('pipeline_results')
-    os.makedirs(results_dir, exist_ok=True)
+    # Get dataset files to find output directory
+    dataset_files = get_dataset_files(dataset_name)
+    data_dir = dataset_files['data_dir']
+
+    # Use standardized output directory structure
+    output_dir = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset_name)
+    os.makedirs(output_dir, exist_ok=True)
     
     # Create result object
     result = {
@@ -59,7 +69,7 @@ def save_results(dataset_name: str, conversation: Conversation) -> None:
         cluster_info = {
             'id': cluster.get('id', i),
             'members_count': len(cluster.get('members', [])),
-            'center': cluster.get('center', [0, 0]).tolist()
+            'center': cluster.get('center', [0, 0])
         }
         result['clusters'].append(cluster_info)
     
@@ -105,28 +115,32 @@ def save_results(dataset_name: str, conversation: Conversation) -> None:
         result['participant_stats'] = stats_summary
     
     # Save to file
-    file_path = os.path.join(results_dir, f"{dataset_name}_results.json")
+    file_path = os.path.join(output_dir, 'pipeline_diagnostics.json')
     with open(file_path, 'w') as f:
         json.dump(result, f, indent=2)
-    
-    print(f"Results saved to {file_path}")
+
+    print(f"Pipeline diagnostics saved to {file_path}")
 
 @pytest.mark.parametrize("dataset_name", ["biodiversity", "vw"])
 def test_full_pipeline(dataset_name: str) -> None:
     """
-    Run the full pipeline test for a dataset.
-    
+    Run the full pipeline integrity test for a dataset.
+
+    This test verifies that the pipeline runs successfully without errors.
+    It does NOT compare results with Clojure - for that, see test_real_data.py
+
     Args:
         dataset_name: 'biodiversity' or 'vw'
     """
-    print(f"\n============== Testing Full Pipeline: {dataset_name} ==============\n")
-    
+    print(f"\n============== Testing Pipeline Integrity: {dataset_name} ==============\n")
+
     try:
         # Create a conversation with the dataset
-        print("Creating conversation...")
+        print("Creating conversation from votes CSV...")
         start_time = time.time()
+        # Uses direct matrix-building for faster loading
         conv = create_test_conversation(dataset_name)
-        
+
         print(f"Conversation created successfully in {time.time() - start_time:.2f} seconds")
         print(f"Participants: {conv.participant_count}")
         print(f"Comments: {conv.comment_count}")
@@ -211,17 +225,20 @@ def test_full_pipeline(dataset_name: str) -> None:
         
         # Save results to file
         save_results(dataset_name, updated_conv)
-        
-        print("\nFull pipeline test SUCCESSFUL!")
-        
+
+        print("\nPipeline integrity test SUCCESSFUL!")
+
     except Exception as e:
         print(f"Error during pipeline processing: {e}")
         traceback.print_exc()
-        print("Full pipeline test FAILED!")
+        print("Pipeline integrity test FAILED!")
+        raise  # Re-raise to fail the test
 
 
 if __name__ == "__main__":
     # Test on both datasets
+    print("Note: This test verifies pipeline integrity (that it runs successfully).")
+    print("For Clojure regression tests, run: pytest tests/test_clojure_regression.py\n")
     test_full_pipeline('biodiversity')
     print("\n" + "="*70 + "\n")
     test_full_pipeline('vw')

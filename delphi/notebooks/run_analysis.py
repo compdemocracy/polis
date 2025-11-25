@@ -34,9 +34,8 @@ def check_environment():
     try:
         # Try importing key polismath modules
         from polismath.conversation.conversation import Conversation
-        from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-        from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
-        
+        from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+
         print("Polismath modules imported successfully")
         return True
     except ImportError as e:
@@ -46,9 +45,6 @@ def check_environment():
 
 # Import polismath modules
 from polismath.conversation.conversation import Conversation
-from polismath.pca_kmeans_rep.named_matrix import NamedMatrix
-from polismath.pca_kmeans_rep.pca import pca_project_named_matrix
-from polismath.pca_kmeans_rep.clusters import cluster_named_matrix
 from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
 from polismath.pca_kmeans_rep.corr import compute_correlation
 

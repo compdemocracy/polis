@@ -36,7 +36,51 @@
       "node": {
         "package": "${workspaceFolder}/server/package.json",
         "enableDebugging": true
-      }
+        }
+    },
+    {
+        "label": "Run Regression Tests",
+        "type": "shell",
+        "command": "${workspaceFolder}/.venv/bin/python",
+        "args": [
+            "-m",
+            "pytest",
+            "regression_tests",
+            "-v"
+        ],
+        "options": {
+            "cwd": "${workspaceFolder}/delphi"
+        },
+        "group": {
+            "kind": "build"
+        },
+        "presentation": {
+            "reveal": "always",
+            "panel": "new"
+        },
+        "problemMatcher": []
+    },
+    {
+        "label": "Run Regression Tests (Parallel)",
+        "type": "shell",
+        "command": "${workspaceFolder}/.venv/bin/python",
+        "args": [
+            "-m",
+            "pytest",
+            "regression_tests",
+            "-v",
+            "-n",
+            "auto"
+        ],
+        "options": {
+            "cwd": "${workspaceFolder}/delphi"
+        },
+        "group": "build",
+        "presentation": {
+            "reveal": "always",
+            "panel": "new"
+        },
+        "problemMatcher": []
     }
   ]
 }

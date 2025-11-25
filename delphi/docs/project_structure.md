@@ -33,12 +33,7 @@ polismath/
 
 ## Key Modules
 
-### Core Data Structures
 
-**`named_matrix.py`**
-- Python implementation of the NamedMatrix class
-- Will likely use pandas DataFrame or numpy with custom indexing
-- Must support all operations from the original Clojure version
 
 ### Mathematical Algorithms
 
