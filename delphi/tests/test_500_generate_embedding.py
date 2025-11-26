@@ -3,6 +3,7 @@ import sys
 from unittest import mock
 import pytest
 import numpy as np
+import importlib
 
 # Add the 'umap_narrative' directory to the Python path to allow the script to be imported
 umap_narrative_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'umap_narrative'))
@@ -10,7 +11,8 @@ if umap_narrative_dir not in sys.path:
     sys.path.insert(0, umap_narrative_dir)
 
 # Now we can import the main function from the script to be tested
-from `500_generate_embedding_umap_cluster` import main as generate_embedding_main
+generate_embedding_module = importlib.import_module("500_generate_embedding_umap_cluster")
+generate_embedding_main = generate_embedding_module.main
 
 @pytest.fixture(autouse=True)
 def setup_and_teardown(tmp_path, monkeypatch):
