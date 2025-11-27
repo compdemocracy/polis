@@ -5,12 +5,10 @@ These tests verify the single-group, single-comment "old format" API
 that wraps the new DataFrame-native implementation.
 """
 
-import pytest
 import numpy as np
 import pandas as pd
 import sys
 import os
-import math
 
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
