@@ -5,14 +5,10 @@ import pytest
 import numpy as np
 import importlib
 
-# Add the 'umap_narrative' directory to the Python path to allow the script to be imported
+# Add the 'umap_narrative' directory to the Python path to allow the target script to be imported.
 umap_narrative_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'umap_narrative'))
 if umap_narrative_dir not in sys.path:
     sys.path.insert(0, umap_narrative_dir)
-
-# Now we can import the main function from the script to be tested
-generate_embedding_module = importlib.import_module("500_generate_embedding_umap_cluster")
-generate_embedding_main = generate_embedding_module.main
 
 @pytest.fixture(autouse=True)
 def setup_and_teardown(tmp_path, monkeypatch):
@@ -28,7 +24,8 @@ def test_pipeline_flow_with_mocks(tmp_path):
     Tests the main control flow of the script with mocks.
     
     This test verifies that the script calls the main data processing and storage
-    functions without executing the actual ML or database operations.
+    functions without executing the actual ML or database operations. It uses
+    `importlib` and `mock.patch.object` to handle the script's non-standard filename.
     """
     zid = "98765"
     test_args = [
@@ -48,9 +45,12 @@ def test_pipeline_flow_with_mocks(tmp_path):
         [i for i in range(num_comments)] # comment_ids
     )
 
-    # Patch the ML and Database functions to isolate the script's logic
-    with mock.patch('500_generate_embedding_umap_cluster.process_comments', return_value=mock_process_comments_return_value) as mock_process_comments, \
-         mock.patch('500_generate_embedding_umap_cluster.DynamoDBStorage') as MockDynamoStorage:
+    # Import the module programmatically because its name starts with a number.
+    generate_embedding_module = importlib.import_module("500_generate_embedding_umap_cluster")
+
+    # Patch the objects directly on the imported module object to avoid mock's string parsing issue.
+    with mock.patch.object(generate_embedding_module, 'process_comments', return_value=mock_process_comments_return_value) as mock_process_comments, \
+         mock.patch.object(generate_embedding_module, 'DynamoDBStorage') as MockDynamoStorage:
         
         # Configure the mock DynamoDB instance that will be created
         mock_dynamo_instance = mock.MagicMock()
@@ -59,7 +59,7 @@ def test_pipeline_flow_with_mocks(tmp_path):
         # Run the main function from the script
         with mock.patch.object(sys, 'argv', test_args):
             try:
-                generate_embedding_main()
+                generate_embedding_module.main()
             except SystemExit as e:
                 pytest.fail(f"Script exited unexpectedly: {e}")
 
