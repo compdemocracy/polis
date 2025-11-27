@@ -17,7 +17,7 @@ from polismath.pca_kmeans_rep.repness import (
     z_score_sig_90, z_score_sig_95, prop_test, two_prop_test,
     comment_stats, add_comparative_stats, repness_metric, finalize_cmt_stats,
     passes_by_test, best_agree, best_disagree, select_rep_comments,
-    calculate_kl_divergence, select_consensus_comments, conv_repness,
+    select_consensus_comments, conv_repness,
     participant_stats
 )
 
