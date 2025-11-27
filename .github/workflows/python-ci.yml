@@ -3,8 +3,18 @@ name: Delphi Python Tests
 on:
   push:
     branches: [ edge, stable ]
+    paths:
+      - 'delphi/**/*.py'
+      - 'delphi/requirements*.txt'
+      - 'delphi/Dockerfile'
+      - '.github/workflows/python-ci.yml'
   pull_request:
     branches: [ edge, stable ]
+    paths:
+      - 'delphi/**/*.py'
+      - 'delphi/requirements*.txt'
+      - 'delphi/Dockerfile'
+      - '.github/workflows/python-ci.yml'
 
 jobs:
   test:
@@ -116,15 +126,38 @@ jobs:
         script: |
           const fs = require('fs');
           const commentBody = fs.readFileSync('coverage-comment.md', 'utf8');
+          const marker = '<!-- delphi-coverage-report -->';
+          const body = `${marker}\n## Delphi Coverage Report\n\n${commentBody}`;
 
           try {
-            await github.rest.issues.createComment({
+            // Find existing coverage comment
+            const { data: comments } = await github.rest.issues.listComments({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: "## Coverage Report\n\n" + commentBody
             });
-            console.log('Coverage comment posted successfully.');
+
+            const existingComment = comments.find(c => c.body.includes(marker));
+
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                comment_id: existingComment.id,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+              console.log('Coverage comment updated successfully.');
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+              console.log('Coverage comment created successfully.');
+            }
           } catch (error) {
             if (error.status === 403) {
               console.log('Note: Could not post coverage comment to PR.');
