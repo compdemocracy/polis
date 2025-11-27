@@ -12,7 +12,7 @@ from copy import deepcopy
 import math
 from scipy import stats
 
-from polismath.utils.general import AGREE, DISAGREE, PASS
+from polismath.utils.general import AGREE, DISAGREE
 
 
 # Statistical constants
