@@ -531,6 +531,13 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
             - pd: probability of disagree (with pseudocount smoothing)
             - pat: proportion test z-score for agree
             - pdt: proportion test z-score for disagree
+            - ra: representativeness ratio for agree (group vs other)
+            - rd: representativeness ratio for disagree (group vs other)
+            - rat: representativeness test z-score for agree
+            - rdt: representativeness test z-score for disagree
+            - agree_metric: metric for agree representativeness
+            - disagree_metric: metric for disagree representativeness
+            - repful: 'agree' or 'disagree' based on which is more representative
     """
     # Build participant -> group mapping
     ptpt_to_group = {}
