@@ -41,10 +41,9 @@ def test_pipeline_flow_with_mocks(tmp_path):
         np.random.rand(num_comments, 2),  # document_map
         np.random.rand(num_comments, 32), # document_vectors
         [np.random.randint(0, 5, num_comments) for _ in range(3)], # cluster_layers
-        [f"comment text {i}" for i in range(num_comments)], # comment_texts
-        [i for i in range(num_comments)] # comment_ids
-    )
-
+                    [f"comment text {i}" for i in range(num_comments)], # comment_texts
+                    [str(i) for i in range(num_comments)] # comment_ids
+                )
     # Import the module programmatically because its name starts with a number.
     generate_embedding_module = importlib.import_module("500_generate_embedding_umap_cluster")
 
