@@ -19,13 +19,10 @@ def setup_and_teardown(tmp_path, monkeypatch):
     yield
     os.chdir(cwd)
 
-def test_pipeline_flow_with_mocks(tmp_path):
+def test_pipeline_flow_with_full_mocks(tmp_path):
     """
-    Tests the main control flow of the script with mocks.
-    
-    This test verifies that the script calls the main data processing and storage
-    functions without executing the actual ML or database operations. It uses
-    `importlib` and `mock.patch.object` to handle the script's non-standard filename.
+    Tests the main control flow of the script by mocking all external dependencies.
+    This verifies the orchestration logic of the script itself.
     """
     zid = "98765"
     test_args = [
@@ -36,42 +33,58 @@ def test_pipeline_flow_with_mocks(tmp_path):
 
     num_comments = 100
 
-    # Define a valid, predictable return value for the ML processing function
+    # 1. Define a predictable return value for the ML processing step.
     mock_process_comments_return_value = (
         np.random.rand(num_comments, 2),  # document_map
         np.random.rand(num_comments, 32), # document_vectors
         [np.random.randint(0, 5, num_comments) for _ in range(3)], # cluster_layers
-                    [f"comment text {i}" for i in range(num_comments)], # comment_texts
-                    [str(i) for i in range(num_comments)] # comment_ids
-                )
-    # Import the module programmatically because its name starts with a number.
+        [f"comment text {i}" for i in range(num_comments)], # comment_texts
+        [str(i) for i in range(num_comments)] # comment_ids
+    )
+
+    # 2. Import the module to be tested programmatically.
     generate_embedding_module = importlib.import_module("500_generate_embedding_umap_cluster")
 
-    # Patch the objects directly on the imported module object to avoid mock's string parsing issue.
+    # 3. Patch all external dependencies: ML, Data Conversion, and Database Storage.
     with mock.patch.object(generate_embedding_module, 'process_comments', return_value=mock_process_comments_return_value) as mock_process_comments, \
+         mock.patch.object(generate_embedding_module, 'DataConverter') as MockDataConverter, \
          mock.patch.object(generate_embedding_module, 'DynamoDBStorage') as MockDynamoStorage:
         
-        # Configure the mock DynamoDB instance that will be created
+        # Configure the DataConverter mocks to return simple, non-empty data.
+        MockDataConverter.create_conversation_meta.return_value = "mock_meta_model"
+        MockDataConverter.batch_convert_embeddings.return_value = ["mock_embedding_model"]
+        MockDataConverter.batch_convert_umap_edges.return_value = ["mock_edge_model"]
+        MockDataConverter.batch_convert_clusters.return_value = ["mock_cluster_model"]
+        MockDataConverter.batch_convert_topics.return_value = ["mock_topic_model"]
+        MockDataConverter.batch_convert_cluster_characteristics.return_value = ["mock_char_model"]
+        
+        # Configure the DynamoDB mock.
         mock_dynamo_instance = mock.MagicMock()
         MockDynamoStorage.return_value = mock_dynamo_instance
 
-        # Run the main function from the script
+        # 4. Run the main function from the script.
         with mock.patch.object(sys, 'argv', test_args):
             try:
                 generate_embedding_module.main()
             except SystemExit as e:
                 pytest.fail(f"Script exited unexpectedly: {e}")
 
-    # Assert that the main functions were called, confirming the control flow
+    # 5. Assert that the mocked functions were called as expected.
     mock_process_comments.assert_called_once()
-    
-    # Assert that the script attempted to initialize the DynamoDB client
     MockDynamoStorage.assert_called_once()
-    
-    # Assert that the script called the various methods to store data
-    assert mock_dynamo_instance.create_conversation_meta.call_count == 1
-    assert mock_dynamo_instance.batch_create_comment_embeddings.call_count == 1
-    assert mock_dynamo_instance.batch_create_graph_edges.call_count == 1
-    assert mock_dynamo_instance.batch_create_comment_clusters.call_count == 1
-    assert mock_dynamo_instance.batch_create_cluster_topics.call_count == 1
-    assert mock_dynamo_instance.batch_create_cluster_characteristics.call_count > 0
+
+    # Assert that DataConverter methods were called
+    MockDataConverter.create_conversation_meta.assert_called_once()
+    MockDataConverter.batch_convert_embeddings.assert_called_once()
+    MockDataConverter.batch_convert_umap_edges.assert_called_once()
+    MockDataConverter.batch_convert_clusters.assert_called_once()
+    MockDataConverter.batch_convert_topics.assert_called_once()
+    MockDataConverter.batch_convert_cluster_characteristics.assert_called() # Called in a loop
+
+    # Assert that dynamo methods were called with the data from the DataConverter mocks
+    mock_dynamo_instance.create_conversation_meta.assert_called_with("mock_meta_model")
+    mock_dynamo_instance.batch_create_comment_embeddings.assert_called_with(["mock_embedding_model"])
+    mock_dynamo_instance.batch_create_graph_edges.assert_called_with(["mock_edge_model"])
+    mock_dynamo_instance.batch_create_comment_clusters.assert_called_with(["mock_cluster_model"])
+    mock_dynamo_instance.batch_create_topics.assert_called_with(["mock_topic_model"])
+    mock_dynamo_instance.batch_create_cluster_characteristics.assert_called_with(["mock_char_model"])
