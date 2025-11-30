@@ -91,7 +91,7 @@ jobs:
             python create_dynamodb_tables.py --region us-east-1; \
             echo '--- Running Pytest ---'; \
             export PYTHONPATH=\$PYTHONPATH:/app; \
-            pytest --cov=polismath --cov=run_math_pipeline --cov=umap_narrative/run_pipeline.py --cov=umap_narrative/500_generate_embedding_umap_cluster.py --cov-report=xml:/app/coverage.xml /app/tests --ignore=/app/tests/test_pakistan_conversation.py
+            pytest --cov=polismath --cov=run_math_pipeline --cov=./umap_narrative --cov-report=xml:/app/coverage.xml /app/tests --ignore=/app/tests/test_pakistan_conversation.py
             echo '--- Generating Coverage Comment Text ---'; \
             python /app/generate_coverage_md.py > /app/coverage-comment.md \
           "
