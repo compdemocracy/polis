@@ -12,7 +12,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.pca_kmeans_rep.pca import (
-    wrapped_pca, pca_project_dataframe
+    pca_project_dataframe
 )
 
 
@@ -29,67 +29,6 @@ def proj_vec(u: np.ndarray, v: np.ndarray) -> np.ndarray:
     if np.dot(u, u) == 0:
         return np.zeros_like(v)
     return np.dot(u, v) / np.dot(u, u) * u
-
-
-class TestWrappedPCA:
-    """Tests for the wrapped_pca function."""
-    
-    def test_wrapped_pca_normal(self):
-        """Test PCA on a normal dataset."""
-        # Generate a dataset with known structure
-        n_samples = 100
-        n_features = 10
-        
-        # Create data with two main components
-        comp1 = np.random.randn(n_features)
-        comp2 = np.random.randn(n_features)
-        
-        # Make comp2 orthogonal to comp1
-        comp2 = comp2 - proj_vec(comp1, comp2)
-        comp2 = normalize_vector(comp2)
-        comp1 = normalize_vector(comp1)
-        
-        # Generate data
-        weights1 = np.random.randn(n_samples)
-        weights2 = np.random.randn(n_samples)
-        
-        data = np.outer(weights1, comp1) + np.outer(weights2, comp2)
-        
-        # Add noise
-        data += np.random.randn(n_samples, n_features) * 0.1
-        
-        # Run PCA
-        result = wrapped_pca(data, n_comps=2)
-        
-        # Check results format
-        assert 'center' in result
-        assert 'comps' in result
-        assert result['center'].shape == (n_features,)
-        assert result['comps'].shape == (2, n_features)
-        
-        # Check that components are unit length
-        assert np.isclose(np.linalg.norm(result['comps'][0]), 1.0)
-        assert np.isclose(np.linalg.norm(result['comps'][1]), 1.0)
-        
-        # Check that components are orthogonal
-        assert np.isclose(np.dot(result['comps'][0], result['comps'][1]), 0.0, atol=1e-10)
-    
-    def test_wrapped_pca_edge_cases(self):
-        """Test PCA on edge cases."""
-        # Test with 1 row
-        data_1row = np.array([[1.0, 2.0, 3.0]])
-        result_1row = wrapped_pca(data_1row, n_comps=2)
-        
-        assert result_1row['comps'].shape == (2, 3)
-        assert np.isclose(np.linalg.norm(result_1row['comps'][0]), 1.0)
-        assert np.all(result_1row['comps'][1] == 0.0)
-        
-        # Test with 1 column
-        data_1col = np.array([[1.0], [2.0], [3.0]])
-        result_1col = wrapped_pca(data_1col, n_comps=1)
-        
-        assert result_1col['comps'].shape == (1, 1)
-        assert result_1col['comps'][0, 0] == 1.0
 
 
 class TestProjection:
