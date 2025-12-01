@@ -38,6 +38,9 @@ class ConversationComparer:
         self.ignore_pca_sign_flip = ignore_pca_sign_flip
         self.all_differences = []  # Collect all differences for detailed reporting
         self.sign_flip_warnings = []  # Collect sign flip warnings when ignore_pca_sign_flip is True
+        self.pca_component_flips = {}  # Track which PCA component indices are flipped per stage
+        self.pca_component_stats = {}  # Track max abs/rel diff per PCA component
+        self.projection_stats = {}  # Track aggregated max abs/rel diff across all projections per stage
 
     def compare_with_golden(self, dataset_name: str, benchmark: bool = True) -> Dict:
         """
@@ -53,6 +56,9 @@ class ConversationComparer:
         # Reset differences collection for this comparison
         self.all_differences = []
         self.sign_flip_warnings = []
+        self.pca_component_flips = {}
+        self.pca_component_stats = {}
+        self.projection_stats = {}
 
         # Load golden snapshot using shared function
         try:
@@ -347,6 +353,30 @@ class ConversationComparer:
                 logger.warning(f"       Path: {warning['path']}")
             logger.info("")
 
+        # Log PCA component and projection stats if available
+        if self.pca_component_stats or self.projection_stats:
+            import numpy as np
+            logger.info("PCA numerical accuracy (max diff after sign flip correction):")
+            for stage_name in sorted(set(self.pca_component_stats.keys()) | set(self.projection_stats.keys())):
+                logger.info(f"  Stage: {stage_name}")
+                # Report per-component stats
+                if stage_name in self.pca_component_stats:
+                    flipped_indices = self.pca_component_flips.get(stage_name, set())
+                    for comp_idx, stats in sorted(self.pca_component_stats[stage_name].items()):
+                        flip_marker = " (flipped)" if comp_idx in flipped_indices else ""
+                        logger.info(f"    PCA component {comp_idx}{flip_marker}: "
+                                  f"max_abs={stats['max_abs_diff']:.2e}, max_rel={stats['max_rel_diff']:.2%}")
+                # Report aggregated projection stats with percentiles
+                if stage_name in self.projection_stats:
+                    stats = self.projection_stats[stage_name]
+                    # Compute 95th percentile
+                    abs_p95 = np.percentile(stats["all_abs_diffs"], 95) if stats["all_abs_diffs"] else 0.0
+                    rel_p95 = np.percentile(stats["all_rel_diffs"], 95) if stats["all_rel_diffs"] else 0.0
+                    logger.info(f"    Projections (all): "
+                              f"max_abs={stats['max_abs_diff']:.2e}, max_rel={stats['max_rel_diff']:.2%}, "
+                              f"p95_abs={abs_p95:.2e}, p95_rel={rel_p95:.2%}")
+            logger.info("")
+
         # Only print speed comparison if benchmarking is enabled
         if benchmark:
             logger.info("Speed comparison:")
@@ -545,18 +575,31 @@ class ConversationComparer:
             else:
                 min_len = len(golden)
 
-            # For PCA-related paths, check for sign flips and scaling before element-by-element comparison
+            # For PCA component paths, check for sign flips and scaling before element-by-element comparison
             # Track if we need to use flipped values for comparison
             use_flipped_current = False
-            if min_len == len(golden) and len(golden) > 0 and self._is_pca_related_path(path):
-                # Check for sign flip (if enabled)
+            component_index = None
+            is_pca_component = ".pca.comps" in path
+            is_projection = self._is_projection_path(path)
+
+            if min_len == len(golden) and len(golden) > 0 and is_pca_component:
+                # Extract component index for PCA comps paths (e.g., ".pca.comps[0]" -> 0)
+                component_index = self._extract_pca_component_index(path)
+
+                # Check for sign flip (if enabled) - only for PCA components, not projections
                 if self.ignore_pca_sign_flip:
                     sign_flip_result = self._check_sign_flip(golden, current, path, stage_name)
                     if sign_flip_result["detected"]:
                         use_flipped_current = True
-                        # Continue to element-by-element comparison with flipped values
+                        # Track which component is flipped for this stage
+                        # pca_component_flips is indexed by stage_name because each stage
+                        # has its own PCA computation and we need to track flips per stage
+                        if component_index is not None:
+                            if stage_name not in self.pca_component_flips:
+                                self.pca_component_flips[stage_name] = set()
+                            self.pca_component_flips[stage_name].add(component_index)
 
-                # Check for scaling factor (always check for PCA paths to provide better error messages)
+                # Check for scaling factor (always check for PCA component paths to provide better error messages)
                 # Use flipped current if sign flip was detected
                 check_current = [-c for c in current] if use_flipped_current else current
                 scaling_factor = self._detect_scaling_factor(golden, check_current)
@@ -578,10 +621,32 @@ class ConversationComparer:
                         "reason": reason
                     }
 
+                # Compute and track max abs/rel diff for this PCA component
+                self._track_pca_stats(golden, check_current, path, stage_name, component_index)
+
+            # For cluster centers and projections, apply sign flip correction based on detected PCA component flips
+            # This is done when comparing group_clusters[i].center, base_clusters[i].center, or proj.N
+            corrected_current = None
+            if min_len == len(golden) and len(golden) > 0 and self.ignore_pca_sign_flip:
+                if self._is_cluster_center_path(path) or is_projection:
+                    corrected_current = self._apply_sign_flip_to_center(current, stage_name)
+                    if corrected_current != list(current):
+                        logger.debug(f"Applied sign flip correction at {path}")
+
+                    # Track projection stats after sign flip correction
+                    if is_projection:
+                        self._track_pca_stats(golden, corrected_current, path, stage_name, None)
+
             # Do element-by-element comparison
             for i in range(min_len):
-                # Use flipped current value if sign flip was detected
-                current_val = -current[i] if use_flipped_current else current[i]
+                # Use flipped current value if sign flip was detected for PCA paths
+                # Use corrected current for cluster centers
+                if use_flipped_current:
+                    current_val = -current[i]
+                elif corrected_current is not None:
+                    current_val = corrected_current[i]
+                else:
+                    current_val = current[i]
                 result = self._compare_dicts(
                     golden[i],
                     current_val,
@@ -742,6 +807,150 @@ class ConversationComparer:
             return True
 
         return False
+
+    def _is_cluster_center_path(self, path: str) -> bool:
+        """
+        Check if a path corresponds to a cluster center that needs sign flip correction.
+
+        Args:
+            path: The path in the data structure (e.g., "after_clustering.group_clusters[0].center")
+
+        Returns:
+            True if this is a cluster center field
+        """
+        # Match paths like "stage.group_clusters[0].center" or "stage.base_clusters[0].center"
+        # but NOT the nested elements like "stage.group_clusters[0].center[0]"
+        if (".group_clusters[" in path or ".base_clusters[" in path or
+            ".group-clusters[" in path or ".base-clusters[" in path):
+            if path.endswith(".center"):
+                return True
+        return False
+
+    def _is_projection_path(self, path: str) -> bool:
+        """
+        Check if a path corresponds to a projection that needs sign flip correction.
+
+        Args:
+            path: The path in the data structure (e.g., "after_pca.proj.0", "after_clustering.proj.123")
+
+        Returns:
+            True if this is a projection field (but not a sub-element like proj.0[0])
+        """
+        import re
+        # Match paths like "stage.proj.0" or "stage.proj.123" but NOT "stage.proj.0[0]"
+        if ".proj." in path:
+            # Check that it ends with just a number (the participant id)
+            match = re.search(r'\.proj\.(\d+)$', path)
+            if match:
+                return True
+        return False
+
+    def _apply_sign_flip_to_center(self, center: list, stage_name: str) -> list:
+        """
+        Apply sign flips to cluster center coordinates based on detected PCA component flips.
+
+        Args:
+            center: List of center coordinates [x, y, ...]
+            stage_name: Name of the stage to look up flips for
+
+        Returns:
+            New list with appropriate coordinates sign-flipped
+        """
+        if stage_name not in self.pca_component_flips:
+            return center
+
+        flipped_indices = self.pca_component_flips[stage_name]
+        result = list(center)
+        for idx in flipped_indices:
+            if idx < len(result):
+                result[idx] = -result[idx]
+        return result
+
+    def _extract_pca_component_index(self, path: str) -> int | None:
+        """
+        Extract the PCA component index from a path.
+
+        Args:
+            path: The path in the data structure (e.g., "after_pca.pca.comps[0]", "after_pca.proj.1")
+
+        Returns:
+            Component index (0, 1, ...) or None if not a PCA component path
+        """
+        import re
+
+        # Match PCA component paths like "after_pca.pca.comps[0]"
+        match = re.search(r'\.pca\.comps\[(\d+)\]$', path)
+        if match:
+            return int(match.group(1))
+
+        return None
+
+    def _track_pca_stats(self, golden: list, current: list, path: str, stage_name: str, component_index: int | None) -> None:
+        """
+        Track max abs/rel diff statistics for PCA components and projections.
+
+        For PCA components: stores stats per component index
+        For projections: aggregates stats across all projections for the stage
+
+        Args:
+            golden: Golden list values
+            current: Current list values (already sign-flipped if needed)
+            path: The path in the data structure
+            stage_name: Name of the stage being compared
+            component_index: PCA component index (0, 1, ...) or None for projections
+        """
+        import numpy as np
+
+        # Check if all elements are numeric
+        def is_numeric(val):
+            return isinstance(val, (int, float, np.integer, np.floating))
+
+        if not all(is_numeric(g) and is_numeric(c) for g, c in zip(golden, current)):
+            return
+
+        # Compute abs and rel errors
+        golden_array = np.array([float(g) for g in golden])
+        current_array = np.array([float(c) for c in current])
+
+        abs_errors = np.abs(golden_array - current_array)
+        max_abs_error = float(np.max(abs_errors))
+
+        # Compute relative errors (avoid division by zero)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            rel_errors = abs_errors / np.abs(golden_array)
+            rel_errors = np.where(np.isfinite(rel_errors), rel_errors, 0)
+        max_rel_error = float(np.max(rel_errors))
+
+        # Determine if this is a PCA component or projection
+        if ".pca.comps" in path and component_index is not None:
+            # PCA component - track per component
+            if stage_name not in self.pca_component_stats:
+                self.pca_component_stats[stage_name] = {}
+            self.pca_component_stats[stage_name][component_index] = {
+                "max_abs_diff": max_abs_error,
+                "max_rel_diff": max_rel_error
+            }
+        elif ".proj." in path:
+            # Projection - aggregate across all projections
+            if stage_name not in self.projection_stats:
+                self.projection_stats[stage_name] = {
+                    "max_abs_diff": 0.0,
+                    "max_rel_diff": 0.0,
+                    "all_abs_diffs": [],
+                    "all_rel_diffs": []
+                }
+            # Update with max
+            self.projection_stats[stage_name]["max_abs_diff"] = max(
+                self.projection_stats[stage_name]["max_abs_diff"],
+                max_abs_error
+            )
+            self.projection_stats[stage_name]["max_rel_diff"] = max(
+                self.projection_stats[stage_name]["max_rel_diff"],
+                max_rel_error
+            )
+            # Collect all errors for percentile computation
+            self.projection_stats[stage_name]["all_abs_diffs"].extend(abs_errors.tolist())
+            self.projection_stats[stage_name]["all_rel_diffs"].extend(rel_errors.tolist())
 
     def _check_sign_flip(self, golden: list, current: list, path: str, stage_name: str) -> dict:
         """
@@ -958,6 +1167,31 @@ class ConversationComparer:
                         f.write("\n")
 
                 f.write("\n")
+
+            # Write PCA component and projection stats if available
+            if self.pca_component_stats or self.projection_stats:
+                import numpy as np
+                f.write("-" * 80 + "\n")
+                f.write("PCA NUMERICAL ACCURACY (max diff after sign flip correction)\n\n")
+
+                for stage_name in sorted(set(self.pca_component_stats.keys()) | set(self.projection_stats.keys())):
+                    f.write(f"Stage: {stage_name}\n")
+                    # Report per-component stats
+                    if stage_name in self.pca_component_stats:
+                        flipped_indices = self.pca_component_flips.get(stage_name, set())
+                        for comp_idx, stats in sorted(self.pca_component_stats[stage_name].items()):
+                            flip_marker = " (flipped)" if comp_idx in flipped_indices else ""
+                            f.write(f"  PCA component {comp_idx}{flip_marker}: "
+                                  f"max_abs={stats['max_abs_diff']:.2e}, max_rel={stats['max_rel_diff']:.2%}\n")
+                    # Report aggregated projection stats with percentiles
+                    if stage_name in self.projection_stats:
+                        stats = self.projection_stats[stage_name]
+                        abs_p95 = np.percentile(stats["all_abs_diffs"], 95) if stats["all_abs_diffs"] else 0.0
+                        rel_p95 = np.percentile(stats["all_rel_diffs"], 95) if stats["all_rel_diffs"] else 0.0
+                        f.write(f"  Projections (all): "
+                              f"max_abs={stats['max_abs_diff']:.2e}, max_rel={stats['max_rel_diff']:.2%}, "
+                              f"p95_abs={abs_p95:.2e}, p95_rel={rel_p95:.2%}\n")
+                    f.write("\n")
 
             f.write("=" * 80 + "\n")
             f.write("END OF LOG\n")
