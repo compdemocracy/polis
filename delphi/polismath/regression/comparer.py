@@ -546,18 +546,25 @@ class ConversationComparer:
                 min_len = len(golden)
 
             # For PCA-related paths, check for sign flips and scaling before element-by-element comparison
+            # Track if we need to use flipped values for comparison
+            use_flipped_current = False
             if min_len == len(golden) and len(golden) > 0 and self._is_pca_related_path(path):
                 # Check for sign flip (if enabled)
                 if self.ignore_pca_sign_flip:
-                    sign_flip_detected = self._check_sign_flip(golden, current, path, stage_name)
-                    if sign_flip_detected:
-                        return {"match": True, "path": path, "note": "Sign flip detected but ignored"}
+                    sign_flip_result = self._check_sign_flip(golden, current, path, stage_name)
+                    if sign_flip_result["detected"]:
+                        use_flipped_current = True
+                        # Continue to element-by-element comparison with flipped values
 
                 # Check for scaling factor (always check for PCA paths to provide better error messages)
-                scaling_factor = self._detect_scaling_factor(golden, current)
+                # Use flipped current if sign flip was detected
+                check_current = [-c for c in current] if use_flipped_current else current
+                scaling_factor = self._detect_scaling_factor(golden, check_current)
                 if scaling_factor is not None and abs(scaling_factor - 1.0) > 0.01:
                     # Scaling factor detected and it's not approximately 1.0
                     reason = f"PCA scaling mismatch: values differ by constant factor {scaling_factor:.6f}"
+                    if use_flipped_current:
+                        reason += " (after sign flip correction)"
                     # Record this difference
                     self.all_differences.append({
                         "stage_name": stage_name,
@@ -573,9 +580,11 @@ class ConversationComparer:
 
             # Do element-by-element comparison
             for i in range(min_len):
+                # Use flipped current value if sign flip was detected
+                current_val = -current[i] if use_flipped_current else current[i]
                 result = self._compare_dicts(
                     golden[i],
-                    current[i],
+                    current_val,
                     f"{path}[{i}]",
                     stage_name=stage_name
                 )
@@ -734,7 +743,7 @@ class ConversationComparer:
 
         return False
 
-    def _check_sign_flip(self, golden: list, current: list, path: str, stage_name: str) -> bool:
+    def _check_sign_flip(self, golden: list, current: list, path: str, stage_name: str) -> dict:
         """
         Check if two lists are equal up to a sign flip (multiplication by -1).
 
@@ -747,20 +756,25 @@ class ConversationComparer:
             stage_name: Name of the stage being compared (for logging)
 
         Returns:
-            True if sign flip detected, False otherwise
+            Dictionary with:
+                - detected: True if sign flip detected, False otherwise
+                - max_abs_error: Maximum absolute error after flip correction (if detected)
+                - max_rel_error: Maximum relative error after flip correction (if detected)
         """
         import numpy as np
 
+        result = {"detected": False, "max_abs_error": None, "max_rel_error": None}
+
         # Lists must be same length
         if len(golden) != len(current):
-            return False
+            return result
 
         # Check if all elements are numeric
         def is_numeric(val):
             return isinstance(val, (int, float, np.integer, np.floating))
 
         if not all(is_numeric(g) and is_numeric(c) for g, c in zip(golden, current)):
-            return False
+            return result
 
         # Convert to numpy arrays for easier comparison
         golden_array = np.array([float(g) for g in golden])
@@ -769,21 +783,44 @@ class ConversationComparer:
         # Check if arrays are equal (with tolerance)
         if np.allclose(golden_array, current_array, rtol=self.rel_tol, atol=self.abs_tol):
             # Already equal, not a sign flip
-            return False
+            return result
 
-        # Check if arrays are equal when one is negated
-        if np.allclose(golden_array, -current_array, rtol=self.rel_tol, atol=self.abs_tol):
-            # Sign flip detected!
-            warning_msg = f"PCA sign flip detected at {path} in stage {stage_name}"
+        # Check if flipped version matches (with tolerance)
+        flipped_matches = np.allclose(golden_array, -current_array, rtol=self.rel_tol, atol=self.abs_tol)
+
+        # Compute errors for both original and flipped
+        original_abs_errors = np.abs(golden_array - current_array)
+        flipped_abs_errors = np.abs(golden_array - (-current_array))
+
+        # Detect sign flip if: flipped passes tolerance OR flipped is closer than original
+        if flipped_matches or np.max(flipped_abs_errors) < np.max(original_abs_errors):
+            # Flipped version is better - sign flip detected!
+            max_abs_error = float(np.max(flipped_abs_errors))
+
+            # Compute relative error (avoid division by zero)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                rel_errors = flipped_abs_errors / np.abs(golden_array)
+                rel_errors = np.where(np.isfinite(rel_errors), rel_errors, 0)
+            max_rel_error = float(np.max(rel_errors))
+
+            warning_msg = (
+                f"PCA sign flip detected at {path} in stage {stage_name} "
+                f"(max residual after flip: abs={max_abs_error:.2e}, rel={max_rel_error:.2%})"
+            )
             logger.debug(warning_msg)
             self.sign_flip_warnings.append({
                 "stage_name": stage_name,
                 "path": path,
-                "message": warning_msg
+                "message": warning_msg,
+                "max_abs_error": max_abs_error,
+                "max_rel_error": max_rel_error
             })
-            return True
 
-        return False
+            result["detected"] = True
+            result["max_abs_error"] = max_abs_error
+            result["max_rel_error"] = max_rel_error
+
+        return result
 
     def _detect_scaling_factor(self, golden: list, current: list) -> float | None:
         """
@@ -909,11 +946,16 @@ class ConversationComparer:
                 f.write("-" * 80 + "\n")
                 f.write("WARNING: PCA SIGN FLIPS DETECTED\n")
                 f.write(f"Total sign flips: {len(self.sign_flip_warnings)}\n")
-                f.write("(These were ignored due to ignore_pca_sign_flip=True)\n\n")
+                f.write("(These were corrected due to ignore_pca_sign_flip=True)\n\n")
 
                 for i, warning in enumerate(self.sign_flip_warnings):
                     f.write(f"  {i+1}. Stage: {warning['stage_name']}\n")
                     f.write(f"     Path: {warning['path']}\n")
+                    if 'max_abs_error' in warning and warning['max_abs_error'] is not None:
+                        f.write(f"     Residual after flip: abs={warning['max_abs_error']:.2e}")
+                        if 'max_rel_error' in warning and warning['max_rel_error'] is not None:
+                            f.write(f", rel={warning['max_rel_error']:.2%}")
+                        f.write("\n")
 
                 f.write("\n")
 
