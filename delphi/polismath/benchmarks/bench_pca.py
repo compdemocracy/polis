@@ -27,7 +27,6 @@ from polismath.conversation import Conversation
 from polismath.pca_kmeans_rep.pca import (
     pca_project_dataframe,
     wrapped_pca,
-    sparsity_aware_project_ptpts,
 )
 
 
@@ -150,7 +149,6 @@ def profile_pca(votes_csv: Path) -> None:
     profiler = LineProfiler()
     profiler.add_function(pca_project_dataframe)
     profiler.add_function(wrapped_pca)
-    profiler.add_function(sparsity_aware_project_ptpts)
 
     # Run profiled
     print("Running pca_project_dataframe with line profiler...")
