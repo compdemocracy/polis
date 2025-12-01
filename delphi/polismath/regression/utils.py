@@ -289,14 +289,11 @@ def load_golden_snapshot(dataset_name: str, golden_dir: Optional[Path] = None) -
         Tuple of (golden_snapshot_dict, golden_path) or (None, path) if not found
     """
     if golden_dir is None:
-        # Check if dataset is configured
-        from polismath.regression.datasets import get_dataset_files, list_available_datasets
-
-        available_datasets = list_available_datasets()
-        if dataset_name not in available_datasets:
-            raise ValueError(f"Unknown dataset: {dataset_name}. Available datasets: {', '.join(available_datasets.keys())}")
-
         # Get the dataset directory from dataset_config
+        # get_dataset_files() will handle dataset discovery (including local datasets) and raise
+        # a proper error if the dataset doesn't exist
+        from polismath.regression.datasets import get_dataset_files
+
         dataset_files = get_dataset_files(dataset_name)
         dataset_dir = Path(dataset_files['data_dir'])
         golden_dir = dataset_dir

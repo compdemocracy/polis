@@ -216,6 +216,7 @@ bandit-report.json
 
 # Local datasets (confidential or too large to commit)
 real_data/.local/
+!real_data/.local/.gitkeep
 
 # Generated dependency files (can be recreated from pyproject.toml)
 requirements-prod.txt

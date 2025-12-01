@@ -5,12 +5,18 @@ Script to download real test data from Polis exports for delphi tests.
 This script downloads data from a running Polis instance:
 1. Downloads CSV exports (comments, votes, summary) from the report endpoint
    - Requires: Polis web server running (default: http://localhost)
+   - Use --base-url to specify a different instance (e.g., --base-url https://pol.is for production)
 2. Extracts the math blob JSON from the Postgres database
+   - Requires: DATABASE_URL environment variable set to a valid Postgres connection string
    - Requires: Postgres database with the reports and math_main table populated
    - Note: Math blobs may not be available if the database is not accessible or
      if the Clojure math computation hasn't run for the given report
 3. Saves all files to real_data/.local/<report_id>-<name>/ by default
    (use --commit to save to real_data/ for committed datasets)
+
+Requirements:
+    - DATABASE_URL environment variable must be set (e.g., postgres://user:pass@host:port/dbname)
+    - Polis web server accessible (default: http://localhost, use --base-url for other instances)
 
 Usage:
     # Download a new dataset (saves to .local/ by default)
@@ -18,6 +24,9 @@ Usage:
 
     # Download to committed location (for public datasets)
     python regression_download.py rexample1234 myconvo --commit
+
+    # Download from production (https://pol.is)
+    python regression_download.py rexample1234 myconvo --base-url https://pol.is
 
     # Force re-download all configured datasets
     python regression_download.py --force
@@ -29,6 +38,7 @@ Examples:
     python regression_download.py rexample1234 myconvo          # Downloads to .local/
     python regression_download.py rexample1234 myconvo --commit # Downloads to real_data/
     python regression_download.py --datasets vw                 # Downloads configured dataset
+    python regression_download.py rexample1234 myconvo --base-url https://pol.is  # From production
 """
 
 import json
@@ -36,10 +46,8 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 from dotenv import load_dotenv
-
-load_dotenv(Path(__file__).parent.parent.parent / '.env')
 
 import click
 import psycopg2
@@ -48,12 +56,21 @@ from tqdm import tqdm
 
 from polismath.regression import list_available_datasets, get_dataset_report_id
 
+# Load .env from polis/ parent directory (script is at polis/delphi/scripts/regression_download.py)
+# Need to go up 3 levels: scripts/ -> delphi/ -> polis/
+load_dotenv(Path(__file__).parent.parent.parent / '.env')
+
 
 def get_db_connection():
     """Create a connection to the Postgres database using environment variables."""
     # These will be automatically loaded from .env by pyauto-dotenv when running from delphi directory
     # Try to use DATABASE_URL first (connection string), fall back to individual parameters
     database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        raise ValueError(
+            "DATABASE_URL environment variable is not set. "
+            "Please set it to a valid Postgres connection string (e.g., postgres://user:pass@host:port/dbname)"
+        )
     return psycopg2.connect(database_url)
 
     # TODO: Uncomment once sorted the difference between env var names between delphi and rest of polis
@@ -363,10 +380,25 @@ def main(report_id: Optional[str], dataset_name: Optional[str], datasets: tuple,
         python regression_download.py --force
 
         \b
-        # Specify custom base URL
-        python regression_download.py --base-url http://localhost:5000
+        # Download from production Polis instance
+        python regression_download.py rexample1234 myconvo --base-url https://pol.is
+
+        \b
+        # Specify custom base URL (e.g., local dev server on different port)
+        python regression_download.py rexample1234 myconvo --base-url http://localhost:5000
     """
-    # Get the delphi directory (parent of tests directory where this script lives)
+    # Check for required DATABASE_URL environment variable
+    database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        click.echo("Error: DATABASE_URL environment variable is required", err=True)
+        click.echo("\nThe DATABASE_URL must be set to a valid Postgres connection string.", err=True)
+        click.echo("Example: postgres://user:password@localhost:5432/dbname", err=True)
+        click.echo("\nYou can set it in your .env file or export it before running:", err=True)
+        click.echo("  export DATABASE_URL='postgres://user:pass@host:port/dbname'", err=True)
+        click.echo("  python scripts/regression_download.py ...", err=True)
+        raise click.Abort()
+
+    # Get the delphi directory (script is at delphi/scripts/regression_download.py)
     delphi_dir = Path(__file__).parent.parent
 
     # Determine base directory: .local/ by default, real_data/ with --commit
@@ -522,6 +554,8 @@ def _offer_golden_snapshot_creation(download_items: list, rid_to_name: dict,
         from polismath.regression import ConversationRecorder
         recorder = ConversationRecorder()
 
+        successful = []
+        failed = []
         for ds_name in missing_golden:
             click.echo(f"\n{'='*60}")
             click.echo(f"Recording golden snapshot for: {ds_name}")
@@ -529,10 +563,17 @@ def _offer_golden_snapshot_creation(download_items: list, rid_to_name: dict,
             try:
                 recorder.record_golden(ds_name, force=False, benchmark=True)
                 click.echo(f"✓ Created golden snapshot for {ds_name}")
+                successful.append(ds_name)
             except Exception as e:
                 click.echo(f"✗ Failed to create golden snapshot for {ds_name}: {e}", err=True)
+                failed.append(ds_name)
 
-        click.echo("\n✓ Golden snapshot creation complete!")
+        if successful and not failed:
+            click.echo("\n✓ Golden snapshot creation complete!")
+        elif successful:
+            click.echo(f"\n⚠️  Golden snapshot creation partially complete: {len(successful)} succeeded, {len(failed)} failed")
+        else:
+            click.echo("\n✗ Golden snapshot creation failed for all datasets", err=True)
 
 
 if __name__ == '__main__':
