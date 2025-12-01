@@ -9,62 +9,6 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Tuple, Union, Any
 
-
-def _normalize_vector(v: np.ndarray) -> np.ndarray:
-    """Normalize a vector to unit length."""
-    norm = np.linalg.norm(v)
-    if norm == 0:
-        return v
-    return v / norm
-
-
-def wrapped_pca(data: np.ndarray, 
-               n_comps: int,
-               iters: int = 100):
-    """
-    Wrapper for PCA that handles edge cases.
-    
-    Args:
-        data: Data matrix
-        n_comps: Number of components to find
-        iters: Maximum number of iterations
-   
-    Returns:
-        Dictionary with 'center' and 'comps' keys
-    """
-
-    n_rows, n_cols = data.shape
-   
-    # Handle edge case: 1 row
-    if n_rows == 1:
-        return {
-            'center': np.zeros(n_comps),
-            'comps': np.vstack([_normalize_vector(data[0])] + [np.zeros(n_cols)] * (n_comps - 1))
-        }
-    
-    # Handle edge case: 1 column
-    if n_cols == 1:
-        return {
-            'center': np.array([0]),
-            'comps': np.array([[1]])
-        }
-   
-    from sklearn.decomposition import PCA
-
-    center = np.mean(data, axis=0)
-    cntrd_data = data - center
-
-    pca = PCA(n_components=n_comps)
-    projections = pca.fit_transform(cntrd_data)
-    projections = np.ascontiguousarray(projections)
-
-    return {
-        'center': center,
-        'comps': pca.components_,
-        'projections': projections
-    }
-
-
 def pca_project_dataframe(df: pd.DataFrame,
                          n_comps: int = 2) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """
@@ -129,7 +73,20 @@ def pca_project_dataframe(df: pd.DataFrame,
     # Perform PCA with error handling
     # TODO(julien): use function that compute projections and PCAs in one pass.
     try:
-        pca_results = wrapped_pca(matrix_data_no_nan, n_comps)
+        from sklearn.decomposition import PCA
+
+        center = np.mean(matrix_data_no_nan, axis=0)
+        cntrd_data = matrix_data_no_nan - center
+
+        pca = PCA(n_components=n_comps)
+        projections = pca.fit_transform(cntrd_data)
+        projections = np.ascontiguousarray(projections)
+
+        pca_results = {
+            'center': center,
+            'comps': pca.components_
+        }
+
     except Exception as e:
         print(f"Error in PCA computation: {e}")
         # Create fallback PCA results
@@ -142,9 +99,6 @@ def pca_project_dataframe(df: pd.DataFrame,
     # by dividing every projection by the square root of the proportion
     # of comments that participant has been shown (including skipped comments).
     try:
-        # Get the projections computed above
-        projections = pca_results['projections']
-
         # Divide projections by proportion of comments seen
         n_cmnts = matrix_data.shape[1]
         n_seen = np.sum(~np.isnan(matrix_data), axis=1)  # Count non-NaN votes per participant
