@@ -24,10 +24,7 @@ from polismath.benchmarks.benchmark_utils import (
     runs_option,
 )
 from polismath.conversation import Conversation
-from polismath.pca_kmeans_rep.pca import (
-    pca_project_dataframe,
-    wrapped_pca,
-)
+from polismath.pca_kmeans_rep.pca import pca_project_dataframe
 
 
 profile_option = click.option(
@@ -148,7 +145,6 @@ def profile_pca(votes_csv: Path) -> None:
     # Setup line profiler
     profiler = LineProfiler()
     profiler.add_function(pca_project_dataframe)
-    profiler.add_function(wrapped_pca)
 
     # Run profiled
     print("Running pca_project_dataframe with line profiler...")
