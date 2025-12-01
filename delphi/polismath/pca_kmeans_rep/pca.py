@@ -20,8 +20,7 @@ def _normalize_vector(v: np.ndarray) -> np.ndarray:
 
 def wrapped_pca(data: np.ndarray, 
                n_comps: int,
-               iters: int = 100,
-               start_vectors: Optional[List[np.ndarray]] = None) -> Dict[str, np.ndarray]:
+               iters: int = 100):
     """
     Wrapper for PCA that handles edge cases.
     
@@ -29,14 +28,10 @@ def wrapped_pca(data: np.ndarray,
         data: Data matrix
         n_comps: Number of components to find
         iters: Maximum number of iterations
-        start_vectors: Initial vectors for warm start
    
     Returns:
         Dictionary with 'center' and 'comps' keys
     """
-
-    # TODO(julien): observing that we do not seem to have *any* instance of
-    # being called with start_vectors, we can probably remove that argument.
 
     n_rows, n_cols = data.shape
    
@@ -54,10 +49,6 @@ def wrapped_pca(data: np.ndarray,
             'comps': np.array([[1]])
         }
    
-    # Filter out zero vectors from start_vectors
-    if start_vectors is not None:
-        start_vectors = [v if not np.all(v == 0) else None for v in start_vectors]
-
     from sklearn.decomposition import PCA
 
     center = np.mean(data, axis=0)
