@@ -12,8 +12,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.pca_kmeans_rep.pca import (
-    wrapped_pca, sparsity_aware_project_ptpt,
-    sparsity_aware_project_ptpts, pca_project_dataframe
+    wrapped_pca, pca_project_dataframe
 )
 
 
@@ -95,58 +94,7 @@ class TestWrappedPCA:
 
 class TestProjection:
     """Tests for the projection functions."""
-    
-    def test_sparsity_aware_project_ptpt(self):
-        """Test projecting a single participant with missing votes."""
-        # Create a simple PCA result
-        center = np.array([0.0, 0.0, 0.0])
-        comps = np.array([
-            [1.0, 0.0, 0.0],  # First component along first dimension
-            [0.0, 1.0, 0.0]   # Second component along second dimension
-        ])
-        pca_results = {'center': center, 'comps': comps}
-        
-        # Test with complete votes
-        votes = [1.0, 2.0, 3.0]
-        proj = sparsity_aware_project_ptpt(votes, pca_results)
-        
-        assert proj.shape == (2,)
-        assert np.isclose(proj[0], 1.0)  # Projection on first component
-        assert np.isclose(proj[1], 2.0)  # Projection on second component
-        
-        # Test with missing votes
-        votes_sparse = [1.0, None, 3.0]
-        proj_sparse = sparsity_aware_project_ptpt(votes_sparse, pca_results)
-        
-        assert proj_sparse.shape == (2,)
-        # The scaling factor should be sqrt(3/2) for 2 out of 3 votes
-        scaling = np.sqrt(3.0/2.0)
-        assert np.isclose(proj_sparse[0], 1.0 * scaling)
-    
-    def test_sparsity_aware_project_ptpts(self):
-        """Test projecting multiple participants."""
-        # Create a simple PCA result
-        center = np.array([0.0, 0.0])
-        comps = np.array([
-            [1.0, 0.0],  # First component along first dimension
-            [0.0, 1.0]   # Second component along second dimension
-        ])
-        pca_results = {'center': center, 'comps': comps}
-        
-        # Test with multiple participants
-        vote_matrix = np.array([
-            [1.0, 2.0],
-            [3.0, 4.0],
-            [5.0, 6.0]
-        ])
-        
-        projections = sparsity_aware_project_ptpts(vote_matrix, pca_results)
-        
-        assert projections.shape == (3, 2)
-        assert np.allclose(projections[0], [1.0, 2.0])
-        assert np.allclose(projections[1], [3.0, 4.0])
-        assert np.allclose(projections[2], [5.0, 6.0])
-    
+  
     def test_pca_project_dataframe(self):
         """Test PCA projection of a DataFrame."""
         # Create a DataFrame
@@ -173,89 +121,6 @@ class TestProjection:
         assert set(proj_dict.keys()) == set(rownames)
         for proj in proj_dict.values():
             assert proj.shape == (2,)
-
-    def test_projection_flips_with_pca_components(self):
-        """Test that flipping PCA components flips projections by the same factor.
-
-        PCA eigenvectors are only defined up to sign - flipping a component by -1
-        gives an equally valid PCA result. This test verifies that when we flip
-        the PCA components, the projections flip accordingly.
-
-        This property is important because:
-        1. Different PCA implementations may produce opposite signs
-        2. The Clojure and Python implementations may differ in sign conventions
-        3. Downstream code must be invariant to these sign choices
-        """
-        # Create test data with some missing values (NaN)
-        np.random.seed(42)
-        votes = np.random.randn(10, 5)
-        votes[votes < -0.5] = np.nan  # Add some missing values
-
-        # Compute PCA on non-NaN data
-        pca_results = wrapped_pca(np.nan_to_num(votes), n_comps=2)
-
-        # Create flipped PCA (both components negated)
-        flipped_pca = {
-            'center': pca_results['center'].copy(),
-            'comps': -pca_results['comps'].copy()
-        }
-
-        # Project with original components
-        proj_original = sparsity_aware_project_ptpts(votes, pca_results)
-
-        # Project with flipped components
-        proj_flipped = sparsity_aware_project_ptpts(votes, flipped_pca)
-
-        # Projections should be negated when components are negated
-        np.testing.assert_allclose(
-            proj_original, -proj_flipped, rtol=1e-10,
-            err_msg="Flipping PCA components should negate projections"
-        )
-
-    def test_projection_single_component_flip(self):
-        """Test flipping only one PCA component flips only that projection axis.
-
-        If we flip only PC1, the x-coordinate of projections should flip,
-        but the y-coordinate should remain unchanged (and vice versa for PC2).
-        """
-        # Create simple PCA with orthogonal components
-        center = np.array([0.0, 0.0, 0.0])
-        comps = np.array([
-            [1.0, 0.0, 0.0],  # PC1 along first dimension
-            [0.0, 1.0, 0.0]   # PC2 along second dimension
-        ])
-        pca_results = {'center': center, 'comps': comps}
-
-        # Test votes
-        votes = np.array([
-            [1.0, 2.0, 3.0],
-            [4.0, 5.0, 6.0]
-        ])
-
-        # Original projection
-        proj_original = sparsity_aware_project_ptpts(votes, pca_results)
-
-        # Flip only PC1
-        pca_flip_pc1 = {
-            'center': center,
-            'comps': np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
-        }
-        proj_flip_pc1 = sparsity_aware_project_ptpts(votes, pca_flip_pc1)
-
-        # X should be negated, Y should be unchanged
-        np.testing.assert_allclose(proj_flip_pc1[:, 0], -proj_original[:, 0], rtol=1e-10)
-        np.testing.assert_allclose(proj_flip_pc1[:, 1], proj_original[:, 1], rtol=1e-10)
-
-        # Flip only PC2
-        pca_flip_pc2 = {
-            'center': center,
-            'comps': np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0]])
-        }
-        proj_flip_pc2 = sparsity_aware_project_ptpts(votes, pca_flip_pc2)
-
-        # X should be unchanged, Y should be negated
-        np.testing.assert_allclose(proj_flip_pc2[:, 0], proj_original[:, 0], rtol=1e-10)
-        np.testing.assert_allclose(proj_flip_pc2[:, 1], -proj_original[:, 1], rtol=1e-10)
 
     def test_nan_handling_uses_column_mean(self):
         """Test that NaN values are filled with column means, not zeros.
