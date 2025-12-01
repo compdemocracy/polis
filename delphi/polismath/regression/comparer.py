@@ -230,15 +230,29 @@ class ConversationComparer:
         output_dir = Path(__file__).parent.parent.parent / ".test_outputs" / "regression"
         output_dir.mkdir(parents=True, exist_ok=True)
 
-        if self.all_differences:
-            diff_log_path = output_dir / f"comparer-differences-{timestamp}.log"
-            self._write_differences_log(diff_log_path, dataset_name)
-            results["diff_log_path"] = str(diff_log_path)
+        # Use dataset_name or fall back to report_id for the identifier
+        identifier = dataset_name if dataset_name else golden["metadata"].get("report_id", "unknown")
+
+        # Always create a comparison log file
+        log_filename = f"{identifier}-{timestamp}.log"
+        log_path = output_dir / log_filename
+        self._write_comparison_log(log_path, dataset_name)
+        results["comparison_log_path"] = str(log_path)
+
+        # Create or update symlink to latest comparison log
+        log_symlink_name = f"{identifier}-latest.log"
+        log_symlink_path = output_dir / log_symlink_name
+
+        # Remove existing symlink if it exists
+        if log_symlink_path.exists() or log_symlink_path.is_symlink():
+            log_symlink_path.unlink()
+
+        # Create new symlink pointing to the log file (relative path for portability)
+        log_symlink_path.symlink_to(log_filename)
+        results["comparison_log_latest_symlink_path"] = str(log_symlink_path)
 
         # Save current computation output as JSON (the data being compared, not the comparison results)
-        # Use dataset_name or fall back to report_id for the filename
-        identifier = dataset_name if dataset_name else golden["metadata"].get("report_id", "unknown")
-        json_filename = f"{identifier}-comparer-output-{timestamp}.json"
+        json_filename = f"{identifier}-{timestamp}.json"
         json_path = output_dir / json_filename
 
         # Build output snapshot structure similar to golden format
@@ -831,9 +845,12 @@ class ConversationComparer:
 
         return None
 
-    def _write_differences_log(self, log_path: Path, dataset_name: str) -> None:
+    def _write_comparison_log(self, log_path: Path, dataset_name: str) -> None:
         """
-        Write all collected differences to a log file.
+        Write comparison results to a log file.
+
+        If differences were found, writes detailed difference information.
+        If no differences, writes a success message with configuration details.
 
         Args:
             log_path: Path to the log file
@@ -841,32 +858,62 @@ class ConversationComparer:
         """
         with open(log_path, 'w') as f:
             f.write("=" * 80 + "\n")
-            f.write(f"COMPARISON DIFFERENCES LOG\n")
+            f.write(f"COMPARISON LOG\n")
             f.write(f"Dataset: {dataset_name}\n")
             f.write(f"Generated: {datetime.now().isoformat()}\n")
-            f.write(f"Total differences: {len(self.all_differences)}\n")
             f.write("=" * 80 + "\n\n")
 
-            for i, diff in enumerate(self.all_differences):
-                f.write(f"Difference #{i+1}\n")
+            # Write configuration/tolerances
+            f.write("Configuration:\n")
+            f.write(f"  Absolute tolerance: {self.abs_tol:.0e}\n")
+            f.write(f"  Relative tolerance: {self.rel_tol:.1%}\n")
+            f.write(f"  Ignore PCA sign flips: {self.ignore_pca_sign_flip}\n")
+            f.write("\n")
+
+            if self.all_differences:
+                # Differences found - write detailed information
+                f.write(f"RESULT: DIFFERENCES FOUND\n")
+                f.write(f"Total differences: {len(self.all_differences)}\n")
+                f.write("-" * 80 + "\n\n")
+
+                for i, diff in enumerate(self.all_differences):
+                    f.write(f"Difference #{i+1}\n")
+                    f.write("-" * 80 + "\n")
+                    f.write(f"  Stage: {diff['stage_name']}\n")
+                    f.write(f"  Path: {diff['path']}\n")
+                    f.write(f"  Reason: {diff['reason']}\n")
+
+                    if 'golden_value' in diff:
+                        golden_val = diff['golden_value']
+                        # Truncate long values for readability
+                        if isinstance(golden_val, str) and len(golden_val) > 200:
+                            golden_val = golden_val[:200] + "... (truncated)"
+                        f.write(f"  Golden value: {golden_val}\n")
+
+                    if 'current_value' in diff:
+                        current_val = diff['current_value']
+                        # Truncate long values for readability
+                        if isinstance(current_val, str) and len(current_val) > 200:
+                            current_val = current_val[:200] + "... (truncated)"
+                        f.write(f"  Current value: {current_val}\n")
+
+                    f.write("\n")
+            else:
+                # No differences - success message
+                f.write("RESULT: NO REGRESSION DETECTED\n")
+                f.write("Output matches golden snapshot within tolerance.\n")
+                f.write("\n")
+
+            # Write sign flip warnings if any occurred
+            if self.sign_flip_warnings:
                 f.write("-" * 80 + "\n")
-                f.write(f"  Stage: {diff['stage_name']}\n")
-                f.write(f"  Path: {diff['path']}\n")
-                f.write(f"  Reason: {diff['reason']}\n")
+                f.write("WARNING: PCA SIGN FLIPS DETECTED\n")
+                f.write(f"Total sign flips: {len(self.sign_flip_warnings)}\n")
+                f.write("(These were ignored due to ignore_pca_sign_flip=True)\n\n")
 
-                if 'golden_value' in diff:
-                    golden_val = diff['golden_value']
-                    # Truncate long values for readability
-                    if isinstance(golden_val, str) and len(golden_val) > 200:
-                        golden_val = golden_val[:200] + "... (truncated)"
-                    f.write(f"  Golden value: {golden_val}\n")
-
-                if 'current_value' in diff:
-                    current_val = diff['current_value']
-                    # Truncate long values for readability
-                    if isinstance(current_val, str) and len(current_val) > 200:
-                        current_val = current_val[:200] + "... (truncated)"
-                    f.write(f"  Current value: {current_val}\n")
+                for i, warning in enumerate(self.sign_flip_warnings):
+                    f.write(f"  {i+1}. Stage: {warning['stage_name']}\n")
+                    f.write(f"     Path: {warning['path']}\n")
 
                 f.write("\n")
 
