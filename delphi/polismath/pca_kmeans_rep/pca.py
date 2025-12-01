@@ -64,140 +64,14 @@ def wrapped_pca(data: np.ndarray,
     cntrd_data = data - center
 
     pca = PCA(n_components=n_comps)
-    pca.fit(cntrd_data)
+    projections = pca.fit_transform(cntrd_data)
+    projections = np.ascontiguousarray(projections)
 
     return {
         'center': center,
-        'comps': pca.components_
+        'comps': pca.components_,
+        'projections': projections
     }
-
-
-def sparsity_aware_project_ptpt(votes: Union[List[Optional[float]], np.ndarray], 
-                              pca_results: Dict[str, np.ndarray]) -> np.ndarray:
-    """
-    Project a participant's votes into PCA space, handling missing votes.
-    
-    Args:
-        votes: List or array of votes (can contain None or NaN for missing votes)
-        pca_results: Dictionary with 'center' and 'comps' from PCA
-        
-    Returns:
-        2D projection coordinates
-    """
-    comps = pca_results['comps']
-    center = pca_results['center']
-    
-    # If comps is empty (fallback case), return zeros
-    if len(comps) == 0:
-        return np.zeros(2)
-    
-    # Only use the first two components
-    pc1 = comps[0]
-    pc2 = comps[1] if len(comps) > 1 else np.zeros_like(pc1)
-    
-    n_cmnts = len(votes)
-    n_votes = 0
-    p1 = 0.0
-    p2 = 0.0
-    
-    # Process each vote
-    for i, vote in enumerate(votes):
-        # Check for NaN, None, or non-convertible values
-        if isinstance(vote, (int, float)) and not pd.isna(vote):
-            vote_val = float(vote)
-        elif isinstance(vote, str):
-            # Try to convert string vote to float
-            try:
-                vote_val = float(vote)
-            except ValueError:
-                continue  # Skip if not convertible
-        else:
-            # TODO(julien): if I understand correctly, this means we add 0 for that vote, on both dimensions.
-            # So how does that differ from having set that vote to "center[i]" ?
-            continue  # Skip None, NaN, or other types
-        
-        # Skip if out of bounds (safety check)
-        if i >= len(center) or i >= len(pc1) or i >= len(pc2):
-            continue
-        
-        # Adjust vote by center and project onto PCs
-        try:
-            vote_adj = vote_val - center[i]
-            p1 += vote_adj * pc1[i]
-            if len(comps) > 1:  # Only add to p2 if we have a second component
-                p2 += vote_adj * pc2[i]
-            n_votes += 1
-        except (IndexError, TypeError) as e:
-            # Skip on any errors
-            continue
-    
-    # If no valid votes, return zeros
-    if n_votes == 0:
-        return np.zeros(2)
-    
-    # Scale by square root of (total comments / actual votes)
-    # TODO(julien): Ah, this might be where the skipped votes cause a difference,
-    # compared to if they had been set to center[i]. This would give the same vector,
-    # *up to this multiplicative scaling which would be 1!*
-    scale = np.sqrt(n_cmnts / max(n_votes, 1))
-    return np.array([p1, p2]) * scale
-
-
-def sparsity_aware_project_ptpts(vote_matrix: np.ndarray, 
-                                pca_results: Dict[str, np.ndarray]) -> np.ndarray:
-    """
-    Project multiple participants' votes into PCA space.
-    
-    Note: it is exactly the same as a regular projection of the vector
-    where we had replaced the missing votes by the column means (which is what
-    we used for the PCA), except that we divide every projection by the
-    proportion of comments it has been shown (including skipped comments).
-    So we could use a regular project of the existing matrix with means filled in,
-    and then scale each vector accordingly.
-    
-    Args:
-        vote_matrix: Matrix of votes (participants x comments)
-        pca_results: Dictionary with 'center' and 'comps' from PCA
-        
-    Returns:
-        Array of 2D projections
-    """
-    # Safety check for empty matrix
-    if vote_matrix.shape[0] == 0:
-        return np.zeros((0, 2))
-        
-    # Convert to list of rows (participants)
-    try:
-        # For numpy array, use tolist()
-        votes_list = vote_matrix.tolist()
-    except (AttributeError, TypeError):
-        # TODO(Julien): if we have this problem here, we should fix upstream to ensure proper types,
-        # and thus remove this fallback.
-
-        # If not a numpy array or conversion fails, try row by row
-        votes_list = []
-        for i in range(vote_matrix.shape[0]):
-            try:
-                votes_list.append(vote_matrix[i, :].tolist())
-            except:
-                # For any row that fails, use the original row
-                votes_list.append(vote_matrix[i, :])
-    
-    # Ensure votes_list contains valid rows
-    if not votes_list:
-        return np.zeros((vote_matrix.shape[0], 2))
-    
-    # Project each participant with error handling
-    projections = []
-    for votes in votes_list:
-        try:
-            proj = sparsity_aware_project_ptpt(votes, pca_results)
-            projections.append(proj)
-        except Exception as e:
-            # On any error, add zeros
-            projections.append(np.zeros(2))
-    
-    return np.array(projections)
 
 
 def pca_project_dataframe(df: pd.DataFrame,
@@ -273,21 +147,21 @@ def pca_project_dataframe(df: pd.DataFrame,
             'comps': np.zeros((min(n_comps, 2), n_cols))
         }
     
-    # For projection, we use the original matrix with NaNs
-    # to ensure proper sparsity handling
-    #
-    # Note: it is exactly the same as a regular projection of the vector
-    # where we had replaced the missing votes by the column means (which is what
-    # we used for the PCA), except that we divide every projection by the
-    # proportion of comments it has been shown (including skipped comments).
-    # So we could use a regular project of the existing matrix with means filled in,
-    # and then scale each vector accordingly.
+    # For projection, ensure proper sparsity handling
+    # by dividing every projection by the square root of the proportion
+    # of comments that participant has been shown (including skipped comments).
     try:
-        # Project the participants
-        projections = sparsity_aware_project_ptpts(matrix_data, pca_results)
+        # Get the projections computed above
+        projections = pca_results['projections']
+
+        # Divide projections by proportion of comments seen
+        n_cmnts = matrix_data.shape[1]
+        n_seen = np.sum(~np.isnan(matrix_data), axis=1)  # Count non-NaN votes per participant
+        proportions = np.sqrt(n_seen / n_cmnts)
+        scaled_projections = projections / proportions[:, np.newaxis]  
 
         # Create a dictionary of projections by participant ID
-        proj_dict = {ptpt_id: proj for ptpt_id, proj in zip(df.index, projections)}
+        proj_dict = {ptpt_id: proj for ptpt_id, proj in zip(df.index, scaled_projections)}
     except Exception as e:
         print(f"Error in projection computation: {e}")
         # Create fallback projections (all zeros)
