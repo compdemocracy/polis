@@ -12,121 +12,24 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.pca_kmeans_rep.pca import (
-    normalize_vector, vector_length, proj_vec, factor_matrix,
-    power_iteration, wrapped_pca, sparsity_aware_project_ptpt,
+    wrapped_pca, sparsity_aware_project_ptpt,
     sparsity_aware_project_ptpts, pca_project_dataframe
 )
 
 
-class TestPCAUtils:
-    """Tests for the PCA utility functions."""
-    
-    def test_normalize_vector(self):
-        """Test normalizing a vector to unit length."""
-        v = np.array([3.0, 4.0])
-        normalized = normalize_vector(v)
-        
-        # Length should be 1
-        assert np.isclose(np.linalg.norm(normalized), 1.0)
-        
-        # Direction should be preserved
-        assert np.isclose(normalized[0] / normalized[1], v[0] / v[1])
-        
-        # Test with zero vector
-        zero_vec = np.zeros(3)
-        assert np.array_equal(normalize_vector(zero_vec), zero_vec)
-    
-    def test_vector_length(self):
-        """Test calculating vector length."""
-        v = np.array([3.0, 4.0])
-        assert np.isclose(vector_length(v), 5.0)
-    
-    def test_proj_vec(self):
-        """Test projecting one vector onto another."""
-        u = np.array([1.0, 0.0])
-        v = np.array([3.0, 4.0])
-        
-        # Projection should be [3.0, 0.0]
-        expected = np.array([3.0, 0.0])
-        assert np.allclose(proj_vec(u, v), expected)
-        
-        # Test with zero vector
-        zero_vec = np.zeros(2)
-        assert np.array_equal(proj_vec(zero_vec, v), zero_vec)
-    
-    def test_factor_matrix(self):
-        """Test factoring out a vector from a matrix."""
-        data = np.array([
-            [1.0, 2.0],
-            [3.0, 4.0],
-            [5.0, 6.0]
-        ])
-        xs = np.array([1.0, 0.0])
-        
-        # After factoring out [1, 0], all vectors should have 0 in first component
-        result = factor_matrix(data, xs)
-        
-        # Check that all first components are close to 0
-        assert np.allclose(result[:, 0], 0.0)
-        
-        # Test with zero vector
-        zero_vec = np.zeros(2)
-        assert np.array_equal(factor_matrix(data, zero_vec), data)
+def normalize_vector(v: np.ndarray) -> np.ndarray:
+    """Normalize a vector to unit length."""
+    norm = np.linalg.norm(v)
+    if norm == 0:
+        return v
+    return v / norm
 
 
-class TestPowerIteration:
-    """Tests for the power iteration algorithm."""
-    
-    def test_power_iteration_simple(self):
-        """Test power iteration on a simple matrix."""
-        # Simple matrix with dominant eigenvector [0, 1]
-        data = np.array([
-            [1.0, 2.0],
-            [2.0, 4.0]
-        ])
-        
-        # Run power iteration
-        result = power_iteration(data, iters=100)
-        
-        # The result should be close to [a, b] where a/b = 1/2 
-        # (or an eigenvector related to it)
-        # We can check the ratio to verify it's an eigenvector regardless of orientation
-        
-        # Check that the result is not all zeros
-        assert not np.all(np.abs(result) < 1e-10)
-        
-        # Check the eigenvector property: data*result should be proportional to result
-        Av = data.T @ (data @ result)  # X^T X v
-        
-        # Normalize both vectors for comparison
-        Av_norm = Av / np.linalg.norm(Av)
-        result_norm = result / np.linalg.norm(result)
-        
-        # Check that they are parallel (dot product close to 1 or -1)
-        assert np.abs(np.dot(Av_norm, result_norm)) > 0.99
-    
-    def test_power_iteration_start_vector(self):
-        """Test power iteration with a custom start vector."""
-        data = np.array([
-            [4.0, 1.0],
-            [1.0, 4.0]
-        ])
-        
-        # Start with [1, 0] which is close to an eigenvector
-        result = power_iteration(data, iters=100, start_vector=np.array([1.0, 0.0]))
-        
-        # Check that the result is not all zeros
-        assert not np.all(np.abs(result) < 1e-10)
-        
-        # Check the eigenvector property: data*result should be proportional to result
-        Av = data.T @ (data @ result)  # X^T X v
-        
-        # Normalize both vectors for comparison
-        Av_norm = Av / np.linalg.norm(Av)
-        result_norm = result / np.linalg.norm(result)
-        
-        # Check that they are parallel (dot product close to 1 or -1)
-        assert np.abs(np.dot(Av_norm, result_norm)) > 0.99
+def proj_vec(u: np.ndarray, v: np.ndarray) -> np.ndarray:
+    """Project vector v onto vector u."""
+    if np.dot(u, u) == 0:
+        return np.zeros_like(v)
+    return np.dot(u, v) / np.dot(u, u) * u
 
 
 class TestWrappedPCA:
