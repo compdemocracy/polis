@@ -13,82 +13,9 @@ import pytest
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.pca_kmeans_rep.pca import (
-    pca_project_dataframe, powerit_pca, power_iteration,
+    pca_project_dataframe,
     sparsity_aware_project_ptpt, sparsity_aware_project_ptpts
 )
-
-def test_power_iteration_with_zeros():
-    """Test that power iteration handles matrices with zeros."""
-    # Create a matrix with many zeros
-    data = np.zeros((10, 5))
-    data[0, 0] = 1.0  # Just one non-zero value
-    
-    # Should not raise an exception
-    result = power_iteration(data, iters=10)
-    
-    # Result should be a unit vector
-    assert np.isclose(np.linalg.norm(result), 1.0)
-    
-    # Result should not contain NaNs
-    assert not np.any(np.isnan(result))
-
-def test_power_iteration_with_nans():
-    """Test that power iteration handles matrices with NaNs."""
-    # Create a matrix with some NaNs
-    data = np.random.randn(10, 5)
-    data[0, 0] = np.nan
-    
-    # Replace NaNs with zeros for the test
-    data_clean = np.nan_to_num(data)
-    
-    # Should not raise an exception
-    result = power_iteration(data_clean, iters=10)
-    
-    # Result should be a unit vector
-    assert np.isclose(np.linalg.norm(result), 1.0)
-    
-    # Result should not contain NaNs
-    assert not np.any(np.isnan(result))
-
-def test_powerit_pca_with_zeros():
-    """Test that powerit_pca handles matrices with zeros."""
-    # Create a matrix with many zeros
-    data = np.zeros((10, 5))
-    data[0, 0] = 1.0  # Just one non-zero value
-    
-    # Should not raise an exception
-    result = powerit_pca(data, n_comps=2, iters=10)
-    
-    # Should have the expected keys
-    assert 'center' in result
-    assert 'comps' in result
-    
-    # Components should have the correct shape
-    assert result['comps'].shape == (2, 5)
-    
-    # At least some components should be non-zero
-    assert np.any(result['comps'] != 0)
-        
-    # Result should not contain NaNs
-    assert not np.any(np.isnan(result['center']))
-    assert not np.any(np.isnan(result['comps']))
-
-def test_powerit_pca_with_nans():
-    """Test that powerit_pca raises ValueError when given NaN values.
-
-    NaN handling is the caller's responsibility (e.g., pca_project_dataframe
-    fills NaN with column means before calling powerit_pca). This ensures
-    explicit preprocessing rather than silent handling.
-    """
-    import pytest
-
-    # Create a matrix with some NaNs
-    data = np.random.randn(10, 5)
-    data[0, 0] = np.nan
-
-    # Should raise ValueError because NaN must be handled by caller
-    with pytest.raises(ValueError, match="NaN"):
-        powerit_pca(data, n_comps=2, iters=10)
 
 def test_sparsity_aware_project_ptpt():
     """Test that sparsity_aware_project_ptpt handles missing votes."""
@@ -285,13 +212,9 @@ def test_pca_complex_matrix():
 
 if __name__ == "__main__":
     # Run all tests
-    test_power_iteration_with_zeros()
-    test_power_iteration_with_nans()
-    test_powerit_pca_with_zeros()
-    test_powerit_pca_with_nans()
     test_sparsity_aware_project_ptpt()
     test_sparsity_aware_project_ptpts()
     test_pca_project_dataframe()
     test_pca_complex_matrix()
-    
+
     print("All tests passed!")

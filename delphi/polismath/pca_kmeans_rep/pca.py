@@ -12,315 +12,13 @@ from typing import Dict, List, Optional, Tuple, Union, Any
 
 logger = logging.getLogger(__name__)
 
-def normalize_vector(v: np.ndarray) -> np.ndarray:
-    """
-    Normalize a vector to unit length.
-    
-    Args:
-        v: Vector to normalize
-        
-    Returns:
-        Normalized vector
-    """
+
+def _normalize_vector(v: np.ndarray) -> np.ndarray:
+    """Normalize a vector to unit length."""
     norm = np.linalg.norm(v)
     if norm == 0:
         return v
     return v / norm
-
-
-def vector_length(v: np.ndarray) -> float:
-    """
-    Calculate the length (norm) of a vector.
-    
-    Args:
-        v: Vector
-        
-    Returns:
-        Vector length
-    """
-    return np.linalg.norm(v)
-
-
-def proj_vec(u: np.ndarray, v: np.ndarray) -> np.ndarray:
-    """
-    Project vector v onto vector u.
-    
-    Args:
-        u: Vector to project onto
-        v: Vector to project
-        
-    Returns:
-        Projection of v onto u
-    """
-    if np.dot(u, u) == 0:
-        return np.zeros_like(v)
-    return np.dot(u, v) / np.dot(u, u) * u
-
-
-def factor_matrix(data: np.ndarray, xs: np.ndarray) -> np.ndarray:
-    """
-    Factor out the vector xs from all vectors in data.
-    
-    This is similar to the Gram-Schmidt process, removing the variance
-    in the xs direction from the data.
-    
-    Args:
-        data: Matrix of data
-        xs: Vector to factor out
-        
-    Returns:
-        Matrix with xs factored out
-    """
-    if np.dot(xs, xs) == 0:
-        return data
-    
-    return np.array([row - proj_vec(xs, row) for row in data])
-
-
-def xtxr(data: np.ndarray, vec: np.ndarray) -> np.ndarray:
-    """
-    Calculate X^T * X * r where X is data and r is vec.
-    
-    This is an optimization used in power iteration.
-    
-    Args:
-        data: Data matrix X
-        vec: Vector r
-        
-    Returns:
-        Result of X^T * X * r
-    """
-    # This is equivalent to X^T * X * r but more efficient
-    return data.T @ (data @ vec)
-
-
-def rand_starting_vec(data: np.ndarray) -> np.ndarray:
-    """
-    Generate a random starting vector for power iteration.
-    
-    Args:
-        data: Data matrix
-        
-    Returns:
-        Random starting vector
-    """
-    n_cols = data.shape[1]
-    return np.random.randn(n_cols)
-
-
-def power_iteration(data: np.ndarray, 
-                   iters: int = 100, 
-                   start_vector: Optional[np.ndarray] = None,
-                   convergence_threshold: float = 1e-10) -> np.ndarray:
-    """
-    Find the first eigenvector of data using the power iteration method.
-    
-    Args:
-        data: Data matrix
-        iters: Maximum number of iterations
-        start_vector: Initial vector (defaults to random)
-        convergence_threshold: Threshold for convergence checking
-        
-    Returns:
-        Dominant eigenvector
-    """
-    n_cols = data.shape[1]
-    
-    # Initialize start vector with a fixed seed for consistency with Clojure
-    if start_vector is None:
-        # Use a fixed seed to match Clojure's behavior more closely
-        rng = np.random.RandomState(42)
-        start_vector = rng.rand(n_cols)
-    elif len(start_vector) < n_cols:
-        # Pad with random values if needed
-        rng = np.random.RandomState(42)
-        padded = rng.rand(n_cols)
-        padded[:len(start_vector)] = start_vector
-        start_vector = padded
-    
-    # Ensure start_vector is not all zeros
-    if np.all(np.abs(start_vector) < 1e-10):
-        rng = np.random.RandomState(42)
-        start_vector = rng.rand(n_cols)
-    
-    # Normalize the starting vector
-    start_vector = normalize_vector(start_vector)
-    
-    # Previous eigenvector for convergence checking
-    last_vector = np.zeros_like(start_vector)
-    
-    # Store best vector and its eigenvalue magnitude for backup
-    best_vector = start_vector
-    best_magnitude = 0.0
-    
-    for i in range(iters):
-        # Compute product vector (X^T X v)
-        try:
-            product_vector = xtxr(data, start_vector)
-            
-            # Calculate the approximate eigenvalue (Rayleigh quotient)
-            magnitude = np.linalg.norm(product_vector)
-            
-            # Update best vector if this one has a larger eigenvalue
-            if magnitude > best_magnitude:
-                best_magnitude = magnitude
-                best_vector = start_vector
-                
-        except Exception as e:
-            print(f"Error in power iteration step {i}: {e}")
-            # Continue with the current vector, but perturb it slightly
-            product_vector = start_vector + np.random.normal(0, 1e-6, size=n_cols)
-        
-        # Check for zero product
-        if np.all(np.abs(product_vector) < 1e-10):
-            # If we get a zero vector, try a new random direction
-            # but keep the same seed pattern for consistency
-            rng = np.random.RandomState(42 + i)
-            start_vector = rng.rand(n_cols)
-            continue
-            
-        # Normalize the product vector
-        normed = normalize_vector(product_vector)
-        
-        # Check for convergence using vector similarity
-        # Dot product close to 1 or -1 means similar direction
-        similarity = np.abs(np.dot(normed, start_vector))
-        if similarity > 1.0 - convergence_threshold:
-            # Final refinement: ensure consistent sign
-            # If the first non-zero element is negative, flip the sign
-            # This helps match the Clojure implementation more consistently
-            for j in range(len(normed)):
-                if abs(normed[j]) > 1e-10:
-                    if normed[j] < 0:
-                        normed = -normed
-                    break
-            return normed
-            
-        # Update for next iteration
-        last_vector = start_vector
-        start_vector = normed
-    
-    # If we didn't converge, return the best vector we found
-    # with consistent sign direction
-    for j in range(len(best_vector)):
-        if abs(best_vector[j]) > 1e-10:
-            if best_vector[j] < 0:
-                best_vector = -best_vector
-            break
-            
-    return best_vector
-
-
-def powerit_pca(data: np.ndarray, 
-               n_comps: int, 
-               iters: int = 100,
-               start_vectors: Optional[List[np.ndarray]] = None) -> Dict[str, np.ndarray]:
-    """
-    Find the first n_comps principal components of the data matrix.
-    
-    Args:
-        data: Data matrix
-        n_comps: Number of components to find
-        iters: Maximum number of iterations for power_iteration
-        start_vectors: Initial vectors for warm start
-        
-    Returns:
-        Dictionary with 'center' and 'comps' keys
-    """
-    # Ensure the data is numeric
-    try:
-        data = np.asarray(data, dtype=float)
-    except (ValueError, TypeError):
-        # Handle case with mixed types - try to convert manually
-        data_shape = data.shape
-        numeric_data = np.zeros(data_shape, dtype=float)
-        for i in range(data_shape[0]):
-            for j in range(data_shape[1]):
-                try:
-                    numeric_data[i, j] = float(data[i, j])
-                except (ValueError, TypeError):
-                    numeric_data[i, j] = 0.0
-        data = numeric_data
-    
-    # NaN values must be handled by caller (e.g., pca_project_dataframe) before calling this.
-    if np.any(np.isnan(data)):
-        raise ValueError("powerit_pca received data containing NaN. Caller must preprocess NaN values.")
-    
-    # Center the data
-    center = np.mean(data, axis=0)
-    cntrd_data = data - center
-    
-    if start_vectors is None:
-        start_vectors = []
-    
-    # Limit components to the dimensionality of the data
-    data_dim = min(cntrd_data.shape)
-    n_comps = min(n_comps, data_dim)
-    
-    # Check for degenerate case (all zeros)
-    if np.all(np.abs(cntrd_data) < 1e-10):
-        # Return identity components (one-hot vectors)
-        comps = np.zeros((n_comps, data.shape[1]))
-        for i in range(min(n_comps, data.shape[1])):
-            comps[i, i] = 1.0
-        return {
-            'center': center,
-            'comps': comps
-        }
-    
-    # Iteratively find principal components
-    pcs = []
-    data_factored = cntrd_data.copy()
-    
-    for i in range(n_comps):
-        try:
-            # Use provided start vector or generate random one
-            if i < len(start_vectors) and start_vectors[i] is not None:
-                start_vector = start_vectors[i]
-            else:
-                start_vector = rand_starting_vec(data_factored)
-                
-            # Find principal component using power iteration
-            pc = power_iteration(data_factored, iters, start_vector)
-            
-            # Ensure we got a valid component
-            if np.any(np.isnan(pc)) or np.all(np.abs(pc) < 1e-10):
-                # Generate a fallback component
-                fallback = np.zeros(data.shape[1])
-                fallback[i % data.shape[1]] = 1.0  # One-hot vector as fallback
-                pc = fallback
-            
-            pcs.append(pc)
-            
-            # Factor out this component from the data
-            if i < n_comps - 1:  # No need to factor on the last iteration
-                try:
-                    data_factored = factor_matrix(data_factored, pc)
-                except Exception as e:
-                    print(f"Error in factoring matrix at component {i}: {e}")
-                    # If factoring fails, use the original data but orthogonalize
-                    # with respect to previous components
-                    data_factored = cntrd_data.copy()
-                    for prev_pc in pcs:
-                        data_factored = factor_matrix(data_factored, prev_pc)
-        except Exception as e:
-            print(f"Error computing component {i}: {e}")
-            # Create a fallback component
-            fallback = np.zeros(data.shape[1])
-            fallback[i % data.shape[1]] = 1.0  # One-hot vector as fallback
-            pcs.append(fallback)
-    
-    # Final safety check - ensure we have the requested number of components
-    while len(pcs) < n_comps:
-        i = len(pcs)
-        fallback = np.zeros(data.shape[1])
-        fallback[i % data.shape[1]] = 1.0
-        pcs.append(fallback)
-    
-    return {
-        'center': center,
-        'comps': np.array(pcs)
-    }
 
 
 def wrapped_pca(data: np.ndarray, 
@@ -335,17 +33,21 @@ def wrapped_pca(data: np.ndarray,
         n_comps: Number of components to find
         iters: Maximum number of iterations
         start_vectors: Initial vectors for warm start
-        
+   
     Returns:
         Dictionary with 'center' and 'comps' keys
     """
+
+    # TODO(julien): observing that we do not seem to have *any* instance of
+    # being called with start_vectors, we can probably remove that argument.
+
     n_rows, n_cols = data.shape
-    
+   
     # Handle edge case: 1 row
     if n_rows == 1:
         return {
             'center': np.zeros(n_comps),
-            'comps': np.vstack([normalize_vector(data[0])] + [np.zeros(n_cols)] * (n_comps - 1))
+            'comps': np.vstack([_normalize_vector(data[0])] + [np.zeros(n_cols)] * (n_comps - 1))
         }
     
     # Handle edge case: 1 column
@@ -354,13 +56,23 @@ def wrapped_pca(data: np.ndarray,
             'center': np.array([0]),
             'comps': np.array([[1]])
         }
-    
+   
     # Filter out zero vectors from start_vectors
     if start_vectors is not None:
         start_vectors = [v if not np.all(v == 0) else None for v in start_vectors]
-    
-    # Normal case
-    return powerit_pca(data, n_comps, iters, start_vectors)
+
+    from sklearn.decomposition import PCA
+
+    center = np.mean(data, axis=0)
+    cntrd_data = data - center
+
+    pca = PCA(n_components=n_comps)
+    pca.fit(cntrd_data)
+
+    return {
+        'center': center,
+        'comps': pca.components_
+    }
 
 
 def sparsity_aware_project_ptpt(votes: Union[List[Optional[float]], np.ndarray], 
@@ -403,6 +115,8 @@ def sparsity_aware_project_ptpt(votes: Union[List[Optional[float]], np.ndarray],
             except ValueError:
                 continue  # Skip if not convertible
         else:
+            # TODO(julien): if I understand correctly, this means we add 0 for that vote, on both dimensions.
+            # So how does that differ from having set that vote to "center[i]" ?
             continue  # Skip None, NaN, or other types
         
         # Skip if out of bounds (safety check)
@@ -425,6 +139,9 @@ def sparsity_aware_project_ptpt(votes: Union[List[Optional[float]], np.ndarray],
         return np.zeros(2)
     
     # Scale by square root of (total comments / actual votes)
+    # TODO(julien): Ah, this might be where the skipped votes cause a difference,
+    # compared to if they had been set to center[i]. This would give the same vector,
+    # *up to this multiplicative scaling which would be 1!*
     scale = np.sqrt(n_cmnts / max(n_votes, 1))
     return np.array([p1, p2]) * scale
 
@@ -433,6 +150,13 @@ def sparsity_aware_project_ptpts(vote_matrix: np.ndarray,
                                 pca_results: Dict[str, np.ndarray]) -> np.ndarray:
     """
     Project multiple participants' votes into PCA space.
+    
+    Note: it is exactly the same as a regular projection of the vector
+    where we had replaced the missing votes by the column means (which is what
+    we used for the PCA), except that we divide every projection by the
+    proportion of comments it has been shown (including skipped comments).
+    So we could use a regular project of the existing matrix with means filled in,
+    and then scale each vector accordingly.
     
     Args:
         vote_matrix: Matrix of votes (participants x comments)
@@ -494,6 +218,7 @@ def pca_project_dataframe(df: pd.DataFrame,
     # Extract matrix data
     matrix_data = df.to_numpy(copy=True)  # Make a copy to avoid modifying the original
 
+    # TODO(julien): we should probably ensure upstream that the DataFrame has proper type.
     # Convert to float array if not already
     if not np.issubdtype(matrix_data.dtype, np.floating):
         try:
@@ -508,26 +233,18 @@ def pca_project_dataframe(df: pd.DataFrame,
             df_numeric[newly_nan] = 0.0  # Non-convertible strings become 0.0
             matrix_data = df_numeric.to_numpy(dtype='float64')
     
-    # Replace NaNs with column means for PCA calculation (matches Clojure behavior).
+    # Replace NaNs with column means for PCA calculation 
     # Why column mean instead of 0? Using 0 biases covariance estimates for sparse data.
     # Column mean is imperfect (pulls participants toward center, assumes Gaussian data
-    # while votes are ternary) but matches Clojure and is better than 0.
+    # while votes are ternary) but is better than 0. Future work needed
+    # to have a more proper way to handle missing data in PCA.
     import warnings
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)  # suppress "Mean of empty slice"
         col_means = np.nanmean(matrix_data, axis=0)
     # Handle columns that are entirely NaN (e.g., statements with zero votes):
     # nanmean returns NaN for these, which would leave NaNs in the matrix.
-    nan_col_mask = np.isnan(col_means)
-    if np.any(nan_col_mask):
-        nan_col_indices = np.where(nan_col_mask)[0]
-        logger.warning(
-            "Found %d all-NaN column(s) (indices: %s) — this may indicate a data pipeline issue upstream. "
-            "Falling back to 0.0 for these columns.",
-            len(nan_col_indices),
-            nan_col_indices.tolist(),
-        )
-    col_means = np.where(nan_col_mask, 0.0, col_means)
+    col_means = np.where(np.isnan(col_means), 0.0, col_means)
     nan_indices = np.where(np.isnan(matrix_data))
     matrix_data_no_nan = matrix_data.copy()
     matrix_data_no_nan[nan_indices] = col_means[nan_indices[1]]
@@ -548,6 +265,7 @@ def pca_project_dataframe(df: pd.DataFrame,
     np.random.seed(42)
     
     # Perform PCA with error handling
+    # TODO(julien): use function that compute projections and PCAs in one pass.
     try:
         pca_results = wrapped_pca(matrix_data_no_nan, n_comps)
     except Exception as e:
@@ -560,6 +278,13 @@ def pca_project_dataframe(df: pd.DataFrame,
     
     # For projection, we use the original matrix with NaNs
     # to ensure proper sparsity handling
+    #
+    # Note: it is exactly the same as a regular projection of the vector
+    # where we had replaced the missing votes by the column means (which is what
+    # we used for the PCA), except that we divide every projection by the
+    # proportion of comments it has been shown (including skipped comments).
+    # So we could use a regular project of the existing matrix with means filled in,
+    # and then scale each vector accordingly.
     try:
         # Project the participants
         projections = sparsity_aware_project_ptpts(matrix_data, pca_results)
