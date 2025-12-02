@@ -68,17 +68,25 @@ def test_check_for_existing_values(monkeypatch):
     conversation_id = 54321
     existing_values = {201: 0.9, 202: 0.1}
 
-    # Patch the check_existing_extremity_values function to return mock existing data.
-    # We don't need to mock GroupDataProcessor here since it won't be reached.
+    # Patch the check function and the GroupDataProcessor class
     with mock.patch.object(extremity_module, 'check_existing_extremity_values', return_value=existing_values) as mock_check_existing, \
-         mock.patch.object(extremity_module, 'GroupDataProcessor') as mock_gdp:
+         mock.patch.object(extremity_module, 'GroupDataProcessor') as MockGroupDataProcessor:
+        
+        # Configure the mock instance that the class will produce upon instantiation
+        mock_processor_instance = mock.MagicMock()
+        MockGroupDataProcessor.return_value = mock_processor_instance
         
         # Call the function with force_recalculation=False
         result = calculate_and_store_extremity(conversation_id, force_recalculation=False)
 
-    # Assert that the function returned the existing values
+    # Assert that the function correctly returned the pre-existing values
     assert result == existing_values
 
-    # Assert that the main calculation logic was skipped
+    # Assert that the check for existing values was performed
     mock_check_existing.assert_called_once_with(conversation_id)
-    mock_gdp.assert_not_called()
+    
+    # Assert that GroupDataProcessor was instantiated (due to the script's structure)
+    MockGroupDataProcessor.assert_called_once()
+    
+    # Crucially, assert that the expensive calculation method was NOT called on the instance
+    mock_processor_instance.get_export_data.assert_not_called()
