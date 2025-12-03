@@ -232,31 +232,33 @@ def prepare_votes_data(dataset_name: str) -> Tuple[Dict, Dict[str, Any]]:
     votes_md5 = compute_file_md5(str(votes_csv))
     comments_md5 = compute_file_md5(str(comments_csv)) if comments_csv else None
 
-    # Count rows in CSV files for metadata
-    votes_df = pd.read_csv(votes_csv)
+    # Use a fixed timestamp for reproducibility in testing
+    fixed_timestamp = 1700000000000  # Fixed timestamp in milliseconds
+
+    # Read votes CSV with optimized settings (pyarrow engine + explicit dtypes)
+    logger.info(f"Reading votes CSV file {votes_csv}")
+    votes_df = pd.read_csv(
+        votes_csv,
+        usecols=['voter-id', 'comment-id', 'vote'],
+        dtype={'voter-id': 'int32', 'comment-id': 'int32', 'vote': 'int8'},
+        engine='pyarrow'
+    )
     n_votes = len(votes_df)
     n_participants = votes_df['voter-id'].nunique()
 
-    # Count comments
+    # Count comments - only read the comment-id column if we need to count from a file
+    logger.info(f"Reading comments CSV file {comments_csv}")
     if comments_csv and comments_csv.exists():
-        comments_df = pd.read_csv(comments_csv)
+        comments_df = pd.read_csv(comments_csv, usecols=['comment-id'], engine='pyarrow')
         n_comments = len(comments_df)
     else:
         n_comments = votes_df['comment-id'].nunique()
 
-    # Use a fixed timestamp for reproducibility in testing
-    fixed_timestamp = 1700000000000  # Fixed timestamp in milliseconds
-
     # Convert votes DataFrame to the format expected by update_votes
     # Expected format: {'pid': voter_id, 'tid': comment_id, 'vote': vote_value, 'created': timestamp}
-    votes_list = []
-    for _, row in votes_df.iterrows():
-        votes_list.append({
-            'pid': row['voter-id'],
-            'tid': row['comment-id'],
-            'vote': row['vote'],
-            'created': int(row['timestamp']) if 'timestamp' in votes_df.columns else fixed_timestamp
-        })
+    votes_df = votes_df.rename(columns={'voter-id': 'pid', 'comment-id': 'tid'})
+    votes_df['created'] = fixed_timestamp
+    votes_list = votes_df.to_dict('records')
 
     votes_dict = {
         'votes': votes_list,
