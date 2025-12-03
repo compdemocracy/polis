@@ -24,13 +24,26 @@ def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, include_l
     Otherwise, compares only the specified datasets.
 
     Examples:
-        python comparer.py                              # Compare all datasets
-        python comparer.py biodiversity                 # Compare only biodiversity
-        python comparer.py biodiversity vw              # Compare biodiversity and vw
-        python comparer.py --include-local              # Include datasets from real_data/.local/
-        python comparer.py --log-level DEBUG            # Compare with debug logging
-        python comparer.py -i biodiversity              # Compare with PCA sign flip tolerance
-        python comparer.py --ignore-pca-sign-flip vw    # Compare with PCA sign flip tolerance
+        # Compare all datasets:
+        python comparer.py
+        
+        # Compare only biodiversity:
+        python comparer.py biodiversity
+        
+        # Compare biodiversity and vw:
+        python comparer.py biodiversity vw
+        
+        # Include datasets from real_data/.local/:
+        python comparer.py --include-local
+        
+        # Compare with debug logging:
+        python comparer.py --log-level DEBUG
+        
+        # Compare with PCA sign flip tolerance:
+        python comparer.py -i biodiversity
+        
+        # Compare with PCA sign flip tolerance:
+        python comparer.py --ignore-pca-sign-flip vw
     """
     # Configure logging - must be done before imports to prevent conversation module
     # from adding its own handler
