@@ -42,13 +42,14 @@ class ConversationComparer:
         self.pca_component_stats = {}  # Track max abs/rel diff per PCA component
         self.projection_stats = {}  # Track aggregated max abs/rel diff across all projections per stage
 
-    def compare_with_golden(self, dataset_name: str, benchmark: bool = True) -> Dict:
+    def compare_with_golden(self, dataset_name: str, benchmark: bool = True, skip_md5: bool = False) -> Dict:
         """
         Compare current implementation with golden snapshot.
 
         Args:
             dataset_name: Name of the dataset ('biodiversity' or 'vw')
             benchmark: If True, compare timing information (default: True)
+            skip_md5: If True, skip MD5 checksum verification of dataset files (default: False)
 
         Returns:
             Dictionary containing comparison results
@@ -96,11 +97,14 @@ class ConversationComparer:
         logger.info(f"Comparing {dataset_name} with golden snapshot...")
 
         # Prepare votes data using shared function
-        votes_dict, metadata = prepare_votes_data(dataset_name)
+        votes_dict, metadata = prepare_votes_data(dataset_name, skip_md5=skip_md5)
 
-        # Verify dataset files haven't changed
-        if (metadata["votes_csv_md5"] != golden["metadata"]["votes_csv_md5"] or
-            metadata["comments_csv_md5"] != golden["metadata"]["comments_csv_md5"]):
+        # Verify dataset files haven't changed (unless skip_md5 is True)
+        if skip_md5:
+            logger.info("Skipping MD5 checksum verification (--skip-md5 flag set).")
+        elif (metadata["votes_csv_md5"] != golden["metadata"]["votes_csv_md5"] or
+              metadata["comments_csv_md5"] != golden["metadata"]["comments_csv_md5"]):
+            logger.error("Dataset files have changed! MD5 mismatch.")
             return {
                 "error": "Dataset files have changed! MD5 mismatch.",
                 "dataset": dataset_name,
@@ -109,6 +113,8 @@ class ConversationComparer:
                 "golden_comments_md5": golden["metadata"]["comments_csv_md5"],
                 "current_comments_md5": metadata["comments_csv_md5"]
             }
+        else:
+            logger.info("Dataset files verified (MD5 checksums match).")
 
         # Initialize results
         results = {
@@ -344,21 +350,64 @@ class ConversationComparer:
                 logger.info(f"  Full details: {diff_log_path}")
             logger.info("")
 
-        # Log sign flip warnings if any
+        # Log sign flip warnings if any (consolidated by component)
         if self.sign_flip_warnings:
+            # Group by component path suffix (e.g., ".pca.comps[0]") to consolidate across stages
+            from collections import defaultdict
+            component_to_stages = defaultdict(list)
+            for warning in self.sign_flip_warnings:
+                # Extract the component part (e.g., ".pca.comps[0]" from "after_pca.pca.comps[0]")
+                path = warning['path']
+                if '.pca.comps[' in path:
+                    comp_part = path[path.index('.pca.comps['):]
+                    component_to_stages[comp_part].append(warning['stage_name'])
+
             logger.warning("PCA sign flips detected (ignored due to ignore_pca_sign_flip=True):")
-            logger.warning(f"  Total sign flips: {len(self.sign_flip_warnings)}")
-            for i, warning in enumerate(self.sign_flip_warnings):
-                logger.warning(f"    {i+1}. Stage: {warning['stage_name']}")
-                logger.warning(f"       Path: {warning['path']}")
+            for comp_part, stages in sorted(component_to_stages.items()):
+                unique_stages = sorted(set(stages))
+                if len(unique_stages) == 1:
+                    logger.warning(f"  {comp_part}: stage {unique_stages[0]}")
+                else:
+                    logger.warning(f"  {comp_part}: stages {', '.join(unique_stages)}")
             logger.info("")
 
         # Log PCA component and projection stats if available
         if self.pca_component_stats or self.projection_stats:
             import numpy as np
             logger.info("PCA numerical accuracy (max diff after sign flip correction):")
-            for stage_name in sorted(set(self.pca_component_stats.keys()) | set(self.projection_stats.keys())):
-                logger.info(f"  Stage: {stage_name}")
+
+            # Group stages with identical stats to avoid redundant output
+            def get_stats_key(stage_name):
+                """Create a hashable key representing the stats for a stage."""
+                key_parts = []
+                if stage_name in self.pca_component_stats:
+                    flipped = self.pca_component_flips.get(stage_name, set())
+                    for comp_idx, stats in sorted(self.pca_component_stats[stage_name].items()):
+                        key_parts.append((comp_idx, comp_idx in flipped,
+                                        stats['max_abs_diff'], stats['max_rel_diff']))
+                if stage_name in self.projection_stats:
+                    stats = self.projection_stats[stage_name]
+                    key_parts.append(('proj', stats['max_abs_diff'], stats['max_rel_diff']))
+                return tuple(key_parts)
+
+            # Group stages by their stats
+            stats_to_stages = {}
+            all_stages = sorted(set(self.pca_component_stats.keys()) | set(self.projection_stats.keys()))
+            for stage_name in all_stages:
+                key = get_stats_key(stage_name)
+                if key not in stats_to_stages:
+                    stats_to_stages[key] = []
+                stats_to_stages[key].append(stage_name)
+
+            # Report each unique set of stats once
+            for stages_list in stats_to_stages.values():
+                # Use first stage as representative
+                stage_name = stages_list[0]
+                if len(stages_list) == 1:
+                    logger.info(f"  Stage: {stage_name}")
+                else:
+                    logger.info(f"  Stages: {', '.join(stages_list)}")
+
                 # Report per-component stats
                 if stage_name in self.pca_component_stats:
                     flipped_indices = self.pca_component_flips.get(stage_name, set())
@@ -1174,8 +1223,34 @@ class ConversationComparer:
                 f.write("-" * 80 + "\n")
                 f.write("PCA NUMERICAL ACCURACY (max diff after sign flip correction)\n\n")
 
-                for stage_name in sorted(set(self.pca_component_stats.keys()) | set(self.projection_stats.keys())):
-                    f.write(f"Stage: {stage_name}\n")
+                # Group stages with identical stats to avoid redundant output
+                def get_stats_key(stage_name):
+                    key_parts = []
+                    if stage_name in self.pca_component_stats:
+                        flipped = self.pca_component_flips.get(stage_name, set())
+                        for comp_idx, stats in sorted(self.pca_component_stats[stage_name].items()):
+                            key_parts.append((comp_idx, comp_idx in flipped,
+                                            stats['max_abs_diff'], stats['max_rel_diff']))
+                    if stage_name in self.projection_stats:
+                        stats = self.projection_stats[stage_name]
+                        key_parts.append(('proj', stats['max_abs_diff'], stats['max_rel_diff']))
+                    return tuple(key_parts)
+
+                stats_to_stages = {}
+                all_stages = sorted(set(self.pca_component_stats.keys()) | set(self.projection_stats.keys()))
+                for stage_name in all_stages:
+                    key = get_stats_key(stage_name)
+                    if key not in stats_to_stages:
+                        stats_to_stages[key] = []
+                    stats_to_stages[key].append(stage_name)
+
+                for stages_list in stats_to_stages.values():
+                    stage_name = stages_list[0]
+                    if len(stages_list) == 1:
+                        f.write(f"Stage: {stage_name}\n")
+                    else:
+                        f.write(f"Stages: {', '.join(stages_list)}\n")
+
                     # Report per-component stats
                     if stage_name in self.pca_component_stats:
                         flipped_indices = self.pca_component_flips.get(stage_name, set())

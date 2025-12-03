@@ -120,32 +120,30 @@ def compute_all_stages(dataset_name: str, votes_dict: Dict, fixed_timestamp: int
     timings["after_pca"] = time.perf_counter() - start_time
     stages["after_pca"] = conv.to_dict()
 
-    # Stage 4: After PCA + clustering
+    # Stage 4: After PCA + clustering (PCA already computed in stage 3)
     start_time = time.perf_counter()
-    conv._compute_pca()
     conv._compute_clusters()
     timings["after_clustering"] = time.perf_counter() - start_time
     stages["after_clustering"] = conv.to_dict()
 
-    # Stage 5: Full recompute (includes repness and participant_info)
-    conv_full = Conversation(dataset_name, last_updated=fixed_timestamp)
-    start_time = time.perf_counter()
-    conv_full = conv_full.update_votes(votes_dict, recompute=True)
-    timings["after_full_recompute"] = time.perf_counter() - start_time
-
-    # Validation: Ensure full computation was performed
-    if conv_full.participant_count == 0 or len(conv_full.group_clusters) == 0:
+    # Validation: Ensure computation was performed
+    if conv.participant_count == 0 or len(conv.group_clusters) == 0:
         raise ValueError(
-            f"Failed to compute! participant_count={conv_full.participant_count}, "
-            f"n_clusters={len(conv_full.group_clusters)}"
+            f"Failed to compute! participant_count={conv.participant_count}, "
+            f"n_clusters={len(conv.group_clusters)}"
         )
 
-    stages["after_full_recompute"] = conv_full.to_dict()
+    # Stage 5: Compute repness and participant_info (reuses PCA and clustering from above)
+    start_time = time.perf_counter()
+    conv._compute_repness()
+    conv._compute_participant_info()
+    timings["after_repness"] = time.perf_counter() - start_time
+    stages["after_repness"] = conv.to_dict()
 
     # Stage 6: Also capture get_full_data() output if available
-    if hasattr(conv_full, 'get_full_data'):
+    if hasattr(conv, 'get_full_data'):
         start_time = time.perf_counter()
-        full_data = conv_full.get_full_data()
+        full_data = conv.get_full_data()
         timings["full_data_export"] = time.perf_counter() - start_time
         stages["full_data_export"] = full_data
 
@@ -210,12 +208,16 @@ def compute_all_stages_with_benchmark(
     }
 
 
-def prepare_votes_data(dataset_name: str) -> Tuple[Dict, Dict[str, Any]]:
+def prepare_votes_data(dataset_name: str, skip_md5: bool = False) -> Tuple[Dict, Dict[str, Any]]:
     """
     Prepare votes data for a dataset.
 
     Reads CSV files in the new export format (voter-id, comment-id, vote, timestamp)
     and converts them to the format expected by Conversation.update_votes().
+
+    Args:
+        dataset_name: Name of the dataset
+        skip_md5: If True, skip MD5 checksum computation (default: False)
 
     Returns:
         Tuple of (votes_dict, metadata)
@@ -228,9 +230,13 @@ def prepare_votes_data(dataset_name: str) -> Tuple[Dict, Dict[str, Any]]:
     votes_csv = Path(dataset_files['votes'])
     comments_csv = Path(dataset_files['comments']) if dataset_files.get('comments') else None
 
-    # Compute MD5 checksums of source data files
-    votes_md5 = compute_file_md5(str(votes_csv))
-    comments_md5 = compute_file_md5(str(comments_csv)) if comments_csv else None
+    # Compute MD5 checksums of source data files (unless skipped)
+    if skip_md5:
+        votes_md5 = None
+        comments_md5 = None
+    else:
+        votes_md5 = compute_file_md5(str(votes_csv))
+        comments_md5 = compute_file_md5(str(comments_csv)) if comments_csv else None
 
     # Use a fixed timestamp for reproducibility in testing
     fixed_timestamp = 1700000000000  # Fixed timestamp in milliseconds

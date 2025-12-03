@@ -16,7 +16,8 @@ import click
 @click.option('--include-local', is_flag=True, default=False, help='Include datasets from real_data/.local/')
 @click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False),
               default='INFO', help='Set logging level (default: INFO). Use DEBUG to save detailed comparison output.')
-def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, include_local: bool, log_level: str):
+@click.option('--skip-md5', is_flag=True, help='Skip MD5 checksum verification of dataset files')
+def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, include_local: bool, log_level: str, skip_md5: bool):
     """
     Compare current implementation with golden snapshots.
 
@@ -31,6 +32,7 @@ def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, include_l
         python comparer.py --log-level DEBUG            # Compare with debug logging
         python comparer.py -i biodiversity              # Compare with PCA sign flip tolerance
         python comparer.py --ignore-pca-sign-flip vw    # Compare with PCA sign flip tolerance
+        python comparer.py --skip-md5 biodiversity        # Skip MD5 verification
     """
     # Configure logging - must be done before imports to prevent conversation module
     # from adding its own handler
@@ -68,7 +70,7 @@ def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, include_l
         click.echo(f"Comparing: {dataset}")
         click.echo(f"{'='*60}")
 
-        result = comparer.compare_with_golden(dataset, benchmark=benchmark)
+        result = comparer.compare_with_golden(dataset, benchmark=benchmark, skip_md5=skip_md5)
 
         # Track results
         passed = "error" not in result and result.get("overall_match", False)
