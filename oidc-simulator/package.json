@@ -9,7 +9,7 @@
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node' src/index.ts"
   },
   "dependencies": {
-    "@simulacrum/auth0-simulator": "^0.11.2",
+    "@simulacrum/auth0-simulator": "0.10.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-redux": "^9.2.0",
@@ -21,4 +21,4 @@
     "nodemon": "^3.1.11",
     "typescript": "^5.9.3"
   }
-} 
+}
