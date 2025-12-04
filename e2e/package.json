@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@faker-js/faker": "^10.1.0",
-    "cypress": "^15.6.0",
+    "cypress": "^15.7.1",
     "cypress-terminal-report": "^7.3.3",
     "dotenv": "^17.2.3",
     "yargs": "^18.0.0"
@@ -33,6 +33,6 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-cypress": "^5.2.0",
     "eslint-plugin-mocha": "^11.2.0",
-    "prettier": "^3.6.2"
+    "prettier": "^3.7.4"
   }
 }
