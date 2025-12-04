@@ -34,9 +34,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     if [ "$USE_CPU_TORCH" = "true" ]; then \
         echo "USE_CPU_TORCH=true: Installing CPU-only PyTorch..." && \
         pip install --index-url https://download.pytorch.org/whl/cpu \
-            torch==2.8.0+cpu \
-            torchvision==0.23.0+cpu \
-            torchaudio==2.8.0+cpu && \
+            torch==2.8.0 \
+            torchvision==0.23.0 \
+            torchaudio==2.8.0 && \
         echo "Filtering standard torch packages from requirements.lock..." && \
         grep -vE "^(torch|torchvision|torchaudio)==" requirements.lock > requirements.filtered.lock && \
         pip install -r requirements.filtered.lock; \
