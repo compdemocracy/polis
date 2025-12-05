@@ -16,6 +16,7 @@ import theme from './theme'
 
 /* landers */
 import Home from './components/landers/home'
+import Home2 from './components/landers/home2'
 import TOS from './components/landers/TOS'
 import Privacy from './components/landers/Privacy'
 import SignIn from './components/landers/SignIn'
@@ -137,6 +138,7 @@ const App = () => {
         <Routes>
           {/* Public routes */}
           <Route path="/home" element={<Home />} />
+          <Route path="/home2" element={<Home2 />} />
           <Route path="/signin" element={<SignIn authed={isAuthed()} />} />
           <Route path="/signout" element={<SignOut />} />
           <Route path="/tos" element={<TOS />} />
