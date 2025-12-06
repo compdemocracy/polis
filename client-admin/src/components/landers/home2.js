@@ -89,23 +89,24 @@ const Home2 = () => {
           </Box>
           <Box as="li" sx={{ mb: 2 }}>
             <Text>
-              <strong>Dynamic Opinion Mapping:</strong> The Polis algorithm groups participants
-              based on the statements they submit and how they vote on others&apos; statements,
-              dynamically adjusting opinion clusters as the conversation evolves to maintain
-              coherent analysis across hundreds of thousands of statements and millions of votes.
+              <strong>Dynamic Opinion Mapping:</strong> The Polis algorithm analyzes how
+              participants naturally cluster together based on the similarity of the statements they
+              submit and how they vote on others&apos; statements, dynamically refreshing those
+              clusters as the conversation evolves to maintain coherent analysis across hundreds of
+              thousands of statements and millions of votes.
             </Text>
           </Box>
           <Box as="li" sx={{ mb: 2 }}>
             <Text>
-              <strong>Semantic Topic Clustering:</strong> Polis 2.0 uses the Embedding Vector
-              Oriented Clustering (EVōC) library from the Tutte Institute for Mathematics and
-              Computing to automatically organize conversations into evolving topic hierarchies —
-              hundreds of topics and subtopics — derived from both organizer-seeded comments and
-              participant input. Participants can view all topic areas and select those of greatest
-              interest before entering the discussion. This organic process enables participants to
-              collectively shape the agenda over time, with &quot;hot&quot; and &quot;cold&quot;
-              areas of discussion naturally emerging, allowing Polis 2.0 conversations to remain
-              open indefinitely.
+              <strong>Semantic Topic Clustering:</strong> Polis 2.0 is the first to use the
+              Embedding Vector Oriented Clustering (EVōC) library from the Tutte Institute for
+              Mathematics and Computing to automatically organize conversations into evolving topic
+              hierarchies — hundreds of topics and subtopics — derived from both organizer-seeded
+              comments and participant input. Participants can view all topic areas and select those
+              of greatest interest before entering the discussion. This organic process enables
+              participants to collectively shape the agenda over time, with &quot;hot&quot; and
+              &quot;cold&quot; areas of discussion naturally emerging, allowing Polis 2.0
+              conversations to remain open indefinitely.
             </Text>
           </Box>
           <Box as="li" sx={{ mb: 2 }}>
@@ -202,7 +203,7 @@ const Home2 = () => {
           </Box>
           <Box as="li" sx={{ mb: 1 }}>
             <strong>Vote on others’ statements</strong> — agree, disagree, or pass (there&apos;s no
-            reply function)
+            reply function, by design)
           </Box>
           <Box as="li" sx={{ mb: 1 }}>
             <strong>Submit statements about issues that matter to them</strong> — shaping
