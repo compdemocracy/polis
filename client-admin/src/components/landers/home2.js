@@ -1,5 +1,5 @@
 import Layout from './lander-layout'
-import { Heading, Box, Text, Link } from 'theme-ui'
+import { Heading, Box, Text, Link, Image } from 'theme-ui'
 import PropTypes from 'prop-types'
 
 const Placeholder = ({ text }) => (
@@ -219,7 +219,18 @@ const Home2 = () => {
           </Box>
         </Box>
 
-        <Placeholder text="[SCREENSHOT OF BG2050 CONVERSATION]" />
+        <Box sx={{ my: 4, textAlign: 'center' }}>
+          <Image
+            src="/bg2050.png"
+            alt="Bowling Green 2050 Conversation"
+            sx={{
+              maxWidth: '100%',
+              height: 'auto',
+              borderRadius: 4,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+          />
+        </Box>
 
         <Text as="p" sx={{ mb: 2 }}>
           <strong>Multi-lingual capabilities:</strong> The system detects a participant’s browser
@@ -228,7 +239,18 @@ const Home2 = () => {
           in the default language and in their chosen language.
         </Text>
 
-        <Placeholder text="[SCREENSHOT OF BG CONVERSATION IN A LANGUAGE OTHER THAN ENGLISH]" />
+        <Box sx={{ my: 4, textAlign: 'center' }}>
+          <Image
+            src="/bg2050_fr.png"
+            alt="Bowling Green 2050 Conversation in French"
+            sx={{
+              maxWidth: '100%',
+              height: 'auto',
+              borderRadius: 4,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+          />
+        </Box>
 
         {/* 4. Moderating */}
         <Heading as="h3" sx={{ fontSize: 4, mb: 3, mt: 5 }}>
@@ -286,7 +308,19 @@ const Home2 = () => {
             conversation by identifying popular topics, subtopics and their interconnections, areas
             of consensus, and points of disagreement.
           </Text>
-          <Placeholder text="[INTERACTIVE OF TOPIC MAP OF BG]" />
+          <Box
+            as="iframe"
+            src="https://polis-delphi.s3.us-east-1.amazonaws.com/visualizations/r7wehfsmutrwndviddnii/8456bfac-94a6-4fdf-b99e-0679fd635d9a/layer_0_datamapplot.html"
+            sx={{
+              width: '100%',
+              height: '500px',
+              border: 'none',
+              borderRadius: 4,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              my: 3
+            }}
+            title="Interactive Topic Map"
+          />
         </Box>
 
         <Box sx={{ mb: 4 }}>
@@ -296,8 +330,32 @@ const Home2 = () => {
             the underlying comments and votes. These statements represent authentic consensus rather
             than imposed compromise.
           </Text>
-          <Placeholder text="[BG COLLECTIVE STATEMENTS PANEL]" />
-          <Placeholder text="[TOPIC STATS – THE BEESWARM VIEW]" />
+
+          <Box sx={{ my: 4, textAlign: 'center' }}>
+            <Image
+              src="/collective.png"
+              alt="Collective Statement Panel"
+              sx={{
+                maxWidth: '100%',
+                height: 'auto',
+                borderRadius: 4,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            />
+          </Box>
+
+          <Box sx={{ my: 4, textAlign: 'center' }}>
+            <Image
+              src="/beeswarm.png"
+              alt="Topic Stats Beeswarm View"
+              sx={{
+                maxWidth: '100%',
+                height: 'auto',
+                borderRadius: 4,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            />
+          </Box>
         </Box>
 
         <Box sx={{ mb: 4 }}>
@@ -316,7 +374,18 @@ const Home2 = () => {
             <strong>Data Repository:</strong> All data remains accessible for ongoing reference and
             further analysis
           </Text>
-          <Placeholder text="[SCREENSHOT OF RAW DATA LINKS??]" />
+          <Box sx={{ my: 4, textAlign: 'center' }}>
+            <Image
+              src="/export_links.png"
+              alt="Data Export Links"
+              sx={{
+                maxWidth: '100%',
+                height: 'auto',
+                borderRadius: 4,
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+              }}
+            />
+          </Box>
         </Box>
       </Box>
     </Layout>
