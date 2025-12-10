@@ -7,6 +7,21 @@ and execute them.
 """
 
 import argparse
+
+
+def _postgres_vote_to_delphi(pg_vote):
+    """
+    Convert PostgreSQL vote convention to Delphi convention.
+
+    PostgreSQL/Server/Client: AGREE=-1, DISAGREE=+1, PASS=0
+    Delphi internal:          AGREE=+1, DISAGREE=-1, PASS=0
+
+    Note: The canonical definition is in polismath.utils.general.postgres_vote_to_delphi()
+    This local copy exists to avoid import dependencies in the standalone poller.
+    """
+    return pg_vote * -1
+
+
 from contextlib import contextmanager
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session
@@ -42,7 +57,7 @@ class PostgresConfig:
                 ssl_mode: Optional[str] = None):
         """
         Initialize PostgreSQL configuration.
-        
+
         Args:
             url: Database URL (overrides other connection parameters if provided)
             host: Database host
@@ -68,7 +83,7 @@ class PostgresConfig:
     def _parse_url(self, url: str) -> None:
         """
         Parse a database URL into components.
-        
+
         Args:
             url: Database URL in format postgresql://user:password@host:port/database
         """
@@ -78,45 +93,45 @@ class PostgresConfig:
         
         if not url:
             raise ValueError("No database URL provided")
-        
+
         # Parse URL
         parsed = urllib.parse.urlparse(url)
-        
+
         # Extract components
         self.user = parsed.username
         self.password = parsed.password
         self.host = parsed.hostname
         self.port = parsed.port or 5432
-        
+
         # Extract database name (remove leading '/')
         path = parsed.path
         if path.startswith('/'):
             path = path[1:]
         self.database = path
-    
+
     def get_uri(self) -> str:
         """
         Get SQLAlchemy URI for database connection.
-        
+
         Returns:
             SQLAlchemy URI string
         """
         # Format password component if present
         password_str = f":{self.password}" if self.password else ""
-        
+
         # Build URI
         uri = f"postgresql://{self.user}{password_str}@{self.host}:{self.port}/{self.database}"
 
         if self.ssl_mode: # Check if self.ssl_mode is not None or empty
             uri = f"{uri}?sslmode={self.ssl_mode}"
-        
+
         return uri
-    
+
     @classmethod
     def from_env(cls) -> 'PostgresConfig':
         """
         Create a configuration from environment variables.
-        
+
         Returns:
             PostgresConfig instance
         """
@@ -124,7 +139,7 @@ class PostgresConfig:
         url = os.environ.get('DATABASE_URL')
         if url:
             return cls(url=url)
-        
+
         # Use individual environment variables
         return cls(
             host=os.environ.get('DATABASE_HOST'),
@@ -137,11 +152,11 @@ class PostgresConfig:
 
 class PostgresClient:
     """PostgreSQL client for accessing Polis data."""
-    
+
     def __init__(self, config: Optional[PostgresConfig] = None):
         """
         Initialize PostgreSQL client.
-        
+
         Args:
             config: PostgreSQL configuration
         """
@@ -150,27 +165,27 @@ class PostgresClient:
         self.session_factory = None
         self.Session = None
         self._initialized = False
-    
+
     def initialize(self) -> None:
         """
         Initialize the database connection.
         """
         if self._initialized:
             return
-        
+
         # Create engine
         uri = self.config.get_uri()
         self.engine = sa.create_engine(
             uri,
             pool_size=5,
             max_overflow=10,
-            pool_recycle=300  # Recycle connections after 5 minutes
+            pool_recycle=300,  # Recycle connections after 5 minutes
         )
-        
+
         # Create session factory
         self.session_factory = sessionmaker(bind=self.engine)
         self.Session = scoped_session(self.session_factory)
-        
+
         # Mark as initialized
         self._initialized = True
         
@@ -182,32 +197,32 @@ class PostgresClient:
         """
         if not self._initialized:
             return
-        
+
         # Dispose of the engine
         if self.engine:
             self.engine.dispose()
-        
+
         # Clear session factory
         if self.Session:
             self.Session.remove()
             self.Session = None
-        
+
         # Mark as not initialized
         self._initialized = False
-        
+
         logger.info("Shut down PostgreSQL connection")
-    
+
     @contextmanager
     def session(self):
         """
         Get a database session context.
-        
+
         Yields:
             SQLAlchemy session
         """
         if not self._initialized:
             self.initialize()
-        
+
         session = self.Session()
         try:
             yield session
@@ -221,48 +236,48 @@ class PostgresClient:
     def query(self, sql: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         Execute a SQL query.
-        
+
         Args:
             sql: SQL query
             params: Query parameters
-            
+
         Returns:
             List of dictionaries with query results
         """
         if not self._initialized:
             self.initialize()
-        
+
         with self.engine.connect() as conn:
             result = conn.execute(text(sql), params or {})
-            
+
             # Convert to dictionaries
             columns = result.keys()
             return [dict(zip(columns, row)) for row in result]
-    
+
     def get_conversation_by_id(self, zid: int) -> Optional[Dict[str, Any]]:
         """
         Get conversation information by ID.
-        
+
         Args:
             zid: Conversation ID
-            
+
         Returns:
             Conversation data, or None if not found
         """
         sql = """
         SELECT * FROM conversations WHERE zid = :zid
         """
-        
+
         results = self.query(sql, {"zid": zid})
         return results[0] if results else None
-    
+
     def get_comments_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
         """
         Get all comments in a conversation.
-        
+
         Args:
             zid: Conversation ID
-            
+
         Returns:
             List of comments
         """
@@ -282,18 +297,22 @@ class PostgresClient:
         ORDER BY 
             tid
         """
-        
+
         return self.query(sql, {"zid": zid})
-    
+
     def get_votes_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
         """
         Get all votes in a conversation.
-        
+
+        Vote signs are flipped at this PostgreSQL boundary:
+        - PostgreSQL stores: AGREE=-1, DISAGREE=+1
+        - Delphi expects:    AGREE=+1, DISAGREE=-1
+
         Args:
             zid: Conversation ID
-            
+
         Returns:
-            List of votes
+            List of votes with signs converted to Delphi convention
         """
         sql = """
         SELECT 
@@ -306,16 +325,21 @@ class PostgresClient:
         WHERE 
             v.zid = :zid
         """
-        
-        return self.query(sql, {"zid": zid})
-    
+
+        results = self.query(sql, {"zid": zid})
+        # Flip vote signs at PostgreSQL boundary
+        for r in results:
+            if r.get("vote") is not None:
+                r["vote"] = _postgres_vote_to_delphi(r["vote"])
+        return results
+
     def get_participants_by_conversation(self, zid: int) -> List[Dict[str, Any]]:
         """
         Get all participants in a conversation.
-        
+
         Args:
             zid: Conversation ID
-            
+
         Returns:
             List of participants
         """
@@ -331,16 +355,16 @@ class PostgresClient:
         WHERE 
             p.zid = :zid
         """
-        
+
         return self.query(sql, {"zid": zid})
-    
+
     def get_conversation_id_by_slug(self, conversation_slug: str) -> Optional[int]:
         """
         Get conversation ID by its slug (zinvite).
-        
+
         Args:
             conversation_slug: Conversation slug/zinvite
-            
+
         Returns:
             Conversation ID, or None if not found
         """
@@ -352,9 +376,10 @@ class PostgresClient:
         WHERE 
             z.zinvite = :zinvite
         """
-        
+
         results = self.query(sql, {"zinvite": conversation_slug})
-        return results[0]['zid'] if results else None
+        return results[0]["zid"] if results else None
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, 
@@ -367,11 +392,13 @@ running = True
 # Exit code from 803_check_batch_status.py script if batch is still processing
 EXIT_CODE_PROCESSING_CONTINUES = 3
 
+
 def signal_handler(sig, frame):
     """Handle exit signals gracefully."""
     global running
     logger.info("Shutdown signal received. Stopping workers...")
     running = False
+
 
 class JobProcessor:
     """Process jobs from the Delphi_JobQueue."""
@@ -402,7 +429,7 @@ class JobProcessor:
         except Exception as e:
             logger.error(f"Failed to connect to Delphi_JobQueue table: {e}")
             raise
-        
+
     def find_pending_job(self):
         """
         Finds the highest-priority actionable job. This includes PENDING jobs, jobs
@@ -475,7 +502,7 @@ class JobProcessor:
         # This condition handles all actionable states found by find_pending_job.
         # It allows claiming a PENDING job, an AWAITING_RECHECK job, or an expired job.
         condition_expr = "(#s = :pending OR #s = :awaiting_recheck OR (attribute_exists(lock_expires_at) AND lock_expires_at < :now)) AND #v = :current_version"
-        
+
         try:
             response = self.table.update_item(
                 Key={'job_id': job_id},
@@ -510,7 +537,7 @@ class JobProcessor:
         except Exception as e:
             logger.error(f"Unexpected error claiming job {job_id}: {e}", exc_info=True)
             return None
-        
+
     def get_job_actual_size(self, conversation_id_str: str) -> str:
         """
         Queries PostgreSQL to determine the actual size of the job based on comment count.
@@ -520,16 +547,16 @@ class JobProcessor:
         try:
             # Ensure conversation_id is an integer for the query
             conversation_id = int(conversation_id_str)
-            
+
             pg_client = PostgresClient()
             pg_client.initialize()
-            
+
             # Query for comment count. Assuming 'comments' table and 'zid' column.
             # Adjust table/column names if different.
             # The table is indeed 'comments' and the column is 'zid' per CLAUDE.md
             sql_query = "SELECT COUNT(*) FROM comments WHERE zid = :zid"
             count_result = pg_client.query(sql_query, {"zid": conversation_id})
-            
+
             if count_result and count_result[0] is not None:
                 comment_count = count_result[0]['count']
                 logger.info(f"Conversation {conversation_id} has {comment_count} comments.")
@@ -564,7 +591,7 @@ class JobProcessor:
                 )
         except Exception as e:
             logger.error(f"Failed to release lock for job {job_id}: {e}")
-            
+
     def update_job_logs(self, job, log_entry, mirror_to_console=True):
         """
         Add a log entry to the job logs with optimistic locking.
@@ -613,18 +640,18 @@ class JobProcessor:
         current_version = job.get('version', 1)
         new_status = 'COMPLETED' if success else 'FAILED'
         now = datetime.now().isoformat()
-        
+
         try:
             # Prepare results
             job_results = {
                 'result_type': 'SUCCESS' if success else 'FAILURE',
                 'completed_at': now
             }
-            
+
             # This 'if' block correctly handles the 'result' argument
             if result:
                 job_results.update(result)
-            
+
             if error:
                 job_results['error'] = str(error)
             
@@ -649,9 +676,9 @@ class JobProcessor:
                         ':new_version': current_version + 1
                     }
                 )
-                
+
                 logger.info(f"Job {job_id} marked as {new_status}")
-                
+
             except ClientError as e:
                 if e.response['Error']['Code'] == 'ConditionalCheckFailedException':
                     logger.warning(f"Job {job_id} was modified by another process, completion state may not be accurate")
@@ -708,10 +735,10 @@ class JobProcessor:
                 self.update_job_logs(job, {'level': 'INFO', 'message': f"[stdout] {line.strip()}"})
                 if time.time() - start_time > timeout_seconds:
                     raise subprocess.TimeoutExpired(cmd, timeout_seconds)
-            
+
             process.stdout.close()
             return_code = process.wait()
-            
+
             # 3. Handle the results
             success = (return_code == 0)
             if job_type == 'AWAITING_NARRATIVE_BATCH':
@@ -746,24 +773,24 @@ def poll_and_process(processor: JobProcessor, interval: int = 10):
         try:
             # Step 1: Find the next available job.
             job_to_process = processor.find_pending_job()
-            
+
             if job_to_process:
-                conversation_id_str = job_to_process.get('conversation_id')
-                
+                conversation_id_str = job_to_process.get("conversation_id")
+
                 if conversation_id_str:
                     job_actual_size = processor.get_job_actual_size(conversation_id_str)
                 else:
                     job_actual_size = "normal"
-                
+
                 can_process = False
                 instance_type = processor.instance_type
-                
+
                 if instance_type == "large":
                     # A large instance ONLY processes large jobs.
-                    can_process = (job_actual_size == "large")
-                else: # This covers 'small' and the 'default' type.
+                    can_process = job_actual_size == "large"
+                else:  # This covers 'small' and the 'default' type.
                     # Small/default instances ONLY process normal-sized jobs.
-                    can_process = (job_actual_size == "normal")
+                    can_process = job_actual_size == "normal"
 
                 if instance_type == "dev":
                     # Dev instances can process any job size.
@@ -777,19 +804,20 @@ def poll_and_process(processor: JobProcessor, interval: int = 10):
 
                 # If we can process it, attempt to claim it.
                 claimed_job = processor.claim_job(job_to_process)
-                
+
                 # Only proceed if the claim was successful.
                 if claimed_job:
                     processor.process_job(claimed_job)
             else:
                 # If no jobs are found, wait for the full interval.
                 time.sleep(interval)
-                
+
         except Exception as e:
             logger.error(f"Critical error in polling loop for worker {processor.worker_id}: {e}", exc_info=True)
             if claimed_job:
                 processor.complete_job(claimed_job, False, error="Polling loop crashed during processing")
             time.sleep(interval * 6)
+
 
 def main():
     # This function is correct.
@@ -800,14 +828,14 @@ def main():
     parser.add_argument('--max-workers', type=int, default=1)
     parser.add_argument('--log-level', type=str, default='INFO', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'])
     args = parser.parse_args()
-    
+
     logger.setLevel(getattr(logging, args.log_level))
-    
+
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
-    
+
     logger.info("Starting Delphi Job Poller Service...")
-    
+
     try:
         processor = JobProcessor(endpoint_url=args.endpoint_url, region=args.region)
         threads = []
@@ -816,14 +844,15 @@ def main():
             t.start()
             threads.append(t)
             logger.info(f"Started worker thread {i+1}")
-        
+
         while running and any(t.is_alive() for t in threads):
             time.sleep(1)
-        
+
         logger.info("All workers have stopped. Exiting.")
     except Exception as e:
         logger.error(f"Error in main function: {e}")
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()
