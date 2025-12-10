@@ -18,7 +18,7 @@ class Header extends Component {
             justifyContent: 'space-between'
           }}>
           <Box sx={{ zIndex: 1000 }}>
-            <Link sx={{ variant: 'links.nav' }} to="/home">
+            <Link sx={{ variant: 'links.nav' }} to="/home2">
               <Logomark
                 style={{ marginRight: 10, position: 'relative', top: 6 }}
                 fill={theme.colors.primary}

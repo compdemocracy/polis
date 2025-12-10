@@ -12,9 +12,7 @@ const XidsInUseTable = ({ xids = [], conversationId }) => {
       setDownloadLoading(true)
       const token = await PolisNet.getAccessTokenSilentlySPA()
 
-      const url = `/api/v3/xids/csv?conversation_id=${encodeURIComponent(
-        conversationId
-      )}`
+      const url = `/api/v3/xids/csv?conversation_id=${encodeURIComponent(conversationId)}`
 
       const res = await fetch(url, {
         method: 'GET',
@@ -63,101 +61,101 @@ const XidsInUseTable = ({ xids = [], conversationId }) => {
           borderCollapse: 'collapse',
           mb: [3]
         }}>
-      <Box
-        as="thead"
-        sx={{
-          backgroundColor: 'lightGray',
-          borderBottom: '2px solid',
-          borderColor: 'mediumGray'
-        }}>
-        <Box as="tr">
-          <Box
-            as="th"
-            sx={{
-              px: [2, 3],
-              py: [2],
-              textAlign: 'left',
-              fontWeight: 'bold',
-              fontSize: [1],
-              borderRight: '1px solid',
-              borderColor: 'mediumGray'
-            }}>
-            PID
-          </Box>
-          <Box
-            as="th"
-            sx={{
-              px: [2, 3],
-              py: [2],
-              textAlign: 'left',
-              fontWeight: 'bold',
-              fontSize: [1],
-              borderRight: '1px solid',
-              borderColor: 'mediumGray'
-            }}>
-            XID
-          </Box>
-          <Box
-            as="th"
-            sx={{
-              px: [2, 3],
-              py: [2],
-              textAlign: 'left',
-              fontWeight: 'bold',
-              fontSize: [1]
-            }}>
-            Votes
-          </Box>
-        </Box>
-      </Box>
-      <Box as="tbody">
-        {xids.map((xidRecord, index) => (
-          <Box
-            key={`${xidRecord.pid}-${index}`}
-            as="tr"
-            sx={{
-              borderBottom: '1px solid',
-              borderColor: 'lightGray',
-              '&:hover': {
-                backgroundColor: 'lightGray'
-              }
-            }}>
+        <Box
+          as="thead"
+          sx={{
+            backgroundColor: 'lightGray',
+            borderBottom: '2px solid',
+            borderColor: 'mediumGray'
+          }}>
+          <Box as="tr">
             <Box
-              as="td"
+              as="th"
               sx={{
                 px: [2, 3],
                 py: [2],
+                textAlign: 'left',
+                fontWeight: 'bold',
                 fontSize: [1],
                 borderRight: '1px solid',
-                borderColor: 'lightGray'
+                borderColor: 'mediumGray'
               }}>
-              {xidRecord.pid}
+              PID
             </Box>
             <Box
-              as="td"
+              as="th"
               sx={{
                 px: [2, 3],
                 py: [2],
+                textAlign: 'left',
+                fontWeight: 'bold',
                 fontSize: [1],
-                wordBreak: 'break-all',
                 borderRight: '1px solid',
-                borderColor: 'lightGray'
+                borderColor: 'mediumGray'
               }}>
-              {xidRecord.xid}
+              XID
             </Box>
             <Box
-              as="td"
+              as="th"
               sx={{
                 px: [2, 3],
                 py: [2],
+                textAlign: 'left',
+                fontWeight: 'bold',
                 fontSize: [1]
               }}>
-              {xidRecord.vote_count ?? 0}
+              Votes
             </Box>
           </Box>
-        ))}
+        </Box>
+        <Box as="tbody">
+          {xids.map((xidRecord, index) => (
+            <Box
+              key={`${xidRecord.pid}-${index}`}
+              as="tr"
+              sx={{
+                borderBottom: '1px solid',
+                borderColor: 'lightGray',
+                '&:hover': {
+                  backgroundColor: 'lightGray'
+                }
+              }}>
+              <Box
+                as="td"
+                sx={{
+                  px: [2, 3],
+                  py: [2],
+                  fontSize: [1],
+                  borderRight: '1px solid',
+                  borderColor: 'lightGray'
+                }}>
+                {xidRecord.pid}
+              </Box>
+              <Box
+                as="td"
+                sx={{
+                  px: [2, 3],
+                  py: [2],
+                  fontSize: [1],
+                  wordBreak: 'break-all',
+                  borderRight: '1px solid',
+                  borderColor: 'lightGray'
+                }}>
+                {xidRecord.xid}
+              </Box>
+              <Box
+                as="td"
+                sx={{
+                  px: [2, 3],
+                  py: [2],
+                  fontSize: [1]
+                }}>
+                {xidRecord.vote_count ?? 0}
+              </Box>
+            </Box>
+          ))}
+        </Box>
       </Box>
-    </Box>
     </>
   )
 }

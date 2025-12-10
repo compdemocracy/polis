@@ -366,7 +366,6 @@ const Home2 = () => {
             grounding, prompt engineering, and evaluations to ensure high-quality summaries, with
             each clause in the report including citations for easy human verification.
           </Text>
-          <Placeholder text="[BG NARRATIVE REPORT WITH CITATIONS — MAKE SURE THERE ARE NO HALLUCINATIONS!!]" />
         </Box>
 
         <Box sx={{ mb: 5 }}>

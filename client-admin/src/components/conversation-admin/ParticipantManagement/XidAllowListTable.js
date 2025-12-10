@@ -52,9 +52,7 @@ const XidAllowListTable = ({ conversationId }) => {
       setDownloadLoading(true)
       const token = await PolisNet.getAccessTokenSilentlySPA()
 
-      const url = `/api/v3/xidAllowList/csv?conversation_id=${encodeURIComponent(
-        conversationId
-      )}`
+      const url = `/api/v3/xidAllowList/csv?conversation_id=${encodeURIComponent(conversationId)}`
 
       const res = await fetch(url, {
         method: 'GET',

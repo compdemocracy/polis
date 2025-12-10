@@ -281,9 +281,7 @@ const UploadXidsModal = ({ isOpen, onClose, onUpload, conversationId }) => {
                 <Text sx={{ mb: [2], color: 'text', fontSize: [1] }}>
                   {isDragging ? 'Drop file here' : 'Click to browse or drag and drop file here'}
                 </Text>
-                <Text sx={{ color: 'mediumGray', fontSize: [0] }}>
-                  Supports CSV and text files
-                </Text>
+                <Text sx={{ color: 'mediumGray', fontSize: [0] }}>Supports CSV and text files</Text>
               </>
             )}
           </Box>
@@ -382,4 +380,3 @@ UploadXidsModal.propTypes = {
 }
 
 export default UploadXidsModal
-

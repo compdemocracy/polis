@@ -2,8 +2,8 @@
 
 ### Static, outide
 
-- User can see home page at `/home`
-- User is redirected to `/home` if not logged in
+- User can see home page at `/home2`
+- User is redirected to `/home2` if not logged in
 - User can see `/privacy` policy
 - User can see `/tos`
 

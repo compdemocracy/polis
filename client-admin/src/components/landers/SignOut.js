@@ -33,16 +33,16 @@ const SignOut = () => {
         // so we need to handle signout manually for dev environment
         if (process.env.AUTH_CLIENT_ID === 'dev-client-id') {
           // For dev environment, just redirect after local cleanup
-          window.location.href = '/home'
+          window.location.href = '/home2'
         } else {
           // For production, try the proper signout redirect
           try {
             await auth.signoutRedirect({
-              post_logout_redirect_uri: `${window.location.origin}/home`
+              post_logout_redirect_uri: `${window.location.origin}/home2`
             })
           } catch {
             // If signout redirect fails, fallback to manual redirect
-            window.location.href = '/home'
+            window.location.href = '/home2'
           }
         }
       } catch (err) {
@@ -51,7 +51,7 @@ const SignOut = () => {
 
         // Force redirect to home page after a delay
         setTimeout(() => {
-          window.location.href = '/home'
+          window.location.href = '/home2'
         }, 1500)
       }
     }
