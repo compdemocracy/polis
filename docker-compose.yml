@@ -120,6 +120,7 @@ services:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
       context: ./delphi
+      target: final
     labels:
       polis_tag: ${TAG:-dev}
       com.datadoghq.ad.logs: '[{"source": "python", "service": "delphi"}]'
