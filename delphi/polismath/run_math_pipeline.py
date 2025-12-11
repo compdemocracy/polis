@@ -315,7 +315,8 @@ def main():
             
             logger.info(f"[{time.time() - start_time:.2f}s] Vote update completed in {update_end - update_start:.2f}s")
             logger.info(f"[{time.time() - start_time:.2f}s] Total batch processing time: {time.time() - batch_start_time:.2f}s")
-            logger.info(f"[{time.time() - start_time:.2f}s] Memory used by the matrix of votes so far: {conv.raw_rating_mat.memory_usage_mb():.2f} MB")
+            mem_mb = conv.raw_rating_mat.memory_usage(deep=True).sum() / (1024 * 1024)
+            logger.info(f"[{time.time() - start_time:.2f}s] Memory used by the matrix of votes so far: {mem_mb:.2f} MB")
 
         
         logger.info(f"[{time.time() - start_time:.2f}s] Running final computation with detailed timing...")
