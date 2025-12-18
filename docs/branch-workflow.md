@@ -11,7 +11,7 @@ This document describes the Git branching strategy for the Polis project.
 
 ## The Golden Rule: One-Way Street
 
-```
+```text
 feature branches ──> edge (development) ──> stable (production)
 ```
 
@@ -36,7 +36,17 @@ git push -u origin feature/my-feature
 
 ### Deploying to Production
 
-When ready to deploy, merge `edge` into `stable`:
+When ready to deploy, merge `edge` into `stable`.
+
+#### Important: Fast-forward only (no merge commits, no squashes, no rebases)
+
+To keep `stable` as a clean, linear history of what shipped, deployments must be a **fast-forward merge**: every commit from `edge` is added onto `stable` sequentially, **without**:
+
+- a merge commit
+- squashing commits
+- rebasing / rewriting commits
+
+This is the natural behavior of a fast-forward merge when using the Git CLI:
 
 ```bash
 git checkout stable
@@ -46,6 +56,28 @@ git push origin stable
 ```
 
 This should always be a fast-forward or clean merge. If there are conflicts, something went wrong (see Recovery section below).
+
+#### GitHub UI limitation (why we don’t “merge the PR” for `edge → stable`)
+
+GitHub’s web UI PR merge strategies are:
+
+1. **Merge commit** (default “Merge” button)
+2. **Squash**
+3. **Rebase**
+
+None of these produce the **fast-forward-only** deployment history we want on `stable`. As a result, **do not use the GitHub UI merge button** to perform `edge → stable` deployment merges; use the CLI flow above.
+
+#### Branch protections / ruleset expectations for `stable`
+
+Even though deployment merges are performed via CLI, `stable` should still be protected:
+
+- **Require PR reviews** before changes land on `stable`
+- **Require status checks** to pass
+- **Restrict who can push** to `stable` (allow only authorized maintainers to perform the CLI fast-forward deployment)
+
+#### Future consideration: automation
+
+If we want to automate enforcement, we can use a GitHub Actions workflow to programmatically verify/enforce “fast-forward only” semantics for approved PRs targeting `stable`.
 
 ### Marking Deployments
 
@@ -62,14 +94,17 @@ This keeps the commit history clean while still tracking what was deployed when.
 
 If a critical fix is needed in production:
 
-**Option A: Fix on edge first (preferred)**
+#### Option A: Fix on edge first (preferred)
+
 1. Make the fix on `edge`
 2. Merge `edge` into `stable`
 3. Deploy
 
-**Option B: Cherry-pick (if urgent)**
+#### Option B: Cherry-pick (if urgent)
+
 1. Make the fix directly on `stable`
 2. Cherry-pick the commit to `edge` to keep them in sync:
+
    ```bash
    git checkout edge
    git cherry-pick <commit-hash>
@@ -95,6 +130,7 @@ git push origin stable
 ```
 
 This creates a merge commit that:
+
 - Records `edge` as a parent (proper merge history)
 - Results in `stable` having identical content to `edge`
 - Does not require force-push (no history rewriting)
@@ -114,6 +150,7 @@ git log --oneline stable..edge | wc -l
 ## Why This Matters
 
 Maintaining one-way flow ensures:
+
 - Clean merge history
 - Predictable deployments
 - Easy rollbacks (just deploy an earlier `edge` commit)
