@@ -25,7 +25,7 @@ The alpha client now has centralized JWT and authentication handling that mirror
 ### Simple API Call (JWT handled automatically)
 
 ```javascript
-import PolisNet from '../lib/net';
+import PolisNet from '../lib/net'
 
 // Make an API call - JWT will be automatically added to headers if available
 // and automatically extracted/stored from response
@@ -33,40 +33,40 @@ const result = await PolisNet.polisPost('/api/v3/votes', {
   conversation_id: 'abc123',
   tid: 42,
   vote: 1
-});
+})
 // No need to manually handle result.auth.token - it's done automatically!
 ```
 
 ### Component Example
 
 ```javascript
-import PolisNet from '../lib/net';
-import { getConversationToken } from '../lib/auth';
+import PolisNet from '../lib/net'
+import { getConversationToken } from '../lib/auth'
 
 export function MyComponent({ conversation_id }) {
   const submitData = async (data) => {
     // Get current participant info if needed
-    const token = getConversationToken(conversation_id);
-    const pid = token?.pid;
-    
+    const token = getConversationToken(conversation_id)
+    const pid = token?.pid
+
     try {
       // Make API call - auth headers added automatically
       const response = await PolisNet.polisPost('/api/v3/comments', {
         conversation_id,
         pid,
         txt: data.text
-      });
-      
+      })
+
       // JWT token from response.auth.token is automatically stored
       // No manual handling needed!
-      
-      return response;
+
+      return response
     } catch (error) {
       // Error includes responseText for server error messages
-      console.error('API Error:', error.responseText || error.message);
-      throw error;
+      console.error('API Error:', error.responseText || error.message)
+      throw error
     }
-  };
+  }
 }
 ```
 
@@ -147,18 +147,18 @@ const response = await fetch('/api/v3/votes', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify(data)
-});
+})
 
-const result = await response.json();
+const result = await response.json()
 
 // Manual JWT extraction and storage
 if (result?.auth?.token) {
-  const token = result.auth.token;
-  const parts = token.split('.');
+  const token = result.auth.token
+  const parts = token.split('.')
   if (parts.length === 3) {
-    const payload = JSON.parse(atob(parts[1]));
+    const payload = JSON.parse(atob(parts[1]))
     if (payload.conversation_id) {
-      localStorage.setItem('participant_token_' + payload.conversation_id, token);
+      localStorage.setItem('participant_token_' + payload.conversation_id, token)
     }
   }
 }
@@ -168,9 +168,9 @@ if (result?.auth?.token) {
 
 ```javascript
 // DO THIS INSTEAD
-import PolisNet from '../lib/net';
+import PolisNet from '../lib/net'
 
-const result = await PolisNet.polisPost('/api/v3/votes', data);
+const result = await PolisNet.polisPost('/api/v3/votes', data)
 // JWT handling is automatic - no manual code needed!
 ```
 
@@ -185,14 +185,14 @@ const result = await PolisNet.polisPost('/api/v3/votes', data);
 
 ## Comparison with Legacy Client
 
-| Feature | Legacy Client | Alpha Client |
-|---------|--------------|--------------|
-| JWT Storage | `polisStorage.js` | `auth.ts` |
-| Auto JWT Extraction | ✅ `net.js`, `main.js` | ✅ `net.js` |
-| Auto Auth Headers | ✅ `backbonePolis.js` | ✅ `net.js` |
-| OIDC Support | ❌ | ✅ |
-| TypeScript | ❌ | ✅ |
-| Centralized | Partial (3 files) | ✅ (2 files) |
+| Feature             | Legacy Client          | Alpha Client |
+| ------------------- | ---------------------- | ------------ |
+| JWT Storage         | `polisStorage.js`      | `auth.ts`    |
+| Auto JWT Extraction | ✅ `net.js`, `main.js` | ✅ `net.js`  |
+| Auto Auth Headers   | ✅ `backbonePolis.js`  | ✅ `net.js`  |
+| OIDC Support        | ❌                     | ✅           |
+| TypeScript          | ❌                     | ✅           |
+| Centralized         | Partial (3 files)      | ✅ (2 files) |
 
 ## Testing
 
@@ -204,15 +204,15 @@ jest.mock('../lib/net', () => ({
   polisPost: jest.fn(),
   polisGet: jest.fn(),
   polisPut: jest.fn()
-}));
+}))
 
 // In tests
-import PolisNet from '../lib/net';
+import PolisNet from '../lib/net'
 
 PolisNet.polisPost.mockResolvedValue({
   success: true,
   auth: { token: 'mock-jwt-token' }
-});
+})
 ```
 
 ## Troubleshooting

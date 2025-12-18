@@ -66,8 +66,10 @@ Added to conversation page (`[conversation_id].astro`) with `client:load` direct
 Added new strings to `src/strings/en_us.js`:
 
 ```javascript
-s.xidRequired = "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.";
-s.xidOidcConflictWarning = "Warning: You are currently signed-in to polis, but have opened a conversation with an XID token. To participate with an XID, please log out of your polis account.";
+s.xidRequired =
+  'This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.'
+s.xidOidcConflictWarning =
+  'Warning: You are currently signed-in to polis, but have opened a conversation with an XID token. To participate with an XID, please log out of your polis account.'
 ```
 
 ### 6. Documentation
@@ -91,12 +93,13 @@ https://pol.is/alpha/2demo?xid=user123&x_name=John%20Doe
 ### Embed Code
 
 ```html
-<div class='polis' 
-     data-conversation_id='2demo' 
-     data-xid='user123'
-     data-x_name='John Doe'
-     data-x_profile_image_url='https://example.com/avatar.jpg'>
-</div>
+<div
+  class="polis"
+  data-conversation_id="2demo"
+  data-xid="user123"
+  data-x_name="John Doe"
+  data-x_profile_image_url="https://example.com/avatar.jpg"
+></div>
 <script async src="https://pol.is/alpha/embed.js"></script>
 ```
 
@@ -112,11 +115,11 @@ The embed script automatically converts data attributes to query parameters.
 
 ## Error Messages
 
-| Error Code | User-Facing Message |
-|------------|-------------------|
-| `polis_err_xid_required` | "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you." |
-| `polis_err_xid_not_allowed` | "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you." |
-| OIDC + XID conflict | "Warning: You are currently signed-in to polis, but have opened a conversation with an XID token. To participate with an XID, please log out of your polis account." |
+| Error Code                  | User-Facing Message                                                                                                                                                  |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `polis_err_xid_required`    | "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you."                                                |
+| `polis_err_xid_not_allowed` | "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you."                                                |
+| OIDC + XID conflict         | "Warning: You are currently signed-in to polis, but have opened a conversation with an XID token. To participate with an XID, please log out of your polis account." |
 
 ## Testing Checklist
 
@@ -176,14 +179,14 @@ Using inline error messages (not browser `alert()`) provides:
 
 ## Comparison with Legacy Client
 
-| Feature | Legacy Client (index.ejs) | Alpha Client |
-|---------|-------------------------|--------------|
-| XID Detection | JavaScript function | TypeScript function in auth.ts |
-| Auto-inclusion | Per-request basis | Centralized in net.ts |
-| Error Display | Browser `alert()` | Inline UI components |
-| OIDC Conflict | Browser `alert()` | Dismissible banner component |
-| Documentation | Comments in code | Comprehensive README |
-| Testing | Manual | Component-based (test-ready) |
+| Feature        | Legacy Client (index.ejs) | Alpha Client                   |
+| -------------- | ------------------------- | ------------------------------ |
+| XID Detection  | JavaScript function       | TypeScript function in auth.ts |
+| Auto-inclusion | Per-request basis         | Centralized in net.ts          |
+| Error Display  | Browser `alert()`         | Inline UI components           |
+| OIDC Conflict  | Browser `alert()`         | Dismissible banner component   |
+| Documentation  | Comments in code          | Comprehensive README           |
+| Testing        | Manual                    | Component-based (test-ready)   |
 
 ## Future Enhancements
 

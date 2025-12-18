@@ -1,0 +1,15 @@
+{
+  "jsxSingleQuote": false,
+  "printWidth": 100,
+  "semi": false,
+  "singleQuote": true,
+  "trailingComma": "none",
+  "overrides": [
+    {
+      "files": ["./src/strings/**/*.ts"],
+      "options": {
+        "singleQuote": false
+      }
+    }
+  ]
+}

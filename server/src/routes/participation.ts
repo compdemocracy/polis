@@ -335,7 +335,7 @@ async function handle_GET_participationInit(
       votes: [],
       pca: null,
       famous: null,
-      acceptLanguage: acceptLanguage,
+      acceptLanguage,
     };
 
     // If no conversation ID, return minimal response

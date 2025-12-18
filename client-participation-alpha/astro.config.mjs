@@ -1,15 +1,15 @@
 // @ts-check
-import { defineConfig } from 'astro/config';
+import { defineConfig } from 'astro/config'
 
-import react from '@astrojs/react';
+import react from '@astrojs/react'
 
-import node from '@astrojs/node';
+import node from '@astrojs/node'
 
 // https://astro.build/config
 export default defineConfig({
   output: 'server',
   adapter: node({
-    mode: 'standalone',
+    mode: 'standalone'
   }),
   server: {
     host: '0.0.0.0'
@@ -20,4 +20,4 @@ export default defineConfig({
       experimentalReactChildren: true
     })
   ]
-});
+})

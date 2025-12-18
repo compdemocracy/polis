@@ -29,7 +29,7 @@ body {
   padding: 2rem;
   background-color: #fff;
   border-radius: 8px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   width: 100%;
 }
 
@@ -42,21 +42,6 @@ body {
   }
 }
 
-.logo {
-  width: 44px;
-  height: 50px;
-  background-color: #03a9f4;
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 1.8rem;
-  font-family: Georgia, serif;
-  font-weight: normal;
-  margin: 0 auto 1rem;
-  position: relative;
-  clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-}
 h1 {
   font-size: 1.75rem;
   margin: 0;
@@ -67,9 +52,9 @@ h1 {
 }
 .conversation-intro {
   font-size: 16px;
-  text-align: left;
+  text-align: start;
   font-style: italic;
-  font-family: "times";
+  font-family: 'times';
   color: #555;
   margin-bottom: 2rem;
 }
@@ -79,7 +64,7 @@ h1 {
   border-radius: 8px;
   padding: 1.5rem;
   margin-bottom: 2rem;
-  text-align: left;
+  text-align: start;
 }
 .statement-header {
   display: flex;
@@ -98,12 +83,18 @@ h1 {
   height: 24px;
   background-color: #eee;
   border-radius: 50%;
-  margin-right: 0.5rem;
+  margin-inline-end: 0.5rem;
 }
 .statement-text {
   font-size: 1.1rem;
   font-weight: bold;
   margin-bottom: 1.5rem;
+}
+.statement-remaining {
+  font-size: 0.875rem;
+  font-style: italic;
+  margin-inline-start: auto; /* end-align in both LTR and RTL */
+  text-align: end;
 }
 
 .vote-buttons {
@@ -148,7 +139,7 @@ h1 {
 }
 
 .guidelines {
-  text-align: left;
+  text-align: start;
   margin-bottom: 2rem;
   font-size: 16px;
   color: #555;
@@ -160,7 +151,7 @@ h1 {
 }
 .guidelines ul {
   list-style-type: disc;
-  padding-left: 1.5rem;
+  padding-inline-start: 1.5rem;
 }
 .submit-form {
   display: flex;
@@ -197,7 +188,7 @@ h1 {
 .char-counter {
   position: absolute;
   bottom: 12px;
-  right: 12px;
+  inset-inline-end: 12px;
   font-size: 0.8rem;
   color: #6c757d;
   background-color: rgba(255, 255, 255, 0.7);
@@ -212,7 +203,7 @@ h1 {
   border-radius: 8px;
   cursor: pointer;
   font-size: 1rem;
-  margin-left: 1rem;
+  margin-inline-start: 1rem;
 }
 
 .email-subscribe-container {
@@ -258,7 +249,8 @@ h1 {
   margin-top: 0;
   color: #721c24;
 }
-.vote-error, .subscribe-error {
+.vote-error,
+.subscribe-error {
   margin-top: 1rem;
   padding: 0.75rem;
 }
@@ -270,7 +262,7 @@ h1 {
 }
 .closed-badge {
   display: inline-block;
-  margin-left: 0.75rem;
+  margin-inline-start: 0.75rem;
   padding: 0.25rem 0.6rem;
   font-size: 0.9rem;
   font-weight: bold;
@@ -287,11 +279,12 @@ h1 {
 }
 .footer-links {
   margin-top: 0.5rem;
-  font-size: 0.9rem;
-  color: #666;
+  font-size: 1.2rem;
+  font-family: Georgia, serif;
+  color: #999;
 }
 .footer-links a {
-  color: #666;
+  color: #999;
   text-decoration: none;
   margin: 0 0.5rem;
 }
@@ -324,4 +317,10 @@ h1 {
   margin-top: 2rem;
   padding-top: 2rem;
   border-top: 1px solid var(--color-border);
+}
+
+.vis-control-btn:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 2px;
+  z-index: 1;
 }

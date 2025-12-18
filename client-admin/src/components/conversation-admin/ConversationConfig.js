@@ -3,10 +3,12 @@
 import { Heading, Box, Text } from 'theme-ui'
 import { useCallback, useRef } from 'react'
 import { useDispatch } from 'react-redux'
+import { useAuth } from 'react-oidc-context'
 import emoji from 'react-easy-emoji'
 
 import { CheckboxField } from './CheckboxField'
 import { useConversationData } from '../../util/conversation_data'
+import { hasDelphiEnabled } from '../../util/auth'
 import ModerateCommentsSeed from './ModerateCommentSeed'
 import Spinner from '../framework/Spinner'
 import {
@@ -18,6 +20,7 @@ const ConversationConfig = () => {
   const dispatch = useDispatch()
   const conversationData = useConversationData()
   const { loading, error } = conversationData
+  const { user: authUser } = useAuth()
   const topicRef = useRef(null)
   const descriptionRef = useRef(null)
 
@@ -166,6 +169,13 @@ const ConversationConfig = () => {
         [EXPERIMENTAL FEATURE] Participants can see the &quot;This comment is important&quot;
         checkbox
       </CheckboxField>
+
+      {hasDelphiEnabled(authUser) && (
+        <CheckboxField field="topics_enabled" label="Topics Enabled">
+          [EXPERIMENTAL FEATURE] Participants can select priority topics. (Requires advanced
+          reporting).
+        </CheckboxField>
+      )}
     </Box>
   )
 }

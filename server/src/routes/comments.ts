@@ -108,6 +108,11 @@ async function handle_GET_comments_translations(
   req: { p: { zid: number; tid: number; lang: string } },
   res: { status: (code: number) => { json: (data: unknown) => void } }
 ): Promise<void> {
+  logger.debug("polis_debug_handle_GET_comments_translations", {
+    zid: req.p.zid,
+    tid: req.p.tid,
+    lang: req.p.lang,
+  });
   try {
     const { zid, tid, lang } = req.p;
     const firstTwoCharsOfLang = lang.slice(0, 2);
@@ -688,6 +693,11 @@ async function handle_GET_nextComment(
   req: PolisRequest,
   res: { status: (code: number) => { json: (data: unknown) => void } }
 ): Promise<void> {
+  logger.debug("polis_debug_handle_GET_nextComment", {
+    zid: req.p.zid,
+    pid: req.p.pid,
+    lang: req.p.lang,
+  });
   if (req.timedout) {
     return;
   }

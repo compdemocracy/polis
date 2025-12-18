@@ -1,10 +1,10 @@
-import type { APIRoute } from 'astro';
+import type { APIRoute } from 'astro'
 
 /**
- *  usage - 
+ *  usage -
  * <div class='polis' data-conversation_id='9hhmb5fufv'></div>
  * <script async src="https://pol.is/alpha/embed.js"></script>
- * 
+ *
  *  */
 const embedScriptTemplate = `
 /**
@@ -75,7 +75,7 @@ const embedScriptTemplate = `
     iframe.style.borderRadius = config.border_radius || "4px";
     iframe.style.padding = config.padding || "4px";
     iframe.style.backgroundColor = "white";
-    iframe.setAttribute("data-test-id", "polis-iframe");
+    iframe.setAttribute("data-testid", "polis-iframe");
 
     parentElement.appendChild(iframe);
   }
@@ -104,10 +104,10 @@ const embedScriptTemplate = `
       const frameId = \`polis_\${data.polisFrameId}\`;
       const iframe = document.getElementById(frameId);
       if (iframe) {
-        const h = data.height;
-        if (!maxHeightsSeen[frameId] || h > maxHeightsSeen[frameId]) {
-          maxHeightsSeen[frameId] = h;
-          iframe.height = h;
+        const height = data.height;
+        if (!maxHeightsSeen[frameId] || height > maxHeightsSeen[frameId]) {
+          maxHeightsSeen[frameId] = height;
+          iframe.height = height;
         }
       }
     }
@@ -125,20 +125,20 @@ const embedScriptTemplate = `
   }
 
 }());
-`;
+`
 
 export const GET: APIRoute = () => {
-  const hostname = import.meta.env.PUBLIC_EMBED_HOSTNAME || 'pol.is';
+  const hostname = import.meta.env.PUBLIC_EMBED_HOSTNAME || 'pol.is'
 
   if (!hostname) {
-    return new Response("Configuration error: EMBED_SERVICE_HOSTNAME is not set.", { status: 500 });
+    return new Response('Configuration error: EMBED_SERVICE_HOSTNAME is not set.', { status: 500 })
   }
 
-  const finalScript = embedScriptTemplate.replace("__HOSTNAME__", hostname);
+  const finalScript = embedScriptTemplate.replace('__HOSTNAME__', hostname)
 
   return new Response(finalScript, {
     headers: {
-      'Content-Type': 'application/javascript; charset=utf-8',
-    },
-  });
-};
+      'Content-Type': 'application/javascript; charset=utf-8'
+    }
+  })
+}

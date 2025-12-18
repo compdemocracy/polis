@@ -11,6 +11,7 @@ import SQL from "./db/sql";
 import Utils from "./utils/common";
 import { isProConvo } from "./routes/comments";
 import { UUID } from "crypto";
+import logger from "./utils/logger";
 
 export type CommentRow = {
   tid: number;
@@ -434,6 +435,7 @@ function translateAndStoreComment(
   txt: any,
   lang: string
 ): Promise<CommentTranslationRow | null> {
+  logger.debug("polis_debug_translateAndStoreComment", { zid, tid, txt, lang });
   if (useTranslateApi) {
     return translateString(txt, lang).then((results: any[]) => {
       const translation = results[0];

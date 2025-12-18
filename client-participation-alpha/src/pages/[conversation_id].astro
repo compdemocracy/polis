@@ -1,17 +1,21 @@
 ---
-import Layout from '../pages/layouts/Layout.astro';
-import Header from '../components/Header.astro';
-import Survey from '../components/Survey.jsx';
-import SurveyForm from '../components/SurveyForm.jsx'; 
-import TopicAgenda from '../components/topicAgenda/TopicAgenda.jsx';
-import TreeviteLoginCodeModal from '../components/TreeviteLoginCodeModal.jsx';
-import TreeviteInvites from '../components/TreeviteInvites.jsx';
-import XidOidcConflictWarning from '../components/XidOidcConflictWarning.jsx';
-import { getTranslations } from '../strings/strings.js';
-import PolisNet from '../lib/net';
-import { marked } from 'marked';
-import DonateMessage from '../components/DonateMessage';
-import VisualizationContainer from '../components/VisualizationContainer';
+import { marked } from 'marked'
+import { fetchParticipationInit } from '../api/participation'
+import type { ParticipationInitData } from '../api/types'
+import DonateMessage from '../components/DonateMessage'
+import Header from '../components/Header.astro'
+import Survey from '../components/Survey'
+import SurveyForm from '../components/SurveyForm'
+import TopicAgenda from '../components/topicAgenda/TopicAgenda'
+import TreeviteInvites from '../components/TreeviteInvites'
+import TreeviteLoginCodeModal from '../components/TreeviteLoginCodeModal'
+import VisualizationContainer from '../components/VisualizationContainer'
+import XidOidcConflictWarning from '../components/XidOidcConflictWarning'
+import PolisLogo from '../components/icons/PolisLogo'
+import Layout from '../pages/layouts/Layout.astro'
+import { getTranslations } from '../strings/strings'
+import type { Translations } from '../strings/types'
+import { uiLanguageSSR } from '../lib/lang'
 
 const { conversation_id } = Astro.params;
 
@@ -26,9 +30,19 @@ if (!conversation_id ||
 }
 
 // Load translations first so we can use them in error messages
-const s = await getTranslations();
+// Pass SSR context for proper language detection
+const s = await getTranslations(
+  Astro.url.searchParams.get('ui_lang'),
+  Astro.request.headers.get('accept-language')
+);
 
-let initialData;
+// Determine page language once for SSR (used for HTML lang and API requests)
+const pageLang = uiLanguageSSR(
+  Astro.url.searchParams.get('ui_lang'),
+  Astro.request.headers.get('accept-language')
+);
+
+let initialData: ParticipationInitData | undefined;
 let fetchError = null;
 
 try {
@@ -36,22 +50,13 @@ try {
   const x_name = Astro.url.searchParams.get('x_name');
   const x_profile_image_url = Astro.url.searchParams.get('x_profile_image_url');
 
-  const apiParams: Record<string, any> = {
-    conversation_id,
-    includePCA: false
-  };
-
-  if (xid) {
-    apiParams.xid = xid;
-  }
-  if (x_name) {
-    apiParams.x_name = x_name;
-  }
-  if (x_profile_image_url) {
-    apiParams.x_profile_image_url = x_profile_image_url;
-  }
-
-  initialData = await PolisNet.polisGet('/participationInit', apiParams);
+  initialData = await fetchParticipationInit(conversation_id, {
+    includePCA: false,
+    lang: pageLang || undefined,
+    xid: xid || undefined,
+    x_name: x_name || undefined,
+    x_profile_image_url: x_profile_image_url || undefined
+  });
   // Note: JWT token handling will be done client-side since this is SSR
   // The handleJwtFromResponse function will be called when the page hydrates
 } catch (error: unknown) {
@@ -77,9 +82,9 @@ try {
 
   // Handle specific error cases
   if (errorResponseText.includes('polis_err_xid_required')) {
-    fetchError = s.xidRequired || "This conversation requires an XID (external identifier) to participate. Please use the proper link provided to you.";
+    fetchError = s.xidRequired
   } else {
-    fetchError = `Could not load this conversation. Error: ${errorMessage}. Please check the ID and try again.`;
+    fetchError = s.couldNotLoadConversation.replace('{{error}}', errorMessage)
   }
 }
 
@@ -89,20 +94,29 @@ if (initialData) {
     title: initialData.conversation.topic,
     description: initialData.conversation.description,
     requiresInviteCode: initialData.conversation.treevite_enabled,
+    importanceEnabled: initialData.conversation.importance_enabled === true,
   };
   
-  firstStatement = {
-    tid: initialData.nextComment?.tid,
-    txt: initialData.nextComment?.txt,
-    remaining: initialData.nextComment?.remaining,
-  };
+  if (initialData.nextComment) {
+    firstStatement = {
+      tid: initialData.nextComment.tid,
+      txt: initialData.nextComment.txt,
+      remaining: initialData.nextComment.remaining,
+      lang: initialData.nextComment.lang,
+      translations: initialData.nextComment.translations,
+    };
+  }
 
   isConversationActive = initialData.conversation.is_active;
 }
 
 const hideHeader = Astro.url.searchParams.get('hide_header');
 ---
-<Layout title={surveyDetails?.title ?? 'Loading Conversation...'}>
+<Layout
+  title={surveyDetails?.title ?? 'Loading Conversation...'}
+  lang={pageLang || 'en'}
+  dir={s.direction}
+>
   {/* Handle JWT token from initial data on client side - MUST be synchronous to avoid race conditions */}
   <script define:vars={{ initialData }} is:inline>
     if (initialData && initialData.auth && initialData.auth.token) {
@@ -135,30 +149,32 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
   <div class="container">
     {hideHeader ? null : <Header />}
     
-    <XidOidcConflictWarning client:load s={s} />
+    <XidOidcConflictWarning client:load s={s as Translations} />
 
     {fetchError ? (
       <div class="error-message">
-        <h2>Oops!</h2>
+        <h2>{s.oops}</h2>
         <p>{fetchError}</p>
       </div>
     ) : initialData ? (
       <>
         <h1>
           {surveyDetails?.title}
-          {!isConversationActive && <span class="closed-badge">closed</span>}
+          {!isConversationActive && <span class="closed-badge">{s.closed}</span>}
         </h1>
-        <p class="description" set:html={marked.parse(surveyDetails?.description)}></p>
+        <p class="description" set:html={marked.parse(surveyDetails?.description ?? '')}></p>
 
         {isConversationActive ? (
           <>
-            {surveyDetails?.requiresInviteCode && (<TreeviteLoginCodeModal client:only="react" s={s} />)}
-            <TopicAgenda 
-              client:only="react"
-              conversation_id={conversation_id}
-              requiresInviteCode={surveyDetails?.requiresInviteCode}
-              s={s}
-            />
+            {surveyDetails?.requiresInviteCode && (<TreeviteLoginCodeModal client:only="react" s={s as Translations} />)}
+            {initialData.conversation.topics_enabled === true && (
+              <TopicAgenda 
+                client:only="react"
+                conversation_id={conversation_id}
+                requiresInviteCode={surveyDetails?.requiresInviteCode}
+                s={s}
+              />
+            )}
             <p class="conversation-intro" set:html={s.participantHelpWelcomeText}></p>
             <Survey 
               client:load 
@@ -166,6 +182,7 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
               conversation_id={initialData.conversation.conversation_id}
               s={s}
               requiresInviteCode={surveyDetails?.requiresInviteCode}
+              importanceEnabled={surveyDetails?.importanceEnabled}
             />
             <SurveyForm client:load s={s} conversation_id={conversation_id} requiresInviteCode={surveyDetails?.requiresInviteCode} />
             {surveyDetails?.requiresInviteCode && (<TreeviteInvites client:only="react" conversation_id={conversation_id} s={s} />)}
@@ -175,15 +192,15 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
         )}
 
         {initialData.conversation.vis_type === 1 && (
-          <VisualizationContainer client:only="react" conversation_id={conversation_id} />
+          <VisualizationContainer client:only="react" conversation_id={conversation_id} s={s} />
         )}
       </>
     ) : (
-      <p>Loading...</p>
+      <p>{s.loading}</p>
     )}
 
-    <div style="margin-top: 3rem;">
-      <div class="logo">p</div>
+    <div style="margin-top: 3rem; text-align: center;">
+      <PolisLogo size={120} />
       <div class="footer-links">
         <a href="/privacy" target="_blank" rel="noopener noreferrer">{s.privacy}</a>
         <a href="/tos" target="_blank" rel="noopener noreferrer">{s.TOS}</a>

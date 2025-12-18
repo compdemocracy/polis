@@ -330,6 +330,7 @@ function getCommentTranslations(
   zid: number,
   tid: number
 ): Promise<CommentTranslationRow[]> {
+  logger.debug("polis_debug_getCommentTranslations", { zid, tid });
   return pg.queryP(
     "select * from comment_translations where zid = ($1) and tid = ($2);",
     [zid, tid]
@@ -342,6 +343,7 @@ export async function getNextComment(
   withoutTids?: Array<number | string>,
   lang?: string
 ) {
+  logger.debug("polis_debug_getNextComment", { zid, pid, withoutTids, lang });
   const ratio = Config.getValidTopicalRatio();
   const shouldUseTopical =
     typeof ratio === "number" &&
@@ -395,6 +397,10 @@ async function ensureTranslations(
   const firstTwo = lang.slice(0, 2);
   const translations = await getCommentTranslations(zid, next.tid!);
   next.translations = translations;
+  logger.debug("polis_debug_getCommentTranslations_results", {
+    lang,
+    translations,
+  });
 
   const hasMatch = translations.some((t) => t.lang.startsWith(firstTwo));
   if (!hasMatch) {

@@ -379,7 +379,7 @@ function getNumberInRange(min: number, max: number) {
   };
 }
 
-function _getArrayOfString(a: string | string[]): Promise<string[]> {
+function getArrayOfString(a: string | string[]): Promise<string[]> {
   return new Promise(function (resolve, reject) {
     let result;
     if (_.isArray(a)) {
@@ -406,7 +406,7 @@ function getArrayOfStringNonEmpty(a: string | string[]) {
   ) {
     return Promise.reject("polis_fail_parse_string_array_empty");
   }
-  return _getArrayOfString(a);
+  return getArrayOfString(a);
 }
 
 function getArrayOfInt(a: string[]) {
@@ -503,6 +503,7 @@ export {
   assignToP,
   assignToPCustom,
   getArrayOfInt,
+  getArrayOfString,
   getArrayOfStringNonEmpty,
   getBool,
   getConversationIdFetchZid,

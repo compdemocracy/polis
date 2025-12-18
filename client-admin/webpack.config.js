@@ -85,6 +85,11 @@ export default (env, argv) => {
       minimize: isProduction,
       minimizer: [new TerserPlugin()]
     },
+    performance: {
+      hints: isProduction ? 'warning' : false,
+      maxAssetSize: 2 * 1024 * 1024, // 2 MiB (accommodates bg_map.png)
+      maxEntrypointSize: 512 * 1024 // 512 KiB
+    },
     plugins: [
       // Common plugins for both production and development
       new HtmlWebPackPlugin({

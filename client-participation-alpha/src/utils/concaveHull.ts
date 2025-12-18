@@ -1,4 +1,4 @@
-import concaveman from 'concaveman';
+import concaveman from 'concaveman'
 
 /**
  * Thin wrapper around the local TypeScript port of `hull.js`.
@@ -8,14 +8,18 @@ import concaveman from 'concaveman';
  * @param lengthThreshold Minimum edge length threshold (in coordinate units). Smaller = more concave.
  * @returns Closed concave hull polyline (first point repeated) or null if not enough points.
  */
-export function concaveHull(points: number[][], concavity: number, lengthThreshold: number): number[][] | null {
-  if (points.length < 3) return null;
+export function concaveHull(
+  points: number[][],
+  concavity: number,
+  lengthThreshold: number
+): number[][] | null {
+  if (points.length < 3) return null
 
-  const result = concaveman(points, concavity, lengthThreshold);
+  const result = concaveman(points, concavity, lengthThreshold)
 
   if (result.length === 0) {
-    return null;
+    return null
   }
 
-  return result;
+  return result
 }

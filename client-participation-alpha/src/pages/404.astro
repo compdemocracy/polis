@@ -1,12 +1,23 @@
 ---
-import Layout from './layouts/Layout.astro';
 import Header from '../components/Header.astro';
-import { getTranslations } from '../strings/strings.js';
+import PolisLogo from '../components/icons/PolisLogo';
+import { getTranslations } from '../strings/strings';
+import { uiLanguageSSR } from '../lib/lang'
+import Layout from './layouts/Layout.astro';
 
-const s = await getTranslations();
+// Pass SSR context for proper language detection
+const s = await getTranslations(
+  Astro.url.searchParams.get('ui_lang'),
+  Astro.request.headers.get('accept-language')
+);
+
+const lang = uiLanguageSSR(
+  Astro.url.searchParams.get('ui_lang'),
+  Astro.request.headers.get('accept-language')
+);
 ---
 
-<Layout title="Page Not Found">
+<Layout title="Page Not Found" lang={lang || 'en'} dir={s.direction}>
   <div class="container">
     <Header />
     
@@ -15,8 +26,8 @@ const s = await getTranslations();
       <p>The page you're looking for doesn't exist.</p>
     </div>
 
-    <div style="margin-top: 3rem;">
-      <div class="logo">p</div>
+    <div style="margin-top: 3rem; text-align: center;">
+      <PolisLogo size={80} />
       <div class="footer-links">
         <a href="/privacy" target="_blank" rel="noopener noreferrer">{s.privacy}</a>
         <a href="/tos" target="_blank" rel="noopener noreferrer">{s.TOS}</a>

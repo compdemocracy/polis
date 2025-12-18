@@ -188,7 +188,7 @@ browser's language.
 
 translate strings can be found in: `client-participation/js/strings/en_us.js`
 
-   [translate-strings]: /client-participation/js/strings/en_us.js#L96-L98
+   [translate-strings]: /client-participation/js/strings/en_us.js
    [gtranslate-quickstart]: https://cloud.google.com/translate/docs/basic/setup-basic
    [base64-encoder]: https://codepen.io/bsngr/pen/awuDh
 
