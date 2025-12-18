@@ -12,12 +12,16 @@ import json
 import decimal
 from datetime import datetime
 
+from polismath.utils.general import postgres_vote_to_delphi
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def prepare_for_json(obj):
     import numpy as np
+
     if isinstance(obj, decimal.Decimal):
         return float(obj)
     elif hasattr(obj, 'tolist'):
@@ -37,11 +41,12 @@ def prepare_for_json(obj):
     else:
         return obj
 
+
 def connect_to_db():
     """Connect to PostgreSQL database using environment variables or defaults."""
     import psycopg2
     import urllib.parse
-    
+
     try:
         # Check if DATABASE_URL is set and use it if available
         database_url = os.environ.get("DATABASE_URL")
@@ -55,22 +60,28 @@ def connect_to_db():
                 user=os.environ.get("DATABASE_USER", "colinmegill"),
                 password=os.environ.get("DATABASE_PASSWORD", ""),
                 host=os.environ.get("DATABASE_HOST", "localhost"),
-                port=os.environ.get("DATABASE_PORT", 5432)
+                port=os.environ.get("DATABASE_PORT", 5432),
             )
-        
+
         logger.info("Connected to database successfully")
         return conn
     except Exception as e:
         logger.error(f"Error connecting to database: {e}")
         return None
 
+
 def fetch_votes(conn, conversation_id):
     """
     Fetch votes for a specific conversation from PostgreSQL.
     Returns a dictionary containing votes in the format expected by Conversation.
+
+    Vote signs are flipped at this PostgreSQL boundary:
+    - PostgreSQL stores: AGREE=-1, DISAGREE=+1
+    - Delphi expects:    AGREE=+1, DISAGREE=-1
     """
     import time
     from psycopg2 import extras
+
     start_time = time.time()
     logger.info(f"[{start_time:.2f}s] Fetching votes for conversation {conversation_id}")
     cursor = conn.cursor(cursor_factory=extras.DictCursor)
@@ -85,23 +96,28 @@ def fetch_votes(conn, conversation_id):
     except Exception as e:
         logger.error(f"Error fetching votes: {e}")
         cursor.close()
-        return {'votes': []}
+        return {"votes": []}
     votes_list = []
     for vote in votes:
-        if vote['timestamp']:
+        if vote["timestamp"]:
             try:
-                created_time = int(float(vote['timestamp']) * 1000)
+                created_time = int(float(vote["timestamp"]) * 1000)
             except (ValueError, TypeError):
                 created_time = None
         else:
             created_time = None
-        votes_list.append({
-            'pid': str(vote['voter_id']),
-            'tid': str(vote['comment_id']),
-            'vote': float(vote['vote']),
-            'created': created_time
-        })
-    return {'votes': votes_list}
+        votes_list.append(
+            {
+                "pid": str(vote["voter_id"]),
+                "tid": str(vote["comment_id"]),
+                "vote": postgres_vote_to_delphi(
+                    float(vote["vote"])
+                ),  # Flip at boundary
+                "created": created_time,
+            }
+        )
+    return {"votes": votes_list}
+
 
 def fetch_comments(conn, conversation_id):
     """
@@ -110,6 +126,7 @@ def fetch_comments(conn, conversation_id):
     """
     import time
     from psycopg2 import extras
+
     start_time = time.time()
     logger.info(f"[{start_time:.2f}s] Fetching comments for conversation {conversation_id}")
     cursor = conn.cursor(cursor_factory=extras.DictCursor)
@@ -151,6 +168,7 @@ def fetch_moderation(conn, conversation_id):
     """
     import time
     from psycopg2 import extras
+
     start_time = time.time()
     logger.info(f"[{start_time:.2f}s] Fetching moderation data for conversation {conversation_id}")
     cursor = conn.cursor(cursor_factory=extras.DictCursor)
@@ -193,33 +211,36 @@ def fetch_moderation(conn, conversation_id):
         'mod_out_ptpts': mod_out_ptpts
     }
 
+
 import sys
+
 
 def memory_usage_mb(obj, seen=None):
     return memory_usage(obj) / (1024 * 1024)
+
 
 def memory_usage(obj, seen=None):
     """Recursively calculate size of objects"""
     size = sys.getsizeof(obj)
     if seen is None:
         seen = set()
-    
+
     obj_id = id(obj)
     if obj_id in seen:
         return 0
-    
+
     # Mark as seen to avoid counting duplicates
     seen.add(obj_id)
-    
+
     # Handle different types
     if isinstance(obj, dict):
         size += sum(memory_usage(v, seen) for v in obj.values())
         size += sum(memory_usage(k, seen) for k in obj.keys())
-    elif hasattr(obj, '__dict__'):
+    elif hasattr(obj, "__dict__"):
         size += memory_usage(obj.__dict__, seen)
     elif hasattr(obj, '__iter__') and not isinstance(obj, (str, bytes, bytearray)):
         size += sum(memory_usage(i, seen) for i in obj)
-    
+
     return size
 
 
@@ -290,7 +311,7 @@ def main():
             cursor.execute(batch_query, (zid, batch_size, offset))
             vote_batch = cursor.fetchall()
             cursor.close()
-            
+
             db_fetch_time = time.time()
             logger.info(f"[{time.time() - start_time:.2f}s] Database fetch completed in {db_fetch_time - batch_start_time:.2f}s")
             
@@ -362,6 +383,7 @@ def main():
         try:
             logger.info(f"[{time.time() - start_time:.2f}s] Initializing DynamoDB client...")
             from polismath.database.dynamodb import DynamoDBClient
+
             # Use environment variables or sensible defaults for local/test
             endpoint_url = os.environ.get('DYNAMODB_ENDPOINT')
             region_name = os.environ.get('AWS_REGION', 'us-east-1')
@@ -381,16 +403,19 @@ def main():
         except Exception as e:
             logger.error(f"[{time.time() - start_time:.2f}s] Error exporting to DynamoDB: {e}")
             import traceback
+
             traceback.print_exc()
 
     except Exception as e:
         logger.error(f"Pipeline failed: {e}")
         import traceback
+
         traceback.print_exc()
         sys.exit(1)
     finally:
         conn.close()
         logger.info(f"[{time.time() - start_time:.2f}s] Database connection closed")
+
 
 if __name__ == "__main__":
     main()
