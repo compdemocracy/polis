@@ -123,6 +123,15 @@ CMD ["bash", "-c", "\
 # Extends final stage with dev dependencies for CI/testing
 FROM final AS test
 
+# Install build tools needed for dev dependencies (e.g., line-profiler)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc \
+        g++ \
+    && apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Copy pyproject.toml to install dev dependencies
 COPY pyproject.toml .
 

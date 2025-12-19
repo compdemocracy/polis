@@ -30,7 +30,7 @@ const Home2 = () => {
           common ground on complex issues.
         </Heading>
         <Text as="p" sx={{ fontSize: 3, mb: 4, lineHeight: 'body' }}>
-          First launched in 2012, it&apos;s been battle-tested in tens of thousands of conversations
+          First launched in 2012, it&apos;s been stress tested in tens of thousands of conversations
           with more than ten million participants worldwide. By collecting and analyzing viewpoints
           from thousands of participants, Polis reveals points of consensus, even on topics that
           seem deadlocked.

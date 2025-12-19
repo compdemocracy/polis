@@ -25,6 +25,8 @@ from sqlalchemy.sql import text
 import numpy as np
 import pandas as pd
 
+from polismath.utils.general import postgres_vote_to_delphi
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -421,12 +423,16 @@ class PostgresClient:
         """
         Poll for new votes in a conversation.
 
+        Vote signs are flipped at this PostgreSQL boundary:
+        - PostgreSQL stores: AGREE=-1, DISAGREE=+1
+        - Delphi expects:    AGREE=+1, DISAGREE=-1
+
         Args:
             zid: Conversation ID
             since: Only get votes after this timestamp
 
         Returns:
-            List of votes
+            List of votes with signs converted to Delphi convention
         """
         params = {"zid": zid}
 
@@ -452,12 +458,12 @@ class PostgresClient:
         # Execute query
         votes = self.query(sql, params)
 
-        # Format votes for processing
+        # Format votes for processing, flipping sign at PostgreSQL boundary
         return [
             {
                 "pid": str(v["pid"]),
                 "tid": str(v["tid"]),
-                "vote": int(v["vote"]),
+                "vote": postgres_vote_to_delphi(int(v["vote"])),
                 "created": v["created"],
             }
             for v in votes
@@ -509,9 +515,9 @@ class PostgresClient:
 
             # Check moderation status with support for string values
             mod_value = m["mod"]
-            if mod_value == 1 or mod_value == '1':
+            if mod_value == 1 or mod_value == "1":
                 mod_in_tids.append(tid)
-            elif mod_value == -1 or mod_value == '-1':
+            elif mod_value == -1 or mod_value == "-1":
                 mod_out_tids.append(tid)
 
             # Check meta status
@@ -828,7 +834,7 @@ class PostgresManager:
             if cls._client is None:
                 # Create a new client
                 cls._client = PostgresClient(config)
-                
+
                 # Make sure to actually initialize the client
                 try:
                     logger.info("Initializing PostgreSQL client...")
@@ -839,7 +845,7 @@ class PostgresManager:
                     # Reset client to None to allow retry
                     cls._client = None
                     raise e
-            
+
             # Make sure client is initialized before returning
             if cls._client and not cls._client._initialized:
                 try:
@@ -850,7 +856,7 @@ class PostgresManager:
                     # Reset client to None to allow retry
                     cls._client = None
                     raise e
-                
+
             return cls._client
 
     @classmethod
