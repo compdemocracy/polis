@@ -70,7 +70,7 @@ describe('Alpha Client: Comments (statements)', function () {
 
     // We seeded exactly 3 statements; participant should be exhausted after 3 votes.
     // If their newly submitted statement is incorrectly included in the feed, vote buttons will remain.
-    cy.get('body', { timeout: 15000 }).should(($body) => {
+    cy.get('body').should(($body) => {
       const hasEmailSubscribe = $body.find('.email-subscribe-container').length > 0
 
       if (!hasEmailSubscribe) {

@@ -6,7 +6,10 @@
  *   host page -> alpha embed.js -> iframe pointing at /alpha/:conversation_id
  */
 
-import { createTestConversation, addCommentToConversation } from '../../support/conversation-helpers.js'
+import {
+  createTestConversation,
+  addCommentToConversation,
+} from '../../support/conversation-helpers.js'
 
 const topic = 'Alpha Embedded Conversation Topic'
 const description = 'Alpha Embedded Conversation Description'
@@ -33,7 +36,9 @@ describe('Alpha Embedded Conversations', function () {
     cy.exec(`npm run build:embed:alpha -- --id=${this.convoId} --url=${embedUrl} --lang=en`).then(
       (result) => {
         expect(result.exitCode).to.equal(0)
-        expect(result.stdout).to.contain(`Generated ./embed/alpha-index.html with Conversation ID ${this.convoId}`)
+        expect(result.stdout).to.contain(
+          `Generated ./embed/alpha-index.html with Conversation ID ${this.convoId}`,
+        )
       },
     )
 
@@ -51,7 +56,9 @@ describe('Alpha Embedded Conversations', function () {
 
     cy.exec(
       `npm run build:embed:alpha -- --id=${this.convoId} --url=${embedUrl} --lang=fr --xid=${xid} --topic=${topicArg} --authNeededToVote=true --authNeededToWrite=true`,
-    ).its('exitCode').should('eq', 0)
+    )
+      .its('exitCode')
+      .should('eq', 0)
 
     cy.readFile('./embed/alpha-index.html').then((html) => {
       cy.intercept('GET', '/embedded-alpha', {
@@ -77,7 +84,7 @@ describe('Alpha Embedded Conversations', function () {
     cy.wait('@embedPage')
     cy.wait('@embedScript')
 
-    cy.get('iframe[data-testid="polis-iframe"]', { timeout: 20000 })
+    cy.get('iframe[data-testid="polis-iframe"]')
       .should('be.visible')
       .invoke('attr', 'src')
       .then((src) => {

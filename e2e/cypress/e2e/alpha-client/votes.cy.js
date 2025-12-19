@@ -48,7 +48,7 @@ describe('Alpha Client: Voting', function () {
     // End-state: when no statements remain, Survey renders EmailSubscribeForm.
     // IMPORTANT: We expect exhaustion after exactly 3 votes (since we seeded 3 comments).
     // If the app shows another statement (vote buttons still present), that's a bug and should fail.
-    cy.get('.email-subscribe-container', { timeout: 15000 }).should('be.visible')
+    cy.get('.email-subscribe-container').should('be.visible')
     cy.get('.email-subscribe-container input[type="email"]').should('be.visible')
 
     cy.get('[data-testid="vote-agree"]').should('not.exist')
