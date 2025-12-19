@@ -36,59 +36,43 @@ git push -u origin feature/my-feature
 
 ### Deploying to Production
 
-When ready to deploy, merge `edge` into `stable`.
+When ready to deploy, create a PR to merge `edge` into `stable` using GitHub's standard workflow.
 
-#### Important: Fast-forward only (no merge commits, no squashes, no rebases)
+#### Using GitHub PRs for Deployment
 
-To keep `stable` as a clean, linear history of what shipped, deployments must be a **fast-forward merge**: every commit from `edge` is added onto `stable` sequentially, **without**:
+1. Create a PR from `edge` → `stable`
+2. Ensure CI checks pass
+3. Get required approvals
+4. Use the **"Create a merge commit"** option (GitHub's default merge button)
 
-- a merge commit
-- squashing commits
-- rebasing / rewriting commits
+This creates a merge commit on `stable` that records the deployment. This is intentional and provides clear deployment markers in the history.
 
-This is the natural behavior of a fast-forward merge when using the Git CLI:
+#### Why merge commits (not fast-forward)
 
-```bash
-git checkout stable
-git pull origin stable
-git merge edge
-git push origin stable
-```
+We considered enforcing fast-forward-only merges to `stable`, but this approach has significant drawbacks:
 
-This should always be a fast-forward or clean merge. If there are conflicts, something went wrong (see Recovery section below).
+- **Requires CLI-only workflow** — GitHub's UI cannot perform fast-forward merges
+- **Brittle ancestry requirements** — Fast-forward only works when `stable` is a strict ancestor of `edge`. Any divergence (even from recovery operations) breaks this permanently unless you either merge `stable` back into `edge` (violating our golden rule) or use arcane git replacement techniques that confuse tooling and collaborators.
+- **No practical benefit** — Merge commits clearly mark deployments and don't cause the problems that merging *from* `stable` *to* `edge` causes.
 
-#### GitHub UI limitation (why we don’t “merge the PR” for `edge → stable`)
+Merge commits on `stable` are fine. The important rule is the one-way flow: changes go `edge → stable`, never the reverse.
 
-GitHub’s web UI PR merge strategies are:
+#### Branch protections for `stable`
 
-1. **Merge commit** (default “Merge” button)
-2. **Squash**
-3. **Rebase**
+`stable` should be protected with:
 
-None of these produce the **fast-forward-only** deployment history we want on `stable`. As a result, **do not use the GitHub UI merge button** to perform `edge → stable` deployment merges; use the CLI flow above.
-
-#### Branch protections / ruleset expectations for `stable`
-
-Even though deployment merges are performed via CLI, `stable` should still be protected:
-
-- **Require PR reviews** before changes land on `stable`
+- **Require PR reviews** before merging to `stable`
 - **Require status checks** to pass
-- **Restrict who can push** to `stable` (allow only authorized maintainers to perform the CLI fast-forward deployment)
+- **Restrict direct pushes** — all changes via PR
 
-#### Future consideration: automation
+### Marking Deployments (Optional)
 
-If we want to automate enforcement, we can use a GitHub Actions workflow to programmatically verify/enforce “fast-forward only” semantics for approved PRs targeting `stable`.
-
-### Marking Deployments
-
-Use tags instead of commits to mark production deployments:
+Use tags to mark production deployments:
 
 ```bash
 git tag prod-YYYY-MM-DD stable
 git push origin prod-YYYY-MM-DD
 ```
-
-This keeps the commit history clean while still tracking what was deployed when.
 
 ### Hotfixes
 
@@ -112,13 +96,13 @@ If a critical fix is needed in production:
 
 ## What to Avoid
 
-- **Merging stable into edge** - This creates bidirectional merge commits and causes divergence
+- **Merging stable into edge** - This is the critical rule. Merging `stable → edge` creates bidirectional flow and causes long-term divergence problems. Don't do it.
 - **Making commits directly on stable** - Except for true emergencies requiring Option B above
-- **Deploy marker commits** - Use tags instead (e.g., `prod-2024-12-06`)
+- **Manual deploy marker commits** - The merge commits from PRs serve as natural deployment markers. Use tags for additional labeling if needed (e.g., `prod-2024-12-06`).
 
 ## Recovery: Syncing Diverged Branches
 
-If `stable` and `edge` diverge due to improper merges, use this technique to reset `stable` to match `edge` exactly while preserving history:
+If `stable` and `edge` diverge significantly due to improper merges or historical workflow issues, use this technique to reset `stable` to match `edge` exactly while preserving history:
 
 ```bash
 git checkout stable
@@ -135,17 +119,20 @@ This creates a merge commit that:
 - Results in `stable` having identical content to `edge`
 - Does not require force-push (no history rewriting)
 
+### Historical Note
+
+This recovery technique was used in December 2024 (commit `06c427cf9`) to resolve years of accumulated branch divergence from inconsistent merge practices. Going forward, consistent use of `edge → stable` PRs should prevent the need for this recovery procedure.
+
 ### Verifying the Sync
 
-After syncing, verify the branches match:
+After a recovery sync, verify the branches have identical content:
 
 ```bash
-# Should show identical hashes
+# Should show identical tree hashes
 git rev-parse stable^{tree} edge^{tree}
-
-# Should show 0 commits
-git log --oneline stable..edge | wc -l
 ```
+
+Note: `git log stable..edge` may still show commits if new work landed on `edge` after the sync — that's expected and normal.
 
 ## Why This Matters
 
