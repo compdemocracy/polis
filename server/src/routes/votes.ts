@@ -8,6 +8,7 @@ import { isDuplicateKey, polisTypes } from "../utils/common";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import SQL from "../db/sql";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
   addNoMoreCommentsRecord,
   addStar,
@@ -19,8 +20,22 @@ import {
   updateLastInteractionTimeForConversation,
   updateVoteCount,
 } from "../server-helpers";
+import Config from "src/config";
 
 const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
+
+const s3Config: any = {
+  region: Config.AWS_REGION || "us-east-1",
+  endpoint: Config.AWS_S3_ENDPOINT,
+  credentials: {
+    accessKeyId: Config.AWS_ACCESS_KEY_ID || "minioadmin",
+    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY || "minioadmin",
+  },
+  forcePathStyle: true, // Required for MinIO
+};
+
+const s3Client = new S3Client(s3Config);
+const bucketName = Config.AWS_S3_JOB_BUCKET_NAME || "polis-job-artifacts";
 
 interface VoteResult {
   conv: ConversationInfo;
@@ -279,7 +294,7 @@ async function handle_POST_votes_bulk(
   }
 
   try {
-    // 1. Validation Check: Ensure this conversation supports external mapping.
+    // Validation Check: Ensure this conversation supports external mapping.
     // We check for the existence of AT LEAST ONE comment with a non-null original_id.
     // We do not fetch all IDs here; the Mapping Service handles the heavy lifting later.
     const validationQuery = `
@@ -296,11 +311,18 @@ async function handle_POST_votes_bulk(
       return;
     }
 
-    // 2. Pass to Async Job (S3 Upload & Worker Trigger)
-    // Now that we know mapping is possible, we can proceed to upload the CSV
-    // and trigger the python mapping service defined in your architecture.
+    const timestamp = Date.now();
+    const s3Key = `imports/votes/${zid}/${timestamp}.csv`;
 
-    // const s3Key = await uploadToS3(csv);
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: s3Key,
+      Body: csv,
+      ContentType: "text/csv",
+    });
+
+    await s3Client.send(command);
+
     // await triggerImportWorker({ zid, s3Key });
 
     res.json({
