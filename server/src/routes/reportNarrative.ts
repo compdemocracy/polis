@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { failJson } from "../utils/fail";
 import { getZidForRid } from "../utils/zinvite";
+import pg from "../db/pg-query";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { countTokens } from "@anthropic-ai/tokenizer";
@@ -131,10 +132,17 @@ const getCommentsAsXML = async (
     group_aware_consensus?: number;
     comment_extremity?: number;
     comment_id: number;
-  }) => boolean
+  }) => boolean,
+  mod_gt?: number
 ) => {
   try {
-    const resp = await sendCommentGroupsSummary(id, undefined, false, filter);
+    const resp = await sendCommentGroupsSummary(
+      id,
+      undefined,
+      false,
+      filter,
+      mod_gt
+    );
     const xml = PolisConverter.convertToXml(resp as string);
     if (xml.trim().length === 0)
       logger.error("No data has been returned by sendCommentGroupsSummary");
@@ -366,7 +374,8 @@ export async function handle_GET_groupInformedConsensus(
   model: string,
   system_lore: string,
   zid: number | undefined,
-  modelVersion?: string
+  modelVersion?: string,
+  mod_gt?: number
 ) {
   const section = {
     name: "group_informed_consensus",
@@ -398,7 +407,8 @@ export async function handle_GET_groupInformedConsensus(
   // Use type assertion for filter function with different parameter shape but compatible runtime behavior
   const structured_comments = await getCommentsAsXML(
     zid,
-    section.filter as any
+    section.filter as any,
+    mod_gt
   );
 
   if (
@@ -483,7 +493,8 @@ export async function handle_GET_uncertainty(
   model: string,
   system_lore: string,
   zid: number | undefined,
-  modelVersion?: string
+  modelVersion?: string,
+  mod_gt?: number
 ) {
   const sections = getReportSections().filter((section) =>
     section.name.includes("uncertainty")
@@ -536,7 +547,11 @@ export async function handle_GET_uncertainty(
           }) + `|||`
         );
       } else {
-        const structured_comments = await getCommentsAsXML(zid);
+        const structured_comments = await getCommentsAsXML(
+          zid,
+          undefined,
+          mod_gt
+        );
         const fileContents = await fs.readFile(section.templatePath, "utf8");
         const json = await convertXML(fileContents);
         json.polisAnalysisPrompt.children[
@@ -599,7 +614,8 @@ export async function handle_GET_groups(
   model: string,
   system_lore: string,
   zid: number | undefined,
-  modelVersion?: string
+  modelVersion?: string,
+  mod_gt?: number
 ) {
   const sections = getReportSections().filter((section) =>
     section.name.includes("groups")
@@ -652,7 +668,11 @@ export async function handle_GET_groups(
           }) + `|||`
         );
       } else {
-        const structured_comments = await getCommentsAsXML(zid);
+        const structured_comments = await getCommentsAsXML(
+          zid,
+          undefined,
+          mod_gt
+        );
         const fileContents = await fs.readFile(section.templatePath, "utf8");
         const json = await convertXML(fileContents);
         json.polisAnalysisPrompt.children[
@@ -715,7 +735,8 @@ export async function handle_GET_topics(
   model: string,
   system_lore: string,
   zid: number,
-  modelVersion?: string
+  modelVersion?: string,
+  mod_gt?: number
 ) {
   let topics;
 
@@ -784,8 +805,12 @@ export async function handle_GET_topics(
           `${rid}#${section.name}#${model}`
         );
 
-        // @ts-expect-error function args ignore temp
-        const structured_comments = await getCommentsAsXML(zid, section.filter);
+        const structured_comments = await getCommentsAsXML(
+          zid,
+          // @ts-expect-error function args ignore temp
+          section.filter,
+          mod_gt
+        );
 
         // send cached response first if available
         if (
@@ -941,6 +966,15 @@ export async function handle_GET_reportNarrative(
     return;
   }
 
+  const reportRows = (await pg.queryP_readOnly(
+    "select mod_level from reports where rid = ($1);",
+    [Number(rid)]
+  )) as Array<{ mod_level: number }>;
+  const mod_level =
+    reportRows && reportRows.length
+      ? Number(reportRows[0].mod_level ?? -2)
+      : -2;
+
   res.write(`POLIS-PING: retrieving system lore`);
 
   // Express response has no flush method, but compression middleware adds it
@@ -985,7 +1019,8 @@ export async function handle_GET_reportNarrative(
         modelParam as string,
         system_lore,
         zid,
-        modelVersionParam as string
+        modelVersionParam as string,
+        mod_level
       ),
       handle_GET_uncertainty(
         rid,
@@ -994,7 +1029,8 @@ export async function handle_GET_reportNarrative(
         modelParam as string,
         system_lore,
         zid,
-        modelVersionParam as string
+        modelVersionParam as string,
+        mod_level
       ),
       handle_GET_groups(
         rid,
@@ -1003,7 +1039,8 @@ export async function handle_GET_reportNarrative(
         modelParam as string,
         system_lore,
         zid,
-        modelVersionParam as string
+        modelVersionParam as string,
+        mod_level
       ),
       handle_GET_topics(
         rid,
@@ -1012,7 +1049,8 @@ export async function handle_GET_reportNarrative(
         modelParam as string,
         system_lore,
         zid,
-        modelVersionParam as string
+        modelVersionParam as string,
+        mod_level
       ),
     ];
     await Promise.all(promises);

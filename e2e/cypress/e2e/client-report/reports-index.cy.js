@@ -104,22 +104,45 @@ describe('Reports - Admin Interface', () => {
       cy.get('a[href*="/report/"]').should('exist')
     })
 
-    it('should display multiple reports after creating several', () => {
-      // Set up intercepts
+    it('should display only the most recently created report', () => {
       cy.intercept('POST', '/api/v3/reports').as('createReport')
       cy.intercept('GET', '/api/v3/reports*').as('getReports')
 
-      // Create multiple reports
-      cy.get('button').contains('Create report url').click()
-      cy.wait('@createReport')
-      cy.wait('@getReports')
+      const createReportAndReadVisibleReportId = () => {
+        cy.get('button').contains('Create report url').click()
+        cy.wait('@createReport')
+        cy.wait('@getReports')
+        return cy
+          .get('[data-testid="report-list-item"]')
+          .should('have.length', 1)
+          .invoke('text')
+          .then((text) => {
+            const match = String(text).match(/Report ID:\s*([a-zA-Z0-9]+)/)
+            const reportId = match?.[1]
+            expect(reportId).to.be.a('string')
+            return reportId
+          })
+      }
 
-      cy.get('button').contains('Create report url').click()
-      cy.wait('@createReport')
-      cy.wait('@getReports')
+      let firstReportId
+      let secondReportId
 
-      // Verify multiple report URLs are shown
-      cy.get('[data-testid="report-list-item"]').should('have.length.at.least', 2)
+      createReportAndReadVisibleReportId().then((id) => {
+        firstReportId = id
+      })
+
+      createReportAndReadVisibleReportId().then((id) => {
+        secondReportId = id
+      })
+
+      cy.then(() => {
+        expect(secondReportId).to.not.equal(firstReportId)
+        cy.get('[data-testid="report-list-item"]').should('have.length', 1)
+        cy.get('[data-testid="report-list-item"]').should(
+          'contain.text',
+          `Report ID: ${secondReportId}`,
+        )
+      })
     })
 
     it('should have clickable report URLs that open in new tab', () => {

@@ -383,7 +383,7 @@ const App = (props) => {
       ]);
 
       // Start requests that depend on both report and conversation
-      const [_comments, _participants, correlationHClust] = await Promise.all([
+      const [commentsRaw, _participants, correlationHClust] = await Promise.all([
         getComments(_report.conversation_id, _conversation.strict_moderation, authToken, _report.mod_level),
         getParticipantsOfInterest(_report.conversation_id, authToken),
         globals.enableMatrix
@@ -457,6 +457,22 @@ const App = (props) => {
         });
       }
 
+      const commentsRawArray = Array.isArray(commentsRaw)
+        ? commentsRaw
+        : commentsRaw?.comments || [];
+
+      var uniqueCommenters = {};
+      var voteTotals = DataUtils.getVoteTotals(mathResult);
+      const _comments = commentsRawArray.map((c) => {
+        // Use normalized consensus if available, fall back to raw
+        c["group-aware-consensus"] = mathResult["group-consensus-normalized"]
+          ? mathResult["group-consensus-normalized"][c.tid]
+          : mathResult["group-aware-consensus"][c.tid];
+        uniqueCommenters[c.pid] = 1;
+        c = Object.assign(c, voteTotals[c.tid]);
+        return c;
+      });
+
       var maxTid = -1;
       for (let i = 0; i < _comments.length; i++) {
         if (_comments[i].tid > maxTid) {
@@ -523,17 +539,6 @@ const App = (props) => {
         _extremity[tid] = e;
       }
 
-      var uniqueCommenters = {};
-      var voteTotals = DataUtils.getVoteTotals(mathResult);
-      _comments = _comments.map((c) => {
-        // Use normalized consensus if available, fall back to raw
-        c["group-aware-consensus"] = mathResult["group-consensus-normalized"] ? 
-          mathResult["group-consensus-normalized"][c.tid] : 
-          mathResult["group-aware-consensus"][c.tid];
-        uniqueCommenters[c.pid] = 1;
-        c = Object.assign(c, voteTotals[c.tid]);
-        return c;
-      });
       var numUniqueCommenters = Object.keys(uniqueCommenters).length;
       let totalVotes = 0;
       for (const key in mathResult["user-vote-counts"]) {
@@ -545,11 +550,11 @@ const App = (props) => {
       };
 
       // Enrich math results with normalized consensus values
-      mathResult = enrichMathWithNormalizedConsensus(mathResult);
+      const mathResultEnriched = enrichMathWithNormalizedConsensus(mathResult);
 
       setLoading(false);
-      setMath(mathResult);
-      setConsensus(mathResult.consensus);
+      setMath(mathResultEnriched);
+      setConsensus(mathResultEnriched.consensus);
       setExtremity(_extremity);
       setUncertainty(
         _uncertainty.map((c) => {

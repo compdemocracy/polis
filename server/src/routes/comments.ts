@@ -136,6 +136,34 @@ async function handle_GET_comments_translations(
 
 async function handle_GET_comments(req: RequestWithP, res: any): Promise<void> {
   try {
+    // If a report_id is provided, treat the report's stored filters as authoritative.
+    // This avoids client-side drift and ensures public report views honor the report definition
+    // without any Pro-gating at read time.
+    if (req.p.rid) {
+      const reportRows = (await pg.queryP_readOnly(
+        "select zid, mod_level from reports where rid = ($1);",
+        [req.p.rid]
+      )) as Array<{ zid: number; mod_level: number }>;
+
+      if (!reportRows.length) {
+        failJson(res, 404, "polis_err_report_not_found");
+        return;
+      }
+
+      const report = reportRows[0];
+
+      // Ensure conversation_id/report_id consistency if the caller provided both
+      if (req.p.zid && Number(req.p.zid) !== Number(report.zid)) {
+        failJson(res, 400, "polis_err_report_conversation_mismatch");
+        return;
+      }
+
+      req.p.zid = Number(report.zid);
+      // The report viewer uses the moderation-list codepath; make it explicit.
+      req.p.moderation = true;
+      req.p.mod_gt = Number(report.mod_level ?? -2);
+    }
+
     // Check if pagination is explicitly requested for backwards compatibility
     const isPaginationRequested = req.p.limit !== undefined;
 

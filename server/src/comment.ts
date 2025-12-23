@@ -207,7 +207,6 @@ function _getCommentsForModerationList(o: {
 }): Promise<CommentRow[]> {
   let strictCheck: Promise<any> = Promise.resolve(null);
   const include_voting_patterns = o.include_voting_patterns;
-  let isProOwner = false;
 
   if (o.modIn) {
     strictCheck = pg
@@ -219,114 +218,104 @@ function _getCommentsForModerationList(o: {
       });
   }
 
-  return pg
-    .queryP("select owner from conversations where zid = ($1);", [o.zid])
-    .then(async (z: { owner: number }[]) => {
-      isProOwner =
-        o.mod_gt && Number(o.mod_gt) > -2
-          ? await isProConvo(z[0].owner)
-          : false;
-    })
-    .then(() =>
-      strictCheck.then((strict_moderation): Promise<CommentRow[]> => {
-        let modClause = "";
-        const params = [o.zid];
-        if (!_.isUndefined(o.mod)) {
-          modClause = " and comments.mod = ($2)";
-          params.push(o.mod);
-        } else if (isProOwner) {
-          modClause = " and comments.mod > ($2)";
-          params.push(o.mod_gt);
-        } else if (!_.isUndefined(o.modIn)) {
-          if (o.modIn === true) {
-            if (strict_moderation) {
-              modClause = " and comments.mod > 0";
-            } else {
-              modClause = " and comments.mod >= 0";
-            }
-          } else if (o.modIn === false) {
-            if (strict_moderation) {
-              modClause = " and comments.mod <= 0";
-            } else {
-              modClause = " and comments.mod < 0";
-            }
-          }
+  return strictCheck.then((strict_moderation): Promise<CommentRow[]> => {
+    let modClause = "";
+    const params = [o.zid];
+    if (!_.isUndefined(o.mod)) {
+      modClause = " and comments.mod = ($2)";
+      params.push(o.mod);
+    } else if (!_.isUndefined(o.mod_gt)) {
+      modClause = " and comments.mod > ($2)";
+      params.push(o.mod_gt);
+    } else if (!_.isUndefined(o.modIn)) {
+      if (o.modIn === true) {
+        if (strict_moderation) {
+          modClause = " and comments.mod > 0";
+        } else {
+          modClause = " and comments.mod >= 0";
         }
-        if (!include_voting_patterns) {
-          let query =
-            "select * from comments where comments.zid = ($1)" + modClause;
-
-          // Add pagination if provided
-          if (!_.isUndefined(o.limit)) {
-            const limitParam = params.length + 1;
-            const offsetParam = params.length + 2;
-            query += ` LIMIT ($${limitParam}) OFFSET ($${offsetParam})`;
-            params.push(o.limit);
-            params.push(o.offset || 0);
-          }
-
-          return pg.queryP_metered_readOnly(
-            "_getCommentsForModerationList",
-            query,
-            params
-          ) as Promise<CommentRow[]>;
+      } else if (o.modIn === false) {
+        if (strict_moderation) {
+          modClause = " and comments.mod <= 0";
+        } else {
+          modClause = " and comments.mod < 0";
         }
+      }
+    }
+    if (!include_voting_patterns) {
+      let query =
+        "select * from comments where comments.zid = ($1)" + modClause;
 
-        let votingQuery =
-          "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" +
-          modClause;
+      // Add pagination if provided
+      if (!_.isUndefined(o.limit)) {
+        const limitParam = params.length + 1;
+        const offsetParam = params.length + 2;
+        query += ` LIMIT ($${limitParam}) OFFSET ($${offsetParam})`;
+        params.push(o.limit);
+        params.push(o.offset || 0);
+      }
 
-        // Add pagination if provided
-        if (!_.isUndefined(o.limit)) {
-          const limitParam = params.length + 1;
-          const offsetParam = params.length + 2;
-          votingQuery += ` LIMIT ($${limitParam}) OFFSET ($${offsetParam})`;
-          params.push(o.limit);
-          params.push(o.offset || 0);
-        }
+      return pg.queryP_metered_readOnly(
+        "_getCommentsForModerationList",
+        query,
+        params
+      ) as Promise<CommentRow[]>;
+    }
 
-        return pg
-          .queryP_metered_readOnly(
-            "_getCommentsForModerationList",
-            votingQuery,
-            params
-          )
-          .then((rows: CommentRow[]) => {
-            // each comment will have up to three rows. merge those into one with agree/disagree/pass counts.
-            const adp: { [key: string]: CommentRow } = {};
-            for (let i = 0; i < rows.length; i++) {
-              const row = rows[i];
-              const o = (adp[row.tid] = adp[row.tid] || {
-                tid: row.tid,
-                vote: 0,
-                count: 0,
-                agree_count: 0,
-                disagree_count: 0,
-                pass_count: 0,
-              });
-              if (row.vote === Utils.polisTypes.reactions.pull) {
-                o.agree_count = Number(row.count);
-              } else if (row.vote === Utils.polisTypes.reactions.push) {
-                o.disagree_count = Number(row.count);
-              } else if (row.vote === Utils.polisTypes.reactions.pass) {
-                o.pass_count = Number(row.count);
-              }
-            }
-            rows = _.uniq(rows, false, (row: { tid: number }) => {
-              return row.tid;
-            });
+    let votingQuery =
+      "select * from (select tid, vote, count(*) from votes_latest_unique where zid = ($1) group by tid, vote) as foo full outer join comments on foo.tid = comments.tid where comments.zid = ($1)" +
+      modClause;
 
-            for (let i = 0; i < rows.length; i++) {
-              const row = rows[i];
-              row.agree_count = adp[row.tid].agree_count;
-              row.disagree_count = adp[row.tid].disagree_count;
-              row.pass_count = adp[row.tid].pass_count;
-              row.count = row.agree_count + row.disagree_count + row.pass_count;
-            }
-            return rows;
+    // Add pagination if provided
+    if (!_.isUndefined(o.limit)) {
+      const limitParam = params.length + 1;
+      const offsetParam = params.length + 2;
+      votingQuery += ` LIMIT ($${limitParam}) OFFSET ($${offsetParam})`;
+      params.push(o.limit);
+      params.push(o.offset || 0);
+    }
+
+    return pg
+      .queryP_metered_readOnly(
+        "_getCommentsForModerationList",
+        votingQuery,
+        params
+      )
+      .then((rows: CommentRow[]) => {
+        // each comment will have up to three rows. merge those into one with agree/disagree/pass counts.
+        const adp: { [key: string]: CommentRow } = {};
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          const o = (adp[row.tid] = adp[row.tid] || {
+            tid: row.tid,
+            vote: 0,
+            count: 0,
+            agree_count: 0,
+            disagree_count: 0,
+            pass_count: 0,
           });
-      })
-    );
+          if (row.vote === Utils.polisTypes.reactions.pull) {
+            o.agree_count = Number(row.count);
+          } else if (row.vote === Utils.polisTypes.reactions.push) {
+            o.disagree_count = Number(row.count);
+          } else if (row.vote === Utils.polisTypes.reactions.pass) {
+            o.pass_count = Number(row.count);
+          }
+        }
+        rows = _.uniq(rows, false, (row: { tid: number }) => {
+          return row.tid;
+        });
+
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          row.agree_count = adp[row.tid].agree_count;
+          row.disagree_count = adp[row.tid].disagree_count;
+          row.pass_count = adp[row.tid].pass_count;
+          row.count = row.agree_count + row.disagree_count + row.pass_count;
+        }
+        return rows;
+      });
+  });
 }
 
 function _getCommentsList(o: {
