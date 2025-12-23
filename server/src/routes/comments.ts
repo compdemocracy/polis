@@ -35,6 +35,7 @@ import {
   updateVoteCount,
 } from "../server-helpers";
 import { parsePagination, createPaginationMeta } from "../utils/pagination";
+import { UUID } from "crypto";
 
 /* this is a concept and can be generalized to other handlers */
 interface PolisRequestParams {
@@ -849,20 +850,21 @@ async function handle_POST_comments_bulk(
       columns: true,
       skip_empty_lines: true,
     });
-    const commentTexts: string[] = records.map(
-      (record: any) => record.comment_text
-    );
+    const commentTexts: { comment_text: string; original_id: UUID }[] =
+      records.map((record: any) => record.comment_text);
 
     const results = [];
     let lastInteractionTime = new Date(0);
 
-    for (const txt of commentTexts) {
+    for (const record of commentTexts) {
+      const [txt, original_id] = Object.values(record);
       try {
         if (!txt || txt.trim() === "") {
           results.push({
             txt,
             status: "skipped",
             reason: "polis_err_param_missing_txt" + commentTexts + String(csv),
+            original_id,
           });
           continue;
         }
@@ -871,6 +873,7 @@ async function handle_POST_comments_bulk(
         if (commentExistsAlready) {
           results.push({
             txt,
+            original_id,
             status: "skipped",
             reason: "polis_err_post_comment_duplicate",
           });
@@ -897,8 +900,8 @@ async function handle_POST_comments_bulk(
 
         const insertedComment: any = await pg.queryP(
           `INSERT INTO COMMENTS
-          (pid, zid, txt, velocity, active, mod, uid, anon, is_seed, created, tid, lang, lang_confidence)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, default, null, $10, $11)
+          (pid, zid, txt, velocity, active, mod, uid, anon, is_seed, created, tid, lang, lang_confidence, original_id)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, default, null, $10, $11, $12)
           RETURNING *;`,
           [
             finalPid,
@@ -912,6 +915,7 @@ async function handle_POST_comments_bulk(
             is_seed || false,
             lang,
             lang_confidence,
+            original_id,
           ]
         );
 
@@ -937,7 +941,7 @@ async function handle_POST_comments_bulk(
           addNotificationTask(zid!);
         }
 
-        results.push({ txt, status: "success", tid });
+        results.push({ txt, status: "success", tid, original_id });
       } catch (err: any) {
         logger.error("polis_err_bulk_comment_item", { error: err, txt });
         let reason = "polis_err_post_comment";

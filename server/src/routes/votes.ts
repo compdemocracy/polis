@@ -266,6 +266,24 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
   }
 }
 
+async function handle_POST_votes_bulk(
+  req: RequestWithP,
+  res: Response & { json: (data: any) => void }
+): Promise<void> {
+  const { zid, uid, pid: initialPid, is_seed } = req.p;
+  const csv = req.body.csv;
+  let pid = initialPid;
+  if (!csv) {
+    failJson(res, 400, "polis_err_param_missing_csv_votes");
+    return;
+  }
+
+  try {
+  } catch (err: any) {
+    failJson(res, 500, "polis_err_post_votes_bulk", err);
+  }
+}
+
 async function handle_GET_votes_famous(req: { p: any }, res: any) {
   try {
     const data = await doFamousQuery(req.p);
@@ -276,6 +294,7 @@ async function handle_GET_votes_famous(req: { p: any }, res: any) {
 }
 
 export {
+  handle_POST_votes_bulk,
   getVotesForSingleParticipant,
   handle_GET_votes_famous,
   handle_GET_votes_me,
