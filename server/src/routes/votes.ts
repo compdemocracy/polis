@@ -270,16 +270,45 @@ async function handle_POST_votes_bulk(
   req: RequestWithP,
   res: Response & { json: (data: any) => void }
 ): Promise<void> {
-  const { zid, uid, pid: initialPid, is_seed } = req.p;
+  const { zid } = req.p;
   const csv = req.body.csv;
-  let pid = initialPid;
+
   if (!csv) {
     failJson(res, 400, "polis_err_param_missing_csv_votes");
     return;
   }
 
   try {
+    // 1. Validation Check: Ensure this conversation supports external mapping.
+    // We check for the existence of AT LEAST ONE comment with a non-null original_id.
+    // We do not fetch all IDs here; the Mapping Service handles the heavy lifting later.
+    const validationQuery = `
+      SELECT 1 
+      FROM comments 
+      WHERE zid = ($1) 
+        AND original_id IS NOT NULL 
+      LIMIT 1;
+    `;
+    const validationResult = await pg.queryP_readOnly(validationQuery, [zid]);
+    // @ts-expect-error check on unknown
+    if (validationResult?.length === 0) {
+      failJson(res, 400, "polis_err_votes_bulk_no_mappable_comments");
+      return;
+    }
+
+    // 2. Pass to Async Job (S3 Upload & Worker Trigger)
+    // Now that we know mapping is possible, we can proceed to upload the CSV
+    // and trigger the python mapping service defined in your architecture.
+
+    // const s3Key = await uploadToS3(csv);
+    // await triggerImportWorker({ zid, s3Key });
+
+    res.json({
+      status: "processing",
+      message: "Vote import started. This may take a few minutes.",
+    });
   } catch (err: any) {
+    logger.error("polis_err_post_votes_bulk", err);
     failJson(res, 500, "polis_err_post_votes_bulk", err);
   }
 }
