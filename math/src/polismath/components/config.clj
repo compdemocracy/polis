@@ -48,7 +48,7 @@
    :poller     {:votes {:polling-interval 1000}
                 :moderation {:polling-interval 1000}
                 :tasks {:polling-interval 1000}
-                :poll-from-days-ago 10}
+                :poll-from-days-ago 90}
    :math       {:matrix-implementation :vectorz}
    :logging    {:file "log/dev.log"
                 :level :warn}})
