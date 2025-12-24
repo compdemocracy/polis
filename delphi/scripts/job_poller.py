@@ -700,19 +700,20 @@ class JobProcessor:
             # 1. Build the command
             job_config = json.loads(job.get('job_config', '{}'))
             include_moderation = job_config.get('include_moderation', False)
+            exclude_comment_selections = job_config.get('exclude_comment_selections', True)
             app_path = os.environ.get('DELPHI_APP_PATH', '/app')
             if job_type == 'CREATE_NARRATIVE_BATCH':
                 model = os.environ.get("ANTHROPIC_MODEL")
                 if not model: raise ValueError("ANTHROPIC_MODEL must be set")
                 max_batch_size = job_config.get('max_batch_size', 20)
-                cmd = ['python', f'{app_path}/umap_narrative/801_narrative_report_batch.py', f'--conversation_id={conversation_id}', f'--model={model}', f'--include_moderation={include_moderation}', f'--max-batch-size={str(max_batch_size)}']
+                cmd = ['python', f'{app_path}/umap_narrative/801_narrative_report_batch.py', f'--conversation_id={conversation_id}', f'--model={model}', f'--include_moderation={include_moderation}', f'--exclude_comment_selections={exclude_comment_selections}', f'--max-batch-size={str(max_batch_size)}']
                 if job_config.get('no_cache'): cmd.append('--no-cache')
             elif job_type == 'AWAITING_NARRATIVE_BATCH':
                 cmd_job_id = job.get('batch_job_id', job_id)
                 cmd = ['python', f'{app_path}/umap_narrative/803_check_batch_status.py', f'--job-id={cmd_job_id}']
             else: # FULL_PIPELINE
                 # Base command
-                cmd = ['python', f'{app_path}/run_delphi.py', f'--zid={conversation_id}', f'--include_moderation={include_moderation}',]
+                cmd = ['python', f'{app_path}/run_delphi.py', f'--zid={conversation_id}', f'--include_moderation={include_moderation}', f'--exclude_comment_selections={exclude_comment_selections}',]
                 # Check for report_id and append if it exists
                 report_id = job.get('report_id')
                 if report_id:
