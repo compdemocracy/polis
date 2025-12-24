@@ -1324,7 +1324,7 @@ def create_enhanced_multilayer_index(
 
 
 def process_conversation(
-    zid, export_dynamo=True, use_ollama=False, include_moderation=False, exclude_comment_selections=False
+    zid, export_dynamo=True, use_ollama=False, include_moderation=False, exclude_comment_selections=True
 ):
     """
     Main function to process a conversation and generate visualizations.

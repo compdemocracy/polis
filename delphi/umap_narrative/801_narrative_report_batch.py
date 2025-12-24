@@ -202,7 +202,7 @@ class PolisConverter:
 class BatchReportGenerator:
     """Generate batch reports for Polis conversations."""
 
-    def __init__(self, conversation_id, model=None, no_cache=False, max_batch_size=20, job_id=None, layers=None, include_moderation=False, exclude_comment_selections=False):
+    def __init__(self, conversation_id, model=None, no_cache=False, max_batch_size=20, job_id=None, layers=None, include_moderation=False, exclude_comment_selections=True):
         """Initialize the batch report generator."""
         self.conversation_id = str(conversation_id)
         if not model:
