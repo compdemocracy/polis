@@ -469,6 +469,45 @@ class PostgresClient:
             for v in votes
         ]
 
+    def get_report_comment_selections(
+        self, zid: int, rid: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get report comment selections for a conversation.
+
+        This retrieves records from report_comment_selections table which tracks
+        which comments should be included or excluded from reports:
+        - selection = 1: comment should be included in the report
+        - selection = -1: comment should be excluded from the report
+
+        Args:
+            zid: Conversation ID (required)
+            rid: Report ID (optional, if not provided returns selections for all reports)
+
+        Returns:
+            List of dictionaries with keys: rid, tid, selection, zid, modified
+        """
+        params = {"zid": zid}
+
+        sql = """
+        SELECT
+            rid,
+            tid,
+            selection,
+            zid,
+            modified
+        FROM
+            report_comment_selections
+        WHERE
+            zid = :zid
+        """
+
+        if rid is not None:
+            sql += " AND rid = :rid"
+            params["rid"] = rid
+
+        return self.query(sql, params)
+
     def poll_moderation(
         self, zid: int, since: Optional[datetime] = None
     ) -> Dict[str, Any]:
