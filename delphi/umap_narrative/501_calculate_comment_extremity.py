@@ -30,7 +30,7 @@ from polismath_commentgraph.utils.group_data import GroupDataProcessor
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def calculate_and_store_extremity(conversation_id: int, force_recalculation: bool = False, include_moderation: bool = False, exclude_comment_selections: bool = False) -> Dict[int, float]:
+def calculate_and_store_extremity(conversation_id: int, force_recalculation: bool = False, include_moderation: bool = False, exclude_comment_selections: bool = True) -> Dict[int, float]:
     """
     Calculate and store extremity values for all comments in a conversation.
     
