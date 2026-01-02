@@ -21,6 +21,8 @@ import {
   updateVoteCount,
 } from "../server-helpers";
 import Config from "src/config";
+import { SendMessageCommand } from "@aws-sdk/client-sqs";
+import { sqsClient } from "../utils/sqs";
 
 const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
 
@@ -281,6 +283,70 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
   }
 }
 
+async function markJobAsFailedInDb(jobId: number, errorMessage: string) {
+  const query = `
+    UPDATE byod_import_jobs 
+    SET 
+      status = 'failed', 
+      error_message = $2,
+      updated_at = NOW()
+    WHERE id = $1
+  `;
+
+  try {
+    await pg.queryP(query, [jobId, errorMessage]);
+  } catch (dbErr) {
+    logger.error(
+      `CRITICAL: Failed to update job status for job ${jobId}`,
+      dbErr
+    );
+  }
+}
+
+async function triggerImportWorker(payload: { zid: number; s3Key: string }) {
+  const query = `
+    INSERT INTO byod_import_jobs (zid, s3_key, status, stage, created_at)
+    VALUES ($1, $2, 'pending', 'mapping', NOW())
+    RETURNING id;
+  `;
+
+  const res = await pg.queryP(query, [payload.zid, payload.s3Key]);
+  const jobId = res[0].id;
+
+  try {
+    const command = new SendMessageCommand({
+      QueueUrl: Config.SQS_QUEUE_URL,
+      MessageBody: JSON.stringify({
+        jobId: jobId,
+        zid: payload.zid,
+        s3Key: payload.s3Key,
+      }),
+      // Optional: Add metadata so you can trace strictly by headers later if needed
+      MessageAttributes: {
+        JobType: {
+          DataType: "String",
+          StringValue: "ImportMapping",
+        },
+      },
+    });
+
+    await sqsClient.send(command);
+    logger.log({
+      level: "info",
+      message: `Job ${jobId} enqueued successfully`,
+    });
+  } catch (err) {
+    // 3. Error Handling:
+    // If SQS fails, you have a "stuck" job in the DB.
+    // You should probably update the DB status to 'failed' or 'retry_pending' here.
+    logger.error("Failed to enqueue job", err);
+    await markJobAsFailedInDb(jobId, err.message);
+    throw err; // Re-throw so the API caller knows it failed
+  }
+
+  return jobId;
+}
+
 async function handle_POST_votes_bulk(
   req: RequestWithP,
   res: Response & { json: (data: any) => void }
@@ -323,7 +389,7 @@ async function handle_POST_votes_bulk(
 
     await s3Client.send(command);
 
-    // await triggerImportWorker({ zid, s3Key });
+    await triggerImportWorker({ zid, s3Key });
 
     res.json({
       status: "processing",

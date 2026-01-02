@@ -300,6 +300,20 @@ services:
     command: serve
     restart: unless-stopped
     
+  # SQS
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "./bin/localstack-init:/etc/localstack/init/ready.d" 
+    networks:
+      - "polis-net" 
+    profiles:
+      - local-services
 
   # MinIO S3-compatible storage
   minio:
