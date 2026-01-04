@@ -850,20 +850,20 @@ async function handle_POST_comments_bulk(
       columns: true,
       skip_empty_lines: true,
     });
-    const commentTexts: { comment_text: string; original_id: UUID }[] =
-      records.map((record: any) => record.comment_text);
 
     const results = [];
     let lastInteractionTime = new Date(0);
 
-    for (const record of commentTexts) {
-      const [txt, original_id] = Object.values(record);
+    for (const record of records) {
+      const txt = record.comment_text;
+      const original_id = record.original_id;
+
       try {
         if (!txt || txt.trim() === "") {
           results.push({
             txt,
             status: "skipped",
-            reason: "polis_err_param_missing_txt" + commentTexts + String(csv),
+            reason: "polis_err_param_missing_txt",
             original_id,
           });
           continue;

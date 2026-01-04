@@ -117,7 +117,7 @@
     "@types/http-proxy": "~1.17.16",
     "@types/jest": "^29.5.14",
     "@types/lru-cache": "~5.1.1",
-    "@types/node": "^22.15.34",
+    "@types/node": "^22.19.3",
     "@types/nodemailer": "~6.4.17",
     "@types/nodemailer-mailgun-transport": "~1.4.6",
     "@types/oauth": "~0.9.6",

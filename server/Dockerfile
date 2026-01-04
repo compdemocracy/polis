@@ -33,6 +33,7 @@ FROM base as dev
 
 # Set default NODE_ENV to development unless overridden at build time with --build-arg NODE_ENV=production
 ENV NODE_ENV ${NODE_ENV:-development}
+RUN npm install
 
 COPY . .
 

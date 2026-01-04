@@ -20,7 +20,7 @@ import {
   updateLastInteractionTimeForConversation,
   updateVoteCount,
 } from "../server-helpers";
-import Config from "src/config";
+import Config from "../config";
 import { SendMessageCommand } from "@aws-sdk/client-sqs";
 import { sqsClient } from "../utils/sqs";
 

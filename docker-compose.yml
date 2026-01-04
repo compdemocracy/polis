@@ -317,10 +317,10 @@ services:
       - SQS_QUEUE_URL=http://localstack:4566/000000000000/import-jobs-queue
       - AWS_S3_ENDPOINT=http://minio:9000
       - AWS_S3_BUCKET_NAME=polis-delphi
+    restart: on-failure:5
     networks:
       - "polis-net"
     depends_on:
-      - postgres
       - localstack
       - minio
     volumes:

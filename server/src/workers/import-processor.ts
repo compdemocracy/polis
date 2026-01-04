@@ -2,7 +2,7 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import csv from "csv-parser";
 import { S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
-import pg from "../db/pg-query"; // This now contains the { connect } method
+import pg from "../db/pg-query";
 import logger from "../utils/logger";
 import Config from "../config";
 
@@ -26,7 +26,6 @@ export const s3Client = new S3Client(config);
 
 // --- Interfaces ---
 
-// THIS IS THE EXACT ROW THAT MUST BE PRESENT ON CSV
 interface ImportRow {
   vote_id: string;
   user_id: string;
@@ -105,9 +104,14 @@ export async function processImportJob(payload: {
         .on("error", (err) => reject(err));
     });
 
-    // 4. Finalize
+    // ---------------------------------------------------------
+    // STEP 4: Finalize - Refresh votes_latest_unique
+    // ---------------------------------------------------------
+    // We manually trigger this to ensure the 'current state' table is
+    // 100% consistent with the history we just imported.
     logger.info(`[Worker] Refreshing votes_latest_unique for ZID ${zid}...`);
     await refreshVotesLatestUnique(zid);
+    await triggerMathRecalc(zid);
 
     // 5. Mark Complete
     await pg.queryP(
@@ -149,7 +153,7 @@ async function buildCommentMap(zid: number): Promise<Map<string, number>> {
   const query = `SELECT tid, original_id FROM comments WHERE zid = $1 AND original_id IS NOT NULL`;
   const result = await pg.queryP(query, [zid]);
   const map = new Map<string, number>();
-  // @ts-expect-error unknown return type
+  // @ts-expect-error queryp unknown
   result.forEach((row: any) => map.set(row.original_id, row.tid));
   return map;
 }
@@ -172,6 +176,13 @@ function mapRowData(
   return [zid, internalTid, row.user_id, parseInt(row.vote_value, 10), ts];
 }
 
+/**
+ * Inserts a batch of votes.
+ * Because PIDs are auto-generated via Trigger, we must:
+ * 1. Insert Users/Ptpts
+ * 2. READ back the PIDs
+ * 3. Insert Votes using the real PIDs
+ */
 async function flushBatchToDb(rows: any[][]) {
   if (rows.length === 0) return;
 
@@ -181,12 +192,9 @@ async function flushBatchToDb(rows: any[][]) {
   const votes = rows.map((r) => r[3]);
   const timestamps = rows.map((r) => r[4]);
 
-  // CHANGED: We now await the connection to get a dedicated client
   const client = await pg.connect();
 
   try {
-    // We must use 'client.query' here, NOT 'pg.query'
-    // This ensures all commands happen on the same borrowed connection
     await client.query("BEGIN");
 
     // 1. Users
@@ -199,7 +207,7 @@ async function flushBatchToDb(rows: any[][]) {
       [usernames, timestamps[0]]
     );
 
-    // 2. Participants
+    // 2. Participants (Triggers 'pid_auto' to assign IDs)
     await client.query(
       `
       INSERT INTO participants (uid, zid, created)
@@ -211,28 +219,50 @@ async function flushBatchToDb(rows: any[][]) {
       [zids[0], timestamps[0], usernames]
     );
 
-    // 3. Votes
-    await client.query(
+    // 3. Resolve PIDs (Fetch the IDs the trigger just created/found)
+    const pidResult = await client.query(
       `
-      INSERT INTO votes (zid, pid, tid, vote, created)
-      SELECT data.zid, p.pid, data.tid, data.vote, data.created
-      FROM (
-        SELECT 
-          unnest($1::int[]) as zid,
-          unnest($2::int[]) as tid,
-          unnest($3::text[]) as username,
-          unnest($4::int[]) as vote,
-          unnest($5::bigint[]) as created
-      ) as data
-      JOIN users u ON u.username = data.username
-      JOIN participants p ON p.uid = u.uid AND p.zid = data.zid
-      WHERE NOT EXISTS (
-        SELECT 1 FROM votes v 
-        WHERE v.zid = data.zid AND v.pid = p.pid AND v.tid = data.tid
-      )
+      SELECT p.pid, u.username 
+      FROM participants p
+      JOIN users u ON p.uid = u.uid
+      WHERE p.zid = $1 
+      AND u.username = ANY($2::text[])
     `,
-      [zids, tids, usernames, votes, timestamps]
+      [zids[0], usernames]
     );
+
+    // Map username -> pid
+    const pidMap = new Map<string, number>();
+    pidResult.rows.forEach((row: any) => pidMap.set(row.username, row.pid));
+
+    // 4. Re-map data for Vote Insert
+    const votePids: number[] = [];
+    const voteTids: number[] = [];
+    const voteValues: number[] = [];
+    const voteTimestamps: any[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const u = usernames[i];
+      const pid = pidMap.get(u);
+
+      if (pid !== undefined) {
+        votePids.push(pid);
+        voteTids.push(tids[i]);
+        voteValues.push(votes[i]);
+        voteTimestamps.push(timestamps[i]);
+      }
+    }
+
+    // 5. Insert Votes (History Table)
+    if (votePids.length > 0) {
+      await client.query(
+        `
+        INSERT INTO votes (zid, pid, tid, vote, created)
+        SELECT $1::int, unnest($2::int[]), unnest($3::int[]), unnest($4::int[]), unnest($5::bigint[])
+        `,
+        [zids[0], votePids, voteTids, voteValues, voteTimestamps]
+      );
+    }
 
     await client.query("COMMIT");
   } catch (e) {
@@ -243,6 +273,10 @@ async function flushBatchToDb(rows: any[][]) {
   }
 }
 
+/**
+ * Updates the 'votes_latest_unique' table which stores the single latest vote
+ * per participant/comment pair.
+ */
 async function refreshVotesLatestUnique(zid: number) {
   const query = `
     INSERT INTO votes_latest_unique (zid, pid, tid, vote, modified)
@@ -259,6 +293,18 @@ async function refreshVotesLatestUnique(zid: number) {
     DO UPDATE SET
       vote = EXCLUDED.vote,
       modified = EXCLUDED.modified;
+  `;
+  await pg.queryP(query, [zid]);
+}
+
+async function triggerMathRecalc(zid: number) {
+  const query = `
+    INSERT INTO math_ticks (zid, math_env, math_tick, modified)
+    VALUES ($1, 'dev', 1, (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint)
+    ON CONFLICT (zid, math_env) 
+    DO UPDATE SET 
+      math_tick = math_ticks.math_tick + 1,
+      modified = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint;
   `;
   await pg.queryP(query, [zid]);
 }
