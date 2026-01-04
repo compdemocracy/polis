@@ -1,4 +1,4 @@
-import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
 import csv from "csv-parser";
 import { S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
@@ -105,12 +105,20 @@ export async function processImportJob(payload: {
     });
 
     // ---------------------------------------------------------
-    // STEP 4: Finalize - Refresh votes_latest_unique
+    // STEP 4: Finalize & Wake Up Math Engine
     // ---------------------------------------------------------
-    // We manually trigger this to ensure the 'current state' table is
-    // 100% consistent with the history we just imported.
+
+    // 4a. Refresh the 'votes_latest_unique' table (Math input)
     logger.info(`[Worker] Refreshing votes_latest_unique for ZID ${zid}...`);
     await refreshVotesLatestUnique(zid);
+
+    // 4b. Sync participant stats (vote_count AND last_interaction)
+    // CRITICAL FIX: We must update 'last_interaction' or math will ignore the user
+    logger.info(`[Worker] Syncing participant stats for ZID ${zid}...`);
+    await syncParticipantStats(zid);
+
+    // 4c. Trigger the Math Worker
+    logger.info(`[Worker] Triggering Math Engine Recalc for ZID ${zid}...`);
     await triggerMathRecalc(zid);
 
     // 5. Mark Complete
@@ -121,6 +129,21 @@ export async function processImportJob(payload: {
     logger.info(
       `[Worker] Job ${jobId} Completed. Processed ${processedCount} rows.`
     );
+
+    // 6. Cleanup S3 (Delete the CSV)
+    try {
+      logger.info(`[Worker] Deleting S3 Object: ${s3Key}...`);
+      await s3Client.send(
+        new DeleteObjectCommand({
+          Bucket: Config.AWS_S3_BUCKET_NAME || "polis-delphi",
+          Key: s3Key,
+        })
+      );
+      logger.info(`[Worker] S3 Object Deleted.`);
+    } catch (s3Err) {
+      // Non-fatal error: If delete fails, just log it. The job is already "done".
+      logger.error(`[Worker] Failed to delete S3 Object: ${s3Key}`, s3Err);
+    }
   } catch (err) {
     logger.error(`[Worker] Job ${jobId} Failed`, err);
     await markJobAsFailedInDb(
@@ -176,13 +199,6 @@ function mapRowData(
   return [zid, internalTid, row.user_id, parseInt(row.vote_value, 10), ts];
 }
 
-/**
- * Inserts a batch of votes.
- * Because PIDs are auto-generated via Trigger, we must:
- * 1. Insert Users/Ptpts
- * 2. READ back the PIDs
- * 3. Insert Votes using the real PIDs
- */
 async function flushBatchToDb(rows: any[][]) {
   if (rows.length === 0) return;
 
@@ -207,7 +223,7 @@ async function flushBatchToDb(rows: any[][]) {
       [usernames, timestamps[0]]
     );
 
-    // 2. Participants (Triggers 'pid_auto' to assign IDs)
+    // 2. Participants
     await client.query(
       `
       INSERT INTO participants (uid, zid, created)
@@ -219,7 +235,7 @@ async function flushBatchToDb(rows: any[][]) {
       [zids[0], timestamps[0], usernames]
     );
 
-    // 3. Resolve PIDs (Fetch the IDs the trigger just created/found)
+    // 3. Resolve PIDs
     const pidResult = await client.query(
       `
       SELECT p.pid, u.username 
@@ -231,11 +247,10 @@ async function flushBatchToDb(rows: any[][]) {
       [zids[0], usernames]
     );
 
-    // Map username -> pid
     const pidMap = new Map<string, number>();
     pidResult.rows.forEach((row: any) => pidMap.set(row.username, row.pid));
 
-    // 4. Re-map data for Vote Insert
+    // 4. Re-map data
     const votePids: number[] = [];
     const voteTids: number[] = [];
     const voteValues: number[] = [];
@@ -253,7 +268,7 @@ async function flushBatchToDb(rows: any[][]) {
       }
     }
 
-    // 5. Insert Votes (History Table)
+    // 5. Insert Votes
     if (votePids.length > 0) {
       await client.query(
         `
@@ -273,10 +288,6 @@ async function flushBatchToDb(rows: any[][]) {
   }
 }
 
-/**
- * Updates the 'votes_latest_unique' table which stores the single latest vote
- * per participant/comment pair.
- */
 async function refreshVotesLatestUnique(zid: number) {
   const query = `
     INSERT INTO votes_latest_unique (zid, pid, tid, vote, modified)
@@ -300,11 +311,37 @@ async function refreshVotesLatestUnique(zid: number) {
 async function triggerMathRecalc(zid: number) {
   const query = `
     INSERT INTO math_ticks (zid, math_env, math_tick, modified)
-    VALUES ($1, 'dev', 1, (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint)
+    VALUES ($1, 'prod', 1, (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint)
     ON CONFLICT (zid, math_env) 
     DO UPDATE SET 
       math_tick = math_ticks.math_tick + 1,
       modified = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint;
+  `;
+  await pg.queryP(query, [zid]);
+  await pg.queryP(
+    "UPDATE conversations SET modified = (EXTRACT(EPOCH FROM NOW()) * 1000)::bigint WHERE zid = $1",
+    [zid]
+  );
+}
+
+async function syncParticipantStats(zid: number) {
+  const query = `
+    WITH ptpt_stats AS (
+        SELECT 
+            pid, 
+            COUNT(*) as actual_vote_count,
+            MAX(created) as last_active
+        FROM votes
+        WHERE zid = $1
+        GROUP BY pid
+    )
+    UPDATE participants p
+    SET 
+        vote_count = ps.actual_vote_count,
+        last_interaction = ps.last_active
+    FROM ptpt_stats ps
+    WHERE p.zid = $1 
+    AND p.pid = ps.pid;
   `;
   await pg.queryP(query, [zid]);
 }
