@@ -722,8 +722,8 @@ class ConversationComparer:
         Check if a path corresponds to PCA-related data that can have arbitrary sign or scaling.
 
         PCA components can be flipped by -1 and scaled by a constant factor and still
-        be mathematically valid. This checks if we're comparing PCA component vectors
-        or projections.
+        be mathematically valid. This checks if we're comparing PCA component vectors,
+        projections, or cluster centers (which are derived from projections).
 
         Args:
             path: The path in the data structure (e.g., "after_pca.pca.comps[0]", "after_pca.proj.1")
@@ -739,6 +739,11 @@ class ConversationComparer:
         # Check for projections
         # Examples: "after_pca.proj.1", "after_clustering.proj.2[0]"
         if ".proj." in path:
+            return True
+
+        # Check for cluster centers (derived from PCA projections, so inherit sign ambiguity)
+        # Examples: "after_clustering.group_clusters[0].center", "after_clustering.base-clusters[1].center"
+        if ".center" in path:
             return True
 
         return False
