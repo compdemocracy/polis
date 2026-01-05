@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple, Union, Any
 import scipy
 import scipy.stats
 import scipy.cluster.hierarchy as hcluster
-from scipy.spatial.distance import pdist, squareform
+from scipy.spatial.distance import pdist
 import json
 
 
