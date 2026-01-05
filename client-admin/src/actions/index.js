@@ -301,11 +301,14 @@ const postBulkSeedComments = (commentsCSV) => {
   return PolisNet.polisPost('/api/v3/comments-bulk', commentsCSV)
 }
 
-export const handleBulkSeedCommentSubmit = (commentsCSV) => {
+export const handleBulkSeedCommentSubmit = (commentsCSV, cb) => {
   return (dispatch) => {
     dispatch(submitSeedCommentStart())
-    return postBulkSeedComments(commentsCSV).then(
-      (res) => dispatch(submitSeedCommentPostSuccess(res)),
+    return (
+      postBulkSeedComments(commentsCSV).then((res) => {
+        if (cb) cb()
+        return dispatch(submitSeedCommentPostSuccess(res))
+      }),
       (err) => dispatch(submitSeedCommentPostError(err))
     )
   }
@@ -345,17 +348,17 @@ const createConversationPostError = (err) => {
   }
 }
 
-const postCreateConversation = () => {
+const postCreateConversation = (is_active) => {
   return PolisNet.polisPost('/api/v3/conversations', {
     is_draft: true,
-    is_active: true
+    is_active
   })
 }
 
-export const handleCreateConversationSubmit = (history) => {
+export const handleCreateConversationSubmit = (history, isActive = true) => {
   return (dispatch) => {
     dispatch(createConversationStart())
-    return postCreateConversation()
+    return postCreateConversation(isActive)
       .then(
         (res) => {
           dispatch(createConversationPostSuccess(res))
@@ -370,6 +373,29 @@ export const handleCreateConversationSubmit = (history) => {
         } else {
           // Fallback to window.location if history is not available
           window.location = '/m/' + res.conversation_id
+        }
+      })
+  }
+}
+
+export const handleBYODSubmit = (history, isActive = true) => {
+  return (dispatch) => {
+    dispatch(createConversationStart())
+    return postCreateConversation(isActive)
+      .then(
+        (res) => {
+          dispatch(createConversationPostSuccess(res))
+          return res
+        },
+        (err) => dispatch(createConversationPostError(err))
+      )
+      .then((res) => {
+        if (history && history.push) {
+          // Use React Router navigation to avoid full page reload
+          history.push('/m/' + res.conversation_id + '/import')
+        } else {
+          // Fallback to window.location if history is not available
+          window.location = '/m/' + res.conversation_id + '/import'
         }
       })
   }

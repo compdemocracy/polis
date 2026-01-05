@@ -5,6 +5,7 @@ import { S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
 import pg from "../db/pg-query";
 import logger from "../utils/logger";
 import Config from "../config";
+import { sendTextEmail } from "../email/senders";
 
 // --- S3 Configuration ---
 const customEndpoint = Config.AWS_S3_ENDPOINT;
@@ -40,8 +41,9 @@ export async function processImportJob(payload: {
   jobId: number;
   zid: number;
   s3Key: string;
+  email: string;
 }) {
-  const { jobId, zid, s3Key } = payload;
+  const { jobId, zid, s3Key, email } = payload;
   const BATCH_SIZE = 1000;
   let processedCount = 0;
 
@@ -144,12 +146,39 @@ export async function processImportJob(payload: {
       // Non-fatal error: If delete fails, just log it. The job is already "done".
       logger.error(`[Worker] Failed to delete S3 Object: ${s3Key}`, s3Err);
     }
+    if (email) {
+      try {
+        logger.info(`[Worker] Sending success email to ${email}...`);
+        await sendTextEmail(
+          Config.polisFromAddress,
+          email,
+          "Import Successful: Your Data is Ready",
+          `Your import for conversation ${zid} has completed successfully.\n\nProcessed ${processedCount} votes.`
+        );
+      } catch (emailErr) {
+        logger.error(`[Worker] Failed to send success email`, emailErr);
+        // Don't throw; job is successful even if email fails
+      }
+    }
   } catch (err) {
     logger.error(`[Worker] Job ${jobId} Failed`, err);
     await markJobAsFailedInDb(
       jobId,
       err instanceof Error ? err.message : "Unknown Error"
     );
+    if (email) {
+      try {
+        logger.info(`[Worker] Sending failure email to ${email}...`);
+        await sendTextEmail(
+          Config.polisFromAddress,
+          email,
+          "Import Failed: Something went wrong",
+          `Your import for conversation ${zid} failed.\n\nError: ${err?.message}`
+        );
+      } catch (emailErr) {
+        logger.error(`[Worker] Failed to send failure email`, emailErr);
+      }
+    }
     throw err;
   }
 }

@@ -303,7 +303,11 @@ async function markJobAsFailedInDb(jobId: number, errorMessage: string) {
   }
 }
 
-async function triggerImportWorker(payload: { zid: number; s3Key: string }) {
+async function triggerImportWorker(payload: {
+  zid: number;
+  s3Key: string;
+  uid: number;
+}) {
   const query = `
     INSERT INTO byod_import_jobs (zid, s3_key, status, stage, created_at)
     VALUES ($1, $2, 'pending', 'mapping', NOW())
@@ -314,14 +318,18 @@ async function triggerImportWorker(payload: { zid: number; s3Key: string }) {
   const jobId = res[0].id;
 
   try {
+    const userRes = await pg.queryP(`SELECT email FROM users WHERE uid = $1`, [
+      payload.uid,
+    ]);
+    const userEmail = userRes[0]?.email;
     const command = new SendMessageCommand({
       QueueUrl: Config.SQS_QUEUE_URL,
       MessageBody: JSON.stringify({
         jobId: jobId,
         zid: payload.zid,
         s3Key: payload.s3Key,
+        userEmail: userEmail,
       }),
-      // Optional: Add metadata so you can trace strictly by headers later if needed
       MessageAttributes: {
         JobType: {
           DataType: "String",
@@ -333,15 +341,12 @@ async function triggerImportWorker(payload: { zid: number; s3Key: string }) {
     await sqsClient.send(command);
     logger.log({
       level: "info",
-      message: `Job ${jobId} enqueued successfully`,
+      message: `Job ${jobId} enqueued successfully for user ${userEmail}`,
     });
-  } catch (err) {
-    // 3. Error Handling:
-    // If SQS fails, you have a "stuck" job in the DB.
-    // You should probably update the DB status to 'failed' or 'retry_pending' here.
+  } catch (err: any) {
     logger.error("Failed to enqueue job", err);
     await markJobAsFailedInDb(jobId, err.message);
-    throw err; // Re-throw so the API caller knows it failed
+    throw err;
   }
 
   return jobId;
@@ -351,7 +356,7 @@ async function handle_POST_votes_bulk(
   req: RequestWithP,
   res: Response & { json: (data: any) => void }
 ): Promise<void> {
-  const { zid } = req.p;
+  const { zid, uid } = req.p;
   const csv = req.body.csv;
 
   if (!csv) {
@@ -389,7 +394,7 @@ async function handle_POST_votes_bulk(
 
     await s3Client.send(command);
 
-    await triggerImportWorker({ zid, s3Key });
+    await triggerImportWorker({ zid, s3Key, uid });
 
     res.json({
       status: "processing",
