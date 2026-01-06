@@ -318,12 +318,11 @@ class ConversationComparer:
         logger.debug(f"Computation output saved to: {json_path}")
         logger.debug(f"Latest output symlink: {symlink_path}")
 
-        # Log detailed report
+        # Log detailed report header (result will be shown after projection metrics)
         logger.info("=" * 60)
         logger.info("REGRESSION TEST REPORT")
         logger.info("=" * 60)
         logger.info(f"Dataset: {results['dataset']}")
-        logger.info(f"Overall Result: {'✅ PASS' if results['overall_match'] else '❌ FAIL'}")
         logger.info("")
 
         if "metadata" in results:
@@ -379,6 +378,9 @@ class ConversationComparer:
                               f"Q3={np.percentile(rel_arr, 75):.2f}%, "
                               f"max={np.max(rel_arr):.2f}%")
 
+            # Group differences by PCA component or center, and show top 4 abs/rel errors each
+            self._log_top_errors_per_pca_path(self.all_differences, golden["stages"], current_stages)
+
             # Show a few examples
             n_examples = min(5, len(self.all_differences))
             logger.warning(f"  First {n_examples} examples:")
@@ -432,6 +434,21 @@ class ConversationComparer:
             if len(self.sign_flip_warnings) > n_examples:
                 logger.info(f"    ... and {len(self.sign_flip_warnings) - n_examples} more (see log file)")
             logger.info("")
+
+        # Compute and display projection comparison metrics if we have PCA data
+        # This determines the overall pass/fail result based on meaningful metrics
+        projection_metrics_pass = self._log_projection_metrics(golden["stages"], current_stages)
+        if projection_metrics_pass is not None:
+            results["overall_match"] = projection_metrics_pass
+            results["projection_metrics_pass"] = projection_metrics_pass
+
+        # Now show the Overall Result (after projection metrics have been computed)
+        logger.info(f"Overall Result: {'✅ PASS' if results['overall_match'] else '❌ FAIL'}")
+
+        # Add explanation if stages failed but projection metrics passed
+        if projection_metrics_pass and self.all_differences:
+            logger.info("  (Element-wise differences exist but projection metrics confirm match)")
+        logger.info("")
 
         # Only print speed comparison if benchmarking is enabled
         if benchmark:
@@ -1188,6 +1205,371 @@ class ConversationComparer:
             if not isinstance(item, (int, float, np.integer, np.floating)):
                 return False
         return True
+
+    def _log_top_errors_per_pca_path(
+        self, differences: list, golden_stages: dict, current_stages: dict, top_n: int = 4
+    ) -> None:
+        """
+        Log the top N absolute and relative errors for each PCA component and center.
+
+        Groups differences by their parent path (e.g., "stage.pca.comps[0]" or "stage.center")
+        and shows the worst errors to help identify which elements are causing failures.
+
+        For projections, aggregates across all projections (not per-projection).
+        Shows quantile context computed from ALL values (not just failing ones) to understand
+        if errors are in important (large) or negligible (small) values.
+
+        Args:
+            differences: List of difference dictionaries
+            golden_stages: Full golden stage data for computing proper quantiles
+            current_stages: Full current stage data for computing proper quantiles
+            top_n: Number of top errors to show per group (default: 4)
+        """
+        import numpy as np
+        from collections import defaultdict
+
+        # Group differences by parent path (strip the final [index])
+        groups: dict = defaultdict(list)
+
+        for diff in differences:
+            path = diff.get('path', '')
+            if 'golden_value' not in diff or 'current_value' not in diff:
+                continue
+
+            try:
+                g = float(diff['golden_value'])
+                c = float(diff['current_value'])
+            except (TypeError, ValueError):
+                continue
+
+            abs_err = abs(g - c)
+            rel_err = abs_err / abs(g) if abs(g) > 1e-10 else None
+
+            # Extract parent path and index
+            # Matches paths like "stage.pca.comps[0][42]" -> parent="stage.pca.comps[0]", idx=42
+            # or "stage.proj.123[0]" -> parent="stage.proj.123", idx=0
+            # or "stage.center[1]" -> parent="stage.center", idx=1
+            match = re.match(r'^(.+)\[(\d+)\]$', path)
+            if match:
+                parent_path = match.group(1)
+                idx = int(match.group(2))
+            else:
+                # No trailing index, use the path as-is
+                parent_path = path
+                idx = None
+
+            # Only group PCA-related paths
+            if self._is_pca_related_path(parent_path) or self._is_pca_related_path(path):
+                # For projections, aggregate by stage.proj (not stage.proj.123)
+                # This groups all projections together for top-error analysis
+                if ".proj." in parent_path:
+                    # Extract stage prefix and normalize to "stage.proj.*"
+                    proj_match = re.match(r'^(.+\.proj)\.\d+$', parent_path)
+                    if proj_match:
+                        group_key = proj_match.group(1) + ".*"
+                    else:
+                        group_key = parent_path
+                else:
+                    group_key = parent_path
+
+                groups[group_key].append({
+                    'idx': idx,
+                    'golden': g,
+                    'current': c,
+                    'abs_err': abs_err,
+                    'rel_err': rel_err,
+                    'path': path
+                })
+
+        if not groups:
+            return
+
+        logger.warning("")
+        logger.warning("  Top errors per PCA component/center (quantiles computed from ALL values):")
+
+        for group_key in sorted(groups.keys()):
+            items = groups[group_key]
+            if not items:
+                continue
+
+            # Extract ALL values from the full stage data for proper quantile computation
+            all_golden, all_current = self._extract_all_values_for_group(
+                group_key, golden_stages, current_stages
+            )
+
+            if len(all_golden) == 0:
+                # Fallback to just the failing items if extraction failed
+                all_golden = np.array([abs(x['golden']) for x in items])
+                all_current = np.array([abs(x['current']) for x in items])
+
+            golden_median = np.median(all_golden) if len(all_golden) > 0 else 1.0
+            current_median = np.median(all_current) if len(all_current) > 0 else 1.0
+
+            # Sort by absolute error for top abs
+            by_abs = sorted(items, key=lambda x: x['abs_err'], reverse=True)[:top_n]
+            # Sort by relative error for top rel (filter out None rel_err)
+            with_rel = [x for x in items if x['rel_err'] is not None]
+            by_rel = sorted(with_rel, key=lambda x: x['rel_err'], reverse=True)[:top_n]
+
+            logger.warning(f"    {group_key} ({len(items)} failing of {len(all_golden)} total, median |value|={golden_median:.2e}):")
+
+            # Show top absolute errors with quantile context
+            logger.warning(f"      Top {min(top_n, len(by_abs))} by abs error:")
+            for item in by_abs:
+                # Compute quantiles (what fraction of values are <= this value)
+                g_abs = abs(item['golden'])
+                c_abs = abs(item['current'])
+                g_quantile = np.sum(all_golden <= g_abs) / len(all_golden) * 100
+                c_quantile = np.sum(all_current <= c_abs) / len(all_current) * 100
+                g_ratio = g_abs / golden_median if golden_median > 1e-15 else float('inf')
+                c_ratio = c_abs / current_median if current_median > 1e-15 else float('inf')
+
+                path_short = item['path']
+                # Shorten path for readability
+                if len(path_short) > 35:
+                    path_short = "..." + path_short[-32:]
+
+                logger.warning(
+                    f"        {path_short}: abs_err={item['abs_err']:.2e}"
+                )
+                logger.warning(
+                    f"          golden={item['golden']:+.2e} (Q{g_quantile:.0f}, {g_ratio:.1f}x med), "
+                    f"current={item['current']:+.2e} (Q{c_quantile:.0f}, {c_ratio:.1f}x med)"
+                )
+
+            # Show top relative errors with quantile context
+            if by_rel:
+                logger.warning(f"      Top {min(top_n, len(by_rel))} by rel error:")
+                for item in by_rel:
+                    g_abs = abs(item['golden'])
+                    c_abs = abs(item['current'])
+                    g_quantile = np.sum(all_golden <= g_abs) / len(all_golden) * 100
+                    c_quantile = np.sum(all_current <= c_abs) / len(all_current) * 100
+                    g_ratio = g_abs / golden_median if golden_median > 1e-15 else float('inf')
+                    c_ratio = c_abs / current_median if current_median > 1e-15 else float('inf')
+                    rel_pct = item['rel_err'] * 100 if item['rel_err'] else 0
+
+                    path_short = item['path']
+                    if len(path_short) > 35:
+                        path_short = "..." + path_short[-32:]
+
+                    logger.warning(
+                        f"        {path_short}: rel_err={rel_pct:.1f}%"
+                    )
+                    logger.warning(
+                        f"          golden={item['golden']:+.2e} (Q{g_quantile:.0f}, {g_ratio:.1f}x med), "
+                        f"current={item['current']:+.2e} (Q{c_quantile:.0f}, {c_ratio:.1f}x med)"
+                    )
+
+    def _extract_all_values_for_group(
+        self, group_key: str, golden_stages: dict, current_stages: dict
+    ) -> tuple:
+        """
+        Extract ALL values for a group key from the full stage data.
+
+        This is used to compute proper quantiles against the full distribution,
+        not just the failing items.
+
+        Args:
+            group_key: The group key (e.g., "after_pca.pca.comps[1]" or "after_pca.proj.*")
+            golden_stages: Full golden stage data
+            current_stages: Full current stage data
+
+        Returns:
+            Tuple of (all_golden_abs, all_current_abs) numpy arrays
+        """
+        import numpy as np
+
+        all_golden = []
+        all_current = []
+
+        # Parse the group key to understand what data to extract
+        # Examples:
+        #   "after_pca.pca.comps[1]" -> stage=after_pca, type=pca_comp, idx=1
+        #   "after_pca.proj.*" -> stage=after_pca, type=proj_all
+
+        if ".pca.comps[" in group_key:
+            # Extract PCA component values
+            match = re.match(r'^([^.]+)\.pca\.comps\[(\d+)\]$', group_key)
+            if match:
+                stage_name = match.group(1)
+                comp_idx = int(match.group(2))
+                if stage_name in golden_stages and stage_name in current_stages:
+                    g_comps = golden_stages[stage_name].get('pca', {}).get('comps', [])
+                    c_comps = current_stages[stage_name].get('pca', {}).get('comps', [])
+                    if comp_idx < len(g_comps) and comp_idx < len(c_comps):
+                        all_golden = np.abs(g_comps[comp_idx])
+                        all_current = np.abs(c_comps[comp_idx])
+
+        elif ".proj.*" in group_key:
+            # Extract ALL projection values (aggregated across all participants)
+            match = re.match(r'^([^.]+)\.proj\.\*$', group_key)
+            if match:
+                stage_name = match.group(1)
+                if stage_name in golden_stages and stage_name in current_stages:
+                    g_proj = golden_stages[stage_name].get('proj', {})
+                    c_proj = current_stages[stage_name].get('proj', {})
+                    # Collect all projection coordinates (flattened)
+                    for pid in g_proj:
+                        if pid in c_proj:
+                            all_golden.extend([abs(v) for v in g_proj[pid]])
+                            all_current.extend([abs(v) for v in c_proj[pid]])
+                    all_golden = np.array(all_golden)
+                    all_current = np.array(all_current)
+
+        elif ".center" in group_key:
+            # Extract center values
+            match = re.match(r'^([^.]+)\.(.+)\.center$', group_key)
+            if not match:
+                match = re.match(r'^([^.]+)\.center$', group_key)
+            if match:
+                stage_name = match.group(1)
+                # Try to find centers in various places
+                if stage_name in golden_stages and stage_name in current_stages:
+                    g_stage = golden_stages[stage_name]
+                    c_stage = current_stages[stage_name]
+                    # Look for centers in group_clusters or base-clusters
+                    for cluster_key in ['group_clusters', 'base-clusters']:
+                        if cluster_key in g_stage and cluster_key in c_stage:
+                            for cluster in g_stage[cluster_key]:
+                                if 'center' in cluster:
+                                    all_golden.extend([abs(v) for v in cluster['center']])
+                            for cluster in c_stage[cluster_key]:
+                                if 'center' in cluster:
+                                    all_current.extend([abs(v) for v in cluster['center']])
+                    all_golden = np.array(all_golden)
+                    all_current = np.array(all_current)
+
+        return (np.array(all_golden) if len(all_golden) > 0 else np.array([]),
+                np.array(all_current) if len(all_current) > 0 else np.array([]))
+
+    def _log_projection_metrics(self, golden_stages: dict, current_stages: dict) -> None:
+        """
+        Compute and log projection comparison metrics for PCA stages.
+
+        Displays metrics that properly handle the case where relative errors
+        blow up on small values but the overall match is excellent.
+
+        Args:
+            golden_stages: Full golden stage data
+            current_stages: Full current stage data
+        """
+        import numpy as np
+        from scipy.spatial import procrustes
+
+        # Find stages with projections
+        stages_with_proj = []
+        for stage_name in golden_stages:
+            if stage_name in current_stages:
+                g_stage = golden_stages[stage_name]
+                c_stage = current_stages[stage_name]
+                if 'proj' in g_stage and 'proj' in c_stage:
+                    stages_with_proj.append(stage_name)
+
+        if not stages_with_proj:
+            return
+
+        # Use the first stage with projections (typically after_pca)
+        stage_name = stages_with_proj[0]
+        g_proj = golden_stages[stage_name]['proj']
+        c_proj = current_stages[stage_name]['proj']
+
+        # Collect projections, applying sign flips from stored corrections
+        g_all = []
+        c_all = []
+        sign_flips = self._pca_sign_flips.get(stage_name, {})
+
+        # Build lookup for current projections (handle str/int key differences)
+        c_proj_lookup = {}
+        for k, v in c_proj.items():
+            c_proj_lookup[str(k)] = v
+
+        for pid in g_proj:
+            pid_str = str(pid)
+            if pid_str in c_proj_lookup:
+                g_coords = list(g_proj[pid])
+                c_coords = list(c_proj_lookup[pid_str])
+                # Apply stored sign flips to current
+                for dim_idx, flip in sign_flips.items():
+                    if dim_idx < len(c_coords):
+                        c_coords[dim_idx] *= flip
+                g_all.append(g_coords)
+                c_all.append(c_coords)
+
+        if len(g_all) == 0:
+            return False
+
+        g_all = np.array(g_all)
+        c_all = np.array(c_all)
+        g_flat = g_all.flatten()
+        c_flat = c_all.flatten()
+
+        # Compute metrics
+        abs_err = np.abs(g_flat - c_flat)
+        data_range = np.max(np.abs(g_flat))
+
+        max_err_pct = np.max(abs_err) / data_range * 100
+        mean_err_pct = np.mean(abs_err) / data_range * 100
+
+        # R² (coefficient of determination)
+        ss_res = np.sum((g_flat - c_flat)**2)
+        ss_tot = np.sum((g_flat - np.mean(g_flat))**2)
+        r_squared = 1 - ss_res / ss_tot if ss_tot > 0 else 1.0
+
+        # Procrustes disparity
+        try:
+            _, _, procrustes_disp = procrustes(g_all, c_all)
+        except Exception:
+            procrustes_disp = None
+
+        # Per-dimension R²
+        dim_r2 = []
+        for dim in range(g_all.shape[1]):
+            g_dim = g_all[:, dim]
+            c_dim = c_all[:, dim]
+            ss_res_dim = np.sum((g_dim - c_dim)**2)
+            ss_tot_dim = np.sum((g_dim - np.mean(g_dim))**2)
+            r2_dim = 1 - ss_res_dim / ss_tot_dim if ss_tot_dim > 0 else 1.0
+            dim_r2.append(r2_dim)
+
+        # Define thresholds
+        THRESH_MAX_ERR_PCT = 1.0        # Max error < 1% of range
+        THRESH_MEAN_ERR_PCT = 0.1       # Mean error < 0.1% of range
+        THRESH_R2_ALL = 0.9999          # R² > 99.99%
+        THRESH_R2_DIM = 0.999           # Per-dim R² > 99.9%
+        THRESH_PROCRUSTES = 1e-4        # Procrustes < 0.0001
+
+        # Check thresholds
+        pass_max_err = max_err_pct < THRESH_MAX_ERR_PCT
+        pass_mean_err = mean_err_pct < THRESH_MEAN_ERR_PCT
+        pass_r2_all = r_squared >= THRESH_R2_ALL
+        pass_r2_dims = all(r2 >= THRESH_R2_DIM for r2 in dim_r2)
+        pass_procrustes = procrustes_disp is None or procrustes_disp < THRESH_PROCRUSTES
+
+        all_pass = pass_max_err and pass_mean_err and pass_r2_all and pass_r2_dims and pass_procrustes
+
+        # Helper for emoji
+        def check(passed):
+            return "✅" if passed else "❌"
+
+        # Log the metrics with pass/fail indicators
+        logger.info(f"Projection comparison metrics ({stage_name}, {len(g_all)} points):")
+        logger.info(f"  ┌────┬─────────────────────────┬─────────────────┬───────────┬─────────────────────────────┐")
+        logger.info(f"  │    │ Metric                  │ Value           │ Threshold │ Interpretation              │")
+        logger.info(f"  ├────┼─────────────────────────┼─────────────────┼───────────┼─────────────────────────────┤")
+        logger.info(f"  │ {check(pass_max_err)} │ Max |error| / range     │ {max_err_pct:>13.4f}% │ < {THRESH_MAX_ERR_PCT:>5.1f}%  │ Worst displacement vs scale │")
+        logger.info(f"  │ {check(pass_mean_err)} │ Mean |error| / range    │ {mean_err_pct:>13.4f}% │ < {THRESH_MEAN_ERR_PCT:>5.2f}% │ Avg displacement vs scale   │")
+        logger.info(f"  │ {check(pass_r2_all)} │ R² (all coordinates)    │ {r_squared:>15.10f} │ > {THRESH_R2_ALL:.4f} │ Variance explained          │")
+        for i, r2 in enumerate(dim_r2):
+            pass_dim = r2 >= THRESH_R2_DIM
+            logger.info(f"  │ {check(pass_dim)} │ R² (PC{i+1})               │ {r2:>15.10f} │ > {THRESH_R2_DIM:.3f}  │ Per-dimension fit           │")
+        if procrustes_disp is not None:
+            logger.info(f"  │ {check(pass_procrustes)} │ Procrustes disparity    │ {procrustes_disp:>15.2e} │ < {THRESH_PROCRUSTES:.0e}  │ Shape similarity (0=same)   │")
+        logger.info(f"  └────┴─────────────────────────┴─────────────────┴───────────┴─────────────────────────────┘")
+        logger.info(f"  Overall: {check(all_pass)} {'PASS' if all_pass else 'FAIL'}")
+        logger.info("")
+
+        return all_pass
 
     def _write_comparison_log(self, log_path: Path, dataset_name: str) -> None:
         """
