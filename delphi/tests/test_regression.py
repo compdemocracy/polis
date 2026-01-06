@@ -310,10 +310,8 @@ class TestRegressionSystemIntegrity:
             golden_list, inconsistent_list, path=pca_path, stage_name="after_pca"
         )
         assert not result["match"], "Non-constant scaled data should not match"
-        # Should not mention a specific scaling factor
-        reason = result.get("reason", "")
         # The error might be at element level or might not detect scaling
-        # Just verify it's reported as a mismatch
+        # Just verify it's reported as a mismatch (reason checked implicitly via match=False)
 
         # Test 7: _detect_scaling_factor method directly
         factor = comparer._detect_scaling_factor(golden_list, scaled_list_5x)
