@@ -47,7 +47,7 @@ describe('Client Admin: Comment CSV Upload', () => {
             .selectFile('cypress/fixtures/test-comments.csv', { force: true })
 
           // Wait a moment for the file to be processed
-          cy.wait(500)
+          cy.wait(1000)
 
           // Click the submit button for bulk upload using data-testid
           cy.get('[data-testid="upload-csv-button"]').click()
@@ -62,7 +62,13 @@ describe('Client Admin: Comment CSV Upload', () => {
           cy.get('button').contains('Success!').should('be.visible')
 
           // Navigate to the accepted comments section to verify comments were added
+          cy.visit(`/m/${testConversationId}/comments/pending`)
+
+          cy.wait(1000)
+
           cy.visit(`/m/${testConversationId}/comments/accepted`)
+
+          cy.wait(1000)
 
           // Wait for comments to load
           cy.get('[data-testid="approved-comments"]').should('be.visible')
@@ -154,7 +160,7 @@ describe('Client Admin: Comment CSV Upload', () => {
             )
 
           // Wait a moment for the file to be processed
-          cy.wait(500)
+          cy.wait(1000)
 
           // Click the submit button for CSV upload using data-testid
           cy.get('[data-testid="upload-csv-button"]').click()
