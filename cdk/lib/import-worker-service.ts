@@ -19,49 +19,37 @@ export class ImportWorkerService extends Construct {
   constructor(scope: Construct, id: string, props: ImportWorkerProps) {
     super(scope, id);
 
-    // 1. Create the SQS Queue for Import Jobs
     this.importQueue = new sqs.Queue(this, 'ImportJobsQueue', {
       queueName: 'import-jobs-queue',
       visibilityTimeout: cdk.Duration.minutes(15), // Give worker enough time to process large CSVs
       retentionPeriod: cdk.Duration.days(14),
     });
-
-    // 2. Lookup the existing ECR Repository (polis/server)
-    // We reuse the server image but override the command, just like in Docker Compose
     const repository = ecr.Repository.fromRepositoryName(
       this,
       'ServerRepo',
       'polis/server'
     );
-
-    // 3. Create an ECS Cluster (if you don't have one, Fargate needs it)
     const cluster = new ecs.Cluster(this, 'PolisCluster', {
       vpc: props.vpc,
       clusterName: 'polis-cluster',
       containerInsights: true,
     });
-
-    // 4. Define the Fargate Task
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'ImportWorkerTask', {
-      cpu: 512, // 0.5 vCPU
-      memoryLimitMiB: 1024, // 1 GB RAM
+      cpu: 512,
+      memoryLimitMiB: 1024,
       runtimePlatform: {
-        cpuArchitecture: ecs.CpuArchitecture.ARM64, // Matching your Graviton/Apple Silicon workflow
+        cpuArchitecture: ecs.CpuArchitecture.ARM64,
         operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
       },
     });
 
-    // 5. Add Permissions (IAM Role)
-    // S3 Access
     taskDefinition.taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
       actions: ['s3:GetObject', 's3:DeleteObject', 's3:ListBucket', 's3:PutObject'],
-      resources: ['arn:aws:s3:::polis-delphi', 'arn:aws:s3:::polis-delphi/*'], // Adjust bucket name if different in prod
+      resources: ['arn:aws:s3:::polis-delphi', 'arn:aws:s3:::polis-delphi/*'],
     }));
 
-    // SQS Access
     this.importQueue.grantConsumeMessages(taskDefinition.taskRole);
 
-    // RDS/Secrets Access
     taskDefinition.taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
       actions: ['secretsmanager:GetSecretValue'],
       resources: [props.database.secret?.secretArn!],
@@ -89,18 +77,12 @@ export class ImportWorkerService extends Construct {
       }
       go();
     `;
-
-    // Minify script to one line for the command string
     const minifiedScript = fetchSecretScript.replace(/\s+/g, ' ');
-
     const wrapperCommand = [
       '/bin/sh', 
       '-c', 
-      // 1. Run node script -> Get URL -> Export to Env Var -> 2. Run Worker
       `export DATABASE_URL=$(node -e "${minifiedScript}") && exec npx ts-node src/workers/start-import-worker.ts`
     ];
-
-    // 6. Add Container
     const container = taskDefinition.addContainer('WorkerContainer', {
       image: ecs.ContainerImage.fromEcrRepository(repository, 'prod'),
       command: wrapperCommand,
@@ -110,49 +92,37 @@ export class ImportWorkerService extends Construct {
       }),
       environment: {
         NODE_ENV: 'production',
-        
-        // --- QUEUE ---
         SQS_QUEUE_URL: this.importQueue.queueUrl,
-        
-        // --- AWS ---
         AWS_REGION: cdk.Stack.of(this).region,
         AWS_S3_BUCKET_NAME: 'polis-delphi',
-        
-        // --- DATABASE INGREDIENTS ---
         DATABASE_SECRET_ARN: props.database.secret?.secretArn!,
         POSTGRES_HOST: props.database.dbInstanceEndpointAddress,
         POSTGRES_PORT: props.database.dbInstanceEndpointPort,
-        POSTGRES_DB: 'polisdb', // As seen in your CloudFormation
+        POSTGRES_DB: 'polisdb',
       },
     });
-
-    // 7. Create the Service
     const service = new ecs.FargateService(this, 'ImportWorkerService', {
       cluster,
       taskDefinition,
-      desiredCount: 0, // Start with 0, let autoscaling handle it? Or 1 for always-on
+      desiredCount: 0, // Start with 0, let autoscaling handle it
       assignPublicIp: false,
-      securityGroups: [], // We add one below
+      securityGroups: [], 
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
     });
 
-    // 8. Networking
-    // Allow Worker -> RDS
     service.connections.securityGroups[0].addEgressRule(
       props.database.connections.securityGroups[0],
       ec2.Port.tcp(5432),
       'Allow Import Worker to access RDS'
     );
-    // Allow RDS -> Worker (Standard SG linking)
     props.database.connections.securityGroups[0].addIngressRule(
       service.connections.securityGroups[0],
       ec2.Port.tcp(5432),
       'Allow connection from Import Worker'
     );
 
-    // 9. Auto-Scaling (Based on Queue Depth)
     const scaling = service.autoScaleTaskCount({
-      minCapacity: 0, // Scale down to 0 to save money
+      minCapacity: 0,
       maxCapacity: 5,
     });
 

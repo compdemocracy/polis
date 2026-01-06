@@ -7,9 +7,7 @@ import logger from "../utils/logger";
 import Config from "../config";
 import { sendTextEmail } from "../email/senders";
 
-// --- S3 Configuration ---
 const customEndpoint = Config.AWS_S3_ENDPOINT;
-
 const config: S3ClientConfig = {
   region: Config.AWS_REGION || "us-east-1",
   credentials: {
@@ -25,8 +23,6 @@ if (customEndpoint) {
 
 export const s3Client = new S3Client(config);
 
-// --- Interfaces ---
-
 interface ImportRow {
   vote_id: string;
   user_id: string;
@@ -34,8 +30,6 @@ interface ImportRow {
   timestamp: string;
   comment_id: string;
 }
-
-// --- Worker Main Logic ---
 
 export async function processImportJob(payload: {
   jobId: number;
@@ -48,13 +42,11 @@ export async function processImportJob(payload: {
   let processedCount = 0;
 
   try {
-    // 1. Update Status -> Processing
     await pg.queryP(
       "UPDATE byod_import_jobs SET status = 'processing', updated_at = NOW() WHERE id = $1",
       [jobId]
     );
 
-    // 2. Pre-fetch Comment Mapping
     logger.info(`[Worker] Building Comment ID Map for ZID ${zid}...`);
     const commentMap = await buildCommentMap(zid);
 
@@ -62,15 +54,12 @@ export async function processImportJob(payload: {
       throw new Error(`No comments found for ZID ${zid}. Import aborted.`);
     }
 
-    // 3. Stream & Process
     const command = new GetObjectCommand({
       Bucket: Config.AWS_S3_BUCKET_NAME || "polis-delphi",
       Key: s3Key,
     });
-
     const response = await s3Client.send(command);
     if (!response.Body) throw new Error("Empty body from S3");
-
     const stream = response.Body as Readable;
     let batch: any[] = [];
 
@@ -106,24 +95,13 @@ export async function processImportJob(payload: {
         .on("error", (err) => reject(err));
     });
 
-    // ---------------------------------------------------------
-    // STEP 4: Finalize & Wake Up Math Engine
-    // ---------------------------------------------------------
-
-    // 4a. Refresh the 'votes_latest_unique' table (Math input)
     logger.info(`[Worker] Refreshing votes_latest_unique for ZID ${zid}...`);
     await refreshVotesLatestUnique(zid);
-
-    // 4b. Sync participant stats (vote_count AND last_interaction)
-    // CRITICAL FIX: We must update 'last_interaction' or math will ignore the user
     logger.info(`[Worker] Syncing participant stats for ZID ${zid}...`);
     await syncParticipantStats(zid);
-
-    // 4c. Trigger the Math Worker
     logger.info(`[Worker] Triggering Math Engine Recalc for ZID ${zid}...`);
     await triggerMathRecalc(zid);
 
-    // 5. Mark Complete
     await pg.queryP(
       "UPDATE byod_import_jobs SET status = 'completed', stage = 'finished', updated_at = NOW() WHERE id = $1",
       [jobId]
@@ -132,7 +110,6 @@ export async function processImportJob(payload: {
       `[Worker] Job ${jobId} Completed. Processed ${processedCount} rows.`
     );
 
-    // 6. Cleanup S3 (Delete the CSV)
     try {
       logger.info(`[Worker] Deleting S3 Object: ${s3Key}...`);
       await s3Client.send(
@@ -143,7 +120,6 @@ export async function processImportJob(payload: {
       );
       logger.info(`[Worker] S3 Object Deleted.`);
     } catch (s3Err) {
-      // Non-fatal error: If delete fails, just log it. The job is already "done".
       logger.error(`[Worker] Failed to delete S3 Object: ${s3Key}`, s3Err);
     }
     if (email) {
@@ -182,8 +158,6 @@ export async function processImportJob(payload: {
     throw err;
   }
 }
-
-// --- Helper Functions ---
 
 async function markJobAsFailedInDb(jobId: number, errorMessage: string) {
   const query = `

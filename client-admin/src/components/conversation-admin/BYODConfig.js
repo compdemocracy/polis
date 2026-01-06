@@ -2,18 +2,17 @@
 
 import { Heading, Box, Text, Button } from 'theme-ui'
 import { useRef, useState } from 'react'
-import emoji from 'react-easy-emoji'
 import { useConversationData } from '../../util/conversation_data'
-import strings from '../../strings/strings'
 import ModerateCommentsSeed from './ModerateCommentSeed'
 import Spinner from '../framework/Spinner'
 import PolisNet from '../../util/net'
 
 const BYODConfig = () => {
   const conversationData = useConversationData()
-  const { loading, error } = conversationData
+  const { loading } = conversationData
   const topicRef = useRef(null)
   const descriptionRef = useRef(null)
+  // eslint-disable-next-line no-unused-vars
   const [onComplete, setOnComplete] = useState(false)
   const [voteSubmissionLoading, setVoteSubmissionLoading] = useState(false)
   const [voteSubmissionError, setVoteSubmissionError] = useState(null)
