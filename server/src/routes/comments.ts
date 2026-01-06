@@ -35,7 +35,6 @@ import {
   updateVoteCount,
 } from "../server-helpers";
 import { parsePagination, createPaginationMeta } from "../utils/pagination";
-import { UUID } from "crypto";
 
 /* this is a concept and can be generalized to other handlers */
 interface PolisRequestParams {
