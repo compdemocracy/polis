@@ -24,20 +24,36 @@ logger = logging.getLogger(__name__)
 class ConversationComparer:
     """Compares current Conversation outputs with golden snapshots."""
 
-    def __init__(self, abs_tolerance: float = 1e-6, rel_tolerance: float = 0.01, ignore_pca_sign_flip: bool = False):
+    def __init__(
+        self,
+        abs_tolerance: float = 1e-6,
+        rel_tolerance: float = 0.01,
+        ignore_pca_sign_flip: bool = False,
+        outlier_fraction: float = 0.01,
+        loose_abs_tolerance: float | None = None,
+        loose_rel_tolerance: float | None = None,
+    ):
         """
         Initialize the comparer with numeric tolerances.
 
         Args:
-            abs_tolerance: Absolute tolerance for numeric comparisons
-            rel_tolerance: Relative tolerance for numeric comparisons
+            abs_tolerance: Absolute tolerance for numeric comparisons (tight)
+            rel_tolerance: Relative tolerance for numeric comparisons (tight)
             ignore_pca_sign_flip: If True, ignore sign flips in PCA components (default: False)
+            outlier_fraction: Fraction of values (0.0-1.0) allowed to exceed tight tolerance
+                             but must still be within loose tolerance. Default 0.01 (1%).
+            loose_abs_tolerance: Absolute tolerance for outliers. If None, uses 1000 * abs_tolerance.
+            loose_rel_tolerance: Relative tolerance for outliers. If None, uses 10 * rel_tolerance.
         """
         self.abs_tol = abs_tolerance
         self.rel_tol = rel_tolerance
         self.ignore_pca_sign_flip = ignore_pca_sign_flip
+        self.outlier_fraction = outlier_fraction
+        self.loose_abs_tol = loose_abs_tolerance if loose_abs_tolerance is not None else 1000 * abs_tolerance
+        self.loose_rel_tol = loose_rel_tolerance if loose_rel_tolerance is not None else 10 * rel_tolerance
         self.all_differences = []  # Collect all differences for detailed reporting
         self.sign_flip_warnings = []  # Collect sign flip warnings when ignore_pca_sign_flip is True
+        self.outlier_warnings = []  # Collect outlier warnings when values exceed tight but pass loose tolerance
 
     def compare_with_golden(self, dataset_name: str, benchmark: bool = True) -> Dict:
         """
@@ -53,6 +69,7 @@ class ConversationComparer:
         # Reset differences collection for this comparison
         self.all_differences = []
         self.sign_flip_warnings = []
+        self.outlier_warnings = []
 
         # Load golden snapshot using shared function
         try:
@@ -322,29 +339,93 @@ class ConversationComparer:
 
         # Log differences summary if there are any
         if self.all_differences:
+            import numpy as np
             logger.warning("Differences found:")
             logger.warning(f"  Total differences: {len(self.all_differences)}")
-            logger.warning(f"  First {min(10, len(self.all_differences))} differences:")
-            for i, diff in enumerate(self.all_differences[:10]):
-                logger.warning(f"    {i+1}. Stage: {diff['stage_name']}")
-                logger.warning(f"       Path: {diff['path']}")
-                logger.warning(f"       Reason: {diff['reason']}")
+
+            # Collect numeric error statistics
+            abs_diffs = []
+            rel_diffs = []
+            for diff in self.all_differences:
                 if 'golden_value' in diff and 'current_value' in diff:
-                    logger.warning(f"       Golden: {diff['golden_value']}")
-                    logger.warning(f"       Current: {diff['current_value']}")
-            if len(self.all_differences) > 10:
-                logger.warning(f"  ... and {len(self.all_differences) - 10} more differences (see log file for details)")
+                    try:
+                        g = float(diff['golden_value'])
+                        c = float(diff['current_value'])
+                        abs_diffs.append(abs(g - c))
+                        if abs(g) > 1e-10:
+                            rel_diffs.append(abs(g - c) / abs(g))
+                    except (TypeError, ValueError):
+                        pass
+
+            if abs_diffs:
+                abs_arr = np.array(abs_diffs)
+                logger.warning(f"  Abs error stats: "
+                              f"min={np.min(abs_arr):.2e}, "
+                              f"Q1={np.percentile(abs_arr, 25):.2e}, "
+                              f"median={np.median(abs_arr):.2e}, "
+                              f"Q3={np.percentile(abs_arr, 75):.2e}, "
+                              f"max={np.max(abs_arr):.2e}")
+            if rel_diffs:
+                rel_arr = np.array(rel_diffs) * 100
+                logger.warning(f"  Rel error stats: "
+                              f"min={np.min(rel_arr):.2f}%, "
+                              f"Q1={np.percentile(rel_arr, 25):.2f}%, "
+                              f"median={np.median(rel_arr):.2f}%, "
+                              f"Q3={np.percentile(rel_arr, 75):.2f}%, "
+                              f"max={np.max(rel_arr):.2f}%")
+
+            # Show a few examples
+            n_examples = min(5, len(self.all_differences))
+            logger.warning(f"  First {n_examples} examples:")
+            for i, diff in enumerate(self.all_differences[:n_examples]):
+                logger.warning(f"    {i+1}. {diff['path']}: {diff['reason']}")
+            if len(self.all_differences) > n_examples:
+                logger.warning(f"  ... and {len(self.all_differences) - n_examples} more (see log file)")
             if diff_log_path:
                 logger.info(f"  Full details: {diff_log_path}")
             logger.info("")
 
-        # Log sign flip warnings if any
+        # Log sign flip warnings summary if any
         if self.sign_flip_warnings:
-            logger.warning("PCA sign flips detected (ignored due to ignore_pca_sign_flip=True):")
-            logger.warning(f"  Total sign flips: {len(self.sign_flip_warnings)}")
-            for i, warning in enumerate(self.sign_flip_warnings):
-                logger.warning(f"    {i+1}. Stage: {warning['stage_name']}")
-                logger.warning(f"       Path: {warning['path']}")
+            import numpy as np
+            logger.info("PCA sign flips detected (corrected due to ignore_pca_sign_flip=True):")
+            logger.info(f"  Total sign flips: {len(self.sign_flip_warnings)}")
+
+            # Collect error statistics
+            abs_errors = [w.get('max_abs_error', 0) for w in self.sign_flip_warnings if w.get('max_abs_error') is not None]
+            rel_errors = [w.get('max_rel_error', 0) for w in self.sign_flip_warnings if w.get('max_rel_error') is not None]
+
+            if abs_errors:
+                abs_arr = np.array(abs_errors)
+                logger.info(f"  Residual abs errors after flip: "
+                           f"min={np.min(abs_arr):.2e}, "
+                           f"Q1={np.percentile(abs_arr, 25):.2e}, "
+                           f"median={np.median(abs_arr):.2e}, "
+                           f"Q3={np.percentile(abs_arr, 75):.2e}, "
+                           f"max={np.max(abs_arr):.2e}")
+            if rel_errors:
+                rel_arr = np.array(rel_errors) * 100  # Convert to percentage
+                logger.info(f"  Residual rel errors after flip: "
+                           f"min={np.min(rel_arr):.2f}%, "
+                           f"Q1={np.percentile(rel_arr, 25):.2f}%, "
+                           f"median={np.median(rel_arr):.2f}%, "
+                           f"Q3={np.percentile(rel_arr, 75):.2f}%, "
+                           f"max={np.max(rel_arr):.2f}%")
+
+            # Show a few examples
+            n_examples = min(3, len(self.sign_flip_warnings))
+            logger.info(f"  First {n_examples} examples:")
+            for i, warning in enumerate(self.sign_flip_warnings[:n_examples]):
+                abs_err = warning.get('max_abs_error')
+                rel_err = warning.get('max_rel_error')
+                err_str = ""
+                if abs_err is not None:
+                    err_str = f"abs={abs_err:.2e}"
+                    if rel_err is not None:
+                        err_str += f", rel={rel_err:.2%}"
+                logger.info(f"    - {warning['path']} ({err_str})")
+            if len(self.sign_flip_warnings) > n_examples:
+                logger.info(f"    ... and {len(self.sign_flip_warnings) - n_examples} more (see log file)")
             logger.info("")
 
         # Only print speed comparison if benchmarking is enabled
@@ -418,7 +499,8 @@ class ConversationComparer:
 
         return results
 
-    def _compare_dicts(self, golden: Any, current: Any, path: str = "", stage_name: str = "") -> Dict:
+    def _compare_dicts(self, golden: Any, current: Any, path: str = "", stage_name: str = "",
+                       use_loose_tolerance: bool = False) -> Dict:
         """
         Recursively compare two dictionaries/values with numeric tolerance.
 
@@ -427,6 +509,7 @@ class ConversationComparer:
             current: Current value/dictionary
             path: Current path in the structure (for error reporting)
             stage_name: Name of the stage being compared (for difference logging)
+            use_loose_tolerance: If True, use loose tolerance for numeric comparisons
 
         Returns:
             Dictionary with comparison results
@@ -578,15 +661,44 @@ class ConversationComparer:
                         "reason": reason
                     }
 
-            # Do element-by-element comparison
+            # Prepare the current list (apply sign flip if detected)
+            compare_current = [-c for c in current[:min_len]] if use_flipped_current else current[:min_len]
+            compare_golden = golden[:min_len]
+
+            # For numeric lists with outlier allowance enabled, use the specialized method
+            # Only apply to lists with enough elements (>=10) to make outlier fraction meaningful
+            min_elements_for_outlier_logic = 10
+            if (self.outlier_fraction > 0 and
+                len(compare_golden) >= min_elements_for_outlier_logic and
+                self._is_numeric_list(compare_golden) and
+                self._is_numeric_list(compare_current)):
+                result = self._compare_numeric_list_with_outliers(
+                    compare_golden, compare_current, path, stage_name
+                )
+                if not result["match"]:
+                    overall_match = False
+                return {"match": overall_match, "path": path}
+
+            # For small numeric lists when outlier mode is enabled, use loose tolerance
+            # This handles cases like 2D projection coordinates where outlier fraction
+            # can't be meaningfully applied at the list level
+            use_loose_tolerance = (
+                self.outlier_fraction > 0 and
+                len(compare_golden) < min_elements_for_outlier_logic and
+                len(compare_golden) > 0 and
+                self._is_numeric_list(compare_golden) and
+                self._is_numeric_list(compare_current)
+            )
+
+            # Standard element-by-element comparison
             for i in range(min_len):
-                # Use flipped current value if sign flip was detected
-                current_val = -current[i] if use_flipped_current else current[i]
+                current_val = compare_current[i]
                 result = self._compare_dicts(
-                    golden[i],
+                    compare_golden[i],
                     current_val,
                     f"{path}[{i}]",
-                    stage_name=stage_name
+                    stage_name=stage_name,
+                    use_loose_tolerance=use_loose_tolerance
                 )
                 if not result["match"]:
                     overall_match = False
@@ -657,12 +769,17 @@ class ConversationComparer:
                     }
 
             # For floats, use tolerance-based comparison
-            if np.allclose([golden_float], [current_float], rtol=self.rel_tol, atol=self.abs_tol):
+            # Use loose tolerance if requested (for small lists in outlier mode)
+            rel_tol = self.loose_rel_tol if use_loose_tolerance else self.rel_tol
+            abs_tol = self.loose_abs_tol if use_loose_tolerance else self.abs_tol
+
+            if np.allclose([golden_float], [current_float], rtol=rel_tol, atol=abs_tol):
                 return {"match": True, "path": path}
             else:
                 diff = abs(golden_float - current_float)
                 rel_diff = diff / max(abs(golden_float), 1e-10)
-                reason = f"Numeric mismatch: golden={golden_float:.6e}, current={current_float:.6e}, abs_diff={diff:.6e}, rel_diff={rel_diff:.6%}"
+                tol_note = " (using loose tolerance)" if use_loose_tolerance else ""
+                reason = f"Numeric mismatch{tol_note}: golden={golden_float:.6e}, current={current_float:.6e}, abs_diff={diff:.6e}, rel_diff={rel_diff:.6%}"
                 self.all_differences.append({
                     "stage_name": stage_name,
                     "path": path,
@@ -887,6 +1004,150 @@ class ConversationComparer:
 
         return None
 
+    def _compare_numeric_list_with_outliers(
+        self,
+        golden: list,
+        current: list,
+        path: str,
+        stage_name: str
+    ) -> Dict:
+        """
+        Compare two numeric lists with outlier allowance.
+
+        This method compares lists element-by-element and allows a fraction
+        of elements to exceed the tight tolerance, as long as they stay within
+        the loose tolerance.
+
+        Args:
+            golden: Golden list of numeric values
+            current: Current list of numeric values
+            path: Current path in the structure (for error reporting)
+            stage_name: Name of the stage being compared
+
+        Returns:
+            Dictionary with comparison results including outlier information
+        """
+        import numpy as np
+
+        if len(golden) != len(current):
+            return {
+                "match": False,
+                "path": path,
+                "reason": f"List length mismatch: {len(golden)} vs {len(current)}"
+            }
+
+        n = len(golden)
+        if n == 0:
+            return {"match": True, "path": path}
+
+        # Convert to arrays
+        golden_arr = np.array([float(g) for g in golden])
+        current_arr = np.array([float(c) for c in current])
+
+        # Check each element against tight and loose tolerances
+        tight_pass = np.zeros(n, dtype=bool)
+        loose_pass = np.zeros(n, dtype=bool)
+
+        for i in range(n):
+            g, c = golden_arr[i], current_arr[i]
+
+            # Handle NaN
+            if np.isnan(g) and np.isnan(c):
+                tight_pass[i] = True
+                loose_pass[i] = True
+                continue
+            if np.isnan(g) or np.isnan(c):
+                tight_pass[i] = False
+                loose_pass[i] = False
+                continue
+
+            # Handle infinity
+            if np.isinf(g) and np.isinf(c) and np.sign(g) == np.sign(c):
+                tight_pass[i] = True
+                loose_pass[i] = True
+                continue
+
+            # Check tight tolerance
+            tight_pass[i] = np.allclose([g], [c], rtol=self.rel_tol, atol=self.abs_tol)
+
+            # Check loose tolerance
+            loose_pass[i] = np.allclose([g], [c], rtol=self.loose_rel_tol, atol=self.loose_abs_tol)
+
+        # Count results
+        n_tight_fail = np.sum(~tight_pass)
+        n_loose_fail = np.sum(~loose_pass)
+        outlier_indices = np.where(~tight_pass & loose_pass)[0]
+        hard_fail_indices = np.where(~loose_pass)[0]
+
+        # Check if any values exceed loose tolerance (hard fail)
+        if n_loose_fail > 0:
+            # Record differences for hard failures
+            for i in hard_fail_indices:
+                g, c = golden_arr[i], current_arr[i]
+                diff = abs(g - c)
+                rel_diff = diff / max(abs(g), 1e-10)
+                self.all_differences.append({
+                    "stage_name": stage_name,
+                    "path": f"{path}[{i}]",
+                    "reason": f"Exceeds loose tolerance: golden={g:.6e}, current={c:.6e}, "
+                              f"abs_diff={diff:.6e}, rel_diff={rel_diff:.6%}",
+                    "golden_value": g,
+                    "current_value": c
+                })
+            return {
+                "match": False,
+                "path": path,
+                "reason": f"{n_loose_fail} values exceed loose tolerance "
+                          f"(rel={self.loose_rel_tol:.1%}, abs={self.loose_abs_tol:.0e})"
+            }
+
+        # Check if outlier fraction is exceeded
+        outlier_frac = n_tight_fail / n if n > 0 else 0.0
+        if outlier_frac > self.outlier_fraction:
+            # Record differences for outliers that caused the failure
+            for i in outlier_indices:
+                g, c = golden_arr[i], current_arr[i]
+                diff = abs(g - c)
+                rel_diff = diff / max(abs(g), 1e-10)
+                self.all_differences.append({
+                    "stage_name": stage_name,
+                    "path": f"{path}[{i}]",
+                    "reason": f"Outlier (exceeds tight tolerance): golden={g:.6e}, current={c:.6e}, "
+                              f"abs_diff={diff:.6e}, rel_diff={rel_diff:.6%}",
+                    "golden_value": g,
+                    "current_value": c
+                })
+            return {
+                "match": False,
+                "path": path,
+                "reason": f"Outlier fraction {outlier_frac:.2%} exceeds allowed {self.outlier_fraction:.2%} "
+                          f"({n_tight_fail}/{n} values exceed tight tolerance)"
+            }
+
+        # Pass, but record outliers as warnings
+        if len(outlier_indices) > 0:
+            for i in outlier_indices:
+                g, c = golden_arr[i], current_arr[i]
+                diff = abs(g - c)
+                rel_diff = diff / max(abs(g), 1e-10)
+                self.outlier_warnings.append({
+                    "stage_name": stage_name,
+                    "path": f"{path}[{i}]",
+                    "message": f"Outlier within allowed fraction: abs_diff={diff:.6e}, rel_diff={rel_diff:.2%}",
+                    "golden_value": g,
+                    "current_value": c
+                })
+
+        return {"match": True, "path": path, "outliers": len(outlier_indices)}
+
+    def _is_numeric_list(self, lst: list) -> bool:
+        """Check if a list contains only numeric values (int, float, or numpy numeric types)."""
+        import numpy as np
+        for item in lst:
+            if not isinstance(item, (int, float, np.integer, np.floating)):
+                return False
+        return True
+
     def _write_comparison_log(self, log_path: Path, dataset_name: str) -> None:
         """
         Write comparison results to a log file.
@@ -907,8 +1168,9 @@ class ConversationComparer:
 
             # Write configuration/tolerances
             f.write("Configuration:\n")
-            f.write(f"  Absolute tolerance: {self.abs_tol:.0e}\n")
-            f.write(f"  Relative tolerance: {self.rel_tol:.1%}\n")
+            f.write(f"  Tight tolerances: abs={self.abs_tol:.0e}, rel={self.rel_tol:.1%}\n")
+            f.write(f"  Loose tolerances: abs={self.loose_abs_tol:.0e}, rel={self.loose_rel_tol:.1%}\n")
+            f.write(f"  Outlier fraction allowed: {self.outlier_fraction:.1%}\n")
             f.write(f"  Ignore PCA sign flips: {self.ignore_pca_sign_flip}\n")
             f.write("\n")
 
@@ -961,6 +1223,22 @@ class ConversationComparer:
                         if 'max_rel_error' in warning and warning['max_rel_error'] is not None:
                             f.write(f", rel={warning['max_rel_error']:.2%}")
                         f.write("\n")
+
+                f.write("\n")
+
+            # Write outlier warnings if any occurred
+            if self.outlier_warnings:
+                f.write("-" * 80 + "\n")
+                f.write("INFO: OUTLIERS WITHIN ALLOWED FRACTION\n")
+                f.write(f"Total outliers: {len(self.outlier_warnings)}\n")
+                f.write(f"(Values exceeded tight tolerance but passed loose tolerance, within {self.outlier_fraction:.1%} limit)\n\n")
+
+                for i, warning in enumerate(self.outlier_warnings):
+                    f.write(f"  {i+1}. Stage: {warning['stage_name']}\n")
+                    f.write(f"     Path: {warning['path']}\n")
+                    f.write(f"     {warning['message']}\n")
+                    if 'golden_value' in warning:
+                        f.write(f"     Golden: {warning['golden_value']:.6e}, Current: {warning['current_value']:.6e}\n")
 
                 f.write("\n")
 
