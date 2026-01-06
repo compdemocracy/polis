@@ -151,3 +151,35 @@ class TestProjection:
         # And should NOT match zero-filled center
         assert not np.allclose(pca_result['center'], center_zero, rtol=0.01), \
             "PCA center should differ from zero-filled center"
+
+    def test_participant_with_no_votes(self):
+        """Test that participants with all NaN votes (no votes) don't cause division by zero.
+
+        This edge case occurs when a participant exists but hasn't voted on any comments.
+        The sparsity scaling divides by sqrt(n_seen/n_cmnts), which would be 0 if n_seen=0.
+
+        The fix mirrors Clojure's approach: (max n-votes 1) in pca.clj:156
+        """
+        # Create data where one participant has no votes (all NaN)
+        data = np.array([
+            [1.0, 2.0, 3.0],      # p1: has votes
+            [np.nan, np.nan, np.nan],  # p2: NO votes at all
+            [4.0, 5.0, 6.0],      # p3: has votes
+        ])
+        df = pd.DataFrame(data, index=['p1', 'p2', 'p3'], columns=['c1', 'c2', 'c3'])
+
+        # This should NOT raise a division by zero error
+        pca_results, proj_dict = pca_project_dataframe(df)
+
+        # All participants should have projections
+        assert 'p1' in proj_dict
+        assert 'p2' in proj_dict
+        assert 'p3' in proj_dict
+
+        # Projections should be finite (not inf or nan)
+        for pid, proj in proj_dict.items():
+            assert np.all(np.isfinite(proj)), f"Projection for {pid} should be finite, got {proj}"
+
+        # The no-vote participant should have a projection (at the center, scaled)
+        # Since they have no votes, their projection is based on mean-filled data
+        assert proj_dict['p2'].shape == (2,)
