@@ -1,21 +1,15 @@
 // Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import { Heading, Box, Text, Button } from 'theme-ui'
-import { useCallback, useRef, useState } from 'react'
-import { useDispatch } from 'react-redux'
+import { useRef, useState } from 'react'
 import emoji from 'react-easy-emoji'
 import { useConversationData } from '../../util/conversation_data'
 import strings from '../../strings/strings'
 import ModerateCommentsSeed from './ModerateCommentSeed'
 import Spinner from '../framework/Spinner'
-import {
-  handleConversationDataUpdate,
-  optimisticConversationDataUpdateOnTyping
-} from '../../actions'
 import PolisNet from '../../util/net'
 
 const BYODConfig = () => {
-  const dispatch = useDispatch()
   const conversationData = useConversationData()
   const { loading, error } = conversationData
   const topicRef = useRef(null)
@@ -26,7 +20,9 @@ const BYODConfig = () => {
   const [csvText, setCsvText] = useState(undefined)
   const handleFileChange = (e) => {
     const file = e.target.files[0]
-    if (!file) {
+    // Check if file size is > 50MB (50 * 1024 * 1024 bytes)
+    if (!file || file.size > 50 * 1024 * 1024) {
+      alert('File is too big! Maximum size is 50MB.')
       return
     }
 
@@ -38,34 +34,17 @@ const BYODConfig = () => {
     reader.readAsText(file)
   }
 
-  const handleStringValueChange = useCallback(
-    (field, value) => {
-      let val = value
-      if (field === 'help_bgcolor' || field === 'help_color') {
-        if (!val.length) {
-          val = 'default'
-        }
-      }
-      dispatch(handleConversationDataUpdate(conversationData, field, val))
-    },
-    [dispatch, conversationData]
-  )
-
-  const handleConfigInputTyping = useCallback(
-    (field, value) => {
-      dispatch(optimisticConversationDataUpdateOnTyping(conversationData, field, value))
-    },
-    [dispatch, conversationData]
-  )
-
   const handleSubmitVotesBulk = () => {
-    PolisNet.polisPost('/api/v3/comments-bulk', {
+    setVoteSubmissionLoading(true)
+    PolisNet.polisPost('/api/v3/votes-bulk', {
       csv: csvText,
       conversation_id: conversationData.conversation_id
-    }).then(
-      (res) => setVoteSubmissionLoading(false),
-      (err) => setVoteSubmissionError(err)
-    )
+    })
+      .then(
+        (res) => setVoteSubmissionLoading(false),
+        (err) => setVoteSubmissionError(err?.message)
+      )
+      .finally(() => setVoteSubmissionLoading(false))
   }
 
   if (loading && !topicRef.current && !descriptionRef.current) {
@@ -83,10 +62,6 @@ const BYODConfig = () => {
         }}>
         Import
       </Heading>
-      <Box sx={{ mb: [4] }}>
-        {loading ? <Text>{emoji('💾')} Saving</Text> : <Text>{emoji('⚡')} Up to date</Text>}
-        {error ? <Text>Error Saving</Text> : null}
-      </Box>
 
       <Box sx={{ mb: [4] }}>
         <Text>
@@ -95,52 +70,6 @@ const BYODConfig = () => {
           another containing votes. Comment upload must occur first. After a successful import job,
           you will recieve an email notifying you that the data is ready.
         </Text>
-      </Box>
-
-      <Box sx={{ mb: [3] }}>
-        <Text sx={{ display: 'block', mb: [2] }}>Topic</Text>
-        <input
-          ref={topicRef}
-          sx={{
-            display: 'block',
-            fontFamily: 'body',
-            fontSize: [2],
-            width: ['100%', '100%', '35em'],
-            maxWidth: ['100%', '100%', '35em'],
-            borderRadius: 2,
-            padding: [2],
-            border: '1px solid',
-            borderColor: 'mediumGray'
-          }}
-          data-testid="topic"
-          onBlur={(e) => handleStringValueChange('topic', e.target.value)}
-          onChange={(e) => handleConfigInputTyping('topic', e.target.value)}
-          value={conversationData.topic || ''}
-        />
-      </Box>
-
-      <Box sx={{ mb: [3] }}>
-        <Text sx={{ display: 'block', mb: [2] }}>Description</Text>
-        <textarea
-          ref={descriptionRef}
-          sx={{
-            display: 'block',
-            fontFamily: 'body',
-            fontSize: [2],
-            width: ['100%', '100%', '35em'],
-            maxWidth: ['100%', '100%', '35em'],
-            height: '7em',
-            resize: 'none',
-            padding: [2],
-            borderRadius: 2,
-            border: '1px solid',
-            borderColor: 'mediumGray'
-          }}
-          data-testid="description"
-          onBlur={(e) => handleStringValueChange('description', e.target.value)}
-          onChange={(e) => handleConfigInputTyping('description', e.target.value)}
-          value={conversationData.description || ''}
-        />
       </Box>
 
       <Heading
@@ -169,6 +98,7 @@ const BYODConfig = () => {
               my: [3, null, 4]
             }}>
             Upload a CSV of votes. comment_id field MUST match original_id field in comments csv.
+            Size limit 50MB
           </Heading>
           <>
             CSV Format:
@@ -181,16 +111,20 @@ const BYODConfig = () => {
                 c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33,user_gamma,0,2025-01-01T10:10:00Z,550e8400-e29b-41d4-a716-446655440000
               </code>
             </pre>
-            original_id MUST be a UUID.
+            vote_value MUST follow the pattern: -1 = agree, 1 = disagree, 0 = neutral/pass
+            <br />
           </>
-          <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
-          <Button
-            disabled={voteSubmissionLoading || onComplete !== true}
-            onClick={handleSubmitVotesBulk}
-            data-testid="upload-csv-button">
-            Upload Votes
-          </Button>
-          {voteSubmissionError ? <Text>{strings(voteSubmissionError)}</Text> : null}
+          <Box sx={{ mt: 2, display: 'block' }}>
+            <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
+            <Button
+              disabled={voteSubmissionLoading || !csvText}
+              onClick={handleSubmitVotesBulk}
+              data-testid="upload-csv-button">
+              Upload Votes
+            </Button>
+            <br />
+            {voteSubmissionError ? <Text sx={{ color: 'red' }}>{voteSubmissionError}</Text> : null}
+          </Box>
         </Box>
       </>
     </Box>

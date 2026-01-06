@@ -30,12 +30,14 @@ const ModerateCommentsSeed = ({ params }) => {
 
   const handleSubmitSeedBulk = () => {
     dispatch(
-      handleBulkSeedCommentSubmit({
-        csv: csvText,
-        conversation_id: params.conversation_id,
-        is_seed: true
-      }),
-      params.setOnComplete
+      handleBulkSeedCommentSubmit(
+        {
+          csv: csvText,
+          conversation_id: params.conversation_id,
+          is_seed: true
+        },
+        params.setOnComplete
+      )
     )
   }
 
@@ -147,11 +149,16 @@ const ModerateCommentsSeed = ({ params }) => {
             </pre>
           </>
         )}
-        <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
-        <Button disabled={loading} onClick={handleSubmitSeedBulk} data-testid="upload-csv-button">
-          {getButtonText()}
-        </Button>
-        {error ? <Text>{strings(error)}</Text> : null}
+        <Box sx={{ mt: 2, display: 'block' }}>
+          <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
+          <Button
+            disabled={loading || !csvText}
+            onClick={handleSubmitSeedBulk}
+            data-testid="upload-csv-button">
+            {getButtonText()}
+          </Button>
+          {error ? <Text>{strings(error)}</Text> : null}
+        </Box>
       </Box>
     </Box>
   )

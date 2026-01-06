@@ -2,11 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux'
-import {
-  handleCreateConversationSubmit,
-  handleBYODSubmit,
-  populateConversationsStore
-} from '../../actions'
+import { handleCreateConversationSubmit, populateConversationsStore } from '../../actions'
 import PolisNet, { isAuthReady } from '../../util/net'
 
 import Url from '../../util/url'
@@ -133,10 +129,6 @@ const Conversations = () => {
 
   const onNewClicked = (isActive = true) => {
     dispatch(handleCreateConversationSubmit(navigate, isActive))
-  }
-
-  const onImportClicked = (isActive = false) => {
-    dispatch(handleBYODSubmit(navigate, isActive))
   }
 
   const goToConversation = (conversation_id) => {
@@ -434,9 +426,6 @@ const Conversations = () => {
       )}
       <Box sx={{ mb: [3, null, 4] }}>
         <Button onClick={() => setInterstitialVisible(true)}>Create new conversation</Button>
-      </Box>
-      <Box sx={{ mb: [3, null, 4] }}>
-        <Button onClick={() => onImportClicked(false)}>Import conversation data</Button>
       </Box>
       {renderSwitcher()}
       {renderAllControls()}

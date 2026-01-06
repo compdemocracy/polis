@@ -37,7 +37,7 @@ const s3Config: any = {
 };
 
 const s3Client = new S3Client(s3Config);
-const bucketName = Config.AWS_S3_JOB_BUCKET_NAME || "polis-job-artifacts";
+const bucketName = Config.AWS_S3_BUCKET_NAME || "polis-delphi";
 
 interface VoteResult {
   conv: ConversationInfo;
@@ -356,6 +356,9 @@ async function handle_POST_votes_bulk(
   req: RequestWithP,
   res: Response & { json: (data: any) => void }
 ): Promise<void> {
+  if (!req.p.delphiEnabled) {
+    throw new Error("Unauthorized");
+  }
   const { zid, uid } = req.p;
   const csv = req.body.csv;
 

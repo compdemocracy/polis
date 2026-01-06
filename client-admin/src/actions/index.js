@@ -348,17 +348,17 @@ const createConversationPostError = (err) => {
   }
 }
 
-const postCreateConversation = (is_active) => {
+const postCreateConversation = () => {
   return PolisNet.polisPost('/api/v3/conversations', {
     is_draft: true,
-    is_active
+    is_active: true
   })
 }
 
-export const handleCreateConversationSubmit = (history, isActive = true) => {
+export const handleCreateConversationSubmit = (history) => {
   return (dispatch) => {
     dispatch(createConversationStart())
-    return postCreateConversation(isActive)
+    return postCreateConversation()
       .then(
         (res) => {
           dispatch(createConversationPostSuccess(res))
@@ -373,29 +373,6 @@ export const handleCreateConversationSubmit = (history, isActive = true) => {
         } else {
           // Fallback to window.location if history is not available
           window.location = '/m/' + res.conversation_id
-        }
-      })
-  }
-}
-
-export const handleBYODSubmit = (history, isActive = true) => {
-  return (dispatch) => {
-    dispatch(createConversationStart())
-    return postCreateConversation(isActive)
-      .then(
-        (res) => {
-          dispatch(createConversationPostSuccess(res))
-          return res
-        },
-        (err) => dispatch(createConversationPostError(err))
-      )
-      .then((res) => {
-        if (history && history.push) {
-          // Use React Router navigation to avoid full page reload
-          history.push('/m/' + res.conversation_id + '/import')
-        } else {
-          // Fallback to window.location if history is not available
-          window.location = '/m/' + res.conversation_id + '/import'
         }
       })
   }

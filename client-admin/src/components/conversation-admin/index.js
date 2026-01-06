@@ -208,6 +208,17 @@ const ConversationAdmin = () => {
             </Link>
           </Box>
         )}
+        {hasDelphiEnabled(authUser) && (
+          <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
+            <Link
+              sx={{
+                variant: url === 'import' ? 'links.activeNav' : 'links.nav'
+              }}
+              to={`${baseUrl}/import`}>
+              Import
+            </Link>
+          </Box>
+        )}
       </Box>
       {/* Content Area */}
       <Box
