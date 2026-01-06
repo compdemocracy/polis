@@ -359,6 +359,10 @@ class ConversationComparer:
                         if abs(g) > 1e-10:
                             rel_diffs.append(abs(g - c) / abs(g))
                     except (TypeError, ValueError):
+                        # Intentionally skip non-numeric differences (type mismatches, key
+                        # mismatches, etc.) when computing error statistics. These structural
+                        # differences are already recorded in all_differences and will cause
+                        # the comparison to fail - we just can't compute numeric stats for them.
                         pass
 
             if abs_diffs:
@@ -1443,7 +1447,7 @@ class ConversationComparer:
         return (np.array(all_golden) if len(all_golden) > 0 else np.array([]),
                 np.array(all_current) if len(all_current) > 0 else np.array([]))
 
-    def _log_projection_metrics(self, golden_stages: dict, current_stages: dict) -> None:
+    def _log_projection_metrics(self, golden_stages: dict, current_stages: dict) -> bool:
         """
         Compute and log projection comparison metrics for PCA stages.
 

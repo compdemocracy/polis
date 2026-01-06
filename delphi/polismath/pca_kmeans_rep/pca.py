@@ -96,7 +96,9 @@ def pca_project_dataframe(df: pd.DataFrame,
         # Divide projections by proportion of comments seen
         n_cmnts = matrix_data.shape[1]
         n_seen = np.sum(~np.isnan(matrix_data), axis=1)  # Count non-NaN votes per participant
-        proportions = np.sqrt(n_seen / n_cmnts)
+        # Avoid division by zero for participants with no votes (matches Clojure's (max n-votes 1))
+        n_seen_safe = np.maximum(n_seen, 1)
+        proportions = np.sqrt(n_seen_safe / n_cmnts)
         scaled_projections = projections / proportions[:, np.newaxis]  
 
         # Create a dictionary of projections by participant ID
