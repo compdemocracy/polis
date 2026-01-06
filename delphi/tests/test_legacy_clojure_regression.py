@@ -189,7 +189,7 @@ class TestClojureRegression:
         # PCA match verified - regressions caught by test_regression.py
         pass
 
-    @pytest.mark.skip(reason="Clojure regression tests not yet fully implemented - clustering algorithms may differ")
+    @pytest.mark.xfail(reason="Clojure regression tests not yet fully implemented - clustering algorithms may differ")
     def test_group_clustering(self, conversation_data):
         """
         Test that group clustering matches the Clojure implementation.
@@ -283,7 +283,7 @@ class TestClojureRegression:
             check.greater_equal(jaccard_similarity, 70.0,
                               f"Matched groups (Py:{py_idx}/Clj:{clj_idx}) should have ≥70% Jaccard similarity (got {jaccard_similarity:.1f}%)")
 
-    @pytest.mark.skip(reason="Clojure regression tests not yet fully implemented - comment priorities may differ")
+    @pytest.mark.xfail(reason="Clojure regression tests not yet fully implemented - comment priorities may differ")
     def test_comment_priorities(self, conversation_data):
         """
         Test that comment priorities match the Clojure implementation.
