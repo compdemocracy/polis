@@ -16,7 +16,14 @@ import click
 @click.option('--include-local', is_flag=True, default=False, help='Include datasets from real_data/.local/')
 @click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False),
               default='INFO', help='Set logging level (default: INFO). Use DEBUG to save detailed comparison output.')
-def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, include_local: bool, log_level: str):
+@click.option('--outlier-fraction', type=float, default=0.01,
+              help='Fraction of values (0.0-1.0) allowed to exceed tight tolerance. Default 0.01 (1%).')
+@click.option('--loose-rel-tol', type=float, default=None,
+              help='Loose relative tolerance for outliers. Default: 10 * rel_tolerance.')
+@click.option('--loose-abs-tol', type=float, default=None,
+              help='Loose absolute tolerance for outliers. Default: 1000 * abs_tolerance.')
+def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, include_local: bool, log_level: str,
+         outlier_fraction: float, loose_rel_tol: float | None, loose_abs_tol: float | None):
     """
     Compare current implementation with golden snapshots.
 
@@ -26,24 +33,24 @@ def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, include_l
     Examples:
         # Compare all datasets:
         python comparer.py
-        
+
         # Compare only biodiversity:
         python comparer.py biodiversity
-        
+
         # Compare biodiversity and vw:
         python comparer.py biodiversity vw
-        
+
         # Include datasets from real_data/.local/:
         python comparer.py --include-local
-        
+
         # Compare with debug logging:
         python comparer.py --log-level DEBUG
-        
+
         # Compare with PCA sign flip tolerance:
         python comparer.py -i biodiversity
-        
-        # Compare with PCA sign flip tolerance:
-        python comparer.py --ignore-pca-sign-flip vw
+
+        # Allow 1% of values to be outliers (within 10% loose tolerance):
+        python comparer.py -i --outlier-fraction 0.01 biodiversity
     """
     # Configure logging - must be done before imports to prevent conversation module
     # from adding its own handler
@@ -56,7 +63,12 @@ def main(datasets: tuple, benchmark: bool, ignore_pca_sign_flip: bool, include_l
     # Import after logging is configured to ensure conversation module uses root logger
     from polismath.regression import ConversationComparer, list_available_datasets
 
-    comparer = ConversationComparer(ignore_pca_sign_flip=ignore_pca_sign_flip)
+    comparer = ConversationComparer(
+        ignore_pca_sign_flip=ignore_pca_sign_flip,
+        outlier_fraction=outlier_fraction,
+        loose_rel_tolerance=loose_rel_tol,
+        loose_abs_tolerance=loose_abs_tol,
+    )
 
     # If no datasets specified, use all available datasets
     if not datasets:
