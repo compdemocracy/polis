@@ -5,6 +5,7 @@ Comparer for comparing current Conversation outputs with golden snapshots.
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Dict, Any
 from datetime import datetime
@@ -54,6 +55,9 @@ class ConversationComparer:
         self.all_differences = []  # Collect all differences for detailed reporting
         self.sign_flip_warnings = []  # Collect sign flip warnings when ignore_pca_sign_flip is True
         self.outlier_warnings = []  # Collect outlier warnings when values exceed tight but pass loose tolerance
+        # Per-stage PCA sign flip vectors: stage_name -> list of +1/-1 per component
+        # E.g., [1, -1] means PC1 unchanged, PC2 flipped
+        self._pca_sign_flips: Dict[str, list] = {}
 
     def compare_with_golden(self, dataset_name: str, benchmark: bool = True) -> Dict:
         """
@@ -70,6 +74,7 @@ class ConversationComparer:
         self.all_differences = []
         self.sign_flip_warnings = []
         self.outlier_warnings = []
+        self._pca_sign_flips = {}
 
         # Load golden snapshot using shared function
         try:
@@ -629,24 +634,57 @@ class ConversationComparer:
                 min_len = len(golden)
 
             # For PCA-related paths, check for sign flips and scaling before element-by-element comparison
-            # Track if we need to use flipped values for comparison
-            use_flipped_current = False
+            # Track sign correction to apply
+            sign_correction = None  # None = no correction, list = per-element multipliers
             if min_len == len(golden) and len(golden) > 0 and self._is_pca_related_path(path):
                 # Check for sign flip (if enabled)
                 if self.ignore_pca_sign_flip:
-                    sign_flip_result = self._check_sign_flip(golden, current, path, stage_name)
-                    if sign_flip_result["detected"]:
-                        use_flipped_current = True
-                        # Continue to element-by-element comparison with flipped values
+                    # Different handling for PCA components vs projections/centers
+                    if ".pca.comps[" in path:
+                        # For PCA component vectors, detect whole-vector flip and store it
+                        sign_flip_result = self._check_sign_flip(golden, current, path, stage_name)
+                        if sign_flip_result["detected"]:
+                            sign_correction = [-1] * len(current)
+                            # Extract component index and store for later use on projections
+                            match = re.search(r'\.pca\.comps\[(\d+)\]', path)
+                            if match:
+                                comp_idx = int(match.group(1))
+                                if stage_name not in self._pca_sign_flips:
+                                    self._pca_sign_flips[stage_name] = {}
+                                self._pca_sign_flips[stage_name][comp_idx] = -1
+                    elif ".proj." in path or ".center" in path:
+                        # For projections and centers, apply stored per-dimension sign flips
+                        stored_flips = self._pca_sign_flips.get(stage_name, {})
+                        if stored_flips:
+                            # Build per-element sign correction based on stored component flips
+                            sign_correction = [
+                                stored_flips.get(i, 1) for i in range(len(current))
+                            ]
+                            # Only keep if there's actually a flip to apply
+                            if all(s == 1 for s in sign_correction):
+                                sign_correction = None
+                            else:
+                                # Log the per-dimension correction
+                                flipped_dims = [i for i, s in enumerate(sign_correction) if s == -1]
+                                self.sign_flip_warnings.append({
+                                    "stage_name": stage_name,
+                                    "path": path,
+                                    "message": f"Applying per-dimension sign correction for PC{flipped_dims}",
+                                    "max_abs_error": None,
+                                    "max_rel_error": None
+                                })
 
                 # Check for scaling factor (always check for PCA paths to provide better error messages)
-                # Use flipped current if sign flip was detected
-                check_current = [-c for c in current] if use_flipped_current else current
+                # Use corrected current if sign correction was detected
+                if sign_correction:
+                    check_current = [c * s for c, s in zip(current, sign_correction)]
+                else:
+                    check_current = current
                 scaling_factor = self._detect_scaling_factor(golden, check_current)
                 if scaling_factor is not None and abs(scaling_factor - 1.0) > 0.01:
                     # Scaling factor detected and it's not approximately 1.0
                     reason = f"PCA scaling mismatch: values differ by constant factor {scaling_factor:.6f}"
-                    if use_flipped_current:
+                    if sign_correction:
                         reason += " (after sign flip correction)"
                     # Record this difference
                     self.all_differences.append({
@@ -661,8 +699,11 @@ class ConversationComparer:
                         "reason": reason
                     }
 
-            # Prepare the current list (apply sign flip if detected)
-            compare_current = [-c for c in current[:min_len]] if use_flipped_current else current[:min_len]
+            # Prepare the current list (apply sign correction if detected)
+            if sign_correction:
+                compare_current = [c * s for c, s in zip(current[:min_len], sign_correction[:min_len])]
+            else:
+                compare_current = current[:min_len]
             compare_golden = golden[:min_len]
 
             # For numeric lists with outlier allowance enabled, use the specialized method
