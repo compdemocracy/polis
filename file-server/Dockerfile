@@ -17,8 +17,8 @@ COPY client-admin/package*.json ./
 
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm ci --production=false
+    npm config set fetch-retry-maxtimeout 120000
+RUN npm ci --production=false
 
 COPY client-admin/. .
 
@@ -59,8 +59,8 @@ COPY client-participation/package*.json ./
 
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm ci --production=false
+    npm config set fetch-retry-maxtimeout 120000
+RUN npm ci --production=false
 
 COPY client-participation/. .
 
@@ -84,8 +84,8 @@ COPY client-report/package*.json ./
 
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm ci --production=false
+    npm config set fetch-retry-maxtimeout 120000
+RUN npm ci --production=false
 
 COPY client-report/. .
 
@@ -127,8 +127,8 @@ COPY file-server/package*.json ./
 
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
-    npm config set fetch-retry-maxtimeout 120000 && \
-    npm ci
+    npm config set fetch-retry-maxtimeout 120000
+RUN npm ci
 
 COPY file-server/. .
 
