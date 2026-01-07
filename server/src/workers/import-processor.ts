@@ -215,8 +215,15 @@ function mapRowData(
     const parsed = Date.parse(row.timestamp);
     if (!isNaN(parsed)) ts = parsed;
   }
+  // INTETNIONAL VOTE FLIPPING, REMOVE AFTER VOTES REFACTOR
+  let voteValue = parseInt(row.vote_value, 10);
+  if (voteValue === 1) {
+    voteValue = -1;
+  } else if (voteValue === -1) {
+    voteValue = 1;
+  }
 
-  return [zid, internalTid, row.user_id, parseInt(row.vote_value, 10), ts];
+  return [zid, internalTid, row.user_id, voteValue, ts];
 }
 
 async function flushBatchToDb(rows: any[][]) {

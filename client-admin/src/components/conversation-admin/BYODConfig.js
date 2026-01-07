@@ -110,7 +110,7 @@ const BYODConfig = () => {
                 c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33,user_gamma,0,2025-01-01T10:10:00Z,550e8400-e29b-41d4-a716-446655440000
               </code>
             </pre>
-            vote_value MUST follow the pattern: -1 = agree, 1 = disagree, 0 = neutral/pass
+            vote_value MUST follow the pattern: 1 = agree, -1 = disagree, 0 = neutral/pass
             <br />
           </>
           <Box sx={{ mt: 2, display: 'block' }}>
