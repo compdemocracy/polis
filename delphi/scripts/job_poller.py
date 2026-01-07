@@ -25,8 +25,7 @@ def _postgres_vote_to_delphi(pg_vote):
 from contextlib import contextmanager
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session
-from sqlalchemy.dialects.postgresql import JSON, JSONB
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import text
 from typing import Any, Dict, List, Optional
 import boto3
