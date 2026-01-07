@@ -5,6 +5,7 @@ import * as ecr from 'aws-cdk-lib/aws-ecr';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as appscaling from 'aws-cdk-lib/aws-applicationautoscaling';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 import { Construct } from 'constructs';
 
 interface ImportWorkerProps {
@@ -126,10 +127,27 @@ export class ImportWorkerService extends Construct {
       maxCapacity: 5,
     });
 
-    scaling.scaleOnMetric('ScaleOnQueueDepth', {
-      metric: this.importQueue.metricApproximateNumberOfMessagesVisible(),
+    const visibleMetric = this.importQueue.metricApproximateNumberOfMessagesVisible({
+      period: cdk.Duration.minutes(1),
+    });
+    const notVisibleMetric = this.importQueue.metricApproximateNumberOfMessagesNotVisible({
+      period: cdk.Duration.minutes(1),
+    });
+
+    const totalBacklogMetric = new cloudwatch.MathExpression({
+      expression: 'visible + notVisible',
+      usingMetrics: {
+        visible: visibleMetric,
+        notVisible: notVisibleMetric,
+      },
+      label: 'Total SQS Messages (Visible + InFlight)',
+      period: cdk.Duration.minutes(1),
+    });
+
+    scaling.scaleOnMetric('ScaleOnQueueTotal', {
+      metric: totalBacklogMetric,
       adjustmentType: appscaling.AdjustmentType.CHANGE_IN_CAPACITY,
-      cooldown: cdk.Duration.minutes(5),
+      cooldown: cdk.Duration.minutes(2),
       scalingSteps: [
         { upper: 0, change: -1 }, // If 0 messages, scale down
         { lower: 1, change: +1 }, // If 1+ message, scale up
