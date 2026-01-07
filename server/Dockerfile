@@ -50,7 +50,10 @@ ENV NODE_ENV ${NODE_ENV:-production}
 # Install OpenSSL and CA Certificates (CRITICAL for production)
 RUN apk add --no-cache openssl ca-certificates
 
-RUN npm ci --production=false
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm ci --production=false
 
 # For prod builds, to minimize the image size, remove the dependencies tagged with `--virtual .build` above.
 RUN apk del .build
