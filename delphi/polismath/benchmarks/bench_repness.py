@@ -29,9 +29,6 @@ from polismath.conversation import Conversation
 from polismath.pca_kmeans_rep.repness import (
     conv_repness,
     comment_stats,
-    add_comparative_stats,
-    finalize_cmt_stats,
-    select_rep_comments,
     compute_group_comment_stats_df,
     select_rep_comments_df,
     select_consensus_comments_df,

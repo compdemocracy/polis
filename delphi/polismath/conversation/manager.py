@@ -7,7 +7,7 @@ process votes, and perform clustering calculations.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Union, Any, Set, Callable
+from typing import Dict, List, Optional, Tuple, Union, Any, Callable
 from copy import deepcopy
 import time
 import logging

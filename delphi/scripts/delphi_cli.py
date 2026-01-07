@@ -20,8 +20,6 @@ try:
     from rich.panel import Panel
     from rich.prompt import Prompt, Confirm
     from rich.table import Table
-    from rich.text import Text
-    from rich import print as rprint
     from rich.progress import Progress, SpinnerColumn, TextColumn
     RICH_AVAILABLE = True
 except ImportError:

@@ -10,7 +10,7 @@ import json
 import logging
 import time
 import threading
-from typing import Dict, List, Optional, Tuple, Union, Any, Set, Callable
+from typing import Dict, List, Optional, Tuple, Union, Any, Callable
 from datetime import datetime
 import re
 import urllib.parse

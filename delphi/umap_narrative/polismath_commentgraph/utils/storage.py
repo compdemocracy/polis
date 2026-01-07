@@ -39,7 +39,6 @@ from ..schemas.dynamo_models import (
 import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.pool import QueuePool
 from sqlalchemy.sql import text
 import urllib.parse
 from contextlib import contextmanager

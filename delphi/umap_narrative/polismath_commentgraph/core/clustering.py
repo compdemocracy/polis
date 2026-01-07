@@ -3,7 +3,6 @@ Core clustering functionality for the Polis comment graph microservice.
 """
 
 import numpy as np
-import hdbscan
 import umap
 import logging
 from typing import List, Dict, Any, Optional, Tuple, Union
@@ -11,7 +10,6 @@ from sklearn.cluster import KMeans
 from collections import defaultdict
 import os
 import time
-from joblib import Parallel, delayed
 
 # Import EVOC directly
 import evoc
