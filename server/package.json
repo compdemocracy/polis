@@ -65,7 +65,6 @@
     "compression": "^1.8.0",
     "connect-timeout": "~1.9.0",
     "csv-parse": "^5.6.0",
-    "csv-parser": "^3.2.0",
     "csv-to-xml": "^2.0.0",
     "dd-trace": "^5.65.0",
     "diff": "^7.0.0",

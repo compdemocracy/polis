@@ -1,6 +1,6 @@
 import { GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { Readable } from "stream";
-import csv from "csv-parser";
+import { parse } from "csv-parse";
 import { S3Client, S3ClientConfig } from "@aws-sdk/client-s3";
 import pg from "../db/pg-query";
 import logger from "../utils/logger";
@@ -64,8 +64,15 @@ export async function processImportJob(payload: {
     let batch: any[] = [];
 
     await new Promise<void>((resolve, reject) => {
-      stream
-        .pipe(csv())
+      const parser = stream.pipe(
+        parse({
+          columns: true,
+          trim: true,
+          skip_empty_lines: true,
+        })
+      );
+
+      parser
         .on("data", (row: ImportRow) => {
           try {
             const mappedRow = mapRowData(row, zid, commentMap);
@@ -76,21 +83,32 @@ export async function processImportJob(payload: {
 
           if (batch.length >= BATCH_SIZE) {
             stream.pause();
+            parser.pause();
             flushBatchToDb(batch)
               .then(() => {
                 processedCount += batch.length;
                 batch = [];
+                parser.resume();
                 stream.resume();
               })
-              .catch((err) => stream.destroy(err));
+              .catch((err) => {
+                parser.destroy(err);
+                reject(err);
+              });
           }
         })
         .on("end", async () => {
           if (batch.length > 0) {
-            await flushBatchToDb(batch);
-            processedCount += batch.length;
+            try {
+              await flushBatchToDb(batch);
+              processedCount += batch.length;
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          } else {
+            resolve();
           }
-          resolve();
         })
         .on("error", (err) => reject(err));
     });
@@ -133,7 +151,6 @@ export async function processImportJob(payload: {
         );
       } catch (emailErr) {
         logger.error(`[Worker] Failed to send success email`, emailErr);
-        // Don't throw; job is successful even if email fails
       }
     }
   } catch (err) {
