@@ -37,7 +37,7 @@ const app = Consumer.create({
   },
 });
 
-app.on("error", (err) => logger.error("[Worker] SQS Error:", err.message));
+app.on("error", (err) => logger.error("[Worker] SQS Error:", err));
 app.on("processing_error", (err) =>
   logger.error("[Worker] Processing Error:", err.message)
 );
