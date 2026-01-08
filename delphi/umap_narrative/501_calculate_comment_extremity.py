@@ -30,13 +30,15 @@ from polismath_commentgraph.utils.group_data import GroupDataProcessor
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def calculate_and_store_extremity(conversation_id: int, force_recalculation: bool = False, include_moderation: bool = False) -> Dict[int, float]:
+def calculate_and_store_extremity(conversation_id: int, force_recalculation: bool = False, include_moderation: bool = False, exclude_comment_selections: bool = True) -> Dict[int, float]:
     """
     Calculate and store extremity values for all comments in a conversation.
     
     Args:
         conversation_id: Conversation ID
         force_recalculation: Whether to force recalculation of values
+        include_moderation: Whether to filter out moderated comments (mod == -1)
+        exclude_comment_selections: Whether to exclude comments with selection=-1 in report_comment_selections table
         
     Returns:
         Dictionary mapping comment IDs to extremity values
@@ -46,6 +48,24 @@ def calculate_and_store_extremity(conversation_id: int, force_recalculation: boo
     # Initialize PostgreSQL client and GroupDataProcessor
     postgres_client = PostgresClient()
     group_processor = GroupDataProcessor(postgres_client)
+    
+    # If exclude_comment_selections is enabled, get excluded tids
+    excluded_tids = set()
+    if exclude_comment_selections:
+        logger.info(f"exclude_comment_selections is enabled, fetching report comment selections for conversation {conversation_id}")
+        try:
+            postgres_client.initialize()
+            selections = postgres_client.get_report_comment_selections(conversation_id)
+            excluded_tids = {
+                sel["tid"] for sel in selections if sel.get("selection") == -1
+            }
+            if excluded_tids:
+                logger.info(f"Will exclude {len(excluded_tids)} comments based on report_comment_selections (tids: {excluded_tids})")
+            else:
+                logger.info("No excluded comment selections found for this conversation")
+        except Exception as e:
+            logger.error(f"Error fetching report comment selections: {e}")
+            # Continue without filtering if there's an error
     
     try:
         # Check if we already have extremity values in DynamoDB
@@ -65,6 +85,9 @@ def calculate_and_store_extremity(conversation_id: int, force_recalculation: boo
         for comment in export_data.get('comments', []):
             tid = comment.get('comment_id')
             if tid is not None:
+                # Skip comments that are in the excluded set
+                if tid in excluded_tids:
+                    continue
                 extremity_value = comment.get('comment_extremity', 0)
                 extremity_values[tid] = extremity_value
                 
@@ -167,7 +190,7 @@ def main():
     parser.add_argument('--force', action='store_true', help='Force recalculation of values')
     parser.add_argument('--verbose', action='store_true', help='Show detailed output')
     parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
-    args = parser.parse_args()
+    parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
     args = parser.parse_args()
     
     # Set log level based on verbosity
@@ -175,7 +198,7 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
     
     # Calculate and store extremity values
-    extremity_values = calculate_and_store_extremity(args.zid, args.force, args.include_moderation)
+    extremity_values = calculate_and_store_extremity(args.zid, args.force, args.include_moderation, args.exclude_comment_selections)
     
     # Print report
     print_extremity_report(extremity_values)

@@ -81,6 +81,24 @@ jobs:
         # Show running containers
         docker compose -f docker-compose.test.yml ps
 
+    - name: Run Database Migrations
+      env:
+        DATABASE_URL: postgres://postgres:PdwPNS2mDN73Vfbc@localhost:5432/polis-test
+        POSTGRES_DB: polis-test
+        POSTGRES_HOST: postgres:5432
+        POSTGRES_PASSWORD: PdwPNS2mDN73Vfbc
+        POSTGRES_PORT: 5432
+        POSTGRES_USER: postgres
+      run: |
+        echo "Installing postgres-client..."
+        sudo apt-get update && sudo apt-get install -y postgresql-client
+
+        echo "Making migration script executable..."
+        chmod +x server/bin/run-migrations.sh
+
+        echo "Running migrations..."
+        ./server/bin/run-migrations.sh
+
     - name: Check service health
       run: |
         # Check if key services are responding

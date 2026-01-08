@@ -300,6 +300,50 @@ services:
     command: serve
     restart: unless-stopped
     
+  import-worker:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+      target: dev
+    image: polis-server:dev
+    container_name: polis-import-worker
+    command: npx ts-node src/workers/start-import-worker.ts
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - NODE_ENV=development
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=minioadmin
+      - AWS_SECRET_ACCESS_KEY=minioadmin
+      - SQS_QUEUE_URL=http://localstack:4566/000000000000/import-jobs-queue
+      - AWS_S3_ENDPOINT=http://minio:9000
+      - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-polis-delphi}
+      - SERVER_LOG_LEVEL=info
+    restart: on-failure:5
+    networks:
+      - "polis-net"
+    depends_on:
+      - localstack
+      - minio
+    volumes:
+      - ./server:/app
+      - /app/node_modules
+    profiles:
+      - local-services
+
+  # SQS
+  localstack:
+    image: localstack/localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sqs
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - "./bin/localstack-init:/etc/localstack/init/ready.d" 
+    networks:
+      - "polis-net" 
+    profiles:
+      - local-services
 
   # MinIO S3-compatible storage
   minio:

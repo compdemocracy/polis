@@ -127,8 +127,8 @@ const Conversations = () => {
     }
   }, [loadConversationsIfNeeded, isAuthenticated, isLoading])
 
-  const onNewClicked = () => {
-    dispatch(handleCreateConversationSubmit(navigate))
+  const onNewClicked = (isActive = true) => {
+    dispatch(handleCreateConversationSubmit(navigate, isActive))
   }
 
   const goToConversation = (conversation_id) => {

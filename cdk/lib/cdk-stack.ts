@@ -37,6 +37,7 @@ import createAutoScalingAndAlarms from '../autoscaling';
 import createCodedeployConfig from '../codedeploy';
 import createALBAndDNS from '../dns';
 import createSecretsAndDependencies from '../secrets';
+import { ImportWorkerService } from './import-worker-service';
 
 interface PolisStackProps extends cdk.StackProps {
   enableSSHAccess?: boolean; // Make optional, default to false
@@ -356,6 +357,13 @@ export class CdkStack extends cdk.Stack {
       asgOllama,
       fileSystem
     );
+
+    // add ECS Fargate service for BYOPD import worker
+    new ImportWorkerService(this, 'ImportWorker', {
+      vpc: vpc,
+      database: db, 
+      logGroup: logGroup,
+    });
 
     // --- Outputs
     new cdk.CfnOutput(this, 'LoadBalancerDNS', { value: lb.loadBalancerDnsName, description: 'Public DNS name of the Application Load Balancer' });

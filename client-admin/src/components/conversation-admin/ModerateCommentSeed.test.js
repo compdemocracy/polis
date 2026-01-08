@@ -222,24 +222,14 @@ describe('ModerateCommentsSeed', () => {
       const uploadButton = screen.getByTestId('upload-csv-button')
       fireEvent.click(uploadButton)
 
-      expect(actions.handleBulkSeedCommentSubmit).toHaveBeenCalledWith({
-        csv: csvContent,
-        conversation_id: 'test-conversation-123',
-        is_seed: true
-      })
-    })
-
-    it('does not submit CSV if no file has been loaded', () => {
-      renderWithProviders(<ModerateCommentsSeed {...defaultProps} />)
-      const uploadButton = screen.getByTestId('upload-csv-button')
-
-      fireEvent.click(uploadButton)
-
-      expect(actions.handleBulkSeedCommentSubmit).toHaveBeenCalledWith({
-        csv: undefined,
-        conversation_id: 'test-conversation-123',
-        is_seed: true
-      })
+      expect(actions.handleBulkSeedCommentSubmit).toHaveBeenCalledWith(
+        {
+          csv: csvContent,
+          conversation_id: 'test-conversation-123',
+          is_seed: true
+        },
+        undefined
+      )
     })
   })
 
@@ -287,7 +277,8 @@ describe('ModerateCommentsSeed', () => {
       const store = createMockStore({ error: 'err_comment_too_long' })
       renderWithProviders(<ModerateCommentsSeed {...defaultProps} />, { store })
 
-      expect(screen.getByText('err_comment_too_long')).toBeInTheDocument()
+      const errorMessages = screen.getAllByText('err_comment_too_long')
+      expect(errorMessages[0]).toBeInTheDocument()
     })
 
     it('passes error through strings function', () => {

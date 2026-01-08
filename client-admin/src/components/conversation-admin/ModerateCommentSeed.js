@@ -30,11 +30,14 @@ const ModerateCommentsSeed = ({ params }) => {
 
   const handleSubmitSeedBulk = () => {
     dispatch(
-      handleBulkSeedCommentSubmit({
-        csv: csvText,
-        conversation_id: params.conversation_id,
-        is_seed: true
-      })
+      handleBulkSeedCommentSubmit(
+        {
+          csv: csvText,
+          conversation_id: params.conversation_id,
+          is_seed: true
+        },
+        params.setOnComplete
+      )
     )
   }
 
@@ -72,38 +75,42 @@ const ModerateCommentsSeed = ({ params }) => {
 
   return (
     <Box sx={{ mb: [4] }}>
-      <Text sx={{ mb: [2] }}>
-        Add{' '}
-        <Link target="_blank" href="https://compdemocracy.org/seed-comments">
-          seed comments or bulk upload as csv
-        </Link>{' '}
-        for participants to vote on:
-      </Text>
-      <Box sx={{ mb: [2] }}>
-        <textarea
-          sx={{
-            fontFamily: 'body',
-            fontSize: [2],
-            width: ['100%', '100%', '35em'],
-            maxWidth: ['100%', '100%', '35em'],
-            height: '7em',
-            resize: 'none',
-            padding: [2],
-            borderRadius: 2,
-            border: '1px solid',
-            borderColor: 'mediumGray'
-          }}
-          onChange={handleTextareaChange}
-          maxLength="400"
-          data-testid="seed_form"
-          value={seedText}
-          ref={seedFormRef}
-        />
-      </Box>
-      <Box>
-        <Button onClick={handleSubmitSeed}>{getButtonText()}</Button>
-        {error ? <Text>{strings(error)}</Text> : null}
-      </Box>
+      {params.uploadOnly ? null : (
+        <>
+          <Text sx={{ mb: [2] }}>
+            Add{' '}
+            <Link target="_blank" href="https://compdemocracy.org/seed-comments">
+              seed comments or bulk upload as csv
+            </Link>{' '}
+            for participants to vote on:
+          </Text>
+          <Box sx={{ mb: [2] }}>
+            <textarea
+              sx={{
+                fontFamily: 'body',
+                fontSize: [2],
+                width: ['100%', '100%', '35em'],
+                maxWidth: ['100%', '100%', '35em'],
+                height: '7em',
+                resize: 'none',
+                padding: [2],
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'mediumGray'
+              }}
+              onChange={handleTextareaChange}
+              maxLength="400"
+              data-testid="seed_form"
+              value={seedText}
+              ref={seedFormRef}
+            />
+          </Box>
+          <Box>
+            <Button onClick={handleSubmitSeed}>{getButtonText()}</Button>
+            {error ? <Text>{strings(error)}</Text> : null}
+          </Box>
+        </>
+      )}
       <Box sx={{ mt: 2, display: 'block' }}>
         <Heading
           as="h6"
@@ -114,20 +121,44 @@ const ModerateCommentsSeed = ({ params }) => {
           }}>
           Upload a CSV of seed comments
         </Heading>
-        CSV Format:
-        <pre>
-          <code>
-            comment_text
-            <br />
-            This is sample comment one
-            <br />
-            This is sample comment two
-          </code>
-        </pre>
-        <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
-        <Button onClick={handleSubmitSeedBulk} data-testid="upload-csv-button">
-          {getButtonText()}
-        </Button>
+        {params.uploadOnly ? (
+          <>
+            CSV Format:
+            <pre>
+              <code>
+                comment_text,original_id
+                <br />
+                This is sample comment one,550e8400-e29b-41d4-a716-446655440000
+                <br />
+                This is sample comment two,550e8400-e29b-41d4-a716-446655440000
+              </code>
+            </pre>
+            original_id MUST be a UUID.
+          </>
+        ) : (
+          <>
+            CSV Format:
+            <pre>
+              <code>
+                comment_text
+                <br />
+                This is sample comment one
+                <br />
+                This is sample comment two
+              </code>
+            </pre>
+          </>
+        )}
+        <Box sx={{ mt: 2, display: 'block' }}>
+          <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
+          <Button
+            disabled={loading || !csvText}
+            onClick={handleSubmitSeedBulk}
+            data-testid="upload-csv-button">
+            {getButtonText()}
+          </Button>
+          {error ? <Text>{strings(error)}</Text> : null}
+        </Box>
       </Box>
     </Box>
   )
@@ -135,7 +166,9 @@ const ModerateCommentsSeed = ({ params }) => {
 
 ModerateCommentsSeed.propTypes = {
   params: PropTypes.shape({
-    conversation_id: PropTypes.string.isRequired
+    conversation_id: PropTypes.string.isRequired,
+    uploadOnly: PropTypes.bool,
+    setOnComplete: PropTypes.func
   }).isRequired
 }
 

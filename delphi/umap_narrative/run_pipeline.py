@@ -1324,7 +1324,7 @@ def create_enhanced_multilayer_index(
 
 
 def process_conversation(
-    zid, export_dynamo=True, use_ollama=False, include_moderation=False
+    zid, export_dynamo=True, use_ollama=False, include_moderation=False, exclude_comment_selections=True
 ):
     """
     Main function to process a conversation and generate visualizations.
@@ -1333,6 +1333,9 @@ def process_conversation(
         zid: Conversation ID
         export_dynamo: Whether to export results to DynamoDB
         use_ollama: Whether to use Ollama for topic naming
+        include_moderation: Whether to filter out moderated comments (mod == -1)
+        exclude_comment_selections: Whether to exclude comments that have selection == -1
+            in report_comment_selections table (for any report in this conversation)
     """
     # Create conversation directory
     output_dir = os.path.join(
@@ -1350,6 +1353,25 @@ def process_conversation(
 
     if include_moderation:
         comments = [comment for comment in comments if comment["mod"] > -1]
+
+    if exclude_comment_selections:
+        logger.info(f"exclude_comment_selections is enabled, fetching report comment selections for zid {zid}")
+        postgres_client = PostgresClient()
+        try:
+            postgres_client.initialize()
+            selections = postgres_client.get_report_comment_selections(zid)
+            # Build a set of tids that should be excluded (selection == -1 in any report)
+            excluded_tids = {
+                sel["tid"] for sel in selections if sel.get("selection") == -1
+            }
+            if excluded_tids:
+                original_count = len(comments)
+                comments = [comment for comment in comments if comment["tid"] not in excluded_tids]
+                logger.info(f"Excluded {original_count - len(comments)} comments based on report_comment_selections (tids: {excluded_tids})")
+            else:
+                logger.info("No excluded comment selections found for this conversation")
+        finally:
+            postgres_client.shutdown()
 
     # Generate a job_id for this pipeline run
     # If DELPHI_JOB_ID is set (e.g., by a calling script like run_delphi.py), use that.
@@ -1495,6 +1517,12 @@ def main():
         default=False,
         help="Whether or not to include moderated comments in reports. If false, moderated comments will appear.",
     )
+    parser.add_argument(
+        "--exclude_comment_selections",
+        type=bool,
+        default=True,
+        help="Whether to exclude comments with selection=-1 in report_comment_selections table.",
+    )
 
     args = parser.parse_args()
 
@@ -1567,6 +1595,7 @@ def main():
             export_dynamo=not args.no_dynamo,
             use_ollama=args.use_ollama,
             include_moderation=args.include_moderation,
+            exclude_comment_selections=args.exclude_comment_selections,
         )
 
 

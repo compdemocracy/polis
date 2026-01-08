@@ -10,6 +10,7 @@ import { checkConvoPermissions, useUser, hasDelphiEnabled } from '../../util/aut
 import { populateConversationDataStore, resetMetadataStore } from '../../actions'
 import { ConversationDataProvider, useConversationData } from '../../util/conversation_data'
 import ConversationConfig from './ConversationConfig'
+import BYODConfig from './BYODConfig'
 import ConversationStats from './stats'
 import InviteCodes from './InviteCodes'
 import InviteTree from './InviteTree'
@@ -70,6 +71,7 @@ const ConversationAdmin = () => {
             <Route path="reports/*" element={<Reports />} />
             <Route path="comments/*" element={<ModerateComments />} />
             <Route path="stats" element={<ConversationStats />} />
+            <Route path="import" element={<BYODConfig />} />
             <Route
               path="topics/*"
               element={
@@ -203,6 +205,17 @@ const ConversationAdmin = () => {
               }}
               to={`${baseUrl}/participants`}>
               Participants
+            </Link>
+          </Box>
+        )}
+        {hasDelphiEnabled(authUser) && (
+          <Box sx={{ mb: [0, 0, 3], whiteSpace: 'nowrap' }}>
+            <Link
+              sx={{
+                variant: url === 'import' ? 'links.activeNav' : 'links.nav'
+              }}
+              to={`${baseUrl}/import`}>
+              Import
             </Link>
           </Box>
         )}

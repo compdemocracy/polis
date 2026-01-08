@@ -202,7 +202,7 @@ class PolisConverter:
 class BatchReportGenerator:
     """Generate batch reports for Polis conversations."""
 
-    def __init__(self, conversation_id, model=None, no_cache=False, max_batch_size=20, job_id=None, layers=None, include_moderation=False):
+    def __init__(self, conversation_id, model=None, no_cache=False, max_batch_size=20, job_id=None, layers=None, include_moderation=False, exclude_comment_selections=True):
         """Initialize the batch report generator."""
         self.conversation_id = str(conversation_id)
         if not model:
@@ -217,8 +217,10 @@ class BatchReportGenerator:
         self.report_id = os.environ.get('DELPHI_REPORT_ID')
         self.postgres_client = PostgresClient()
         self.include_moderation = include_moderation
+        self.exclude_comment_selections = exclude_comment_selections
 
         logger.info(f"include_moderation: {include_moderation}")
+        logger.info(f"exclude_comment_selections: {exclude_comment_selections}")
 
         endpoint_url = os.environ.get('DYNAMODB_ENDPOINT') or None
         self.dynamodb = boto3.resource(
@@ -297,6 +299,20 @@ class BatchReportGenerator:
 
             if self.include_moderation:
                 comments = [comment for comment in comments if comment['mod'] > -1]
+            
+            # Filter out comments based on report_comment_selections if enabled
+            if self.exclude_comment_selections:
+                logger.info("exclude_comment_selections is enabled, fetching report comment selections")
+                selections = self.postgres_client.get_report_comment_selections(int(self.conversation_id))
+                excluded_tids = {
+                    sel["tid"] for sel in selections if sel.get("selection") == -1
+                }
+                if excluded_tids:
+                    original_count = len(comments)
+                    comments = [comment for comment in comments if comment["tid"] not in excluded_tids]
+                    logger.info(f"Excluded {original_count - len(comments)} comments based on report_comment_selections (tids: {excluded_tids})")
+                else:
+                    logger.info("No excluded comment selections found for this conversation")
             
             # Get math data from the Clojure math pipeline (stored in math_main table)
             math_data = self._get_math_main_data(int(self.conversation_id))
@@ -1504,6 +1520,7 @@ async def main():
     parser.add_argument('--layers', type=int, nargs='+', default=None,
                         help='Specific layer numbers to process (e.g., --layers 0 1 2). If not specified, all layers will be processed.')
     parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
+    parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
     args = parser.parse_args()
 
     # Get environment variables for job
@@ -1547,7 +1564,8 @@ async def main():
         max_batch_size=args.max_batch_size,
         job_id=job_id,
         layers=args.layers,
-        include_moderation=args.include_moderation
+        include_moderation=args.include_moderation,
+        exclude_comment_selections=args.exclude_comment_selections
     )
 
     # Process reports

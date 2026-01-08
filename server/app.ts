@@ -141,6 +141,7 @@ import {
   handle_GET_votes_me,
   handle_GET_votes,
   handle_POST_votes,
+  handle_POST_votes_bulk,
 } from "./src/routes/votes";
 import { handle_GET_implicit_conversation_generation } from "./src/routes/implicitConversation";
 import {
@@ -301,7 +302,7 @@ helpersInitialized.then(
     app.use(middleware_responseTime_start);
 
     app.use(redirectIfNotHttps);
-    app.use(express.bodyParser());
+    app.use(express.bodyParser({ limit: "50mb" }));
     app.use(express.cookieParser()); // Add cookie parser to access req.cookies
     app.use(writeDefaultHead);
 
@@ -815,6 +816,18 @@ helpersInitialized.then(
       want("tid", getInt, assignToP),
       want("lang", getStringLimitLength(1, 10), assignToP),
       handle_GET_comments_translations
+    );
+
+    app.post(
+      "/api/v3/votes-bulk",
+      hybridAuth(assignToP),
+      need(
+        "conversation_id",
+        getConversationIdFetchZid,
+        assignToPCustom("zid")
+      ),
+      resolve_pidThing("pid", assignToP, "post:votes-bulk"),
+      handle_POST_votes_bulk
     );
 
     app.get(

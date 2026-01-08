@@ -224,6 +224,12 @@ function stream_queryP_readOnly(
   });
 }
 
+function connect() {
+  // Returns a Promise that resolves to a raw PoolClient.
+  // The client will have a .release() method on it.
+  return readWritePool.connect();
+}
+
 export default {
   query,
   query_readOnly,
@@ -233,4 +239,5 @@ export default {
   queryP_readOnly,
   queryP_readOnly_wRetryIfEmpty,
   stream_queryP_readOnly,
+  connect,
 };

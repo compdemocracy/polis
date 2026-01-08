@@ -10,6 +10,7 @@ import pg from "./db/pg-query";
 import SQL from "./db/sql";
 import Utils from "./utils/common";
 import { isProConvo } from "./routes/comments";
+import { UUID } from "crypto";
 
 export type CommentRow = {
   tid: number;
@@ -32,6 +33,7 @@ export type CommentRow = {
   mod?: number;
   active?: boolean;
   randomN?: number;
+  original_id?: UUID;
 };
 
 export type CommentTranslationRow = {
@@ -164,6 +166,7 @@ function getComments(o: GetCommentsParams): Promise<CommentRow[]> {
         "is_meta",
         "lang",
         "pid",
+        "original_id",
       ];
       if (o.moderation) {
         cols.push("velocity");

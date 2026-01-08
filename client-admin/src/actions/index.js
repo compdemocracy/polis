@@ -301,11 +301,14 @@ const postBulkSeedComments = (commentsCSV) => {
   return PolisNet.polisPost('/api/v3/comments-bulk', commentsCSV)
 }
 
-export const handleBulkSeedCommentSubmit = (commentsCSV) => {
+export const handleBulkSeedCommentSubmit = (commentsCSV, cb) => {
   return (dispatch) => {
     dispatch(submitSeedCommentStart())
-    return postBulkSeedComments(commentsCSV).then(
-      (res) => dispatch(submitSeedCommentPostSuccess(res)),
+    return (
+      postBulkSeedComments(commentsCSV).then((res) => {
+        if (cb) cb()
+        return dispatch(submitSeedCommentPostSuccess(res))
+      }),
       (err) => dispatch(submitSeedCommentPostError(err))
     )
   }

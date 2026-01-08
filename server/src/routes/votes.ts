@@ -8,6 +8,7 @@ import { isDuplicateKey, polisTypes } from "../utils/common";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
 import SQL from "../db/sql";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import {
   addNoMoreCommentsRecord,
   addStar,
@@ -19,8 +20,24 @@ import {
   updateLastInteractionTimeForConversation,
   updateVoteCount,
 } from "../server-helpers";
+import Config from "../config";
+import { SendMessageCommand } from "@aws-sdk/client-sqs";
+import { sqsClient } from "../utils/sqs";
 
 const sql_votes_latest_unique = SQL.sql_votes_latest_unique;
+
+const s3Config: any = {
+  region: Config.AWS_REGION || "us-east-1",
+  endpoint: Config.AWS_S3_ENDPOINT,
+  credentials: {
+    accessKeyId: Config.AWS_ACCESS_KEY_ID || "minioadmin",
+    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY || "minioadmin",
+  },
+  forcePathStyle: true, // Required for MinIO
+};
+
+const s3Client = new S3Client(s3Config);
+const bucketName = Config.AWS_S3_BUCKET_NAME || "polis-delphi";
 
 interface VoteResult {
   conv: ConversationInfo;
@@ -266,6 +283,132 @@ async function handle_POST_votes(req: RequestWithP, res: any) {
   }
 }
 
+async function markJobAsFailedInDb(jobId: number, errorMessage: string) {
+  const query = `
+    UPDATE byod_import_jobs 
+    SET 
+      status = 'failed', 
+      error_message = $2,
+      updated_at = NOW()
+    WHERE id = $1
+  `;
+
+  try {
+    await pg.queryP(query, [jobId, errorMessage]);
+  } catch (dbErr) {
+    logger.error(
+      `CRITICAL: Failed to update job status for job ${jobId}`,
+      dbErr
+    );
+  }
+}
+
+async function triggerImportWorker(payload: {
+  zid: number;
+  s3Key: string;
+  uid: number;
+}) {
+  const query = `
+    INSERT INTO byod_import_jobs (zid, s3_key, status, stage, created_at)
+    VALUES ($1, $2, 'pending', 'mapping', NOW())
+    RETURNING id;
+  `;
+
+  const res = await pg.queryP(query, [payload.zid, payload.s3Key]);
+  const jobId = res[0].id;
+
+  try {
+    const userRes = await pg.queryP(`SELECT email FROM users WHERE uid = $1`, [
+      payload.uid,
+    ]);
+    const userEmail = userRes[0]?.email;
+    const command = new SendMessageCommand({
+      QueueUrl: Config.SQS_QUEUE_URL,
+      MessageBody: JSON.stringify({
+        jobId: jobId,
+        zid: payload.zid,
+        s3Key: payload.s3Key,
+        userEmail: userEmail,
+      }),
+      MessageAttributes: {
+        JobType: {
+          DataType: "String",
+          StringValue: "ImportMapping",
+        },
+      },
+    });
+
+    await sqsClient.send(command);
+    logger.log({
+      level: "info",
+      message: `Job ${jobId} enqueued successfully for user ${userEmail}`,
+    });
+  } catch (err: any) {
+    logger.error("Failed to enqueue job", err);
+    await markJobAsFailedInDb(jobId, err.message);
+    throw err;
+  }
+
+  return jobId;
+}
+
+async function handle_POST_votes_bulk(
+  req: RequestWithP,
+  res: Response & { json: (data: any) => void }
+): Promise<void> {
+  if (!req.p.delphiEnabled) {
+    throw new Error("Unauthorized");
+  }
+  const { zid, uid } = req.p;
+  const csv = req.body.csv;
+
+  if (!csv) {
+    failJson(res, 400, "polis_err_param_missing_csv_votes");
+    return;
+  }
+
+  try {
+    // Validation Check: Ensure this conversation supports external mapping.
+    // We check for the existence of AT LEAST ONE comment with a non-null original_id.
+    // We do not fetch all IDs here; the Mapping Service handles the heavy lifting later.
+    const validationQuery = `
+      SELECT 1 
+      FROM comments 
+      WHERE zid = ($1) 
+        AND original_id IS NOT NULL 
+      LIMIT 1;
+    `;
+    const validationResult = await pg.queryP_readOnly(validationQuery, [zid]);
+    // @ts-expect-error check on unknown
+    if (validationResult?.length === 0) {
+      failJson(res, 400, "polis_err_votes_bulk_no_mappable_comments");
+      return;
+    }
+
+    const timestamp = Date.now();
+    const s3Key = `imports/votes/${zid}/${timestamp}.csv`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: s3Key,
+      Body: csv,
+      ContentType: "text/csv",
+    });
+
+    await s3Client.send(command);
+
+    await triggerImportWorker({ zid, s3Key, uid });
+
+    res.json({
+      status: "processing",
+      message: "Vote import started. This may take a few minutes.",
+    });
+  } catch (err: any) {
+    logger.error("polis_err_post_votes_bulk", err);
+    failJson(res, 500, "polis_err_post_votes_bulk", err);
+  }
+}
+
 async function handle_GET_votes_famous(req: { p: any }, res: any) {
   try {
     const data = await doFamousQuery(req.p);
@@ -276,6 +419,7 @@ async function handle_GET_votes_famous(req: { p: any }, res: any) {
 }
 
 export {
+  handle_POST_votes_bulk,
   getVotesForSingleParticipant,
   handle_GET_votes_famous,
   handle_GET_votes_me,

@@ -15,6 +15,9 @@ WORKDIR /app
 
 COPY client-admin/package*.json ./
 
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000
 RUN npm ci --production=false
 
 COPY client-admin/. .
@@ -54,6 +57,9 @@ WORKDIR /app
 
 COPY client-participation/package*.json ./
 
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000
 RUN npm ci --production=false
 
 COPY client-participation/. .
@@ -76,6 +82,9 @@ RUN apk add git
 
 COPY client-report/package*.json ./
 
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000
 RUN npm ci --production=false
 
 COPY client-report/. .
@@ -116,6 +125,9 @@ WORKDIR /app
 
 COPY file-server/package*.json ./
 
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000
 RUN npm ci
 
 COPY file-server/. .
