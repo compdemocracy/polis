@@ -14,6 +14,7 @@ const BYODConfig = () => {
   const descriptionRef = useRef(null)
   // eslint-disable-next-line no-unused-vars
   const [onComplete, setOnComplete] = useState(false)
+  const [importSuccessful, setImportSuccessful] = useState(false)
   const [voteSubmissionLoading, setVoteSubmissionLoading] = useState(false)
   const [voteSubmissionError, setVoteSubmissionError] = useState(null)
   const [csvText, setCsvText] = useState(undefined)
@@ -40,7 +41,11 @@ const BYODConfig = () => {
       conversation_id: conversationData.conversation_id
     })
       .then(
-        (res) => setVoteSubmissionLoading(false),
+        (res) => {
+          setVoteSubmissionLoading(false)
+          setCsvText(undefined)
+          setImportSuccessful(true)
+        },
         (err) => setVoteSubmissionError(err?.message)
       )
       .finally(() => setVoteSubmissionLoading(false))
@@ -61,34 +66,21 @@ const BYODConfig = () => {
         }}>
         Import
       </Heading>
-
-      <Box sx={{ mb: [4] }}>
-        <Text>
-          Import external conversation data (comments and votes) from external sources for reporting
-          metrics. This function requires uploading two CSV files, one containing comments, and
-          another containing votes. Comment upload must occur first. After a successful import job,
-          you will recieve an email notifying you that the data is ready.
+      {importSuccessful ? (
+        <Text sx={{ color: 'green' }}>
+          Your import was successful. You will receive an email once the job is completed.
         </Text>
-      </Box>
+      ) : (
+        <>
+          <Box sx={{ mb: [4] }}>
+            <Text>
+              Import external conversation data (comments and votes) from external sources for
+              reporting metrics. This function requires uploading two CSV files, one containing
+              comments, and another containing votes. Comment upload must occur first. After a
+              successful import job, you will recieve an email notifying you that the data is ready.
+            </Text>
+          </Box>
 
-      <Heading
-        as="h6"
-        sx={{
-          fontSize: [1, null, 2],
-          lineHeight: 'body',
-          my: [3, null, 4]
-        }}>
-        Import Comments
-      </Heading>
-      <ModerateCommentsSeed
-        params={{
-          conversation_id: conversationData.conversation_id,
-          uploadOnly: true,
-          setOnComplete: () => setOnComplete(true)
-        }}
-      />
-      <>
-        <Box sx={{ mt: 2, display: 'block' }}>
           <Heading
             as="h6"
             sx={{
@@ -96,36 +88,58 @@ const BYODConfig = () => {
               lineHeight: 'body',
               my: [3, null, 4]
             }}>
-            Upload a CSV of votes. comment_id field MUST match original_id field in comments csv.
-            Size limit 50MB
+            Import Comments
           </Heading>
+          <ModerateCommentsSeed
+            params={{
+              conversation_id: conversationData.conversation_id,
+              uploadOnly: true,
+              setOnComplete: () => setOnComplete(true)
+            }}
+          />
           <>
-            CSV Format:
-            <pre>
-              <code>
-                vote_id,user_id,vote_value,timestamp,comment_id
+            <Box sx={{ mt: 2, display: 'block' }}>
+              <Heading
+                as="h6"
+                sx={{
+                  fontSize: [1, null, 2],
+                  lineHeight: 'body',
+                  my: [3, null, 4]
+                }}>
+                Upload a CSV of votes. comment_id field MUST match original_id field in comments
+                csv. Size limit 50MB
+              </Heading>
+              <>
+                CSV Format:
+                <pre>
+                  <code>
+                    vote_id,user_id,vote_value,timestamp,comment_id
+                    <br />
+                    b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22,user_beta,-1,2025-01-01T10:05:00Z,550e8400-e29b-41d4-a716-446655440000
+                    <br />
+                    c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33,user_gamma,0,2025-01-01T10:10:00Z,550e8400-e29b-41d4-a716-446655440000
+                  </code>
+                </pre>
+                vote_value MUST follow the pattern: 1 = agree, -1 = disagree, 0 = neutral/pass
                 <br />
-                b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22,user_beta,-1,2025-01-01T10:05:00Z,550e8400-e29b-41d4-a716-446655440000
+              </>
+              <Box sx={{ mt: 2, display: 'block' }}>
+                <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
+                <Button
+                  disabled={voteSubmissionLoading || !csvText}
+                  onClick={handleSubmitVotesBulk}
+                  data-testid="upload-csv-button">
+                  Upload Votes
+                </Button>
                 <br />
-                c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33,user_gamma,0,2025-01-01T10:10:00Z,550e8400-e29b-41d4-a716-446655440000
-              </code>
-            </pre>
-            vote_value MUST follow the pattern: 1 = agree, -1 = disagree, 0 = neutral/pass
-            <br />
+                {voteSubmissionError ? (
+                  <Text sx={{ color: 'red' }}>{voteSubmissionError}</Text>
+                ) : null}
+              </Box>
+            </Box>
           </>
-          <Box sx={{ mt: 2, display: 'block' }}>
-            <input onChange={handleFileChange} type="file" id="csvFile" accept=".csv"></input>
-            <Button
-              disabled={voteSubmissionLoading || !csvText}
-              onClick={handleSubmitVotesBulk}
-              data-testid="upload-csv-button">
-              Upload Votes
-            </Button>
-            <br />
-            {voteSubmissionError ? <Text sx={{ color: 'red' }}>{voteSubmissionError}</Text> : null}
-          </Box>
-        </Box>
-      </>
+        </>
+      )}
     </Box>
   )
 }
