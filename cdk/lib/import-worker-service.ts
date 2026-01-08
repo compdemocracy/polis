@@ -39,7 +39,7 @@ export class ImportWorkerService extends Construct {
       cpu: 512,
       memoryLimitMiB: 1024,
       runtimePlatform: {
-        cpuArchitecture: ecs.CpuArchitecture.ARM64,
+        cpuArchitecture: ecs.CpuArchitecture.X86_64, 
         operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
       },
     });
@@ -82,10 +82,10 @@ export class ImportWorkerService extends Construct {
     const wrapperCommand = [
       '/bin/sh', 
       '-c', 
-      `export DATABASE_URL=$(node -e "${minifiedScript}") && exec npx ts-node src/workers/start-import-worker.ts`
+      `export DATABASE_URL=$(node -e "${minifiedScript}") && exec node dist/src/workers/start-import-worker.js`
     ];
     const container = taskDefinition.addContainer('WorkerContainer', {
-      image: ecs.ContainerImage.fromEcrRepository(repository, 'prod'),
+      image: ecs.ContainerImage.fromEcrRepository(repository),
       command: wrapperCommand,
       logging: ecs.LogDrivers.awsLogs({
         streamPrefix: 'import-worker',
