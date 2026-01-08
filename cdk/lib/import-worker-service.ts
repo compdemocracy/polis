@@ -22,7 +22,7 @@ export class ImportWorkerService extends Construct {
 
     this.importQueue = new sqs.Queue(this, 'ImportJobsQueue', {
       queueName: 'import-jobs-queue',
-      visibilityTimeout: cdk.Duration.minutes(15), // Give worker enough time to process large CSVs
+      visibilityTimeout: cdk.Duration.minutes(15), 
       retentionPeriod: cdk.Duration.days(14),
     });
     const repository = ecr.Repository.fromRepositoryName(
@@ -51,38 +51,21 @@ export class ImportWorkerService extends Construct {
 
     this.importQueue.grantConsumeMessages(taskDefinition.taskRole);
 
-    taskDefinition.taskRole.addToPrincipalPolicy(new iam.PolicyStatement({
-      actions: ['secretsmanager:GetSecretValue'],
-      resources: [props.database.secret?.secretArn!],
-    }));
-
-    const fetchSecretScript = `
-      const { SecretsManager } = require('@aws-sdk/client-secrets-manager');
-      const client = new SecretsManager({ region: process.env.AWS_REGION });
-      
-      async function go() {
-        try {
-          const data = await client.getSecretValue({ SecretId: process.env.DATABASE_SECRET_ARN });
-          const secret = JSON.parse(data.SecretString);
-          const user = encodeURIComponent(secret.username);
-          const pass = encodeURIComponent(secret.password);
-          const host = process.env.POSTGRES_HOST;
-          const port = process.env.POSTGRES_PORT;
-          const db = process.env.POSTGRES_DB;
-          
-          console.log(\`postgres://\${user}:\${pass}@\${host}:\${port}/\${db}\`);
-        } catch (e) {
-          console.error(e);
-          process.exit(1);
-        }
-      }
-      go();
-    `;
-    const minifiedScript = fetchSecretScript.replace(/\s+/g, ' ');
     const wrapperCommand = [
-      '/bin/sh', 
-      '-c', 
-      `export DATABASE_URL=$(node -e "${minifiedScript}") && exec node dist/src/workers/start-import-worker.js`
+      '/bin/sh',
+      '-c',
+      `
+        export DATABASE_URL=$(node -p '
+          const s = JSON.parse(process.env.DB_SECRET_JSON);
+          const user = encodeURIComponent(s.username);
+          const pass = encodeURIComponent(s.password);
+          const host = s.host;
+          const port = s.port;
+          const db = s.dbname;
+          \`postgres://\${user}:\${pass}@\${host}:\${port}/\${db}\`
+        ') &&
+        exec node dist/src/workers/start-import-worker.js
+      `.replace(/\s+/g, ' ')
     ];
     const container = taskDefinition.addContainer('WorkerContainer', {
       image: ecs.ContainerImage.fromEcrRepository(repository),
@@ -91,12 +74,14 @@ export class ImportWorkerService extends Construct {
         streamPrefix: 'import-worker',
         logGroup: props.logGroup,
       }),
+      secrets: {
+        DB_SECRET_JSON: ecs.Secret.fromSecretsManager(props.database.secret!),
+      },
       environment: {
         NODE_ENV: 'production',
         SQS_QUEUE_URL: this.importQueue.queueUrl,
         AWS_REGION: cdk.Stack.of(this).region,
         AWS_S3_BUCKET_NAME: 'polis-delphi',
-        DATABASE_SECRET_ARN: props.database.secret?.secretArn!,
         POSTGRES_HOST: props.database.dbInstanceEndpointAddress,
         POSTGRES_PORT: props.database.dbInstanceEndpointPort,
         POSTGRES_DB: 'polisdb',
@@ -105,7 +90,7 @@ export class ImportWorkerService extends Construct {
     const service = new ecs.FargateService(this, 'ImportWorkerService', {
       cluster,
       taskDefinition,
-      desiredCount: 0, // Start with 0, let autoscaling handle it
+      desiredCount: 0,
       assignPublicIp: false,
       securityGroups: [], 
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
@@ -149,9 +134,9 @@ export class ImportWorkerService extends Construct {
       adjustmentType: appscaling.AdjustmentType.CHANGE_IN_CAPACITY,
       cooldown: cdk.Duration.minutes(2),
       scalingSteps: [
-        { upper: 0, change: -1 }, // If 0 messages, scale down
-        { lower: 1, change: +1 }, // If 1+ message, scale up
-        { lower: 100, change: +2 }, // Heavy load
+        { upper: 0, change: -1 }, 
+        { lower: 1, change: +1 }, 
+        { lower: 100, change: +2 }, 
       ],
     });
   }

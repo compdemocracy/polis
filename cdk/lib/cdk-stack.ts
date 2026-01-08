@@ -62,6 +62,10 @@ export class CdkStack extends cdk.Stack {
 
     // Create VPC
     const vpc = createPolisVPC(this);
+    vpc.addInterfaceEndpoint('SqsEndpoint', {
+      service: ec2.InterfaceVpcEndpointAwsService.SQS,
+      subnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+    });
 
     const alarmTopic = new sns.Topic(this, 'AlarmTopic', {
       displayName: 'Polis Application Alarms',
