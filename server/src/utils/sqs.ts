@@ -1,15 +1,25 @@
-import { SQSClient } from "@aws-sdk/client-sqs";
+import { SQSClient, SQSClientConfig } from "@aws-sdk/client-sqs";
 import Config from "../config";
 
-export const sqsClient = new SQSClient({
+const clientConfig: SQSClientConfig = {
   region: Config.AWS_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: Config.AWS_ACCESS_KEY_ID || "test", // Localstack accepts any string
-    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY || "test",
-  },
-  // CRITICAL: If local, override endpoint.
-  // If running via docker-compose, use the service name "http://localstack:4566"
-  // If running node on host machine, use "http://localhost:4566"
-  endpoint:
-    Config.nodeEnv === "development" ? Config.SQS_LOCAL_ENDPOINT : undefined,
-});
+};
+
+// ONLY add explicit credentials if they are REAL env vars (Local Dev).
+// In ECS, these are undefined, so we skip this and let the SDK find the IAM Role.
+// eslint-disable-next-line no-restricted-properties
+if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
+  clientConfig.credentials = {
+    // eslint-disable-next-line no-restricted-properties
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    // eslint-disable-next-line no-restricted-properties
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  };
+}
+
+// Support LocalStack endpoint if present
+if (Config.SQS_LOCAL_ENDPOINT && Config.nodeEnv !== "production") {
+  clientConfig.endpoint = Config.SQS_LOCAL_ENDPOINT;
+}
+
+export const sqsClient = new SQSClient(clientConfig);

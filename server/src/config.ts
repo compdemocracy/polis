@@ -148,11 +148,8 @@ export default {
   AWS_S3_JOB_BUCKET_NAME: process.env.AWS_S3_JOB_BUCKET_NAME,
   SESEndpoint: process.env.SES_ENDPOINT,
   awsLogGroupName: process.env.AWS_LOG_GROUP_NAME || "docker",
-  SQS_LOCAL_ENDPOINT:
-    process.env.SQS_LOCAL_ENDPOINT || "http://localstack:4566",
-  SQS_QUEUE_URL:
-    process.env.SQS_QUEUE_URL ||
-    "http://localstack:4566/000000000000/import-jobs-queue",
+  SQS_LOCAL_ENDPOINT: process.env.SQS_LOCAL_ENDPOINT,
+  SQS_QUEUE_URL: process.env.SQS_QUEUE_URL,
 
   // JWT configuration
   jwtPrivateKeyPath:
