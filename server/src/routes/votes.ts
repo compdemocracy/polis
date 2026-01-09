@@ -328,7 +328,7 @@ async function triggerImportWorker(payload: {
         jobId: jobId,
         zid: payload.zid,
         s3Key: payload.s3Key,
-        userEmail: userEmail,
+        email: userEmail,
       }),
       MessageAttributes: {
         JobType: {
