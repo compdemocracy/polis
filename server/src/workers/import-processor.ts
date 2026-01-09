@@ -10,13 +10,13 @@ import { sendTextEmail } from "../email/senders";
 const customEndpoint = Config.AWS_S3_ENDPOINT;
 const config: S3ClientConfig = {
   region: Config.AWS_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: Config.AWS_ACCESS_KEY_ID || "minioadmin",
-    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY || "minioadmin",
-  },
 };
 
 if (customEndpoint) {
+  config.credentials = {
+    accessKeyId: Config.AWS_ACCESS_KEY_ID,
+    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY,
+  };
   config.endpoint = customEndpoint;
   config.forcePathStyle = true;
 }

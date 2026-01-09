@@ -114,29 +114,41 @@ export class ImportWorkerService extends Construct {
 
     const visibleMetric = this.importQueue.metricApproximateNumberOfMessagesVisible({
       period: cdk.Duration.minutes(1),
-    });
-    const notVisibleMetric = this.importQueue.metricApproximateNumberOfMessagesNotVisible({
-      period: cdk.Duration.minutes(1),
+      statistic: 'Average',
     });
 
-    const totalBacklogMetric = new cloudwatch.MathExpression({
+    scaling.scaleOnMetric('ScaleUpOnPending', {
+      metric: visibleMetric,
+      adjustmentType: appscaling.AdjustmentType.CHANGE_IN_CAPACITY,
+      cooldown: cdk.Duration.minutes(2), 
+      scalingSteps: [
+        { lower: 1, change: +1 },   // 1+ waiting? Add 1 worker
+        { lower: 100, change: +2 }, // 100+ waiting? Add 2 workers
+      ],
+    });
+
+    const notVisibleMetric = this.importQueue.metricApproximateNumberOfMessagesNotVisible({
+      period: cdk.Duration.minutes(1),
+      statistic: 'Average',
+    });
+
+    const totalWorkMetric = new cloudwatch.MathExpression({
       expression: 'visible + notVisible',
       usingMetrics: {
         visible: visibleMetric,
         notVisible: notVisibleMetric,
       },
-      label: 'Total SQS Messages (Visible + InFlight)',
+      label: 'Total SQS Messages',
       period: cdk.Duration.minutes(1),
     });
 
-    scaling.scaleOnMetric('ScaleOnQueueTotal', {
-      metric: totalBacklogMetric,
+    scaling.scaleOnMetric('ScaleDownOnIdle', {
+      metric: totalWorkMetric,
       adjustmentType: appscaling.AdjustmentType.CHANGE_IN_CAPACITY,
       cooldown: cdk.Duration.minutes(2),
       scalingSteps: [
-        { upper: 0, change: -1 }, 
-        { lower: 1, change: +1 }, 
-        { lower: 100, change: +2 }, 
+        { upper: 0, change: -1 }, // Only scale down if TOTAL work is 0
+        { lower: 10000, change: -1 },
       ],
     });
   }
