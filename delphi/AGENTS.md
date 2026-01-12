@@ -376,12 +376,20 @@ Use `uv` for all python environment management and testing. Install the `dev` pr
 
 Use `pytest` with `uv`, on the `delphi/tests` folder.
 
+### Datasets of reference
+
+In `real_data`, we have several datasets of real conversations, exported from Polis, that can be used for testing and development. Those at the root of `real_data` are public.
+In `real_data/.local`, we have some private datasets that can only be used internally. The comparer supports both public and private datasets, when we pass the adequate command line flat.
+
+
+### Regressions and golden snapshots
 For regressions compared to the latest validated python code, there are both regression unit tests in `delphi/tests/`, as well as a test 
 script that compares the output to "golden snapshots": `delphi/scripts/regression_comparer.py`. That script is more verbose than the tests, useful for debugging.
 
-For math, there is an older implementation in Clojure. Until we can replace it, we run comparisons between the two implementations in `delphi/tests*legacy*`. Those run the python code, and compare some of the output in some way to the `math blob`, which is the JSON output of the Clojure implementation, often stored in the PostgresQL database, but for simplicity stored along the golden (python) snapshots used by the regression comparer, so we do not have to run Postgres nor Clojure to run those tests.
+Some amount of numerical errors are OK, which is what the regression comparer library is for.
+### Old Clojure reference implementation, and moving to Sklearn
+
+For math, there is an older implementation in Clojure, in `polismath`. Until we can replace it, we run comparisons between the two implementations in `delphi/tests*legacy*`. Those run the python code, and compare some of the output in some way to the `math blob`, which is the JSON output of the Clojure implementation, often stored in the PostgresQL database, but for simplicity stored along the golden (python) snapshots used by the regression comparer, so we do not have to run Postgres nor Clojure to run those tests.
 
 A lot of the current python code was ported from Clojure using an AI agent (Sonnet 3.5 last year), including a lot of home-made implementations of core algorithms. We are in the process of replacing those with standard implementations (such as SKlearn for the PCA and K-means). This is ongoing work, and made harder by the fact that the Python code does not quite produce the same output as the Clojure code. So typically we have to check what the ported python code is doing differently from the clojure code, adjust the python code to match the clojure output, and then replace it with standard implementations, which may again produce slightly different output, so we have to adjust parameters until we get similar output. 
-
-Some amount of numerical errors are OK, which is what the regression comparer is for.
 
