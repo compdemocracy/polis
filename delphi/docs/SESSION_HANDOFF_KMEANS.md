@@ -527,8 +527,223 @@ After implementation:
 | Add in-conv filtering | ✅ Done | `_get_in_conv_participants()` |
 | Update serialization | ✅ Done | `_fold_base_clusters()`, outputs hierarchical format |
 | Add incremental clustering (`:last-clusters`) | ⏳ TODO | Need to use previous clusters as initialization |
-| Generate clean Clojure references | ⏳ TODO | Fresh computations for fair comparison |
-| Update tests for fair comparison | ⏳ TODO | Compare cold-start vs cold-start |
+| Generate clean Clojure references | ✅ Done | Script `generate_cold_start_clojure.py` created |
+| Update tests for fair comparison | ✅ Done | Tests now prefer cold-start blobs automatically |
+
+---
+
+## Generating Clean Cold-Start Clojure References
+
+To ensure fair comparison between Python and Clojure implementations, we can generate fresh cold-start Clojure math blobs using the `generate_cold_start_clojure.py` script.
+
+### Why Cold-Start Matters
+
+The Clojure implementation uses `:last-clusters` to warm-start from previous state. This creates non-deterministic behavior:
+- If math worker was NOT restarted: uses previous clusters for initialization
+- If math worker WAS restarted: loses in-memory state, behaves differently
+
+By generating cold-start references, we compare:
+- **Python cold-start** (always) vs **Clojure cold-start** (forced by deleting math_main row)
+
+### How to Generate Cold-Start Blobs
+
+**Prerequisites:**
+1. Stop any running math worker: `cd /Users/julien/polis/github/polis && docker compose stop math`
+2. Ensure DATABASE_URL is set in `/Users/julien/polis/github/polis-kmeans/.env`
+   - The script loads from `polis-kmeans/.env` (copy from `polis/.env` if needed)
+   - Example: `DATABASE_URL=postgres://postgres:password@host.docker.internal:5433/polis-dev`
+
+**Generate for single dataset:**
+```bash
+cd /Users/julien/polis/github/polis-kmeans/delphi
+uv run python scripts/generate_cold_start_clojure.py biodiversity
+```
+
+**Generate for all committed datasets:**
+```bash
+uv run python scripts/generate_cold_start_clojure.py --all
+```
+
+**Generate for all datasets including local (.local/):**
+```bash
+uv run python scripts/generate_cold_start_clojure.py --all --include-local
+```
+
+**Advanced options:**
+```bash
+# Generate without restoring original (dangerous!)
+uv run python scripts/generate_cold_start_clojure.py biodiversity --no-restore
+
+# Process a specific local dataset
+uv run python scripts/generate_cold_start_clojure.py my-local-dataset
+```
+
+**Output files:**
+- `{report_id}_math_blob_cold_start.json` - Fresh cold-start computation
+- `math_main_backup_{timestamp}.json` - Backup of original row (restored automatically)
+
+### Finding Pre-Computed Cold-Start Math Blobs
+
+After running the script, cold-start math blobs are saved in the dataset directories:
+
+**Location pattern:**
+```
+delphi/real_data/{report_id}-{dataset_name}/{report_id}_math_blob_cold_start.json
+```
+
+**For committed datasets:**
+```bash
+# Biodiversity example
+ls -lh delphi/real_data/r4tykwac8thvzv35jrn53-biodiversity/r4tykwac8thvzv35jrn53_math_blob_cold_start.json
+
+# VW example
+ls -lh delphi/real_data/r6vbnhffkxbd7ifmfbdrd-vw/r6vbnhffkxbd7ifmfbdrd_math_blob_cold_start.json
+
+# List all cold-start blobs
+find delphi/real_data -name "*_math_blob_cold_start.json" -type f
+```
+
+**For local datasets:**
+```bash
+# List all cold-start blobs in .local/
+find delphi/real_data/.local -name "*_math_blob_cold_start.json" -type f
+```
+
+**Verify a cold-start blob was created:**
+```bash
+cd /Users/julien/polis/github/polis-kmeans/delphi
+
+# Check file exists and size
+ls -lh real_data/r4tykwac8thvzv35jrn53-biodiversity/*cold_start*.json
+
+# Quick inspection of content
+jq 'keys | length' real_data/r4tykwac8thvzv35jrn53-biodiversity/r4tykwac8thvzv35jrn53_math_blob_cold_start.json
+
+# Compare file sizes (cold-start should be similar to original)
+ls -lh real_data/r4tykwac8thvzv35jrn53-biodiversity/*_math_blob*.json
+```
+
+**Dataset directory structure after running script:**
+```
+real_data/r4tykwac8thvzv35jrn53-biodiversity/
+├── 2024-11-12-1652-r4tykwac8thvzv35jrn53-votes.csv
+├── 2024-11-12-1652-r4tykwac8thvzv35jrn53-comments.csv
+├── 2024-11-12-1652-r4tykwac8thvzv35jrn53-summary.csv
+├── r4tykwac8thvzv35jrn53_math_blob.json                    # Original (unknown provenance)
+├── r4tykwac8thvzv35jrn53_math_blob_cold_start.json         # Fresh cold-start ✨
+├── math_main_backup_20260114_163045.json                    # Backup of original row
+└── golden_snapshot.json
+```
+
+### How Tests Use Cold-Start Blobs
+
+The test infrastructure automatically detects and prefers cold-start blobs when available:
+
+**Automatic detection (in `datasets.py`):**
+```python
+def get_dataset_files(name: str, prefer_cold_start: bool = True):
+    # Automatically uses {report_id}_math_blob_cold_start.json if it exists
+    # Falls back to {report_id}_math_blob.json otherwise
+```
+
+**Run tests (will auto-use cold-start blobs):**
+```bash
+cd /Users/julien/polis/github/polis-kmeans/delphi
+
+# Run all Clojure comparison tests
+uv run pytest tests/test_legacy_clojure_regression.py -v
+
+# Run specific clustering comparison
+uv run pytest tests/test_legacy_clojure_regression.py::TestClojureRegression::test_group_clustering -v
+
+# Run for specific dataset
+uv run pytest tests/test_legacy_clojure_regression.py -v -k biodiversity
+```
+
+**Check which blob is being used:**
+```python
+from polismath.regression import get_dataset_files
+
+# Will use cold-start if available
+files = get_dataset_files('biodiversity')
+print(f"Using: {files['math_blob']}")
+# Output: .../r4tykwac8thvzv35jrn53_math_blob_cold_start.json (if exists)
+
+# Force use of original blob
+files = get_dataset_files('biodiversity', prefer_cold_start=False)
+print(f"Using: {files['math_blob']}")
+# Output: .../r4tykwac8thvzv35jrn53_math_blob.json
+```
+
+**Check which datasets have cold-start blobs:**
+```bash
+cd /Users/julien/polis/github/polis-kmeans/delphi
+
+# List all datasets with cold-start blobs
+uv run python -c "
+from polismath.regression import discover_datasets
+datasets = discover_datasets(include_local=False)
+for name, info in datasets.items():
+    status = '✓ cold-start' if info.has_cold_start_blob else '✗ original only'
+    print(f'{name}: {status}')
+"
+```
+
+### What the Script Does
+
+1. **Loads configuration** from `/Users/julien/polis/github/polis-kmeans/.env`
+2. **Checks** if math worker is running (aborts if yes)
+3. **Looks up** zid from report_id via the `reports` table
+4. **Verifies** the zid has votes in the database
+5. **Backs up** existing math_main row to timestamped JSON file
+6. **Deletes** the row to force cold-start (Clojure's `load-or-init` creates fresh `new-conv`)
+7. **Runs** Clojure computation: `docker compose run --rm math clojure -M:run update -z <ZID>`
+8. **Extracts** new cold-start math blob from database
+9. **Restores** original row (unless `--no-restore` flag is used)
+
+### Command-Line Options
+
+- `--all`: Process all datasets (default: only committed datasets in `real_data/`)
+- `--include-local`: Include datasets from `real_data/.local/` (requires `--all`)
+- `--no-restore`: Skip restoring the original math_main row (dangerous!)
+
+### Safety Features
+
+- **Math worker detection**: Refuses to run if math worker is active
+- **Environment validation**: Checks that DATABASE_URL is set before proceeding
+- **Report ID validation**: Verifies report_id exists in reports table
+- **Vote verification**: Confirms zid has votes before attempting computation
+- **Automatic backup**: Original row saved to timestamped JSON file
+- **Automatic restore**: Original row restored after cold-start extraction (unless `--no-restore`)
+- **No permanent changes**: Database returns to original state (by default)
+
+---
+
+## Configuration
+
+### Environment Setup
+
+The cold-start generation script requires database access. Configuration is loaded from:
+
+**Location**: `/Users/julien/polis/github/polis-kmeans/.env`
+
+**Required variables**:
+```bash
+DATABASE_URL=postgres://postgres:password@host.docker.internal:5433/polis-dev
+MATH_ENV=prod  # or 'dev' for development
+```
+
+**Setup**:
+```bash
+# Copy from main polis repo if not already present
+cp /Users/julien/polis/github/polis/.env /Users/julien/polis/github/polis-kmeans/.env
+```
+
+The script also needs the Clojure math worker Docker image available:
+```bash
+cd /Users/julien/polis/github/polis
+docker compose build math  # If image not already built
+```
 
 ---
 
@@ -538,3 +753,4 @@ After implementation:
 - **Clojure source**: `math/src/polismath/math/`
 - **Python clusters**: `polismath/pca_kmeans_rep/clusters.py`
 - **Python conversation**: `polismath/conversation/conversation.py`
+- **Cold-start script**: `scripts/generate_cold_start_clojure.py`
