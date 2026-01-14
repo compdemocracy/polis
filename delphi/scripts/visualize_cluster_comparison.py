@@ -435,6 +435,16 @@ def create_sidebyside_comparison(
         f"{dataset_name}\n{label_b}"
     )
 
+    # Synchronize axis limits for direct comparison
+    xlim1, xlim2 = ax1.get_xlim(), ax2.get_xlim()
+    ylim1, ylim2 = ax1.get_ylim(), ax2.get_ylim()
+    shared_xlim = (min(xlim1[0], xlim2[0]), max(xlim1[1], xlim2[1]))
+    shared_ylim = (min(ylim1[0], ylim2[0]), max(ylim1[1], ylim2[1]))
+    ax1.set_xlim(shared_xlim)
+    ax2.set_xlim(shared_xlim)
+    ax1.set_ylim(shared_ylim)
+    ax2.set_ylim(shared_ylim)
+
     # Add overall metrics as figure suptitle
     metrics_text = (
         f"Groups: {metrics['n_groups_a']} vs {metrics['n_groups_b']} | "
@@ -632,6 +642,7 @@ def compute_comparison_metrics(
 
 @click.command()
 @click.argument('datasets', nargs=-1)
+@click.option('--all', 'process_all', is_flag=True, help='Process all datasets')
 @click.option('--include-local', is_flag=True, default=False,
               help='Include datasets from real_data/.local/')
 @click.option('--output-dir', default='scripts/outputs/cluster_visualizations',
@@ -644,6 +655,7 @@ def compute_comparison_metrics(
               help='Figure size for side-by-side plots as width,height')
 def main(
     datasets: tuple,
+    process_all: bool,
     include_local: bool,
     output_dir: str,
     log_level: str,
@@ -660,6 +672,9 @@ def main(
     Examples:
         # Single dataset
         python visualize_cluster_comparison.py biodiversity
+
+        # Multiple datasets
+        python visualize_cluster_comparison.py biodiversity vw american-assembly
 
         # All datasets
         python visualize_cluster_comparison.py --all
@@ -684,19 +699,25 @@ def main(
         raise click.Abort()
 
     # Dataset discovery and validation
-    if not datasets:
-        available_datasets = list_available_datasets(include_local=include_local)
+    available_datasets = list_available_datasets(include_local=include_local)
+
+    if process_all:
         datasets = list(available_datasets.keys())
-        click.echo(f"No datasets specified. Comparing all available datasets: {', '.join(datasets)}\n")
-    else:
+        location = "committed + local" if include_local else "committed"
+        click.echo(f"Processing all {len(datasets)} {location} dataset(s): {', '.join(datasets)}\n")
+    elif datasets:
         # Validate that specified datasets exist
-        available_datasets = list_available_datasets(include_local=include_local)
         invalid_datasets = [d for d in datasets if d not in available_datasets]
         if invalid_datasets:
             available = ', '.join(available_datasets.keys())
             click.echo(f"Error: Unknown dataset(s): {', '.join(invalid_datasets)}", err=True)
             click.echo(f"Available datasets: {available}", err=True)
             raise click.Abort()
+        click.echo(f"Processing {len(datasets)} dataset(s): {', '.join(datasets)}\n")
+    else:
+        click.echo("Error: Please specify dataset name(s) or use --all", err=True)
+        click.echo(f"Available datasets: {', '.join(available_datasets.keys())}", err=True)
+        raise click.Abort()
 
     # Create base output directory
     output_path = Path(output_dir)
@@ -753,19 +774,23 @@ def main(
                 metrics_a = compute_comparison_metrics(golden_data, coldstart_data)
                 metrics_a['sign_flips'] = sign_flips_a
 
+                sidebyside_path = (output_dir_dataset / f"{dataset}_golden_vs_coldstart_sidebyside.png").resolve()
                 create_sidebyside_comparison(
                     golden_data, coldstart_data, dataset,
                     "Golden (Python)", "Cold-start (Clojure, sign-corrected)",
-                    str(output_dir_dataset / f"{dataset}_golden_vs_coldstart_sidebyside.png"),
+                    str(sidebyside_path),
                     metrics_a, figsize=figsize_tuple, dpi=dpi
                 )
+                click.echo(f"    → {sidebyside_path}")
 
+                overlay_path = (output_dir_dataset / f"{dataset}_golden_vs_coldstart_overlay.png").resolve()
                 create_overlay_comparison(
                     golden_data, coldstart_data, dataset,
                     "Golden (Python)", "Cold-start (Clojure, sign-corrected)",
-                    str(output_dir_dataset / f"{dataset}_golden_vs_coldstart_overlay.png"),
+                    str(overlay_path),
                     metrics_a, figsize=(10, 8), dpi=dpi
                 )
+                click.echo(f"    → {overlay_path}")
 
                 with open(output_dir_dataset / f"{dataset}_golden_vs_coldstart_metrics.json", 'w') as f:
                     json.dump(metrics_a, f, indent=2)
@@ -803,24 +828,28 @@ def main(
                     metrics_b['sign_flips'] = sign_flips_b
 
                     coldstart_label = "Cold-start (sign-corrected)" if sign_flips_b != [1, 1] else "Cold-start"
+                    sidebyside_path_b = (output_dir_dataset / f"{dataset}_coldstart_vs_regular_sidebyside.png").resolve()
                     create_sidebyside_comparison(
                         coldstart_data, regular_data, dataset,
                         coldstart_label, "Regular",
-                        str(output_dir_dataset / f"{dataset}_coldstart_vs_regular_sidebyside.png"),
+                        str(sidebyside_path_b),
                         metrics_b, figsize=figsize_tuple, dpi=dpi
                     )
+                    click.echo(f"    → {sidebyside_path_b}")
 
+                    overlay_path_b = (output_dir_dataset / f"{dataset}_coldstart_vs_regular_overlay.png").resolve()
                     create_overlay_comparison(
                         coldstart_data, regular_data, dataset,
                         coldstart_label, "Regular",
-                        str(output_dir_dataset / f"{dataset}_coldstart_vs_regular_overlay.png"),
+                        str(overlay_path_b),
                         metrics_b, figsize=(10, 8), dpi=dpi
                     )
+                    click.echo(f"    → {overlay_path_b}")
 
                     with open(output_dir_dataset / f"{dataset}_coldstart_vs_regular_metrics.json", 'w') as f:
                         json.dump(metrics_b, f, indent=2)
 
-            click.echo(f"✓ Saved visualizations to {output_dir_dataset}")
+            click.echo(f"  ✓ Done with {dataset}")
             results_summary[dataset] = True
 
         except Exception as e:
