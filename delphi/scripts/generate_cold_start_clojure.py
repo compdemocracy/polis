@@ -2,26 +2,28 @@
 """
 Generate cold-start Clojure math blobs for fair Python comparison.
 
-This script:
-1. Checks that no math worker is running (to prevent conflicts)
-2. Backs up the existing math_main row (if any)
-3. Deletes it to force cold-start
-4. Runs Clojure computation via Docker
-5. Extracts the fresh math blob
-6. Restores the original row
+This script uses a "fake conversation" approach to generate true cold-start
+computations from the Clojure implementation:
+
+1. Creates a temporary conversation with a fresh zid
+2. Copies votes from the source conversation with fresh timestamps
+3. Runs the Clojure poller which processes the fake conversation
+4. Extracts the resulting math blob (true cold-start)
+5. Cleans up all temporary data
+
+This approach works with the Clojure poller's design rather than against it.
 
 Usage:
     python scripts/generate_cold_start_clojure.py biodiversity
     python scripts/generate_cold_start_clojure.py --all
-    python scripts/generate_cold_start_clojure.py biodiversity --no-restore
+    python scripts/generate_cold_start_clojure.py biodiversity --no-cleanup
 """
 
-import argparse
 import json
 import os
 import subprocess
 import sys
-from datetime import datetime
+import time
 from pathlib import Path
 
 import click
@@ -36,7 +38,9 @@ from polismath.regression import discover_datasets, get_dataset_info
 # Load .env from polis-kmeans root directory
 load_dotenv(Path(__file__).parent.parent.parent / '.env')
 
-POLIS_DIR = Path('/Users/julien/polis/github/polis')
+# Derive POLIS_DIR from script location (polis-kmeans is the worktree root)
+# scripts/ is at delphi/scripts/, so go up 3 levels: scripts -> delphi -> polis-kmeans
+POLIS_DIR = Path(__file__).parent.parent.parent.resolve()
 MATH_ENV = os.environ.get('MATH_ENV', 'prod')
 
 
@@ -70,95 +74,304 @@ def get_zid_from_report_id(conn, report_id: str) -> int | None:
     return row[0] if row else None
 
 
-def verify_zid_has_votes(conn, zid: int) -> bool:
-    """Verify that the zid has votes in the database."""
+def get_conversation_owner(conn, zid: int) -> int | None:
+    """Get the owner uid of a conversation."""
     cursor = conn.cursor()
-    cursor.execute("SELECT COUNT(*) FROM votes WHERE zid = %s", (zid,))
-    count = cursor.fetchone()[0]
-    cursor.close()
-    return count > 0
-
-
-def backup_math_main(conn, zid: int, math_env: str) -> dict | None:
-    """Backup existing math_main row. Returns None if no row exists."""
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT zid, math_env, data, last_vote_timestamp, math_tick, caching_tick, modified
-        FROM math_main WHERE zid = %s AND math_env = %s
-    """, (zid, math_env))
-    row = cursor.fetchone()
-    cursor.close()
-
-    if not row:
-        return None
-
-    return {
-        'zid': row[0],
-        'math_env': row[1],
-        'data': row[2],  # Already parsed from JSONB by psycopg2
-        'last_vote_timestamp': row[3],
-        'math_tick': row[4],
-        'caching_tick': row[5],
-        'modified': row[6],
-    }
-
-
-def delete_math_main(conn, zid: int, math_env: str) -> bool:
-    """Delete existing row to force fresh computation. Returns True if row was deleted."""
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM math_main WHERE zid = %s AND math_env = %s", (zid, math_env))
-    deleted = cursor.rowcount > 0
-    conn.commit()
-    cursor.close()
-    return deleted
-
-
-def run_clojure_computation(zid: int) -> bool:
-    """Run Clojure computation via Docker. Returns True on success."""
-    cmd = [
-        'docker', 'compose', 'run', '--rm', 'math',
-        'clojure', '-M:run', 'update', '-z', str(zid)
-    ]
-    click.echo(f"Running: {' '.join(cmd)}")
-    click.echo("(This may take several minutes...)")
-    result = subprocess.run(cmd, cwd=POLIS_DIR)
-    return result.returncode == 0
-
-
-def extract_math_blob(conn, zid: int, math_env: str) -> dict | None:
-    """Extract newly computed math blob."""
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT data FROM math_main WHERE zid = %s AND math_env = %s
-    """, (zid, math_env))
+    cursor.execute("SELECT owner FROM conversations WHERE zid = %s", (zid,))
     row = cursor.fetchone()
     cursor.close()
     return row[0] if row else None
 
 
-def restore_math_main(conn, backup: dict):
-    """Restore original math_main row from backup."""
+def get_vote_count(conn, zid: int) -> int:
+    """Get number of votes for a zid."""
     cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM votes WHERE zid = %s", (zid,))
+    count = cursor.fetchone()[0]
+    cursor.close()
+    return count
+
+
+def create_fake_conversation(conn, source_zid: int) -> int:
+    """
+    Create a minimal fake conversation entry.
+
+    Returns the new zid for the fake conversation.
+    """
+    # Get owner from source conversation
+    owner = get_conversation_owner(conn, source_zid)
+    if not owner:
+        raise ValueError(f"Source conversation {source_zid} not found or has no owner")
+
+    cursor = conn.cursor()
+
+    # Insert minimal conversation row - zid is auto-generated (SERIAL)
+    # We use a special topic to identify it as a fake conversation
     cursor.execute("""
-        INSERT INTO math_main (zid, math_env, data, last_vote_timestamp, math_tick, caching_tick, modified)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        ON CONFLICT (zid, math_env) DO UPDATE SET
-            data = excluded.data,
-            last_vote_timestamp = excluded.last_vote_timestamp,
-            math_tick = excluded.math_tick,
-            caching_tick = excluded.caching_tick,
-            modified = excluded.modified
+        INSERT INTO conversations (owner, topic, description, is_active, is_public)
+        VALUES (%s, %s, %s, false, false)
+        RETURNING zid
     """, (
-        backup['zid'], backup['math_env'],
-        json.dumps(backup['data']),  # Convert dict back to JSON
-        backup['last_vote_timestamp'], backup['math_tick'],
-        backup['caching_tick'], backup['modified']
+        owner,
+        f"[TEMP] Cold-start test for zid {source_zid}",
+        f"Temporary conversation for generating cold-start math blob. Source: {source_zid}"
     ))
+
+    fake_zid = cursor.fetchone()[0]
     conn.commit()
     cursor.close()
 
+    return fake_zid
 
-def generate_cold_start_for_dataset(dataset_name: str, no_restore: bool = False) -> bool:
+
+def copy_votes_with_fresh_timestamps(conn, source_zid: int, fake_zid: int) -> int:
+    """
+    Copy votes from source conversation to fake conversation with fresh timestamps.
+
+    Preserves vote ORDER by using sequential timestamps starting from now.
+    The poller finds votes by `created > last_poll_timestamp`, so fresh
+    timestamps ensure these votes are picked up.
+
+    Returns the number of votes copied.
+    """
+    cursor = conn.cursor()
+
+    # Get current time in milliseconds (matching Polis schema)
+    now_ms = int(time.time() * 1000)
+
+    # Get all votes from source, ordered by original created timestamp
+    # This preserves the voting order
+    cursor.execute("""
+        SELECT pid, tid, vote, weight_x_32767, created
+        FROM votes
+        WHERE zid = %s
+        ORDER BY created ASC
+    """, (source_zid,))
+
+    votes = cursor.fetchall()
+
+    if not votes:
+        cursor.close()
+        return 0
+
+    # Insert votes with sequential fresh timestamps
+    # Space them 10ms apart to maintain order
+    insert_values = []
+    for i, (pid, tid, vote, weight, _original_created) in enumerate(votes):
+        fresh_timestamp = now_ms + (i * 10)  # 10ms apart
+        insert_values.append((fake_zid, pid, tid, vote, weight, fresh_timestamp))
+
+    # Batch insert
+    cursor.executemany("""
+        INSERT INTO votes (zid, pid, tid, vote, weight_x_32767, created)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """, insert_values)
+
+    conn.commit()
+    cursor.close()
+
+    return len(votes)
+
+
+def cleanup_fake_conversation(conn, fake_zid: int) -> dict:
+    """
+    Delete all data associated with the fake conversation.
+
+    Returns a dict with counts of deleted rows from each table.
+    """
+    cursor = conn.cursor()
+    cleanup_stats = {}
+
+    # Delete in order to respect FK constraints
+    # Must delete from all tables that reference conversations(zid) before deleting conversation
+
+    # Math tables (created by Clojure poller)
+    math_tables = [
+        'math_main',
+        'math_ptptstats',
+        'math_ticks',
+        'math_bidtopid',
+        'math_cache',
+        'math_profile',
+        'math_exportstatus',
+    ]
+    for table in math_tables:
+        cursor.execute(f"DELETE FROM {table} WHERE zid = %s", (fake_zid,))
+        if cursor.rowcount > 0:
+            cleanup_stats[table] = cursor.rowcount
+
+    # votes_latest_unique (populated by trigger from votes)
+    cursor.execute("DELETE FROM votes_latest_unique WHERE zid = %s", (fake_zid,))
+    if cursor.rowcount > 0:
+        cleanup_stats['votes_latest_unique'] = cursor.rowcount
+
+    # votes
+    cursor.execute("DELETE FROM votes WHERE zid = %s", (fake_zid,))
+    cleanup_stats['votes'] = cursor.rowcount
+
+    # participants (if any were auto-created)
+    cursor.execute("DELETE FROM participants WHERE zid = %s", (fake_zid,))
+    if cursor.rowcount > 0:
+        cleanup_stats['participants'] = cursor.rowcount
+
+    # conversations (last, after all referencing tables)
+    cursor.execute("DELETE FROM conversations WHERE zid = %s", (fake_zid,))
+    cleanup_stats['conversations'] = cursor.rowcount
+
+    conn.commit()
+    cursor.close()
+
+    return cleanup_stats
+
+
+def wait_for_math_computation(conn, zid: int, math_env: str, timeout_seconds: int = 300) -> dict | None:
+    """
+    Wait for math_main to be populated with valid cluster data.
+
+    Returns the math blob dict, or None if timeout.
+    """
+    start_time = time.time()
+    last_status = ""
+
+    while time.time() - start_time < timeout_seconds:
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT data, last_vote_timestamp
+            FROM math_main
+            WHERE zid = %s AND math_env = %s
+        """, (zid, math_env))
+        row = cursor.fetchone()
+        cursor.close()
+
+        if row:
+            data, last_vote_timestamp = row
+            if data and isinstance(data, dict):
+                base_clusters = data.get('base-clusters', {})
+                if base_clusters and len(base_clusters.get('id', [])) > 0:
+                    elapsed = time.time() - start_time
+                    click.echo(f"  ✓ Math computation completed in {elapsed:.1f}s")
+                    click.echo(f"    Base clusters: {len(base_clusters.get('id', []))}")
+                    click.echo(f"    Last vote timestamp: {last_vote_timestamp}")
+                    return data
+
+                # Row exists but no clusters yet
+                status = f"  Waiting... (row exists, last_vote_ts={last_vote_timestamp}, no clusters yet)"
+            else:
+                status = f"  Waiting... (row exists but data empty)"
+        else:
+            status = "  Waiting... (no math_main row yet)"
+
+        if status != last_status:
+            click.echo(status)
+            last_status = status
+
+        time.sleep(2)
+
+    return None
+
+
+def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300) -> subprocess.Popen:
+    """
+    Start the Clojure poller restricted to process only the fake zid.
+
+    Returns the Popen process handle.
+    """
+    # Use MATH_ZID_ALLOWLIST to only process our fake conversation
+    # This speeds things up significantly and avoids touching other conversations
+    cmd = [
+        'docker', 'compose', 'run', '--rm',
+        '-e', 'POLL_FROM_DAYS_AGO=1',  # Only need very recent votes (ours)
+        '-e', f'MATH_ZID_ALLOWLIST={fake_zid}',
+        '-e', 'LOGGING_LEVEL=info',
+        'math',
+        'clojure', '-M:run', 'full'
+    ]
+
+    click.echo(f"  Starting poller for zid {fake_zid}...")
+
+    process = subprocess.Popen(
+        cmd,
+        cwd=POLIS_DIR,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+
+    return process
+
+
+def generate_cold_start_via_fake_conversation(
+    conn,
+    source_zid: int,
+    timeout_seconds: int = 300
+) -> dict | None:
+    """
+    Generate cold-start math blob using the fake conversation approach.
+
+    1. Create fake conversation entry
+    2. Copy votes with fresh timestamps
+    3. Run poller to process
+    4. Extract math blob
+    5. Return math blob (cleanup happens separately)
+
+    Returns the math blob dict, or None on failure.
+    """
+    fake_zid = None
+    poller_process = None
+
+    try:
+        # Step 1: Create fake conversation
+        click.echo("\n[1/4] Creating temporary conversation...")
+        fake_zid = create_fake_conversation(conn, source_zid)
+        click.echo(f"  ✓ Created fake conversation with zid {fake_zid}")
+
+        # Step 2: Copy votes with fresh timestamps
+        click.echo("\n[2/4] Copying votes with fresh timestamps...")
+        vote_count = copy_votes_with_fresh_timestamps(conn, source_zid, fake_zid)
+        if vote_count == 0:
+            click.echo("  ✗ No votes found in source conversation!", err=True)
+            return None
+        click.echo(f"  ✓ Copied {vote_count} votes")
+
+        # Step 3: Run poller
+        click.echo("\n[3/4] Running Clojure poller...")
+        poller_process = run_poller_for_zid(fake_zid, timeout_seconds)
+
+        # Step 4: Wait for math computation
+        click.echo("\n[4/4] Waiting for math computation...")
+        math_blob = wait_for_math_computation(conn, fake_zid, MATH_ENV, timeout_seconds)
+
+        if math_blob is None:
+            click.echo(f"  ✗ Timeout waiting for math computation", err=True)
+            # Show last few lines of poller output for debugging
+            if poller_process and poller_process.stdout:
+                click.echo("\n  Poller output (last lines):")
+                try:
+                    output = poller_process.stdout.read().decode('utf-8', errors='replace')
+                    for line in output.split('\n')[-20:]:
+                        if line.strip():
+                            click.echo(f"    {line}")
+                except Exception:
+                    pass
+            return None
+
+        return math_blob
+
+    finally:
+        # Always kill the poller process if running
+        if poller_process and poller_process.poll() is None:
+            click.echo("\n  Stopping poller...")
+            poller_process.terminate()
+            try:
+                poller_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                poller_process.kill()
+
+
+def generate_cold_start_for_dataset(
+    dataset_name: str,
+    no_cleanup: bool = False,
+    timeout_seconds: int = 300
+) -> bool:
     """
     Generate cold-start math blob for a single dataset.
 
@@ -166,7 +379,7 @@ def generate_cold_start_for_dataset(dataset_name: str, no_restore: bool = False)
     """
     click.echo(f"\n{'='*70}")
     click.echo(f"Processing dataset: {dataset_name}")
-    click.echo(f"{'='*70}\n")
+    click.echo(f"{'='*70}")
 
     # Get dataset info
     try:
@@ -185,97 +398,92 @@ def generate_cold_start_for_dataset(dataset_name: str, no_restore: bool = False)
         click.echo(f"Error connecting to database: {e}", err=True)
         return False
 
+    fake_zid = None
+
     try:
         # Look up zid from report_id
-        click.echo(f"Looking up zid for report_id: {report_id}")
-        zid = get_zid_from_report_id(conn, report_id)
-        if not zid:
+        click.echo(f"\nLooking up zid for report_id: {report_id}")
+        source_zid = get_zid_from_report_id(conn, report_id)
+        if not source_zid:
             click.echo(f"Error: No zid found for report_id {report_id}", err=True)
             return False
-        click.echo(f"✓ Found zid: {zid}")
+        click.echo(f"✓ Found source zid: {source_zid}")
 
-        # Verify zid has votes
-        click.echo(f"Verifying zid {zid} has votes...")
-        if not verify_zid_has_votes(conn, zid):
-            click.echo(f"Error: No votes found for zid {zid}", err=True)
+        # Check vote count
+        vote_count = get_vote_count(conn, source_zid)
+        if vote_count == 0:
+            click.echo(f"Error: No votes found for zid {source_zid}", err=True)
             return False
-        click.echo(f"✓ Verified votes exist")
+        click.echo(f"✓ Source has {vote_count} votes")
 
-        # Backup existing math_main row
-        click.echo(f"\nBacking up existing math_main row (if any)...")
-        backup = backup_math_main(conn, zid, MATH_ENV)
+        # Generate cold-start via fake conversation
+        click.echo(f"\n--- Starting cold-start generation ---")
 
-        if backup:
-            # Save backup to file
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_file = output_dir / f"math_main_backup_{timestamp}.json"
-            with open(backup_file, 'w') as f:
-                # Convert for JSON serialization (handle timestamps)
-                backup_serializable = {
-                    k: (str(v) if k == 'modified' else v)
-                    for k, v in backup.items()
-                }
-                json.dump(backup_serializable, f, indent=2)
-            click.echo(f"✓ Backed up existing row to: {backup_file}")
-        else:
-            click.echo(f"✓ No existing row to backup (will be fresh computation)")
+        # Create fake conversation first (so we can track it for cleanup)
+        click.echo("\n[1/4] Creating temporary conversation...")
+        fake_zid = create_fake_conversation(conn, source_zid)
+        click.echo(f"  ✓ Created fake conversation with zid {fake_zid}")
 
-        # Delete existing row to force cold-start
-        click.echo(f"\nDeleting math_main row to force cold-start...")
-        deleted = delete_math_main(conn, zid, MATH_ENV)
-        if deleted:
-            click.echo(f"✓ Deleted existing row")
-        else:
-            click.echo(f"✓ No row to delete")
+        # Copy votes
+        click.echo("\n[2/4] Copying votes with fresh timestamps...")
+        copied_votes = copy_votes_with_fresh_timestamps(conn, source_zid, fake_zid)
+        click.echo(f"  ✓ Copied {copied_votes} votes")
 
-        # Run Clojure computation
-        click.echo(f"\nRunning Clojure cold-start computation for zid {zid}...")
-        success = run_clojure_computation(zid)
+        # Run poller
+        click.echo("\n[3/4] Running Clojure poller...")
+        poller_process = run_poller_for_zid(fake_zid, timeout_seconds)
 
-        if not success:
-            click.echo(f"✗ Clojure computation failed!", err=True)
-            if backup and not no_restore:
-                click.echo("Attempting to restore original row...")
-                restore_math_main(conn, backup)
-                click.echo("✓ Restored original row")
+        # Wait for computation
+        click.echo("\n[4/4] Waiting for math computation...")
+        math_blob = wait_for_math_computation(conn, fake_zid, MATH_ENV, timeout_seconds)
+
+        # Kill poller
+        if poller_process and poller_process.poll() is None:
+            click.echo("\n  Stopping poller...")
+            poller_process.terminate()
+            try:
+                poller_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                poller_process.kill()
+
+        if math_blob is None:
+            click.echo(f"\n✗ Failed to generate cold-start math blob!", err=True)
             return False
 
-        click.echo(f"✓ Clojure computation completed")
+        # Save the cold-start blob
+        click.echo(f"\nSaving cold-start math blob...")
 
-        # Extract new math blob
-        click.echo(f"\nExtracting cold-start math blob...")
-        cold_start_blob = extract_math_blob(conn, zid, MATH_ENV)
+        # Replace the fake zid with source zid in the output for consistency
+        math_blob['zid'] = source_zid
 
-        if not cold_start_blob:
-            click.echo(f"✗ Failed to extract math blob!", err=True)
-            if backup and not no_restore:
-                click.echo("Attempting to restore original row...")
-                restore_math_main(conn, backup)
-                click.echo("✓ Restored original row")
-            return False
-
-        # Save cold-start blob
         cold_start_file = output_dir / f"{report_id}_math_blob_cold_start.json"
         with open(cold_start_file, 'w') as f:
-            json.dump(cold_start_blob, f, indent=2)
+            json.dump(math_blob, f, indent=2)
 
-        size_kb = len(json.dumps(cold_start_blob)) / 1024
+        size_kb = len(json.dumps(math_blob)) / 1024
         click.echo(f"✓ Saved cold-start math blob ({size_kb:.1f} KB): {cold_start_file}")
 
-        # Restore original row (if it existed and not --no-restore)
-        if backup and not no_restore:
-            click.echo(f"\nRestoring original math_main row...")
-            restore_math_main(conn, backup)
-            click.echo(f"✓ Restored original row")
-        elif backup and no_restore:
-            click.echo(f"\nSkipping restore (--no-restore flag set)")
-        else:
-            click.echo(f"\nNo original row to restore")
+        # Report cluster counts
+        base_clusters = math_blob.get('base-clusters', {})
+        group_clusters = math_blob.get('group-clusters', [])
+        n_groups = len(group_clusters) if isinstance(group_clusters, list) else 0
+        click.echo(f"\nCluster summary:")
+        click.echo(f"  - Base clusters: {len(base_clusters.get('id', []))}")
+        click.echo(f"  - Group clusters: {n_groups}")
 
         click.echo(f"\n✓ Successfully generated cold-start blob for {dataset_name}")
         return True
 
     finally:
+        # Always clean up fake conversation data
+        if fake_zid is not None:
+            if no_cleanup:
+                click.echo(f"\n⚠ Skipping cleanup (--no-cleanup flag). Fake zid: {fake_zid}")
+            else:
+                click.echo(f"\nCleaning up temporary data for fake zid {fake_zid}...")
+                cleanup_stats = cleanup_fake_conversation(conn, fake_zid)
+                click.echo(f"  ✓ Cleaned up: {cleanup_stats}")
+
         conn.close()
 
 
@@ -283,10 +491,15 @@ def generate_cold_start_for_dataset(dataset_name: str, no_restore: bool = False)
 @click.argument('dataset', required=False)
 @click.option('--all', 'process_all', is_flag=True, help='Process all datasets')
 @click.option('--include-local', is_flag=True, default=False, help='Include datasets from real_data/.local/')
-@click.option('--no-restore', is_flag=True, help='Do not restore original data after extraction')
-def main(dataset: str | None, process_all: bool, include_local: bool, no_restore: bool):
+@click.option('--no-cleanup', is_flag=True, help='Do not cleanup fake conversation (for debugging)')
+@click.option('--timeout', default=300, help='Timeout in seconds for math computation (default: 300)')
+def main(dataset: str | None, process_all: bool, include_local: bool, no_cleanup: bool, timeout: int):
     """
     Generate cold-start Clojure math blobs for fair Python comparison.
+
+    This script creates a temporary "fake" conversation in the database,
+    copies votes from the source conversation with fresh timestamps, and
+    runs the Clojure poller to compute a true cold-start math blob.
 
     Examples:
 
@@ -299,12 +512,14 @@ def main(dataset: str | None, process_all: bool, include_local: bool, no_restore
         # Generate for all datasets including .local/
         python scripts/generate_cold_start_clojure.py --all --include-local
 
-        # Generate without restoring original (dangerous!)
-        python scripts/generate_cold_start_clojure.py biodiversity --no-restore
+        # Keep fake conversation for debugging
+        python scripts/generate_cold_start_clojure.py biodiversity --no-cleanup
     """
     # Check for DATABASE_URL
     if not os.environ.get('DATABASE_URL'):
         click.echo("Error: DATABASE_URL environment variable is required", err=True)
+        click.echo("\nMake sure .env file exists with DATABASE_URL set:", err=True)
+        click.echo(f"  Looked in: {POLIS_DIR}/.env", err=True)
         raise click.Abort()
 
     # Check if math worker is running
@@ -332,9 +547,15 @@ def main(dataset: str | None, process_all: bool, include_local: bool, no_restore
     results = {}
     for name in dataset_names:
         try:
-            results[name] = generate_cold_start_for_dataset(name, no_restore=no_restore)
+            results[name] = generate_cold_start_for_dataset(
+                name,
+                no_cleanup=no_cleanup,
+                timeout_seconds=timeout
+            )
         except Exception as e:
             click.echo(f"\n✗ Error processing {name}: {e}", err=True)
+            import traceback
+            traceback.print_exc()
             results[name] = False
 
     # Summary
