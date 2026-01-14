@@ -2,20 +2,20 @@
 """
 Generate cold-start Clojure math blobs for fair Python comparison.
 
-This script uses a "fake conversation" approach to generate true cold-start
+This script uses a "conversation replay" approach to generate true cold-start
 computations from the Clojure implementation:
 
 1. Creates a temporary conversation with a fresh zid
 2. Copies votes from the source conversation with fresh timestamps
-3. Runs the Clojure poller which processes the fake conversation
+3. Runs the Clojure poller which processes the replayed conversation
 4. Extracts the resulting math blob (true cold-start)
 5. Cleans up all temporary data
 
 This approach works with the Clojure poller's design rather than against it.
 
 Usage:
-    python scripts/generate_cold_start_clojure.py biodiversity
-    python scripts/generate_cold_start_clojure.py --all
+    python scripts/generate_cold_start_clojure.py biodiversity --stop-math
+    python scripts/generate_cold_start_clojure.py --all --stop-math
     python scripts/generate_cold_start_clojure.py biodiversity --no-cleanup
 """
 
@@ -23,6 +23,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -44,14 +45,78 @@ POLIS_DIR = Path(__file__).parent.parent.parent.resolve()
 MATH_ENV = os.environ.get('MATH_ENV', 'prod')
 
 
-def check_math_worker_running() -> bool:
-    """Check if math worker container is running."""
+def get_running_math_containers() -> list[str]:
+    """Get list of running math worker container names."""
     result = subprocess.run(
         ['docker', 'ps', '--filter', 'name=math', '--format', '{{.Names}}'],
         capture_output=True, text=True
     )
-    # Check for polis-math or similar container names
-    return any('math' in line.lower() for line in result.stdout.splitlines())
+    return [line for line in result.stdout.splitlines() if 'math' in line.lower()]
+
+
+def check_math_worker_running() -> bool:
+    """Check if math worker container is running."""
+    return len(get_running_math_containers()) > 0
+
+
+def pause_math_workers() -> list[str]:
+    """Pause all running math worker containers.
+
+    Returns list of container names that were paused.
+    """
+    containers = get_running_math_containers()
+    if not containers:
+        return []
+
+    paused = []
+    for container in containers:
+        click.echo(f"  Pausing {container}...")
+        result = subprocess.run(['docker', 'pause', container], capture_output=True)
+        if result.returncode == 0:
+            paused.append(container)
+        else:
+            click.echo(f"    Warning: Failed to pause {container}", err=True)
+
+    return paused
+
+
+def unpause_math_workers(containers: list[str]) -> int:
+    """Unpause previously paused math worker containers.
+
+    Args:
+        containers: List of container names to unpause
+
+    Returns the number of containers unpaused.
+    """
+    if not containers:
+        return 0
+
+    unpaused = 0
+    for container in containers:
+        click.echo(f"  Resuming {container}...")
+        result = subprocess.run(['docker', 'unpause', container], capture_output=True)
+        if result.returncode == 0:
+            unpaused += 1
+        else:
+            click.echo(f"    Warning: Failed to unpause {container}", err=True)
+
+    return unpaused
+
+
+def stop_math_workers() -> int:
+    """Stop all running math worker containers.
+
+    Returns the number of containers stopped.
+    """
+    containers = get_running_math_containers()
+    if not containers:
+        return 0
+
+    for container in containers:
+        click.echo(f"  Stopping {container}...")
+        subprocess.run(['docker', 'stop', container], capture_output=True)
+
+    return len(containers)
 
 
 def get_db_connection():
@@ -132,6 +197,8 @@ def copy_votes_with_fresh_timestamps(conn, source_zid: int, fake_zid: int) -> in
     The poller finds votes by `created > last_poll_timestamp`, so fresh
     timestamps ensure these votes are picked up.
 
+    Uses a single INSERT ... SELECT for efficiency (no Python roundtrips).
+
     Returns the number of votes copied.
     """
     cursor = conn.cursor()
@@ -139,38 +206,32 @@ def copy_votes_with_fresh_timestamps(conn, source_zid: int, fake_zid: int) -> in
     # Get current time in milliseconds (matching Polis schema)
     now_ms = int(time.time() * 1000)
 
-    # Get all votes from source, ordered by original created timestamp
-    # This preserves the voting order
+    # Single INSERT ... SELECT with ROW_NUMBER() to generate sequential timestamps
+    # This is much faster than executemany for large vote counts
+    # Use DISTINCT ON (pid, tid) to handle duplicate votes (keeps the latest)
     cursor.execute("""
-        SELECT pid, tid, vote, weight_x_32767, created
-        FROM votes
-        WHERE zid = %s
-        ORDER BY created ASC
-    """, (source_zid,))
-
-    votes = cursor.fetchall()
-
-    if not votes:
-        cursor.close()
-        return 0
-
-    # Insert votes with sequential fresh timestamps
-    # Space them 10ms apart to maintain order
-    insert_values = []
-    for i, (pid, tid, vote, weight, _original_created) in enumerate(votes):
-        fresh_timestamp = now_ms + (i * 10)  # 10ms apart
-        insert_values.append((fake_zid, pid, tid, vote, weight, fresh_timestamp))
-
-    # Batch insert
-    cursor.executemany("""
         INSERT INTO votes (zid, pid, tid, vote, weight_x_32767, created)
-        VALUES (%s, %s, %s, %s, %s, %s)
-    """, insert_values)
+        SELECT
+            %s,
+            pid,
+            tid,
+            vote,
+            weight_x_32767,
+            %s + (ROW_NUMBER() OVER (ORDER BY created ASC) - 1) * 10
+        FROM (
+            SELECT DISTINCT ON (pid, tid) pid, tid, vote, weight_x_32767, created
+            FROM votes
+            WHERE zid = %s
+            ORDER BY pid, tid, created DESC
+        ) AS deduplicated
+        ORDER BY created ASC
+    """, (fake_zid, now_ms, source_zid))
 
+    copied_count = cursor.rowcount
     conn.commit()
     cursor.close()
 
-    return len(votes)
+    return copied_count
 
 
 def cleanup_fake_conversation(conn, fake_zid: int) -> dict:
@@ -270,7 +331,19 @@ def wait_for_math_computation(conn, zid: int, math_env: str, timeout_seconds: in
     return None
 
 
-def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300) -> subprocess.Popen:
+def _stream_output(process: subprocess.Popen, prefix: str = "    [clj] "):
+    """Background thread to stream process output."""
+    try:
+        for line in iter(process.stdout.readline, b''):
+            if line:
+                text = line.decode('utf-8', errors='replace').rstrip()
+                if text:
+                    click.echo(f"{prefix}{text}")
+    except Exception:
+        pass  # Process terminated
+
+
+def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300, verbose: bool = False) -> subprocess.Popen:
     """
     Start the Clojure poller restricted to process only the fake zid.
 
@@ -278,16 +351,19 @@ def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300) -> subprocess.
     """
     # Use MATH_ZID_ALLOWLIST to only process our fake conversation
     # This speeds things up significantly and avoids touching other conversations
+    log_level = 'debug' if verbose else 'info'
     cmd = [
         'docker', 'compose', 'run', '--rm',
         '-e', 'POLL_FROM_DAYS_AGO=1',  # Only need very recent votes (ours)
         '-e', f'MATH_ZID_ALLOWLIST={fake_zid}',
-        '-e', 'LOGGING_LEVEL=info',
+        '-e', f'LOGGING_LEVEL={log_level}',
         'math',
         'clojure', '-M:run', 'full'
     ]
 
     click.echo(f"  Starting poller for zid {fake_zid}...")
+    if verbose:
+        click.echo(f"  Command: {' '.join(cmd)}")
 
     process = subprocess.Popen(
         cmd,
@@ -295,6 +371,15 @@ def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300) -> subprocess.
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
+
+    # Start background thread to stream output if verbose
+    if verbose:
+        stream_thread = threading.Thread(
+            target=_stream_output,
+            args=(process,),
+            daemon=True
+        )
+        stream_thread.start()
 
     return process
 
@@ -370,7 +455,8 @@ def generate_cold_start_via_fake_conversation(
 def generate_cold_start_for_dataset(
     dataset_name: str,
     no_cleanup: bool = False,
-    timeout_seconds: int = 300
+    timeout_seconds: int = 300,
+    verbose: bool = False
 ) -> bool:
     """
     Generate cold-start math blob for a single dataset.
@@ -399,6 +485,7 @@ def generate_cold_start_for_dataset(
         return False
 
     fake_zid = None
+    poller_process = None
 
     try:
         # Look up zid from report_id
@@ -416,13 +503,13 @@ def generate_cold_start_for_dataset(
             return False
         click.echo(f"✓ Source has {vote_count} votes")
 
-        # Generate cold-start via fake conversation
+        # Generate cold-start via conversation replay
         click.echo(f"\n--- Starting cold-start generation ---")
 
-        # Create fake conversation first (so we can track it for cleanup)
+        # Create temporary conversation (so we can track it for cleanup)
         click.echo("\n[1/4] Creating temporary conversation...")
         fake_zid = create_fake_conversation(conn, source_zid)
-        click.echo(f"  ✓ Created fake conversation with zid {fake_zid}")
+        click.echo(f"  ✓ Created temporary conversation with zid {fake_zid}")
 
         # Copy votes
         click.echo("\n[2/4] Copying votes with fresh timestamps...")
@@ -431,20 +518,11 @@ def generate_cold_start_for_dataset(
 
         # Run poller
         click.echo("\n[3/4] Running Clojure poller...")
-        poller_process = run_poller_for_zid(fake_zid, timeout_seconds)
+        poller_process = run_poller_for_zid(fake_zid, timeout_seconds, verbose=verbose)
 
         # Wait for computation
         click.echo("\n[4/4] Waiting for math computation...")
         math_blob = wait_for_math_computation(conn, fake_zid, MATH_ENV, timeout_seconds)
-
-        # Kill poller
-        if poller_process and poller_process.poll() is None:
-            click.echo("\n  Stopping poller...")
-            poller_process.terminate()
-            try:
-                poller_process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                poller_process.kill()
 
         if math_blob is None:
             click.echo(f"\n✗ Failed to generate cold-start math blob!", err=True)
@@ -453,7 +531,7 @@ def generate_cold_start_for_dataset(
         # Save the cold-start blob
         click.echo(f"\nSaving cold-start math blob...")
 
-        # Replace the fake zid with source zid in the output for consistency
+        # Replace the temporary zid with source zid in the output for consistency
         math_blob['zid'] = source_zid
 
         cold_start_file = output_dir / f"{report_id}_math_blob_cold_start.json"
@@ -475,12 +553,21 @@ def generate_cold_start_for_dataset(
         return True
 
     finally:
-        # Always clean up fake conversation data
+        # Always kill the poller process if running
+        if poller_process and poller_process.poll() is None:
+            click.echo("\n  Stopping poller...")
+            poller_process.terminate()
+            try:
+                poller_process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                poller_process.kill()
+
+        # Always clean up temporary conversation data
         if fake_zid is not None:
             if no_cleanup:
-                click.echo(f"\n⚠ Skipping cleanup (--no-cleanup flag). Fake zid: {fake_zid}")
+                click.echo(f"\n⚠ Skipping cleanup (--no-cleanup flag). Temporary zid: {fake_zid}")
             else:
-                click.echo(f"\nCleaning up temporary data for fake zid {fake_zid}...")
+                click.echo(f"\nCleaning up temporary data for zid {fake_zid}...")
                 cleanup_stats = cleanup_fake_conversation(conn, fake_zid)
                 click.echo(f"  ✓ Cleaned up: {cleanup_stats}")
 
@@ -488,23 +575,28 @@ def generate_cold_start_for_dataset(
 
 
 @click.command()
-@click.argument('dataset', required=False)
+@click.argument('datasets', nargs=-1)
 @click.option('--all', 'process_all', is_flag=True, help='Process all datasets')
 @click.option('--include-local', is_flag=True, default=False, help='Include datasets from real_data/.local/')
-@click.option('--no-cleanup', is_flag=True, help='Do not cleanup fake conversation (for debugging)')
+@click.option('--no-cleanup', is_flag=True, help='Do not cleanup temporary conversation (for debugging)')
 @click.option('--timeout', default=300, help='Timeout in seconds for math computation (default: 300)')
-def main(dataset: str | None, process_all: bool, include_local: bool, no_cleanup: bool, timeout: int):
+@click.option('--pause-math', is_flag=True, help='Automatically pause running math workers (resumes after completion)')
+@click.option('--verbose', '-v', is_flag=True, help='Show detailed output including Clojure poller logs')
+def main(datasets: tuple, process_all: bool, include_local: bool, no_cleanup: bool, timeout: int, pause_math: bool, verbose: bool):
     """
     Generate cold-start Clojure math blobs for fair Python comparison.
 
-    This script creates a temporary "fake" conversation in the database,
-    copies votes from the source conversation with fresh timestamps, and
-    runs the Clojure poller to compute a true cold-start math blob.
+    This script creates a temporary conversation in the database (replaying
+    votes from the source), and runs the Clojure poller to compute a true
+    cold-start math blob.
 
     Examples:
 
         # Generate for single dataset
         python scripts/generate_cold_start_clojure.py biodiversity
+
+        # Generate for multiple datasets
+        python scripts/generate_cold_start_clojure.py biodiversity vw american-assembly
 
         # Generate for all committed datasets
         python scripts/generate_cold_start_clojure.py --all
@@ -512,7 +604,13 @@ def main(dataset: str | None, process_all: bool, include_local: bool, no_cleanup
         # Generate for all datasets including .local/
         python scripts/generate_cold_start_clojure.py --all --include-local
 
-        # Keep fake conversation for debugging
+        # Automatically pause math workers (resumes after completion)
+        python scripts/generate_cold_start_clojure.py biodiversity --pause-math
+
+        # Verbose mode: show Clojure poller output in real-time
+        python scripts/generate_cold_start_clojure.py biodiversity -v
+
+        # Keep temporary conversation for debugging
         python scripts/generate_cold_start_clojure.py biodiversity --no-cleanup
     """
     # Check for DATABASE_URL
@@ -523,66 +621,90 @@ def main(dataset: str | None, process_all: bool, include_local: bool, no_cleanup
         raise click.Abort()
 
     # Check if math worker is running
+    paused_containers: list[str] = []
     if check_math_worker_running():
-        click.echo("✗ ERROR: Math worker container is running!", err=True)
-        click.echo("\nThe math worker must be stopped to prevent conflicts.", err=True)
-        click.echo("Please stop it first:", err=True)
-        click.echo(f"  cd {POLIS_DIR}", err=True)
-        click.echo("  docker compose stop math", err=True)
-        raise click.Abort()
+        if pause_math:
+            click.echo("Pausing running math worker containers...")
+            paused_containers = pause_math_workers()
+            click.echo(f"  ✓ Paused {len(paused_containers)} container(s)")
+        else:
+            click.echo("✗ ERROR: Math worker container is running!", err=True)
+            click.echo("\nThe math worker must be paused/stopped to prevent conflicts.", err=True)
+            click.echo("Either use --pause-math to pause it automatically, or stop it manually:", err=True)
+            click.echo(f"  cd {POLIS_DIR}", err=True)
+            click.echo("  docker compose stop math", err=True)
+            raise click.Abort()
 
     # Determine which datasets to process
+    available_datasets = discover_datasets(include_local=include_local)
+
     if process_all:
-        datasets = discover_datasets(include_local=include_local)
-        dataset_names = list(datasets.keys())
+        dataset_names = list(available_datasets.keys())
         location = "committed + local" if include_local else "committed"
         click.echo(f"Processing all {len(dataset_names)} {location} dataset(s): {', '.join(dataset_names)}\n")
-    elif dataset:
-        dataset_names = [dataset]
+    elif datasets:
+        # Validate specified datasets exist
+        invalid = [d for d in datasets if d not in available_datasets]
+        if invalid:
+            click.echo(f"Error: Unknown dataset(s): {', '.join(invalid)}", err=True)
+            click.echo(f"Available datasets: {', '.join(available_datasets.keys())}", err=True)
+            raise click.Abort()
+        dataset_names = list(datasets)
+        click.echo(f"Processing {len(dataset_names)} dataset(s): {', '.join(dataset_names)}\n")
     else:
-        click.echo("Error: Please specify a dataset name or use --all", err=True)
+        click.echo("Error: Please specify dataset name(s) or use --all", err=True)
+        click.echo(f"Available datasets: {', '.join(available_datasets.keys())}", err=True)
         raise click.Abort()
 
-    # Process each dataset
-    results = {}
-    for name in dataset_names:
-        try:
-            results[name] = generate_cold_start_for_dataset(
-                name,
-                no_cleanup=no_cleanup,
-                timeout_seconds=timeout
-            )
-        except Exception as e:
-            click.echo(f"\n✗ Error processing {name}: {e}", err=True)
-            import traceback
-            traceback.print_exc()
-            results[name] = False
+    try:
+        # Process each dataset
+        results = {}
+        for name in dataset_names:
+            try:
+                results[name] = generate_cold_start_for_dataset(
+                    name,
+                    no_cleanup=no_cleanup,
+                    timeout_seconds=timeout,
+                    verbose=verbose
+                )
+            except Exception as e:
+                click.echo(f"\n✗ Error processing {name}: {e}", err=True)
+                import traceback
+                traceback.print_exc()
+                results[name] = False
 
-    # Summary
-    click.echo(f"\n{'='*70}")
-    click.echo("SUMMARY")
-    click.echo(f"{'='*70}\n")
+        # Summary
+        click.echo(f"\n{'='*70}")
+        click.echo("SUMMARY")
+        click.echo(f"{'='*70}\n")
 
-    successful = [name for name, success in results.items() if success]
-    failed = [name for name, success in results.items() if not success]
+        successful = [name for name, success in results.items() if success]
+        failed = [name for name, success in results.items() if not success]
 
-    click.echo(f"Total: {len(results)} dataset(s)")
-    click.echo(f"Successful: {len(successful)}")
-    if failed:
-        click.echo(f"Failed: {len(failed)}")
+        click.echo(f"Total: {len(results)} dataset(s)")
+        click.echo(f"Successful: {len(successful)}")
+        if failed:
+            click.echo(f"Failed: {len(failed)}")
 
-    if successful:
-        click.echo(f"\n✓ Successful:")
-        for name in successful:
-            click.echo(f"  {name}")
+        if successful:
+            click.echo(f"\n✓ Successful:")
+            for name in successful:
+                click.echo(f"  {name}")
 
-    if failed:
-        click.echo(f"\n✗ Failed:")
-        for name in failed:
-            click.echo(f"  {name}")
-        sys.exit(1)
-    else:
-        click.echo("\n✓ All datasets processed successfully!")
+        if failed:
+            click.echo(f"\n✗ Failed:")
+            for name in failed:
+                click.echo(f"  {name}")
+            sys.exit(1)
+        else:
+            click.echo("\n✓ All datasets processed successfully!")
+
+    finally:
+        # Resume any paused math workers
+        if paused_containers:
+            click.echo("\nResuming paused math worker containers...")
+            n_resumed = unpause_math_workers(paused_containers)
+            click.echo(f"  ✓ Resumed {n_resumed} container(s)")
 
 
 if __name__ == '__main__':
