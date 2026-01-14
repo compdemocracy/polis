@@ -26,7 +26,8 @@ from conftest import _get_requested_datasets, make_dataset_params
 from polismath.regression.clojure_comparer import (
     ClojureComparer,
     compare_cluster_distributions,
-    compare_cluster_membership
+    compare_cluster_membership,
+    unfold_clojure_group_clusters
 )
 
 
@@ -255,13 +256,16 @@ class TestClojureRegression:
         Test that group clustering matches the Clojure implementation.
 
         This test compares clustering results using both distribution similarity
-        and membership overlap. Tests are expected to FAIL until we match
-        Clojure's initialization algorithm (first-k distinct points).
+        and membership overlap.
+
+        Key architectural difference:
+        - Clojure uses two-level clustering: participants → base clusters → groups
+        - Python uses single-level clustering: participants → groups
+        - This test unfolds Clojure's base-clusters to participant level for comparison
 
         Known difference:
-        - Python uses K-means++ initialization (seed 42) for better convergence
-        - Clojure uses first k distinct points for simplicity
-        - Both are valid algorithms but produce different local optima
+        - Python now uses first-k distinct points initialization (matching Clojure)
+        - Previously used K-means++ initialization (seed 42)
         """
         conv = conversation_data['conv']
         clojure_output = conversation_data['clojure_output']
@@ -275,11 +279,15 @@ class TestClojureRegression:
             return
 
         python_clusters = conv.group_clusters
-        clojure_clusters = clojure_output['group-clusters']
+
+        # Unfold Clojure's two-level clustering to participant level
+        # Clojure: participants → base clusters → groups
+        # Python: participants → groups (direct)
+        clojure_clusters_unfolded = unfold_clojure_group_clusters(clojure_output)
 
         print(f"[{dataset_name}] Comparing group clustering:")
         print(f"  Python groups: {len(python_clusters)}")
-        print(f"  Clojure groups: {len(clojure_clusters)}")
+        print(f"  Clojure groups: {len(clojure_clusters_unfolded)} (unfolded to participant level)")
 
         # Initialize comparer with tight thresholds (per user request)
         comparer = ClojureComparer(
@@ -290,7 +298,7 @@ class TestClojureRegression:
         # Use shared comparison code (same as CLI tool)
         result = comparer.compare_clusters(
             python_clusters,
-            clojure_clusters,
+            clojure_clusters_unfolded,
             dataset_name=dataset_name
         )
 
@@ -303,7 +311,7 @@ class TestClojureRegression:
         print(f"    Similarity score: {dist_comp['similarity_score']:.2%}")
 
         check.is_true(dist_comp['num_clusters_match'],
-                     f"Number of clusters should match (Python: {len(python_clusters)}, Clojure: {len(clojure_clusters)})")
+                     f"Number of clusters should match (Python: {len(python_clusters)}, Clojure: {len(clojure_clusters_unfolded)})")
         check.less_equal(dist_comp['wasserstein_distance'], comparer.distribution_tolerance,
                         f"Wasserstein distance should be ≤{comparer.distribution_tolerance} (got {dist_comp['wasserstein_distance']:.4f})")
 
@@ -316,7 +324,7 @@ class TestClojureRegression:
         print(f"\n  Cluster Mapping (Python → Clojure):")
         for py_idx, (clj_idx, jaccard) in memb_comp['mapping'].items():
             py_size = len(python_clusters[py_idx]['members'])
-            clj_size = len(clojure_clusters[clj_idx]['members'])
+            clj_size = len(clojure_clusters_unfolded[clj_idx]['members'])
             status = '✓' if jaccard >= comparer.jaccard_threshold else '✗'
             print(f"    {status} Group {py_idx} ({py_size} members) → Group {clj_idx} ({clj_size} members): {jaccard:.2%}")
 
