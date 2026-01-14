@@ -527,8 +527,9 @@ After implementation:
 | Add in-conv filtering | ✅ Done | `_get_in_conv_participants()` |
 | Update serialization | ✅ Done | `_fold_base_clusters()`, outputs hierarchical format |
 | Add incremental clustering (`:last-clusters`) | ⏳ TODO | Need to use previous clusters as initialization |
-| Generate clean Clojure references | ✅ Done | Script `generate_cold_start_clojure.py` created |
+| Generate clean Clojure references | ✅ Done | Uses "fake conversation" approach - creates temp conversation with copied votes |
 | Update tests for fair comparison | ✅ Done | Tests now prefer cold-start blobs automatically |
+| Implement fake conversation approach | ✅ Done | Script creates temp zid, copies votes with fresh timestamps, runs poller |
 
 ---
 
@@ -548,14 +549,13 @@ By generating cold-start references, we compare:
 ### How to Generate Cold-Start Blobs
 
 **Prerequisites:**
-1. Stop any running math worker: `cd /Users/julien/polis/github/polis && docker compose stop math`
-2. Ensure DATABASE_URL is set in `/Users/julien/polis/github/polis-kmeans/.env`
-   - The script loads from `polis-kmeans/.env` (copy from `polis/.env` if needed)
+1. Stop any running math worker: `docker compose stop math` (from the worktree root)
+2. Ensure DATABASE_URL is set in the worktree root's `.env` file
    - Example: `DATABASE_URL=postgres://postgres:password@host.docker.internal:5433/polis-dev`
 
 **Generate for single dataset:**
 ```bash
-cd /Users/julien/polis/github/polis-kmeans/delphi
+cd delphi  # from worktree root
 uv run python scripts/generate_cold_start_clojure.py biodiversity
 ```
 
@@ -571,16 +571,18 @@ uv run python scripts/generate_cold_start_clojure.py --all --include-local
 
 **Advanced options:**
 ```bash
-# Generate without restoring original (dangerous!)
-uv run python scripts/generate_cold_start_clojure.py biodiversity --no-restore
+# Keep fake conversation data for debugging (not cleaned up)
+uv run python scripts/generate_cold_start_clojure.py biodiversity --no-cleanup
 
 # Process a specific local dataset
 uv run python scripts/generate_cold_start_clojure.py my-local-dataset
+
+# Increase timeout for large datasets
+uv run python scripts/generate_cold_start_clojure.py biodiversity --timeout 600
 ```
 
 **Output files:**
 - `{report_id}_math_blob_cold_start.json` - Fresh cold-start computation
-- `math_main_backup_{timestamp}.json` - Backup of original row (restored automatically)
 
 ### Finding Pre-Computed Cold-Start Math Blobs
 
@@ -611,7 +613,7 @@ find delphi/real_data/.local -name "*_math_blob_cold_start.json" -type f
 
 **Verify a cold-start blob was created:**
 ```bash
-cd /Users/julien/polis/github/polis-kmeans/delphi
+cd delphi  # from worktree root
 
 # Check file exists and size
 ls -lh real_data/r4tykwac8thvzv35jrn53-biodiversity/*cold_start*.json
@@ -631,7 +633,6 @@ real_data/r4tykwac8thvzv35jrn53-biodiversity/
 ├── 2024-11-12-1652-r4tykwac8thvzv35jrn53-summary.csv
 ├── r4tykwac8thvzv35jrn53_math_blob.json                    # Original (unknown provenance)
 ├── r4tykwac8thvzv35jrn53_math_blob_cold_start.json         # Fresh cold-start ✨
-├── math_main_backup_20260114_163045.json                    # Backup of original row
 └── golden_snapshot.json
 ```
 
@@ -648,7 +649,7 @@ def get_dataset_files(name: str, prefer_cold_start: bool = True):
 
 **Run tests (will auto-use cold-start blobs):**
 ```bash
-cd /Users/julien/polis/github/polis-kmeans/delphi
+cd delphi  # from worktree root
 
 # Run all Clojure comparison tests
 uv run pytest tests/test_legacy_clojure_regression.py -v
@@ -677,7 +678,7 @@ print(f"Using: {files['math_blob']}")
 
 **Check which datasets have cold-start blobs:**
 ```bash
-cd /Users/julien/polis/github/polis-kmeans/delphi
+cd delphi  # from worktree root
 
 # List all datasets with cold-start blobs
 uv run python -c "
@@ -689,33 +690,45 @@ for name, info in datasets.items():
 "
 ```
 
-### What the Script Does
+### How the Script Works (Fake Conversation Approach)
 
-1. **Loads configuration** from `/Users/julien/polis/github/polis-kmeans/.env`
-2. **Checks** if math worker is running (aborts if yes)
-3. **Looks up** zid from report_id via the `reports` table
-4. **Verifies** the zid has votes in the database
-5. **Backs up** existing math_main row to timestamped JSON file
-6. **Deletes** the row to force cold-start (Clojure's `load-or-init` creates fresh `new-conv`)
-7. **Runs** Clojure computation: `docker compose run --rm math clojure -M:run update -z <ZID>`
-8. **Extracts** new cold-start math blob from database
-9. **Restores** original row (unless `--no-restore` flag is used)
+The script uses a "fake conversation" approach to generate true cold-start computations. This works WITH the Clojure poller's design rather than against it.
+
+**The Process:**
+
+1. **Create fake conversation**: Insert a minimal row in `conversations` table with a fresh auto-generated zid
+2. **Copy votes with fresh timestamps**: Copy all votes from source zid to fake zid, with timestamps starting from "now" (spaced 10ms apart to preserve order)
+3. **Run poller**: Start the Clojure poller with `MATH_ZID_ALLOWLIST={fake_zid}` to only process our fake conversation
+4. **Wait for computation**: Poll `math_main` until `base-clusters` has data
+5. **Extract and save**: Save the math blob with the original source zid for consistency
+6. **Cleanup**: Delete all fake data from `conversations`, `votes`, `votes_latest_unique`, `participants`, and `math_main`
+
+**Why This Works:**
+- The poller finds votes with `created > last_poll_timestamp`
+- Fresh timestamps ensure the votes are picked up
+- A new zid means no interference from existing math_main rows or cached state
+- The `MATH_ZID_ALLOWLIST` filter restricts processing to just our fake conversation
+
+**Key Functions:**
+- `create_fake_conversation(conn, source_zid)` → Creates minimal conversation row, returns new zid
+- `copy_votes_with_fresh_timestamps(conn, source_zid, fake_zid)` → Copies votes with sequential fresh timestamps
+- `cleanup_fake_conversation(conn, fake_zid)` → Deletes all fake data from all tables
 
 ### Command-Line Options
 
 - `--all`: Process all datasets (default: only committed datasets in `real_data/`)
 - `--include-local`: Include datasets from `real_data/.local/` (requires `--all`)
-- `--no-restore`: Skip restoring the original math_main row (dangerous!)
+- `--no-cleanup`: Keep fake conversation data for debugging (normally cleaned up automatically)
+- `--timeout N`: Set timeout in seconds for math computation (default: 300)
 
 ### Safety Features
 
 - **Math worker detection**: Refuses to run if math worker is active
 - **Environment validation**: Checks that DATABASE_URL is set before proceeding
 - **Report ID validation**: Verifies report_id exists in reports table
-- **Vote verification**: Confirms zid has votes before attempting computation
-- **Automatic backup**: Original row saved to timestamped JSON file
-- **Automatic restore**: Original row restored after cold-start extraction (unless `--no-restore`)
-- **No permanent changes**: Database returns to original state (by default)
+- **Vote verification**: Confirms source zid has votes before attempting computation
+- **Automatic cleanup**: Fake conversation data is always deleted (unless `--no-cleanup`)
+- **No permanent changes**: Original database data is never modified
 
 ---
 
@@ -723,9 +736,7 @@ for name, info in datasets.items():
 
 ### Environment Setup
 
-The cold-start generation script requires database access. Configuration is loaded from:
-
-**Location**: `/Users/julien/polis/github/polis-kmeans/.env`
+The cold-start generation script requires database access. Configuration is loaded from the worktree root's `.env` file.
 
 **Required variables**:
 ```bash
@@ -736,12 +747,12 @@ MATH_ENV=prod  # or 'dev' for development
 **Setup**:
 ```bash
 # Copy from main polis repo if not already present
-cp /Users/julien/polis/github/polis/.env /Users/julien/polis/github/polis-kmeans/.env
+cp /path/to/polis/.env /path/to/polis-kmeans/.env
 ```
 
 The script also needs the Clojure math worker Docker image available:
 ```bash
-cd /Users/julien/polis/github/polis
+cd /path/to/polis-kmeans
 docker compose build math  # If image not already built
 ```
 
@@ -750,7 +761,7 @@ docker compose build math  # If image not already built
 ## References
 
 - **Clojure two-level doc**: `docs/CLOJURE_TWO_LEVEL_CLUSTERING.md`
-- **Clojure source**: `/Users/julien/polis/github/polis/math/src/polismath/math/`
+- **Clojure source**: `math/src/polismath/math/` (in the polis-kmeans worktree)
 - **Python clusters**: `polismath/pca_kmeans_rep/clusters.py`
 - **Python conversation**: `polismath/conversation/conversation.py`
 - **Cold-start script**: `scripts/generate_cold_start_clojure.py`
