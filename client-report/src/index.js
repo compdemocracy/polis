@@ -7,28 +7,6 @@ import { WebStorageStateStore } from 'oidc-client-ts';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from "./components/app.jsx";
-import { datadogRum } from '@datadog/browser-rum';
-
-const ddApplicationId = process.env.DD_APPLICATION_ID;
-const ddClientToken = process.env.DD_CLIENT_TOKEN;
-const ddSite = process.env.DD_SITE;
-
-const useDatadog = ddApplicationId && ddClientToken && ddSite;
-
-if (useDatadog) {
-  datadogRum.init({
-    applicationId: ddApplicationId,
-    clientToken: ddClientToken,
-    site: ddSite,
-    service: 'client-report',
-    env: 'prod',
-    version: '1.0.0',
-    sessionSampleRate: 100,
-    sessionReplaySampleRate: 20,
-    trackBfcacheViews: true,
-    defaultPrivacyLevel: 'allow',
-  });
-}
 
 class Root extends React.Component {
   render() {

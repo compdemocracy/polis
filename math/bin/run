@@ -8,21 +8,5 @@ do
   echo "XXXXXXXXXXXXXXXXXX REBOOTING MATH WORKER XXXXXXXXXXXXXXXXXX"
   echo "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
   echo "                                                           "
-
-  if [ "$DD_ENABLED" = "true" ] || [ "$DD_ENABLED" = "1" ]; then
-    echo "Datadog enabled (DD_ENABLED=$DD_ENABLED). Attaching Datadog agent with profiling."
-    timeout -s KILL 14400 clojure \
-      -J-javaagent:/app/dd-java-agent.jar \
-      -J-Ddd.profiling.enabled=true \
-      -J-XX:FlightRecorderOptions=stackdepth=256 \
-      -J-Ddd.logs.injection=true \
-      -J-Ddd.trace.sample.rate=1 \
-      -J-Ddd.git.repository_url="github.com/compdemocracy/polis" \
-      -J-Ddd.service=math \
-      -J-Ddd.env=prod \
-      -M:run full
-  else
-    echo "Datadog disabled (DD_ENABLED=$DD_ENABLED). Running without Datadog agent."
-    timeout -s KILL 14400 clojure -M:run full
-  fi
+  timeout -s KILL 14400 clojure -M:run full
 done

@@ -233,7 +233,7 @@ const staticFilesAdminPort = Config.staticFilesAdminPort;
 const staticFilesParticipationPort = Config.staticFilesParticipationPort;
 const HMAC_SIGNATURE_PARAM_NAME = "signature";
 
-// Dev-only http logger; Datadog JSON logger is enabled in prod via middleware
+// Dev-only http logger
 if (devMode) {
   // 'dev' format is
   // :method :url :status :response-time ms - :res[content-length]
