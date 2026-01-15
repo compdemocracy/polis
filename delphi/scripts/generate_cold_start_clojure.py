@@ -285,16 +285,32 @@ def cleanup_fake_conversation(conn, fake_zid: int) -> dict:
     return cleanup_stats
 
 
-def wait_for_math_computation(conn, zid: int, math_env: str, timeout_seconds: int = 300) -> dict | None:
+class PollerError(Exception):
+    """Raised when the Clojure poller encounters a fatal error."""
+    pass
+
+
+def wait_for_math_computation(
+    conn,
+    zid: int,
+    math_env: str,
+    timeout_seconds: int = 300,
+    monitor: 'PollerMonitor | None' = None
+) -> dict | None:
     """
     Wait for math_main to be populated with valid cluster data.
 
     Returns the math blob dict, or None if timeout.
+    Raises PollerError if the Clojure poller encounters a fatal error.
     """
     start_time = time.time()
     last_status = ""
 
     while time.time() - start_time < timeout_seconds:
+        # Check for Clojure errors first
+        if monitor and monitor.error_detected.is_set():
+            raise PollerError(monitor.error_message or "Unknown Clojure error")
+
         cursor = conn.cursor()
         cursor.execute("""
             SELECT data, last_vote_timestamp
@@ -331,23 +347,48 @@ def wait_for_math_computation(conn, zid: int, math_env: str, timeout_seconds: in
     return None
 
 
-def _stream_output(process: subprocess.Popen, prefix: str = "    [clj] "):
-    """Background thread to stream process output."""
-    try:
-        for line in iter(process.stdout.readline, b''):
-            if line:
-                text = line.decode('utf-8', errors='replace').rstrip()
-                if text:
-                    click.echo(f"{prefix}{text}")
-    except Exception:
-        pass  # Process terminated
+# Error patterns that indicate fatal Clojure failures
+FATAL_ERROR_PATTERNS = [
+    "Failed conversation update",
+    "nil has zero dimensionality",
+    "Re-queueing messages for failed update",
+    "java.lang.OutOfMemoryError",
+]
 
 
-def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300, verbose: bool = False) -> subprocess.Popen:
+class PollerMonitor:
+    """Monitor poller output for errors."""
+
+    def __init__(self, verbose: bool = False):
+        self.verbose = verbose
+        self.error_detected = threading.Event()
+        self.error_message: str | None = None
+
+    def stream_output(self, process: subprocess.Popen, prefix: str = "    [clj] "):
+        """Background thread to stream process output and detect errors."""
+        try:
+            for line in iter(process.stdout.readline, b''):
+                if line:
+                    text = line.decode('utf-8', errors='replace').rstrip()
+                    if text:
+                        if self.verbose:
+                            click.echo(f"{prefix}{text}")
+
+                        # Check for fatal errors
+                        for pattern in FATAL_ERROR_PATTERNS:
+                            if pattern in text:
+                                self.error_message = f"Clojure error detected: {pattern}"
+                                self.error_detected.set()
+                                break
+        except Exception:
+            pass  # Process terminated
+
+
+def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300, verbose: bool = False) -> tuple[subprocess.Popen, PollerMonitor]:
     """
     Start the Clojure poller restricted to process only the fake zid.
 
-    Returns the Popen process handle.
+    Returns tuple of (Popen process handle, PollerMonitor for error detection).
     """
     # Use MATH_ZID_ALLOWLIST to only process our fake conversation
     # This speeds things up significantly and avoids touching other conversations
@@ -372,16 +413,16 @@ def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300, verbose: bool 
         stderr=subprocess.STDOUT,
     )
 
-    # Start background thread to stream output if verbose
-    if verbose:
-        stream_thread = threading.Thread(
-            target=_stream_output,
-            args=(process,),
-            daemon=True
-        )
-        stream_thread.start()
+    # Always start monitor thread (for error detection), verbose controls output
+    monitor = PollerMonitor(verbose=verbose)
+    stream_thread = threading.Thread(
+        target=monitor.stream_output,
+        args=(process,),
+        daemon=True
+    )
+    stream_thread.start()
 
-    return process
+    return process, monitor
 
 
 def generate_cold_start_via_fake_conversation(
@@ -419,24 +460,18 @@ def generate_cold_start_via_fake_conversation(
 
         # Step 3: Run poller
         click.echo("\n[3/4] Running Clojure poller...")
-        poller_process = run_poller_for_zid(fake_zid, timeout_seconds)
+        poller_process, poller_monitor = run_poller_for_zid(fake_zid, timeout_seconds)
 
         # Step 4: Wait for math computation
         click.echo("\n[4/4] Waiting for math computation...")
-        math_blob = wait_for_math_computation(conn, fake_zid, MATH_ENV, timeout_seconds)
+        try:
+            math_blob = wait_for_math_computation(conn, fake_zid, MATH_ENV, timeout_seconds, monitor=poller_monitor)
+        except PollerError as e:
+            click.echo(f"  ✗ Clojure poller failed: {e}", err=True)
+            return None
 
         if math_blob is None:
             click.echo(f"  ✗ Timeout waiting for math computation", err=True)
-            # Show last few lines of poller output for debugging
-            if poller_process and poller_process.stdout:
-                click.echo("\n  Poller output (last lines):")
-                try:
-                    output = poller_process.stdout.read().decode('utf-8', errors='replace')
-                    for line in output.split('\n')[-20:]:
-                        if line.strip():
-                            click.echo(f"    {line}")
-                except Exception:
-                    pass
             return None
 
         return math_blob
@@ -518,14 +553,19 @@ def generate_cold_start_for_dataset(
 
         # Run poller
         click.echo("\n[3/4] Running Clojure poller...")
-        poller_process = run_poller_for_zid(fake_zid, timeout_seconds, verbose=verbose)
+        poller_process, poller_monitor = run_poller_for_zid(fake_zid, timeout_seconds, verbose=verbose)
 
         # Wait for computation
         click.echo("\n[4/4] Waiting for math computation...")
-        math_blob = wait_for_math_computation(conn, fake_zid, MATH_ENV, timeout_seconds)
+        try:
+            math_blob = wait_for_math_computation(conn, fake_zid, MATH_ENV, timeout_seconds, monitor=poller_monitor)
+        except PollerError as e:
+            click.echo(f"\n✗ Clojure poller failed: {e}", err=True)
+            click.echo("  The conversation data may not be processable by the Clojure implementation.", err=True)
+            return False
 
         if math_blob is None:
-            click.echo(f"\n✗ Failed to generate cold-start math blob!", err=True)
+            click.echo(f"\n✗ Failed to generate cold-start math blob (timeout)!", err=True)
             return False
 
         # Save the cold-start blob
