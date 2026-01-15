@@ -716,19 +716,112 @@ The script uses a "fake conversation" approach to generate true cold-start compu
 
 ### Command-Line Options
 
-- `--all`: Process all datasets (default: only committed datasets in `real_data/`)
-- `--include-local`: Include datasets from `real_data/.local/` (requires `--all`)
+- `DATASETS...`: Specify one or more dataset names (e.g., `biodiversity vw`)
+- `--all`: Process all datasets
+- `--include-local`: Include datasets from `real_data/.local/`
 - `--no-cleanup`: Keep fake conversation data for debugging (normally cleaned up automatically)
 - `--timeout N`: Set timeout in seconds for math computation (default: 300)
+- `--pause-math`: Automatically pause running math workers (resumes after completion)
+- `--verbose` / `-v`: Show detailed output including real-time Clojure poller logs
+
+**Examples:**
+```bash
+# Single dataset
+uv run python scripts/generate_cold_start_clojure.py biodiversity
+
+# Multiple datasets
+uv run python scripts/generate_cold_start_clojure.py biodiversity vw american-assembly
+
+# All datasets with verbose output and longer timeout
+uv run python scripts/generate_cold_start_clojure.py --all --include-local --pause-math --timeout 600 -v
+```
 
 ### Safety Features
 
-- **Math worker detection**: Refuses to run if math worker is active
+- **Math worker detection**: Refuses to run if math worker is active (use `--pause-math` to auto-pause)
 - **Environment validation**: Checks that DATABASE_URL is set before proceeding
 - **Report ID validation**: Verifies report_id exists in reports table
 - **Vote verification**: Confirms source zid has votes before attempting computation
 - **Automatic cleanup**: Fake conversation data is always deleted (unless `--no-cleanup`)
 - **No permanent changes**: Original database data is never modified
+- **Error detection**: Monitors Clojure poller output for fatal errors and aborts early (see below)
+
+### Clojure Error Detection
+
+The script monitors the Clojure poller output for fatal errors and aborts early instead of waiting for timeout. Detected patterns:
+- `"Failed conversation update"` - General computation failure
+- `"nil has zero dimensionality"` - Empty matrix in PCA (see Known Limitations)
+- `"Re-queueing messages for failed update"` - Persistent failure
+- `"java.lang.OutOfMemoryError"` - Memory exhaustion
+
+When detected, the script aborts with:
+```
+✗ Clojure poller failed: Clojure error detected: nil has zero dimensionality
+  The conversation data may not be processable by the Clojure implementation.
+```
+
+---
+
+## Cluster Visualization Script
+
+The `visualize_cluster_comparison.py` script generates visual comparisons between different clustering outputs.
+
+### Usage
+
+```bash
+cd delphi
+
+# Single dataset
+uv run python scripts/visualize_cluster_comparison.py biodiversity
+
+# Multiple datasets
+uv run python scripts/visualize_cluster_comparison.py biodiversity vw
+
+# All datasets
+uv run python scripts/visualize_cluster_comparison.py --all --include-local
+```
+
+### Output
+
+For each dataset, generates:
+- `{dataset}_golden_vs_coldstart_sidebyside.png` - Python vs Clojure cold-start side-by-side
+- `{dataset}_golden_vs_coldstart_overlay.png` - Python vs Clojure cold-start overlay
+- `{dataset}_coldstart_vs_regular_sidebyside.png` - Clojure cold-start vs original
+- `{dataset}_coldstart_vs_regular_overlay.png` - Clojure cold-start vs original overlay
+- `{dataset}_*_metrics.json` - Comparison metrics (Jaccard similarity, etc.)
+
+Output directory: `scripts/outputs/cluster_visualizations/{dataset}/`
+
+Full absolute paths are printed for each PNG, allowing alt-click to open in IDE.
+
+### Features
+
+- **PCA sign flip detection**: Automatically detects and corrects PCA sign flips between implementations
+- **Synchronized axes**: Side-by-side plots share the same X/Y limits for direct comparison
+- **Convex hulls**: Shows group boundaries with convex hulls in overlay mode
+
+---
+
+## Known Limitations
+
+### Clojure "nil has zero dimensionality" Error
+
+Some large conversations fail in the Clojure implementation with:
+```
+clojure.lang.ExceptionInfo: nil has zero dimensionality, cannot get count for dimension: 0
+    at polismath.math.conversation/partial-pca/learn (conversation.clj:719)
+```
+
+**Cause**: The conversation data results in an empty or nil matrix during PCA computation. This can happen when:
+- All comments are moderated out
+- Not enough participants meet the "in-conv" threshold
+- Edge cases in the data that produce empty participant matrices
+
+**Impact**: These conversations cannot be processed by the Clojure implementation and will fail in the cold-start generation script.
+
+**Workaround**: The Python implementation may handle these edge cases differently. For affected conversations, only Python-generated outputs will be available.
+
+**Known affected datasets**: bg2050 (pakistan)
 
 ---
 
