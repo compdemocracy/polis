@@ -8,7 +8,7 @@ const logToFile = Config.logToFile;
 
 // Console transport:
 // - In dev, emit colorful, human-readable logs
-// - In prod, emit structured JSON logs friendly to Datadog
+// - In prod, emit structured JSON logs
 const consoleTransport = new transports.Console({
   format: devMode
     ? format.combine(format.colorize(), format.simple())

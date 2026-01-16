@@ -36,8 +36,8 @@ export class ImportWorkerService extends Construct {
       containerInsights: true,
     });
     const taskDefinition = new ecs.FargateTaskDefinition(this, 'ImportWorkerTask', {
-      cpu: 512,
-      memoryLimitMiB: 1024,
+      cpu: 1024,
+      memoryLimitMiB: 4096,
       runtimePlatform: {
         cpuArchitecture: ecs.CpuArchitecture.X86_64, 
         operatingSystemFamily: ecs.OperatingSystemFamily.LINUX,
@@ -85,6 +85,8 @@ export class ImportWorkerService extends Construct {
         POSTGRES_HOST: props.database.dbInstanceEndpointAddress,
         POSTGRES_PORT: props.database.dbInstanceEndpointPort,
         POSTGRES_DB: 'polisdb',
+        DATABASE_SSL: 'true',
+        SERVER_LOG_LEVEL: 'info',
       },
     });
     const service = new ecs.FargateService(this, 'ImportWorkerService', {

@@ -44,17 +44,17 @@ if [ -d "$DEPLOY_DIR" ]; then
   if [ "$SERVICE_TYPE" == "server" ]; then
     echo "Stopping server-related services (server, nginx-proxy, file-server, client-participation-alpha)..."
     # Stop services related to the 'server' type instance (as started in AfterInstall)
-    /usr/local/bin/docker-compose stop server nginx-proxy file-server client-participation-alpha datadog-agent || echo "Warning: Failed to stop server component(s), might already be stopped."
+    /usr/local/bin/docker-compose stop server nginx-proxy file-server client-participation-alpha || echo "Warning: Failed to stop server component(s), might already be stopped."
     # Optional: Use 'down' if you want to remove networks etc. during stop, but 'stop' is usually sufficient here.
     # /usr/local/bin/docker-compose down --remove-orphans server nginx-proxy file-server || echo "Warning..."
 
   elif [ "$SERVICE_TYPE" == "math" ]; then
     echo "Stopping math service..."
-    /usr/local/bin/docker-compose stop math datadog-agent || echo "Warning: Failed to stop math service, might already be stopped."
+    /usr/local/bin/docker-compose stop math || echo "Warning: Failed to stop math service, might already be stopped."
 
   elif [ "$SERVICE_TYPE" == "delphi" ]; then
     echo "Stopping delphi service..."
-    /usr/local/bin/docker-compose stop delphi datadog-agent || echo "Warning: Failed to stop delphi service, might already be stopped."
+    /usr/local/bin/docker-compose stop delphi || echo "Warning: Failed to stop delphi service, might already be stopped."
 
   else
     echo "Warning: Unknown service type '$SERVICE_TYPE' found in $SERVICE_TYPE_FILE. No specific services stopped."

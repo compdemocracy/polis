@@ -102,10 +102,10 @@ fi
 
 if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
-  sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha datadog-agent  --build --force-recreate
+  sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
   echo "Starting docker-compose up for 'math' service"
-  sudo /usr/local/bin/docker-compose up -d math datadog-agent --build --force-recreate
+  sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   echo "Starting docker-compose up for 'delphi' service"
   echo "Fetching Ollama Service URL for Delphi..."
@@ -169,7 +169,7 @@ elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
     printf "DELPHI_CONTAINER_CPUS=%s\n" "$DELPHI_CONTAINER_CPUS" | sudo tee -a .env > /dev/null
   fi
 
-  sudo /usr/local/bin/docker-compose up -d delphi datadog-agent --build --force-recreate
+  sudo /usr/local/bin/docker-compose up -d delphi --build --force-recreate
 else
   echo "Error: Unknown service type: [$SERVICE_FROM_FILE]. Starting all services (default docker-compose up -d)"
   sudo /usr/local/bin/docker-compose up -d --build --force-recreate

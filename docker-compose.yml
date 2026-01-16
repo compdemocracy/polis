@@ -46,10 +46,6 @@ services:
       - INTERNAL_SERVICE_URL=${INTERNAL_SERVICE_URL}
       - PUBLIC_OIDC_CACHE_KEY_PREFIX=${OIDC_CACHE_KEY_PREFIX}
       - PUBLIC_OIDC_CACHE_KEY_ID_TOKEN_SUFFIX=${OIDC_CACHE_KEY_ID_TOKEN_SUFFIX}
-      - DD_AGENT_HOST=datadog-agent
-      - DD_TRACE_ENABLED=true
-      - DD_SERVICE=cpa
-      - DD_ENV=prod
     depends_on:
       - "server"
 
@@ -57,13 +53,6 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - DATABASE_SSL=${DATABASE_SSL}
-      - DD_AGENT_HOST=datadog-agent
-      - DD_TRACE_ENABLED=true
-      - DD_SERVICE=server
-      - DD_ENV=prod 
-      - DD_LOGS_INJECTION=true
-      - DD_TRACE_SAMPLE_RATE="1"
-      - DD_GIT_REPOSITORY_URL="github.com/compdemocracy/polis"
       - AWS_LOG_GROUP_NAME=${AWS_LOG_GROUP_NAME}
     env_file:
       - ${SERVER_ENV_FILE:-.env}
@@ -76,7 +65,6 @@ services:
         NODE_ENV: production
     labels:
       polis_tag: ${TAG:-dev}
-      com.datadoghq.ad.logs: '[{"source": "python", "service": "server"}]'
     networks:
       - "polis-net"
     # Scale the server container to a given number of instances.
@@ -94,7 +82,6 @@ services:
       context: ./math
     labels:
       polis_tag: ${TAG:-dev}
-      com.datadoghq.ad.logs: '[{"source": "python", "service": "math"}]'
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - LOGGING_LEVEL=${MATH_LOG_LEVEL:-warn}
@@ -103,13 +90,6 @@ services:
       - WEBSERVER_PASS=${WEBSERVER_PASS}
       # Database connection pool configuration for math service
       - DATABASE_POOL_SIZE=${MATH_DATABASE_POOL_SIZE:-10}
-      - DD_AGENT_HOST=datadog-agent
-      - DD_TRACE_ENABLED=true
-      - DD_TRACE_SAMPLE_RATE="1"
-      - DD_SERVICE=math
-      - DD_ENV=prod
-      - DD_LOGS_INJECTION=true
-      - DD_ENABLED=true
     networks:
       - "polis-net"
     restart: unless-stopped
@@ -123,7 +103,6 @@ services:
       target: final
     labels:
       polis_tag: ${TAG:-dev}
-      com.datadoghq.ad.logs: '[{"source": "python", "service": "delphi"}]'
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
@@ -154,13 +133,6 @@ services:
       - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-polis123}
       - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
       - INSTANCE_SIZE=${INSTANCE_SIZE:-default}
-      - DD_AGENT_HOST=datadog-agent
-      - DD_TRACE_ENABLED=true
-      - DD_SERVICE=delphi
-      - DD_ENV=prod
-      - DD_LOGS_INJECTION=true
-      - DD_TRACE_SAMPLE_RATE="1" 
-      - DD_GIT_REPOSITORY_URL="github.com/compdemocracy/polis"
       - AWS_LOG_GROUP_NAME=${AWS_LOG_GROUP_NAME}
     networks:
       - "polis-net"
@@ -186,10 +158,6 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_USER=${POSTGRES_USER}
-      - DD_AGENT_HOST=datadog-agent
-      - DD_TRACE_ENABLED=true
-      - DD_SERVICE=postgress
-      - DD_ENV=prod
     networks:
       - "polis-net"
     volumes:
@@ -287,11 +255,6 @@ services:
     container_name: ollama
     ports:
       - "11434:11434"
-    environment:
-      - DD_AGENT_HOST=datadog-agent
-      - DD_TRACE_ENABLED=true
-      - DD_SERVICE=ollama
-      - DD_ENV=prod
     volumes:
       - ollama-models:/root/.ollama
     networks:
@@ -366,47 +329,6 @@ services:
       - "polis-net"
     profiles:
       - local-services
-  
-  # datadog
-  datadog-agent:
-    image: datadog/agent:7.71.1
-    container_name: dd-agent
-    networks:
-      - "polis-net"
-    ports:
-      - "8126:8126/tcp"
-    environment:
-      - DD_API_KEY=${DD_API_KEY}
-      - DD_SITE=${DD_SITE}
-      - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
-      - DD_APM_ENABLED=true
-      - DD_APM_NON_LOCAL_TRAFFIC=true
-      - DD_PROCESS_CONFIG_PROCESS_COLLECTION_ENABLED=true
-      - DD_LOGS_ENABLED=true
-      - DD_SYSTEM_PROBE_NETWORK_ENABLED=true
-      - DD_PROCESS_AGENT_ENABLED=true
-      - DD_APM_INSTRUMENTATION_ENABLED=host
-      - DD_APM_ERROR_TRACKING_STANDALONE=true
-      - DD_APM_INSTRUMENTATION_LIBRARIES=js:5,python:3,java:1
-    volumes:
-      # These volumes are essential for the agent to monitor the host and other containers
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /proc/:/host/proc/:ro
-      - /sys/fs/cgroup/:/host/sys/fs/cgroup:ro
-      - /sys/kernel/debug:/sys/kernel/debug
-    cap_add:
-      - SYS_ADMIN
-      - SYS_RESOURCE
-      - SYS_PTRACE
-      - NET_ADMIN
-      - NET_BROADCAST
-      - NET_RAW
-      - IPC_LOCK
-      - CHOWN
-    security_opt:
-      - apparmor:unconfined
-    profiles:
-      - prod
 
 networks:
   polis-net:

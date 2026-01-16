@@ -41,8 +41,6 @@
     "webpack-dev-server": "^4.15.1"
   },
   "dependencies": {
-    "@datadog/browser-rum": "^6.19.0",
-    "@datadog/browser-rum-react": "^6.19.0",
     "color": "~4.2.3",
     "d3": "~4.6.0",
     "d3-contour": "~1.1.2",

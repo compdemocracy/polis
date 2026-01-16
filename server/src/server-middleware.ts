@@ -46,7 +46,7 @@ function middleware_log_request_body(
   next();
 }
 
-// Datadog-friendly HTTP access log middleware (prod only)
+// HTTP access log middleware (prod only)
 function middleware_http_json_logger(
   req: ExpressRequest,
   res: ExpressResponse,
@@ -79,7 +79,7 @@ function middleware_http_json_logger(
       duration_ms: durationMs,
     };
 
-    // status level for Datadog coloring
+    // status level
     let level: "error" | "warn" | "info";
     if (statusCode >= 500) level = "error";
     else if (statusCode >= 400) level = "warn";
@@ -135,7 +135,7 @@ function globalErrorHandler(
   res: ExpressResponse,
   next: (e?: any) => void
 ) {
-  // Datadog-friendly structured error log
+  //structured error log
   const status = res.statusCode >= 400 ? res.statusCode : 500;
   logger.error("request_error", {
     status: status >= 500 ? "error" : "warn",
