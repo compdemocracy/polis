@@ -181,12 +181,14 @@ start_preview_server() {
   PREVIEW_PID=$!
 
   # Wait for server to be ready (up to 30s)
+  # NOTE: We check the actual conversation URL, not "/", because the Astro app
+  # has no root route — only /:conversation_id — so "/" always returns 404.
   local retries=30
-  while ! curl -sf --max-time 2 "${PREVIEW_HOST}/" &>/dev/null; do
+  while ! curl -so /dev/null --max-time 5 -w '%{http_code}' "${LOCAL_URL}" 2>/dev/null | grep -q '^[23]'; do
     retries=$((retries - 1))
     if [ $retries -le 0 ]; then
-      err "Preview server failed to start. Check /tmp/astro-preview-$$.log"
-      cat /tmp/astro-preview-$$.log | tail -20
+      err "Preview server failed to start within 30s. Log tail:"
+      tail -20 /tmp/astro-preview-$$.log
       exit 1
     fi
     sleep 1
