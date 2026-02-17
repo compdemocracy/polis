@@ -217,13 +217,26 @@ run_lighthouse() {
 
   info "  Run ${run_num}/${NUM_RUNS}: ${label}..."
 
+  local lh_exit=0
+  local stderr_file="${output_prefix}-run${run_num}-stderr.log"
   lighthouse "$url" \
     "${LH_FLAGS[@]}" \
     --output=json \
     --output=html \
     --output-path="${output_prefix}-run${run_num}" \
-    2>/dev/null
+    2>"$stderr_file" \
+    || lh_exit=$?
 
+  if [ $lh_exit -ne 0 ]; then
+    err "  Run ${run_num} FAILED (exit code: ${lh_exit})"
+    if [ -s "$stderr_file" ]; then
+      err "  Lighthouse stderr:"
+      tail -10 "$stderr_file" >&2
+    fi
+    return 1
+  fi
+
+  rm -f "$stderr_file"
   ok "  Run ${run_num} complete"
 }
 
@@ -237,11 +250,18 @@ run_all_lighthouse() {
   info "Runs: ${NUM_RUNS}"
   echo ""
 
+  local failures=0
   for i in $(seq 1 "$NUM_RUNS"); do
-    run_lighthouse "$url" "${output_dir}/lighthouse" "$label" "$i"
+    if ! run_lighthouse "$url" "${output_dir}/lighthouse" "$label" "$i"; then
+      failures=$((failures + 1))
+    fi
   done
 
-  ok "All ${NUM_RUNS} runs complete for ${label}"
+  if [ $failures -gt 0 ]; then
+    warn "${failures}/${NUM_RUNS} runs failed for ${label}"
+  else
+    ok "All ${NUM_RUNS} runs complete for ${label}"
+  fi
 }
 
 # ------------------------------------------------------------------
