@@ -76,12 +76,14 @@ header() { echo -e "\n${BOLD}${CYAN}═══ $* ═══${NC}\n"; }
 preflight() {
   header "Preflight Checks"
 
-  # Check for lighthouse
-  if ! command -v lighthouse &>/dev/null; then
+  # Check for lighthouse — resolve its absolute path now so that cd-ing
+  # into subdirectories with different mise/node contexts doesn't break it.
+  LIGHTHOUSE_BIN="$(command -v lighthouse 2>/dev/null || true)"
+  if [ -z "$LIGHTHOUSE_BIN" ]; then
     err "lighthouse CLI not found. Install with: npm install -g lighthouse"
     exit 1
   fi
-  ok "lighthouse CLI found: $(lighthouse --version 2>/dev/null || echo 'unknown version')"
+  ok "lighthouse CLI found: $($LIGHTHOUSE_BIN --version 2>/dev/null || echo 'unknown version') (${LIGHTHOUSE_BIN})"
 
   # Check for jq (used for JSON parsing)
   if ! command -v jq &>/dev/null; then
@@ -219,7 +221,7 @@ run_lighthouse() {
 
   local lh_exit=0
   local stderr_file="${output_prefix}-run${run_num}-stderr.log"
-  lighthouse "$url" \
+  "$LIGHTHOUSE_BIN" "$url" \
     "${LH_FLAGS[@]}" \
     --output=json \
     --output=html \
@@ -469,7 +471,7 @@ generate_markdown_report() {
     echo "- **Date**: $(date '+%Y-%m-%d %H:%M:%S')"
     echo "- **Conversation**: \`${CONVERSATION_ID}\`"
     echo "- **Runs per target**: ${NUM_RUNS}"
-    echo "- **Tool**: Lighthouse $(lighthouse --version 2>/dev/null || echo 'CLI')"
+    echo "- **Tool**: Lighthouse $($LIGHTHOUSE_BIN --version 2>/dev/null || echo 'CLI')"
     echo "- **Mode**: Desktop preset, simulated throttling"
     echo ""
     echo "## Branches"
