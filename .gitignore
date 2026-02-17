@@ -9,6 +9,7 @@
 **/CLAUDE.local.md
 build/
 delphi/umap_narrative/__init__.py
+perf-results/
 preprod.env 
 prod.env
 xids.csv
