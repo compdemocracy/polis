@@ -27,6 +27,9 @@ npm test
 # Run admin interface tests
 npm run test:admin
 
+# Run alpha client tests
+npm run test:alpha
+
 # Run authentication tests
 npm run test:auth
 

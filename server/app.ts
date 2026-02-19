@@ -208,6 +208,7 @@ import {
   assignToP,
   assignToPCustom,
   getArrayOfInt,
+  getArrayOfString,
   getArrayOfStringNonEmpty,
   getBool,
   getConversationIdFetchZid,
@@ -342,6 +343,7 @@ helpersInitialized.then(
         assignToPCustom("zid")
       ),
       want("math_tick", getInt, assignToP),
+      want("keys", getArrayOfString, assignToP),
       wantHeader(
         "If-None-Match",
         getStringLimitLength(1000),
@@ -1394,6 +1396,7 @@ helpersInitialized.then(
       want("link_url", getStringLimitLength(1, 9999), assignToP),
       want("subscribe_type", getInt, assignToP),
       want("treevite_enabled", getBool, assignToP, false),
+      want("topics_enabled", getBool, assignToP, false),
       want("use_xid_whitelist", getBool, assignToP),
       want("xid_required", getBool, assignToP),
       handle_PUT_conversations
@@ -1658,6 +1661,7 @@ helpersInitialized.then(
       want("is_data_open", getBool, assignToP, false),
       want("ownerXid", getStringLimitLength(1, 999), assignToP),
       want("treevite_enabled", getBool, assignToP, false),
+      want("topics_enabled", getBool, assignToP, false),
       handle_POST_conversations
     );
 

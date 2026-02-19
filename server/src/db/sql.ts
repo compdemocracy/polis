@@ -39,6 +39,7 @@ const sql_conversations: any = sql.define({
     "use_xid_whitelist",
     "xid_required",
     "treevite_enabled",
+    "topics_enabled",
   ],
 });
 

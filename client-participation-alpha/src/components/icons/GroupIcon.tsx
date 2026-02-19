@@ -1,7 +1,7 @@
 interface GroupIconProps {
-  size?: number;
-  className?: string;
-  fill?: string;
+  size?: number
+  className?: string
+  fill?: string
 }
 
 export default function GroupIcon({ size = 16, className, ...props }: GroupIconProps) {
@@ -15,7 +15,7 @@ export default function GroupIcon({ size = 16, className, ...props }: GroupIconP
       fill="none"
       className={className}
     >
-      <g fill={props.fill || "currentColor"}>
+      <g fill={props.fill || 'currentColor'}>
         <ellipse cx="1.99335548" cy="1.42348754" rx="1.32890365" ry="1.42348754" />
         <ellipse cx="7.97342193" cy="1.42348754" rx="1.32890365" ry="1.42348754" />
         <ellipse cx="4.9833887" cy="3.55871886" rx="1.99335548" ry="2.13523132" />
@@ -27,6 +27,5 @@ export default function GroupIcon({ size = 16, className, ...props }: GroupIconP
         />
       </g>
     </svg>
-  );
+  )
 }
-

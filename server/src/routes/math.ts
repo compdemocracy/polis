@@ -30,7 +30,14 @@ function handle_GET_math_pca(
 const pcaResultsExistForZid: Record<number, boolean> = {};
 
 function handle_GET_math_pca2(
-  req: { p: { zid: number; math_tick: any; ifNoneMatch: any } },
+  req: {
+    p: {
+      zid: number;
+      math_tick: any;
+      ifNoneMatch: any;
+      keys?: string[];
+    };
+  },
   res: {
     status: (arg0: number) => {
       (): any;
@@ -39,14 +46,16 @@ function handle_GET_math_pca2(
     };
     set: (arg0: {
       "Content-Type": string;
-      "Content-Encoding": string;
-      Etag: string;
+      "Content-Encoding"?: string;
+      Etag?: string;
     }) => void;
+    json: (arg0: any) => void;
     send: (arg0: any) => void;
   }
 ) {
   const zid = req.p.zid;
   let math_tick = req.p.math_tick;
+  const keys = req.p.keys;
 
   const ifNoneMatch = req.p.ifNoneMatch;
   if (ifNoneMatch) {
@@ -89,6 +98,18 @@ function handle_GET_math_pca2(
   getPca(zid, math_tick)
     .then(function (data: PcaCacheItem | undefined) {
       if (data) {
+        // If keys are specified and non-empty, filter the response
+        if (keys && keys.length > 0) {
+          // Filter to only include requested keys that exist in the POJO
+          // _.pick will gracefully ignore keys that don't exist
+          const filtered = _.pick(data.asPOJO, keys);
+          res.set({
+            "Content-Type": "application/json",
+            Etag: '"' + data.asPOJO.math_tick + '"',
+          });
+          res.json(filtered);
+          return;
+        }
         // The buffer is gzipped beforehand to cut down on server effort in re-gzipping
         // the same json string for each response.
         // We can't cache this endpoint on Cloudflare because the response changes too freqently,

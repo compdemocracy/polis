@@ -1,8 +1,4 @@
-import {
-  loginStandardUserAPI,
-  logout,
-  getAuthToken,
-} from '../../support/auth-helpers.js'
+import { loginStandardUserAPI, logout, getAuthToken } from '../../support/auth-helpers.js'
 import {
   createTestConversationAPI,
   addCommentsToConversationNoAuth,
@@ -17,9 +13,9 @@ function createConversationWithSeedComment(topicSuffix = 'Conversation') {
   const description = 'Conversation created by Cypress for participant management tests'
 
   return createTestConversationAPI({ topic, description }).then((conversationId) => {
-    return addCommentsToConversationNoAuth(conversationId, ['Seed comment for participant testing']).then(
-      () => conversationId,
-    )
+    return addCommentsToConversationNoAuth(conversationId, [
+      'Seed comment for participant testing',
+    ]).then(() => conversationId)
   })
 }
 

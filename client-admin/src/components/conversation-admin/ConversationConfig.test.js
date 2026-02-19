@@ -4,9 +4,15 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { ThemeUIProvider } from 'theme-ui'
 
 import { ConversationDataProvider } from '../../util/conversation_data'
+import { mockAuth } from '../../test-utils'
 import * as actions from '../../actions'
 import ConversationConfig from './ConversationConfig'
 import theme from '../../theme'
+
+// Mock Auth
+jest.mock('react-oidc-context', () => ({
+  useAuth: () => mockAuth
+}))
 
 // Mock child components
 jest.mock('./CheckboxField', () => ({

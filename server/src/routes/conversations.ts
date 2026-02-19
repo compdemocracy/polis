@@ -847,6 +847,7 @@ function handle_PUT_conversations(
       conversation_id: string;
       context: any;
       use_xid_whitelist?: any;
+      topics_enabled?: any;
     };
   },
   res: any
@@ -934,6 +935,9 @@ function handle_PUT_conversations(
       }
       if (!_.isUndefined((req.p as any).treevite_enabled)) {
         (fields as any).treevite_enabled = (req.p as any).treevite_enabled;
+      }
+      if (!_.isUndefined((req.p as any).topics_enabled)) {
+        (fields as any).topics_enabled = !!(req.p as any).topics_enabled;
       }
       ifDefinedSet("auth_opt_allow_3rdparty", req.p, fields);
 
@@ -1104,6 +1108,7 @@ function handle_POST_conversations(
       auth_opt_allow_3rdparty: any;
       conversation_id: any;
       treevite_enabled: any;
+      topics_enabled?: any;
     };
   },
   res: any
@@ -1160,6 +1165,7 @@ function handle_POST_conversations(
                 req.p.auth_opt_allow_3rdparty ||
                 DEFAULTS.auth_opt_allow_3rdparty,
               treevite_enabled: !!req.p.treevite_enabled,
+              topics_enabled: !!req.p.topics_enabled,
             })
             .returning("*")
             .toString();

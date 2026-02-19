@@ -1,13 +1,21 @@
 ---
 import '../../styles/global.css';
-const { title = 'Polis Conversation' } = Astro.props;
+
+interface Props {
+  title?: string;
+  lang?: string;
+  dir?: 'ltr' | 'rtl';
+}
+
+const { title = 'Polis Conversation', lang = 'en', dir = 'ltr' } = Astro.props;
 ---
 <!DOCTYPE html>
-<html lang="en">
+<html lang={lang} dir={dir}>
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <!-- Relative URL so it works when app is mounted at /alpha/ behind nginx -->
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
     <title>{title}</title>
 </head>
 <body>

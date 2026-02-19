@@ -66,7 +66,11 @@ jobs:
 
     - name: Build Docker images
       run: |
-        # Build all services defined in test compose file
+        # Build postgres with --no-cache to ensure latest migrations are used
+        # Docker layer caching can cause old migration files to persist
+        docker compose -f docker-compose.test.yml --env-file test.env build --no-cache postgres
+        
+        # Build remaining services (caching OK for these)
         docker compose -f docker-compose.test.yml --env-file test.env build
 
     - name: Start services
@@ -110,6 +114,12 @@ jobs:
         
         echo "Checking server API..."
         curl -f http://localhost/api/v3/participationInit || true
+
+    - name: Show postgres initialization logs
+      if: always()
+      run: |
+        echo "=== Postgres container logs (shows migration execution) ==="
+        docker compose -f docker-compose.test.yml logs postgres | head -200
 
     - name: Show service logs
       if: always()

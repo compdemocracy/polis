@@ -1,0 +1,57 @@
+name: Client Participation Alpha CI
+
+concurrency:
+  group: client-participation-alpha-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [edge]
+    paths:
+      - "client-participation-alpha/**"
+  pull_request:
+    paths:
+      - "client-participation-alpha/**"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: client-participation-alpha/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: client-participation-alpha
+
+      - name: Check formatting
+        run: npm run format -- --check
+        working-directory: client-participation-alpha
+
+      - name: Run linter
+        run: npm run lint
+        working-directory: client-participation-alpha
+
+      - name: Run tests with coverage
+        run: npm run test:coverage
+        working-directory: client-participation-alpha
+
+      - name: Build
+        run: npm run build
+        working-directory: client-participation-alpha
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          directory: client-participation-alpha/coverage
+          flags: client-participation-alpha
+          name: client-participation-alpha-coverage
+          fail_ci_if_error: false

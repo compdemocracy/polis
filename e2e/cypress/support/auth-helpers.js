@@ -139,21 +139,25 @@ export function loginStandardUserAPI(email, password) {
       win.oidcTokenGetter = () => token
     })
 
-    // CRITICAL: Use a more specific intercept that only affects admin API calls
-    // This prevents the intercept from affecting participant requests
+    // CRITICAL: Intercept must not "stick" into participant flows.
+    // In particular, participants POST /api/v3/comments (submitting statements). If we inject the
+    // admin Authorization header there, the statement is attributed to the admin pid and will show
+    // up in the participant voting feed, causing false failures.
     cy.intercept('**/api/**', (req) => {
+      const referer = req.headers?.referer || req.headers?.Referer || ''
+      const isAdminUi = typeof referer === 'string' && referer.includes('/m/')
+
       // Only add auth header to admin-specific endpoints
       if (
         req.url.includes('/conversations') ||
         req.url.includes('/comments-bulk') ||
-        req.url.includes('/comments') ||
+        // /comments is shared by participants (POST) and admin tools. Only treat it as admin when
+        // it originates from admin UI pages.
+        (req.url.includes('/comments') && isAdminUi) ||
         req.url.includes('/users') ||
         req.url.includes('/reports')
       ) {
-        // Check if this is an admin context (not participant)
-        if (!req.url.includes('pid=') || req.url.includes('pid=-1')) {
-          req.headers['Authorization'] = `Bearer ${token}`
-        }
+        req.headers['Authorization'] = `Bearer ${token}`
       }
     }).as('authenticatedApiRequests')
 
@@ -187,6 +191,28 @@ export function participateAnonymously(conversationId) {
 
   // Visit the specific conversation as an anonymous user
   cy.visit(`/${conversationId}`)
+
+  // Wait for the conversation to load
+  cy.get('body').should('be.visible')
+
+  // Note: JWT tokens are only issued when participants take actions (like voting)
+  // The participant_token will not exist until the user votes
+  cy.log('✅ Anonymous participant ready to participate (JWT will be issued on first action)')
+}
+
+/**
+ * Helper to participate anonymously in an alpha conversation
+ * Note: Anonymous participants don't "log in" - they receive JWTs when they take actions like voting
+ * @param {string} conversationId - The conversation ID to participate in
+ */
+export function participateAnonymouslyAlpha(conversationId) {
+  cy.log(`👤 Participating anonymously in conversation: ${conversationId}`)
+
+  // Clear any existing authentication state
+  logout()
+
+  // Visit the specific conversation as an anonymous user
+  cy.visit(`/alpha/${conversationId}`)
 
   // Wait for the conversation to load
   cy.get('body').should('be.visible')

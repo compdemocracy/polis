@@ -327,7 +327,14 @@ export function getPca(
   }
   const cachedPOJO = cached && cached.asPOJO;
   if (cachedPOJO) {
-    if (cachedPOJO.math_tick <= (math_tick || 0)) {
+    // When caller wants the latest data (math_tick undefined or -1), return cached data
+    // This includes empty structures (math_tick: 0) created when no math data exists
+    if (math_tick === undefined || math_tick === -1) {
+      logger.silly("math from cache (latest requested)", { zid, math_tick });
+      return Promise.resolve(cached);
+    }
+    // When caller specifies a math_tick, only return cached data if it's newer
+    if (cachedPOJO.math_tick <= math_tick) {
       logger.info("math was cached but not new", {
         zid,
         cached_math_tick: cachedPOJO.math_tick,

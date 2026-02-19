@@ -1,41 +1,40 @@
-import { useMemo, useState, useEffect } from 'react';
-import { Group } from '@visx/group';
-import { scaleLinear } from '@visx/scale';
-import { motion } from 'motion/react';
-import type { PCAData } from '../api/pca';
-import type { Comment } from '../api/comments';
-import { concaveHull } from '../utils/concaveHull';
-import GroupIcon from './icons/GroupIcon';
-import { getConversationToken } from '../lib/auth';
+import { Group } from '@visx/group'
+import { scaleLinear } from '@visx/scale'
+import { motion } from 'motion/react'
+import { useEffect, useMemo, useState } from 'react'
+import type { Comment, PCAData } from '../api/types'
+import { getConversationToken } from '../lib/auth'
+import { concaveHull } from '../utils/concaveHull'
+import GroupIcon from './icons/GroupIcon'
 
 interface BaseCluster {
-  id: number;
-  x: number;
-  y: number;
-  count: number;
-  groupId: number;
-  members: number[];
+  id: number
+  x: number
+  y: number
+  count: number
+  groupId: number
+  members: number[]
 }
 
 interface PCAVisualizationProps {
-  data: PCAData;
-  comments?: Comment[] | null;
-  conversationId?: string;
+  data: PCAData
+  comments?: Comment[] | null
+  conversationId?: string
 }
 
-const CONCAVITY = 3;
-const LENGTH_THRESHOLD = 200;
+const CONCAVITY = 3
+const LENGTH_THRESHOLD = 200
 
-const width = 800;
-const height = 600;
-const margin = { top: 40, right: 40, bottom: 60, left: 60 };
+const width = 800
+const height = 600
+const margin = { top: 40, right: 40, bottom: 60, left: 60 }
 
-const xMax = width - margin.left - margin.right;
-const yMax = height - margin.top - margin.bottom;
+const xMax = width - margin.left - margin.right
+const yMax = height - margin.top - margin.bottom
 
 // Colors for up to five groups - grayscale
-const groupColors = ['#e0e0e0', '#e0e0e0', '#e0e0e0', '#e0e0e0', '#e0e0e0'];
-const groupLetters = ['A', 'B', 'C', 'D', 'E'];
+const groupColors = ['#e0e0e0', '#e0e0e0', '#e0e0e0', '#e0e0e0', '#e0e0e0']
+const groupLetters = ['A', 'B', 'C', 'D', 'E']
 
 // Icon components for agree/disagree
 function CheckCircleIcon({ fill, size = 22 }: { fill: string; size?: number }) {
@@ -52,7 +51,7 @@ function CheckCircleIcon({ fill, size = 22 }: { fill: string; size?: number }) {
         fill={fill}
       />
     </svg>
-  );
+  )
 }
 
 function BanIcon({ fill, size = 22 }: { fill: string; size?: number }) {
@@ -69,10 +68,10 @@ function BanIcon({ fill, size = 22 }: { fill: string; size?: number }) {
         fill={fill}
       />
     </svg>
-  );
+  )
 }
 
-type StatementContext = 'consensus' | { groupId: number };
+type StatementContext = 'consensus' | { groupId: number }
 
 // Helper function to select top consensus items
 function selectTopConsensusItems(
@@ -81,298 +80,322 @@ function selectTopConsensusItems(
   maxExcess: number = 10
 ): string[] {
   // Convert to array and sort descending by score
-  const entries = Object.entries(data).sort((a, b) => b[1] - a[1]);
-  
-  const selectedTids: string[] = [];
-  let i = 0;
-  
+  const entries = Object.entries(data).sort((a, b) => b[1] - a[1])
+
+  const selectedTids: string[] = []
+  let i = 0
+
   while (i < entries.length) {
     // If we already have enough items, stop
     if (selectedTids.length >= targetCount) {
-      break;
+      break
     }
 
-    const currentScore = entries[i][1];
-    const candidates: string[] = [];
-    
+    const currentScore = entries[i][1]
+    const candidates: string[] = []
+
     // Collect all items with the same score (using epsilon for float comparison)
-    let j = i;
+    let j = i
     while (j < entries.length && Math.abs(entries[j][1] - currentScore) < Number.EPSILON) {
-      candidates.push(entries[j][0]);
-      j++;
+      candidates.push(entries[j][0])
+      j++
     }
-    
+
     // Check if adding these candidates would exceed the limit
     // We allow exceeding if it's the very first group (to ensure we show something)
     // or if the total count is within tolerance
-    if (selectedTids.length === 0 || (selectedTids.length + candidates.length <= targetCount + maxExcess)) {
-      selectedTids.push(...candidates);
-      i = j;
+    if (
+      selectedTids.length === 0 ||
+      selectedTids.length + candidates.length <= targetCount + maxExcess
+    ) {
+      selectedTids.push(...candidates)
+      i = j
     } else {
       // If adding this group exceeds the limit and we already have items, stop here
-      break;
+      break
     }
   }
-  
-  return selectedTids;
+
+  return selectedTids
 }
 
-export default function PCAVisualization({ data, comments, conversationId }: PCAVisualizationProps) {
-  const [isConsensusSelected, setisConsensusSelected] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState<number | null>(null);
+export default function PCAVisualization({
+  data,
+  comments,
+  conversationId
+}: PCAVisualizationProps) {
+  const [isConsensusSelected, setisConsensusSelected] = useState(false)
+  const [selectedGroup, setSelectedGroup] = useState<number | null>(null)
   const [selectedStatement, setSelectedStatement] = useState<{
-    tid: number;
-    pSuccess: number;
-    type: 'agree' | 'disagree';
-    context: StatementContext;
-  } | null>(null);
-  const [userPid, setUserPid] = useState<number | null>(null);
+    tid: number
+    pSuccess: number
+    type: 'agree' | 'disagree'
+    context: StatementContext
+  } | null>(null)
+  const [userPid, setUserPid] = useState<number | null>(null)
 
   // Get current user's PID
   useEffect(() => {
     const updatePid = () => {
       if (conversationId) {
-        const token = getConversationToken(conversationId);
+        const token = getConversationToken(conversationId)
         if (token && typeof token.pid === 'number' && token.pid >= 0) {
-          setUserPid(token.pid);
+          setUserPid(token.pid)
         } else {
           // PID is -1 or invalid - user hasn't voted yet, so they don't have a position on the PCA
-          setUserPid(null);
+          setUserPid(null)
         }
       }
-    };
+    }
 
-    updatePid();
+    updatePid()
 
     const handleTokenUpdate = (e: Event) => {
-      const detail = (e as CustomEvent).detail;
+      const detail = (e as CustomEvent).detail
       if (detail && detail.conversation_id === conversationId) {
-        updatePid();
+        updatePid()
       }
-    };
+    }
 
-    window.addEventListener('polis-token-update', handleTokenUpdate);
-    return () => window.removeEventListener('polis-token-update', handleTokenUpdate);
-  }, [conversationId]);
+    window.addEventListener('polis-token-update', handleTokenUpdate)
+    return () => window.removeEventListener('polis-token-update', handleTokenUpdate)
+  }, [conversationId])
+
+  // Derive cleaned selected statement (filter out invalid states)
+  const cleanedSelectedStatement = useMemo(() => {
+    if (!selectedStatement) return null
+
+    // Clear if consensus is deselected but statement is consensus-based
+    if (!isConsensusSelected && selectedStatement.context === 'consensus') {
+      return null
+    }
+
+    // Clear if group is deselected but statement is group-based
+    if (selectedGroup === null && typeof selectedStatement.context === 'object') {
+      return null
+    }
+
+    return selectedStatement
+  }, [selectedStatement, isConsensusSelected, selectedGroup])
 
   // Find the comment text for the selected statement
   const selectedComment = useMemo(() => {
-    if (!selectedStatement || !comments) return null;
-    return comments.find((c) => c.tid === selectedStatement.tid);
-  }, [selectedStatement, comments]);
+    if (!cleanedSelectedStatement || !comments) return null
+    return comments.find((c) => c.tid === cleanedSelectedStatement.tid)
+  }, [cleanedSelectedStatement, comments])
 
   // Extract vote data for each group for the selected statement
   const groupVoteData = useMemo(() => {
-    if (!selectedStatement || !data['group-votes']) return [];
-    
-    const tidString = selectedStatement.tid.toString();
+    if (!cleanedSelectedStatement || !data['group-votes']) return []
+
+    const tidString = cleanedSelectedStatement.tid.toString()
     const voteData: Array<{
-      groupId: number;
-      agree: number;
-      disagree: number;
-      skip: number;
-      total: number;
-    }> = [];
+      groupId: number
+      agree: number
+      disagree: number
+      skip: number
+      total: number
+    }> = []
 
     Object.entries(data['group-votes']).forEach(([groupIdStr, groupVotes]) => {
-      const groupId = parseInt(groupIdStr, 10);
-      const votes = groupVotes.votes[tidString];
+      const groupId = parseInt(groupIdStr, 10)
+      const votes = groupVotes.votes[tidString]
       if (votes) {
-        const total = votes.A + votes.D + votes.S;
+        const total = votes.A + votes.D + votes.S
         voteData.push({
           groupId,
           agree: votes.A,
           disagree: votes.D,
           skip: votes.S,
-          total,
-        });
+          total
+        })
       }
-    });
+    })
 
-    return voteData;
-  }, [selectedStatement, data]);
-
-  // Clear selected statement when context changes
-  useEffect(() => {
-    if (!isConsensusSelected && selectedStatement?.context === 'consensus') {
-      setSelectedStatement(null);
-    }
-  }, [isConsensusSelected, selectedStatement]);
-
-  useEffect(() => {
-    if (selectedGroup === null && selectedStatement && typeof selectedStatement.context === 'object') {
-      setSelectedStatement(null);
-    }
-  }, [selectedGroup, selectedStatement]);
+    return voteData
+  }, [cleanedSelectedStatement, data])
 
   // Extract statements based on current context (consensus or group repness)
   const statements = useMemo(() => {
     if (isConsensusSelected) {
       // Use group-aware-consensus data
       if (data['group-aware-consensus']) {
-        const consensusScores = data['group-aware-consensus'];
-        const selectedTids = selectTopConsensusItems(consensusScores);
-        
-        const resultStatements: Array<{ tid: number; pSuccess: number; type: 'agree' | 'disagree' }> = [];
-        
+        const consensusScores = data['group-aware-consensus']
+        const selectedTids = selectTopConsensusItems(consensusScores)
+
+        const resultStatements: Array<{
+          tid: number
+          pSuccess: number
+          type: 'agree' | 'disagree'
+        }> = []
+
         selectedTids.forEach((tidStr) => {
-          const tid = parseInt(tidStr, 10);
-          
+          const tid = parseInt(tidStr, 10)
+
           // Calculate stats from group-votes
-          let totalAgree = 0;
-          let totalDisagree = 0;
-          
+          let totalAgree = 0
+          let totalDisagree = 0
+
           if (data['group-votes']) {
             Object.values(data['group-votes']).forEach((groupVotes) => {
-              const votes = groupVotes.votes[tidStr];
+              const votes = groupVotes.votes[tidStr]
               if (votes) {
-                totalAgree += votes.A;
-                totalDisagree += votes.D;
+                totalAgree += votes.A
+                totalDisagree += votes.D
               }
-            });
+            })
           }
-          
-          const totalVotes = totalAgree + totalDisagree;
+
+          const totalVotes = totalAgree + totalDisagree
           if (totalVotes > 0) {
-            const pAgree = totalAgree / totalVotes;
-            const pDisagree = totalDisagree / totalVotes;
-            
+            const pAgree = totalAgree / totalVotes
+            const pDisagree = totalDisagree / totalVotes
+
             if (pAgree >= pDisagree) {
               resultStatements.push({
                 tid,
                 pSuccess: pAgree,
-                type: 'agree',
-              });
+                type: 'agree'
+              })
             } else {
               resultStatements.push({
                 tid,
                 pSuccess: pDisagree,
-                type: 'disagree',
-              });
+                type: 'disagree'
+              })
             }
           }
-        });
-        
+        })
+
         // Sort by pSuccess descending, then by TID ascending
         return resultStatements.sort((a, b) => {
-          const pSuccessDiff = b.pSuccess - a.pSuccess;
-          if (pSuccessDiff !== 0) return pSuccessDiff;
-          return a.tid - b.tid;
-        });
+          const pSuccessDiff = b.pSuccess - a.pSuccess
+          if (pSuccessDiff !== 0) return pSuccessDiff
+          return a.tid - b.tid
+        })
       }
     } else if (selectedGroup !== null && data.repness) {
       // Extract repness statements for selected group
-      const groupRepness = data.repness[selectedGroup.toString()];
-      if (!groupRepness) return [];
-      
-      return groupRepness.map((item) => ({
-        tid: item.tid,
-        pSuccess: item['p-success'],
-        type: item['repful-for'] as 'agree' | 'disagree',
-      })).sort((a, b) => {
-        const pSuccessDiff = b.pSuccess - a.pSuccess;
-        if (pSuccessDiff !== 0) return pSuccessDiff;
-        return a.tid - b.tid;
-      });
+      const groupRepness = data.repness[selectedGroup.toString()]
+      if (!groupRepness) return []
+
+      return groupRepness
+        .map((item) => ({
+          tid: item.tid,
+          pSuccess: item['p-success'],
+          type: item['repful-for'] as 'agree' | 'disagree'
+        }))
+        .sort((a, b) => {
+          const pSuccessDiff = b.pSuccess - a.pSuccess
+          if (pSuccessDiff !== 0) return pSuccessDiff
+          return a.tid - b.tid
+        })
     }
-    
-    return [];
-  }, [isConsensusSelected, selectedGroup, data]);
+
+    return []
+  }, [isConsensusSelected, selectedGroup, data])
 
   // Transform the data into a more usable format
   const baseClusters: BaseCluster[] = useMemo(() => {
-    const groupClusters = data['group-clusters'];
+    const groupClusters = data['group-clusters']
 
     // Create a map of base cluster ID to group ID
-    const clusterToGroup = new Map<number, number>();
+    const clusterToGroup = new Map<number, number>()
     groupClusters.forEach((groupCluster) => {
       groupCluster.members.forEach((memberId) => {
-        clusterToGroup.set(memberId, groupCluster.id);
-      });
-    });
+        clusterToGroup.set(memberId, groupCluster.id)
+      })
+    })
 
     // Transform base clusters
-    const baseClustersData = data['base-clusters'];
+    const baseClustersData = data['base-clusters']
     return baseClustersData.id.map((id, index) => ({
       id,
       x: baseClustersData.x[index],
       y: baseClustersData.y[index],
       count: baseClustersData.count[index],
       groupId: clusterToGroup.get(id) ?? -1,
-      members: baseClustersData.members ? baseClustersData.members[index] : [],
-    }));
-  }, [data]);
+      members: baseClustersData.members ? baseClustersData.members[index] : []
+    }))
+  }, [data])
 
   // Calculate data bounds for scales
   const xExtent = useMemo(() => {
-    const xValues = baseClusters.map((d) => d.x);
-    return [Math.min(...xValues), Math.max(...xValues)] as [number, number];
-  }, [baseClusters]);
+    const xValues = baseClusters.map((d) => d.x)
+    return [Math.min(...xValues), Math.max(...xValues)] as [number, number]
+  }, [baseClusters])
 
   const yExtent = useMemo(() => {
-    const yValues = baseClusters.map((d) => d.y);
-    return [Math.min(...yValues), Math.max(...yValues)] as [number, number];
-  }, [baseClusters]);
+    const yValues = baseClusters.map((d) => d.y)
+    return [Math.min(...yValues), Math.max(...yValues)] as [number, number]
+  }, [baseClusters])
 
   // Scales with some padding
   const xScale = useMemo(() => {
-    const [min, max] = xExtent;
-    const padding = (max - min) * 0.1;
+    const [min, max] = xExtent
+    const padding = (max - min) * 0.1
     return scaleLinear<number>({
       domain: [min - padding, max + padding],
-      range: [0, xMax],
-    });
-  }, [xExtent]);
+      range: [0, xMax]
+    })
+  }, [xExtent])
 
   const yScale = useMemo(() => {
-    const [min, max] = yExtent;
-    const padding = (max - min) * 0.1;
+    const [min, max] = yExtent
+    const padding = (max - min) * 0.1
     return scaleLinear<number>({
       domain: [min - padding, max + padding],
-      range: [0, yMax], // Negative values render upward from origin
-    });
-  }, [yExtent]);
+      range: [0, yMax] // Negative values render upward from origin
+    })
+  }, [yExtent])
 
   // Calculate concave hulls for each group
   const hulls = useMemo(() => {
-    const groupClusters = data['group-clusters'];
+    const groupClusters = data['group-clusters']
 
     return groupClusters.map((groupCluster) => {
-      const groupBaseClusters = baseClusters.filter((cluster) => cluster.groupId === groupCluster.id);
+      const groupBaseClusters = baseClusters.filter(
+        (cluster) => cluster.groupId === groupCluster.id
+      )
       const points = groupBaseClusters.map(
-        (cluster) => [xScale(cluster.x), yScale(cluster.y)] as [number, number],
-      );
-      const participantCount = groupBaseClusters.reduce((sum, cluster) => sum + cluster.count, 0);
+        (cluster) => [xScale(cluster.x), yScale(cluster.y)] as [number, number]
+      )
+      const participantCount = groupBaseClusters.reduce((sum, cluster) => sum + cluster.count, 0)
       const center = groupCluster.center
         ? ([xScale(groupCluster.center[0]), yScale(groupCluster.center[1])] as [number, number])
-        : undefined;
+        : undefined
 
-      const hull = concaveHull(points, CONCAVITY, LENGTH_THRESHOLD);
-      return { groupId: groupCluster.id, hull, points, participantCount, center };
-    });
-  }, [data, baseClusters, xScale, yScale]);
+      const hull = concaveHull(points, CONCAVITY, LENGTH_THRESHOLD)
+      return { groupId: groupCluster.id, hull, points, participantCount, center }
+    })
+  }, [data, baseClusters, xScale, yScale])
 
   // Calculate origin line positions
-  const originX = useMemo(() => xScale(0), [xScale]);
-  const originY = useMemo(() => yScale(0), [yScale]);
+  const originX = useMemo(() => xScale(0), [xScale])
+  const originY = useMemo(() => yScale(0), [yScale])
 
   // Find user's cluster position
   const userPosition = useMemo(() => {
-    if (userPid === null || userPid < 0) return null;
-    
-    const userCluster = baseClusters.find(cluster => cluster.members.includes(userPid));
-    if (!userCluster) return null;
+    if (userPid === null || userPid < 0) return null
+
+    const userCluster = baseClusters.find((cluster) => cluster.members.includes(userPid))
+    if (!userCluster) return null
 
     return {
       x: xScale(userCluster.x),
       y: yScale(userCluster.y)
-    };
-  }, [userPid, baseClusters, xScale, yScale]);
+    }
+  }, [userPid, baseClusters, xScale, yScale])
 
   return (
     <section className="section-card">
       <h2>Opinion Groups</h2>
-      <svg width={width} height={height} style={{ maxWidth: '100%', height: 'auto' }} viewBox={`0 0 ${width} ${height}`}>
+      <svg
+        width={width}
+        height={height}
+        style={{ maxWidth: '100%', height: 'auto' }}
+        viewBox={`0 0 ${width} ${height}`}
+      >
         <Group left={margin.left} top={margin.top}>
           {/* Origin lines */}
           {originX >= 0 && originX <= xMax && (
@@ -399,17 +422,17 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
           )}
 
           {/* Group hull polygons (animated) */}
-          {hulls.map(({ groupId, hull, points }, i) => {
-            const baseColor = groupColors[groupId] ?? '#e0e0e0';
-            const isSelected = selectedGroup === groupId;
-            
+          {hulls.map(({ groupId, hull, points }) => {
+            const baseColor = groupColors[groupId] ?? '#e0e0e0'
+            const isSelected = selectedGroup === groupId
+
             // Darker when selected, base gray when not
-            const color = isSelected ? '#555555' : baseColor;
-            
-            const groupKey = `group-${groupId}`;
+            const color = isSelected ? '#555555' : baseColor
+
+            const groupKey = `group-${groupId}`
 
             if (hull) {
-              const pathString = `M${hull.map((point: number[]) => point.join(',')).join('L')}Z`;
+              const pathString = `M${hull.map((point: number[]) => point.join(',')).join('L')}Z`
               return (
                 <motion.path
                   key={`${groupKey}-hull`}
@@ -420,18 +443,18 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   strokeWidth={isSelected ? 4 : 2}
                   strokeOpacity={isSelected ? 1 : 1}
                   initial={false}
-                  animate={{ 
+                  animate={{
                     d: pathString,
                     fill: color,
                     fillOpacity: isSelected ? 0.35 : 0.2,
-                    strokeWidth: isSelected ? 3 : 2,
+                    strokeWidth: isSelected ? 3 : 2
                   }}
-                  transition={{ 
-                    duration: 0.8, 
-                    ease: "easeInOut" 
+                  transition={{
+                    duration: 0.8,
+                    ease: 'easeInOut'
                   }}
                 />
-              );
+              )
             }
 
             if (points.length === 2) {
@@ -446,20 +469,20 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   strokeWidth={isSelected ? 4 : 2}
                   strokeLinecap="round"
                   initial={false}
-                  animate={{ 
+                  animate={{
                     x1: points[0][0],
                     y1: points[0][1],
                     x2: points[1][0],
                     y2: points[1][1],
                     stroke: color,
-                    strokeWidth: isSelected ? 3 : 2,
+                    strokeWidth: isSelected ? 3 : 2
                   }}
-                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                  transition={{ duration: 0.8, ease: 'easeInOut' }}
                 />
-              );
+              )
             }
 
-            return null;
+            return null
           })}
 
           {/* User position indicator */}
@@ -479,7 +502,8 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                     y="0"
                     width="1"
                     height="1"
-                    xlinkHref="/anonProfile.svg"
+                    // Use a relative URL so it works when app is mounted at /alpha/ behind nginx
+                    xlinkHref="anonProfile.svg"
                     preserveAspectRatio="xMidYMid slice"
                   />
                 </pattern>
@@ -495,13 +519,13 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                 stroke="#03a9f4"
                 strokeWidth={4}
                 initial={false}
-                animate={{ 
-                  cx: userPosition.x, 
-                  cy: userPosition.y 
+                animate={{
+                  cx: userPosition.x,
+                  cy: userPosition.y
                 }}
-                transition={{ 
-                  duration: 0.8, 
-                  ease: "easeInOut" 
+                transition={{
+                  duration: 0.8,
+                  ease: 'easeInOut'
                 }}
               />
               <motion.circle
@@ -511,13 +535,13 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                 fill="url(#user-profile-pattern)"
                 filter="url(#grayscale-filter)"
                 initial={false}
-                animate={{ 
-                  cx: userPosition.x, 
-                  cy: userPosition.y 
+                animate={{
+                  cx: userPosition.x,
+                  cy: userPosition.y
                 }}
-                transition={{ 
-                  duration: 0.8, 
-                  ease: "easeInOut" 
+                transition={{
+                  duration: 0.8,
+                  ease: 'easeInOut'
                 }}
               />
             </Group>
@@ -525,53 +549,53 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
 
           {/* Group labels (rendered above shapes) */}
           {hulls.map(({ groupId, participantCount, center }) => {
-            if (!center || participantCount <= 0) return null;
+            if (!center || participantCount <= 0) return null
 
-            const isSelected = selectedGroup === groupId;
-            const labelLetter = groupLetters[groupId] ?? '';
-            const iconSize = 16;
-            let labelOffsetY = 28;
-            const padding = 6;
+            const isSelected = selectedGroup === groupId
+            const labelLetter = groupLetters[groupId] ?? ''
+            const iconSize = 16
+            let labelOffsetY = 28
+            const padding = 6
 
             // Adjust label position to avoid obscuring user circle
             if (userPosition) {
               // Estimate label center (default position is above the hull center)
-              const defaultLabelY = center[1] - 28;
-              const dist = Math.hypot(center[0] - userPosition.x, defaultLabelY - userPosition.y);
-              
+              const defaultLabelY = center[1] - 28
+              const dist = Math.hypot(center[0] - userPosition.x, defaultLabelY - userPosition.y)
+
               // If user is too close to the default label position, push the label further up
               if (dist < 45) {
-                labelOffsetY = 60;
+                labelOffsetY = 60
               }
             }
-            const cornerRadius = 6;
+            const cornerRadius = 6
             const textStyle = {
               fill: isSelected ? '#ffffff' : 'currentColor',
               fontSize: 12,
-              fontWeight: 600,
-            } as const;
+              fontWeight: 600
+            } as const
 
             // Calculate content positions (relative to center)
-            const letterX = -(iconSize / 2) - 6; // Right edge of letter (textAnchor="end")
-            const iconX = -iconSize / 2;
-            const numberX = iconSize / 2 + 4;
-            
+            const letterX = -(iconSize / 2) - 6 // Right edge of letter (textAnchor="end")
+            const iconX = -iconSize / 2
+            const numberX = iconSize / 2 + 4
+
             // Estimate label dimensions
-            const letterWidth = 8;
-            const numberWidth = participantCount.toString().length * 12;
-            const contentLeft = letterX - letterWidth; // Left edge of letter
-            const contentRight = numberX + numberWidth; // Right edge of number
-            const contentWidth = contentRight - contentLeft;
-            const labelWidth = contentWidth + padding * 2;
-            const labelHeight = iconSize + padding * 2;
-            
+            const letterWidth = 8
+            const numberWidth = participantCount.toString().length * 12
+            const contentLeft = letterX - letterWidth // Left edge of letter
+            const contentRight = numberX + numberWidth // Right edge of number
+            const contentWidth = contentRight - contentLeft
+            const labelWidth = contentWidth + padding * 2
+            const labelHeight = iconSize + padding * 2
+
             // Position rectangle so content is centered within it
-            const labelX = contentLeft - padding;
-            const labelY = -(labelHeight / 2);
-            
+            const labelX = contentLeft - padding
+            const labelY = -(labelHeight / 2)
+
             // Calculate offset to center the content group
-            const contentCenterX = (contentLeft + contentRight) / 2;
-            
+            const contentCenterX = (contentLeft + contentRight) / 2
+
             return (
               <Group
                 key={`group-label-${groupId}`}
@@ -592,12 +616,7 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   stroke={isSelected ? '#03a9f4' : 'var(--color-border)'}
                   strokeWidth={1}
                 />
-                <text
-                  x={letterX}
-                  y={iconSize / 2 - 4}
-                  textAnchor="end"
-                  {...textStyle}
-                >
+                <text x={letterX} y={iconSize / 2 - 4} textAnchor="end" {...textStyle}>
                   {labelLetter}
                 </text>
                 <g transform={`translate(${iconX}, ${-iconSize / 2})`}>
@@ -607,116 +626,122 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   {participantCount}
                 </text>
               </Group>
-            );
+            )
           })}
 
           {/* Horizontal bar charts for selected statement votes */}
-          {selectedStatement && groupVoteData.length > 0 && hulls.map(({ groupId, center }) => {
-            if (!center) return null;
-            
-            const voteInfo = groupVoteData.find((v) => v.groupId === groupId);
-            if (!voteInfo || voteInfo.total === 0) return null;
+          {cleanedSelectedStatement &&
+            groupVoteData.length > 0 &&
+            hulls.map(({ groupId, center }) => {
+              if (!center) return null
 
-            const barWidth = 60; // Total width of the bar chart
-            const barHeight = 8;
-            const barOffsetY = 20; // Position below the label
-            
-            // Calculate proportions
-            const agreeRatio = voteInfo.agree / voteInfo.total;
-            const disagreeRatio = voteInfo.disagree / voteInfo.total;
-            const skipRatio = voteInfo.skip / voteInfo.total;
-            
-            // Calculate segment widths
-            const agreeWidth = agreeRatio * barWidth;
-            const disagreeWidth = disagreeRatio * barWidth;
-            const skipWidth = skipRatio * barWidth;
-            
-            // Starting position
-            const startX = -barWidth / 2;
-            const agreeX = startX;
-            const disagreeX = startX + agreeWidth;
-            const skipX = startX + agreeWidth + disagreeWidth;
-            
-            return (
-              <Group
-                key={`group-votes-${groupId}`}
-                left={center[0]}
-                top={center[1] - 8 + barOffsetY}
-                pointerEvents="none"
-              >
-                {/* Agree segment (green) */}
-                {agreeWidth > 0 && (
-                  <rect
-                    x={agreeX}
-                    y={-barHeight / 2}
-                    width={agreeWidth}
-                    height={barHeight}
-                    fill="#10b981"
-                  />
-                )}
-                
-                {/* Disagree segment (red) */}
-                {disagreeWidth > 0 && (
-                  <rect
-                    x={disagreeX}
-                    y={-barHeight / 2}
-                    width={disagreeWidth}
-                    height={barHeight}
-                    fill="#ef4444"
-                  />
-                )}
-                
-                {/* Skip segment (gray/neutral) */}
-                {skipWidth > 0 && (
-                  <rect
-                    x={skipX}
-                    y={-barHeight / 2}
-                    width={skipWidth}
-                    height={barHeight}
-                    fill="#9ca3af"
-                    fillOpacity={0.5}
-                  />
-                )}
-              </Group>
-            );
-          })}
+              const voteInfo = groupVoteData.find((v) => v.groupId === groupId)
+              if (!voteInfo || voteInfo.total === 0) return null
+
+              const barWidth = 60 // Total width of the bar chart
+              const barHeight = 8
+              const barOffsetY = 20 // Position below the label
+
+              // Calculate proportions
+              const agreeRatio = voteInfo.agree / voteInfo.total
+              const disagreeRatio = voteInfo.disagree / voteInfo.total
+              const skipRatio = voteInfo.skip / voteInfo.total
+
+              // Calculate segment widths
+              const agreeWidth = agreeRatio * barWidth
+              const disagreeWidth = disagreeRatio * barWidth
+              const skipWidth = skipRatio * barWidth
+
+              // Starting position
+              const startX = -barWidth / 2
+              const agreeX = startX
+              const disagreeX = startX + agreeWidth
+              const skipX = startX + agreeWidth + disagreeWidth
+
+              return (
+                <Group
+                  key={`group-votes-${groupId}`}
+                  left={center[0]}
+                  top={center[1] - 8 + barOffsetY}
+                  pointerEvents="none"
+                >
+                  {/* Agree segment (green) */}
+                  {agreeWidth > 0 && (
+                    <rect
+                      x={agreeX}
+                      y={-barHeight / 2}
+                      width={agreeWidth}
+                      height={barHeight}
+                      fill="#10b981"
+                    />
+                  )}
+
+                  {/* Disagree segment (red) */}
+                  {disagreeWidth > 0 && (
+                    <rect
+                      x={disagreeX}
+                      y={-barHeight / 2}
+                      width={disagreeWidth}
+                      height={barHeight}
+                      fill="#ef4444"
+                    />
+                  )}
+
+                  {/* Skip segment (gray/neutral) */}
+                  {skipWidth > 0 && (
+                    <rect
+                      x={skipX}
+                      y={-barHeight / 2}
+                      width={skipWidth}
+                      height={barHeight}
+                      fill="#9ca3af"
+                      fillOpacity={0.5}
+                    />
+                  )}
+                </Group>
+              )
+            })}
         </Group>
       </svg>
 
-      <div style={{ marginTop: '1.8rem', display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          marginTop: '1.8rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
+          flexWrap: 'wrap'
+        }}
+      >
         {/* Consensus button */}
         <button
           onClick={() => {
-            const newValue = !isConsensusSelected;
-            setisConsensusSelected(newValue);
+            const newValue = !isConsensusSelected
+            setisConsensusSelected(newValue)
             if (newValue) {
-              setSelectedGroup(null); // Clear group selection when consensus is selected
+              setSelectedGroup(null) // Clear group selection when consensus is selected
             }
-            setSelectedStatement(null); // Reset selected statement
+            setSelectedStatement(null) // Reset selected statement
           }}
           style={{
             padding: '0.5rem 1rem',
             borderRadius: '8px',
             border: '1px solid var(--color-border)',
-            backgroundColor: isConsensusSelected
-              ? '#03a9f4'
-              : 'var(--color-surface)',
-            color: isConsensusSelected
-              ? '#ffffff'
-              : 'var(--color-text)',
+            backgroundColor: isConsensusSelected ? '#03a9f4' : 'var(--color-surface)',
+            color: isConsensusSelected ? '#ffffff' : 'var(--color-text)',
             cursor: 'pointer',
             fontSize: '0.95rem',
             fontWeight: 500,
-            transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease',
+            transition: 'background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease'
           }}
           onMouseEnter={(e) => {
             if (!isConsensusSelected) {
-              e.currentTarget.style.backgroundColor = 'var(--color-surface-alt)';
+              e.currentTarget.style.backgroundColor = 'var(--color-surface-alt)'
             }
           }}
           onMouseLeave={(e) => {
             if (!isConsensusSelected) {
-              e.currentTarget.style.backgroundColor = 'var(--color-surface)';
+              e.currentTarget.style.backgroundColor = 'var(--color-surface)'
             }
           }}
         >
@@ -727,62 +752,71 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span style={{ color: 'var(--color-text)', fontSize: '0.95rem' }}>Group:</span>
           {hulls.map(({ groupId }) => {
-            const color = groupColors[groupId] ?? '#999';
-            const letter = groupLetters[groupId] ?? '';
+            const color = groupColors[groupId] ?? '#999'
+            const letter = groupLetters[groupId] ?? ''
             return (
               <button
                 key={`group-selector-${groupId}`}
                 onClick={() => {
                   // Toggle group selection
                   if (selectedGroup === groupId) {
-                    setSelectedGroup(null);
+                    setSelectedGroup(null)
                   } else {
-                    setSelectedGroup(groupId);
-                    setisConsensusSelected(false); // Clear consensus selection when group is selected
+                    setSelectedGroup(groupId)
+                    setisConsensusSelected(false) // Clear consensus selection when group is selected
                   }
-                  setSelectedStatement(null); // Reset selected statement
+                  setSelectedStatement(null) // Reset selected statement
                 }}
                 style={{
                   padding: '0.5rem 1rem',
                   borderRadius: '8px',
-                  border: selectedGroup === groupId 
-                    ? '3px solid #000000' 
-                    : '2px solid transparent',
+                  border: selectedGroup === groupId ? '3px solid #000000' : '2px solid transparent',
                   backgroundColor: selectedGroup === groupId ? '#03a9f4' : color,
                   color: selectedGroup === groupId ? '#ffffff' : '#333333',
                   cursor: 'pointer',
                   fontSize: '0.95rem',
                   fontWeight: selectedGroup === groupId ? 700 : 600,
-                  transition: 'opacity 0.2s ease, transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease',
-                  boxShadow: selectedGroup === groupId 
-                    ? '0 0 0 3px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.3)' 
-                    : 'none',
-                  transform: selectedGroup === groupId ? 'scale(1.05)' : 'scale(1)',
+                  transition:
+                    'opacity 0.2s ease, transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+                  boxShadow:
+                    selectedGroup === groupId
+                      ? '0 0 0 3px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.3)'
+                      : 'none',
+                  transform: selectedGroup === groupId ? 'scale(1.05)' : 'scale(1)'
                 }}
                 onMouseEnter={(e) => {
                   if (selectedGroup !== groupId) {
-                    e.currentTarget.style.opacity = '0.85';
-                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.opacity = '0.85'
+                    e.currentTarget.style.transform = 'scale(1.05)'
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (selectedGroup !== groupId) {
-                    e.currentTarget.style.opacity = '1';
-                    e.currentTarget.style.transform = 'scale(1)';
+                    e.currentTarget.style.opacity = '1'
+                    e.currentTarget.style.transform = 'scale(1)'
                   } else {
-                    e.currentTarget.style.transform = 'scale(1.05)';
+                    e.currentTarget.style.transform = 'scale(1.05)'
                   }
                 }}
               >
                 {letter}
               </button>
-            );
+            )
           })}
         </div>
 
         {/* Statement selector */}
         {(isConsensusSelected || selectedGroup !== null) && statements.length > 0 && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: '0.5rem', flexWrap: 'wrap', maxWidth: '100%' }}>
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem',
+              marginLeft: '0.5rem',
+              flexWrap: 'wrap',
+              maxWidth: '100%'
+            }}
+          >
             <span style={{ color: 'var(--color-text)', fontSize: '0.95rem' }}>Statement:</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               {statements.map((statement) => (
@@ -790,41 +824,45 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                   key={`statement-${statement.tid}`}
                   onClick={() => {
                     // Determine context based on current selection mode
-                    const context: StatementContext = isConsensusSelected 
-                      ? 'consensus' 
-                      : { groupId: selectedGroup! };
-                    
+                    const context: StatementContext = isConsensusSelected
+                      ? 'consensus'
+                      : { groupId: selectedGroup! }
+
                     // Toggle selection: if already selected with same context, deselect it
                     if (
-                      selectedStatement?.tid === statement.tid &&
-                      ((context === 'consensus' && selectedStatement.context === 'consensus') ||
-                       (typeof context === 'object' && typeof selectedStatement.context === 'object' && 
-                        selectedStatement.context.groupId === context.groupId))
+                      cleanedSelectedStatement?.tid === statement.tid &&
+                      ((context === 'consensus' &&
+                        cleanedSelectedStatement?.context === 'consensus') ||
+                        (typeof context === 'object' &&
+                          typeof cleanedSelectedStatement?.context === 'object' &&
+                          cleanedSelectedStatement?.context.groupId === context.groupId))
                     ) {
-                      setSelectedStatement(null);
+                      setSelectedStatement(null)
                     } else {
                       setSelectedStatement({
                         ...statement,
-                        context,
-                      });
+                        context
+                      })
                     }
                   }}
                   style={{
                     padding: '0.5rem 1rem',
                     borderRadius: '8px',
                     border: `1px solid ${
-                      selectedStatement?.tid === statement.tid &&
-                      ((isConsensusSelected && selectedStatement.context === 'consensus') ||
-                       (selectedGroup !== null && typeof selectedStatement.context === 'object' &&
-                        selectedStatement.context.groupId === selectedGroup))
+                      cleanedSelectedStatement?.tid === statement.tid &&
+                      ((isConsensusSelected && cleanedSelectedStatement?.context === 'consensus') ||
+                        (selectedGroup !== null &&
+                          typeof cleanedSelectedStatement?.context === 'object' &&
+                          cleanedSelectedStatement?.context.groupId === selectedGroup))
                         ? 'var(--color-button-bg)'
                         : 'var(--color-border)'
                     }`,
                     backgroundColor:
-                      selectedStatement?.tid === statement.tid &&
-                      ((isConsensusSelected && selectedStatement.context === 'consensus') ||
-                       (selectedGroup !== null && typeof selectedStatement.context === 'object' &&
-                        selectedStatement.context.groupId === selectedGroup))
+                      cleanedSelectedStatement?.tid === statement.tid &&
+                      ((isConsensusSelected && cleanedSelectedStatement?.context === 'consensus') ||
+                        (selectedGroup !== null &&
+                          typeof cleanedSelectedStatement?.context === 'object' &&
+                          cleanedSelectedStatement?.context.groupId === selectedGroup))
                         ? 'var(--color-surface-alt)'
                         : 'var(--color-surface)',
                     color: 'var(--color-text)',
@@ -832,24 +870,28 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
                     fontSize: '0.95rem',
                     fontWeight: 500,
                     transition: 'background-color 0.2s ease, border-color 0.2s ease',
-                    whiteSpace: 'nowrap',
+                    whiteSpace: 'nowrap'
                   }}
                   onMouseEnter={(e) => {
-                    const isSelected = selectedStatement?.tid === statement.tid &&
-                      ((isConsensusSelected && selectedStatement.context === 'consensus') ||
-                       (selectedGroup !== null && typeof selectedStatement.context === 'object' &&
-                        selectedStatement.context.groupId === selectedGroup));
+                    const isSelected =
+                      cleanedSelectedStatement?.tid === statement.tid &&
+                      ((isConsensusSelected && cleanedSelectedStatement?.context === 'consensus') ||
+                        (selectedGroup !== null &&
+                          typeof cleanedSelectedStatement?.context === 'object' &&
+                          cleanedSelectedStatement?.context.groupId === selectedGroup))
                     if (!isSelected) {
-                      e.currentTarget.style.backgroundColor = 'var(--color-surface-alt)';
+                      e.currentTarget.style.backgroundColor = 'var(--color-surface-alt)'
                     }
                   }}
                   onMouseLeave={(e) => {
-                    const isSelected = selectedStatement?.tid === statement.tid &&
-                      ((isConsensusSelected && selectedStatement.context === 'consensus') ||
-                       (selectedGroup !== null && typeof selectedStatement.context === 'object' &&
-                        selectedStatement.context.groupId === selectedGroup));
+                    const isSelected =
+                      cleanedSelectedStatement?.tid === statement.tid &&
+                      ((isConsensusSelected && cleanedSelectedStatement?.context === 'consensus') ||
+                        (selectedGroup !== null &&
+                          typeof cleanedSelectedStatement?.context === 'object' &&
+                          cleanedSelectedStatement?.context.groupId === selectedGroup))
                     if (!isSelected) {
-                      e.currentTarget.style.backgroundColor = 'var(--color-surface)';
+                      e.currentTarget.style.backgroundColor = 'var(--color-surface)'
                     }
                   }}
                 >
@@ -862,24 +904,26 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
       </div>
 
       {/* Comment text display */}
-      {(isConsensusSelected || selectedGroup !== null) && selectedStatement && selectedComment && (
-        <div
-          style={{
-            marginTop: '1rem',
-            padding: '1rem',
-            backgroundColor: 'var(--color-surface-alt)',
-            borderRadius: '8px',
-            border: '1px solid var(--color-border)',
-          }}
-        >
-          <p style={{ color: 'var(--color-text)', fontSize: '0.95rem', margin: 0 }}>
-            <strong>#{selectedComment.tid}</strong> {selectedComment.txt}
-          </p>
-        </div>
-      )}
+      {(isConsensusSelected || selectedGroup !== null) &&
+        cleanedSelectedStatement &&
+        selectedComment && (
+          <div
+            style={{
+              marginTop: '1rem',
+              padding: '1rem',
+              backgroundColor: 'var(--color-surface-alt)',
+              borderRadius: '8px',
+              border: '1px solid var(--color-border)'
+            }}
+          >
+            <p style={{ color: 'var(--color-text)', fontSize: '0.95rem', margin: 0 }}>
+              <strong>#{selectedComment.tid}</strong> {selectedComment.txt}
+            </p>
+          </div>
+        )}
 
       {/* Statement details */}
-      {(isConsensusSelected || selectedGroup !== null) && selectedStatement && (
+      {(isConsensusSelected || selectedGroup !== null) && cleanedSelectedStatement && (
         <div
           style={{
             marginTop: '1.5rem',
@@ -889,24 +933,24 @@ export default function PCAVisualization({ data, comments, conversationId }: PCA
             padding: '1rem',
             backgroundColor: 'var(--color-surface-alt)',
             borderRadius: '8px',
-            border: '1px solid var(--color-border)',
+            border: '1px solid var(--color-border)'
           }}
         >
-          {selectedStatement.type === 'agree' ? (
+          {cleanedSelectedStatement.type === 'agree' ? (
             <CheckCircleIcon fill="#10b981" />
           ) : (
             <BanIcon fill="#ef4444" />
           )}
           <span style={{ color: 'var(--color-text)', fontSize: '0.95rem' }}>
-            {Math.floor(selectedStatement.pSuccess * 100)}% of{' '}
-            {selectedStatement.context === 'consensus' 
-              ? 'everyone' 
-              : `those in group ${groupLetters[selectedStatement.context.groupId] ?? selectedStatement.context.groupId}`}{' '}
-            who voted on statement {selectedStatement.tid}{' '}
-            {selectedStatement.type === 'agree' ? 'agreed' : 'disagreed'}.
+            {Math.floor(cleanedSelectedStatement.pSuccess * 100)}% of{' '}
+            {cleanedSelectedStatement.context === 'consensus'
+              ? 'everyone'
+              : `those in group ${groupLetters[cleanedSelectedStatement.context.groupId] ?? cleanedSelectedStatement.context.groupId}`}{' '}
+            who voted on statement {cleanedSelectedStatement.tid}{' '}
+            {cleanedSelectedStatement.type === 'agree' ? 'agreed' : 'disagreed'}.
           </span>
         </div>
       )}
     </section>
-  );
+  )
 }

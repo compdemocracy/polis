@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Integrated Polis Test (alpha)</title>
+  </head>
+  <body>
+    <h1>Alpha integrated host page</h1>
+
+    <!--
+      Intended parity target: alpha embed.js should eventually support data-site_id/data-page_id
+      similar to legacy embed.js.
+    -->
+    <div class="polis" data-page_id="<%= page_id %>" data-site_id="<%= site_id %>"></div>
+
+    <script async src="<%= base_url %>/alpha/embed.js"></script>
+  </body>
+</html>

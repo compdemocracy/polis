@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="<%= ui_lang %>">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Embedded Polis Test (alpha)</title>
+  </head>
+  <body style="background-color: lavender">
+    <h1>Alpha embed host page</h1>
+
+    <div
+      class="polis"
+      data-conversation_id="<%= conversation_id %>"
+      data-ui_lang="<%= ui_lang %>"
+      data-xid="<%= xid %>"
+      data-topic="<%= topic %>"
+      data-auth_needed_to_vote="<%= auth_needed_to_vote %>"
+      data-auth_needed_to_write="<%= auth_needed_to_write %>"
+    ></div>
+
+    <!-- Alpha embed script lives at /alpha/embed.js -->
+    <script async src="<%= base_url %>/alpha/embed.js"></script>
+  </body>
+</html>

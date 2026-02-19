@@ -339,6 +339,60 @@ function enableVisualizationForConversation(
 }
 
 /**
+ * Enable Treevite (invite codes) for a conversation via API
+ * @param {string} conversationId - The conversation ID
+ * @param {string} userEmail - Email of user with admin access
+ * @param {string} userPassword - Password of user with admin access
+ * @returns {Cypress.Chainable<boolean>} - Success indicator
+ */
+function enableTreeviteForConversation(
+  conversationId,
+  userEmail = 'admin@polis.test',
+  userPassword = 'Te$tP@ssw0rd*',
+) {
+  cy.log(`🌳 Enabling treevite for conversation ${conversationId}`)
+
+  // Ensure we're authenticated
+  return loginStandardUserAPI(userEmail, userPassword).then(() => {
+    return getAuthToken().then((token) => {
+      return cy
+        .request({
+          method: 'GET',
+          url: `/api/v3/conversations?conversation_id=${conversationId}`,
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        })
+        .then((response) => {
+          expect(response.status).to.eq(200)
+          const conversationData = response.body
+
+          const updatedData = {
+            ...conversationData,
+            treevite_enabled: true,
+          }
+
+          return cy
+            .request({
+              method: 'PUT',
+              url: '/api/v3/conversations',
+              headers: {
+                'Content-Type': 'application/json; charset=utf-8',
+                Authorization: `Bearer ${token}`,
+              },
+              body: updatedData,
+            })
+            .then((updateResponse) => {
+              expect(updateResponse.status).to.eq(200)
+              cy.log(`✅ Treevite enabled for conversation ${conversationId}`)
+              return cy.wrap(true)
+            })
+        })
+    })
+  })
+}
+
+/**
  * Set up a complete test conversation with optional visualization enabled
  * @param {Object} options - Conversation options
  * @param {string} options.topic - Conversation topic
@@ -347,6 +401,7 @@ function enableVisualizationForConversation(
  * @param {string} options.userEmail - Email of user to create conversation
  * @param {string} options.userPassword - Password of user to create conversation
  * @param {boolean} options.visualizationEnabled - Whether to enable visualization
+ * @param {boolean} options.treeviteEnabled - Whether to enable treevite (invite codes)
  * @returns {Cypress.Chainable<Object>} - Object with conversation details
  */
 export function setupTestConversation(options = {}) {
@@ -361,6 +416,7 @@ export function setupTestConversation(options = {}) {
     userEmail = 'moderator@polis.test',
     userPassword = 'Te$tP@ssw0rd*',
     visualizationEnabled = false,
+    treeviteEnabled = false,
   } = options
 
   cy.log(`🚀 Setting up complete test conversation: ${topic}`)
@@ -376,6 +432,11 @@ export function setupTestConversation(options = {}) {
     // Enable visualization if requested
     if (visualizationEnabled) {
       enableVisualizationForConversation(conversationId, userEmail, userPassword)
+    }
+
+    // Enable treevite if requested
+    if (treeviteEnabled) {
+      enableTreeviteForConversation(conversationId, userEmail, userPassword)
     }
 
     if (comments.length > 0) {
@@ -395,6 +456,7 @@ export function setupTestConversation(options = {}) {
       conversationId,
       commentCount: comments.length,
       visualizationEnabled,
+      treeviteEnabled,
       setupComplete: true,
     })
   })
