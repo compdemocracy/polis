@@ -115,19 +115,25 @@ scaled_projection_i = p_i × scaling_i
 
 Participants who have voted on fewer comments get **pushed outward** (larger scaling factor), compensating for the bias toward the center caused by mean imputation.
 
-### 3.2 Clojure (`pca.clj:sparsity-aware-project-ptpt`)
+### 3.2 Clojure (`pca.clj:sparsity-aware-project-ptpt`, lines 134–157)
 
 ```clojure
 (defn sparsity-aware-project-ptpt [votes {:keys [comps center]}]
-  (let [n-cmnts (count center)
-        clean-votes (map #(if (nil? %) 0 %) votes)
-        n-votes (count (remove nil? votes))
-        centered (map - clean-votes center)
-        projections (mapv #(reduce + (map * centered %)) comps)]
-    (mapv #(* (Math/sqrt (/ n-cmnts (max n-votes 1))) %) projections)))
+  (let [n-cmnts (count votes)
+        [pc1 pc2] comps
+        [n-votes p1 p2]
+        (reduce
+          (fn [[n-votes p1 p2] [x-n cntr-n pc1-n pc2-n]]
+            (if x-n  ;; if voted (non-nil)
+              (let [x-n' (- x-n cntr-n)]  ;; subtract center
+                [(inc n-votes) (+ p1 (* x-n' pc1-n)) (+ p2 (* x-n' pc2-n))])
+              [n-votes p1 p2]))  ;; skip if nil (unvoted)
+          [0 0.0 0.0]
+          (zip votes center pc1 pc2))]
+    (* (Math/sqrt (/ n-cmnts (max n-votes 1))) [p1 p2])))
 ```
 
-Note: Clojure projects each participant individually using dot products with components, then scales.
+**Critical detail**: Clojure projects using the RAW votes with nils. Unvoted entries are **skipped** in the dot product (contribute 0). The projection uses the `rating-mat` (raw matrix with nils), NOT the imputed `mat`.
 
 ### 3.3 Python (`pca.py` lines 96–102)
 
@@ -139,9 +145,20 @@ proportions = np.sqrt(n_seen_safe / n_cmnts)
 scaled_projections = projections / proportions[:, np.newaxis]
 ```
 
-**IMPORTANT**: Python divides by `sqrt(n_seen/n_cmnts)`, which equals multiplying by `sqrt(n_cmnts/n_seen)`. This is mathematically equivalent to the Clojure formula.
+**IMPORTANT**: Python divides by `sqrt(n_seen/n_cmnts)`, which equals multiplying by `sqrt(n_cmnts/n_seen)`. The scaling is mathematically equivalent to the Clojure formula.
 
-**Status: MATCH** — The sparsity-aware scaling is equivalent between both implementations.
+### 3.4 DISCREPANCY: Projection Input
+
+The scaling is equivalent, but the **projection computation** differs subtly:
+
+| | Clojure | Python |
+|---|---------|--------|
+| Projection input | Raw votes (nils skipped in dot product) | Fully imputed matrix (NaN → col mean) |
+| Effect of unvoted | Contributes 0 to dot product | Contributes `(col_mean - center) × loading` |
+
+Since `center ≈ col_mean` (both computed on the imputed matrix), the unvoted contribution in Python is approximately 0. The two approaches produce very similar but not identical results. The difference grows when the distribution of voters per comment is highly skewed.
+
+**Status: NEAR-MATCH** — Scaling equivalent; projection input differs subtly.
 
 ---
 

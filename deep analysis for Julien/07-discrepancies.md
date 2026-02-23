@@ -26,6 +26,15 @@ This is the critical reference document. Every discrepancy is rated by severity 
 
 **Fix**: Could switch to incremental PCA (sklearn `IncrementalPCA`) for warm-starting, or accept SVD as equivalent and address stability separately.
 
+### D1b. Projection Input [LOW]
+
+| | Clojure | Python |
+|---|---------|--------|
+| File | `pca.clj:134–157` | `pca.py:76,96–102` |
+| Input | Raw votes (nils skipped) | Imputed matrix (NaN → col mean) |
+
+Clojure projects against raw sparse votes, skipping unvoted entries. Python projects the fully imputed matrix. Since `center ≈ col_mean`, the difference is small but nonzero. See doc 02, Section 3.4 for details.
+
 ---
 
 ## D2. In-Conv Participant Threshold [CRITICAL]
