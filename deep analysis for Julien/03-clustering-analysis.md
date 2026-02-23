@@ -47,7 +47,7 @@ The base clustering reduces the computational cost of the group-level clustering
 5. Run k-means from these starting positions
 ```
 
-**Convergence** (`same-clustering`): Two clusterings are "same" if sum of pairwise center distances < threshold (0.01 default).
+**Convergence** (`same-clustering?`, lines 68–76): Two clusterings are "same" if EVERY pairwise center distance is < threshold (0.01 default). Centers are sorted before comparison.
 
 ### 2.2 Python (`clusters.py`)
 
