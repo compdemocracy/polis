@@ -15,7 +15,7 @@
     "verify": "npm run format && npm run lint && npm run test && npm run build"
   },
   "dependencies": {
-    "@astrojs/node": "9.5.1",
+    "@astrojs/node": "9.5.4",
     "@astrojs/react": "4.4.2",
     "@visx/axis": "^3.12.0",
     "@visx/grid": "^3.12.0",
