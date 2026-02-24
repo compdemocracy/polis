@@ -116,7 +116,7 @@ The vectorized replacements (`compute_group_comment_stats_df`, `select_rep_comme
 ### 3.2 `cmnt-proj` binding — Commented Out
 
 **File**: `conversation.clj` lines 391–393
-**Status**: DEAD — Commented out in favor of computing projection+extremity together in `with-proj-and-extremtiy`.
+**Status**: DEAD — Commented out in favor of computing projection+extremity together in `with-proj-and-extremtiy` (sic — typo in the Clojure source, `conversation.clj:338`).
 
 ---
 

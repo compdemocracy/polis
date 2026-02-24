@@ -1,5 +1,9 @@
 # Fix Plan: Bringing Python to Clojure Parity
 
+> **Note**: This was a preliminary analysis. The canonical fix ordering is in
+> [`PLAN_DISCREPANCY_FIXES.md`](../PLAN_DISCREPANCY_FIXES.md), which reordered
+> some fixes (e.g., D4 before D9) based on pipeline execution order.
+
 ## Prioritized Fix Order
 
 Fixes are ordered by: (1) cascading impact, (2) severity, (3) ease of implementation. Items that affect downstream computations come first.

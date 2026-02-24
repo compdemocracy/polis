@@ -4,7 +4,7 @@ This document provides comprehensive guidance for working with the Delphi system
 
 ## Documentation
 
-**Warning:** Many docs in `docs/` are outdated and should not be trusted. Always verify against the actual code.
+**Warning:** Many docs in `docs/` are outdated and should not be trusted. Always verify against the actual code. Start with `docs/PLAN_DISCREPANCY_FIXES.md` (canonical fix plan) and `docs/CLJ-PARITY-FIXES-JOURNAL.md` (session journal) for current Clojure parity work.
 
 ## Helpful terminology
 
@@ -371,7 +371,7 @@ Run tests with `pytest` on the `tests/` folder.
 ### Datasets of reference
 
 In `real_data`, we have several datasets of real conversations, exported from Polis, that can be used for testing and development. Those at the root of `real_data` are public.
-In `real_data/.local`, we have some private datasets that can only be used internally. The comparer supports both public and private datasets, when we pass the adequate command line flag.
+In `real_data/.local`, we have some private datasets that can only be used internally. The comparer supports both public and private datasets via the `--include-local` flag.
 
 ### Regressions and golden snapshots
 
