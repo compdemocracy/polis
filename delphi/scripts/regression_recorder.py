@@ -49,8 +49,10 @@ def main(datasets: tuple, force: bool, benchmark: bool, include_local: bool, log
         datasets = list(available_datasets.keys())
         click.echo(f"No datasets specified. Recording all available datasets: {', '.join(datasets)}\n")
     else:
-        # Validate that specified datasets exist
-        available_datasets = list_available_datasets(include_local=include_local)
+        # Validate that specified datasets exist.
+        # Use include_local=True for explicit names: if someone asks for a dataset
+        # by name, we should find it regardless of where it lives.
+        available_datasets = list_available_datasets(include_local=True)
         invalid_datasets = [d for d in datasets if d not in available_datasets]
         if invalid_datasets:
             available = ', '.join(available_datasets.keys())

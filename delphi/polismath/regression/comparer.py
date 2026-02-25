@@ -761,7 +761,7 @@ class ConversationComparer:
         if np.allclose(golden_array, -current_array, rtol=self.rel_tol, atol=self.abs_tol):
             # Sign flip detected!
             warning_msg = f"PCA sign flip detected at {path} in stage {stage_name}"
-            logger.warning(warning_msg)
+            logger.debug(warning_msg)
             self.sign_flip_warnings.append({
                 "stage_name": stage_name,
                 "path": path,

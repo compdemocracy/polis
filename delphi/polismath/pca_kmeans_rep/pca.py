@@ -510,6 +510,9 @@ def pca_project_dataframe(df: pd.DataFrame,
     # Column mean is imperfect (pulls participants toward center, assumes Gaussian data
     # while votes are ternary) but matches Clojure and is better than 0.
     col_means = np.nanmean(matrix_data, axis=0)
+    # Handle columns that are entirely NaN (e.g., statements with zero votes):
+    # nanmean returns NaN for these, which would leave NaNs in the matrix.
+    col_means = np.where(np.isnan(col_means), 0.0, col_means)
     nan_indices = np.where(np.isnan(matrix_data))
     matrix_data_no_nan = matrix_data.copy()
     matrix_data_no_nan[nan_indices] = col_means[nan_indices[1]]
