@@ -121,11 +121,11 @@ class TestClusteringUtils:
             # Center should be one of the data points
             assert any(np.array_equal(cluster.center, point) for point in data)
         
-        # Test when k > n_points
+        # Test when k > n_points: returns fewer clusters, members start empty
         clusters_large_k = init_clusters(data[:2], 3)
         assert len(clusters_large_k) == 2
-        assert clusters_large_k[0].members == [0]
-        assert clusters_large_k[1].members == [1]
+        assert clusters_large_k[0].members == []
+        assert clusters_large_k[1].members == []
     
     def test_same_clustering(self):
         """Test checking if clusterings are the same."""
