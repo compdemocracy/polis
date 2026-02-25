@@ -70,7 +70,7 @@ class TestRepnessImplementation:
         assert len(conversation.group_clusters) > 0
 
         # Run representativeness calculation
-        repness_results = conv_repness(conversation.rating_mat, conversation.group_clusters)
+        repness_results = conv_repness(conversation.rating_mat, conversation._unfolded_group_clusters())
 
         assert repness_results is not None
         assert 'comment_ids' in repness_results
@@ -84,12 +84,11 @@ class TestRepnessImplementation:
         logger.info(f"✓ Representativeness runs without error for {dataset_name}")
 
     @pytest.mark.parametrize("dataset_name", get_available_dataset_params())
-    @pytest.mark.xfail(reason="Pre-existing: repness structure validation needs investigation")
     def test_repness_structure(self, dataset_name: str, conversation):
         """Test representativeness results have expected structure."""
         logger.debug(f"Testing representativeness structure for {dataset_name}")
 
-        repness_results = conv_repness(conversation.rating_mat, conversation.group_clusters)
+        repness_results = conv_repness(conversation.rating_mat, conversation._unfolded_group_clusters())
 
         # Check structure of group_repness
         for group_id, comments in repness_results['group_repness'].items():
@@ -119,7 +118,7 @@ class TestRepnessImplementation:
         """Test participant statistics calculation."""
         logger.debug(f"Testing participant stats for {dataset_name}")
 
-        ptpt_stats = participant_stats(conversation.rating_mat, conversation.group_clusters)
+        ptpt_stats = participant_stats(conversation.rating_mat, conversation._unfolded_group_clusters())
 
         assert ptpt_stats is not None
         assert 'participant_ids' in ptpt_stats

@@ -168,7 +168,6 @@ class TestClojureRegression:
     They are marked with @pytest.mark.clojure_comparison so they can be optionally excluded.
     """
 
-    @pytest.mark.xfail(reason="D9/D5/D7: Wrong z-score thresholds and repness formulas produce empty comment_repness")
     def test_basic_outputs(self, conversation_data):
         """
         Test that basic pipeline outputs are calculated correctly.
