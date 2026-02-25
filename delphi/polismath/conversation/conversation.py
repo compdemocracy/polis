@@ -678,6 +678,26 @@ class Conversation:
 
         logger.info(f"Two-level clustering completed in {time.time() - start_time:.2f}s")
 
+    def _unfolded_group_clusters(self) -> List[Dict[str, Any]]:
+        """
+        Return group_clusters with 'members' expanded from base-cluster IDs
+        to participant IDs.  Downstream functions (conv_repness,
+        participant_stats) need participant IDs to join against the vote matrix.
+        """
+        base_cluster_by_id = {c['id']: c for c in (self.base_clusters or [])}
+        unfolded = []
+        for gc in (self.group_clusters or []):
+            participant_ids = []
+            for bc_id in gc['members']:
+                bc = base_cluster_by_id.get(bc_id, {})
+                participant_ids.extend(bc.get('members', []))
+            unfolded.append({
+                'id': gc['id'],
+                'center': gc['center'],
+                'members': participant_ids,
+            })
+        return unfolded
+
     def _compute_repness(self) -> None:
         """
         Compute comment representativeness.
@@ -700,8 +720,8 @@ class Conversation:
             logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s (no groups)")
             return
 
-        # Compute representativeness
-        self.repness = conv_repness(self.rating_mat, self.group_clusters)
+        # Compute representativeness (needs participant IDs, not base-cluster IDs)
+        self.repness = conv_repness(self.rating_mat, self._unfolded_group_clusters())
         logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s")
 
     def _compute_participant_info_optimized(self, vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -899,7 +919,8 @@ class Conversation:
             return
         
         # Use the integrated optimized version directly
-        ptpt_stats = self._compute_participant_info_optimized(self.rating_mat, self.group_clusters)
+        # (needs participant IDs, not base-cluster IDs)
+        ptpt_stats = self._compute_participant_info_optimized(self.rating_mat, self._unfolded_group_clusters())
         
         # Store results
         self.participant_info = ptpt_stats.get('stats', {})
@@ -1111,12 +1132,15 @@ class Conversation:
         # If no groups, return empty dict
         if not self.group_clusters:
             return {}
-            
+
+        # Expand base-cluster IDs to participant IDs (matches Clojure group-votes)
+        unfolded = self._unfolded_group_clusters()
+
         group_votes = {}
-        
+
         # Helper to count votes of a specific type for a group
         def count_votes_for_group(group_id, comment_id, vote_type):
-            group = next((g for g in self.group_clusters if g.get('id') == group_id), None)
+            group = next((g for g in unfolded if g.get('id') == group_id), None)
             if not group:
                 return 0
                 
@@ -1157,7 +1181,7 @@ class Conversation:
                 return 0
         
         # For each group, compute vote stats
-        for group in self.group_clusters:
+        for group in unfolded:
             group_id = group.get('id')
             
             # Skip groups without ID
@@ -1536,15 +1560,18 @@ class Conversation:
         group_votes = {}
         
         if self.group_clusters:
+            # Expand base-cluster IDs to participant IDs for vote counting
+            unfolded_groups = self._unfolded_group_clusters()
+
             # Precompute indices for each participant for faster lookups
             ptpt_indices = {ptpt_id: i for i, ptpt_id in enumerate(self.rating_mat.index)}
-            
+
             # Process each group
-            for group in self.group_clusters:
+            for group in unfolded_groups:
                 group_id = group.get('id')
                 if group_id is None:
                     continue
-                
+
                 # Get indices for all members of this group
                 member_indices = []
                 for member in group.get('members', []):
@@ -2115,17 +2142,20 @@ class Conversation:
         
         # Process groups only if they exist
         if self.group_clusters:
+            # Expand base-cluster IDs to participant IDs for vote counting
+            unfolded_groups = self._unfolded_group_clusters()
+
             # Precompute indices for each participant
             ptpt_indices = {}
             for i, ptpt_id in enumerate(self.rating_mat.index):
                 ptpt_indices[ptpt_id] = i
-            
+
             # Process each group
-            for group in self.group_clusters:
+            for group in unfolded_groups:
                 group_id = group.get('id')
                 if group_id is None:
                     continue
-                
+
                 # Get indices for group members
                 member_indices = []
                 for member in group.get('members', []):
