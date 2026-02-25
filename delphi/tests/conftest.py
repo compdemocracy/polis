@@ -77,9 +77,20 @@ def pytest_addoption(parser):
 def _get_requested_datasets(config) -> set[str] | None:
     """Get the set of datasets requested via --datasets, or None for all."""
     datasets_opt = config.getoption("--datasets")
-    if datasets_opt:
-        return {d.strip() for d in datasets_opt.split(",")}
-    return None
+    if not datasets_opt:
+        return None
+
+    # Split on commas, strip whitespace, and drop empty entries to avoid
+    # treating trailing/repeated commas as empty dataset names.
+    requested = {d.strip() for d in datasets_opt.split(",") if d.strip()}
+
+    if not requested:
+        raise pytest.UsageError(
+            "No valid dataset names specified in --datasets option. "
+            "Provide a comma-separated list, e.g. --datasets=biodiversity,vw."
+        )
+
+    return requested
 
 
 def pytest_configure(config):

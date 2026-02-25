@@ -512,7 +512,10 @@ def pca_project_dataframe(df: pd.DataFrame,
     # Why column mean instead of 0? Using 0 biases covariance estimates for sparse data.
     # Column mean is imperfect (pulls participants toward center, assumes Gaussian data
     # while votes are ternary) but matches Clojure and is better than 0.
-    col_means = np.nanmean(matrix_data, axis=0)
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)  # suppress "Mean of empty slice"
+        col_means = np.nanmean(matrix_data, axis=0)
     # Handle columns that are entirely NaN (e.g., statements with zero votes):
     # nanmean returns NaN for these, which would leave NaNs in the matrix.
     nan_col_mask = np.isnan(col_means)
