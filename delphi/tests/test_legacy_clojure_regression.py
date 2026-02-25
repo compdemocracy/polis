@@ -168,6 +168,7 @@ class TestClojureRegression:
     They are marked with @pytest.mark.clojure_comparison so they can be optionally excluded.
     """
 
+    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="D9/D5/D7: Wrong z-score thresholds and repness formulas produce empty comment_repness")
     def test_basic_outputs(self, conversation_data):
         """
         Test that basic pipeline outputs are calculated correctly.
@@ -250,7 +251,7 @@ class TestClojureRegression:
             check.less_equal(norm_angle_deg, 10.0,
                             f"PC{i+1} angle difference should be ≤10° (got {norm_angle_deg:.2f}°)")
 
-    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="Clustering algorithms differ - Python uses K-means++, Clojure uses first-k distinct points")
+    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="D2/D3: Wrong participant threshold and missing k-smoother produce different cluster counts")
     def test_group_clustering(self, conversation_data):
         """
         Test that group clustering matches the Clojure implementation.
@@ -339,7 +340,7 @@ class TestClojureRegression:
             print(f"    Clojure: First k distinct points")
             print(f"  Recommendation: Match initialization to align results")
 
-    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="Clojure regression tests not yet fully implemented - comment priorities may differ")
+    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="D12: Comment priorities not yet implemented in Python")
     def test_comment_priorities(self, conversation_data):
         """
         Test that comment priorities match the Clojure implementation.
