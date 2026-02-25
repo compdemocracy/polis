@@ -55,9 +55,9 @@ class ConversationComparer:
         self.all_differences = []  # Collect all differences for detailed reporting
         self.sign_flip_warnings = []  # Collect sign flip warnings when ignore_pca_sign_flip is True
         self.outlier_warnings = []  # Collect outlier warnings when values exceed tight but pass loose tolerance
-        # Per-stage PCA sign flip vectors: stage_name -> list of +1/-1 per component
-        # E.g., [1, -1] means PC1 unchanged, PC2 flipped
-        self._pca_sign_flips: Dict[str, list] = {}
+        # Per-stage PCA sign flip mappings: stage_name -> {component_index: +1/-1}
+        # E.g., {0: 1, 1: -1} means PC1 unchanged, PC2 flipped
+        self._pca_sign_flips: Dict[str, Dict[int, int]] = {}
 
     def compare_with_golden(self, dataset_name: str, benchmark: bool = True) -> Dict:
         """
@@ -270,8 +270,11 @@ class ConversationComparer:
             log_symlink_path.unlink()
 
         # Create new symlink pointing to the log file (relative path for portability)
-        log_symlink_path.symlink_to(log_filename)
-        results["comparison_log_latest_symlink_path"] = str(log_symlink_path)
+        try:
+            log_symlink_path.symlink_to(log_filename)
+            results["comparison_log_latest_symlink_path"] = str(log_symlink_path)
+        except (OSError, NotImplementedError) as exc:
+            logger.warning("Could not create 'latest' log symlink at %s: %s", log_symlink_path, exc)
 
         # Save current computation output as JSON (the data being compared, not the comparison results)
         json_filename = f"{identifier}-{timestamp}.json"
@@ -727,10 +730,13 @@ class ConversationComparer:
                 compare_current = current[:min_len]
             compare_golden = golden[:min_len]
 
-            # For numeric lists with outlier allowance enabled, use the specialized method
+            # For PCA-related numeric lists with outlier allowance enabled, use the specialized method
             # Only apply to lists with enough elements (>=10) to make outlier fraction meaningful
+            # Scoped to PCA paths only so non-PCA data stays strict
             min_elements_for_outlier_logic = 10
+            is_pca_path = self._is_pca_related_path(path)
             if (self.outlier_fraction > 0 and
+                is_pca_path and
                 len(compare_golden) >= min_elements_for_outlier_logic and
                 self._is_numeric_list(compare_golden) and
                 self._is_numeric_list(compare_current)):
@@ -741,11 +747,12 @@ class ConversationComparer:
                     overall_match = False
                 return {"match": overall_match, "path": path}
 
-            # For small numeric lists when outlier mode is enabled, use loose tolerance
+            # For small PCA-related numeric lists when outlier mode is enabled, use loose tolerance
             # This handles cases like 2D projection coordinates where outlier fraction
             # can't be meaningfully applied at the list level
             use_loose_tolerance = (
                 self.outlier_fraction > 0 and
+                is_pca_path and
                 len(compare_golden) < min_elements_for_outlier_logic and
                 len(compare_golden) > 0 and
                 self._is_numeric_list(compare_golden) and

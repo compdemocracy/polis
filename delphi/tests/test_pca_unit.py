@@ -16,21 +16,6 @@ from polismath.pca_kmeans_rep.pca import (
 )
 
 
-def normalize_vector(v: np.ndarray) -> np.ndarray:
-    """Normalize a vector to unit length."""
-    norm = np.linalg.norm(v)
-    if norm == 0:
-        return v
-    return v / norm
-
-
-def proj_vec(u: np.ndarray, v: np.ndarray) -> np.ndarray:
-    """Project vector v onto vector u."""
-    if np.dot(u, u) == 0:
-        return np.zeros_like(v)
-    return np.dot(u, v) / np.dot(u, u) * u
-
-
 class TestProjection:
     """Tests for the projection functions."""
   

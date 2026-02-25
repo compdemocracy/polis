@@ -12,14 +12,22 @@ from typing import Dict, List, Optional, Tuple, Union, Any
 def pca_project_dataframe(df: pd.DataFrame,
                          n_comps: int = 2) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """
-    Perform PCA on a DataFrame and project the data.
+    Perform PCA on a DataFrame and project participants into PCA space.
+
+    Missing votes (NaN) are imputed with column means before PCA.
+    Uses sklearn PCA internally. Projections are scaled by the square root
+    of the proportion of comments each participant has seen, to account
+    for vote sparsity.
 
     Args:
-        df: DataFrame containing the data
-        n_comps: Number of components to find
+        df: DataFrame with participants as rows and comments as columns.
+            Values are votes (float); NaN indicates missing/unseen.
+        n_comps: Number of principal components to compute.
 
     Returns:
-        Tuple of (pca_results, projections)
+        Tuple of (pca_results, proj_dict) where:
+        - pca_results: dict with 'center' (mean vector) and 'comps' (component matrix)
+        - proj_dict: dict mapping participant IDs to 2D projection arrays
     """
     # Extract matrix data
     matrix_data = df.to_numpy(copy=True)  # Make a copy to avoid modifying the original
@@ -67,23 +75,20 @@ def pca_project_dataframe(df: pd.DataFrame,
         proj_dict = {pid: np.zeros(2) for pid in df.index}
         return pca_results, proj_dict
     
-    # Set fixed random seed for reproducibility
-    np.random.seed(42)
+    # TODO(julien): try removing random_state to see if results are deterministic without it
+    # (sklearn's full SVD solver is deterministic; randomized solver needs a seed).
     
     # Perform PCA with error handling
     # TODO(julien): use function that compute projections and PCAs in one pass.
     try:
         from sklearn.decomposition import PCA
 
-        center = np.mean(matrix_data_no_nan, axis=0)
-        cntrd_data = matrix_data_no_nan - center
-
-        pca = PCA(n_components=n_comps)
-        projections = pca.fit_transform(cntrd_data)
+        pca = PCA(n_components=n_comps, random_state=42)
+        projections = pca.fit_transform(matrix_data_no_nan)
         projections = np.ascontiguousarray(projections)
 
         pca_results = {
-            'center': center,
+            'center': pca.mean_,
             'comps': pca.components_
         }
 
