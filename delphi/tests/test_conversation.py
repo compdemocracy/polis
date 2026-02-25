@@ -426,25 +426,38 @@ class TestConversation:
             'votes': []
         }
         
-        # Create two distinct opinion groups
+        # Create two distinct opinion groups with enough votes per participant
+        # to meet the vote threshold (7 + sqrt(n_comments) * 0.1)
         for i in range(20):
             pid = f'p{i}'
-            
-            # Group 1: Agrees with c1, c2; disagrees with c3, c4
+
+            # Group 1: Agrees with c1-c5; disagrees with c6-c10
             if i < 10:
                 votes['votes'].extend([
                     {'pid': pid, 'tid': 'c1', 'vote': 1},
                     {'pid': pid, 'tid': 'c2', 'vote': 1},
-                    {'pid': pid, 'tid': 'c3', 'vote': -1},
-                    {'pid': pid, 'tid': 'c4', 'vote': -1}
+                    {'pid': pid, 'tid': 'c3', 'vote': 1},
+                    {'pid': pid, 'tid': 'c4', 'vote': 1},
+                    {'pid': pid, 'tid': 'c5', 'vote': 1},
+                    {'pid': pid, 'tid': 'c6', 'vote': -1},
+                    {'pid': pid, 'tid': 'c7', 'vote': -1},
+                    {'pid': pid, 'tid': 'c8', 'vote': -1},
+                    {'pid': pid, 'tid': 'c9', 'vote': -1},
+                    {'pid': pid, 'tid': 'c10', 'vote': -1},
                 ])
-            # Group 2: Disagrees with c1, c2; agrees with c3, c4
+            # Group 2: Disagrees with c1-c5; agrees with c6-c10
             else:
                 votes['votes'].extend([
                     {'pid': pid, 'tid': 'c1', 'vote': -1},
                     {'pid': pid, 'tid': 'c2', 'vote': -1},
-                    {'pid': pid, 'tid': 'c3', 'vote': 1},
-                    {'pid': pid, 'tid': 'c4', 'vote': 1}
+                    {'pid': pid, 'tid': 'c3', 'vote': -1},
+                    {'pid': pid, 'tid': 'c4', 'vote': -1},
+                    {'pid': pid, 'tid': 'c5', 'vote': -1},
+                    {'pid': pid, 'tid': 'c6', 'vote': 1},
+                    {'pid': pid, 'tid': 'c7', 'vote': 1},
+                    {'pid': pid, 'tid': 'c8', 'vote': 1},
+                    {'pid': pid, 'tid': 'c9', 'vote': 1},
+                    {'pid': pid, 'tid': 'c10', 'vote': 1},
                 ])
         
         # Update with votes but don't recompute yet
