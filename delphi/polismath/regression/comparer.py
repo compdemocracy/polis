@@ -436,18 +436,18 @@ class ConversationComparer:
             logger.info("")
 
         # Compute and display projection comparison metrics if we have PCA data
-        # This determines the overall pass/fail result based on meaningful metrics
+        # Treat as an additional signal, not an override of earlier stage results
         projection_metrics_pass = self._log_projection_metrics(golden["stages"], current_stages)
         if projection_metrics_pass is not None:
-            results["overall_match"] = projection_metrics_pass
             results["projection_metrics_pass"] = projection_metrics_pass
+            results["overall_match"] = results["overall_match"] and projection_metrics_pass
 
         # Now show the Overall Result (after projection metrics have been computed)
         logger.info(f"Overall Result: {'✅ PASS' if results['overall_match'] else '❌ FAIL'}")
 
-        # Add explanation if stages failed but projection metrics passed
+        # Add explanation if projection metrics passed but element-wise differences exist
         if projection_metrics_pass and self.all_differences:
-            logger.info("  (Element-wise differences exist but projection metrics confirm match)")
+            logger.info("  (Element-wise differences exist but projection metrics confirm PCA match)")
         logger.info("")
 
         # Only print speed comparison if benchmarking is enabled
@@ -918,7 +918,8 @@ class ConversationComparer:
 
         # Check for cluster centers (derived from PCA projections, so inherit sign ambiguity)
         # Examples: "after_clustering.group_clusters[0].center", "after_clustering.base-clusters[1].center"
-        if ".center" in path:
+        # Exclude ".pca.center" which is the PCA mean vector (not sign-ambiguous)
+        if ".center" in path and ".pca.center" not in path:
             return True
 
         return False
@@ -1443,7 +1444,7 @@ class ConversationComparer:
         return (np.array(all_golden) if len(all_golden) > 0 else np.array([]),
                 np.array(all_current) if len(all_current) > 0 else np.array([]))
 
-    def _log_projection_metrics(self, golden_stages: dict, current_stages: dict) -> None:
+    def _log_projection_metrics(self, golden_stages: dict, current_stages: dict) -> bool | None:
         """
         Compute and log projection comparison metrics for PCA stages.
 
@@ -1453,6 +1454,10 @@ class ConversationComparer:
         Args:
             golden_stages: Full golden stage data
             current_stages: Full current stage data
+
+        Returns:
+            True if projection metrics pass, False if they fail,
+            None if no projection data is available.
         """
         import numpy as np
         from scipy.spatial import procrustes
@@ -1508,8 +1513,21 @@ class ConversationComparer:
         abs_err = np.abs(g_flat - c_flat)
         data_range = np.max(np.abs(g_flat))
 
-        max_err_pct = np.max(abs_err) / data_range * 100
-        mean_err_pct = np.mean(abs_err) / data_range * 100
+        if data_range == 0:
+            # Degenerate golden projection (all points at origin).
+            if np.all(abs_err == 0):
+                max_err_pct = 0.0
+                mean_err_pct = 0.0
+            else:
+                logger.error(
+                    "Golden projection data_range is zero but absolute error is non-zero; "
+                    "cannot compute relative projection error metrics."
+                )
+                max_err_pct = float("inf")
+                mean_err_pct = float("inf")
+        else:
+            max_err_pct = np.max(abs_err) / data_range * 100
+            mean_err_pct = np.mean(abs_err) / data_range * 100
 
         # R² (coefficient of determination)
         ss_res = np.sum((g_flat - c_flat)**2)
