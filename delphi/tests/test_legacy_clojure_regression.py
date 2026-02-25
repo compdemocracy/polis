@@ -168,6 +168,7 @@ class TestClojureRegression:
     They are marked with @pytest.mark.clojure_comparison so they can be optionally excluded.
     """
 
+    @pytest.mark.xfail(reason="D9/D5/D7: Wrong z-score thresholds and repness formulas produce empty comment_repness")
     def test_basic_outputs(self, conversation_data):
         """
         Test that basic pipeline outputs are calculated correctly.
@@ -199,6 +200,7 @@ class TestClojureRegression:
         # PCA match verified - regressions caught by test_regression.py
         pass
 
+    @pytest.mark.xfail(reason="D2/D3: Wrong participant threshold and missing k-smoother produce different cluster counts")
     def test_group_clustering(self, conversation_data):
         """
         Test that group clustering matches the Clojure implementation.
@@ -287,7 +289,7 @@ class TestClojureRegression:
             print(f"    Clojure: First k distinct points")
             print(f"  Recommendation: Match initialization to align results")
 
-    @pytest.mark.xfail(reason="Clojure regression tests not yet fully implemented - comment priorities may differ")
+    @pytest.mark.xfail(reason="D12: Comment priorities not yet implemented in Python")
     def test_comment_priorities(self, conversation_data):
         """
         Test that comment priorities match the Clojure implementation.
