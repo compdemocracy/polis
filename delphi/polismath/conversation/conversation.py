@@ -1260,14 +1260,14 @@ class Conversation:
 
         Matches Clojure's in-conv logic from conversation.clj lines 239-266.
 
-        Threshold: participant must have voted on at least:
-            7 + sqrt(n_comments) * 0.1 comments
+        Threshold: participant must have voted on at least min(7, n_comments)
+        comments (Clojure parity fix D2).
 
         Returns:
             Set of participant IDs that meet the threshold
         """
         n_cmts = len(self.rating_mat.columns) if hasattr(self.rating_mat, 'columns') else 0
-        threshold = 7 + np.sqrt(n_cmts) * 0.1
+        threshold = min(7, n_cmts)
 
         # Get vote counts for all participants
         vote_counts = self._compute_user_vote_counts()
