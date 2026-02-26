@@ -198,7 +198,6 @@ class TestD2InConvThreshold:
     filtering out participants that Clojure would keep.
     """
 
-    @pytest.mark.xfail(reason="D2: Python threshold = 7+sqrt(n)*0.1 vs Clojure min(7, n)", strict=False)
     def test_in_conv_count_matches(self, conv, clojure_blob, dataset_name):
         """Number of in-conv participants should match Clojure."""
         clojure_in_conv = _clojure_in_conv_set(clojure_blob)
@@ -208,7 +207,6 @@ class TestD2InConvThreshold:
         check.equal(python_in_conv_count, len(clojure_in_conv),
                      f"In-conv count mismatch: Python={python_in_conv_count}, Clojure={len(clojure_in_conv)}")
 
-    @pytest.mark.xfail(reason="D2: Python threshold = 7+sqrt(n)*0.1 vs Clojure min(7, n)", strict=False)
     def test_in_conv_set_matches(self, conv, clojure_blob, dataset_name):
         """The actual set of in-conv participants should match Clojure."""
         clojure_in_conv = _clojure_in_conv_set(clojure_blob)

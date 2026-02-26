@@ -104,16 +104,49 @@ After rebase onto updated `origin/kmeans_analysis_docs`:
 
 ---
 
-## What's Next: PR 1 — Fix D2 (In-Conv Participant Threshold)
+## PR 1: Fix D2 — In-Conv Participant Threshold (blocked on Clojure blob regeneration)
 
-- Change `threshold = 7 + sqrt(n_cmts) * 0.1` to `threshold = min(7, n_cmts)` in `conversation.py:1238`
-- Use `self.raw_rating_mat` instead of `self.rating_mat` for counting
-- Add greedy fallback (top-15 voters if <15 qualify)
-- Add monotonic persistence (once in, always in)
-- Remove xfail from `TestD2InConvThreshold`
-- Check cluster count impact (may change from 3→2 for biodiversity, matching Clojure)
-- Re-record golden snapshots if needed
-- Document new baseline
+### TDD steps
+1. **Baseline (public only)**: 3 failed (2 D2 + 1 DynamoDB), 205 passed, 4 skipped, 20 xfailed, 3 xpassed
+2. **Red**: Removed xfail from `TestD2InConvThreshold` — biodiversity fails (Python=428, Clojure=441, threshold 8.8 vs 7)
+3. **Fix**: Changed `threshold = 7 + sqrt(n_cmts) * 0.1` → `threshold = min(7, n_cmts)` in `conversation.py:1270`
+4. **Green (public only)**: All 4 D2 tests pass (vw + biodiversity × 2 tests each)
+5. **Full suite (public only)**: 1 failed (DynamoDB only), 207 passed — but golden snapshots were re-recorded for biodiversity without proper verification
+6. **Full suite (with private datasets)**: 15 failed, 6 errors — regression tests fail for private datasets (golden snapshots stale), `engage` dataset has duplicate vote files
+7. Investigated regression failures — all caused by expected threshold change. Re-recorded after verification.
+8. **Blocker**: 3 private datasets have incomplete Clojure blobs (no in-conv data). D2 tests fail on those — not a code issue. Delegated blob regeneration to separate session.
+
+### Investigation of regression failures
+- Private dataset golden snapshots were never committed (unstaged in .local repo) — reverted automatically
+- biodiversity: re-recorded after verifying D2 in-conv set matches Clojure exactly (428→441 participants)
+- Private datasets: threshold dropped significantly for large conversations:
+  - bg2050 (7753 comments): old threshold ≈ 15.8, new threshold = 7 → 6609/7890 qualify (was fewer)
+  - This is the expected and correct effect of the D2 fix
+- **Gotcha**: `--datasets <name>` alone won't find private datasets — must also pass `--include-local`!
+  Without it, private datasets are silently skipped (shown as `[NOTSET]`).
+- Golden snapshots re-recorded for FLI, bg2018, pakistan, bg2050 after verifying all regression
+  failures are downstream of the expected threshold change. Committed in `.local` repo on
+  branch `series-of-fixes`.
+
+### Incomplete Clojure blobs (BLOCKING)
+
+3 private datasets have incomplete Clojure cold-start blobs (4 keys instead of 23):
+- Missing `in-conv`, `repness`, `consensus`, `comment-priorities`, etc.
+- Likely caused by Clojure math service timeout on large conversations
+- The 4 remaining datasets (vw, biodiversity, FLI, bg2018) have complete blobs (23 keys)
+- **D2 tests pass on all datasets with complete blobs**
+- D2 tests fail on the 3 incomplete datasets because `in-conv` is empty — this is a data
+  problem, not a code problem
+
+**Action needed**: Regenerate Clojure blobs for the 3 incomplete datasets using
+`generate_cold_start_clojure.py` with the prodclone DB and Clojure math service.
+This is delegated to a separate session.
+
+### What was NOT needed
+- `raw_rating_mat` vs `rating_mat` — not needed, the existing vote counting works
+- Greedy fallback / monotonic persistence — not needed for parity (cold-start only)
+
+### What's Next: PR 2 — Fix D4 (Pseudocount)
 
 ---
 
@@ -143,9 +176,59 @@ After rebase onto updated `origin/kmeans_analysis_docs`:
 
 ---
 
+## TDD Discipline
+
+**CRITICAL: For every fix, ALWAYS follow this order:**
+1. **Run the full test suite** (all datasets, including private) to establish the baseline
+2. **Remove xfail** from the target test(s)
+3. **Run tests and confirm they FAIL** (red) — this validates the test actually catches the discrepancy
+4. **Apply the fix**
+5. **Run tests and confirm they PASS** (green)
+6. **Run the full test suite** to check for regressions vs the baseline from step 1
+7. **If regression tests fail**: INVESTIGATE before re-recording golden snapshots (see below)
+
+Never skip step 3. A test that passes before the fix is applied is not testing anything useful.
+
+### Golden snapshots are precious
+
+**NEVER blindly re-record golden snapshots.** They are the regression safety net.
+When a fix causes regression test failures:
+
+1. **Investigate** what changed: compare old vs new output, check which fields differ
+2. **Verify** the new output is closer to Clojure (e.g., in-conv set now matches exactly)
+3. **Only then** re-record, one dataset at a time, after confirming correctness
+4. **Commit** the updated snapshots with a clear message explaining why they changed
+
+### Per-dataset testing for faster feedback
+
+Run each dataset as a **separate background task** instead of one big pytest invocation.
+Smallest datasets finish first, giving early signal without waiting for the 1M-vote ones.
+
+**IMPORTANT**: Always pass `--include-local` when testing private datasets.
+Without it, `--datasets <name>` silently skips private datasets (shown as `[NOTSET]`).
+
+### Pipelined worktree workflow
+
+Full test suite takes ~14 minutes. To avoid idle time:
+- When tests start running on the current worktree, create the next worktree and start coding the next fix
+- Each worktree = one fix, one branch, one PR — stacked like the PR chain
+- Number of worktrees in flight depends on test duration vs coding speed
+- If a lower fix needs amending, rebase the chain of worktrees above it
+- Each worktree gets its own `.local` private data clone (via `link-to-polis-worktree.sh`)
+
+**When starting a new Claude session for the next fix**, ask the user whether they want
+to create a new worktree. If yes, provide a prompt they can use to start that session:
+
+> Start working on [Clj parity] fix DN (<description>). This is a new worktree
+> stacked on `<previous-branch>`. Read `delphi/docs/CLJ-PARITY-FIXES-JOURNAL.md`
+> and `delphi/docs/CLJ-PARITY-FIXES-PLAN.md` for context. Follow the TDD discipline
+> documented in the journal.
+
+---
+
 ## Notes for Future Sessions
 
-- Private datasets not available in this worktree. Need prodclone DB + `generate_cold_start_clojure.py`.
+- Private datasets are in `delphi/real_data/.local/` (separate git repo, linked via `link-to-polis-worktree.sh`)
 - `test_discrepancy_fixes.py` uses same parametrization pattern as `test_legacy_clojure_regression.py` (own `pytest_generate_tests` hook, `dataset_name` fixture).
 - 11 pre-existing test failures are from the stacked branch, not from our work. They should be fixed in their respective PRs before merging to main.
 - `strict=False` on xfail means xpass (unexpected pass) is reported but not a failure. Used when some datasets pass by coincidence.
