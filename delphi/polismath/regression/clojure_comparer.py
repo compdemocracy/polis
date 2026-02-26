@@ -123,15 +123,12 @@ def unfold_clojure_group_clusters(math_blob: Dict[str, Any]) -> List[Dict[str, A
     """
     Unfold Clojure's two-level clustering to participant level for comparison.
 
-    Clojure uses two-level clustering:
+    Both Clojure and Python use two-level clustering:
     1. Participants → base clusters (~100 small clusters)
     2. Base clusters → groups (k final groups)
 
-    Python uses single-level clustering:
-    1. Participants → groups (k final groups)
-
     This function unfolds Clojure's group-clusters from base cluster IDs
-    to participant IDs so they can be compared with Python's group_clusters.
+    to participant IDs.  Python's equivalent is Conversation._unfolded_group_clusters().
 
     Args:
         math_blob: Clojure math_blob dictionary with 'group-clusters' and 'base-clusters'
