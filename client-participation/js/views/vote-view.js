@@ -11,6 +11,16 @@ var $ = require("jquery");
 var _ = require("lodash");
 
 var iOS = Utils.isIos();
+var VOTE_SHORTCUT_KEYS = {
+  agree: "s",
+  disagree: "d",
+  pass: "f"
+};
+var VOTE_SHORTCUT_KEY_BY_CODE = {
+  keys: VOTE_SHORTCUT_KEYS.agree,
+  keyd: VOTE_SHORTCUT_KEYS.disagree,
+  keyf: VOTE_SHORTCUT_KEYS.pass
+};
 
 function getOfficialTranslations(translations) {
   return (translations || []).filter(function (t) {
@@ -56,6 +66,7 @@ module.exports = Handlebones.ModelView.extend({
       ctx.createdString = new Date(ctx.created * 1).toString().match(/(.*?) [0-9]+:/)[1];
     }
     ctx.s = Strings;
+    ctx.voteShortcuts = VOTE_SHORTCUT_KEYS;
 
     var btnBg = preload.conversation.style_btn;
     if (btnBg) {
@@ -256,20 +267,40 @@ module.exports = Handlebones.ModelView.extend({
         return;
       }
 
-      // Only enable shortcuts when vote buttons are currently visible.
-      if (!that.$("#agreeButton").length || !that.$("#disagreeButton").length || !that.$("#passButton").length) {
+      var agreeButton = that.$("#agreeButton");
+      var disagreeButton = that.$("#disagreeButton");
+      var passButton = that.$("#passButton");
+
+      // Enable shortcuts only while the vote screen is actually visible.
+      if (
+        !agreeButton.length ||
+        !disagreeButton.length ||
+        !passButton.length ||
+        !agreeButton.is(":visible") ||
+        !disagreeButton.is(":visible") ||
+        !passButton.is(":visible")
+      ) {
         return;
       }
 
-      var code = (e.code || "").toLowerCase();
-      var key = (e.key || String.fromCharCode(e.which || e.keyCode || 0)).toLowerCase();
-      if (code === "keys" || key === "s") {
+      var key = (e.key || "").toLowerCase();
+      if (!key) {
+        key = String.fromCharCode(e.which || e.keyCode || 0).toLowerCase();
+      }
+
+      // Fallback to physical-key detection only when character key is unavailable.
+      if (!key || key === "unidentified") {
+        var code = (e.code || "").toLowerCase();
+        key = VOTE_SHORTCUT_KEY_BY_CODE[code] || key;
+      }
+
+      if (key === VOTE_SHORTCUT_KEYS.agree) {
         e.preventDefault();
         that.participantAgreed();
-      } else if (code === "keyd" || key === "d") {
+      } else if (key === VOTE_SHORTCUT_KEYS.disagree) {
         e.preventDefault();
         that.participantDisagreed();
-      } else if (code === "keyf" || key === "f") {
+      } else if (key === VOTE_SHORTCUT_KEYS.pass) {
         e.preventDefault();
         that.participantPassed();
       }
