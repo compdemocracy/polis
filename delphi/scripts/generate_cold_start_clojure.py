@@ -14,8 +14,8 @@ computations from the Clojure implementation:
 This approach works with the Clojure poller's design rather than against it.
 
 Usage:
-    python scripts/generate_cold_start_clojure.py biodiversity --stop-math
-    python scripts/generate_cold_start_clojure.py --all --stop-math
+    python scripts/generate_cold_start_clojure.py biodiversity
+    python scripts/generate_cold_start_clojure.py --all --include-local
     python scripts/generate_cold_start_clojure.py biodiversity --no-cleanup
 """
 
@@ -46,21 +46,19 @@ MATH_ENV = os.environ.get('MATH_ENV', 'prod')
 
 
 def get_running_math_containers() -> list[str]:
-    """Get list of running math worker container names."""
+    """Get list of running math worker container names (excluding our coldstart containers)."""
     result = subprocess.run(
         ['docker', 'ps', '--filter', 'name=math', '--format', '{{.Names}}'],
         capture_output=True, text=True
     )
-    return [line for line in result.stdout.splitlines() if 'math' in line.lower()]
-
-
-def check_math_worker_running() -> bool:
-    """Check if math worker container is running."""
-    return len(get_running_math_containers()) > 0
+    return [
+        line for line in result.stdout.splitlines()
+        if 'math' in line.lower() and 'coldstart' not in line.lower()
+    ]
 
 
 def pause_math_workers() -> list[str]:
-    """Pause all running math worker containers.
+    """Pause all running math worker containers (not our coldstart ones).
 
     Returns list of container names that were paused.
     """
@@ -103,31 +101,35 @@ def unpause_math_workers(containers: list[str]) -> int:
     return unpaused
 
 
-def stop_math_workers() -> int:
-    """Stop all running math worker containers.
-
-    Returns the number of containers stopped.
-    """
-    containers = get_running_math_containers()
-    if not containers:
-        return 0
-
-    for container in containers:
-        click.echo(f"  Stopping {container}...")
-        subprocess.run(['docker', 'stop', container], capture_output=True)
-
-    return len(containers)
+def stop_poller_container(process: subprocess.Popen, container_name: str) -> None:
+    """Stop a poller process and force-remove its container."""
+    if process.poll() is None:
+        click.echo("\n  Stopping poller...")
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+    # Force-remove the container in case --rm didn't clean it up
+    subprocess.run(['docker', 'rm', '-f', container_name], capture_output=True)
 
 
 def get_db_connection():
-    """Create a connection to the Postgres database."""
+    """Create a connection to the Postgres database.
+
+    Uses DATABASE_URL from env / dotenv. When running host-side (not in Docker),
+    DATABASE_URL may contain 'host.docker.internal' which needs translating to
+    'localhost' for the psycopg2 connection.
+    """
     database_url = os.environ.get('DATABASE_URL')
     if not database_url:
         raise ValueError(
             "DATABASE_URL environment variable is not set. "
             "Please set it in the main polis/.env file."
         )
-    return psycopg2.connect(database_url)
+    # When running host-side, translate Docker-internal hostname to localhost
+    host_url = database_url.replace('host.docker.internal', 'localhost')
+    return psycopg2.connect(host_url)
 
 
 def get_zid_from_report_id(conn, report_id: str) -> int | None:
@@ -187,6 +189,62 @@ def create_fake_conversation(conn, source_zid: int) -> int:
     cursor.close()
 
     return fake_zid
+
+
+def copy_participants(conn, source_zid: int, fake_zid: int) -> int:
+    """Copy participants from source to fake conversation.
+
+    Required because comments have a FK constraint on (zid, pid) -> participants.
+    """
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO participants (zid, pid, uid, created)
+        SELECT %s, pid, uid, created
+        FROM participants
+        WHERE zid = %s
+    """, (fake_zid, source_zid))
+    count = cursor.rowcount
+    conn.commit()
+    cursor.close()
+    return count
+
+
+def copy_comments_with_fresh_timestamps(conn, source_zid: int, fake_zid: int) -> int:
+    """Copy comments from source to fake conversation with fresh modified timestamps.
+
+    The Clojure mod-poller queries comments WHERE modified > last_mod_timestamp,
+    so fresh timestamps ensure moderation data is picked up. Without comments,
+    the poller has no mod-in set, causing all tids to be filtered out and PCA to
+    fail with 'nil has zero dimensionality'.
+
+    The tid_auto trigger auto-assigns tids, so we disable triggers for this
+    session only (using session_replication_role) to preserve original tids.
+    This is safe for concurrent use — only affects the current DB session.
+    """
+    cursor = conn.cursor()
+    now_ms = int(time.time() * 1000)
+
+    # Disable triggers for this session only (safe for concurrent use)
+    cursor.execute("SET session_replication_role = 'replica'")
+
+    try:
+        cursor.execute("""
+            INSERT INTO comments (zid, tid, pid, txt, created, velocity, mod, active,
+                                  modified, uid, anon, is_seed, curation, is_meta)
+            SELECT %s, tid, pid, txt, created, velocity, mod, active,
+                   %s, uid, anon, is_seed, curation, is_meta
+            FROM comments
+            WHERE zid = %s
+        """, (fake_zid, now_ms, source_zid))
+        count = cursor.rowcount
+        conn.commit()
+    finally:
+        # Restore normal trigger behavior for this session
+        cursor.execute("SET session_replication_role = 'origin'")
+        conn.commit()
+
+    cursor.close()
+    return count
 
 
 def copy_votes_with_fresh_timestamps(conn, source_zid: int, fake_zid: int) -> int:
@@ -270,7 +328,12 @@ def cleanup_fake_conversation(conn, fake_zid: int) -> dict:
     cursor.execute("DELETE FROM votes WHERE zid = %s", (fake_zid,))
     cleanup_stats['votes'] = cursor.rowcount
 
-    # participants (if any were auto-created)
+    # comments (before participants due to FK)
+    cursor.execute("DELETE FROM comments WHERE zid = %s", (fake_zid,))
+    if cursor.rowcount > 0:
+        cleanup_stats['comments'] = cursor.rowcount
+
+    # participants
     cursor.execute("DELETE FROM participants WHERE zid = %s", (fake_zid,))
     if cursor.rowcount > 0:
         cleanup_stats['participants'] = cursor.rowcount
@@ -384,17 +447,19 @@ class PollerMonitor:
             pass  # Process terminated
 
 
-def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300, verbose: bool = False) -> tuple[subprocess.Popen, PollerMonitor]:
+def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300, verbose: bool = False) -> tuple[subprocess.Popen, PollerMonitor, str]:
     """
     Start the Clojure poller restricted to process only the fake zid.
 
-    Returns tuple of (Popen process handle, PollerMonitor for error detection).
+    Returns tuple of (Popen process handle, PollerMonitor, container name).
     """
     # Use MATH_ZID_ALLOWLIST to only process our fake conversation
     # This speeds things up significantly and avoids touching other conversations
     log_level = 'debug' if verbose else 'info'
+    container_name = f'polis-math-coldstart-{fake_zid}'
     cmd = [
         'docker', 'compose', 'run', '--rm',
+        '--name', container_name,
         '-e', 'POLL_FROM_DAYS_AGO=1',  # Only need very recent votes (ours)
         '-e', f'MATH_ZID_ALLOWLIST={fake_zid}',
         '-e', f'LOGGING_LEVEL={log_level}',
@@ -422,7 +487,7 @@ def run_poller_for_zid(fake_zid: int, timeout_seconds: int = 300, verbose: bool 
     )
     stream_thread.start()
 
-    return process, monitor
+    return process, monitor, container_name
 
 
 def generate_cold_start_via_fake_conversation(
@@ -443,6 +508,7 @@ def generate_cold_start_via_fake_conversation(
     """
     fake_zid = None
     poller_process = None
+    container_name = None
 
     try:
         # Step 1: Create fake conversation
@@ -460,7 +526,7 @@ def generate_cold_start_via_fake_conversation(
 
         # Step 3: Run poller
         click.echo("\n[3/4] Running Clojure poller...")
-        poller_process, poller_monitor = run_poller_for_zid(fake_zid, timeout_seconds)
+        poller_process, poller_monitor, container_name = run_poller_for_zid(fake_zid, timeout_seconds)
 
         # Step 4: Wait for math computation
         click.echo("\n[4/4] Waiting for math computation...")
@@ -477,14 +543,8 @@ def generate_cold_start_via_fake_conversation(
         return math_blob
 
     finally:
-        # Always kill the poller process if running
-        if poller_process and poller_process.poll() is None:
-            click.echo("\n  Stopping poller...")
-            poller_process.terminate()
-            try:
-                poller_process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                poller_process.kill()
+        if poller_process and container_name:
+            stop_poller_container(poller_process, container_name)
 
 
 def generate_cold_start_for_dataset(
@@ -521,6 +581,7 @@ def generate_cold_start_for_dataset(
 
     fake_zid = None
     poller_process = None
+    container_name = None
 
     try:
         # Look up zid from report_id
@@ -542,21 +603,31 @@ def generate_cold_start_for_dataset(
         click.echo(f"\n--- Starting cold-start generation ---")
 
         # Create temporary conversation (so we can track it for cleanup)
-        click.echo("\n[1/4] Creating temporary conversation...")
+        click.echo("\n[1/6] Creating temporary conversation...")
         fake_zid = create_fake_conversation(conn, source_zid)
         click.echo(f"  ✓ Created temporary conversation with zid {fake_zid}")
 
+        # Copy participants (required by comments FK constraint)
+        click.echo("\n[2/6] Copying participants...")
+        copied_participants = copy_participants(conn, source_zid, fake_zid)
+        click.echo(f"  ✓ Copied {copied_participants} participants")
+
+        # Copy comments with fresh timestamps (required for moderation data)
+        click.echo("\n[3/6] Copying comments with fresh timestamps...")
+        copied_comments = copy_comments_with_fresh_timestamps(conn, source_zid, fake_zid)
+        click.echo(f"  ✓ Copied {copied_comments} comments")
+
         # Copy votes
-        click.echo("\n[2/4] Copying votes with fresh timestamps...")
+        click.echo("\n[4/6] Copying votes with fresh timestamps...")
         copied_votes = copy_votes_with_fresh_timestamps(conn, source_zid, fake_zid)
         click.echo(f"  ✓ Copied {copied_votes} votes")
 
         # Run poller
-        click.echo("\n[3/4] Running Clojure poller...")
-        poller_process, poller_monitor = run_poller_for_zid(fake_zid, timeout_seconds, verbose=verbose)
+        click.echo("\n[5/6] Running Clojure poller...")
+        poller_process, poller_monitor, container_name = run_poller_for_zid(fake_zid, timeout_seconds, verbose=verbose)
 
         # Wait for computation
-        click.echo("\n[4/4] Waiting for math computation...")
+        click.echo("\n[6/6] Waiting for math computation...")
         try:
             math_blob = wait_for_math_computation(conn, fake_zid, MATH_ENV, timeout_seconds, monitor=poller_monitor)
         except PollerError as e:
@@ -593,14 +664,9 @@ def generate_cold_start_for_dataset(
         return True
 
     finally:
-        # Always kill the poller process if running
-        if poller_process and poller_process.poll() is None:
-            click.echo("\n  Stopping poller...")
-            poller_process.terminate()
-            try:
-                poller_process.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                poller_process.kill()
+        # Stop and remove our poller container
+        if poller_process and container_name:
+            stop_poller_container(poller_process, container_name)
 
         # Always clean up temporary conversation data
         if fake_zid is not None:
@@ -620,15 +686,18 @@ def generate_cold_start_for_dataset(
 @click.option('--include-local', is_flag=True, default=False, help='Include datasets from real_data/.local/')
 @click.option('--no-cleanup', is_flag=True, help='Do not cleanup temporary conversation (for debugging)')
 @click.option('--timeout', default=300, help='Timeout in seconds for math computation (default: 300)')
-@click.option('--pause-math', is_flag=True, help='Automatically pause running math workers (resumes after completion)')
 @click.option('--verbose', '-v', is_flag=True, help='Show detailed output including Clojure poller logs')
-def main(datasets: tuple, process_all: bool, include_local: bool, no_cleanup: bool, timeout: int, pause_math: bool, verbose: bool):
+def main(datasets: tuple, process_all: bool, include_local: bool, no_cleanup: bool, timeout: int, verbose: bool):
     """
     Generate cold-start Clojure math blobs for fair Python comparison.
 
     This script creates a temporary conversation in the database (replaying
     votes from the source), and runs the Clojure poller to compute a true
     cold-start math blob.
+
+    If the math worker is already running, it is automatically paused during
+    generation and resumed afterwards (to prevent it from racing on the
+    temporary conversation's votes).
 
     Examples:
 
@@ -644,9 +713,6 @@ def main(datasets: tuple, process_all: bool, include_local: bool, no_cleanup: bo
         # Generate for all datasets including .local/
         python scripts/generate_cold_start_clojure.py --all --include-local
 
-        # Automatically pause math workers (resumes after completion)
-        python scripts/generate_cold_start_clojure.py biodiversity --pause-math
-
         # Verbose mode: show Clojure poller output in real-time
         python scripts/generate_cold_start_clojure.py biodiversity -v
 
@@ -660,20 +726,14 @@ def main(datasets: tuple, process_all: bool, include_local: bool, no_cleanup: bo
         click.echo(f"  Looked in: {POLIS_DIR}/.env", err=True)
         raise click.Abort()
 
-    # Check if math worker is running
+    # Pause any running math workers to prevent them from racing on our
+    # temporary conversation's votes. They will be resumed when we're done.
     paused_containers: list[str] = []
-    if check_math_worker_running():
-        if pause_math:
-            click.echo("Pausing running math worker containers...")
-            paused_containers = pause_math_workers()
-            click.echo(f"  ✓ Paused {len(paused_containers)} container(s)")
-        else:
-            click.echo("✗ ERROR: Math worker container is running!", err=True)
-            click.echo("\nThe math worker must be paused/stopped to prevent conflicts.", err=True)
-            click.echo("Either use --pause-math to pause it automatically, or stop it manually:", err=True)
-            click.echo(f"  cd {POLIS_DIR}", err=True)
-            click.echo("  docker compose stop math", err=True)
-            raise click.Abort()
+    running = get_running_math_containers()
+    if running:
+        click.echo(f"Pausing {len(running)} running math worker(s) to prevent conflicts...")
+        paused_containers = pause_math_workers()
+        click.echo(f"  ✓ Paused {len(paused_containers)} container(s)")
 
     # Determine which datasets to process
     available_datasets = discover_datasets(include_local=include_local)
