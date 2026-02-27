@@ -23,6 +23,7 @@ import json
 import os
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -45,60 +46,84 @@ POLIS_DIR = Path(__file__).parent.parent.parent.resolve()
 MATH_ENV = os.environ.get('MATH_ENV', 'prod')
 
 
-def get_running_math_containers() -> list[str]:
-    """Get list of running math worker container names (excluding our coldstart containers)."""
+# Marker file used to track whether we (coldstart runs) paused the math worker.
+# If the user paused it manually, no marker exists and we won't unpause it.
+PAUSE_MARKER = Path(tempfile.gettempdir()) / 'polis-math-coldstart-paused'
+
+
+def get_running_math_workers() -> list[str]:
+    """Get running math worker containers (excluding our coldstart containers)."""
     result = subprocess.run(
         ['docker', 'ps', '--filter', 'name=math', '--format', '{{.Names}}'],
-        capture_output=True, text=True
+        capture_output=True, text=True,
     )
     return [
-        line for line in result.stdout.splitlines()
-        if 'math' in line.lower() and 'coldstart' not in line.lower()
+        name for name in result.stdout.splitlines()
+        if name and 'coldstart' not in name
     ]
 
 
-def pause_math_workers() -> list[str]:
-    """Pause all running math worker containers (not our coldstart ones).
+def get_running_coldstart_containers(exclude: str = '') -> list[str]:
+    """Get running coldstart containers, optionally excluding our own."""
+    result = subprocess.run(
+        ['docker', 'ps', '--filter', 'name=polis-math-coldstart', '--format', '{{.Names}}'],
+        capture_output=True, text=True,
+    )
+    return [name for name in result.stdout.splitlines() if name and name != exclude]
 
-    Returns list of container names that were paused.
+
+def ensure_math_workers_paused() -> None:
+    """Pause math workers if running, using a marker file for coordination.
+
+    Multiple concurrent coldstart runs coordinate via the marker file:
+    - First run to find workers running pauses them and creates the marker.
+    - Subsequent runs see workers already paused; they check the marker to
+      confirm it was us (not a manual user pause) and proceed.
     """
-    containers = get_running_math_containers()
-    if not containers:
-        return []
+    workers = get_running_math_workers()
+    if not workers:
+        return  # Nothing running (either already paused or not started)
 
-    paused = []
-    for container in containers:
+    click.echo(f"Pausing {len(workers)} running math worker(s) to prevent conflicts...")
+    for container in workers:
         click.echo(f"  Pausing {container}...")
-        result = subprocess.run(['docker', 'pause', container], capture_output=True)
-        if result.returncode == 0:
-            paused.append(container)
-        else:
-            click.echo(f"    Warning: Failed to pause {container}", err=True)
+        subprocess.run(['docker', 'pause', container], capture_output=True)
 
-    return paused
+    # Create marker so the last coldstart run knows to unpause
+    PAUSE_MARKER.touch()
+    click.echo(f"  ✓ Paused {len(workers)} container(s)")
 
 
-def unpause_math_workers(containers: list[str]) -> int:
-    """Unpause previously paused math worker containers.
+def maybe_unpause_math_workers(own_container: str) -> None:
+    """Unpause math workers if we're the last coldstart run and we caused the pause.
 
-    Args:
-        containers: List of container names to unpause
-
-    Returns the number of containers unpaused.
+    Checks two conditions before unpausing:
+    1. No other coldstart containers are still running (we're the last one).
+    2. The pause marker file exists (we caused the pause, not the user).
     """
-    if not containers:
-        return 0
+    if not PAUSE_MARKER.exists():
+        return  # Pause wasn't caused by us
 
-    unpaused = 0
-    for container in containers:
-        click.echo(f"  Resuming {container}...")
-        result = subprocess.run(['docker', 'unpause', container], capture_output=True)
-        if result.returncode == 0:
-            unpaused += 1
-        else:
-            click.echo(f"    Warning: Failed to unpause {container}", err=True)
+    siblings = get_running_coldstart_containers(exclude=own_container)
+    if siblings:
+        click.echo(f"\n  Skipping math worker unpause ({len(siblings)} other coldstart run(s) still active)")
+        return
 
-    return unpaused
+    # We're the last one — unpause and clean up marker
+    result = subprocess.run(
+        ['docker', 'ps', '--filter', 'name=math', '--filter', 'status=paused', '--format', '{{.Names}}'],
+        capture_output=True, text=True,
+    )
+    paused = [name for name in result.stdout.splitlines() if name and 'coldstart' not in name]
+
+    if paused:
+        click.echo(f"\nResuming {len(paused)} paused math worker(s)...")
+        for container in paused:
+            click.echo(f"  Resuming {container}...")
+            subprocess.run(['docker', 'unpause', container], capture_output=True)
+        click.echo(f"  ✓ Resumed {len(paused)} container(s)")
+
+    PAUSE_MARKER.unlink(missing_ok=True)
 
 
 def stop_poller_container(process: subprocess.Popen, container_name: str) -> None:
@@ -579,6 +604,11 @@ def generate_cold_start_for_dataset(
         click.echo(f"Error connecting to database: {e}", err=True)
         return False
 
+    # Pause any running math workers to prevent them from processing our
+    # fake conversation's votes. Coordinated with other coldstart runs via
+    # marker file — only the last run to finish will unpause.
+    ensure_math_workers_paused()
+
     fake_zid = None
     poller_process = None
     container_name = None
@@ -679,6 +709,9 @@ def generate_cold_start_for_dataset(
 
         conn.close()
 
+        # Unpause math workers if we're the last coldstart run
+        maybe_unpause_math_workers(container_name or '')
+
 
 @click.command()
 @click.argument('datasets', nargs=-1)
@@ -695,9 +728,12 @@ def main(datasets: tuple, process_all: bool, include_local: bool, no_cleanup: bo
     votes from the source), and runs the Clojure poller to compute a true
     cold-start math blob.
 
-    If the math worker is already running, it is automatically paused during
-    generation and resumed afterwards (to prevent it from racing on the
-    temporary conversation's votes).
+    Each dataset gets its own isolated Clojure poller container (restricted
+    via MATH_ZID_ALLOWLIST). If a math worker is already running, it is
+    automatically paused to prevent it from racing on the temporary
+    conversation's votes. Multiple concurrent runs coordinate via a marker
+    file — only the last run to finish unpauses the math worker, and only
+    if it was paused by us (not manually by the user).
 
     Examples:
 
@@ -725,15 +761,6 @@ def main(datasets: tuple, process_all: bool, include_local: bool, no_cleanup: bo
         click.echo("\nMake sure .env file exists with DATABASE_URL set:", err=True)
         click.echo(f"  Looked in: {POLIS_DIR}/.env", err=True)
         raise click.Abort()
-
-    # Pause any running math workers to prevent them from racing on our
-    # temporary conversation's votes. They will be resumed when we're done.
-    paused_containers: list[str] = []
-    running = get_running_math_containers()
-    if running:
-        click.echo(f"Pausing {len(running)} running math worker(s) to prevent conflicts...")
-        paused_containers = pause_math_workers()
-        click.echo(f"  ✓ Paused {len(paused_containers)} container(s)")
 
     # Determine which datasets to process
     available_datasets = discover_datasets(include_local=include_local)
@@ -800,11 +827,7 @@ def main(datasets: tuple, process_all: bool, include_local: bool, no_cleanup: bo
             click.echo("\n✓ All datasets processed successfully!")
 
     finally:
-        # Resume any paused math workers
-        if paused_containers:
-            click.echo("\nResuming paused math worker containers...")
-            n_resumed = unpause_math_workers(paused_containers)
-            click.echo(f"  ✓ Resumed {n_resumed} container(s)")
+        pass  # Pause/unpause is handled per-dataset in generate_cold_start_for_dataset
 
 
 if __name__ == '__main__':
