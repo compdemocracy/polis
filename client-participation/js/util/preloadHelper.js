@@ -6,6 +6,9 @@ var $ = require("jquery");
 // bootstrap initial bulk ajax call.
 // we don't have promises until main bundle loads, so this is going to be crappy.
 var p = window.preload;
+var hasPreloadKey = function (key) {
+  return Object.prototype.hasOwnProperty.call(p, key);
+};
 
 function makeListener(dfd) {
   return function (err, data) {
@@ -17,7 +20,7 @@ function makeListener(dfd) {
   };
 }
 
-var firstCommentPromise = p.firstComment
+var firstCommentPromise = hasPreloadKey("firstComment")
   ? $.Deferred().resolve(p.firstComment)
   : (function () {
       var dfd = $.Deferred();
@@ -25,7 +28,7 @@ var firstCommentPromise = p.firstComment
       return dfd.promise();
     })();
 
-var firstConvPromise = p.firstConv
+var firstConvPromise = hasPreloadKey("firstConv")
   ? $.Deferred().resolve(p.firstConv)
   : (function () {
       var dfd = $.Deferred();
@@ -33,7 +36,8 @@ var firstConvPromise = p.firstConv
       return dfd.promise();
     })();
 
-var firstUserPromise = p.firstUser
+// firstUser may legitimately be null for anonymous participants.
+var firstUserPromise = hasPreloadKey("firstUser")
   ? $.Deferred().resolve(p.firstUser)
   : (function () {
       var dfd = $.Deferred();
@@ -41,7 +45,7 @@ var firstUserPromise = p.firstUser
       return dfd.promise();
     })();
 
-var firstPtptPromise = p.firstPtpt
+var firstPtptPromise = hasPreloadKey("firstPtpt")
   ? $.Deferred().resolve(p.firstPtpt)
   : (function () {
       var dfd = $.Deferred();
@@ -49,7 +53,7 @@ var firstPtptPromise = p.firstPtpt
       return dfd.promise();
     })();
 
-var firstVotesByMePromise = p.firstVotesByMe
+var firstVotesByMePromise = hasPreloadKey("firstVotesByMe")
   ? $.Deferred().resolve(p.firstVotesByMe)
   : (function () {
       var dfd = $.Deferred();
@@ -65,7 +69,7 @@ var firstMathPromise = _.isObject(p.firstMath)
       return dfd.promise();
     })();
 
-var firstFamousPromise = p.firstFamous
+var firstFamousPromise = hasPreloadKey("firstFamous")
   ? $.Deferred().resolve(p.firstFamous)
   : (function () {
       var dfd = $.Deferred();
@@ -73,7 +77,7 @@ var firstFamousPromise = p.firstFamous
       return dfd.promise();
     })();
 
-var acceptLanguagePromise = p.acceptLanguage
+var acceptLanguagePromise = hasPreloadKey("acceptLanguage")
   ? $.Deferred().resolve(p.acceptLanguage)
   : (function () {
       var dfd = $.Deferred();
