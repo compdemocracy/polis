@@ -146,6 +146,16 @@ This is delegated to a separate session.
 - `raw_rating_mat` vs `rating_mat` — not needed, the existing vote counting works
 - Greedy fallback / monotonic persistence — not needed for parity (cold-start only)
 
+### D2b: Base-cluster sort order (added from Copilot review)
+
+Copilot flagged that Python sorts base clusters by size (descending) and reassigns IDs,
+while Clojure uses `(sort-by :id ...)` which preserves k-means' original cluster IDs.
+The size-sort changes the encounter order of base-cluster centers fed into group-level
+k-means (which uses first-k-distinct initialization), potentially diverging from Clojure.
+
+**Fix**: Removed size-sort and ID reassignment; now sort by k-means ID (ascending),
+matching Clojure's `sort-by :id`.
+
 ### What's Next: PR 2 — Fix D4 (Pseudocount)
 
 ---

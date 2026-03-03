@@ -371,6 +371,7 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D1 | PCA sign flips | PR 13 | Fix (sign consistency) |
 | D1b | Projection input | PR 13 | Fix with D1 |
 | D2 | In-conv threshold | **PR 1** | Fix |
+| D2b | Base-cluster sort order | **PR 1** | Fix (keep k-means ID order, match Clojure sort-by :id) |
 | D3 | K-smoother buffer | PR 10 | Fix |
 | D4 | Pseudocount formula | **PR 2** | Fix |
 | D5 | Proportion test | PR 4 | Fix |

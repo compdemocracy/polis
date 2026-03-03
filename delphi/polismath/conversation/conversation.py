@@ -590,11 +590,10 @@ class Conversation:
                 'members': member_pids
             })
 
-        # Sort base clusters by size (descending) for consistency
-        base_clusters.sort(key=lambda c: len(c['members']), reverse=True)
-        # Reassign IDs based on sorted order
-        for i, cluster in enumerate(base_clusters):
-            cluster['id'] = i
+        # Keep base clusters in k-means ID order (matching Clojure's sort-by :id)
+        # Do NOT sort by size or reassign IDs — that would change the encounter
+        # order of centers used in group clustering's first-k-distinct initialization.
+        base_clusters.sort(key=lambda c: c['id'])
 
         logger.info(f"Created {len(base_clusters)} base clusters")
 
