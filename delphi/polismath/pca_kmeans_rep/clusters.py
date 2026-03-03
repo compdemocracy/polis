@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple, Union, Any
 import random
 from copy import deepcopy
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score, pairwise_distances
+from sklearn.metrics import silhouette_score
 
 from polismath.utils.general import weighted_mean, weighted_means
 
