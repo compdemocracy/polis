@@ -156,6 +156,20 @@ k-means (which uses first-k-distinct initialization), potentially diverging from
 **Fix**: Removed size-sort and ID reassignment; now sort by k-means ID (ascending),
 matching Clojure's `sort-by :id`.
 
+### Test results for PR 1
+
+```
+17 passed, 16 skipped, 31 xfailed, 7 xpassed, 4 errors (with --include-local, 7 datasets)
+```
+
+- **17 passed**: D2 tests pass on 4 datasets with complete blobs (8 tests) + formula sanity checks + blob consistency
+- **16 skipped**: D2 skipped on 3 datasets with incomplete Clojure blobs + D15 moderation + engage errors
+- **31 xfailed**: Remaining discrepancy tests (D4-D12)
+- **7 xpassed** (all `strict=False`, so green):
+  - D6 two_prop_test × 1 — pseudocount difference too small for this test case
+  - D9 repness_not_empty × 6 — test too weak (checks non-empty, not correct count)
+- **4 errors**: engage dataset has duplicate vote files (pre-existing data issue)
+
 ### What's Next: PR 2 — Fix D4 (Pseudocount)
 
 ---
