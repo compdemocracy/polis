@@ -427,7 +427,7 @@ class TestConversation:
         }
         
         # Create two distinct opinion groups with enough votes per participant
-        # to meet the vote threshold (7 + sqrt(n_comments) * 0.1)
+        # to meet the vote threshold (min(7, n_comments))
         for i in range(20):
             pid = f'p{i}'
 
