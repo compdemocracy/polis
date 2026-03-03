@@ -163,15 +163,14 @@ def _clojure_in_conv_set(blob: dict) -> set[int]:
 @pytest.mark.clojure_comparison
 class TestD2InConvThreshold:
     """
-    D2: Python uses threshold = 7 + sqrt(n_cmts) * 0.1
-        Clojure uses threshold = min(7, n_cmts)
-
-    This causes Python to require more votes for larger conversations,
-    filtering out participants that Clojure would keep.
+    D2: Clojure uses threshold = min(7, n_cmts) for in-conv filtering.
+    Python now matches (fixed from 7 + sqrt(n_cmts) * 0.1).
     """
 
     def test_in_conv_count_matches(self, conv, clojure_blob, dataset_name):
         """Number of in-conv participants should match Clojure."""
+        if 'in-conv' not in clojure_blob:
+            pytest.skip(f"[{dataset_name}] Clojure blob has no in-conv data (incomplete cold-start blob)")
         clojure_in_conv = _clojure_in_conv_set(clojure_blob)
         python_in_conv_count = len(conv._get_in_conv_participants())
 
@@ -181,6 +180,8 @@ class TestD2InConvThreshold:
 
     def test_in_conv_set_matches(self, conv, clojure_blob, dataset_name):
         """The actual set of in-conv participants should match Clojure."""
+        if 'in-conv' not in clojure_blob:
+            pytest.skip(f"[{dataset_name}] Clojure blob has no in-conv data (incomplete cold-start blob)")
         clojure_in_conv = _clojure_in_conv_set(clojure_blob)
         python_in_conv = conv._get_in_conv_participants()
         # Convert python pids to int for comparison
