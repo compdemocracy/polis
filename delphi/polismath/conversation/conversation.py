@@ -1046,9 +1046,9 @@ class Conversation:
                                 for pid, proj in self.proj.items()}
         logger.info(f"Projection data conversion: {time.time() - proj_start:.4f}s")
         
-        # Add cluster data
+        # Add cluster data (unfolded: base-cluster IDs → participant IDs)
         clusters_start = time.time()
-        result['group_clusters'] = self.group_clusters
+        result['group_clusters'] = self._unfolded_group_clusters()
         logger.info(f"Clusters data: {time.time() - clusters_start:.4f}s")
         
         # Add representativeness data
@@ -1466,11 +1466,12 @@ class Conversation:
         result['base-clusters'] = self._fold_base_clusters(self.base_clusters)
 
         # Group clusters (base clusters → 2-5 groups)
-        # Members are base cluster IDs, not participant IDs
-        result['group-clusters'] = self.group_clusters
+        # Unfold base-cluster IDs to participant IDs for downstream consumers
+        unfolded_gc = self._unfolded_group_clusters()
+        result['group-clusters'] = unfolded_gc
 
         # Legacy field for backward compatibility (remove after full migration)
-        result['group_clusters'] = self.group_clusters
+        result['group_clusters'] = unfolded_gc
         
         # Add representativeness data
         if self.repness:
@@ -1558,10 +1559,10 @@ class Conversation:
         
         # Use the optimized implementation similar to to_dynamo_dict
         group_votes = {}
-        
+
         if self.group_clusters:
-            # Expand base-cluster IDs to participant IDs for vote counting
-            unfolded_groups = self._unfolded_group_clusters()
+            # Reuse the already-unfolded group clusters (computed above)
+            unfolded_groups = unfolded_gc
 
             # Precompute indices for each participant for faster lookups
             ptpt_indices = {ptpt_id: i for i, ptpt_id in enumerate(self.rating_mat.index)}
@@ -1700,8 +1701,8 @@ class Conversation:
         
         logger.info(f"Moderation data: {time.time() - mod_start:.4f}s")
         
-        # Add base clusters (same as group clusters)
-        result['base-clusters'] = self.group_clusters
+        # Clojure compat: base-clusters = group clusters with participant IDs
+        result['base-clusters'] = unfolded_gc
         
         # Add empty consensus structure for compatibility
         result['consensus'] = {
@@ -2255,9 +2256,9 @@ class Conversation:
         # Add base-clusters and PCA data
         logger.info(f"[{time.time() - start_time:.2f}s] Processing PCA and cluster data...")
         
-        # Convert group clusters
+        # Convert group clusters (unfolded: base-cluster IDs → participant IDs)
         base_clusters = []
-        for cluster in self.group_clusters:
+        for cluster in self._unfolded_group_clusters():
             # Convert to a dict without numpy arrays
             clean_cluster = {
                 'id': cluster.get('id'),
@@ -2265,7 +2266,7 @@ class Conversation:
                 'center': numpy_to_list(cluster.get('center', [])),
             }
             base_clusters.append(clean_cluster)
-        
+
         # Convert to decimals for DynamoDB
         result['base_clusters'] = float_to_decimal(base_clusters)
         result['group_clusters'] = result['base_clusters']  # Same data
