@@ -64,16 +64,19 @@ In-conv: list of 67 participant IDs (vw)
 After rebase onto updated `origin/kmeans_analysis_docs`:
 
 ```
-5 passed, 2 skipped, 18 xfailed, 5 xpassed
+7 passed, 19 skipped, 39 xfailed, 10 xpassed (with --include-local, 7 datasets)
 ```
 
-- **5 passed**: Clojure formula sanity checks (prop_test, repness metric product, repful rat>rdt) + Clojure blob consistency checks (pat values for vw and biodiversity)
-- **2 skipped**: D15 moderation — vw and biodiversity have no moderated comments
-- **18 xfailed**: Discrepancy tests correctly fail (D2-D12 constants, formulas, and real-data comparisons)
-- **5 xpassed** (all `strict=False`, so green):
-  - D2 in-conv × 2 on vw (small dataset where thresholds coincide)
-  - D9 repness_not_empty × 2 on vw+biodiversity (rebased code produces non-empty `comment_repness` — the full list of all (group, comment) pairs is populated even with wrong thresholds; only `group_repness` selection is affected)
-  - D6 two_prop_test × 1 (the pseudocount difference is small enough for this particular test case)
+- **7 passed**: Clojure formula sanity checks (prop_test, repness metric product, repful rat>rdt) + Clojure blob consistency checks (pat values)
+- **19 skipped**: D15 moderation (no moderated comments), incomplete Clojure blobs, engage duplicate files
+- **39 xfailed**: Discrepancy tests correctly fail (D2-D12 constants, formulas, and real-data comparisons)
+- **10 xpassed** (all `strict=False`, so green):
+  - D2 in-conv × 2 on vw — small dataset where old/new thresholds coincide
+  - D6 two_prop_test × 1 — pseudocount difference too small to matter for this test case
+  - D9 repness_not_empty × 7 on all datasets — `comment_repness` list is populated (all
+    (group, comment) pairs) even with wrong thresholds; only `group_repness` selection is
+    affected. **TODO**: tighten this test when fixing D9 to check correct *number* of
+    representative comments, not just non-emptiness
 
 ### Design decisions
 - All tests that verify targets not yet implemented are marked `@pytest.mark.xfail` with the discrepancy ID in the reason
