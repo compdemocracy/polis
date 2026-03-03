@@ -173,6 +173,22 @@ This is delegated to a separate session.
   - `CLJ-PARITY-FIXES-JOURNAL.md` in `series-of-fixes` (amended tip)
   - Force-pushed all three branches, rebased the chain
 - Tests unchanged: 5 passed, 2 skipped, 18 xfailed, 5 xpassed
+- Renamed journal and plan to `CLJ-PARITY-FIXES-*.md`, amended introducing commits, rebased chain
+- Set up private data repo infrastructure:
+  - Pushed data to bare repo at `~/polis/github/real_data_private`
+  - Created `link-to-polis-worktree.sh` for per-worktree clones with post-checkout branch sync
+  - Linked `.local` to this worktree, created `series-of-fixes` branch in private repo
+- Created `CLAUDE.local.md` (via stow) and `CLAUDE.md` in private data repo
+- D2 fix (TDD):
+  - Baseline (public only): 205 passed, 3 failed (2 D2 + 1 DynamoDB)
+  - Red: removed xfail from D2 tests, biodiversity fails (Python=428, Clojure=441)
+  - Fix: `threshold = min(7, n_cmts)` in `conversation.py:1270`
+  - Green: D2 tests pass on vw + biodiversity
+  - Full suite with private datasets (14 min): regression failures on all private datasets (expected — threshold change cascades to clustering)
+  - Investigated: all failures are downstream of threshold change, verified correct
+  - Re-recorded golden snapshots for biodiversity + 4 private datasets after verification
+  - Discovered 3 private datasets have incomplete Clojure blobs (4 keys instead of 23) — delegated regeneration to separate session
+  - Committed and pushed D2 fix (`df2d013ec`)
 
 ---
 
