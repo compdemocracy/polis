@@ -6,6 +6,8 @@ The Delphi Python math pipeline has 15 documented discrepancies with the Clojure
 
 Each fix will be a separate PR to keep reviews manageable. PRs will be **stacked** (each builds on the previous), since fixes are ordered by pipeline execution order — fixing upstream affects downstream. PRs should be clearly labeled as stacked with their dependency chain, so reviewers know the order. We can use `git rebase -i` to clean up commit history before merging to main.
 
+**PR naming convention**: Clojure parity fix PRs use the title prefix `[Clj parity PR N]` (e.g., `[Clj parity PR 0] Per-discrepancy test infrastructure`, `[Clj parity PR 1] Fix D2: in-conv participant threshold`).
+
 **Prerequisite**: The current `kmeans_work` branch has changes from `edge`. These should be separated into their own PR(s) first, before we start the discrepancy fix PRs. The discrepancy fix PRs should be based on the cleaned-up branch.
 
 **Action**: Before starting any fix, analyze the diff of `kmeans_work` vs `upstream/edge` to understand what's changed. Group those changes into logical PR(s) — e.g., test infrastructure improvements, doc updates, minor bug fixes. Each should be reviewable independently. The discrepancy fix PRs (PR 1+) then stack on top of this clean base.
