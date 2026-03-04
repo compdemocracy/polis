@@ -20,8 +20,6 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
 from common_utils import create_test_conversation
-from conftest import get_available_dataset_params
-
 logger = logging.getLogger(__name__)
 
 
@@ -59,7 +57,7 @@ class TestRepnessImplementation:
 
         return conv
 
-    @pytest.mark.parametrize("dataset_name", get_available_dataset_params())
+    @pytest.mark.use_discovered_datasets
     def test_repness_runs_without_error(self, dataset_name: str, conversation):
         """Test representativeness calculation runs successfully on real data (smoke test)."""
         logger.info(f"Testing representativeness on {dataset_name} dataset")
@@ -83,7 +81,7 @@ class TestRepnessImplementation:
 
         logger.info(f"✓ Representativeness runs without error for {dataset_name}")
 
-    @pytest.mark.parametrize("dataset_name", get_available_dataset_params())
+    @pytest.mark.use_discovered_datasets
     def test_repness_structure(self, dataset_name: str, conversation):
         """Test representativeness results have expected structure."""
         logger.debug(f"Testing representativeness structure for {dataset_name}")
@@ -113,7 +111,7 @@ class TestRepnessImplementation:
 
         logger.debug("✓ Representativeness structure validated")
 
-    @pytest.mark.parametrize("dataset_name", get_available_dataset_params())
+    @pytest.mark.use_discovered_datasets
     def test_participant_stats(self, dataset_name: str, conversation):
         """Test participant statistics calculation."""
         logger.debug(f"Testing participant stats for {dataset_name}")
