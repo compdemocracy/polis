@@ -20,7 +20,7 @@ from polismath.regression import ConversationRecorder, ConversationComparer
 from polismath.regression.utils import load_golden_snapshot
 
 
-def _check_golden_exists(dataset: str):
+def _check_golden_exists(dataset_name: str):
     """
     Check if golden snapshot exists for a specific dataset.
 
@@ -28,23 +28,24 @@ def _check_golden_exists(dataset: str):
     if it's missing. This allows tests for other datasets to run independently.
 
     Args:
-        dataset: Dataset name to check
+        dataset_name: Dataset name to check
 
     Raises:
         pytest.fail: If golden snapshot is missing for this dataset
     """
-    golden, golden_path = load_golden_snapshot(dataset)
+    golden, golden_path = load_golden_snapshot(dataset_name)
 
     if golden is None:
         pytest.fail(
-            f"Missing golden snapshot for dataset: {dataset}\n"
+            f"Missing golden snapshot for dataset: {dataset_name}\n"
             f"Golden snapshots must be created explicitly using regression_recorder.py:\n"
             f"  cd delphi\n"
-            f"  python scripts/regression_recorder.py {dataset}\n"
+            f"  python scripts/regression_recorder.py {dataset_name}\n"
         )
 
 
-def test_conversation_regression(dataset):
+@pytest.mark.use_discovered_datasets
+def test_conversation_regression(dataset_name):
     """
     Test that current implementation matches golden snapshot.
 
@@ -53,44 +54,45 @@ def test_conversation_regression(dataset):
     unintended changes in behavior.
 
     Args:
-        dataset: Dataset name to test
+        dataset_name: Name of the dataset to test
     """
     # Check that golden file exists for THIS specific dataset
-    _check_golden_exists(dataset)
+    _check_golden_exists(dataset_name)
 
     # Use ignore_pca_sign_flip=True because PCA eigenvectors are only defined up to sign,
     # and different implementations may produce equivalent results with opposite signs
     comparer = ConversationComparer(ignore_pca_sign_flip=True)
 
     # Run comparison
-    result = comparer.compare_with_golden(dataset)
+    result = comparer.compare_with_golden(dataset_name)
 
     # Check for errors
     if "error" in result:
         # Special handling for MD5 mismatch - this might mean test data was updated
         if "MD5 mismatch" in result.get("error", ""):
             pytest.fail(
-                f"Dataset files have changed for {dataset}!\n"
+                f"Dataset files have changed for {dataset_name}!\n"
                 f"Golden votes MD5: {result.get('golden_votes_md5', 'N/A')}\n"
                 f"Current votes MD5: {result.get('current_votes_md5', 'N/A')}\n"
                 f"Golden comments MD5: {result.get('golden_comments_md5', 'N/A')}\n"
                 f"Current comments MD5: {result.get('current_comments_md5', 'N/A')}\n"
                 f"\nIf this is expected, update golden snapshots with:\n"
-                f"  python regression_tests/regression_test.py update --datasets {dataset} --force"
+                f"  python regression_tests/regression_test.py update --datasets {dataset_name} --force"
             )
         else:
             pytest.fail(f"Error in comparison: {result.get('error')}")
 
     # Check comparison results
     assert result["overall_match"], (
-        f"Regression detected in {dataset}!\n"
+        f"Regression detected in {dataset_name}!\n"
         f"{comparer.generate_report(result)}\n"
         f"\nTo update golden snapshots after verified changes:\n"
-        f"  python regression_tests/regression_test.py update --datasets {dataset} --force"
+        f"  python regression_tests/regression_test.py update --datasets {dataset_name} --force"
     )
 
 
-def test_conversation_stages_individually(dataset):
+@pytest.mark.use_discovered_datasets
+def test_conversation_stages_individually(dataset_name):
     """
     Test each computation stage individually for more granular failure detection.
 
@@ -98,16 +100,16 @@ def test_conversation_stages_individually(dataset):
     making it easier to identify exactly where a regression occurs.
 
     Args:
-        dataset: Dataset name to test
+        dataset_name: Name of the dataset to test
     """
     # Check that golden file exists for THIS specific dataset
-    _check_golden_exists(dataset)
+    _check_golden_exists(dataset_name)
 
     # Use ignore_pca_sign_flip=True because PCA eigenvectors are only defined up to sign
     comparer = ConversationComparer(ignore_pca_sign_flip=True)
 
     # Run comparison
-    result = comparer.compare_with_golden(dataset)
+    result = comparer.compare_with_golden(dataset_name)
 
     # Skip if there's an error (this is tested in the main test)
     if "error" in result:
@@ -127,7 +129,7 @@ def test_conversation_stages_individually(dataset):
         if stage_name in result.get("stages_compared", {}):
             stage_result = result["stages_compared"][stage_name]
             assert stage_result["match"], (
-                f"Stage '{stage_description}' failed for {dataset}\n"
+                f"Stage '{stage_description}' failed for {dataset_name}\n"
                 f"Path: {stage_result.get('path', 'unknown')}\n"
                 f"Reason: {stage_result.get('reason', 'unknown')}"
             )

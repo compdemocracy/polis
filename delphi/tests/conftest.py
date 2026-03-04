@@ -2,9 +2,9 @@
 Pytest configuration and fixtures for delphi tests.
 
 This module provides:
-- Command line option --include-local for including local datasets in tests
+- Command line options --include-local and --datasets for dataset selection
 - Fixtures for accessing dataset information
-- Dynamic test parametrization based on discovered datasets
+- @pytest.mark.use_discovered_datasets for dynamic dataset parametrization
 - Helper functions for parallel test execution with xdist_group markers
 """
 
@@ -12,7 +12,6 @@ import pytest
 from polismath.regression.datasets import (
     discover_datasets,
     list_regression_datasets,
-    list_available_datasets,
 )
 
 
@@ -43,19 +42,6 @@ def make_dataset_params(datasets: list[str]) -> list:
         pytest.param(ds, marks=pytest.mark.xdist_group(ds))
         for ds in datasets
     ]
-
-
-def get_available_dataset_params() -> list:
-    """
-    Get all available datasets as pytest.param objects with xdist_group markers.
-
-    NOTE: This is evaluated at import time, so it does NOT respect --include-local.
-    For tests that need --include-local support, use pytest_generate_tests hook instead.
-
-    Returns:
-        List of pytest.param objects for all available (committed) datasets
-    """
-    return make_dataset_params(list(list_available_datasets().keys()))
 
 
 def pytest_addoption(parser):
@@ -96,7 +82,9 @@ def _get_requested_datasets(config) -> set[str] | None:
 def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line(
-        "markers", "local_dataset: mark test as using local (non-committed) datasets"
+        "markers",
+        "use_discovered_datasets: dynamically parametrize with discovered "
+        "datasets, respecting --include-local and --datasets CLI options"
     )
 
 
@@ -120,75 +108,24 @@ def regression_datasets(include_local):
 
 def pytest_generate_tests(metafunc):
     """
-    Dynamically parametrize tests based on discovered datasets.
+    Dynamically parametrize tests marked with @pytest.mark.use_discovered_datasets.
 
-    Tests that have a 'dataset' parameter will be parametrized with all
-    valid regression datasets. Use --include-local to include datasets
-    from real_data/.local/. Use --datasets to limit to specific datasets.
+    These tests must declare a 'dataset_name' parameter. They will be parametrized
+    with all regression datasets, filtered by --include-local and --datasets.
 
     Uses xdist_group markers for efficient parallel execution with pytest-xdist.
     """
-    if "dataset" in metafunc.fixturenames:
-        include_local = metafunc.config.getoption("--include-local")
-        requested = _get_requested_datasets(metafunc.config)
+    if not list(metafunc.definition.iter_markers("use_discovered_datasets")):
+        return
 
-        # Get datasets valid for regression testing
-        datasets = list_regression_datasets(include_local=include_local)
+    include_local = metafunc.config.getoption("--include-local")
+    requested = _get_requested_datasets(metafunc.config)
 
-        # Filter to requested datasets if specified
-        if requested:
-            datasets = [d for d in datasets if d in requested]
+    datasets = list_regression_datasets(include_local=include_local)
+    if requested:
+        datasets = [d for d in datasets if d in requested]
 
-        # Parametrize with xdist_group markers for parallel execution
-        params = make_dataset_params(datasets)
-        metafunc.parametrize("dataset", params)
-
-
-def _extract_dataset_from_test(item) -> str | None:
-    """Extract dataset name from test item's parameter, if present."""
-    # Check for parametrized marker with dataset/dataset_name parameter
-    for marker in item.iter_markers("parametrize"):
-        argnames = marker.args[0] if marker.args else ""
-        if "dataset" in argnames:
-            # Get the parameter value from callspec
-            if hasattr(item, 'callspec'):
-                for param_name in ['dataset', 'dataset_name']:
-                    if param_name in item.callspec.params:
-                        return item.callspec.params[param_name]
-    return None
-
-
-def pytest_collection_modifyitems(config, items):
-    """
-    Modify test collection:
-    1. Skip local_dataset tests unless --include-local is passed
-    2. Deselect tests for datasets not in --datasets list
-    """
-    include_local = config.getoption("--include-local")
-    requested = _get_requested_datasets(config)
-
-    selected = []
-    deselected = []
-
-    for item in items:
-        # Skip local dataset tests unless --include-local
-        if not include_local and "local_dataset" in item.keywords:
-            item.add_marker(pytest.mark.skip(reason="need --include-local option to run"))
-
-        # Filter by --datasets if specified
-        if requested:
-            dataset = _extract_dataset_from_test(item)
-            if dataset is not None and dataset not in requested:
-                deselected.append(item)
-                continue
-
-        selected.append(item)
-
-    # Apply deselection
-    if deselected:
-        config.hook.pytest_deselected(items=deselected)
-        items[:] = selected
-
+    metafunc.parametrize("dataset_name", make_dataset_params(datasets))
 
 
 # Provide summary of discovered datasets at start of test run

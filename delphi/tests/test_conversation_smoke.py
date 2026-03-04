@@ -15,8 +15,6 @@ import os
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from common_utils import create_test_conversation
-from conftest import get_available_dataset_params
-
 logger = logging.getLogger(__name__)
 
 
@@ -32,7 +30,7 @@ class TestConversationWithRealData:
             "For comparison tests, run test_real_data_comparison.py manually."
         )
 
-    @pytest.mark.parametrize("dataset_name", get_available_dataset_params())
+    @pytest.mark.use_discovered_datasets
     def test_conversation_recompute(self, dataset_name: str):
         """
         Test that Conversation.recompute() runs successfully on real data.
