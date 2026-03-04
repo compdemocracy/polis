@@ -142,9 +142,41 @@ After rebase onto updated `origin/kmeans_analysis_docs`:
 `generate_cold_start_clojure.py` with the prodclone DB and Clojure math service.
 This is delegated to a separate session.
 
-### What was NOT needed
-- `raw_rating_mat` vs `rating_mat` — not needed, the existing vote counting works
-- Greedy fallback / monotonic persistence — not needed for parity (cold-start only)
+### What was NOT needed (revised — see D2c/D2d below)
+- ~~`raw_rating_mat` vs `rating_mat` — not needed~~ **WRONG**: See D2c below, this IS needed.
+- Greedy fallback / monotonic persistence — not needed for cold-start parity, but monotonicity tests needed for future-proofing (see D2d).
+
+### D2c: Vote count source — raw vs filtered matrix (discovered in session 3)
+
+Deep investigation of Clojure vs Python revealed a **structural discrepancy** in how
+votes are counted for the in-conv threshold, independent of delta vs full processing:
+
+| Aspect | Clojure | Python (current) |
+|--------|---------|-----------------|
+| Vote counts per participant | From `raw-rating-mat` (conversation.clj:217-225) — includes votes on moderated-out comments | From `self.rating_mat` (conversation.py:1226/1244) — excludes moderated-out columns |
+| `n_cmts` (threshold cap) | From `rating-mat` (conversation.clj:214-215) — columns zeroed but still present, so count includes moderated-out | From `self.rating_mat` (conversation.py:1268) — moderated-out columns removed entirely |
+
+Key insight: Clojure's `zero-out-columns` (named_matrix.clj:214-228) sets moderated-out
+column values to 0 but **keeps the columns** in `rating-mat`. Python's `_apply_moderation`
+(conversation.py:308) **removes columns entirely**. This means both `user-vote-counts`
+and `n-cmts` differ between implementations.
+
+**Fix**: Both `_compute_user_vote_counts` and `n_cmts` must use `self.raw_rating_mat`.
+Two xfail unit tests planned (vote count source + n_cmts threshold).
+
+### D2d: In-conv monotonicity — full recompute vs persistence (discovered in session 3)
+
+Investigated whether Python needs to persist in-conv to DynamoDB (like Clojure persists to
+`math_main`). Finding: **no, full recompute is better**.
+
+Clojure persists in-conv (conv_man.clj:55) because it uses delta vote processing. Python
+rebuilds `raw_rating_mat` from all votes every time. Since votes are immutable in PostgreSQL
+(can be updated, never deleted), a participant's vote count never decreases → monotonicity
+is a free consequence of full recompute from `raw_rating_mat`.
+
+**Decision**: No DynamoDB persistence. Instead, 6 tests (T1-T6) guard the monotonicity
+invariant, each documenting that switching to delta processing would require adding
+persistence. See plan PR 1bis for test details. Ref: compdemocracy/polis#2358.
 
 ### D2b: Base-cluster sort order (added from Copilot review)
 
@@ -170,7 +202,23 @@ matching Clojure's `sort-by :id`.
   - D9 repness_not_empty × 6 — test too weak (checks non-empty, not correct count)
 - **4 errors**: engage dataset has duplicate vote files (pre-existing data issue)
 
-### What's Next: PR 2 — Fix D4 (Pseudocount)
+### Golden snapshot re-recording (BLOCKED)
+
+After D2b fix, regression tests fail on all datasets except vw (as expected — sort order
+change cascades to different cluster assignments). biodiversity was re-recorded and verified.
+Private datasets (FLI, bg2018, bg2050, pakistan) need re-recording but the recorder crashes
+on `engage` (pre-existing duplicate vote files) before reaching the others. Need to record
+them individually, but **blocked on fixes to PRs earlier in the stack** (#2393, #2397).
+Will re-record after those are resolved and rebased.
+
+### What's Next
+
+1. **PR 1 (D2c)**: Implement the vote count source fix — switch `_compute_user_vote_counts`
+   and `n_cmts` to use `self.raw_rating_mat`. Write xfail tests first, then fix, then verify.
+2. **PR 1bis (D2d)**: Write the 6 monotonicity tests (T1-T6). These should pass immediately
+   after D2c is fixed (full recompute + raw_rating_mat = monotonicity for free). Add the
+   code comment block and PR description documenting the design decision.
+3. **PR 2 — Fix D4 (Pseudocount)**: Next in pipeline order after D2 is fully resolved.
 
 ---
 
@@ -213,6 +261,26 @@ matching Clojure's `sort-by :id`.
   - Re-recorded golden snapshots for biodiversity + 4 private datasets after verification
   - Discovered 3 private datasets have incomplete Clojure blobs (4 keys instead of 23) — delegated regeneration to separate session
   - Committed and pushed D2 fix (`df2d013ec`)
+
+### Session 3 (2026-03-04)
+
+- Deep investigation of in-conv vote counting: compared Clojure `user-vote-counts`
+  (conversation.clj:217-225, uses `raw-rating-mat`) vs Python `_compute_user_vote_counts`
+  (conversation.py:1226, uses `self.rating_mat`)
+- Discovered D2c: structural discrepancy in both vote count source AND `n_cmts` — Clojure's
+  `zero-out-columns` keeps moderated-out columns (zeroed), Python's `_apply_moderation`
+  removes them entirely. Both vote counts and threshold cap differ.
+- Investigated whether to persist in-conv to DynamoDB (like Clojure does to `math_main`).
+  Found: Clojure persists because it uses delta vote processing. Python does full recompute
+  → monotonicity is free. No persistence needed.
+- Verified Clojure persistence path: `prep-main` (conv_man.clj:55) writes `:in-conv`,
+  `restructure-json-conv` (conv_man.clj:182) restores it on restart.
+- Updated plan: added D2c (vote count source, 2 xfail tests) and D2d (monotonicity, 6 tests
+  guarding against future delta-processing refactor). Ref: compdemocracy/polis#2358.
+- Corrected earlier journal entry that said `raw_rating_mat` was "not needed" — it IS needed.
+- Added terminology rule to CLAUDE.local.md: always say "moderated-out" or "moderated-in",
+  never just "moderated".
+- Committed plan update (`f2bf77c38`)
 
 ---
 
