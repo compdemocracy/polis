@@ -107,18 +107,74 @@ Fixes are ordered by **pipeline execution order**: participant filtering → pro
 **Target**: `threshold = min(7, n_cmts)` → threshold=7, more participants qualify.
 
 **Additional changes**:
-- Use `self.raw_rating_mat` instead of `self.rating_mat` (count on unmoderated matrix)
+- **D2c — Vote count source**: Use `self.raw_rating_mat` instead of `self.rating_mat` for computing per-participant vote counts. Clojure's `user-vote-counts` (conversation.clj:217-225) counts votes from `raw-rating-mat`, which includes votes on moderated-out comments. Python currently uses the filtered `rating_mat`, which excludes moderated-out columns — undercounting votes and potentially dropping participants below the in-conv threshold. This is a **structural** discrepancy that occurs on every computation (cold-start or incremental), not just with delta updates — because the difference is in *which matrix* the count is derived from. Additionally, `n_cmts` differs: Clojure's `n-cmts` (conversation.clj:214-215) counts columns of `rating-mat` which still includes moderated-out columns (zeroed but present, via `zero-out-columns` in named_matrix.clj:214-228). Python's `n_cmts = len(self.rating_mat.columns)` excludes moderated-out columns entirely (removed by `_apply_moderation`, line 308). This means the `min(7, n_cmts)` threshold itself also differs. Both aspects (vote count source and `n_cmts` source) must use `raw_rating_mat` to match Clojure. (This is related to but distinct from D15 — moderation handling — which tracks the broader zero-out vs remove discrepancy.)
 - Add greedy fallback (top-15 voters if <15 qualify)
 - Add monotonic persistence (once in, always in)
 
 **Test-first approach**:
 1. Add test comparing in-conv participant count/set between Python and Clojure for ALL datasets
 2. Add synthetic edge-case tests: tiny conversation (fewer comments than threshold), conversation where greedy fallback triggers
-3. Run tests → expect failure
+3. **D2c unit test — vote count source**: Synthetic test with 10 comments, 3 moderated-out. Participant P voted on all 10. Verify `_compute_user_vote_counts` returns 10 for P (from `raw_rating_mat`), not 7 (from `rating_mat`). Mark xfail before fix.
+4. **D2c unit test — n_cmts threshold**: Same setup. Verify `n_cmts` used in the `min(7, n_cmts)` threshold equals 10 (all comments including moderated-out), not 7 (only non-moderated-out). This matters when a conversation has fewer than 7 non-moderated-out comments but more than 7 total: the threshold would be artificially low in Python, changing who qualifies. Mark xfail before fix.
+5. Run tests → expect failure on D2c tests
 4. Apply fix
 5. Re-run ALL tests — cluster count may change (possibly 3→2 for biodiversity, matching Clojure)
 6. **Cluster comparison test (CRITICAL)**: After fixing D2, add a test that compares Python and Clojure cluster assignments at the participant level — number of clusters AND which participants are in which cluster (using Jaccard similarity or exact match). The Python clustering calls sklearn K-means; Clojure uses a two-level approach. If clusters still don't match after the threshold fix, investigate why and potentially create an additional PR (PR 1b) to fix the remaining clustering discrepancy before moving on to repness fixes.
 7. Document new baseline in journal
+
+---
+
+### PR 1bis: Fix D2d — In-Conv Monotonicity
+
+**Related upstream issue**: [compdemocracy/polis#2358](https://github.com/compdemocracy/polis/issues/2358) — "Non-Deterministic K-Means Clustering Due to Worker Restart". That issue focuses on `group-clusterings` not being persisted. In-conv IS persisted in Clojure (see below), but we take a different — and better — approach.
+
+**Clojure behavior (verified)**:
+- **Monotonic**: `(as-> (or (:in-conv conv) #{}) in-conv (into in-conv ...))` (conversation.clj:244) — starts from previous set, only adds, never removes.
+- **Persisted to DB**: `:in-conv` is included in `prep-main` (conv_man.clj:55) and written to `math_main`. On restart, `load-or-init` (conv_man.clj:196) calls `restructure-json-conv` which restores it as a set (conv_man.clj:182). So in-conv **survives worker restarts** in Clojure.
+- **Why Clojure needs persistence**: Clojure uses **delta vote processing** — during normal operation, only new votes since last timestamp are fed via `keep-votes` (conversation.clj:189-190) into `raw-rating-mat`. After a restart, `load-or-init` rebuilds `raw-rating-mat` from scratch (conv_man.clj:200-203, `conv-poll` with offset 0), but during incremental updates, old votes are not re-scanned. Without persisting in-conv, a restart + moderation could drop participants whose qualifying votes are on now-moderated-out comments, because those votes might not be re-counted in delta mode.
+
+**Why Python doesn't need persistence — full recompute is better**:
+
+Python rebuilds `raw_rating_mat` from **all** votes every time (no delta processing). Since:
+1. **Votes are immutable** in PostgreSQL — they can be updated (agree→disagree) but never deleted. A participant's count of "comments voted on" never decreases.
+2. **`raw_rating_mat` includes votes on moderated-out comments** — moderation only affects `rating_mat` (columns removed), not `raw_rating_mat`.
+3. **Therefore monotonicity is a free consequence**: if a participant had ≥7 votes at time T1, they still have ≥7 votes at time T2. No persistence needed — the DB is the persistence.
+4. **Worker restart changes nothing**: on restart, `raw_rating_mat` is rebuilt from all votes → same counts → same in-conv set. No DynamoDB schema change needed.
+
+This is **strictly better** than Clojure's approach: simpler code, no persistence to maintain, no risk of stale/corrupt persisted state, and deterministic regardless of restart history. Clojure only needs persistence because it uses delta updates.
+
+**CRITICAL: future-proofing for delta vote processing**:
+
+If the code is ever refactored to process only delta votes (for performance), in-conv **must** be persisted to DynamoDB at that point. Without full recompute, the guarantees above break: after a restart, `raw_rating_mat` would only contain new votes, and participants whose qualifying votes are all in the past would be lost.
+
+This must be documented:
+1. **In code**: a prominent comment block on `_get_in_conv_participants()` explaining WHY full recompute makes persistence unnecessary, and that switching to delta processing REQUIRES adding persistence (with a reference to how Clojure does it: conv_man.clj:55, conversation.clj:244).
+2. **In the PR description**: a dedicated section explaining the design decision, referencing issue #2358 and the Clojure persistence code.
+
+**File**: `delphi/polismath/conversation/conversation.py`
+
+**Current**: `_get_in_conv_participants()` (line 1256) recomputes from scratch using `self.rating_mat` (the filtered matrix). With the D2c fix (PR 1), it will use `self.raw_rating_mat`. Since `raw_rating_mat` contains all historical votes, monotonicity is guaranteed without explicit persistence.
+
+**Test-first approach — tests that guard the monotonicity invariant**:
+
+These tests must capture every scenario that would break if someone switched to delta processing without adding persistence. Each test should have a docstring explaining: "This passes today because we do full recompute. If you switch to delta vote processing, you MUST persist in-conv to DynamoDB — see issue #2358."
+
+1. **T1 — Basic monotonicity across updates**: Participant P votes on 7 comments in batch 1 → qualifies. Batch 2 adds new comments but P doesn't vote on them. P's count stays 7. Assert P is still in-conv after batch 2.
+
+2. **T2 — Monotonicity survives moderation-out**: P votes on 7 comments in batch 1 → qualifies. Between batches, 3 of those comments are moderated-out. Batch 2 arrives with new votes from other participants. Assert P is still in-conv (because `raw_rating_mat` still has P's 7 votes).
+
+3. **T3 — Worker restart with moderation**: P votes on 7 comments in batch 1 → qualifies. Destroy the `Conversation` object (simulates worker death). Moderate-out 3 of P's comments. Create a new `Conversation` object from all votes (simulates worker restart with full recompute). Assert P is still in-conv. This is the key test that would FAIL under delta processing without persistence.
+
+4. **T4 — Worker restart with no new votes**: Same as T3 but no new votes arrive after restart — just moderation happened. Rebuild `Conversation` from existing votes. Assert P is still in-conv. (Tests that recompute alone is sufficient, no "trigger" of new votes needed.)
+
+5. **T5 — Vote on comment that is later moderated-out, then new votes arrive**: P votes on c1-c7. c1-c3 are moderated-out. New participant Q votes on c4-c10. Rebuild conversation from all votes. Assert both P (7 votes on raw matrix) and Q (7 votes on non-moderated-out comments) are in-conv.
+
+6. **T6 — Greedy fallback after moderation**: Conversation has 8 comments, 14 participants who each voted on all 8, plus participant P who voted on exactly 7. All qualify. Then 5 comments are moderated-out, leaving only 3 non-moderated-out. After full recompute from `raw_rating_mat`: `n_cmts` = 8 (from `raw_rating_mat`), threshold = `min(7, 8)` = 7. P still has 7 votes → still qualifies. Verify the greedy fallback (top-15) is not erroneously triggered.
+
+**Documentation requirements**:
+- **Code comment** on `_get_in_conv_participants()`: block comment explaining the full-recompute-guarantees-monotonicity design, the delta-processing caveat, and references to Clojure's persistence approach and issue #2358.
+- **PR description**: dedicated "Design Decision: In-Conv Monotonicity" section explaining why we chose full recompute over persistence, with the future-proofing warning.
+- **Test docstrings**: each test explains what it guards against and what would need to change under delta processing.
 
 ---
 
@@ -372,6 +428,8 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D1b | Projection input | PR 13 | Fix with D1 |
 | D2 | In-conv threshold | **PR 1** | Fix |
 | D2b | Base-cluster sort order | **PR 1** | Fix (keep k-means ID order, match Clojure sort-by :id) |
+| D2c | Vote count source (raw vs filtered matrix) | **PR 1** | Fix (use `raw_rating_mat` for vote counts, so votes on moderated-out comments are included) |
+| D2d | In-conv monotonicity (once in, always in) | **PR 1bis** | Full recompute from `raw_rating_mat` guarantees monotonicity without persistence. 6 tests guarding the invariant for future delta-processing refactors. Ref: [#2358](https://github.com/compdemocracy/polis/issues/2358) |
 | D3 | K-smoother buffer | PR 10 | Fix |
 | D4 | Pseudocount formula | **PR 2** | Fix |
 | D5 | Proportion test | PR 4 | Fix |
