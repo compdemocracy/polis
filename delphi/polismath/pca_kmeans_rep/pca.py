@@ -5,9 +5,12 @@ This module provides a custom implementation of PCA using power iteration,
 with special handling for sparse matrices.
 """
 
+import logging
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Tuple, Union, Any
+
+logger = logging.getLogger(__name__)
 
 def normalize_vector(v: np.ndarray) -> np.ndarray:
     """
@@ -512,7 +515,16 @@ def pca_project_dataframe(df: pd.DataFrame,
     col_means = np.nanmean(matrix_data, axis=0)
     # Handle columns that are entirely NaN (e.g., statements with zero votes):
     # nanmean returns NaN for these, which would leave NaNs in the matrix.
-    col_means = np.where(np.isnan(col_means), 0.0, col_means)
+    nan_col_mask = np.isnan(col_means)
+    if np.any(nan_col_mask):
+        nan_col_indices = np.where(nan_col_mask)[0]
+        logger.warning(
+            "Found %d all-NaN column(s) (indices: %s) — this may indicate a data pipeline issue upstream. "
+            "Falling back to 0.0 for these columns.",
+            len(nan_col_indices),
+            nan_col_indices.tolist(),
+        )
+    col_means = np.where(nan_col_mask, 0.0, col_means)
     nan_indices = np.where(np.isnan(matrix_data))
     matrix_data_no_nan = matrix_data.copy()
     matrix_data_no_nan[nan_indices] = col_means[nan_indices[1]]
