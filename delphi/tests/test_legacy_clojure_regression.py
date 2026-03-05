@@ -330,13 +330,7 @@ def test_pca_components_match_clojure(conversation_data):
         correlation = np.corrcoef(py_pc, clj_pc)[0, 1]
         print(f"  PC{i+1} correlation: {correlation:.6f}")
 
-        # Angle between vectors (should be 0° or 180°, we take min with 180-angle)
-        # NOTE: This assumes both vectors are unit-normalized. If not, the angle will be wrong.
-        dot_product = np.clip(np.abs(np.dot(py_pc, clj_pc)), -1, 1)
-        angle_deg = np.arccos(dot_product) * 180 / np.pi
-        print(f"  PC{i+1} angle difference: {angle_deg:.2f}°")
-
-        # Normalized angle (correct even if vectors have different norms)
+        # Angle between vectors (correct even if vectors have different norms)
         py_norm = np.linalg.norm(py_pc)
         clj_norm = np.linalg.norm(clj_pc)
         cos_sim = np.dot(py_pc, clj_pc) / (py_norm * clj_norm) if py_norm > 0 and clj_norm > 0 else 0
@@ -346,7 +340,7 @@ def test_pca_components_match_clojure(conversation_data):
         abs_cos_sim = np.abs(cos_sim)
         assert abs_cos_sim < 1.0 + 1e-6, f"cos_sim={cos_sim} is too far outside [-1, 1]"
         norm_angle_deg = np.arccos(np.clip(abs_cos_sim, -1, 1)) * 180 / np.pi
-        print(f"  PC{i+1} angle after normalization: {norm_angle_deg:.2f}°")
+        print(f"  PC{i+1} angle: {norm_angle_deg:.2f}°")
         print(f"  PC{i+1} norms: Python={py_norm:.4f}, Clojure={clj_norm:.4f}")
 
         # Assert correlation is close to ±1 (allow 2% tolerance for numerical differences)
