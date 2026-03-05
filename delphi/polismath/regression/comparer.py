@@ -6,7 +6,7 @@ Comparer for comparing current Conversation outputs with golden snapshots.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime
 from scipy import stats
 
@@ -771,7 +771,7 @@ class ConversationComparer:
 
         return False
 
-    def _detect_scaling_factor(self, golden: list, current: list) -> float | None:
+    def _detect_scaling_factor(self, golden: list, current: list) -> Optional[float]:
         """
         Detect if two lists differ by a constant scaling factor.
 
