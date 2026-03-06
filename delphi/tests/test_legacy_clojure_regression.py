@@ -14,6 +14,8 @@ Performance note: Uses scope="class" with parametrization to ensure only ONE
 Conversation object is in memory at a time (teardown between datasets).
 """
 
+from typing import Optional
+
 import pytest
 import pytest_check as check
 import gc
@@ -23,14 +25,10 @@ from polismath.regression import get_dataset_files
 from polismath.regression.datasets import discover_datasets
 from tests.common_utils import load_votes, load_comments, load_clojure_output
 from conftest import _get_requested_datasets, make_dataset_params
-from polismath.regression.clojure_comparer import (
-    ClojureComparer,
-    compare_cluster_distributions,
-    compare_cluster_membership
-)
+from polismath.regression.clojure_comparer import ClojureComparer
 
 
-def _get_clojure_datasets(include_local: bool, requested: set[str] | None = None) -> list[str]:
+def _get_clojure_datasets(include_local: bool, requested: Optional[set[str]] = None) -> list[str]:
     """Get datasets that have Clojure math_blob for comparison.
 
     Only requires votes, comments, and math_blob - does NOT require golden_snapshot.
@@ -299,13 +297,13 @@ class TestClojureRegression:
         print(f"\n  Cluster Size Distribution:")
         print(f"    Python sizes:  {dist_comp['python_sizes']}")
         print(f"    Clojure sizes: {dist_comp['clojure_sizes']}")
-        print(f"    Wasserstein distance: {dist_comp['wasserstein_distance']:.4f}")
+        print(f"    L1 distance: {dist_comp['l1_distance']:.4f}")
         print(f"    Similarity score: {dist_comp['similarity_score']:.2%}")
 
         check.is_true(dist_comp['num_clusters_match'],
                      f"Number of clusters should match (Python: {len(python_clusters)}, Clojure: {len(clojure_clusters)})")
-        check.less_equal(dist_comp['wasserstein_distance'], comparer.distribution_tolerance,
-                        f"Wasserstein distance should be ≤{comparer.distribution_tolerance} (got {dist_comp['wasserstein_distance']:.4f})")
+        check.less_equal(dist_comp['l1_distance'], comparer.distribution_tolerance,
+                        f"L1 distance should be ≤{comparer.distribution_tolerance} (got {dist_comp['l1_distance']:.4f})")
 
         # 2. Check membership overlap
         memb_comp = result['membership_comparison']

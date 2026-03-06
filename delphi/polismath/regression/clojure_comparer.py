@@ -12,9 +12,8 @@ import json
 import logging
 from typing import Dict, Any, List, Tuple, Optional
 import numpy as np
-from scipy.stats import wasserstein_distance
 
-from polismath.regression import get_dataset_files
+from polismath.regression.datasets import get_dataset_files
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +40,7 @@ class ClojureComparer:
             abs_tolerance: Absolute tolerance for numerical comparisons (very tight by default)
             rel_tolerance: Relative tolerance for numerical comparisons (very tight by default)
             jaccard_threshold: Minimum Jaccard similarity for cluster matching (default: 0.95)
-            distribution_tolerance: Maximum Wasserstein distance for distributions (default: 0.05)
+            distribution_tolerance: Maximum L1 distance for distributions (default: 0.05)
         """
         self.abs_tol = abs_tolerance
         self.rel_tol = rel_tolerance
@@ -126,7 +125,7 @@ def compare_cluster_distributions(
     tolerance: float = 0.05
 ) -> Dict[str, Any]:
     """
-    Compare cluster size distributions using Wasserstein distance.
+    Compare cluster size distributions using L1 distance on normalized sizes.
 
     Compares the distribution of cluster sizes between Python and Clojure
     implementations. This is useful for detecting whether clustering produces
@@ -135,14 +134,14 @@ def compare_cluster_distributions(
     Args:
         python_clusters: List of cluster dicts with 'members'
         clojure_clusters: List of cluster dicts with 'members'
-        tolerance: Maximum Wasserstein distance for "similar" (default: 0.05)
+        tolerance: Maximum L1 distance for "similar" (default: 0.05)
 
     Returns:
         Dict with:
         - python_sizes: Sorted list of cluster sizes (Python)
         - clojure_sizes: Sorted list of cluster sizes (Clojure)
         - num_clusters_match: Boolean indicating if cluster counts match
-        - wasserstein_distance: Wasserstein distance between size distributions
+        - l1_distance: L1 distance between normalized size distributions
         - similarity_score: Similarity score (1.0 = identical, 0.0 = very different)
         - match_status: Boolean indicating if distributions match within tolerance
     """
@@ -157,7 +156,7 @@ def compare_cluster_distributions(
     # Check if number of clusters matches
     num_clusters_match = len(python_sizes) == len(clojure_sizes)
 
-    # Compute Wasserstein distance between distributions
+    # Compute L1 distance between normalized distributions
     if python_sizes and clojure_sizes:
         # Pad the shorter list with zeros
         max_len = max(len(python_sizes), len(clojure_sizes))
@@ -169,11 +168,11 @@ def compare_cluster_distributions(
         clojure_total = sum(clojure_padded)
 
         if python_total > 0 and clojure_total > 0:
-            python_norm = [p / python_total for p in python_padded]
-            clojure_norm = [c / clojure_total for c in clojure_padded]
+            python_norm = np.array([p / python_total for p in python_padded])
+            clojure_norm = np.array([c / clojure_total for c in clojure_padded])
 
-            # Calculate Wasserstein distance
-            w_distance = wasserstein_distance(python_norm, clojure_norm)
+            # L1 distance between normalized size distributions
+            w_distance = float(np.sum(np.abs(python_norm - clojure_norm)))
             similarity = max(0.0, 1.0 - w_distance)
         else:
             w_distance = float('inf')
@@ -182,13 +181,17 @@ def compare_cluster_distributions(
         w_distance = float('inf')
         similarity = 0.0
 
-    match_status = w_distance <= tolerance if w_distance != float('inf') else False
+    match_status = (
+        num_clusters_match
+        and w_distance != float('inf')
+        and w_distance <= tolerance
+    )
 
     return {
         'python_sizes': python_sizes,
         'clojure_sizes': clojure_sizes,
         'num_clusters_match': num_clusters_match,
-        'wasserstein_distance': w_distance,
+        'l1_distance': w_distance,
         'similarity_score': similarity,
         'match_status': match_status
     }
@@ -272,9 +275,18 @@ def compare_cluster_membership(
 
     jaccard_scores = [score for _, score in mapping.values()]
 
+    num_python = len(python_clusters)
+    num_clojure = len(clojure_clusters)
+    counts_match = num_python == num_clojure
+    complete_mapping = len(mapping) == num_python
+
     if jaccard_scores:
         overall_similarity = np.mean(jaccard_scores)
-        match_status = all(score >= min_jaccard for score in jaccard_scores)
+        match_status = (
+            counts_match
+            and complete_mapping
+            and all(score >= min_jaccard for score in jaccard_scores)
+        )
     else:
         overall_similarity = 0.0
         match_status = False
@@ -311,7 +323,7 @@ def compare_projections(
         - best_transformation: Name of best-matching transformation
         - same_quadrant_percentage: % of points in same quadrant after transform
         - average_distance: Mean Euclidean distance after transform
-        - distribution_similarity: Wasserstein distance of norm distributions
+        - distribution_similarity: L1 similarity of norm distributions
         - common_participants: Number of participants in both projections
     """
     if transformations is None:
@@ -426,11 +438,11 @@ def compare_projections(
             py_min, py_max = min(py_norms), max(py_norms)
             cl_min, cl_max = min(cl_norms), max(cl_norms)
 
-            py_norm = [(n - py_min) / (py_max - py_min) if py_max > py_min else 0.5 for n in py_norms]
-            cl_norm = [(n - cl_min) / (cl_max - cl_min) if cl_max > cl_min else 0.5 for n in cl_norms]
+            py_norm = np.array([(n - py_min) / (py_max - py_min) if py_max > py_min else 0.5 for n in py_norms])
+            cl_norm = np.array([(n - cl_min) / (cl_max - cl_min) if cl_max > cl_min else 0.5 for n in cl_norms])
 
-            w_dist = wasserstein_distance(py_norm, cl_norm)
-            dist_sim = max(0.0, 1.0 - w_dist)
+            l1_dist = float(np.sum(np.abs(py_norm - cl_norm))) / max(len(py_norm), 1)
+            dist_sim = max(0.0, 1.0 - l1_dist)
         else:
             dist_sim = 0.0
     else:
@@ -445,12 +457,12 @@ def compare_projections(
     }
 
 
-def compute_wasserstein_similarity(
+def compute_distribution_similarity(
     dist1: List[float],
     dist2: List[float]
 ) -> float:
     """
-    Compute Wasserstein distance between two distributions and convert to similarity.
+    Compute L1 distance between two distributions and convert to similarity.
 
     Args:
         dist1: First distribution (list of values)
@@ -463,13 +475,12 @@ def compute_wasserstein_similarity(
         return 0.0
 
     # Normalize distributions
-    dist1_norm = np.array(dist1) / np.sum(dist1) if np.sum(dist1) > 0 else np.array(dist1)
-    dist2_norm = np.array(dist2) / np.sum(dist2) if np.sum(dist2) > 0 else np.array(dist2)
+    dist1_arr = np.array(dist1, dtype=float)
+    dist2_arr = np.array(dist2, dtype=float)
+    s1, s2 = dist1_arr.sum(), dist2_arr.sum()
+    dist1_norm = dist1_arr / s1 if s1 > 0 else dist1_arr
+    dist2_norm = dist2_arr / s2 if s2 > 0 else dist2_arr
 
-    # Compute Wasserstein distance
-    w_dist = wasserstein_distance(dist1_norm, dist2_norm)
-
-    # Convert to similarity (clipped to [0, 1])
-    similarity = max(0.0, min(1.0, 1.0 - w_dist))
-
-    return similarity
+    # Compute L1 distance and convert to similarity (clipped to [0, 1])
+    l1_dist = float(np.sum(np.abs(dist1_norm - dist2_norm)))
+    return max(0.0, min(1.0, 1.0 - l1_dist))

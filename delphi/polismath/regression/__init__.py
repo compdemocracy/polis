@@ -16,15 +16,6 @@ from .datasets import (
     get_dataset_files,
     get_dataset_report_id,
 )
-from .clojure_comparer import (
-    ClojureComparer,
-    load_clojure_math_blob,
-    compare_cluster_distributions,
-    compare_cluster_membership,
-    compare_projections,
-    compute_wasserstein_similarity,
-)
-
 __all__ = [
     'ConversationRecorder',
     'ConversationComparer',
@@ -35,10 +26,4 @@ __all__ = [
     'get_dataset_info',
     'get_dataset_files',
     'get_dataset_report_id',
-    'ClojureComparer',
-    'load_clojure_math_blob',
-    'compare_cluster_distributions',
-    'compare_cluster_membership',
-    'compare_projections',
-    'compute_wasserstein_similarity',
 ]

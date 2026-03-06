@@ -36,8 +36,10 @@ The comparison code is shared between pytest tests and the CLI tool to avoid dup
 ## Test Data
 
 Clojure math blobs (JSON outputs) are stored in:
-- **`delphi/real_data/{dataset}/math_blob.json`** - Public datasets (committed)
-- **`delphi/real_data/.local/{dataset}/math_blob.json`** - Private datasets (requires `--include-local` flag)
+- **`delphi/real_data/{dataset}/{report_id}_math_blob.json`** - Public datasets (committed)
+- **`delphi/real_data/.local/{dataset}/{report_id}_math_blob.json`** - Private datasets (requires `--include-local` flag)
+
+The `{report_id}` is discovered automatically by `polismath.regression.datasets.get_dataset_files()`.
 
 The Clojure reference implementation is in: **`math/src/polismath/math/clusters.clj`**
 
@@ -89,7 +91,7 @@ Beyond the architecture, there's also an initialization difference:
 
 - ✅ **`test_basic_outputs`** - ACTIVE - Validates pipeline runs and produces representativeness
 - ⚠️ **`test_pca_components_match_clojure`** - KEPT FOR MEMORY - PCA validated via sklearn (deprecated but kept as reference)
-- ❌ **`test_group_clustering`** - EXPECTED TO FAIL - Clustering comparison with tight thresholds (Jaccard ≥95%, Wasserstein ≤0.05)
+- ❌ **`test_group_clustering`** - EXPECTED TO FAIL - Clustering comparison with tight thresholds (Jaccard ≥95%, L1 ≤0.05)
 - ⚠️ **`test_comment_priorities`** - XFAIL - Priority comparison (depends on clustering matching)
 
 ### Why Tests Fail
@@ -97,7 +99,7 @@ Beyond the architecture, there's also an initialization difference:
 The clustering test **intentionally fails** because:
 1. Python uses K-means++ initialization → different initial cluster centers
 2. K-means converges to nearest local optimum → different final clusters
-3. Tests use very tight thresholds (95% Jaccard, 5% Wasserstein) to detect any difference
+3. Tests use very tight thresholds (95% Jaccard, 5% L1) to detect any difference
 
 This is **expected behavior** until we implement Option A (match Clojure initialization).
 
@@ -239,7 +241,7 @@ The default thresholds are intentionally **very tight** (per user request):
 | Metric | Threshold | Description |
 |--------|-----------|-------------|
 | **Jaccard similarity** | ≥95% | Cluster membership overlap |
-| **Wasserstein distance** | ≤0.05 | Cluster size distribution |
+| **L1 distance** | ≤0.05 | Cluster size distribution |
 | **Absolute tolerance** | 1e-8 | Numerical comparisons |
 | **Relative tolerance** | 1e-6 | Numerical comparisons |
 
@@ -265,7 +267,7 @@ Comparing: biodiversity
 Cluster Size Distribution:
   Python sizes:  [52, 43]
   Clojure sizes: [48, 47]
-  Wasserstein distance: 0.0526
+  L1 distance: 0.0526
   Similarity score: 94.74%
   Status: ✗ FAIL (threshold: 0.05)
 
@@ -299,7 +301,7 @@ test_legacy_clojure_regression.py::TestClojureRegression::test_group_clustering[
   Cluster Size Distribution:
     Python sizes:  [52, 43]
     Clojure sizes: [48, 47]
-    Wasserstein distance: 0.0526
+    L1 distance: 0.0526
     Similarity score: 94.74%
 
   Cluster Membership Overlap:

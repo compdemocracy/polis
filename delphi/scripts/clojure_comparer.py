@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 @click.option('--jaccard-threshold', type=float, default=0.95,
               help='Minimum Jaccard similarity for cluster matching (default: 0.95)')
 @click.option('--distribution-tolerance', type=float, default=0.05,
-              help='Maximum Wasserstein distance for distributions (default: 0.05)')
+              help='Maximum L1 distance for distributions (default: 0.05)')
 @click.option('--show-mappings', is_flag=True,
               help='Show detailed cluster mappings')
 @click.option('--show-projections', is_flag=True,
@@ -84,9 +84,14 @@ def main(datasets: tuple, include_local: bool, log_level: str,
 
     # Import after logging is configured
     from polismath.regression.clojure_comparer import ClojureComparer, load_clojure_math_blob
-    from polismath.regression import list_available_datasets, get_dataset_files
+    from polismath.regression.datasets import list_available_datasets, get_dataset_files
     from polismath.conversation import Conversation
-    from tests.common_utils import load_votes
+    try:
+        from tests.common_utils import load_votes
+    except ImportError:
+        click.echo("Error: Could not import tests.common_utils.load_votes.", err=True)
+        click.echo("Run this script from the delphi/ directory with: uv run python scripts/clojure_comparer.py", err=True)
+        raise SystemExit(1)
 
     # Get available datasets with Clojure math_blob
     all_datasets = list_available_datasets(include_local=include_local)
@@ -169,7 +174,7 @@ def main(datasets: tuple, include_local: bool, log_level: str,
             click.echo(f"\nCluster Size Distribution:")
             click.echo(f"  Python sizes:  {dist_comp['python_sizes']}")
             click.echo(f"  Clojure sizes: {dist_comp['clojure_sizes']}")
-            click.echo(f"  Wasserstein distance: {dist_comp['wasserstein_distance']:.4f}")
+            click.echo(f"  L1 distance: {dist_comp['l1_distance']:.4f}")
             click.echo(f"  Similarity score: {dist_comp['similarity_score']:.2%}")
             click.echo(f"  Status: {'✓ PASS' if dist_comp['match_status'] else '✗ FAIL'} (threshold: {distribution_tolerance})")
 
@@ -264,4 +269,4 @@ def main(datasets: tuple, include_local: bool, log_level: str,
 
 
 if __name__ == "__main__":
-    sys.exit(main() or 0)
+    main()
