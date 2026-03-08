@@ -12,6 +12,7 @@ import {
   sendConversationSummary,
   sendParticipantXidsSummary,
   sendCommentSummary,
+  getExcludedTids,
 } from "../report";
 import logger from "../utils/logger";
 
@@ -30,6 +31,8 @@ export async function handle_GET_reportExport(
       return;
     }
 
+    const excludedTids = await getExcludedTids(zid);
+
     switch (report_type) {
       case "summary.csv": {
         const siteUrl = `${req.headers["x-forwarded-proto"]}://${req.headers.host}`;
@@ -38,27 +41,27 @@ export async function handle_GET_reportExport(
       }
 
       case "comments.csv":
-        await sendCommentSummary(zid, res);
+        await sendCommentSummary(zid, res, excludedTids);
         break;
 
       case "votes.csv":
-        await sendVotesSummary(zid, res);
+        await sendVotesSummary(zid, res, excludedTids);
         break;
 
       case "participant-votes.csv":
-        await sendParticipantVotesSummary(zid, res);
+        await sendParticipantVotesSummary(zid, res, excludedTids);
         break;
 
       case "participant-importance.csv":
-        await sendParticipantImportance(zid, res);
+        await sendParticipantImportance(zid, res, excludedTids);
         break;
 
       case "comment-groups.csv":
-        await sendCommentGroupsSummary(zid, res);
+        await sendCommentGroupsSummary(zid, res, true, undefined, excludedTids);
         break;
 
       case "comment-clusters.csv":
-        await sendCommentClustersSummary(zid, res);
+        await sendCommentClustersSummary(zid, res, excludedTids);
         break;
 
       default:
