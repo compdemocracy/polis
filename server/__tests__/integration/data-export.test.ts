@@ -615,6 +615,7 @@ describe("Data Export API with Excluded Comments", () => {
     });
 
     // Wait for math computation
+    let pcaAvailable = false;
     for (let attempt = 0; attempt < 10; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       try {
@@ -622,11 +623,16 @@ describe("Data Export API with Excluded Comments", () => {
           `/api/v3/math/pca2?conversation_id=${conversationId}`
         );
         if (pcaResponse.status === 200 && pcaResponse.body) {
+          pcaAvailable = true;
           break;
         }
       } catch (error) {
         // Continue trying
       }
+    }
+
+    if (!pcaAvailable) {
+      throw new Error("PCA data not available after waiting 10 seconds");
     }
 
     // Create a report
