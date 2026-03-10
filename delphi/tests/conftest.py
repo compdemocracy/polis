@@ -12,6 +12,7 @@ import pytest
 from polismath.regression.datasets import (
     discover_datasets,
     list_regression_datasets,
+    get_blob_variants,
 )
 
 
@@ -28,7 +29,7 @@ def make_dataset_params(datasets: list[str]) -> list:
     are computed only once per dataset per worker.
 
     Args:
-        datasets: List of dataset names
+        datasets: List of dataset names (or "dataset-blob_type" composite IDs)
 
     Returns:
         List of pytest.param objects with xdist_group markers
@@ -42,6 +43,24 @@ def make_dataset_params(datasets: list[str]) -> list:
         pytest.param(ds, marks=pytest.mark.xdist_group(ds))
         for ds in datasets
     ]
+
+
+def parse_dataset_blob_id(composite_id: str) -> tuple[str, str]:
+    """Parse a 'dataset-blob_type' composite ID into (dataset_name, blob_type).
+
+    Examples:
+        'biodiversity-incremental' -> ('biodiversity', 'incremental')
+        'bg2050-cold_start' -> ('bg2050', 'cold_start')
+    """
+    if composite_id.endswith('-cold_start'):
+        return composite_id[:-len('-cold_start')], 'cold_start'
+    elif composite_id.endswith('-incremental'):
+        return composite_id[:-len('-incremental')], 'incremental'
+    else:
+        raise ValueError(
+            f"Invalid composite dataset ID: {composite_id}. "
+            f"Expected format: 'dataset-incremental' or 'dataset-cold_start'"
+        )
 
 
 def pytest_addoption(parser):
@@ -83,8 +102,10 @@ def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line(
         "markers",
-        "use_discovered_datasets: dynamically parametrize with discovered "
-        "datasets, respecting --include-local and --datasets CLI options"
+        "use_discovered_datasets(use_blobs=False): dynamically parametrize with discovered "
+        "datasets, respecting --include-local and --datasets CLI options. "
+        "With use_blobs=True, parametrize with 'dataset-blob_type' composite IDs "
+        "(e.g., 'biodiversity-incremental', 'engage-cold_start') for each filled blob variant."
     )
 
 
@@ -113,19 +134,39 @@ def pytest_generate_tests(metafunc):
     These tests must declare a 'dataset_name' parameter. They will be parametrized
     with all regression datasets, filtered by --include-local and --datasets.
 
+    With use_blobs=True, parametrize with 'dataset-blob_type' composite IDs
+    (e.g., 'biodiversity-incremental', 'engage-cold_start') for each filled blob variant.
+
     Uses xdist_group markers for efficient parallel execution with pytest-xdist.
     """
-    if not list(metafunc.definition.iter_markers("use_discovered_datasets")):
+    markers = list(metafunc.definition.iter_markers("use_discovered_datasets"))
+    if not markers:
         return
 
     include_local = metafunc.config.getoption("--include-local")
     requested = _get_requested_datasets(metafunc.config)
 
-    datasets = list_regression_datasets(include_local=include_local)
-    if requested:
-        datasets = [d for d in datasets if d in requested]
+    # Check if use_blobs=True was passed to the marker
+    use_blobs = any(m.kwargs.get('use_blobs', False) for m in markers)
 
-    metafunc.parametrize("dataset_name", make_dataset_params(datasets))
+    if use_blobs:
+        # Parametrize with composite 'dataset-blob_type' IDs
+        datasets = discover_datasets(include_local=include_local)
+        blob_ids = []
+        for name, info in datasets.items():
+            if not (info.has_votes and info.has_comments and info.has_clojure_reference):
+                continue
+            if requested and name not in requested:
+                continue
+            for blob_type in get_blob_variants(name):
+                blob_ids.append(f"{name}-{blob_type}")
+        metafunc.parametrize("dataset_name", make_dataset_params(blob_ids))
+    else:
+        # Parametrize with plain dataset names
+        datasets = list_regression_datasets(include_local=include_local)
+        if requested:
+            datasets = [d for d in datasets if d in requested]
+        metafunc.parametrize("dataset_name", make_dataset_params(datasets))
 
 
 # Provide summary of discovered datasets at start of test run

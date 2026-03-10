@@ -22,6 +22,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
 from common_utils import create_test_conversation
 from polismath.regression import get_dataset_files
+from conftest import parse_dataset_blob_id
 import json
 
 logger = logging.getLogger(__name__)
@@ -47,8 +48,12 @@ class TestRepnessComparison:
 
     @pytest.fixture
     def clojure_results(self, dataset_name: str) -> Dict[str, Any]:
-        """Load Clojure reference results from file."""
-        dataset_files = get_dataset_files(dataset_name)
+        """Load Clojure reference results from file.
+
+        dataset_name is a composite ID like 'biodiversity-full' or 'engage-cold_start'.
+        """
+        ds_name, blob_type = parse_dataset_blob_id(dataset_name)
+        dataset_files = get_dataset_files(ds_name, blob_type=blob_type)
         json_path = dataset_files['math_blob']
 
         if not os.path.exists(json_path):
@@ -61,8 +66,9 @@ class TestRepnessComparison:
     @pytest.fixture
     def conversation(self, dataset_name: str):
         """Create conversation with PCA and clustering computed."""
-        logger.debug(f"Creating conversation for {dataset_name}")
-        conv = create_test_conversation(dataset_name)
+        ds_name, _blob_type = parse_dataset_blob_id(dataset_name)
+        logger.debug(f"Creating conversation for {ds_name}")
+        conv = create_test_conversation(ds_name)
 
         logger.debug(f"Participants: {conv.participant_count}, Comments: {conv.comment_count}")
 
@@ -210,7 +216,7 @@ class TestRepnessComparison:
 
         return overall_match_rate, stats
 
-    @pytest.mark.use_discovered_datasets
+    @pytest.mark.use_discovered_datasets(use_blobs=True)
     def test_structural_compatibility(self, dataset_name: str, python_results, clojure_results):
         """Test that Python and Clojure results have compatible structure."""
         logger.info(f"Testing structural compatibility for {dataset_name} dataset")
@@ -227,7 +233,7 @@ class TestRepnessComparison:
         else:
             logger.warning(f"No Clojure results available for {dataset_name}")
 
-    @pytest.mark.use_discovered_datasets
+    @pytest.mark.use_discovered_datasets(use_blobs=True)
     def test_comparison_visibility(self, dataset_name: str, python_results, clojure_results):
         """
         Compare Python and Clojure results for visibility into differences.
