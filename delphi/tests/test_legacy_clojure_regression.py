@@ -21,81 +21,67 @@ import pytest_check as check
 import gc
 
 from polismath.conversation.conversation import Conversation
-from polismath.regression import get_dataset_files
+from polismath.regression import get_dataset_files, get_blob_variants
 from polismath.regression.datasets import discover_datasets
 from tests.common_utils import load_votes, load_comments, load_clojure_output
-from conftest import _get_requested_datasets, make_dataset_params
+from conftest import _get_requested_datasets, make_dataset_params, parse_dataset_blob_id
 from polismath.regression.clojure_comparer import (
     ClojureComparer,
     unfold_clojure_group_clusters,
 )
 
 
-def _get_clojure_datasets(include_local: bool, requested: Optional[set[str]] = None) -> list[str]:
-    """Get datasets that have Clojure math_blob for comparison.
+def _get_clojure_dataset_blob_ids(include_local: bool, requested: Optional[set[str]] = None) -> list[str]:
+    """Get composite 'dataset-blob_type' IDs for all filled blobs.
 
-    Only requires votes, comments, and math_blob - does NOT require golden_snapshot.
-    Filters by requested datasets if specified.
+    Returns IDs like 'biodiversity-full', 'engage-full', 'engage-cold_start'.
+    Only includes blobs that have meaningful content (PCA, clusters, etc.).
+    Filters by dataset name if --datasets is specified.
     """
     datasets = discover_datasets(include_local=include_local)
-    result = [
-        name for name, info in datasets.items()
-        if info.has_votes and info.has_comments and info.has_clojure_reference
-    ]
-    # Filter by --datasets if specified
-    if requested:
-        result = [d for d in result if d in requested]
+    result = []
+    for name, info in datasets.items():
+        if not (info.has_votes and info.has_comments and info.has_clojure_reference):
+            continue
+        if requested and name not in requested:
+            continue
+        for blob_type in get_blob_variants(name):
+            result.append(f"{name}-{blob_type}")
     return result
 
 
-# Module-level cache for conversation data - survives across fixture calls
-_CONVERSATION_CACHE: dict = {}
+# Module-level caches — Conversation is keyed by dataset name (shared across
+# blob variants of the same dataset), blobs are keyed by composite ID.
+_CONV_CACHE: dict = {}
+_BLOB_CACHE: dict = {}
 
 
 def pytest_generate_tests(metafunc):
-    """Parametrize tests with clojure datasets at collection time."""
-    if "dataset_name" in metafunc.fixturenames:
+    """Parametrize tests with clojure dataset+blob_type at collection time."""
+    if "dataset_blob_id" in metafunc.fixturenames:
         include_local = metafunc.config.getoption("--include-local", default=False)
         requested = _get_requested_datasets(metafunc.config)
-        datasets = _get_clojure_datasets(include_local, requested)
-        # Add xdist_group marker to each parameter for parallel execution
-        params = make_dataset_params(datasets)
-        metafunc.parametrize("dataset_name", params, scope="class")
+        blob_ids = _get_clojure_dataset_blob_ids(include_local, requested)
+        params = make_dataset_params(blob_ids)
+        metafunc.parametrize("dataset_blob_id", params, scope="class")
 
 
-def _cleanup_previous_datasets(current_dataset: str):
-    """Clear cached datasets except the current one to manage memory."""
-    global _CONVERSATION_CACHE
-    for ds in list(_CONVERSATION_CACHE.keys()):
-        if ds != current_dataset:
+def _get_or_compute_conversation(dataset_name: str) -> dict:
+    """Get cached Conversation or compute it. Evicts other datasets for memory."""
+    global _CONV_CACHE
+    if dataset_name in _CONV_CACHE:
+        return _CONV_CACHE[dataset_name]
+
+    # Evict previous datasets
+    for ds in list(_CONV_CACHE.keys()):
+        if ds != dataset_name:
             print(f"[{ds}] Cleaning up previous dataset...")
-            _CONVERSATION_CACHE.pop(ds, None)
+            _CONV_CACHE.pop(ds, None)
             Conversation._reset_conversion_cache()
             gc.collect()
 
-
-@pytest.fixture(scope="class")
-def conversation_data(dataset_name):
-    """
-    Class-scoped fixture computed once per dataset.
-    Uses module-level cache to avoid recomputation.
-    """
-    global _CONVERSATION_CACHE
-
-    # Clean up previous datasets to manage memory
-    _cleanup_previous_datasets(dataset_name)
-
-    # Return cached data if available
-    if dataset_name in _CONVERSATION_CACHE:
-        return _CONVERSATION_CACHE[dataset_name]
-
-    # Compute the data
-
-    # Get dataset files using central configuration
-    dataset_files = get_dataset_files(dataset_name)
-
-    # Load the Clojure output for comparison
-    clojure_output = load_clojure_output(dataset_files['math_blob'])
+    # Get dataset files (blob_type doesn't matter here — we only need votes/comments)
+    dataset_files = get_dataset_files(dataset_name, blob_type='incremental')
 
     # Create and compute conversation
     votes = load_votes(dataset_files['votes'])
@@ -146,16 +132,42 @@ def conversation_data(dataset_name):
 
     print(f"[{dataset_name}] Saved results to {output_path}")
 
-    # Cache for sharing across test methods
-    data = {
-        'conv': conv,
-        'clojure_output': clojure_output,
-        'dataset_name': dataset_name,
-        'comments': comments,
-    }
-    _CONVERSATION_CACHE[dataset_name] = data
-
+    data = {'conv': conv, 'comments': comments}
+    _CONV_CACHE[dataset_name] = data
     return data
+
+
+@pytest.fixture(scope="class")
+def conversation_data(dataset_blob_id):
+    """
+    Class-scoped fixture computed once per dataset+blob_type.
+    Reuses the Conversation across blob variants of the same dataset.
+    """
+    global _BLOB_CACHE
+    dataset_name, blob_type = parse_dataset_blob_id(dataset_blob_id)
+
+    # Get or compute the conversation (shared across blob variants)
+    conv_data = _get_or_compute_conversation(dataset_name)
+
+    # Load the specific blob variant (cache per composite ID)
+    if dataset_blob_id not in _BLOB_CACHE:
+        # Evict blobs from other datasets
+        for bid in list(_BLOB_CACHE.keys()):
+            if not bid.startswith(dataset_name + '-'):
+                _BLOB_CACHE.pop(bid, None)
+
+        dataset_files = get_dataset_files(dataset_name, blob_type=blob_type)
+        clojure_output = load_clojure_output(dataset_files['math_blob'])
+        print(f"[{dataset_name}] Loaded {blob_type} blob for Clojure comparison")
+        _BLOB_CACHE[dataset_blob_id] = clojure_output
+
+    return {
+        'conv': conv_data['conv'],
+        'clojure_output': _BLOB_CACHE[dataset_blob_id],
+        'dataset_name': dataset_name,
+        'blob_type': blob_type,
+        'comments': conv_data['comments'],
+    }
 
 
 @pytest.mark.clojure_comparison

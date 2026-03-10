@@ -156,12 +156,15 @@ def get_dataset_report_id(name: str) -> str:
     return get_dataset_info(name).report_id
 
 
-def get_dataset_files(name: str, prefer_cold_start: bool = True) -> Dict[str, str]:
+def get_dataset_files(name: str, prefer_cold_start: bool = True, blob_type: Optional[str] = None) -> Dict[str, str]:
     """Get file paths for a dataset.
 
     Args:
         name: Dataset name
-        prefer_cold_start: If True (default), use cold-start blob when available
+        prefer_cold_start: If True (default), use cold-start blob when available.
+            Ignored if blob_type is specified.
+        blob_type: Explicit blob type to use: 'incremental' or 'cold_start'.
+            If specified, overrides prefer_cold_start.
     """
     info = get_dataset_info(name)
     rid = info.report_id
@@ -174,11 +177,19 @@ def get_dataset_files(name: str, prefer_cold_start: bool = True) -> Dict[str, st
             raise ValueError(f"Multiple files matching {pattern} in {info.path}: {matches}")
         return str(matches[0].resolve())
 
-    # Check for cold-start blob first, fall back to original
+    # Determine which blob to use
     cold_start_blob = info.path / f"{rid}_math_blob_cold_start.json"
     original_blob = info.path / f"{rid}_math_blob.json"
 
-    if prefer_cold_start and cold_start_blob.exists():
+    if blob_type == 'cold_start':
+        if not cold_start_blob.exists():
+            raise FileNotFoundError(f"No cold-start blob for {name}")
+        math_blob_path = str(cold_start_blob)
+    elif blob_type == 'incremental':
+        if not original_blob.exists():
+            raise FileNotFoundError(f"No full blob for {name}")
+        math_blob_path = str(original_blob)
+    elif prefer_cold_start and cold_start_blob.exists():
         math_blob_path = str(cold_start_blob)
     else:
         math_blob_path = str(original_blob)
@@ -191,6 +202,44 @@ def get_dataset_files(name: str, prefer_cold_start: bool = True) -> Dict[str, st
         'summary': find_file(f"*-{rid}-summary.csv"),
         'math_blob': math_blob_path,
     }
+
+
+def _is_blob_filled(blob_path: Path) -> bool:
+    """Check if a math blob has meaningful content (PCA, non-empty clusters, etc.)."""
+    import json
+    if not blob_path.exists():
+        return False
+    try:
+        with open(blob_path) as f:
+            data = json.load(f)
+        # A blob is "filled" if it has PCA data or non-empty base-clusters
+        has_pca = 'pca' in data and 'comps' in data.get('pca', {})
+        bc = data.get('base-clusters', {})
+        has_clusters = isinstance(bc, dict) and len(bc.get('id', [])) > 0
+        return has_pca or has_clusters
+    except (json.JSONDecodeError, OSError):
+        return False
+
+
+def get_blob_variants(name: str) -> List[str]:
+    """Get available filled blob variants for a dataset.
+
+    Returns a list of blob_type strings ('incremental', 'cold_start') for blobs
+    that exist and contain meaningful data.
+    """
+    info = get_dataset_info(name)
+    rid = info.report_id
+    variants = []
+
+    full_blob = info.path / f"{rid}_math_blob.json"
+    if _is_blob_filled(full_blob):
+        variants.append('incremental')
+
+    cold_start_blob = info.path / f"{rid}_math_blob_cold_start.json"
+    if _is_blob_filled(cold_start_blob):
+        variants.append('cold_start')
+
+    return variants
 
 
 # Legacy aliases
