@@ -137,12 +137,11 @@ python scripts/regression_recorder.py biodiversity
 # Compare current implementation with golden
 python scripts/regression_comparer.py biodiversity vw
 
+# Compare with PCA sign flip tolerance
+python scripts/regression_comparer.py --ignore-pca-sign-flip biodiversity
+
 # Update golden snapshots after verified changes
 python scripts/regression_recorder.py biodiversity --force
-
-# Adjust comparison tolerances
-python scripts/regression_comparer.py biodiversity \
-    --tolerance-abs 1e-8 --tolerance-rel 0.001
 ```
 
 ### Pytest Integration
@@ -425,9 +424,9 @@ Numeric mismatch: golden=1.234567, current=1.234568, abs_diff=1e-6
 ```
 
 **Solutions:**
-1. If the difference is acceptable, adjust tolerances:
+1. If the mismatch is due to PCA sign flips, use the sign-flip-tolerant mode:
    ```bash
-   python scripts/regression_comparer.py --tolerance-abs 1e-5
+   python scripts/regression_comparer.py --ignore-pca-sign-flip biodiversity
    ```
 
 2. If this represents a genuine regression, investigate the code changes.
@@ -521,7 +520,7 @@ if "cluster" in path and "members" in path:
 1. **No internal state checking** - Only compares serialized outputs, not internal DataFrame state
 2. **Limited to test datasets** - Only works with datasets that have CSV files available
 3. **No partial updates** - Must record/update entire stage sets
-4. **Fixed tolerance values** - Same tolerances apply to all numeric fields
+4. **Fixed tolerance values** - Tolerances (abs=1e-6, rel=1%) are hardcoded and apply to all numeric fields
 
 ## When to Use This System
 
