@@ -481,6 +481,11 @@ Three separate PRs for temporal/incremental testing:
 **Replay PR B**: Use replay infrastructure for tests
 - Test D3 (k-smoother stability) with real incremental data
 - Test D1 (PCA sign consistency) with real incremental data
+- Test D2 (in-conv threshold) on incremental blobs: currently xfailed because early
+  participants (low PIDs) were admitted when `n_cmts` was still < 7 during early
+  iterations, making the threshold equal to `n_cmts` rather than 7. All four datasets
+  with both blob types exhibit this (1–2 extra participants each). Matching incremental
+  behaviour requires simulating the progressive threshold evaluation.
 - Compare Python's incremental behavior to Clojure's
 
 **Replay PR C**: Visualization movie generation
