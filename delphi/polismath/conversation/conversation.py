@@ -602,7 +602,15 @@ class Conversation:
         if len(base_clusters) < 2:
             logger.warning(f"Not enough base clusters for group clustering ({len(base_clusters)})")
             self.base_clusters = base_clusters
-            self.group_clusters = base_clusters
+            # Maintain consistent group-cluster schema: members are base-cluster IDs
+            if len(base_clusters) == 1:
+                self.group_clusters = [{
+                    'id': 0,
+                    'center': base_clusters[0]['center'],
+                    'members': [base_clusters[0]['id']],
+                }]
+            else:
+                self.group_clusters = []
             self.subgroup_clusters = {}
             return
 
@@ -685,7 +693,7 @@ class Conversation:
         # Check if we have groups
         if not self.group_clusters:
             self.repness = {
-                'comment_ids': self.rating_mat.columns,
+                'comment_ids': list(self.rating_mat.columns),
                 'group_repness': {},
                 'consensus_comments': []
             }

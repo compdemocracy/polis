@@ -69,10 +69,10 @@ def pca_project_dataframe(df: pd.DataFrame,
     # Verify there are enough rows and columns for PCA
     n_rows, n_cols = matrix_data_no_nan.shape
     if n_rows < 2 or n_cols < 2:
-        # Create minimal PCA results
+        # Create minimal PCA results with consistent shape
         pca_results = {
             'center': np.zeros(n_cols),
-            'comps': np.zeros((min(n_comps, 2), n_cols))
+            'comps': np.zeros((min(n_comps, n_cols), n_cols))
         }
         # Create minimal projections (all zeros)
         proj_dict = {pid: np.zeros(2) for pid in df.index}
@@ -97,10 +97,10 @@ def pca_project_dataframe(df: pd.DataFrame,
 
     except Exception as e:
         print(f"Error in PCA computation: {e}")
-        # Create fallback PCA results
+        # Create fallback PCA results with consistent shape
         pca_results = {
             'center': np.zeros(n_cols),
-            'comps': np.zeros((min(n_comps, 2), n_cols))
+            'comps': np.zeros((min(n_comps, n_cols), n_cols))
         }
     
     # For projection, ensure proper sparsity handling

@@ -104,7 +104,8 @@ def init_clusters(data: np.ndarray, k: int) -> List[Cluster]:
         k: Number of clusters
 
     Returns:
-        List of initialized clusters with centers set to first k distinct points
+        List of initialized clusters with centers set to first k distinct points.
+        May return fewer than k clusters if data has fewer distinct points.
     """
     # Get unique rows in order (matches Clojure's distinct + take k)
     # np.unique with axis=0 returns sorted unique rows, but we want encounter order
@@ -586,7 +587,8 @@ def _get_first_k_distinct_centers(data: np.ndarray, k: int) -> np.ndarray:
             if len(unique_indices) >= k:
                 break
 
-    # Return the first k distinct points as centers
+    # Return the distinct points found. May be fewer than k if data has
+    # fewer than k unique rows.
     return data[unique_indices[:k]]
 
 
@@ -627,8 +629,11 @@ def kmeans_sklearn(data: np.ndarray,
         init = init_centers
         n_init = 1  # Only one initialization when centers are provided
     elif use_first_k_init:
-        # Use first-k distinct points initialization (matching Clojure)
+        # Use first-k distinct points initialization (matching Clojure).
+        # May return fewer than k centers if data has fewer distinct points.
         init = _get_first_k_distinct_centers(data, k)
+        if init.shape[0] < k:
+            k = init.shape[0]
         n_init = 1  # Deterministic initialization, only need one run
     else:
         # Use k-means++ initialization
