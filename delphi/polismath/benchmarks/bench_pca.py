@@ -4,12 +4,12 @@ Benchmark script for PCA computation performance.
 
 Usage:
     cd delphi
-    ../.venv/bin/python -m polismath.benchmarks.bench_pca <votes_csv_path> [--runs N]
-    ../.venv/bin/python -m polismath.benchmarks.bench_pca <votes_csv_path> --profile
+    python -m polismath.benchmarks.bench_pca <votes_csv_path> [--runs N]
+    python -m polismath.benchmarks.bench_pca <votes_csv_path> --profile
 
 Example:
-    ../.venv/bin/python -m polismath.benchmarks.bench_pca real_data/.local/r7wehfsmutrwndviddnii-bg2050/2025-11-25-1909-r7wehfsmutrwndviddnii-votes.csv --runs 3
-    ../.venv/bin/python -m polismath.benchmarks.bench_pca real_data/.local/r7wehfsmutrwndviddnii-bg2050/2025-11-25-1909-r7wehfsmutrwndviddnii-votes.csv --profile
+    python -m polismath.benchmarks.bench_pca real_data/.local/r7wehfsmutrwndviddnii-bg2050/2025-11-25-1909-r7wehfsmutrwndviddnii-votes.csv --runs 3
+    python -m polismath.benchmarks.bench_pca real_data/.local/r7wehfsmutrwndviddnii-bg2050/2025-11-25-1909-r7wehfsmutrwndviddnii-votes.csv --profile
 """
 
 import time

@@ -1,8 +1,8 @@
 """
-PCA (Principal Component Analysis) implementation for Pol.is.
+PCA (Principal Component Analysis) for Pol.is.
 
-This module provides a custom implementation of PCA using power iteration,
-with special handling for sparse matrices.
+This module wraps sklearn PCA with Pol.is-specific handling: mean imputation
+of missing votes (NaN) and sparsity-aware projection scaling.
 """
 
 import logging
