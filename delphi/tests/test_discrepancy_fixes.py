@@ -263,7 +263,6 @@ class TestD9ZScoreThresholds:
         check.almost_equal(Z_95, 1.6449, abs=0.001,
                             msg=f"Z_95 should be 1.6449 (one-tailed), got {Z_95}")
 
-    @pytest.mark.xfail(reason="D9: Two-tailed thresholds produce empty repness")
     def test_repness_not_empty(self, conv, dataset_name):
         """Repness should produce non-empty comment_repness with correct thresholds."""
         repness = conv.repness
@@ -346,7 +345,6 @@ class TestD6TwoPropTest:
         Clojure adds +1 pseudocount to all 4 inputs (succ1, n1, succ2, n2).
     """
 
-    @pytest.mark.xfail(reason="D6: Python two_prop_test lacks pseudocounts")
     def test_two_prop_test_with_pseudocounts(self):
         """two_prop_test should add +1 pseudocounts matching Clojure."""
         # With pseudocounts: (succ+1)/(n+2) for both groups
