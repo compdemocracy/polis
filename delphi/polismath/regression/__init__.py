@@ -15,6 +15,7 @@ from .datasets import (
     get_dataset_info,
     get_dataset_files,
     get_dataset_report_id,
+    get_blob_variants,
 )
 from .clojure_comparer import (
     ClojureComparer,
@@ -35,6 +36,7 @@ __all__ = [
     'get_dataset_info',
     'get_dataset_files',
     'get_dataset_report_id',
+    'get_blob_variants',
     'ClojureComparer',
     'load_clojure_math_blob',
     'compare_cluster_distributions',
