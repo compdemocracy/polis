@@ -50,7 +50,7 @@ class TestRepnessComparison:
     def clojure_results(self, dataset_name: str) -> Dict[str, Any]:
         """Load Clojure reference results from file.
 
-        dataset_name is a composite ID like 'biodiversity-full' or 'engage-cold_start'.
+        dataset_name is a composite ID like 'biodiversity-incremental' or 'engage-cold_start'.
         """
         ds_name, blob_type = parse_dataset_blob_id(dataset_name)
         dataset_files = get_dataset_files(ds_name, blob_type=blob_type)

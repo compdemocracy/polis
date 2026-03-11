@@ -104,7 +104,7 @@ def _get_or_compute_conversation(dataset_name: str) -> dict:
             Conversation._reset_conversion_cache()
             gc.collect()
 
-    files = get_dataset_files(dataset_name, blob_type='incremental')
+    files = get_dataset_files(dataset_name)
     votes = load_votes(files['votes'])
     comments = load_comments(files['comments'])
 
@@ -127,7 +127,7 @@ def conversation_data(dataset_name):
     """Class-scoped fixture: runs the full pipeline once per dataset+blob_type.
 
     dataset_name here is actually a composite 'dataset-blob_type' ID
-    (e.g., 'biodiversity-full'). The Conversation is shared across blob variants.
+    (e.g., 'biodiversity-incremental' or 'biodiversity-cold_start'). The Conversation is shared across blob variants.
     """
     global _BLOB_CACHE
     ds_name, blob_type = parse_dataset_blob_id(dataset_name)
@@ -338,7 +338,7 @@ class TestD2cVoteCountSource:
             mod_out_tids=[0, 1, 2, 3, 4],
             participant_votes={
                 0: list(range(10)),    # 10 raw votes → in-conv
-                1: list(range(5, 11)), # 6 raw votes (only 1 moderated-out) → NOT in-conv
+                1: list(range(4, 10)), # 6 raw votes (1 moderated-out: tid=4) → NOT in-conv
             },
         )
         in_conv = conv2._get_in_conv_participants()

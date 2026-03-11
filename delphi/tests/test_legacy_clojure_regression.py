@@ -34,7 +34,7 @@ from polismath.regression.clojure_comparer import (
 def _get_clojure_dataset_blob_ids(include_local: bool, requested: set[str] | None = None) -> list[str]:
     """Get composite 'dataset-blob_type' IDs for all filled blobs.
 
-    Returns IDs like 'biodiversity-full', 'engage-full', 'engage-cold_start'.
+    Returns IDs like 'biodiversity-incremental', 'engage-incremental', 'engage-cold_start'.
     Only includes blobs that have meaningful content (PCA, clusters, etc.).
     Filters by dataset name if --datasets is specified.
     """
@@ -81,7 +81,7 @@ def _get_or_compute_conversation(dataset_name: str) -> dict:
             gc.collect()
 
     # Get dataset files (blob_type doesn't matter here — we only need votes/comments)
-    dataset_files = get_dataset_files(dataset_name, blob_type='incremental')
+    dataset_files = get_dataset_files(dataset_name)
 
     # Create and compute conversation
     votes = load_votes(dataset_files['votes'])

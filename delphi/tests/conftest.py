@@ -39,6 +39,10 @@ def make_dataset_params(datasets: list[str]) -> list:
         def test_something(dataset_name):
             ...
     """
+    # Uses the full composite ID (e.g., 'biodiversity-incremental') as the group
+    # key, so blob variants of the same dataset may land on different workers.
+    # This is intentional: once incremental blob processing is implemented, each
+    # variant will run a different computation, so cross-variant caching won't help.
     return [
         pytest.param(ds, marks=pytest.mark.xdist_group(ds))
         for ds in datasets
