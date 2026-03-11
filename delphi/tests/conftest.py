@@ -6,6 +6,7 @@ This module provides:
 - Fixtures for accessing dataset information
 - @pytest.mark.use_discovered_datasets for dynamic dataset parametrization
 - Helper functions for parallel test execution with xdist_group markers
+- require_service() helper for failing fast when services are unavailable
 """
 
 import pytest
@@ -14,6 +15,76 @@ from polismath.regression.datasets import (
     list_regression_datasets,
     get_blob_variants,
 )
+
+
+def require_dynamodb(
+    endpoint: str | None = None,
+    timeout: float = 3.0,
+) -> None:
+    """Fail the test immediately if DynamoDB is not responding.
+
+    Performs a ``list_tables`` call with short timeouts and zero retries
+    so the test fails in seconds rather than hanging indefinitely.
+    """
+    import os
+
+    import boto3
+    from botocore.config import Config
+
+    endpoint = endpoint or os.environ.get(
+        "DYNAMODB_ENDPOINT", "http://localhost:8000"
+    )
+    cfg = Config(
+        connect_timeout=timeout,
+        read_timeout=timeout,
+        retries={"max_attempts": 0},
+    )
+    client = boto3.client(
+        "dynamodb",
+        endpoint_url=endpoint,
+        region_name="us-east-1",
+        aws_access_key_id="dummy",
+        aws_secret_access_key="dummy",
+        config=cfg,
+    )
+    try:
+        client.list_tables(Limit=1)
+    except Exception as exc:
+        pytest.fail(f"DynamoDB is not available at {endpoint}: {exc}")
+
+
+def require_s3(
+    endpoint: str | None = None,
+    timeout: float = 3.0,
+) -> None:
+    """Fail the test immediately if S3/MinIO is not responding."""
+    import os
+
+    import boto3
+    from botocore.config import Config
+
+    endpoint = endpoint or os.environ.get(
+        "AWS_S3_ENDPOINT", "http://host.docker.internal:9000"
+    )
+    cfg = Config(
+        connect_timeout=timeout,
+        read_timeout=timeout,
+        retries={"max_attempts": 0},
+        signature_version="s3v4",
+    )
+    client = boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        region_name="us-east-1",
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
+        config=cfg,
+        verify=False,
+    )
+    try:
+        client.list_buckets()
+    except Exception as exc:
+        pytest.fail(f"S3/MinIO is not available at {endpoint}: {exc}")
 
 
 # =============================================================================

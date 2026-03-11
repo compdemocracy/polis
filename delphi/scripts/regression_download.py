@@ -71,7 +71,7 @@ def get_db_connection():
             "DATABASE_URL environment variable is not set. "
             "Please set it to a valid Postgres connection string (e.g., postgres://user:pass@host:port/dbname)"
         )
-    return psycopg2.connect(database_url, connect_timeout=5)
+    return psycopg2.connect(database_url)
 
     # TODO: Uncomment once sorted the difference between env var names between delphi and rest of polis
     ## Fallback to individual parameters

@@ -52,7 +52,7 @@ def connect_to_db():
         database_url = os.environ.get("DATABASE_URL")
         if database_url:
             logger.info(f"Using DATABASE_URL: {database_url.split('@')[1] if '@' in database_url else '(hidden)'}")
-            conn = psycopg2.connect(database_url, connect_timeout=5)
+            conn = psycopg2.connect(database_url)
         else:
             # Fall back to individual connection parameters
             conn = psycopg2.connect(
@@ -61,7 +61,6 @@ def connect_to_db():
                 password=os.environ.get("DATABASE_PASSWORD", ""),
                 host=os.environ.get("DATABASE_HOST", "localhost"),
                 port=os.environ.get("DATABASE_PORT", 5432),
-                connect_timeout=5,
             )
 
         logger.info("Connected to database successfully")

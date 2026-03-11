@@ -802,6 +802,8 @@ def test_dynamodb_direct():
     Test writing directly to DynamoDB without PostgreSQL.
     This is useful for directly testing the DynamoDB functionality.
     """
+    from tests.conftest import require_dynamodb
+    require_dynamodb()
     print("\nTesting direct DynamoDB write functionality with new schema")
     
     try:
