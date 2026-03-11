@@ -536,14 +536,12 @@ class TestD4Pseudocount:
         Clojure uses PSEUDO_COUNT = 2.0 → pa = (na + 1) / (ns + 2)
     """
 
-    @pytest.mark.xfail(reason="D4: PSEUDO_COUNT=1.5, target is 2.0")
     def test_pseudocount_constant(self):
         """Verify the pseudocount constant matches Clojure's Beta(2,2) prior."""
         # Target: PSEUDO_COUNT = 2.0
         check.equal(PSEUDO_COUNT, 2.0,
                      f"PSEUDO_COUNT should be 2.0 (Clojure Beta(2,2) prior), got {PSEUDO_COUNT}")
 
-    @pytest.mark.xfail(reason="D4: PSEUDO_COUNT=1.5 vs Clojure's 2.0")
     def test_pa_values_match_clojure(self, conv, clojure_blob, dataset_name):
         """p-success values should match Clojure for specific (group, comment) pairs."""
         clojure_entries = _clojure_repness_entries(clojure_blob)
@@ -924,7 +922,6 @@ class TestSyntheticEdgeCases:
     and prevent regressions.
     """
 
-    @pytest.mark.xfail(reason="D4: PSEUDO_COUNT=1.5, target is 2.0")
     def test_pseudocount_beta_2_2_prior(self):
         """With PSEUDO_COUNT=2.0, pa should use Beta(2,2) prior: (na+1)/(ns+2)."""
         na, ns = 3, 4
