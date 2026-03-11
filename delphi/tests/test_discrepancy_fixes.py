@@ -211,6 +211,284 @@ class TestD2InConvThreshold:
 
 
 # ============================================================================
+# D2c — Vote Count Source (raw vs filtered matrix)
+# ============================================================================
+
+def _build_conv_with_moderation(
+    n_comments: int = 10,
+    mod_out_tids: list | None = None,
+    participant_votes: dict | None = None,
+) -> Conversation:
+    """Build a synthetic Conversation with moderation applied.
+
+    Args:
+        n_comments: Total number of comments (tids 0..n_comments-1).
+        mod_out_tids: List of tids to moderate-out.
+        participant_votes: Dict mapping pid → list of tids they voted on.
+            If None, a single participant votes on all comments.
+
+    Returns:
+        A Conversation with votes ingested and moderation applied (no recompute).
+    """
+    if participant_votes is None:
+        participant_votes = {0: list(range(n_comments))}
+
+    votes_list = []
+    for pid, tids in participant_votes.items():
+        for tid in tids:
+            votes_list.append({'pid': pid, 'tid': tid, 'vote': 1})
+
+    conv = Conversation('test-d2c')
+    conv = conv.update_votes({'votes': votes_list}, recompute=False)
+
+    if mod_out_tids:
+        conv = conv.update_moderation(
+            {'mod_out_tids': mod_out_tids}, recompute=False
+        )
+
+    return conv
+
+
+class TestD2cVoteCountSource:
+    """
+    D2c: Vote counts for in-conv threshold must come from raw_rating_mat
+    (includes votes on moderated-out comments), not rating_mat (filtered).
+
+    Clojure's user-vote-counts (conversation.clj:217-225) uses raw-rating-mat.
+    Python currently uses self.rating_mat, undercounting when comments are
+    moderated-out.
+    """
+
+    def test_vote_count_includes_moderated_out_votes(self):
+        """Participant who voted on 10 comments (3 moderated-out) should have count=10."""
+        conv = _build_conv_with_moderation(
+            n_comments=10,
+            mod_out_tids=[0, 1, 2],
+            participant_votes={0: list(range(10))},
+        )
+
+        vote_counts = conv._compute_user_vote_counts()
+        assert vote_counts[0] == 10, (
+            f"Vote count should be 10 (from raw_rating_mat), got {vote_counts[0]} "
+            f"(rating_mat has {len(conv.rating_mat.columns)} columns)"
+        )
+
+    def test_n_cmts_includes_moderated_out_comments(self):
+        """n_cmts in threshold should count all comments including moderated-out.
+
+        With 10 total comments and 5 moderated-out, n_cmts should be 10.
+        This matters when non-moderated-out count < 7: the threshold would be
+        artificially low in Python (min(7,5)=5 vs correct min(7,10)=7).
+        """
+        conv = _build_conv_with_moderation(
+            n_comments=10,
+            mod_out_tids=[0, 1, 2, 3, 4],
+            participant_votes={0: list(range(10))},
+        )
+
+        # raw_rating_mat has all columns; rating_mat has only non-moderated-out
+        n_cmts_raw = len(conv.raw_rating_mat.columns)
+        n_cmts_filtered = len(conv.rating_mat.columns)
+
+        assert n_cmts_raw == 10, f"raw_rating_mat should have 10 columns, got {n_cmts_raw}"
+        assert n_cmts_filtered == 5, f"rating_mat should have 5 columns, got {n_cmts_filtered}"
+
+        # The threshold used by _get_in_conv_participants should be min(7, 10) = 7,
+        # not min(7, 5) = 5. Verify indirectly: participant with exactly 6 votes
+        # should NOT be in-conv (threshold=7), but would be if n_cmts=5 (threshold=5).
+        conv2 = _build_conv_with_moderation(
+            n_comments=10,
+            mod_out_tids=[0, 1, 2, 3, 4],
+            participant_votes={
+                0: list(range(10)),    # 10 raw votes → in-conv
+                1: list(range(5, 11)), # 6 raw votes (only 1 moderated-out) → NOT in-conv
+            },
+        )
+        in_conv = conv2._get_in_conv_participants()
+        assert 0 in in_conv, "P0 (10 raw votes) should be in-conv"
+        assert 1 not in in_conv, (
+            "P1 (6 raw votes) should NOT be in-conv with threshold=7, "
+            "but would be if n_cmts wrongly used filtered count (5)"
+        )
+
+    def test_participant_stays_in_conv_after_moderation(self):
+        """Participant with 8 votes stays in-conv even when 3 comments moderated-out.
+
+        This is the critical scenario: participant votes above threshold (8 >= 7),
+        comments get moderated-out between update_votes calls reducing filtered
+        count to 5, but raw count is still 8 so they should remain in-conv.
+        """
+        # Participant 0: votes on 8 comments (above threshold of 7)
+        # Participant 1: votes on 7 comments (borderline)
+        conv = _build_conv_with_moderation(
+            n_comments=10,
+            mod_out_tids=[0, 1, 2],  # 3 moderated-out
+            participant_votes={
+                0: list(range(8)),   # votes on c0-c7; after mod, only c3-c7 visible (5)
+                1: list(range(7)),   # votes on c0-c6; after mod, only c3-c6 visible (4)
+            },
+        )
+
+        in_conv = conv._get_in_conv_participants()
+
+        # Both should be in-conv: raw counts are 8 and 7, threshold is min(7, 10) = 7
+        assert 0 in in_conv, (
+            f"Participant 0 (8 raw votes) should be in-conv, "
+            f"but filtered count is {np.sum(~np.isnan(conv.rating_mat.loc[0].values))}"
+        )
+        assert 1 in in_conv, (
+            f"Participant 1 (7 raw votes) should be in-conv, "
+            f"but filtered count is {np.sum(~np.isnan(conv.rating_mat.loc[1].values))}"
+        )
+
+
+# ============================================================================
+# D2d — In-Conv Monotonicity
+# ============================================================================
+
+class TestD2dInConvMonotonicity:
+    """
+    D2d: Once a participant qualifies for in-conv, they must never be removed.
+
+    These tests pass today because Python does full recompute from raw_rating_mat
+    (which includes all historical votes, even on moderated-out comments).
+    If the code is ever refactored to use delta vote processing, in-conv MUST be
+    persisted to DynamoDB — see compdemocracy/polis#2358 and the Clojure approach
+    in conv_man.clj:55, conversation.clj:244.
+    """
+
+    def test_t1_basic_monotonicity_across_updates(self):
+        """Participant who qualified in batch 1 stays in-conv after batch 2.
+
+        P votes on 7 comments in batch 1 → qualifies. Batch 2 adds new comments
+        but P doesn't vote on them. P's count stays 7 → still in-conv.
+
+        Would FAIL under delta processing without persistence if batch 2 only
+        contained new votes and P's old votes weren't re-scanned.
+        """
+        conv = Conversation('test-d2d-t1')
+
+        # Batch 1: P0 votes on 7 comments, P1 votes on all 10
+        batch1 = {'votes': [
+            *[{'pid': 0, 'tid': tid, 'vote': 1} for tid in range(7)],
+            *[{'pid': 1, 'tid': tid, 'vote': 1} for tid in range(10)],
+        ]}
+        conv = conv.update_votes(batch1, recompute=False)
+        in_conv_after_b1 = conv._get_in_conv_participants()
+        assert 0 in in_conv_after_b1, "P0 should be in-conv after batch 1 (7 votes)"
+
+        # Batch 2: new comments c10-c14, only P1 votes on them
+        batch2 = {'votes': [
+            *[{'pid': 1, 'tid': tid, 'vote': 1} for tid in range(10, 15)],
+        ]}
+        conv = conv.update_votes(batch2, recompute=False)
+        in_conv_after_b2 = conv._get_in_conv_participants()
+        assert 0 in in_conv_after_b2, (
+            "P0 should still be in-conv after batch 2 (7 votes unchanged)"
+        )
+
+    def test_t2_monotonicity_survives_moderation(self):
+        """Participant stays in-conv after their voted comments are moderated-out.
+
+        P votes on 7 comments → qualifies. 3 comments moderated-out. P's raw
+        count is still 7 → still in-conv (because raw_rating_mat is used).
+
+        Would FAIL under delta processing without persistence if moderation
+        caused a recount from only the filtered matrix.
+        """
+        conv = Conversation('test-d2d-t2')
+        votes = {'votes': [
+            *[{'pid': 0, 'tid': tid, 'vote': 1} for tid in range(7)],
+            *[{'pid': 1, 'tid': tid, 'vote': 1} for tid in range(10)],
+        ]}
+        conv = conv.update_votes(votes, recompute=False)
+
+        in_conv_before = conv._get_in_conv_participants()
+        assert 0 in in_conv_before, "P0 should be in-conv before moderation"
+
+        # Moderate out 3 of P0's comments
+        conv = conv.update_moderation({'mod_out_tids': [0, 1, 2]}, recompute=False)
+
+        in_conv_after = conv._get_in_conv_participants()
+        assert 0 in in_conv_after, (
+            "P0 should still be in-conv after moderation "
+            "(7 raw votes, only 4 on filtered matrix)"
+        )
+
+    def test_t3_worker_restart_with_moderation(self):
+        """Participant survives worker restart + moderation.
+
+        P votes on 7 comments → qualifies. Worker dies. 3 comments moderated-out.
+        New worker rebuilds from all votes. P still has 7 raw votes → in-conv.
+
+        This is the KEY test that would FAIL under delta processing without
+        persistence: after restart, only new votes would be scanned.
+        """
+        # Original worker
+        conv1 = Conversation('test-d2d-t3')
+        votes = {'votes': [
+            *[{'pid': 0, 'tid': tid, 'vote': 1} for tid in range(7)],
+            *[{'pid': 1, 'tid': tid, 'vote': 1} for tid in range(10)],
+        ]}
+        conv1 = conv1.update_votes(votes, recompute=False)
+        assert 0 in conv1._get_in_conv_participants()
+
+        # Simulate worker restart: new Conversation object, replay ALL votes
+        conv2 = Conversation('test-d2d-t3')
+        conv2 = conv2.update_votes(votes, recompute=False)
+
+        # Apply moderation that happened while worker was dead
+        conv2 = conv2.update_moderation({'mod_out_tids': [0, 1, 2]}, recompute=False)
+
+        in_conv = conv2._get_in_conv_participants()
+        assert 0 in in_conv, (
+            "P0 should be in-conv after restart+moderation "
+            "(full recompute from all votes)"
+        )
+
+    def test_t4_worker_restart_moderation_no_new_votes(self):
+        """Rebuild from existing votes after moderation, no new votes needed.
+
+        Same as T3 but verifies that recompute alone is sufficient — no "trigger"
+        of new votes is needed to re-evaluate in-conv.
+        """
+        votes = {'votes': [
+            *[{'pid': 0, 'tid': tid, 'vote': 1} for tid in range(7)],
+            *[{'pid': 1, 'tid': tid, 'vote': 1} for tid in range(10)],
+        ]}
+
+        # Build from scratch with moderation already applied
+        conv = Conversation('test-d2d-t4')
+        conv = conv.update_votes(votes, recompute=False)
+        conv = conv.update_moderation({'mod_out_tids': [0, 1, 2]}, recompute=False)
+
+        in_conv = conv._get_in_conv_participants()
+        assert 0 in in_conv, (
+            "P0 should be in-conv with just existing votes + moderation"
+        )
+
+    def test_t5_mixed_participants_moderation(self):
+        """Both old and new participants correct after moderation.
+
+        P0 votes on c0-c6. c0-c2 moderated-out. New participant Q votes on c3-c9.
+        Rebuild from all votes. Both should be in-conv:
+        - P0: 7 raw votes (c0-c6), threshold min(7,10)=7 → qualifies
+        - Q: 7 votes on non-moderated-out comments → qualifies
+        """
+        conv = Conversation('test-d2d-t5')
+        votes = {'votes': [
+            *[{'pid': 0, 'tid': tid, 'vote': 1} for tid in range(7)],   # c0-c6
+            *[{'pid': 1, 'tid': tid, 'vote': 1} for tid in range(3, 10)],  # c3-c9
+        ]}
+        conv = conv.update_votes(votes, recompute=False)
+        conv = conv.update_moderation({'mod_out_tids': [0, 1, 2]}, recompute=False)
+
+        in_conv = conv._get_in_conv_participants()
+        assert 0 in in_conv, "P0 (7 raw votes) should be in-conv"
+        assert 1 in in_conv, "P1 (7 votes on non-moderated-out comments) should be in-conv"
+
+
+# ============================================================================
 # D4 — Pseudocount Formula
 # ============================================================================
 

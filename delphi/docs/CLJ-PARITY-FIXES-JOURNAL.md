@@ -313,6 +313,39 @@ Will re-record after those are resolved and rebased.
 - Local handoff file created at `delphi/docs/HANDOFF_D2_INCREMENTAL_IN_CONV.md` (untracked)
   for future investigation of how much in-conv sets differ between blob types
 
+### Session 5 (2026-03-11)
+
+- **D2c fix**: Switched `_compute_user_vote_counts` and `_get_in_conv_participants` to use
+  `self.raw_rating_mat` instead of `self.rating_mat`. Both vote counts and `n_cmts` now
+  include votes on moderated-out comments, matching Clojure's `user-vote-counts`
+  (conversation.clj:217-225) and `n-cmts` (conversation.clj:214-215).
+- **D2c tests** (3 in `TestD2cVoteCountSource`):
+  - `test_vote_count_includes_moderated_out_votes`: 10 comments, 3 moderated-out, count=10
+  - `test_n_cmts_includes_moderated_out_comments`: verifies threshold uses raw column count,
+    not filtered; also tests that a participant with 6 raw votes is correctly excluded
+  - `test_participant_stays_in_conv_after_moderation`: the critical scenario — participant
+    with 8 votes stays in-conv when 3 comments moderated-out (filtered count drops to 5)
+- **D2d monotonicity tests** (5 in `TestD2dInConvMonotonicity`):
+  - T1: basic monotonicity across batch updates
+  - T2: survives moderation-out
+  - T3: worker restart + moderation (key delta-processing guard)
+  - T4: worker restart, moderation, no new votes
+  - T5: mixed participants with moderation
+  - All pass for free with D2c fix (full recompute from `raw_rating_mat`)
+- **TDD discipline**: wrote tests first (D2c xfail, D2d no xfail), confirmed D2c red (3
+  xfailed) and D2d red (T2-T5 failed, T1 passed), applied fix, confirmed all green.
+- **Full test suite**: 253 passed, 5 skipped, 36 xfailed, 0 failures (+8 from session 4)
+- **No regressions** on public datasets
+- Added code comments on `_get_in_conv_participants` documenting the monotonicity design
+  decision and delta-processing caveat (ref: #2358)
+- Updated plan: D2, D2b, D2c, D2d all marked DONE; PR 1bis merged into PR 1
+- Updated PR #2421 description with D2c/D2d sections
+
+### What's Next
+
+1. **PR 2 — Fix D4 (Pseudocount)**: `PSEUDO_COUNT = 1.5` → `2.0` to match Clojure's Beta(2,2) prior.
+2. **PR 3 — Fix D9 (Z-score thresholds)**: Switch from two-tailed to one-tailed z-scores.
+
 ---
 
 ## TDD Discipline
