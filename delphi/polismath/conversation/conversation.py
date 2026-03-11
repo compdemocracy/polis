@@ -793,17 +793,15 @@ class Conversation:
         
         # OPTIMIZATION 3: Precompute group vote matrices and average votes
         
-        # Precompute group vote matrices and their valid comment masks
-        group_vote_matrices = {}
+        # Precompute group average votes and valid comment masks
         group_avg_votes = {}
         group_valid_masks = {}
-        
+
         for group_id, member_indices in group_member_indices.items():
             if len(member_indices) >= 3:  # Only calculate for groups with enough members
                 # Extract the group vote matrix
                 group_vote_matrix = matrix_values[member_indices, :]
-                group_vote_matrices[group_id] = group_vote_matrix
-                
+
                 # Calculate average votes per comment for this group
                 group_avg_votes[group_id] = np.mean(group_vote_matrix, axis=0)
                 
