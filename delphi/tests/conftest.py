@@ -57,7 +57,11 @@ def require_s3(
     endpoint: str | None = None,
     timeout: float = 3.0,
 ) -> None:
-    """Fail the test immediately if S3/MinIO is not responding."""
+    """Skip the test if S3/MinIO is not responding.
+
+    Uses pytest.skip (not fail) because MinIO is a local dev service
+    that is not available in CI.
+    """
     import os
 
     import boto3
@@ -84,7 +88,7 @@ def require_s3(
     try:
         client.list_buckets()
     except Exception as exc:
-        pytest.fail(f"S3/MinIO is not available at {endpoint}: {exc}")
+        pytest.skip(f"S3/MinIO is not available at {endpoint}: {exc}")
 
 
 # =============================================================================
