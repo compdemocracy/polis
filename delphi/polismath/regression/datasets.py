@@ -187,7 +187,7 @@ def get_dataset_files(name: str, prefer_cold_start: bool = True, blob_type: Opti
         math_blob_path = str(cold_start_blob)
     elif blob_type == 'incremental':
         if not original_blob.exists():
-            raise FileNotFoundError(f"No full blob for {name}")
+            raise FileNotFoundError(f"No incremental blob for {name}")
         math_blob_path = str(original_blob)
     elif prefer_cold_start and cold_start_blob.exists():
         math_blob_path = str(cold_start_blob)
