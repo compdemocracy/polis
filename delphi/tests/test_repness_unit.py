@@ -81,8 +81,9 @@ class TestCommentStats:
         n_agree = 3
         n_disagree = 1
         n_votes = 4
-        p_agree = (n_agree + 1.5/2) / (n_votes + 1.5)
-        p_disagree = (n_disagree + 1.5/2) / (n_votes + 1.5)
+        from polismath.pca_kmeans_rep.repness import PSEUDO_COUNT
+        p_agree = (n_agree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
+        p_disagree = (n_disagree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
         
         assert np.isclose(stats['pa'], p_agree)
         assert np.isclose(stats['pd'], p_disagree)
