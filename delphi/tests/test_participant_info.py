@@ -546,7 +546,7 @@ class TestResultStructure:
             assert type(s["n_pass"]) is int
             assert type(s["n_votes"]) is int
             for gid, corr in s["group_correlations"].items():
-                assert isinstance(corr, (float, np.floating)), (
+                assert type(corr) is float, (
                     f"corr for pid={pid}, gid={gid} is {type(corr)}"
                 )
 
