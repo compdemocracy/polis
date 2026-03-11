@@ -1211,25 +1211,31 @@ class Conversation:
         """
         Compute the number of votes per participant.
 
+        Uses raw_rating_mat (not rating_mat) so that votes on moderated-out
+        comments are still counted. This matches Clojure's user-vote-counts
+        (conversation.clj:217-225) which reads from raw-rating-mat.
+        Fix D2c: see PLAN_DISCREPANCY_FIXES.md.
+
         Returns:
             Dictionary mapping participant IDs to vote counts
         """
         import time
         start_time = time.time()
-        logger.info(f"Starting _compute_user_vote_counts for {self.rating_mat.shape[0]} participants")
+        mat = self.raw_rating_mat
+        logger.info(f"Starting _compute_user_vote_counts for {mat.shape[0]} participants")
 
         vote_counts = {}
 
         # Use more efficient approach for large datasets
-        if self.rating_mat.shape[0] > 1000:
+        if mat.shape[0] > 1000:
             # Create a mask of non-nan values across the entire matrix
-            non_nan_mask = ~np.isnan(self.rating_mat.values)
+            non_nan_mask = ~np.isnan(mat.values)
 
             # Sum across rows using vectorized operation
             row_sums = np.sum(non_nan_mask, axis=1)
 
             # Convert to dictionary
-            for i, pid in enumerate(self.rating_mat.index):
+            for i, pid in enumerate(mat.index):
                 if i < len(row_sums):
                     vote_counts[pid] = int(row_sums[i])
                 else:
@@ -1239,9 +1245,9 @@ class Conversation:
             logger.info(f"Computed vote counts for {len(vote_counts)} participants using vectorized approach in {time.time() - start_time:.4f}s")
         else:
             # Original approach for smaller datasets
-            for i, pid in enumerate(self.rating_mat.index):
+            for i, pid in enumerate(mat.index):
                 # Get row of votes for this participant
-                row = self.rating_mat.values[i, :]
+                row = mat.values[i, :]
 
                 # Count non-nan values
                 count = np.sum(~np.isnan(row))
@@ -1262,10 +1268,20 @@ class Conversation:
         Threshold: participant must have voted on at least min(7, n_comments)
         comments (Clojure parity fix D2).
 
+        Both vote counts and n_cmts use raw_rating_mat (fix D2c), which includes
+        votes on moderated-out comments. This matches Clojure, where
+        zero-out-columns keeps moderated-out columns in the matrix (zeroed but
+        present). Since raw_rating_mat contains all historical votes and votes
+        are immutable in PostgreSQL, monotonicity is guaranteed without explicit
+        persistence — a participant who once qualified can never lose votes.
+        If the code is ever refactored to use delta vote processing, in-conv
+        MUST be persisted to DynamoDB. See compdemocracy/polis#2358 and
+        Clojure's approach in conv_man.clj:55, conversation.clj:244.
+
         Returns:
             Set of participant IDs that meet the threshold
         """
-        n_cmts = len(self.rating_mat.columns) if hasattr(self.rating_mat, 'columns') else 0
+        n_cmts = len(self.raw_rating_mat.columns) if hasattr(self.raw_rating_mat, 'columns') else 0
         threshold = min(7, n_cmts)
 
         # Get vote counts for all participants
