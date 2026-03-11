@@ -162,8 +162,7 @@ All test docstrings explain what would break under delta processing.
 
 **File**: `delphi/polismath/pca_kmeans_rep/repness.py`
 
-**Current**: `PSEUDO_COUNT = 1.5` → `pa = (na + 0.75) / (ns + 1.5)` (Beta(1.75,1.75) prior)
-**Target**: `PSEUDO_COUNT = 2.0` → `pa = (na + 1) / (ns + 2)` (Beta(2,2) prior, matching Clojure)
+**Current**: ~~`PSEUDO_COUNT = 1.5`~~ → **DONE**: `PSEUDO_COUNT = 2.0` → `pa = (na + 1) / (ns + 2)` (Beta(2,2) prior, matching Clojure)
 
 **Test-first approach**:
 1. Add unit test: for known (na, ns) pairs from Clojure math blob repness, verify `pa` values match
@@ -409,7 +408,7 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D2c | Vote count source (raw vs filtered matrix) | **PR 1** | **DONE** ✓ |
 | D2d | In-conv monotonicity (once in, always in) | **PR 1** | **DONE** ✓ (5 guard tests, T1-T5) |
 | D3 | K-smoother buffer | PR 10 | Fix |
-| D4 | Pseudocount formula | **PR 2** | Fix |
+| D4 | Pseudocount formula | **PR 2** | **DONE** ✓ |
 | D5 | Proportion test | PR 4 | Fix |
 | D6 | Two-proportion test | PR 5 | Fix |
 | D7 | Repness metric | PR 6 | Fix (with flag for old formula) |
