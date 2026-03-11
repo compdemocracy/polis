@@ -109,7 +109,8 @@ def connect_to_db():
             user=os.environ.get('POSTGRES_USER', 'postgres'),
             password=os.environ.get('POSTGRES_PASSWORD', 'postgres'),
             host=os.environ.get('POSTGRES_HOST', 'localhost'),
-            port=os.environ.get('POSTGRES_PORT', '5432')
+            port=os.environ.get('POSTGRES_PORT', '5432'),
+            connect_timeout=5,
         )
         print("Connected to database successfully")
         return conn
@@ -526,7 +527,7 @@ def test_conversation_from_postgres():
     conn = connect_to_db()
     if not conn:
         print(f"[{time.time() - start_time:.2f}s] Database connection failed")
-        pytest.skip("Could not connect to PostgreSQL database")
+        pytest.fail("Could not connect to PostgreSQL database")
     
     try:
         # Get popular conversations

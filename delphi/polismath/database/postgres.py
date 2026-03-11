@@ -284,6 +284,8 @@ class PostgresClient:
                 pool_size=self.config.pool_size,
                 max_overflow=self.config.max_overflow,
                 pool_recycle=300,  # Recycle connections after 5 minutes
+                connect_args={"connect_timeout": 5},
+                pool_pre_ping=True,
             )
 
             # Create session factory
