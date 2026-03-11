@@ -14,6 +14,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.pca_kmeans_rep.repness import (
+    PSEUDO_COUNT,
     z_score_sig_90, z_score_sig_95, prop_test, two_prop_test,
     comment_stats, add_comparative_stats, repness_metric, finalize_cmt_stats,
     passes_by_test, best_agree, best_disagree, select_rep_comments,
@@ -80,7 +81,6 @@ class TestCommentStats:
         n_agree = 3
         n_disagree = 1
         n_votes = 4
-        from polismath.pca_kmeans_rep.repness import PSEUDO_COUNT
         p_agree = (n_agree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
         p_disagree = (n_disagree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
 

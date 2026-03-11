@@ -24,10 +24,11 @@ Z_95 = 1.96   # Z-score for 95% confidence
 # Why use pseudocounts?
 # - Prevents extreme probabilities (0 or 1) when sample sizes are small
 # - With PSEUDO_COUNT = 2.0, we add 1 "virtual" agree and 1 "virtual" disagree
-#   to each comment's vote count — equivalent to a Beta(2,2) prior
+#   to each comment's vote count — equivalent to using a Beta(2,2) prior and
+#   taking the posterior mode (MAP) estimate
 # - This pulls probabilities toward 0.5, with the effect diminishing as n grows
-# - Formula: p_agree = (n_agree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
-#            i.e.      (n_agree + 1) / (n_votes + 2)
+# - Formula (MAP under Beta(2,2)): p_agree = (n_agree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
+#                                  i.e.      (n_agree + 1) / (n_votes + 2)
 #
 # Matches Clojure's implementation (repness.clj).
 PSEUDO_COUNT = 2.0
