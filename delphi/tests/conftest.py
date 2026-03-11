@@ -6,7 +6,7 @@ This module provides:
 - Fixtures for accessing dataset information
 - @pytest.mark.use_discovered_datasets for dynamic dataset parametrization
 - Helper functions for parallel test execution with xdist_group markers
-- require_service() helper for failing fast when services are unavailable
+- require_dynamodb() and require_s3() helpers for failing fast when services are unavailable
 """
 
 import pytest
