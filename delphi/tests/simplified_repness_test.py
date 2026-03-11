@@ -17,7 +17,8 @@ from simplified_test import load_votes, pca_simple, project_data, kmeans_cluster
 
 # Constants
 Z_90 = 1.645  # Z-score for 90% confidence
-PSEUDO_COUNT = 2.0  # Pseudocount for Bayesian smoothing (Beta(2,2) prior, matches Clojure)
+
+from polismath.pca_kmeans_rep.repness import PSEUDO_COUNT
 
 def prop_test(p: float, n: int, p0: float) -> float:
     """One-proportion z-test."""
