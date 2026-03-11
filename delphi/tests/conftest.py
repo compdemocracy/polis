@@ -5,92 +5,119 @@ This module provides:
 - Command line options --include-local and --datasets for dataset selection
 - Fixtures for accessing dataset information
 - @pytest.mark.use_discovered_datasets for dynamic dataset parametrization
-- Session-scoped conversation cache for efficient test execution
+- Helper functions for parallel test execution with xdist_group markers
+- require_service() helper for failing fast when services are unavailable
 """
 
-from copy import deepcopy
-
 import pytest
-
-from polismath.conversation.conversation import Conversation
-from polismath.regression import get_dataset_files
 from polismath.regression.datasets import (
     discover_datasets,
     list_regression_datasets,
     get_blob_variants,
 )
-from tests.common_utils import load_votes, load_comments
 
 
-# =============================================================================
-# Session-scoped Conversation Cache
-# =============================================================================
+def require_dynamodb(
+    endpoint: str | None = None,
+    timeout: float = 3.0,
+) -> None:
+    """Fail the test immediately if DynamoDB is not responding.
 
-_SESSION_CONV_CACHE: dict = {}
-
-
-@pytest.fixture(scope="session")
-def get_or_compute_conversation():
-    """Session-wide conversation cache shared across all test files.
-
-    Returns a function that computes a Conversation once per dataset and
-    returns a deepcopy each time to preserve test isolation.
-
-    Only ONE dataset is kept in memory at a time. When a different dataset
-    is requested, the previous one is evicted. This works because tests are
-    reordered by pytest_collection_modifyitems to group all tests for a
-    dataset together (across all test files).
+    Performs a ``list_tables`` call with short timeouts and zero retries
+    so the test fails in seconds rather than hanging indefinitely.
     """
-    import gc
+    import os
 
-    def _get(dataset_name: str) -> dict:
-        if dataset_name not in _SESSION_CONV_CACHE:
-            # Evict previous dataset (we only keep one at a time)
-            for ds in list(_SESSION_CONV_CACHE.keys()):
-                _SESSION_CONV_CACHE.pop(ds, None)
-            Conversation._reset_conversion_cache()
-            gc.collect()
+    import boto3
+    from botocore.config import Config
 
-            files = get_dataset_files(dataset_name, blob_type='incremental')
-            votes = load_votes(files['votes'])
-            comments = load_comments(files['comments'])
+    endpoint = endpoint or os.environ.get(
+        "DYNAMODB_ENDPOINT", "http://localhost:8000"
+    )
+    cfg = Config(
+        connect_timeout=timeout,
+        read_timeout=timeout,
+        retries={"max_attempts": 0},
+    )
+    client = boto3.client(
+        "dynamodb",
+        endpoint_url=endpoint,
+        region_name="us-east-1",
+        aws_access_key_id="dummy",
+        aws_secret_access_key="dummy",
+        config=cfg,
+    )
+    try:
+        client.list_tables(Limit=1)
+    except Exception as exc:
+        pytest.fail(f"DynamoDB is not available at {endpoint}: {exc}")
 
-            conv = Conversation(dataset_name)
-            conv = conv.update_votes(votes)
-            conv = conv.recompute()
 
-            _SESSION_CONV_CACHE[dataset_name] = {
-                'conv': conv,
-                'dataset_name': dataset_name,
-                'files': files,
-                'comments': comments,
-            }
+def require_s3(
+    endpoint: str | None = None,
+    timeout: float = 3.0,
+) -> None:
+    """Fail the test immediately if S3/MinIO is not responding."""
+    import os
 
-        return deepcopy(_SESSION_CONV_CACHE[dataset_name])
+    import boto3
+    from botocore.config import Config
 
-    return _get
+    endpoint = endpoint or os.environ.get(
+        "AWS_S3_ENDPOINT", "http://host.docker.internal:9000"
+    )
+    cfg = Config(
+        connect_timeout=timeout,
+        read_timeout=timeout,
+        retries={"max_attempts": 0},
+        signature_version="s3v4",
+    )
+    client = boto3.client(
+        "s3",
+        endpoint_url=endpoint,
+        region_name="us-east-1",
+        aws_access_key_id=os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin"),
+        aws_secret_access_key=os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin"),
+        config=cfg,
+        verify=False,
+    )
+    try:
+        client.list_buckets()
+    except Exception as exc:
+        pytest.fail(f"S3/MinIO is not available at {endpoint}: {exc}")
 
 
 # =============================================================================
-# Dataset Parametrization Helpers
+# Parallel Execution Helpers
 # =============================================================================
 
 def make_dataset_params(datasets: list[str]) -> list:
     """
-    Create pytest.param objects for dataset parametrization.
+    Create pytest.param objects with xdist_group markers for parallel execution.
+
+    When using pytest-xdist with --dist=loadgroup, tests with the same
+    xdist_group marker will run on the same worker. This ensures fixtures
+    are computed only once per dataset per worker.
 
     Args:
         datasets: List of dataset names (or "dataset-blob_type" composite IDs)
 
     Returns:
-        List of pytest.param objects
+        List of pytest.param objects with xdist_group markers
 
     Example:
         @pytest.mark.parametrize("dataset_name", make_dataset_params(["biodiversity", "vw"]))
         def test_something(dataset_name):
             ...
     """
-    return [pytest.param(ds) for ds in datasets]
+    # Uses the full composite ID (e.g., 'biodiversity-incremental') as the group
+    # key, so blob variants of the same dataset may land on different workers.
+    # This is intentional: once incremental blob processing is implemented, each
+    # variant will run a different computation, so cross-variant caching won't help.
+    return [
+        pytest.param(ds, marks=pytest.mark.xdist_group(ds))
+        for ds in datasets
+    ]
 
 
 def parse_dataset_blob_id(composite_id: str) -> tuple[str, str]:
@@ -185,7 +212,7 @@ def pytest_generate_tests(metafunc):
     With use_blobs=True, parametrize with 'dataset-blob_type' composite IDs
     (e.g., 'biodiversity-incremental', 'engage-cold_start') for each filled blob variant.
 
-    Uses the session-scoped conversation cache for efficient test execution.
+    Uses xdist_group markers for efficient parallel execution with pytest-xdist.
     """
     markers = list(metafunc.definition.iter_markers("use_discovered_datasets"))
     if not markers:
