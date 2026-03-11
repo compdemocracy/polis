@@ -211,8 +211,11 @@ def main():
     parser = argparse.ArgumentParser(description="Benchmark participant info: old loop vs vectorized")
     parser.add_argument('--include-local', action='store_true', help="Include private datasets")
     parser.add_argument('--datasets', type=str, default=None, help="Comma-separated dataset names")
-    parser.add_argument('--runs', type=int, default=3, help="Number of runs per implementation")
+    parser.add_argument('--runs', type=int, default=3, help="Number of runs per implementation (>=1)")
     args = parser.parse_args()
+
+    if args.runs < 1:
+        parser.error("--runs must be a positive integer (got %d)" % args.runs)
 
     all_datasets = discover_datasets(include_local=args.include_local)
     valid = [name for name, info in all_datasets.items() if info.is_valid]
