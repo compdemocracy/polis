@@ -4,13 +4,24 @@
 
 The Delphi Python math pipeline has 15 documented discrepancies with the Clojure reference implementation (see `deep-analysis-for-julien/07-discrepancies.md` and `09-fix-plan.md`). We need to fix them one-by-one with a TDD approach: **first extend the regression test to verify the discrepancy exists, then fix it, then verify the test passes**.
 
-Each fix will be a separate PR to keep reviews manageable. PRs will be **stacked** (each builds on the previous), since fixes are ordered by pipeline execution order — fixing upstream affects downstream. PRs should be clearly labeled as stacked with their dependency chain, so reviewers know the order. We can use `git rebase -i` to clean up commit history before merging to main.
+Each fix will be a separate PR to keep reviews manageable. PRs are **stacked** (each builds on the previous), since fixes are ordered by pipeline execution order — fixing upstream affects downstream. The stack is managed via `.claude/STACK` and the `/pr-stack` skill.
 
-**PR naming convention**: Clojure parity fix PRs use the title prefix `[Clj parity PR N]` (e.g., `[Clj parity PR 0] Per-discrepancy test infrastructure`, `[Clj parity PR 1] Fix D2: in-conv participant threshold`).
+**PR naming**: Titles use `[Stack N/M]` prefix (auto-managed by `.claude/skills/pr-stack/update-stack-titles.sh`). The descriptive part of the title should be self-explanatory.
 
-**Pre-requisite**: The current `kmeans_work` branch has changes from `edge`. These should be separated into their own PR(s) first, before we start the discrepancy fix PRs. The discrepancy fix PRs should be based on the cleaned-up branch.
+### Stack ↔ Plan Cross-Reference
 
-**Action**: Before starting any fix, analyze the diff of `kmeans_work` vs `upstream/edge` to understand what's changed. Group those changes into logical PR(s) — e.g., test infrastructure improvements, doc updates, minor bug fixes. Each should be reviewable independently. The discrepancy fix PRs (PR 1+) then stack on top of this clean base.
+The full PR stack includes infrastructure PRs (Stack 1-7) followed by discrepancy fixes.
+This plan's "PR N" labels map to actual GitHub PRs as follows:
+
+| Plan label | GitHub PR | Stack | Title |
+|-----------|-----------|-------|-------|
+| PR 0 (infra) | #2417–#2420 | Stack 1-7 | Test cleanup, clustering, cold-start tooling, analysis docs |
+| PR 1 (D2) | #2421 | Stack 8/10 | Fix D2: in-conv participant threshold + D2c vote count source |
+| PR 2 (D4) | #2435 | Stack 9/10 | Fix D4: pseudocount formula |
+| (perf) | #2436 | Stack 10/10 | Speed up regression tests |
+| PR 3 (D9) | — | — | *Next: Fix D9 z-score thresholds* |
+
+Future fix PRs will be appended to the stack as they're created.
 
 ### Session Continuity
 
@@ -399,27 +410,33 @@ By this point, we should have good test coverage from all the per-discrepancy te
 
 ## Discrepancy Coverage Checklist
 
-| ID | Discrepancy | PR | Status |
-|----|-------------|-----|--------|
-| D1 | PCA sign flips | PR 13 | Fix (sign consistency) |
-| D1b | Projection input | PR 13 | Fix with D1 |
-| D2 | In-conv threshold | **PR 1** | **DONE** ✓ |
-| D2b | Base-cluster sort order | **PR 1** | **DONE** ✓ |
-| D2c | Vote count source (raw vs filtered matrix) | **PR 1** | **DONE** ✓ |
-| D2d | In-conv monotonicity (once in, always in) | **PR 1** | **DONE** ✓ (5 guard tests, T1-T5) |
-| D3 | K-smoother buffer | PR 10 | Fix |
-| D4 | Pseudocount formula | **PR 2** | **DONE** ✓ |
-| D5 | Proportion test | PR 4 | Fix |
-| D6 | Two-proportion test | PR 5 | Fix |
-| D7 | Repness metric | PR 6 | Fix (with flag for old formula) |
-| D8 | Finalize cmt stats | PR 7 | Fix |
-| D9 | Z-score thresholds | **PR 3** | Fix |
-| D10 | Rep comment selection | PR 8 | Fix (with legacy env var) |
-| D11 | Consensus selection | PR 9 | Fix (with legacy env var) |
-| D12 | Comment priorities | PR 11 | Fix (implement from scratch) |
-| D13 | Subgroup clustering | — | **Deferred** (unused) |
-| D14 | Large conv optimization | — | **Deferred** (Python fast enough) |
-| D15 | Moderation handling | PR 12 | Fix |
+| ID | Discrepancy | Plan PR | GitHub PR | Status |
+|----|-------------|---------|-----------|--------|
+| D1 | PCA sign flips | PR 13 | — | Fix (sign consistency) |
+| D1b | Projection input | PR 13 | — | Fix with D1 |
+| D2 | In-conv threshold | **PR 1** | **#2421** | **DONE** ✓ |
+| D2b | Base-cluster sort order | **PR 1** | **#2421** | **DONE** ✓ |
+| D2c | Vote count source (raw vs filtered matrix) | **PR 1** | **#2421** | **DONE** ✓ |
+| D2d | In-conv monotonicity (once in, always in) | **PR 1** | **#2421** | **DONE** ✓ (5 guard tests, T1-T5) |
+| D3 | K-smoother buffer | PR 10 | — | Fix |
+| D4 | Pseudocount formula | **PR 2** | **#2435** | **DONE** ✓ |
+| D5 | Proportion test | PR 4 | — | Fix |
+| D6 | Two-proportion test | PR 5 | — | Fix |
+| D7 | Repness metric | PR 6 | — | Fix (with flag for old formula) |
+| D8 | Finalize cmt stats | PR 7 | — | Fix |
+| D9 | Z-score thresholds | PR 3 | — | Fix (next) |
+| D10 | Rep comment selection | PR 8 | — | Fix (with legacy env var) |
+| D11 | Consensus selection | PR 9 | — | Fix (with legacy env var) |
+| D12 | Comment priorities | PR 11 | — | Fix (implement from scratch) |
+| D13 | Subgroup clustering | — | — | **Deferred** (unused) |
+| D14 | Large conv optimization | — | — | **Deferred** (Python fast enough) |
+| D15 | Moderation handling | PR 12 | — | Fix |
+
+### Non-discrepancy PRs in the stack
+
+| GitHub PR | Stack | Description |
+|-----------|-------|-------------|
+| #2436 | 10/10 | Speed up regression tests (benchmark off, skip intermediate stages) |
 
 ---
 
