@@ -63,8 +63,10 @@ def test_conversation_regression(dataset_name):
     # and different implementations may produce equivalent results with opposite signs
     comparer = ConversationComparer(ignore_pca_sign_flip=True)
 
-    # Run comparison
-    result = comparer.compare_with_golden(dataset_name)
+    # Run comparison — skip intermediate stages (empty, load-only, PCA-only,
+    # PCA+clustering) since this test only checks overall_match. The stage-level
+    # test below exercises intermediate stages individually.
+    result = comparer.compare_with_golden(dataset_name, skip_intermediate_stages=True)
 
     # Check for errors
     if "error" in result:
