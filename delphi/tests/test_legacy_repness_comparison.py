@@ -234,51 +234,47 @@ class TestRepnessComparison:
             logger.warning(f"No Clojure results available for {dataset_name}")
 
     @pytest.mark.use_discovered_datasets(use_blobs=True)
-    def test_comparison_visibility(self, dataset_name: str, python_results, clojure_results):
-        """
-        Compare Python and Clojure results for visibility into differences.
+    @pytest.mark.xfail(reason="D2/D3: different clustering → different groups → empty repness for some groups")
+    def test_python_covers_clojure_groups(self, dataset_name: str, python_results, clojure_results):
+        """Python should produce non-empty repness for every group Clojure has."""
+        if not clojure_results or 'repness' not in clojure_results:
+            pytest.skip(f"No Clojure repness for {dataset_name}")
 
-        Note: This test does NOT assert on match rates, as implementations are
-        known to be very different. It reports statistics for manual inspection.
-        """
-        logger.info(f"Comparing representativeness for {dataset_name} dataset")
+        clj_repness = clojure_results['repness']
+        py_group_repness = python_results.get('group_repness', {})
 
-        if not clojure_results:
-            logger.warning(f"No Clojure results available for {dataset_name}. Skipping comparison.")
-            pytest.skip(f"No Clojure results for {dataset_name}")
-            return
+        for gid_str, clj_entries in clj_repness.items():
+            if not isinstance(clj_entries, list) or not clj_entries:
+                continue
+            gid = int(gid_str)
+            py_entries = py_group_repness.get(gid, [])
+            assert len(py_entries) > 0, (
+                f"Group {gid}: Clojure has {len(clj_entries)} rep comments, Python has none"
+            )
 
-        # Perform comparison
-        match_rate, stats = self._compare_results(python_results, clojure_results)
+    @pytest.mark.use_discovered_datasets(use_blobs=True)
+    @pytest.mark.xfail(reason="D5/D6/D10: z-value and selection logic differences")
+    def test_selected_comment_sets_match(self, dataset_name: str, python_results, clojure_results):
+        """Selected representative comment sets should match per group."""
+        if not clojure_results or 'repness' not in clojure_results:
+            pytest.skip(f"No Clojure repness for {dataset_name}")
 
-        # Log comparison results (for visibility, not assertions)
-        logger.info(f"Comparison results for {dataset_name}:")
-        logger.info(f"  - Overall: {stats['comment_matches']} / {stats['total_comments']} comments match")
-        logger.info(f"  - Note: Python and Clojure implementations are known to be very different")
+        clj_repness = clojure_results['repness']
+        py_group_repness = python_results.get('group_repness', {})
 
-        logger.debug(f"Group match rates:")
-        for group_id, rate in stats['group_match_rates'].items():
-            logger.debug(f"  - Group {group_id}: {rate:.2f}")
+        mismatches = []
+        for gid_str, clj_entries in clj_repness.items():
+            if not isinstance(clj_entries, list):
+                continue
+            gid = int(gid_str)
+            clj_tids = set(int(e.get('tid', e.get('comment_id', 0))) for e in clj_entries)
+            py_entries = py_group_repness.get(gid, [])
+            py_tids = set(int(e['comment_id']) for e in py_entries)
 
-        logger.debug(f"Consensus comments match rate: {stats['consensus_match_rate']:.2f}")
+            if clj_tids != py_tids:
+                mismatches.append(
+                    f"Group {gid}: clj={sorted(clj_tids)}, py={sorted(py_tids)}")
 
-        # Log sample matching comments for inspection
-        if stats['top_matching_comments']:
-            logger.debug(f"Sample matching comments (first 3):")
-            for i, comment in enumerate(stats['top_matching_comments'][:3]):
-                cid = comment['comment_id']
-                gid = comment['group_id']
-                logger.debug(f"  - Comment {cid} (Group {gid}):")
-                logger.debug(f"    Clojure: Agree={comment['clojure']['agree']:.2f}, Disagree={comment['clojure']['disagree']:.2f}")
-                logger.debug(f"    Python:  Agree={comment['python']['agree']:.2f}, Disagree={comment['python']['disagree']:.2f}")
-
-        # Log Python results summary
-        logger.debug(f"Python representativeness summary:")
-        for group_id, comments in python_results.get('group_repness', {}).items():
-            if comments:
-                logger.debug(f"  - Group {group_id}: {len(comments)} comments")
-                for i, cmt in enumerate(comments[:2]):  # Show top 2
-                    logger.debug(f"    Comment {i+1}: ID {cmt.get('comment_id')}, Type: {cmt.get('repful')}")
-                    logger.debug(f"      Agree: {cmt.get('pa', 0):.2f}, Disagree: {cmt.get('pd', 0):.2f}")
-
-        logger.info(f"✓ Comparison completed for {dataset_name}")
+        assert len(mismatches) == 0, (
+            f"{len(mismatches)} groups differ:\n" + "\n".join(mismatches)
+        )
