@@ -102,16 +102,20 @@ def write_to_dynamodb(dynamodb_client, conversation_id, conv):
 
 
 def connect_to_db():
-    """Connect to PostgreSQL database."""
+    """Connect to PostgreSQL database using DATABASE_URL from env / .env file."""
+    from pathlib import Path
+    from dotenv import load_dotenv
+
+    # Load .env from the repo root (two levels up from tests/)
+    load_dotenv(Path(__file__).parent.parent.parent / '.env')
+
+    database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        print("DATABASE_URL environment variable is not set")
+        return None
+
     try:
-        conn = psycopg2.connect(
-            database=os.environ.get('POSTGRES_DB', 'polismath'),
-            user=os.environ.get('POSTGRES_USER', 'postgres'),
-            password=os.environ.get('POSTGRES_PASSWORD', 'postgres'),
-            host=os.environ.get('POSTGRES_HOST', 'localhost'),
-            port=os.environ.get('POSTGRES_PORT', '5432'),
-            connect_timeout=5,
-        )
+        conn = psycopg2.connect(database_url, connect_timeout=5)
         print("Connected to database successfully")
         return conn
     except Exception as e:
