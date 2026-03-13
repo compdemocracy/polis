@@ -1,15 +1,16 @@
 ;; Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns polismath.components.postgres
-  (:require [cheshire.core :as cheshire]
-            [taoensso.timbre :as log]
-            [com.stuartsierra.component :as component]
-            [clojure.java.jdbc :as jdbc]
-            [honeysql.core :as sql]
-            [honeysql.helpers :as honey])
-  (:import (org.postgresql.util PGobject)
-           (com.zaxxer.hikari HikariConfig HikariDataSource)))
-            ;[alex-and-georges.debug-repl :as dbr]
+  (:require
+   [cheshire.core :as cheshire]
+   [clojure.java.jdbc :as jdbc]
+   [com.stuartsierra.component :as component]
+   [honeysql.core :as sql]
+   [honeysql.helpers :as honey]
+   [taoensso.timbre :as log])
+  (:import
+   (com.zaxxer.hikari HikariConfig HikariDataSource)
+   (org.postgresql.util PGobject)))
 
 
 
@@ -107,7 +108,7 @@
           pool-config (-> config :database)]
       (assert database-url "Missing database url. Make sure to set env variables.")
       (log/info "Configuring PostgreSQL connection pool with size:" (get pool-config :pool-size 10))
-      (assoc component :db-spec (heroku-db-spec database-url 
+      (assoc component :db-spec (heroku-db-spec database-url
                                                 (-> config :database :ignore-ssl)
                                                 pool-config))))
   (stop [component]
@@ -165,34 +166,34 @@
   [component zinvite]
   (log/debug "get-zid-from-zinvite for zinvite" zinvite)
   (->
-    (query component
-           {:select [:zid :zinvite]
-            :from [:zinvites]
-            :where [:= :zinvite zinvite]})
-    first
-    :zid))
+   (query component
+          {:select [:zid :zinvite]
+           :from [:zinvites]
+           :where [:= :zinvite zinvite]})
+   first
+   :zid))
 
 (defn get-meta-tids
   [component zid]
   (->>
-    (query component
-           {:select [:tid]
-            :from [:comments]
-            :where [:and [:= :zid zid]
-                         :is_meta]})
-    (map :tid)
-    (into #{})))
+   (query component
+          {:select [:tid]
+           :from [:comments]
+           :where [:and [:= :zid zid]
+                   :is_meta]})
+   (map :tid)
+   (into #{})))
 
 (defn get-zinvite-from-zid
   [component zid]
   (log/debug "get-zinvite-from-zid for zid" zid)
   (->
-    (query component
-           {:select [:zid :zinvite]
-            :from [:zinvites]
-            :where [:= :zid zid]})
-    first
-    :zinvite))
+   (query component
+          {:select [:zid :zinvite]
+           :from [:zinvites]
+           :where [:= :zid zid]})
+   first
+   :zinvite))
 
 (defn conv-poll
   "Query for all vote data since last-vote-timestamp for a given zid, given an implicit db-spec"
@@ -216,13 +217,13 @@
   [component zid last-mod-timestamp]
   (log/info "conv-mod-poll for zid" zid ", last-vote-timestap" last-mod-timestamp)
   (query
-    component
-    {:select [:*]
-     :from [:comments]
-     :order-by [:tid :modified]
-     :where [:and
-             [:> :modified last-mod-timestamp]
-             [:= :zid zid]]}))
+   component
+   {:select [:*]
+    :from [:comments]
+    :order-by [:tid :modified]
+    :where [:and
+            [:> :modified last-mod-timestamp]
+            [:= :zid zid]]}))
 
 
 (defn format-as-json-for-db
@@ -234,33 +235,27 @@
       cheshire/generate-string
       cheshire/parse-string))
 
-; (defn collection-name
-;   "math_env name based on math-env and math-schema-date config variables. Makes sure that
-;   prod, preprod, dev (and subdevs like chrisdev or mikedev) have their own noninterfering collections."
-;   ([mongo rootname]
-;    (let [{:keys [math-schema-date math-env]} (:config mongo)
-;          math-env (or math-env :dev)]
-;      (str rootname "_" (name math-env) "_" math-schema-date)))
-;   ([mongo rootname basename] (str (collection-name mongo rootname) "_" basename)))
 
 
+;; The following functions use math_env in SQL queries as a database field
+;; This is a legacy database schema field that is kept for compatibility with "prod" environment
 
 (defn poll-tasks
   [component last-timestamp]
   (->>
-    (query
-      component
-      (sql/format
-        {:select [:*]
-         :from [:worker_tasks]
-         :where [:and
-                 [:> :created last-timestamp]
-                 [:= :math_env (-> component :config :math-env-string)]
-                 [:= :finished_time nil]]}))
-    (map (fn [task-record]
-           (-> task-record
-               (update :task_type keyword)
-               (update :task_data (comp #(cheshire/parse-string % true) #(.toString %))))))))
+   (query
+    component
+    (sql/format
+     {:select [:*]
+      :from [:worker_tasks]
+      :where [:and
+              [:> :created last-timestamp]
+              [:= :math_env "prod"]
+              [:= :finished_time nil]]}))
+   (map (fn [task-record]
+          (-> task-record
+              (update :task_type keyword)
+              (update :task_data (comp #(cheshire/parse-string % true) #(.toString %))))))))
 
 (defn zid-from-rid
   [rid]
@@ -278,13 +273,13 @@
 
 (defn ptpt-counts [postgres]
   (query
-    postgres
-    {:select [:*]
-     :from [[{:select [:zid [:%count-distinct.pid :ptpt_cnt]]
-              :from [:votes]
-              :group-by [:zid]}
-             :counts]]
-     :where [:> :counts.ptpt_cnt 5]}))
+   postgres
+   {:select [:*]
+    :from [[{:select [:zid [:%count-distinct.pid :ptpt_cnt]]
+             :from [:votes]
+             :group-by [:zid]}
+            :counts]]
+    :where [:> :counts.ptpt_cnt 5]}))
 
 (defn query-zid-from-rid [component rid]
   (query component (zid-from-rid rid)))
@@ -292,50 +287,39 @@
 (defn inc-math-tick
   [postgres zid]
   (log/info "inc-math-tick" zid)
-  (:math_tick (first (query postgres ["insert into math_ticks (zid, math_env) values (?, ?) on conflict (zid, math_env) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning math_tick;" zid (-> postgres :config :math-env-string)]))))
+  (:math_tick (first (query postgres ["insert into math_ticks (zid, math_env) values (?, ?) on conflict (zid, math_env) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning math_tick;" zid "prod"]))))
 
 (defn pg-json
   [data]
   (doto (PGobject.)
-        (.setType "json")
-        (.setValue (cheshire/encode data))))
+    (.setType "json")
+    (.setValue (cheshire/encode data))))
 
 (defn insert-correlationmatrix!
   [postgres rid math-tick data]
-  (query postgres ["insert into math_report_correlationmatrix (rid, math_env, math_tick, data) values (?,?,?,?) on conflict (rid, math_env) do update set data = excluded.data, math_tick = excluded.math_tick returning rid;" rid (-> postgres :config :math-env-string) math-tick (pg-json data)]))
+  (query postgres ["insert into math_report_correlationmatrix (rid, math_env, math_tick, data) values (?,?,?,?) on conflict (rid, math_env) do update set data = excluded.data, math_tick = excluded.math_tick returning rid;" rid "prod" math-tick (pg-json data)]))
 
 
-;; TODO Fix this; need task-type in here as well for this to work
-;(defn mark-task-complete!
-;  [postgres task-type task-bucket]
-;  (log/info "mark-task-complete called for task-type, task-bucket:" task-type task-bucket)
-;  (jdbc/update!
-;    (:db-spec postgres)
-;    :worker_tasks
-;    {:finished_time (System/currentTimeMillis)}
-;    ["task_type = ? and task_bucket = ?" task-type task-bucket]))
 ;; Marks all tasks with the same task_bucket as done.
 (defn mark-task-complete!
   [postgres task_type task_bucket]
   (log/info "mark-task-complete" task_bucket)
-  (query postgres ["update worker_tasks set finished_time = now_as_millis() where math_env = (?) and task_type = (?) and task_bucket = (?) returning finished_time;" (-> postgres :config :math-env-string) task_type task_bucket]))
+  (query postgres ["update worker_tasks set finished_time = now_as_millis() where math_env = (?) and task_type = (?) and task_bucket = (?) returning finished_time;" "prod" task_type task_bucket]))
 
 (defn upload-math-main
   [postgres zid math-tick data]
   (log/info "upload-math-main for zid" zid)
-  (let [math-env (-> postgres :config :math-env-string)]
-    (query postgres
-           ["insert into math_main (zid, math_env, last_vote_timestamp, math_tick, data, caching_tick)
-             values (?,?,?,?,?, COALESCE((select max(caching_tick) + 1 from math_main where math_env = (?)), 1))
-             on conflict (zid, math_env)
-             do update set modified = now_as_millis(),
-                           data = excluded.data,
-                           last_vote_timestamp = excluded.last_vote_timestamp,
-                           math_tick = excluded.math_tick,
-                           caching_tick = excluded.caching_tick
-             returning zid;"
-            ;; I believe math env is twice here because it gets used in two separate ?
-            zid math-env (:lastVoteTimestamp data) math-tick (pg-json data) math-env])))
+  (query postgres
+         ["insert into math_main (zid, math_env, last_vote_timestamp, math_tick, data, caching_tick)
+           values (?,?,?,?,?, COALESCE((select max(caching_tick) + 1 from math_main where math_env = (?)), 1))
+           on conflict (zid, math_env)
+           do update set modified = now_as_millis(),
+                         data = excluded.data,
+                         last_vote_timestamp = excluded.last_vote_timestamp,
+                         math_tick = excluded.math_tick,
+                         caching_tick = excluded.caching_tick
+           returning zid;"
+          zid "prod" (:lastVoteTimestamp data) math-tick (pg-json data) "prod"]))
 
 (defn upload-math-profile
   [postgres zid data]
@@ -345,7 +329,7 @@
            values (?,?,?) on conflict (zid, math_env)
            do update set modified = now_as_millis(), data = excluded.data
            returning zid;"
-          zid (-> postgres :config :math-env-string) (pg-json data)]))
+          zid "prod" (pg-json data)]))
 
 (defn upload-math-ptptstats
   [postgres zid math-tick data]
@@ -358,13 +342,7 @@
                          data = excluded.data,
                          math_tick = excluded.math_tick
            returning zid;"
-          zid (-> postgres :config :math-env-string) math-tick (pg-json data)]))
-
-;; XXX Not using this anywhere apparently so should remove
-;(defn upload-math-cache
-;  [postgres zid data]
-;  (log/info "upload-math-cache for zid" zid)
-;  (query postgres ["insert into math_cache (zid, math_env, data) values (?,?,?) on conflict (zid, math_env) do update set modified = now_as_millis(), data = excluded.data returning zid;" zid (name (-> postgres :config :math-env)) (pg-json data)]))
+          zid "prod" math-tick (pg-json data)]))
 
 (defn upload-math-bidtopid
   [postgres zid math-tick data]
@@ -377,25 +355,25 @@
                          data = excluded.data,
                          math_tick = excluded.math_tick
            returning zid;"
-          zid (-> postgres :config :math-env-string) math-tick (pg-json data)]))
+          zid "prod" math-tick (pg-json data)]))
 
 (defn upload-math-exportstatus
   [postgres zid filename data]
   {:pre [postgres zid filename data]}
   (log/info "upload-math-exportstatus for zid" zid)
   (query
-    postgres
-    ["insert into math_exportstatus (zid, math_env, filename, data, modified)
+   postgres
+   ["insert into math_exportstatus (zid, math_env, filename, data, modified)
       values (?,?,?,?, now_as_millis())
       on conflict (zid, math_env)
       do update set modified = now_as_millis(),
                     data = excluded.data,
                     filename = excluded.filename
       returning zid;"
-     zid
-     (-> postgres :config :math-env-string)
-     filename
-     (pg-json data)]))
+    zid
+    "prod"
+    filename
+    (pg-json data)]))
 
 
 (defn decode-pg-json
@@ -406,14 +384,14 @@
   [postgres zid filename]
   (log/info "get-math-exportstatus for zid" zid)
   (->>
-    (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid (-> postgres :config :math-env-string) filename])
-    first
-    :data
-    decode-pg-json))
+   (query postgres ["select * from math_exportstatus where zid = (?) and math_env = (?) and filename = (?);" zid "prod" filename])
+   first
+   :data
+   decode-pg-json))
 
 (defn get-math-tick
   [postgres zid]
-  (:math_tick (first (query postgres ["select math_tick from math_ticks where zid = (?) and math_env = (?);" zid (-> postgres :config :math-env-string)]))))
+  (:math_tick (first (query postgres ["select math_tick from math_ticks where zid = (?) and math_env = (?);" zid "prod"]))))
 
 
 (defn load-conv
@@ -421,22 +399,17 @@
   as found in the :repness"
   [postgres zid]
   (log/info "load-conv called for zid" zid)
-  (let [row (first (query postgres ["select * from math_main where zid = (?) and math_env = (?);" zid (-> postgres :config :math-env-string)]))]
+  (let [row (first (query postgres ["select * from math_main where zid = (?) and math_env = (?);" zid "prod"]))]
     (if row
       ;; TODO Make sure this loads with keywords for map keys, except where they should be integers
       (cheshire/parse-string
-        (.toString (:data row))
-        (fn [x]
-          (try
-            (Long/parseLong x)
-            (catch Exception _
-              (keyword x)))))
+       (.toString (:data row))
+       (fn [x]
+         (try
+           (Long/parseLong x)
+           (catch Exception _
+             (keyword x)))))
       row)))
-
-  ; (mc/find-one-as-map
-    ; (:db mongo)
-    ; (math-collection-name mongo "main")
-    ; {:zid zid}))
 
 
 (comment
@@ -454,14 +427,14 @@
   ;(query postgres ["insert into math_ticks (zid) values (?) on conflict (zid) do update set modified = now_as_millis(), math_tick = (math_ticks.math_tick + 1) returning *;" 12480])
   (poll-tasks postgres 0)
   (query
-    postgres
-    (-> (honey/update :worker_tasks)
-        (honey/values [{}])))
+   postgres
+   (-> (honey/update :worker_tasks)
+       (honey/values [{}])))
 
   (jdbc/execute!
-    (:db-spec postgres)
-    (-> (honey/update :worker_tasks)
-        (honey/value)))
+   (:db-spec postgres)
+   (-> (honey/update :worker_tasks)
+       (honey/value)))
 
   (try
     (mark-task-complete! postgres :task-type 1)  ; Fixed: added missing task-type parameter
@@ -469,8 +442,8 @@
 
 
   (query
-    postgres
-    (report-tids 1))
+   postgres
+   (report-tids 1))
   :endcomment)
 
 :ok

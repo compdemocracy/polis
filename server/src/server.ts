@@ -23,11 +23,7 @@ import {
 } from "./d";
 import { detectLanguage } from "./comment";
 import logger from "./utils/logger";
-import {
-  emailTeam,
-  sendMultipleTextEmails,
-  sendTextEmail,
-} from "./email/senders";
+import { sendMultipleTextEmails, sendTextEmail } from "./email/senders";
 
 AWS.config.update({ region: Config.awsRegion });
 const devMode = Config.isDevMode;
@@ -134,71 +130,6 @@ function initializePolisHelpers() {
       return res.end();
     }
     return next();
-  }
-
-  function doAddDataExportTask(
-    math_env: string | undefined,
-    email: string,
-    zid: number,
-    atDate: number,
-    format: string,
-    task_bucket: number
-  ) {
-    return pg.queryP(
-      "insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);",
-      [
-        math_env,
-        {
-          email: email,
-          zid: zid,
-          "at-date": atDate,
-          format: format,
-        },
-        task_bucket, // TODO hash the params to get a consistent number?
-      ]
-    );
-  }
-  if (
-    Config.runPeriodicExportTests &&
-    !devMode &&
-    Config.mathEnv === "preprod"
-  ) {
-    const runExportTest = () => {
-      const math_env = "prod";
-      const email = Config.adminEmailDataExportTest;
-      const zid = 12480;
-      const atDate = Date.now();
-      const format = "csv";
-      const task_bucket = Math.abs((Math.random() * 999999999999) >> 0);
-      doAddDataExportTask(
-        math_env,
-        email,
-        zid,
-        atDate,
-        format,
-        task_bucket
-      ).then(() => {
-        setTimeout(() => {
-          pg.queryP(
-            "select * from worker_tasks where task_type = 'generate_export_data' and task_bucket = ($1);",
-            [task_bucket]
-          ).then((rows: string | any[]) => {
-            const ok = rows && rows.length;
-            let newOk;
-            if (ok) {
-              newOk = rows[0].finished_time > 0;
-            }
-            if (ok && newOk) {
-              logger.info("runExportTest success");
-            } else {
-              logger.error("runExportTest failed");
-              emailBadProblemTime("Math export didn't finish.");
-            }
-          });
-        }, 10 * 60 * 1000); // wait 10 minutes before verifying
-      });
-    };
-    setInterval(runExportTest, 6 * 60 * 60 * 1000); // every 6 hours
   }
 
   const getServerNameWithProtocol = Config.getServerNameWithProtocol;
@@ -389,14 +320,6 @@ ${message}`;
         err,
       });
     });
-  }
-
-  function emailBadProblemTime(message: string) {
-    const body = `Yo, there was a serious problem. Here's the message:
-
-${message}`;
-
-    return emailTeam("Polis Bad Problems!!!", body);
   }
 
   function handle_GET_verification(
@@ -603,56 +526,6 @@ Email verified! You can close this tab or hit the back button.
     );
   }
 
-  function handle_POST_sendEmailExportReady(
-    req: {
-      p: {
-        webserver_pass: string | undefined;
-        webserver_username: string | undefined;
-        email: any;
-        conversation_id: string;
-        filename: any;
-      };
-    },
-    res: {
-      status: (arg0: number) => {
-        (): any;
-        new (): any;
-        json: { (arg0: {}): void; new (): any };
-      };
-    }
-  ) {
-    if (
-      req.p.webserver_pass !== Config.webserverPass ||
-      req.p.webserver_username !== Config.webserverUsername
-    ) {
-      return failJson(res, 403, "polis_err_sending_export_link_to_email_auth");
-    }
-
-    const serverUrl = Config.getServerUrl();
-    const email = req.p.email;
-    const subject =
-      "Polis data export for conversation pol.is/" + req.p.conversation_id;
-    const fromAddress = `Polis Team <${Config.adminEmailDataExport}>`;
-    const body = `Greetings
-
-You created a data export for conversation ${serverUrl}/${req.p.conversation_id} that has just completed. You can download the results for this conversation at the following url:
-
-${serverUrl}/api/v3/dataExport/results?filename=${req.p.filename}&conversation_id=${req.p.conversation_id}
-
-Please let us know if you have any questions about the data.
-
-Thanks for using Polis!
-`;
-
-    sendTextEmail(fromAddress, email, subject, body)
-      .then(function () {
-        res.status(200).json({});
-      })
-      .catch(function (err: any) {
-        failJson(res, 500, "polis_err_sending_export_link_to_email", err);
-      });
-  }
-
   function getLocationsForParticipants(zid: number) {
     return pg.queryP_readOnly(
       "select * from participant_locations where zid = ($1);",
@@ -693,47 +566,6 @@ Thanks for using Polis!
       .catch(function (err: any) {
         failJson(res, 500, "polis_err_locations_01", err);
       });
-  }
-
-  function handle_POST_contributors(
-    req: {
-      p: {
-        uid: null;
-        agreement_version: any;
-        name: any;
-        email: any;
-        github_id: any;
-        company_name: any;
-      };
-    },
-    res: { json: (arg0: {}) => void }
-  ) {
-    const uid = req.p.uid || null;
-    const agreement_version = req.p.agreement_version;
-    const name = req.p.name;
-    const email = req.p.email;
-    const github_id = req.p.github_id;
-    const company_name = req.p.company_name;
-
-    pg.queryP(
-      "insert into contributor_agreement_signatures (uid, agreement_version, github_id, name, email, company_name) " +
-        "values ($1, $2, $3, $4, $5, $6);",
-      [uid, agreement_version, github_id, name, email, company_name]
-    ).then(
-      () => {
-        emailTeam(
-          "contributer agreement signed",
-          [uid, agreement_version, github_id, name, email, company_name].join(
-            "\n"
-          )
-        );
-
-        res.json({});
-      },
-      (err: any) => {
-        failJson(res, 500, "polis_err_POST_contributors_misc", err);
-      }
-    );
   }
 
   function handle_GET_testConnection(
@@ -828,10 +660,8 @@ Thanks for using Polis!
     handle_GET_verification,
     handle_GET_zinvites,
     handle_POST_contexts,
-    handle_POST_contributors,
     handle_POST_metrics,
     handle_POST_sendCreatedLinkToEmail,
-    handle_POST_sendEmailExportReady,
     handle_POST_tutorial,
     handle_POST_zinvites,
   };

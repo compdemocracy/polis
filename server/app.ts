@@ -133,10 +133,6 @@ import {
   handle_PUT_participants_extended,
 } from "./src/routes/participation";
 import {
-  handle_GET_dataExport,
-  handle_GET_dataExport_results,
-} from "./src/routes/dataExport";
-import {
   handle_GET_votes_famous,
   handle_GET_votes_me,
   handle_GET_votes,
@@ -153,7 +149,6 @@ import {
   handle_GET_notifications_subscribe,
   handle_GET_notifications_unsubscribe,
   handle_POST_convSubscriptions,
-  handle_POST_notifyTeam,
 } from "./src/routes/notify";
 import {
   handle_GET_reports,
@@ -273,10 +268,8 @@ helpersInitialized.then(
       handle_GET_zinvites,
 
       handle_POST_contexts,
-      handle_POST_contributors,
       handle_POST_metrics,
       handle_POST_sendCreatedLinkToEmail,
-      handle_POST_sendEmailExportReady,
       handle_POST_tutorial,
       handle_POST_zinvites,
     } = o;
@@ -362,41 +355,12 @@ helpersInitialized.then(
     );
 
     app.get(
-      "/api/v3/dataExport",
-      moveToBody,
-      hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
-      want("format", getStringLimitLength(1, 100), assignToP),
-      want("unixTimestamp", getStringLimitLength(99), assignToP),
-      handle_GET_dataExport
-    );
-
-    app.get(
       "/api/v3/reportExport/:report_id/:report_type",
       moveToBody,
       need("report_id", getReportIdFetchRid, assignToPCustom("rid")),
       need("report_id", getStringLimitLength(1, 1000), assignToP),
       need("report_type", getStringLimitLength(1, 1000), assignToP),
       handle_GET_reportExport
-    );
-
-    app.get(
-      "/api/v3/dataExport/results",
-      moveToBody,
-      hybridAuth(assignToP),
-      need(
-        "conversation_id",
-        getConversationIdFetchZid,
-        assignToPCustom("zid")
-      ),
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
-      want("filename", getStringLimitLength(1, 1000), assignToP),
-      handle_GET_dataExport_results
     );
 
     // TODO doesn't scale, stop sending entire mapping.
@@ -578,26 +542,6 @@ helpersInitialized.then(
     );
 
     app.get("/perfStats_9182738127", moveToBody, handle_GET_perfStats);
-
-    app.post(
-      "/api/v3/sendEmailExportReady",
-      need("webserver_username", getStringLimitLength(1, 999), assignToP),
-      need("webserver_pass", getStringLimitLength(1, 999), assignToP),
-      need("email", getEmail, assignToP),
-      // we actually need conversation_id to build a url
-      need("conversation_id", getStringLimitLength(1, 1000), assignToP),
-      need("filename", getStringLimitLength(9999), assignToP),
-      handle_POST_sendEmailExportReady
-    );
-
-    app.post(
-      "/api/v3/notifyTeam",
-      need("webserver_username", getStringLimitLength(1, 999), assignToP),
-      need("webserver_pass", getStringLimitLength(1, 999), assignToP),
-      need("subject", getStringLimitLength(9999), assignToP),
-      need("body", getStringLimitLength(99999), assignToP),
-      handle_POST_notifyTeam
-    );
 
     app.get(
       "/api/v3/domainWhitelist",
@@ -1952,17 +1896,6 @@ helpersInitialized.then(
       moveToBody,
       need("e", getStringLimitLength(1, 1000), assignToP),
       handle_GET_verification
-    );
-
-    app.post(
-      "/api/v3/contributors",
-      hybridAuthOptional(assignToP),
-      need("agreement_version", getIntInRange(1, 999999), assignToP),
-      need("name", getStringLimitLength(746), assignToP),
-      need("email", getStringLimitLength(256), assignToP),
-      need("github_id", getStringLimitLength(256), assignToP),
-      need("company_name", getStringLimitLength(746), assignToP),
-      handle_POST_contributors
     );
 
     app.post(

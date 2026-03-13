@@ -1,16 +1,16 @@
 ;; Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns polismath.poller
-  (:require [clojure.core.async :as async :refer [go go-loop >! <! >!! <!!]]
-            [com.stuartsierra.component :as component]
-            [polismath.conv-man :as conv-man]
-            [environ.core :as env]
-            [polismath.components.postgres :as postgres]
-            [taoensso.timbre :as log]))
+  (:require
+   [clojure.core.async :as async :refer [<! >! go go-loop]]
+   [com.stuartsierra.component :as component]
+   [polismath.components.postgres :as postgres]
+   [polismath.conv-man :as conv-man]
+   [taoensso.timbre :as log]))
 
 
 (defn poll
-  [{:as poller :keys [config conversation-manager postgres kill-chan]} message-type]
+  [{:keys [config conversation-manager postgres kill-chan]} message-type]
   (let [poller-config (-> config :poller)
         start-polling-from (- (System/currentTimeMillis) (* (:poll-from-days-ago poller-config) 1000 60 60 24))
         polling-interval (or (-> poller-config (get message-type) :polling-interval) 1000)

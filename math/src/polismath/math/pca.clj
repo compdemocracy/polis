@@ -2,12 +2,12 @@
 
 (ns polismath.math.pca
   (:refer-clojure :exclude [* - + == / min max])
-  (:require [taoensso.timbre :as log]
-            [polismath.utils :as utils]
-            [clojure.core.match :refer [match]]
-            [clojure.core.matrix :as matrix]
-            [clojure.core.matrix.stats :as matrix-stats]
-            [clojure.core.matrix.operators :refer :all]))
+  (:require
+   [clojure.core.match :refer [match]]
+   [clojure.core.matrix :as matrix]
+   [clojure.core.matrix.operators :refer [* + - / max min]]
+   [clojure.core.matrix.stats :as matrix-stats]
+   [polismath.utils :as utils]))
 
 (matrix/set-current-implementation :vectorz)
 
@@ -45,8 +45,8 @@
         start-vector (or start-vector (repeatv n-cols 1))
         ; XXX - this add extra cols to the start vector if we have new comments... should test
         start-vector (matrix/matrix
-                       (concat start-vector
-                               (repeatv (- n-cols (matrix/dimension-count start-vector 0)) 1)))]
+                      (concat start-vector
+                              (repeatv (- n-cols (matrix/dimension-count start-vector 0)) 1)))]
     (loop [iters iters start-vector start-vector last-eigval 0]
       (let [product-vector (xtxr data start-vector)
             eigval (matrix/length product-vector)
@@ -79,7 +79,7 @@
 (defn rand-starting-vec [data]
   ;; Should really throw a parallelizable random number generator in the equation here...
   ;; With seeds fed in and persisted... XXX
-  (matrix/matrix (for [x (range (matrix/dimension-count data 1))] (rand))))
+  (matrix/matrix (for [_x (range (matrix/dimension-count data 1))] (rand))))
 
 
 ; Will eventually also want to add last-pcs
@@ -93,42 +93,35 @@
         data-dim (min (matrix/row-count cntrd-data) (matrix/column-count cntrd-data))]
     {:center center
      :comps
-        (loop [data' cntrd-data n-comps' (min n-comps data-dim) pcs [] start-vectors start-vectors]
+     (loop [data' cntrd-data n-comps' (min n-comps data-dim) pcs [] start-vectors start-vectors]
           ; may eventually want to return eigenvals...
-          (let [start-vector (or (first start-vectors) (rand-starting-vec data))
-                pc (power-iteration data' iters start-vector)
-                pcs (conj pcs pc)]
-            (if (= n-comps' 1)
-              pcs ; return if done
-              (let [data' (factor-matrix data' pc)
-                    n-comps' (dec n-comps')]
-                (recur data' n-comps' pcs (rest start-vectors))))))}))
+       (let [start-vector (or (first start-vectors) (rand-starting-vec data))
+             pc (power-iteration data' iters start-vector)
+             pcs (conj pcs pc)]
+         (if (= n-comps' 1)
+           pcs ; return if done
+           (let [data' (factor-matrix data' pc)
+                 n-comps' (dec n-comps')]
+             (recur data' n-comps' pcs (rest start-vectors))))))}))
 
 
 (defn wrapped-pca
   "This function gracefully handles weird edge cases inherent in the messiness of real world data"
-  [data n-comps & {:keys [iters start-vectors] :as kwargs}]
+  [data n-comps & {:keys [start-vectors] :as kwargs}]
   (match (map (partial matrix/dimension-count data) [0 1])
     [1 n-cols]
     {:center (matrix/matrix (repeatv n-comps 0))
      :comps  (into [(matrix/normalise (matrix/get-row data 0))]
-               (repeat (dec n-comps) (repeatv n-cols 0)))}
-    [n-rows 1]
+                   (repeat (dec n-comps) (repeatv n-cols 0)))}
+    [_n-rows 1]
     {:center (matrix/matrix [0])
      :comps  (matrix/matrix [1])}
     :else
-      (utils/apply-kwargs powerit-pca data n-comps
-                    (assoc kwargs :start-vectors
-                      (if start-vectors
-                        (map #(if (every? #{0 0.0} %) nil %) start-vectors)
-                        nil)))))
-
-
-(defn pca-project
-  "Apply the principal component projection specified by pcs to the data"
-  [data {:keys [comps center]}]
-  ; Here we map each row of data to its projection
-  (matrix/mmul (- data center) (matrix/transpose comps)))
+    (utils/apply-kwargs powerit-pca data n-comps
+                        (assoc kwargs :start-vectors
+                               (if start-vectors
+                                 (map #(if (every? #{0 0.0} %) nil %) start-vectors)
+                                 nil)))))
 
 
 (defn sparsity-aware-project-ptpt
@@ -139,19 +132,19 @@
         [n-votes p1 p2] ; (p1, p2) is the projection we build
         (reduce
           ; _-n is the nth entry in _
-          (fn [[n-votes p1 p2] [x-n cntr-n pc1-n pc2-n]]
+         (fn [[n-votes p1 p2] [x-n cntr-n pc1-n pc2-n]]
             ; if we have voted, do the thing
-            (if x-n
+           (if x-n
               ; first subtract center
-              (let [x-n' (- x-n cntr-n)]
+             (let [x-n' (- x-n cntr-n)]
                 ; then do a step in the dot product, and inc n-votes seen
-                [(inc n-votes)
-                 (+ p1 (* x-n' pc1-n))
-                 (+ p2 (* x-n' pc2-n))])
+               [(inc n-votes)
+                (+ p1 (* x-n' pc1-n))
+                (+ p2 (* x-n' pc2-n))])
               ; ... ow (if haven't voted) return what was there
-              [n-votes p1 p2]))
-          [0 0.0 0.0]
-          (utils/zip votes center pc1 pc2))]
+             [n-votes p1 p2]))
+         [0 0.0 0.0]
+         (utils/zip votes center pc1 pc2))]
     ; Now scale the projection by the following value, which pushes us out from the center
     (* (Math/sqrt (/ n-cmnts (max n-votes 1)))
        [p1 p2])))
@@ -165,17 +158,17 @@
 
 
 (defn pca-project-cmnts
-  [{:as pca :keys [comps center]}]
+  [{:as pca :keys [comps]}]
   (let [n-cols (matrix/column-count comps)]
     (sparsity-aware-project-ptpts
-      (map
-        (fn [i]
-          (assoc
-            (vec (repeat n-cols nil))
-            i
-            -1))
-        (range n-cols))
-      pca)))
+     (map
+      (fn [i]
+        (assoc
+         (vec (repeat n-cols nil))
+         i
+         -1))
+      (range n-cols))
+     pca)))
 
 
 :ok

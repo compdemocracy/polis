@@ -55,7 +55,6 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`ADMIN_UIDS`** an array of user UIDs for site admins. These users will have moderator capabilities on all conversations hosted on the site.
 - **`EMAIL_TRANSPORT_TYPES`** comma-separated list of email services to use (see [Email Transports](#email-transports) below)
 - **`GIT_HASH`** Set programmatically using `git rev-parse HEAD` (e.g. in `Makefile`) to tag docker container versions and other release assets. Can be left blank.
-- **`MATH_ENV`** Set to `prod` (default), `preprod`, `dev` or arbitrary feature flag. In cases where a single database is used for multiple environments, this value is used by the API service to request the correct data. (Using a single DB for multiple environments in this fashion is no longer recommended, and so the default value of `prod` is recommended.)
 - **`MATH_LOG_LEVEL`** Used by the math service to determine how much logging to output. Reasonable values are `debug`, `info`, `warn`, and `error`. Defaults to `warn`.
 - **`SERVER_ENV_FILE`** The name of an environment file to be passed into the API Server container by docker compose. Defaults to `.env` if left blank. Used especially for building a `test` version of the project for end-to-end testing.
 - **`SERVER_LOG_LEVEL`** Used by Winston.js in the API server to determine how much logging to output. Reasonable values are `debug`, `info`, `warn`, and `error`. Defaults to `warn`.
@@ -159,8 +158,6 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 ### Deprecated
 
 - **`ENCRYPTION_PASSWORD_00001`** (deprecated) a password used to encrypt and decrypt participants' IP addresses. Can be left blank.
-- **`WEBSERVER_PASS`** (deprecated) basic auth setting for certain requests sent between math and api services.
-- **`WEBSERVER_USERNAME`** (deprecated) basic auth setting for certain requests sent between math and api services.
 
 ## Enabling Comment Translation
 

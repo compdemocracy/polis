@@ -1,0 +1,10 @@
+{
+  "[clojure]": {
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "betterthantomorrow.calva",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.eslint": "explicit",
+      "source.organizeImports": "explicit"
+    }
+  }
+}

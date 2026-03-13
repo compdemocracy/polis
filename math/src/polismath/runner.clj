@@ -3,37 +3,32 @@
 (ns polismath.runner
   "This namespace is responsible for running systems"
   (:refer-clojure :exclude [run!])
-  (:require [polismath.system :as system]
-    ;[polismath.stormspec :as stormspec :refer [storm-system]]
-            [polismath.utils :as utils]
-    ;; TODO Replace this with the canonical clojure.tools.cli once storm is removed
-            [clojure.tools.cli :as cli]
-            [clojure.tools.namespace.repl :as namespace.repl]
-            [taoensso.timbre :as log]
-            [clojure.string :as string]
-            [clj-time.core :as t]
-            [clojure.edn :as edn]
-            [clj-time.coerce :as co]
-            [clojure.java.io :as io]
-            [com.stuartsierra.component :as component]
-            [polismath.darwin.export :as export]
-            [polismath.conv-man :as conv-man]
-            [polismath.math.conversation :as conv]
-            [polismath.components.postgres :as postgres]
-            [clojure.pprint :as pprint])
-  (:import [java.util.zip ZipOutputStream ZipEntry]))
+  (:require
+   [clj-time.coerce :as co]
+   [clj-time.core :as t]
+   [clojure.java.io :as io]
+   [clojure.pprint :as pprint]
+   [clojure.string :as string]
+   [clojure.tools.cli :as cli]
+   [clojure.tools.namespace.repl :as namespace.repl]
+   [com.stuartsierra.component :as component]
+   [polismath.components.postgres :as db]
+   [polismath.conv-man :as conv-man]
+   [polismath.darwin.export :as export]
+   [polismath.math.conversation :as conv]
+   [polismath.system :as system]
+   [polismath.utils :as utils]
+   [taoensso.timbre :as log])
+  (:import
+   [java.util.zip ZipOutputStream]))
 
 
 (defonce system nil)
-;(def system nil)
-
-;; Should build this to be an atom, and build something that intiates this state from a config file.
-;; So when you reset, it reboots all systems.
 
 (defn init!
   ([system-map-generator config-overrides]
    (alter-var-root #'system
-     (constantly (utils/apply-kwargs component/system-map (system-map-generator config-overrides)))))
+                   (constantly (utils/apply-kwargs component/system-map (system-map-generator config-overrides)))))
   ([system-map-generator]
    (init! system-map-generator {})))
 
@@ -45,7 +40,7 @@
 
 (defn stop! []
   (alter-var-root #'system
-    (fn [s] (when s (component/stop s)))))
+                  (fn [s] (when s (component/stop s)))))
 
 (defn run!
   ([system-map-generator config-overrides]
@@ -59,28 +54,23 @@
    (run! system/poller-system)))
 
 (defn system-reset!
-  ([]
-   (stop!)
-   (namespace.repl/refresh :after 'polismath.runner/run!)))
+  "Stop the system, reload all changed namespaces, and restart. 
+   This is a convenience function for REPL-driven development.
+   See also: `stop!`, `start!`, `run!`"
+  []
+  (stop!)
+  (namespace.repl/refresh :after 'polismath.runner/run!))
 
 
 (def subcommands
-  {;"storm" stormspec/storm-system ;; remove...
-   ;"onyx" system/onyx-system ;; soon...
-   "update-all" system/base-system
+  {"update-all" system/base-system
    "update" system/base-system
    "poller" system/poller-system
    "tasks" system/task-system
    "full" system/full-system
-   "simulator" system/simulator-system
    "export" system/export-system})
 
-;; TODO Build nice cli settings forking on subcommand, and tie in sanely with options comp
-
-;; QUESTION How do we fork things nicely on command that get run and exit, vs long lived?
-
 (def cli-options
-  "Has the same options as simulation if simulations are run"
   [["-r" "--recompute" "Recompute conversations from scratch instead of starting from most recent values"]
    ["-h" "--help" "Print help and exit"]
    ["-z" "--zid ZID"           "ZID on which to do an export" :parse-fn #(Integer/parseInt %)]
@@ -94,7 +84,7 @@
         ""
         "Other options:"
         options-summary]
-   (string/join \newline)))
+       (string/join \newline)))
 
 
 
@@ -103,18 +93,18 @@
   (try
     (let [conv (conv-man/load-or-init conv-man zid)
           updated-conv (conv/conv-update conv [])
-          math-tick (postgres/inc-math-tick (:postgres conv-man) zid)]
+          math-tick (db/inc-math-tick (:postgres conv-man) zid)]
       (conv-man/write-conv-updates! conv-man updated-conv math-tick))
     (catch Exception e (log/error e (str "Unable to complete conversation update for zid " zid)))))
 
 
 (defn update-all-convs
-  [{:as system :keys [conversation-manager postgres]}]
+  [{:keys [conversation-manager postgres]}]
   (->>
-    (postgres/ptpt-counts postgres)
-    (map :ptpt_cnt)
-    (pmap (partial update-conv conversation-manager))
-    (doall)))
+   (db/ptpt-counts postgres)
+   (map :ptpt_cnt)
+   (pmap (partial update-conv conversation-manager))
+   (doall)))
 
 
 
@@ -152,22 +142,10 @@
    ["-f" "--filename FILENAME" "filename" "Name of output file (should be zip for csv out)"]
    ["-t" "--at-time AT_TIME"   "A string of YYYY-MM-DD-HH-MM-SS (in UTC) or ms-timestamp since epoch" :parse-fn parse-time]
    ["-T" "--at-times AT_TIMES" "A vector of strings of --at-time format" :parse-fn parse-times]
-   ["-F" "--format FORMAT"     "Either csv, excel or (soon) json" :parse-fn keyword :validate [#{:csv :excel} "Must be either csv or excel"] :default :csv]
+   ["-F" "--format FORMAT"     "Either csv or json" :parse-fn keyword :validate [#{:csv :json} "Must be either csv or json"] :default :csv]
    ["-M" "--update-math"       "Update math"]
    ["-P" "--update-postgres"   "Update postgres"]
    ["-h" "--help"              "Print help and exit"]])
-
-(defn error-msg [errors]
-  (str "The following errors occurred while parsing your command:\n\n"
-       (clojure.string/join \newline errors)))
-
-(defn help-msg [options]
-  (str "Export a conversation or set of conversations according to the options below:\n\n"
-       \tab
-       "filename" \tab "Filename (or file basename, in case of zip output, implicit or explicit" \newline
-       (clojure.string/join \newline
-                            (for [opt cli-options]
-                              (apply str (interleave (repeat \tab) (take 3 opt)))))))
 
 (defn run-export
   [system {:as options
@@ -185,24 +163,24 @@
           (let [zinvite (export/get-zinvite-from-zid darwin zid)]
             (log/info "Now working on conv:" zid zinvite)
             (export/export-conversation darwin
-                                 (assoc options
-                                   :zid zid
-                                   :zip-stream zip
-                                   :writer writer
-                                   :entry-point (str (export/zipfile-basename filename) "/" zinvite))))))
+                                        (assoc options
+                                               :zid zid
+                                               :zip-stream zip
+                                               :writer writer
+                                               :entry-point (str (export/zipfile-basename filename) "/" zinvite))))))
       ;; Want to print the status of the conversation at each time t in at-times
       at-times
       (with-open [file (io/output-stream filename)
                   zip  (ZipOutputStream. file)
                   writer (io/writer zip)]
         (doseq [at-time at-times]
-            (log/info "Now working on conv:" (:zid options) (:zinvite options))
-            (export/export-conversation darwin
-                                 (assoc options
-                                   :at-time at-time
-                                   :zip-stream zip
-                                   :writer writer
-                                   :entry-point (str (export/zipfile-basename filename) "/" at-time)))))
+          (log/info "Now working on conv:" (:zid options) (:zinvite options))
+          (export/export-conversation darwin
+                                      (assoc options
+                                             :at-time at-time
+                                             :zip-stream zip
+                                             :writer writer
+                                             :entry-point (str (export/zipfile-basename filename) "/" at-time)))))
       :else
       (export/export-conversation darwin options))
     (utils/exit 0 "Export complete")))
@@ -213,7 +191,7 @@
   ;; default to poller subcommand
   (let [subcommand (or (first args) "poller")
         parser-spec (if (= subcommand "export") export-cli-options cli-options)
-        {:as parse-results :keys [arguments options errors summary]} (cli/parse-opts args parser-spec)]
+        {:as parse-results :keys [options errors summary]} (cli/parse-opts args parser-spec)]
     (log/info "CLI arguments and options:\n" (with-out-str (pprint/pprint (select-keys parse-results [:arguments :options]))))
     (cond
       ;; Help message
@@ -222,14 +200,13 @@
       ;; Error in parsing (this should really catch the below condition as well
       errors
       (utils/exit 1 (apply str "Found the following errors:\n"
-                               (clojure.string/join "\n" errors) "\n" 
-                               usage summary))
+                           (clojure.string/join "\n" errors) "\n"
+                           usage summary))
       ;; otherwise, run the thing
       :else
       (let [system-map-generator (subcommands subcommand)
             sys-options (if (#{"export"} subcommand)
-                          ;; pretty much always want prod here, regardless of env variable; overrideable?
-                          {:math-env :prod :export {:temp-dir "."}}
+                          {:export {:temp-dir "."}}
                           options)
             system (system/create-and-run-system! system-map-generator sys-options)]
         (case subcommand
@@ -244,22 +221,5 @@
           ;; Otherwise, default to keeping the main thread spinning while the system runs
           (loop []
             (Thread/sleep 1000)
-            (recur)))))))
-
-
-(comment
-  ;(run! system/poller-system)
-  (run! system/base-system)
-
-  (conv-man/load-or-init)
-
-  ;(require '[polismath.conv-man :as conv-man])
-  ;(let [conv-man (:conversation-manager system)]
-    ;(conv-man/queue-message-batch! conv-man ))
-
-  (stop!)
-  :endcomment)
-
-
-
+            (recur))))))) 
 

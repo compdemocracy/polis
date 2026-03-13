@@ -36,27 +36,6 @@ function isPolisDev(uid?: any) {
   return polisDevs.indexOf(uid) >= 0;
 }
 
-function strToHex(str: string) {
-  let hex, i;
-  // let str = "\u6f22\u5b57"; // "\u6f22\u5b57" === "漢字"
-  let result = "";
-  for (i = 0; i < str.length; i++) {
-    hex = str.charCodeAt(i).toString(16);
-    result += ("000" + hex).slice(-4);
-  }
-  return result;
-}
-
-function hexToStr(hexString: string) {
-  let j;
-  const hexes = hexString.match(/.{1,4}/g) || [];
-  let str = "";
-  for (j = 0; j < hexes.length; j++) {
-    str += String.fromCharCode(parseInt(hexes[j], 16));
-  }
-  return str;
-}
-
 const polisTypes: PolisTypes = {
   reactions: {
     push: 1,
@@ -115,29 +94,6 @@ function isModerator(zid: number, uid?: number) {
     });
 }
 
-function doAddDataExportTask(
-  math_env: string | undefined,
-  email: string,
-  zid: number,
-  atDate: number,
-  format: string,
-  task_bucket: number
-) {
-  return pg.queryP(
-    "insert into worker_tasks (math_env, task_data, task_type, task_bucket) values ($1, $2, 'generate_export_data', $3);",
-    [
-      math_env,
-      {
-        email: email,
-        zid: zid,
-        "at-date": atDate,
-        format: format,
-      },
-      task_bucket, // TODO hash the params to get a consistent number?
-    ]
-  );
-}
-
 function isOwner(zid: number, uid: number) {
   return getConversationInfo(zid).then(function (info: any) {
     return info.owner === uid;
@@ -188,9 +144,7 @@ function ifDefinedFirstElseSecond(first: any, second: boolean) {
 //todo: only one export
 
 export {
-  doAddDataExportTask,
   escapeLiteral,
-  hexToStr,
   ifDefinedFirstElseSecond,
   ifDefinedSet,
   isConversationOwner,
@@ -200,18 +154,11 @@ export {
   isPolisDev,
   isUserAllowedToCreateConversations,
   polisTypes,
-  strToHex,
 };
 
 export default {
-  doAddDataExportTask,
   escapeLiteral,
-  hexToStr,
-  isConversationOwner,
-  isDuplicateKey,
   isModerator,
   isOwner,
-  isPolisDev,
   polisTypes,
-  strToHex,
 };

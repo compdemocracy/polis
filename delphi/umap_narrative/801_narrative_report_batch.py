@@ -19,38 +19,32 @@ Args:
     --layers: Specific layer numbers to process (e.g., --layers 0 1 2). If not specified, all layers will be processed.
 """
 
-import os
-import sys
-import json
-import time
-import uuid
-import logging
 import argparse
-import boto3
 import asyncio
-import numpy as np
-import pandas as pd
+import json
+import logging
+import os
 import re  # Added re import for regex operations
-import requests  # Added for HTTP error handling
+import sys
+import time
+import traceback  # Added for detailed error tracing
+import xml.etree.ElementTree as ET
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Union, Tuple
-import xml.etree.ElementTree as ET
 from xml.dom.minidom import parseString
-import csv
-import io
+
+import boto3
 import xmltodict
-from collections import defaultdict
-import traceback  # Added for detailed error tracing
 
 # Import the model provider
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from umap_narrative.llm_factory_constructor import get_model_provider
-from umap_narrative.llm_factory_constructor.model_provider import AnthropicProvider
+from polismath_commentgraph.utils.group_data import GroupDataProcessor
 
 # Import from local modules
-from polismath_commentgraph.utils.storage import PostgresClient, DynamoDBStorage
-from polismath_commentgraph.utils.group_data import GroupDataProcessor
+from polismath_commentgraph.utils.storage import PostgresClient
+
+from umap_narrative.llm_factory_constructor import get_model_provider
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -255,13 +249,11 @@ class BatchReportGenerator:
             LIMIT 1
             """
             
-            # Use 'prod' as the default math_env (matches the server behavior)
-            math_env = os.environ.get('MATH_ENV', 'prod')
-            
-            results = self.postgres_client.query(sql, {"zid": conversation_id, "math_env": math_env})
+            # Use 'prod' as the hardcoded math_env value
+            results = self.postgres_client.query(sql, {"zid": conversation_id, "math_env": "prod"})
             
             if not results:
-                logger.warning(f"No math_main data found for conversation {conversation_id} with math_env {math_env}")
+                logger.warning(f"No math_main data found for conversation {conversation_id} with math_env prod")
                 return None
             
             # Parse the JSON data
@@ -1225,7 +1217,13 @@ class BatchReportGenerator:
             # Import Anthropic SDK
             logger.info("Importing Anthropic SDK...")
             try:
-                from anthropic import Anthropic, APIError, APIConnectionError, APIResponseValidationError, APIStatusError
+                from anthropic import (
+                    Anthropic,
+                    APIConnectionError,
+                    APIError,
+                    APIResponseValidationError,
+                    APIStatusError,
+                )
                 logger.info("Successfully imported Anthropic SDK")
             except ImportError as e:
                 logger.error(f"Failed to import Anthropic SDK: {str(e)}")
@@ -1234,7 +1232,13 @@ class BatchReportGenerator:
                 try:
                     import subprocess
                     subprocess.check_call([sys.executable, "-m", "pip", "install", "anthropic"])
-                    from anthropic import Anthropic, APIError, APIConnectionError, APIResponseValidationError, APIStatusError
+                    from anthropic import (
+                        Anthropic,
+                        APIConnectionError,
+                        APIError,
+                        APIResponseValidationError,
+                        APIStatusError,
+                    )
                     logger.info("Successfully installed and imported Anthropic SDK")
                 except Exception as e:
                     logger.error(f"Failed to install Anthropic SDK: {str(e)}")
@@ -1343,7 +1347,7 @@ class BatchReportGenerator:
                                             content_item['text'] = content_item['text'][:100] + "... [content truncated for log]"
 
                     logger.info(f"Sample batch request structure: {json.dumps(debug_request, indent=2)}")
-                    logger.info(f"Using format that matches working example from other project")
+                    logger.info("Using format that matches working example from other project")
 
             except Exception as e:
                 logger.error(f"Error formatting batch requests: {str(e)}")
@@ -1430,15 +1434,15 @@ class BatchReportGenerator:
                         if 'batch_id' in job_item:
                             logger.info(f"VERIFICATION SUCCESS: batch_id found in job record: {job_item['batch_id']}")
                         else:
-                            logger.error(f"VERIFICATION FAILED: batch_id not found in job record!")
+                            logger.error("VERIFICATION FAILED: batch_id not found in job record!")
                             logger.error(f"Job fields: {list(job_item.keys())}")
                     else:
-                        logger.error(f"Could not verify update - job not found!")
+                        logger.error("Could not verify update - job not found!")
 
                     logger.info(f"Successfully updated job {self.job_id} with batch information")
                     logger.info(f"Batch ID: {batch.id} stored in job record")
                     logger.info(f"DynamoDB update response: {update_response}")
-                    logger.info(f"Job is now in PROCESSING state - poller will run batch status checks")
+                    logger.info("Job is now in PROCESSING state - poller will run batch status checks")
 
                     # Schedule a batch status check job to run in 60 seconds
                     try:
@@ -1535,14 +1539,14 @@ async def main():
     os.environ.setdefault('DATABASE_PASSWORD', '')
 
     # Print database connection info
-    logger.info(f"Database connection info:")
+    logger.info("Database connection info:")
     logger.info(f"- HOST: {os.environ.get('DATABASE_HOST')}")
     logger.info(f"- PORT: {os.environ.get('DATABASE_PORT')}")
     logger.info(f"- DATABASE: {os.environ.get('DATABASE_NAME')}")
     logger.info(f"- USER: {os.environ.get('DATABASE_USER')}")
 
     # Print execution summary
-    logger.info(f"Running narrative report generator with the following settings:")
+    logger.info("Running narrative report generator with the following settings:")
     logger.info(f"- Conversation ID: {args.conversation_id}")
     logger.info(f"- Model: {args.model}")
     logger.info(f"- Cache: {'disabled' if args.no_cache else 'enabled'}")
@@ -1550,7 +1554,7 @@ async def main():
     if args.layers:
         logger.info(f"- Layers to process: {args.layers}")
     else:
-        logger.info(f"- Layers to process: all available layers")
+        logger.info("- Layers to process: all available layers")
     if job_id:
         logger.info(f"- Job ID: {job_id}")
     if report_id:
@@ -1572,15 +1576,15 @@ async def main():
     result = await generator.submit_batch()
 
     if result:
-        logger.info(f"Narrative reports generated successfully")
-        print(f"Narrative reports generated successfully")
+        logger.info("Narrative reports generated successfully")
+        print("Narrative reports generated successfully")
         if job_id:
             print(f"Job ID: {job_id}")
         if report_id:
             print(f"Reports stored for report_id: {report_id}")
     else:
-        logger.error(f"Failed to generate narrative reports")
-        print(f"Failed to generate narrative reports. See logs for details.")
+        logger.error("Failed to generate narrative reports")
+        print("Failed to generate narrative reports. See logs for details.")
         # Exit with error code
         sys.exit(1)
 

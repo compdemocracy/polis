@@ -113,7 +113,6 @@ export default {
     process.env.MAX_REPORT_CACHE_DURATION || "3600000",
     10
   ),
-  mathEnv: process.env.MATH_ENV as string,
   nodeEnv: process.env.NODE_ENV as string,
   isTesting: isTrue(process.env.TESTING),
   openaiApiKey: process.env.OPENAI_API_KEY || null,
@@ -172,8 +171,6 @@ export default {
 
   // Deprecated
   encryptionPassword: process.env.ENCRYPTION_PASSWORD_00001 as string,
-  webserverPass: process.env.WEBSERVER_PASS as string,
-  webserverUsername: process.env.WEBSERVER_USERNAME as string,
 };
 
 // Use this function when a value should default to true if not set.

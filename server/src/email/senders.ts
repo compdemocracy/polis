@@ -90,42 +90,4 @@ async function sendMultipleTextEmails(
   return results;
 }
 
-async function emailTeam(subject: string, body: string): Promise<void> {
-  let adminEmails: string[] = [];
-  try {
-    if (Config.adminEmails) {
-      adminEmails = JSON.parse(Config.adminEmails);
-    }
-  } catch (err) {
-    logger.error("polis_err_email_config_parse_failure", {
-      message: "Failed to parse JSON from Config.adminEmails.",
-      configValue: Config.adminEmails,
-      timestamp: new Date().toISOString(),
-      cause: {
-        name: (err as Error).name,
-        message: (err as Error).message,
-        stack: (err as Error).stack,
-      },
-    });
-    return;
-  }
-
-  if (!Config.polisFromAddress) {
-    logger.error("polis_err_email_config_missing_sender", {
-      message: "The 'polisFromAddress' is not configured.",
-      timestamp: new Date().toISOString(),
-    });
-    return;
-  }
-
-  if (adminEmails.length > 0) {
-    await sendMultipleTextEmails(
-      Config.polisFromAddress,
-      adminEmails,
-      subject,
-      body
-    );
-  }
-}
-
-export { sendMultipleTextEmails, sendTextEmail, emailTeam };
+export { sendMultipleTextEmails, sendTextEmail };

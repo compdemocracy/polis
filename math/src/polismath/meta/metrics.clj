@@ -5,9 +5,6 @@
             [com.stuartsierra.component :as component]))
 
 
-;; Should maybe make this component depend upon mongo so that it handles both metrics that get to mongo and
-;; those sent to graphitedb. Either that or we should rename the component and namespace graphitedb...
-
 (defn- make-socket
   "Make a datagram socket; optional port parameter is the local port for the socket. If ommitted (or if nil is passed),
   the Java implementation will pick some available port and bind it."
@@ -38,18 +35,18 @@
     (.send send-socket send-packet)))
 
 (defn- make-send-string
-  "All keys are name keys are prepended with 'math.<math-env>.'..."
-  [math-env api-key values]
-  (str api-key ".math." math-env "." (partial clojure.string/join " " values) \n))
+  "All metric keys are prepended with 'math.prod.'"
+  [api-key values]
+  (str api-key ".math.prod." (partial clojure.string/join " " values) \n))
 
 (defn- send-metric-values
   [metric-sender values]
   (let [{:keys [api-key hostname remote-port]} (get-config metric-sender)]
-    (log/info "sending metric data " values " to " hostname ":" remote-port)
-    (send-data metric-sender
-               (make-send-string (-> metric-sender :config :math-env)
-                                 api-key
-                                 values))))
+    (when (and api-key hostname)  ; Only send metrics if properly configured
+      (log/info "sending metric data " values " to " hostname ":" remote-port)
+      (send-data metric-sender
+                 (make-send-string api-key
+                                   values)))))
 
 ;; ## Public API
 
@@ -70,20 +67,6 @@
      (send-metric ~metric-sender ~metric-name duration# end#)
      (log/debug (str end# " " ~metric-name " " duration# " millis"))
      ret#))
-
-;; It looks like we can optionally get responses from graphitedb? We're not using that capability for now
-;; though.
-
-;(defn receive-data [receive-socket]
-  ;(let [receive-data (byte-array 1024),
-       ;receive-packet (new java.net.DatagramPacket receive-data 1024)]
-  ;(.receive receive-socket receive-packet)
-  ;(new java.lang.String (.getData receive-packet) 0 (.getLength receive-packet))))
-
-
-;(defn make-receive [receive-port]
-  ;(let [receive-socket (make-socket receive-port)]
-    ;(fn [] (receive-data receive-socket))))
 
 :ok
 

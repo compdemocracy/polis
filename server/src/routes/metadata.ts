@@ -6,7 +6,7 @@ import { finishArray, finishOne } from "../server-helpers";
 import { sql_participant_metadata_answers } from "../db/sql";
 import logger from "../utils/logger";
 import pg from "../db/pg-query";
-import Utils, { isConversationOwner } from "../utils/common";
+import { isConversationOwner } from "../utils/common";
 
 function getZidForAnswer(
   pmaid: any,
@@ -66,7 +66,7 @@ function handle_DELETE_metadata_answers(
       );
       return;
     }
-    Utils.isConversationOwner(zid, uid, function (err: any) {
+    isConversationOwner(zid, uid, function (err: any) {
       if (err) {
         failJson(
           res,

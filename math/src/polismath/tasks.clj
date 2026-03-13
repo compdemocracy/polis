@@ -2,15 +2,13 @@
 
 (ns polismath.tasks
   (:require
-    [clojure.core.async :as async :refer [go go-loop >! <! >!! <!!]]
-    [com.stuartsierra.component :as component]
-    [polismath.conv-man :as conv-man]
-    [polismath.darwin.core :as darwin]
-    [environ.core :as env]
-    [polismath.components.postgres :as postgres]
-    [taoensso.timbre :as log]
-    [polismath.darwin.export :as export]))
-
+   [clojure.core.async :as async :refer [<!! >! go]]
+   [com.stuartsierra.component :as component]
+   [polismath.components.postgres :as postgres]
+   [polismath.conv-man :as conv-man]
+   [polismath.darwin.core :as darwin]
+   [polismath.darwin.export :as export]
+   [taoensso.timbre :as log]))
 
 ;; This is where we listen/poll for and dispatch tasks posted in the :worker_tasks table.
 ;; The polling code should eventually be unified with the other vote polling code, but for now there are enough subtle differences that we'll bite the bullet on that till later.
@@ -34,9 +32,9 @@
 
 
 (defmethod dispatch-task! :generate_export_data
-  [{:as poller :keys [darwin]} task-record]
+  [{:keys [darwin]} task-record]
   (log/debug "Dispatching generate_export_data for" task-record)
-  (let [params (assoc (:task_data task-record) :task_bucket (:task_bucket task-record))
+  (let [_params (assoc (:task_data task-record) :task_bucket (:task_bucket task-record))
         ;; Need to think about security implications more thoroughly before we can really include this from
         ;; requests triggered by server (needs thorough audit to make sure user can't trigger this via web
         ;; api request)
@@ -52,7 +50,7 @@
 
 
 (defmethod dispatch-task! :update_math
-  [{:as poller :keys [darwin conversation-manager]} task-record]
+  [{:keys [conversation-manager]} task-record]
   (log/debug "Dispatching update_math task for:" task-record)
   (async/thread
     (conv-man/queue-message-batch! conversation-manager :votes (-> task-record :task_data :zid) [])))

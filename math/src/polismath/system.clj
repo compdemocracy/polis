@@ -1,21 +1,18 @@
 ;; Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns polismath.system
-  (:require [polismath.utils :as utils]
-            [polismath.components [config :as config]
-                                  [postgres :as postgres]
-                                  [core-matrix-boot :as core-matrix-boot]
-                                  [logger :as logger]]
-                                  ;[server :as server]]
-            [polismath.conv-man :as conv-man]
-            [polismath.poller :as poller]
-            [polismath.tasks :as tasks]
-            [polismath.darwin.core :as darwin]
-            [taoensso.timbre :as log]
-            [clojure.tools.namespace.repl :as namespace.repl]
-            [clojure.string :as string]
-            [clojure.tools.cli :as cli]
-            [com.stuartsierra.component :as component]))
+  (:require
+   [com.stuartsierra.component :as component]
+   [polismath.components [config :as config]
+    [postgres :as postgres]
+    [core-matrix-boot :as core-matrix-boot]
+    [logger :as logger]]
+   [polismath.conv-man :as conv-man]
+   [polismath.darwin.core :as darwin]
+   [polismath.poller :as poller]
+   [polismath.tasks :as tasks]
+   [polismath.utils :as utils]
+   [taoensso.timbre :as log]))
 
 (defn base-system
   "This constructs an instance of the base system components, including config, db, etc."
@@ -30,42 +27,28 @@
   "Creates a base-system and assocs in darwin server related components."
   [config-overrides]
   (merge
-    (base-system config-overrides)
-    {:vote-poller (component/using (poller/create-poller :votes)      [:config :postgres :conversation-manager :logger])
-     :mod-poller  (component/using (poller/create-poller :moderation) [:config :postgres :conversation-manager :logger])}))
+   (base-system config-overrides)
+   {:vote-poller (component/using (poller/create-poller :votes)      [:config :postgres :conversation-manager :logger])
+    :mod-poller  (component/using (poller/create-poller :moderation) [:config :postgres :conversation-manager :logger])}))
 
 (defn task-system
   [config-overrides]
   (merge
-    (base-system config-overrides)
-    {:darwin      (component/using (darwin/create-darwin) [:config :postgres :conversation-manager])
-     :task-poller (component/using (tasks/create-task-poller) [:config :darwin :postgres :conversation-manager])}))
+   (base-system config-overrides)
+   {:darwin      (component/using (darwin/create-darwin) [:config :postgres :conversation-manager])
+    :task-poller (component/using (tasks/create-task-poller) [:config :darwin :postgres :conversation-manager])}))
 
 (defn export-system
   [config-overrides]
   (log/info "export system overrides:" config-overrides)
   (merge
-    (base-system config-overrides)
-    {:darwin      (component/using (darwin/create-darwin) [:config :postgres :conversation-manager])}))
+   (base-system config-overrides)
+   {:darwin      (component/using (darwin/create-darwin) [:config :postgres :conversation-manager])}))
 
 (defn full-system
   [config-overrides]
   (merge
-    (poller-system config-overrides)))
-    ;; This is a little silly to do this here, since we can just change the commands that get called to only
-    ;; run the poller system, but this is more expedient for the moment, and trying to get things smoothed out
-    ;; for developer meetup tomorrow :grimacing:
-    ;(task-system config-overrides)))
-
-(defn onyx-system
-  "Creates a base-system and assocs in polismath onyx worker related components."
-  [config-overrides]
-  :TODO)
-
-(defn simulator-system
-  "Creates a base-system and assocs in a simulation engine."
-  [config-overrides]
-  :TODO)
+   (poller-system config-overrides)))
 
 (defn create-and-run-system!
   [system config]

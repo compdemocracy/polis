@@ -3,7 +3,6 @@ import crypto from "crypto";
 import { encode } from "html-entities";
 import { Promise as BluebirdPromise } from "bluebird";
 
-import { emailTeam } from "../email/senders";
 import { failJson } from "../utils/fail";
 import { getConversationInfo } from "../conversation";
 import { getNumberOfCommentsRemaining } from "../comment";
@@ -498,43 +497,8 @@ function handle_POST_convSubscriptions(
   }
 }
 
-function handle_POST_notifyTeam(
-  req: {
-    p: {
-      webserver_pass: string | undefined;
-      webserver_username: string | undefined;
-      subject: any;
-      body: any;
-    };
-  },
-  res: {
-    status: (arg0: number) => {
-      (): any;
-      new (): any;
-      json: { (arg0: {}): void; new (): any };
-    };
-  }
-) {
-  if (
-    req.p.webserver_pass !== Config.webserverPass ||
-    req.p.webserver_username !== Config.webserverUsername
-  ) {
-    return failJson(res, 403, "polis_err_notifyTeam_auth");
-  }
-  const subject = req.p.subject;
-  const body = req.p.body;
-  emailTeam(subject, body)
-    .then(() => {
-      res.status(200).json({});
-    })
-    .catch((err: any) => {
-      return failJson(res, 500, "polis_err_notifyTeam", err);
-    });
-}
-
 export {
   handle_GET_notifications_subscribe,
   handle_GET_notifications_unsubscribe,
   handle_POST_convSubscriptions,
-  handle_POST_notifyTeam,
 };

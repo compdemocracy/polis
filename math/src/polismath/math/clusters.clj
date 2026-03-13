@@ -2,20 +2,15 @@
 
 (ns polismath.math.clusters
   (:refer-clojure :exclude [* - + == /])
-  (:require [taoensso.timbre :as log]
-            [plumbing.core :as pc
-             :refer (fnk map-vals <-)]
-            [plumbing.graph :as gr]
-            [clojure.tools.trace :as tr]
-            ; [alex-and-georges.debug-repl :as dbr]
-            [polismath.utils :as utils]
-            [polismath.math.stats :as stats]
-            [polismath.math.named-matrix :as nm]
-            [clojure.spec.alpha :as s]
-            [clojure.core.matrix :as matrix]
-            [clojure.core.matrix.stats :as matrix-stats]
-            [clojure.core.matrix.selection :as matrix.selection]
-            [clojure.core.matrix.operators :refer :all]))
+  (:require
+   [clojure.core.matrix :as matrix]
+   [clojure.core.matrix.operators :refer [* - / max min]]
+   [clojure.core.matrix.stats :as matrix-stats]
+   [clojure.spec.alpha :as s]
+   [plumbing.core :as pc]
+   [polismath.math.named-matrix :as nm]
+   [polismath.utils :as utils]
+   [taoensso.timbre :as log]))
 
 
 ;; We may want to make formal that it's an int? Cause we add later?
@@ -45,11 +40,11 @@
   "Find the closest cluster and append item (mem_id, vector) to it"
   [clusts item]
   (let [[clst-id clst] (apply min-key
-                         (fn [[clst-id clst]]
-                           (matrix/distance (last item) (:center clst)))
-                         clusts)]
+                              (fn [[_clst-id clst]]
+                                (matrix/distance (last item) (:center clst)))
+                              clusts)]
     (assoc clusts clst-id
-      (clst-append clst item))))
+           (clst-append clst item))))
 
 
 (defn init-clusters
@@ -61,7 +56,7 @@
        vec ;; Have to cast to vec before we can distinct cause rows gives us a matrixlist
        distinct
        (map-indexed
-         (fn [id position] {:id id :members [] :center (matrix/matrix position)}))
+        (fn [id position] {:id id :members [] :center (matrix/matrix position)}))
        (take k)))
 
 
@@ -71,9 +66,9 @@
   [clsts1 clsts2 & {:keys [threshold] :or {threshold 0.01}}]
   (letfn [(cntrs [clsts] (sort (map :center clsts)))]
     (every?
-      (fn [[x y]]
-        (< (matrix/distance x y) threshold))
-      (utils/zip (cntrs clsts1) (cntrs clsts2)))))
+     (fn [[x y]]
+       (< (matrix/distance x y) threshold))
+     (utils/zip (cntrs clsts1) (cntrs clsts2)))))
 
 
 (defn cleared-clusters
@@ -99,12 +94,12 @@
   [mat & {:keys [weights]}]
   (if weights
     (weighted-mean
-      (* (/ (count weights) (pc/sum weights))
-         (reduce
-           (fn [m [row-i weight]]
-             (matrix/multiply-row m row-i weight))
-           mat
-           (utils/with-indices weights))))
+     (* (/ (count weights) (pc/sum weights))
+        (reduce
+         (fn [m [row-i weight]]
+           (matrix/multiply-row m row-i weight))
+         mat
+         (utils/with-indices weights))))
     (matrix-stats/mean (matrix/matrix mat))))
 
 ; It's a vector...
@@ -121,14 +116,9 @@
                  :weights
                  (when weights
                    (reduce
-                     #(conj %1 (weights %2))
-                     []
-                     (nm/rownames nmat)))))
-
-;; Rename all above to weighted-mean* for profiling
-;(defnp weighted-mean
-;  [& args]
-;  (apply weighted-mean* args))
+                    #(conj %1 (weights %2))
+                    []
+                    (nm/rownames nmat)))))
 
 (defn cluster-weights
   "Get a weights seq given a cluster with :members and a hash-map of weights. Returns nil
@@ -143,29 +133,29 @@
   "Performs one step of an iterative K-means:
   data-iter: seq of pairs (id, position), eg (pid, person-rating-row)
   clusters: array of clusters"
-  [data-iter k clusters & {:keys [weights]}]
+  [data-iter _k clusters & {:keys [weights]}]
   (->> data-iter
     ; Reduces a "blank" set of clusters w/ centers into clusters that have elements
-    (reduce add-to-closest (cleared-clusters clusters))
-    vals
+       (reduce add-to-closest (cleared-clusters clusters))
+       vals
     ; Filter out clusters that don't have any members (should maybe log on verbose?)
-    (filter #(> (count (:members %)) 0))
+       (filter #(> (count (:members %)) 0))
     ; Apply mean to get updated centers
-    (map (fn [clst]
-           (-> clst
-               (assoc :center (weighted-mean (:positions clst)
-                                             :weights (cluster-weights clst weights)))
-               (dissoc :positions))))))
+       (map (fn [clst]
+              (-> clst
+                  (assoc :center (weighted-mean (:positions clst)
+                                                :weights (cluster-weights clst weights)))
+                  (dissoc :positions))))))
 
 
 (defn recenter-clusters
   "Replace cluster centers with a center computed from new positions"
   [data clusters & {:keys [weights]}]
   (map
-    (fn [clst]
-      (assoc clst :center (weighted-mean (nm/rowname-subset data (:members clst))
-                                         :weights weights)))
-    clusters))
+   (fn [clst]
+     (assoc clst :center (weighted-mean (nm/rowname-subset data (:members clst))
+                                        :weights weights)))
+   clusters))
 
 
 (defn safe-recenter-clusters
@@ -174,12 +164,12 @@
   (as-> clusters clsts
     ; map every cluster to the newly centered cluster or to nil if there are no members in data
     (map
-      (fn [clst]
-        (let [rns (nm/safe-rowname-subset data (:members clst))]
-          (if (empty? (nm/rownames rns))
-            nil
-            (assoc clst :center (weighted-mean rns :weights weights)))))
-      clsts)
+     (fn [clst]
+       (let [rns (nm/safe-rowname-subset data (:members clst))]
+         (if (empty? (nm/rownames rns))
+           nil
+           (assoc clst :center (weighted-mean rns :weights weights)))))
+     clsts)
     ; Remove the nils, they break the math
     (remove nil? clsts)
     ; If nothing is left, make one great big cluster - so that things don't break in most-distal later
@@ -205,26 +195,26 @@
   (let [[dist clst-id id]
           ; find the maximum dist, clst-id, mem-id triple
         (apply max-key #(get % 0)
-          (map
-            (fn [mem]
+               (map
+                (fn [mem]
                 ; Find the minimum distance, cluster-id pair, and add the member name to the end
-              (conj (apply min-key #(get % 0)
-                      (map
-                        #(vector (matrix/distance (nm/get-row-by-name data mem) (:center %)) (:id %))
-                        clusters))
-                 mem))
-            (nm/rownames data)))]
+                  (conj (apply min-key #(get % 0)
+                               (map
+                                #(vector (matrix/distance (nm/get-row-by-name data mem) (:center %)) (:id %))
+                                clusters))
+                        mem))
+                (nm/rownames data)))]
     {:dist dist :clst-id clst-id :id id}))
 
 
 (defn uniqify-clusters [clusters]
   (reduce
-    (fn [clusters clst]
-      (let [identical-clst (first (filter #(= (:center clst) (:center %)) clusters))]
-        (if identical-clst
-          (assoc clusters (utils/typed-indexof clusters identical-clst) (merge-clusters identical-clst clst))
-          (conj clusters clst))))
-    [] clusters))
+   (fn [clusters clst]
+     (let [identical-clst (first (filter #(= (:center clst) (:center %)) clusters))]
+       (if identical-clst
+         (assoc clusters (utils/typed-indexof clusters identical-clst) (merge-clusters identical-clst clst))
+         (conj clusters clst))))
+   [] clusters))
 
 
 (defn clean-start-clusters
@@ -256,17 +246,17 @@
               (if (> (:dist outlier) 0)
                 ; There is work to be done, so do it
                 (recur
-                  (->
+                 (->
                     ; first remove the most distal point from the cluster it was in;
-                    (mapv
-                      (fn [clst]
-                        (assoc clst :members
-                          (remove (set [(:id outlier)]) (:members clst))))
-                      clusters)
+                  (mapv
+                   (fn [clst]
+                     (assoc clst :members
+                            (remove (set [(:id outlier)]) (:members clst))))
+                   clusters)
                     ; next add a new cluster containing only said point.
-                    (conj {:id (inc (apply max (map :id clusters)))
-                           :members [(:id outlier)]
-                           :center (nm/get-row-by-name data (:id outlier))})))
+                  (conj {:id (inc (apply max (map :id clusters)))
+                         :members [(:id outlier)]
+                         :center (nm/get-row-by-name data (:id outlier))})))
                 ; Else just return recentered clusters
                 clusters))
             ; Else just return recentered clusters
@@ -282,19 +272,6 @@
   (->> clsts
        (map (pc/fn->> :members (map trans) set))
        (set)))
-
-
-(defn simplify-clsts
-  "Given a clustering, creates a set of member sets. This makes it easy to compare clusters for equality.
-  Optional `:trans` keyword args lets you perform a transformation to the member names included in member
-  sets."
-  [clsts & {:keys [trans] :or {trans identity}}]
-  {:members (map
-              (pc/fn->> :members (map trans) set)
-              clsts)
-   :center (map
-             (pc/fn->> :center (mapv #(utils/round-to % 4)))
-             clsts)})
 
 
 ; Each cluster should have the shape {:id :members :center}
@@ -317,13 +294,13 @@
   ([m] (dist-matrix m m))
   ([m1 m2]
    (matrix/matrix
-     (map
-       (fn [r1]
-         (map
-           (fn [r2]
-             (matrix/distance r1 r2))
-           m2))
-       m1))))
+    (map
+     (fn [r1]
+       (map
+        (fn [r2]
+          (matrix/distance r1 r2))
+        m2))
+     m1))))
 
 
 (defn named-dist-matrix
@@ -331,9 +308,9 @@
   ([nm] (named-dist-matrix nm nm))
   ([nm1 nm2]
    (nm/named-matrix
-     (nm/rownames nm1)
-     (nm/rownames nm2)
-     (dist-matrix (nm/get-matrix nm1) (nm/get-matrix nm2)))))
+    (nm/rownames nm1)
+    (nm/rownames nm2)
+    (dist-matrix (nm/get-matrix nm1) (nm/get-matrix nm2)))))
 
 
 (defn silhouette
@@ -344,35 +321,35 @@
    (let [dist-row (nm/rowname-subset distmat [member])
          [a b]
          (reduce
-           (fn [[a b] clst]
-             (let [memb-clst? (some #{member} (:members clst))
-                   membs (remove #{member} (:members clst))]
+          (fn [[a b] clst]
+            (let [memb-clst? (some #{member} (:members clst))
+                  membs (remove #{member} (:members clst))]
                  ; This is a little bit silly, but will basically trigger returning 0 if member is in a
                  ; singleton cluster
-               (if (and memb-clst? (empty? membs))
-                 (reduced [1 1])
+              (if (and memb-clst? (empty? membs))
+                (reduced [1 1])
                    ; Otherwise, continue...
-                 (as-> membs data
+                (as-> membs data
                      ; Subset to just the columns for this clusters
-                   (nm/colname-subset dist-row data)
-                   (nm/get-matrix data)
+                  (nm/colname-subset dist-row data)
+                  (nm/get-matrix data)
                      ; This is a 2D row vector; we want 1D, so take first
-                   (first data)
+                  (first data)
                      ; Take the mean of the entries
-                   (matrix-stats/mean data)
-                   (if memb-clst?
-                     [data b]
-                     [a (min data (or b data))])))))
-           [nil nil]
-           clusters)]
+                  (matrix-stats/mean data)
+                  (if memb-clst?
+                    [data b]
+                    [a (min data (or b data))])))))
+          [nil nil]
+          clusters)]
      ; The actual silhouette computation
      (/ (- b a) (max b a))))
   ([distmat clusters]
    (let [cluster-distmat (nm/rowname-subset distmat (mapcat :members clusters))]
      (weighted-mean
-       (map
-         (partial silhouette distmat clusters)
-         (nm/rownames cluster-distmat))))))
+      (map
+       (partial silhouette distmat clusters)
+       (nm/rownames cluster-distmat))))))
 
 
 (defn group-members
@@ -389,7 +366,7 @@
 (defn fold-clusters
   "Takes clusters -- a seq of maps `{:members :id :center}` -- and transforms into a single map
   `{:id :members :x :y :count}`, where each key points to a seq of the values associated with each
-  cluster. In particular, this is what's used to format base clusters for mongo uploading (for the
+  cluster. In particular, this is what's used to format base clusters for uploading (for the
   sake of compression)."
   [clusters]
   {:id      (map :id clusters)
@@ -402,39 +379,23 @@
 (defn unfold-clusters
   "The inverse of `fold-clusters`; takes folded clusters and puts them into standard form.
   i.e. `(= identity (comp unfold-clusters fold-clusters))`"
-  [{:keys [members id x y] :as folded-clusters}]
+  [{:keys [members id x y]}]
   (map
-    (fn [ms id x y]
-      {:id id
-       :members ms
-       :center [x y]})
-    members
-    id
-    x
-    y))
-
-
-(defn xy-clusters-to-nmat [clusters]
-  (let [nmat (nm/named-matrix)]
-    (nm/update-nmat
-     nmat
-     (apply concat ; flatten the list of lists below
-      (mapv
-       (fn [cluster]
-         (let [center (:center cluster)
-               id (:id cluster)]
-           ; Return some values that we can feed to update-nmat
-           [[id :x (first center)]
-            [id :y (second center)]]))
-
-       clusters)))))
+   (fn [ms id x y]
+     {:id id
+      :members ms
+      :center [x y]})
+   members
+   id
+   x
+   y))
 
 
 (defn xy-clusters-to-nmat2 [clusters]
   (nm/named-matrix
-    (map :id clusters) ; row names
-    [:x :y] ; column names
-    (matrix/matrix (map :center clusters))))
+   (map :id clusters) ; row names
+   [:x :y] ; column names
+   (matrix/matrix (map :center clusters))))
 
 
 :ok

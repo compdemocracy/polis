@@ -2,22 +2,20 @@
 
 (ns polismath.conv-man
   "This is the namespace for the conversation manager"
-  (:require [polismath.math.named-matrix :as nm]
-            [polismath.math.conversation :as conv]
-            [polismath.math.clusters :as clust]
-            [polismath.meta.metrics :as met]
-            [polismath.meta.notify :as notify]
-            [polismath.components.env :as env]
-            [polismath.components.postgres :as db]
-            [polismath.math.corr :as corr]
-            [polismath.utils :as utils]
-            [clojure.core.matrix.impl.ndarray]
-            [clojure.core.async :as async :refer [go go-loop <! >! <!! >!! alts!! alts! chan dropping-buffer put! take!]]
-            [taoensso.timbre :as log]
-            [com.stuartsierra.component :as component]
-            [plumbing.core :as pc]
-            [schema.core :as s]
-            [polismath.components.postgres :as postgres]))
+  (:require
+   [clojure.core.async :as async :refer [>! >!! alts! chan go go-loop]]
+   [clojure.core.matrix.impl.ndarray]
+   [com.stuartsierra.component :as component]
+   [plumbing.core :as pc]
+   [polismath.components.postgres :as db]
+   [polismath.math.clusters :as clust]
+   [polismath.math.conversation :as conv]
+   [polismath.math.named-matrix :as nm]
+   [polismath.meta.metrics :as met]
+   [polismath.meta.notify :as notify]
+   [polismath.utils :as utils]
+   [schema.core :as s]
+   [taoensso.timbre :as log]))
 
 
 
@@ -72,16 +70,15 @@
                                :subgroup-votes
                                :subgroup-repness
                                :comment-priorities})))
-                               ;:subgroup-ptpt-stats})))
 
 
 (defn columnize
   ([stats keys]
    (->> keys
         (map
-          (fn [k]
-            (let [vals (map (fn [stat] (get stat k)) stats)]
-              [k vals])))
+         (fn [k]
+           (let [vals (map (fn [stat] (get stat k)) stats)]
+             [k vals])))
         (into {})))
   ([stats]
    (let [keys (-> stats first keys)]
@@ -96,8 +93,8 @@
 
 (defn handle-profile-data
   "For now, just log profile data. Eventually want to send to influxDB and graphite."
-  [{:as conv-man :keys [postgres config]} conv & {:keys [recompute n-votes finish-time] :as extra-data}]
-  (if-let [prof-atom (:profile-data conv)]
+  [{:keys [postgres]} conv & {:as extra-data}]
+  (when-let [prof-atom (:profile-data conv)]
     (let [prof @prof-atom
           tot (apply + (map second prof))
           prof (assoc prof :total tot)]
@@ -129,9 +126,7 @@
   "This function is what actually gets sent to the conv-manager. In addition to the conversation and vote batches
   up in the channel, we also take an error-callback. Eventually we'll want to pass opts through here as well."
   [conv-man conv votes]
-  (let [start-time (System/currentTimeMillis)
-        config (:config conv-man)
-        pg (:postgres conv-man)]
+  (let [start-time (System/currentTimeMillis)]
     (log/info "Starting conversation update for zid:" (:zid conv))
     ;; Need to expose opts for conv-update through config... XXX
     (let [updated-conv   (conv/conv-update conv votes)
@@ -156,7 +151,7 @@
       updated-conv)))
 
 (defn write-conv-updates!
-  [{:as conv-man :keys [postgres]} {:as updated-conv :keys [zid]} math-tick]
+  [{:keys [postgres]} {:as updated-conv :keys [zid]} math-tick]
   ;; TODO Really need to extract these writes so that mod updates do whta they're supposed to! And also run in async/thread for better parallelism
   ; Format and upload main results
   (async/thread
@@ -202,21 +197,13 @@
                    (nm/update-nmat (->> (db/conv-poll (:postgres conv-man) zid 0)
                                         (map (fn [vote-row] (mapv (partial get vote-row) [:pid :tid :vote])))))))
         (conv/mod-update
-          (db/conv-mod-poll (:postgres conv-man) zid 0)))
+         (db/conv-mod-poll (:postgres conv-man) zid 0)))
     ; would be nice to have :recompute :initial
     (assoc (conv/new-conv) :zid zid :recompute :full)))
 
 (defn generate-report-data!
-  [{:as conv-man :keys [postgres]} conv math-tick report-data]
+  [_conv-man _conv _math-tick report-data]
   (log/error "Report generation requested; No longer supported:" report-data))
-  ;(log/info "Generating report data for report:" report-data))
-  ;(let [rid (:rid report-data)
-        ;tids (map :tid (postgres/query (:postgres conv-man) (postgres/report-tids rid)))
-        ;corr-mat (corr/compute-corr conv tids)]
-    ;(async/thread
-      ;(postgres/insert-correlationmatrix! postgres rid math-tick corr-mat)
-      ;;; TODO update to submit usng task type and task bucket
-      ;(postgres/mark-task-complete! postgres "generate_report_data" rid))))
 
 
 
@@ -234,16 +221,6 @@
          acc#))))
 
 
-(defn take-all!! [c]
-  "Given a channel, takes all values currently in channel and places in a vector. Must be called
-  within a go block."
-  (loop [acc []]
-    (let [[v c] (alts!! [c] :default nil)]
-      (if (not= c :default)
-        (recur (conj acc v))
-        acc))))
-
-
 (defn split-batches
   "This function splits message batches as sent to conv actor up by the first item in batch vector (:votes :moderation)
   so messages can get processed properly"
@@ -251,10 +228,10 @@
   (->> messages
        (group-by :message-type)
        (pc/map-vals
-         (fn [labeled-batches]
-           (->> labeled-batches
-                (map :message-batch)
-                (flatten))))))
+        (fn [labeled-batches]
+          (->> labeled-batches
+               (map :message-batch)
+               (flatten))))))
 
 
 
@@ -264,19 +241,19 @@
 ;; Here's the multimethod at the core of the messages the conv actor may act upon.
 
 (defmulti react-to-messages
-          (fn [conv-man conv message-type messages]
-            message-type))
+  (fn [_conv-man _conv message-type _messages]
+    message-type))
 
 (defmethod react-to-messages :votes
-  [conv-man conv _ messages]
+  [conv-man conv _message-type messages]
   (conv-update conv-man conv messages))
 
 (defmethod react-to-messages :moderation
-  [conv-man conv _ messages]
+  [_conv-man conv _message-type messages]
   (conv/mod-update conv messages))
 
 (defmethod react-to-messages :generate_report_data
-  [conv-man conv _ messages]
+  [conv-man conv _message-type messages]
   (let [math-tick (or (:math-tick conv) (:math_tick conv))]
     (doseq [report-task messages]
       (try
@@ -293,13 +270,10 @@
   (let [zid (:zid conv-actor)
         zid-str (str "zid=" zid)
         retry-chan (:retry-chan conv-actor)
-        notify-message (str "Failed conversation update on " (-> conv-man :config :math-env) " for message-type " message-type " and " zid-str)]
-    (try
-      (let [stack-trace (notify/error-message-body update-error)]
-        (notify/notify-team (:config conv-man) (str "Polismath conv-man error: " message-type) zid notify-message stack-trace))
-      (catch Exception e
-        (log/error e "Unable to notify team")))
-    (log/error update-error notify-message)
+        notify-message (str "Failed conversation update for message-type " message-type " and " zid-str)]
+    (let [stack-trace (notify/error-message-body update-error)]
+      (log/error update-error notify-message)
+      (log/error "Stack trace:" stack-trace))
     (.printStackTrace update-error)
     ; Try requeing the votes that failed so that if we get more, they'll get replayed
     (try
@@ -314,12 +288,12 @@
             duration (- end start-time)]
         ;; Update to use MetricSender component XXX
         (met/send-metric (:metrics conv-man) "math.pca.compute.fail" duration))
-      (catch Exception e
+      (catch Exception _e
         (log/error "Unable to send metrics for failed compute for" zid-str)))
     ; Try to save conversation state for debugging purposes
     (try
       (conv/conv-update-dump conv messages update-error)
-      (catch Exception e
+      (catch Exception _e
         (log/error "Unable to perform conv-update dump for" zid-str)))))
 
 
@@ -328,14 +302,14 @@
 (defn react-to-messages!
   [conv-man conv-actor message-type messages]
   (let [start-time (System/currentTimeMillis)
-        {:keys [zid conv retry-chan]} conv-actor
+        {:keys [zid conv]} conv-actor
         update-fn
         (fn [conv']
           (try
             (if-let [updated-conv (react-to-messages conv-man conv' message-type messages)]
               (do
                 (let [math-tick (or (:math-tick updated-conv) ;; pass through for report generation
-                                    (postgres/inc-math-tick (:postgres conv-man) zid))]
+                                    (db/inc-math-tick (:postgres conv-man) zid))]
                   (write-conv-updates! conv-man updated-conv math-tick))
                 updated-conv)
               ;; if nil, don't update, for just side effects
@@ -350,8 +324,8 @@
 
 (defn go-act!
   [conv-man conv-actor]
-  (let [{:keys [kill-chan conversations]} conv-man
-        {:keys [zid conv message-chan retry-chan]} conv-actor]
+  (let [{:keys [kill-chan]} conv-man
+        {:keys [message-chan retry-chan]} conv-actor]
     (go-loop []
       ;; If nil comes through as the first message, then the chan is closed, and we should be done, not continue looping forever
       (let [[first-msg c] (async/alts! [kill-chan message-chan] :priority true)]
@@ -373,7 +347,7 @@
 ;; Put the actor together and
 
 (defn conv-actor
-  [{:as conv-man :keys [conversations kill-chan config]} zid]
+  [{:as conv-man :keys [config]} zid]
   (log/info "Starting message batch queue and handler routine for conv zid:" zid)
   (let [conv (load-or-init conv-man zid :recompute (:recompute config))
         _ (log/info "Conversation loaded for conv zid:" zid)
@@ -432,7 +406,7 @@
       ;; Close all our message channels for good measure
       (log/debug "conversations:" conversations)
       (go (>! kill-chan :kill))
-      (doseq [[zid {:keys [message-chan]}] @conversations]
+      (doseq [[_ {:keys [message-chan]}] @conversations]
         (async/close! message-chan))
       ;; Not sure, but we might want this for GC
       (reset! conversations nil)
@@ -450,9 +424,9 @@
 ;; Need to think about what to do if failed conversations lead to messages piling up in the message queue XXX
 (defn queue-message-batch!
   "Queue message batches for a given conversation by zid"
-  [{:as conv-man :keys [conversations config kill-chan]} message-type zid message-batch]
+  [{:as conv-man :keys [conversations kill-chan]} message-type zid message-batch]
   (when-not (async/poll! kill-chan)
-    (if-let [{:keys [conv message-chan]} (get @conversations zid)]
+    (if-let [{:keys [message-chan]} (get @conversations zid)]
       ;; Then we already have a go loop running for this
       (>!! message-chan {:message-type message-type :message-batch message-batch})
       ;; Then we need to initialize the conversation and set up the conversation channel and go routine

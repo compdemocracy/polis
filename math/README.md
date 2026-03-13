@@ -9,6 +9,109 @@ As with any Lisp, Clojure development typically revolves around the interactive 
 It's recommended that you use an editor plugin to connect to this REPL, letting you execute and experiment with code as you write it, display documentation, and debug all from the comfort of your favorite text editor.
 (See [Calva](https://marketplace.visualstudio.com/items?itemName=betterthantomorrow.calva) for VS, [Fireplace](https://github.com/tpope/vim-fireplace) for Vim, [Cider](https://docs.cider.mx/cider/index.html) for Emacs, [Cursive](https://cursive-ide.com/) for IDEA, etc).
 
+## Quickstart Guide
+
+### Prerequisites
+
+- [Clojure](https://clojure.org/guides/getting_started) installed
+- Docker and Docker Compose (recommended for simplest setup)
+- Alternatively: PostgreSQL client (`postgresql`, `postgresql-client`) if not using Docker
+- A PostgreSQL database instance (either local or remote)
+
+### Setup with Docker (Recommended)
+
+1. **Clone the repository**:
+
+   ```sh
+   git clone https://github.com/compdemocracy/polis.git
+   cd polis
+   ```
+
+2. **Configure environment variables**:
+   Create a `.env` file in the root directory with at least:
+
+   ```sh
+   DATABASE_URL=postgres://username:password@hostname:port/database
+   ```
+
+3. **Start the system with Docker Compose**:
+
+   ```sh
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up
+   ```
+
+   If this is your first time or you've made changes to Docker files:
+
+   ```sh
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up --build
+   ```
+
+4. **Connect to the REPL**:
+   The nREPL server will be available on port `18975`. Connect to it using your favorite editor's Clojure plugin.
+
+### Setup without Docker
+
+1. **Clone the repository**:
+
+   ```sh
+   git clone https://github.com/compdemocracy/polis.git
+   cd polis/math
+   ```
+
+2. **Configure environment variables**:
+   Set at least:
+
+   ```sh
+   export DATABASE_URL=postgres://username:password@hostname:port/database
+   ```
+
+3. **Start a development REPL**:
+
+   ```sh
+   clojure -M:dev
+   ```
+
+   This starts an nREPL server but doesn't start the polling system. You can manually start it with `(runner/run!)` from within the REPL.
+
+### Running Commands
+
+The system provides several commands you can run:
+
+```sh
+# Get help
+clojure -M:run --help
+
+# Export a conversation
+clojure -M:run export <conversation-id> -f <export-filename>.zip
+
+# Update a specific conversation
+clojure -M:run update -Z <conversation-id>
+
+# Run the full system (poller plus task processing)
+clojure -M:run full
+```
+
+If using Docker:
+
+```sh
+docker compose run math clojure -M:run <command>
+```
+
+### Running Tests
+
+```sh
+# Run all tests
+clojure -M:test
+
+# Or from within a REPL:
+(require '[test-runner])
+(test-runner/-main)
+```
+
+For more information about configuration options, see [the configuration documentation](doc/configuration.md).
+
+## Docker Setup Details
+
 The root directory of this codebase contains docker compose infrastructure for running a complete development environment.
 In addition to running the rest of the system's components (database, server, client build processes, etc), it also runs the math component in tandem with an embedded nREPL.
 This allows you to connect to and evaluate code from within the running math worker.
@@ -30,13 +133,9 @@ To get a sense for how various parts of these system can be used, take a look at
 
 If you're not familiar with Clojure and want a fun crash course, I highly recommend [Clojure for the Brave and True](https://www.braveclojure.com/), a delightful introduction to the language.
 
-### Without docker compose?
+## Development Workflow
 
-If you're not using the docker compose infrastructure, you can run `clj -M:dev` to get nREPL going, but this will not start math worker's processing queue (or obviously any other parts of the system).
-This may be preferable if you don't need the whole system running for whatever task you're working on.
-You can always manually start the polling system by manually running `(runner/run!)`, as described below, as long as you have the `DATABASE_URL` environment variable pointing to a database (see [`doc/configuration.md`](doc/configuration.md))
-
-## Starting and stopping the system
+### Starting and Stopping the System
 
 This application uses Stuart Sierra's Component library for REPL-reloadability.
 Sometimes, (e.g.) evaluating a new definition of an existing function will be picked up by the system immediately without any further work.
@@ -49,27 +148,6 @@ The `runner/system-reset!` function will do all of this for you automatically, b
 While this setup is nice from the perspective of system reloadability, Stuart's Component library unfortunately requires that a lot of the core functions of the system end up having to explicitly accept an argument corresponding to their part of the system.
 This ends up being somewhat annoying from the perspective of interactive development, as it requires grabbing the corresponding component out of the `runner/system` map, and passing that to the function in question.
 We'll soon be switching to [Mount](https://github.com/tolitius/mount) over Component, for more automated reloadability, and less hassle passing around system/component objects (see [#1056](https://github.com/compdemocracy/polis/issues/1056)).
-
-## Running commands
-
-There are also a number of commands which can be run, either locally or with `docker compose run math ...`, from the root of the monorepo:
-
-* `clojure -M:run --help` - print run command help (noisy; sorry)
-* `clojure -M:run export <conversation-id> -f <export-filename>.zip` - export the conversation at `<conversation-id>` to the given filename
-* `clojure -M:run update -Z <conversation-id>` - update a particular conversation
-* `clojure -M:run full` - run a full system (poller plus auxiliary task processing)
-* etc.
-
-If you are exporting data, you will need to run `docker compose` here with the same `-f docker-compose.yml -f docker-compose.dev.yml --profile postgres` options as described above, so that the directory (volume) mounting in the dev configuration file will mirror the generated files over onto your local filesystem.
-
-## Tests
-
-You can run tests by executing `clojure -M:test`.
-
-Since Clojure is slow to start though, you may find it easier to run the `test-runner/-main` function (located at [`test/test_runner.clj`](test/test_runner.clj)) from within your nREPL process.
-There is an example of this in the [`dev/user.clj`](dev/user.clj) file mentioned above.
-There are rough units tests for most of the basic math things, and one or two higher level integration tests (presently broken).
-We're looking forward to setting up `clojure.spec` and some generative testing for more thorough coverage if this is something that excites you!
 
 ## Architecture
 
@@ -85,13 +163,21 @@ You can see the conversation manager implementation at [`src/polismath/conv_man.
 
 The system's logging level defaults to `:warn` but can be configured in several ways:
 
-1. Set the `LOGGING_LEVEL` environment variable to change from the default `:warn` level:
+1. Set the logging level environment variable:
+   - When running directly: use `LOGGING_LEVEL`
+   - When using Docker Compose: use `MATH_LOG_LEVEL` (Docker translates this to `LOGGING_LEVEL` internally)
 
    ```bash
+   # When using Docker Compose:
    MATH_LOG_LEVEL=info docker compose -f docker-compose.yml -f docker-compose.dev.yml --profile postgres up
+   
+   # When running directly:
+   export LOGGING_LEVEL=info
+   clojure -M:dev
    ```
 
 2. Modify the logging level in `resources/config.edn`
+
 3. Set the level at runtime via the REPL:
 
    ```clojure
@@ -111,8 +197,8 @@ The individual `Dockerfile`s that make up this infrastructure can currently be u
 
 Nonetheless, if you wish to run this part of the system directly on a machine (outside of docker), the only requirements are that you:
 
-* [install Clojure](https://clojure.org/guides/getting_started).
-* Setup the postgresql client (`sudo apt-get install postgresql postgresql-client` on ubuntu).
+- [install Clojure](https://clojure.org/guides/getting_started).
+- Setup the postgresql client (`sudo apt-get install postgresql postgresql-client` on ubuntu).
 
 If you go this route you will want to take a look at the (see [`doc/configuration.md`](doc/configuration.md)).
 

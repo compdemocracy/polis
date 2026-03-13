@@ -1,16 +1,12 @@
 ;; Copyright (C) 2012-present, The Authors. This program is free software: you can redistribute it and/or  modify it under the terms of the GNU Affero General Public License, version 3, as published by the Free Software Foundation. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Affero General Public License for more details. You should have received a copy of the GNU Affero General Public License along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 (ns polismath.components.core-matrix-boot
-  (:require [polismath.utils :as utils]
-            [clojure.core.matrix :as matrix]
-            [clojure.core.matrix.impl.ndarray :as ndarray]
-            [taoensso.timbre :as log]
-            [com.stuartsierra.component :as component]
-            [cheshire.generate :refer [add-encoder encode-seq remove-encoder]]))
+  (:require
+   [cheshire.generate :refer [add-encoder encode-seq]]
+   [clojure.core.matrix :as matrix]
+   [com.stuartsierra.component :as component]
+   [taoensso.timbre :as log]))
 
-
-;; Maybe this just shouldn't be a component, but an environment thing? Or does it work cause things won't be loaded on
-;; static compile anyway? Ug...
 
 (defn matrix-encoder
   [v jsonGenerator]
@@ -61,9 +57,6 @@
    (create-core-matrix-booter {}))
   ([options]
    (map->CoreMatrixBooter options)))
-
-
-;(component/start (create-core-matrix-booter {:config {:math {:matrix-implementation :vectorz}}}))
 
 :ok
 

@@ -4,9 +4,6 @@
   (:use polismath.utils
         test-helpers)
   (:require [clojure.test :refer :all]
-            ;[clojure.test.check :as tc]
-            ;[clojure.test.check.generators :as gen]
-            ;[clojure.test.check.properties :as prop]
             [clojure.core.async :as async]
             [clojure.tools.logging :as log]
             [polismath.math.conversation :as conv]
@@ -17,10 +14,6 @@
 
 
 
-;(gen/sample gen/->Generator
-
-;(let [random-matrix (gen/vector (partial gen/vector (ge
-
 ;; Should make this generative
 (deftest integration-test
   (testing "of some votes"
@@ -28,8 +21,7 @@
                     {:vote  1 :pid 1 :tid 1 :zid 0 :created 9003}
                     {:vote -1 :pid 2 :tid 0 :zid 0 :created 9005}
                     {:vote -1 :pid 1 :tid 2 :zid 0 :created 9009}]
-          config {:math-env :test
-                  :poller {:initial-polling-timestamp (System/currentTimeMillis)}}]
+          config {:poller {:initial-polling-timestamp (System/currentTimeMillis)}}]
       (testing "in a new conv"
         (let [system (system/create-and-run-base-system! config)
               conv-man (:conversation-manager system)

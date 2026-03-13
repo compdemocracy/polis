@@ -64,9 +64,6 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - DD_ENABLED=false
       - LOGGING_LEVEL=${MATH_LOG_LEVEL:-warn}
-      - MATH_ENV=${MATH_ENV:-dev}
-      - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
-      - WEBSERVER_PASS=${WEBSERVER_PASS}
     networks:
       - polis-test
     restart: unless-stopped

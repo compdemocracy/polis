@@ -52,7 +52,6 @@ class PostgresConfig:
         pool_size: Optional[int] = None,
         max_overflow: Optional[int] = None,
         ssl_mode: Optional[str] = None,
-        math_env: Optional[str] = None,
     ):
         """
         Initialize PostgreSQL configuration.
@@ -67,7 +66,6 @@ class PostgresConfig:
             pool_size: Connection pool size
             max_overflow: Maximum overflow connections
             ssl_mode: SSL mode (disable, allow, prefer, require, verify-ca, verify-full)
-            math_env: Math environment identifier
         """
         # Parse URL if provided
         if url:
@@ -91,8 +89,8 @@ class PostgresConfig:
         # Set SSL mode
         self.ssl_mode = ssl_mode or os.environ.get("DATABASE_SSL_MODE", "require")
 
-        # Set math environment
-        self.math_env = math_env or os.environ.get("MATH_ENV", "dev")
+        # Hardcode math_env to "prod"
+        self.math_env = "prod"
 
     def _parse_url(self, url: str) -> None:
         """
@@ -161,7 +159,6 @@ class PostgresConfig:
             database=os.environ.get("DATABASE_NAME"),
             user=os.environ.get("DATABASE_USER"),
             password=os.environ.get("DATABASE_PASSWORD"),
-            math_env=os.environ.get("MATH_ENV"),
         )
 
 

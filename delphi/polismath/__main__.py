@@ -58,11 +58,6 @@ def parse_args() -> argparse.Namespace:
     )
     
     parser.add_argument(
-        '--math-env',
-        help='Math environment (dev, prod, preprod)'
-    )
-    
-    parser.add_argument(
         '--port',
         type=int,
         help='Server port'
@@ -117,9 +112,6 @@ def main() -> None:
     # Override with command line arguments
     if args.data_dir:
         overrides['data_dir'] = args.data_dir
-    
-    if args.math_env:
-        overrides['math-env'] = args.math_env
     
     if args.port:
         if 'server' not in overrides:
