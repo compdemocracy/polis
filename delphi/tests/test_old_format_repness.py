@@ -5,6 +5,7 @@ These tests verify the single-group, single-comment "old format" API
 that wraps the new DataFrame-native implementation.
 """
 
+import math
 import numpy as np
 import pandas as pd
 import sys
@@ -43,15 +44,16 @@ class TestStatisticalFunctions:
         assert not z_score_sig_95(1.64)
 
     def test_prop_test(self):
-        """Test one-proportion z-test."""
-        # Test cases
-        assert np.isclose(prop_test(0.7, 100, 0.5), 4.0, atol=0.1)
-        assert np.isclose(prop_test(0.2, 50, 0.3), -1.6, atol=0.1)
+        """Test one-proportion z-test (Clojure formula: 2*sqrt(n+1)*((succ+1)/(n+1) - 0.5))."""
+        # 70 successes out of 100
+        assert np.isclose(prop_test(70, 100),
+                          2 * math.sqrt(101) * (71/101 - 0.5), atol=0.01)
+        # 10 successes out of 50
+        assert np.isclose(prop_test(10, 50),
+                          2 * math.sqrt(51) * (11/51 - 0.5), atol=0.01)
 
-        # Edge cases
-        assert prop_test(0.5, 0, 0.5) == 0.0
-        assert prop_test(0.7, 100, 0.0) == 0.0
-        assert prop_test(0.7, 100, 1.0) == 0.0
+        # Edge case: n=0
+        assert prop_test(0, 0) == 0.0
 
     def test_two_prop_test(self):
         """Test two-proportion z-test."""
