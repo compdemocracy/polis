@@ -19,7 +19,7 @@ from typing import Dict, Any, Tuple
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
+from polismath.pca_kmeans_rep.repness import conv_repness
 from common_utils import create_test_conversation
 from polismath.regression import get_dataset_files
 from conftest import parse_dataset_blob_id
