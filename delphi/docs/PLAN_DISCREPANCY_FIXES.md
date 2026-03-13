@@ -19,7 +19,7 @@ This plan's "PR N" labels map to actual GitHub PRs as follows:
 | PR 1 (D2) | #2421 | Stack 8/10 | Fix D2: in-conv participant threshold + D2c vote count source |
 | PR 2 (D4) | #2435 | Stack 9/10 | Fix D4: pseudocount formula |
 | (perf) | #2436 | Stack 10/10 | Speed up regression tests |
-| PR 3 (D9) | — | — | *Next: Fix D9 z-score thresholds* |
+| PR 3 (D9) | #2446 | — | Fix D9: z-score thresholds (one-tailed) |
 
 Future fix PRs will be appended to the stack as they're created.
 
@@ -425,7 +425,7 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D6 | Two-proportion test | PR 5 | — | Fix |
 | D7 | Repness metric | PR 6 | — | Fix (with flag for old formula) |
 | D8 | Finalize cmt stats | PR 7 | — | Fix |
-| D9 | Z-score thresholds | PR 3 | — | Fix (next) |
+| D9 | Z-score thresholds | **PR 3** | **#2446** | **DONE** ✓ |
 | D10 | Rep comment selection | PR 8 | — | Fix (with legacy env var) |
 | D11 | Consensus selection | PR 9 | — | Fix (with legacy env var) |
 | D12 | Comment priorities | PR 11 | — | Fix (implement from scratch) |
@@ -443,7 +443,7 @@ By this point, we should have good test coverage from all the per-discrepancy te
 
 ## Tasks parallelization
 
-D9 is in progress. The remaining fixes have the following dependency structure:
+D9 is done (PR #2446). The remaining fixes have the following dependency structure:
 
 ### Repness chain dependency graph (all in `repness.py`)
 
