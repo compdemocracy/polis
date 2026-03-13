@@ -793,30 +793,62 @@ class TestD5ProportionTest:
 class TestD6TwoPropTest:
     """
     D6: Python uses standard two-proportion z-test without pseudocounts.
-        Clojure adds +1 pseudocount to all 4 inputs (succ1, n1, succ2, n2).
+        Clojure adds +1 pseudocount to all 4 inputs (stats.clj:18-33):
+        (map inc [succ-in succ-out pop-in pop-out])
+        pi1 = (succ-in+1)/(pop-in+1), pi2 = (succ-out+1)/(pop-out+1)
+        pi-hat = (succ-in+1 + succ-out+1) / (pop-in+1 + pop-out+1)
     """
 
-    def test_two_prop_test_with_pseudocounts(self):
-        """two_prop_test should add +1 pseudocounts matching Clojure."""
-        # With pseudocounts: (succ+1)/(n+2) for both groups
-        succ1, n1 = 10, 20
-        succ2, n2 = 15, 30
+    @staticmethod
+    def _clojure_two_prop_test(succ_in, succ_out, pop_in, pop_out):
+        """Reference implementation of Clojure's two-prop-test (stats.clj:18-33)."""
+        s1, s2, p1, p2 = succ_in + 1, succ_out + 1, pop_in + 1, pop_out + 1
+        pi1 = s1 / p1
+        pi2 = s2 / p2
+        pi_hat = (s1 + s2) / (p1 + p2)
+        if pi_hat == 1:
+            return 0.0
+        return (pi1 - pi2) / math.sqrt(pi_hat * (1 - pi_hat) * (1/p1 + 1/p2))
 
-        # Clojure formula adds +1 to successes and +2 to trials
-        p1_clj = (succ1 + 1) / (n1 + 2)
-        p2_clj = (succ2 + 1) / (n2 + 2)
-        p_pooled_clj = (succ1 + succ2 + 2) / (n1 + n2 + 4)
-        se_clj = math.sqrt(p_pooled_clj * (1 - p_pooled_clj) * (1 / (n1 + 2) + 1 / (n2 + 2)))
-        expected = (p1_clj - p2_clj) / se_clj if se_clj > 0 else 0.0
+    def test_two_prop_test_matches_clojure_formula(self):
+        """two_prop_test(succ_in, succ_out, pop_in, pop_out) should match Clojure."""
+        # Test cases: (succ_in, succ_out, pop_in, pop_out)
+        test_cases = [
+            (10, 15, 20, 30),     # typical case
+            (0, 0, 10, 10),       # no successes in either group
+            (5, 5, 10, 10),       # identical groups
+            (10, 0, 10, 10),      # all success in group, none outside
+            (1, 1, 1, 1),         # minimal counts
+            (50, 20, 100, 200),   # asymmetric sizes
+            (0, 10, 20, 30),      # no success in group, some outside
+        ]
 
-        # Python currently doesn't add pseudocounts
-        p1_py = succ1 / n1
-        p2_py = succ2 / n2
-        python_result = two_prop_test(p1_py, n1, p2_py, n2)
+        for succ_in, succ_out, pop_in, pop_out in test_cases:
+            expected = self._clojure_two_prop_test(succ_in, succ_out, pop_in, pop_out)
+            result = two_prop_test(succ_in, succ_out, pop_in, pop_out)
+            check.almost_equal(
+                result, expected, abs=0.001,
+                msg=f"two_prop_test({succ_in},{succ_out},{pop_in},{pop_out}): "
+                    f"got={result:.4f}, expected={expected:.4f}")
 
-        print(f"two_prop_test: Python={python_result:.4f}, Clojure(with pseudocounts)={expected:.4f}")
-        check.almost_equal(python_result, expected, abs=0.01,
-                            msg=f"two_prop_test should include pseudocounts: Python={python_result:.4f}, expected={expected:.4f}")
+    def test_two_prop_test_edge_cases(self):
+        """Edge cases: n=0 should return 0, pi_hat=1 should return 0."""
+        # n=0 cases
+        check.equal(two_prop_test(5, 5, 0, 10), 0.0)
+        check.equal(two_prop_test(5, 5, 10, 0), 0.0)
+        # Both zero
+        check.equal(two_prop_test(0, 0, 0, 0), 0.0)
+
+    def test_two_prop_test_pseudocount_effect(self):
+        """Pseudocounts should shrink z-scores toward zero for small samples."""
+        # With small n, the +1 pseudocount has a large effect
+        # succ=1, pop=1 → without pseudocount: p=1.0 (extreme)
+        # With pseudocount: (1+1)/(1+1) = 1.0, but denominator also shifts
+        result_small = two_prop_test(1, 0, 2, 2)
+        result_large = two_prop_test(100, 0, 200, 200)
+        # The large-sample z should be more extreme (less regularized)
+        check.greater(abs(result_large), abs(result_small),
+                      "Large samples should produce more extreme z-scores than small ones")
 
     @pytest.mark.xfail(reason="D6/D10: two-prop test differs + no shared comments to compare")
     def test_rat_values_match_clojure_blob(self, conv, clojure_blob, dataset_name):
