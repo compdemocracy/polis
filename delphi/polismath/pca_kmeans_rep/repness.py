@@ -60,29 +60,39 @@ def z_score_sig_95(z: float) -> bool:
     return z > Z_95
 
 
-def prop_test(p: float, n: int, p0: float) -> float:
+def prop_test(succ: int, n: int) -> float:
     """
-    One-proportion z-test.
-    
+    One-proportion z-test, matching Clojure's stats/prop-test (stats.clj:10-15).
+
+    Clojure formula:
+        (let [[succ n] (map inc [succ n])]
+          (* 2 (sqrt n) (+ (/ succ n) -0.5)))
+
+    Which simplifies to: 2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)
+
+    This is a Wilson-score-like test with built-in +1 pseudocount (Laplace
+    smoothing). Unlike the standard z-test ((p - p0) / sqrt(p0*(1-p0)/n)),
+    the +1 terms regularize extreme values for small samples, preventing
+    spurious significance in small Polis groups.
+
+    Note: the pseudocount here (+1 to succ and n, i.e. Beta(1,1)) is
+    independent of the PSEUDO_COUNT used for pa/pd computation (Beta(2,2)).
+    Clojure's prop-test takes raw success counts, not pre-smoothed
+    probabilities.
+
     Args:
-        p: Observed proportion
-        n: Number of observations
-        p0: Expected proportion under null hypothesis
-        
+        succ: Number of successes (e.g. agrees or disagrees)
+        n: Total number of trials (votes seen)
+
     Returns:
-        Z-score
+        Z-score (positive means succ/n > 0.5)
     """
-    if n == 0 or p0 == 0 or p0 == 1:
+    if n == 0:
         return 0.0
-    
-    # Calculate standard error
-    se = math.sqrt(p0 * (1 - p0) / n)
-    
-    # Z-score calculation
-    if se == 0:
-        return 0.0
-    else:
-        return (p - p0) / se
+    # Apply +1 pseudocount to both numerator and denominator
+    succ_pc = succ + 1
+    n_pc = n + 1
+    return 2 * math.sqrt(n_pc) * (succ_pc / n_pc - 0.5)
 
 
 def two_prop_test(p1: float, n1: int, p2: float, n2: int) -> float:
@@ -137,9 +147,10 @@ def comment_stats(votes: np.ndarray, group_members: List[int]) -> Dict[str, Any]
     p_agree = (n_agree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT) if n_votes > 0 else 0.5
     p_disagree = (n_disagree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT) if n_votes > 0 else 0.5
     
-    # Calculate significance tests
-    p_agree_test = prop_test(p_agree, n_votes, 0.5) if n_votes > 0 else 0.0
-    p_disagree_test = prop_test(p_disagree, n_votes, 0.5) if n_votes > 0 else 0.0
+    # Calculate significance tests — pass raw counts, matching Clojure's
+    # (stats/prop-test na ns) and (stats/prop-test nd ns) (repness.clj:74-75)
+    p_agree_test = prop_test(n_agree, n_votes) if n_votes > 0 else 0.0
+    p_disagree_test = prop_test(n_disagree, n_votes) if n_votes > 0 else 0.0
     
     # Return stats
     return {
@@ -457,23 +468,28 @@ def select_consensus_comments(all_stats: List[Dict[str, Any]]) -> List[Dict[str,
 # Vectorized DataFrame-native functions for multi-group operations
 # =============================================================================
 
-def prop_test_vectorized(p: pd.Series, n: pd.Series, p0: float = 0.5) -> pd.Series:
+def prop_test_vectorized(succ: pd.Series, n: pd.Series) -> pd.Series:
     """
-    Vectorized one-proportion z-test.
+    Vectorized one-proportion z-test, matching Clojure's stats/prop-test.
+
+    Formula: 2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)
+
+    See prop_test() docstring for derivation and rationale.
 
     Args:
-        p: Series of observed proportions
-        n: Series of number of observations
-        p0: Expected proportion under null hypothesis (default: 0.5)
+        succ: Series of success counts (e.g. agrees or disagrees)
+        n: Series of total trial counts (votes seen)
 
     Returns:
         Series of z-scores
     """
-    se = np.sqrt(p0 * (1 - p0) / n)
-    z = (p - p0) / se
-    # Handle edge cases: n=0, p0=0, p0=1 all result in 0
+    succ_pc = succ + 1
+    n_pc = n + 1
+    z = 2 * np.sqrt(n_pc) * (succ_pc / n_pc - 0.5)
+    # Handle n=0 edge case (n_pc=1, succ_pc=1 → z = 2*1*(1/1 - 0.5) = 1.0,
+    # but we want 0 for no-data rows)
+    z = z.where(n > 0, 0.0)
     z = z.fillna(0.0)
-    z = z.replace([np.inf, -np.inf], 0.0)
     return z
 
 
@@ -620,9 +636,10 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     stats_df.loc[other_zero_mask, 'other_pa'] = 0.5
     stats_df.loc[other_zero_mask, 'other_pd'] = 0.5
 
-    # Compute proportion tests (group vs 0.5)
-    stats_df['pat'] = prop_test_vectorized(stats_df['pa'], stats_df['ns'], 0.5)
-    stats_df['pdt'] = prop_test_vectorized(stats_df['pd'], stats_df['ns'], 0.5)
+    # Compute proportion tests — pass raw counts, matching Clojure's
+    # (stats/prop-test na ns) and (stats/prop-test nd ns) (repness.clj:74-75)
+    stats_df['pat'] = prop_test_vectorized(stats_df['na'], stats_df['ns'])
+    stats_df['pdt'] = prop_test_vectorized(stats_df['nd'], stats_df['ns'])
 
     # Compute representativeness ratios (group vs other)
     stats_df['ra'] = stats_df['pa'] / stats_df['other_pa']
