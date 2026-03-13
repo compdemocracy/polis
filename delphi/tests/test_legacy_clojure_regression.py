@@ -401,3 +401,74 @@ class TestClojureRegression:
 
         check.equal(len(mismatches), 0,
                    f"All comment priorities should match Clojure (got {len(mismatches)} mismatches out of {len(clojure_priorities)})")
+
+    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="D5/D6/D7/D10: z-values, metric, and selection logic differ")
+    def test_repness_matches_clojure(self, conversation_data):
+        """
+        Test that representative comment selection matches Clojure.
+
+        Compares selected comment sets and z-score values per group.
+        Requires D5 (prop test), D6 (two-prop test), D7 (metric),
+        and D10 (selection logic) to fully pass.
+        """
+        conv = conversation_data['conv']
+        clojure_output = conversation_data['clojure_output']
+        dataset_name = conversation_data['dataset_name']
+
+        print(f"\n[{dataset_name}] Testing repness matches Clojure...")
+
+        clj_repness = clojure_output.get('repness', {})
+        check.is_true(bool(clj_repness), "Clojure output should have repness")
+
+        py_repness = (conv.repness or {}).get('group_repness', {})
+        check.is_true(bool(py_repness), "Python should have group_repness")
+
+        if not clj_repness or not py_repness:
+            return
+
+        set_mismatches = []
+        value_mismatches = []
+
+        for gid_str, clj_entries in clj_repness.items():
+            gid = int(gid_str)
+
+            # Compare selected comment sets
+            clj_tids = set(e['tid'] for e in clj_entries)
+            py_entries = py_repness.get(gid, [])
+            py_tids = set(int(e['comment_id']) for e in py_entries)
+
+            if clj_tids != py_tids:
+                set_mismatches.append(
+                    f"  g{gid}: clj={sorted(clj_tids)}, py={sorted(py_tids)}")
+
+            # Compare z-values for shared comments
+            py_by_tid = {int(e['comment_id']): e for e in py_entries}
+            for clj_entry in clj_entries:
+                tid = clj_entry['tid']
+                py_entry = py_by_tid.get(tid)
+                if py_entry is None:
+                    continue
+
+                clj_pat = clj_entry.get('p-test', 0)
+                py_pat = py_entry.get('pat', 0)
+                clj_rat = clj_entry.get('repness-test', 0)
+                py_rat = py_entry.get('rat', 0)
+
+                if abs(clj_pat - py_pat) > 0.01 or abs(clj_rat - py_rat) > 0.01:
+                    value_mismatches.append(
+                        f"  g{gid}/t{tid}: pat clj={clj_pat:.4f} py={py_pat:.4f}, "
+                        f"rat clj={clj_rat:.4f} py={py_rat:.4f}")
+
+        if set_mismatches:
+            print(f"  Set mismatches ({len(set_mismatches)} groups):")
+            for m in set_mismatches[:10]:
+                print(m)
+        if value_mismatches:
+            print(f"  Value mismatches ({len(value_mismatches)} comments):")
+            for m in value_mismatches[:10]:
+                print(m)
+
+        check.equal(len(set_mismatches), 0,
+                   f"{len(set_mismatches)} groups differ in selected rep comments")
+        check.equal(len(value_mismatches), 0,
+                   f"{len(value_mismatches)} shared comments have z-value mismatches")
