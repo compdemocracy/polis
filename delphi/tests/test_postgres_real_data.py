@@ -517,6 +517,9 @@ def test_conversation_from_postgres():
     """
     Test processing a conversation with data from PostgreSQL.
     """
+    from tests.conftest import require_dynamodb
+    require_dynamodb()
+
     import time
     start_time = time.time()
     
