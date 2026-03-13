@@ -440,8 +440,58 @@ significance filtering. Using different priors is intentional.
 
 ### What's Next
 
-1. **PR 5 — Fix D6 (Two-proportion test)**: Add +1 pseudocount to all 4 inputs, change signature
-   from proportions to raw counts.
+1. **PR 6 — Fix D7 (Repness metric)**: Change formula from `pa * (|pat| + |rat|)` to
+   `ra * rat * pa * pat` (Clojure product formula).
+
+---
+
+## PR 5: Fix D6 — Two-Proportion Test Pseudocounts
+
+### TDD steps
+1. **Baseline**: 1 failed (pakistan-incremental D2, pre-existing), 102 passed, 5 skipped, 143 xfailed, 2 xpassed
+2. **Red**: Rewrote `TestD6TwoPropTest` with new signature `two_prop_test(succ_in, succ_out, pop_in, pop_out)`
+   and correct Clojure formula → 3 failures (TypeError: old function expects proportions)
+3. **Fix**: Replaced both `two_prop_test` and `two_prop_test_vectorized` with Clojure formula:
+   add +1 to all 4 inputs (stats.clj:20), compute `pi1=(s+1)/(p+1)`, standard pooled z-test
+4. **Green**: All 3 D6 formula tests pass, 4 blob comparison tests xfail (depend on D10)
+5. **Full suite**: 4 regression failures, all in `rat`/`rdt`/`agree_metric`/`disagree_metric` — direct
+   downstream of the formula change. No unexpected fields affected.
+6. **Re-recorded golden snapshots** for all 7 datasets (public + private)
+7. **Final**: 1 failed (pakistan-incremental D2, pre-existing), 102 passed, 5 skipped, 143 xfailed, 2 xpassed
+
+### Changes
+- `repness.py`: `two_prop_test(p1, n1, p2, n2)` → `two_prop_test(succ_in, succ_out, pop_in, pop_out)`
+  with +1 pseudocount on all 4 inputs, matching Clojure's `(map inc ...)` (stats.clj:20)
+- `repness.py`: `two_prop_test_vectorized` — same signature change
+- `repness.py`: Updated callers in `add_comparative_stats` and `compute_group_comment_stats_df`
+  to pass raw counts `(na, other_na, ns, other_ns)` instead of `(pa, ns, other_pa, other_ns)`
+- `test_discrepancy_fixes.py`: Rewrote `TestD6TwoPropTest` with correct formula, 7 test cases,
+  edge cases, and regularization effect test
+- `test_repness_unit.py`: Updated `test_two_prop_test`, `test_two_prop_test_vectorized`,
+  `test_two_prop_test_vectorized_edge_cases` for new signature
+- `test_old_format_repness.py`: Updated `test_two_prop_test` for new signature
+
+### Key insight: existing test had wrong expected formula
+The pre-existing D6 test computed expected values using `(succ+1)/(n+2)` — as if two pseudocounts
+were added to the denominator. But Clojure's `(map inc ...)` adds +1 to each value independently,
+giving `(succ+1)/(pop+1)`. The formula is a standard pooled z-test on the pseudocount-adjusted values,
+not a Beta distribution posterior.
+
+### Session 8 (2026-03-13)
+
+- Created branch `jc/clj-parity-d6-two-prop-test` on top of `jc/clj-parity-d5-prop-test`
+- Read Clojure source (stats.clj:18-33, repness.clj:97-100) to verify formula and call sites
+- Discovered the existing D6 test had wrong expected formula — fixed
+- TDD cycle: red (3 TypeError failures) → fix → green (3 pass, 4 xfail)
+- Updated all callers: both scalar (`add_comparative_stats`) and vectorized
+  (`compute_group_comment_stats_df`) now pass raw counts
+- Full suite: 4 regression failures, all in rat/rdt/metric fields (expected)
+- Re-recorded golden snapshots for all 7 datasets
+- Final validation: 102 passed, 1 pre-existing failure (pakistan-incremental D2)
+
+### What's Next
+
+1. **PR 6 — Fix D7 (Repness metric)**: Change from `pa * (|pat| + |rat|)` to `ra * rat * pa * pat`.
 
 ---
 

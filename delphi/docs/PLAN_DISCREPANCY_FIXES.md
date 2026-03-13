@@ -21,6 +21,7 @@ This plan's "PR N" labels map to actual GitHub PRs as follows:
 | (perf) | #2436 | Stack 10/10 | Speed up regression tests |
 | PR 3 (D9) | #2446 | — | Fix D9: z-score thresholds (one-tailed) |
 | PR 4 (D5) | — | — | Fix D5: proportion test formula |
+| PR 5 (D6) | — | — | Fix D6: two-proportion test pseudocounts |
 
 Future fix PRs will be appended to the stack as they're created.
 
@@ -427,7 +428,7 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D3 | K-smoother buffer | PR 10 | — | Fix |
 | D4 | Pseudocount formula | **PR 2** | **#2435** | **DONE** ✓ |
 | D5 | Proportion test | **PR 4** | — | **DONE** ✓ |
-| D6 | Two-proportion test | PR 5 | — | Fix |
+| D6 | Two-proportion test | **PR 5** | — | **DONE** ✓ |
 | D7 | Repness metric | PR 6 | — | Fix (with flag for old formula) |
 | D8 | Finalize cmt stats | PR 7 | — | Fix |
 | D9 | Z-score thresholds | **PR 3** | **#2446** | **DONE** ✓ |

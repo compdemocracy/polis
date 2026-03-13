@@ -56,14 +56,17 @@ class TestStatisticalFunctions:
         assert prop_test(0, 0) == 0.0
 
     def test_two_prop_test(self):
-        """Test two-proportion z-test."""
-        # Test cases
-        assert np.isclose(two_prop_test(0.7, 100, 0.5, 100), 2.9, atol=0.1)
-        assert np.isclose(two_prop_test(0.2, 50, 0.3, 50), -1.2, atol=0.1)
+        """Test two-proportion z-test with +1 pseudocounts (Clojure parity)."""
+        # two_prop_test(succ_in, succ_out, pop_in, pop_out) — raw counts
+        # After +1: pi1=71/101≈0.703, pi2=51/101≈0.505, z≈2.88
+        assert np.isclose(two_prop_test(70, 50, 100, 100), 2.88, atol=0.1)
 
-        # Edge cases
-        assert two_prop_test(0.5, 0, 0.5, 100) == 0.0
-        assert two_prop_test(0.5, 100, 0.5, 0) == 0.0
+        # Equal proportions → z ≈ 0
+        assert np.isclose(two_prop_test(25, 25, 50, 50), 0.0, atol=0.1)
+
+        # Edge cases: pop=0 → 0
+        assert two_prop_test(5, 5, 0, 100) == 0.0
+        assert two_prop_test(5, 5, 100, 0) == 0.0
 
 
 class TestCommentStats:
