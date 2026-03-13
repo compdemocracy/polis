@@ -49,6 +49,7 @@ Because this work will span multiple Claude Code sessions, we maintain:
 - **All datasets, not just biodiversity**: Every fix must pass on ALL datasets. biodiversity is just one reference among many.
 - **Synthetic edge-case tests**: Every time we discover an edge case specific to one conversation, extract it into a synthetic unit test with made-up data (never real data from private datasets). These run fast and document the intent clearly.
 - **E2E awareness**: GitHub Actions has Cypress E2E tests (`cypress-tests.yml`) testing UI workflows, and `python-ci.yml` running pytest regression. The Cypress tests don't test math output values directly, but `python-ci.yml` will break if clustering/repness changes. Formula-level fixes (D4, D5, D6, D7, D8, D9) are pure computation — no E2E risk. Selection logic changes (D10, D11) and priority computation (D12) could affect what the TypeScript server returns. We decide case-by-case which PRs need E2E verification.
+- **Remove dead code after replacement**: When a function is replaced by a new implementation (e.g. vectorized version), the old function must be deleted and all callers updated — not left as dead code. Do this in the same PR or a follow-up, after benchmarks and tests confirm the replacement works.
 
 ### Datasets Available (sorted by size, smallest first)
 

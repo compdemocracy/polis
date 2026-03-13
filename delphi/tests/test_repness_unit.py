@@ -18,10 +18,10 @@ from polismath.pca_kmeans_rep.repness import (
     comment_stats, add_comparative_stats, repness_metric, finalize_cmt_stats,
     passes_by_test, best_agree, best_disagree, select_rep_comments,
     calculate_kl_divergence, select_consensus_comments, conv_repness,
-    participant_stats,
     # DataFrame-native vectorized functions
     prop_test_vectorized, two_prop_test_vectorized, compute_group_comment_stats_df
 )
+from polismath.conversation.conversation import Conversation
 
 
 class TestStatisticalFunctions:
@@ -498,7 +498,7 @@ class TestIntegration:
         assert 'c3' in group2_rep_ids
     
     def test_participant_stats(self):
-        """Test participant statistics calculation."""
+        """Test participant statistics calculation via vectorized method."""
         # Create a test vote matrix
         vote_data = np.array([
             [1, 1, -1, None],  # Participant 1
@@ -506,36 +506,37 @@ class TestIntegration:
             [-1, -1, 1, -1],   # Participant 3
             [-1, -1, 1, 1]     # Participant 4
         ])
-        
+
         row_names = ['p1', 'p2', 'p3', 'p4']
         col_names = ['c1', 'c2', 'c3', 'c4']
-        
+
         vote_matrix = pd.DataFrame(vote_data, index=row_names, columns=col_names)
-        
-        # Create group clusters
+
+        # Create group clusters (vectorized method requires 'center' key)
         group_clusters = [
-            {'id': 1, 'members': ['p1', 'p2']},
-            {'id': 2, 'members': ['p3', 'p4']}
+            {'id': 1, 'members': ['p1', 'p2'], 'center': [0.0]},
+            {'id': 2, 'members': ['p3', 'p4'], 'center': [0.0]}
         ]
-        
-        # Calculate participant stats
-        ptpt_stats = participant_stats(vote_matrix, group_clusters)
-        
+
+        # Calculate participant stats using vectorized method
+        conv = Conversation("test")
+        ptpt_stats = conv._compute_participant_info_optimized(vote_matrix, group_clusters)
+
         # Check result structure
         assert 'participant_ids' in ptpt_stats
         assert 'stats' in ptpt_stats
-        
+
         # Check participant stats
         for ptpt_id in row_names:
             assert ptpt_id in ptpt_stats['stats']
             stats = ptpt_stats['stats'][ptpt_id]
-            
+
             assert 'n_agree' in stats
             assert 'n_disagree' in stats
             assert 'n_votes' in stats
             assert 'group' in stats
             assert 'group_correlations' in stats
-            
+
         # Check specific stats
         p1_stats = ptpt_stats['stats']['p1']
         assert p1_stats['n_agree'] == 2
