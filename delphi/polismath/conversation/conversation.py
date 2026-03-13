@@ -20,7 +20,7 @@ from polismath.pca_kmeans_rep.clusters import (
     kmeans_sklearn,
     calculate_silhouette_sklearn
 )
-from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
+from polismath.pca_kmeans_rep.repness import conv_repness
 from polismath.pca_kmeans_rep.corr import compute_correlation
 
 
