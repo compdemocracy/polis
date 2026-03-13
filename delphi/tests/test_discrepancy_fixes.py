@@ -38,6 +38,8 @@ from polismath.pca_kmeans_rep.repness import (
     PSEUDO_COUNT,
     Z_90,
     Z_95,
+    z_score_sig_90,
+    z_score_sig_95,
     prop_test,
     two_prop_test,
     repness_metric,
@@ -575,11 +577,11 @@ class TestD4Pseudocount:
 @pytest.mark.clojure_comparison
 class TestD9ZScoreThresholds:
     """
-    D9: Python uses two-tailed z-scores (Z_90=1.645, Z_95=1.96)
-        Clojure uses one-tailed z-scores (Z_90=1.2816, Z_95=1.6449)
+    D9: Z-score thresholds and semantics must match Clojure stats.clj:
+        (defn z-sig-90? [z-val] (> z-val 1.2816))
+        (defn z-sig-95? [z-val] (> z-val 1.6449))
 
-    Python's higher thresholds mean fewer comments pass significance,
-    leading to empty comment_repness.
+    Three aspects: correct values, strict > (not >=), one-tailed (no abs).
     """
 
     def test_z90_matches_clojure(self):
@@ -592,6 +594,20 @@ class TestD9ZScoreThresholds:
         check.almost_equal(Z_95, 1.6449, abs=0.001,
                             msg=f"Z_95 should be 1.6449 (one-tailed), got {Z_95}")
 
+    def test_z_sig_strict_greater_than(self):
+        """Clojure uses strict >, not >=. Boundary values must NOT pass."""
+        check.is_false(z_score_sig_90(Z_90),
+                       "z_score_sig_90(Z_90) should be False (strict >, not >=)")
+        check.is_false(z_score_sig_95(Z_95),
+                       "z_score_sig_95(Z_95) should be False (strict >, not >=)")
+
+    def test_z_sig_one_tailed(self):
+        """Clojure uses (> z-val threshold), no abs(). Negative values must NOT pass."""
+        check.is_false(z_score_sig_90(-2.0),
+                       "z_score_sig_90(-2.0) should be False (one-tailed, no abs)")
+        check.is_false(z_score_sig_95(-2.0),
+                       "z_score_sig_95(-2.0) should be False (one-tailed, no abs)")
+
     def test_repness_not_empty(self, conv, dataset_name):
         """Repness should produce non-empty comment_repness with correct thresholds."""
         repness = conv.repness
@@ -601,6 +617,104 @@ class TestD9ZScoreThresholds:
             if 'comment_repness' in repness:
                 check.greater(len(repness['comment_repness']), 0,
                               "comment_repness should not be empty")
+
+    @pytest.mark.xfail(reason="D5/D6: z-values differ → different significance decisions → different sets")
+    def test_significance_sets_match_clojure(self, conv, clojure_blob, dataset_name):
+        """Post-significance-filtering comment sets should match Clojure per group.
+
+        Both sides apply z-sig-90? to their z-values and select top comments.
+        With D9 the gate semantics match (>, no abs), but the z-values
+        themselves differ until D5 (prop test) and D6 (two-prop test) are fixed.
+        """
+        clojure_repness = clojure_blob.get('repness', {})
+        if not clojure_repness:
+            pytest.skip("No repness in Clojure blob")
+
+        python_repness = (conv.repness or {}).get('group_repness', {})
+
+        mismatches = []
+        for gid_str, clj_entries in clojure_repness.items():
+            gid = int(gid_str)
+            clj_tids = set(e['tid'] for e in clj_entries)
+            py_entries = python_repness.get(gid, [])
+            py_tids = set(int(e['comment_id']) for e in py_entries)
+
+            if clj_tids != py_tids:
+                only_clj = sorted(clj_tids - py_tids)
+                only_py = sorted(py_tids - clj_tids)
+                mismatches.append(f"  g{gid}: clj_only={only_clj}, py_only={only_py}")
+
+        if mismatches:
+            print(f"[{dataset_name}] {len(mismatches)} groups with different rep comment sets:")
+            for m in mismatches:
+                print(m)
+
+        check.equal(len(mismatches), 0,
+                    f"{len(mismatches)} groups differ in selected rep comments")
+
+    @pytest.mark.xfail(reason="D5/D6/D10: different z-values and selection → no shared comments to compare")
+    def test_z_values_match_clojure(self, conv, clojure_blob, dataset_name):
+        """Z-score values for shared rep comments should match Clojure.
+
+        For comments in BOTH Clojure and Python selections, compare:
+        - p-test (Clojure) vs pat (Python) — proportion test z-score
+        - repness-test (Clojure) vs rat (Python) — two-proportion test z-score
+
+        Requires D10 (same comment selection) so there ARE shared comments,
+        then D5/D6 so the values match.
+        """
+        clojure_repness = clojure_blob.get('repness', {})
+        if not clojure_repness:
+            pytest.skip("No repness in Clojure blob")
+
+        python_repness = (conv.repness or {}).get('group_repness', {})
+
+        shared_count = 0
+        pat_mismatches = []
+        rat_mismatches = []
+
+        for gid_str, clj_entries in clojure_repness.items():
+            gid = int(gid_str)
+            py_entries = python_repness.get(gid, [])
+            py_by_tid = {int(e['comment_id']): e for e in py_entries}
+
+            for clj_entry in clj_entries:
+                tid = clj_entry['tid']
+                py_entry = py_by_tid.get(tid)
+                if py_entry is None:
+                    continue
+
+                shared_count += 1
+
+                # Compare p-test vs pat (proportion test z-score)
+                clj_pat = clj_entry.get('p-test', 0)
+                py_pat = py_entry.get('pat', 0)
+                if abs(clj_pat - py_pat) > 0.01:
+                    pat_mismatches.append(
+                        f"  g{gid}/t{tid}: clj p-test={clj_pat:.4f}, py pat={py_pat:.4f}")
+
+                # Compare repness-test vs rat (two-proportion test z-score)
+                clj_rat = clj_entry.get('repness-test', 0)
+                py_rat = py_entry.get('rat', 0)
+                if abs(clj_rat - py_rat) > 0.01:
+                    rat_mismatches.append(
+                        f"  g{gid}/t{tid}: clj repness-test={clj_rat:.4f}, py rat={py_rat:.4f}")
+
+        if pat_mismatches:
+            print(f"[{dataset_name}] {len(pat_mismatches)} pat/p-test mismatches:")
+            for m in pat_mismatches[:10]:
+                print(m)
+        if rat_mismatches:
+            print(f"[{dataset_name}] {len(rat_mismatches)} rat/repness-test mismatches:")
+            for m in rat_mismatches[:10]:
+                print(m)
+
+        check.greater(shared_count, 0,
+                      "No shared comments to compare — selection sets are disjoint (D10)")
+        check.equal(len(pat_mismatches), 0,
+                    f"{len(pat_mismatches)} p-test/pat mismatches (D5)")
+        check.equal(len(rat_mismatches), 0,
+                    f"{len(rat_mismatches)} repness-test/rat mismatches (D6)")
 
 
 # ============================================================================
@@ -662,6 +776,40 @@ class TestD5ProportionTest:
         print(f"[{dataset_name}] pat consistency: {total - mismatches}/{total} match formula (max_diff={max_diff:.4f})")
         check.equal(mismatches, 0, f"Clojure p-test values don't match formula for {mismatches}/{total}")
 
+    @pytest.mark.xfail(reason="D5/D10: prop test formula differs + no shared comments")
+    def test_pat_values_match_clojure_blob(self, conv, clojure_blob, dataset_name):
+        """p-test (Clojure) vs pat (Python) for shared rep comments."""
+        clojure_repness = clojure_blob.get('repness', {})
+        if not clojure_repness:
+            pytest.skip("No repness in Clojure blob")
+
+        python_repness = (conv.repness or {}).get('group_repness', {})
+        shared_count = 0
+        mismatches = []
+
+        for gid_str, clj_entries in clojure_repness.items():
+            gid = int(gid_str)
+            py_by_tid = {int(e['comment_id']): e for e in python_repness.get(gid, [])}
+            for clj_entry in clj_entries:
+                tid = clj_entry['tid']
+                py_entry = py_by_tid.get(tid)
+                if py_entry is None:
+                    continue
+                shared_count += 1
+                clj_val = clj_entry.get('p-test', 0)
+                py_val = py_entry.get('pat', 0)
+                if abs(clj_val - py_val) > 0.01:
+                    mismatches.append(
+                        f"  g{gid}/t{tid}: clj={clj_val:.4f}, py={py_val:.4f}")
+
+        if mismatches:
+            print(f"[{dataset_name}] {len(mismatches)} p-test/pat mismatches:")
+            for m in mismatches[:10]:
+                print(m)
+        check.greater(shared_count, 0,
+                      "No shared comments to compare (D10)")
+        check.equal(len(mismatches), 0, f"{len(mismatches)} p-test/pat mismatches")
+
 
 # ============================================================================
 # D6 — Two-Proportion Test Adjustment
@@ -695,6 +843,44 @@ class TestD6TwoPropTest:
         print(f"two_prop_test: Python={python_result:.4f}, Clojure(with pseudocounts)={expected:.4f}")
         check.almost_equal(python_result, expected, abs=0.01,
                             msg=f"two_prop_test should include pseudocounts: Python={python_result:.4f}, expected={expected:.4f}")
+
+    @pytest.mark.xfail(reason="D6/D10: two-prop test differs + no shared comments to compare")
+    def test_rat_values_match_clojure_blob(self, conv, clojure_blob, dataset_name):
+        """repness-test (Clojure) vs rat (Python) for shared rep comments.
+
+        Unlike D5's pat test, rat (two-proportion test) needs group-vs-others
+        counts which aren't in the blob, so we compare for shared comments only.
+        """
+        clojure_repness = clojure_blob.get('repness', {})
+        if not clojure_repness:
+            pytest.skip("No repness in Clojure blob")
+
+        python_repness = (conv.repness or {}).get('group_repness', {})
+        shared_count = 0
+        mismatches = []
+
+        for gid_str, clj_entries in clojure_repness.items():
+            gid = int(gid_str)
+            py_by_tid = {int(e['comment_id']): e for e in python_repness.get(gid, [])}
+            for clj_entry in clj_entries:
+                tid = clj_entry['tid']
+                py_entry = py_by_tid.get(tid)
+                if py_entry is None:
+                    continue
+                shared_count += 1
+                clj_val = clj_entry.get('repness-test', 0)
+                py_val = py_entry.get('rat', 0)
+                if abs(clj_val - py_val) > 0.01:
+                    mismatches.append(
+                        f"  g{gid}/t{tid}: clj={clj_val:.4f}, py={py_val:.4f}")
+
+        if mismatches:
+            print(f"[{dataset_name}] {len(mismatches)} repness-test/rat mismatches:")
+            for m in mismatches[:10]:
+                print(m)
+        check.greater(shared_count, 0,
+                      "No shared comments to compare — selection sets are disjoint (D10)")
+        check.equal(len(mismatches), 0, f"{len(mismatches)} repness-test/rat mismatches")
 
 
 # ============================================================================
@@ -730,6 +916,40 @@ class TestD7RepnessMetric:
         check.almost_equal(result, expected_agree, abs=0.01,
                             msg=f"agree_metric should be ra*rat*pa*pat={expected_agree:.4f}, got {result:.4f}")
 
+    @pytest.mark.xfail(reason="D7/D10: metric formula differs + no shared comments")
+    def test_repness_metric_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
+        """repness (Clojure) vs agree/disagree_metric (Python) for shared comments."""
+        clojure_repness = clojure_blob.get('repness', {})
+        if not clojure_repness:
+            pytest.skip("No repness in Clojure blob")
+
+        python_repness = (conv.repness or {}).get('group_repness', {})
+        shared_count = 0
+        mismatches = []
+
+        for gid_str, clj_entries in clojure_repness.items():
+            gid = int(gid_str)
+            py_by_tid = {int(e['comment_id']): e for e in python_repness.get(gid, [])}
+            for clj_entry in clj_entries:
+                tid = clj_entry['tid']
+                py_entry = py_by_tid.get(tid)
+                if py_entry is None:
+                    continue
+                shared_count += 1
+                clj_val = clj_entry.get('repness', 0)
+                py_val = py_entry.get('agree_metric', 0) if py_entry.get('repful') == 'agree' else py_entry.get('disagree_metric', 0)
+                if abs(clj_val - py_val) > 0.01:
+                    mismatches.append(
+                        f"  g{gid}/t{tid}: clj={clj_val:.4f}, py={py_val:.4f}")
+
+        if mismatches:
+            print(f"[{dataset_name}] {len(mismatches)} repness metric mismatches:")
+            for m in mismatches[:10]:
+                print(m)
+        check.greater(shared_count, 0,
+                      "No shared comments to compare (D10)")
+        check.equal(len(mismatches), 0, f"{len(mismatches)} repness metric mismatches")
+
 
 # ============================================================================
 # D8 — Finalize Comment Stats Logic
@@ -762,6 +982,40 @@ class TestD8FinalizeStats:
         check.equal(result['repful'], 'disagree',
                      f"repful should be 'disagree' when rat < rdt, got '{result['repful']}'")
 
+    @pytest.mark.xfail(reason="D8/D10: repful logic differs + no shared comments")
+    def test_repful_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
+        """repful-for (Clojure) vs repful (Python) for shared rep comments."""
+        clojure_repness = clojure_blob.get('repness', {})
+        if not clojure_repness:
+            pytest.skip("No repness in Clojure blob")
+
+        python_repness = (conv.repness or {}).get('group_repness', {})
+        shared_count = 0
+        mismatches = []
+
+        for gid_str, clj_entries in clojure_repness.items():
+            gid = int(gid_str)
+            py_by_tid = {int(e['comment_id']): e for e in python_repness.get(gid, [])}
+            for clj_entry in clj_entries:
+                tid = clj_entry['tid']
+                py_entry = py_by_tid.get(tid)
+                if py_entry is None:
+                    continue
+                shared_count += 1
+                clj_val = clj_entry.get('repful-for', '')
+                py_val = py_entry.get('repful', '')
+                if clj_val != py_val:
+                    mismatches.append(
+                        f"  g{gid}/t{tid}: clj={clj_val}, py={py_val}")
+
+        if mismatches:
+            print(f"[{dataset_name}] {len(mismatches)} repful mismatches:")
+            for m in mismatches[:10]:
+                print(m)
+        check.greater(shared_count, 0,
+                      "No shared comments to compare (D10)")
+        check.equal(len(mismatches), 0, f"{len(mismatches)} repful-for/repful mismatches")
+
 
 # ============================================================================
 # D10 — Representative Comment Selection
@@ -792,7 +1046,7 @@ class TestD10RepCommentSelection:
             clj_tids = set(e['tid'] for e in clj_entries)
 
             py_entries = group_repness.get(gid, [])
-            py_tids = set(e.get('comment_id') for e in py_entries)
+            py_tids = set(int(e['comment_id']) for e in py_entries)
 
             total_groups += 1
             overlap = len(clj_tids & py_tids)
@@ -831,7 +1085,7 @@ class TestD11ConsensusSelection:
         clj_all = clj_agree_tids | clj_disagree_tids
 
         py_consensus = conv.repness.get('consensus_comments', []) if conv.repness else []
-        py_tids = set(c.get('comment_id') for c in py_consensus)
+        py_tids = set(int(c['comment_id']) for c in py_consensus)
 
         print(f"[{dataset_name}] Consensus: Clojure agree={sorted(clj_agree_tids)}, disagree={sorted(clj_disagree_tids)}")
         print(f"[{dataset_name}] Consensus: Python={sorted(py_tids)}")
