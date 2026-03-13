@@ -15,9 +15,11 @@ from scipy import stats
 from polismath.utils.general import AGREE, DISAGREE
 
 
-# Statistical constants
-Z_90 = 1.645  # Z-score for 90% confidence
-Z_95 = 1.96   # Z-score for 95% confidence
+# Statistical constants — one-tailed z-scores, matching Clojure (stats.clj)
+# and Python's own stats.py (z_sig_90, z_sig_95).
+# One-tailed: P(Z > z) = α, i.e. the entire rejection region is on one side.
+Z_90 = 1.2816  # Z-score for 90% confidence (one-tailed)
+Z_95 = 1.6449  # Z-score for 95% confidence (one-tailed)
 
 # Pseudocount for Bayesian smoothing (Beta prior)
 #

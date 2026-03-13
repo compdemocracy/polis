@@ -28,17 +28,19 @@ class TestStatisticalFunctions:
 
     def test_z_score_significance(self):
         """Test z-score significance checks."""
-        # 90% confidence
-        assert z_score_sig_90(1.645)
+        # 90% confidence (one-tailed: Z_90 = 1.2816)
+        assert z_score_sig_90(1.2816)
         assert z_score_sig_90(2.0)
-        assert z_score_sig_90(-1.645)
+        assert z_score_sig_90(-1.2816)
         assert not z_score_sig_90(1.0)
+        assert not z_score_sig_90(1.28)
 
-        # 95% confidence
-        assert z_score_sig_95(1.96)
+        # 95% confidence (one-tailed: Z_95 = 1.6449)
+        assert z_score_sig_95(1.6449)
         assert z_score_sig_95(2.5)
-        assert z_score_sig_95(-1.96)
+        assert z_score_sig_95(-1.6449)
         assert not z_score_sig_95(1.5)
+        assert not z_score_sig_95(1.64)
 
     def test_prop_test(self):
         """Test one-proportion z-test."""

@@ -582,13 +582,11 @@ class TestD9ZScoreThresholds:
     leading to empty comment_repness.
     """
 
-    @pytest.mark.xfail(reason="D9: Z_90=1.645 (two-tailed), target is 1.2816 (one-tailed)")
     def test_z90_matches_clojure(self):
         """Z_90 should be one-tailed (1.2816), not two-tailed (1.645)."""
         check.almost_equal(Z_90, 1.2816, abs=0.001,
                             msg=f"Z_90 should be 1.2816 (one-tailed), got {Z_90}")
 
-    @pytest.mark.xfail(reason="D9: Z_95=1.96 (two-tailed), target is 1.6449 (one-tailed)")
     def test_z95_matches_clojure(self):
         """Z_95 should be one-tailed (1.6449), not two-tailed (1.96)."""
         check.almost_equal(Z_95, 1.6449, abs=0.001,
@@ -930,7 +928,6 @@ class TestSyntheticEdgeCases:
         check.almost_equal(actual, expected, abs=1e-10,
                             msg=f"With PSEUDO_COUNT={PSEUDO_COUNT}: got {actual}, expected {expected}")
 
-    @pytest.mark.xfail(reason="D9: Z thresholds are two-tailed, target is one-tailed")
     def test_z_thresholds_are_one_tailed(self):
         """Z thresholds should be one-tailed: Z_90=1.2816, Z_95=1.6449."""
         check.almost_equal(Z_90, 1.2816, abs=0.001,
