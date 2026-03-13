@@ -441,6 +441,56 @@ By this point, we should have good test coverage from all the per-discrepancy te
 
 ---
 
+## Tasks parallelization
+
+D9 is in progress. The remaining fixes have the following dependency structure:
+
+### Repness chain dependency graph (all in `repness.py`)
+
+```
+D5 ─┬─→ D7 ─┐
+D6 ─┘    D8 ─┼─→ D10
+             │
+D5 ──────────┴─→ D11
+```
+
+- **D5, D6**: logically independent, but both modify `repness.py` (signature changes + caller updates in `compute_group_comment_stats_df`) — **must be sequential**
+- **D7**: after D5 + D6
+- **D8**: after D6
+- **D10**: after D7 + D8
+- **D11**: after D5 only (parallel with D7, D8, D10)
+
+All are in `repness.py`, strictly sequential within this track.
+
+### File-boundary analysis
+
+Every fix touches `test_discrepancy_fixes.py` (different test classes per fix — low conflict risk, but same file). The production code boundaries are:
+
+| File | Fixes that modify it |
+|------|---------------------|
+| `repness.py` | D5, D6, D7, D8, D10, D11 |
+| `conversation.py` | D3, D12, D15 |
+| `pca.py` | D12, D1/D1b |
+| `test_repness_unit.py` | D5, D6, D7, D8 |
+
+**Within each file group, fixes must be sequential** to avoid merge conflicts.
+
+### Practical parallel tracks (2 worktrees)
+
+| Track | Worktree | Fixes (sequential within) | Files |
+|-------|----------|--------------------------|-------|
+| **A — Repness formulas** | main worktree | D5 → D6 → D7 → D8 → D10 → D11 | `repness.py`, `test_repness_unit.py` |
+| **B — Conversation/PCA** | separate worktree | D3 → D15 → D12 | `conversation.py`, `pca.py` |
+| **C — Late** | (after A+B) | D1/D1b | `pca.py` (needs replay infra) |
+
+**Tracks A and B can run fully in parallel** using separate worktrees. Within each track, fixes are sequential (same files). Track B order is flexible — D3, D15, D12 touch different functions in `conversation.py`, so the order can be chosen for convenience. D12 is the largest (also touches `pca.py`), so putting it last gives D1/D1b a cleaner base.
+
+The shared `test_discrepancy_fixes.py` file will need a mechanical merge when tracks converge, but since each fix modifies a different test class (already scaffolded with xfail markers), conflicts should be trivial to resolve.
+
+**At convergence**: when both tracks are done, rebase Track B onto Track A (or vice versa). The only conflict will be in `test_discrepancy_fixes.py` — resolve by keeping both sets of test class changes.
+
+---
+
 ## Test Infrastructure
 
 ### `tests/test_discrepancy_fixes.py` — New test file
