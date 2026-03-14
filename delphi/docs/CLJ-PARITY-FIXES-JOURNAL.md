@@ -542,8 +542,53 @@ has no defensible behavior (doubly wrong disagree, weighted sum vs product). No 
 
 ### What's Next
 
-1. **PR 7 — Fix D8 (Finalize comment stats)**: Change repful classification from
-   `pa > 0.5 AND ra > 1.0` to `rat > rdt` (Clojure's simpler logic).
+1. **PR 8 — Fix D10 (Rep comment selection)**: Match Clojure's selection logic.
+
+---
+
+## PR 7: Fix D8 — Finalize Comment Stats Logic
+
+### TDD steps
+1. **Baseline**: 5 xfailed (D8 tests), 289 passed, 3 skipped, 60 xfailed (public)
+2. **Red**: Removed xfail from D8 formula tests, added 4 new edge case tests → 5 failures
+   (test_repful_uses_rat_vs_rdt, test_rat_greater_than_rdt_is_agree,
+   test_equal_rat_rdt_is_disagree, test_both_negative, test_both_zero)
+3. **Fix**: Replaced both scalar and vectorized repful classification:
+   - Old: `if pa > 0.5 and ra > 1.0 → 'agree'; elif pd > 0.5 and rd > 1.0 → 'disagree'; else: higher metric`
+   - New: `if rat > rdt → 'agree'; else → 'disagree'` (repness.clj:175-177)
+4. **Green**: All 5 D8 formula tests pass, 4 blob comparison tests xfail (D10 selection)
+5. **Full suite (public)**: 4 regression failures, all in `comment_repness[*].repness` — the
+   repness value changes direction when repful flips (ra↔rd). No other fields affected.
+6. **Re-recorded golden snapshots** for all 7 datasets (public + private)
+7. **Final (with --include-local)**: 19/19 regression tests pass, 3 pre-existing failures
+   (pakistan-incremental D2, bg2050/pakistan incremental PCA dimensions)
+
+### Changes
+- `repness.py`: `finalize_cmt_stats()` — replaced 3-branch threshold logic with `rat > rdt`
+- `repness.py`: Vectorized repful in `compute_group_comment_stats_df()` — replaced `np.select`
+  with `np.where(rat > rdt, 'agree', 'disagree')`
+- `test_discrepancy_fixes.py`: Expanded `TestD8FinalizeStats` from 2 to 7 tests (5 formula +
+  1 blob xfail + edge cases for equal/negative/zero rat/rdt)
+
+### Key insight: the old logic was unnecessarily complex
+Clojure simply compares `rat > rdt` — the two-proportion z-test scores already encode group
+significance. The old Python logic added redundant probability/ratio thresholds (`pa > 0.5`,
+`ra > 1.0`) with a metric-based fallback, but these gates are unnecessary given that rat/rdt
+already capture the relative group difference.
+
+### Session 10 (2026-03-14)
+
+- Created branch `jc/clj-parity-d8-finalize-stats` on top of `jc/clj-parity-d7-repness-metric`
+- Read Clojure source (repness.clj:170-185) to verify formula
+- TDD cycle: red (5 failures) → fix → green (5 pass, 4 xfail)
+- Verified regression diffs are all in `comment_repness[*].repness` — repful direction change
+- Re-recorded golden snapshots for all 7 datasets
+- Final validation: 19/19 regression tests pass
+
+### What's Next
+
+1. **PR 8 — Fix D10 (Rep comment selection)**: Match Clojure's single-pass selection with
+   beats-best-by-test, up to 5 total (agrees first).
 
 ---
 

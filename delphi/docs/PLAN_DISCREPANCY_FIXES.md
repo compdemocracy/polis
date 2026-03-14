@@ -430,7 +430,7 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D5 | Proportion test | **PR 4** | — | **DONE** ✓ |
 | D6 | Two-proportion test | **PR 5** | — | **DONE** ✓ |
 | D7 | Repness metric | PR 6 | — | **DONE** ✓ |
-| D8 | Finalize cmt stats | PR 7 | — | Fix |
+| D8 | Finalize cmt stats | PR 7 | — | **DONE** ✓ |
 | D9 | Z-score thresholds | **PR 3** | **#2446** | **DONE** ✓ |
 | D10 | Rep comment selection | PR 8 | — | Fix (with legacy env var) |
 | D11 | Consensus selection | PR 9 | — | Fix (with legacy env var) |
