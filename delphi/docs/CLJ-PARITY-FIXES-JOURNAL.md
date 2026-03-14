@@ -495,6 +495,58 @@ not a Beta distribution posterior.
 
 ---
 
+## PR 6: Fix D7 — Repness Metric Formula
+
+### TDD steps
+1. **Baseline**: 1 failed (pakistan-incremental D2, pre-existing), 102 passed, 5 skipped, 143 xfailed, 2 xpassed
+2. **Red**: Wrote 5 new D7 tests (agree product, disagree product, zero-kills-metric, sign preservation,
+   multiple known values) + updated unit tests in test_repness_unit.py and test_old_format_repness.py → 7 failures
+3. **Fix**: Changed both scalar `repness_metric()` and vectorized `compute_group_comment_stats_df()`:
+   - agree_metric: `pa * (|pat| + |rat|)` → `ra * rat * pa * pat`
+   - disagree_metric: `(1 - pd) * (|pdt| + |rdt|)` → `rd * rdt * pd * pdt`
+4. **Green**: All 5 D7 formula tests pass + 4 blob comparison xfailed (D10 selection differs)
+5. **Full suite (public)**: 4 regression failures, all in `repness.group_repness` fields (expected —
+   metric reranking changes which comments are selected)
+6. **Re-recorded golden snapshots** for all 7 datasets (public + private)
+7. **Final (with --include-local)**: 1 failed (pakistan-incremental D2, pre-existing), 98 passed,
+   5 skipped, 131 xfailed, 3 xpassed — 19/19 regression tests pass
+
+### Changes
+- `repness.py`: `repness_metric()` changed from `p_factor * (abs(p_test) + abs(r_test))` to
+  `r * r_test * p * p_test`. The old disagree formula was doubly wrong: used `(1-pd)` instead of
+  `pd`, and used a weighted sum instead of a product.
+- `repness.py`: Vectorized metric in `compute_group_comment_stats_df()` updated to match.
+- `test_discrepancy_fixes.py`: Expanded `TestD7RepnessMetric` from 2 to 6 tests (5 formula + 1 blob).
+- `test_repness_unit.py`, `test_old_format_repness.py`: Updated expected values to match product formula.
+
+### Key insight: the old disagree formula was doubly wrong
+Python's old disagree_metric used `(1 - pd) * (|pdt| + |rdt|)`. This was wrong in two ways:
+1. Used `(1 - pd)` instead of `pd` — Clojure uses `pd` directly as the probability factor
+2. Used a weighted sum of absolutes instead of a signed product
+
+The old formula could produce high disagree metrics for comments with low disagree probability
+(since `1 - pd` is high when `pd` is low), which is the opposite of the intended behavior.
+
+### Decision: no feature flag for old formula
+The plan suggested keeping the old formula behind a flag. After investigation, the old formula
+has no defensible behavior (doubly wrong disagree, weighted sum vs product). No flag needed.
+
+### Session 9 (2026-03-13)
+
+- Created branch `jc/clj-parity-d7-repness-metric` on top of `jc/clj-parity-d6-two-prop-test`
+- Read Clojure source (repness.clj:188-190, finalize-cmt-stats:170-185) to verify formula
+- TDD cycle: red (7 failures across 3 test files) → fix → green (all pass)
+- Verified regression diffs are all in `repness.group_repness` — no non-repness changes
+- Re-recorded golden snapshots for all 7 datasets
+- Final validation: 19/19 regression tests pass, 1 pre-existing failure (pakistan-incremental D2)
+
+### What's Next
+
+1. **PR 7 — Fix D8 (Finalize comment stats)**: Change repful classification from
+   `pa > 0.5 AND ra > 1.0` to `rat > rdt` (Clojure's simpler logic).
+
+---
+
 ## TDD Discipline
 
 **CRITICAL: For every fix, ALWAYS follow this order:**
