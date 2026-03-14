@@ -934,30 +934,93 @@ class TestD7RepnessMetric:
     D7: Python uses pa * (|pat| + |rat|) — weighted sum of absolutes
         Clojure uses ra * rat * pa * pat — product of signed values
 
-    The Clojure product formula is more conservative: any factor near 0
-    kills the whole metric.
+    Clojure's repness-metric (repness.clj:188-190):
+        (* repness repness-test p-success p-test)
+    For agree:   ra * rat * pa * pat
+    For disagree: rd * rdt * pd * pdt
+
+    The product formula is more conservative: any factor near 0 kills
+    the whole metric, requiring ALL dimensions to be strong.
     """
 
-    @pytest.mark.xfail(reason="D7: Python uses pa*(|pat|+|rat|), target is ra*rat*pa*pat")
-    def test_metric_formula_is_product(self):
-        """repness_metric should use product formula (ra * rat * pa * pat)."""
+    def test_agree_metric_is_product(self):
+        """agree_metric should be ra * rat * pa * pat."""
         stats = {
             'pa': 0.8, 'pat': 2.5, 'ra': 1.3, 'rat': 1.8,
             'pd': 0.2, 'pdt': -1.5, 'rd': 0.7, 'rdt': -0.9,
         }
-
-        # Clojure formula for agree: ra * rat * pa * pat
-        expected_agree = stats['ra'] * stats['rat'] * stats['pa'] * stats['pat']
-        # Current Python formula: pa * (|pat| + |rat|)
-        current_python = stats['pa'] * (abs(stats['pat']) + abs(stats['rat']))
-
+        expected = stats['ra'] * stats['rat'] * stats['pa'] * stats['pat']
         result = repness_metric(stats, 'a')
-        print(f"agree_metric: current={result:.4f}, expected(Clojure)={expected_agree:.4f}, current_formula={current_python:.4f}")
+        check.almost_equal(result, expected, abs=0.001,
+                           msg=f"agree_metric should be ra*rat*pa*pat={expected:.4f}, got {result:.4f}")
 
-        check.almost_equal(result, expected_agree, abs=0.01,
-                            msg=f"agree_metric should be ra*rat*pa*pat={expected_agree:.4f}, got {result:.4f}")
+    def test_disagree_metric_is_product(self):
+        """disagree_metric should be rd * rdt * pd * pdt."""
+        stats = {
+            'pa': 0.3, 'pat': 0.5, 'ra': 0.8, 'rat': 0.3,
+            'pd': 0.7, 'pdt': 2.0, 'rd': 1.5, 'rdt': 1.8,
+        }
+        # Clojure: rd * rdt * pd * pdt
+        expected = stats['rd'] * stats['rdt'] * stats['pd'] * stats['pdt']
+        result = repness_metric(stats, 'd')
+        check.almost_equal(result, expected, abs=0.001,
+                           msg=f"disagree_metric should be rd*rdt*pd*pdt={expected:.4f}, got {result:.4f}")
 
-    @pytest.mark.xfail(reason="D7/D10: metric formula differs + no shared comments")
+    def test_metric_zero_when_any_factor_zero(self):
+        """Product formula returns 0 when any factor is 0 (conservative)."""
+        base = {'pa': 0.8, 'pat': 2.5, 'ra': 1.3, 'rat': 1.8,
+                'pd': 0.7, 'pdt': 2.0, 'rd': 1.5, 'rdt': 1.8}
+
+        # Zero out each factor one at a time — metric should be 0
+        for key in ['pa', 'pat', 'ra', 'rat']:
+            stats = dict(base)
+            stats[key] = 0.0
+            result = repness_metric(stats, 'a')
+            check.almost_equal(result, 0.0, abs=0.001,
+                               msg=f"agree_metric should be 0 when {key}=0, got {result}")
+
+        for key in ['pd', 'pdt', 'rd', 'rdt']:
+            stats = dict(base)
+            stats[key] = 0.0
+            result = repness_metric(stats, 'd')
+            check.almost_equal(result, 0.0, abs=0.001,
+                               msg=f"disagree_metric should be 0 when {key}=0, got {result}")
+
+    def test_metric_preserves_sign(self):
+        """Product of signed values preserves sign — negative rat or pat makes metric negative."""
+        # All positive → positive metric
+        stats_pos = {'pa': 0.8, 'pat': 2.0, 'ra': 1.5, 'rat': 1.2,
+                     'pd': 0.6, 'pdt': 1.5, 'rd': 1.3, 'rdt': 1.1}
+        check.greater(repness_metric(stats_pos, 'a'), 0)
+        check.greater(repness_metric(stats_pos, 'd'), 0)
+
+        # Negative rat → negative agree metric (group is LESS representative)
+        stats_neg_rat = dict(stats_pos)
+        stats_neg_rat['rat'] = -1.2
+        check.less(repness_metric(stats_neg_rat, 'a'), 0)
+
+        # Negative rdt → negative disagree metric
+        stats_neg_rdt = dict(stats_pos)
+        stats_neg_rdt['rdt'] = -1.1
+        check.less(repness_metric(stats_neg_rdt, 'd'), 0)
+
+    def test_metric_multiple_known_values(self):
+        """Verify product formula against multiple hand-computed values."""
+        cases = [
+            # (pa, pat, ra, rat) → expected agree metric
+            (0.5, 1.0, 1.0, 1.0, 0.5),    # all ones except pa
+            (1.0, 1.0, 1.0, 1.0, 1.0),     # all ones
+            (0.6, 2.0, 1.5, 1.8, 0.6*2.0*1.5*1.8),
+            (0.9, 3.0, 2.0, 2.5, 0.9*3.0*2.0*2.5),
+        ]
+        for pa, pat, ra, rat, expected in cases:
+            stats = {'pa': pa, 'pat': pat, 'ra': ra, 'rat': rat,
+                     'pd': 0.1, 'pdt': 0.1, 'rd': 0.1, 'rdt': 0.1}
+            result = repness_metric(stats, 'a')
+            check.almost_equal(result, expected, abs=0.001,
+                               msg=f"pa={pa},pat={pat},ra={ra},rat={rat}: expected {expected:.4f}, got {result:.4f}")
+
+    @pytest.mark.xfail(reason="D7/D10: metric formula differs + selection differs (no shared comments)")
     def test_repness_metric_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
         """repness (Clojure) vs agree/disagree_metric (Python) for shared comments."""
         clojure_repness = clojure_blob.get('repness', {})

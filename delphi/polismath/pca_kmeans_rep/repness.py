@@ -219,25 +219,31 @@ def add_comparative_stats(comment_stats: Dict[str, Any],
 def repness_metric(stats: Dict[str, Any], key_prefix: str) -> float:
     """
     Calculate a representativeness metric for ranking.
-    
+
+    Matches Clojure's repness-metric (repness.clj:188-190):
+        (* repness repness-test p-success p-test)
+
+    This is a product of four signed values:
+        For agree:   ra * rat * pa * pat
+        For disagree: rd * rdt * pd * pdt
+
+    The product formula is conservative: any factor near zero kills the
+    entire metric, requiring ALL dimensions (probability, significance,
+    relative representativeness) to be strong simultaneously.
+
     Args:
         stats: Statistics for a comment/group
         key_prefix: 'a' for agreement, 'd' for disagreement
-        
+
     Returns:
-        Composite representativeness score
+        Composite representativeness score (signed)
     """
-    # Get the relevant probability and test values
     p = stats[f'p{key_prefix}']
     p_test = stats[f'p{key_prefix}t']
     r = stats[f'r{key_prefix}']
     r_test = stats[f'r{key_prefix}t']
-    
-    # Take probability into account
-    p_factor = p if key_prefix == 'a' else (1 - p)
-    
-    # Calculate composite score
-    return p_factor * (abs(p_test) + abs(r_test))
+
+    return r * r_test * p * p_test
 
 
 def finalize_cmt_stats(stats: Dict[str, Any]) -> Dict[str, Any]:
@@ -689,11 +695,11 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
         stats_df['ns'], stats_df['other_votes']
     )
 
-    # Compute metrics
-    # agree_metric = pa * (|pat| + |rat|)
-    # disagree_metric = (1 - pd) * (|pdt| + |rdt|)
-    stats_df['agree_metric'] = stats_df['pa'] * (stats_df['pat'].abs() + stats_df['rat'].abs())
-    stats_df['disagree_metric'] = (1 - stats_df['pd']) * (stats_df['pdt'].abs() + stats_df['rdt'].abs())
+    # Compute metrics — Clojure product formula (repness.clj:188-190):
+    # agree_metric = ra * rat * pa * pat
+    # disagree_metric = rd * rdt * pd * pdt
+    stats_df['agree_metric'] = stats_df['ra'] * stats_df['rat'] * stats_df['pa'] * stats_df['pat']
+    stats_df['disagree_metric'] = stats_df['rd'] * stats_df['rdt'] * stats_df['pd'] * stats_df['pdt']
 
     # Determine repful ('agree' or 'disagree')
     # Logic: if pa > 0.5 and ra > 1.0 -> 'agree'
