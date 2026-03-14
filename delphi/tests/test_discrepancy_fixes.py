@@ -1063,14 +1063,13 @@ class TestD7RepnessMetric:
 class TestD8FinalizeStats:
     """
     D8: Python uses if pa > 0.5 AND ra > 1.0 → 'agree'; elif pd > 0.5 AND rd > 1.0 → 'disagree'
-        Clojure uses simple rat > rdt → 'agree'; else → 'disagree'
+        Clojure uses simple rat > rdt → 'agree'; else → 'disagree' (repness.clj:175-177)
     """
 
-    @pytest.mark.xfail(reason="D8: Python uses pa/ra thresholds, target is rat>rdt comparison")
     def test_repful_uses_rat_vs_rdt(self):
         """repful classification should use rat > rdt (Clojure logic)."""
-        # Case where Python and Clojure disagree:
-        # pa > 0.5 and ra > 1.0 → Python says 'agree'
+        # Case where Python's old logic and Clojure disagree:
+        # pa > 0.5 and ra > 1.0 → old Python says 'agree'
         # but rat < rdt → Clojure says 'disagree'
         stats = {
             'pa': 0.6, 'pat': 1.0, 'ra': 1.2, 'rat': 0.5,
@@ -1082,11 +1081,48 @@ class TestD8FinalizeStats:
         result = finalize_cmt_stats(stats)
 
         # Clojure: rat (0.5) < rdt (1.5) → 'disagree'
-        # Python: pa (0.6) > 0.5 and ra (1.2) > 1.0 → 'agree'
         check.equal(result['repful'], 'disagree',
                      f"repful should be 'disagree' when rat < rdt, got '{result['repful']}'")
 
-    @pytest.mark.xfail(reason="D8/D10: repful logic differs + no shared comments")
+    def test_repful_rat_greater_than_rdt_is_agree(self):
+        """When rat > rdt, repful should be 'agree'."""
+        stats = {
+            'pa': 0.3, 'pat': 0.5, 'ra': 0.5, 'rat': 2.0,
+            'pd': 0.7, 'pdt': 1.5, 'rd': 1.5, 'rdt': 1.0,
+        }
+        result = finalize_cmt_stats(stats)
+        check.equal(result['repful'], 'agree')
+
+    def test_repful_equal_rat_rdt_is_disagree(self):
+        """When rat == rdt, Clojure's (> rat rdt) is false → 'disagree'."""
+        stats = {
+            'pa': 0.6, 'pat': 1.0, 'ra': 1.2, 'rat': 1.5,
+            'pd': 0.4, 'pdt': 0.8, 'rd': 0.9, 'rdt': 1.5,
+        }
+        result = finalize_cmt_stats(stats)
+        check.equal(result['repful'], 'disagree',
+                     "Equal rat/rdt should yield 'disagree' (Clojure uses strict >)")
+
+    def test_repful_both_negative(self):
+        """When both rat and rdt are negative, less-negative wins."""
+        stats = {
+            'pa': 0.4, 'pat': -0.5, 'ra': 0.8, 'rat': -0.5,
+            'pd': 0.6, 'pdt': -1.0, 'rd': 1.1, 'rdt': -2.0,
+        }
+        result = finalize_cmt_stats(stats)
+        # rat (-0.5) > rdt (-2.0) → 'agree'
+        check.equal(result['repful'], 'agree')
+
+    def test_repful_both_zero(self):
+        """When both rat and rdt are zero, 0 > 0 is false → 'disagree'."""
+        stats = {
+            'pa': 0.5, 'pat': 0.0, 'ra': 1.0, 'rat': 0.0,
+            'pd': 0.5, 'pdt': 0.0, 'rd': 1.0, 'rdt': 0.0,
+        }
+        result = finalize_cmt_stats(stats)
+        check.equal(result['repful'], 'disagree')
+
+    @pytest.mark.xfail(reason="D10: selection logic differs, may have no shared comments")
     def test_repful_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
         """repful-for (Clojure) vs repful (Python) for shared rep comments."""
         clojure_repness = clojure_blob.get('repness', {})

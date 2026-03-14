@@ -261,20 +261,13 @@ def finalize_cmt_stats(stats: Dict[str, Any]) -> Dict[str, Any]:
     # Calculate agree and disagree metrics
     result['agree_metric'] = repness_metric(stats, 'a')
     result['disagree_metric'] = repness_metric(stats, 'd')
-    
-    # Determine whether agree or disagree is more representative
-    if result['pa'] > 0.5 and result['ra'] > 1.0:
-        # More agree than disagree, and more than other groups
+
+    # Determine whether agree or disagree is more representative.
+    # Clojure (repness.clj:175-177): simple (if (> rat rdt) :agree :disagree)
+    if stats['rat'] > stats['rdt']:
         result['repful'] = 'agree'
-    elif result['pd'] > 0.5 and result['rd'] > 1.0:
-        # More disagree than agree, and more than other groups
-        result['repful'] = 'disagree'
     else:
-        # Use the higher metric
-        if result['agree_metric'] >= result['disagree_metric']:
-            result['repful'] = 'agree'
-        else:
-            result['repful'] = 'disagree'
+        result['repful'] = 'disagree'
     
     return result
 
@@ -702,17 +695,8 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     stats_df['disagree_metric'] = stats_df['rd'] * stats_df['rdt'] * stats_df['pd'] * stats_df['pdt']
 
     # Determine repful ('agree' or 'disagree')
-    # Logic: if pa > 0.5 and ra > 1.0 -> 'agree'
-    #        elif pd > 0.5 and rd > 1.0 -> 'disagree'
-    #        else: use higher metric
-    conditions = [
-        (stats_df['pa'] > 0.5) & (stats_df['ra'] > 1.0),
-        (stats_df['pd'] > 0.5) & (stats_df['rd'] > 1.0),
-    ]
-    choices = ['agree', 'disagree']
-    stats_df['repful'] = np.select(conditions, choices,
-                                   default=np.where(stats_df['agree_metric'] >= stats_df['disagree_metric'],
-                                                    'agree', 'disagree'))
+    # Clojure (repness.clj:175-177): simple (if (> rat rdt) :agree :disagree)
+    stats_df['repful'] = np.where(stats_df['rat'] > stats_df['rdt'], 'agree', 'disagree')
 
     return stats_df
 
