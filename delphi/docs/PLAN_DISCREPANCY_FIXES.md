@@ -47,6 +47,9 @@ Because this work will span multiple Claude Code sessions, we maintain:
 ### Testing Principles
 
 - **Granular tests per discrepancy**: Not just overall regression — each fix gets its own targeted test checking the specific aspect it addresses. Multiple discrepancies may affect `test_basic_outputs`; we need to see incremental improvement per fix.
+- **Clojure blob comparison is MANDATORY**: Every fix PR must include tests that compare Python output to actual Clojure math blob values — not just formula re-implementation tests (which are tautological: they only verify our code matches our reading of the Clojure, not that it matches Clojure's actual output). The Clojure blob is the ground truth oracle.
+- **Stage isolation via blob injection**: Since upstream stages (PCA, clustering) may not match between Python and Clojure, tests must inject Clojure blob values as inputs to the stage being tested, then compare outputs. For example: to test `prop_test` (D5), extract `n-success` and `n-trials` from the Clojure blob's `repness` entries, feed them to Python's `prop_test()`, and compare the result to the blob's `p-test`. This isolates each stage from upstream divergence.
+- **Blob fields available for injection/comparison**: The Clojure cold-start blob provides per-group repness entries with: `n-success` (=na), `n-trials` (=ns), `p-success` (=pa), `p-test` (=pat), `repness` (=ra), `repness-test` (=rat), `repful-for`, `best-agree`, `tid`. Also: `group-clusters` (memberships), `group-votes` (per-group vote counts), `consensus` (selected consensus comments), `comment-priorities` (per-tid priority values), `in-conv` (participant list).
 - **Targeted pipeline-stage tests**: For D2/D3 (participant filtering, clustering), check in-conv count, cluster count, and cluster memberships against Clojure blob. For D12, check comment-priorities against Clojure blob.
 - **All datasets, not just biodiversity**: Every fix must pass on ALL datasets. biodiversity is just one reference among many.
 - **Synthetic edge-case tests**: Every time we discover an edge case specific to one conversation, extract it into a synthetic unit test with made-up data (never real data from private datasets). These run fast and document the intent clearly.
@@ -441,6 +444,38 @@ By this point, we should have good test coverage from all the per-discrepancy te
 
 ---
 
+### Investigation: Cold-Start K Divergence (after D15, before D12)
+
+**Prerequisite**: All cold-start-relevant upstream fixes complete: D2/D2c/D2b (in-conv,
+vote counts, sort order), D15 (moderation handling). Note: D1 (PCA sign flips) only
+affects incremental updates — on cold start there are no previous components to align to.
+
+After D15, the rating matrix construction, in-conv filtering, and PCA inputs should all
+match Clojure. Both implementations use silhouette for k-selection. Yet on vw, Python
+selects k=4 while Clojure selects k=2.
+
+**Investigation steps**:
+
+1. **PCA component comparison**: Feed the same rating matrix to both sklearn TruncatedSVD
+   and a Python reimplementation of Clojure's power iteration. Quantify divergence
+   (cosine similarity per component, Frobenius norm).
+2. **Projection comparison**: Inject Clojure blob's PCA components into Python's
+   clustering path. Does k now match?
+3. **Base-cluster comparison**: Given the same projections, compare k-means centroids
+   and member assignments. Check initialization (Clojure uses first-k-distinct centers
+   from base clusters — does Python match?).
+4. **Silhouette score comparison**: Given the same base clusters, compare per-k
+   silhouette scores. Are the scores close but the winner differs?
+5. **All datasets**: Run on all datasets with cold-start blobs, not just vw.
+
+**Outcome**: Either (a) identify a fixable discrepancy that makes k match, or
+(b) document the inherent numerical divergence between sklearn SVD and Clojure
+power iteration, and establish tolerance bounds for k agreement in tests.
+
+See `delphi/docs/HANDOFF_K_DIVERGENCE_INVESTIGATION.md` for detailed context.
+
+---
+
 ### Explicitly Deferred
 
 - **D13 — Subgroup Clustering**: Not implemented in Python, never used by TypeScript consumers. No fix needed.
@@ -470,14 +505,15 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D5 | Proportion test | **PR 4** | — | **DONE** ✓ |
 | D6 | Two-proportion test | **PR 5** | — | **DONE** ✓ |
 | D7 | Repness metric | PR 6 | — | **DONE** ✓ |
-| D8 | Finalize cmt stats | PR 7 | — | Fix |
+| D8 | Finalize cmt stats | PR 7 | — | **DONE** ✓ |
 | D9 | Z-score thresholds | **PR 3** | **#2446** | **DONE** ✓ |
 | D10 | Rep comment selection | PR 8 | — | Fix (with legacy env var) |
 | D11 | Consensus selection | PR 9 | — | Fix (with legacy env var) |
 | D12 | Comment priorities | PR 11 | — | Fix (implement from scratch) |
 | D13 | Subgroup clustering | — | — | **Deferred** (unused) |
 | D14 | Large conv optimization | — | — | **Deferred** (Python fast enough) |
-| D15 | Moderation handling | PR 12 | — | Fix |
+| D15 | Moderation handling | PR 12 | — | **DONE** ✓ |
+| K-inv | Cold-start k divergence | (investigation) | — | Branch off D15 (D2+D15 done, clustering independent of repness) |
 | Replay | Replay infrastructure (A/B/C) | — | — | NOT BUILT — D3/D1 used synthetic tests only. Needed for incremental blob comparison. |
 
 ### Non-discrepancy PRs in the stack

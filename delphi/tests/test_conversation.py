@@ -408,10 +408,13 @@ class TestConversation:
         assert 'c2' in moderated_conv.mod_out_tids
         assert 'p3' in moderated_conv.mod_out_ptpts
         
-        # Check filtered rating matrix
-        assert 'c2' not in moderated_conv.rating_mat.columns
-        assert 'p3' not in moderated_conv.rating_mat.index
-        
+        # Check filtered rating matrix:
+        # - Moderated-out comments are ZEROED, not removed (D15 fix)
+        # - Moderated-out participants are still removed (rows dropped)
+        assert 'c2' in moderated_conv.rating_mat.columns  # column kept
+        assert (moderated_conv.rating_mat['c2'] == 0.0).all()  # but zeroed
+        assert 'p3' not in moderated_conv.rating_mat.index  # participant removed
+
         # Raw matrix should still have all data
         assert 'c2' in moderated_conv.raw_rating_mat.columns
         assert 'p3' in moderated_conv.raw_rating_mat.index
@@ -605,9 +608,10 @@ class TestConversationManager:
         
         conv = manager.update_moderation('test_conv', moderation)
         
-        # Check moderation was applied
+        # Check moderation was applied: column kept but zeroed (D15 fix)
         assert 'c2' in conv.mod_out_tids
-        assert 'c2' not in conv.rating_mat.columns
+        assert 'c2' in conv.rating_mat.columns
+        assert (conv.rating_mat['c2'] == 0.0).all()
     
     # Suppress sklearn PCA warning: test uses minimal data (2 participants, 2 comments)
     # which can have zero variance. The test validates that recompute runs, not PCA quality.
