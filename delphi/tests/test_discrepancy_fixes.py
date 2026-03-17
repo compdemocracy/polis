@@ -1233,3 +1233,94 @@ class TestD5BlobInjection:
         assert not mismatches, (
             f"[{dataset_name}] {len(mismatches)}/{total} p-test mismatches:\n"
             + "\n".join(mismatches[:10]))
+
+
+@pytest.mark.clojure_comparison
+class TestD6BlobInjection:
+    """D6: Verify two_prop_test against real Clojure blob repness-test values.
+
+    For each repness entry, reconstruct the two_prop_test inputs from
+    group-votes (group counts vs total-minus-group), compare to blob's
+    repness-test.
+    """
+
+    def test_two_prop_test_matches_blob_repness_test(self, clojure_blob, dataset_name):
+        """two_prop_test should match blob's repness-test for every repness entry."""
+        repness = clojure_blob.get('repness', {})
+        group_votes = clojure_blob.get('group-votes', {})
+        if not repness or not group_votes:
+            pytest.skip(f"No repness or group-votes in blob for {dataset_name}")
+
+        # Precompute total votes across ALL groups for each comment
+        all_group_votes = {}
+        for other_gid, other_gv_data in group_votes.items():
+            for tid_str, counts in other_gv_data.get('votes', {}).items():
+                if tid_str not in all_group_votes:
+                    all_group_votes[tid_str] = {'A': 0, 'D': 0, 'S': 0}
+                all_group_votes[tid_str]['A'] += counts['A']
+                all_group_votes[tid_str]['D'] += counts['D']
+                all_group_votes[tid_str]['S'] += counts['S']
+
+        mismatches = []
+        total = 0
+        for gid, entries in repness.items():
+            gv = group_votes.get(gid, {}).get('votes', {})
+            for entry in entries:
+                tid_str = str(entry['tid'])
+                repful = entry['repful-for']
+                expected_rt = entry['repness-test']
+
+                group_cv = gv.get(tid_str, {'A': 0, 'D': 0, 'S': 0})
+                total_cv = all_group_votes.get(tid_str, {'A': 0, 'D': 0, 'S': 0})
+
+                if repful == 'agree':
+                    succ_in = group_cv['A']
+                    succ_out = total_cv['A'] - group_cv['A']
+                else:
+                    succ_in = group_cv['D']
+                    succ_out = total_cv['D'] - group_cv['D']
+
+                pop_in = group_cv['S']
+                pop_out = total_cv['S'] - group_cv['S']
+
+                actual = two_prop_test(succ_in, succ_out, pop_in, pop_out)
+                total += 1
+                if abs(actual - expected_rt) > 1e-4:
+                    mismatches.append(
+                        f"group={gid} tid={entry['tid']} ({repful}): "
+                        f"two_prop_test({succ_in},{succ_out},{pop_in},{pop_out})={actual:.6f}, "
+                        f"blob repness-test={expected_rt:.6f}")
+
+        assert not mismatches, (
+            f"[{dataset_name}] {len(mismatches)}/{total} repness-test mismatches:\n"
+            + "\n".join(mismatches[:10]))
+
+
+@pytest.mark.clojure_comparison
+class TestD4BlobInjection:
+    """D4: Verify p-success (pseudocount formula) against blob values."""
+
+    def test_p_success_matches_blob(self, clojure_blob, dataset_name):
+        """(n_success + 1) / (n_trials + 2) should match blob's p-success."""
+        repness = clojure_blob.get('repness', {})
+        if not repness:
+            pytest.skip(f"No repness in blob for {dataset_name}")
+
+        mismatches = []
+        total = 0
+        for gid, entries in repness.items():
+            for entry in entries:
+                ns = entry['n-success']
+                nt = entry['n-trials']
+                expected = entry['p-success']
+                actual = (ns + PSEUDO_COUNT / 2) / (nt + PSEUDO_COUNT)
+                total += 1
+                if abs(actual - expected) > 1e-4:
+                    mismatches.append(
+                        f"group={gid} tid={entry['tid']}: "
+                        f"pa=({ns}+1)/({nt}+2)={actual:.6f}, "
+                        f"blob p-success={expected:.6f}")
+
+        assert not mismatches, (
+            f"[{dataset_name}] {len(mismatches)}/{total} p-success mismatches:\n"
+            + "\n".join(mismatches[:10]))
