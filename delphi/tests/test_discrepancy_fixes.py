@@ -1177,3 +1177,51 @@ class TestSyntheticEdgeCases:
 
         # rat < rdt → disagree
         assert (0.5 < 1.5)  # rat=0.5, rdt=1.5 → disagree
+
+
+# ============================================================================
+# Blob Injection Tests — Compare Python functions against real Clojure values
+# ============================================================================
+#
+# These tests extract inputs from the Clojure math blob, feed them to Python
+# functions, and compare outputs to the Clojure blob's values. This is the
+# only non-tautological way to verify correctness: formula-only tests just
+# re-implement our reading of the Clojure source and can't catch misreadings.
+#
+# Since Python and Clojure may produce different clusters (different k), we
+# inject Clojure's own group memberships and vote counts from the blob,
+# isolating each computation stage from upstream divergence.
+# ============================================================================
+
+@pytest.mark.clojure_comparison
+class TestD5BlobInjection:
+    """D5: Verify prop_test against real Clojure blob p-test values.
+
+    For each repness entry in the blob, extract n-success and n-trials,
+    feed to Python's prop_test(), compare to blob's p-test.
+    """
+
+    def test_prop_test_matches_blob_p_test(self, clojure_blob, dataset_name):
+        """prop_test(n_success, n_trials) should match blob's p-test for every repness entry."""
+        repness = clojure_blob.get('repness', {})
+        if not repness:
+            pytest.skip(f"No repness in Clojure blob for {dataset_name}")
+
+        mismatches = []
+        total = 0
+        for gid, entries in repness.items():
+            for entry in entries:
+                n_success = entry['n-success']
+                n_trials = entry['n-trials']
+                expected_p_test = entry['p-test']
+                actual = prop_test(n_success, n_trials)
+                total += 1
+                if abs(actual - expected_p_test) > 1e-4:
+                    mismatches.append(
+                        f"group={gid} tid={entry['tid']}: "
+                        f"prop_test({n_success}, {n_trials})={actual:.6f}, "
+                        f"blob p-test={expected_p_test:.6f}")
+
+        assert not mismatches, (
+            f"[{dataset_name}] {len(mismatches)}/{total} p-test mismatches:\n"
+            + "\n".join(mismatches[:10]))
