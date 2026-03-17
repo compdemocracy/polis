@@ -220,15 +220,35 @@ class Conversation:
         # Step 4: Get new rows and columns by set difference
         logger.info(f"[{time.time() - start_time:.2f}s] Identifying new rows and columns...")
 
-        existing_rows = set(existing_rows)
+        existing_rows_set = set(existing_rows)
         existing_cols = set(existing_cols)
 
-        new_rows = set(updates_df['row']) - existing_rows
+        new_rows = set(updates_df['row']) - existing_rows_set
         new_cols = set(updates_df['col']) - existing_cols
 
-        # Natural sort: preserves types and sorts numerically when possible
-        # Numbers are sorted numerically, alphanumeric strings use natural order (e.g., p1, p2, p10)
-        all_rows = natsorted(existing_rows.union(new_rows))
+        # Row order: preserve first-appearance order from votes.
+        #
+        # Clojure builds the rating matrix incrementally — each new participant
+        # gets a row appended in the order they first appear in the vote stream
+        # (conversation.clj, named_matrix.clj: NamedMatrix preserves insertion
+        # order via IndexHash backed by java.util.Vector). The base-cluster IDs
+        # are assigned by map-indexed on this row order, so the order directly
+        # determines group-level k-means initialization via first-k-distinct.
+        #
+        # Using natsort (PID-numeric order) instead would change the k-means
+        # seed points and produce different silhouette scores / different k.
+        # See delphi/docs/HANDOFF_K_DIVERGENCE_INVESTIGATION.md for the full
+        # analysis showing this is the root cause of k divergence on vw.
+        new_rows_ordered = []
+        for pid, _, _ in vote_updates:
+            if pid in new_rows and pid not in existing_rows_set:
+                existing_rows_set.add(pid)
+                new_rows_ordered.append(pid)
+        all_rows = list(existing_rows) + new_rows_ordered
+
+        # Column order: natsort is fine — column permutation doesn't affect PCA
+        # eigenvalues/vectors (only reorders the component loadings), so it has
+        # no effect on clustering k.
         all_cols = natsorted(existing_cols.union(new_cols))
 
         logger.info(f"[{time.time() - start_time:.2f}s] Found {len(new_rows)} new rows and {len(new_cols)} new columns")
@@ -304,8 +324,10 @@ class Conversation:
           matrix structure so that tids, column indices, and dimensions
           match between Python and Clojure.
         """
-        # Filter out moderated participants (remove rows)
-        keep_ptpts = natsorted(list(set(self.raw_rating_mat.index) - set(self.mod_out_ptpts)))
+        # Filter out moderated participants (remove rows).
+        # Preserve raw_rating_mat row order (vote encounter order) — see
+        # update_votes() comment on why row order matters for Clojure parity.
+        keep_ptpts = [p for p in self.raw_rating_mat.index if p not in self.mod_out_ptpts]
         self.rating_mat = self.raw_rating_mat.loc[keep_ptpts].copy()
 
         # Zero out moderated-out comments (keep columns, set values to 0)

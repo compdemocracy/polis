@@ -187,7 +187,6 @@ class TestClojureRegression:
             check.less_equal(norm_angle_deg, 10.0,
                             f"PC{i+1} angle difference should be ≤10° (got {norm_angle_deg:.2f}°)")
 
-    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="D2/D3: Wrong participant threshold and missing k-smoother produce different cluster counts")
     def test_group_clustering(self, conversation_data):
         """
         Test that group clustering matches the Clojure implementation.
@@ -201,6 +200,12 @@ class TestClojureRegression:
         conv = conversation_data['conv']
         clojure_output = conversation_data['clojure_output']
         dataset_name = conversation_data['dataset_name']
+        blob_type = conversation_data['blob_type']
+
+        # Incremental blobs are progressive snapshots — in-conv sets differ
+        # from single-shot computation, so clustering comparison is not valid.
+        if blob_type == 'incremental':
+            pytest.xfail("Incremental blobs have different in-conv from single-shot")
 
         print(f"\n[{dataset_name}] Testing group clustering...")
 
