@@ -387,11 +387,51 @@ This is non-trivial and should be one of the last fixes.
 
 ---
 
-### PR 14: Cleanup — Remove Dead Code
+### PR 14: Refactor Vectorized Code for Readability + Blob Injection Tests
+
+**MOVED EARLIER**: PR 14 is now a prerequisite for all formula fix PRs (D5-D8+),
+not a post-parity cleanup. It branches off `jc/clj-parity-d9-fix` (Stack 13),
+below all formula fixes. Reason: the vectorized production path
+(`compute_group_comment_stats_df`) is too monolithic to test against the Clojure
+blob. The refactor makes it testable AND readable.
+
+**The problem**: The scalar functions (`comment_stats`, `add_comparative_stats`,
+`repness_metric`, `finalize_cmt_stats`) read like a step-by-step recipe. The
+vectorized replacement (`compute_group_comment_stats_df`) buries the same logic
+in 150 lines of DataFrame plumbing. The scalar path is dead code in production —
+only called from tests and benchmarks.
+
+**Task**:
+1. Split `compute_group_comment_stats_df` into (a) DataFrame construction
+   (group mapping, cross-product index, joins) and (b) statistics computation
+   as its own function with clean inputs/outputs — readable AND testable.
+2. Write vectorized blob injection tests: inject Clojure group memberships +
+   votes, compare output to blob values. Tests the PRODUCTION code path.
+3. Verify scalar and vectorized paths produce identical output on all datasets.
+4. Delete scalar functions. Update tests.
+
+**Files**: `polismath/pca_kmeans_rep/repness.py`, `tests/test_discrepancy_fixes.py`,
+`tests/test_repness_unit.py`, `tests/test_old_format_repness.py`,
+`polismath/benchmarks/bench_repness.py`
+
+See `delphi/docs/HANDOFF_PR14_VECTORIZED_REFACTOR.md` for full details.
+
+After PR 14, each fix PR gets vectorized blob injection tests added in RED→GREEN
+TDD pattern. This includes D5-D8 (repness formula fixes), D10/D11 (selection),
+D15 (moderation), D12 (priorities). For D3 (k-smoother) and D1 (PCA sign flip),
+which are incremental-only features, add synthetic tests + skip markers for
+incremental blob comparison pending replay infrastructure (see Replay PRs A/B/C).
+
+**After adding vectorized tests to each PR, update the plan AND journal** to
+record what was tested, what blob fields were compared, and any discrepancies found.
+This is mandatory — the plan and journal are how future sessions know what's done.
+
+---
+
+### PR 14b: Cleanup — Remove Remaining Dead Code (after parity)
 
 **Files**: Multiple (see `08-dead-code.md`)
 - Custom kmeans chain in `clusters.py`
-- Non-vectorized repness functions in `repness.py`
 - Buggy `_compute_votes_base()` (after D12 replaces it)
 - `stats.py` inconsistencies (after D9 makes `repness.py` authoritative)
 
@@ -436,6 +476,7 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D13 | Subgroup clustering | — | — | **Deferred** (unused) |
 | D14 | Large conv optimization | — | — | **Deferred** (Python fast enough) |
 | D15 | Moderation handling | PR 12 | — | Fix |
+| Replay | Replay infrastructure (A/B/C) | — | — | NOT BUILT — D3/D1 used synthetic tests only. Needed for incremental blob comparison. |
 
 ### Non-discrepancy PRs in the stack
 
