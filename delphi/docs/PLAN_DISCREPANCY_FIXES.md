@@ -21,7 +21,7 @@ This plan's "PR N" labels map to actual GitHub PRs as follows:
 | (perf) | #2436 | Stack 10/10 | Speed up regression tests |
 | PR 3 (D9) | #2446 | — | Fix D9: z-score thresholds (one-tailed) |
 | PR 4 (D5) | #2448 | Stack 14/25 | Fix D5: proportion test formula |
-| PR 5 (D6) | — | — | Fix D6: two-proportion test pseudocounts |
+| PR 5 (D6) | #2449 | Stack 15/25 | Fix D6: two-proportion test pseudocounts |
 
 Future fix PRs will be appended to the stack as they're created.
 
