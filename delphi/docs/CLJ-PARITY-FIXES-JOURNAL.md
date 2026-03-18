@@ -661,6 +661,75 @@ adding vectorized blob tests at each stage.
 
 ---
 
+## K-Divergence Investigation & Fix (2026-03-17/18)
+
+### Branch: `jc/clj-parity-kmeans-k-divergence` (PR #2453, Stack 19/25)
+
+### Investigation
+
+Wrote `scripts/investigate_k_divergence.py` to isolate the source of divergence
+on vw (Python k=4, Clojure k=2). Systematic elimination:
+
+1. **PCA components**: identical (cosine similarity = 1.000000) — ruled out
+2. **Silhouette implementation**: identical scores for both projection sets — ruled out
+3. **K-means initialization**: both use first-k-distinct — ruled out
+4. **Clojure blob injection**: injecting Clojure projections into Python clustering
+   still gave k=4 — so it's not about projection values
+5. **Participant ordering**: **ROOT CAUSE FOUND** — Python sorted rows by PID via
+   `natsorted()`, Clojure preserves vote-encounter order (NamedMatrix insertion order).
+   Different row ordering → different first-k-distinct seeds → different local optima.
+
+Verified Clojure ordering chain by reading `conversation.clj`, `named_matrix.clj`,
+`clusters.clj`: `filter-by-index` preserves original matrix row order, not
+set iteration order. The CSV first-appearance order `[2, 3, 4, 6, 8, ...]` matches
+the Clojure blob's base-cluster PID order exactly.
+
+### Fix
+
+- `conversation.py update_votes()`: replaced `natsorted(existing_rows.union(new_rows))`
+  with first-appearance order tracking from `vote_updates`
+- `conversation.py _apply_moderation()`: replaced `natsorted()` with order-preserving
+  list comprehension
+- Column ordering remains natsorted (doesn't affect clustering)
+
+### Cold-start blob results
+
+| Dataset | Clj k | Py k (before) | Py k (after) | Sizes match? |
+|---------|-------|---------------|--------------|--------------|
+| vw | 2 | 4 | **2** | [50,17] exact |
+| biodiversity | 2 | 2 | **2** | [81,19] exact |
+| bg2018 | 2 | 2 | **2** | close ([52,48] vs [51,49]) |
+| FLI | 2 | 3 | 3 | inherent PCA divergence |
+
+FLI: 94.5% NaN sparsity, PCA |cos|≈0.9997 (not 1.0), silhouette gap 0.001. Not
+fixable without replicating Clojure's power iteration PCA. Low priority.
+
+### Test results
+
+- 297 passed, 0 failed, 6 skipped, 58 xfailed
+- Removed `test_group_clustering` xfail (now passes on cold-start blobs)
+- Added incremental-blob xfail (different in-conv from single-shot)
+- Updated 6 ordering tests (expect encounter order, not natsort)
+- Re-recorded vw cold-start blob and golden snapshots for vw + biodiversity
+
+### Session 12 (2026-03-17/18)
+
+- Created branch off D15, investigated k divergence across all 7 datasets
+- Re-recorded vw cold-start blob (confirmed k=2 is genuine, not generation artifact)
+- Found root cause: `natsorted()` on participant rows
+- Fixed `update_votes()` and `_apply_moderation()` to preserve encounter order
+- Rebased branch onto new D15 (other session had rebased the stack)
+- Inserted into stack at position 19/25, rebased D10→PR15 with `--onto`
+- Created PR #2453
+
+### What's Next
+
+1. Refactor D10-D1 branches (tests, code cleanup) before creating PRs for them.
+2. Re-record private dataset golden snapshots.
+3. FLI k divergence: accept or investigate Clojure power iteration PCA (low priority).
+
+---
+
 ## TDD Discipline
 
 **CRITICAL: For every fix, ALWAYS follow this order:**
