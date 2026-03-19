@@ -620,7 +620,7 @@ Every fix PR must now include blob comparison tests.
 Both use silhouette. The divergence comes from upstream PCA/clustering differences
 (sklearn SVD vs Clojure power iteration). This is independent of all repness fixes
 (D4-D11). Investigation planned off D15 branch. See
-`delphi/docs/HANDOFF_K_DIVERGENCE_INVESTIGATION.md`.
+`delphi/docs/INVESTIGATION_K_DIVERGENCE.md`.
 
 **Key discovery: `n-trials` in Clojure blob = `S` (total seen, including passes),**
 not `A+D` (agrees + disagrees). Verified: `prop_test(11, 14)` = blob `p-test` for

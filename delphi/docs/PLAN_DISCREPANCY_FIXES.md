@@ -467,7 +467,7 @@ affect PCA eigenvalues/vectors).
 PCA. The silhouette landscape is essentially flat between k=2 and k=3, and any tiny PCA
 difference tips the balance. Low priority.
 
-See `delphi/docs/HANDOFF_K_DIVERGENCE_INVESTIGATION.md` for the full investigation.
+See `delphi/docs/INVESTIGATION_K_DIVERGENCE.md` for the full investigation.
 
 ---
 
