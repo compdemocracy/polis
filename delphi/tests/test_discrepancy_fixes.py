@@ -2,7 +2,7 @@
 Per-discrepancy tests for Python-Clojure parity fixes.
 
 Each test class targets ONE specific discrepancy from the fix plan
-(delphi/docs/CLJ-PARITY-FIXES-PLAN.md). Tests are designed to FAIL before
+(delphi/docs/PLAN_DISCREPANCY_FIXES.md). Tests are designed to FAIL before
 the fix is applied and PASS after. They are parametrized by ALL available
 datasets with Clojure reference blobs.
 
@@ -26,7 +26,6 @@ Not tested here (deferred or tested elsewhere):
     D14    - Large conv optimization (deferred)
 """
 
-import json
 import math
 
 import numpy as np
@@ -44,13 +43,9 @@ from polismath.pca_kmeans_rep.repness import (
     finalize_cmt_stats,
 )
 from polismath.regression import get_dataset_files, get_blob_variants
-from polismath.regression.clojure_comparer import (
-    ClojureComparer,
-    unfold_clojure_group_clusters,
-)
 from polismath.regression.datasets import discover_datasets
 from conftest import _get_requested_datasets, make_dataset_params, parse_dataset_blob_id
-from tests.common_utils import load_votes, load_comments, load_clojure_output
+from tests.common_utils import load_clojure_output
 
 
 # ---------------------------------------------------------------------------
@@ -85,55 +80,23 @@ def pytest_generate_tests(metafunc):
 # Shared fixtures
 # ---------------------------------------------------------------------------
 
-# Module-level caches — Conversation is keyed by dataset name (shared across
-# blob variants), blobs are keyed by composite ID.
-_CONV_CACHE: dict = {}
+# Module-level cache for blobs (keyed by composite ID)
 _BLOB_CACHE: dict = {}
 
 
-def _get_or_compute_conversation(dataset_name: str) -> dict:
-    """Compute (or retrieve cached) conversation for a dataset."""
-    import gc
-    if dataset_name in _CONV_CACHE:
-        return _CONV_CACHE[dataset_name]
-
-    # Evict other datasets
-    for ds in list(_CONV_CACHE.keys()):
-        if ds != dataset_name:
-            _CONV_CACHE.pop(ds, None)
-            Conversation._reset_conversion_cache()
-            gc.collect()
-
-    files = get_dataset_files(dataset_name, blob_type='incremental')
-    votes = load_votes(files['votes'])
-    comments = load_comments(files['comments'])
-
-    conv = Conversation(dataset_name)
-    conv = conv.update_votes(votes)
-    conv = conv.recompute()
-
-    data = {
-        'conv': conv,
-        'dataset_name': dataset_name,
-        'files': files,
-        'comments': comments,
-    }
-    _CONV_CACHE[dataset_name] = data
-    return data
-
-
 @pytest.fixture(scope="class")
-def conversation_data(dataset_name):
+def conversation_data(dataset_name, get_or_compute_conversation):
     """Class-scoped fixture: runs the full pipeline once per dataset+blob_type.
 
     dataset_name here is actually a composite 'dataset-blob_type' ID
-    (e.g., 'biodiversity-full'). The Conversation is shared across blob variants.
+    (e.g., 'biodiversity-full'). The Conversation is shared across blob variants
+    via the session-scoped get_or_compute_conversation fixture.
     """
     global _BLOB_CACHE
     ds_name, blob_type = parse_dataset_blob_id(dataset_name)
 
-    # Get or compute the conversation (shared across blob variants)
-    conv_data = _get_or_compute_conversation(ds_name)
+    # Get or compute the conversation (shared across blob variants via session cache)
+    conv_data = get_or_compute_conversation(ds_name)
 
     # Load the specific blob variant (cache per composite ID)
     if dataset_name not in _BLOB_CACHE:

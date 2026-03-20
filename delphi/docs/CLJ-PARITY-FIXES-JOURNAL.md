@@ -1,7 +1,7 @@
 # Journal: Fixing Python-Clojure Discrepancies
 
 This is the ongoing tracking document for the TDD fix process described in
-`CLJ-PARITY-FIXES-PLAN.md`. It serves as the single source of truth for
+`PLAN_DISCREPANCY_FIXES.md`. It serves as the single source of truth for
 our work, while commit messages and PR descriptions serve reviewers.
 
 ---
@@ -136,7 +136,7 @@ After rebase onto updated `origin/kmeans_analysis_docs`:
 - Updated PR title convention: `[Clj parity PR N]` prefix for reviewer clarity
 - Redacted private dataset names from git history across the full stack:
   - `SESSION_HANDOFF_KMEANS.md` in `kmeans_clustering_tooling` (amended deep commit via `GIT_SEQUENCE_EDITOR` rebase)
-  - `CLJ-PARITY-FIXES-PLAN.md` in `kmeans_analysis_docs` (amended tip)
+  - `PLAN_DISCREPANCY_FIXES.md` in `kmeans_analysis_docs` (amended tip)
   - `CLJ-PARITY-FIXES-JOURNAL.md` in `series-of-fixes` (amended tip)
   - Force-pushed all three branches, rebased the chain
 - Tests unchanged: 5 passed, 2 skipped, 18 xfailed, 5 xpassed
