@@ -16,12 +16,10 @@ Conversation object is in memory at a time (teardown between datasets).
 
 import pytest
 import pytest_check as check
-import gc
 
-from polismath.conversation.conversation import Conversation
 from polismath.regression import get_dataset_files, get_blob_variants
 from polismath.regression.datasets import discover_datasets
-from tests.common_utils import load_votes, load_comments, load_clojure_output
+from tests.common_utils import load_clojure_output
 from conftest import _get_requested_datasets, make_dataset_params, parse_dataset_blob_id
 from polismath.regression.clojure_comparer import (
     ClojureComparer,
@@ -50,9 +48,7 @@ def _get_clojure_dataset_blob_ids(include_local: bool, requested: set[str] | Non
     return result
 
 
-# Module-level caches — Conversation is keyed by dataset name (shared across
-# blob variants of the same dataset), blobs are keyed by composite ID.
-_CONV_CACHE: dict = {}
+# Module-level cache for blobs (keyed by composite ID)
 _BLOB_CACHE: dict = {}
 
 
@@ -66,88 +62,17 @@ def pytest_generate_tests(metafunc):
         metafunc.parametrize("dataset_blob_id", params, scope="class")
 
 
-def _get_or_compute_conversation(dataset_name: str) -> dict:
-    """Get cached Conversation or compute it. Evicts other datasets for memory."""
-    global _CONV_CACHE
-    if dataset_name in _CONV_CACHE:
-        return _CONV_CACHE[dataset_name]
-
-    # Evict previous datasets
-    for ds in list(_CONV_CACHE.keys()):
-        if ds != dataset_name:
-            print(f"[{ds}] Cleaning up previous dataset...")
-            _CONV_CACHE.pop(ds, None)
-            Conversation._reset_conversion_cache()
-            gc.collect()
-
-    # Get dataset files (blob_type doesn't matter here — we only need votes/comments)
-    dataset_files = get_dataset_files(dataset_name, blob_type='incremental')
-
-    # Create and compute conversation
-    votes = load_votes(dataset_files['votes'])
-    comments = load_comments(dataset_files['comments'])
-
-    print(f"\n[{dataset_name}] Processing conversation with {len(votes['votes'])} votes and {len(comments['comments'])} comments")
-    conv = Conversation(dataset_name)
-    conv = conv.update_votes(votes)
-
-    print(f"[{dataset_name}] Recomputing conversation analysis...")
-    conv = conv.recompute()
-
-    # Extract key metrics for reporting
-    group_count = len(conv.group_clusters)
-    print(f"[{dataset_name}] Found {group_count} groups")
-    print(f"[{dataset_name}] Processed {conv.comment_count} comments")
-    print(f"[{dataset_name}] Found {conv.participant_count} participants")
-
-    if conv.repness and 'comment_repness' in conv.repness:
-        print(f"[{dataset_name}] Calculated representativeness for {len(conv.repness['comment_repness'])} comments")
-
-    # Print top representative comments for each group
-    if conv.repness and 'comment_repness' in conv.repness:
-        for group_id in range(group_count):
-            print(f"\n[{dataset_name}] Top representative comments for Group {group_id}:")
-            group_repness = [item for item in conv.repness['comment_repness'] if item['gid'] == group_id]
-
-            # Sort by representativeness
-            group_repness.sort(key=lambda x: abs(x['repness']), reverse=True)
-
-            # Print top 5 comments
-            for i, rep_item in enumerate(group_repness[:5]):
-                comment_id = rep_item['tid']
-                # Get the comment text if available
-                comment_txt = next((c['txt'] for c in comments['comments'] if str(c['tid']) == str(comment_id)), 'Unknown')
-                print(f"  {i+1}. Comment {comment_id} (Repness: {rep_item['repness']:.4f}): {comment_txt[:50]}...")
-
-    # Save the Python conversion results for manual inspection
-    import os
-    import json
-    data_dir = dataset_files['data_dir']
-    output_dir = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset_name)
-    os.makedirs(output_dir, exist_ok=True)
-
-    output_path = os.path.join(output_dir, 'conversation_result.json')
-    with open(output_path, 'w') as f:
-        json.dump(conv.to_dict(), f, indent=2)
-
-    print(f"[{dataset_name}] Saved results to {output_path}")
-
-    data = {'conv': conv, 'comments': comments}
-    _CONV_CACHE[dataset_name] = data
-    return data
-
-
 @pytest.fixture(scope="class")
-def conversation_data(dataset_blob_id):
+def conversation_data(dataset_blob_id, get_or_compute_conversation):
     """
     Class-scoped fixture computed once per dataset+blob_type.
-    Reuses the Conversation across blob variants of the same dataset.
+    Reuses the Conversation across blob variants via the session-scoped cache.
     """
     global _BLOB_CACHE
     dataset_name, blob_type = parse_dataset_blob_id(dataset_blob_id)
 
-    # Get or compute the conversation (shared across blob variants)
-    conv_data = _get_or_compute_conversation(dataset_name)
+    # Get or compute the conversation (shared across blob variants via session cache)
+    conv_data = get_or_compute_conversation(dataset_name)
 
     # Load the specific blob variant (cache per composite ID)
     if dataset_blob_id not in _BLOB_CACHE:

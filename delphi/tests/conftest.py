@@ -5,44 +5,92 @@ This module provides:
 - Command line options --include-local and --datasets for dataset selection
 - Fixtures for accessing dataset information
 - @pytest.mark.use_discovered_datasets for dynamic dataset parametrization
-- Helper functions for parallel test execution with xdist_group markers
+- Session-scoped conversation cache for efficient test execution
 """
 
+from copy import deepcopy
+
 import pytest
+
+from polismath.conversation.conversation import Conversation
+from polismath.regression import get_dataset_files
 from polismath.regression.datasets import (
     discover_datasets,
     list_regression_datasets,
     get_blob_variants,
 )
+from tests.common_utils import load_votes, load_comments
 
 
 # =============================================================================
-# Parallel Execution Helpers
+# Session-scoped Conversation Cache
+# =============================================================================
+
+_SESSION_CONV_CACHE: dict = {}
+
+
+@pytest.fixture(scope="session")
+def get_or_compute_conversation():
+    """Session-wide conversation cache shared across all test files.
+
+    Returns a function that computes a Conversation once per dataset and
+    returns a deepcopy each time to preserve test isolation.
+
+    Only ONE dataset is kept in memory at a time. When a different dataset
+    is requested, the previous one is evicted. This works because tests are
+    reordered by pytest_collection_modifyitems to group all tests for a
+    dataset together (across all test files).
+    """
+    import gc
+
+    def _get(dataset_name: str) -> dict:
+        if dataset_name not in _SESSION_CONV_CACHE:
+            # Evict previous dataset (we only keep one at a time)
+            for ds in list(_SESSION_CONV_CACHE.keys()):
+                _SESSION_CONV_CACHE.pop(ds, None)
+            Conversation._reset_conversion_cache()
+            gc.collect()
+
+            files = get_dataset_files(dataset_name, blob_type='incremental')
+            votes = load_votes(files['votes'])
+            comments = load_comments(files['comments'])
+
+            conv = Conversation(dataset_name)
+            conv = conv.update_votes(votes)
+            conv = conv.recompute()
+
+            _SESSION_CONV_CACHE[dataset_name] = {
+                'conv': conv,
+                'dataset_name': dataset_name,
+                'files': files,
+                'comments': comments,
+            }
+
+        return deepcopy(_SESSION_CONV_CACHE[dataset_name])
+
+    return _get
+
+
+# =============================================================================
+# Dataset Parametrization Helpers
 # =============================================================================
 
 def make_dataset_params(datasets: list[str]) -> list:
     """
-    Create pytest.param objects with xdist_group markers for parallel execution.
-
-    When using pytest-xdist with --dist=loadgroup, tests with the same
-    xdist_group marker will run on the same worker. This ensures fixtures
-    are computed only once per dataset per worker.
+    Create pytest.param objects for dataset parametrization.
 
     Args:
         datasets: List of dataset names (or "dataset-blob_type" composite IDs)
 
     Returns:
-        List of pytest.param objects with xdist_group markers
+        List of pytest.param objects
 
     Example:
         @pytest.mark.parametrize("dataset_name", make_dataset_params(["biodiversity", "vw"]))
         def test_something(dataset_name):
             ...
     """
-    return [
-        pytest.param(ds, marks=pytest.mark.xdist_group(ds))
-        for ds in datasets
-    ]
+    return [pytest.param(ds) for ds in datasets]
 
 
 def parse_dataset_blob_id(composite_id: str) -> tuple[str, str]:
@@ -137,7 +185,7 @@ def pytest_generate_tests(metafunc):
     With use_blobs=True, parametrize with 'dataset-blob_type' composite IDs
     (e.g., 'biodiversity-incremental', 'engage-cold_start') for each filled blob variant.
 
-    Uses xdist_group markers for efficient parallel execution with pytest-xdist.
+    Uses the session-scoped conversation cache for efficient test execution.
     """
     markers = list(metafunc.definition.iter_markers("use_discovered_datasets"))
     if not markers:
@@ -167,6 +215,58 @@ def pytest_generate_tests(metafunc):
         if requested:
             datasets = [d for d in datasets if d in requested]
         metafunc.parametrize("dataset_name", make_dataset_params(datasets))
+
+
+# =============================================================================
+# Test Reordering for Cache Efficiency
+# =============================================================================
+
+def _extract_dataset_from_test(item) -> str:
+    """Extract the dataset name from a test item's parameters.
+
+    Handles both plain dataset names ('biodiversity') and composite IDs
+    ('biodiversity-incremental'). Returns empty string if no dataset parameter.
+    """
+    # Check callspec for parametrized values
+    if hasattr(item, 'callspec') and item.callspec.params:
+        for param_name in ('dataset_name', 'dataset_blob_id'):
+            if param_name in item.callspec.params:
+                value = item.callspec.params[param_name]
+                # Extract base dataset name from composite IDs
+                if '-incremental' in value:
+                    return value.replace('-incremental', '')
+                elif '-cold_start' in value:
+                    return value.replace('-cold_start', '')
+                return value
+    return ''
+
+
+def pytest_collection_modifyitems(session, config, items):
+    """Reorder tests to group by dataset for cache efficiency.
+
+    Groups all tests for a dataset together (across all test files) so that
+    the session-scoped conversation cache only needs to hold ONE dataset at
+    a time. This reduces peak memory from O(N datasets) to O(1 dataset).
+
+    Order: dataset1[file1, file2, ...], dataset2[file1, file2, ...], ...
+    Within each dataset, original test order is preserved.
+    """
+    # Separate tests into dataset-parametrized and non-parametrized
+    dataset_tests = []
+    other_tests = []
+
+    for item in items:
+        ds = _extract_dataset_from_test(item)
+        if ds:
+            dataset_tests.append((ds, item))
+        else:
+            other_tests.append(item)
+
+    # Sort dataset tests by dataset name (stable sort preserves order within dataset)
+    dataset_tests.sort(key=lambda x: x[0])
+
+    # Rebuild items list: non-parametrized first, then dataset tests grouped
+    items[:] = other_tests + [item for _, item in dataset_tests]
 
 
 # Provide summary of discovered datasets at start of test run
