@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple, Union, Any
 import random
 from copy import deepcopy
 from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score, pairwise_distances
+from sklearn.metrics import silhouette_score
 
 
 class Cluster:
@@ -107,21 +107,7 @@ def init_clusters(data: np.ndarray, k: int) -> List[Cluster]:
         List of initialized clusters with centers set to first k distinct points.
         May return fewer than k clusters if data has fewer distinct points.
     """
-    # Get unique rows in order (matches Clojure's distinct + take k)
-    # np.unique with axis=0 returns sorted unique rows, but we want encounter order
-    # So we use a different approach to preserve order
-    seen = set()
-    unique_indices = []
-    for i, row in enumerate(data):
-        row_tuple = tuple(row)
-        if row_tuple not in seen:
-            seen.add(row_tuple)
-            unique_indices.append(i)
-            if len(unique_indices) >= k:
-                break
-
-    # Take first k distinct points as initial centers
-    initial_centers = data[unique_indices[:k]]
+    initial_centers = _get_first_k_distinct_centers(data, k)
 
     # Create Cluster objects
     clusters = []
@@ -568,6 +554,7 @@ def _get_first_k_distinct_centers(data: np.ndarray, k: int) -> np.ndarray:
     Get first k distinct points as initial centers (matching Clojure's init-clusters).
 
     This uses encounter order (first k unique rows seen) for deterministic initialization.
+    Uses NaN-safe equality (rows with NaNs in the same positions are considered equal).
 
     Args:
         data: Data matrix (n_points x n_features)
@@ -576,13 +563,18 @@ def _get_first_k_distinct_centers(data: np.ndarray, k: int) -> np.ndarray:
     Returns:
         Array of k initial centers (k x n_features)
     """
-    seen = set()
+    # We can't use tuple+set for dedup because float('nan') != float('nan'),
+    # so two identical rows with NaNs would be treated as distinct.
+    # Use explicit equality checks with equal_nan=True instead.
     unique_indices = []
 
     for i, row in enumerate(data):
-        row_tuple = tuple(row)
-        if row_tuple not in seen:
-            seen.add(row_tuple)
+        is_new = True
+        for j in unique_indices:
+            if np.array_equal(data[j], row, equal_nan=True):
+                is_new = False
+                break
+        if is_new:
             unique_indices.append(i)
             if len(unique_indices) >= k:
                 break

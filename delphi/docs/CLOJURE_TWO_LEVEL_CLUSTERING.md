@@ -168,9 +168,8 @@ This is used in:
 
 ### Python (Current Implementation)
 
-- **Single-level**: Participants → Groups (direct)
-- **Simpler**: Matches common K-means usage
-- **Trade-off**: Less scalable for very large conversations
+- **Two-level**: Participants → Base Clusters → Groups (matching Clojure)
+- **Unfolding**: Group cluster members are unfolded from base-cluster IDs to participant IDs for serialization and downstream consumers
 
 ### Clojure (Reference Implementation)
 

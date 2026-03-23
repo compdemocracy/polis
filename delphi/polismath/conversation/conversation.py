@@ -7,7 +7,7 @@ including votes, clustering, and representativeness calculation.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Union, Any, Callable
+from typing import Dict, List, Optional, Set, Tuple, Union, Any, Callable
 from copy import deepcopy
 import time
 import logging
@@ -17,7 +17,6 @@ from natsort import natsorted
 
 from polismath.pca_kmeans_rep.pca import pca_project_dataframe
 from polismath.pca_kmeans_rep.clusters import (
-    cluster_dataframe,
     kmeans_sklearn,
     calculate_silhouette_sklearn
 )
@@ -1461,8 +1460,8 @@ class Conversation:
             
             logger.info(f"Projection data conversion: {time.time() - proj_start:.4f}s")
 
-        # Add clusters data in hierarchical format
-        # Base clusters (participants → ~100 clusters) in folded format
+        # Base clusters (participants → ~100 clusters) in columnar format
+        # TypeScript expects {x: [], y: [], id: [], count: [], members: [[]]}
         result['base-clusters'] = self._fold_base_clusters(self.base_clusters)
 
         # Group clusters (base clusters → 2-5 groups)
@@ -1701,9 +1700,12 @@ class Conversation:
         
         logger.info(f"Moderation data: {time.time() - mod_start:.4f}s")
         
-        # Clojure compat: base-clusters = group clusters with participant IDs
-        result['base-clusters'] = unfolded_gc
-        
+        # NOTE: base-clusters is set above via _fold_base_clusters() in the columnar
+        # format that TypeScript expects: {x, y, id, count, members} where members
+        # are arrays of participant IDs. Do NOT overwrite with unfolded_gc — that's
+        # a list-of-dicts format that would break server/src/report.ts,
+        # server/src/utils/pca.ts, and client-participation-alpha consumers.
+
         # Add empty consensus structure for compatibility
         result['consensus'] = {
             'agree': [],

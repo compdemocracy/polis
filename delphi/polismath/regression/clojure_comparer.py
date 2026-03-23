@@ -144,9 +144,15 @@ def unfold_clojure_group_clusters(math_blob: Dict[str, Any]) -> List[Dict[str, A
     group_clusters = math_blob.get('group-clusters', [])
     base_clusters = math_blob.get('base-clusters', {})
 
-    if not group_clusters or not base_clusters:
-        logger.warning("Missing group-clusters or base-clusters in Clojure output")
-        return group_clusters  # Return as-is if no base-clusters available
+    if not group_clusters:
+        logger.warning("Missing group-clusters in Clojure output; nothing to unfold")
+        return []
+
+    if not base_clusters:
+        raise ValueError(
+            "Missing base-clusters in Clojure output; "
+            "cannot unfold group-clusters from base-cluster IDs to participant IDs"
+        )
 
     # Build a lookup from base cluster ID to participant IDs
     # base-clusters is in "folded" format: {id: [0,1,2,...], members: [[...], [...], ...]}
@@ -154,8 +160,10 @@ def unfold_clojure_group_clusters(math_blob: Dict[str, Any]) -> List[Dict[str, A
     bc_members = base_clusters.get('members', [])
 
     if len(bc_ids) != len(bc_members):
-        logger.error(f"Mismatch between base cluster IDs ({len(bc_ids)}) and members ({len(bc_members)})")
-        return group_clusters
+        raise ValueError(
+            f"Mismatch between base cluster IDs ({len(bc_ids)}) and members "
+            f"({len(bc_members)}); cannot unfold group-clusters"
+        )
 
     # Create lookup: base_cluster_id → participant_ids
     base_cluster_lookup = {}

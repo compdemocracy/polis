@@ -535,6 +535,6 @@ After implementation:
 ## References
 
 - **Clojure two-level doc**: `docs/CLOJURE_TWO_LEVEL_CLUSTERING.md`
-- **Clojure source**: `/Users/julien/polis/github/polis/math/src/polismath/math/`
+- **Clojure source**: `math/src/polismath/math/`
 - **Python clusters**: `polismath/pca_kmeans_rep/clusters.py`
 - **Python conversation**: `polismath/conversation/conversation.py`

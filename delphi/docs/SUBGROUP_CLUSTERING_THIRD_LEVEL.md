@@ -182,6 +182,6 @@ If subgroups are needed in the future:
 
 ## References
 
-- **Clojure source**: `/Users/julien/polis/github/polis/math/src/polismath/math/conversation.clj` lines 480-693
+- **Clojure source**: `math/src/polismath/math/conversation.clj` lines 480-693
 - **SESSION_HANDOFF**: `docs/SESSION_HANDOFF_KMEANS.md` (only documents 2 levels)
 - **Clojure two-level doc**: `docs/CLOJURE_TWO_LEVEL_CLUSTERING.md` (should note this is actually 3 levels in Clojure)

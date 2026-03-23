@@ -79,7 +79,7 @@ def _assert_members_are_participant_ids(clusters, participant_ids, base_cluster_
             f"participant IDs: {members - participant_ids}"
         )
         # Guard against the exact bug: integer base-cluster IDs in members
-        assert not leaked or leaked <= participant_ids, (
+        assert not leaked, (
             f"{label}[{cluster['id']}].members contains base-cluster IDs "
             f"instead of participant IDs: {leaked}"
         )
@@ -146,15 +146,37 @@ class TestToDictUnfolding:
         _assert_members_cover_all_participants(
             result["group_clusters"], pids, "to_dict['group_clusters']")
 
-    def test_base_clusters_clojure_compat(self, result, conv):
-        """base-clusters (Clojure compat, overwritten later in to_dict)
-        must also contain participant IDs."""
+    def test_base_clusters_columnar_format(self, result, conv):
+        """base-clusters must be in columnar format matching what TypeScript expects:
+        {id: [...], members: [[pid,...], ...], x: [...], y: [...], count: [...]}"""
+        bc = result["base-clusters"]
+        # Must be a dict with columnar keys (not a list of dicts)
+        assert isinstance(bc, dict), f"base-clusters should be dict, got {type(bc)}"
+        for key in ("id", "members", "x", "y", "count"):
+            assert key in bc, f"base-clusters missing '{key}' key"
+        # All arrays should have the same length
+        n = len(bc["id"])
+        assert n > 0, "base-clusters should have at least one cluster"
+        for key in ("members", "x", "y", "count"):
+            assert len(bc[key]) == n, (
+                f"base-clusters['{key}'] length {len(bc[key])} != "
+                f"base-clusters['id'] length {n}"
+            )
+        # members should contain participant IDs (not base-cluster IDs)
         pids = _participant_ids(conv)
-        bc_ids = _base_cluster_ids(conv)
-        _assert_members_are_participant_ids(
-            result["base-clusters"], pids, bc_ids, "to_dict['base-clusters']")
-        _assert_members_cover_all_participants(
-            result["base-clusters"], pids, "to_dict['base-clusters']")
+        all_members = set()
+        for member_list in bc["members"]:
+            all_members.update(member_list)
+        assert all_members <= pids, (
+            f"base-clusters.members contains non-participant IDs: "
+            f"{all_members - pids}"
+        )
+        # count[i] should match len(members[i])
+        for i in range(n):
+            assert bc["count"][i] == len(bc["members"][i]), (
+                f"base-clusters.count[{i}]={bc['count'][i]} != "
+                f"len(members[{i}])={len(bc['members'][i])}"
+            )
 
 
 # ---------------------------------------------------------------------------
