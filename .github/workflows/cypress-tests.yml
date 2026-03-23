@@ -4,7 +4,10 @@ on:
   push:
     branches: [ edge, stable ]
   pull_request:
-    branches: [ edge, stable ]
+    branches:
+      - edge
+      - stable
+      - 'jc/**'
 
 jobs:
   cypress-run:
