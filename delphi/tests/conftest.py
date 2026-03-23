@@ -7,14 +7,21 @@ This module provides:
 - @pytest.mark.use_discovered_datasets for dynamic dataset parametrization
 - Helper functions for parallel test execution with xdist_group markers
 - require_dynamodb() and require_s3() helpers for failing fast when services are unavailable
+- Session-scoped conversation cache for efficient test execution
 """
 
+from copy import deepcopy
+
 import pytest
+
+from polismath.conversation.conversation import Conversation
+from polismath.regression import get_dataset_files
 from polismath.regression.datasets import (
     discover_datasets,
     list_regression_datasets,
     get_blob_variants,
 )
+from tests.common_utils import load_votes, load_comments
 
 
 def require_dynamodb(
@@ -89,6 +96,55 @@ def require_s3(
         client.list_buckets()
     except Exception as exc:
         pytest.skip(f"S3/MinIO is not available at {endpoint}: {exc}")
+
+
+# =============================================================================
+# Session-scoped Conversation Cache
+# =============================================================================
+
+_SESSION_CONV_CACHE: dict = {}
+
+
+@pytest.fixture(scope="session")
+def get_or_compute_conversation():
+    """Session-wide conversation cache shared across all test files.
+
+    Returns a function that computes a Conversation once per dataset and
+    returns a deepcopy each time to preserve test isolation.
+
+    Only ONE dataset is kept in memory at a time. When a different dataset
+    is requested, the previous one is evicted. This works because tests are
+    reordered by pytest_collection_modifyitems to group all tests for a
+    dataset together (across all test files).
+    """
+    import gc
+
+    def _get(dataset_name: str) -> dict:
+        if dataset_name not in _SESSION_CONV_CACHE:
+            # Evict previous dataset (we only keep one at a time)
+            for ds in list(_SESSION_CONV_CACHE.keys()):
+                _SESSION_CONV_CACHE.pop(ds, None)
+            Conversation._reset_conversion_cache()
+            gc.collect()
+
+            files = get_dataset_files(dataset_name, blob_type='incremental')
+            votes = load_votes(files['votes'])
+            comments = load_comments(files['comments'])
+
+            conv = Conversation(dataset_name)
+            conv = conv.update_votes(votes)
+            conv = conv.recompute()
+
+            _SESSION_CONV_CACHE[dataset_name] = {
+                'conv': conv,
+                'dataset_name': dataset_name,
+                'files': files,
+                'comments': comments,
+            }
+
+        return deepcopy(_SESSION_CONV_CACHE[dataset_name])
+
+    return _get
 
 
 # =============================================================================
