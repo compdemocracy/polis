@@ -5,7 +5,6 @@ This module provides:
 - Command line options --include-local and --datasets for dataset selection
 - Fixtures for accessing dataset information
 - @pytest.mark.use_discovered_datasets for dynamic dataset parametrization
-- Helper functions for parallel test execution with xdist_group markers
 - require_dynamodb() and require_s3() helpers for failing fast when services are unavailable
 - Session-scoped conversation cache for efficient test execution
 """
@@ -148,36 +147,25 @@ def get_or_compute_conversation():
 
 
 # =============================================================================
-# Parallel Execution Helpers
+# Dataset Parametrization Helpers
 # =============================================================================
 
 def make_dataset_params(datasets: list[str]) -> list:
     """
-    Create pytest.param objects with xdist_group markers for parallel execution.
-
-    When using pytest-xdist with --dist=loadgroup, tests with the same
-    xdist_group marker will run on the same worker. This ensures fixtures
-    are computed only once per dataset per worker.
+    Create pytest.param objects for dataset parametrization.
 
     Args:
         datasets: List of dataset names (or "dataset-blob_type" composite IDs)
 
     Returns:
-        List of pytest.param objects with xdist_group markers
+        List of pytest.param objects
 
     Example:
         @pytest.mark.parametrize("dataset_name", make_dataset_params(["biodiversity", "vw"]))
         def test_something(dataset_name):
             ...
     """
-    # Uses the full composite ID (e.g., 'biodiversity-incremental') as the group
-    # key, so blob variants of the same dataset may land on different workers.
-    # This is intentional: once incremental blob processing is implemented, each
-    # variant will run a different computation, so cross-variant caching won't help.
-    return [
-        pytest.param(ds, marks=pytest.mark.xdist_group(ds))
-        for ds in datasets
-    ]
+    return [pytest.param(ds) for ds in datasets]
 
 
 def parse_dataset_blob_id(composite_id: str) -> tuple[str, str]:
@@ -272,7 +260,7 @@ def pytest_generate_tests(metafunc):
     With use_blobs=True, parametrize with 'dataset-blob_type' composite IDs
     (e.g., 'biodiversity-incremental', 'engage-cold_start') for each filled blob variant.
 
-    Uses xdist_group markers for efficient parallel execution with pytest-xdist.
+    Uses the session-scoped conversation cache for efficient test execution.
     """
     markers = list(metafunc.definition.iter_markers("use_discovered_datasets"))
     if not markers:
