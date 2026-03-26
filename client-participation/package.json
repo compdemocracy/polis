@@ -30,7 +30,7 @@
     "d3-tip": "~0.9.1",
     "deepcopy": "~0.6.3",
     "font-awesome": "~4.7.0",
-    "handlebars": "~4.7.8",
+    "handlebars": "~4.7.9",
     "handlebones": "github:pol-is/handlebones#master",
     "hull.js": "~0.2.11",
     "jquery": "~1.12.4",
