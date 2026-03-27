@@ -119,6 +119,90 @@ def load_clojure_math_blob(dataset_name: str) -> Dict[str, Any]:
         return json.load(f)
 
 
+def unfold_clojure_group_clusters(math_blob: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Unfold Clojure's two-level clustering to participant level for comparison.
+
+    Both Clojure and Python use two-level clustering:
+    1. Participants → base clusters (~100 small clusters)
+    2. Base clusters → groups (k final groups)
+
+    This function unfolds Clojure's group-clusters from base cluster IDs
+    to participant IDs.  Python's equivalent is Conversation._unfolded_group_clusters().
+
+    Args:
+        math_blob: Clojure math_blob dictionary with 'group-clusters' and 'base-clusters'
+
+    Returns:
+        List of unfolded group clusters with participant IDs as members.
+        Each dict has 'id' and 'members' keys.
+
+    Example:
+        Clojure group-clusters: [{id: 0, members: [6, 18, 21, ...]}, ...]  # base cluster IDs
+        Unfolded: [{id: 0, members: [0, 8, 24, 26, ...]}, ...]  # participant IDs
+    """
+    group_clusters = math_blob.get('group-clusters', [])
+    base_clusters = math_blob.get('base-clusters', {})
+
+    if not group_clusters:
+        logger.warning("Missing group-clusters in Clojure output; nothing to unfold")
+        return []
+
+    if not base_clusters:
+        raise ValueError(
+            "Missing base-clusters in Clojure output; "
+            "cannot unfold group-clusters from base-cluster IDs to participant IDs"
+        )
+
+    # Build a lookup from base cluster ID to participant IDs
+    # base-clusters is in "folded" format: {id: [0,1,2,...], members: [[...], [...], ...]}
+    bc_ids = base_clusters.get('id', [])
+    bc_members = base_clusters.get('members', [])
+
+    if len(bc_ids) != len(bc_members):
+        raise ValueError(
+            f"Mismatch between base cluster IDs ({len(bc_ids)}) and members "
+            f"({len(bc_members)}); cannot unfold group-clusters"
+        )
+
+    # Create lookup: base_cluster_id → participant_ids
+    base_cluster_lookup = {}
+    for bc_id, participants in zip(bc_ids, bc_members):
+        base_cluster_lookup[bc_id] = participants
+
+    # Unfold each group cluster
+    unfolded_groups = []
+    for group in group_clusters:
+        group_id = group.get('id', 0)
+        base_cluster_ids = group.get('members', [])
+
+        # Collect all participant IDs from the base clusters
+        participant_ids = []
+        for bc_id in base_cluster_ids:
+            if bc_id in base_cluster_lookup:
+                participant_ids.extend(base_cluster_lookup[bc_id])
+            else:
+                logger.warning(f"Base cluster ID {bc_id} not found in base-clusters")
+
+        # Convert participant IDs to strings to match Python's format
+        # Python uses string IDs ('0', '1', '10'), Clojure uses integers (0, 1, 10)
+        participant_ids_str = [str(pid) for pid in participant_ids]
+
+        unfolded_group = {
+            'id': group_id,
+            'members': participant_ids_str,
+        }
+
+        # Preserve center if present (though it may not be meaningful at participant level)
+        if 'center' in group:
+            unfolded_group['center'] = group['center']
+
+        unfolded_groups.append(unfolded_group)
+
+    logger.info(f"Unfolded {len(unfolded_groups)} Clojure groups from base clusters")
+    return unfolded_groups
+
+
 def compare_cluster_distributions(
     python_clusters: List[Dict[str, Any]],
     clojure_clusters: List[Dict[str, Any]],

@@ -69,9 +69,10 @@ def test_pca_project_dataframe():
             else:
                 assert len(proj_dict) == 0
             
-            # All projections should be 2D
+            # Projections should be min(n_cols, 2)-dimensional
+            expected_dims = min(matrix.shape[1], 2)
             for proj in proj_dict.values():
-                assert proj.shape == (2,)
+                assert proj.shape == (expected_dims,)
                 
             # Results should not contain NaNs
             assert not np.any(np.isnan(pca_results['center']))

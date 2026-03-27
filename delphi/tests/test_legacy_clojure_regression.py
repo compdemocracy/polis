@@ -25,7 +25,10 @@ from polismath.regression import get_dataset_files
 from polismath.regression.datasets import discover_datasets
 from tests.common_utils import load_votes, load_comments, load_clojure_output
 from conftest import _get_requested_datasets, make_dataset_params
-from polismath.regression.clojure_comparer import ClojureComparer
+from polismath.regression.clojure_comparer import (
+    ClojureComparer,
+    unfold_clojure_group_clusters,
+)
 
 
 def _get_clojure_datasets(include_local: bool, requested: Optional[set[str]] = None) -> list[str]:
@@ -247,19 +250,16 @@ class TestClojureRegression:
             check.less_equal(norm_angle_deg, 10.0,
                             f"PC{i+1} angle difference should be ≤10° (got {norm_angle_deg:.2f}°)")
 
-    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="Clustering algorithms differ - Python uses K-means++, Clojure uses first-k distinct points")
+    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="D2/D3: Wrong participant threshold and missing k-smoother produce different cluster counts")
     def test_group_clustering(self, conversation_data):
         """
         Test that group clustering matches the Clojure implementation.
 
-        This test compares clustering results using both distribution similarity
-        and membership overlap. Tests are expected to FAIL until we match
-        Clojure's initialization algorithm (first-k distinct points).
+        Both Python and Clojure use two-level clustering:
+        1. Participants → base clusters (~100 small clusters)
+        2. Base clusters → groups (k final groups)
 
-        Known difference:
-        - Python uses K-means++ initialization (seed 42) for better convergence
-        - Clojure uses first k distinct points for simplicity
-        - Both are valid algorithms but produce different local optima
+        Both sides are unfolded to participant-level membership for comparison.
         """
         conv = conversation_data['conv']
         clojure_output = conversation_data['clojure_output']
@@ -272,23 +272,23 @@ class TestClojureRegression:
             check.is_in('group-clusters', clojure_output, "Clojure output should contain group-clusters")
             return
 
-        python_clusters = conv.group_clusters
-        clojure_clusters = clojure_output['group-clusters']
+        # Unfold both sides from base-cluster IDs to participant IDs
+        python_clusters_unfolded = conv._unfolded_group_clusters()
+        clojure_clusters_unfolded = unfold_clojure_group_clusters(clojure_output)
 
         print(f"[{dataset_name}] Comparing group clustering:")
-        print(f"  Python groups: {len(python_clusters)}")
-        print(f"  Clojure groups: {len(clojure_clusters)}")
+        print(f"  Python groups: {len(python_clusters_unfolded)} (unfolded to participant level)")
+        print(f"  Clojure groups: {len(clojure_clusters_unfolded)} (unfolded to participant level)")
 
-        # Initialize comparer with tight thresholds (per user request)
+        # Very tight thresholds: implementations should be near-identical
         comparer = ClojureComparer(
-            jaccard_threshold=0.95,
-            distribution_tolerance=0.05
+            jaccard_threshold=0.99,
+            distribution_tolerance=0.01
         )
 
-        # Use shared comparison code (same as CLI tool)
         result = comparer.compare_clusters(
-            python_clusters,
-            clojure_clusters,
+            python_clusters_unfolded,
+            clojure_clusters_unfolded,
             dataset_name=dataset_name
         )
 
@@ -301,11 +301,11 @@ class TestClojureRegression:
         print(f"    Similarity score: {dist_comp['similarity_score']:.2%}")
 
         check.is_true(dist_comp['num_clusters_match'],
-                     f"Number of clusters should match (Python: {len(python_clusters)}, Clojure: {len(clojure_clusters)})")
+                     f"Number of clusters should match (Python: {len(python_clusters_unfolded)}, Clojure: {len(clojure_clusters_unfolded)})")
         check.less_equal(dist_comp['l1_distance'], comparer.distribution_tolerance,
                         f"L1 distance should be ≤{comparer.distribution_tolerance} (got {dist_comp['l1_distance']:.4f})")
 
-        # 2. Check membership overlap
+        # 2. Check membership overlap — require near-exact match
         memb_comp = result['membership_comparison']
         print(f"\n  Cluster Membership Overlap:")
         print(f"    Average Jaccard similarity: {memb_comp['overall_similarity']:.2%}")
@@ -313,28 +313,26 @@ class TestClojureRegression:
 
         print(f"\n  Cluster Mapping (Python → Clojure):")
         for py_idx, (clj_idx, jaccard) in memb_comp['mapping'].items():
-            py_size = len(python_clusters[py_idx]['members'])
-            clj_size = len(clojure_clusters[clj_idx]['members'])
+            py_size = len(python_clusters_unfolded[py_idx]['members'])
+            clj_size = len(clojure_clusters_unfolded[clj_idx]['members'])
             status = '✓' if jaccard >= comparer.jaccard_threshold else '✗'
             print(f"    {status} Group {py_idx} ({py_size} members) → Group {clj_idx} ({clj_size} members): {jaccard:.2%}")
 
         check.greater_equal(memb_comp['overall_similarity'], comparer.jaccard_threshold,
                           f"Average Jaccard should be ≥{comparer.jaccard_threshold:.2%} (got {memb_comp['overall_similarity']:.2%})")
 
-        # 3. Overall status
-        if not result['overall_match']:
-            print(f"\n  ⚠ Clustering does not match Clojure output")
-            print(f"  Likely cause: Initialization algorithm difference")
-            print(f"    Python:  K-means++ (seed 42)")
-            print(f"    Clojure: First k distinct points")
-            print(f"  Recommendation: Match initialization to align results")
+        # 3. Overall match required
+        check.is_true(result['overall_match'],
+                     f"Clustering should match Clojure output (distribution + membership)")
 
-    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="Clojure regression tests not yet fully implemented - comment priorities may differ")
+    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="D12: Comment priorities not yet implemented in Python")
     def test_comment_priorities(self, conversation_data):
         """
-        Test that comment priorities match the Clojure implementation.
-        This test compares the priority values assigned to comments between
-        Python and Clojure implementations.
+        Test that comment priorities match the Clojure implementation exactly.
+
+        Comment priorities are deterministic given the same vote matrix and
+        clustering, so Python and Clojure should produce identical values
+        (within floating-point tolerance).
         """
         conv = conversation_data['conv']
         clojure_output = conversation_data['clojure_output']
@@ -342,8 +340,6 @@ class TestClojureRegression:
 
         print(f"\n[{dataset_name}] Testing comment priorities...")
 
-        # Compare comment priorities between Python and Clojure implementations
-        print(f"[{dataset_name}] Comparing comment priorities:")
         has_python_priorities = hasattr(conv, 'comment_priorities')
         has_clojure_priorities = 'comment-priorities' in clojure_output
 
@@ -356,22 +352,40 @@ class TestClojureRegression:
         python_priorities = conv.comment_priorities
         clojure_priorities = clojure_output['comment-priorities']
 
-        # Count matching priorities (approximately)
-        matches = 0
-        total = 0
+        # All Clojure comment IDs should be present in Python
+        clojure_ids = set(str(k) for k in clojure_priorities.keys())
+        python_ids = set(str(k) for k in python_priorities.keys())
+        check.equal(python_ids, clojure_ids,
+                   f"Comment ID sets should match (Python extra: {python_ids - clojure_ids}, missing: {clojure_ids - python_ids})")
 
-        for comment_id, priority in python_priorities.items():
-            if comment_id in clojure_priorities:
-                clojure_priority = float(clojure_priorities[comment_id])
-                # Allow for some numerical differences
-                if abs(priority - clojure_priority) / max(1, clojure_priority) < 0.2:  # 20% tolerance
-                    matches += 1
-                total += 1
+        # Compare values with tight floating-point tolerance
+        mismatches = []
+        for comment_id, clojure_val in clojure_priorities.items():
+            cid_str = str(comment_id)
+            clojure_val = float(clojure_val)
 
-        match_percentage = (matches / total * 100) if total > 0 else 0
-        print(f"  Priority matches: {matches}/{total} ({match_percentage:.1f}%)")
+            # Look up in Python (may be int or str key)
+            python_val = None
+            for k, v in python_priorities.items():
+                if str(k) == cid_str:
+                    python_val = float(v)
+                    break
 
-        # Soft assertions for Clojure comparison
-        check.greater(total, 0, "Should have comment priorities to compare with Clojure")
-        check.greater_equal(match_percentage, 70.0,
-                          f"Priority match rate with Clojure should be ≥70% (got {match_percentage:.1f}%)")
+            if python_val is None:
+                mismatches.append(f"  tid {cid_str}: missing in Python (Clojure={clojure_val:.6f})")
+                continue
+
+            if abs(python_val - clojure_val) > 1e-6:
+                mismatches.append(f"  tid {cid_str}: Python={python_val:.6f} vs Clojure={clojure_val:.6f} (diff={abs(python_val - clojure_val):.2e})")
+
+        if mismatches:
+            print(f"  Mismatches ({len(mismatches)}/{len(clojure_priorities)}):")
+            for m in mismatches[:20]:
+                print(m)
+            if len(mismatches) > 20:
+                print(f"  ... and {len(mismatches) - 20} more")
+        else:
+            print(f"  All {len(clojure_priorities)} priorities match exactly")
+
+        check.equal(len(mismatches), 0,
+                   f"All comment priorities should match Clojure (got {len(mismatches)} mismatches out of {len(clojure_priorities)})")
