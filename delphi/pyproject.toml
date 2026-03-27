@@ -54,6 +54,7 @@ dependencies = [
     "ollama>=0.5.1",
     "llvmlite>=0.44.0",
     # CLI
+    "click>=8.0.0",
     "rich>=13.0.0",
     # Type compatibility (Python < 3.11)
     "typing_extensions>=4.0.0",
@@ -132,6 +133,7 @@ filterwarnings = [
 ]
 markers = [
     "local_dataset: mark test as using local (non-committed) datasets from real_data/.local/",
+    "clojure_comparison: mark test as comparing with Clojure reference implementation (can be excluded with '-m \"not clojure_comparison\"')",
 ]
 
 [tool.coverage.run]
