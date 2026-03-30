@@ -693,23 +693,33 @@ class TestD5ProportionTest:
         Clojure uses Wilson-score-like: 2*sqrt(n+1)*((succ+1)/(n+1) - 0.5)
 
     Clojure formula has built-in regularization via +1 terms.
+    After fix, prop_test(succ, n) matches Clojure exactly.
     """
 
-    @pytest.mark.xfail(reason="D5: Python standard z-test vs Clojure Wilson-score-like")
     def test_prop_test_matches_clojure_formula(self):
-        """prop_test should match Clojure's formula for known inputs."""
-        # Example: 12 successes out of 13 trials
-        succ, n = 12, 13
-        # Clojure formula: 2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)
-        expected = 2 * math.sqrt(n + 1) * ((succ + 1) / (n + 1) - 0.5)
+        """prop_test(succ, n) should match Clojure's formula for known inputs."""
+        test_cases = [
+            (12, 13),  # High success rate
+            (5, 8),    # Moderate
+            (0, 10),   # All failures
+            (10, 10),  # All successes
+            (1, 2),    # Tiny sample
+            (50, 100), # Larger sample
+            (0, 1),    # Single trial, no success
+            (1, 1),    # Single trial, success
+        ]
+        for succ, n in test_cases:
+            # Clojure formula: 2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)
+            expected = 2 * math.sqrt(n + 1) * ((succ + 1) / (n + 1) - 0.5)
+            result = prop_test(succ, n)
+            check.almost_equal(result, expected, abs=1e-10,
+                                msg=f"prop_test({succ}, {n}): got {result:.6f}, expected {expected:.6f}")
 
-        # Current Python: prop_test(p, n, 0.5) where p = (succ + pc/2) / (n + pc)
-        p = (succ + PSEUDO_COUNT / 2) / (n + PSEUDO_COUNT)
-        python_result = prop_test(p, n, 0.5)
-
-        print(f"prop_test(succ={succ}, n={n}): Python={python_result:.4f}, Clojure={expected:.4f}")
-        check.almost_equal(python_result, expected, abs=0.01,
-                            msg=f"prop_test mismatch: Python={python_result:.4f}, Clojure={expected:.4f}")
+    def test_prop_test_edge_cases(self):
+        """prop_test n=0: no short-circuit, +1 pseudocount yields 1.0 (Clojure parity)."""
+        # Clojure stats.clj:10-15 has no n=0 guard. After (map inc ...), (0, 0)
+        # becomes (1, 1), giving 2*sqrt(1)*(1/1 - 0.5) = 1.0.
+        assert prop_test(0, 0) == 1.0
 
     def test_clojure_pat_values_consistent_with_formula(self, clojure_blob, dataset_name):
         """Sanity check: Clojure's p-test values match the documented formula."""
@@ -1154,14 +1164,13 @@ class TestSyntheticEdgeCases:
         check.almost_equal(Z_95, 1.6449, abs=0.001,
                             msg=f"Z_95={Z_95}, expected 1.6449 (one-tailed)")
 
-    def test_clojure_prop_test_formula(self):
-        """Verify Clojure's proportion test formula: 2*sqrt(n+1)*((succ+1)/(n+1) - 0.5)."""
+    def test_prop_test_matches_clojure_formula_synthetic(self):
+        """prop_test(succ, n) should produce 2*sqrt(n+1)*((succ+1)/(n+1) - 0.5)."""
         # Small n: 5 successes out of 8 trials
         succ, n = 5, 8
-        result = 2 * math.sqrt(n + 1) * ((succ + 1) / (n + 1) - 0.5)
-        # Manual: 2 * 3 * (6/9 - 0.5) = 6 * 0.1667 = 1.0
-        expected = 2 * 3.0 * (6.0 / 9.0 - 0.5)
-        assert abs(result - expected) < 1e-10
+        expected = 2 * 3.0 * (6.0 / 9.0 - 0.5)  # = 1.0
+        result = prop_test(succ, n)
+        assert abs(result - expected) < 1e-10, f"prop_test({succ}, {n})={result}, expected {expected}"
 
     def test_clojure_repness_metric_product(self):
         """Verify Clojure's repness metric is a product: ra * rat * pa * pat."""
@@ -1176,3 +1185,51 @@ class TestSyntheticEdgeCases:
 
         # rat < rdt → disagree
         assert (0.5 < 1.5)  # rat=0.5, rdt=1.5 → disagree
+
+
+# ============================================================================
+# Blob Injection Tests — Compare Python functions against real Clojure values
+# ============================================================================
+#
+# These tests extract inputs from the Clojure math blob, feed them to Python
+# functions, and compare outputs to the Clojure blob's values. This is the
+# only non-tautological way to verify correctness: formula-only tests just
+# re-implement our reading of the Clojure source and can't catch misreadings.
+#
+# Since Python and Clojure may produce different clusters (different k), we
+# inject Clojure's own group memberships and vote counts from the blob,
+# isolating each computation stage from upstream divergence.
+# ============================================================================
+
+@pytest.mark.clojure_comparison
+class TestD5BlobInjection:
+    """D5: Verify prop_test against real Clojure blob p-test values.
+
+    For each repness entry in the blob, extract n-success and n-trials,
+    feed to Python's prop_test(), compare to blob's p-test.
+    """
+
+    def test_prop_test_matches_blob_p_test(self, clojure_blob, dataset_name):
+        """prop_test(n_success, n_trials) should match blob's p-test for every repness entry."""
+        repness = clojure_blob.get('repness', {})
+        if not repness:
+            pytest.skip(f"No repness in Clojure blob for {dataset_name}")
+
+        mismatches = []
+        total = 0
+        for gid, entries in repness.items():
+            for entry in entries:
+                n_success = entry['n-success']
+                n_trials = entry['n-trials']
+                expected_p_test = entry['p-test']
+                actual = prop_test(n_success, n_trials)
+                total += 1
+                if abs(actual - expected_p_test) > 1e-4:
+                    mismatches.append(
+                        f"group={gid} tid={entry['tid']}: "
+                        f"prop_test({n_success}, {n_trials})={actual:.6f}, "
+                        f"blob p-test={expected_p_test:.6f}")
+
+        assert not mismatches, (
+            f"[{dataset_name}] {len(mismatches)}/{total} p-test mismatches:\n"
+            + "\n".join(mismatches[:10]))

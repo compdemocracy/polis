@@ -387,8 +387,61 @@ Detailed analysis in `HANDOFF_REGRESSION_TEST_PERF.md` for a future session.
 
 ### What's Next
 
-1. **PR 3 — Fix D9 (Z-score thresholds)**: `Z_90=1.645` → `1.2816`, `Z_95=1.96` → `1.6449`
+1. **PR 4 — Fix D5 (Proportion test)**: Change `prop_test` from standard z-test to Clojure formula.
 2. Regression test performance optimization (separate session)
+
+---
+
+## PR 4: Fix D5 — Proportion Test Formula
+
+### TDD steps
+1. **Baseline**: 1 failed (pakistan-incremental D2, pre-existing), 91 passed, 5 skipped, 129 xfailed, 2 xpassed
+2. **Red**: Wrote tests calling `prop_test(succ, n)` (new signature) → 3 failures (TypeError: missing p0 arg)
+3. **Fix**: Replaced `prop_test(p, n, p0)` → `prop_test(succ, n)` with Clojure formula:
+   `2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)` (stats.clj:10-15)
+4. **Green**: All 7 D5 tests pass (formula checks + sanity checks + edge cases)
+5. **Full suite (public)**: 4 regression failures (expected — pat/pdt/metric values changed)
+6. **Investigation**: All diffs are in `pat`, `pdt`, `agree_metric`, `disagree_metric` — direct
+   downstream of the prop_test formula change. No unexpected field changes.
+7. **Re-recorded golden snapshots** for all 7 datasets (public + private)
+8. **Full suite (with --include-local)**: 1 failed (pakistan-incremental D2, pre-existing),
+   91 passed, 5 skipped, 129 xfailed, 2 xpassed — no regressions from D5
+
+### Changes
+- `repness.py`: `prop_test(p, n, p0)` → `prop_test(succ, n)` with Clojure formula
+  `2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)`. Added detailed docstring explaining
+  the Wilson-score-like regularization and the separate pseudocount from pa/pd.
+- `repness.py`: `prop_test_vectorized(p, n, p0)` → `prop_test_vectorized(succ, n)`
+- `repness.py`: Updated callers in `comment_stats()` and `compute_group_comment_stats_df()`
+  to pass raw counts `(na, ns)` / `(nd, ns)` instead of `(pa, ns, 0.5)` / `(pd, ns, 0.5)`
+- `test_discrepancy_fixes.py`: Removed xfail from D5 formula test, added comprehensive
+  test cases (8 input pairs including boundary conditions) and edge case test
+- `test_repness_unit.py`: Updated `test_prop_test` and vectorized tests for new signature
+- `test_old_format_repness.py`: Updated `test_prop_test` for new signature
+
+### Key insight: two separate pseudocounts
+The Clojure `prop-test` has its own built-in +1 pseudocount (Laplace smoothing / Beta(1,1)),
+separate from the PSEUDO_COUNT=2.0 used for pa/pd (Beta(2,2)). The prop_test takes raw
+success counts, not pre-smoothed probabilities. This means:
+- `pa = (na + 1) / (ns + 2)` — Beta(2,2) prior for probability estimation
+- `pat = 2 * sqrt(ns+1) * ((na+1)/(ns+1) - 0.5)` — Beta(1,1) prior for significance testing
+
+These are conceptually different: the probability is for ranking, the z-score is for
+significance filtering. Using different priors is intentional.
+
+### Session 7 (2026-03-13)
+
+- Created branch `jc/clj-parity-d5-prop-test` on top of `jc/clj-parity-d9-fix`
+- Read Clojure source (stats.clj:10-15, repness.clj:74-75) to verify formula
+- TDD cycle: red (3 TypeError failures) → fix → green (7 pass, 4 xfail)
+- Full suite: 4 regression failures, all in pat/pdt/metric fields (expected)
+- Re-recorded golden snapshots for all 7 datasets
+- Final validation: 19/19 regression tests pass, 1 pre-existing failure (pakistan-incremental D2)
+
+### What's Next
+
+1. **PR 5 — Fix D6 (Two-proportion test)**: Add +1 pseudocount to all 4 inputs, change signature
+   from proportions to raw counts.
 
 ---
 

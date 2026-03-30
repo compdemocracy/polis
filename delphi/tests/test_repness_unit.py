@@ -44,15 +44,20 @@ class TestStatisticalFunctions:
         assert not z_score_sig_95(1.64)
     
     def test_prop_test(self):
-        """Test one-proportion z-test."""
-        # Test cases
-        assert np.isclose(prop_test(0.7, 100, 0.5), 4.0, atol=0.1)
-        assert np.isclose(prop_test(0.2, 50, 0.3), -1.6, atol=0.1)
-        
-        # Edge cases
-        assert prop_test(0.5, 0, 0.5) == 0.0
-        assert prop_test(0.7, 100, 0.0) == 0.0
-        assert prop_test(0.7, 100, 1.0) == 0.0
+        """Test one-proportion z-test (Clojure formula: 2*sqrt(n+1)*((succ+1)/(n+1) - 0.5))."""
+        # 70 successes out of 100: 2*sqrt(101)*((71/101)-0.5) = ~4.08
+        assert np.isclose(prop_test(70, 100),
+                          2 * math.sqrt(101) * (71/101 - 0.5), atol=0.01)
+        # 10 successes out of 50: 2*sqrt(51)*((11/51)-0.5) = ~-4.06
+        assert np.isclose(prop_test(10, 50),
+                          2 * math.sqrt(51) * (11/51 - 0.5), atol=0.01)
+
+        # Edge case: n=0 → Clojure (stats.clj:10-15) has no guard; the +1
+        # pseudocount turns (0, 0) into (1, 1), giving 2*sqrt(1)*(1/1 - 0.5) = 1.0.
+        assert prop_test(0, 0) == 1.0
+        # Single trial: 2*sqrt(2)*((2/2)-0.5) = 2*1.414*0.5 = 1.414
+        assert np.isclose(prop_test(1, 1),
+                          2 * math.sqrt(2) * 0.5, atol=0.01)
     
     def test_two_prop_test(self):
         """Test two-proportion z-test."""
@@ -99,7 +104,11 @@ class TestCommentStats:
         assert empty_stats['ns'] == 0
         assert np.isclose(empty_stats['pa'], 0.5)
         assert np.isclose(empty_stats['pd'], 0.5)
-    
+        # Clojure parity: with no votes, prop_test(0, 0) = 1.0 (no short-circuit).
+        # comment_stats should propagate that — no upstream gate on n_votes==0.
+        assert np.isclose(empty_stats['pat'], 1.0)
+        assert np.isclose(empty_stats['pdt'], 1.0)
+
     def test_add_comparative_stats(self):
         """Test adding comparative statistics."""
         # Group stats: 80% agree
@@ -552,25 +561,30 @@ class TestVectorizedFunctions:
     """Tests for DataFrame-native vectorized functions."""
 
     def test_prop_test_vectorized(self):
-        """Test vectorized one-proportion z-test."""
-        p = pd.Series([0.7, 0.2, 0.5])
+        """Test vectorized one-proportion z-test (Clojure formula)."""
+        succ = pd.Series([70, 10, 50])
         n = pd.Series([100, 50, 100])
 
-        result = prop_test_vectorized(p, n, 0.5)
+        result = prop_test_vectorized(succ, n)
 
         # Compare with scalar version
-        assert np.isclose(result.iloc[0], prop_test(0.7, 100, 0.5), atol=0.01)
-        assert np.isclose(result.iloc[1], prop_test(0.2, 50, 0.5), atol=0.01)
-        assert np.isclose(result.iloc[2], prop_test(0.5, 100, 0.5), atol=0.01)
+        assert np.isclose(result.iloc[0], prop_test(70, 100), atol=0.01)
+        assert np.isclose(result.iloc[1], prop_test(10, 50), atol=0.01)
+        assert np.isclose(result.iloc[2], prop_test(50, 100), atol=0.01)
 
     def test_prop_test_vectorized_edge_cases(self):
-        """Test vectorized prop test handles edge cases."""
-        p = pd.Series([0.5, 0.7])
-        n = pd.Series([0, 100])  # n=0 should return 0
+        """Vectorized prop test n=0 → 1.0 (Clojure parity, no short-circuit).
 
-        result = prop_test_vectorized(p, n, 0.5)
+        Cross-checks scalar/vectorized agreement on the n=0 boundary.
+        """
+        succ = pd.Series([0, 70])
+        n = pd.Series([0, 100])
 
-        assert result.iloc[0] == 0.0  # n=0 case
+        result = prop_test_vectorized(succ, n)
+
+        # Clojure parity: (0, 0) → (1, 1) after +1 → 2*sqrt(1)*(1/1 - 0.5) = 1.0
+        assert np.isclose(result.iloc[0], prop_test(0, 0), atol=1e-10)
+        assert np.isclose(result.iloc[0], 1.0, atol=1e-10)
         assert not np.isnan(result.iloc[1])  # normal case
 
     def test_two_prop_test_vectorized(self):
