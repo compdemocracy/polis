@@ -972,6 +972,9 @@ describe("Treevite API endpoints", () => {
         expect(response2.body.error).toMatch(
           /polis_err_treevite_invalid_or_used_invite|polis_err_treevite_invite_race_condition/
         );
+      } else {
+        expect(response2.text).toMatch(
+          /polis_err_treevite_invalid_or_used_invite|polis_err_treevite_invite_race_condition/
         );
       }
 
