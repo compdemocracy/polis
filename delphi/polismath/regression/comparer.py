@@ -137,7 +137,7 @@ class ConversationComparer:
         results = {
             "dataset": dataset_name,
             "stages_compared": {},
-            "timing_stats_compared": {} if benchmark else None,
+            "timing_stats_compared": {},
             "overall_match": True,
             "metadata": golden["metadata"]
         }

@@ -102,15 +102,28 @@ def write_to_dynamodb(dynamodb_client, conversation_id, conv):
 
 
 def connect_to_db():
-    """Connect to PostgreSQL database."""
+    """Connect to PostgreSQL database using DATABASE_URL or DATABASE_* env vars."""
+    from dotenv import find_dotenv, load_dotenv
+
+    # Walk up directories to find .env (works both locally and in containers)
+    load_dotenv(find_dotenv())
+
+    database_url = os.environ.get('DATABASE_URL')
+    if not database_url:
+        # Fall back to individual DATABASE_* vars (same pattern as postgres.py)
+        host = os.environ.get('DATABASE_HOST')
+        port = os.environ.get('DATABASE_PORT', '5432')
+        name = os.environ.get('DATABASE_NAME')
+        user = os.environ.get('DATABASE_USER')
+        password = os.environ.get('DATABASE_PASSWORD', '')
+        if host and name and user:
+            database_url = f"postgres://{user}:{password}@{host}:{port}/{name}"
+        else:
+            print("Neither DATABASE_URL nor DATABASE_HOST/NAME/USER are set")
+            return None
+
     try:
-        conn = psycopg2.connect(
-            database=os.environ.get('POSTGRES_DB', 'polismath'),
-            user=os.environ.get('POSTGRES_USER', 'postgres'),
-            password=os.environ.get('POSTGRES_PASSWORD', 'postgres'),
-            host=os.environ.get('POSTGRES_HOST', 'localhost'),
-            port=os.environ.get('POSTGRES_PORT', '5432')
-        )
+        conn = psycopg2.connect(database_url, connect_timeout=5)
         print("Connected to database successfully")
         return conn
     except Exception as e:
@@ -516,6 +529,9 @@ def test_conversation_from_postgres():
     """
     Test processing a conversation with data from PostgreSQL.
     """
+    from tests.conftest import require_dynamodb
+    require_dynamodb()
+
     import time
     start_time = time.time()
     
@@ -526,7 +542,7 @@ def test_conversation_from_postgres():
     conn = connect_to_db()
     if not conn:
         print(f"[{time.time() - start_time:.2f}s] Database connection failed")
-        pytest.skip("Could not connect to PostgreSQL database")
+        pytest.fail("Could not connect to PostgreSQL database")
     
     try:
         # Get popular conversations
@@ -801,6 +817,8 @@ def test_dynamodb_direct():
     Test writing directly to DynamoDB without PostgreSQL.
     This is useful for directly testing the DynamoDB functionality.
     """
+    from tests.conftest import require_dynamodb
+    require_dynamodb()
     print("\nTesting direct DynamoDB write functionality with new schema")
     
     try:

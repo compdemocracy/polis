@@ -37,7 +37,8 @@ def connect_to_db():
             dbname="polis_subset",
             user="christian",
             password="christian",
-            host="localhost"
+            host="localhost",
+            connect_timeout=5,
         )
         print("Connected to database successfully")
         return conn

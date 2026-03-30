@@ -27,10 +27,12 @@ class TestBatchIdStorage:
     @pytest.fixture(scope="class")
     def dynamodb_resource(self):
         """Set up DynamoDB resource connection."""
+        from tests.conftest import require_dynamodb
+        require_dynamodb()
         logger.debug("Setting up DynamoDB resource connection")
         return boto3.resource(
             'dynamodb',
-            endpoint_url= os.environ.get('DYNAMODB_ENDPOINT', 'http://localhost:8000'),
+            endpoint_url=os.environ.get('DYNAMODB_ENDPOINT', 'http://localhost:8000'),
             region_name='us-east-1',
             aws_access_key_id='fakeMyKeyId',
             aws_secret_access_key='fakeSecretAccessKey'
