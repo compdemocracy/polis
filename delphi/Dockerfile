@@ -7,6 +7,13 @@
 
   ENV PYTHONDONTWRITEBYTECODE=1
   ENV PYTHONUNBUFFERED=1
+  ENV UV_SYSTEM_PYTHON=1
+
+  # Install uv for faster package installation (~2x faster than pip)
+  # Placed in /opt/uv (not /usr/local/bin) to avoid leaking into the final/prod image
+  # via the blanket COPY --from=builder /usr/local/bin in Stage 2.
+  COPY --from=ghcr.io/astral-sh/uv:0.11.2 /uv /opt/uv/uv
+  ENV PATH="/opt/uv:$PATH"
 
   RUN apt-get update && \
       apt-get install -y --no-install-recommends \
@@ -28,21 +35,21 @@
   COPY pyproject.toml requirements.lock ./
 
 # Install dependencies from lock file (cached layer - reused unless requirements.lock changes)
-# BuildKit cache mount keeps pip cache between builds for faster rebuilds
+# BuildKit cache mount keeps uv cache between builds for faster rebuilds
 # If USE_CPU_TORCH is true, we install CPU-specific wheels and filter them out of the lockfile
-RUN --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=cache,target=/root/.cache/uv \
     if [ "$USE_CPU_TORCH" = "true" ]; then \
         echo "USE_CPU_TORCH=true: Installing CPU-only PyTorch..." && \
-        pip install --index-url https://download.pytorch.org/whl/cpu \
+        uv pip install --index-url https://download.pytorch.org/whl/cpu \
             torch==2.8.0 \
             torchvision==0.23.0 \
             torchaudio==2.8.0 && \
         echo "Filtering standard torch packages from requirements.lock..." && \
         grep -vE "^(torch|torchvision|torchaudio)==" requirements.lock > requirements.filtered.lock && \
-        pip install -r requirements.filtered.lock; \
+        uv pip install -r requirements.filtered.lock; \
     else \
         echo "USE_CPU_TORCH=false: Installing standard dependencies..." && \
-        pip install -r requirements.lock; \
+        uv pip install -r requirements.lock; \
     fi
 
   # ===== OPTIMIZATION: Copy source code LAST (busts cache on code changes) =====
@@ -54,8 +61,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
   # Install the project package (without dependencies - they're already installed)
   # This registers entry points and installs the package in development mode
-  RUN --mount=type=cache,target=/root/.cache/pip \
-      pip install --no-deps .
+  RUN --mount=type=cache,target=/root/.cache/uv \
+      uv pip install --no-deps .
 
   RUN echo "--- PyTorch Check (after pyproject.toml installation) ---" && \
       pip show torch torchvision torchaudio && \
@@ -132,12 +139,14 @@ RUN apt-get update && \
     && apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy pyproject.toml to install dev dependencies
+# Copy uv from builder for faster package installation
+COPY --from=builder /opt/uv/uv /usr/local/bin/uv
+ENV UV_SYSTEM_PYTHON=1
 COPY pyproject.toml .
 
 # Install dev dependencies (pytest, etc.) using caching
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install --no-cache-dir ".[dev]"
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install ".[dev]"
 
 # Default command for test container (can be overridden)
 CMD ["tail", "-f", "/dev/null"]
