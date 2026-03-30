@@ -469,7 +469,7 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D4 | Pseudocount formula | **PR 2** | **#2435** | **DONE** ✓ |
 | D5 | Proportion test | **PR 4** | — | **DONE** ✓ |
 | D6 | Two-proportion test | **PR 5** | — | **DONE** ✓ |
-| D7 | Repness metric | PR 6 | — | Fix (with flag for old formula) |
+| D7 | Repness metric | PR 6 | — | **DONE** ✓ |
 | D8 | Finalize cmt stats | PR 7 | — | Fix |
 | D9 | Z-score thresholds | **PR 3** | **#2518** | **DONE** ✓ |
 | D10 | Rep comment selection | PR 8 | — | Fix (with legacy env var) |

@@ -236,26 +236,38 @@ def add_comparative_stats(comment_stats: Dict[str, Any],
 
 def repness_metric(stats: Dict[str, Any], key_prefix: str) -> float:
     """
-    Calculate a representativeness metric for ranking.
-    
+    Composite representativeness score, matching Clojure's repness-metric.
+
+    Clojure (math/src/polismath/math/repness.clj:191-193):
+        (defn repness-metric
+          [{:keys [repness repness-test p-success p-test]}]
+          (* repness repness-test p-success p-test))
+
+    For Python the keys are looked up via key_prefix:
+        'a' (agree)    → ra * rat * pa * pat
+        'd' (disagree) → rd * rdt * pd * pdt
+
+    This is a *signed* product of 4 values — there is no abs(). A negative
+    z-score (pat / rat / pdt / rdt) flips the sign of the metric, exactly as
+    in Clojure. Downstream `select_rep_comments` sorts candidates by this
+    metric in descending order and keeps the top N, so negative metrics rank
+    at the bottom of the candidate pool. They are not actively *filtered*
+    here, though — fallback paths (e.g. fewer than the requested N candidates
+    pass significance) can still surface a negative-metric comment. Callers
+    that need strict positive-metric semantics should gate at the call site.
+
     Args:
         stats: Statistics for a comment/group
         key_prefix: 'a' for agreement, 'd' for disagreement
-        
+
     Returns:
-        Composite representativeness score
+        Composite representativeness score (signed product of 4 values).
     """
-    # Get the relevant probability and test values
     p = stats[f'p{key_prefix}']
     p_test = stats[f'p{key_prefix}t']
     r = stats[f'r{key_prefix}']
     r_test = stats[f'r{key_prefix}t']
-    
-    # Take probability into account
-    p_factor = p if key_prefix == 'a' else (1 - p)
-    
-    # Calculate composite score
-    return p_factor * (abs(p_test) + abs(r_test))
+    return r * r_test * p * p_test
 
 
 def finalize_cmt_stats(stats: Dict[str, Any]) -> Dict[str, Any]:
@@ -711,10 +723,13 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     )
 
     # Compute metrics
-    # agree_metric = pa * (|pat| + |rat|)
-    # disagree_metric = (1 - pd) * (|pdt| + |rdt|)
-    stats_df['agree_metric'] = stats_df['pa'] * (stats_df['pat'].abs() + stats_df['rat'].abs())
-    stats_df['disagree_metric'] = (1 - stats_df['pd']) * (stats_df['pdt'].abs() + stats_df['rdt'].abs())
+    # Clojure (repness.clj:191-193): (* repness repness-test p-success p-test)
+    #   agree_metric    = ra * rat * pa * pat
+    #   disagree_metric = rd * rdt * pd * pdt   (signed product — see scalar repness_metric)
+    stats_df['agree_metric'] = (stats_df['ra'] * stats_df['rat']
+                                 * stats_df['pa'] * stats_df['pat'])
+    stats_df['disagree_metric'] = (stats_df['rd'] * stats_df['rdt']
+                                    * stats_df['pd'] * stats_df['pdt'])
 
     # Determine repful ('agree' or 'disagree')
     # Logic: if pa > 0.5 and ra > 1.0 -> 'agree'

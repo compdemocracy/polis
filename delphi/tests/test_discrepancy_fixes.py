@@ -914,7 +914,6 @@ class TestD7RepnessMetric:
     kills the whole metric.
     """
 
-    @pytest.mark.xfail(reason="D7: Python uses pa*(|pat|+|rat|), target is ra*rat*pa*pat")
     def test_metric_formula_is_product(self):
         """repness_metric should use product formula (ra * rat * pa * pat)."""
         stats = {
@@ -1215,10 +1214,19 @@ class TestSyntheticEdgeCases:
         assert abs(result - expected) < 1e-10, f"prop_test({succ}, {n})={result}, expected {expected}"
 
     def test_clojure_repness_metric_product(self):
-        """Verify Clojure's repness metric is a product: ra * rat * pa * pat."""
-        ra, rat, pa, pat = 1.5, 2.0, 0.8, 3.0
-        expected = ra * rat * pa * pat  # = 7.2
-        assert expected == pytest.approx(7.2)
+        """Python's repness_metric matches Clojure (* repness repness-test p-success p-test).
+
+        Verifies the actual production function, not a re-implementation of the formula.
+        """
+        stats = {
+            'pa': 0.8, 'pat': 3.0, 'ra': 1.5, 'rat': 2.0,
+            'pd': 0.2, 'pdt': -1.0, 'rd': 0.5, 'rdt': -0.5,
+        }
+        # Agree: (* ra rat pa pat) = 1.5 * 2.0 * 0.8 * 3.0 = 7.2
+        assert repness_metric(stats, 'a') == pytest.approx(7.2)
+        # Disagree (same product, no (1-pd) trick): (* rd rdt pd pdt)
+        # = 0.5 * -0.5 * 0.2 * -1.0 = 0.05 (two negatives cancel — signed product)
+        assert repness_metric(stats, 'd') == pytest.approx(0.05)
 
     def test_clojure_repful_uses_rat_vs_rdt(self):
         """Clojure determines repful by comparing rat vs rdt."""

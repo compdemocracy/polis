@@ -166,12 +166,14 @@ class TestCommentStats:
 
         # Calculate agree metric
         agree_metric = repness_metric(stats, 'a')
-        expected_agree = 0.8 * (abs(3.0) + abs(2.5))
+        # Clojure (repness.clj:191-193): (* ra rat pa pat)
+        expected_agree = 2.0 * 2.5 * 0.8 * 3.0  # = 12.0
         assert np.isclose(agree_metric, expected_agree)
 
         # Calculate disagree metric
         disagree_metric = repness_metric(stats, 'd')
-        expected_disagree = (1 - 0.2) * (abs(-3.0) + abs(-2.5))
+        # Clojure: (* rd rdt pd pdt) — signed product, two negatives cancel
+        expected_disagree = 0.33 * (-2.5) * 0.2 * (-3.0)  # = 0.495
         assert np.isclose(disagree_metric, expected_disagree)
 
     def test_finalize_cmt_stats(self):
