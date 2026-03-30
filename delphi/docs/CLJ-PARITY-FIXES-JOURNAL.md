@@ -104,16 +104,121 @@ After rebase onto updated `origin/kmeans_analysis_docs`:
 
 ---
 
-## What's Next: PR 1 — Fix D2 (In-Conv Participant Threshold)
+## PR 1: Fix D2 — In-Conv Participant Threshold (blocked on Clojure blob regeneration)
 
-- Change `threshold = 7 + sqrt(n_cmts) * 0.1` to `threshold = min(7, n_cmts)` in `conversation.py:1238`
-- Use `self.raw_rating_mat` instead of `self.rating_mat` for counting
-- Add greedy fallback (top-15 voters if <15 qualify)
-- Add monotonic persistence (once in, always in)
-- Remove xfail from `TestD2InConvThreshold`
-- Check cluster count impact (may change from 3→2 for biodiversity, matching Clojure)
-- Re-record golden snapshots if needed
-- Document new baseline
+### TDD steps
+1. **Baseline (public only)**: 3 failed (2 D2 + 1 DynamoDB), 205 passed, 4 skipped, 20 xfailed, 3 xpassed
+2. **Red**: Removed xfail from `TestD2InConvThreshold` — biodiversity fails (Python=428, Clojure=441, threshold 8.8 vs 7)
+3. **Fix**: Changed `threshold = 7 + sqrt(n_cmts) * 0.1` → `threshold = min(7, n_cmts)` in `conversation.py:1270`
+4. **Green (public only)**: All 4 D2 tests pass (vw + biodiversity × 2 tests each)
+5. **Full suite (public only)**: 1 failed (DynamoDB only), 207 passed — but golden snapshots were re-recorded for biodiversity without proper verification
+6. **Full suite (with private datasets)**: 15 failed, 6 errors — regression tests fail for private datasets (golden snapshots stale), `engage` dataset has duplicate vote files
+7. Investigated regression failures — all caused by expected threshold change. Re-recorded after verification.
+8. **Blocker**: 3 private datasets have incomplete Clojure blobs (no in-conv data). D2 tests fail on those — not a code issue. Delegated blob regeneration to separate session.
+
+### Investigation of regression failures
+- Private dataset golden snapshots were never committed (unstaged in .local repo) — reverted automatically
+- biodiversity: re-recorded after verifying D2 in-conv set matches Clojure exactly (428→441 participants)
+- Private datasets: threshold dropped significantly for large conversations:
+  - bg2050 (7753 comments): old threshold ≈ 15.8, new threshold = 7 → 6609/7890 qualify (was fewer)
+  - This is the expected and correct effect of the D2 fix
+- **Gotcha**: `--datasets <name>` alone won't find private datasets — must also pass `--include-local`!
+  Without it, private datasets are silently skipped (shown as `[NOTSET]`).
+- Golden snapshots re-recorded for FLI, bg2018, pakistan, bg2050 after verifying all regression
+  failures are downstream of the expected threshold change. Committed in `.local` repo on
+  branch `series-of-fixes`.
+
+### Incomplete Clojure blobs (RESOLVED)
+
+3 private datasets have incomplete Clojure cold-start blobs (4 keys instead of 23):
+- Missing `in-conv`, `repness`, `consensus`, `comment-priorities`, etc.
+- Root cause: the Clojure math worker relies on incremental processing and cannot
+  analyse these large conversations in a single cold-start pass.
+- The 4 remaining datasets (vw, biodiversity, FLI, bg2018) have complete cold-start blobs (23 keys)
+
+**Resolution (session 4)**: Instead of regenerating blobs, we now test against both
+incremental and cold-start blob types. `get_blob_variants()` discovers which blob types
+have meaningful content per dataset (via `_is_blob_filled()`). Tests on datasets with
+empty cold-start blobs only run against the incremental blob. D2 in-conv tests on
+incremental blobs are xfailed (see session 4 notes). No blob regeneration needed.
+
+### What was NOT needed (revised — see D2c/D2d below)
+- ~~`raw_rating_mat` vs `rating_mat` — not needed~~ **WRONG**: See D2c below, this IS needed.
+- Greedy fallback / monotonic persistence — not needed for cold-start parity, but monotonicity tests needed for future-proofing (see D2d).
+
+### D2c: Vote count source — raw vs filtered matrix (discovered in session 3)
+
+Deep investigation of Clojure vs Python revealed a **structural discrepancy** in how
+votes are counted for the in-conv threshold, independent of delta vs full processing:
+
+| Aspect | Clojure | Python (current) |
+|--------|---------|-----------------|
+| Vote counts per participant | From `raw-rating-mat` (conversation.clj:217-225) — includes votes on moderated-out comments | From `self.rating_mat` (conversation.py:1226/1244) — excludes moderated-out columns |
+| `n_cmts` (threshold cap) | From `rating-mat` (conversation.clj:214-215) — columns zeroed but still present, so count includes moderated-out | From `self.rating_mat` (conversation.py:1268) — moderated-out columns removed entirely |
+
+Key insight: Clojure's `zero-out-columns` (named_matrix.clj:214-228) sets moderated-out
+column values to 0 but **keeps the columns** in `rating-mat`. Python's `_apply_moderation`
+(conversation.py:308) **removes columns entirely**. This means both `user-vote-counts`
+and `n-cmts` differ between implementations.
+
+**Fix**: Both `_compute_user_vote_counts` and `n_cmts` must use `self.raw_rating_mat`.
+Two xfail unit tests planned (vote count source + n_cmts threshold).
+
+### D2d: In-conv monotonicity — full recompute vs persistence (discovered in session 3)
+
+Investigated whether Python needs to persist in-conv to DynamoDB (like Clojure persists to
+`math_main`). Finding: **no, full recompute is better**.
+
+Clojure persists in-conv (conv_man.clj:55) because it uses delta vote processing. Python
+rebuilds `raw_rating_mat` from all votes every time. Since votes are immutable in PostgreSQL
+(can be updated, never deleted), a participant's vote count never decreases → monotonicity
+is a free consequence of full recompute from `raw_rating_mat`.
+
+**Decision**: No DynamoDB persistence. Instead, 6 tests (T1-T6) guard the monotonicity
+invariant, each documenting that switching to delta processing would require adding
+persistence. See plan PR 1bis for test details. Ref: compdemocracy/polis#2358.
+
+### D2b: Base-cluster sort order (added from Copilot review)
+
+Copilot flagged that Python sorts base clusters by size (descending) and reassigns IDs,
+while Clojure uses `(sort-by :id ...)` which preserves k-means' original cluster IDs.
+The size-sort changes the encounter order of base-cluster centers fed into group-level
+k-means (which uses first-k-distinct initialization), potentially diverging from Clojure.
+
+**Fix**: Removed size-sort and ID reassignment; now sort by k-means ID (ascending),
+matching Clojure's `sort-by :id`.
+
+### Test results for PR 1
+
+```
+17 passed, 16 skipped, 31 xfailed, 7 xpassed, 4 errors (with --include-local, 7 datasets)
+```
+
+- **17 passed**: D2 tests pass on 4 datasets with complete blobs (8 tests) + formula sanity checks + blob consistency
+- **16 skipped**: D2 skipped on 3 datasets with incomplete Clojure blobs + D15 moderation + engage errors
+- **31 xfailed**: Remaining discrepancy tests (D4-D12)
+- **7 xpassed** (all `strict=False`, so green):
+  - D6 two_prop_test × 1 — pseudocount difference too small for this test case
+  - D9 repness_not_empty × 6 — test too weak (checks non-empty, not correct count)
+- **4 errors**: engage dataset has duplicate vote files (pre-existing data issue)
+
+### Golden snapshot re-recording (BLOCKED)
+
+After D2b fix, regression tests fail on all datasets except vw (as expected — sort order
+change cascades to different cluster assignments). biodiversity was re-recorded and verified.
+Private datasets (FLI, bg2018, bg2050, pakistan) need re-recording but the recorder crashes
+on `engage` (pre-existing duplicate vote files) before reaching the others. Need to record
+them individually, but **blocked on fixes to PRs earlier in the stack** (#2393, #2397).
+Will re-record after those are resolved and rebased.
+
+### What's Next
+
+1. **PR 1 (D2c)**: Implement the vote count source fix — switch `_compute_user_vote_counts`
+   and `n_cmts` to use `self.raw_rating_mat`. Write xfail tests first, then fix, then verify.
+2. **PR 1bis (D2d)**: Write the 6 monotonicity tests (T1-T6). These should pass immediately
+   after D2c is fixed (full recompute + raw_rating_mat = monotonicity for free). Add the
+   code comment block and PR description documenting the design decision.
+3. **PR 2 — Fix D4 (Pseudocount)**: Next in pipeline order after D2 is fully resolved.
 
 ---
 
@@ -140,12 +245,162 @@ After rebase onto updated `origin/kmeans_analysis_docs`:
   - `CLJ-PARITY-FIXES-JOURNAL.md` in `series-of-fixes` (amended tip)
   - Force-pushed all three branches, rebased the chain
 - Tests unchanged: 5 passed, 2 skipped, 18 xfailed, 5 xpassed
+- Renamed journal and plan to `CLJ-PARITY-FIXES-*.md`, amended introducing commits, rebased chain
+- Set up private data repo infrastructure:
+  - Pushed data to bare repo at `~/polis/github/real_data_private`
+  - Created `link-to-polis-worktree.sh` for per-worktree clones with post-checkout branch sync
+  - Linked `.local` to this worktree, created `series-of-fixes` branch in private repo
+- Created `CLAUDE.local.md` (via stow) and `CLAUDE.md` in private data repo
+- D2 fix (TDD):
+  - Baseline (public only): 205 passed, 3 failed (2 D2 + 1 DynamoDB)
+  - Red: removed xfail from D2 tests, biodiversity fails (Python=428, Clojure=441)
+  - Fix: `threshold = min(7, n_cmts)` in `conversation.py:1270`
+  - Green: D2 tests pass on vw + biodiversity
+  - Full suite with private datasets (14 min): regression failures on all private datasets (expected — threshold change cascades to clustering)
+  - Investigated: all failures are downstream of threshold change, verified correct
+  - Re-recorded golden snapshots for biodiversity + 4 private datasets after verification
+  - Discovered 3 private datasets have incomplete Clojure blobs (4 keys instead of 23) — delegated regeneration to separate session
+  - Committed and pushed D2 fix (`df2d013ec`)
+
+### Session 3 (2026-03-04)
+
+- Deep investigation of in-conv vote counting: compared Clojure `user-vote-counts`
+  (conversation.clj:217-225, uses `raw-rating-mat`) vs Python `_compute_user_vote_counts`
+  (conversation.py:1226, uses `self.rating_mat`)
+- Discovered D2c: structural discrepancy in both vote count source AND `n_cmts` — Clojure's
+  `zero-out-columns` keeps moderated-out columns (zeroed), Python's `_apply_moderation`
+  removes them entirely. Both vote counts and threshold cap differ.
+- Investigated whether to persist in-conv to DynamoDB (like Clojure does to `math_main`).
+  Found: Clojure persists because it uses delta vote processing. Python does full recompute
+  → monotonicity is free. No persistence needed.
+- Verified Clojure persistence path: `prep-main` (conv_man.clj:55) writes `:in-conv`,
+  `restructure-json-conv` (conv_man.clj:182) restores it on restart.
+- Updated plan: added D2c (vote count source, 2 xfail tests) and D2d (monotonicity, 6 tests
+  guarding against future delta-processing refactor). Ref: compdemocracy/polis#2358.
+- Corrected earlier journal entry that said `raw_rating_mat` was "not needed" — it IS needed.
+- Added terminology rule to CLAUDE.local.md: always say "moderated-out" or "moderated-in",
+  never just "moderated".
+- Committed plan update (`f2bf77c38`)
+
+### Session 4 (2026-03-10)
+
+- **Dual-blob test infrastructure** (committed on `jc/series-of-fixes`, #2420):
+  - Extended `get_dataset_files()` with `blob_type` parameter (explicit `'incremental'` or `'cold_start'`)
+  - Added `get_blob_variants()` to discover which blob types are available per dataset,
+    filtering out empty/unfilled blobs via `_is_blob_filled()` (checks for PCA data or
+    non-empty base-clusters)
+  - Extended `@pytest.mark.use_discovered_datasets` with optional `use_blobs=True` parameter
+    to parametrize tests with composite `dataset-blob_type` IDs (e.g., `biodiversity-incremental`)
+  - Added `parse_dataset_blob_id()` in conftest for splitting composite IDs
+  - Applied to `test_legacy_clojure_regression.py`, `test_discrepancy_fixes.py`, and
+    `test_legacy_repness_comparison.py`
+  - Conversation computation shared across blob variants via `_CONV_CACHE` (keyed by dataset
+    name) to avoid redundant recomputation
+
+- **D2 incremental xfail with rationale** (committed on `jc/clj-parity-d2-fix`, #2421):
+  - D2 in-conv tests on incremental blobs are xfailed with inline comments explaining why:
+    incremental blobs were built progressively as votes trickled in, so the threshold
+    `min(7, n_cmts)` was evaluated at each iteration with a smaller `n_cmts`, admitting
+    a few extra participants (1–2) during earlier iterations. Very large conversations
+    have empty cold-start blobs because the Clojure math worker relies on incremental
+    processing — it cannot analyse the whole conversation in a single cold-start pass.
+  - Matching incremental exactly would require simulating the progressive threshold — tracked
+    as future work under Replay Infrastructure (PRs A/B/C in the plan)
+
+- **Golden snapshots re-recorded** for all public + private datasets, 5 stale xfail markers removed
+- **Final test results**: 245 passed, 5 skipped, 36 xfailed, 0 failures, 0 xpassed
+- Updated PR #2421 description with incremental vs cold-start explanation
+- Local handoff file created at `delphi/docs/HANDOFF_D2_INCREMENTAL_IN_CONV.md` (untracked)
+  for future investigation of how much in-conv sets differ between blob types
+
+### Session 5 (2026-03-11)
+
+- **D2c fix**: Switched `_compute_user_vote_counts` and `_get_in_conv_participants` to use
+  `self.raw_rating_mat` instead of `self.rating_mat`. Both vote counts and `n_cmts` now
+  include votes on moderated-out comments, matching Clojure's `user-vote-counts`
+  (conversation.clj:217-225) and `n-cmts` (conversation.clj:214-215).
+- **D2c tests** (3 in `TestD2cVoteCountSource`):
+  - `test_vote_count_includes_moderated_out_votes`: 10 comments, 3 moderated-out, count=10
+  - `test_n_cmts_includes_moderated_out_comments`: verifies threshold uses raw column count,
+    not filtered; also tests that a participant with 6 raw votes is correctly excluded
+  - `test_participant_stays_in_conv_after_moderation`: the critical scenario — participant
+    with 8 votes stays in-conv when 3 comments moderated-out (filtered count drops to 5)
+- **D2d monotonicity tests** (5 in `TestD2dInConvMonotonicity`):
+  - T1: basic monotonicity across batch updates
+  - T2: survives moderation-out
+  - T3: worker restart + moderation (key delta-processing guard)
+  - T4: worker restart, moderation, no new votes
+  - T5: mixed participants with moderation
+  - All pass for free with D2c fix (full recompute from `raw_rating_mat`)
+- **TDD discipline**: wrote tests first (D2c xfail, D2d no xfail), confirmed D2c red (3
+  xfailed) and D2d red (T2-T5 failed, T1 passed), applied fix, confirmed all green.
+- **Full test suite**: 253 passed, 5 skipped, 36 xfailed, 0 failures (+8 from session 4)
+- **No regressions** on public datasets
+- Added code comments on `_get_in_conv_participants` documenting the monotonicity design
+  decision and delta-processing caveat (ref: #2358)
+- Updated plan: D2, D2b, D2c, D2d all marked DONE; PR 1bis merged into PR 1
+- Updated PR #2421 description with D2c/D2d sections
+
+### What's Next
+
+1. **PR 2 — Fix D4 (Pseudocount)**: `PSEUDO_COUNT = 1.5` → `2.0` to match Clojure's Beta(2,2) prior.
+2. **PR 3 — Fix D9 (Z-score thresholds)**: Switch from two-tailed to one-tailed z-scores.
+
+---
+
+## TDD Discipline
+
+**CRITICAL: For every fix, ALWAYS follow this order:**
+1. **Run the full test suite** (all datasets, including private) to establish the baseline
+2. **Remove xfail** from the target test(s)
+3. **Run tests and confirm they FAIL** (red) — this validates the test actually catches the discrepancy
+4. **Apply the fix**
+5. **Run tests and confirm they PASS** (green)
+6. **Run the full test suite** to check for regressions vs the baseline from step 1
+7. **If regression tests fail**: INVESTIGATE before re-recording golden snapshots (see below)
+
+Never skip step 3. A test that passes before the fix is applied is not testing anything useful.
+
+### Golden snapshots are precious
+
+**NEVER blindly re-record golden snapshots.** They are the regression safety net.
+When a fix causes regression test failures:
+
+1. **Investigate** what changed: compare old vs new output, check which fields differ
+2. **Verify** the new output is closer to Clojure (e.g., in-conv set now matches exactly)
+3. **Only then** re-record, one dataset at a time, after confirming correctness
+4. **Commit** the updated snapshots with a clear message explaining why they changed
+
+### Per-dataset testing for faster feedback
+
+Run each dataset as a **separate background task** instead of one big pytest invocation.
+Smallest datasets finish first, giving early signal without waiting for the 1M-vote ones.
+
+**IMPORTANT**: Always pass `--include-local` when testing private datasets.
+Without it, `--datasets <name>` silently skips private datasets (shown as `[NOTSET]`).
+
+### Pipelined worktree workflow
+
+Full test suite takes ~14 minutes. To avoid idle time:
+- When tests start running on the current worktree, create the next worktree and start coding the next fix
+- Each worktree = one fix, one branch, one PR — stacked like the PR chain
+- Number of worktrees in flight depends on test duration vs coding speed
+- If a lower fix needs amending, rebase the chain of worktrees above it
+- Each worktree gets its own `.local` private data clone (via `link-to-polis-worktree.sh`)
+
+**When starting a new Claude session for the next fix**, ask the user whether they want
+to create a new worktree. If yes, provide a prompt they can use to start that session:
+
+> Start working on [Clj parity] fix DN (<description>). This is a new worktree
+> stacked on `<previous-branch>`. Read `delphi/docs/CLJ-PARITY-FIXES-JOURNAL.md`
+> and `delphi/docs/CLJ-PARITY-FIXES-PLAN.md` for context. Follow the TDD discipline
+> documented in the journal.
 
 ---
 
 ## Notes for Future Sessions
 
-- Private datasets not available in this worktree. Need prodclone DB + `generate_cold_start_clojure.py`.
+- Private datasets are in `delphi/real_data/.local/` (separate git repo, linked via `link-to-polis-worktree.sh`)
 - `test_discrepancy_fixes.py` uses same parametrization pattern as `test_legacy_clojure_regression.py` (own `pytest_generate_tests` hook, `dataset_name` fixture).
 - 11 pre-existing test failures are from the stacked branch, not from our work. They should be fixed in their respective PRs before merging to main.
 - `strict=False` on xfail means xpass (unexpected pass) is reported but not a failure. Used when some datasets pass by coincidence.
