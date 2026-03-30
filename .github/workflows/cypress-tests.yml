@@ -9,6 +9,10 @@ on:
       - stable
       - 'jc/**'
 
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   cypress-run:
     runs-on: ubuntu-latest

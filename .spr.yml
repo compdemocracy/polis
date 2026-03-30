@@ -1,0 +1,14 @@
+githubRepoOwner: compdemocracy
+githubRepoName: polis
+githubHost: github.com
+githubRemote: origin
+githubBranch: edge
+requireChecks: true
+requireApproval: true
+defaultReviewers: []
+mergeMethod: squash
+mergeQueue: false
+prTemplateType: stack
+forceFetchTags: false
+showPrTitlesInStack: false
+branchPushIndividually: false
