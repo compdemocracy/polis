@@ -136,17 +136,8 @@ for group_id, comments in repness["group_repness"].items():
 
 ### Statistical Functions
 
-```python
-from polismath.pca_kmeans_rep.stats import prop_test, two_prop_test
-
-# Test proportion difference
-z_score = prop_test(70, 100)  # 70 successes out of 100 trials
-print(f"Z-score: {z_score}")
-
-# Compare two proportions
-z_score = two_prop_test(70, 100, 50, 100)  # 70/100 vs 50/100
-print(f"Comparison Z-score: {z_score}")
-```
+Statistical helpers (`z_sig_90`, `z_sig_95`, `prop_test`, `two_prop_test`) are
+defined inline in `repness.py` where they are used. See that module for details.
 
 ## Practical Examples
 

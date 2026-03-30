@@ -19,7 +19,7 @@ This plan's "PR N" labels map to actual GitHub PRs as follows:
 | PR 1 (D2) | #2421 | Stack 8/10 | Fix D2: in-conv participant threshold + D2c vote count source |
 | PR 2 (D4) | #2435 | Stack 9/10 | Fix D4: pseudocount formula |
 | (perf) | #2436 | Stack 10/10 | Speed up regression tests |
-| PR 3 (D9) | — | — | *Next: Fix D9 z-score thresholds* |
+| PR 3 (D9) | #2446 | — | Fix D9: z-score thresholds (one-tailed) |
 
 Future fix PRs will be appended to the stack as they're created.
 
@@ -50,6 +50,10 @@ Because this work will span multiple Claude Code sessions, we maintain:
 - **Synthetic edge-case tests**: Every time we discover an edge case specific to one conversation, extract it into a synthetic unit test with made-up data (never real data from private datasets). These run fast and document the intent clearly.
 - **E2E awareness**: GitHub Actions has Cypress E2E tests (`cypress-tests.yml`) testing UI workflows, and `python-ci.yml` running pytest regression. The Cypress tests don't test math output values directly, but `python-ci.yml` will break if clustering/repness changes. Formula-level fixes (D4, D5, D6, D7, D8, D9) are pure computation — no E2E risk. Selection logic changes (D10, D11) and priority computation (D12) could affect what the TypeScript server returns. We decide case-by-case which PRs need E2E verification.
 - **Remove dead code after replacement**: When a function is replaced by a new implementation (e.g. vectorized version), the old function must be deleted and all callers updated — not left as dead code. Do this in the same PR or a follow-up, after benchmarks and tests confirm the replacement works.
+- **Mathematical rigor**: These are math fixes. Every formula change must be verified against the Clojure reference implementation by reading the actual Clojure source and the Python source side-by-side. Verify algebraic equivalence explicitly — don't assume. When in doubt, add a comment showing the derivation.
+- **Exhaustive RED phase**: In the RED phase of TDD, don't just write one test showing the discrepancy. Actively ask: "What other behaviors does this change affect? What are the boundary conditions? What happens with empty inputs, single-element inputs, all-agree cases, all-disagree cases?" Write tests for all of them. Before moving to GREEN, explicitly list what tests are still missing and add them. The goal is that the test suite for each fix is comprehensive enough that a wrong implementation cannot pass.
+- **Check your work**: After implementing a fix, re-read the Clojure source one more time and verify each line of the Python implementation corresponds correctly. Check array shapes, index semantics (0-based vs 1-based), and aggregation axes. Off-by-one errors and transposed matrices are the most common bugs.
+- **Large private datasets are slow**: Some private conversations have 100K–1M votes. Running the full test suite with `--include-local` on all of them can take a very long time. It's OK to run only the small/medium datasets (vw, biodiversity, and the smaller private ones) during the RED/GREEN cycle. Run the full set including large conversations only once, as a final validation before committing — and even then, if a specific large dataset is known to be slow, it's acceptable to skip it and note which ones were tested in the PR description.
 
 ### Datasets Available (sorted by size, smallest first)
 
@@ -383,11 +387,51 @@ This is non-trivial and should be one of the last fixes.
 
 ---
 
-### PR 14: Cleanup — Remove Dead Code
+### PR 14: Refactor Vectorized Code for Readability + Blob Injection Tests
+
+**MOVED EARLIER**: PR 14 is now a prerequisite for all formula fix PRs (D5-D8+),
+not a post-parity cleanup. It branches off `jc/clj-parity-d9-fix` (Stack 13),
+below all formula fixes. Reason: the vectorized production path
+(`compute_group_comment_stats_df`) is too monolithic to test against the Clojure
+blob. The refactor makes it testable AND readable.
+
+**The problem**: The scalar functions (`comment_stats`, `add_comparative_stats`,
+`repness_metric`, `finalize_cmt_stats`) read like a step-by-step recipe. The
+vectorized replacement (`compute_group_comment_stats_df`) buries the same logic
+in 150 lines of DataFrame plumbing. The scalar path is dead code in production —
+only called from tests and benchmarks.
+
+**Task**:
+1. Split `compute_group_comment_stats_df` into (a) DataFrame construction
+   (group mapping, cross-product index, joins) and (b) statistics computation
+   as its own function with clean inputs/outputs — readable AND testable.
+2. Write vectorized blob injection tests: inject Clojure group memberships +
+   votes, compare output to blob values. Tests the PRODUCTION code path.
+3. Verify scalar and vectorized paths produce identical output on all datasets.
+4. Delete scalar functions. Update tests.
+
+**Files**: `polismath/pca_kmeans_rep/repness.py`, `tests/test_discrepancy_fixes.py`,
+`tests/test_repness_unit.py`, `tests/test_old_format_repness.py`,
+`polismath/benchmarks/bench_repness.py`
+
+See `delphi/docs/HANDOFF_PR14_VECTORIZED_REFACTOR.md` for full details.
+
+After PR 14, each fix PR gets vectorized blob injection tests added in RED→GREEN
+TDD pattern. This includes D5-D8 (repness formula fixes), D10/D11 (selection),
+D15 (moderation), D12 (priorities). For D3 (k-smoother) and D1 (PCA sign flip),
+which are incremental-only features, add synthetic tests + skip markers for
+incremental blob comparison pending replay infrastructure (see Replay PRs A/B/C).
+
+**After adding vectorized tests to each PR, update the plan AND journal** to
+record what was tested, what blob fields were compared, and any discrepancies found.
+This is mandatory — the plan and journal are how future sessions know what's done.
+
+---
+
+### PR 14b: Cleanup — Remove Remaining Dead Code (after parity)
 
 **Files**: Multiple (see `08-dead-code.md`)
 - Custom kmeans chain in `clusters.py`
-- Non-vectorized repness functions in `repness.py`
 - Buggy `_compute_votes_base()` (after D12 replaces it)
 - `stats.py` inconsistencies (after D9 makes `repness.py` authoritative)
 
@@ -425,19 +469,70 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D6 | Two-proportion test | PR 5 | — | Fix |
 | D7 | Repness metric | PR 6 | — | Fix (with flag for old formula) |
 | D8 | Finalize cmt stats | PR 7 | — | Fix |
-| D9 | Z-score thresholds | PR 3 | — | Fix (next) |
+| D9 | Z-score thresholds | **PR 3** | **#2446** | **DONE** ✓ |
 | D10 | Rep comment selection | PR 8 | — | Fix (with legacy env var) |
 | D11 | Consensus selection | PR 9 | — | Fix (with legacy env var) |
 | D12 | Comment priorities | PR 11 | — | Fix (implement from scratch) |
 | D13 | Subgroup clustering | — | — | **Deferred** (unused) |
 | D14 | Large conv optimization | — | — | **Deferred** (Python fast enough) |
 | D15 | Moderation handling | PR 12 | — | Fix |
+| Replay | Replay infrastructure (A/B/C) | — | — | NOT BUILT — D3/D1 used synthetic tests only. Needed for incremental blob comparison. |
 
 ### Non-discrepancy PRs in the stack
 
 | GitHub PR | Stack | Description |
 |-----------|-------|-------------|
 | #2436 | 10/10 | Speed up regression tests (benchmark off, skip intermediate stages) |
+
+---
+
+## Tasks parallelization
+
+D9 is done (PR #2446). The remaining fixes have the following dependency structure:
+
+### Repness chain dependency graph (all in `repness.py`)
+
+```
+D5 ─┬─→ D7 ─┐
+D6 ─┘    D8 ─┼─→ D10
+             │
+D5 ──────────┴─→ D11
+```
+
+- **D5, D6**: logically independent, but both modify `repness.py` (signature changes + caller updates in `compute_group_comment_stats_df`) — **must be sequential**
+- **D7**: after D5 + D6
+- **D8**: after D6
+- **D10**: after D7 + D8
+- **D11**: after D5 only (parallel with D7, D8, D10)
+
+All are in `repness.py`, strictly sequential within this track.
+
+### File-boundary analysis
+
+Every fix touches `test_discrepancy_fixes.py` (different test classes per fix — low conflict risk, but same file). The production code boundaries are:
+
+| File | Fixes that modify it |
+|------|---------------------|
+| `repness.py` | D5, D6, D7, D8, D10, D11 |
+| `conversation.py` | D3, D12, D15 |
+| `pca.py` | D12, D1/D1b |
+| `test_repness_unit.py` | D5, D6, D7, D8 |
+
+**Within each file group, fixes must be sequential** to avoid merge conflicts.
+
+### Practical parallel tracks (2 worktrees)
+
+| Track | Worktree | Fixes (sequential within) | Files |
+|-------|----------|--------------------------|-------|
+| **A — Repness formulas** | main worktree | D5 → D6 → D7 → D8 → D10 → D11 | `repness.py`, `test_repness_unit.py` |
+| **B — Conversation/PCA** | separate worktree | D3 → D15 → D12 | `conversation.py`, `pca.py` |
+| **C — Late** | (after A+B) | D1/D1b | `pca.py` (needs replay infra) |
+
+**Tracks A and B can run fully in parallel** using separate worktrees. Within each track, fixes are sequential (same files). Track B order is flexible — D3, D15, D12 touch different functions in `conversation.py`, so the order can be chosen for convenience. D12 is the largest (also touches `pca.py`), so putting it last gives D1/D1b a cleaner base.
+
+The shared `test_discrepancy_fixes.py` file will need a mechanical merge when tracks converge, but since each fix modifies a different test class (already scaffolded with xfail markers), conflicts should be trivial to resolve.
+
+**At convergence**: when both tracks are done, rebase Track B onto Track A (or vice versa). The only conflict will be in `test_discrepancy_fixes.py` — resolve by keeping both sets of test class changes.
 
 ---
 

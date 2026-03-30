@@ -28,17 +28,19 @@ class TestStatisticalFunctions:
 
     def test_z_score_significance(self):
         """Test z-score significance checks."""
-        # 90% confidence
-        assert z_score_sig_90(1.645)
+        # 90% confidence — one-tailed, strict >, matching Clojure
         assert z_score_sig_90(2.0)
-        assert z_score_sig_90(-1.645)
+        assert not z_score_sig_90(1.2816)   # boundary: not significant (strict >)
+        assert not z_score_sig_90(-1.2816)  # negative: not significant (one-tailed)
         assert not z_score_sig_90(1.0)
+        assert not z_score_sig_90(1.28)
 
-        # 95% confidence
-        assert z_score_sig_95(1.96)
+        # 95% confidence — one-tailed, strict >, matching Clojure
         assert z_score_sig_95(2.5)
-        assert z_score_sig_95(-1.96)
+        assert not z_score_sig_95(1.6449)   # boundary: not significant (strict >)
+        assert not z_score_sig_95(-1.6449)  # negative: not significant (one-tailed)
         assert not z_score_sig_95(1.5)
+        assert not z_score_sig_95(1.64)
 
     def test_prop_test(self):
         """Test one-proportion z-test."""
