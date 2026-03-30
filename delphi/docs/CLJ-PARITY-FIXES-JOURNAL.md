@@ -343,8 +343,52 @@ Will re-record after those are resolved and rebased.
 
 ### What's Next
 
-1. **PR 2 — Fix D4 (Pseudocount)**: `PSEUDO_COUNT = 1.5` → `2.0` to match Clojure's Beta(2,2) prior.
-2. **PR 3 — Fix D9 (Z-score thresholds)**: Switch from two-tailed to one-tailed z-scores.
+1. **PR 3 — Fix D9 (Z-score thresholds)**: Switch from two-tailed to one-tailed z-scores.
+2. Regression test performance investigation (see `HANDOFF_REGRESSION_TEST_PERF.md`)
+
+---
+
+## PR 2: Fix D4 — Pseudocount Formula
+
+### TDD steps
+1. **Baseline**: 25 passed, 3 skipped, 28 xfailed (discrepancy tests)
+2. **Red**: Removed xfail from 3 D4 tests → 6 failures (constant check, pa values × 4 datasets, synthetic)
+3. **Fix**: `PSEUDO_COUNT = 1.5` → `2.0` in `repness.py`
+4. **Green**: All 6 D4 tests pass
+5. **Full suite**: 258 passed, 3 skipped, 30 xfailed, 0 failures (public datasets)
+6. **Private datasets**: 60 passed, 6 skipped, 53 xfailed (discrepancy tests with --include-local)
+7. Re-recorded golden snapshots for all 7 datasets
+
+### Changes
+- `repness.py`: `PSEUDO_COUNT = 2.0`, updated comment to reference Beta(2,2) prior
+- `test_discrepancy_fixes.py`: removed xfail from 3 D4 tests
+- `test_repness_unit.py`, `test_old_format_repness.py`: import `PSEUDO_COUNT` instead of hardcoding 1.5
+- `simplified_repness_test.py`: updated hardcoded constant
+
+### Side finding: regression test performance
+Large private datasets take 1-5 minutes per regression test due to:
+- Benchmark mode running pipeline 3× (n_runs=3)
+- O(participants × comments) per-participant loop in `_compute_participant_info_optimized`
+- Intermediate stages computed redundantly
+
+Fitted model: `t ≈ 1.66 + 3.87e-5 × votes + 9.90e-7 × (ptpts × cmts)` (R²=0.9995).
+Detailed analysis in `HANDOFF_REGRESSION_TEST_PERF.md` for a future session.
+
+### Session 6 (2026-03-11)
+
+- Created branch `jc/clj-parity-d4-fix` stacked on `jc/clj-parity-d2-fix`
+- D4 fix (TDD): red (6 tests failed) → fix PSEUDO_COUNT → green (all 6 pass)
+- Fixed 2 unit tests that hardcoded old pseudocount value (used import instead)
+- Re-recorded golden snapshots for all 7 datasets (public + private)
+- Investigated regression test performance (engage 317s, pakistan 179s) — confirmed
+  consistent with O(votes + ptpts×cmts) complexity, not a regression from D4
+- Created `HANDOFF_REGRESSION_TEST_PERF.md` for future optimization work
+- Pushed branch, created PR
+
+### What's Next
+
+1. **PR 3 — Fix D9 (Z-score thresholds)**: `Z_90=1.645` → `1.2816`, `Z_95=1.96` → `1.6449`
+2. Regression test performance optimization (separate session)
 
 ---
 
