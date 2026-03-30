@@ -22,6 +22,7 @@ This plan's "PR N" labels map to actual GitHub PRs as follows:
 | PR 3 (D9) | #2446 | — | Fix D9: z-score thresholds (one-tailed) |
 | PR 4 (D5) | #2448 | Stack 14/25 | Fix D5: proportion test formula |
 | PR 5 (D6) | #2449 | Stack 15/25 | Fix D6: two-proportion test pseudocounts |
+| (K-inv) | #2453 | Stack 19/25 | Fix K-means k divergence: preserve vote-encounter row order |
 
 Future fix PRs will be appended to the stack as they're created.
 
@@ -444,35 +445,29 @@ By this point, we should have good test coverage from all the per-discrepancy te
 
 ---
 
-### Investigation: Cold-Start K Divergence (after D15, before D12)
+### K-Divergence Fix: Participant Row Ordering — **DONE** (PR #2453)
 
-**Prerequisite**: All cold-start-relevant upstream fixes complete: D2/D2c/D2b (in-conv,
-vote counts, sort order), D15 (moderation handling). Note: D1 (PCA sign flips) only
-affects incremental updates — on cold start there are no previous components to align to.
+**Root cause found and fixed.** Python's `natsorted()` sorted rating matrix rows by
+PID, while Clojure's NamedMatrix preserves vote-encounter order (insertion order via
+`java.util.Vector`). Different row ordering cascades through base-cluster ID assignment
+into group-level k-means first-k-distinct initialization, producing different local
+optima and different silhouette landscapes.
 
-After D15, the rating matrix construction, in-conv filtering, and PCA inputs should all
-match Clojure. Both implementations use silhouette for k-selection. Yet on vw, Python
-selects k=4 while Clojure selects k=2.
+**Fix**: `update_votes()` and `_apply_moderation()` now preserve vote-encounter order
+for participant rows instead of natsort. Column ordering remains natsorted (doesn't
+affect PCA eigenvalues/vectors).
 
-**Investigation steps**:
+**Cold-start blob results**:
+- vw: k=2 exact match (was k=4), sizes [50,17] exact
+- biodiversity: k=2 exact match, sizes [81,19] exact
+- bg2018: k=2 match, sizes close ([52,48] vs [51,49])
+- FLI: k=3 vs k=2 — inherent PCA divergence (94.5% NaN sparsity, silhouette gap 0.001)
 
-1. **PCA component comparison**: Feed the same rating matrix to both sklearn TruncatedSVD
-   and a Python reimplementation of Clojure's power iteration. Quantify divergence
-   (cosine similarity per component, Frobenius norm).
-2. **Projection comparison**: Inject Clojure blob's PCA components into Python's
-   clustering path. Does k now match?
-3. **Base-cluster comparison**: Given the same projections, compare k-means centroids
-   and member assignments. Check initialization (Clojure uses first-k-distinct centers
-   from base clusters — does Python match?).
-4. **Silhouette score comparison**: Given the same base clusters, compare per-k
-   silhouette scores. Are the scores close but the winner differs?
-5. **All datasets**: Run on all datasets with cold-start blobs, not just vw.
+**FLI residual divergence**: Not fixable without replicating Clojure's power iteration
+PCA. The silhouette landscape is essentially flat between k=2 and k=3, and any tiny PCA
+difference tips the balance. Low priority.
 
-**Outcome**: Either (a) identify a fixable discrepancy that makes k match, or
-(b) document the inherent numerical divergence between sklearn SVD and Clojure
-power iteration, and establish tolerance bounds for k agreement in tests.
-
-See `delphi/docs/HANDOFF_K_DIVERGENCE_INVESTIGATION.md` for detailed context.
+See `delphi/docs/INVESTIGATION_K_DIVERGENCE.md` for the full investigation.
 
 ---
 
@@ -513,7 +508,7 @@ See `delphi/docs/HANDOFF_K_DIVERGENCE_INVESTIGATION.md` for detailed context.
 | D13 | Subgroup clustering | — | — | **Deferred** (unused) |
 | D14 | Large conv optimization | — | — | **Deferred** (Python fast enough) |
 | D15 | Moderation handling | PR 12 | — | **DONE** ✓ |
-| K-inv | Cold-start k divergence | (investigation) | — | Branch off D15 (D2+D15 done, clustering independent of repness) |
+| K-inv | Cold-start k divergence (row ordering) | (after D15) | **#2453** | **DONE** ✓ (FLI residual: inherent PCA divergence) |
 | Replay | Replay infrastructure (A/B/C) | — | — | NOT BUILT — D3/D1 used synthetic tests only. Needed for incremental blob comparison. |
 
 ### Non-discrepancy PRs in the stack
