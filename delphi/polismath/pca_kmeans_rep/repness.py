@@ -16,8 +16,8 @@ from polismath.utils.general import AGREE, DISAGREE
 
 
 # Statistical constants
-Z_90 = 1.645  # Z-score for 90% confidence
-Z_95 = 1.96   # Z-score for 95% confidence
+Z_90 = 1.2816  # One-tailed Z-score for 90% confidence (matches Clojure stats/z-sig-90?)
+Z_95 = 1.6449  # One-tailed Z-score for 95% confidence (matches Clojure stats/z-sig-95?)
 
 # Pseudocount for additive smoothing of agree/disagree proportions
 #
@@ -50,7 +50,7 @@ def z_score_sig_90(z: float) -> bool:
     Returns:
         True if significant at 90% confidence
     """
-    return abs(z) >= Z_90
+    return z > Z_90
 
 
 def z_score_sig_95(z: float) -> bool:
@@ -63,7 +63,7 @@ def z_score_sig_95(z: float) -> bool:
     Returns:
         True if significant at 95% confidence
     """
-    return abs(z) >= Z_95
+    return z > Z_95
 
 
 def prop_test(p: float, n: int, p0: float) -> float:
@@ -694,10 +694,10 @@ def select_rep_comments_df(stats_df: pd.DataFrame,
     # Best agree: pa > pd and passes significance tests
     agree_candidates = stats_df[stats_df['pa'] > stats_df['pd']].copy()
     if not agree_candidates.empty:
-        # Check significance: |pat| >= Z_90 and |rat| >= Z_90
+        # Check significance: pat > Z_90 and rat > Z_90
         passing_agree = agree_candidates[
-            (agree_candidates['pat'].abs() >= Z_90) &
-            (agree_candidates['rat'].abs() >= Z_90) &
+            (agree_candidates['pat'] > Z_90) &
+            (agree_candidates['rat'] > Z_90) &
             (agree_candidates['pa'] >= 0.5)
         ]
         if not passing_agree.empty:
@@ -707,8 +707,8 @@ def select_rep_comments_df(stats_df: pd.DataFrame,
     disagree_candidates = stats_df[stats_df['pd'] > stats_df['pa']].copy()
     if not disagree_candidates.empty:
         passing_disagree = disagree_candidates[
-            (disagree_candidates['pdt'].abs() >= Z_90) &
-            (disagree_candidates['rdt'].abs() >= Z_90) &
+            (disagree_candidates['pdt'] > Z_90) &
+            (disagree_candidates['rdt'] > Z_90) &
             (disagree_candidates['pd'] >= 0.5)
         ]
         if not passing_disagree.empty:
