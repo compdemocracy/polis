@@ -288,12 +288,13 @@ class TestD2cVoteCountSource:
             participant_votes={0: list(range(10))},
         )
 
-        # raw_rating_mat has all columns; rating_mat has only non-moderated-out
+        # Both raw_rating_mat and rating_mat have all columns (D15 fix:
+        # moderated-out columns are zeroed, not removed)
         n_cmts_raw = len(conv.raw_rating_mat.columns)
         n_cmts_filtered = len(conv.rating_mat.columns)
 
         assert n_cmts_raw == 10, f"raw_rating_mat should have 10 columns, got {n_cmts_raw}"
-        assert n_cmts_filtered == 5, f"rating_mat should have 5 columns, got {n_cmts_filtered}"
+        assert n_cmts_filtered == 10, f"rating_mat should keep all 10 columns (zeroed, not removed), got {n_cmts_filtered}"
 
         # The threshold used by _get_in_conv_participants should be min(7, 10) = 7,
         # not min(7, 5) = 5. Verify indirectly: participant with exactly 6 votes
@@ -1144,29 +1145,152 @@ class TestD15ModerationHandling:
     """
     D15: Python removes moderated comments entirely from matrix.
          Clojure zeros them out (keeps structure, sets values to 0).
+
+    Clojure behavior (named_matrix.clj:214-230):
+      zero-out-columns sets all values in moderated columns to 0,
+      preserving the matrix structure (same number of columns).
+
+    Python should match: _apply_moderation() must zero out moderated
+    columns rather than removing them, so that:
+      - rating_mat.columns includes moderated tids (zeroed)
+      - tids output includes moderated tids
+      - Matrix dimensions match Clojure
     """
 
     def test_moderated_comments_zeroed_not_removed(self, conv, clojure_blob, dataset_name):
         """
-        Moderated comments should be zeroed out, not removed, if any exist.
-
-        Note: This test only applies when the dataset has moderated comments.
+        After applying moderation, rating_mat should still have all columns.
+        Moderated columns should be zeroed, not removed.
         """
-        # Check if Clojure blob has mod-out comments
-        mod_out = clojure_blob.get('mod-out', [])
+        mod_out = clojure_blob.get('mod-out') or []
         if not mod_out:
             pytest.skip(f"[{dataset_name}] No moderated comments in this dataset")
 
-        # If there ARE moderated comments, check Python's handling
-        n_cols_python = len(conv.rating_mat.columns)
+        # Apply moderation from the Clojure blob to the Python conversation
+        mod_conv = conv.update_moderation(
+            {'mod_out_tids': mod_out},
+            recompute=False,
+        )
+
+        n_cols_python = len(mod_conv.rating_mat.columns)
+        n_cols_raw = len(mod_conv.raw_rating_mat.columns)
         n_tids_clojure = len(clojure_blob.get('tids', []))
 
-        print(f"[{dataset_name}] Moderated comments: {len(mod_out)}")
-        print(f"[{dataset_name}] Python matrix columns: {n_cols_python}, Clojure tids: {n_tids_clojure}")
+        print(f"[{dataset_name}] mod-out: {len(mod_out)}")
+        print(f"[{dataset_name}] Python rating_mat cols: {n_cols_python}, raw cols: {n_cols_raw}")
+        print(f"[{dataset_name}] Clojure tids: {n_tids_clojure}")
 
-        # Clojure keeps all tids (zeroed for mod-out), Python removes them
-        check.equal(n_cols_python, n_tids_clojure,
-                     f"Matrix columns differ: Python={n_cols_python}, Clojure={n_tids_clojure} (mod-out={len(mod_out)})")
+        # After zeroing (not removing), column count should match raw matrix
+        check.equal(
+            n_cols_python, n_cols_raw,
+            f"rating_mat should keep all columns (zeroed, not removed): "
+            f"got {n_cols_python}, expected {n_cols_raw}"
+        )
+
+        # Moderated columns should be all zeros (not NaN, not original values)
+        for tid in mod_out:
+            if tid in mod_conv.rating_mat.columns:
+                col_values = mod_conv.rating_mat[tid].values
+                check.is_true(
+                    np.all(col_values == 0.0),
+                    f"Moderated tid {tid} should be all zeros, "
+                    f"got non-zero values: {col_values[col_values != 0.0][:5]}"
+                )
+
+    def test_tids_include_moderated(self, conv, clojure_blob, dataset_name):
+        """The tids output should include moderated-out comments (matching Clojure)."""
+        mod_out = clojure_blob.get('mod-out') or []
+        if not mod_out:
+            pytest.skip(f"[{dataset_name}] No moderated comments in this dataset")
+
+        mod_conv = conv.update_moderation(
+            {'mod_out_tids': mod_out},
+            recompute=False,
+        )
+
+        # rating_mat.columns (used for tids output) should include moderated tids
+        for tid in mod_out:
+            if tid in mod_conv.raw_rating_mat.columns:
+                check.is_in(
+                    tid, set(mod_conv.rating_mat.columns),
+                    f"Moderated tid {tid} should still be in rating_mat columns"
+                )
+
+
+class TestD15SyntheticModeration:
+    """
+    Synthetic tests for D15 moderation handling.
+
+    Clojure zeros out moderated columns (named_matrix.clj:214-230).
+    Python must match: _apply_moderation() zeros columns, not removes them.
+    """
+
+    def _make_conversation_with_moderation(self, mod_out_tids):
+        """Create a small conversation and apply moderation."""
+        import pandas as pd
+
+        # 5 participants, 4 comments. Votes: agree=1, disagree=-1, pass=0, no vote=NaN
+        data = {
+            0: [1.0, -1.0, 1.0, np.nan, 0.0],
+            1: [-1.0, 1.0, 0.0, 1.0, -1.0],
+            2: [1.0, 1.0, -1.0, -1.0, 1.0],
+            3: [np.nan, 0.0, 1.0, 1.0, -1.0],
+        }
+        votes_df = pd.DataFrame(data, index=[0, 1, 2, 3, 4])
+
+        conv = Conversation("synthetic_d15")
+        conv.raw_rating_mat = votes_df.copy()
+        conv.rating_mat = votes_df.copy()
+        conv.participant_count, conv.comment_count = votes_df.shape
+
+        # Apply moderation
+        conv.mod_out_tids = set(mod_out_tids)
+        conv._apply_moderation()
+        return conv
+
+    def test_zeroing_preserves_columns(self):
+        """Moderated columns should still be present in rating_mat."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[1, 3])
+
+        # All 4 columns should still be present
+        assert len(conv.rating_mat.columns) == 4, (
+            f"Expected 4 columns, got {len(conv.rating_mat.columns)}: "
+            f"moderated columns should be zeroed, not removed"
+        )
+        assert set(conv.rating_mat.columns) == {0, 1, 2, 3}
+
+    def test_zeroed_columns_are_all_zero(self):
+        """Moderated columns should have all values set to 0.0."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[1, 3])
+
+        for tid in [1, 3]:
+            col = conv.rating_mat[tid].values
+            assert np.all(col == 0.0), (
+                f"Moderated column {tid} should be all zeros, got {col}"
+            )
+
+    def test_non_moderated_columns_unchanged(self):
+        """Non-moderated columns should retain their original values."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[1])
+
+        # Column 0 should be unchanged: [1, -1, 1, NaN, 0]
+        col0 = conv.rating_mat[0].values
+        assert col0[0] == 1.0
+        assert col0[1] == -1.0
+        assert np.isnan(col0[3])  # NaN preserved for non-moderated
+
+    def test_empty_moderation_no_change(self):
+        """No moderation should leave the matrix unchanged."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[])
+        assert len(conv.rating_mat.columns) == 4
+
+    def test_moderate_nonexistent_tid(self):
+        """Moderating a tid that doesn't exist in the matrix should be a no-op."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[99])
+        # All columns preserved, no crash
+        assert len(conv.rating_mat.columns) == 4
+        # Original values intact
+        assert conv.rating_mat[0].values[0] == 1.0
 
 
 # ============================================================================

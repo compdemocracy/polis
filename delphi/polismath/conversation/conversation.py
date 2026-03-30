@@ -296,15 +296,23 @@ class Conversation:
     def _apply_moderation(self) -> None:
         """
         Apply moderation settings to create filtered rating matrix.
+
+        Matches Clojure behavior (named_matrix.clj:214-230):
+        - Moderated-out participants are removed (rows dropped)
+        - Moderated-out comments are ZEROED OUT, not removed — the column
+          stays in the matrix with all values set to 0.  This preserves
+          matrix structure so that tids, column indices, and dimensions
+          match between Python and Clojure.
         """
-        # Filter out moderated participants and comments, and keep them sorted!
-        # Note: set operations are unordered, hence the extra sort.
-        # Natural sort: preserves types and sorts numerically when possible
+        # Filter out moderated participants (remove rows)
         keep_ptpts = natsorted(list(set(self.raw_rating_mat.index) - set(self.mod_out_ptpts)))
-        keep_comments = natsorted(list(set(self.raw_rating_mat.columns) - set(self.mod_out_tids)))
-        
-        # Create filtered matrix
-        self.rating_mat = self.raw_rating_mat.loc[keep_ptpts, keep_comments]
+        self.rating_mat = self.raw_rating_mat.loc[keep_ptpts].copy()
+
+        # Zero out moderated-out comments (keep columns, set values to 0)
+        # Clojure: (matrix/set-column m' i 0) — zeroes the column
+        mod_cols = [c for c in self.mod_out_tids if c in self.rating_mat.columns]
+        if mod_cols:
+            self.rating_mat[mod_cols] = 0.0
     
     def _compute_vote_stats(self) -> None:
         """
