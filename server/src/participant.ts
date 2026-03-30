@@ -154,117 +154,81 @@ function tryToJoinConversation(
 async function addParticipant(zid: number, uid?: number): Promise<any> {
   logger.debug("addParticipant starting", { zid, uid });
 
-  // Use a transaction to ensure atomicity
-  return new Promise((resolve, reject) => {
-    pg.query("BEGIN", [], (beginErr: any) => {
-      if (beginErr) {
-        logger.error("Failed to begin transaction:", beginErr);
-        return reject(beginErr);
-      }
+  // Use a dedicated client (not pool-level queries) so all statements in the
+  // transaction run on the same connection. Without this, pg.query() grabs a
+  // random connection from the pool for each call, breaking transaction
+  // isolation under concurrent load. See: concurrent-same-participant.test.ts.
+  const client = await pg.connect();
+  try {
+    await client.query("BEGIN");
 
-      // First insert into participants_extended (ignore duplicates)
-      pg.query(
-        "INSERT INTO participants_extended (zid, uid) VALUES ($1, $2) ON CONFLICT (zid, uid) DO NOTHING;",
-        [zid, uid],
-        (extErr: any) => {
-          if (extErr) {
-            return pg.query("ROLLBACK", [], () => {
-              logger.error("participants_extended insert failed", {
-                zid,
-                uid,
-                error: extErr.message,
-                code: extErr.code,
-              });
-              reject(extErr);
-            });
-          }
+    // First insert into participants_extended (ignore duplicates)
+    await client.query(
+      "INSERT INTO participants_extended (zid, uid) VALUES ($1, $2) ON CONFLICT (zid, uid) DO NOTHING;",
+      [zid, uid]
+    );
+    logger.debug("participants_extended insert/skip successful", { zid, uid });
 
-          logger.debug("participants_extended insert/skip successful", {
+    // Second insert into participants table.
+    // The pid_auto trigger acquires an advisory lock and assigns pid = MAX(pid)+1.
+    // The pid_auto_unlock trigger releases the lock after insert.
+    try {
+      const partResult = await client.query(
+        "INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;",
+        [zid, uid]
+      );
+      await client.query("COMMIT");
+      logger.debug("participants insert successful", {
+        zid,
+        uid,
+        pid: partResult.rows[0]?.pid,
+      });
+      return partResult.rows;
+    } catch (partErr: any) {
+      await client.query("ROLLBACK");
+      if (partErr.code === "23505") {
+        // Duplicate key — participant was created by a concurrent request.
+        // Fetch and return the existing record. This runs after ROLLBACK,
+        // on the same client connection, so isolation is correct.
+        logger.debug(
+          "Participant already exists, fetching existing record",
+          { zid, uid, constraint: partErr.constraint }
+        );
+        const selectResult = await client.query(
+          "SELECT * FROM participants WHERE zid = $1 AND uid = $2;",
+          [zid, uid]
+        );
+        if (selectResult.rows && selectResult.rows.length > 0) {
+          logger.debug("Found existing participant", {
             zid,
             uid,
+            pid: selectResult.rows[0].pid,
           });
-
-          // Second insert into participants table
-          pg.query(
-            "INSERT INTO participants (pid, zid, uid, created) VALUES (NULL, $1, $2, default) RETURNING *;",
-            [zid, uid],
-            (partErr: any, partResult: { rows: any[] }) => {
-              if (partErr) {
-                // Check if it's a duplicate key error
-                if (partErr.code === "23505") {
-                  // Rollback and fetch existing participant
-                  return pg.query("ROLLBACK", [], () => {
-                    logger.debug(
-                      "Participant already exists, fetching existing record",
-                      { zid, uid }
-                    );
-                    pg.query(
-                      "SELECT * FROM participants WHERE zid = $1 AND uid = $2;",
-                      [zid, uid],
-                      (selectErr: any, selectResult: { rows: any[] }) => {
-                        if (selectErr) {
-                          logger.error(
-                            "Failed to fetch existing participant",
-                            selectErr
-                          );
-                          return reject(selectErr);
-                        }
-                        if (selectResult.rows && selectResult.rows.length > 0) {
-                          logger.debug("Found existing participant", {
-                            zid,
-                            uid,
-                            pid: selectResult.rows[0].pid,
-                          });
-                          return resolve(selectResult.rows);
-                        }
-                        reject(
-                          new Error("Could not find or create participant")
-                        );
-                      }
-                    );
-                  });
-                } else {
-                  // Other error, rollback and reject
-                  return pg.query("ROLLBACK", [], () => {
-                    logger.error("participants insert failed", {
-                      zid,
-                      uid,
-                      error: partErr.message,
-                      code: partErr.code,
-                      constraint: partErr.constraint,
-                    });
-                    reject(partErr);
-                  });
-                }
-              }
-
-              // Success, commit the transaction
-              pg.query("COMMIT", [], (commitErr: any) => {
-                if (commitErr) {
-                  logger.error("Failed to commit transaction", commitErr);
-                  return reject(commitErr);
-                }
-
-                logger.debug("participants insert successful", {
-                  zid,
-                  uid,
-                  resultLength: partResult.rows
-                    ? partResult.rows.length
-                    : "unknown",
-                  result:
-                    partResult.rows && partResult.rows.length > 0
-                      ? partResult.rows[0]
-                      : "empty",
-                });
-
-                resolve(partResult.rows);
-              });
-            }
-          );
+          return selectResult.rows;
         }
-      );
-    });
-  });
+        // Concurrent transaction may not have committed yet — let caller retry
+        throw partErr;
+      }
+      logger.error("participants insert failed", {
+        zid,
+        uid,
+        error: partErr.message,
+        code: partErr.code,
+        constraint: partErr.constraint,
+      });
+      throw partErr;
+    }
+  } catch (err) {
+    // Ensure rollback on any unexpected error
+    try {
+      await client.query("ROLLBACK");
+    } catch (_rollbackErr) {
+      // ignore rollback errors
+    }
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 function joinConversation(
