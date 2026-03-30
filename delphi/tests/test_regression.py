@@ -13,11 +13,18 @@ Usage (from delphi/ directory):
     pytest tests/test_regression.py --include-local  # Include local datasets
 """
 
+import os
+
 import pytest
 import numpy as np
 
 from polismath.regression import ConversationRecorder, ConversationComparer
 from polismath.regression.utils import load_golden_snapshot
+
+_skip_golden = pytest.mark.skipif(
+    os.environ.get("SKIP_GOLDEN") == "1",
+    reason="Golden snapshot tests disabled (SKIP_GOLDEN=1)",
+)
 
 
 def _check_golden_exists(dataset_name: str):
@@ -44,6 +51,7 @@ def _check_golden_exists(dataset_name: str):
         )
 
 
+@_skip_golden
 @pytest.mark.use_discovered_datasets
 def test_conversation_regression(dataset_name):
     """
@@ -91,6 +99,7 @@ def test_conversation_regression(dataset_name):
     )
 
 
+@_skip_golden
 @pytest.mark.use_discovered_datasets
 def test_conversation_stages_individually(dataset_name):
     """
