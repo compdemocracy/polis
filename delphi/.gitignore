@@ -232,6 +232,9 @@ dynamodb-data/
 *.swo
 *~
 
+# Debug scratch directory (per-session notes / temp outputs, not committed)
+scratch/
+
 # Log files
 *.log
 

@@ -15,6 +15,7 @@ from .datasets import (
     get_dataset_info,
     get_dataset_files,
     get_dataset_report_id,
+    get_blob_variants,
 )
 __all__ = [
     'ConversationRecorder',
@@ -26,4 +27,5 @@ __all__ = [
     'get_dataset_info',
     'get_dataset_files',
     'get_dataset_report_id',
+    'get_blob_variants',
 ]
