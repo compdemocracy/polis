@@ -978,25 +978,94 @@ class TestD8FinalizeStats:
         Clojure uses simple rat > rdt → 'agree'; else → 'disagree'
     """
 
-    @pytest.mark.xfail(reason="D8: Python uses pa/ra thresholds, target is rat>rdt comparison")
     def test_repful_uses_rat_vs_rdt(self):
-        """repful classification should use rat > rdt (Clojure logic)."""
-        # Case where Python and Clojure disagree:
-        # pa > 0.5 and ra > 1.0 → Python says 'agree'
-        # but rat < rdt → Clojure says 'disagree'
+        """repful classification should use rat > rdt (Clojure logic).
+
+        Case where the OLD Python 3-branch logic disagrees with Clojure:
+        pa > 0.5 AND ra > 1.0 → old Python says 'agree',
+        but rat < rdt → Clojure says 'disagree'.
+        """
         stats = {
             'pa': 0.6, 'pat': 1.0, 'ra': 1.2, 'rat': 0.5,
             'pd': 0.4, 'pdt': -0.5, 'rd': 0.8, 'rdt': 1.5,
-            'agree_metric': 0.0,  # placeholder
+            'agree_metric': 0.0,
             'disagree_metric': 0.0,
         }
-
         result = finalize_cmt_stats(stats)
-
         # Clojure: rat (0.5) < rdt (1.5) → 'disagree'
-        # Python: pa (0.6) > 0.5 and ra (1.2) > 1.0 → 'agree'
         check.equal(result['repful'], 'disagree',
                      f"repful should be 'disagree' when rat < rdt, got '{result['repful']}'")
+
+    def test_repful_uses_rat_vs_rdt_inverse(self):
+        """Inverse case: Clojure says 'agree' where old Python 3-branch said 'disagree'.
+
+        pd > 0.5 AND rd > 1.0 → old Python says 'disagree', but rat > rdt → Clojure 'agree'.
+        """
+        stats = {
+            'pa': 0.4, 'pat': -0.5, 'ra': 0.8, 'rat': 1.5,
+            'pd': 0.6, 'pdt': 1.0, 'rd': 1.2, 'rdt': 0.5,
+            'agree_metric': 0.0,
+            'disagree_metric': 0.0,
+        }
+        result = finalize_cmt_stats(stats)
+        check.equal(result['repful'], 'agree',
+                     f"repful should be 'agree' when rat > rdt, got '{result['repful']}'")
+
+    def test_repful_strict_greater_than(self):
+        """Clojure uses strict (> rat rdt) — when rat == rdt, falls through to disagree."""
+        stats = {
+            'pa': 0.5, 'pat': 0.0, 'ra': 1.0, 'rat': 1.5,
+            'pd': 0.5, 'pdt': 0.0, 'rd': 1.0, 'rdt': 1.5,
+            'agree_metric': 0.0,
+            'disagree_metric': 0.0,
+        }
+        result = finalize_cmt_stats(stats)
+        # Clojure: (> 1.5 1.5) is false → :disagree branch
+        check.equal(result['repful'], 'disagree',
+                     f"rat == rdt should yield 'disagree' (strict >), got '{result['repful']}'")
+
+    def test_repful_negative_z_scores(self):
+        """Comparison works with negative z-scores: e.g. rat=-0.5 > rdt=-2.0 → 'agree'."""
+        stats = {
+            'pa': 0.3, 'pat': -1.0, 'ra': 0.5, 'rat': -0.5,
+            'pd': 0.7, 'pdt': -2.0, 'rd': 1.5, 'rdt': -2.0,
+            'agree_metric': 0.0,
+            'disagree_metric': 0.0,
+        }
+        result = finalize_cmt_stats(stats)
+        # -0.5 > -2.0 → 'agree'
+        check.equal(result['repful'], 'agree',
+                     f"rat=-0.5 > rdt=-2.0 should yield 'agree', got '{result['repful']}'")
+
+    def test_finalize_cmt_stats_keeps_metrics(self):
+        """Regression: finalize_cmt_stats must still populate agree_metric / disagree_metric."""
+        stats = {
+            'pa': 0.8, 'pat': 3.0, 'ra': 1.5, 'rat': 2.0,
+            'pd': 0.2, 'pdt': -1.0, 'rd': 0.5, 'rdt': -0.5,
+        }
+        result = finalize_cmt_stats(stats)
+        check.is_in('agree_metric', result)
+        check.is_in('disagree_metric', result)
+        check.is_in('repful', result)
+        # Sanity: with rat=2.0 > rdt=-0.5, repful is 'agree'
+        check.equal(result['repful'], 'agree')
+
+    def test_repful_both_zero(self):
+        """Boundary: rat == rdt == 0 should fall through to 'disagree' (strict >).
+
+        Distinct from `test_repful_strict_greater_than` (rat==rdt==1.5):
+        this case pins the all-zero boundary specifically.
+        """
+        stats = {
+            'pa': 0.5, 'pat': 0.0, 'ra': 1.0, 'rat': 0.0,
+            'pd': 0.5, 'pdt': 0.0, 'rd': 1.0, 'rdt': 0.0,
+            'agree_metric': 0.0,
+            'disagree_metric': 0.0,
+        }
+        result = finalize_cmt_stats(stats)
+        # Clojure: (> 0 0) is false → :disagree branch
+        check.equal(result['repful'], 'disagree',
+                     f"rat == rdt == 0 should yield 'disagree' (strict >), got '{result['repful']}'")
 
     @pytest.mark.xfail(reason="D8/D10: repful logic differs + no shared comments")
     def test_repful_matches_clojure_blob(self, conv, clojure_blob, dataset_name):

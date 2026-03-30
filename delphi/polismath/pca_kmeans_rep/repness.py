@@ -272,34 +272,31 @@ def repness_metric(stats: Dict[str, Any], key_prefix: str) -> float:
 
 def finalize_cmt_stats(stats: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Finalize comment statistics and determine if agree or disagree is more representative.
-    
+    Finalize comment stats and classify as agree/disagree, matching Clojure.
+
+    Clojure (math/src/polismath/math/repness.clj:173-180):
+        (defn finalize-cmt-stats
+          [tid {:keys [... rat rdt ...]}]
+          (let [[...] (if (> rat rdt)
+                        [na ns pa pat ra rat :agree]
+                        [nd ns pd pdt rd rdt :disagree])]
+            ...))
+
+    Pure comparison of the two two-prop z-scores. No probability/ratio
+    threshold logic — strict `rat > rdt` (rat == rdt falls through to disagree).
+    Always populates `agree_metric` / `disagree_metric` (used downstream by
+    selection routines that rank candidates).
+
     Args:
         stats: Statistics for a comment/group
-        
+
     Returns:
-        Finalized statistics with best representativeness
+        Finalized statistics with `repful`, `agree_metric`, `disagree_metric`.
     """
     result = deepcopy(stats)
-    
-    # Calculate agree and disagree metrics
     result['agree_metric'] = repness_metric(stats, 'a')
     result['disagree_metric'] = repness_metric(stats, 'd')
-    
-    # Determine whether agree or disagree is more representative
-    if result['pa'] > 0.5 and result['ra'] > 1.0:
-        # More agree than disagree, and more than other groups
-        result['repful'] = 'agree'
-    elif result['pd'] > 0.5 and result['rd'] > 1.0:
-        # More disagree than agree, and more than other groups
-        result['repful'] = 'disagree'
-    else:
-        # Use the higher metric
-        if result['agree_metric'] >= result['disagree_metric']:
-            result['repful'] = 'agree'
-        else:
-            result['repful'] = 'disagree'
-    
+    result['repful'] = 'agree' if stats['rat'] > stats['rdt'] else 'disagree'
     return result
 
 
@@ -731,18 +728,9 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     stats_df['disagree_metric'] = (stats_df['rd'] * stats_df['rdt']
                                     * stats_df['pd'] * stats_df['pdt'])
 
-    # Determine repful ('agree' or 'disagree')
-    # Logic: if pa > 0.5 and ra > 1.0 -> 'agree'
-    #        elif pd > 0.5 and rd > 1.0 -> 'disagree'
-    #        else: use higher metric
-    conditions = [
-        (stats_df['pa'] > 0.5) & (stats_df['ra'] > 1.0),
-        (stats_df['pd'] > 0.5) & (stats_df['rd'] > 1.0),
-    ]
-    choices = ['agree', 'disagree']
-    stats_df['repful'] = np.select(conditions, choices,
-                                   default=np.where(stats_df['agree_metric'] >= stats_df['disagree_metric'],
-                                                    'agree', 'disagree'))
+    # Clojure (repness.clj:178): (if (> rat rdt) ... :agree ... :disagree)
+    # Pure comparison of rat vs rdt — no probability/ratio thresholds.
+    stats_df['repful'] = np.where(stats_df['rat'] > stats_df['rdt'], 'agree', 'disagree')
 
     return stats_df
 

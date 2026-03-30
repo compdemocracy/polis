@@ -471,7 +471,7 @@ By this point, we should have good test coverage from all the per-discrepancy te
 | D6 | Two-proportion test | **PR 5** | — | **DONE** ✓ |
 | D7 | Repness metric | PR 6 | — | **DONE** ✓ |
 | D8 | Finalize cmt stats | PR 7 | — | Fix |
-| D9 | Z-score thresholds | **PR 3** | **#2518** | **DONE** ✓ |
+| D9 | Z-score thresholds | **PR 3** | **#2446** | **DONE** ✓ |
 | D10 | Rep comment selection | PR 8 | — | Fix (with legacy env var) |
 | D11 | Consensus selection | PR 9 | — | Fix (with legacy env var) |
 | D12 | Comment priorities | PR 11 | — | Fix (implement from scratch) |
@@ -490,7 +490,7 @@ By this point, we should have good test coverage from all the per-discrepancy te
 
 ## Tasks parallelization
 
-D9 is done (PR #2518). The remaining fixes have the following dependency structure:
+D9 is done (PR #2446). The remaining fixes have the following dependency structure:
 
 ### Repness chain dependency graph (all in `repness.py`)
 
