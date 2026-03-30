@@ -68,6 +68,7 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
     "pytest-check>=2.0.0",
+    "pytest-timestamper>=0.0.10",  # Timestamps in -v mode to detect hung tests
     "httpx>=0.23.0",
     "pytest-xdist>=3.8.0",
     "moto>=4.1.0",

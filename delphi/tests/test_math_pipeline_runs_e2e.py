@@ -32,6 +32,9 @@ MOCK_ZID = 123456789 # We can use our own ZID for the test
 @pytest.fixture(scope="module")
 def dynamodb_resource():
     """Create a resource connection to the test DynamoDB."""
+    from tests.conftest import require_dynamodb
+    require_dynamodb()
+
     endpoint_url = os.environ.get('DYNAMODB_ENDPOINT', 'http://localhost:8000')
     if not endpoint_url:
         pytest.fail("DYNAMODB_ENDPOINT not set. Cannot connect to test DynamoDB.")

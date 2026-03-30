@@ -17,9 +17,11 @@ logger = logging.getLogger(__name__)
 
 def test_s3_access():
     """Test S3/MinIO access by listing bucket contents"""
+    from tests.conftest import require_s3
 
     # Get S3 settings from environment or use defaults
     endpoint_url = os.environ.get("AWS_S3_ENDPOINT", "http://host.docker.internal:9000")
+    require_s3(endpoint=endpoint_url)
     access_key = os.environ.get("AWS_ACCESS_KEY_ID", "minioadmin")
     secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY", "minioadmin")
     bucket_name = os.environ.get("AWS_S3_BUCKET_NAME", "delphi")
