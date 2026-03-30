@@ -527,8 +527,327 @@ After implementation:
 | Add in-conv filtering | ✅ Done | `_get_in_conv_participants()` |
 | Update serialization | ✅ Done | `_fold_base_clusters()`, outputs hierarchical format |
 | Add incremental clustering (`:last-clusters`) | ⏳ TODO | Need to use previous clusters as initialization |
-| Generate clean Clojure references | ⏳ TODO | Fresh computations for fair comparison |
-| Update tests for fair comparison | ⏳ TODO | Compare cold-start vs cold-start |
+| Generate clean Clojure references | ✅ Done | Uses "fake conversation" approach - creates temp conversation with copied votes |
+| Update tests for fair comparison | ✅ Done | Tests now prefer cold-start blobs automatically |
+| Implement fake conversation approach | ✅ Done | Script creates temp zid, copies votes with fresh timestamps, runs poller |
+
+---
+
+## Generating Clean Cold-Start Clojure References
+
+To ensure fair comparison between Python and Clojure implementations, we can generate fresh cold-start Clojure math blobs using the `generate_cold_start_clojure.py` script.
+
+### Why Cold-Start Matters
+
+The Clojure implementation uses `:last-clusters` to warm-start from previous state. This creates non-deterministic behavior:
+- If math worker was NOT restarted: uses previous clusters for initialization
+- If math worker WAS restarted: loses in-memory state, behaves differently
+
+By generating cold-start references, we compare:
+- **Python cold-start** (always) vs **Clojure cold-start** (forced by deleting math_main row)
+
+### How to Generate Cold-Start Blobs
+
+**Prerequisites:**
+1. Stop any running math worker: `docker compose stop math` (from the worktree root)
+2. Ensure DATABASE_URL is set in the worktree root's `.env` file
+   - Example: `DATABASE_URL=postgres://postgres:password@host.docker.internal:5433/polis-dev`
+
+**Generate for single dataset:**
+```bash
+cd delphi  # from worktree root
+uv run python scripts/generate_cold_start_clojure.py biodiversity
+```
+
+**Generate for all committed datasets:**
+```bash
+uv run python scripts/generate_cold_start_clojure.py --all
+```
+
+**Generate for all datasets including local (.local/):**
+```bash
+uv run python scripts/generate_cold_start_clojure.py --all --include-local
+```
+
+**Advanced options:**
+```bash
+# Keep fake conversation data for debugging (not cleaned up)
+uv run python scripts/generate_cold_start_clojure.py biodiversity --no-cleanup
+
+# Process a specific local dataset
+uv run python scripts/generate_cold_start_clojure.py my-local-dataset
+
+# Increase timeout for large datasets
+uv run python scripts/generate_cold_start_clojure.py biodiversity --timeout 600
+```
+
+**Output files:**
+- `{report_id}_math_blob_cold_start.json` - Fresh cold-start computation
+
+### Finding Pre-Computed Cold-Start Math Blobs
+
+After running the script, cold-start math blobs are saved in the dataset directories:
+
+**Location pattern:**
+```
+delphi/real_data/{report_id}-{dataset_name}/{report_id}_math_blob_cold_start.json
+```
+
+**For committed datasets:**
+```bash
+# Biodiversity example
+ls -lh delphi/real_data/r4tykwac8thvzv35jrn53-biodiversity/r4tykwac8thvzv35jrn53_math_blob_cold_start.json
+
+# VW example
+ls -lh delphi/real_data/r6vbnhffkxbd7ifmfbdrd-vw/r6vbnhffkxbd7ifmfbdrd_math_blob_cold_start.json
+
+# List all cold-start blobs
+find delphi/real_data -name "*_math_blob_cold_start.json" -type f
+```
+
+**For local datasets:**
+```bash
+# List all cold-start blobs in .local/
+find delphi/real_data/.local -name "*_math_blob_cold_start.json" -type f
+```
+
+**Verify a cold-start blob was created:**
+```bash
+cd delphi  # from worktree root
+
+# Check file exists and size
+ls -lh real_data/r4tykwac8thvzv35jrn53-biodiversity/*cold_start*.json
+
+# Quick inspection of content
+jq 'keys | length' real_data/r4tykwac8thvzv35jrn53-biodiversity/r4tykwac8thvzv35jrn53_math_blob_cold_start.json
+
+# Compare file sizes (cold-start should be similar to original)
+ls -lh real_data/r4tykwac8thvzv35jrn53-biodiversity/*_math_blob*.json
+```
+
+**Dataset directory structure after running script:**
+```
+real_data/r4tykwac8thvzv35jrn53-biodiversity/
+├── 2024-11-12-1652-r4tykwac8thvzv35jrn53-votes.csv
+├── 2024-11-12-1652-r4tykwac8thvzv35jrn53-comments.csv
+├── 2024-11-12-1652-r4tykwac8thvzv35jrn53-summary.csv
+├── r4tykwac8thvzv35jrn53_math_blob.json                    # Original (unknown provenance)
+├── r4tykwac8thvzv35jrn53_math_blob_cold_start.json         # Fresh cold-start ✨
+└── golden_snapshot.json
+```
+
+### How Tests Use Cold-Start Blobs
+
+The test infrastructure automatically detects and prefers cold-start blobs when available:
+
+**Automatic detection (in `datasets.py`):**
+```python
+def get_dataset_files(name: str, prefer_cold_start: bool = True):
+    # Automatically uses {report_id}_math_blob_cold_start.json if it exists
+    # Falls back to {report_id}_math_blob.json otherwise
+```
+
+**Run tests (will auto-use cold-start blobs):**
+```bash
+cd delphi  # from worktree root
+
+# Run all Clojure comparison tests
+uv run pytest tests/test_legacy_clojure_regression.py -v
+
+# Run specific clustering comparison
+uv run pytest tests/test_legacy_clojure_regression.py::TestClojureRegression::test_group_clustering -v
+
+# Run for specific dataset
+uv run pytest tests/test_legacy_clojure_regression.py -v -k biodiversity
+```
+
+**Check which blob is being used:**
+```python
+from polismath.regression import get_dataset_files
+
+# Will use cold-start if available
+files = get_dataset_files('biodiversity')
+print(f"Using: {files['math_blob']}")
+# Output: .../r4tykwac8thvzv35jrn53_math_blob_cold_start.json (if exists)
+
+# Force use of original blob
+files = get_dataset_files('biodiversity', prefer_cold_start=False)
+print(f"Using: {files['math_blob']}")
+# Output: .../r4tykwac8thvzv35jrn53_math_blob.json
+```
+
+**Check which datasets have cold-start blobs:**
+```bash
+cd delphi  # from worktree root
+
+# List all datasets with cold-start blobs
+uv run python -c "
+from polismath.regression import discover_datasets
+datasets = discover_datasets(include_local=False)
+for name, info in datasets.items():
+    status = '✓ cold-start' if info.has_cold_start_blob else '✗ original only'
+    print(f'{name}: {status}')
+"
+```
+
+### How the Script Works (Fake Conversation Approach)
+
+The script uses a "fake conversation" approach to generate true cold-start computations. This works WITH the Clojure poller's design rather than against it.
+
+**The Process:**
+
+1. **Create fake conversation**: Insert a minimal row in `conversations` table with a fresh auto-generated zid
+2. **Copy votes with fresh timestamps**: Copy all votes from source zid to fake zid, with timestamps starting from "now" (spaced 10ms apart to preserve order)
+3. **Run poller**: Start the Clojure poller with `MATH_ZID_ALLOWLIST={fake_zid}` to only process our fake conversation
+4. **Wait for computation**: Poll `math_main` until `base-clusters` has data
+5. **Extract and save**: Save the math blob with the original source zid for consistency
+6. **Cleanup**: Delete all fake data from `conversations`, `votes`, `votes_latest_unique`, `participants`, and `math_main`
+
+**Why This Works:**
+- The poller finds votes with `created > last_poll_timestamp`
+- Fresh timestamps ensure the votes are picked up
+- A new zid means no interference from existing math_main rows or cached state
+- The `MATH_ZID_ALLOWLIST` filter restricts processing to just our fake conversation
+
+**Key Functions:**
+- `create_fake_conversation(conn, source_zid)` → Creates minimal conversation row, returns new zid
+- `copy_votes_with_fresh_timestamps(conn, source_zid, fake_zid)` → Copies votes with sequential fresh timestamps
+- `cleanup_fake_conversation(conn, fake_zid)` → Deletes all fake data from all tables
+
+### Command-Line Options
+
+- `DATASETS...`: Specify one or more dataset names (e.g., `biodiversity vw`)
+- `--all`: Process all datasets
+- `--include-local`: Include datasets from `real_data/.local/`
+- `--no-cleanup`: Keep fake conversation data for debugging (normally cleaned up automatically)
+- `--timeout N`: Set timeout in seconds for math computation (default: 300)
+- `--pause-math`: Automatically pause running math workers (resumes after completion)
+- `--verbose` / `-v`: Show detailed output including real-time Clojure poller logs
+
+**Examples:**
+```bash
+# Single dataset
+uv run python scripts/generate_cold_start_clojure.py biodiversity
+
+# Multiple datasets
+uv run python scripts/generate_cold_start_clojure.py biodiversity vw american-assembly
+
+# All datasets with verbose output and longer timeout
+uv run python scripts/generate_cold_start_clojure.py --all --include-local --pause-math --timeout 600 -v
+```
+
+### Safety Features
+
+- **Math worker detection**: Refuses to run if math worker is active (use `--pause-math` to auto-pause)
+- **Environment validation**: Checks that DATABASE_URL is set before proceeding
+- **Report ID validation**: Verifies report_id exists in reports table
+- **Vote verification**: Confirms source zid has votes before attempting computation
+- **Automatic cleanup**: Fake conversation data is always deleted (unless `--no-cleanup`)
+- **No permanent changes**: Original database data is never modified
+- **Error detection**: Monitors Clojure poller output for fatal errors and aborts early (see below)
+
+### Clojure Error Detection
+
+The script monitors the Clojure poller output for fatal errors and aborts early instead of waiting for timeout. Detected patterns:
+- `"Failed conversation update"` - General computation failure
+- `"nil has zero dimensionality"` - Empty matrix in PCA (see Known Limitations)
+- `"Re-queueing messages for failed update"` - Persistent failure
+- `"java.lang.OutOfMemoryError"` - Memory exhaustion
+
+When detected, the script aborts with:
+```
+✗ Clojure poller failed: Clojure error detected: nil has zero dimensionality
+  The conversation data may not be processable by the Clojure implementation.
+```
+
+---
+
+## Cluster Visualization Script
+
+The `visualize_cluster_comparison.py` script generates visual comparisons between different clustering outputs.
+
+### Usage
+
+```bash
+cd delphi
+
+# Single dataset
+uv run python scripts/visualize_cluster_comparison.py biodiversity
+
+# Multiple datasets
+uv run python scripts/visualize_cluster_comparison.py biodiversity vw
+
+# All datasets
+uv run python scripts/visualize_cluster_comparison.py --all --include-local
+```
+
+### Output
+
+For each dataset, generates:
+- `{dataset}_golden_vs_coldstart_sidebyside.png` - Python vs Clojure cold-start side-by-side
+- `{dataset}_golden_vs_coldstart_overlay.png` - Python vs Clojure cold-start overlay
+- `{dataset}_coldstart_vs_regular_sidebyside.png` - Clojure cold-start vs original
+- `{dataset}_coldstart_vs_regular_overlay.png` - Clojure cold-start vs original overlay
+- `{dataset}_*_metrics.json` - Comparison metrics (Jaccard similarity, etc.)
+
+Output directory: `scripts/outputs/cluster_visualizations/{dataset}/`
+
+Full absolute paths are printed for each PNG, allowing alt-click to open in IDE.
+
+### Features
+
+- **PCA sign flip detection**: Automatically detects and corrects PCA sign flips between implementations
+- **Synchronized axes**: Side-by-side plots share the same X/Y limits for direct comparison
+- **Convex hulls**: Shows group boundaries with convex hulls in overlay mode
+
+---
+
+## Known Limitations
+
+### Clojure "nil has zero dimensionality" Error
+
+Some large conversations fail in the Clojure implementation with:
+```
+clojure.lang.ExceptionInfo: nil has zero dimensionality, cannot get count for dimension: 0
+    at polismath.math.conversation/partial-pca/learn (conversation.clj:719)
+```
+
+**Cause**: The conversation data results in an empty or nil matrix during PCA computation. This can happen when:
+- All comments are moderated out
+- Not enough participants meet the "in-conv" threshold
+- Edge cases in the data that produce empty participant matrices
+
+**Impact**: These conversations cannot be processed by the Clojure implementation and will fail in the cold-start generation script.
+
+**Workaround**: The Python implementation may handle these edge cases differently. For affected conversations, only Python-generated outputs will be available.
+
+**Known affected datasets**: bg2050 (pakistan)
+
+---
+
+## Configuration
+
+### Environment Setup
+
+The cold-start generation script requires database access. Configuration is loaded from the worktree root's `.env` file.
+
+**Required variables**:
+```bash
+DATABASE_URL=postgres://postgres:password@host.docker.internal:5433/polis-dev
+MATH_ENV=prod  # or 'dev' for development
+```
+
+**Setup**:
+```bash
+# Copy from main polis repo if not already present
+cp /path/to/polis/.env /path/to/polis-kmeans/.env
+```
+
+The script also needs the Clojure math worker Docker image available:
+```bash
+cd /path/to/polis-kmeans
+docker compose build math  # If image not already built
+```
 
 ---
 
@@ -538,3 +857,4 @@ After implementation:
 - **Clojure source**: `math/src/polismath/math/`
 - **Python clusters**: `polismath/pca_kmeans_rep/clusters.py`
 - **Python conversation**: `polismath/conversation/conversation.py`
+- **Cold-start script**: `scripts/generate_cold_start_clojure.py`
