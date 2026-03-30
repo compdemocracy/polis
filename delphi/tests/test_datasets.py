@@ -46,9 +46,22 @@ class TestDatasetInfo:
         assert not info.has_clojure_reference
 
     def test_is_valid_missing_required_file(self):
-        """Missing golden/votes/comments makes dataset invalid."""
-        # Missing golden
+        """Missing votes/comments makes dataset invalid; missing golden does not.
+
+        Golden snapshots are intentionally optional (see DatasetInfo.is_valid):
+        golden-snapshot tests skip when the file is missing, but votes/comments
+        are required for any regression-style test to discover the dataset.
+        """
+        # Missing golden is allowed (golden tests skip gracefully)
         info = DatasetInfo("t", "r1", Path("/x"), False, False, True, True, True, True)
+        assert info.is_valid
+
+        # Missing votes
+        info = DatasetInfo("t", "r1", Path("/x"), False, True, True, True, False, True)
+        assert not info.is_valid
+
+        # Missing comments
+        info = DatasetInfo("t", "r1", Path("/x"), False, True, True, True, True, False)
         assert not info.is_valid
 
     def test_has_clojure_reference(self):

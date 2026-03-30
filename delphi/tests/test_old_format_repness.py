@@ -14,12 +14,13 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.pca_kmeans_rep.repness import (
+    PSEUDO_COUNT,
     z_score_sig_90, z_score_sig_95, prop_test, two_prop_test,
     comment_stats, add_comparative_stats, repness_metric, finalize_cmt_stats,
     passes_by_test, best_agree, best_disagree, select_rep_comments,
     select_consensus_comments, conv_repness,
-    participant_stats
 )
+from polismath.conversation.conversation import Conversation
 
 
 class TestStatisticalFunctions:
@@ -80,7 +81,6 @@ class TestCommentStats:
         n_agree = 3
         n_disagree = 1
         n_votes = 4
-        from polismath.pca_kmeans_rep.repness import PSEUDO_COUNT
         p_agree = (n_agree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
         p_disagree = (n_disagree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
 
@@ -497,7 +497,7 @@ class TestIntegration:
         assert 'c3' in group2_rep_ids
 
     def test_participant_stats(self):
-        """Test participant statistics calculation."""
+        """Test participant statistics calculation via vectorized method."""
         # Create a test vote matrix
         vote_data = np.array([
             [1, 1, -1, None],  # Participant 1
@@ -511,14 +511,17 @@ class TestIntegration:
 
         vote_matrix = pd.DataFrame(vote_data, index=row_names, columns=col_names)
 
-        # Create group clusters
+        # Create group clusters. _compute_participant_info_optimized only
+        # reads 'id' and 'members'; 'center' is unused but kept to mirror
+        # the production cluster schema.
         group_clusters = [
-            {'id': 1, 'members': ['p1', 'p2']},
-            {'id': 2, 'members': ['p3', 'p4']}
+            {'id': 1, 'members': ['p1', 'p2'], 'center': [0.0]},
+            {'id': 2, 'members': ['p3', 'p4'], 'center': [0.0]}
         ]
 
-        # Calculate participant stats
-        ptpt_stats = participant_stats(vote_matrix, group_clusters)
+        # Calculate participant stats using vectorized method
+        conv = Conversation("test")
+        ptpt_stats = conv._compute_participant_info_optimized(vote_matrix, group_clusters)
 
         # Check result structure
         assert 'participant_ids' in ptpt_stats
