@@ -664,7 +664,7 @@ adding vectorized blob tests at each stage.
 
 ## K-Divergence Investigation & Fix (2026-03-17/18)
 
-### Branch: `jc/clj-parity-kmeans-k-divergence` (PR #2524, Stack 17/17)
+### Branch: `jc/clj-parity-kmeans-k-divergence` (PR #2453, Stack 19/25)
 
 ### Investigation
 
@@ -721,7 +721,7 @@ fixable without replicating Clojure's power iteration PCA. Low priority.
 - Fixed `update_votes()` and `_apply_moderation()` to preserve encounter order
 - Rebased branch onto new D15 (other session had rebased the stack)
 - Inserted into stack at position 19/25, rebased D10→PR15 with `--onto`
-- Created PR #2524
+- Created PR #2453
 
 ### What's Next
 
@@ -847,7 +847,7 @@ them out (`matrix/set-column m' i 0`), preserving matrix structure.
 - 11 pre-existing test failures are from the stacked branch, not from our work. They should be fixed in their respective PRs before merging to main.
 - `strict=False` on xfail means xpass (unexpected pass) is reported but not a failure. Used when some datasets pass by coincidence.
 - After rebase, D9 `test_repness_not_empty` started xpassing — the `comment_repness` list is populated (all pairs), but `group_repness` (selected reps) may still be affected by wrong thresholds. Consider tightening this test when fixing D9.
-- To rebase when base is updated: `git fetch origin kmeans_analysis_docs && git rebase --onto origin/kmeans_analysis_docs series-of-fixes-base series-of-fixes && git tag -f series-of-fixes-base origin/kmeans_analysis_docs`
+- Stack is managed by spr on the `spr-stack` bookmark (base: `edge`). Use `jj spr update` to push, `jj spr merge --count N` to land PRs. Old branch names (`jc/...`) in session entries below are historical — all commits are now on `spr-stack`.
 - **PR 14 readability goal**: Wherever PR 14 removes an unvectorized (scalar) code path in
   favor of its vectorized replacement, the vectorized version must be made **at least as
   readable** as the scalar one it replaces. Example: the scalar functions (`comment_stats`,
@@ -858,3 +858,361 @@ them out (`matrix/set-column m' i 0`), preserving matrix structure.
   the scalar functions, then update tests. Apply this principle to every scalar/vectorized
   pair removed in PR 14.
   Found during D5 review (2026-03-16).
+
+---
+
+## Stack Migration to spr (2026-03-30)
+
+Migrated from manually-managed `jc/...` branches to spr (jucor/spr fork with jj support).
+All commits are now on a single `spr-stack` bookmark. Old PRs (#2401–#2453) were closed
+and replaced by spr-managed PRs (#2508–#2524). See `.spr.yml` for config.
+
+Old stack scripts (`rebase-stack.sh`, `update-stack-titles.sh`, `update-stack-links.sh`)
+and `.claude/STACK` are obsoleted.
+
+---
+
+## Session: Audit + Recovery (2026-06-09)
+
+Seven real fixes landed (D9 constants, D5 docstring+approx, D6 pop=0 short-
+circuit, D5 n=0 short-circuit, D7 repness metric recovered from docs-only
+state, D8 repful classification recovered, D15 downstream `to_math_blob` /
+`_compute_vote_stats` regressions resolved).
+
+### What landed (with actual code, not just docs)
+
+1. **PR #2518 — D9 Z-score constants**. `Z_90: 1.645 → 1.2816`, `Z_95: 1.96 → 1.6449`.
+   Dropped 3 D9 xfails in `test_discrepancy_fixes.py`. Commit `a3fd23a`. Suite delta
+   vs baseline: +3 passed, -3 xfailed, 0 regressions.
+
+2. **PR #2519 — D5 docstring + test approximations**. Updated `prop_test` `Returns:`
+   docstring to reflect actual sign condition `(succ+1)/(n+1) > 0.5`. Corrected inline
+   approximations in `test_repness_unit.py:48,51` from `~4.19/~-4.29` to `~4.08/~-4.06`
+   (verified with Python). Commit `27396b8`.
+
+3. **PR #2520 — D6 pop=0 short-circuit removed**. Removed
+   `if pop_in == 0 or pop_out == 0: return 0.0` from both scalar `two_prop_test` and
+   vectorized `two_prop_test_vectorized`. Kept `pi_hat == 1` guard (Clojure has it too).
+   Updated assertions in `test_old_format_repness.py`, `test_repness_unit.py`, and
+   `test_discrepancy_fixes.py::test_two_prop_test_edge_cases` (latter rewritten to
+   document that 0 comes from pi_hat=1, not pop=0, and to pin the real "no short-circuit"
+   behavior with `check.greater(two_prop_test(5,5,0,100), 10.0)`). Commit `684c755`.
+   Suite: 310 passed, 9 skipped, 62 xfailed.
+
+4. **PR #2519 (follow-up) — D5 n=0 short-circuit removed** (audit-discovered).
+   Variant (B), symmetric: dropped all three n=0 guards — scalar `prop_test` internal,
+   caller-side gate in `comment_stats`, vectorized `prop_test_vectorized` mask. Now
+   `prop_test(0, 0) → 1.0` and `comment_stats(empty_votes) → pat=pdt=1.0`, matching
+   Clojure end-to-end (significance gate `z > Z_90=1.2816` still rejects 1.0 so empty
+   groups remain filtered out — only raw pat/pdt values change). Updated 5 test
+   assertions across `test_repness_unit.py`, `test_old_format_repness.py`,
+   `test_discrepancy_fixes.py`; added new assertions pinning the symmetric behavior
+   in `test_comment_stats`. Suite at @pkt: 300 passed, 9 skipped, 62 xfailed.
+
+5. **PR #2521 — D7 Repness metric formula** (recovered from docs-only state).
+   Original PR #2521 diff was documentation-only (PLAN+journal "DONE ✓" claims
+   with zero code changes). Re-implemented the actual fix:
+   - Scalar `repness_metric()` (`repness.py:232-253`): swapped
+     `p_factor * (abs(p_test) + abs(r_test))` for the Clojure 4-way signed
+     product `r * r_test * p * p_test`. Same expression for both agree and
+     disagree (`key_prefix` selects which keys); no more `(1 - p)` for disagree.
+   - Vectorized `agree_metric` / `disagree_metric` (`repness.py:706-712`):
+     swapped `pa*(|pat|+|rat|)` / `(1-pd)*(|pdt|+|rdt|)` for `ra*rat*pa*pat`
+     and `rd*rdt*pd*pdt`.
+   - Dropped the D7 xfail on `test_metric_formula_is_product`.
+   - Updated unit tests in `test_repness_unit.py` and `test_old_format_repness.py`
+     to expect the product values (12.0 for agree, 0.495 for disagree).
+   - Rewrote tautological `test_clojure_repness_metric_product` to actually call
+     `repness_metric()` instead of computing the product in pure Python.
+
+   Verified against Clojure `math/src/polismath/math/repness.clj:191-193`:
+   `(defn repness-metric [{:keys [repness repness-test p-success p-test]}]
+   (* repness repness-test p-success p-test))`.
+
+   Suite at @lvs: 311 passed, 9 skipped, 61 xfailed (delta vs @nul baseline:
+   +1 passed, -1 xfailed — from dropping the D7 xfail).
+
+6. **PR #2522 — D8 Finalize classification** (recovered from docs-only state).
+   Original PR #2522 diff was documentation-only (PLAN+journal "DONE ✓" claims,
+   zero code changes). Re-implemented the actual fix:
+   - Scalar `finalize_cmt_stats` (`repness.py:264-291`): replaced 3-branch
+     `pa>0.5 AND ra>1.0` / `pd>0.5 AND rd>1.0` / metric-fallback logic with
+     Clojure's pure comparison `'agree' if stats['rat'] > stats['rdt'] else 'disagree'`.
+     Strict `>` — `rat == rdt` falls through to 'disagree'.
+   - Vectorized (`repness.py:722-724`): replaced `np.select` with conditions+choices
+     by `np.where(stats_df['rat'] > stats_df['rdt'], 'agree', 'disagree')`.
+   - Dropped the D8 xfail on `test_repful_uses_rat_vs_rdt`.
+   - Expanded `TestD8FinalizeStats` from 2 to 7 tests (matches PR's original
+     claim): `rat<rdt`, `rat>rdt`, `rat==rdt` (non-zero boundary), `rat==rdt==0`
+     (zero boundary, added 2026-06-10 in the Copilot follow-up), negative both,
+     metrics-still-populated regression, plus the existing D8/D10 blob-comparison
+     xfail.
+
+   Verified against Clojure `math/src/polismath/math/repness.clj:173-180`:
+   `(if (> rat rdt) [na ns pa pat ra rat :agree] [nd ns pd pdt rd rdt :disagree])`.
+
+   Suite at @wzs: 316 passed, 9 skipped, 60 xfailed (delta vs @lvs: +5 passed,
+   -1 xfailed — from dropping the D8 xfail + 4 new tests passing).
+
+7. **PR #2523 (follow-up) — D15 downstream regressions resolved** (audit-discovered).
+   The base D15 zero-out-columns change in PR #2523 broke 3 downstream call
+   sites that read `self.rating_mat` and treated 0.0 as a real vote:
+   - `to_dict.user-vote-counts` (was `conversation.py:1528-1543`).
+   - `to_dict.votes-base` (was `conversation.py:1547-1571`).
+   - `_compute_vote_stats` (was `conversation.py:333-336`).
+
+   Resolution: routed all three through `raw_rating_mat`, matching Clojure
+   (`conversation.clj:220-228` for `:user-vote-counts`,
+   `:593-600` for `:votes-base`). Concretely:
+   - `to_dict.user-vote-counts` now calls `self._compute_user_vote_counts()`
+     (which was already correct — used `raw_rating_mat` per D2c fix).
+   - `to_dict.votes-base` now calls `self._compute_votes_base()` —
+     **and the method itself was rewritten**: original was dead code with a
+     broken `self.rating_mat[:, 'tid']` index and an exception-swallowing
+     fallback that returned `{A:0, D:0, S:0}` for every comment. New version
+     uses raw_rating_mat with vectorized A/D/S masks.
+   - `_compute_vote_stats` now calls `_get_clean_matrix(raw=True)` via a new
+     `raw: bool = False` parameter on `_get_clean_matrix` (default False
+     preserves PCA/clustering behavior).
+
+   Added 3 tests in `TestD15SyntheticModeration` pinning the new behavior on
+   a synthetic conversation with moderation:
+   - `test_user_vote_counts_uses_raw_rating_mat` — pid 3 with NaN on the
+     moderated tid 0 stays at count 3 (would have inflated to 4 with the old bug).
+   - `test_votes_base_uses_raw_rating_mat` — moderated tid 0 reports
+     `{A:2, D:1, S:4}` (truth from raw), not `{A:0, D:0, S:5}` (post-zero rating_mat).
+   - `test_compute_vote_stats_uses_raw_rating_mat` — global `n_votes` is 18,
+     not 19.
+
+   Follow-up done same session: `to_dynamo_dict` (was `conversation.py:2066-2129`)
+   also routed through `_compute_user_vote_counts()` and `_compute_votes_base()`.
+   DynamoDB output key names preserved (`user_vote_counts`, `votes_base`,
+   `agree/disagree/total`) via a small dict-comprehension rename on the
+   votes-base side. The two serializers can no longer drift apart.
+
+   Suite at @snt: 325 passed, 12 skipped, 60 xfailed (delta vs @wzs: +9 passed,
+   +3 skipped — the +3 are the existing D15 blob-comparison tests that pytest.skip
+   when the dataset lacks moderation data; +9 includes the 3 new downstream tests
+   plus 6 D15 tests that previously couldn't run cleanly at this commit).
+
+### Bulk audit ran
+
+A 9-PR multi-agent review with adversarial verification (56 agents, 3.2M tokens, 21
+minutes wall-clock). Result: **20 confirmed findings, 26 refuted** across PRs
+#2516–#2524.
+
+Per-PR confirmed count:
+
+| PR  | Confirmed | Notable                                                                 |
+|-----|-----------|-------------------------------------------------------------------------|
+| 2516 | 2        | PR body claims goldens pass but they're deleted; `participant_stats()` still ~130 lines of dead code at `repness.py:945` |
+| 2517 | 2        | `run_math_pipeline.py:55` still hardcodes `connect_timeout=5`; `delphi/CLAUDE.md` claim about psycopg2 inaccurate |
+| 2518 | 0        | this-session fix survives 5/5 attempted refutations                     |
+| 2519 | 1        | **`prop_test`/`prop_test_vectorized` n=0 short-circuit diverges from Clojure (returns 0 vs 1)** |
+| 2520 | 0        | this-session fix survives 7/7 attempted refutations                     |
+| 2521 | **6**    | **D7 code never landed — PR diff is docs-only**                        |
+| 2522 | **3**    | **D8 code never landed — PR diff is docs-only**                        |
+| 2523 | **4**    | **D15 zero-out-columns broke `to_math_blob` + `_compute_vote_stats` downstream** |
+| 2524 | 2        | FLI cold-start k=3 vs k=2 still diverges; `server/package-lock.json` drift unrelated |
+
+### The structural discovery (D7 and D8)
+
+PRs #2521 (D7) and #2522 (D8) were marked DONE in the plan and described as fixed
+in the journal, but the actual code change is in **no commit at all**. The "DONE ✓"
+row in the plan and the detailed journal narrative for each are both inside each
+PR's docs-only diff. Most likely cause: code was lost during a jj rebase/squash
+maneuver and never rebuilt. Lesson noted, recovery is straightforward — re-do them
+as proper code fixes on the existing PR commits.
+
+Audit evidence for D7 (PR #2521):
+- `repness.py:225-229` scalar `repness_metric()` still returns
+  `p_factor * (abs(p_test) + abs(r_test))` — the old formula.
+- `repness.py:672-675` vectorized still uses
+  `pa * (|pat| + |rat|)` and `(1 - pd) * (|pdt| + |rdt|)` — which PR #2521's own
+  description flagged as "doubly wrong" (`(1 - pd)` instead of `pd`, weighted sum
+  instead of product).
+- `test_discrepancy_fixes.py:874` still has
+  `@pytest.mark.xfail(reason="D7: Python uses pa*(|pat|+|rat|), target is ra*rat*pa*pat")`.
+- `test_repness_unit.py:163-171` and `test_old_format_repness.py:163` still assert
+  the old formula.
+- `test_clojure_repness_metric_product` is tautological — it computes
+  `1.5 * 2.0 * 0.8 * 3.0` in pure Python without ever calling Python's
+  `repness_metric()`.
+
+Audit evidence for D8 (PR #2522):
+- `repness.py:249` `finalize_cmt_stats()` still uses 3-branch `pa>0.5 AND ra>1.0`
+  logic instead of Clojure's `rat > rdt`.
+- Vectorized path still uses `np.select` with old conditions instead of
+  `np.where(rat > rdt, ...)`.
+- `TestD8FinalizeStats` still has the 2 original tests (PR claimed 7).
+- D8 xfail at line 971 still in place.
+
+### Downstream regressions from D15 (PR #2523)
+
+The `_apply_moderation` change (zero out columns instead of removing them) is itself
+correct for parity, but three downstream call sites read `rating_mat` and assume
+`NaN` means "no vote":
+
+- `conversation.py:1530`: `to_math_blob.user-vote-counts` now inflated — every
+  participant is credited with N additional votes (N = number of moderated-out tids),
+  including participants who never voted on those tids.
+- `conversation.py:1551`: `to_math_blob.votes_base` counts zeroed columns as `S`
+  (skipped) votes for every participant in the conversation.
+- `conversation.py:332`: `_compute_vote_stats` reports inflated `n_votes` (total
+  and per-participant).
+
+Clojure avoids this by computing `:user-vote-counts` from `raw-rating-mat`
+(conversation.clj:220-228), not `rating-mat`. Python's analog needs the same routing
+— either mask moderated columns at each call site, or expose a non-zeroed matrix
+specifically for these counters.
+
+### D5 n=0 short-circuit (audit-discovered) — RESOLVED in this session
+
+Both `prop_test()` (`repness.py:99`) and `prop_test_vectorized()` (line 500) used
+to return `0.0` when `n==0`. Clojure's `prop-test` has no guard: `prop-test(0, 0)`
+evaluates the pseudocount-adjusted formula and returns `2*sqrt(1)*(1/1 - 0.5) = 1.0`.
+The vectorized version's own comment explicitly acknowledged the divergence
+(`# Handle n=0 edge case ... but we want 0 for no-data rows`). Same family as the
+D6 pop=0 issue, landed in PR #2519 as a follow-up — see "What landed" #4 above.
+
+### Workflow note
+
+Adopted a per-PR cadence that splices Copilot deferred items *and* audit findings:
+
+1. Navigate to the PR's commit (`jj edit <change-id>`).
+2. Read original Copilot comment + audit findings verbatim.
+3. **Propose, then wait for explicit approval** before applying — `move on` / `OK` /
+   silence does NOT carry forward as consent between PRs.
+4. TDD cycle: baseline → red → green → full suite (compare against pre-fix baseline).
+5. Push via `jj spr update`.
+6. Reply on each thread + resolve via
+   `.claude/skills/copilot-review/resolve-specific-threads.sh <PR> <comment_id>+`.
+
+### What's Next
+
+Bottom-up by stack:
+
+1. ~~**PR #2519** — n=0 fix follow-up (audit-discovered).~~ — done in this session.
+2. ~~**PR #2521** — actually land D7 code.~~ — done in this session.
+3. ~~**PR #2522** — actually land D8 code.~~ — done in this session.
+4. ~~**PR #2523** — fix the 3 downstream `to_math_blob` / `_compute_vote_stats`
+   call sites.~~ — done in this session.
+5. **Minor cleanups** — in progress:
+   - ✓ PR #2516: `participant_stats()` deleted (was `repness.py:945-1071`);
+     PR body's goldens-pass claim corrected on GitHub to say "skipped".
+   - ✓ PR #2517: `run_math_pipeline.py:55,64` now reads `POSTGRES_CONNECT_TIMEOUT`
+     (default 30s); `delphi/CLAUDE.md:80` rewritten to enumerate honoring callsites.
+   - ✓ PR #2523 (follow-up): `to_dynamo_dict` (was `conversation.py:2066-2129`)
+     now routes through `_compute_user_vote_counts()` and `_compute_votes_base()`.
+     DynamoDB key names preserved via dict-comprehension rename.
+   - ✓ PR #2524: `test_group_clustering` now xfails FLI cold-start too
+     (was only xfailing incremental); `server/package-lock.json` drift
+     reverted via `jj restore --from @- ../server/package-lock.json`.
+
+   All audit-discovered minor cleanups landed in this session.
+
+### Copilot review follow-up (2026-06-10)
+
+Copilot reviewed all 5 modified PRs (#2519, #2520, #2521, #2522, #2523) and
+returned 13 substantive comments. Triage + fixes:
+
+- **PR #2519** — `prop_test` / `prop_test_vectorized` docstrings now make
+  explicit that the `n` parameter is `ns = na + nd` (not raw "votes seen
+  including pass"), matching Polis pipeline convention and what Clojure
+  passes as `n-trials`.
+- **PR #2520** — three `succ > pop` test cases flagged as "impossible
+  inputs". Kept as-is: they're synthetic stress tests for the pi_hat==1
+  guard and the no-short-circuit behavior; the comment trail in the test
+  already explains why. Replied + resolved on the threads.
+- **PR #2521** — `repness_metric` docstring softened: instead of "negative
+  metrics won't be picked" (overpromise — selection only *sorts* descending),
+  now explains that descending sort puts them at the bottom of the candidate
+  pool but fallback paths can still surface a negative-metric comment;
+  callers needing strict positive-metric semantics should gate at the call site.
+  Two 2026-05-19 comments about D7 being "DONE without code" are stale
+  (recovered in the audit session); replied + resolved as historical.
+- **PR #2522** — added the 7th D8 test (`test_repful_both_zero`,
+  `rat == rdt == 0 → 'disagree'`), matching the original PR's "from 2 to 7"
+  claim. Plan + journal counts updated. Three plan PR# cross-reference
+  inconsistencies (#2446 vs #2518 for D9; #2453 vs #2524 for K-divergence)
+  resolved.
+- **PR #2523** — three follow-up code fixes, all about moderation
+  consistency:
+  1. **`_compute_user_vote_counts` / `_compute_votes_base` / `_get_clean_matrix(raw=True)`**
+     now filter `raw_rating_mat` to `self.rating_mat.index` instead of
+     using the full unfiltered raw matrix. Without this, votes from
+     moderated-out *participants* (`mod_out_ptpts`, which `_apply_moderation`
+     drops from `rating_mat.index`) would leak into vote stats. New test
+     `test_vote_counts_exclude_moderated_out_participants` pins the new
+     behavior.
+  2. Stale `# TODO(julien): why is that not called anywhere ?` above
+     `_compute_votes_base()` removed — the function is now called by
+     both `to_dict` and `to_dynamo_dict`.
+  3. Unused `n_tids_clojure` local in `test_moderated_comments_zeroed_not_removed`
+     inlined into the print statement.
+  4. Journal section at line ~737 ("Vote counting: `user-vote-counts` uses
+     `rating_mat`, so moderated columns count as pass votes") rewritten to
+     reflect the actual routing (`raw_rating_mat`) and reference the
+     Audit + Recovery downstream-fix entry.
+  5. **End-to-end serialization shape regression test** added —
+     `test_to_dict_and_to_dynamo_dict_serialize_user_vote_counts_and_votes_base`.
+     Calls both `to_dict()` and `to_dynamo_dict()` on a synthetic conv, pins
+     the result-key naming (`user-vote-counts` / `votes-base` hyphenated for
+     to_dict, `user_vote_counts` / `votes_base` underscored for the DynamoDB
+     serializer), per-comment value-key shape (Clojure `A/D/S` vs DynamoDB
+     `agree/disagree/total`), and that all values are plain Python `int`
+     (no `numpy.int64`, which would later break DynamoDB serialization).
+     Cross-checks that per-pid and per-tid counts agree between the two
+     serializers. Added because the prior round's refactor routed both
+     through the same helpers and we wanted to lock the divergent serialization
+     conventions before squash-merge.
+
+Suite at @ymx after all Copilot fixes: 329 passed, 12 skipped, 58 xfailed
+(delta vs prior: +2 passed — the new D8 zero-boundary test and the new
+D15 mod_out_ptpts test, then +1 more from the serializer-shape test, lands
+on PR #2523 commit so suite there reads 328 passed).
+
+### Operational impact of the mod_out_ptpts fix (prodclone verification, 2026-06-10)
+
+Spun up postgres against the prodclone snapshot (`Archive created at
+2025-10-31 12:08:54 GMT`, 17.5M votes, oldest 2013-08-03, newest 2025-10-31)
+to verify whether the `participants.mod = -1` row that motivated this fix
+ever appears in real Polis data. It does.
+
+**Distribution of `participants.mod` across prodclone:**
+
+| `mod` value | Count | Meaning (inferred) |
+|-------------|------:|--------------------|
+| -1 | 201 | Moderated out (banned) |
+| 0 | 666,780 | Default |
+| 1 | 610 | Of interest |
+| 2 | 4 | (rare; semantics not investigated) |
+
+- 201 banned participants total across **67 distinct conversations** (out of
+  54,850, or 0.12% of conversations).
+- 128 of those banned participants (64%) actually cast votes before being
+  banned, so the leak materializes in real numbers.
+- In the most affected conversation, **96% of cast votes (307/319) came from
+  banned participants**; several other conversations are at 50%–100% banned
+  votes. Many are small (test/abandoned), but a few are not.
+- Affected conversations span **2014-08-15 to 2019-12-06** at creation, with
+  **last-vote timestamps as recent as 2025-10-29** — some affected
+  conversations are still actively receiving votes today.
+
+**Implications:**
+- Clojure has the same gap (the math-worker poller is `SELECT * FROM votes`
+  with no participant-mod filter), so `:user-vote-counts` and `:votes-base`
+  in the Clojure-produced math blob over-report by exactly these banned
+  participants. Live for ~12 years.
+- Python after the 2026-06-10 fix excludes them correctly via
+  `raw_rating_mat.loc[rating_mat.index]`.
+- The `PUT /api/v3/ptptois` endpoint in the server populates
+  `participants.mod`; no UI surface in `client-admin/` or
+  `client-participation-alpha/` invokes it. Bans must be reaching the table
+  via some other route (API automation, direct DB writes, or a UI surface
+  not in these client trees). 201 rows from 67 conversations across many
+  years is "rare but real".
+- Specific zids/zinvites and per-conversation pollution percentages are kept
+  out of this committed doc; the unredacted findings are in Claude's
+  per-project memory store (`~/.claude/projects/...`). Open a follow-up
+  discussion with the team before any user-facing action.
