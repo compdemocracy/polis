@@ -961,11 +961,17 @@ describe("Treevite API endpoints", () => {
           invite_code: inviteCode1, // Using same code as agent1
         });
 
-      // Should fail with already used error
+      // Should fail because the invite is already used. Two error codes are
+      // possible depending on timing:
+      // - "invalid_or_used_invite": the SELECT finds status=1 (already committed)
+      // - "invite_race_condition": the SELECT finds status=0 but the UPDATE
+      //   returns no rows (concurrent commit between SELECT and UPDATE)
+      // See #2489 for the underlying orphaned-user bug in the race_condition path.
       expect(response2.status).toBe(400);
       if (response2.body && response2.body.error) {
         expect(response2.body.error).toMatch(
-          /polis_err_treevite_invalid_or_used_invite/
+          /polis_err_treevite_invalid_or_used_invite|polis_err_treevite_invite_race_condition/
+        );
         );
       }
 
