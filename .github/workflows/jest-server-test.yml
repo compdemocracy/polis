@@ -8,6 +8,7 @@ on:
       - edge
       - stable
       - 'jc/**'
+      - 'spr/**'
 
 jobs:
   server-integration-tests:
