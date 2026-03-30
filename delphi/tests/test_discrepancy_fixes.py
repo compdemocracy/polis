@@ -289,12 +289,13 @@ class TestD2cVoteCountSource:
             participant_votes={0: list(range(10))},
         )
 
-        # raw_rating_mat has all columns; rating_mat has only non-moderated-out
+        # Both raw_rating_mat and rating_mat have all columns (D15 fix:
+        # moderated-out columns are zeroed, not removed)
         n_cmts_raw = len(conv.raw_rating_mat.columns)
         n_cmts_filtered = len(conv.rating_mat.columns)
 
         assert n_cmts_raw == 10, f"raw_rating_mat should have 10 columns, got {n_cmts_raw}"
-        assert n_cmts_filtered == 5, f"rating_mat should have 5 columns, got {n_cmts_filtered}"
+        assert n_cmts_filtered == 10, f"rating_mat should keep all 10 columns (zeroed, not removed), got {n_cmts_filtered}"
 
         # The threshold used by _get_in_conv_participants should be min(7, 10) = 7,
         # not min(7, 5) = 5. Verify indirectly: participant with exactly 6 votes
@@ -1223,29 +1224,374 @@ class TestD15ModerationHandling:
     """
     D15: Python removes moderated comments entirely from matrix.
          Clojure zeros them out (keeps structure, sets values to 0).
+
+    Clojure behavior (named_matrix.clj:214-230):
+      zero-out-columns sets all values in moderated columns to 0,
+      preserving the matrix structure (same number of columns).
+
+    Python should match: _apply_moderation() must zero out moderated
+    columns rather than removing them, so that:
+      - rating_mat.columns includes moderated tids (zeroed)
+      - tids output includes moderated tids
+      - Matrix dimensions match Clojure
     """
 
     def test_moderated_comments_zeroed_not_removed(self, conv, clojure_blob, dataset_name):
         """
-        Moderated comments should be zeroed out, not removed, if any exist.
-
-        Note: This test only applies when the dataset has moderated comments.
+        After applying moderation, rating_mat should still have all columns.
+        Moderated columns should be zeroed, not removed.
         """
-        # Check if Clojure blob has mod-out comments
-        mod_out = clojure_blob.get('mod-out', [])
+        mod_out = clojure_blob.get('mod-out') or []
         if not mod_out:
             pytest.skip(f"[{dataset_name}] No moderated comments in this dataset")
 
-        # If there ARE moderated comments, check Python's handling
-        n_cols_python = len(conv.rating_mat.columns)
-        n_tids_clojure = len(clojure_blob.get('tids', []))
+        # Apply moderation from the Clojure blob to the Python conversation
+        mod_conv = conv.update_moderation(
+            {'mod_out_tids': mod_out},
+            recompute=False,
+        )
 
-        print(f"[{dataset_name}] Moderated comments: {len(mod_out)}")
-        print(f"[{dataset_name}] Python matrix columns: {n_cols_python}, Clojure tids: {n_tids_clojure}")
+        n_cols_python = len(mod_conv.rating_mat.columns)
+        n_cols_raw = len(mod_conv.raw_rating_mat.columns)
 
-        # Clojure keeps all tids (zeroed for mod-out), Python removes them
-        check.equal(n_cols_python, n_tids_clojure,
-                     f"Matrix columns differ: Python={n_cols_python}, Clojure={n_tids_clojure} (mod-out={len(mod_out)})")
+        print(f"[{dataset_name}] mod-out: {len(mod_out)}")
+        print(f"[{dataset_name}] Python rating_mat cols: {n_cols_python}, raw cols: {n_cols_raw}")
+        print(f"[{dataset_name}] Clojure tids: {len(clojure_blob.get('tids', []))}")
+
+        # After zeroing (not removing), column count should match raw matrix
+        check.equal(
+            n_cols_python, n_cols_raw,
+            f"rating_mat should keep all columns (zeroed, not removed): "
+            f"got {n_cols_python}, expected {n_cols_raw}"
+        )
+
+        # Moderated columns should be all zeros (not NaN, not original values)
+        for tid in mod_out:
+            if tid in mod_conv.rating_mat.columns:
+                col_values = mod_conv.rating_mat[tid].values
+                check.is_true(
+                    np.all(col_values == 0.0),
+                    f"Moderated tid {tid} should be all zeros, "
+                    f"got non-zero values: {col_values[col_values != 0.0][:5]}"
+                )
+
+    def test_tids_include_moderated(self, conv, clojure_blob, dataset_name):
+        """The tids output should include moderated-out comments (matching Clojure)."""
+        mod_out = clojure_blob.get('mod-out') or []
+        if not mod_out:
+            pytest.skip(f"[{dataset_name}] No moderated comments in this dataset")
+
+        mod_conv = conv.update_moderation(
+            {'mod_out_tids': mod_out},
+            recompute=False,
+        )
+
+        # rating_mat.columns (used for tids output) should include moderated tids
+        for tid in mod_out:
+            if tid in mod_conv.raw_rating_mat.columns:
+                check.is_in(
+                    tid, set(mod_conv.rating_mat.columns),
+                    f"Moderated tid {tid} should still be in rating_mat columns"
+                )
+
+
+class TestD15SyntheticModeration:
+    """
+    Synthetic tests for D15 moderation handling.
+
+    Clojure zeros out moderated columns (named_matrix.clj:214-230).
+    Python must match: _apply_moderation() zeros columns, not removes them.
+    """
+
+    def _make_conversation_with_moderation(self, mod_out_tids):
+        """Create a small conversation and apply moderation."""
+        import pandas as pd
+
+        # 5 participants, 4 comments. Votes: agree=1, disagree=-1, pass=0, no vote=NaN
+        data = {
+            0: [1.0, -1.0, 1.0, np.nan, 0.0],
+            1: [-1.0, 1.0, 0.0, 1.0, -1.0],
+            2: [1.0, 1.0, -1.0, -1.0, 1.0],
+            3: [np.nan, 0.0, 1.0, 1.0, -1.0],
+        }
+        votes_df = pd.DataFrame(data, index=[0, 1, 2, 3, 4])
+
+        conv = Conversation("synthetic_d15")
+        conv.raw_rating_mat = votes_df.copy()
+        conv.rating_mat = votes_df.copy()
+        conv.participant_count, conv.comment_count = votes_df.shape
+
+        # Apply moderation
+        conv.mod_out_tids = set(mod_out_tids)
+        conv._apply_moderation()
+        return conv
+
+    def test_zeroing_preserves_columns(self):
+        """Moderated columns should still be present in rating_mat."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[1, 3])
+
+        # All 4 columns should still be present
+        assert len(conv.rating_mat.columns) == 4, (
+            f"Expected 4 columns, got {len(conv.rating_mat.columns)}: "
+            f"moderated columns should be zeroed, not removed"
+        )
+        assert set(conv.rating_mat.columns) == {0, 1, 2, 3}
+
+    def test_zeroed_columns_are_all_zero(self):
+        """Moderated columns should have all values set to 0.0."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[1, 3])
+
+        for tid in [1, 3]:
+            col = conv.rating_mat[tid].values
+            assert np.all(col == 0.0), (
+                f"Moderated column {tid} should be all zeros, got {col}"
+            )
+
+    def test_non_moderated_columns_unchanged(self):
+        """Non-moderated columns should retain their original values."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[1])
+
+        # Column 0 should be unchanged: [1, -1, 1, NaN, 0]
+        col0 = conv.rating_mat[0].values
+        assert col0[0] == 1.0
+        assert col0[1] == -1.0
+        assert np.isnan(col0[3])  # NaN preserved for non-moderated
+
+    def test_empty_moderation_no_change(self):
+        """No moderation should leave the matrix unchanged."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[])
+        assert len(conv.rating_mat.columns) == 4
+
+    def test_moderate_nonexistent_tid(self):
+        """Moderating a tid that doesn't exist in the matrix should be a no-op."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[99])
+        # All columns preserved, no crash
+        assert len(conv.rating_mat.columns) == 4
+        # Original values intact
+        assert conv.rating_mat[0].values[0] == 1.0
+
+    # ------------------------------------------------------------------
+    # Downstream parity tests: zeroed columns must NOT poison user-vote
+    # counts, per-comment votes-base, or _compute_vote_stats.
+    # Audit-discovered 2026-06-09. Clojure (conversation.clj:220-228, 593-600)
+    # routes these from raw-rating-mat, not the zeroed rating-mat.
+    # ------------------------------------------------------------------
+
+    def test_user_vote_counts_uses_raw_rating_mat(self):
+        """user-vote-counts must reflect actual votes, not the post-D15 zeros.
+
+        Synthetic conv has pid 3 with raw NaN on tid 0 (didn't vote). After
+        moderating tid 0, the OLD bug (reading from rating_mat) counts the
+        zeroed cell as a vote → pid 3 inflates from 3 to 4. The fix routes
+        through raw_rating_mat to match Clojure (conversation.clj:220-228).
+        """
+        conv = self._make_conversation_with_moderation(mod_out_tids=[0])
+        counts = conv._compute_user_vote_counts()
+        # Truth per raw matrix (NaN cells excluded):
+        #   pid 0 voted on tids 0,1,2 (NaN on 3) → 3
+        #   pid 1: all 4
+        #   pid 2: all 4
+        #   pid 3 voted on tids 1,2,3 (NaN on 0) → 3   ← would inflate to 4 with old bug
+        #   pid 4: all 4
+        assert counts.get(0) == 3
+        assert counts.get(1) == 4
+        assert counts.get(2) == 4
+        assert counts.get(3) == 3, (
+            "pid 3 didn't vote on moderated tid 0 (raw=NaN); count must stay 3, "
+            f"not inflate to {counts.get(3)}"
+        )
+        assert counts.get(4) == 4
+
+    def test_votes_base_uses_raw_rating_mat(self):
+        """to_dict's votes-base for moderated tids must reflect raw votes, not zeros.
+
+        After moderating tid 0 the OLD bug returns
+        {0: {'A': 0, 'D': 0, 'S': 5}} (all 5 pids appear as 'S' since 0.0 is
+        non-NaN). Truth (raw_rating_mat) is {'A': 2, 'D': 1, 'S': 4} (4 actual
+        votes; pid 3 NaN). Matches Clojure (conversation.clj:593-600).
+        """
+        conv = self._make_conversation_with_moderation(mod_out_tids=[0])
+        vb = conv._compute_votes_base()
+        # tid 0 (moderated): pid 0=1.0 (A), pid 1=-1.0 (D), pid 2=1.0 (A),
+        # pid 3=NaN, pid 4=0.0 (pass) → A=2, D=1, S=4
+        assert vb[0] == {'A': 2, 'D': 1, 'S': 4}, (
+            f"moderated tid 0 votes-base must come from raw_rating_mat: got {vb[0]}"
+        )
+        # tid 1 (not moderated): pid 0=-1, pid 1=1, pid 2=1, pid 3=0, pid 4=-1
+        # → A=2, D=2, S=5
+        assert vb[1] == {'A': 2, 'D': 2, 'S': 5}
+
+    def test_compute_vote_stats_uses_raw_rating_mat(self):
+        """_compute_vote_stats.n_votes must not count moderated-out zeros."""
+        conv = self._make_conversation_with_moderation(mod_out_tids=[0])
+        conv._compute_vote_stats()
+        # Truth (raw): 4 + 5 + 5 + 4 = 18 actual votes across all tids.
+        # OLD bug (rating_mat with zeroed tid 0): 5 (zeroed) + 5 + 5 + 4 = 19.
+        assert conv.vote_stats['n_votes'] == 18, (
+            f"n_votes must count raw votes only; got {conv.vote_stats['n_votes']}, expected 18"
+        )
+
+    def test_vote_counts_exclude_moderated_out_participants(self):
+        """Moderated-out *participants* (mod_out_ptpts) must NOT appear in vote stats.
+
+        D15 fixed moderated comment *columns* (zeroed, not removed). Polis also
+        supports moderated-out *participants* via `mod_out_ptpts`, which
+        `_apply_moderation` drops from `rating_mat.index`. The raw_rating_mat
+        routing for vote counting must NOT leak these participants — otherwise
+        excluded users' votes would still show up in `user-vote-counts`,
+        `votes-base`, and `_compute_vote_stats`.
+        """
+        import pandas as pd
+
+        # Same matrix as the helper, with pid 3 moderated out.
+        data = {
+            0: [1.0, -1.0, 1.0, np.nan, 0.0],
+            1: [-1.0, 1.0, 0.0, 1.0, -1.0],
+            2: [1.0, 1.0, -1.0, -1.0, 1.0],
+            3: [np.nan, 0.0, 1.0, 1.0, -1.0],
+        }
+        votes_df = pd.DataFrame(data, index=[0, 1, 2, 3, 4])
+        conv = Conversation("synthetic_d15_mod_ptpts")
+        conv.raw_rating_mat = votes_df.copy()
+        conv.rating_mat = votes_df.copy()
+        conv.participant_count, conv.comment_count = votes_df.shape
+        conv.mod_out_ptpts = {3}  # ban pid 3
+        conv._apply_moderation()
+
+        # rating_mat should have dropped pid 3
+        assert 3 not in conv.rating_mat.index, "_apply_moderation should drop mod_out_ptpts"
+
+        # user-vote-counts must not include pid 3
+        counts = conv._compute_user_vote_counts()
+        assert 3 not in counts, (
+            f"moderated-out pid 3 leaked into user-vote-counts: {sorted(counts.keys())}"
+        )
+
+        # votes-base counts must reflect 4 participants (0,1,2,4), not 5.
+        # tid 1 (not moderated): pid 0=-1 (D), pid 1=1 (A), pid 2=0 (pass),
+        #                        pid 3 dropped, pid 4=-1 (D)  → A=1, D=2, S=4
+        vb = conv._compute_votes_base()
+        assert vb[1] == {'A': 1, 'D': 2, 'S': 4}, (
+            f"tid 1 votes-base must exclude moderated-out pid 3; "
+            f"got {vb[1]}, expected {{A:1, D:2, S:4}}"
+        )
+
+        # vote_stats global n_votes: only count over the 4 remaining participants.
+        # pid 0: 3, pid 1: 4, pid 2: 4, pid 4: 4 → total 15 (not 18).
+        conv._compute_vote_stats()
+        assert conv.vote_stats['n_votes'] == 15, (
+            f"n_votes must exclude moderated-out participants: got "
+            f"{conv.vote_stats['n_votes']}, expected 15"
+        )
+
+    def test_to_dict_and_to_dynamo_dict_serialize_user_vote_counts_and_votes_base(self):
+        """End-to-end serialization shape regression for the 2026-06-09 refactor.
+
+        Before this session, `to_dict` and `to_dynamo_dict` each had their own
+        inline implementations of user-vote-counts and votes-base. Both were
+        refactored to route through `_compute_user_vote_counts()` /
+        `_compute_votes_base()`. This test pins the serializer output shape so
+        the refactor can't silently change the on-the-wire format:
+
+        - `to_dict.user-vote-counts`  : key `'user-vote-counts'` (hyphen),
+                                        value `{int-pid: int-count}` per Clojure naming.
+        - `to_dict.votes-base`        : key `'votes-base'`, value `{int-tid: {'A','D','S'}}`.
+        - `to_dynamo_dict.user_vote_counts` : key with **underscore**, same value shape.
+        - `to_dynamo_dict.votes_base`       : key with **underscore**, value
+                                              `{int-tid: {'agree','disagree','total'}}`
+                                              (DynamoDB key convention, NOT A/D/S).
+
+        Also: values must be `int` (DynamoDB rejects `numpy.int64` later in the
+        serialization pipeline; the helpers wrap with `int(...)`).
+        """
+        # Build a tiny conv with enough state for both serializers to reach
+        # the user-vote-counts / votes-base sections without crashing
+        # downstream on missing PCA / cluster state. Both serializers gate
+        # group-votes / projections on empty `group_clusters` / `proj`, so a
+        # bare-bones conv is enough.
+        conv = self._make_conversation_with_moderation(mod_out_tids=[])
+        # Minimal extra state for the serializers (set on default __init__
+        # values where possible; only add what the serializers actually read).
+        conv.conversation_id = 99999
+        conv.last_updated = 0
+
+        # ---- to_dict ----
+        try:
+            blob = conv.to_dict()
+        except Exception as e:  # pragma: no cover
+            pytest.fail(f"to_dict() raised on synthetic conv: {e!r}")
+
+        assert 'user-vote-counts' in blob, "to_dict must produce 'user-vote-counts' (hyphen) key"
+        assert 'votes-base' in blob, "to_dict must produce 'votes-base' (hyphen) key"
+
+        uvc = blob['user-vote-counts']
+        assert isinstance(uvc, dict)
+        assert len(uvc) == 5, f"5 participants → 5 vote-count entries, got {len(uvc)}"
+        for pid, count in uvc.items():
+            assert isinstance(pid, int), (
+                f"to_dict user-vote-counts pid must be int (numpy-safe), got {type(pid)}")
+            assert isinstance(count, int) and not isinstance(count, bool), (
+                f"to_dict user-vote-counts value must be int, got {type(count)}")
+
+        vb = blob['votes-base']
+        assert isinstance(vb, dict)
+        assert len(vb) == 4, f"4 comments → 4 votes-base entries, got {len(vb)}"
+        for tid, entry in vb.items():
+            assert isinstance(tid, int), (
+                f"to_dict votes-base tid must be int (numpy-safe), got {type(tid)}")
+            assert set(entry.keys()) == {'A', 'D', 'S'}, (
+                f"to_dict votes-base entry must have Clojure-style A/D/S keys, got {set(entry.keys())}")
+            for k, v in entry.items():
+                assert isinstance(v, int) and not isinstance(v, bool), (
+                    f"to_dict votes-base {k} must be int, got {type(v)}")
+
+        # ---- to_dynamo_dict ----
+        try:
+            dyn = conv.to_dynamo_dict()
+        except Exception as e:  # pragma: no cover
+            pytest.fail(f"to_dynamo_dict() raised on synthetic conv: {e!r}")
+
+        assert 'user_vote_counts' in dyn, "to_dynamo_dict must produce 'user_vote_counts' (underscore)"
+        assert 'votes_base' in dyn, "to_dynamo_dict must produce 'votes_base' (underscore)"
+        # Crucial: the OLD format used hyphens NOWHERE; the DynamoDB serializer
+        # must never emit Clojure-style keys.
+        assert 'user-vote-counts' not in dyn, "to_dynamo_dict must not emit hyphen-style key"
+        assert 'votes-base' not in dyn, "to_dynamo_dict must not emit hyphen-style key"
+
+        dyn_uvc = dyn['user_vote_counts']
+        assert isinstance(dyn_uvc, dict)
+        assert len(dyn_uvc) == 5
+        for pid, count in dyn_uvc.items():
+            assert isinstance(pid, int), (
+                f"to_dynamo_dict user_vote_counts pid must be int, got {type(pid)}")
+            assert isinstance(count, int) and not isinstance(count, bool), (
+                f"to_dynamo_dict user_vote_counts value must be int, got {type(count)}")
+
+        dyn_vb = dyn['votes_base']
+        assert isinstance(dyn_vb, dict)
+        assert len(dyn_vb) == 4
+        for tid, entry in dyn_vb.items():
+            assert isinstance(tid, int), (
+                f"to_dynamo_dict votes_base tid must be int, got {type(tid)}")
+            assert set(entry.keys()) == {'agree', 'disagree', 'total'}, (
+                "to_dynamo_dict votes_base entries must have DynamoDB-style "
+                f"agree/disagree/total keys (NOT A/D/S), got {set(entry.keys())}")
+            for k, v in entry.items():
+                assert isinstance(v, int) and not isinstance(v, bool), (
+                    f"to_dynamo_dict votes_base {k} must be int, got {type(v)}")
+
+        # Cross-check: the per-participant counts must match between the two
+        # serializers (same helper, just different key names on the way out).
+        for pid in uvc:
+            assert uvc[pid] == dyn_uvc[pid], (
+                f"user-vote-counts mismatch for pid {pid}: "
+                f"to_dict={uvc[pid]}, to_dynamo_dict={dyn_uvc[pid]}")
+
+        # And A/D/S vs agree/disagree/total must agree per-tid.
+        for tid in vb:
+            assert vb[tid]['A'] == dyn_vb[tid]['agree']
+            assert vb[tid]['D'] == dyn_vb[tid]['disagree']
+            assert vb[tid]['S'] == dyn_vb[tid]['total']
 
 
 # ============================================================================

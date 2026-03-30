@@ -712,6 +712,65 @@ to create a new worktree. If yes, provide a prompt they can use to start that se
 
 ---
 
+## Session: Fix D15 — Moderation Handling (2026-03-16)
+
+### Branch: `jc/clj-parity-d15-moderation-handling-zeros-vs-removes`
+
+### What was done
+
+Fixed D15: Python now zeros out moderated-out comment columns instead of removing them,
+matching Clojure's `zero-out-columns` behavior (named_matrix.clj:214-230).
+
+**The discrepancy**: Python's `_apply_moderation()` removed moderated-out columns from
+`rating_mat` entirely (`raw_rating_mat.loc[keep_ptpts, keep_comments]`). Clojure zeros
+them out (`matrix/set-column m' i 0`), preserving matrix structure.
+
+**The fix**: Changed `_apply_moderation()` to:
+1. Still remove moderated-out participants (rows) — unchanged
+2. Zero out moderated-out comment columns instead of removing them
+3. `rating_mat` now has the same column count as `raw_rating_mat`
+
+**Impact on downstream**:
+- `tids` output now includes moderated-out tids (matching Clojure)
+- PCA: zeroed columns contribute nothing to variance, so PCA results are effectively identical
+- Repness: zeroed columns get na=0, nd=0, failing significance — effectively excluded
+- Vote counting (`user-vote-counts`, `votes-base`, `_compute_vote_stats`) is routed
+  through `raw_rating_mat` so the moderation-zeroed values in `rating_mat` don't
+  inflate counts. This matches Clojure's `conversation.clj:220-228` (uses
+  `raw-rating-mat` for `:user-vote-counts`) and `:593-600` (uses `raw-rating-mat`
+  for `:votes-base`). See the "Audit + Recovery (2026-06-09)" session at the
+  bottom of this journal for the downstream-fix landing details — the audit
+  caught and resolved the earlier-claimed `rating_mat` routing.
+
+### Tests
+
+**New synthetic tests** (`TestD15SyntheticModeration`, 5 tests):
+- `test_zeroing_preserves_columns` — moderated columns still present
+- `test_zeroed_columns_are_all_zero` — moderated column values are 0.0
+- `test_non_moderated_columns_unchanged` — other columns retain original values
+- `test_empty_moderation_no_change` — no-op when no moderation
+- `test_moderate_nonexistent_tid` — graceful handling of unknown tids
+
+**Enhanced real-data tests** (`TestD15ModerationHandling`, 2 tests):
+- `test_moderated_comments_zeroed_not_removed` — applies mod-out from Clojure blob, checks column count and zeroed values
+- `test_tids_include_moderated` — verifies moderated tids remain in rating_mat columns
+
+**Updated existing tests**:
+- `test_conversation.py::test_moderation` — updated to expect zeroed columns
+- `test_conversation.py::test_update_moderation` — same
+- `test_discrepancy_fixes.py::TestD2cVoteCountSource::test_n_cmts_includes_moderated_out_comments` — updated comment count assertion
+
+### Test results
+
+- Public datasets: **328 passed, 0 failed, 6 skipped, 56 xfailed**
+- Private datasets: 13 failures — all **pre-existing** (golden snapshot staleness from earlier fixes, not D15-related). Verified by running parent branch.
+
+### What's next
+
+- D12 (comment priorities) or D1/D1b (PCA sign flips) — per plan ordering
+
+---
+
 ## Notes for Future Sessions
 
 - Private datasets are in `delphi/real_data/.local/` (separate git repo, linked via `link-to-polis-worktree.sh`)

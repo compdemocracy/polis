@@ -296,15 +296,23 @@ class Conversation:
     def _apply_moderation(self) -> None:
         """
         Apply moderation settings to create filtered rating matrix.
+
+        Matches Clojure behavior (named_matrix.clj:214-230):
+        - Moderated-out participants are removed (rows dropped)
+        - Moderated-out comments are ZEROED OUT, not removed — the column
+          stays in the matrix with all values set to 0.  This preserves
+          matrix structure so that tids, column indices, and dimensions
+          match between Python and Clojure.
         """
-        # Filter out moderated participants and comments, and keep them sorted!
-        # Note: set operations are unordered, hence the extra sort.
-        # Natural sort: preserves types and sorts numerically when possible
+        # Filter out moderated participants (remove rows)
         keep_ptpts = natsorted(list(set(self.raw_rating_mat.index) - set(self.mod_out_ptpts)))
-        keep_comments = natsorted(list(set(self.raw_rating_mat.columns) - set(self.mod_out_tids)))
-        
-        # Create filtered matrix
-        self.rating_mat = self.raw_rating_mat.loc[keep_ptpts, keep_comments]
+        self.rating_mat = self.raw_rating_mat.loc[keep_ptpts].copy()
+
+        # Zero out moderated-out comments (keep columns, set values to 0)
+        # Clojure: (matrix/set-column m' i 0) — zeroes the column
+        mod_cols = [c for c in self.mod_out_tids if c in self.rating_mat.columns]
+        if mod_cols:
+            self.rating_mat[mod_cols] = 0.0
     
     def _compute_vote_stats(self) -> None:
         """
@@ -323,8 +331,11 @@ class Conversation:
         }
 
         try:
-            # Get clean numeric matrix
-            clean_mat = self._get_clean_matrix()
+            # Use raw_rating_mat (Clojure parity): post-D15 zeroed-moderation columns
+            # in self.rating_mat would otherwise inflate n_votes / per-comment 'S' /
+            # per-participant counts. raw_rating_mat still has NaN for non-votes,
+            # matching Clojure's user-vote-counts and votes-base semantics.
+            clean_mat = self._get_clean_matrix(raw=True)
             values = clean_mat.to_numpy()
 
             # Create boolean masks once for the entire matrix.
@@ -492,15 +503,25 @@ class Conversation:
             self.proj = {pid: np.zeros(2) for pid in self.rating_mat.index}
             logger.info(f"PCA computation completed in {time.time() - start_time:.2f}s (with errors)")
 
-    def _get_clean_matrix(self) -> pd.DataFrame:
+    def _get_clean_matrix(self, raw: bool = False) -> pd.DataFrame:
         """
         Get a clean copy of the rating matrix with proper numeric values.
-        
+
+        Args:
+            raw: If True, sanitize self.raw_rating_mat filtered to
+                 self.rating_mat.index (includes votes on moderated-out comments
+                 but excludes moderated-out participants, matching Clojure's
+                 user-vote-counts / votes-base semantics combined with Polis's
+                 mod_out_ptpts handling). If False (default), sanitize the
+                 moderation-applied self.rating_mat (used for PCA and clustering).
+
         Returns:
             Clean DataFrame with numeric values
         """
+        source = (self.raw_rating_mat.loc[self.rating_mat.index]
+                  if raw else self.rating_mat)
         # Convert all entries to float64, with np.nan for pd.NA and for strings
-        matrix_data = self.rating_mat.to_numpy(copy=True)
+        matrix_data = source.to_numpy(copy=True)
         if not np.issubdtype(matrix_data.dtype, np.floating):
             try:
                 matrix_data = matrix_data.astype(float)
@@ -523,7 +544,7 @@ class Conversation:
                 # Step 5: Convert back to numpy array
                 matrix_data = df_numeric.to_numpy(dtype='float64')
 
-        return pd.DataFrame(matrix_data, index=self.rating_mat.index, columns=self.rating_mat.columns)
+        return pd.DataFrame(matrix_data, index=source.index, columns=source.columns)
     
     def _compute_clusters(self) -> None:
         """
@@ -1074,53 +1095,47 @@ class Conversation:
         logger.info(f"Total get_full_data time: {time.time() - start_time:.4f}s")
         return result
     
-    # TODO(julien): why is that not called anywhere ?
     def _compute_votes_base(self) -> Dict[str, Any]:
         """
-        Compute votes base structure which maps each comment ID to aggregated vote counts.
-        This matches the Clojure conversation.clj votes-base implementation.
-        
+        Compute per-comment vote aggregations, matching Clojure's votes-base.
+
+        Clojure (math/src/polismath/math/conversation.clj:593-600):
+            :votes-base (plmb/fnk [bid-to-pid raw-rating-mat]
+                          (->> raw-rating-mat
+                            nm/colnames
+                            (map ...
+                              {:A (count agree?) :D (count disagree?) :S (count number?)})))
+
+        Reads from raw_rating_mat (not the moderation-zeroed rating_mat) so
+        that moderated-out columns report the actual votes cast, not the
+        post-D15 zeros. 'S' is the total non-NaN count per Clojure semantics
+        (number? predicate), not just pass votes.
+
         Returns:
-            Dictionary mapping comment IDs to vote statistics
+            Dictionary mapping comment IDs to {'A': int, 'D': int, 'S': int}.
         """
-        import numpy as np
-        
-        # Get all comment IDs
-        comment_ids = self.rating_mat.columns
-        
-        # Helper functions to identify vote types (like utils/agree?, utils/disagree? in Clojure)
-        def agree_vote(x):
-            return not np.isnan(x) and abs(x - 1.0) < 0.001
-            
-        def disagree_vote(x):
-            return not np.isnan(x) and abs(x + 1.0) < 0.001
-            
-        def is_number(x):
-            return not np.isnan(x)
-        
-        # Create vote aggregations for each comment
+        # raw_rating_mat for the COLUMN view (D15 parity — un-zeroed values), but
+        # filtered to rating_mat.index for the ROW view so moderated-out participants
+        # don't leak into per-comment counts. See _compute_user_vote_counts for the
+        # same dual-filter rationale.
+        mat = self.raw_rating_mat.loc[self.rating_mat.index]
+        values = mat.values
+        agree_mask = np.abs(values - 1.0) < 0.001
+        disagree_mask = np.abs(values + 1.0) < 0.001
+        valid_mask = ~np.isnan(values)
+
         votes_base = {}
-        for tid in comment_ids:
-            # Get the column for this comment
+        for j, tid in enumerate(mat.columns):
+            entry = {
+                'A': int(np.sum(agree_mask[:, j])),
+                'D': int(np.sum(disagree_mask[:, j])),
+                'S': int(np.sum(valid_mask[:, j])),
+            }
             try:
-                # TODO(julien): how can that even work ?? Should be self.rating_mat[tid]
-                votes = self.rating_mat[:, 'tid'].to_numpy()
-                
-                # Count vote types
-                agree_votes = np.sum(agree_vote(votes))
-                disagree_votes = np.sum(disagree_vote(votes))
-                total_votes = np.sum(is_number(votes))
-                
-                # Store in format matching Clojure
-                votes_base[tid] = {
-                    'A': int(agree_votes),
-                    'D': int(disagree_votes),
-                    'S': int(total_votes)
-                }
-            except (ValueError, IndexError) as e:
-                # If comment not found, use empty counts
-                votes_base[tid] = {'A': 0, 'D': 0, 'S': 0}
-                
+                votes_base[int(tid)] = entry
+            except (ValueError, TypeError):
+                votes_base[tid] = entry
+
         return votes_base
     
     def _compute_group_votes(self) -> Dict[str, Any]:
@@ -1224,7 +1239,12 @@ class Conversation:
         """
         import time
         start_time = time.time()
-        mat = self.raw_rating_mat
+        # raw_rating_mat for the COLUMN view (preserves moderated-out comments — D15
+        # parity), but filtered to rating_mat.index for the ROW view so moderated-out
+        # *participants* (mod_out_ptpts, dropped by _apply_moderation) don't leak
+        # into vote counts. Both filters together give the moderation-applied state
+        # with un-zeroed values, matching what Clojure produces.
+        mat = self.raw_rating_mat.loc[self.rating_mat.index]
         logger.info(f"Starting _compute_user_vote_counts for {mat.shape[0]} participants")
 
         vote_counts = {}
@@ -1522,54 +1542,18 @@ class Conversation:
         result['n'] = self.participant_count
         result['n-cmts'] = self.comment_count
         
-        # Add user vote counts with vectorized operations
+        # Clojure parity (conversation.clj:220-228): user-vote-counts must come from
+        # raw_rating_mat so that post-D15 zeroed columns don't inflate per-participant counts.
+        # _compute_user_vote_counts() already routes through raw_rating_mat correctly.
         vote_counts_start = time.time()
-        
-        # Use more efficient batch processing approach from to_dynamo_dict
-        user_vote_counts = {}
-        if len(self.rating_mat.index) > 0:
-            # Create a mask of non-nan values and sum across rows
-            non_nan_mask = ~np.isnan(self.rating_mat.values)
-            row_sums = np.sum(non_nan_mask, axis=1)
-            
-            # Convert to dictionary with integer keys where possible
-            for i, pid in enumerate(self.rating_mat.index):
-                if i < len(row_sums):
-                    # Try to convert participant ID to integer for Clojure compatibility
-                    try:
-                        user_vote_counts[int(pid)] = int(row_sums[i])
-                    except (ValueError, TypeError):
-                        user_vote_counts[pid] = int(row_sums[i])
-        
-        result['user-vote-counts'] = user_vote_counts
+        result['user-vote-counts'] = self._compute_user_vote_counts()
         logger.info(f"User vote counts: {time.time() - vote_counts_start:.4f}s")
         
-        # Calculate votes-base efficiently with vectorized operations
+        # Clojure parity (conversation.clj:593-600): votes-base must come from
+        # raw_rating_mat so that moderated-out columns report the actual votes cast,
+        # not the post-D15 zeros (which would inflate every column's 'S' count).
         votes_base_start = time.time()
-        
-        # Create pre-calculated masks for agree/disagree votes
-        agree_mask = np.abs(self.rating_mat.values - 1.0) < 0.001
-        disagree_mask = np.abs(self.rating_mat.values + 1.0) < 0.001
-        valid_mask = ~np.isnan(self.rating_mat.values)
-        
-        # Compute votes base with vectorized operations
-        votes_base = {}
-        for j, tid in enumerate(self.rating_mat.columns):
-            if j >= self.rating_mat.values.shape[1]:
-                continue
-                
-            # Calculate vote stats with vectorized operations
-            col_agree = np.sum(agree_mask[:, j])
-            col_disagree = np.sum(disagree_mask[:, j])
-            col_total = np.sum(valid_mask[:, j])
-            
-            # Try to convert tid to int for Clojure compatibility
-            try:
-                votes_base[int(tid)] = {'A': int(col_agree), 'D': int(col_disagree), 'S': int(col_total)}
-            except (ValueError, TypeError):
-                votes_base[tid] = {'A': int(col_agree), 'D': int(col_disagree), 'S': int(col_total)}
-        
-        result['votes-base'] = votes_base
+        result['votes-base'] = self._compute_votes_base()
         logger.info(f"Votes base: {time.time() - votes_base_start:.4f}s")
         
         # Compute group votes with optimized approach
@@ -2090,24 +2074,11 @@ class Conversation:
             except (ValueError, TypeError):
                 result['meta_comments'].append(tid)
         
-        # Add user vote counts (more efficient approach)
+        # Clojure parity (conversation.clj:220-228): user-vote-counts come from
+        # raw_rating_mat. Routed through the same helper used by to_dict so the
+        # two serializers can't drift apart again (audit-discovered 2026-06-09).
         logger.info(f"[{time.time() - start_time:.2f}s] Computing user vote counts...")
-        user_vote_counts = {}
-        for i, pid in enumerate(self.rating_mat.index):
-            # Skip if index is out of bounds
-            if i >= self.rating_mat.values.shape[0]:
-                continue
-                
-            # Count votes with efficient numpy operations
-            row = self.rating_mat.values[i, :]
-            count = int(np.sum(~np.isnan(row)))
-            
-            # Try to convert pid to int for DynamoDB
-            try:
-                user_vote_counts[int(pid)] = count
-            except (ValueError, TypeError):
-                user_vote_counts[pid] = count
-        
+        user_vote_counts = self._compute_user_vote_counts()
         result['user_vote_counts'] = user_vote_counts
         
         # Calculate included participants (meeting vote threshold)
@@ -2121,37 +2092,16 @@ class Conversation:
         
         result['included_participants'] = included_participants
         
-        # Add votes base structure (optimized batch conversion)
+        # Clojure parity (conversation.clj:593-600): votes-base comes from
+        # raw_rating_mat. Routed through the same helper used by to_dict; DynamoDB
+        # uses different key names (agree/disagree/total vs Clojure's A/D/S) so we
+        # rename on the way out. Audit-discovered 2026-06-09.
         logger.info(f"[{time.time() - start_time:.2f}s] Computing votes base structure...")
         votes_base_start = time.time()
-        votes_base = {}
-        
-        # Pre-identify agree, disagree, and voteless masks
-        agree_mask = np.abs(self.rating_mat.values - 1.0) < 0.001
-        disagree_mask = np.abs(self.rating_mat.values + 1.0) < 0.001
-        valid_mask = ~np.isnan(self.rating_mat.values)
-        
-        # Process column by column
-        for j, tid in enumerate(self.rating_mat.columns):
-            if j >= self.rating_mat.values.shape[1]:
-                continue
-                
-            # Get the column
-            try:
-                # Calculate stats with vectorized operations
-                col_agree = np.sum(agree_mask[:, j])
-                col_disagree = np.sum(disagree_mask[:, j])
-                col_total = np.sum(valid_mask[:, j])
-                
-                # Try to convert tid to int for compatibility
-                try:
-                    votes_base[int(tid)] = {'agree': int(col_agree), 'disagree': int(col_disagree), 'total': int(col_total)}
-                except (ValueError, TypeError):
-                    votes_base[tid] = {'agree': int(col_agree), 'disagree': int(col_disagree), 'total': int(col_total)}
-            except (IndexError, ValueError, TypeError):
-                # Handle any errors gracefully
-                continue
-        
+        votes_base = {
+            tid: {'agree': entry['A'], 'disagree': entry['D'], 'total': entry['S']}
+            for tid, entry in self._compute_votes_base().items()
+        }
         logger.info(f"[{time.time() - start_time:.2f}s] votes_base computed in {time.time() - votes_base_start:.2f}s")
         result['votes_base'] = votes_base
         
