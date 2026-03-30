@@ -20,7 +20,7 @@ from polismath.pca_kmeans_rep.clusters import (
     kmeans_sklearn,
     calculate_silhouette_sklearn
 )
-from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
+from polismath.pca_kmeans_rep.repness import conv_repness
 from polismath.pca_kmeans_rep.corr import compute_correlation
 
 
@@ -792,114 +792,101 @@ class Conversation:
         
         # OPTIMIZATION 3: Precompute group vote matrices and average votes
         
-        # Precompute group vote matrices and their valid comment masks
-        group_vote_matrices = {}
+        # Precompute group average votes and valid comment masks
         group_avg_votes = {}
         group_valid_masks = {}
-        
+
         for group_id, member_indices in group_member_indices.items():
             if len(member_indices) >= 3:  # Only calculate for groups with enough members
                 # Extract the group vote matrix
                 group_vote_matrix = matrix_values[member_indices, :]
-                group_vote_matrices[group_id] = group_vote_matrix
-                
+
                 # Calculate average votes per comment for this group
                 group_avg_votes[group_id] = np.mean(group_vote_matrix, axis=0)
                 
                 # Precompute which comments have at least 3 votes from this group
                 group_valid_masks[group_id] = np.sum(group_vote_matrix != 0, axis=0) >= 3
         
-        # OPTIMIZATION 4: Use vectorized operations for participant stats
-        
+        # VECTORIZED: Compute vote counts for ALL participants at once
+
         process_start = time.time()
-        batch_start = time.time()
-        
+
+        n_agree_all = np.sum(matrix_values > 0, axis=1)    # (N,)
+        n_disagree_all = np.sum(matrix_values < 0, axis=1)  # (N,)
+        n_pass_all = np.sum(matrix_values == 0, axis=1)     # (N,)
+        n_votes_all = n_agree_all + n_disagree_all          # (N,)
+
+        # Mask: participants with at least one real vote
+        has_votes = n_votes_all > 0  # (N,) bool
+
+        # VECTORIZED: Compute per-group correlations for ALL participants at once
+        # Store as {group_id: corr_array} where corr_array is (N,)
+        group_corr_arrays = {}
+
+        for group_id, member_indices in group_member_indices.items():
+            if len(member_indices) < 3 or group_id not in group_avg_votes:
+                # All correlations default to 0.0
+                group_corr_arrays[group_id] = np.zeros(participant_count)
+                continue
+
+            valid_mask = group_valid_masks[group_id]
+            n_valid = int(np.sum(valid_mask))
+
+            if n_valid < 3:
+                group_corr_arrays[group_id] = np.zeros(participant_count)
+                continue
+
+            # P: all participants' votes on valid comments — (N, n_valid)
+            P = matrix_values[:, valid_mask]
+            # g: group average on valid comments — (n_valid,)
+            g = group_avg_votes[group_id][valid_mask]
+
+            p_mean = P.mean(axis=1)          # (N,)
+            g_mean = g.mean()                # scalar
+            p_std = P.std(axis=1)            # (N,)
+            g_std = g.std()                  # scalar
+
+            if g_std == 0:
+                group_corr_arrays[group_id] = np.zeros(participant_count)
+                continue
+
+            # Pearson correlation: (mean(P*g) - mean(P)*mean(g)) / (std(P)*std(g))
+            cross_mean = (P @ g) / n_valid   # (N,)
+
+            # np.where evaluates both branches; suppress divide-by-zero for p_std==0
+            with np.errstate(invalid='ignore', divide='ignore'):
+                corr = np.where(
+                    p_std > 0,
+                    (cross_mean - p_mean * g_mean) / (p_std * g_std),
+                    0.0,
+                )
+            corr = np.nan_to_num(corr, nan=0.0)
+            group_corr_arrays[group_id] = corr
+
+        # Assemble result dicts (zero computation — just indexing)
+        group_ids = list(group_member_indices.keys())
+
         for p_idx, participant_id in enumerate(vote_matrix.index):
-            if p_idx >= matrix_values.shape[0]:
+            if not has_votes[p_idx]:
                 continue
-                
-            # Print progress for large participant sets
-            if participant_count > 100 and p_idx % 100 == 0:
-                now = time.time()
-                elapsed = now - process_start
-                batch_time = now - batch_start
-                batch_start = now
-                percent = (p_idx / participant_count) * 100
-                logger.info(f"Processed {p_idx}/{participant_count} participants ({percent:.1f}%) - " +
-                           f"Elapsed: {elapsed:.2f}s, Batch: {batch_time:.4f}s")
-            
-            # Get participant votes
-            participant_votes = matrix_values[p_idx, :]
-            
-            # Count votes using vectorized operations
-            n_agree = np.sum(participant_votes > 0)
-            n_disagree = np.sum(participant_votes < 0)
-            n_pass = np.sum(participant_votes == 0) 
-            n_votes = n_agree + n_disagree
-            
-            # Skip participants with no votes
-            if n_votes == 0:
-                continue
-                
-            # Find participant's group using precomputed mapping
-            participant_group = ptpt_group_map.get(participant_id)
-            
-            # OPTIMIZATION 5: Efficient group correlation calculation
-            
-            # Calculate agreement with each group - optimized version
-            group_agreements = {}
-            
-            for group_id, member_indices in group_member_indices.items():
-                if len(member_indices) < 3:
-                    # Skip groups with too few members
-                    group_agreements[group_id] = 0.0
-                    continue
-                
-                if group_id not in group_avg_votes or group_id not in group_valid_masks:
-                    group_agreements[group_id] = 0.0
-                    continue
-                    
-                # Use precomputed data
-                g_votes = group_avg_votes[group_id]
-                valid_mask = group_valid_masks[group_id]
-                
-                if np.sum(valid_mask) >= 3:  # At least 3 valid comments
-                    # Extract only valid comment votes
-                    p_votes = participant_votes[valid_mask]
-                    g_votes_valid = g_votes[valid_mask]
-                    
-                    # Fast correlation calculation
-                    p_std = np.std(p_votes)
-                    g_std = np.std(g_votes_valid)
-                    
-                    if p_std > 0 and g_std > 0:
-                        # Use numpy's built-in correlation (faster and more numerically stable)
-                        correlation = np.corrcoef(p_votes, g_votes_valid)[0, 1]
-                        
-                        if not np.isnan(correlation):
-                            group_agreements[group_id] = correlation
-                        else:
-                            group_agreements[group_id] = 0.0
-                    else:
-                        group_agreements[group_id] = 0.0
-                else:
-                    group_agreements[group_id] = 0.0
-            
-            # Store participant stats
+
             result['stats'][participant_id] = {
-                'n_agree': int(n_agree),
-                'n_disagree': int(n_disagree),
-                'n_pass': int(n_pass),
-                'n_votes': int(n_votes),
-                'group': participant_group,
-                'group_correlations': group_agreements
+                'n_agree': int(n_agree_all[p_idx]),
+                'n_disagree': int(n_disagree_all[p_idx]),
+                'n_pass': int(n_pass_all[p_idx]),
+                'n_votes': int(n_votes_all[p_idx]),
+                'group': ptpt_group_map.get(participant_id),
+                'group_correlations': {
+                    gid: float(group_corr_arrays[gid][p_idx])
+                    for gid in group_ids
+                }
             }
-        
+
         total_time = time.time() - start_time
         process_time = time.time() - process_start
         logger.info(f"Participant stats completed in {total_time:.2f}s (preparation: {prep_time:.2f}s, processing: {process_time:.2f}s)")
         logger.info(f"Processed {len(result['stats'])} participants with {len(group_clusters)} groups")
-        
+
         return result
 
     def _compute_participant_info(self) -> None:
