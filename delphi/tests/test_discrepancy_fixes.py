@@ -794,30 +794,72 @@ class TestD5ProportionTest:
 class TestD6TwoPropTest:
     """
     D6: Python uses standard two-proportion z-test without pseudocounts.
-        Clojure adds +1 pseudocount to all 4 inputs (succ1, n1, succ2, n2).
+        Clojure adds +1 pseudocount to all 4 inputs (stats.clj:18-33):
+        (map inc [succ-in succ-out pop-in pop-out])
+        pi1 = (succ-in+1)/(pop-in+1), pi2 = (succ-out+1)/(pop-out+1)
+        pi-hat = (succ-in+1 + succ-out+1) / (pop-in+1 + pop-out+1)
     """
 
-    def test_two_prop_test_with_pseudocounts(self):
-        """two_prop_test should add +1 pseudocounts matching Clojure."""
-        # With pseudocounts: (succ+1)/(n+2) for both groups
-        succ1, n1 = 10, 20
-        succ2, n2 = 15, 30
+    @staticmethod
+    def _clojure_two_prop_test(succ_in, succ_out, pop_in, pop_out):
+        """Reference implementation of Clojure's two-prop-test (stats.clj:18-33)."""
+        s1, s2, p1, p2 = succ_in + 1, succ_out + 1, pop_in + 1, pop_out + 1
+        pi1 = s1 / p1
+        pi2 = s2 / p2
+        pi_hat = (s1 + s2) / (p1 + p2)
+        if pi_hat == 1:
+            return 0.0
+        return (pi1 - pi2) / math.sqrt(pi_hat * (1 - pi_hat) * (1/p1 + 1/p2))
 
-        # Clojure formula adds +1 to successes and +2 to trials
-        p1_clj = (succ1 + 1) / (n1 + 2)
-        p2_clj = (succ2 + 1) / (n2 + 2)
-        p_pooled_clj = (succ1 + succ2 + 2) / (n1 + n2 + 4)
-        se_clj = math.sqrt(p_pooled_clj * (1 - p_pooled_clj) * (1 / (n1 + 2) + 1 / (n2 + 2)))
-        expected = (p1_clj - p2_clj) / se_clj if se_clj > 0 else 0.0
+    def test_two_prop_test_matches_clojure_formula(self):
+        """two_prop_test(succ_in, succ_out, pop_in, pop_out) should match Clojure."""
+        # Test cases: (succ_in, succ_out, pop_in, pop_out)
+        test_cases = [
+            (10, 15, 20, 30),     # typical case
+            (0, 0, 10, 10),       # no successes in either group
+            (5, 5, 10, 10),       # identical groups
+            (10, 0, 10, 10),      # all success in group, none outside
+            (1, 1, 1, 1),         # minimal counts
+            (50, 20, 100, 200),   # asymmetric sizes
+            (0, 10, 20, 30),      # no success in group, some outside
+        ]
 
-        # Python currently doesn't add pseudocounts
-        p1_py = succ1 / n1
-        p2_py = succ2 / n2
-        python_result = two_prop_test(p1_py, n1, p2_py, n2)
+        for succ_in, succ_out, pop_in, pop_out in test_cases:
+            expected = self._clojure_two_prop_test(succ_in, succ_out, pop_in, pop_out)
+            result = two_prop_test(succ_in, succ_out, pop_in, pop_out)
+            check.almost_equal(
+                result, expected, abs=0.001,
+                msg=f"two_prop_test({succ_in},{succ_out},{pop_in},{pop_out}): "
+                    f"got={result:.4f}, expected={expected:.4f}")
 
-        print(f"two_prop_test: Python={python_result:.4f}, Clojure(with pseudocounts)={expected:.4f}")
-        check.almost_equal(python_result, expected, abs=0.01,
-                            msg=f"two_prop_test should include pseudocounts: Python={python_result:.4f}, expected={expected:.4f}")
+    def test_two_prop_test_edge_cases(self):
+        """Edge cases: pi_hat=1 returns 0; pop=0 with pop=0 short-circuit removed.
+
+        Clojure (stats.clj:18-33) increments ALL four inputs by 1 (no special-
+        casing of pop=0). Each case below happens to return 0 because of the
+        pi_hat==1 guard, NOT because pop=0 — verify by tracing the math.
+        """
+        # (5,5,0,10) → s1=6,s2=6,p1=1,p2=11 → pi_hat = 12/12 = 1.0 → 0 via guard
+        check.equal(two_prop_test(5, 5, 0, 10), 0.0)
+        # (5,5,10,0) → s1=6,s2=6,p1=11,p2=1 → pi_hat = 12/12 = 1.0 → 0 via guard
+        check.equal(two_prop_test(5, 5, 10, 0), 0.0)
+        # (0,0,0,0)  → s1=1,s2=1,p1=1,p2=1  → pi_hat = 2/2  = 1.0 → 0 via guard
+        check.equal(two_prop_test(0, 0, 0, 0), 0.0)
+        # Real pop=0 (no pi_hat=1 collapse): (5,5,0,100) gives a large positive z,
+        # confirming the +1-pseudocount path runs instead of short-circuiting.
+        check.greater(two_prop_test(5, 5, 0, 100), 10.0,
+                      "pop_in=0 should NOT short-circuit to 0; +1 pseudocount produces large positive z")
+
+    def test_two_prop_test_pseudocount_effect(self):
+        """Pseudocounts should shrink z-scores toward zero for small samples."""
+        # With small n, the +1 pseudocount has a large effect
+        # succ=1, pop=1 → without pseudocount: p=1.0 (extreme)
+        # With pseudocount: (1+1)/(1+1) = 1.0, but denominator also shifts
+        result_small = two_prop_test(1, 0, 2, 2)
+        result_large = two_prop_test(100, 0, 200, 200)
+        # The large-sample z should be more extreme (less regularized)
+        check.greater(abs(result_large), abs(result_small),
+                      "Large samples should produce more extreme z-scores than small ones")
 
     @pytest.mark.xfail(reason="D6/D10: two-prop test differs + no shared comments to compare")
     def test_rat_values_match_clojure_blob(self, conv, clojure_blob, dataset_name):
@@ -1232,4 +1274,95 @@ class TestD5BlobInjection:
 
         assert not mismatches, (
             f"[{dataset_name}] {len(mismatches)}/{total} p-test mismatches:\n"
+            + "\n".join(mismatches[:10]))
+
+
+@pytest.mark.clojure_comparison
+class TestD6BlobInjection:
+    """D6: Verify two_prop_test against real Clojure blob repness-test values.
+
+    For each repness entry, reconstruct the two_prop_test inputs from
+    group-votes (group counts vs total-minus-group), compare to blob's
+    repness-test.
+    """
+
+    def test_two_prop_test_matches_blob_repness_test(self, clojure_blob, dataset_name):
+        """two_prop_test should match blob's repness-test for every repness entry."""
+        repness = clojure_blob.get('repness', {})
+        group_votes = clojure_blob.get('group-votes', {})
+        if not repness or not group_votes:
+            pytest.skip(f"No repness or group-votes in blob for {dataset_name}")
+
+        # Precompute total votes across ALL groups for each comment
+        all_group_votes = {}
+        for other_gid, other_gv_data in group_votes.items():
+            for tid_str, counts in other_gv_data.get('votes', {}).items():
+                if tid_str not in all_group_votes:
+                    all_group_votes[tid_str] = {'A': 0, 'D': 0, 'S': 0}
+                all_group_votes[tid_str]['A'] += counts['A']
+                all_group_votes[tid_str]['D'] += counts['D']
+                all_group_votes[tid_str]['S'] += counts['S']
+
+        mismatches = []
+        total = 0
+        for gid, entries in repness.items():
+            gv = group_votes.get(gid, {}).get('votes', {})
+            for entry in entries:
+                tid_str = str(entry['tid'])
+                repful = entry['repful-for']
+                expected_rt = entry['repness-test']
+
+                group_cv = gv.get(tid_str, {'A': 0, 'D': 0, 'S': 0})
+                total_cv = all_group_votes.get(tid_str, {'A': 0, 'D': 0, 'S': 0})
+
+                if repful == 'agree':
+                    succ_in = group_cv['A']
+                    succ_out = total_cv['A'] - group_cv['A']
+                else:
+                    succ_in = group_cv['D']
+                    succ_out = total_cv['D'] - group_cv['D']
+
+                pop_in = group_cv['S']
+                pop_out = total_cv['S'] - group_cv['S']
+
+                actual = two_prop_test(succ_in, succ_out, pop_in, pop_out)
+                total += 1
+                if abs(actual - expected_rt) > 1e-4:
+                    mismatches.append(
+                        f"group={gid} tid={entry['tid']} ({repful}): "
+                        f"two_prop_test({succ_in},{succ_out},{pop_in},{pop_out})={actual:.6f}, "
+                        f"blob repness-test={expected_rt:.6f}")
+
+        assert not mismatches, (
+            f"[{dataset_name}] {len(mismatches)}/{total} repness-test mismatches:\n"
+            + "\n".join(mismatches[:10]))
+
+
+@pytest.mark.clojure_comparison
+class TestD4BlobInjection:
+    """D4: Verify p-success (pseudocount formula) against blob values."""
+
+    def test_p_success_matches_blob(self, clojure_blob, dataset_name):
+        """(n_success + 1) / (n_trials + 2) should match blob's p-success."""
+        repness = clojure_blob.get('repness', {})
+        if not repness:
+            pytest.skip(f"No repness in blob for {dataset_name}")
+
+        mismatches = []
+        total = 0
+        for gid, entries in repness.items():
+            for entry in entries:
+                ns = entry['n-success']
+                nt = entry['n-trials']
+                expected = entry['p-success']
+                actual = (ns + PSEUDO_COUNT / 2) / (nt + PSEUDO_COUNT)
+                total += 1
+                if abs(actual - expected) > 1e-4:
+                    mismatches.append(
+                        f"group={gid} tid={entry['tid']}: "
+                        f"pa=({ns}+1)/({nt}+2)={actual:.6f}, "
+                        f"blob p-success={expected:.6f}")
+
+        assert not mismatches, (
+            f"[{dataset_name}] {len(mismatches)}/{total} p-success mismatches:\n"
             + "\n".join(mismatches[:10]))

@@ -110,33 +110,52 @@ def prop_test(succ: int, n: int) -> float:
     return 2 * math.sqrt(n_pc) * (succ_pc / n_pc - 0.5)
 
 
-def two_prop_test(p1: float, n1: int, p2: float, n2: int) -> float:
+def two_prop_test(succ_in: int, succ_out: int, pop_in: int, pop_out: int) -> float:
     """
-    Two-proportion z-test.
-    
+    Two-proportion z-test with +1 pseudocount on all inputs.
+
+    Matches Clojure's stats/two-prop-test (stats.clj:18-33):
+      (let [[succ-in succ-out pop-in pop-out] (map inc [succ-in succ-out pop-in pop-out])
+            pi1 (/ succ-in pop-in)
+            pi2 (/ succ-out pop-out)
+            pi-hat (/ (+ succ-in succ-out) (+ pop-in pop-out))]
+        ...)
+
+    The +1 pseudocount (Laplace smoothing) regularizes the z-score for small
+    samples, preventing extreme values when group sizes are tiny.
+
     Args:
-        p1: First proportion
-        n1: Number of observations for first proportion
-        p2: Second proportion
-        n2: Number of observations for second proportion
-        
+        succ_in: Number of successes in the group (e.g., agrees)
+        succ_out: Number of successes outside the group
+        pop_in: Total votes in the group
+        pop_out: Total votes outside the group
+
     Returns:
-        Z-score
+        Z-score (positive means group proportion > other proportion)
     """
-    if n1 == 0 or n2 == 0:
+    # No pop_in/pop_out short-circuit: Clojure's (map inc ...) increments all
+    # four inputs unconditionally, so pop=0 becomes pop=1 and the test proceeds.
+    # The only early-return is pi_hat == 1 below, matching Clojure.
+
+    # Add +1 pseudocount to all four inputs (Clojure: map inc)
+    s1 = succ_in + 1
+    s2 = succ_out + 1
+    p1 = pop_in + 1
+    p2 = pop_out + 1
+
+    pi1 = s1 / p1
+    pi2 = s2 / p2
+    pi_hat = (s1 + s2) / (p1 + p2)
+
+    if pi_hat == 1.0:
+        # Clojure note (stats.clj:26-27): "this isn't quite right... could
+        # actually solve this using limits" — returning 0 for now, matching Clojure.
         return 0.0
-    
-    # Pooled probability
-    p = (p1 * n1 + p2 * n2) / (n1 + n2)
-    
-    # Standard error
-    se = math.sqrt(p * (1 - p) * (1/n1 + 1/n2))
-    
-    # Z-score calculation
+
+    se = math.sqrt(pi_hat * (1 - pi_hat) * (1/p1 + 1/p2))
     if se == 0:
         return 0.0
-    else:
-        return (p1 - p2) / se
+    return (pi1 - pi2) / se
 
 
 def comment_stats(votes: np.ndarray, group_members: List[int]) -> Dict[str, Any]:
@@ -199,15 +218,17 @@ def add_comparative_stats(comment_stats: Dict[str, Any],
     result['ra'] = result['pa'] / other_stats['pa'] if other_stats['pa'] > 0 else 1.0
     result['rd'] = result['pd'] / other_stats['pd'] if other_stats['pd'] > 0 else 1.0
     
-    # Calculate representativeness tests
+    # Calculate representativeness tests — pass raw counts, matching Clojure's
+    # (stats/two-prop-test (:na in-stats) (sum :na rest-stats)
+    #                      (:ns in-stats) (sum :ns rest-stats))  (repness.clj:97-100)
     result['rat'] = two_prop_test(
-        result['pa'], result['ns'], 
-        other_stats['pa'], other_stats['ns']
+        result['na'], other_stats['na'],
+        result['ns'], other_stats['ns']
     )
-    
+
     result['rdt'] = two_prop_test(
-        result['pd'], result['ns'], 
-        other_stats['pd'], other_stats['ns']
+        result['nd'], other_stats['nd'],
+        result['ns'], other_stats['ns']
     )
     
     return result
@@ -512,30 +533,39 @@ def prop_test_vectorized(succ: pd.Series, n: pd.Series) -> pd.Series:
     return z
 
 
-def two_prop_test_vectorized(p1: pd.Series, n1: pd.Series,
-                             p2: pd.Series, n2: pd.Series) -> pd.Series:
+def two_prop_test_vectorized(succ_in: pd.Series, succ_out: pd.Series,
+                             pop_in: pd.Series, pop_out: pd.Series) -> pd.Series:
     """
-    Vectorized two-proportion z-test.
+    Vectorized two-proportion z-test with +1 pseudocount on all inputs.
+
+    Matches Clojure's stats/two-prop-test (stats.clj:18-33).
+    See two_prop_test() scalar version for formula details.
 
     Args:
-        p1: Series of first proportions
-        n1: Series of number of observations for first proportion
-        p2: Series of second proportions
-        n2: Series of number of observations for second proportion
+        succ_in: Series of success counts in the group
+        succ_out: Series of success counts outside the group
+        pop_in: Series of total vote counts in the group
+        pop_out: Series of total vote counts outside the group
 
     Returns:
         Series of z-scores
     """
-    # Pooled probability
-    p_pooled = (p1 * n1 + p2 * n2) / (n1 + n2)
+    # Add +1 pseudocount to all four inputs (Clojure: map inc)
+    s1 = succ_in + 1
+    s2 = succ_out + 1
+    p1 = pop_in + 1
+    p2 = pop_out + 1
 
-    # Standard error
-    se = np.sqrt(p_pooled * (1 - p_pooled) * (1/n1 + 1/n2))
+    pi1 = s1 / p1
+    pi2 = s2 / p2
+    pi_hat = (s1 + s2) / (p1 + p2)
 
-    # Z-score calculation
-    z = (p1 - p2) / se
+    se = np.sqrt(pi_hat * (1 - pi_hat) * (1/p1 + 1/p2))
+    z = (pi1 - pi2) / se
 
-    # Handle edge cases
+    # No pop_in/pop_out short-circuit (Clojure parity — see scalar two_prop_test).
+    # pi_hat==1 and pi_hat>1 (NaN from sqrt of negative) collapse to 0 via fillna;
+    # division by 0 inf cases collapse via replace.
     z = z.fillna(0.0)
     z = z.replace([np.inf, -np.inf], 0.0)
     return z
@@ -668,14 +698,16 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     stats_df['ra'] = stats_df['ra'].replace([np.inf, -np.inf], 1.0).fillna(1.0)
     stats_df['rd'] = stats_df['rd'].replace([np.inf, -np.inf], 1.0).fillna(1.0)
 
-    # Compute representativeness tests (two-proportion z-test: group vs other)
+    # Compute representativeness tests — pass raw counts, matching Clojure's
+    # (stats/two-prop-test (:na in-stats) (sum :na rest-stats)
+    #                      (:ns in-stats) (sum :ns rest-stats))  (repness.clj:97-100)
     stats_df['rat'] = two_prop_test_vectorized(
-        stats_df['pa'], stats_df['ns'],
-        stats_df['other_pa'], stats_df['other_votes']
+        stats_df['na'], stats_df['other_agree'],
+        stats_df['ns'], stats_df['other_votes']
     )
     stats_df['rdt'] = two_prop_test_vectorized(
-        stats_df['pd'], stats_df['ns'],
-        stats_df['other_pd'], stats_df['other_votes']
+        stats_df['nd'], stats_df['other_disagree'],
+        stats_df['ns'], stats_df['other_votes']
     )
 
     # Compute metrics

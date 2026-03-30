@@ -60,14 +60,24 @@ class TestStatisticalFunctions:
                           2 * math.sqrt(2) * 0.5, atol=0.01)
     
     def test_two_prop_test(self):
-        """Test two-proportion z-test."""
-        # Test cases
-        assert np.isclose(two_prop_test(0.7, 100, 0.5, 100), 2.9, atol=0.1)
-        assert np.isclose(two_prop_test(0.2, 50, 0.3, 50), -1.2, atol=0.1)
-        
-        # Edge cases
-        assert two_prop_test(0.5, 0, 0.5, 100) == 0.0
-        assert two_prop_test(0.5, 100, 0.5, 0) == 0.0
+        """Test two-proportion z-test with +1 pseudocounts (Clojure parity)."""
+        # two_prop_test(succ_in, succ_out, pop_in, pop_out) — raw counts
+        # Clojure adds +1 to all 4 inputs (stats.clj:20)
+
+        # succ_in=70, succ_out=50, pop_in=100, pop_out=100
+        # After +1: pi1=71/101≈0.703, pi2=51/101≈0.505, z≈2.88
+        assert np.isclose(two_prop_test(70, 50, 100, 100), 2.88, atol=0.1)
+
+        # Equal proportions → z ≈ 0
+        assert np.isclose(two_prop_test(25, 25, 50, 50), 0.0, atol=0.1)
+
+        # pop_in=0 / pop_out=0: Clojure (stats.clj:18-33) applies (map inc ...)
+        # to ALL FOUR inputs including the populations, so pop=0 becomes pop=1
+        # and the test proceeds. With succ_in=succ_out=5, pop_in=0, pop_out=100:
+        # after +1, pi1=6/1=6, pi2=6/101≈0.0594, pi_hat=12/102≈0.1176, giving
+        # a very large positive z-score. The symmetric case is negative.
+        assert np.isclose(two_prop_test(5, 5, 0, 100),  18.3476, atol=0.01)
+        assert np.isclose(two_prop_test(5, 5, 100, 0), -18.3476, atol=0.01)
 
 
 class TestCommentStats:
@@ -588,29 +598,39 @@ class TestVectorizedFunctions:
         assert not np.isnan(result.iloc[1])  # normal case
 
     def test_two_prop_test_vectorized(self):
-        """Test vectorized two-proportion z-test."""
-        p1 = pd.Series([0.7, 0.2])
-        n1 = pd.Series([100, 50])
-        p2 = pd.Series([0.5, 0.3])
-        n2 = pd.Series([100, 50])
+        """Test vectorized two-proportion z-test with +1 pseudocounts."""
+        # Now takes raw counts: (succ_in, succ_out, pop_in, pop_out)
+        succ_in = pd.Series([70, 10])
+        succ_out = pd.Series([50, 15])
+        pop_in = pd.Series([100, 50])
+        pop_out = pd.Series([100, 50])
 
-        result = two_prop_test_vectorized(p1, n1, p2, n2)
+        result = two_prop_test_vectorized(succ_in, succ_out, pop_in, pop_out)
 
         # Compare with scalar version
-        assert np.isclose(result.iloc[0], two_prop_test(0.7, 100, 0.5, 100), atol=0.01)
-        assert np.isclose(result.iloc[1], two_prop_test(0.2, 50, 0.3, 50), atol=0.01)
+        assert np.isclose(result.iloc[0], two_prop_test(70, 50, 100, 100), atol=0.01)
+        assert np.isclose(result.iloc[1], two_prop_test(10, 15, 50, 50), atol=0.01)
 
     def test_two_prop_test_vectorized_edge_cases(self):
-        """Test vectorized two-prop test handles edge cases."""
-        p1 = pd.Series([0.5, 0.7])
-        n1 = pd.Series([0, 100])  # n1=0 should return 0
-        p2 = pd.Series([0.5, 0.5])
-        n2 = pd.Series([100, 0])  # n2=0 should return 0
+        """Vectorized two-prop test: pop=0 must match Clojure parity (no short-circuit).
 
-        result = two_prop_test_vectorized(p1, n1, p2, n2)
+        Clojure (stats.clj:18-33) applies (map inc ...) to all four inputs, so
+        pop=0 → pop=1 and the test proceeds. We pair each pop=0 case with the
+        scalar version to confirm scalar/vectorized agreement.
+        """
+        # Row 0: (5, 5, 0, 100) — pop_in=0 → expect large positive z (≈18.35)
+        # Row 1: (5, 5, 0, 10)  — pop_in=0 AND pi_hat=1 by coincidence → 0
+        succ_in  = pd.Series([5, 5])
+        succ_out = pd.Series([5, 5])
+        pop_in   = pd.Series([0, 0])
+        pop_out  = pd.Series([100, 10])
 
-        assert result.iloc[0] == 0.0  # n1=0 case
-        assert result.iloc[1] == 0.0  # n2=0 case
+        result = two_prop_test_vectorized(succ_in, succ_out, pop_in, pop_out)
+
+        assert np.isclose(result.iloc[0], two_prop_test(5, 5, 0, 100), atol=0.01)
+        assert np.isclose(result.iloc[1], two_prop_test(5, 5, 0, 10),  atol=0.01)
+        assert np.isclose(result.iloc[0], 18.3476, atol=0.01)
+        assert result.iloc[1] == 0.0  # pi_hat=1 coincidence after +1 pseudocount
 
     def test_compute_group_comment_stats_df(self):
         """Test vectorized computation of group/comment statistics."""
