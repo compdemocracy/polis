@@ -542,8 +542,122 @@ has no defensible behavior (doubly wrong disagree, weighted sum vs product). No 
 
 ### What's Next
 
-1. **PR 7 — Fix D8 (Finalize comment stats)**: Change repful classification from
-   `pa > 0.5 AND ra > 1.0` to `rat > rdt` (Clojure's simpler logic).
+1. **PR 8 — Fix D10 (Rep comment selection)**: Match Clojure's selection logic.
+
+---
+
+## PR 7: Fix D8 — Finalize Comment Stats Logic
+
+### TDD steps
+1. **Baseline**: 5 xfailed (D8 tests), 289 passed, 3 skipped, 60 xfailed (public)
+2. **Red**: Removed xfail from D8 formula tests, added 4 new edge case tests → 5 failures
+   (test_repful_uses_rat_vs_rdt, test_rat_greater_than_rdt_is_agree,
+   test_equal_rat_rdt_is_disagree, test_both_negative, test_both_zero)
+3. **Fix**: Replaced both scalar and vectorized repful classification:
+   - Old: `if pa > 0.5 and ra > 1.0 → 'agree'; elif pd > 0.5 and rd > 1.0 → 'disagree'; else: higher metric`
+   - New: `if rat > rdt → 'agree'; else → 'disagree'` (repness.clj:175-177)
+4. **Green**: All 5 D8 formula tests pass, 4 blob comparison tests xfail (D10 selection)
+5. **Full suite (public)**: 4 regression failures, all in `comment_repness[*].repness` — the
+   repness value changes direction when repful flips (ra↔rd). No other fields affected.
+6. **Re-recorded golden snapshots** for all 7 datasets (public + private)
+7. **Final (with --include-local)**: 19/19 regression tests pass, 3 pre-existing failures
+   (pakistan-incremental D2, bg2050/pakistan incremental PCA dimensions)
+
+### Changes
+- `repness.py`: `finalize_cmt_stats()` — replaced 3-branch threshold logic with `rat > rdt`
+- `repness.py`: Vectorized repful in `compute_group_comment_stats_df()` — replaced `np.select`
+  with `np.where(rat > rdt, 'agree', 'disagree')`
+- `test_discrepancy_fixes.py`: Expanded `TestD8FinalizeStats` from 2 to 7 tests (5 formula +
+  1 blob xfail + edge cases for equal/negative/zero rat/rdt)
+
+### Key insight: the old logic was unnecessarily complex
+Clojure simply compares `rat > rdt` — the two-proportion z-test scores already encode group
+significance. The old Python logic added redundant probability/ratio thresholds (`pa > 0.5`,
+`ra > 1.0`) with a metric-based fallback, but these gates are unnecessary given that rat/rdt
+already capture the relative group difference.
+
+### Session 10 (2026-03-14)
+
+- Created branch `jc/clj-parity-d8-finalize-stats` on top of `jc/clj-parity-d7-repness-metric`
+- Read Clojure source (repness.clj:170-185) to verify formula
+- TDD cycle: red (5 failures) → fix → green (5 pass, 4 xfail)
+- Verified regression diffs are all in `comment_repness[*].repness` — repful direction change
+- Re-recorded golden snapshots for all 7 datasets
+- Final validation: 19/19 regression tests pass
+
+### What's Next
+
+1. **PR 14 refactor**: Extract stats computation from `compute_group_comment_stats_df` for
+   testability, then add vectorized blob injection tests.
+2. Review remaining VM fixes: D15, D10, D11, D3, D12, D1, PR15.
+3. K-divergence investigation (separate session off D15 branch).
+
+---
+
+## Review Session (2026-03-17)
+
+### What was done
+
+**Reviewed and created draft PRs for D5, D6, D7, D8:**
+- #2448 (D5), #2449 (D6), #2450 (D7), #2451 (D8) — all draft
+- Reviewed production code, tests, docs, golden snapshots for each
+- D6: restored dropped Clojure XXX comment about pi_hat==1 edge case
+- D7: confirmed no feature flag needed (old formula doubly wrong)
+- D8: noted (1-pd) = pa identity, confirming old disagree formula was backwards
+
+**Added blob injection tests (scalar path):**
+- D5: `prop_test(n_success, n_trials)` vs blob `p-test` — RED→GREEN verified
+- D6: `two_prop_test(group counts)` vs blob `repness-test` — RED→GREEN verified
+- D4: `(n_success+1)/(n_trials+2)` vs blob `p-success` — passes (already fixed)
+- D8: `rat > rdt` vs blob `repful-for` — passes (D6 fix makes rat/rdt correct)
+
+**Key discovery: formula-only tests are tautological.** They verify our code matches our
+reading of the Clojure source — if we misread it, the test passes and the code is wrong.
+Only blob injection tests (comparing against real Clojure output) catch real mismatches.
+Every fix PR must now include blob comparison tests.
+
+**Key discovery: Python and Clojure pick different k (vw: Python=4, Clojure=2).**
+Both use silhouette. The divergence comes from upstream PCA/clustering differences
+(sklearn SVD vs Clojure power iteration). This is independent of all repness fixes
+(D4-D11). Investigation planned off D15 branch. See
+`delphi/docs/HANDOFF_K_DIVERGENCE_INVESTIGATION.md`.
+
+**Key discovery: `n-trials` in Clojure blob = `S` (total seen, including passes),**
+not `A+D` (agrees + disagrees). Verified: `prop_test(11, 14)` = blob `p-test` for
+tid=49 group 0 in vw, where A=2, D=11, S=14, A+D=13.
+
+**Infrastructure fixes:**
+- CI: added `jc/**` to `pull_request.branches` in `python-ci.yml` (bottom of stack)
+- CI: `find_dotenv()` + `DATABASE_*` fallback in `test_postgres_real_data.py`
+- CI: removed dead `POSTGRES_*` exec vars from workflow
+- All stack PRs now have passing CI (Delphi Python Tests)
+
+**Stack reordering:**
+- D15 moved before D10 (was after D3) — prerequisite for k-divergence investigation
+- New order: D8 → D15 → D10 → D11 → D3 → D12 → D1 → PR15
+- D15 only touches `conversation.py`, independent of repness fixes
+
+**Vectorized blob injection tests: deferred.** The `compute_group_comment_stats_df`
+function is too monolithic to test in isolation — it builds its own DataFrame from
+raw inputs. PR 14 refactor (extract stats computation) is needed first to make the
+vectorized path testable. Plan: refactor at base of repness chain, then re-climb
+adding vectorized blob tests at each stage.
+
+### Session 11 (2026-03-17)
+
+- Fetched 6 new VM branches (D10, D11, D3, D15, D12, D1) + PR15
+- Reviewed D5, D6, D7, D8 code, tests, docs — all approved with minor fixes
+- Created draft PRs #2448-#2451 on GitHub
+- Cleaned macOS resource fork artifacts from VM private data repo
+- Fetched private data snapshots from VM (D5+D6 committed, D7+D8 uncommitted on VM)
+- Updated stack titles (17 PRs)
+- Discovered CI wasn't running Python tests on `jc/**` PRs — fixed
+- Discovered `jc/fix-test-db-connection` broke CI (hardcoded .env path + no DATABASE_URL fallback) — fixed
+- Added blob injection tests to D5 (RED→GREEN), D6 (RED→GREEN), D8 branches
+- Investigated k divergence: Python=4, Clojure=2 on vw cold-start
+- Created handoff doc and plan section for k-divergence investigation
+- Reordered stack: D15 before D10 for k-investigation prereq
+- Rebased full chain (D15 → D10 → D11 → D3 → D12 → D1 → PR15) onto new D8
 
 ---
 
@@ -605,3 +719,13 @@ to create a new worktree. If yes, provide a prompt they can use to start that se
 - `strict=False` on xfail means xpass (unexpected pass) is reported but not a failure. Used when some datasets pass by coincidence.
 - After rebase, D9 `test_repness_not_empty` started xpassing — the `comment_repness` list is populated (all pairs), but `group_repness` (selected reps) may still be affected by wrong thresholds. Consider tightening this test when fixing D9.
 - To rebase when base is updated: `git fetch origin kmeans_analysis_docs && git rebase --onto origin/kmeans_analysis_docs series-of-fixes-base series-of-fixes && git tag -f series-of-fixes-base origin/kmeans_analysis_docs`
+- **PR 14 readability goal**: Wherever PR 14 removes an unvectorized (scalar) code path in
+  favor of its vectorized replacement, the vectorized version must be made **at least as
+  readable** as the scalar one it replaces. Example: the scalar functions (`comment_stats`,
+  `add_comparative_stats`, `repness_metric`, `finalize_cmt_stats`) read like a step-by-step
+  recipe, while their vectorized replacement (`compute_group_comment_stats_df`) buries the
+  same logic in 150 lines of DataFrame plumbing. Fix: extract the statistics computation
+  (probabilities → tests → ratios → metrics → classify) into its own function, then delete
+  the scalar functions, then update tests. Apply this principle to every scalar/vectorized
+  pair removed in PR 14.
+  Found during D5 review (2026-03-16).
