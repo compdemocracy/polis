@@ -2,6 +2,7 @@
   "name": "polis-client-participation",
   "version": "1.0.0",
   "scripts": {
+    "test": "node scripts/verify-jquery-cve-2015-9251.cjs",
     "start": "npm run dev",
     "analyze": "webpack --mode=production --analyze",
     "build": "npm run build:prod",
