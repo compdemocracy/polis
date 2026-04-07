@@ -465,7 +465,13 @@
                            ; if seen > buffer many times, switch, OW, take last smoothed
               smoothed-k   (if (>= this-k-count count-buffer)
                              this-k
-                             (if smoothed-k smoothed-k this-k))]
+                             (if smoothed-k smoothed-k this-k))
+                           ; Clamp: if smoothed-k no longer exists in this iteration's
+                           ; clusterings (e.g. base-cluster count shrank), fall back to
+                           ; the best available k by silhouette.
+              smoothed-k   (if (contains? group-clusterings smoothed-k)
+                             smoothed-k
+                             this-k)]
           {:last-k       this-k
            :last-k-count this-k-count
            :smoothed-k   smoothed-k}))
