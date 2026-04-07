@@ -10,7 +10,7 @@ import json
 import logging
 import time
 import threading
-from typing import Dict, List, Optional, Tuple, Union, Any, Set, Callable
+from typing import Dict, List, Optional, Tuple, Union, Any, Callable
 from datetime import datetime
 import re
 import urllib.parse
@@ -19,8 +19,7 @@ import asyncio
 
 import sqlalchemy as sa
 from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session
-from sqlalchemy.dialects.postgresql import JSON, JSONB
-from sqlalchemy.pool import QueuePool
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import text
 import numpy as np
 import pandas as pd

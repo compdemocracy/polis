@@ -21,7 +21,7 @@ from polismath.run_math_pipeline import main as run_math_pipeline_main
 # --- Define Mock Data Paths ---
 # FIX: Corrected path inside the container. The 'delphi' part is removed
 # because docker cp maps 'delphi/real_data' to '/app/real_data'.
-MOCK_DATA_DIR = os.path.join(project_root, "real_data", "r4tykwac8thvzv35jrn53")
+MOCK_DATA_DIR = os.path.join(project_root, "real_data", "r4tykwac8thvzv35jrn53-biodiversity")
 # These filenames are based on the user's screenshots
 COMMENTS_FILE = os.path.join(MOCK_DATA_DIR, "2025-11-11-1704-r4tykwac8thvzv35jrn53-comments.csv")
 VOTES_FILE = os.path.join(MOCK_DATA_DIR, "2025-11-11-1704-r4tykwac8thvzv35jrn53-votes.csv")

@@ -21,7 +21,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
 from common_utils import create_test_conversation
-from polismath.regression import get_dataset_files, list_available_datasets
+from polismath.regression import get_dataset_files
 import json
 
 logger = logging.getLogger(__name__)
@@ -210,7 +210,7 @@ class TestRepnessComparison:
 
         return overall_match_rate, stats
 
-    @pytest.mark.parametrize("dataset_name", list(list_available_datasets().keys()))
+    @pytest.mark.use_discovered_datasets
     def test_structural_compatibility(self, dataset_name: str, python_results, clojure_results):
         """Test that Python and Clojure results have compatible structure."""
         logger.info(f"Testing structural compatibility for {dataset_name} dataset")
@@ -227,7 +227,7 @@ class TestRepnessComparison:
         else:
             logger.warning(f"No Clojure results available for {dataset_name}")
 
-    @pytest.mark.parametrize("dataset_name", list(list_available_datasets().keys()))
+    @pytest.mark.use_discovered_datasets
     def test_comparison_visibility(self, dataset_name: str, python_results, clojure_results):
         """
         Compare Python and Clojure results for visibility into differences.

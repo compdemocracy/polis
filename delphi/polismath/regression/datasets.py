@@ -36,6 +36,7 @@ class DatasetInfo:
     is_local: bool
     has_golden: bool
     has_math_blob: bool
+    has_cold_start_blob: bool
     has_votes: bool
     has_comments: bool
 
@@ -66,10 +67,15 @@ def get_local_data_dir() -> Path:
 
 def _check_files(path: Path, report_id: str) -> dict:
     """Check which required files exist."""
+    # Check for both cold-start and original math blobs
+    cold_start_blob = path / f"{report_id}_math_blob_cold_start.json"
+    original_blob = path / f"{report_id}_math_blob.json"
+
     return {
         'has_votes': any(path.glob(f"*-{report_id}-votes.csv")),
         'has_comments': any(path.glob(f"*-{report_id}-comments.csv")),
-        'has_math_blob': (path / f"{report_id}_math_blob.json").exists(),
+        'has_math_blob': cold_start_blob.exists() or original_blob.exists(),
+        'has_cold_start_blob': cold_start_blob.exists(),
         'has_golden': (path / "golden_snapshot.json").exists(),
     }
 
@@ -132,7 +138,13 @@ def list_available_datasets(include_local: bool = False) -> Dict[str, dict]:
 
 
 def get_dataset_info(name: str) -> DatasetInfo:
-    """Get dataset by name (searches both locations)."""
+    """Get dataset by name (searches both locations).
+
+    Note: This always uses include_local=True because it's a lookup-by-name function.
+    If someone explicitly requests a dataset by name, we should find it regardless of
+    where it lives. The include_local flag is meant for listing/discovery operations
+    (e.g., "run all datasets") where you want to control what appears in the list.
+    """
     datasets = discover_datasets(include_local=True)
     if name not in datasets:
         raise ValueError(f"Unknown dataset: {name}. Available: {', '.join(sorted(datasets))}")
@@ -144,8 +156,13 @@ def get_dataset_report_id(name: str) -> str:
     return get_dataset_info(name).report_id
 
 
-def get_dataset_files(name: str) -> Dict[str, str]:
-    """Get file paths for a dataset."""
+def get_dataset_files(name: str, prefer_cold_start: bool = True) -> Dict[str, str]:
+    """Get file paths for a dataset.
+
+    Args:
+        name: Dataset name
+        prefer_cold_start: If True (default), use cold-start blob when available
+    """
     info = get_dataset_info(name)
     rid = info.report_id
 
@@ -157,13 +174,22 @@ def get_dataset_files(name: str) -> Dict[str, str]:
             raise ValueError(f"Multiple files matching {pattern} in {info.path}: {matches}")
         return str(matches[0].resolve())
 
+    # Check for cold-start blob first, fall back to original
+    cold_start_blob = info.path / f"{rid}_math_blob_cold_start.json"
+    original_blob = info.path / f"{rid}_math_blob.json"
+
+    if prefer_cold_start and cold_start_blob.exists():
+        math_blob_path = str(cold_start_blob)
+    else:
+        math_blob_path = str(original_blob)
+
     return {
         'report_id': rid,
         'data_dir': str(info.path),
         'votes': find_file(f"*-{rid}-votes.csv"),
         'comments': find_file(f"*-{rid}-comments.csv"),
         'summary': find_file(f"*-{rid}-summary.csv"),
-        'math_blob': str(info.path / f"{rid}_math_blob.json"),
+        'math_blob': math_blob_path,
     }
 
 

@@ -1,9 +1,8 @@
 """
 K-means clustering implementation for Pol.is.
 
-This module provides a custom implementation of K-means clustering
-with additional features like weighted clustering, silhouette coefficient,
-and cluster stability mechanisms.
+This module provides K-means clustering using sklearn with additional features
+like weighted clustering, silhouette coefficient, and cluster stability mechanisms.
 """
 
 import numpy as np
@@ -11,8 +10,8 @@ import pandas as pd
 from typing import Dict, List, Optional, Tuple, Union, Any
 import random
 from copy import deepcopy
-
-from polismath.utils.general import weighted_mean, weighted_means
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
 
 
 class Cluster:
@@ -94,61 +93,27 @@ def euclidean_distance(a: np.ndarray, b: np.ndarray) -> float:
 
 def init_clusters(data: np.ndarray, k: int) -> List[Cluster]:
     """
-    Initialize k clusters with centers derived to match Clojure's behavior.
-    
+    Initialize k clusters with first k distinct data points (matching Clojure).
+
+    This uses a simple initialization strategy that takes the first k distinct
+    points in encounter order. This matches the Clojure implementation's behavior
+    for deterministic and reproducible clustering results.
+
     Args:
-        data: Data matrix
+        data: Data matrix (n_points x n_features)
         k: Number of clusters
-        
+
     Returns:
-        List of initialized clusters
+        List of initialized clusters with centers set to first k distinct points.
+        May return fewer than k clusters if data has fewer distinct points.
     """
-    n_points = data.shape[0]
-    
-    if n_points <= k:
-        # If fewer points than clusters, make each point its own cluster
-        return [Cluster(data[i], [i], i) for i in range(n_points)]
-    
-    # Use deterministic initialization for consistency with Clojure
-    # Set a fixed random seed
-    rng = np.random.RandomState(42)
-    
-    # Prefer points that are far apart for initial centers
-    # This implements a simplified version of k-means++
-    centers = []
-    
-    # Choose the first center randomly
-    first_idx = rng.randint(0, n_points)
-    centers.append(data[first_idx])
-    
-    # Choose the remaining centers
-    for _ in range(1, k):
-        # Calculate distances to existing centers
-        min_dists = []
-        for i in range(n_points):
-            point = data[i]
-            min_dist = min(np.linalg.norm(point - center) for center in centers)
-            min_dists.append(min_dist)
-        
-        # Choose the next center with probability proportional to distance
-        min_dists = np.array(min_dists)
-        
-        # Handle case where all distances are 0 (prevent divide by zero)
-        if np.sum(min_dists) == 0:
-            # If all distances are 0, choose randomly with equal probability
-            probs = np.ones(n_points) / n_points
-        else:
-            probs = min_dists / np.sum(min_dists)
-        
-        # With fixed seed, this should be deterministic
-        next_idx = rng.choice(n_points, p=probs)
-        centers.append(data[next_idx])
-    
-    # Create clusters with these centers
+    initial_centers = _get_first_k_distinct_centers(data, k)
+
+    # Create Cluster objects
     clusters = []
-    for i, center in enumerate(centers):
-        clusters.append(Cluster(center, [], i))
-    
+    for i, center in enumerate(initial_centers):
+        clusters.append(Cluster(center=center, members=[], id=i))
+
     return clusters
 
 
@@ -582,6 +547,138 @@ def clusters_from_dict(clusters_dict: List[Dict],
         result.append(cluster)
     
     return result
+
+
+def _get_first_k_distinct_centers(data: np.ndarray, k: int) -> np.ndarray:
+    """
+    Get first k distinct points as initial centers (matching Clojure's init-clusters).
+
+    This uses encounter order (first k unique rows seen) for deterministic initialization.
+    Uses NaN-safe equality (rows with NaNs in the same positions are considered equal).
+
+    Args:
+        data: Data matrix (n_points x n_features)
+        k: Number of centers needed
+
+    Returns:
+        Array of k initial centers (k x n_features)
+    """
+    # We can't use tuple+set for dedup because float('nan') != float('nan'),
+    # so two identical rows with NaNs would be treated as distinct.
+    # Use explicit equality checks with equal_nan=True instead.
+    unique_indices = []
+
+    for i, row in enumerate(data):
+        is_new = True
+        for j in unique_indices:
+            if np.array_equal(data[j], row, equal_nan=True):
+                is_new = False
+                break
+        if is_new:
+            unique_indices.append(i)
+            if len(unique_indices) >= k:
+                break
+
+    # Return the distinct points found. May be fewer than k if data has
+    # fewer than k unique rows.
+    return data[unique_indices[:k]]
+
+
+def kmeans_sklearn(data: np.ndarray,
+                   k: int,
+                   max_iters: int = 100,
+                   init_centers: Optional[np.ndarray] = None,
+                   weights: Optional[np.ndarray] = None,
+                   random_state: int = 42,
+                   use_first_k_init: bool = True) -> Tuple[np.ndarray, np.ndarray, List[np.ndarray]]:
+    """
+    Perform K-means clustering using sklearn with optional weighting.
+
+    Args:
+        data: Data matrix (n_points x n_features)
+        k: Number of clusters
+        max_iters: Maximum number of iterations
+        init_centers: Optional initial cluster centers (k x n_features)
+        weights: Optional sample weights (n_points,)
+        random_state: Random seed for reproducibility
+        use_first_k_init: If True, use first-k initialization (matching Clojure)
+
+    Returns:
+        Tuple of (labels, centers, member_lists) where:
+        - labels: Cluster assignment for each point (n_points,)
+        - centers: Final cluster centers (k x n_features)
+        - member_lists: List of member indices for each cluster
+    """
+    if data.shape[0] == 0:
+        return np.array([]), np.array([]), []
+
+    # Ensure k doesn't exceed number of samples
+    k = min(k, data.shape[0])
+
+    # Set up initialization
+    if init_centers is not None:
+        # Use provided centers for initialization
+        init = init_centers
+        n_init = 1  # Only one initialization when centers are provided
+    elif use_first_k_init:
+        # Use first-k distinct points initialization (matching Clojure).
+        # May return fewer than k centers if data has fewer distinct points.
+        init = _get_first_k_distinct_centers(data, k)
+        if init.shape[0] < k:
+            k = init.shape[0]
+        n_init = 1  # Deterministic initialization, only need one run
+    else:
+        # Use k-means++ initialization
+        init = 'k-means++'
+        n_init = 10  # Multiple initializations for robustness
+
+    # Create and fit the KMeans model
+    kmeans = KMeans(
+        n_clusters=k,
+        init=init,
+        n_init=n_init,
+        max_iter=max_iters,
+        random_state=random_state,
+        algorithm='lloyd'  # Use standard Lloyd's algorithm
+    )
+
+    # Fit with optional sample weights (sklearn handles None gracefully)
+    kmeans.fit(data, sample_weight=weights)
+
+    # Get results
+    labels = kmeans.labels_
+    centers = kmeans.cluster_centers_
+
+    # Build member lists for each cluster
+    member_lists = [[] for _ in range(k)]
+    for idx, label in enumerate(labels):
+        member_lists[label].append(idx)
+
+    # Convert to numpy arrays
+    member_lists = [np.array(members, dtype=int) for members in member_lists]
+
+    return labels, centers, member_lists
+
+
+def calculate_silhouette_sklearn(data: np.ndarray,
+                                 labels: np.ndarray,
+                                 metric: str = 'euclidean') -> float:
+    """
+    Calculate silhouette score for a clustering using sklearn.
+
+    Args:
+        data: Data matrix (n_points x n_features)
+        labels: Cluster assignment for each point
+        metric: Distance metric to use
+
+    Returns:
+        Silhouette coefficient (between -1 and 1, higher is better)
+    """
+    # sklearn requires at least 2 clusters and 2 samples
+    if len(np.unique(labels)) <= 1 or data.shape[0] <= 1:
+        return 0.0
+
+    return silhouette_score(data, labels, metric=metric)
 
 
 def determine_k(nmat: pd.DataFrame, base_k: int = 2) -> int:

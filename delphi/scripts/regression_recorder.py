@@ -13,9 +13,10 @@ import click
 @click.argument('datasets', nargs=-1)
 @click.option('--force', is_flag=True, default=False, help='Force overwrite existing golden snapshot')
 @click.option('--benchmark/--no-benchmark', default=True, help='Enable/disable timing measurements (default: enabled)')
+@click.option('--include-local', is_flag=True, default=False, help='Include datasets from real_data/.local/')
 @click.option('--log-level', type=click.Choice(['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'], case_sensitive=False),
               default='INFO', help='Set logging level (default: INFO). Use DEBUG to save PCA debug output.')
-def main(datasets: tuple, force: bool, benchmark: bool, log_level: str):
+def main(datasets: tuple, force: bool, benchmark: bool, include_local: bool, log_level: str):
     """
     Record golden snapshots for datasets.
 
@@ -23,10 +24,11 @@ def main(datasets: tuple, force: bool, benchmark: bool, log_level: str):
     Otherwise, records only the specified datasets.
 
     Examples:
-        python recorder.py                    # Record all datasets
-        python recorder.py biodiversity       # Record only biodiversity
-        python recorder.py biodiversity vw    # Record biodiversity and vw
-        python recorder.py --log-level DEBUG  # Record with debug logging
+        python recorder.py                      # Record all datasets
+        python recorder.py biodiversity         # Record only biodiversity
+        python recorder.py biodiversity vw      # Record biodiversity and vw
+        python recorder.py --include-local      # Include datasets from real_data/.local/
+        python recorder.py --log-level DEBUG    # Record with debug logging
     """
     # Configure logging - must be done before imports to prevent conversation module
     # from adding its own handler
@@ -43,12 +45,14 @@ def main(datasets: tuple, force: bool, benchmark: bool, log_level: str):
 
     # If no datasets specified, use all available datasets
     if not datasets:
-        available_datasets = list_available_datasets()
+        available_datasets = list_available_datasets(include_local=include_local)
         datasets = list(available_datasets.keys())
         click.echo(f"No datasets specified. Recording all available datasets: {', '.join(datasets)}\n")
     else:
-        # Validate that specified datasets exist
-        available_datasets = list_available_datasets()
+        # Validate that specified datasets exist.
+        # Use include_local=True for explicit names: if someone asks for a dataset
+        # by name, we should find it regardless of where it lives.
+        available_datasets = list_available_datasets(include_local=True)
         invalid_datasets = [d for d in datasets if d not in available_datasets]
         if invalid_datasets:
             available = ', '.join(available_datasets.keys())

@@ -5,9 +5,8 @@ This module provides Python implementations of the utility functions
 from the original Clojure codebase.
 """
 
-import itertools
 import numpy as np
-from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, TypeVar, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, TypeVar, Union
 
 T = TypeVar('T')
 U = TypeVar('U')

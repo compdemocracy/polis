@@ -7,7 +7,7 @@ including votes, clustering, and representativeness calculation.
 
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Union, Any, Set, Callable
+from typing import Dict, List, Optional, Set, Tuple, Union, Any, Callable
 from copy import deepcopy
 import time
 import logging
@@ -16,7 +16,10 @@ from datetime import datetime
 from natsort import natsorted
 
 from polismath.pca_kmeans_rep.pca import pca_project_dataframe
-from polismath.pca_kmeans_rep.clusters import cluster_dataframe
+from polismath.pca_kmeans_rep.clusters import (
+    kmeans_sklearn,
+    calculate_silhouette_sklearn
+)
 from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
 from polismath.pca_kmeans_rep.corr import compute_correlation
 
@@ -524,15 +527,20 @@ class Conversation:
     
     def _compute_clusters(self) -> None:
         """
-        Compute participant clusters using auto-determination of optimal k.
+        Compute two-level hierarchical clustering matching Clojure architecture.
+
+        Level 1: Base clusters (participants → ~100 clusters)
+        Level 2: Group clusters (base clusters → 2-5 groups with silhouette-based k selection)
         """
         import time
         start_time = time.time()
-        logger.info(f"Starting clustering computation ({len(self.proj)} participants)...")
+        logger.info(f"Starting two-level clustering computation ({len(self.proj)} participants)...")
 
-        # Make sure numpy and pandas are imported
-        import numpy as np
-        import pandas as pd
+        # Configuration (matching Clojure defaults)
+        BASE_K = 100
+        MAX_K = 5
+        BASE_ITERS = 100
+        GROUP_ITERS = 100
 
         # Check if we have projections
         if not self.proj:
@@ -542,35 +550,152 @@ class Conversation:
             logger.info(f"Clustering completed in {time.time() - start_time:.2f}s (no projections)")
             return
 
-        # Prepare data for clustering
-        ptpt_ids = list(self.proj.keys())
-        proj_values = np.array([self.proj[pid] for pid in ptpt_ids])
+        # Step 1: Filter participants (in-conv logic)
+        in_conv_pids = self._get_in_conv_participants()
 
-        # Create projection matrix
-        proj_matrix = pd.DataFrame(
-            data=proj_values,
-            index=ptpt_ids,
-            columns=['x', 'y']
+        # Filter projections to only include in-conv participants
+        in_conv_pids_list = [pid for pid in self.proj.keys() if pid in in_conv_pids]
+
+        if len(in_conv_pids_list) < 2:
+            logger.warning(f"Not enough participants meeting threshold ({len(in_conv_pids_list)})")
+            self.base_clusters = []
+            self.group_clusters = []
+            self.subgroup_clusters = {}
+            return
+
+        logger.info(f"Using {len(in_conv_pids_list)}/{len(self.proj)} participants for clustering")
+
+        # Step 2: Base clustering (participants → ~100 base clusters)
+        base_proj_values = np.array([self.proj[pid] for pid in in_conv_pids_list])
+
+        # Adjust BASE_K if we have fewer participants
+        actual_base_k = min(BASE_K, len(in_conv_pids_list))
+
+        logger.info(f"Computing base clusters with k={actual_base_k}...")
+        base_labels, base_centers, base_member_lists = kmeans_sklearn(
+            base_proj_values,
+            k=actual_base_k,
+            max_iters=BASE_ITERS
         )
 
-        # Use auto-determination of k based on data size
-        # The determine_k function will handle this appropriately
-        # Let the clustering function auto-determine the appropriate number of clusters
-        # Pass k=None to use the built-in determine_k function
-        base_clusters = cluster_dataframe(proj_matrix, k=None)
+        # Convert to dictionary format with participant IDs as members
+        base_clusters = []
+        for cluster_id, (center, member_indices) in enumerate(zip(base_centers, base_member_lists)):
+            # Map indices back to participant IDs
+            member_pids = [in_conv_pids_list[idx] for idx in member_indices]
+            base_clusters.append({
+                'id': cluster_id,
+                'center': center.tolist(),
+                'members': member_pids
+            })
 
-        # Convert base clusters to group clusters
-        # Group clusters are high-level groups based on base clusters
-        group_clusters = base_clusters
+        # Sort base clusters by size (descending) for consistency
+        base_clusters.sort(key=lambda c: len(c['members']), reverse=True)
+        # Reassign IDs based on sorted order
+        for i, cluster in enumerate(base_clusters):
+            cluster['id'] = i
+
+        logger.info(f"Created {len(base_clusters)} base clusters")
+
+        # Step 3: Group clustering (base clusters → 2-5 groups)
+        if len(base_clusters) < 2:
+            logger.warning(f"Not enough base clusters for group clustering ({len(base_clusters)})")
+            self.base_clusters = base_clusters
+            # Maintain consistent group-cluster schema: members are base-cluster IDs
+            if len(base_clusters) == 1:
+                self.group_clusters = [{
+                    'id': 0,
+                    'center': base_clusters[0]['center'],
+                    'members': [base_clusters[0]['id']],
+                }]
+            else:
+                self.group_clusters = []
+            self.subgroup_clusters = {}
+            return
+
+        # Prepare base cluster centers and weights
+        base_centers_array = np.array([c['center'] for c in base_clusters])
+        base_weights = np.array([len(c['members']) for c in base_clusters])
+
+        # Calculate max_k for group clustering
+        max_k = min(MAX_K, 2 + len(base_clusters) // 12)
+        max_k = max(2, min(max_k, len(base_clusters)))  # Ensure between 2 and n_base_clusters
+
+        logger.info(f"Computing group clusters with k range 2-{max_k}...")
+
+        # Try different k values and compute silhouette scores
+        best_k = 2
+        best_score = -1
+        group_clusterings = {}
+
+        for k in range(2, max_k + 1):
+            group_labels, group_centers, group_member_lists = kmeans_sklearn(
+                base_centers_array,
+                k=k,
+                max_iters=GROUP_ITERS,
+                weights=base_weights
+            )
+
+            # Calculate silhouette score
+            score = calculate_silhouette_sklearn(base_centers_array, group_labels)
+            group_clusterings[k] = (group_labels, group_centers, group_member_lists, score)
+
+            logger.info(f"  k={k}: silhouette={score:.4f}")
+
+            if score > best_score:
+                best_score = score
+                best_k = k
+
+        logger.info(f"Selected k={best_k} with silhouette={best_score:.4f}")
+
+        # Use the best clustering
+        group_labels, group_centers, group_member_lists, _ = group_clusterings[best_k]
+
+        # Convert to dictionary format with base cluster IDs as members
+        group_clusters = []
+        for cluster_id, (center, member_indices) in enumerate(zip(group_centers, group_member_lists)):
+            # Members are base cluster IDs (not participant IDs!)
+            member_base_cluster_ids = [base_clusters[idx]['id'] for idx in member_indices]
+            group_clusters.append({
+                'id': cluster_id,
+                'center': center.tolist(),
+                'members': member_base_cluster_ids
+            })
+
+        # Sort group clusters by size (number of base clusters) for consistency
+        group_clusters.sort(key=lambda c: len(c['members']), reverse=True)
+        # Reassign IDs based on sorted order
+        for i, cluster in enumerate(group_clusters):
+            cluster['id'] = i
+
+        logger.info(f"Created {len(group_clusters)} group clusters")
 
         # Store results
         self.base_clusters = base_clusters
         self.group_clusters = group_clusters
-
-        # Compute subgroup clusters if needed
         self.subgroup_clusters = {}
 
-        logger.info(f"Clustering completed in {time.time() - start_time:.2f}s ({len(group_clusters)} groups)")
+        logger.info(f"Two-level clustering completed in {time.time() - start_time:.2f}s")
+
+    def _unfolded_group_clusters(self) -> List[Dict[str, Any]]:
+        """
+        Return group_clusters with 'members' expanded from base-cluster IDs
+        to participant IDs.  Downstream functions (conv_repness,
+        participant_stats) need participant IDs to join against the vote matrix.
+        """
+        base_cluster_by_id = {c['id']: c for c in (self.base_clusters or [])}
+        unfolded = []
+        for gc in (self.group_clusters or []):
+            participant_ids = []
+            for bc_id in gc['members']:
+                bc = base_cluster_by_id.get(bc_id, {})
+                participant_ids.extend(bc.get('members', []))
+            unfolded.append({
+                'id': gc['id'],
+                'center': gc['center'],
+                'members': participant_ids,
+            })
+        return unfolded
 
     def _compute_repness(self) -> None:
         """
@@ -587,15 +712,15 @@ class Conversation:
         # Check if we have groups
         if not self.group_clusters:
             self.repness = {
-                'comment_ids': self.rating_mat.columns,
+                'comment_ids': list(self.rating_mat.columns),
                 'group_repness': {},
                 'consensus_comments': []
             }
             logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s (no groups)")
             return
 
-        # Compute representativeness
-        self.repness = conv_repness(self.rating_mat, self.group_clusters)
+        # Compute representativeness (needs participant IDs, not base-cluster IDs)
+        self.repness = conv_repness(self.rating_mat, self._unfolded_group_clusters())
         logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s")
 
     def _compute_participant_info_optimized(self, vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -793,7 +918,8 @@ class Conversation:
             return
         
         # Use the integrated optimized version directly
-        ptpt_stats = self._compute_participant_info_optimized(self.rating_mat, self.group_clusters)
+        # (needs participant IDs, not base-cluster IDs)
+        ptpt_stats = self._compute_participant_info_optimized(self.rating_mat, self._unfolded_group_clusters())
         
         # Store results
         self.participant_info = ptpt_stats.get('stats', {})
@@ -919,9 +1045,9 @@ class Conversation:
                                 for pid, proj in self.proj.items()}
         logger.info(f"Projection data conversion: {time.time() - proj_start:.4f}s")
         
-        # Add cluster data
+        # Add cluster data (unfolded: base-cluster IDs → participant IDs)
         clusters_start = time.time()
-        result['group_clusters'] = self.group_clusters
+        result['group_clusters'] = self._unfolded_group_clusters()
         logger.info(f"Clusters data: {time.time() - clusters_start:.4f}s")
         
         # Add representativeness data
@@ -1005,12 +1131,15 @@ class Conversation:
         # If no groups, return empty dict
         if not self.group_clusters:
             return {}
-            
+
+        # Expand base-cluster IDs to participant IDs (matches Clojure group-votes)
+        unfolded = self._unfolded_group_clusters()
+
         group_votes = {}
-        
+
         # Helper to count votes of a specific type for a group
         def count_votes_for_group(group_id, comment_id, vote_type):
-            group = next((g for g in self.group_clusters if g.get('id') == group_id), None)
+            group = next((g for g in unfolded if g.get('id') == group_id), None)
             if not group:
                 return 0
                 
@@ -1051,7 +1180,7 @@ class Conversation:
                 return 0
         
         # For each group, compute vote stats
-        for group in self.group_clusters:
+        for group in unfolded:
             group_id = group.get('id')
             
             # Skip groups without ID
@@ -1081,24 +1210,24 @@ class Conversation:
     def _compute_user_vote_counts(self) -> Dict[str, int]:
         """
         Compute the number of votes per participant.
-        
+
         Returns:
             Dictionary mapping participant IDs to vote counts
         """
         import time
         start_time = time.time()
         logger.info(f"Starting _compute_user_vote_counts for {self.rating_mat.shape[0]} participants")
-        
+
         vote_counts = {}
-        
+
         # Use more efficient approach for large datasets
-        if self.rating_mat[0] > 1000:
+        if self.rating_mat.shape[0] > 1000:
             # Create a mask of non-nan values across the entire matrix
             non_nan_mask = ~np.isnan(self.rating_mat.values)
-            
+
             # Sum across rows using vectorized operation
             row_sums = np.sum(non_nan_mask, axis=1)
-            
+
             # Convert to dictionary
             for i, pid in enumerate(self.rating_mat.index):
                 if i < len(row_sums):
@@ -1106,23 +1235,89 @@ class Conversation:
                 else:
                     # Fallback if dimensions don't match
                     vote_counts[pid] = 0
-                    
+
             logger.info(f"Computed vote counts for {len(vote_counts)} participants using vectorized approach in {time.time() - start_time:.4f}s")
         else:
             # Original approach for smaller datasets
             for i, pid in enumerate(self.rating_mat.index):
                 # Get row of votes for this participant
                 row = self.rating_mat.values[i, :]
-                
+
                 # Count non-nan values
                 count = np.sum(~np.isnan(row))
-                
+
                 # Store count
                 vote_counts[pid] = int(count)
-            
+
             logger.info(f"Computed vote counts for {len(vote_counts)} participants using original approach in {time.time() - start_time:.4f}s")
-            
+
         return vote_counts
+
+    def _get_in_conv_participants(self) -> Set[str]:
+        """
+        Get participants who have voted enough to be included in clustering.
+
+        Matches Clojure's in-conv logic from conversation.clj lines 239-266.
+
+        Threshold: participant must have voted on at least:
+            7 + sqrt(n_comments) * 0.1 comments
+
+        Returns:
+            Set of participant IDs that meet the threshold
+        """
+        n_cmts = len(self.rating_mat.columns) if hasattr(self.rating_mat, 'columns') else 0
+        threshold = 7 + np.sqrt(n_cmts) * 0.1
+
+        # Get vote counts for all participants
+        vote_counts = self._compute_user_vote_counts()
+
+        # Filter participants meeting threshold
+        in_conv = {pid for pid, count in vote_counts.items() if count >= threshold}
+
+        logger.info(f"Filtered {len(in_conv)}/{len(vote_counts)} participants meeting vote threshold {threshold:.1f}")
+
+        return in_conv
+
+    def _fold_base_clusters(self, clusters: List[Dict]) -> Dict:
+        """
+        Convert base cluster list to folded format for storage (matching Clojure).
+
+        Args:
+            clusters: List of base cluster dicts with 'id', 'center', 'members'
+
+        Returns:
+            Folded format: {id: [...], members: [[...]], x: [...], y: [...], count: [...]}
+        """
+        if not clusters:
+            return {'id': [], 'members': [], 'x': [], 'y': [], 'count': []}
+
+        return {
+            'id': [c['id'] for c in clusters],
+            'members': [c['members'] for c in clusters],
+            'x': [c['center'][0] for c in clusters],
+            'y': [c['center'][1] for c in clusters],
+            'count': [len(c['members']) for c in clusters]
+        }
+
+    def _unfold_base_clusters(self, folded: Dict) -> List[Dict]:
+        """
+        Convert folded base clusters back to list format.
+
+        Args:
+            folded: Folded format dict
+
+        Returns:
+            List of cluster dicts
+        """
+        if not folded or not folded.get('id'):
+            return []
+
+        return [
+            {'id': id, 'members': members, 'center': [x, y]}
+            for id, members, x, y in zip(
+                folded['id'], folded['members'], folded['x'], folded['y']
+            )
+        ]
         
     def _compute_group_aware_consensus(self) -> Dict[str, float]:
         """
@@ -1264,9 +1459,18 @@ class Conversation:
                 }
             
             logger.info(f"Projection data conversion: {time.time() - proj_start:.4f}s")
-        
-        # Add clusters data
-        result['group_clusters'] = self.group_clusters
+
+        # Base clusters (participants → ~100 clusters) in columnar format
+        # TypeScript expects {x: [], y: [], id: [], count: [], members: [[]]}
+        result['base-clusters'] = self._fold_base_clusters(self.base_clusters)
+
+        # Group clusters (base clusters → 2-5 groups)
+        # Unfold base-cluster IDs to participant IDs for downstream consumers
+        unfolded_gc = self._unfolded_group_clusters()
+        result['group-clusters'] = unfolded_gc
+
+        # Legacy field for backward compatibility (remove after full migration)
+        result['group_clusters'] = unfolded_gc
         
         # Add representativeness data
         if self.repness:
@@ -1354,17 +1558,20 @@ class Conversation:
         
         # Use the optimized implementation similar to to_dynamo_dict
         group_votes = {}
-        
+
         if self.group_clusters:
+            # Reuse the already-unfolded group clusters (computed above)
+            unfolded_groups = unfolded_gc
+
             # Precompute indices for each participant for faster lookups
             ptpt_indices = {ptpt_id: i for i, ptpt_id in enumerate(self.rating_mat.index)}
-            
+
             # Process each group
-            for group in self.group_clusters:
+            for group in unfolded_groups:
                 group_id = group.get('id')
                 if group_id is None:
                     continue
-                
+
                 # Get indices for all members of this group
                 member_indices = []
                 for member in group.get('members', []):
@@ -1493,9 +1700,12 @@ class Conversation:
         
         logger.info(f"Moderation data: {time.time() - mod_start:.4f}s")
         
-        # Add base clusters (same as group clusters)
-        result['base-clusters'] = self.group_clusters
-        
+        # NOTE: base-clusters is set above via _fold_base_clusters() in the columnar
+        # format that TypeScript expects: {x, y, id, count, members} where members
+        # are arrays of participant IDs. Do NOT overwrite with unfolded_gc — that's
+        # a list-of-dicts format that would break server/src/report.ts,
+        # server/src/utils/pca.ts, and client-participation-alpha consumers.
+
         # Add empty consensus structure for compatibility
         result['consensus'] = {
             'agree': [],
@@ -1935,17 +2145,20 @@ class Conversation:
         
         # Process groups only if they exist
         if self.group_clusters:
+            # Expand base-cluster IDs to participant IDs for vote counting
+            unfolded_groups = self._unfolded_group_clusters()
+
             # Precompute indices for each participant
             ptpt_indices = {}
             for i, ptpt_id in enumerate(self.rating_mat.index):
                 ptpt_indices[ptpt_id] = i
-            
+
             # Process each group
-            for group in self.group_clusters:
+            for group in unfolded_groups:
                 group_id = group.get('id')
                 if group_id is None:
                     continue
-                
+
                 # Get indices for group members
                 member_indices = []
                 for member in group.get('members', []):
@@ -2045,9 +2258,9 @@ class Conversation:
         # Add base-clusters and PCA data
         logger.info(f"[{time.time() - start_time:.2f}s] Processing PCA and cluster data...")
         
-        # Convert group clusters
+        # Convert group clusters (unfolded: base-cluster IDs → participant IDs)
         base_clusters = []
-        for cluster in self.group_clusters:
+        for cluster in self._unfolded_group_clusters():
             # Convert to a dict without numpy arrays
             clean_cluster = {
                 'id': cluster.get('id'),
@@ -2055,7 +2268,7 @@ class Conversation:
                 'center': numpy_to_list(cluster.get('center', [])),
             }
             base_clusters.append(clean_cluster)
-        
+
         # Convert to decimals for DynamoDB
         result['base_clusters'] = float_to_decimal(base_clusters)
         result['group_clusters'] = result['base_clusters']  # Same data

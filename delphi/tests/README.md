@@ -97,14 +97,43 @@ real_data/
 **Optional files:**
 - `{report_id}_math_blob.json` - Clojure math output (for Clojure comparison, requires database access)
 
-### Running Tests with Local Datasets
+### Pytest Command Line Options
 
+**Dataset selection:**
 ```bash
 # Default: committed datasets only
 pytest tests/test_regression.py
 
-# Include local datasets
+# Include local datasets from real_data/.local/
 pytest tests/test_regression.py --include-local
+
+# Run tests on specific datasets only
+pytest tests/ --datasets=biodiversity
+pytest tests/ --datasets=biodiversity,vw
+
+# Combine options
+pytest tests/ --include-local --datasets=myconvo
+```
+
+**Parallel execution:**
+```bash
+# Run tests in parallel across 4 workers
+pytest tests/ -n4
+
+# Tests are grouped by dataset (via xdist_group markers)
+# so each dataset's fixtures are computed once per worker
+```
+
+**Common combinations:**
+```bash
+# Fast smoke test on one dataset
+pytest tests/test_legacy_clojure_regression.py --datasets=vw -v
+
+# Full parallel run with local datasets
+pytest tests/ --include-local -n4
+
+# Quick check that all tests pass
+pytest tests/ --datasets=biodiversity -q
 ```
 
 ### Downloading Test Data

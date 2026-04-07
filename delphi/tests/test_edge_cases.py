@@ -56,4 +56,6 @@ def test_insufficient_data_for_pca():
     assert conv.pca is not None
     assert conv.pca['comps'].shape == (2, 1)
     assert conv.repness is not None
-    assert conv.repness['group_repness'] == {0: []}
+    # With insufficient data (1 participant), no one meets the vote threshold,
+    # so no base clusters are formed and group_repness is empty.
+    assert conv.repness['group_repness'] == {}

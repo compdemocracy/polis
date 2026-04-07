@@ -2,9 +2,10 @@
 Pytest configuration and fixtures for delphi tests.
 
 This module provides:
-- Command line option --include-local for including local datasets in tests
+- Command line options --include-local and --datasets for dataset selection
 - Fixtures for accessing dataset information
-- Dynamic test parametrization based on discovered datasets
+- @pytest.mark.use_discovered_datasets for dynamic dataset parametrization
+- Helper functions for parallel test execution with xdist_group markers
 """
 
 import pytest
@@ -12,6 +13,35 @@ from polismath.regression.datasets import (
     discover_datasets,
     list_regression_datasets,
 )
+
+
+# =============================================================================
+# Parallel Execution Helpers
+# =============================================================================
+
+def make_dataset_params(datasets: list[str]) -> list:
+    """
+    Create pytest.param objects with xdist_group markers for parallel execution.
+
+    When using pytest-xdist with --dist=loadgroup, tests with the same
+    xdist_group marker will run on the same worker. This ensures fixtures
+    are computed only once per dataset per worker.
+
+    Args:
+        datasets: List of dataset names
+
+    Returns:
+        List of pytest.param objects with xdist_group markers
+
+    Example:
+        @pytest.mark.parametrize("dataset_name", make_dataset_params(["biodiversity", "vw"]))
+        def test_something(dataset_name):
+            ...
+    """
+    return [
+        pytest.param(ds, marks=pytest.mark.xdist_group(ds))
+        for ds in datasets
+    ]
 
 
 def pytest_addoption(parser):
@@ -22,12 +52,39 @@ def pytest_addoption(parser):
         default=False,
         help="Include datasets from real_data/.local/ in tests"
     )
+    parser.addoption(
+        "--datasets",
+        action="store",
+        default=None,
+        help="Comma-separated list of datasets to run (e.g., --datasets=biodiversity,vw)"
+    )
+
+
+def _get_requested_datasets(config) -> set[str] | None:
+    """Get the set of datasets requested via --datasets, or None for all."""
+    datasets_opt = config.getoption("--datasets")
+    if not datasets_opt:
+        return None
+
+    # Split on commas, strip whitespace, and drop empty entries to avoid
+    # treating trailing/repeated commas as empty dataset names.
+    requested = {d.strip() for d in datasets_opt.split(",") if d.strip()}
+
+    if not requested:
+        raise pytest.UsageError(
+            "No valid dataset names specified in --datasets option. "
+            "Provide a comma-separated list, e.g. --datasets=biodiversity,vw."
+        )
+
+    return requested
 
 
 def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line(
-        "markers", "local_dataset: mark test as using local (non-committed) datasets"
+        "markers",
+        "use_discovered_datasets: dynamically parametrize with discovered "
+        "datasets, respecting --include-local and --datasets CLI options"
     )
 
 
@@ -51,45 +108,31 @@ def regression_datasets(include_local):
 
 def pytest_generate_tests(metafunc):
     """
-    Dynamically parametrize tests based on discovered datasets.
+    Dynamically parametrize tests marked with @pytest.mark.use_discovered_datasets.
 
-    Tests that have a 'dataset' parameter will be parametrized with all
-    valid regression datasets. Use --include-local to include datasets
-    from real_data/.local/.
+    These tests must declare a 'dataset_name' parameter. They will be parametrized
+    with all regression datasets, filtered by --include-local and --datasets.
+
+    Uses xdist_group markers for efficient parallel execution with pytest-xdist.
     """
-    if "dataset" in metafunc.fixturenames:
-        # Check if this test uses the regression dataset parametrization
-        # by looking for the marker or checking the test module
-        include_local = metafunc.config.getoption("--include-local")
-
-        # Get datasets valid for regression testing
-        datasets = list_regression_datasets(include_local=include_local)
-
-        # Parametrize with discovered datasets (empty list = no test instances)
-        metafunc.parametrize("dataset", datasets)
-
-
-def pytest_collection_modifyitems(config, items):
-    """
-    Modify test collection based on --include-local flag.
-
-    Tests marked with @pytest.mark.local_dataset will be skipped unless
-    --include-local is passed.
-    """
-    if config.getoption("--include-local"):
-        # --include-local passed, don't skip any local dataset tests
+    if not list(metafunc.definition.iter_markers("use_discovered_datasets")):
         return
 
-    skip_local = pytest.mark.skip(reason="need --include-local option to run")
-    for item in items:
-        if "local_dataset" in item.keywords:
-            item.add_marker(skip_local)
+    include_local = metafunc.config.getoption("--include-local")
+    requested = _get_requested_datasets(metafunc.config)
+
+    datasets = list_regression_datasets(include_local=include_local)
+    if requested:
+        datasets = [d for d in datasets if d in requested]
+
+    metafunc.parametrize("dataset_name", make_dataset_params(datasets))
 
 
 # Provide summary of discovered datasets at start of test run
 def pytest_report_header(config):
     """Add dataset discovery info to pytest header."""
     include_local = config.getoption("--include-local")
+    requested = _get_requested_datasets(config)
     datasets = discover_datasets(include_local=include_local)
     regression_valid = [
         name for name, info in datasets.items()
@@ -103,6 +146,9 @@ def pytest_report_header(config):
         f"Datasets discovered: {len(datasets)} total ({committed_count} committed, {local_count} local)",
         f"Valid for regression: {len(regression_valid)} ({', '.join(sorted(regression_valid)) or 'none'})",
     ]
+
+    if requested:
+        lines.append(f"Filtered to: {', '.join(sorted(requested))}")
 
     if not include_local:
         lines.append("Use --include-local to include datasets from real_data/.local/")

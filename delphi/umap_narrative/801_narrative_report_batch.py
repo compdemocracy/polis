@@ -37,8 +37,6 @@ from pathlib import Path
 from typing import List, Dict, Any, Optional, Union, Tuple
 import xml.etree.ElementTree as ET
 from xml.dom.minidom import parseString
-import csv
-import io
 import xmltodict
 from collections import defaultdict
 import traceback  # Added for detailed error tracing

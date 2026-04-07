@@ -21,7 +21,7 @@ from polismath.conversation.manager import ConversationManager
 
 class TestConversation:
     """Tests for the Conversation class."""
-    
+
     def test_init(self):
         """Test conversation initialization."""
         # Create empty conversation
@@ -190,8 +190,8 @@ class TestConversation:
                     'vote': vote_val
                 })
 
-        # Update conversation with votes
-        conv = conv.update_votes({'votes': votes})
+        # Update conversation with votes (skip PCA - only testing sorting)
+        conv = conv.update_votes({'votes': votes}, recompute=False)
 
         # Get resulting row and column names from rating matrix
         result_ptpts = list(conv.rating_mat.index)
@@ -237,7 +237,8 @@ class TestConversation:
             ]
         }
 
-        updated_conv = conv.update_votes(votes)
+        # Skip PCA - only testing sorting
+        updated_conv = conv.update_votes(votes, recompute=False)
 
         pids = list(updated_conv.raw_rating_mat.index)
         tids = list(updated_conv.raw_rating_mat.columns)
@@ -274,7 +275,8 @@ class TestConversation:
             ]
         }
 
-        conv = conv.update_votes(votes)
+        # Skip PCA - only testing sorting
+        conv = conv.update_votes(votes, recompute=False)
 
         # Check internal storage
         pids = list(conv.rating_mat.index)
@@ -316,7 +318,8 @@ class TestConversation:
             ]
         }
 
-        conv = conv.update_votes(votes1)
+        # Skip PCA - only testing sorting
+        conv = conv.update_votes(votes1, recompute=False)
 
         # Check initial sorting in internal matrix (natural/numeric order)
         tids = list(conv.raw_rating_mat.columns)
@@ -348,7 +351,7 @@ class TestConversation:
             ]
         }
 
-        conv = conv.update_votes(votes2)
+        conv = conv.update_votes(votes2, recompute=False)
 
         # Check that natural sorting is maintained after incremental update
         tids = list(conv.raw_rating_mat.columns)
@@ -386,15 +389,17 @@ class TestConversation:
             ]
         }
         
-        conv = conv.update_votes(votes)
-        
+        # Skip PCA - only testing moderation filtering
+        conv = conv.update_votes(votes, recompute=False)
+
         # Apply moderation
         moderation = {
             'mod_out_tids': ['c2'],
             'mod_out_ptpts': ['p3']
         }
-        
-        moderated_conv = conv.update_moderation(moderation)
+
+        # Skip PCA - only testing moderation filtering
+        moderated_conv = conv.update_moderation(moderation, recompute=False)
         
         # Check that original was not modified
         assert len(conv.mod_out_tids) == 0
@@ -421,25 +426,38 @@ class TestConversation:
             'votes': []
         }
         
-        # Create two distinct opinion groups
+        # Create two distinct opinion groups with enough votes per participant
+        # to meet the vote threshold (7 + sqrt(n_comments) * 0.1)
         for i in range(20):
             pid = f'p{i}'
-            
-            # Group 1: Agrees with c1, c2; disagrees with c3, c4
+
+            # Group 1: Agrees with c1-c5; disagrees with c6-c10
             if i < 10:
                 votes['votes'].extend([
                     {'pid': pid, 'tid': 'c1', 'vote': 1},
                     {'pid': pid, 'tid': 'c2', 'vote': 1},
-                    {'pid': pid, 'tid': 'c3', 'vote': -1},
-                    {'pid': pid, 'tid': 'c4', 'vote': -1}
+                    {'pid': pid, 'tid': 'c3', 'vote': 1},
+                    {'pid': pid, 'tid': 'c4', 'vote': 1},
+                    {'pid': pid, 'tid': 'c5', 'vote': 1},
+                    {'pid': pid, 'tid': 'c6', 'vote': -1},
+                    {'pid': pid, 'tid': 'c7', 'vote': -1},
+                    {'pid': pid, 'tid': 'c8', 'vote': -1},
+                    {'pid': pid, 'tid': 'c9', 'vote': -1},
+                    {'pid': pid, 'tid': 'c10', 'vote': -1},
                 ])
-            # Group 2: Disagrees with c1, c2; agrees with c3, c4
+            # Group 2: Disagrees with c1-c5; agrees with c6-c10
             else:
                 votes['votes'].extend([
                     {'pid': pid, 'tid': 'c1', 'vote': -1},
                     {'pid': pid, 'tid': 'c2', 'vote': -1},
-                    {'pid': pid, 'tid': 'c3', 'vote': 1},
-                    {'pid': pid, 'tid': 'c4', 'vote': 1}
+                    {'pid': pid, 'tid': 'c3', 'vote': -1},
+                    {'pid': pid, 'tid': 'c4', 'vote': -1},
+                    {'pid': pid, 'tid': 'c5', 'vote': -1},
+                    {'pid': pid, 'tid': 'c6', 'vote': 1},
+                    {'pid': pid, 'tid': 'c7', 'vote': 1},
+                    {'pid': pid, 'tid': 'c8', 'vote': 1},
+                    {'pid': pid, 'tid': 'c9', 'vote': 1},
+                    {'pid': pid, 'tid': 'c10', 'vote': 1},
                 ])
         
         # Update with votes but don't recompute yet
@@ -513,7 +531,7 @@ class TestConversation:
 
 class TestConversationManager:
     """Tests for the ConversationManager class."""
-    
+
     def test_init(self):
         """Test manager initialization."""
         # Create manager
@@ -561,6 +579,9 @@ class TestConversationManager:
         assert conv.comment_count == 1
         assert conv.vote_stats['n_votes'] == 2
     
+    # Suppress sklearn PCA warning: manager tests use minimal data (2-3 participants)
+    # which can have zero variance. The test validates moderation logic, not PCA.
+    @pytest.mark.filterwarnings("ignore:invalid value encountered in divide:RuntimeWarning")
     def test_update_moderation(self):
         """Test updating moderation."""
         # Create manager with a conversation
@@ -588,11 +609,14 @@ class TestConversationManager:
         assert 'c2' in conv.mod_out_tids
         assert 'c2' not in conv.rating_mat.columns
     
+    # Suppress sklearn PCA warning: test uses minimal data (2 participants, 2 comments)
+    # which can have zero variance. The test validates that recompute runs, not PCA quality.
+    @pytest.mark.filterwarnings("ignore:invalid value encountered in divide:RuntimeWarning")
     def test_recompute(self):
         """Test recomputing conversation data."""
         # Create manager
         manager = ConversationManager()
-        
+
         # Create conversation with votes
         votes = {
             'votes': [
@@ -601,12 +625,12 @@ class TestConversationManager:
                 {'pid': 'p2', 'tid': 'c1', 'vote': 1}
             ]
         }
-        
+
         manager.process_votes('test_conv', votes)
-        
+
         # Force recompute
         conv = manager.recompute('test_conv')
-        
+
         # Check that computation was performed
         assert conv.pca is not None
     

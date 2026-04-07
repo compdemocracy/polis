@@ -54,10 +54,12 @@ dependencies = [
     "ollama>=0.5.1",
     "llvmlite>=0.44.0",
     # CLI
+    "click>=8.0.0",
     "rich>=13.0.0",
     # Type compatibility (Python < 3.11)
     "typing_extensions>=4.0.0",
     "natsort>=8.4.0",
+    "click>=8.3.1",
 ]
 
 [project.optional-dependencies]
@@ -122,6 +124,8 @@ include = [
 
 # Pytest configuration
 [tool.pytest.ini_options]
+# When using pytest-xdist (-n), group tests by xdist_group marker for efficient fixture sharing
+addopts = "--dist=loadgroup"
 filterwarnings = [
     # Ignore python_multipart deprecation warning from ddtrace (third-party)
     "ignore:Please use `import python_multipart`:PendingDeprecationWarning:ddtrace.internal.module",
@@ -130,6 +134,7 @@ filterwarnings = [
 ]
 markers = [
     "local_dataset: mark test as using local (non-committed) datasets from real_data/.local/",
+    "clojure_comparison: mark test as comparing with Clojure reference implementation (can be excluded with '-m \"not clojure_comparison\"')",
 ]
 
 [tool.coverage.run]

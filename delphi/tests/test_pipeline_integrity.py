@@ -34,6 +34,7 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 from polismath.conversation.conversation import Conversation
 from tests.common_utils import create_test_conversation
 from polismath.regression import get_dataset_files
+from conftest import make_dataset_params
 
 
 def save_results(dataset_name: str, conversation: Conversation) -> None:
@@ -121,7 +122,7 @@ def save_results(dataset_name: str, conversation: Conversation) -> None:
 
     print(f"Pipeline diagnostics saved to {file_path}")
 
-@pytest.mark.parametrize("dataset_name", ["biodiversity", "vw"])
+@pytest.mark.parametrize("dataset_name", make_dataset_params(["biodiversity", "vw"]))
 def test_full_pipeline(dataset_name: str) -> None:
     """
     Run the full pipeline integrity test for a dataset.

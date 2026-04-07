@@ -98,38 +98,61 @@ Test results for real data are saved to the `python_output` directory within eac
 
 ## Using the System
 
-### Basic Usage
+### Running the Full Pipeline
 
-Here's a basic example of how to use the system in Python:
+The recommended way to run Delphi is via the main orchestrator script:
+
+```bash
+# Run the full pipeline for a conversation
+python run_delphi.py --zid=<CONVERSATION_ID>
+
+# With options
+python run_delphi.py --zid=12345 --include_moderation=true
+```
+
+### Using the CLI
+
+For job queue-based execution:
+
+```bash
+# Interactive mode
+./delphi
+
+# Submit a job directly
+./delphi submit --zid=12345
+
+# Check job status
+./delphi list
+./delphi status 12345
+```
+
+### Basic Python Usage
+
+Here's how to use the core components directly in Python:
 
 ```python
-from polismath import SystemManager
-from polismath.conversation import Conversation
+from polismath.conversation.conversation import Conversation
 
-# Start the system manager
-system = SystemManager.start()
+# Create a conversation
+conv = Conversation("my-conversation")
 
-# Create a conversation manager
-conv_manager = system.conversation_manager
-
-# Create a new conversation
-conv_id = "my-conversation"
-conv = conv_manager.create_conversation(conv_id)
-
-# Process votes
-votes = [
-    {"pid": "participant1", "tid": "comment1", "vote": 1},   # Agree
-    {"pid": "participant1", "tid": "comment2", "vote": -1},  # Disagree
-    {"pid": "participant2", "tid": "comment1", "vote": 1},   # Agree
-    {"pid": "participant2", "tid": "comment3", "vote": 1},   # Agree
-]
+# Process votes (vote convention: +1=agree, -1=disagree, 0=pass)
+votes = {
+    "votes": [
+        {"pid": 0, "tid": 0, "vote": 1},   # Agree
+        {"pid": 0, "tid": 1, "vote": -1},  # Disagree
+        {"pid": 1, "tid": 0, "vote": 1},   # Agree
+        {"pid": 1, "tid": 2, "vote": 1},   # Agree
+    ]
+}
 
 # Update the conversation with votes
-updated_conv = conv_manager.process_votes(conv_id, {"votes": votes})
+conv.update_votes(votes)
 
 # Access results
-group_clusters = updated_conv.group_clusters
-repness = updated_conv.repness
+pca_results = conv.pca
+group_clusters = conv.group_clusters
+repness = conv.repness
 ```
 
 ### Loading Real Data
@@ -199,18 +222,25 @@ cd delphi/eda_notebooks
 
 ## Command-line Interface
 
-The package includes a basic command-line interface:
+The package provides several CLI entry points:
 
 ```bash
-# Run with default settings
-polismath
+# Run the full Delphi pipeline
+run-delphi --zid=12345
 
-# Show help
-polismath --help
+# Run just the math pipeline (PCA/K-means/representativeness)
+run-math-pipeline --zid=12345
 
-# Run with custom settings
-polismath --config config.yaml --port 8000 --log-level DEBUG
+# Run just the UMAP/narrative pipeline
+run-umap-pipeline --zid=12345
+
+# Use the interactive job CLI
+delphi
+delphi submit --zid=12345
+delphi list
 ```
+
+See `pyproject.toml` for the full list of CLI entry points.
 
 ## Running the Simplified Test Scripts
 
