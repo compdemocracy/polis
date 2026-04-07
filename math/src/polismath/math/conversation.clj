@@ -110,7 +110,10 @@
         (fn [pids]
           (->> pids
             ; get votes for the tid from each ptpt in group
-            (map (fn [pid] (get (get person-rows (pid-to-row pid)) idx)))
+            (map (fn [pid] 
+              (if-let [row-idx (pid-to-row pid)]
+                (get (get person-rows row-idx) idx)
+              nil)))
             ; filter votes you don't want to count
             (filter filter-cond)
             ; count
