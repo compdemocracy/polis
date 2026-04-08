@@ -469,12 +469,13 @@
                            ; Clamp: if smoothed-k no longer exists in this iteration's
                            ; clusterings (e.g. base-cluster count shrank), fall back to
                            ; the best available k by silhouette.
-              smoothed-k   (if (contains? group-clusterings smoothed-k)
+              clamped-smoothed-k
+                           (if (contains? group-clusterings smoothed-k)
                              smoothed-k
                              this-k)]
           {:last-k       this-k
            :last-k-count this-k-count
-           :smoothed-k   smoothed-k}))
+           :smoothed-k   clamped-smoothed-k}))
 
       ; Pick the cluster corresponding to smoothed K value from group-k-smoother
       :group-clusters

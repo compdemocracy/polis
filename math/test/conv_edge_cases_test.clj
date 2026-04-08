@@ -6,7 +6,6 @@
   (:require [clojure.test :refer [deftest testing is]]
             [polismath.math.repness :as repness]
             [polismath.math.named-matrix :as nm]
-            [polismath.math.clusters :as clusters]
             [polismath.math.conversation :as conversation]))
 
 
@@ -64,8 +63,8 @@
 ;; and group-clusterings that only contain k=2,3.
 ;; ============================================================================
 
-(deftest stale-smoothed-k-causes-nil-group-clusters
-  (testing "group-clusters is nil when smoothed-k exceeds available range"
+(deftest stale-smoothed-k-is-clamped-to-available-group-clusters
+  (testing "smoothed-k is clamped to an available range so group-clusters stays non-nil"
     ;; Simulate: previous iteration had smoothed-k=5, but current base-cluster
     ;; count only supports k=2,3
     (let [;; Minimal group clusterings for k=2 and k=3
