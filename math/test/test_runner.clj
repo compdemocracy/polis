@@ -4,6 +4,7 @@
   (:require [cluster-tests]
             [conv-man-tests]
             [conversation-test]
+            [conv-edge-cases-test]
             [index-hash-test]
             [named-matrix-test]
             [pca-test]
@@ -14,6 +15,12 @@
             [clojure.test :as test]))
 
 
+;; Print each deftest name as it starts, so we can see progress and detect hangs.
+(defmethod test/report :begin-test-var [m]
+  (let [v (:var m)]
+    (println "  " (-> v meta :name))
+    (flush)))
+
 (defn -main
   "Run all the pure tests for polisapp. The one integration test is in conv-man-tests, and should be run separately (and
   needs to be cleaned up to run on a separate poller system)"
@@ -22,6 +29,7 @@
     test/run-tests
     '[cluster-tests
       conversation-test
+      conv-edge-cases-test
       index-hash-test
       named-matrix-test
       pca-test
