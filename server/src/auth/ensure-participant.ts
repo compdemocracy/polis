@@ -197,16 +197,27 @@ async function _handleUserIdentification(
     // Create new anonymous user for this XID
     const newUid = await createAnonUser();
 
-    // Create XID record linking the XID to the new user
-    await createXidRecord(
-      req.p.xid,
-      conv.owner,
-      newUid,
-      zid,
-      undefined,
-      undefined,
-      undefined
-    );
+    // Create XID record linking the XID to the new user.
+    // Note: the participant row doesn't exist yet at this point, so
+    // createXidRecord will insert with pid=null. A failure here must not
+    // abort participant creation — wrap in try/catch.
+    // See: https://github.com/compdemocracy/polis/issues/2538
+    try {
+      await createXidRecord(
+        req.p.xid,
+        conv.owner,
+        newUid,
+        zid,
+        undefined,
+        undefined,
+        undefined
+      );
+    } catch (err) {
+      logger.warn(
+        "createXidRecord failed during user identification; participant creation will continue",
+        { xid: req.p.xid, zid, uid: newUid, err }
+      );
+    }
 
     return newUid;
   }
