@@ -229,20 +229,42 @@ async function _getOrCreateParticipant(
     return { pid: foundPid, isNewlyCreated: false };
   }
 
-  // Create new participant with constraint violation protection
-  try {
-    const rows = await addParticipantAndMetadata(zid, uid, req);
-    return { pid: rows[0].pid, isNewlyCreated: true };
-  } catch (createError) {
-    // Handle race condition where another request created the participant
-    if (isDuplicateKey(createError)) {
-      const retryPid = await getPidPromise(zid, uid, true);
-      if (retryPid !== -1) {
-        return { pid: retryPid, isNewlyCreated: false };
+  // Create new participant with constraint violation protection.
+  // Retry loop handles the race where a concurrent request is creating the
+  // same participant: the INSERT hits a duplicate key (23505), but the
+  // concurrent transaction may not have committed yet so getPidPromise
+  // can't find the row. We retry a few times to let it commit.
+  const MAX_RETRIES = 3;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const rows = await addParticipantAndMetadata(zid, uid, req);
+      return { pid: rows[0].pid, isNewlyCreated: true };
+    } catch (createError) {
+      if (isDuplicateKey(createError)) {
+        // Wait briefly for the concurrent transaction to commit
+        if (attempt < MAX_RETRIES) {
+          await new Promise((r) => setTimeout(r, 50 * (attempt + 1)));
+        }
+        const retryPid = await getPidPromise(zid, uid, true);
+        if (retryPid !== -1) {
+          return { pid: retryPid, isNewlyCreated: false };
+        }
+        if (attempt === MAX_RETRIES) {
+          logger.error("Failed to find participant after retries", {
+            zid,
+            uid,
+            attempts: MAX_RETRIES + 1,
+          });
+          throw createError;
+        }
+        // Otherwise loop and retry
+      } else {
+        throw createError;
       }
     }
-    throw createError;
   }
+  // Should not reach here, but TypeScript needs it
+  throw new Error("Could not find or create participant");
 }
 
 /**
