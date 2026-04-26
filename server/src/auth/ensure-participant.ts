@@ -18,7 +18,7 @@ import { Response, NextFunction } from "express";
 import { addParticipantAndMetadata } from "../participant";
 import { checkLegacyCookieAndIssueJWT } from "./legacyCookies";
 import { createAnonUser } from "./create-user";
-import { createXidRecord, getXidRecord, isXidAllowed } from "../xids";
+import { createXidRecord, getXidRecord, isXidAllowed, xidExists } from "../xids";
 import { failJson } from "../utils/fail";
 import { getConversationInfo, getZidFromConversationId } from "../conversation";
 import { getPidPromise } from "../user";
@@ -194,19 +194,11 @@ async function _handleUserIdentification(
       return existingXidRecords[0].uid;
     }
 
-    // Create new anonymous user for this XID
+    // Create new anonymous user for this XID.
+    // Note: we do NOT call createXidRecord here — the participant row doesn't
+    // exist yet, so the FK (zid, pid) → participants(zid, pid) can't be
+    // satisfied. xid registration happens after participant creation below.
     const newUid = await createAnonUser();
-
-    // Create XID record linking the XID to the new user
-    await createXidRecord(
-      req.p.xid,
-      conv.owner,
-      newUid,
-      zid,
-      undefined,
-      undefined,
-      undefined
-    );
 
     return newUid;
   }
@@ -464,6 +456,26 @@ async function _ensureParticipantInternal(
     const participantResult = await _getOrCreateParticipant(zid, uid, pid, req);
     pid = participantResult.pid;
     isNewlyCreatedParticipant = participantResult.isNewlyCreated;
+
+    // Register the xid record now that the participant row exists.
+    // This mirrors the order used by _joinWithZidOrSuzinvite and ensures
+    // the FK (zid, pid) → participants(zid, pid) can be satisfied.
+    // See: https://github.com/compdemocracy/polis/issues/2538
+    if (req.p.xid && isNewlyCreatedUser && pid !== undefined) {
+      const conv = await getConversationInfo(zid);
+      const alreadyExists = await xidExists(req.p.xid, conv.owner, uid);
+      if (!alreadyExists) {
+        await createXidRecord(
+          req.p.xid,
+          conv.owner,
+          uid,
+          zid,
+          req.p.x_profile_image_url,
+          req.p.x_name,
+          req.p.x_email
+        );
+      }
+    }
   } else if ((pid === undefined || pid === -1) && uid !== undefined) {
     // Just look up existing participant if we have a uid
     const existingPid = await getPidPromise(zid, uid, true);
