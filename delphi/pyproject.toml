@@ -124,8 +124,12 @@ include = [
 
 # Pytest configuration
 [tool.pytest.ini_options]
-# When using pytest-xdist (-n), group tests by xdist_group marker for efficient fixture sharing
-addopts = "--dist=loadgroup"
+# Force sequential execution (-n0) to leverage the session-scoped conversation cache.
+# The cache shares computed conversations across test files, but each xdist worker
+# has its own process with a separate cache. With only 2 datasets (biodiversity, vw),
+# sequential execution with caching is ~6x faster than parallel execution where each
+# worker recomputes the conversations independently.
+addopts = "-n0"
 filterwarnings = [
     # Ignore python_multipart deprecation warning from ddtrace (third-party)
     "ignore:Please use `import python_multipart`:PendingDeprecationWarning:ddtrace.internal.module",

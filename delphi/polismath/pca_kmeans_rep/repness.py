@@ -19,20 +19,25 @@ from polismath.utils.general import AGREE, DISAGREE
 Z_90 = 1.645  # Z-score for 90% confidence
 Z_95 = 1.96   # Z-score for 95% confidence
 
-# Pseudocount for Bayesian smoothing (Laplace smoothing / additive smoothing)
+# Pseudocount for additive smoothing of agree/disagree proportions
 #
 # Why use pseudocounts?
-# - Prevents extreme probabilities (0 or 1) when sample sizes are small
-# - With PSEUDO_COUNT = 1.5, we effectively add 0.75 "virtual" agrees and
-#   0.75 "virtual" disagrees to each comment's vote count
-# - This pulls probabilities toward 0.5 (the prior), with the effect diminishing
-#   as sample size grows
-# - Formula: p_agree = (n_agree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
+# - Prevents extreme probabilities (0 or 1) when sample sizes are small.
+# - With PSEUDO_COUNT = 2.0, we add 1 "virtual" agree and 1 "virtual" disagree
+#   to each comment's vote count, then compute the proportion:
+#       p_agree = (n_agree + 1) / (n_votes + 2)
+#   Two equivalent ways to justify this formula — pick whichever framing you
+#   know best:
+#     * Frequentist/combinatorial: Laplace's rule of succession (the classic
+#       +1/+2 add-one smoothing).
+#     * Bayesian: the MAP (mode) estimate of the posterior under a Beta(2,2)
+#       prior. (Not the posterior mean, which would be (n+2)/(ns+4).)
+# - Pulls probabilities toward 0.5, with the effect diminishing as n grows.
+# - General formula: p_agree = (n_agree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
 #
-# Example: With 3 agrees out of 4 votes:
-#   - Raw probability: 3/4 = 0.75
-#   - Smoothed (PSEUDO_COUNT=1.5): (3 + 0.75) / (4 + 1.5) = 3.75/5.5 ≈ 0.68
-PSEUDO_COUNT = 1.5
+# Matches Clojure's implementation (repness.clj, which applies the same +1/+2
+# smoothing without justifying it in comments).
+PSEUDO_COUNT = 2.0
 
 
 def z_score_sig_90(z: float) -> bool:

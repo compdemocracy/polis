@@ -4,7 +4,7 @@ githubHost: github.com
 githubRemote: origin
 githubBranch: edge
 requireChecks: true
-requireApproval: true
+requireApproval: false
 defaultReviewers: []
 mergeMethod: squash
 mergeQueue: false

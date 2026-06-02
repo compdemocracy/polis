@@ -86,12 +86,7 @@ def main(datasets: tuple, include_local: bool, log_level: str,
     from polismath.regression.clojure_comparer import ClojureComparer, load_clojure_math_blob
     from polismath.regression.datasets import list_available_datasets, get_dataset_files
     from polismath.conversation import Conversation
-    try:
-        from tests.common_utils import load_votes
-    except ImportError:
-        click.echo("Error: Could not import tests.common_utils.load_votes.", err=True)
-        click.echo("Run this script from the delphi/ directory with: uv run python scripts/clojure_comparer.py", err=True)
-        raise SystemExit(1)
+    from polismath.benchmarks.benchmark_utils import load_votes_from_csv
 
     # Get available datasets with Clojure math_blob
     all_datasets = list_available_datasets(include_local=include_local)
@@ -138,7 +133,7 @@ def main(datasets: tuple, include_local: bool, log_level: str,
 
             # Load and process Python output
             dataset_files = get_dataset_files(dataset)
-            votes_data = load_votes(dataset_files['votes'])
+            votes_data = load_votes_from_csv(dataset_files['votes'])
 
             click.echo(f"✓ Loaded votes data: {len(votes_data['votes'])} votes")
 
@@ -226,9 +221,7 @@ def main(datasets: tuple, include_local: bool, log_level: str,
                 click.echo(f"✓ {dataset}: PASS")
             else:
                 click.echo(f"✗ {dataset}: FAIL")
-                click.echo(f"\nLikely cause: Initialization algorithm difference")
-                click.echo(f"  Python: K-means++ (seed 42)")
-                click.echo(f"  Clojure: First k distinct points")
+                click.echo(f"  See docs/PLAN_DISCREPANCY_FIXES.md for known discrepancies")
             click.echo(f"{'='*60}")
 
         except Exception as e:
@@ -260,8 +253,8 @@ def main(datasets: tuple, include_local: bool, log_level: str,
         click.echo(f"\n✗ Failed:")
         for name in failed_datasets:
             click.echo(f"  {name}")
-        click.echo("\nNote: Failures may be due to initialization differences (K-means++ vs first-k).")
-        click.echo("This is expected until clustering initialization is aligned.")
+        click.echo("\nNote: Failures may be due to remaining Python-Clojure discrepancies.")
+        click.echo("See docs/PLAN_DISCREPANCY_FIXES.md for the fix plan.")
         return 1
     else:
         click.echo("\n✓ All datasets passed!")
