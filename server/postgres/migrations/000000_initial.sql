@@ -768,6 +768,11 @@ CREATE TABLE votes(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
 
+    -- The participant's vote on the comment (tid).
+    --   -1 = Agree, 1 = Disagree, 0 = Pass/Unsure.
+    -- IMPORTANT: this is the RAW storage sign, and it is the OPPOSITE of the value in the
+    -- participants-votes CSV export. The export negates every vote so that Agree = +1,
+    -- Disagree = -1.
     vote SMALLINT,
 
     -- Divide by 32767 before using! (and multiply by 32767 before storing). Applications should refer to this as "weight" after converting to a float in the range [-1, 1]
@@ -798,6 +803,11 @@ CREATE TABLE votes_latest_unique (
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
 
+    -- The participant's vote on the comment (tid).
+    --   -1 = Agree, 1 = Disagree, 0 = Pass/Unsure.
+    -- IMPORTANT: this is the RAW storage sign, and it is the OPPOSITE of the value in the
+    -- participants-votes CSV export. The export negates every vote so that Agree = +1,
+    -- Disagree = -1.
     vote SMALLINT,
 
     -- Divide by 32767 before using! (and multiply by 32767 before storing). Applications should refer to this as "weight" after converting to a float in the range [-1, 1]
