@@ -27,10 +27,13 @@ A few things are true almost everywhere, and knowing them removes most of the co
   a conversation via the `participants` table.
 - **`zinvite`** — the public, opaque conversation identifier (the string in a conversation
   URL). It maps to the internal `zid` via the `zinvites` table. **Outside callers know the
-  `zinvite`; the database works in `zid`.**
+  `zinvite`; the database works in `zid`.** Treat the `zinvite` as semi-public: it appears in
+  voting URLs, but when auth/XID isn't enabled anyone holding it can vote, so don't circulate
+  it beyond the intended voters. `zid` is the internal key; how sensitive it is depends on
+  your threat model.
 - **Timestamps are `BIGINT` epoch-milliseconds** (`created`, `modified`, …), defaulted via
   `now_as_millis()`. Use `to_timestamp(created / 1000.0)` to read one.
-- **`-1` does not mean "no" / "negative".** Several columns use small signed integers as
+- **`-1` does NOT mean "no" / "negative".** Several columns use small signed integers as
   enums where `-1` is a *specific state*, not a sentinel — see the vote sign and `mod`
   columns below. Read the column comment in `000000_initial.sql` before assuming.
 
@@ -49,11 +52,16 @@ of configuration flags. The ones that matter most operationally:
 - `is_active`, `is_public`, `is_draft` — lifecycle/visibility.
 - `strict_moderation` — if true, new comments must be approved before others can vote on them.
 - `write_type` — `1` shows the comment form, `0` hides it.
-- **`vis_type`** — gates the results visualization. **`0` = results off (the default), `1`
-  = on.** `GET /api/.../results/` returns nothing until this is non-zero. This is a common
-  "why are there no results?" cause.
+- **`vis_type`** — UI flag for whether the results visualization is shown. **`0` = off (the
+  default), `1` = on.** This is a client-side render gate, *not* a server guarantee — the
+  server does not withhold `GET /api/.../results/` based on it. A common "why don't I see
+  results?" cause.
 - `owner` → `users(uid)` — who created/owns it.
-- Later migrations add `xid_required`, `treevite_enabled`, and `topics_enabled`.
+- Later migrations add:
+  - `xid_required` — require an XID, the pseudonym mapping the authenticator's user ID to the
+    polis participant; used for authenticated conversations.
+  - `treevite_enabled` — `delphi`'s staggered "wave" invites (new/experimental).
+  - `topics_enabled` — `delphi` embeddings-based topic analysis (new/experimental).
 
 ### `zinvites` (`zid` ↔ `zinvite`)
 
@@ -71,10 +79,13 @@ author. Key columns:
 - `active` — false hides the comment regardless of `mod`.
 - `is_seed` — seeded by the moderator (vs. submitted by a participant).
 - `is_meta` — a meta/notice comment, excluded from the math.
-- `velocity` — moderation/ranking weight.
+- `velocity` — a moderation/ranking weight used by the legacy Clojure comment-routing; the
+  newer `delphi` routing may not use it. Treat as legacy-leaning.
 
 `comments` has a foreign key on `(zid, pid)` into `participants`: a comment must be authored
-by a known participant of that conversation.
+by a participant that exists in that conversation. "Known" means only that a `participants`
+row exists — it says nothing about *who* they are; identifying info exists only if the
+organizer enabled auth/XID or demographic collection.
 
 ### `votes` and `votes_latest_unique` (keyed by `(zid, pid, tid)`)
 
@@ -135,16 +146,21 @@ The **math** (Clojure) and **delphi** (Python) services poll the vote data, run 
 clustering, and write results back for the server and report clients to read. The schema
 side is small:
 
+> **Caveat:** this describes the Clojure `math` service's output in Postgres. The newer
+> `delphi` (Python) service computes considerably more and — by a deliberate architecture
+> decision — stores most of it in **DynamoDB, not Postgres**. Some delphi code still reads
+> parts of the Clojure `math` blob, but Postgres is no longer the complete results picture.
+
 - **`math_main`** — the headline result: `data jsonb` holds the PCA/clustering object
   (consensus, opinion groups, comment stats — the structure documented in
   [docs/pca.md](../../docs/pca.md)), keyed by `(zid, math_env)`, with `math_tick` /
   `last_vote_timestamp` for cache-invalidation.
 - Supporting tables: `math_profile`, `math_ptptstats`, `math_bidtopid`, `math_ticks`,
-  `math_cache`, `math_exportstatus`, `math_report_correlationmatrix`, and `stats_per_comment`.
+  `math_cache`, `math_exportstatus`, and `math_report_correlationmatrix`.
 - **`reports` / `report_comment_selections`** — saved/curated report views over a conversation.
 
-The server never computes these; it only reads them. An empty results endpoint usually
-means either `vis_type = 0` (above) or that math hasn't produced output yet.
+The server never computes these; it only reads them. If you don't see results in the UI it
+usually means math hasn't produced output yet (or, client-side, `vis_type = 0` — above).
 
 ---
 
@@ -164,11 +180,13 @@ they group as follows. Most need no day-to-day attention.
 
 > ⚠️ **Not "legacy" — still referenced by live server code.** Several tables that look
 > vestigial are actually written/read by current `server/src` SQL, so do not assume they are
-> safe to drop: `stars`, `upvotes`, `trashes` (comment moderation actions), `page_ids` and
-> `permanentcookiezidjoins` (embed / implicit-conversation + legacy permanent-cookie auth),
-> `metrics` (client metrics insert), `email_validations`, and `site_domain_whitelist`
-> (embed domain allow-list). (There is **no table named `permanent`** — the permanent-cookie
-> data lives in `permanentcookiezidjoins` and in `participants_extended.permanent_cookie`.)
+> safe to drop: `stars`, `upvotes`, `trashes` (comment moderation actions), `page_ids`
+> (embed / implicit-conversation), `metrics` (client metrics insert), `email_validations`,
+> and `site_domain_whitelist` (embed domain allow-list). (There is **no table named
+> `permanent`** — permanent-cookie data lives in `participants_extended.permanent_cookie`
+> and `permanentcookiezidjoins`. The latter appears only in the schema — no `server/src`,
+> `math`, or `delphi` references found — so treat its status as unverified: don't assume it
+> is live, but don't assume it's safe to drop either.)
 
 A handful of tables (Slack/Stripe/Canvas/LTI integrations, the waiting list,
 geolocation) were dropped by migrations 000004 / 000005 / 000007 and no longer exist.
