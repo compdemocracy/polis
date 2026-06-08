@@ -183,10 +183,11 @@ they group as follows. Most need no day-to-day attention.
 > safe to drop: `stars`, `upvotes`, `trashes` (comment moderation actions), `page_ids`
 > (embed / implicit-conversation), `metrics` (client metrics insert), `email_validations`,
 > and `site_domain_whitelist` (embed domain allow-list). (There is **no table named
-> `permanent`** — permanent-cookie data lives in `participants_extended.permanent_cookie`
-> and `permanentcookiezidjoins`. The latter appears only in the schema — no `server/src`,
-> `math`, or `delphi` references found — so treat its status as unverified: don't assume it
-> is live, but don't assume it's safe to drop either.)
+> `permanent`**. Live permanent-cookie auth reads/writes
+> **`participants_extended.permanent_cookie`** (`server/src/participant.ts`,
+> `getParticipantByPermanentCookie`) — *not* the `permanentCookieZidJoins` table, which
+> appears only in the schema (`000000_initial.sql`) with no `server/src`, `math`, or `delphi`
+> references, i.e. legacy/unused.)
 
 A handful of tables (Slack/Stripe/Canvas/LTI integrations, the waiting list,
 geolocation) were dropped by migrations 000004 / 000005 / 000007 and no longer exist.
