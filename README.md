@@ -269,6 +269,8 @@ You can specify these `-f docker-compose.yml -f docker-compose.dev.yml` argument
 You can create your own `docker-compose.x.yml` file as an overlay and add or modify any values you need to differ
 from the defaults found in the `docker-compose.yml` file and pass it as the second argument to the `docker compose -f` command above.
 
+To work on the **delphi** Python ML service outside Docker (run tests locally, get a working language server in your editor, etc.), see [`delphi/README.md`](/delphi/README.md#local-python-development).
+
 ### Testing
 
 We use Cypress for automated, end-to-end browser testing for PRs on GitHub (see badge above).

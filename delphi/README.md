@@ -1,5 +1,36 @@
 # Pol.is Math (Python Implementation)
 
+## Local Python development
+
+Run locally (outside Docker) with either `make` or `uv`:
+
+```bash
+# Option A: make + pip
+cd delphi
+make venv                # Creates delphi/.venv + a polis/.venv symlink for editor discovery
+source .venv/bin/activate
+make install-dev         # Installs delphi with dev + notebook extras
+
+# Option B: uv (faster, locked deps)
+cd delphi
+uv sync                  # Creates delphi/.venv with all dependencies
+ln -sfn delphi/.venv ../.venv   # One-time, for editor discovery at the repo root
+```
+
+**Why two `.venv` paths?** Pyright (configured in `delphi/pyproject.toml`)
+looks for the venv at `delphi/.venv`, but editors and IDEs (VS Code, Cursor,
+Claude Code, JetBrains) opening the workspace at the repo root look for
+`polis/.venv`. Both must exist — either as the real venv directory or as a
+symlink to it. `make venv` creates both; the `uv` path needs the one-time
+symlink. If your editor's language server reports "missing imports" for
+`numpy`, `polismath`, etc., this is the usual cause.
+
+If you have a leftover `delphi-env/` from before the rename, adopt it without
+reinstalling: `ln -sfn delphi-env delphi/.venv`.
+
+For a full walkthrough (tests, real data, system tests), see
+[`docs/QUICK_START.md`](docs/QUICK_START.md).
+
 ## Quickstart example
 
 ```bash

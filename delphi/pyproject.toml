@@ -143,3 +143,30 @@ markers = [
 
 [tool.coverage.run]
 relative_files = true
+
+# Pyright / Pylance configuration
+#
+# Pyright walks up from any opened file looking for `pyrightconfig.json` or a
+# `[tool.pyright]` section. When it finds this one, `delphi/` becomes the project
+# root and `venvPath` is resolved relative to that. So `.venv` here means
+# `delphi/.venv`, which on every developer's machine should be either the real
+# venv or a symlink to it (the Makefile's `venv` target and `uv sync` both
+# maintain this). The mirror `polis/.venv` (also real or symlink) is what lets
+# editors opening the workspace at the repo root auto-discover the interpreter.
+[tool.pyright]
+include = ["polismath", "umap_narrative", "tests", "scripts"]
+exclude = [
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/.venv",
+    "build",
+    "dist",
+    "notebooks",
+    "scratch",
+    "real_data",
+    ".test_outputs",
+    "pipeline_results",
+]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"
