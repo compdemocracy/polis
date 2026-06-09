@@ -14,6 +14,11 @@ on:
       - stable
       - 'jc/**'
     paths: *paths
+  # Manual trigger: lets repo write-access users run CI on any branch
+  # (including spr/edge/* stack branches, which `pull_request` no longer
+  # auto-triggers for). UI: Actions → Delphi Python Tests → "Run workflow".
+  # CLI: `gh workflow run "Delphi Python Tests" --ref <branch>`.
+  workflow_dispatch:
 
 jobs:
   test:

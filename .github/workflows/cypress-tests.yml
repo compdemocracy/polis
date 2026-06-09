@@ -8,6 +8,11 @@ on:
       - edge
       - stable
       - 'jc/**'
+  # Manual trigger: lets repo write-access users run CI on any branch
+  # (including spr/edge/* stack branches, which `pull_request` no longer
+  # auto-triggers for). UI: Actions → E2E Tests → "Run workflow".
+  # CLI: `gh workflow run "E2E Tests" --ref <branch>`.
+  workflow_dispatch:
 
 concurrency:
   group: e2e-${{ github.ref }}
