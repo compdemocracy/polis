@@ -27,13 +27,13 @@ This document provides a comprehensive guide on how to set up, run, and test the
 cd delphi
 
 # Create a virtual environment
-python -m venv delphi-env
+python -m venv .venv
 
 # Activate the virtual environment
 # On Linux/macOS
-source delphi-env/bin/activate
+source .venv/bin/activate
 # On Windows
-delphi-env\Scripts\activate
+.venv\Scripts\activate
 ```
 
 ## Package Installation

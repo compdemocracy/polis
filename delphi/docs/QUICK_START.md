@@ -4,40 +4,44 @@ This guide provides the essential steps to get started with the Python implement
 
 ## Environment Setup
 
-The Python implementation requires Python 3.8+ (ideally Python 3.12) and several dependencies.
+The Python implementation requires **Python 3.12** (pinned in `pyproject.toml`).
 
-### Creating a New Virtual Environment
+### Creating a Virtual Environment
 
-It's recommended to create a fresh virtual environment:
+The recommended way is `make venv`, which also sets up the editor-discovery
+symlink at the repo root in one step:
 
 ```bash
-# Navigate to the delphi directory
 cd delphi
-
-# Create a new virtual environment
-python3 -m venv delphi-env
-
-# Activate the virtual environment
-source delphi-env/bin/activate  # On Linux/macOS
-# or
-delphi-env\Scripts\activate     # On Windows
+make venv                # Creates delphi/.venv and (if missing) polis/.venv → delphi/.venv
+source .venv/bin/activate
+make install-dev         # Installs delphi with dev + notebook extras
 ```
 
-Your command prompt should now show `(delphi-env)` indicating the environment is active.
-
-### Installing Dependencies
-
-With your virtual environment activated, install the package and its dependencies:
+Alternatively, with [uv](https://github.com/astral-sh/uv) (faster, locked
+dependencies via `requirements.lock`):
 
 ```bash
-# Install the polismath package in development mode
-pip install -e .
-
-# Install additional packages for visualization and notebooks
-pip install matplotlib seaborn jupyter
+cd delphi
+uv sync                          # Creates delphi/.venv with all dependencies
+ln -sfn delphi/.venv ../.venv    # One-time, for editor discovery at the repo root
 ```
 
-This will install the package in development mode with all required dependencies.
+Plain `python3 -m venv .venv` + `pip install -e ".[dev,notebook]"` also works
+if you prefer not to use `make` or `uv`; just remember to create the
+`../.venv → delphi/.venv` symlink manually so editors find the interpreter.
+
+On Windows, replace `source .venv/bin/activate` with `.venv\Scripts\activate`.
+
+### Why two `.venv` paths?
+
+Pyright's configuration (`[tool.pyright]` in `delphi/pyproject.toml`) makes
+`delphi/` the project root, so it looks for the venv at `delphi/.venv`.
+Editors and IDEs (VS Code, Cursor, Claude Code, JetBrains) opening the
+workspace at the repo root look for `polis/.venv`. **Both must exist** —
+either as the real venv directory or as a symlink to it. If your language
+server reports unresolved imports for `numpy`, `polismath`, or similar, this
+is almost always the cause.
 
 ## Running Tests
 

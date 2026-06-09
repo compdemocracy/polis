@@ -20,15 +20,31 @@ setup-dev: install-dev ## Set up development environment
 	@echo "2. Set up your database connection"
 	@echo "3. Create DynamoDB tables: make setup-dynamodb"
 
-venv: ## Create canonical virtual environment (delphi-env)
-	@echo "Creating canonical virtual environment: delphi-env"
-	@if [ ! -d "delphi-env" ]; then \
-		python3 -m venv delphi-env; \
+venv: ## Create canonical virtual environment (.venv)
+	@echo "Creating canonical virtual environment: .venv"
+	@# Clean up a broken symlink first so `python3 -m venv` doesn't fail on
+	@# "File exists" when .venv points at a now-missing target.
+	@if [ -L ".venv" ] && [ ! -e ".venv" ]; then \
+		echo "Removing broken .venv symlink"; \
+		rm .venv; \
+	fi
+	@if [ ! -d ".venv" ]; then \
+		python3 -m venv .venv; \
 		echo "✓ Virtual environment created"; \
 	else \
 		echo "✓ Virtual environment already exists"; \
 	fi
-	@echo "To activate: source delphi-env/bin/activate"
+	@# Mirror the venv at the repo root so editors opening the workspace at
+	@# the parent directory (polis/) auto-discover the interpreter too.
+	@if [ -L "../.venv" ] && [ ! -e "../.venv" ]; then \
+		echo "Removing broken ../.venv symlink"; \
+		rm ../.venv; \
+	fi
+	@if [ ! -e "../.venv" ]; then \
+		ln -sfn delphi/.venv ../.venv; \
+		echo "✓ Linked ../.venv → delphi/.venv (for editor auto-discovery at repo root)"; \
+	fi
+	@echo "To activate: source .venv/bin/activate"
 	@echo "Then run: make install-dev"
 
 venv-check: ## Check virtual environment status
@@ -43,7 +59,7 @@ venv-check: ## Check virtual environment status
 		fi; \
 	else \
 		echo "❌ No virtual environment active"; \
-		echo "Run: source delphi-env/bin/activate"; \
+		echo "Run: source .venv/bin/activate"; \
 	fi
 
 setup-dynamodb: ## Create local DynamoDB tables

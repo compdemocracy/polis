@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Activate the virtual environment
-source ../delphi-env/bin/activate
+source ../.venv/bin/activate
 
 # Launch Jupyter Lab
 jupyter lab
