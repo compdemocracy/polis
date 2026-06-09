@@ -13,7 +13,6 @@ on:
       - edge
       - stable
       - 'jc/**'
-      - 'spr/**'
     paths: *paths
 
 jobs:
