@@ -76,14 +76,26 @@ jobs:
         echo "Auth-related environment variables:"
         grep -E "AUTH_|CERT|DATABASE_URL|POSTGRES_" test.env || true
 
+    # bake-action goes straight to `docker buildx bake`, which honors the
+    # `cache-from`/`cache-to` set overrides. (`docker compose build` with
+    # COMPOSE_BAKE=true would NOT — compose strips x-bake from its bake
+    # payload, so cache config is silently lost.)
+    # postgres.no-cache=true preserves the pre-cache behavior of building
+    # postgres fresh every run: Docker layer caching has been known to
+    # retain stale migration files between builds.
     - name: Build Docker images
-      run: |
-        # Build postgres with --no-cache to ensure latest migrations are used
-        # Docker layer caching can cause old migration files to persist
-        docker compose -f docker-compose.test.yml --env-file test.env build --no-cache postgres
-        
-        # Build remaining services (caching OK for these)
-        docker compose -f docker-compose.test.yml --env-file test.env build
+      uses: docker/bake-action@v6
+      with:
+        # source: . makes bake use the workspace checkout. The default (git
+        # context) re-fetches per commit SHA, which busts the layer cache
+        # every commit even when the file contents are unchanged.
+        source: .
+        files: docker-compose.test.yml
+        load: true
+        set: |
+          *.cache-from=type=gha
+          *.cache-to=type=gha,mode=max
+          postgres.no-cache=true
 
     - name: Start services
       run: |

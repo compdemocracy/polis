@@ -69,11 +69,23 @@ jobs:
         echo "Environment variables:"
         grep -E "AUTH_|CERT|DATABASE_URL|POSTGRES_|JWT_|JWKS_URI" test.env || true
 
+    # Server is built on the host (tests run there). ses-local and dynamodb
+    # are pre-built images (no build:), so they are not bake targets.
     - name: Build Docker images
-      run: |
-        # Build all services except server (tests run on host)
-        docker compose -f docker-compose.test.yml --env-file test.env build \
-          math postgres file-server ses-local oidc-simulator dynamodb
+      uses: docker/bake-action@v6
+      with:
+        # source: . avoids re-fetching git context per commit (busts cache).
+        source: .
+        files: docker-compose.test.yml
+        targets: |
+          math
+          postgres
+          file-server
+          oidc-simulator
+        load: true
+        set: |
+          *.cache-from=type=gha
+          *.cache-to=type=gha,mode=max
 
     - name: Start services
       run: |

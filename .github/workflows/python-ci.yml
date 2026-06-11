@@ -57,9 +57,15 @@ jobs:
       uses: docker/setup-buildx-action@v3
 
     - name: 3. Build Docker images
-      run: |
-        # Build all services in the test file (including delphi)
-        docker compose -f docker-compose.test.yml --env-file .env build
+      uses: docker/bake-action@v6
+      with:
+        # source: . avoids re-fetching git context per commit (busts cache).
+        source: .
+        files: docker-compose.test.yml
+        load: true
+        set: |
+          *.cache-from=type=gha
+          *.cache-to=type=gha,mode=max
 
     - name: 4. Start all services
       run: |

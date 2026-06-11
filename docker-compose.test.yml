@@ -4,8 +4,15 @@
 
 # Run with: `docker compose -f docker-compose.test.yml --env-file test.env up --build`.
 
+# Explicit `image:` fields below match what compose's auto-naming would
+# produce (`<project>-<service>:latest`). They make the tags addressable by
+# `docker buildx bake` so the CI workflows can build via bake-action (for
+# the GitHub Actions cache) while `docker compose up -d` still finds the
+# images afterwards.
+
 services:
   client-participation-alpha:
+    image: ${COMPOSE_PROJECT_NAME:-polis-test}-client-participation-alpha:latest
     build:
       context: ./client-participation-alpha
       dockerfile: Dockerfile
@@ -27,6 +34,7 @@ services:
     restart: unless-stopped
 
   server:
+    image: ${COMPOSE_PROJECT_NAME:-polis-test}-server:latest
     environment:
       - DATABASE_SSL=false
       - DATABASE_URL=${DATABASE_URL}
@@ -56,6 +64,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   math:
+    image: ${COMPOSE_PROJECT_NAME:-polis-test}-math:latest
     build:
       context: ./math
     labels:
@@ -87,6 +96,7 @@ services:
       polis_tag: ${TAG:-test}
 
   oidc-simulator:
+    image: ${COMPOSE_PROJECT_NAME:-polis-test}-oidc-simulator:latest
     build:
       context: ./oidc-simulator
       dockerfile: Dockerfile
@@ -106,6 +116,7 @@ services:
       - ${AUTH_CERTS_PATH:-~/.simulacrum/certs}:/root/.simulacrum/certs:ro
 
   postgres:
+    image: ${COMPOSE_PROJECT_NAME:-polis-test}-postgres:latest
     build:
       context: ./server
       dockerfile: Dockerfile-db
@@ -144,6 +155,7 @@ services:
       -c autovacuum_naptime=30s
 
   nginx-proxy:
+    image: ${COMPOSE_PROJECT_NAME:-polis-test}-nginx-proxy:latest
     build:
       context: ./file-server
       dockerfile: nginx.Dockerfile
@@ -161,6 +173,7 @@ services:
       - 443:443
 
   file-server:
+    image: ${COMPOSE_PROJECT_NAME:-polis-test}-file-server:latest
     build:
       context: ./
       dockerfile: file-server/Dockerfile
