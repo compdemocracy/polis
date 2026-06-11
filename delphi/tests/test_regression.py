@@ -57,6 +57,7 @@ def _check_golden_exists(dataset_name: str):
 
 
 @_skip_golden
+@pytest.mark.xfail(reason="Goldens DEFERRED per Julien 2026-06-11 — see HANDOFF_STAGE3_INTERRUPTED_2026-06-11.md. Goldens are stale vs new outputs from ns-PASS + D10 follow-ups + serialization plumb. Re-record only when Python-vs-Python refactor phase begins.")
 @pytest.mark.use_discovered_datasets
 def test_conversation_regression(dataset_name):
     """
@@ -107,6 +108,7 @@ def test_conversation_regression(dataset_name):
 
 
 @_skip_golden
+@pytest.mark.xfail(reason="Goldens DEFERRED per Julien 2026-06-11 — see HANDOFF_STAGE3_INTERRUPTED_2026-06-11.md. Goldens are stale vs new outputs from ns-PASS + D10 follow-ups + serialization plumb. Re-record only when Python-vs-Python refactor phase begins.")
 @pytest.mark.use_discovered_datasets
 def test_conversation_stages_individually(dataset_name):
     """

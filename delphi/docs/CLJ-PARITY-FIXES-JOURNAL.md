@@ -1668,3 +1668,114 @@ Logged for batch review. Python may be more correct than Clojure here.
 ### What's Next
 
 Re-record vw + biodiversity Python golden snapshots (PR-stack tip).
+
+## ns-PASS Cascade Session (2026-06-11)
+
+Inserted the **ns-PASS fix** (Clojure's `count-votes` truthy-0 semantics
+include PASS via `(count (filter identity ...))`; Python's `ns = na + nd`
+excluded PASS) as a new commit between PR 14a and D10 in the spr stack.
+
+### Stack after cascade (bottom-to-top, edge..@)
+
+1. `nvvvlkkoovps` — PR 14a (delete dead scalar paths)
+2. `qyskkqkovtmn` — **ns-PASS fix** (pre-D10)
+3. `nqnwlmvstktv` — D10 (rep comment selection)
+4. `mntpyplnxzto` — D11 (consensus selection) — picked up B1+B2 squashed from D12
+5. `lunsrnvlzzyq` — D12 (comment priorities)
+6. `pxkqrokkvozv` — goldens (re-record) — DEFERRED per user 2026-06-11
+
+Stack is clean — `jj log -r 'edge..@'` shows zero `(conflict)` markers
+on any commit. Suite at D12 tip: **341 passed, 12 skipped, 53 xfailed,
+5 xpassed, 0 failed**. Suite at goldens tip: identical (goldens commit
+doesn't change code).
+
+### Stage 1: ns-PASS fix authored
+
+- `polismath/pca_kmeans_rep/repness.py`: `total_votes` and `ns` now
+  count via `('vote', 'size')` (matches Clojure `count-votes`
+  truthy-0 semantics, repness.clj:56-61, :70).
+- `tests/test_repness_unit.py::TestNsIncludesPassVotes`: 4 pure-formula
+  RED tests (mixed AGREE/DISAGREE/PASS, all-PASS, NaN vs PASS, two-group
+  `other_votes`). RED phase verified: all 4 failed pre-fix, all 4 pass
+  post-fix.
+- Plan + journal updated at the ns-PASS commit.
+- Suite delta: 295 → 299 (exactly the 4 new tests). No pre-existing
+  tests broke — confirms the spec's prediction that `TestVectorizedFunctions`
+  fixtures used only AGREE/DISAGREE/NaN (no PASS), inadvertently
+  shielding the bug from blob-fed tests as well as unit tests.
+
+### Stage 2: D11 update + B1/B2 relocation
+
+- D11 `consensus_stats_df` now uses `ns = vote_matrix_df.notna().sum(axis=0)`
+  (Clojure-parity). New `test_ns_includes_pass_votes` in
+  `TestD11ConsensusStatsDf` to lock in the fix.
+- D11 real-data `test_consensus_matches_clojure` xfail dropped — passes
+  on 3 of 4 dataset variants (vw-incremental, vw-cold_start,
+  biodiversity-cold_start XPASS). Re-added as `xfail(strict=False)`
+  for the remaining biodiversity-incremental mismatch (residual upstream
+  PCA/KMeans group-membership divergence at incremental step — not a
+  consensus-stats bug). Real overlap improved dramatically.
+- **B1** (`polismath/conversation/conversation.py` no-groups branch
+  dict shape) applied manually at D11 — path-restricted squash would
+  have pulled D12's larger same-file comment-priorities feature. D12's
+  duplicate B1 hunk dissolved on rebase (idempotent).
+- **B2** (`tests/test_legacy_repness_comparison.py`) clean-squashed
+  from D12 → D11 via `jj squash --from <D12> --to @ <path>`. D12's
+  diff shrunk to 5 files.
+
+### Stage 3: D12 + goldens verified
+
+- D12 reads A/D/S from `_compute_group_votes()` which already uses
+  `np.sum(~np.isnan(...))` (correct, includes PASS — see
+  `conversation.py:1222` region). D12 tests pass unchanged.
+- D12 real-data `test_comment_priorities_exist` still xfailed for the
+  Clojure-all-49 reason — not affected by ns-PASS.
+- Goldens commit verified — only contains the two `golden_snapshot.json`
+  files + downstream plan-doc propagation. No code changes.
+- Goldens commit description updated to add a `## DEFERRED` section
+  per user 2026-06-11: goldens re-records belong to the Python-vs-Python
+  refactor comparison phase, not the current Clojure-parity chase.
+  Snapshot exists as historical reference; DO NOT re-record until we
+  enter that phase.
+
+### Suite tips
+
+- PR 14a tip: 295 passed, 12 skipped, 58 xfailed.
+- ns-PASS tip: 299 passed, 12 skipped, 58 xfailed.
+- D10 tip: clean (no new failures).
+- D11 tip: 330 passed, 12 skipped, 55 xfailed, 3 xpassed.
+- D12 tip: **341 passed, 12 skipped, 53 xfailed, 5 xpassed, 0 failed**.
+- Goldens tip: same as D12 (code unchanged).
+
+### What's Next
+
+Stack is ready for `jj spr update` to push the cascade. Stack maintains
+the 6-commit shape: PR 14a → ns-PASS → D10 → D11 → D12 → goldens.
+
+## Session: Stage 3 — best-agree restructure, serialization plumb, gid 0↔1 label-swap CONFIRMED (2026-06-11, INTERRUPTED near context limit)
+
+Three parallel-clone agents landed Stage 3 work. Full details in
+`~/polis/HANDOFF_STAGE3_INTERRUPTED_2026-06-11.md` — next session start there.
+
+### What landed (in working copy, NOT yet `jj spr update`-pushed)
+
+- **D10 (#2566)** gained: (1) Best-agree slot restructure (S2 / D10.4) — `select_rep_comments_df` now returns `Tuple[pd.DataFrame, Optional[Dict[str, Any]]]`; new `_assemble_rep_comments` wrapper. (2) Xfail reason rewrites on 6 markers — now name 'gid 0↔1 label swap + group-membership divergence'.
+- **D11 (#2567)** cascade-merge resolved (D10's wrapper × D11's mod_out arg).
+- **NEW commit `qtkwrruqsnnw`** between D12 and goldens: plumbs consensus_comments + comment_priorities through to_dict + to_dynamo_dict. 3 round-trip tests pass. Drops 'comment_stats' empty key (no downstream readers).
+
+### CRITICAL FINDING — gid 0↔1 label swap CONFIRMED
+
+Agent C trace on vw-cold_start: Python g0 ∩ Clojure g0 = 0/17 (zero overlap). Python g0 ∩ Clojure g1 = 50/50 (perfect after swap). PR #2524 (D14) verified only k count + (50,17) sizes — NOT memberships. A 50/17 split is invariant under label swap. This is the real cause of D5-D10 cold_start blob mismatches. Fix is a separate PR (canonical group-id sorting or set-based comparison).
+
+### Stack tip suite delta
+
+359 passed, 6 skipped, 52 xfailed, 7 xpassed. PLUS 4 EXPECTED golden-regression failures in test_regression.py (goldens deferred per user; goldens stale vs new outputs). Mark xfail in next session.
+
+### Issue #2571 filed
+
+Clojure priority-metric truthy-0 bug. Linked from conversation.py:109 TODO.
+
+### What's Next
+
+See ~/polis/HANDOFF_STAGE3_INTERRUPTED_2026-06-11.md for the ordered checklist.
+

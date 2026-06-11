@@ -32,7 +32,15 @@ This plan's "PR N" labels map to actual GitHub PRs as follows:
 | PR 8 (D10) | #2566 | — | Fix D10: rep comment selection — single-pass reduce matching Clojure |
 | PR 9 (D11) | #2567 | — | Fix D11: consensus selection — whole-conv stats + per-side top-5 matching Clojure |
 | PR 10 (D3) | — (WIP) | — | Fix D3: k-smoother buffer — **NEEDS REWORK** |
-| PR 11 (D12) | — (in flight) | — | Fix D12: comment priorities — Clojure-parity importance/priority metrics + PCA comment projection |
+| PR 11 (D12) | #2568 | — | Fix D12: comment priorities — Clojure-parity importance/priority metrics + PCA comment projection |
+| Goldens re-record | #2569 | — | Re-record `vw` + `biodiversity` Python golden snapshots — **DEFERRED until Python-vs-Python refactor phase** per user 2026-06-11. Goldens add noise during Clojure-parity chase (they shift on every parity fix). Reactivate when Python pipeline is stable and we're comparing pre-vs-post Python refactor. |
+| PR ns-PASS fix | #2570 | — | Clojure's `:ns` includes PASS via `(count (filter identity ...))`; Python now matches via `('vote', 'size')` in `compute_group_comment_stats_df` + `vote_matrix_df.notna().sum(axis=0)` in `consensus_stats_df`. RED-phase pure-formula tests on hand-built vote matrices (no blob dep). Suite +4 passed. **LANDED 2026-06-11.** |
+| gid 0↔1 label-swap fix | — (planned) | — | **CONFIRMED 2026-06-11 by Investigation C** (workflow `wkx1xlx49` Agent C): Python g0 ∩ Clojure g0 = 0/17 on vw-cold_start; Python g0 ∩ Clojure g1 = 50/50 (perfect after swap). PR #2524 (D14) verified only k count + (50,17) size tuple — a 50/17 split is invariant under label swap. Fix needs canonical group-id sorting OR set-based comparison infrastructure. |
+| Serialization plumb-through | (in working copy, not yet pushed) | — | NEW commit `qtkwrruq` between D12 and goldens: `to_dict`:1894 and `to_dynamo_dict`:2435 now surface `self.repness['consensus_comments']` and `self.comment_priorities` instead of hardcoded empties. 3 round-trip tests in `TestD11D12Serialization`. **Pending push via `jj spr update` — next session.** |
+| Stage 3 D10 follow-ups | (in working copy, folded into #2566) | — | Best-agree slot restructure (S2/D10.4 — Tuple return + `_assemble_rep_comments` wrapper), `_max_rt` sidecar, `agree_metric` DRY, tied-iteration tid-ascending tiebreak, 6 new test gap tests, 6 xfail reason rewrites naming the label-swap. **Pending push.** |
+| Math-blob serialization REFACTOR | — (future session) | — | Larger cleanup of `to_dict` / `to_dynamo_dict` / `_convert_inner` underscore↔hyphen handling toward full Clojure-blob alignment. See HANDOFF_DEFERRED_PRS_2026-06-11. |
+| PR 14b (blob injection) | — (future session) | — | Backfill missing blob injection tests (D7 metric, D8 finalize, full stats-stage). See HANDOFF_DEFERRED_PRS_2026-06-11. |
+| PR 14c (refactor) | — (future session) | — | Readability refactor of `compute_group_comment_stats_df`. See HANDOFF_DEFERRED_PRS_2026-06-11. |
 | PR 13 (D1) | — (WIP) | — | Fix D1: PCA sign flip prevention — **NEEDS REWORK** |
 | PR 15 | — (WIP) | — | Fix load_votes timestamp ordering — **NEEDS REWORK** |
 
@@ -902,10 +910,36 @@ Tagging this as a follow-up. No code changes until we discuss.
 
 ### Other team-discussion items
 
-- **Re-record Python golden snapshots** for `biodiversity` and `vw` once the
-  D5/D6/D7/D8/D9 stack lands and we decide on sklearn KMeans seeding
-  (deterministic via `random_state=<fixed>` vs Clojure's first-k-distinct
-  init vs accept non-determinism + loose tolerance). See
+- **Hardcoded-empty consensus in serializers** (DISCOVERED 2026-06-11 during
+  workflow investigation). `conversation.py:1883` (`to_dict`) and `:2424`
+  (`to_dynamo_dict`) hardcode `result['consensus'] = {}`. The real D11 dict
+  at `self.repness['consensus_comments']` is never copied through. **This
+  is ALREADY affecting production today** — client-report's Majority view
+  is fed empty consensus via Delphi. This is pre-D11 (not D11-introduced)
+  but surfaces now because D11 actually populates `consensus_comments`.
+  Server + client-report already consume the dict shape, so only Delphi's
+  `dynamodb.py` + `test_legacy_repness_comparison.py` need migration. Not
+  in scope for the current parity stack — needs its own PR.
+- **Gid 0↔1 label-swap** (DISCOVERED 2026-06-11 during workflow
+  investigation). Dominant cause of D5/D6/D7/D8/D9/D10 blob-comparison
+  mismatches on `vw` cold_start — NOT ns-PASS, NOT generic upstream
+  PCA/KMeans divergence. PR #2524 (D14/K-inv) verified only the count `k`
+  matched Clojure, never per-(gid, tid) memberships. Group 0 and group 1
+  appear to be swapped between Python and Clojure assignments, so every
+  per-group blob comparison looks divergent when in fact the SET of
+  group memberships matches. Needs follow-up: either canonical
+  group-id sorting (sort by size, descending — matches Clojure's
+  `sort-by :id` for base clusters but groups may need their own canonical
+  order) or test infrastructure that compares group SETS instead of
+  (gid, tid) tuples. See the new "gid 0↔1 label-swap fix" row in the
+  Stack ↔ Plan Cross-Reference table above.
+- **Re-record Python golden snapshots** for `biodiversity` and `vw` —
+  **DEFERRED until Python-vs-Python refactor phase** per user 2026-06-11.
+  Goldens add noise during the Clojure-parity chase: they shift on every
+  parity fix and have to be re-recorded with no oracle (the Clojure blob
+  is the only ground truth right now). Reactivate this once the Python
+  pipeline is stable and we're comparing pre-vs-post Python refactor
+  (sklearn KMeans seeding decision, etc.). See
   `delphi/scratch/COPILOT_MATH_QUESTIONS.md` post-stack TODO.
 - **scalar/vectorized pi_hat > 1 divergence** (`two_prop_test`): Clojure
   returns NaN silently, Python scalar raises ValueError, Python vectorized
@@ -919,18 +953,25 @@ Tagging this as a follow-up. No code changes until we discuss.
   `:ns` (via `count-votes` with `filter identity` — repness.clj:56-61) INCLUDES
   PASS votes. Python's `compute_group_comment_stats_df` and `consensus_stats_df`
   both compute `ns = na + nd`, excluding PASS. This is a real divergence that
-  affects `pa, pd, pat, pdt, ra, rd, rat, rdt` everywhere — every downstream
-  metric and selection. The D5 PR #2519 journal claim ("PASS NOT included,
-  matching Clojure") was based on a misreading of `count-votes`. Currently
-  causing 3-5% divergence in pat values for tids with non-zero PASS counts;
-  visible at the consensus-selection margins (4/6 overlap on vw cold_start
-  agree, 1/3 on disagree). Needs a dedicated PR — affects:
+  affects `pa, pd, pat, pdt, ra, rd, rat, rdt` for any tid with non-zero PASS
+  counts. The D5 PR #2519 journal claim ("PASS NOT included, matching Clojure")
+  was based on a misreading of `count-votes`. **Scope clarification
+  (2026-06-11 workflow investigation):** ns-PASS is real but is NOT the
+  dominant cause of D5/D6/D7/D8 blob-comparison mismatches on `vw` cold_start
+  — that is the **gid 0↔1 label-swap** (see above). ns-PASS contributes ~3-5%
+  divergence in pat for affected tids; visible at the consensus-selection
+  margins (4/6 overlap on vw cold_start agree, 1/3 on disagree). Needs a
+  dedicated PR — affects:
     - `compute_group_comment_stats_df` (line ~283: `ns = na + nd`).
     - `consensus_stats_df` (line ~435: `ns = na + nd`).
   Fix: `ns = (vote_matrix_df != 0).sum(axis=0)` no, actually we want to
   count non-NaN: `ns = vote_matrix_df.notna().sum(axis=0)` for wide format;
   for long-format `votes_long.groupby('comment').size()` after dropna.
-  Re-record goldens afterward.
+  **RED test MUST be a pure-formula unit test on hand-built vote matrices.**
+  D5 BlobInjection tests didn't catch ns-PASS because they inject `n_trials`
+  directly from the blob, bypassing the `ns` computation entirely — so no
+  blob-fed test will ever surface this. Re-recording goldens afterward is
+  DEFERRED to the Python-vs-Python refactor phase (see above).
 - **D10 take-5 eviction edge case** (2026-06-11). The Clojure-parity
   `select_rep_comments_df` introduced in PR 8 mirrors Clojure exactly:
   `take(5)` runs AFTER prepending the `best_agree` slot. When `best_agree`
