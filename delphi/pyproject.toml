@@ -79,6 +79,11 @@ dev = [
     # Type stubs
     "types-requests",
     "types-psycopg2",
+    # pandas 2.3 has no `py.typed` marker, so pyright falls back to bundled
+    # stubs that mistype DataFrame.__getitem__ as ndarray. pandas-stubs is the
+    # official stubs package from the pandas-dev org and resolves ~50 false
+    # positives in polismath/pca_kmeans_rep/repness.py alone.
+    "pandas-stubs>=3.0.3.260530",
     # Profiling
     "line_profiler>=4.0.0",
 ]

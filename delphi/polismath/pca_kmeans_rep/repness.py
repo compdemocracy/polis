@@ -463,8 +463,10 @@ def calculate_kl_divergence(p: np.ndarray, q: np.ndarray) -> float:
     # Replace zeros to avoid division by zero
     p = np.where(p == 0, 1e-10, p)
     q = np.where(q == 0, 1e-10, q)
-    
-    return np.sum(p * np.log(p / q))
+
+    # numpy stubs: np.where widens p to ndarray|bool_, so np.sum is typed bool_.
+    # See pyright #2811.
+    return np.sum(p * np.log(p / q))  # pyright: ignore[reportReturnType]
 
 
 def select_consensus_comments(all_stats: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
@@ -538,7 +540,9 @@ def prop_test_vectorized(succ: pd.Series, n: pd.Series) -> pd.Series:
     z = 2 * np.sqrt(n_pc) * (succ_pc / n_pc - 0.5)
     # No n=0 short-circuit — Clojure parity (see scalar prop_test). n=0 rows
     # collapse to 1.0 via the +1 pseudocount; downstream callers do not gate on it.
-    z = z.fillna(0.0)
+    # numpy stubs lose Series-ness through np.sqrt, so pyright types z as NDArray
+    # and can't see .fillna. See pyright #4081.
+    z = z.fillna(0.0)  # pyright: ignore[reportAttributeAccessIssue]
     return z
 
 
