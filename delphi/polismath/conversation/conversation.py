@@ -753,16 +753,22 @@ class Conversation:
 
         # Check if we have groups
         if not self.group_clusters:
+            # B1 fix (D11 sub-agent review): consensus_comments must always be
+            # `{'agree': [], 'disagree': []}` (dict) post-D11, never `[]` (list).
             self.repness = {
                 'comment_ids': list(self.rating_mat.columns),
                 'group_repness': {},
-                'consensus_comments': []
+                'consensus_comments': {'agree': [], 'disagree': []}
             }
             logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s (no groups)")
             return
 
-        # Compute representativeness (needs participant IDs, not base-cluster IDs)
-        self.repness = conv_repness(self.rating_mat, self._unfolded_group_clusters())
+        # Compute representativeness (needs participant IDs, not base-cluster IDs).
+        # `mod_out=self.mod_out_tids` forwards moderated-out tids to the rep + consensus
+        # selectors (Clojure parity per D11 / PR 9; matches repness.clj:222 and :296).
+        self.repness = conv_repness(self.rating_mat,
+                                    self._unfolded_group_clusters(),
+                                    mod_out=self.mod_out_tids)
         logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s")
 
     def _compute_participant_info_optimized(self, vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:

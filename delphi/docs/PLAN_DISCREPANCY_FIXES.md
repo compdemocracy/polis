@@ -29,9 +29,8 @@ This plan's "PR N" labels map to actual GitHub PRs as follows:
 | PR 12 (D15) | #2523 | Stack 16/17 | Fix D15: moderation handling |
 | (K-inv) | #2524 | Stack 17/17 | Fix K-means k divergence: preserve row order |
 | PR 14a (scalar deletion) | #2564 | — | Delete dead scalar paths in `repness.py`; migrate blob injection tests to vectorized |
-| PR ns-PASS fix | — (in flight) | — | Fix `ns` to include PASS votes in `compute_group_comment_stats_df` (Clojure `count-votes` parity) |
-| PR 8 (D10) | — (in flight) | — | Fix D10: rep comment selection — single-pass reduce matching Clojure |
-| PR 9 (D11) | — (WIP) | — | Fix D11: consensus selection — **NEEDS REWORK** |
+| PR 8 (D10) | #2566 | — | Fix D10: rep comment selection — single-pass reduce matching Clojure |
+| PR 9 (D11) | — (in flight) | — | Fix D11: consensus selection — whole-conv stats + per-side top-5 matching Clojure |
 | PR 10 (D3) | — (WIP) | — | Fix D3: k-smoother buffer — **NEEDS REWORK** |
 | PR 11 (D12) | — (WIP) | — | Fix D12: comment priorities — **NEEDS REWORK** |
 | PR 13 (D1) | — (WIP) | — | Fix D1: PCA sign flip prevention — **NEEDS REWORK** |
@@ -916,6 +915,22 @@ Tagging this as a follow-up. No code changes until we discuss.
 - **`to_dynamo_dict` parallel inline implementations** were refactored to
   route through the same helpers as `to_dict` in PR #2523 follow-up. No
   further action needed.
+- **`ns` includes-PASS-divergence** (DISCOVERED 2026-06-11 during D11). Clojure's
+  `:ns` (via `count-votes` with `filter identity` — repness.clj:56-61) INCLUDES
+  PASS votes. Python's `compute_group_comment_stats_df` and `consensus_stats_df`
+  both compute `ns = na + nd`, excluding PASS. This is a real divergence that
+  affects `pa, pd, pat, pdt, ra, rd, rat, rdt` everywhere — every downstream
+  metric and selection. The D5 PR #2519 journal claim ("PASS NOT included,
+  matching Clojure") was based on a misreading of `count-votes`. Currently
+  causing 3-5% divergence in pat values for tids with non-zero PASS counts;
+  visible at the consensus-selection margins (4/6 overlap on vw cold_start
+  agree, 1/3 on disagree). Needs a dedicated PR — affects:
+    - `compute_group_comment_stats_df` (line ~283: `ns = na + nd`).
+    - `consensus_stats_df` (line ~435: `ns = na + nd`).
+  Fix: `ns = (vote_matrix_df != 0).sum(axis=0)` no, actually we want to
+  count non-NaN: `ns = vote_matrix_df.notna().sum(axis=0)` for wide format;
+  for long-format `votes_long.groupby('comment').size()` after dropna.
+  Re-record goldens afterward.
 - **D10 take-5 eviction edge case** (2026-06-11). The Clojure-parity
   `select_rep_comments_df` introduced in PR 8 mirrors Clojure exactly:
   `take(5)` runs AFTER prepending the `best_agree` slot. When `best_agree`

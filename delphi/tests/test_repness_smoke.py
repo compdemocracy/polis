@@ -100,14 +100,16 @@ class TestRepnessImplementation:
                 assert 'repful' in comment  # 'agree', 'disagree', or other type
                 logger.debug(f"Group {group_id}: {len(comments)} representative comments")
 
-        # Check consensus comments if present
+        # Check consensus comments if present. Post-D11 (PR 9), shape is
+        # `{'agree': [...], 'disagree': [...]}` matching Clojure (repness.clj:322-323).
         if 'consensus_comments' in repness_results:
             consensus = repness_results['consensus_comments']
-            logger.debug(f"Consensus comments: {len(consensus)}")
+            agree = consensus.get('agree', [])
+            disagree = consensus.get('disagree', [])
+            logger.debug(f"Consensus: {len(agree)} agree, {len(disagree)} disagree")
 
-            if len(consensus) > 0:
-                comment = consensus[0]
-                assert 'comment_id' in comment
+            for entry in agree + disagree:
+                assert 'comment_id' in entry
 
         logger.debug("✓ Representativeness structure validated")
 
