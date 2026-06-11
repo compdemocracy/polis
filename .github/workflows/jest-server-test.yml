@@ -1,5 +1,9 @@
 name: Server Integration Tests
 
+concurrency:
+  group: jest-server-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ edge, stable ]

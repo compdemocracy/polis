@@ -1,5 +1,13 @@
 name: Deploy Preprod Assets
 
+# `cancel-in-progress: false` collapses the queue without killing an
+# in-flight deploy: during a rapid series of pushes to edge (e.g. a stack
+# merge), the running deploy finishes and only the newest queued commit
+# deploys afterwards. Intermediate queued deploys get cancelled.
+concurrency:
+  group: deploy-preprod-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   push:
     branches:

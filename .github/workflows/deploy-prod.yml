@@ -1,5 +1,12 @@
 name: Deploy Prod Assets
 
+# `cancel-in-progress: false` collapses the queue without killing an
+# in-flight deploy: during a rapid series of pushes to stable, the running
+# deploy finishes and only the newest queued commit deploys afterwards.
+concurrency:
+  group: deploy-prod-${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   push:
     branches:

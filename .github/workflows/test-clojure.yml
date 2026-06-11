@@ -1,5 +1,9 @@
 name: Test Math
 
+concurrency:
+  group: test-clojure-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: ["dev", "504-clj-tests"]

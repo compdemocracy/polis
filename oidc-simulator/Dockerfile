@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # Use an official Node.js runtime as a parent image
 FROM node:24-slim
 
@@ -15,7 +16,7 @@ COPY package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 # Bundle app source
 COPY . .
