@@ -1,5 +1,9 @@
 name: Delphi Python Tests
 
+concurrency:
+  group: python-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ edge, stable ]
@@ -45,12 +49,16 @@ jobs:
           echo "::error::test.env file not found!"
           exit 1
         fi
-        
+
         # Add hostnames for container-to-container networking
         # The 'delphi' service in 'docker-compose.test.yml' reads these
         echo "POSTGRES_HOST=postgres" >> .env
         echo "DYNAMODB_ENDPOINT=http://dynamodb:8000" >> .env
         echo "AWS_S3_ENDPOINT=http://minio:9000" >> .env
+
+    # BuildKit is required by `RUN --mount=type=cache` in the npm Dockerfiles.
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
     - name: 3. Build Docker images
       run: |

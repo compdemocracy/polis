@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 FROM node:24-alpine
 WORKDIR /app
 
@@ -17,7 +18,7 @@ COPY package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm npm ci
 COPY . .
 
 RUN npm run build
