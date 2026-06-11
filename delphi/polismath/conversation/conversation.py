@@ -1891,12 +1891,15 @@ class Conversation:
         # a list-of-dicts format that would break server/src/report.ts,
         # server/src/utils/pca.ts, and client-participation-alpha consumers.
 
-        # Add empty consensus structure for compatibility
-        result['consensus'] = {
-            'agree': [],
-            'disagree': [],
-            'comment-stats': {}
-        }
+        # Surface D11 consensus comments (Clojure parity: client-report's Majority
+        # view consumes result['consensus']). Pre-Investigation-B this block was
+        # hardcoded empty, which silently zeroed the Majority view regardless of
+        # the D11 selection. Falls back to the empty shape when repness is missing
+        # or did not produce a consensus_comments dict (older blobs, no-group convs).
+        result['consensus'] = (
+            self.repness.get('consensus_comments', {'agree': [], 'disagree': []})
+            if self.repness else {'agree': [], 'disagree': []}
+        )
         
         # Add math_tick value
         current_time = int(time.time())
@@ -2432,12 +2435,14 @@ class Conversation:
             }
             result['pca'] = float_to_decimal(pca_data)
         
-        # Add consensus structure
-        result['consensus'] = {
-            'agree': [],
-            'disagree': [],
-            'comment_stats': {}
-        }
+        # Surface D11 consensus comments (Clojure parity). Pre-Investigation-B
+        # this block was hardcoded empty, so the DynamoDB blob never carried the
+        # D11 dict even when repness produced one. Falls back to the empty shape
+        # when repness is missing or didn't produce consensus_comments.
+        result['consensus'] = (
+            self.repness.get('consensus_comments', {'agree': [], 'disagree': []})
+            if self.repness else {'agree': [], 'disagree': []}
+        )
         
         # Add math_tick value
         current_time = int(time.time())
