@@ -29,6 +29,7 @@ This plan's "PR N" labels map to actual GitHub PRs as follows:
 | PR 12 (D15) | #2523 | Stack 16/17 | Fix D15: moderation handling |
 | (K-inv) | #2524 | Stack 17/17 | Fix K-means k divergence: preserve row order |
 | PR 14a (scalar deletion) | — (in flight) | — | Delete dead scalar paths in `repness.py`; migrate blob injection tests to vectorized |
+| PR ns-PASS fix | — (planned) | — | Fix `ns` to include PASS votes in `compute_group_comment_stats_df` (Clojure `count-votes` parity) |
 | PR 8 (D10) | — (WIP) | — | Fix D10: rep comment selection — **NEEDS REWORK** |
 | PR 9 (D11) | — (WIP) | — | Fix D11: consensus selection — **NEEDS REWORK** |
 | PR 10 (D3) | — (WIP) | — | Fix D3: k-smoother buffer — **NEEDS REWORK** |

@@ -1347,3 +1347,64 @@ PR 14a unblocks (in stack order):
    readability reference. Research agent produced a clean split proposal:
    `_build_group_comment_index` (plumbing) + `_compute_per_group_stats`
    (math) + 5-line orchestrator.
+
+## Session: ns-PASS fix (2026-06-11)
+
+**Context.** While preparing the D10/D11/D12 rework on top of PR 14a, a
+Clojure re-read surfaced a latent bug in `compute_group_comment_stats_df`:
+`ns` (and `total_votes`) were computed as `na + nd`, silently dropping PASS
+votes. Clojure's `:ns` is `(count-votes votes)` (math/repness.clj:56-61,
+:70), which calls `(filter identity votes)`. In Clojure 0 is truthy, so
+PASS (0) counts; only `nil` is filtered out. Therefore Clojure
+`ns = na + nd + np`, and every downstream metric (`pa`, `pd`, `pat`,
+`pdt`, `ra`, `rd`, `rat`, `rdt`, `agree_metric`, `disagree_metric`, plus
+D11's `consensus_stats_df` which will mirror the same recipe at the
+whole-conversation level) was off whenever PASS votes existed.
+
+**Why D5 BlobInjection didn't catch it.** D5's blob-injection tests pull
+`(n-success, n-trials)` straight from the Clojure blob's `repness`
+entries and feed them to `prop_test_vectorized`. They bypass
+`compute_group_comment_stats_df` entirely, so the bug downstream of
+`ns = na + nd` was invisible. The same gap will recur for D11 / D12 until
+we ship pure-formula tests that build a tiny vote matrix and assert on the
+counts. Lesson: blob-injection is necessary but not sufficient — every
+formula whose inputs are themselves computed by Python needs at least one
+pure-formula unit test that exercises the input-building code.
+
+**TDD cycle.**
+- **BASELINE** — full suite at PR 14a parent: 295 passed, 12 skipped,
+  58 xfailed.
+- **RED** — added `TestNsIncludesPassVotes` in `tests/test_repness_unit.py`
+  with four pure-formula tests: single-comment mixed AGREE/DISAGREE/PASS,
+  all-PASS column, NaN-vs-PASS distinction, two-group `other_votes`
+  including out-group PASS. All four failed on the buggy code (4 fails).
+- **GREEN** — in `polismath/pca_kmeans_rep/repness.py`:
+  - `total_counts` now computes `total_votes=('vote', 'size')` directly in
+    the groupby agg, instead of `total_agree + total_disagree`.
+  - `group_counts` now computes `ns=('vote', 'size')` directly, instead of
+    `na + nd`.
+  - `'size'` on the already-`dropna(subset=['vote'])`-filtered frame counts
+    exactly the non-NaN entries — including PASS (0). This is the
+    Clojure `(count (filter identity votes))` recipe verbatim.
+  - Both sites carry a comment citing repness.clj:56-61, :70 and the
+    truthy-0 reasoning.
+  - Docstring updated: `ns` now documented as `agree + disagree + PASS`.
+- **FULL SUITE** — 299 passed, 12 skipped, 58 xfailed. Delta = +4
+  (exactly the new ns-PASS tests). No existing pre-PR-14a or PR-14a test
+  broke. The pre-existing `TestVectorizedFunctions` fixtures use only
+  AGREE/DISAGREE/NaN (no PASS), so they were never sensitive to the bug.
+
+**Cascade to D11.** D11's plan introduces a `consensus_stats_df(vote_matrix_df)`
+function computing whole-conversation stats (the `:mod-out` Clojure path).
+That function will inevitably mirror the same `na + nd + np` recipe — so
+the ns-PASS fix lands BEFORE D10 in the stack to keep D11's implementation
+clean. D11 should follow the same pure-formula test pattern: build a vote
+matrix with mixed PASS and assert `ns == count of non-NaN cells`.
+
+**Goldens.** Stays DEFERRED. Re-recording is gated on
+sklearn-KMeans-seeding consensus (see scratch/COPILOT_MATH_QUESTIONS.md);
+no values shift at the goldens commit until D10/D11/D12 land.
+
+**Stack position.** New commit inserted between PR 14a (#2564) and D10
+(#2566). D10, D11, D12, goldens rebased cleanly on top — no conflict
+markers in `jj log -r 'edge..@+++++'`.
