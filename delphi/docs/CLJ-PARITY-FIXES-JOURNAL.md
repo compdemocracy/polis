@@ -1216,3 +1216,134 @@ ever appears in real Polis data. It does.
   out of this committed doc; the unredacted findings are in Claude's
   per-project memory store (`~/.claude/projects/...`). Open a follow-up
   discussion with the team before any user-facing action.
+
+## Session: PR 14a — Scalar deletion (2026-06-11)
+
+Foundation pass before D10/D11/D12. The scalar implementations in
+`repness.py` were test-only (production calls only `compute_group_comment_stats_df`
++ `select_rep_comments_df` + `select_consensus_comments_df` via
+`conv_repness`). Deleting them removes the "where do I put this helper?"
+ambiguity for D10/D11/D12 (which all add new helpers to `repness.py`) and
+shrinks the test surface by ~35 obsolete unit tests.
+
+### What landed
+
+**Production code (`delphi/polismath/pca_kmeans_rep/repness.py`)** — 445 lines deleted:
+- DELETE primitives: `prop_test`, `two_prop_test` (both also dead in production —
+  only test consumers).
+- DELETE orchestration: `comment_stats`, `add_comparative_stats`, `repness_metric`,
+  `finalize_cmt_stats`, `passes_by_test`, `best_agree`, `best_disagree`,
+  `select_rep_comments`, `select_consensus_comments`.
+- DELETE unused: `calculate_kl_divergence` (no callers anywhere).
+- KEEP: `z_score_sig_90`, `z_score_sig_95` (trivial threshold checks used scalar-side
+  in selection logic; vectorizing them would not save lines).
+- ENRICH docstrings: `prop_test_vectorized` and `two_prop_test_vectorized` now
+  embed the scalar-equivalent closed-form algebra (so the formula stays readable
+  even though the scalar functions are gone). Pattern from the user during the
+  PR 14a discussion: "where we cannot achieve readability on the vectorized,
+  put in comments showing the non-vectorized equivalent."
+
+**Tests** — net -35 passed tests (296 → 295... actually delta is 330 → 295):
+- DELETE entirely: `tests/test_old_format_repness.py` (557 lines, mirror of
+  scalar-only tests in `test_repness_unit.py`; the "old format" was the scalar
+  dict-in/dict-out API).
+- DELETE classes: `TestCommentStats`, `TestSelectionFunctions`,
+  `TestConsensusAndGroupRepness` in `test_repness_unit.py`. Also
+  `TestStatisticalFunctions::test_prop_test` and `test_two_prop_test`.
+- MIGRATE D4/D5/D6 BlobInjection (`test_discrepancy_fixes.py:1602+`) from
+  per-(gid, tid) scalar loop calls to a single vectorized call on a DataFrame
+  built from the blob's `repness` entries. This pattern (1) tests the actual
+  production code path, (2) produces a `.to_string()` diagnostic that beats
+  hand-formatted f-strings, (3) drops loop overhead.
+- MIGRATE `TestD5ProportionTest::test_prop_test_matches_clojure_formula`,
+  `TestD6TwoPropTest::test_two_prop_test_matches_clojure_formula` + edge cases
+  to single vectorized calls on N-row DataFrames.
+- CONSOLIDATE `TestD8FinalizeStats`'s 7 scalar boundary tests into one
+  parametrized DataFrame test (`test_repful_classification_boundary`) that
+  exercises the production `np.where(rat > rdt, 'agree', 'disagree')` logic.
+  Boundary cases preserved: `rat < rdt`, `rat > rdt`, `rat == rdt` (non-zero,
+  zero), negative z-scores.
+- MIGRATE `TestD7RepnessMetric::test_metric_formula_is_product` to hand-computed
+  reference values (`1.3*1.8*0.8*2.5 = 4.68` for agree, `0.7*-0.9*0.2*-1.5 = 0.189`
+  for disagree — signed product).
+- DELETE redundant scalar-formula tests in `TestSyntheticEdgeCases`
+  (test_prop_test_matches_clojure_formula_synthetic — duplicated by migrated
+  TestD5ProportionTest; test_clojure_repness_metric_product — duplicated by
+  TestD7RepnessMetric; test_clojure_repful_uses_rat_vs_rdt — purely tautological).
+- Rename misleading `test_compute_group_comment_stats_matches_scalar` →
+  `test_compute_group_comment_stats_consistency_with_conv_repness`.
+- Cross-checks in `TestVectorizedFunctions` (test_repness_unit.py) replaced
+  inline scalar calls with `_prop_test_reference` / `_two_prop_test_reference`
+  closed-form staticmethods.
+
+### Suite delta (pre/post PR 14a)
+
+- Pre-baseline (edge @ 2dce7385f): **330 passed, 12 skipped, 58 xfailed**.
+- Post (@ this PR): **295 passed, 12 skipped, 58 xfailed**.
+- Delta: -35 passed, 0 failed, 0 new xfailed. The -35 matches the deleted
+  scalar-only test count (test_old_format_repness ~20 + scalar classes in
+  test_repness_unit ~9 + scalar test methods in test_discrepancy_fixes ~6
+  consolidated/removed).
+
+### For PR 14c (readability refactor)
+
+PR 14c will refactor `compute_group_comment_stats_df` for readability and
+needs to mirror the scalar recipe. **The deleted scalar code is the
+reference.** Retrieve via:
+
+```bash
+git show <PR-14a-commit>~1:delphi/polismath/pca_kmeans_rep/repness.py \
+  | sed -n '161,302p'
+```
+
+Specifically (using the pre-deletion line numbers — file was 1008 lines at
+edge HEAD 2dce7385f):
+
+- `comment_stats` lines 161-201 — the per-(group, comment) recipe.
+- `add_comparative_stats` lines 203-235 — in-vs-out comparison.
+- `repness_metric` lines 237-271 — the `r*rt*p*pt` product.
+- `finalize_cmt_stats` lines 273-301 — agree-vs-disagree branch.
+
+The pre-PR-14a commit hash will be the parent of PR 14a's commit. Clojure
+originals: `math/src/polismath/math/repness.clj:78-100,173-188,191-200`.
+
+### Pyright noise (unrelated to PR 14a, raised same session)
+
+Discovered during PR 14a that pyright produces ~10 errors on `repness.py` from
+pandas-stubs false positives (`pd.DataFrame(columns=...)`, `df['col'] = value`,
+Series-vs-DataFrame narrowing). PR #2560 added a pyright config that points
+at `delphi/.venv` but did NOT set any rule overrides, so default-mode
+`reportArgumentType` / `reportIndexIssue` errors surface for valid pandas code.
+Verified pre-existing on edge HEAD (not introduced by PR 14a).
+
+Handoff written: `~/polis/HANDOFF_PYRIGHT_PANDAS_STUBS.md`. Do NOT just turn
+off rules globally — investigate pandas-stubs version, community patterns,
+targeted ignores. Tracked as Claude task #8.
+
+### What's Next
+
+PR 14a unblocks (in stack order):
+1. **D10** — Rep comment selection. Research agent already produced a fix
+   proposal (this session). Helpers `passes_by_test`, `beats_best_by_test`,
+   `beats_best_agr` go top-level in `repness.py`; reduce structure uses
+   `df.to_dict('records')` iteration with mutable `{sufficient, best, best_agree}`
+   state. Boundary cases identified for synthetic test fixtures.
+2. **D11** — Consensus selection. Research agent produced a fix proposal:
+   needs new `consensus_stats_df(vote_matrix_df) -> pd.DataFrame` (whole-data,
+   not per-group), plus rewrite of `select_consensus_comments_df` with the
+   `{'agree': [...], 'disagree': [...]}` output shape (top 5 each).
+   `conv_repness` must grow `mod_out` kwarg.
+3. **D12** — Comment priorities. Research agent produced a fix proposal:
+   Clojure source at `conversation.clj:311-330,341-352,648-679`;
+   `pca.clj:167-178`. Needs new `pca_project_cmnts`, `comment_extremity`,
+   `importance_metric`, `priority_metric` in Python. `meta_tids` shape mismatch
+   (Python set vs Clojure map) flagged.
+4. **PR 14b** — Backfill missing blob injection tests (D7 metric, D8 finalize,
+   full stats-stage injection).
+5. **Goldens** — Re-record `vw` and `biodiversity` (sklearn KMeans seeding
+   decision pending — see `delphi/scratch/COPILOT_MATH_QUESTIONS.md`).
+6. **PR 14c** — Readability refactor of `compute_group_comment_stats_df`,
+   using the deleted scalar code (retrievable via `git show`) as the
+   readability reference. Research agent produced a clean split proposal:
+   `_build_group_comment_index` (plumbing) + `_compute_per_group_stats`
+   (math) + 5-line orchestrator.
