@@ -1,5 +1,7 @@
 # ZID Exposure Audit - Delphi Routes
 
+> **Status (2026-06-11):** Still open — `conversation_id` (zid) is still exposed in delphi API responses (e.g., `server/src/routes/delphi.ts` response assembly). The remediation steps below were never executed.
+
 ## 🚨 **CRITICAL WARNING - FIELD NAME AMBIGUITY**
 
 **The term "conversation_id" is DANGEROUSLY AMBIGUOUS and could mean:**
@@ -292,6 +294,6 @@ href={`${urlPrefix + conversation.conversation_id}`}
 
 ---
 
-**Document Created**: $(date)
-**Last Updated**: $(date)  
+**Document Created**: 2025-06-07
+**Last Updated**: 2025-06-07  
 **Status**: 🔴 Active remediation required

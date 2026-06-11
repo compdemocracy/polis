@@ -151,12 +151,14 @@ Same structure as POST, but replaces existing selections entirely.
 
 ### Phase 2: Frontend Integration
 
-1. Update `TopicAgenda.jsx` to call save API on "Done" click
+1. Update `TopicAgenda.tsx` to call save API on "Done" click
 2. Add loading states and error handling
 3. Implement retrieval on component mount
 4. Add confirmation UI for overwrites
 
-### Phase 3: Cross-Run Persistence
+### Phase 3: Cross-Run Persistence (designed, never implemented)
+
+The current system stores selections by comment ID and does not handle cluster drift across Delphi re-runs.
 
 1. Implement comment matching algorithm for new Delphi runs
 2. Create migration logic for when clusters change

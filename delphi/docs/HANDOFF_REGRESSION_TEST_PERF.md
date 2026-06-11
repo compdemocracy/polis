@@ -1,5 +1,7 @@
 # Handoff: Regression Test Performance Investigation
 
+> **Status (2026-06-11):** Bottleneck 1 (`_compute_participant_info_optimized`) was vectorized (conversation.py group-correlation matrix ops). Bottleneck 2 (benchmark 3× runs) is resolved — `benchmark=False` is now the default in `comparer.py` and `test_regression.py` never enables it. `SKIP_GOLDEN` landed via #2515. Only the intermediate-stage redundancy question (Bottleneck 3) remains open.
+
 ## Problem
 
 The `test_regression.py` tests are slow for large private datasets, particularly

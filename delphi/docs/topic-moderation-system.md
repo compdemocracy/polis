@@ -141,8 +141,9 @@ Before using TopicMod, ensure the Delphi pipeline has been run:
 # Generate embeddings and clusters
 python 500_generate_embedding_umap_cluster.py
 
-# Generate topic names using LLM
-python 600_generate_llm_topic_names.py
+# Topic naming now runs inline in umap_narrative/run_pipeline.py (Ollama)
+# as part of the full pipeline job — no separate script.
+# (600_generate_llm_topic_names.py was deleted)
 
 # Create visualizations
 python 700_datamapplot_for_layer.py

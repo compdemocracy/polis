@@ -325,5 +325,5 @@ print(f"Reset {count} stuck jobs")
 ## Related Documentation
 
 - [JOB_QUEUE_SCHEMA.md](JOB_QUEUE_SCHEMA.md) - Details about the job queue schema
-- [ANTHROPIC_BATCH_API_GUIDE.md](ANTHROPIC_BATCH_API_GUIDE.md) - Guide for working with Anthropic's Batch API
-- [DATABASE_NAMING_PROPOSAL.md](DATABASE_NAMING_PROPOSAL.md) - Information about database naming conventions
+- [DATA_FORMAT_STANDARDS.md](DATA_FORMAT_STANDARDS.md) - DynamoDB key formats and reserved-keyword handling
+- [JOB_STATE_MACHINE_DESIGN.md](JOB_STATE_MACHINE_DESIGN.md) - Job types and state transitions
