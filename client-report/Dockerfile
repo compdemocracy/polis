@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 # NOTE: This Dockerfile is not actually used by the docker-compose.yml.
 # Instead, the file-server Dockerfile builds and serves these assets.
 # But this file is still useful for development or deployments that do not use
@@ -18,7 +19,7 @@ COPY package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
 COPY . .
 
