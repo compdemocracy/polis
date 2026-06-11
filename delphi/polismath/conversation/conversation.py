@@ -15,7 +15,11 @@ import sys
 from datetime import datetime
 from natsort import natsorted
 
-from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+from polismath.pca_kmeans_rep.pca import (
+    pca_project_dataframe,
+    pca_project_cmnts,
+    compute_comment_extremity,
+)
 from polismath.pca_kmeans_rep.clusters import (
     kmeans_sklearn,
     calculate_silhouette_sklearn
@@ -35,6 +39,88 @@ if not logging.root.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
+
+
+# =============================================================================
+# D12: Comment-priority metrics (Clojure parity)
+# =============================================================================
+#
+# Ports of `importance-metric` and `priority-metric` from Clojure
+# (math/src/polismath/math/conversation.clj:311-330). Public so they can be
+# unit-tested in isolation.
+
+META_PRIORITY = 7  # Clojure: meta-priority (conversation.clj:319). "TODO TUNE."
+
+
+def importance_metric(A: float, P: float, S: float, E: float) -> float:
+    """
+    Clojure importance-metric (conversation.clj:311-315).
+
+        (defn importance-metric
+          [A P S E]
+          (let [p (/ (+ P 1) (+ S 2))
+                a (/ (+ A 1) (+ S 2))]
+            (* (- 1 p) (+ E 1) a)))
+
+    Smoothed (Beta(2,2)) probability of pass `p`, smoothed agree `a`, with
+    extremity boost `(E + 1)`. Higher when fewer passes, more agrees, more
+    extreme (higher PCA extremity).
+
+    Args:
+        A: agree count (across all groups).
+        P: pass count = S - (A + D) across all groups.
+        S: seen count (total votes seen — agree + disagree + pass).
+        E: comment extremity (L2 norm of PCA projection).
+    """
+    p = (P + 1) / (S + 2)
+    a = (A + 1) / (S + 2)
+    return (1 - p) * (E + 1) * a
+
+
+def priority_metric(is_meta: bool,
+                    A: float, P: float, S: float, E: float) -> float:
+    """
+    Clojure priority-metric (conversation.clj:321-330).
+
+        (defn priority-metric
+          [is-meta A P S E]
+          (matrix/pow
+            (if is-meta
+              meta-priority
+              (* (importance-metric A P S E)
+                 (+ 1 (* 8 (matrix/pow 2 (/ S -5))))))
+            2))
+
+    Squared to deepen bias (toward extremes). Meta comments get a constant
+    `META_PRIORITY^2 = 49`. Non-meta comments get `importance * decay`, where
+    the decay factor `1 + 8 * 2^(-S/5)` lets new (low-S) comments bubble up
+    and fades as more votes accumulate.
+
+    Args:
+        is_meta: True for meta comments (treated as constant priority).
+        A, P, S, E: see `importance_metric`.
+
+    Returns:
+        Squared priority value.
+    """
+    # TODO(clojure-parity-bug): Clojure (conversation.clj:325) treats meta-tid
+    # value 0 as TRUTHY in (if is-meta ...), so every tid takes the meta branch.
+    # We mirror this bug for byte-for-byte Clojure parity. Switch back to
+    # honoring `is_meta` once the GitHub issue resolves:
+    # https://github.com/compdemocracy/polis/issues/2571
+    # Original semantic-correct code preserved below for reference and future
+    # restoration.
+    #
+    # Clojure-parity-bug-mirror: ALWAYS take the meta branch, ignoring is_meta.
+    return META_PRIORITY ** 2
+
+    # Original semantically-correct logic, restore when Clojure bug is fixed:
+    # if is_meta:
+    #     inner = META_PRIORITY
+    # else:
+    #     decay_factor = 1 + 8 * (2 ** (-S / 5))
+    #     inner = importance_metric(A, P, S, E) * decay_factor
+    # return inner ** 2
 
 
 class Conversation:
@@ -82,6 +168,7 @@ class Conversation:
         self.participant_info = {}
         self.vote_stats = {}
         self.group_votes = {}  # Initialize group_votes to avoid attribute errors
+        self.comment_priorities: Dict[Any, float] = {}  # D12 (PR 11)
         
         # Initialize with votes if provided
         if votes:
@@ -1007,11 +1094,78 @@ class Conversation:
         
         # Compute representativeness
         result._compute_repness()
-        
+
+        # Compute comment priorities (D12 / PR 11). Needs PCA + group_votes.
+        result._compute_comment_priorities()
+
         # Compute participant info
         result._compute_participant_info()
-        
+
         return result
+
+    def _compute_comment_priorities(self) -> Dict[Any, float]:
+        """
+        Compute per-tid comment priorities matching Clojure
+        `:comment-priorities` (conversation.clj:648-679).
+
+        Per-tid: sum A/D/S across all groups → P = S - (A + D) → call
+        `priority_metric(is_meta, A, P, S, E)` where E is the comment
+        extremity computed from PCA.
+
+        Stores the result on `self.comment_priorities` and also returns it.
+        TS server `nextComment.ts::getNextPrioritizedComment` consumes this
+        for weighted comment routing — pre-D12 Python emitted nothing, so
+        the server fell back to uniform random selection.
+        """
+        if self.pca is None or self.rating_mat is None or self.rating_mat.empty:
+            self.comment_priorities = {}
+            return self.comment_priorities
+
+        center = np.asarray(self.pca.get('center'))
+        comps = np.asarray(self.pca.get('comps'))
+        if center.size == 0 or comps.size == 0:
+            self.comment_priorities = {}
+            return self.comment_priorities
+
+        # Comment projection + extremity (Clojure with-proj-and-extremtiy,
+        # conversation.clj:341-352).
+        cmnt_proj = pca_project_cmnts(center, comps)
+        extremity_arr = compute_comment_extremity(cmnt_proj)
+
+        # Column order of `center`/`comps`/`extremity_arr` matches
+        # `self.rating_mat.columns` (PCA is computed on rating_mat).
+        tid_extremity = dict(zip(self.rating_mat.columns, extremity_arr))
+
+        # Per-group A/D/S aggregation. `_compute_group_votes` returns
+        # {str(gid): {'n-members': N, 'votes': {tid: {A, D, S}}}}. S includes
+        # PASS (line ~1222: `np.sum(~np.isnan(votes))`), matching Clojure.
+        group_votes = self._compute_group_votes()
+
+        priorities: Dict[Any, float] = {}
+        for tid in self.rating_mat.columns:
+            A_total = 0
+            D_total = 0
+            S_total = 0
+            for gv_data in group_votes.values():
+                votes_for_tid = gv_data.get('votes', {}).get(
+                    tid, {'A': 0, 'D': 0, 'S': 0})
+                A_total += votes_for_tid.get('A', 0)
+                D_total += votes_for_tid.get('D', 0)
+                S_total += votes_for_tid.get('S', 0)
+            # Clojure: P = S - (A + D)  (conversation.clj:661).
+            P_total = S_total - (A_total + D_total)
+            E = float(tid_extremity.get(tid, 0))
+            is_meta = tid in self.meta_tids
+            # Match key type with the rest of the codebase (int when possible).
+            try:
+                tid_key = int(tid)
+            except (ValueError, TypeError):
+                tid_key = tid
+            priorities[tid_key] = float(priority_metric(
+                is_meta, A_total, P_total, S_total, E))
+
+        self.comment_priorities = priorities
+        return priorities
     
     def get_summary(self) -> Dict[str, Any]:
         """

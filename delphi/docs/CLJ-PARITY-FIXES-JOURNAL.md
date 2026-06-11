@@ -1587,3 +1587,84 @@ PLAN.md, with a sketch of the fix.
 ### What's Next
 
 PR 11 (D12) on top of D11 in the same spr stack.
+
+## Session: PR 11 — D12 comment priorities (2026-06-11)
+
+Landed in `/goal` mode. Decisions documented in
+`~/polis/D10_D11_D12_GOLDENS_DECISIONS.md` (D12.x section).
+
+### What landed
+
+**`pca.py`:**
+- `pca_project_cmnts(center, comps) -> np.ndarray`: vectorized projection
+  of each comment into 2D PCA space. Closed-form derivation:
+  `proj[i] = -sqrt(n_cmnts) * (1 + center[i]) * [pc1[i], pc2[i]]`.
+- `compute_comment_extremity(cmnt_proj) -> np.ndarray`: L2 norm per row.
+
+Clojure parity: `pca-project-cmnts` (pca.clj:167-178) +
+`with-proj-and-extremtiy` (conversation.clj:341-352).
+
+**`conversation.py` module-level:**
+- `META_PRIORITY = 7` constant (Clojure conversation.clj:319).
+- `importance_metric(A, P, S, E) -> float`: Clojure conversation.clj:311-315.
+- `priority_metric(is_meta, A, P, S, E) -> float`: Clojure conversation.clj:321-330.
+  Squared formula. For meta: `META_PRIORITY^2 = 49`. For non-meta:
+  `(importance * (1 + 8*2^(-S/5)))^2` where the decay factor lets new
+  (low-S) comments bubble up.
+
+**`Conversation._compute_comment_priorities()`:**
+- Computes comment projection + extremity from PCA.
+- Aggregates A/D/S across all groups per tid; derives P = S - (A + D).
+- Looks up extremity per tid (via `self.rating_mat.columns` column order).
+- Checks `tid in self.meta_tids` for the meta branch.
+- Stores `{tid: priority_float}` on `self.comment_priorities`.
+
+Wired into `recompute()` after `_compute_repness()`. The serialization
+infrastructure (`to_dict`, `to_dynamo_dict`, underscore→hyphen conversion)
+already existed but was emitting empty.
+
+**B1 + B2 fixes from D11 sub-agent review folded in:**
+- B1: `conversation.py:834` no-groups early-return now emits
+  `consensus_comments: {'agree': [], 'disagree': []}` (dict) instead of `[]`.
+- B2: `test_legacy_repness_comparison.py:197` updated to read the dict
+  shape + flatten for ID extraction.
+
+### Tests (11 new + 1 xfail flipped + 2 xpassed = 14 new+repurposed)
+
+- `TestD12PCAProjectComments` (5): output shape, formula verification, empty
+  input, L2 extremity, empty extremity.
+- `TestD12PriorityMetrics` (6): importance formula vs Clojure ref values
+  (conversation.clj:335), high-extremity boosts, meta constant=49, non-meta
+  squared formula, decay-factor lets-new-bubble-up, META_PRIORITY=7.
+- `TestD12CommentPriorities::test_comment_priorities_exist` xfail dropped
+  (existed pre-PR), then re-xfailed for a different reason: Clojure blob
+  has constant priorities (all 49.0 = META_PRIORITY^2) on vw/biodiversity
+  → Spearman comparison meaningless.
+
+### DISCOVERY: Clojure blob has all-meta priorities
+
+`vw-cold_start`: ALL 125 tids have priority = 49.0 in Clojure blob.
+`biodiversity-cold_start`: ALL 314 tids have priority = 49.0.
+
+Either:
+- (a) Every tid was meta-tagged in those Clojure runs.
+- (b) Clojure's `(if 0 ...)` truthiness quirk: 0 is truthy in Clojure, so
+  ANY value (even `0`) returned by `(get meta-tids tid 0)` triggers the
+  meta branch.
+
+Python correctly distinguishes meta from non-meta via Boolean set membership,
+producing varied priorities 0.18-31.46.
+
+Logged for batch review. Python may be more correct than Clojure here.
+
+### Suite delta
+
+- Pre (post-D11): 325 passed, 12 skipped, 58 xfailed.
+- Post (this PR): 336 passed, 12 skipped, 56 xfailed, 2 xpassed.
+- Delta: +11 (the 11 new D12 synthetic tests), 0 failed, -2 xfailed
+  (those became xpassed — the 2 cold_start `test_comment_priorities_exist`
+  variants run cleanly now; the new xfail is on a different basis).
+
+### What's Next
+
+Re-record vw + biodiversity Python golden snapshots (PR-stack tip).

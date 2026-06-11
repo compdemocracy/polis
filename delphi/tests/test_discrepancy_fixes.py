@@ -52,6 +52,15 @@ from polismath.pca_kmeans_rep.repness import (
     consensus_stats_df,
     select_consensus_comments_df,
 )
+from polismath.pca_kmeans_rep.pca import (
+    pca_project_cmnts,
+    compute_comment_extremity,
+)
+from polismath.conversation.conversation import (
+    importance_metric,
+    priority_metric,
+    META_PRIORITY,
+)
 from polismath.utils.general import AGREE, DISAGREE
 from polismath.regression import get_dataset_files, get_blob_variants
 from polismath.regression.datasets import discover_datasets
@@ -1857,9 +1866,24 @@ class TestD12CommentPriorities:
          Clojure computes priorities based on PCA extremity and importance.
     """
 
-    @pytest.mark.xfail(reason="D12: Comment priorities not implemented in Python")
+    @pytest.mark.xfail(reason="D12.6 incremental divergence: Clojure cold_start has the truthy-0 "
+                              "bug (all priorities = 49.0); Python mirrors that and matches on "
+                              "cold_start. But Clojure INCREMENTAL doesn't exhibit the bug (varied "
+                              "priorities), so Python's all-49 doesn't match incremental. Cold_start "
+                              "would pass if parametrize allowed per-variant xfail. Once the Clojure "
+                              "bug is fixed upstream, drop the Python mirror and this xfail.")
     def test_comment_priorities_exist(self, conv, clojure_blob, dataset_name):
-        """Python should produce comment-priorities matching Clojure."""
+        """Python should produce comment-priorities matching Clojure.
+
+        Per D12.6: Clojure's `(if 0 ...)` truthiness quirk means every tid
+        takes the meta branch, so Clojure cold_start priorities are all
+        META_PRIORITY^2 = 49.0 for vw/biodiversity. Python now mirrors this
+        bug
+        (priority_metric returns META_PRIORITY**2 unconditionally), so both
+        sides should yield identical all-constant 49.0. Spearman is not
+        meaningful when both sides have zero variance — we instead verify
+        the constant-value parity directly.
+        """
         clj_priorities = clojure_blob.get('comment-priorities', {})
         check.greater(len(clj_priorities), 0,
                        f"Clojure has {len(clj_priorities)} comment priorities")
@@ -1872,10 +1896,138 @@ class TestD12CommentPriorities:
             return
 
         py_priorities = conv.comment_priorities
-        # Compare rankings (Spearman correlation would be ideal, but check overlap first)
-        common_tids = set(str(k) for k in clj_priorities.keys()) & set(str(k) for k in py_priorities.keys())
-        print(f"[{dataset_name}] Common priority tids: {len(common_tids)}/{len(clj_priorities)}")
+        # Normalize keys to int for comparison.
+        clj_p = {int(k): v for k, v in clj_priorities.items()}
+        py_p = {int(k): v for k, v in py_priorities.items()}
+        common_tids = set(clj_p.keys()) & set(py_p.keys())
+        print(f"[{dataset_name}] Common priority tids: {len(common_tids)}/{len(clj_p)}")
         check.greater(len(common_tids), 0, "Should have common priority tids")
+
+        tids_sorted = sorted(common_tids)
+        clj_vals = [clj_p[t] for t in tids_sorted]
+        py_vals = [py_p[t] for t in tids_sorted]
+        clj_unique = set(clj_vals)
+        py_unique = set(py_vals)
+        print(f"[{dataset_name}] clj_vals sample: {clj_vals[:5]}, "
+              f"min={min(clj_vals)}, max={max(clj_vals)}, "
+              f"unique={len(clj_unique)}")
+        print(f"[{dataset_name}] py_vals  sample: {py_vals[:5]}, "
+              f"min={min(py_vals)}, max={max(py_vals)}, "
+              f"unique={len(py_unique)}")
+
+        # D12.6 Clojure-parity-bug mirror: both sides should return
+        # META_PRIORITY**2 = 49.0 for every tid.
+        META_PRIORITY_SQ = META_PRIORITY ** 2
+        check.equal(len(clj_unique), 1,
+                    f"Clojure priorities should be all-constant (bug); got {len(clj_unique)} unique")
+        check.equal(len(py_unique), 1,
+                    f"Python priorities should be all-constant (bug mirror); got {len(py_unique)} unique")
+        if len(clj_unique) == 1:
+            (clj_const,) = clj_unique
+            check.almost_equal(clj_const, META_PRIORITY_SQ, abs=1e-9,
+                               msg=f"Clojure constant priority should be META_PRIORITY**2={META_PRIORITY_SQ}")
+        if len(py_unique) == 1:
+            (py_const,) = py_unique
+            check.almost_equal(py_const, META_PRIORITY_SQ, abs=1e-9,
+                               msg=f"Python constant priority should be META_PRIORITY**2={META_PRIORITY_SQ}")
+
+
+class TestD12PCAProjectComments:
+    """`pca_project_cmnts` and `compute_comment_extremity` — Clojure parity."""
+
+    def test_pca_project_cmnts_shape(self):
+        """Output shape (n_cmnts, n_components)."""
+        center = np.array([0.1, 0.2, 0.3, 0.4])
+        comps = np.array([[1.0, 0.0, 0.5, 0.5],
+                          [0.0, 1.0, 0.5, -0.5]])
+        proj = pca_project_cmnts(center, comps)
+        assert proj.shape == (4, 2)
+
+    def test_pca_project_cmnts_formula(self):
+        """For comment i: proj[i] = -sqrt(n_cmnts) * (1 + center[i]) * [pc1[i], pc2[i]]."""
+        center = np.array([0.1, 0.2, 0.3, 0.4])
+        comps = np.array([[1.0, 0.5, -0.5, 0.0],
+                          [0.0, 0.5, 0.5, 1.0]])
+        proj = pca_project_cmnts(center, comps)
+        n_cmnts = 4
+        scale = np.sqrt(n_cmnts)
+        for i in range(n_cmnts):
+            expected = -scale * (1 + center[i]) * comps[:, i]
+            assert np.allclose(proj[i], expected), \
+                f"proj[{i}] = {proj[i]} vs expected {expected}"
+
+    def test_pca_project_cmnts_empty(self):
+        """Empty inputs return shape (0, n_comps)."""
+        center = np.zeros(0)
+        comps = np.zeros((2, 0))
+        proj = pca_project_cmnts(center, comps)
+        assert proj.shape == (0, 2)
+
+    def test_compute_comment_extremity_l2_norm(self):
+        """Extremity = L2 norm of each projection row."""
+        cmnt_proj = np.array([[3.0, 4.0],
+                              [0.0, 0.0],
+                              [-1.0, 1.0]])
+        ext = compute_comment_extremity(cmnt_proj)
+        assert np.allclose(ext, [5.0, 0.0, np.sqrt(2)])
+
+    def test_compute_comment_extremity_empty(self):
+        """Empty input → empty output."""
+        ext = compute_comment_extremity(np.zeros((0, 2)))
+        assert ext.shape == (0,)
+
+
+class TestD12PriorityMetrics:
+    """`importance_metric` and `priority_metric` — Clojure parity."""
+
+    def test_importance_metric_formula(self):
+        """`(1 - p) * (E + 1) * a` where p = (P+1)/(S+2), a = (A+1)/(S+2)."""
+        # Clojure ref values from conversation.clj:335:
+        # `(float (importance-metric 1 0 1 0))` — A=1, P=0, S=1, E=0
+        # p = 1/3, a = 2/3, return = (2/3)*(1)*(2/3) = 4/9 ≈ 0.4444
+        assert abs(importance_metric(1, 0, 1, 0) - 4 / 9) < 1e-10
+
+    def test_importance_metric_high_extremity_boosts(self):
+        """Higher extremity → higher importance."""
+        baseline = importance_metric(5, 1, 8, 0.0)
+        boosted = importance_metric(5, 1, 8, 2.0)
+        assert boosted > baseline
+
+    def test_priority_metric_meta_constant(self):
+        """Meta comments return META_PRIORITY^2 = 49 (Clojure parity)."""
+        # is_meta=True → inner = 7, return = 49
+        assert priority_metric(True, 5, 2, 10, 1.5) == META_PRIORITY ** 2
+        assert priority_metric(True, 0, 0, 0, 0) == META_PRIORITY ** 2
+
+    @pytest.mark.xfail(reason="Clojure parity bug mirror (D12.6): priority_metric always "
+                              "returns META_PRIORITY**2 until upstream Clojure bug resolves. "
+                              "Tests pin the semantically-correct formula and will pass again "
+                              "when we revert the mirror.")
+    def test_priority_metric_non_meta_squared(self):
+        """Non-meta: return = (importance * (1 + 8*2^(-S/5)))^2."""
+        # A=20, P=3, S=20, E=0 — ref from conversation.clj:337
+        A, P, S, E = 20, 3, 20, 0
+        imp = importance_metric(A, P, S, E)
+        decay = 1 + 8 * (2 ** (-S / 5))
+        expected = (imp * decay) ** 2
+        assert abs(priority_metric(False, A, P, S, E) - expected) < 1e-10
+
+    def test_priority_metric_decay_factor_lets_new_bubble_up(self):
+        """For low-S (new) comments, the decay factor is larger → priority boost."""
+        # Two comments with identical importance metrics but different S.
+        # importance depends on A, P, S, E; to isolate the decay factor,
+        # pick A,P,E values that give same `(1 - (P+1)/(S+2)) * (E+1) * (A+1)/(S+2)`?
+        # Hard to isolate, so just test that the decay factor itself increases for low S.
+        new_decay = 1 + 8 * (2 ** (-1 / 5))    # S=1
+        old_decay = 1 + 8 * (2 ** (-100 / 5))  # S=100
+        assert new_decay > old_decay
+        assert new_decay > 1.0
+        # Old comments fade toward 1 (no boost).
+        assert old_decay < 1.01
+
+    def test_meta_priority_constant_value(self):
+        """META_PRIORITY = 7 (Clojure conversation.clj:319)."""
+        assert META_PRIORITY == 7
 
 
 # ============================================================================

@@ -30,9 +30,9 @@ This plan's "PR N" labels map to actual GitHub PRs as follows:
 | (K-inv) | #2524 | Stack 17/17 | Fix K-means k divergence: preserve row order |
 | PR 14a (scalar deletion) | #2564 | — | Delete dead scalar paths in `repness.py`; migrate blob injection tests to vectorized |
 | PR 8 (D10) | #2566 | — | Fix D10: rep comment selection — single-pass reduce matching Clojure |
-| PR 9 (D11) | — (in flight) | — | Fix D11: consensus selection — whole-conv stats + per-side top-5 matching Clojure |
+| PR 9 (D11) | #2567 | — | Fix D11: consensus selection — whole-conv stats + per-side top-5 matching Clojure |
 | PR 10 (D3) | — (WIP) | — | Fix D3: k-smoother buffer — **NEEDS REWORK** |
-| PR 11 (D12) | — (WIP) | — | Fix D12: comment priorities — **NEEDS REWORK** |
+| PR 11 (D12) | — (in flight) | — | Fix D12: comment priorities — Clojure-parity importance/priority metrics + PCA comment projection |
 | PR 13 (D1) | — (WIP) | — | Fix D1: PCA sign flip prevention — **NEEDS REWORK** |
 | PR 15 | — (WIP) | — | Fix load_votes timestamp ordering — **NEEDS REWORK** |
 
