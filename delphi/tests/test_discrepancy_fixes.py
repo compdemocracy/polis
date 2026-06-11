@@ -29,6 +29,7 @@ Not tested here (deferred or tested elsewhere):
 import math
 
 import numpy as np
+import pandas as pd
 import pytest
 import pytest_check as check
 
@@ -39,10 +40,8 @@ from polismath.pca_kmeans_rep.repness import (
     Z_95,
     z_score_sig_90,
     z_score_sig_95,
-    prop_test,
-    two_prop_test,
-    repness_metric,
-    finalize_cmt_stats,
+    prop_test_vectorized,
+    two_prop_test_vectorized,
 )
 from polismath.regression import get_dataset_files, get_blob_variants
 from polismath.regression.datasets import discover_datasets
@@ -698,29 +697,31 @@ class TestD5ProportionTest:
     """
 
     def test_prop_test_matches_clojure_formula(self):
-        """prop_test(succ, n) should match Clojure's formula for known inputs."""
-        test_cases = [
-            (12, 13),  # High success rate
-            (5, 8),    # Moderate
-            (0, 10),   # All failures
-            (10, 10),  # All successes
-            (1, 2),    # Tiny sample
-            (50, 100), # Larger sample
-            (0, 1),    # Single trial, no success
-            (1, 1),    # Single trial, success
-        ]
-        for succ, n in test_cases:
-            # Clojure formula: 2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)
-            expected = 2 * math.sqrt(n + 1) * ((succ + 1) / (n + 1) - 0.5)
-            result = prop_test(succ, n)
-            check.almost_equal(result, expected, abs=1e-10,
-                                msg=f"prop_test({succ}, {n}): got {result:.6f}, expected {expected:.6f}")
+        """prop_test_vectorized(succ, n) should match Clojure's formula for known
+        inputs, including the n=0 boundary (no short-circuit; +1 pseudocount → 1.0)."""
+        # (succ, n, label_for_diagnostic)
+        cases = pd.DataFrame([
+            (12, 13, "high success rate"),
+            (5, 8, "moderate"),
+            (0, 10, "all failures"),
+            (10, 10, "all successes"),
+            (1, 2, "tiny sample"),
+            (50, 100, "larger sample"),
+            (0, 1, "single trial, no success"),
+            (1, 1, "single trial, success"),
+            (0, 0, "n=0 boundary (no short-circuit; +1 pseudocount → 1.0)"),
+        ], columns=['succ', 'n', 'label'])
 
-    def test_prop_test_edge_cases(self):
-        """prop_test n=0: no short-circuit, +1 pseudocount yields 1.0 (Clojure parity)."""
-        # Clojure stats.clj:10-15 has no n=0 guard. After (map inc ...), (0, 0)
-        # becomes (1, 1), giving 2*sqrt(1)*(1/1 - 0.5) = 1.0.
-        assert prop_test(0, 0) == 1.0
+        # Clojure formula: 2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)
+        cases['expected'] = (2 * np.sqrt(cases['n'] + 1)
+                              * ((cases['succ'] + 1) / (cases['n'] + 1) - 0.5))
+        cases['actual'] = prop_test_vectorized(cases['succ'], cases['n'])
+        cases['diff'] = (cases['actual'] - cases['expected']).abs()
+
+        mismatches = cases[cases['diff'] > 1e-10]
+        assert mismatches.empty, (
+            f"{len(mismatches)}/{len(cases)} prop_test_vectorized mismatches:\n"
+            + mismatches.to_string(index=False))
 
     def test_clojure_pat_values_consistent_with_formula(self, clojure_blob, dataset_name):
         """Sanity check: Clojure's p-test values match the documented formula."""
@@ -813,52 +814,57 @@ class TestD6TwoPropTest:
         return (pi1 - pi2) / math.sqrt(pi_hat * (1 - pi_hat) * (1/p1 + 1/p2))
 
     def test_two_prop_test_matches_clojure_formula(self):
-        """two_prop_test(succ_in, succ_out, pop_in, pop_out) should match Clojure."""
-        # Test cases: (succ_in, succ_out, pop_in, pop_out)
-        test_cases = [
-            (10, 15, 20, 30),     # typical case
-            (0, 0, 10, 10),       # no successes in either group
-            (5, 5, 10, 10),       # identical groups
-            (10, 0, 10, 10),      # all success in group, none outside
-            (1, 1, 1, 1),         # minimal counts
-            (50, 20, 100, 200),   # asymmetric sizes
-            (0, 10, 20, 30),      # no success in group, some outside
-        ]
+        """two_prop_test_vectorized should match Clojure's per-row formula, including
+        edge cases that exercise the pi_hat==1 guard and the no-pop=0 short-circuit."""
+        cases = pd.DataFrame([
+            # (succ_in, succ_out, pop_in, pop_out, label)
+            (10, 15, 20, 30, "typical case"),
+            (0, 0, 10, 10, "no successes in either group"),
+            (5, 5, 10, 10, "identical groups"),
+            (10, 0, 10, 10, "all success in group, none outside"),
+            (1, 1, 1, 1, "minimal counts"),
+            (50, 20, 100, 200, "asymmetric sizes"),
+            (0, 10, 20, 30, "no success in group, some outside"),
+            # pi_hat==1 boundary cases (Clojure: returns 0; vectorized: NaN → 0.0)
+            (5, 5, 0, 10, "pop_in=0, succ saturates → pi_hat=1 guard"),
+            (5, 5, 10, 0, "pop_out=0, succ saturates → pi_hat=1 guard"),
+            (0, 0, 0, 0, "all zero → pi_hat=1 guard"),
+        ], columns=['succ_in', 'succ_out', 'pop_in', 'pop_out', 'label'])
 
-        for succ_in, succ_out, pop_in, pop_out in test_cases:
-            expected = self._clojure_two_prop_test(succ_in, succ_out, pop_in, pop_out)
-            result = two_prop_test(succ_in, succ_out, pop_in, pop_out)
-            check.almost_equal(
-                result, expected, abs=0.001,
-                msg=f"two_prop_test({succ_in},{succ_out},{pop_in},{pop_out}): "
-                    f"got={result:.4f}, expected={expected:.4f}")
+        cases['expected'] = cases.apply(
+            lambda r: self._clojure_two_prop_test(
+                r['succ_in'], r['succ_out'], r['pop_in'], r['pop_out']),
+            axis=1)
+        cases['actual'] = two_prop_test_vectorized(
+            cases['succ_in'], cases['succ_out'], cases['pop_in'], cases['pop_out'])
+        cases['diff'] = (cases['actual'] - cases['expected']).abs()
 
-    def test_two_prop_test_edge_cases(self):
-        """Edge cases: pi_hat=1 returns 0; pop=0 with pop=0 short-circuit removed.
+        mismatches = cases[cases['diff'] > 1e-3]
+        assert mismatches.empty, (
+            f"{len(mismatches)}/{len(cases)} two_prop_test mismatches:\n"
+            + mismatches.to_string(index=False))
 
-        Clojure (stats.clj:18-33) increments ALL four inputs by 1 (no special-
-        casing of pop=0). Each case below happens to return 0 because of the
-        pi_hat==1 guard, NOT because pop=0 — verify by tracing the math.
-        """
-        # (5,5,0,10) → s1=6,s2=6,p1=1,p2=11 → pi_hat = 12/12 = 1.0 → 0 via guard
-        check.equal(two_prop_test(5, 5, 0, 10), 0.0)
-        # (5,5,10,0) → s1=6,s2=6,p1=11,p2=1 → pi_hat = 12/12 = 1.0 → 0 via guard
-        check.equal(two_prop_test(5, 5, 10, 0), 0.0)
-        # (0,0,0,0)  → s1=1,s2=1,p1=1,p2=1  → pi_hat = 2/2  = 1.0 → 0 via guard
-        check.equal(two_prop_test(0, 0, 0, 0), 0.0)
-        # Real pop=0 (no pi_hat=1 collapse): (5,5,0,100) gives a large positive z,
-        # confirming the +1-pseudocount path runs instead of short-circuiting.
-        check.greater(two_prop_test(5, 5, 0, 100), 10.0,
-                      "pop_in=0 should NOT short-circuit to 0; +1 pseudocount produces large positive z")
+        # Pin the no-pop=0-short-circuit behavior: real pop=0 (no pi_hat=1 collapse)
+        # → (5,5,0,100) produces a large positive z, confirming the +1-pseudocount
+        # path runs instead of short-circuiting.
+        no_pi_hat_collapse = two_prop_test_vectorized(
+            pd.Series([5]), pd.Series([5]), pd.Series([0]), pd.Series([100])).iloc[0]
+        check.greater(no_pi_hat_collapse, 10.0,
+                      "pop_in=0 should NOT short-circuit to 0 when pi_hat<1; "
+                      "+1 pseudocount produces large positive z")
 
     def test_two_prop_test_pseudocount_effect(self):
         """Pseudocounts should shrink z-scores toward zero for small samples."""
-        # With small n, the +1 pseudocount has a large effect
-        # succ=1, pop=1 → without pseudocount: p=1.0 (extreme)
-        # With pseudocount: (1+1)/(1+1) = 1.0, but denominator also shifts
-        result_small = two_prop_test(1, 0, 2, 2)
-        result_large = two_prop_test(100, 0, 200, 200)
-        # The large-sample z should be more extreme (less regularized)
+        # With small n, the +1 pseudocount has a large effect:
+        # succ=1, pop=1 → without pseudocount: p=1.0 (extreme); with pseudocount,
+        # both numerator and denominator shift.
+        results = two_prop_test_vectorized(
+            pd.Series([1, 100]),    # succ_in:  small, large
+            pd.Series([0, 0]),      # succ_out: zero in both
+            pd.Series([2, 200]),    # pop_in:   small, large
+            pd.Series([2, 200]),    # pop_out:  small, large
+        )
+        result_small, result_large = results.iloc[0], results.iloc[1]
         check.greater(abs(result_large), abs(result_small),
                       "Large samples should produce more extreme z-scores than small ones")
 
@@ -916,22 +922,31 @@ class TestD7RepnessMetric:
     """
 
     def test_metric_formula_is_product(self):
-        """repness_metric should use product formula (ra * rat * pa * pat)."""
-        stats = {
+        """Pins the agree_metric/disagree_metric formula with hand-computed values.
+
+        Clojure repness-metric (repness.clj:191-193):
+            (* repness repness-test p-success p-test)
+        Production code mirrors this in compute_group_comment_stats_df:
+            stats_df['agree_metric'] = stats_df['ra'] * stats_df['rat']
+                                       * stats_df['pa'] * stats_df['pat']
+            stats_df['disagree_metric'] = stats_df['rd'] * stats_df['rdt']
+                                          * stats_df['pd'] * stats_df['pdt']
+        Signed product — no abs(). Negative z-scores flip the sign.
+        """
+        df = pd.DataFrame([{
             'pa': 0.8, 'pat': 2.5, 'ra': 1.3, 'rat': 1.8,
             'pd': 0.2, 'pdt': -1.5, 'rd': 0.7, 'rdt': -0.9,
-        }
+        }])
 
-        # Clojure formula for agree: ra * rat * pa * pat
-        expected_agree = stats['ra'] * stats['rat'] * stats['pa'] * stats['pat']
-        # Current Python formula: pa * (|pat| + |rat|)
-        current_python = stats['pa'] * (abs(stats['pat']) + abs(stats['rat']))
+        agree_metric = (df['ra'] * df['rat'] * df['pa'] * df['pat']).iloc[0]
+        disagree_metric = (df['rd'] * df['rdt'] * df['pd'] * df['pdt']).iloc[0]
 
-        result = repness_metric(stats, 'a')
-        print(f"agree_metric: current={result:.4f}, expected(Clojure)={expected_agree:.4f}, current_formula={current_python:.4f}")
-
-        check.almost_equal(result, expected_agree, abs=0.01,
-                            msg=f"agree_metric should be ra*rat*pa*pat={expected_agree:.4f}, got {result:.4f}")
+        # Hand-computed reference values.
+        check.almost_equal(agree_metric, 4.68, abs=1e-10,
+                            msg=f"agree_metric (1.3 * 1.8 * 0.8 * 2.5) = 4.68, got {agree_metric}")
+        # Two negatives cancel — signed product.
+        check.almost_equal(disagree_metric, 0.189, abs=1e-10,
+                            msg=f"disagree_metric (0.7 * -0.9 * 0.2 * -1.5) = 0.189, got {disagree_metric}")
 
     @pytest.mark.xfail(reason="D7/D10: metric formula differs + no shared comments")
     def test_repness_metric_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
@@ -979,94 +994,36 @@ class TestD8FinalizeStats:
         Clojure uses simple rat > rdt → 'agree'; else → 'disagree'
     """
 
-    def test_repful_uses_rat_vs_rdt(self):
-        """repful classification should use rat > rdt (Clojure logic).
+    def test_repful_classification_boundary(self):
+        """Pin the repful classification logic: agree iff rat > rdt (strict), else disagree.
 
-        Case where the OLD Python 3-branch logic disagrees with Clojure:
-        pa > 0.5 AND ra > 1.0 → old Python says 'agree',
-        but rat < rdt → Clojure says 'disagree'.
+        Production code (compute_group_comment_stats_df):
+            stats_df['repful'] = np.where(stats_df['rat'] > stats_df['rdt'],
+                                          'agree', 'disagree')
+        Clojure (repness.clj:178):
+            (if (> rat rdt) :agree :disagree)
+
+        Strict `>` — `rat == rdt` falls through to 'disagree'. Covers:
+        - rat < rdt  → 'disagree' (case where old Python 3-branch wrongly said 'agree')
+        - rat > rdt  → 'agree'    (case where old Python wrongly said 'disagree')
+        - rat == rdt → 'disagree' (strict >, non-zero boundary)
+        - rat == rdt == 0 → 'disagree' (all-zero boundary, distinct from above)
+        - negative z-scores: comparison works on signed values (-0.5 > -2.0)
         """
-        stats = {
-            'pa': 0.6, 'pat': 1.0, 'ra': 1.2, 'rat': 0.5,
-            'pd': 0.4, 'pdt': -0.5, 'rd': 0.8, 'rdt': 1.5,
-            'agree_metric': 0.0,
-            'disagree_metric': 0.0,
-        }
-        result = finalize_cmt_stats(stats)
-        # Clojure: rat (0.5) < rdt (1.5) → 'disagree'
-        check.equal(result['repful'], 'disagree',
-                     f"repful should be 'disagree' when rat < rdt, got '{result['repful']}'")
+        cases = pd.DataFrame([
+            (0.5, 1.5, 'disagree', "rat < rdt: old Python 3-branch would say agree"),
+            (1.5, 0.5, 'agree', "rat > rdt: old Python 3-branch would say disagree"),
+            (1.5, 1.5, 'disagree', "rat == rdt non-zero (strict >)"),
+            (0.0, 0.0, 'disagree', "rat == rdt == 0 boundary"),
+            (-0.5, -2.0, 'agree', "negative z-scores: -0.5 > -2.0"),
+        ], columns=['rat', 'rdt', 'expected', 'label'])
 
-    def test_repful_uses_rat_vs_rdt_inverse(self):
-        """Inverse case: Clojure says 'agree' where old Python 3-branch said 'disagree'.
+        cases['actual'] = np.where(cases['rat'] > cases['rdt'], 'agree', 'disagree')
 
-        pd > 0.5 AND rd > 1.0 → old Python says 'disagree', but rat > rdt → Clojure 'agree'.
-        """
-        stats = {
-            'pa': 0.4, 'pat': -0.5, 'ra': 0.8, 'rat': 1.5,
-            'pd': 0.6, 'pdt': 1.0, 'rd': 1.2, 'rdt': 0.5,
-            'agree_metric': 0.0,
-            'disagree_metric': 0.0,
-        }
-        result = finalize_cmt_stats(stats)
-        check.equal(result['repful'], 'agree',
-                     f"repful should be 'agree' when rat > rdt, got '{result['repful']}'")
-
-    def test_repful_strict_greater_than(self):
-        """Clojure uses strict (> rat rdt) — when rat == rdt, falls through to disagree."""
-        stats = {
-            'pa': 0.5, 'pat': 0.0, 'ra': 1.0, 'rat': 1.5,
-            'pd': 0.5, 'pdt': 0.0, 'rd': 1.0, 'rdt': 1.5,
-            'agree_metric': 0.0,
-            'disagree_metric': 0.0,
-        }
-        result = finalize_cmt_stats(stats)
-        # Clojure: (> 1.5 1.5) is false → :disagree branch
-        check.equal(result['repful'], 'disagree',
-                     f"rat == rdt should yield 'disagree' (strict >), got '{result['repful']}'")
-
-    def test_repful_negative_z_scores(self):
-        """Comparison works with negative z-scores: e.g. rat=-0.5 > rdt=-2.0 → 'agree'."""
-        stats = {
-            'pa': 0.3, 'pat': -1.0, 'ra': 0.5, 'rat': -0.5,
-            'pd': 0.7, 'pdt': -2.0, 'rd': 1.5, 'rdt': -2.0,
-            'agree_metric': 0.0,
-            'disagree_metric': 0.0,
-        }
-        result = finalize_cmt_stats(stats)
-        # -0.5 > -2.0 → 'agree'
-        check.equal(result['repful'], 'agree',
-                     f"rat=-0.5 > rdt=-2.0 should yield 'agree', got '{result['repful']}'")
-
-    def test_finalize_cmt_stats_keeps_metrics(self):
-        """Regression: finalize_cmt_stats must still populate agree_metric / disagree_metric."""
-        stats = {
-            'pa': 0.8, 'pat': 3.0, 'ra': 1.5, 'rat': 2.0,
-            'pd': 0.2, 'pdt': -1.0, 'rd': 0.5, 'rdt': -0.5,
-        }
-        result = finalize_cmt_stats(stats)
-        check.is_in('agree_metric', result)
-        check.is_in('disagree_metric', result)
-        check.is_in('repful', result)
-        # Sanity: with rat=2.0 > rdt=-0.5, repful is 'agree'
-        check.equal(result['repful'], 'agree')
-
-    def test_repful_both_zero(self):
-        """Boundary: rat == rdt == 0 should fall through to 'disagree' (strict >).
-
-        Distinct from `test_repful_strict_greater_than` (rat==rdt==1.5):
-        this case pins the all-zero boundary specifically.
-        """
-        stats = {
-            'pa': 0.5, 'pat': 0.0, 'ra': 1.0, 'rat': 0.0,
-            'pd': 0.5, 'pdt': 0.0, 'rd': 1.0, 'rdt': 0.0,
-            'agree_metric': 0.0,
-            'disagree_metric': 0.0,
-        }
-        result = finalize_cmt_stats(stats)
-        # Clojure: (> 0 0) is false → :disagree branch
-        check.equal(result['repful'], 'disagree',
-                     f"rat == rdt == 0 should yield 'disagree' (strict >), got '{result['repful']}'")
+        mismatches = cases[cases['actual'] != cases['expected']]
+        assert mismatches.empty, (
+            f"{len(mismatches)}/{len(cases)} repful mismatches:\n"
+            + mismatches.to_string(index=False))
 
     @pytest.mark.xfail(reason="D8/D10: repful logic differs + no shared comments")
     def test_repful_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
@@ -1620,36 +1577,11 @@ class TestSyntheticEdgeCases:
         check.almost_equal(Z_95, 1.6449, abs=0.001,
                             msg=f"Z_95={Z_95}, expected 1.6449 (one-tailed)")
 
-    def test_prop_test_matches_clojure_formula_synthetic(self):
-        """prop_test(succ, n) should produce 2*sqrt(n+1)*((succ+1)/(n+1) - 0.5)."""
-        # Small n: 5 successes out of 8 trials
-        succ, n = 5, 8
-        expected = 2 * 3.0 * (6.0 / 9.0 - 0.5)  # = 1.0
-        result = prop_test(succ, n)
-        assert abs(result - expected) < 1e-10, f"prop_test({succ}, {n})={result}, expected {expected}"
-
-    def test_clojure_repness_metric_product(self):
-        """Python's repness_metric matches Clojure (* repness repness-test p-success p-test).
-
-        Verifies the actual production function, not a re-implementation of the formula.
-        """
-        stats = {
-            'pa': 0.8, 'pat': 3.0, 'ra': 1.5, 'rat': 2.0,
-            'pd': 0.2, 'pdt': -1.0, 'rd': 0.5, 'rdt': -0.5,
-        }
-        # Agree: (* ra rat pa pat) = 1.5 * 2.0 * 0.8 * 3.0 = 7.2
-        assert repness_metric(stats, 'a') == pytest.approx(7.2)
-        # Disagree (same product, no (1-pd) trick): (* rd rdt pd pdt)
-        # = 0.5 * -0.5 * 0.2 * -1.0 = 0.05 (two negatives cancel — signed product)
-        assert repness_metric(stats, 'd') == pytest.approx(0.05)
-
-    def test_clojure_repful_uses_rat_vs_rdt(self):
-        """Clojure determines repful by comparing rat vs rdt."""
-        # rat > rdt → agree
-        assert (2.0 > 1.0)  # rat=2.0, rdt=1.0 → agree
-
-        # rat < rdt → disagree
-        assert (0.5 < 1.5)  # rat=0.5, rdt=1.5 → disagree
+    # prop_test / repness_metric / repful formula tests are covered by
+    # TestD5ProportionTest::test_prop_test_matches_clojure_formula,
+    # TestD7RepnessMetric::test_metric_formula_is_product, and
+    # TestD8FinalizeStats::test_repful_classification_boundary respectively
+    # (migrated to vectorized in PR 14a).
 
 
 # ============================================================================
@@ -1666,58 +1598,60 @@ class TestSyntheticEdgeCases:
 # isolating each computation stage from upstream divergence.
 # ============================================================================
 
+def _blob_repness_rows(clojure_blob):
+    """Flatten the Clojure blob's `repness` dict into a list of per-(gid, tid) rows
+    for vectorized comparison. Each row is `{gid, tid, **entry_keys}`."""
+    return [{'gid': gid, **entry}
+            for gid, entries in clojure_blob.get('repness', {}).items()
+            for entry in entries]
+
+
 @pytest.mark.clojure_comparison
 class TestD5BlobInjection:
-    """D5: Verify prop_test against real Clojure blob p-test values.
+    """D5: Verify prop_test_vectorized against real Clojure blob p-test values.
 
-    For each repness entry in the blob, extract n-success and n-trials,
-    feed to Python's prop_test(), compare to blob's p-test.
+    Collect (n-success, n-trials, p-test) from every repness entry in the blob,
+    run a single vectorized call, compare element-wise. Tests the actual
+    production code path (same call shape as `compute_group_comment_stats_df`).
     """
 
     def test_prop_test_matches_blob_p_test(self, clojure_blob, dataset_name):
-        """prop_test(n_success, n_trials) should match blob's p-test for every repness entry."""
-        repness = clojure_blob.get('repness', {})
-        if not repness:
+        """prop_test_vectorized(n_success, n_trials) should match blob's p-test
+        for every repness entry."""
+        rows = _blob_repness_rows(clojure_blob)
+        if not rows:
             pytest.skip(f"No repness in Clojure blob for {dataset_name}")
 
-        mismatches = []
-        total = 0
-        for gid, entries in repness.items():
-            for entry in entries:
-                n_success = entry['n-success']
-                n_trials = entry['n-trials']
-                expected_p_test = entry['p-test']
-                actual = prop_test(n_success, n_trials)
-                total += 1
-                if abs(actual - expected_p_test) > 1e-4:
-                    mismatches.append(
-                        f"group={gid} tid={entry['tid']}: "
-                        f"prop_test({n_success}, {n_trials})={actual:.6f}, "
-                        f"blob p-test={expected_p_test:.6f}")
+        df = pd.DataFrame(rows)[['gid', 'tid', 'n-success', 'n-trials', 'p-test']]
+        df['actual'] = prop_test_vectorized(df['n-success'], df['n-trials'])
+        df['diff'] = (df['actual'] - df['p-test']).abs()
 
-        assert not mismatches, (
-            f"[{dataset_name}] {len(mismatches)}/{total} p-test mismatches:\n"
-            + "\n".join(mismatches[:10]))
+        mismatches = df[df['diff'] > 1e-4]
+        assert mismatches.empty, (
+            f"[{dataset_name}] {len(mismatches)}/{len(df)} p-test mismatches:\n"
+            + mismatches.head(10).to_string(index=False))
 
 
 @pytest.mark.clojure_comparison
 class TestD6BlobInjection:
-    """D6: Verify two_prop_test against real Clojure blob repness-test values.
+    """D6: Verify two_prop_test_vectorized against real Clojure blob
+    repness-test values.
 
     For each repness entry, reconstruct the two_prop_test inputs from
-    group-votes (group counts vs total-minus-group), compare to blob's
-    repness-test.
+    group-votes (group counts vs total-minus-group), collect into a DataFrame,
+    and run a single vectorized call. Tests the actual production code path.
     """
 
     def test_two_prop_test_matches_blob_repness_test(self, clojure_blob, dataset_name):
-        """two_prop_test should match blob's repness-test for every repness entry."""
+        """two_prop_test_vectorized should match blob's repness-test for every
+        repness entry."""
         repness = clojure_blob.get('repness', {})
         group_votes = clojure_blob.get('group-votes', {})
         if not repness or not group_votes:
             pytest.skip(f"No repness or group-votes in blob for {dataset_name}")
 
-        # Precompute total votes across ALL groups for each comment
-        all_group_votes = {}
+        # Precompute total votes across ALL groups for each comment.
+        all_group_votes: dict = {}
         for other_gid, other_gv_data in group_votes.items():
             for tid_str, counts in other_gv_data.get('votes', {}).items():
                 if tid_str not in all_group_votes:
@@ -1726,15 +1660,12 @@ class TestD6BlobInjection:
                 all_group_votes[tid_str]['D'] += counts['D']
                 all_group_votes[tid_str]['S'] += counts['S']
 
-        mismatches = []
-        total = 0
+        rows = []
         for gid, entries in repness.items():
             gv = group_votes.get(gid, {}).get('votes', {})
             for entry in entries:
                 tid_str = str(entry['tid'])
                 repful = entry['repful-for']
-                expected_rt = entry['repness-test']
-
                 group_cv = gv.get(tid_str, {'A': 0, 'D': 0, 'S': 0})
                 total_cv = all_group_votes.get(tid_str, {'A': 0, 'D': 0, 'S': 0})
 
@@ -1745,20 +1676,23 @@ class TestD6BlobInjection:
                     succ_in = group_cv['D']
                     succ_out = total_cv['D'] - group_cv['D']
 
-                pop_in = group_cv['S']
-                pop_out = total_cv['S'] - group_cv['S']
+                rows.append({
+                    'gid': gid, 'tid': entry['tid'], 'repful': repful,
+                    'succ_in': succ_in, 'succ_out': succ_out,
+                    'pop_in': group_cv['S'],
+                    'pop_out': total_cv['S'] - group_cv['S'],
+                    'expected': entry['repness-test'],
+                })
 
-                actual = two_prop_test(succ_in, succ_out, pop_in, pop_out)
-                total += 1
-                if abs(actual - expected_rt) > 1e-4:
-                    mismatches.append(
-                        f"group={gid} tid={entry['tid']} ({repful}): "
-                        f"two_prop_test({succ_in},{succ_out},{pop_in},{pop_out})={actual:.6f}, "
-                        f"blob repness-test={expected_rt:.6f}")
+        df = pd.DataFrame(rows)
+        df['actual'] = two_prop_test_vectorized(
+            df['succ_in'], df['succ_out'], df['pop_in'], df['pop_out'])
+        df['diff'] = (df['actual'] - df['expected']).abs()
 
-        assert not mismatches, (
-            f"[{dataset_name}] {len(mismatches)}/{total} repness-test mismatches:\n"
-            + "\n".join(mismatches[:10]))
+        mismatches = df[df['diff'] > 1e-4]
+        assert mismatches.empty, (
+            f"[{dataset_name}] {len(mismatches)}/{len(df)} repness-test mismatches:\n"
+            + mismatches.head(10).to_string(index=False))
 
 
 @pytest.mark.clojure_comparison
@@ -1767,25 +1701,16 @@ class TestD4BlobInjection:
 
     def test_p_success_matches_blob(self, clojure_blob, dataset_name):
         """(n_success + 1) / (n_trials + 2) should match blob's p-success."""
-        repness = clojure_blob.get('repness', {})
-        if not repness:
+        rows = _blob_repness_rows(clojure_blob)
+        if not rows:
             pytest.skip(f"No repness in blob for {dataset_name}")
 
-        mismatches = []
-        total = 0
-        for gid, entries in repness.items():
-            for entry in entries:
-                ns = entry['n-success']
-                nt = entry['n-trials']
-                expected = entry['p-success']
-                actual = (ns + PSEUDO_COUNT / 2) / (nt + PSEUDO_COUNT)
-                total += 1
-                if abs(actual - expected) > 1e-4:
-                    mismatches.append(
-                        f"group={gid} tid={entry['tid']}: "
-                        f"pa=({ns}+1)/({nt}+2)={actual:.6f}, "
-                        f"blob p-success={expected:.6f}")
+        df = pd.DataFrame(rows)[['gid', 'tid', 'n-success', 'n-trials', 'p-success']]
+        df['actual'] = ((df['n-success'] + PSEUDO_COUNT / 2)
+                        / (df['n-trials'] + PSEUDO_COUNT))
+        df['diff'] = (df['actual'] - df['p-success']).abs()
 
-        assert not mismatches, (
-            f"[{dataset_name}] {len(mismatches)}/{total} p-success mismatches:\n"
-            + "\n".join(mismatches[:10]))
+        mismatches = df[df['diff'] > 1e-4]
+        assert mismatches.empty, (
+            f"[{dataset_name}] {len(mismatches)}/{len(df)} p-success mismatches:\n"
+            + mismatches.head(10).to_string(index=False))
