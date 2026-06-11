@@ -1,5 +1,7 @@
 # K-means Two-Level Clustering - Session Handoff
 
+> **Status (2026-06-11):** Two-level clustering and cold-start blob generation described below are merged (#2431, #2485). The k-divergence investigation concluded — see `INVESTIGATION_K_DIVERGENCE.md` (RESOLVED). Still open: incremental clustering warm-start (`:last-clusters`) and the D3 k-smoother, tracked in `PLAN_DISCREPANCY_FIXES.md`. Kept as background reference; do not treat its TODO lists as current.
+
 ## Goal
 
 **Modify Python to match Clojure's EXACT two-level clustering architecture**, including:

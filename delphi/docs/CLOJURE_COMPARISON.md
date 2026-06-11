@@ -49,10 +49,13 @@ The Clojure reference implementation is in: **`math/src/polismath/math/clusters.
 
 This is the **primary reason** clustering results differ between Python and Clojure:
 
-**Python** (Single-level clustering):
-- `group_clusters`: Direct clustering of participants into k groups
-- Member IDs: Participant IDs
-- Example: {id: 0, members: [ptpt1, ptpt2, ...]}
+**Python** (Two-level clustering, matching Clojure since PR #2431):
+- `base_clusters`: First-level clustering (~100 small clusters of participants)
+  - Member IDs: Participant IDs
+  - Example: 100 base clusters with 3-7 participants each
+- `group_clusters`: Second-level clustering of base clusters into k groups
+  - Members stored as base-cluster IDs internally, unfolded to participant IDs for serialization
+  - Example: {id: 0, members: [0, 1, 5, 8, ...]} where numbers are base cluster IDs (internally)
 
 **Clojure** (Two-level clustering):
 1. `base-clusters`: First-level clustering of participants into ~100 small clusters
@@ -70,7 +73,7 @@ Beyond the architecture, there's also an initialization difference:
 
 | Aspect | Python | Clojure |
 |--------|--------|---------|
-| **Algorithm** | K-means++ (seed 42) | First k distinct points |
+| **Algorithm** | First k distinct points (matching Clojure) | First k distinct points |
 | **Rationale** | Better convergence, industry standard | Simpler implementation |
 | **Result** | Different local optima | Different local optima |
 | **Quality** | Both are valid clustering algorithms | Both are valid clustering algorithms |
@@ -96,12 +99,9 @@ Beyond the architecture, there's also an initialization difference:
 
 ### Why Tests Fail
 
-The clustering test **intentionally fails** because:
-1. Python uses K-means++ initialization → different initial cluster centers
-2. K-means converges to nearest local optimum → different final clusters
-3. Tests use very tight thresholds (95% Jaccard, 5% L1) to detect any difference
-
-This is **expected behavior** until we implement Option A (match Clojure initialization).
+The clustering test **xfails conditionally** on some dataset variants due to incremental-blob
+in-conv divergence / cold-start PCA landscape flatness — NOT initialization mismatch.
+Python now uses first-k-distinct initialization, matching Clojure (since PR #2431).
 
 ## Running Tests
 

@@ -7,7 +7,7 @@ This document defines the schema for the Delphi job queue system. The job queue 
 ## Table Design
 
 ### Table Name
-`DelphiJobQueue`
+`Delphi_JobQueue`
 
 ### Primary Key Structure
 - **Partition Key**: `job_id` (String) - Unique identifier for each job (UUID v4)
@@ -287,12 +287,14 @@ To manage the growth of the job queue table:
 
 ## Implementation Code
 
+> **Caution:** The sample below predates the final schema — the actual table (see `create_dynamodb_tables.py`) uses `job_id` as the sole hash key, not `status`+`created_at`.
+
 Here's a sample Python code for creating the job queue table:
 
 ```python
 import boto3
 
-def create_job_queue_table(dynamodb=None, table_name='DelphiJobQueue'):
+def create_job_queue_table(dynamodb=None, table_name='Delphi_JobQueue'):
     if not dynamodb:
         dynamodb = boto3.resource('dynamodb')
         

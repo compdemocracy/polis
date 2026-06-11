@@ -136,7 +136,7 @@ Clojure serializes its entire conversation state (including all computed fields)
 
 ### 3.2 Python (Delphi)
 
-- **`poller.py`**: Polls Postgres for new votes/moderation/tasks on separate threads
+- **`polismath/poller.py`**: DELETED in #2423 (commit 0ff8e3e52). The current entry point is `scripts/job_poller.py`, which polls the DynamoDB `Delphi_JobQueue` and dispatches the math/UMAP/narrative scripts.
 - **`run_math_pipeline.py`**: CLI tool for one-shot processing
 - **`manager.py`**: Thread-safe management of multiple `Conversation` objects
 - **`conversation.py:Conversation.update_votes()`**: Main entry, calls `recompute()`

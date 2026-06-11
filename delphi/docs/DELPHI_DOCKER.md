@@ -7,7 +7,7 @@ This document provides information about the Delphi Docker container setup and o
 When the Delphi container starts, it performs the following steps:
 
 1. Initializes DynamoDB tables using `create_dynamodb_tables.py`
-2. Starts the job poller service using `start_poller.sh`
+2. Starts the job poller by running `python scripts/job_poller.py` directly (the Dockerfile CMD invokes the script)
 
 ## Environment Variables
 
@@ -32,8 +32,7 @@ The Delphi container runs the following services:
 If the container exits with code 127, check that:
 
 1. The scripts directory is correctly copied into the container
-2. The `start_poller.sh` script is executable
-3. The DynamoDB endpoint is correct and accessible
+2. The DynamoDB endpoint is correct and accessible
 
 ## Maintaining State
 

@@ -1,5 +1,7 @@
 # ALL Discrepancies: Clojure (CORRECT) vs Python (Delphi)
 
+> **Status as of 2026-06-11**: D2, D4, D5, D6, D7, D8, D9 are merged on `edge`; D10, D11, D12 are in the open spr stack (PRs #2566–#2568). D3 (k-smoother) and D1/D1b (PCA sign flip / projection source) remain open. See `PLAN_DISCREPANCY_FIXES.md` (canonical) — the analysis below is kept as historical reference and per-discrepancy detail.
+
 This is the critical reference document. Every discrepancy is rated by severity and lists the exact code locations.
 
 ---
