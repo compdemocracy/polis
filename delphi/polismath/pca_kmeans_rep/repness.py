@@ -7,7 +7,7 @@ using statistical tests to determine significance.
 
 import numpy as np
 import pandas as pd
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from polismath.utils.general import AGREE, DISAGREE
 
@@ -344,106 +344,289 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     return stats_df
 
 
-def select_rep_comments_df(stats_df: pd.DataFrame,
-                           agree_count: int = 3,
-                           disagree_count: int = 2) -> pd.DataFrame:
-    """
-    Select representative comments for a single group from a DataFrame.
+# =============================================================================
+# D10: Selection helpers (Clojure parity for select-rep-comments)
+# =============================================================================
+#
+# Ports of Clojure's `select-rep-comments` and its three predicates from
+# math/src/polismath/math/repness.clj:133-281. Operate on per-(group, comment)
+# dict rows produced by `compute_group_comment_stats_df` (via to_dict('records')).
+# Per-row dict ops + small per-group iteration (rather than vectorized) because
+# `beats_best_agr` has a 4-branch decision against a moving "current best"
+# that updates during iteration; vectorizing would require multiple passes
+# without saving lines (per-group N typically <500 comments).
 
-    NOTE (PR 14a / D10): this is the current Python selection logic — a
-    botched port that does not match Clojure's `select-rep-comments`
-    (math/src/polismath/math/repness.clj:212-281). D10 will replace it with
-    a single-pass reduce matching Clojure (up to 5 total, agrees-first,
-    best-agree priority slot). Until then, this path is preserved as-is.
+
+def passes_by_test(s: Dict[str, Any]) -> bool:
+    """
+    Clojure passes-by-test? (repness.clj:165-170).
+
+    True iff the agree side OR the disagree side passes z-sig-90 on BOTH
+    the proportion test (pat/pdt) and the representativeness test (rat/rdt).
+    No probability gate — pre-D10 Python's `pa >= 0.5` gate was a Python-only
+    over-restriction without a Clojure analog.
+
+        (or (and (z-sig-90? rat) (z-sig-90? pat))
+            (and (z-sig-90? rdt) (z-sig-90? pdt)))
+    """
+    return (
+        (z_score_sig_90(s['rat']) and z_score_sig_90(s['pat']))
+        or (z_score_sig_90(s['rdt']) and z_score_sig_90(s['pdt']))
+    )
+
+
+def beats_best_by_test(s: Dict[str, Any], current_best_z: Optional[float]) -> bool:
+    """
+    Clojure beats-best-by-test? (repness.clj:133-139).
+
+    True if `s` has a more-representative max(rat, rdt) than `current_best_z`,
+    OR if there is no current best yet. Strict `>` (Clojure: `>`).
+
+        (or (nil? current-best-z)
+            (> (max rat rdt) current-best-z))
+    """
+    if current_best_z is None:
+        return True
+    return max(s['rat'], s['rdt']) > current_best_z
+
+
+def beats_best_agr(s: Dict[str, Any],
+                   current_best: Optional[Dict[str, Any]]) -> bool:
+    """
+    Clojure beats-best-agr? (repness.clj:142-162).
+
+    Four mutually exclusive branches:
+
+    1. `na == 0 and nd == 0`: reject. Comments with no votes never enter the
+       best-agree slot (Clojure: `(= 0 na nd)` → false).
+    2. `current_best` exists AND `current_best['ra'] > 1.0`: compare the
+       4-way signed product `ra * rat * pa * pat`. New row must beat the
+       current best on this product.
+    3. `current_best` exists (else, i.e. `current_best['ra'] <= 1.0`):
+       compare `pa * pat` only — "shoot for something generally agreed upon"
+       when the current best isn't representative enough.
+    4. No `current_best`: accept if `z90(pat)` OR `(ra > 1.0 AND pa > 0.5)`.
+
+    `current_best` here is the RAW stats row (Clojure stores raw at
+    repness.clj:250 so this comparator keeps the `ra/rat/pa/pat` surface).
+    """
+    if s['na'] == 0 and s['nd'] == 0:  # Branch 1.
+        return False
+    if current_best is not None and current_best['ra'] > 1.0:  # Branch 2.
+        return (s['ra'] * s['rat'] * s['pa'] * s['pat']) > (
+            current_best['ra'] * current_best['rat']
+            * current_best['pa'] * current_best['pat']
+        )
+    if current_best is not None:  # Branch 3.
+        return (s['pa'] * s['pat']) > (current_best['pa'] * current_best['pat'])
+    # Branch 4.
+    return z_score_sig_90(s['pat']) or (s['ra'] > 1.0 and s['pa'] > 0.5)
+
+
+def _finalize_row_for_output(row: Dict[str, Any], *,
+                             is_best_agree: bool = False) -> Dict[str, Any]:
+    """
+    Format a per-(group, comment) stats row for the final repness output
+    (math blob `repness` / `group_repness`).
+
+    Mirrors Clojure `finalize-cmt-stats` (repness.clj:173-188) plus the
+    best-agree flagging at repness.clj:262-264.
+
+    When `is_best_agree=True`, two extra keys are added:
+        - `best_agree`: True
+        - `n_agree`: the raw `na` (preserves the agree count even when the
+          row is classified as 'disagree' by `rat > rdt`).
+
+    Key naming uses Python convention (underscored). Clojure-style hyphens
+    (`repful-for`, `n-agree`, etc.) are deferred to a future math-blob
+    alignment PR (see PLAN.md "Pending — needs team discussion").
+
+    `agree_metric` / `disagree_metric` are read directly from the row
+    (produced by `compute_group_comment_stats_df`) rather than recomputed.
+    Recomputing here would duplicate the formula at repness.clj:191-193 in
+    two places and risk drift if it ever changes (decision D10.8.3).
+    """
+    repful = 'agree' if row['rat'] > row['rdt'] else 'disagree'
+    finalized: Dict[str, Any] = {
+        'comment_id': row['comment'],
+        'group_id': row['group_id'],
+        'na': int(row['na']),
+        'nd': int(row['nd']),
+        'ns': int(row['ns']),
+        'pa': row['pa'],
+        'pd': row['pd'],
+        'pat': row['pat'],
+        'pdt': row['pdt'],
+        'ra': row['ra'],
+        'rd': row['rd'],
+        'rat': row['rat'],
+        'rdt': row['rdt'],
+        'agree_metric': row['agree_metric'],
+        'disagree_metric': row['disagree_metric'],
+        'repful': repful,
+    }
+    if is_best_agree:
+        finalized['best_agree'] = True
+        finalized['n_agree'] = int(row['na'])
+    return finalized
+
+
+def select_rep_comments_df(stats_df: pd.DataFrame,
+                           mod_out: Optional[Iterable[int]] = None
+                           ) -> Tuple[pd.DataFrame, Optional[Dict[str, Any]]]:
+    """
+    Select representative comments for a single group (Clojure parity).
+
+    Single-pass reduce over the group's (gid, tid) rows, mirroring
+    `select-rep-comments` in math/src/polismath/math/repness.clj:212-281.
+
+    Per-row state {sufficient, best, best_agree}:
+      - `passes_by_test(row)` → append finalized row to `sufficient`.
+      - `:sufficient` still empty AND `beats_best_by_test` → update `best`.
+      - `beats_best_agr(row, best_agree)` → store RAW row as new `best_agree`.
+
+    Final assembly (decision S2 / D10.4):
+      - `sufficient` non-empty: dedup best_agree from sufficient → sort by
+        agree/disagree metric (descending, signed product per repness.clj:191)
+        → take up to 5 (post-prepend → 4 sufficient max) → agrees-before-
+        disagrees on the sufficient slice. The best-agree dict is returned
+        SEPARATELY so the DataFrame stays clean (no NaN best_agree/n_agree
+        columns when the slot is empty).
+      - Else: `(empty_df, best_agree_dict)` if best_agree exists, else
+        `(single_row_df_for_best, None)` if best exists, else
+        `(empty_df, None)`.
 
     Args:
-        stats_df: DataFrame with comment statistics for ONE group
-        agree_count: Number of agreement comments to select
-        disagree_count: Number of disagreement comments to select
+        stats_df: DataFrame with comment statistics for ONE group, schema
+            as produced by `compute_group_comment_stats_df`.
+        mod_out: Optional iterable of tids to exclude (moderated-out comments).
+            Filter applied before the reduce (Clojure repness.clj:222).
 
     Returns:
-        DataFrame of selected representative comments
+        `(rep_df, best_agree_dict)` tuple:
+          - `rep_df`: DataFrame of finalized rep-comment rows in math-blob
+            shape (see `_finalize_row_for_output`) — does NOT include the
+            best-agree slot, and carries NO `best_agree`/`n_agree` columns.
+            Already ordered agrees-before-disagrees and capped so that
+            `len(rep_df) + (1 if best_agree_dict else 0) <= 5`.
+          - `best_agree_dict`: Standalone finalized dict for the best-agree
+            slot (with `best_agree=True` and `n_agree=<na>`), or `None` if
+            no candidate qualified. The caller is responsible for prepending
+            it to the flat output list.
     """
+    empty_df: pd.DataFrame = pd.DataFrame()
+
     if stats_df.empty:
-        return stats_df
+        return empty_df, None
 
-    total_wanted = agree_count + disagree_count
+    mod_out_set = set(mod_out) if mod_out else set()
+    sufficient: List[Dict[str, Any]] = []
+    best: Optional[Dict[str, Any]] = None
+    # Track best's max(rat, rdt) as a sidecar scalar so we never have to mutate
+    # `best` itself with synthetic comparison keys. Avoids the leak/pop dance
+    # of stashing a `_max_rt` inside the finalized dict (decision D10.8.4).
+    best_max_rt: Optional[float] = None
+    best_agree: Optional[Dict[str, Any]] = None
 
-    # Best agree: pa > pd and passes significance tests
-    agree_candidates = stats_df[stats_df['pa'] > stats_df['pd']].copy()
-    if not agree_candidates.empty:
-        # Check significance: pat > Z_90 and rat > Z_90
-        passing_agree = agree_candidates[
-            (agree_candidates['pat'] > Z_90) &
-            (agree_candidates['rat'] > Z_90) &
-            (agree_candidates['pa'] >= 0.5)
-        ]
-        if not passing_agree.empty:
-            agree_candidates = passing_agree
+    # Sort by `comment` (tid) ascending BEFORE iterating, so ties in
+    # `beats_best_by_test` (max(rat, rdt) tied) and in `beats_best_agr`
+    # (Branch 2/3 product tied) resolve deterministically. The chosen order
+    # matches Clojure's named-matrix column iteration: after normalization
+    # the columns are insertion-ordered, and for cold-start that's tid
+    # ascending (see Clojure named_matrix.clj:130-131 — insertion order).
+    # All Clojure beats-*? predicates use strict `>` so the FIRST row at a
+    # tied score wins; sorting ascending here mirrors that (decision D10.8.1).
+    iter_df = stats_df.sort_values('comment', kind='mergesort')
 
-    # Best disagree: pd > pa and passes significance tests
-    disagree_candidates = stats_df[stats_df['pd'] > stats_df['pa']].copy()
-    if not disagree_candidates.empty:
-        passing_disagree = disagree_candidates[
-            (disagree_candidates['pdt'] > Z_90) &
-            (disagree_candidates['rdt'] > Z_90) &
-            (disagree_candidates['pd'] >= 0.5)
-        ]
-        if not passing_disagree.empty:
-            disagree_candidates = passing_disagree
+    for row in iter_df.to_dict('records'):
+        if row['comment'] in mod_out_set:
+            continue
+        if passes_by_test(row):
+            sufficient.append(_finalize_row_for_output(row))
+        # Update `best` only while sufficient is still empty (Clojure parity).
+        if not sufficient:
+            if beats_best_by_test(row, best_max_rt):
+                best = _finalize_row_for_output(row)
+                best_max_rt = max(row['rat'], row['rdt'])
+        # `best_agree` stores RAW row (Clojure repness.clj:250) so subsequent
+        # `beats_best_agr` calls keep the ra/rat/pa/pat surface.
+        if beats_best_agr(row, best_agree):
+            best_agree = row
 
-    # Sort candidates by metric
-    if not agree_candidates.empty:
-        agree_candidates = agree_candidates.sort_values('agree_metric', ascending=False)
-    if not disagree_candidates.empty:
-        disagree_candidates = disagree_candidates.sort_values('disagree_metric', ascending=False)
+    # Build the standalone best-agree dict (or None) once — used in every
+    # assembly branch below.
+    best_agree_dict: Optional[Dict[str, Any]] = (
+        _finalize_row_for_output(best_agree, is_best_agree=True)
+        if best_agree is not None else None
+    )
 
-    # Select top N from each category
-    selected_parts = []
+    # Assembly.
+    if not sufficient:
+        if best_agree_dict is not None:
+            # Best-agree slot returned separately; rep_df stays empty.
+            return empty_df, best_agree_dict
+        if best is not None:
+            return pd.DataFrame([best]), None
+        return empty_df, None
 
-    if not agree_candidates.empty:
-        top_agree = agree_candidates.head(agree_count).copy()
-        top_agree['repful'] = 'agree'
-        selected_parts.append(top_agree)
+    # Sufficient non-empty path.
+    best_agree_tid = best_agree['comment'] if best_agree is not None else None
+    # Dedup best_agree from sufficient (caller will re-prepend it).
+    deduped = [s for s in sufficient if s['comment_id'] != best_agree_tid]
 
-    if not disagree_candidates.empty:
-        top_disagree = disagree_candidates.head(disagree_count).copy()
-        top_disagree['repful'] = 'disagree'
-        selected_parts.append(top_disagree)
+    # Sort each row by its winning-side metric (signed product, per Clojure
+    # repness.clj:191-193). Clojure (repness.clj:191-200) sorts by a single
+    # `:repness-metric` field that `finalize-cmt-stats` populates per the
+    # winning side. We achieve equivalent ranking by reading `agree_metric`
+    # for repful=='agree' rows and `disagree_metric` otherwise — same
+    # comparator value, just a different key per row (decision D10.8.2).
+    def _sort_key(s: Dict[str, Any]) -> float:
+        return s['agree_metric'] if s['repful'] == 'agree' else s['disagree_metric']
+    deduped.sort(key=_sort_key, reverse=True)
 
-    if selected_parts:
-        selected = pd.concat(selected_parts, ignore_index=False)
-    else:
-        selected = pd.DataFrame()
+    # TODO(parity-eviction): the cap of 5 INCLUDING the best-agree slot can
+    # evict the 5th-highest-metric `sufficient` entry — a strong dissenting
+    # view may be silently dropped by a weak agree-priority one. Mirrors
+    # Clojure exactly for parity; flagged in PLAN.md
+    # "Pending — needs team discussion".
+    cap = 5 - (1 if best_agree_dict is not None else 0)
+    capped = deduped[:cap]
 
-    # If we couldn't find enough, try to fill from available candidates
-    # This matches the exact behavior of the old select_rep_comments() function:
-    # - First fallback adds agree_comments[agree_count:min(len, total_wanted)] regardless of
-    #   whether we exceed total_wanted (up to disagree_count more agrees)
-    # - Second fallback only runs if STILL < total_wanted
-    if len(selected) < total_wanted:
-        # Try to add more agree comments
-        # Old code: range(agree_count, min(len(agree_comments), agree_count + disagree_count))
-        if not agree_candidates.empty and len(agree_candidates) > agree_count:
-            extra_limit = min(len(agree_candidates), total_wanted)
-            extra_agrees = agree_candidates.iloc[agree_count:extra_limit].copy()
-            extra_agrees['repful'] = 'agree'
-            selected = pd.concat([selected, extra_agrees], ignore_index=False)
+    # agrees-before-disagrees (Clojure repness.clj:203-209). Stable partition.
+    agrees = [c for c in capped if c['repful'] == 'agree']
+    disagrees = [c for c in capped if c['repful'] == 'disagree']
+    rep_df = pd.DataFrame(agrees + disagrees)
 
-        # Try to add more disagree comments (only if still not enough)
-        # Old code: range(disagree_count, min(len(disagree_comments), agree_count + disagree_count))
-        if len(selected) < total_wanted and not disagree_candidates.empty and len(disagree_candidates) > disagree_count:
-            extra_limit = min(len(disagree_candidates), total_wanted)
-            extra_disagrees = disagree_candidates.iloc[disagree_count:extra_limit].copy()
-            extra_disagrees['repful'] = 'disagree'
-            selected = pd.concat([selected, extra_disagrees], ignore_index=False)
+    return rep_df, best_agree_dict
 
-    # Fallback: if still empty, take first row
-    if selected.empty and not stats_df.empty:
-        selected = stats_df.head(1).copy()
-        selected['repful'] = selected['repful'].iloc[0] if 'repful' in selected.columns else 'agree'
 
-    return selected
+def _assemble_rep_comments(stats_df: pd.DataFrame,
+                           mod_out: Optional[Iterable[int]] = None
+                           ) -> List[Dict[str, Any]]:
+    """Thin wrapper around `select_rep_comments_df` that returns the flat
+    output list (best-agree slot prepended, then the DataFrame's rows,
+    then re-partitioned agrees-before-disagrees so a `repful='disagree'`
+    best-agree slot lands in the disagrees section as in pre-S2).
+
+    Decision S2: `select_rep_comments_df` returns a `(rep_df, best_agree_dict)`
+    tuple so the DataFrame stays clean (no NaN extra-key columns). Most
+    callers — including `conv_repness` and the D10 synthetic tests — want
+    the flat List[Dict] form, so we keep one place that does the prepend
+    and the final agrees-before-disagrees stable partition.
+    """
+    rep_df, best_agree_dict = select_rep_comments_df(stats_df, mod_out=mod_out)
+    head: List[Dict[str, Any]] = [best_agree_dict] if best_agree_dict is not None else []
+    tail: List[Dict[str, Any]] = (
+        rep_df.to_dict('records') if not rep_df.empty else []
+    )
+    combined = head + tail
+    # Re-run agrees-before-disagrees stable partition so the best-agree slot
+    # ends up in the correct section per its own `repful`. This mirrors the
+    # pre-S2 behaviour where best_agree was prepended into a single list and
+    # then partitioned (Clojure repness.clj:203-209).
+    agrees = [c for c in combined if c['repful'] == 'agree']
+    disagrees = [c for c in combined if c['repful'] == 'disagree']
+    return agrees + disagrees
 
 
 def select_consensus_comments_df(stats_df: pd.DataFrame,
@@ -598,10 +781,12 @@ def conv_repness(vote_matrix_df: pd.DataFrame, group_clusters: List[Dict[str, An
             continue
 
         try:
-            rep_df = select_rep_comments_df(group_stats)
-            # Convert to list of dicts only at the end
-            rep_comments = [_stats_row_to_dict(row) for _, row in rep_df.iterrows()]
-            result['group_repness'][group_id] = rep_comments
+            # `select_rep_comments_df` now returns `(rep_df, best_agree_dict)`
+            # (decision S2) so the DataFrame stays clean. Use the
+            # `_assemble_rep_comments` wrapper to get the flat List[Dict]
+            # the math blob expects (best-agree prepended, agrees-before-
+            # disagrees partition applied).
+            result['group_repness'][group_id] = _assemble_rep_comments(group_stats)
         except Exception as e:
             print(f"Error selecting representative comments for group {group_id}: {e}")
             result['group_repness'][group_id] = []

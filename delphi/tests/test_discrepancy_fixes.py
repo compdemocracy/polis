@@ -42,6 +42,12 @@ from polismath.pca_kmeans_rep.repness import (
     z_score_sig_95,
     prop_test_vectorized,
     two_prop_test_vectorized,
+    # D10 selection helpers (PR 8)
+    passes_by_test,
+    beats_best_by_test,
+    beats_best_agr,
+    select_rep_comments_df,
+    _assemble_rep_comments,
 )
 from polismath.regression import get_dataset_files, get_blob_variants
 from polismath.regression.datasets import discover_datasets
@@ -617,7 +623,13 @@ class TestD9ZScoreThresholds:
         check.equal(len(mismatches), 0,
                     f"{len(mismatches)} groups differ in selected rep comments")
 
-    @pytest.mark.xfail(reason="D5/D6/D10: different z-values and selection → no shared comments to compare")
+    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
+                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
+                              "only k count, not per-(gid, tid) memberships). D10 unlocks shared "
+                              "comments (overlap ~20%) but per-(gid, tid) z-values still differ "
+                              "because the swapped/divergent groups contain different participants. "
+                              "Fix requires canonical-group-id sorting or set-based comparison "
+                              "infrastructure.")
     def test_z_values_match_clojure(self, conv, clojure_blob, dataset_name):
         """Z-score values for shared rep comments should match Clojure.
 
@@ -753,7 +765,13 @@ class TestD5ProportionTest:
         print(f"[{dataset_name}] pat consistency: {total - mismatches}/{total} match formula (max_diff={max_diff:.4f})")
         check.equal(mismatches, 0, f"Clojure p-test values don't match formula for {mismatches}/{total}")
 
-    @pytest.mark.xfail(reason="D5/D10: prop test formula differs + no shared comments")
+    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
+                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
+                              "only k count, not per-(gid, tid) memberships). D10 unlocks shared "
+                              "comments but per-(gid, tid) pat values still differ because the "
+                              "swapped/divergent groups contain different participants. Fix "
+                              "requires canonical-group-id sorting or set-based comparison "
+                              "infrastructure.")
     def test_pat_values_match_clojure_blob(self, conv, clojure_blob, dataset_name):
         """p-test (Clojure) vs pat (Python) for shared rep comments."""
         clojure_repness = clojure_blob.get('repness', {})
@@ -868,7 +886,13 @@ class TestD6TwoPropTest:
         check.greater(abs(result_large), abs(result_small),
                       "Large samples should produce more extreme z-scores than small ones")
 
-    @pytest.mark.xfail(reason="D6/D10: two-prop test differs + no shared comments to compare")
+    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
+                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
+                              "only k count, not per-(gid, tid) memberships). D10 unlocks shared "
+                              "comments but per-(gid, tid) rat values still differ because the "
+                              "swapped/divergent groups contain different participants. Fix "
+                              "requires canonical-group-id sorting or set-based comparison "
+                              "infrastructure.")
     def test_rat_values_match_clojure_blob(self, conv, clojure_blob, dataset_name):
         """repness-test (Clojure) vs rat (Python) for shared rep comments.
 
@@ -948,7 +972,13 @@ class TestD7RepnessMetric:
         check.almost_equal(disagree_metric, 0.189, abs=1e-10,
                             msg=f"disagree_metric (0.7 * -0.9 * 0.2 * -1.5) = 0.189, got {disagree_metric}")
 
-    @pytest.mark.xfail(reason="D7/D10: metric formula differs + no shared comments")
+    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
+                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
+                              "only k count, not per-(gid, tid) memberships). D10 unlocks shared "
+                              "comments but per-(gid, tid) repness metrics still differ because "
+                              "the swapped/divergent groups contain different participants. Fix "
+                              "requires canonical-group-id sorting or set-based comparison "
+                              "infrastructure.")
     def test_repness_metric_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
         """repness (Clojure) vs agree/disagree_metric (Python) for shared comments."""
         clojure_repness = clojure_blob.get('repness', {})
@@ -1025,7 +1055,13 @@ class TestD8FinalizeStats:
             f"{len(mismatches)}/{len(cases)} repful mismatches:\n"
             + mismatches.to_string(index=False))
 
-    @pytest.mark.xfail(reason="D8/D10: repful logic differs + no shared comments")
+    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
+                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
+                              "only k count, not per-(gid, tid) memberships). D10 unlocks shared "
+                              "comments but per-(gid, tid) repful labels still differ because the "
+                              "swapped/divergent groups contain different participants. Fix "
+                              "requires canonical-group-id sorting or set-based comparison "
+                              "infrastructure.")
     def test_repful_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
         """repful-for (Clojure) vs repful (Python) for shared rep comments."""
         clojure_repness = clojure_blob.get('repness', {})
@@ -1071,7 +1107,13 @@ class TestD10RepCommentSelection:
          Clojure selects up to 5 total, agrees first, with beats-best-by-test logic
     """
 
-    @pytest.mark.xfail(reason="D10: Different selection logic than Clojure")
+    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
+                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
+                              "only k count, not per-(gid, tid) memberships) prevents exact "
+                              "set match. D10 selection logic verified by TestD10PassesByTest, "
+                              "TestD10BeatsBestByTest, TestD10BeatsBestAgr, "
+                              "TestD10SelectRepCommentsBoundary. Fix requires canonical-group-id "
+                              "sorting or set-based comparison infrastructure.")
     def test_rep_comments_match_clojure(self, conv, clojure_blob, dataset_name):
         """Selected representative comments per group should match Clojure."""
         clojure_repness = clojure_blob.get('repness', {})
@@ -1102,6 +1144,482 @@ class TestD10RepCommentSelection:
 
         check.equal(matching_groups, total_groups,
                      f"Only {matching_groups}/{total_groups} groups have matching rep comments")
+
+
+# ----------------------------------------------------------------------------
+# D10 — Synthetic unit tests for the new selection helpers
+# ----------------------------------------------------------------------------
+#
+# Pin the Clojure-parity semantics of `passes_by_test`, `beats_best_by_test`,
+# `beats_best_agr`, and `select_rep_comments_df`. Synthetic 1-group fixtures
+# only — no real datasets, no Clojure blob dependency.
+#
+# References:
+#   - Clojure `select-rep-comments`: math/src/polismath/math/repness.clj:212-281
+#   - Helpers `passes-by-test?` :165, `beats-best-by-test?` :133,
+#     `beats-best-agr?` :142, `finalize-cmt-stats` :173, `repness-metric` :191.
+# ----------------------------------------------------------------------------
+
+
+def _stats_row(tid, na, nd, pa, pd_, pat, pdt, ra, rd, rat, rdt, *, ns=None,
+               agree_metric=None, disagree_metric=None, repful=None, group_id=0):
+    """Build a single stats DataFrame row matching the schema produced by
+    `compute_group_comment_stats_df`. Defaults derived per Clojure recipe."""
+    if ns is None:
+        ns = na + nd
+    if agree_metric is None:
+        agree_metric = ra * rat * pa * pat
+    if disagree_metric is None:
+        disagree_metric = rd * rdt * pd_ * pdt
+    if repful is None:
+        repful = 'agree' if rat > rdt else 'disagree'
+    return {
+        'group_id': group_id, 'comment': tid,
+        'na': na, 'nd': nd, 'ns': ns,
+        'pa': pa, 'pd': pd_,
+        'pat': pat, 'pdt': pdt,
+        'ra': ra, 'rd': rd,
+        'rat': rat, 'rdt': rdt,
+        'agree_metric': agree_metric, 'disagree_metric': disagree_metric,
+        'repful': repful,
+    }
+
+
+class TestD10PassesByTest:
+    """`passes-by-test?` (repness.clj:165) — OR'd on (rat, pat) and (rdt, pdt).
+
+    NO probability threshold (`pa >= 0.5` was a Python-only over-restriction
+    in the pre-D10 botched port — Clojure has no such gate)."""
+
+    def test_agree_side_significant_passes(self):
+        row = _stats_row(1, na=8, nd=2, pa=0.75, pd_=0.25, pat=2.0, pdt=-2.0,
+                         ra=2.0, rd=0.5, rat=2.0, rdt=-2.0)  # rat,pat > Z_90
+        assert passes_by_test(row)
+
+    def test_disagree_side_significant_passes(self):
+        row = _stats_row(2, na=2, nd=8, pa=0.25, pd_=0.75, pat=-2.0, pdt=2.0,
+                         ra=0.5, rd=2.0, rat=-2.0, rdt=2.0)  # rdt,pdt > Z_90
+        assert passes_by_test(row)
+
+    def test_neither_side_significant_fails(self):
+        row = _stats_row(3, na=5, nd=5, pa=0.5, pd_=0.5, pat=0.5, pdt=0.5,
+                         ra=1.0, rd=1.0, rat=0.5, rdt=0.5)
+        assert not passes_by_test(row)
+
+    def test_no_pa_threshold_gate(self):
+        """Pre-D10 Python added `pa >= 0.5` — Clojure has no such gate. A row
+        with pa=0.4 that's otherwise significant on the agree side must pass."""
+        row = _stats_row(4, na=4, nd=6, pa=0.42, pd_=0.58, pat=2.0, pdt=-2.0,
+                         ra=2.0, rd=0.5, rat=2.0, rdt=-2.0)
+        assert passes_by_test(row), "no pa>=0.5 gate (Clojure parity)"
+
+
+class TestD10BeatsBestByTest:
+    """`beats-best-by-test?` (repness.clj:133) — max(rat, rdt) > current_best_z."""
+
+    def test_none_best_always_beats(self):
+        row = _stats_row(1, na=5, nd=2, pa=0.6, pd_=0.4, pat=1.0, pdt=-1.0,
+                         ra=1.2, rd=0.8, rat=2.0, rdt=0.5)
+        assert beats_best_by_test(row, None)
+
+    def test_max_rat_rdt_used(self):
+        row = _stats_row(1, na=5, nd=2, pa=0.6, pd_=0.4, pat=1.0, pdt=-1.0,
+                         ra=1.2, rd=0.8, rat=2.0, rdt=0.5)
+        # max = 2.0
+        assert beats_best_by_test(row, 1.5)
+        assert not beats_best_by_test(row, 2.5)
+
+    def test_strict_greater_than(self):
+        row = _stats_row(1, na=5, nd=2, pa=0.6, pd_=0.4, pat=1.0, pdt=-1.0,
+                         ra=1.2, rd=0.8, rat=2.0, rdt=0.5)
+        assert not beats_best_by_test(row, 2.0), "strict > (Clojure parity)"
+
+
+class TestD10BeatsBestAgr:
+    """`beats-best-agr?` (repness.clj:142) — 4-branch agree priority logic."""
+
+    def test_na_nd_zero_always_rejected(self):
+        """Branch 1: (= 0 na nd) → false. Unvoted comments excluded from best-agree
+        regardless of stats."""
+        unvoted = _stats_row(1, na=0, nd=0, pa=0.5, pd_=0.5, pat=1.0, pdt=1.0,
+                             ra=1.0, rd=1.0, rat=1.0, rdt=1.0)
+        assert not beats_best_agr(unvoted, None)
+        other = _stats_row(2, na=5, nd=2, pa=0.6, pd_=0.4, pat=1.0, pdt=-1.0,
+                           ra=1.2, rd=0.8, rat=2.0, rdt=0.5)
+        assert not beats_best_agr(unvoted, other)
+
+    def test_branch_2_ra_gt_1_uses_4way_product(self):
+        """Branch 2: current_best AND current_best.ra > 1.0 → compare ra*rat*pa*pat."""
+        big_ra_best = _stats_row(1, na=10, nd=0, pa=0.9, pd_=0.1, pat=2.0, pdt=-2.0,
+                                  ra=2.0, rd=0.5, rat=2.0, rdt=-2.0)
+        # ra*rat*pa*pat = 2.0*2.0*0.9*2.0 = 7.2
+        bigger = _stats_row(2, na=15, nd=0, pa=0.94, pd_=0.06, pat=3.0, pdt=-3.0,
+                             ra=2.5, rd=0.4, rat=2.5, rdt=-2.5)
+        # 2.5*2.5*0.94*3.0 = 17.625 > 7.2
+        smaller = _stats_row(3, na=5, nd=0, pa=0.86, pd_=0.14, pat=1.5, pdt=-1.5,
+                              ra=1.5, rd=0.6, rat=1.5, rdt=-1.5)
+        # 1.5*1.5*0.86*1.5 ≈ 2.9 < 7.2
+        assert beats_best_agr(bigger, big_ra_best)
+        assert not beats_best_agr(smaller, big_ra_best)
+
+    def test_branch_3_ra_le_1_uses_pa_pat_product(self):
+        """Branch 3: current_best AND current_best.ra <= 1.0 → compare pa*pat only."""
+        weak_best = _stats_row(1, na=5, nd=4, pa=0.55, pd_=0.45, pat=1.0, pdt=-1.0,
+                                ra=0.9, rd=1.1, rat=1.0, rdt=-1.0)
+        # pa*pat = 0.55
+        bigger = _stats_row(2, na=6, nd=2, pa=0.7, pd_=0.3, pat=1.2, pdt=-1.2,
+                             ra=1.0, rd=1.0, rat=0.5, rdt=-0.5)
+        # pa*pat = 0.84 > 0.55
+        assert beats_best_agr(bigger, weak_best)
+
+    def test_branch_4_no_best_accepts_via_z_sig_pat(self):
+        """Branch 4 / no current_best: accept if z90(pat) is true."""
+        row = _stats_row(1, na=6, nd=4, pa=0.58, pd_=0.42, pat=1.5, pdt=-1.5,
+                         ra=0.9, rd=1.1, rat=1.0, rdt=-1.0)  # pat=1.5 > Z_90=1.2816
+        assert beats_best_agr(row, None)
+
+    def test_branch_4_no_best_accepts_via_ra_gt_1_and_pa_gt_half(self):
+        """Branch 4 / no current_best: accept if ra > 1.0 AND pa > 0.5
+        (even when pat not significant)."""
+        row = _stats_row(1, na=5, nd=4, pa=0.55, pd_=0.45, pat=0.5, pdt=-0.5,
+                         ra=1.2, rd=0.8, rat=0.5, rdt=-0.5)
+        assert beats_best_agr(row, None)
+
+    def test_branch_4_no_best_rejects_when_neither(self):
+        """Branch 4 / no current_best: reject if neither z90(pat) nor
+        (ra > 1.0 AND pa > 0.5)."""
+        row = _stats_row(1, na=4, nd=5, pa=0.45, pd_=0.55, pat=0.5, pdt=0.5,
+                         ra=0.8, rd=1.2, rat=0.5, rdt=0.5)
+        assert not beats_best_agr(row, None)
+
+
+class TestD10SelectRepCommentsBoundary:
+    """`select_rep_comments_df` Clojure-parity boundaries."""
+
+    def test_empty_input_returns_empty(self):
+        result = _assemble_rep_comments(pd.DataFrame())
+        assert len(result) == 0
+
+    def test_single_unvoted_row_falls_through_to_best(self):
+        """`beats_best_by_test` does NOT filter na=nd=0; only `beats_best_agr`
+        Branch 1 does. So a sole na=nd=0 row still ends up in the `:best`
+        fallback (Clojure parity — repness.clj:244-247). The `:best_agree`
+        slot stays empty (Branch 1 rejects). Output is [best], not [].
+        """
+        rows = [
+            _stats_row(1, na=0, nd=0, pa=0.5, pd_=0.5, pat=0.0, pdt=0.0,
+                       ra=1.0, rd=1.0, rat=0.0, rdt=0.0),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        assert len(result) == 1
+        assert result[0]['comment_id'] == 1
+        # NOT the best-agree slot (Branch 1 rejected na=nd=0).
+        assert 'best_agree' not in result[0]
+
+    def test_sufficient_empty_best_agree_only(self):
+        """Sufficient empty + best_agree exists → returns [best_agree_finalized]."""
+        # passes_by_test fails (pat=pdt below z90, rat=rdt below z90).
+        # beats_best_agr triggers via Branch 4: z90(pat) is true (pat=1.5).
+        rows = [
+            _stats_row(1, na=6, nd=4, pa=0.58, pd_=0.42, pat=1.5, pdt=-1.5,
+                       ra=0.9, rd=1.1, rat=1.0, rdt=-1.0),
+            # Filler row to make this not trivially the only one — also fails
+            # passes_by_test and beats_best_agr.
+            _stats_row(2, na=3, nd=5, pa=0.4, pd_=0.6, pat=-0.5, pdt=0.5,
+                       ra=0.8, rd=1.2, rat=-0.3, rdt=0.3),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        assert len(result) == 1
+        # New select_rep_comments_df returns (rep_df, best_agree_dict); the
+        # `_assemble_rep_comments` wrapper returns the flat List[Dict]
+        # (decision S2).
+        row = result[0]
+        assert row['comment_id'] == 1
+        # best_agree flag emitted in Python-convention key naming (decision S1 / Q2).
+        assert row.get('best_agree') is True, "best_agree slot should be flagged"
+        assert row.get('n_agree') == 6, "n_agree should be na from the raw best-agree row"
+
+    def test_take_5_cap_agrees_before_disagrees(self):
+        """7 sufficient candidates (4 agree-passing, 3 disagree-passing).
+        Sort by metric desc → take 5 → agrees-before-disagrees."""
+        rows = [
+            # 4 agree-passing, large to small agree_metric
+            _stats_row(1, na=9, nd=1, pa=0.83, pd_=0.17, pat=2.5, pdt=-2.5,
+                       ra=2.0, rd=0.5, rat=2.5, rdt=-2.5),  # agree_metric ~10.4
+            _stats_row(2, na=8, nd=2, pa=0.75, pd_=0.25, pat=2.0, pdt=-2.0,
+                       ra=1.8, rd=0.55, rat=2.0, rdt=-2.0),  # ~5.4
+            _stats_row(3, na=7, nd=3, pa=0.67, pd_=0.33, pat=1.5, pdt=-1.5,
+                       ra=1.5, rd=0.6, rat=1.5, rdt=-1.5),  # ~2.27
+            _stats_row(4, na=6, nd=4, pa=0.58, pd_=0.42, pat=1.3, pdt=-1.3,
+                       ra=1.3, rd=0.7, rat=1.3, rdt=-1.3),  # ~1.27
+            # 3 disagree-passing, large to small disagree_metric
+            _stats_row(5, na=1, nd=9, pa=0.17, pd_=0.83, pat=-2.5, pdt=2.5,
+                       ra=0.5, rd=2.0, rat=-2.5, rdt=2.5),  # ~10.4
+            _stats_row(6, na=2, nd=8, pa=0.25, pd_=0.75, pat=-2.0, pdt=2.0,
+                       ra=0.55, rd=1.8, rat=-2.0, rdt=2.0),  # ~5.4
+            _stats_row(7, na=3, nd=7, pa=0.33, pd_=0.67, pat=-1.5, pdt=1.5,
+                       ra=0.6, rd=1.5, rat=-1.5, rdt=1.5),  # ~2.27
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        assert len(result) == 5
+        # Agrees-before-disagrees: all agrees precede all disagrees in the output.
+        repful_values = [r['repful'] for r in result]  # List[Dict] per S2
+        last_agree_idx = -1
+        first_disagree_idx = len(repful_values)
+        for i, v in enumerate(repful_values):
+            if v == 'agree':
+                last_agree_idx = i
+            elif v == 'disagree' and first_disagree_idx == len(repful_values):
+                first_disagree_idx = i
+        assert last_agree_idx < first_disagree_idx, \
+            f"agrees must come before disagrees, got order: {repful_values}"
+
+    def test_take_5_eviction_when_best_agree_outside_sufficient(self):
+        """The eviction edge case (flagged in PLAN for future review).
+
+        Sufficient has 5 entries, best_agree is OUTSIDE sufficient (failed
+        passes_by_test). Prepending best_agree pushes total to 6, take(5) drops
+        the lowest-metric sufficient entry.
+
+        Fixture design (subtle):
+          - tid 1: best_agree slot. Fails passes_by_test (rat=1.0, pat=1.0
+            both below Z_90=1.2816). Branch 4 accepts via ra>1.0 AND pa>0.5.
+            Its agree_metric (ra*rat*pa*pat = 0.9) is LARGER than every
+            sufficient row's metric, so subsequent rows can't beat it via
+            Branch 2.
+          - tid 2-6: pass passes_by_test (rat,pat at 1.3 > Z_90), with
+            DECREASING agree_metrics all SMALLER than 0.9, so Branch 2 keeps
+            tid 1 as best_agree throughout.
+
+        Expected: tid 1 prepended, sort gives [tid 5, 4, 3, 2, 6] (desc by
+        agree_metric), take(5) drops tid 6 (smallest metric).
+
+        See PLAN.md "Pending — needs team discussion": take-5 eviction.
+        """
+        rows = [
+            # best_agree slot: fails passes_by_test, qualifies via Branch 4
+            # (ra=1.5>1 AND pa=0.6>0.5). agree_metric = 1.5*1.0*0.6*1.0 = 0.9.
+            _stats_row(1, na=6, nd=4, pa=0.6, pd_=0.4, pat=1.0, pdt=-1.0,
+                       ra=1.5, rd=0.7, rat=1.0, rdt=-1.0),
+            # 5 sufficient rows, each with agree_metric < 0.9.
+            # ra=1.0, rat=1.3, pa=0.5, pat=1.3 → agree_metric = 0.845
+            _stats_row(2, na=5, nd=5, pa=0.5, pd_=0.5, pat=1.3, pdt=-1.3,
+                       ra=1.0, rd=1.0, rat=1.3, rdt=-1.3),
+            # ra=0.9, rat=1.3, pa=0.4, pat=1.3 → agree_metric = 0.609
+            _stats_row(3, na=4, nd=6, pa=0.4, pd_=0.6, pat=1.3, pdt=-1.3,
+                       ra=0.9, rd=1.1, rat=1.3, rdt=-1.3),
+            # ra=0.8, rat=1.3, pa=0.3, pat=1.3 → agree_metric = 0.406
+            _stats_row(4, na=3, nd=7, pa=0.3, pd_=0.7, pat=1.3, pdt=-1.3,
+                       ra=0.8, rd=1.2, rat=1.3, rdt=-1.3),
+            # ra=0.7, rat=1.3, pa=0.2, pat=1.3 → agree_metric = 0.237
+            _stats_row(5, na=2, nd=8, pa=0.2, pd_=0.8, pat=1.3, pdt=-1.3,
+                       ra=0.7, rd=1.3, rat=1.3, rdt=-1.3),
+            # ra=0.6, rat=1.3, pa=0.15, pat=1.3 → agree_metric = 0.152 (smallest, evicted)
+            _stats_row(6, na=1, nd=9, pa=0.15, pd_=0.85, pat=1.3, pdt=-1.3,
+                       ra=0.6, rd=1.4, rat=1.3, rdt=-1.3),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        assert len(result) == 5
+        tids = [r['comment_id'] for r in result]
+        # best_agree (tid 1) prepended at position 0.
+        assert tids[0] == 1, f"best-agree slot at position 0, got {tids[0]}"
+        # Tid 6 (smallest sufficient metric) evicted.
+        assert 6 not in tids, f"lowest-metric sufficient should be evicted, got {tids}"
+        # Rest are tids 2-5 in some agree-first ordering.
+        assert set(tids[1:]) == {2, 3, 4, 5}, f"expected tids 2-5 to remain, got {tids[1:]}"
+        # best_agree flag on position 0.
+        assert result[0].get('best_agree') is True
+        assert result[0].get('n_agree') == 6  # raw na from tid 1
+
+
+class TestD10TestGaps:
+    """Additional D10 coverage filling gaps identified in decisions D10.8.
+
+    These pin behaviours not previously asserted:
+      - mod_out filtering on the best-agree path.
+      - Deterministic tiebreak (lowest tid wins) on `beats_best_by_test`
+        max(rat,rdt) ties and on the `_sort_key` agree_metric ties.
+      - Disagree-only path through assembly + agrees-before-disagrees no-op.
+      - All-uninformative `ns=0` rows: passes_by_test fails, Branch 1 rejects
+        best_agree; best may still get set via Branch 4 / beats_best_by_test.
+      - Negative-ra rows handled correctly by Branch 2 (signed 4-way product).
+    """
+
+    # --- Deliverable 3: deterministic max(rat, rdt) tiebreak ------------------
+
+    def test_tied_max_rt_uses_deterministic_tiebreak(self):
+        """Two rows with identical max(rat, rdt) — strict `>` means the FIRST
+        iterated row wins. Sorting by `comment` (tid) ascending makes that
+        the LOWER tid (Clojure named-matrix insertion order parity, decision
+        D10.8.1)."""
+        rows = [
+            # Pass through `best` slot (neither passes passes_by_test —
+            # rat/rdt below Z_90), tied max(rat, rdt) = 1.0.
+            # Insert in REVERSE tid order to prove we sort, not just take input order.
+            _stats_row(7, na=4, nd=2, pa=0.55, pd_=0.45, pat=0.5, pdt=-0.5,
+                       ra=1.0, rd=1.0, rat=1.0, rdt=-1.0),
+            _stats_row(3, na=4, nd=2, pa=0.55, pd_=0.45, pat=0.5, pdt=-0.5,
+                       ra=1.0, rd=1.0, rat=1.0, rdt=-1.0),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        assert len(result) == 1
+        # Tid 3 (lower) wins the `best` slot under the tid-ascending tiebreak.
+        assert result[0]['comment_id'] == 3, \
+            f"lowest-tid wins tied max(rat,rdt); got {result[0]['comment_id']}"
+
+    # --- Deliverable 5: 5 gap tests -------------------------------------------
+
+    def test_mod_out_excludes_best_agree_candidate(self):
+        """A `mod_out` tid that would otherwise own the best-agree slot is
+        filtered before the reduce (Clojure repness.clj:222). The next-best
+        candidate becomes best_agree."""
+        rows = [
+            # tid 1: would-be best_agree (ra=2.0>1, pa=0.8>0.5 → Branch 4 accepts;
+            # strong ra*rat*pa*pat = 2.0*2.0*0.8*2.0 = 6.4 so it dominates Branch 2).
+            _stats_row(1, na=8, nd=2, pa=0.8, pd_=0.2, pat=2.0, pdt=-2.0,
+                       ra=2.0, rd=0.5, rat=2.0, rdt=-2.0),
+            # tid 2: next-best (ra*rat*pa*pat = 1.5*1.5*0.7*1.5 ≈ 2.36).
+            _stats_row(2, na=6, nd=3, pa=0.7, pd_=0.3, pat=1.5, pdt=-1.5,
+                       ra=1.5, rd=0.6, rat=1.5, rdt=-1.5),
+            # tid 3: weaker.
+            _stats_row(3, na=5, nd=4, pa=0.55, pd_=0.45, pat=1.0, pdt=-1.0,
+                       ra=1.1, rd=0.9, rat=1.0, rdt=-1.0),
+        ]
+        df = pd.DataFrame(rows)
+        # Without mod_out: tid 1 wins best_agree.
+        baseline = _assemble_rep_comments(df)
+        baseline_best_agree = next(r for r in baseline if r.get('best_agree'))
+        assert baseline_best_agree['comment_id'] == 1
+        # With tid 1 moderated out: tid 2 must win best_agree, tid 1 absent.
+        result = _assemble_rep_comments(df, mod_out=[1])
+        tids = [r['comment_id'] for r in result]
+        assert 1 not in tids, f"mod_out tid 1 must be excluded, got {tids}"
+        flagged = [r for r in result if r.get('best_agree')]
+        assert len(flagged) == 1, "exactly one best_agree slot"
+        assert flagged[0]['comment_id'] == 2, \
+            f"next-best (tid 2) should become best_agree, got {flagged[0]['comment_id']}"
+
+    def test_tied_agree_metric_in_sort_uses_deterministic_tiebreak(self):
+        """Two `sufficient` rows with identical `agree_metric` resolve
+        deterministically. `list.sort` is stable in CPython, so the lower-tid
+        row (which entered `sufficient` first thanks to the tid-ascending
+        iter sort) appears first after descending sort by metric.
+
+        Decision D10.8.1: lowest tid wins ties."""
+        # Both rows pass passes_by_test (rat,pat at 2.0 > Z_90).
+        # Identical agree_metric: ra*rat*pa*pat is the SAME for both.
+        # ra=1.5, rat=2.0, pa=0.7, pat=2.0 → agree_metric = 4.2 (both).
+        # Insert in REVERSE tid order to prove the deterministic outcome
+        # comes from the sort, not the input order.
+        rows = [
+            _stats_row(9, na=7, nd=3, pa=0.7, pd_=0.3, pat=2.0, pdt=-2.0,
+                       ra=1.5, rd=0.6, rat=2.0, rdt=-2.0),
+            _stats_row(2, na=7, nd=3, pa=0.7, pd_=0.3, pat=2.0, pdt=-2.0,
+                       ra=1.5, rd=0.6, rat=2.0, rdt=-2.0),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        # 2 sufficient rows; one of them is also best_agree.
+        # Order: best_agree (tid 2, lowest tid wins beats_best_agr ties via
+        # strict-> first-row-wins) prepended, then deduped sufficient (tid 9).
+        tids = [r['comment_id'] for r in result]
+        assert tids[0] == 2, \
+            f"lowest-tid wins tied beats_best_agr Branch 2 product; got {tids}"
+        assert result[0].get('best_agree') is True
+
+    def test_disagree_only_group(self):
+        """All sufficient rows are `repful='disagree'`. Sort works on
+        `disagree_metric`; agrees-before-disagrees partition is a no-op."""
+        rows = [
+            # 3 disagree-passing rows (rdt,pdt > Z_90), descending disagree_metric.
+            _stats_row(1, na=1, nd=9, pa=0.17, pd_=0.83, pat=-2.5, pdt=2.5,
+                       ra=0.5, rd=2.0, rat=-2.5, rdt=2.5),  # disagree_metric ≈ 8.6
+            _stats_row(2, na=2, nd=8, pa=0.25, pd_=0.75, pat=-2.0, pdt=2.0,
+                       ra=0.55, rd=1.8, rat=-2.0, rdt=2.0),  # ≈ 5.4
+            _stats_row(3, na=3, nd=7, pa=0.33, pd_=0.67, pat=-1.5, pdt=1.5,
+                       ra=0.6, rd=1.5, rat=-1.5, rdt=1.5),  # ≈ 2.27
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        # All rows have repful='disagree' (rdt > rat for each).
+        assert len(result) >= 1
+        assert all(r['repful'] == 'disagree' for r in result), \
+            f"all rows should be disagree, got {[r['repful'] for r in result]}"
+        assert len(result) <= 5, "take-5 cap holds"
+        # best_agree may also be present (Branch 4 doesn't require agree side
+        # to dominate — z90(pat) is false here, ra<1 for all, so Branch 4
+        # rejects all candidates and best_agree stays None for all entries).
+        # No row should be flagged as best_agree given the fixture.
+        assert not any(r.get('best_agree') for r in result), \
+            "no row qualifies for best_agree under Branch 4 with ra<1 and pat<Z_90"
+
+    def test_all_ns_zero_uninformative_rows(self):
+        """Every row has ns=0 → pa=pd=0.5 (uninformative). No row passes
+        passes_by_test (pat,pdt collapse to 1.0 via prop_test n=0 shortcut,
+        below Z_90=1.2816). `beats_best_agr` Branch 1 rejects all
+        (na=nd=0), so best_agree stays None.
+
+        `best` MAY get set via `beats_best_by_test` (no na=nd=0 guard there).
+        Output length is 0 (if no row passes either gate) or 1 (the best
+        fallback). With max(rat,rdt) > None=True on first row, best gets set,
+        so output is exactly [best]."""
+        # Build via _stats_row but override pat/pdt to match the n=0 collapse:
+        # prop_test_vectorized(0, 0) = 2*sqrt(1)*(1/1 - 0.5) = 1.0 < Z_90.
+        rows = [
+            _stats_row(1, na=0, nd=0, pa=0.5, pd_=0.5, pat=1.0, pdt=1.0,
+                       ra=1.0, rd=1.0, rat=0.5, rdt=0.5, ns=0),
+            _stats_row(2, na=0, nd=0, pa=0.5, pd_=0.5, pat=1.0, pdt=1.0,
+                       ra=1.0, rd=1.0, rat=0.3, rdt=0.4, ns=0),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        # passes_by_test fails (pat=1.0<Z_90, pdt=1.0<Z_90, rat<Z_90, rdt<Z_90)
+        # → sufficient empty.
+        # beats_best_agr Branch 1 rejects every row (na=nd=0)
+        # → best_agree stays None.
+        # beats_best_by_test fills `best` (no na=nd=0 guard).
+        # → output is exactly [best], length 1, no best_agree flag.
+        assert len(result) in (0, 1), \
+            f"output length must be 0 or 1, got {len(result)}"
+        # Under the current logic best gets set, so we expect 1 with no flag.
+        assert len(result) == 1
+        assert 'best_agree' not in result[0], \
+            "Branch 1 rejected na=nd=0 from best_agree, so no flag"
+
+    def test_branch_2_handles_negative_ra_correctly(self):
+        """Branch 2 (current_best.ra > 1.0) compares the SIGNED 4-way product
+        `ra * rat * pa * pat`. A candidate with negative `ra` and negative
+        `rat` produces a positive product that can beat the current best,
+        while a candidate with single negative factor produces a negative
+        product that cannot."""
+        # Set up so iteration order: tid 1 (current_best), tid 2 (negative
+        # single factor, should NOT beat), tid 3 (two negatives → positive,
+        # should beat ONLY if its product is larger).
+        current_best_row = _stats_row(
+            1, na=8, nd=2, pa=0.8, pd_=0.2, pat=2.0, pdt=-2.0,
+            ra=2.0, rd=0.5, rat=2.0, rdt=-2.0)
+        # current_best product = 2.0*2.0*0.8*2.0 = 6.4.
+
+        # Single negative factor → negative product → loses on strict >.
+        single_neg = _stats_row(
+            2, na=1, nd=1, pa=0.5, pd_=0.5, pat=1.0, pdt=1.0,
+            ra=-0.5, rd=1.0, rat=1.0, rdt=1.0)
+        # product = -0.5*1.0*0.5*1.0 = -0.25 < 6.4 → does NOT beat.
+        assert not beats_best_agr(single_neg, current_best_row), \
+            "single negative factor → negative product loses Branch 2"
+
+        # Two negatives → positive product. Make it LARGER than 6.4.
+        # ra=-5.0, rat=-2.0, pa=0.9, pat=2.0 → -5 * -2 * 0.9 * 2 = 18.0 > 6.4.
+        two_neg = _stats_row(
+            3, na=5, nd=5, pa=0.9, pd_=0.1, pat=2.0, pdt=-2.0,
+            ra=-5.0, rd=0.2, rat=-2.0, rdt=-2.0)
+        assert beats_best_agr(two_neg, current_best_row), \
+            "two negative factors → positive 18.0 > 6.4 wins Branch 2"
+
+        # Two negatives but product NOT larger → loses.
+        two_neg_small = _stats_row(
+            4, na=1, nd=1, pa=0.5, pd_=0.5, pat=1.0, pdt=1.0,
+            ra=-1.0, rd=1.0, rat=-1.0, rdt=1.0)
+        # product = -1 * -1 * 0.5 * 1 = 0.5 < 6.4 → does NOT beat.
+        assert not beats_best_agr(two_neg_small, current_best_row), \
+            "two negatives but small positive product (0.5) still loses to 6.4"
 
 
 # ============================================================================

@@ -28,9 +28,9 @@ This plan's "PR N" labels map to actual GitHub PRs as follows:
 | PR 7 (D8) | #2522 | Stack 15/17 | Fix D8: finalize comment stats |
 | PR 12 (D15) | #2523 | Stack 16/17 | Fix D15: moderation handling |
 | (K-inv) | #2524 | Stack 17/17 | Fix K-means k divergence: preserve row order |
-| PR 14a (scalar deletion) | — (in flight) | — | Delete dead scalar paths in `repness.py`; migrate blob injection tests to vectorized |
-| PR ns-PASS fix | — (planned) | — | Fix `ns` to include PASS votes in `compute_group_comment_stats_df` (Clojure `count-votes` parity) |
-| PR 8 (D10) | — (WIP) | — | Fix D10: rep comment selection — **NEEDS REWORK** |
+| PR 14a (scalar deletion) | #2564 | — | Delete dead scalar paths in `repness.py`; migrate blob injection tests to vectorized |
+| PR ns-PASS fix | — (in flight) | — | Fix `ns` to include PASS votes in `compute_group_comment_stats_df` (Clojure `count-votes` parity) |
+| PR 8 (D10) | — (in flight) | — | Fix D10: rep comment selection — single-pass reduce matching Clojure |
 | PR 9 (D11) | — (WIP) | — | Fix D11: consensus selection — **NEEDS REWORK** |
 | PR 10 (D3) | — (WIP) | — | Fix D3: k-smoother buffer — **NEEDS REWORK** |
 | PR 11 (D12) | — (WIP) | — | Fix D12: comment priorities — **NEEDS REWORK** |
@@ -916,3 +916,14 @@ Tagging this as a follow-up. No code changes until we discuss.
 - **`to_dynamo_dict` parallel inline implementations** were refactored to
   route through the same helpers as `to_dict` in PR #2523 follow-up. No
   further action needed.
+- **D10 take-5 eviction edge case** (2026-06-11). The Clojure-parity
+  `select_rep_comments_df` introduced in PR 8 mirrors Clojure exactly:
+  `take(5)` runs AFTER prepending the `best_agree` slot. When `best_agree`
+  was kept by `beats_best_agr?` as a non-significant agree-priority fallback
+  (i.e. it failed `passes_by_test?` but qualified via Branch 4) AND
+  `:sufficient` already has 5 entries, the prepend pushes the total to 6
+  and `take(5)` silently evicts the 5th-highest-metric `sufficient` entry
+  — possibly a strong dissenting view. Mirrored for blob parity; flag for
+  future product review. See `# TODO(parity-eviction)` in
+  `delphi/polismath/pca_kmeans_rep/repness.py::select_rep_comments_df` and
+  the synthetic test `TestD10SelectRepCommentsBoundary::test_take_5_eviction_when_best_agree_outside_sufficient`.
