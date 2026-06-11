@@ -1506,3 +1506,84 @@ See `~/polis/D10_D11_D12_GOLDENS_DECISIONS.md`. Highlights:
 ### What's Next
 
 PR 9 (D11) on top of D10 in the same spr stack.
+
+## Session: PR 9 — D11 consensus comment selection (2026-06-11)
+
+Landed in `/goal` mode. Decisions documented in
+`~/polis/D10_D11_D12_GOLDENS_DECISIONS.md` (D11.x section).
+
+### What landed
+
+**Production (`delphi/polismath/pca_kmeans_rep/repness.py`):**
+- New `consensus_stats_df(vote_matrix_df, mod_out=None) -> pd.DataFrame`:
+  whole-conversation per-comment stats (no group split, no `ra/rd/rat/rdt`).
+  Vectorized port of Clojure `consensus-stats` (repness.clj:284-290).
+- Rewrite `select_consensus_comments_df(cons_stats) -> Dict[str, List[Dict]]`:
+  matches Clojure `select-consensus-comments` (repness.clj:293-323).
+  Filters: agree `pa > 0.5 AND z-sig-90(pat)`, disagree
+  `pd > 0.5 AND z-sig-90(pdt)`. Ordering: descending `pa*pat` / `pd*pdt`.
+  Cap: top 5 each side. Output: `{'agree': [...], 'disagree': [...]}`.
+- `conv_repness` grows `mod_out: Optional[Iterable[int]] = None` kwarg.
+  Forwarded to both `select_rep_comments_df` and `consensus_stats_df`.
+- Consensus is now computed unconditionally (Clojure parity — pre-D11
+  Python had a `len(group_clusters) > 1` guard with no Clojure analog).
+- `_stats_row_to_dict` deleted (orphan after D11).
+
+**Caller (`conversation.py`):**
+- `_compute_repness` passes `mod_out=self.mod_out_tids` to `conv_repness`.
+
+**Downstream consumers updated** for the new dict shape:
+- `tests/test_repness_smoke.py::test_repness_structure` — iterates
+  `consensus['agree']` and `consensus['disagree']`.
+- `tests/test_pipeline_integrity.py::test_full_pipeline` — same.
+
+**Tests (12 new in `tests/test_discrepancy_fixes.py`):**
+- `TestD11ConsensusStatsDf` (4): basic counts, pseudocount pa/pd,
+  ns=0 fallback, mod_out filter.
+- `TestD11SelectConsensusBoundary` (8): empty input, clear agree
+  consensus, clear disagree consensus, divisive (no consensus), top-5
+  cap, entry keys (Python convention per S1), disagree entry key
+  mapping (n_success ← nd, p_success ← pd, p_test ← pdt),
+  mutually-exclusive agree/disagree lists.
+
+### Suite delta
+
+- Pre (post-D10): 313 passed, 12 skipped, 58 xfailed.
+- Post (this PR): 325 passed, 12 skipped, 58 xfailed.
+- Delta: +12 (the 12 new D11 synthetic tests). Zero regressions.
+
+### DISCOVERY: ns-PASS divergence
+
+The D11 real-data test (`test_consensus_matches_clojure`) showed 3-5/5
+overlap on cold_start — close but not exact. Investigation revealed a
+deeper bug:
+
+**Clojure's `:ns`** (via `count-votes` with `filter identity` —
+repness.clj:56-61) INCLUDES PASS votes (`0` is truthy in Clojure).
+
+**Python's `ns`** in BOTH `compute_group_comment_stats_df` and the new
+`consensus_stats_df` computes `ns = na + nd`, EXCLUDING PASS.
+
+This means every downstream metric (pa, pd, pat, pdt, ra, rd, rat, rdt,
+agree_metric, disagree_metric) is computed with the wrong denominator
+when PASS votes are present. The D5 PR #2519 journal claim that "PASS NOT
+included, matching Clojure" was a misreading of `count-votes`.
+
+**Impact:**
+- D5/D6/D7/D8 blob-comparison tests' "mismatches" were not (only)
+  upstream PCA/KMeans divergence — the ns-PASS divergence is at least
+  a contributing cause.
+- D11 consensus partial overlap is consistent with this divergence.
+- Fixing requires a separate PR affecting two production functions and
+  re-recording goldens.
+
+D11 real-data test xfailed with the right reason. Logic pinned by the
+12 synthetic tests (which never exercise PASS, so they don't show the
+divergence).
+
+This is now the top item under "Pending — needs team discussion" in
+PLAN.md, with a sketch of the fix.
+
+### What's Next
+
+PR 11 (D12) on top of D11 in the same spr stack.

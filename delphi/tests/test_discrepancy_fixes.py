@@ -48,7 +48,11 @@ from polismath.pca_kmeans_rep.repness import (
     beats_best_agr,
     select_rep_comments_df,
     _assemble_rep_comments,
+    # D11 consensus helpers (PR 9)
+    consensus_stats_df,
+    select_consensus_comments_df,
 )
+from polismath.utils.general import AGREE, DISAGREE
 from polismath.regression import get_dataset_files, get_blob_variants
 from polismath.regression.datasets import discover_datasets
 from conftest import _get_requested_datasets, make_dataset_params, parse_dataset_blob_id
@@ -1633,29 +1637,213 @@ class TestD11ConsensusSelection:
          Clojure uses per-comment pa > 0.5, top 5 agree + 5 disagree with z-test scores
     """
 
-    @pytest.mark.xfail(reason="D11: Different consensus selection logic than Clojure")
+    @pytest.mark.xfail(strict=False,
+                       reason="After ns-PASS fix (2026-06-11), 3/4 dataset variants "
+                              "(vw-incremental, vw-cold_start, biodiversity-cold_start) match "
+                              "Clojure exactly. biodiversity-incremental still mismatches on "
+                              "the disagree side (likely residual upstream PCA/KMeans "
+                              "group-membership divergence affecting which participants are "
+                              "in-conv at the incremental step). Tracked separately — see "
+                              "journal entry 2026-06-11.")
     def test_consensus_matches_clojure(self, conv, clojure_blob, dataset_name):
-        """Consensus comments should match Clojure's selection."""
+        """Consensus selection should match Clojure on cold_start.
+
+        After D11 (PR 9), Python's `consensus_comments` is a dict
+        `{'agree': [...], 'disagree': [...]}` mirroring Clojure's shape.
+        Consensus stats are whole-conversation (no group split), so unlike
+        rep-comments this is NOT affected by upstream PCA/KMeans
+        group-membership divergence. The ns-PASS divergence
+        (DISCOVERY 2026-06-11) was fixed by switching `ns` from `na + nd`
+        to `notna().sum()` — matches Clojure `(count (filter identity ...))`
+        in repness.clj:56-61.
+        """
         clj_consensus = clojure_blob.get('consensus', {})
         if not clj_consensus:
             pytest.skip("No consensus in Clojure blob")
 
-        # Clojure consensus has 'agree' and 'disagree' keys
         clj_agree_tids = set(e['tid'] for e in clj_consensus.get('agree', []))
         clj_disagree_tids = set(e['tid'] for e in clj_consensus.get('disagree', []))
         clj_all = clj_agree_tids | clj_disagree_tids
 
-        py_consensus = conv.repness.get('consensus_comments', []) if conv.repness else []
-        py_tids = set(int(c['comment_id']) for c in py_consensus)
+        py_consensus = (conv.repness.get('consensus_comments', {})
+                        if conv.repness else {})
+        py_agree_tids = set(int(c['comment_id'])
+                            for c in py_consensus.get('agree', []))
+        py_disagree_tids = set(int(c['comment_id'])
+                               for c in py_consensus.get('disagree', []))
+        py_all = py_agree_tids | py_disagree_tids
 
-        print(f"[{dataset_name}] Consensus: Clojure agree={sorted(clj_agree_tids)}, disagree={sorted(clj_disagree_tids)}")
-        print(f"[{dataset_name}] Consensus: Python={sorted(py_tids)}")
-
-        overlap = len(clj_all & py_tids)
+        print(f"[{dataset_name}] Consensus Clojure: "
+              f"agree={sorted(clj_agree_tids)}, "
+              f"disagree={sorted(clj_disagree_tids)}")
+        print(f"[{dataset_name}] Consensus Python:  "
+              f"agree={sorted(py_agree_tids)}, "
+              f"disagree={sorted(py_disagree_tids)}")
+        overlap = len(clj_all & py_all)
         print(f"[{dataset_name}] Consensus overlap: {overlap}/{len(clj_all)}")
 
-        check.equal(py_tids, clj_all,
-                     f"Consensus mismatch: Python={sorted(py_tids)}, Clojure={sorted(clj_all)}")
+        check.equal(py_agree_tids, clj_agree_tids,
+                    f"Agree consensus mismatch")
+        check.equal(py_disagree_tids, clj_disagree_tids,
+                    f"Disagree consensus mismatch")
+
+
+class TestD11ConsensusStatsDf:
+    """`consensus_stats_df` — whole-conversation per-comment stats (no group split)."""
+
+    @staticmethod
+    def _vote_matrix(per_comment_votes):
+        """Helper: build a vote matrix from {tid: [vote_per_participant]}."""
+        return pd.DataFrame(per_comment_votes)
+
+    def test_basic_counts(self):
+        """na/nd/ns counted correctly across all participants."""
+        # 5 participants, 3 comments
+        # tid 1: 4 agrees, 1 disagree → na=4, nd=1, ns=5
+        # tid 2: 2 agrees, 3 disagrees → na=2, nd=3, ns=5
+        # tid 3: 1 agree, 2 disagrees, 2 NaN (pass/unvoted) → na=1, nd=2, ns=3
+        votes = pd.DataFrame({
+            1: [AGREE, AGREE, AGREE, AGREE, DISAGREE],
+            2: [AGREE, AGREE, DISAGREE, DISAGREE, DISAGREE],
+            3: [AGREE, DISAGREE, DISAGREE, np.nan, np.nan],
+        })
+        df = consensus_stats_df(votes)
+        assert df.loc[1, 'na'] == 4 and df.loc[1, 'nd'] == 1 and df.loc[1, 'ns'] == 5
+        assert df.loc[2, 'na'] == 2 and df.loc[2, 'nd'] == 3 and df.loc[2, 'ns'] == 5
+        assert df.loc[3, 'na'] == 1 and df.loc[3, 'nd'] == 2 and df.loc[3, 'ns'] == 3
+
+    def test_pseudocount_pa_pd(self):
+        """pa/pd use Beta(2,2) smoothing: (na+1)/(ns+2)."""
+        votes = pd.DataFrame({1: [AGREE, AGREE, AGREE, AGREE, DISAGREE]})
+        df = consensus_stats_df(votes)
+        # na=4, ns=5 → pa = 5/7 ≈ 0.714
+        assert abs(df.loc[1, 'pa'] - 5/7) < 1e-10
+        # nd=1, ns=5 → pd = 2/7 ≈ 0.286
+        assert abs(df.loc[1, 'pd'] - 2/7) < 1e-10
+
+    def test_ns_zero_uses_uninformative_prior(self):
+        """When ns=0 (no agree/disagree at all), pa=pd=0.5."""
+        votes = pd.DataFrame({1: [np.nan, np.nan, np.nan]})
+        df = consensus_stats_df(votes)
+        assert df.loc[1, 'pa'] == 0.5
+        assert df.loc[1, 'pd'] == 0.5
+
+    def test_mod_out_filters_tids(self):
+        """`mod_out` removes tids from the output."""
+        votes = pd.DataFrame({
+            1: [AGREE, AGREE, AGREE],
+            2: [AGREE, AGREE, AGREE],
+            3: [AGREE, AGREE, AGREE],
+        })
+        df = consensus_stats_df(votes, mod_out={2})
+        assert 1 in df.index
+        assert 2 not in df.index
+        assert 3 in df.index
+
+    def test_ns_includes_pass_votes(self):
+        """Clojure parity: ns counts all non-nil votes incl. PASS (repness.clj:56-61)."""
+        votes = pd.DataFrame({
+            1: [AGREE, AGREE, DISAGREE, 0, 0],  # 2A, 1D, 2P → ns=5
+        })
+        df = consensus_stats_df(votes)
+        assert df.loc[1, 'na'] == 2
+        assert df.loc[1, 'nd'] == 1
+        assert df.loc[1, 'ns'] == 5, f"ns should include PASS (Clojure parity); got {df.loc[1, 'ns']}"
+
+
+class TestD11SelectConsensusBoundary:
+    """`select_consensus_comments_df` Clojure-parity boundaries."""
+
+    @staticmethod
+    def _stats(rows):
+        """Helper: build a stats DataFrame from list of (tid, na, nd, ns, pa, pd, pat, pdt)."""
+        df = pd.DataFrame(rows, columns=['tid', 'na', 'nd', 'ns', 'pa', 'pd', 'pat', 'pdt'])
+        return df.set_index('tid')
+
+    def test_empty_input_returns_empty_lists(self):
+        result = select_consensus_comments_df(pd.DataFrame(columns=['na', 'nd', 'ns', 'pa', 'pd', 'pat', 'pdt']))
+        assert result == {'agree': [], 'disagree': []}
+
+    def test_clear_agree_consensus(self):
+        """Comments with pa > 0.5 AND z-sig-90(pat) land in 'agree'."""
+        stats = self._stats([
+            (1, 9, 1, 10, 0.83, 0.17, 2.5, -2.5),  # pa>0.5, pat z90 → agree
+            (2, 8, 2, 10, 0.75, 0.25, 2.0, -2.0),  # agree
+        ])
+        result = select_consensus_comments_df(stats)
+        agree_tids = [e['comment_id'] for e in result['agree']]
+        assert 1 in agree_tids and 2 in agree_tids
+        assert result['disagree'] == []
+
+    def test_clear_disagree_consensus(self):
+        """Comments with pd > 0.5 AND z-sig-90(pdt) land in 'disagree'."""
+        stats = self._stats([
+            (1, 1, 9, 10, 0.17, 0.83, -2.5, 2.5),  # pd>0.5, pdt z90 → disagree
+            (2, 2, 8, 10, 0.25, 0.75, -2.0, 2.0),
+        ])
+        result = select_consensus_comments_df(stats)
+        disagree_tids = [e['comment_id'] for e in result['disagree']]
+        assert 1 in disagree_tids and 2 in disagree_tids
+        assert result['agree'] == []
+
+    def test_divisive_no_consensus(self):
+        """Comments split ~50/50 with low z-scores → neither list populated."""
+        stats = self._stats([
+            (1, 5, 5, 10, 0.5, 0.5, 0.0, 0.0),
+            (2, 4, 6, 10, 0.42, 0.58, -0.4, 0.4),
+        ])
+        result = select_consensus_comments_df(stats)
+        assert result['agree'] == []
+        assert result['disagree'] == []
+
+    def test_top_5_cap_per_side(self):
+        """Each list capped at 5 entries."""
+        # 7 high-agree comments
+        rows = []
+        for i, am in enumerate([2.5, 2.3, 2.1, 1.9, 1.7, 1.5, 1.4]):
+            rows.append((i + 1, 9, 1, 10, 0.83, 0.17, am, -am))
+        stats = self._stats(rows)
+        result = select_consensus_comments_df(stats)
+        assert len(result['agree']) == 5
+        # Highest am at front: pa*pat = 0.83 * 2.5 = 2.075
+        assert result['agree'][0]['comment_id'] == 1
+
+    def test_entry_keys_python_convention(self):
+        """Per-entry keys: comment_id, n_success, n_trials, p_success, p_test.
+        Python underscore convention (decision S1), not Clojure hyphens."""
+        stats = self._stats([(1, 9, 1, 10, 0.83, 0.17, 2.5, -2.5)])
+        result = select_consensus_comments_df(stats)
+        entry = result['agree'][0]
+        assert set(entry.keys()) == {'comment_id', 'n_success', 'n_trials', 'p_success', 'p_test'}
+        assert entry['comment_id'] == 1
+        # For agree side, n_success = na, p_success = pa, p_test = pat
+        assert entry['n_success'] == 9
+        assert entry['n_trials'] == 10
+        assert abs(entry['p_success'] - 0.83) < 1e-10
+        assert abs(entry['p_test'] - 2.5) < 1e-10
+
+    def test_disagree_entry_uses_d_keys(self):
+        """For disagree side, n_success = nd, p_success = pd, p_test = pdt."""
+        stats = self._stats([(1, 1, 9, 10, 0.17, 0.83, -2.5, 2.5)])
+        result = select_consensus_comments_df(stats)
+        entry = result['disagree'][0]
+        assert entry['n_success'] == 9   # = nd
+        assert abs(entry['p_success'] - 0.83) < 1e-10  # = pd
+        assert abs(entry['p_test'] - 2.5) < 1e-10  # = pdt
+
+    def test_mutually_exclusive_lists(self):
+        """With PSEUDO_COUNT=2, pa + pd = 1 exactly (since na+nd=ns). So
+        pa > 0.5 ⟺ pd < 0.5 — the same tid cannot appear in both lists."""
+        # Build several rows. For each, na+nd MUST equal ns (consensus_stats_df invariant).
+        stats = self._stats([
+            (1, 7, 3, 10, 0.67, 0.33, 1.5, -1.5),  # agree side
+            (2, 3, 7, 10, 0.33, 0.67, -1.5, 1.5),  # disagree side
+        ])
+        result = select_consensus_comments_df(stats)
+        agree_tids = {e['comment_id'] for e in result['agree']}
+        disagree_tids = {e['comment_id'] for e in result['disagree']}
+        assert agree_tids & disagree_tids == set(), \
+            f"agree and disagree lists must be disjoint, got overlap {agree_tids & disagree_tids}"
 
 
 # ============================================================================

@@ -629,82 +629,138 @@ def _assemble_rep_comments(stats_df: pd.DataFrame,
     return agrees + disagrees
 
 
-def select_consensus_comments_df(stats_df: pd.DataFrame,
-                                  n_groups: int) -> List[Dict[str, Any]]:
+# =============================================================================
+# D11: Consensus comment selection (Clojure parity)
+# =============================================================================
+#
+# Ports of Clojure's `consensus-stats` and `select-consensus-comments`
+# (math/src/polismath/math/repness.clj:284-323).
+#
+# Conceptually different from rep-comment selection: consensus stats are
+# computed over the FULL conversation (no group split — `add-comparitive-stats`
+# is NOT called). Two independent top-5 lists are then built — one for "agree
+# consensus" (pa > 0.5 AND z-sig-90 on pat) ordered by `pa * pat`, one for
+# "disagree consensus" (pd > 0.5 AND z-sig-90 on pdt) ordered by `pd * pdt`.
+
+def consensus_stats_df(vote_matrix_df: pd.DataFrame,
+                       mod_out: Optional[Iterable[int]] = None
+                       ) -> pd.DataFrame:
     """
-    Select consensus comments from DataFrame.
+    Compute per-comment consensus stats across the whole conversation.
+
+    Vectorized port of Clojure `consensus-stats` (repness.clj:284-290). Unlike
+    `compute_group_comment_stats_df`, no group split and no `ra/rd/rat/rdt`
+    (Clojure's `add-comparitive-stats` is not called here).
 
     Args:
-        stats_df: DataFrame with all (group, comment) statistics
-        n_groups: Number of groups
+        vote_matrix_df: Wide-format vote matrix (participants × comments).
+            Values in {AGREE, DISAGREE, PASS, NaN}.
+        mod_out: Optional iterable of tids to exclude. Belt-and-braces with
+            D15 column-zeroing: moderated-out columns auto-fail the `pa > 0.5`
+            filter downstream (na=nd=0 → pa=pd=0.5), but the explicit filter
+            matches Clojure's behaviour (repness.clj:296).
 
     Returns:
-        List of consensus comment dicts
+        DataFrame indexed by tid with columns [na, nd, ns, pa, pd, pat, pdt].
     """
-    if stats_df.empty:
-        return []
+    # Per-column counts. `vote_matrix_df` may have NaN for unvoted cells;
+    # those count as neither agree nor disagree.
+    na = (vote_matrix_df == AGREE).sum(axis=0).astype(int)
+    nd = (vote_matrix_df == DISAGREE).sum(axis=0).astype(int)
+    # ns counts all non-nil votes (incl. PASS) — Clojure parity, repness.clj:56-61.
+    ns = vote_matrix_df.notna().sum(axis=0).astype(int)
 
-    # Group by comment and check if all groups have high agreement
-    stats_reset = stats_df.reset_index()
-    comment_stats = stats_reset.groupby('comment').agg(
-        min_pa=('pa', 'min'),
-        avg_pa=('pa', 'mean'),
-        group_count=('group_id', 'count')
-    )
+    df = pd.DataFrame({'na': na, 'nd': nd, 'ns': ns})
+    df.index.name = 'tid'
 
-    # Filter to comments where all groups agree (pa > 0.6 for all)
-    # and present in all groups
-    consensus = comment_stats[
-        (comment_stats['min_pa'] > 0.6) &
-        (comment_stats['group_count'] == n_groups)
-    ].copy()
+    # pa, pd with PSEUDO_COUNT smoothing.
+    # Scalar equivalent: pa = (na + 1) / (ns + 2), pd = (nd + 1) / (ns + 2)
+    df['pa'] = (df['na'] + PSEUDO_COUNT / 2) / (df['ns'] + PSEUDO_COUNT)
+    df['pd'] = (df['nd'] + PSEUDO_COUNT / 2) / (df['ns'] + PSEUDO_COUNT)
+    zero_mask = df['ns'] == 0
+    df.loc[zero_mask, 'pa'] = 0.5
+    df.loc[zero_mask, 'pd'] = 0.5
 
-    if consensus.empty:
-        return []
+    # Proportion-test z-scores.
+    df['pat'] = prop_test_vectorized(df['na'], df['ns'])
+    df['pdt'] = prop_test_vectorized(df['nd'], df['ns'])
 
-    # Sort by average agreement and take top 2
-    consensus = consensus.nlargest(2, 'avg_pa')
+    if mod_out:
+        mod_out_set = set(mod_out)
+        df = df[~df.index.isin(mod_out_set)]
 
-    # Convert to list of dicts using _stats_row_to_dict for legacy format
-    result = []
-    for comment_id in consensus.index:
-        comment_rows = stats_reset[stats_reset['comment'] == comment_id]
-        # Convert each row to legacy dict format
-        stats_list = [_stats_row_to_dict(row) for _, row in comment_rows.iterrows()]
-        result.append({
-            'comment_id': comment_id,
-            'avg_agree': consensus.loc[comment_id, 'avg_pa'],
-            'repful': 'consensus',
-            'stats': stats_list
-        })
-
-    return result
+    return df
 
 
-def _stats_row_to_dict(row: pd.Series) -> Dict[str, Any]:
-    """Convert a stats DataFrame row to the per-(group, comment) dict format
-    consumed by `conv_repness` output (math blob `repness` / `comment_repness`)."""
+def select_consensus_comments_df(
+    cons_stats: pd.DataFrame,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """
+    Select consensus comments (Clojure parity).
+
+    Port of Clojure `select-consensus-comments` (repness.clj:293-323). Returns
+    two independent top-5 lists — one for agree consensus, one for disagree
+    consensus.
+
+    Filters and ordering:
+      - Agree: `pa > 0.5 AND z-sig-90(pat)`, sorted desc by `am = pa * pat`.
+      - Disagree: `pd > 0.5 AND z-sig-90(pdt)`, sorted desc by `dm = pd * pdt`.
+
+    With PSEUDO_COUNT smoothing the constraint `pa + pd = 1` is exact (na+nd=ns
+    after smoothing), so `pa > 0.5 ⟺ pd < 0.5` — the same tid cannot appear in
+    both lists.
+
+    Args:
+        cons_stats: DataFrame indexed by tid with cols [na, nd, ns, pa, pd,
+            pat, pdt], as produced by `consensus_stats_df`.
+
+    Returns:
+        Dict shape `{'agree': [entries], 'disagree': [entries]}`. Each entry
+        is `{comment_id, n_success, n_trials, p_success, p_test}` (Python
+        convention key naming per S1; math-blob alignment with Clojure's
+        hyphenated keys is a future PR).
+    """
+    if cons_stats.empty:
+        return {'agree': [], 'disagree': []}
+
+    df = cons_stats.copy()
+    df['am'] = df['pa'] * df['pat']
+    df['dm'] = df['pd'] * df['pdt']
+
+    agree_filter = (df['pa'] > 0.5) & (df['pat'] > Z_90)
+    disagree_filter = (df['pd'] > 0.5) & (df['pdt'] > Z_90)
+
+    agree_top = df[agree_filter].nlargest(5, 'am')
+    disagree_top = df[disagree_filter].nlargest(5, 'dm')
+
+    def _agree_entry(tid: Any, row: pd.Series) -> Dict[str, Any]:
+        return {
+            'comment_id': int(tid),
+            'n_success': int(row['na']),
+            'n_trials': int(row['ns']),
+            'p_success': float(row['pa']),
+            'p_test': float(row['pat']),
+        }
+
+    def _disagree_entry(tid: Any, row: pd.Series) -> Dict[str, Any]:
+        return {
+            'comment_id': int(tid),
+            'n_success': int(row['nd']),
+            'n_trials': int(row['ns']),
+            'p_success': float(row['pd']),
+            'p_test': float(row['pdt']),
+        }
+
     return {
-        'comment_id': row['comment'],
-        'group_id': row['group_id'],
-        'na': int(row['na']),
-        'nd': int(row['nd']),
-        'ns': int(row['ns']),
-        'pa': row['pa'],
-        'pd': row['pd'],
-        'pat': row['pat'],
-        'pdt': row['pdt'],
-        'ra': row['ra'],
-        'rd': row['rd'],
-        'rat': row['rat'],
-        'rdt': row['rdt'],
-        'agree_metric': row['agree_metric'],
-        'disagree_metric': row['disagree_metric'],
-        'repful': row['repful'],
+        'agree': [_agree_entry(tid, row) for tid, row in agree_top.iterrows()],
+        'disagree': [_disagree_entry(tid, row) for tid, row in disagree_top.iterrows()],
     }
 
 
-def conv_repness(vote_matrix_df: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
+def conv_repness(vote_matrix_df: pd.DataFrame,
+                 group_clusters: List[Dict[str, Any]],
+                 mod_out: Optional[Iterable[int]] = None,
+                 ) -> Dict[str, Any]:
     """
     Calculate representativeness for all comments and groups.
 
@@ -714,19 +770,23 @@ def conv_repness(vote_matrix_df: pd.DataFrame, group_clusters: List[Dict[str, An
         vote_matrix_df: pd.DataFrame of matrix of votes (participants × comments)
             Values should be AGREE (1), DISAGREE (-1), PASS (0), or NaN (unvoted)
         group_clusters: List of group clusters, each with 'id' and 'members'
+        mod_out: Optional iterable of tids to exclude (moderated-out comments).
+            Forwarded to `select_rep_comments_df` and `consensus_stats_df`.
+            See `Conversation.mod_out_tids`.
 
     Returns:
         Dictionary with representativeness data for each group:
             - comment_ids: list of comment IDs
             - group_repness: dict mapping group_id -> list of representative comments
-            - consensus_comments: list of consensus comments
+            - consensus_comments: dict `{'agree': [...], 'disagree': [...]}` after
+              D11 (was a flat list pre-D11; Clojure parity per repness.clj:322-323)
             - comment_repness: list of all comment repness data
     """
     # Create empty-result structure in case we need to return early
     empty_result = {
         'comment_ids': vote_matrix_df.columns.tolist(),
         'group_repness': {group['id']: [] for group in group_clusters},
-        'consensus_comments': [],
+        'consensus_comments': {'agree': [], 'disagree': []},
         'comment_repness': []
     }
 
@@ -783,25 +843,25 @@ def conv_repness(vote_matrix_df: pd.DataFrame, group_clusters: List[Dict[str, An
         try:
             # `select_rep_comments_df` now returns `(rep_df, best_agree_dict)`
             # (decision S2) so the DataFrame stays clean. Use the
-            # `_assemble_rep_comments` wrapper to get the flat List[Dict]
-            # the math blob expects (best-agree prepended, agrees-before-
-            # disagrees partition applied).
-            result['group_repness'][group_id] = _assemble_rep_comments(group_stats)
+            # `_assemble_rep_comments` wrapper to get the flat List[Dict] the
+            # math blob expects (best-agree prepended, agrees-before-disagrees
+            # partition applied). Forward `mod_out` from conv_repness (D11
+            # added this kwarg).
+            result['group_repness'][group_id] = _assemble_rep_comments(
+                group_stats, mod_out=mod_out)
         except Exception as e:
             print(f"Error selecting representative comments for group {group_id}: {e}")
             result['group_repness'][group_id] = []
 
-    # Add consensus comments if there are multiple groups
+    # Consensus comments (D11 / PR 9). Whole-conversation stats, not per-group.
+    # Clojure runs this unconditionally (conversation.clj:706-709) — no
+    # `len(group_clusters) > 1` guard.
     try:
-        if len(group_clusters) > 1:
-            result['consensus_comments'] = select_consensus_comments_df(
-                stats_df, len(group_clusters)
-            )
-        else:
-            result['consensus_comments'] = []
+        cons_stats = consensus_stats_df(vote_matrix_df, mod_out=mod_out)
+        result['consensus_comments'] = select_consensus_comments_df(cons_stats)
     except Exception as e:
         print(f"Error selecting consensus comments: {e}")
-        result['consensus_comments'] = []
+        result['consensus_comments'] = {'agree': [], 'disagree': []}
 
     return result
 
