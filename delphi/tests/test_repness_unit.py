@@ -17,6 +17,7 @@ from polismath.pca_kmeans_rep.repness import (
     # DataFrame-native vectorized functions
     prop_test_vectorized, two_prop_test_vectorized, compute_group_comment_stats_df,
 )
+from polismath.utils.general import AGREE, DISAGREE, PASS
 from polismath.conversation.conversation import Conversation
 
 
@@ -335,3 +336,124 @@ class TestVectorizedFunctions:
 
             assert np.isclose(entry['pa'], df_row['pa'], atol=1e-10)
             assert np.isclose(entry['pd'], df_row['pd'], atol=1e-10)
+
+
+class TestNsIncludesPassVotes:
+    """ns / total_votes must count agree + disagree + PASS (Clojure parity).
+
+    Clojure (math/src/polismath/math/repness.clj:56-61, :70):
+        (defn- count-votes [votes & [vote]]
+          (let [filt-fn (if vote #(= vote %) identity)]
+            (count (filter filt-fn votes))))
+        ...
+        :ns (fnk [votes] (count-votes votes))
+
+    `count-votes` is called with no `vote` arg → `filt-fn = identity`. In
+    Clojure, 0 is truthy, so `(filter identity ...)` keeps every non-nil
+    entry — including PASS (0). Therefore ns = na + nd + np (PASS count).
+
+    Python had ns = na + nd, silently dropping PASS. Every downstream metric
+    (pa, pd, pat, pdt, ra, rd, rat, rdt, agree_metric, disagree_metric,
+    consensus stats) was off whenever PASS votes existed. D5 BlobInjection
+    tests bypassed `compute_group_comment_stats_df` entirely (they feed a
+    pre-baked stats blob), so the bug was invisible there — pure-formula
+    tests are the only way to RED it.
+    """
+
+    def test_ns_includes_pass_votes(self):
+        """ns counts AGREE + DISAGREE + PASS, not just AGREE + DISAGREE."""
+        # 5 ptpts, 1 comment, mixed votes: 2 agree, 1 disagree, 2 pass.
+        # Clojure ns = count of all non-nil = 5.
+        # Buggy Python ns = na + nd = 3.
+        votes_long = pd.DataFrame({
+            'participant': ['p1', 'p2', 'p3', 'p4', 'p5'],
+            'comment': ['c1'] * 5,
+            'vote': [AGREE, AGREE, DISAGREE, PASS, PASS],
+        })
+        group_clusters = [{'id': 0, 'members': ['p1', 'p2', 'p3', 'p4', 'p5']}]
+
+        stats_df = compute_group_comment_stats_df(votes_long, group_clusters)
+        row = stats_df.loc[(0, 'c1')]
+
+        assert row['na'] == 2
+        assert row['nd'] == 1
+        assert row['ns'] == 5, (
+            f"ns should include PASS (Clojure parity); got {row['ns']}"
+        )
+
+    def test_ns_all_pass_column(self):
+        """All-PASS column: na=0, nd=0, ns=3 (not 0)."""
+        votes_long = pd.DataFrame({
+            'participant': ['p1', 'p2', 'p3'],
+            'comment': ['c1'] * 3,
+            'vote': [PASS, PASS, PASS],
+        })
+        group_clusters = [{'id': 0, 'members': ['p1', 'p2', 'p3']}]
+
+        stats_df = compute_group_comment_stats_df(votes_long, group_clusters)
+        row = stats_df.loc[(0, 'c1')]
+
+        assert row['na'] == 0
+        assert row['nd'] == 0
+        assert row['ns'] == 3, (
+            f"All-PASS column should still have ns=3 (Clojure parity); "
+            f"got {row['ns']}"
+        )
+
+    def test_ns_mixed_with_nan_only_explicit_votes_count(self):
+        """NaN (unvoted) must NOT count; only explicit AGREE/DISAGREE/PASS do."""
+        # 6 ptpts on c1: 1 agree, 1 disagree, 2 pass, 2 unvoted (NaN).
+        # Clojure parity: ns = 4 (the 4 explicit votes). NaN never counts.
+        votes_long = pd.DataFrame({
+            'participant': ['p1', 'p2', 'p3', 'p4', 'p5', 'p6'],
+            'comment': ['c1'] * 6,
+            'vote': [AGREE, DISAGREE, PASS, PASS, np.nan, np.nan],
+        })
+        group_clusters = [{'id': 0, 'members': ['p1', 'p2', 'p3', 'p4', 'p5', 'p6']}]
+
+        stats_df = compute_group_comment_stats_df(votes_long, group_clusters)
+        row = stats_df.loc[(0, 'c1')]
+
+        assert row['na'] == 1
+        assert row['nd'] == 1
+        assert row['ns'] == 4, (
+            f"ns must include PASS but exclude NaN; got {row['ns']}"
+        )
+
+    def test_other_votes_includes_other_group_pass(self):
+        """`other_votes` = total_votes - ns must include PASS in BOTH halves.
+
+        Two groups, one comment. Group 0 votes [AGREE, PASS], group 1 votes
+        [DISAGREE, PASS]. Total na=1, nd=1, total_votes (Clojure) = 4.
+        Group 0: na=1, nd=0, ns=2 → other_votes=2 (the group-1 disagree + pass).
+        Group 1: na=0, nd=1, ns=2 → other_votes=2 (the group-0 agree + pass).
+        """
+        votes_long = pd.DataFrame({
+            'participant': ['p1', 'p2', 'p3', 'p4'],
+            'comment': ['c1'] * 4,
+            'vote': [AGREE, PASS, DISAGREE, PASS],
+        })
+        group_clusters = [
+            {'id': 0, 'members': ['p1', 'p2']},
+            {'id': 1, 'members': ['p3', 'p4']},
+        ]
+
+        stats_df = compute_group_comment_stats_df(votes_long, group_clusters)
+
+        g0 = stats_df.loc[(0, 'c1')]
+        assert g0['na'] == 1
+        assert g0['nd'] == 0
+        assert g0['ns'] == 2, f"group 0 ns should include its PASS; got {g0['ns']}"
+        assert g0['other_votes'] == 2, (
+            f"group 0 other_votes should include group-1 PASS; "
+            f"got {g0['other_votes']}"
+        )
+
+        g1 = stats_df.loc[(1, 'c1')]
+        assert g1['na'] == 0
+        assert g1['nd'] == 1
+        assert g1['ns'] == 2, f"group 1 ns should include its PASS; got {g1['ns']}"
+        assert g1['other_votes'] == 2, (
+            f"group 1 other_votes should include group-0 PASS; "
+            f"got {g1['other_votes']}"
+        )

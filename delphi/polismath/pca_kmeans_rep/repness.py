@@ -192,7 +192,8 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
         DataFrame indexed by (group_id, comment) with columns:
             - na: number of agrees
             - nd: number of disagrees
-            - ns: number of votes (agrees + disagrees)
+            - ns: number of votes (agrees + disagrees + PASS, Clojure parity;
+                  see repness.clj:56-61, :70)
             - pa: probability of agree (with pseudocount smoothing)
             - pd: probability of disagree (with pseudocount smoothing)
             - pat: proportion test z-score for agree
@@ -221,11 +222,17 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     # Compute total counts per comment BEFORE filtering to group members
     # This matches the old behavior where "other" included ALL participants
     # not in the current group (even those not in any cluster)
+    #
+    # total_votes counts agree + disagree + PASS, matching Clojure's
+    # `count-votes` (math/src/polismath/math/repness.clj:56-61, :70).
+    # `count-votes` called with no `vote` arg uses `identity` as the filter
+    # predicate; in Clojure 0 is truthy, so PASS (0) votes are kept. NaN
+    # entries are already dropped above. Use size() to count non-NaN rows.
     total_counts = votes_only.groupby('comment').agg(
         total_agree=('vote', lambda x: (x == AGREE).sum()),
         total_disagree=('vote', lambda x: (x == DISAGREE).sum()),
+        total_votes=('vote', 'size'),
     )
-    total_counts['total_votes'] = total_counts['total_agree'] + total_counts['total_disagree']
 
     # Now add group column and filter to only group members
     votes_with_group = votes_only.copy()
@@ -244,12 +251,18 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     # Get all group IDs
     all_group_ids = [group['id'] for group in group_clusters]
 
-    # Compute vote counts per (group, comment) for votes from group members
+    # Compute vote counts per (group, comment) for votes from group members.
+    #
+    # ns counts agree + disagree + PASS, matching Clojure's `count-votes`
+    # (math/src/polismath/math/repness.clj:56-61, :70). `count-votes` with
+    # no `vote` arg uses `identity` as filter; in Clojure 0 is truthy, so
+    # PASS (0) votes count. NaN entries were already dropped above. Use
+    # size() to count non-NaN rows.
     group_counts = votes_in_groups.groupby(['group_id', 'comment']).agg(
         na=('vote', lambda x: (x == AGREE).sum()),
         nd=('vote', lambda x: (x == DISAGREE).sum()),
+        ns=('vote', 'size'),
     )
-    group_counts['ns'] = group_counts['na'] + group_counts['nd']
 
     # Create full index with all (group, comment) combinations to match old behavior
     # Old implementation: for each group, iterate over ALL comments (that have any votes)
