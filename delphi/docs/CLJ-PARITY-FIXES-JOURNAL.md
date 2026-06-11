@@ -1406,5 +1406,103 @@ sklearn-KMeans-seeding consensus (see scratch/COPILOT_MATH_QUESTIONS.md);
 no values shift at the goldens commit until D10/D11/D12 land.
 
 **Stack position.** New commit inserted between PR 14a (#2564) and D10
-(#2566). D10, D11, D12, goldens rebased cleanly on top — no conflict
-markers in `jj log -r 'edge..@+++++'`.
+(#2566). D10, D11, D12, goldens rebased cleanly on top; 2-sided docs
+conflicts in PLAN/JOURNAL at each downstream commit resolved manually
+to merge both edits (downstream docs additions kept; ns-PASS row and
+session entry preserved).
+
+## Session: PR 8 — D10 rep comment selection (2026-06-11)
+
+Landed in `/goal` mode (autonomous run targeting D10 + D11 + D12 + goldens
+as a stacked PR series). Decisions made without inline user check are
+documented in `~/polis/D10_D11_D12_GOLDENS_DECISIONS.md` for batch review.
+
+### What landed
+
+**Production code (`delphi/polismath/pca_kmeans_rep/repness.py`)** — added
+3 top-level helpers + `_finalize_row_for_output` + rewrote `select_rep_comments_df`:
+
+- `passes_by_test(s) -> bool` — Clojure `passes-by-test?` (repness.clj:165-170).
+  OR'd on `(rat, pat)` and `(rdt, pdt)` z-sig-90. **NO `pa >= 0.5` gate** —
+  the pre-D10 Python gate was a botched-port over-restriction with no
+  Clojure analog.
+- `beats_best_by_test(s, current_best_z) -> bool` — Clojure `beats-best-by-test?`
+  (repness.clj:133-139). Strict `>` on `max(rat, rdt)` vs current best z.
+- `beats_best_agr(s, current_best) -> bool` — Clojure `beats-best-agr?`
+  (repness.clj:142-162). Four-branch agree-priority logic:
+    1. `na == 0 and nd == 0` → reject.
+    2. Current best AND `current_best['ra'] > 1.0` → compare 4-way signed
+       product `ra * rat * pa * pat`.
+    3. Current best (else, `ra <= 1.0`) → compare `pa * pat`.
+    4. No current best → accept if `z90(pat)` OR `(ra > 1.0 AND pa > 0.5)`.
+- `_finalize_row_for_output(row, *, is_best_agree=False)` — Clojure
+  `finalize-cmt-stats` (repness.clj:173-188) + best-agree flagging
+  (repness.clj:262-264). Adds `best_agree=True` and `n_agree=na` keys for
+  the best-agree slot.
+- `select_rep_comments_df(stats_df, mod_out=None) -> List[Dict[str, Any]]` —
+  single-pass reduce over `stats_df.to_dict('records')` mirroring Clojure
+  `select-rep-comments` (repness.clj:212-281). Per-row state
+  `{sufficient, best, best_agree}` updated by the three helpers; final
+  assembly is dedup-best-agree-from-sufficient → sort by metric →
+  prepend best-agree → take 5 → agrees-before-disagrees.
+
+**Caller (`conv_repness`)** — dropped the `_stats_row_to_dict` wrapping
+step since `select_rep_comments_df` now returns finalized dicts directly.
+
+**Two pre-D10 bugs fixed alongside the rewrite** (research-agent flagged):
+- `pa >= 0.5 / pd >= 0.5` over-gate in the passing filter — removed. No
+  Clojure analog; was dropping legitimate candidates.
+- "Fill-from-other-category" + "first-row" fallback blocks — deleted. The
+  `:best` / `:best_agree` mechanism IS the Clojure fallback.
+
+**Tests** — 18 new tests (in `tests/test_discrepancy_fixes.py`):
+- `TestD10PassesByTest` (4 tests): agree-side significant, disagree-side
+  significant, neither significant, no `pa >= 0.5` gate.
+- `TestD10BeatsBestByTest` (3 tests): None-best, max-rat-rdt, strict `>`.
+- `TestD10BeatsBestAgr` (6 tests): Branch 1 (na=nd=0), Branch 2 (ra>1),
+  Branch 3 (ra<=1), Branch 4 z90(pat), Branch 4 (ra>1 AND pa>0.5), Branch 4
+  rejection.
+- `TestD10SelectRepCommentsBoundary` (5 tests): empty input, single unvoted
+  row → best fallback, sufficient-empty-best-agree-only, take-5 cap with
+  agrees-before-disagrees ordering, **the eviction edge case** (best_agree
+  outside sufficient evicting 5th-highest-metric).
+
+**Re-xfailed with updated reasons** (D14 / D1 upstream divergence):
+- `TestD9ZScoreThresholds::test_z_values_match_clojure`
+- `TestD5ProportionTest::test_pat_values_match_clojure_blob`
+- `TestD6TwoPropTest::test_rat_values_match_clojure_blob`
+- `TestD7RepnessMetric::test_repness_metric_matches_clojure_blob`
+- `TestD8FinalizeStats::test_repful_matches_clojure_blob`
+- `TestD10RepCommentSelection::test_rep_comments_match_clojure`
+
+Why xfailed despite D10 landing: D10 enables shared comments in the
+selection (overlap rises from 0% to ~20% on vw cold_start), but
+per-(gid, tid) stats still mismatch because Python and Clojure put
+different participants in the "same" group ID. That's upstream
+PCA/KMeans group-membership divergence (D14 / D1), not D10. D10 is
+verified via the 18 synthetic helper + boundary tests above.
+
+### Suite delta (pre/post D10)
+
+- Pre (post-14a): 295 passed, 12 skipped, 58 xfailed.
+- Post (this PR): 313 passed, 12 skipped, 58 xfailed.
+- Delta: +18 passed, 0 failed, 0 new xfailed. The +18 matches the 18 new
+  D10 synthetic tests exactly.
+
+### Decisions made autonomously (under `/goal` mode)
+
+See `~/polis/D10_D11_D12_GOLDENS_DECISIONS.md`. Highlights:
+- **S1**: Python convention key names (`repful`, `best_agree`, `n_agree`)
+  instead of Clojure hyphens. Math blob alignment is a future PR.
+- **S2**: `select_rep_comments_df` returns `List[Dict[str, Any]]` instead
+  of `pd.DataFrame` — variable extra keys (best_agree flag) make list-of-
+  dicts cleaner than DF-with-NaN-columns.
+- **D10.1**: Two pre-D10 bugs (pa>=0.5 gate, fill-from-other fallback)
+  folded into D10 rather than separate PRs — the rewrite replaces the
+  function so a surgical fix would be more noise than value.
+- **D10.7**: Real-data blob-comparison tests re-xfailed with reasons
+  pointing at D14/D1, not softened to overlap-thresholds — more honest.
+
+### What's Next
+
+PR 9 (D11) on top of D10 in the same spr stack.
