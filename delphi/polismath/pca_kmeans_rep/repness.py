@@ -16,8 +16,8 @@ from polismath.utils.general import AGREE, DISAGREE
 
 
 # Statistical constants
-Z_90 = 1.645  # Z-score for 90% confidence
-Z_95 = 1.96   # Z-score for 95% confidence
+Z_90 = 1.2816  # One-tailed Z-score for 90% confidence (matches Clojure stats/z-sig-90?)
+Z_95 = 1.6449  # One-tailed Z-score for 95% confidence (matches Clojure stats/z-sig-95?)
 
 # Pseudocount for additive smoothing of agree/disagree proportions
 #
@@ -50,7 +50,7 @@ def z_score_sig_90(z: float) -> bool:
     Returns:
         True if significant at 90% confidence
     """
-    return abs(z) >= Z_90
+    return z > Z_90
 
 
 def z_score_sig_95(z: float) -> bool:
@@ -63,61 +63,99 @@ def z_score_sig_95(z: float) -> bool:
     Returns:
         True if significant at 95% confidence
     """
-    return abs(z) >= Z_95
+    return z > Z_95
 
 
-def prop_test(p: float, n: int, p0: float) -> float:
+def prop_test(succ: int, n: int) -> float:
     """
-    One-proportion z-test.
-    
+    One-proportion z-test, matching Clojure's stats/prop-test (stats.clj:10-15).
+
+    Clojure formula:
+        (let [[succ n] (map inc [succ n])]
+          (* 2 (sqrt n) (+ (/ succ n) -0.5)))
+
+    Which simplifies to: 2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)
+
+    This is a Wilson-score-like test with built-in +1 pseudocount (Laplace
+    smoothing). Unlike the standard z-test ((p - p0) / sqrt(p0*(1-p0)/n)),
+    the +1 terms regularize extreme values for small samples, preventing
+    spurious significance in small Polis groups.
+
+    Note: the pseudocount here (+1 to succ and n, i.e. Beta(1,1)) is
+    independent of the PSEUDO_COUNT used for pa/pd computation (Beta(2,2)).
+    Clojure's prop-test takes raw success counts, not pre-smoothed
+    probabilities.
+
     Args:
-        p: Observed proportion
-        n: Number of observations
-        p0: Expected proportion under null hypothesis
-        
+        succ: Number of successes (e.g. agrees `na` or disagrees `nd`)
+        n: Number of *trials counted as votes for this test*. In all current
+           callers, this is `ns = na + nd` (AGREE + DISAGREE) — PASS votes
+           are NOT included, matching what Clojure passes as `n-trials`. This
+           is a Polis-pipeline convention, not a generic z-test signature;
+           if you call this from elsewhere, supply `na + nd` rather than
+           a "total votes seen including pass" count.
+
     Returns:
-        Z-score
+        Z-score. Positive when the smoothed proportion (succ+1)/(n+1) > 0.5
+        (equivalent to succ >= n/2). This differs slightly from the raw-ratio
+        condition succ/n > 0.5 because of the +1 pseudocount applied to both
+        numerator and denominator.
+
+        No n=0 short-circuit (Clojure parity — stats.clj:10-15 has no guard):
+        prop_test(0, 0) → (1, 1) after +1 → 2*sqrt(1)*(1/1 - 0.5) = 1.0.
     """
-    if n == 0 or p0 == 0 or p0 == 1:
+    # Apply +1 pseudocount to both numerator and denominator
+    succ_pc = succ + 1
+    n_pc = n + 1
+    return 2 * math.sqrt(n_pc) * (succ_pc / n_pc - 0.5)
+
+
+def two_prop_test(succ_in: int, succ_out: int, pop_in: int, pop_out: int) -> float:
+    """
+    Two-proportion z-test with +1 pseudocount on all inputs.
+
+    Matches Clojure's stats/two-prop-test (stats.clj:18-33):
+      (let [[succ-in succ-out pop-in pop-out] (map inc [succ-in succ-out pop-in pop-out])
+            pi1 (/ succ-in pop-in)
+            pi2 (/ succ-out pop-out)
+            pi-hat (/ (+ succ-in succ-out) (+ pop-in pop-out))]
+        ...)
+
+    The +1 pseudocount (Laplace smoothing) regularizes the z-score for small
+    samples, preventing extreme values when group sizes are tiny.
+
+    Args:
+        succ_in: Number of successes in the group (e.g., agrees)
+        succ_out: Number of successes outside the group
+        pop_in: Total votes in the group
+        pop_out: Total votes outside the group
+
+    Returns:
+        Z-score (positive means group proportion > other proportion)
+    """
+    # No pop_in/pop_out short-circuit: Clojure's (map inc ...) increments all
+    # four inputs unconditionally, so pop=0 becomes pop=1 and the test proceeds.
+    # The only early-return is pi_hat == 1 below, matching Clojure.
+
+    # Add +1 pseudocount to all four inputs (Clojure: map inc)
+    s1 = succ_in + 1
+    s2 = succ_out + 1
+    p1 = pop_in + 1
+    p2 = pop_out + 1
+
+    pi1 = s1 / p1
+    pi2 = s2 / p2
+    pi_hat = (s1 + s2) / (p1 + p2)
+
+    if pi_hat == 1.0:
+        # Clojure note (stats.clj:26-27): "this isn't quite right... could
+        # actually solve this using limits" — returning 0 for now, matching Clojure.
         return 0.0
-    
-    # Calculate standard error
-    se = math.sqrt(p0 * (1 - p0) / n)
-    
-    # Z-score calculation
+
+    se = math.sqrt(pi_hat * (1 - pi_hat) * (1/p1 + 1/p2))
     if se == 0:
         return 0.0
-    else:
-        return (p - p0) / se
-
-
-def two_prop_test(p1: float, n1: int, p2: float, n2: int) -> float:
-    """
-    Two-proportion z-test.
-    
-    Args:
-        p1: First proportion
-        n1: Number of observations for first proportion
-        p2: Second proportion
-        n2: Number of observations for second proportion
-        
-    Returns:
-        Z-score
-    """
-    if n1 == 0 or n2 == 0:
-        return 0.0
-    
-    # Pooled probability
-    p = (p1 * n1 + p2 * n2) / (n1 + n2)
-    
-    # Standard error
-    se = math.sqrt(p * (1 - p) * (1/n1 + 1/n2))
-    
-    # Z-score calculation
-    if se == 0:
-        return 0.0
-    else:
-        return (p1 - p2) / se
+    return (pi1 - pi2) / se
 
 
 def comment_stats(votes: np.ndarray, group_members: List[int]) -> Dict[str, Any]:
@@ -143,9 +181,12 @@ def comment_stats(votes: np.ndarray, group_members: List[int]) -> Dict[str, Any]
     p_agree = (n_agree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT) if n_votes > 0 else 0.5
     p_disagree = (n_disagree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT) if n_votes > 0 else 0.5
     
-    # Calculate significance tests
-    p_agree_test = prop_test(p_agree, n_votes, 0.5) if n_votes > 0 else 0.0
-    p_disagree_test = prop_test(p_disagree, n_votes, 0.5) if n_votes > 0 else 0.0
+    # Calculate significance tests — pass raw counts, matching Clojure's
+    # (stats/prop-test na ns) and (stats/prop-test nd ns) (repness.clj:74-75)
+    # No n_votes>0 guard — Clojure parity (stats.clj:10-15 has no n=0 short-circuit;
+    # prop_test handles n=0 via the +1 pseudocount → returns 1.0)
+    p_agree_test = prop_test(n_agree, n_votes)
+    p_disagree_test = prop_test(n_disagree, n_votes)
     
     # Return stats
     return {
@@ -177,15 +218,17 @@ def add_comparative_stats(comment_stats: Dict[str, Any],
     result['ra'] = result['pa'] / other_stats['pa'] if other_stats['pa'] > 0 else 1.0
     result['rd'] = result['pd'] / other_stats['pd'] if other_stats['pd'] > 0 else 1.0
     
-    # Calculate representativeness tests
+    # Calculate representativeness tests — pass raw counts, matching Clojure's
+    # (stats/two-prop-test (:na in-stats) (sum :na rest-stats)
+    #                      (:ns in-stats) (sum :ns rest-stats))  (repness.clj:97-100)
     result['rat'] = two_prop_test(
-        result['pa'], result['ns'], 
-        other_stats['pa'], other_stats['ns']
+        result['na'], other_stats['na'],
+        result['ns'], other_stats['ns']
     )
-    
+
     result['rdt'] = two_prop_test(
-        result['pd'], result['ns'], 
-        other_stats['pd'], other_stats['ns']
+        result['nd'], other_stats['nd'],
+        result['ns'], other_stats['ns']
     )
     
     return result
@@ -193,58 +236,67 @@ def add_comparative_stats(comment_stats: Dict[str, Any],
 
 def repness_metric(stats: Dict[str, Any], key_prefix: str) -> float:
     """
-    Calculate a representativeness metric for ranking.
-    
+    Composite representativeness score, matching Clojure's repness-metric.
+
+    Clojure (math/src/polismath/math/repness.clj:191-193):
+        (defn repness-metric
+          [{:keys [repness repness-test p-success p-test]}]
+          (* repness repness-test p-success p-test))
+
+    For Python the keys are looked up via key_prefix:
+        'a' (agree)    → ra * rat * pa * pat
+        'd' (disagree) → rd * rdt * pd * pdt
+
+    This is a *signed* product of 4 values — there is no abs(). A negative
+    z-score (pat / rat / pdt / rdt) flips the sign of the metric, exactly as
+    in Clojure. Downstream `select_rep_comments` sorts candidates by this
+    metric in descending order and keeps the top N, so negative metrics rank
+    at the bottom of the candidate pool. They are not actively *filtered*
+    here, though — fallback paths (e.g. fewer than the requested N candidates
+    pass significance) can still surface a negative-metric comment. Callers
+    that need strict positive-metric semantics should gate at the call site.
+
     Args:
         stats: Statistics for a comment/group
         key_prefix: 'a' for agreement, 'd' for disagreement
-        
+
     Returns:
-        Composite representativeness score
+        Composite representativeness score (signed product of 4 values).
     """
-    # Get the relevant probability and test values
     p = stats[f'p{key_prefix}']
     p_test = stats[f'p{key_prefix}t']
     r = stats[f'r{key_prefix}']
     r_test = stats[f'r{key_prefix}t']
-    
-    # Take probability into account
-    p_factor = p if key_prefix == 'a' else (1 - p)
-    
-    # Calculate composite score
-    return p_factor * (abs(p_test) + abs(r_test))
+    return r * r_test * p * p_test
 
 
 def finalize_cmt_stats(stats: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Finalize comment statistics and determine if agree or disagree is more representative.
-    
+    Finalize comment stats and classify as agree/disagree, matching Clojure.
+
+    Clojure (math/src/polismath/math/repness.clj:173-180):
+        (defn finalize-cmt-stats
+          [tid {:keys [... rat rdt ...]}]
+          (let [[...] (if (> rat rdt)
+                        [na ns pa pat ra rat :agree]
+                        [nd ns pd pdt rd rdt :disagree])]
+            ...))
+
+    Pure comparison of the two two-prop z-scores. No probability/ratio
+    threshold logic — strict `rat > rdt` (rat == rdt falls through to disagree).
+    Always populates `agree_metric` / `disagree_metric` (used downstream by
+    selection routines that rank candidates).
+
     Args:
         stats: Statistics for a comment/group
-        
+
     Returns:
-        Finalized statistics with best representativeness
+        Finalized statistics with `repful`, `agree_metric`, `disagree_metric`.
     """
     result = deepcopy(stats)
-    
-    # Calculate agree and disagree metrics
     result['agree_metric'] = repness_metric(stats, 'a')
     result['disagree_metric'] = repness_metric(stats, 'd')
-    
-    # Determine whether agree or disagree is more representative
-    if result['pa'] > 0.5 and result['ra'] > 1.0:
-        # More agree than disagree, and more than other groups
-        result['repful'] = 'agree'
-    elif result['pd'] > 0.5 and result['rd'] > 1.0:
-        # More disagree than agree, and more than other groups
-        result['repful'] = 'disagree'
-    else:
-        # Use the higher metric
-        if result['agree_metric'] >= result['disagree_metric']:
-            result['repful'] = 'agree'
-        else:
-            result['repful'] = 'disagree'
-    
+    result['repful'] = 'agree' if stats['rat'] > stats['rdt'] else 'disagree'
     return result
 
 
@@ -463,50 +515,66 @@ def select_consensus_comments(all_stats: List[Dict[str, Any]]) -> List[Dict[str,
 # Vectorized DataFrame-native functions for multi-group operations
 # =============================================================================
 
-def prop_test_vectorized(p: pd.Series, n: pd.Series, p0: float = 0.5) -> pd.Series:
+def prop_test_vectorized(succ: pd.Series, n: pd.Series) -> pd.Series:
     """
-    Vectorized one-proportion z-test.
+    Vectorized one-proportion z-test, matching Clojure's stats/prop-test.
+
+    Formula: 2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)
+
+    See prop_test() docstring for derivation and rationale.
 
     Args:
-        p: Series of observed proportions
-        n: Series of number of observations
-        p0: Expected proportion under null hypothesis (default: 0.5)
+        succ: Series of success counts (e.g. `na` or `nd` per row)
+        n: Series of trial counts. In all current callers this is `ns = na + nd`
+           (AGREE + DISAGREE per row) — PASS votes are NOT included, matching
+           what Clojure passes as `n-trials`. See scalar `prop_test()` for the
+           same convention.
 
     Returns:
         Series of z-scores
     """
-    se = np.sqrt(p0 * (1 - p0) / n)
-    z = (p - p0) / se
-    # Handle edge cases: n=0, p0=0, p0=1 all result in 0
+    succ_pc = succ + 1
+    n_pc = n + 1
+    z = 2 * np.sqrt(n_pc) * (succ_pc / n_pc - 0.5)
+    # No n=0 short-circuit — Clojure parity (see scalar prop_test). n=0 rows
+    # collapse to 1.0 via the +1 pseudocount; downstream callers do not gate on it.
     z = z.fillna(0.0)
-    z = z.replace([np.inf, -np.inf], 0.0)
     return z
 
 
-def two_prop_test_vectorized(p1: pd.Series, n1: pd.Series,
-                             p2: pd.Series, n2: pd.Series) -> pd.Series:
+def two_prop_test_vectorized(succ_in: pd.Series, succ_out: pd.Series,
+                             pop_in: pd.Series, pop_out: pd.Series) -> pd.Series:
     """
-    Vectorized two-proportion z-test.
+    Vectorized two-proportion z-test with +1 pseudocount on all inputs.
+
+    Matches Clojure's stats/two-prop-test (stats.clj:18-33).
+    See two_prop_test() scalar version for formula details.
 
     Args:
-        p1: Series of first proportions
-        n1: Series of number of observations for first proportion
-        p2: Series of second proportions
-        n2: Series of number of observations for second proportion
+        succ_in: Series of success counts in the group
+        succ_out: Series of success counts outside the group
+        pop_in: Series of total vote counts in the group
+        pop_out: Series of total vote counts outside the group
 
     Returns:
         Series of z-scores
     """
-    # Pooled probability
-    p_pooled = (p1 * n1 + p2 * n2) / (n1 + n2)
+    # Add +1 pseudocount to all four inputs (Clojure: map inc)
+    s1 = succ_in + 1
+    s2 = succ_out + 1
+    p1 = pop_in + 1
+    p2 = pop_out + 1
 
-    # Standard error
-    se = np.sqrt(p_pooled * (1 - p_pooled) * (1/n1 + 1/n2))
+    pi1 = s1 / p1
+    pi2 = s2 / p2
+    pi_hat = (s1 + s2) / (p1 + p2)
 
-    # Z-score calculation
-    z = (p1 - p2) / se
+    se = np.sqrt(pi_hat * (1 - pi_hat) * (1/p1 + 1/p2))
+    z = (pi1 - pi2) / se
 
-    # Handle edge cases
+    # No pop_in/pop_out short-circuit (Clojure parity — see scalar two_prop_test).
+    # pi_hat==1 and pi_hat>1 (NaN from sqrt of negative) collapse to 0 via fillna;
+    # division by 0 inf cases collapse via replace.
     z = z.fillna(0.0)
     z = z.replace([np.inf, -np.inf], 0.0)
     return z
@@ -626,9 +694,10 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     stats_df.loc[other_zero_mask, 'other_pa'] = 0.5
     stats_df.loc[other_zero_mask, 'other_pd'] = 0.5
 
-    # Compute proportion tests (group vs 0.5)
-    stats_df['pat'] = prop_test_vectorized(stats_df['pa'], stats_df['ns'], 0.5)
-    stats_df['pdt'] = prop_test_vectorized(stats_df['pd'], stats_df['ns'], 0.5)
+    # Compute proportion tests — pass raw counts, matching Clojure's
+    # (stats/prop-test na ns) and (stats/prop-test nd ns) (repness.clj:74-75)
+    stats_df['pat'] = prop_test_vectorized(stats_df['na'], stats_df['ns'])
+    stats_df['pdt'] = prop_test_vectorized(stats_df['nd'], stats_df['ns'])
 
     # Compute representativeness ratios (group vs other)
     stats_df['ra'] = stats_df['pa'] / stats_df['other_pa']
@@ -638,34 +707,30 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     stats_df['ra'] = stats_df['ra'].replace([np.inf, -np.inf], 1.0).fillna(1.0)
     stats_df['rd'] = stats_df['rd'].replace([np.inf, -np.inf], 1.0).fillna(1.0)
 
-    # Compute representativeness tests (two-proportion z-test: group vs other)
+    # Compute representativeness tests — pass raw counts, matching Clojure's
+    # (stats/two-prop-test (:na in-stats) (sum :na rest-stats)
+    #                      (:ns in-stats) (sum :ns rest-stats))  (repness.clj:97-100)
     stats_df['rat'] = two_prop_test_vectorized(
-        stats_df['pa'], stats_df['ns'],
-        stats_df['other_pa'], stats_df['other_votes']
+        stats_df['na'], stats_df['other_agree'],
+        stats_df['ns'], stats_df['other_votes']
     )
     stats_df['rdt'] = two_prop_test_vectorized(
-        stats_df['pd'], stats_df['ns'],
-        stats_df['other_pd'], stats_df['other_votes']
+        stats_df['nd'], stats_df['other_disagree'],
+        stats_df['ns'], stats_df['other_votes']
     )
 
     # Compute metrics
-    # agree_metric = pa * (|pat| + |rat|)
-    # disagree_metric = (1 - pd) * (|pdt| + |rdt|)
-    stats_df['agree_metric'] = stats_df['pa'] * (stats_df['pat'].abs() + stats_df['rat'].abs())
-    stats_df['disagree_metric'] = (1 - stats_df['pd']) * (stats_df['pdt'].abs() + stats_df['rdt'].abs())
+    # Clojure (repness.clj:191-193): (* repness repness-test p-success p-test)
+    #   agree_metric    = ra * rat * pa * pat
+    #   disagree_metric = rd * rdt * pd * pdt   (signed product — see scalar repness_metric)
+    stats_df['agree_metric'] = (stats_df['ra'] * stats_df['rat']
+                                 * stats_df['pa'] * stats_df['pat'])
+    stats_df['disagree_metric'] = (stats_df['rd'] * stats_df['rdt']
+                                    * stats_df['pd'] * stats_df['pdt'])
 
-    # Determine repful ('agree' or 'disagree')
-    # Logic: if pa > 0.5 and ra > 1.0 -> 'agree'
-    #        elif pd > 0.5 and rd > 1.0 -> 'disagree'
-    #        else: use higher metric
-    conditions = [
-        (stats_df['pa'] > 0.5) & (stats_df['ra'] > 1.0),
-        (stats_df['pd'] > 0.5) & (stats_df['rd'] > 1.0),
-    ]
-    choices = ['agree', 'disagree']
-    stats_df['repful'] = np.select(conditions, choices,
-                                   default=np.where(stats_df['agree_metric'] >= stats_df['disagree_metric'],
-                                                    'agree', 'disagree'))
+    # Clojure (repness.clj:178): (if (> rat rdt) ... :agree ... :disagree)
+    # Pure comparison of rat vs rdt — no probability/ratio thresholds.
+    stats_df['repful'] = np.where(stats_df['rat'] > stats_df['rdt'], 'agree', 'disagree')
 
     return stats_df
 
@@ -694,10 +759,10 @@ def select_rep_comments_df(stats_df: pd.DataFrame,
     # Best agree: pa > pd and passes significance tests
     agree_candidates = stats_df[stats_df['pa'] > stats_df['pd']].copy()
     if not agree_candidates.empty:
-        # Check significance: |pat| >= Z_90 and |rat| >= Z_90
+        # Check significance: pat > Z_90 and rat > Z_90
         passing_agree = agree_candidates[
-            (agree_candidates['pat'].abs() >= Z_90) &
-            (agree_candidates['rat'].abs() >= Z_90) &
+            (agree_candidates['pat'] > Z_90) &
+            (agree_candidates['rat'] > Z_90) &
             (agree_candidates['pa'] >= 0.5)
         ]
         if not passing_agree.empty:
@@ -707,8 +772,8 @@ def select_rep_comments_df(stats_df: pd.DataFrame,
     disagree_candidates = stats_df[stats_df['pd'] > stats_df['pa']].copy()
     if not disagree_candidates.empty:
         passing_disagree = disagree_candidates[
-            (disagree_candidates['pdt'].abs() >= Z_90) &
-            (disagree_candidates['rdt'].abs() >= Z_90) &
+            (disagree_candidates['pdt'] > Z_90) &
+            (disagree_candidates['rdt'] > Z_90) &
             (disagree_candidates['pd'] >= 0.5)
         ]
         if not passing_disagree.empty:
@@ -941,132 +1006,3 @@ def conv_repness(vote_matrix_df: pd.DataFrame, group_clusters: List[Dict[str, An
 
     return result
 
-
-def participant_stats(vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """
-    Calculate statistics about participants.
-    
-    Args:
-        vote_matrix: pd.DataFrame of votes
-        group_clusters: List of group clusters
-        
-    Returns:
-        Dictionary with participant statistics
-    """
-    if not group_clusters:
-        return {}
-    
-    # Extract values and ensure they're numeric
-    matrix_values = vote_matrix.values.copy()
-    
-    # Convert to numeric matrix with NaN for missing values
-    if not np.issubdtype(matrix_values.dtype, np.number):
-        numeric_values = np.zeros(matrix_values.shape, dtype=float)
-        for i in range(matrix_values.shape[0]):
-            for j in range(matrix_values.shape[1]):
-                val = matrix_values[i, j]
-                if pd.isna(val) or val is None:
-                    numeric_values[i, j] = np.nan
-                else:
-                    try:
-                        numeric_values[i, j] = float(val)
-                    except (ValueError, TypeError):
-                        numeric_values[i, j] = np.nan
-        matrix_values = numeric_values
-    
-    # Replace NaNs with zeros for correlation calculation
-    matrix_values = np.nan_to_num(matrix_values, nan=0.0)
-    
-    # Create result structure
-    result = {
-        'participant_ids': vote_matrix.index.tolist(),
-        'stats': {}
-    }
-    
-    # For each participant, calculate statistics
-    for p_idx, participant_id in enumerate(vote_matrix.index):
-        if p_idx >= matrix_values.shape[0]:
-            continue
-            
-        participant_votes = matrix_values[p_idx, :]
-        
-        # Count votes (non-zero values are votes)
-        n_agree = np.sum(participant_votes > 0)
-        n_disagree = np.sum(participant_votes < 0)
-        n_pass = np.sum(participant_votes == 0) - np.count_nonzero(np.isnan(participant_votes))
-        n_votes = n_agree + n_disagree
-        
-        # Skip participants with no votes
-        if n_votes == 0:
-            continue
-            
-        # Find participant's group
-        participant_group = None
-        for group in group_clusters:
-            if participant_id in group['members']:
-                participant_group = group['id']
-                break
-        
-        # Calculate agreement with each group
-        group_agreements = {}
-        
-        for group in group_clusters:
-            group_id = group['id']
-            
-            try:
-                # Get group member indices
-                group_members = []
-                for m in group['members']:
-                    if m in vote_matrix.index:
-                        idx = vote_matrix.index.get_loc(m)
-                        if 0 <= idx < matrix_values.shape[0]:
-                            group_members.append(idx)
-                
-                if not group_members or len(group_members) < 3:
-                    # Skip groups with too few members
-                    group_agreements[group_id] = 0.0
-                    continue
-                
-                # Calculate group average votes for each comment
-                group_vote_matrix = matrix_values[group_members, :]
-                group_avg_votes = np.mean(group_vote_matrix, axis=0)
-                
-                # Get participant's votes
-                participant_vote_vector = participant_votes
-                
-                # Calculate correlation if enough votes
-                # Mask comments that have fewer than 3 votes from group members
-                valid_comment_mask = np.sum(group_vote_matrix != 0, axis=0) >= 3
-                
-                if np.sum(valid_comment_mask) >= 3:  # At least 3 common votes
-                    # Extract votes for valid comments
-                    p_votes = participant_vote_vector[valid_comment_mask]
-                    g_votes = group_avg_votes[valid_comment_mask]
-                    
-                    # Calculate correlation
-                    if np.std(p_votes) > 0 and np.std(g_votes) > 0:
-                        correlation = np.corrcoef(p_votes, g_votes)[0, 1]
-                        if not np.isnan(correlation):
-                            group_agreements[group_id] = correlation
-                        else:
-                            group_agreements[group_id] = 0.0
-                    else:
-                        group_agreements[group_id] = 0.0
-                else:
-                    group_agreements[group_id] = 0.0
-                    
-            except Exception as e:
-                # Fallback for errors
-                group_agreements[group_id] = 0.0
-        
-        # Store participant stats
-        result['stats'][participant_id] = {
-            'n_agree': int(n_agree),
-            'n_disagree': int(n_disagree),
-            'n_pass': int(n_pass),
-            'n_votes': int(n_votes),
-            'group': participant_group,
-            'group_correlations': group_agreements
-        }
-    
-    return result

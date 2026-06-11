@@ -95,10 +95,8 @@ jobs:
           -e AWS_REGION=us-east-1 \
           -e AWS_ACCESS_KEY_ID=dummy \
           -e AWS_SECRET_ACCESS_KEY=dummy \
-          -e POSTGRES_HOST=postgres \
-          -e POSTGRES_PASSWORD=PdwPNS2mDN73Vfbc \
-          -e POSTGRES_DB=polis-test \
           -e SKIP_GOLDEN=1 \
+          -e POSTGRES_CONNECT_TIMEOUT=5 \
           delphi \
           bash -c " \
             set -e; \

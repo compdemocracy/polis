@@ -278,11 +278,27 @@ class PostgresClient:
 
             # Create engine
             uri = self.config.get_uri()
+            # POSTGRES_CONNECT_TIMEOUT (seconds) caps the TCP socket-level
+            # connect() call. Default 30s is conservative for production
+            # (transient slowness, scale-up); CI and local dev override to
+            # 5s for fast fail when the DB isn't running. Without it, an
+            # unreachable DB causes the process to hang for the OS default
+            # (often 60-120s+). See delphi/CLAUDE.md "Environment Variables".
+            connect_timeout = int(os.environ.get("POSTGRES_CONNECT_TIMEOUT", "30"))
             self.engine = sa.create_engine(
                 uri,
                 pool_size=self.config.pool_size,
                 max_overflow=self.config.max_overflow,
                 pool_recycle=300,  # Recycle connections after 5 minutes
+                connect_args={"connect_timeout": connect_timeout},
+                # pool_pre_ping=True validates each connection on checkout,
+                # so stale connections (e.g. DB restarts, idle timeouts in
+                # cloud Postgres) are dropped and replaced transparently.
+                # Tiny overhead per checkout; standard SQLAlchemy practice
+                # for long-running services. Note this does NOT replace
+                # connect_timeout — pre-ping only acts on already-pooled
+                # connections, not on the initial socket connect.
+                pool_pre_ping=True,
             )
 
             # Create session factory

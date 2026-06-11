@@ -16,7 +16,7 @@ calculate_and_store_extremity = extremity_module.calculate_and_store_extremity
 def test_calculate_and_store_extremity_with_mocks():
     """
     Tests the main logic of calculate_and_store_extremity by mocking its dependencies.
-    - Mocks GroupDataProcessor to avoid database calls.
+    - Mocks GroupDataProcessor and PostgresClient to avoid database calls.
     - Mocks check_existing_extremity_values to force recalculation.
     - Verifies that the function correctly processes the mock output.
     """
@@ -29,12 +29,14 @@ def test_calculate_and_store_extremity_with_mocks():
             {'comment_id': 102, 'comment_extremity': 0.25},
             {'comment_id': 103, 'comment_extremity': 0.50},
             # A comment that might be missing the extremity value
-            {'comment_id': 104}, 
+            {'comment_id': 104},
         ]
     }
 
     # 2. Patch the dependencies within the script's namespace
-    with mock.patch.object(extremity_module, 'GroupDataProcessor') as MockGroupDataProcessor, \
+    # Also patch PostgresClient to avoid DB connection attempts when Docker is unavailable
+    with mock.patch.object(extremity_module, 'PostgresClient') as MockPostgresClient, \
+         mock.patch.object(extremity_module, 'GroupDataProcessor') as MockGroupDataProcessor, \
          mock.patch.object(extremity_module, 'check_existing_extremity_values', return_value={}) as mock_check_existing:
 
         # Configure the mock instance of GroupDataProcessor
@@ -68,14 +70,16 @@ def test_check_for_existing_values(monkeypatch):
     conversation_id = 54321
     existing_values = {201: 0.9, 202: 0.1}
 
-    # Patch the check function and the GroupDataProcessor class
-    with mock.patch.object(extremity_module, 'check_existing_extremity_values', return_value=existing_values) as mock_check_existing, \
+    # Patch PostgresClient, GroupDataProcessor and the check function
+    # PostgresClient must be mocked to avoid DB connection attempts when Docker is unavailable
+    with mock.patch.object(extremity_module, 'PostgresClient') as MockPostgresClient, \
+         mock.patch.object(extremity_module, 'check_existing_extremity_values', return_value=existing_values) as mock_check_existing, \
          mock.patch.object(extremity_module, 'GroupDataProcessor') as MockGroupDataProcessor:
-        
+
         # Configure the mock instance that the class will produce upon instantiation
         mock_processor_instance = mock.MagicMock()
         MockGroupDataProcessor.return_value = mock_processor_instance
-        
+
         # Call the function with force_recalculation=False
         result = calculate_and_store_extremity(conversation_id, force_recalculation=False)
 
@@ -84,9 +88,9 @@ def test_check_for_existing_values(monkeypatch):
 
     # Assert that the check for existing values was performed
     mock_check_existing.assert_called_once_with(conversation_id)
-    
+
     # Assert that GroupDataProcessor was instantiated (due to the script's structure)
     MockGroupDataProcessor.assert_called_once()
-    
+
     # Crucially, assert that the expensive calculation method was NOT called on the instance
     mock_processor_instance.get_export_data.assert_not_called()

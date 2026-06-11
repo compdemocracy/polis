@@ -77,6 +77,21 @@ Always use the commands above to determine the most substantial conversation whe
   - `POSTGRES_USER`: Database username
   - `POSTGRES_PASSWORD`: Database password
   - `POSTGRES_HOST`: Database host
+  - `POSTGRES_CONNECT_TIMEOUT`: Seconds before the initial TCP `connect()`
+    gives up. **Default 30s** (conservative for production: transient
+    slowness, scale-up, network blips). CI and `example.env` override to **5s**
+    so tests and local dev fail fast when Postgres isn't running — without
+    this, an unreachable DB causes the process to hang for the kernel default
+    (~60–120s+). Honored by:
+    - `polismath/database/postgres.py` — SQLAlchemy `PostgresClient`.
+    - `polismath/run_math_pipeline.py` — psycopg2 `connect()` (the production
+      math worker invoked from `run_delphi.py`).
+
+    Note that SQLAlchemy's `pool_pre_ping` does NOT replace this: pre-ping
+    only acts on already-pooled connections, not on the initial socket connect.
+    Other psycopg2 callsites (`tests/`, `scripts/regression_download.py`) still
+    hardcode their own timeouts (typically 5s) — flag as a future cleanup if
+    you change anything in their neighborhood.
 
 - **Docker Configuration**:
 

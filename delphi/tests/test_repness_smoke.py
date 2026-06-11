@@ -18,7 +18,7 @@ from typing import Dict
 # Add the parent directory to the path to import the module
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
-from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
+from polismath.pca_kmeans_rep.repness import conv_repness
 from common_utils import create_test_conversation
 logger = logging.getLogger(__name__)
 
@@ -116,7 +116,7 @@ class TestRepnessImplementation:
         """Test participant statistics calculation."""
         logger.debug(f"Testing participant stats for {dataset_name}")
 
-        ptpt_stats = participant_stats(conversation.rating_mat, conversation._unfolded_group_clusters())
+        ptpt_stats = conversation._compute_participant_info_optimized(conversation.rating_mat, conversation._unfolded_group_clusters())
 
         assert ptpt_stats is not None
         assert 'participant_ids' in ptpt_stats

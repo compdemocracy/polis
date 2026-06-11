@@ -42,8 +42,16 @@ class DatasetInfo:
 
     @property
     def is_valid(self) -> bool:
-        """Has all files needed for regression testing (math_blob is optional)."""
-        return all([self.has_golden, self.has_votes, self.has_comments])
+        """Has all files needed to run the regression-style test suite.
+
+        Note: golden_snapshot.json is intentionally NOT required here.
+        Goldens are sometimes deleted on purpose during stack work (see
+        delphi/scratch/COPILOT_MATH_QUESTIONS.md); golden-snapshot tests
+        gracefully skip when the file is missing, but other tests that
+        only need votes/comments (Clojure-blob comparison, formula unit
+        tests, etc.) should still discover the dataset.
+        """
+        return all([self.has_votes, self.has_comments])
 
     @property
     def has_clojure_reference(self) -> bool:

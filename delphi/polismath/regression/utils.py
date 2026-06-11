@@ -42,7 +42,7 @@ def compute_all_stages(
     votes_dict: Dict,
     fixed_timestamp: int,
     skip_intermediate_stages: bool = False,
-) -> Dict[str, Dict[str, Any]]:
+) -> Dict[str, Any]:
     """
     Compute all conversation stages with timing information.
 
