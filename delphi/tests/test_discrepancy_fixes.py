@@ -2572,3 +2572,107 @@ class TestD4BlobInjection:
         assert mismatches.empty, (
             f"[{dataset_name}] {len(mismatches)}/{len(df)} p-success mismatches:\n"
             + mismatches.head(10).to_string(index=False))
+
+
+class TestD11D12Serialization:
+    """Round-trip tests for the D11/D12 plumb-through in to_dict / to_dynamo_dict.
+
+    Investigation B (2026-06-11) discovered that both serializers were hardcoding
+    ``result['consensus']`` to an empty dict regardless of
+    ``self.repness['consensus_comments']``, so the D11 consensus dict never
+    reached client-report's Majority view and never landed in the DynamoDB
+    math blob. ``comment_priorities`` (D12) was already conditionally plumbed
+    via ``hasattr/if`` guards; we lock that in with a regression test so a
+    future cleanup doesn't silently revert to the empty-default shape.
+    """
+
+    @staticmethod
+    def _make_conversation_with_repness(consensus_comments, priorities):
+        """Build a Conversation with just enough state to exercise the
+        serializers. Empty rating matrices and empty group_clusters mean the
+        rest of to_dict/to_dynamo_dict iterates over zero rows/cols (cheap)
+        while the consensus + priorities fields still flow through end-to-end.
+        """
+        conv = Conversation(conversation_id='ztest-serialization')
+        conv.repness = {
+            'comment_ids': [],
+            'group_repness': {},
+            'comment_repness': [],
+            'consensus_comments': consensus_comments,
+        }
+        conv.comment_priorities = priorities
+        return conv
+
+    def test_to_dict_surfaces_consensus_comments(self):
+        """``to_dict()`` must surface ``self.repness['consensus_comments']`` into
+        ``result['consensus']``. Pre-fix this slot was hardcoded
+        ``{'agree': [], 'disagree': [], 'comment-stats': {}}`` and the D11
+        selection was silently dropped on the floor."""
+        consensus = {
+            'agree': [
+                {'tid': 1, 'n-success': 3, 'n-trials': 4,
+                 'p-success': 0.7, 'p-test': 1.5}
+            ],
+            'disagree': [
+                {'tid': 2, 'n-success': 2, 'n-trials': 5,
+                 'p-success': 0.42, 'p-test': 1.1}
+            ],
+        }
+        conv = self._make_conversation_with_repness(consensus, {})
+
+        result = conv.to_dict()
+
+        assert result['consensus'] == consensus, (
+            "to_dict() must plumb self.repness['consensus_comments'] into "
+            "result['consensus']; got " + repr(result['consensus']))
+
+    def test_to_dict_surfaces_comment_priorities(self):
+        """``to_dict()`` must surface ``self.comment_priorities`` (D12). This is
+        a regression lock: the field is currently conditionally plumbed via
+        ``hasattr/if``; a future cleanup must not revert to the hardcoded
+        empty default."""
+        priorities = {1: 0.42, 2: 1.7, 3: 0.0}
+        conv = self._make_conversation_with_repness(
+            {'agree': [], 'disagree': []}, priorities)
+
+        result = conv.to_dict()
+
+        # The to_dict key uses underscore form (see line ~1706); no rename
+        # happens on the way out, unlike most Clojure-format fields.
+        assert 'comment_priorities' in result, (
+            "to_dict() must emit 'comment_priorities' when "
+            "self.comment_priorities is populated; keys = "
+            + repr(sorted(result.keys())))
+        assert result['comment_priorities'] == priorities
+
+    def test_to_dynamo_dict_surfaces_both(self):
+        """``to_dynamo_dict()`` must surface BOTH consensus comments (D11) and
+        comment priorities (D12). The DynamoDB shape uses underscore keys
+        (``consensus``, ``comment_priorities``); the consensus inner shape
+        matches whatever ``self.repness['consensus_comments']`` holds
+        (Clojure-style ``agree``/``disagree`` lists)."""
+        consensus = {
+            'agree': [
+                {'tid': 11, 'n-success': 8, 'n-trials': 10,
+                 'p-success': 0.83, 'p-test': 2.1}
+            ],
+            'disagree': [],
+        }
+        # Priorities use comment-id keys; the serializer coerces to int when
+        # possible and emits int values (see lines 2447-2456 of conversation.py).
+        priorities = {7: 1.5, 9: 0.25}
+        conv = self._make_conversation_with_repness(consensus, priorities)
+
+        result = conv.to_dynamo_dict()
+
+        assert result['consensus'] == consensus, (
+            "to_dynamo_dict() must plumb self.repness['consensus_comments'] "
+            "into result['consensus']; got " + repr(result['consensus']))
+        assert 'comment_priorities' in result, (
+            "to_dynamo_dict() must emit 'comment_priorities' when "
+            "self.comment_priorities is populated; keys = "
+            + repr(sorted(result.keys())))
+        # to_dynamo_dict coerces values to int via int(priority), so 1.5 -> 1
+        # and 0.25 -> 0. We assert the post-coercion shape rather than the
+        # raw input to lock in what actually lands in DynamoDB.
+        assert result['comment_priorities'] == {7: 1, 9: 0}
