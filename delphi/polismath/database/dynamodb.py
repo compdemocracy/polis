@@ -451,7 +451,12 @@ class DynamoDBClient:
                     # Use pre-formatted data with Python-native keys
                     with repness_table.batch_writer() as batch:
                         for item in dynamo_data['repness']['comment_repness']:
-                            group_id = item.get('group_id', 0)
+                            # int() guards against a numpy/Python float group id
+                            # (e.g. float64 upcast upstream): boto3 rejects floats
+                            # ("Float types are not supported"). Group ids are
+                            # always integral, so this is lossless. Belt-and-braces
+                            # with the source coercion in repness.conv_repness.
+                            group_id = int(item.get('group_id', 0))
                             comment_id = item.get('comment_id', '')
                             
                             # Create composite key for group representativeness
