@@ -897,6 +897,16 @@ def conv_repness(vote_matrix_df: pd.DataFrame, group_clusters: List[Dict[str, An
     comment_repness = stats_df_reset[['comment', 'group_id', 'repness', 'pa', 'pd']].copy()
     comment_repness.columns = ['tid', 'gid', 'repness', 'pa', 'pd']
 
+    # Coerce gid back to int. `compute_group_comment_stats_df` builds group_id via
+    # `.map(ptpt_to_group)`, which injects NaN for ungrouped voters and upcasts the
+    # whole column to float64; the NaN rows are dropped but the dtype stays float.
+    # Without this, every gid flows out of `.to_dict('records')` below as a
+    # numpy.float64, which boto3 rejects when writing Delphi_RepresentativeComments
+    # ("Float types are not supported. Use Decimal types instead."). gid is always
+    # an integral group id (sourced from the full (group_id, comment) index), so the
+    # cast is lossless.
+    comment_repness['gid'] = comment_repness['gid'].astype(int)
+
     # Build result structure
     result = {
         'comment_ids': vote_matrix_df.columns.tolist(),
