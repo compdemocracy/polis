@@ -18,144 +18,81 @@ from typing import Optional
 
 import pytest
 import pytest_check as check
-import gc
 
-from polismath.conversation.conversation import Conversation
-from polismath.regression import get_dataset_files
+from polismath.regression import get_dataset_files, get_blob_variants
 from polismath.regression.datasets import discover_datasets
-from tests.common_utils import load_votes, load_comments, load_clojure_output
-from conftest import _get_requested_datasets, make_dataset_params
+from tests.common_utils import load_clojure_output
+from conftest import _get_requested_datasets, make_dataset_params, parse_dataset_blob_id
 from polismath.regression.clojure_comparer import (
     ClojureComparer,
     unfold_clojure_group_clusters,
 )
 
 
-def _get_clojure_datasets(include_local: bool, requested: Optional[set[str]] = None) -> list[str]:
-    """Get datasets that have Clojure math_blob for comparison.
+def _get_clojure_dataset_blob_ids(include_local: bool, requested: Optional[set[str]] = None) -> list[str]:
+    """Get composite 'dataset-blob_type' IDs for all filled blobs.
 
-    Only requires votes, comments, and math_blob - does NOT require golden_snapshot.
-    Filters by requested datasets if specified.
+    Returns IDs like 'biodiversity-incremental', 'engage-incremental', 'engage-cold_start'.
+    Only includes blobs that have meaningful content (PCA, clusters, etc.).
+    Filters by dataset name if --datasets is specified.
     """
     datasets = discover_datasets(include_local=include_local)
-    result = [
-        name for name, info in datasets.items()
-        if info.has_votes and info.has_comments and info.has_clojure_reference
-    ]
-    # Filter by --datasets if specified
-    if requested:
-        result = [d for d in result if d in requested]
+    result = []
+    for name, info in datasets.items():
+        if not (info.has_votes and info.has_comments and info.has_clojure_reference):
+            continue
+        if requested and name not in requested:
+            continue
+        for blob_type in get_blob_variants(name):
+            result.append(f"{name}-{blob_type}")
     return result
 
 
-# Module-level cache for conversation data - survives across fixture calls
-_CONVERSATION_CACHE: dict = {}
+# Module-level cache for blobs (keyed by composite ID)
+_BLOB_CACHE: dict = {}
 
 
 def pytest_generate_tests(metafunc):
-    """Parametrize tests with clojure datasets at collection time."""
-    if "dataset_name" in metafunc.fixturenames:
+    """Parametrize tests with clojure dataset+blob_type at collection time."""
+    if "dataset_blob_id" in metafunc.fixturenames:
         include_local = metafunc.config.getoption("--include-local", default=False)
         requested = _get_requested_datasets(metafunc.config)
-        datasets = _get_clojure_datasets(include_local, requested)
-        # Add xdist_group marker to each parameter for parallel execution
-        params = make_dataset_params(datasets)
-        metafunc.parametrize("dataset_name", params, scope="class")
-
-
-def _cleanup_previous_datasets(current_dataset: str):
-    """Clear cached datasets except the current one to manage memory."""
-    global _CONVERSATION_CACHE
-    for ds in list(_CONVERSATION_CACHE.keys()):
-        if ds != current_dataset:
-            print(f"[{ds}] Cleaning up previous dataset...")
-            _CONVERSATION_CACHE.pop(ds, None)
-            Conversation._reset_conversion_cache()
-            gc.collect()
+        blob_ids = _get_clojure_dataset_blob_ids(include_local, requested)
+        params = make_dataset_params(blob_ids)
+        metafunc.parametrize("dataset_blob_id", params, scope="class")
 
 
 @pytest.fixture(scope="class")
-def conversation_data(dataset_name):
+def conversation_data(dataset_blob_id, get_or_compute_conversation):
     """
-    Class-scoped fixture computed once per dataset.
-    Uses module-level cache to avoid recomputation.
+    Class-scoped fixture computed once per dataset+blob_type.
+    Reuses the Conversation across blob variants via the session-scoped cache.
     """
-    global _CONVERSATION_CACHE
+    global _BLOB_CACHE
+    dataset_name, blob_type = parse_dataset_blob_id(dataset_blob_id)
 
-    # Clean up previous datasets to manage memory
-    _cleanup_previous_datasets(dataset_name)
+    # Get or compute the conversation (shared across blob variants via session cache)
+    conv_data = get_or_compute_conversation(dataset_name)
 
-    # Return cached data if available
-    if dataset_name in _CONVERSATION_CACHE:
-        return _CONVERSATION_CACHE[dataset_name]
+    # Load the specific blob variant (cache per composite ID)
+    if dataset_blob_id not in _BLOB_CACHE:
+        # Evict blobs from other datasets
+        for bid in list(_BLOB_CACHE.keys()):
+            if not bid.startswith(dataset_name + '-'):
+                _BLOB_CACHE.pop(bid, None)
 
-    # Compute the data
+        dataset_files = get_dataset_files(dataset_name, blob_type=blob_type)
+        clojure_output = load_clojure_output(dataset_files['math_blob'])
+        print(f"[{dataset_name}] Loaded {blob_type} blob for Clojure comparison")
+        _BLOB_CACHE[dataset_blob_id] = clojure_output
 
-    # Get dataset files using central configuration
-    dataset_files = get_dataset_files(dataset_name)
-
-    # Load the Clojure output for comparison
-    clojure_output = load_clojure_output(dataset_files['math_blob'])
-
-    # Create and compute conversation
-    votes = load_votes(dataset_files['votes'])
-    comments = load_comments(dataset_files['comments'])
-
-    print(f"\n[{dataset_name}] Processing conversation with {len(votes['votes'])} votes and {len(comments['comments'])} comments")
-    conv = Conversation(dataset_name)
-    conv = conv.update_votes(votes)
-
-    print(f"[{dataset_name}] Recomputing conversation analysis...")
-    conv = conv.recompute()
-
-    # Extract key metrics for reporting
-    group_count = len(conv.group_clusters)
-    print(f"[{dataset_name}] Found {group_count} groups")
-    print(f"[{dataset_name}] Processed {conv.comment_count} comments")
-    print(f"[{dataset_name}] Found {conv.participant_count} participants")
-
-    if conv.repness and 'comment_repness' in conv.repness:
-        print(f"[{dataset_name}] Calculated representativeness for {len(conv.repness['comment_repness'])} comments")
-
-    # Print top representative comments for each group
-    if conv.repness and 'comment_repness' in conv.repness:
-        for group_id in range(group_count):
-            print(f"\n[{dataset_name}] Top representative comments for Group {group_id}:")
-            group_repness = [item for item in conv.repness['comment_repness'] if item['gid'] == group_id]
-
-            # Sort by representativeness
-            group_repness.sort(key=lambda x: abs(x['repness']), reverse=True)
-
-            # Print top 5 comments
-            for i, rep_item in enumerate(group_repness[:5]):
-                comment_id = rep_item['tid']
-                # Get the comment text if available
-                comment_txt = next((c['txt'] for c in comments['comments'] if str(c['tid']) == str(comment_id)), 'Unknown')
-                print(f"  {i+1}. Comment {comment_id} (Repness: {rep_item['repness']:.4f}): {comment_txt[:50]}...")
-
-    # Save the Python conversion results for manual inspection
-    import os
-    import json
-    data_dir = dataset_files['data_dir']
-    output_dir = os.path.join(os.path.dirname(data_dir), '.test_outputs', 'python_output', dataset_name)
-    os.makedirs(output_dir, exist_ok=True)
-
-    output_path = os.path.join(output_dir, 'conversation_result.json')
-    with open(output_path, 'w') as f:
-        json.dump(conv.to_dict(), f, indent=2)
-
-    print(f"[{dataset_name}] Saved results to {output_path}")
-
-    # Cache for sharing across test methods
-    data = {
-        'conv': conv,
-        'clojure_output': clojure_output,
+    return {
+        'conv': conv_data['conv'],
+        'clojure_output': _BLOB_CACHE[dataset_blob_id],
         'dataset_name': dataset_name,
-        'comments': comments,
+        'blob_type': blob_type,
+        'comments': conv_data['comments'],
     }
-    _CONVERSATION_CACHE[dataset_name] = data
-
-    return data
 
 
 @pytest.mark.clojure_comparison
@@ -250,7 +187,6 @@ class TestClojureRegression:
             check.less_equal(norm_angle_deg, 10.0,
                             f"PC{i+1} angle difference should be ≤10° (got {norm_angle_deg:.2f}°)")
 
-    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="D2/D3: Wrong participant threshold and missing k-smoother produce different cluster counts")
     def test_group_clustering(self, conversation_data):
         """
         Test that group clustering matches the Clojure implementation.
@@ -264,6 +200,20 @@ class TestClojureRegression:
         conv = conversation_data['conv']
         clojure_output = conversation_data['clojure_output']
         dataset_name = conversation_data['dataset_name']
+        blob_type = conversation_data['blob_type']
+
+        # Incremental blobs are progressive snapshots — in-conv sets differ
+        # from single-shot computation, so clustering comparison is not valid.
+        if blob_type == 'incremental':
+            pytest.xfail("Incremental blobs have different in-conv from single-shot")
+
+        # FLI cold-start: residual k divergence (Python k=3, Clojure k=2).
+        # The PR's own investigation showed 94.5% NaN sparsity and a silhouette
+        # gap of 0.001 between k=2 and k=3 — any tiny PCA difference tips the
+        # balance. Not fixable without replicating Clojure's power-iteration PCA.
+        # See `INVESTIGATION_K_DIVERGENCE.md`.
+        if dataset_name == 'FLI' and blob_type == 'cold_start':
+            pytest.xfail("FLI cold-start: inherent PCA divergence (flat silhouette landscape)")
 
         print(f"\n[{dataset_name}] Testing group clustering...")
 
@@ -389,3 +339,74 @@ class TestClojureRegression:
 
         check.equal(len(mismatches), 0,
                    f"All comment priorities should match Clojure (got {len(mismatches)} mismatches out of {len(clojure_priorities)})")
+
+    @pytest.mark.xfail(raises=AssertionError, strict=True, reason="D5/D6/D7/D10: z-values, metric, and selection logic differ")
+    def test_repness_matches_clojure(self, conversation_data):
+        """
+        Test that representative comment selection matches Clojure.
+
+        Compares selected comment sets and z-score values per group.
+        Requires D5 (prop test), D6 (two-prop test), D7 (metric),
+        and D10 (selection logic) to fully pass.
+        """
+        conv = conversation_data['conv']
+        clojure_output = conversation_data['clojure_output']
+        dataset_name = conversation_data['dataset_name']
+
+        print(f"\n[{dataset_name}] Testing repness matches Clojure...")
+
+        clj_repness = clojure_output.get('repness', {})
+        check.is_true(bool(clj_repness), "Clojure output should have repness")
+
+        py_repness = (conv.repness or {}).get('group_repness', {})
+        check.is_true(bool(py_repness), "Python should have group_repness")
+
+        if not clj_repness or not py_repness:
+            return
+
+        set_mismatches = []
+        value_mismatches = []
+
+        for gid_str, clj_entries in clj_repness.items():
+            gid = int(gid_str)
+
+            # Compare selected comment sets
+            clj_tids = set(e['tid'] for e in clj_entries)
+            py_entries = py_repness.get(gid, [])
+            py_tids = set(int(e['comment_id']) for e in py_entries)
+
+            if clj_tids != py_tids:
+                set_mismatches.append(
+                    f"  g{gid}: clj={sorted(clj_tids)}, py={sorted(py_tids)}")
+
+            # Compare z-values for shared comments
+            py_by_tid = {int(e['comment_id']): e for e in py_entries}
+            for clj_entry in clj_entries:
+                tid = clj_entry['tid']
+                py_entry = py_by_tid.get(tid)
+                if py_entry is None:
+                    continue
+
+                clj_pat = clj_entry.get('p-test', 0)
+                py_pat = py_entry.get('pat', 0)
+                clj_rat = clj_entry.get('repness-test', 0)
+                py_rat = py_entry.get('rat', 0)
+
+                if abs(clj_pat - py_pat) > 0.01 or abs(clj_rat - py_rat) > 0.01:
+                    value_mismatches.append(
+                        f"  g{gid}/t{tid}: pat clj={clj_pat:.4f} py={py_pat:.4f}, "
+                        f"rat clj={clj_rat:.4f} py={py_rat:.4f}")
+
+        if set_mismatches:
+            print(f"  Set mismatches ({len(set_mismatches)} groups):")
+            for m in set_mismatches[:10]:
+                print(m)
+        if value_mismatches:
+            print(f"  Value mismatches ({len(value_mismatches)} comments):")
+            for m in value_mismatches[:10]:
+                print(m)
+
+        check.equal(len(set_mismatches), 0,
+                   f"{len(set_mismatches)} groups differ in selected rep comments")
+        check.equal(len(value_mismatches), 0,
+                   f"{len(value_mismatches)} shared comments have z-value mismatches")

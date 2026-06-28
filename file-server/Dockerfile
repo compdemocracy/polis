@@ -1,3 +1,7 @@
+# syntax=docker/dockerfile:1.4
+# Requires BuildKit (default in Docker 23+; on older versions prefix the
+# build command with `DOCKER_BUILDKIT=1`). The `RUN --mount=type=cache`
+# directives below are silently ignored without BuildKit.
 # Test this Dockerfile build with:
 # (from the polis root directory)
 # docker build -t polis-file-server:dev -f file-server/Dockerfile .
@@ -18,7 +22,7 @@ COPY client-admin/package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
 COPY client-admin/. .
 
@@ -60,7 +64,7 @@ COPY client-participation/package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
 COPY client-participation/. .
 
@@ -85,7 +89,7 @@ COPY client-report/package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
 COPY client-report/. .
 
@@ -128,7 +132,7 @@ COPY file-server/package*.json ./
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci
 
 COPY file-server/. .
 

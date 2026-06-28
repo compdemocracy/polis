@@ -2,15 +2,9 @@
 
 This document provides comprehensive guidance for working with the Delphi system, including database interactions, environment configuration, Docker services, and the distributed job queue system. It serves as both documentation and a practical reference for day-to-day operations.
 
-## Documentation Directory
+## Documentation
 
-For a comprehensive list of all documentation files with descriptions, see:
-[delphi/docs/DOCUMENTATION_DIRECTORY.md](docs/DOCUMENTATION_DIRECTORY.md)
-
-## Current work todos are located in
-
-delphi/docs/JOB_QUEUE_SCHEMA.md
-delphi/docs/DISTRIBUTED_SYSTEM_ROADMAP.md
+**Warning:** Many docs in `docs/` are outdated and should not be trusted. Always verify against the actual code. Start with `docs/PLAN_DISCREPANCY_FIXES.md` (canonical fix plan) and `docs/CLJ-PARITY-FIXES-JOURNAL.md` (session journal) for current Clojure parity work.
 
 ## Helpful terminology
 
@@ -23,6 +17,20 @@ this avoids the confusion of having anything called a "cid", the joke was "conve
 ## helpful background
 
 this was built in two parts, the pca/kmenas/repness and the umap/narrative, and these are combined in the run_delphi.sh script.
+
+## Local Python Environment
+
+Canonical venv: `delphi/.venv` (Python 3.12). Setup is documented for humans in
+[`README.md`](README.md#local-python-development) and
+[`docs/QUICK_START.md`](docs/QUICK_START.md#environment-setup) — see those for
+the `make venv` / `uv sync` workflows.
+
+Invariant to be aware of when navigating this repo: **both `delphi/.venv` and
+`polis/.venv` should point at the same environment** (one real, the other a
+symlink). The Pyright config (`[tool.pyright]` in `delphi/pyproject.toml`)
+resolves `venv = ".venv"` to `delphi/.venv`; editors opening at the repo root
+look for `polis/.venv`. If you see unresolved imports while working in this
+codebase, check that both paths exist and resolve to the same env.
 
 ## Database Interactions
 
@@ -69,6 +77,21 @@ Always use the commands above to determine the most substantial conversation whe
   - `POSTGRES_USER`: Database username
   - `POSTGRES_PASSWORD`: Database password
   - `POSTGRES_HOST`: Database host
+  - `POSTGRES_CONNECT_TIMEOUT`: Seconds before the initial TCP `connect()`
+    gives up. **Default 30s** (conservative for production: transient
+    slowness, scale-up, network blips). CI and `example.env` override to **5s**
+    so tests and local dev fail fast when Postgres isn't running — without
+    this, an unreachable DB causes the process to hang for the kernel default
+    (~60–120s+). Honored by:
+    - `polismath/database/postgres.py` — SQLAlchemy `PostgresClient`.
+    - `polismath/run_math_pipeline.py` — psycopg2 `connect()` (the production
+      math worker invoked from `run_delphi.py`).
+
+    Note that SQLAlchemy's `pool_pre_ping` does NOT replace this: pre-ping
+    only acts on already-pooled connections, not on the initial socket connect.
+    Other psycopg2 callsites (`tests/`, `scripts/regression_download.py`) still
+    hardcode their own timeouts (typically 5s) — flag as a future cleanup if
+    you change anything in their neighborhood.
 
 - **Docker Configuration**:
 
@@ -368,3 +391,25 @@ The system uses AWS Auto Scaling Groups to manage capacity:
 - Large Instance ASG: 1 instance by default, scales up to 3 based on demand
 
 CPU utilization triggers scaling actions (scale down when below 60%, scale up when above 80%).
+
+
+## Testing
+
+Run tests with `pytest` on the `tests/` folder.
+
+### Datasets of reference
+
+In `real_data`, we have several datasets of real conversations, exported from Polis, that can be used for testing and development. Those at the root of `real_data` are public.
+In `real_data/.local`, we have some private datasets that can only be used internally. The comparer supports both public and private datasets via the `--include-local` flag.
+
+### Regressions and golden snapshots
+
+For regressions compared to the latest validated python code, there are both regression unit tests in `tests/`, as well as a test script that compares the output to "golden snapshots": `scripts/regression_comparer.py`. That script is more verbose than the tests, useful for debugging.
+
+Some amount of numerical errors are OK, which is what the regression comparer library is for.
+
+### Old Clojure reference implementation, and moving to Sklearn
+
+For math, there is an older implementation in Clojure, in `polismath`. Until we can replace it, we run comparisons between the two implementations in `tests/*legacy*`. Those run the python code, and compare some of the output in some way to the `math blob`, which is the JSON output of the Clojure implementation, often stored in the PostgreSQL database, but for simplicity stored along the golden (python) snapshots used by the regression comparer, so we do not have to run Postgres nor Clojure to run those tests.
+
+A lot of the current python code was ported from Clojure using an AI agent (Sonnet 3.5 last year), including a lot of home-made implementations of core algorithms. We are in the process of replacing those with standard implementations (such as sklearn for the PCA and K-means). This is ongoing work, and made harder by the fact that the Python code does not quite produce the same output as the Clojure code. So typically we have to check what the ported python code is doing differently from the clojure code, adjust the python code to match the clojure output, and then replace it with standard implementations, which may again produce slightly different output, so we have to adjust parameters until we get similar output.

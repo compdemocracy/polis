@@ -68,6 +68,7 @@ dev = [
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
     "pytest-check>=2.0.0",
+    "pytest-timestamper>=0.0.10",  # Timestamps in -v mode to detect hung tests
     "httpx>=0.23.0",
     "pytest-xdist>=3.8.0",
     "moto>=4.1.0",
@@ -78,6 +79,11 @@ dev = [
     # Type stubs
     "types-requests",
     "types-psycopg2",
+    # pandas 2.3 has no `py.typed` marker, so pyright falls back to bundled
+    # stubs that mistype DataFrame.__getitem__ as ndarray. pandas-stubs is the
+    # official stubs package from the pandas-dev org and resolves ~50 false
+    # positives in polismath/pca_kmeans_rep/repness.py alone.
+    "pandas-stubs>=3.0.3.260530",
     # Profiling
     "line_profiler>=4.0.0",
 ]
@@ -124,8 +130,12 @@ include = [
 
 # Pytest configuration
 [tool.pytest.ini_options]
-# When using pytest-xdist (-n), group tests by xdist_group marker for efficient fixture sharing
-addopts = "--dist=loadgroup"
+# Force sequential execution (-n0) to leverage the session-scoped conversation cache.
+# The cache shares computed conversations across test files, but each xdist worker
+# has its own process with a separate cache. With only 2 datasets (biodiversity, vw),
+# sequential execution with caching is ~6x faster than parallel execution where each
+# worker recomputes the conversations independently.
+addopts = "-n0"
 filterwarnings = [
     # Ignore python_multipart deprecation warning from ddtrace (third-party)
     "ignore:Please use `import python_multipart`:PendingDeprecationWarning:ddtrace.internal.module",
@@ -139,3 +149,30 @@ markers = [
 
 [tool.coverage.run]
 relative_files = true
+
+# Pyright / Pylance configuration
+#
+# Pyright walks up from any opened file looking for `pyrightconfig.json` or a
+# `[tool.pyright]` section. When it finds this one, `delphi/` becomes the project
+# root and `venvPath` is resolved relative to that. So `.venv` here means
+# `delphi/.venv`, which on every developer's machine should be either the real
+# venv or a symlink to it (the Makefile's `venv` target and `uv sync` both
+# maintain this). The mirror `polis/.venv` (also real or symlink) is what lets
+# editors opening the workspace at the repo root auto-discover the interpreter.
+[tool.pyright]
+include = ["polismath", "umap_narrative", "tests", "scripts"]
+exclude = [
+    "**/__pycache__",
+    "**/.pytest_cache",
+    "**/.venv",
+    "build",
+    "dist",
+    "notebooks",
+    "scratch",
+    "real_data",
+    ".test_outputs",
+    "pipeline_results",
+]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.12"

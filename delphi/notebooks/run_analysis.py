@@ -45,7 +45,7 @@ def check_environment():
 
 # Import polismath modules
 from polismath.conversation.conversation import Conversation
-from polismath.pca_kmeans_rep.repness import conv_repness, participant_stats
+from polismath.pca_kmeans_rep.repness import conv_repness
 from polismath.pca_kmeans_rep.corr import compute_correlation
 
 def load_votes(votes_path):

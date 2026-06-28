@@ -59,13 +59,20 @@ class ConversationComparer:
         # E.g., {0: 1, 1: -1} means PC1 unchanged, PC2 flipped
         self._pca_sign_flips: Dict[str, Dict[int, int]] = {}
 
-    def compare_with_golden(self, dataset_name: str, benchmark: bool = True) -> Dict:
+    def compare_with_golden(
+        self,
+        dataset_name: str,
+        benchmark: bool = False,
+        skip_intermediate_stages: bool = False,
+    ) -> Dict:
         """
         Compare current implementation with golden snapshot.
 
         Args:
             dataset_name: Name of the dataset ('biodiversity' or 'vw')
-            benchmark: If True, compare timing information (default: True)
+            benchmark: If True, compare timing information (default: False)
+            skip_intermediate_stages: If True, skip stages 1-4 and only compute
+                full recompute + data export. Saves time for large datasets.
 
         Returns:
             Dictionary containing comparison results
@@ -130,7 +137,7 @@ class ConversationComparer:
         results = {
             "dataset": dataset_name,
             "stages_compared": {},
-            "timing_stats_compared": {} if benchmark else None,
+            "timing_stats_compared": {},
             "overall_match": True,
             "metadata": golden["metadata"]
         }
@@ -139,13 +146,17 @@ class ConversationComparer:
         if benchmark:
             logger.info("Computing all stages with benchmarking...")
             current_results = compute_all_stages_with_benchmark(
-                dataset_name, votes_dict, metadata["fixed_timestamp"]
+                dataset_name, votes_dict, metadata["fixed_timestamp"],
+                skip_intermediate_stages=skip_intermediate_stages,
             )
             current_stages = current_results["stages"]
             current_timing_stats = current_results["timing_stats"]
         else:
             logger.info("Computing all stages...")
-            current_results = compute_all_stages(dataset_name, votes_dict, metadata["fixed_timestamp"])
+            current_results = compute_all_stages(
+                dataset_name, votes_dict, metadata["fixed_timestamp"],
+                skip_intermediate_stages=skip_intermediate_stages,
+            )
             current_stages = current_results["stages"]
             current_timing_stats = {}
 

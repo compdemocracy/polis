@@ -135,29 +135,6 @@ CREATE INDEX apikeysndvweifu_uid_idx ON apikeysndvweifu USING btree (uid);
 CREATE INDEX apikeysndvweifu_apikey_idx ON apikeysndvweifu USING btree (apikey);
 
 
-
-
-
-
---CREATE TABLE orgs (
-    --oid SERIAL,
-    --oname VARCHAR(999)
---);
-
---CREATE TABLE oadmins (
-    --uid REFERENCES users(uid),
-    --oid REFERENCES orgs(oid),
-    --UNIQUE (uid, oid)
---);
-
---CREATE TABLE omemberships(
-    --oid REFERENCES orgs(oid),
-    --uid REFERENCES users(uid),
-    --UNIQUE (uid, oid)
---);
-
---CREATE TABLE org_member_metadata_types (
-
 CREATE TABLE courses(
     course_id SERIAL,
     topic VARCHAR(1000),
@@ -502,12 +479,6 @@ CREATE TABLE suzinvites (
 CREATE INDEX suzinvites_owner_zid_idx ON suzinvites USING btree (owner, zid);
 
 
---CREATE TABLE permissions(
-    --uid INTEGER NOT NULL REFERENCES users(uid),
-    --zid INTEGER NOT NULL REFERENCES conversations(zid),
-    --rwx?
-    --admin bool
---);
 
 
  -- can't rely on SEQUENCEs since they may have gaps.. or maybe we can live with that? maybe we use a trigger incrementer like on the participants table? that would mean locking on a per conv basis, maybe ok for starters
@@ -768,6 +739,11 @@ CREATE TABLE votes(
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
 
+    -- The participant's vote on the comment (tid).
+    --   -1 = Agree, 1 = Disagree, 0 = Pass/Unsure.
+    -- IMPORTANT: this is the RAW storage sign, and it is the OPPOSITE of the value in the
+    -- participants-votes CSV export. The export negates every vote so that Agree = +1,
+    -- Disagree = -1.
     vote SMALLINT,
 
     -- Divide by 32767 before using! (and multiply by 32767 before storing). Applications should refer to this as "weight" after converting to a float in the range [-1, 1]
@@ -798,6 +774,11 @@ CREATE TABLE votes_latest_unique (
     pid INTEGER NOT NULL,
     tid INTEGER NOT NULL,
 
+    -- The participant's vote on the comment (tid).
+    --   -1 = Agree, 1 = Disagree, 0 = Pass/Unsure.
+    -- IMPORTANT: this is the RAW storage sign, and it is the OPPOSITE of the value in the
+    -- participants-votes CSV export. The export negates every vote so that Agree = +1,
+    -- Disagree = -1.
     vote SMALLINT,
 
     -- Divide by 32767 before using! (and multiply by 32767 before storing). Applications should refer to this as "weight" after converting to a float in the range [-1, 1]

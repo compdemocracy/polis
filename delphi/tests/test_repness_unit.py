@@ -13,14 +13,15 @@ import math
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from polismath.pca_kmeans_rep.repness import (
+    PSEUDO_COUNT,
     z_score_sig_90, z_score_sig_95, prop_test, two_prop_test,
     comment_stats, add_comparative_stats, repness_metric, finalize_cmt_stats,
     passes_by_test, best_agree, best_disagree, select_rep_comments,
     calculate_kl_divergence, select_consensus_comments, conv_repness,
-    participant_stats,
     # DataFrame-native vectorized functions
     prop_test_vectorized, two_prop_test_vectorized, compute_group_comment_stats_df
 )
+from polismath.conversation.conversation import Conversation
 
 
 class TestStatisticalFunctions:
@@ -28,38 +29,55 @@ class TestStatisticalFunctions:
     
     def test_z_score_significance(self):
         """Test z-score significance checks."""
-        # 90% confidence
-        assert z_score_sig_90(1.645)
+        # 90% confidence — one-tailed, strict >, matching Clojure
         assert z_score_sig_90(2.0)
-        assert z_score_sig_90(-1.645)
+        assert not z_score_sig_90(1.2816)   # boundary: not significant (strict >)
+        assert not z_score_sig_90(-1.2816)  # negative: not significant (one-tailed)
         assert not z_score_sig_90(1.0)
-        
-        # 95% confidence
-        assert z_score_sig_95(1.96)
+        assert not z_score_sig_90(1.28)
+
+        # 95% confidence — one-tailed, strict >, matching Clojure
         assert z_score_sig_95(2.5)
-        assert z_score_sig_95(-1.96)
+        assert not z_score_sig_95(1.6449)   # boundary: not significant (strict >)
+        assert not z_score_sig_95(-1.6449)  # negative: not significant (one-tailed)
         assert not z_score_sig_95(1.5)
+        assert not z_score_sig_95(1.64)
     
     def test_prop_test(self):
-        """Test one-proportion z-test."""
-        # Test cases
-        assert np.isclose(prop_test(0.7, 100, 0.5), 4.0, atol=0.1)
-        assert np.isclose(prop_test(0.2, 50, 0.3), -1.6, atol=0.1)
-        
-        # Edge cases
-        assert prop_test(0.5, 0, 0.5) == 0.0
-        assert prop_test(0.7, 100, 0.0) == 0.0
-        assert prop_test(0.7, 100, 1.0) == 0.0
+        """Test one-proportion z-test (Clojure formula: 2*sqrt(n+1)*((succ+1)/(n+1) - 0.5))."""
+        # 70 successes out of 100: 2*sqrt(101)*((71/101)-0.5) = ~4.08
+        assert np.isclose(prop_test(70, 100),
+                          2 * math.sqrt(101) * (71/101 - 0.5), atol=0.01)
+        # 10 successes out of 50: 2*sqrt(51)*((11/51)-0.5) = ~-4.06
+        assert np.isclose(prop_test(10, 50),
+                          2 * math.sqrt(51) * (11/51 - 0.5), atol=0.01)
+
+        # Edge case: n=0 → Clojure (stats.clj:10-15) has no guard; the +1
+        # pseudocount turns (0, 0) into (1, 1), giving 2*sqrt(1)*(1/1 - 0.5) = 1.0.
+        assert prop_test(0, 0) == 1.0
+        # Single trial: 2*sqrt(2)*((2/2)-0.5) = 2*1.414*0.5 = 1.414
+        assert np.isclose(prop_test(1, 1),
+                          2 * math.sqrt(2) * 0.5, atol=0.01)
     
     def test_two_prop_test(self):
-        """Test two-proportion z-test."""
-        # Test cases
-        assert np.isclose(two_prop_test(0.7, 100, 0.5, 100), 2.9, atol=0.1)
-        assert np.isclose(two_prop_test(0.2, 50, 0.3, 50), -1.2, atol=0.1)
-        
-        # Edge cases
-        assert two_prop_test(0.5, 0, 0.5, 100) == 0.0
-        assert two_prop_test(0.5, 100, 0.5, 0) == 0.0
+        """Test two-proportion z-test with +1 pseudocounts (Clojure parity)."""
+        # two_prop_test(succ_in, succ_out, pop_in, pop_out) — raw counts
+        # Clojure adds +1 to all 4 inputs (stats.clj:20)
+
+        # succ_in=70, succ_out=50, pop_in=100, pop_out=100
+        # After +1: pi1=71/101≈0.703, pi2=51/101≈0.505, z≈2.88
+        assert np.isclose(two_prop_test(70, 50, 100, 100), 2.88, atol=0.1)
+
+        # Equal proportions → z ≈ 0
+        assert np.isclose(two_prop_test(25, 25, 50, 50), 0.0, atol=0.1)
+
+        # pop_in=0 / pop_out=0: Clojure (stats.clj:18-33) applies (map inc ...)
+        # to ALL FOUR inputs including the populations, so pop=0 becomes pop=1
+        # and the test proceeds. With succ_in=succ_out=5, pop_in=0, pop_out=100:
+        # after +1, pi1=6/1=6, pi2=6/101≈0.0594, pi_hat=12/102≈0.1176, giving
+        # a very large positive z-score. The symmetric case is negative.
+        assert np.isclose(two_prop_test(5, 5, 0, 100),  18.3476, atol=0.01)
+        assert np.isclose(two_prop_test(5, 5, 100, 0), -18.3476, atol=0.01)
 
 
 class TestCommentStats:
@@ -81,8 +99,8 @@ class TestCommentStats:
         n_agree = 3
         n_disagree = 1
         n_votes = 4
-        p_agree = (n_agree + 1.5/2) / (n_votes + 1.5)
-        p_disagree = (n_disagree + 1.5/2) / (n_votes + 1.5)
+        p_agree = (n_agree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
+        p_disagree = (n_disagree + PSEUDO_COUNT/2) / (n_votes + PSEUDO_COUNT)
         
         assert np.isclose(stats['pa'], p_agree)
         assert np.isclose(stats['pd'], p_disagree)
@@ -96,7 +114,11 @@ class TestCommentStats:
         assert empty_stats['ns'] == 0
         assert np.isclose(empty_stats['pa'], 0.5)
         assert np.isclose(empty_stats['pd'], 0.5)
-    
+        # Clojure parity: with no votes, prop_test(0, 0) = 1.0 (no short-circuit).
+        # comment_stats should propagate that — no upstream gate on n_votes==0.
+        assert np.isclose(empty_stats['pat'], 1.0)
+        assert np.isclose(empty_stats['pdt'], 1.0)
+
     def test_add_comparative_stats(self):
         """Test adding comparative statistics."""
         # Group stats: 80% agree
@@ -154,14 +176,15 @@ class TestCommentStats:
             'rdt': -2.5
         }
         
-        # Calculate agree metric
+        # Clojure formula (repness.clj:191-193): (* repness repness-test p-success p-test)
+        # → agree:    ra * rat * pa * pat
+        # → disagree: rd * rdt * pd * pdt   (signed product — two negatives cancel)
         agree_metric = repness_metric(stats, 'a')
-        expected_agree = 0.8 * (abs(3.0) + abs(2.5))
+        expected_agree = 2.0 * 2.5 * 0.8 * 3.0  # = 12.0
         assert np.isclose(agree_metric, expected_agree)
-        
-        # Calculate disagree metric
+
         disagree_metric = repness_metric(stats, 'd')
-        expected_disagree = (1 - 0.2) * (abs(-3.0) + abs(-2.5))
+        expected_disagree = 0.33 * (-2.5) * 0.2 * (-3.0)  # = 0.495
         assert np.isclose(disagree_metric, expected_disagree)
     
     def test_finalize_cmt_stats(self):
@@ -497,7 +520,7 @@ class TestIntegration:
         assert 'c3' in group2_rep_ids
     
     def test_participant_stats(self):
-        """Test participant statistics calculation."""
+        """Test participant statistics calculation via vectorized method."""
         # Create a test vote matrix
         vote_data = np.array([
             [1, 1, -1, None],  # Participant 1
@@ -505,36 +528,39 @@ class TestIntegration:
             [-1, -1, 1, -1],   # Participant 3
             [-1, -1, 1, 1]     # Participant 4
         ])
-        
+
         row_names = ['p1', 'p2', 'p3', 'p4']
         col_names = ['c1', 'c2', 'c3', 'c4']
-        
+
         vote_matrix = pd.DataFrame(vote_data, index=row_names, columns=col_names)
-        
-        # Create group clusters
+
+        # Create group clusters. _compute_participant_info_optimized only
+        # reads 'id' and 'members'; 'center' is unused but kept to mirror
+        # the production cluster schema.
         group_clusters = [
-            {'id': 1, 'members': ['p1', 'p2']},
-            {'id': 2, 'members': ['p3', 'p4']}
+            {'id': 1, 'members': ['p1', 'p2'], 'center': [0.0]},
+            {'id': 2, 'members': ['p3', 'p4'], 'center': [0.0]}
         ]
-        
-        # Calculate participant stats
-        ptpt_stats = participant_stats(vote_matrix, group_clusters)
-        
+
+        # Calculate participant stats using vectorized method
+        conv = Conversation("test")
+        ptpt_stats = conv._compute_participant_info_optimized(vote_matrix, group_clusters)
+
         # Check result structure
         assert 'participant_ids' in ptpt_stats
         assert 'stats' in ptpt_stats
-        
+
         # Check participant stats
         for ptpt_id in row_names:
             assert ptpt_id in ptpt_stats['stats']
             stats = ptpt_stats['stats'][ptpt_id]
-            
+
             assert 'n_agree' in stats
             assert 'n_disagree' in stats
             assert 'n_votes' in stats
             assert 'group' in stats
             assert 'group_correlations' in stats
-            
+
         # Check specific stats
         p1_stats = ptpt_stats['stats']['p1']
         assert p1_stats['n_agree'] == 2
@@ -546,51 +572,66 @@ class TestVectorizedFunctions:
     """Tests for DataFrame-native vectorized functions."""
 
     def test_prop_test_vectorized(self):
-        """Test vectorized one-proportion z-test."""
-        p = pd.Series([0.7, 0.2, 0.5])
+        """Test vectorized one-proportion z-test (Clojure formula)."""
+        succ = pd.Series([70, 10, 50])
         n = pd.Series([100, 50, 100])
 
-        result = prop_test_vectorized(p, n, 0.5)
+        result = prop_test_vectorized(succ, n)
 
         # Compare with scalar version
-        assert np.isclose(result.iloc[0], prop_test(0.7, 100, 0.5), atol=0.01)
-        assert np.isclose(result.iloc[1], prop_test(0.2, 50, 0.5), atol=0.01)
-        assert np.isclose(result.iloc[2], prop_test(0.5, 100, 0.5), atol=0.01)
+        assert np.isclose(result.iloc[0], prop_test(70, 100), atol=0.01)
+        assert np.isclose(result.iloc[1], prop_test(10, 50), atol=0.01)
+        assert np.isclose(result.iloc[2], prop_test(50, 100), atol=0.01)
 
     def test_prop_test_vectorized_edge_cases(self):
-        """Test vectorized prop test handles edge cases."""
-        p = pd.Series([0.5, 0.7])
-        n = pd.Series([0, 100])  # n=0 should return 0
+        """Vectorized prop test n=0 → 1.0 (Clojure parity, no short-circuit).
 
-        result = prop_test_vectorized(p, n, 0.5)
+        Cross-checks scalar/vectorized agreement on the n=0 boundary.
+        """
+        succ = pd.Series([0, 70])
+        n = pd.Series([0, 100])
 
-        assert result.iloc[0] == 0.0  # n=0 case
+        result = prop_test_vectorized(succ, n)
+
+        # Clojure parity: (0, 0) → (1, 1) after +1 → 2*sqrt(1)*(1/1 - 0.5) = 1.0
+        assert np.isclose(result.iloc[0], prop_test(0, 0), atol=1e-10)
+        assert np.isclose(result.iloc[0], 1.0, atol=1e-10)
         assert not np.isnan(result.iloc[1])  # normal case
 
     def test_two_prop_test_vectorized(self):
-        """Test vectorized two-proportion z-test."""
-        p1 = pd.Series([0.7, 0.2])
-        n1 = pd.Series([100, 50])
-        p2 = pd.Series([0.5, 0.3])
-        n2 = pd.Series([100, 50])
+        """Test vectorized two-proportion z-test with +1 pseudocounts."""
+        # Now takes raw counts: (succ_in, succ_out, pop_in, pop_out)
+        succ_in = pd.Series([70, 10])
+        succ_out = pd.Series([50, 15])
+        pop_in = pd.Series([100, 50])
+        pop_out = pd.Series([100, 50])
 
-        result = two_prop_test_vectorized(p1, n1, p2, n2)
+        result = two_prop_test_vectorized(succ_in, succ_out, pop_in, pop_out)
 
         # Compare with scalar version
-        assert np.isclose(result.iloc[0], two_prop_test(0.7, 100, 0.5, 100), atol=0.01)
-        assert np.isclose(result.iloc[1], two_prop_test(0.2, 50, 0.3, 50), atol=0.01)
+        assert np.isclose(result.iloc[0], two_prop_test(70, 50, 100, 100), atol=0.01)
+        assert np.isclose(result.iloc[1], two_prop_test(10, 15, 50, 50), atol=0.01)
 
     def test_two_prop_test_vectorized_edge_cases(self):
-        """Test vectorized two-prop test handles edge cases."""
-        p1 = pd.Series([0.5, 0.7])
-        n1 = pd.Series([0, 100])  # n1=0 should return 0
-        p2 = pd.Series([0.5, 0.5])
-        n2 = pd.Series([100, 0])  # n2=0 should return 0
+        """Vectorized two-prop test: pop=0 must match Clojure parity (no short-circuit).
 
-        result = two_prop_test_vectorized(p1, n1, p2, n2)
+        Clojure (stats.clj:18-33) applies (map inc ...) to all four inputs, so
+        pop=0 → pop=1 and the test proceeds. We pair each pop=0 case with the
+        scalar version to confirm scalar/vectorized agreement.
+        """
+        # Row 0: (5, 5, 0, 100) — pop_in=0 → expect large positive z (≈18.35)
+        # Row 1: (5, 5, 0, 10)  — pop_in=0 AND pi_hat=1 by coincidence → 0
+        succ_in  = pd.Series([5, 5])
+        succ_out = pd.Series([5, 5])
+        pop_in   = pd.Series([0, 0])
+        pop_out  = pd.Series([100, 10])
 
-        assert result.iloc[0] == 0.0  # n1=0 case
-        assert result.iloc[1] == 0.0  # n2=0 case
+        result = two_prop_test_vectorized(succ_in, succ_out, pop_in, pop_out)
+
+        assert np.isclose(result.iloc[0], two_prop_test(5, 5, 0, 100), atol=0.01)
+        assert np.isclose(result.iloc[1], two_prop_test(5, 5, 0, 10),  atol=0.01)
+        assert np.isclose(result.iloc[0], 18.3476, atol=0.01)
+        assert result.iloc[1] == 0.0  # pi_hat=1 coincidence after +1 pseudocount
 
     def test_compute_group_comment_stats_df(self):
         """Test vectorized computation of group/comment statistics."""

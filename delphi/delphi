@@ -6,9 +6,16 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Path to the Python CLI script and virtual environment
 CLI_SCRIPT="$SCRIPT_DIR/scripts/delphi_cli.py"
-VENV_DIR="$SCRIPT_DIR/delphi-env"
+VENV_DIR="$SCRIPT_DIR/.venv"
 
-# Check if the virtual environment exists
+# Clean up a broken symlink (the target was deleted or moved) so the venv
+# creation below doesn't fail with "File exists".
+if [ -L "$VENV_DIR" ] && [ ! -e "$VENV_DIR" ]; then
+    echo "Removing broken venv symlink: $VENV_DIR"
+    rm "$VENV_DIR"
+fi
+
+# Check if the virtual environment exists (real dir or working symlink to one)
 if [ ! -d "$VENV_DIR" ]; then
     echo "Setting up Delphi CLI environment..."
     python3 -m venv "$VENV_DIR"

@@ -47,12 +47,17 @@ def connect_to_db():
     import psycopg2
     import urllib.parse
 
+    # POSTGRES_CONNECT_TIMEOUT: same env var read by the SQLAlchemy PostgresClient.
+    # Default 30s (production-safe; transient slowness, scale-up, network blips).
+    # CI and example.env override to 5s for fail-fast behavior. See delphi/CLAUDE.md.
+    connect_timeout = int(os.environ.get("POSTGRES_CONNECT_TIMEOUT", "30"))
+
     try:
         # Check if DATABASE_URL is set and use it if available
         database_url = os.environ.get("DATABASE_URL")
         if database_url:
             logger.info(f"Using DATABASE_URL: {database_url.split('@')[1] if '@' in database_url else '(hidden)'}")
-            conn = psycopg2.connect(database_url)
+            conn = psycopg2.connect(database_url, connect_timeout=connect_timeout)
         else:
             # Fall back to individual connection parameters
             conn = psycopg2.connect(
@@ -61,6 +66,7 @@ def connect_to_db():
                 password=os.environ.get("DATABASE_PASSWORD", ""),
                 host=os.environ.get("DATABASE_HOST", "localhost"),
                 port=os.environ.get("DATABASE_PORT", 5432),
+                connect_timeout=connect_timeout,
             )
 
         logger.info("Connected to database successfully")

@@ -9,8 +9,11 @@ umap_narrative_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..
 if umap_narrative_dir not in sys.path:
     sys.path.insert(0, umap_narrative_dir)
 
-# Now we can import the main function from the script we want to test
-from run_pipeline import main as run_pipeline_main
+# NOTE: Import run_pipeline inside tests, not at module level.
+# Module-level import loads heavy dependencies (SentenceTransformer, UMAP, evoc)
+# during test collection. With xdist, multiple workers collecting simultaneously
+# *might* cause lock contention and hangs. A previous session reported indefinite
+# hangs under xdist, but we couldn't reproduce it. Deferred import is defensive.
 
 @pytest.fixture(autouse=True)
 def setup_and_teardown(tmp_path, monkeypatch):
@@ -32,6 +35,9 @@ def test_pipeline_calls_correct_functions(tmp_path):
     that they are called correctly, instead of asserting on file creation.
     This avoids failures related to external library rendering issues.
     """
+    # Import inside test to avoid potential xdist collection-time hang (see module comment)
+    from run_pipeline import main as run_pipeline_main
+
     zid = "12345"
     test_args = [
         "run_pipeline.py",
@@ -59,7 +65,7 @@ def test_pipeline_calls_correct_functions(tmp_path):
          mock.patch('run_pipeline.create_basic_layer_visualization') as mock_create_basic, \
          mock.patch('run_pipeline.create_named_layer_visualization') as mock_create_named, \
          mock.patch('run_pipeline.create_enhanced_multilayer_index') as mock_create_index:
-        
+
         # Ensure the mocked visualization function returns a mock file path
         mock_create_named.return_value = "mock/path/to/file.html"
 

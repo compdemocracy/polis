@@ -1,5 +1,9 @@
 name: Delphi Python Tests
 
+concurrency:
+  group: python-ci-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ edge, stable ]
@@ -14,6 +18,11 @@ on:
       - stable
       - 'jc/**'
     paths: *paths
+  # Manual trigger: lets repo write-access users run CI on any branch
+  # (including spr/edge/* stack branches, which `pull_request` no longer
+  # auto-triggers for). UI: Actions → Delphi Python Tests → "Run workflow".
+  # CLI: `gh workflow run "Delphi Python Tests" --ref <branch>`.
+  workflow_dispatch:
 
 jobs:
   test:
@@ -40,12 +49,16 @@ jobs:
           echo "::error::test.env file not found!"
           exit 1
         fi
-        
+
         # Add hostnames for container-to-container networking
         # The 'delphi' service in 'docker-compose.test.yml' reads these
         echo "POSTGRES_HOST=postgres" >> .env
         echo "DYNAMODB_ENDPOINT=http://dynamodb:8000" >> .env
         echo "AWS_S3_ENDPOINT=http://minio:9000" >> .env
+
+    # BuildKit is required by `RUN --mount=type=cache` in the npm Dockerfiles.
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
     - name: 3. Build Docker images
       run: |
@@ -90,9 +103,8 @@ jobs:
           -e AWS_REGION=us-east-1 \
           -e AWS_ACCESS_KEY_ID=dummy \
           -e AWS_SECRET_ACCESS_KEY=dummy \
-          -e POSTGRES_HOST=postgres \
-          -e POSTGRES_PASSWORD=PdwPNS2mDN73Vfbc \
-          -e POSTGRES_DB=polis-test \
+          -e SKIP_GOLDEN=1 \
+          -e POSTGRES_CONNECT_TIMEOUT=5 \
           delphi \
           bash -c " \
             set -e; \

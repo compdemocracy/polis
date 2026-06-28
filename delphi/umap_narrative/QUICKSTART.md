@@ -18,7 +18,7 @@ This pipeline processes Polis conversations through a series of steps:
 
 ```bash
 # Activate virtual environment
-source delphi-env/bin/activate
+source ../.venv/bin/activate
 
 # Option 1: Run full pipeline in one step
 python run_pipeline.py --zid CONVERSATION_ID --use-ollama

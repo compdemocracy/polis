@@ -109,6 +109,9 @@
     n=#, p=prob, r=rep, t=test, a=agree, d=disagree, s=seen
   The :ids key maps to a vector of group ids in the same order they appear in the :stats sequence."
   [data group-clusters base-clusters]
+  (when (empty? group-clusters)
+    (throw (IllegalArgumentException.
+             "conv-repness: group-clusters is nil or empty — investigate upstream why group-clusters is nil.")))
   {:ids (map :id group-clusters)
    :tids (nm/colnames data)
    :stats

@@ -95,7 +95,7 @@ def test_pakistan_conversation_batch():
     conn = connect_to_db()
     if not conn:
         logger.error(f"[{time.time() - start_time:.2f}s] Database connection failed")
-        pytest.skip("Could not connect to PostgreSQL database")
+        pytest.fail("Could not connect to PostgreSQL database")
     
     try:
         # Create a new conversation

@@ -1,3 +1,7 @@
+# syntax=docker/dockerfile:1.4
+# Requires BuildKit (default in Docker 23+; on older versions prefix
+# the build command with `DOCKER_BUILDKIT=1`). The `RUN --mount=type=cache`
+# directives below are silently ignored without BuildKit.
 # To build locally, for example:
 # docker build -t polis-server:local .
 # To run locally, for example:
@@ -7,7 +11,7 @@
 # For a dev build, use `--target dev`.
 # Should default to prod build, but you can also explicitly use `--target prod`
 
-FROM docker.io/node:24-alpine as base
+FROM docker.io/node:22-alpine as base
 
 ARG NODE_ENV
 
@@ -33,7 +37,10 @@ FROM base as dev
 
 # Set default NODE_ENV to development unless overridden at build time with --build-arg NODE_ENV=production
 ENV NODE_ENV ${NODE_ENV:-development}
-RUN npm install
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000
+RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
 COPY . .
 
@@ -54,7 +61,7 @@ RUN apk add --no-cache openssl ca-certificates
 RUN npm config set fetch-retries 5 && \
     npm config set fetch-retry-mintimeout 20000 && \
     npm config set fetch-retry-maxtimeout 120000
-RUN npm ci --production=false
+RUN --mount=type=cache,target=/root/.npm npm ci --production=false
 
 # For prod builds, to minimize the image size, remove the dependencies tagged with `--virtual .build` above.
 RUN apk del .build

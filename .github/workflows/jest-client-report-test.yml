@@ -1,7 +1,7 @@
 name: Run Jest Tests - client report
 
 concurrency:
-  group: ${{ github.ref }}
+  group: jest-client-report-${{ github.ref }}
   cancel-in-progress: true
 
 on:

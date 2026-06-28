@@ -117,6 +117,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+# Legacy venv names (no longer canonical, but may linger in existing checkouts)
 delphi-env/
 delphi-dev-env/
 
@@ -231,6 +232,9 @@ dynamodb-data/
 *.swp
 *.swo
 *~
+
+# Debug scratch directory (per-session notes / temp outputs, not committed)
+scratch/
 
 # Log files
 *.log
