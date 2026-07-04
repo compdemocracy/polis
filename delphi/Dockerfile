@@ -111,7 +111,7 @@ CMD ["bash", "-c", "\
   if [ -n \"${DYNAMODB_ENDPOINT}\" ]; then \
     echo 'DYNAMODB_ENDPOINT is set, assuming local/dev environment. Running additional local setup scripts...'; \
     echo 'Setting up MinIO bucket...' && python setup_minio.py && \
-    echo 'Setting up Ollama model (local script)...' && ./scripts/setup_ollama.sh && \
+    echo 'Setting up Ollama model (local script)...' && ./scripts/setup_ollama.sh || echo 'Ollama setup failed or skipped — continuing to start job poller...'; \
     echo 'Starting job poller without ddtrace...' && \
     python scripts/job_poller.py --interval=2; \
   else \

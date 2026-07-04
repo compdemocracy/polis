@@ -135,32 +135,18 @@ async function main() {
   ); // then convert back to xml
   logger.debug(prompt_xml);
   const msg = await anthropic.messages.create({
-    model: "claude-3-7-sonnet-20250219",
+    model: "claude-sonnet-5",
     max_tokens: 1000,
-    temperature: 0,
     system: system_lore,
     messages: [
       {
         role: "user",
-        content: [
-          {
-            type: "text",
-            text: prompt_xml,
-          },
-        ],
-      },
-      {
-        role: "assistant",
-        content: [
-          {
-            type: "text",
-            text: "{",
-          },
-        ],
+        content: [{ type: "text", text: prompt_xml }],
       },
     ],
   });
-  logger.debug(msg);
+  const textBlock = msg.content.find((b) => b.type === "text");
+  logger.debug(textBlock?.type === "text" ? textBlock.text : "");
 }
 
 main().catch(logger.error);
