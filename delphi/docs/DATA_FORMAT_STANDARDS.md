@@ -13,7 +13,7 @@ DynamoDB tables use specific key format conventions that must be followed consis
 - **Primary Key (rid_section_model)**: `{report_id}#{section_name}#{model}`
   - **report_id**: The report identifier (e.g., "r123456" or numerical ID)
   - **section_name**: The section of the report (e.g., "topic_zebra_crossing")
-  - **model**: The LLM model used (e.g., "claude-3-5-sonnet-20241022")
+  - **model**: The LLM model used (e.g., "claude-sonnet-5")
   - **Delimiter**: Always use `#` as the delimiter (not underscores)
 
 ```python

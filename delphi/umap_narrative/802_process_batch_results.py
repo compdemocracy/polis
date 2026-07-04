@@ -399,7 +399,7 @@ class BatchResultProcessor:
             return False
         
         # Get model provider and request data
-        model_name = self.batch_job.get('model', 'claude-3-5-sonnet-20241022')
+        model_name = self.batch_job.get('model', 'claude-sonnet-5')
         model_provider = get_model_provider('anthropic', model_name)
         request_map = self.batch_job.get('request_map', {})
         total_requests = len(request_map)

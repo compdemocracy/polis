@@ -144,7 +144,7 @@ You MUST respond with valid JSON that follows the exact schema above. Each claus
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-20250514",
+      model: "claude-opus-4-8",
       max_tokens: 3000,
       temperature: 0.7,
       system: systemPrompt,
@@ -340,7 +340,7 @@ export async function handle_POST_collectiveStatement(
       statement_data: JSON.stringify(result.statementData),
       comments_data: JSON.stringify(result.commentsData),
       created_at: new Date().toISOString(),
-      model: "claude-opus-4-20250514",
+      model: "claude-opus-4-8",
     };
 
     await docClient.send(
