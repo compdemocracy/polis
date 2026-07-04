@@ -88,7 +88,7 @@ The `job_config` attribute will be a JSON object containing job-specific paramet
 #### For Report Generation Jobs
 ```json
 {
-  "model": "claude-3-7-sonnet-20250219",
+  "model": "claude-sonnet-5",
   "include_topics": true,
   "include_consensus": true,
   "include_uncertainty": true,
@@ -267,7 +267,7 @@ To manage the growth of the job queue table:
       {
         "stage": "REPORT",
         "config": {
-          "model": "claude-3-7-sonnet-20250219",
+          "model": "claude-sonnet-5",
           "include_topics": true
         }
       }

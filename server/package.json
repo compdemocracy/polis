@@ -32,7 +32,7 @@
     "node": ">=22 <23"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.55.1",
+    "@anthropic-ai/sdk": "^0.110.0",
     "@anthropic-ai/tokenizer": "^0.0.4",
     "@aws-sdk/client-cloudwatch-logs": "^3.911.0",
     "@aws-sdk/client-dynamodb": "^3.840.0",

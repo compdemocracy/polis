@@ -33,7 +33,7 @@ response = provider.get_response(
 provider = get_model_provider("ollama", "llama3.1:8b")
 
 # Use Anthropic
-provider = get_model_provider("anthropic", "claude-3-sonnet-20240229")
+provider = get_model_provider("anthropic", "claude-sonnet-5")
 ```
 
 ### Environment Variables
@@ -49,7 +49,7 @@ export OLLAMA_MODEL=llama3
 export OLLAMA_ENDPOINT=http://localhost:11434
 
 # Anthropic configuration
-export ANTHROPIC_MODEL=claude-3-sonnet-20240229
+export ANTHROPIC_MODEL=claude-sonnet-5
 export ANTHROPIC_API_KEY=your_api_key_here
 ```
 

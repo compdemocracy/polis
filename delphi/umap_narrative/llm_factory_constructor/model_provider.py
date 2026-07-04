@@ -10,7 +10,7 @@ import os
 import json
 import logging
 import requests
-from typing import Dict, List, Optional, Union, Any
+from typing import Dict, List, Optional, Any
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -145,15 +145,15 @@ class OllamaProvider(ModelProvider):
                 models_response = self.ollama.list()
                 # Handle new Ollama API response format which has a 'models' list of Model objects
                 if hasattr(models_response, 'models') and isinstance(models_response.models, list):
-                    available_models = [m.model for m in models_response.models]
+                    available_models = [m.model for m in models_response.models if m.model is not None]
                 else:
                     # Fallback for older API versions or different response format
-                    available_models = [model.get('name') for model in models_response.get('models', [])]
+                    available_models = [n for model in models_response.get('models', []) if (n := model.get('name')) is not None]
             else:
                 # Use direct HTTP request as fallback
                 response = requests.get(f"{self.endpoint}/api/tags")
                 response.raise_for_status()
-                available_models = [model.get('name') for model in response.json().get('models', [])]
+                available_models = [n for model in response.json().get('models', []) if (n := model.get('name')) is not None]
             
             logger.info(f"Available Ollama models: {available_models}")
             return available_models
@@ -165,7 +165,7 @@ class OllamaProvider(ModelProvider):
 class AnthropicProvider(ModelProvider):
     """Provider for Anthropic Claude models."""
 
-    def __init__(self, model_name: str = None, api_key: Optional[str] = None):
+    def __init__(self, model_name: Optional[str] = None, api_key: Optional[str] = None):
         """
         Initialize the Anthropic provider.
 
@@ -226,49 +226,34 @@ class AnthropicProvider(ModelProvider):
         
         try:
             logger.info(f"Using Anthropic model: {self.model_name}")
-            
-            if self.client:
-                # Use the Anthropic package if available
-                message = self.client.messages.create(
-                    model=self.model_name,
-                    system=system_message,
-                    messages=[
-                        {"role": "user", "content": user_message}
-                    ],
-                    max_tokens=4000
-                )
-                result = message.content[0].text
-            else:
-                # Use direct HTTP request
-                headers = {
-                    "x-api-key": self.api_key,
-                    "anthropic-version": "2023-06-01",
-                    "content-type": "application/json"
-                }
-                
-                # Add more debugging
-                logger.info(f"Using Anthropic model '{self.model_name}' via direct HTTP request")
-                logger.info(f"API key starts with: {self.api_key[:8]}...")
-                
-                data = {
-                    "model": self.model_name,
-                    "system": system_message,
-                    "messages": [
-                        {"role": "user", "content": user_message}
-                    ],
-                    "max_tokens": 4000
-                }
-                
-                response = requests.post(
-                    "https://api.anthropic.com/v1/messages",
-                    headers=headers,
-                    json=data
-                )
-                response.raise_for_status()
-                result = response.json()["content"][0]["text"]
-            
+
+            headers = {
+                "x-api-key": self.api_key,
+                "anthropic-version": "2023-06-01",
+                "content-type": "application/json"
+            }
+            logger.info(f"Using Anthropic model '{self.model_name}' via direct HTTP request")
+            logger.info(f"API key starts with: {self.api_key[:8]}...")
+            data = {
+                "model": self.model_name,
+                "system": system_message,
+                "messages": [
+                    {"role": "user", "content": user_message}
+                ],
+                "max_tokens": 4000
+            }
+            response = requests.post(
+                "https://api.anthropic.com/v1/messages",
+                headers=headers,
+                json=data
+            )
+            response.raise_for_status()
+            content = response.json()["content"]
+            text_blocks = [b for b in content if b.get("type") == "text"]
+            result = text_blocks[0]["text"] if text_blocks else ""
+
             return result
-        
+
         except Exception as e:
             logger.error(f"Error using Anthropic API: {str(e)}")
             # Return a JSON error response
@@ -367,7 +352,7 @@ class AnthropicProvider(ModelProvider):
                 return response_data
                 
             except requests.exceptions.HTTPError as e:
-                if e.response.status_code == 404:
+                if e.response is not None and e.response.status_code == 404:
                     logger.warning("Anthropic Batch API endpoint not found (404). Falling back to sequential processing.")
                     return {"error": "Batch API not available", "fallback": "sequential"}
                 else:
@@ -391,9 +376,9 @@ class AnthropicProvider(ModelProvider):
         """
         # Anthropic doesn't have a list models endpoint, so we hardcode the known models
         available_models = [
-            "claude-3-5-sonnet-20241022",
-            "claude-3-7-sonnet-20250219",
-            "claude-opus-4-20250514"
+            "claude-sonnet-5",
+            "claude-opus-4-8",
+            "claude-sonnet-4-6",
         ]
         logger.info(f"Available Anthropic models: {available_models}")
         return available_models
@@ -462,9 +447,11 @@ class AnthropicProvider(ModelProvider):
             # Raise for HTTP errors
             response.raise_for_status()
 
-            # Parse response
+            # Parse response — filter by type to skip thinking blocks (Sonnet 5+)
             response_data = response.json()
-            result = response_data["content"][0]["text"]
+            content = response_data["content"]
+            text_blocks = [b for b in content if b.get("type") == "text"]
+            result = text_blocks[0]["text"] if text_blocks else ""
 
             return {"content": result}
 
@@ -491,7 +478,7 @@ class AnthropicProvider(ModelProvider):
                 ]
             })}
 
-def get_model_provider(provider_type: str = None, model_name: str = None) -> ModelProvider:
+def get_model_provider(provider_type: Optional[str] = None, model_name: Optional[str] = None) -> ModelProvider:
     """
     Factory function to get the appropriate model provider.
     
@@ -504,7 +491,10 @@ def get_model_provider(provider_type: str = None, model_name: str = None) -> Mod
     """
     # Check for environment variable configuration
     provider_type = provider_type or os.environ.get("LLM_PROVIDER")
-    
+
+    if not provider_type:
+        raise ValueError("provider_type must be specified or LLM_PROVIDER environment variable must be set")
+
     if provider_type.lower() == "anthropic":
         model_name = model_name or os.environ.get("ANTHROPIC_MODEL")
         if not model_name:
