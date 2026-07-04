@@ -517,9 +517,9 @@ See `delphi/docs/INVESTIGATION_K_DIVERGENCE.md` for the full investigation.
 | D7 | Repness metric | PR 6 | **#2521** | **DONE** ✓ (formula change landed scalar + vectorized 2026-06-09; original PR diff was docs-only — recovered) |
 | D8 | Finalize cmt stats | PR 7 | **#2522** | **DONE** ✓ (rat > rdt classification landed scalar + vectorized 2026-06-09; original PR diff was docs-only — recovered) |
 | D9 | Z-score thresholds | **PR 3** | **#2518** | **DONE** ✓ |
-| D10 | Rep comment selection | PR 8 | — (WIP) | VM draft — **NEEDS REWORK** (no blob injection tests) |
-| D11 | Consensus selection | PR 9 | — (WIP) | VM draft — **NEEDS REWORK** (no blob injection tests) |
-| D12 | Comment priorities | PR 11 | — (WIP) | VM draft — **NEEDS REWORK** (no blob injection tests) |
+| D10 | Rep comment selection | PR 8 | **#2566** | Code-complete + 18 synthetic tests (was mislabeled "VM draft" until 2026-07-04); Copilot-review fixes in **#2586**; open in stack, merge pending edge freeze |
+| D11 | Consensus selection | PR 9 | **#2567** | Code-complete + 12 synthetic tests; consensus entries now Clojure blob shape (tid/n-success/… — #2586); open in stack, merge pending edge freeze |
+| D12 | Comment priorities | PR 11 | **#2568** | Code-complete + 11 synthetic tests (bug-mirror per #2571); Decimal-preserving serialization (#2586); open in stack, merge pending edge freeze |
 | D13 | Subgroup clustering | — | — | **Deferred** (unused) |
 | D14 | Large conv optimization | — | — | **Deferred** (Python fast enough) |
 | D15 | Moderation handling | PR 12 | **#2523** | **DONE** ✓ (zero-out-columns + downstream `to_math_blob` / `_compute_vote_stats` regressions fixed 2026-06-09 — `to_dict` now routes through `_compute_user_vote_counts()` / `_compute_votes_base()`; `_compute_vote_stats` uses `_get_clean_matrix(raw=True)`) |

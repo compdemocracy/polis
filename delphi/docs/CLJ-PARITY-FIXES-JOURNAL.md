@@ -1668,3 +1668,248 @@ Logged for batch review. Python may be more correct than Clojure here.
 ### What's Next
 
 Re-record vw + biodiversity Python golden snapshots (PR-stack tip).
+
+
+## Session: Copilot triage, review-fix PR #2586, merge prep (2026-07-04/05)
+
+Host session ("Fable-polis-merge-then-replay"). Goal: assess and execute the
+merge of the open 7-PR stack. Outcome: stack is code-complete, gate-green,
+review-resolved, and pushed — **merge deliberately NOT executed** (edge
+frozen for a prod issue; Julien: push PRs, merge nothing).
+
+### Reconciliation findings (recon, 3 parallel agents + verification)
+
+- spr squash-merges auto-close per-commit PRs with `mergedAt: null` —
+  "closed" ≠ dead. All of D2/D4/D5–D9/D15/K-inv landed via TWO squash
+  commits: #2515 ("Speed up regression tests") and #2561 (titled "Docs:
+  plan + journal updates" but carrying ALL the D5–D15 math). Verified via
+  `git log -S` for `rat > rdt`, `PSEUDO_COUNT = 2.0`, signed-product
+  repness_metric. **Squash titles lie; reconcile by commit-id trailers.**
+- The "golden re-record + seed decision" merge blockers had dissolved:
+  vw/bio goldens are PGRs deliberately deleted at #2516 (tests skip;
+  `SKIP_GOLDEN=1` in CI), and the seed decision was de facto made by K-inv
+  (first-k-distinct + n_init=1 + random_state=42).
+- Dormant `review` jj workspace (empty commit inside the stack chain)
+  forgotten + abandoned before rebase (user-approved). Stack rebased onto
+  edge 722640eb0 (+#2581 gid-coercion, +#2579 node pin) — zero conflicts.
+
+### Copilot triage (all 83 threads, 7 PRs — 0 were resolved before this)
+
+Verified against the stack TREE (not the working copy — an early audit
+agent read edge by mistake and produced garbage classifications):
+- 1 real blocker: consensus entries used Python keys
+  (comment_id/n_success/…) while Clojure/server-helpers.ts/
+  majorityStrict.jsx expect tid/n-success/… .
+- Copilot-WRONG: "priority_metric always returns 49" is the DELIBERATE
+  D12.6 bug-mirror (#2571).
+- 5 escalations verified REAL: (g1) DynamoDB writer read consensus from
+  `repness.consensus_comments`, a key `to_dynamo_dict` never emits →
+  always wrote the empty default (round-trip test had stubbed the WRONG
+  nested shape, masking it); (g2) bench_repness imported 14a-deleted
+  `comment_stats` (ImportError); (g3) reader passed legacy list-shaped
+  consensus through; (g4) silent zip truncation in
+  `_compute_comment_priorities`; (g5) blanket `xfail(strict=False)`
+  masking variants that pass.
+
+### Review-fix commit → PR #2586 (inserted below the docs commit)
+
+TDD RED→GREEN (14 RED failures with exact predicted signatures → 38/38
+GREEN): consensus entries → Clojure blob shape (narrowed S1: consensus
+only; rep-comment entries keep comment_id until the math-blob alignment
+PR); writer reads top-level `consensus`; Decimal-preserving priorities
+(int() floored sub-1 priorities to 0 = "no priority data" to the TS
+router; latent until #2571 resolves); legacy-list normalization on read;
+`mod_out is not None` ×2; fail-closed PCA/columns desync guard; benchmark
+import fix + import tests; ns docstrings corrected.
+
+Test-gate honesty work: per-variant xfails replace the blankets.
+**DISCOVERY: scoping unmasked bg2018-incremental and pakistan-incremental
+consensus divergences** the blanket had silently absorbed (same
+incremental family as biodiversity-incremental; deferred to
+sequential-parity work). PGR regression tests now SKIP with the
+2026-06-11 goldens-deferral reason (S3-5 claimed this mark but never
+committed it — docs-vs-diff lesson again). 3 pre-existing CCR failures
+(verified identical on edge): bg2050-incremental PC2 angle 10.71°>10°,
+pakistan-incremental shape (2,9030)≠(2,194), bg2018-cold_start
+clustering — precise per-variant xfails.
+
+### Gates
+
+- Baseline (stack top, --include-local): 13 failed / 476 passed / 18
+  skipped / 143 xfailed — all 13 accounted for (10 stale-PGR, 3 CCR).
+- Final: **0 failed / 502 passed / 28 skipped / 146 xfailed / 7 xpassed**.
+- xdist note: `get_or_compute_conversation` recomputes per worker under
+  `-n auto` (xdist_group markers were removed as "dead") — BLAS
+  oversubscription + duplicated fixture work melted the host. Throttled
+  (`-n 4`, OMP/OPENBLAS threads=1) the suite runs in ~11 min. Test-infra
+  improvement candidate: restore dataset-based xdist_group.
+
+### Determinism verification (COPILOT_MATH_QUESTIONS.md:283 checklist)
+
+5 consecutive full-pipeline runs on vw + biodiversity: **bit-for-bit
+identical except `math_tick`** (wall-clock version counter, varies by
+design; per-stage hashing localized it; scratch/determinism_check.py).
+Seed question CLOSED: pipeline is deterministic. Proposal pending
+Julien's go: delete the vestigial `np.random.seed(42)` at
+clusters.py:766 — the only `random` reference in the module, seeds a
+global RNG nothing draws from, and `cluster_dataframe` isn't on the
+production path (only tests/test_clusters.py; production uses
+kmeans_sklearn exclusively). Candidate follow-up (separate decision):
+delete the dead manual-kmeans path 14a-style.
+
+### Process
+
+- All 83 Copilot threads replied-to + resolved (classification-specific
+  replies citing #2586 / #2571 / #2587).
+- Perf deferral filed: issue #2587 (_compute_comment_priorities re-scans
+  group votes every tick).
+- PLAN status table corrected (D10/D11/D12 rows were still "VM draft —
+  NEEDS REWORK").
+
+### What's Next
+
+1. **Merge when edge reopens** (user hold, prod issue): `jj spr merge
+   --count 8` → #2564, #2570, #2566, #2567, #2568, #2572, #2586, #2573.
+   Verify the squash title reflects real content (#2561 mis-title
+   lesson). Then post-merge jj hygiene (fetch, rebase survivors, bookmark
+   check).
+2. Seed cleanup PR on Julien's go (clusters.py:766, evidence above).
+3. NO PGR re-record until the Python-vs-Python phase (label-swap fix
+   first — S3-4: Python g0 = Clojure g1 EXACTLY on vw-cold_start; fix is
+   canonical group-id ordering or permutation-invariant comparison).
+4. Track-1 frontier after merge: label-swap fix → sequential bits (D) →
+   replay harness (H, design doc) → R1 → R2. Track 2 (EVOC research) can
+   launch any time — independent surface.
+## Session addendum: gid label-swap fix + seed removal + replay design (2026-07-05)
+
+### gid 0↔1 label swap — FIXED (root cause found)
+
+Root cause: `_compute_clusters` re-sorted group clusters by size
+(descending) and reassigned ids — while Clojure assigns group ids by
+first-k-distinct encounter order over base-cluster centers
+(init-clusters, clusters.clj:55-64), keeps them through merge lineage,
+and only ever `sort-by :id`. The base level already preserved k-means id
+order (K-inv) with a comment warning against exactly this; the group
+level did the forbidden thing three steps later. Fix: remove the re-sort
++ reassignment; pin with a synthetic first-encountered-is-id-0 test
+(RED under any size sort).
+
+Harvest (verified on a full --include-local run, then re-validated —
+232 passed / 138 xfailed / 0 xpassed / 0 failed):
+- D8 repful blob comparison: xfail LIFTED on 9/11 variants (residual:
+  vw-incremental, pakistan-incremental — incremental trajectory).
+- D9 significance-sets + D10 rep-selection: biodiversity-cold_start now
+  matches Clojure EXACTLY and gates.
+- z-values / rat-values: label swap FALSIFIED as their cause (no variant
+  flipped) — reasons corrected to residual membership divergence.
+- D12 priorities: FLI + bg2050 incremental blobs carry the all-49
+  truthy-0 signature → match the #2571 mirror → now gate (known-bad
+  list shrunk to vw/biodiversity/bg2018/engage/pakistan incrementals).
+
+### Seed removal (Julien go, 2026-07-05)
+
+`np.random.seed(42)` (cluster_dataframe) removed + dead `import random`:
+only `random` reference in the module, seeded an RNG nothing draws from,
+not on the production path. The Clojure author's verbatim seeding note
+(pca.clj:80-81) now lives in pca.py next to random_state, with the
+seeding-history context and the 5-run determinism evidence.
+
+### Clojure randomness — verified facts (for the record)
+
+Clojure never fixes a seed: k-means deterministic by construction; PCA
+power iteration uses UNSEEDED `(rand)` start on cold start only
+(warm-started from previous eigenvectors after; conversation.clj:759
+uses unseeded :twister sampling for large convs). Fixed ITERATION COUNT
+(not convergence threshold) → even Clojure-vs-Clojure cold starts are
+not bit-identical. Consequences: tolerance-based comparison is the only
+well-posed target for cold-start PCA; warm-start pinning collapses the
+jitter (replay design §9).
+
+### EDN dumps: NO as-were history exists (R2 confirmed as inference)
+
+`conv-update-dump` has exactly one call site — conv_man.clj:321, the
+update-ERROR handler — writing errorconv.<nanotime>.edn to worker-local
+(ephemeral) disk. Production never dumped healthy states; prodclone
+holds votes + latest math_main only. R2's evidence: final blob +
+math_tick counter (bounds #recomputes) + last_vote_timestamp.
+
+### Replay harness design doc
+
+`docs/REPLAY_HARNESS_DESIGN.md` (this commit): architecture, schedule
+spec (first-class input — R2 = search over schedules with H as forward
+model), Clojure driver Mode A (pure conv-update reduce + conv-update-dump
+per step) / Mode B (Dockerized poller checkpointing), Python driver
+(chained update_votes), nondeterminism policy (tolerance classes,
+warm-start pinning, self-jitter measurement), storage/provenance, phased
+build plan H-A..H-D. Review copy at scratch/REPLAY_HARNESS_DESIGN.md.
+
+### Proposed next math-core PR (awaiting go): powerit-pca port
+
+sklearn has NO equivalent of Clojure's per-component fixed-iteration
+power iteration with deflation and start vectors (randomized SVD is
+block+QR, no start-vector injection; scipy svds is Lanczos). Proposal:
+~25-line numpy port of powerit-pca (same deflation, same fixed iters,
+start_vectors param — feeds replay warm-start pinning), used in place of
+sklearn SVD for parity; sklearn retained as the designated
+post-parity implementation ("switch to a proper convergence criterion
+once we move to improving the Python implementation" — per Julien).
+
+### R2 constraint + powerit-pca GO (Julien, 2026-07-05)
+
+- **R2 replayer must be PYTHON-ONLY** — no Clojure server; works purely
+  from Postgres data; candidate trajectories regenerated by the Python
+  engine in legacy-reproduction mode (which must therefore be an exact
+  AND much faster reproduction). Design doc updated (§1.3, §5, §10):
+  Clojure driver narrowed to R1 certification only.
+- R1 comparison: per-step BLOB capture from a regular Clojure run
+  suffices for pass/fail; EDN dumps stay Clojure-only on-demand
+  (divergence localization + warm-start pinning). Open Q5 resolved.
+- **powerit-pca port: GO** (sklearn has no equivalent — randomized SVD
+  is block+QR without start-vector injection). Two PERMANENT code paths
+  behind a flag: `clojure-legacy` (powerit fixed-iters + start_vectors,
+  "switch to a proper convergence criterion once we improve the Python
+  implementation") and `improved` (sklearn PCA). Benchmark
+  sklearn-vs-powerit from scratch as part of the PR. Future note:
+  scipy LOBPCG/ARPACK (`svds(v0=…)`) as library replacement for our
+  powerit once Clojure-exact fidelity is no longer required.
+- test_participant_info golden comparisons (4 private datasets) joined
+  the PGR-deferral skips: their goldens embed per-gid correlations and
+  predate the gid re-ordering — stale by design, not regression.
+
+---
+
+## Session 2026-07-06/07 — CI green-up of the powerit-PCA + storage-v2 stacks
+
+### Silhouette guard for the powerit-PCA default (#2591)
+
+Making `POLISMATH_PCA_IMPL=powerit` the default (#2591) surfaced a latent
+crash — a robustness gap, not a parity defect. On small/synthetic
+conversations the powerit projection collapses to exactly **two base
+clusters**, and group-cluster k-selection (`conversation.py`) then calls
+`calculate_silhouette_sklearn` on 2 points / 2 labels. sklearn requires
+`2 <= n_labels <= n_samples - 1`, so it raised
+`ValueError: Number of labels is 2. Valid values are 2 to n_samples - 1`.
+This crashed `TestConversation.test_recompute` and errored 8
+`test_serialization_unfolding` cases in CI. Every one of them **passes under
+`POLISMATH_PCA_IMPL=sklearn`**, which pinned the powerit default as the
+trigger (the guard gap was always latent; sklearn's projection just never
+collapsed this data to two base clusters).
+
+**Fix (squashed into #2591):** `calculate_silhouette_sklearn`
+(`polismath/pca_kmeans_rep/clusters.py`) now returns the neutral `0.0`
+sentinel whenever `n_labels >= n_samples` (silhouette is undefined there),
+instead of letting sklearn raise. It is a strict **superset** of the old
+`n_labels <= 1 || n_samples <= 1` guard, so valid clusterings are unchanged;
+and with only two base clusters, k-selection is forced to `k=2` regardless,
+so the chosen clustering is identical — the fix only removes the crash. Added
+3 unit tests (`tests/test_clusters.py::TestCalculateSilhouetteSklearn`:
+2-samples/2-labels → 0.0 not raise; single-label → 0.0; valid 3-sample/2-label
+→ genuine score).
+
+Verified: local full suite **403 passed / 0 failed** (baseline was 1 failed +
+8 errors); CI #2591 `test` job green. Follow-on cleanup for the improved
+(sklearn) path: none needed — the guard is impl-agnostic.
+
+_(Storage-v2 CI green-up — delphi_storage Dockerfile COPY, the
+postgres://→postgresql:// backend hardening, and the PG-conformance CI wiring
+— is tracked in `STORAGE_V2_IMPLEMENTATION_NOTES.md`, not here.)_
