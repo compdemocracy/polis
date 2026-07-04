@@ -144,26 +144,22 @@ You MUST respond with valid JSON that follows the exact schema above. Each claus
 
   try {
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-20250514",
+      model: "claude-opus-4-8",
       max_tokens: 3000,
-      temperature: 0.7,
       system: systemPrompt,
       messages: [
         {
           role: "user",
           content: userPrompt,
         },
-        {
-          role: "assistant",
-          content: "{",
-        },
       ],
     });
 
-    // Parse the JSON response
-    const responseText =
-      "{" +
-      (response.content[0].type === "text" ? response.content[0].text : "");
+    // Parse the JSON response — find text block (adaptive thinking may add thinking blocks)
+    const textBlock = response.content.find((b) => b.type === "text");
+    let responseText = textBlock?.type === "text" ? textBlock.text : "";
+    // Strip markdown code fences if the model wraps the JSON
+    responseText = responseText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
 
     try {
       const statementData = JSON.parse(responseText);
@@ -340,7 +336,7 @@ export async function handle_POST_collectiveStatement(
       statement_data: JSON.stringify(result.statementData),
       comments_data: JSON.stringify(result.commentsData),
       created_at: new Date().toISOString(),
-      model: "claude-opus-4-20250514",
+      model: "claude-opus-4-8",
     };
 
     await docClient.send(

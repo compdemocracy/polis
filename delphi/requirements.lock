@@ -6,7 +6,7 @@
 #
 annotated-types==0.7.0
     # via pydantic
-anthropic==0.74.0
+anthropic==0.116.0
     # via delphi-polis (pyproject.toml)
 anyio==4.11.0
     # via
@@ -39,6 +39,7 @@ charset-normalizer==3.4.4
 click==8.3.1
     # via
     #   dask
+    #   delphi-polis (pyproject.toml)
     #   distributed
     #   uvicorn
 cloudpickle==3.1.2

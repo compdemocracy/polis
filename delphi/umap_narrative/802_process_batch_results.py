@@ -182,7 +182,7 @@ class AnthropicBatchChecker:
             return response_data
             
         except requests.exceptions.HTTPError as e:
-            if e.response.status_code == 404:
+            if e.response is not None and e.response.status_code == 404:
                 logger.warning("Anthropic Batch API endpoint not found (404)")
                 return {"error": "Batch API not available"}
             else:
@@ -337,13 +337,17 @@ class BatchResultProcessor:
                 logger.warning(f"No content found in message for request {req_id}")
                 continue
             
-            # Extract content text
+            # Extract content text — filter by type to skip thinking blocks (Sonnet 5+)
             content = message.get('content', [])
-            if not content or not isinstance(content, list) or 'text' not in content[0]:
+            if not content or not isinstance(content, list):
                 logger.warning(f"Invalid content format for request {req_id}")
                 continue
-            
-            response_text = content[0].get('text', '')
+            text_block = next((b for b in content if b.get('type') == 'text'), None)
+            if not text_block:
+                logger.warning(f"No text block found in response for request {req_id}")
+                continue
+
+            response_text = text_block.get('text', '')
             
             # Store in Delphi_NarrativeReports
             rid_section_model = f"{conversation_id}#{section_name}#{self.batch_job.get('model')}"
@@ -399,7 +403,7 @@ class BatchResultProcessor:
             return False
         
         # Get model provider and request data
-        model_name = self.batch_job.get('model', 'claude-3-5-sonnet-20241022')
+        model_name = self.batch_job.get('model', 'claude-sonnet-5')
         model_provider = get_model_provider('anthropic', model_name)
         request_map = self.batch_job.get('request_map', {})
         total_requests = len(request_map)
@@ -476,7 +480,7 @@ class BatchResultProcessor:
                         await asyncio.sleep(1)
                         
                         # Get response from the LLM
-                        response_text = await model_provider.get_response(system, user_message)
+                        response_text = model_provider.get_response(system, user_message)
                         
                         # Store in Delphi_NarrativeReports
                         report_item = {
@@ -546,5 +550,4 @@ async def main():
         print(f"Failed to process batch job {args.batch_id}. See logs for details.")
 
 if __name__ == "__main__":
-    import asyncio
     asyncio.run(main())

@@ -50,7 +50,7 @@ dependencies = [
     # LLM and reporting
     "requests>=2.28.0",
     "xmltodict>=0.13.0",
-    "anthropic>=0.5.0",
+    "anthropic>=0.116.0",
     "ollama>=0.5.1",
     "llvmlite>=0.44.0",
     # CLI

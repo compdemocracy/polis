@@ -35,7 +35,7 @@ python 801_narrative_report_batch.py --conversation_id CONVERSATION_ID [--model 
 
 Arguments:
 - `--conversation_id` or `--zid`: Conversation ID to process
-- `--model`: LLM model to use (default: claude-3-5-sonnet-20241022)
+- `--model`: LLM model to use (default: claude-sonnet-5)
 - `--no-cache`: Ignore cached report data
 - `--max-batch-size`: Maximum number of topics in a batch (default: 20)
 
