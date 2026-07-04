@@ -206,7 +206,9 @@ class TestRepnessComparison:
 
                 # Extract comment IDs
                 clj_consensus_ids = [str(c.get('comment-id', c.get('tid', c.get('comment_id', '')))) for c in clj_consensus]
-                py_consensus_ids = [str(c.get('comment_id', '')) for c in py_consensus]
+                # Python consensus entries use `tid` (Clojure blob shape,
+                # 2026-07-04); `comment_id` fallback covers pre-fix blobs.
+                py_consensus_ids = [str(c.get('tid', c.get('comment_id', ''))) for c in py_consensus]
 
                 consensus_matches = set(clj_consensus_ids) & set(py_consensus_ids)
                 consensus_total = len(set(clj_consensus_ids) | set(py_consensus_ids))

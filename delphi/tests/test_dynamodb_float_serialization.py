@@ -149,3 +149,58 @@ class TestToDynamoDictRepnessSerialization:
             _assert_dynamodb_serializable(
                 put_item, context="Delphi_RepresentativeComments Item"
             )
+
+
+# ---------------------------------------------------------------------------
+# Layer 2b — comment priorities: value-preserving AND serializable
+# ---------------------------------------------------------------------------
+
+class TestToDynamoDictPrioritiesSerialization:
+    """`to_dynamo_dict` must preserve priority VALUES, not truncate them.
+
+    The old code did `int(priority)`: harmless today (the D12.6 bug-mirror
+    makes every priority exactly 49.0) but a landmine for the day issue
+    #2571 resolves and the real formula returns — real-data priorities span
+    ~0.18–31.46 (decisions doc D12.6), so `int()` floors sub-1 priorities
+    to 0. The TS server's weighted routing treats 0 as "no priority data":
+    those comments would silently never be routed. Values must round-trip
+    as Decimal (raw floats crash boto3's TypeSerializer).
+    """
+
+    # Real-data-shaped values: sub-1 (floors to 0 under int()), fractional
+    # mid-range (loses 46% of its weight under int()), and the current
+    # bug-mirror constant.
+    _PRIORITIES = {10: 0.18, 11: 31.46, 12: 49.0}
+
+    def _conversation_with_priorities(self):
+        conv = Conversation(conversation_id='ztest-priorities')
+        conv.repness = conv_repness(_vote_matrix(), _groups())
+        conv.comment_priorities = dict(self._PRIORITIES)
+        return conv
+
+    def test_priorities_preserve_values(self):
+        conv = self._conversation_with_priorities()
+        dynamo_data = conv.to_dynamo_dict()
+
+        priorities = dynamo_data['comment_priorities']
+        assert priorities, "expected non-empty comment_priorities"
+
+        for tid, expected in self._PRIORITIES.items():
+            got = priorities[tid]
+            assert float(got) == pytest.approx(expected, abs=1e-9), (
+                f"priority for tid {tid} not preserved: expected {expected}, "
+                f"got {got!r} (int() truncation floors sub-1 priorities to 0)"
+            )
+
+    def test_priorities_serialize_for_dynamodb(self):
+        conv = self._conversation_with_priorities()
+        dynamo_data = conv.to_dynamo_dict()
+
+        for tid, value in dynamo_data['comment_priorities'].items():
+            _assert_dynamodb_serializable(
+                value, context=f"comment_priorities[{tid}]"
+            )
+            # The CommentRouting write path (dynamodb.py step 4) writes this
+            # value raw into `'priority': priorities.get(comment_id, 0)` —
+            # it must already be a DynamoDB scalar at this point.
+

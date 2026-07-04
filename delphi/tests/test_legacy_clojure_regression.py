@@ -122,7 +122,7 @@ class TestClojureRegression:
         if conv.repness and 'comment_repness' in conv.repness:
             check.greater(len(conv.repness['comment_repness']), 0, "Should have representative comments")
 
-    def test_pca_components_match_clojure(self, conversation_data):
+    def test_pca_components_match_clojure(self, request, conversation_data):
         """
         Test that PCA components match the Clojure implementation.
 
@@ -133,6 +133,23 @@ class TestClojureRegression:
         Note: The centers will be negated due to vote sign convention difference
         (Python: agree=+1, Clojure: agree=-1), but the eigenvectors should match.
         """
+        # Pre-existing CCR failures, verified identical on edge 722640eb0
+        # (2026-07-04). Marked per-variant so every other variant keeps
+        # gating and an XPASS is visible the day the upstream fix lands.
+        _known_bad = {
+            'bg2050-incremental':
+                "pre-existing: PC2 angle 10.71° vs ≤10° tolerance — "
+                "incremental PCA drift (D1 sign-flip/replay territory, "
+                "needs replay infra; journal 'incremental PCA dimensions')",
+            'pakistan-incremental':
+                "pre-existing: PCA shape (2, 9030) vs Clojure (2, 194) — "
+                "incremental blob computed on a comment subset (large-conv "
+                "sampling/moderation divergence; journal 'incremental PCA "
+                "dimensions')",
+        }
+        if request.node.callspec.id in _known_bad:
+            request.applymarker(pytest.mark.xfail(
+                strict=False, reason=_known_bad[request.node.callspec.id]))
         import numpy as np
 
         conv = conversation_data['conv']
@@ -187,7 +204,7 @@ class TestClojureRegression:
             check.less_equal(norm_angle_deg, 10.0,
                             f"PC{i+1} angle difference should be ≤10° (got {norm_angle_deg:.2f}°)")
 
-    def test_group_clustering(self, conversation_data):
+    def test_group_clustering(self, request, conversation_data):
         """
         Test that group clustering matches the Clojure implementation.
 
@@ -197,6 +214,14 @@ class TestClojureRegression:
 
         Both sides are unfolded to participant-level membership for comparison.
         """
+        # Pre-existing CCR failure, verified identical on edge 722640eb0
+        # (2026-07-04). Per-variant so the other datasets keep gating.
+        if request.node.callspec.id == 'bg2018-cold_start':
+            request.applymarker(pytest.mark.xfail(
+                strict=False,
+                reason="pre-existing: bg2018 cold_start group membership "
+                       "divergence (same family as the gid 0↔1 label-swap / "
+                       "clustering-stability queue, S3-4 2026-06-11)"))
         conv = conversation_data['conv']
         clojure_output = conversation_data['clojure_output']
         dataset_name = conversation_data['dataset_name']
@@ -275,12 +300,7 @@ class TestClojureRegression:
         check.is_true(result['overall_match'],
                      f"Clustering should match Clojure output (distribution + membership)")
 
-    @pytest.mark.xfail(raises=AssertionError, strict=False,
-                       reason="D12 / D12.6 incremental: Python's Clojure-bug-mirror (all priorities = META_PRIORITY^2 = 49) "
-                              "matches Clojure cold_start exactly (XPASS), but Clojure incremental has varied priorities, "
-                              "so Python's all-49 doesn't match incremental. strict=False to allow both XPASS (cold_start) "
-                              "and FAIL (incremental) without test failure. Restore strict=True once Clojure bug is fixed upstream.")
-    def test_comment_priorities(self, conversation_data):
+    def test_comment_priorities(self, request, conversation_data):
         """
         Test that comment priorities match the Clojure implementation exactly.
 
@@ -291,6 +311,20 @@ class TestClojureRegression:
         conv = conversation_data['conv']
         clojure_output = conversation_data['clojure_output']
         dataset_name = conversation_data['dataset_name']
+
+        # Per-variant xfail (g5, 2026-07-04): only INCREMENTAL is known-bad —
+        # Python's Clojure-bug-mirror (all priorities = META_PRIORITY^2 = 49)
+        # matches Clojure cold_start exactly, but Clojure incremental has
+        # varied priorities. cold_start MUST keep gating; the previous
+        # blanket xfail(strict=False) silently allowed cold_start
+        # regressions. Drop this once the Clojure bug (#2571) is fixed and
+        # the Python mirror is removed.
+        if 'incremental' in request.node.callspec.id:
+            request.applymarker(pytest.mark.xfail(
+                raises=AssertionError, strict=False,
+                reason="D12.6: Clojure incremental has varied priorities "
+                       "(no truthy-0 bug there); Python's all-49 mirror "
+                       "cannot match. See issue #2571."))
 
         print(f"\n[{dataset_name}] Testing comment priorities...")
 

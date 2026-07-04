@@ -91,10 +91,12 @@ def prop_test_vectorized(succ: pd.Series, n: pd.Series) -> pd.Series:
 
     Args:
         succ: Series of success counts (e.g. `na` or `nd` per row).
-        n: Series of trial counts. In all current callers this is `ns = na + nd`
-           (AGREE + DISAGREE per row) — PASS votes are NOT included, matching
-           what Clojure passes as `n-trials`. If you call this from elsewhere,
-           supply `na + nd` rather than a "total votes seen including pass" count.
+        n: Series of trial counts. In all current callers this is `ns` = the
+           count of ALL non-nil votes INCLUDING PASS (`notna().sum()`),
+           matching Clojure's `count-votes` with no vote arg
+           (`(count (filter identity votes))` — 0/PASS is truthy in Clojure,
+           repness.clj:56-61; ns-PASS fix 2026-06-11). If you call this from
+           elsewhere, supply the PASS-inclusive non-nil count, NOT `na + nd`.
 
     Returns:
         Series of z-scores. Positive when the smoothed proportion (succ+1)/(n+1)
@@ -519,7 +521,9 @@ def select_rep_comments_df(stats_df: pd.DataFrame,
     if stats_df.empty:
         return empty_df, None
 
-    mod_out_set = set(mod_out) if mod_out else set()
+    # `is not None`, not truthiness: mod_out may be a numpy array / pandas
+    # Index, whose bare truth value raises for len>1 (Copilot 2026-07-04).
+    mod_out_set = set(mod_out) if mod_out is not None else set()
     sufficient: List[Dict[str, Any]] = []
     best: Optional[Dict[str, Any]] = None
     # Track best's max(rat, rdt) as a sidecar scalar so we never have to mutate
@@ -685,7 +689,9 @@ def consensus_stats_df(vote_matrix_df: pd.DataFrame,
     df['pat'] = prop_test_vectorized(df['na'], df['ns'])
     df['pdt'] = prop_test_vectorized(df['nd'], df['ns'])
 
-    if mod_out:
+    # `is not None`, not truthiness: mod_out may be a numpy array / pandas
+    # Index, whose bare truth value raises for len>1 (Copilot 2026-07-04).
+    if mod_out is not None:
         mod_out_set = set(mod_out)
         df = df[~df.index.isin(mod_out_set)]
 
@@ -706,9 +712,10 @@ def select_consensus_comments_df(
       - Agree: `pa > 0.5 AND z-sig-90(pat)`, sorted desc by `am = pa * pat`.
       - Disagree: `pd > 0.5 AND z-sig-90(pdt)`, sorted desc by `dm = pd * pdt`.
 
-    With PSEUDO_COUNT smoothing the constraint `pa + pd = 1` is exact (na+nd=ns
-    after smoothing), so `pa > 0.5 ⟺ pd < 0.5` — the same tid cannot appear in
-    both lists.
+    Since `ns` counts all non-nil votes including PASS (ns ≥ na+nd),
+    `pa + pd = (na+nd+PSEUDO_COUNT)/(ns+PSEUDO_COUNT) ≤ 1`, so pa and pd
+    cannot both exceed 0.5 — the same tid cannot appear in both lists. (The
+    equality pa+pd=1 holds only for PASS-free comments.)
 
     Args:
         cons_stats: DataFrame indexed by tid with cols [na, nd, ns, pa, pd,
@@ -716,9 +723,14 @@ def select_consensus_comments_df(
 
     Returns:
         Dict shape `{'agree': [entries], 'disagree': [entries]}`. Each entry
-        is `{comment_id, n_success, n_trials, p_success, p_test}` (Python
-        convention key naming per S1; math-blob alignment with Clojure's
-        hyphenated keys is a future PR).
+        is `{tid, n-success, n-trials, p-success, p-test}` — EXACTLY the
+        Clojure blob shape (repness.clj:181 + the ::consensus s/keys spec).
+        This narrows the S1 deferral (2026-07-04): consensus entries flow
+        raw into `result['consensus']` in to_dict / to_dynamo_dict, where
+        server-helpers.ts:298-313 and client-report's
+        majorityStrict.jsx:23-27 pluck `tid` — Python-convention keys broke
+        both. Rep-comment entries keep `comment_id` until the deferred
+        math-blob alignment PR.
     """
     if cons_stats.empty:
         return {'agree': [], 'disagree': []}
@@ -735,20 +747,20 @@ def select_consensus_comments_df(
 
     def _agree_entry(tid: Any, row: pd.Series) -> Dict[str, Any]:
         return {
-            'comment_id': int(tid),
-            'n_success': int(row['na']),
-            'n_trials': int(row['ns']),
-            'p_success': float(row['pa']),
-            'p_test': float(row['pat']),
+            'tid': int(tid),
+            'n-success': int(row['na']),
+            'n-trials': int(row['ns']),
+            'p-success': float(row['pa']),
+            'p-test': float(row['pat']),
         }
 
     def _disagree_entry(tid: Any, row: pd.Series) -> Dict[str, Any]:
         return {
-            'comment_id': int(tid),
-            'n_success': int(row['nd']),
-            'n_trials': int(row['ns']),
-            'p_success': float(row['pd']),
-            'p_test': float(row['pdt']),
+            'tid': int(tid),
+            'n-success': int(row['nd']),
+            'n-trials': int(row['ns']),
+            'p-success': float(row['pd']),
+            'p-test': float(row['pdt']),
         }
 
     return {

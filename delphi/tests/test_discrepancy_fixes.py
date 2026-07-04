@@ -1512,6 +1512,28 @@ class TestD10TestGaps:
         assert flagged[0]['comment_id'] == 2, \
             f"next-best (tid 2) should become best_agree, got {flagged[0]['comment_id']}"
 
+    def test_mod_out_accepts_ndarray(self):
+        """`mod_out` typed Optional[Iterable[int]] — callers may pass a numpy
+        array or pandas Index (e.g. sourced from a DataFrame column). Bare
+        `if mod_out:` truthiness raises 'truth value of an array is
+        ambiguous' for len>1 arrays; the check must be `is not None`
+        (Copilot review 2026-07-04, verified)."""
+        rows = [
+            _stats_row(1, na=8, nd=2, pa=0.8, pd_=0.2, pat=2.0, pdt=-2.0,
+                       ra=2.0, rd=0.5, rat=2.0, rdt=-2.0),
+            _stats_row(2, na=6, nd=3, pa=0.7, pd_=0.3, pat=1.5, pdt=-1.5,
+                       ra=1.5, rd=0.6, rat=1.5, rdt=-1.5),
+            _stats_row(3, na=5, nd=4, pa=0.55, pd_=0.45, pat=1.0, pdt=-1.0,
+                       ra=1.1, rd=0.9, rat=1.0, rdt=-1.0),
+        ]
+        df = pd.DataFrame(rows)
+        # len-2 ndarray: bare truthiness would raise ValueError.
+        result = _assemble_rep_comments(df, mod_out=np.array([1, 3]))
+        tids = [r['comment_id'] for r in result]
+        assert 1 not in tids and 3 not in tids, \
+            f"ndarray mod_out tids must be excluded, got {tids}"
+        assert 2 in tids
+
     def test_tied_agree_metric_in_sort_uses_deterministic_tiebreak(self):
         """Two `sufficient` rows with identical `agree_metric` resolve
         deterministically. `list.sort` is stable in CPython, so the lower-tid
@@ -1646,15 +1668,7 @@ class TestD11ConsensusSelection:
          Clojure uses per-comment pa > 0.5, top 5 agree + 5 disagree with z-test scores
     """
 
-    @pytest.mark.xfail(strict=False,
-                       reason="After ns-PASS fix (2026-06-11), 3/4 dataset variants "
-                              "(vw-incremental, vw-cold_start, biodiversity-cold_start) match "
-                              "Clojure exactly. biodiversity-incremental still mismatches on "
-                              "the disagree side (likely residual upstream PCA/KMeans "
-                              "group-membership divergence affecting which participants are "
-                              "in-conv at the incremental step). Tracked separately — see "
-                              "journal entry 2026-06-11.")
-    def test_consensus_matches_clojure(self, conv, clojure_blob, dataset_name):
+    def test_consensus_matches_clojure(self, request, conv, clojure_blob, dataset_name):
         """Consensus selection should match Clojure on cold_start.
 
         After D11 (PR 9), Python's `consensus_comments` is a dict
@@ -1666,6 +1680,29 @@ class TestD11ConsensusSelection:
         to `notna().sum()` — matches Clojure `(count (filter identity ...))`
         in repness.clj:56-61.
         """
+        # Per-variant xfail (g5, 2026-07-04): known-bad INCREMENTAL variants
+        # only. biodiversity-incremental was documented 2026-06-11 (residual
+        # upstream PCA/KMeans group-membership divergence affecting which
+        # participants are in-conv at the incremental step). Scoping the
+        # previously-blanket xfail(strict=False) then UNMASKED
+        # bg2018-incremental and pakistan-incremental (private datasets) —
+        # failures the blanket had silently absorbed, undocumented until
+        # 2026-07-04. Same incremental-divergence family; resolution belongs
+        # to the sequential-parity work (replay infra / warm-start port).
+        # ALL cold_start variants and vw-incremental match Clojure exactly
+        # and MUST keep gating.
+        _known_bad_incremental = ('biodiversity', 'bg2018', 'pakistan')
+        _callspec = request.node.callspec.id
+        if 'incremental' in _callspec and any(
+                ds in _callspec for ds in _known_bad_incremental):
+            request.applymarker(pytest.mark.xfail(
+                strict=False,
+                reason="known-bad incremental variant (biodiversity: journal "
+                       "2026-06-11; bg2018/pakistan: unmasked 2026-07-04 when "
+                       "the blanket xfail was scoped per-variant): residual "
+                       "upstream incremental divergence, deferred to the "
+                       "sequential-parity work"))
+
         clj_consensus = clojure_blob.get('consensus', {})
         if not clj_consensus:
             pytest.skip("No consensus in Clojure blob")
@@ -1676,9 +1713,9 @@ class TestD11ConsensusSelection:
 
         py_consensus = (conv.repness.get('consensus_comments', {})
                         if conv.repness else {})
-        py_agree_tids = set(int(c['comment_id'])
+        py_agree_tids = set(int(c['tid'])
                             for c in py_consensus.get('agree', []))
-        py_disagree_tids = set(int(c['comment_id'])
+        py_disagree_tids = set(int(c['tid'])
                                for c in py_consensus.get('disagree', []))
         py_all = py_agree_tids | py_disagree_tids
 
@@ -1749,6 +1786,20 @@ class TestD11ConsensusStatsDf:
         assert 2 not in df.index
         assert 3 in df.index
 
+    def test_mod_out_accepts_ndarray(self):
+        """Same `is not None` requirement as select_rep_comments_df: a len>1
+        numpy array as mod_out must filter, not raise 'truth value of an
+        array is ambiguous' (Copilot review 2026-07-04, verified)."""
+        votes = pd.DataFrame({
+            1: [AGREE, AGREE, AGREE],
+            2: [AGREE, AGREE, AGREE],
+            3: [AGREE, AGREE, AGREE],
+        })
+        df = consensus_stats_df(votes, mod_out=np.array([2, 3]))
+        assert 1 in df.index
+        assert 2 not in df.index
+        assert 3 not in df.index
+
     def test_ns_includes_pass_votes(self):
         """Clojure parity: ns counts all non-nil votes incl. PASS (repness.clj:56-61)."""
         votes = pd.DataFrame({
@@ -1780,7 +1831,7 @@ class TestD11SelectConsensusBoundary:
             (2, 8, 2, 10, 0.75, 0.25, 2.0, -2.0),  # agree
         ])
         result = select_consensus_comments_df(stats)
-        agree_tids = [e['comment_id'] for e in result['agree']]
+        agree_tids = [e['tid'] for e in result['agree']]
         assert 1 in agree_tids and 2 in agree_tids
         assert result['disagree'] == []
 
@@ -1791,7 +1842,7 @@ class TestD11SelectConsensusBoundary:
             (2, 2, 8, 10, 0.25, 0.75, -2.0, 2.0),
         ])
         result = select_consensus_comments_df(stats)
-        disagree_tids = [e['comment_id'] for e in result['disagree']]
+        disagree_tids = [e['tid'] for e in result['disagree']]
         assert 1 in disagree_tids and 2 in disagree_tids
         assert result['agree'] == []
 
@@ -1815,42 +1866,53 @@ class TestD11SelectConsensusBoundary:
         result = select_consensus_comments_df(stats)
         assert len(result['agree']) == 5
         # Highest am at front: pa*pat = 0.83 * 2.5 = 2.075
-        assert result['agree'][0]['comment_id'] == 1
+        assert result['agree'][0]['tid'] == 1
 
-    def test_entry_keys_python_convention(self):
-        """Per-entry keys: comment_id, n_success, n_trials, p_success, p_test.
-        Python underscore convention (decision S1), not Clojure hyphens."""
+    def test_entry_keys_match_clojure_blob(self):
+        """Per-entry keys: tid, n-success, n-trials, p-success, p-test —
+        EXACTLY the Clojure blob shape (repness.clj:181 + ::consensus spec).
+
+        Narrows the S1 deferral (2026-07-04): consensus entries are new in
+        D11 and flow raw into `result['consensus']` in to_dict /
+        to_dynamo_dict, where server-helpers.ts:298-313 and client-report's
+        majorityStrict.jsx:23-27 pluck `tid`. Python-convention keys would
+        break both consumers. Rep-comment entries keep `comment_id` until
+        the deferred math-blob alignment PR."""
         stats = self._stats([(1, 9, 1, 10, 0.83, 0.17, 2.5, -2.5)])
         result = select_consensus_comments_df(stats)
         entry = result['agree'][0]
-        assert set(entry.keys()) == {'comment_id', 'n_success', 'n_trials', 'p_success', 'p_test'}
-        assert entry['comment_id'] == 1
-        # For agree side, n_success = na, p_success = pa, p_test = pat
-        assert entry['n_success'] == 9
-        assert entry['n_trials'] == 10
-        assert abs(entry['p_success'] - 0.83) < 1e-10
-        assert abs(entry['p_test'] - 2.5) < 1e-10
+        assert set(entry.keys()) == {'tid', 'n-success', 'n-trials', 'p-success', 'p-test'}
+        assert entry['tid'] == 1
+        # For agree side, n-success = na, p-success = pa, p-test = pat
+        assert entry['n-success'] == 9
+        assert entry['n-trials'] == 10
+        assert abs(entry['p-success'] - 0.83) < 1e-10
+        assert abs(entry['p-test'] - 2.5) < 1e-10
 
     def test_disagree_entry_uses_d_keys(self):
-        """For disagree side, n_success = nd, p_success = pd, p_test = pdt."""
+        """For disagree side, n-success = nd, p-success = pd, p-test = pdt."""
         stats = self._stats([(1, 1, 9, 10, 0.17, 0.83, -2.5, 2.5)])
         result = select_consensus_comments_df(stats)
         entry = result['disagree'][0]
-        assert entry['n_success'] == 9   # = nd
-        assert abs(entry['p_success'] - 0.83) < 1e-10  # = pd
-        assert abs(entry['p_test'] - 2.5) < 1e-10  # = pdt
+        assert entry['n-success'] == 9   # = nd
+        assert abs(entry['p-success'] - 0.83) < 1e-10  # = pd
+        assert abs(entry['p-test'] - 2.5) < 1e-10  # = pdt
 
     def test_mutually_exclusive_lists(self):
-        """With PSEUDO_COUNT=2, pa + pd = 1 exactly (since na+nd=ns). So
-        pa > 0.5 ⟺ pd < 0.5 — the same tid cannot appear in both lists."""
-        # Build several rows. For each, na+nd MUST equal ns (consensus_stats_df invariant).
+        """With ns ≥ na+nd (ns includes PASS post-ns-PASS fix),
+        pa + pd = (na+nd+PSEUDO_COUNT)/(ns+PSEUDO_COUNT) ≤ 1, so pa and pd
+        cannot both exceed 0.5 — the same tid cannot appear in both lists.
+        (The equality pa+pd=1 only holds for PASS-free comments, as in this
+        fixture.)"""
+        # PASS-free rows: na+nd = ns here (but the invariant above holds
+        # generally, PASS or not).
         stats = self._stats([
             (1, 7, 3, 10, 0.67, 0.33, 1.5, -1.5),  # agree side
             (2, 3, 7, 10, 0.33, 0.67, -1.5, 1.5),  # disagree side
         ])
         result = select_consensus_comments_df(stats)
-        agree_tids = {e['comment_id'] for e in result['agree']}
-        disagree_tids = {e['comment_id'] for e in result['disagree']}
+        agree_tids = {e['tid'] for e in result['agree']}
+        disagree_tids = {e['tid'] for e in result['disagree']}
         assert agree_tids & disagree_tids == set(), \
             f"agree and disagree lists must be disjoint, got overlap {agree_tids & disagree_tids}"
 
@@ -1866,13 +1928,7 @@ class TestD12CommentPriorities:
          Clojure computes priorities based on PCA extremity and importance.
     """
 
-    @pytest.mark.xfail(reason="D12.6 incremental divergence: Clojure cold_start has the truthy-0 "
-                              "bug (all priorities = 49.0); Python mirrors that and matches on "
-                              "cold_start. But Clojure INCREMENTAL doesn't exhibit the bug (varied "
-                              "priorities), so Python's all-49 doesn't match incremental. Cold_start "
-                              "would pass if parametrize allowed per-variant xfail. Once the Clojure "
-                              "bug is fixed upstream, drop the Python mirror and this xfail.")
-    def test_comment_priorities_exist(self, conv, clojure_blob, dataset_name):
+    def test_comment_priorities_exist(self, request, conv, clojure_blob, dataset_name):
         """Python should produce comment-priorities matching Clojure.
 
         Per D12.6: Clojure's `(if 0 ...)` truthiness quirk means every tid
@@ -1884,6 +1940,19 @@ class TestD12CommentPriorities:
         meaningful when both sides have zero variance — we instead verify
         the constant-value parity directly.
         """
+        # Per-variant xfail (g5, 2026-07-04): only INCREMENTAL is known-bad —
+        # Clojure incremental doesn't exhibit the truthy-0 bug (varied
+        # priorities), so Python's all-49 mirror can't match it. Cold_start
+        # matches exactly and MUST keep gating; the previous blanket xfail
+        # masked cold_start regressions. Once the Clojure bug (#2571) is
+        # fixed upstream, drop the Python mirror and this xfail.
+        if 'incremental' in request.node.callspec.id:
+            request.applymarker(pytest.mark.xfail(
+                strict=False,
+                reason="D12.6: Clojure incremental has varied priorities "
+                       "(no truthy-0 bug there); Python's all-49 mirror "
+                       "cannot match. See issue #2571."))
+
         clj_priorities = clojure_blob.get('comment-priorities', {})
         check.greater(len(clj_priorities), 0,
                        f"Clojure has {len(clj_priorities)} comment priorities")
@@ -1930,6 +1999,50 @@ class TestD12CommentPriorities:
             (py_const,) = py_unique
             check.almost_equal(py_const, META_PRIORITY_SQ, abs=1e-9,
                                msg=f"Python constant priority should be META_PRIORITY**2={META_PRIORITY_SQ}")
+
+
+class TestD12PriorityExtremityAlignment:
+    """`_compute_comment_priorities` must fail closed on a PCA/columns desync.
+
+    `dict(zip(rating_mat.columns, extremity_arr))` silently truncates when
+    the PCA output was computed on a different column set than the current
+    rating_mat (e.g. moderation changed between recomputes). Silent
+    truncation assigns E=0 to the overflow tids — wrong priorities with no
+    signal. The guard logs an error and returns {} (server falls back to
+    uniform routing — degraded but honest). (Copilot review 2026-07-04, g4.)
+    """
+
+    def _conv_with_desync(self):
+        conv = Conversation(conversation_id='ztest-desync')
+        # 3 comments in the rating matrix...
+        conv.rating_mat = pd.DataFrame(
+            [[1.0, -1.0, 0.0], [1.0, 1.0, -1.0]],
+            index=[0, 1], columns=[10, 11, 12],
+        )
+        conv.raw_rating_mat = conv.rating_mat.copy()
+        # ...but PCA computed on only 2 (stale center/comps).
+        conv.pca = {
+            'center': np.array([0.5, -0.5]),
+            'comps': np.array([[0.7, 0.7], [0.7, -0.7]]),
+        }
+        conv.group_clusters = []
+        conv.meta_tids = set()
+        return conv
+
+    def test_desync_returns_empty_and_logs(self, caplog):
+        conv = self._conv_with_desync()
+        import logging
+        with caplog.at_level(logging.ERROR):
+            result = conv._compute_comment_priorities()
+        assert result == {}, (
+            f"desynced PCA/columns must fail closed (empty priorities), "
+            f"got {result!r} — silent zip truncation assigns E=0 to "
+            f"overflow tids"
+        )
+        assert any('extremity' in r.message.lower() or
+                   'priorit' in r.message.lower()
+                   for r in caplog.records), \
+            "expected an ERROR log naming the priorities/extremity desync"
 
 
 class TestD12PCAProjectComments:
@@ -2658,8 +2771,10 @@ class TestD11D12Serialization:
             ],
             'disagree': [],
         }
-        # Priorities use comment-id keys; the serializer coerces to int when
-        # possible and emits int values (see lines 2447-2456 of conversation.py).
+        # Priorities use comment-id keys; the serializer coerces KEYS to int
+        # when possible and preserves VALUES as Decimal (2026-07-04 fix —
+        # the old int(value) coercion floored sub-1 priorities to 0, which
+        # the TS server's weighted routing reads as "no priority data").
         priorities = {7: 1.5, 9: 0.25}
         conv = self._make_conversation_with_repness(consensus, priorities)
 
@@ -2672,7 +2787,9 @@ class TestD11D12Serialization:
             "to_dynamo_dict() must emit 'comment_priorities' when "
             "self.comment_priorities is populated; keys = "
             + repr(sorted(result.keys())))
-        # to_dynamo_dict coerces values to int via int(priority), so 1.5 -> 1
-        # and 0.25 -> 0. We assert the post-coercion shape rather than the
-        # raw input to lock in what actually lands in DynamoDB.
-        assert result['comment_priorities'] == {7: 1, 9: 0}
+        # Values land as Decimal (boto3-safe) with full precision — assert
+        # the post-serialization shape to lock in what actually lands in
+        # DynamoDB.
+        from decimal import Decimal
+        assert result['comment_priorities'] == {
+            7: Decimal('1.5'), 9: Decimal('0.25')}

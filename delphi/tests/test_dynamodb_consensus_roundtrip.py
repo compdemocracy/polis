@@ -23,20 +23,23 @@ from polismath.database.dynamodb import DynamoDBClient
 # Helpers
 # ---------------------------------------------------------------------------
 
+# Entries use the Clojure blob shape (tid + hyphenated stats keys) — the
+# shape `select_consensus_comments_df` emits since 2026-07-04 (narrowed S1
+# deferral; server-helpers.ts and majorityStrict.jsx pluck `tid`).
 _AGREE_ENTRY = {
-    'comment_id': 1,
-    'n_success': 3,
-    'n_trials': 5,
-    'p_success': 0.6,
-    'p_test': 1.5,
+    'tid': 1,
+    'n-success': 3,
+    'n-trials': 5,
+    'p-success': 0.6,
+    'p-test': 1.5,
 }
 
 _DISAGREE_ENTRY = {
-    'comment_id': 2,
-    'n_success': 4,
-    'n_trials': 5,
-    'p_success': 0.8,
-    'p_test': 2.0,
+    'tid': 2,
+    'n-success': 4,
+    'n-trials': 5,
+    'p-success': 0.8,
+    'p-test': 2.0,
 }
 
 
@@ -102,15 +105,21 @@ class TestSite1DynamoDataBranch:
         # Stub the conversation so the writer takes the `dynamo_data` branch.
         conv = MagicMock(name='Conversation')
         conv.conversation_id = 42
+        # REAL `to_dynamo_dict()` shape (verified 2026-07-04): consensus is
+        # TOP-LEVEL `result['consensus']`; `repness` carries only
+        # `comment_repness`. The previous stub nested `consensus_comments`
+        # inside `repness` — matching the writer's (buggy) read path instead
+        # of the producer, so the test passed while production silently
+        # wrote the empty default.
         conv.to_dynamo_dict.return_value = {
             'participant_count': 10,
             'comment_count': 3,
             'group_count': 0,
             'pca': {},
             'math_tick': 30000,
+            'consensus': _make_consensus_dict(),
             'repness': {
                 'comment_repness': [],
-                'consensus_comments': _make_consensus_dict(),
             },
         }
 
@@ -129,8 +138,9 @@ class TestSite1DynamoDataBranch:
         assert written['agree'] == [_AGREE_ENTRY]
         assert written['disagree'] == [_DISAGREE_ENTRY]
 
-    def test_missing_repness_uses_dict_default(self):
-        """No repness in dynamo_data → empty dict, not list, not crash."""
+    def test_missing_consensus_uses_dict_default(self):
+        """No top-level consensus in dynamo_data → empty dict, not list,
+        not crash."""
         client, pca_results_table = _client_with_pca_results_only()
 
         conv = MagicMock(name='Conversation')
@@ -141,7 +151,7 @@ class TestSite1DynamoDataBranch:
             'group_count': 0,
             'pca': {},
             'math_tick': 30000,
-            # repness intentionally absent
+            # 'consensus' intentionally absent
         }
 
         ok = client.write_conversation(conv)
@@ -176,9 +186,9 @@ class TestSite2LegacyBranch:
         assert set(written.keys()) >= {'agree', 'disagree'}
         # _replace_floats_with_decimals converts floats to Decimal but
         # preserves the list structure and integer fields. Confirm the
-        # comment_ids round-trip cleanly.
-        assert [c['comment_id'] for c in written['agree']] == [1]
-        assert [c['comment_id'] for c in written['disagree']] == [2]
+        # tids round-trip cleanly.
+        assert [c['tid'] for c in written['agree']] == [1]
+        assert [c['tid'] for c in written['disagree']] == [2]
 
     def test_missing_repness_uses_dict_default(self):
         client, pca_results_table = _client_with_pca_results_only()
@@ -246,6 +256,32 @@ class TestSite3ReaderDefault:
         result = client.read_math_by_tick('42', 30000)
         assert result['consensus'] == stored
 
+    def test_legacy_list_consensus_normalized_to_dict(self):
+        """Pre-D11 blobs stored consensus as a (hardcoded-empty) LIST.
+        The reader must normalize it to the dict shape so downstream
+        consumers never see a list (Copilot review 2026-07-04, g3)."""
+        client = DynamoDBClient()
+        analysis_table = MagicMock(name='Delphi_PCAResults')
+        analysis_table.get_item.return_value = {
+            'Item': {
+                'participant_count': 10,
+                'comment_count': 3,
+                'pca': {'center': [], 'components': []},
+                'consensus_comments': [],  # legacy list shape
+            }
+        }
+        client.tables = {
+            'Delphi_PCAResults': analysis_table,
+            'Delphi_KMeansClusters': None,
+            'Delphi_CommentRouting': None,
+            'Delphi_RepresentativeComments': None,
+            'Delphi_ParticipantProjections': None,
+        }
+
+        result = client.read_math_by_tick('42', 30000)
+        assert result['consensus'] == {'agree': [], 'disagree': []}, \
+            f"legacy list must normalize to dict, got {result['consensus']!r}"
+
 
 # ---------------------------------------------------------------------------
 # Round-trip — write then read on the same in-memory store
@@ -257,7 +293,8 @@ class TestRoundTrip:
     def test_write_then_read_preserves_both_lists(self):
         client, pca_results_table = _client_with_pca_results_only()
 
-        # Record what the writer puts.
+        # Record what the writer puts (REAL to_dynamo_dict shape: top-level
+        # consensus, repness with only comment_repness — verified 2026-07-04).
         conv = MagicMock(name='Conversation')
         conv.conversation_id = 42
         conv.to_dynamo_dict.return_value = {
@@ -266,9 +303,9 @@ class TestRoundTrip:
             'group_count': 0,
             'pca': {},
             'math_tick': 30000,
+            'consensus': _make_consensus_dict(),
             'repness': {
                 'comment_repness': [],
-                'consensus_comments': _make_consensus_dict(),
             },
         }
         client.write_conversation(conv)
@@ -280,5 +317,5 @@ class TestRoundTrip:
         result = client.read_math_by_tick('42', 30000)
         consensus = result['consensus']
         assert isinstance(consensus, dict)
-        assert [c['comment_id'] for c in consensus['agree']] == [1]
-        assert [c['comment_id'] for c in consensus['disagree']] == [2]
+        assert [c['tid'] for c in consensus['agree']] == [1]
+        assert [c['tid'] for c in consensus['disagree']] == [2]

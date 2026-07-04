@@ -1132,6 +1132,22 @@ class Conversation:
         cmnt_proj = pca_project_cmnts(center, comps)
         extremity_arr = compute_comment_extremity(cmnt_proj)
 
+        # Fail closed on desync: if the PCA vectors were computed on a
+        # different column set than the current rating_mat (e.g. moderation
+        # changed between recomputes), zip() would silently truncate and
+        # assign E=0 to the overflow tids — wrong priorities with no
+        # signal. Empty priorities degrade the TS server to uniform
+        # routing, which is honest; silently wrong extremities are not.
+        # (Copilot review 2026-07-04, g4.)
+        n_cols = len(self.rating_mat.columns)
+        if len(extremity_arr) != n_cols:
+            logger.error(
+                f"comment_priorities: extremity length {len(extremity_arr)} "
+                f"!= rating_mat column count {n_cols} (stale PCA?); "
+                f"skipping priorities for this tick")
+            self.comment_priorities = {}
+            return self.comment_priorities
+
         # Column order of `center`/`comps`/`extremity_arr` matches
         # `self.rating_mat.columns` (PCA is computed on rating_mat).
         tid_extremity = dict(zip(self.rating_mat.columns, extremity_arr))
@@ -1139,6 +1155,11 @@ class Conversation:
         # Per-group A/D/S aggregation. `_compute_group_votes` returns
         # {str(gid): {'n-members': N, 'votes': {tid: {A, D, S}}}}. S includes
         # PASS (line ~1222: `np.sum(~np.isnan(votes))`), matching Clojure.
+        # PERF (deferred, Copilot on PR #2568): this is an O(groups ×
+        # comments × members) scan on every recompute; vectorize or reuse
+        # the repness-stage aggregation — tracked in the follow-up issue
+        # "delphi: _compute_comment_priorities recomputes group votes on
+        # every tick".
         group_votes = self._compute_group_votes()
 
         priorities: Dict[Any, float] = {}
@@ -2454,10 +2475,18 @@ class Conversation:
             logger.info(f"[{time.time() - start_time:.2f}s] Processing comment priorities...")
             priorities = {}
             for cid, priority in self.comment_priorities.items():
+                # Preserve the float VALUE as Decimal (boto3 rejects raw
+                # floats). The previous int() truncation was harmless while
+                # the D12.6 bug-mirror pins every priority to 49.0, but the
+                # real formula (restored when issue #2571 resolves) spans
+                # ~0.18–31.46 on real data: int() floors sub-1 priorities
+                # to 0, which the TS server's weighted routing treats as
+                # "no priority data" — those comments would never be routed.
+                value = float_to_decimal(float(priority))
                 try:
-                    priorities[int(cid)] = int(priority)
+                    priorities[int(cid)] = value
                 except (ValueError, TypeError):
-                    priorities[cid] = int(priority)
+                    priorities[cid] = value
             result['comment_priorities'] = priorities
         
         # Process repness data efficiently

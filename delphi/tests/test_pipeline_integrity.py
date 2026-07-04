@@ -201,9 +201,9 @@ def test_full_pipeline(dataset_name: str) -> None:
             consensus = updated_conv.repness.get('consensus_comments', {})
             for side in ('agree', 'disagree'):
                 for i, comment in enumerate(consensus.get(side, [])):
-                    print(f"    - {side} #{i+1}: ID {comment.get('comment_id')}, "
-                          f"p_success={comment.get('p_success', 0):.2f}, "
-                          f"p_test={comment.get('p_test', 0):.2f}")
+                    print(f"    - {side} #{i+1}: ID {comment.get('tid')}, "
+                          f"p-success={comment.get('p-success', 0):.2f}, "
+                          f"p-test={comment.get('p-test', 0):.2f}")
         else:
             print("  No representativeness results available")
         

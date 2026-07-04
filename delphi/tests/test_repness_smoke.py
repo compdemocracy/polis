@@ -108,8 +108,12 @@ class TestRepnessImplementation:
             disagree = consensus.get('disagree', [])
             logger.debug(f"Consensus: {len(agree)} agree, {len(disagree)} disagree")
 
+            # Consensus entries use the Clojure blob shape (2026-07-04,
+            # narrowed S1 deferral): tid + hyphenated stats keys. Rep-comment
+            # entries above keep `comment_id` until the math-blob alignment PR.
             for entry in agree + disagree:
-                assert 'comment_id' in entry
+                assert set(entry.keys()) == {
+                    'tid', 'n-success', 'n-trials', 'p-success', 'p-test'}
 
         logger.debug("✓ Representativeness structure validated")
 
