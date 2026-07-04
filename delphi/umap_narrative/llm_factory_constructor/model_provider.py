@@ -391,9 +391,8 @@ class AnthropicProvider(ModelProvider):
         """
         # Anthropic doesn't have a list models endpoint, so we hardcode the known models
         available_models = [
-            "claude-3-5-sonnet-20241022",
-            "claude-3-7-sonnet-20250219",
-            "claude-opus-4-20250514"
+            "claude-opus-4-8",
+            "claude-sonnet-5",
         ]
         logger.info(f"Available Anthropic models: {available_models}")
         return available_models

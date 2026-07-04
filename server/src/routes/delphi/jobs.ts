@@ -55,7 +55,7 @@ export async function handle_POST_delphi_jobs(
       priority = 50,
       max_votes,
       batch_size,
-      model = "claude-3-7-sonnet-20250219",
+      model = "claude-sonnet-5",
       include_topics = true,
       include_moderation = false, // ignore comments that recieve a failing moderation score
     } = req.body;
