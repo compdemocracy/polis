@@ -135,7 +135,8 @@ class BatchStatusChecker:
                     custom_id = entry.custom_id
                     response_message = entry.result.message
                     model = response_message.model
-                    content = response_message.content[0].text if response_message.content else "{}"
+                    text_block = next((b for b in response_message.content if b.type == "text"), None)
+                    content = text_block.text if text_block else "{}"
 
                     # Reconstruct the section name from the custom_id
                     parts = custom_id.split('_', 1)
