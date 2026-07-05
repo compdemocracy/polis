@@ -140,12 +140,16 @@ ${JSON.stringify(formattedComments, null, 2)}
 </condensedJSONSchema>
 </responseFormat>
 
-You MUST respond with valid JSON that follows the exact schema above. Each clause must have at least one citation.`;
+You MUST respond with valid JSON that follows the exact schema above. Each clause must have at least one citation. The full JSON object, including closing brackets, must fit within the available output length — prioritize finishing the JSON structure over exhaustive detail.`;
 
   try {
     const response = await anthropic.messages.create({
       model: "claude-opus-4-8",
-      max_tokens: 3000,
+      // max_tokens is a hard cap on thinking + response text combined
+      // (adaptive thinking is on by default on Opus 4.8+), so this needs
+      // real headroom beyond the visible JSON text length.
+      max_tokens: 8000,
+      output_config: { effort: "medium" },
       system: systemPrompt,
       messages: [
         {
@@ -154,6 +158,12 @@ You MUST respond with valid JSON that follows the exact schema above. Each claus
         },
       ],
     });
+
+    if (response.stop_reason === "max_tokens") {
+      logger.warn(
+        "Anthropic collective statement response was truncated by max_tokens; output may be incomplete/invalid JSON."
+      );
+    }
 
     // Parse the JSON response — find text block (adaptive thinking may add thinking blocks)
     const textBlock = response.content.find((b) => b.type === "text");

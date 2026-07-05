@@ -53,10 +53,6 @@ export async function handle_POST_delphi_jobs(
       conversation_id,
       job_type = "FULL_PIPELINE",
       priority = 50,
-      max_votes,
-      batch_size,
-      model = "claude-sonnet-5",
-      include_topics = true,
       include_moderation = false, // ignore comments that recieve a failing moderation score
     } = req.body;
 
@@ -90,47 +86,16 @@ export async function handle_POST_delphi_jobs(
     // Current timestamp in ISO format
     const now = new Date().toISOString();
 
-    // Build job configuration based on the Python CLI implementation
-    const jobConfig: any = {};
-
-    if (job_type === "FULL_PIPELINE") {
-      // Full pipeline configs
-      const stages = [];
-
-      // PCA stage
-      const pcaConfig: any = {};
-      if (max_votes) {
-        pcaConfig.max_votes = parseInt(max_votes, 10);
-      }
-      if (batch_size) {
-        pcaConfig.batch_size = parseInt(batch_size, 10);
-      }
-      stages.push({ stage: "PCA", config: pcaConfig });
-
-      // UMAP stage
-      stages.push({
-        stage: "UMAP",
-        config: {
-          n_neighbors: 15,
-          min_dist: 0.1,
-        },
-      });
-
-      // Report stage
-      stages.push({
-        stage: "REPORT",
-        config: {
-          model: model,
-          include_topics: include_topics,
-        },
-      });
-
-      // Add stages and visualizations to job config
-      jobConfig.stages = stages;
-      jobConfig.visualizations = ["basic", "enhanced", "multilayer"];
-    }
-
-    jobConfig.include_moderation = include_moderation;
+    // Build job configuration.
+    // Note: FULL_PIPELINE jobs are run by run_delphi.py, which does not read
+    // job_config at all beyond include_moderation below (confirmed by tracing
+    // job_poller.py's FULL_PIPELINE branch and run_delphi.py/run_pipeline.py) —
+    // model, stage-specific config, and visualizations are not configurable
+    // per-job here. The Anthropic model used for narrative generation is
+    // controlled exclusively by the ANTHROPIC_MODEL environment variable.
+    const jobConfig: any = {
+      include_moderation,
+    };
     // Create job item with version number for optimistic locking
     const jobItem = {
       job_id: job_id, // Primary key

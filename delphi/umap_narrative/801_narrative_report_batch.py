@@ -1087,15 +1087,21 @@ class BatchReportGenerator:
                     - Do not provide explanations, only the JSON
                     - Use the exact structure shown above with "id", "title", "paragraphs", etc.
                     - Include relevant citations to comment IDs in the data
+                    - Keep prose concise (2-4 paragraphs). The full JSON object, including
+                      closing brackets, must fit within the available output length —
+                      prioritize finishing the JSON structure over exhaustive detail
                 """
                 
                 # Add to batch requests
+                # max_tokens is a hard cap on thinking + response text combined
+                # (adaptive thinking is on by default on Sonnet 5 / Opus 4.8+),
+                # so this needs real headroom beyond the visible JSON text length.
                 batch_request = {
                     "system": system_lore,
                     "messages": [
                         {"role": "user", "content": model_prompt}
                     ],
-                    "max_tokens": 4000,
+                    "max_tokens": 8000,
                     "metadata": {
                         "topic_name": topic_name,
                         "topic_key": topic_key,
@@ -1310,7 +1316,8 @@ class BatchReportGenerator:
                         "custom_id": safe_custom_id,
                         "params": {
                             "model": self.model,
-                            "max_tokens": request.get('max_tokens', 4000),
+                            "max_tokens": request.get('max_tokens', 8000),
+                            "output_config": {"effort": "medium"},
                             "system": system_content,
                             "messages": [user_message]
                         }

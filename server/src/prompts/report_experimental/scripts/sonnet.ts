@@ -136,7 +136,10 @@ async function main() {
   logger.debug(prompt_xml);
   const msg = await anthropic.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 1000,
+    // max_tokens is a hard cap on thinking + response text combined
+    // (adaptive thinking is on by default on Sonnet 5).
+    max_tokens: 8000,
+    output_config: { effort: "medium" },
     system: system_lore,
     messages: [
       {
