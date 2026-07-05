@@ -34,10 +34,6 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
   const jobFormData = {
     job_type: "FULL_PIPELINE",
     priority: 50,
-    max_votes: "",
-    batch_size: "",
-    model: "claude-opus-4-8",
-    include_topics: true,
     include_moderation: reportModLevel !== -2,
   };
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -283,7 +279,6 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
     net
       .polisPost("/api/v3/delphi/batchReports", {
         report_id: report_id,
-        model: "claude-opus-4-8",
         no_cache: false,
         include_moderation: reportModLevel !== -2,
       }, authToken)
