@@ -240,7 +240,11 @@ class AnthropicProvider(ModelProvider):
                 "messages": [
                     {"role": "user", "content": user_message}
                 ],
-                "max_tokens": 4000
+                # max_tokens is a hard cap on thinking + response text combined
+                # (adaptive thinking is on by default on Sonnet 5 / Opus 4.8+),
+                # so this needs real headroom beyond the visible text length.
+                "max_tokens": 8000,
+                "output_config": {"effort": "medium"}
             }
             response = requests.post(
                 "https://api.anthropic.com/v1/messages",
@@ -248,7 +252,13 @@ class AnthropicProvider(ModelProvider):
                 json=data
             )
             response.raise_for_status()
-            content = response.json()["content"]
+            response_json = response.json()
+            if response_json.get("stop_reason") == "max_tokens":
+                logger.warning(
+                    f"Anthropic response for model {self.model_name} was truncated by max_tokens; "
+                    "output may be incomplete/invalid JSON."
+                )
+            content = response_json["content"]
             text_blocks = [b for b in content if b.get("type") == "text"]
             result = text_blocks[0]["text"] if text_blocks else ""
 
@@ -313,7 +323,8 @@ class AnthropicProvider(ModelProvider):
                     "model": self.model_name,
                     "system": request.get("system", ""),
                     "messages": request.get("messages", []),
-                    "max_tokens": request.get("max_tokens", 4000)
+                    "max_tokens": request.get("max_tokens", 8000),
+                    "output_config": {"effort": "medium"}
                 }
                 
                 # Add request ID (for correlation on response)
@@ -383,7 +394,7 @@ class AnthropicProvider(ModelProvider):
         logger.info(f"Available Anthropic models: {available_models}")
         return available_models
 
-    async def get_completion(self, system: str, prompt: str, max_tokens: int = 4000) -> Dict[str, Any]:
+    async def get_completion(self, system: str, prompt: str, max_tokens: int = 8000) -> Dict[str, Any]:
         """
         Get a completion from the Anthropic API with the new completion format.
         This method is specifically for the batch report generator.
@@ -435,7 +446,10 @@ class AnthropicProvider(ModelProvider):
                 "messages": [
                     {"role": "user", "content": prompt}
                 ],
-                "max_tokens": max_tokens
+                # max_tokens is a hard cap on thinking + response text combined
+                # (adaptive thinking is on by default on Sonnet 5 / Opus 4.8+).
+                "max_tokens": max_tokens,
+                "output_config": {"effort": "medium"}
             }
 
             response = requests.post(
@@ -449,6 +463,11 @@ class AnthropicProvider(ModelProvider):
 
             # Parse response — filter by type to skip thinking blocks (Sonnet 5+)
             response_data = response.json()
+            if response_data.get("stop_reason") == "max_tokens":
+                logger.warning(
+                    f"Anthropic response for model {self.model_name} was truncated by max_tokens "
+                    f"(max_tokens={max_tokens}); output may be incomplete/invalid JSON."
+                )
             content = response_data["content"]
             text_blocks = [b for b in content if b.get("type") == "text"]
             result = text_blocks[0]["text"] if text_blocks else ""

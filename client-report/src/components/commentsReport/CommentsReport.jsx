@@ -781,10 +781,13 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
                 <p>Not enough data has been provided for analysis, please check back later</p>
               );
 
+            // Only bail out early on data that isn't JSON-ish at all. Don't require a
+            // trailing "}" here — responses truncated by max_tokens (e.g. from adaptive
+            // thinking eating into the token budget) are missing their closing brackets,
+            // and jsonrepair below can usually recover a valid partial object from those.
             if (
               typeof report.report_data !== "string" ||
-              !report.report_data.trim().startsWith("{") ||
-              !report.report_data.trim().endsWith("}")
+              !report.report_data.trim().startsWith("{")
             ) {
               return (
                 <article style={{ maxWidth: "600px" }}>

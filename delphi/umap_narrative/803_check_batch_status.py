@@ -135,6 +135,11 @@ class BatchStatusChecker:
                     custom_id = entry.custom_id
                     response_message = entry.result.message
                     model = response_message.model
+                    if response_message.stop_reason == "max_tokens":
+                        logger.warning(
+                            f"Job {job_id}: response for {custom_id} was truncated by max_tokens; "
+                            "output may be incomplete/invalid JSON."
+                        )
                     text_block = next((b for b in response_message.content if b.type == "text"), None)
                     content = text_block.text if text_block else "{}"
 
