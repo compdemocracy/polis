@@ -15,6 +15,9 @@ from typing import Dict, Optional
 from datetime import datetime, timedelta, timezone
 from botocore.exceptions import ClientError
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from umap_narrative.llm_factory_constructor.model_provider import _narrative_error_json
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -140,8 +143,26 @@ class BatchStatusChecker:
                             f"Job {job_id}: response for {custom_id} was truncated by max_tokens; "
                             "output may be incomplete/invalid JSON."
                         )
-                    text_block = next((b for b in response_message.content if b.type == "text"), None)
-                    content = text_block.text if text_block else "{}"
+
+                    if response_message.stop_reason == "refusal":
+                        # Batch API refusals still report result.type == "succeeded" — stop_details
+                        # may be null on batch results, so branch on stop_reason alone.
+                        # Server-side fallback isn't available on the Batch API, so this can't be
+                        # auto-recovered here; it needs a separate non-batch retry (which does
+                        # support fallback for claude-fable-5).
+                        logger.warning(
+                            f"Job {job_id}: model {model} declined request for {custom_id} "
+                            "(stop_reason=refusal)."
+                        )
+                        content = _narrative_error_json(
+                            "Model Declined Request",
+                            "This section could not be generated because the request was declined "
+                            "by the model's safety classifier. Try regenerating, or switch to a "
+                            "different model."
+                        )
+                    else:
+                        text_block = next((b for b in response_message.content if b.type == "text"), None)
+                        content = text_block.text if text_block else "{}"
 
                     # Reconstruct the section name from the custom_id
                     parts = custom_id.split('_', 1)
