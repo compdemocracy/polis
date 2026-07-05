@@ -2460,7 +2460,11 @@ class Conversation:
         # this block was hardcoded empty, so the DynamoDB blob never carried the
         # D11 dict even when repness produced one. Falls back to the empty shape
         # when repness is missing or didn't produce consensus_comments.
-        result['consensus'] = (
+        # float_to_decimal is REQUIRED: entries carry float p-success/p-test and
+        # writer Site 1 puts this dict straight into the Delphi_PCAResults Item —
+        # boto3 rejects raw floats (caught by CI's e2e run, 2026-07-05; the
+        # legacy writer branch converts, the pre-formatted branch did not).
+        result['consensus'] = float_to_decimal(
             self.repness.get('consensus_comments', {'agree': [], 'disagree': []})
             if self.repness else {'agree': [], 'disagree': []}
         )

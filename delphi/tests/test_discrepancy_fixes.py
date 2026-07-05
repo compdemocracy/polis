@@ -2780,9 +2780,16 @@ class TestD11D12Serialization:
 
         result = conv.to_dynamo_dict()
 
-        assert result['consensus'] == consensus, (
-            "to_dynamo_dict() must plumb self.repness['consensus_comments'] "
-            "into result['consensus']; got " + repr(result['consensus']))
+        # Values land Decimal-converted (boto3 boundary — the raw-float write
+        # crashed CI's e2e run 2026-07-05); compare structure and numeric
+        # values, not float identity.
+        got = result['consensus']
+        assert set(got.keys()) == {'agree', 'disagree'}
+        assert got['disagree'] == []
+        assert len(got['agree']) == 1
+        for k, v in consensus['agree'][0].items():
+            assert float(got['agree'][0][k]) == pytest.approx(float(v)), (
+                f"consensus entry key {k}: {got['agree'][0][k]!r} != {v!r}")
         assert 'comment_priorities' in result, (
             "to_dynamo_dict() must emit 'comment_priorities' when "
             "self.comment_priorities is populated; keys = "

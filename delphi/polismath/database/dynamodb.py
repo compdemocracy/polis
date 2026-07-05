@@ -311,6 +311,12 @@ class DynamoDBClient:
                     consensus_comments = dynamo_data.get(
                         'consensus', {'agree': [], 'disagree': []}
                     )
+                    # Belt-and-braces: to_dynamo_dict already emits Decimals,
+                    # but this Item write is the boto3 boundary — convert
+                    # defensively like the legacy branch below does
+                    # (idempotent on already-converted data).
+                    consensus_comments = self._replace_floats_with_decimals(
+                        self._numpy_to_list(consensus_comments))
                     analysis_table.put_item(Item={
                         'zid': zid,
                         'math_tick': math_tick,

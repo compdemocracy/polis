@@ -204,3 +204,64 @@ class TestToDynamoDictPrioritiesSerialization:
             # value raw into `'priority': priorities.get(comment_id, 0)` —
             # it must already be a DynamoDB scalar at this point.
 
+# ---------------------------------------------------------------------------
+# Layer 2c — consensus entries: serializable through writer Site 1
+# ---------------------------------------------------------------------------
+
+class TestToDynamoDictConsensusSerialization:
+    """Consensus entries flowing through writer Site 1 must be boto3-safe.
+
+    Caught by CI's test_math_pipeline_runs_e2e (2026-07-05): once the writer
+    read top-level `consensus` (the key to_dynamo_dict actually emits), REAL
+    D11 data flowed for the first time — carrying float p-success/p-test —
+    and boto3 rejected the Delphi_PCAResults put_item ("Float types are not
+    supported"). Only the LEGACY writer branch Decimal-converted; the
+    pre-formatted branch wrote `dynamo_data['consensus']` raw. Locally
+    invisible: the e2e test needs DynamoDB (skip list) and the round-trip
+    tests use MagicMock (no TypeSerializer) — hence this real-serializer pin.
+    """
+
+    _CONSENSUS = {
+        'agree': [
+            {'tid': 1, 'n-success': 3, 'n-trials': 5,
+             'p-success': 0.6, 'p-test': 1.5},
+        ],
+        'disagree': [
+            {'tid': 2, 'n-success': 4, 'n-trials': 5,
+             'p-success': 0.8, 'p-test': 2.0},
+        ],
+    }
+
+    def _conversation_with_consensus(self):
+        conv = Conversation(conversation_id='ztest-consensus-decimal')
+        conv.repness = conv_repness(_vote_matrix(), _groups())
+        # Inject non-empty consensus (the tiny fixture matrix does not clear
+        # the pa>0.5 & z-sig-90 filters on its own — avoid a vacuous test).
+        conv.repness['consensus_comments'] = {
+            side: [dict(e) for e in entries]
+            for side, entries in self._CONSENSUS.items()
+        }
+        conv.comment_priorities = {}
+        return conv
+
+    def test_consensus_serializes_for_dynamodb(self):
+        conv = self._conversation_with_consensus()
+        dynamo_data = conv.to_dynamo_dict()
+
+        consensus = dynamo_data['consensus']
+        assert consensus['agree'] and consensus['disagree'], \
+            "expected non-empty consensus (vacuous test otherwise)"
+
+        # Exactly what writer Site 1 puts into the Delphi_PCAResults Item.
+        _assert_dynamodb_serializable(
+            consensus, context="Delphi_PCAResults consensus_comments")
+
+    def test_consensus_values_preserved(self):
+        conv = self._conversation_with_consensus()
+        consensus = conv.to_dynamo_dict()['consensus']
+
+        entry = consensus['agree'][0]
+        assert entry['tid'] == 1
+        assert float(entry['p-success']) == pytest.approx(0.6, abs=1e-9)
+        assert float(entry['p-test']) == pytest.approx(1.5, abs=1e-9)
+

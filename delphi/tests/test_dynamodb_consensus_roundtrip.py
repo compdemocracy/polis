@@ -135,8 +135,18 @@ class TestSite1DynamoDataBranch:
             f"Expected dict shape, got {type(written).__name__}: {written!r}"
         assert 'agree' in written, f"Missing 'agree' key: {written!r}"
         assert 'disagree' in written, f"Missing 'disagree' key: {written!r}"
-        assert written['agree'] == [_AGREE_ENTRY]
-        assert written['disagree'] == [_DISAGREE_ENTRY]
+        # The writer Decimal-converts at the boto3 boundary (belt-and-braces
+        # with to_dynamo_dict's own conversion — the raw-float write crashed
+        # CI's e2e run 2026-07-05). Compare keys and numeric values, not types.
+        for side, expected_entries in (('agree', [_AGREE_ENTRY]),
+                                       ('disagree', [_DISAGREE_ENTRY])):
+            got_entries = written[side]
+            assert len(got_entries) == len(expected_entries)
+            for got, expected in zip(got_entries, expected_entries):
+                assert set(got.keys()) == set(expected.keys())
+                for k, v in expected.items():
+                    assert float(got[k]) == pytest.approx(float(v)), \
+                        f"{side} entry key {k}: {got[k]!r} != {v!r}"
 
     def test_missing_consensus_uses_dict_default(self):
         """No top-level consensus in dynamo_data → empty dict, not list,
