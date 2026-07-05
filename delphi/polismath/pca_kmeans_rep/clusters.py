@@ -8,7 +8,6 @@ like weighted clustering, silhouette coefficient, and cluster stability mechanis
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Tuple, Union, Any
-import random
 from copy import deepcopy
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
@@ -762,9 +761,6 @@ def cluster_dataframe(df: pd.DataFrame,
         row_to_idx = {name: i for i, name in enumerate(df.index)}
         last_clusters_internal = clusters_from_dict(last_clusters, row_to_idx)
 
-    # Use fixed random seed for initialization to be more consistent
-    np.random.seed(42)
-
     # Perform clustering
     clusters_result = kmeans(
         matrix_data,
@@ -774,10 +770,15 @@ def cluster_dataframe(df: pd.DataFrame,
         weights_array
     )
 
-    # Sort clusters by size (descending) to match Clojure behavior
+    # NOTE: this size-descending sort + id reassignment does NOT match
+    # Clojure (the old comment here claimed it did). Clojure keeps
+    # first-k-distinct encounter-order ids and only ever sorts by :id —
+    # see the 2026-07-05 gid label-swap fix in conversation.py, which
+    # removed the same pattern from the LIVE path. This function is not
+    # on the production path (kmeans_sklearn is; sole caller is
+    # tests/test_clusters.py, whose expectations pin this ordering), so
+    # the behavior is kept as-is here rather than silently changed.
     clusters_result.sort(key=lambda x: len(x.members), reverse=True)
-
-    # Reassign IDs based on sorted order to match Clojure behavior
     for i, cluster in enumerate(clusters_result):
         cluster.id = i
 

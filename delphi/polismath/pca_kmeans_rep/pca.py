@@ -81,7 +81,22 @@ def pca_project_dataframe(df: pd.DataFrame,
     
     # TODO(julien): try removing random_state to see if results are deterministic without it
     # (sklearn's full SVD solver is deterministic; randomized solver needs a seed).
-    
+    #
+    # Seeding history: the Clojure implementation never fixes a seed anywhere.
+    # Its k-means is deterministic by construction (first-k-distinct init) and
+    # its PCA power iteration draws an UNSEEDED random start vector on cold
+    # start only (warm-started from the previous tick's eigenvectors after
+    # that). The original Clojure author's note on this exact problem, verbatim
+    # (math/src/polismath/math/pca.clj:80-81):
+    #
+    #   ;; Should really throw a parallelizable random number generator in the equation here...
+    #   ;; With seeds fed in and persisted... XXX
+    #
+    # Verified 2026-07-05: the Python batch pipeline is bit-for-bit
+    # deterministic across 5 consecutive runs on vw + biodiversity (only
+    # math_tick, a wall-clock version counter, varies) — see
+    # scratch/determinism_check.py and the 2026-07-04/05 journal entry.
+
     # Perform PCA with error handling
     # TODO(julien): use function that compute projections and PCAs in one pass.
     try:
