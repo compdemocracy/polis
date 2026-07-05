@@ -312,19 +312,22 @@ class TestClojureRegression:
         clojure_output = conversation_data['clojure_output']
         dataset_name = conversation_data['dataset_name']
 
-        # Per-variant xfail (g5, 2026-07-04): only INCREMENTAL is known-bad —
-        # Python's Clojure-bug-mirror (all priorities = META_PRIORITY^2 = 49)
-        # matches Clojure cold_start exactly, but Clojure incremental has
-        # varied priorities. cold_start MUST keep gating; the previous
-        # blanket xfail(strict=False) silently allowed cold_start
-        # regressions. Drop this once the Clojure bug (#2571) is fixed and
-        # the Python mirror is removed.
-        if 'incremental' in request.node.callspec.id:
+        # Per-variant xfail (g5, refined 2026-07-05): known-bad only where
+        # the Clojure incremental blob has VARIED priorities (no truthy-0
+        # bug there). FLI and bg2050 incremental blobs carry the all-49
+        # signature and match Python's mirror — they gate, as do all
+        # cold_start variants. Drop this once the Clojure bug (#2571) is
+        # fixed and the Python mirror is removed.
+        _varied_priority_incrementals = (
+            'vw-incremental', 'biodiversity-incremental',
+            'bg2018-incremental', 'engage-incremental',
+            'pakistan-incremental')
+        if request.node.callspec.id in _varied_priority_incrementals:
             request.applymarker(pytest.mark.xfail(
                 raises=AssertionError, strict=False,
-                reason="D12.6: Clojure incremental has varied priorities "
-                       "(no truthy-0 bug there); Python's all-49 mirror "
-                       "cannot match. See issue #2571."))
+                reason="D12.6: this Clojure incremental blob has varied "
+                       "priorities (no truthy-0 bug there); Python's "
+                       "all-49 mirror cannot match. See issue #2571."))
 
         print(f"\n[{dataset_name}] Testing comment priorities...")
 

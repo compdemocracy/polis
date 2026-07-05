@@ -602,14 +602,21 @@ class TestD9ZScoreThresholds:
                 check.greater(len(repness['comment_repness']), 0,
                               "comment_repness should not be empty")
 
-    @pytest.mark.xfail(reason="D5/D6: z-values differ → different significance decisions → different sets")
-    def test_significance_sets_match_clojure(self, conv, clojure_blob, dataset_name):
+    def test_significance_sets_match_clojure(self, request, conv, clojure_blob, dataset_name):
         """Post-significance-filtering comment sets should match Clojure per group.
 
         Both sides apply z-sig-90? to their z-values and select top comments.
-        With D9 the gate semantics match (>, no abs), but the z-values
-        themselves differ until D5 (prop test) and D6 (two-prop test) are fixed.
+        biodiversity-cold_start matches exactly since the gid label-swap fix
+        (2026-07-05) and gates; other variants remain xfailed on residual
+        per-(gid, tid) group-membership/stat divergence.
         """
+        if request.node.callspec.id != 'biodiversity-cold_start':
+            request.applymarker(pytest.mark.xfail(
+                raises=AssertionError,
+                strict=False,
+                reason="residual per-(gid, tid) group-membership/stat "
+                       "divergence (gid label swap fixed 2026-07-05; "
+                       "biodiversity-cold_start gates)"))
         clojure_repness = clojure_blob.get('repness', {})
         if not clojure_repness:
             pytest.skip("No repness in Clojure blob")
@@ -636,13 +643,11 @@ class TestD9ZScoreThresholds:
         check.equal(len(mismatches), 0,
                     f"{len(mismatches)} groups differ in selected rep comments")
 
-    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
-                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
-                              "only k count, not per-(gid, tid) memberships). D10 unlocks shared "
-                              "comments (overlap ~20%) but per-(gid, tid) z-values still differ "
-                              "because the swapped/divergent groups contain different participants. "
-                              "Fix requires canonical-group-id sorting or set-based comparison "
-                              "infrastructure.")
+    @pytest.mark.xfail(reason="residual per-(gid, tid) group-membership divergence: the gid "
+                              "0↔1 label swap was FIXED 2026-07-05 (group size re-sort removed) "
+                              "and did not resolve this test on any variant — groups contain "
+                              "slightly different participants, so exact z-values differ. "
+                              "Deferred to clustering-membership / sequential-parity work.")
     def test_z_values_match_clojure(self, conv, clojure_blob, dataset_name):
         """Z-score values for shared rep comments should match Clojure.
 
@@ -899,13 +904,11 @@ class TestD6TwoPropTest:
         check.greater(abs(result_large), abs(result_small),
                       "Large samples should produce more extreme z-scores than small ones")
 
-    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
-                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
-                              "only k count, not per-(gid, tid) memberships). D10 unlocks shared "
-                              "comments but per-(gid, tid) rat values still differ because the "
-                              "swapped/divergent groups contain different participants. Fix "
-                              "requires canonical-group-id sorting or set-based comparison "
-                              "infrastructure.")
+    @pytest.mark.xfail(reason="residual per-(gid, tid) group-membership divergence: the gid "
+                              "0↔1 label swap was FIXED 2026-07-05 (group size re-sort removed) "
+                              "and did not resolve this test on any variant — groups contain "
+                              "slightly different participants, so exact rat values differ. "
+                              "Deferred to clustering-membership / sequential-parity work.")
     def test_rat_values_match_clojure_blob(self, conv, clojure_blob, dataset_name):
         """repness-test (Clojure) vs rat (Python) for shared rep comments.
 
@@ -1068,15 +1071,23 @@ class TestD8FinalizeStats:
             f"{len(mismatches)}/{len(cases)} repful mismatches:\n"
             + mismatches.to_string(index=False))
 
-    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
-                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
-                              "only k count, not per-(gid, tid) memberships). D10 unlocks shared "
-                              "comments but per-(gid, tid) repful labels still differ because the "
-                              "swapped/divergent groups contain different participants. Fix "
-                              "requires canonical-group-id sorting or set-based comparison "
-                              "infrastructure.")
-    def test_repful_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
-        """repful-for (Clojure) vs repful (Python) for shared rep comments."""
+    def test_repful_matches_clojure_blob(self, request, conv, clojure_blob, dataset_name):
+        """repful-for (Clojure) vs repful (Python) for shared rep comments.
+
+        Gates on 9/11 variants since the gid label-swap fix (2026-07-05
+        removal of the group size re-sort). Residual known-bad: two
+        incremental variants with deeper trajectory divergence
+        (pakistan-incremental: Clojure blob PCA computed on a comment
+        subset; vw-incremental: in-conv trajectory divergence) — deferred
+        to the sequential-parity work.
+        """
+        if request.node.callspec.id in ('vw-incremental', 'pakistan-incremental'):
+            request.applymarker(pytest.mark.xfail(
+                raises=AssertionError,
+                strict=False,
+                reason="residual incremental trajectory divergence (gid "
+                       "label swap fixed 2026-07-05; sequential-parity "
+                       "work)"))
         clojure_repness = clojure_blob.get('repness', {})
         if not clojure_repness:
             pytest.skip("No repness in Clojure blob")
@@ -1120,15 +1131,23 @@ class TestD10RepCommentSelection:
          Clojure selects up to 5 total, agrees first, with beats-best-by-test logic
     """
 
-    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
-                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
-                              "only k count, not per-(gid, tid) memberships) prevents exact "
-                              "set match. D10 selection logic verified by TestD10PassesByTest, "
-                              "TestD10BeatsBestByTest, TestD10BeatsBestAgr, "
-                              "TestD10SelectRepCommentsBoundary. Fix requires canonical-group-id "
-                              "sorting or set-based comparison infrastructure.")
-    def test_rep_comments_match_clojure(self, conv, clojure_blob, dataset_name):
-        """Selected representative comments per group should match Clojure."""
+    def test_rep_comments_match_clojure(self, request, conv, clojure_blob, dataset_name):
+        """Selected representative comments per group should match Clojure.
+
+        biodiversity-cold_start matches exactly since the gid label-swap
+        fix (2026-07-05) and gates. Other variants remain xfailed: the
+        selection is highly sensitive to residual per-(gid, tid)
+        group-membership/stat divergence. D10 selection LOGIC is verified
+        by TestD10PassesByTest, TestD10BeatsBestByTest, TestD10BeatsBestAgr,
+        TestD10SelectRepCommentsBoundary.
+        """
+        if request.node.callspec.id != 'biodiversity-cold_start':
+            request.applymarker(pytest.mark.xfail(
+                raises=AssertionError,
+                strict=False,
+                reason="residual per-(gid, tid) group-membership/stat "
+                       "divergence (gid label swap fixed 2026-07-05; "
+                       "biodiversity-cold_start gates)"))
         clojure_repness = clojure_blob.get('repness', {})
         if not clojure_repness:
             pytest.skip("No repness in Clojure blob")
@@ -1696,6 +1715,7 @@ class TestD11ConsensusSelection:
         if 'incremental' in _callspec and any(
                 ds in _callspec for ds in _known_bad_incremental):
             request.applymarker(pytest.mark.xfail(
+                raises=AssertionError,
                 strict=False,
                 reason="known-bad incremental variant (biodiversity: journal "
                        "2026-06-11; bg2018/pakistan: unmasked 2026-07-04 when "
@@ -1940,18 +1960,23 @@ class TestD12CommentPriorities:
         meaningful when both sides have zero variance — we instead verify
         the constant-value parity directly.
         """
-        # Per-variant xfail (g5, 2026-07-04): only INCREMENTAL is known-bad —
-        # Clojure incremental doesn't exhibit the truthy-0 bug (varied
-        # priorities), so Python's all-49 mirror can't match it. Cold_start
-        # matches exactly and MUST keep gating; the previous blanket xfail
-        # masked cold_start regressions. Once the Clojure bug (#2571) is
-        # fixed upstream, drop the Python mirror and this xfail.
-        if 'incremental' in request.node.callspec.id:
+        # Per-variant xfail (g5, refined 2026-07-05): known-bad only where
+        # the Clojure incremental blob has VARIED priorities (no truthy-0
+        # bug there), so Python's all-49 mirror can't match. FLI and bg2050
+        # incremental blobs carry the all-49 signature and DO match — they
+        # gate. All cold_start variants gate. Once the Clojure bug (#2571)
+        # is fixed upstream, drop the Python mirror and this xfail.
+        _varied_priority_incrementals = (
+            'vw-incremental', 'biodiversity-incremental',
+            'bg2018-incremental', 'engage-incremental',
+            'pakistan-incremental')
+        if request.node.callspec.id in _varied_priority_incrementals:
             request.applymarker(pytest.mark.xfail(
+                raises=AssertionError,
                 strict=False,
-                reason="D12.6: Clojure incremental has varied priorities "
-                       "(no truthy-0 bug there); Python's all-49 mirror "
-                       "cannot match. See issue #2571."))
+                reason="D12.6: this Clojure incremental blob has varied "
+                       "priorities (no truthy-0 bug there); Python's "
+                       "all-49 mirror cannot match. See issue #2571."))
 
         clj_priorities = clojure_blob.get('comment-priorities', {})
         check.greater(len(clj_priorities), 0,
@@ -2800,3 +2825,56 @@ class TestD11D12Serialization:
         from decimal import Decimal
         assert result['comment_priorities'] == {
             7: Decimal('1.5'), 9: Decimal('0.25')}
+
+
+class TestGroupIdOrderMatchesClojure:
+    """Group-cluster ids must preserve first-k-distinct encounter order over
+    base-cluster centers — Clojure parity (`init-clusters`, clusters.clj:55-64;
+    output `sort-by :id`, conversation.clj:437; merge lineage keeps the larger
+    cluster's id but NEVER re-sorts by size).
+
+    Python's former size-descending re-sort + id reassignment caused the
+    gid 0↔1 label swap confirmed by the S3-4 trace (2026-06-11): Python g0 ∩
+    Clojure g1 = 50/50 on vw-cold_start, sizes [50, 17] vs Clojure [17, 50].
+    The base level already preserves k-means id order for exactly this
+    reason (K-inv); the group level must too.
+    """
+
+    def _conv_with_ordered_proj(self):
+        conv = Conversation(conversation_id='ztest-gid-order')
+        # proj key order defines base-center row order (K-inv invariant).
+        # Row 0 (left side, SMALL group) is encountered FIRST, row 1 (right
+        # side, LARGE group) second → group-level first-2-distinct init =
+        # (L, R) → group id 0 must be the L group even though it is smaller
+        # (2 vs 3 members).
+        conv.proj = {
+            0: [-1.0, 0.05],   # L (small group)
+            1: [1.0, 0.05],    # R (large group)
+            2: [1.0, 0.0],     # R
+            3: [1.0, -0.05],   # R
+            4: [-1.0, -0.05],  # L
+        }
+        # Focus the test on id assignment: bypass the in-conv vote-count
+        # machinery (instance attribute shadows the bound method).
+        conv._get_in_conv_participants = lambda: {0, 1, 2, 3, 4}
+        return conv
+
+    def test_group_id_zero_is_first_encountered_not_biggest(self):
+        conv = self._conv_with_ordered_proj()
+        conv._compute_clusters()
+        groups = conv.group_clusters
+        assert len(groups) == 2, f"expected k=2, got {len(groups)}"
+
+        # Resolve group members down to participant ids via base clusters.
+        base_by_id = {b['id']: b for b in conv.base_clusters}
+        members0 = sorted(p for bid in groups[0]['members']
+                          for p in base_by_id[bid]['members'])
+        members1 = sorted(p for bid in groups[1]['members']
+                          for p in base_by_id[bid]['members'])
+
+        assert [g['id'] for g in groups] == [0, 1]
+        assert members0 == [0, 4], (
+            f"group id 0 must be the FIRST-ENCOUNTERED (smaller, L) group "
+            f"per Clojure first-k-distinct order; got members {members0} — "
+            f"a size re-sort promotes the larger group instead")
+        assert members1 == [1, 2, 3]

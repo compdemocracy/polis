@@ -659,6 +659,23 @@ _skip_golden = pytest.mark.skipif(
 )
 
 
+# PGR (Python golden) deferral — same treatment as test_regression.py
+# (2026-06-11 decision): goldens shift on every Clojure-parity fix. The
+# stored private-dataset goldens predate the gid label-swap fix
+# (2026-07-05), which re-orders group ids to Clojure encounter order —
+# per-(pid, group) correlations are keyed by gid, so all comparisons
+# against pre-fix goldens fail by design, not by regression.
+# REACTIVATION: re-record goldens + remove this mark at the
+# Python-vs-Python phase.
+_goldens_deferred = pytest.mark.skip(
+    reason="PGR goldens deferred during Clojure-parity phase (2026-06-11 "
+           "decision); stored goldens predate the gid label-swap fix "
+           "(2026-07-05). Re-record + reactivate at the Python-vs-Python "
+           "phase.",
+)
+
+
+@_goldens_deferred
 @_skip_golden
 @pytest.mark.use_discovered_datasets
 def test_participant_info_matches_golden(dataset_name):

@@ -801,11 +801,16 @@ class Conversation:
                 'members': member_base_cluster_ids
             })
 
-        # Sort group clusters by size (number of base clusters) for consistency
-        group_clusters.sort(key=lambda c: len(c['members']), reverse=True)
-        # Reassign IDs based on sorted order
-        for i, cluster in enumerate(group_clusters):
-            cluster['id'] = i
+        # Keep group clusters in k-means ID order (matching Clojure's
+        # sort-by :id, conversation.clj:437). Do NOT sort by size or
+        # reassign IDs: Clojure assigns group ids by first-k-distinct
+        # encounter order over base-cluster centers (init-clusters,
+        # clusters.clj:55-64) and never re-orders by size. The former
+        # size-descending re-sort here was the root cause of the gid 0↔1
+        # label swap vs Clojure blobs (S3-4 trace, 2026-06-11: identical
+        # memberships modulo label permutation on vw-cold_start). Mirrors
+        # the identical rule at the base-cluster level above.
+        group_clusters.sort(key=lambda c: c['id'])
 
         logger.info(f"Created {len(group_clusters)} group clusters")
 
