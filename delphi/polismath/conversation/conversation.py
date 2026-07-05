@@ -102,6 +102,16 @@ def priority_metric(is_meta: bool,
 
     Returns:
         Squared priority value.
+
+    .. warning::
+        **Current behavior (parity-bug mirror):** this function ALWAYS
+        returns ``META_PRIORITY ** 2`` and ignores ``is_meta`` and
+        ``A, P, S, E``. It deliberately mirrors a Clojure bug — Clojure
+        treats meta-tid value 0 as truthy, so every tid takes the meta
+        branch — for byte-for-byte parity. The branching formula described
+        above is the *intended* semantics, restored once
+        https://github.com/compdemocracy/polis/issues/2571 is fixed. See the
+        ``TODO(clojure-parity-bug)`` in the body below.
     """
     # TODO(clojure-parity-bug): Clojure (conversation.clj:325) treats meta-tid
     # value 0 as TRUTHY in (if is-meta ...), so every tid takes the meta branch.
