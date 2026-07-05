@@ -17,7 +17,7 @@ from polismath.pca_kmeans_rep.clusters import (
     assign_points_to_clusters, update_cluster_centers, filter_empty_clusters,
     cluster_step, most_distal, split_cluster, clean_start_clusters,
     kmeans, distance_matrix, silhouette, clusters_to_dict, clusters_from_dict,
-    cluster_dataframe
+    cluster_dataframe, calculate_silhouette_sklearn
 )
 
 
@@ -494,6 +494,37 @@ class TestSilhouette:
             Cluster(np.array([5.5, 5.5]), [3])
         ]
         assert silhouette(data, singleton_clusters) == 0.0
+
+
+class TestCalculateSilhouetteSklearn:
+    """Tests for the sklearn-backed calculate_silhouette_sklearn helper.
+
+    sklearn's silhouette_score requires 2 <= n_labels <= n_samples - 1. The
+    group-clustering k-selection loop can feed it as many labels as samples
+    (e.g. only two base clusters -> k=2 group clustering => 2 points / 2
+    labels), which sklearn rejects with ValueError. The helper must treat any
+    n_labels >= n_samples clustering as undefined and return the neutral 0.0
+    sentinel instead of raising. (Regression: powerit PCA collapsing a small
+    conversation to two base clusters crashed recompute; see #2591.)
+    """
+
+    def test_two_samples_two_labels_returns_zero_not_raise(self):
+        data = np.array([[0.0, 0.0], [1.0, 1.0]])
+        labels = np.array([0, 1])  # n_labels (2) >= n_samples (2)
+        assert calculate_silhouette_sklearn(data, labels) == 0.0
+
+    def test_single_label_still_returns_zero(self):
+        data = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0]])
+        assert calculate_silhouette_sklearn(data, np.array([0, 0, 0])) == 0.0
+
+    def test_valid_clustering_still_scores(self):
+        # 3 samples, 2 labels is the smallest sklearn-valid case; the guard
+        # must NOT swallow it — a real coefficient in [-1, 1] is returned.
+        data = np.array([[0.0, 0.0], [0.1, 0.1], [5.0, 5.0]])
+        labels = np.array([0, 0, 1])
+        score = calculate_silhouette_sklearn(data, labels)
+        assert -1.0 <= score <= 1.0
+        assert score != 0.0  # a genuinely computed, non-sentinel score
 
 
 class TestClusterSerialization:

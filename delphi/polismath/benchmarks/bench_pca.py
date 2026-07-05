@@ -6,16 +6,20 @@ Usage:
     cd delphi
     python -m polismath.benchmarks.bench_pca <votes_csv_path> [--runs N]
     python -m polismath.benchmarks.bench_pca <votes_csv_path> --profile
+    python -m polismath.benchmarks.bench_pca <votes_csv_path> --compare-impls
 
 Example:
     python -m polismath.benchmarks.bench_pca real_data/.local/r7wehfsmutrwndviddnii-bg2050/2025-11-25-1909-r7wehfsmutrwndviddnii-votes.csv --runs 3
     python -m polismath.benchmarks.bench_pca real_data/.local/r7wehfsmutrwndviddnii-bg2050/2025-11-25-1909-r7wehfsmutrwndviddnii-votes.csv --profile
+    python -m polismath.benchmarks.bench_pca real_data/r6vbnhffkxbd7ifmfbdrd-vw/2025-11-11-1704-r6vbnhffkxbd7ifmfbdrd-votes.csv --compare-impls
 """
 
+import os
 import time
 from pathlib import Path
 
 import click
+import numpy as np
 
 from polismath.benchmarks.benchmark_utils import (
     load_votes_from_csv,
@@ -24,13 +28,24 @@ from polismath.benchmarks.benchmark_utils import (
     runs_option,
 )
 from polismath.conversation import Conversation
-from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+from polismath.pca_kmeans_rep.pca import (
+    PCA_IMPL_CHOICES,
+    PCA_IMPL_ENV_VAR,
+    pca_project_dataframe,
+)
 
 
 profile_option = click.option(
     '--profile', '-p',
     is_flag=True,
     help='Run with line profiler on PCA functions',
+)
+
+compare_impls_option = click.option(
+    '--compare-impls', '-c',
+    is_flag=True,
+    help='Cold-start comparison of PCA solvers (POLISMATH_PCA_IMPL values: '
+         'powerit = legacy/Clojure-parity, sklearn = improved)',
 )
 
 
@@ -128,6 +143,82 @@ def benchmark_pca(votes_csv: Path, runs: int = 3) -> dict:
     }
 
 
+def benchmark_impl_comparison(votes_csv: Path, runs: int = 3) -> dict:
+    """
+    Cold-start wall-time + component-angle comparison of the PCA solvers.
+
+    Times pca_project_dataframe under each POLISMATH_PCA_IMPL value on the
+    same clean (NaN-imputed identically inside) matrix, then reports the
+    angle between the components the two solvers produce.
+
+    Args:
+        votes_csv: Path to votes CSV file
+        runs: Number of runs to average per solver
+
+    Returns:
+        Dictionary with per-solver timings and per-component angles.
+    """
+    conv, dataset_name, n_votes, _ = setup_conversation(votes_csv)
+    clean_matrix = conv._get_clean_matrix()
+
+    results: dict = {'dataset': dataset_name, 'n_votes': n_votes,
+                     'shape': clean_matrix.shape, 'impls': {}}
+    saved_env = os.environ.get(PCA_IMPL_ENV_VAR)
+    try:
+        for impl in PCA_IMPL_CHOICES:
+            os.environ[PCA_IMPL_ENV_VAR] = impl
+            print(f"Benchmarking {PCA_IMPL_ENV_VAR}={impl} ({runs} runs)...")
+            times = []
+            pca_results = None
+            for i in range(runs):
+                start = time.perf_counter()
+                pca_results, _ = pca_project_dataframe(clean_matrix, 2)
+                elapsed = time.perf_counter() - start
+                times.append(elapsed)
+                print(f"  Run {i+1}: {elapsed:.3f}s")
+            results['impls'][impl] = {
+                'times': times,
+                'avg': sum(times) / len(times),
+                'min': min(times),
+                'max': max(times),
+                'comps': pca_results['comps'] if pca_results is not None else None,
+            }
+    finally:
+        # Belt-and-braces: restore whatever the caller had set.
+        if saved_env is None:
+            os.environ.pop(PCA_IMPL_ENV_VAR, None)
+        else:
+            os.environ[PCA_IMPL_ENV_VAR] = saved_env
+
+    print()
+    print("=" * 50)
+    print(f"Dataset: {dataset_name}")
+    print(f"Votes: {n_votes:,}")
+    print(f"Matrix shape: {clean_matrix.shape}")
+    for impl, r in results['impls'].items():
+        print(f"{impl:>8}: avg {r['avg']:.3f}s (min {r['min']:.3f}s / max {r['max']:.3f}s)")
+
+    impl_names = list(results['impls'].keys())
+    if len(impl_names) == 2:
+        comps_a = results['impls'][impl_names[0]]['comps']
+        comps_b = results['impls'][impl_names[1]]['comps']
+        if comps_a is not None and comps_b is not None and comps_a.shape == comps_b.shape:
+            angles = []
+            for i in range(comps_a.shape[0]):
+                norm_a = np.linalg.norm(comps_a[i])
+                norm_b = np.linalg.norm(comps_b[i])
+                if norm_a == 0.0 or norm_b == 0.0:
+                    angles.append(float('nan'))
+                    continue
+                cos = abs(float(np.dot(comps_a[i], comps_b[i]))) / (norm_a * norm_b)
+                angles.append(float(np.degrees(np.arccos(np.clip(cos, -1.0, 1.0)))))
+            results['angles_deg'] = angles
+            for i, angle in enumerate(angles):
+                print(f"PC{i+1} angle {impl_names[0]} vs {impl_names[1]}: {angle:.3e}°")
+
+    return results
+
+
 def profile_pca(votes_csv: Path) -> None:
     """
     Run line profiler on PCA functions.
@@ -162,10 +253,13 @@ def profile_pca(votes_csv: Path) -> None:
 @votes_csv_argument
 @runs_option
 @profile_option
-def main(votes_csv: Path, runs: int, profile: bool):
+@compare_impls_option
+def main(votes_csv: Path, runs: int, profile: bool, compare_impls: bool):
     """Benchmark PCA computation performance."""
     if profile:
         profile_pca(votes_csv)
+    elif compare_impls:
+        benchmark_impl_comparison(votes_csv, runs)
     else:
         benchmark_pca(votes_csv, runs)
 

@@ -880,11 +880,15 @@ class DynamoDBClient:
                     stored_consensus = analysis.get(
                         'consensus_comments', {'agree': [], 'disagree': []}
                     )
-                    # Normalize legacy blobs (Copilot 2026-07-04, g3):
-                    # pre-D11 writers stored consensus as a (hardcoded-empty)
-                    # LIST. Map any list to the empty dict shape so readers
-                    # of old ticks never see a list.
-                    if isinstance(stored_consensus, list):
+                    # Normalize legacy/degenerate blobs (Copilot 2026-07-04
+                    # g3, and #2591): pre-D11 writers stored consensus as a
+                    # (hardcoded-empty) LIST, and a present-but-`None`
+                    # attribute makes `.get(..., default)` return None rather
+                    # than the default. Guard on "not a dict" so any
+                    # non-dict (list, None, str, ...) maps to the empty dict
+                    # shape — downstream consumers always receive
+                    # `{'agree': [], 'disagree': []}` with both keys present.
+                    if not isinstance(stored_consensus, dict):
                         stored_consensus = {'agree': [], 'disagree': []}
                     result['consensus'] = stored_consensus
             

@@ -673,8 +673,15 @@ def calculate_silhouette_sklearn(data: np.ndarray,
     Returns:
         Silhouette coefficient (between -1 and 1, higher is better)
     """
-    # sklearn requires at least 2 clusters and 2 samples
-    if len(np.unique(labels)) <= 1 or data.shape[0] <= 1:
+    # sklearn's silhouette_score requires 2 <= n_labels <= n_samples - 1.
+    # When there are as many (or more) distinct labels as samples — e.g. only
+    # two base clusters fed into a k=2 group clustering (2 points / 2 labels) —
+    # the coefficient is undefined; return the neutral 0.0 sentinel instead of
+    # letting sklearn raise ValueError. (powerit PCA can collapse a small
+    # conversation to two base clusters; see #2591.)
+    n_labels = len(np.unique(labels))
+    n_samples = data.shape[0]
+    if n_labels <= 1 or n_labels >= n_samples:
         return 0.0
 
     return silhouette_score(data, labels, metric=metric)

@@ -292,6 +292,35 @@ class TestSite3ReaderDefault:
         assert result['consensus'] == {'agree': [], 'disagree': []}, \
             f"legacy list must normalize to dict, got {result['consensus']!r}"
 
+    def test_present_but_none_consensus_normalized_to_dict(self):
+        """`consensus_comments` present-but-`None` (or any non-dict) must
+        normalize to the dict shape. A present key with value None makes
+        `.get(..., default)` return None (not the default), so the reader
+        must guard on "not a dict", not just "is a list" (Copilot review
+        on #2591). Otherwise `result['consensus']` is None and breaks the
+        post-D11 contract that both keys are always present."""
+        client = DynamoDBClient()
+        analysis_table = MagicMock(name='Delphi_PCAResults')
+        analysis_table.get_item.return_value = {
+            'Item': {
+                'participant_count': 10,
+                'comment_count': 3,
+                'pca': {'center': [], 'components': []},
+                'consensus_comments': None,  # present-but-None
+            }
+        }
+        client.tables = {
+            'Delphi_PCAResults': analysis_table,
+            'Delphi_KMeansClusters': None,
+            'Delphi_CommentRouting': None,
+            'Delphi_RepresentativeComments': None,
+            'Delphi_ParticipantProjections': None,
+        }
+
+        result = client.read_math_by_tick('42', 30000)
+        assert result['consensus'] == {'agree': [], 'disagree': []}, \
+            f"present-but-None must normalize to dict, got {result['consensus']!r}"
+
 
 # ---------------------------------------------------------------------------
 # Round-trip — write then read on the same in-memory store

@@ -6,11 +6,234 @@ of missing votes (NaN) and sparsity-aware projection scaling.
 """
 
 import logging
+import os
 import numpy as np
 import pandas as pd
-from typing import Dict, List, Optional, Tuple, Union, Any
+from typing import Dict, List, Optional, Sequence, Tuple, Union, Any
 
 logger = logging.getLogger(__name__)
+
+
+# =============================================================================
+# Implementation switch: legacy/Clojure-parity vs improved
+# =============================================================================
+#
+# Pattern for legacy-vs-improved switches (reuse this idiom for future ones,
+# e.g. a k-means solver switch): a module-level env var name + default +
+# allowed values, resolved by `_resolve_impl_flag` AT CALL TIME (never at
+# import time), so tests and operators can flip the env var without
+# re-importing. Unknown values fall back to the default with a warning
+# (defensive: a typo in a deployment env must not crash the math worker).
+
+PCA_IMPL_ENV_VAR = 'POLISMATH_PCA_IMPL'
+PCA_IMPL_POWERIT = 'powerit'   # legacy/Clojure-parity solver (default)
+PCA_IMPL_SKLEARN = 'sklearn'   # improved solver (exact SVD)
+PCA_IMPL_DEFAULT = PCA_IMPL_POWERIT
+PCA_IMPL_CHOICES = (PCA_IMPL_POWERIT, PCA_IMPL_SKLEARN)
+
+
+def _resolve_impl_flag(env_var: str, default: str, choices: Sequence[str]) -> str:
+    """
+    Resolve a legacy-vs-improved implementation switch from the environment.
+
+    Args:
+        env_var: Environment variable name to read (at call time).
+        default: Value to use when the variable is unset or invalid.
+        choices: Allowed values (lowercase).
+
+    Returns:
+        One of `choices`.
+    """
+    raw = os.environ.get(env_var)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value not in choices:
+        logger.warning("%s=%r is not one of %s; falling back to %r",
+                       env_var, raw, tuple(choices), default)
+        return default
+    return value
+
+# =============================================================================
+# Clojure-parity power-iteration PCA
+# =============================================================================
+#
+# Port of math/src/polismath/math/pca.clj:
+#   power-iteration (l.38-56), proj-vec (l.59-63), factor-matrix (l.66-76),
+#   rand-starting-vec (l.79-82), powerit-pca (l.86-105).
+#
+# The production Clojure pipeline (conversation.clj:381-386) calls this with
+# :n-comps 2 and :pca-iters 100 (conversation.clj:145-146), warm-starting
+# :start-vectors from the previous tick's comps.
+#
+# START-VECTOR POLICY — DOCUMENTED DECISION:
+# Clojure draws an UNSEEDED random start vector on cold start
+# (rand-starting-vec, pca.clj:79-82 — the author's own comment there says
+# "Should really throw a parallelizable random number generator in the
+# equation here... With seeds fed in and persisted... XXX"). For Python we
+# instead default to a DETERMINISTIC start (fixed-seed generator below) so
+# the pipeline stays bit-for-bit reproducible — the 2026-07-05 determinism
+# verification (5 identical consecutive runs on vw + biodiversity) is a
+# project invariant we must not break. Power iteration converges to the same
+# dominant eigenvector for almost any start vector (any start not exactly
+# orthogonal to it), so a fixed start is simply one specific draw of
+# Clojure's random one. `start_vectors` overrides the default for warm-start
+# pinning (e.g. the R2 replayer pinning Clojure's previous-tick comps).
+#
+# TODO(julien): switch to a proper convergence criterion once we move to
+# improving the Python implementation.
+
+# Fixed seed for the deterministic cold-start vector draw (see policy above).
+_POWERIT_START_SEED = 42
+
+
+def _power_iteration(data: np.ndarray,
+                     iters: int = 100,
+                     start_vector: Optional[np.ndarray] = None) -> np.ndarray:
+    """
+    First eigenvector of data.T @ data via power iteration.
+
+    Port of Clojure `power-iteration` (pca.clj:38-56): runs a FIXED number of
+    multiplications by XᵀX (iters + 1 in total, matching the Clojure loop
+    structure), with an early exit only when the eigenvalue estimate is
+    EXACTLY equal to the previous one (float equality, as in Clojure).
+
+    Args:
+        data: 2D array (rows are observations), typically already centered.
+        iters: Iteration budget (Clojure default 100, pca.clj:43).
+        start_vector: Starting vector. Defaults to all-ones (pca.clj:45).
+            If shorter than the column count it is padded with 1s, matching
+            Clojure's handling of new comments adding columns (pca.clj:46-49).
+
+    Returns:
+        Unit-norm dominant eigenvector of data.T @ data, or a zero vector if
+        the data has no variance left in any direction (defensive: Clojure
+        would call normalise on a zero vector there).
+    """
+    n_cols = data.shape[1]
+    if start_vector is None:
+        vec = np.ones(n_cols, dtype=np.float64)
+    else:
+        vec = np.asarray(start_vector, dtype=np.float64).ravel().copy()
+        if vec.shape[0] < n_cols:
+            # Clojure parity (pca.clj:46-49): pad with 1s when new comments
+            # have added columns since the start vector was recorded.
+            vec = np.concatenate([vec, np.ones(n_cols - vec.shape[0])])
+        elif vec.shape[0] > n_cols:
+            # Defensive divergence: Clojure would error on a longer start
+            # vector (shape mismatch in inner-product); we truncate instead.
+            vec = vec[:n_cols]
+
+    remaining = int(iters)
+    last_eigval = 0.0
+    while True:
+        # xtxr (pca.clj:25-35): product = Xᵀ (X v), i.e. one power step.
+        product = data.T @ (data @ vec)
+        eigval = float(np.linalg.norm(product))
+        if eigval == 0.0:
+            # No variance in the remaining subspace. Return the zero vector
+            # rather than normalising it (belt-and-braces; see docstring).
+            return product
+        normed = product / eigval
+        if remaining <= 0 or eigval == last_eigval:
+            return normed
+        remaining -= 1
+        vec = normed
+        last_eigval = eigval
+
+
+def _factor_matrix(data: np.ndarray, xs: np.ndarray) -> np.ndarray:
+    """
+    Gram-Schmidt deflation: remove the direction `xs` from every row of data.
+
+    Port of Clojure `factor-matrix` + `proj-vec` (pca.clj:59-76): each row
+    becomes row - ((xs·row)/(xs·xs)) * xs, leaving no variance along xs.
+
+    Args:
+        data: 2D array.
+        xs: Direction to factor out (the principal component just found).
+
+    Returns:
+        Deflated copy of data (data itself if xs is the zero vector, matching
+        the Clojure zero-eigenvector guard at pca.clj:71).
+    """
+    denom = float(np.dot(xs, xs))
+    if denom == 0.0:
+        return data
+    coeffs = (data @ xs) / denom
+    return data - np.outer(coeffs, xs)
+
+
+def powerit_pca(matrix: np.ndarray,
+                n_comps: int = 2,
+                iters: int = 100,
+                start_vectors: Optional[Sequence[np.ndarray]] = None
+                ) -> Dict[str, np.ndarray]:
+    """
+    Clojure-parity PCA via per-component power iteration with deflation.
+
+    Port of Clojure `powerit-pca` (pca.clj:86-105): center on column means,
+    then for each component run `_power_iteration` on the (deflated) centered
+    data and factor the found component out (`_factor_matrix`) before finding
+    the next one. The number of components is clamped to
+    min(n_comps, min(n_rows, n_cols)) exactly as in Clojure (pca.clj:93,96).
+
+    Start vectors: `start_vectors[i]` seeds component i (warm start, as fed
+    from the previous tick's comps at conversation.clj:385). Missing or
+    all-zero entries (wrapped-pca maps all-zero to nil, pca.clj:122-123) fall
+    back to a DETERMINISTIC uniform[0,1) draw — see the START-VECTOR POLICY
+    comment above for why this deliberately differs from Clojure's unseeded
+    (rand).
+
+    Args:
+        matrix: 2D array-like, observations in rows. NaNs must already be
+            imputed by the caller (the Clojure pipeline feeds a matrix whose
+            nils were replaced by column averages, conversation.clj:360-380 —
+            identical to `pca_project_dataframe`'s nanmean imputation).
+        n_comps: Number of principal components to compute.
+        iters: Power-iteration budget per component (Clojure default 100).
+        start_vectors: Optional per-component starting vectors.
+
+    Returns:
+        Dict with 'center' (column means, shape (n_cols,)) and 'comps'
+        (unit-norm components as rows, shape (n_comps_eff, n_cols)).
+    """
+    data = np.asarray(matrix, dtype=np.float64)
+    center = data.mean(axis=0)
+    centered = data - center
+    n_rows, n_cols = centered.shape
+
+    data_dim = min(n_rows, n_cols)
+    n_comps_eff = max(1, min(int(n_comps), data_dim))
+
+    provided: List[Optional[np.ndarray]] = []
+    if start_vectors is not None:
+        provided = [None if sv is None else np.asarray(sv, dtype=np.float64).ravel()
+                    for sv in start_vectors]
+
+    # Deterministic cold-start draws (see START-VECTOR POLICY above). A fresh
+    # fixed-seed generator per call keeps repeated calls bit-identical.
+    rng = np.random.default_rng(_POWERIT_START_SEED)
+
+    comps = []
+    deflated = centered
+    for comp_idx in range(n_comps_eff):
+        start = provided[comp_idx] if comp_idx < len(provided) else None
+        if start is not None and not np.any(start):
+            # wrapped-pca parity (pca.clj:122-123): all-zero (or empty) start
+            # vectors are treated as missing.
+            start = None
+        if start is None:
+            # Clojure: rand-starting-vec draws uniform[0,1) per column
+            # (pca.clj:79-82); ours is the deterministic equivalent.
+            start = rng.random(n_cols)
+        pc = _power_iteration(deflated, iters=iters, start_vector=start)
+        comps.append(pc)
+        if comp_idx < n_comps_eff - 1:
+            deflated = _factor_matrix(deflated, pc)
+
+    return {'center': center, 'comps': np.array(comps)}
+
 
 def pca_project_dataframe(df: pd.DataFrame,
                          n_comps: int = 2) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
@@ -94,22 +317,39 @@ def pca_project_dataframe(df: pd.DataFrame,
     #
     # Verified 2026-07-05: the Python batch pipeline is bit-for-bit
     # deterministic across 5 consecutive runs on vw + biodiversity (only
-    # math_tick, a wall-clock version counter, varies) — see
-    # scratch/determinism_check.py and the 2026-07-04/05 journal entry.
+    # math_tick, a wall-clock version counter, varies) — see the
+    # "Determinism verification" entry (2026-07-04/05) in
+    # docs/CLJ-PARITY-FIXES-JOURNAL.md.
+
+    # Solver switch (read at call time — see _resolve_impl_flag):
+    #   POLISMATH_PCA_IMPL=powerit  (default) legacy/Clojure-parity power iteration
+    #   POLISMATH_PCA_IMPL=sklearn  improved exact-SVD path
+    # The imputation above and sparsity scaling below are IDENTICAL for both;
+    # only the eigen-solver differs.
+    impl = _resolve_impl_flag(PCA_IMPL_ENV_VAR, PCA_IMPL_DEFAULT, PCA_IMPL_CHOICES)
 
     # Perform PCA with error handling
     # TODO(julien): use function that compute projections and PCAs in one pass.
     try:
-        from sklearn.decomposition import PCA
+        if impl == PCA_IMPL_SKLEARN:
+            from sklearn.decomposition import PCA
 
-        pca = PCA(n_components=n_comps, random_state=42)
-        projections = pca.fit_transform(matrix_data_no_nan)
+            pca = PCA(n_components=n_comps, random_state=42)
+            projections = pca.fit_transform(matrix_data_no_nan)
+
+            pca_results = {
+                'center': pca.mean_,
+                'comps': pca.components_
+            }
+        else:
+            # Legacy/Clojure-parity solver (default). Comps are unit vectors;
+            # projections are (X - center) @ compsᵀ, exactly like sklearn's
+            # fit_transform convention.
+            pca_results = powerit_pca(matrix_data_no_nan, n_comps=n_comps)
+            projections = ((matrix_data_no_nan - pca_results['center'])
+                           @ pca_results['comps'].T)
+
         projections = np.ascontiguousarray(projections)
-
-        pca_results = {
-            'center': pca.mean_,
-            'comps': pca.components_
-        }
 
     except Exception as e:
         print(f"Error in PCA computation: {e}")
