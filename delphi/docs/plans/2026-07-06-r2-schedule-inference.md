@@ -253,3 +253,17 @@ Tests (skip cleanly if dataset dir absent):
 ### Task 10: docs + final suite + report
 
 README in `polismath/replay/` (model summary, API example, era caveats, pointers to the PDF/design doc by name); full-suite run compared to baseline; tidy `jj log`; final report (no PR without go).
+
+---
+
+## Execution notes (2026-07-06, post-implementation — deviations from the plan above)
+
+All tasks executed and green (full suite: 424 passed = 332 baseline + 92 replay; 0 regressions). Deviations discovered by iteration, now normative:
+
+1. **Emission delay is modeled, not ignored** (plan said "v1 ignores δ"): votes cast during a recompute are served under the previous weights; at 30 s compute that is a whole segment. `emission_delay_ms` shifts emission changepoints (`dp._emission_shift`), default = `compute_ms` in `infer_schedule`.
+2. **Soft renewal idle prior added** (`idle_lambda_per_s`, `renewal_compute_ms`): an up worker with pending votes recomputes at the first free poll; unexplained idleness is exponentially penalized (soft ⇒ robust to unknown stalls). This is what pins cuts in emission-flat stretches.
+3. **Min-spacing constraint added** (sound: forbids a transition only when even the maximal wall-time spacing cannot reach one fastest compute).
+4. **Count-constrained runs densify the lattice** (stride 1): thinning + spacing + exact count creates spurious `InfeasibleScheduleError` on representative slots. Dense mode is for n up to a few thousand; large-n uses the unconstrained prior.
+5. **Sim gained `compute_jitter`**: constant compute makes the true schedule deterministic given vote times (physics-only solvable) — jitter makes recovery tests honest.
+6. **Metrics**: MAP sorted-pairing displacement is a misleading metric (one insertion cascades); the suite asserts posterior localization (median-over-samples nearest distance: 1 vote median, p90 2 synthetic) and coverage@3 (≥ 0.92 observed). On bursty real skeletons (vw: median inter-vote gap 0 s) localization is asserted in TIME (~10 s median ≈ compute-jitter window, physics-limited).
+7. `cumulative_loglik` grew `k_stop` (sweep to the next forced cut) — the perf-guard enabler (17k votes, unconstrained: well under 60 s).
