@@ -96,12 +96,16 @@ def cumulative_loglik(
     idx: AvailabilityIndex,
     weights: Mapping[int, float],
     eps: float = 0.02,
+    k_stop: int | None = None,
 ) -> np.ndarray:
     """``cum[k] = sum of mark log-lik of votes 1..k`` under ``weights``.
 
     ``cum`` has length ``n+1`` with ``cum[0] = 0``; the segment score of
     votes ``(i, j]`` is ``cum[j] - cum[i]`` (left-sentinel node -1 maps to
-    index 0).
+    index 0). When ``k_stop`` is given the sweep ends there and later
+    entries are padded with ``cum[k_stop]`` — callers (the DP) must not read
+    beyond ``k_stop``; the padding is defensive only. Sweeping only to the
+    next forced cut is what keeps the DP linear per left node.
     """
     ds = idx.ds
     cum = np.zeros(idx.n + 1)
@@ -114,7 +118,8 @@ def cumulative_loglik(
     def w_of(tid: int) -> float:
         return weights.get(tid, DEFAULT_WEIGHT)
 
-    for k in range(1, idx.n + 1):
+    stop = idx.n if k_stop is None else min(k_stop, idx.n)
+    for k in range(1, stop + 1):
         for tid, delta, prior_voters in idx.toggles.get(k, ()):
             wt = w_of(tid)
             if delta > 0:
@@ -159,6 +164,8 @@ def cumulative_loglik(
                 voted_w[v.pid] += wt_c
                 voted_n[v.pid] += 1
         cum[k] = cum[k - 1] + term
+    if stop < idx.n:
+        cum[stop + 1 :] = cum[stop]
     return cum
 
 
