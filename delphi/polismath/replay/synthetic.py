@@ -50,6 +50,7 @@ class SimConfig:
     duration_s: float = 3600.0
     poll_interval_s: float = 1.0
     compute_time_s: float = 5.0
+    compute_jitter: float = 0.0  # per-cut compute = compute_time_s * U(1-j, 1+j)
     cache_lag_s: float = 0.0
     downtime: list[tuple[float, float]] = field(default_factory=list)
     restarts: list[float] = field(default_factory=list)
@@ -191,7 +192,8 @@ def simulate(cfg: SimConfig) -> SimResult:
                 w = compute_weights()
                 cuts.append((slot, t))
                 weights_by_segment.append(w)
-                compute_end = t + cfg.compute_time_s
+                jit = 1.0 + cfg.compute_jitter * float(rng.uniform(-1.0, 1.0))
+                compute_end = t + cfg.compute_time_s * jit
                 push(compute_end + cfg.cache_lag_s, "servable", (w,))
                 push(next_poll_after(compute_end), "poll", ())
             else:

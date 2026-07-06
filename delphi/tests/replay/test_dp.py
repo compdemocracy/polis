@@ -135,6 +135,74 @@ class TestAgainstBruteForce:
                 assert freq[sched] / n_draws == pytest.approx(p, abs=0.05)
 
 
+class TestMinSpacing:
+    def test_min_spacing_matches_bruteforce(self):
+        r, lattice = _small_case(seed=17)
+        idx = AvailabilityIndex(r.dataset)
+        weights_at = weights_for_lattice(r.dataset, lattice, era="B")
+        prior = PriorConfig(log_gamma=-1.0)
+        spacing = 60_000  # 60 s: aggressive, prunes many pairs
+
+        result, state = run_dp(
+            idx, lattice, weights_at, prior, min_spacing_ms=spacing
+        )
+        free = [s for s in lattice.slots if s not in lattice.forced]
+        enum = {}
+        for k in range(len(free) + 1):
+            for combo in itertools.combinations(free, k):
+                sched = tuple(sorted(set(combo) | lattice.forced))
+                lp = log_posterior(
+                    idx, lattice, weights_at, prior, sched,
+                    eps=0.02, min_spacing_ms=spacing,
+                )
+                if lp > -math.inf:
+                    enum[sched] = lp
+        z = np.logaddexp.reduce(np.array(list(enum.values())))
+        assert result.log_Z == pytest.approx(float(z), abs=1e-9)
+        enum_marg = _marginals_from_enum(enum, z)
+        for s in lattice.slots:
+            assert result.cut_marginals[s] == pytest.approx(
+                enum_marg.get(s, 0.0), abs=1e-9
+            )
+        # the constraint must actually bite in this construction
+        unconstrained, _ = run_dp(idx, lattice, weights_at, prior)
+        assert len(enum) < 2 ** len(free) or unconstrained.log_Z != result.log_Z
+
+
+class TestEmissionDelay:
+    def test_emission_delay_matches_bruteforce(self):
+        r, lattice = _small_case(seed=19)
+        idx = AvailabilityIndex(r.dataset)
+        weights_at = weights_for_lattice(r.dataset, lattice, era="B")
+        prior = PriorConfig(log_gamma=-1.0)
+        delay = 20_000  # one compute time in the small case
+
+        result, _ = run_dp(
+            idx, lattice, weights_at, prior, emission_delay_ms=delay
+        )
+        free = [s for s in lattice.slots if s not in lattice.forced]
+        enum = {}
+        for k in range(len(free) + 1):
+            for combo in itertools.combinations(free, k):
+                sched = tuple(sorted(set(combo) | lattice.forced))
+                lp = log_posterior(
+                    idx, lattice, weights_at, prior, sched,
+                    eps=0.02, emission_delay_ms=delay,
+                )
+                if lp > -math.inf:
+                    enum[sched] = lp
+        z = np.logaddexp.reduce(np.array(list(enum.values())))
+        assert result.log_Z == pytest.approx(float(z), abs=1e-9)
+        enum_marg = _marginals_from_enum(enum, z)
+        for s in lattice.slots:
+            assert result.cut_marginals[s] == pytest.approx(
+                enum_marg.get(s, 0.0), abs=1e-9
+            )
+        # sanity: the delay actually changes the posterior in this case
+        plain, _ = run_dp(idx, lattice, weights_at, prior)
+        assert plain.log_Z != pytest.approx(result.log_Z, abs=1e-12)
+
+
 class TestStructuralProperties:
     def test_empty_schedule_included_when_unforced(self):
         r, lattice = _small_case()

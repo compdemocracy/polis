@@ -32,6 +32,10 @@ from polismath.replay.weights import (
 NEG_INF = -math.inf
 
 
+class InfeasibleScheduleError(ValueError):
+    """No schedule satisfies the lattice, forced, count and spacing constraints."""
+
+
 @dataclass
 class PriorConfig:
     log_gamma: float = -3.0  # per-cut penalty (geometric prior on cut count)
@@ -83,17 +87,70 @@ def weights_for_lattice(
     return out
 
 
+def _emission_shift(
+    idx: AvailabilityIndex, emission_delay_ms: int
+) -> "np.ndarray":
+    """Map cut slot -> first vote index scored under the NEW weights.
+
+    A recompute at slot ``s`` (wall time ~``t_s``) only reaches the router
+    after compute + cache lag; votes in between are served under the previous
+    weights. ``shift[s]`` = number of votes with ``t <= t_s + delay``, i.e.
+    votes ``(s, shift[s]]`` still score under the *old* segment's weights.
+    ``shift[0] = 0`` (sentinel node -1: uniform weights active from the
+    start). Monotone; identity when delay is 0.
+    """
+    t_ms = np.array([v.t_ms for v in idx.ds.votes], dtype=np.int64)
+    shift = np.zeros(idx.n + 1, dtype=np.int64)
+    if idx.n:
+        shift[1:] = np.searchsorted(t_ms, t_ms + emission_delay_ms, side="right")
+    return shift
+
+
 def _score_matrices(
     idx: AvailabilityIndex,
     lattice: CandidateLattice,
     weights_at: Mapping[int, Mapping[int, float]],
     eps: float,
+    min_spacing_ms: Optional[int] = None,
+    emission_delay_ms: int = 0,
+    idle_lambda_per_s: float = 0.0,
+    renewal_compute_ms: int = 0,
+    poll_ms: int = 1000,
 ) -> tuple[list[int], np.ndarray, np.ndarray]:
-    """Segment score matrix and terminal vector over DP nodes."""
+    """Segment score matrix and terminal vector over DP nodes.
+
+    Besides the emission scores, transitions carry the *renewal idle
+    penalty*: an up worker with pending votes recomputes at the first free
+    poll, so wall-clock idleness beyond ``renewal_compute_ms + poll_ms``
+    after the previous cut is exponentially penalized at
+    ``idle_lambda_per_s`` per second. Soft — never -inf — because real
+    workers do stall (GC, restarts, deploys); soundness is preserved while
+    emission-flat stretches still get pinned near the physics (see the R2
+    design document's schedule prior).
+    """
     n = idx.n
     nodes = [-1] + list(lattice.slots)
     m = len(nodes)
     forced_sorted = sorted(lattice.forced)
+    t_ms = [v.t_ms for v in idx.ds.votes]
+    shift = _emission_shift(idx, emission_delay_ms)
+
+    def idle_penalty(v_a: int, v_b_time_ms: float) -> float:
+        # earliest the worker could have been forced busy again after the cut
+        # at v_a: the next vote arrives, worker computes, next poll fires
+        if idle_lambda_per_s <= 0.0:
+            return 0.0
+        if v_a < 0:
+            ready = t_ms[0] + poll_ms if n else 0.0
+        elif v_a >= n:
+            return 0.0
+        else:
+            ready = max(t_ms[v_a], t_ms[v_a - 1] + renewal_compute_ms) + poll_ms
+        idle_ms = max(0.0, v_b_time_ms - ready)
+        return -idle_lambda_per_s * idle_ms / 1000.0
+
+    def e(v: int) -> int:
+        return 0 if v < 0 else int(shift[v])
 
     def next_forced_after(v: int) -> int:
         for f in forced_sorted:
@@ -101,20 +158,34 @@ def _score_matrices(
                 return f
         return n + 1  # sentinel: no forced slot after v
 
+    def spacing_feasible(v_a: int, v_b: int) -> bool:
+        # A cut at slot s occurs at wall time in [t_s, t_{s+1}). The maximal
+        # spacing between cuts at v_a < v_b is t_{v_b+1} - t_{v_a} (+inf when
+        # v_b is the last vote). Forbid only when even that cannot reach
+        # min_spacing_ms — sound: never excludes the true schedule.
+        if min_spacing_ms is None or v_a < 0 or v_b >= n:
+            return True
+        max_spacing = t_ms[v_b] - t_ms[v_a - 1]  # t_{v_b+1} - t_{v_a}, 0-indexed
+        return max_spacing > min_spacing_ms
+
     seg = np.full((m, m), NEG_INF)
     term = np.full(m, NEG_INF)
     for a, v_a in enumerate(nodes):
         nf = next_forced_after(v_a)
-        left = max(v_a, 0)
-        k_stop = n if nf > n else nf
+        left = e(v_a)
+        k_stop = n if nf > n else min(n, e(nf))
         cum = cumulative_loglik(idx, weights_at[v_a], eps=eps, k_stop=k_stop)
         for b in range(a + 1, m):
             v_b = nodes[b]
             if v_b > nf:
                 break  # transitions may not span a forced slot
-            seg[a, b] = cum[v_b] - cum[left]
+            if not spacing_feasible(v_a, v_b):
+                continue
+            seg[a, b] = cum[e(v_b)] - cum[left] + idle_penalty(v_a, t_ms[v_b - 1])
         if nf > n:  # terminal transition valid: no forced slot remains
-            term[a] = cum[n] - cum[left]
+            # tail idleness: votes after the last cut were pending forever
+            tail_pen = idle_penalty(v_a, t_ms[n - 1]) if n else 0.0
+            term[a] = cum[n] - cum[left] + tail_pen
     return nodes, seg, term
 
 
@@ -124,8 +195,18 @@ def run_dp(
     weights_at: Mapping[int, Mapping[int, float]],
     prior: PriorConfig,
     eps: float = 0.02,
+    min_spacing_ms: Optional[int] = None,
+    emission_delay_ms: int = 0,
+    idle_lambda_per_s: float = 0.0,
+    renewal_compute_ms: int = 0,
+    poll_ms: int = 1000,
 ) -> tuple[DPResult, DPState]:
-    nodes, seg, term = _score_matrices(idx, lattice, weights_at, eps)
+    nodes, seg, term = _score_matrices(
+        idx, lattice, weights_at, eps,
+        min_spacing_ms=min_spacing_ms, emission_delay_ms=emission_delay_ms,
+        idle_lambda_per_s=idle_lambda_per_s,
+        renewal_compute_ms=renewal_compute_ms, poll_ms=poll_ms,
+    )
     m = len(nodes)
     lg = prior.log_gamma
 
@@ -136,6 +217,10 @@ def run_dp(
         for b in range(1, m):
             alpha[b] = _lse(alpha[:b] + seg[:b, b] + lg)
         log_z = _lse(alpha + term)
+        if log_z == NEG_INF:
+            raise InfeasibleScheduleError(
+                "no feasible schedule on this lattice (forced/spacing constraints)"
+            )
 
         beta = np.full(m, NEG_INF)
         for a in range(m - 1, -1, -1):
@@ -196,6 +281,11 @@ def run_dp(
         for t in range(t_min, t_max + 1)
     ]
     log_z = _lse(np.concatenate(z_parts))
+    if log_z == NEG_INF:
+        raise InfeasibleScheduleError(
+            f"no feasible schedule with {prior.t_range} cuts on this lattice "
+            "(count/forced/spacing constraints)"
+        )
 
     beta_c = np.full((t_max + 2, m), NEG_INF)  # beta_c[t, a]: completions given t cuts so far
     for t in range(t_max, -1, -1):
@@ -299,6 +389,11 @@ def log_posterior(
     prior: PriorConfig,
     schedule: Schedule,
     eps: float = 0.02,
+    min_spacing_ms: Optional[int] = None,
+    emission_delay_ms: int = 0,
+    idle_lambda_per_s: float = 0.0,
+    renewal_compute_ms: int = 0,
+    poll_ms: int = 1000,
 ) -> float:
     """Direct (non-DP) score of one schedule; the enumeration/IS work-horse."""
     slots = set(lattice.slots)
@@ -312,11 +407,38 @@ def log_posterior(
         t_min, t_max = prior.t_range
         if not t_min <= len(schedule) <= t_max:
             return NEG_INF
+    if min_spacing_ms is not None:
+        t_ms = [v.t_ms for v in idx.ds.votes]
+        for s_a, s_b in zip(schedule, schedule[1:]):
+            if s_b < idx.n and t_ms[s_b] - t_ms[s_a - 1] <= min_spacing_ms:
+                return NEG_INF
+
+    shift = _emission_shift(idx, emission_delay_ms)
+    t_ms = [v.t_ms for v in idx.ds.votes]
+    n = idx.n
+
+    def e(v: int) -> int:
+        return 0 if v < 0 else int(shift[v])
+
+    def idle_penalty(v_a: int, until_ms: float) -> float:
+        if idle_lambda_per_s <= 0.0:
+            return 0.0
+        if v_a < 0:
+            ready = t_ms[0] + poll_ms if n else 0.0
+        elif v_a >= n:
+            return 0.0
+        else:
+            ready = max(t_ms[v_a], t_ms[v_a - 1] + renewal_compute_ms) + poll_ms
+        return -idle_lambda_per_s * max(0.0, until_ms - ready) / 1000.0
 
     total = len(schedule) * prior.log_gamma
-    lefts = [-1, *schedule]
-    rights = [*schedule, idx.n]
-    for v_a, v_b in zip(lefts, rights):
-        cum = cumulative_loglik(idx, weights_at[v_a], eps=eps, k_stop=v_b)
-        total += float(cum[v_b] - cum[max(v_a, 0)])
+    pairs = list(zip([-1, *schedule], [*schedule, n]))
+    for i, (v_a, v_b) in enumerate(pairs):
+        is_tail = i == len(pairs) - 1
+        hi = n if is_tail else e(v_b)
+        cum = cumulative_loglik(idx, weights_at[v_a], eps=eps, k_stop=hi)
+        total += float(cum[hi] - cum[e(v_a)])
+        if n:
+            until = t_ms[n - 1] if is_tail else t_ms[v_b - 1]
+            total += idle_penalty(v_a, until)
     return total
