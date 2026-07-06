@@ -47,6 +47,8 @@ dependencies = [
     "pynamodb>=5.4.0",
     "aws-lambda-powertools>=2.15.0",
     "aws-xray-sdk>=2.12.0",
+    # Storage V2 codec (delphi_storage)
+    "zstandard>=0.23.0",
     # LLM and reporting
     "requests>=2.28.0",
     "xmltodict>=0.13.0",
@@ -113,12 +115,13 @@ setup-minio = "setup_minio:setup_minio_bucket"
 
 # Hatchling configuration
 [tool.hatch.build.targets.wheel]
-packages = ["polismath", "umap_narrative"]
+packages = ["polismath", "umap_narrative", "delphi_storage"]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "/polismath",
     "/umap_narrative",
+    "/delphi_storage",
     "/scripts",
     "/tests",
     "/docs",
