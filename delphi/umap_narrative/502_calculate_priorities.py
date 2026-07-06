@@ -288,8 +288,14 @@ def main():
     )
     
     parser.add_argument('--verbose', '-v', action='store_true', help='Enable verbose logging')
-    
+    parser.add_argument('--job-id', dest='job_id', default=None,
+                        help='Pipeline job id (Storage V2 provenance, design §4.4); defaults to DELPHI_JOB_ID env, else auto local-<uuid4>')
+
     args = parser.parse_args()
+
+    from delphi_storage.job_id import resolve_job_id
+    job_id = resolve_job_id(args.job_id)
+    logging.info(f"Pipeline job id: {job_id}")
     
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)

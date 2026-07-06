@@ -371,7 +371,7 @@ def main(zid: str, rid: str = None):
     
     logger.info("\nThe conversation is ready for a fresh Delphi run.")
 
-if __name__ == "__main__":
+def cli():
     parser = argparse.ArgumentParser(description="Reset Delphi data for a conversation.")
     parser.add_argument(
         '--zid', 
@@ -385,7 +385,17 @@ if __name__ == "__main__":
         required=False,
         help="The report ID (e.g., r4tykwac8thvzv35jrn53). Only needed for cleaning the Delphi_NarrativeReports table."
     )
-    
+    parser.add_argument('--job-id', dest='job_id', default=None,
+                        help="Pipeline job id (Storage V2 provenance, design §4.4); defaults to DELPHI_JOB_ID env, else auto local-<uuid4>")
+
     args = parser.parse_args()
-    
+
+    from delphi_storage.job_id import resolve_job_id
+    job_id = resolve_job_id(args.job_id)
+    logger.info(f"Pipeline job id: {job_id}")
+
     main(zid=args.zid, rid=args.rid)
+
+
+if __name__ == "__main__":
+    cli()

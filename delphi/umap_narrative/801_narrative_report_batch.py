@@ -1526,10 +1526,12 @@ async def main():
                         help='Specific layer numbers to process (e.g., --layers 0 1 2). If not specified, all layers will be processed.')
     parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
     parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
+    parser.add_argument('--job-id', dest='job_id', default=None,
+                        help='Pipeline job id (Storage V2 provenance, design §4.4); defaults to DELPHI_JOB_ID env; NO auto-generation here — narrative section keys embed it, so a missing id must keep failing loudly downstream')
     args = parser.parse_args()
 
-    # Get environment variables for job
-    job_id = os.environ.get('DELPHI_JOB_ID')
+    # Explicit job id (design §4.4); env fallback for the transition phase
+    job_id = args.job_id or os.environ.get('DELPHI_JOB_ID')
     report_id = os.environ.get('DELPHI_REPORT_ID')
 
     # Set up environment variables for database connections

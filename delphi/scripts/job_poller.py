@@ -399,6 +399,38 @@ def signal_handler(sig, frame):
     running = False
 
 
+
+def build_job_command(job: Dict[str, Any], app_path: str) -> list:
+    """Build the stage command for a claimed job.
+
+    The pipeline job id travels ON THE COMMAND LINE (Storage V2 design §4.4);
+    the DELPHI_JOB_ID env var set in process_job remains only as a transition
+    fallback for un-migrated readers. Note 803's --job-id is the
+    batch-tracking id (batch_job_id), a distinct concept kept as-is.
+    """
+    job_id = job['job_id']
+    job_type = job.get('job_type')
+    conversation_id = job.get('conversation_id')
+    job_config = json.loads(job.get('job_config', '{}'))
+    include_moderation = job_config.get('include_moderation', False)
+    exclude_comment_selections = job_config.get('exclude_comment_selections', True)
+    if job_type == 'CREATE_NARRATIVE_BATCH':
+        model = os.environ.get("ANTHROPIC_MODEL")
+        if not model: raise ValueError("ANTHROPIC_MODEL must be set")
+        max_batch_size = job_config.get('max_batch_size', 20)
+        cmd = ['python', f'{app_path}/umap_narrative/801_narrative_report_batch.py', f'--conversation_id={conversation_id}', f'--model={model}', f'--include_moderation={include_moderation}', f'--exclude_comment_selections={exclude_comment_selections}', f'--max-batch-size={str(max_batch_size)}', f'--job-id={job_id}']
+        if job_config.get('no_cache'): cmd.append('--no-cache')
+    elif job_type == 'AWAITING_NARRATIVE_BATCH':
+        cmd_job_id = job.get('batch_job_id', job_id)
+        cmd = ['python', f'{app_path}/umap_narrative/803_check_batch_status.py', f'--job-id={cmd_job_id}']
+    else:  # FULL_PIPELINE
+        cmd = ['python', f'{app_path}/run_delphi.py', f'--zid={conversation_id}', f'--include_moderation={include_moderation}', f'--exclude_comment_selections={exclude_comment_selections}', f'--job-id={job_id}']
+        report_id = job.get('report_id')
+        if report_id:
+            cmd.append(f'--rid={report_id}')
+    return cmd
+
+
 class JobProcessor:
     """Process jobs from the Delphi_JobQueue."""
     
@@ -697,27 +729,9 @@ class JobProcessor:
         
         try:
             # 1. Build the command
-            job_config = json.loads(job.get('job_config', '{}'))
-            include_moderation = job_config.get('include_moderation', False)
-            exclude_comment_selections = job_config.get('exclude_comment_selections', True)
-            app_path = os.environ.get('DELPHI_APP_PATH', '/app')
-            if job_type == 'CREATE_NARRATIVE_BATCH':
-                model = os.environ.get("ANTHROPIC_MODEL")
-                if not model: raise ValueError("ANTHROPIC_MODEL must be set")
-                max_batch_size = job_config.get('max_batch_size', 20)
-                cmd = ['python', f'{app_path}/umap_narrative/801_narrative_report_batch.py', f'--conversation_id={conversation_id}', f'--model={model}', f'--include_moderation={include_moderation}', f'--exclude_comment_selections={exclude_comment_selections}', f'--max-batch-size={str(max_batch_size)}']
-                if job_config.get('no_cache'): cmd.append('--no-cache')
-            elif job_type == 'AWAITING_NARRATIVE_BATCH':
-                cmd_job_id = job.get('batch_job_id', job_id)
-                cmd = ['python', f'{app_path}/umap_narrative/803_check_batch_status.py', f'--job-id={cmd_job_id}']
-            else: # FULL_PIPELINE
-                # Base command
-                cmd = ['python', f'{app_path}/run_delphi.py', f'--zid={conversation_id}', f'--include_moderation={include_moderation}', f'--exclude_comment_selections={exclude_comment_selections}',]
-                # Check for report_id and append if it exists
-                report_id = job.get('report_id')
-                if report_id:
-                    cmd.append(f'--rid={report_id}')
-                    self.update_job_logs(job, {'level': 'INFO', 'message': f"Passing report_id {report_id} to run_delphi.py"})
+            cmd = build_job_command(job, app_path=os.environ.get('DELPHI_APP_PATH', '/app'))
+            if job.get('report_id') and job_type not in ('CREATE_NARRATIVE_BATCH', 'AWAITING_NARRATIVE_BATCH'):
+                self.update_job_logs(job, {'level': 'INFO', 'message': f"Passing report_id {job.get('report_id')} to run_delphi.py"})
 
 
             # 2. Execute the command and stream logs to prevent deadlocks

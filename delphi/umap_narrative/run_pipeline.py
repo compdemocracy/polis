@@ -1324,7 +1324,8 @@ def create_enhanced_multilayer_index(
 
 
 def process_conversation(
-    zid, export_dynamo=True, use_ollama=False, include_moderation=False, exclude_comment_selections=True
+    zid, export_dynamo=True, use_ollama=False, include_moderation=False, exclude_comment_selections=True,
+    job_id=None,
 ):
     """
     Main function to process a conversation and generate visualizations.
@@ -1373,9 +1374,10 @@ def process_conversation(
         finally:
             postgres_client.shutdown()
 
-    # Generate a job_id for this pipeline run
-    # If DELPHI_JOB_ID is set (e.g., by a calling script like run_delphi.py), use that.
-    job_id = os.environ.get("DELPHI_JOB_ID", f"pipeline_run_{uuid.uuid4()}")
+    # Job id for this pipeline run: explicit arg > DELPHI_JOB_ID env
+    # (transition fallback, design §4.4) > auto local-<uuid4>.
+    from delphi_storage.job_id import resolve_job_id
+    job_id = resolve_job_id(job_id)
     logger.info(f"Using job_id: {job_id} for this pipeline run.")
 
     conversation_id = str(zid)
@@ -1523,6 +1525,12 @@ def main():
         default=True,
         help="Whether to exclude comments with selection=-1 in report_comment_selections table.",
     )
+    parser.add_argument(
+        "--job-id",
+        dest="job_id",
+        default=None,
+        help="Pipeline job id (Storage V2 provenance, design §4.4); defaults to DELPHI_JOB_ID env, else auto local-<uuid4>",
+    )
 
     args = parser.parse_args()
 
@@ -1596,6 +1604,7 @@ def main():
             use_ollama=args.use_ollama,
             include_moderation=args.include_moderation,
             exclude_comment_selections=args.exclude_comment_selections,
+            job_id=args.job_id,
         )
 
 

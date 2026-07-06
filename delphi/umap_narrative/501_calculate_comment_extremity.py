@@ -191,7 +191,13 @@ def main():
     parser.add_argument('--verbose', action='store_true', help='Show detailed output')
     parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
     parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
+    parser.add_argument('--job-id', dest='job_id', default=None,
+                        help='Pipeline job id (Storage V2 provenance, design §4.4); defaults to DELPHI_JOB_ID env, else auto local-<uuid4>')
     args = parser.parse_args()
+
+    from delphi_storage.job_id import resolve_job_id
+    job_id = resolve_job_id(args.job_id)
+    logger.info(f"Pipeline job id: {job_id}")
     
     # Set log level based on verbosity
     if args.verbose:
