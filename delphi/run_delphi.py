@@ -25,6 +25,16 @@ def show_usage():
     print("  --validate                Run extra validation checks")
     print("  --help                    Show this help message")
 
+def _capture_run_inputs(job_id, zid, rid):
+    """Snapshot inputs into the V2 store (module-level so tests can stub it)."""
+    from delphi_storage import get_store
+    from delphi_storage.inputs import capture_run_inputs
+
+    fingerprints = capture_run_inputs(get_store(), job_id, zid, rid=rid)
+    for kind, fingerprint in fingerprints.items():
+        print(f"{YELLOW}Snapshotted {kind}: {fingerprint}{NC}")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Process a Polis conversation with the Delphi analytics pipeline.", add_help=False)
     parser.add_argument("--zid", required=True, help="The Polis conversation ID to process")
@@ -36,6 +46,9 @@ def main():
     parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
     parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
     parser.add_argument('--region', type=str, default='us-east-1', help='AWS region')
+    parser.add_argument('--snapshot-inputs', dest='snapshot_inputs', action='store_true',
+                        help='Snapshot all pipeline inputs into Delphi Storage V2 at job start '
+                             '(also enabled by DELPHI_SNAPSHOT_INPUTS=1; design §4.4/P6)')
     parser.add_argument('--job-id', dest='job_id', default=None,
                         help='Pipeline job id (auto local-<uuid4> when omitted; '
                              'threaded to every stage, see docs/STORAGE_V2_DESIGN.md §4.4)')
@@ -58,6 +71,19 @@ def main():
     force_arg = "--force" if args.force else ""
     # validate_arg is not used in the python script execution steps, but kept for parity with bash
     # validate_arg = "--validate" if args.validate else ""
+
+    snapshot_enabled = args.snapshot_inputs or os.environ.get(
+        "DELPHI_SNAPSHOT_INPUTS", ""
+    ).lower() in ("1", "true", "yes")
+    if snapshot_enabled:
+        print(f"{YELLOW}Snapshotting pipeline inputs for job {job_id}...{NC}")
+        try:
+            _capture_run_inputs(job_id, zid, rid)
+        except Exception as e:
+            # A run without recorded inputs defeats the point when enabled.
+            print(f"{RED}Input snapshot failed: {e}. Aborting pipeline.{NC}")
+            sys.exit(1)
+        print(f"{GREEN}Input snapshot complete.{NC}")
 
     # --- Reset all data before processing ---
     print(f"{YELLOW}Resetting all existing data for conversation {zid} before processing...{NC}")
