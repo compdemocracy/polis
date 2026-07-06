@@ -34,10 +34,6 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
   const jobFormData = {
     job_type: "FULL_PIPELINE",
     priority: 50,
-    max_votes: "",
-    batch_size: "",
-    model: "claude-opus-4-8",
-    include_topics: true,
     include_moderation: reportModLevel !== -2,
   };
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -283,7 +279,6 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
     net
       .polisPost("/api/v3/delphi/batchReports", {
         report_id: report_id,
-        model: "claude-opus-4-8",
         no_cache: false,
         include_moderation: reportModLevel !== -2,
       }, authToken)
@@ -781,10 +776,13 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
                 <p>Not enough data has been provided for analysis, please check back later</p>
               );
 
+            // Only bail out early on data that isn't JSON-ish at all. Don't require a
+            // trailing "}" here — responses truncated by max_tokens (e.g. from adaptive
+            // thinking eating into the token budget) are missing their closing brackets,
+            // and jsonrepair below can usually recover a valid partial object from those.
             if (
               typeof report.report_data !== "string" ||
-              !report.report_data.trim().startsWith("{") ||
-              !report.report_data.trim().endsWith("}")
+              !report.report_data.trim().startsWith("{")
             ) {
               return (
                 <article style={{ maxWidth: "600px" }}>

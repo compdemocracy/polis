@@ -277,7 +277,11 @@ const getModelResponse = async (
         }
         const responseClaude = await anthropic.messages.create({
           model: modelVersion || "claude-sonnet-5",
-          max_tokens: 3000,
+          // max_tokens is a hard cap on thinking + response text combined
+          // (adaptive thinking is on by default on Sonnet 5 / Opus 4.8+), so
+          // this needs real headroom beyond the visible JSON text length.
+          max_tokens: 8000,
+          output_config: { effort: "medium" },
           system: system_lore,
           messages: [
             {
@@ -286,6 +290,11 @@ const getModelResponse = async (
             },
           ],
         });
+        if (responseClaude.stop_reason === "max_tokens") {
+          logger.warn(
+            "Anthropic narrative report response was truncated by max_tokens; output may be incomplete/invalid JSON."
+          );
+        }
         const textBlock = responseClaude.content.find((b) => b.type === "text");
         const rawText = textBlock?.type === "text" ? textBlock.text : "";
         // Strip markdown code fences if present
