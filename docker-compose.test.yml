@@ -197,6 +197,12 @@ services:
       - DATABASE_NAME=${POSTGRES_DB}
       - DATABASE_USER=${POSTGRES_USER}
       - DATABASE_PASSWORD=${POSTGRES_PASSWORD}
+      # Full URL form for delphi_storage (PG-backend conformance tests).
+      # DELPHI_STORAGE_PG_URL carries the SQLAlchemy-safe postgresql:// scheme
+      # (DATABASE_URL keeps the legacy postgres:// alias for other consumers);
+      # the storage backend prefers DELPHI_STORAGE_PG_URL when set.
+      - DATABASE_URL=${DATABASE_URL}
+      - DELPHI_STORAGE_PG_URL=${DELPHI_STORAGE_PG_URL:-}
       - DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT}
       - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT}
       - AWS_ACCESS_KEY_ID=minioadmin
