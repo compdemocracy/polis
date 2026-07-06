@@ -152,6 +152,16 @@ def fetch_comments(conn, conversation_id):
         logger.error(f"Error fetching comments: {e}")
         cursor.close()
         return {'comments': []}
+    return _comment_rows_to_dicts(comments)
+
+
+def _comment_rows_to_dicts(comments):
+    """Shared row→dict transformation for stage-1 comments — used by both the
+    live SQL path and the snapshot path (comments_from_snapshot), so the two
+    can never diverge, INCLUDING the moderated == '-1' comparison below,
+    which compares the INTEGER mod column to a STRING and therefore never
+    matches. That quirk is production behavior; changing it would change
+    math inputs (golden invariance + propose-then-wait apply)."""
     comments_list = []
     for comment in comments:
         if comment['moderated'] == '-1':
@@ -170,6 +180,11 @@ def fetch_comments(conn, conversation_id):
             'is_seed': bool(comment['is_seed'])
         })
     return {'comments': comments_list}
+
+
+def comments_from_snapshot(reader):
+    """Stage-1 comments fed from a snapshot (--input-source seam, P6b)."""
+    return _comment_rows_to_dicts(reader.stage1_comment_rows())
 
 def fetch_moderation(conn, conversation_id):
     """
@@ -210,6 +225,14 @@ def fetch_moderation(conn, conversation_id):
             'mod_out_ptpts': []
         }
     cursor.close()
+    return _moderation_rows_to_dict(mod_comments, mod_ptpts)
+
+
+def _moderation_rows_to_dict(mod_comments, mod_ptpts):
+    """Shared transformation for stage-1 moderation — live and snapshot paths
+    both route through here. The mod == '-1' / mod == '1' comparisons match
+    an INTEGER column against STRINGS and never fire; that is production
+    behavior, reproduced deliberately (see _comment_rows_to_dicts)."""
     mod_out_tids = [str(c['tid']) for c in mod_comments if c['mod'] == '-1']
     mod_in_tids = [str(c['tid']) for c in mod_comments if c['mod'] == '1']
     meta_tids = [str(c['tid']) for c in mod_comments if c['is_meta']]
@@ -220,6 +243,12 @@ def fetch_moderation(conn, conversation_id):
         'meta_tids': meta_tids,
         'mod_out_ptpts': mod_out_ptpts
     }
+
+
+def moderation_from_snapshot(reader):
+    """Stage-1 moderation fed from a snapshot (--input-source seam, P6b)."""
+    mod_comments, mod_ptpts = reader.stage1_moderation_rows()
+    return _moderation_rows_to_dict(mod_comments, mod_ptpts)
 
 
 import sys
@@ -263,6 +292,9 @@ def main():
                         help='Batch size for vote processing (default: 50000)')
     parser.add_argument('--job-id', dest='job_id', default=None,
                         help='Pipeline job id (Storage V2 provenance, design §4.4); defaults to DELPHI_JOB_ID env, else auto local-<uuid4>')
+    parser.add_argument('--input-source', dest='input_source', default=None,
+                        help='Read inputs from a recorded snapshot instead of live PG: '
+                             'store://<job_id> (Storage V2 P6b seam; used by replay)')
     args = parser.parse_args()
 
     from delphi_storage.job_id import resolve_job_id
@@ -276,32 +308,45 @@ def main():
     # Import polismath modules
     from polismath.conversation.conversation import Conversation
 
-    # Connect to database
-    logger.info(f"[{time.time() - start_time:.2f}s] Connecting to database...")
-    conn = connect_to_db()
-    if not conn:
-        logger.error(f"[{time.time() - start_time:.2f}s] Database connection failed")
-        sys.exit(1)
+    # Input source: live PG (production) or a recorded snapshot (replay seam)
+    snapshot_reader = None
+    conn = None
+    if args.input_source:
+        from delphi_storage import get_store
+        from delphi_storage.inputs import SnapshotReader, parse_input_source
+        source_job_id = parse_input_source(args.input_source)
+        logger.info(f"[{time.time() - start_time:.2f}s] Reading inputs from snapshot of job {source_job_id} (no live PG)")
+        snapshot_reader = SnapshotReader(get_store(), source_job_id)
+    else:
+        # Connect to database
+        logger.info(f"[{time.time() - start_time:.2f}s] Connecting to database...")
+        conn = connect_to_db()
+        if not conn:
+            logger.error(f"[{time.time() - start_time:.2f}s] Database connection failed")
+            sys.exit(1)
 
     try:
         logger.info(f"[{time.time() - start_time:.2f}s] Creating conversation object for zid: {zid}")
         conv = Conversation(str(zid))
 
         logger.info(f"[{time.time() - start_time:.2f}s] Fetching comments...")
-        comments = fetch_comments(conn, zid)
+        comments = comments_from_snapshot(snapshot_reader) if snapshot_reader else fetch_comments(conn, zid)
         logger.info(f"[{time.time() - start_time:.2f}s] {len(comments['comments'])} comments fetched")
 
         logger.info(f"[{time.time() - start_time:.2f}s] Fetching moderation data...")
-        moderation = fetch_moderation(conn, zid)
+        moderation = moderation_from_snapshot(snapshot_reader) if snapshot_reader else fetch_moderation(conn, zid)
         logger.info(f"[{time.time() - start_time:.2f}s] Moderation data fetched")
 
         conv = conv.update_moderation(moderation, recompute=False)
         logger.info(f"[{time.time() - start_time:.2f}s] Moderation applied")
 
-        cursor = conn.cursor()
-        cursor.execute(VOTES_COUNT_SQL, (zid,))
-        total_votes = cursor.fetchone()[0]
-        cursor.close()
+        if snapshot_reader:
+            total_votes = snapshot_reader.vote_count()
+        else:
+            cursor = conn.cursor()
+            cursor.execute(VOTES_COUNT_SQL, (zid,))
+            total_votes = cursor.fetchone()[0]
+            cursor.close()
         logger.info(f"[{time.time() - start_time:.2f}s] {total_votes} total votes")
 
         # Get batch size from command line arguments
@@ -320,10 +365,13 @@ def main():
             end_idx = min(offset+batch_size, total_votes, max_votes_to_process)
             logger.info(f"[{time.time() - start_time:.2f}s] Processing votes {offset+1} to {end_idx} of {total_votes}")
             
-            cursor = conn.cursor()
-            cursor.execute(VOTES_BATCH_SQL, (zid, batch_size, offset))
-            vote_batch = cursor.fetchall()
-            cursor.close()
+            if snapshot_reader:
+                vote_batch = snapshot_reader.vote_batch(offset, batch_size)
+            else:
+                cursor = conn.cursor()
+                cursor.execute(VOTES_BATCH_SQL, (zid, batch_size, offset))
+                vote_batch = cursor.fetchall()
+                cursor.close()
 
             db_fetch_time = time.time()
             logger.info(f"[{time.time() - start_time:.2f}s] Database fetch completed in {db_fetch_time - batch_start_time:.2f}s")
@@ -426,7 +474,8 @@ def main():
         traceback.print_exc()
         sys.exit(1)
     finally:
-        conn.close()
+        if conn:
+            conn.close()
         logger.info(f"[{time.time() - start_time:.2f}s] Database connection closed")
 
 

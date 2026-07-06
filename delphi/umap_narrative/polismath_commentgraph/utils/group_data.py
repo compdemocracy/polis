@@ -20,14 +20,27 @@ class GroupDataProcessor:
     Processes group and vote data for report generation.
     """
     
-    def __init__(self, postgres_client):
+    def __init__(self, postgres_client, math_main_override=None, using_snapshot=False):
         """
         Initialize the group data processor.
         
         Args:
             postgres_client: PostgreSQL client for database access
+            math_main_override: Optional pre-loaded math_main data dict — the
+                Storage V2 P6b snapshot seam. When set,
+                get_math_main_by_conversation uses it in place of the SQL read.
+            using_snapshot: True when running from a snapshot (implied by a
+                non-None override); with no override it makes the no-data case
+                fall through to the votes-based fallback instead of raw SQL.
         """
         self.postgres_client = postgres_client
+        self.math_main_override = math_main_override
+        # Snapshot MODE is tracked separately from data presence: a snapshot
+        # can legitimately contain zero math_main rows, and that case must
+        # take the same votes-based fallback as the live no-data path (the
+        # snapshot client serves get_votes_by_conversation) — never the raw
+        # .query() SQL, which snapshot clients do not implement.
+        self.using_snapshot = using_snapshot or math_main_override is not None
         
         # Initialize DynamoDB connection
         self.dynamodb = None
@@ -87,7 +100,18 @@ class GroupDataProcessor:
             LIMIT 1
             """
             
-            results = self.postgres_client.query(sql, {"zid": zid})
+            if self.using_snapshot:
+                # Storage V2 P6b: snapshot-fed math_main (env-less latest,
+                # the same semantics as the SQL below). Zero snapshot rows →
+                # [] — identical to an empty SQL result, so the votes-based
+                # fallback below runs exactly as it would live.
+                results = (
+                    [{"data": self.math_main_override}]
+                    if self.math_main_override is not None
+                    else []
+                )
+            else:
+                results = self.postgres_client.query(sql, {"zid": zid})
             
             if results and 'data' in results[0]:
                 # Parse JSON data if it's a string, or use as is if it's already parsed

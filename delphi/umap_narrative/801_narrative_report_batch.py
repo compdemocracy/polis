@@ -200,7 +200,7 @@ class PolisConverter:
 class BatchReportGenerator:
     """Generate batch reports for Polis conversations."""
 
-    def __init__(self, conversation_id, model=None, no_cache=False, max_batch_size=20, job_id=None, layers=None, include_moderation=False, exclude_comment_selections=True):
+    def __init__(self, conversation_id, model=None, no_cache=False, max_batch_size=20, job_id=None, layers=None, include_moderation=False, exclude_comment_selections=True, input_source=None):
         """Initialize the batch report generator."""
         self.conversation_id = str(conversation_id)
         if not model:
@@ -213,7 +213,24 @@ class BatchReportGenerator:
         self.layers = layers  # List of layers to process, or None for all layers
         self.job_id = job_id or os.environ.get('DELPHI_JOB_ID')
         self.report_id = os.environ.get('DELPHI_REPORT_ID')
-        self.postgres_client = PostgresClient()
+        # Storage V2 P6b seam: with input_source (store://<job_id>) all PG
+        # reads (conversation, comments, selections, math_main) come from the
+        # recorded snapshot; the snapshot client duck-types PostgresClient.
+        self._snapshot_reader = None
+        if input_source:
+            from delphi_storage import get_store
+            from delphi_storage.inputs import (
+                SnapshotPostgresClient,
+                SnapshotReader,
+                parse_input_source,
+            )
+
+            source_job_id = parse_input_source(input_source)
+            store = get_store()
+            self.postgres_client = SnapshotPostgresClient(store, source_job_id)
+            self._snapshot_reader = SnapshotReader(store, source_job_id)
+        else:
+            self.postgres_client = PostgresClient()
         self.include_moderation = include_moderation
         self.exclude_comment_selections = exclude_comment_selections
 
@@ -228,7 +245,13 @@ class BatchReportGenerator:
         )
 
         self.report_storage = NarrativeReportService(dynamodb_resource=self.dynamodb)
-        self.group_processor = GroupDataProcessor(self.postgres_client)
+        self.group_processor = GroupDataProcessor(
+            self.postgres_client,
+            math_main_override=(
+                self._snapshot_reader.math_main_data() if self._snapshot_reader else None
+            ),
+            using_snapshot=self._snapshot_reader is not None,
+        )
 
         current_dir = Path(__file__).parent
         self.prompt_base_path = current_dir / "report_experimental"
@@ -244,6 +267,19 @@ class BatchReportGenerator:
             Dictionary containing math results including group_aware_consensus and comment_extremity
         """
         try:
+            # Use 'prod' as the default math_env (matches the server behavior)
+            math_env = os.environ.get('MATH_ENV', 'prod')
+
+            if self._snapshot_reader is not None:
+                # Storage V2 P6b: same env-filtered latest-by-modified
+                # semantics as the SQL below, fed from the snapshot.
+                math_data = self._snapshot_reader.math_main_data(math_env=math_env)
+                if math_data is None:
+                    logger.warning(f"No math_main data found for conversation {conversation_id} with math_env {math_env}")
+                    return None
+                logger.info(f"Successfully retrieved math_main data for conversation {conversation_id}")
+                return math_data
+
             # Query the math_main table for the conversation's math results
             sql = """
             SELECT data 
@@ -252,9 +288,6 @@ class BatchReportGenerator:
             ORDER BY modified DESC 
             LIMIT 1
             """
-            
-            # Use 'prod' as the default math_env (matches the server behavior)
-            math_env = os.environ.get('MATH_ENV', 'prod')
             
             results = self.postgres_client.query(sql, {"zid": conversation_id, "math_env": math_env})
             
@@ -1526,6 +1559,9 @@ async def main():
                         help='Specific layer numbers to process (e.g., --layers 0 1 2). If not specified, all layers will be processed.')
     parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
     parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
+    parser.add_argument('--input-source', dest='input_source', default=None,
+                        help='Read inputs from a recorded snapshot instead of live PG: '
+                             'store://<job_id> (Storage V2 P6b seam; used by replay)')
     parser.add_argument('--job-id', dest='job_id', default=None,
                         help='Pipeline job id (Storage V2 provenance, design §4.4); defaults to DELPHI_JOB_ID env; NO auto-generation here — narrative section keys embed it, so a missing id must keep failing loudly downstream')
     args = parser.parse_args()
@@ -1572,7 +1608,8 @@ async def main():
         job_id=job_id,
         layers=args.layers,
         include_moderation=args.include_moderation,
-        exclude_comment_selections=args.exclude_comment_selections
+        exclude_comment_selections=args.exclude_comment_selections,
+        input_source=args.input_source
     )
 
     # Process reports

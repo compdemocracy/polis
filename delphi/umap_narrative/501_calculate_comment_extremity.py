@@ -30,7 +30,7 @@ from polismath_commentgraph.utils.group_data import GroupDataProcessor
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-def calculate_and_store_extremity(conversation_id: int, force_recalculation: bool = False, include_moderation: bool = False, exclude_comment_selections: bool = True) -> Dict[int, float]:
+def calculate_and_store_extremity(conversation_id: int, force_recalculation: bool = False, include_moderation: bool = False, exclude_comment_selections: bool = True, input_source: str = None) -> Dict[int, float]:
     """
     Calculate and store extremity values for all comments in a conversation.
     
@@ -45,9 +45,29 @@ def calculate_and_store_extremity(conversation_id: int, force_recalculation: boo
     """
     logger.info(f"Calculating comment extremity values for conversation {conversation_id}")
     
-    # Initialize PostgreSQL client and GroupDataProcessor
-    postgres_client = PostgresClient()
-    group_processor = GroupDataProcessor(postgres_client)
+    # Initialize PostgreSQL client and GroupDataProcessor. With an
+    # input_source (store://<job_id>, the Storage V2 P6b seam) both the
+    # selections read and the Clojure math_main read come from the snapshot;
+    # the snapshot client also serves the votes_latest_unique fallback.
+    if input_source:
+        from delphi_storage import get_store
+        from delphi_storage.inputs import (
+            SnapshotPostgresClient,
+            SnapshotReader,
+            parse_input_source,
+        )
+
+        source_job_id = parse_input_source(input_source)
+        store = get_store()
+        postgres_client = SnapshotPostgresClient(store, source_job_id)
+        group_processor = GroupDataProcessor(
+            postgres_client,
+            math_main_override=SnapshotReader(store, source_job_id).math_main_data(),
+            using_snapshot=True,
+        )
+    else:
+        postgres_client = PostgresClient()
+        group_processor = GroupDataProcessor(postgres_client)
     
     # If exclude_comment_selections is enabled, get excluded tids
     excluded_tids = set()
@@ -191,6 +211,9 @@ def main():
     parser.add_argument('--verbose', action='store_true', help='Show detailed output')
     parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
     parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
+    parser.add_argument('--input-source', dest='input_source', default=None,
+                        help='Read inputs from a recorded snapshot instead of live PG: '
+                             'store://<job_id> (Storage V2 P6b seam; used by replay)')
     parser.add_argument('--job-id', dest='job_id', default=None,
                         help='Pipeline job id (Storage V2 provenance, design §4.4); defaults to DELPHI_JOB_ID env, else auto local-<uuid4>')
     args = parser.parse_args()
@@ -204,7 +227,7 @@ def main():
         logging.getLogger().setLevel(logging.DEBUG)
     
     # Calculate and store extremity values
-    extremity_values = calculate_and_store_extremity(args.zid, args.force, args.include_moderation, args.exclude_comment_selections)
+    extremity_values = calculate_and_store_extremity(args.zid, args.force, args.include_moderation, args.exclude_comment_selections, input_source=args.input_source)
     
     # Print report
     print_extremity_report(extremity_values)

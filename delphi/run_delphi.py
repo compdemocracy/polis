@@ -46,6 +46,9 @@ def main():
     parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
     parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
     parser.add_argument('--region', type=str, default='us-east-1', help='AWS region')
+    parser.add_argument('--input-source', dest='input_source', default=None,
+                        help='Read pipeline inputs from a recorded snapshot instead of live PG: '
+                             'store://<job_id> (Storage V2 P6b seam; forwarded to the PG-reading stages)')
     parser.add_argument('--snapshot-inputs', dest='snapshot_inputs', action='store_true',
                         help='Snapshot all pipeline inputs into Delphi Storage V2 at job start '
                              '(also enabled by DELPHI_SNAPSHOT_INPUTS=1; design §4.4/P6)')
@@ -75,6 +78,10 @@ def main():
     snapshot_enabled = args.snapshot_inputs or os.environ.get(
         "DELPHI_SNAPSHOT_INPUTS", ""
     ).lower() in ("1", "true", "yes")
+    if snapshot_enabled and args.input_source:
+        print(f"{RED}--snapshot-inputs and --input-source are mutually exclusive: "
+              f"a run cannot both record fresh inputs and replay recorded ones.{NC}")
+        sys.exit(2)
     if snapshot_enabled:
         print(f"{YELLOW}Snapshotting pipeline inputs for job {job_id}...{NC}")
         try:
@@ -138,6 +145,8 @@ def main():
         f"--zid={zid}",
         f"--job-id={job_id}",
     ]
+    if args.input_source:
+        math_command.append(f"--input-source={args.input_source}")
     if max_votes_arg:
         math_command.append(max_votes_arg)
     if batch_size_arg:
@@ -160,6 +169,8 @@ def main():
         f"--job-id={job_id}",
         "--use-ollama"
     ]
+    if args.input_source:
+        umap_command.append(f"--input-source={args.input_source}")
     if verbose_arg:
         umap_command.append(verbose_arg)
 
@@ -175,6 +186,8 @@ def main():
         f"--exclude_comment_selections={args.exclude_comment_selections}",
         f"--job-id={job_id}"
     ]
+    if args.input_source:
+        extremity_command.append(f"--input-source={args.input_source}")
     if verbose_arg:
         extremity_command.append(verbose_arg)
     if force_arg:
