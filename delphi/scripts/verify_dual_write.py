@@ -218,22 +218,156 @@ def verify_math_dual_write(store, job_id: str, zid, endpoint_url=None) -> dict:
     return {"ok": not mismatches, "mismatches": mismatches, "tick": tick}
 
 
+def _decoded_umap_artifacts(store, job_id: str) -> dict:
+    items = store.query_prefix("artifacts", job_id, "umap#")
+    return {item.sk: decode_payload(item.attributes, item.blob) for item in items}
+
+
+def verify_umap_dual_write(store, job_id: str, zid, endpoint_url=None) -> dict:
+    """Compare the legacy UMAP tables (conversation_id-keyed) against the
+    decoded v2 umap# artifacts of job_id. Same independence rule as the math
+    verifier: zero shared code with the writer. Compares SAME-RUN rows only
+    (EVōC cluster ids are not stable across runs)."""
+    zid = str(zid)
+    mismatches: list = []
+    artifacts = _decoded_umap_artifacts(store, job_id)
+    if not artifacts:
+        return {"ok": False, "mismatches": [f"no v2 umap artifacts for job {job_id!r}"]}
+
+    resource = _legacy_resource(endpoint_url)
+
+    def rows_of(prefix: str) -> list:
+        return [
+            row
+            for key in sorted(artifacts)
+            if key.startswith(prefix)
+            for row in artifacts[key]
+        ]
+
+    # umap#meta vs Delphi_UMAPConversationConfig
+    meta = artifacts.get("umap#meta")
+    if meta is None:
+        mismatches.append("umap#meta artifact missing")
+    else:
+        legacy_meta = resource.Table("Delphi_UMAPConversationConfig").get_item(
+            Key={"conversation_id": zid}
+        ).get("Item")
+        if not legacy_meta:
+            mismatches.append(f"no legacy Delphi_UMAPConversationConfig row for {zid}")
+        else:
+            for field in ("processed_date", "num_comments", "num_participants",
+                          "embedding_model"):
+                _compare(f"meta.{field}", meta.get(field),
+                         from_dynamo(legacy_meta.get(field)), mismatches)
+
+    # per-comment tables: embeddings and assignments
+    for prefix, table_name, fields in (
+        ("umap#embeddings#", "Delphi_CommentEmbeddings", ("embedding",)),
+        ("umap#assignments#", "Delphi_CommentHierarchicalClusterAssignments",
+         ("layer0_cluster_id", "is_outlier")),
+    ):
+        v2_rows = rows_of(prefix)
+        if not v2_rows:
+            mismatches.append(f"{prefix} artifacts missing")
+            continue
+        legacy_rows = _query_all(
+            resource.Table(table_name),
+            KeyConditionExpression=Key("conversation_id").eq(zid),
+        )
+        legacy_by_id = {
+            int(row["comment_id"]): {f: from_dynamo(row.get(f)) for f in fields}
+            for row in legacy_rows
+        }
+        v2_by_id = {
+            int(row["comment_id"]): {f: row.get(f) for f in fields}
+            for row in v2_rows
+        }
+        _compare(table_name, v2_by_id, legacy_by_id, mismatches)
+
+    # umap#graph vs Delphi_UMAPGraph (edge_id keyed)
+    v2_edges = rows_of("umap#graph#")
+    if v2_edges:
+        legacy_rows = _query_all(
+            resource.Table("Delphi_UMAPGraph"),
+            KeyConditionExpression=Key("conversation_id").eq(zid),
+        )
+        legacy_by_id = {
+            str(row["edge_id"]): {
+                "weight": from_dynamo(row.get("weight")),
+                "distance": from_dynamo(row.get("distance")),
+                "position": from_dynamo(row.get("position")),
+            }
+            for row in legacy_rows
+        }
+        v2_by_id = {
+            str(row["edge_id"]): {
+                "weight": row.get("weight"),
+                "distance": row.get("distance"),
+                "position": row.get("position"),
+            }
+            for row in v2_edges
+        }
+        _compare("umap_graph", v2_by_id, legacy_by_id, mismatches)
+    else:
+        mismatches.append("umap#graph artifacts missing")
+
+    # per-(layer,cluster) tables: keywords, features, llm topics
+    for prefix, table_name, key_field in (
+        ("umap#keywords#", "Delphi_CommentClustersStructureKeywords", "cluster_key"),
+        ("umap#features#", "Delphi_CommentClustersFeatures", "cluster_key"),
+        ("umap#topic#", "Delphi_CommentClustersLLMTopicNames", "topic_key"),
+    ):
+        v2_rows = (
+            rows_of(prefix)
+            if prefix != "umap#topic#"
+            else [artifacts[key] for key in sorted(artifacts) if key.startswith(prefix)]
+        )
+        if not v2_rows:
+            continue  # optional outputs (e.g. no LLM topics without --use-ollama)
+        legacy_rows = _query_all(
+            resource.Table(table_name),
+            KeyConditionExpression=Key("conversation_id").eq(zid),
+        )
+        legacy_by_key = {
+            str(row[key_field]): from_dynamo(
+                {k: v for k, v in row.items() if k not in ("conversation_id",)}
+            )
+            for row in legacy_rows
+        }
+        v2_by_key = {
+            str(row[key_field]): {
+                k: v for k, v in row.items() if k not in ("conversation_id",)
+            }
+            for row in v2_rows
+        }
+        _compare(table_name, v2_by_key, legacy_by_key, mismatches)
+
+    return {"ok": not mismatches, "mismatches": mismatches}
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Verify math dual-write parity")
+    parser = argparse.ArgumentParser(description="Verify dual-write parity")
     parser.add_argument("--job-id", required=True)
     parser.add_argument("--zid", required=True)
+    parser.add_argument("--stage", choices=("math", "umap", "all"), default="all")
     parser.add_argument("--endpoint-url", default=os.environ.get("DYNAMODB_ENDPOINT"))
     args = parser.parse_args()
 
-    report = verify_math_dual_write(
-        get_store(), job_id=args.job_id, zid=args.zid, endpoint_url=args.endpoint_url
-    )
-    if report["ok"]:
-        logger.info(f"PARITY OK (tick {report.get('tick')})")
-        sys.exit(0)
-    for mismatch in report["mismatches"]:
-        logger.error(f"MISMATCH: {mismatch}")
-    sys.exit(1)
+    store = get_store()
+    ok = True
+    for stage, verify in (("math", verify_math_dual_write),
+                          ("umap", verify_umap_dual_write)):
+        if args.stage not in (stage, "all"):
+            continue
+        report = verify(store, job_id=args.job_id, zid=args.zid,
+                        endpoint_url=args.endpoint_url)
+        if report["ok"]:
+            logger.info(f"{stage.upper()} PARITY OK")
+        else:
+            ok = False
+            for mismatch in report["mismatches"]:
+                logger.error(f"{stage.upper()} MISMATCH: {mismatch}")
+    sys.exit(0 if ok else 1)
 
 
 if __name__ == "__main__":

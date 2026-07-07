@@ -1398,6 +1398,12 @@ def process_conversation(
     job_id = resolve_job_id(job_id)
     logger.info(f"Using job_id: {job_id} for this pipeline run.")
 
+    # Migration write mode, resolved up front (fail fast on misconfiguration
+    # — design §4.3; stages invoked directly bypass run_delphi's env export).
+    from delphi_storage.write_mode import old_writes_enabled, resolve_write_mode
+    write_mode = resolve_write_mode()
+    logger.info(f"Write mode: {write_mode.value}")
+
     conversation_id = str(zid)
     conversation_name = metadata.get("conversation_name", f"Conversation {zid}")
 
@@ -1406,16 +1412,27 @@ def process_conversation(
         process_comments(comments, conversation_id)
     )
 
-    # Initialize DynamoDB storage if requested
+    # Initialize storage if requested: the legacy DynamoDBStorage (old/both
+    # write modes) wrapped by the v2 dual-writer (both/v2) — the wrapper
+    # duck-types the seven write methods below, so every call site feeds the
+    # SAME model lists to both stores (Storage V2 P7c, design §6.1 M1).
     dynamo_storage = None
     if export_dynamo:
-        # Use endpoint from environment if available
-        raw_endpoint = os.environ.get("DYNAMODB_ENDPOINT")
-        endpoint_url = raw_endpoint if raw_endpoint and raw_endpoint.strip() else None
-        logger.info(f"Using DynamoDB endpoint from environment: {endpoint_url}")
-        region = os.environ.get("AWS_REGION", "us-east-1")
+        legacy_storage = None
+        if old_writes_enabled(write_mode):
+            # Use endpoint from environment if available
+            raw_endpoint = os.environ.get("DYNAMODB_ENDPOINT")
+            endpoint_url = raw_endpoint if raw_endpoint and raw_endpoint.strip() else None
+            logger.info(f"Using DynamoDB endpoint from environment: {endpoint_url}")
+            region = os.environ.get("AWS_REGION", "us-east-1")
 
-        dynamo_storage = DynamoDBStorage(region_name=region, endpoint_url=endpoint_url)
+            legacy_storage = DynamoDBStorage(region_name=region, endpoint_url=endpoint_url)
+
+        from v2_artifacts import make_umap_storage
+
+        dynamo_storage = make_umap_storage(
+            legacy_storage, job_id=job_id, write_mode=write_mode
+        )
 
         # Store basic data in DynamoDB
         logger.info(
@@ -1486,6 +1503,10 @@ def process_conversation(
         dynamo_storage=dynamo_storage,
         job_id=job_id,  # Pass job_id
     )
+
+    # Record the umap stage on the v2 run manifest (no-op for plain legacy)
+    if dynamo_storage is not None and hasattr(dynamo_storage, "finalize"):
+        dynamo_storage.finalize()
 
     # Save metadata
     with open(os.path.join(output_dir, f"{conversation_id}_metadata.json"), "w") as f:
