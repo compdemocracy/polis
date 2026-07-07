@@ -323,15 +323,31 @@ Per design §7. In order:
   manifests/pointers retained — hashes only, retention removes them in P14).
   NOTE: narrative job types are NOT mirrored yet (P7d); replays
   (--input-source) never write manifests here (P12 owns that).
-- **P7b..P7e — stage-group dual-writes** (math; umap 500s; 501/502+700s;
-  801/803), each with a `verify_dual_write` parity test:
+- **P7b — DONE** (math dual-write): `polismath/database/v2_artifacts.py`
+  builder + `run_math_pipeline.persist_math_results` seam +
+  `scripts/verify_dual_write.py`. LESSONS (all verifier-caught): legacy
+  stores only consensus.agree as `consensus_comments`; routing
+  priority/consensus default to 0 (never omitted); the participant→group
+  map is RAW-keyed (str/int mismatch ⇒ -1 on both sides — quirk parity).
+  The verifier reads both stores independently — keep it zero-shared-code
+  with the writer, that's what caught three real divergences in the first
+  draft. TWO more review-caught lessons: (a) serialize ONCE and thread the
+  dict through both writers — math_tick is time-derived inside
+  to_dynamo_dict(), so independent calls tag the two stores differently;
+  (b) resolve the write mode at the TOP of a stage's main(), not after the
+  computation, and remember stages invoked directly (tests, make process)
+  bypass run_delphi's env export. Numpy: production conv.proj values are
+  numpy arrays — sanitize (v2_artifacts._jsonable) before the codec.
+- **P7c..P7e — remaining stage-group dual-writes** (umap 500s; 801/803
+  narrative incl. numeric-rid resolution; 501/502+700s), each extending
+  verify_dual_write:
   - stages `merge_run_fields` per-stage status and `append_log`; artifacts
-    via `keys.artifact_key(...)` with the design §4.2 naming (`math#pca`,
-    `umap#assignments#<chunk>`, `priorities`, …);
-  - old-table writers to mirror: `polismath/database/dynamodb.py`
-    (DynamoDBClient, called from run_math_pipeline/conversation serializers)
-    for math; `umap_narrative/.../utils/storage.py` DynamoDBStorage for
-    umap; 501/502 extremity+priorities; 801/803 narrative sections.
+    via `keys.artifact_key(...)` with the design §4.2 naming
+    (`umap#assignments#<chunk>`, `priorities`, `narrative#<section>#<model>`, …);
+  - old-table writers to mirror: `umap_narrative/.../utils/storage.py`
+    DynamoDBStorage for umap; 501/502 extremity+priorities (Delphi_CommentExtremity,
+    CommentRouting.priority mutation → the `priorities` artifact);
+    801/803 narrative sections (Delphi_NarrativeReports).
 - **P8 — LLM recorder + EVōC seeding + config_effective**: seeding EVōC
   changes UMAP-side outputs (documented in design §4.4) — math goldens
   unaffected, but announce it; record prompts+responses as `llm#<stage>#<seq>`
