@@ -25,14 +25,51 @@ def show_usage():
     print("  --validate                Run extra validation checks")
     print("  --help                    Show this help message")
 
+def _v2_mark_run_started(job_id, zid, rid):
+    """Create/mark the v2 run manifest (module-level so tests can stub it)."""
+    from delphi_storage import get_store
+    from delphi_storage.manifest import ensure_run, mark_running
+
+    store = get_store()
+    # rid is the ALPHANUMERIC public report id (r...) in this pipeline —
+    # recorded verbatim; numeric rid resolution belongs to P7d.
+    ensure_run(
+        store,
+        job_id=job_id,
+        job_type="FULL_PIPELINE",
+        zid=int(zid),
+        config_requested={"report_id": str(rid)} if rid else None,
+    )
+    mark_running(store, job_id)
+
+
+def _v2_mark_run_finished(job_id, success):
+    from delphi_storage import get_store
+    from delphi_storage.manifest import mark_completed, mark_failed
+
+    store = get_store()
+    if success:
+        mark_completed(store, job_id)
+    else:
+        mark_failed(store, job_id, error="run_delphi pipeline failed")
+
+
 def _capture_run_inputs(job_id, zid, rid):
     """Snapshot inputs into the V2 store (module-level so tests can stub it)."""
     from delphi_storage import get_store
     from delphi_storage.inputs import capture_run_inputs
 
-    fingerprints = capture_run_inputs(get_store(), job_id, zid, rid=rid)
+    store = get_store()
+    fingerprints = capture_run_inputs(store, job_id, zid, rid=rid)
     for kind, fingerprint in fingerprints.items():
         print(f"{YELLOW}Snapshotted {kind}: {fingerprint}{NC}")
+    try:
+        from delphi_storage.manifest import record_input_fingerprints
+
+        record_input_fingerprints(store, job_id, fingerprints)
+    except Exception as e:
+        # No manifest exists for a bare --snapshot-inputs run in old mode.
+        print(f"{YELLOW}Fingerprints not recorded on a manifest: {e}{NC}")
 
 
 def main():
@@ -75,22 +112,64 @@ def main():
     # validate_arg is not used in the python script execution steps, but kept for parity with bash
     # validate_arg = "--validate" if args.validate else ""
 
-    snapshot_enabled = args.snapshot_inputs or os.environ.get(
+    explicit_snapshot = args.snapshot_inputs or os.environ.get(
         "DELPHI_SNAPSHOT_INPUTS", ""
     ).lower() in ("1", "true", "yes")
-    if snapshot_enabled and args.input_source:
+    if explicit_snapshot and args.input_source:
         print(f"{RED}--snapshot-inputs and --input-source are mutually exclusive: "
               f"a run cannot both record fresh inputs and replay recorded ones.{NC}")
         sys.exit(2)
-    if snapshot_enabled:
+
+    # Migration write mode (design §4.3): explicit tri-state, fail-loud when
+    # unset. old = today's behavior; both/v2 = v2 manifest + input snapshot.
+    from delphi_storage.interface import Invalid as _StorageInvalid
+    from delphi_storage.write_mode import WriteMode, resolve_write_mode, v2_writes_enabled
+    try:
+        write_mode = resolve_write_mode()
+    except _StorageInvalid as e:
+        print(f"{RED}{e}{NC}")
+        sys.exit(2)
+
+    # Replays (--input-source) never write manifests/snapshots here — the
+    # replay harness (P12) creates its own fresh run.
+    v2_active = v2_writes_enabled(write_mode) and not args.input_source
+    v2_failures_abort = write_mode is WriteMode.V2
+
+    def _v2_finish(success):
+        if not v2_active:
+            return
+        try:
+            _v2_mark_run_finished(job_id, success)
+        except Exception as e:
+            print(f"{RED}v2 run-finish mirror failed: {e}{NC}")
+            if v2_failures_abort and success:
+                sys.exit(1)
+
+    if v2_active:
+        try:
+            _v2_mark_run_started(job_id, zid, rid)
+        except Exception as e:
+            print(f"{RED}v2 run manifest creation failed: {e}{NC}")
+            if v2_failures_abort:
+                sys.exit(1)
+
+    if explicit_snapshot or v2_active:
         print(f"{YELLOW}Snapshotting pipeline inputs for job {job_id}...{NC}")
         try:
             _capture_run_inputs(job_id, zid, rid)
+            print(f"{GREEN}Input snapshot complete.{NC}")
         except Exception as e:
-            # A run without recorded inputs defeats the point when enabled.
-            print(f"{RED}Input snapshot failed: {e}. Aborting pipeline.{NC}")
-            sys.exit(1)
-        print(f"{GREEN}Input snapshot complete.{NC}")
+            if explicit_snapshot or v2_failures_abort:
+                # A run without recorded inputs defeats the point when
+                # explicitly requested, and v2-only has no old copy to lean on.
+                print(f"{RED}Input snapshot failed: {e}. Aborting pipeline.{NC}")
+                _v2_finish(False)
+                sys.exit(1)
+            # both-mode: the old path must keep serving (design §6.1 M1);
+            # the divergence is caught by the coverage/verify tooling.
+            print(f"{RED}Input snapshot failed: {e}. Continuing (write mode 'both': "
+                  f"old path keeps serving; run is marked unreplayable by absence "
+                  f"of fingerprints).{NC}")
 
     # --- Reset all data before processing ---
     print(f"{YELLOW}Resetting all existing data for conversation {zid} before processing...{NC}")
@@ -108,6 +187,7 @@ def main():
     reset_process = subprocess.run(reset_command)
     if reset_process.returncode != 0:
         print(f"{RED}Data reset failed with exit code {reset_process.returncode}. Aborting pipeline.{NC}")
+        _v2_finish(False)
         sys.exit(reset_process.returncode)
     print(f"{GREEN}Data reset complete.{NC}")
 
@@ -117,6 +197,7 @@ def main():
     model = os.environ.get("OLLAMA_MODEL")
     if not model:
         print(f"{RED}Error: OLLAMA_MODEL environment variable not set.{NC}")
+        _v2_finish(False)
         sys.exit(1)
     print(f"{YELLOW}Using Ollama model: {model}{NC}")
 
@@ -157,6 +238,7 @@ def main():
 
     if math_exit_code != 0:
         print(f"{RED}Math pipeline failed with exit code {math_exit_code}{NC}")
+        _v2_finish(False)
         sys.exit(math_exit_code)
 
     # Run the UMAP narrative pipeline
@@ -323,6 +405,7 @@ def main():
         print(f"{RED}Pipeline failed with exit code {exit_code}{NC}")
         print("Please check logs for more details")
 
+    _v2_finish(exit_code == 0)
     sys.exit(exit_code)
 
 if __name__ == "__main__":

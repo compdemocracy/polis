@@ -304,6 +304,7 @@ class TestRunDelphiForwarding:
             "run",
             lambda cmd, **kw: stage_cmds.append(list(cmd)) or SimpleNamespace(returncode=0),
         )
+        monkeypatch.setenv("DELPHI_WRITE_MODE", "old")
         monkeypatch.setenv("OLLAMA_MODEL", "test-model")
         monkeypatch.setenv("DELPHI_APP_PATH", DELPHI_DIR)
         monkeypatch.delenv("DELPHI_JOB_ID", raising=False)

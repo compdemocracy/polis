@@ -67,6 +67,7 @@ def _run_run_delphi(monkeypatch, argv):
         return SimpleNamespace(returncode=0)
 
     monkeypatch.setattr(run_delphi.subprocess, "run", fake_run)
+    monkeypatch.setenv("DELPHI_WRITE_MODE", "old")
     monkeypatch.setenv("OLLAMA_MODEL", "test-model")
     monkeypatch.setenv("DELPHI_APP_PATH", DELPHI_DIR)
     # Make the in-function `import boto3` fail so layer discovery falls back

@@ -270,6 +270,15 @@ way they do.
   commit and had to be `jj split` out (filesets select what STAYS in the
   parent; the bookmark then sits on the child and must be reset with
   `jj bookmark set <name> -r <rev> --allow-backwards`).
+- **One session per workspace at a time.** Two agent sessions operating in
+  this SAME jj workspace concurrently caused an op-heads merge that folded a
+  freshly-created child commit back into its parent change (divergent
+  change, mixed P6b+P7a commit, wrong description, briefly pushed). Recovery
+  recipe that worked: `jj new <good-commit>` → `jj restore --from
+  <mixed-commit>` (child's diff becomes exactly the delta) → re-describe →
+  `jj bookmark set` both bookmarks → `jj abandon <mixed>` → push. Defensive
+  habit adopted after: verify `jj log -r @` (change id AND parent) right
+  before every describe/bookmark/push.
 - To amend an earlier PR in the stack: edit in the working copy, then
   `jj squash --into <change-id> -u 'root:"<path>"'` (descendants auto-rebase
   — safe in a single workspace), then push all moved bookmarks.
@@ -299,19 +308,30 @@ way they do.
 
 Per design §7. In order:
 
-- **P7 — manifests + dual-write** (per stage group: math; umap 500s;
-  501/502+700s; 801/803):
-  - introduce `DELPHI_WRITE_MODE=old|both|v2` (fail-loud if unset while old
-    tables exist — design §4.3) and fold `DELPHI_SNAPSHOT_INPUTS` into it;
-  - runs enqueued/claimed via the store's queue ops; stages
-    `merge_run_fields` their fingerprints (capture already returns them) and
-    `append_log`; `complete_run` flips `latest`;
-  - `scripts/verify_dual_write.py` parity test per stage group (old-table
-    rows vs v2 artifacts);
-  - per-zid purge tool (`list_runs(zid=…)` + `purge_job`) — promised in
-    P6a's PR comment;
-  - artifact keys: use `keys.artifact_key(...)` with the design §4.2 naming
-    (`math#pca`, `umap#assignments#<chunk>`, `priorities`, …).
+- **P7a — DONE** (write-mode + manifest lifecycle): `DELPHI_WRITE_MODE`
+  (`delphi_storage/write_mode.py`, fail-loud when unset; `old` wired into
+  example.env + docker-compose.test.yml; run_delphi exits 2 with a pointed
+  message, the poller mirror logs-and-continues), manifest helpers
+  (`delphi_storage/manifest.py`: ensure_run is idempotent so poller AND
+  run_delphi can both call it; the OLD queue stays the single master, v2
+  rows are mirrors until the P11 enqueue flip), poller mirror
+  (`mirror_job_claimed`/`mirror_job_finished`, module-level for testability,
+  never raise — M1: a broken v2 store must not take serving down),
+  run_delphi failure policy (both → log-and-continue on v2 failures;
+  v2 mode or explicit --snapshot-inputs → abort), capture fingerprints
+  merged into the manifest, per-zid purge (`purge_zid` + scripts/delphi_purge.py;
+  manifests/pointers retained — hashes only, retention removes them in P14).
+  NOTE: narrative job types are NOT mirrored yet (P7d); replays
+  (--input-source) never write manifests here (P12 owns that).
+- **P7b..P7e — stage-group dual-writes** (math; umap 500s; 501/502+700s;
+  801/803), each with a `verify_dual_write` parity test:
+  - stages `merge_run_fields` per-stage status and `append_log`; artifacts
+    via `keys.artifact_key(...)` with the design §4.2 naming (`math#pca`,
+    `umap#assignments#<chunk>`, `priorities`, …);
+  - old-table writers to mirror: `polismath/database/dynamodb.py`
+    (DynamoDBClient, called from run_math_pipeline/conversation serializers)
+    for math; `umap_narrative/.../utils/storage.py` DynamoDBStorage for
+    umap; 501/502 extremity+priorities; 801/803 narrative sections.
 - **P8 — LLM recorder + EVōC seeding + config_effective**: seeding EVōC
   changes UMAP-side outputs (documented in design §4.4) — math goldens
   unaffected, but announce it; record prompts+responses as `llm#<stage>#<seq>`

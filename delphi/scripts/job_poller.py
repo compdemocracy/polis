@@ -400,6 +400,66 @@ def signal_handler(sig, frame):
 
 
 
+_V2_UNMIRRORED_JOB_TYPES = ('CREATE_NARRATIVE_BATCH', 'AWAITING_NARRATIVE_BATCH')
+
+
+def _get_v2_store():
+    """Module-level for testability (tests substitute a memory store)."""
+    from delphi_storage import get_store
+    return get_store()
+
+
+def _v2_mirror_enabled(job) -> bool:
+    from delphi_storage.write_mode import resolve_write_mode, v2_writes_enabled
+    if job.get('job_type') in _V2_UNMIRRORED_JOB_TYPES:
+        # Narrative manifests land with the 801/803 dual-write phase (P7d).
+        return False
+    return v2_writes_enabled(resolve_write_mode())
+
+
+def mirror_job_claimed(job) -> None:
+    """Mirror an old-queue claim into a v2 run manifest (design §6.1 M1: the
+    queue row becomes the manifest as the job executes; the OLD queue stays
+    the single master, §6.2 invariant 3). Errors are logged, never raised —
+    a broken v2 store must not take the serving path down; divergence is
+    caught by the coverage/verify tooling."""
+    try:
+        if not _v2_mirror_enabled(job):
+            return
+        from delphi_storage.manifest import ensure_run, mark_running
+        store = _get_v2_store()
+        # report_id here is the ALPHANUMERIC public report id (r...), not the
+        # numeric rid — record it verbatim; numeric rid resolution belongs to
+        # the narrative phases (P7d) whose latest scopes actually need it.
+        report_id = job.get('report_id')
+        ensure_run(
+            store,
+            job_id=job['job_id'],
+            job_type='FULL_PIPELINE',
+            zid=int(job['conversation_id']),
+            config_requested={'report_id': str(report_id)} if report_id is not None else None,
+        )
+        mark_running(store, job['job_id'])
+    except Exception as e:
+        logger.error(f"v2 manifest mirror (claim) failed for job {job.get('job_id')}: {e}")
+
+
+def mirror_job_finished(job, success: bool, error=None) -> None:
+    """Mirror the old queue's terminal decision into the v2 run manifest.
+    Same never-raise policy as mirror_job_claimed."""
+    try:
+        if not _v2_mirror_enabled(job):
+            return
+        from delphi_storage.manifest import mark_completed, mark_failed
+        store = _get_v2_store()
+        if success:
+            mark_completed(store, job['job_id'])
+        else:
+            mark_failed(store, job['job_id'], error=str(error) if error else None)
+    except Exception as e:
+        logger.error(f"v2 manifest mirror (finish) failed for job {job.get('job_id')}: {e}")
+
+
 def build_job_command(job: Dict[str, Any], app_path: str) -> list:
     """Build the stage command for a claimed job.
 
@@ -667,6 +727,7 @@ class JobProcessor:
 
     def complete_job(self, job, success, result=None, error=None):
         """Mark a job as completed or failed using optimistic locking."""
+        mirror_job_finished(job, success, error=error)
         job_id = job['job_id']
         current_version = job.get('version', 1)
         new_status = 'COMPLETED' if success else 'FAILED'
@@ -726,6 +787,7 @@ class JobProcessor:
         timeout_seconds = int(job.get('timeout_seconds', 3600))
 
         self.update_job_logs(job, {'level': 'INFO', 'message': f'Worker {self.worker_id} starting job {job_id}'})
+        mirror_job_claimed(job)
         
         try:
             # 1. Build the command
