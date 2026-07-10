@@ -97,6 +97,12 @@ export default {
   databaseSSL: isTrue(process.env.DATABASE_SSL),
   databaseURL: process.env.DATABASE_URL as string,
   ddEnv: process.env.DD_ENV as string,
+  delphiStorageBackend: process.env.DELPHI_STORAGE_BACKEND || ("dynamodb" as string),
+  delphiStoragePgSchema: process.env.DELPHI_STORAGE_PG_SCHEMA || ("delphi" as string),
+  delphiStoragePgUrl:
+    process.env.DELPHI_STORAGE_PG_URL || process.env.DATABASE_URL || null,
+  delphiStorageTablePrefix:
+    process.env.DELPHI_STORAGE_TABLE_PREFIX || ("Delphi2_" as string),
   dynamoDbEndpoint: process.env.DYNAMODB_ENDPOINT || null,
   emailTransportTypes: process.env.EMAIL_TRANSPORT_TYPES || null,
   geminiApiKey: process.env.GEMINI_API_KEY || null,
