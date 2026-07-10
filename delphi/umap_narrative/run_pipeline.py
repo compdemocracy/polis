@@ -74,19 +74,31 @@ def setup_environment(
     os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
 
 
-def fetch_conversation_data(zid):
+def fetch_conversation_data(zid, input_source=None):
     """
-    Fetch conversation data from PostgreSQL.
+    Fetch conversation data from PostgreSQL, or from a recorded snapshot when
+    input_source (store://<job_id>) is given — the Storage V2 P6b seam. The
+    snapshot client duck-types the PostgresClient reads, so everything below
+    runs unchanged either way (parity by construction).
 
     Args:
         zid: Conversation ID
+        input_source: Optional store://<job_id> snapshot reference
 
     Returns:
         comments: List of comment dictionaries
         metadata: Dictionary with conversation metadata
     """
-    logger.info(f"Fetching conversation {zid} from PostgreSQL...")
-    postgres_client = PostgresClient()
+    if input_source:
+        from delphi_storage import get_store
+        from delphi_storage.inputs import SnapshotPostgresClient, parse_input_source
+
+        source_job_id = parse_input_source(input_source)
+        logger.info(f"Fetching conversation {zid} from snapshot of job {source_job_id}...")
+        postgres_client = SnapshotPostgresClient(get_store(), source_job_id)
+    else:
+        logger.info(f"Fetching conversation {zid} from PostgreSQL...")
+        postgres_client = PostgresClient()
 
     try:
         # Initialize connection
@@ -1325,7 +1337,7 @@ def create_enhanced_multilayer_index(
 
 def process_conversation(
     zid, export_dynamo=True, use_ollama=False, include_moderation=False, exclude_comment_selections=True,
-    job_id=None,
+    job_id=None, input_source=None,
 ):
     """
     Main function to process a conversation and generate visualizations.
@@ -1345,7 +1357,7 @@ def process_conversation(
     os.makedirs(output_dir, exist_ok=True)
 
     # Fetch data from PostgreSQL
-    comments, metadata = fetch_conversation_data(zid)
+    comments, metadata = fetch_conversation_data(zid, input_source=input_source)
     if not comments:
         logger.error("Failed to fetch conversation data.")
         return False
@@ -1357,7 +1369,13 @@ def process_conversation(
 
     if exclude_comment_selections:
         logger.info(f"exclude_comment_selections is enabled, fetching report comment selections for zid {zid}")
-        postgres_client = PostgresClient()
+        if input_source:
+            from delphi_storage import get_store
+            from delphi_storage.inputs import SnapshotPostgresClient, parse_input_source
+
+            postgres_client = SnapshotPostgresClient(get_store(), parse_input_source(input_source))
+        else:
+            postgres_client = PostgresClient()
         try:
             postgres_client.initialize()
             selections = postgres_client.get_report_comment_selections(zid)
@@ -1526,6 +1544,13 @@ def main():
         help="Whether to exclude comments with selection=-1 in report_comment_selections table.",
     )
     parser.add_argument(
+        "--input-source",
+        dest="input_source",
+        default=None,
+        help="Read inputs from a recorded snapshot instead of live PG: "
+             "store://<job_id> (Storage V2 P6b seam; used by replay)",
+    )
+    parser.add_argument(
         "--job-id",
         dest="job_id",
         default=None,
@@ -1605,6 +1630,7 @@ def main():
             include_moderation=args.include_moderation,
             exclude_comment_selections=args.exclude_comment_selections,
             job_id=args.job_id,
+            input_source=args.input_source,
         )
 
 
