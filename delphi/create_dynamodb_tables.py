@@ -504,6 +504,99 @@ def _create_tables(dynamodb, tables, existing_tables):
     
     return created_tables
 
+# ---------------------------------------------------------------------------
+# Delphi Storage V2 tables (design: docs/STORAGE_V2_DESIGN.md §4.2).
+#
+# INLINED COPY: this script runs standalone in the dynamodb-init container
+# (bare python + boto3), so it cannot import delphi_storage. The source of
+# truth is delphi_storage.backends.dynamodb.table_schemas("Delphi2_");
+# tests/test_delphi_storage_ddl.py fails if this copy drifts.
+# ---------------------------------------------------------------------------
+DELPHI2_TABLE_SCHEMAS = {'Delphi2_Runs': {'KeySchema': [{'AttributeName': 'job_id', 'KeyType': 'HASH'}],
+                  'AttributeDefinitions': [{'AttributeName': 'job_id', 'AttributeType': 'S'},
+                                           {'AttributeName': 'claim_status',
+                                            'AttributeType': 'S'},
+                                           {'AttributeName': 'claim_order',
+                                            'AttributeType': 'S'},
+                                           {'AttributeName': 'zid_key', 'AttributeType': 'S'},
+                                           {'AttributeName': 'rid_key', 'AttributeType': 'S'},
+                                           {'AttributeName': 'enqueued_at',
+                                            'AttributeType': 'S'}],
+                  'GlobalSecondaryIndexes': [{'IndexName': 'claim-index',
+                                              'KeySchema': [{'AttributeName': 'claim_status',
+                                                             'KeyType': 'HASH'},
+                                                            {'AttributeName': 'claim_order',
+                                                             'KeyType': 'RANGE'}],
+                                              'Projection': {'ProjectionType': 'KEYS_ONLY'}},
+                                             {'IndexName': 'zid-index',
+                                              'KeySchema': [{'AttributeName': 'zid_key',
+                                                             'KeyType': 'HASH'},
+                                                            {'AttributeName': 'enqueued_at',
+                                                             'KeyType': 'RANGE'}],
+                                              'Projection': {'ProjectionType': 'ALL'}},
+                                             {'IndexName': 'rid-index',
+                                              'KeySchema': [{'AttributeName': 'rid_key',
+                                                             'KeyType': 'HASH'},
+                                                            {'AttributeName': 'enqueued_at',
+                                                             'KeyType': 'RANGE'}],
+                                              'Projection': {'ProjectionType': 'ALL'}}],
+                  'BillingMode': 'PAY_PER_REQUEST'},
+ 'Delphi2_Latest': {'KeySchema': [{'AttributeName': 'scope', 'KeyType': 'HASH'}],
+                    'AttributeDefinitions': [{'AttributeName': 'scope', 'AttributeType': 'S'}],
+                    'BillingMode': 'PAY_PER_REQUEST'},
+ 'Delphi2_RunInputs': {'KeySchema': [{'AttributeName': 'pk', 'KeyType': 'HASH'},
+                                     {'AttributeName': 'sk', 'KeyType': 'RANGE'}],
+                       'AttributeDefinitions': [{'AttributeName': 'pk', 'AttributeType': 'S'},
+                                                {'AttributeName': 'sk', 'AttributeType': 'S'}],
+                       'BillingMode': 'PAY_PER_REQUEST'},
+ 'Delphi2_Artifacts': {'KeySchema': [{'AttributeName': 'pk', 'KeyType': 'HASH'},
+                                     {'AttributeName': 'sk', 'KeyType': 'RANGE'}],
+                       'AttributeDefinitions': [{'AttributeName': 'pk', 'AttributeType': 'S'},
+                                                {'AttributeName': 'sk', 'AttributeType': 'S'}],
+                       'BillingMode': 'PAY_PER_REQUEST'},
+ 'Delphi2_TopicModeration': {'KeySchema': [{'AttributeName': 'pk', 'KeyType': 'HASH'},
+                                           {'AttributeName': 'sk', 'KeyType': 'RANGE'}],
+                             'AttributeDefinitions': [{'AttributeName': 'pk',
+                                                       'AttributeType': 'S'},
+                                                      {'AttributeName': 'sk',
+                                                       'AttributeType': 'S'}],
+                             'BillingMode': 'PAY_PER_REQUEST'},
+ 'Delphi2_CollectiveStatements': {'KeySchema': [{'AttributeName': 'pk', 'KeyType': 'HASH'},
+                                                {'AttributeName': 'sk', 'KeyType': 'RANGE'}],
+                                  'AttributeDefinitions': [{'AttributeName': 'pk',
+                                                            'AttributeType': 'S'},
+                                                           {'AttributeName': 'sk',
+                                                            'AttributeType': 'S'}],
+                                  'BillingMode': 'PAY_PER_REQUEST'}}
+
+
+def create_delphi2_tables(dynamodb, delete_existing=False, table_prefix=None):
+    """Create the Delphi Storage V2 tables (default prefix Delphi2_).
+
+    The prefix is configurable exactly like the runtime store
+    (delphi_storage.backends.dynamodb.DynamoDelphiStore reads
+    DELPHI_STORAGE_TABLE_PREFIX) so provisioning and the application can
+    never diverge on table names.
+
+    Args:
+        dynamodb: boto3 DynamoDB resource
+        delete_existing: If True, delete existing tables before creating new ones
+        table_prefix: Override; defaults to DELPHI_STORAGE_TABLE_PREFIX env or Delphi2_
+    """
+    prefix = table_prefix or os.environ.get('DELPHI_STORAGE_TABLE_PREFIX', 'Delphi2_')
+    tables = {
+        name.replace('Delphi2_', prefix, 1): schema
+        for name, schema in DELPHI2_TABLE_SCHEMAS.items()
+    }
+    existing_tables = [t.name for t in dynamodb.tables.all()]
+
+    if delete_existing:
+        _delete_tables(dynamodb, list(tables.keys()), existing_tables)
+        existing_tables = [t.name for t in dynamodb.tables.all()]
+
+    return _create_tables(dynamodb, tables, existing_tables)
+
+
 def create_tables(endpoint_url=None, region_name='us-east-1', 
                  delete_existing=False, evoc_only=False, polismath_only=False,
                  aws_profile=None):
@@ -553,6 +646,11 @@ def create_tables(endpoint_url=None, region_name='us-east-1',
     logger.info("Creating job queue table...")
     job_queue_tables = create_job_queue_table(dynamodb, delete_existing)
     created_tables.extend(job_queue_tables)
+
+    # Always create the Delphi Storage V2 tables (design §4.2)
+    logger.info("Creating Delphi Storage V2 (Delphi2_*) tables...")
+    delphi2_tables = create_delphi2_tables(dynamodb, delete_existing)
+    created_tables.extend(delphi2_tables)
     
     # Create tables based on flags
     if not polismath_only:
