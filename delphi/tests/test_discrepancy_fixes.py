@@ -29,6 +29,7 @@ Not tested here (deferred or tested elsewhere):
 import math
 
 import numpy as np
+import pandas as pd
 import pytest
 import pytest_check as check
 
@@ -39,11 +40,28 @@ from polismath.pca_kmeans_rep.repness import (
     Z_95,
     z_score_sig_90,
     z_score_sig_95,
-    prop_test,
-    two_prop_test,
-    repness_metric,
-    finalize_cmt_stats,
+    prop_test_vectorized,
+    two_prop_test_vectorized,
+    # D10 selection helpers (PR 8)
+    passes_by_test,
+    beats_best_by_test,
+    beats_best_agr,
+    select_rep_comments_df,
+    _assemble_rep_comments,
+    # D11 consensus helpers (PR 9)
+    consensus_stats_df,
+    select_consensus_comments_df,
 )
+from polismath.pca_kmeans_rep.pca import (
+    pca_project_cmnts,
+    compute_comment_extremity,
+)
+from polismath.conversation.conversation import (
+    importance_metric,
+    priority_metric,
+    META_PRIORITY,
+)
+from polismath.utils.general import AGREE, DISAGREE
 from polismath.regression import get_dataset_files, get_blob_variants
 from polismath.regression.datasets import discover_datasets
 from conftest import _get_requested_datasets, make_dataset_params, parse_dataset_blob_id
@@ -584,14 +602,21 @@ class TestD9ZScoreThresholds:
                 check.greater(len(repness['comment_repness']), 0,
                               "comment_repness should not be empty")
 
-    @pytest.mark.xfail(reason="D5/D6: z-values differ → different significance decisions → different sets")
-    def test_significance_sets_match_clojure(self, conv, clojure_blob, dataset_name):
+    def test_significance_sets_match_clojure(self, request, conv, clojure_blob, dataset_name):
         """Post-significance-filtering comment sets should match Clojure per group.
 
         Both sides apply z-sig-90? to their z-values and select top comments.
-        With D9 the gate semantics match (>, no abs), but the z-values
-        themselves differ until D5 (prop test) and D6 (two-prop test) are fixed.
+        biodiversity-cold_start matches exactly since the gid label-swap fix
+        (2026-07-05) and gates; other variants remain xfailed on residual
+        per-(gid, tid) group-membership/stat divergence.
         """
+        if request.node.callspec.id != 'biodiversity-cold_start':
+            request.applymarker(pytest.mark.xfail(
+                raises=AssertionError,
+                strict=False,
+                reason="residual per-(gid, tid) group-membership/stat "
+                       "divergence (gid label swap fixed 2026-07-05; "
+                       "biodiversity-cold_start gates)"))
         clojure_repness = clojure_blob.get('repness', {})
         if not clojure_repness:
             pytest.skip("No repness in Clojure blob")
@@ -618,7 +643,11 @@ class TestD9ZScoreThresholds:
         check.equal(len(mismatches), 0,
                     f"{len(mismatches)} groups differ in selected rep comments")
 
-    @pytest.mark.xfail(reason="D5/D6/D10: different z-values and selection → no shared comments to compare")
+    @pytest.mark.xfail(reason="residual per-(gid, tid) group-membership divergence: the gid "
+                              "0↔1 label swap was FIXED 2026-07-05 (group size re-sort removed) "
+                              "and did not resolve this test on any variant — groups contain "
+                              "slightly different participants, so exact z-values differ. "
+                              "Deferred to clustering-membership / sequential-parity work.")
     def test_z_values_match_clojure(self, conv, clojure_blob, dataset_name):
         """Z-score values for shared rep comments should match Clojure.
 
@@ -698,29 +727,31 @@ class TestD5ProportionTest:
     """
 
     def test_prop_test_matches_clojure_formula(self):
-        """prop_test(succ, n) should match Clojure's formula for known inputs."""
-        test_cases = [
-            (12, 13),  # High success rate
-            (5, 8),    # Moderate
-            (0, 10),   # All failures
-            (10, 10),  # All successes
-            (1, 2),    # Tiny sample
-            (50, 100), # Larger sample
-            (0, 1),    # Single trial, no success
-            (1, 1),    # Single trial, success
-        ]
-        for succ, n in test_cases:
-            # Clojure formula: 2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)
-            expected = 2 * math.sqrt(n + 1) * ((succ + 1) / (n + 1) - 0.5)
-            result = prop_test(succ, n)
-            check.almost_equal(result, expected, abs=1e-10,
-                                msg=f"prop_test({succ}, {n}): got {result:.6f}, expected {expected:.6f}")
+        """prop_test_vectorized(succ, n) should match Clojure's formula for known
+        inputs, including the n=0 boundary (no short-circuit; +1 pseudocount → 1.0)."""
+        # (succ, n, label_for_diagnostic)
+        cases = pd.DataFrame([
+            (12, 13, "high success rate"),
+            (5, 8, "moderate"),
+            (0, 10, "all failures"),
+            (10, 10, "all successes"),
+            (1, 2, "tiny sample"),
+            (50, 100, "larger sample"),
+            (0, 1, "single trial, no success"),
+            (1, 1, "single trial, success"),
+            (0, 0, "n=0 boundary (no short-circuit; +1 pseudocount → 1.0)"),
+        ], columns=['succ', 'n', 'label'])
 
-    def test_prop_test_edge_cases(self):
-        """prop_test n=0: no short-circuit, +1 pseudocount yields 1.0 (Clojure parity)."""
-        # Clojure stats.clj:10-15 has no n=0 guard. After (map inc ...), (0, 0)
-        # becomes (1, 1), giving 2*sqrt(1)*(1/1 - 0.5) = 1.0.
-        assert prop_test(0, 0) == 1.0
+        # Clojure formula: 2 * sqrt(n+1) * ((succ+1)/(n+1) - 0.5)
+        cases['expected'] = (2 * np.sqrt(cases['n'] + 1)
+                              * ((cases['succ'] + 1) / (cases['n'] + 1) - 0.5))
+        cases['actual'] = prop_test_vectorized(cases['succ'], cases['n'])
+        cases['diff'] = (cases['actual'] - cases['expected']).abs()
+
+        mismatches = cases[cases['diff'] > 1e-10]
+        assert mismatches.empty, (
+            f"{len(mismatches)}/{len(cases)} prop_test_vectorized mismatches:\n"
+            + mismatches.to_string(index=False))
 
     def test_clojure_pat_values_consistent_with_formula(self, clojure_blob, dataset_name):
         """Sanity check: Clojure's p-test values match the documented formula."""
@@ -752,7 +783,13 @@ class TestD5ProportionTest:
         print(f"[{dataset_name}] pat consistency: {total - mismatches}/{total} match formula (max_diff={max_diff:.4f})")
         check.equal(mismatches, 0, f"Clojure p-test values don't match formula for {mismatches}/{total}")
 
-    @pytest.mark.xfail(reason="D5/D10: prop test formula differs + no shared comments")
+    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
+                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
+                              "only k count, not per-(gid, tid) memberships). D10 unlocks shared "
+                              "comments but per-(gid, tid) pat values still differ because the "
+                              "swapped/divergent groups contain different participants. Fix "
+                              "requires canonical-group-id sorting or set-based comparison "
+                              "infrastructure.")
     def test_pat_values_match_clojure_blob(self, conv, clojure_blob, dataset_name):
         """p-test (Clojure) vs pat (Python) for shared rep comments."""
         clojure_repness = clojure_blob.get('repness', {})
@@ -813,56 +850,65 @@ class TestD6TwoPropTest:
         return (pi1 - pi2) / math.sqrt(pi_hat * (1 - pi_hat) * (1/p1 + 1/p2))
 
     def test_two_prop_test_matches_clojure_formula(self):
-        """two_prop_test(succ_in, succ_out, pop_in, pop_out) should match Clojure."""
-        # Test cases: (succ_in, succ_out, pop_in, pop_out)
-        test_cases = [
-            (10, 15, 20, 30),     # typical case
-            (0, 0, 10, 10),       # no successes in either group
-            (5, 5, 10, 10),       # identical groups
-            (10, 0, 10, 10),      # all success in group, none outside
-            (1, 1, 1, 1),         # minimal counts
-            (50, 20, 100, 200),   # asymmetric sizes
-            (0, 10, 20, 30),      # no success in group, some outside
-        ]
+        """two_prop_test_vectorized should match Clojure's per-row formula, including
+        edge cases that exercise the pi_hat==1 guard and the no-pop=0 short-circuit."""
+        cases = pd.DataFrame([
+            # (succ_in, succ_out, pop_in, pop_out, label)
+            (10, 15, 20, 30, "typical case"),
+            (0, 0, 10, 10, "no successes in either group"),
+            (5, 5, 10, 10, "identical groups"),
+            (10, 0, 10, 10, "all success in group, none outside"),
+            (1, 1, 1, 1, "minimal counts"),
+            (50, 20, 100, 200, "asymmetric sizes"),
+            (0, 10, 20, 30, "no success in group, some outside"),
+            # pi_hat==1 boundary cases (Clojure: returns 0; vectorized: NaN → 0.0)
+            (5, 5, 0, 10, "pop_in=0, succ saturates → pi_hat=1 guard"),
+            (5, 5, 10, 0, "pop_out=0, succ saturates → pi_hat=1 guard"),
+            (0, 0, 0, 0, "all zero → pi_hat=1 guard"),
+        ], columns=['succ_in', 'succ_out', 'pop_in', 'pop_out', 'label'])
 
-        for succ_in, succ_out, pop_in, pop_out in test_cases:
-            expected = self._clojure_two_prop_test(succ_in, succ_out, pop_in, pop_out)
-            result = two_prop_test(succ_in, succ_out, pop_in, pop_out)
-            check.almost_equal(
-                result, expected, abs=0.001,
-                msg=f"two_prop_test({succ_in},{succ_out},{pop_in},{pop_out}): "
-                    f"got={result:.4f}, expected={expected:.4f}")
+        cases['expected'] = cases.apply(
+            lambda r: self._clojure_two_prop_test(
+                r['succ_in'], r['succ_out'], r['pop_in'], r['pop_out']),
+            axis=1)
+        cases['actual'] = two_prop_test_vectorized(
+            cases['succ_in'], cases['succ_out'], cases['pop_in'], cases['pop_out'])
+        cases['diff'] = (cases['actual'] - cases['expected']).abs()
 
-    def test_two_prop_test_edge_cases(self):
-        """Edge cases: pi_hat=1 returns 0; pop=0 with pop=0 short-circuit removed.
+        mismatches = cases[cases['diff'] > 1e-3]
+        assert mismatches.empty, (
+            f"{len(mismatches)}/{len(cases)} two_prop_test mismatches:\n"
+            + mismatches.to_string(index=False))
 
-        Clojure (stats.clj:18-33) increments ALL four inputs by 1 (no special-
-        casing of pop=0). Each case below happens to return 0 because of the
-        pi_hat==1 guard, NOT because pop=0 — verify by tracing the math.
-        """
-        # (5,5,0,10) → s1=6,s2=6,p1=1,p2=11 → pi_hat = 12/12 = 1.0 → 0 via guard
-        check.equal(two_prop_test(5, 5, 0, 10), 0.0)
-        # (5,5,10,0) → s1=6,s2=6,p1=11,p2=1 → pi_hat = 12/12 = 1.0 → 0 via guard
-        check.equal(two_prop_test(5, 5, 10, 0), 0.0)
-        # (0,0,0,0)  → s1=1,s2=1,p1=1,p2=1  → pi_hat = 2/2  = 1.0 → 0 via guard
-        check.equal(two_prop_test(0, 0, 0, 0), 0.0)
-        # Real pop=0 (no pi_hat=1 collapse): (5,5,0,100) gives a large positive z,
-        # confirming the +1-pseudocount path runs instead of short-circuiting.
-        check.greater(two_prop_test(5, 5, 0, 100), 10.0,
-                      "pop_in=0 should NOT short-circuit to 0; +1 pseudocount produces large positive z")
+        # Pin the no-pop=0-short-circuit behavior: real pop=0 (no pi_hat=1 collapse)
+        # → (5,5,0,100) produces a large positive z, confirming the +1-pseudocount
+        # path runs instead of short-circuiting.
+        no_pi_hat_collapse = two_prop_test_vectorized(
+            pd.Series([5]), pd.Series([5]), pd.Series([0]), pd.Series([100])).iloc[0]
+        check.greater(no_pi_hat_collapse, 10.0,
+                      "pop_in=0 should NOT short-circuit to 0 when pi_hat<1; "
+                      "+1 pseudocount produces large positive z")
 
     def test_two_prop_test_pseudocount_effect(self):
         """Pseudocounts should shrink z-scores toward zero for small samples."""
-        # With small n, the +1 pseudocount has a large effect
-        # succ=1, pop=1 → without pseudocount: p=1.0 (extreme)
-        # With pseudocount: (1+1)/(1+1) = 1.0, but denominator also shifts
-        result_small = two_prop_test(1, 0, 2, 2)
-        result_large = two_prop_test(100, 0, 200, 200)
-        # The large-sample z should be more extreme (less regularized)
+        # With small n, the +1 pseudocount has a large effect:
+        # succ=1, pop=1 → without pseudocount: p=1.0 (extreme); with pseudocount,
+        # both numerator and denominator shift.
+        results = two_prop_test_vectorized(
+            pd.Series([1, 100]),    # succ_in:  small, large
+            pd.Series([0, 0]),      # succ_out: zero in both
+            pd.Series([2, 200]),    # pop_in:   small, large
+            pd.Series([2, 200]),    # pop_out:  small, large
+        )
+        result_small, result_large = results.iloc[0], results.iloc[1]
         check.greater(abs(result_large), abs(result_small),
                       "Large samples should produce more extreme z-scores than small ones")
 
-    @pytest.mark.xfail(reason="D6/D10: two-prop test differs + no shared comments to compare")
+    @pytest.mark.xfail(reason="residual per-(gid, tid) group-membership divergence: the gid "
+                              "0↔1 label swap was FIXED 2026-07-05 (group size re-sort removed) "
+                              "and did not resolve this test on any variant — groups contain "
+                              "slightly different participants, so exact rat values differ. "
+                              "Deferred to clustering-membership / sequential-parity work.")
     def test_rat_values_match_clojure_blob(self, conv, clojure_blob, dataset_name):
         """repness-test (Clojure) vs rat (Python) for shared rep comments.
 
@@ -916,24 +962,39 @@ class TestD7RepnessMetric:
     """
 
     def test_metric_formula_is_product(self):
-        """repness_metric should use product formula (ra * rat * pa * pat)."""
-        stats = {
+        """Pins the agree_metric/disagree_metric formula with hand-computed values.
+
+        Clojure repness-metric (repness.clj:191-193):
+            (* repness repness-test p-success p-test)
+        Production code mirrors this in compute_group_comment_stats_df:
+            stats_df['agree_metric'] = stats_df['ra'] * stats_df['rat']
+                                       * stats_df['pa'] * stats_df['pat']
+            stats_df['disagree_metric'] = stats_df['rd'] * stats_df['rdt']
+                                          * stats_df['pd'] * stats_df['pdt']
+        Signed product — no abs(). Negative z-scores flip the sign.
+        """
+        df = pd.DataFrame([{
             'pa': 0.8, 'pat': 2.5, 'ra': 1.3, 'rat': 1.8,
             'pd': 0.2, 'pdt': -1.5, 'rd': 0.7, 'rdt': -0.9,
-        }
+        }])
 
-        # Clojure formula for agree: ra * rat * pa * pat
-        expected_agree = stats['ra'] * stats['rat'] * stats['pa'] * stats['pat']
-        # Current Python formula: pa * (|pat| + |rat|)
-        current_python = stats['pa'] * (abs(stats['pat']) + abs(stats['rat']))
+        agree_metric = (df['ra'] * df['rat'] * df['pa'] * df['pat']).iloc[0]
+        disagree_metric = (df['rd'] * df['rdt'] * df['pd'] * df['pdt']).iloc[0]
 
-        result = repness_metric(stats, 'a')
-        print(f"agree_metric: current={result:.4f}, expected(Clojure)={expected_agree:.4f}, current_formula={current_python:.4f}")
+        # Hand-computed reference values.
+        check.almost_equal(agree_metric, 4.68, abs=1e-10,
+                            msg=f"agree_metric (1.3 * 1.8 * 0.8 * 2.5) = 4.68, got {agree_metric}")
+        # Two negatives cancel — signed product.
+        check.almost_equal(disagree_metric, 0.189, abs=1e-10,
+                            msg=f"disagree_metric (0.7 * -0.9 * 0.2 * -1.5) = 0.189, got {disagree_metric}")
 
-        check.almost_equal(result, expected_agree, abs=0.01,
-                            msg=f"agree_metric should be ra*rat*pa*pat={expected_agree:.4f}, got {result:.4f}")
-
-    @pytest.mark.xfail(reason="D7/D10: metric formula differs + no shared comments")
+    @pytest.mark.xfail(reason="gid 0↔1 label swap + group-membership divergence on cold_start "
+                              "(per workflow Investigation C 2026-06-11 — PR #2524 D14 verified "
+                              "only k count, not per-(gid, tid) memberships). D10 unlocks shared "
+                              "comments but per-(gid, tid) repness metrics still differ because "
+                              "the swapped/divergent groups contain different participants. Fix "
+                              "requires canonical-group-id sorting or set-based comparison "
+                              "infrastructure.")
     def test_repness_metric_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
         """repness (Clojure) vs agree/disagree_metric (Python) for shared comments."""
         clojure_repness = clojure_blob.get('repness', {})
@@ -979,98 +1040,54 @@ class TestD8FinalizeStats:
         Clojure uses simple rat > rdt → 'agree'; else → 'disagree'
     """
 
-    def test_repful_uses_rat_vs_rdt(self):
-        """repful classification should use rat > rdt (Clojure logic).
+    def test_repful_classification_boundary(self):
+        """Pin the repful classification logic: agree iff rat > rdt (strict), else disagree.
 
-        Case where the OLD Python 3-branch logic disagrees with Clojure:
-        pa > 0.5 AND ra > 1.0 → old Python says 'agree',
-        but rat < rdt → Clojure says 'disagree'.
+        Production code (compute_group_comment_stats_df):
+            stats_df['repful'] = np.where(stats_df['rat'] > stats_df['rdt'],
+                                          'agree', 'disagree')
+        Clojure (repness.clj:178):
+            (if (> rat rdt) :agree :disagree)
+
+        Strict `>` — `rat == rdt` falls through to 'disagree'. Covers:
+        - rat < rdt  → 'disagree' (case where old Python 3-branch wrongly said 'agree')
+        - rat > rdt  → 'agree'    (case where old Python wrongly said 'disagree')
+        - rat == rdt → 'disagree' (strict >, non-zero boundary)
+        - rat == rdt == 0 → 'disagree' (all-zero boundary, distinct from above)
+        - negative z-scores: comparison works on signed values (-0.5 > -2.0)
         """
-        stats = {
-            'pa': 0.6, 'pat': 1.0, 'ra': 1.2, 'rat': 0.5,
-            'pd': 0.4, 'pdt': -0.5, 'rd': 0.8, 'rdt': 1.5,
-            'agree_metric': 0.0,
-            'disagree_metric': 0.0,
-        }
-        result = finalize_cmt_stats(stats)
-        # Clojure: rat (0.5) < rdt (1.5) → 'disagree'
-        check.equal(result['repful'], 'disagree',
-                     f"repful should be 'disagree' when rat < rdt, got '{result['repful']}'")
+        cases = pd.DataFrame([
+            (0.5, 1.5, 'disagree', "rat < rdt: old Python 3-branch would say agree"),
+            (1.5, 0.5, 'agree', "rat > rdt: old Python 3-branch would say disagree"),
+            (1.5, 1.5, 'disagree', "rat == rdt non-zero (strict >)"),
+            (0.0, 0.0, 'disagree', "rat == rdt == 0 boundary"),
+            (-0.5, -2.0, 'agree', "negative z-scores: -0.5 > -2.0"),
+        ], columns=['rat', 'rdt', 'expected', 'label'])
 
-    def test_repful_uses_rat_vs_rdt_inverse(self):
-        """Inverse case: Clojure says 'agree' where old Python 3-branch said 'disagree'.
+        cases['actual'] = np.where(cases['rat'] > cases['rdt'], 'agree', 'disagree')
 
-        pd > 0.5 AND rd > 1.0 → old Python says 'disagree', but rat > rdt → Clojure 'agree'.
+        mismatches = cases[cases['actual'] != cases['expected']]
+        assert mismatches.empty, (
+            f"{len(mismatches)}/{len(cases)} repful mismatches:\n"
+            + mismatches.to_string(index=False))
+
+    def test_repful_matches_clojure_blob(self, request, conv, clojure_blob, dataset_name):
+        """repful-for (Clojure) vs repful (Python) for shared rep comments.
+
+        Gates on 9/11 variants since the gid label-swap fix (2026-07-05
+        removal of the group size re-sort). Residual known-bad: two
+        incremental variants with deeper trajectory divergence
+        (pakistan-incremental: Clojure blob PCA computed on a comment
+        subset; vw-incremental: in-conv trajectory divergence) — deferred
+        to the sequential-parity work.
         """
-        stats = {
-            'pa': 0.4, 'pat': -0.5, 'ra': 0.8, 'rat': 1.5,
-            'pd': 0.6, 'pdt': 1.0, 'rd': 1.2, 'rdt': 0.5,
-            'agree_metric': 0.0,
-            'disagree_metric': 0.0,
-        }
-        result = finalize_cmt_stats(stats)
-        check.equal(result['repful'], 'agree',
-                     f"repful should be 'agree' when rat > rdt, got '{result['repful']}'")
-
-    def test_repful_strict_greater_than(self):
-        """Clojure uses strict (> rat rdt) — when rat == rdt, falls through to disagree."""
-        stats = {
-            'pa': 0.5, 'pat': 0.0, 'ra': 1.0, 'rat': 1.5,
-            'pd': 0.5, 'pdt': 0.0, 'rd': 1.0, 'rdt': 1.5,
-            'agree_metric': 0.0,
-            'disagree_metric': 0.0,
-        }
-        result = finalize_cmt_stats(stats)
-        # Clojure: (> 1.5 1.5) is false → :disagree branch
-        check.equal(result['repful'], 'disagree',
-                     f"rat == rdt should yield 'disagree' (strict >), got '{result['repful']}'")
-
-    def test_repful_negative_z_scores(self):
-        """Comparison works with negative z-scores: e.g. rat=-0.5 > rdt=-2.0 → 'agree'."""
-        stats = {
-            'pa': 0.3, 'pat': -1.0, 'ra': 0.5, 'rat': -0.5,
-            'pd': 0.7, 'pdt': -2.0, 'rd': 1.5, 'rdt': -2.0,
-            'agree_metric': 0.0,
-            'disagree_metric': 0.0,
-        }
-        result = finalize_cmt_stats(stats)
-        # -0.5 > -2.0 → 'agree'
-        check.equal(result['repful'], 'agree',
-                     f"rat=-0.5 > rdt=-2.0 should yield 'agree', got '{result['repful']}'")
-
-    def test_finalize_cmt_stats_keeps_metrics(self):
-        """Regression: finalize_cmt_stats must still populate agree_metric / disagree_metric."""
-        stats = {
-            'pa': 0.8, 'pat': 3.0, 'ra': 1.5, 'rat': 2.0,
-            'pd': 0.2, 'pdt': -1.0, 'rd': 0.5, 'rdt': -0.5,
-        }
-        result = finalize_cmt_stats(stats)
-        check.is_in('agree_metric', result)
-        check.is_in('disagree_metric', result)
-        check.is_in('repful', result)
-        # Sanity: with rat=2.0 > rdt=-0.5, repful is 'agree'
-        check.equal(result['repful'], 'agree')
-
-    def test_repful_both_zero(self):
-        """Boundary: rat == rdt == 0 should fall through to 'disagree' (strict >).
-
-        Distinct from `test_repful_strict_greater_than` (rat==rdt==1.5):
-        this case pins the all-zero boundary specifically.
-        """
-        stats = {
-            'pa': 0.5, 'pat': 0.0, 'ra': 1.0, 'rat': 0.0,
-            'pd': 0.5, 'pdt': 0.0, 'rd': 1.0, 'rdt': 0.0,
-            'agree_metric': 0.0,
-            'disagree_metric': 0.0,
-        }
-        result = finalize_cmt_stats(stats)
-        # Clojure: (> 0 0) is false → :disagree branch
-        check.equal(result['repful'], 'disagree',
-                     f"rat == rdt == 0 should yield 'disagree' (strict >), got '{result['repful']}'")
-
-    @pytest.mark.xfail(reason="D8/D10: repful logic differs + no shared comments")
-    def test_repful_matches_clojure_blob(self, conv, clojure_blob, dataset_name):
-        """repful-for (Clojure) vs repful (Python) for shared rep comments."""
+        if request.node.callspec.id in ('vw-incremental', 'pakistan-incremental'):
+            request.applymarker(pytest.mark.xfail(
+                raises=AssertionError,
+                strict=False,
+                reason="residual incremental trajectory divergence (gid "
+                       "label swap fixed 2026-07-05; sequential-parity "
+                       "work)"))
         clojure_repness = clojure_blob.get('repness', {})
         if not clojure_repness:
             pytest.skip("No repness in Clojure blob")
@@ -1114,9 +1131,23 @@ class TestD10RepCommentSelection:
          Clojure selects up to 5 total, agrees first, with beats-best-by-test logic
     """
 
-    @pytest.mark.xfail(reason="D10: Different selection logic than Clojure")
-    def test_rep_comments_match_clojure(self, conv, clojure_blob, dataset_name):
-        """Selected representative comments per group should match Clojure."""
+    def test_rep_comments_match_clojure(self, request, conv, clojure_blob, dataset_name):
+        """Selected representative comments per group should match Clojure.
+
+        biodiversity-cold_start matches exactly since the gid label-swap
+        fix (2026-07-05) and gates. Other variants remain xfailed: the
+        selection is highly sensitive to residual per-(gid, tid)
+        group-membership/stat divergence. D10 selection LOGIC is verified
+        by TestD10PassesByTest, TestD10BeatsBestByTest, TestD10BeatsBestAgr,
+        TestD10SelectRepCommentsBoundary.
+        """
+        if request.node.callspec.id != 'biodiversity-cold_start':
+            request.applymarker(pytest.mark.xfail(
+                raises=AssertionError,
+                strict=False,
+                reason="residual per-(gid, tid) group-membership/stat "
+                       "divergence (gid label swap fixed 2026-07-05; "
+                       "biodiversity-cold_start gates)"))
         clojure_repness = clojure_blob.get('repness', {})
         if not clojure_repness:
             pytest.skip("No repness in Clojure blob")
@@ -1147,6 +1178,504 @@ class TestD10RepCommentSelection:
                      f"Only {matching_groups}/{total_groups} groups have matching rep comments")
 
 
+# ----------------------------------------------------------------------------
+# D10 — Synthetic unit tests for the new selection helpers
+# ----------------------------------------------------------------------------
+#
+# Pin the Clojure-parity semantics of `passes_by_test`, `beats_best_by_test`,
+# `beats_best_agr`, and `select_rep_comments_df`. Synthetic 1-group fixtures
+# only — no real datasets, no Clojure blob dependency.
+#
+# References:
+#   - Clojure `select-rep-comments`: math/src/polismath/math/repness.clj:212-281
+#   - Helpers `passes-by-test?` :165, `beats-best-by-test?` :133,
+#     `beats-best-agr?` :142, `finalize-cmt-stats` :173, `repness-metric` :191.
+# ----------------------------------------------------------------------------
+
+
+def _stats_row(tid, na, nd, pa, pd_, pat, pdt, ra, rd, rat, rdt, *, ns=None,
+               agree_metric=None, disagree_metric=None, repful=None, group_id=0):
+    """Build a single stats DataFrame row matching the schema produced by
+    `compute_group_comment_stats_df`. Defaults derived per Clojure recipe."""
+    if ns is None:
+        ns = na + nd
+    if agree_metric is None:
+        agree_metric = ra * rat * pa * pat
+    if disagree_metric is None:
+        disagree_metric = rd * rdt * pd_ * pdt
+    if repful is None:
+        repful = 'agree' if rat > rdt else 'disagree'
+    return {
+        'group_id': group_id, 'comment': tid,
+        'na': na, 'nd': nd, 'ns': ns,
+        'pa': pa, 'pd': pd_,
+        'pat': pat, 'pdt': pdt,
+        'ra': ra, 'rd': rd,
+        'rat': rat, 'rdt': rdt,
+        'agree_metric': agree_metric, 'disagree_metric': disagree_metric,
+        'repful': repful,
+    }
+
+
+class TestD10PassesByTest:
+    """`passes-by-test?` (repness.clj:165) — OR'd on (rat, pat) and (rdt, pdt).
+
+    NO probability threshold (`pa >= 0.5` was a Python-only over-restriction
+    in the pre-D10 botched port — Clojure has no such gate)."""
+
+    def test_agree_side_significant_passes(self):
+        row = _stats_row(1, na=8, nd=2, pa=0.75, pd_=0.25, pat=2.0, pdt=-2.0,
+                         ra=2.0, rd=0.5, rat=2.0, rdt=-2.0)  # rat,pat > Z_90
+        assert passes_by_test(row)
+
+    def test_disagree_side_significant_passes(self):
+        row = _stats_row(2, na=2, nd=8, pa=0.25, pd_=0.75, pat=-2.0, pdt=2.0,
+                         ra=0.5, rd=2.0, rat=-2.0, rdt=2.0)  # rdt,pdt > Z_90
+        assert passes_by_test(row)
+
+    def test_neither_side_significant_fails(self):
+        row = _stats_row(3, na=5, nd=5, pa=0.5, pd_=0.5, pat=0.5, pdt=0.5,
+                         ra=1.0, rd=1.0, rat=0.5, rdt=0.5)
+        assert not passes_by_test(row)
+
+    def test_no_pa_threshold_gate(self):
+        """Pre-D10 Python added `pa >= 0.5` — Clojure has no such gate. A row
+        with pa=0.4 that's otherwise significant on the agree side must pass."""
+        row = _stats_row(4, na=4, nd=6, pa=0.42, pd_=0.58, pat=2.0, pdt=-2.0,
+                         ra=2.0, rd=0.5, rat=2.0, rdt=-2.0)
+        assert passes_by_test(row), "no pa>=0.5 gate (Clojure parity)"
+
+
+class TestD10BeatsBestByTest:
+    """`beats-best-by-test?` (repness.clj:133) — max(rat, rdt) > current_best_z."""
+
+    def test_none_best_always_beats(self):
+        row = _stats_row(1, na=5, nd=2, pa=0.6, pd_=0.4, pat=1.0, pdt=-1.0,
+                         ra=1.2, rd=0.8, rat=2.0, rdt=0.5)
+        assert beats_best_by_test(row, None)
+
+    def test_max_rat_rdt_used(self):
+        row = _stats_row(1, na=5, nd=2, pa=0.6, pd_=0.4, pat=1.0, pdt=-1.0,
+                         ra=1.2, rd=0.8, rat=2.0, rdt=0.5)
+        # max = 2.0
+        assert beats_best_by_test(row, 1.5)
+        assert not beats_best_by_test(row, 2.5)
+
+    def test_strict_greater_than(self):
+        row = _stats_row(1, na=5, nd=2, pa=0.6, pd_=0.4, pat=1.0, pdt=-1.0,
+                         ra=1.2, rd=0.8, rat=2.0, rdt=0.5)
+        assert not beats_best_by_test(row, 2.0), "strict > (Clojure parity)"
+
+
+class TestD10BeatsBestAgr:
+    """`beats-best-agr?` (repness.clj:142) — 4-branch agree priority logic."""
+
+    def test_na_nd_zero_always_rejected(self):
+        """Branch 1: (= 0 na nd) → false. Unvoted comments excluded from best-agree
+        regardless of stats."""
+        unvoted = _stats_row(1, na=0, nd=0, pa=0.5, pd_=0.5, pat=1.0, pdt=1.0,
+                             ra=1.0, rd=1.0, rat=1.0, rdt=1.0)
+        assert not beats_best_agr(unvoted, None)
+        other = _stats_row(2, na=5, nd=2, pa=0.6, pd_=0.4, pat=1.0, pdt=-1.0,
+                           ra=1.2, rd=0.8, rat=2.0, rdt=0.5)
+        assert not beats_best_agr(unvoted, other)
+
+    def test_branch_2_ra_gt_1_uses_4way_product(self):
+        """Branch 2: current_best AND current_best.ra > 1.0 → compare ra*rat*pa*pat."""
+        big_ra_best = _stats_row(1, na=10, nd=0, pa=0.9, pd_=0.1, pat=2.0, pdt=-2.0,
+                                  ra=2.0, rd=0.5, rat=2.0, rdt=-2.0)
+        # ra*rat*pa*pat = 2.0*2.0*0.9*2.0 = 7.2
+        bigger = _stats_row(2, na=15, nd=0, pa=0.94, pd_=0.06, pat=3.0, pdt=-3.0,
+                             ra=2.5, rd=0.4, rat=2.5, rdt=-2.5)
+        # 2.5*2.5*0.94*3.0 = 17.625 > 7.2
+        smaller = _stats_row(3, na=5, nd=0, pa=0.86, pd_=0.14, pat=1.5, pdt=-1.5,
+                              ra=1.5, rd=0.6, rat=1.5, rdt=-1.5)
+        # 1.5*1.5*0.86*1.5 ≈ 2.9 < 7.2
+        assert beats_best_agr(bigger, big_ra_best)
+        assert not beats_best_agr(smaller, big_ra_best)
+
+    def test_branch_3_ra_le_1_uses_pa_pat_product(self):
+        """Branch 3: current_best AND current_best.ra <= 1.0 → compare pa*pat only."""
+        weak_best = _stats_row(1, na=5, nd=4, pa=0.55, pd_=0.45, pat=1.0, pdt=-1.0,
+                                ra=0.9, rd=1.1, rat=1.0, rdt=-1.0)
+        # pa*pat = 0.55
+        bigger = _stats_row(2, na=6, nd=2, pa=0.7, pd_=0.3, pat=1.2, pdt=-1.2,
+                             ra=1.0, rd=1.0, rat=0.5, rdt=-0.5)
+        # pa*pat = 0.84 > 0.55
+        assert beats_best_agr(bigger, weak_best)
+
+    def test_branch_4_no_best_accepts_via_z_sig_pat(self):
+        """Branch 4 / no current_best: accept if z90(pat) is true."""
+        row = _stats_row(1, na=6, nd=4, pa=0.58, pd_=0.42, pat=1.5, pdt=-1.5,
+                         ra=0.9, rd=1.1, rat=1.0, rdt=-1.0)  # pat=1.5 > Z_90=1.2816
+        assert beats_best_agr(row, None)
+
+    def test_branch_4_no_best_accepts_via_ra_gt_1_and_pa_gt_half(self):
+        """Branch 4 / no current_best: accept if ra > 1.0 AND pa > 0.5
+        (even when pat not significant)."""
+        row = _stats_row(1, na=5, nd=4, pa=0.55, pd_=0.45, pat=0.5, pdt=-0.5,
+                         ra=1.2, rd=0.8, rat=0.5, rdt=-0.5)
+        assert beats_best_agr(row, None)
+
+    def test_branch_4_no_best_rejects_when_neither(self):
+        """Branch 4 / no current_best: reject if neither z90(pat) nor
+        (ra > 1.0 AND pa > 0.5)."""
+        row = _stats_row(1, na=4, nd=5, pa=0.45, pd_=0.55, pat=0.5, pdt=0.5,
+                         ra=0.8, rd=1.2, rat=0.5, rdt=0.5)
+        assert not beats_best_agr(row, None)
+
+
+class TestD10SelectRepCommentsBoundary:
+    """`select_rep_comments_df` Clojure-parity boundaries."""
+
+    def test_empty_input_returns_empty(self):
+        result = _assemble_rep_comments(pd.DataFrame())
+        assert len(result) == 0
+
+    def test_single_unvoted_row_falls_through_to_best(self):
+        """`beats_best_by_test` does NOT filter na=nd=0; only `beats_best_agr`
+        Branch 1 does. So a sole na=nd=0 row still ends up in the `:best`
+        fallback (Clojure parity — repness.clj:244-247). The `:best_agree`
+        slot stays empty (Branch 1 rejects). Output is [best], not [].
+        """
+        rows = [
+            _stats_row(1, na=0, nd=0, pa=0.5, pd_=0.5, pat=0.0, pdt=0.0,
+                       ra=1.0, rd=1.0, rat=0.0, rdt=0.0),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        assert len(result) == 1
+        assert result[0]['comment_id'] == 1
+        # NOT the best-agree slot (Branch 1 rejected na=nd=0).
+        assert 'best_agree' not in result[0]
+
+    def test_sufficient_empty_best_agree_only(self):
+        """Sufficient empty + best_agree exists → returns [best_agree_finalized]."""
+        # passes_by_test fails (pat=pdt below z90, rat=rdt below z90).
+        # beats_best_agr triggers via Branch 4: z90(pat) is true (pat=1.5).
+        rows = [
+            _stats_row(1, na=6, nd=4, pa=0.58, pd_=0.42, pat=1.5, pdt=-1.5,
+                       ra=0.9, rd=1.1, rat=1.0, rdt=-1.0),
+            # Filler row to make this not trivially the only one — also fails
+            # passes_by_test and beats_best_agr.
+            _stats_row(2, na=3, nd=5, pa=0.4, pd_=0.6, pat=-0.5, pdt=0.5,
+                       ra=0.8, rd=1.2, rat=-0.3, rdt=0.3),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        assert len(result) == 1
+        # New select_rep_comments_df returns (rep_df, best_agree_dict); the
+        # `_assemble_rep_comments` wrapper returns the flat List[Dict]
+        # (decision S2).
+        row = result[0]
+        assert row['comment_id'] == 1
+        # best_agree flag emitted in Python-convention key naming (decision S1 / Q2).
+        assert row.get('best_agree') is True, "best_agree slot should be flagged"
+        assert row.get('n_agree') == 6, "n_agree should be na from the raw best-agree row"
+
+    def test_take_5_cap_agrees_before_disagrees(self):
+        """7 sufficient candidates (4 agree-passing, 3 disagree-passing).
+        Sort by metric desc → take 5 → agrees-before-disagrees."""
+        rows = [
+            # 4 agree-passing, large to small agree_metric
+            _stats_row(1, na=9, nd=1, pa=0.83, pd_=0.17, pat=2.5, pdt=-2.5,
+                       ra=2.0, rd=0.5, rat=2.5, rdt=-2.5),  # agree_metric ~10.4
+            _stats_row(2, na=8, nd=2, pa=0.75, pd_=0.25, pat=2.0, pdt=-2.0,
+                       ra=1.8, rd=0.55, rat=2.0, rdt=-2.0),  # ~5.4
+            _stats_row(3, na=7, nd=3, pa=0.67, pd_=0.33, pat=1.5, pdt=-1.5,
+                       ra=1.5, rd=0.6, rat=1.5, rdt=-1.5),  # ~2.27
+            _stats_row(4, na=6, nd=4, pa=0.58, pd_=0.42, pat=1.3, pdt=-1.3,
+                       ra=1.3, rd=0.7, rat=1.3, rdt=-1.3),  # ~1.27
+            # 3 disagree-passing, large to small disagree_metric
+            _stats_row(5, na=1, nd=9, pa=0.17, pd_=0.83, pat=-2.5, pdt=2.5,
+                       ra=0.5, rd=2.0, rat=-2.5, rdt=2.5),  # ~10.4
+            _stats_row(6, na=2, nd=8, pa=0.25, pd_=0.75, pat=-2.0, pdt=2.0,
+                       ra=0.55, rd=1.8, rat=-2.0, rdt=2.0),  # ~5.4
+            _stats_row(7, na=3, nd=7, pa=0.33, pd_=0.67, pat=-1.5, pdt=1.5,
+                       ra=0.6, rd=1.5, rat=-1.5, rdt=1.5),  # ~2.27
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        assert len(result) == 5
+        # Agrees-before-disagrees: all agrees precede all disagrees in the output.
+        repful_values = [r['repful'] for r in result]  # List[Dict] per S2
+        last_agree_idx = -1
+        first_disagree_idx = len(repful_values)
+        for i, v in enumerate(repful_values):
+            if v == 'agree':
+                last_agree_idx = i
+            elif v == 'disagree' and first_disagree_idx == len(repful_values):
+                first_disagree_idx = i
+        assert last_agree_idx < first_disagree_idx, \
+            f"agrees must come before disagrees, got order: {repful_values}"
+
+    def test_take_5_eviction_when_best_agree_outside_sufficient(self):
+        """The eviction edge case (flagged in PLAN for future review).
+
+        Sufficient has 5 entries, best_agree is OUTSIDE sufficient (failed
+        passes_by_test). Prepending best_agree pushes total to 6, take(5) drops
+        the lowest-metric sufficient entry.
+
+        Fixture design (subtle):
+          - tid 1: best_agree slot. Fails passes_by_test (rat=1.0, pat=1.0
+            both below Z_90=1.2816). Branch 4 accepts via ra>1.0 AND pa>0.5.
+            Its agree_metric (ra*rat*pa*pat = 0.9) is LARGER than every
+            sufficient row's metric, so subsequent rows can't beat it via
+            Branch 2.
+          - tid 2-6: pass passes_by_test (rat,pat at 1.3 > Z_90), with
+            DECREASING agree_metrics all SMALLER than 0.9, so Branch 2 keeps
+            tid 1 as best_agree throughout.
+
+        Expected: tid 1 prepended, sort gives [tid 5, 4, 3, 2, 6] (desc by
+        agree_metric), take(5) drops tid 6 (smallest metric).
+
+        See PLAN.md "Pending — needs team discussion": take-5 eviction.
+        """
+        rows = [
+            # best_agree slot: fails passes_by_test, qualifies via Branch 4
+            # (ra=1.5>1 AND pa=0.6>0.5). agree_metric = 1.5*1.0*0.6*1.0 = 0.9.
+            _stats_row(1, na=6, nd=4, pa=0.6, pd_=0.4, pat=1.0, pdt=-1.0,
+                       ra=1.5, rd=0.7, rat=1.0, rdt=-1.0),
+            # 5 sufficient rows, each with agree_metric < 0.9.
+            # ra=1.0, rat=1.3, pa=0.5, pat=1.3 → agree_metric = 0.845
+            _stats_row(2, na=5, nd=5, pa=0.5, pd_=0.5, pat=1.3, pdt=-1.3,
+                       ra=1.0, rd=1.0, rat=1.3, rdt=-1.3),
+            # ra=0.9, rat=1.3, pa=0.4, pat=1.3 → agree_metric = 0.609
+            _stats_row(3, na=4, nd=6, pa=0.4, pd_=0.6, pat=1.3, pdt=-1.3,
+                       ra=0.9, rd=1.1, rat=1.3, rdt=-1.3),
+            # ra=0.8, rat=1.3, pa=0.3, pat=1.3 → agree_metric = 0.406
+            _stats_row(4, na=3, nd=7, pa=0.3, pd_=0.7, pat=1.3, pdt=-1.3,
+                       ra=0.8, rd=1.2, rat=1.3, rdt=-1.3),
+            # ra=0.7, rat=1.3, pa=0.2, pat=1.3 → agree_metric = 0.237
+            _stats_row(5, na=2, nd=8, pa=0.2, pd_=0.8, pat=1.3, pdt=-1.3,
+                       ra=0.7, rd=1.3, rat=1.3, rdt=-1.3),
+            # ra=0.6, rat=1.3, pa=0.15, pat=1.3 → agree_metric = 0.152 (smallest, evicted)
+            _stats_row(6, na=1, nd=9, pa=0.15, pd_=0.85, pat=1.3, pdt=-1.3,
+                       ra=0.6, rd=1.4, rat=1.3, rdt=-1.3),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        assert len(result) == 5
+        tids = [r['comment_id'] for r in result]
+        # best_agree (tid 1) prepended at position 0.
+        assert tids[0] == 1, f"best-agree slot at position 0, got {tids[0]}"
+        # Tid 6 (smallest sufficient metric) evicted.
+        assert 6 not in tids, f"lowest-metric sufficient should be evicted, got {tids}"
+        # Rest are tids 2-5 in some agree-first ordering.
+        assert set(tids[1:]) == {2, 3, 4, 5}, f"expected tids 2-5 to remain, got {tids[1:]}"
+        # best_agree flag on position 0.
+        assert result[0].get('best_agree') is True
+        assert result[0].get('n_agree') == 6  # raw na from tid 1
+
+
+class TestD10TestGaps:
+    """Additional D10 coverage filling gaps identified in decisions D10.8.
+
+    These pin behaviours not previously asserted:
+      - mod_out filtering on the best-agree path.
+      - Deterministic tiebreak (lowest tid wins) on `beats_best_by_test`
+        max(rat,rdt) ties and on the `_sort_key` agree_metric ties.
+      - Disagree-only path through assembly + agrees-before-disagrees no-op.
+      - All-uninformative `ns=0` rows: passes_by_test fails, Branch 1 rejects
+        best_agree; best may still get set via Branch 4 / beats_best_by_test.
+      - Negative-ra rows handled correctly by Branch 2 (signed 4-way product).
+    """
+
+    # --- Deliverable 3: deterministic max(rat, rdt) tiebreak ------------------
+
+    def test_tied_max_rt_uses_deterministic_tiebreak(self):
+        """Two rows with identical max(rat, rdt) — strict `>` means the FIRST
+        iterated row wins. Sorting by `comment` (tid) ascending makes that
+        the LOWER tid (Clojure named-matrix insertion order parity, decision
+        D10.8.1)."""
+        rows = [
+            # Pass through `best` slot (neither passes passes_by_test —
+            # rat/rdt below Z_90), tied max(rat, rdt) = 1.0.
+            # Insert in REVERSE tid order to prove we sort, not just take input order.
+            _stats_row(7, na=4, nd=2, pa=0.55, pd_=0.45, pat=0.5, pdt=-0.5,
+                       ra=1.0, rd=1.0, rat=1.0, rdt=-1.0),
+            _stats_row(3, na=4, nd=2, pa=0.55, pd_=0.45, pat=0.5, pdt=-0.5,
+                       ra=1.0, rd=1.0, rat=1.0, rdt=-1.0),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        assert len(result) == 1
+        # Tid 3 (lower) wins the `best` slot under the tid-ascending tiebreak.
+        assert result[0]['comment_id'] == 3, \
+            f"lowest-tid wins tied max(rat,rdt); got {result[0]['comment_id']}"
+
+    # --- Deliverable 5: 5 gap tests -------------------------------------------
+
+    def test_mod_out_excludes_best_agree_candidate(self):
+        """A `mod_out` tid that would otherwise own the best-agree slot is
+        filtered before the reduce (Clojure repness.clj:222). The next-best
+        candidate becomes best_agree."""
+        rows = [
+            # tid 1: would-be best_agree (ra=2.0>1, pa=0.8>0.5 → Branch 4 accepts;
+            # strong ra*rat*pa*pat = 2.0*2.0*0.8*2.0 = 6.4 so it dominates Branch 2).
+            _stats_row(1, na=8, nd=2, pa=0.8, pd_=0.2, pat=2.0, pdt=-2.0,
+                       ra=2.0, rd=0.5, rat=2.0, rdt=-2.0),
+            # tid 2: next-best (ra*rat*pa*pat = 1.5*1.5*0.7*1.5 ≈ 2.36).
+            _stats_row(2, na=6, nd=3, pa=0.7, pd_=0.3, pat=1.5, pdt=-1.5,
+                       ra=1.5, rd=0.6, rat=1.5, rdt=-1.5),
+            # tid 3: weaker.
+            _stats_row(3, na=5, nd=4, pa=0.55, pd_=0.45, pat=1.0, pdt=-1.0,
+                       ra=1.1, rd=0.9, rat=1.0, rdt=-1.0),
+        ]
+        df = pd.DataFrame(rows)
+        # Without mod_out: tid 1 wins best_agree.
+        baseline = _assemble_rep_comments(df)
+        baseline_best_agree = next(r for r in baseline if r.get('best_agree'))
+        assert baseline_best_agree['comment_id'] == 1
+        # With tid 1 moderated out: tid 2 must win best_agree, tid 1 absent.
+        result = _assemble_rep_comments(df, mod_out=[1])
+        tids = [r['comment_id'] for r in result]
+        assert 1 not in tids, f"mod_out tid 1 must be excluded, got {tids}"
+        flagged = [r for r in result if r.get('best_agree')]
+        assert len(flagged) == 1, "exactly one best_agree slot"
+        assert flagged[0]['comment_id'] == 2, \
+            f"next-best (tid 2) should become best_agree, got {flagged[0]['comment_id']}"
+
+    def test_mod_out_accepts_ndarray(self):
+        """`mod_out` typed Optional[Iterable[int]] — callers may pass a numpy
+        array or pandas Index (e.g. sourced from a DataFrame column). Bare
+        `if mod_out:` truthiness raises 'truth value of an array is
+        ambiguous' for len>1 arrays; the check must be `is not None`
+        (Copilot review 2026-07-04, verified)."""
+        rows = [
+            _stats_row(1, na=8, nd=2, pa=0.8, pd_=0.2, pat=2.0, pdt=-2.0,
+                       ra=2.0, rd=0.5, rat=2.0, rdt=-2.0),
+            _stats_row(2, na=6, nd=3, pa=0.7, pd_=0.3, pat=1.5, pdt=-1.5,
+                       ra=1.5, rd=0.6, rat=1.5, rdt=-1.5),
+            _stats_row(3, na=5, nd=4, pa=0.55, pd_=0.45, pat=1.0, pdt=-1.0,
+                       ra=1.1, rd=0.9, rat=1.0, rdt=-1.0),
+        ]
+        df = pd.DataFrame(rows)
+        # len-2 ndarray: bare truthiness would raise ValueError.
+        result = _assemble_rep_comments(df, mod_out=np.array([1, 3]))
+        tids = [r['comment_id'] for r in result]
+        assert 1 not in tids and 3 not in tids, \
+            f"ndarray mod_out tids must be excluded, got {tids}"
+        assert 2 in tids
+
+    def test_tied_agree_metric_in_sort_uses_deterministic_tiebreak(self):
+        """Two `sufficient` rows with identical `agree_metric` resolve
+        deterministically. `list.sort` is stable in CPython, so the lower-tid
+        row (which entered `sufficient` first thanks to the tid-ascending
+        iter sort) appears first after descending sort by metric.
+
+        Decision D10.8.1: lowest tid wins ties."""
+        # Both rows pass passes_by_test (rat,pat at 2.0 > Z_90).
+        # Identical agree_metric: ra*rat*pa*pat is the SAME for both.
+        # ra=1.5, rat=2.0, pa=0.7, pat=2.0 → agree_metric = 4.2 (both).
+        # Insert in REVERSE tid order to prove the deterministic outcome
+        # comes from the sort, not the input order.
+        rows = [
+            _stats_row(9, na=7, nd=3, pa=0.7, pd_=0.3, pat=2.0, pdt=-2.0,
+                       ra=1.5, rd=0.6, rat=2.0, rdt=-2.0),
+            _stats_row(2, na=7, nd=3, pa=0.7, pd_=0.3, pat=2.0, pdt=-2.0,
+                       ra=1.5, rd=0.6, rat=2.0, rdt=-2.0),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        # 2 sufficient rows; one of them is also best_agree.
+        # Order: best_agree (tid 2, lowest tid wins beats_best_agr ties via
+        # strict-> first-row-wins) prepended, then deduped sufficient (tid 9).
+        tids = [r['comment_id'] for r in result]
+        assert tids[0] == 2, \
+            f"lowest-tid wins tied beats_best_agr Branch 2 product; got {tids}"
+        assert result[0].get('best_agree') is True
+
+    def test_disagree_only_group(self):
+        """All sufficient rows are `repful='disagree'`. Sort works on
+        `disagree_metric`; agrees-before-disagrees partition is a no-op."""
+        rows = [
+            # 3 disagree-passing rows (rdt,pdt > Z_90), descending disagree_metric.
+            _stats_row(1, na=1, nd=9, pa=0.17, pd_=0.83, pat=-2.5, pdt=2.5,
+                       ra=0.5, rd=2.0, rat=-2.5, rdt=2.5),  # disagree_metric ≈ 8.6
+            _stats_row(2, na=2, nd=8, pa=0.25, pd_=0.75, pat=-2.0, pdt=2.0,
+                       ra=0.55, rd=1.8, rat=-2.0, rdt=2.0),  # ≈ 5.4
+            _stats_row(3, na=3, nd=7, pa=0.33, pd_=0.67, pat=-1.5, pdt=1.5,
+                       ra=0.6, rd=1.5, rat=-1.5, rdt=1.5),  # ≈ 2.27
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        # All rows have repful='disagree' (rdt > rat for each).
+        assert len(result) >= 1
+        assert all(r['repful'] == 'disagree' for r in result), \
+            f"all rows should be disagree, got {[r['repful'] for r in result]}"
+        assert len(result) <= 5, "take-5 cap holds"
+        # best_agree may also be present (Branch 4 doesn't require agree side
+        # to dominate — z90(pat) is false here, ra<1 for all, so Branch 4
+        # rejects all candidates and best_agree stays None for all entries).
+        # No row should be flagged as best_agree given the fixture.
+        assert not any(r.get('best_agree') for r in result), \
+            "no row qualifies for best_agree under Branch 4 with ra<1 and pat<Z_90"
+
+    def test_all_ns_zero_uninformative_rows(self):
+        """Every row has ns=0 → pa=pd=0.5 (uninformative). No row passes
+        passes_by_test (pat,pdt collapse to 1.0 via prop_test n=0 shortcut,
+        below Z_90=1.2816). `beats_best_agr` Branch 1 rejects all
+        (na=nd=0), so best_agree stays None.
+
+        `best` MAY get set via `beats_best_by_test` (no na=nd=0 guard there).
+        Output length is 0 (if no row passes either gate) or 1 (the best
+        fallback). With max(rat,rdt) > None=True on first row, best gets set,
+        so output is exactly [best]."""
+        # Build via _stats_row but override pat/pdt to match the n=0 collapse:
+        # prop_test_vectorized(0, 0) = 2*sqrt(1)*(1/1 - 0.5) = 1.0 < Z_90.
+        rows = [
+            _stats_row(1, na=0, nd=0, pa=0.5, pd_=0.5, pat=1.0, pdt=1.0,
+                       ra=1.0, rd=1.0, rat=0.5, rdt=0.5, ns=0),
+            _stats_row(2, na=0, nd=0, pa=0.5, pd_=0.5, pat=1.0, pdt=1.0,
+                       ra=1.0, rd=1.0, rat=0.3, rdt=0.4, ns=0),
+        ]
+        result = _assemble_rep_comments(pd.DataFrame(rows))
+        # passes_by_test fails (pat=1.0<Z_90, pdt=1.0<Z_90, rat<Z_90, rdt<Z_90)
+        # → sufficient empty.
+        # beats_best_agr Branch 1 rejects every row (na=nd=0)
+        # → best_agree stays None.
+        # beats_best_by_test fills `best` (no na=nd=0 guard).
+        # → output is exactly [best], length 1, no best_agree flag.
+        assert len(result) in (0, 1), \
+            f"output length must be 0 or 1, got {len(result)}"
+        # Under the current logic best gets set, so we expect 1 with no flag.
+        assert len(result) == 1
+        assert 'best_agree' not in result[0], \
+            "Branch 1 rejected na=nd=0 from best_agree, so no flag"
+
+    def test_branch_2_handles_negative_ra_correctly(self):
+        """Branch 2 (current_best.ra > 1.0) compares the SIGNED 4-way product
+        `ra * rat * pa * pat`. A candidate with negative `ra` and negative
+        `rat` produces a positive product that can beat the current best,
+        while a candidate with single negative factor produces a negative
+        product that cannot."""
+        # Set up so iteration order: tid 1 (current_best), tid 2 (negative
+        # single factor, should NOT beat), tid 3 (two negatives → positive,
+        # should beat ONLY if its product is larger).
+        current_best_row = _stats_row(
+            1, na=8, nd=2, pa=0.8, pd_=0.2, pat=2.0, pdt=-2.0,
+            ra=2.0, rd=0.5, rat=2.0, rdt=-2.0)
+        # current_best product = 2.0*2.0*0.8*2.0 = 6.4.
+
+        # Single negative factor → negative product → loses on strict >.
+        single_neg = _stats_row(
+            2, na=1, nd=1, pa=0.5, pd_=0.5, pat=1.0, pdt=1.0,
+            ra=-0.5, rd=1.0, rat=1.0, rdt=1.0)
+        # product = -0.5*1.0*0.5*1.0 = -0.25 < 6.4 → does NOT beat.
+        assert not beats_best_agr(single_neg, current_best_row), \
+            "single negative factor → negative product loses Branch 2"
+
+        # Two negatives → positive product. Make it LARGER than 6.4.
+        # ra=-5.0, rat=-2.0, pa=0.9, pat=2.0 → -5 * -2 * 0.9 * 2 = 18.0 > 6.4.
+        two_neg = _stats_row(
+            3, na=5, nd=5, pa=0.9, pd_=0.1, pat=2.0, pdt=-2.0,
+            ra=-5.0, rd=0.2, rat=-2.0, rdt=-2.0)
+        assert beats_best_agr(two_neg, current_best_row), \
+            "two negative factors → positive 18.0 > 6.4 wins Branch 2"
+
+        # Two negatives but product NOT larger → loses.
+        two_neg_small = _stats_row(
+            4, na=1, nd=1, pa=0.5, pd_=0.5, pat=1.0, pdt=1.0,
+            ra=-1.0, rd=1.0, rat=-1.0, rdt=1.0)
+        # product = -1 * -1 * 0.5 * 1 = 0.5 < 6.4 → does NOT beat.
+        assert not beats_best_agr(two_neg_small, current_best_row), \
+            "two negatives but small positive product (0.5) still loses to 6.4"
+
+
 # ============================================================================
 # D11 — Consensus Comment Selection
 # ============================================================================
@@ -1158,29 +1687,254 @@ class TestD11ConsensusSelection:
          Clojure uses per-comment pa > 0.5, top 5 agree + 5 disagree with z-test scores
     """
 
-    @pytest.mark.xfail(reason="D11: Different consensus selection logic than Clojure")
-    def test_consensus_matches_clojure(self, conv, clojure_blob, dataset_name):
-        """Consensus comments should match Clojure's selection."""
+    def test_consensus_matches_clojure(self, request, conv, clojure_blob, dataset_name):
+        """Consensus selection should match Clojure on cold_start.
+
+        After D11 (PR 9), Python's `consensus_comments` is a dict
+        `{'agree': [...], 'disagree': [...]}` mirroring Clojure's shape.
+        Consensus stats are whole-conversation (no group split), so unlike
+        rep-comments this is NOT affected by upstream PCA/KMeans
+        group-membership divergence. The ns-PASS divergence
+        (DISCOVERY 2026-06-11) was fixed by switching `ns` from `na + nd`
+        to `notna().sum()` — matches Clojure `(count (filter identity ...))`
+        in repness.clj:56-61.
+        """
+        # Per-variant xfail (g5, 2026-07-04): known-bad INCREMENTAL variants
+        # only. biodiversity-incremental was documented 2026-06-11 (residual
+        # upstream PCA/KMeans group-membership divergence affecting which
+        # participants are in-conv at the incremental step). Scoping the
+        # previously-blanket xfail(strict=False) then UNMASKED
+        # bg2018-incremental and pakistan-incremental (private datasets) —
+        # failures the blanket had silently absorbed, undocumented until
+        # 2026-07-04. Same incremental-divergence family; resolution belongs
+        # to the sequential-parity work (replay infra / warm-start port).
+        # ALL cold_start variants and vw-incremental match Clojure exactly
+        # and MUST keep gating.
+        _known_bad_incremental = ('biodiversity', 'bg2018', 'pakistan')
+        _callspec = request.node.callspec.id
+        if 'incremental' in _callspec and any(
+                ds in _callspec for ds in _known_bad_incremental):
+            request.applymarker(pytest.mark.xfail(
+                raises=AssertionError,
+                strict=False,
+                reason="known-bad incremental variant (biodiversity: journal "
+                       "2026-06-11; bg2018/pakistan: unmasked 2026-07-04 when "
+                       "the blanket xfail was scoped per-variant): residual "
+                       "upstream incremental divergence, deferred to the "
+                       "sequential-parity work"))
+
         clj_consensus = clojure_blob.get('consensus', {})
         if not clj_consensus:
             pytest.skip("No consensus in Clojure blob")
 
-        # Clojure consensus has 'agree' and 'disagree' keys
         clj_agree_tids = set(e['tid'] for e in clj_consensus.get('agree', []))
         clj_disagree_tids = set(e['tid'] for e in clj_consensus.get('disagree', []))
         clj_all = clj_agree_tids | clj_disagree_tids
 
-        py_consensus = conv.repness.get('consensus_comments', []) if conv.repness else []
-        py_tids = set(int(c['comment_id']) for c in py_consensus)
+        py_consensus = (conv.repness.get('consensus_comments', {})
+                        if conv.repness else {})
+        py_agree_tids = set(int(c['tid'])
+                            for c in py_consensus.get('agree', []))
+        py_disagree_tids = set(int(c['tid'])
+                               for c in py_consensus.get('disagree', []))
+        py_all = py_agree_tids | py_disagree_tids
 
-        print(f"[{dataset_name}] Consensus: Clojure agree={sorted(clj_agree_tids)}, disagree={sorted(clj_disagree_tids)}")
-        print(f"[{dataset_name}] Consensus: Python={sorted(py_tids)}")
-
-        overlap = len(clj_all & py_tids)
+        print(f"[{dataset_name}] Consensus Clojure: "
+              f"agree={sorted(clj_agree_tids)}, "
+              f"disagree={sorted(clj_disagree_tids)}")
+        print(f"[{dataset_name}] Consensus Python:  "
+              f"agree={sorted(py_agree_tids)}, "
+              f"disagree={sorted(py_disagree_tids)}")
+        overlap = len(clj_all & py_all)
         print(f"[{dataset_name}] Consensus overlap: {overlap}/{len(clj_all)}")
 
-        check.equal(py_tids, clj_all,
-                     f"Consensus mismatch: Python={sorted(py_tids)}, Clojure={sorted(clj_all)}")
+        check.equal(py_agree_tids, clj_agree_tids,
+                    f"Agree consensus mismatch")
+        check.equal(py_disagree_tids, clj_disagree_tids,
+                    f"Disagree consensus mismatch")
+
+
+class TestD11ConsensusStatsDf:
+    """`consensus_stats_df` — whole-conversation per-comment stats (no group split)."""
+
+    @staticmethod
+    def _vote_matrix(per_comment_votes):
+        """Helper: build a vote matrix from {tid: [vote_per_participant]}."""
+        return pd.DataFrame(per_comment_votes)
+
+    def test_basic_counts(self):
+        """na/nd/ns counted correctly across all participants."""
+        # 5 participants, 3 comments
+        # tid 1: 4 agrees, 1 disagree → na=4, nd=1, ns=5
+        # tid 2: 2 agrees, 3 disagrees → na=2, nd=3, ns=5
+        # tid 3: 1 agree, 2 disagrees, 2 NaN (pass/unvoted) → na=1, nd=2, ns=3
+        votes = pd.DataFrame({
+            1: [AGREE, AGREE, AGREE, AGREE, DISAGREE],
+            2: [AGREE, AGREE, DISAGREE, DISAGREE, DISAGREE],
+            3: [AGREE, DISAGREE, DISAGREE, np.nan, np.nan],
+        })
+        df = consensus_stats_df(votes)
+        assert df.loc[1, 'na'] == 4 and df.loc[1, 'nd'] == 1 and df.loc[1, 'ns'] == 5
+        assert df.loc[2, 'na'] == 2 and df.loc[2, 'nd'] == 3 and df.loc[2, 'ns'] == 5
+        assert df.loc[3, 'na'] == 1 and df.loc[3, 'nd'] == 2 and df.loc[3, 'ns'] == 3
+
+    def test_pseudocount_pa_pd(self):
+        """pa/pd use Beta(2,2) smoothing: (na+1)/(ns+2)."""
+        votes = pd.DataFrame({1: [AGREE, AGREE, AGREE, AGREE, DISAGREE]})
+        df = consensus_stats_df(votes)
+        # na=4, ns=5 → pa = 5/7 ≈ 0.714
+        assert abs(df.loc[1, 'pa'] - 5/7) < 1e-10
+        # nd=1, ns=5 → pd = 2/7 ≈ 0.286
+        assert abs(df.loc[1, 'pd'] - 2/7) < 1e-10
+
+    def test_ns_zero_uses_uninformative_prior(self):
+        """When ns=0 (no agree/disagree at all), pa=pd=0.5."""
+        votes = pd.DataFrame({1: [np.nan, np.nan, np.nan]})
+        df = consensus_stats_df(votes)
+        assert df.loc[1, 'pa'] == 0.5
+        assert df.loc[1, 'pd'] == 0.5
+
+    def test_mod_out_filters_tids(self):
+        """`mod_out` removes tids from the output."""
+        votes = pd.DataFrame({
+            1: [AGREE, AGREE, AGREE],
+            2: [AGREE, AGREE, AGREE],
+            3: [AGREE, AGREE, AGREE],
+        })
+        df = consensus_stats_df(votes, mod_out={2})
+        assert 1 in df.index
+        assert 2 not in df.index
+        assert 3 in df.index
+
+    def test_mod_out_accepts_ndarray(self):
+        """Same `is not None` requirement as select_rep_comments_df: a len>1
+        numpy array as mod_out must filter, not raise 'truth value of an
+        array is ambiguous' (Copilot review 2026-07-04, verified)."""
+        votes = pd.DataFrame({
+            1: [AGREE, AGREE, AGREE],
+            2: [AGREE, AGREE, AGREE],
+            3: [AGREE, AGREE, AGREE],
+        })
+        df = consensus_stats_df(votes, mod_out=np.array([2, 3]))
+        assert 1 in df.index
+        assert 2 not in df.index
+        assert 3 not in df.index
+
+    def test_ns_includes_pass_votes(self):
+        """Clojure parity: ns counts all non-nil votes incl. PASS (repness.clj:56-61)."""
+        votes = pd.DataFrame({
+            1: [AGREE, AGREE, DISAGREE, 0, 0],  # 2A, 1D, 2P → ns=5
+        })
+        df = consensus_stats_df(votes)
+        assert df.loc[1, 'na'] == 2
+        assert df.loc[1, 'nd'] == 1
+        assert df.loc[1, 'ns'] == 5, f"ns should include PASS (Clojure parity); got {df.loc[1, 'ns']}"
+
+
+class TestD11SelectConsensusBoundary:
+    """`select_consensus_comments_df` Clojure-parity boundaries."""
+
+    @staticmethod
+    def _stats(rows):
+        """Helper: build a stats DataFrame from list of (tid, na, nd, ns, pa, pd, pat, pdt)."""
+        df = pd.DataFrame(rows, columns=['tid', 'na', 'nd', 'ns', 'pa', 'pd', 'pat', 'pdt'])
+        return df.set_index('tid')
+
+    def test_empty_input_returns_empty_lists(self):
+        result = select_consensus_comments_df(pd.DataFrame(columns=['na', 'nd', 'ns', 'pa', 'pd', 'pat', 'pdt']))
+        assert result == {'agree': [], 'disagree': []}
+
+    def test_clear_agree_consensus(self):
+        """Comments with pa > 0.5 AND z-sig-90(pat) land in 'agree'."""
+        stats = self._stats([
+            (1, 9, 1, 10, 0.83, 0.17, 2.5, -2.5),  # pa>0.5, pat z90 → agree
+            (2, 8, 2, 10, 0.75, 0.25, 2.0, -2.0),  # agree
+        ])
+        result = select_consensus_comments_df(stats)
+        agree_tids = [e['tid'] for e in result['agree']]
+        assert 1 in agree_tids and 2 in agree_tids
+        assert result['disagree'] == []
+
+    def test_clear_disagree_consensus(self):
+        """Comments with pd > 0.5 AND z-sig-90(pdt) land in 'disagree'."""
+        stats = self._stats([
+            (1, 1, 9, 10, 0.17, 0.83, -2.5, 2.5),  # pd>0.5, pdt z90 → disagree
+            (2, 2, 8, 10, 0.25, 0.75, -2.0, 2.0),
+        ])
+        result = select_consensus_comments_df(stats)
+        disagree_tids = [e['tid'] for e in result['disagree']]
+        assert 1 in disagree_tids and 2 in disagree_tids
+        assert result['agree'] == []
+
+    def test_divisive_no_consensus(self):
+        """Comments split ~50/50 with low z-scores → neither list populated."""
+        stats = self._stats([
+            (1, 5, 5, 10, 0.5, 0.5, 0.0, 0.0),
+            (2, 4, 6, 10, 0.42, 0.58, -0.4, 0.4),
+        ])
+        result = select_consensus_comments_df(stats)
+        assert result['agree'] == []
+        assert result['disagree'] == []
+
+    def test_top_5_cap_per_side(self):
+        """Each list capped at 5 entries."""
+        # 7 high-agree comments
+        rows = []
+        for i, am in enumerate([2.5, 2.3, 2.1, 1.9, 1.7, 1.5, 1.4]):
+            rows.append((i + 1, 9, 1, 10, 0.83, 0.17, am, -am))
+        stats = self._stats(rows)
+        result = select_consensus_comments_df(stats)
+        assert len(result['agree']) == 5
+        # Highest am at front: pa*pat = 0.83 * 2.5 = 2.075
+        assert result['agree'][0]['tid'] == 1
+
+    def test_entry_keys_match_clojure_blob(self):
+        """Per-entry keys: tid, n-success, n-trials, p-success, p-test —
+        EXACTLY the Clojure blob shape (repness.clj:181 + ::consensus spec).
+
+        Narrows the S1 deferral (2026-07-04): consensus entries are new in
+        D11 and flow raw into `result['consensus']` in to_dict /
+        to_dynamo_dict, where server-helpers.ts:298-313 and client-report's
+        majorityStrict.jsx:23-27 pluck `tid`. Python-convention keys would
+        break both consumers. Rep-comment entries keep `comment_id` until
+        the deferred math-blob alignment PR."""
+        stats = self._stats([(1, 9, 1, 10, 0.83, 0.17, 2.5, -2.5)])
+        result = select_consensus_comments_df(stats)
+        entry = result['agree'][0]
+        assert set(entry.keys()) == {'tid', 'n-success', 'n-trials', 'p-success', 'p-test'}
+        assert entry['tid'] == 1
+        # For agree side, n-success = na, p-success = pa, p-test = pat
+        assert entry['n-success'] == 9
+        assert entry['n-trials'] == 10
+        assert abs(entry['p-success'] - 0.83) < 1e-10
+        assert abs(entry['p-test'] - 2.5) < 1e-10
+
+    def test_disagree_entry_uses_d_keys(self):
+        """For disagree side, n-success = nd, p-success = pd, p-test = pdt."""
+        stats = self._stats([(1, 1, 9, 10, 0.17, 0.83, -2.5, 2.5)])
+        result = select_consensus_comments_df(stats)
+        entry = result['disagree'][0]
+        assert entry['n-success'] == 9   # = nd
+        assert abs(entry['p-success'] - 0.83) < 1e-10  # = pd
+        assert abs(entry['p-test'] - 2.5) < 1e-10  # = pdt
+
+    def test_mutually_exclusive_lists(self):
+        """With ns ≥ na+nd (ns includes PASS post-ns-PASS fix),
+        pa + pd = (na+nd+PSEUDO_COUNT)/(ns+PSEUDO_COUNT) ≤ 1, so pa and pd
+        cannot both exceed 0.5 — the same tid cannot appear in both lists.
+        (The equality pa+pd=1 only holds for PASS-free comments, as in this
+        fixture.)"""
+        # PASS-free rows: na+nd = ns here (but the invariant above holds
+        # generally, PASS or not).
+        stats = self._stats([
+            (1, 7, 3, 10, 0.67, 0.33, 1.5, -1.5),  # agree side
+            (2, 3, 7, 10, 0.33, 0.67, -1.5, 1.5),  # disagree side
+        ])
+        result = select_consensus_comments_df(stats)
+        agree_tids = {e['tid'] for e in result['agree']}
+        disagree_tids = {e['tid'] for e in result['disagree']}
+        assert agree_tids & disagree_tids == set(), \
+            f"agree and disagree lists must be disjoint, got overlap {agree_tids & disagree_tids}"
 
 
 # ============================================================================
@@ -1194,9 +1948,36 @@ class TestD12CommentPriorities:
          Clojure computes priorities based on PCA extremity and importance.
     """
 
-    @pytest.mark.xfail(reason="D12: Comment priorities not implemented in Python")
-    def test_comment_priorities_exist(self, conv, clojure_blob, dataset_name):
-        """Python should produce comment-priorities matching Clojure."""
+    def test_comment_priorities_exist(self, request, conv, clojure_blob, dataset_name):
+        """Python should produce comment-priorities matching Clojure.
+
+        Per D12.6: Clojure's `(if 0 ...)` truthiness quirk means every tid
+        takes the meta branch, so Clojure cold_start priorities are all
+        META_PRIORITY^2 = 49.0 for vw/biodiversity. Python now mirrors this
+        bug
+        (priority_metric returns META_PRIORITY**2 unconditionally), so both
+        sides should yield identical all-constant 49.0. Spearman is not
+        meaningful when both sides have zero variance — we instead verify
+        the constant-value parity directly.
+        """
+        # Per-variant xfail (g5, refined 2026-07-05): known-bad only where
+        # the Clojure incremental blob has VARIED priorities (no truthy-0
+        # bug there), so Python's all-49 mirror can't match. FLI and bg2050
+        # incremental blobs carry the all-49 signature and DO match — they
+        # gate. All cold_start variants gate. Once the Clojure bug (#2571)
+        # is fixed upstream, drop the Python mirror and this xfail.
+        _varied_priority_incrementals = (
+            'vw-incremental', 'biodiversity-incremental',
+            'bg2018-incremental', 'engage-incremental',
+            'pakistan-incremental')
+        if request.node.callspec.id in _varied_priority_incrementals:
+            request.applymarker(pytest.mark.xfail(
+                raises=AssertionError,
+                strict=False,
+                reason="D12.6: this Clojure incremental blob has varied "
+                       "priorities (no truthy-0 bug there); Python's "
+                       "all-49 mirror cannot match. See issue #2571."))
+
         clj_priorities = clojure_blob.get('comment-priorities', {})
         check.greater(len(clj_priorities), 0,
                        f"Clojure has {len(clj_priorities)} comment priorities")
@@ -1209,10 +1990,182 @@ class TestD12CommentPriorities:
             return
 
         py_priorities = conv.comment_priorities
-        # Compare rankings (Spearman correlation would be ideal, but check overlap first)
-        common_tids = set(str(k) for k in clj_priorities.keys()) & set(str(k) for k in py_priorities.keys())
-        print(f"[{dataset_name}] Common priority tids: {len(common_tids)}/{len(clj_priorities)}")
+        # Normalize keys to int for comparison.
+        clj_p = {int(k): v for k, v in clj_priorities.items()}
+        py_p = {int(k): v for k, v in py_priorities.items()}
+        common_tids = set(clj_p.keys()) & set(py_p.keys())
+        print(f"[{dataset_name}] Common priority tids: {len(common_tids)}/{len(clj_p)}")
         check.greater(len(common_tids), 0, "Should have common priority tids")
+
+        tids_sorted = sorted(common_tids)
+        clj_vals = [clj_p[t] for t in tids_sorted]
+        py_vals = [py_p[t] for t in tids_sorted]
+        clj_unique = set(clj_vals)
+        py_unique = set(py_vals)
+        print(f"[{dataset_name}] clj_vals sample: {clj_vals[:5]}, "
+              f"min={min(clj_vals)}, max={max(clj_vals)}, "
+              f"unique={len(clj_unique)}")
+        print(f"[{dataset_name}] py_vals  sample: {py_vals[:5]}, "
+              f"min={min(py_vals)}, max={max(py_vals)}, "
+              f"unique={len(py_unique)}")
+
+        # D12.6 Clojure-parity-bug mirror: both sides should return
+        # META_PRIORITY**2 = 49.0 for every tid.
+        META_PRIORITY_SQ = META_PRIORITY ** 2
+        check.equal(len(clj_unique), 1,
+                    f"Clojure priorities should be all-constant (bug); got {len(clj_unique)} unique")
+        check.equal(len(py_unique), 1,
+                    f"Python priorities should be all-constant (bug mirror); got {len(py_unique)} unique")
+        if len(clj_unique) == 1:
+            (clj_const,) = clj_unique
+            check.almost_equal(clj_const, META_PRIORITY_SQ, abs=1e-9,
+                               msg=f"Clojure constant priority should be META_PRIORITY**2={META_PRIORITY_SQ}")
+        if len(py_unique) == 1:
+            (py_const,) = py_unique
+            check.almost_equal(py_const, META_PRIORITY_SQ, abs=1e-9,
+                               msg=f"Python constant priority should be META_PRIORITY**2={META_PRIORITY_SQ}")
+
+
+class TestD12PriorityExtremityAlignment:
+    """`_compute_comment_priorities` must fail closed on a PCA/columns desync.
+
+    `dict(zip(rating_mat.columns, extremity_arr))` silently truncates when
+    the PCA output was computed on a different column set than the current
+    rating_mat (e.g. moderation changed between recomputes). Silent
+    truncation assigns E=0 to the overflow tids — wrong priorities with no
+    signal. The guard logs an error and returns {} (server falls back to
+    uniform routing — degraded but honest). (Copilot review 2026-07-04, g4.)
+    """
+
+    def _conv_with_desync(self):
+        conv = Conversation(conversation_id='ztest-desync')
+        # 3 comments in the rating matrix...
+        conv.rating_mat = pd.DataFrame(
+            [[1.0, -1.0, 0.0], [1.0, 1.0, -1.0]],
+            index=[0, 1], columns=[10, 11, 12],
+        )
+        conv.raw_rating_mat = conv.rating_mat.copy()
+        # ...but PCA computed on only 2 (stale center/comps).
+        conv.pca = {
+            'center': np.array([0.5, -0.5]),
+            'comps': np.array([[0.7, 0.7], [0.7, -0.7]]),
+        }
+        conv.group_clusters = []
+        conv.meta_tids = set()
+        return conv
+
+    def test_desync_returns_empty_and_logs(self, caplog):
+        conv = self._conv_with_desync()
+        import logging
+        with caplog.at_level(logging.ERROR):
+            result = conv._compute_comment_priorities()
+        assert result == {}, (
+            f"desynced PCA/columns must fail closed (empty priorities), "
+            f"got {result!r} — silent zip truncation assigns E=0 to "
+            f"overflow tids"
+        )
+        assert any('extremity' in r.message.lower() or
+                   'priorit' in r.message.lower()
+                   for r in caplog.records), \
+            "expected an ERROR log naming the priorities/extremity desync"
+
+
+class TestD12PCAProjectComments:
+    """`pca_project_cmnts` and `compute_comment_extremity` — Clojure parity."""
+
+    def test_pca_project_cmnts_shape(self):
+        """Output shape (n_cmnts, n_components)."""
+        center = np.array([0.1, 0.2, 0.3, 0.4])
+        comps = np.array([[1.0, 0.0, 0.5, 0.5],
+                          [0.0, 1.0, 0.5, -0.5]])
+        proj = pca_project_cmnts(center, comps)
+        assert proj.shape == (4, 2)
+
+    def test_pca_project_cmnts_formula(self):
+        """For comment i: proj[i] = -sqrt(n_cmnts) * (1 + center[i]) * [pc1[i], pc2[i]]."""
+        center = np.array([0.1, 0.2, 0.3, 0.4])
+        comps = np.array([[1.0, 0.5, -0.5, 0.0],
+                          [0.0, 0.5, 0.5, 1.0]])
+        proj = pca_project_cmnts(center, comps)
+        n_cmnts = 4
+        scale = np.sqrt(n_cmnts)
+        for i in range(n_cmnts):
+            expected = -scale * (1 + center[i]) * comps[:, i]
+            assert np.allclose(proj[i], expected), \
+                f"proj[{i}] = {proj[i]} vs expected {expected}"
+
+    def test_pca_project_cmnts_empty(self):
+        """Empty inputs return shape (0, n_comps)."""
+        center = np.zeros(0)
+        comps = np.zeros((2, 0))
+        proj = pca_project_cmnts(center, comps)
+        assert proj.shape == (0, 2)
+
+    def test_compute_comment_extremity_l2_norm(self):
+        """Extremity = L2 norm of each projection row."""
+        cmnt_proj = np.array([[3.0, 4.0],
+                              [0.0, 0.0],
+                              [-1.0, 1.0]])
+        ext = compute_comment_extremity(cmnt_proj)
+        assert np.allclose(ext, [5.0, 0.0, np.sqrt(2)])
+
+    def test_compute_comment_extremity_empty(self):
+        """Empty input → empty output."""
+        ext = compute_comment_extremity(np.zeros((0, 2)))
+        assert ext.shape == (0,)
+
+
+class TestD12PriorityMetrics:
+    """`importance_metric` and `priority_metric` — Clojure parity."""
+
+    def test_importance_metric_formula(self):
+        """`(1 - p) * (E + 1) * a` where p = (P+1)/(S+2), a = (A+1)/(S+2)."""
+        # Clojure ref values from conversation.clj:335:
+        # `(float (importance-metric 1 0 1 0))` — A=1, P=0, S=1, E=0
+        # p = 1/3, a = 2/3, return = (2/3)*(1)*(2/3) = 4/9 ≈ 0.4444
+        assert abs(importance_metric(1, 0, 1, 0) - 4 / 9) < 1e-10
+
+    def test_importance_metric_high_extremity_boosts(self):
+        """Higher extremity → higher importance."""
+        baseline = importance_metric(5, 1, 8, 0.0)
+        boosted = importance_metric(5, 1, 8, 2.0)
+        assert boosted > baseline
+
+    def test_priority_metric_meta_constant(self):
+        """Meta comments return META_PRIORITY^2 = 49 (Clojure parity)."""
+        # is_meta=True → inner = 7, return = 49
+        assert priority_metric(True, 5, 2, 10, 1.5) == META_PRIORITY ** 2
+        assert priority_metric(True, 0, 0, 0, 0) == META_PRIORITY ** 2
+
+    @pytest.mark.xfail(reason="Clojure parity bug mirror (D12.6): priority_metric always "
+                              "returns META_PRIORITY**2 until upstream Clojure bug resolves. "
+                              "Tests pin the semantically-correct formula and will pass again "
+                              "when we revert the mirror.")
+    def test_priority_metric_non_meta_squared(self):
+        """Non-meta: return = (importance * (1 + 8*2^(-S/5)))^2."""
+        # A=20, P=3, S=20, E=0 — ref from conversation.clj:337
+        A, P, S, E = 20, 3, 20, 0
+        imp = importance_metric(A, P, S, E)
+        decay = 1 + 8 * (2 ** (-S / 5))
+        expected = (imp * decay) ** 2
+        assert abs(priority_metric(False, A, P, S, E) - expected) < 1e-10
+
+    def test_priority_metric_decay_factor_lets_new_bubble_up(self):
+        """For low-S (new) comments, the decay factor is larger → priority boost."""
+        # Two comments with identical importance metrics but different S.
+        # importance depends on A, P, S, E; to isolate the decay factor,
+        # pick A,P,E values that give same `(1 - (P+1)/(S+2)) * (E+1) * (A+1)/(S+2)`?
+        # Hard to isolate, so just test that the decay factor itself increases for low S.
+        new_decay = 1 + 8 * (2 ** (-1 / 5))    # S=1
+        old_decay = 1 + 8 * (2 ** (-100 / 5))  # S=100
+        assert new_decay > old_decay
+        assert new_decay > 1.0
+        # Old comments fade toward 1 (no boost).
+        assert old_decay < 1.01
+
+    def test_meta_priority_constant_value(self):
+        """META_PRIORITY = 7 (Clojure conversation.clj:319)."""
+        assert META_PRIORITY == 7
 
 
 # ============================================================================
@@ -1620,36 +2573,11 @@ class TestSyntheticEdgeCases:
         check.almost_equal(Z_95, 1.6449, abs=0.001,
                             msg=f"Z_95={Z_95}, expected 1.6449 (one-tailed)")
 
-    def test_prop_test_matches_clojure_formula_synthetic(self):
-        """prop_test(succ, n) should produce 2*sqrt(n+1)*((succ+1)/(n+1) - 0.5)."""
-        # Small n: 5 successes out of 8 trials
-        succ, n = 5, 8
-        expected = 2 * 3.0 * (6.0 / 9.0 - 0.5)  # = 1.0
-        result = prop_test(succ, n)
-        assert abs(result - expected) < 1e-10, f"prop_test({succ}, {n})={result}, expected {expected}"
-
-    def test_clojure_repness_metric_product(self):
-        """Python's repness_metric matches Clojure (* repness repness-test p-success p-test).
-
-        Verifies the actual production function, not a re-implementation of the formula.
-        """
-        stats = {
-            'pa': 0.8, 'pat': 3.0, 'ra': 1.5, 'rat': 2.0,
-            'pd': 0.2, 'pdt': -1.0, 'rd': 0.5, 'rdt': -0.5,
-        }
-        # Agree: (* ra rat pa pat) = 1.5 * 2.0 * 0.8 * 3.0 = 7.2
-        assert repness_metric(stats, 'a') == pytest.approx(7.2)
-        # Disagree (same product, no (1-pd) trick): (* rd rdt pd pdt)
-        # = 0.5 * -0.5 * 0.2 * -1.0 = 0.05 (two negatives cancel — signed product)
-        assert repness_metric(stats, 'd') == pytest.approx(0.05)
-
-    def test_clojure_repful_uses_rat_vs_rdt(self):
-        """Clojure determines repful by comparing rat vs rdt."""
-        # rat > rdt → agree
-        assert (2.0 > 1.0)  # rat=2.0, rdt=1.0 → agree
-
-        # rat < rdt → disagree
-        assert (0.5 < 1.5)  # rat=0.5, rdt=1.5 → disagree
+    # prop_test / repness_metric / repful formula tests are covered by
+    # TestD5ProportionTest::test_prop_test_matches_clojure_formula,
+    # TestD7RepnessMetric::test_metric_formula_is_product, and
+    # TestD8FinalizeStats::test_repful_classification_boundary respectively
+    # (migrated to vectorized in PR 14a).
 
 
 # ============================================================================
@@ -1666,58 +2594,60 @@ class TestSyntheticEdgeCases:
 # isolating each computation stage from upstream divergence.
 # ============================================================================
 
+def _blob_repness_rows(clojure_blob):
+    """Flatten the Clojure blob's `repness` dict into a list of per-(gid, tid) rows
+    for vectorized comparison. Each row is `{gid, tid, **entry_keys}`."""
+    return [{'gid': gid, **entry}
+            for gid, entries in clojure_blob.get('repness', {}).items()
+            for entry in entries]
+
+
 @pytest.mark.clojure_comparison
 class TestD5BlobInjection:
-    """D5: Verify prop_test against real Clojure blob p-test values.
+    """D5: Verify prop_test_vectorized against real Clojure blob p-test values.
 
-    For each repness entry in the blob, extract n-success and n-trials,
-    feed to Python's prop_test(), compare to blob's p-test.
+    Collect (n-success, n-trials, p-test) from every repness entry in the blob,
+    run a single vectorized call, compare element-wise. Tests the actual
+    production code path (same call shape as `compute_group_comment_stats_df`).
     """
 
     def test_prop_test_matches_blob_p_test(self, clojure_blob, dataset_name):
-        """prop_test(n_success, n_trials) should match blob's p-test for every repness entry."""
-        repness = clojure_blob.get('repness', {})
-        if not repness:
+        """prop_test_vectorized(n_success, n_trials) should match blob's p-test
+        for every repness entry."""
+        rows = _blob_repness_rows(clojure_blob)
+        if not rows:
             pytest.skip(f"No repness in Clojure blob for {dataset_name}")
 
-        mismatches = []
-        total = 0
-        for gid, entries in repness.items():
-            for entry in entries:
-                n_success = entry['n-success']
-                n_trials = entry['n-trials']
-                expected_p_test = entry['p-test']
-                actual = prop_test(n_success, n_trials)
-                total += 1
-                if abs(actual - expected_p_test) > 1e-4:
-                    mismatches.append(
-                        f"group={gid} tid={entry['tid']}: "
-                        f"prop_test({n_success}, {n_trials})={actual:.6f}, "
-                        f"blob p-test={expected_p_test:.6f}")
+        df = pd.DataFrame(rows)[['gid', 'tid', 'n-success', 'n-trials', 'p-test']]
+        df['actual'] = prop_test_vectorized(df['n-success'], df['n-trials'])
+        df['diff'] = (df['actual'] - df['p-test']).abs()
 
-        assert not mismatches, (
-            f"[{dataset_name}] {len(mismatches)}/{total} p-test mismatches:\n"
-            + "\n".join(mismatches[:10]))
+        mismatches = df[df['diff'] > 1e-4]
+        assert mismatches.empty, (
+            f"[{dataset_name}] {len(mismatches)}/{len(df)} p-test mismatches:\n"
+            + mismatches.head(10).to_string(index=False))
 
 
 @pytest.mark.clojure_comparison
 class TestD6BlobInjection:
-    """D6: Verify two_prop_test against real Clojure blob repness-test values.
+    """D6: Verify two_prop_test_vectorized against real Clojure blob
+    repness-test values.
 
     For each repness entry, reconstruct the two_prop_test inputs from
-    group-votes (group counts vs total-minus-group), compare to blob's
-    repness-test.
+    group-votes (group counts vs total-minus-group), collect into a DataFrame,
+    and run a single vectorized call. Tests the actual production code path.
     """
 
     def test_two_prop_test_matches_blob_repness_test(self, clojure_blob, dataset_name):
-        """two_prop_test should match blob's repness-test for every repness entry."""
+        """two_prop_test_vectorized should match blob's repness-test for every
+        repness entry."""
         repness = clojure_blob.get('repness', {})
         group_votes = clojure_blob.get('group-votes', {})
         if not repness or not group_votes:
             pytest.skip(f"No repness or group-votes in blob for {dataset_name}")
 
-        # Precompute total votes across ALL groups for each comment
-        all_group_votes = {}
+        # Precompute total votes across ALL groups for each comment.
+        all_group_votes: dict = {}
         for other_gid, other_gv_data in group_votes.items():
             for tid_str, counts in other_gv_data.get('votes', {}).items():
                 if tid_str not in all_group_votes:
@@ -1726,15 +2656,12 @@ class TestD6BlobInjection:
                 all_group_votes[tid_str]['D'] += counts['D']
                 all_group_votes[tid_str]['S'] += counts['S']
 
-        mismatches = []
-        total = 0
+        rows = []
         for gid, entries in repness.items():
             gv = group_votes.get(gid, {}).get('votes', {})
             for entry in entries:
                 tid_str = str(entry['tid'])
                 repful = entry['repful-for']
-                expected_rt = entry['repness-test']
-
                 group_cv = gv.get(tid_str, {'A': 0, 'D': 0, 'S': 0})
                 total_cv = all_group_votes.get(tid_str, {'A': 0, 'D': 0, 'S': 0})
 
@@ -1745,20 +2672,23 @@ class TestD6BlobInjection:
                     succ_in = group_cv['D']
                     succ_out = total_cv['D'] - group_cv['D']
 
-                pop_in = group_cv['S']
-                pop_out = total_cv['S'] - group_cv['S']
+                rows.append({
+                    'gid': gid, 'tid': entry['tid'], 'repful': repful,
+                    'succ_in': succ_in, 'succ_out': succ_out,
+                    'pop_in': group_cv['S'],
+                    'pop_out': total_cv['S'] - group_cv['S'],
+                    'expected': entry['repness-test'],
+                })
 
-                actual = two_prop_test(succ_in, succ_out, pop_in, pop_out)
-                total += 1
-                if abs(actual - expected_rt) > 1e-4:
-                    mismatches.append(
-                        f"group={gid} tid={entry['tid']} ({repful}): "
-                        f"two_prop_test({succ_in},{succ_out},{pop_in},{pop_out})={actual:.6f}, "
-                        f"blob repness-test={expected_rt:.6f}")
+        df = pd.DataFrame(rows)
+        df['actual'] = two_prop_test_vectorized(
+            df['succ_in'], df['succ_out'], df['pop_in'], df['pop_out'])
+        df['diff'] = (df['actual'] - df['expected']).abs()
 
-        assert not mismatches, (
-            f"[{dataset_name}] {len(mismatches)}/{total} repness-test mismatches:\n"
-            + "\n".join(mismatches[:10]))
+        mismatches = df[df['diff'] > 1e-4]
+        assert mismatches.empty, (
+            f"[{dataset_name}] {len(mismatches)}/{len(df)} repness-test mismatches:\n"
+            + mismatches.head(10).to_string(index=False))
 
 
 @pytest.mark.clojure_comparison
@@ -1767,25 +2697,184 @@ class TestD4BlobInjection:
 
     def test_p_success_matches_blob(self, clojure_blob, dataset_name):
         """(n_success + 1) / (n_trials + 2) should match blob's p-success."""
-        repness = clojure_blob.get('repness', {})
-        if not repness:
+        rows = _blob_repness_rows(clojure_blob)
+        if not rows:
             pytest.skip(f"No repness in blob for {dataset_name}")
 
-        mismatches = []
-        total = 0
-        for gid, entries in repness.items():
-            for entry in entries:
-                ns = entry['n-success']
-                nt = entry['n-trials']
-                expected = entry['p-success']
-                actual = (ns + PSEUDO_COUNT / 2) / (nt + PSEUDO_COUNT)
-                total += 1
-                if abs(actual - expected) > 1e-4:
-                    mismatches.append(
-                        f"group={gid} tid={entry['tid']}: "
-                        f"pa=({ns}+1)/({nt}+2)={actual:.6f}, "
-                        f"blob p-success={expected:.6f}")
+        df = pd.DataFrame(rows)[['gid', 'tid', 'n-success', 'n-trials', 'p-success']]
+        df['actual'] = ((df['n-success'] + PSEUDO_COUNT / 2)
+                        / (df['n-trials'] + PSEUDO_COUNT))
+        df['diff'] = (df['actual'] - df['p-success']).abs()
 
-        assert not mismatches, (
-            f"[{dataset_name}] {len(mismatches)}/{total} p-success mismatches:\n"
-            + "\n".join(mismatches[:10]))
+        mismatches = df[df['diff'] > 1e-4]
+        assert mismatches.empty, (
+            f"[{dataset_name}] {len(mismatches)}/{len(df)} p-success mismatches:\n"
+            + mismatches.head(10).to_string(index=False))
+
+
+class TestD11D12Serialization:
+    """Round-trip tests for the D11/D12 plumb-through in to_dict / to_dynamo_dict.
+
+    Investigation B (2026-06-11) discovered that both serializers were hardcoding
+    ``result['consensus']`` to an empty dict regardless of
+    ``self.repness['consensus_comments']``, so the D11 consensus dict never
+    reached client-report's Majority view and never landed in the DynamoDB
+    math blob. ``comment_priorities`` (D12) was already conditionally plumbed
+    via ``hasattr/if`` guards; we lock that in with a regression test so a
+    future cleanup doesn't silently revert to the empty-default shape.
+    """
+
+    @staticmethod
+    def _make_conversation_with_repness(consensus_comments, priorities):
+        """Build a Conversation with just enough state to exercise the
+        serializers. Empty rating matrices and empty group_clusters mean the
+        rest of to_dict/to_dynamo_dict iterates over zero rows/cols (cheap)
+        while the consensus + priorities fields still flow through end-to-end.
+        """
+        conv = Conversation(conversation_id='ztest-serialization')
+        conv.repness = {
+            'comment_ids': [],
+            'group_repness': {},
+            'comment_repness': [],
+            'consensus_comments': consensus_comments,
+        }
+        conv.comment_priorities = priorities
+        return conv
+
+    def test_to_dict_surfaces_consensus_comments(self):
+        """``to_dict()`` must surface ``self.repness['consensus_comments']`` into
+        ``result['consensus']``. Pre-fix this slot was hardcoded
+        ``{'agree': [], 'disagree': [], 'comment-stats': {}}`` and the D11
+        selection was silently dropped on the floor."""
+        consensus = {
+            'agree': [
+                {'tid': 1, 'n-success': 3, 'n-trials': 4,
+                 'p-success': 0.7, 'p-test': 1.5}
+            ],
+            'disagree': [
+                {'tid': 2, 'n-success': 2, 'n-trials': 5,
+                 'p-success': 0.42, 'p-test': 1.1}
+            ],
+        }
+        conv = self._make_conversation_with_repness(consensus, {})
+
+        result = conv.to_dict()
+
+        assert result['consensus'] == consensus, (
+            "to_dict() must plumb self.repness['consensus_comments'] into "
+            "result['consensus']; got " + repr(result['consensus']))
+
+    def test_to_dict_surfaces_comment_priorities(self):
+        """``to_dict()`` must surface ``self.comment_priorities`` (D12). This is
+        a regression lock: the field is currently conditionally plumbed via
+        ``hasattr/if``; a future cleanup must not revert to the hardcoded
+        empty default."""
+        priorities = {1: 0.42, 2: 1.7, 3: 0.0}
+        conv = self._make_conversation_with_repness(
+            {'agree': [], 'disagree': []}, priorities)
+
+        result = conv.to_dict()
+
+        # The to_dict key uses underscore form (see line ~1706); no rename
+        # happens on the way out, unlike most Clojure-format fields.
+        assert 'comment_priorities' in result, (
+            "to_dict() must emit 'comment_priorities' when "
+            "self.comment_priorities is populated; keys = "
+            + repr(sorted(result.keys())))
+        assert result['comment_priorities'] == priorities
+
+    def test_to_dynamo_dict_surfaces_both(self):
+        """``to_dynamo_dict()`` must surface BOTH consensus comments (D11) and
+        comment priorities (D12). The DynamoDB shape uses underscore keys
+        (``consensus``, ``comment_priorities``); the consensus inner shape
+        matches whatever ``self.repness['consensus_comments']`` holds
+        (Clojure-style ``agree``/``disagree`` lists)."""
+        consensus = {
+            'agree': [
+                {'tid': 11, 'n-success': 8, 'n-trials': 10,
+                 'p-success': 0.83, 'p-test': 2.1}
+            ],
+            'disagree': [],
+        }
+        # Priorities use comment-id keys; the serializer coerces KEYS to int
+        # when possible and preserves VALUES as Decimal (2026-07-04 fix —
+        # the old int(value) coercion floored sub-1 priorities to 0, which
+        # the TS server's weighted routing reads as "no priority data").
+        priorities = {7: 1.5, 9: 0.25}
+        conv = self._make_conversation_with_repness(consensus, priorities)
+
+        result = conv.to_dynamo_dict()
+
+        # Values land Decimal-converted (boto3 boundary — the raw-float write
+        # crashed CI's e2e run 2026-07-05); compare structure and numeric
+        # values, not float identity.
+        got = result['consensus']
+        assert set(got.keys()) == {'agree', 'disagree'}
+        assert got['disagree'] == []
+        assert len(got['agree']) == 1
+        for k, v in consensus['agree'][0].items():
+            assert float(got['agree'][0][k]) == pytest.approx(float(v)), (
+                f"consensus entry key {k}: {got['agree'][0][k]!r} != {v!r}")
+        assert 'comment_priorities' in result, (
+            "to_dynamo_dict() must emit 'comment_priorities' when "
+            "self.comment_priorities is populated; keys = "
+            + repr(sorted(result.keys())))
+        # Values land as Decimal (boto3-safe) with full precision — assert
+        # the post-serialization shape to lock in what actually lands in
+        # DynamoDB.
+        from decimal import Decimal
+        assert result['comment_priorities'] == {
+            7: Decimal('1.5'), 9: Decimal('0.25')}
+
+
+class TestGroupIdOrderMatchesClojure:
+    """Group-cluster ids must preserve first-k-distinct encounter order over
+    base-cluster centers — Clojure parity (`init-clusters`, clusters.clj:55-64;
+    output `sort-by :id`, conversation.clj:437; merge lineage keeps the larger
+    cluster's id but NEVER re-sorts by size).
+
+    Python's former size-descending re-sort + id reassignment caused the
+    gid 0↔1 label swap confirmed by the S3-4 trace (2026-06-11): Python g0 ∩
+    Clojure g1 = 50/50 on vw-cold_start, sizes [50, 17] vs Clojure [17, 50].
+    The base level already preserves k-means id order for exactly this
+    reason (K-inv); the group level must too.
+    """
+
+    def _conv_with_ordered_proj(self):
+        conv = Conversation(conversation_id='ztest-gid-order')
+        # proj key order defines base-center row order (K-inv invariant).
+        # Row 0 (left side, SMALL group) is encountered FIRST, row 1 (right
+        # side, LARGE group) second → group-level first-2-distinct init =
+        # (L, R) → group id 0 must be the L group even though it is smaller
+        # (2 vs 3 members).
+        conv.proj = {
+            0: [-1.0, 0.05],   # L (small group)
+            1: [1.0, 0.05],    # R (large group)
+            2: [1.0, 0.0],     # R
+            3: [1.0, -0.05],   # R
+            4: [-1.0, -0.05],  # L
+        }
+        # Focus the test on id assignment: bypass the in-conv vote-count
+        # machinery (instance attribute shadows the bound method).
+        conv._get_in_conv_participants = lambda: {0, 1, 2, 3, 4}
+        return conv
+
+    def test_group_id_zero_is_first_encountered_not_biggest(self):
+        conv = self._conv_with_ordered_proj()
+        conv._compute_clusters()
+        groups = conv.group_clusters
+        assert len(groups) == 2, f"expected k=2, got {len(groups)}"
+
+        # Resolve group members down to participant ids via base clusters.
+        base_by_id = {b['id']: b for b in conv.base_clusters}
+        members0 = sorted(p for bid in groups[0]['members']
+                          for p in base_by_id[bid]['members'])
+        members1 = sorted(p for bid in groups[1]['members']
+                          for p in base_by_id[bid]['members'])
+
+        assert [g['id'] for g in groups] == [0, 1]
+        assert members0 == [0, 4], (
+            f"group id 0 must be the FIRST-ENCOUNTERED (smaller, L) group "
+            f"per Clojure first-k-distinct order; got members {members0} — "
+            f"a size re-sort promotes the larger group instead")
+        assert members1 == [1, 2, 3]

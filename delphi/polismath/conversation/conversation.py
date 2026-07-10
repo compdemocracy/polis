@@ -15,7 +15,11 @@ import sys
 from datetime import datetime
 from natsort import natsorted
 
-from polismath.pca_kmeans_rep.pca import pca_project_dataframe
+from polismath.pca_kmeans_rep.pca import (
+    pca_project_dataframe,
+    pca_project_cmnts,
+    compute_comment_extremity,
+)
 from polismath.pca_kmeans_rep.clusters import (
     kmeans_sklearn,
     calculate_silhouette_sklearn
@@ -35,6 +39,98 @@ if not logging.root.handlers:
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
+
+
+# =============================================================================
+# D12: Comment-priority metrics (Clojure parity)
+# =============================================================================
+#
+# Ports of `importance-metric` and `priority-metric` from Clojure
+# (math/src/polismath/math/conversation.clj:311-330). Public so they can be
+# unit-tested in isolation.
+
+META_PRIORITY = 7  # Clojure: meta-priority (conversation.clj:319). "TODO TUNE."
+
+
+def importance_metric(A: float, P: float, S: float, E: float) -> float:
+    """
+    Clojure importance-metric (conversation.clj:311-315).
+
+        (defn importance-metric
+          [A P S E]
+          (let [p (/ (+ P 1) (+ S 2))
+                a (/ (+ A 1) (+ S 2))]
+            (* (- 1 p) (+ E 1) a)))
+
+    Smoothed (Beta(2,2)) probability of pass `p`, smoothed agree `a`, with
+    extremity boost `(E + 1)`. Higher when fewer passes, more agrees, more
+    extreme (higher PCA extremity).
+
+    Args:
+        A: agree count (across all groups).
+        P: pass count = S - (A + D) across all groups.
+        S: seen count (total votes seen — agree + disagree + pass).
+        E: comment extremity (L2 norm of PCA projection).
+    """
+    p = (P + 1) / (S + 2)
+    a = (A + 1) / (S + 2)
+    return (1 - p) * (E + 1) * a
+
+
+def priority_metric(is_meta: bool,
+                    A: float, P: float, S: float, E: float) -> float:
+    """
+    Clojure priority-metric (conversation.clj:321-330).
+
+        (defn priority-metric
+          [is-meta A P S E]
+          (matrix/pow
+            (if is-meta
+              meta-priority
+              (* (importance-metric A P S E)
+                 (+ 1 (* 8 (matrix/pow 2 (/ S -5))))))
+            2))
+
+    Squared to deepen bias (toward extremes). Meta comments get a constant
+    `META_PRIORITY^2 = 49`. Non-meta comments get `importance * decay`, where
+    the decay factor `1 + 8 * 2^(-S/5)` lets new (low-S) comments bubble up
+    and fades as more votes accumulate.
+
+    Args:
+        is_meta: True for meta comments (treated as constant priority).
+        A, P, S, E: see `importance_metric`.
+
+    Returns:
+        Squared priority value.
+
+    .. warning::
+        **Current behavior (parity-bug mirror):** this function ALWAYS
+        returns ``META_PRIORITY ** 2`` and ignores ``is_meta`` and
+        ``A, P, S, E``. It deliberately mirrors a Clojure bug — Clojure
+        treats meta-tid value 0 as truthy, so every tid takes the meta
+        branch — for byte-for-byte parity. The branching formula described
+        above is the *intended* semantics, restored once
+        https://github.com/compdemocracy/polis/issues/2571 is fixed. See the
+        ``TODO(clojure-parity-bug)`` in the body below.
+    """
+    # TODO(clojure-parity-bug): Clojure (conversation.clj:325) treats meta-tid
+    # value 0 as TRUTHY in (if is-meta ...), so every tid takes the meta branch.
+    # We mirror this bug for byte-for-byte Clojure parity. Switch back to
+    # honoring `is_meta` once the GitHub issue resolves:
+    # https://github.com/compdemocracy/polis/issues/2571
+    # Original semantic-correct code preserved below for reference and future
+    # restoration.
+    #
+    # Clojure-parity-bug-mirror: ALWAYS take the meta branch, ignoring is_meta.
+    return META_PRIORITY ** 2
+
+    # Original semantically-correct logic, restore when Clojure bug is fixed:
+    # if is_meta:
+    #     inner = META_PRIORITY
+    # else:
+    #     decay_factor = 1 + 8 * (2 ** (-S / 5))
+    #     inner = importance_metric(A, P, S, E) * decay_factor
+    # return inner ** 2
 
 
 class Conversation:
@@ -82,6 +178,7 @@ class Conversation:
         self.participant_info = {}
         self.vote_stats = {}
         self.group_votes = {}  # Initialize group_votes to avoid attribute errors
+        self.comment_priorities: Dict[Any, float] = {}  # D12 (PR 11)
         
         # Initialize with votes if provided
         if votes:
@@ -704,11 +801,16 @@ class Conversation:
                 'members': member_base_cluster_ids
             })
 
-        # Sort group clusters by size (number of base clusters) for consistency
-        group_clusters.sort(key=lambda c: len(c['members']), reverse=True)
-        # Reassign IDs based on sorted order
-        for i, cluster in enumerate(group_clusters):
-            cluster['id'] = i
+        # Keep group clusters in k-means ID order (matching Clojure's
+        # sort-by :id, conversation.clj:437). Do NOT sort by size or
+        # reassign IDs: Clojure assigns group ids by first-k-distinct
+        # encounter order over base-cluster centers (init-clusters,
+        # clusters.clj:55-64) and never re-orders by size. The former
+        # size-descending re-sort here was the root cause of the gid 0↔1
+        # label swap vs Clojure blobs (S3-4 trace, 2026-06-11: identical
+        # memberships modulo label permutation on vw-cold_start). Mirrors
+        # the identical rule at the base-cluster level above.
+        group_clusters.sort(key=lambda c: c['id'])
 
         logger.info(f"Created {len(group_clusters)} group clusters")
 
@@ -753,16 +855,22 @@ class Conversation:
 
         # Check if we have groups
         if not self.group_clusters:
+            # B1 fix (D11 sub-agent review): consensus_comments must always be
+            # `{'agree': [], 'disagree': []}` (dict) post-D11, never `[]` (list).
             self.repness = {
                 'comment_ids': list(self.rating_mat.columns),
                 'group_repness': {},
-                'consensus_comments': []
+                'consensus_comments': {'agree': [], 'disagree': []}
             }
             logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s (no groups)")
             return
 
-        # Compute representativeness (needs participant IDs, not base-cluster IDs)
-        self.repness = conv_repness(self.rating_mat, self._unfolded_group_clusters())
+        # Compute representativeness (needs participant IDs, not base-cluster IDs).
+        # `mod_out=self.mod_out_tids` forwards moderated-out tids to the rep + consensus
+        # selectors (Clojure parity per D11 / PR 9; matches repness.clj:222 and :296).
+        self.repness = conv_repness(self.rating_mat,
+                                    self._unfolded_group_clusters(),
+                                    mod_out=self.mod_out_tids)
         logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s")
 
     def _compute_participant_info_optimized(self, vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -1001,11 +1109,99 @@ class Conversation:
         
         # Compute representativeness
         result._compute_repness()
-        
+
+        # Compute comment priorities (D12 / PR 11). Needs PCA + group_votes.
+        result._compute_comment_priorities()
+
         # Compute participant info
         result._compute_participant_info()
-        
+
         return result
+
+    def _compute_comment_priorities(self) -> Dict[Any, float]:
+        """
+        Compute per-tid comment priorities matching Clojure
+        `:comment-priorities` (conversation.clj:648-679).
+
+        Per-tid: sum A/D/S across all groups → P = S - (A + D) → call
+        `priority_metric(is_meta, A, P, S, E)` where E is the comment
+        extremity computed from PCA.
+
+        Stores the result on `self.comment_priorities` and also returns it.
+        TS server `nextComment.ts::getNextPrioritizedComment` consumes this
+        for weighted comment routing — pre-D12 Python emitted nothing, so
+        the server fell back to uniform random selection.
+        """
+        if self.pca is None or self.rating_mat is None or self.rating_mat.empty:
+            self.comment_priorities = {}
+            return self.comment_priorities
+
+        center = np.asarray(self.pca.get('center'))
+        comps = np.asarray(self.pca.get('comps'))
+        if center.size == 0 or comps.size == 0:
+            self.comment_priorities = {}
+            return self.comment_priorities
+
+        # Comment projection + extremity (Clojure with-proj-and-extremtiy,
+        # conversation.clj:341-352).
+        cmnt_proj = pca_project_cmnts(center, comps)
+        extremity_arr = compute_comment_extremity(cmnt_proj)
+
+        # Fail closed on desync: if the PCA vectors were computed on a
+        # different column set than the current rating_mat (e.g. moderation
+        # changed between recomputes), zip() would silently truncate and
+        # assign E=0 to the overflow tids — wrong priorities with no
+        # signal. Empty priorities degrade the TS server to uniform
+        # routing, which is honest; silently wrong extremities are not.
+        # (Copilot review 2026-07-04, g4.)
+        n_cols = len(self.rating_mat.columns)
+        if len(extremity_arr) != n_cols:
+            logger.error(
+                f"comment_priorities: extremity length {len(extremity_arr)} "
+                f"!= rating_mat column count {n_cols} (stale PCA?); "
+                f"skipping priorities for this tick")
+            self.comment_priorities = {}
+            return self.comment_priorities
+
+        # Column order of `center`/`comps`/`extremity_arr` matches
+        # `self.rating_mat.columns` (PCA is computed on rating_mat).
+        tid_extremity = dict(zip(self.rating_mat.columns, extremity_arr))
+
+        # Per-group A/D/S aggregation. `_compute_group_votes` returns
+        # {str(gid): {'n-members': N, 'votes': {tid: {A, D, S}}}}. S includes
+        # PASS (line ~1222: `np.sum(~np.isnan(votes))`), matching Clojure.
+        # PERF (deferred, Copilot on PR #2568): this is an O(groups ×
+        # comments × members) scan on every recompute; vectorize or reuse
+        # the repness-stage aggregation — tracked in the follow-up issue
+        # "delphi: _compute_comment_priorities recomputes group votes on
+        # every tick".
+        group_votes = self._compute_group_votes()
+
+        priorities: Dict[Any, float] = {}
+        for tid in self.rating_mat.columns:
+            A_total = 0
+            D_total = 0
+            S_total = 0
+            for gv_data in group_votes.values():
+                votes_for_tid = gv_data.get('votes', {}).get(
+                    tid, {'A': 0, 'D': 0, 'S': 0})
+                A_total += votes_for_tid.get('A', 0)
+                D_total += votes_for_tid.get('D', 0)
+                S_total += votes_for_tid.get('S', 0)
+            # Clojure: P = S - (A + D)  (conversation.clj:661).
+            P_total = S_total - (A_total + D_total)
+            E = float(tid_extremity.get(tid, 0))
+            is_meta = tid in self.meta_tids
+            # Match key type with the rest of the codebase (int when possible).
+            try:
+                tid_key = int(tid)
+            except (ValueError, TypeError):
+                tid_key = tid
+            priorities[tid_key] = float(priority_metric(
+                is_meta, A_total, P_total, S_total, E))
+
+        self.comment_priorities = priorities
+        return priorities
     
     def get_summary(self) -> Dict[str, Any]:
         """
@@ -1731,12 +1927,15 @@ class Conversation:
         # a list-of-dicts format that would break server/src/report.ts,
         # server/src/utils/pca.ts, and client-participation-alpha consumers.
 
-        # Add empty consensus structure for compatibility
-        result['consensus'] = {
-            'agree': [],
-            'disagree': [],
-            'comment-stats': {}
-        }
+        # Surface D11 consensus comments (Clojure parity: client-report's Majority
+        # view consumes result['consensus']). Pre-Investigation-B this block was
+        # hardcoded empty, which silently zeroed the Majority view regardless of
+        # the D11 selection. Falls back to the empty shape when repness is missing
+        # or did not produce a consensus_comments dict (older blobs, no-group convs).
+        result['consensus'] = (
+            self.repness.get('consensus_comments', {'agree': [], 'disagree': []})
+            if self.repness else {'agree': [], 'disagree': []}
+        )
         
         # Add math_tick value
         current_time = int(time.time())
@@ -2272,12 +2471,18 @@ class Conversation:
             }
             result['pca'] = float_to_decimal(pca_data)
         
-        # Add consensus structure
-        result['consensus'] = {
-            'agree': [],
-            'disagree': [],
-            'comment_stats': {}
-        }
+        # Surface D11 consensus comments (Clojure parity). Pre-Investigation-B
+        # this block was hardcoded empty, so the DynamoDB blob never carried the
+        # D11 dict even when repness produced one. Falls back to the empty shape
+        # when repness is missing or didn't produce consensus_comments.
+        # float_to_decimal is REQUIRED: entries carry float p-success/p-test and
+        # writer Site 1 puts this dict straight into the Delphi_PCAResults Item —
+        # boto3 rejects raw floats (caught by CI's e2e run, 2026-07-05; the
+        # legacy writer branch converts, the pre-formatted branch did not).
+        result['consensus'] = float_to_decimal(
+            self.repness.get('consensus_comments', {'agree': [], 'disagree': []})
+            if self.repness else {'agree': [], 'disagree': []}
+        )
         
         # Add math_tick value
         current_time = int(time.time())
@@ -2289,10 +2494,18 @@ class Conversation:
             logger.info(f"[{time.time() - start_time:.2f}s] Processing comment priorities...")
             priorities = {}
             for cid, priority in self.comment_priorities.items():
+                # Preserve the float VALUE as Decimal (boto3 rejects raw
+                # floats). The previous int() truncation was harmless while
+                # the D12.6 bug-mirror pins every priority to 49.0, but the
+                # real formula (restored when issue #2571 resolves) spans
+                # ~0.18–31.46 on real data: int() floors sub-1 priorities
+                # to 0, which the TS server's weighted routing treats as
+                # "no priority data" — those comments would never be routed.
+                value = float_to_decimal(float(priority))
                 try:
-                    priorities[int(cid)] = int(priority)
+                    priorities[int(cid)] = value
                 except (ValueError, TypeError):
-                    priorities[cid] = int(priority)
+                    priorities[cid] = value
             result['comment_priorities'] = priorities
         
         # Process repness data efficiently

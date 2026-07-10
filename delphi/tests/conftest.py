@@ -56,7 +56,27 @@ def require_dynamodb(
     try:
         client.list_tables(Limit=1)
     except Exception as exc:
-        pytest.fail(f"DynamoDB is not available at {endpoint}: {exc}")
+        # In CI, DynamoDB is a provisioned service — its absence is an
+        # infrastructure failure that must fail LOUDLY (a silent skip would
+        # disable the only end-to-end gate; the 2026-07-05 consensus-float
+        # crash was caught precisely because CI runs this).
+        # Locally, DynamoDB is opt-in (e.g.
+        # `docker run --rm -d -p 8002:8000 amazon/dynamodb-local` +
+        # `DYNAMODB_ENDPOINT=http://localhost:8002`) — skip gracefully so
+        # the e2e test no longer needs a blanket --ignore in local runs.
+        # GITHUB_ACTIONS, not CI: local supply-chain wrappers (pmg) inject
+        # CI=true into wrapped package-manager runs, which would force the
+        # loud-fail path on developer machines (observed 2026-07-05).
+        msg = f"DynamoDB is not available at {endpoint}: {exc}"
+        if os.environ.get("GITHUB_ACTIONS"):
+            pytest.fail(msg)
+        pytest.skip(
+            f"{msg} — to run this test locally, start DynamoDB and point the "
+            "test at it:\n"
+            "  docker run --rm -d --name delphi-test-dynamo -p 8002:8000 "
+            "amazon/dynamodb-local\n"
+            "  DYNAMODB_ENDPOINT=http://localhost:8002 uv run pytest <this test>"
+        )
 
 
 def require_s3(

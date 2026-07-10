@@ -84,6 +84,15 @@ const globalSections = [
 **Current State**: TopicReport uses dynamic construction
 **Target State**: Shared utility function for key construction
 
+> **Correction**: The actual key format used in `801_narrative_report_batch.py` is
+> `{report_id}#{section}#{model}` with `#` as the delimiter (not underscore).
+> Example: `9c867bbb-1616-44e3-947c-1406bc56e4d2#0#42`.
+> The `constructSectionKey` example below uses underscore delimiters and does NOT
+> reflect the current production format.
+>
+> Note: `CommentsReport.jsx` updates and `sectionKeyUtils.js` creation (marked 🚧 below)
+> were never implemented.
+
 **Implementation**:
 ```javascript
 // Shared utility function
@@ -98,9 +107,9 @@ const constructSectionKey = (sectionName, jobUuid = null) => {
 ```
 
 **Files to Modify**:
-- `/client-report/src/util/sectionKeyUtils.js` (new file)
+- `/client-report/src/util/sectionKeyUtils.js` (new file) 🚧 never implemented
 - `/client-report/src/components/topicReport/TopicReport.jsx`
-- `/client-report/src/components/commentsReport/CommentsReport.jsx`
+- `/client-report/src/components/commentsReport/CommentsReport.jsx` 🚧 never implemented
 
 ## Testing Requirements
 

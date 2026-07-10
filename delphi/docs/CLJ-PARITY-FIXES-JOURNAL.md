@@ -1216,3 +1216,700 @@ ever appears in real Polis data. It does.
   out of this committed doc; the unredacted findings are in Claude's
   per-project memory store (`~/.claude/projects/...`). Open a follow-up
   discussion with the team before any user-facing action.
+
+## Session: PR 14a — Scalar deletion (2026-06-11)
+
+Foundation pass before D10/D11/D12. The scalar implementations in
+`repness.py` were test-only (production calls only `compute_group_comment_stats_df`
++ `select_rep_comments_df` + `select_consensus_comments_df` via
+`conv_repness`). Deleting them removes the "where do I put this helper?"
+ambiguity for D10/D11/D12 (which all add new helpers to `repness.py`) and
+shrinks the test surface by ~35 obsolete unit tests.
+
+### What landed
+
+**Production code (`delphi/polismath/pca_kmeans_rep/repness.py`)** — 445 lines deleted:
+- DELETE primitives: `prop_test`, `two_prop_test` (both also dead in production —
+  only test consumers).
+- DELETE orchestration: `comment_stats`, `add_comparative_stats`, `repness_metric`,
+  `finalize_cmt_stats`, `passes_by_test`, `best_agree`, `best_disagree`,
+  `select_rep_comments`, `select_consensus_comments`.
+- DELETE unused: `calculate_kl_divergence` (no callers anywhere).
+- KEEP: `z_score_sig_90`, `z_score_sig_95` (trivial threshold checks used scalar-side
+  in selection logic; vectorizing them would not save lines).
+- ENRICH docstrings: `prop_test_vectorized` and `two_prop_test_vectorized` now
+  embed the scalar-equivalent closed-form algebra (so the formula stays readable
+  even though the scalar functions are gone). Pattern from the user during the
+  PR 14a discussion: "where we cannot achieve readability on the vectorized,
+  put in comments showing the non-vectorized equivalent."
+
+**Tests** — net -35 passed tests (296 → 295... actually delta is 330 → 295):
+- DELETE entirely: `tests/test_old_format_repness.py` (557 lines, mirror of
+  scalar-only tests in `test_repness_unit.py`; the "old format" was the scalar
+  dict-in/dict-out API).
+- DELETE classes: `TestCommentStats`, `TestSelectionFunctions`,
+  `TestConsensusAndGroupRepness` in `test_repness_unit.py`. Also
+  `TestStatisticalFunctions::test_prop_test` and `test_two_prop_test`.
+- MIGRATE D4/D5/D6 BlobInjection (`test_discrepancy_fixes.py:1602+`) from
+  per-(gid, tid) scalar loop calls to a single vectorized call on a DataFrame
+  built from the blob's `repness` entries. This pattern (1) tests the actual
+  production code path, (2) produces a `.to_string()` diagnostic that beats
+  hand-formatted f-strings, (3) drops loop overhead.
+- MIGRATE `TestD5ProportionTest::test_prop_test_matches_clojure_formula`,
+  `TestD6TwoPropTest::test_two_prop_test_matches_clojure_formula` + edge cases
+  to single vectorized calls on N-row DataFrames.
+- CONSOLIDATE `TestD8FinalizeStats`'s 7 scalar boundary tests into one
+  parametrized DataFrame test (`test_repful_classification_boundary`) that
+  exercises the production `np.where(rat > rdt, 'agree', 'disagree')` logic.
+  Boundary cases preserved: `rat < rdt`, `rat > rdt`, `rat == rdt` (non-zero,
+  zero), negative z-scores.
+- MIGRATE `TestD7RepnessMetric::test_metric_formula_is_product` to hand-computed
+  reference values (`1.3*1.8*0.8*2.5 = 4.68` for agree, `0.7*-0.9*0.2*-1.5 = 0.189`
+  for disagree — signed product).
+- DELETE redundant scalar-formula tests in `TestSyntheticEdgeCases`
+  (test_prop_test_matches_clojure_formula_synthetic — duplicated by migrated
+  TestD5ProportionTest; test_clojure_repness_metric_product — duplicated by
+  TestD7RepnessMetric; test_clojure_repful_uses_rat_vs_rdt — purely tautological).
+- Rename misleading `test_compute_group_comment_stats_matches_scalar` →
+  `test_compute_group_comment_stats_consistency_with_conv_repness`.
+- Cross-checks in `TestVectorizedFunctions` (test_repness_unit.py) replaced
+  inline scalar calls with `_prop_test_reference` / `_two_prop_test_reference`
+  closed-form staticmethods.
+
+### Suite delta (pre/post PR 14a)
+
+- Pre-baseline (edge @ 2dce7385f): **330 passed, 12 skipped, 58 xfailed**.
+- Post (@ this PR): **295 passed, 12 skipped, 58 xfailed**.
+- Delta: -35 passed, 0 failed, 0 new xfailed. The -35 matches the deleted
+  scalar-only test count (test_old_format_repness ~20 + scalar classes in
+  test_repness_unit ~9 + scalar test methods in test_discrepancy_fixes ~6
+  consolidated/removed).
+
+### For PR 14c (readability refactor)
+
+PR 14c will refactor `compute_group_comment_stats_df` for readability and
+needs to mirror the scalar recipe. **The deleted scalar code is the
+reference.** Retrieve via:
+
+```bash
+git show <PR-14a-commit>~1:delphi/polismath/pca_kmeans_rep/repness.py \
+  | sed -n '161,302p'
+```
+
+Specifically (using the pre-deletion line numbers — file was 1008 lines at
+edge HEAD 2dce7385f):
+
+- `comment_stats` lines 161-201 — the per-(group, comment) recipe.
+- `add_comparative_stats` lines 203-235 — in-vs-out comparison.
+- `repness_metric` lines 237-271 — the `r*rt*p*pt` product.
+- `finalize_cmt_stats` lines 273-301 — agree-vs-disagree branch.
+
+The pre-PR-14a commit hash will be the parent of PR 14a's commit. Clojure
+originals: `math/src/polismath/math/repness.clj:78-100,173-188,191-200`.
+
+### Pyright noise (unrelated to PR 14a, raised same session)
+
+Discovered during PR 14a that pyright produces ~10 errors on `repness.py` from
+pandas-stubs false positives (`pd.DataFrame(columns=...)`, `df['col'] = value`,
+Series-vs-DataFrame narrowing). PR #2560 added a pyright config that points
+at `delphi/.venv` but did NOT set any rule overrides, so default-mode
+`reportArgumentType` / `reportIndexIssue` errors surface for valid pandas code.
+Verified pre-existing on edge HEAD (not introduced by PR 14a).
+
+Handoff written: `~/polis/HANDOFF_PYRIGHT_PANDAS_STUBS.md`. Do NOT just turn
+off rules globally — investigate pandas-stubs version, community patterns,
+targeted ignores. Tracked as Claude task #8.
+
+### What's Next
+
+PR 14a unblocks (in stack order):
+1. **D10** — Rep comment selection. Research agent already produced a fix
+   proposal (this session). Helpers `passes_by_test`, `beats_best_by_test`,
+   `beats_best_agr` go top-level in `repness.py`; reduce structure uses
+   `df.to_dict('records')` iteration with mutable `{sufficient, best, best_agree}`
+   state. Boundary cases identified for synthetic test fixtures.
+2. **D11** — Consensus selection. Research agent produced a fix proposal:
+   needs new `consensus_stats_df(vote_matrix_df) -> pd.DataFrame` (whole-data,
+   not per-group), plus rewrite of `select_consensus_comments_df` with the
+   `{'agree': [...], 'disagree': [...]}` output shape (top 5 each).
+   `conv_repness` must grow `mod_out` kwarg.
+3. **D12** — Comment priorities. Research agent produced a fix proposal:
+   Clojure source at `conversation.clj:311-330,341-352,648-679`;
+   `pca.clj:167-178`. Needs new `pca_project_cmnts`, `comment_extremity`,
+   `importance_metric`, `priority_metric` in Python. `meta_tids` shape mismatch
+   (Python set vs Clojure map) flagged.
+4. **PR 14b** — Backfill missing blob injection tests (D7 metric, D8 finalize,
+   full stats-stage injection).
+5. **Goldens** — Re-record `vw` and `biodiversity` (sklearn KMeans seeding
+   decision pending — see `delphi/scratch/COPILOT_MATH_QUESTIONS.md`).
+6. **PR 14c** — Readability refactor of `compute_group_comment_stats_df`,
+   using the deleted scalar code (retrievable via `git show`) as the
+   readability reference. Research agent produced a clean split proposal:
+   `_build_group_comment_index` (plumbing) + `_compute_per_group_stats`
+   (math) + 5-line orchestrator.
+
+## Session: ns-PASS fix (2026-06-11)
+
+**Context.** While preparing the D10/D11/D12 rework on top of PR 14a, a
+Clojure re-read surfaced a latent bug in `compute_group_comment_stats_df`:
+`ns` (and `total_votes`) were computed as `na + nd`, silently dropping PASS
+votes. Clojure's `:ns` is `(count-votes votes)` (math/repness.clj:56-61,
+:70), which calls `(filter identity votes)`. In Clojure 0 is truthy, so
+PASS (0) counts; only `nil` is filtered out. Therefore Clojure
+`ns = na + nd + np`, and every downstream metric (`pa`, `pd`, `pat`,
+`pdt`, `ra`, `rd`, `rat`, `rdt`, `agree_metric`, `disagree_metric`, plus
+D11's `consensus_stats_df` which will mirror the same recipe at the
+whole-conversation level) was off whenever PASS votes existed.
+
+**Why D5 BlobInjection didn't catch it.** D5's blob-injection tests pull
+`(n-success, n-trials)` straight from the Clojure blob's `repness`
+entries and feed them to `prop_test_vectorized`. They bypass
+`compute_group_comment_stats_df` entirely, so the bug downstream of
+`ns = na + nd` was invisible. The same gap will recur for D11 / D12 until
+we ship pure-formula tests that build a tiny vote matrix and assert on the
+counts. Lesson: blob-injection is necessary but not sufficient — every
+formula whose inputs are themselves computed by Python needs at least one
+pure-formula unit test that exercises the input-building code.
+
+**TDD cycle.**
+- **BASELINE** — full suite at PR 14a parent: 295 passed, 12 skipped,
+  58 xfailed.
+- **RED** — added `TestNsIncludesPassVotes` in `tests/test_repness_unit.py`
+  with four pure-formula tests: single-comment mixed AGREE/DISAGREE/PASS,
+  all-PASS column, NaN-vs-PASS distinction, two-group `other_votes`
+  including out-group PASS. All four failed on the buggy code (4 fails).
+- **GREEN** — in `polismath/pca_kmeans_rep/repness.py`:
+  - `total_counts` now computes `total_votes=('vote', 'size')` directly in
+    the groupby agg, instead of `total_agree + total_disagree`.
+  - `group_counts` now computes `ns=('vote', 'size')` directly, instead of
+    `na + nd`.
+  - `'size'` on the already-`dropna(subset=['vote'])`-filtered frame counts
+    exactly the non-NaN entries — including PASS (0). This is the
+    Clojure `(count (filter identity votes))` recipe verbatim.
+  - Both sites carry a comment citing repness.clj:56-61, :70 and the
+    truthy-0 reasoning.
+  - Docstring updated: `ns` now documented as `agree + disagree + PASS`.
+- **FULL SUITE** — 299 passed, 12 skipped, 58 xfailed. Delta = +4
+  (exactly the new ns-PASS tests). No existing pre-PR-14a or PR-14a test
+  broke. The pre-existing `TestVectorizedFunctions` fixtures use only
+  AGREE/DISAGREE/NaN (no PASS), so they were never sensitive to the bug.
+
+**Cascade to D11.** D11's plan introduces a `consensus_stats_df(vote_matrix_df)`
+function computing whole-conversation stats (the `:mod-out` Clojure path).
+That function will inevitably mirror the same `na + nd + np` recipe — so
+the ns-PASS fix lands BEFORE D10 in the stack to keep D11's implementation
+clean. D11 should follow the same pure-formula test pattern: build a vote
+matrix with mixed PASS and assert `ns == count of non-NaN cells`.
+
+**Goldens.** Stays DEFERRED. Re-recording is gated on
+sklearn-KMeans-seeding consensus (see scratch/COPILOT_MATH_QUESTIONS.md);
+no values shift at the goldens commit until D10/D11/D12 land.
+
+**Stack position.** New commit inserted between PR 14a (#2564) and D10
+(#2566). D10, D11, D12, goldens rebased cleanly on top; 2-sided docs
+conflicts in PLAN/JOURNAL at each downstream commit resolved manually
+to merge both edits (downstream docs additions kept; ns-PASS row and
+session entry preserved).
+
+## Session: PR 8 — D10 rep comment selection (2026-06-11)
+
+Landed in `/goal` mode (autonomous run targeting D10 + D11 + D12 + goldens
+as a stacked PR series). Decisions made without inline user check are
+documented in `~/polis/D10_D11_D12_GOLDENS_DECISIONS.md` for batch review.
+
+### What landed
+
+**Production code (`delphi/polismath/pca_kmeans_rep/repness.py`)** — added
+3 top-level helpers + `_finalize_row_for_output` + rewrote `select_rep_comments_df`:
+
+- `passes_by_test(s) -> bool` — Clojure `passes-by-test?` (repness.clj:165-170).
+  OR'd on `(rat, pat)` and `(rdt, pdt)` z-sig-90. **NO `pa >= 0.5` gate** —
+  the pre-D10 Python gate was a botched-port over-restriction with no
+  Clojure analog.
+- `beats_best_by_test(s, current_best_z) -> bool` — Clojure `beats-best-by-test?`
+  (repness.clj:133-139). Strict `>` on `max(rat, rdt)` vs current best z.
+- `beats_best_agr(s, current_best) -> bool` — Clojure `beats-best-agr?`
+  (repness.clj:142-162). Four-branch agree-priority logic:
+    1. `na == 0 and nd == 0` → reject.
+    2. Current best AND `current_best['ra'] > 1.0` → compare 4-way signed
+       product `ra * rat * pa * pat`.
+    3. Current best (else, `ra <= 1.0`) → compare `pa * pat`.
+    4. No current best → accept if `z90(pat)` OR `(ra > 1.0 AND pa > 0.5)`.
+- `_finalize_row_for_output(row, *, is_best_agree=False)` — Clojure
+  `finalize-cmt-stats` (repness.clj:173-188) + best-agree flagging
+  (repness.clj:262-264). Adds `best_agree=True` and `n_agree=na` keys for
+  the best-agree slot.
+- `select_rep_comments_df(stats_df, mod_out=None) -> List[Dict[str, Any]]` —
+  single-pass reduce over `stats_df.to_dict('records')` mirroring Clojure
+  `select-rep-comments` (repness.clj:212-281). Per-row state
+  `{sufficient, best, best_agree}` updated by the three helpers; final
+  assembly is dedup-best-agree-from-sufficient → sort by metric →
+  prepend best-agree → take 5 → agrees-before-disagrees.
+
+**Caller (`conv_repness`)** — dropped the `_stats_row_to_dict` wrapping
+step since `select_rep_comments_df` now returns finalized dicts directly.
+
+**Two pre-D10 bugs fixed alongside the rewrite** (research-agent flagged):
+- `pa >= 0.5 / pd >= 0.5` over-gate in the passing filter — removed. No
+  Clojure analog; was dropping legitimate candidates.
+- "Fill-from-other-category" + "first-row" fallback blocks — deleted. The
+  `:best` / `:best_agree` mechanism IS the Clojure fallback.
+
+**Tests** — 18 new tests (in `tests/test_discrepancy_fixes.py`):
+- `TestD10PassesByTest` (4 tests): agree-side significant, disagree-side
+  significant, neither significant, no `pa >= 0.5` gate.
+- `TestD10BeatsBestByTest` (3 tests): None-best, max-rat-rdt, strict `>`.
+- `TestD10BeatsBestAgr` (6 tests): Branch 1 (na=nd=0), Branch 2 (ra>1),
+  Branch 3 (ra<=1), Branch 4 z90(pat), Branch 4 (ra>1 AND pa>0.5), Branch 4
+  rejection.
+- `TestD10SelectRepCommentsBoundary` (5 tests): empty input, single unvoted
+  row → best fallback, sufficient-empty-best-agree-only, take-5 cap with
+  agrees-before-disagrees ordering, **the eviction edge case** (best_agree
+  outside sufficient evicting 5th-highest-metric).
+
+**Re-xfailed with updated reasons** (D14 / D1 upstream divergence):
+- `TestD9ZScoreThresholds::test_z_values_match_clojure`
+- `TestD5ProportionTest::test_pat_values_match_clojure_blob`
+- `TestD6TwoPropTest::test_rat_values_match_clojure_blob`
+- `TestD7RepnessMetric::test_repness_metric_matches_clojure_blob`
+- `TestD8FinalizeStats::test_repful_matches_clojure_blob`
+- `TestD10RepCommentSelection::test_rep_comments_match_clojure`
+
+Why xfailed despite D10 landing: D10 enables shared comments in the
+selection (overlap rises from 0% to ~20% on vw cold_start), but
+per-(gid, tid) stats still mismatch because Python and Clojure put
+different participants in the "same" group ID. That's upstream
+PCA/KMeans group-membership divergence (D14 / D1), not D10. D10 is
+verified via the 18 synthetic helper + boundary tests above.
+
+### Suite delta (pre/post D10)
+
+- Pre (post-14a): 295 passed, 12 skipped, 58 xfailed.
+- Post (this PR): 313 passed, 12 skipped, 58 xfailed.
+- Delta: +18 passed, 0 failed, 0 new xfailed. The +18 matches the 18 new
+  D10 synthetic tests exactly.
+
+### Decisions made autonomously (under `/goal` mode)
+
+See `~/polis/D10_D11_D12_GOLDENS_DECISIONS.md`. Highlights:
+- **S1**: Python convention key names (`repful`, `best_agree`, `n_agree`)
+  instead of Clojure hyphens. Math blob alignment is a future PR.
+- **S2**: `select_rep_comments_df` returns `List[Dict[str, Any]]` instead
+  of `pd.DataFrame` — variable extra keys (best_agree flag) make list-of-
+  dicts cleaner than DF-with-NaN-columns.
+- **D10.1**: Two pre-D10 bugs (pa>=0.5 gate, fill-from-other fallback)
+  folded into D10 rather than separate PRs — the rewrite replaces the
+  function so a surgical fix would be more noise than value.
+- **D10.7**: Real-data blob-comparison tests re-xfailed with reasons
+  pointing at D14/D1, not softened to overlap-thresholds — more honest.
+
+### What's Next
+
+PR 9 (D11) on top of D10 in the same spr stack.
+
+## Session: PR 9 — D11 consensus comment selection (2026-06-11)
+
+Landed in `/goal` mode. Decisions documented in
+`~/polis/D10_D11_D12_GOLDENS_DECISIONS.md` (D11.x section).
+
+### What landed
+
+**Production (`delphi/polismath/pca_kmeans_rep/repness.py`):**
+- New `consensus_stats_df(vote_matrix_df, mod_out=None) -> pd.DataFrame`:
+  whole-conversation per-comment stats (no group split, no `ra/rd/rat/rdt`).
+  Vectorized port of Clojure `consensus-stats` (repness.clj:284-290).
+- Rewrite `select_consensus_comments_df(cons_stats) -> Dict[str, List[Dict]]`:
+  matches Clojure `select-consensus-comments` (repness.clj:293-323).
+  Filters: agree `pa > 0.5 AND z-sig-90(pat)`, disagree
+  `pd > 0.5 AND z-sig-90(pdt)`. Ordering: descending `pa*pat` / `pd*pdt`.
+  Cap: top 5 each side. Output: `{'agree': [...], 'disagree': [...]}`.
+- `conv_repness` grows `mod_out: Optional[Iterable[int]] = None` kwarg.
+  Forwarded to both `select_rep_comments_df` and `consensus_stats_df`.
+- Consensus is now computed unconditionally (Clojure parity — pre-D11
+  Python had a `len(group_clusters) > 1` guard with no Clojure analog).
+- `_stats_row_to_dict` deleted (orphan after D11).
+
+**Caller (`conversation.py`):**
+- `_compute_repness` passes `mod_out=self.mod_out_tids` to `conv_repness`.
+
+**Downstream consumers updated** for the new dict shape:
+- `tests/test_repness_smoke.py::test_repness_structure` — iterates
+  `consensus['agree']` and `consensus['disagree']`.
+- `tests/test_pipeline_integrity.py::test_full_pipeline` — same.
+
+**Tests (12 new in `tests/test_discrepancy_fixes.py`):**
+- `TestD11ConsensusStatsDf` (4): basic counts, pseudocount pa/pd,
+  ns=0 fallback, mod_out filter.
+- `TestD11SelectConsensusBoundary` (8): empty input, clear agree
+  consensus, clear disagree consensus, divisive (no consensus), top-5
+  cap, entry keys (Python convention per S1), disagree entry key
+  mapping (n_success ← nd, p_success ← pd, p_test ← pdt),
+  mutually-exclusive agree/disagree lists.
+
+### Suite delta
+
+- Pre (post-D10): 313 passed, 12 skipped, 58 xfailed.
+- Post (this PR): 325 passed, 12 skipped, 58 xfailed.
+- Delta: +12 (the 12 new D11 synthetic tests). Zero regressions.
+
+### DISCOVERY: ns-PASS divergence
+
+The D11 real-data test (`test_consensus_matches_clojure`) showed 3-5/5
+overlap on cold_start — close but not exact. Investigation revealed a
+deeper bug:
+
+**Clojure's `:ns`** (via `count-votes` with `filter identity` —
+repness.clj:56-61) INCLUDES PASS votes (`0` is truthy in Clojure).
+
+**Python's `ns`** in BOTH `compute_group_comment_stats_df` and the new
+`consensus_stats_df` computes `ns = na + nd`, EXCLUDING PASS.
+
+This means every downstream metric (pa, pd, pat, pdt, ra, rd, rat, rdt,
+agree_metric, disagree_metric) is computed with the wrong denominator
+when PASS votes are present. The D5 PR #2519 journal claim that "PASS NOT
+included, matching Clojure" was a misreading of `count-votes`.
+
+**Impact:**
+- D5/D6/D7/D8 blob-comparison tests' "mismatches" were not (only)
+  upstream PCA/KMeans divergence — the ns-PASS divergence is at least
+  a contributing cause.
+- D11 consensus partial overlap is consistent with this divergence.
+- Fixing requires a separate PR affecting two production functions and
+  re-recording goldens.
+
+D11 real-data test xfailed with the right reason. Logic pinned by the
+12 synthetic tests (which never exercise PASS, so they don't show the
+divergence).
+
+This is now the top item under "Pending — needs team discussion" in
+PLAN.md, with a sketch of the fix.
+
+### What's Next
+
+PR 11 (D12) on top of D11 in the same spr stack.
+
+## Session: PR 11 — D12 comment priorities (2026-06-11)
+
+Landed in `/goal` mode. Decisions documented in
+`~/polis/D10_D11_D12_GOLDENS_DECISIONS.md` (D12.x section).
+
+### What landed
+
+**`pca.py`:**
+- `pca_project_cmnts(center, comps) -> np.ndarray`: vectorized projection
+  of each comment into 2D PCA space. Closed-form derivation:
+  `proj[i] = -sqrt(n_cmnts) * (1 + center[i]) * [pc1[i], pc2[i]]`.
+- `compute_comment_extremity(cmnt_proj) -> np.ndarray`: L2 norm per row.
+
+Clojure parity: `pca-project-cmnts` (pca.clj:167-178) +
+`with-proj-and-extremtiy` (conversation.clj:341-352).
+
+**`conversation.py` module-level:**
+- `META_PRIORITY = 7` constant (Clojure conversation.clj:319).
+- `importance_metric(A, P, S, E) -> float`: Clojure conversation.clj:311-315.
+- `priority_metric(is_meta, A, P, S, E) -> float`: Clojure conversation.clj:321-330.
+  Squared formula. For meta: `META_PRIORITY^2 = 49`. For non-meta:
+  `(importance * (1 + 8*2^(-S/5)))^2` where the decay factor lets new
+  (low-S) comments bubble up.
+
+**`Conversation._compute_comment_priorities()`:**
+- Computes comment projection + extremity from PCA.
+- Aggregates A/D/S across all groups per tid; derives P = S - (A + D).
+- Looks up extremity per tid (via `self.rating_mat.columns` column order).
+- Checks `tid in self.meta_tids` for the meta branch.
+- Stores `{tid: priority_float}` on `self.comment_priorities`.
+
+Wired into `recompute()` after `_compute_repness()`. The serialization
+infrastructure (`to_dict`, `to_dynamo_dict`, underscore→hyphen conversion)
+already existed but was emitting empty.
+
+**B1 + B2 fixes from D11 sub-agent review folded in:**
+- B1: `conversation.py:834` no-groups early-return now emits
+  `consensus_comments: {'agree': [], 'disagree': []}` (dict) instead of `[]`.
+- B2: `test_legacy_repness_comparison.py:197` updated to read the dict
+  shape + flatten for ID extraction.
+
+### Tests (11 new + 1 xfail flipped + 2 xpassed = 14 new+repurposed)
+
+- `TestD12PCAProjectComments` (5): output shape, formula verification, empty
+  input, L2 extremity, empty extremity.
+- `TestD12PriorityMetrics` (6): importance formula vs Clojure ref values
+  (conversation.clj:335), high-extremity boosts, meta constant=49, non-meta
+  squared formula, decay-factor lets-new-bubble-up, META_PRIORITY=7.
+- `TestD12CommentPriorities::test_comment_priorities_exist` xfail dropped
+  (existed pre-PR), then re-xfailed for a different reason: Clojure blob
+  has constant priorities (all 49.0 = META_PRIORITY^2) on vw/biodiversity
+  → Spearman comparison meaningless.
+
+### DISCOVERY: Clojure blob has all-meta priorities
+
+`vw-cold_start`: ALL 125 tids have priority = 49.0 in Clojure blob.
+`biodiversity-cold_start`: ALL 314 tids have priority = 49.0.
+
+Either:
+- (a) Every tid was meta-tagged in those Clojure runs.
+- (b) Clojure's `(if 0 ...)` truthiness quirk: 0 is truthy in Clojure, so
+  ANY value (even `0`) returned by `(get meta-tids tid 0)` triggers the
+  meta branch.
+
+Python correctly distinguishes meta from non-meta via Boolean set membership,
+producing varied priorities 0.18-31.46.
+
+Logged for batch review. Python may be more correct than Clojure here.
+
+### Suite delta
+
+- Pre (post-D11): 325 passed, 12 skipped, 58 xfailed.
+- Post (this PR): 336 passed, 12 skipped, 56 xfailed, 2 xpassed.
+- Delta: +11 (the 11 new D12 synthetic tests), 0 failed, -2 xfailed
+  (those became xpassed — the 2 cold_start `test_comment_priorities_exist`
+  variants run cleanly now; the new xfail is on a different basis).
+
+### What's Next
+
+Re-record vw + biodiversity Python golden snapshots (PR-stack tip).
+
+
+## Session: Copilot triage, review-fix PR #2586, merge prep (2026-07-04/05)
+
+Host session ("Fable-polis-merge-then-replay"). Goal: assess and execute the
+merge of the open 7-PR stack. Outcome: stack is code-complete, gate-green,
+review-resolved, and pushed — **merge deliberately NOT executed** (edge
+frozen for a prod issue; Julien: push PRs, merge nothing).
+
+### Reconciliation findings (recon, 3 parallel agents + verification)
+
+- spr squash-merges auto-close per-commit PRs with `mergedAt: null` —
+  "closed" ≠ dead. All of D2/D4/D5–D9/D15/K-inv landed via TWO squash
+  commits: #2515 ("Speed up regression tests") and #2561 (titled "Docs:
+  plan + journal updates" but carrying ALL the D5–D15 math). Verified via
+  `git log -S` for `rat > rdt`, `PSEUDO_COUNT = 2.0`, signed-product
+  repness_metric. **Squash titles lie; reconcile by commit-id trailers.**
+- The "golden re-record + seed decision" merge blockers had dissolved:
+  vw/bio goldens are PGRs deliberately deleted at #2516 (tests skip;
+  `SKIP_GOLDEN=1` in CI), and the seed decision was de facto made by K-inv
+  (first-k-distinct + n_init=1 + random_state=42).
+- Dormant `review` jj workspace (empty commit inside the stack chain)
+  forgotten + abandoned before rebase (user-approved). Stack rebased onto
+  edge 722640eb0 (+#2581 gid-coercion, +#2579 node pin) — zero conflicts.
+
+### Copilot triage (all 83 threads, 7 PRs — 0 were resolved before this)
+
+Verified against the stack TREE (not the working copy — an early audit
+agent read edge by mistake and produced garbage classifications):
+- 1 real blocker: consensus entries used Python keys
+  (comment_id/n_success/…) while Clojure/server-helpers.ts/
+  majorityStrict.jsx expect tid/n-success/… .
+- Copilot-WRONG: "priority_metric always returns 49" is the DELIBERATE
+  D12.6 bug-mirror (#2571).
+- 5 escalations verified REAL: (g1) DynamoDB writer read consensus from
+  `repness.consensus_comments`, a key `to_dynamo_dict` never emits →
+  always wrote the empty default (round-trip test had stubbed the WRONG
+  nested shape, masking it); (g2) bench_repness imported 14a-deleted
+  `comment_stats` (ImportError); (g3) reader passed legacy list-shaped
+  consensus through; (g4) silent zip truncation in
+  `_compute_comment_priorities`; (g5) blanket `xfail(strict=False)`
+  masking variants that pass.
+
+### Review-fix commit → PR #2586 (inserted below the docs commit)
+
+TDD RED→GREEN (14 RED failures with exact predicted signatures → 38/38
+GREEN): consensus entries → Clojure blob shape (narrowed S1: consensus
+only; rep-comment entries keep comment_id until the math-blob alignment
+PR); writer reads top-level `consensus`; Decimal-preserving priorities
+(int() floored sub-1 priorities to 0 = "no priority data" to the TS
+router; latent until #2571 resolves); legacy-list normalization on read;
+`mod_out is not None` ×2; fail-closed PCA/columns desync guard; benchmark
+import fix + import tests; ns docstrings corrected.
+
+Test-gate honesty work: per-variant xfails replace the blankets.
+**DISCOVERY: scoping unmasked bg2018-incremental and pakistan-incremental
+consensus divergences** the blanket had silently absorbed (same
+incremental family as biodiversity-incremental; deferred to
+sequential-parity work). PGR regression tests now SKIP with the
+2026-06-11 goldens-deferral reason (S3-5 claimed this mark but never
+committed it — docs-vs-diff lesson again). 3 pre-existing CCR failures
+(verified identical on edge): bg2050-incremental PC2 angle 10.71°>10°,
+pakistan-incremental shape (2,9030)≠(2,194), bg2018-cold_start
+clustering — precise per-variant xfails.
+
+### Gates
+
+- Baseline (stack top, --include-local): 13 failed / 476 passed / 18
+  skipped / 143 xfailed — all 13 accounted for (10 stale-PGR, 3 CCR).
+- Final: **0 failed / 502 passed / 28 skipped / 146 xfailed / 7 xpassed**.
+- xdist note: `get_or_compute_conversation` recomputes per worker under
+  `-n auto` (xdist_group markers were removed as "dead") — BLAS
+  oversubscription + duplicated fixture work melted the host. Throttled
+  (`-n 4`, OMP/OPENBLAS threads=1) the suite runs in ~11 min. Test-infra
+  improvement candidate: restore dataset-based xdist_group.
+
+### Determinism verification (COPILOT_MATH_QUESTIONS.md:283 checklist)
+
+5 consecutive full-pipeline runs on vw + biodiversity: **bit-for-bit
+identical except `math_tick`** (wall-clock version counter, varies by
+design; per-stage hashing localized it; scratch/determinism_check.py).
+Seed question CLOSED: pipeline is deterministic. Proposal pending
+Julien's go: delete the vestigial `np.random.seed(42)` at
+clusters.py:766 — the only `random` reference in the module, seeds a
+global RNG nothing draws from, and `cluster_dataframe` isn't on the
+production path (only tests/test_clusters.py; production uses
+kmeans_sklearn exclusively). Candidate follow-up (separate decision):
+delete the dead manual-kmeans path 14a-style.
+
+### Process
+
+- All 83 Copilot threads replied-to + resolved (classification-specific
+  replies citing #2586 / #2571 / #2587).
+- Perf deferral filed: issue #2587 (_compute_comment_priorities re-scans
+  group votes every tick).
+- PLAN status table corrected (D10/D11/D12 rows were still "VM draft —
+  NEEDS REWORK").
+
+### What's Next
+
+1. **Merge when edge reopens** (user hold, prod issue): `jj spr merge
+   --count 8` → #2564, #2570, #2566, #2567, #2568, #2572, #2586, #2573.
+   Verify the squash title reflects real content (#2561 mis-title
+   lesson). Then post-merge jj hygiene (fetch, rebase survivors, bookmark
+   check).
+2. Seed cleanup PR on Julien's go (clusters.py:766, evidence above).
+3. NO PGR re-record until the Python-vs-Python phase (label-swap fix
+   first — S3-4: Python g0 = Clojure g1 EXACTLY on vw-cold_start; fix is
+   canonical group-id ordering or permutation-invariant comparison).
+4. Track-1 frontier after merge: label-swap fix → sequential bits (D) →
+   replay harness (H, design doc) → R1 → R2. Track 2 (EVOC research) can
+   launch any time — independent surface.
+## Session addendum: gid label-swap fix + seed removal + replay design (2026-07-05)
+
+### gid 0↔1 label swap — FIXED (root cause found)
+
+Root cause: `_compute_clusters` re-sorted group clusters by size
+(descending) and reassigned ids — while Clojure assigns group ids by
+first-k-distinct encounter order over base-cluster centers
+(init-clusters, clusters.clj:55-64), keeps them through merge lineage,
+and only ever `sort-by :id`. The base level already preserved k-means id
+order (K-inv) with a comment warning against exactly this; the group
+level did the forbidden thing three steps later. Fix: remove the re-sort
++ reassignment; pin with a synthetic first-encountered-is-id-0 test
+(RED under any size sort).
+
+Harvest (verified on a full --include-local run, then re-validated —
+232 passed / 138 xfailed / 0 xpassed / 0 failed):
+- D8 repful blob comparison: xfail LIFTED on 9/11 variants (residual:
+  vw-incremental, pakistan-incremental — incremental trajectory).
+- D9 significance-sets + D10 rep-selection: biodiversity-cold_start now
+  matches Clojure EXACTLY and gates.
+- z-values / rat-values: label swap FALSIFIED as their cause (no variant
+  flipped) — reasons corrected to residual membership divergence.
+- D12 priorities: FLI + bg2050 incremental blobs carry the all-49
+  truthy-0 signature → match the #2571 mirror → now gate (known-bad
+  list shrunk to vw/biodiversity/bg2018/engage/pakistan incrementals).
+
+### Seed removal (Julien go, 2026-07-05)
+
+`np.random.seed(42)` (cluster_dataframe) removed + dead `import random`:
+only `random` reference in the module, seeded an RNG nothing draws from,
+not on the production path. The Clojure author's verbatim seeding note
+(pca.clj:80-81) now lives in pca.py next to random_state, with the
+seeding-history context and the 5-run determinism evidence.
+
+### Clojure randomness — verified facts (for the record)
+
+Clojure never fixes a seed: k-means deterministic by construction; PCA
+power iteration uses UNSEEDED `(rand)` start on cold start only
+(warm-started from previous eigenvectors after; conversation.clj:759
+uses unseeded :twister sampling for large convs). Fixed ITERATION COUNT
+(not convergence threshold) → even Clojure-vs-Clojure cold starts are
+not bit-identical. Consequences: tolerance-based comparison is the only
+well-posed target for cold-start PCA; warm-start pinning collapses the
+jitter (replay design §9).
+
+### EDN dumps: NO as-were history exists (R2 confirmed as inference)
+
+`conv-update-dump` has exactly one call site — conv_man.clj:321, the
+update-ERROR handler — writing errorconv.<nanotime>.edn to worker-local
+(ephemeral) disk. Production never dumped healthy states; prodclone
+holds votes + latest math_main only. R2's evidence: final blob +
+math_tick counter (bounds #recomputes) + last_vote_timestamp.
+
+### Replay harness design doc
+
+`docs/REPLAY_HARNESS_DESIGN.md` (this commit): architecture, schedule
+spec (first-class input — R2 = search over schedules with H as forward
+model), Clojure driver Mode A (pure conv-update reduce + conv-update-dump
+per step) / Mode B (Dockerized poller checkpointing), Python driver
+(chained update_votes), nondeterminism policy (tolerance classes,
+warm-start pinning, self-jitter measurement), storage/provenance, phased
+build plan H-A..H-D. Review copy at scratch/REPLAY_HARNESS_DESIGN.md.
+
+### Proposed next math-core PR (awaiting go): powerit-pca port
+
+sklearn has NO equivalent of Clojure's per-component fixed-iteration
+power iteration with deflation and start vectors (randomized SVD is
+block+QR, no start-vector injection; scipy svds is Lanczos). Proposal:
+~25-line numpy port of powerit-pca (same deflation, same fixed iters,
+start_vectors param — feeds replay warm-start pinning), used in place of
+sklearn SVD for parity; sklearn retained as the designated
+post-parity implementation ("switch to a proper convergence criterion
+once we move to improving the Python implementation" — per Julien).
+
+### R2 constraint + powerit-pca GO (Julien, 2026-07-05)
+
+- **R2 replayer must be PYTHON-ONLY** — no Clojure server; works purely
+  from Postgres data; candidate trajectories regenerated by the Python
+  engine in legacy-reproduction mode (which must therefore be an exact
+  AND much faster reproduction). Design doc updated (§1.3, §5, §10):
+  Clojure driver narrowed to R1 certification only.
+- R1 comparison: per-step BLOB capture from a regular Clojure run
+  suffices for pass/fail; EDN dumps stay Clojure-only on-demand
+  (divergence localization + warm-start pinning). Open Q5 resolved.
+- **powerit-pca port: GO** (sklearn has no equivalent — randomized SVD
+  is block+QR without start-vector injection). Two PERMANENT code paths
+  behind a flag: `clojure-legacy` (powerit fixed-iters + start_vectors,
+  "switch to a proper convergence criterion once we improve the Python
+  implementation") and `improved` (sklearn PCA). Benchmark
+  sklearn-vs-powerit from scratch as part of the PR. Future note:
+  scipy LOBPCG/ARPACK (`svds(v0=…)`) as library replacement for our
+  powerit once Clojure-exact fidelity is no longer required.
+- test_participant_info golden comparisons (4 private datasets) joined
+  the PGR-deferral skips: their goldens embed per-gid correlations and
+  predate the gid re-ordering — stale by design, not regression.
+
+---
+
+## Session 2026-07-06/07 — CI green-up of the powerit-PCA + storage-v2 stacks
+
+### Silhouette guard for the powerit-PCA default (#2591)
+
+Making `POLISMATH_PCA_IMPL=powerit` the default (#2591) surfaced a latent
+crash — a robustness gap, not a parity defect. On small/synthetic
+conversations the powerit projection collapses to exactly **two base
+clusters**, and group-cluster k-selection (`conversation.py`) then calls
+`calculate_silhouette_sklearn` on 2 points / 2 labels. sklearn requires
+`2 <= n_labels <= n_samples - 1`, so it raised
+`ValueError: Number of labels is 2. Valid values are 2 to n_samples - 1`.
+This crashed `TestConversation.test_recompute` and errored 8
+`test_serialization_unfolding` cases in CI. Every one of them **passes under
+`POLISMATH_PCA_IMPL=sklearn`**, which pinned the powerit default as the
+trigger (the guard gap was always latent; sklearn's projection just never
+collapsed this data to two base clusters).
+
+**Fix (squashed into #2591):** `calculate_silhouette_sklearn`
+(`polismath/pca_kmeans_rep/clusters.py`) now returns the neutral `0.0`
+sentinel whenever `n_labels >= n_samples` (silhouette is undefined there),
+instead of letting sklearn raise. It is a strict **superset** of the old
+`n_labels <= 1 || n_samples <= 1` guard, so valid clusterings are unchanged;
+and with only two base clusters, k-selection is forced to `k=2` regardless,
+so the chosen clustering is identical — the fix only removes the crash. Added
+3 unit tests (`tests/test_clusters.py::TestCalculateSilhouetteSklearn`:
+2-samples/2-labels → 0.0 not raise; single-label → 0.0; valid 3-sample/2-label
+→ genuine score).
+
+Verified: local full suite **403 passed / 0 failed** (baseline was 1 failed +
+8 errors); CI #2591 `test` job green. Follow-on cleanup for the improved
+(sklearn) path: none needed — the guard is impl-agnostic.
+
+_(Storage-v2 CI green-up — delphi_storage Dockerfile COPY, the
+postgres://→postgresql:// backend hardening, and the PG-conformance CI wiring
+— is tracked in `STORAGE_V2_IMPLEMENTATION_NOTES.md`, not here.)_

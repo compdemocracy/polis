@@ -194,11 +194,21 @@ class TestRepnessComparison:
             # Look for consensus comments if they exist
             if 'consensus-comments' in clj_repness:
                 clj_consensus = clj_repness.get('consensus-comments', [])
-                py_consensus = py_results.get('consensus_comments', [])
+                # B2 fix (D11 sub-agent review): post-D11 (PR 9) Python's
+                # consensus_comments is a dict `{agree: [...], disagree: [...]}`,
+                # not a flat list. Flatten for the ID extraction below.
+                py_consensus_dict = py_results.get('consensus_comments', {})
+                if isinstance(py_consensus_dict, dict):
+                    py_consensus = (py_consensus_dict.get('agree', [])
+                                    + py_consensus_dict.get('disagree', []))
+                else:
+                    py_consensus = py_consensus_dict  # legacy fallback
 
                 # Extract comment IDs
                 clj_consensus_ids = [str(c.get('comment-id', c.get('tid', c.get('comment_id', '')))) for c in clj_consensus]
-                py_consensus_ids = [str(c.get('comment_id', '')) for c in py_consensus]
+                # Python consensus entries use `tid` (Clojure blob shape,
+                # 2026-07-04); `comment_id` fallback covers pre-fix blobs.
+                py_consensus_ids = [str(c.get('tid', c.get('comment_id', ''))) for c in py_consensus]
 
                 consensus_matches = set(clj_consensus_ids) & set(py_consensus_ids)
                 consensus_total = len(set(clj_consensus_ids) | set(py_consensus_ids))

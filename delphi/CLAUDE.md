@@ -16,7 +16,7 @@ this avoids the confusion of having anything called a "cid", the joke was "conve
 
 ## helpful background
 
-this was built in two parts, the pca/kmenas/repness and the umap/narrative, and these are combined in the run_delphi.sh script.
+this was built in two parts, the pca/kmenas/repness and the umap/narrative, and these are combined in the run_delphi.py script.
 
 ## Local Python Environment
 
@@ -175,7 +175,7 @@ AWS_SECRET_ACCESS_KEY=dummy
 AWS_REGION=us-east-1
 ```
 
-These are configured in run_delphi.sh for all DynamoDB operations.
+These are configured in run_delphi.py for all DynamoDB operations.
 
 ### DynamoDB Job Queue System
 
@@ -191,13 +191,13 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 2. **Processing Jobs**: Start the job poller service:
 
    ```bash
-   ./start_poller.sh
+   python start_poller.py
    ```
 
 3. **Table Management**: To reset the job queue:
 
    ```bash
-   aws dynamodb delete-table --table-name DelphiJobQueue --endpoint-url http://localhost:8000 && \
+   aws dynamodb delete-table --table-name Delphi_JobQueue --endpoint-url http://localhost:8000 && \
    docker exec -e PYTHONPATH=/app polis-dev-delphi-1 python /app/create_dynamodb_tables.py --endpoint-url http://host.docker.internal:8000
    ```
 
@@ -210,7 +210,7 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 ### Table Creation
 
 - Primary script: `/create_dynamodb_tables.py` - Creates BOTH Polis math and EVōC tables
-- This script is used in `run_delphi.sh` and now integrated into `umap_narrative/run_pipeline.py`
+- This script is used in `run_delphi.py` and now integrated into `umap_narrative/run_pipeline.py`
 
 ### Schema Definitions
 
@@ -242,7 +242,7 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 - `Delphi_CollectiveStatement` - Collective statements generated for topics
 
 > **Note:** All table names now use the `Delphi_` prefix for consistency.
-> For complete documentation on the table renaming, see `/Users/colinmegill/polis/delphi/docs/DATABASE_NAMING_PROPOSAL.md`
+> Table definitions in `create_dynamodb_tables.py` are the canonical reference for names and schemas.
 
 ## Reset Single Conversation
 
@@ -281,7 +281,7 @@ See [RESET_SINGLE_CONVERSATION.md](docs/RESET_SINGLE_CONVERSATION.md) for detail
 After identifying the correct conversation ZID, run the Delphi pipeline directly with:
 
 ```bash
-./run_delphi.sh --zid=[ZID]
+python run_delphi.py --zid [ZID]
 ```
 
 Additional options include:
@@ -297,7 +297,7 @@ For production environments, use the job queue system:
 1. Start the poller service on your worker machine:
 
    ```bash
-   ./start_poller.sh
+   python start_poller.py
    ```
 
 2. Submit a job from any machine with access to DynamoDB:
@@ -321,13 +321,6 @@ For production environments, use the job queue system:
    # Drop and recreate the table
    aws dynamodb delete-table --table-name Delphi_JobQueue --endpoint-url http://localhost:8000
    docker exec -e PYTHONPATH=/app polis-dev-delphi-1 python /app/create_dynamodb_tables.py --endpoint-url http://host.docker.internal:8000
-   ```
-
-   Or use the reset_database.sh script to recreate all tables:
-
-   ```bash
-   # Reset all tables (both Polis math and EVōC tables)
-   ./reset_database.sh
    ```
 
 2. **Testing specific pipeline stages**:

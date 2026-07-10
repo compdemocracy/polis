@@ -195,10 +195,15 @@ def test_full_pipeline(dataset_name: str) -> None:
                     print(f"      Agree: {comment.get('pa', 0):.2f}, Disagree: {comment.get('pd', 0):.2f}")
                     print(f"      Metrics: A={comment.get('agree_metric', 0):.2f}, D={comment.get('disagree_metric', 0):.2f}")
             
-            # Check consensus comments
+            # Check consensus comments. Post-D11 (PR 9), shape is
+            # `{'agree': [...], 'disagree': [...]}` matching Clojure.
             print("\n  Consensus Comments:")
-            for i, comment in enumerate(updated_conv.repness.get('consensus_comments', [])):
-                print(f"    - Comment {i+1}: ID {comment.get('comment_id')}, Avg Agree: {comment.get('avg_agree', 0):.2f}")
+            consensus = updated_conv.repness.get('consensus_comments', {})
+            for side in ('agree', 'disagree'):
+                for i, comment in enumerate(consensus.get(side, [])):
+                    print(f"    - {side} #{i+1}: ID {comment.get('tid')}, "
+                          f"p-success={comment.get('p-success', 0):.2f}, "
+                          f"p-test={comment.get('p-test', 0):.2f}")
         else:
             print("  No representativeness results available")
         

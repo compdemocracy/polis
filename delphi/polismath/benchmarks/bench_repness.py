@@ -28,7 +28,6 @@ from polismath.benchmarks.benchmark_utils import (
 from polismath.conversation import Conversation
 from polismath.pca_kmeans_rep.repness import (
     conv_repness,
-    comment_stats,
     compute_group_comment_stats_df,
     select_rep_comments_df,
     select_consensus_comments_df,
