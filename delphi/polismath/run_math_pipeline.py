@@ -18,6 +18,10 @@ from polismath.utils.general import postgres_vote_to_delphi
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Stage 1's vote reads are shared with the input-snapshot capture
+# (delphi_storage/inputs.py) so the two can never diverge (design §4.4/P6).
+from delphi_storage.inputs import VOTES_BATCH_SQL, VOTES_COUNT_SQL
+
 
 def prepare_for_json(obj):
     import numpy as np
@@ -295,7 +299,7 @@ def main():
         logger.info(f"[{time.time() - start_time:.2f}s] Moderation applied")
 
         cursor = conn.cursor()
-        cursor.execute("SELECT COUNT(*) FROM votes WHERE zid = %s", (zid,))
+        cursor.execute(VOTES_COUNT_SQL, (zid,))
         total_votes = cursor.fetchone()[0]
         cursor.close()
         logger.info(f"[{time.time() - start_time:.2f}s] {total_votes} total votes")
@@ -317,10 +321,7 @@ def main():
             logger.info(f"[{time.time() - start_time:.2f}s] Processing votes {offset+1} to {end_idx} of {total_votes}")
             
             cursor = conn.cursor()
-            batch_query = """
-            SELECT v.created, v.tid, v.pid, v.vote FROM votes v WHERE v.zid = %s ORDER BY v.created LIMIT %s OFFSET %s
-            """
-            cursor.execute(batch_query, (zid, batch_size, offset))
+            cursor.execute(VOTES_BATCH_SQL, (zid, batch_size, offset))
             vote_batch = cursor.fetchall()
             cursor.close()
 
