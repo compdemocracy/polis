@@ -257,7 +257,13 @@ def main():
                         help='Maximum number of votes to process (for testing)')
     parser.add_argument('--batch-size', type=int, default=50000, 
                         help='Batch size for vote processing (default: 50000)')
+    parser.add_argument('--job-id', dest='job_id', default=None,
+                        help='Pipeline job id (Storage V2 provenance, design §4.4); defaults to DELPHI_JOB_ID env, else auto local-<uuid4>')
     args = parser.parse_args()
+
+    from delphi_storage.job_id import resolve_job_id
+    job_id = resolve_job_id(args.job_id)
+    logger.info(f"Pipeline job id: {job_id}")
 
     zid = args.zid
     start_time = time.time()

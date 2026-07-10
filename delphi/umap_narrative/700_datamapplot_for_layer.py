@@ -534,7 +534,7 @@ def load_conversation_data_from_dynamo(zid, layer_id, dynamo_storage):
     
     return data
 
-def create_visualization(zid, layer_id, data, comment_texts, output_dir=None):
+def create_visualization(zid, layer_id, data, comment_texts, output_dir=None, job_id=None):
     """
     Create and save a visualization for a specific layer.
     
@@ -735,8 +735,9 @@ def create_visualization(zid, layer_id, data, comment_texts, output_dir=None):
             
             # Upload to S3
             try:
-                # Get job ID and report ID from environment variables
-                job_id = os.environ.get('DELPHI_JOB_ID', 'unknown')
+                # Explicit job id (design §4.4); env fallback for the
+                # transition phase, 'unknown' preserved for bare dev runs
+                job_id = job_id or os.environ.get('DELPHI_JOB_ID', 'unknown')
                 report_id = os.environ.get('DELPHI_REPORT_ID', 'unknown')
                 
                 # Create S3 key using report_id and job ID to avoid exposing ZIDs
@@ -778,7 +779,7 @@ def create_visualization(zid, layer_id, data, comment_texts, output_dir=None):
         logger.error(f"Outer traceback: {traceback.format_exc()}")
         return None
 
-def generate_visualization(zid, layer_id=0, output_dir=None, dynamo_endpoint=None):
+def generate_visualization(zid, layer_id=0, output_dir=None, dynamo_endpoint=None, job_id=None):
     """
     Generate visualization for a specific conversation and layer.
     
@@ -862,7 +863,7 @@ def generate_visualization(zid, layer_id=0, output_dir=None, dynamo_endpoint=Non
         
         # Create and save visualization
         logger.info("Creating visualization...")
-        viz_file = create_visualization(zid, layer_id, data, comment_texts, output_dir)
+        viz_file = create_visualization(zid, layer_id, data, comment_texts, output_dir, job_id=job_id)
         
         if viz_file:
             logger.info(f"Successfully generated visualization for conversation {zid}, layer {layer_id}")
@@ -889,6 +890,8 @@ def main():
                       help='Directory to save the visualization')
     parser.add_argument('--dynamo_endpoint', type=str, default=None,
                       help='DynamoDB endpoint URL')
+    parser.add_argument('--job-id', dest='job_id', default=None,
+                      help='Pipeline job id (Storage V2 provenance, design §4.4); defaults to DELPHI_JOB_ID env')
     
     args = parser.parse_args()
     
@@ -898,7 +901,8 @@ def main():
         args.conversation_id,
         layer_id=args.layer,
         output_dir=args.output_dir,
-        dynamo_endpoint=args.dynamo_endpoint
+        dynamo_endpoint=args.dynamo_endpoint,
+        job_id=args.job_id
     )
     
     if viz_file:

@@ -36,6 +36,9 @@ def main():
     parser.add_argument('--include_moderation', type=bool, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
     parser.add_argument('--exclude_comment_selections', type=bool, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
     parser.add_argument('--region', type=str, default='us-east-1', help='AWS region')
+    parser.add_argument('--job-id', dest='job_id', default=None,
+                        help='Pipeline job id (auto local-<uuid4> when omitted; '
+                             'threaded to every stage, see docs/STORAGE_V2_DESIGN.md §4.4)')
 
     args = parser.parse_args()
 
@@ -45,6 +48,12 @@ def main():
 
     zid = args.zid
     rid = args.rid
+    from delphi_storage.job_id import resolve_job_id
+    job_id = resolve_job_id(args.job_id)
+    # Transition (design §4.4): un-migrated readers still inherit the env var;
+    # exporting here keeps them on the SAME id as the command lines below.
+    os.environ["DELPHI_JOB_ID"] = job_id
+    print(f"{YELLOW}Pipeline job id: {job_id}{NC}")
     verbose_arg = "--verbose" if args.verbose else ""
     force_arg = "--force" if args.force else ""
     # validate_arg is not used in the python script execution steps, but kept for parity with bash
@@ -56,6 +65,7 @@ def main():
         "python",
         "umap_narrative/reset_conversation.py",
         f"--zid={zid}",
+        f"--job-id={job_id}",
     ]
     # If a report ID is provided, pass it to the reset script for full cleanup
     if rid:
@@ -100,6 +110,7 @@ def main():
     math_command = [
         "python", f"{app_path}/polismath/run_math_pipeline.py",
         f"--zid={zid}",
+        f"--job-id={job_id}",
     ]
     if max_votes_arg:
         math_command.append(max_votes_arg)
@@ -120,6 +131,7 @@ def main():
         f"--zid={zid}",
         f"--include_moderation={args.include_moderation}",
         f"--exclude_comment_selections={args.exclude_comment_selections}",
+        f"--job-id={job_id}",
         "--use-ollama"
     ]
     if verbose_arg:
@@ -134,7 +146,8 @@ def main():
         "python", f"{app_path}/umap_narrative/501_calculate_comment_extremity.py",
         f"--zid={zid}",
         f"--include_moderation={args.include_moderation}",
-        f"--exclude_comment_selections={args.exclude_comment_selections}"
+        f"--exclude_comment_selections={args.exclude_comment_selections}",
+        f"--job-id={job_id}"
     ]
     if verbose_arg:
         extremity_command.append(verbose_arg)
@@ -153,6 +166,7 @@ def main():
     priority_command = [
         "python", f"{app_path}/umap_narrative/502_calculate_priorities.py",
         f"--conversation_id={zid}",
+        f"--job-id={job_id}",
     ]
     if verbose_arg:
         priority_command.append(verbose_arg)
@@ -237,7 +251,8 @@ def main():
                 "python", f"{app_path}/umap_narrative/700_datamapplot_for_layer.py",
                 f"--conversation_id={zid}",
                 f"--layer={layer_id}",
-                f"--output_dir={output_dir}"
+                f"--output_dir={output_dir}",
+                f"--job-id={job_id}"
             ]
             if verbose_arg:
                 datamap_command.append(verbose_arg)
