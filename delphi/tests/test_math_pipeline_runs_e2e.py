@@ -146,6 +146,7 @@ def mock_moderation_data():
 
 @mock.patch('psycopg2.connect')
 def test_run_math_pipeline_e2e(mock_connect, dynamodb_resource, mock_comments_data, mock_votes_data, mock_moderation_data):
+    os.environ.setdefault("DELPHI_WRITE_MODE", "old")  # P7b: math persistence is mode-gated
     """
     Runs the entire math pipeline script, mocking all database calls
     and checking DynamoDB for results.

@@ -233,13 +233,17 @@ class DynamoDBClient:
         else:
             return obj
             
-    def write_conversation(self, conv) -> bool:
+    def write_conversation(self, conv, dynamo_data=None) -> bool:
         """
         Write a conversation's mathematical analysis data to DynamoDB,
         including all projections for all participants.
 
         Args:
             conv: Conversation object with math analysis data
+            dynamo_data: Optional precomputed conv.to_dynamo_dict() output.
+                The Storage V2 dual-writer passes this so the legacy and v2
+                writes share ONE serialization (math_tick is time-derived —
+                two independent calls would tag the two stores differently).
 
         Returns:
             Success status
@@ -254,8 +258,10 @@ class DynamoDBClient:
             zid = str(conv.conversation_id)
             logger.info(f"[{time.time() - start_time:.2f}s] Writing conversation {zid} to DynamoDB")
 
-            # Convert conversation to optimized DynamoDB format
-            dynamo_data = conv.to_dynamo_dict() if hasattr(conv, 'to_dynamo_dict') else None
+            # Convert conversation to optimized DynamoDB format (unless the
+            # caller already did — see the dual-write note in the docstring)
+            if dynamo_data is None:
+                dynamo_data = conv.to_dynamo_dict() if hasattr(conv, 'to_dynamo_dict') else None
 
             # Generate a math tick (version identifier)
             # Use the one from dynamo_data if available, otherwise create a new one

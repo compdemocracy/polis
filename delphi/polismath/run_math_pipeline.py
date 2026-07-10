@@ -23,6 +23,68 @@ logger = logging.getLogger(__name__)
 from delphi_storage.inputs import VOTES_BATCH_SQL, VOTES_COUNT_SQL
 
 
+def _get_v2_store():
+    """Module-level for testability (tests substitute a memory store)."""
+    from delphi_storage import get_store
+    return get_store()
+
+
+def _export_to_legacy_dynamo(conv, dynamo_data=None):
+    """Today's unchanged legacy write path (the 6 Delphi_* math tables).
+    dynamo_data: precomputed serialization shared with the v2 writer."""
+    from polismath.database.dynamodb import DynamoDBClient
+
+    dynamodb_client = DynamoDBClient(
+        endpoint_url=os.environ.get('DYNAMODB_ENDPOINT'),
+        region_name=os.environ.get('AWS_REGION', 'us-east-1'),
+        aws_access_key_id=os.environ.get('AWS_ACCESS_KEY_ID', 'dummy'),
+        aws_secret_access_key=os.environ.get('AWS_SECRET_ACCESS_KEY', 'dummy'),
+    )
+    dynamodb_client.initialize()
+    return dynamodb_client.write_conversation(conv, dynamo_data=dynamo_data)
+
+
+def persist_math_results(conv, job_id, write_mode):
+    """Mode-gated math result persistence (Storage V2 P7b, design §6.1 M1).
+
+    old  -> legacy tables only (byte-identical to pre-V2 behavior);
+    both -> legacy AND v2 artifacts; v2 failures are logged, never raised
+            (the old path must keep serving; divergence is caught by
+            scripts/verify_dual_write.py);
+    v2   -> v2 artifacts only; failures RAISE (there is no old copy).
+    Returns the legacy writer's success flag (True when legacy is skipped).
+    """
+    from delphi_storage.write_mode import old_writes_enabled, v2_writes_enabled
+
+    # ONE serialization shared by both writers: math_tick is time-derived
+    # inside to_dynamo_dict(), so two independent calls would tag the legacy
+    # tables and the v2 artifacts with DIFFERENT ticks (and verify_dual_write
+    # would be permanently red on any conversation big enough that the
+    # legacy write takes over a second).
+    dynamo_data = conv.to_dynamo_dict()
+
+    success = True
+    if old_writes_enabled(write_mode):
+        success = _export_to_legacy_dynamo(conv, dynamo_data)
+
+    if v2_writes_enabled(write_mode):
+        from delphi_storage.write_mode import WriteMode
+        from polismath.database.v2_artifacts import write_math_artifacts
+
+        try:
+            store = _get_v2_store()
+            written = write_math_artifacts(store, job_id, conv, dynamo_data)
+            logger.info(f"Wrote {written} v2 math artifacts for job {job_id}")
+        except Exception as e:
+            if write_mode is WriteMode.V2:
+                raise
+            logger.error(
+                f"v2 math artifact write failed for job {job_id} "
+                f"(write mode 'both': old path keeps serving): {e}"
+            )
+    return success
+
+
 def prepare_for_json(obj):
     import numpy as np
 
@@ -301,6 +363,12 @@ def main():
     job_id = resolve_job_id(args.job_id)
     logger.info(f"Pipeline job id: {job_id}")
 
+    # Fail fast on a misconfigured write mode — BEFORE hours of computation,
+    # not after (design §4.3 fail-loud; resolved once, used at persist time).
+    from delphi_storage.write_mode import resolve_write_mode
+    write_mode = resolve_write_mode()
+    logger.info(f"Write mode: {write_mode.value}")
+
     zid = args.zid
     start_time = time.time()
     logger.info(f"[{time.time() - start_time:.2f}s] Starting math pipeline for conversation {zid}")
@@ -440,32 +508,22 @@ def main():
         if conv.repness and 'comment_repness' in conv.repness:
             logger.info(f"Representativeness for {len(conv.repness['comment_repness'])} comments")
 
-        # Save results to DynamoDB using the DynamoDBClient, as in the Pakistan test
+        # Persist results: legacy tables and/or v2 artifacts per
+        # DELPHI_WRITE_MODE (Storage V2 P7b, design §6.1). The legacy write
+        # keeps its historical log-and-continue behavior; a v2-only write
+        # failure aborts the run (exit 1) so the poller marks it FAILED.
+        from delphi_storage.write_mode import WriteMode
         try:
-            logger.info(f"[{time.time() - start_time:.2f}s] Initializing DynamoDB client...")
-            from polismath.database.dynamodb import DynamoDBClient
-
-            # Use environment variables or sensible defaults for local/test
-            endpoint_url = os.environ.get('DYNAMODB_ENDPOINT')
-            region_name = os.environ.get('AWS_REGION', 'us-east-1')
-            aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID', 'dummy')
-            aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY', 'dummy')
-            dynamodb_client = DynamoDBClient(
-                endpoint_url=endpoint_url,
-                region_name=region_name,
-                aws_access_key_id=aws_access_key_id,
-                aws_secret_access_key=aws_secret_access_key
-            )
-            dynamodb_client.initialize()
-            logger.info(f"[{time.time() - start_time:.2f}s] DynamoDB client initialized")
-            logger.info(f"[{time.time() - start_time:.2f}s] Exporting conversation to DynamoDB...")
-            success = conv.export_to_dynamodb(dynamodb_client)
-            logger.info(f"[{time.time() - start_time:.2f}s] Export to DynamoDB {'succeeded' if success else 'failed'}")
+            logger.info(f"[{time.time() - start_time:.2f}s] Persisting math results (write mode: {write_mode.value})...")
+            success = persist_math_results(conv, job_id, write_mode)
+            logger.info(f"[{time.time() - start_time:.2f}s] Math result persistence {'succeeded' if success else 'failed'}")
         except Exception as e:
-            logger.error(f"[{time.time() - start_time:.2f}s] Error exporting to DynamoDB: {e}")
+            logger.error(f"[{time.time() - start_time:.2f}s] Error persisting math results: {e}")
             import traceback
 
             traceback.print_exc()
+            if write_mode is WriteMode.V2:
+                sys.exit(1)
 
     except Exception as e:
         logger.error(f"Pipeline failed: {e}")
