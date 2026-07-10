@@ -347,6 +347,7 @@ class TestRunDelphiHook:
             "_capture_run_inputs",
             lambda job_id, zid, rid: captures.append((job_id, zid, rid)),
         )
+        monkeypatch.setenv("DELPHI_WRITE_MODE", "old")
         monkeypatch.setenv("OLLAMA_MODEL", "test-model")
         monkeypatch.setenv("DELPHI_APP_PATH", DELPHI_DIR)
         monkeypatch.delenv("DELPHI_JOB_ID", raising=False)
@@ -392,6 +393,7 @@ class TestRunDelphiHook:
             raise RuntimeError("snapshot store unreachable")
 
         monkeypatch.setattr(run_delphi, "_capture_run_inputs", boom)
+        monkeypatch.setenv("DELPHI_WRITE_MODE", "old")
         monkeypatch.setenv("OLLAMA_MODEL", "test-model")
         monkeypatch.setenv("DELPHI_APP_PATH", DELPHI_DIR)
         monkeypatch.delenv("DELPHI_JOB_ID", raising=False)

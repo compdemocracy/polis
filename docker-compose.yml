@@ -107,6 +107,9 @@ services:
       - DATABASE_URL=${DATABASE_URL}
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
       - DELPHI_DEV_OR_PROD=${DELPHI_DEV_OR_PROD:-prod}
+      # Storage V2 migration write mode (delphi/docs/STORAGE_V2_DESIGN.md §4.3).
+      # run_delphi.py fails loudly without it; compose must pass it through.
+      - DELPHI_WRITE_MODE=${DELPHI_WRITE_MODE:-old}
       # DynamoDB connection settings for local mode (will be overridden in prod)
       - DYNAMODB_ENDPOINT=${DYNAMODB_ENDPOINT}
       - POLL_INTERVAL=${POLL_INTERVAL:-2}

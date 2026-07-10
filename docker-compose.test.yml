@@ -198,6 +198,9 @@ services:
       - DATABASE_USER=${POSTGRES_USER}
       - DATABASE_PASSWORD=${POSTGRES_PASSWORD}
       # Full URL form for delphi_storage (PG-backend conformance tests).
+      # Storage V2 write mode: tests exercise v2 paths explicitly; the
+      # environment default keeps legacy (M0) behavior.
+      - DELPHI_WRITE_MODE=${DELPHI_WRITE_MODE:-old}
       # DELPHI_STORAGE_PG_URL carries the SQLAlchemy-safe postgresql:// scheme
       # (DATABASE_URL keeps the legacy postgres:// alias for other consumers);
       # the storage backend prefers DELPHI_STORAGE_PG_URL when set.
