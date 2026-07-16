@@ -379,6 +379,14 @@ This replaces the reading from the math blob with a proper Python computation ma
 3. Implement: comment projection/extremity in PCA, `importance_metric`, `priority_metric`, full computation
 4. Fix buggy `_compute_votes_base()` method
 
+> **⚠️ Parity blocker (2026-07-17):** step 2's Spearman comparison does **not** pass yet.
+> The Clojure `#1961` truthy-0 bug made every Clojure priority `49`, so any Python output
+> "matched" trivially; the Python side currently *mirrors* that (`priority_metric` returns
+> `META_PRIORITY**2`). Now that the Clojure bug is fixed, fixed-Python vs fixed-Clojure vw
+> priorities are rank-**uncorrelated** (Spearman −0.03) — priority parity depends on the
+> extremity/PCA parity (D1/D1b) closing first. Do not un-mirror `priority_metric` or
+> regenerate cold-start blobs until then. See `CLJ-PARITY-FIXES-JOURNAL.md` 2026-07-17.
+
 ---
 
 ### PR 12: Fix D15 — Moderation Handling
@@ -519,7 +527,7 @@ See `delphi/docs/INVESTIGATION_K_DIVERGENCE.md` for the full investigation.
 | D9 | Z-score thresholds | **PR 3** | **#2518** | **DONE** ✓ |
 | D10 | Rep comment selection | PR 8 | **#2566** | Code-complete + 18 synthetic tests (was mislabeled "VM draft" until 2026-07-04); Copilot-review fixes in **#2586**; open in stack, merge pending edge freeze |
 | D11 | Consensus selection | PR 9 | **#2567** | Code-complete + 12 synthetic tests; consensus entries now Clojure blob shape (tid/n-success/… — #2586); open in stack, merge pending edge freeze |
-| D12 | Comment priorities | PR 11 | **#2568** | Code-complete + 11 synthetic tests (bug-mirror per #2571); Decimal-preserving serialization (#2586); open in stack, merge pending edge freeze |
+| D12 | Comment priorities | PR 11 | **#2568** | Code-complete + 11 synthetic tests (bug-mirror per #2571); Decimal-preserving serialization (#2586); open in stack, merge pending edge freeze. **⚠️ 2026-07-17: Python↔Clojure priority PARITY is NOT achieved.** The Clojure all-49 routing bug (#1961) was masking it — while both sides returned constant 49, the D12 test passed trivially. Clojure-side fix (`(contains? meta-tids tid)`) ships separately; with it, fixed-Python vs fixed-Clojure vw priorities are rank-**uncorrelated** (Spearman −0.03). Un-mirroring `priority_metric` + regenerating cold-start blobs is **BLOCKED on extremity/PCA parity (D1/D1b)**. See journal 2026-07-17. |
 | D13 | Subgroup clustering | — | — | **Deferred** (unused) |
 | D14 | Large conv optimization | — | — | **Deferred** (Python fast enough) |
 | D15 | Moderation handling | PR 12 | **#2523** | **DONE** ✓ (zero-out-columns + downstream `to_math_blob` / `_compute_vote_stats` regressions fixed 2026-06-09 — `to_dict` now routes through `_compute_user_vote_counts()` / `_compute_votes_base()`; `_compute_vote_stats` uses `_get_clean_matrix(raw=True)`) |

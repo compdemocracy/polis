@@ -670,12 +670,16 @@
                     extremity (or (get extremities tid)
                                   (do
                                     (log/warn "No extremity for tid" tid "zid" (:zid conv))
-                                    0))
-                    ;; Use 0 as the default when meta-tids is null or doesn't contain the tid
-                    meta-tid-value (if meta-tids 
-                                   (get meta-tids tid 0)
-                                   0)]
-                (priority-metric meta-tid-value A P S extremity)))
+                                    0))]
+                ;; is-meta must be a real boolean. contains? is false for a
+                ;; non-meta tid, and false when meta-tids is nil. The prior
+                ;; (get meta-tids tid 0) defaulted non-meta tids to 0, and 0 is
+                ;; truthy in Clojure, so priority-metric took the meta branch for
+                ;; EVERY comment (all priorities = meta-priority^2 = 49) —
+                ;; regression from #1961 (2025-03-15) that reverted routing to the
+                ;; pre-2018 uniform-random behavior. The Python port still mirrors
+                ;; this bug; un-mirroring it is tracked in #2571 (needs PCA/extremity parity).
+                (priority-metric (contains? meta-tids tid) A P S extremity)))
             tids)))
 
 
