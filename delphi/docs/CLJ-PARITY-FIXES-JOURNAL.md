@@ -1913,3 +1913,41 @@ Verified: local full suite **403 passed / 0 failed** (baseline was 1 failed +
 _(Storage-v2 CI green-up — delphi_storage Dockerfile COPY, the
 postgres://→postgresql:// backend hardening, and the PG-conformance CI wiring
 — is tracked in `STORAGE_V2_IMPLEMENTATION_NOTES.md`, not here.)_
+
+### Session: Clojure routing-bug (#1961) fix + D12 priority-parity discovery (2026-07-17)
+
+**Clojure comment-routing bug fixed** (`math/src/polismath/math/conversation.clj`,
+`:comment-priorities`). The node passed `meta-tid-value = (if meta-tids (get meta-tids tid 0) 0)`
+into `priority-metric`'s `is-meta` slot. `(get … 0)` returns `0` for non-meta tids, and **0 is
+truthy in Clojure**, so `(if is-meta …)` took the meta branch for EVERY comment → all
+priorities = `meta-priority^2 = 49` → the TypeScript server's `selectProbabilistically`
+degraded to uniform-random routing (the pre-2018 behavior). Introduced by **#1961**
+(2025-03-15, "cutoff for large-convo processing if > 5000 comments"). Fix: pass a real
+boolean — `(priority-metric (contains? meta-tids tid) A P S extremity)` — `contains?` is
+false for non-meta tids and safe when `meta-tids` is nil. Verified end-to-end: regenerating
+the vw cold-start blob from the rebuilt (fixed) math image yields **varied** priorities
+(125 distinct, 5.16–61.95) instead of all-49.
+
+**NEW — D12 comment-priorities are NOT actually at parity (discovered here).** The all-49
+bug was *masking* a real priority non-parity. With the Clojure bug fixed and the Python
+`priority_metric` bug-mirror hypothetically un-mirrored (honoring `is_meta`), fixed-Python
+and fixed-Clojure vw priorities are **rank-uncorrelated** (Spearman −0.03; top-10 comment
+overlap 0/10; Python range 0.18–16.8, Clojure 5.16–61.95). While both sides returned the
+constant 49, D12's parity assertion passed **trivially** (49 == 49). Likely contributors:
+participant filtering (Clojure `in-conv` = 67 vs Python ~68–69), a vote-replay delta in the
+cold-start generator (copies 4555 of vw's 4683 votes), and — most importantly — the still-open
+**extremity/PCA parity gaps** (priority = importance × novelty × extremity²; extremity is the
+L2 norm of the PCA comment projection, exactly what D1/D1b are still closing).
+
+**Decision (Julien, 2026-07-17): ship the Clojure fix ALONE.** Only Clojure's math blob feeds
+production routing (via the TS server), so the Clojure fix restores correct routing on its own.
+We do NOT un-mirror Python, do NOT regenerate the committed cold-start blobs (regenerating
+flips them to varied and turns D12 parity legitimately RED — not achievable until extremity/PCA
+parity lands), and keep the `priority_metric` bug-mirror in place. The Python un-mirror + blob
+regen + true D12 value-parity is now **follow-up work under #2571, blocked on extremity/PCA
+(D1/D1b) parity**.
+
+**What's next for D12:** (1) close extremity/PCA parity; (2) reconcile participant-filtering and
+the generator's vote-copy delta so cold-start inputs match; (3) THEN un-mirror `priority_metric`,
+regenerate cold-start blobs, and change D12's test from the trivial constant-49 check to a real
+varied-value / rank-parity assertion.

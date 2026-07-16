@@ -670,12 +670,12 @@
                     extremity (or (get extremities tid)
                                   (do
                                     (log/warn "No extremity for tid" tid "zid" (:zid conv))
-                                    0))
-                    ;; Use 0 as the default when meta-tids is null or doesn't contain the tid
-                    meta-tid-value (if meta-tids 
-                                   (get meta-tids tid 0)
-                                   0)]
-                (priority-metric meta-tid-value A P S extremity)))
+                                    0))]
+                ;; Pass a real boolean. (get meta-tids tid 0) defaults non-meta
+                ;; tids to 0, which is TRUTHY in Clojure, so priority-metric took
+                ;; the meta branch for every comment (regression #1961). See #2571
+                ;; and delphi/docs/MATH_ALGORITHM_HISTORY.md.
+                (priority-metric (contains? meta-tids tid) A P S extremity)))
             tids)))
 
 
