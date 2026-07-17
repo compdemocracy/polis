@@ -1951,3 +1951,54 @@ regen + true D12 value-parity is now **follow-up work under #2571, blocked on ex
 the generator's vote-copy delta so cold-start inputs match; (3) THEN un-mirror `priority_metric`,
 regenerate cold-start blobs, and change D12's test from the trivial constant-49 check to a real
 varied-value / rank-parity assertion.
+
+### Session: D1b — fix `pca_project_cmnts` comment-extremity sign (2026-07-17)
+
+**Bug.** `pca_project_cmnts` (`polismath/pca_kmeans_rep/pca.py`) computed
+`coefs = -scale * (1.0 + center)` — a literal, untranslated copy of Clojure's
+synthetic vote value `-1` (`math/src/polismath/math/pca.clj:167-178`). In Clojure
+that `-1` is correct because Clojure stays in raw-Postgres convention throughout,
+where AGREE = -1 and `center` is a mean in that same convention. Delphi flips
+votes to its own convention at the Postgres ingress (`postgres_vote_to_delphi`),
+so the PCA is fit on AGREE = +1 data and `center` is a Delphi-convention mean.
+Projecting the untranslated `-1` therefore **inverts comment extremity**:
+`|correct| = scale·|1 − center|` vs `|actual| = scale·|1 + center|` — equal only
+at `center == 0`. A near-unanimous-AGREE comment (`center → +1`) should have
+extremity → 0 but the buggy code reported `2·scale` (maximally extreme); a
+near-unanimous-DISAGREE comment (`center → −1`) should be maximal but reported ≈0.
+The consensus↔extremity relationship was reversed.
+
+**Fix.** `coefs = scale * (AGREE - center)` (AGREE = +1, imported from
+`utils.general`). Faithful Delphi-convention port of the Clojure synthetic-AGREE
+projection. Docstring rewritten to explain the convention translation.
+
+**Why no test caught it.** (1) The old `test_pca_project_cmnts_formula` was
+tautological — it re-derived the implementation's own `-scale*(1+center)`. (2) The
+end-to-end golden/legacy comparisons compare priorities that BOTH sides
+short-circuit to the constant 49 under the #2571 bug-mirror, and the fixtures
+where extremity would matter are xfail-marked. A convention mismatch between the
+PCA-fit stage and the comment-projection stage was structurally unobservable.
+
+**Tests (TDD, RED→GREEN).** Replaced the tautological formula test with one
+deriving the expected value independently from the `AGREE` constant; added a
+behavioral sign test (agree → extremity 0, disagree → max); added an integration
+test on `_compute_comment_priorities` that spies on the extremity `E` reaching
+`priority_metric` (works despite the #2571 mirror, since it inspects the argument,
+not the return) and pins it to hand-derived values (0 and 2·√2). Also added a
+provenance comment at `regression/utils.py` recording that the regression CSVs are
+pre-flipped to Delphi convention by `server/src/report.ts` (~line 393,
+`vote: String(-row.vote)`), so the regression path must NOT re-flip.
+
+**Output-inert today.** Because `priority_metric` still returns
+`META_PRIORITY**2` (the #2571 mirror), extremity affects no DynamoDB output yet —
+full suite **406 passed / 17 skipped / 47 xfailed / 0 failed**, and **no golden
+snapshots moved**. The fix becomes live when the mirror is removed; it is
+exactly the extremity/PCA-parity groundwork that the D12 un-mirror is blocked on.
+
+**Not D1.** Distinct from the `align_pca_signs()` eigenvector-orientation
+stability fix (`jc/clj-parity-d1-pca-sign-flip-prevention`) — that is temporal
+±sign ambiguity between ticks, unrelated to this projection-convention bug.
+
+**What's next:** with D1b closed, the remaining blockers on the D12 un-mirror are
+the D1 sign-stability work and the participant-filtering / vote-copy reconciliation
+noted above.
