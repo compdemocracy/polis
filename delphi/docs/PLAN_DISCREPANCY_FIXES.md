@@ -527,7 +527,7 @@ See `delphi/docs/INVESTIGATION_K_DIVERGENCE.md` for the full investigation.
 | ID | Discrepancy | Plan PR | GitHub PR | Status |
 |----|-------------|---------|-----------|--------|
 | D1 | PCA sign flips | PR 13 | — (WIP) | VM draft — **NEEDS REWORK** (no replay tests) |
-| D1b | Projection input | PR 13 | — (WIP) | VM draft — documented, low severity, no code change |
+| D1b | Projection input | PR 13 | — (spr-stack) | **CODE FIX DONE ✓ (2026-07-17)** — `pca_project_cmnts` projected the untranslated Clojure literal `-1` (`-scale*(1+center)`) instead of the Delphi `AGREE` constant, INVERTING comment extremity (near-unanimous-agree → maximally extreme). Fixed to `scale*(AGREE-center)`. 3 tests (formula derived from AGREE, agree/disagree sign, extremity→priority_metric spy). Output-inert today (masked by #2571 `priority_metric` short-circuit) → no golden movement. Unblocks the D12 un-mirror. **Distinct from D1** (align_pca_signs / temporal stability). |
 | D2 | In-conv threshold | **PR 1** | **#2513** | **DONE** ✓ |
 | D2b | Base-cluster sort order | **PR 1** | **#2513** | **DONE** ✓ |
 | D2c | Vote count source (raw vs filtered matrix) | **PR 1** | **#2513** | **DONE** ✓ |
