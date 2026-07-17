@@ -363,6 +363,20 @@ If we discover that cold-start fixes can't be completed without warm-start testi
 2. Incremental: feed votes in batches, assert k stability
 3. Fix: Add `group_k_smoother` state with buffer=4
 
+**⚠️ Port BOTH smoother levels WITH the stale-k clamp.** Clojure has two
+k-smoothers: `group-k-smoother` AND, one level down, a per-group
+`:subgroup-k-smoother`. Both carry a `smoothed-k` forward across ticks (anti-flap)
+and both must **clamp it to a key that still exists in the current clusterings** —
+otherwise, when a group's base-cluster count drops below a `/12` boundary the
+available k-range (`M`) shrinks, the carried `smoothed-k` falls out of range, the
+`get`-by-k returns nil, and downstream `conv-repness` crashes on an empty
+clustering. Clojure fixed the group level in #2536 and the subgroup level in #2575
+(`jc/subgroup-k-smoother-clamp`): `smoothed-k = smoothed-k if (contains? clusterings
+smoothed-k) else this-k`. When porting D3, replicate the clamp at **both** levels —
+do not port the pre-#2536 unclamped logic. See `math/.../conversation.clj`
+`:group-k-smoother` / `:subgroup-k-smoother` and `math/test/conv_edge_cases_test.clj`
+for the reference tests.
+
 ---
 
 ### PR 11: Fix D12 — Comment Priorities
