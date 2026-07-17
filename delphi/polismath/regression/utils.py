@@ -264,6 +264,15 @@ def prepare_votes_data(dataset_name: str) -> Tuple[Dict, Dict[str, Any]]:
 
     # Convert votes DataFrame to the format expected by update_votes
     # Expected format: {'pid': voter_id, 'tid': comment_id, 'vote': vote_value, 'created': timestamp}
+    #
+    # Vote convention: these CSVs are exported by the TS server
+    # (server/src/report.ts ~393 — `vote: String(-row.vote)  // flip -1 to 1`),
+    # which ALREADY flips raw Postgres (AGREE=-1) into Delphi convention
+    # (AGREE=+1). `update_votes` expects Delphi convention and does NOT re-flip
+    # (the `postgres_vote_to_delphi` ingress flip lives on the live-Postgres path
+    # in run_math_pipeline.py / database/postgres.py, not here). So `row['vote']`
+    # is passed through as-is — do NOT add a flip here, or PCA center/extremity
+    # (which assume Delphi convention) would be inverted.
     votes_list = []
     for _, row in votes_df.iterrows():
         votes_list.append({
