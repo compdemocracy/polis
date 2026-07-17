@@ -11,6 +11,8 @@ import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Sequence, Tuple, Union, Any
 
+from polismath.utils.general import AGREE
+
 logger = logging.getLogger(__name__)
 
 
@@ -396,19 +398,31 @@ def pca_project_cmnts(center: np.ndarray, comps: np.ndarray) -> np.ndarray:
 
     Clojure (`pca-project-cmnts`, pca.clj:167-178) calls
     `sparsity-aware-project-ptpts` on a synthetic vote matrix where row `i`
-    has value `-1` at column `i` and `nil` everywhere else.
+    has a single AGREE vote at column `i` and `nil` everywhere else.
 
     For comment `i`, the sparsity-aware reduce (pca.clj:134-157) collapses to:
         n_votes = 1                                   (only column i is non-nil)
-        p1 = (-1 - center[i]) * pc1[i]
-        p2 = (-1 - center[i]) * pc2[i]
+        p1 = (agree_vote - center[i]) * pc1[i]
+        p2 = (agree_vote - center[i]) * pc2[i]
         scale = sqrt(n_cmnts / max(1, 1)) = sqrt(n_cmnts)
     Final row:
-        proj[i] = sqrt(n_cmnts) * (-1 - center[i]) * [pc1[i], pc2[i]]
-                = -sqrt(n_cmnts) * (1 + center[i]) * [pc1[i], pc2[i]]
+        proj[i] = sqrt(n_cmnts) * (agree_vote - center[i]) * [pc1[i], pc2[i]]
+
+    **Convention note (D1b):** Clojure uses the literal vote value `-1` here
+    because Clojure stays in raw-Postgres convention throughout, where
+    AGREE = -1 (and its `center` is the mean in that same convention). Delphi
+    flips votes to its own convention at the Postgres ingress boundary
+    (`postgres_vote_to_delphi`), so the PCA is fit on AGREE = +1 data and
+    `center` is a mean in Delphi convention. The faithful port therefore
+    projects the Delphi `AGREE` constant (+1), NOT the untranslated literal -1.
+
+    Using -1 here would invert comment extremity: `|AGREE - center|` correctly
+    sends a near-unanimous-AGREE comment (center → +1) to extremity ~0 and a
+    near-unanimous-DISAGREE comment (center → -1) to maximal extremity;
+    `-(1 + center)` reverses both. The two agree only at center == 0.
 
     Args:
-        center: PCA center (column means), shape (n_cmnts,).
+        center: PCA center (column means, Delphi convention), shape (n_cmnts,).
         comps: PCA components, shape (n_components, n_cmnts). Typically
             n_components == 2.
 
@@ -420,7 +434,7 @@ def pca_project_cmnts(center: np.ndarray, comps: np.ndarray) -> np.ndarray:
     if n_cmnts == 0:
         return np.zeros((0, comps.shape[0] if comps.ndim == 2 else 0))
     scale = np.sqrt(n_cmnts)
-    coefs = -scale * (1.0 + center)               # shape (n_cmnts,)
+    coefs = scale * (AGREE - center)              # shape (n_cmnts,); AGREE = +1 (Delphi)
     return coefs[:, None] * comps.T               # shape (n_cmnts, n_components)
 
 

@@ -2069,6 +2069,60 @@ class TestD12PriorityExtremityAlignment:
                    for r in caplog.records), \
             "expected an ERROR log naming the priorities/extremity desync"
 
+    def test_extremity_sign_reaches_priority_metric(self, monkeypatch):
+        """End-to-end sign check through `_compute_comment_priorities`.
+
+        `priority_metric` currently short-circuits to `META_PRIORITY**2` (the
+        #2571 Clojure-bug mirror), so we can't assert on its RETURN value. But
+        the extremity `E` it is CALLED with is exactly what the pca sign bug
+        corrupts. We spy on that argument (independent of the mirror) and pin
+        it to a hand-derived value.
+
+        Setup: two comments, one near-unanimous AGREE (center +1), one
+        near-unanimous DISAGREE (center -1), with pc1 = 1 / pc2 = 0 so
+        extremity == |coef|. Correct convention translation ⇒ agree extremity 0,
+        disagree extremity 2·sqrt(2). The pre-fix untranslated `-1` inverts them.
+
+        `group_clusters` is left empty on purpose: A/P/S collapse to 0 for every
+        tid, so the only quantity varying between the two calls is `E` — no
+        confound from vote aggregation.
+        """
+        import polismath.conversation.conversation as convmod
+
+        conv = Conversation(conversation_id='ztest-extremity-sign')
+        conv.rating_mat = pd.DataFrame(
+            [[1.0, -1.0], [1.0, -1.0], [1.0, -1.0]],   # 3 ptpts; col 10 agree, col 11 disagree
+            index=[0, 1, 2], columns=[10, 11],
+        )
+        conv.raw_rating_mat = conv.rating_mat.copy()
+        conv.pca = {
+            'center': np.array([1.0, -1.0]),
+            'comps': np.array([[1.0, 1.0], [0.0, 0.0]]),
+        }
+        conv.group_clusters = []
+        conv.meta_tids = set()
+
+        captured_E = []
+        real_priority_metric = convmod.priority_metric
+
+        def spy(is_meta, A, P, S, E):
+            captured_E.append(E)
+            return real_priority_metric(is_meta, A, P, S, E)
+
+        monkeypatch.setattr(convmod, 'priority_metric', spy)
+        conv._compute_comment_priorities()
+
+        # Call order follows rating_mat.columns == [10 (agree), 11 (disagree)].
+        assert len(captured_E) == 2, f"expected one priority_metric call per tid, got {captured_E}"
+        e_agree, e_disagree = captured_E
+        scale = np.sqrt(2)
+        assert e_agree == pytest.approx(0.0, abs=1e-9), \
+            "unanimous-agree comment must reach priority_metric with extremity ~0"
+        assert e_disagree == pytest.approx(2.0 * scale), \
+            "unanimous-disagree comment must reach priority_metric with maximal extremity"
+        assert e_agree < e_disagree, \
+            "extremity sign inverted: agree must be less extreme than disagree"
+
 
 class TestD12PCAProjectComments:
     """`pca_project_cmnts` and `compute_comment_extremity` — Clojure parity."""
@@ -2082,7 +2136,18 @@ class TestD12PCAProjectComments:
         assert proj.shape == (4, 2)
 
     def test_pca_project_cmnts_formula(self):
-        """For comment i: proj[i] = -sqrt(n_cmnts) * (1 + center[i]) * [pc1[i], pc2[i]]."""
+        """Clojure-parity: proj[i] = sqrt(n_cmnts) * (AGREE - center[i]) * [pc1[i], pc2[i]].
+
+        Clojure (`pca-project-cmnts`, pca.clj:167-178) projects a synthetic vote
+        of `-1` because Clojure stays in raw-Postgres convention where AGREE = -1.
+        Delphi fits PCA in its OWN convention (AGREE = +1, via the
+        `postgres_vote_to_delphi` ingress flip), so the faithful port projects
+        the Delphi `AGREE` constant, not the literal -1.
+
+        Expected is derived from the `AGREE` constant (NOT copied from the
+        implementation), so this catches a convention/sign regression instead of
+        rubber-stamping whatever the code currently computes.
+        """
         center = np.array([0.1, 0.2, 0.3, 0.4])
         comps = np.array([[1.0, 0.5, -0.5, 0.0],
                           [0.0, 0.5, 0.5, 1.0]])
@@ -2090,7 +2155,7 @@ class TestD12PCAProjectComments:
         n_cmnts = 4
         scale = np.sqrt(n_cmnts)
         for i in range(n_cmnts):
-            expected = -scale * (1 + center[i]) * comps[:, i]
+            expected = scale * (AGREE - center[i]) * comps[:, i]
             assert np.allclose(proj[i], expected), \
                 f"proj[{i}] = {proj[i]} vs expected {expected}"
 
@@ -2113,6 +2178,33 @@ class TestD12PCAProjectComments:
         """Empty input → empty output."""
         ext = compute_comment_extremity(np.zeros((0, 2)))
         assert ext.shape == (0,)
+
+    def test_extremity_sign_agree_low_disagree_high(self):
+        """Semantic guard on the convention translation (not the formula itself).
+
+        In Delphi convention (AGREE = +1) the PCA center of a near-unanimous
+        AGREE comment → +1, and of a near-unanimous DISAGREE comment → -1.
+        Clojure-parity extremity is the L2 norm of `(AGREE - center) * pc`:
+
+            unanimous AGREE    (center → +1) ⇒ |AGREE - center| → 0  ⇒ extremity → 0
+            unanimous DISAGREE (center → -1) ⇒ |AGREE - center| → 2  ⇒ extremity → max
+
+        The pre-fix code used the untranslated Clojure literal `-1`
+        (`-scale*(1+center)`), which INVERTS this — a comment everyone agrees on
+        would read as maximally extreme. This test pins the direction and would
+        fail (agree > disagree) under that bug.
+        """
+        # comps: pc1 = 1 for both comments, pc2 = 0 ⇒ extremity == |coef|.
+        center = np.array([1.0, -1.0])            # col 0 = agree pole, col 1 = disagree pole
+        comps = np.array([[1.0, 1.0],
+                          [0.0, 0.0]])
+        ext = compute_comment_extremity(pca_project_cmnts(center, comps))
+        scale = np.sqrt(2)
+        assert ext[0] == pytest.approx(0.0, abs=1e-9), \
+            "unanimous-agree comment must have extremity ~0"
+        assert ext[1] == pytest.approx(2.0 * scale), \
+            "unanimous-disagree comment must have maximal extremity"
+        assert ext[0] < ext[1], "agree must be LESS extreme than disagree (sign check)"
 
 
 class TestD12PriorityMetrics:
