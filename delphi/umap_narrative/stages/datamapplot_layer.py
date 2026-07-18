@@ -24,7 +24,7 @@ from botocore.exceptions import ClientError
 # Import from local modules
 from polismath_commentgraph.utils.storage import PostgresClient, DynamoDBStorage
 
-def s3_upload_file(local_file_path: str, s3_key: str) -> str or bool:
+def s3_upload_file(local_file_path: str, s3_key: str) -> str | bool:
     """
     Uploads a file to an S3-compatible object store, handling both local and
     AWS environments holistically.
@@ -677,8 +677,9 @@ def create_visualization(zid, layer_id, data, comment_texts, output_dir=None):
             # Set specific color for unclustered comments (cluster -1) as darker grey
             noise_color = "#aaaaaa"  # Darker grey color for unclustered comments
             
-            # Create a dictionary to sort points by cluster - unclustered (-1) should be LAST in the array
-            # so they appear at the bottom layer in the visualization
+            # Sort points so unclustered (-1) come FIRST in the array: points are
+            # drawn in array order (painter's algorithm), so first-drawn ends up
+            # at the bottom layer, under the clustered points.
             logger.debug(f"Sorting points by cluster")
             sorted_indices = np.argsort([0 if x == -1 else 1 for x in cluster_labels])
             document_map = document_map[sorted_indices]

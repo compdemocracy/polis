@@ -213,13 +213,11 @@ class PriorityCalculator:
         """
         logger.info(f"Updating {len(updates)} priority values in DynamoDB")
         try:
-            # Use a BatchWriter to efficiently handle multiple updates.
-            with self.comment_routing_table.batch_writer(overwrite_by_pkeys=['zid_tick', 'comment_id']) as batch:
-                for item_update in updates:
-                    # NOTE: BatchWriter does not support update_item. We must put the entire item.
-                    # This requires fetching the full item first or knowing its structure.
-                    # A loop of update_item is simpler and already a huge improvement.
-                    self.comment_routing_table.update_item(**item_update)
+            # NOTE: BatchWriter does not support update_item (it only batches
+            # put/delete), so a plain loop of update_item is used — no batch
+            # context, which would be a misleading no-op wrapper here.
+            for item_update in updates:
+                self.comment_routing_table.update_item(**item_update)
 
             logger.info("Successfully updated all priorities in DynamoDB")
             return True
