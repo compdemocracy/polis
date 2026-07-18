@@ -145,6 +145,7 @@ filterwarnings = [
 markers = [
     "local_dataset: mark test as using local (non-committed) datasets from real_data/.local/",
     "clojure_comparison: mark test as comparing with Clojure reference implementation (can be excluded with '-m \"not clojure_comparison\"')",
+    "integration: mark test as an opt-in integration test needing a real Postgres (self-skips if docker/port unavailable)",
 ]
 
 [tool.coverage.run]
