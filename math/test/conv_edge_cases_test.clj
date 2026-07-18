@@ -99,6 +99,56 @@
 
 
 ;; ============================================================================
+;; Bug 2b: stale smoothed-k in :subgroup-k-smoother (issue #2575)
+;;
+;; The identical bug as Bug 2, one level down. #2536 clamped smoothed-k in
+;; group-k-smoother but NOT in :subgroup-k-smoother. A group's subgroup
+;; clustering runs k-means for k in (range 2 (inc M)), where M is count-based
+;; on the group's base-cluster count. When group membership drops below a /12
+;; boundary, M falls; the carried smoothed-k can exceed M; and downstream
+;; (get group-subgroup-clusterings smoothed-k) returns nil → an empty subgroup
+;; clustering → conv-repness crash. The fix mirrors #2536: clamp the carried
+;; smoothed-k to a key that exists in THIS group's current subgroup clusterings.
+;; ============================================================================
+
+(deftest stale-subgroup-smoothed-k-is-clamped-to-available-subgroup-clusters
+  (testing "subgroup smoothed-k is clamped per group so subgroup-clusters stays non-nil"
+    ;; Simulate: a group :g0 whose previous subgroup smoothed-k was 5, but whose
+    ;; current base-cluster count only supports subgroup k=2,3 (M stepped down).
+    (let [gid :g0
+          ;; Minimal subgroup clusterings for k=2 and k=3 for this group
+          dummy-clustering-k2 [{:id 0 :members [:b1]} {:id 1 :members [:b2]}]
+          dummy-clustering-k3 [{:id 0 :members [:b1]} {:id 1 :members [:b2]} {:id 2 :members []}]
+          group-subgroup-clusterings {2 dummy-clustering-k2
+                                      3 dummy-clustering-k3}
+          subgroup-clusterings {gid group-subgroup-clusterings}
+          ;; Best available k by silhouette is 3; but buffer hasn't been exceeded,
+          ;; so the smoother preserves the (stale) old smoothed-k of 5.
+          subgroup-clusterings-silhouettes {gid {2 0.6, 3 0.8}}
+          old-smoother {:last-k 5 :last-k-count 1 :smoothed-k 5}
+          smoother-fnk (:subgroup-k-smoother conversation/small-conv-update-graph)
+          new-smoother (smoother-fnk
+                         {:conv {:subgroup-k-smoother {gid old-smoother}}
+                          :subgroup-clusterings subgroup-clusterings
+                          :subgroup-clusterings-silhouettes subgroup-clusterings-silhouettes
+                          :opts' {:group-k-buffer 4}})
+          smoothed-k (get-in new-smoother [gid :smoothed-k])
+          ;; Downstream :subgroup-clusters does exactly this lookup per group.
+          subgroup-clusters (get group-subgroup-clusterings smoothed-k)]
+
+      ;; With the current (unfixed) code, smoothed-k stays at 5 and the lookup returns nil.
+      ;; After the fix, smoothed-k should be clamped to an available k.
+      (testing "smoothed-k should be a key that exists in this group's subgroup clusterings"
+        (is (contains? group-subgroup-clusterings smoothed-k)
+            (str "smoothed-k=" smoothed-k
+                 " not in " (keys group-subgroup-clusterings))))
+
+      (testing "subgroup-clusters lookup should not be nil"
+        (is (some? subgroup-clusters)
+            "subgroup-clusters lookup must not return nil")))))
+
+
+;; ============================================================================
 ;; Bug 3 (colleague's fix): agg-bucket-votes-for-tid with unknown pids
 ;;
 ;; When base-cluster members include pids not present in the rating matrix
