@@ -1949,35 +1949,18 @@ class TestD12CommentPriorities:
     """
 
     def test_comment_priorities_exist(self, request, conv, clojure_blob, dataset_name):
-        """Python should produce comment-priorities matching Clojure.
+        """Python produces REAL (varied) comment-priorities; blob coverage holds.
 
-        Per D12.6: Clojure's `(if 0 ...)` truthiness quirk means every tid
-        takes the meta branch, so Clojure cold_start priorities are all
-        META_PRIORITY^2 = 49.0 for vw/biodiversity. Python now mirrors this
-        bug
-        (priority_metric returns META_PRIORITY**2 unconditionally), so both
-        sides should yield identical all-constant 49.0. Spearman is not
-        meaningful when both sides have zero variance — we instead verify
-        the constant-value parity directly.
+        History: until 2026-07-22 this asserted the all-49 signature on both
+        sides (Python mirrored Clojure's #1961 truthy-0 bug, #2571). Clojure
+        HEAD is fixed (#2611) and Python is un-mirrored, so the pins here are
+        now: (a) priorities exist and cover the blob's tids; (b) Python's
+        values are NOT the all-constant bug signature. VALUE parity vs
+        Clojure is no longer checkable against these stale pre-#2611 blobs —
+        it is validated by the H-B replay battery against Clojure HEAD
+        (scripts/certify.py); see also the xfail in
+        test_legacy_clojure_regression.py::test_comment_priorities.
         """
-        # Per-variant xfail (g5, refined 2026-07-05): known-bad only where
-        # the Clojure incremental blob has VARIED priorities (no truthy-0
-        # bug there), so Python's all-49 mirror can't match. FLI and bg2050
-        # incremental blobs carry the all-49 signature and DO match — they
-        # gate. All cold_start variants gate. Once the Clojure bug (#2571)
-        # is fixed upstream, drop the Python mirror and this xfail.
-        _varied_priority_incrementals = (
-            'vw-incremental', 'biodiversity-incremental',
-            'bg2018-incremental', 'engage-incremental',
-            'pakistan-incremental')
-        if request.node.callspec.id in _varied_priority_incrementals:
-            request.applymarker(pytest.mark.xfail(
-                raises=AssertionError,
-                strict=False,
-                reason="D12.6: this Clojure incremental blob has varied "
-                       "priorities (no truthy-0 bug there); Python's "
-                       "all-49 mirror cannot match. See issue #2571."))
-
         clj_priorities = clojure_blob.get('comment-priorities', {})
         check.greater(len(clj_priorities), 0,
                        f"Clojure has {len(clj_priorities)} comment priorities")
@@ -1998,32 +1981,17 @@ class TestD12CommentPriorities:
         check.greater(len(common_tids), 0, "Should have common priority tids")
 
         tids_sorted = sorted(common_tids)
-        clj_vals = [clj_p[t] for t in tids_sorted]
         py_vals = [py_p[t] for t in tids_sorted]
-        clj_unique = set(clj_vals)
         py_unique = set(py_vals)
-        print(f"[{dataset_name}] clj_vals sample: {clj_vals[:5]}, "
-              f"min={min(clj_vals)}, max={max(clj_vals)}, "
-              f"unique={len(clj_unique)}")
         print(f"[{dataset_name}] py_vals  sample: {py_vals[:5]}, "
               f"min={min(py_vals)}, max={max(py_vals)}, "
               f"unique={len(py_unique)}")
 
-        # D12.6 Clojure-parity-bug mirror: both sides should return
-        # META_PRIORITY**2 = 49.0 for every tid.
-        META_PRIORITY_SQ = META_PRIORITY ** 2
-        check.equal(len(clj_unique), 1,
-                    f"Clojure priorities should be all-constant (bug); got {len(clj_unique)} unique")
-        check.equal(len(py_unique), 1,
-                    f"Python priorities should be all-constant (bug mirror); got {len(py_unique)} unique")
-        if len(clj_unique) == 1:
-            (clj_const,) = clj_unique
-            check.almost_equal(clj_const, META_PRIORITY_SQ, abs=1e-9,
-                               msg=f"Clojure constant priority should be META_PRIORITY**2={META_PRIORITY_SQ}")
-        if len(py_unique) == 1:
-            (py_const,) = py_unique
-            check.almost_equal(py_const, META_PRIORITY_SQ, abs=1e-9,
-                               msg=f"Python constant priority should be META_PRIORITY**2={META_PRIORITY_SQ}")
+        # Un-mirrored formula: real data always yields varied priorities.
+        # All-constant output would mean the #2571 mirror crept back in.
+        check.greater(len(py_unique), 1,
+                      "Python priorities must be varied (real formula), not "
+                      "the all-constant #2571 mirror signature")
 
 
 class TestD12PriorityExtremityAlignment:
@@ -2229,10 +2197,6 @@ class TestD12PriorityMetrics:
         assert priority_metric(True, 5, 2, 10, 1.5) == META_PRIORITY ** 2
         assert priority_metric(True, 0, 0, 0, 0) == META_PRIORITY ** 2
 
-    @pytest.mark.xfail(reason="Clojure parity bug mirror (D12.6): priority_metric always "
-                              "returns META_PRIORITY**2 until upstream Clojure bug resolves. "
-                              "Tests pin the semantically-correct formula and will pass again "
-                              "when we revert the mirror.")
     def test_priority_metric_non_meta_squared(self):
         """Non-meta: return = (importance * (1 + 8*2^(-S/5)))^2."""
         # A=20, P=3, S=20, E=0 — ref from conversation.clj:337
