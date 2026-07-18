@@ -1,0 +1,24 @@
+{
+  "dataset": "vw",
+  "schedule_id": "uniform8-restart4",
+  "source": "votes-csv",
+  "cuts": {
+    "mode": "vote-count",
+    "at": [
+      585,
+      1171,
+      1756,
+      2342,
+      2927,
+      3512,
+      4098,
+      4683
+    ]
+  },
+  "moderation": "none",
+  "clojure": {
+    "warm_start": "chain"
+  },
+  "notes": "uniform8 with a worker-restart seam after step 4 (load-or-init replay: blob round-trip + full-history raw-rating-mat + mod-update)",
+  "restart_after": 4
+}

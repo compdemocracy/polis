@@ -1,9 +1,11 @@
 """load-or-init + the from_dict restoration finding.
 
 These tests LOCK the finding documented in polismath/poller/__init__.py:
-``Conversation.from_dict`` restores warm state (pca, moderation, counts) but NOT
-the rating matrices or base_clusters, so load-or-init must ALWAYS rebuild the
-matrices from the full vote history (mirroring conv_man.clj:188-207).
+``Conversation.from_dict`` restores warm state (pca, moderation, counts — and,
+since the 2026-07-24 restart-seam fix, zid, base_clusters and group_votes,
+mirroring what restructure-json-conv keeps, conv_man.clj:171-186) but NOT the
+rating matrices or the group-clusterings/smoother memory, so load-or-init must
+ALWAYS rebuild the matrices from the full vote history (conv_man.clj:188-207).
 """
 
 import time
@@ -46,16 +48,25 @@ class TestFromDictFinding:
         blob = conv.to_dict()
         restored = Conversation.from_dict(blob)
 
-        # RESTORED (warm state): pca, moderation, counts.
+        # RESTORED (warm state): pca, moderation, counts — and, since the
+        # restart-seam fix (journal 2026-07-24), zid + base clusters
+        # (id/members faithful — the warm-start lineage input) + group-votes,
+        # exactly what restructure-json-conv keeps (conv_man.clj:171-186).
         assert restored.pca is not None
         assert set(restored.mod_out_tids) == {"3"}
         assert restored.participant_count == conv.participant_count
+        assert restored.conversation_id == "42"
+        assert [c["id"] for c in restored.base_clusters] == \
+            [c["id"] for c in conv.base_clusters]
+        assert [c["members"] for c in restored.base_clusters] == \
+            [c["members"] for c in conv.base_clusters]
 
-        # NOT RESTORED: the vote matrices and base_clusters — hence a full
-        # rebuild is mandatory in load-or-init.
+        # NOT RESTORED: the vote matrices (and the per-k clusterings/smoother
+        # memory) — hence a full rebuild is mandatory in load-or-init.
         assert restored.raw_rating_mat.size == 0
         assert restored.rating_mat.size == 0
-        assert restored.base_clusters == []
+        assert restored.group_clusterings == {}
+        assert restored.group_k_smoother == {}
 
 
 class TestLoadOrInit:
