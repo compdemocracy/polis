@@ -312,22 +312,20 @@ class TestClojureRegression:
         clojure_output = conversation_data['clojure_output']
         dataset_name = conversation_data['dataset_name']
 
-        # Per-variant xfail (g5, refined 2026-07-05): known-bad only where
-        # the Clojure incremental blob has VARIED priorities (no truthy-0
-        # bug there). FLI and bg2050 incremental blobs carry the all-49
-        # signature and match Python's mirror — they gate, as do all
-        # cold_start variants. Drop this once the Clojure bug (#2571) is
-        # fixed and the Python mirror is removed.
-        _varied_priority_incrementals = (
-            'vw-incremental', 'biodiversity-incremental',
-            'bg2018-incremental', 'engage-incremental',
-            'pakistan-incremental')
-        if request.node.callspec.id in _varied_priority_incrementals:
-            request.applymarker(pytest.mark.xfail(
-                raises=AssertionError, strict=False,
-                reason="D12.6: this Clojure incremental blob has varied "
-                       "priorities (no truthy-0 bug there); Python's "
-                       "all-49 mirror cannot match. See issue #2571."))
+        # Un-mirror (2026-07-22): Python computes the REAL priority formula
+        # (Clojure HEAD fixed #1961 via #2611; the #2571 mirror is removed),
+        # so exact-value parity against these STALE pre-#2611 reference blobs
+        # (all-49 signature on every cold_start + FLI/bg2050 incrementals;
+        # bug-free-Clojure varied values on the rest, but from a different
+        # warm-start trajectory) is not achievable for ANY variant. Value
+        # parity vs Clojure HEAD is validated by the H-B replay battery
+        # (scripts/certify.py). Re-enable this comparison after the blobs
+        # are regenerated with a fixed-Clojure generator (needs prodclone).
+        request.applymarker(pytest.mark.xfail(
+            raises=AssertionError, strict=False,
+            reason="reference blobs predate the Clojure #2611 priority fix; "
+                   "Python un-mirrored 2026-07-22 — exact-value parity is "
+                   "validated via the H-B replay battery until blob regen"))
 
         print(f"\n[{dataset_name}] Testing comment priorities...")
 
