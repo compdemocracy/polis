@@ -25,6 +25,7 @@ import numpy as np
 import pandas as pd
 
 from polismath.utils.general import postgres_vote_to_delphi
+from polismath.utils.serialization import convert_numpy_types
 
 # Set up logging
 logger = logging.getLogger(__name__)
@@ -214,6 +215,23 @@ class MathPtptStats(Base):
         return f"<MathPtptStats(zid={self.zid}, math_env='{self.math_env}')>"
 
 
+class MathBidToPid(Base):
+    """Stores the base-cluster bid -> participant-id mapping (server consumes it
+    via server/src/utils/participants.ts).  Mirrors the Clojure math_bidtopid
+    table written by upload-math-bidtopid (postgres.clj:369-380)."""
+
+    __tablename__ = "math_bidtopid"
+
+    zid = sa.Column(sa.Integer, primary_key=True)
+    math_env = sa.Column(sa.String, primary_key=True)
+    math_tick = sa.Column(sa.BigInteger, nullable=False, default=-1)
+    data = sa.Column(JSONB, nullable=False)
+    modified = sa.Column(sa.BigInteger, server_default=text("now_as_millis()"))
+
+    def __repr__(self):
+        return f"<MathBidToPid(zid={self.zid}, math_env='{self.math_env}')>"
+
+
 class MathReportCorrelationMatrix(Base):
     """Stores correlation matrices for reports."""
 
@@ -392,9 +410,30 @@ class PostgresClient:
         if not self._initialized:
             self.initialize()
 
-        with self.engine.connect() as conn:
+        with self.engine.begin() as conn:
             result = conn.execute(text(sql), params or {})
             return result.rowcount
+
+    def _write_returning(
+        self, sql: str, params: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
+        """Execute a writing statement inside a COMMITTED transaction and return
+        any RETURNING rows.
+
+        ``query()`` uses ``engine.connect()`` (SQLAlchemy 2.0 "commit as you go"),
+        which rolls back on close — fine for SELECTs but it silently discards
+        INSERT/UPDATEs.  The upsert writers (math_main / math_ticks / math_bidtopid
+        / math_ptptstats) MUST persist, so they route through here:
+        ``engine.begin()`` commits on successful exit.
+        """
+        if not self._initialized:
+            self.initialize()
+
+        with self.engine.begin() as conn:
+            result = conn.execute(text(sql), params or {})
+            if result.returns_rows:
+                return [dict(row) for row in result.mappings().all()]
+            return []
 
     def get_zinvite_from_zid(self, zid: int) -> Optional[str]:
         """
@@ -466,9 +505,15 @@ class PostgresClient:
         """
 
         # Add timestamp filter if provided
-        if since:
+        if since is not None:
             sql += " AND created > :since"
             params["since"] = since
+
+        # Row order matters for parity: Clojure conv-poll orders by
+        # [:zid :tid :pid :created] (postgres.clj:197-212).  update_votes assigns
+        # base-cluster IDs by first-appearance order of participants, which seeds
+        # k-means; a different row order changes k.  So we must ORDER identically.
+        sql += " ORDER BY zid, tid, pid, created"
 
         # Execute query
         votes = self.query(sql, params)
@@ -482,6 +527,78 @@ class PostgresClient:
                 "created": v["created"],
             }
             for v in votes
+        ]
+
+    def poll_votes_since(self, since: int) -> List[Dict[str, Any]]:
+        """
+        Global vote poll across ALL conversations since a watermark.
+
+        Mirrors the Clojure vote poller query (postgres.clj:132-145):
+            SELECT * FROM votes WHERE created > watermark
+            ORDER BY zid, tid, pid, created
+        Signs are flipped to the Delphi convention at this ingress boundary.
+
+        Args:
+            since: Watermark (millis since epoch); returns rows with created > since
+
+        Returns:
+            List of votes {zid, pid, tid, vote, created}, sign-flipped, ordered.
+        """
+        rows = self.query(
+            """
+            SELECT zid, tid, pid, vote, created
+            FROM votes
+            WHERE created > :since
+            ORDER BY zid, tid, pid, created
+            """,
+            {"since": since},
+        )
+        return [
+            {
+                "zid": int(v["zid"]),
+                "pid": str(v["pid"]),
+                "tid": str(v["tid"]),
+                "vote": postgres_vote_to_delphi(int(v["vote"])),
+                "created": v["created"],
+            }
+            for v in rows
+        ]
+
+    def poll_moderation_since(self, since: int) -> List[Dict[str, Any]]:
+        """
+        Global moderation poll across ALL conversations since a watermark.
+
+        Mirrors the Clojure mod poller query (postgres.clj:148-161):
+            SELECT * FROM comments WHERE modified > watermark
+            ORDER BY zid, tid, modified
+        Returns the raw changed-comment rows so the caller can group by zid and
+        advance the watermark to max(modified).  The per-zid worker then
+        re-derives the FULL current moderation state via poll_moderation(zid).
+
+        Args:
+            since: Watermark (millis since epoch); rows with modified > since
+
+        Returns:
+            List of {zid, tid, modified, mod, is_meta}.
+        """
+        rows = self.query(
+            """
+            SELECT zid, tid, modified, mod, is_meta
+            FROM comments
+            WHERE modified > :since
+            ORDER BY zid, tid, modified
+            """,
+            {"since": since},
+        )
+        return [
+            {
+                "zid": int(m["zid"]),
+                "tid": int(m["tid"]),
+                "modified": m["modified"],
+                "mod": m["mod"],
+                "is_meta": m["is_meta"],
+            }
+            for m in rows
         ]
 
     def get_report_comment_selections(
@@ -643,69 +760,120 @@ class PostgresClient:
         math_tick: Optional[int] = None,
     ) -> None:
         """
-        Write math results for a conversation.
+        Write math results for a conversation (Clojure upload-math-main parity).
+
+        caching_tick is NEVER taken from the caller: it is derived in-SQL exactly
+        as Clojure does (postgres.clj:323-338):
+
+            caching_tick = COALESCE(
+                (SELECT max(caching_tick) + 1 FROM math_main WHERE math_env = ?),
+                1)
+
+        so the TS server's prefetch (pca.ts:84-151 polls caching_tick > last) sees
+        a strictly increasing, per-math_env cursor.  The `caching_tick` parameter
+        is accepted for signature compatibility but ignored.
 
         Args:
             zid: Conversation ID
-            data: Math data
+            data: Math data (JSON blob stored verbatim)
             last_vote_timestamp: Timestamp of last processed vote
-            caching_tick: Current caching tick
-            math_tick: Current math tick
+            caching_tick: Ignored (derived in SQL); kept for back-compat
+            math_tick: Current math tick (shared with the other writes this cycle)
         """
-        with self.session() as session:
-            # Check if record exists
-            math_main = (
-                session.query(MathMain)
-                .filter_by(zid=zid, math_env=self.config.math_env)
-                .first()
-            )
+        last_vote_timestamp = (
+            last_vote_timestamp
+            if last_vote_timestamp is not None
+            else int(time.time() * 1000)
+        )
+        # NOTE: math_env appears twice in the params — once for the row value and
+        # once inside the caching_tick subquery (mirrors Clojure's duplicated ?).
+        self._write_returning(
+            """
+            insert into math_main
+                (zid, math_env, last_vote_timestamp, math_tick, data, caching_tick)
+            values
+                (:zid, :math_env, :last_vote_timestamp, :math_tick,
+                 cast(:data as jsonb),
+                 COALESCE((select max(caching_tick) + 1 from math_main
+                           where math_env = :math_env), 1))
+            on conflict (zid, math_env)
+            do update set modified = now_as_millis(),
+                          data = excluded.data,
+                          last_vote_timestamp = excluded.last_vote_timestamp,
+                          math_tick = excluded.math_tick,
+                          caching_tick = excluded.caching_tick
+            returning zid;
+            """,
+            {
+                "zid": zid,
+                "math_env": self.config.math_env,
+                "last_vote_timestamp": last_vote_timestamp,
+                "math_tick": math_tick if math_tick is not None else -1,
+                "data": json.dumps(data, default=convert_numpy_types),
+            },
+        )
 
-            if math_main:
-                # Update existing record
-                math_main.data = data
-                if last_vote_timestamp is not None:
-                    math_main.last_vote_timestamp = last_vote_timestamp
-                if caching_tick is not None:
-                    math_main.caching_tick = caching_tick
-                if math_tick is not None:
-                    math_main.math_tick = math_tick
-            else:
-                # Create new record
-                math_main = MathMain(
-                    zid=zid,
-                    math_env=self.config.math_env,
-                    data=data,
-                    last_vote_timestamp=last_vote_timestamp or int(time.time() * 1000),
-                    caching_tick=caching_tick or 0,
-                    math_tick=math_tick or -1,
-                )
-                session.add(math_main)
-
-    def write_participant_stats(self, zid: int, data: Dict[str, Any]) -> None:
+    def write_math_bidtopid(
+        self, zid: int, data: Dict[str, Any], math_tick: Optional[int] = None
+    ) -> None:
         """
-        Write participant statistics for a conversation.
+        Write the bid -> participant-id mapping (Clojure upload-math-bidtopid,
+        postgres.clj:369-380).  Net-new writer: the TS server's
+        getBidIndexToPidMapping / getPidsForGid (participants.ts) depend on it.
 
         Args:
             zid: Conversation ID
-            data: Participant statistics data
+            data: prep-bidToPid blob {"zid", "bidToPid", "lastVoteTimestamp"}
+            math_tick: Current math tick (shared with the other writes this cycle)
         """
-        with self.session() as session:
-            # Check if record exists
-            ptpt_stats = (
-                session.query(MathPtptStats)
-                .filter_by(zid=zid, math_env=self.config.math_env)
-                .first()
-            )
+        self._write_returning(
+            """
+            insert into math_bidtopid (zid, math_env, math_tick, data)
+            values (:zid, :math_env, :math_tick, cast(:data as jsonb))
+            on conflict (zid, math_env)
+            do update set modified = now_as_millis(),
+                          data = excluded.data,
+                          math_tick = excluded.math_tick
+            returning zid;
+            """,
+            {
+                "zid": zid,
+                "math_env": self.config.math_env,
+                "math_tick": math_tick if math_tick is not None else -1,
+                "data": json.dumps(data, default=convert_numpy_types),
+            },
+        )
 
-            if ptpt_stats:
-                # Update existing record
-                ptpt_stats.data = data
-            else:
-                # Create new record
-                ptpt_stats = MathPtptStats(
-                    zid=zid, math_env=self.config.math_env, data=data
-                )
-                session.add(ptpt_stats)
+    def write_participant_stats(
+        self, zid: int, data: Dict[str, Any], math_tick: Optional[int] = None
+    ) -> None:
+        """
+        Write participant statistics (Clojure upload-math-ptptstats parity,
+        postgres.clj:350-361).  Writes math_tick so the three data tables share
+        the single tick minted for the cycle (conv_man.clj:158-169).
+
+        Args:
+            zid: Conversation ID
+            data: Participant statistics data (prep-ptpt-stats blob)
+            math_tick: Current math tick (shared with the other writes this cycle)
+        """
+        self._write_returning(
+            """
+            insert into math_ptptstats (zid, math_env, math_tick, data)
+            values (:zid, :math_env, :math_tick, cast(:data as jsonb))
+            on conflict (zid, math_env)
+            do update set modified = now_as_millis(),
+                          data = excluded.data,
+                          math_tick = excluded.math_tick
+            returning zid;
+            """,
+            {
+                "zid": zid,
+                "math_env": self.config.math_env,
+                "math_tick": math_tick if math_tick is not None else -1,
+                "data": json.dumps(data, default=convert_numpy_types),
+            },
+        )
 
     def write_correlation_matrix(self, rid: int, data: Dict[str, Any]) -> None:
         """
@@ -738,7 +906,16 @@ class PostgresClient:
 
     def increment_math_tick(self, zid: int) -> int:
         """
-        Increment the math tick counter for a conversation.
+        Atomically increment the math tick counter for a conversation.
+
+        Clojure inc-math-tick (postgres.clj:292-295) does this in a SINGLE
+        statement so concurrent writers never race a read-modify-write:
+
+            insert into math_ticks (zid, math_env) values (?, ?)
+            on conflict (zid, math_env)
+            do update set modified = now_as_millis(),
+                          math_tick = (math_ticks.math_tick + 1)
+            returning math_tick;
 
         Args:
             zid: Conversation ID
@@ -746,29 +923,17 @@ class PostgresClient:
         Returns:
             New tick value
         """
-        with self.session() as session:
-            # Check if record exists
-            math_ticks = (
-                session.query(MathTicks)
-                .filter_by(zid=zid, math_env=self.config.math_env)
-                .first()
-            )
-
-            if math_ticks:
-                # Update existing record
-                math_ticks.math_tick += 1
-                new_math_tick = math_ticks.math_tick
-            else:
-                # Create new record
-                math_ticks = MathTicks(
-                    zid=zid, math_env=self.config.math_env, math_tick=1
-                )
-                session.add(math_ticks)
-                new_math_tick = 1
-
-            # Commit and return new math tick
-            session.commit()
-            return new_math_tick
+        rows = self._write_returning(
+            """
+            insert into math_ticks (zid, math_env) values (:zid, :math_env)
+            on conflict (zid, math_env)
+            do update set modified = now_as_millis(),
+                          math_tick = (math_ticks.math_tick + 1)
+            returning math_tick;
+            """,
+            {"zid": zid, "math_env": self.config.math_env},
+        )
+        return rows[0]["math_tick"]
 
     def poll_tasks(
         self, task_type: str, last_timestamp: int = 0, limit: int = 10

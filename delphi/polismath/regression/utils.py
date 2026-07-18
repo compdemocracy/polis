@@ -16,6 +16,10 @@ from typing import Dict, Any, Tuple, Optional
 import pandas as pd
 
 from polismath.conversation.conversation import Conversation
+# Backward-compatible re-export: convert_numpy_types was defined here (nested in
+# save_golden_snapshot); it now lives in the shared serialization util so the
+# Postgres math writers can share it. Import keeps existing references working.
+from polismath.utils.serialization import convert_numpy_types  # noqa: F401
 
 # Set up logger
 logger = logging.getLogger(__name__)
@@ -344,17 +348,7 @@ def save_golden_snapshot(snapshot: Dict, golden_path: Path) -> None:
     # Ensure parent directory exists
     golden_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Custom JSON encoder that converts numpy types to Python native types
-    def convert_numpy_types(obj):
-        """Convert numpy types to Python native types for JSON serialization."""
-        import numpy as np
-        if isinstance(obj, np.integer):
-            return int(obj)
-        elif isinstance(obj, np.floating):
-            return float(obj)
-        elif isinstance(obj, np.ndarray):
-            return obj.tolist()
-        raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
-
+    # convert_numpy_types is hoisted to polismath.utils.serialization (and
+    # re-exported below for backward compatibility).
     with open(golden_path, 'w') as f:
         json.dump(snapshot, f, indent=2, default=convert_numpy_types)
