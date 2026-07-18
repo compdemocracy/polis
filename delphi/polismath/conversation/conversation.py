@@ -233,6 +233,15 @@ class Conversation:
         # them (conv_man.clj:52-74). Unused in the default 'improved' mode.
         self.group_clusterings: Dict[Any, Any] = {}  # k -> (labels, centers, member_lists, silhouette)
         self.group_k_smoother: Dict[str, Any] = {}   # {last_k, last_k_count, smoothed_k}
+        # Persistent in-conv set for 'clojure-legacy' mode (PR-E). Clojure keeps
+        # in-conv on the conv and UNIONS into it every tick, so greedily-admitted
+        # participants never leave (conversation.clj:243-269). Empty on the first
+        # tick; threaded in-memory across update_votes (deepcopy in recompute),
+        # NOT persisted to dynamo — same lifetime as the other warm-start state.
+        # Unused/ignored in the default 'improved' mode (threshold-only
+        # selection) — it can hold carry state from an earlier clojure-legacy
+        # tick if the mode is switched mid-process.
+        self.in_conv: Set[Any] = set()
         self.proj = {}
         self.repness = None
         self.consensus = []
@@ -1746,11 +1755,15 @@ class Conversation:
 
         return vote_counts
 
-    def _get_in_conv_participants(self) -> Set[str]:
-        """
-        Get participants who have voted enough to be included in clustering.
+    # Clojure greedy in-conv floor: if fewer than this many participants clear
+    # the vote threshold, greedily admit the top voters up to this count
+    # (conversation.clj:259 `greedy-n 15`).
+    IN_CONV_GREEDY_N = 15
 
-        Matches Clojure's in-conv logic from conversation.clj lines 239-266.
+    def _get_in_conv_participants(self) -> Set[Any]:
+        """
+        Get participants to include in clustering (Clojure :in-conv,
+        conversation.clj:243-269).
 
         Threshold: participant must have voted on at least min(7, n_comments)
         comments (Clojure parity fix D2).
@@ -1765,20 +1778,68 @@ class Conversation:
         MUST be persisted to DynamoDB. See compdemocracy/polis#2358 and
         Clojure's approach in conv_man.clj:55, conversation.clj:244.
 
+        In the default 'improved' mode this is exactly the threshold set (no
+        carry, no greedy floor) — today's behavior, unchanged. In
+        'clojure-legacy' mode it additionally ports the two Clojure steps the
+        Python pipeline was missing (conversation.clj:243-269):
+
+          1. CARRY: union into the PERSISTENT in-conv set carried on the conv
+             (`(or (:in-conv conv) #{})`, conversation.clj:247) so a participant,
+             once in, stays in — including greedy admits.
+          2. GREEDY FLOOR: if fewer than 15 participants are in, greedily admit
+             the top `15 - n_in` remaining participants by vote count descending
+             (conversation.clj:259-268), and PERSIST them in the carried set.
+
         Returns:
-            Set of participant IDs that meet the threshold
+            Set of participant IDs to feed base clustering.
         """
         n_cmts = len(self.raw_rating_mat.columns) if hasattr(self.raw_rating_mat, 'columns') else 0
         threshold = min(7, n_cmts)
 
-        # Get vote counts for all participants
+        # Get vote counts for all participants (raw_rating_mat, insertion/row
+        # order preserved — the deterministic greedy tie-break below relies on it).
         vote_counts = self._compute_user_vote_counts()
 
-        # Filter participants meeting threshold
-        in_conv = {pid for pid, count in vote_counts.items() if count >= threshold}
+        # Participants meeting the vote threshold (Clojure conversation.clj:249-256).
+        threshold_set = {pid for pid, count in vote_counts.items() if count >= threshold}
 
-        logger.info(f"Filtered {len(in_conv)}/{len(vote_counts)} participants meeting vote threshold {threshold:.1f}")
+        if resolve_engine_mode() != ENGINE_MODE_LEGACY:
+            # Improved (default): threshold set only — no carry, no greedy floor.
+            logger.info(f"Filtered {len(threshold_set)}/{len(vote_counts)} participants "
+                        f"meeting vote threshold {threshold:.1f}")
+            return threshold_set
 
+        # Legacy: carry forward the persisted in-conv set, then union the
+        # threshold set into it (Clojure `(into in-conv ...)`, conversation.clj:247-256).
+        # PRUNE the carry to participants still present in vote_counts first:
+        # vote_counts is keyed off rating_mat.index, which drops mod_out_ptpts
+        # (banned participants — a Python-only feature Clojure lacks). Without the
+        # intersection a participant banned AFTER being carried would linger in the
+        # set forever, inflating the size check so the greedy floor never re-fires
+        # to top the actually-clustered pool (proj ∩ in_conv) back up, and growing
+        # the carry unboundedly. Clojure-parity is unaffected (no ban feature there).
+        in_conv = (set(self.in_conv) & set(vote_counts.keys())) | threshold_set
+
+        # Greedy floor (conversation.clj:259-268): if under 15, admit the top
+        # remaining voters by count descending. Clojure sorts a hash-map with
+        # `(sort-by (comp - second))`, whose tie order among equal vote counts is
+        # hash-map iteration order (non-deterministic). We instead break ties by
+        # matrix ROW ORDER (vote_counts insertion order) via a STABLE sort — a
+        # deterministic, reproducible surrogate for an inherently underspecified
+        # Clojure tie case. Below-threshold participants ARE eligible here (the
+        # floor guarantees clustering has enough rows in tiny/early conversations).
+        greedy_n = self.IN_CONV_GREEDY_N
+        if len(in_conv) < greedy_n:
+            candidates = [pid for pid in vote_counts if pid not in in_conv]
+            candidates.sort(key=lambda pid: -vote_counts[pid])  # stable -> row-order ties
+            in_conv.update(candidates[:greedy_n - len(in_conv)])
+
+        # Persist for the next tick (Clojure returns this as the conv's new
+        # :in-conv; deepcopy in recompute threads it forward).
+        self.in_conv = set(in_conv)
+
+        logger.info(f"Legacy in-conv: {len(threshold_set)} over threshold "
+                    f"{threshold:.1f}, {len(in_conv)} after carry+greedy floor")
         return in_conv
 
     def _fold_base_clusters(self, clusters: List[Dict]) -> Dict:
@@ -2134,15 +2195,22 @@ class Conversation:
         
         # Calculate in-conv participants
         in_conv_start = time.time()
-        
-        # Use pre-calculated vote counts to avoid recalculation
-        in_conv = []
-        min_votes = min(7, self.comment_count)
-        
-        for pid, count in result['user-vote-counts'].items():
-            if count >= min_votes:
-                in_conv.append(pid)  # pid is already converted to int where possible
-        
+
+        if resolve_engine_mode() == ENGINE_MODE_LEGACY and self.in_conv:
+            # Legacy (PR-E): serialize the PERSISTED carry+greedy set — exactly
+            # the participants that fed base clustering — so the blob's :in-conv
+            # matches the clustered rows (Clojure serializes its carried
+            # in-conv). Keyed off user-vote-counts (same source as self.in_conv)
+            # to preserve pid types and row order.
+            in_conv = [pid for pid in result['user-vote-counts'] if pid in self.in_conv]
+        else:
+            # Improved (default): threshold set only — unchanged.
+            in_conv = []
+            min_votes = min(7, self.comment_count)
+            for pid, count in result['user-vote-counts'].items():
+                if count >= min_votes:
+                    in_conv.append(pid)  # pid is already converted to int where possible
+
         result['in-conv'] = in_conv
         logger.info(f"In-conv: {time.time() - in_conv_start:.4f}s")
         
