@@ -145,6 +145,59 @@ services:
           cpus: ${DELPHI_CONTAINER_CPUS:-2}
     restart: unless-stopped
 
+  # Python math poller — the eventual replacement for the Clojure `math`
+  # container.  Profile-gated so it only runs when explicitly requested
+  # (`--profile delphi-math`).  Reuses the delphi build target and overrides the
+  # command to run the poller CLI.  Defaults to SHADOW mode: writes under a
+  # DISTINCT math_env (`delphi`) so its rows are invisible to the prod server
+  # (UNIQUE(zid, math_env)) — zero production risk while parity is validated.
+  # See delphi/docs/MATH_POLLER_DESIGN.md §4.
+  delphi-math-poller:
+    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
+    build:
+      context: ./delphi
+      target: final
+    labels:
+      polis_tag: ${TAG:-dev}
+    command: ["python", "scripts/math_poller.py"]
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
+      - POSTGRES_CONNECT_TIMEOUT=${POSTGRES_CONNECT_TIMEOUT:-30}
+      - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
+      # Shadow-mode math_env (distinct from the Clojure math service's MATH_ENV).
+      - MATH_ENV=${DELPHI_MATH_ENV:-delphi}
+      # Poll cadences (ms) and boot window (days).
+      - POLL_VOTE_INTERVAL_MS=${POLL_VOTE_INTERVAL_MS:-1000}
+      - POLL_MOD_INTERVAL_MS=${POLL_MOD_INTERVAL_MS:-1000}
+      - POLL_FROM_DAYS_AGO=${POLL_FROM_DAYS_AGO:-10}
+      # Optional zid allow/block lists (comma-separated).
+      - POLL_ALLOWLIST=${POLL_ALLOWLIST:-}
+      - POLL_BLOCKLIST=${POLL_BLOCKLIST:-}
+      # Engine family: 'clojure-legacy' (the effective default below, for
+      # warm-start parity during shadow validation) or 'improved'.
+      - POLISMATH_ENGINE_MODE=${POLISMATH_ENGINE_MODE:-clojure-legacy}
+      # Per-zid serialized workers; concurrency across zids.
+      - MATH_WORKER_POOL_SIZE=${MATH_WORKER_POOL_SIZE:-4}
+      # Error dump dir + retry cap (dump -> retry -> park circuit breaker).
+      - MATH_POLLER_DUMP_DIR=${MATH_POLLER_DUMP_DIR:-scratch/errorconv}
+      - MATH_POLLER_RETRY_CAP=${MATH_POLLER_RETRY_CAP:-1}
+    networks:
+      - "polis-net"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # Hard memory backstop (mirrors the delphi service). The in-memory conv cache
+    # never evicted by default (Clojure's 4h reboot was the de-facto cap, which we
+    # dropped); this limit bounds a long shadow soak. Set MATH_CONV_CACHE_CAP>0 to
+    # LRU-evict cold conversations before hitting it.
+    deploy:
+      resources:
+        limits:
+          memory: ${DELPHI_POLLER_CONTAINER_MEMORY:-16g}
+    restart: unless-stopped
+    profiles:
+      - delphi-math
+
   postgres:
     restart: always
     build:

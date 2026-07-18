@@ -1,0 +1,165 @@
+"""load-or-init + the from_dict restoration finding.
+
+These tests LOCK the finding documented in polismath/poller/__init__.py:
+``Conversation.from_dict`` restores warm state (pca, moderation, counts) but NOT
+the rating matrices or base_clusters, so load-or-init must ALWAYS rebuild the
+matrices from the full vote history (mirroring conv_man.clj:188-207).
+"""
+
+import time
+from unittest.mock import MagicMock
+
+from polismath.conversation.conversation import Conversation
+from polismath.poller.service import MathPollerService, PollerConfig
+
+
+def _empty_mods():
+    return {"mod_out_tids": [], "mod_in_tids": [], "meta_tids": [], "mod_out_ptpts": []}
+
+
+def _build_votes(n_ptpts=8, n_cmts=5, created0=1000):
+    """Two opposing camps so PCA + base clusters are non-trivial."""
+    votes = []
+    created = created0
+    for p in range(n_ptpts):
+        camp = 1 if p % 2 == 0 else -1
+        for t in range(n_cmts):
+            votes.append(
+                {"pid": str(p), "tid": str(t), "vote": camp, "created": created}
+            )
+            created += 1
+    return votes
+
+
+class TestFromDictFinding:
+    def test_from_dict_restores_pca_and_moderation_but_not_matrices(self):
+        conv = Conversation("42")
+        conv = conv.update_moderation({"mod_out_tids": ["3"]}, recompute=False)
+        conv = conv.update_votes(
+            {"votes": _build_votes(), "lastVoteTimestamp": 9999}, recompute=True
+        )
+
+        # Preconditions: the live conv has populated matrices + pca + clusters.
+        assert conv.raw_rating_mat.size > 0
+        assert conv.pca is not None
+
+        blob = conv.to_dict()
+        restored = Conversation.from_dict(blob)
+
+        # RESTORED (warm state): pca, moderation, counts.
+        assert restored.pca is not None
+        assert set(restored.mod_out_tids) == {"3"}
+        assert restored.participant_count == conv.participant_count
+
+        # NOT RESTORED: the vote matrices and base_clusters — hence a full
+        # rebuild is mandatory in load-or-init.
+        assert restored.raw_rating_mat.size == 0
+        assert restored.rating_mat.size == 0
+        assert restored.base_clusters == []
+
+
+class TestLoadOrInit:
+    def test_cold_start_when_no_math_main_row(self):
+        pg = MagicMock()
+        pg.load_math_main.return_value = None
+        pg.poll_votes.return_value = _build_votes()
+        pg.poll_moderation.return_value = {
+            "mod_out_tids": [], "mod_in_tids": [], "meta_tids": [], "mod_out_ptpts": []
+        }
+        svc = MathPollerService(pg, PollerConfig())
+
+        conv = svc._load_or_init(42)
+
+        assert isinstance(conv, Conversation)
+        # Full-history rebuild always runs (offset-0 analog).
+        pg.poll_votes.assert_called_once_with(42, None)
+        pg.poll_moderation.assert_called_once_with(42, None)
+        assert conv.raw_rating_mat.size > 0
+
+    def test_warm_restore_then_full_rebuild(self):
+        # Produce a real math_main blob from a computed conversation.
+        seed = Conversation("42")
+        seed = seed.update_votes(
+            {"votes": _build_votes(), "lastVoteTimestamp": 9999}, recompute=True
+        )
+        blob = seed.to_dict()
+
+        pg = MagicMock()
+        pg.load_math_main.return_value = {"zid": 42, "data": blob}
+        pg.poll_votes.return_value = _build_votes()
+        pg.poll_moderation.return_value = {
+            "mod_out_tids": [], "mod_in_tids": [], "meta_tids": [], "mod_out_ptpts": []
+        }
+        svc = MathPollerService(pg, PollerConfig())
+
+        conv = svc._load_or_init(42)
+
+        assert isinstance(conv, Conversation)
+        # Even with a warm row, matrices are rebuilt from full vote history.
+        pg.poll_votes.assert_called_once_with(42, None)
+        assert conv.raw_rating_mat.size > 0
+        assert conv.pca is not None
+
+    def test_from_dict_failure_falls_back_to_cold(self, monkeypatch):
+        pg = MagicMock()
+        pg.load_math_main.return_value = {"zid": 42, "data": {"garbage": object()}}
+        pg.poll_votes.return_value = _build_votes()
+        pg.poll_moderation.return_value = {
+            "mod_out_tids": [], "mod_in_tids": [], "meta_tids": [], "mod_out_ptpts": []
+        }
+
+        # Force from_dict to raise to exercise the guarded fallback.
+        def boom(cls, data):
+            raise ValueError("bad blob")
+
+        monkeypatch.setattr(Conversation, "from_dict", classmethod(boom))
+        svc = MathPollerService(pg, PollerConfig())
+
+        conv = svc._load_or_init(42)
+        assert isinstance(conv, Conversation)
+        assert conv.raw_rating_mat.size > 0
+
+
+class TestLastVoteTimestampSeed:
+    """T7: a cold rebuild must resolve last_updated to true max(created), not the
+    wall-clock leaked by Conversation's `last_updated or now` footgun (which
+    advance_watermark can never regress). Clojure floors at 0 (conversation.clj:161-165)."""
+
+    def test_cold_start_last_updated_is_max_created_not_wall_clock(self):
+        pg = MagicMock()
+        pg.load_math_main.return_value = None
+        votes = _build_votes(created0=1000)
+        pg.poll_votes.return_value = votes
+        pg.poll_moderation.return_value = _empty_mods()
+        svc = MathPollerService(pg, PollerConfig())
+
+        wall_clock_before = int(time.time() * 1000)
+        conv = svc._load_or_init(42)
+
+        max_created = max(v["created"] for v in votes)
+        assert conv.last_updated == max_created
+        # The historical timestamps are ~1e3 ms; a wall-clock leak would be ~1e12.
+        assert conv.last_updated < wall_clock_before
+
+    def test_warm_restore_last_updated_from_history_not_wall_clock(self):
+        seed = Conversation("42").update_votes(
+            {"votes": _build_votes(), "lastVoteTimestamp": 9999}, recompute=True
+        )
+        blob = seed.to_dict()
+        votes = _build_votes(created0=1000)
+        max_created = max(v["created"] for v in votes)
+
+        pg = MagicMock()
+        # The persisted row carries a correct (historical) last_vote_timestamp.
+        pg.load_math_main.return_value = {
+            "zid": 42, "data": blob, "last_vote_timestamp": max_created,
+        }
+        pg.poll_votes.return_value = votes
+        pg.poll_moderation.return_value = _empty_mods()
+        svc = MathPollerService(pg, PollerConfig())
+
+        wall_clock_before = int(time.time() * 1000)
+        conv = svc._load_or_init(42)
+
+        assert conv.last_updated == max_created
+        assert conv.last_updated < wall_clock_before
