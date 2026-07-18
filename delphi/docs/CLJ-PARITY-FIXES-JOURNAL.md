@@ -2002,3 +2002,209 @@ stability fix (`jc/clj-parity-d1-pca-sign-flip-prevention`) — that is temporal
 **What's next:** with D1b closed, the remaining blockers on the D12 un-mirror are
 the D1 sign-stability work and the participant-filtering / vote-copy reconciliation
 noted above.
+
+## Session: Overnight orchestration — replay harness H-A, sequential-bits A/B/D′, input-fidelity fixes (2026-07-17→18)
+
+Host session "Fable-Pyclj-Parity". Julien handed over for the night with a new
+directive: proceed autonomously on math-core with careful per-change notes and a
+morning walkthrough (recorded in project memory; see
+`scratch/MORNING_WALKTHROUGH_2026-07-18.md` for the full walkthrough). All PRs
+opened as **Drafts** per mid-session instruction. Work executed by opus/sonnet
+subagents in isolated git clones, integrated serially by the session integrator
+with a full-suite gate per commit.
+
+### RETRACTION: "in-conv 67 vs 68-69" (2026-07-17 entry above) was a journal error
+
+Live rerun on the full 4683-row vw CSV: Python cold-start in-conv = **67**,
+matching the Clojure cold-start blob **pid-for-pid** (excluded: pid 13 with 5
+votes, pid 37 with 3 — both below min(7, 125)). The "68" was Clojure's
+*incremental* blob (monotonic in-conv admitted pid 13 when n_cmts, hence the
+threshold, was still small — the already-xfailed incremental-vs-cold distinction
+from PR #2421); "69" is the raw voter count. The D12 un-mirror chain therefore
+has NO participant-filtering blocker; what remains is the generator vote-copy
+delta (fixed this session, below) and extremity/PCA parity.
+
+### Input fidelity: cold-start generator now copies FULL revote history
+
+`generate_cold_start_clojure.py::copy_votes_with_fresh_timestamps` used
+`DISTINCT ON (pid, tid) ... ORDER BY created DESC`, silently dropping superseded
+revote rows — on vw exactly 128 of 4683 (87 revoted pairs: 63×2 + 14×3 + 4×4 +
+5×5 + 1×6 = 4683−4555). Both engines implement later-vote-wins internally, so
+dedup-at-source only harmed input parity and erased revote dynamics
+(REPLAY_HARNESS_DESIGN.md §5 explicitly forbids it). Now copies every row
+`ORDER BY created ASC, ctid ASC` with strictly-increasing 10 ms fresh timestamps
+(ctid tiebreak ≈ insertion order for same-ms revotes; the true relative order of
+same-ms revotes is ambiguous in the source itself — documented in the
+docstring). Timestamp-ordering audit: prepare_votes_data still loads file order
+(2136 adjacent inversions in vw) but "file-order-last" vs "timestamp-last"
+produces **0** value differences on vw's 87 revoted pairs — latent quirk, not a
+manifesting bug; the replay slicer sorts properly (below).
+
+### Replay harness Phase H-A — BUILT (pure spine, no math-core changes)
+
+`polismath/replay/` gains `schedule.py` (spec JSON, 4 cut modes, 6 presets,
+slicer with timestamp sort + input-order tiebreak, revotes kept), `driver.py`
+(fold of `update_votes` batches with recompute at cuts; per-step `to_dict()` blob
++ cheap diagnostics), `store.py` (`real_data/.local/replays/<dataset>/<schedule>/`
+with full provenance incl. vote-sign convention), `stepcompare.py`
+(ConversationComparer repointed to step-vs-step), `scripts/replay_driver.py`
+CLI (run/compare). `types.py`/`real_data.py` lifted **byte-identically** from the
+R2 branch (`jc/r2-schedule-inference`) so its rebase dedups. 46 new tests in
+`tests/replay_harness/`. Verified: the only nondeterministic blob field is
+`math_tick` (wall clock); everything else is bit-identical across runs.
+Documented deviations: moderation applied as cumulative state at vote cuts (no
+mod-triggered cuts yet); tail after last cut dropped (use an `"end"` cut).
+Seam wishlist for future PRs: expose per-k silhouettes; injectable math_tick;
+`update_moderation` cannot clear a set with an empty list; `last_updated=0`
+falls back to wall-clock; lean-blob mode for R2 search perf.
+
+### Sequential-bits port — spec + first three increments (math-core)
+
+Full inventory of Clojure's cross-tick state now in
+`docs/SEQUENTIAL_BITS_PORT_SPEC.md` (verified file:line for all 11 behaviors).
+Headline spec findings: (a) the **#2575 subgroup clamp is NOT in Clojure HEAD**
+— it is open PR #2609, so current production Clojure runs the unclamped
+subgroup smoother; (b) **new uncatalogued divergence**: Clojure's
+`:comment-priorities` reads the **previous tick's** `(:group-votes conv)`
+(conversation.clj:650), Python uses the current tick's — masked today by the
+#2571 mirror, must be honored at un-mirror time; (c) Python computes no
+subgroups at all, so subgroup-level ports are latent.
+
+Landed (each behind `POLISMATH_ENGINE_MODE=clojure-legacy`; default `improved`
+mode verified byte-identical — hard gate):
+
+- **PR-A**: engine-mode flag (`polismath/utils/engine_mode.py`), cold-default
+  `group_clusterings`/`group_k_smoother` fields, `recompute()` prev-tick state
+  capture threaded as parameters (mirrors Clojure fnks reading the incoming conv).
+- **PR-B**: PCA warm start — prev tick's unit comps → `powerit_pca(start_vectors=…)`
+  (conversation.clj:385 → pca.clj:98; 1-padding for new comments already in the
+  powerit port). Legacy mode requires powerit (sklearn cannot inject start
+  vectors; warn + fallback, never silent).
+- **PR-D′**: group-k-smoother as a pure function
+  (`pca_kmeans_rep/group_k_smoother.py`): buffer=4 consecutive-agreement rule,
+  #2536 stale-k clamp, and Clojure `max-key` HIGHER-k-wins tie-break (improved
+  mode's lower-k-wins strict `>` untouched). Known deliberate gap: degenerate
+  ticks (<2 in-conv / <2 base clusters) preserve rather than reset smoother
+  memory; clamp protects the next real tick.
+
+Suite: 406 → 480 passed (46 harness + 28 seqbits tests), 17 skipped, 47
+xfailed, 0 failed at every integration step.
+
+### First gap measurement — D1 sign-flip captured on real data
+
+vw, uniform 8-cut schedule, improved vs clojure-legacy: steps 0–5 bit-identical;
+at **step 6 improved (cold) mode flips PC2's sign** (66 exact mismatches, all
+±y at rel_diff 200%) while the legacy warm-started chain holds orientation; by
+step 7 the flip cascades into genuinely different group-cluster geometry (964
+exact + 1095 tolerant mismatches). Legacy mode is bit-for-bit deterministic
+across independent runs (0/8 divergence) — the property R2's forward model
+requires. **D1 conclusion:** in legacy mode, sign stability is delivered by the
+warm-start chain (Clojure's own mechanism — it has no explicit alignment
+either). Improved-mode cross-restart sign alignment would need persisted prev
+comps — deferred with a design note.
+
+### Golden kit (polis-algo-research) — evaluated for lift
+
+The algorithms-report repo's `golden-kit` (pre-bug Clojure oracle,
+`polis-math:prebug-8f278034`, 21 fixtures × 5-repeat ensembles, 5-component
+certification suite) was evaluated empirically against the CURRENT main-repo
+tree: 4 of 5 suites pass unchanged (`repness.py`/`clusters.py` byte-identical
+to its frozen reference); the comment-extremity tests break **because the kit
+still assumes the pre-D1b buggy convention** — independent confirmation that
+D1b fixed a real bug (the kit's own sign-convention dossier had recommended
+exactly this fix). Its 5-repeat ensembles are ready-made cold-start self-jitter
+tolerance floors for §9 of the replay design. Lift decisions left to Julien
+(217 MB goldens → LFS/gzip/thinning; orphaned frozen-source pin must move to
+live tree; fixture naming vs discover_datasets(); missing CC-BY notice).
+
+### H-B — Clojure Mode A driver: DONE (same night)
+
+`math/dev/replay.clj` (416 lines) + `:replay` deps.edn alias; pure in-process
+conv-update reduce over schedule JSON, per-step `prep-main` blob capture
+(23-key EXACT match with the committed vw cold-start math blob), `--repeats`
+self-jitter mode, `--edn` full-state dumps; cross-language shim so
+`stepcompare` diffs clj-vs-py recordings unchanged (5 tests). `math/src/`
+untouched. Key results:
+- **Self-jitter floors (§9) measured**: pca.comps repeat-to-repeat ~1e-4 at the
+  cold step 0, collapsing to ~1e-8/1e-9 under the warm-start chain; every
+  non-PCA field bit-identical between repeats.
+- **First true Python↔Clojure gap measurement** (3-cut vw): tid / in-conv /
+  base-cluster-id SETS identical at every step; base-cluster x-coords are
+  near-exact NEGATIVES (mean |clj+py| = 7.5e-5) — same geometry up to
+  reflection. Genuine numeric gap confined to PCA cells (443, widening per
+  step) + downstream group-aware-consensus.
+- **Blob-shape deltas catalogued** (gates the poller FLIP phase): Python
+  to_dict emits scalar votes-base/group-votes where Clojure emits
+  per-base-cluster vectors; `comment_priorities` vs hyphenated
+  `comment-priorities`; Python-only extra keys (proj, moderation, vote_stats,
+  math_tick); tids/in-conv ordering. Needs a math_main-exact serializer.
+- Driver gotchas: `-i dev/replay.clj` (not a classpath dir) avoids the
+  `dev/user.clj` :dev-deps trap; cheshire requires CoreMatrixBooter's
+  vectorz encoders registered before serializing conv state.
+
+### PR-C + PR-E — base-cluster lineage + in-conv carry: DONE (same night)
+
+PR-C: `pca_kmeans_rep/legacy_kmeans.py` (468 lines) — faithful numpy port of
+clusters.clj k-means with id lineage (init-clusters first-k-distinct;
+clean-start-clusters = safe-recenter drop-vanished + big-cluster fallback,
+uniqify identical centers with merge-keeps-larger-cluster's-id (tie → later
+arg, matching max-key), most-distal split with `(inc max-id)` ids;
+cluster-step drop-empty; same-clustering? sorted centers < 0.01 with
+zip-truncation). Wired legacy-only: base level warm-starts from prev
+base_clusters (base-iters=100); group level per-k warm-started over
+weighted base-cluster centers. **Port-discovered Clojure fact: the group level
+actually runs max-iters=20** — `kmeans` never destructures the `:cluster-iters`
+key it is passed (clusters.clj:303), so Clojure silently uses the default;
+mirrored as GROUP_LEGACY_ITERS=20. Legacy-mode `group_clusterings` stores
+id-carrying dicts (improved keeps its tuple flow, untouched).
+Cold-start invariance measured on vw: structurally bit-identical to improved
+at both levels; center coords differ only ~1e-13 (np.average vs sklearn
+centroid arithmetic). On degenerate near-duplicate projections legacy keeps
+exact-init singletons where sklearn Lloyd collapses a pair — legacy is the
+Clojure-faithful side.
+
+PR-E: legacy-only persistent `in_conv` carry + the greedy top-15 floor
+(conversation.clj:243-269), both previously missing. **Clojure's greedy
+tie-break is genuinely non-deterministic** (`sort-by` over a hash-map);
+mirrored with a deterministic stable sort keyed on matrix row order —
+flagged as a surrogate decision for review.
+
+Replay smoke: legacy mode achieves **100% base-cluster id stability** across
+vw cuts vs 95.3% (dipping to 85%) improved — the lineage effect, measured.
+
+Suite after full integration: **525 passed / 17 skipped / 47 xfailed**
+(= 406 start-of-night baseline + 119 new tests, 0 regressions all night).
+
+### Python math poller phase 1: DONE (same night)
+
+Per `MATH_POLLER_DESIGN.md` (recon-verified: production Clojure container =
+poller-system ONLY; exports/report-tasks dormant or server-covered). Shipped:
+`polismath/poller/` (watermark loops mirroring poller.clj:12-37; per-zid
+FIFO+single-owner serialization with take-all!/split-batches coalescing;
+math_writer with ONE math_tick shared across math_main / math_bidtopid /
+math_ptptstats and the Clojure-exact `caching_tick = COALESCE(MAX+1,1)`
+upsert the TS prefetch poll depends on), `scripts/math_poller.py` CLI,
+`delphi-math-poller` compose service (profile-gated, shadow MATH_ENV).
+Postgres-layer fixes en route: the dead-code writers routed through a
+COMMITTING `engine.begin()` path (the old `engine.connect()` silently rolled
+back INSERTs — caught by the integration test, not the mocks), atomic
+math_ticks upsert, global `poll_votes_since`/`poll_moderation_since`, and
+`poll_votes` now ORDERs BY zid,tid,pid,created (Clojure conv-poll parity —
+row order seeds base-cluster ids). 44 unit tests + 1 opt-in integration test
+that RAN against a throwaway postgres:17 (:5435): end-to-end
+poll→compute→write, shadow math_env isolation, shared tick, caching_tick=1
+first write, restart-resumes. load-or-init finding: `from_dict` restores
+pca/proj/moderation/stats but NOT matrices/base_clusters → full-history
+rebuild on first touch (Clojure-restart-equivalent), PCA warm-seeded
+opportunistically. Cutover: SHADOW ONLY until blob-shape alignment (see H-B
+deltas) closes; flip = one MATH_ENV change; then Clojure decommission.
+
+**End-of-night suite: 570 passed / 17 skipped / 47 xfailed** — from the
+406 start-of-night baseline: +164 new tests, 0 regressions, 0 xfail changes.
+
+### What's Next
+2. R1 certification runs (Python-legacy vs Clojure CCRs) once H-B lands.
+3. D12 un-mirror chain, now unblocked pending: blob regen with the fixed
+   generator + extremity verification; prev-tick group-votes port (spec row 7).
+4. #2609 (subgroup clamp) merge decision — Clojure side, Julien's call.
+5. Golden-kit lift decision — Julien's call.

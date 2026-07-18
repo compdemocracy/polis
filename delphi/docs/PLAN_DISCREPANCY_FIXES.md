@@ -526,13 +526,13 @@ See `delphi/docs/INVESTIGATION_K_DIVERGENCE.md` for the full investigation.
 
 | ID | Discrepancy | Plan PR | GitHub PR | Status |
 |----|-------------|---------|-----------|--------|
-| D1 | PCA sign flips | PR 13 | — (WIP) | VM draft — **NEEDS REWORK** (no replay tests) |
+| D1 | PCA sign flips | PR 13 | — (spr-stack) | **RESOLVED for legacy mode (2026-07-18)**: sign stability delivered by the PCA warm-start chain (PR-B, `POLISMATH_ENGINE_MODE=clojure-legacy` threads prev comps as powerit start_vectors — Clojure's own mechanism; it has no explicit alignment either). Validated on real data: vw uniform-8 replay — improved (cold) mode flips PC2 at step 6, legacy holds orientation; legacy bit-deterministic across runs. Improved-mode cross-restart alignment deferred (needs persisted prev comps — design note in journal 2026-07-18). VM draft branch no longer exists anywhere; superseded by `SEQUENTIAL_BITS_PORT_SPEC.md`. |
 | D1b | Projection input | PR 13 | — (spr-stack) | **CODE FIX DONE ✓ (2026-07-17)** — `pca_project_cmnts` projected the untranslated Clojure literal `-1` (`-scale*(1+center)`) instead of the Delphi `AGREE` constant, INVERTING comment extremity (near-unanimous-agree → maximally extreme). Fixed to `scale*(AGREE-center)`. 3 tests (formula derived from AGREE, agree/disagree sign, extremity→priority_metric spy). Output-inert today (masked by #2571 `priority_metric` short-circuit) → no golden movement. Unblocks the D12 un-mirror. **Distinct from D1** (align_pca_signs / temporal stability). |
 | D2 | In-conv threshold | **PR 1** | **#2513** | **DONE** ✓ |
 | D2b | Base-cluster sort order | **PR 1** | **#2513** | **DONE** ✓ |
 | D2c | Vote count source (raw vs filtered matrix) | **PR 1** | **#2513** | **DONE** ✓ |
 | D2d | In-conv monotonicity (once in, always in) | **PR 1** | **#2513** | **DONE** ✓ (5 guard tests, T1-T5) |
-| D3 | K-smoother buffer | PR 10 | — (WIP) | VM draft — **NEEDS REWORK** (no replay tests) |
+| D3 | K-smoother buffer | PR 10 | — (spr-stack) | **GROUP LEVEL DONE (2026-07-18)**: group-k-smoother (buffer=4 + #2536 clamp + Clojure max-key higher-k-wins tie-break) landed as a pure function behind `clojure-legacy` mode; incremental no-flicker validated via chained update_votes. Base-cluster lineage + per-k warm start landed as **PR-C (#2622)**; in-conv greedy carry landed as **PR-E (#2623)**, both 2026-07-18. Subgroup smoother latent (Python has no subgroups) — NB the #2575 subgroup clamp (PR **#2609**) **MERGED to Clojure HEAD 2026-07-18**; the pre-merge "unclamped" target now applies only to a port certified against a pinned pre-#2609 ref. See `SEQUENTIAL_BITS_PORT_SPEC.md`. |
 | D4 | Pseudocount formula | **PR 2** | **#2514** | **DONE** ✓ |
 | D5 | Proportion test | **PR 4** | **#2519** | **DONE** ✓ (formula + n=0 short-circuit removed scalar/vectorized/caller — audit-discovered 2026-06-09, landed same day) |
 | D6 | Two-proportion test | **PR 5** | **#2520** | **DONE** ✓ |
@@ -546,7 +546,7 @@ See `delphi/docs/INVESTIGATION_K_DIVERGENCE.md` for the full investigation.
 | D14 | Large conv optimization | — | — | **Deferred** (Python fast enough) |
 | D15 | Moderation handling | PR 12 | **#2523** | **DONE** ✓ (zero-out-columns + downstream `to_math_blob` / `_compute_vote_stats` regressions fixed 2026-06-09 — `to_dict` now routes through `_compute_user_vote_counts()` / `_compute_votes_base()`; `_compute_vote_stats` uses `_get_clean_matrix(raw=True)`) |
 | K-inv | Cold-start k divergence (row ordering) | (after D15) | **#2524** | **DONE** ✓ (FLI residual: inherent PCA divergence) |
-| Replay | Replay infrastructure (A/B/C) | — | — | NOT BUILT — VM avoided this. D3/D1 used synthetic tests only. Needed for incremental blob comparison. |
+| Replay | Replay infrastructure (A/B/C) | — | — (spr-stack) | **H-A BUILT (2026-07-18)**: schedule spec+slicer, Python driver, recording store + provenance, step comparer, CLI (`polismath/replay/`, `tests/replay_harness/`, 46 tests). Deterministic modulo `math_tick`. H-B (Clojure Mode A driver) **DONE 2026-07-18 (#2621)**. See `REPLAY_HARNESS_DESIGN.md` §11. |
 
 ### Non-discrepancy PRs in the stack
 
@@ -937,22 +937,14 @@ Tagging this as a follow-up. No code changes until we discuss.
 - **`to_dynamo_dict` parallel inline implementations** were refactored to
   route through the same helpers as `to_dict` in PR #2523 follow-up. No
   further action needed.
-- **`ns` includes-PASS-divergence** (DISCOVERED 2026-06-11 during D11). Clojure's
-  `:ns` (via `count-votes` with `filter identity` — repness.clj:56-61) INCLUDES
-  PASS votes. Python's `compute_group_comment_stats_df` and `consensus_stats_df`
-  both compute `ns = na + nd`, excluding PASS. This is a real divergence that
-  affects `pa, pd, pat, pdt, ra, rd, rat, rdt` everywhere — every downstream
-  metric and selection. The D5 PR #2519 journal claim ("PASS NOT included,
-  matching Clojure") was based on a misreading of `count-votes`. Currently
-  causing 3-5% divergence in pat values for tids with non-zero PASS counts;
-  visible at the consensus-selection margins (4/6 overlap on vw cold_start
-  agree, 1/3 on disagree). Needs a dedicated PR — affects:
-    - `compute_group_comment_stats_df` (line ~283: `ns = na + nd`).
-    - `consensus_stats_df` (line ~435: `ns = na + nd`).
-  Fix: `ns = (vote_matrix_df != 0).sum(axis=0)` no, actually we want to
-  count non-NaN: `ns = vote_matrix_df.notna().sum(axis=0)` for wide format;
-  for long-format `votes_long.groupby('comment').size()` after dropna.
-  Re-record goldens afterward.
+- **`ns` includes-PASS-divergence** — **RESOLVED 2026-06-11** (landed with the
+  parity stack; this entry was stale until 2026-07-18). Both production
+  functions now count PASS-inclusive non-nil votes matching Clojure's
+  `count-votes` (repness.clj:56-61): `compute_group_comment_stats_df` uses
+  `ns=('vote','size')` over non-nil long-format rows (repness.py:258-266) and
+  `consensus_stats_df` uses `vote_matrix_df.notna().sum(axis=0)`
+  (repness.py:675); the `prop_test_vectorized` docstring (repness.py:94-99)
+  documents the PASS-inclusive contract.
 - **D10 take-5 eviction edge case** (2026-06-11). The Clojure-parity
   `select_rep_comments_df` introduced in PR 8 mirrors Clojure exactly:
   `take(5)` runs AFTER prepending the `best_agree` slot. When `best_agree`
