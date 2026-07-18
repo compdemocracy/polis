@@ -16,7 +16,9 @@ import logging
 
 import pytest
 
+from polismath.conversation.conversation import Conversation
 from polismath.replay.real_data import load_export_votes
+from polismath.replay import driver
 from polismath.replay import schedule as sched
 from polismath.replay.driver import run_replay, VOTE_SIGN_CONVENTION
 from polismath.replay.types import ModEvent, ReplayDataset
@@ -194,3 +196,252 @@ def test_determinism_bit_identical_except_wall_clock(vw_dataset, spec, run1):
         blob_a = {k: v for k, v in a.blob.items() if k not in WALL_CLOCK_FIELDS}
         blob_b = {k: v for k, v in b.blob.items() if k not in WALL_CLOCK_FIELDS}
         assert blob_a == blob_b, f"non-wall-clock blob differs at step {a.index}"
+
+
+# --- legacy-mode moderation: mod_update, votes-then-mods, no mod recompute --
+# MOD_RESTART_PORT_SPEC.md "Python ports" item 4 / "Replay-step semantics":
+# in 'clojure-legacy' engine mode, the votes batch recomputes FIRST (using the
+# PRIOR step's mod state); mod_update then only touches sets/watermark for
+# THIS step's blob — no recompute — mirroring Clojure's :moderation handler
+# (mod-update's effect on the math lands at the NEXT votes recompute).
+def _run_legacy(ds, spec):
+    logging.disable(logging.CRITICAL)
+    try:
+        return run_replay(ds, spec)
+    finally:
+        logging.disable(logging.NOTSET)
+
+
+def test_legacy_mode_applies_mod_events_via_mod_update(monkeypatch):
+    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
+    mods = [ModEvent(35, 100, -1), ModEvent(55, 101, 1)]
+    ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
+    records = _run_legacy(ds, _mod_spec(mods))
+    assert len(records) == 2
+    step0 = records[0].blob["moderation"]
+    assert step0["mod_out_tids"] == [100]
+    assert step0["mod_in_tids"] == []
+    step1 = records[1].blob["moderation"]
+    assert sorted(step1["mod_out_tids"]) == [100]
+    assert sorted(step1["mod_in_tids"]) == [101]
+
+
+def test_legacy_mode_un_moderation_disjs_the_set(monkeypatch):
+    # The un-moderating sequence that DEFEATS update_moderation/_guard in
+    # improved mode (test_driver_fails_loudly_on_moderation_set_emptying)
+    # must be representable in legacy mode via mod_update's disj semantics.
+    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
+    mods = [ModEvent(35, 100, -1), ModEvent(35, 101, 1), ModEvent(55, 100, 0)]
+    ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
+    records = _run_legacy(ds, _mod_spec(mods))
+    assert len(records) == 2
+    step1 = records[1].blob["moderation"]
+    assert step1["mod_out_tids"] == []  # tid 100 un-moderated -> disj, not stuck
+    assert step1["mod_in_tids"] == [101]
+
+
+def test_legacy_mode_none_moderation_never_calls_mod_update(monkeypatch):
+    """Task-3 exact-preservation rule: zero mod events -> zero mod_update
+    calls, not even with an empty list, so schedules with moderation="none"
+    stay bit-identical (mod_update unconditionally flips moderation_applied,
+    so a stray call would be observable even with nothing in the sets)."""
+    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
+    calls = []
+    original = Conversation.mod_update
+
+    def _spy(self, mods):
+        calls.append(list(mods))
+        return original(self, mods)
+
+    monkeypatch.setattr(Conversation, "mod_update", _spy)
+
+    raw = [(100 * (i + 1), (i % 3) + 1, (i % 2) + 10, 1) for i in range(6)]
+    ds = ReplayDataset.build(raw)
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "t", "schedule_id": "legacy-none", "source": "votes-csv",
+        "cuts": {"mode": "vote-count", "at": [3, 6]}, "moderation": "none",
+        "clojure": {"warm_start": "chain"}, "notes": "",
+    })
+    records = _run_legacy(ds, spec)
+    assert calls == []
+    assert records[-1].blob["moderation"]["mod_out_tids"] == []
+
+
+def test_improved_mode_still_uses_update_moderation_and_guard(monkeypatch):
+    # Explicit control: 'improved' (default, no env override) keeps using
+    # update_moderation + _guard_moderation_clear, never mod_update.
+    calls = []
+    original = Conversation.mod_update
+
+    def _spy(self, mods):
+        calls.append(list(mods))
+        return original(self, mods)
+
+    monkeypatch.setattr(Conversation, "mod_update", _spy)
+    mods = [ModEvent(35, 100, -1), ModEvent(55, 101, 1)]
+    ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
+    records = _run_legacy(ds, _mod_spec(mods))
+    assert len(records) == 2
+    assert calls == []  # mod_update never called on the improved path
+
+
+# --- restart_after: worker-restart seam ------------------------------------
+# MOD_RESTART_PORT_SPEC.md "Replay-step semantics" / restart plumbing: after
+# recording the step at spec.restart_after, the driver rebuilds the
+# conversation the way a Clojure worker restart would (parse the just-
+# recorded blob, restore via Conversation.from_dict, rebuild BOTH rating
+# matrices from the full vote slice, replay the WOVEN mod history so far via
+# mod_update — clj restart-conv's (mapcat :mods steps-so-far)) and continues
+# the schedule from there.
+_RESTART_RAW_VOTES = [
+    (100 * (i + 1), (i % 4) + 1, (i % 3) + 10, [1, -1, 1][i % 3])
+    for i in range(20)
+]
+
+
+def test_restart_after_does_not_change_step_count(monkeypatch):
+    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
+    ds = ReplayDataset.build(_RESTART_RAW_VOTES)
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "t", "schedule_id": "restart-e2e", "source": "votes-csv",
+        "cuts": {"mode": "vote-count", "at": [5, 10, 15, 20]}, "moderation": "none",
+        "clojure": {"warm_start": "chain"}, "notes": "", "restart_after": 1,
+    })
+    records = _run_legacy(ds, spec)
+    assert [r.index for r in records] == [0, 1, 2, 3]
+    assert [r.cut_slot for r in records] == [5, 10, 15, 20]
+
+
+def test_restart_after_none_is_a_no_op(monkeypatch):
+    # restart_after absent (None, the default) must not touch the replay at
+    # all — same step count/content as never having the field.
+    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
+    ds = ReplayDataset.build(_RESTART_RAW_VOTES)
+    spec_no_restart = sched.ScheduleSpec.from_dict({
+        "dataset": "t", "schedule_id": "no-restart", "source": "votes-csv",
+        "cuts": {"mode": "vote-count", "at": [5, 10, 15, 20]}, "moderation": "none",
+        "clojure": {"warm_start": "chain"}, "notes": "",
+    })
+    records = _run_legacy(ds, spec_no_restart)
+    assert len(records) == 4
+
+
+def test_restart_conversation_rebuilds_matrices_and_drops_smoother_state(monkeypatch):
+    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
+    ds = ReplayDataset.build(_RESTART_RAW_VOTES)
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "t", "schedule_id": "restart-unit", "source": "votes-csv",
+        "cuts": {"mode": "vote-count", "at": [10]}, "moderation": "none",
+        "clojure": {"warm_start": "chain"}, "notes": "",
+    })
+    records = _run_legacy(ds, spec)
+    blob = records[0].blob
+
+    restored = driver._restart_conversation(
+        ds, cut_slot=records[0].cut_slot, cut_time_ms=records[0].cut_time_ms,
+        blob=blob, mod_events=(),
+    )
+    # from_dict never restores these (poller/__init__.py's documented
+    # "load-or-init finding") -- confirmed dropped on the restart path too.
+    assert restored.group_clusterings == {}
+    assert restored.group_k_smoother == {}
+    # Rating matrices are rebuilt fresh from the full vote slice, not left
+    # empty (from_dict alone would leave them at the cls() default).
+    assert restored.raw_rating_mat.shape[0] > 0
+    assert restored.raw_rating_mat.shape[1] > 0
+    assert restored.rating_mat.shape == restored.raw_rating_mat.shape
+    # Restart-seam root (journal 2026-07-24): the warm-start lineage input
+    # must survive the restore — zid and base clusters come back from the
+    # blob (clj restructure-json-conv keeps :zid and unfolds :base-clusters).
+    assert restored.conversation_id == "t"
+    blob_bc = blob["base-clusters"]
+    assert len(blob_bc["id"]) > 0, "recorded blob unexpectedly has no base clusters"
+    assert [c["id"] for c in restored.base_clusters] == list(blob_bc["id"])
+    assert [c["members"] for c in restored.base_clusters] == list(blob_bc["members"])
+
+
+def test_restart_conversation_replays_woven_mod_history_not_just_blob_state():
+    # A blob with NO moderation recorded (e.g. recorded before the mods were
+    # applied) — restart must derive the mod state from the WOVEN mod history
+    # passed in (clj restart-conv: (mapcat :mods steps-so-far)) via
+    # mod_update, not trust the (here: empty) blob moderation.
+    raw = [(100, 1, 10, 1), (200, 2, 11, -1)]
+    woven = (ModEvent(t_ms=50, tid=10, mod=-1), ModEvent(t_ms=150, tid=11, mod=1))
+    ds = ReplayDataset.build(raw, mod_events=list(woven))
+    blob = {
+        "conversation_id": "t", "last_updated": 200, "participant_count": 2,
+        "comment_count": 2, "vote_stats": {},
+        "moderation": {"mod_out_tids": [], "mod_in_tids": [], "meta_tids": [],
+                       "mod_out_ptpts": []},
+    }
+    restored = driver._restart_conversation(
+        ds, cut_slot=ds.n, cut_time_ms=200, blob=blob, mod_events=woven,
+    )
+    assert restored.mod_out_tids == {10}
+    assert restored.mod_in_tids == {11}
+    assert restored.moderation_applied is True
+
+
+def test_restart_replays_only_woven_mods_not_dataset_mods(monkeypatch):
+    # #2656 review finding 1 (the landmine): a NEW-format comments CSV always
+    # yields dataset.mod_events, but a moderation="none" schedule weaves NONE
+    # of them into steps. clj restart-conv replays only the woven mods
+    # ((mapcat :mods steps-so-far), replay.clj) — the py restart must not
+    # smuggle dataset-level mods the chain never saw into the warm state.
+    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
+    mods = [ModEvent(t_ms=150, tid=10, mod=-1)]
+    ds = ReplayDataset.build(_RESTART_RAW_VOTES, mod_events=mods)
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "t", "schedule_id": "restart-unwoven", "source": "votes-csv",
+        "cuts": {"mode": "vote-count", "at": [10, 20]}, "moderation": "none",
+        "clojure": {"warm_start": "chain"}, "notes": "", "restart_after": 0,
+    })
+    records = _run_legacy(ds, spec)
+    post = records[1].blob["moderation"]
+    assert post["mod_out_tids"] == []  # dataset-level mod never woven -> never replayed
+
+
+def test_restart_replays_woven_mods_so_far(monkeypatch):
+    # Control for the test above: mods that ARE woven into steps up to the
+    # seam must survive the restart (replayed via mod_update).
+    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
+    mods = [ModEvent(35, 100, -1)]
+    ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "vw", "schedule_id": "restart-woven", "source": "votes-csv",
+        "cuts": _MOD_CUTS, "moderation": "interleave-by-timestamp",
+        "clojure": {"warm_start": "chain"}, "notes": "", "restart_after": 0,
+    })
+    records = _run_legacy(ds, spec)
+    assert records[1].blob["moderation"]["mod_out_tids"] == [100]
+
+
+def test_restart_with_moderation_requires_legacy_mode():
+    # #2656 review (2026-07-24): the restart seam replays woven mods via
+    # mod_update (legacy reducer semantics); combining restart_after with a
+    # moderation-bearing schedule in IMPROVED mode would silently apply the
+    # wrong moderation semantics — fail loudly instead.
+    mods = [ModEvent(35, 100, -1)]
+    ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "vw", "schedule_id": "restart-improved", "source": "votes-csv",
+        "cuts": _MOD_CUTS, "moderation": "interleave-by-timestamp",
+        "clojure": {"warm_start": "chain"}, "notes": "", "restart_after": 0,
+    })
+    with pytest.raises(NotImplementedError, match="clojure-legacy"):
+        _run_legacy(ds, spec)  # improved mode: no env override set
+
+
+@pytest.mark.parametrize("bad", [-1, 3, 4])
+def test_restart_after_out_of_range_raises(monkeypatch, bad):
+    # replay.clj CLI parity: restart_after must be a step index with at least
+    # one step after it (0 <= r <= n_steps-2); 4 cuts -> valid r in [0, 2].
+    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
+    ds = ReplayDataset.build(_RESTART_RAW_VOTES)
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "t", "schedule_id": "restart-range", "source": "votes-csv",
+        "cuts": {"mode": "vote-count", "at": [5, 10, 15, 20]}, "moderation": "none",
+        "clojure": {"warm_start": "chain"}, "notes": "", "restart_after": bad,
+    })
+    with pytest.raises(ValueError, match="restart_after"):
+        _run_legacy(ds, spec)

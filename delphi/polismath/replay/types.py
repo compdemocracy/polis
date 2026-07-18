@@ -58,12 +58,17 @@ class ModEvent:
     """A moderation change at ``t_ms`` setting ``comments.mod`` for ``tid``.
 
     ``mod`` uses the production convention: -1 moderated-out, 0 unmoderated,
-    1 moderated-in.
+    1 moderated-in. ``is_meta`` mirrors ``comments.is_meta`` (MOD_RESTART_PORT_
+    SPEC.md "Python ports" item 2) — additive, defaults False so every existing
+    caller (bare ``ModEvent(t_ms, tid, mod)``) is unaffected. Consumed by
+    ``Conversation.mod_update`` (conversation.clj:846-884 parity): an is_meta
+    row lands in BOTH mod-out and mod-in regardless of ``mod``.
     """
 
     t_ms: int
     tid: int
     mod: int
+    is_meta: bool = False
 
 
 Schedule = tuple[int, ...]
@@ -78,6 +83,13 @@ class ReplayDataset:
     comments: dict[int, CommentMeta]
     mod_events: list[ModEvent] = field(default_factory=list)
     strict_moderation: bool = False
+    # Provenance counter (MOD_RESTART_PORT_SPEC.md "Data" bullet): rows in the
+    # source comments CSV that carried no ``modified`` timestamp and therefore
+    # could not be woven into a replay schedule as a ModEvent. Populated by
+    # :func:`polismath.replay.real_data.load_export_votes`; 0 for datasets with
+    # no moderation-history columns at all (nothing was skipped — there was
+    # nothing to parse).
+    mod_events_skipped: int = 0
 
     @property
     def n(self) -> int:

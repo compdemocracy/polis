@@ -453,6 +453,96 @@ def test_ensure_clj_recording_raises_certify_error_on_nonzero_exit(tmp_path, mon
     assert exc_info.value.stage
 
 
+# ---------------------------------------------------------------------------
+# --comments plumbing (MOD_RESTART_PORT_SPEC.md "Python ports" item 5): the
+# clj driver gets --comments only when the schedule requests moderation !=
+# "none" AND the dataset has a comments CSV. Existing (moderation="none")
+# recordings must be unaffected -- no --comments flag, no manifest change.
+# ---------------------------------------------------------------------------
+def test_comments_csv_path_locates_existing_public_dataset():
+    path = cert.comments_csv_path("vw")
+    assert path is not None
+    assert path.name.endswith("-comments.csv")
+    assert path.exists()
+
+
+def test_comments_csv_path_returns_none_for_missing_dataset():
+    assert cert.comments_csv_path("no-such-dataset-xyz") is None
+
+
+def test_run_clj_driver_includes_comments_flag_when_given(tmp_path, monkeypatch):
+    captured = {}
+
+    def fake_run(cmd, *, cwd, env):
+        captured["cmd"] = cmd
+        return _fake_completed()
+
+    monkeypatch.setattr(cert, "_run_subprocess", fake_run)
+    comments_csv = tmp_path / "comments.csv"
+    cert.run_clj_driver(tmp_path / "sched.json", tmp_path / "votes.csv", out_dir=tmp_path,
+                         comments_csv=comments_csv)
+    cmd = captured["cmd"]
+    assert "--comments" in cmd
+    assert cmd[cmd.index("--comments") + 1] == str(comments_csv)
+
+
+def test_run_clj_driver_omits_comments_flag_by_default(tmp_path, monkeypatch):
+    captured = {}
+
+    def fake_run(cmd, *, cwd, env):
+        captured["cmd"] = cmd
+        return _fake_completed()
+
+    monkeypatch.setattr(cert, "_run_subprocess", fake_run)
+    cert.run_clj_driver(tmp_path / "sched.json", tmp_path / "votes.csv", out_dir=tmp_path)
+    assert "--comments" not in captured["cmd"]
+
+
+@requires_math_tree
+def test_certify_entry_passes_comments_when_moderation_requested(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_run(cmd, *, cwd, env):
+        calls.append(cmd)
+        return _fake_completed()
+
+    monkeypatch.setattr(cert, "_run_subprocess", fake_run)
+
+    schedule_path = tmp_path / "sched.json"
+    schedule_path.write_text(json.dumps({
+        "dataset": "vw", "schedule_id": "mod-comments-test",
+        "cuts": {"mode": "vote-count", "at": [10]},
+        "moderation": "interleave-by-timestamp",
+        "clojure": {"warm_start": "chain"}, "notes": "",
+    }))
+    entry = cert.parse_battery_entry(
+        {"dataset": "vw", "schedule": str(schedule_path), "engine_mode": "clojure-legacy"},
+    )
+    cert.certify_entry(entry, root=tmp_path, ledger={})
+
+    clj_cmds = [c for c in calls if c and c[0] == "clojure"]
+    assert len(clj_cmds) == 1
+    assert "--comments" in clj_cmds[0]
+
+
+@requires_math_tree
+def test_certify_entry_omits_comments_when_moderation_none(tmp_path, monkeypatch):
+    calls = []
+
+    def fake_run(cmd, *, cwd, env):
+        calls.append(cmd)
+        return _fake_completed()
+
+    monkeypatch.setattr(cert, "_run_subprocess", fake_run)
+
+    entry = _make_entry()  # dataset=vw, preset=single-cut -> moderation "none"
+    cert.certify_entry(entry, root=tmp_path, ledger={})
+
+    clj_cmds = [c for c in calls if c and c[0] == "clojure"]
+    assert len(clj_cmds) == 1
+    assert "--comments" not in clj_cmds[0]
+
+
 def test_certify_entry_skipped_for_missing_dataset(tmp_path):
     entry = _make_entry(dataset="no-such-dataset-xyz")
     result, ledger = cert.certify_entry(entry, root=tmp_path, ledger={})

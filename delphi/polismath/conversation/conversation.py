@@ -207,7 +207,7 @@ class Conversation:
         # clojure-legacy emission can distinguish "never moderated" (null)
         # from "moderated to empty" ([]). See FP-2f5714ce9c / FP-2975bbfb04.
         self.moderation_applied = False
-        self.last_mod_timestamp = None
+        self.last_mod_timestamp: Optional[int] = None
         # Clojure named-matrix column order = first-vote arrival order per tid
         # (update-nmat appends unseen colnames in encounter order); python's
         # internal matrix is natsorted instead (update_votes). Tracked so
@@ -661,9 +661,59 @@ class Conversation:
         # Recompute clustering if requested
         if recompute:
             result = result.recompute()
-        
+
         return result
-    
+
+    def mod_update(self, mods: List[Dict[str, Any]]) -> 'Conversation':
+        """Clojure ``mod-update`` parity (conversation.clj:846-884).
+
+        Reduces raw moderation rows ``{tid, is_meta, mod, modified}`` over the
+        current sets, in row order: mod-out conj when ``is_meta OR mod == -1``
+        else disj; mod-in conj when ``is_meta OR mod == 1`` else disj;
+        meta-tids conj when ``is_meta`` else disj. Consequences pinned by
+        tests/test_mod_update_parity.py: is_meta rows land in BOTH mod sets,
+        un-moderation REMOVES (which ``update_moderation`` cannot express),
+        and the last row per tid wins. Watermark:
+        ``last_mod_timestamp = max(existing or 0, *modified)``.
+
+        NO math recompute — Clojure's ``:moderation`` message handler runs
+        ``mod-update`` alone and re-emits the blob with updated sets and
+        unchanged math (conv_man.clj:274-276 + 328-345); the sets take effect
+        at the next votes recompute (``_apply_moderation`` runs inside
+        ``update_votes``). ``moderation_applied`` becomes True even for empty
+        ``mods``: any mod-update leaves Clojure's sets as real (possibly
+        empty) sets, which the blob emits as ``[]`` rather than ``null``.
+        """
+        result = deepcopy(self)
+        mod_out = set(result.mod_out_tids)
+        mod_in = set(result.mod_in_tids)
+        meta = set(result.meta_tids)
+        for row in mods:
+            tid = row['tid']
+            is_meta = bool(row.get('is_meta'))
+            mod = row.get('mod')
+            if is_meta or mod == -1:
+                mod_out.add(tid)
+            else:
+                mod_out.discard(tid)
+            if is_meta or mod == 1:
+                mod_in.add(tid)
+            else:
+                mod_in.discard(tid)
+            if is_meta:
+                meta.add(tid)
+            else:
+                meta.discard(tid)
+        result.mod_out_tids = mod_out
+        result.mod_in_tids = mod_in
+        result.meta_tids = meta
+        result.moderation_applied = True
+        result.last_mod_timestamp = max(
+            [result.last_mod_timestamp or 0]
+            + [row['modified'] for row in mods]
+        )
+        return result
+
     def _compute_pca(self, n_components: int = 2,
                      prev_pca: Optional[Dict[str, Any]] = None) -> None:
         """
@@ -1401,6 +1451,15 @@ class Conversation:
         # (conversation.clj:658). Captured here, consumed in legacy mode only.
         prev_group_votes = getattr(result, 'group_votes', {})
 
+        # Q15: Clojure's conv-update is a plumbing-graph compile whose output
+        # has ONLY graph-node keys — :last-mod-timestamp is not one
+        # (conversation.clj:780-820), so every votes recompute DROPS the mod
+        # watermark; blobs carry lastModTimestamp only when the tick's last
+        # write was a mod-update. Improved mode keeps the persistent watermark
+        # (documented divergence). tests/test_mod_update_parity.py.
+        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
+            result.last_mod_timestamp = None
+
         # Compute PCA and projections
         result._compute_pca(prev_pca=prev_pca)
 
@@ -1867,6 +1926,18 @@ class Conversation:
         # Expand base-cluster IDs to participant IDs (matches Clojure group-votes)
         unfolded = self._unfolded_group_clusters()
 
+        # Clojure's group-votes aggregates votes-base, whose fnk reads
+        # RAW-rating-mat (conversation.clj:601-608): moderated-out comments
+        # report the ACTUAL votes cast and true seen-counts, not the
+        # post-zeroing pass-shaped columns (a zeroed column would tally
+        # A=0/D=0 with S = every member). Legacy mode mirrors that; improved
+        # mode keeps the zeroed-matrix tally it was snapshotted with (its
+        # S-inflation on moderated tids is a known later-fix).
+        # tests/test_mod_update_parity.py TestGroupVotesTallyRawMatrix.
+        tally_mat = (self.raw_rating_mat
+                     if resolve_engine_mode() == ENGINE_MODE_LEGACY
+                     else self.rating_mat)
+
         group_votes = {}
 
         # Helper to count votes of a specific type for a group
@@ -1886,7 +1957,7 @@ class Conversation:
             row_indices = []
             for member in members:
                 try:
-                    member_idx = self.rating_mat.index.get_loc(member)
+                    member_idx = tally_mat.index.get_loc(member)
                     row_indices.append(member_idx)
                 except ValueError:
                     # Skip members not found in matrix
@@ -1894,13 +1965,13 @@ class Conversation:
                     
             # Get the column index for this comment
             try:
-                col_idx = self.rating_mat.columns.get_loc(comment_id)
+                col_idx = tally_mat.columns.get_loc(comment_id)
             except ValueError:
                 # If comment not found, return 0
                 return 0
                 
             # Count votes of specified type
-            votes = self.rating_mat.values[row_indices, col_idx]
+            votes = tally_mat.values[row_indices, col_idx]
             
             if vote_type == 'A':  # Agree
                 return int(np.sum(np.abs(votes - 1.0) < 0.001))
@@ -2347,8 +2418,16 @@ class Conversation:
             # Reuse the already-unfolded group clusters (computed above)
             unfolded_groups = unfolded_gc
 
+            # Same tally-source rule as _compute_group_votes: Clojure's
+            # group-votes aggregates votes-base, which reads RAW-rating-mat
+            # (conversation.clj:601-608) — moderated-out comments report the
+            # actual votes cast, not the zeroed pass-shaped columns.
+            tally_mat = (self.raw_rating_mat
+                         if resolve_engine_mode() == ENGINE_MODE_LEGACY
+                         else self.rating_mat)
+
             # Precompute indices for each participant for faster lookups
-            ptpt_indices = {ptpt_id: i for i, ptpt_id in enumerate(self.rating_mat.index)}
+            ptpt_indices = {ptpt_id: i for i, ptpt_id in enumerate(tally_mat.index)}
 
             # Process each group
             for group in unfolded_groups:
@@ -2360,19 +2439,19 @@ class Conversation:
                 member_indices = []
                 for member in group.get('members', []):
                     idx = ptpt_indices.get(member)
-                    if idx is not None and idx < self.rating_mat.values.shape[0]:
+                    if idx is not None and idx < tally_mat.values.shape[0]:
                         member_indices.append(idx)
-                
+
                 # Skip groups with no valid members
                 if not member_indices:
                     continue
-                
+
                 # Get the vote submatrix for this group
-                group_matrix = self.rating_mat.values[member_indices, :]
-                
+                group_matrix = tally_mat.values[member_indices, :]
+
                 # Calculate vote stats for each comment using vectorized operations
                 votes = {}
-                for j, comment_id in enumerate(self.rating_mat.columns):
+                for j, comment_id in enumerate(tally_mat.columns):
                     if j >= group_matrix.shape[1]:
                         continue
                     
@@ -2746,8 +2825,14 @@ class Conversation:
         Returns:
             Conversation instance
         """
-        # Create empty conversation
-        conv = cls(data.get('conversation_id', ''))
+        # Create empty conversation. to_dict emits the id under 'zid' (both
+        # modes — it renames conversation_id at emission), matching Clojure
+        # prep-main blobs; accept either key so a recorded blob round-trips
+        # with its id intact (restart-seam root, journal 2026-07-24).
+        # Key-presence check, not truthiness: a legitimately-falsy id (0)
+        # must not fall through to the other key (#2656 review).
+        conv = cls(data['conversation_id'] if 'conversation_id' in data
+                   else data.get('zid', ''))
         
         # Restore basic attributes
         conv.last_updated = data.get('last_updated', int(time.time() * 1000))
@@ -2816,6 +2901,55 @@ class Conversation:
         
         # Restore cluster data
         conv.group_clusters = data.get('group_clusters', [])
+
+        # Restore base clusters — the blob emits them in the Clojure folded
+        # column-store shape ({'id': [...], 'members': [...], 'x': [...],
+        # 'y': [...], 'count': [...]}); unfold to the internal row shape
+        # exactly as restructure-json-conv does (conv_man.clj:171-186 →
+        # clusters.clj:402-414 unfold-clusters: center := [x, y]). Without
+        # this, a warm restart cold-starts the base-cluster lineage and the
+        # first post-restart tick re-mints every id (restart-seam root,
+        # journal 2026-07-24). Legacy blobs carry emission-NEGATED x/y (see
+        # _apply_legacy_blob_shape) — un-negate back to the internal sign
+        # convention, mirroring the pca center restore above.
+        folded_bc = data.get('base-clusters')
+        if folded_bc:
+            unfolded_bc = conv._unfold_base_clusters(folded_bc)
+            if legacy:
+                for c in unfolded_bc:
+                    c['center'] = [-v for v in c['center']]
+            conv.base_clusters = unfolded_bc
+
+        # Restore group-votes — restructure-json-conv keeps :group-votes
+        # (conv_man.clj:174) and the recovery tick's comment-priorities read
+        # it as the PREVIOUS tick's group-votes (Q2, conversation.clj:658);
+        # without this a warm restart computes priorities against empty prev
+        # group-votes (every comment looks unseen → inflated priorities —
+        # vw-restart4 step-5 divergence, journal 2026-07-24). A JSON
+        # round-trip stringifies the per-group vote tid keys; re-intify
+        # them, mirroring parse-blob-json turning numeric-string keys back
+        # into longs (postgres.clj:419-433). gid keys stay as emitted (the
+        # priorities reduce only iterates values). Improved mode is
+        # unaffected in practice: priorities there read the CURRENT tick's
+        # group-votes, and the recompute overwrites this attribute first.
+        def _numeric_key(k):
+            try:
+                return int(k)
+            except (ValueError, TypeError):
+                return k
+
+        blob_gv = data.get('group-votes')
+        if blob_gv:
+            conv.group_votes = {
+                gid: {
+                    **{k: v for k, v in g.items() if k != 'votes'},
+                    'votes': {
+                        _numeric_key(t): e
+                        for t, e in (g.get('votes') or {}).items()
+                    },
+                }
+                for gid, g in blob_gv.items()
+            }
         
         # Restore representativeness data. Legacy blobs emit 'repness' in
         # Clojure per-group shape and park the internal dict under
@@ -2959,9 +3093,18 @@ class Conversation:
             # Expand base-cluster IDs to participant IDs for vote counting
             unfolded_groups = self._unfolded_group_clusters()
 
+            # Same tally-source rule as _compute_group_votes / to_dict:
+            # Clojure's group-votes aggregates votes-base, which reads
+            # RAW-rating-mat (conversation.clj:601-608) — moderated-out
+            # comments report the actual votes cast, not the zeroed
+            # pass-shaped columns.
+            tally_mat = (self.raw_rating_mat
+                         if resolve_engine_mode() == ENGINE_MODE_LEGACY
+                         else self.rating_mat)
+
             # Precompute indices for each participant
             ptpt_indices = {}
-            for i, ptpt_id in enumerate(self.rating_mat.index):
+            for i, ptpt_id in enumerate(tally_mat.index):
                 ptpt_indices[ptpt_id] = i
 
             # Process each group
@@ -2974,19 +3117,19 @@ class Conversation:
                 member_indices = []
                 for member in group.get('members', []):
                     idx = ptpt_indices.get(member)
-                    if idx is not None and idx < self.rating_mat.values.shape[0]:
+                    if idx is not None and idx < tally_mat.values.shape[0]:
                         member_indices.append(idx)
-                
+
                 # Skip groups with no valid members
                 if not member_indices:
                     continue
-                
+
                 # Get the submatrix for this group
-                group_matrix = self.rating_mat.values[member_indices, :]
-                
+                group_matrix = tally_mat.values[member_indices, :]
+
                 # Calculate votes for each comment
                 group_votes = {}
-                for j, comment_id in enumerate(self.rating_mat.columns):
+                for j, comment_id in enumerate(tally_mat.columns):
                     if j >= group_matrix.shape[1]:
                         continue
                         

@@ -1,0 +1,22 @@
+{
+  "dataset": "pc-midmix-01",
+  "schedule_id": "uniform6-restart3",
+  "source": "votes-csv",
+  "cuts": {
+    "mode": "vote-count",
+    "at": [
+      8191,
+      16382,
+      24573,
+      32764,
+      40955,
+      49146
+    ]
+  },
+  "moderation": "none",
+  "clojure": {
+    "warm_start": "chain"
+  },
+  "notes": "uniform6 with a worker-restart seam after step 3 (medium-size prodclone extraction)",
+  "restart_after": 3
+}
