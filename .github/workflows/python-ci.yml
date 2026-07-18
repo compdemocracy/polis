@@ -83,6 +83,13 @@ jobs:
           bash -c 'until pg_isready -U $POSTGRES_USER; do sleep 5; done'
         echo "Postgres is ready."
 
+    # The opt-in Postgres integration tests (require_polis_postgres) run here
+    # against the compose `postgres` service, whose image bakes the polis
+    # migrations (server/postgres/migrations/*.sql via docker-entrypoint-initdb.d),
+    # so the votes / votes_latest_unique schema + on_vote_insert_update_unique_table
+    # rule are already applied. The pytest step exports POLIS_TEST_POSTGRES_URL;
+    # the cold-start generator under test is already baked into the delphi image
+    # (Dockerfile `COPY scripts/ ./scripts/`), built from this checkout.
     - name: 6. Run Delphi Pytest
       run: |
         echo "Copying test files into container..."
@@ -112,6 +119,7 @@ jobs:
             python create_dynamodb_tables.py --region us-east-1; \
             echo '--- Running Pytest ---'; \
             export PYTHONPATH=\$PYTHONPATH:/app; \
+            export POLIS_TEST_POSTGRES_URL=\"postgresql://\$DATABASE_USER:\$DATABASE_PASSWORD@\$DATABASE_HOST/\$DATABASE_NAME\"; \
             pytest --cov=polismath --cov=run_math_pipeline --cov=./umap_narrative --cov-report=xml:/app/coverage.xml /app/tests --ignore=/app/tests/test_pakistan_conversation.py
             echo '--- Generating Coverage Comment Text ---'; \
             python /app/generate_coverage_md.py > /app/coverage-comment.md \

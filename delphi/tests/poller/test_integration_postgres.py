@@ -1,89 +1,34 @@
 """End-to-end integration test for the math poller against a real Postgres.
 
-OPT-IN and self-skipping (like tests/test_postgres_real_data.py): it provisions
-a THROWAWAY postgres:17 container on port 5435 (NEVER the host's live 5432),
-applies server/postgres/migrations/000000_initial.sql, seeds one conversation,
-and drives poll -> compute -> write, asserting:
+OPT-IN and self-skipping (like tests/test_postgres_real_data.py): it obtains a
+Postgres with the polis votes schema via the shared ``require_polis_postgres``
+helper — the CI ``postgres`` service (POLIS_TEST_POSTGRES_URL) when present, else
+a THROWAWAY postgres:17 on an EPHEMERAL port (NEVER the host's live 5432) with
+000000_initial.sql + 000006_update_votes_rule.sql applied — seeds one
+conversation, and drives poll -> compute -> write, asserting:
 
   * a math_main row appears under the poller's math_env (shadow isolation),
   * math_bidtopid + math_ptptstats share the cycle's math_tick,
   * caching_tick / math_tick behave per the Clojure-exact SQL,
   * a fresh service instance resumes and advances the tick (restart-resumes).
 
-If docker is unavailable or port 5435 is busy, the whole module is skipped with
-a clear reason.
+If neither a CI service nor docker is available, the whole module is skipped
+with a clear reason.
 """
 
-import os
-import shutil
-import subprocess
 import time
-import uuid
 
 import pytest
 
+from tests.conftest import require_polis_postgres
+
 pytestmark = pytest.mark.integration
-
-MIGRATION = os.path.join(
-    os.path.dirname(__file__),
-    "..", "..", "..", "server", "postgres", "migrations", "000000_initial.sql",
-)
-PORT = 5435
-DB_URL = f"postgresql://postgres:test@localhost:{PORT}/postgres"
-
-
-def _docker() -> str:
-    exe = shutil.which("docker")
-    if not exe:
-        pytest.skip("docker not available")
-    return exe
-
-
-def _run(*args, **kwargs):
-    return subprocess.run(args, capture_output=True, text=True, **kwargs)
 
 
 @pytest.fixture(scope="module")
 def pg_url():
-    docker = _docker()
-    migration = os.path.abspath(MIGRATION)
-    if not os.path.exists(migration):
-        pytest.skip(f"migration not found: {migration}")
-
-    name = f"delphi-poller-it-{uuid.uuid4().hex[:8]}"
-    started = _run(
-        docker, "run", "--rm", "-d", "--name", name,
-        "-p", f"{PORT}:5432", "-e", "POSTGRES_PASSWORD=test", "postgres:17",
-    )
-    if started.returncode != 0:
-        pytest.skip(f"could not start postgres container (port {PORT} busy?): "
-                    f"{started.stderr.strip()}")
-    cid = started.stdout.strip()
-    try:
-        # Wait for readiness.
-        deadline = time.time() + 40
-        ready = False
-        while time.time() < deadline:
-            if _run(docker, "exec", cid, "pg_isready", "-U", "postgres").returncode == 0:
-                ready = True
-                break
-            time.sleep(1)
-        if not ready:
-            pytest.skip("postgres container did not become ready in time")
-
-        # Apply the full initial migration.
-        with open(migration, "rb") as fh:
-            applied = subprocess.run(
-                [docker, "exec", "-i", cid, "psql", "-v", "ON_ERROR_STOP=1",
-                 "-U", "postgres", "-d", "postgres"],
-                stdin=fh, capture_output=True, text=True,
-            )
-        if applied.returncode != 0:
-            pytest.skip(f"migration failed to apply: {applied.stderr[-500:]}")
-
-        yield DB_URL
-    finally:
-        _run(docker, "stop", cid)
+    with require_polis_postgres() as url:
+        yield url
 
 
 def _seed_conversation(engine, zid=1, n_ptpts=8, n_cmts=5):
