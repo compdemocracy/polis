@@ -371,21 +371,39 @@ def main(zid: str, rid: str = None):
     
     logger.info("\nThe conversation is ready for a fresh Delphi run.")
 
-if __name__ == "__main__":
+def cli(argv=None):
+    """Argv-based entry point (parses args, then delegates to ``main``).
+
+    Kept separate from ``main(zid, rid)`` so the orchestrator can invoke this
+    stage in-process with an argv list, while callers/tests can still call
+    ``main(zid=..., rid=...)`` directly.
+
+    Args:
+        argv: Optional argument list (defaults to ``sys.argv[1:]`` when None).
+
+    Returns:
+        Process exit code (0 on success).
+    """
     parser = argparse.ArgumentParser(description="Reset Delphi data for a conversation.")
     parser.add_argument(
-        '--zid', 
-        type=int, 
+        '--zid',
+        type=int,
         required=True,
         help="The numeric conversation ID (e.g., 19548). Used for all DynamoDB and S3 cleanup."
     )
     parser.add_argument(
-        '--rid', 
-        type=str, 
+        '--rid',
+        type=str,
         required=False,
         help="The report ID (e.g., r4tykwac8thvzv35jrn53). Only needed for cleaning the Delphi_NarrativeReports table."
     )
-    
-    args = parser.parse_args()
-    
+
+    args = parser.parse_args(argv)
+
     main(zid=args.zid, rid=args.rid)
+    return 0
+
+
+if __name__ == "__main__":
+    import sys
+    sys.exit(cli())
