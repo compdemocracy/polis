@@ -16,17 +16,16 @@ Clojure instead THREADS warm-start state across ticks:
   - 'improved'       (default): today's cold-recompute behavior, byte-for-byte.
   - 'clojure-legacy'         : threads the warm-start state described above.
 
-The flag is resolved AT CALL TIME (never cached at import), reusing the exact
-idiom of `pca._resolve_impl_flag` (pca.py:37-57): unknown values fall back to
-the default with a warning so a typo in a deployment env cannot crash the math
-worker. This lives in a shared spot (polismath.utils) because the mode
-cross-cuts both PCA (conversation._compute_pca) and clustering
-(conversation._compute_clusters).
+The flag is resolved AT CALL TIME (never cached at import) by the shared
+`utils.env_flags.resolve_impl_flag`: unknown values fall back to the default
+with a warning so a typo in a deployment env cannot crash the math worker.
+This lives in a shared spot (polismath.utils) because the mode cross-cuts both
+PCA (conversation._compute_pca) and clustering (conversation._compute_clusters).
 """
 
 from typing import Sequence
 
-from polismath.pca_kmeans_rep.pca import _resolve_impl_flag
+from polismath.utils.env_flags import resolve_impl_flag
 
 ENGINE_MODE_ENV_VAR = 'POLISMATH_ENGINE_MODE'
 ENGINE_MODE_LEGACY = 'clojure-legacy'   # warm-start parity with Clojure
@@ -39,12 +38,12 @@ def resolve_engine_mode() -> str:
     """
     Resolve `POLISMATH_ENGINE_MODE` from the environment, at call time.
 
-    Reuses `pca._resolve_impl_flag` (pca.py:37-57) so the resolution rules
+    Reuses `utils.env_flags.resolve_impl_flag` so the resolution rules
     (strip + lowercase, unknown -> default with a warning) are identical to
     the PCA-solver switch.
 
     Returns:
         Either 'improved' (default) or 'clojure-legacy'.
     """
-    return _resolve_impl_flag(
+    return resolve_impl_flag(
         ENGINE_MODE_ENV_VAR, ENGINE_MODE_DEFAULT, ENGINE_MODE_CHOICES)
