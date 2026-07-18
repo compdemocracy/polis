@@ -175,3 +175,44 @@
       (is (= 1 (first result)))
       ;; bucket 1 has :p2 (voted) → count 1
       (is (= 1 (second result))))))
+
+
+;; ============================================================================
+;; Bug 4: comment-priorities collapsed every comment to META_PRIORITY^2 (=49)
+;;
+;; #1961 (2025-03-15) changed the meta-tid lookup in the :comment-priorities fnk
+;; from (meta-tids tid) to (get meta-tids tid 0). For a non-meta tid,
+;; (get meta-tids tid 0) returns 0 — and 0 is TRUTHY in Clojure — so
+;; priority-metric took the meta branch for EVERY comment, collapsing all
+;; priorities to meta-priority^2 = 49 and degrading routing to uniform-random.
+;; Fixed by passing a real boolean: (contains? meta-tids tid). See #2571.
+;; ============================================================================
+
+(deftest comment-priorities-only-meta-tids-get-meta-priority
+  (testing "only genuine meta tids get meta-priority^2; non-meta tids get varied importance-based priorities"
+    (let [priorities-fnk (:comment-priorities conversation/small-conv-update-graph)
+          tids [1 2 3]
+          meta-tids #{2}                       ; only tid 2 is a meta comment
+          group-votes {0 {:votes {1 {:A 5 :D 1 :S 8}
+                                   2 {:A 3 :D 0 :S 6}
+                                   3 {:A 1 :D 2 :S 7}}}
+                       1 {:votes {1 {:A 2 :D 1 :S 5}
+                                  2 {:A 1 :D 1 :S 4}
+                                  3 {:A 4 :D 0 :S 9}}}}
+          conv {:zid 1 :group-votes group-votes}
+          pca {:comment-extremity [0.5 1.2 0.8]}   ; one per tid, in tids order
+          meta-priority-sq (double (* conversation/meta-priority conversation/meta-priority))
+          priorities (priorities-fnk {:conv conv
+                                      :group-votes group-votes
+                                      :pca pca
+                                      :tids tids
+                                      :meta-tids meta-tids})]
+      (testing "the meta tid gets exactly meta-priority^2"
+        (is (== meta-priority-sq (double (get priorities 2)))))
+      ;; Regression guard for #1961: with the truthy-0 bug, non-meta tids also
+      ;; hit the meta branch and returned meta-priority^2.
+      (testing "non-meta tids do NOT get meta-priority^2"
+        (is (not (== meta-priority-sq (double (get priorities 1)))))
+        (is (not (== meta-priority-sq (double (get priorities 3))))))
+      (testing "non-meta priorities are varied, not a single constant"
+        (is (not (== (double (get priorities 1)) (double (get priorities 3)))))))))
