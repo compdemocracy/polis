@@ -826,7 +826,18 @@ class Conversation:
         # Filter projections to only include in-conv participants
         in_conv_pids_list = [pid for pid in self.proj.keys() if pid in in_conv_pids]
 
-        if len(in_conv_pids_list) < 2:
+        legacy_mode = resolve_engine_mode() == ENGINE_MODE_LEGACY
+
+        # Degenerate-tick port (journal 2026-07-21 verdict): Clojure has NO
+        # <2-participants guard past the truly-empty short-circuit — with one
+        # in-conv participant its graph still runs the full base->group chain
+        # (one base cluster, k=2 group clustering of one point). Legacy mode
+        # falls through and replicates that; improved mode keeps the guard.
+        # The 0-participant early return stays in BOTH modes: it is unreachable
+        # past the `not self.proj` short-circuit while the in-conv greedy floor
+        # guarantees >=1 participant (PR-E), and Clojure's kmeans on an empty
+        # matrix has nothing to warm-start either.
+        if len(in_conv_pids_list) == 0 or (not legacy_mode and len(in_conv_pids_list) < 2):
             logger.warning(f"Not enough participants meeting threshold ({len(in_conv_pids_list)})")
             self.base_clusters = []
             self.group_clusters = []
@@ -838,10 +849,10 @@ class Conversation:
         # Step 2: Base clustering (participants → ~100 base clusters)
         base_proj_values = np.array([self.proj[pid] for pid in in_conv_pids_list])
 
-        # Adjust BASE_K if we have fewer participants
+        # Adjust BASE_K if we have fewer participants. (Clojure always passes
+        # :base-k=100, but its kmeans caps clusters at the distinct-row count,
+        # so min() here is outcome-equivalent.)
         actual_base_k = min(BASE_K, len(in_conv_pids_list))
-
-        legacy_mode = resolve_engine_mode() == ENGINE_MODE_LEGACY
 
         logger.info(f"Computing base clusters with k={actual_base_k}...")
         if legacy_mode:
@@ -892,7 +903,22 @@ class Conversation:
         logger.info(f"Created {len(base_clusters)} base clusters")
 
         # Step 3: Group clustering (base clusters → 2-5 groups)
-        if len(base_clusters) < 2:
+        #
+        # Degenerate-tick port (journal 2026-07-21 verdict, supersedes the P6a
+        # sentinel-only advance): Clojure has NO <2-base-cluster guard. Its
+        # max-k-fn is (min max-max-k (+ 2 (int (/ n 12)))) -> ALWAYS >= 2
+        # (conversation.clj:274-279), so on a degenerate tick it still runs
+        # kmeans at k=2 on the single base-cluster center (clean-start caps
+        # clusters at the distinct-point count -> one cluster, lineage id
+        # preserved), stores the fresh 1-cluster :group-clusterings, and the
+        # next tick warm-starts from it — recovery splits mint ids via
+        # (inc (apply max ids)) (clusters.clj:267). Legacy mode falls through
+        # to the normal per-k loop below, which reproduces all of that
+        # (max_k arithmetic yields range [2]; silhouette of a singleton
+        # clustering is 0.0, matching Clojure's singleton rule
+        # clusters.clj:350-353, so the smoother advance is unchanged from
+        # P6a). Improved mode keeps the early return byte-for-byte.
+        if not legacy_mode and len(base_clusters) < 2:
             logger.warning(f"Not enough base clusters for group clustering ({len(base_clusters)})")
             self.base_clusters = base_clusters
             # Maintain consistent group-cluster schema: members are base-cluster IDs
@@ -905,22 +931,6 @@ class Conversation:
             else:
                 self.group_clusters = []
             self.subgroup_clusters = {}
-            # P6a: Clojure has NO <2-base-cluster guard. Its max-k-fn is
-            # (min max-max-k (+ 2 (int (/ n 12)))) -> ALWAYS >= 2
-            # (conversation.clj:273-279), so on a degenerate tick with a NON-empty
-            # conv (we are past the `if not self.proj` empty short-circuit above)
-            # the Clojure graph still clusters at k=2 and feeds this_k=2 to the
-            # group-k smoother, ADVANCING its {last_k, last_k_count, smoothed_k}
-            # state. Mirror that in legacy mode (silhouette sentinel 0.0 -> this_k=2)
-            # instead of FREEZING the smoother memory — which self-corrected within
-            # <=4 ticks but diverged from Clojure meanwhile. Improved mode carries
-            # no smoother state, so it is unaffected.
-            if legacy_mode:
-                new_smoother_state, _ = group_k_smoother_update(
-                    prev_group_k_smoother or {}, {2: 0.0})
-                self.group_k_smoother = new_smoother_state
-                logger.info(f"Legacy degenerate-tick smoother advance: "
-                            f"state={new_smoother_state}")
             return
 
         # Prepare base cluster centers and weights
