@@ -49,7 +49,8 @@ from typing import Any, Callable
 
 from polismath.conversation.conversation import Conversation
 from polismath.replay.schedule import ReplayStep, ScheduleSpec, slice_schedule
-from polismath.replay.types import ReplayDataset
+from polismath.replay.types import ModEvent, ReplayDataset
+from polismath.utils.engine_mode import ENGINE_MODE_LEGACY, resolve_engine_mode
 
 # Vote sign convention recorded in provenance; the future Clojure driver flips.
 VOTE_SIGN_CONVENTION = "delphi"  # AGREE=+1 (export convention, no re-flip)
@@ -85,6 +86,17 @@ def run_replay(
     steps = slice_schedule(dataset, spec)
     total = len(steps)
 
+    # replay.clj CLI parity: restart_after must leave at least one step after
+    # the seam (0 <= r <= n_steps-2), else the "restart" would never be
+    # observed by any subsequent step — reject rather than silently no-op.
+    if spec.restart_after is not None and not (
+        0 <= spec.restart_after <= total - 2
+    ):
+        raise ValueError(
+            "restart_after must be a step index with at least one step after "
+            f"it; got {spec.restart_after!r} for {total} steps"
+        )
+
     # `or 1`: a first vote at t_ms==0 would seed last_updated=0, which
     # Conversation's `last_updated or now` footgun (conversation.py:205) turns
     # into wall-clock — breaking determinism. Floor to 1 (nonzero).
@@ -102,36 +114,76 @@ def run_replay(
     # certify-cold-start-pca.
     conv.pca = {'center': np.zeros(1), 'comps': np.array([[1.0], [1.0]])}
 
-    # Cumulative latest-wins moderation value per tid across the whole replay.
+    # Cumulative latest-wins moderation value per tid across the whole replay
+    # (improved-mode path only; legacy mode carries its own mod state on
+    # `conv` via `mod_update` — see the branch below).
     mod_state: dict[int, int] = {}
+    legacy = resolve_engine_mode() == ENGINE_MODE_LEGACY
+
+    # The restart seam replays woven mods via mod_update — Clojure's (and
+    # legacy mode's) reducer semantics. Improved mode moderates through
+    # update_moderation (truthy-replace lists); silently applying mod_update
+    # at its restart seam would mix semantics (#2656 review, 2026-07-24).
+    if spec.restart_after is not None and spec.moderation != "none" and not legacy:
+        raise NotImplementedError(
+            "restart_after with a moderation-bearing schedule is only "
+            "implemented for clojure-legacy engine mode: the restart seam "
+            "replays woven mods via mod_update (legacy reducer semantics), "
+            "which does not mirror improved mode's update_moderation."
+        )
 
     records: list[StepRecord] = []
+    # Mods woven into steps so far — the restart seam replays exactly these
+    # (clj restart-conv: (mapcat :mods steps-so-far)), NEVER dataset.mod_events
+    # (a new-format comments CSV carries mod events even for schedules that
+    # weave none of them).
+    woven_mods: list[ModEvent] = []
     for step in steps:
         if progress is not None:
             progress(step.index, total)
 
         conv = conv.update_votes(_votes_dict(step), recompute=False)
 
-        if step.mod_events:
-            for m in step.mod_events:
-                mod_state[m.tid] = m.mod
-            mod = _mod_dict(mod_state)
-            _guard_moderation_clear(conv, mod)
-            conv = conv.update_moderation(mod, recompute=True)
-        else:
+        if legacy:
+            # Clojure batch order (:votes :moderation, conv_man.clj:361-371):
+            # the votes recompute runs FIRST, on the PRIOR step's mod state.
+            # mod_update then touches only sets/watermark for THIS step's
+            # blob — NO recompute — so a mod change's effect on the math
+            # lands at the NEXT votes recompute (module docstring / conv/
+            # mod_update docstring). moderation="none" schedules never reach
+            # the `if step.mod_events` branch below, so this is bit-identical
+            # to the pre-existing (unconditional) `conv.recompute()` call for
+            # every schedule that doesn't request moderation.
             conv = conv.recompute()
+            if step.mod_events:
+                conv = conv.mod_update(_mod_rows(step.mod_events))
+        else:
+            if step.mod_events:
+                for m in step.mod_events:
+                    mod_state[m.tid] = m.mod
+                mod = _mod_dict(mod_state)
+                _guard_moderation_clear(conv, mod)
+                conv = conv.update_moderation(mod, recompute=True)
+            else:
+                conv = conv.recompute()
 
-        records.append(
-            StepRecord(
-                index=step.index,
-                prev_slot=step.prev_slot,
-                cut_slot=step.cut_slot,
-                batch_size=len(step.vote_events),
-                cut_time_ms=step.cut_time_ms,
-                blob=conv.to_dict(),
-                extras=_step_extras(conv),
-            )
+        record = StepRecord(
+            index=step.index,
+            prev_slot=step.prev_slot,
+            cut_slot=step.cut_slot,
+            batch_size=len(step.vote_events),
+            cut_time_ms=step.cut_time_ms,
+            blob=conv.to_dict(),
+            extras=_step_extras(conv),
         )
+        records.append(record)
+        woven_mods.extend(step.mod_events)
+
+        if spec.restart_after is not None and step.index == spec.restart_after:
+            conv = _restart_conversation(
+                dataset, cut_slot=step.cut_slot, cut_time_ms=step.cut_time_ms,
+                blob=record.blob, mod_events=tuple(woven_mods),
+            )
     return records
 
 
@@ -175,6 +227,57 @@ def _guard_moderation_clear(conv: Conversation, mod: dict[str, list[int]]) -> No
             "the real clear semantics (conversation.py update_moderation seam) "
             "before replaying a schedule that empties a moderation set."
         )
+
+
+def _mod_rows(events: tuple[ModEvent, ...]) -> list[dict[str, Any]]:
+    """Map a batch of ModEvents to ``Conversation.mod_update``'s row shape
+    (``{tid, is_meta, mod, modified}`` — conversation.clj:846-884 parity)."""
+    return [
+        {"tid": m.tid, "is_meta": m.is_meta, "mod": m.mod, "modified": m.t_ms}
+        for m in events
+    ]
+
+
+def _restart_conversation(
+    dataset: ReplayDataset, *, cut_slot: int, cut_time_ms: int, blob: dict[str, Any],
+    mod_events: tuple[ModEvent, ...],
+) -> Conversation:
+    """Rebuild a conversation from its OWN just-recorded step blob — the
+    Python mirror of a Clojure worker restart (conv_man.clj load-or-init /
+    restructure-json-conv; MOD_RESTART_PORT_SPEC.md "Replay-step semantics").
+
+    ``Conversation.from_dict`` restores the warm state Clojure's
+    restructure-json-conv keeps (PCA, moderation sets, repness, tid arrival
+    order, …) but — like Clojure resetting raw-rating-mat — leaves BOTH
+    rating matrices empty, and never restores the per-k group-clusterings /
+    group-k-smoother warm-start state at all (poller/__init__.py's
+    documented "load-or-init finding": ``from_dict`` does not restore
+    ``raw_rating_mat``/``rating_mat``/``group_clusterings``/
+    ``group_k_smoother``). This rebuilds the matrices from the FULL vote
+    slice (dataset order, ONE batch, no recompute — mirrors update-nmat over
+    every vote with slot <= cut_slot) and replays the WOVEN mod history so
+    far via ``mod_update`` — ``mod_events`` is exactly the mods the schedule
+    wove into steps up to the seam, in woven order (clj restart-conv:
+    ``(mapcat :mods steps-so-far)``, dev/replay.clj), NEVER
+    ``dataset.mod_events`` (which a new-format comments CSV populates even
+    when the schedule weaves none of them). Empty is fine — still called
+    unconditionally, mirroring Clojure's conv-mod-poll 0 at restart;
+    ``mod_update`` always sets ``moderation_applied = True``, matching
+    Clojure set-ifying mod sets so a post-restart blob emits ``[]`` rather
+    than ``null``.
+    """
+    restored = Conversation.from_dict(blob)
+
+    all_votes = [
+        {"pid": v.pid, "tid": v.tid, "vote": v.sign, "created": v.t_ms}
+        for v in dataset.votes[:cut_slot]
+    ]
+    restored = restored.update_votes(
+        {"votes": all_votes, "lastVoteTimestamp": cut_time_ms}, recompute=False
+    )
+
+    restored = restored.mod_update(_mod_rows(mod_events))
+    return restored
 
 
 def _mod_dict(mod_state: dict[int, int]) -> dict[str, list[int]]:

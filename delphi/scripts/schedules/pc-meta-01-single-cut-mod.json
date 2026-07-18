@@ -1,0 +1,16 @@
+{
+  "dataset": "pc-meta-01",
+  "schedule_id": "single-cut-mod",
+  "source": "votes-csv",
+  "cuts": {
+    "mode": "vote-count",
+    "at": [
+      4689
+    ]
+  },
+  "moderation": "interleave-by-timestamp",
+  "clojure": {
+    "warm_start": "chain"
+  },
+  "notes": "single cold cut with the full mod history woven (Q18 carve, 2026-07-24: this dataset's mod-narrowed warm geometry knife-edges in uniqify; warm-chain meta coverage lives in pc-meta-02 uniform6-mod)"
+}

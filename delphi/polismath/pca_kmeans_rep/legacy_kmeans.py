@@ -44,6 +44,7 @@ import numpy as np
 # seed rows as ``kmeans_sklearn``'s ``use_first_k_init`` branch. Sharing this is
 # what keeps the base-level cold-start invariant tight (see module tests).
 from polismath.pca_kmeans_rep.clusters import _get_first_k_distinct_centers
+from polismath.utils.clj_hash import clojure_hash_map_key_order
 
 # Clojure ``same-clustering?`` default tolerance (clusters.clj:71).
 SAME_CLUSTERING_THRESHOLD = 0.01
@@ -205,12 +206,31 @@ def cluster_step(data: _NamedData,
     members: List[List[Any]] = [[] for _ in range(n)]
     positions: List[List[np.ndarray]] = [[] for _ in range(n)]
 
+    # Assignment SCAN order: Clojure's add-to-closest iterates the
+    # cleared-clusters map — ``(into {})`` of [id cluster] pairs is an
+    # array-map in insertion (input) order for <=8 clusters but a
+    # PersistentHashMap for >8, whose seq order is the HAMT trie order of
+    # the id hashes (clusters.clj:79-86, 149). min-key keeps the LAST
+    # minimal entry in that order, so the scan order is semantic exactly on
+    # distance ties — and Q11's cancellation floor makes exact 0.0 ties
+    # COMMON, not measure-zero (pc-modheavy-01 step 2: 12 seed clusters
+    # emptied clj-side purely by hash-order ties, recorded 80 vs 92;
+    # journal 2026-07-24). clojure_hash_map_key_order reproduces the real
+    # Clojure order (cross-validated against clojure -M for n=9/20).
+    if n > 8:
+        hash_pos = {cid: i for i, cid in enumerate(
+            clojure_hash_map_key_order([c['id'] for c in clusters]))}
+        scan = sorted(range(n), key=lambda j: hash_pos[clusters[j]['id']])
+    else:
+        scan = list(range(n))
+
     for name, row in zip(data.row_names, data.matrix):
-        best_idx = 0
-        best_dist = _euclidean(row, centers[0])
-        for j in range(1, n):
+        best_idx = scan[0]
+        best_dist = _euclidean(row, centers[scan[0]])
+        for j in scan[1:]:
             d = _euclidean(row, centers[j])
-            # ``<=`` => ties go to the LATER cluster (Clojure min-key semantics).
+            # ``<=`` => ties go to the LATER cluster in scan order (Clojure
+            # min-key semantics over the map's iteration order).
             if d <= best_dist:
                 best_dist = d
                 best_idx = j

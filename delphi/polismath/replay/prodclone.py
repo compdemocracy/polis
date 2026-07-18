@@ -141,8 +141,12 @@ def sql_votes_export() -> str:
 
 
 def sql_comments_export() -> str:
+    """``is_meta``/``modified`` are additive (MOD_RESTART_PORT_SPEC.md "Data"
+    bullet) — the replay harness's moderation-interleave source
+    (real_data.py's mod-event loader reads them as ``is-meta``/``modified``
+    on the exported CSV)."""
     return """
-        SELECT tid, pid, created, mod
+        SELECT tid, pid, created, mod, is_meta, modified
         FROM comments
         WHERE zid = %s
         ORDER BY tid ASC
@@ -370,17 +374,23 @@ def format_comments_rows(
     raw_rows: Iterable[dict[str, Any]],
     vote_counts: dict[int, tuple[int, int]],
 ) -> list[dict[str, str]]:
-    """``raw_rows``: dicts with keys tid, pid, created, mod.
-    ``vote_counts``: {tid: (agrees, disagrees)}, counted over ALL vote rows
-    (see :func:`sql_comment_vote_counts`); missing tids default to (0, 0).
+    """``raw_rows``: dicts with keys tid, pid, created, mod (is_meta/modified
+    optional — default to False/empty so this stays usable with rows that
+    don't carry them yet). ``vote_counts``: {tid: (agrees, disagrees)},
+    counted over ALL vote rows (see :func:`sql_comment_vote_counts`); missing
+    tids default to (0, 0).
 
     ``comment-body`` is ALWAYS the empty string — comment text is redacted
     per the privacy rules; the column is present (mirroring the export
-    format) but never populated."""
+    format) but never populated. ``is-meta``/``modified`` are ADDITIVE
+    columns (MOD_RESTART_PORT_SPEC.md "Data" bullet) appended after the
+    pre-existing ones — the replay harness's moderation-interleave source
+    (real_data.py's mod-event loader)."""
     out = []
     for row in raw_rows:
         agrees, disagrees = vote_counts.get(row["tid"], (0, 0))
         created = row["created"]
+        modified = row.get("modified")
         out.append({
             "timestamp": str(created // 1000),
             "datetime": format_export_datetime(created),
@@ -390,6 +400,8 @@ def format_comments_rows(
             "disagrees": str(disagrees),
             "moderated": str(row["mod"]),
             "comment-body": "",
+            "is-meta": str(bool(row.get("is_meta", False))),
+            "modified": "" if modified is None else str(modified),
         })
     return out
 
@@ -398,6 +410,7 @@ _VOTES_FIELDNAMES = ["timestamp", "datetime", "comment-id", "voter-id", "vote"]
 _COMMENTS_FIELDNAMES = [
     "timestamp", "datetime", "comment-id", "author-id",
     "agrees", "disagrees", "moderated", "comment-body",
+    "is-meta", "modified",
 ]
 
 

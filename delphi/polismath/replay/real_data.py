@@ -17,9 +17,61 @@ directory names never appear in code.
 import csv
 from pathlib import Path
 
-from polismath.replay.types import ReplayDataset
+from polismath.replay.types import ModEvent, ReplayDataset
 
 REAL_DATA_ROOT = Path(__file__).resolve().parents[2] / "real_data"
+
+# Comments-CSV columns a moderation-history-carrying export must have before
+# we attempt to weave mod events out of it — MOD_RESTART_PORT_SPEC.md "Python
+# ports" item 3. Older comments CSVs (pre-dating this port) lack "modified"
+# and are left alone: no mod events, no error. "is-meta" is optional and
+# defaults to False when absent, mirroring the clj reader; "comment-id" and
+# "moderated" ARE required — the row loop reads them unconditionally, so a
+# header missing either takes the graceful no-events path instead of a
+# KeyError mid-row (#2656 review finding 3).
+_MOD_EVENT_REQUIRED_COLUMNS = frozenset({"modified", "comment-id", "moderated"})
+_TRUE_STRINGS = frozenset({"1", "true", "t", "yes"})
+
+
+def _parse_bool(value: str | None) -> bool:
+    if value is None:
+        return False
+    return value.strip().lower() in _TRUE_STRINGS
+
+
+def _load_mod_events(comments_csv: Path) -> tuple[list[ModEvent], int]:
+    """Build ``ModEvent``s from a comments CSV carrying the moderation-history
+    columns, alongside the existing ``comment-id``/``moderated`` columns
+    (modified->t_ms, comment-id->tid, moderated->mod, is-meta->is_meta).
+
+    Returns ``([], 0)`` when the required columns are absent (a header-level
+    check — this is a format detection, not a per-row guess). Rows with no
+    ``modified`` value cannot be woven into a replay schedule (nothing to
+    interleave on) — SKIPPED; the count is returned for provenance (surfaced
+    via :attr:`~polismath.replay.types.ReplayDataset.mod_events_skipped`).
+    """
+    with open(comments_csv, newline="") as fh:
+        reader = csv.DictReader(fh)
+        fieldnames = set(reader.fieldnames or [])
+        if not _MOD_EVENT_REQUIRED_COLUMNS <= fieldnames:
+            return [], 0
+
+        events: list[ModEvent] = []
+        skipped = 0
+        for row in reader:
+            modified = (row.get("modified") or "").strip()
+            if not modified:
+                skipped += 1
+                continue
+            events.append(
+                ModEvent(
+                    t_ms=int(modified),
+                    tid=int(row["comment-id"]),
+                    mod=int(row["moderated"]),
+                    is_meta=_parse_bool(row.get("is-meta")),
+                )
+            )
+    return events, skipped
 
 
 def dataset_dir(slug: str) -> Path | None:
@@ -38,6 +90,12 @@ def load_export_votes(slug: str) -> ReplayDataset:
     Comment creation times are inferred as first-vote times (lower bound on
     availability; adequate because a comment is unobservable in the mark
     likelihood before its first vote anyway).
+
+    If a ``*-comments.csv`` sits alongside the votes CSV AND carries the
+    moderation-history columns (``modified``, ``is-meta``), the dataset's
+    ``mod_events`` are built from it (see :func:`_load_mod_events`) — older
+    comments CSVs, or datasets with no comments CSV at all, yield no mod
+    events (unchanged from before this was wired up).
     """
     d = dataset_dir(slug)
     if d is None:
@@ -56,4 +114,13 @@ def load_export_votes(slug: str) -> ReplayDataset:
                     int(row["vote"]),
                 )
             )
-    return ReplayDataset.build(raw)
+
+    mod_events: list[ModEvent] = []
+    mod_events_skipped = 0
+    comments_csvs = sorted(d.glob("*-comments.csv"))
+    if comments_csvs:
+        mod_events, mod_events_skipped = _load_mod_events(comments_csvs[0])
+
+    dataset = ReplayDataset.build(raw, mod_events=mod_events)
+    dataset.mod_events_skipped = mod_events_skipped
+    return dataset

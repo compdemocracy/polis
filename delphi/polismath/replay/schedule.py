@@ -61,6 +61,12 @@ class ScheduleSpec:
     moderation: Any = "none"
     clojure: dict[str, Any] = field(default_factory=lambda: {"warm_start": "chain"})
     notes: str = ""
+    # Restart seam (MOD_RESTART_PORT_SPEC.md "Replay-step semantics" / restart
+    # plumbing): after recording the step at this index, the driver rebuilds
+    # the conversation the way a Clojure worker restart would (see driver.py's
+    # `_restart_conversation`). None (default) means no restart — every
+    # existing schedule is unaffected.
+    restart_after: int | None = None
     # Verbatim mapping this spec was loaded from (None → reconstruct on demand).
     _raw: dict[str, Any] | None = field(default=None, repr=False, compare=False)
 
@@ -75,6 +81,7 @@ class ScheduleSpec:
             moderation=d.get("moderation", "none"),
             clojure=d.get("clojure", {"warm_start": "chain"}),
             notes=d.get("notes", ""),
+            restart_after=d.get("restart_after"),
             _raw=dict(d),
         )
 
@@ -95,6 +102,7 @@ class ScheduleSpec:
             "moderation": self.moderation,
             "clojure": self.clojure,
             "notes": self.notes,
+            "restart_after": self.restart_after,
         }
 
     def write_json(self, path: str | Path) -> None:
@@ -230,9 +238,12 @@ def _resolve_mod_events(dataset: ReplayDataset, spec: ScheduleSpec) -> list[ModE
         return sorted(dataset.mod_events, key=lambda m: m.t_ms)
     if isinstance(mode, (list, tuple)):
         parsed = [
-            m if isinstance(m, ModEvent) else ModEvent(t_ms=int(m["t_ms"]),
-                                                        tid=int(m["tid"]),
-                                                        mod=int(m["mod"]))
+            m if isinstance(m, ModEvent) else ModEvent(
+                t_ms=int(m["t_ms"]),
+                tid=int(m["tid"]),
+                mod=int(m["mod"]),
+                is_meta=bool(m.get("is_meta", False)),
+            )
             for m in mode
         ]
         return sorted(parsed, key=lambda m: m.t_ms)
