@@ -309,11 +309,40 @@ def copy_votes_with_fresh_timestamps(conn, source_zid: int, fake_zid: int) -> in
     """
     Copy votes from source conversation to fake conversation with fresh timestamps.
 
-    Preserves vote ORDER by using sequential timestamps starting from now.
-    The poller finds votes by `created > last_poll_timestamp`, so fresh
-    timestamps ensure these votes are picked up.
+    Copies the FULL vote history, including revotes (multiple rows for the same
+    (pid, tid) pair). An earlier version deduplicated with
+    ``DISTINCT ON (pid, tid) ... ORDER BY created DESC`` ("keep the latest"),
+    which silently dropped superseded revote rows (vw: 128 of 4683). That made
+    the Clojure reference consume a DIFFERENT input than the Python side (which
+    feeds every CSV row and lets the engine's later-vote-wins merge resolve
+    revotes), and it erases the revote dynamics that sequential replay
+    specifically needs (see REPLAY_HARNESS_DESIGN.md §5: "Do NOT dedup
+    revotes"). Both engines implement later-vote-wins internally, so the dedup
+    was never necessary for correctness of the final matrix — only harmful for
+    input parity.
 
-    Uses a single INSERT ... SELECT for efficiency (no Python roundtrips).
+    Preserves vote ORDER by using sequential timestamps starting from now
+    (10 ms apart, strictly increasing, so Clojure's later-vote-wins resolves
+    revotes in source order). Source order is ``created ASC`` with ``ctid`` as
+    a tiebreak: for revotes of the same (pid, tid) sharing the same source
+    millisecond, physical row order approximates insertion order (the table is
+    append-only); the true relative order of same-ms revotes is ambiguous in
+    the source data itself.
+
+    The poller finds votes by ``created > last_poll_timestamp``, so fresh
+    timestamps ensure these votes are picked up. Uses a single
+    INSERT ... SELECT for efficiency (no Python roundtrips).
+
+    The ``votes`` table carries the LIVE rule ``on_vote_insert_update_unique_table``
+    (migration 000006): every INSERT DO-ALSO upserts ``votes_latest_unique`` with
+    ``ON CONFLICT (zid,pid,tid) DO UPDATE``. Because this single INSERT carries the
+    FULL history (revotes = duplicate (pid,tid) keys), the rule's upsert would hit
+    the same conflict key twice IN ONE STATEMENT, which Postgres rejects with
+    "ON CONFLICT DO UPDATE command cannot affect row a second time". We therefore
+    disable rules/triggers for this session only via ``session_replication_role``
+    (identical to ``copy_comments_with_fresh_timestamps`` above), restoring it in a
+    ``finally``. Safe: the Clojure poller reads only ``votes``, never
+    ``votes_latest_unique`` (postgres.clj:139,204,284); this is a throwaway copy.
 
     Returns the number of votes copied.
     """
@@ -322,29 +351,35 @@ def copy_votes_with_fresh_timestamps(conn, source_zid: int, fake_zid: int) -> in
     # Get current time in milliseconds (matching Polis schema)
     now_ms = int(time.time() * 1000)
 
-    # Single INSERT ... SELECT with ROW_NUMBER() to generate sequential timestamps
-    # This is much faster than executemany for large vote counts
-    # Use DISTINCT ON (pid, tid) to handle duplicate votes (keeps the latest)
-    cursor.execute("""
-        INSERT INTO votes (zid, pid, tid, vote, weight_x_32767, created)
-        SELECT
-            %s,
-            pid,
-            tid,
-            vote,
-            weight_x_32767,
-            %s + (ROW_NUMBER() OVER (ORDER BY created ASC) - 1) * 10
-        FROM (
-            SELECT DISTINCT ON (pid, tid) pid, tid, vote, weight_x_32767, created
+    # Disable rules/triggers for this session only (safe for concurrent use):
+    # suppresses on_vote_insert_update_unique_table so the multi-row revote
+    # INSERT does not trip the single-statement ON CONFLICT cardinality check.
+    cursor.execute("SET session_replication_role = 'replica'")
+
+    try:
+        # Single INSERT ... SELECT with ROW_NUMBER() to generate sequential
+        # timestamps. This is much faster than executemany for large vote counts.
+        cursor.execute("""
+            INSERT INTO votes (zid, pid, tid, vote, weight_x_32767, created)
+            SELECT
+                %s,
+                pid,
+                tid,
+                vote,
+                weight_x_32767,
+                %s + (ROW_NUMBER() OVER (ORDER BY created ASC, ctid ASC) - 1) * 10
             FROM votes
             WHERE zid = %s
-            ORDER BY pid, tid, created DESC
-        ) AS deduplicated
-        ORDER BY created ASC
-    """, (fake_zid, now_ms, source_zid))
+            ORDER BY created ASC, ctid ASC
+        """, (fake_zid, now_ms, source_zid))
 
-    copied_count = cursor.rowcount
-    conn.commit()
+        copied_count = cursor.rowcount
+        conn.commit()
+    finally:
+        # Restore normal rule/trigger behavior for this session.
+        cursor.execute("SET session_replication_role = 'origin'")
+        conn.commit()
+
     cursor.close()
 
     return copied_count
