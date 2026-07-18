@@ -60,8 +60,7 @@ if [[ "${1:-}" == "--xlang" ]]; then
   echo ">> Cross-language compare (clj vs py)"
   ( cd "$DELPHI" && OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 uv run python - "$OUT" <<'PY'
 import sys, tempfile
-sys.path.insert(0, "tests/replay_harness")
-from clj_crosslang import compare_clj_vs_py
+from polismath.replay.crosslang import compare_clj_vs_py
 from polismath.replay import stepcompare as sc
 with tempfile.TemporaryDirectory() as shim:
     print(sc.format_report(compare_clj_vs_py(sys.argv[1], shim_root=shim)))
