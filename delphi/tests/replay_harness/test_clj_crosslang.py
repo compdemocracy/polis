@@ -16,7 +16,7 @@ from pathlib import Path
 
 import pytest
 
-from replay_harness.clj_crosslang import (
+from polismath.replay.crosslang import (
     PREP_MAIN_KEYS,
     clj_blob_files,
     clj_recording_to_py_store,
