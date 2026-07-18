@@ -263,6 +263,101 @@ def test_per_day_preset_from_real_timestamps():
 
 
 # --------------------------------------------------------------------------
+# is_meta plumbing (MOD_RESTART_PORT_SPEC.md "Python ports" item 2).
+# --------------------------------------------------------------------------
+def test_mod_event_is_meta_defaults_false():
+    m = ModEvent(t_ms=1, tid=2, mod=0)
+    assert m.is_meta is False
+
+
+def test_mod_event_is_meta_explicit_true():
+    m = ModEvent(t_ms=1, tid=2, mod=0, is_meta=True)
+    assert m.is_meta is True
+
+
+def test_explicit_mod_list_parses_is_meta_key(ds8):
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "t", "schedule_id": "s",
+        "cuts": {"mode": "vote-count", "at": [2, 5, "end"]},
+        "moderation": [{"t_ms": 250, "tid": 10, "mod": -1, "is_meta": True}],
+    })
+    steps = sched.slice_schedule(ds8, spec)
+    mods = [m for s in steps for m in s.mod_events]
+    assert len(mods) == 1
+    assert mods[0].is_meta is True
+
+
+def test_explicit_mod_list_defaults_is_meta_false_when_absent(ds8):
+    # Backward compat: dict rows written before is_meta existed must still
+    # parse (missing key -> False, not a KeyError).
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "t", "schedule_id": "s",
+        "cuts": {"mode": "vote-count", "at": [2, 5, "end"]},
+        "moderation": [{"t_ms": 250, "tid": 10, "mod": -1}],
+    })
+    steps = sched.slice_schedule(ds8, spec)
+    mods = [m for s in steps for m in s.mod_events]
+    assert len(mods) == 1
+    assert mods[0].is_meta is False
+
+
+def test_explicit_mod_list_passthrough_of_existing_modevent_keeps_is_meta(ds8):
+    # A pre-built ModEvent in the list (not a dict) passes through verbatim.
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "t", "schedule_id": "s",
+        "cuts": {"mode": "vote-count", "at": [2, 5, "end"]},
+        "moderation": [ModEvent(t_ms=250, tid=10, mod=-1, is_meta=True)],
+    })
+    steps = sched.slice_schedule(ds8, spec)
+    mods = [m for s in steps for m in s.mod_events]
+    assert mods[0].is_meta is True
+
+
+# --------------------------------------------------------------------------
+# restart_after plumbing (MOD_RESTART_PORT_SPEC.md restart-seam schedule field).
+# --------------------------------------------------------------------------
+def test_restart_after_parses_from_dict():
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "vw", "schedule_id": "s",
+        "cuts": {"mode": "vote-count", "at": [4]},
+        "restart_after": 4,
+    })
+    assert spec.restart_after == 4
+
+
+def test_restart_after_defaults_to_none_when_absent():
+    spec = sched.ScheduleSpec.from_dict({
+        "dataset": "vw", "schedule_id": "s",
+        "cuts": {"mode": "vote-count", "at": [4]},
+    })
+    assert spec.restart_after is None
+
+
+def test_restart_after_round_trips_verbatim():
+    d = {
+        "dataset": "vw", "schedule_id": "s", "source": "votes-csv",
+        "cuts": {"mode": "vote-count", "at": [4]}, "moderation": "none",
+        "clojure": {"warm_start": "chain"}, "notes": "", "restart_after": 3,
+    }
+    spec = sched.ScheduleSpec.from_dict(d)
+    assert spec.to_dict() == d
+
+
+def test_restart_after_included_when_constructed_directly():
+    spec = sched.ScheduleSpec(
+        dataset="t", schedule_id="s", cuts={"mode": "vote-count", "at": [1]},
+        restart_after=2,
+    )
+    assert spec.to_dict()["restart_after"] == 2
+
+
+def test_restart_after_none_by_default_when_constructed_directly():
+    spec = sched.ScheduleSpec(dataset="t", schedule_id="s", cuts={"mode": "vote-count", "at": [1]})
+    assert spec.restart_after is None
+    assert spec.to_dict()["restart_after"] is None
+
+
+# --------------------------------------------------------------------------
 # ScheduleSpec JSON round-trip (verbatim).
 # --------------------------------------------------------------------------
 def test_schedule_spec_roundtrip(tmp_path):

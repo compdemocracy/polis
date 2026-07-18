@@ -343,6 +343,7 @@ def test_format_comments_rows_redacts_text():
     assert set(row) == {
         "timestamp", "datetime", "comment-id", "author-id",
         "agrees", "disagrees", "moderated", "comment-body",
+        "is-meta", "modified",
     }
 
 
@@ -361,6 +362,37 @@ def test_format_comments_rows_default_zero_votes():
     assert row["agrees"] == "0"
     assert row["disagrees"] == "0"
     assert row["moderated"] == "-1"
+
+
+# ---------------------------------------------------------------------------
+# is-meta / modified columns (MOD_RESTART_PORT_SPEC.md "Data" bullet):
+# additive, after the existing columns; comment-body stays EMPTY regardless.
+# ---------------------------------------------------------------------------
+def test_format_comments_rows_includes_is_meta_and_modified():
+    raw = [{"tid": 5, "pid": 2, "created": 0, "mod": -1, "is_meta": True, "modified": 12345}]
+    rows = pc.format_comments_rows(raw, vote_counts={})
+    row = rows[0]
+    assert row["is-meta"] == "True"
+    assert row["modified"] == "12345"
+
+
+def test_format_comments_rows_defaults_is_meta_false_and_modified_empty_when_absent():
+    # Tolerates raw rows that don't carry the new keys at all (defensive;
+    # every SQL-fetched row will, post this port, but the formatter itself
+    # stays permissive).
+    raw = [{"tid": 5, "pid": 2, "created": 0, "mod": -1}]
+    rows = pc.format_comments_rows(raw, vote_counts={})
+    row = rows[0]
+    assert row["is-meta"] == "False"
+    assert row["modified"] == ""
+
+
+def test_format_comments_rows_modified_none_becomes_empty_string():
+    # comments.modified is nullable in the DB (schema permits NULL even
+    # though it defaults to now_as_millis()) -> empty string, not "None".
+    raw = [{"tid": 5, "pid": 2, "created": 0, "mod": -1, "is_meta": False, "modified": None}]
+    rows = pc.format_comments_rows(raw, vote_counts={})
+    assert rows[0]["modified"] == ""
 
 
 # ---------------------------------------------------------------------------
@@ -386,7 +418,8 @@ def test_write_votes_csv_round_trips(tmp_path):
 
 
 def test_write_comments_csv_round_trips(tmp_path):
-    raw = [{"tid": 1, "pid": 1, "created": 1_700_000_000_000, "mod": 1}]
+    raw = [{"tid": 1, "pid": 1, "created": 1_700_000_000_000, "mod": 1,
+            "is_meta": False, "modified": 1_700_000_000_500}]
     path = tmp_path / "comments.csv"
     pc.write_comments_csv(path, pc.format_comments_rows(raw, vote_counts={1: (2, 1)}))
     with open(path, newline="") as fh:
@@ -394,10 +427,13 @@ def test_write_comments_csv_round_trips(tmp_path):
         assert reader.fieldnames == [
             "timestamp", "datetime", "comment-id", "author-id",
             "agrees", "disagrees", "moderated", "comment-body",
+            "is-meta", "modified",
         ]
         got = list(reader)
     assert got[0]["comment-body"] == ""
     assert got[0]["agrees"] == "2"
+    assert got[0]["is-meta"] == "False"
+    assert got[0]["modified"] == "1700000000500"
 
 
 # ---------------------------------------------------------------------------
@@ -542,6 +578,13 @@ def test_sql_votes_export_orders_by_created_then_tiebreak():
 def test_sql_comments_export_has_zid_placeholder():
     sql = pc.sql_comments_export()
     assert "%s" in sql
+
+
+def test_sql_comments_export_selects_is_meta_and_modified():
+    sql = pc.sql_comments_export()
+    lowered = sql.lower()
+    assert "is_meta" in lowered
+    assert "modified" in lowered
 
 
 def test_sql_comment_vote_counts_has_zid_placeholder():

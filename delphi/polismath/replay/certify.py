@@ -224,6 +224,18 @@ def votes_csv_path(dataset: str) -> Path | None:
     return hits[0] if hits else None
 
 
+def comments_csv_path(dataset: str) -> Path | None:
+    """Locate a dataset's comments CSV the same way :func:`votes_csv_path`
+    locates its votes CSV. ``None`` when the dataset (or its comments CSV)
+    isn't there — moderation-interleaving datasets have one, but not every
+    dataset does (MOD_RESTART_PORT_SPEC.md "Python ports" item 5)."""
+    d = real_data.dataset_dir(dataset)
+    if d is None:
+        return None
+    hits = sorted(d.glob("*-comments.csv"))
+    return hits[0] if hits else None
+
+
 def _spec_from_preset(entry: BatteryEntry, ds: ReplayDataset) -> sched.ScheduleSpec:
     n = ds.n
     if entry.preset == "uniform":
@@ -468,11 +480,21 @@ def run_py_driver(spec_path: Path, *, out_root: Path, engine_mode: str) -> subpr
         raise CertifyError("py-driver-launch", str(exc)) from exc
 
 
-def run_clj_driver(spec_path: Path, votes_csv: Path, *, out_dir: Path) -> subprocess.CompletedProcess:
+def run_clj_driver(
+    spec_path: Path, votes_csv: Path, *, out_dir: Path, comments_csv: Path | None = None,
+) -> subprocess.CompletedProcess:
     """Runs ``clojure -M:replay --schedule <spec_path> --votes <votes_csv>
-    --out <out_dir>`` in a SUBPROCESS with cwd=math/ (dev/replay.clj:57)."""
+    --out <out_dir>`` in a SUBPROCESS with cwd=math/ (dev/replay.clj:57).
+
+    ``comments_csv`` adds ``--comments <comments_csv>`` — the clj driver's
+    moderation-interleave source (MOD_RESTART_PORT_SPEC.md "Python ports"
+    item 5). Omitted (``None``, the default) for every schedule that doesn't
+    request moderation interleaving, so existing recordings' invocation is
+    byte-for-byte unchanged."""
     cmd = ["clojure", "-M:replay", "--schedule", str(spec_path), "--votes", str(votes_csv),
            "--out", str(out_dir)]
+    if comments_csv is not None:
+        cmd += ["--comments", str(comments_csv)]
     try:
         return _run_subprocess(cmd, cwd=_MATH_ROOT, env=dict(os.environ))
     except OSError as exc:
@@ -541,13 +563,18 @@ def ensure_py_recording(
 
 def ensure_clj_recording(
     entry: BatteryEntry, spec: sched.ScheduleSpec, votes_sha: str, votes_csv: Path, *,
-    root: Path, refresh: bool = False,
+    root: Path, refresh: bool = False, comments_csv: Path | None = None,
 ) -> tuple[Path, bool]:
     """Reuse ``<root>/<ds>/<sid>/clj/`` iff its cache manifest matches (votes
     sha256, schedule hash, sha256 of dev/replay.clj, sha256 of math/src); else
     (re)run the Clojure driver in a subprocess (cwd=math/). Returns
     ``(clj_dir, was_cached)``. Engine_mode plays no part in the Clojure
-    reference, so it is deliberately NOT one of the cache keys."""
+    reference, so it is deliberately NOT one of the cache keys.
+
+    ``comments_csv`` (when given) is forwarded to :func:`run_clj_driver` as
+    ``--comments`` — deliberately NOT part of the cache manifest, so entries
+    that never pass it (moderation="none") keep their existing cache key and
+    are never invalidated by this parameter's introduction."""
     rec_dir = st.recording_dir(entry.dataset, entry.schedule_id, root=root)
     clj_dir = rec_dir / "clj"
     manifest_path = clj_dir / "cache_manifest.json"
@@ -562,7 +589,7 @@ def ensure_clj_recording(
 
     tmp_schedule = _write_temp_schedule(spec, root)
     rec_dir.mkdir(parents=True, exist_ok=True)
-    result = run_clj_driver(tmp_schedule, votes_csv, out_dir=rec_dir)
+    result = run_clj_driver(tmp_schedule, votes_csv, out_dir=rec_dir, comments_csv=comments_csv)
     if result.returncode != 0:
         raise CertifyError(
             "clj-driver", (result.stderr or result.stdout or "non-zero exit").strip()[:1000]
@@ -707,8 +734,15 @@ def certify_entry(
         ds = real_data.load_export_votes(entry.dataset)
         spec = build_effective_spec(entry, ds)
 
+        # --comments only when the schedule actually requests moderation
+        # (interleaving or an explicit list) AND the dataset has a comments
+        # CSV to weave from — existing moderation="none" entries never pass
+        # it, so their recordings/caches are untouched (MOD_RESTART_PORT_
+        # SPEC.md "Python ports" item 5).
+        comments_csv = comments_csv_path(entry.dataset) if spec.moderation != "none" else None
+
         clj_dir, _ = ensure_clj_recording(entry, spec, votes_sha, votes_csv, root=root,
-                                           refresh=refresh_clj)
+                                           refresh=refresh_clj, comments_csv=comments_csv)
         py_dir, _ = ensure_py_recording(entry, spec, votes_sha, root=root, refresh=refresh_py)
     except CertifyError as exc:
         return ({"dataset": entry.dataset, "schedule_id": entry.schedule_id,

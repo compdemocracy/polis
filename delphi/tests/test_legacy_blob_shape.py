@@ -30,6 +30,8 @@ test_serialization_unfolding.py, which runs in the default improved mode).
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import pytest
 
@@ -430,6 +432,66 @@ def test_legacy_from_dict_restores_arrival_order(conv, legacy):
     assert restored.tid_arrival_order == conv.tid_arrival_order
 
 
+# ---------------------------------------------------------------------------
+# from_dict warm-restart restore: base clusters + zid (restart-seam root,
+# journal 2026-07-24: from_dict restored ZERO base_clusters and zid '' from a
+# recorded step blob, so the recovery tick cold-started the base-cluster
+# lineage and re-minted every id). Mirrors Clojure restructure-json-conv
+# (conv_man.clj:171-186): keep :zid, unfold :base-clusters (clusters.clj:
+# 402-414, center := [x y]).
+# ---------------------------------------------------------------------------
+def _assert_base_clusters_round_trip(conv, restored):
+    assert [c["id"] for c in restored.base_clusters] == \
+        [c["id"] for c in conv.base_clusters]
+    assert [c["members"] for c in restored.base_clusters] == \
+        [c["members"] for c in conv.base_clusters]
+    # Centers come back in the INTERNAL sign convention: legacy emission
+    # negates x/y at the blob boundary and the restore un-negates (double
+    # negation is exact in IEEE); improved emission is verbatim.
+    assert [c["center"] for c in restored.base_clusters] == \
+        [list(c["center"][:2]) for c in conv.base_clusters]
+
+
+def test_legacy_from_dict_restores_base_clusters_and_zid(conv, legacy):
+    restored = Conversation.from_dict(conv.to_dict())
+    assert restored.conversation_id == "legacy_blob_shape"
+    _assert_base_clusters_round_trip(conv, restored)
+
+
+def test_improved_from_dict_restores_base_clusters_and_zid(conv, improved):
+    restored = Conversation.from_dict(conv.to_dict())
+    assert restored.conversation_id == "legacy_blob_shape"
+    _assert_base_clusters_round_trip(conv, restored)
+
+
+def test_from_dict_preserves_falsy_conversation_id():
+    # #2656 review finding 2: `data.get('conversation_id') or data.get('zid')`
+    # would discard a legitimately-falsy id (e.g. 0) — the key-presence check
+    # must win, not truthiness. (Real to_dict blobs always carry 'zid'; this
+    # pins the synthetic/hand-built-blob path.)
+    restored = Conversation.from_dict({"conversation_id": 0})
+    assert restored.conversation_id == 0
+
+
+def test_legacy_from_dict_restores_group_votes_for_prev_tick_priorities(conv, legacy):
+    # restructure-json-conv keeps :group-votes (conv_man.clj:174) and the
+    # recovery tick's comment-priorities read it as the PREVIOUS tick's
+    # group-votes (Q2, conversation.clj:658) — without the restore, a warm
+    # restart computes priorities against empty prev group-votes (every
+    # comment looks unseen → inflated priorities; vw-restart4 step-5
+    # divergence, journal 2026-07-24). Round-trip through JSON like a
+    # recorded blob: tid keys stringify and must come back as ints
+    # (parse-blob-json numeric-string→long parity).
+    blob = json.loads(json.dumps(conv.to_dict()))
+    restored = Conversation.from_dict(blob)
+    assert restored.group_votes, "group-votes must survive the restore"
+    assert set(restored.group_votes.keys()) == set(blob["group-votes"].keys())
+    for gid, g in blob["group-votes"].items():
+        rg = restored.group_votes[gid]
+        assert rg["n-members"] == g["n-members"]
+        assert rg["votes"] == {int(t): e for t, e in g["votes"].items()}
+
+
 def test_conv_repness_tie_break_follows_tid_order():
     """Two comments with IDENTICAL vote patterns tie on every repness stat;
     Clojure's stable sort keeps them in column (arrival) order. With
@@ -571,3 +633,78 @@ def test_improved_from_dict_round_trips_center_sign(conv, improved):
     np.testing.assert_allclose(
         np.asarray(restored.pca["center"]), np.asarray(conv.pca["center"])
     )
+
+
+# ---------------------------------------------------------------------------
+# Tiny SHAPES beyond 1x1 (review finding on #2653): the relaxed small-dim
+# guards cover any `rows < 2 OR cols < 2` matrix. Expectations are REAL
+# Clojure outputs (Q14):
+#   1xN — vw every-vote-56 clj recording step-002 (public data: pid 1's first
+#         three AGREEs on tids 24/19/47; recorded with the Q12 pinned start);
+#   Nx1 — a synthetic 3-ptpt x 1-comment fixture run through the clj replay
+#         driver 2026-07-22 s4 (votes +1/+1/-1 on tid 0; same pinned start).
+# ---------------------------------------------------------------------------
+def _pinned_conv(name):
+    c = Conversation(name)
+    # The replay drivers' Q12 carve-out: cold-tick PCA start pinned to ones.
+    c.pca = {"center": np.zeros(1), "comps": np.array([[1.0], [1.0]])}
+    return c
+
+
+def test_legacy_one_by_n_matches_clojure_recording(legacy):
+    c = _pinned_conv("tiny_1x3")
+    c = c.update_votes(
+        {"votes": [{"pid": 1, "tid": 24, "vote": 1},
+                   {"pid": 1, "tid": 19, "vote": 1},
+                   {"pid": 1, "tid": 47, "vote": 1}]},
+        recompute=False,
+    )
+    d = c.recompute().to_dict()
+    assert d["pca"]["center"] == [-1.0, -1.0, -1.0]
+    assert d["pca"]["comps"] == [[0.0, 0.0, 0.0]]
+    assert len(d["pca"]["comment-projection"]) == 2
+    assert d["pca"]["comment-extremity"] == [0.0, 0.0, 0.0]
+    rep = d["repness"]
+    (gid,) = rep.keys()
+    (entry,) = rep[gid]
+    assert entry["tid"] == 24 and entry["best-agree"] is True
+    assert entry["p-success"] == pytest.approx(2 / 3)
+    agree = d["consensus"]["agree"]
+    assert [e["tid"] for e in agree] == [24, 19, 47]
+    for e in agree:
+        assert e["n-trials"] == 1
+        assert e["p-success"] == pytest.approx(2 / 3)
+        assert e["p-test"] == pytest.approx(1.4142135623730951)
+    assert d["consensus"]["disagree"] == []
+
+
+def test_legacy_n_by_one_matches_clojure_reference(legacy):
+    c = _pinned_conv("tiny_3x1")
+    c = c.update_votes(
+        {"votes": [{"pid": 10, "tid": 0, "vote": 1},
+                   {"pid": 11, "tid": 0, "vote": 1},
+                   {"pid": 12, "tid": 0, "vote": -1}]},
+        recompute=False,
+    )
+    d = c.recompute().to_dict()
+    assert d["pca"]["center"] == pytest.approx([-1 / 3])
+    assert d["pca"]["comps"] == [[1.0]]
+    assert d["pca"]["comment-projection"] == [[0.0], [0.0]]
+    assert d["pca"]["comment-extremity"] == [0.0]
+    rep = d["repness"]
+    (gid,) = rep.keys()
+    (entry,) = rep[gid]
+    assert entry["tid"] == 0 and entry["repful-for"] == "agree"
+    assert entry["n-success"] == 2 and entry["n-trials"] == 3
+    assert entry["p-success"] == pytest.approx(0.6)
+    assert entry["repness"] == pytest.approx(1.2)
+    assert entry["best-agree"] is True
+    assert d["consensus"] == {"agree": [], "disagree": []}
+    assert set(d["user-vote-counts"]) == {10, 11, 12} or set(
+        d["user-vote-counts"]
+    ) == {"10", "11", "12"}
+    bc = d["base-clusters"]
+    assert bc["members"] == [[10, 11, 12]]
+    # Q16 collapse: all-zero projections -> single coincident base cluster
+    assert bc["x"] == [0.0] and bc["y"] == [0.0]
+    assert d["comment_priorities"] == {0: 5.0625}
