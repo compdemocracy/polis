@@ -489,17 +489,26 @@ class Conversation:
         """
         Apply moderation settings to create filtered rating matrix.
 
-        Matches Clojure behavior (named_matrix.clj:214-230):
-        - Moderated-out participants are removed (rows dropped)
-        - Moderated-out comments are ZEROED OUT, not removed — the column
-          stays in the matrix with all values set to 0.  This preserves
-          matrix structure so that tids, column indices, and dimensions
-          match between Python and Clojure.
+        Comment moderation matches Clojure (named_matrix.clj:214-230):
+        moderated-out comments are ZEROED OUT, not removed — the column stays
+        in the matrix with all values set to 0. This preserves matrix
+        structure so that tids, column indices, and dimensions match between
+        Python and Clojure.
+
+        Participant bans (mod_out_ptpts) are a Python-only feature: the
+        Clojure worker's ingest path has no participants.mod filter, so
+        banned participants keep influencing every downstream node
+        (CLOJURE_QUIRKS Q1). 'clojure-legacy' mode replicates that leak —
+        the set is stored but NOT applied; 'improved' mode drops the rows.
         """
-        # Filter out moderated participants (remove rows).
+        # Filter out banned participants (remove rows) — improved mode only;
+        # legacy mode leaks like Clojure (Q1).
         # Preserve raw_rating_mat row order (vote encounter order) — see
         # update_votes() comment on why row order matters for Clojure parity.
-        keep_ptpts = [p for p in self.raw_rating_mat.index if p not in self.mod_out_ptpts]
+        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
+            keep_ptpts = list(self.raw_rating_mat.index)
+        else:
+            keep_ptpts = [p for p in self.raw_rating_mat.index if p not in self.mod_out_ptpts]
         self.rating_mat = self.raw_rating_mat.loc[keep_ptpts].copy()
 
         # Zero out moderated-out comments (keep columns, set values to 0)
@@ -1723,10 +1732,13 @@ class Conversation:
         import time
         start_time = time.time()
         # raw_rating_mat for the COLUMN view (preserves moderated-out comments — D15
-        # parity), but filtered to rating_mat.index for the ROW view so moderated-out
-        # *participants* (mod_out_ptpts, dropped by _apply_moderation) don't leak
-        # into vote counts. Both filters together give the moderation-applied state
-        # with un-zeroed values, matching what Clojure produces.
+        # parity), but filtered to rating_mat.index for the ROW view so banned
+        # participants (mod_out_ptpts, dropped by _apply_moderation in improved
+        # mode) don't leak into vote counts. In clojure-legacy mode
+        # rating_mat.index keeps banned rows (Q1 leak replication), so this
+        # matches Clojure's unfiltered user-vote-counts there. Both filters
+        # together give the moderation-applied state with un-zeroed values,
+        # matching what Clojure produces.
         mat = self.raw_rating_mat.loc[self.rating_mat.index]
         logger.info(f"Starting _compute_user_vote_counts for {mat.shape[0]} participants")
 
@@ -1821,13 +1833,13 @@ class Conversation:
 
         # Legacy: carry forward the persisted in-conv set, then union the
         # threshold set into it (Clojure `(into in-conv ...)`, conversation.clj:247-256).
-        # PRUNE the carry to participants still present in vote_counts first:
-        # vote_counts is keyed off rating_mat.index, which drops mod_out_ptpts
-        # (banned participants — a Python-only feature Clojure lacks). Without the
-        # intersection a participant banned AFTER being carried would linger in the
-        # set forever, inflating the size check so the greedy floor never re-fires
-        # to top the actually-clustered pool (proj ∩ in_conv) back up, and growing
-        # the carry unboundedly. Clojure-parity is unaffected (no ban feature there).
+        # The intersection with vote_counts is belt-and-braces: since the Q1
+        # ban-leak replication, legacy-mode rating_mat keeps banned rows, so
+        # vote_counts covers every carried pid and the intersection is inert
+        # (append-only votes mean a counted pid can never vanish). It stays as
+        # defense against any future row-view change re-opening the stale-carry
+        # trap #2623's T1 fixed (a carried pid missing from vote_counts would
+        # inflate the size check so the greedy floor never re-fires).
         in_conv = (set(self.in_conv) & set(vote_counts.keys())) | threshold_set
 
         # Greedy floor (conversation.clj:259-268): if under 15, admit the top
