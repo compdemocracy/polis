@@ -151,16 +151,16 @@ class TestThresholdMonotonicity:
         assert 'H0' in _clustered_pids(conv)
 
 
-class TestCarryPruneOnParticipantBan:
-    """T1 (#2623): a participant carried in self.in_conv and then BANNED
-    (mod_out_ptpts, a Python-only feature Clojure lacks) must be pruned from the
-    carry so the greedy floor tops the pool back up. Before the fix, the raw
-    carried set (`set(self.in_conv) | threshold_set`) still counted the banned
-    pids, so the size check saw a stale 15 while the actually-clustered pool
-    (proj ∩ in_conv, which excludes banned) had dropped below the floor — and
-    nothing topped it up. Legacy-mode-only; improved mode has no carry."""
+class TestCarryUnderParticipantBan:
+    """Q1 leak replication (2026-07-22) SUPERSEDES #2623's T1 scenario: in
+    clojure-legacy mode a ban is stored but NOT applied (Clojure's worker never
+    honored participants.mod = -1), so banning can no longer shrink the
+    legacy-mode clustering pool and the stale-carry trap T1 fixed cannot arise.
+    The vote_counts intersection in _get_in_conv_participants stays as
+    belt-and-braces (see its comment). This test pins the new semantics:
+    carry and clustering are ban-invariant in legacy mode."""
 
-    def test_ban_after_carry_tops_floor_back_up(self, monkeypatch):
+    def test_ban_after_carry_changes_nothing(self, monkeypatch):
         _mode(monkeypatch, 'clojure-legacy')
         # Tick 1: greedy floor fills to 15 (H0,H1 + L0..L12) and persists them.
         conv = Conversation('ban').update_votes(_votes(_TICK1_SPECS))
@@ -168,17 +168,13 @@ class TestCarryPruneOnParticipantBan:
         banned = {'L0', 'L1', 'L2', 'L3', 'L4'}
         assert banned.issubset(conv.in_conv)  # all 5 are carried greedy admits
 
-        # Ban 5 of the 15 carried participants. vote_counts (from rating_mat.index)
-        # now excludes them, so the effective pool drops to 10 and the floor must
-        # re-admit 5 more of the remaining lows (L13..L19) to reach 15.
+        # Ban 5 of the 15 carried participants. Q1 leak: the set is stored but
+        # the pool, carry and clustering are unchanged — exactly as if Clojure
+        # had processed the same stream.
         conv2 = conv.update_moderation({'mod_out_ptpts': list(banned)})
 
+        assert conv2.mod_out_ptpts == banned     # stored ...
         clustered = _clustered_pids(conv2)
-        # FIX: pruned carry -> floor re-fires -> back up to 15.
-        # BEFORE FIX: stale carry keeps count at 15 (floor never fires), but the
-        # banned rows aren't clustered -> only 10 clustered.
-        assert len(clustered) == 15
-        assert not (banned & clustered)          # banned never clustered
-        assert not (banned & conv2.in_conv)      # banned pruned from carry (no stale growth)
-        assert {'H0', 'H1'}.issubset(clustered)  # qualifiers retained
-        assert len(conv2.in_conv) == 15
+        assert banned.issubset(clustered)        # ... but still clustered
+        assert conv2.in_conv == conv.in_conv     # carry untouched
+        assert len(clustered) == 15              # pool unchanged, floor idle
