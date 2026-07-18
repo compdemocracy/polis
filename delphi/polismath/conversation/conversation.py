@@ -172,6 +172,16 @@ class Conversation:
         self.base_clusters = []
         self.group_clusters = []
         self.subgroup_clusters = {}
+
+        # Warm-start state threaded across ticks in 'clojure-legacy' engine
+        # mode (see polismath.utils.engine_mode). Clojure carries these on the
+        # conv (conversation.clj:433-484): the per-k group clusterings and the
+        # group-k-smoother state {last_k, last_k_count, smoothed_k}. Cold
+        # default is empty (first tick); NOT persisted to/from dynamo — they
+        # thread in-memory only, exactly as Clojure's math_main whitelist omits
+        # them (conv_man.clj:52-74). Unused in the default 'improved' mode.
+        self.group_clusterings: Dict[Any, Any] = {}  # k -> (labels, centers, member_lists, silhouette)
+        self.group_k_smoother: Dict[str, Any] = {}   # {last_k, last_k_count, smoothed_k}
         self.proj = {}
         self.repness = None
         self.consensus = []
@@ -569,12 +579,17 @@ class Conversation:
         
         return result
     
-    def _compute_pca(self, n_components: int = 2) -> None:
+    def _compute_pca(self, n_components: int = 2,
+                     prev_pca: Optional[Dict[str, Any]] = None) -> None:
         """
         Compute PCA on the vote matrix.
 
         Args:
             n_components: Number of principal components
+            prev_pca: The previous tick's PCA result ({'center', 'comps'}) or
+                None. Consumed ONLY in 'clojure-legacy' engine mode as the
+                power-iteration warm start (Clojure :start-vectors,
+                conversation.clj:385). Ignored in the default 'improved' mode.
         """
         import time
         start_time = time.time()
@@ -665,12 +680,28 @@ class Conversation:
 
         return pd.DataFrame(matrix_data, index=source.index, columns=source.columns)
     
-    def _compute_clusters(self) -> None:
+    def _compute_clusters(self,
+                          prev_group_clusterings: Optional[Dict[Any, Any]] = None,
+                          prev_group_k_smoother: Optional[Dict[str, Any]] = None) -> None:
         """
         Compute two-level hierarchical clustering matching Clojure architecture.
 
         Level 1: Base clusters (participants → ~100 clusters)
         Level 2: Group clusters (base clusters → 2-5 groups with silhouette-based k selection)
+
+        Args:
+            prev_group_clusterings: The previous tick's per-k group clusterings
+                dict (k -> clustering tuple), or None. Captured and threaded by
+                recompute() but NOT consumed yet: the per-k k-means warm start
+                that will use it (Clojure :group-clusterings → :last-clusters,
+                conversation.clj:441-442) lands with the Clojure-exact k-means
+                lineage port (PR-C; see SEQUENTIAL_BITS_PORT_SPEC.md §2.3).
+                Until then, legacy-mode group clusterings are recomputed cold
+                each tick. Ignored in the default 'improved' mode.
+            prev_group_k_smoother: The previous tick's group-k-smoother state
+                {last_k, last_k_count, smoothed_k}, or None. Consumed ONLY in
+                'clojure-legacy' mode (conversation.clj:457). Ignored in
+                'improved' mode.
         """
         import time
         start_time = time.time()
@@ -1100,12 +1131,27 @@ class Conversation:
         if result.rating_mat.size == 0:
             # Not enough data, return early
             return result
-        
+
+        # Capture the PREVIOUS tick's warm-start state BEFORE the compute steps
+        # overwrite it. `result` is a deepcopy of self, so result.pca /
+        # result.group_clusterings / result.group_k_smoother currently hold the
+        # prior tick's values (deepcopied snapshots). This mirrors Clojure,
+        # whose fnks read the incoming `conv` for :start-vectors
+        # (conversation.clj:385) and :group-k-smoother (conversation.clj:457).
+        # In 'improved' mode (default) these are IGNORED and behavior is
+        # unchanged; only 'clojure-legacy' mode consumes them.
+        prev_pca = result.pca
+        prev_group_clusterings = getattr(result, 'group_clusterings', {})
+        prev_group_k_smoother = getattr(result, 'group_k_smoother', {})
+
         # Compute PCA and projections
-        result._compute_pca()
-        
+        result._compute_pca(prev_pca=prev_pca)
+
         # Compute clusters
-        result._compute_clusters()
+        result._compute_clusters(
+            prev_group_clusterings=prev_group_clusterings,
+            prev_group_k_smoother=prev_group_k_smoother,
+        )
         
         # Compute representativeness
         result._compute_repness()
