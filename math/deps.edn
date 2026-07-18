@@ -70,7 +70,13 @@
             :exec-fn user/run-with-repl}
            :test
            {:extra-paths ["test"]
-            :main-opts ["-m" "test-runner"]}}
+            :main-opts ["-m" "test-runner"]}
+           ;; Replay harness Phase H-B — Clojure Mode A driver (dev/replay.clj).
+           ;; Loaded via -i (file path) rather than :extra-paths ["dev"] so the
+           ;; dev/user.clj namespace (which requires oz/cider) is NOT auto-loaded
+           ;; at startup — keeps the alias self-contained on the base :deps.
+           :replay
+           {:main-opts ["-i" "dev/replay.clj" "-m" "replay"]}}
  ;:jvm-opts ^:replace []
  :jvm-opts ["-Xmx4g"]}
  ;:mvn/repos {"twitter4j" {:url "https://twitter4j.org/maven2"}}}
