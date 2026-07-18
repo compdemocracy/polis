@@ -9,6 +9,8 @@ This module provides:
 - Session-scoped conversation cache for efficient test execution
 """
 
+import contextlib
+import os
 from copy import deepcopy
 
 import pytest
@@ -117,6 +119,131 @@ def require_s3(
         client.list_buckets()
     except Exception as exc:
         pytest.skip(f"S3/MinIO is not available at {endpoint}: {exc}")
+
+
+_POLIS_PG_MIGRATIONS_DIR = os.path.join(
+    os.path.dirname(__file__), "..", "..", "server", "postgres", "migrations",
+)
+# Migrations that establish the votes + votes_latest_unique schema and the
+# on_vote_insert_update_unique_table RULE. 000006 holds the LIVE rule
+# redefinition (idempotent DROP/CREATE) — apply both, in order.
+_POLIS_PG_MIGRATIONS = ("000000_initial.sql", "000006_update_votes_rule.sql")
+
+
+def _free_tcp_port() -> int:
+    """Grab an ephemeral free TCP port (avoids clashing on a fixed port under
+    xdist / when several integration modules run concurrently)."""
+    import socket
+
+    with socket.socket() as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]
+
+
+@contextlib.contextmanager
+def require_polis_postgres():
+    """Yield a Postgres URL with the polis votes schema applied — for opt-in
+    integration tests — or ``pytest.skip()`` if no Postgres is reachable.
+
+    Resolution order:
+
+      1. **CI service** — if ``POLIS_TEST_POSTGRES_URL`` is set (a reachable
+         Postgres whose image already bakes the polis migrations, e.g. the
+         ``postgres`` service in ``docker-compose.test.yml`` which loads
+         ``server/postgres/migrations/*.sql`` via docker-entrypoint-initdb.d),
+         use it. The schema is verified; the caller skips loudly if it is
+         missing (a provisioned CI service is expected to have it).
+      2. **Local throwaway docker** — a fresh ``postgres:17`` on an EPHEMERAL
+         port (NEVER the host's live 5432), with 000000 + 000006 applied via
+         ``psql``.
+      3. Otherwise skip with a clear reason.
+
+    Migrations applied: ``000000_initial.sql`` (votes + votes_latest_unique +
+    the ``on_vote_insert_update_unique_table`` rule) and
+    ``000006_update_votes_rule.sql`` (the LIVE rule redefinition).
+
+    Shared by ``tests/poller/test_integration_postgres.py`` and
+    ``tests/test_generator_vote_copy.py``.
+    """
+    import shutil
+    import subprocess
+    import time
+    import uuid
+
+    import psycopg2
+
+    ci_url = os.environ.get("POLIS_TEST_POSTGRES_URL")
+    if ci_url:
+        try:
+            conn = psycopg2.connect(ci_url)
+        except Exception as exc:  # pragma: no cover - infra guard
+            pytest.skip(f"POLIS_TEST_POSTGRES_URL set but unreachable: {exc}")
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT to_regclass('public.votes_latest_unique')")
+                present = cur.fetchone()[0] is not None
+        finally:
+            conn.close()
+        if not present:
+            pytest.skip(
+                "POLIS_TEST_POSTGRES_URL points at a Postgres without the polis "
+                "votes schema (expected the migrations baked into the service image)"
+            )
+        yield ci_url
+        return
+
+    docker = shutil.which("docker")
+    if not docker:
+        pytest.skip("no POLIS_TEST_POSTGRES_URL and docker not available")
+
+    migrations = [
+        os.path.abspath(os.path.join(_POLIS_PG_MIGRATIONS_DIR, m))
+        for m in _POLIS_PG_MIGRATIONS
+    ]
+    for path in migrations:
+        if not os.path.exists(path):
+            pytest.skip(f"polis migration not found: {path}")
+
+    port = _free_tcp_port()
+    name = f"delphi-polis-pg-it-{uuid.uuid4().hex[:8]}"
+    started = subprocess.run(
+        [docker, "run", "--rm", "-d", "--name", name,
+         "-p", f"{port}:5432", "-e", "POSTGRES_PASSWORD=test", "postgres:17"],
+        capture_output=True, text=True,
+    )
+    if started.returncode != 0:
+        pytest.skip(f"could not start postgres container: {started.stderr.strip()}")
+    cid = started.stdout.strip()
+    try:
+        deadline = time.time() + 40
+        ready = False
+        while time.time() < deadline:
+            if subprocess.run(
+                [docker, "exec", cid, "pg_isready", "-U", "postgres"],
+                capture_output=True, text=True,
+            ).returncode == 0:
+                ready = True
+                break
+            time.sleep(1)
+        if not ready:
+            pytest.skip("postgres container did not become ready in time")
+
+        for path in migrations:
+            with open(path, "rb") as fh:
+                applied = subprocess.run(
+                    [docker, "exec", "-i", cid, "psql", "-v", "ON_ERROR_STOP=1",
+                     "-U", "postgres", "-d", "postgres"],
+                    stdin=fh, capture_output=True, text=True,
+                )
+            if applied.returncode != 0:
+                pytest.skip(
+                    f"migration {os.path.basename(path)} failed to apply: "
+                    f"{applied.stderr[-500:]}"
+                )
+
+        yield f"postgresql://postgres:test@localhost:{port}/postgres"
+    finally:
+        subprocess.run([docker, "stop", cid], capture_output=True, text=True)
 
 
 # =============================================================================
