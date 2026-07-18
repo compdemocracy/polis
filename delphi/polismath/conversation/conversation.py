@@ -147,41 +147,25 @@ def priority_metric(is_meta: bool,
     the decay factor `1 + 8 * 2^(-S/5)` lets new (low-S) comments bubble up
     and fades as more votes accumulate.
 
+    History: this mirrored Clojure's #1961 truthy-0 bug (every tid took the
+    meta branch → all priorities 49; issue #2571) until 2026-07-22. Clojure
+    HEAD passes a real boolean since #2611 (conversation.clj:686), so the
+    real branching formula is both the correct AND the parity behavior, in
+    both engine modes.
+
     Args:
         is_meta: True for meta comments (treated as constant priority).
         A, P, S, E: see `importance_metric`.
 
     Returns:
         Squared priority value.
-
-    .. warning::
-        **Current behavior (parity-bug mirror):** this function ALWAYS
-        returns ``META_PRIORITY ** 2`` and ignores ``is_meta`` and
-        ``A, P, S, E``. It deliberately mirrors a Clojure bug — Clojure
-        treats meta-tid value 0 as truthy, so every tid takes the meta
-        branch — for byte-for-byte parity. The branching formula described
-        above is the *intended* semantics, restored once
-        https://github.com/compdemocracy/polis/issues/2571 is fixed. See the
-        ``TODO(clojure-parity-bug)`` in the body below.
     """
-    # TODO(clojure-parity-bug): Clojure (conversation.clj:325) treats meta-tid
-    # value 0 as TRUTHY in (if is-meta ...), so every tid takes the meta branch.
-    # We mirror this bug for byte-for-byte Clojure parity. Switch back to
-    # honoring `is_meta` once the GitHub issue resolves:
-    # https://github.com/compdemocracy/polis/issues/2571
-    # Original semantic-correct code preserved below for reference and future
-    # restoration.
-    #
-    # Clojure-parity-bug-mirror: ALWAYS take the meta branch, ignoring is_meta.
-    return META_PRIORITY ** 2
-
-    # Original semantically-correct logic, restore when Clojure bug is fixed:
-    # if is_meta:
-    #     inner = META_PRIORITY
-    # else:
-    #     decay_factor = 1 + 8 * (2 ** (-S / 5))
-    #     inner = importance_metric(A, P, S, E) * decay_factor
-    # return inner ** 2
+    if is_meta:
+        inner = META_PRIORITY
+    else:
+        decay_factor = 1 + 8 * (2 ** (-S / 5))
+        inner = importance_metric(A, P, S, E) * decay_factor
+    return inner ** 2
 
 
 class Conversation:
@@ -1370,6 +1354,10 @@ class Conversation:
         prev_base_clusters = getattr(result, 'base_clusters', [])
         prev_group_clusterings = getattr(result, 'group_clusterings', {})
         prev_group_k_smoother = getattr(result, 'group_k_smoother', {})
+        # Q2: Clojure's :comment-priorities shadows its current-tick input
+        # with (:group-votes conv) — the PREVIOUS tick's stored group-votes
+        # (conversation.clj:658). Captured here, consumed in legacy mode only.
+        prev_group_votes = getattr(result, 'group_votes', {})
 
         # Compute PCA and projections
         result._compute_pca(prev_pca=prev_pca)
@@ -1385,21 +1373,32 @@ class Conversation:
         result._compute_repness()
 
         # Compute comment priorities (D12 / PR 11). Needs PCA + group_votes.
-        result._compute_comment_priorities()
+        result._compute_comment_priorities(prev_group_votes=prev_group_votes)
 
         # Compute participant info
         result._compute_participant_info()
 
         return result
 
-    def _compute_comment_priorities(self) -> Dict[Any, float]:
+    def _compute_comment_priorities(
+            self,
+            prev_group_votes: Optional[Dict[str, Any]] = None) -> Dict[Any, float]:
         """
         Compute per-tid comment priorities matching Clojure
-        `:comment-priorities` (conversation.clj:648-679).
+        `:comment-priorities` (conversation.clj:656-687).
 
         Per-tid: sum A/D/S across all groups → P = S - (A + D) → call
         `priority_metric(is_meta, A, P, S, E)` where E is the comment
-        extremity computed from PCA.
+        extremity computed from the CURRENT tick's PCA.
+
+        Which tick's group-votes feed A/D/S is mode-dependent (Q2): Clojure
+        shadows its current-tick group-votes input with `(:group-votes conv)`
+        — the PREVIOUS tick's stored value (conversation.clj:658) — so
+        'clojure-legacy' mode uses `prev_group_votes` (empty on the first
+        tick, matching Clojure's nil). 'improved' mode uses the current
+        tick's (the sane behavior). Either way the CURRENT tick's group-votes
+        are stored on `self.group_votes` for the next tick's capture — the
+        in-memory analogue of Clojure persisting :group-votes in math_main.
 
         Stores the result on `self.comment_priorities` and also returns it.
         TS server `nextComment.ts::getNextPrioritizedComment` consumes this
@@ -1449,7 +1448,17 @@ class Conversation:
         # the repness-stage aggregation — tracked in the follow-up issue
         # "delphi: _compute_comment_priorities recomputes group votes on
         # every tick".
-        group_votes = self._compute_group_votes()
+        current_group_votes = self._compute_group_votes()
+        # Stored for the NEXT tick's prev capture (Clojure keeps :group-votes
+        # on the conv / in math_main) — in both modes, like self.pca.
+        self.group_votes = current_group_votes
+        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
+            # Q2: previous tick's group-votes (conversation.clj:658);
+            # {} on the first tick == Clojure's nil (reduce over nothing
+            # → A/P/S all 0).
+            group_votes = prev_group_votes if prev_group_votes is not None else {}
+        else:
+            group_votes = current_group_votes
 
         priorities: Dict[Any, float] = {}
         for tid in self.rating_mat.columns:

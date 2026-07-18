@@ -158,7 +158,16 @@ class TestColdStartInvariance:
         # Pin last_updated so the two runs share a deterministic value.
         conv.last_updated = 0
         result = conv.recompute()
-        return _strip_volatile(result.to_dict())
+        d = _strip_volatile(result.to_dict())
+        # ONE documented first-tick exception (Q2, 2026-07-22): Clojure's own
+        # :comment-priorities reads the PREVIOUS tick's group-votes
+        # (conversation.clj:658), which is nil on the first tick — so
+        # Clojure-faithful legacy tick-1 priorities come from zero counts and
+        # CANNOT equal improved's current-tick-based values. Every other key
+        # keeps the cold-start invariance guarantee. Legacy tick-1 zero
+        # semantics are pinned in test_priority_unmirror.py.
+        d.pop('comment_priorities', None)
+        return d
 
     def test_vw_cold_run_identical_across_modes(self, monkeypatch):
         improved = self._recompute_to_dict(monkeypatch, ENGINE_MODE_IMPROVED)
