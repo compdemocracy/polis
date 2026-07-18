@@ -26,6 +26,7 @@ from polismath.pca_kmeans_rep.clusters import (
 )
 from polismath.pca_kmeans_rep.repness import conv_repness
 from polismath.pca_kmeans_rep.corr import compute_correlation
+from polismath.pca_kmeans_rep.group_k_smoother import group_k_smoother_update
 from polismath.utils.engine_mode import resolve_engine_mode, ENGINE_MODE_LEGACY
 
 
@@ -847,8 +848,31 @@ class Conversation:
 
         logger.info(f"Selected k={best_k} with silhouette={best_score:.4f}")
 
-        # Use the best clustering
-        group_labels, group_centers, group_member_lists, _ = group_clusterings[best_k]
+        # Engine-mode K selection (PR-D). 'improved' (default) keeps best_k
+        # exactly as computed above — bit-for-bit unchanged, including its
+        # strict-'>' tie-break (LOWER k wins ties). 'clojure-legacy' instead
+        # runs the group-k-smoother (conversation.clj:454-478): it damps K
+        # flicker (K only switches after :group-k-buffer=4 consecutive ticks
+        # agree) and uses Clojure's max-key HIGHER-k-wins tie-break, threading
+        # {last_k, last_k_count, smoothed_k} plus the per-k clusterings across
+        # ticks on the conv. These threaded fields are NOT persisted (matching
+        # conv_man.clj:52-74) — they live in-memory across update_votes only.
+        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
+            silhouettes_by_k = {k: group_clusterings[k][3] for k in group_clusterings}
+            new_smoother_state, selected_k = group_k_smoother_update(
+                prev_group_k_smoother or {}, silhouettes_by_k)
+            self.group_clusterings = group_clusterings
+            self.group_k_smoother = new_smoother_state
+            logger.info(f"Legacy group-k-smoother: best_k={best_k} "
+                        f"smoothed_k={selected_k} state={new_smoother_state}")
+        else:
+            selected_k = best_k
+
+        # Use the selected clustering (best_k in improved mode, smoothed_k in
+        # legacy mode). The smoother's clamp guarantees selected_k is a key of
+        # group_clusterings, so this never KeyErrors and group_clusters is never
+        # None.
+        group_labels, group_centers, group_member_lists, _ = group_clusterings[selected_k]
 
         # Convert to dictionary format with base cluster IDs as members
         group_clusters = []
