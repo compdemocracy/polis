@@ -26,6 +26,7 @@ from polismath.pca_kmeans_rep.clusters import (
 )
 from polismath.pca_kmeans_rep.repness import conv_repness
 from polismath.pca_kmeans_rep.corr import compute_correlation
+from polismath.utils.engine_mode import resolve_engine_mode, ENGINE_MODE_LEGACY
 
 
 # Configure logging
@@ -615,7 +616,28 @@ class Conversation:
             # Make a clean copy of the rating matrix
             clean_matrix = self._get_clean_matrix()
 
-            pca_results, proj_dict = pca_project_dataframe(clean_matrix, n_components)
+            # Engine-mode warm start (PR-B). In 'clojure-legacy' mode we thread
+            # the previous tick's unit components back in as the power-iteration
+            # start vectors (Clojure :start-vectors, conversation.clj:385) and
+            # require the power-iteration solver (sklearn cannot inject start
+            # vectors). In the default 'improved' mode nothing changes:
+            # start_vectors stays None and the solver is chosen purely by
+            # POLISMATH_PCA_IMPL, so this call is byte-identical to the pre-PR
+            # behavior.
+            start_vectors = None
+            require_powerit = False
+            if resolve_engine_mode() == ENGINE_MODE_LEGACY:
+                require_powerit = True
+                if prev_pca is not None:
+                    prev_comps = np.asarray(prev_pca.get('comps'))
+                    # Only warm-start from real components; empty/cold state
+                    # (first tick) falls through to the cold random draw.
+                    if prev_comps.size > 0:
+                        start_vectors = prev_comps
+
+            pca_results, proj_dict = pca_project_dataframe(
+                clean_matrix, n_components,
+                start_vectors=start_vectors, require_powerit=require_powerit)
 
             # Store results
             self.pca = pca_results

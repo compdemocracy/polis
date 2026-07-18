@@ -238,7 +238,10 @@ def powerit_pca(matrix: np.ndarray,
 
 
 def pca_project_dataframe(df: pd.DataFrame,
-                         n_comps: int = 2) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
+                         n_comps: int = 2,
+                         start_vectors: Optional[Sequence[np.ndarray]] = None,
+                         require_powerit: bool = False,
+                         ) -> Tuple[Dict[str, np.ndarray], Dict[str, np.ndarray]]:
     """
     Perform PCA on a DataFrame and project participants into PCA space.
 
@@ -251,6 +254,18 @@ def pca_project_dataframe(df: pd.DataFrame,
         df: DataFrame with participants as rows and comments as columns.
             Values are votes (float); NaN indicates missing/unseen.
         n_comps: Number of principal components to compute.
+        start_vectors: Optional per-component power-iteration warm start. In
+            Clojure-legacy engine mode this is the PREVIOUS tick's unit
+            components (Clojure :start-vectors, conversation.clj:385 ->
+            powerit-pca, pca.clj:98). `None` (the default) is the cold path and
+            is BYTE-IDENTICAL to the pre-PR behavior. Shorter-than-current start
+            vectors are 1-padded for new comments inside `_power_iteration`
+            (pca.clj:46-49). Only consumed by the power-iteration solver.
+        require_powerit: When True the caller mandates the power-iteration
+            solver (it is the only one that can be seeded). If
+            POLISMATH_PCA_IMPL=sklearn is set anyway, we warn and fall back to
+            power iteration rather than silently drop the warm start. `False`
+            (default) preserves the pre-PR solver-selection behavior exactly.
 
     Returns:
         Tuple of (pca_results, proj_dict) where:
@@ -330,6 +345,21 @@ def pca_project_dataframe(df: pd.DataFrame,
     # only the eigen-solver differs.
     impl = _resolve_impl_flag(PCA_IMPL_ENV_VAR, PCA_IMPL_DEFAULT, PCA_IMPL_CHOICES)
 
+    # Warm-start parity (PR-B): power iteration is the ONLY solver that can be
+    # seeded with the previous tick's components (Clojure :start-vectors,
+    # conversation.clj:385 -> pca.clj:98). sklearn's SVD has no start-vector
+    # hook, so when a warm start is supplied - or explicitly required by the
+    # 'clojure-legacy' engine mode - override POLISMATH_PCA_IMPL=sklearn back to
+    # powerit and warn. Running sklearn here would silently drop the warm start.
+    # When require_powerit / start_vectors are both absent (improved mode), this
+    # is a no-op and solver selection is exactly the pre-PR behavior.
+    if (require_powerit or start_vectors is not None) and impl == PCA_IMPL_SKLEARN:
+        logger.warning(
+            "%s=sklearn cannot inject warm-start vectors; falling back to the "
+            "power-iteration PCA for Clojure-legacy warm start.",
+            PCA_IMPL_ENV_VAR)
+        impl = PCA_IMPL_POWERIT
+
     # Perform PCA with error handling
     # TODO(julien): use function that compute projections and PCAs in one pass.
     try:
@@ -347,7 +377,10 @@ def pca_project_dataframe(df: pd.DataFrame,
             # Legacy/Clojure-parity solver (default). Comps are unit vectors;
             # projections are (X - center) @ compsᵀ, exactly like sklearn's
             # fit_transform convention.
-            pca_results = powerit_pca(matrix_data_no_nan, n_comps=n_comps)
+            # start_vectors warm-starts each component's power iteration
+            # (None == cold == pre-PR behavior; see the PR-B note above).
+            pca_results = powerit_pca(matrix_data_no_nan, n_comps=n_comps,
+                                      start_vectors=start_vectors)
             projections = ((matrix_data_no_nan - pca_results['center'])
                            @ pca_results['comps'].T)
 
