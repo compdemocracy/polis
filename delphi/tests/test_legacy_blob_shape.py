@@ -475,6 +475,61 @@ def test_conv_repness_consensus_tie_break_follows_tid_order():
 
 
 # ---------------------------------------------------------------------------
+# Degenerate single-vote conversation: Clojure runs the REAL math on a 1x1
+# matrix (every-vote step-0 oracle, journal 2026-07-22 "every-vote step-0
+# diagnosis COMPLETE"): center = the vote, comps rank-capped to 1 (zero
+# vector — no variance), comment-projection zero-padded to 2 rows, repness
+# best-agree guarantee and consensus selection still produce entries.
+# Python's <2 guards must yield to the real computation in legacy mode.
+# ---------------------------------------------------------------------------
+def _tiny_conv():
+    # Built AFTER the mode fixture: the degenerate-guard behavior lives in
+    # the COMPUTE path (recompute), not just emission.
+    c = Conversation("tiny_single_vote")
+    c = c.update_votes(
+        {"votes": [{"pid": 1, "tid": 24, "vote": 1}]}, recompute=False
+    )
+    return c.recompute()
+
+
+def test_legacy_single_vote_pca_is_real(legacy):
+    d = _tiny_conv().to_dict()
+    # internal center = +1 (the vote, Delphi convention) -> emitted -1.0
+    assert d["pca"]["center"] == [-1.0]
+    # comps rank-capped to min(n_comps, n_cols) = 1; zero vector (no variance)
+    assert d["pca"]["comps"] == [[0.0]]
+    # comment-projection stays TWO rows (Clojure's [pc1 pc2] destructure
+    # zero-fills the missing component)
+    assert len(d["pca"]["comment-projection"]) == 2
+    assert d["pca"]["comment-extremity"] == [0.0]
+
+
+def test_legacy_single_vote_repness_and_consensus(legacy):
+    d = _tiny_conv().to_dict()
+    rep = d["repness"]
+    (gid,) = rep.keys()
+    (entry,) = rep[gid]
+    assert entry["tid"] == 24
+    assert entry["n-success"] == 1 and entry["n-trials"] == 1
+    assert entry["p-success"] == pytest.approx(2 / 3)      # (1+1)/(1+2)
+    assert entry["repness"] == pytest.approx(4 / 3)        # (2/3) / ((0+1)/(0+2))
+    assert entry["best-agree"] is True
+    (cons,) = d["consensus"]["agree"]
+    assert cons["tid"] == 24
+    assert cons["p-success"] == pytest.approx(2 / 3)
+    assert d["consensus"]["disagree"] == []
+
+
+def test_improved_single_vote_guards_unchanged(improved):
+    d = _tiny_conv().to_dict()
+    assert d["pca"]["center"] == [0.0]
+    assert d["repness"]["group_repness"] == {0: []} or all(
+        not v for v in d["repness"]["group_repness"].values()
+    )
+    assert d["consensus"] == {"agree": [], "disagree": []}
+
+
+# ---------------------------------------------------------------------------
 # from_dict inverse: legacy round-trip restores the internal convention.
 # ---------------------------------------------------------------------------
 def test_legacy_from_dict_unpermutes_pca_alignment(legacy):

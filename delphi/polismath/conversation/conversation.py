@@ -684,8 +684,14 @@ class Conversation:
         import numpy as np
         import pandas as pd
 
-        # Check if we have enough data
-        if self.rating_mat.shape[0] < 2 or self.rating_mat.shape[1] < 2:
+        # Check if we have enough data. Clojure runs the REAL math on any
+        # non-empty matrix — a 1x1 single-vote conversation yields center =
+        # the vote and a rank-capped zero component (every-vote step-0
+        # oracle, journal 2026-07-22) — so clojure-legacy only short-circuits
+        # on a truly EMPTY dimension; improved keeps the <2 guard.
+        tiny = self.rating_mat.shape[0] < 2 or self.rating_mat.shape[1] < 2
+        empty = self.rating_mat.shape[0] == 0 or self.rating_mat.shape[1] == 0
+        if empty or (tiny and resolve_engine_mode() != ENGINE_MODE_LEGACY):
             # Not enough data for PCA, create minimal results
             cols = max(self.rating_mat.shape[1], 1)
             self.pca = {
@@ -1793,6 +1799,14 @@ class Conversation:
             center = np.asarray(self.pca['center'], dtype=float)
             comps = np.asarray(self.pca['comps'], dtype=float)
             cmnt_proj = pca_project_cmnts(center, comps)  # Delphi sign, (n_cmts, n_comps)
+            if cmnt_proj.ndim == 2 and cmnt_proj.shape[1] < 2:
+                # comps are rank-capped (a 1-cmt conv has ONE component) but
+                # Clojure's comment-projection is always 2-row: the [pc1 pc2]
+                # destructure zero-fills the missing component
+                # (with-proj-and-extremtiy over sparsity-aware projection).
+                cmnt_proj = np.pad(
+                    cmnt_proj, ((0, 0), (0, 2 - cmnt_proj.shape[1]))
+                )
             extremity = compute_comment_extremity(cmnt_proj)
             pca_out = dict(result.get('pca', {}))
             if len(perm) == center.shape[0]:
