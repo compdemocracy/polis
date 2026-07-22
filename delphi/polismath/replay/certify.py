@@ -90,7 +90,11 @@ def default_ledger_path() -> Path:
 # ---------------------------------------------------------------------------
 ACCEPTANCE_EXCLUDED_KEYS = frozenset({"subgroup-clusters", "subgroup-votes", "subgroup-repness"})
 ACCEPTANCE_KEYS = PREP_MAIN_KEYS - ACCEPTANCE_EXCLUDED_KEYS
-ACCEPTANCE_NOTICE = "subgroup-* keys excluded from acceptance (CLOJURE_QUIRKS.md Q7)"
+ACCEPTANCE_NOTICE = (
+    "subgroup-* keys excluded from acceptance (CLOJURE_QUIRKS.md Q7); "
+    "large-conv mini-batch PCA disabled in the clj driver — full-PCA path "
+    "certified at every size (Q10)"
+)
 
 
 def project_acceptance(blob: dict[str, Any]) -> dict[str, Any]:
