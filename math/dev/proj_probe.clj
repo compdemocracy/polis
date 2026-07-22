@@ -128,4 +128,31 @@
                       winner (first (filter (fn [[_ c]] (seq (:members c))) after))]
                   (println "PHASE view-assign: pid 5 ->" (pr-str (key winner))))))))))))
 
-(apply -main *command-line-args*)
+;; Auto-run only when invoked with args (clojure -M dev/proj_probe.clj ...);
+;; library-style load-file (batch-probe callers) skips it.
+(when (seq *command-line-args*)
+  (apply -main *command-line-args*))
+
+;; Batch-mode probe (pc-revote-01 split-loop tie): replay TWO vote-count
+;; batches, then print the in-conv subset ROW ORDER and the clean-start
+;; split-loop extraction sequence with runner-up gaps.
+(defn batch-probe [csv-path cut1 cut2]
+  (let [votes (->> (replay/read-votes-csv csv-path) replay/build-dataset)
+        b1    (subvec votes 0 cut1)
+        b2    (subvec votes cut1 cut2)
+        seed  (-> (conv/new-conv)
+                  (assoc :zid 99998 :meta-tids #{}
+                         :pca replay/certify-cold-start-pca))
+        prev  (conv/conv-update seed (replay/->conv-votes b1)
+                                replay/certify-conv-opts)
+        cur   (conv/conv-update prev (replay/->conv-votes b2)
+                                replay/certify-conv-opts)
+        pnmat (nm/named-matrix (nm/rownames (:rating-mat cur)) ["x" "y"]
+                               (:proj cur))
+        inmat (nm/rowname-subset pnmat (:in-conv cur))]
+    (println "BATCH rownames-head:" (pr-str (take 20 (nm/rownames inmat))))
+    (println "BATCH rownames-tail:" (pr-str (take-last 8 (nm/rownames inmat))))
+    (println "BATCH n-clusters cur:" (count (:base-clusters cur)))
+    (doseq [c (sort-by :id (:base-clusters cur))
+            :when (> (count (:members c)) 1)]
+      (println "  multi-member cluster id=" (:id c) "members=" (pr-str (:members c))))))

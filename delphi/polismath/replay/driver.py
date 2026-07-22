@@ -43,6 +43,8 @@ must feed raw-DB signs (flipped); the store records which convention was used.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+
+import numpy as np
 from typing import Any, Callable
 
 from polismath.conversation.conversation import Conversation
@@ -88,6 +90,17 @@ def run_replay(
     # into wall-clock — breaking determinism. Floor to 1 (nonzero).
     base_last_updated = (dataset.votes[0].t_ms or 1) if dataset.votes else 1
     conv = Conversation(spec.dataset, last_updated=base_last_updated)
+    # Q12 pinned cold start (CLOJURE_QUIRKS.md): production Clojure draws an
+    # UNSEEDED random PCA start vector on the cold tick (rand-starting-vec,
+    # pca.clj:79-82); with a small eigengap the 100 power iterations keep a
+    # start-dependent residual, so even two Clojure runs differ. Both replay
+    # drivers pin the cold start to the ONES vector — the value both engines
+    # already pad new-comment columns with (pca.clj:46-49 / pca.py
+    # _power_iteration) — via a single-element start that padding expands to
+    # all-ones at any width. Warm ticks take the real previous comps from
+    # tick 2 on, exactly as before. Mirrors dev/replay.clj
+    # certify-cold-start-pca.
+    conv.pca = {'center': np.zeros(1), 'comps': np.array([[1.0], [1.0]])}
 
     # Cumulative latest-wins moderation value per tid across the whole replay.
     mod_state: dict[int, int] = {}
