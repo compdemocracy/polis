@@ -63,8 +63,42 @@
   },
   {
     "dataset": "vw",
-    "preset": "every-vote",
+    "schedule": "schedules/vw-every-vote-56.json",
     "engine_mode": "clojure-legacy",
-    "notes": "densest warm-start chain: one recompute per vote (4683 steps) \u2014 maximal sequential-seam coverage on the smallest dataset"
+    "notes": "every-vote prefix \u2014 see the schedule file for the Q11 truncation rationale"
+  },
+  {
+    "dataset": "pc-revote-01",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "engine_mode": "clojure-legacy",
+    "notes": "prodclone: extreme revote conversation (97% revotes, ~56k votes)"
+  },
+  {
+    "dataset": "pc-banned-01",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "engine_mode": "clojure-legacy",
+    "notes": "prodclone: banned participants present (participants.mod=-1; Q1 leak territory)"
+  },
+  {
+    "dataset": "pc-smallmix-01",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "engine_mode": "clojure-legacy",
+    "notes": "prodclone: small mixed conversation (~5k votes)"
+  },
+  {
+    "dataset": "pc-midmix-01",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "engine_mode": "clojure-legacy",
+    "notes": "prodclone: mid mixed conversation (~49k votes)"
+  },
+  {
+    "dataset": "pc-zerovote-01",
+    "preset": "single-cut",
+    "engine_mode": "clojure-legacy",
+    "notes": "prodclone: zero-vote conversation \u2014 empty-conversation edge"
   }
 ]

@@ -290,3 +290,45 @@ class TestKmeansEndToEnd:
         c0 = next(c for c in out if set(c['members']) == {0, 1})
         # weighted center y = (1*0 + 3*2)/4 = 1.5, NOT unweighted 1.0
         np.testing.assert_allclose(c0['center'], [0.0, 1.5])
+
+
+# ---------------------------------------------------------------------------
+# Q11: vectorz distance cancellation (CLOJURE_QUIRKS.md Q11).
+# ---------------------------------------------------------------------------
+class TestQ11DistanceCancellation:
+    """Clojure's kmeans distances go through vectorz's d² = |a|²+|b|²−2a·b,
+    whose cancellation floors true distances below ~1e-8 to EXACTLY 0.0 —
+    so near-coincident points TIE and merge into the LATER cluster
+    (min-key last-wins). Verified in-process on the vw every-vote step-57
+    pair via math/dev/proj_probe.clj (journal 2026-07-22)."""
+
+    def test_euclidean_uses_clojure_cancellation_formula(self):
+        from polismath.pca_kmeans_rep.legacy_kmeans import _euclidean
+
+        p5 = np.array([-1.7765256006253405, 0.65139331269767860])
+        c8 = np.array([-1.7765256006253405, 0.65139331269767400])
+        # True distance 4.66e-15; the vectorz formula returns exactly 0.0.
+        assert _euclidean(p5, c8) == 0.0
+        # Normal-scale distances stay correct.
+        assert _euclidean(np.array([0.0, 0.0]), np.array([3.0, 4.0])) == pytest.approx(5.0)
+
+    def test_near_coincident_singletons_merge_to_later_cluster(self):
+        from polismath.pca_kmeans_rep.legacy_kmeans import _NamedData, kmeans
+
+        # The REAL vw every-vote step-57 pair (journal 2026-07-22): the
+        # cancellation collapses their 4.66e-15 separation to exactly 0.0.
+        # (Not every near-coincident synthetic pair does — the residue of
+        # |a|²+|b|²−2ab can land on either side of zero bit-by-bit.)
+        a = [-1.7765256006253405, 0.65139331269767860]
+        b = [-1.7765256006253405, 0.65139331269767400]
+        far = [5.0, 5.0]
+        data = _NamedData([10, 20, 30], np.array([a, b, far]))
+        last = [
+            {"id": 6, "members": [10], "center": np.array(a)},
+            {"id": 7, "members": [30], "center": np.array(far)},
+            {"id": 8, "members": [20], "center": np.array(b)},
+        ]
+        result = {c["id"]: sorted(c["members"]) for c in kmeans(data, 100, last_clusters=last)}
+        # Clojure: both coincident points tie at distance 0.0 to clusters 6
+        # AND 8 -> min-key last-wins sends both to id 8; id 6 empties, drops.
+        assert result == {7: [30], 8: [10, 20]}

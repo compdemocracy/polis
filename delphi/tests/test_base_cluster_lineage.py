@@ -69,19 +69,28 @@ class TestColdStartInvariance:
         monkeypatch.setenv(ENGINE_MODE_ENV_VAR, mode)
         return Conversation('cold').update_votes(_many_ptpt_votes())
 
-    def test_legacy_base_is_clojure_faithful_singletons(self, monkeypatch):
+    def test_legacy_base_is_clojure_faithful_up_to_q11_merges(self, monkeypatch):
         # base-k (=100) >= n_ptpts, so every DISTINCT projection becomes its own
-        # base cluster. This synthetic set has near-duplicate projections; legacy
-        # (init-clusters on exact-distinct rows + cluster-step) keeps each point
-        # as its own singleton with NO empty clusters, matching Clojure exactly.
-        # sklearn's Lloyd instead collapses a near-duplicate pair and leaves an
-        # empty cluster — so legacy and improved legitimately DIVERGE on
-        # near-duplicate projections (base cold identity holds only when all
-        # projections are distinct, e.g. vw; see TestVwColdStartInvariance). This
-        # test pins the Clojure-faithful legacy side.
+        # base cluster — EXCEPT near-duplicates whose vectorz-formula distance
+        # cancels to exactly 0.0: those TIE against multiple clusters and merge
+        # into the later one (CLOJURE_QUIRKS.md Q11; this fixture's
+        # near-duplicate pair does cancel). The pre-Q11 version of this test
+        # asserted all-singletons, believing that was the Clojure behavior —
+        # the in-process probe of 2026-07-22 showed Clojure merges. Assertion:
+        # no empty clusters, every participant clustered exactly once, and any
+        # multi-member cluster holds only points at Q11-distance 0.0 from each
+        # other (a merge is only ever the Q11 tie, never a real collapse).
+        from polismath.pca_kmeans_rep.legacy_kmeans import _euclidean
+
         leg = self._run(monkeypatch, 'clojure-legacy')
         assert all(c['members'] for c in leg.base_clusters)  # no empty clusters
-        assert all(len(c['members']) == 1 for c in leg.base_clusters)  # singletons
+        all_members = [m for c in leg.base_clusters for m in c['members']]
+        assert sorted(all_members) == sorted(f'p{i}' for i in range(18))
+        pos = {pid: np.asarray(proj) for pid, proj in leg.proj.items()}
+        for c in leg.base_clusters:
+            for m1 in c['members']:
+                for m2 in c['members']:
+                    assert _euclidean(pos[m1], pos[m2]) == 0.0
 
     def test_group_clustering_is_deterministic_in_legacy(self, monkeypatch):
         # NOTE (semantic finding): the GROUP level runs real k-means (k<<n_base),
