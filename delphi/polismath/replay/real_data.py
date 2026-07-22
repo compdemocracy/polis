@@ -23,7 +23,12 @@ REAL_DATA_ROOT = Path(__file__).resolve().parents[2] / "real_data"
 
 
 def dataset_dir(slug: str) -> Path | None:
+    """Locate a dataset directory by slug — public (``real_data/*-<slug>``)
+    first, then private (``real_data/.local/*-<slug>``, gitignored). A public
+    match wins a slug collision."""
     hits = sorted(REAL_DATA_ROOT.glob(f"*-{slug}"))
+    if not hits:
+        hits = sorted(REAL_DATA_ROOT.glob(f".local/*-{slug}"))
     return hits[0] if hits else None
 
 

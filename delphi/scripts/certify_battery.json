@@ -11,7 +11,7 @@
     "preset": "front-loaded",
     "n_cuts": 6,
     "engine_mode": "clojure-legacy",
-    "notes": "6 front-loaded recomputes — early-conversation warm-start stress"
+    "notes": "6 front-loaded recomputes \u2014 early-conversation warm-start stress"
   },
   {
     "dataset": "vw",
@@ -25,5 +25,46 @@
     "n_cuts": 8,
     "engine_mode": "clojure-legacy",
     "notes": "8 evenly-spaced recomputes over the full biodiversity conversation"
+  },
+  {
+    "dataset": "FLI",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "engine_mode": "clojure-legacy",
+    "notes": "smallest private dataset (~91k votes) \u2014 pilot for the private-size regime; calibrates clj/py wall-clock before scheduling bg2018/pakistan/engage/bg2050"
+  },
+  {
+    "dataset": "bg2018",
+    "preset": "uniform",
+    "n_cuts": 8,
+    "engine_mode": "clojure-legacy",
+    "notes": "~226k votes; revote-rich production conversation"
+  },
+  {
+    "dataset": "pakistan",
+    "preset": "uniform",
+    "n_cuts": 8,
+    "engine_mode": "clojure-legacy",
+    "notes": "~400k votes"
+  },
+  {
+    "dataset": "engage",
+    "preset": "uniform",
+    "n_cuts": 8,
+    "engine_mode": "clojure-legacy",
+    "notes": "~443k votes"
+  },
+  {
+    "dataset": "bg2050",
+    "preset": "uniform",
+    "n_cuts": 6,
+    "engine_mode": "clojure-legacy",
+    "notes": "largest (~1.03M votes) \u2014 6 cuts to bound wall-clock"
+  },
+  {
+    "dataset": "vw",
+    "preset": "every-vote",
+    "engine_mode": "clojure-legacy",
+    "notes": "densest warm-start chain: one recompute per vote (4683 steps) \u2014 maximal sequential-seam coverage on the smallest dataset"
   }
 ]
