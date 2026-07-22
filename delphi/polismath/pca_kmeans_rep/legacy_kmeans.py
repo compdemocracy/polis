@@ -91,8 +91,22 @@ class _NamedData:
 
 
 def _euclidean(a: np.ndarray, b: np.ndarray) -> float:
-    """``matrix/distance`` (L2). Clojure uses core.matrix euclidean distance."""
-    return float(np.linalg.norm(np.asarray(a, dtype=float) - np.asarray(b, dtype=float)))
+    """``matrix/distance`` as vectorz ACTUALLY computes it on the kmeans path
+    (CLOJURE_QUIRKS.md Q11): d² = |a|² + |b|² − 2·a·b, clamped at 0.
+
+    NOT ``norm(a − b)``: the dot-product form suffers catastrophic
+    cancellation, flooring any true distance below ~1e-8 (relative to the
+    vectors' magnitude) to EXACTLY 0.0. That floor is semantic in Clojure —
+    near-coincident points TIE at 0.0 against multiple clusters and min-key's
+    last-wins tie-break merges them into the LATER cluster (verified on the
+    vw every-vote step-57 pair: true distance 4.66e-15 → both cluster
+    distances 0.0 → merge; math/dev/proj_probe.clj + journal 2026-07-22).
+    This module only runs in clojure-legacy mode, so the quirk is gated by
+    construction."""
+    av = np.asarray(a, dtype=float)
+    bv = np.asarray(b, dtype=float)
+    d2 = float(np.dot(av, av)) + float(np.dot(bv, bv)) - 2.0 * float(np.dot(av, bv))
+    return float(np.sqrt(max(0.0, d2)))
 
 
 def weighted_mean(rows: Sequence[np.ndarray],
