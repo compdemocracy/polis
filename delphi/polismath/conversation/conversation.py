@@ -201,6 +201,18 @@ class Conversation:
         self.mod_in_tids = set()    # Featured comments
         self.meta_tids = set()      # Meta comments
         self.mod_out_ptpts = set()  # Excluded participants
+        # Clojure conv state carries no :mod-in/:mod-out (nil in the blob)
+        # until the poller delivers moderation; these two track that seam so
+        # clojure-legacy emission can distinguish "never moderated" (null)
+        # from "moderated to empty" ([]). See FP-2f5714ce9c / FP-2975bbfb04.
+        self.moderation_applied = False
+        self.last_mod_timestamp = None
+        # Clojure named-matrix column order = first-vote arrival order per tid
+        # (update-nmat appends unseen colnames in encounter order); python's
+        # internal matrix is natsorted instead (update_votes). Tracked so
+        # clojure-legacy tie-breaking (stable sorts over column order) and
+        # blob tid emission can replicate Clojure exactly. Append-only.
+        self.tid_arrival_order = []
         
         # Clustering and projection state
         self.pca = None
@@ -349,6 +361,15 @@ class Conversation:
         
         # Log validation results
         logger.info(f"[{time.time() - start_time:.2f}s] Vote processing summary: {len(vote_updates)} valid, {invalid_count} invalid, {null_count} null")
+
+        # Record first-vote arrival order for unseen tids (valid votes only,
+        # in payload order — the same order Clojure's update-nmat encounters
+        # them). See tid_arrival_order in __init__.
+        seen_tids = set(result.tid_arrival_order)
+        for _, comment_id, _ in vote_updates:
+            if comment_id not in seen_tids:
+                seen_tids.add(comment_id)
+                result.tid_arrival_order.append(comment_id)
 
         # Get existing row and column indices
         existing_rows = self.raw_rating_mat.index
@@ -611,6 +632,11 @@ class Conversation:
         mod_in_tids = moderation.get('mod_in_tids', [])
         meta_tids = moderation.get('meta_tids', [])
         mod_out_ptpts = moderation.get('mod_out_ptpts', [])
+
+        result.moderation_applied = True
+        result.last_mod_timestamp = moderation.get(
+            'lastModTimestamp', result.last_mod_timestamp
+        )
         
         # Update moderation sets
         if mod_out_tids:
@@ -1109,9 +1135,18 @@ class Conversation:
         # Compute representativeness (needs participant IDs, not base-cluster IDs).
         # `mod_out=self.mod_out_tids` forwards moderated-out tids to the rep + consensus
         # selectors (Clojure parity per D11 / PR 9; matches repness.clj:222 and :296).
+        # In clojure-legacy mode, tid_order carries the first-vote arrival
+        # order so exact-score ties resolve like Clojure's stable sorts over
+        # named-matrix column order (FP-eaea8c1b7f / FP-0d73f006f4).
+        tid_order = (
+            self.tid_arrival_order
+            if resolve_engine_mode() == ENGINE_MODE_LEGACY
+            else None
+        )
         self.repness = conv_repness(self.rating_mat,
                                     self._unfolded_group_clusters(),
-                                    mod_out=self.mod_out_tids)
+                                    mod_out=self.mod_out_tids,
+                                    tid_order=tid_order)
         logger.info(f"Representativeness completed in {time.time() - start_time:.2f}s")
 
     def _compute_participant_info_optimized(self, vote_matrix: pd.DataFrame, group_clusters: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -1638,7 +1673,170 @@ class Conversation:
                 votes_base[tid] = entry
 
         return votes_base
-    
+
+    def _compute_votes_base_buckets(self) -> Dict[str, Any]:
+        """
+        Clojure-exact votes-base: per-tid A/D/S vectors indexed by base-cluster
+        bucket, matching `agg-bucket-votes-for-tid` over `bid-to-pid`
+        (conversation.clj:593-608). Buckets are the base clusters SORTED BY
+        :id; the aggregation domain is each bucket's member pids only — votes
+        from unclustered participants never appear (this is why the improved
+        int totals run up to +1 higher on some tids; FP-81fda13ef6).
+
+        Values come from raw_rating_mat (D15 parity: the actual votes cast,
+        not post-moderation zeros), same as `_compute_votes_base`.
+
+        Returns:
+            {tid: {'A': [per-bucket count], 'D': [...], 'S': [...]}}.
+        """
+        mat = self.raw_rating_mat
+        values = mat.values
+        row_pos = {pid: i for i, pid in enumerate(mat.index)}
+        bucket_rows = [
+            np.asarray(
+                [row_pos[p] for p in c['members'] if p in row_pos], dtype=int
+            )
+            for c in sorted(self.base_clusters or [], key=lambda c: c['id'])
+        ]
+
+        agree_mask = np.abs(values - 1.0) < 0.001
+        disagree_mask = np.abs(values + 1.0) < 0.001
+        valid_mask = ~np.isnan(values)
+        per_bucket = [
+            (
+                agree_mask[rows].sum(axis=0),
+                disagree_mask[rows].sum(axis=0),
+                valid_mask[rows].sum(axis=0),
+            )
+            for rows in bucket_rows
+        ]
+
+        votes_base = {}
+        for j, tid in enumerate(mat.columns):
+            entry = {
+                'A': [int(a[j]) for a, _, _ in per_bucket],
+                'D': [int(d[j]) for _, d, _ in per_bucket],
+                'S': [int(s[j]) for _, _, s in per_bucket],
+            }
+            try:
+                votes_base[int(tid)] = entry
+            except (ValueError, TypeError):
+                votes_base[tid] = entry
+        return votes_base
+
+    @staticmethod
+    def _legacy_repness_entry(e: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        One repness entry in Clojure `finalize-cmt-stats` shape
+        (repness.clj:173-188): direction chosen by rat > rdt, stat fields
+        renamed to the blob spellings, repness-test cast through float32
+        (Clojure applies a literal `(float ...)`). Best-agree entries carry
+        the two extra keys per repness.clj:262-264.
+        """
+        repful = e.get('repful') or ('agree' if e['rat'] > e['rdt'] else 'disagree')
+        agree = repful == 'agree'
+        out = {
+            'tid': e['comment_id'],
+            'n-success': e['na'] if agree else e['nd'],
+            'n-trials': e['ns'],
+            'p-success': e['pa'] if agree else e['pd'],
+            'p-test': e['pat'] if agree else e['pdt'],
+            'repness': e['ra'] if agree else e['rd'],
+            'repness-test': float(np.float32(e['rat'] if agree else e['rdt'])),
+            'repful-for': repful,
+        }
+        if e.get('best_agree'):
+            out['best-agree'] = True
+            out['n-agree'] = e['n_agree']
+        return out
+
+    def _apply_legacy_blob_shape(self, result: Dict[str, Any]) -> None:
+        """
+        Clojure-exact emission overrides for clojure-legacy mode (mutates
+        ``result``). Improved-mode emission is untouched. Diagnosis and
+        fingerprints: docs/divergences.json + journal session 2026-07-22-3.
+
+        - Sign parity (FP-80ca42344a/FP-3781b5768f/FP-af281c8386/
+          FP-194ee5ad04): Delphi's rating matrix is the NEGATION of Clojure's
+          (AGREE=+1 vs AGREE=-1), so every mean/projection-derived float
+          (pca.center, base-clusters x/y, group-cluster centers,
+          comment-projection) negates at this boundary; comps are
+          covariance-derived and already equal — emitted unchanged.
+        - pca comment-projection/comment-extremity (FP-2393072de1): Clojure's
+          with-proj-and-extremtiy (conversation.clj:341-352); projection is
+          emitted TRANSPOSED (component-major), extremity is a norm and
+          therefore sign-invariant.
+        - group-clusters (FP-55e290562e): members are BASE-CLUSTER ids
+          (Clojure folded form); the unfolded-pids view stays available under
+          the snake alias ``group_clusters``.
+        - repness (FP-c3cee15f8b): {gid: [finalize-cmt-stats entries]}; the
+          internal dict moves to ``repness_full`` (python-only key) so
+          ``from_dict`` round-trips losslessly.
+        - moderation seam (FP-2f5714ce9c/FP-872f81716c/FP-2975bbfb04):
+          mod-in/mod-out/lastModTimestamp are null until moderation has been
+          applied.
+        """
+        # tids in Clojure column (first-vote arrival) order; tid-aligned pca
+        # arrays are permuted with them so the blob stays internally
+        # consistent. Falls back to emitted order for tids that predate the
+        # tracker (e.g. conversations restored from pre-tracker blobs).
+        emitted_tids = result.get('tids') or []
+        emitted_set = set(emitted_tids)
+        arrival = [t for t in self.tid_arrival_order if t in emitted_set]
+        arrival_set = set(arrival)
+        arrival += [t for t in emitted_tids if t not in arrival_set]
+        tid_pos = {t: i for i, t in enumerate(emitted_tids)}
+        perm = [tid_pos[t] for t in arrival]
+
+        if self.pca:
+            center = np.asarray(self.pca['center'], dtype=float)
+            comps = np.asarray(self.pca['comps'], dtype=float)
+            cmnt_proj = pca_project_cmnts(center, comps)  # Delphi sign, (n_cmts, n_comps)
+            extremity = compute_comment_extremity(cmnt_proj)
+            pca_out = dict(result.get('pca', {}))
+            if len(perm) == center.shape[0]:
+                # Permute tids and every tid-aligned pca array TOGETHER so
+                # the blob stays internally consistent.
+                result['tids'] = arrival
+                center = center[perm]
+                comps = comps[:, perm]
+                cmnt_proj = cmnt_proj[perm, :]
+                extremity = extremity[perm]
+            pca_out['center'] = (-center).tolist()
+            pca_out['comps'] = comps.tolist()
+            pca_out['comment-projection'] = (-cmnt_proj.T).tolist()
+            pca_out['comment-extremity'] = extremity.tolist()
+            result['pca'] = pca_out
+        else:
+            # No tid-aligned arrays to keep in sync — reorder tids alone.
+            result['tids'] = arrival
+
+        bc = result.get('base-clusters')
+        if bc:
+            bc['x'] = [-v for v in bc['x']]
+            bc['y'] = [-v for v in bc['y']]
+
+        result['group-clusters'] = [
+            {
+                'id': g['id'],
+                'members': list(g['members']),
+                'center': [-c for c in g['center']],
+            }
+            for g in (self.group_clusters or [])
+        ]
+
+        if self.repness and self.repness.get('group_repness') is not None:
+            result['repness_full'] = self.repness
+            result['repness'] = {
+                gid: [self._legacy_repness_entry(e) for e in entries]
+                for gid, entries in self.repness['group_repness'].items()
+            }
+
+        if not self.moderation_applied:
+            result['mod-in'] = None
+            result['mod-out'] = None
+        result['lastModTimestamp'] = self.last_mod_timestamp
+
     def _compute_group_votes(self) -> Dict[str, Any]:
         """
         Compute group votes structure which maps group IDs to vote statistics by comment.
@@ -2109,7 +2307,12 @@ class Conversation:
         # raw_rating_mat so that moderated-out columns report the actual votes cast,
         # not the post-D15 zeros (which would inflate every column's 'S' count).
         votes_base_start = time.time()
-        result['votes-base'] = self._compute_votes_base()
+        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
+            # Clojure-exact per-base-cluster bucket vectors (agg-bucket-votes-
+            # for-tid parity); improved mode keeps the int totals.
+            result['votes-base'] = self._compute_votes_base_buckets()
+        else:
+            result['votes-base'] = self._compute_votes_base()
         logger.info(f"Votes base: {time.time() - votes_base_start:.4f}s")
         
         # Compute group votes with optimized approach
@@ -2190,6 +2393,7 @@ class Conversation:
         
         # Compute in one pass using existing structure
         if 'group-votes' in result:
+            gac_legacy = resolve_engine_mode() == ENGINE_MODE_LEGACY
             # Store consensus values per comment ID
             for tid in self.rating_mat.columns:
                 # Try converting to integer for consistent keys
@@ -2197,22 +2401,29 @@ class Conversation:
                     tid_key = int(tid)
                 except (ValueError, TypeError):
                     tid_key = tid
-                
+
                 # Start with consensus value of 1
                 consensus_value = 1.0
                 has_data = False
-                
+
                 # Multiply probabilities from all groups (same as reduce * in Clojure)
                 for gid, gid_data in result['group-votes'].items():
                     votes_data = gid_data.get('votes', {})
-                    
+
                     if tid_key in votes_data:
                         vote_stats = votes_data[tid_key]
                         agree_count = vote_stats.get('A', 0)
                         total_count = vote_stats.get('S', 0)
-                        
+
+                        if gac_legacy:
+                            # Clojure parity (conversation.clj:639-641,
+                            # FP-b3670cb052): every group's factor multiplies
+                            # in, `:or {A 0 S 0}` — a zero-S group contributes
+                            # (0+1)/(0+2) = 1/2, it is NOT skipped.
+                            consensus_value *= (agree_count + 1.0) / (total_count + 2.0)
+                            has_data = True
                         # Calculate probability with Laplace smoothing
-                        if total_count > 0:
+                        elif total_count > 0:
                             prob = (agree_count + 1.0) / (total_count + 2.0)
                             consensus_value *= prob
                             has_data = True
@@ -2290,6 +2501,10 @@ class Conversation:
         
         # Add math_tick value and return
         result['math_tick'] = math_tick_value
+
+        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
+            self._apply_legacy_blob_shape(result)
+
         logger.info(f"Total to_dict time: {time.time() - overall_start_time:.4f}s")
         return result
     
@@ -2526,13 +2741,50 @@ class Conversation:
         conv.mod_in_tids = set(moderation.get('mod_in_tids', []))
         conv.meta_tids = set(moderation.get('meta_tids', []))
         conv.mod_out_ptpts = set(moderation.get('mod_out_ptpts', []))
-        
+
+        legacy = resolve_engine_mode() == ENGINE_MODE_LEGACY
+        # Best-effort inference (the blob carries no explicit flag): any
+        # restored moderation set implies moderation was applied. A
+        # moderated-then-emptied conversation restores as not-applied — the
+        # same information loss Clojure has on a cold restore.
+        conv.moderation_applied = bool(
+            conv.mod_out_tids or conv.mod_in_tids
+            or conv.meta_tids or conv.mod_out_ptpts
+        )
+        if legacy:
+            # Legacy blobs emit the real (possibly null) mod watermark;
+            # improved blobs reuse last_updated there, which is NOT a mod
+            # timestamp — leave the attribute at its None default for those.
+            conv.last_mod_timestamp = data.get('lastModTimestamp')
+            # Legacy blobs emit tids in Clojure column (arrival) order —
+            # restore the tracker so tie-breaking survives a warm restart.
+            conv.tid_arrival_order = list(data.get('tids', []))
+
         # Restore PCA data
         pca_data = data.get('pca')
         if pca_data:
+            center = np.array(pca_data['center'])
+            comps = np.array(pca_data['comps'])
+            if legacy:
+                # Inverse of the legacy emission sign parity: blobs carry the
+                # Clojure-convention (negated) center; internal state stays in
+                # Delphi convention (see _apply_legacy_blob_shape).
+                center = -center
+                # Inverse of the legacy emission ORDER parity: blobs emit tids
+                # (and every tid-aligned pca array) in Clojure ARRIVAL order,
+                # while internal state aligns with the natsorted matrix
+                # columns. Without un-permuting, a warm restore would seed the
+                # next PCA with column-misaligned center/comps (#2649 review).
+                blob_tids = data.get('tids') or []
+                if len(blob_tids) == center.shape[0]:
+                    pos = {t: i for i, t in enumerate(blob_tids)}
+                    perm = [pos[t] for t in natsorted(blob_tids)]
+                    center = center[perm]
+                    if comps.ndim == 2 and comps.shape[1] == len(perm):
+                        comps = comps[:, perm]
             conv.pca = {
-                'center': np.array(pca_data['center']),
-                'comps': np.array(pca_data['comps'])
+                'center': center,
+                'comps': comps
             }
         
         # Restore projection data
@@ -2543,8 +2795,10 @@ class Conversation:
         # Restore cluster data
         conv.group_clusters = data.get('group_clusters', [])
         
-        # Restore representativeness data
-        conv.repness = data.get('repness')
+        # Restore representativeness data. Legacy blobs emit 'repness' in
+        # Clojure per-group shape and park the internal dict under
+        # 'repness_full' — prefer the lossless internal copy when present.
+        conv.repness = data.get('repness_full', data.get('repness'))
         
         # Restore participant info
         conv.participant_info = data.get('participant_info', {})
