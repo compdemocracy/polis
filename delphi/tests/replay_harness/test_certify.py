@@ -401,6 +401,14 @@ def test_ensure_py_recording_raises_certify_error_on_nonzero_exit(tmp_path, monk
     assert exc_info.value.stage
 
 
+requires_math_tree = pytest.mark.skipif(
+    not (cert._MATH_ROOT / "dev" / "replay.clj").exists(),
+    reason="math/ tree not present (delphi-only CI image runs from /app; "
+           "the clj cache manifest hashes real math/ files)",
+)
+
+
+@requires_math_tree
 def test_ensure_clj_recording_cache_hit_then_miss_on_change(tmp_path, monkeypatch):
     calls = {"n": 0}
 
@@ -425,6 +433,7 @@ def test_ensure_clj_recording_cache_hit_then_miss_on_change(tmp_path, monkeypatc
     assert cached3 is False and calls["n"] == 2
 
 
+@requires_math_tree
 def test_ensure_clj_recording_raises_certify_error_on_nonzero_exit(tmp_path, monkeypatch):
     def fake_run(cmd, *, cwd, env):
         return _fake_completed(returncode=1, stderr="clojure blew up")

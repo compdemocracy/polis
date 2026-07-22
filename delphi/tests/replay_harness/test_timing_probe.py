@@ -374,6 +374,10 @@ def test_build_report_shape(mod):
 # CLI end-to-end (mocked subprocess).
 # ---------------------------------------------------------------------------
 
+@pytest.mark.skipif(
+    not (Path(__file__).resolve().parents[3] / "math" / "dev" / "replay.clj").exists(),
+    reason="math/ tree not present (delphi-only CI image runs from /app)",
+)
 def test_cli_probe_end_to_end_mocked(mod, tmp_path, monkeypatch):
     votes_src = tmp_path / "votes.csv"
     _write_votes_csv(votes_src, 200)

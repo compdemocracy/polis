@@ -8,9 +8,13 @@ The engine mode selects between two families of behavior:
   - 'clojure-legacy'         : threads warm-start state across ticks, matching
                                Clojure (PCA :start-vectors, group-k-smoother).
 
-On the FIRST tick (cold start) the two modes MUST coincide, because Clojure's
-warm-start state is empty on the first tick (no previous comps, no smoother
-state). This module asserts:
+On the FIRST tick (cold start) the two modes MUST coincide STRUCTURALLY,
+because Clojure's warm-start state is empty on the first tick (no previous
+comps, no smoother state). Since the 2026-07-22 session-3 parity port, the
+modes legitimately differ at cold start in a DOCUMENTED set of stat/selection
+semantics and in the clojure-legacy blob emission surface (see
+_recompute_to_dict for the list); the invariance gate covers everything else —
+memberships, cluster structure, pca, vote aggregates. This module asserts:
   1. Flag resolution semantics (default, valid, invalid, case/whitespace,
      read-at-call-time) — mirrors tests/test_powerit_pca.py::TestPcaImplFlag.
   2. Cold-start invariance: a single-shot vw pipeline run is identical under
@@ -158,15 +162,31 @@ class TestColdStartInvariance:
         # Pin last_updated so the two runs share a deterministic value.
         conv.last_updated = 0
         result = conv.recompute()
+        # Serialize BOTH runs under IMPROVED emission: since session-3
+        # (2026-07-22) clojure-legacy has its own blob SURFACE (negated
+        # center/x/y, bids-vs-pids group members, bucketed votes-base,
+        # arrival-order tids, finalize-cmt-stats repness shape, null
+        # moderation seam) — pinned bidirectionally in
+        # test_legacy_blob_shape.py. Forcing improved emission here makes the
+        # comparison test what the legacy PLUMBING COMPUTED, not how legacy
+        # serializes it.
+        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, ENGINE_MODE_IMPROVED)
         d = _strip_volatile(result.to_dict())
-        # ONE documented first-tick exception (Q2, 2026-07-22): Clojure's own
-        # :comment-priorities reads the PREVIOUS tick's group-votes
-        # (conversation.clj:658), which is nil on the first tick — so
-        # Clojure-faithful legacy tick-1 priorities come from zero counts and
-        # CANNOT equal improved's current-tick-based values. Every other key
-        # keeps the cold-start invariance guarantee. Legacy tick-1 zero
-        # semantics are pinned in test_priority_unmirror.py.
-        d.pop('comment_priorities', None)
+        # Documented first-tick mode differences (each pinned elsewhere):
+        # - comment_priorities (Q2): Clojure reads the PREVIOUS tick's
+        #   group-votes (conversation.clj:658) — nil on tick 1, so legacy
+        #   tick-1 priorities come from zero counts (test_priority_unmirror).
+        # - repness + consensus (session 3): legacy rest-stats sum over the
+        #   OTHER GROUPS only (repness.clj:125 — unclustered voters excluded,
+        #   changing ra/rat values) and exact-score ties resolve by first-vote
+        #   ARRIVAL order instead of tid-ascending (test_legacy_blob_shape).
+        # - group-aware-consensus (session 3): legacy multiplies the 1/2
+        #   factor of zero-S groups instead of skipping (conversation.clj:639).
+        # Everything else — memberships, in-conv, base/group clusters, pca,
+        # votes-base, vote aggregates — keeps the cold-start invariance gate.
+        for key in ('comment_priorities', 'repness', 'consensus',
+                    'group-aware-consensus'):
+            d.pop(key, None)
         return d
 
     def test_vw_cold_run_identical_across_modes(self, monkeypatch):
