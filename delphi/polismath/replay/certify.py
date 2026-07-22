@@ -54,7 +54,13 @@ from typing import Any
 from polismath.replay import real_data
 from polismath.replay import schedule as sched
 from polismath.replay import store as st
-from polismath.replay.crosslang import PREP_MAIN_KEYS, _kebab, load_clj_blobs, project_prep_main
+from polismath.replay.crosslang import (
+    PREP_MAIN_KEYS,
+    _kebab,
+    canonicalize_blob,
+    load_clj_blobs,
+    project_prep_main,
+)
 from polismath.replay.stepcompare import DEFAULT_TOLERANT_STAT_KEYS, StepComparer
 from polismath.replay.types import ReplayDataset
 from polismath.utils.engine_mode import (
@@ -91,10 +97,15 @@ def project_acceptance(blob: dict[str, Any]) -> dict[str, Any]:
     """Project a math_main blob onto :data:`ACCEPTANCE_KEYS` (kebab-canonical).
 
     Reuses :func:`polismath.replay.crosslang.project_prep_main` for the
-    snake/kebab canonicalisation, then drops the dead subgroup-* trio.
+    snake/kebab canonicalisation, drops the dead subgroup-* trio, then
+    order-canonicalizes via :func:`polismath.replay.crosslang.canonicalize_blob`
+    so cross-engine-arbitrary array orderings (Clojure hash order vs Python
+    sorted) neither diverge in the comparer nor break the hash-first shortcut.
     """
     proj = project_prep_main(blob)
-    return {k: v for k, v in proj.items() if k not in ACCEPTANCE_EXCLUDED_KEYS}
+    return canonicalize_blob(
+        {k: v for k, v in proj.items() if k not in ACCEPTANCE_EXCLUDED_KEYS}
+    )
 
 
 def _acceptance_projecting_comparer(**kwargs: Any) -> StepComparer:

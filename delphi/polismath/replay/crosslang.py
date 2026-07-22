@@ -76,6 +76,168 @@ def project_prep_main(blob: dict[str, Any]) -> dict[str, Any]:
     return {k: canon[k] for k in canon if k in PREP_MAIN_KEYS}
 
 
+# ---------------------------------------------------------------------------
+# Order canonicalization for cross-engine comparison.
+# ---------------------------------------------------------------------------
+# Clojure emits tids/in-conv (and everything positionally aligned to them) in
+# hash/insertion order — :tids is (nm/colnames rating-mat) (conversation.clj:210),
+# base-clusters emission preserves conv-state order (fold-clusters,
+# clusters.clj:389) — while Python emits sorted order. Each blob is INTERNALLY
+# consistent, so cross-engine array order is not a semantic divergence; the
+# acceptance criterion (GOAL_R1_PARITY.md) is membership + value parity.
+# NOTE: votes-base A/D/S bucket lists are aligned to sort-by-:id order on BOTH
+# engines (bid-to-pid = (mapv :members (sort-by :id base-clusters)),
+# conversation.clj:593) — already canonical, never permuted here.
+
+_SET_SEMANTIC_KEYS = ("in-conv", "mod-in", "mod-out", "meta-tids")
+
+
+def _permutation(values: list) -> list[int]:
+    """Indices that sort ``values`` ascending (stable)."""
+    return sorted(range(len(values)), key=lambda i: values[i])
+
+
+def canonicalize_blob(blob: dict[str, Any]) -> dict[str, Any]:
+    """Return ``blob`` with cross-engine-arbitrary orderings normalized.
+
+    - ``tids`` sorted; ``pca`` arrays indexed by tid (center, each comps /
+      comment-projection row, comment-extremity) re-indexed by the same
+      permutation. Arrays whose length does not match ``tids`` are left alone.
+    - ``in-conv`` / ``mod-in`` / ``mod-out`` / ``meta-tids`` sorted when lists
+      (``None`` passes through untouched — a None-vs-[] difference is a real
+      shape divergence and must stay visible).
+    - ``base-clusters`` columns re-indexed by sorted id; each ``members`` list
+      sorted.
+    - ``group-clusters`` sorted by id; each ``members`` list sorted.
+
+    Purely structural: never rewrites values, only their order — a genuine
+    membership or numeric divergence survives canonicalization on both sides.
+    """
+    b = dict(blob)
+
+    tids = b.get("tids")
+    if isinstance(tids, list) and tids and all(
+        isinstance(t, (int, float)) for t in tids
+    ):
+        order = _permutation(tids)
+        b["tids"] = [tids[i] for i in order]
+        pca = b.get("pca")
+        if isinstance(pca, dict):
+            n = len(tids)
+
+            def _by_tid(v: Any) -> Any:
+                if isinstance(v, list) and len(v) == n:
+                    return [v[i] for i in order]
+                return v
+
+            pca = dict(pca)
+            for key in ("center", "comment-extremity"):
+                if key in pca:
+                    pca[key] = _by_tid(pca[key])
+            for key in ("comps", "comment-projection"):
+                rows = pca.get(key)
+                if isinstance(rows, list):
+                    pca[key] = [_by_tid(row) for row in rows]
+            b["pca"] = pca
+
+    # PCA component signs are run-arbitrary: Clojure's first-tick power
+    # iteration has no start vectors, so its unseeded init flips component
+    # signs BETWEEN ITS OWN RUNS (observed 2026-07-22: a vw single-cut
+    # re-record negated comps[1] + base-clusters.y vs the prior recording).
+    # Canonicalize each component's sign deterministically — the max-|value|
+    # entry (first index on ties) made positive, evaluated AFTER the tid
+    # alignment above so both engines test the same column order — and flip
+    # every component-aligned array with it: comps row, comment-projection
+    # row, base-clusters x (comp 0) / y (comp 1), group-clusters center[k].
+    # pca.center is a data mean, not sign-arbitrary — never flipped. A
+    # near-zero component row makes the flip choice noise-driven, but its
+    # projections are equally near-zero and fall inside numeric tolerance.
+    pca = b.get("pca")
+    if isinstance(pca, dict) and isinstance(pca.get("comps"), list):
+        flips = []
+        for row in pca["comps"]:
+            if isinstance(row, list) and row and all(
+                isinstance(v, (int, float)) for v in row
+            ):
+                idx = max(range(len(row)), key=lambda i: (abs(row[i]), -i))
+                flips.append(-1.0 if row[idx] < 0 else 1.0)
+            else:
+                flips.append(1.0)
+        if any(f < 0 for f in flips):
+            def _flip_rows(rows: Any) -> Any:
+                if not isinstance(rows, list):
+                    return rows
+                return [
+                    [f * v for v in row] if isinstance(row, list) and f < 0 else row
+                    for f, row in zip(flips, rows)
+                ]
+
+            pca = dict(pca)
+            pca["comps"] = _flip_rows(pca["comps"])
+            if "comment-projection" in pca:
+                pca["comment-projection"] = _flip_rows(pca["comment-projection"])
+            b["pca"] = pca
+
+            bc = b.get("base-clusters")
+            if isinstance(bc, dict):
+                bc = dict(bc)
+                for f, key in zip(flips, ("x", "y")):
+                    if f < 0 and isinstance(bc.get(key), list):
+                        bc[key] = [-v for v in bc[key]]
+                b["base-clusters"] = bc
+
+            gc = b.get("group-clusters")
+            if isinstance(gc, list):
+                canon_gc = []
+                for g in gc:
+                    if isinstance(g, dict) and isinstance(g.get("center"), list):
+                        g = dict(g)
+                        g["center"] = [
+                            (flips[i] * v if i < len(flips) else v)
+                            for i, v in enumerate(g["center"])
+                        ]
+                    canon_gc.append(g)
+                b["group-clusters"] = canon_gc
+
+    for key in _SET_SEMANTIC_KEYS:
+        v = b.get(key)
+        if isinstance(v, list) and all(isinstance(x, (int, float)) for x in v):
+            b[key] = sorted(v)
+
+    bc = b.get("base-clusters")
+    if (
+        isinstance(bc, dict)
+        and isinstance(bc.get("id"), list)
+        and all(isinstance(x, (int, float)) for x in bc["id"])
+    ):
+        n = len(bc["id"])
+        order = _permutation(bc["id"])
+        bc = {
+            k: ([v[i] for i in order] if isinstance(v, list) and len(v) == n else v)
+            for k, v in bc.items()
+        }
+        members = bc.get("members")
+        if isinstance(members, list):
+            bc["members"] = [
+                sorted(m) if isinstance(m, list) else m for m in members
+            ]
+        b["base-clusters"] = bc
+
+    gc = b.get("group-clusters")
+    if isinstance(gc, list) and all(isinstance(g, dict) for g in gc):
+        canon_gc = []
+        for g in gc:
+            g = dict(g)
+            if isinstance(g.get("members"), list):
+                g["members"] = sorted(g["members"])
+            canon_gc.append(g)
+        if all(isinstance(g.get("id"), (int, float)) for g in canon_gc):
+            canon_gc.sort(key=lambda g: g["id"])
+        b["group-clusters"] = canon_gc
+
+    return b
+
+
 def clj_blob_files(clj_dir: str | Path) -> list[Path]:
     """The ``step-NNN.blob.json`` files in a clj recording dir, in step order.
 
