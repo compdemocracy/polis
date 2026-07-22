@@ -280,18 +280,24 @@ def pca_project_dataframe(df: pd.DataFrame,
     matrix_data_no_nan = matrix_data.copy()
     matrix_data_no_nan[nan_indices] = col_means[nan_indices[1]]
     
-    # Verify there are enough rows and columns for PCA
+    # Verify there are enough rows and columns for PCA. The powerit
+    # (clojure-legacy) path runs the REAL math on any non-empty matrix —
+    # Clojure has no small-dim guard; a 1x1 single-vote conversation yields
+    # center = the vote and a rank-capped zero component (every-vote step-0
+    # oracle). Only a truly EMPTY dimension short-circuits there; the
+    # sklearn/improved path keeps its historical <2 guard.
     n_rows, n_cols = matrix_data_no_nan.shape
     if n_rows < 2 or n_cols < 2:
-        # Create minimal PCA results with consistent shape
-        n_proj = min(n_cols, 2)
-        pca_results = {
-            'center': np.zeros(n_cols),
-            'comps': np.zeros((min(n_comps, n_cols), n_cols))
-        }
-        # Create minimal projections (all zeros)
-        proj_dict = {pid: np.zeros(n_proj) for pid in df.index}
-        return pca_results, proj_dict
+        if n_rows == 0 or n_cols == 0 or not require_powerit:
+            # Create minimal PCA results with consistent shape
+            n_proj = min(n_cols, 2)
+            pca_results = {
+                'center': np.zeros(n_cols),
+                'comps': np.zeros((min(n_comps, n_cols), n_cols))
+            }
+            # Create minimal projections (all zeros)
+            proj_dict = {pid: np.zeros(n_proj) for pid in df.index}
+            return pca_results, proj_dict
     
     # TODO(julien): try removing random_state to see if results are deterministic without it
     # (sklearn's full SVD solver is deterministic; randomized solver needs a seed).
@@ -360,6 +366,15 @@ def pca_project_dataframe(df: pd.DataFrame,
                                       start_vectors=start_vectors)
             projections = ((matrix_data_no_nan - pca_results['center'])
                            @ pca_results['comps'].T)
+            # comps are RANK-CAPPED (min(n_comps, data dim), matching
+            # Clojure's emitted comps) but projections are always 2-D:
+            # Clojure's [pc1 pc2] destructure zero-fills a missing second
+            # component (sparsity-aware-project-ptpt, pca.clj:134-157).
+            if projections.ndim == 2 and projections.shape[1] < n_comps:
+                projections = np.pad(
+                    projections,
+                    ((0, 0), (0, n_comps - projections.shape[1])),
+                )
 
         projections = np.ascontiguousarray(projections)
 
