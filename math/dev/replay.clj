@@ -201,15 +201,35 @@
   {:ptpt-cutoff 1000000000
    :cmt-cutoff  1000000000})
 
+;; Q12 carve-out (CLOJURE_QUIRKS.md): the COLD-tick PCA start vector is
+;; unseeded-random in production (rand-starting-vec, pca.clj:79-82 — the
+;; original author's own "should really throw a [seeded] random number
+;; generator in here... XXX" comment) — with a small eigengap, 100 power
+;; iterations don't fully converge and the residual start-dependence makes
+;; even two Clojure runs differ. Certification pins the cold start to the
+;; ONES vector — the same value power-iteration pads new-comment columns
+;; with (pca.clj:46-49) — by seeding the conv with single-element [1.0]
+;; comps that the padding expands to all-ones at any width. Warm ticks are
+;; untouched (real previous comps take over from tick 2). The Python replay
+;; driver pins the same start.
+(def certify-cold-start-pca
+  {:comps [[1.0] [1.0]]})
+
 (defn run-once
   "Returns a vector of [step conv-after-update] pairs, one per cut slot.
   The reduce threading the conv IS the implicit warm-start chain.
-  conv-update runs with certify-conv-opts (Q10 full-PCA carve-out)."
+  conv-update runs with certify-conv-opts (Q10 full-PCA carve-out) and the
+  seed conv carries certify-cold-start-pca (Q12 pinned cold start)."
   [zid meta-tids steps]
   (binding [*out* *err*]
     (println "Q10 carve-out: large-conv mini-batch PCA disabled"
-             "(ptpt/cmt cutoffs pinned to 10^9; full PCA at every size)"))
-  (let [seed (-> (conv/new-conv) (assoc :zid zid :meta-tids (set meta-tids)))]
+             "(ptpt/cmt cutoffs pinned to 10^9; full PCA at every size)")
+    (println "Q12 carve-out: cold-tick PCA start pinned to ones"
+             "(production start is unseeded-random)"))
+  (let [seed (-> (conv/new-conv)
+                 (assoc :zid zid
+                        :meta-tids (set meta-tids)
+                        :pca certify-cold-start-pca))]
     (loop [conv seed [s & more] steps acc []]
       (if (nil? s)
         acc
