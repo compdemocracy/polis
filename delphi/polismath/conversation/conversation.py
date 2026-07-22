@@ -31,6 +31,7 @@ from polismath.pca_kmeans_rep.legacy_kmeans import (
     _NamedData as _LegacyNamedData,
     kmeans as legacy_kmeans,
 )
+from polismath.utils.clj_hash import clojure_hash_map_key_order
 from polismath.utils.engine_mode import resolve_engine_mode, ENGINE_MODE_LEGACY
 
 
@@ -2050,17 +2051,24 @@ class Conversation:
         in_conv = (set(self.in_conv) & set(vote_counts.keys())) | threshold_set
 
         # Greedy floor (conversation.clj:259-268): if under 15, admit the top
-        # remaining voters by count descending. Clojure sorts a hash-map with
-        # `(sort-by (comp - second))`, whose tie order among equal vote counts is
-        # hash-map iteration order (non-deterministic). We instead break ties by
-        # matrix ROW ORDER (vote_counts insertion order) via a STABLE sort — a
-        # deterministic, reproducible surrogate for an inherently underspecified
-        # Clojure tie case. Below-threshold participants ARE eligible here (the
-        # floor guarantees clustering has enough rows in tiny/early conversations).
+        # remaining voters by count descending. Clojure sorts its hash-map with
+        # `(sort-by (comp - second))` — a STABLE sort — so equal-count ties keep
+        # the map's ITERATION order, which is deterministic (Murmur3 hashLong +
+        # HAMT chunk order; validated against three recorded-blob oracles, see
+        # polismath/utils/clj_hash.py). Candidates are therefore pre-ordered by
+        # Clojure hash-map order before the stable count sort. Non-int pids fall
+        # back to matrix row order (clojure_hash_map_key_order passthrough).
+        # The ≤8-entry array-map regime (insertion order) can't affect the pick:
+        # a tie only matters with ≥16 participants, which guarantees hash-map.
+        # Below-threshold participants ARE eligible here (the floor guarantees
+        # clustering has enough rows in tiny/early conversations).
         greedy_n = self.IN_CONV_GREEDY_N
         if len(in_conv) < greedy_n:
-            candidates = [pid for pid in vote_counts if pid not in in_conv]
-            candidates.sort(key=lambda pid: -vote_counts[pid])  # stable -> row-order ties
+            candidates = [
+                pid for pid in clojure_hash_map_key_order(vote_counts.keys())
+                if pid not in in_conv
+            ]
+            candidates.sort(key=lambda pid: -vote_counts[pid])  # stable -> clj-map ties
             in_conv.update(candidates[:greedy_n - len(in_conv)])
 
         # Persist for the next tick (Clojure returns this as the conv's new
