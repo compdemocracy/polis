@@ -22,6 +22,10 @@ import traceback
 import uuid
 from typing import Any, Dict, List, Optional
 
+import numpy as np
+
+from polismath.utils.clj_hash import clojure_hash_map_key_order
+
 logger = logging.getLogger(__name__)
 
 
@@ -46,10 +50,16 @@ def derive_bidtopid(conv: Any, zid: int) -> Dict[str, Any]:
     ``[c['members'] for c in conv.base_clusters]`` is positionally aligned with
     ``base-clusters.id`` — the exact alignment the server relies on.
 
-    Note on element type: Python pids are strings (poll_votes casts ``str(pid)``),
-    whereas Clojure emits integer pids.  The server parseInt()s them
-    (participants.ts:53-55) so both work; a parity comparer needs int/str
-    tolerance on this field.  Members are left as-is so that
+    Note on element type: as of 2026-07-24 (poller-equivalence harness live
+    debugging), ``PostgresClient.poll_votes``/``poll_votes_since`` no longer
+    cast ``str(pid)`` — pids are native ints Python-side, matching Clojure's
+    integer pids, end-to-end. (Before that date this docstring said Python
+    pids were strings; that was a real, unintentional divergence — the CSV/
+    certify replay driver never cast pid at all and already matched clj
+    int-for-int, so the live poller path was the outlier, not the norm.) The
+    server still ``parseInt()``s either form defensively
+    (participants.ts:53-55), so this is stronger-than-required parity, not a
+    behavior change for it. Members are left as-is so that
     math_bidtopid.bidToPid and math_main.base-clusters.members stay identical.
 
     Args:
@@ -71,16 +81,138 @@ def derive_bidtopid(conv: Any, zid: int) -> Dict[str, Any]:
     }
 
 
-def derive_ptptstats(conv: Any, zid: int) -> Dict[str, Any]:
-    """Derive the prep-ptpt-stats blob (conv_man.clj:90-94).
+def _unfold_group_members(conv: Any) -> List[Dict[str, Any]]:
+    """``[{"id": gid, "members": [pid, ...]}, ...]`` — each group's
+    base-cluster members (bids) expanded to participant ids via
+    ``conv.base_clusters``. Reimplemented locally rather than calling
+    ``Conversation._unfolded_group_clusters`` (a private method) so this
+    module stays testable against lightweight ``SimpleNamespace`` fakes
+    exposing only public attrs — the same pattern :func:`derive_bidtopid`
+    already uses (it re-sorts ``base_clusters`` itself rather than calling
+    a conv method too)."""
+    base_clusters = getattr(conv, "base_clusters", None) or []
+    bid_to_pids = {c["id"]: list(c.get("members", [])) for c in base_clusters}
+    unfolded = []
+    for g in getattr(conv, "group_clusters", None) or []:
+        members: List[Any] = []
+        for bid in g.get("members", []):
+            members.extend(bid_to_pids.get(bid, []))
+        unfolded.append({"id": g["id"], "members": members})
+    return unfolded
 
-    ptptstats is a secondary consumer (scoped "replace", not fidelity-critical
-    like math_main / math_bidtopid).  We wrap the conversation's public
-    ``participant_info`` under the same envelope keys Clojure uses.
+
+def _group_iteration_order(groups: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Clojure's ``group-data`` map (``conv_man.clj``'s ``(into {} (map (fn
+    [{:keys [id members]}] [id {...}]) group-clusters))``) is an ARRAY-map
+    (insertion / ``group-clusters`` order) for <=8 groups but a
+    ``PersistentHashMap`` (HAMT id-hash order) for >8 groups — the EXACT same
+    threshold ``legacy_kmeans.py``'s ``cleared-clusters`` scan order already
+    documents and relies on (same :func:`clojure_hash_map_key_order`
+    utility). Polis "groups" (as opposed to the finer base-clusters) are
+    almost always a handful, so this only matters in pathological cases —
+    but getting it right costs one function call."""
+    if len(groups) <= 8:
+        return groups
+    order = clojure_hash_map_key_order([g["id"] for g in groups])
+    by_id = {g["id"]: g for g in groups}
+    return [by_id[gid] for gid in order]
+
+
+def _columnize(rows: List[Dict[str, Any]]) -> Dict[str, List[Any]]:
+    """Mirrors Clojure's ``columnize`` (conv_man.clj:79-88): transpose a list
+    of per-participant stat dicts into ``{key: [val, val, ...]}`` using the
+    FIRST row's key set (every row shares the same keys by construction
+    here). An EMPTY ``rows`` returns ``{}`` — NOT a dict of empty-array
+    columns — matching Clojure's own empty-seq behavior (``(-> stats first
+    keys)`` on ``()`` is ``nil``, so ``columnize`` degenerates to
+    ``(into {} nil)`` = ``{}``)."""
+    if not rows:
+        return {}
+    keys = list(rows[0].keys())
+    return {k: [r[k] for r in rows] for k in keys}
+
+
+def derive_ptptstats(
+    conv: Any, zid: int, user_vote_counts: Optional[Dict[Any, int]] = None,
+) -> Dict[str, Any]:
+    """Derive the prep-ptpt-stats blob (conv_man.clj:90-94), matching
+    Clojure's COLUMNAR shape verbatim — a REAL py-poller bug fix, 2026-07-24
+    (poller-equivalence harness live debugging session 2): production
+    consumers read the clj shape, and what this function emitted before this
+    date (a bare wrap of ``conv.participant_info``) was not merely
+    differently-SHAPED but a COMPLETELY DIFFERENT STATISTIC — Python's
+    ``participant_info`` is vote-correlation-based (n_agree/n_disagree/
+    n_pass/group_correlations, ``_compute_participant_info_optimized``),
+    while Clojure's ``ptptstats`` is GEOMETRIC (distance-to-center in the
+    PCA-projected plane, ``repness/participant-stats``, math/repness.clj:
+    383-413). ``participant_info`` is left UNTOUCHED — it's still consumed
+    elsewhere (run_math_pipeline.py, narrative reporting) under its own,
+    Python-only semantics (crosslang.py explicitly excludes it from the
+    clj-parity acceptance surface); this function no longer reads it at all.
+
+    Verbatim port of ``repness/participant-stats``:
+
+        bid->pid       = base-clusters id -> members (participant ids)
+        global-center  = mean of ALL in-conv participants' proj positions
+        for each group (base-cluster ids expanded to participant ids):
+          center            = mean of THIS group's participants' proj positions
+          extreme-direction = normalise(center - global-center)
+          for each participant pid in the group:
+            centricness = 1 - |proj[pid] - global-center|
+            coreness    = 1 - |proj[pid] - center|
+            extremeness = dot(proj[pid] - center, extreme-direction)
+            n-votes     = user_vote_counts.get(pid)  (None if missing, like
+                          Clojure's (get ptpt-vote-counts pid) -> nil)
+
+    then COLUMNIZED (:func:`_columnize`) into ``{pid, gid, n-votes,
+    centricness, coreness, extremeness}``, each a same-length, positionally-
+    aligned array — group visitation order via :func:`_group_iteration_order`
+    (Clojure array-map vs hash-map, threshold 8).
+
+    ``user_vote_counts`` is the caller's ALREADY-COMPUTED
+    ``data["user-vote-counts"]`` (from ``conv.to_dict()``, needed for
+    math_main anyway) rather than recomputed here — keeps this function
+    testable against lightweight fakes with no pandas dependency, and avoids
+    a second full vote-count pass per write cycle.
+
+    Structural fidelity verified against a REAL clj-ref row captured live
+    (real_data/.local/replays/poller_equiv/vw/main/clj-ref/batch-000/
+    math_ptptstats.json, 2026-07-24 vw full-run) — see
+    tests/poller/test_math_writer.py::TestDerivePtptstatsMatchesLiveClj.
     """
+    user_vote_counts = user_vote_counts or {}
+    groups = _group_iteration_order(_unfold_group_members(conv))
+    proj = getattr(conv, "proj", None) or {}
+
+    rows: List[Dict[str, Any]] = []
+    if groups and proj:
+        positions = np.array(list(proj.values()), dtype=float)
+        global_center = positions.mean(axis=0)
+
+        for g in groups:
+            members = [pid for pid in g["members"] if pid in proj]
+            if not members:
+                continue
+            member_positions = np.array([proj[pid] for pid in members], dtype=float)
+            center = member_positions.mean(axis=0)
+            direction = center - global_center
+            norm = float(np.linalg.norm(direction))
+            extreme_direction = direction / norm if norm > 0 else direction
+
+            for pid in members:
+                pos = np.asarray(proj[pid], dtype=float)
+                rows.append({
+                    "pid": pid,
+                    "gid": g["id"],
+                    "n-votes": user_vote_counts.get(pid),
+                    "centricness": float(1 - np.linalg.norm(pos - global_center)),
+                    "coreness": float(1 - np.linalg.norm(pos - center)),
+                    "extremeness": float(np.dot(pos - center, extreme_direction)),
+                })
+
     return {
         "zid": zid,
-        "ptptstats": getattr(conv, "participant_info", {}) or {},
+        "ptptstats": _columnize(rows),
         "lastVoteTimestamp": getattr(conv, "last_updated", None),
     }
 
@@ -114,9 +246,13 @@ class MathWriter:
         self._pg.write_math_bidtopid(
             zid, data=derive_bidtopid(conv, zid), math_tick=math_tick
         )
-        # 3. math_ptptstats — participant stats
+        # 3. math_ptptstats — participant stats (clj-shaped, 2026-07-24 fix).
+        # Reuses data["user-vote-counts"] (already computed above for
+        # math_main) rather than recomputing it a second time.
         self._pg.write_participant_stats(
-            zid, data=derive_ptptstats(conv, zid), math_tick=math_tick
+            zid,
+            data=derive_ptptstats(conv, zid, data.get("user-vote-counts", {})),
+            math_tick=math_tick,
         )
 
         logger.info(
