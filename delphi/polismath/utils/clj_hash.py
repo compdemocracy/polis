@@ -81,10 +81,19 @@ def _hamt_path(h: int) -> tuple:
 
 
 def _as_long(k: Any) -> Any:
-    """Numeric-string keys hash as their Long value: production pids are
-    strings python-side (poll_votes / run_math_pipeline cast ``str(pid)``)
-    while Clojure holds the DB's integer pid — parity requires ordering by
-    the integer's hash. Mirrors the ``int(tid) if tid.isdigit()`` idiom used
+    """Numeric-string keys hash as their Long value: pids can arrive
+    Python-side as either numeric strings OR native ints, depending on the
+    pipeline — the legacy DynamoDB job pipeline (run_math_pipeline.py) still
+    produces string pids in places, while the LIVE poller
+    (``PostgresClient.poll_votes``/``poll_votes_since``) emits native ints as
+    of 2026-07-24 (previously it also cast ``str(pid)``; fixed as part of the
+    poller-equivalence harness's live-debugging session — see
+    ``polismath/poller/__init__.py``'s bidToPid-shape note for the full
+    rationale). Either way Clojure holds the DB's integer pid, so parity
+    requires ordering by the integer's hash regardless of which Python
+    pipeline produced the key — this function normalizes BOTH forms
+    uniformly (an int key already IS its own Long value; a numeric-string
+    key gets converted). Mirrors the ``int(tid) if tid.isdigit()`` idiom used
     for tids in conversation.py. Non-numeric keys pass through unchanged."""
     if isinstance(k, str) and k.lstrip('-').isdigit():
         return int(k)

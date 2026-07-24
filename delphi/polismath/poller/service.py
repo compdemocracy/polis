@@ -394,10 +394,12 @@ class MathPollerService:
         """Mirror Clojure load-or-init (conv_man.clj:188-207).
 
         Restores warm state from math_main via ``Conversation.from_dict`` when a
-        row exists, then ALWAYS rebuilds the rating matrices from the full vote
-        history and applies the full moderation state (from_dict restores neither
-        the matrices nor base_clusters — see the poller package docstring's
-        "load-or-init finding").  Non-persisted warm smoother state cold-starts,
+        row exists (as of 2026-07-24 this includes base_clusters/zid/group_votes,
+        mirroring Clojure's restructure-json-conv — from_dict still does NOT
+        restore the rating matrices or the warm smoother state; see the poller
+        package docstring's "load-or-init finding"), then ALWAYS rebuilds the
+        rating matrices from the full vote history and applies the full
+        moderation state.  Non-persisted warm smoother state cold-starts,
         exactly like a Clojure worker restart.
 
         last_updated is seeded NONZERO-but-low (not wall-clock): ``Conversation``'s
@@ -444,7 +446,19 @@ class MathPollerService:
             # conversation.clj:161-165) so a zero-votes conversation emits
             # lastVoteTimestamp=0, not the internal seed. Any real vote advances
             # it via max() in update_votes.
-            conv = Conversation(str(zid), last_updated=1)
+            #
+            # `zid` (int) passed through AS-IS — NOT str(zid) — since
+            # 2026-07-24 (live poller-equivalence harness finding, session
+            # 3): Conversation.__init__ just does a bare
+            # `self.conversation_id = conversation_id` (no string-specific
+            # logic anywhere on that attribute — every `.conversation_id`
+            # use site was grepped; the only str() casts are at the
+            # DynamoDB boundary, database/dynamodb.py, which already
+            # handles either type defensively) and Clojure holds zid as an
+            # int throughout, so this was a real, live, one-point Type-
+            # mismatch divergence (to_dict()['zid'], every tids[i], every
+            # repness.*.tid all trace back to this same conversation_id).
+            conv = Conversation(zid, last_updated=1)
             conv.last_updated = 0
 
         votes = self._pg.poll_votes(zid, None)  # full history, ordered, sign-flipped
