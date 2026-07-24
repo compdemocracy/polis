@@ -111,6 +111,42 @@ class TestLoadOrInit:
         assert conv.raw_rating_mat.size > 0
         assert conv.pca is not None
 
+    def test_cold_start_conversation_id_is_the_native_int_zid(self):
+        """2026-07-24 live finding (session 3): service.py used to construct
+        ``Conversation(str(zid), last_updated=1)`` — a Type mismatch against
+        Clojure's int zid showed up live as ``step_0.zid`` (and every
+        ``tids[i]``/``repness.*.tid``, fixed separately in postgres.py) in a
+        real vw poller-equivalence full-run. ``Conversation.__init__`` just
+        does a bare ``self.conversation_id = conversation_id`` (no
+        string-specific logic; grepped every ``.conversation_id`` use site —
+        the only ``str()`` casts are at the DynamoDB boundary,
+        database/dynamodb.py, which already handles either type
+        defensively), so passing the int through is a one-point fix."""
+        pg = MagicMock()
+        pg.load_math_main.return_value = None
+        pg.poll_votes.return_value = _build_votes()
+        pg.poll_moderation.return_value = _empty_mods()
+        svc = MathPollerService(pg, PollerConfig())
+
+        conv = svc._load_or_init(42)
+
+        assert conv.conversation_id == 42
+        assert isinstance(conv.conversation_id, int)
+
+    def test_cold_start_to_dict_zid_is_int(self):
+        """The observable, live-evidence-matching field: to_dict()['zid']
+        (conversation.py:2379 renames conversation_id -> zid at emission)."""
+        pg = MagicMock()
+        pg.load_math_main.return_value = None
+        pg.poll_votes.return_value = _build_votes()
+        pg.poll_moderation.return_value = _empty_mods()
+        svc = MathPollerService(pg, PollerConfig())
+
+        conv = svc._load_or_init(42)
+
+        assert conv.to_dict()["zid"] == 42
+        assert isinstance(conv.to_dict()["zid"], int)
+
     def test_from_dict_failure_falls_back_to_cold(self, monkeypatch):
         pg = MagicMock()
         pg.load_math_main.return_value = {"zid": 42, "data": {"garbage": object()}}

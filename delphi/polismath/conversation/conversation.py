@@ -175,7 +175,7 @@ class Conversation:
     """
     
     def __init__(self, 
-                conversation_id: str, 
+                conversation_id: Union[str, int],
                 last_updated: Optional[int] = None,
                 votes: Optional[Dict[str, Any]] = None):
         """

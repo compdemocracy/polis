@@ -520,11 +520,30 @@ class PostgresClient:
         # Execute query
         votes = self.query(sql, params)
 
-        # Format votes for processing, flipping sign at PostgreSQL boundary
+        # Format votes for processing, flipping sign at PostgreSQL boundary.
+        # pid AND tid are kept as the DB's native int (votes.pid/tid are both
+        # INTEGER) — NOT str()-wrapped. Found live (2026-07-24, poller-
+        # equivalence harness, session 2): the pid cast was the ONLY source
+        # of a Type-mismatch divergence in math_main.base-clusters.members
+        # against Clojure (which holds an int pid throughout) —
+        # Conversation.update_votes is deliberately type-agnostic at ingress
+        # ("Preserve original type", both pid AND tid) and
+        # raw_rating_mat/rating_mat are ALWAYS rebuilt fresh from these two
+        # methods on every load-or-init (never restored via from_dict — see
+        # polismath/poller/__init__.py's "load-or-init finding" docstring),
+        # so removing the cast is a one-point fix with no other code changes
+        # needed. Session 3 (same day): fixing pid alone left tid's OWN
+        # str() cast unmasked — a live vw full-run then showed the SAME
+        # Type-mismatch pattern on zid/tids[]/repness.*.tid, traced to this
+        # same cast. The certified/CSV replay driver never cast tid either,
+        # and matched clj int-for-int across 20 cross-validated entries —
+        # the evidence that authorized this fix. See also poll_moderation
+        # below, which needed the SAME fix for mod_out_tids/mod_in_tids/
+        # meta_tids/mod_out_ptpts to stay type-consistent with these two.
         return [
             {
-                "pid": str(v["pid"]),
-                "tid": str(v["tid"]),
+                "pid": v["pid"],
+                "tid": v["tid"],
                 "vote": postgres_vote_to_delphi(int(v["vote"])),
                 "created": v["created"],
             }
@@ -555,11 +574,14 @@ class PostgresClient:
             """,
             {"since": since},
         )
+        # pid AND tid kept as the DB's native int — see poll_votes's
+        # docstring/comment above for the full root-cause rationale
+        # (2026-07-24 live findings, sessions 2-3).
         return [
             {
                 "zid": int(v["zid"]),
-                "pid": str(v["pid"]),
-                "tid": str(v["tid"]),
+                "pid": v["pid"],
+                "tid": v["tid"],
                 "vote": postgres_vote_to_delphi(int(v["vote"])),
                 "created": v["created"],
             }
@@ -679,13 +701,22 @@ class PostgresClient:
         # Execute query
         mods = self.query(sql_mods, params)
 
-        # Format moderation data
+        # Format moderation data. tid is kept as the DB's native int — NOT
+        # str()-wrapped (2026-07-24 live finding, session 3): mod_out_tids
+        # feeds Conversation._apply_moderation's
+        # ``[c for c in self.mod_out_tids if c in self.rating_mat.columns]``
+        # intersection UNCONDITIONALLY (no engine-mode branch, unlike the
+        # participant-ban check below) — left str while poll_votes/
+        # poll_votes_since's tid became int, that intersection would ALWAYS
+        # be empty, silently disabling moderated-out comment zeroing in the
+        # live poller. poll_moderation_since (the OTHER, global-watermark
+        # variant) already used int(m["tid"]) and was never affected.
         mod_out_tids = []
         mod_in_tids = []
         meta_tids = []
 
         for m in mods:
-            tid = str(m["tid"])
+            tid = m["tid"]
 
             # Check moderation status with support for string values
             mod_value = m["mod"]
@@ -712,8 +743,15 @@ class PostgresClient:
         # Execute query
         mod_ptpts = self.query(sql_ptpts, params)
 
-        # Format moderated participants
-        mod_out_ptpts = [str(p["pid"]) for p in mod_ptpts]
+        # Format moderated participants. pid kept as the DB's native int —
+        # NOT str()-wrapped (2026-07-24 live finding, session 3): keeps this
+        # consistent with poll_votes/poll_votes_since's (also-int) pid, for
+        # Conversation._apply_moderation's ``p not in self.mod_out_ptpts``
+        # check ('improved' engine mode only — 'clojure-legacy' intentionally
+        # leaks bans and skips this check entirely, so this specific fix has
+        # no observable effect in the mode this harness runs in, but matters
+        # for 'improved' mode elsewhere).
+        mod_out_ptpts = [p["pid"] for p in mod_ptpts]
 
         return {
             "mod_out_tids": mod_out_tids,
