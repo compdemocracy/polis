@@ -48,39 +48,79 @@ Python's ``Conversation.base_clusters`` is sorted ascending by ``id``
 (conversation.py:789) and ``_fold_base_clusters`` writes ``base-clusters.id`` /
 ``.members`` in that order (conversation.py:1643-1649), so
 ``[c['members'] for c in conv.base_clusters]`` is the exact alignment the server
-needs.  ``derive_bidtopid`` (math_writer.py) implements this.  Pids are strings
-Python-side (poll_votes casts ``str(pid)``) vs ints Clojure-side; the server
-parseInt()s them (participants.ts:53-55), so a parity comparer needs int/str
-tolerance on this one field.
+needs.  ``derive_bidtopid`` (math_writer.py) implements this.
 
-load-or-init finding (from_dict restoration is PARTIAL)
--------------------------------------------------------
-``Conversation.from_dict`` (conversation.py:2249-2303) restores from a dict with
-underscore/nested keys: ``last_updated, participant_count, comment_count,
-vote_stats, moderation{...}, pca{center,comps}, proj, group_clusters, repness,
-participant_info, comment_priorities``.  ``Conversation.to_dict`` (used as the
-math_main ``data`` blob) is a SUPERSET that carries those same underscore keys
-alongside the hyphenated Clojure keys, so ``from_dict(to_dict(conv))`` round-trips
-the listed fields — notably the PCA warm-start vectors and prior moderation.
+UPDATE 2026-07-24 (poller-equivalence harness live debugging, quirk finding):
+until this date, ``PostgresClient.poll_votes``/``poll_votes_since`` cast
+``str(pid)`` at ingress, while Clojure holds the DB's native int pid
+throughout — the server's ``parseInt()`` (participants.ts:53-55) papered over
+it, but it made ``bidToPid``/``base-clusters.members`` diverge bit-for-bit
+from a live clj container (confirmed: the CSV/certify replay driver never
+cast pid at all, and its blobs already matched clj int-for-int).
+``Conversation.update_votes`` is deliberately type-agnostic at ingress
+(``ptpt_id = vote.get('pid')``/``comment_id = vote.get('tid')  # Preserve
+original type``) and raw_rating_mat/rating_mat are ALWAYS rebuilt fresh from
+these two methods on load-or-init (never restored via ``from_dict`` — see
+this file's "load-or-init finding" section), so removing the ``str()`` cast
+was a one-point fix with no other code changes needed: pids are now native
+ints end-to-end, Python-side AND Clojure-side, and ``derive_bidtopid``'s
+``_normalize_bidtopid``-style int/str tolerance is now redundant
+defensive-coding for this field rather than a load-bearing requirement
+(kept — harmless, and guards a future regression).
 
-But ``from_dict`` does NOT restore: ``raw_rating_mat`` / ``rating_mat`` (the vote
-matrices), ``base_clusters``, ``subgroup_clusters``, ``group_clusterings`` /
-``group_k_smoother`` (warm smoother state), ``consensus`` or ``group_votes``.
+UPDATE 2026-07-24, same day (session 3): ``tid`` (and ``zid``) had the
+IDENTICAL bug, just masked by the sheer volume of pid divergences until
+session 2's fix above landed — a follow-up live vw full-run then showed
+``Type mismatch: golden=int, current=str`` on the top-level ``zid``, every
+``tids[i]``, and every ``repness.<gid>[i].tid``. Fixed the same way, same
+day: ``poll_votes``/``poll_votes_since`` no longer cast ``str(tid)`` either,
+``poll_moderation`` (the single-zid full-state variant — NOT
+``poll_moderation_since``, which already used int) no longer casts
+``str()`` on tid OR pid (needed for internal consistency once votes-side
+ids became int — see ``postgres.py``'s ``poll_moderation`` docstring for
+why a stale str-tid there would have silently DISABLED moderated-out
+comment zeroing), and ``polismath/poller/service.py``'s cold-start
+``Conversation(str(zid), ...)`` construction now passes the int through.
+The certified/CSV replay driver never cast tid (or zid) either, and matched
+clj int-for-int across 20 cross-validated entries — the evidence that
+authorized this follow-up fix. The scattered ``int(tid) if
+isinstance(tid, str) and tid.isdigit()`` idioms elsewhere in
+conversation.py are DEFENSIVE normalizers (no-ops on an already-int input),
+not evidence tid needed to stay a string.
+
+load-or-init finding (from_dict restoration is PARTIAL — updated 2026-07-24)
+-----------------------------------------------------------------------------
+``Conversation.from_dict`` (conversation.py:2818-2966) restores from a dict with
+underscore/nested keys: ``zid, last_updated, participant_count, comment_count,
+vote_stats, moderation{...}, pca{center,comps}, proj, group_clusters,
+base_clusters, group_votes, repness, participant_info, comment_priorities``.
+``Conversation.to_dict`` (used as the math_main ``data`` blob) is a SUPERSET
+that carries those same underscore keys alongside the hyphenated Clojure keys,
+so ``from_dict(to_dict(conv))`` round-trips the listed fields — notably the PCA
+warm-start vectors, prior moderation, base-cluster LINEAGE (id/members, unfolded
+exactly as Clojure's restructure-json-conv, conv_man.clj:171-186 ->
+clusters.clj unfold-clusters), and group-votes (needed by the recovery tick's
+comment-priorities calc, Q2, conversation.clj:658).
+
+As of 2026-07-24, ``base_clusters`` / ``zid`` / ``group_votes`` ARE restored
+(conversation.py:2905-2921 base_clusters, :2923-2952 group_votes) — this note
+previously said they were NOT; that was fixed to mirror Clojure's
+restructure-json-conv (conv_man.clj:173 keeps ``:base-clusters`` in the
+subset, :180 unfolds them) instead of re-deriving base-cluster lineage cold.
+
+``from_dict`` still does NOT restore: ``raw_rating_mat`` / ``rating_mat`` (the
+vote matrices — never touched anywhere in ``from_dict``) or
+``group_clusterings`` / ``group_k_smoother`` (warm smoother state), nor the
+dead ``subgroup_clusters`` / ``consensus`` paths (CLOJURE_QUIRKS.md Q7).
 Therefore load-or-init ALWAYS rebuilds the rating matrices from the full vote
 history (``poll_votes(zid)`` ordered by zid,tid,pid,created — parity with
-conv-poll offset 0) and recomputes base_clusters; the non-persisted smoother
-state cold-starts.  This is CLOSE TO — but not byte-identical with — a Clojure
-worker restart: on restart Clojure ``restructure-json-conv`` RESTORES
-``base-clusters`` (and the PCA) from the persisted blob before its ``:reboot``
-recompute (conv_man.clj:173 keeps ``:base-clusters`` in the subset, :180 unfolds
-them), whereas Python re-derives base_clusters cold
-from the vote matrices.  The rating-matrix rebuild itself matches
-(conv_man.clj:188-207 rebuilds ``raw-rating-mat`` the same way), and we
-opportunistically seed the warm PCA start from ``from_dict`` when a row exists
-(low-risk, literally what ``restructure-json-conv`` does).  The base-cluster
-lineage difference is a KNOWN divergence to trace against Clojure's ``:reboot``
-semantics before the parity gate; a full cold rebuild is otherwise correct —
-just without Clojure's restored-lineage warm start.
+conv-poll offset 0); the non-persisted smoother state cold-starts. The
+rating-matrix rebuild itself matches Clojure (conv_man.clj:188-207 rebuilds
+``raw-rating-mat`` the same way on restart). The remaining gap versus a true
+Clojure worker restart is narrower than before: only the non-persisted warm
+smoother state (group_clusterings/group_k_smoother) cold-starts — tracked as a
+KNOWN divergence to trace against Clojure's ``:reboot`` semantics before the
+parity gate.
 
 Config var mapping (config.py names PREFERRED, design aliases accepted)
 -----------------------------------------------------------------------
