@@ -99,6 +99,77 @@ class TestEngineModePassthrough:
         assert resolved == "improved"  # engine_mode.ENGINE_MODE_DEFAULT
 
 
+class TestShardedDispatch:
+    """Two shard processes over the SAME polled rows must partition the work:
+    disjoint (nothing double-processed, since per-zid serialisation does not
+    span processes) and total (nothing dropped)."""
+
+    ZIDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+
+    def _dispatch(self, **cfg_kwargs):
+        """Run one vote poll over ZIDS and return the zids actually submitted."""
+        pg = MagicMock()
+        pg.poll_votes_since.return_value = [
+            _vote_row(z, 100 + z) for z in self.ZIDS
+        ]
+        svc = MathPollerService(pg, PollerConfig(**cfg_kwargs))
+        svc._ensure_runtime()
+        svc._vote_wm = 0
+        submitted = []
+        svc._pool.submit = lambda zid, mt, batch: submitted.append(zid)
+        svc._poll_votes_once()
+        return submitted, svc
+
+    def test_two_shards_partition_the_polled_zids(self):
+        shard0, _ = self._dispatch(shard_index=0, shard_count=2)
+        shard1, _ = self._dispatch(shard_index=1, shard_count=2)
+        unsharded, _ = self._dispatch()
+
+        # Disjoint: no zid dispatched by both shards.
+        assert set(shard0) & set(shard1) == set()
+        # Total: together they cover exactly the unsharded dispatch set.
+        assert set(shard0) | set(shard1) == set(unsharded)
+        # And each is a strict, non-empty subset -- proving the filter fired.
+        assert shard0 and shard1
+        assert set(shard0) == {z for z in self.ZIDS if z % 2 == 0}
+
+    def test_no_zid_is_dispatched_twice_across_the_fleet(self):
+        seen = []
+        for idx in range(3):
+            dispatched, _ = self._dispatch(shard_index=idx, shard_count=3)
+            seen.extend(dispatched)
+        assert sorted(seen) == sorted(self.ZIDS)
+        assert len(seen) == len(set(seen))
+
+    def test_each_shard_still_advances_its_own_watermark_past_all_rows(self):
+        # Each shard owns its watermark in memory and discards rows belonging to
+        # its siblings -- so it must advance past them, exactly as the existing
+        # allowlist behaviour does (test_watermark_advances_past_all_rows...).
+        for idx in range(2):
+            _, svc = self._dispatch(shard_index=idx, shard_count=2)
+            assert svc._vote_wm == 100 + max(self.ZIDS)
+
+    def test_moderation_dispatch_is_sharded_too(self):
+        pg = MagicMock()
+        pg.poll_moderation_since.return_value = [
+            {"zid": z, "tid": 1, "modified": 200 + z, "mod": -1, "is_meta": False}
+            for z in self.ZIDS
+        ]
+        svc = MathPollerService(pg, PollerConfig(shard_index=1, shard_count=2))
+        svc._ensure_runtime()
+        svc._mod_wm = 0
+        submitted = []
+        svc._pool.submit = lambda zid, mt, batch: submitted.append(zid)
+
+        svc._poll_moderation_once()
+
+        assert set(submitted) == {z for z in self.ZIDS if z % 2 == 1}
+
+    def test_unsharded_default_dispatches_everything(self):
+        dispatched, _ = self._dispatch()
+        assert dispatched == self.ZIDS
+
+
 class TestConvCacheEviction:
     """T8: the in-memory conv registry never evicted (Clojure's 4h reboot was the
     de-facto cap, which we dropped). LRU-evict beyond a configurable cap; an
