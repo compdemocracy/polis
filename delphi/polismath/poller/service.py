@@ -64,14 +64,32 @@ def initial_watermark(poll_from_days_ago: float, now_millis: Optional[int] = Non
 
 
 def should_process_zid(
-    zid: int, allowlist: List[int], blocklist: List[int]
+    zid: int,
+    allowlist: List[int],
+    blocklist: List[int],
+    shard_index: int = 0,
+    shard_count: int = 1,
 ) -> bool:
-    """Allow/block filter (poller.clj:30-32).
+    """Allow/block filter (poller.clj:30-32), plus zid-sharding.
 
     Clojure ``cond``: if an allowlist is set, only listed zids pass; else if a
     blocklist is set, listed zids are excluded; else everything passes.  The
     allowlist branch is evaluated first, so it wins over the blocklist.
+
+    Sharding (``shard_count > 1``) selects a slice of zids for this process, so
+    that N single-worker PROCESSES can share the fleet's work -- threads cannot
+    (measured: threaded serial fraction 0.9884, i.e. 1.0x from 1 to 16 workers;
+    independent processes 0.0013, i.e. 15.7x).  The default ``shard_count=1``
+    is a no-op, so sharding is strictly opt-in.
+
+    The shard test runs FIRST, and that ordering is a correctness property
+    rather than a style choice: a shard must never process a zid outside its
+    slice, even one an allowlist names.  ``ConversationWorkerPool`` serialises
+    per zid only WITHIN a process, so two shards both accepting one zid would
+    run concurrent updates on the same conversation with no mutual exclusion.
     """
+    if shard_count > 1 and zid % shard_count != shard_index:
+        return False
     if allowlist:
         return zid in allowlist
     if blocklist:
@@ -122,6 +140,8 @@ class PollerConfig:
       allowlist          POLL_ALLOWLIST | MATH_ZID_ALLOWLIST         (default [])
       blocklist          POLL_BLOCKLIST | MATH_ZID_BLOCKLIST         (default [])
       engine_mode        POLISMATH_ENGINE_MODE                      (default None -> compute's own default)
+      shard_index        POLL_SHARD_INDEX | MATH_SHARD_INDEX        (default 0)
+      shard_count        POLL_SHARD_COUNT | MATH_SHARD_COUNT        (default 1 = unsharded)
       worker_pool_size   MATH_WORKER_POOL_SIZE                       (default 4)
       dump_dir           MATH_POLLER_DUMP_DIR                        (default 'scratch/errorconv')
       retry_cap          MATH_POLLER_RETRY_CAP                       (default 1)
@@ -136,6 +156,19 @@ class PollerConfig:
     allowlist: List[int] = field(default_factory=list)
     blocklist: List[int] = field(default_factory=list)
     engine_mode: Optional[str] = None
+    # zid-sharding: this process handles zids where zid % shard_count ==
+    # shard_index.  shard_count=1 (the default) is unsharded -- every zid.
+    # One shard = one PROCESS: threads do not parallelise this workload
+    # (serial fraction 0.9884, 1.0x at 16 workers), independent processes do
+    # (0.0013, 15.7x at 16).  See _validate_shard() for why a bad index must
+    # be fatal rather than silently empty.
+    shard_index: int = 0
+    shard_count: int = 1
+    # NOT lowered to 1 for sharding, deliberately: the pool's threads cannot
+    # overlap math with math, but the Clojure implementation this replaces does
+    # parallelise per conversation, and a >1 pool may still overlap DB write I/O
+    # with math.  Treat as a tuning parameter to MEASURE once sharding is
+    # deployed -- the cost study measured a CPU-bound tick and cannot settle it.
     worker_pool_size: int = 4
     dump_dir: str = "scratch/errorconv"
     retry_cap: int = 1
@@ -145,6 +178,29 @@ class PollerConfig:
     # we dropped — set this to bound a long shadow soak; an evicted conv is
     # reloaded from math_main + fully rebuilt on next touch (= Clojure restart).
     conv_cache_cap: int = 0
+
+    def __post_init__(self) -> None:
+        self._validate_shard()
+
+    def _validate_shard(self) -> None:
+        """Reject an unusable shard slice loudly, at construction time.
+
+        This is the worst failure mode in the whole design if left silent: an
+        out-of-range index matches NO zid, so the process starts, polls, logs
+        happily and computes nothing.  The fleet looks up while a slice of
+        conversations silently goes stale.  Crash instead.
+        """
+        if self.shard_count < 1:
+            raise ValueError(
+                f"shard_count must be >= 1, got {self.shard_count} "
+                "(1 = unsharded; set POLL_SHARD_COUNT to the fleet size)"
+            )
+        if not 0 <= self.shard_index < self.shard_count:
+            raise ValueError(
+                f"shard_index must be in [0, {self.shard_count}), got "
+                f"{self.shard_index} -- such a shard would process NO zids "
+                "while appearing healthy (set POLL_SHARD_INDEX per instance)"
+            )
 
     @classmethod
     def from_env(cls) -> "PollerConfig":
@@ -175,6 +231,12 @@ class PollerConfig:
                 _env_first("POLL_BLOCKLIST", "MATH_ZID_BLOCKLIST")
             ),
             engine_mode=os.environ.get(ENGINE_MODE_ENV_VAR),
+            shard_index=int(
+                _env_first("POLL_SHARD_INDEX", "MATH_SHARD_INDEX", default="0")
+            ),
+            shard_count=int(
+                _env_first("POLL_SHARD_COUNT", "MATH_SHARD_COUNT", default="1")
+            ),
             worker_pool_size=int(os.environ.get("MATH_WORKER_POOL_SIZE", "4")),
             dump_dir=os.environ.get("MATH_POLLER_DUMP_DIR", "scratch/errorconv"),
             retry_cap=int(os.environ.get("MATH_POLLER_RETRY_CAP", "1")),
@@ -241,10 +303,15 @@ class MathPollerService:
         for t in self._threads:
             t.start()
         logger.info(
-            "MathPollerService started (math_env=%s engine_mode=%s pool=%d)",
+            "MathPollerService started (math_env=%s engine_mode=%s pool=%d shard=%s)",
             self.config.math_env,
             resolve_engine_mode(),
             self.config.worker_pool_size,
+            # Spelled out so a misconfigured fleet is visible in the logs rather
+            # than silently leaving a slice of conversations unprocessed.
+            f"{self.config.shard_index}/{self.config.shard_count}"
+            if self.config.shard_count > 1
+            else "unsharded",
         )
 
     def stop(self) -> None:
@@ -312,7 +379,13 @@ class MathPollerService:
         rows = self._pg.poll_votes_since(self._vote_wm)
         logger.info("Polled %d votes since watermark %s", len(rows), self._vote_wm)
         for zid, batch in _group_by_zid(rows).items():
-            if should_process_zid(zid, self.config.allowlist, self.config.blocklist):
+            if should_process_zid(
+                zid,
+                self.config.allowlist,
+                self.config.blocklist,
+                self.config.shard_index,
+                self.config.shard_count,
+            ):
                 self._unpark(zid)  # new batch self-heals a parked zid
                 self._pool.submit(zid, VOTES, batch)
         self._vote_wm = advance_watermark(
@@ -324,7 +397,13 @@ class MathPollerService:
         rows = self._pg.poll_moderation_since(self._mod_wm)
         logger.info("Polled %d mod changes since watermark %s", len(rows), self._mod_wm)
         for zid, batch in _group_by_zid(rows).items():
-            if should_process_zid(zid, self.config.allowlist, self.config.blocklist):
+            if should_process_zid(
+                zid,
+                self.config.allowlist,
+                self.config.blocklist,
+                self.config.shard_index,
+                self.config.shard_count,
+            ):
                 self._unpark(zid)  # new batch self-heals a parked zid
                 self._pool.submit(zid, MODERATION, batch)
         self._mod_wm = advance_watermark(
