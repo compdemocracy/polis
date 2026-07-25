@@ -1,42 +1,51 @@
-STATUS: DONE
+STATUS: IN PROGRESS
 
-# GOAL_STATE — R1 parity goal ACHIEVED (2026-07-24, session 5)
+# GOAL_STATE — checkpoint for GOAL_CUTOVER_READY.md (cap ~50 lines)
 
-All three GOAL_R1_PARITY.md "DONE means" conditions hold, evidenced in-repo:
+Predecessor GOAL_R1_PARITY.md: ACHIEVED 2026-07-24 (evidence pointers in its
+final journal entries; battery ×4 clean pairs, live equiv PASS ×2 datasets).
 
-1. **Battery: TWO consecutive fully-clean passes on the final tree** —
-   20/20 MATCH, DIVERGENCE=0, ERROR=0, exit 0 on both
-   (real_data/.local/replays/battery_s5_pass{7,8}.log — the FINAL tree,
-   post #2657-review hardening; same-day clean pairs pass{1,2}, {3,4},
-   {5,6} on predecessor trees: FOUR consecutive clean pairs total). Battery: 20
-   entries = all real_data datasets + prodclone extractions + the goal
-   doc's edge cases (mod-heavy, revote-heavy, banned, meta, degenerate,
-   zero-votes, restart seams). divergences.json: ZERO open (70 resolved +
-   11 carved-out, every carve diagnosed + quirk-ledgered Q1-Q19).
-   Subgroup-* carve (Q7) logged on every run, never silent.
-2. **Poller equivalence PASSES** (MATH_POLLER_EQUIV_SPEC.md harness, live
-   vs the REAL Clojure container): vw verdict MATCH 8/8 batches +
-   pc-meta-02 verdict MATCH 6/6 batches with the moderation stream
-   (146/146 mod events), both including a kill+restart seam mid-schedule;
-   identical math_main/bidToPid/ptptstats rows (structural identity;
-   floats within the measured clj self-jitter envelope — the declared,
-   per-run-reported tolerance); caching_tick/math_ticks/watermark
-   semantics verified. Evidence: real_data/.local/replays/poller_equiv/
-   {vw,pc-meta-02}/ (verdict JSONs, manifests, runner logs) + 6 kept DBs.
-3. **This line**: STATUS: DONE (written only after 1+2 held).
+## Where we are (2026-07-27, session 6 wind-down)
 
-## For Julien's walkthrough (morning review)
+- Copilot triage COMPLETE: 25 threads — 16 fixes applied (TDD; 647-test gate
+  green), 2 quirk-rejections cited, 3 declines, 1 deferral (#2644). Battery
+  ×2 re-ran on the triaged tree (s6 logs — check verdicts at orientation if
+  this session ended before they landed). Issues #2660/#2661/#2662 opened
+  (Q10/Q12/Q13+Q18 — "fixed by the Python push").
+- Julien rulings captured in POST_CUTOVER_IMPROVEMENTS.md +
+  CUTOVER_RUNBOOK.md: bans DROPPED entirely; equiv = release gate not CI;
+  sharding parked (data: p99=5 active convs/min vs ~100 ticks/min EC2-
+  measured serial capacity); clarity refactor moved PRE-cutover; large-conv
+  EC2 tick measurement is a flip precondition; run_delphi.py is
+  PRODUCTION-called (POST /api/v3/delphi/jobs → job_poller FULL_PIPELINE).
+- Battery timing DATA (journal s6): first pass after an engine change ≈36
+  min (py re-replay, clj cached); second consecutive pass ≈21 SECONDS;
+  full clj re-record ≈91 min. Phase 0 tooling attacks the 36-min pass.
 
-- Journal sessions 4-5 (CLJ-PARITY-FIXES-JOURNAL.md) narrate every
-  per-change note. Highlights: restart-seam from_dict restore; Q17 hash
-  tie-break PORT; Q18 uniqify ulp knife-edge CARVE (+pc-meta-02 swap);
-  **Q19 = REAL Clojure production bug** (conv-actor race losing votes —
-  wants an upstream fix); FOUR real py-poller production bugs fixed
-  (pid/tid/zid ints; derive_ptptstats wrote the WRONG STATISTIC — now
-  the verbatim repness.clj geometric port).
-- Stack (all Draft, NEVER merged per constraints): docs PR #2626,
-  feature PR #2656, NEW harness PR (created this push), ci commit.
-  python-ci dispatched at final push — check the run.
-- Parked: fraction-cut py-round clj-driver fix (needs ~2h cache
-  re-record); Q19 upstream fix decision; poller cutover phases
-  (MATH_POLLER_DESIGN.md §4) are the natural NEXT goal.
+## Next actions
+
+1. s6 battery CONFIRMED clean: 20/20 MATCH ×2 on the triaged tree
+   (battery_s6_pass{1,2}.log; only 3 clj re-records fired — the restart
+   entries carry no comments CSV). Commit split DONE: triage fixes = PR
+   #2663 (spr/edge/efb914d7), docs = #2659. python-ci dispatched on
+   #2663's head (run 30276844539) — CHECK at orientation. Thread
+   replies/resolves: CONFIRMED complete — all 20 open threads across 11
+   PRs replied (citing #2663) and resolved; 25/25 Copilot comments closed.
+2. Phase 0 of GOAL_CUTOVER_READY.md: battery tooling speedup (hash scoping
+   + parallel entries; A/B-prove — timing data in journal s6: 36-min
+   first pass / 21-s cached pass). THEN Phase 1 inventory (grep all
+   engine_mode branch sites; classify DELETE/PARK/KEEP; journal it).
+3. Review the new PRs per protocol when review-ready: #2659 (docs), #2663
+   (triage batch — request Copilot once; our agent already covered the
+   content via the triage itself).
+4. Parked questions needing input: none — all rulings recorded.
+
+## Pointers
+
+- Contract: GOAL_CUTOVER_READY.md. Roadmap: POST_CUTOVER_IMPROVEMENTS.md.
+  Runbook: CUTOVER_RUNBOOK.md. Quirks: CLOJURE_QUIRKS.md Q1-Q19.
+- Battery: scripts/certify.py run (20 entries). Equiv release gate:
+  scripts/poller_equiv.py full-run (needs pgproxy 127.0.0.1:15432 up:
+  `docker start polis-dev-postgres-1 pgproxy`).
+- Suite baseline: 1134 passed / 22 skipped / 46 xfailed (2026-07-24) + s6
+  additions; gate delegation protocol in GOAL_R1_PARITY.md.
