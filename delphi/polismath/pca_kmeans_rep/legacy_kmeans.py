@@ -12,8 +12,8 @@ serialized blob, so lineage propagates downstream in sequential runs.
 This is a DIFFERENT algorithm from the off-production ``clusters.py`` warm start
 (split-largest / merge-closest, clusters.py:302-364), which is NOT a port of the
 Clojure ``clean-start-clusters``. That module is intentionally left untouched;
-this one is the faithful port and is wired only into the ``clojure-legacy``
-engine mode (see ``polismath.utils.engine_mode``).
+this one is the faithful port wired into the engine (the only clustering path
+since the mode collapse).
 
 Data model (mirrors Clojure's named-matrix + cluster maps):
 

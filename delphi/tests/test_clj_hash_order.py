@@ -111,9 +111,3 @@ def test_legacy_greedy_tie_follows_clojure_hash_order_string_pids(monkeypatch):
     assert in_conv & {"14", "15", "16", "17"} == {"15", "17"}
 
 
-def test_improved_greedy_unaffected(monkeypatch):
-    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, "improved")
-    conv = _tie_conv()
-    in_conv = conv._get_in_conv_participants()
-    # Improved mode: threshold-only (min(7, n_cmts)=7 votes) — only pid 1.
-    assert in_conv == {1}
