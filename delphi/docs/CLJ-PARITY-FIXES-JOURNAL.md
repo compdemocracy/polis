@@ -4411,3 +4411,62 @@ full battery); (b) deterministic seeded sampled PCA for extreme shapes.
 Feasibility note: dgemv-per-center keeps each element a row-dot-center
 op (same class as the scalar np.dot), so tie reproduction is plausible;
 dgemm reassociation/FMA is the hazard to test for.
+
+### Item 9a — vectorized legacy kmeans hot paths (2026-07-27/28, s7)
+
+Executed the s7 ruling above: replaced the per-pair Python `_euclidean`
+scans in `polismath/pca_kmeans_rep/legacy_kmeans.py` with per-center
+BLAS distance columns — BIT-IDENTICAL outputs (Plan A held end-to-end;
+the tie-divergence fallback was never needed).
+
+**Profile (before, cProfile at 4000x300x240k, 112.5s total)**:
+`_euclidean` 26.4M calls / 61.8s cum; `np.array_equal` 8.0M calls /
+38.9s cum (the O(n^2) `n_distinct_rows` scan); `cluster_step` 65.3s cum.
+
+**Bit-identity engineering (the empirical part)**: the s7 feasibility
+note's hazard was real but sat elsewhere than predicted — on this
+machine (numpy 1.26.4 / OpenBLAS 0.3.23 arm64) `X @ c` (dgemv)
+reassociates vs `float(np.dot(row, c))` for d>=4, and
+`einsum`/`(m*m).sum(1)` differ even at d=2; all were REJECTED. Batched
+matmul `(n,1,d)@(n,d,1)` (row norms) and `(n,1,d)@(d,1)` (cross) matched
+`np.dot` bit-for-bit on all 85 shape/scale combos probed (n=1..33422,
+d=1..783, scales 1e-8/1/1e8, C+F order), including the vw knife-edge
+pair (both distances EXACTLY 0.0) and NaN propagation — that kernel is
+the one shipped. The column combine keeps the scalar's exact order:
+`(row_norms + |c|^2) - 2.0*cross`, floor via `np.where(d2 < 0.0, 0.0,
+d2)` (NaN propagates, no maximum-clamp), then the same IEEE sqrt.
+
+**What changed** (`legacy_kmeans.py` only): new `_row_norms` +
+`_euclidean_col`; `cluster_step` folds the columns in the existing
+Clojure scan order (hash order >8 / input order <=8) with the scalar
+update rule `d <= best` (ties -> LATER cluster, NaN never wins), members
+regrouped by ascending row index == scalar append order; `most_distal`
+same inner fold + exact outer last-wins reduction (NaN-first-row sticks,
+later NaN rows skipped, last argmax otherwise); `n_distinct_rows` gains
+`bound=` (vectorized elimination passes, `array_equal(equal_nan=True)`
+semantics) so `clean_start_clusters`' `min(k, .)` is exact without
+O(n^2); `_recenter_center` index-gathers rows (same values). Scalar
+`_euclidean`, `same_clustering`, `weighted_mean` semantics untouched.
+
+**TDD**: RED confirmed (4 ImportError pins for the new functions +
+TypeError for `bound`); 11 new tests in tests/test_legacy_kmeans.py pin
+bit-equality against a VERBATIM `_scalar_d2_reference` copy of the
+pre-vectorization formula (exact `==`, random shapes incl. 1-row and
+k>n, scales 1e-8/1/1e8), the vw knife-edge exact-0.0, NaN row/center
+propagation, `cluster_step`/`most_distal` equivalence vs verbatim scalar
+reference loops (grid-tie fixtures, >8/<=8 scan, weights, k>n, NaN),
+and bounded-distinct semantics (NaN rows, -0.0==0.0).
+
+**Evidence**:
+- Full suite: 1171 passed / 22 skipped / 44 xfailed / 2 xpassed
+  (baseline 1160/22/44/2 + 11 new; zero new failures). Pyright clean on
+  both touched files.
+- Battery: `MATCH=20 DIVERGENCE=0 SKIPPED=0 ERROR=0` TWICE — once on
+  the vectorized tree (23:52) and once on the final bytes after an
+  annotation-only pyright cleanup (00:06). Bit-identity is certified,
+  not assumed.
+- Bench mid shape (8000x400x480k): cold 68.53s -> 3.58s (19x), warm
+  159.53s -> 3.77s (42x).
+- Bench FULL prod shape (33422x783x2.0M, scratch/vectorized_full.json):
+  cold 28.15s, warm 26.66s — vs the ~31 min warm tick measured s6/s7
+  (~70x). The largest prod conversation now ticks in under 30s.
