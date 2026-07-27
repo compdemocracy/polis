@@ -104,8 +104,15 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
   sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
-  echo "Starting docker-compose up for 'math' service"
-  sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
+  # Cutover Step #1 (shadow): run the Python math poller ALONGSIDE the
+  # Clojure engine. math-python writes under a DISTINCT math_env
+  # (MATH_PYTHON_ENV, default 'python') so its rows are invisible to the
+  # prod server (UNIQUE(zid, math_env)) — zero serving-path risk.
+  # MATH_PYTHON_ENV + MATH_CONV_CACHE_CAP come from the instance .env
+  # (Secrets Manager: polis-web-app-env-vars). Compose profiles gate DEV
+  # only; prod starts services BY NAME here.
+  echo "Starting docker-compose up for 'math' and 'math-python' (shadow) services"
+  sudo /usr/local/bin/docker-compose up -d math math-python --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   echo "Starting docker-compose up for 'delphi' service"
   echo "Fetching Ollama Service URL for Delphi..."
