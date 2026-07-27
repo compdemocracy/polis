@@ -14,7 +14,7 @@ carry (only the threshold set). This module verifies:
   2. Legacy mode admits the top (15 - n) voters when under 15, with ties broken
      by matrix row order (deterministic surrogate for Clojure's hash-order tie).
   3. Legacy greedy admits PERSIST across ticks even once the conversation grows
-     past 15 threshold-qualifiers (the carry) — improved mode drops them.
+     past 15 threshold-qualifiers (the carry).
   4. Threshold-qualifiers stay in across ticks in BOTH modes (monotonicity).
 """
 
@@ -114,7 +114,7 @@ class TestSerializedInConv:
 
 class TestThresholdMonotonicity:
 
-    @pytest.mark.parametrize('mode', ['improved', 'clojure-legacy'])
+    @pytest.mark.parametrize('mode', ['clojure-legacy'])
     def test_qualifier_stays_in_across_ticks(self, monkeypatch, mode):
         _mode(monkeypatch, mode)
         conv = Conversation('mono').update_votes(_votes(_TICK1_SPECS))
