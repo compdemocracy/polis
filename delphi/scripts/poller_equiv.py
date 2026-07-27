@@ -113,12 +113,11 @@ def run_clj(database_url, math_env, poll_from_days_ago):
 @click.option("--database-url", required=True)
 @click.option("--math-env", required=True)
 @click.option("--poll-from-days-ago", type=float, default=10000, show_default=True)
-@click.option("--engine-mode", default="clojure-legacy", show_default=True)
-def run_py(database_url, math_env, poll_from_days_ago, engine_mode):
+def run_py(database_url, math_env, poll_from_days_ago):
     """Start the python math_poller (blocks; Ctrl-C stops it)."""
     runner = pe.PyPollerRunner(
         database_url=database_url, math_env=math_env,
-        poll_from_days_ago=poll_from_days_ago, engine_mode=engine_mode,
+        poll_from_days_ago=poll_from_days_ago,
     )
     _run_and_stream(runner, label="py")
 
@@ -143,13 +142,12 @@ def run_py(database_url, math_env, poll_from_days_ago, engine_mode):
 @click.option("--zid", type=int, default=pe.DEFAULT_ZID, show_default=True)
 @click.option("--clj-env", default="clj-ref", show_default=True)
 @click.option("--py-env", default="py-shadow", show_default=True)
-@click.option("--engine-mode", default="clojure-legacy", show_default=True)
 @click.option("--poll-from-days-ago", type=float, default=10000, show_default=True)
 @click.option("--wait-timeout", type=float, default=120.0, show_default=True,
               help="Seconds to wait for EACH math_env to reflect a batch "
                    "before giving up on it.")
 def feed(dataset, admin_url, cuts, out_dir, seam_after, restart_clj_at_seam, dbname, zid,
-         clj_env, py_env, engine_mode, poll_from_days_ago, wait_timeout):
+         clj_env, py_env, poll_from_days_ago, wait_timeout):
     """Stage C feeder: seed the equiv DB, start both runners, then insert
     vote batches one at a time — waiting for each math_env to reflect a
     batch before snapshotting math_main/math_bidtopid/math_ptptstats and
@@ -160,7 +158,7 @@ def feed(dataset, admin_url, cuts, out_dir, seam_after, restart_clj_at_seam, dbn
             admin_url, dataset, cut_slots,
             out_dir=out_dir, seam_after=seam_after, math_envs=(clj_env, py_env),
             restart_clj_at_seam=restart_clj_at_seam, dbname=dbname, zid=zid,
-            poll_from_days_ago=poll_from_days_ago, engine_mode=engine_mode,
+            poll_from_days_ago=poll_from_days_ago,
             wait_timeout=wait_timeout,
         )
     except pe.PollerEquivStreamError as exc:
@@ -214,7 +212,6 @@ def compare(out_dir, clj_env, py_env):
 @click.option("--zid", type=int, default=pe.DEFAULT_ZID, show_default=True)
 @click.option("--clj-env", default="clj-ref", show_default=True)
 @click.option("--py-env", default="py-shadow", show_default=True)
-@click.option("--engine-mode", default="clojure-legacy", show_default=True)
 @click.option("--poll-from-days-ago", type=float, default=10000, show_default=True)
 @click.option("--wait-timeout", type=float, default=120.0, show_default=True,
               help="Seconds to wait for EACH math_env to reflect a batch "
@@ -232,7 +229,7 @@ def compare(out_dir, clj_env, py_env):
               help="Seconds to wait for the poll-cycle gate signal before "
                    "aborting (only used when --wait-for-clj-poll-cycle).")
 def full_run(dataset, admin_url, cuts, seam_after, out_root, dbname, zid, clj_env, py_env,
-             engine_mode, poll_from_days_ago, wait_timeout, restart_clj_at_seam,
+             poll_from_days_ago, wait_timeout, restart_clj_at_seam,
              wait_for_clj_poll_cycle, poll_cycle_gate_timeout):
     """Stage D full protocol orchestration (spec §2/§3): (a) clj-ref run 1,
     (b) fresh DB + clj-ref run 2 -> self-jitter envelope, (c) fresh DB +
@@ -248,7 +245,7 @@ def full_run(dataset, admin_url, cuts, seam_after, out_root, dbname, zid, clj_en
     config = pe.FullRunConfig(
         dataset=dataset, admin_url=admin_url, out_root=str(out_root),
         cuts=tuple(cut_slots), seam_after=resolved_seam, dbname=dbname, zid=zid,
-        clj_env=clj_env, py_env=py_env, engine_mode=engine_mode,
+        clj_env=clj_env, py_env=py_env,
         poll_from_days_ago=poll_from_days_ago, wait_timeout=wait_timeout,
         restart_clj_at_seam=restart_clj_at_seam,
         wait_for_clj_poll_cycle=wait_for_clj_poll_cycle,

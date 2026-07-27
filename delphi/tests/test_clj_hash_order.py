@@ -14,7 +14,6 @@ from polismath.utils.clj_hash import (
     clojure_hash_map_key_order,
     clojure_long_hash,
 )
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR
 
 
 # Clojure REPL ground truth: (map hash (range 1 6)) and friends — hasheq of
@@ -69,7 +68,6 @@ def _tie_conv():
 
 
 def test_legacy_greedy_tie_follows_clojure_hash_order(monkeypatch):
-    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, "clojure-legacy")
     conv = _tie_conv()
     in_conv = conv._get_in_conv_participants()
     assert len(in_conv) == 15
@@ -95,7 +93,6 @@ def test_legacy_greedy_tie_follows_clojure_hash_order_string_pids(monkeypatch):
     """Same greedy-floor tie as above but with the PRODUCTION data shape:
     string pids (poll_votes casts str(pid); conversation preserves the type).
     The tie must still resolve by Clojure hash order of the numeric value."""
-    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, "clojure-legacy")
     votes = []
     for j in range(8):
         votes.append({"pid": "1", "tid": j, "vote": 1})

@@ -26,7 +26,6 @@ import pytest
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from polismath.conversation.conversation import Conversation
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR
 from polismath.pca_kmeans_rep.pca import PCA_IMPL_ENV_VAR
 
 
@@ -59,7 +58,6 @@ _TICK1_SPECS = _HIGHS + _LOWS  # row order: H0,H1,L0,L1,...,L19
 
 def _mode(monkeypatch, mode):
     monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, mode)
 
 
 class TestGreedyFloor:
