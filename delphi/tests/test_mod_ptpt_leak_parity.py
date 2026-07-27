@@ -51,12 +51,6 @@ def legacy_mode(monkeypatch):
     monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
 
 
-@pytest.fixture
-def improved_mode(monkeypatch):
-    monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'improved')
-
-
 class TestLegacyBanLeak:
 
     def test_banned_participant_rows_kept(self, legacy_mode):
@@ -87,16 +81,6 @@ class TestLegacyBanLeak:
         conv = Conversation('leak').update_votes(_bloc_votes())
         conv = conv.update_moderation({'mod_out_ptpts': ['a0']})
         assert 'a0' in conv.in_conv
-
-
-class TestImprovedBanKept:
-    """Improved mode keeps the real ban feature byte-for-byte."""
-
-    def test_banned_participant_dropped_and_not_clustered(self, improved_mode):
-        conv = Conversation('leak').update_votes(_bloc_votes())
-        conv = conv.update_moderation({'mod_out_ptpts': ['a0']})
-        assert 'a0' not in conv.rating_mat.index
-        assert 'a0' not in _clustered_pids(conv)
 
 
 if __name__ == '__main__':

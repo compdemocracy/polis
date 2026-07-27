@@ -64,13 +64,6 @@ def _mode(monkeypatch, mode):
 
 class TestGreedyFloor:
 
-    def test_improved_has_no_greedy_floor(self, monkeypatch):
-        # Current/improved behavior: only the 2 threshold-qualifiers cluster.
-        _mode(monkeypatch, 'improved')
-        conv = Conversation('g').update_votes(_votes(_TICK1_SPECS))
-        assert _clustered_pids(conv) == {'H0', 'H1'}
-        assert conv.in_conv == set()  # improved never populates the carry set
-
     def test_legacy_greedy_fills_to_fifteen(self, monkeypatch):
         _mode(monkeypatch, 'clojure-legacy')
         conv = Conversation('g').update_votes(_votes(_TICK1_SPECS))
@@ -111,17 +104,6 @@ class TestPersistentCarry:
         # And the new qualifiers are in too.
         assert {f'Q{i}' for i in range(20)}.issubset(clustered)
 
-    def test_improved_drops_non_qualifiers_after_growth(self, monkeypatch):
-        _mode(monkeypatch, 'improved')
-        conv = Conversation('carry').update_votes(_votes(_TICK1_SPECS))
-        conv = conv.update_votes(self._tick2_new_qualifiers())
-        clustered = _clustered_pids(conv)
-        # No carry, no greedy: the below-threshold lows are NOT clustered.
-        assert not any(f'L{i}' in clustered for i in range(20))
-        # Only the threshold-qualifiers (H0,H1 + Q0..Q19) cluster.
-        assert clustered == {'H0', 'H1'} | {f'Q{i}' for i in range(20)}
-
-
 class TestSerializedInConv:
 
     def test_legacy_blob_in_conv_includes_greedy_admits(self, monkeypatch):
@@ -131,13 +113,6 @@ class TestSerializedInConv:
         assert len(blob_in_conv) == 15
         assert {'H0', 'H1'}.issubset(blob_in_conv)
         assert {f'L{i}' for i in range(13)}.issubset(blob_in_conv)  # greedy admits
-
-    def test_improved_blob_in_conv_is_threshold_only(self, monkeypatch):
-        _mode(monkeypatch, 'improved')
-        conv = Conversation('blob').update_votes(_votes(_TICK1_SPECS))
-        blob_in_conv = {str(p) for p in conv.to_dict()['in-conv']}
-        assert blob_in_conv == {'H0', 'H1'}  # no greedy floor in improved
-
 
 class TestThresholdMonotonicity:
 

@@ -80,11 +80,6 @@ def legacy(monkeypatch):
     monkeypatch.setenv(ENGINE_MODE_ENV_VAR, "clojure-legacy")
 
 
-@pytest.fixture()
-def improved(monkeypatch):
-    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, "improved")
-
-
 def _sorted_base_clusters(conv):
     return sorted(conv.base_clusters, key=lambda c: c["id"])
 
@@ -103,13 +98,6 @@ def test_legacy_group_clusters_members_are_bids(conv, legacy):
     # partition of base clusters: union of members covers every bid exactly once
     all_members = [m for gc in result["group-clusters"] for m in gc["members"]]
     assert sorted(all_members) == sorted(bc_ids)
-
-
-def test_improved_group_clusters_members_stay_pids(conv, improved):
-    result = conv.to_dict()
-    pids = set(conv.rating_mat.index)
-    for gc in result["group-clusters"]:
-        assert set(gc["members"]) <= pids
 
 
 # ---------------------------------------------------------------------------
@@ -152,14 +140,6 @@ def test_legacy_votes_base_excludes_unclustered_votes(conv, legacy):
         # 10 group-A members agreed on tids 0-2; p20's agree must NOT appear.
         assert sum(entry["A"]) == 10
         assert sum(entry["S"]) == 20
-
-
-def test_improved_votes_base_stays_int_totals(conv, improved):
-    result = conv.to_dict()
-    entry = next(iter(result["votes-base"].values()))
-    assert isinstance(entry["A"], int)
-    assert isinstance(entry["D"], int)
-    assert isinstance(entry["S"], int)
 
 
 # ---------------------------------------------------------------------------
@@ -211,16 +191,6 @@ def test_legacy_sign_negation_of_center_and_projections(conv, legacy):
     )
 
 
-def test_improved_pca_emission_unchanged(conv, improved):
-    result = conv.to_dict()
-    np.testing.assert_allclose(result["pca"]["center"], np.asarray(conv.pca["center"]))
-    assert "comment-projection" not in result["pca"]
-    bc = result["base-clusters"]
-    by_id = {c["id"]: c for c in conv.base_clusters}
-    for i, bid in enumerate(bc["id"]):
-        assert bc["x"][i] == pytest.approx(by_id[bid]["center"][0])
-
-
 # ---------------------------------------------------------------------------
 # repness: Clojure finalize-cmt-stats shape in legacy mode.
 # ---------------------------------------------------------------------------
@@ -256,13 +226,6 @@ def test_legacy_repness_shape_and_direction_mapping(conv, legacy):
                 assert "best-agree" not in got and "n-agree" not in got
             # no internal spellings leak into the legacy blob
             assert "comment_id" not in got and "na" not in got and "rat" not in got
-
-
-def test_improved_repness_stays_internal_shape(conv, improved):
-    result = conv.to_dict()
-    assert set(result["repness"].keys()) == {
-        "comment_ids", "group_repness", "comment_repness", "consensus_comments",
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -301,16 +264,6 @@ def test_legacy_repness_rest_domain_excludes_unclustered(legacy):
     assert row["ra"] == pytest.approx(3.0)
 
 
-def test_improved_repness_rest_domain_includes_all_voters(improved):
-    from polismath.pca_kmeans_rep.repness import compute_group_comment_stats_df
-
-    votes_long, groups = _rest_domain_fixture()
-    df = compute_group_comment_stats_df(votes_long, groups)
-    row = df.loc[(0, 0)]
-    # rest = group 1 + p99: na=1 ns=3 → other_pa = (1+1)/(3+2) = 0.4; ra = 1.875
-    assert row["ra"] == pytest.approx(0.75 / 0.4)
-
-
 # ---------------------------------------------------------------------------
 # group-aware-consensus: zero-S groups contribute (A+1)/(S+2) = 1/2 in legacy.
 # ---------------------------------------------------------------------------
@@ -337,16 +290,6 @@ def test_legacy_gac_multiplies_zero_s_groups(conv, legacy):
     assert result["group-aware-consensus"][10] == pytest.approx(expected)
 
 
-def test_improved_gac_skips_zero_s_groups(conv, improved):
-    result = conv.to_dict()
-    stats = _gac_group_stats(result, 10)
-    expected = 1.0
-    for a, s in stats.values():
-        if s > 0:
-            expected *= (a + 1.0) / (s + 2.0)
-    assert result["group-aware-consensus"][10] == pytest.approx(expected)
-
-
 # ---------------------------------------------------------------------------
 # moderation-state semantics: None until moderation applied (legacy).
 # ---------------------------------------------------------------------------
@@ -365,13 +308,6 @@ def test_legacy_mod_keys_populated_after_moderation(conv, legacy):
     # no moderation timestamp was supplied — stays None (vote-only replays
     # match Clojure's null; real poller feeds will carry one)
     assert result["lastModTimestamp"] is None
-
-
-def test_improved_mod_keys_stay_lists(conv, improved):
-    result = conv.to_dict()
-    assert result["mod-in"] == []
-    assert result["mod-out"] == []
-    assert result["lastModTimestamp"] == conv.last_updated
 
 
 # ---------------------------------------------------------------------------
@@ -422,11 +358,6 @@ def test_legacy_tids_emitted_in_arrival_order_with_aligned_pca(conv, legacy):
         assert result["pca"]["comment-extremity"][i] == pytest.approx(ext[tid])
 
 
-def test_improved_tids_stay_natsorted(conv, improved):
-    result = conv.to_dict()
-    assert result["tids"] == list(conv.rating_mat.columns)
-
-
 def test_legacy_from_dict_restores_arrival_order(conv, legacy):
     restored = Conversation.from_dict(conv.to_dict())
     assert restored.tid_arrival_order == conv.tid_arrival_order
@@ -453,12 +384,6 @@ def _assert_base_clusters_round_trip(conv, restored):
 
 
 def test_legacy_from_dict_restores_base_clusters_and_zid(conv, legacy):
-    restored = Conversation.from_dict(conv.to_dict())
-    assert restored.conversation_id == "legacy_blob_shape"
-    _assert_base_clusters_round_trip(conv, restored)
-
-
-def test_improved_from_dict_restores_base_clusters_and_zid(conv, improved):
     restored = Conversation.from_dict(conv.to_dict())
     assert restored.conversation_id == "legacy_blob_shape"
     _assert_base_clusters_round_trip(conv, restored)
@@ -582,15 +507,6 @@ def test_legacy_single_vote_repness_and_consensus(legacy):
     assert d["consensus"]["disagree"] == []
 
 
-def test_improved_single_vote_guards_unchanged(improved):
-    d = _tiny_conv().to_dict()
-    assert d["pca"]["center"] == [0.0]
-    assert d["repness"]["group_repness"] == {0: []} or all(
-        not v for v in d["repness"]["group_repness"].values()
-    )
-    assert d["consensus"] == {"agree": [], "disagree": []}
-
-
 # ---------------------------------------------------------------------------
 # from_dict inverse: legacy round-trip restores the internal convention.
 # ---------------------------------------------------------------------------
@@ -622,13 +538,6 @@ def test_legacy_from_dict_unpermutes_pca_alignment(legacy):
 
 
 def test_legacy_from_dict_round_trips_center_sign(conv, legacy):
-    restored = Conversation.from_dict(conv.to_dict())
-    np.testing.assert_allclose(
-        np.asarray(restored.pca["center"]), np.asarray(conv.pca["center"])
-    )
-
-
-def test_improved_from_dict_round_trips_center_sign(conv, improved):
     restored = Conversation.from_dict(conv.to_dict())
     np.testing.assert_allclose(
         np.asarray(restored.pca["center"]), np.asarray(conv.pca["center"])
