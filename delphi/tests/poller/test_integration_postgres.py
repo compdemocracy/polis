@@ -83,7 +83,7 @@ def _make_service(url, math_env):
     pg.initialize()
     cfg = PollerConfig(
         database_url=url, math_env=math_env, poll_from_days_ago=1,
-        worker_pool_size=2, engine_mode="clojure-legacy",
+        worker_pool_size=2,
     )
     return MathPollerService(pg, cfg), pg
 

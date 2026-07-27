@@ -138,7 +138,6 @@ from polismath.replay.certify import _acceptance_projecting_comparer, normalize_
 from polismath.replay.stepcompare import DEFAULT_TOLERANT_STAT_KEYS, StepComparer
 from polismath.replay.store import _safe_path_component
 from polismath.replay.types import ModEvent, ReplayDataset
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR, ENGINE_MODE_LEGACY
 from polismath.utils.general import delphi_vote_to_postgres
 
 # poller_equiv.py -> replay -> polismath -> delphi -> repo root (mirrors
@@ -818,16 +817,13 @@ def build_py_env(
     database_url: str,
     math_env: str,
     poll_from_days_ago: float = 10000,
-    engine_mode: str = ENGINE_MODE_LEGACY,
     database_ssl_mode: str = "disable",
     base_env: Optional[dict[str, str]] = None,
 ) -> dict[str, str]:
     """Env for ``scripts/math_poller.py``, keyed to ``PollerConfig.from_env``
     (service.py:150-182): ``DATABASE_URL``, ``MATH_ENV``,
     ``POLL_FROM_DAYS_AGO`` (same names as the clj side — see
-    :func:`build_clj_env`), plus ``POLISMATH_ENGINE_MODE`` (engine_mode.py:30
-    ``ENGINE_MODE_ENV_VAR``), applied at service start via
-    ``apply_engine_mode`` (service.py:207-220).
+    :func:`build_clj_env`).
 
     ``DATABASE_URL`` is normalized to the ``postgresql://`` scheme
     (:func:`_url_with_scheme`) — the mirror-image guard of the clj side's
@@ -852,7 +848,6 @@ def build_py_env(
     env["DATABASE_URL"] = _url_with_scheme(database_url, "postgresql")
     env["MATH_ENV"] = math_env
     env["POLL_FROM_DAYS_AGO"] = _format_days_ago(poll_from_days_ago)
-    env[ENGINE_MODE_ENV_VAR] = engine_mode
     env["DATABASE_SSL_MODE"] = database_ssl_mode
     return env
 
@@ -868,7 +863,6 @@ class PyPollerRunner(_SubprocessRunner):
         database_url: str,
         math_env: str,
         poll_from_days_ago: float = 10000,
-        engine_mode: str = ENGINE_MODE_LEGACY,
         database_ssl_mode: str = "disable",
         base_env: Optional[dict[str, str]] = None,
         log_path: Optional[Path] = None,
@@ -877,7 +871,6 @@ class PyPollerRunner(_SubprocessRunner):
             database_url=database_url,
             math_env=math_env,
             poll_from_days_ago=poll_from_days_ago,
-            engine_mode=engine_mode,
             database_ssl_mode=database_ssl_mode,
             base_env=base_env,
         )
@@ -1602,7 +1595,6 @@ def run_equiv_stream(
     dbname: str = DEFAULT_DBNAME,
     zid: int = DEFAULT_ZID,
     poll_from_days_ago: float = 10000,
-    engine_mode: str = ENGINE_MODE_LEGACY,
     wait_timeout: float = 120.0,
     poll_interval: float = 0.5,
     engine_factory: Callable[[str], Any] | None = None,
@@ -1662,7 +1654,7 @@ def run_equiv_stream(
         ),
         "py": lambda: PyPollerRunner(
             database_url=target_url, math_env=py_env, poll_from_days_ago=poll_from_days_ago,
-            engine_mode=engine_mode, log_path=out_dir_path / f"{py_env}.runner.log",
+            log_path=out_dir_path / f"{py_env}.runner.log",
         ),
     }
     builders = dict(default_builders)
@@ -2679,7 +2671,6 @@ class FullRunConfig:
     zid: int = DEFAULT_ZID
     clj_env: str = "clj-ref"
     py_env: str = "py-shadow"
-    engine_mode: str = ENGINE_MODE_LEGACY
     poll_from_days_ago: float = 10000
     wait_timeout: float = 120.0
     poll_interval: float = 0.5
@@ -2758,7 +2749,7 @@ def run_full_equiv_protocol(
         seam_after=config.seam_after, math_envs=(config.clj_env, config.py_env),
         restart_clj_at_seam=config.restart_clj_at_seam, dbname=f"{config.dbname}_main",
         zid=config.zid, poll_from_days_ago=config.poll_from_days_ago,
-        engine_mode=config.engine_mode, wait_timeout=config.wait_timeout,
+        wait_timeout=config.wait_timeout,
         poll_interval=config.poll_interval, engine_factory=engine_factory,
         runner_builders=runner_builders or None, sleep=sleep, now=now,
         wait_for_clj_poll_cycle=config.wait_for_clj_poll_cycle,

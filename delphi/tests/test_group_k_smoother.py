@@ -25,7 +25,6 @@ from polismath.pca_kmeans_rep.group_k_smoother import (
     group_k_smoother_update,
     GROUP_K_BUFFER,
 )
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR
 from polismath.pca_kmeans_rep.pca import PCA_IMPL_ENV_VAR
 import polismath.conversation.conversation as conv_mod
 from polismath.conversation.conversation import Conversation
@@ -168,7 +167,6 @@ class TestSmootherPipeline:
 
     def _setup(self, monkeypatch, mode, prefs):
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)  # default powerit
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, mode)
         stub = _SilStub(prefs)
         monkeypatch.setattr(conv_mod, 'calculate_silhouette_sklearn', stub)
         return stub
@@ -209,7 +207,6 @@ class TestDegenerateTickSmoother:
 
     def _mode(self, monkeypatch, mode):
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, mode)
 
     def test_legacy_degenerate_tick_advances_smoother(self, monkeypatch):
         self._mode(monkeypatch, 'clojure-legacy')

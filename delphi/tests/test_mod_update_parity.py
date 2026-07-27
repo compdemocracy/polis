@@ -20,12 +20,11 @@ import numpy as np
 import pytest
 
 from polismath.conversation.conversation import Conversation
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR
 
 
 @pytest.fixture
 def legacy_mode(monkeypatch):
-    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
+    """No-op since the mode collapse — retained for signature stability."""
 
 
 def _conv(**sets):

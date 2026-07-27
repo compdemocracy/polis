@@ -25,23 +25,6 @@ from polismath.regression.datasets import (
 from tests.common_utils import load_votes, load_comments
 
 
-@pytest.fixture(autouse=True)
-def _guard_engine_mode_env():
-    """Restore POLISMATH_ENGINE_MODE around every test.
-
-    Production code (e.g. MathPollerService.apply_engine_mode) writes this var
-    straight into os.environ; without this guard a single test exercising that
-    path leaks clojure-legacy mode into every later test in the same worker,
-    flipping in-conv/warm-start semantics suite-wide (bit us in CI on #2637).
-    """
-    prev = os.environ.get("POLISMATH_ENGINE_MODE")
-    yield
-    if prev is None:
-        os.environ.pop("POLISMATH_ENGINE_MODE", None)
-    else:
-        os.environ["POLISMATH_ENGINE_MODE"] = prev
-
-
 def require_dynamodb(
     endpoint: str | None = None,
     timeout: float = 3.0,

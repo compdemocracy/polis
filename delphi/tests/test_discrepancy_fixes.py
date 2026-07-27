@@ -316,20 +316,23 @@ class TestD2cVoteCountSource:
         assert n_cmts_filtered == 10, f"rating_mat should keep all 10 columns (zeroed, not removed), got {n_cmts_filtered}"
 
         # The threshold used by _get_in_conv_participants should be min(7, 10) = 7,
-        # not min(7, 5) = 5. Verify indirectly: participant with exactly 6 votes
-        # should NOT be in-conv (threshold=7), but would be if n_cmts=5 (threshold=5).
+        # not min(7, 5) = 5. Since the mode collapse the greedy floor admits
+        # below-threshold participants whenever in-conv < 15, so satisfy the
+        # floor with 16 over-threshold participants first — then a 6-vote
+        # participant is excluded iff the threshold is really 7 (it would be
+        # admitted if n_cmts wrongly used the filtered count 5).
         conv2 = _build_conv_with_moderation(
             n_comments=10,
             mod_out_tids=[0, 1, 2, 3, 4],
             participant_votes={
-                0: list(range(10)),    # 10 raw votes → in-conv
-                1: list(range(4, 10)), # 6 raw votes (tids 4..9; tid=4 moderated-out) → NOT in-conv
+                **{p: list(range(10)) for p in range(16)},  # 16 over threshold
+                16: list(range(4, 10)),  # 6 raw votes -> below threshold=7
             },
         )
         in_conv = conv2._get_in_conv_participants()
         assert 0 in in_conv, "P0 (10 raw votes) should be in-conv"
-        assert 1 not in in_conv, (
-            "P1 (6 raw votes) should NOT be in-conv with threshold=7, "
+        assert 16 not in in_conv, (
+            "P16 (6 raw votes) should NOT be in-conv with threshold=7, "
             "but would be if n_cmts wrongly used filtered count (5)"
         )
 
@@ -2440,15 +2443,14 @@ class TestD15SyntheticModeration:
             f"n_votes must count raw votes only; got {conv.vote_stats['n_votes']}, expected 18"
         )
 
-    def test_vote_counts_exclude_moderated_out_participants(self):
-        """Moderated-out *participants* (mod_out_ptpts) must NOT appear in vote stats.
+    def test_banned_participants_are_ingested_but_inert(self):
+        """mod_out_ptpts is ingested but NEVER applied to the matrix.
 
-        D15 fixed moderated comment *columns* (zeroed, not removed). Polis also
-        supports moderated-out *participants* via `mod_out_ptpts`, which
-        `_apply_moderation` drops from `rating_mat.index`. The raw_rating_mat
-        routing for vote counting must NOT leak these participants — otherwise
-        excluded users' votes would still show up in `user-vote-counts`,
-        `votes-base`, and `_compute_vote_stats`.
+        Participant bans are not a Polis feature (mode collapse 2026-07-27,
+        POST_CUTOVER_IMPROVEMENTS.md item 1 dropped): no engine has ever
+        honored them — the Clojure worker's ingest path has no
+        participants.mod filter (CLOJURE_QUIRKS Q1). `_apply_moderation`
+        must keep banned rows in `rating_mat`.
         """
         import pandas as pd
 
@@ -2467,30 +2469,31 @@ class TestD15SyntheticModeration:
         conv.mod_out_ptpts = {3}  # ban pid 3
         conv._apply_moderation()
 
-        # rating_mat should have dropped pid 3
-        assert 3 not in conv.rating_mat.index, "_apply_moderation should drop mod_out_ptpts"
+        # rating_mat KEEPS pid 3 — the ban set is stored but never applied.
+        assert 3 in conv.rating_mat.index, "bans must be inert (Q1: never applied)"
+        assert conv.mod_out_ptpts == {3}, "the set itself is still ingested"
 
-        # user-vote-counts must not include pid 3
+        # Banned pid 3's votes stay in every downstream stat — exactly like
+        # the Clojure worker (Q1: the ban never reaches the math).
         counts = conv._compute_user_vote_counts()
-        assert 3 not in counts, (
-            f"moderated-out pid 3 leaked into user-vote-counts: {sorted(counts.keys())}"
+        assert 3 in counts, (
+            f"banned pid 3 must still be counted (Q1): {sorted(counts.keys())}"
         )
 
-        # votes-base counts must reflect 4 participants (0,1,2,4), not 5.
-        # tid 1 (not moderated): pid 0=-1 (D), pid 1=1 (A), pid 2=0 (pass),
-        #                        pid 3 dropped, pid 4=-1 (D)  → A=1, D=2, S=4
+        # votes-base counts reflect ALL 5 participants.
+        # tid 1: pid 0=-1 (D), pid 1=1 (A), pid 2=0 (pass), pid 3=1 (A),
+        #        pid 4=-1 (D)  → A=2, D=2, S=5
         vb = conv._compute_votes_base()
-        assert vb[1] == {'A': 1, 'D': 2, 'S': 4}, (
-            f"tid 1 votes-base must exclude moderated-out pid 3; "
-            f"got {vb[1]}, expected {{A:1, D:2, S:4}}"
+        assert vb[1] == {'A': 2, 'D': 2, 'S': 5}, (
+            f"tid 1 votes-base must include banned pid 3 (Q1); got {vb[1]}"
         )
 
-        # vote_stats global n_votes: only count over the 4 remaining participants.
-        # pid 0: 3, pid 1: 4, pid 2: 4, pid 4: 4 → total 15 (not 18).
+        # vote_stats global n_votes counts all 5 participants:
+        # pid 0: 3, pid 1: 4, pid 2: 4, pid 3: 3, pid 4: 4 → total 18.
         conv._compute_vote_stats()
-        assert conv.vote_stats['n_votes'] == 15, (
-            f"n_votes must exclude moderated-out participants: got "
-            f"{conv.vote_stats['n_votes']}, expected 15"
+        assert conv.vote_stats['n_votes'] == 18, (
+            f"n_votes must include banned participants (Q1): got "
+            f"{conv.vote_stats['n_votes']}, expected 18"
         )
 
     def test_to_dict_and_to_dynamo_dict_serialize_user_vote_counts_and_votes_base(self):
@@ -2550,9 +2553,14 @@ class TestD15SyntheticModeration:
                 f"to_dict votes-base tid must be int (numpy-safe), got {type(tid)}")
             assert set(entry.keys()) == {'A', 'D', 'S'}, (
                 f"to_dict votes-base entry must have Clojure-style A/D/S keys, got {set(entry.keys())}")
+            # Since the mode collapse, values are Clojure-exact per-base-
+            # cluster bucket VECTORS (agg-bucket-votes-for-tid parity),
+            # not scalar totals.
             for k, v in entry.items():
-                assert isinstance(v, int) and not isinstance(v, bool), (
-                    f"to_dict votes-base {k} must be int, got {type(v)}")
+                assert isinstance(v, list), (
+                    f"to_dict votes-base {k} must be a bucket list, got {type(v)}")
+                assert all(isinstance(x, int) and not isinstance(x, bool) for x in v), (
+                    f"to_dict votes-base {k} bucket values must be ints")
 
         # ---- to_dynamo_dict ----
         try:
@@ -2598,9 +2606,13 @@ class TestD15SyntheticModeration:
 
         # And A/D/S vs agree/disagree/total must agree per-tid.
         for tid in vb:
-            assert vb[tid]['A'] == dyn_vb[tid]['agree']
-            assert vb[tid]['D'] == dyn_vb[tid]['disagree']
-            assert vb[tid]['S'] == dyn_vb[tid]['total']
+            # to_dict carries per-base-cluster bucket vectors whose domain
+            # is CLUSTERED participants only (FP-81fda13ef6); this bare conv
+            # has no base clusters, so buckets are empty while the dynamo int
+            # totals still count every vote. Bucket sum can never exceed it.
+            assert sum(vb[tid]['A']) <= dyn_vb[tid]['agree']
+            assert sum(vb[tid]['D']) <= dyn_vb[tid]['disagree']
+            assert sum(vb[tid]['S']) <= dyn_vb[tid]['total']
 
 
 # ============================================================================
