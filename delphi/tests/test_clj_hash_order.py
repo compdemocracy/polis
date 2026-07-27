@@ -9,8 +9,6 @@ recordings (journal 2026-07-22 session 3).
 
 from __future__ import annotations
 
-import pytest
-
 from polismath.conversation.conversation import Conversation
 from polismath.utils.clj_hash import (
     clojure_hash_map_key_order,
