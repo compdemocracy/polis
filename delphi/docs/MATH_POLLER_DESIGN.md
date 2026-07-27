@@ -79,8 +79,9 @@ math_env string written), `VOTE_POLLING_INTERVAL` (ms, default 1000),
 
 ## 4. Cutover phases
 
-1. **Shadow (this PR):** new compose service `delphi-math-poller` (profile-gated,
-   `--profile delphi-math`) running next to the Clojure `math` service, writing under a
+1. **Shadow (this PR):** new compose service `math-python` (profile-gated,
+   `--profile math-python`; renamed s7 from delphi-math-poller) running
+   next to the Clojure `math` service, writing under a
    DIFFERENT `math_env` (e.g. `MATH_ENV=delphi` while Clojure writes `prod`/`dev`).
    `UNIQUE(zid, math_env)` makes the rows invisible to the prod server. No consumer
    change, zero production risk.
