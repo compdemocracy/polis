@@ -149,7 +149,7 @@ services:
   # container.  Profile-gated so it only runs when explicitly requested
   # (`--profile math-python`).  Reuses the delphi build target and overrides the
   # command to run the poller CLI.  Defaults to SHADOW mode: writes under a
-  # DISTINCT math_env (`delphi`) so its rows are invisible to the prod server
+  # DISTINCT math_env (`python`) so its rows are invisible to the prod server
   # (UNIQUE(zid, math_env)) — zero production risk while parity is validated.
   # See delphi/docs/MATH_POLLER_DESIGN.md §4.
   math-python:

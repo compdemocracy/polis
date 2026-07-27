@@ -82,7 +82,7 @@ math_env string written), `VOTE_POLLING_INTERVAL` (ms, default 1000),
 1. **Shadow (this PR):** new compose service `math-python` (profile-gated,
    `--profile math-python`; renamed s7 from delphi-math-poller) running
    next to the Clojure `math` service, writing under a
-   DIFFERENT `math_env` (e.g. `MATH_ENV=delphi` while Clojure writes `prod`/`dev`).
+   DIFFERENT `math_env` (e.g. `MATH_ENV=python` while Clojure writes `prod`/`dev`).
    `UNIQUE(zid, math_env)` makes the rows invisible to the prod server. No consumer
    change, zero production risk.
 2. **Parity monitoring:** a comparer job diffs Python-vs-Clojure `math_main` rows per

@@ -52,7 +52,11 @@ snapshots at the collapse commit.
 
 Each PR: change + tests + re-certified outputs + a CHANGELOG-quality
 description. Sources: CLOJURE_QUIRKS "Later fix" column, journal parked
-items.
+items. The mode-collapse deletions for items 2/4/5/8 are parked VERBATIM
+as jj bookmarks improvements/item-{2-degenerate-guards,4-mod-watermark,
+5-current-group-votes,8-modern-solvers} (pushed to origin; reverse
+patches of the collapse commits — re-landing = keep the improved side,
+the flag refs inside are dead by design).
 
 1. ~~Honor participant bans~~ — DROPPED ENTIRELY (Julien 2026-07-27):
    bans are not a Polis feature (201 rows ever, never honored by any
@@ -79,18 +83,23 @@ items.
    by Julien s7 after the EC2 measurement: r8g.4xlarge warm tick
    1856s at 33,422 x 783 — CUTOVER_RUNBOOK risk item 3): NO zid is ever
    blocklisted and the k-means warm start STAYS (cluster-id stability
-   across ticks is user-facing). Fix = (a) vectorize the warm-start
-   k-means hot path (per-center BLAS distance columns replacing the
-   per-pair python _euclidean loop; bit-identity gated by the Q11 tie
-   test + the full battery) and (b) a deterministic seeded sampled PCA
-   for extreme shapes (Clojure's large-conv graph only ever special-
-   cased :pca — conversation.clj:760-773 — so (a) has no Clojure
-   counterpart to port and (b) is the deterministic version of theirs).
+   across ticks is user-facing).
+   (a) vectorize the warm-start k-means hot path — **DONE PRE-CUTOVER
+   (s7/2026-07-28, PR #2679)**: batched-matmul BLAS columns, BIT-IDENTICAL
+   (exact-== pins vs the scalar reference incl. the Q11 knife-edge tie;
+   battery 20/20 x2); re-measured on the same r8g.4xlarge: warm tick
+   1856.0s -> 26.6s (~70x), cold 519.6s -> 29.0s. Final verdict in the
+   runbook: serial OK at every observed shape.
+   (b) deterministic seeded sampled PCA for extreme shapes — now
+   OPTIONAL (hygiene/further speedup, no throughput need; Clojure's
+   large-conv graph only ever special-cased :pca —
+   conversation.clj:760-773 — so (b) is the deterministic version of
+   theirs and (a) had no Clojure counterpart to port).
    7 of 15,575 prodclone convs ever crossed the old cutoffs.
-10. MOVED PRE-CUTOVER (Julien 2026-07-27: "we need to land clean code"):
-    vectorized-code readability + blob-injection tests — PR 14b/14c from
-    HANDOFF_PR14_VECTORIZED_REFACTOR.md (14a shipped as #2564). Now Phase 3
-    of GOAL_CUTOVER_READY.md, battery-guarded; listed here for lineage only.
+10. MOVED PRE-CUTOVER and **DONE** (s7, PR #2673): vectorized-code
+    readability (14c two-phase split) + blob-injection tests (14b) from
+    HANDOFF_PR14_VECTORIZED_REFACTOR.md (14a shipped as #2564);
+    battery-proven bit-identical. Listed here for lineage only.
 11. Cleanup pass: the deferred cosmetic simplifications (e.g. the #2644
     legacy reindex no-op), dead update_moderation seams, the Q7 subgroup
     computation deletion upstream if the Clojure tree is still around.
@@ -101,3 +110,18 @@ items.
   nondeterminism) — resolved by replacement, not repair.
 - Q19 (Clojure conv-actor race): moot at decommission; the Python
   design (per-zid FIFO + lock) is the fix.
+
+12. **Persist the full warm-start state across restarts** (s7, from the
+    conv-cache discussion): the math_main whitelist (conv_man.clj:52-74
+    parity) omits the per-k group_clusterings map and the group-K
+    smoother state, so ANY restore (restart, LRU eviction, redeploy) is
+    a partial warm start: the next tick's per-k group k-means runs COLD
+    (its warm-start input is empty for one tick) and the smoother resets
+    — meaning it immediately re-accepts the current best k instead of
+    damping, so a restart can flip K where a continuous run would not.
+    This is CERTIFIED Clojure-faithful restart behavior (battery restart
+    entries MATCH; Clojure lost the same state on its 4-hourly reboots),
+    NOT a numbered quirk today. Improvement: persist group_clusterings +
+    smoother state (blob keys or sidecar) so restores are fully warm and
+    restart-induced K flips disappear. Blob-schema addition — verify
+    server tolerance for extra math_main keys before landing.
