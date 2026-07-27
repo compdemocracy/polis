@@ -10,8 +10,8 @@ Two layers:
   1. Pure-function unit tests (buffer counting, reset-on-change, clamp,
      first-tick, higher-k tie-break) — fast, deterministic.
   2. A chained-update_votes integration test proving the smoother is threaded
-     across ticks in 'clojure-legacy' mode (no flicker on brief alternation,
-     switch after 4 consecutive) and is inert in 'improved' mode.
+     across ticks (no flicker on brief alternation, switch after 4
+     consecutive).
 """
 
 import os
@@ -195,31 +195,6 @@ class TestSmootherPipeline:
         # group_clusters is picked from the smoothed k and is never None/empty.
         assert conv.group_clusters, "group_clusters must be populated"
 
-    def test_mode_switch_to_improved_clears_legacy_state(self, monkeypatch):
-        """After a clojure-legacy tick populated the warm-start state, a tick
-        under improved mode must CLEAR it (not silently retain stale memory)."""
-        prefs = [2, 2]
-        self._setup(monkeypatch, 'clojure-legacy', prefs)
-        conv = Conversation('smooth').update_votes(_many_ptpt_votes())
-        assert conv.group_clusterings and conv.group_k_smoother
-
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'improved')
-        conv = conv.update_votes(_REPEAT_VOTE)
-        assert conv.group_k_smoother == {}
-        assert conv.group_clusterings == {}
-        assert conv.group_clusters, "group_clusters must be populated"
-
-    def test_improved_mode_leaves_smoother_inert(self, monkeypatch):
-        prefs = [3, 3, 3, 3]
-        self._setup(monkeypatch, 'improved', prefs)
-        conv = Conversation('smooth').update_votes(_many_ptpt_votes())
-        # Improved mode never touches the smoother/clusterings state.
-        assert conv.group_k_smoother == {}
-        assert conv.group_clusterings == {}
-        # But still produces group clusters via the untouched best_k path.
-        assert conv.group_clusters, "group_clusters must be populated"
-
-
 def _degenerate_votes(n_ptpts=20, n_cmts=8):
     """All participants vote identically -> a single base cluster (degenerate)."""
     return {'votes': [{'pid': f'p{i}', 'tid': f'c{t}', 'vote': 1.0}
@@ -229,8 +204,8 @@ def _degenerate_votes(n_ptpts=20, n_cmts=8):
 class TestDegenerateTickSmoother:
     """P6a: on a <2-base-cluster degenerate tick with a NON-empty conv, Clojure's
     max-k-fn is still >= 2 (conversation.clj:273-279), so its graph feeds this_k=2
-    to the group-k smoother and ADVANCES it. Legacy mode must mirror that instead
-    of freezing the smoother memory. Improved mode carries no smoother state."""
+    to the group-k smoother and ADVANCES it. The engine must mirror that instead
+    of freezing the smoother memory."""
 
     def _mode(self, monkeypatch, mode):
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
@@ -254,9 +229,3 @@ class TestDegenerateTickSmoother:
         assert len(conv.base_clusters) < 2
         assert conv.group_k_smoother.get('last_k') == 2
         assert conv.group_k_smoother.get('last_k_count') == 2
-
-    def test_improved_degenerate_tick_leaves_smoother_inert(self, monkeypatch):
-        self._mode(monkeypatch, 'improved')
-        conv = Conversation('deg').update_votes(_degenerate_votes())
-        assert len(conv.base_clusters) < 2
-        assert conv.group_k_smoother == {}  # improved carries no smoother state
