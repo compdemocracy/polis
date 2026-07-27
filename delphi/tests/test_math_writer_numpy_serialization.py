@@ -73,24 +73,26 @@ class TestWritersSerializeNumpy:
     def test_math_main_round_trips_real_blob_with_numpy(self):
         conv = _two_group_conv()
         blob = conv.to_dict()
-        # Real repness records are present (writer's fidelity-critical input).
-        recs = blob["repness"]["comment_repness"]
-        assert recs and "gid" in recs[0]
+        # Legacy blob shape (the only shape since the mode collapse): repness
+        # is {gid: [kebab-key entries]} — the writer's fidelity-critical input.
+        gid0 = sorted(blob["repness"].keys())[0]
+        recs = blob["repness"][gid0]
+        assert recs and "repful-for" in recs[0]
 
         blob_np = _numpy_ints(blob)
-        # The gid is now the numpy int64 that repness.py:847 astype(int) produces.
-        assert any(isinstance(r["gid"], np.integer)
-                   for r in blob_np["repness"]["comment_repness"])
+        assert any(isinstance(r["n-success"], np.integer)
+                   for r in blob_np["repness"][gid0])
 
         # RED precondition (environment-independent): bare json.dumps rejects it.
         with pytest.raises(TypeError, match="int64 is not JSON serializable"):
             json.dumps(blob_np)
 
-        # The writer serializes and the blob round-trips (gid back as JSON int).
+        # The writer serializes and the blob round-trips (values back as ints).
         client, cap = _client_capturing()
         client.write_math_main(1, blob_np, last_vote_timestamp=123, math_tick=0)
         restored = json.loads(cap["params"]["data"])
-        got = restored["repness"]["comment_repness"][0]["gid"]
+        first_gid_key = sorted(restored["repness"].keys())[0]
+        got = restored["repness"][first_gid_key][0]["n-success"]
         assert isinstance(got, int) and not isinstance(got, bool)
 
     def test_bidtopid_round_trips_real_blob_with_numpy(self):

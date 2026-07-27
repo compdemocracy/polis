@@ -131,12 +131,18 @@ class TestToDictUnfolding:
         return conv.to_dict()
 
     def test_group_clusters_hyphen(self, result, conv):
-        pids = _participant_ids(conv)
-        bc_ids = _base_cluster_ids(conv)
-        _assert_members_are_participant_ids(
-            result["group-clusters"], pids, bc_ids, "to_dict['group-clusters']")
-        _assert_members_cover_all_participants(
-            result["group-clusters"], pids, "to_dict['group-clusters']")
+        # Legacy blob shape (the only shape since the mode collapse): the
+        # hyphen-key group-clusters carry BASE-CLUSTER ids as members
+        # (Clojure convention; test_legacy_blob_shape pins the bid mapping).
+        bc_ids = set(_base_cluster_ids(conv))
+        all_members = []
+        for gc in result["group-clusters"]:
+            assert set(gc["members"]) <= bc_ids, (
+                f"group-clusters members must be base-cluster ids, "
+                f"got {gc['members']}")
+            all_members.extend(gc["members"])
+        assert sorted(all_members) == sorted(bc_ids), (
+            "every base cluster must land in exactly one group")
 
     def test_group_clusters_underscore(self, result, conv):
         pids = _participant_ids(conv)

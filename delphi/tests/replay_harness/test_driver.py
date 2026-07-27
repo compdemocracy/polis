@@ -199,7 +199,6 @@ def _run_legacy(ds, spec):
 
 
 def test_legacy_mode_applies_mod_events_via_mod_update(monkeypatch):
-    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
     mods = [ModEvent(35, 100, -1), ModEvent(55, 101, 1)]
     ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
     records = _run_legacy(ds, _mod_spec(mods))
@@ -216,7 +215,6 @@ def test_legacy_mode_un_moderation_disjs_the_set(monkeypatch):
     # The un-moderating sequence that DEFEATS update_moderation/_guard in
     # improved mode (test_driver_fails_loudly_on_moderation_set_emptying)
     # must be representable in legacy mode via mod_update's disj semantics.
-    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
     mods = [ModEvent(35, 100, -1), ModEvent(35, 101, 1), ModEvent(55, 100, 0)]
     ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
     records = _run_legacy(ds, _mod_spec(mods))
@@ -231,7 +229,6 @@ def test_legacy_mode_none_moderation_never_calls_mod_update(monkeypatch):
     calls, not even with an empty list, so schedules with moderation="none"
     stay bit-identical (mod_update unconditionally flips moderation_applied,
     so a stray call would be observable even with nothing in the sets)."""
-    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
     calls = []
     original = Conversation.mod_update
 
@@ -268,7 +265,6 @@ _RESTART_RAW_VOTES = [
 
 
 def test_restart_after_does_not_change_step_count(monkeypatch):
-    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
     ds = ReplayDataset.build(_RESTART_RAW_VOTES)
     spec = sched.ScheduleSpec.from_dict({
         "dataset": "t", "schedule_id": "restart-e2e", "source": "votes-csv",
@@ -283,7 +279,6 @@ def test_restart_after_does_not_change_step_count(monkeypatch):
 def test_restart_after_none_is_a_no_op(monkeypatch):
     # restart_after absent (None, the default) must not touch the replay at
     # all — same step count/content as never having the field.
-    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
     ds = ReplayDataset.build(_RESTART_RAW_VOTES)
     spec_no_restart = sched.ScheduleSpec.from_dict({
         "dataset": "t", "schedule_id": "no-restart", "source": "votes-csv",
@@ -295,7 +290,6 @@ def test_restart_after_none_is_a_no_op(monkeypatch):
 
 
 def test_restart_conversation_rebuilds_matrices_and_drops_smoother_state(monkeypatch):
-    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
     ds = ReplayDataset.build(_RESTART_RAW_VOTES)
     spec = sched.ScheduleSpec.from_dict({
         "dataset": "t", "schedule_id": "restart-unit", "source": "votes-csv",
@@ -356,7 +350,6 @@ def test_restart_replays_only_woven_mods_not_dataset_mods(monkeypatch):
     # of them into steps. clj restart-conv replays only the woven mods
     # ((mapcat :mods steps-so-far), replay.clj) — the py restart must not
     # smuggle dataset-level mods the chain never saw into the warm state.
-    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
     mods = [ModEvent(t_ms=150, tid=10, mod=-1)]
     ds = ReplayDataset.build(_RESTART_RAW_VOTES, mod_events=mods)
     spec = sched.ScheduleSpec.from_dict({
@@ -372,7 +365,6 @@ def test_restart_replays_only_woven_mods_not_dataset_mods(monkeypatch):
 def test_restart_replays_woven_mods_so_far(monkeypatch):
     # Control for the test above: mods that ARE woven into steps up to the
     # seam must survive the restart (replayed via mod_update).
-    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
     mods = [ModEvent(35, 100, -1)]
     ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
     spec = sched.ScheduleSpec.from_dict({
@@ -388,7 +380,6 @@ def test_restart_replays_woven_mods_so_far(monkeypatch):
 def test_restart_after_out_of_range_raises(monkeypatch, bad):
     # replay.clj CLI parity: restart_after must be a step index with at least
     # one step after it (0 <= r <= n_steps-2); 4 cuts -> valid r in [0, 2].
-    monkeypatch.setenv("POLISMATH_ENGINE_MODE", "clojure-legacy")
     ds = ReplayDataset.build(_RESTART_RAW_VOTES)
     spec = sched.ScheduleSpec.from_dict({
         "dataset": "t", "schedule_id": "restart-range", "source": "votes-csv",

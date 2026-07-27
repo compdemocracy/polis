@@ -174,9 +174,6 @@ services:
       # Optional zid allow/block lists (comma-separated).
       - POLL_ALLOWLIST=${POLL_ALLOWLIST:-}
       - POLL_BLOCKLIST=${POLL_BLOCKLIST:-}
-      # Engine family: 'clojure-legacy' (the effective default below, for
-      # warm-start parity during shadow validation) or 'improved'.
-      - POLISMATH_ENGINE_MODE=${POLISMATH_ENGINE_MODE:-clojure-legacy}
       # Per-zid serialized workers; concurrency across zids.
       - MATH_WORKER_POOL_SIZE=${MATH_WORKER_POOL_SIZE:-4}
       # Error dump dir + retry cap (dump -> retry -> park circuit breaker).

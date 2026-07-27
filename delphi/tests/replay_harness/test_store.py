@@ -114,7 +114,6 @@ def test_provenance_completeness(tmp_path):
     assert "POLISMATH_PCA_IMPL" in prov["engine_flags"]
     # Engine mode changes warm-start behavior across steps — it MUST be pinned
     # in provenance (review finding B, 2026-07-18).
-    assert "POLISMATH_ENGINE_MODE" in prov["engine_flags"]
     # Dataset sha256 recorded (public vw dataset is resolvable on this branch).
     assert prov["dataset"]["name"] == "vw"
     assert prov["dataset"].get("votes_sha256")
