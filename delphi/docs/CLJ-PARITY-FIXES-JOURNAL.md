@@ -4213,3 +4213,52 @@ Also purged post-suite: scripts/poller_equiv.py CLI --engine-mode plumbing
 docker-compose delphi-math-poller env line, example.env comment,
 CLOJURE_QUIRKS preamble + MATH_POLLER_DESIGN updated to collapse-era
 wording (historical spec docs left as records).
+
+### s7 wind-down — What's Next
+
+Pushed: PRs #2665-#2671 (collapse series) + #2664 (Phase 0 battery
+speedup). python-ci dispatched on spr/edge/7f42df81 (run 30286254481);
+collapse-series review subagent launched; Copilot requested once on
+#2659/#2663 — ALL to be checked at next orientation. Parks live on jj
+bookmarks improvements/item-{2,4,5,8} (pushed to origin). Remaining
+phases: 3 (clarity refactor 14c/14b), 4 (goldens + double battery pass +
+equiv gate), 5 (EC2 measurement). See GOAL_STATE.md for numbered actions.
+
+## Session 7 (cont.): Phase 3 clarity refactor SHIPPED — battery bit-identity ×2 trees
+
+- **14b**: TestBlobInjectionStats (tests/test_repness_unit.py) — Clojure
+  blob group memberships (unfolded via the blob's own base-clusters) + the
+  dataset votes injected into the PRODUCTION stats path; every blob repness
+  entry compared per (gid, tid) on n-success/n-trials/p-success/p-test/
+  repness/repness-test/repful-for. GREEN on vw + biodiversity. Gotcha:
+  test-conversation matrices carry STRING pids/tids vs the blob's ints
+  (map on the way in); Clojure emits repness-test ROUNDED (~7 sig digits)
+  → that one field compares at rtol 2e-6, the rest at 1e-9.
+- **14c**: compute_group_comment_stats_df →
+  _group_comment_vote_counts (plumbing) + _comment_stats_from_counts
+  (recipe). Pure code motion. **Battery on the refactored tree: 20/20
+  MATCH (full py re-replay, 18m46s)** — bit-identity PROVEN. Full suite
+  1155 passed (+2 blob pins, -1 deduped parametrize, one env-gated skip).
+- Shipped as PR #2673 (spr/edge/acff8fbe); python-ci dispatched (run
+  30288678922); review subagent launched. jj gotcha hit: `jj split`
+  opens an editor (use JJ_EDITOR=true) and gives BOTH halves the original
+  description INCLUDING the spr commit-id trailer, and the spr bookmark
+  follows the working copy — rewrite the second half's description fresh
+  and `jj bookmark set <spr-branch> -r <first-half> --allow-backwards`.
+- Collapse-series review agent verdict: CLEAN (no high-confidence
+  findings; verified every branch reduction = the legacy arm, fingerprint
+  freezing exact, no test-expectation drift). Its 3 sub-threshold
+  cleanups applied (runbook env line, deduped parametrize, docstrings).
+  Phase 0 PR #2664 python-ci: SUCCESS.
+
+### Phase 4 diagnostic (goldens)
+
+`scripts/regression_comparer.py` on the collapsed tree: NO golden
+snapshots exist for the public datasets (vw/biodiversity — never
+recorded in this worktree); the 5 private-dataset goldens live under
+real_data/.local/*/golden_snapshot.json. That's why the suite stayed
+green through the collapse — golden comparisons skip without snapshots.
+Phase 4 re-record therefore = private goldens (--include-local) +
+optionally recording public ones; VERIFY against the battery's certified
+clj recordings BEFORE recording (never blind). Recorder:
+scripts/regression_recorder.py.
