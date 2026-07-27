@@ -104,6 +104,27 @@ def test_run_passes_cli_flags_through_to_library(monkeypatch):
     assert captured["refresh_py"] is True
 
 
+def test_run_passes_workers_through_and_defaults_to_six(monkeypatch):
+    mod = _module()
+    captured: dict = {}
+
+    def fake_run_battery(entries, **kw):
+        captured.update(kw)
+        return {"battery": [], "root": "/tmp/x"}
+
+    monkeypatch.setattr(mod.cert, "load_battery", lambda path: [])
+    monkeypatch.setattr(mod.cert, "run_battery", fake_run_battery)
+
+    res = CliRunner().invoke(mod.cli, ["run", "--workers", "3"])
+    assert res.exit_code == 0, res.output
+    assert captured["workers"] == 3
+
+    captured.clear()
+    res = CliRunner().invoke(mod.cli, ["run"])
+    assert res.exit_code == 0, res.output
+    assert captured["workers"] == 6
+
+
 def test_run_stdout_budget_with_large_mocked_battery(monkeypatch):
     mod = _module()
     report = {
