@@ -54,15 +54,24 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
   # ===== OPTIMIZATION: Copy source code LAST (busts cache on code changes) =====
   # Copy source code - this layer rebuilds when code changes but reuses dependency layers above
-  COPY polismath/ ./polismath/
   COPY umap_narrative/ ./umap_narrative/
   COPY scripts/ ./scripts/
   COPY *.py ./
 
-  # Install the project package (without dependencies - they're already installed)
-  # This registers entry points and installs the package in development mode
+  # The math engine lives OUTSIDE this build context (<repo>/math, cutover
+  # Step #4) and arrives via a named additional build context — compose
+  # declares `additional_contexts: mathsrc: ./math` on every service that
+  # builds this Dockerfile. Its deps are a subset of the requirements.lock
+  # installed above, so --no-deps is safe.
+  COPY --from=mathsrc . /math-src
+
+  # Install both project packages (without dependencies - they're already
+  # installed). This registers entry points; polismath installs from the
+  # sibling source tree, NEVER from an index (supply-chain: the PyPI name
+  # "polismath" is not ours).
   RUN --mount=type=cache,target=/root/.cache/uv \
-      uv pip install --no-deps .
+      uv pip install --no-deps . && \
+      uv pip install --no-deps /math-src
 
   RUN echo "--- PyTorch Check (after pyproject.toml installation) ---" && \
       pip show torch torchvision torchaudio && \
@@ -90,8 +99,8 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy source code from builder stage (already built into the package)
-COPY --from=builder /app/polismath/ ./polismath/
+# Copy source code from builder stage (already built into the package;
+# polismath ships via site-packages above — no /app/polismath dir anymore)
 COPY --from=builder /app/scripts/ ./scripts/
 COPY --from=builder /app/umap_narrative/ ./umap_narrative/
 COPY --from=builder /app/*.py ./
@@ -144,9 +153,14 @@ COPY --from=builder /opt/uv/uv /usr/local/bin/uv
 ENV UV_SYSTEM_PYTHON=1
 COPY pyproject.toml .
 
-# Install dev dependencies (pytest, etc.) using caching
+# Install dev dependencies (pytest, etc.) using caching. The bare
+# `polismath` requirement is satisfied by the copy already installed in
+# the `final` stage this extends — assert that survived so a future
+# --upgrade/--reinstall can never silently pull the foreign PyPI
+# "polismath" package instead.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install ".[dev]"
+    uv pip install ".[dev]" && \
+    python -c "import polismath.poller"
 
 # Default command for test container (can be overridden)
 CMD ["tail", "-f", "/dev/null"]

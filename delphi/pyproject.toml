@@ -9,6 +9,9 @@ description = "Mathematical analytics pipeline for Polis conversations"
 requires-python = ">=3.12,<3.13" # Pin to Python 3.12.x
 
 dependencies = [
+    # The math engine — its own package at <repo>/math since cutover Step #4,
+    # installed editable from the sibling tree (see [tool.uv.sources]).
+    "polismath",
     "numpy>=1.26.4,<2.0",
     "pandas>=2.1.4",
     "sqlalchemy>=2.0.36",
@@ -101,8 +104,8 @@ notebook = [
 [project.scripts]
 delphi = "scripts.delphi_cli:main"
 run-delphi = "run_delphi:main"
-# Pipeline entry points
-run-math-pipeline = "polismath.run_math_pipeline:main"
+# Pipeline entry points (run-math-pipeline moved to math/pyproject.toml
+# with the polismath package, cutover Step #4)
 run-umap-pipeline = "umap_narrative.run_pipeline:main"
 calculate-extremity = "umap_narrative.501_calculate_comment_extremity:main"
 calculate-priorities = "umap_narrative.502_calculate_priorities:main"
@@ -111,13 +114,17 @@ reset-conversation = "umap_narrative.reset_conversation:main"
 create-datamapplot = "umap_narrative.700_datamapplot_for_layer:main"
 setup-minio = "setup_minio:setup_minio_bucket"
 
+# uv: resolve the polismath dependency from the sibling math/ tree,
+# editable — one shared environment (delphi/.venv) for both packages.
+[tool.uv.sources]
+polismath = { path = "../math", editable = true }
+
 # Hatchling configuration
 [tool.hatch.build.targets.wheel]
-packages = ["polismath", "umap_narrative"]
+packages = ["umap_narrative"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "/polismath",
     "/umap_narrative",
     "/scripts",
     "/tests",
@@ -161,7 +168,10 @@ relative_files = true
 # maintain this). The mirror `polis/.venv` (also real or symlink) is what lets
 # editors opening the workspace at the repo root auto-discover the interpreter.
 [tool.pyright]
-include = ["polismath", "umap_narrative", "tests", "scripts"]
+# polismath moved to <repo>/math (cutover Step #4) and has its own
+# [tool.pyright] there; here we cover the delphi tree, which imports it
+# from the shared .venv (editable install).
+include = ["umap_narrative", "tests", "scripts"]
 exclude = [
     "**/__pycache__",
     "**/.pytest_cache",

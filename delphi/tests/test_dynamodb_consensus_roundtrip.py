@@ -1,5 +1,5 @@
 """
-Tests for D11 cascade fix in `delphi/polismath/database/dynamodb.py`.
+Tests for D11 cascade fix in `math/polismath/database/dynamodb.py`.
 
 Investigation B (2026-06-11) found three sites in the DynamoDB writer/reader
 that either dropped the new D11 `consensus_comments` dict shape

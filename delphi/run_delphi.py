@@ -97,8 +97,10 @@ def main():
 
     # Run the math pipeline
     print(f"{GREEN}Running math pipeline...{NC}")
+    # polismath is an installed package (its source moved to <repo>/math at
+    # cutover Step #4) — invoke the pipeline as a module, not by file path.
     math_command = [
-        "python", f"{app_path}/polismath/run_math_pipeline.py",
+        "python", "-m", "polismath.run_math_pipeline",
         f"--zid={zid}",
     ]
     if max_votes_arg:

@@ -3,7 +3,7 @@
 a "prodclone" Postgres database (a clone of the production polis DB) into the
 replay-dataset export format, for Clojure↔Python math parity certification.
 
-See ``delphi/polismath/replay/prodclone.py`` for the pure building blocks
+See ``math/polismath/replay/prodclone.py`` for the pure building blocks
 (SQL builders, feature classifiers, CSV formatters, slug minting, the
 path-safety guard). This script is a thin click CLI wiring those together
 with a live psycopg2 connection — mirrors the style of

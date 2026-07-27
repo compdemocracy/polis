@@ -10,7 +10,11 @@ on:
     paths: &paths
       - 'delphi/**/*.py'
       - 'delphi/requirements*.txt'
+      - 'delphi/requirements.lock'
+      - 'delphi/pyproject.toml'
       - 'delphi/Dockerfile'
+      - 'math/**/*.py'
+      - 'math/pyproject.toml'
       - '.github/workflows/python-ci.yml'
   pull_request:
     branches:
@@ -97,8 +101,9 @@ jobs:
         docker compose -f docker-compose.test.yml cp delphi/real_data delphi:/app/real_data
         echo "Copying coverage script into container..."
         docker compose -f docker-compose.test.yml cp delphi/generate_coverage_md.py delphi:/app/generate_coverage_md.py
-        echo "Copying script to be tested into container..."
-        docker compose -f docker-compose.test.yml cp delphi/polismath/run_math_pipeline.py delphi:/app/run_math_pipeline.py
+        # (no run_math_pipeline.py cp: since the math package move it is a
+        # polismath submodule — installed in the image, covered by
+        # --cov=polismath; nothing imports a top-level copy.)
         docker compose -f docker-compose.test.yml cp delphi/umap_narrative delphi:/app/umap_narrative
 
         echo "Running tests and generating coverage report..."
@@ -120,7 +125,7 @@ jobs:
             echo '--- Running Pytest ---'; \
             export PYTHONPATH=\$PYTHONPATH:/app; \
             export POLIS_TEST_POSTGRES_URL=\"postgresql://\$DATABASE_USER:\$DATABASE_PASSWORD@\$DATABASE_HOST/\$DATABASE_NAME\"; \
-            pytest --cov=polismath --cov=run_math_pipeline --cov=./umap_narrative --cov-report=xml:/app/coverage.xml /app/tests --ignore=/app/tests/test_pakistan_conversation.py
+            pytest --cov=polismath --cov=./umap_narrative --cov-report=xml:/app/coverage.xml /app/tests --ignore=/app/tests/test_pakistan_conversation.py
             echo '--- Generating Coverage Comment Text ---'; \
             python /app/generate_coverage_md.py > /app/coverage-comment.md \
           "

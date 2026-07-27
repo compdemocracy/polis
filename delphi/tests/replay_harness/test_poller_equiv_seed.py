@@ -558,7 +558,7 @@ class TestRunnerEnvAssembly:
             database_url="postgresql://x/polis_equiv", math_env="py-shadow",
             base_env={},
         )
-        assert runner.cmd == ["uv", "run", "python", "scripts/math_poller.py"]
+        assert runner.cmd == ["uv", "run", "python", "-m", "polismath.poller"]
         # Equality with _DELPHI_ROOT is the contract; asserting the directory
         # NAME was layout-fragile — CI mounts the delphi tree at /app, where
         # .name == "app" (python-ci run 30071088647, 2026-07-24).
