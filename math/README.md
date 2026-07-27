@@ -1,4 +1,12 @@
-# polismath
+# polismath — ARCHIVED (decommissioned at Clojure->Python cutover Step #3)
+
+> **This Clojure service no longer runs anywhere.** The math engine is the
+> Python poller (`math-python` service; code under `delphi/polismath/` — moving
+> to top-level `math/` at cutover Step #4, which removes this tree). Its
+> Clojure-exact behavior was certified against THIS tree (battery 20/20 +
+> live poller equivalence — see `delphi/docs/CUTOVER_RUNBOOK.md`). After
+> Step #4 this tree remains available in git history as the certification
+> oracle (`git log -- math/`).
 
 The real-time machine learning system powering Polis.
 

@@ -38,8 +38,10 @@ jobs:
           docker-compose build server
           docker push $ECR_REGISTRY/polis/server:latest
 
-          docker-compose build math
-          docker push $ECR_REGISTRY/polis/math:latest
+          # The Clojure math image is gone (cutover Step 3). No math-side
+          # push is needed here: instances build locally in
+          # after_install.sh (`docker-compose up --build`); the ECR tag
+          # was never pulled by the deploy path.
 
   # =====================================================
   # ==      JOB 2: DEPLOY TO PRODUCTION (US)           ==

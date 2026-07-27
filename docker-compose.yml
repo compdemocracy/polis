@@ -76,26 +76,6 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  math:
-    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/math:latest
-    build:
-      context: ./math
-    labels:
-      polis_tag: ${TAG:-dev}
-    environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - LOGGING_LEVEL=${MATH_LOG_LEVEL:-warn}
-      - MATH_ENV=${MATH_ENV:-prod}
-      - WEBSERVER_USERNAME=${WEBSERVER_USERNAME}
-      - WEBSERVER_PASS=${WEBSERVER_PASS}
-      # Database connection pool configuration for math service
-      - DATABASE_POOL_SIZE=${MATH_DATABASE_POOL_SIZE:-10}
-    networks:
-      - "polis-net"
-    restart: unless-stopped
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-
   delphi:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
@@ -145,13 +125,11 @@ services:
           cpus: ${DELPHI_CONTAINER_CPUS:-2}
     restart: unless-stopped
 
-  # Python math poller — the eventual replacement for the Clojure `math`
-  # container.  Profile-gated so it only runs when explicitly requested
-  # (`--profile math-python`).  Reuses the delphi build target and overrides the
-  # command to run the poller CLI.  Defaults to SHADOW mode: writes under a
-  # DISTINCT math_env (`python`) so its rows are invisible to the prod server
-  # (UNIQUE(zid, math_env)) — zero production risk while parity is validated.
-  # See delphi/docs/MATH_POLLER_DESIGN.md §4.
+  # Python math poller — THE math engine (the Clojure `math` container was
+  # decommissioned at cutover Step #3).  Reuses the delphi build target and
+  # overrides the command to run the poller CLI.  Reads/writes the same
+  # MATH_ENV the server reads, exactly as the Clojure service did.
+  # See delphi/docs/MATH_POLLER_DESIGN.md §4 + docs/CUTOVER_RUNBOOK.md.
   math-python:
     image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
     build:
@@ -165,8 +143,9 @@ services:
       - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}
       - POSTGRES_CONNECT_TIMEOUT=${POSTGRES_CONNECT_TIMEOUT:-30}
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
-      # Shadow-mode math_env (distinct from the Clojure math service's MATH_ENV).
-      - MATH_ENV=${MATH_PYTHON_ENV:-python}
+      # Same env var + default the Clojure math service used — the server
+      # reads the rows written under this math_env.
+      - MATH_ENV=${MATH_ENV:-prod}
       # Poll cadences (ms) and boot window (days).
       - POLL_VOTE_INTERVAL_MS=${POLL_VOTE_INTERVAL_MS:-1000}
       - POLL_MOD_INTERVAL_MS=${POLL_MOD_INTERVAL_MS:-1000}
@@ -189,15 +168,13 @@ services:
       - "host.docker.internal:host-gateway"
     # Hard memory backstop (mirrors the delphi service). The in-memory conv cache
     # never evicted by default (Clojure's 4h reboot was the de-facto cap, which we
-    # dropped); this limit bounds a long shadow soak. Set MATH_CONV_CACHE_CAP>0 to
-    # LRU-evict cold conversations before hitting it.
+    # dropped); this limit bounds any long-running deployment. Set
+    # MATH_CONV_CACHE_CAP>0 to LRU-evict cold conversations before hitting it.
     deploy:
       resources:
         limits:
           memory: ${DELPHI_POLLER_CONTAINER_MEMORY:-16g}
     restart: unless-stopped
-    profiles:
-      - math-python
 
   postgres:
     restart: always
