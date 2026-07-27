@@ -184,6 +184,104 @@ def test_sha256_tree_sensitive_to_relpath_not_just_content(tmp_path):
     assert cert.sha256_tree(d1, "**/*.py") != cert.sha256_tree(d2, "**/*.py")
 
 
+def test_sha256_tree_exclude_file_and_dir_prefix(tmp_path):
+    """``exclude`` drops exact file relpaths and (trailing-slash) dir subtrees
+    from the digest — an excluded file's content no longer moves the hash."""
+    d = tmp_path / "pkg"
+    d.mkdir()
+    (d / "engine.py").write_text("e = 1\n")
+    (d / "harness.py").write_text("h = 1\n")
+    (d / "tools").mkdir()
+    (d / "tools" / "aux.py").write_text("t = 1\n")
+
+    exclude = ("harness.py", "tools/")
+    h_all = cert.sha256_tree(d, "**/*.py")
+    h1 = cert.sha256_tree(d, "**/*.py", exclude=exclude)
+    assert h1 != h_all  # exclusion actually removes content from the digest
+
+    (d / "harness.py").write_text("h = 2\n")
+    (d / "tools" / "aux.py").write_text("t = 2\n")
+    assert cert.sha256_tree(d, "**/*.py", exclude=exclude) == h1
+
+    (d / "engine.py").write_text("e = 2\n")
+    assert cert.sha256_tree(d, "**/*.py", exclude=exclude) != h1
+
+
+def test_engine_tree_exclude_entries_exist_and_keep_replay_shapers():
+    """Every exclusion names a real path under polismath/ (a rename must not
+    turn it into a silent no-op), and the replay-shaping files stay hashed."""
+    pm = cert._DELPHI_ROOT / "polismath"
+    for e in cert._ENGINE_TREE_EXCLUDE:
+        p = pm / e.rstrip("/")
+        if e.endswith("/"):
+            assert p.is_dir(), e
+        else:
+            assert p.is_file(), e
+    kept = {"replay/driver.py", "replay/schedule.py", "replay/real_data.py",
+            "replay/store.py", "replay/stepcompare.py", "replay/types.py"}
+    assert not kept & set(cert._ENGINE_TREE_EXCLUDE)
+
+
+def test_engine_tree_hash_ignores_harness_edits_sees_engine_edits(tmp_path):
+    pm = tmp_path / "polismath"
+    for rel in ("replay/certify.py", "replay/prodclone.py", "replay/driver.py",
+                "poller/service.py", "conversation/conversation.py"):
+        p = pm / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("v = 1\n")
+
+    h0 = cert.engine_tree_hash(pm)
+    (pm / "replay" / "certify.py").write_text("v = 2\n")
+    (pm / "poller" / "service.py").write_text("v = 2\n")
+    assert cert.engine_tree_hash(pm) == h0
+
+    (pm / "replay" / "driver.py").write_text("v = 2\n")
+    h1 = cert.engine_tree_hash(pm)
+    assert h1 != h0
+    (pm / "conversation" / "conversation.py").write_text("v = 2\n")
+    assert cert.engine_tree_hash(pm) != h1
+
+
+def test_ensure_py_recording_cache_survives_harness_only_edit(tmp_path, monkeypatch):
+    """The py cache manifest is keyed on the ENGINE-scoped tree hash: editing
+    an excluded harness file must NOT invalidate a recording; editing an
+    engine file must."""
+    calls = {"n": 0}
+
+    def fake_run(cmd, *, cwd, env):
+        calls["n"] += 1
+        return _fake_completed()
+
+    monkeypatch.setattr(cert, "_run_subprocess", fake_run)
+
+    fake_delphi = tmp_path / "delphi"
+    pm = fake_delphi / "polismath"
+    (pm / "replay").mkdir(parents=True)
+    (pm / "replay" / "certify.py").write_text("h = 1\n")
+    (pm / "replay" / "driver.py").write_text("d = 1\n")
+    monkeypatch.setattr(cert, "_DELPHI_ROOT", fake_delphi)
+    cert._engine_tree_hash_cached.cache_clear()
+    try:
+        entry = _make_entry()
+        spec = sched.preset_single_cut("vw", 100, schedule_id=entry.schedule_id)
+        root = tmp_path / "root"
+
+        _, cached1 = cert.ensure_py_recording(entry, spec, "sha", root=root)
+        assert cached1 is False and calls["n"] == 1
+
+        (pm / "replay" / "certify.py").write_text("h = 2\n")  # harness-only edit
+        cert._engine_tree_hash_cached.cache_clear()
+        _, cached2 = cert.ensure_py_recording(entry, spec, "sha", root=root)
+        assert cached2 is True and calls["n"] == 1
+
+        (pm / "replay" / "driver.py").write_text("d = 2\n")  # engine edit
+        cert._engine_tree_hash_cached.cache_clear()
+        _, cached3 = cert.ensure_py_recording(entry, spec, "sha", root=root)
+        assert cached3 is False and calls["n"] == 2
+    finally:
+        cert._engine_tree_hash_cached.cache_clear()
+
+
 def test_canonical_schedule_hash_ignores_id_but_sees_cuts():
     s1 = sched.preset_uniform("vw", 100, n_cuts=8, schedule_id="a")
     s2 = sched.preset_uniform("vw", 100, n_cuts=8, schedule_id="b")
@@ -711,3 +809,76 @@ def test_certify_entry_real_drivers_vw_single_cut(tmp_path):
         result2, _ = cert.certify_entry(entry, root=tmp_path, ledger=ledger)
     assert calls["n"] == 0
     assert result2["verdict"] == result["verdict"]
+
+
+# ---------------------------------------------------------------------------
+# Parallel battery (Phase 0b): workers>1 must produce an identical report and
+# ledger to the serial path, results in battery order.
+# ---------------------------------------------------------------------------
+def _seed_cached_pair(root: Path, ds: str, sid: str, *, divergent: bool) -> None:
+    """Pre-write a one-step clj/py recording pair under ``<root>/<ds>/<sid>/``
+    so certify_entry takes the fully-cached path (manifest check mocked)."""
+    rec = root / ds / sid
+    blob = _acceptance_blob()
+    _write_clj_step(rec / "clj", 0, blob)
+    py_blob = dict(blob, n=blob["n"] + 5) if divergent else blob
+    _write_py_step(rec / "py", 0, py_blob)
+
+
+def test_run_battery_parallel_matches_serial_report_and_ledger(tmp_path, monkeypatch):
+    monkeypatch.setattr(cert, "_manifest_matches", lambda mp, exp: True)
+    monkeypatch.setattr(cert, "_clj_source_hashes", lambda: ("x", "y"))
+
+    entries = [
+        _make_entry(schedule_id="p0-match"),
+        _make_entry(schedule_id="p0-div"),
+        _make_entry(schedule_id="p0-match2"),
+    ]
+    root_a = tmp_path / "root_a"
+    root_b = tmp_path / "root_b"
+    for e, div in zip(entries, (False, True, False)):
+        _seed_cached_pair(root_a, "vw", e.schedule_id, divergent=div)
+        _seed_cached_pair(root_b, "vw", e.schedule_id, divergent=div)
+
+    ledger_a = tmp_path / "ledger_a.json"
+    ledger_b = tmp_path / "ledger_b.json"
+    rep_a = cert.run_battery(entries, root=root_a, ledger_path=ledger_a)
+    rep_b = cert.run_battery(entries, root=root_b, ledger_path=ledger_b, workers=3)
+
+    assert rep_a["battery"] == rep_b["battery"]
+    assert [(r["dataset"], r["schedule_id"]) for r in rep_b["battery"]] == \
+        [("vw", e.schedule_id) for e in entries]
+    assert rep_b["battery"][1]["verdict"] == "DIVERGENCE"
+    assert json.loads(ledger_a.read_text()) == json.loads(ledger_b.read_text())
+    assert json.loads(ledger_b.read_text())  # non-vacuous: divergence reached it
+
+
+def test_run_battery_workers_one_is_default_and_identical(tmp_path, monkeypatch):
+    monkeypatch.setattr(cert, "_manifest_matches", lambda mp, exp: True)
+    monkeypatch.setattr(cert, "_clj_source_hashes", lambda: ("x", "y"))
+
+    entries = [_make_entry(schedule_id="w1-only")]
+    root_a = tmp_path / "root_a"
+    root_b = tmp_path / "root_b"
+    _seed_cached_pair(root_a, "vw", "w1-only", divergent=False)
+    _seed_cached_pair(root_b, "vw", "w1-only", divergent=False)
+
+    rep_default = cert.run_battery(entries, root=root_a,
+                                   ledger_path=tmp_path / "la.json")
+    rep_w1 = cert.run_battery(entries, root=root_b,
+                              ledger_path=tmp_path / "lb.json", workers=1)
+    assert rep_default["battery"] == rep_w1["battery"]
+
+
+def test_step_verdict_cache_write_leaves_no_tmp_files(tmp_path):
+    clj_dir = tmp_path / "clj"
+    py_dir = tmp_path / "py"
+    blob = _acceptance_blob()
+    _write_clj_step(clj_dir, 0, blob)
+    _write_py_step(py_dir, 0, dict(blob, n=99))
+    cert.compare_recording_pair(clj_dir, py_dir, engine_mode="clojure-legacy",
+                                cache_root=tmp_path)
+    cache_dir = tmp_path / ".certify_cache" / "stepverdicts"
+    files = list(cache_dir.iterdir())
+    assert files
+    assert all(f.suffix == ".json" for f in files)
