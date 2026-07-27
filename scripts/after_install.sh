@@ -104,8 +104,19 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
   echo "Starting docker-compose up for 'server', 'nginx-proxy', and 'client-participation-alpha' services"
   sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
-  echo "Starting docker-compose up for 'math' service"
-  sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
+  # Cutover Step 2 (flip, clean cut): the Python math poller is THE math
+  # engine. Its MATH_ENV comes from the instance .env, which THIS SCRIPT
+  # rewrites from the polis-web-app-env-vars secret on every deploy (key
+  # MATH_PYTHON_ENV, 'prod' post-flip) — container restarts do NOT pick
+  # up secret edits. The Clojure `math` service is deliberately NOT
+  # started anymore: two writers must never share a math_env. Its
+  # definition stays in docker-compose.yml until Step 3, so an emergency
+  # manual restart is `docker-compose up -d math` — but only AFTER
+  # taking the poller off 'prod'; the normal rollback is revert-this-PR
+  # + redeploy. Compose profiles gate DEV only; prod starts services BY
+  # NAME here.
+  echo "Starting docker-compose up for 'math-python' service (cutover Step 2)"
+  sudo /usr/local/bin/docker-compose up -d math-python --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   echo "Starting docker-compose up for 'delphi' service"
   echo "Fetching Ollama Service URL for Delphi..."

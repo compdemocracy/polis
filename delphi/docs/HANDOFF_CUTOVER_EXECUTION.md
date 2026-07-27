@@ -1,5 +1,15 @@
 # HANDOFF: execute the Clojure→Python math cutover (steps 0-3 as WIP PRs)
 
+> **STATUS (2026-07-28, s8): PREP DONE; CLEAN CUT RULED.** Colin ruled
+> clean cut (no shadow) — Step 1/#2686 was folded into the flip PR and
+> closed. Open draft PRs: Step 0 = #2685 (PROD DEPLOY vehicle,
+> stable←edge), Step 2 = #2687 (flip — carries the comparison tool +
+> cache-cap fix; mechanism confirmation pending), Step 3 = #2688
+> (decommission), Step 4 = #2689 (remove Clojure tree, move Python math
+> to top-level math/ — added per Julien). Rulings in CUTOVER_RUNBOOK.md
+> "Execution shape". NOTHING merged; no AWS-side change made. Journal:
+> session 8. Julien triggers Step 0.
+
 Written 2026-07-28 at the close of s7 (GOAL_CUTOVER_READY: DONE). This is
 the ENTRY POINT for the session that ships the cutover. Read order:
 1. This file.
