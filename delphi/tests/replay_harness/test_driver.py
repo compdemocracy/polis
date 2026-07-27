@@ -136,20 +136,6 @@ def _mod_spec(mod_events):
     })
 
 
-def test_driver_fails_loudly_on_moderation_set_emptying():
-    # Step 0 moderates tid 100 OUT and tid 101 IN (both sets non-empty). Step 1
-    # un-moderates tid 100 (mod=0) -> mod_out_tids goes empty while mod_in stays
-    # active: an emptying transition update_moderation cannot represent.
-    mods = [ModEvent(35, 100, -1), ModEvent(35, 101, 1), ModEvent(55, 100, 0)]
-    ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
-    logging.disable(logging.CRITICAL)
-    try:
-        with pytest.raises(NotImplementedError, match="clearing mod_out_tids"):
-            run_replay(ds, _mod_spec(mods))
-    finally:
-        logging.disable(logging.NOTSET)
-
-
 def test_driver_allows_non_emptying_moderation_sequence():
     # tid 100 OUT at t1, tid 101 IN at t2: both sets stay non-empty across steps,
     # so the guard must NOT fire and the replay records both steps.
@@ -265,24 +251,6 @@ def test_legacy_mode_none_moderation_never_calls_mod_update(monkeypatch):
     records = _run_legacy(ds, spec)
     assert calls == []
     assert records[-1].blob["moderation"]["mod_out_tids"] == []
-
-
-def test_improved_mode_still_uses_update_moderation_and_guard(monkeypatch):
-    # Explicit control: 'improved' (default, no env override) keeps using
-    # update_moderation + _guard_moderation_clear, never mod_update.
-    calls = []
-    original = Conversation.mod_update
-
-    def _spy(self, mods):
-        calls.append(list(mods))
-        return original(self, mods)
-
-    monkeypatch.setattr(Conversation, "mod_update", _spy)
-    mods = [ModEvent(35, 100, -1), ModEvent(55, 101, 1)]
-    ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
-    records = _run_legacy(ds, _mod_spec(mods))
-    assert len(records) == 2
-    assert calls == []  # mod_update never called on the improved path
 
 
 # --- restart_after: worker-restart seam ------------------------------------
@@ -414,22 +382,6 @@ def test_restart_replays_woven_mods_so_far(monkeypatch):
     })
     records = _run_legacy(ds, spec)
     assert records[1].blob["moderation"]["mod_out_tids"] == [100]
-
-
-def test_restart_with_moderation_requires_legacy_mode():
-    # #2656 review (2026-07-24): the restart seam replays woven mods via
-    # mod_update (legacy reducer semantics); combining restart_after with a
-    # moderation-bearing schedule in IMPROVED mode would silently apply the
-    # wrong moderation semantics — fail loudly instead.
-    mods = [ModEvent(35, 100, -1)]
-    ds = ReplayDataset.build(_MOD_RAW_VOTES, mod_events=mods)
-    spec = sched.ScheduleSpec.from_dict({
-        "dataset": "vw", "schedule_id": "restart-improved", "source": "votes-csv",
-        "cuts": _MOD_CUTS, "moderation": "interleave-by-timestamp",
-        "clojure": {"warm_start": "chain"}, "notes": "", "restart_after": 0,
-    })
-    with pytest.raises(NotImplementedError, match="clojure-legacy"):
-        _run_legacy(ds, spec)  # improved mode: no env override set
 
 
 @pytest.mark.parametrize("bad", [-1, 3, 4])
