@@ -16,9 +16,11 @@ order of ``user-vote-counts`` written by Clojure's cheshire (which walks the
 map in iteration order): n=18, n=30 and n=98 integer-pid maps, all exact.
 
 Caveats, deliberate and documented:
-- Integer keys only. Other key types hash differently (e.g. String hasheq is
-  Murmur3 over ``String.hashCode``); :func:`clojure_hash_map_key_order` falls
-  back to the given order for them rather than guessing.
+- Integer keys, or numeric-string keys that normalize to one (`_as_long`) —
+  both hash as the equivalent Clojure Long. Other key types (e.g. plain
+  strings, whose Clojure hasheq is Murmur3 over ``String.hashCode``, not
+  ``hashLong``) hash differently; :func:`clojure_hash_map_key_order` falls
+  back to the given order for them.
 - Full-hash collisions land in a HashCollisionNode (insertion order). For
   distinct realistic pid ranges Murmur3-32 collisions are vanishingly rare;
   the sort is stable, so colliding keys keep their given relative order —

@@ -318,7 +318,7 @@ def pca_project_dataframe(df: pd.DataFrame,
     # "Determinism verification" entry (2026-07-04/05) in
     # docs/CLJ-PARITY-FIXES-JOURNAL.md.
 
-    # Solver switch (read at call time — see utils.env_flags.resolve_impl_flag):
+    # Solver switch (read at call time — see polismath.utils.env_flags.resolve_impl_flag):
     #   POLISMATH_PCA_IMPL=powerit  (default) legacy/Clojure-parity power iteration
     #   POLISMATH_PCA_IMPL=sklearn  improved exact-SVD path
     # The imputation above and sparsity scaling below are IDENTICAL for both;
@@ -465,8 +465,11 @@ def pca_project_cmnts(center: np.ndarray, comps: np.ndarray) -> np.ndarray:
         # destructure leaves pc2 nil and `utils/zip` truncates the
         # sparsity-aware reduce to EMPTY — every comment projects to 0.0 on
         # BOTH components (pca.clj:134-157; verified on a 3x1 clj replay
-        # reference, 2026-07-22 s4).
-        return np.zeros((n_cmnts, comps.shape[0]))
+        # reference, 2026-07-22 s4). Always 2-wide here — matching
+        # pca_project_dataframe's always-2-wide guarantee — not
+        # comps.shape[0]; the conversation.py:1866 defensive pad becomes a
+        # no-op given this, but is left in place.
+        return np.zeros((n_cmnts, 2))
     scale = np.sqrt(n_cmnts)
     coefs = scale * (AGREE - center)              # shape (n_cmnts,); AGREE = +1 (Delphi)
     return coefs[:, None] * comps.T               # shape (n_cmnts, n_components)

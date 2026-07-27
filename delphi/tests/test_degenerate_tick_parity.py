@@ -188,5 +188,25 @@ class TestImprovedGuardsUnchanged:
         assert conv.group_k_smoother == {}
 
 
+class TestImprovedStaleStateReset:
+    """#2642 review finding: the <2-in-conv-participants early return resets
+    base_clusters/group_clusters/subgroup_clusters but used to leave
+    group_clusterings/group_k_smoother untouched. In 'improved' mode there is
+    no warm-start use for that state (unlike 'clojure-legacy'), so a stale
+    value set before a guarded tick would otherwise leak forward into the
+    result unchanged instead of being reset to {}."""
+
+    def test_single_participant_resets_stale_group_state(self, improved_mode):
+        conv = Conversation('solo')
+        conv.group_clusterings = {2: "SENTINEL"}
+        conv.group_k_smoother = {"k": 1}
+
+        result = conv.update_votes(_single_ptpt_votes())
+
+        assert result.base_clusters == [], "sanity: must hit the early-return path"
+        assert result.group_clusterings == {}
+        assert result.group_k_smoother == {}
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

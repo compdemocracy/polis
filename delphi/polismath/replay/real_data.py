@@ -15,11 +15,19 @@ directory names never appear in code.
 """
 
 import csv
+import re
 from pathlib import Path
 
 from polismath.replay.types import ModEvent, ReplayDataset
 
 REAL_DATA_ROOT = Path(__file__).resolve().parents[2] / "real_data"
+
+# Slug allow-list — same precedent as prodclone.py's minted-slug regex
+# (``_SLUG_RE_TEMPLATE``): a slug flows unsanitized into a ``Path.glob()``
+# pattern below, so without this guard a slug containing glob metacharacters
+# (``*``, ``?``, ``[...]``) or path separators (``../``) could escape the
+# intended directory or match unintended files.
+_SLUG_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
 # Comments-CSV columns a moderation-history-carrying export must have before
 # we attempt to weave mod events out of it — MOD_RESTART_PORT_SPEC.md "Python
@@ -78,6 +86,8 @@ def dataset_dir(slug: str) -> Path | None:
     """Locate a dataset directory by slug — public (``real_data/*-<slug>``)
     first, then private (``real_data/.local/*-<slug>``, gitignored). A public
     match wins a slug collision."""
+    if not _SLUG_RE.match(slug):
+        return None
     hits = sorted(REAL_DATA_ROOT.glob(f"*-{slug}"))
     if not hits:
         hits = sorted(REAL_DATA_ROOT.glob(f".local/*-{slug}"))
