@@ -4496,3 +4496,17 @@ bit-identical) + #2680 (math-python rename) pushed; CI dispatched (run
 completion messages need JSON parsing (tab-split receipt handles broke
 delete → stale redelivery); the vectorized run's job label says
 large-conv-tick (sed missed escaped quotes) — S3 key disambiguates.
+
+### s7 close: cutover handoff shipped + one spr incident (recovered)
+
+HANDOFF_CUTOVER_EXECUTION.md = entry point for the cutover-PRs session
+(PR #2684): state summary, the two open rulings (shadow-vs-replace;
+flip mechanism), per-PR specs S0-S3 incl. the Secrets-Manager env
+reality, and the gotcha list. Runbook carries the canonical "Execution
+shape" section (shadow analysis + exit checklist + no-CDK verdict).
+Incident: re-describing the audit commit without preserving its
+commit-id trailer forked a duplicate PR (#2682/#2683) — the EXACT
+failure the 2026-07-17 memory warns about; recovered per its recipe
+(kept the trailer-matching #2683, closed #2682, deleted the stray
+bookmark+branch). A malformed `spr/edge/` bookmark from an
+empty-commit spr update was also deleted.
