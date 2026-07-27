@@ -11,10 +11,11 @@ passed them — every tick ran cold. This module verifies:
   1. pca_project_dataframe threads start_vectors into powerit_pca, and refuses
      to run sklearn when warm-start vectors are required (sklearn cannot inject
      start vectors) — it warns and falls back to power iteration.
-  2. In 'clojure-legacy' mode, a second recompute tick feeds tick-1's comps to
-     powerit_pca as start_vectors; in 'improved' mode it stays None (cold).
+  2. A second recompute tick feeds tick-1's comps to powerit_pca as
+     start_vectors (the engine's only path since the mode collapse; the
+     former improved-mode cold recompute is parked:
+     POST_CUTOVER_IMPROVEMENTS.md item 8).
   3. Warm-started tick-2 comps stay close in angle to tick-1 (reduced jitter).
-  4. The cold FIRST tick is identical across the two modes (no prev state).
 """
 
 import os
@@ -187,12 +188,6 @@ class TestChainedWarmStart:
         np.testing.assert_allclose(np.asarray(recorded[1]),
                                    np.asarray(conv1.pca['comps']))
 
-    def test_improved_tick2_receives_none(self, monkeypatch):
-        conv1, conv2, recorded = self._run_two_ticks(monkeypatch, 'improved')
-        assert len(recorded) == 2
-        assert recorded[0] is None
-        assert recorded[1] is None  # cold recompute every tick
-
     def test_legacy_warm_comps_close_in_angle(self, monkeypatch):
         conv1, conv2, _ = self._run_two_ticks(monkeypatch, 'clojure-legacy')
         # Same column set across ticks, so comps are directly comparable.
@@ -219,9 +214,3 @@ class TestChainedWarmStart:
             assert recorded[-1] is None, (
                 f"prev_pca={degenerate!r} must cold-start, not seed powerit"
             )
-
-    def test_cold_first_tick_identical_across_modes(self, monkeypatch):
-        conv1_imp, _, _ = self._run_two_ticks(monkeypatch, 'improved')
-        conv1_leg, _, _ = self._run_two_ticks(monkeypatch, 'clojure-legacy')
-        np.testing.assert_array_equal(conv1_imp.pca['comps'], conv1_leg.pca['comps'])
-        np.testing.assert_array_equal(conv1_imp.pca['center'], conv1_leg.pca['center'])
