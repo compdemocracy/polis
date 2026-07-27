@@ -41,9 +41,11 @@ Status legend: **REPLICATED** (Python legacy mode reproduces it) ·
 
 Notes:
 
-- "Replicate the bug" always means **behind `POLISMATH_ENGINE_MODE=clojure-legacy`
-  only**. `improved` mode keeps (or gains) the correct behavior; each row's
-  "Later fix" column is the improved-mode / upstream story.
+- "Replicate the bug" historically meant **behind
+  `POLISMATH_ENGINE_MODE=clojure-legacy` only**. Since the mode collapse
+  (2026-07-27) the legacy semantics ARE the engine's only path — the flag is
+  gone; each row's "Later fix" column is now the post-cutover queue story
+  (POST_CUTOVER_IMPROVEMENTS.md).
 - Never fix a Q-row silently as a side effect of another change: certification
   compares against real Clojure output, and an accidental "fix" in legacy mode
   shows up as a divergence.

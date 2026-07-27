@@ -34,7 +34,6 @@ from polismath.pca_kmeans_rep.pca import (
     compute_comment_extremity,
     pca_project_cmnts,
 )
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR
 
 
 N_CMTS = 6
@@ -84,7 +83,6 @@ def _expected_priorities(conv, group_votes):
 @pytest.fixture
 def legacy_mode(monkeypatch):
     monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
 
 
 

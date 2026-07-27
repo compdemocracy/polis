@@ -53,10 +53,8 @@ scripts/math_poller.py (CLI)
        │    coalescing (drain queue, merge batches, votes-then-moderation order,
        │    mirroring take-all!/split-batches), bounded pool across zids
        ├─ engine: Conversation chain in-memory (update_votes/update_moderation →
-       │    recompute) — POLISMATH_ENGINE_MODE honored; recommend clojure-legacy
-       │    during shadow/parity phases (warm-started PCA + k-smoother = the
-       │    sequential semantics Clojure has; improved mode is the post-cutover
-       │    option, pending persisted-comps sign stability)
+       │    recompute) — Clojure-exact legacy semantics, the engine's only
+       │    path since the mode collapse (2026-07-27)
        ├─ load-or-init: on first message for a zid, restore from math_main
        │    (from_dict) + rebuild rating matrices from full vote history
        │    (conv-poll offset 0 analog), mirroring conv_man.clj:188-207;
@@ -77,7 +75,7 @@ Config (mirrors Clojure + delphi's existing unwired poller config,
 `delphi/polismath/components/config.py:216-269`): `DATABASE_URL`, `MATH_ENV` (the
 math_env string written), `VOTE_POLLING_INTERVAL` (ms, default 1000),
 `MOD_POLLING_INTERVAL` (1000), `POLL_FROM_DAYS_AGO` (10), `MATH_ZID_ALLOWLIST` /
-`MATH_ZID_BLOCKLIST`, `POLISMATH_ENGINE_MODE`, worker-pool size.
+`MATH_ZID_BLOCKLIST`, worker-pool size.
 
 ## 4. Cutover phases
 

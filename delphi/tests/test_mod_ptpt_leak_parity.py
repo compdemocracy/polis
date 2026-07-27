@@ -22,7 +22,6 @@ import pytest
 sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 from polismath.pca_kmeans_rep.pca import PCA_IMPL_ENV_VAR
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR
 from polismath.conversation.conversation import Conversation
 
 
@@ -48,7 +47,6 @@ def _clustered_pids(conv):
 @pytest.fixture
 def legacy_mode(monkeypatch):
     monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
 
 
 class TestLegacyBanLeak:

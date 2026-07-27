@@ -31,7 +31,6 @@ sys.path.append(os.path.abspath(os.path.dirname(__file__)))
 
 import polismath.conversation.conversation as conv_mod
 from polismath.conversation.conversation import Conversation
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR
 from polismath.pca_kmeans_rep.pca import PCA_IMPL_ENV_VAR
 
 
@@ -67,7 +66,6 @@ class TestColdStartInvariance:
 
     def _run(self, monkeypatch, mode):
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)  # default (powerit) both modes
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, mode)
         return Conversation('cold').update_votes(_many_ptpt_votes())
 
     def test_legacy_base_is_clojure_faithful_up_to_q11_merges(self, monkeypatch):
@@ -137,7 +135,6 @@ class TestWarmStartThreading:
 
     def test_legacy_base_warm_start_threaded(self, monkeypatch):
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
         spy = self._spy(monkeypatch)
         conv = Conversation('x').update_votes(_many_ptpt_votes())
         base_calls = [c for c in spy.calls if c['level'] == 'base']
@@ -152,7 +149,6 @@ class TestWarmStartThreading:
 
     def test_legacy_group_warm_start_threaded(self, monkeypatch):
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
         spy = self._spy(monkeypatch)
         conv = Conversation('x').update_votes(_many_ptpt_votes())
         group_calls = [c for c in spy.calls if c['level'] == 'group']
@@ -168,7 +164,6 @@ class TestWarmStartThreading:
 
     def test_group_clusterings_are_id_carrying_dicts(self, monkeypatch):
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
         conv = Conversation('x').update_votes(_many_ptpt_votes())
         assert set(conv.group_clusterings.keys()) == {2, 3}
         for k, clustering in conv.group_clusterings.items():
@@ -196,7 +191,6 @@ class TestBaseIdLineage:
 
     def test_ids_stable_and_new_participant_gets_larger_id(self, monkeypatch):
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
 
         conv = Conversation('lineage').update_votes(
             self._votes([(i, f'p{i}') for i in range(5)]))
@@ -232,7 +226,6 @@ class TestVwColdStartDeterminism:
         except (ImportError, FileNotFoundError):
             pytest.skip('vw dataset unavailable')
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
         votes = [{'pid': v.pid, 'tid': v.tid, 'vote': v.sign, 'created': v.t_ms}
                  for v in ds.votes]
         return Conversation('vw').update_votes({'votes': votes})

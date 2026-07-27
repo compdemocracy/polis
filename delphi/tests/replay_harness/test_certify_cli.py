@@ -29,7 +29,7 @@ def test_run_exits_zero_on_all_match(monkeypatch):
     mod = _module()
     report = {"battery": [
         {"dataset": "vw", "schedule_id": "single-cut-clojure-legacy",
-         "engine_mode": "clojure-legacy", "verdict": "MATCH", "n_steps": 3},
+         "verdict": "MATCH", "n_steps": 3},
     ], "root": "/tmp/x"}
     monkeypatch.setattr(mod.cert, "load_battery", lambda path: ["entry"])
     monkeypatch.setattr(mod.cert, "run_battery", lambda entries, **kw: report)
@@ -44,7 +44,7 @@ def test_run_exits_nonzero_on_divergence(monkeypatch):
     mod = _module()
     report = {"battery": [
         {"dataset": "vw", "schedule_id": "uniform8-clojure-legacy",
-         "engine_mode": "clojure-legacy", "verdict": "DIVERGENCE",
+         "verdict": "DIVERGENCE",
          "first_div_step": 2, "n_div_steps": 1, "top_paths": []},
     ], "root": "/tmp/x"}
     monkeypatch.setattr(mod.cert, "load_battery", lambda path: ["entry"])
@@ -57,7 +57,7 @@ def test_run_exits_nonzero_on_divergence(monkeypatch):
 def test_run_exits_nonzero_on_error(monkeypatch):
     mod = _module()
     report = {"battery": [
-        {"dataset": "vw", "schedule_id": "x", "engine_mode": "clojure-legacy",
+        {"dataset": "vw", "schedule_id": "x",
          "verdict": "ERROR", "stage": "py-driver", "reason": "boom"},
     ], "root": "/tmp/x"}
     monkeypatch.setattr(mod.cert, "load_battery", lambda path: ["entry"])
@@ -70,7 +70,7 @@ def test_run_exits_nonzero_on_error(monkeypatch):
 def test_run_skipped_ok_by_default_but_fails_with_strict(monkeypatch):
     mod = _module()
     report = {"battery": [
-        {"dataset": "vw", "schedule_id": "x", "engine_mode": "clojure-legacy",
+        {"dataset": "vw", "schedule_id": "x",
          "verdict": "SKIPPED", "reason": "dataset-unavailable"},
     ], "root": "/tmp/x"}
     monkeypatch.setattr(mod.cert, "load_battery", lambda path: ["entry"])
@@ -130,7 +130,7 @@ def test_run_stdout_budget_with_large_mocked_battery(monkeypatch):
     report = {
         "battery": [
             {"dataset": "vw", "schedule_id": f"s{i}-clojure-legacy",
-             "engine_mode": "clojure-legacy", "verdict": "MATCH", "n_steps": 3}
+             "verdict": "MATCH", "n_steps": 3}
             for i in range(200)
         ],
         "root": "/tmp/x",

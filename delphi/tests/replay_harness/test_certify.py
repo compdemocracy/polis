@@ -24,7 +24,6 @@ import pytest
 from polismath.replay import certify as cert
 from polismath.replay import schedule as sched
 from polismath.replay.crosslang import PREP_MAIN_KEYS
-from polismath.utils.engine_mode import ENGINE_MODE_CHOICES
 
 CERTIFY_BATTERY_PATH = Path(__file__).resolve().parents[2] / "scripts" / "certify_battery.json"
 
@@ -64,7 +63,7 @@ def _fake_completed(returncode: int = 0, stderr: str = "") -> subprocess.Complet
 
 
 def _make_entry(**overrides) -> "cert.BatteryEntry":
-    defaults = dict(dataset="vw", engine_mode="clojure-legacy",
+    defaults = dict(dataset="vw",
                     schedule_id="single-cut-clojure-legacy", preset="single-cut",
                     n_cuts=None, schedule_path=None, notes="")
     defaults.update(overrides)
@@ -75,28 +74,27 @@ def _make_entry(**overrides) -> "cert.BatteryEntry":
 # Schedule-id derivation.
 # ---------------------------------------------------------------------------
 def test_derive_schedule_id_ncuts_preset():
-    assert cert.derive_schedule_id(engine_mode="clojure-legacy", preset="uniform",
+    assert cert.derive_schedule_id(preset="uniform",
                                     n_cuts=8) == "uniform8-clojure-legacy"
 
 
 def test_derive_schedule_id_no_ncuts_preset():
-    assert cert.derive_schedule_id(engine_mode="clojure-legacy",
-                                    preset="single-cut") == "single-cut-clojure-legacy"
+    assert cert.derive_schedule_id(
+        preset="single-cut") == "single-cut-clojure-legacy"
 
 
 def test_derive_schedule_id_from_explicit_base_id():
-    assert cert.derive_schedule_id(engine_mode="improved",
-                                    base_schedule_id="hb-3cut") == "hb-3cut-improved"
+    assert cert.derive_schedule_id(
+        base_schedule_id="hb-3cut") == "hb-3cut-clojure-legacy"
 
 
-def test_derive_schedule_id_collision_free_across_preset_ncuts_engine_mode():
+def test_derive_schedule_id_collision_free_across_preset_ncuts():
     ids = {
-        cert.derive_schedule_id(engine_mode="clojure-legacy", preset="uniform", n_cuts=8),
-        cert.derive_schedule_id(engine_mode="improved", preset="uniform", n_cuts=8),
-        cert.derive_schedule_id(engine_mode="clojure-legacy", preset="front-loaded", n_cuts=8),
-        cert.derive_schedule_id(engine_mode="clojure-legacy", preset="uniform", n_cuts=6),
+        cert.derive_schedule_id(preset="uniform", n_cuts=8),
+        cert.derive_schedule_id(preset="front-loaded", n_cuts=8),
+        cert.derive_schedule_id(preset="uniform", n_cuts=6),
     }
-    assert len(ids) == 4
+    assert len(ids) == 3
 
 
 # ---------------------------------------------------------------------------
@@ -104,18 +102,17 @@ def test_derive_schedule_id_collision_free_across_preset_ncuts_engine_mode():
 # ---------------------------------------------------------------------------
 def test_parse_battery_entry_preset_form():
     e = cert.parse_battery_entry(
-        {"dataset": "vw", "preset": "uniform", "n_cuts": 8, "engine_mode": "clojure-legacy"}
+        {"dataset": "vw", "preset": "uniform", "n_cuts": 8}
     )
     assert e.dataset == "vw"
-    assert e.engine_mode == "clojure-legacy"
     assert e.preset == "uniform" and e.n_cuts == 8
     assert e.schedule_id == "uniform8-clojure-legacy"
     assert e.schedule_path is None
 
 
-def test_parse_battery_entry_defaults_engine_mode_to_clojure_legacy():
+def test_parse_battery_entry_schedule_id_keeps_legacy_suffix():
     e = cert.parse_battery_entry({"dataset": "vw", "preset": "single-cut"})
-    assert e.engine_mode == "clojure-legacy"
+    assert e.schedule_id.endswith("-clojure-legacy")
 
 
 def test_parse_battery_entry_ncuts_preset_requires_n_cuts():
@@ -152,7 +149,7 @@ def test_load_battery_starter_file_shape():
     for private_ds in ("FLI", "bg2018", "pakistan", "engage", "bg2050"):
         assert any(e.dataset == private_ds for e in entries), private_ds
     assert len(ids) == len(entries), "duplicate (dataset, schedule) entries"
-    assert all(e.engine_mode in ENGINE_MODE_CHOICES for e in entries)
+    assert all(e.schedule_id.endswith("-clojure-legacy") for e in entries)
 
 
 # ---------------------------------------------------------------------------
@@ -322,7 +319,7 @@ def test_hash_first_shortcut_skips_comparer_entirely(tmp_path, monkeypatch):
     monkeypatch.setattr(comparer, "compare_step", spy)
 
     result = cert.compare_recording_pair(
-        tmp_path / "clj", tmp_path / "py", engine_mode="clojure-legacy",
+        tmp_path / "clj", tmp_path / "py",
         cache_root=tmp_path, comparer=comparer,
     )
     assert calls["n"] == 0
@@ -345,7 +342,7 @@ def test_hash_mismatch_falls_back_to_comparer(tmp_path, monkeypatch):
     monkeypatch.setattr(comparer, "compare_step", spy)
 
     result = cert.compare_recording_pair(
-        tmp_path / "clj", tmp_path / "py", engine_mode="clojure-legacy",
+        tmp_path / "clj", tmp_path / "py",
         cache_root=tmp_path, comparer=comparer,
     )
     assert calls["n"] == 1
@@ -367,7 +364,7 @@ def test_step_verdict_cache_round_trip(tmp_path, monkeypatch):
 
     monkeypatch.setattr(comparer1, "compare_step", spy1)
     r1 = cert.compare_recording_pair(tmp_path / "clj", tmp_path / "py",
-                                      engine_mode="clojure-legacy", cache_root=tmp_path,
+                                      cache_root=tmp_path,
                                       comparer=comparer1)
     assert calls1["n"] == 1
 
@@ -383,7 +380,7 @@ def test_step_verdict_cache_round_trip(tmp_path, monkeypatch):
 
     monkeypatch.setattr(comparer2, "compare_step", spy2)
     r2 = cert.compare_recording_pair(tmp_path / "clj", tmp_path / "py",
-                                      engine_mode="clojure-legacy", cache_root=tmp_path,
+                                      cache_root=tmp_path,
                                       comparer=comparer2)
     assert calls2["n"] == 0
     assert r2["per_step"][0]["families"] == r1["per_step"][0]["families"]
@@ -403,27 +400,25 @@ def test_normalize_path_strips_dict_numeric_segments():
 
 
 def test_compute_fingerprint_stable_across_indices():
-    fp1 = cert.compute_fingerprint("step_1.pca.comps[0][1]", "tolerant", "clojure-legacy")
-    fp2 = cert.compute_fingerprint("step_9.pca.comps[3][7]", "tolerant", "clojure-legacy")
+    fp1 = cert.compute_fingerprint("step_1.pca.comps[0][1]", "tolerant")
+    fp2 = cert.compute_fingerprint("step_9.pca.comps[3][7]", "tolerant")
     assert fp1 == fp2
     assert len(fp1) == 10
 
 
-def test_compute_fingerprint_differs_by_family_and_engine_mode():
-    a = cert.compute_fingerprint("step_1.pca.comps[0][1]", "tolerant", "clojure-legacy")
-    b = cert.compute_fingerprint("step_1.pca.comps[0][1]", "exact", "clojure-legacy")
-    c = cert.compute_fingerprint("step_1.pca.comps[0][1]", "tolerant", "improved")
-    assert len({a, b, c}) == 3
+def test_compute_fingerprint_differs_by_family():
+    a = cert.compute_fingerprint("step_1.pca.comps[0][1]", "tolerant")
+    b = cert.compute_fingerprint("step_1.pca.comps[0][1]", "exact")
+    assert a != b
 
 
 # ---------------------------------------------------------------------------
 # Ledger.
 # ---------------------------------------------------------------------------
 def test_update_ledger_appends_new_as_open():
-    obs = [{"path_pattern": "pca.comps[][]", "family": "tolerant", "engine_mode": "clojure-legacy",
-            "dataset": "vw", "schedule_id": "uniform8-clojure-legacy", "step": 3}]
+    obs = [{"path_pattern": "pca.comps[][]", "family": "tolerant", "dataset": "vw", "schedule_id": "uniform8-clojure-legacy", "step": 3}]
     updated = cert.update_ledger({}, obs)
-    key = cert.fingerprint_key_for("pca.comps[][]", "tolerant", "clojure-legacy")
+    key = cert.fingerprint_key_for("pca.comps[][]", "tolerant")
     assert key in updated
     assert updated[key]["status"] == "open"
     assert updated[key]["diagnosis"] is None
@@ -431,13 +426,11 @@ def test_update_ledger_appends_new_as_open():
 
 
 def test_update_ledger_preserves_existing_diagnosis():
-    key = cert.fingerprint_key_for("pca.comps[][]", "tolerant", "clojure-legacy")
+    key = cert.fingerprint_key_for("pca.comps[][]", "tolerant")
     ledger = {key: {"path_pattern": "pca.comps[][]", "family": "tolerant",
-                     "engine_mode": "clojure-legacy",
                      "first_seen": {"dataset": "vw", "schedule": "uniform8-clojure-legacy", "step": 1},
                      "status": "diagnosed", "diagnosis": "PCA power-iteration seed differs (see #123)"}}
-    obs = [{"path_pattern": "pca.comps[][]", "family": "tolerant", "engine_mode": "clojure-legacy",
-            "dataset": "biodiversity", "schedule_id": "uniform8-clojure-legacy", "step": 7}]
+    obs = [{"path_pattern": "pca.comps[][]", "family": "tolerant", "dataset": "biodiversity", "schedule_id": "uniform8-clojure-legacy", "step": 7}]
     updated = cert.update_ledger(ledger, obs)
     assert updated[key]["status"] == "diagnosed"
     assert updated[key]["diagnosis"] == "PCA power-iteration seed differs (see #123)"
@@ -615,7 +608,7 @@ def test_certify_entry_passes_comments_when_moderation_requested(tmp_path, monke
         "clojure": {"warm_start": "chain"}, "notes": "",
     }))
     entry = cert.parse_battery_entry(
-        {"dataset": "vw", "schedule": str(schedule_path), "engine_mode": "clojure-legacy"},
+        {"dataset": "vw", "schedule": str(schedule_path)},
     )
     cert.certify_entry(entry, root=tmp_path, ledger={})
 
@@ -696,8 +689,7 @@ def test_run_focus_missing_recording_is_error(tmp_path):
 # ---------------------------------------------------------------------------
 def test_render_run_lines_within_budget_for_many_entries():
     results = [
-        {"dataset": "vw", "schedule_id": f"s{i}-clojure-legacy", "engine_mode": "clojure-legacy",
-         "verdict": "MATCH", "n_steps": 5}
+        {"dataset": "vw", "schedule_id": f"s{i}-clojure-legacy", "verdict": "MATCH", "n_steps": 5}
         for i in range(100)
     ]
     report = {"battery": results, "root": "/tmp/x"}
@@ -708,10 +700,8 @@ def test_render_run_lines_within_budget_for_many_entries():
 
 def test_render_run_lines_small_battery_one_line_per_entry():
     results = [
-        {"dataset": "vw", "schedule_id": "single-cut-clojure-legacy", "engine_mode": "clojure-legacy",
-         "verdict": "MATCH", "n_steps": 3},
-        {"dataset": "vw", "schedule_id": "no-dataset", "engine_mode": "clojure-legacy",
-         "verdict": "SKIPPED", "reason": "dataset-unavailable"},
+        {"dataset": "vw", "schedule_id": "single-cut-clojure-legacy", "verdict": "MATCH", "n_steps": 3},
+        {"dataset": "vw", "schedule_id": "no-dataset", "verdict": "SKIPPED", "reason": "dataset-unavailable"},
     ]
     report = {"battery": results, "root": "/tmp/x"}
     lines = cert.render_run_lines(report)
@@ -722,8 +712,7 @@ def test_render_run_lines_small_battery_one_line_per_entry():
 
 def test_render_focus_lines_within_budget_many_divergences():
     result = {
-        "dataset": "vw", "schedule_id": "uniform8-clojure-legacy", "engine_mode": "clojure-legacy",
-        "verdict": "DIVERGENCE", "step": 2,
+        "dataset": "vw", "schedule_id": "uniform8-clojure-legacy", "verdict": "DIVERGENCE", "step": 2,
         "families": {
             "exact": [{"path": f"step_2.n.{i}", "path_pattern": f"n.{i}", "a": i, "b": i + 1,
                        "fingerprint": f"FP-{i:010d}", "known": None} for i in range(20)],
@@ -738,8 +727,7 @@ def test_render_focus_lines_within_budget_many_divergences():
 
 def test_render_focus_lines_caps_exact_divergences_shown():
     result = {
-        "dataset": "vw", "schedule_id": "uniform8-clojure-legacy", "engine_mode": "clojure-legacy",
-        "verdict": "DIVERGENCE", "step": 0,
+        "dataset": "vw", "schedule_id": "uniform8-clojure-legacy", "verdict": "DIVERGENCE", "step": 0,
         "families": {
             "exact": [{"path": f"step_0.n.{i}", "path_pattern": f"n.{i}", "a": i, "b": i + 1,
                        "fingerprint": f"FP-{i:010d}", "known": None} for i in range(8)],
@@ -784,7 +772,7 @@ def test_certify_entry_real_drivers_vw_single_cut(tmp_path):
     compare their results end to end.
     """
     entry = cert.parse_battery_entry(
-        {"dataset": "vw", "preset": "single-cut", "engine_mode": "clojure-legacy"}
+        {"dataset": "vw", "preset": "single-cut"}
     )
     result, ledger = cert.certify_entry(entry, root=tmp_path, ledger={})
     assert result["verdict"] in ("MATCH", "DIVERGENCE"), result
@@ -876,7 +864,7 @@ def test_step_verdict_cache_write_leaves_no_tmp_files(tmp_path):
     blob = _acceptance_blob()
     _write_clj_step(clj_dir, 0, blob)
     _write_py_step(py_dir, 0, dict(blob, n=99))
-    cert.compare_recording_pair(clj_dir, py_dir, engine_mode="clojure-legacy",
+    cert.compare_recording_pair(clj_dir, py_dir,
                                 cache_root=tmp_path)
     cache_dir = tmp_path / ".certify_cache" / "stepverdicts"
     files = list(cache_dir.iterdir())
