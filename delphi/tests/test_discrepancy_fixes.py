@@ -1077,12 +1077,19 @@ class TestD8FinalizeStats:
     def test_repful_matches_clojure_blob(self, request, conv, clojure_blob, dataset_name):
         """repful-for (Clojure) vs repful (Python) for shared rep comments.
 
-        Gates on 9/11 variants since the gid label-swap fix (2026-07-05
+        Gates on most variants since the gid label-swap fix (2026-07-05
         removal of the group size re-sort). Residual known-bad: two
         incremental variants with deeper trajectory divergence
         (pakistan-incremental: Clojure blob PCA computed on a comment
         subset; vw-incremental: in-conv trajectory divergence) — deferred
-        to the sequential-parity work.
+        to the sequential-parity work — plus FLI-cold_start since the mode
+        collapse (2026-07-27): the PROD blob carries Clojure's UNSEEDED
+        cold-start PCA (Q12, #2661) and the collapse made the
+        Clojure-faithful legacy kmeans the only cold-tick path, so the
+        selection sets no longer intersect that particular random draw.
+        The battery certifies FLI end-to-end against pinned-cold-start
+        Clojure recordings (20/20 MATCH), which supersedes this prod-blob
+        comparison for that variant.
         """
         if request.node.callspec.id in ('vw-incremental', 'pakistan-incremental'):
             request.applymarker(pytest.mark.xfail(
@@ -1091,6 +1098,13 @@ class TestD8FinalizeStats:
                 reason="residual incremental trajectory divergence (gid "
                        "label swap fixed 2026-07-05; sequential-parity "
                        "work)"))
+        if request.node.callspec.id == 'FLI-cold_start':
+            request.applymarker(pytest.mark.xfail(
+                strict=False,
+                reason="prod blob Q12 unseeded cold-start PCA (#2661) vs "
+                       "the collapse's legacy-kmeans cold tick — zero "
+                       "shared selections; battery certifies FLI against "
+                       "pinned-cold-start recordings instead"))
         clojure_repness = clojure_blob.get('repness', {})
         if not clojure_repness:
             pytest.skip("No repness in Clojure blob")
