@@ -63,7 +63,7 @@ from Clojure's env, rows invisible to the server (UNIQUE(zid, math_env)).
 
 ```
 docker compose --profile delphi-math up -d delphi-math-poller
-# env: POLISMATH_ENGINE_MODE=clojure-legacy  DELPHI_MATH_ENV=delphi
+# env: DELPHI_MATH_ENV=delphi   (engine has one path since the mode collapse)
 ```
 
 Verify within minutes:
