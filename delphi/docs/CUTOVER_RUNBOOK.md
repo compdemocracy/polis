@@ -82,17 +82,22 @@ equivalence evidence), CLOJURE_QUIRKS.md (Q1-Q19).
 
 ## Step 1 — shadow in prod (same day)
 
-Infrastructure already in compose (#2625): service `delphi-math-poller`,
-profile `delphi-math`, `MATH_ENV=${DELPHI_MATH_ENV:-delphi}` — distinct
+Infrastructure already in compose (#2625; renamed s7 per Julien — the
+math poller is engine, not delphi/UMAP): service `math-python`,
+profile `math-python`, `MATH_ENV=${MATH_PYTHON_ENV:-python}` — distinct
 from Clojure's env, rows invisible to the server (UNIQUE(zid, math_env)).
 
 ```
-docker compose --profile delphi-math up -d delphi-math-poller
-# env: DELPHI_MATH_ENV=delphi   (engine has one path since the mode collapse)
+docker compose --profile math-python up -d math-python
+# env: MATH_PYTHON_ENV=python   (engine has one path since the mode collapse)
+# PROD NOTE (deploy-script reality, s7): prod instances start services BY
+# NAME from scripts/after_install.sh per-role dispatch (profiles are a
+# dev-only gate) — shadow on the math role = add `math-python` to its
+# `docker-compose up -d math` line; prod tracks branch `stable`.
 ```
 
 Verify within minutes:
-- math_main rows appearing under math_env='delphi' with advancing
+- math_main rows appearing under math_env='python' with advancing
   caching_tick;
 - no errorconv dumps / parked zids in the poller log;
 - spot-compare a few active zids' blobs vs the clojure rows (the certify
