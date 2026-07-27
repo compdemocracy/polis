@@ -107,7 +107,12 @@ def _euclidean(a: np.ndarray, b: np.ndarray) -> float:
     av = np.asarray(a, dtype=float)
     bv = np.asarray(b, dtype=float)
     d2 = float(np.dot(av, av)) + float(np.dot(bv, bv)) - 2.0 * float(np.dot(av, bv))
-    return float(np.sqrt(max(0.0, d2)))
+    # NaN must propagate, not silently become 0: python's max(0.0, nan) returns
+    # 0.0 (nan compares false against 0.0, so max just returns its first arg),
+    # but real vectorz does no such clamp and would NaN instead.
+    if d2 < 0.0:
+        d2 = 0.0
+    return float(np.sqrt(d2))
 
 
 def weighted_mean(rows: Sequence[np.ndarray],

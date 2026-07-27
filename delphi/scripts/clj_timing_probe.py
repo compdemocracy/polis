@@ -418,6 +418,8 @@ def probe(votes_path, sizes, out_path, budget_min, timeout_sec, dataset) -> None
     out_path = Path(out_path)
 
     n_max = count_data_rows(votes_path)
+    if n_max <= 0:
+        raise click.UsageError(f"votes file has no data rows: {votes_path}")
     size_list = parse_sizes(sizes, n_max)
     if not size_list:
         raise click.UsageError("no sizes to probe")

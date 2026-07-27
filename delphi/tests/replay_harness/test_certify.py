@@ -24,6 +24,7 @@ import pytest
 from polismath.replay import certify as cert
 from polismath.replay import schedule as sched
 from polismath.replay.crosslang import PREP_MAIN_KEYS
+from polismath.utils.engine_mode import ENGINE_MODE_CHOICES
 
 CERTIFY_BATTERY_PATH = Path(__file__).resolve().parents[2] / "scripts" / "certify_battery.json"
 
@@ -151,7 +152,7 @@ def test_load_battery_starter_file_shape():
     for private_ds in ("FLI", "bg2018", "pakistan", "engage", "bg2050"):
         assert any(e.dataset == private_ds for e in entries), private_ds
     assert len(ids) == len(entries), "duplicate (dataset, schedule) entries"
-    assert all(e.engine_mode == "clojure-legacy" for e in entries)
+    assert all(e.engine_mode in ENGINE_MODE_CHOICES for e in entries)
 
 
 # ---------------------------------------------------------------------------

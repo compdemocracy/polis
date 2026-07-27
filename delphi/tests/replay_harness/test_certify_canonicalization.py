@@ -3,17 +3,22 @@
 The first full battery run (journal 2026-07-22) showed 4/4 entries diverging at
 step 0 with ~800+ "exact" divergences — nearly all of them ORDERING artifacts:
 Clojure emits ``tids``/``in-conv`` (and everything positionally aligned to
-them: pca.center, pca.comps rows, base-clusters columns, votes-base lists) in
-hash/insertion order, while Python emits sorted order. Each blob is internally
-consistent, so cross-engine array order is not a semantic divergence — the
-acceptance criterion (GOAL_R1_PARITY.md) is MEMBERSHIP and value parity.
+them: pca.center, pca.comps rows, base-clusters columns) in hash/insertion
+order, while Python emits sorted order. Each blob is internally consistent, so
+cross-engine array order is not a semantic divergence — the acceptance
+criterion (GOAL_R1_PARITY.md) is MEMBERSHIP and value parity.
 
 ``project_acceptance`` therefore canonicalizes both sides before hashing and
 diffing: id-sets sorted, tid-aligned pca arrays re-indexed by sorted tid,
-base-clusters columns re-indexed by sorted id (votes-base per-cluster lists
-following the same permutation), group-clusters sorted by id with sorted
-members. Real divergences (a differing pid, a differing center value for the
-SAME tid) must still be reported — canonicalization must never mask them.
+base-clusters columns re-indexed by sorted id, group-clusters sorted by id
+with sorted members. votes-base A/D/S per-cluster lists are NOT part of this
+permutation — they are already aligned to sort-by-:id bucket order on BOTH
+engines (bid-to-pid = (mapv :members (sort-by :id base-clusters)),
+conversation.clj:593), so they are identical across the two orderings and the
+canonicalizer leaves them untouched (see lines ~30-35 below and
+crosslang.py:88-90). Real divergences (a differing pid, a differing center
+value for the SAME tid) must still be reported — canonicalization must never
+mask them.
 """
 
 from __future__ import annotations

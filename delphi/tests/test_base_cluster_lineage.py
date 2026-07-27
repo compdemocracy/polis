@@ -86,6 +86,9 @@ class TestColdStartInvariance:
         assert all(c['members'] for c in leg.base_clusters)  # no empty clusters
         all_members = [m for c in leg.base_clusters for m in c['members']]
         assert sorted(all_members) == sorted(f'p{i}' for i in range(18))
+        assert any(len(c['members']) > 1 for c in leg.base_clusters), (
+            "fixture must exercise at least one Q11 merge, or this test passes vacuously"
+        )
         pos = {pid: np.asarray(proj) for pid, proj in leg.proj.items()}
         for c in leg.base_clusters:
             for m1 in c['members']:

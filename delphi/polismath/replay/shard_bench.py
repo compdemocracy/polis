@@ -371,6 +371,18 @@ def run_arm(
         )
         procs.append((idx, proc, ready, out_path, err_path, out_fh, err_fh))
 
+    def _kill_and_close_all() -> None:
+        """Kill every still-alive shard, reap it, and close BOTH of its output
+        handles -- for every proc, not just the one that triggered the abort.
+        Used on both barrier-wait failure paths below so a dead/hung shard
+        never leaves its siblings running unreaped or their fhs leaked."""
+        for _, p, _, _, _, out_fh, err_fh in procs:
+            if p.poll() is None:
+                p.kill()
+                p.wait(timeout=CHILD_TIMEOUT_SEC)
+            out_fh.close()
+            err_fh.close()
+
     # Wait for every child to finish its setup, then release them together.
     deadline = time.monotonic() + CHILD_TIMEOUT_SEC
     while not all(r.exists() for _, _, r, _, _, _, _ in procs):
@@ -378,17 +390,15 @@ def run_arm(
             (i, p, ep) for i, p, _, _, ep, _, _ in procs if p.poll() is not None
         ]
         if dead:
-            for _, fh in [(p, fh) for _, p, _, _, _, fh, _ in procs]:
-                fh.close()
             i, p, ep = dead[0]
             err = ep.read_text(encoding="utf-8", errors="replace") if ep.exists() else ""
+            _kill_and_close_all()
             raise RuntimeError(
                 f"shard {i} died before the barrier (rc={p.returncode}):\n"
                 f"{err.strip()[-2000:]}"
             )
         if time.monotonic() > deadline:
-            for _, p, _, _, _, _, _ in procs:
-                p.kill()
+            _kill_and_close_all()
             raise RuntimeError("timed out waiting for shards to become ready")
         time.sleep(0.01)
     go.write_text("go", encoding="utf-8")

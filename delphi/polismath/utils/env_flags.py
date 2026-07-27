@@ -10,8 +10,8 @@ to the default with a warning (defensive: a typo in a deployment env must not
 crash the math worker).
 
 This lives in polismath.utils (not pca.py, where it originated) so that
-lightweight consumers — e.g. `utils.engine_mode`, read on every conv-update
-tick — do not drag in the numpy/pandas pca import chain, and resolution
+lightweight consumers — e.g. `polismath.utils.engine_mode`, read on every
+conv-update tick — do not drag in the numpy/pandas pca import chain, and resolution
 warnings are logged under this module's logger rather than pca's.
 """
 
