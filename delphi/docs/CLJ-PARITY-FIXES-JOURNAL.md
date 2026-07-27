@@ -4288,3 +4288,126 @@ PR #2673 review agent verdict: CLEAN — split proven behavior-preserving
 (including an equivalence proof of the counts_df.empty seam), blob test
 non-vacuous (45+42 entries), tolerances justified against Clojure's
 `(float repness-test)` cast at repness.clj:187.
+
+### Conditions 4+5 EVIDENCE (s7 cont.)
+
+- **Battery pair** (condition 4): 20/20 MATCH ×2 consecutive on the
+  Phase-4 tree; divergences.json = 81 entries, 0 open.
+- **Equivalence release gate** (condition 5): poller_equiv.py full-run
+  re-run LIVE on the collapsed+refactored tree —
+  vw: verdict PASS/MATCH, 8/8 batches, ticks OK both envs, 0
+  envelope-excused divergences (worst self-jitter 4.9e-06);
+  pc-meta-02: verdict PASS/MATCH, 8/8 batches, 0 envelope-excused
+  (worst self-jitter 1.5e-06). Evidence refreshed in place under
+  real_data/.local/replays/poller_equiv/{vw,pc-meta-02}/.
+- CI: run 30286254481 (collapse tip) SUCCESS; run 30288678922 (#2673)
+  SUCCESS; run 30302469207 (#2675 tip) dispatched.
+- PRs #2674 (FLI xfail + journal) + #2675 (large-conv bench tool)
+  pushed. Public golden_snapshot.json now gitignored (goldens stay
+  local artifacts; a 350k-line accidental snapshot was stripped from
+  #2674 before push).
+
+### Phase 5 IN FLIGHT (s7 cont.)
+
+EC2 measurement launched: i-057c881e212b2671d (r8g.4xlarge, us-east-1,
+bench profile, Project=polis-cost-model), self-terminating user-data
+(clone spr/edge/5747f8c9 → minimal venv (numpy/pandas/sklearn/natsort/
+click/pyyaml) → scripts/large_conv_tick_bench.py full 33k×783 shape →
+S3 results/large-conv-tick/ → SQS polis-cost-model-done → shutdown;
+dead-man 180 min; terminate-on-shutdown). Local full-size run in
+parallel on the M-series laptop for a comparison point. Smoke numbers
+(2000×200×120k, laptop): cold 6.5s, warm 14.4s — warm is the expensive
+side (legacy kmeans warm-start path dominates).
+
+### Review protocol correction (Julien, s7): Copilot credits exhausted
+
+The Copilot reviews requested on #2659/#2663 never ran — monthly AI
+credits are exhausted again. Per Julien: use INDEPENDENT /code-review
+subagents instead. Two launched (one per PR); do not re-request Copilot
+this month. (The collapse series #2665-#2671 and #2673 already had
+independent review-agent passes — both CLEAN.)
+
+### Phase 5 — LOCAL full-size result + #2659 review disposition (s7 cont.)
+
+Local (M-series laptop, arm64), 33,422 × 783, 2,005,320 votes:
+ingest 2.4s, **cold tick 430.8s (~7.2 min), WARM tick 2095.3s (~35 min)**.
+The warm tick — the steady per-tick cost — is ~5× the cold tick at this
+shape (legacy kmeans lineage warm-start dominates; consistent with the
+smoke ratio). The runbook's 0.5-2 min/tick estimate was an order of
+magnitude optimistic — exactly why Julien required measurement. EC2
+r8g.4xlarge run in flight for the recorded number (expect same-or-worse
+per-core). Verdict drafting once EC2 lands, but the local number alone
+already says: NOT serial-OK at the extreme shape — the deterministic
+large-conv path (POST_CUTOVER_IMPROVEMENTS item 9) is REQUIRED before
+those 7 historical convs can be allowed to tick on Python, or they must
+be explicitly excluded at flip time.
+
+Independent review of #2659 (docs): every verifiable claim checked out;
+ONE finding (conf 85): the runbook Step-1 comment implied
+POLISMATH_ENGINE_MODE flows into the delphi-math-poller container, but
+docker-compose never wired it — an operator could have shadow-soaked in
+the wrong mode. ALREADY FIXED by this session's collapse commits (the
+env line is deleted from the runbook, compose, and example.env; the flag
+no longer exists). No action remaining; noted as validation that the
+collapse closed a real operational trap.
+
+#2660/#2661/#2662 are ISSUES (Clojure-bug documentation), not PRs — no
+diff to review (checked at Julien's request, s7).
+
+### Phase 5 DONE — EC2 measurement recorded (condition 6)
+
+r8g.4xlarge (i-057c881e212b2671d, self-terminated + verified), 33,422 x
+783, 2,005,320 synthesized votes: **cold tick 519.6s, warm tick
+1856.0s (~31 min)**. Local M-series cross-check 430.8s/2095.3s — same
+order; algorithmic, not instance-bound. Runbook risk item 3 updated with
+the numbers + verdict: NOT serial-OK at the extreme shape; item 9
+(deterministic large-conv path) or POLL_BLOCKLIST of the 7 historical
+zids required before they tick on Python; flip itself not blocked.
+Total EC2 cost: well under an hour of r8g.4xlarge (~$1).
+
+### Item-9 scope clarification (Julien question, s7)
+
+Q: does Clojure's large-conv special treatment change the k-means warm
+start? A (from source): NO — large-conv-update-graph merges
+small-conv-update-graph and overrides ONLY :pca (mini-batch PCA over an
+unseeded 1500-row twister sample, conversation.clj:760-773; sample-size
+line 745-757; dispatch cutoffs 10000/5000 at 785-796). :base-clusters
+and :group-clusterings (both warm-started) are inherited unchanged —
+Clojure ran the identical k-means machinery at 33k rows and got away
+with it on JVM/vectorz speed. Item 9 scope = deterministic sampled PCA
++ Python k-means performance (the warm tick's dominant cost), recorded
+in the runbook risk item 3.
+
+Final reviews: #2672/#2674/#2675 all SOUND (zero findings ≥80; the
+warm-tick methodology independently verified as genuinely steady-state
+via recompute()'s prev-state threading). #2663 sound with one pin
+applied (the _euclidean NaN test, above). All five python-ci dispatches
+this session: SUCCESS.
+
+## Session 7 FINAL: GOAL_CUTOVER_READY ACHIEVED — STATUS: DONE (2026-07-27)
+
+All seven conditions hold on the final tree (see GOAL_STATE.md for the
+condition-by-condition evidence and the walkthrough section). One
+session took the goal end-to-end: Phase 0 (battery speedup, A/B-proven),
+Phase 1 (inventory), Phase 2 (mode collapse, 7 PRs, battery 20/20 on the
+collapsed tree), Phase 3 (14b/14c, bit-identity proven), Phase 4
+(goldens verify-then-re-record, comparer 7/7, suite green, battery pair,
+equiv PASS ×2 live), Phase 5 (EC2 measurement + verdict + item-9 scope
+clarification). Every PR independently reviewed (all sound); five CI
+dispatches all green; EC2 instance terminated and verified; final
+battery pair re-run after the last docs edits: 20/20 MATCH ×2.
+
+### Julien ruling (s7, post-measurement): NO blocklisting; vectorize instead
+
+NO zid is ever blocklisted, and the k-means warm start STAYS (cluster-id
+stability between calls is user-facing). Item 9 re-scoped accordingly in
+POST_CUTOVER_IMPROVEMENTS.md + runbook risk item 3: (a) vectorize the
+warm-start k-means hot path — per-center BLAS distance columns
+(d2 = row_norms + |c|^2 - 2*(X@c), same cancellation formula) replacing
+~3.3M per-iteration python _euclidean calls at the 33k shape; expected
+10-100x on the dominant loop; ACCEPTANCE = bit-identity (Q11 0.0-ties
+decide merges/ids — pinned by the vw every-vote step-57 tie test and the
+full battery); (b) deterministic seeded sampled PCA for extreme shapes.
+Feasibility note: dgemv-per-center keeps each element a row-dot-center
+op (same class as the scalar np.dot), so tie reproduction is plausible;
+dgemm reassociation/FMA is the hazard to test for.

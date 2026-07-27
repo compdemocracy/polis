@@ -75,15 +75,18 @@ items.
 8. Modern solver paths (sklearn PCA/k-means) where they beat the ports —
    the original "improved" aspiration, now landing with certification
    discipline.
-9. **Deterministic large-conversation handling** (Julien 2026-07-27, from
-   the Q10 discussion): 7 of 15,575 prodclone convs ever crossed the
-   Clojure cutoffs (largest: 33,422 ptpts x 783 cmts / 2.0M votes;
-   18,082 x 9,030). Python currently runs full PCA at every size —
-   deterministic but O(ptpts x cmts x iters) per tick; large-conv tick
-   cost on EC2 is UNMEASURED (see CUTOVER_RUNBOOK risk register). If
-   measurement says it is too slow, add a DETERMINISTIC large-conv path
-   (seeded mini-batch or randomized-SVD with fixed seed) as its own PR —
-   keeping determinism, unlike Clojure's unseeded sampling (#2660).
+9. **Large-conversation performance, warm start preserved** (re-scoped
+   by Julien s7 after the EC2 measurement: r8g.4xlarge warm tick
+   1856s at 33,422 x 783 — CUTOVER_RUNBOOK risk item 3): NO zid is ever
+   blocklisted and the k-means warm start STAYS (cluster-id stability
+   across ticks is user-facing). Fix = (a) vectorize the warm-start
+   k-means hot path (per-center BLAS distance columns replacing the
+   per-pair python _euclidean loop; bit-identity gated by the Q11 tie
+   test + the full battery) and (b) a deterministic seeded sampled PCA
+   for extreme shapes (Clojure's large-conv graph only ever special-
+   cased :pca — conversation.clj:760-773 — so (a) has no Clojure
+   counterpart to port and (b) is the deterministic version of theirs).
+   7 of 15,575 prodclone convs ever crossed the old cutoffs.
 10. MOVED PRE-CUTOVER (Julien 2026-07-27: "we need to land clean code"):
     vectorized-code readability + blob-injection tests — PR 14b/14c from
     HANDOFF_PR14_VECTORIZED_REFACTOR.md (14a shipped as #2564). Now Phase 3
