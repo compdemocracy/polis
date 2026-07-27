@@ -4483,3 +4483,16 @@ prod starts services BY NAME via scripts/after_install.sh role dispatch
 tracks branch `stable` — so the shadow wiring is one edit to the math
 role's compose-up line, deliberately NOT made yet (Julien weighing
 shadow vs clean replace).
+
+### Condition 6 FINAL — EC2 comparison recorded, verdict flipped to serial-OK
+
+Vectorized run (i-03c84ff0b574cebfa, r8g.4xlarge, same shape/seed,
+self-terminated + verified): cold 29.0s / warm 26.6s vs 519.6s / 1856.0s
+non-vectorized — ~18x / ~70x. Runbook risk item 3 now carries the FINAL
+verdict: serial OK at every observed shape; no blocklisting (none
+needed); item 9b (seeded sampled PCA) optional. PRs #2679 (item 9a,
+bit-identical) + #2680 (math-python rename) pushed; CI dispatched (run
+30310377752); independent review in flight. Ops gotcha logged: SQS
+completion messages need JSON parsing (tab-split receipt handles broke
+delete → stale redelivery); the vectorized run's job label says
+large-conv-tick (sed missed escaped quotes) — S3 key disambiguates.

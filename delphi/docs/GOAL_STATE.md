@@ -21,10 +21,11 @@ All seven DONE conditions hold, evidenced in-repo:
    0 envelope-excused divergences.
 6. EC2 measurement in CUTOVER_RUNBOOK risk item 3: r8g.4xlarge,
    33,422×783/2.0M votes — cold 519.6s, WARM 1856.0s (~31 min).
-   VERDICT: NOT serial-OK at the extreme shape; fix = item 9 re-scoped
-   (vectorize warm-start k-means, bit-identity-gated + seeded sampled
-   PCA; NO blocklisting — Julien ruling s7); flip not blocked (slow but
-   correct+stable if a large conv ticks first).
+   VERDICT (FINAL): serial OK at every observed shape — item 9a
+   (vectorized warm-start k-means, PR #2679, bit-identical) re-measured
+   on the same r8g.4xlarge: cold 519.6s→29.0s, warm 1856.0s→26.6s
+   (~70x). No blocklisting (none needed); item 9b (seeded sampled PCA)
+   now optional.
 7. This line 1 flip.
 
 ## For walkthrough (Julien)
