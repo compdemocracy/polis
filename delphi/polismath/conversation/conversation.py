@@ -725,11 +725,11 @@ class Conversation:
         # Check if we have enough data. Clojure runs the REAL math on any
         # non-empty matrix — a 1x1 single-vote conversation yields center =
         # the vote and a rank-capped zero component (every-vote step-0
-        # oracle, journal 2026-07-22) — so only a truly EMPTY dimension
-        # short-circuits. (The former improved-mode <2 guard is parked:
-        # POST_CUTOVER_IMPROVEMENTS.md item 2.)
+        # oracle, journal 2026-07-22) — so clojure-legacy only short-circuits
+        # on a truly EMPTY dimension; improved keeps the <2 guard.
+        tiny = self.rating_mat.shape[0] < 2 or self.rating_mat.shape[1] < 2
         empty = self.rating_mat.shape[0] == 0 or self.rating_mat.shape[1] == 0
-        if empty:
+        if empty or (tiny and resolve_engine_mode() != ENGINE_MODE_LEGACY):
             # Not enough data for PCA, create minimal results
             cols = max(self.rating_mat.shape[1], 1)
             self.pca = {
@@ -884,16 +884,25 @@ class Conversation:
         # Degenerate-tick port (journal 2026-07-21 verdict): Clojure has NO
         # <2-participants guard past the truly-empty short-circuit — with one
         # in-conv participant its graph still runs the full base->group chain
-        # (one base cluster, k=2 group clustering of one point). The greedy
-        # floor (_get_in_conv_participants) keeps in-conv from dropping below
-        # 1 on warm ticks, so this 0-participant early return covers the
-        # cold/empty case only. (The former improved-mode <2 guard is parked:
-        # POST_CUTOVER_IMPROVEMENTS.md item 2.)
-        if len(in_conv_pids_list) == 0:
+        # (one base cluster, k=2 group clustering of one point). Legacy mode
+        # falls through and replicates that; improved mode keeps the guard.
+        # The 0-participant early return stays in BOTH modes, but the
+        # greedy-floor unreachability argument (in-conv can't drop below 1) is
+        # LEGACY-only — the greedy floor itself only runs in 'clojure-legacy'
+        # mode (_get_in_conv_participants). In 'improved' mode there is no
+        # floor, so 0 in-conv participants is a REAL, load-bearing case this
+        # guard must handle, not just dead code.
+        if len(in_conv_pids_list) == 0 or (not legacy_mode and len(in_conv_pids_list) < 2):
             logger.warning(f"Not enough participants meeting threshold ({len(in_conv_pids_list)})")
             self.base_clusters = []
             self.group_clusters = []
             self.subgroup_clusters = {}
+            if not legacy_mode:
+                # Improved mode has no warm-start use for this state, so a
+                # stale value from a prior tick must not leak forward
+                # (#2642 review finding).
+                self.group_clusterings = {}
+                self.group_k_smoother = {}
             return
 
         logger.info(f"Using {len(in_conv_pids_list)}/{len(self.proj)} participants for clustering")
@@ -942,12 +951,31 @@ class Conversation:
         # clusters at the distinct-point count -> one cluster, lineage id
         # preserved), stores the fresh 1-cluster :group-clusterings, and the
         # next tick warm-starts from it — recovery splits mint ids via
-        # (inc (apply max ids)) (clusters.clj:267). We fall through to the
-        # normal per-k loop below, which reproduces all of that (max_k
-        # arithmetic yields range [2]; silhouette of a singleton clustering
-        # is 0.0, matching Clojure's singleton rule clusters.clj:350-353, so
-        # the smoother advance is unchanged from P6a). (The former improved-
-        # mode <2 early return is parked: POST_CUTOVER_IMPROVEMENTS.md item 2.)
+        # (inc (apply max ids)) (clusters.clj:267). Legacy mode falls through
+        # to the normal per-k loop below, which reproduces all of that
+        # (max_k arithmetic yields range [2]; silhouette of a singleton
+        # clustering is 0.0, matching Clojure's singleton rule
+        # clusters.clj:350-353, so the smoother advance is unchanged from
+        # P6a). Improved mode keeps the early return byte-for-byte.
+        if not legacy_mode and len(base_clusters) < 2:
+            logger.warning(f"Not enough base clusters for group clustering ({len(base_clusters)})")
+            self.base_clusters = base_clusters
+            # Maintain consistent group-cluster schema: members are base-cluster IDs
+            if len(base_clusters) == 1:
+                self.group_clusters = [{
+                    'id': 0,
+                    'center': base_clusters[0]['center'],
+                    'members': [base_clusters[0]['id']],
+                }]
+            else:
+                self.group_clusters = []
+            self.subgroup_clusters = {}
+            # Improved-only path (already gated by `not legacy_mode` above): no
+            # warm-start use for this state, so a stale value from a prior
+            # tick must not leak forward (#2642 review finding).
+            self.group_clusterings = {}
+            self.group_k_smoother = {}
+            return
 
         # Prepare base cluster centers (weights are keyed by id below)
         base_centers_array = np.array([c['center'] for c in base_clusters])

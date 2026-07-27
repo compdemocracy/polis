@@ -12,11 +12,11 @@ however many base-cluster centers exist (possibly one), stores the fresh
 recovery splits mint ids via `(inc (apply max ids))` (clean-start-clusters,
 clusters.clj:267).
 
-Python used to early-return on both edges, keeping the last NON-degenerate
-group_clusterings as the warm seed — different seeds, different cluster ids
-across a degenerate episode. These tests pin the Clojure semantics. (The
-former improved-mode guards and their tests are parked:
-POST_CUTOVER_IMPROVEMENTS.md item 2, mode collapse 2026-07-27.)
+Python legacy mode used to early-return on both edges, keeping the last
+NON-degenerate group_clusterings as the warm seed — different seeds, different
+cluster ids across a degenerate episode. These tests pin the Clojure semantics
+in 'clojure-legacy' mode and pin that 'improved' mode keeps its guards
+byte-for-byte.
 """
 
 import os
@@ -73,6 +73,12 @@ def _single_ptpt_votes():
 @pytest.fixture
 def legacy_mode(monkeypatch):
     monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
+
+
+@pytest.fixture
+def improved_mode(monkeypatch):
+    monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
+    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'improved')
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +156,54 @@ class TestLegacySingleParticipant:
         assert len(conv.group_clusters) == 1
         assert conv.group_k_smoother.get('last_k') == 2
         assert conv.group_k_smoother.get('last_k_count') == 1
+
+
+# ---------------------------------------------------------------------------
+# Improved mode: both guards keep their existing behavior byte-for-byte
+# ---------------------------------------------------------------------------
+
+class TestImprovedGuardsUnchanged:
+
+    def test_single_participant_early_return(self, improved_mode):
+        conv = Conversation('solo').update_votes(_single_ptpt_votes())
+        assert conv.base_clusters == []
+        assert conv.group_clusters == []
+        assert conv.group_clusterings == {}
+        assert conv.group_k_smoother == {}
+
+    def test_degenerate_tick_keeps_synthesized_cluster(self, improved_mode):
+        conv = Conversation('deg').update_votes(_two_bloc_votes())
+        conv = conv.update_votes(_collapse_votes())
+        assert len(conv.base_clusters) == 1
+        [base] = conv.base_clusters
+        # Improved keeps the synthesized id-0 wrapper and stateless smoother.
+        assert conv.group_clusters == [{
+            'id': 0,
+            'center': base['center'],
+            'members': [base['id']],
+        }]
+        assert conv.group_clusterings == {}
+        assert conv.group_k_smoother == {}
+
+
+class TestImprovedStaleStateReset:
+    """#2642 review finding: the <2-in-conv-participants early return resets
+    base_clusters/group_clusters/subgroup_clusters but used to leave
+    group_clusterings/group_k_smoother untouched. In 'improved' mode there is
+    no warm-start use for that state (unlike 'clojure-legacy'), so a stale
+    value set before a guarded tick would otherwise leak forward into the
+    result unchanged instead of being reset to {}."""
+
+    def test_single_participant_resets_stale_group_state(self, improved_mode):
+        conv = Conversation('solo')
+        conv.group_clusterings = {2: "SENTINEL"}
+        conv.group_k_smoother = {"k": 1}
+
+        result = conv.update_votes(_single_ptpt_votes())
+
+        assert result.base_clusters == [], "sanity: must hit the early-return path"
+        assert result.group_clusterings == {}
+        assert result.group_k_smoother == {}
 
 
 if __name__ == '__main__':
