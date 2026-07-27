@@ -28,11 +28,36 @@ equivalence evidence), CLOJURE_QUIRKS.md (Q1-Q19).
    acceptance for them up front (structural-only, or exclude from compare).
 3. **Poller throughput**: ~1.66 ticks/s per process — measured on EC2
    (r8g.4xlarge, cost-model study) on biodiversity-sized replays.
-   **PRE-FLIP MEASUREMENT REQUIRED: one full-PCA tick of the largest
-   prodclone conv (33k ptpts) on the target EC2 instance** — 7 historical
-   convs sit above the old Clojure large-conv cutoffs and python runs
-   full PCA at every size (est. 0.5-2 min/tick at the extreme; fine for
-   7 rarely-active convs, but measure, don't estimate).
+   **PRE-FLIP MEASUREMENT DONE (2026-07-27, s7)** — one full-PCA tick of
+   the largest prodclone shape (33,422 ptpts x 783 cmts, 2.0M votes;
+   synthesized, seeded) on r8g.4xlarge via
+   scripts/large_conv_tick_bench.py:
+   **cold tick 519.6s (~8.7 min); WARM (steady-state) tick 1856.0s
+   (~30.9 min)** — the warm tick is ~3.6x the cold one (legacy kmeans
+   lineage warm-start dominates). Local M-series cross-check: 430.8s /
+   2095.3s — same order, so this is algorithmic, not instance-bound.
+   **VERDICT: serial is NOT OK at the extreme shape** — the old 0.5-2
+   min/tick estimate was an order of magnitude optimistic. A ~31-minute
+   tick would occupy a poller process/shard for its duration whenever one
+   of the 7 historical large convs receives votes. REQUIRED fix
+   (Julien ruling, s7: NO zid is ever blocklisted, and the warm start
+   STAYS — cluster-id stability across ticks is user-facing): item 9,
+   re-scoped as (a) VECTORIZE the warm-start k-means hot path — replace
+   the per-pair python _euclidean loop with per-center BLAS columns
+   (d2 = row_norms + |c|^2 - 2*(X@c), the same cancellation formula) in
+   cluster_step/most_distal/weighted_mean; bit-identity is the
+   acceptance bar (Q11 0.0-ties are load-bearing for cluster ids — the
+   vw every-vote step-57 tie test + the full battery gate it); plus
+   (b) a deterministic (seeded) sampled PCA for the extreme shapes.
+   SCOPE NOTE (Julien question, s7): Clojure's large-conv graph
+   overrides ONLY the :pca node (mini-batch PCA over an unseeded
+   1500-row sample; conversation.clj:760-773 — large-conv-update-graph
+   merges small-conv-update-graph) — the k-means warm start is IDENTICAL
+   in both graphs, so there is no Clojure-side large-conv k-means
+   treatment to port; vectorz's JVM loops simply outran our per-cluster
+   Python port at 33k rows. The flip is NOT blocked: all 7 large convs
+   are historical and rarely active; if one ticks before item 9 lands it
+   is slow (~31 min) but correct and stable.
    Sharding (#2658) is the scale-out path, opt-in via POLL_SHARD_INDEX/
    POLL_SHARD_COUNT — one shard = one process. Start UNSHARDED (defaults
    are a verified no-op); shard only if the shadow soak shows lag.
