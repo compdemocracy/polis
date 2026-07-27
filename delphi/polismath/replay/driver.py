@@ -18,17 +18,10 @@ Verified API facts (read from conversation.py, NOT guessed):
   per (pid,tid); across batches the reindex+where merge overwrites cells, so
   feeding sorted votes gives later-vote-wins. ``last_updated`` becomes
   ``max(lastVoteTimestamp, prev)`` — deterministic given the batch max.
-- ``update_moderation({'mod_out_tids','mod_in_tids','meta_tids','mod_out_ptpts'},
-  recompute=bool)`` → new Conversation. Quirk: each set is replaced only when
-  its list is truthy (conversation.py:616-626), so an EMPTY list cannot clear a
-  previously-set set. This seam is BROADER than "all moderation removed": ANY
-  single set emptying is silently retained — e.g. un-moderating the LAST mod_out
-  tid while mod_in is still active leaves that tid zeroed. The driver passes full
-  cumulative (latest-wins) sets and now DETECTS an emptying transition
-  (:func:`_guard_moderation_clear`), failing loudly rather than recording a stale
-  state. ``meta_tids`` / ``mod_out_ptpts`` are out of H-A scope (never wired by
-  this driver); the real clear-semantics fix is a conversation.py change tracked
-  on the seam wishlist.
+- ``mod_update(rows)`` → new Conversation. Clojure reducer semantics: sets
+  and watermark only, NO recompute — a mod change's effect on the math lands
+  at the NEXT votes recompute. (The former improved-mode ``update_moderation``
+  driver path and its clear-transition guard went with the mode collapse.)
 - ``recompute()`` → new Conversation recomputing PCA→clusters→repness→
   priorities→participant-info on the moderation-applied matrix. Standalone
   after an ``update_votes(recompute=False)``.
@@ -50,7 +43,6 @@ from typing import Any, Callable
 from polismath.conversation.conversation import Conversation
 from polismath.replay.schedule import ReplayStep, ScheduleSpec, slice_schedule
 from polismath.replay.types import ModEvent, ReplayDataset
-from polismath.utils.engine_mode import ENGINE_MODE_LEGACY, resolve_engine_mode
 
 # Vote sign convention recorded in provenance; the future Clojure driver flips.
 VOTE_SIGN_CONVENTION = "delphi"  # AGREE=+1 (export convention, no re-flip)
@@ -114,24 +106,6 @@ def run_replay(
     # certify-cold-start-pca.
     conv.pca = {'center': np.zeros(1), 'comps': np.array([[1.0], [1.0]])}
 
-    # Cumulative latest-wins moderation value per tid across the whole replay
-    # (improved-mode path only; legacy mode carries its own mod state on
-    # `conv` via `mod_update` — see the branch below).
-    mod_state: dict[int, int] = {}
-    legacy = resolve_engine_mode() == ENGINE_MODE_LEGACY
-
-    # The restart seam replays woven mods via mod_update — Clojure's (and
-    # legacy mode's) reducer semantics. Improved mode moderates through
-    # update_moderation (truthy-replace lists); silently applying mod_update
-    # at its restart seam would mix semantics (#2656 review, 2026-07-24).
-    if spec.restart_after is not None and spec.moderation != "none" and not legacy:
-        raise NotImplementedError(
-            "restart_after with a moderation-bearing schedule is only "
-            "implemented for clojure-legacy engine mode: the restart seam "
-            "replays woven mods via mod_update (legacy reducer semantics), "
-            "which does not mirror improved mode's update_moderation."
-        )
-
     records: list[StepRecord] = []
     # Mods woven into steps so far — the restart seam replays exactly these
     # (clj restart-conv: (mapcat :mods steps-so-far)), NEVER dataset.mod_events
@@ -144,28 +118,18 @@ def run_replay(
 
         conv = conv.update_votes(_votes_dict(step), recompute=False)
 
-        if legacy:
-            # Clojure batch order (:votes :moderation, conv_man.clj:361-371):
-            # the votes recompute runs FIRST, on the PRIOR step's mod state.
-            # mod_update then touches only sets/watermark for THIS step's
-            # blob — NO recompute — so a mod change's effect on the math
-            # lands at the NEXT votes recompute (module docstring / conv/
-            # mod_update docstring). moderation="none" schedules never reach
-            # the `if step.mod_events` branch below, so this is bit-identical
-            # to the pre-existing (unconditional) `conv.recompute()` call for
-            # every schedule that doesn't request moderation.
-            conv = conv.recompute()
-            if step.mod_events:
-                conv = conv.mod_update(_mod_rows(step.mod_events))
-        else:
-            if step.mod_events:
-                for m in step.mod_events:
-                    mod_state[m.tid] = m.mod
-                mod = _mod_dict(mod_state)
-                _guard_moderation_clear(conv, mod)
-                conv = conv.update_moderation(mod, recompute=True)
-            else:
-                conv = conv.recompute()
+        # Clojure batch order (:votes :moderation, conv_man.clj:361-371):
+        # the votes recompute runs FIRST, on the PRIOR step's mod state.
+        # mod_update then touches only sets/watermark for THIS step's
+        # blob — NO recompute — so a mod change's effect on the math
+        # lands at the NEXT votes recompute (module docstring / conv/
+        # mod_update docstring). moderation="none" schedules never reach
+        # the `if step.mod_events` branch below, so this is bit-identical
+        # to a plain unconditional `conv.recompute()` for every schedule
+        # that doesn't request moderation.
+        conv = conv.recompute()
+        if step.mod_events:
+            conv = conv.mod_update(_mod_rows(step.mod_events))
 
         record = StepRecord(
             index=step.index,
@@ -199,34 +163,6 @@ def _votes_dict(step: ReplayStep) -> dict[str, Any]:
         for v in step.vote_events
     ]
     return {"votes": votes, "lastVoteTimestamp": step.cut_time_ms}
-
-
-def _guard_moderation_clear(conv: Conversation, mod: dict[str, list[int]]) -> None:
-    """Fail loudly on a moderation-set emptying transition the engine can't apply.
-
-    ``Conversation.update_moderation`` replaces ``mod_out_tids`` / ``mod_in_tids``
-    only when the incoming list is TRUTHY (conversation.py:616-626), so an EMPTY
-    list can NOT clear a previously-applied set. If the schedule un-moderates the
-    LAST tid of a set while the conversation still holds it non-empty, the driver
-    would silently record the stale (still-zeroed) tids. Rather than emit a wrong
-    recording, raise — this is the H-A moderation-clear seam; the real fix is a
-    ``conversation.py`` change (clear on empty), tracked on the seam wishlist.
-    (``meta_tids`` / ``mod_out_ptpts`` are out of H-A scope: the driver never
-    wires them, so they are not guarded here.)
-    """
-    stale: list[str] = []
-    if not mod["mod_out_tids"] and getattr(conv, "mod_out_tids", None):
-        stale.append("mod_out_tids")
-    if not mod["mod_in_tids"] and getattr(conv, "mod_in_tids", None):
-        stale.append("mod_in_tids")
-    if stale:
-        raise NotImplementedError(
-            "replay driver cannot represent clearing "
-            f"{', '.join(stale)}: Conversation.update_moderation ignores an empty "
-            "list, so the previously-moderated tids would silently persist. Wire "
-            "the real clear semantics (conversation.py update_moderation seam) "
-            "before replaying a schedule that empties a moderation set."
-        )
 
 
 def _mod_rows(events: tuple[ModEvent, ...]) -> list[dict[str, Any]]:
@@ -278,17 +214,6 @@ def _restart_conversation(
 
     restored = restored.mod_update(_mod_rows(mod_events))
     return restored
-
-
-def _mod_dict(mod_state: dict[int, int]) -> dict[str, list[int]]:
-    """Cumulative moderation sets from latest-wins per-tid mod values.
-
-    -1 → moderated-out, 1 → moderated-in, 0 → unmoderated (absent from both).
-    """
-    return {
-        "mod_out_tids": sorted(t for t, v in mod_state.items() if v == -1),
-        "mod_in_tids": sorted(t for t, v in mod_state.items() if v == 1),
-    }
 
 
 def _step_extras(conv: Conversation) -> dict[str, Any]:
