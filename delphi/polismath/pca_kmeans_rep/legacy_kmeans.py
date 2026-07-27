@@ -35,7 +35,7 @@ authoritative; where a Clojure quirk is load-bearing it is reproduced and
 flagged in the docstring.
 """
 
-from typing import Any, Dict, List, Mapping, Optional, Sequence
+from typing import Any, Dict, List, Mapping, Optional, Sequence, Union
 
 import numpy as np
 
@@ -70,25 +70,43 @@ class _NamedData:
                 f"(got shape {self.matrix.shape} for {len(self.row_names)} names)")
         # Last-write-wins on duplicate names would corrupt lookups; Clojure's
         # index-hash also de-dups names, but our callers pass unique names.
-        self._by_name: Dict[Any, np.ndarray] = {
-            name: self.matrix[i] for i, name in enumerate(self.row_names)}
+        self._index_by_name: Dict[Any, int] = {
+            name: i for i, name in enumerate(self.row_names)}
 
     def get_row(self, name: Any) -> np.ndarray:
         """Row vector for ``name`` (Clojure ``get-row-by-name``)."""
-        return self._by_name[name]
+        return self.matrix[self._index_by_name[name]]
 
     def __contains__(self, name: Any) -> bool:
-        return name in self._by_name
+        return name in self._index_by_name
 
-    def n_distinct_rows(self) -> int:
+    def n_distinct_rows(self, bound: Optional[int] = None) -> int:
         """Count of distinct rows (Clojure ``(count (distinct (matrix/rows ...)))``
         used for ``possible-clusters``, clusters.clj:249). NaN-safe to match the
-        production first-k-distinct helper."""
-        distinct: List[np.ndarray] = []
-        for row in self.matrix:
-            if not any(np.array_equal(row, u, equal_nan=True) for u in distinct):
-                distinct.append(row)
-        return len(distinct)
+        production first-k-distinct helper.
+
+        Distinctness is first-encounter ``array_equal(..., equal_nan=True)``
+        semantics, computed as vectorized elimination passes: each pass takes
+        the first still-unmatched row and removes every row equal to it
+        (elementwise ``==`` with NaN==NaN; note ``-0.0 == 0.0``, both matching
+        ``array_equal``). Row equality is an equivalence relation, so the
+        class count is identical to the old one-row-at-a-time scan.
+
+        ``bound`` caps the count: with ``bound=b`` the scan stops once ``b``
+        distinct rows are found, so ``min(b, n_distinct_rows(bound=b)) ==
+        min(b, n_distinct_rows())`` — exactly what ``clean_start_clusters``
+        needs (``min(k, ...)``) without an O(n²) full count at 33k+ rows.
+        """
+        m = self.matrix
+        alive = np.ones(m.shape[0], dtype=bool)
+        count = 0
+        while (bound is None or count < bound) and alive.any():
+            first = int(np.argmax(alive))
+            row = m[first]
+            same = ((m == row) | (np.isnan(m) & np.isnan(row))).all(axis=1)
+            alive &= ~same
+            count += 1
+        return count
 
 
 def _euclidean(a: np.ndarray, b: np.ndarray) -> float:
@@ -115,10 +133,55 @@ def _euclidean(a: np.ndarray, b: np.ndarray) -> float:
     return float(np.sqrt(d2))
 
 
-def weighted_mean(rows: Sequence[np.ndarray],
+def _row_norms(matrix: np.ndarray) -> np.ndarray:
+    """Per-row squared norms, BIT-EQUAL to ``float(np.dot(row, row))``.
+
+    Computed as a batched matmul ``(n,1,d) @ (n,d,1)``, which numpy evaluates
+    as one BLAS-style dot per row — empirically verified bit-identical to the
+    scalar ``np.dot`` on this machine across n=1..33422, d=1..783, scales
+    1e-8..1e8 (blas probe, journal item 9a). NOT ``einsum``/``(m*m).sum(1)``/
+    plain ``m @ c`` (dgemv): those reassociate the accumulation for d>=4 (and
+    einsum even for d=2) and differ in the last ulp — which Q11's cancellation
+    then amplifies into a changed 0.0-tie, i.e. changed cluster lineage.
+    """
+    m = np.asarray(matrix, dtype=float)
+    return np.matmul(m[:, None, :], m[:, :, None]).reshape(-1)
+
+
+def _euclidean_col(matrix: np.ndarray, center: np.ndarray,
+                   row_norms: np.ndarray) -> np.ndarray:
+    """``_euclidean(row, center)`` for every row at once — bit-identical.
+
+    Reproduces the scalar path exactly, element by element:
+
+      - cross products via the same batched-matmul-per-row kernel as
+        ``_row_norms`` (bit-equal to ``float(np.dot(row, center))``);
+      - the 3-term combine in the scalar's exact order/associativity:
+        ``(|row|² + |center|²) − 2·cross`` — left-to-right, matching
+        ``float(np.dot(av,av)) + float(np.dot(bv,bv)) - 2.0*float(...)``;
+      - the negative-residue floor as an elementwise post-combine select
+        (``np.where(d2 < 0.0, 0.0, d2)``), so NaN propagates (NaN < 0 is
+        False) exactly like the scalar ``if d2 < 0.0`` branch — never a
+        ``maximum``-style clamp;
+      - the same IEEE ``sqrt``.
+
+    The Q11 cancellation quirk (true distances ~1e-8 flooring to EXACTLY 0.0
+    and deciding tie-merges) is therefore preserved bit-for-bit; the vw
+    knife-edge pair is pinned in tests/test_legacy_kmeans.py.
+    """
+    cv = np.asarray(center, dtype=float)
+    cross = np.matmul(matrix[:, None, :], cv[:, None]).reshape(-1)
+    d2 = (row_norms + float(np.dot(cv, cv))) - 2.0 * cross
+    d2 = np.where(d2 < 0.0, 0.0, d2)
+    return np.sqrt(d2)
+
+
+def weighted_mean(rows: Union[np.ndarray, Sequence[Any]],
                   weights: Optional[Sequence[float]] = None) -> np.ndarray:
     """Mean (or weighted mean) of row vectors — Clojure ``weighted-mean``
-    (clusters.clj:89-126, matrix branch).
+    (clusters.clj:89-126, matrix branch). ``rows`` is anything
+    ``np.asarray`` turns into an (n, d) matrix: an ndarray slice (the
+    vectorized callers) or a sequence of row vectors.
 
     Clojure computes ``(count w)/(sum w) * sum_i(w_i * row_i)`` then takes the
     plain per-row mean, which algebraically equals ``sum_i(w_i row_i)/sum_i(w_i)``
@@ -208,8 +271,6 @@ def cluster_step(data: _NamedData,
     if n == 0:
         return []
     centers = [np.asarray(c['center'], dtype=float) for c in clusters]
-    members: List[List[Any]] = [[] for _ in range(n)]
-    positions: List[List[np.ndarray]] = [[] for _ in range(n)]
 
     # Assignment SCAN order: Clojure's add-to-closest iterates the
     # cleared-clusters map — ``(into {})`` of [id cluster] pairs is an
@@ -229,28 +290,34 @@ def cluster_step(data: _NamedData,
     else:
         scan = list(range(n))
 
-    for name, row in zip(data.row_names, data.matrix):
-        best_idx = scan[0]
-        best_dist = _euclidean(row, centers[scan[0]])
-        for j in scan[1:]:
-            d = _euclidean(row, centers[j])
-            # ``<=`` => ties go to the LATER cluster in scan order (Clojure
-            # min-key semantics over the map's iteration order).
-            if d <= best_dist:
-                best_dist = d
-                best_idx = j
-        members[best_idx].append(name)
-        positions[best_idx].append(row)
+    # Vectorized scan (item 9a): one bit-identical distance COLUMN per
+    # center, folded in scan order with the scalar loop's exact update rule
+    # ``d <= best`` — so ties go to the LATER cluster in scan order (Clojure
+    # min-key semantics over the map's iteration order), and a NaN distance
+    # never wins (NaN <= x is False), matching the scalar branch outcome
+    # row by row.
+    matrix = data.matrix
+    row_norms = _row_norms(matrix)
+    best_dist = _euclidean_col(matrix, centers[scan[0]], row_norms)
+    best_idx = np.full(matrix.shape[0], scan[0], dtype=np.intp)
+    for j in scan[1:]:
+        d = _euclidean_col(matrix, centers[j], row_norms)
+        upd = d <= best_dist
+        best_dist = np.where(upd, d, best_dist)
+        best_idx = np.where(upd, j, best_idx)
 
     out: List[Dict[str, Any]] = []
     for j in range(n):
-        if not members[j]:
+        rows_j = np.flatnonzero(best_idx == j)
+        if rows_j.size == 0:
             continue  # drop empty cluster
-        w = _cluster_weights(members[j], weights)
+        # Ascending row indices == the row-order append of the scalar loop.
+        members_j = [data.row_names[i] for i in rows_j]
+        w = _cluster_weights(members_j, weights)
         out.append({
             'id': clusters[j]['id'],
-            'members': members[j],
-            'center': weighted_mean(positions[j], w),
+            'members': members_j,
+            'center': weighted_mean(matrix[rows_j], w),
         })
     return out
 
@@ -269,9 +336,11 @@ def _recenter_center(data: _NamedData,
     surviving = [m for m in members if m in data]
     if not surviving:
         return None
-    rows = [data.get_row(m) for m in surviving]
+    # Gather by index in one fancy-indexing slice: identical values to the
+    # old per-name ``get_row`` list, so the mean is bit-identical.
+    idx = [data._index_by_name[m] for m in surviving]
     w = _cluster_weights(surviving, weights)
-    return weighted_mean(rows, w)
+    return weighted_mean(data.matrix[idx], w)
 
 
 def safe_recenter_clusters(data: _NamedData,
@@ -391,25 +460,42 @@ def most_distal(data: _NamedData, clusters: List[Dict[str, Any]]) -> Dict[str, A
         row in ``data`` row order.
 
     Returns ``{'dist', 'clst_id', 'id'}`` where ``id`` is the row name.
+
+    Vectorized (item 9a) with the scalar loops' exact semantics:
+
+      - inner fold over clusters uses bit-identical distance columns and the
+        update rule ``d <= near`` (NaN never wins, ties -> later cluster);
+      - the outer scalar loop ("row i wins iff ``near_dist[i] >= best``",
+        row 0 initializes) reduces to: if ``near_dist[0]`` is NaN, row 0
+        wins forever (nothing satisfies ``x >= NaN``); otherwise NaN rows
+        can never win (``NaN >= best`` is False) and among the non-NaN rows
+        a running last-wins max is exactly the LAST argmax.
     """
-    best_dist = None
-    best_clst_id = None
-    best_name = None
-    for name, row in zip(data.row_names, data.matrix):
-        # nearest cluster (ties -> later cluster)
-        near_dist = _euclidean(row, np.asarray(clusters[0]['center'], dtype=float))
-        near_id = clusters[0]['id']
-        for clst in clusters[1:]:
-            d = _euclidean(row, np.asarray(clst['center'], dtype=float))
-            if d <= near_dist:
-                near_dist = d
-                near_id = clst['id']
-        # farthest row (ties -> later row)
-        if best_dist is None or near_dist >= best_dist:
-            best_dist = near_dist
-            best_clst_id = near_id
-            best_name = name
-    return {'dist': best_dist, 'clst_id': best_clst_id, 'id': best_name}
+    matrix = data.matrix
+    n_rows = matrix.shape[0]
+    if n_rows == 0:
+        return {'dist': None, 'clst_id': None, 'id': None}
+
+    row_norms = _row_norms(matrix)
+    near_dist = _euclidean_col(
+        matrix, np.asarray(clusters[0]['center'], dtype=float), row_norms)
+    near_j = np.zeros(n_rows, dtype=np.intp)
+    for j in range(1, len(clusters)):
+        d = _euclidean_col(
+            matrix, np.asarray(clusters[j]['center'], dtype=float), row_norms)
+        upd = d <= near_dist
+        near_dist = np.where(upd, d, near_dist)
+        near_j = np.where(upd, j, near_j)
+
+    if np.isnan(near_dist[0]):
+        win = 0
+    else:
+        valid = np.flatnonzero(~np.isnan(near_dist))
+        vmax = near_dist[valid].max()
+        win = int(valid[np.flatnonzero(near_dist[valid] == vmax)[-1]])
+    return {'dist': float(near_dist[win]),
+            'clst_id': clusters[int(near_j[win])]['id'],
+            'id': data.row_names[win]}
 
 
 def clean_start_clusters(data: _NamedData,
@@ -436,7 +522,9 @@ def clean_start_clusters(data: _NamedData,
 
     clusters = safe_recenter_clusters(data, clusters, weights)
     clusters = uniqify_clusters(clusters)
-    possible = min(k, data.n_distinct_rows())
+    # ``bound=k`` stops the distinct-row scan at k classes: min(k, .) makes
+    # any count beyond k unobservable, so this is exact (and not O(n²)).
+    possible = min(k, data.n_distinct_rows(bound=k))
 
     while True:
         clusters = recenter_clusters(data, clusters, weights)
