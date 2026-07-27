@@ -4262,3 +4262,29 @@ Phase 4 re-record therefore = private goldens (--include-local) +
 optionally recording public ones; VERIFY against the battery's certified
 clj recordings BEFORE recording (never blind). Recorder:
 scripts/regression_recorder.py.
+
+### Phase 4 — goldens: verify-then-re-record (s7 cont.)
+
+Drift check (`regression_comparer.py --include-local`): 7/7 datasets fail
+vs the pre-collapse goldens. Read the FLI detail per the never-blind rule
+— the drift is EXACTLY the two expected legacy families and nothing else:
+(1) blob shape (folded columnar base-clusters, lastModTimestamp/mod-out/
+mod-in emission, legacy consensus/repness shapes — _apply_legacy_blob_shape
+now unconditional); (2) PCA warm-start numerics in the rank-deficient
+component tail (comps[1]/proj second-axis jitter at tiny magnitudes).
+
+Verification argument for re-recording (the "certified before recording"
+evidence): the engine writing the new goldens is the SAME TREE the battery
+just certified bit-exact against the Clojure oracle on these SAME 7
+datasets (20/20 MATCH, two runs — post-collapse and post-refactor). The
+observed drift families match the collapse's documented semantics 1:1;
+no third family observed. Goldens are LOCAL-ONLY artifacts (zero
+git-tracked golden_snapshot.json), so the re-record is evidenced by the
+comparer passing + this entry, not by committed files. Public datasets
+(vw/biodiversity) had NO goldens at all — being recorded for the first
+time in this worktree.
+
+PR #2673 review agent verdict: CLEAN — split proven behavior-preserving
+(including an equivalence proof of the counts_df.empty seam), blob test
+non-vacuous (45+42 entries), tolerances justified against Clojure's
+`(float repness-test)` cast at repness.clj:187.
