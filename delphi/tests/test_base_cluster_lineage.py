@@ -9,11 +9,12 @@ conversation.clj:433-445 group), giving clusters STABLE ids across ticks. The
 pre-PR Python legacy branch recomputed clusters COLD every tick (kmeans_sklearn
 with no warm start), so no lineage was threaded. This module verifies:
 
-  1. Cold first tick: legacy base + group partitions equal improved mode
-     (the cold-start invariant — measured identical on vw and synthetic data).
-  2. Warm-start threading: in legacy mode the ported legacy_kmeans is called
-     with the prior tick's clusters as last_clusters (base and per-k group); in
-     improved mode it is never called.
+  1. Cold first tick: the base partition is Clojure-faithful up to Q11 merges,
+     and group clustering is deterministic run-to-run.
+  2. Warm-start threading: the ported legacy_kmeans is called with the prior
+     tick's clusters as last_clusters (base and per-k group). (This is the
+     engine's only path since the mode collapse; the former improved-mode
+     sklearn cold recompute is parked: POST_CUTOVER_IMPROVEMENTS.md item 8.)
   3. self.group_clusterings holds id-carrying cluster dicts (legacy value type),
      not the (labels, centers, member_lists, silhouette) tuple.
   4. Base-cluster ids are stable across chained update_votes and new
@@ -134,13 +135,6 @@ class TestWarmStartThreading:
         monkeypatch.setattr(conv_mod, 'legacy_kmeans', spy)
         return spy
 
-    def test_improved_never_calls_legacy_kmeans(self, monkeypatch):
-        monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'improved')
-        spy = self._spy(monkeypatch)
-        Conversation('x').update_votes(_many_ptpt_votes())
-        assert spy.calls == []
-
     def test_legacy_base_warm_start_threaded(self, monkeypatch):
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
         monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
@@ -224,26 +218,27 @@ class TestBaseIdLineage:
 # 5. vw real-data cold-start invariance (base AND group), the documented gate.
 # ---------------------------------------------------------------------------
 
-class TestVwColdStartInvariance:
+class TestVwColdStartDeterminism:
     """On vw (67 in-conv participants -> 67 singleton base clusters; groups for
-    k=2..5), cold legacy clustering was measured bit-identical to improved mode
-    at BOTH levels. Locked in here; skips if the committed vw dataset is absent.
-    """
+    k=2..5), cold clustering is deterministic run-to-run. (The former
+    cross-mode invariance assertion went with the mode collapse — the battery
+    now pins vw against the Clojure oracle directly, which is stronger.)
+    Skips if the committed vw dataset is absent."""
 
-    def _vw_conv(self, monkeypatch, mode):
+    def _vw_conv(self, monkeypatch):
         try:
             from polismath.replay.real_data import load_export_votes
             ds = load_export_votes('vw')
         except (ImportError, FileNotFoundError):
             pytest.skip('vw dataset unavailable')
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, mode)
+        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
         votes = [{'pid': v.pid, 'tid': v.tid, 'vote': v.sign, 'created': v.t_ms}
                  for v in ds.votes]
         return Conversation('vw').update_votes({'votes': votes})
 
-    def test_vw_base_and_group_identical_across_modes(self, monkeypatch):
-        imp = self._vw_conv(monkeypatch, 'improved')
-        leg = self._vw_conv(monkeypatch, 'clojure-legacy')
-        assert _partition(imp.base_clusters) == _partition(leg.base_clusters)
-        assert _partition(imp.group_clusters) == _partition(leg.group_clusters)
+    def test_vw_base_and_group_deterministic(self, monkeypatch):
+        run1 = self._vw_conv(monkeypatch)
+        run2 = self._vw_conv(monkeypatch)
+        assert _partition(run1.base_clusters) == _partition(run2.base_clusters)
+        assert _partition(run1.group_clusters) == _partition(run2.group_clusters)
