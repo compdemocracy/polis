@@ -183,7 +183,14 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
 
     Vectorized port of Clojure's per-(group, comment) `comment-stats` recipe
     (math/src/polismath/math/repness.clj:64-100). Operates on all groups and
-    comments simultaneously.
+    comments simultaneously, in two phases:
+
+    1. :func:`_group_comment_vote_counts` — the DataFrame plumbing that
+       reduces (votes, group memberships) to one row of raw counts per
+       (group, comment): ``na``/``nd``/``ns`` for the group and
+       ``other_agree``/``other_disagree``/``other_votes`` for everyone else.
+    2. :func:`_comment_stats_from_counts` — the statistics recipe, reading
+       like Clojure's scalar comment-stats/finalize-cmt-stats chain.
 
     Args:
         votes_long: Long-format DataFrame with columns:
@@ -209,6 +216,25 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
             - agree_metric: metric for agree representativeness
             - disagree_metric: metric for disagree representativeness
             - repful: 'agree' or 'disagree' based on which is more representative
+    """
+    counts_df = _group_comment_vote_counts(votes_long, group_clusters, tid_order)
+    if counts_df.empty:
+        return counts_df
+    return _comment_stats_from_counts(counts_df)
+
+
+def _group_comment_vote_counts(votes_long: pd.DataFrame,
+                               group_clusters: List[Dict[str, Any]],
+                               tid_order: Optional[List[Any]] = None) -> pd.DataFrame:
+    """Phase 1 — the plumbing: reduce (votes, group memberships) to raw
+    per-(group, comment) counts.
+
+    Returns a DataFrame indexed by (group_id, comment) with the group's
+    ``na``/``nd``/``ns``, the clustered-voter totals ``total_agree``/
+    ``total_disagree``/``total_votes``, and the derived ``other_*`` columns
+    (everyone not in this group) — the exact inputs Clojure's comment-stats
+    recipe consumes. Empty result (correct schema) when there are no votes
+    or no clustered voters.
     """
     # Build participant -> group mapping
     ptpt_to_group = {}
@@ -304,6 +330,19 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
     stats_df['other_disagree'] = stats_df['total_disagree'] - stats_df['nd']
     stats_df['other_votes'] = stats_df['total_votes'] - stats_df['ns']
 
+    return stats_df
+
+
+def _comment_stats_from_counts(stats_df: pd.DataFrame) -> pd.DataFrame:
+    """Phase 2 — the statistics recipe, on clean per-(group, comment) counts.
+
+    Reads like Clojure's scalar chain (comment-stats -> add-comparative-stats
+    -> finalize-cmt-stats, repness.clj:64-100/:97-100/:178/:191-193):
+    probabilities with pseudocounts, proportion tests on raw counts,
+    representativeness ratios group-vs-other, two-proportion tests, the
+    signed metric products, and the repful side pick. Adds the stat columns
+    to ``stats_df`` (same frame, mutated in place) and returns it.
+    """
     # Compute probabilities with pseudocounts (Bayesian smoothing)
     # For group
     stats_df['pa'] = (stats_df['na'] + PSEUDO_COUNT/2) / (stats_df['ns'] + PSEUDO_COUNT)

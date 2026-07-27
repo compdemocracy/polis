@@ -457,3 +457,77 @@ class TestNsIncludesPassVotes:
             f"group 1 other_votes should include group-0 PASS; "
             f"got {g1['other_votes']}"
         )
+
+class TestBlobInjectionStats:
+    """PR 14b: inject the CLOJURE blob's group memberships + the dataset's
+    votes into the PRODUCTION stats path (compute_group_comment_stats_df)
+    and compare per-(gid, tid) values against the blob's repness entries —
+    the non-tautological pin of the vectorized formulas against the oracle
+    (HANDOFF_PR14_VECTORIZED_REFACTOR.md task 2).
+
+    The blob stores only the WINNING side's values; `repful-for` selects
+    which of our columns to compare (agree -> na/pa/pat/ra/rat, disagree ->
+    nd/pd/pdt/rd/rdt). `repness-test` is emitted ROUNDED (~7 significant
+    digits) by Clojure, hence its looser tolerance.
+    """
+
+    def _stats_and_blob(self, ds_name):
+        import json
+        from polismath.regression import get_dataset_files
+        from common_utils import create_test_conversation
+
+        files = get_dataset_files(ds_name, blob_type='cold_start')
+        blob_path = files['math_blob']
+        if not os.path.exists(blob_path):
+            pytest.skip(f"math blob for {ds_name} unavailable")
+        with open(blob_path) as fh:
+            blob = json.load(fh)
+
+        conv = create_test_conversation(ds_name)
+        votes_long = conv.rating_mat.melt(
+            ignore_index=False, var_name='comment', value_name='vote'
+        ).reset_index(names='participant')
+
+        # Blob group members are BASE-cluster ids; unfold through the
+        # blob's own base-clusters (NOT python's clustering — injection).
+        # create_test_conversation matrices carry STRING pids/tids; the blob
+        # carries ints — map on the way in (and look tids up as str below).
+        bc = blob['base-clusters']
+        bid_to_pids = dict(zip(bc['id'], bc['members']))
+        groups = [
+            {'id': g['id'],
+             'members': [str(pid) for bid in g['members']
+                         for pid in bid_to_pids[bid]]}
+            for g in blob['group-clusters']
+        ]
+        stats = compute_group_comment_stats_df(votes_long, groups)
+        return stats, blob
+
+    @pytest.mark.parametrize('ds_name', ['vw', 'biodiversity'])
+    def test_stats_match_blob_repness_entries(self, ds_name):
+        stats, blob = self._stats_and_blob(ds_name)
+        checked = 0
+        for gid_str, entries in blob['repness'].items():
+            gid = int(gid_str)
+            for e in entries:
+                tid = str(e['tid'])
+                if (gid, tid) not in stats.index:
+                    pytest.fail(f"blob entry (gid={gid}, tid={tid}) missing "
+                                f"from stats index")
+                row = stats.loc[(gid, tid)]
+                side = e['repful-for']
+                n_col, p_col, pt_col, r_col, rt_col = (
+                    ('na', 'pa', 'pat', 'ra', 'rat') if side == 'agree'
+                    else ('nd', 'pd', 'pdt', 'rd', 'rdt'))
+                assert row[n_col] == e['n-success'], (gid, tid, side)
+                assert row['ns'] == e['n-trials'], (gid, tid, side)
+                assert np.isclose(row[p_col], e['p-success'],
+                                  rtol=1e-9, atol=1e-12), (gid, tid, 'p-success')
+                assert np.isclose(row[pt_col], e['p-test'],
+                                  rtol=1e-9, atol=1e-12), (gid, tid, 'p-test')
+                assert np.isclose(row[r_col], e['repness'],
+                                  rtol=1e-9, atol=1e-12), (gid, tid, 'repness')
+                assert np.isclose(row[rt_col], e['repness-test'],
+                                  rtol=2e-6, atol=1e-9), (gid, tid, 'repness-test')
+                checked += 1
+        assert checked >= 4, f"vacuous: only {checked} blob entries compared"
