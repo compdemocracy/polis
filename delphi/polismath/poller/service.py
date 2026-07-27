@@ -20,11 +20,6 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Optional
 
 from polismath.conversation.conversation import Conversation
-from polismath.utils.engine_mode import (
-    ENGINE_MODE_ENV_VAR,
-    ENGINE_MODE_CHOICES,
-    resolve_engine_mode,
-)
 from polismath.poller.math_writer import MathWriter, dump_error
 from polismath.poller.worker_pool import (
     ConversationWorkerPool,
@@ -139,7 +134,6 @@ class PollerConfig:
       poll_from_days_ago POLL_FROM_DAYS_AGO                          (default 10)
       allowlist          POLL_ALLOWLIST | MATH_ZID_ALLOWLIST         (default [])
       blocklist          POLL_BLOCKLIST | MATH_ZID_BLOCKLIST         (default [])
-      engine_mode        POLISMATH_ENGINE_MODE                      (default None -> compute's own default)
       shard_index        POLL_SHARD_INDEX | MATH_SHARD_INDEX        (default 0)
       shard_count        POLL_SHARD_COUNT | MATH_SHARD_COUNT        (default 1 = unsharded)
       worker_pool_size   MATH_WORKER_POOL_SIZE                       (default 4)
@@ -155,7 +149,6 @@ class PollerConfig:
     poll_from_days_ago: float = 10
     allowlist: List[int] = field(default_factory=list)
     blocklist: List[int] = field(default_factory=list)
-    engine_mode: Optional[str] = None
     # zid-sharding: this process handles zids where zid % shard_count ==
     # shard_index.  shard_count=1 (the default) is unsharded -- every zid.
     # One shard = one PROCESS: threads do not parallelise this workload
@@ -230,7 +223,6 @@ class PollerConfig:
             blocklist=_parse_int_list(
                 _env_first("POLL_BLOCKLIST", "MATH_ZID_BLOCKLIST")
             ),
-            engine_mode=os.environ.get(ENGINE_MODE_ENV_VAR),
             shard_index=int(
                 _env_first("POLL_SHARD_INDEX", "MATH_SHARD_INDEX", default="0")
             ),
@@ -265,22 +257,6 @@ class MathPollerService:
         self._vote_wm: Optional[int] = None
         self._mod_wm: Optional[int] = None
 
-    # -- engine-mode passthrough ------------------------------------------- #
-    def apply_engine_mode(self) -> str:
-        """Propagate the configured engine mode into the process environment so
-        the in-process compute (conversation._compute_pca/_compute_clusters,
-        which read POLISMATH_ENGINE_MODE at call time) honors it.  Returns the
-        resolved mode actually in effect."""
-        if self.config.engine_mode:
-            if self.config.engine_mode not in ENGINE_MODE_CHOICES:
-                logger.warning(
-                    "Unknown POLISMATH_ENGINE_MODE=%r; compute will fall back to "
-                    "its default",
-                    self.config.engine_mode,
-                )
-            os.environ[ENGINE_MODE_ENV_VAR] = self.config.engine_mode
-        return resolve_engine_mode()
-
     # -- lifecycle ---------------------------------------------------------- #
     def _ensure_runtime(self) -> None:
         if self._pool is None:
@@ -293,7 +269,6 @@ class MathPollerService:
             self._mod_wm = initial_watermark(self.config.poll_from_days_ago)
 
     def start(self) -> None:
-        self.apply_engine_mode()
         self._ensure_runtime()
         self._stop.clear()
         self._threads = [
@@ -303,9 +278,8 @@ class MathPollerService:
         for t in self._threads:
             t.start()
         logger.info(
-            "MathPollerService started (math_env=%s engine_mode=%s pool=%d shard=%s)",
+            "MathPollerService started (math_env=%s pool=%d shard=%s)",
             self.config.math_env,
-            resolve_engine_mode(),
             self.config.worker_pool_size,
             # Spelled out so a misconfigured fleet is visible in the logs rather
             # than silently leaving a slice of conversations unprocessed.
@@ -337,7 +311,6 @@ class MathPollerService:
 
         Used by ``--once`` and the integration test.
         """
-        self.apply_engine_mode()
         self._ensure_runtime()
         self._poll_votes_once()
         self._poll_moderation_once()
