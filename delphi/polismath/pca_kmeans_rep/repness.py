@@ -848,15 +848,12 @@ def conv_repness(vote_matrix_df: pd.DataFrame,
         'comment_repness': []
     }
 
-    # Check if we have enough data. Clojure computes repness/consensus for
-    # ANY matrix (its best-agree guarantee produces an entry even for a
-    # single-vote 1x1 conversation; rest-stats over zero other groups fall
-    # back to the (0+1)/(0+2) prior — every-vote step-0 oracle, journal
-    # 2026-07-22). clojure-legacy therefore proceeds; improved keeps the
-    # historical <2 guard.
-    if vote_matrix_df.shape[0] < 2 or vote_matrix_df.shape[1] < 2:
-        if resolve_engine_mode() != ENGINE_MODE_LEGACY:
-            return empty_result
+    # Clojure computes repness/consensus for ANY matrix (its best-agree
+    # guarantee produces an entry even for a single-vote 1x1 conversation;
+    # rest-stats over zero other groups fall back to the (0+1)/(0+2) prior —
+    # every-vote step-0 oracle, journal 2026-07-22), so no size guard here.
+    # (The former improved-mode <2 guard is parked:
+    # POST_CUTOVER_IMPROVEMENTS.md item 2.)
 
     # Convert wide-format to long-format DataFrame
     # Wide: participants × comments (values = votes)
