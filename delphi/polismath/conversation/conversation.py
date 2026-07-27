@@ -31,7 +31,6 @@ from polismath.pca_kmeans_rep.legacy_kmeans import (
     kmeans as legacy_kmeans,
 )
 from polismath.utils.clj_hash import clojure_hash_map_key_order
-from polismath.utils.engine_mode import resolve_engine_mode, ENGINE_MODE_LEGACY
 
 
 # Configure logging
@@ -220,23 +219,20 @@ class Conversation:
         self.group_clusters = []
         self.subgroup_clusters = {}
 
-        # Warm-start state threaded across ticks in 'clojure-legacy' engine
-        # mode (see polismath.utils.engine_mode). Clojure carries these on the
+        # Warm-start state threaded across ticks. Clojure carries these on the
         # conv (conversation.clj:433-484): the per-k group clusterings and the
         # group-k-smoother state {last_k, last_k_count, smoothed_k}. Cold
         # default is empty (first tick); NOT persisted to/from dynamo — they
         # thread in-memory only, exactly as Clojure's math_main whitelist omits
-        # them (conv_man.clj:52-74). Unused in the default 'improved' mode.
+        # them (conv_man.clj:52-74).
         self.group_clusterings: Dict[Any, Any] = {}  # k -> (labels, centers, member_lists, silhouette)
         self.group_k_smoother: Dict[str, Any] = {}   # {last_k, last_k_count, smoothed_k}
-        # Persistent in-conv set for 'clojure-legacy' mode (PR-E). Clojure keeps
-        # in-conv on the conv and UNIONS into it every tick, so greedily-admitted
-        # participants never leave (conversation.clj:243-269). Empty on the first
-        # tick; threaded in-memory across update_votes (deepcopy in recompute),
-        # NOT persisted to dynamo — same lifetime as the other warm-start state.
-        # Unused/ignored in the default 'improved' mode (threshold-only
-        # selection) — it can hold carry state from an earlier clojure-legacy
-        # tick if the mode is switched mid-process.
+        # Persistent in-conv set (PR-E). Clojure keeps in-conv on the conv
+        # and UNIONS into it every tick, so greedily-admitted participants
+        # never leave (conversation.clj:243-269). Empty on the first tick;
+        # threaded in-memory across update_votes (deepcopy in recompute),
+        # NOT persisted to dynamo — same lifetime as the other warm-start
+        # state.
         self.in_conv: Set[Any] = set()
         self.proj = {}
         self.repness = None
@@ -500,21 +496,15 @@ class Conversation:
         structure so that tids, column indices, and dimensions match between
         Python and Clojure.
 
-        Participant bans (mod_out_ptpts) are a Python-only feature: the
-        Clojure worker's ingest path has no participants.mod filter, so
-        banned participants keep influencing every downstream node
-        (CLOJURE_QUIRKS Q1). 'clojure-legacy' mode replicates that leak —
-        the set is stored but NOT applied; 'improved' mode drops the rows.
+        Participant bans (mod_out_ptpts) are NOT a Polis feature (Julien
+        ruling 2026-07-27, POST_CUTOVER_IMPROVEMENTS.md item 1 — dropped):
+        no engine has ever honored them — the Clojure worker's ingest path
+        has no participants.mod filter (CLOJURE_QUIRKS Q1). The set is
+        ingested but never applied to the matrix.
         """
-        # Filter out banned participants (remove rows) — improved mode only;
-        # legacy mode leaks like Clojure (Q1).
         # Preserve raw_rating_mat row order (vote encounter order) — see
         # update_votes() comment on why row order matters for Clojure parity.
-        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
-            keep_ptpts = list(self.raw_rating_mat.index)
-        else:
-            keep_ptpts = [p for p in self.raw_rating_mat.index if p not in self.mod_out_ptpts]
-        self.rating_mat = self.raw_rating_mat.loc[keep_ptpts].copy()
+        self.rating_mat = self.raw_rating_mat.copy()
 
         # Zero out moderated-out comments (keep columns, set values to 0)
         # Clojure: (matrix/set-column m' i 0) — zeroes the column
@@ -721,9 +711,8 @@ class Conversation:
         Args:
             n_components: Number of principal components
             prev_pca: The previous tick's PCA result ({'center', 'comps'}) or
-                None. Consumed ONLY in 'clojure-legacy' engine mode as the
-                power-iteration warm start (Clojure :start-vectors,
-                conversation.clj:385). Ignored in the default 'improved' mode.
+                None. Consumed as the power-iteration warm start (Clojure
+                :start-vectors, conversation.clj:385).
         """
         import time
         start_time = time.time()
@@ -850,19 +839,16 @@ class Conversation:
 
         Args:
             prev_base_clusters: The previous tick's base clusters
-                (list of {id, center, members}), or None. Consumed ONLY in
-                'clojure-legacy' engine mode as the base-level k-means warm start
-                (Clojure :last-clusters (:base-clusters conv), conversation.clj:409).
-                Ignored in the default 'improved' mode.
-            prev_group_clusterings: The previous tick's per-k group clusterings,
-                or None. In 'clojure-legacy' mode this is {k: [id-carrying cluster
-                dicts]} — the warm start for per-k group k-means (Clojure
-                :last-clusters (last-clusterings k), conversation.clj:441). Ignored
-                in 'improved' mode (where it is never even written, so it stays {}).
+                (list of {id, center, members}), or None. Consumed as the
+                base-level k-means warm start (Clojure :last-clusters
+                (:base-clusters conv), conversation.clj:409).
+            prev_group_clusterings: The previous tick's per-k group
+                clusterings, or None: {k: [id-carrying cluster dicts]} — the
+                warm start for per-k group k-means (Clojure :last-clusters
+                (last-clusterings k), conversation.clj:441).
             prev_group_k_smoother: The previous tick's group-k-smoother state
-                {last_k, last_k_count, smoothed_k}, or None. Consumed ONLY in
-                'clojure-legacy' mode (conversation.clj:457). Ignored in
-                'improved' mode.
+                {last_k, last_k_count, smoothed_k}, or None
+                (conversation.clj:457).
         """
         import time
         start_time = time.time()
@@ -1087,14 +1073,10 @@ class Conversation:
         # Compute representativeness (needs participant IDs, not base-cluster IDs).
         # `mod_out=self.mod_out_tids` forwards moderated-out tids to the rep + consensus
         # selectors (Clojure parity per D11 / PR 9; matches repness.clj:222 and :296).
-        # In clojure-legacy mode, tid_order carries the first-vote arrival
-        # order so exact-score ties resolve like Clojure's stable sorts over
-        # named-matrix column order (FP-eaea8c1b7f / FP-0d73f006f4).
-        tid_order = (
-            self.tid_arrival_order
-            if resolve_engine_mode() == ENGINE_MODE_LEGACY
-            else None
-        )
+        # tid_order carries the first-vote arrival order so exact-score ties
+        # resolve like Clojure's stable sorts over named-matrix column order
+        # (FP-eaea8c1b7f / FP-0d73f006f4).
+        tid_order = self.tid_arrival_order
         self.repness = conv_repness(self.rating_mat,
                                     self._unfolded_group_clusters(),
                                     mod_out=self.mod_out_tids,
@@ -1335,8 +1317,7 @@ class Conversation:
         # prior tick's values (deepcopied snapshots). This mirrors Clojure,
         # whose fnks read the incoming `conv` for :start-vectors
         # (conversation.clj:385) and :group-k-smoother (conversation.clj:457).
-        # In 'improved' mode (default) these are IGNORED and behavior is
-        # unchanged; only 'clojure-legacy' mode consumes them.
+
         prev_pca = result.pca
         prev_base_clusters = getattr(result, 'base_clusters', [])
         prev_group_clusterings = getattr(result, 'group_clusterings', {})
@@ -1388,14 +1369,13 @@ class Conversation:
         `priority_metric(is_meta, A, P, S, E)` where E is the comment
         extremity computed from the CURRENT tick's PCA.
 
-        Which tick's group-votes feed A/D/S is mode-dependent (Q2): Clojure
-        shadows its current-tick group-votes input with `(:group-votes conv)`
-        — the PREVIOUS tick's stored value (conversation.clj:658) — so
-        'clojure-legacy' mode uses `prev_group_votes` (empty on the first
-        tick, matching Clojure's nil). 'improved' mode uses the current
-        tick's (the sane behavior). Either way the CURRENT tick's group-votes
-        are stored on `self.group_votes` for the next tick's capture — the
-        in-memory analogue of Clojure persisting :group-votes in math_main.
+        The PREVIOUS tick's group-votes feed A/D/S (Q2): Clojure shadows
+        its current-tick group-votes input with `(:group-votes conv)` —
+        the previous tick's stored value (conversation.clj:658) — so
+        `prev_group_votes` is used (empty on the first tick, matching
+        Clojure's nil). The CURRENT tick's group-votes are stored on
+        `self.group_votes` for the next tick's capture — the in-memory
+        analogue of Clojure persisting :group-votes in math_main.
 
         Stores the result on `self.comment_priorities` and also returns it.
         TS server `nextComment.ts::getNextPrioritizedComment` consumes this
@@ -1640,8 +1620,9 @@ class Conversation:
         bucket, matching `agg-bucket-votes-for-tid` over `bid-to-pid`
         (conversation.clj:593-608). Buckets are the base clusters SORTED BY
         :id; the aggregation domain is each bucket's member pids only — votes
-        from unclustered participants never appear (this is why the improved
-        int totals run up to +1 higher on some tids; FP-81fda13ef6).
+        from unclustered participants never appear (this is why the former
+        improved-mode int totals ran up to +1 higher on some tids;
+        FP-81fda13ef6).
 
         Values come from raw_rating_mat (D15 parity: the actual votes cast,
         not post-moderation zeros), same as `_compute_votes_base`.
@@ -1824,13 +1805,9 @@ class Conversation:
         # RAW-rating-mat (conversation.clj:601-608): moderated-out comments
         # report the ACTUAL votes cast and true seen-counts, not the
         # post-zeroing pass-shaped columns (a zeroed column would tally
-        # A=0/D=0 with S = every member). Legacy mode mirrors that; improved
-        # mode keeps the zeroed-matrix tally it was snapshotted with (its
-        # S-inflation on moderated tids is a known later-fix).
+        # A=0/D=0 with S = every member).
         # tests/test_mod_update_parity.py TestGroupVotesTallyRawMatrix.
-        tally_mat = (self.raw_rating_mat
-                     if resolve_engine_mode() == ENGINE_MODE_LEGACY
-                     else self.rating_mat)
+        tally_mat = self.raw_rating_mat
 
         group_votes = {}
 
@@ -1919,11 +1896,9 @@ class Conversation:
         import time
         start_time = time.time()
         # raw_rating_mat for the COLUMN view (preserves moderated-out comments — D15
-        # parity), but filtered to rating_mat.index for the ROW view so banned
-        # participants (mod_out_ptpts, dropped by _apply_moderation in improved
-        # mode) don't leak into vote counts. In clojure-legacy mode
-        # rating_mat.index keeps banned rows (Q1 leak replication), so this
-        # matches Clojure's unfiltered user-vote-counts there. Both filters
+        # parity), row view via rating_mat.index. Since the ban-filter drop
+        # (bans are not a Polis feature), rating_mat.index keeps banned rows
+        # (Q1), matching Clojure's unfiltered user-vote-counts. Both filters
         # together give the moderation-applied state with un-zeroed values,
         # matching what Clojure produces.
         mat = self.raw_rating_mat.loc[self.rating_mat.index]
@@ -1987,10 +1962,8 @@ class Conversation:
         MUST be persisted to DynamoDB. See compdemocracy/polis#2358 and
         Clojure's approach in conv_man.clj:55, conversation.clj:244.
 
-        In the default 'improved' mode this is exactly the threshold set (no
-        carry, no greedy floor) — today's behavior, unchanged. In
-        'clojure-legacy' mode it additionally ports the two Clojure steps the
-        Python pipeline was missing (conversation.clj:243-269):
+        Beyond the threshold set, this ports the two Clojure steps the
+        Python pipeline was originally missing (conversation.clj:243-269):
 
           1. CARRY: union into the PERSISTENT in-conv set carried on the conv
              (`(or (:in-conv conv) #{})`, conversation.clj:247) so a participant,
@@ -2012,16 +1985,10 @@ class Conversation:
         # Participants meeting the vote threshold (Clojure conversation.clj:249-256).
         threshold_set = {pid for pid, count in vote_counts.items() if count >= threshold}
 
-        if resolve_engine_mode() != ENGINE_MODE_LEGACY:
-            # Improved (default): threshold set only — no carry, no greedy floor.
-            logger.info(f"Filtered {len(threshold_set)}/{len(vote_counts)} participants "
-                        f"meeting vote threshold {threshold:.1f}")
-            return threshold_set
-
-        # Legacy: carry forward the persisted in-conv set, then union the
-        # threshold set into it (Clojure `(into in-conv ...)`, conversation.clj:247-256).
+        # Carry forward the persisted in-conv set, then union the threshold
+        # set into it (Clojure `(into in-conv ...)`, conversation.clj:247-256).
         # The intersection with vote_counts is belt-and-braces: since the Q1
-        # ban-leak replication, legacy-mode rating_mat keeps banned rows, so
+        # ban-leak replication, rating_mat keeps banned rows, so
         # vote_counts covers every carried pid and the intersection is inert
         # (append-only votes mean a counted pid can never vanish). It stays as
         # defense against any future row-view change re-opening the stale-carry
@@ -2294,12 +2261,9 @@ class Conversation:
         # raw_rating_mat so that moderated-out columns report the actual votes cast,
         # not the post-D15 zeros (which would inflate every column's 'S' count).
         votes_base_start = time.time()
-        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
-            # Clojure-exact per-base-cluster bucket vectors (agg-bucket-votes-
-            # for-tid parity); improved mode keeps the int totals.
-            result['votes-base'] = self._compute_votes_base_buckets()
-        else:
-            result['votes-base'] = self._compute_votes_base()
+        # Clojure-exact per-base-cluster bucket vectors (agg-bucket-votes-
+        # for-tid parity).
+        result['votes-base'] = self._compute_votes_base_buckets()
         logger.info(f"Votes base: {time.time() - votes_base_start:.4f}s")
         
         # Compute group votes with optimized approach
@@ -2316,9 +2280,7 @@ class Conversation:
             # group-votes aggregates votes-base, which reads RAW-rating-mat
             # (conversation.clj:601-608) — moderated-out comments report the
             # actual votes cast, not the zeroed pass-shaped columns.
-            tally_mat = (self.raw_rating_mat
-                         if resolve_engine_mode() == ENGINE_MODE_LEGACY
-                         else self.rating_mat)
+            tally_mat = self.raw_rating_mat
 
             # Precompute indices for each participant for faster lookups
             ptpt_indices = {ptpt_id: i for i, ptpt_id in enumerate(tally_mat.index)}
@@ -2388,7 +2350,6 @@ class Conversation:
         
         # Compute in one pass using existing structure
         if 'group-votes' in result:
-            gac_legacy = resolve_engine_mode() == ENGINE_MODE_LEGACY
             # Store consensus values per comment ID
             for tid in self.rating_mat.columns:
                 # Try converting to integer for consistent keys
@@ -2410,18 +2371,12 @@ class Conversation:
                         agree_count = vote_stats.get('A', 0)
                         total_count = vote_stats.get('S', 0)
 
-                        if gac_legacy:
-                            # Clojure parity (conversation.clj:639-641,
-                            # FP-b3670cb052): every group's factor multiplies
-                            # in, `:or {A 0 S 0}` — a zero-S group contributes
-                            # (0+1)/(0+2) = 1/2, it is NOT skipped.
-                            consensus_value *= (agree_count + 1.0) / (total_count + 2.0)
-                            has_data = True
-                        # Calculate probability with Laplace smoothing
-                        elif total_count > 0:
-                            prob = (agree_count + 1.0) / (total_count + 2.0)
-                            consensus_value *= prob
-                            has_data = True
+                        # Clojure parity (conversation.clj:639-641,
+                        # FP-b3670cb052): every group's factor multiplies
+                        # in, `:or {A 0 S 0}` — a zero-S group contributes
+                        # (0+1)/(0+2) = 1/2, it is NOT skipped.
+                        consensus_value *= (agree_count + 1.0) / (total_count + 2.0)
+                        has_data = True
                 
                 # Only store if we have actual data
                 if has_data:
@@ -2433,15 +2388,16 @@ class Conversation:
         # Calculate in-conv participants
         in_conv_start = time.time()
 
-        if resolve_engine_mode() == ENGINE_MODE_LEGACY and self.in_conv:
-            # Legacy (PR-E): serialize the PERSISTED carry+greedy set — exactly
-            # the participants that fed base clustering — so the blob's :in-conv
+        if self.in_conv:
+            # PR-E: serialize the PERSISTED carry+greedy set — exactly the
+            # participants that fed base clustering — so the blob's :in-conv
             # matches the clustered rows (Clojure serializes its carried
             # in-conv). Keyed off user-vote-counts (same source as self.in_conv)
             # to preserve pid types and row order.
             in_conv = [pid for pid in result['user-vote-counts'] if pid in self.in_conv]
         else:
-            # Improved (default): threshold set only — unchanged.
+            # Cold state (no clustering has persisted an in-conv set yet):
+            # threshold set only.
             in_conv = []
             min_votes = min(7, self.comment_count)
             for pid, count in result['user-vote-counts'].items():
@@ -2497,8 +2453,7 @@ class Conversation:
         # Add math_tick value and return
         result['math_tick'] = math_tick_value
 
-        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
-            self._apply_legacy_blob_shape(result)
+        self._apply_legacy_blob_shape(result)
 
         logger.info(f"Total to_dict time: {time.time() - overall_start_time:.4f}s")
         return result
@@ -2743,7 +2698,6 @@ class Conversation:
         conv.meta_tids = set(moderation.get('meta_tids', []))
         conv.mod_out_ptpts = set(moderation.get('mod_out_ptpts', []))
 
-        legacy = resolve_engine_mode() == ENGINE_MODE_LEGACY
         # Best-effort inference (the blob carries no explicit flag): any
         # restored moderation set implies moderation was applied. A
         # moderated-then-emptied conversation restores as not-applied — the
@@ -2752,37 +2706,33 @@ class Conversation:
             conv.mod_out_tids or conv.mod_in_tids
             or conv.meta_tids or conv.mod_out_ptpts
         )
-        if legacy:
-            # Legacy blobs emit the real (possibly null) mod watermark;
-            # improved blobs reuse last_updated there, which is NOT a mod
-            # timestamp — leave the attribute at its None default for those.
-            conv.last_mod_timestamp = data.get('lastModTimestamp')
-            # Legacy blobs emit tids in Clojure column (arrival) order —
-            # restore the tracker so tie-breaking survives a warm restart.
-            conv.tid_arrival_order = list(data.get('tids', []))
+        # Blobs emit the real (possibly null) mod watermark.
+        conv.last_mod_timestamp = data.get('lastModTimestamp')
+        # Blobs emit tids in Clojure column (arrival) order — restore the
+        # tracker so tie-breaking survives a warm restart.
+        conv.tid_arrival_order = list(data.get('tids', []))
 
         # Restore PCA data
         pca_data = data.get('pca')
         if pca_data:
             center = np.array(pca_data['center'])
             comps = np.array(pca_data['comps'])
-            if legacy:
-                # Inverse of the legacy emission sign parity: blobs carry the
-                # Clojure-convention (negated) center; internal state stays in
-                # Delphi convention (see _apply_legacy_blob_shape).
-                center = -center
-                # Inverse of the legacy emission ORDER parity: blobs emit tids
-                # (and every tid-aligned pca array) in Clojure ARRIVAL order,
-                # while internal state aligns with the natsorted matrix
-                # columns. Without un-permuting, a warm restore would seed the
-                # next PCA with column-misaligned center/comps (#2649 review).
-                blob_tids = data.get('tids') or []
-                if len(blob_tids) == center.shape[0]:
-                    pos = {t: i for i, t in enumerate(blob_tids)}
-                    perm = [pos[t] for t in natsorted(blob_tids)]
-                    center = center[perm]
-                    if comps.ndim == 2 and comps.shape[1] == len(perm):
-                        comps = comps[:, perm]
+            # Inverse of the legacy emission sign parity: blobs carry the
+            # Clojure-convention (negated) center; internal state stays in
+            # Delphi convention (see _apply_legacy_blob_shape).
+            center = -center
+            # Inverse of the legacy emission ORDER parity: blobs emit tids
+            # (and every tid-aligned pca array) in Clojure ARRIVAL order,
+            # while internal state aligns with the natsorted matrix
+            # columns. Without un-permuting, a warm restore would seed the
+            # next PCA with column-misaligned center/comps (#2649 review).
+            blob_tids = data.get('tids') or []
+            if len(blob_tids) == center.shape[0]:
+                pos = {t: i for i, t in enumerate(blob_tids)}
+                perm = [pos[t] for t in natsorted(blob_tids)]
+                center = center[perm]
+                if comps.ndim == 2 and comps.shape[1] == len(perm):
+                    comps = comps[:, perm]
             conv.pca = {
                 'center': center,
                 'comps': comps
@@ -2809,9 +2759,8 @@ class Conversation:
         folded_bc = data.get('base-clusters')
         if folded_bc:
             unfolded_bc = conv._unfold_base_clusters(folded_bc)
-            if legacy:
-                for c in unfolded_bc:
-                    c['center'] = [-v for v in c['center']]
+            for c in unfolded_bc:
+                c['center'] = [-v for v in c['center']]
             conv.base_clusters = unfolded_bc
 
         # Restore group-votes — restructure-json-conv keeps :group-votes
@@ -2992,9 +2941,7 @@ class Conversation:
             # RAW-rating-mat (conversation.clj:601-608) — moderated-out
             # comments report the actual votes cast, not the zeroed
             # pass-shaped columns.
-            tally_mat = (self.raw_rating_mat
-                         if resolve_engine_mode() == ENGINE_MODE_LEGACY
-                         else self.rating_mat)
+            tally_mat = self.raw_rating_mat
 
             # Precompute indices for each participant
             ptpt_indices = {}

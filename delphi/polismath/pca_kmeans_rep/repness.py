@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-from polismath.utils.engine_mode import ENGINE_MODE_LEGACY, resolve_engine_mode
+
 from polismath.utils.general import AGREE, DISAGREE
 
 
@@ -232,31 +232,23 @@ def compute_group_comment_stats_df(votes_long: pd.DataFrame,
 
     # Totals feed the "other" (rest) side of the comparison below.
     #
-    # clojure-legacy: Clojure's rest-stats sum per-group comment-stats over
-    # the OTHER GROUPS only (utils/mapv-rest, repness.clj:125-131), and group
-    # membership is unfolded through base clusters — so votes from
-    # participants in NO cluster never enter the comparison. Totals must
-    # therefore come from clustered voters only (FP-69c7a13580/FP-faac8c6125).
-    #
-    # improved: keeps the historical behavior where "other" included ALL
-    # participants not in the current group (even those not in any cluster).
+    # Clojure's rest-stats sum per-group comment-stats over the OTHER GROUPS
+    # only (utils/mapv-rest, repness.clj:125-131), and group membership is
+    # unfolded through base clusters — so votes from participants in NO
+    # cluster never enter the comparison. Totals must therefore come from
+    # clustered voters only (FP-69c7a13580/FP-faac8c6125).
     #
     # total_votes counts agree + disagree + PASS, matching Clojure's
     # `count-votes` (math/src/polismath/math/repness.clj:56-61, :70).
     # `count-votes` called with no `vote` arg uses `identity` as the filter
     # predicate; in Clojure 0 is truthy, so PASS (0) votes are kept. NaN
     # entries are already dropped above. Use size() to count non-NaN rows.
-    total_source = (
-        votes_in_groups
-        if resolve_engine_mode() == ENGINE_MODE_LEGACY
-        else votes_only
-    )
-    total_counts = total_source.groupby('comment').agg(
+    total_counts = votes_in_groups.groupby('comment').agg(
         total_agree=('vote', lambda x: (x == AGREE).sum()),
         total_disagree=('vote', lambda x: (x == DISAGREE).sum()),
         total_votes=('vote', 'size'),
     )
-    # The comment universe stays votes_only-based in BOTH modes (Clojure
+    # The comment universe stays votes_only-based (Clojure
     # iterates every matrix column; a comment voted on only by unclustered
     # participants still gets an all-zero stats row).
     all_voted_comments = votes_only['comment'].unique()
