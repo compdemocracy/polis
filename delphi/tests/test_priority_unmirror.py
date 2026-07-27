@@ -10,9 +10,8 @@ correct behavior AND the Clojure-HEAD-parity behavior, in BOTH engine modes.
 
 Separately (CLOJURE_QUIRKS Q2): Clojure's :comment-priorities node SHADOWS
 its current-tick group-votes input with `(:group-votes conv)` — the PREVIOUS
-tick's stored value (conversation.clj:658). The engine does the same. (The
-former improved-mode current-tick read is parked:
-POST_CUTOVER_IMPROVEMENTS.md item 5.)
+tick's stored value (conversation.clj:658). 'clojure-legacy' mode must do the
+same; 'improved' mode keeps the current-tick read (the sane behavior).
 """
 
 import os
@@ -85,6 +84,12 @@ def legacy_mode(monkeypatch):
     monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
 
 
+@pytest.fixture
+def improved_mode(monkeypatch):
+    monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
+    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'improved')
+
+
 
 
 class TestPriorityMetricUnmirrored:
@@ -142,6 +147,16 @@ class TestPrioritiesGroupVotesTick:
     def test_legacy_stores_group_votes_for_next_tick(self, legacy_mode):
         conv1 = Conversation('q2').update_votes(_bloc_votes())
         assert conv1.group_votes == conv1._compute_group_votes()
+
+    def test_improved_uses_current_tick_group_votes(self, improved_mode):
+        conv1 = Conversation('q2').update_votes(_bloc_votes())
+        conv2 = conv1.update_votes(_tick2_votes())
+        expected_curr = _expected_priorities(conv2, conv2._compute_group_votes())
+        got = {f'c{k}' if not isinstance(k, str) else k: v
+               for k, v in conv2.comment_priorities.items()}
+        for tid in expected_curr:
+            assert abs(got[tid] - expected_curr[tid]) < 1e-9
+
 
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])

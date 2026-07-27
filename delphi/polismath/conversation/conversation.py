@@ -1352,8 +1352,7 @@ class Conversation:
         prev_group_k_smoother = getattr(result, 'group_k_smoother', {})
         # Q2: Clojure's :comment-priorities shadows its current-tick input
         # with (:group-votes conv) — the PREVIOUS tick's stored group-votes
-        # (conversation.clj:658). Captured here, consumed by
-        # _compute_comment_priorities (Q2).
+        # (conversation.clj:658). Captured here, consumed in legacy mode only.
         prev_group_votes = getattr(result, 'group_votes', {})
 
         # Q15: Clojure's conv-update is a plumbing-graph compile whose output
@@ -1455,13 +1454,15 @@ class Conversation:
         # every tick".
         current_group_votes = self._compute_group_votes()
         # Stored for the NEXT tick's prev capture (Clojure keeps :group-votes
-        # on the conv / in math_main) — like self.pca.
+        # on the conv / in math_main) — in both modes, like self.pca.
         self.group_votes = current_group_votes
-        # Q2: comment priorities read the PREVIOUS tick's group-votes
-        # (conversation.clj:658); {} on the first tick == Clojure's nil
-        # (reduce over nothing → A/P/S all 0). (The former improved-mode
-        # current-tick read is parked: POST_CUTOVER_IMPROVEMENTS.md item 5.)
-        group_votes = prev_group_votes if prev_group_votes is not None else {}
+        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
+            # Q2: previous tick's group-votes (conversation.clj:658);
+            # {} on the first tick == Clojure's nil (reduce over nothing
+            # → A/P/S all 0).
+            group_votes = prev_group_votes if prev_group_votes is not None else {}
+        else:
+            group_votes = current_group_votes
 
         priorities: Dict[Any, float] = {}
         for tid in self.rating_mat.columns:
