@@ -20,7 +20,7 @@ Architecture
            │     moderation); bounded concurrency across zids
            ├─ engine: Conversation held in memory per zid
            │     update_votes(recompute=False) -> update_moderation(recompute=False)
-           │       -> recompute()      (POLISMATH_ENGINE_MODE honored)
+           │       -> recompute()
            ├─ load-or-init (first message per zid): from_dict(math_main) warm
            │     restore + full-history rating-matrix rebuild
            ├─ math_writer.MathWriter: math_main (caching_tick=MAX+1), math_bidtopid
@@ -136,7 +136,6 @@ mod_interval_ms         POLL_MOD_INTERVAL_MS | MOD_POLLING_INTERVAL |
 poll_from_days_ago      POLL_FROM_DAYS_AGO                              10
 allowlist               POLL_ALLOWLIST | MATH_ZID_ALLOWLIST             []
 blocklist               POLL_BLOCKLIST | MATH_ZID_BLOCKLIST             []
-engine_mode             POLISMATH_ENGINE_MODE                           improved
 worker_pool_size        MATH_WORKER_POOL_SIZE                           4
 dump_dir                MATH_POLLER_DUMP_DIR                            scratch/errorconv
 retry_cap               MATH_POLLER_RETRY_CAP                           1

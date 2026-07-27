@@ -5,7 +5,6 @@ import os
 from unittest.mock import MagicMock
 
 from polismath.poller.service import MathPollerService, PollerConfig
-from polismath.utils.engine_mode import resolve_engine_mode
 
 
 def _vote_row(zid, created, pid="1", tid="1"):
@@ -72,31 +71,6 @@ class TestDispatchFiltering:
         assert {z for z, _ in submitted} == {5, 6}
         assert all(mt == "moderation" for _, mt in submitted)
         assert svc._mod_wm == 250
-
-
-class TestEngineModePassthrough:
-    def test_configured_mode_is_pushed_into_env(self, monkeypatch):
-        # apply_engine_mode() writes os.environ directly, which monkeypatch's
-        # delenv undo does NOT cover when the var was absent — restore by hand
-        # or the mode leaks into every later test in this worker.
-        monkeypatch.delenv("POLISMATH_ENGINE_MODE", raising=False)
-        try:
-            svc = MathPollerService(
-                MagicMock(), PollerConfig(engine_mode="clojure-legacy")
-            )
-            resolved = svc.apply_engine_mode()
-            assert os.environ["POLISMATH_ENGINE_MODE"] == "clojure-legacy"
-            assert resolved == "clojure-legacy"
-            # The in-process compute resolves the SAME value at call time.
-            assert resolve_engine_mode() == "clojure-legacy"
-        finally:
-            os.environ.pop("POLISMATH_ENGINE_MODE", None)
-
-    def test_no_configured_mode_leaves_compute_default(self, monkeypatch):
-        monkeypatch.delenv("POLISMATH_ENGINE_MODE", raising=False)
-        svc = MathPollerService(MagicMock(), PollerConfig(engine_mode=None))
-        resolved = svc.apply_engine_mode()
-        assert resolved == "improved"  # engine_mode.ENGINE_MODE_DEFAULT
 
 
 class TestShardedDispatch:

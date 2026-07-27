@@ -1,8 +1,8 @@
 """
 Shared resolver for legacy-vs-improved implementation switches.
 
-Pattern for env-var implementation switches (POLISMATH_PCA_IMPL,
-POLISMATH_ENGINE_MODE, and future ones like a k-means solver switch): a
+Pattern for env-var implementation switches (POLISMATH_PCA_IMPL, and
+future ones like a k-means solver switch): a
 module-level env var name + default + allowed values, resolved by
 `resolve_impl_flag` AT CALL TIME (never at import time), so tests and
 operators can flip the env var without re-importing. Unknown values fall back
@@ -10,9 +10,8 @@ to the default with a warning (defensive: a typo in a deployment env must not
 crash the math worker).
 
 This lives in polismath.utils (not pca.py, where it originated) so that
-lightweight consumers — e.g. `polismath.utils.engine_mode`, read on every
-conv-update tick — do not drag in the numpy/pandas pca import chain, and resolution
-warnings are logged under this module's logger rather than pca's.
+lightweight consumers do not drag in the numpy/pandas pca import chain, and
+resolution warnings are logged under this module's logger rather than pca's.
 """
 
 import logging
