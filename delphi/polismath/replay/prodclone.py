@@ -12,7 +12,8 @@ need a live connection and are covered by ONE integration test.
 CRITICAL privacy rules (see delphi/tests/test_prodclone_extract.py and the
 project CLAUDE.md for the full policy):
 
-- Output goes ONLY under ``<real_data_root>/.local/`` — :func:`assert_under_local`
+- Output goes ONLY under ``<out_root>/.local/`` (the caller-supplied root —
+  ``REAL_DATA_ROOT`` by default, overridable for tests) — :func:`assert_under_local`
   is the hard guard; every write path routes through it.
 - Minted slugs are neutral (``pc-<feature>-<NN>``); the on-disk directory
   prefix is a salted hash of the zid (:func:`fake_report_prefix`), never the
@@ -524,6 +525,8 @@ def run_extract(
     """
     if feature not in FEATURES:
         raise ValueError(f"unknown feature {feature!r}; must be one of {FEATURES}")
+    if out_root.exists() and not out_root.is_dir():
+        raise NotADirectoryError(f"out_root must be a directory: {out_root}")
     if map_path is None:
         map_path = out_root / ".local" / "prodclone_map.json"
 
