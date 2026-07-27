@@ -158,7 +158,7 @@ Usage
     # Single poll cycle then exit (smoke test / cron-style)
     uv run python scripts/math_poller.py --once
 
-Shadow-mode deployment writes under a DISTINCT ``MATH_ENV`` (e.g. ``delphi``)
+Shadow-mode deployment writes under a DISTINCT ``MATH_ENV`` (e.g. ``python``)
 next to the Clojure ``math`` container; ``UNIQUE(zid, math_env)`` keeps the rows
 invisible to the prod server until cutover.
 """
