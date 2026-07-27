@@ -53,11 +53,14 @@ def cli() -> None:
               help="SKIPPED (dataset-unavailable) entries also fail the run.")
 @click.option("--root", type=click.Path(path_type=Path), default=None,
               help="Recording store root (default: real_data/.local/replays).")
-def run(battery_path, only, refresh_clj, refresh_py, strict, root):
+@click.option("--workers", type=int, default=6, show_default=True,
+              help="Parallel battery entries (drivers + compare); the ledger "
+                   "fold stays serial, so results match --workers 1 exactly.")
+def run(battery_path, only, refresh_clj, refresh_py, strict, root, workers):
     """Certify every entry in the battery (or a filtered subset)."""
     entries = cert.load_battery(battery_path)
     report = cert.run_battery(entries, root=root, refresh_clj=refresh_clj,
-                               refresh_py=refresh_py, only=only)
+                               refresh_py=refresh_py, only=only, workers=workers)
     for line in cert.render_run_lines(report):
         click.echo(line)
     sys.exit(cert.battery_exit_code(report["battery"], strict=strict))
