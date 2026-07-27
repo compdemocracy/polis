@@ -8,10 +8,10 @@ participants keep influencing user-vote-counts, in-conv, PCA, clustering and
 repness. Python gained a real ban feature (mod_out_ptpts row drop in
 _apply_moderation, 2026-06-10) — correct, but a certification divergence.
 
-Per Q1: 'clojure-legacy' mode must LEAK the ban exactly like Clojure (rows
-kept everywhere); 'improved' mode keeps the fix. This supersedes the legacy-
-mode premise of #2623's TestCarryPruneOnParticipantBan (banning can no longer
-shrink the legacy clustering pool, so the carry-prune scenario cannot arise).
+Per Q1 + the mode collapse (2026-07-27, bans dropped as a feature): the
+engine LEAKS the ban exactly like Clojure (rows kept everywhere). This
+supersedes #2623's TestCarryPruneOnParticipantBan (banning can no longer
+shrink the clustering pool, so the carry-prune scenario cannot arise).
 """
 
 import os
