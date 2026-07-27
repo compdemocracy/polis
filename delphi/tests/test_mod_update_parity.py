@@ -27,6 +27,11 @@ def legacy_mode(monkeypatch):
     """No-op since the mode collapse — retained for signature stability."""
 
 
+@pytest.fixture
+def improved_mode(monkeypatch):
+    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'improved')
+
+
 def _conv(**sets):
     conv = Conversation("mod-parity-probe", last_updated=1)
     for attr, val in sets.items():
@@ -143,6 +148,14 @@ class TestWatermarkDroppedByRecompute:
         assert conv.last_mod_timestamp == 777
         conv2 = conv.update_votes(dict(self.BATCH), recompute=True)
         assert conv2.last_mod_timestamp is None
+
+    def test_watermark_persists_in_improved_mode(self, improved_mode):
+        # Documented divergence: improved mode keeps the sane persistent
+        # watermark instead of Clojure's graph-drop.
+        conv = Conversation("wm-keep", last_updated=1)
+        conv = conv.mod_update([_row(0, mod=-1, modified=777)])
+        conv2 = conv.update_votes(dict(self.BATCH), recompute=True)
+        assert conv2.last_mod_timestamp == 777
 
 
 class TestGroupVotesTallyRawMatrix:

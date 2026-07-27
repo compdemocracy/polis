@@ -1360,10 +1360,10 @@ class Conversation:
         # has ONLY graph-node keys — :last-mod-timestamp is not one
         # (conversation.clj:780-820), so every votes recompute DROPS the mod
         # watermark; blobs carry lastModTimestamp only when the tick's last
-        # write was a mod-update. tests/test_mod_update_parity.py. (The
-        # former improved-mode persistent watermark is parked:
-        # POST_CUTOVER_IMPROVEMENTS.md item 4.)
-        result.last_mod_timestamp = None
+        # write was a mod-update. Improved mode keeps the persistent watermark
+        # (documented divergence). tests/test_mod_update_parity.py.
+        if resolve_engine_mode() == ENGINE_MODE_LEGACY:
+            result.last_mod_timestamp = None
 
         # Compute PCA and projections
         result._compute_pca(prev_pca=prev_pca)
