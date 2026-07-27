@@ -58,6 +58,27 @@ export default (
       `export SERVICE=${service}`,
       instanceSize ? `export INSTANCE_SIZE=${instanceSize}` : '',
       CLOUDWATCH_LOG_GROUP_NAME ? `echo "${CLOUDWATCH_LOG_GROUP_NAME}" | sudo tee ${persistentConfigDir}/log_group_name.txt` : '',
+
+      // --- CloudWatch Agent: config + start, on EVERY instance ---
+      // The agent is installed above for all tiers, but until now only the
+      // ollama user-data configured and started it, so only the GPU box
+      // published memory. Memory is the binding resource on the math and delphi
+      // tiers (all three idle at 0.5-1.3% CPU), so without this there is no
+      // evidence on which to right-size them.
+      //
+      // Guarded with `|| true` because this function runs under `set -e`: a
+      // metrics agent must never be able to abort an instance boot. The
+      // nvidia_gpu section of the config collects nothing where there is no
+      // GPU, so this is a no-op difference for ollama.
+      'echo "Configuring CloudWatch Agent..."',
+      `aws s3 cp ${cwAgentConfigAsset.s3ObjectUrl} ${cwAgentTempPath} || echo "CW agent config download failed; continuing"`,
+      `sudo mkdir -p $(dirname ${cwAgentConfigPath}) || true`,
+      `sudo mv ${cwAgentTempPath} ${cwAgentConfigPath} || true`,
+      `sudo chmod 644 ${cwAgentConfigPath} || true`,
+      `sudo chown root:root ${cwAgentConfigPath} || true`,
+      'sudo systemctl enable amazon-cloudwatch-agent || true',
+      'sudo systemctl start amazon-cloudwatch-agent || echo "CW agent failed to start; continuing"',
+
       'exec 1>>/var/log/user-data.log 2>&1',
       'echo "Finished User Data Execution at $(date)"',
       'sudo mkdir -p /etc/docker',
@@ -102,26 +123,11 @@ ollamaUsrData.addCommands(
 
   // Start Ollama-specific setup
   'echo "Starting Ollama specific setup..."',
-  'echo "Configuring CloudWatch Agent for GPU metrics..."',
 
-  // --- Download CW Agent config from S3 Asset ---
-  `echo "Downloading CW Agent config from S3..."`,
-  // Use aws cli to copy from the S3 location provided by the asset object
-  // The instance needs NAT access (which it has) and S3 permissions (granted above)
-  `aws s3 cp ${cwAgentConfigAsset.s3ObjectUrl} ${cwAgentTempPath}`,
-  // Ensure target directory exists and move the file into place
-  `sudo mkdir -p $(dirname ${cwAgentConfigPath})`,
-  `sudo mv ${cwAgentTempPath} ${cwAgentConfigPath}`,
-  `sudo chmod 644 ${cwAgentConfigPath}`,
-  `sudo chown root:root ${cwAgentConfigPath}`, // Ensure root ownership
-  'echo "CW Agent config downloaded and placed."',
-
-  // --- Enable and Start the CloudWatch Agent Service ---
-  'echo "Enabling CloudWatch Agent service..."',
-  'sudo systemctl enable amazon-cloudwatch-agent',
-  'echo "Starting CloudWatch Agent service..."',
-  'sudo systemctl start amazon-cloudwatch-agent',
-  'echo "CloudWatch Agent service started."',
+  // NOTE: the CloudWatch agent's config download and `systemctl start` used to
+  // live here. They now run in the shared usrdata() above, for every tier, so
+  // this block would be a duplicate. The GPU metrics are unaffected: the same
+  // config file carries the nvidia_gpu section.
 
   // --- Mount EFS using standard NFSv4.1 ---
   // Use the manually constructed EFS DNS name
