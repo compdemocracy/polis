@@ -363,6 +363,21 @@ class TestQ11DistanceCancellation:
         # Normal-scale distances stay correct.
         assert _euclidean(np.array([0.0, 0.0]), np.array([3.0, 4.0])) == pytest.approx(5.0)
 
+    def test_euclidean_propagates_nan_instead_of_clamping(self):
+        """#2663 review pin: NaN input must PROPAGATE (real vectorz has no
+        clamp) — the former ``max(0.0, d2)`` silently returned 0.0 because
+        python's two-arg max returns its FIRST argument when the second is
+        NaN. A NaN center reaching cluster_step would otherwise be silently
+        absorbed as distance-0 instead of surfacing the corruption."""
+        import math
+
+        from polismath.pca_kmeans_rep.legacy_kmeans import _euclidean
+
+        assert math.isnan(_euclidean(np.array([np.nan, 0.0]),
+                                     np.array([1.0, 2.0])))
+        assert math.isnan(_euclidean(np.array([1.0, 2.0]),
+                                     np.array([0.0, np.nan])))
+
     def test_near_coincident_singletons_merge_to_later_cluster(self):
         from polismath.pca_kmeans_rep.legacy_kmeans import _NamedData, kmeans
 

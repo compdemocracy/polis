@@ -1,54 +1,53 @@
-STATUS: IN PROGRESS
+STATUS: DONE
 
-# GOAL_STATE — checkpoint for GOAL_CUTOVER_READY.md (cap ~50 lines)
+# GOAL_STATE — GOAL_CUTOVER_READY.md ACHIEVED (2026-07-27, session 7)
 
-## Where we are (2026-07-27, session 7 wind-down)
+All seven DONE conditions hold, evidenced in-repo:
 
-- Phase 0 DONE + A/B-proven: engine-scoped py cache hash + 6-way parallel
-  battery (PR #2664, python-ci green, review clean). Costs now: no edit
-  ~22s, harness-only edit ~2m, engine edit ~19m (long pole
-  pakistan:uniform8 ~18m — <8m target unreachable without intra-entry
-  parallelism; journal s7).
-- Phase 1 DONE: engine_mode inventory journaled (s7).
-- Phase 2 DONE — MODE COLLAPSE EXECUTED: 7 commits = PRs #2665-#2671.
-  DONE-gate grep = 0 hits over delphi/polismath/. Ban filtering DELETED
-  outright. Parks minted: jj bookmarks improvements/item-{2,4,5,8}
-  (verbatim reverse patches off the C7 commit; NOT buildable — they
-  carry old flag refs; re-landing = keep the improved side only).
-  Battery on the collapsed tree: 20/20 MATCH full py re-replay (19m21s)
-  + cached pass 22s. Full suite 1155 passed / 22 skipped / 44 xfailed
-  / 2 XPASS (D9/D10 vw-cold_start now match Clojure — parity improved).
-- Phase 3 DONE: 14b blob-injection pins + 14c two-phase split (PR
-  #2673); battery 20/20 on the refactored tree (bit-identity); collapse
-  review agent verdict CLEAN, its 3 cleanups applied. #2664 CI green.
+1. Mode collapse: gate grep (ENGINE_MODE|engine_mode|resolve_engine_mode
+   over delphi/polismath/) = 0 hits; ban filtering DELETED outright;
+   parks = jj bookmarks improvements/item-{2,4,5,8} (pushed to origin;
+   verbatim reverse patches, NOT buildable — re-land = keep improved
+   side). PRs #2665-#2671. run_delphi/job_poller share the single path.
+2. Clarity refactor 14b/14c landed: PR #2673 (two-phase split +
+   blob-injection pins), battery-proven bit-identical.
+3. Goldens re-recorded at the collapse tree (verify-then-record, journal
+   s7): comparer 7/7 PASS; --include-local suite green (one justified
+   Q12 xfail on FLI-cold_start prod-blob comparison, #2674).
+4. Battery: 20/20 MATCH ×2 consecutive on the final tree (re-run after
+   the last docs edits); divergences.json 81 entries, 0 open.
+5. Equivalence release gate: poller_equiv full-run PASS live on the
+   final code tree — vw 8/8 MATCH, pc-meta-02 8/8 MATCH, non-vacuous,
+   0 envelope-excused divergences.
+6. EC2 measurement in CUTOVER_RUNBOOK risk item 3: r8g.4xlarge,
+   33,422×783/2.0M votes — cold 519.6s, WARM 1856.0s (~31 min).
+   VERDICT: NOT serial-OK at the extreme shape; fix = item 9 re-scoped
+   (vectorize warm-start k-means, bit-identity-gated + seeded sampled
+   PCA; NO blocklisting — Julien ruling s7); flip not blocked (slow but
+   correct+stable if a large conv ticks first).
+7. This line 1 flip.
 
-## Next actions
+## For walkthrough (Julien)
 
-1. Orientation: check CI runs 30286254481 (collapse tip) + 30288678922
-   (#2673 14b/c) + the #2673 review agent result; Copilot comments on
-   #2659/#2663. Triage per protocol (a "fix" undoing legacy semantics =
-   post-cutover queue item). Phase 3 is DONE (PR #2673; battery 20/20 on
-   the refactored tree = bit-identity; journal s7 cont.).
-2. Phase 4: goldens. Diagnostic done (journal s7 cont.): public datasets
-   have NO goldens (comparisons skip); the 5 private goldens are at
-   real_data/.local/*/golden_snapshot.json. Verify current private-golden
-   drift with `uv run python scripts/regression_comparer.py --include-local`
-   (needs /private-data setup), cross-check intended new values against
-   the battery clj recordings, THEN re-record via
-   scripts/regression_recorder.py; full suite --include-local green.
-3. Phase 4 gates on the final tree: TWO consecutive clean battery passes
-   + poller_equiv.py full-run PASS (non-vacuous) on vw AND pc-meta-02
-   (pgproxy 127.0.0.1:15432 up: `docker start polis-dev-postgres-1
-   pgproxy`; docker compose services for the clj container).
-4. Phase 5: EC2 large-conv tick measurement (bench AWS profile, 33k
-   ptpts × 783 cmts shape) → number + serial-OK verdict into
-   CUTOVER_RUNBOOK.md risk register.
-5. Only after all of 1-6 of the DONE list hold on the final tree: flip
-   line 1 here to STATUS: DONE.
+- Collapse series #2665-#2671 + #2673 + #2674 + #2675 (+docs #2672,
+  #2659, triage #2663, Phase-0 #2664). ALL independently review-agent'd:
+  clean (one pin applied: _euclidean NaN test, #2663 review). All 5
+  python-ci dispatches green. Copilot NOT used (credits exhausted —
+  independent agents instead, Julien ruling s7).
+- Battery cost model now: no edit ~22s / harness edit ~2m / engine edit
+  ~19m (pakistan long pole). Phase 0 A/B data in journal s7.
+- Big deduced finding: warm tick ≫ cold tick at scale (legacy kmeans
+  warm start); Clojure's large-conv path never special-cased kmeans
+  (only :pca — conversation.clj:760-773), so item 9 = seeded sampled
+  PCA + kmeans performance. Runbook risk item 3 has the numbers.
+- Next goal candidates: execute CUTOVER_RUNBOOK steps 0-3 (land, shadow,
+  flip, decommission — needs Julien/team); post-cutover queue items
+  (POST_CUTOVER_IMPROVEMENTS.md), item 9 first if large convs matter.
 
 ## Pointers
 
 - Contract: GOAL_CUTOVER_READY.md. Roadmap: POST_CUTOVER_IMPROVEMENTS.md.
+- Runbook: CUTOVER_RUNBOOK.md. Journal: CLJ-PARITY-FIXES-JOURNAL.md s7.
 - Battery: cd delphi && uv run python scripts/certify.py run (workers=6).
-- Suite baseline: 1155/22/44 + 2 xpassed (s7 collapse tree).
-- s7 journal: Phase 0/1/2 + battery evidence (CLJ-PARITY-FIXES-JOURNAL.md).
+- Suite baseline: 1155/22/44 (+2 xpassed) without --include-local; 1285+1xfail with
+  --include-local.
