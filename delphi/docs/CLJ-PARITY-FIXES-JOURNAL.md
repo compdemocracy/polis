@@ -4045,3 +4045,117 @@ Category-1 nondeterminism issues opened: #2660 (Q10), #2661 (Q12),
 #2662 (Q13/Q18) — all "fixed by the Python push", determinism pinned by
 test_driver.py::test_determinism_bit_identical_except_wall_clock + the
 battery's pass-pair bit-comparisons.
+
+## Session 7 (2026-07-27): Phase 0 battery speedup + Phase 1 engine_mode inventory
+
+Goal: GOAL_CUTOVER_READY.md. Orientation: s6 battery verdicts CONFIRMED
+(fresh cached run on the triaged tree: 20/20 MATCH in 22.3s); all 21 stack
+PRs (#2638-#2658) show 0 unresolved review threads (GraphQL sweep).
+
+### Phase 0 — battery tooling speedup (certify.py)
+
+TDD (RED: 7 failing tests → GREEN; replay_harness 464 passed / 5 skipped
+vs 456/5 baseline — delta is exactly the 8 new tests):
+
+- **0a hash scoping**: py recording cache key is now the ENGINE-scoped tree
+  hash — `sha256_tree(..., exclude=_ENGINE_TREE_EXCLUDE)` with
+  `poller/`, `replay/certify.py`, `replay/poller_equiv.py`,
+  `replay/prodclone.py`, `replay/shard_bench.py` excluded (none is in the
+  replay subprocess import graph: scripts/replay_driver.py → driver/
+  schedule/real_data/store/stepcompare/types → engine; verified by import
+  audit). Manifest key renamed `py_tree_sha256` → `engine_tree_sha256`;
+  the one-time invalidation of all 20 py recordings was DELIBERATE — it
+  doubled as the timed parallel first-pass A/B run.
+- **0b parallelism**: `run_battery(..., workers=N)`; per-entry heavy work
+  (`_certify_entry_heavy`: drivers + hash-first compare, NO ledger) fans
+  out on a ThreadPoolExecutor; `_fold_entry_into_ledger` stays strictly
+  serial in battery order (annotate-before-update preserved), so report +
+  ledger are bit-identical to workers=1 (pinned by test). Step-verdict
+  cache writes made atomic (tmp + os.replace). CLI `--workers` default 6.
+- **0c A/B**: serial baseline 36 min (journal s6); parallel first-pass
+  timing recorded below when the run (launched this session) completes.
+  Cached-pass integrity + harness-edit cache retention proven after.
+
+### Phase 1 — engine_mode inventory (grep gate: delphi/polismath/, 0 hits)
+
+Branch sites and classification (DELETE = remove outright; PARK = extract
+VERBATIM to improvements/* side commit first; KEEP = legacy side becomes
+the only path):
+
+| Site | What branches | Classification |
+|---|---|---|
+| conversation.py:514 | Q1 ban filtering (improved drops banned rows) | DELETE (Julien: bans dropped as a feature; mod_out_ptpts stays inert) |
+| conversation.py:744 | <2 PCA guard (improved short-circuits tiny) | PARK item 2; KEEP empty-only short-circuit |
+| conversation.py:769 | PCA warm start (legacy powerit+start vectors) | KEEP legacy; PARK improved cold+solver-choice with item 8 |
+| conversation.py:905 | degenerate-tick clustering guard | PARK item 2; KEEP legacy fall-through |
+| conversation.py:1213 | repness tid_order arrival-order tie-break | KEEP legacy (always pass tid_order); improved None side trivial, no park |
+| conversation.py:1473 | Q15 watermark drop on votes tick | KEEP legacy drop; PARK item 4 (persistent watermark) |
+| conversation.py:1569 | Q2 prev-tick group-votes for priorities | KEEP legacy prev; PARK item 5 (current-tick) |
+| conversation.py:1951, 2439, 3115 | tally from raw vs zeroed mat | KEEP legacy raw (improved side has known S-inflation bug — DELETE, no park) |
+| conversation.py:2134 | in-conv carry + greedy floor (PR-E) | KEEP legacy; improved threshold-only DELETE (not queued) |
+| conversation.py:2416 | votes-base bucket vectors vs int totals | KEEP legacy buckets; improved DELETE (cleanup item 11 territory) |
+| conversation.py:2510 | group-aware-consensus legacy formula | KEEP legacy; improved DELETE |
+| conversation.py:2555 | in-conv serialization of persisted set | KEEP legacy |
+| conversation.py:2619 | _apply_legacy_blob_shape | KEEP (unconditional) |
+| conversation.py:2865 | from_dict restore seam (legacy flag) | KEEP legacy side |
+| repness.py:251 | total_source votes_in_groups vs votes_only | KEEP legacy; improved DELETE (not queued) |
+| repness.py:858 | <2 repness guard | PARK item 2; KEEP legacy proceed |
+| replay/driver.py:121+ | mod semantics: mod_update (legacy) vs update_moderation; improved+restart NotImplementedError | KEEP legacy path; DELETE improved branch + guard |
+
+Flag machinery (delete last, after all callers): utils/engine_mode.py
+(whole file), poller/service.py engine_mode config/apply_engine_mode/log
+fields, poller/__init__.py + env_flags.py docstring mentions.
+
+**Discovery — the gate covers harness files too**: certify.py (63 refs:
+BatteryEntry.engine_mode, battery JSON key, run_py_driver env, manifest
+key, fingerprint component), poller_equiv.py (12), store.py env recording.
+All identifier references must go. BUT: schedule-id STRINGS
+("uniform8-clojure-legacy") and ledger fingerprint keys do NOT match the
+grep gate — keep them verbatim so recordings dirs and the historical
+divergence ledger stay valid. Fingerprints: hardcode the literal
+"clojure-legacy" as the mode component to preserve keys.
+
+**Other impl flag**: POLISMATH_PCA_IMPL (pca.py, recorded by store.py).
+Legacy requires powerit, so after collapse the sklearn path is dead code —
+park it with item 8 and delete the flag (goal spirit: ONE code path),
+even though the grep gate doesn't name it.
+
+**No park needed for queue items 3/6/7** (Q3 kmeans iters, Q11 euclidean,
+Q16 rank-1): they have no improved-mode branches today — they're future
+fixes, not extractions. Park commits needed only for items 2, 4, 5, 8.
+
+Phase 2 chunk order (battery per chunk): (1) conversation.py +
+repness.py engine branches, (2) driver.py mod semantics + restart guard,
+(3) flag machinery deletion, (4) harness identifier purge (one commit —
+manifest "engine_mode" key drop pays its single py re-record together
+with the Phase 4 goldens re-record).
+
+### Phase 0c A/B results (2026-07-27, this session)
+
+- **First pass, all 20 py recordings invalidated** (manifest key change),
+  `--workers 6` (10-core host): **19m17s wall / 37m36s user** vs ~36 min
+  serial (journal s6). Speedup capped by the long-pole entry —
+  pakistan:uniform8 alone ran ~18 of the 19 minutes; everything else
+  finished by ~minute 7. The <8 min target is unreachable without
+  intra-entry parallelism (out of scope); the practical win is that the
+  OTHER 19 entries certify in ~7 min and harness edits no longer trigger
+  re-replay at all.
+- **Cached pass**: 20/20 MATCH in 22s (unchanged).
+- **Harness-only edit live proof**: appended a comment line to certify.py
+  → battery 20/20 MATCH in 2m9s with ZERO re-replays (recordings stayed
+  cached — the hash scoping works). The 2m is step-verdict re-derivation:
+  certify.py is deliberately part of `_comparer_code_hash` (stale MATCH
+  is the worst failure mode), so tolerant-family mismatch steps re-run
+  the comparer. Cost table now: harness edit ≈2m, engine edit ≈19m,
+  no edit ≈22s.
+
+### Gotcha (hit + recovered this session): `git checkout --` in the colocated repo
+
+Reverting the probe line with `git checkout -- <file>` clobbered the
+working-copy file back to the PARENT commit's version (git HEAD sits at
+@- in jj-colocated repos) — wiping the session's uncommitted certify.py
+changes. Recovered from jj's last auto-snapshot (`git show
+<snapshot>:<path>`), verified byte-identical (@ id unchanged), tests
+green. Rule: in this repo, undo scratch edits with a targeted edit (sed/
+editor), NEVER `git checkout --`/`git restore` (index = parent, not @),
+and NEVER `jj restore --from @-` for a file carrying uncommitted work.

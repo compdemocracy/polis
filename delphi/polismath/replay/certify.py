@@ -48,6 +48,8 @@ import json
 import os
 import re
 import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -285,16 +287,22 @@ def sha256_file(path: str | Path) -> str:
     return h.hexdigest()
 
 
-def sha256_tree(root: str | Path, pattern: str = "**/*") -> str:
+def sha256_tree(root: str | Path, pattern: str = "**/*", *,
+                exclude: tuple[str, ...] = ()) -> str:
     """sha256 over sorted (relpath, content) pairs of every FILE matching
     ``pattern`` under ``root`` — deterministic regardless of filesystem
-    iteration order, sensitive to both a file's path and its content."""
+    iteration order, sensitive to both a file's path and its content.
+
+    ``exclude`` entries are posix relpaths under ``root``: a trailing ``/``
+    excludes that whole subtree, otherwise the exact file is excluded."""
     root = Path(root)
     h = hashlib.sha256()
     for p in sorted(root.glob(pattern)):
         if not p.is_file():
             continue
         rel = p.relative_to(root).as_posix()
+        if any(rel == e or (e.endswith("/") and rel.startswith(e)) for e in exclude):
+            continue
         h.update(rel.encode())
         h.update(b"\0")
         h.update(p.read_bytes())
@@ -537,9 +545,35 @@ def _write_manifest(manifest_path: Path, manifest: dict[str, Any]) -> None:
         json.dump(manifest, fh, indent=2, sort_keys=True)
 
 
+#: Pure-harness paths (relative to ``polismath/``) excluded from the py
+#: recording cache key: none of them is reachable from the replay subprocess
+#: import graph (``scripts/replay_driver.py`` → driver/schedule/real_data/
+#: store/stepcompare/types → the engine), so editing them cannot change
+#: replay outputs (Julien ruling 2026-07-27, GOAL_CUTOVER_READY.md Phase 0a).
+#: Trailing ``/`` = whole subtree. driver.py/schedule.py/real_data.py DO
+#: shape replays and deliberately stay in the hash.
+_ENGINE_TREE_EXCLUDE: tuple[str, ...] = (
+    "poller/",
+    "replay/certify.py",
+    "replay/poller_equiv.py",
+    "replay/prodclone.py",
+    "replay/shard_bench.py",
+)
+
+
+def engine_tree_hash(polismath_root: str | Path | None = None) -> str:
+    """Tree hash of the ENGINE surface: every ``polismath/**/*.py`` except
+    :data:`_ENGINE_TREE_EXCLUDE` — the py recording cache key. Harness-only
+    edits therefore keep recordings cached (the ~36-min full py re-replay is
+    reserved for actual engine changes). Uncached because tests mutate trees;
+    the battery hot path goes through :func:`_engine_tree_hash_cached`."""
+    root = Path(polismath_root) if polismath_root is not None else _DELPHI_ROOT / "polismath"
+    return sha256_tree(root, "**/*.py", exclude=_ENGINE_TREE_EXCLUDE)
+
+
 @functools.lru_cache(maxsize=1)
-def _py_tree_hash() -> str:
-    return sha256_tree(_DELPHI_ROOT / "polismath", "**/*.py")
+def _engine_tree_hash_cached() -> str:
+    return engine_tree_hash()
 
 
 @functools.lru_cache(maxsize=1)
@@ -558,8 +592,13 @@ def ensure_py_recording(
     refresh: bool = False,
 ) -> tuple[Path, bool]:
     """Reuse ``<root>/<ds>/<sid>/py/`` iff its cache manifest matches (votes
-    sha256, schedule hash, engine_mode, py tree hash); else (re)run the Python
-    driver in a subprocess. Returns ``(py_dir, was_cached)``."""
+    sha256, schedule hash, engine_mode, ENGINE-scoped tree hash); else (re)run
+    the Python driver in a subprocess. Returns ``(py_dir, was_cached)``.
+
+    The 2026-07-27 switch from the full-``polismath`` tree hash to the
+    engine-scoped one (key renamed ``py_tree_sha256`` → ``engine_tree_sha256``)
+    deliberately invalidated every existing py recording ONCE — that forced
+    re-replay doubled as the timed A/B run for the parallel battery."""
     rec_dir = st.recording_dir(entry.dataset, entry.schedule_id, root=root)
     py_dir = rec_dir / "py"
     manifest_path = py_dir / "cache_manifest.json"
@@ -567,7 +606,7 @@ def ensure_py_recording(
         "votes_sha256": votes_sha,
         "schedule_hash": canonical_schedule_hash(spec),
         "engine_mode": entry.engine_mode,
-        "py_tree_sha256": _py_tree_hash(),
+        "engine_tree_sha256": _engine_tree_hash_cached(),
     }
     if not refresh and _manifest_matches(manifest_path, expected):
         return py_dir, True
@@ -675,8 +714,15 @@ def compare_recording_pair(
         if report is None:
             report = cmp.compare_step(clj_proj, py_proj, i)
             cache_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(cache_path, "w") as fh:
+            # Atomic write (tmp + rename): parallel battery workers may reach
+            # the same hash-pair key concurrently; a reader must never see a
+            # torn file served as a cached verdict.
+            tmp_path = cache_path.with_suffix(
+                f".tmp-{os.getpid()}-{threading.get_ident()}"
+            )
+            with open(tmp_path, "w") as fh:
                 json.dump(report, fh, indent=2, sort_keys=True, default=str)
+            os.replace(tmp_path, cache_path)
         report = dict(report)
         report["hash_match"] = False
         per_step.append(report)
@@ -736,21 +782,18 @@ def _summarize_divergences(cmp_result: dict[str, Any], *, engine_mode: str) -> d
 # ---------------------------------------------------------------------------
 # Per-entry certification.
 # ---------------------------------------------------------------------------
-def certify_entry(
+def _certify_entry_heavy(
     entry: BatteryEntry, *, root: Path, refresh_clj: bool = False, refresh_py: bool = False,
-    ledger: dict[str, Any] | None = None,
-) -> tuple[dict[str, Any], dict[str, Any]]:
-    """Certify one battery entry: ensure both recordings, hash-first compare,
-    fingerprint + ledger any divergences. Returns ``(result, updated_ledger)``
-    — the ledger is threaded explicitly (not saved here) so a whole-battery
-    run persists it exactly once.
-    """
-    ledger = dict(ledger) if ledger is not None else load_ledger()
-
+) -> dict[str, Any]:
+    """The parallel-safe part of certifying one entry: ensure both recordings
+    and run the hash-first compare — NO ledger access, so a whole battery can
+    fan these out across workers. Terminal verdicts (SKIPPED/ERROR/MATCH) come
+    back complete; a divergence carries its summary under ``"_summary"`` for
+    the strictly-serial ledger fold (:func:`_fold_entry_into_ledger`)."""
     if not dataset_available(entry.dataset):
-        return ({"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                 "engine_mode": entry.engine_mode, "verdict": "SKIPPED",
-                 "reason": "dataset-unavailable"}, ledger)
+        return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
+                "engine_mode": entry.engine_mode, "verdict": "SKIPPED",
+                "reason": "dataset-unavailable"}
 
     try:
         votes_csv = votes_csv_path(entry.dataset)
@@ -771,48 +814,75 @@ def certify_entry(
                                            refresh=refresh_clj, comments_csv=comments_csv)
         py_dir, _ = ensure_py_recording(entry, spec, votes_sha, root=root, refresh=refresh_py)
     except CertifyError as exc:
-        return ({"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                 "engine_mode": entry.engine_mode, "verdict": "ERROR",
-                 "stage": exc.stage, "reason": str(exc)}, ledger)
+        return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
+                "engine_mode": entry.engine_mode, "verdict": "ERROR",
+                "stage": exc.stage, "reason": str(exc)}
     except Exception as exc:  # noqa: BLE001 - one bad entry must not crash the battery
-        return ({"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                 "engine_mode": entry.engine_mode, "verdict": "ERROR",
-                 "stage": "setup", "reason": str(exc)}, ledger)
+        return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
+                "engine_mode": entry.engine_mode, "verdict": "ERROR",
+                "stage": "setup", "reason": str(exc)}
 
     cmp_result = compare_recording_pair(clj_dir, py_dir, engine_mode=entry.engine_mode,
                                         cache_root=root)
 
     if cmp_result["step_count_mismatch"]:
-        return ({"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                 "engine_mode": entry.engine_mode, "verdict": "ERROR",
-                 "stage": "step-count-mismatch",
-                 "reason": f"clj={cmp_result['n_steps_clj']} steps, "
-                           f"py={cmp_result['n_steps_py']} steps"}, ledger)
+        return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
+                "engine_mode": entry.engine_mode, "verdict": "ERROR",
+                "stage": "step-count-mismatch",
+                "reason": f"clj={cmp_result['n_steps_clj']} steps, "
+                          f"py={cmp_result['n_steps_py']} steps"}
 
     div_steps = [s for s in cmp_result["per_step"] if not s["match"]]
     if not div_steps:
-        return ({"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                 "engine_mode": entry.engine_mode, "verdict": "MATCH",
-                 "n_steps": cmp_result["aligned_steps"]}, ledger)
+        return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
+                "engine_mode": entry.engine_mode, "verdict": "MATCH",
+                "n_steps": cmp_result["aligned_steps"]}
 
     summary = _summarize_divergences(cmp_result, engine_mode=entry.engine_mode)
+    return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
+            "engine_mode": entry.engine_mode, "verdict": "DIVERGENCE",
+            "first_div_step": summary["first_div_step"],
+            "n_div_steps": summary["n_div_steps"], "_summary": summary}
+
+
+def _fold_entry_into_ledger(
+    result: dict[str, Any], ledger: dict[str, Any],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Serial half of certifying an entry: annotate a divergence's top paths
+    against the (accumulating) ledger, then record its observations. Annotate
+    BEFORE update — a fingerprint first seen in THIS entry reads as new, not
+    known — exactly matching the pre-parallel serial semantics."""
+    summary = result.pop("_summary", None)
+    if summary is None:
+        return result, ledger
+
     for p in summary["top_paths"]:
         p["known"] = annotate_by_key(ledger, p["fingerprint"])
 
     observations = [
-        {"path_pattern": o["path_pattern"], "family": o["family"], "engine_mode": entry.engine_mode,
-         "dataset": entry.dataset, "schedule_id": entry.schedule_id, "step": o["step"]}
+        {"path_pattern": o["path_pattern"], "family": o["family"],
+         "engine_mode": result["engine_mode"], "dataset": result["dataset"],
+         "schedule_id": result["schedule_id"], "step": o["step"]}
         for o in summary["all_observed"]
     ]
     ledger = update_ledger(ledger, observations)
-
-    result = {
-        "dataset": entry.dataset, "schedule_id": entry.schedule_id,
-        "engine_mode": entry.engine_mode, "verdict": "DIVERGENCE",
-        "first_div_step": summary["first_div_step"], "n_div_steps": summary["n_div_steps"],
-        "top_paths": summary["top_paths"],
-    }
+    result["top_paths"] = summary["top_paths"]
     return result, ledger
+
+
+def certify_entry(
+    entry: BatteryEntry, *, root: Path, refresh_clj: bool = False, refresh_py: bool = False,
+    ledger: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Certify one battery entry: ensure both recordings, hash-first compare,
+    fingerprint + ledger any divergences. Returns ``(result, updated_ledger)``
+    — the ledger is threaded explicitly (not saved here) so a whole-battery
+    run persists it exactly once.
+    """
+    ledger = dict(ledger) if ledger is not None else load_ledger()
+    heavy = _certify_entry_heavy(entry, root=root, refresh_clj=refresh_clj,
+                                 refresh_py=refresh_py)
+    return _fold_entry_into_ledger(heavy, ledger)
 
 
 # ---------------------------------------------------------------------------
@@ -828,10 +898,17 @@ def _filter_only(entries: list[BatteryEntry], only: str) -> list[BatteryEntry]:
 def run_battery(
     entries: list[BatteryEntry], *, root: Path | None = None, refresh_clj: bool = False,
     refresh_py: bool = False, ledger_path: str | Path | None = None, only: str | None = None,
+    workers: int = 1,
 ) -> dict[str, Any]:
     """Certify every (filtered) entry, persist the ledger once, and write the
     machine report to ``<root>/certify_report.json``. Does NOT print — see
-    :func:`render_run_lines` for the stdout rendering."""
+    :func:`render_run_lines` for the stdout rendering.
+
+    ``workers`` > 1 fans the per-entry heavy work (driver subprocesses +
+    hash-first compare) across threads — entries are independent by
+    construction (disjoint recording dirs, atomic verdict-cache writes). The
+    ledger fold stays strictly serial and in battery order, so the report and
+    ledger are identical to a ``workers=1`` run."""
     root = root or st.replays_root()
     ledger_path = ledger_path or default_ledger_path()
     ledger = load_ledger(ledger_path)
@@ -839,10 +916,19 @@ def run_battery(
     if only:
         entries = _filter_only(entries, only)
 
+    def _heavy(entry: BatteryEntry) -> dict[str, Any]:
+        return _certify_entry_heavy(entry, root=root, refresh_clj=refresh_clj,
+                                    refresh_py=refresh_py)
+
+    if workers > 1 and len(entries) > 1:
+        with ThreadPoolExecutor(max_workers=min(workers, len(entries))) as pool:
+            heavies = list(pool.map(_heavy, entries))
+    else:
+        heavies = [_heavy(e) for e in entries]
+
     results = []
-    for entry in entries:
-        result, ledger = certify_entry(entry, root=root, refresh_clj=refresh_clj,
-                                        refresh_py=refresh_py, ledger=ledger)
+    for heavy in heavies:
+        result, ledger = _fold_entry_into_ledger(heavy, ledger)
         results.append(result)
 
     save_ledger(ledger, ledger_path)
