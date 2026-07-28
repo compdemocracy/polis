@@ -4510,3 +4510,108 @@ failure the 2026-07-17 memory warns about; recovered per its recipe
 (kept the trailer-matching #2683, closed #2682, deleted the stray
 bookmark+branch). A malformed `spr/edge/` bookmark from an
 empty-commit spr update was also deleted.
+
+## Session 8 (2026-07-28): CUTOVER PREP — five draft PRs, rulings recorded, stack surgery
+
+Goal (Julien): PREPARE (not execute) the cutover per
+HANDOFF_CUTOVER_EXECUTION.md, plus one addition — a final PR removing the
+Clojure tree and moving the Python math out of delphi/. NOTHING merged; no
+AWS-side change. All five PRs exist as OPEN DRAFTS:
+
+- **Step #0 = #2685** (base=stable, head=edge — the PROD DEPLOY vehicle,
+  historical convention verified: merge-commit PRs, e.g. #2596). Full
+  execution checklist in the body; merge count guidance; DO-NOT-MERGE
+  banner.
+- **Step #1 = #2686** — after_install.sh math role starts `math
+  math-python` (shadow); NEW live shadow comparer
+  (polismath/replay/shadow_compare.py + scripts/shadow_compare.py CLI,
+  31 unit tests, TDD RED->GREEN): certify/equiv acceptance on live row
+  pairs, in-sync gating via blob_total_votes, Q10 large-conv class
+  `large-conv-q10` never fails, exit codes gate Step #2 (0/1/2 =
+  clean/diverge/coverage-not-demonstrated). Julien ruling: shadow MUST
+  have comparison scripts; Step #2 gated on their success. Secrets edit
+  (polis-web-app-env-vars: MATH_PYTHON_ENV=python, MATH_CONV_CACHE_CAP)
+  documented as JULIEN-ACTION, not performed. CAUGHT: compose never
+  passed MATH_CONV_CACHE_CAP into the container — the secret edit would
+  have been silently inert; passthrough added.
+- **Step #2 = #2687 [BLOCKED-ON-RULING]** — after_install math role ->
+  `math-python` only. Body presents BOTH flip mechanisms; provisional
+  ruling (Julien 2026-07-28): Mechanism A, poller MATH_ENV->'prod' (the
+  certified seam; no server change). Rollback: env revert + `up -d math`.
+- **Step #3 = #2688** — clj `math` service removed from ALL compose files
+  (prod/dev/test); math-python promoted to default service reading
+  `MATH_ENV=${MATH_ENV:-prod}` (same var+default clj had — the
+  MATH_PYTHON_ENV indirection dies); test.yml gets a math-python
+  replacement; example.env rewritten; archive banner on math/README.
+- **Step #4 = #2689** — Clojure tree DELETED (oracle = git history;
+  restore recipe via `git archive` in math/README.md — NOT git checkout,
+  jj-colocated); delphi/polismath -> math/polismath as its own uv
+  package (delphi depends on it editable via [tool.uv.sources]; one
+  shared .venv). New polismath/paths.py kills the eight
+  `__file__.parents[2]` delphi-root derivations (test estate STAYS in
+  delphi/). Poller entry -> `python -m polismath.poller`. Docker: named
+  additional build context `mathsrc` (compose >=2.17 REQUIRED on prod
+  hosts — merge-gate checklist item). certify clj-cache check now raises
+  informative CertifyError "clj-oracle" when the oracle is absent
+  (+ pinning test). Suite: 1197 passed (baseline 1171 + 31 shadow-compare
+  + 1 oracle-error − 5 oracle-guard skips), full accounting in PR body.
+
+Also this session (Julien mid-session asks):
+- **Stack surgery**: requires_math_tree skipif guards folded DOWN out of
+  #2649 into #2647 (test_certify.py) and #2643 (test_timing_probe.py) —
+  closes the #2643-#2648 window where a delphi-only CI image fails those
+  3 tests; any `jj spr merge --count N` is now CI-safe. Verified: no
+  conflicts, trailers intact, tip tree byte-identical.
+- **Retitle**: scratch/retitle_stack.py --apply — all 52 python-math
+  stack PRs now titled `python-math #N: ...` (bottom-up merge order);
+  CUTOVER Step PRs deliberately NOT prefixed. Script's final trailer
+  check false-positived on the temporary WIP anchor (expected; all 52
+  real commits verified trailer+committer intact).
+
+OPEN RULINGS for Julien/Colin (surfaced in the session summary):
+1. Shadow (provisional, 24-48h time-boxed) vs clean cut — collapse
+   contingency written into the runbook + Step #1/#2 bodies.
+2. Flip mechanism final confirmation at Step #2 (provisional: poller
+   MATH_ENV->'prod').
+
+What's Next: reviews (independent subagents, per PR) -> apply findings ->
+Julien triggers Step #0 (stack merge + PROD DEPLOY promotion) when team
+sign-off lands.
+
+### s8 addendum: independent review round — 4 agents, all findings applied
+
+One reviewer per PR (Steps 2+3 shared). Highlights (all fixed same
+session): BLOCKER — deploy-alpha-aws.yml still built+pushed the clj math
+image (would have bricked every deploy at Step 3); MAJORs — Step 0
+rollback paths were blocked by the `Protect stable` ruleset (now a
+revert-PR flow + revert-the-revert warning) and the prod deploy needs the
+`production` env gate (team-controlled); Step 2 needed the explicit
+merge->secret->deploy ORDER (reverse = two-writer window) + the
+.env-materialization fact (secret edits reach containers only via
+deploy); shadow comparer hardened against live races (in-sync requires
+lastVoteTimestamp equality too; torn multi-table reads + malformed rows
+-> not-ready; Q10 excuses only math_main divergence); certify now serves
+CACHED pairs without the oracle tree (input-keys manifest match) and the
+equiv harness launches `python -m polismath.poller`; euro after_install
+fixed; test compose builds CPU-torch; math/.gitignore+.dockerignore; the
+oracle restore recipe no longer eats the new README. Suite after all
+fixes: 1211 green. Step PR bodies rewritten concise; "prod deploy" is a
+single team-controlled step (not in Julien's hands).
+
+### s8 addendum 2: Colin ruling — CLEAN CUT (no shadow); Step 1 folded away
+
+Colin ruled for a clean cut. Executed the runbook's collapse contingency:
+the Step 1 commit was squashed into the Step 2 flip commit (adjacent
+commits — diffs compose; the two after_install.sh edits net to exactly
+`up -d math` -> `up -d math-python`). PR #2686 closed unmerged. The flip
+PR (#2687) now carries Step 1's keepers: the MATH_CONV_CACHE_CAP compose
+passthrough, the shadow_compare tool + tests (kept as audit/dev tooling
+— its shadow-gate role is gone), and the docs. Ordering flips under
+clean cut: SECRET-FIRST is safe (nothing starts math-python until the
+flip deploys), eliminating both the two-writer window and the
+no-writer stall that shadow-then-flip had. Verification post-flip =
+rows advancing under 'prod' + no parked zids/error dumps + server
+serving fresh math (the certified evidence — battery 20/20, live
+equivalence 16/16 — replaces the soak). Step numbering keeps a
+deliberate gap (0, 2, 3, 4) to avoid renumber churn in code comments
+and docs; the flip PR body explains it.

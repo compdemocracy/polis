@@ -80,9 +80,16 @@ CLOJURE_QUIRKS.md (Q1-Q19), POST_CUTOVER_IMPROVEMENTS.md (the queue).
 
 ## Execution shape (s7 rulings + analysis — read before Step 0)
 
-**Shadow vs clean replace (analysis 2026-07-28; decision pending
-Julien):** recommended = TIME-BOXED SHADOW, 24-48h, exit checklist
-below. Rationale: it tests the only untested dimension (real prod
+**Shadow vs clean replace — FINAL RULING (Colin, 2026-07-28): CLEAN
+CUT, no shadow.** The collapse contingency below was EXECUTED the same
+day: the Step 1 shadow PR was folded into the Step 2 flip PR (#2687) —
+its keepers (MATH_CONV_CACHE_CAP compose passthrough, the
+shadow_compare comparison tool + tests, these docs) ride there; the
+shadow wiring itself (`up -d math math-python`) never ships. The shadow
+narrative below is kept for provenance. Under clean cut the safe order
+is SECRET-FIRST (set MATH_PYTHON_ENV=prod before merging: nothing
+starts math-python until the flip PR deploys, so there is no two-writer
+window at any point). Rationale: it tests the only untested dimension (real prod
 churn/concurrency/dirty data) at near-zero complexity — the service,
 env var, and compare machinery all exist; the time box kills
 shadow-limbo risk. Clean replace is defensible on the evidence
@@ -94,18 +101,44 @@ MATH_CONV_CACHE_CAP — and keep it set in ANY long-running deployment,
 not just the soak; eviction cost = the certified restart seam).
 Shadow exit checklist (agree BEFORE starting): rows advancing on all
 active zids; zero parked zids / errorconv dumps; spot-compare N active
-zids structurally identical (poller_equiv comparer on row pairs);
-large-conv divergence dismissed per risk 2/Q10.
+zids structurally identical — MECHANICAL GATE (mandated by Julien's
+ruling): `scripts/shadow_compare.py --min-matches <N>` must exit 0
+(module `polismath/replay/shadow_compare.py`; reuses the poller_equiv
+acceptance on live row pairs; only judges in-sync pairs; exit 1 =
+unexpected divergence, exit 2 = coverage not yet demonstrated);
+large-conv divergence dismissed per risk 2/Q10 (the tool classifies
+those `large-conv-q10`, never a failure). **Step #2 must NOT be merged
+until this gate passes.**
 
-**One WIP PR per step (for a future session):**
+**Collapse contingency (if Colin rules clean-cut):** close the Step #1
+PR unmerged; in the Step #2 PR, change the after_install.sh math role
+line directly from `up -d math` to `up -d math-python` (Step #1's
+intermediate `up -d math math-python` never ships); Secrets-Manager edit
+becomes MATH_PYTHON_ENV='prod' + MATH_CONV_CACHE_CAP in ONE edit; the
+shadow exit checklist is dropped (no soak), the flip gate falls back to
+the certified evidence base (battery 20/20 + live equivalence 16/16).
+shadow_compare.py stays useful POST-flip for spot-audits against
+still-standing historical clj rows (they are not deleted by the flip).
+
+**One draft PR per step (CREATED 2026-07-28, s8 — all open drafts,
+nothing merged): Step #0 = #2685, Step #1 = #2686, Step #2 = #2687,
+Step #3 = #2688, Step #4 = #2689 (the added Clojure-removal/math-move
+PR). Bodies carry the checklists, Julien-actions, and rollback notes.
+The bullet list below is the PRE-CREATION planning shape, kept for
+provenance — the PR bodies supersede it (note: the old PR-S3 bullet's
+"archive note" concern is split across #2688 + #2689).**
 - PR-S0 (promote): get the stack onto `stable` (prod deploys track
   stable, not edge — after_install.sh pulls stable).
 - PR-S1 (shadow): scripts/after_install.sh math role line →
   `up -d math math-python`; add MATH_CONV_CACHE_CAP + MATH_PYTHON_ENV
   to the SSM-sourced .env (polis-web-app-env-vars secret); exit
   checklist copied into the PR body.
-- PR-S2 (flip): ONE mechanism (ruling needed: poller MATH_ENV→'prod' vs
-  server mathEnv→'python'); revert instructions in the PR body.
+- PR-S2 (flip): ONE mechanism — PROVISIONAL RULING (Julien, 2026-07-28):
+  poller MATH_ENV→'prod' (Secrets-Manager MATH_PYTHON_ENV='prod' +
+  restart math-python; stop the clj `math` service) — the seam the
+  equivalence runs certified, no server config change, no server
+  restart. FINAL confirmation BLOCKED-ON-RULING at flip time (the PR
+  body presents both mechanisms); revert instructions in the PR body.
 - PR-S3 (decommission): remove `math` from compose + its
   after_install.sh line; archive note for the Clojure tree.
 
@@ -158,14 +191,25 @@ Verify within minutes:
 - math_main rows appearing under math_env='python' with advancing
   caching_tick;
 - no errorconv dumps / parked zids in the poller log;
-- spot-compare a few active zids' blobs vs the clojure rows (the certify
-  StepComparer acceptance; scripts/poller_equiv.py compare machinery is
-  reusable for row pairs).
+- run the live comparer: `cd delphi && uv run python
+  scripts/shadow_compare.py --json-out scratch/shadow_report.json`
+  (module polismath/replay/shadow_compare.py — certify acceptance on
+  live row pairs; judges only in-sync pairs, reports out-of-sync/
+  not-ready for retry, classifies >10k-ptpt/>5k-cmt convs
+  `large-conv-q10` per risk #2).
 
-Soak: hours-to-a-day of prod traffic. Exit = no structural divergence on
-small/mid convs; large-conv divergence understood per risk #2.
+Soak: hours-to-a-day of prod traffic. Exit = shadow_compare.py exits 0
+with `--min-matches <N>` (N = the active-zid count agreed up front) on
+repeated runs; no structural divergence on small/mid convs; large-conv
+divergence understood per risk #2. This exit gate is REQUIRED before
+Step 2 (Julien ruling 2026-07-28).
 
 ## Step 2 — flip (evening, if soak clean)
+
+GATE: `scripts/shadow_compare.py --min-matches <N>` exit 0 (see Step 1)
++ the rest of the shadow exit checklist. Mechanism per the provisional
+ruling (2026-07-28): poller MATH_ENV→'prod'; final confirmation
+BLOCKED-ON-RULING in the Step #2 PR.
 
 One env change, instantly reversible:
 - Set the python poller's MATH_ENV to the server's Config.mathEnv ('prod');
