@@ -3966,3 +3966,82 @@ airtight version). Push + CI follow the verdicts.
    are intentionally inert, Q1); improved mode's ban path has no live
    equiv coverage. Follow-up candidate for the cutover phase (improved
    mode is the post-cutover option per MATH_POLLER_DESIGN.md).
+
+## Session 6 (2026-07-26, overnight): pre-cutover audit + fixes
+
+Stack audit for the clojure-off/python-on decision (Julien overnight
+mandate). State found + actions:
+
+- **Stack**: 32 Draft PRs, base-pointer chain verified correct end-to-end
+  (spr's 4th-column ❌ on the upper 13 is metadata cosmetics; every head
+  OID checked == local). NEW top commit since s5: #2658 zid-sharding
+  (another session, 2026-07-25 — scheduling scaffolding, opt-in,
+  process-per-shard; measured thread-pool serial fraction 0.988 → 15.7x
+  at 16 processes).
+- **CI**: (a) #2637's own run failed on ONE test —
+  test_py_poller_runner_cmd_cwd_env asserted cwd.name == "delphi", which
+  is "app" in the CI container; layout-fragile assertion dropped, fix
+  squashed into #2657's commit, stack pushed (retriggers checks).
+  (b) python-ci dispatched on the sharding head (was never run there).
+  (c) #2648 mid-stack red = two certify tests failing at that STACK
+  POSITION only (they pass from #2656's position up — the fix rode a
+  later commit); old run re-run; if still red it is a stack-position
+  artifact, not a tip defect. (d) observed in #2637's run logs: a
+  postgres "null zid" constraint ERROR from the integration flow with no
+  failing test — noted, unexplained, non-blocking.
+- **Copilot**: 14 older PRs reviewed (all threads resolved but two);
+  the two unresolved threads (#2618 engine_mode coupling, #2622 stale
+  group_clusterings) were both ALREADY FIXED by later stack PRs (#2641
+  resolver move; #2642 Q4 overwrite) — replied with citations, resolved.
+  18 newer PRs (#2641-#2658) had NO Copilot review → requested on all 18
+  (goal-doc authorization, one per PR at review-ready; Julien explicitly
+  asked). Triage the incoming reviews at next orientation.
+- **Our review agent**: coverage verified from journal records across the
+  stack (per-Draft agents early; #2648/49, #2651-55 batches; #2656,
+  #2657 individually); #2658 reviewed tonight (report in this entry's
+  follow-up).
+- **CUTOVER_RUNBOOK.md written** (docs commit): evidence base, risk
+  register (no prod shadow soak yet; Q10 large-conv intentional
+  divergence WILL flag in shadow compare; throughput/sharding note;
+  Q19 moot post-cutover), step 0 merge → step 1 same-day shadow →
+  step 2 evening flip (env-var, instantly reversible) → step 3
+  decommission.
+
+Follow-up: #2658 sharding review (our agent, tonight) — verdict SHIP.
+No-behavior-change claim HOLDS (shard branch gated on shard_count>1;
+defaults never enter it; watermark/write paths untouched; 74/74 tests).
+Assignment is zid % shard_count (no hash() — PYTHONHASHSEED-immune,
+process-stable); config validation rejects all malformed index/count
+shapes; shard filter correctly precedes allowlist. Two non-defects
+flagged: negative-zid partition untested-but-true (moot, DB serials);
+and NO code guard against two fleet processes sharing a shard_index —
+deployment-layer responsibility, now noted in CUTOVER_RUNBOOK.md.
+
+## Session 6 (cont., 2026-07-27): Copilot triage fan-out — 25 threads closed, 16 fixes applied
+
+Four parallel triage agents on the 18 landed Copilot reviews (25 comments):
+2 QUIRK rejections with ledger citations (a group_votes flattening that
+would break the Q2 restart restore; a proj_probe load-file nit), 3
+DECLINEs (replied+resolved), 1 deliberate deferral (#2644's
+behavior-identical legacy reindex — not worth a re-certification cycle in
+the cutover window), and 16 APPLYs applied serially by one agent (TDD on
+the substantive one: improved-mode early returns leaked stale
+group_clusterings/group_k_smoother across engine-mode switches — RED
+observed, reset now gated `if not legacy_mode:`; plus certify manifest
+now hashes comments CSVs — STRICT, forces a one-time clj re-record of
+the mod entries; lru_cache on tree hashes; dataset-mismatch guard;
+slug-glob sanitization; NaN-propagating Q11 clamp; Q16 always-2-wide
+projection; shard-bench fd/kill cleanup; docstring/test hardening).
+Combined gate: 647 passed / 5 pre-existing skips. Battery ×2 relaunched
+on the new tree (s6 logs).
+
+Julien decisions recorded (POST_CUTOVER_IMPROVEMENTS.md): py-round
+WONTFIX; equiv = release-gate script, not CI; bans confirmed negligible
+by fresh prodclone SQL (201/67/735,226 — and never honored by Clojure);
+sharding NOT needed at current traffic (fresh prodclone analysis: p95=3,
+p99=5, max 14 distinct active convs/min in 2024+ vs ~100 ticks/min
+serial capacity; all-time peak 116/min would want 2-4 shards).
+Category-1 nondeterminism issues opened: #2660 (Q10), #2661 (Q12),
+#2662 (Q13/Q18) — all "fixed by the Python push", determinism pinned by
+test_driver.py::test_determinism_bit_identical_except_wall_clock + the
+battery's pass-pair bit-comparisons.
