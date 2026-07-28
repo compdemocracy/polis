@@ -156,3 +156,194 @@
     (doseq [c (sort-by :id (:base-clusters cur))
             :when (> (count (:members c)) 1)]
       (println "  multi-member cluster id=" (:id c) "members=" (pr-str (:members c))))))
+
+;; Mod-weaving distinct-rows probe (pc-modheavy-01 step-2 fork, journal
+;; 2026-07-22 s4 What's Next #1): replay an N-cut prefix of a mod-interleave
+;; schedule WITH woven moderation (replay's own read-mod-events +
+;; slice-schedule; meta-tids empty — interleave schedules take meta via
+;; mod-update only, as in replay/-main), then report, at the FINAL step, the
+;; in-conv projection-row distinct count and every group of pids whose rows
+;; are EQUAL in clj at %.17g — to diff against the python side (py: 92
+;; distinct of 105 at step 2; 12 row-pairs collide in clj only).
+(defn mod-distinct-probe [votes-csv comments-csv zid & cuts]
+  (let [votes (->> (replay/read-votes-csv votes-csv) replay/build-dataset)
+        {mods :events} (replay/read-mod-events comments-csv)
+        slots (mapv long cuts)
+        steps (replay/slice-schedule votes slots mods)
+        results (replay/run-once zid #{} steps)
+        [_ conv'] (last results)
+        pnmat (nm/named-matrix (nm/rownames (:rating-mat conv')) ["x" "y"]
+                               (:proj conv'))
+        inmat (nm/rowname-subset pnmat (:in-conv conv'))
+        names (nm/rownames inmat)
+        raw-rows (matrix/rows (nm/get-matrix inmat))
+        rows  (mapv #(into [] %) raw-rows)]
+    (println "MODPROBE final-step: in-conv rows=" (count rows)
+             "distinct(vectorz)=" (count (distinct (into [] raw-rows)))
+             "distinct(vec)=" (count (distinct rows)))
+    (doseq [[row prs] (->> (group-by second (map vector names rows))
+                           (filter (fn [[_ prs]] (> (count prs) 1)))
+                           (sort-by (fn [[_ prs]] (long (ffirst prs)))))]
+      (println (format "COLLIDE pids=%s row=[%.17g %.17g]"
+                       (pr-str (mapv first prs))
+                       (double (nth row 0)) (double (nth row 1)))))))
+
+;; Mod-weaving split-loop walk (pc-modheavy-01 step-2: clj records 80 base
+;; clusters vs py 92 while BOTH see 92 distinct in-conv rows — so the clj
+;; split loop stops early; this prints WHY). Replays an N-cut prefix with
+;; woven mods, then at the FINAL step: runs the REAL clean-start-clusters
+;; (count check), then mirrors clusters.clj:250-273 manually printing each
+;; iteration's most-distal extraction (id/dist/clst-id at %.20g) up to the
+;; stop, plus the remaining multi-member clusters at the stop.
+(defn mod-split-probe [votes-csv comments-csv zid & cuts]
+  (let [votes (->> (replay/read-votes-csv votes-csv) replay/build-dataset)
+        {mods :events} (replay/read-mod-events comments-csv)
+        slots (mapv long cuts)
+        steps (replay/slice-schedule votes slots mods)
+        results (replay/run-once zid #{} steps)
+        [_ prev-conv] (nth results (- (count results) 2))
+        [_ cur-conv]  (last results)
+        pnmat (nm/named-matrix (nm/rownames (:rating-mat cur-conv)) ["x" "y"]
+                               (:proj cur-conv))
+        inmat (nm/rowname-subset pnmat (:in-conv cur-conv))
+        prev-bc (:base-clusters prev-conv)
+        real-cs (clusters/clean-start-clusters inmat prev-bc 100)
+        rec  (clusters/safe-recenter-clusters inmat prev-bc)
+        uniq (clusters/uniqify-clusters rec)
+        possible (min 100 (count (distinct (into [] (matrix/rows (nm/get-matrix inmat))))))]
+    (println "MODSPLIT prev-step clusters:" (count prev-bc)
+             "safe-recenter:" (count rec) "uniqify:" (count uniq)
+             "possible:" possible "rows:" (count (nm/rownames inmat))
+             "REAL clean-start-clusters:" (count real-cs))
+    (loop [clusters uniq, it 0]
+      (let [clusters (clusters/recenter-clusters inmat clusters)]
+        (if (> possible (count clusters))
+          (let [outlier (clusters/most-distal inmat clusters)]
+            (println (format "MODSPLIT iter %d: n=%d extract pid=%s d=%.20g clst=%s"
+                             it (count clusters) (str (:id outlier))
+                             (double (:dist outlier)) (str (:clst-id outlier))))
+            (if (> (:dist outlier) 0)
+              (recur
+                (->
+                  (mapv
+                    (fn [clst]
+                      (assoc clst :members
+                        (remove (set [(:id outlier)]) (:members clst))))
+                    clusters)
+                  (conj {:id (inc (apply max (map :id clusters)))
+                         :members [(:id outlier)]
+                         :center (nm/get-row-by-name inmat (:id outlier))}))
+                (inc it))
+              (do
+                (println "MODSPLIT STOPPED (zero-dist outlier) at n=" (count clusters))
+                (doseq [c clusters
+                        :when (> (count (:members c)) 1)]
+                  (println "  multi-member id=" (:id c) "members=" (pr-str (:members c)))))))
+          (println "MODSPLIT done (possible reached) n=" (count clusters)))))))
+
+;; Step-1 lineage probe (pc-modheavy-01 {1,3,8,11} id 2-vs-8): replay an
+;; N-cut prefix with woven mods, then at the FINAL step print the REAL
+;; clean-start seed clusters holding the tracked pids (centers %.17g), the
+;; distances of each tracked row to the tracked cluster ids under
+;; matrix/distance (the add-to-closest path), and the final kmeans outcome
+;; for those pids — to pin WHERE clj's id survives vs the py port.
+(defn lineage-probe [votes-csv comments-csv zid track-pids track-ids & cuts]
+  (let [votes (->> (replay/read-votes-csv votes-csv) replay/build-dataset)
+        {mods :events} (replay/read-mod-events comments-csv)
+        slots (mapv long cuts)
+        steps (replay/slice-schedule votes slots mods)
+        results (replay/run-once zid #{} steps)
+        [_ prev-conv] (nth results (- (count results) 2))
+        [_ cur-conv]  (last results)
+        pnmat (nm/named-matrix (nm/rownames (:rating-mat cur-conv)) ["x" "y"]
+                               (:proj cur-conv))
+        inmat (nm/rowname-subset pnmat (:in-conv cur-conv))
+        prev-bc (:base-clusters prev-conv)
+        track-pids (set track-pids)
+        track-ids (set track-ids)
+        seed (clusters/clean-start-clusters inmat prev-bc 100)]
+    (println "LINEAGE prev-step ids holding tracked pids:")
+    (doseq [c prev-bc :when (seq (clojure.set/intersection track-pids (set (:members c))))]
+      (println (format "  prev id=%d members=%s center=[%.17g %.17g]"
+                       (long (:id c)) (pr-str (:members c))
+                       (double (first (:center c))) (double (second (:center c))))))
+    (println "LINEAGE seed clusters holding tracked pids or ids:")
+    (doseq [c seed :when (or (seq (clojure.set/intersection track-pids (set (:members c))))
+                             (contains? track-ids (:id c)))]
+      (println (format "  seed id=%d members=%s center=[%.17g %.17g]"
+                       (long (:id c)) (pr-str (:members c))
+                       (double (first (:center c))) (double (second (:center c))))))
+    (doseq [p track-pids]
+      (let [row (nm/get-row-by-name inmat p)]
+        (doseq [c seed :when (contains? track-ids (:id c))]
+          (println (format "  d(row%s, c%d) = %.20g"
+                           (str p) (long (:id c))
+                           (double (matrix/distance row (:center c))))))))
+    (let [km (clusters/kmeans inmat 100
+                              :last-clusters prev-bc
+                              :max-iters 100)]
+      (println "LINEAGE final kmeans clusters holding tracked pids:")
+      (doseq [c (sort-by :id km)
+              :when (seq (clojure.set/intersection track-pids (set (:members c))))]
+        (println (format "  final id=%d members=%s"
+                         (long (:id c)) (pr-str (:members c))))))))
+
+;; Split-loop probe (pc-revote-01 step-1 extraction tie): replay two vote-count
+;; batches like batch-probe, then walk clean-start-clusters' split loop
+;; MANUALLY (mirroring clusters.clj:250-273 verbatim) printing, per iteration,
+;; the ACTUAL most-distal extraction (id/dist/clst-id) plus the top-3 candidate
+;; ranking with runner-up gaps, so the sequence can be diffed against the
+;; python probe (delphi/scratch/probe_revote_split.py).
+(defn split-probe [csv-path cut1 cut2]
+  (let [votes (->> (replay/read-votes-csv csv-path) replay/build-dataset)
+        b1    (subvec votes 0 cut1)
+        b2    (subvec votes cut1 cut2)
+        seed  (-> (conv/new-conv)
+                  (assoc :zid 99998 :meta-tids #{}
+                         :pca replay/certify-cold-start-pca))
+        prev  (conv/conv-update seed (replay/->conv-votes b1)
+                                replay/certify-conv-opts)
+        cur   (conv/conv-update prev (replay/->conv-votes b2)
+                                replay/certify-conv-opts)
+        pnmat (nm/named-matrix (nm/rownames (:rating-mat cur)) ["x" "y"]
+                               (:proj cur))
+        inmat (nm/rowname-subset pnmat (:in-conv cur))
+        rec   (clusters/safe-recenter-clusters inmat (:base-clusters prev))
+        uniq  (clusters/uniqify-clusters rec)
+        possible (min 100 (count (distinct (into [] (matrix/rows (nm/get-matrix inmat))))))]
+    (println "SPLIT start-clusters:" (count uniq) "possible:" possible
+             "rows:" (count (nm/rownames inmat)))
+    (loop [clusters uniq, it 0]
+      (let [clusters (clusters/recenter-clusters inmat clusters)]
+        (if (> possible (count clusters))
+          (let [outlier (clusters/most-distal inmat clusters)
+                ranks   (->> (nm/rownames inmat)
+                             (map (fn [mem]
+                                    (let [row (nm/get-row-by-name inmat mem)]
+                                      [(apply min (map #(matrix/distance row (:center %))
+                                                       clusters))
+                                       mem])))
+                             (sort-by first)
+                             reverse
+                             (take 3))
+                [[d0 m0] [d1 m1] [d2 m2]] ranks]
+            (println (format "SPLIT iter %d: extract pid=%s d=%.20g clst=%s | top3 %s:%.20g %s:%.20g %s:%.20g | gap01=%.3e"
+                             it (str (:id outlier)) (double (:dist outlier))
+                             (str (:clst-id outlier))
+                             (str m0) (double d0) (str m1) (double d1)
+                             (str m2) (double d2)
+                             (double (- d0 d1))))
+            (if (> (:dist outlier) 0)
+              (recur
+                (->
+                  (mapv
+                    (fn [clst]
+                      (assoc clst :members
+                        (remove (set [(:id outlier)]) (:members clst))))
+                    clusters)
+                  (conj {:id (inc (apply max (map :id clusters)))
+                         :members [(:id outlier)]
+                         :center (nm/get-row-by-name inmat (:id outlier))}))
+                (inc it))
+              (println "SPLIT done (zero-dist outlier) after iter" it)))
+          (println "SPLIT done (possible reached) n=" (count clusters)))))))

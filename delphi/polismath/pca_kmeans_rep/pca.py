@@ -367,14 +367,16 @@ def pca_project_dataframe(df: pd.DataFrame,
             projections = ((matrix_data_no_nan - pca_results['center'])
                            @ pca_results['comps'].T)
             # comps are RANK-CAPPED (min(n_comps, data dim), matching
-            # Clojure's emitted comps) but projections are always 2-D:
-            # Clojure's [pc1 pc2] destructure zero-fills a missing second
-            # component (sparsity-aware-project-ptpt, pca.clj:134-157).
+            # Clojure's emitted comps) but projections are always 2-D — and
+            # with fewer than 2 comps rows they are all-ZERO (Q16): Clojure's
+            # `[pc1 pc2] comps` destructure leaves pc2 nil, and `utils/zip`
+            # (map vector) truncates to the shortest input — EMPTY — so the
+            # sparsity-aware reduce (pca.clj:134-157) never runs and EVERY
+            # projection (both components, participants and comments alike)
+            # collapses to 0.0. Verified against a 3-ptpt x 1-comment clj
+            # replay reference, 2026-07-22 s4 (base-clusters x/y = [0.0]).
             if projections.ndim == 2 and projections.shape[1] < n_comps:
-                projections = np.pad(
-                    projections,
-                    ((0, 0), (0, n_comps - projections.shape[1])),
-                )
+                projections = np.zeros((projections.shape[0], n_comps))
 
         projections = np.ascontiguousarray(projections)
 
@@ -458,6 +460,13 @@ def pca_project_cmnts(center: np.ndarray, comps: np.ndarray) -> np.ndarray:
     n_cmnts = len(center)
     if n_cmnts == 0:
         return np.zeros((0, comps.shape[0] if comps.ndim == 2 else 0))
+    if comps.ndim == 2 and comps.shape[0] < 2:
+        # Q16: with fewer than 2 comps rows, Clojure's `[pc1 pc2] comps`
+        # destructure leaves pc2 nil and `utils/zip` truncates the
+        # sparsity-aware reduce to EMPTY — every comment projects to 0.0 on
+        # BOTH components (pca.clj:134-157; verified on a 3x1 clj replay
+        # reference, 2026-07-22 s4).
+        return np.zeros((n_cmnts, comps.shape[0]))
     scale = np.sqrt(n_cmnts)
     coefs = scale * (AGREE - center)              # shape (n_cmnts,); AGREE = +1 (Delphi)
     return coefs[:, None] * comps.T               # shape (n_cmnts, n_components)

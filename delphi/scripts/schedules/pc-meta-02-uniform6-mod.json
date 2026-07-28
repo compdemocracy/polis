@@ -1,0 +1,21 @@
+{
+  "dataset": "pc-meta-02",
+  "schedule_id": "uniform6-mod",
+  "source": "votes-csv",
+  "cuts": {
+    "mode": "vote-count",
+    "at": [
+      402,
+      805,
+      1207,
+      1609,
+      2012,
+      2414
+    ]
+  },
+  "moderation": "interleave-by-timestamp",
+  "clojure": {
+    "warm_start": "chain"
+  },
+  "notes": "6 evenly-spaced recomputes with moderation interleaved (moderate-density prodclone extraction: meta + modout on coincidence-sparse geometry - the Q18-safe warm-chain mod/meta coverage)"
+}

@@ -138,6 +138,57 @@ class TestClusterStep:
         np.testing.assert_allclose(stepped[0]['center'], [0.0, 1.5])
 
 
+class TestClusterStepHashOrderTieBreak:
+    """Clojure's cluster-step iterates the cleared-clusters map: ``(into {})``
+    of ``[id cluster]`` pairs is an array-map in INSERTION (input) order for
+    <=8 clusters but a PersistentHashMap for >8, whose seq order is the HAMT
+    trie order of the id hashes (clusters.clj:79-86, 149). add-to-closest's
+    min-key keeps the LAST minimal entry in THAT order, so the scan order is
+    semantic exactly on distance ties — which the Q11 cancellation floor
+    makes COMMON, not measure-zero (pc-modheavy-01 step 2: 12 seed clusters
+    emptied clj-side by hash-order ties, 80 vs 92 recorded clusters; journal
+    2026-07-24).
+
+    Ground truth from real Clojure (clojure -M eval, 2026-07-24):
+      (keys (into {} (map (juxt identity identity) (range 9))))
+        => (0 7 1 4 6 3 2 5 8)     ; ids 1 and 7 INVERT input order
+      (range 8) stays (0 1 2 3 4 5 6 7)   ; array-map, insertion order
+    polismath.utils.clj_hash.clojure_hash_map_key_order reproduces the n=9
+    and n=20 orders bit-for-bit (cross-validated same session)."""
+
+    @staticmethod
+    def _tie_fixture(n_ids):
+        # Row 't' ties at distance 0.0 between clusters 1 and 7 (both centers
+        # exactly its position); every other cluster holds its own coincident
+        # row so nothing else moves or empties.
+        names, rows, clusters = [], [], []
+        for i in range(n_ids):
+            if i in (1, 7):
+                center = [5.0, 5.0]
+            else:
+                center = [10.0 * i, -7.0]
+                names.append(f"p{i}")
+                rows.append(center)
+            clusters.append({'id': i, 'members': [], 'center': np.array(center)})
+        names.append("t")
+        rows.append([5.0, 5.0])
+        return _nd(names, rows), clusters
+
+    def test_gt8_ties_resolve_by_clojure_hash_map_order(self):
+        data, clusters = self._tie_fixture(9)
+        by = _by_id(cluster_step(data, clusters))
+        # hash order (0 7 1 4 6 3 2 5 8): id 1 comes AFTER id 7 -> 1 wins.
+        assert 't' in by[1]['members']
+        assert 7 not in by  # cluster 7 got no members -> dropped
+
+    def test_le8_ties_resolve_by_input_order(self):
+        data, clusters = self._tie_fixture(8)
+        by = _by_id(cluster_step(data, clusters))
+        # array-map insertion order == input order: id 7 is later -> 7 wins.
+        assert 't' in by[7]['members']
+        assert 1 not in by
+
+
 # ---------------------------------------------------------------------------
 # safe_recenter_clusters (clusters.clj:171-191) — drop vanished
 # ---------------------------------------------------------------------------

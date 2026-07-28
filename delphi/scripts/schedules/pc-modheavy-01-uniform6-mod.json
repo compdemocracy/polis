@@ -1,0 +1,21 @@
+{
+  "dataset": "pc-modheavy-01",
+  "schedule_id": "uniform6-mod",
+  "source": "votes-csv",
+  "cuts": {
+    "mode": "vote-count",
+    "at": [
+      1952,
+      3904,
+      5856,
+      7808,
+      9760,
+      11712
+    ]
+  },
+  "moderation": "interleave-by-timestamp",
+  "clojure": {
+    "warm_start": "chain"
+  },
+  "notes": "6 evenly-spaced recomputes with moderation interleaved by modified timestamp (modout-heavy prodclone extraction, meta rows included) [NOT IN BATTERY since 2026-07-24: warm-chain steps knife-edge on Q18 (uniqify merge-center ulp chaos, CLOJURE_QUIRKS.md) \u2014 kept only to reproduce the diagnosis; certification uses the single-cut-mod variant]"
+}

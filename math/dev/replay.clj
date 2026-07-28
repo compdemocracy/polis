@@ -65,6 +65,7 @@
             [com.stuartsierra.component :as component]
             [clojure.core.matrix :as matrix]
             [polismath.math.conversation :as conv]
+            [polismath.math.named-matrix :as nm]
             [polismath.conv-man :as cm]
             [polismath.components.core-matrix-boot :as cmb])
   (:import [java.security MessageDigest]
@@ -165,16 +166,27 @@
 ;; ---------------------------------------------------------------------------
 
 (defn slice-schedule
-  [votes slots]
-  (loop [prev 0 [cut & more] slots i 0 acc []]
-    (if (nil? cut)
-      acc
-      (recur cut more (inc i)
-             (conj acc {:index i
-                        :prev-slot prev
-                        :cut-slot cut
-                        :votes (subvec votes prev cut)     ; (prev, cut] 0-based
-                        :cut-time-ms (:t-ms (nth votes (dec cut)))})))))
+  "Mods weave per schedule.py:204-210: a mod event attaches to the FIRST cut
+  whose cut-time reaches its :modified (and which is past the previous cut's
+  time); events after the last cut are dropped, like tail votes."
+  ([votes slots] (slice-schedule votes slots []))
+  ([votes slots mod-events]
+   (loop [prev 0 [cut & more] slots i 0 acc []]
+     (if (nil? cut)
+       acc
+       (let [cut-time  (:t-ms (nth votes (dec cut)))
+             prev-time (when (pos? prev) (:t-ms (nth votes (dec prev))))
+             mods (filterv #(and (<= (long (:modified %)) (long cut-time))
+                                 (or (nil? prev-time)
+                                     (> (long (:modified %)) (long prev-time))))
+                           mod-events)]
+         (recur cut more (inc i)
+                (conj acc {:index i
+                           :prev-slot prev
+                           :cut-slot cut
+                           :votes (subvec votes prev cut)     ; (prev, cut] 0-based
+                           :mods mods
+                           :cut-time-ms cut-time})))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Feeding conv-update: FLIP the export sign to raw-DB (design §5).
@@ -215,27 +227,77 @@
 (def certify-cold-start-pca
   {:comps [[1.0] [1.0]]})
 
+(defn parse-blob-json
+  "EXACTLY db/load-conv's key-fn (postgres.clj:419-433): numeric-string keys
+  become longs, everything else keywords — including the keyword/long
+  hash-map-key mismatches its own docstring warns about (e.g. :repness),
+  which are part of production restart semantics."
+  [s]
+  (json/parse-string s (fn [x] (try (Long/parseLong x)
+                                    (catch Exception _ (keyword x))))))
+
+(defn restart-conv
+  "Replicate conv-man's load-or-init restart (conv_man.clj:188-207)
+  mid-schedule: rebuild the conv from its OWN just-computed math_main blob
+  (prep-main → JSON round-trip → restructure-json-conv), :recompute :reboot,
+  raw-rating-mat from the FULL vote log so far ([pid tid raw-db-vote] in
+  dataset order — conv-poll's created-order equivalent), then mod-update with
+  the FULL mod history so far (called even when empty, as load-or-init does).
+  Everything restructure-json-conv drops (rating-mat, per-k
+  :group-clusterings smoother memory, …) is LOST, exactly as in production."
+  [conv steps-so-far]
+  (let [votes-so-far (mapcat :votes steps-so-far)
+        mods-so-far  (mapcat :mods steps-so-far)]
+    (-> (cm/prep-main conv)
+        json/generate-string
+        parse-blob-json
+        cm/restructure-json-conv
+        (assoc :recompute :reboot)
+        (assoc :raw-rating-mat
+               (nm/update-nmat (nm/named-matrix)
+                               (mapv (fn [{:keys [pid tid sign]}]
+                                       [pid tid (- (long sign))])
+                                     votes-so-far)))
+        (conv/mod-update (vec mods-so-far)))))
+
 (defn run-once
   "Returns a vector of [step conv-after-update] pairs, one per cut slot.
   The reduce threading the conv IS the implicit warm-start chain.
   conv-update runs with certify-conv-opts (Q10 full-PCA carve-out) and the
-  seed conv carries certify-cold-start-pca (Q12 pinned cold start)."
-  [zid meta-tids steps]
-  (binding [*out* *err*]
-    (println "Q10 carve-out: large-conv mini-batch PCA disabled"
-             "(ptpt/cmt cutoffs pinned to 10^9; full PCA at every size)")
-    (println "Q12 carve-out: cold-tick PCA start pinned to ones"
-             "(production start is unseeded-random)"))
-  (let [seed (-> (conv/new-conv)
-                 (assoc :zid zid
-                        :meta-tids (set meta-tids)
-                        :pca certify-cold-start-pca))]
-    (loop [conv seed [s & more] steps acc []]
-      (if (nil? s)
-        acc
-        (let [conv' (conv/conv-update conv (->conv-votes (:votes s))
-                                      certify-conv-opts)]
-          (recur conv' more (conj acc [s conv'])))))))
+  seed conv carries certify-cold-start-pca (Q12 pinned cold start).
+  Step semantics mirror conv-man's per-batch [:votes :moderation] order
+  (conv_man.clj:361-371): votes → conv-update (recompute), then mods →
+  conv/mod-update (sets+watermark ONLY, no recompute — the mods take effect
+  at the NEXT votes recompute); ONE blob per step, recorded post-mods.
+  After recording step `restart-after`, the chain continues from
+  `restart-conv` (the production worker-restart seam)."
+  ([zid meta-tids steps] (run-once zid meta-tids steps nil))
+  ([zid meta-tids steps restart-after]
+   (binding [*out* *err*]
+     (println "Q10 carve-out: large-conv mini-batch PCA disabled"
+              "(ptpt/cmt cutoffs pinned to 10^9; full PCA at every size)")
+     (println "Q12 carve-out: cold-tick PCA start pinned to ones"
+              "(production start is unseeded-random)"))
+   (let [seed (-> (conv/new-conv)
+                  (assoc :zid zid
+                         :meta-tids (set meta-tids)
+                         :pca certify-cold-start-pca))]
+     (loop [conv seed [s & more] steps acc []]
+       (if (nil? s)
+         acc
+         (let [conv' (conv/conv-update conv (->conv-votes (:votes s))
+                                       certify-conv-opts)
+               conv' (if (seq (:mods s))
+                       (conv/mod-update conv' (vec (:mods s)))
+                       conv')
+               acc'  (conj acc [s conv'])
+               conv'' (if (and restart-after (= (long (:index s)) (long restart-after)))
+                        (do (binding [*out* *err*]
+                              (println (format "restart seam after step %d (load-or-init replay)"
+                                               (long (:index s)))))
+                            (restart-conv conv' (map first acc')))
+                        conv')]
+           (recur conv'' more acc')))))))
 
 ;; ---------------------------------------------------------------------------
 ;; Recording.
@@ -292,8 +354,13 @@
 
 (defn build-provenance
   [{:keys [schedule schedule-id source votes-path comments-path zid meta-tids
-           meta-tids-source warm-start repeats n-steps edn?]}]
+           meta-tids-source warm-start repeats n-steps edn?
+           moderation n-mod-events n-mod-skipped restart-after]}]
   {:engine "clj"
+   :moderation (or moderation "none")
+   :n_mod_events (or n-mod-events 0)
+   :n_mod_skipped_no_modified (or n-mod-skipped 0)
+   :restart_after restart-after
    :mode "A"
    :schedule_id schedule-id
    :source source
@@ -349,6 +416,51 @@
            "comments CSV is-meta column"])))))
 
 ;; ---------------------------------------------------------------------------
+;; Moderation rows from the comments CSV (interleave-by-timestamp schedules).
+;; ---------------------------------------------------------------------------
+
+(defn read-mod-events
+  "Raw moderation rows {:tid :is_meta :mod :modified} from the comments CSV,
+  sorted by (modified, file order) — the conv-mod-poll stream equivalent.
+  `modified` is the DB value in MILLISECONDS, compared directly against vote
+  :t-ms at weave time (the py loader reads the same column identically).
+  Rows with an empty `modified` cannot be woven and are SKIPPED (counted in
+  :n-skipped for provenance). Columns: comment-id/tid, is-meta/is_meta,
+  mod/moderated, modified."
+  [comments-path]
+  (with-open [rdr (io/reader comments-path)]
+    (let [rows   (doall (csv/read-csv rdr))
+          header (first rows)
+          idx    (zipmap header (range))
+          ci     (or (idx "comment-id") (idx "tid"))
+          mi     (or (idx "is-meta") (idx "is_meta"))
+          modi   (or (idx "mod") (idx "moderated"))
+          tsi    (idx "modified")]
+      (when (some nil? [ci modi tsi])
+        (throw (ex-info (str "comments CSV lacks moderation columns "
+                             "(need comment-id, mod/moderated, modified); header="
+                             (vec header))
+                        {:header header})))
+      (let [parsed (->> (rest rows)
+                        (keep-indexed
+                          (fn [i r]
+                            (let [modified-raw (str/trim (str (nth r tsi "")))]
+                              (when (seq modified-raw)
+                                {:tid (Long/parseLong (str/trim (nth r ci)))
+                                 :is_meta (boolean
+                                            (when mi
+                                              (#{"1" "true" "t" "yes"}
+                                               (str/lower-case (str/trim (str (nth r mi "")))))))
+                                 :mod (Long/parseLong (str/trim (nth r modi)))
+                                 :modified (Long/parseLong modified-raw)
+                                 :file-idx i})))))
+            events (->> parsed
+                        (sort-by (juxt :modified :file-idx))
+                        (mapv #(dissoc % :file-idx)))]
+        {:events events
+         :n-skipped (- (count (rest rows)) (count events))}))))
+
+;; ---------------------------------------------------------------------------
 ;; CLI.
 ;; ---------------------------------------------------------------------------
 
@@ -395,12 +507,16 @@
             out         (io/file (:out options))
             clj-dir     (io/file out "clj")]
 
-        (when-not (contains? #{"none" nil} moderation)
+        (when-not (contains? #{"none" "interleave-by-timestamp" nil} moderation)
           (throw (ex-info
-                   (str "Moderation interleaving is NOT implemented in the Mode A "
-                        "driver (the vw dataset has none). Got moderation="
-                        (pr-str moderation) ". Use \"none\" or add mod-update interleaving.")
+                   (str "Unknown moderation mode " (pr-str moderation)
+                        ". Use \"none\" or \"interleave-by-timestamp\" "
+                        "(mod rows from --comments, woven by modified timestamp).")
                    {:moderation moderation})))
+        (when (and (= moderation "interleave-by-timestamp")
+                   (nil? (:comments options)))
+          (throw (ex-info "moderation=interleave-by-timestamp requires --comments"
+                          {:moderation moderation})))
 
         ;; Only "chain" warm-start is implemented (it is IMPLICIT: the reduce
         ;; threads the conv, whose :pca :comps seed the next step's start-vectors,
@@ -422,14 +538,45 @@
         (let [raw   (read-votes-csv (:votes options))
               votes (build-dataset raw)
               slots (resolve-cut-slots votes cuts)
-              steps (slice-schedule votes slots)
-              [meta-tids meta-src] (read-meta-tids (:comments options))]
+              restart-after (get schedule "restart_after")
+              {mod-events :events n-mod-skipped :n-skipped}
+              (if (= moderation "interleave-by-timestamp")
+                (read-mod-events (:comments options))
+                {:events [] :n-skipped 0})
+              steps (slice-schedule votes slots mod-events)
+              ;; Under interleave moderation, meta-tids enter EXCLUSIVELY via
+              ;; the woven mod-update rows (the production-reachable route) —
+              ;; seeding them at conv creation as well would front-load every
+              ;; is-meta comment into step 0's compute, which no production
+              ;; state can produce (found on pc-meta-01 step 0, 2026-07-22 s4:
+              ;; clj meta-tids = seed ∪ woven vs py's woven-only). The
+              ;; creation-time seed remains for moderation="none" runs with
+              ;; --comments (the original vw-compat path).
+              [meta-tids meta-src]
+              (if (= moderation "interleave-by-timestamp")
+                [#{} "empty (interleave moderation: meta-tids via mod-update only)"]
+                (read-meta-tids (:comments options)))]
+
+          (when restart-after
+            (when-not (and (integer? restart-after)
+                           (<= 0 (long restart-after) (- (count steps) 2)))
+              (throw (ex-info (str "restart_after must be a step index with at "
+                                   "least one step after it; got "
+                                   (pr-str restart-after) " for " (count steps)
+                                   " steps")
+                              {:restart_after restart-after :n-steps (count steps)}))))
 
           (binding [*out* *err*]
             (println (format "dataset=%s n_votes=%d schedule=%s cuts=%s"
                              dataset (count votes) schedule-id (pr-str slots)))
             (println (format "steps=%d repeats=%d edn=%s zid=%s meta-tids=%d"
-                             (count steps) repeats edn? (pr-str zid) (count meta-tids))))
+                             (count steps) repeats edn? (pr-str zid) (count meta-tids)))
+            (when (= moderation "interleave-by-timestamp")
+              (println (format "moderation=interleave-by-timestamp mod-events=%d skipped-no-modified=%d woven=%d"
+                               (count mod-events) (long n-mod-skipped)
+                               (reduce + (map (comp count :mods) steps)))))
+            (when restart-after
+              (println (format "restart_after=%d (load-or-init seam)" (long restart-after)))))
 
           (.mkdirs clj-dir)
           ;; schedule.json verbatim (byte-faithful copy of the §4 input).
@@ -438,7 +585,7 @@
           ;; Run repeats. rep 0 is also written flat to clj/ (the canonical
           ;; cross-language surface); rep i>0 (and rep 0) go to clj/rep-i/.
           (dotimes [rep repeats]
-            (let [results (run-once zid meta-tids steps)
+            (let [results (run-once zid meta-tids steps restart-after)
                   rep-dir (if (> repeats 1) (io/file clj-dir (str "rep-" rep)) clj-dir)]
               (write-results! rep-dir results edn?)
               (when (and (> repeats 1) (zero? rep))
@@ -453,7 +600,11 @@
                         :votes-path (:votes options) :comments-path (:comments options)
                         :zid zid :meta-tids meta-tids :meta-tids-source meta-src
                         :warm-start warm-start :repeats repeats
-                        :n-steps (count steps) :edn? edn?})
+                        :n-steps (count steps) :edn? edn?
+                        :moderation moderation
+                        :n-mod-events (count mod-events)
+                        :n-mod-skipped n-mod-skipped
+                        :restart-after restart-after})
                 prov-json (json/generate-string prov {:pretty true})]
             (spit (io/file out "provenance.json") prov-json)
             (spit (io/file clj-dir "provenance.json") prov-json))

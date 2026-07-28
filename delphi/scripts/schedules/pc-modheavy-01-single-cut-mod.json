@@ -1,0 +1,16 @@
+{
+  "dataset": "pc-modheavy-01",
+  "schedule_id": "single-cut-mod",
+  "source": "votes-csv",
+  "cuts": {
+    "mode": "vote-count",
+    "at": [
+      11712
+    ]
+  },
+  "moderation": "interleave-by-timestamp",
+  "clojure": {
+    "warm_start": "chain"
+  },
+  "notes": "single cold cut with the full mod history woven (Q18 carve, 2026-07-24: mod-heavy warm chains are certification-hostile - uniqify merge-center exactness knife-edges on coincidence-dense geometry; warm-chain mod/meta coverage lives in pc-meta-02 uniform6-mod)"
+}
