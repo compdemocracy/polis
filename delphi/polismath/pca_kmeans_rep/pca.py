@@ -6,11 +6,11 @@ of missing votes (NaN) and sparsity-aware projection scaling.
 """
 
 import logging
-import os
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Sequence, Tuple, Union, Any
 
+from polismath.utils.env_flags import resolve_impl_flag
 from polismath.utils.general import AGREE
 
 logger = logging.getLogger(__name__)
@@ -20,41 +20,15 @@ logger = logging.getLogger(__name__)
 # Implementation switch: legacy/Clojure-parity vs improved
 # =============================================================================
 #
-# Pattern for legacy-vs-improved switches (reuse this idiom for future ones,
-# e.g. a k-means solver switch): a module-level env var name + default +
-# allowed values, resolved by `_resolve_impl_flag` AT CALL TIME (never at
-# import time), so tests and operators can flip the env var without
-# re-importing. Unknown values fall back to the default with a warning
-# (defensive: a typo in a deployment env must not crash the math worker).
+# The switch idiom (env var + default + allowed values, resolved AT CALL TIME
+# by the shared `resolve_impl_flag`) is documented in
+# polismath/utils/env_flags.py, where the resolver lives.
 
 PCA_IMPL_ENV_VAR = 'POLISMATH_PCA_IMPL'
 PCA_IMPL_POWERIT = 'powerit'   # legacy/Clojure-parity solver (default)
 PCA_IMPL_SKLEARN = 'sklearn'   # improved solver (exact SVD)
 PCA_IMPL_DEFAULT = PCA_IMPL_POWERIT
 PCA_IMPL_CHOICES = (PCA_IMPL_POWERIT, PCA_IMPL_SKLEARN)
-
-
-def _resolve_impl_flag(env_var: str, default: str, choices: Sequence[str]) -> str:
-    """
-    Resolve a legacy-vs-improved implementation switch from the environment.
-
-    Args:
-        env_var: Environment variable name to read (at call time).
-        default: Value to use when the variable is unset or invalid.
-        choices: Allowed values (lowercase).
-
-    Returns:
-        One of `choices`.
-    """
-    raw = os.environ.get(env_var)
-    if raw is None:
-        return default
-    value = raw.strip().lower()
-    if value not in choices:
-        logger.warning("%s=%r is not one of %s; falling back to %r",
-                       env_var, raw, tuple(choices), default)
-        return default
-    return value
 
 # =============================================================================
 # Clojure-parity power-iteration PCA
@@ -338,12 +312,12 @@ def pca_project_dataframe(df: pd.DataFrame,
     # "Determinism verification" entry (2026-07-04/05) in
     # docs/CLJ-PARITY-FIXES-JOURNAL.md.
 
-    # Solver switch (read at call time — see _resolve_impl_flag):
+    # Solver switch (read at call time — see utils.env_flags.resolve_impl_flag):
     #   POLISMATH_PCA_IMPL=powerit  (default) legacy/Clojure-parity power iteration
     #   POLISMATH_PCA_IMPL=sklearn  improved exact-SVD path
     # The imputation above and sparsity scaling below are IDENTICAL for both;
     # only the eigen-solver differs.
-    impl = _resolve_impl_flag(PCA_IMPL_ENV_VAR, PCA_IMPL_DEFAULT, PCA_IMPL_CHOICES)
+    impl = resolve_impl_flag(PCA_IMPL_ENV_VAR, PCA_IMPL_DEFAULT, PCA_IMPL_CHOICES)
 
     # Warm-start parity (PR-B): power iteration is the ONLY solver that can be
     # seeded with the previous tick's components (Clojure :start-vectors,
