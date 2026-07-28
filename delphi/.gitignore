@@ -252,3 +252,9 @@ data/
 output/
 results/
 visualization_output/
+
+# Golden snapshots are LOCAL artifacts (regression_recorder.py output) —
+# evidenced via the comparer + journal, never committed (repo bloat +
+# rebase-cascade pain; the private ones under real_data/.local are already
+# ignored wholesale).
+real_data/*/golden_snapshot.json
