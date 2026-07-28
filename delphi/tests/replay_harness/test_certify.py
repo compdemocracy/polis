@@ -207,7 +207,7 @@ def test_sha256_tree_exclude_file_and_dir_prefix(tmp_path):
 def test_engine_tree_exclude_entries_exist_and_keep_replay_shapers():
     """Every exclusion names a real path under polismath/ (a rename must not
     turn it into a silent no-op), and the replay-shaping files stay hashed."""
-    pm = cert._DELPHI_ROOT / "polismath"
+    pm = cert.paths.PACKAGE_ROOT
     for e in cert._ENGINE_TREE_EXCLUDE:
         p = pm / e.rstrip("/")
         if e.endswith("/"):
@@ -217,6 +217,71 @@ def test_engine_tree_exclude_entries_exist_and_keep_replay_shapers():
     kept = {"replay/driver.py", "replay/schedule.py", "replay/real_data.py",
             "replay/store.py", "replay/stepcompare.py", "replay/types.py"}
     assert not kept & set(cert._ENGINE_TREE_EXCLUDE)
+
+
+def test_clj_source_hashes_missing_oracle_raises_certify_error(tmp_path, monkeypatch):
+    """Post-Step-4 the Clojure oracle tree is absent from the working tree:
+    the clj cache-key hash must fail with pointed restore instructions
+    (CertifyError, stage 'clj-oracle') — not a bare FileNotFoundError."""
+    monkeypatch.setattr(cert, "_MATH_ROOT", tmp_path / "math")
+    cert._clj_source_hashes.cache_clear()
+    try:
+        with pytest.raises(cert.CertifyError, match="git history"):
+            cert._clj_source_hashes()
+    finally:
+        cert._clj_source_hashes.cache_clear()
+
+
+class TestEnsureCljRecordingWithoutOracle:
+    """Cached pairs MUST survive the oracle tree's removal (Step 4): a
+    recording whose INPUT keys (votes/schedule) match its manifest is
+    trusted as-is; only an actual re-replay demands the restored tree."""
+
+    def _spec_and_entry(self):
+        entry = _make_entry()
+        spec = sched.preset_single_cut("vw", 100, schedule_id=entry.schedule_id)
+        return entry, spec
+
+    def _write_cached_recording(self, root, entry, spec, votes_sha):
+        clj_dir = cert.st.recording_dir(entry.dataset, entry.schedule_id, root=root) / "clj"
+        clj_dir.mkdir(parents=True)
+        cert._write_manifest(clj_dir / "cache_manifest.json", {
+            "votes_sha256": votes_sha,
+            "schedule_hash": cert.canonical_schedule_hash(spec),
+            "replay_clj_sha256": "recorded-against-this-tree",
+            "math_src_sha256": "recorded-against-this-tree",
+        })
+        return clj_dir
+
+    def test_cached_recording_is_used_without_oracle(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(cert, "_MATH_ROOT", tmp_path / "no-oracle")
+        entry, spec = self._spec_and_entry()
+        root = tmp_path / "root"
+        expected_dir = self._write_cached_recording(root, entry, spec, "sha")
+        clj_dir, cached = cert.ensure_clj_recording(
+            entry, spec, "sha", tmp_path / "votes.csv", root=root
+        )
+        assert cached is True and clj_dir == expected_dir
+
+    def test_cache_miss_without_oracle_raises_clj_oracle(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(cert, "_MATH_ROOT", tmp_path / "no-oracle")
+        entry, spec = self._spec_and_entry()
+        root = tmp_path / "root"
+        self._write_cached_recording(root, entry, spec, "sha")
+        with pytest.raises(cert.CertifyError, match="git history"):
+            cert.ensure_clj_recording(
+                entry, spec, "DIFFERENT-sha", tmp_path / "votes.csv", root=root
+            )
+
+    def test_refresh_without_oracle_raises_clj_oracle(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(cert, "_MATH_ROOT", tmp_path / "no-oracle")
+        entry, spec = self._spec_and_entry()
+        root = tmp_path / "root"
+        self._write_cached_recording(root, entry, spec, "sha")
+        with pytest.raises(cert.CertifyError, match="git history"):
+            cert.ensure_clj_recording(
+                entry, spec, "sha", tmp_path / "votes.csv", root=root, refresh=True
+            )
 
 
 def test_engine_tree_hash_ignores_harness_edits_sees_engine_edits(tmp_path):
@@ -256,7 +321,7 @@ def test_ensure_py_recording_cache_survives_harness_only_edit(tmp_path, monkeypa
     (pm / "replay").mkdir(parents=True)
     (pm / "replay" / "certify.py").write_text("h = 1\n")
     (pm / "replay" / "driver.py").write_text("d = 1\n")
-    monkeypatch.setattr(cert, "_DELPHI_ROOT", fake_delphi)
+    monkeypatch.setattr(cert, "_ENGINE_TREE_ROOT", pm)
     cert._engine_tree_hash_cached.cache_clear()
     try:
         entry = _make_entry()
@@ -815,6 +880,9 @@ def _seed_cached_pair(root: Path, ds: str, sid: str, *, divergent: bool) -> None
 
 def test_run_battery_parallel_matches_serial_report_and_ledger(tmp_path, monkeypatch):
     monkeypatch.setattr(cert, "_manifest_matches", lambda mp, exp: True)
+    # Oracle-absent working trees (post-Step-4) consult the input-keys
+    # seam before the full-manifest one — fake both cache hits.
+    monkeypatch.setattr(cert, "_manifest_matches_inputs", lambda mp, keys: True)
     monkeypatch.setattr(cert, "_clj_source_hashes", lambda: ("x", "y"))
 
     entries = [
@@ -843,6 +911,9 @@ def test_run_battery_parallel_matches_serial_report_and_ledger(tmp_path, monkeyp
 
 def test_run_battery_workers_one_is_default_and_identical(tmp_path, monkeypatch):
     monkeypatch.setattr(cert, "_manifest_matches", lambda mp, exp: True)
+    # Oracle-absent working trees (post-Step-4) consult the input-keys
+    # seam before the full-manifest one — fake both cache hits.
+    monkeypatch.setattr(cert, "_manifest_matches_inputs", lambda mp, keys: True)
     monkeypatch.setattr(cert, "_clj_source_hashes", lambda: ("x", "y"))
 
     entries = [_make_entry(schedule_id="w1-only")]

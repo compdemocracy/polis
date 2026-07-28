@@ -1,5 +1,5 @@
 """Tests for the prodclone extractor (delphi/scripts/prodclone_extract.py +
-delphi/polismath/replay/prodclone.py).
+math/polismath/replay/prodclone.py).
 
 Unit tests exercise the PURE building blocks (SQL builders, feature
 classifiers, CSV row formatters, slug minting, path-safety guard, map

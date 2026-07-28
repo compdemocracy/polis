@@ -81,6 +81,10 @@ services:
     build:
       context: ./delphi
       target: final
+      # The math engine source (installed into the image) lives outside the
+      # build context since cutover Step #4 — see delphi/Dockerfile.
+      additional_contexts:
+        mathsrc: ./math
     labels:
       polis_tag: ${TAG:-dev}
     environment:
@@ -135,9 +139,11 @@ services:
     build:
       context: ./delphi
       target: final
+      additional_contexts:
+        mathsrc: ./math
     labels:
       polis_tag: ${TAG:-dev}
-    command: ["python", "scripts/math_poller.py"]
+    command: ["python", "-m", "polismath.poller"]
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - DATABASE_SSL_MODE=${DATABASE_SSL_MODE:-disable}

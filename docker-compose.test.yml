@@ -62,12 +62,14 @@ services:
     build:
       context: ./delphi
       target: final
+      additional_contexts:
+        mathsrc: ./math
       # Share every layer with the delphi service's test build (CPU torch);
       # without this the default CUDA wheels build a second multi-GB image
       # in CI for no benefit — the poller needs no torch at runtime.
       args:
         USE_CPU_TORCH: "true"
-    command: ["python", "scripts/math_poller.py"]
+    command: ["python", "-m", "polismath.poller"]
     labels:
       polis_tag: test
     environment:
@@ -196,6 +198,8 @@ services:
     build:
       context: ./delphi
       target: test
+      additional_contexts:
+        mathsrc: ./math
       args:
         USE_CPU_TORCH: "true"
     labels:
