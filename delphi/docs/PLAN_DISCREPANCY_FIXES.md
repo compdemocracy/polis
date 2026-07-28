@@ -400,6 +400,19 @@ This replaces the reading from the math blob with a proper Python computation ma
 > priorities are rank-**uncorrelated** (Spearman −0.03) — priority parity depends on the
 > extremity/PCA parity (D1/D1b) closing first. Do not un-mirror `priority_metric` or
 > regenerate cold-start blobs until then. See `CLJ-PARITY-FIXES-JOURNAL.md` 2026-07-17.
+>
+> **UN-MIRRORED 2026-07-22** (blockers cleared: D1b fixed #2615, D1 resolved-for-legacy via
+> PCA warm start): `priority_metric` computes the real formula in both modes, and legacy
+> mode feeds it the PREV-tick group-votes (Q2, conversation.clj:658). Exact-value parity vs
+> Clojure HEAD is now validated by the H-B replay battery (`scripts/certify.py`); the
+> stale pre-#2611 blob comparisons are xfailed until blob regen. See journal 2026-07-22.
+>
+> **BATTERY 3/4 MATCH (2026-07-22 session 3):** acceptance canonicalization + legacy blob
+> emission/selection parity landed (g-a-c zero-S factor, repness rest-domain, arrival-order
+> tie-breaks, votes-base buckets, sign parity, repness/mod emission shapes). vw:uniform8,
+> vw:single-cut, biodiversity:uniform8 fully MATCH across all steps; only vw:front-loaded6
+> diverges (small-N base-cluster/in-conv membership at step 0 — the single open root,
+> ledgered in `divergences.json`). See journal 2026-07-22 session 3.
 
 ---
 
@@ -526,13 +539,13 @@ See `delphi/docs/INVESTIGATION_K_DIVERGENCE.md` for the full investigation.
 
 | ID | Discrepancy | Plan PR | GitHub PR | Status |
 |----|-------------|---------|-----------|--------|
-| D1 | PCA sign flips | PR 13 | — (WIP) | VM draft — **NEEDS REWORK** (no replay tests) |
-| D1b | Projection input | PR 13 | — (spr-stack) | **CODE FIX DONE ✓ (2026-07-17)** — `pca_project_cmnts` projected the untranslated Clojure literal `-1` (`-scale*(1+center)`) instead of the Delphi `AGREE` constant, INVERTING comment extremity (near-unanimous-agree → maximally extreme). Fixed to `scale*(AGREE-center)`. 3 tests (formula derived from AGREE, agree/disagree sign, extremity→priority_metric spy). Output-inert today (masked by #2571 `priority_metric` short-circuit) → no golden movement. Unblocks the D12 un-mirror. **Distinct from D1** (align_pca_signs / temporal stability). |
+| D1 | PCA sign flips | PR 13 | — (spr-stack) | **RESOLVED for legacy mode (2026-07-18)**: sign stability delivered by the PCA warm-start chain (PR-B, `POLISMATH_ENGINE_MODE=clojure-legacy` threads prev comps as powerit start_vectors — Clojure's own mechanism; it has no explicit alignment either). Validated on real data: vw uniform-8 replay — improved (cold) mode flips PC2 at step 6, legacy holds orientation; legacy bit-deterministic across runs. Improved-mode cross-restart alignment deferred (needs persisted prev comps — design note in journal 2026-07-18). VM draft branch no longer exists anywhere; superseded by `SEQUENTIAL_BITS_PORT_SPEC.md`. |
+| D1b | Projection input | PR 13 | #2615 | **CODE FIX DONE ✓ (2026-07-17)** — `pca_project_cmnts` projected the untranslated Clojure literal `-1` (`-scale*(1+center)`) instead of the Delphi `AGREE` constant, INVERTING comment extremity (near-unanimous-agree → maximally extreme). Fixed to `scale*(AGREE-center)`. 3 tests (formula derived from AGREE, agree/disagree sign, extremity→priority_metric spy). Output-inert today (masked by #2571 `priority_metric` short-circuit) → no golden movement. Unblocks the D12 un-mirror. **Distinct from D1** (align_pca_signs / temporal stability). |
 | D2 | In-conv threshold | **PR 1** | **#2513** | **DONE** ✓ |
 | D2b | Base-cluster sort order | **PR 1** | **#2513** | **DONE** ✓ |
 | D2c | Vote count source (raw vs filtered matrix) | **PR 1** | **#2513** | **DONE** ✓ |
 | D2d | In-conv monotonicity (once in, always in) | **PR 1** | **#2513** | **DONE** ✓ (5 guard tests, T1-T5) |
-| D3 | K-smoother buffer | PR 10 | — (WIP) | VM draft — **NEEDS REWORK** (no replay tests) |
+| D3 | K-smoother buffer | PR 10 | — (spr-stack) | **GROUP LEVEL DONE (2026-07-18)**: group-k-smoother (buffer=4 + #2536 clamp + Clojure max-key higher-k-wins tie-break) landed as a pure function behind `clojure-legacy` mode; incremental no-flicker validated via chained update_votes. Base-cluster lineage + per-k warm start landed as **PR-C (#2622)**; in-conv greedy carry landed as **PR-E (#2623)**, both 2026-07-18. Subgroup smoother latent (Python has no subgroups) — NB the #2575 subgroup clamp (PR **#2609**) **MERGED to Clojure HEAD 2026-07-18**; the pre-merge "unclamped" target now applies only to a port certified against a pinned pre-#2609 ref. See `SEQUENTIAL_BITS_PORT_SPEC.md`. |
 | D4 | Pseudocount formula | **PR 2** | **#2514** | **DONE** ✓ |
 | D5 | Proportion test | **PR 4** | **#2519** | **DONE** ✓ (formula + n=0 short-circuit removed scalar/vectorized/caller — audit-discovered 2026-06-09, landed same day) |
 | D6 | Two-proportion test | **PR 5** | **#2520** | **DONE** ✓ |
@@ -541,12 +554,12 @@ See `delphi/docs/INVESTIGATION_K_DIVERGENCE.md` for the full investigation.
 | D9 | Z-score thresholds | **PR 3** | **#2518** | **DONE** ✓ |
 | D10 | Rep comment selection | PR 8 | **#2566** | Code-complete + 18 synthetic tests (was mislabeled "VM draft" until 2026-07-04); Copilot-review fixes in **#2586**; open in stack, merge pending edge freeze |
 | D11 | Consensus selection | PR 9 | **#2567** | Code-complete + 12 synthetic tests; consensus entries now Clojure blob shape (tid/n-success/… — #2586); open in stack, merge pending edge freeze |
-| D12 | Comment priorities | PR 11 | **#2568** | Code-complete + 11 synthetic tests (bug-mirror per #2571); Decimal-preserving serialization (#2586); open in stack, merge pending edge freeze. **⚠️ 2026-07-17: Python↔Clojure priority PARITY is NOT achieved.** The Clojure all-49 routing bug (#1961) was masking it — while both sides returned constant 49, the D12 test passed trivially. Clojure-side fix (`(contains? meta-tids tid)`) ships separately; with it, fixed-Python vs fixed-Clojure vw priorities are rank-**uncorrelated** (Spearman −0.03). Un-mirroring `priority_metric` + regenerating cold-start blobs is **BLOCKED on extremity/PCA parity (D1/D1b)**. See journal 2026-07-17. |
+| D12 | Comment priorities | PR 11 | **#2568** | Code-complete + 11 synthetic tests (bug-mirror per #2571); Decimal-preserving serialization (#2586); open in stack, merge pending edge freeze. **⚠️ 2026-07-17: Python↔Clojure priority PARITY is NOT achieved.** The Clojure all-49 routing bug (#1961) was masking it — while both sides returned constant 49, the D12 test passed trivially. Clojure-side fix (`(contains? meta-tids tid)`) ships separately; with it, fixed-Python vs fixed-Clojure vw priorities are rank-**uncorrelated** (Spearman −0.03). Un-mirroring `priority_metric` + regenerating cold-start blobs is **BLOCKED on extremity/PCA parity (D1/D1b)**. See journal 2026-07-17. **UN-MIRRORED 2026-07-22** (blockers cleared): real formula in both modes + Q2 prev-tick group-votes in legacy; value parity vs Clojure HEAD moves to the certify battery; blob regen still pending (prodclone). |
 | D13 | Subgroup clustering | — | — | **Deferred** (unused) |
 | D14 | Large conv optimization | — | — | **Deferred** (Python fast enough) |
 | D15 | Moderation handling | PR 12 | **#2523** | **DONE** ✓ (zero-out-columns + downstream `to_math_blob` / `_compute_vote_stats` regressions fixed 2026-06-09 — `to_dict` now routes through `_compute_user_vote_counts()` / `_compute_votes_base()`; `_compute_vote_stats` uses `_get_clean_matrix(raw=True)`) |
 | K-inv | Cold-start k divergence (row ordering) | (after D15) | **#2524** | **DONE** ✓ (FLI residual: inherent PCA divergence) |
-| Replay | Replay infrastructure (A/B/C) | — | — | NOT BUILT — VM avoided this. D3/D1 used synthetic tests only. Needed for incremental blob comparison. |
+| Replay | Replay infrastructure (A/B/C) | — | — (spr-stack) | **H-A BUILT (2026-07-18)**: schedule spec+slicer, Python driver, recording store + provenance, step comparer, CLI (`polismath/replay/`, `tests/replay_harness/`, 46 tests). Deterministic modulo `math_tick`. H-B (Clojure Mode A driver) **DONE 2026-07-18 (#2621)**. See `REPLAY_HARNESS_DESIGN.md` §11. |
 
 ### Non-discrepancy PRs in the stack
 
@@ -937,22 +950,14 @@ Tagging this as a follow-up. No code changes until we discuss.
 - **`to_dynamo_dict` parallel inline implementations** were refactored to
   route through the same helpers as `to_dict` in PR #2523 follow-up. No
   further action needed.
-- **`ns` includes-PASS-divergence** (DISCOVERED 2026-06-11 during D11). Clojure's
-  `:ns` (via `count-votes` with `filter identity` — repness.clj:56-61) INCLUDES
-  PASS votes. Python's `compute_group_comment_stats_df` and `consensus_stats_df`
-  both compute `ns = na + nd`, excluding PASS. This is a real divergence that
-  affects `pa, pd, pat, pdt, ra, rd, rat, rdt` everywhere — every downstream
-  metric and selection. The D5 PR #2519 journal claim ("PASS NOT included,
-  matching Clojure") was based on a misreading of `count-votes`. Currently
-  causing 3-5% divergence in pat values for tids with non-zero PASS counts;
-  visible at the consensus-selection margins (4/6 overlap on vw cold_start
-  agree, 1/3 on disagree). Needs a dedicated PR — affects:
-    - `compute_group_comment_stats_df` (line ~283: `ns = na + nd`).
-    - `consensus_stats_df` (line ~435: `ns = na + nd`).
-  Fix: `ns = (vote_matrix_df != 0).sum(axis=0)` no, actually we want to
-  count non-NaN: `ns = vote_matrix_df.notna().sum(axis=0)` for wide format;
-  for long-format `votes_long.groupby('comment').size()` after dropna.
-  Re-record goldens afterward.
+- **`ns` includes-PASS-divergence** — **RESOLVED 2026-06-11** (landed with the
+  parity stack; this entry was stale until 2026-07-18). Both production
+  functions now count PASS-inclusive non-nil votes matching Clojure's
+  `count-votes` (repness.clj:56-61): `compute_group_comment_stats_df` uses
+  `ns=('vote','size')` over non-nil long-format rows (repness.py:258-266) and
+  `consensus_stats_df` uses `vote_matrix_df.notna().sum(axis=0)`
+  (repness.py:675); the `prop_test_vectorized` docstring (repness.py:94-99)
+  documents the PASS-inclusive contract.
 - **D10 take-5 eviction edge case** (2026-06-11). The Clojure-parity
   `select_rep_comments_df` introduced in PR 8 mirrors Clojure exactly:
   `take(5)` runs AFTER prepending the `best_agree` slot. When `best_agree`
@@ -964,3 +969,12 @@ Tagging this as a follow-up. No code changes until we discuss.
   future product review. See `# TODO(parity-eviction)` in
   `delphi/polismath/pca_kmeans_rep/repness.py::select_rep_comments_df` and
   the synthetic test `TestD10SelectRepCommentsBoundary::test_take_5_eviction_when_best_agree_outside_sufficient`.
+
+---
+
+**R1-parity goal sessions (2026-07-22 →):** the active workstream is tracked in
+`GOAL_R1_PARITY.md` / `GOAL_STATE.md` (checkpoint) / `CLJ-PARITY-FIXES-JOURNAL.md`
+(sessions 4-5) and `CLOJURE_QUIRKS.md` (Q10-Q18). Session 5 (2026-07-24): restart
+seam fixed (from_dict restores zid/base-clusters/group-votes), Q17 cluster-step
+hash-order tie-break ported, Q18 uniqify merge-center knife-edge carved
+(battery entries re-scheduled; pc-meta-02 added), battery at 20 entries all-MATCH.
