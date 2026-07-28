@@ -106,8 +106,10 @@ if [ "$SERVICE_FROM_FILE" == "server" ]; then
   sudo systemctl stop nginx
   sudo /usr/local/bin/docker-compose up -d server nginx-proxy client-participation-alpha  --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "math" ]; then
-  echo "Starting docker-compose up for 'math' service"
-  sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
+  # The Python math poller is THE math engine (Clojure math service
+  # removed from compose at cutover Step 3) — mirrors scripts/after_install.sh.
+  echo "Starting docker-compose up for 'math-python' service"
+  sudo /usr/local/bin/docker-compose up -d math-python --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   echo "Starting docker-compose up for 'delphi' service"
   echo "Fetching Ollama Service URL for Delphi..."
