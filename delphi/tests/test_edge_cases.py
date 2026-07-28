@@ -53,9 +53,15 @@ def test_insufficient_data_for_pca():
     }
     conv = conv.update_votes(votes)
     conv = conv.recompute()
+    # Since the mode collapse the engine runs the REAL math on any non-empty
+    # matrix (Clojure parity — every-vote step-0 oracle): a 1x1 conversation
+    # yields a rank-capped single component, the greedy floor admits the lone
+    # participant, and the full base->group->repness chain runs (one base
+    # cluster, one group, a best-agree repness entry).
     assert conv.pca is not None
-    assert conv.pca['comps'].shape == (2, 1)
+    assert conv.pca['comps'].shape == (1, 1)
+    assert len(conv.base_clusters) == 1
+    assert len(conv.group_clusters) == 1
     assert conv.repness is not None
-    # With insufficient data (1 participant), no one meets the vote threshold,
-    # so no base clusters are formed and group_repness is empty.
-    assert conv.repness['group_repness'] == {}
+    [entry] = conv.repness['group_repness'][0]
+    assert entry['best_agree'] is True and entry['n_agree'] == 1

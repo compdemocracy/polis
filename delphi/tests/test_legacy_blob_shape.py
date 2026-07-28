@@ -36,7 +36,6 @@ import numpy as np
 import pytest
 
 from polismath.conversation.conversation import Conversation
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +76,8 @@ def conv():
 
 @pytest.fixture()
 def legacy(monkeypatch):
-    monkeypatch.setenv(ENGINE_MODE_ENV_VAR, "clojure-legacy")
+    """No-op since the mode collapse — the engine always runs the legacy
+    (Clojure-exact) semantics; retained so test signatures stay stable."""
 
 
 def _sorted_base_clusters(conv):

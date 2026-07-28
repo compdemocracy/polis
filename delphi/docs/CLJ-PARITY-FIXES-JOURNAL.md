@@ -4159,3 +4159,57 @@ changes. Recovered from jj's last auto-snapshot (`git show
 green. Rule: in this repo, undo scratch edits with a targeted edit (sed/
 editor), NEVER `git checkout --`/`git restore` (index = parent, not @),
 and NEVER `jj restore --from @-` for a file carrying uncommitted work.
+
+### Phase 2 — mode collapse EXECUTED (s7, same session)
+
+Seven chunks, one commit each on the spr stack (per-item split so the
+improvements/* park commits can be minted as exact reverse patches):
+
+- **C1** (item 2 parked): degenerate guards — PCA empty-only short-circuit,
+  no <2-in-conv / <2-base-cluster early returns, repness at every size.
+- **C2a** (item 4 parked): Q15 watermark drop unconditional.
+- **C2b** (item 5 parked): Q2 prev-tick group-votes unconditional.
+- **C3** (item 8 parked): powerit warm-start PCA + legacy_kmeans (base
+  lineage + per-k group loop + smoother) as the only solvers; sklearn arms
+  deleted. POLISMATH_PCA_IMPL left in pca.py but ENGINE-INERT (unconditional
+  require_powerit always falls back to powerit) — full removal ships with
+  item 8; deleting now would cascade through 9 test files for zero behavior
+  change (scope ruling).
+- **C4**: delete-only branches — Q1 ban filter (dropped feature, item 1),
+  tally sources always raw, carry+greedy always, bucket votes-base,
+  every-group gac product, unconditional legacy blob shape + restore seam,
+  clustered-only repness rest domain.
+- **C5+C6**: driver mod_update-only mod semantics; poller engine_mode
+  config/passthrough deleted.
+- **C7**: harness identifier purge (certify/poller_equiv/store/battery
+  JSON), engine_mode.py + test_engine_mode.py deleted, 20-test-file sweep,
+  9 default-mode tests re-pinned to legacy semantics.
+
+Evidence: DONE-gate grep = 0 hits over delphi/polismath/. Full suite
+1155/22/44 green (+2 XPASS: D9/D10 vw-cold_start now match Clojure —
+parity IMPROVED by the collapse). Schedule ids, recording dirs, and all
+historical divergences.json fingerprint keys preserved via the frozen
+"clojure-legacy" literal. Battery re-record launched on the collapsed
+tree (py re-replay; results in the next entry).
+
+Review notes on #2664 (Phase 0, review subagent): no findings; two
+non-blocking observations recorded — no stress test for concurrent
+same-key verdict-cache writes, and the parallel clj-side path has not
+been exercised with a cold clj cache (failure mode would be a loud
+ERROR, not a silent MATCH).
+
+### Post-collapse battery: 20/20 MATCH ×2 (s7)
+
+First pass on the collapsed tree (full py re-replay, clj oracle cached):
+**20/20 MATCH, zero divergences, 19m21s wall / 37m48s user** — the collapse
+is bit-exact vs the Clojure recordings on every battery entry. Cached
+second pass immediately after: 20/20 MATCH (~22s). NOTE (evidence
+coherence): DONE condition 4's two consecutive clean passes must re-run on
+the FINAL tree after Phase 3 (clarity refactor) + Phase 4 (goldens) — these
+runs certify the collapse itself.
+
+Also purged post-suite: scripts/poller_equiv.py CLI --engine-mode plumbing
+(would have crashed the equiv gate CLI: kwargs no longer exist),
+docker-compose delphi-math-poller env line, example.env comment,
+CLOJURE_QUIRKS preamble + MATH_POLLER_DESIGN updated to collapse-era
+wording (historical spec docs left as records).

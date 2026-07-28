@@ -6,12 +6,10 @@ human run ONE (dataset, schedule) replay through both engines and diff the
 result. This module turns that into a repeatable, cheap-to-re-run BATTERY:
 
 - A committed battery config (``scripts/certify_battery.json``) declares which
-  (dataset, schedule) pairs to certify, and under which
-  :mod:`polismath.utils.engine_mode` the Python side runs. ``clojure-legacy``
-  is the parity target (Clojure's warm-start behavior); ``improved`` is
-  Python's production default. certify sets the mode EXPLICITLY per entry
-  (never inherited from the ambient environment) by launching the Python
-  driver in a subprocess with the env var freshly set — see :func:`run_py_driver`.
+  (dataset, schedule) pairs to certify. Since the mode collapse (2026-07-27)
+  the engine has exactly ONE code path — Clojure-exact legacy semantics — so
+  the battery needs no per-entry mode; schedule ids keep their historical
+  ``-clojure-legacy`` suffix so recordings and ledger keys stay valid.
 - Both engines' recordings are CACHED on disk, keyed by content hashes (votes
   CSV, resolved schedule, and — for Python — the ``polismath`` source tree, or
   — for Clojure — ``dev/replay.clj`` + the ``math/src`` tree). Re-running
@@ -26,18 +24,13 @@ result. This module turns that into a repeatable, cheap-to-re-run BATTERY:
   — see CLOJURE_QUIRKS.md Q7). This is never silent: every certify run prints
   :data:`ACCEPTANCE_NOTICE`.
 - Every divergence is FINGERPRINTED (index/step-stripped path pattern + family
-  + engine_mode -> 10 hex chars) and tracked in a committed ledger
+  + frozen legacy suffix -> 10 hex chars) and tracked in a committed ledger
   (``docs/divergences.json``) so recurring, already-diagnosed divergences are
   annotated instead of re-discovered cold every run.
 
-Design note — the clj cache is scoped PER (dataset, schedule_id) directory (as
-literally specified), not globally content-addressed across engine-mode
-siblings of the same underlying schedule. Two battery entries that share a
-preset+cuts but differ only in ``engine_mode`` will each get their own
-``<schedule_id>/clj/`` (and therefore each pay for one clojure driver run) even
-though the clj recording would be byte-identical — engine_mode has no effect
-on the Clojure reference. The starter battery (all ``clojure-legacy``) never
-hits this; flagged here for whoever adds a second engine_mode to the battery.
+Design note — the clj cache is scoped PER (dataset, schedule_id) directory
+(as literally specified), not globally content-addressed across schedules
+with identical cuts.
 """
 
 from __future__ import annotations
@@ -66,12 +59,12 @@ from polismath.replay.crosslang import (
 )
 from polismath.replay.stepcompare import DEFAULT_TOLERANT_STAT_KEYS, StepComparer
 from polismath.replay.types import ReplayDataset
-from polismath.utils.engine_mode import (
-    ENGINE_MODE_CHOICES,
-    ENGINE_MODE_DEFAULT,
-    ENGINE_MODE_ENV_VAR,
-    ENGINE_MODE_LEGACY,
-)
+
+#: Frozen schedule-id suffix + fingerprint component. Battery schedule ids
+#: and ledger fingerprint keys were minted while the engine still had a mode
+#: flag; this literal keeps recording directories and the historical
+#: divergences.json keys stable across the mode collapse (2026-07-27).
+_LEGACY_SUFFIX = "clojure-legacy"
 
 # ---------------------------------------------------------------------------
 # Paths.
@@ -140,10 +133,9 @@ _VALID_PRESETS = _NCUTS_PRESETS | frozenset({"single-cut", "every-vote", "per-da
 class BatteryEntry:
     """One parsed ``certify_battery.json`` entry (either preset- or
     schedule-file-based), with its collision-free ``schedule_id`` already
-    resolved (bakes in ``engine_mode`` — see :func:`derive_schedule_id`)."""
+    resolved (see :func:`derive_schedule_id`)."""
 
     dataset: str
-    engine_mode: str
     schedule_id: str
     preset: str | None = None
     n_cuts: int | None = None
@@ -152,17 +144,18 @@ class BatteryEntry:
 
 
 def derive_schedule_id(
-    *, engine_mode: str, preset: str | None = None, n_cuts: int | None = None,
+    *, preset: str | None = None, n_cuts: int | None = None,
     base_schedule_id: str | None = None,
 ) -> str:
-    """Collision-free schedule id: ``{base}-{engine_mode}``.
+    """Collision-free schedule id: ``{base}-clojure-legacy``
+    (:data:`_LEGACY_SUFFIX` — historical, keeps recording dirs stable).
 
     ``base`` is either an explicit ``base_schedule_id`` (schedule-file-based
     entries — the id the file itself declares) or ``{preset}{n_cuts}`` for
     presets that take a cut count (``uniform8``, ``front-loaded6``, …) or bare
     ``preset`` for those that don't (``single-cut``, ``every-vote``, ``per-day``).
-    Distinct (preset, n_cuts, engine_mode) triples always yield distinct ids
-    because the preset name is embedded verbatim in ``base``.
+    Distinct (preset, n_cuts) pairs always yield distinct ids because the
+    preset name is embedded verbatim in ``base``.
     """
     if base_schedule_id is not None:
         base = base_schedule_id
@@ -172,16 +165,14 @@ def derive_schedule_id(
         base = f"{preset}{n_cuts}"
     else:
         base = preset
-    return f"{base}-{engine_mode}"
+    return f"{base}-{_LEGACY_SUFFIX}"
 
 
 def parse_battery_entry(e: dict[str, Any], *, battery_dir: Path | None = None) -> BatteryEntry:
     """Parse one battery entry — either ``{"schedule": "<path>"}`` (base id
     read verbatim from the referenced schedule.json) or ``{"preset": ...,
-    "n_cuts": ...}``. ``engine_mode`` defaults to ``clojure-legacy`` (the
-    parity target) when absent — the starter battery spells it out anyway."""
+    "n_cuts": ...}``."""
     dataset = e["dataset"]
-    engine_mode = e.get("engine_mode", ENGINE_MODE_LEGACY)
 
     if "schedule" in e:
         schedule_path = Path(e["schedule"])
@@ -196,8 +187,8 @@ def parse_battery_entry(e: dict[str, Any], *, battery_dir: Path | None = None) -
                 f"would disagree on which dataset's votes to replay/cache"
             )
         base_id = schedule_json["schedule_id"]
-        schedule_id = derive_schedule_id(engine_mode=engine_mode, base_schedule_id=base_id)
-        return BatteryEntry(dataset=dataset, engine_mode=engine_mode, schedule_id=schedule_id,
+        schedule_id = derive_schedule_id(base_schedule_id=base_id)
+        return BatteryEntry(dataset=dataset, schedule_id=schedule_id,
                              schedule_path=schedule_path, notes=e.get("notes", ""))
 
     preset = e.get("preset")
@@ -209,8 +200,8 @@ def parse_battery_entry(e: dict[str, Any], *, battery_dir: Path | None = None) -
     n_cuts = e.get("n_cuts")
     if preset in _NCUTS_PRESETS and n_cuts is None:
         raise ValueError(f"preset {preset!r} requires n_cuts in battery entry {e!r}")
-    schedule_id = derive_schedule_id(engine_mode=engine_mode, preset=preset, n_cuts=n_cuts)
-    return BatteryEntry(dataset=dataset, engine_mode=engine_mode, schedule_id=schedule_id,
+    schedule_id = derive_schedule_id(preset=preset, n_cuts=n_cuts)
+    return BatteryEntry(dataset=dataset, schedule_id=schedule_id,
                          preset=preset, n_cuts=n_cuts, notes=e.get("notes", ""))
 
 
@@ -266,7 +257,7 @@ def _spec_from_preset(entry: BatteryEntry, ds: ReplayDataset) -> sched.ScheduleS
 
 def build_effective_spec(entry: BatteryEntry, ds: ReplayDataset) -> sched.ScheduleSpec:
     """The :class:`ScheduleSpec` actually run, with ``schedule_id`` overridden
-    to ``entry.schedule_id`` (the collision-free, engine_mode-baked id) so the
+    to ``entry.schedule_id`` (the collision-free suffixed id) so the
     recording lands in the right directory regardless of preset or file origin.
     """
     base = (sched.ScheduleSpec.from_json_file(entry.schedule_path) if entry.schedule_path
@@ -376,22 +367,24 @@ def normalize_path(path: str) -> str:
     return ".".join(parts)
 
 
-def _fp_from_normalized(norm_path: str, family: str, engine_mode: str) -> str:
-    digest = hashlib.sha1(f"{norm_path}|{family}|{engine_mode}".encode()).hexdigest()
+def _fp_from_normalized(norm_path: str, family: str) -> str:
+    # _LEGACY_SUFFIX is baked into the digest so every historical
+    # divergences.json key stays valid across the mode collapse.
+    digest = hashlib.sha1(f"{norm_path}|{family}|{_LEGACY_SUFFIX}".encode()).hexdigest()
     return digest[:10]
 
 
-def compute_fingerprint(path: str, family: str, engine_mode: str) -> str:
-    return _fp_from_normalized(normalize_path(path), family, engine_mode)
+def compute_fingerprint(path: str, family: str) -> str:
+    return _fp_from_normalized(normalize_path(path), family)
 
 
-def fingerprint_key_for(path_pattern: str, family: str, engine_mode: str) -> str:
+def fingerprint_key_for(path_pattern: str, family: str) -> str:
     """Ledger key for an ALREADY-normalized path pattern."""
-    return f"FP-{_fp_from_normalized(path_pattern, family, engine_mode)}"
+    return f"FP-{_fp_from_normalized(path_pattern, family)}"
 
 
-def fingerprint_key(path: str, family: str, engine_mode: str) -> str:
-    return fingerprint_key_for(normalize_path(path), family, engine_mode)
+def fingerprint_key(path: str, family: str) -> str:
+    return fingerprint_key_for(normalize_path(path), family)
 
 
 def _abbrev(value: Any) -> Any:
@@ -424,18 +417,19 @@ def update_ledger(ledger: dict[str, Any], observations: list[dict[str, Any]]) ->
     ``status=open``. NEVER overwrites an existing entry — a human-entered
     ``diagnosis``/``status`` on a known fingerprint is always preserved.
 
-    Each observation: ``{"path_pattern", "family", "engine_mode", "dataset",
+    Each observation: ``{"path_pattern", "family", "dataset",
     "schedule_id", "step"}`` (``path_pattern`` already normalized).
+    (Historical ledger entries carry a mode field from before the collapse;
+    it is preserved on disk and simply no longer written for new entries.)
     """
     updated = dict(ledger)
     for obs in observations:
-        key = fingerprint_key_for(obs["path_pattern"], obs["family"], obs["engine_mode"])
+        key = fingerprint_key_for(obs["path_pattern"], obs["family"])
         if key in updated:
             continue
         updated[key] = {
             "path_pattern": obs["path_pattern"],
             "family": obs["family"],
-            "engine_mode": obs["engine_mode"],
             "first_seen": {"dataset": obs["dataset"], "schedule": obs["schedule_id"],
                             "step": obs["step"]},
             "status": "open",
@@ -479,16 +473,13 @@ def _run_subprocess(cmd: list[str], *, cwd: Path, env: dict[str, str],
                           text=True, timeout=timeout)
 
 
-def run_py_driver(spec_path: Path, *, out_root: Path, engine_mode: str) -> subprocess.CompletedProcess:
+def run_py_driver(spec_path: Path, *, out_root: Path) -> subprocess.CompletedProcess:
     """Runs ``scripts/replay_driver.py run --schedule <spec_path> --out
     <out_root>`` in a SUBPROCESS (cwd=delphi/) with ``OMP_NUM_THREADS`` /
-    ``OPENBLAS_NUM_THREADS`` pinned to 1 and ``POLISMATH_ENGINE_MODE`` set
-    explicitly — so the mode is picked up fresh per entry, never inherited
-    from whatever happens to be in the calling shell's environment."""
+    ``OPENBLAS_NUM_THREADS`` pinned to 1."""
     env = dict(os.environ)
     env["OMP_NUM_THREADS"] = "1"
     env["OPENBLAS_NUM_THREADS"] = "1"
-    env[ENGINE_MODE_ENV_VAR] = engine_mode
     cmd = ["uv", "run", "python", "scripts/replay_driver.py", "run",
            "--schedule", str(spec_path), "--out", str(out_root)]
     try:
@@ -592,7 +583,7 @@ def ensure_py_recording(
     refresh: bool = False,
 ) -> tuple[Path, bool]:
     """Reuse ``<root>/<ds>/<sid>/py/`` iff its cache manifest matches (votes
-    sha256, schedule hash, engine_mode, ENGINE-scoped tree hash); else (re)run
+    sha256, schedule hash, ENGINE-scoped tree hash); else (re)run
     the Python driver in a subprocess. Returns ``(py_dir, was_cached)``.
 
     The 2026-07-27 switch from the full-``polismath`` tree hash to the
@@ -605,14 +596,13 @@ def ensure_py_recording(
     expected = {
         "votes_sha256": votes_sha,
         "schedule_hash": canonical_schedule_hash(spec),
-        "engine_mode": entry.engine_mode,
         "engine_tree_sha256": _engine_tree_hash_cached(),
     }
     if not refresh and _manifest_matches(manifest_path, expected):
         return py_dir, True
 
     tmp_schedule = _write_temp_schedule(spec, root)
-    result = run_py_driver(tmp_schedule, out_root=root, engine_mode=entry.engine_mode)
+    result = run_py_driver(tmp_schedule, out_root=root)
     if result.returncode != 0:
         raise CertifyError(
             "py-driver", (result.stderr or result.stdout or "non-zero exit").strip()[:1000]
@@ -672,7 +662,7 @@ def _step_verdict_cache_path(cache_root: Path, clj_hash: str, py_hash: str, cfg_
 
 
 def compare_recording_pair(
-    clj_dir: str | Path, py_dir: str | Path, *, engine_mode: str, cache_root: str | Path,
+    clj_dir: str | Path, py_dir: str | Path, *, cache_root: str | Path,
     comparer: StepComparer | None = None,
 ) -> dict[str, Any]:
     """Hash-first, cached comparison of one clj/py recording pair.
@@ -736,7 +726,7 @@ def compare_recording_pair(
     }
 
 
-def _summarize_divergences(cmp_result: dict[str, Any], *, engine_mode: str) -> dict[str, Any]:
+def _summarize_divergences(cmp_result: dict[str, Any]) -> dict[str, Any]:
     """Aggregate ALL divergences across every divergent step into distinct
     (normalized path, family) patterns, ranked by frequency (ties broken
     alphabetically for determinism) — top ≤3 for display, full set for the
@@ -761,7 +751,7 @@ def _summarize_divergences(cmp_result: dict[str, Any], *, engine_mode: str) -> d
     top_paths = [
         {
             "path_pattern": path_pattern, "family": fam, "count": count,
-            "fingerprint": fingerprint_key_for(path_pattern, fam, engine_mode),
+            "fingerprint": fingerprint_key_for(path_pattern, fam),
             "a": _abbrev(examples[(path_pattern, fam)][0]),
             "b": _abbrev(examples[(path_pattern, fam)][1]),
         }
@@ -792,8 +782,7 @@ def _certify_entry_heavy(
     the strictly-serial ledger fold (:func:`_fold_entry_into_ledger`)."""
     if not dataset_available(entry.dataset):
         return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "engine_mode": entry.engine_mode, "verdict": "SKIPPED",
-                "reason": "dataset-unavailable"}
+                "verdict": "SKIPPED", "reason": "dataset-unavailable"}
 
     try:
         votes_csv = votes_csv_path(entry.dataset)
@@ -815,32 +804,27 @@ def _certify_entry_heavy(
         py_dir, _ = ensure_py_recording(entry, spec, votes_sha, root=root, refresh=refresh_py)
     except CertifyError as exc:
         return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "engine_mode": entry.engine_mode, "verdict": "ERROR",
-                "stage": exc.stage, "reason": str(exc)}
+                "verdict": "ERROR", "stage": exc.stage, "reason": str(exc)}
     except Exception as exc:  # noqa: BLE001 - one bad entry must not crash the battery
         return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "engine_mode": entry.engine_mode, "verdict": "ERROR",
-                "stage": "setup", "reason": str(exc)}
+                "verdict": "ERROR", "stage": "setup", "reason": str(exc)}
 
-    cmp_result = compare_recording_pair(clj_dir, py_dir, engine_mode=entry.engine_mode,
-                                        cache_root=root)
+    cmp_result = compare_recording_pair(clj_dir, py_dir, cache_root=root)
 
     if cmp_result["step_count_mismatch"]:
         return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "engine_mode": entry.engine_mode, "verdict": "ERROR",
-                "stage": "step-count-mismatch",
+                "verdict": "ERROR", "stage": "step-count-mismatch",
                 "reason": f"clj={cmp_result['n_steps_clj']} steps, "
                           f"py={cmp_result['n_steps_py']} steps"}
 
     div_steps = [s for s in cmp_result["per_step"] if not s["match"]]
     if not div_steps:
         return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-                "engine_mode": entry.engine_mode, "verdict": "MATCH",
-                "n_steps": cmp_result["aligned_steps"]}
+                "verdict": "MATCH", "n_steps": cmp_result["aligned_steps"]}
 
-    summary = _summarize_divergences(cmp_result, engine_mode=entry.engine_mode)
+    summary = _summarize_divergences(cmp_result)
     return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
-            "engine_mode": entry.engine_mode, "verdict": "DIVERGENCE",
+            "verdict": "DIVERGENCE",
             "first_div_step": summary["first_div_step"],
             "n_div_steps": summary["n_div_steps"], "_summary": summary}
 
@@ -861,7 +845,7 @@ def _fold_entry_into_ledger(
 
     observations = [
         {"path_pattern": o["path_pattern"], "family": o["family"],
-         "engine_mode": result["engine_mode"], "dataset": result["dataset"],
+         "dataset": result["dataset"],
          "schedule_id": result["schedule_id"], "step": o["step"]}
         for o in summary["all_observed"]
     ]
@@ -1001,15 +985,6 @@ def render_run_lines(report: dict[str, Any], *, max_lines: int = 40) -> list[str
 # ---------------------------------------------------------------------------
 # Focuser: first-divergence-only inspection of an EXISTING recording pair.
 # ---------------------------------------------------------------------------
-def _engine_mode_from_schedule_id(schedule_id: str) -> str:
-    """certify's own ``derive_schedule_id`` always suffixes ``-{engine_mode}``;
-    recover it from known suffixes (best-effort fallback to the default)."""
-    for mode in ENGINE_MODE_CHOICES:
-        if schedule_id.endswith(f"-{mode}"):
-            return mode
-    return ENGINE_MODE_DEFAULT
-
-
 def run_focus(
     dataset: str, schedule_id: str, *, root: Path | None = None,
     ledger_path: str | Path | None = None,
@@ -1029,13 +1004,12 @@ def run_focus(
                 "stage": "recording-missing",
                 "reason": f"expected clj/ and py/ both present under {rec_dir}"}
 
-    engine_mode = _engine_mode_from_schedule_id(schedule_id)
     ledger = load_ledger(ledger_path)
-    cmp_result = compare_recording_pair(clj_dir, py_dir, engine_mode=engine_mode, cache_root=root)
+    cmp_result = compare_recording_pair(clj_dir, py_dir, cache_root=root)
     div_steps = [s for s in cmp_result["per_step"] if not s["match"]]
 
     _write_json(rec_dir / "focus-report.json", {
-        "dataset": dataset, "schedule_id": schedule_id, "engine_mode": engine_mode,
+        "dataset": dataset, "schedule_id": schedule_id,
         "n_steps_clj": cmp_result["n_steps_clj"], "n_steps_py": cmp_result["n_steps_py"],
         "step_count_mismatch": cmp_result["step_count_mismatch"],
         "first_divergent_step": div_steps[0]["step"] if div_steps else None,
@@ -1043,7 +1017,7 @@ def run_focus(
     })
 
     if not div_steps:
-        return {"dataset": dataset, "schedule_id": schedule_id, "engine_mode": engine_mode,
+        return {"dataset": dataset, "schedule_id": schedule_id,
                 "verdict": "MATCH", "n_steps": cmp_result["aligned_steps"],
                 "focus_report_path": str(rec_dir / "focus-report.json")}
 
@@ -1054,20 +1028,20 @@ def run_focus(
         for d in step["families"][fam]:
             path = d.get("path") or ""
             norm = normalize_path(path)
-            key = fingerprint_key_for(norm, fam, engine_mode)
+            key = fingerprint_key_for(norm, fam)
             families[fam].append({
                 "path": path, "path_pattern": norm, "a": _abbrev(d.get("a")),
                 "b": _abbrev(d.get("b")), "fingerprint": key,
                 "known": annotate_by_key(ledger, key),
             })
-            observations.append({"path_pattern": norm, "family": fam, "engine_mode": engine_mode,
+            observations.append({"path_pattern": norm, "family": fam,
                                   "dataset": dataset, "schedule_id": schedule_id,
                                   "step": step["step"]})
 
     ledger = update_ledger(ledger, observations)
     save_ledger(ledger, ledger_path)
 
-    return {"dataset": dataset, "schedule_id": schedule_id, "engine_mode": engine_mode,
+    return {"dataset": dataset, "schedule_id": schedule_id,
             "verdict": "DIVERGENCE", "step": step["step"], "families": families,
             "focus_report_path": str(rec_dir / "focus-report.json")}
 

@@ -299,15 +299,18 @@ class TestConversation:
         assert pids == expected_pids, f"PIDs not in encounter order: {pids} != {expected_pids}"
         assert tids == expected_tids, f"TIDs not in natural order: {tids} != {expected_tids}"
 
-        # Check exported data maintains same order and types
+        # Exported blobs emit tids in ARRIVAL (first-vote) order — the
+        # Clojure column order (_apply_legacy_blob_shape, unconditional
+        # since the mode collapse); internal columns above stay natsorted.
         conv_dict = conv.to_dict()
         exported_tids = conv_dict.get('tids', [])
 
         assert all(isinstance(t, int) for t in exported_tids), \
             f"Not all exported TIDs are ints: {[type(t).__name__ for t in exported_tids]}"
 
-        assert exported_tids == expected_tids, \
-            f"Exported TIDs not in expected order: {exported_tids} != {expected_tids}"
+        expected_export_tids = [10, 5, 20]  # arrival order
+        assert exported_tids == expected_export_tids, \
+            f"Exported TIDs not in arrival order: {exported_tids} != {expected_export_tids}"
 
     def test_incremental_updates_maintain_sorting(self):
         """Test row/column ordering across incremental vote updates.
@@ -346,10 +349,10 @@ class TestConversation:
         assert all(isinstance(t, int) for t in tids), f"TID types not preserved"
         assert all(isinstance(p, int) for p in pids), f"PID types not preserved"
 
-        # Check initial sorting in exported data
+        # Exported blobs emit tids in ARRIVAL order (legacy blob shape).
         conv_dict = conv.to_dict()
         exported_tids = conv_dict.get('tids', [])
-        assert exported_tids == expected_initial_tids, f"Initial exported tids incorrect: {exported_tids} != {expected_initial_tids}"
+        assert exported_tids == [10, 5], f"Initial exported tids not in arrival order: {exported_tids}"
 
         # Second batch adds new participants and comments in unsorted order
         # These should be inserted in natural order (numeric)
@@ -379,10 +382,12 @@ class TestConversation:
         assert all(isinstance(t, int) for t in tids), f"TID types not preserved after update"
         assert all(isinstance(p, int) for p in pids), f"PID types not preserved after update"
 
-        # Check that sorting is maintained in exported data
+        # Exported blobs emit tids in ARRIVAL order (legacy blob shape):
+        # first batch [10, 5], then new tids as first voted on: [1, 20, 3].
         conv_dict = conv.to_dict()
         exported_tids = conv_dict.get('tids', [])
-        assert exported_tids == expected_tids, f"Exported tids order incorrect: {exported_tids} != {expected_tids}"
+        assert exported_tids == [10, 5, 1, 20, 3], \
+            f"Exported tids not in arrival order: {exported_tids}"
     
     def test_moderation(self):
         """Test conversation moderation."""
@@ -421,10 +426,12 @@ class TestConversation:
         
         # Check filtered rating matrix:
         # - Moderated-out comments are ZEROED, not removed (D15 fix)
-        # - Moderated-out participants are still removed (rows dropped)
+        # - Banned participants are NOT removed: bans are not a Polis
+        #   feature (mode collapse 2026-07-27, POST_CUTOVER_IMPROVEMENTS.md
+        #   item 1 dropped) — the set is ingested but never applied.
         assert 'c2' in moderated_conv.rating_mat.columns  # column kept
         assert (moderated_conv.rating_mat['c2'] == 0.0).all()  # but zeroed
-        assert 'p3' not in moderated_conv.rating_mat.index  # participant removed
+        assert 'p3' in moderated_conv.rating_mat.index  # ban NOT applied (Q1)
 
         # Raw matrix should still have all data
         assert 'c2' in moderated_conv.raw_rating_mat.columns

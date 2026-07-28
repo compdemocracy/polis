@@ -3,11 +3,12 @@ Tests for polismath.utils.env_flags — the shared legacy-vs-improved
 implementation-switch resolver.
 
 The resolver started life as `pca._resolve_impl_flag` (pca.py) and was imported
-from there by `utils.engine_mode`, which dragged the whole numpy/pandas pca
-import chain into anything that only wanted to read POLISMATH_ENGINE_MODE, and
+from there by the (since-deleted) `utils.engine_mode`, which dragged the
+whole numpy/pandas pca import chain into anything that only wanted to read an
+impl flag, and
 emitted resolution warnings under the pca logger. These tests pin the move to
 `polismath.utils.env_flags`: identical resolution rules, warnings under the
-env_flags logger, and a light `utils.engine_mode` import.
+env_flags logger, and light imports for its consumers.
 """
 
 import logging
@@ -61,22 +62,18 @@ class TestSharedResolver:
         from polismath.utils import env_flags
         assert pca.resolve_impl_flag is env_flags.resolve_impl_flag
 
-    def test_engine_mode_uses_shared_resolver(self):
-        from polismath.utils import engine_mode, env_flags
-        assert engine_mode.resolve_impl_flag is env_flags.resolve_impl_flag
-
-    def test_engine_mode_import_does_not_load_pca(self):
-        # The point of the move: reading POLISMATH_ENGINE_MODE must not drag
+    def test_env_flags_import_does_not_load_pca(self):
+        # The point of the move: reading a light impl flag must not drag
         # the numpy/pandas pca import chain. Fresh interpreter so this
         # process's already-imported modules can't mask a regression.
         code = (
-            "import sys; import polismath.utils.engine_mode; "
+            "import sys; import polismath.utils.env_flags; "
             "sys.exit(1 if 'polismath.pca_kmeans_rep.pca' in sys.modules else 0)"
         )
         proc = subprocess.run([sys.executable, '-c', code],
                               capture_output=True, text=True)
         assert proc.returncode == 0, (
-            "importing polismath.utils.engine_mode pulled in "
+            "importing polismath.utils.env_flags pulled in "
             "polismath.pca_kmeans_rep.pca:\n" + proc.stderr
         )
 

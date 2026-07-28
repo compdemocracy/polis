@@ -158,11 +158,6 @@ def build_provenance(
         # Engine impl flags that change the numbers (design §7).
         "engine_flags": {
             "POLISMATH_PCA_IMPL": os.environ.get("POLISMATH_PCA_IMPL", "powerit"),
-            # The engine mode changes warm-start behavior across steps — two
-            # recordings of the same schedule under different modes are
-            # materially different trajectories.
-            "POLISMATH_ENGINE_MODE": os.environ.get(
-                "POLISMATH_ENGINE_MODE", "improved"),
             "OMP_NUM_THREADS": os.environ.get("OMP_NUM_THREADS"),
             "OPENBLAS_NUM_THREADS": os.environ.get("OPENBLAS_NUM_THREADS"),
         },

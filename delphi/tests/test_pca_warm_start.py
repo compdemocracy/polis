@@ -31,7 +31,6 @@ from polismath.pca_kmeans_rep.pca import (
     pca_project_dataframe,
     PCA_IMPL_ENV_VAR,
 )
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR
 from polismath.conversation.conversation import Conversation
 
 
@@ -171,7 +170,6 @@ class TestChainedWarmStart:
 
     def _run_two_ticks(self, monkeypatch, mode):
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, mode)
         recorded = _spy_powerit(monkeypatch)
         conv0 = Conversation('warm')
         conv1 = conv0.update_votes(self._tick1())
@@ -206,7 +204,6 @@ class TestChainedWarmStart:
         """A prev_pca whose 'comps' is missing/None must NOT be turned into a
         np.asarray(None) garbage seed — it falls back to the cold draw."""
         monkeypatch.delenv(PCA_IMPL_ENV_VAR, raising=False)
-        monkeypatch.setenv(ENGINE_MODE_ENV_VAR, 'clojure-legacy')
         recorded = _spy_powerit(monkeypatch)
         conv = Conversation('warm').update_votes(self._tick1())
         for degenerate in ({'center': None, 'comps': None}, {}):

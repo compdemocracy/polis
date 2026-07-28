@@ -22,7 +22,6 @@ from click.testing import CliRunner
 
 from polismath.replay import poller_equiv as pe
 from polismath.replay.types import CommentMeta, ModEvent, ReplayDataset
-from polismath.utils.engine_mode import ENGINE_MODE_ENV_VAR, ENGINE_MODE_LEGACY
 from polismath.utils.general import delphi_vote_to_postgres, postgres_vote_to_delphi
 
 PG_URL = os.environ.get("POLLER_EQUIV_PG_URL")
@@ -495,20 +494,15 @@ class TestRunnerEnvAssembly:
         )
         assert env["LOGGING_LEVEL"] == "debug"
 
-    def test_build_py_env_sets_required_vars_including_engine_mode(self):
+    def test_build_py_env_sets_required_vars(self):
         env = pe.build_py_env(
             database_url="postgresql://x/polis_equiv", math_env="py-shadow",
-            poll_from_days_ago=10000, engine_mode="clojure-legacy",
+            poll_from_days_ago=10000,
             base_env={},
         )
         assert env["DATABASE_URL"] == "postgresql://x/polis_equiv"
         assert env["MATH_ENV"] == "py-shadow"
         assert env["POLL_FROM_DAYS_AGO"] == "10000"
-        assert env[ENGINE_MODE_ENV_VAR] == "clojure-legacy"
-
-    def test_build_py_env_default_engine_mode_is_legacy(self):
-        env = pe.build_py_env(database_url="x", math_env="e", base_env={})
-        assert env[ENGINE_MODE_ENV_VAR] == ENGINE_MODE_LEGACY
 
     def test_build_py_env_forces_postgresql_scheme(self):
         """Symmetric guard to the clj-side scheme fix: SQLAlchemy/psycopg2 no
@@ -570,7 +564,6 @@ class TestRunnerEnvAssembly:
         # .name == "app" (python-ci run 30071088647, 2026-07-24).
         assert runner.cwd == pe._DELPHI_ROOT
         assert runner.env["MATH_ENV"] == "py-shadow"
-        assert runner.env[ENGINE_MODE_ENV_VAR] == "clojure-legacy"
         assert runner.env["DATABASE_SSL_MODE"] == "disable"
         assert runner._proc is None
 
