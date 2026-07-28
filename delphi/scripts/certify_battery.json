@@ -1,0 +1,29 @@
+[
+  {
+    "dataset": "vw",
+    "preset": "uniform",
+    "n_cuts": 8,
+    "engine_mode": "clojure-legacy",
+    "notes": "8 evenly-spaced recomputes over the full vw conversation"
+  },
+  {
+    "dataset": "vw",
+    "preset": "front-loaded",
+    "n_cuts": 6,
+    "engine_mode": "clojure-legacy",
+    "notes": "6 front-loaded recomputes — early-conversation warm-start stress"
+  },
+  {
+    "dataset": "vw",
+    "preset": "single-cut",
+    "engine_mode": "clojure-legacy",
+    "notes": "single cold-start recompute over all votes"
+  },
+  {
+    "dataset": "biodiversity",
+    "preset": "uniform",
+    "n_cuts": 8,
+    "engine_mode": "clojure-legacy",
+    "notes": "8 evenly-spaced recomputes over the full biodiversity conversation"
+  }
+]

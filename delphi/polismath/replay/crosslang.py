@@ -11,9 +11,14 @@ The bridge is a shim: :func:`clj_recording_to_py_store` re-wraps each raw clj
 blob into the py-store payload shape under a throwaway ``py/`` directory, after
 which ``compare_recordings(shim_dir, py_dir, engine="py")`` runs verbatim.
 
-This is deliberately kept in ``tests/`` (not in ``polismath/replay/``) — it is
-harness glue for the H-B cross-language smoke and its regression test, not a
-production API.
+Promoted from ``tests/replay_harness/`` (Phase H-B) into ``polismath/replay/``
+(SPEC A — certify.py): it started as harness glue for the H-B cross-language
+smoke and its regression test, but ``polismath.replay.certify`` now depends on
+it directly (the crosslang shim + prep-main projection are load-bearing for
+certification, not just a manual smoke), so it lives alongside the rest of the
+replay package as a production API. No behavior change from the move itself —
+see ``tests/replay_harness/test_clj_crosslang.py`` (also updated to import from
+the new location) for the regression coverage that pins it.
 """
 
 from __future__ import annotations
