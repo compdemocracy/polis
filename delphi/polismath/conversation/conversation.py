@@ -21,7 +21,6 @@ from polismath.pca_kmeans_rep.pca import (
     compute_comment_extremity,
 )
 from polismath.pca_kmeans_rep.clusters import (
-    kmeans_sklearn,
     calculate_silhouette_sklearn
 )
 from polismath.pca_kmeans_rep.repness import conv_repness
@@ -63,9 +62,9 @@ def _labels_from_id_clusters(row_names: List[Any],
     """Label array aligned with ``row_names`` for silhouette scoring: the index
     (in ``clusters``) of the cluster that contains each name.
 
-    Used at the group level to score a legacy (id-carrying) clustering with the
-    same ``calculate_silhouette_sklearn`` the improved path uses, so the smoother
-    sees comparable silhouettes. Every base cluster is assigned to exactly one
+    Used at the group level to score a legacy (id-carrying) clustering with
+    ``calculate_silhouette_sklearn``, so the smoother sees comparable
+    silhouettes. Every base cluster is assigned to exactly one
     group cluster by ``cluster-step``; a name that (degenerately) appears in none
     gets its own singleton label so it never silently merges into label 0.
     """
@@ -756,30 +755,25 @@ class Conversation:
             # Make a clean copy of the rating matrix
             clean_matrix = self._get_clean_matrix()
 
-            # Engine-mode warm start (PR-B). In 'clojure-legacy' mode we thread
-            # the previous tick's unit components back in as the power-iteration
-            # start vectors (Clojure :start-vectors, conversation.clj:385) and
-            # require the power-iteration solver (sklearn cannot inject start
-            # vectors). In the default 'improved' mode nothing changes:
-            # start_vectors stays None and the solver is chosen purely by
-            # POLISMATH_PCA_IMPL, so this call is byte-identical to the pre-PR
-            # behavior.
+            # Warm start (PR-B): thread the previous tick's unit components
+            # back in as the power-iteration start vectors (Clojure
+            # :start-vectors, conversation.clj:385) and require the
+            # power-iteration solver (sklearn cannot inject start vectors —
+            # the former improved-mode sklearn path is parked:
+            # POST_CUTOVER_IMPROVEMENTS.md item 8).
             start_vectors = None
-            require_powerit = False
-            if resolve_engine_mode() == ENGINE_MODE_LEGACY:
-                require_powerit = True
-                if prev_pca is not None and prev_pca.get('comps') is not None:
-                    # Only warm-start from real components; a missing/None
-                    # 'comps' (np.asarray(None) would be a size-1 object array,
-                    # a garbage seed) or empty/cold state (first tick) falls
-                    # through to the cold random draw.
-                    prev_comps = np.asarray(prev_pca['comps'])
-                    if prev_comps.size > 0:
-                        start_vectors = prev_comps
+            if prev_pca is not None and prev_pca.get('comps') is not None:
+                # Only warm-start from real components; a missing/None
+                # 'comps' (np.asarray(None) would be a size-1 object array,
+                # a garbage seed) or empty/cold state (first tick) falls
+                # through to the cold random draw.
+                prev_comps = np.asarray(prev_pca['comps'])
+                if prev_comps.size > 0:
+                    start_vectors = prev_comps
 
             pca_results, proj_dict = pca_project_dataframe(
                 clean_matrix, n_components,
-                start_vectors=start_vectors, require_powerit=require_powerit)
+                start_vectors=start_vectors, require_powerit=True)
 
             # Store results
             self.pca = pca_results
@@ -878,9 +872,8 @@ class Conversation:
         BASE_K = 100
         MAX_K = 5
         BASE_ITERS = 100        # Clojure :base-iters (conversation.clj:147)
-        GROUP_ITERS = 100       # improved-mode group iterations (unchanged)
-        # Legacy-mode group iterations: Clojure passes :cluster-iters — a key
-        # kmeans IGNORES — so the group level runs kmeans' DEFAULT max-iters of
+        # Group iterations: Clojure passes :cluster-iters — a key kmeans
+        # IGNORES — so the group level runs kmeans' DEFAULT max-iters of
         # 20, not :group-iters (clusters.clj:303, conversation.clj:443).
         GROUP_LEGACY_ITERS = 20
 
@@ -901,8 +894,6 @@ class Conversation:
 
         # Filter projections to only include in-conv participants
         in_conv_pids_list = [pid for pid in self.proj.keys() if pid in in_conv_pids]
-
-        legacy_mode = resolve_engine_mode() == ENGINE_MODE_LEGACY
 
         # Degenerate-tick port (journal 2026-07-21 verdict): Clojure has NO
         # <2-participants guard past the truly-empty short-circuit — with one
@@ -930,50 +921,28 @@ class Conversation:
         actual_base_k = min(BASE_K, len(in_conv_pids_list))
 
         logger.info(f"Computing base clusters with k={actual_base_k}...")
-        if legacy_mode:
-            # PR-C: base-level warm start with lineage. Clojure threads the prior
-            # tick's base clusters into k-means as :last-clusters
-            # (conversation.clj:403-410 -> clusters.clj:301-312 -> clean-start-
-            # clusters), so base-cluster ids are STABLE across ticks, new ids
-            # strictly increase, and merges keep the larger side's id. The ported
-            # legacy_kmeans keys clusters to the current data by member NAME
-            # (participant id), which is what lets prior members be recentered or
-            # dropped. base-iters = 100 (conversation.clj:147).
-            base_data = _LegacyNamedData(in_conv_pids_list, base_proj_values)
-            last_base = _base_clusters_to_legacy(prev_base_clusters)
-            legacy_base = legacy_kmeans(
-                base_data, actual_base_k,
-                last_clusters=last_base, weights=None, max_iters=BASE_ITERS)
-            legacy_base.sort(key=lambda c: c['id'])  # Clojure sort-by :id (conversation.clj:406)
-            base_clusters = [
-                {'id': c['id'],
-                 'center': np.asarray(c['center'], dtype=float).tolist(),
-                 'members': list(c['members'])}
-                for c in legacy_base
-            ]
-        else:
-            # Improved (default): cold recompute, byte-for-byte unchanged.
-            base_labels, base_centers, base_member_lists = kmeans_sklearn(
-                base_proj_values,
-                k=actual_base_k,
-                max_iters=BASE_ITERS
-            )
-
-            # Convert to dictionary format with participant IDs as members
-            base_clusters = []
-            for cluster_id, (center, member_indices) in enumerate(zip(base_centers, base_member_lists)):
-                # Map indices back to participant IDs
-                member_pids = [in_conv_pids_list[idx] for idx in member_indices]
-                base_clusters.append({
-                    'id': cluster_id,
-                    'center': center.tolist(),
-                    'members': member_pids
-                })
-
-            # Keep base clusters in k-means ID order (matching Clojure's sort-by :id)
-            # Do NOT sort by size or reassign IDs — that would change the encounter
-            # order of centers used in group clustering's first-k-distinct initialization.
-            base_clusters.sort(key=lambda c: c['id'])
+        # PR-C: base-level warm start with lineage. Clojure threads the prior
+        # tick's base clusters into k-means as :last-clusters
+        # (conversation.clj:403-410 -> clusters.clj:301-312 -> clean-start-
+        # clusters), so base-cluster ids are STABLE across ticks, new ids
+        # strictly increase, and merges keep the larger side's id. The ported
+        # legacy_kmeans keys clusters to the current data by member NAME
+        # (participant id), which is what lets prior members be recentered or
+        # dropped. base-iters = 100 (conversation.clj:147). (The former
+        # improved-mode sklearn cold recompute is parked:
+        # POST_CUTOVER_IMPROVEMENTS.md item 8.)
+        base_data = _LegacyNamedData(in_conv_pids_list, base_proj_values)
+        last_base = _base_clusters_to_legacy(prev_base_clusters)
+        legacy_base = legacy_kmeans(
+            base_data, actual_base_k,
+            last_clusters=last_base, weights=None, max_iters=BASE_ITERS)
+        legacy_base.sort(key=lambda c: c['id'])  # Clojure sort-by :id (conversation.clj:406)
+        base_clusters = [
+            {'id': c['id'],
+             'center': np.asarray(c['center'], dtype=float).tolist(),
+             'members': list(c['members'])}
+            for c in legacy_base
+        ]
 
         logger.info(f"Created {len(base_clusters)} base clusters")
 
@@ -994,9 +963,8 @@ class Conversation:
         # the smoother advance is unchanged from P6a). (The former improved-
         # mode <2 early return is parked: POST_CUTOVER_IMPROVEMENTS.md item 2.)
 
-        # Prepare base cluster centers and weights
+        # Prepare base cluster centers (weights are keyed by id below)
         base_centers_array = np.array([c['center'] for c in base_clusters])
-        base_weights = np.array([len(c['members']) for c in base_clusters])
 
         # Calculate max_k for group clustering
         max_k = min(MAX_K, 2 + len(base_clusters) // 12)
@@ -1004,122 +972,64 @@ class Conversation:
 
         logger.info(f"Computing group clusters with k range 2-{max_k}...")
 
-        if legacy_mode:
-            # PR-C: group-level warm start with lineage + weighted recentering.
-            # Clojure clusters the BASE-CLUSTER CENTERS (base-clusters-proj),
-            # weighted by base-cluster member counts (:weights base-clusters-
-            # weights, conversation.clj:433-445), warm-starting each per-k
-            # clustering from the prior tick's k-clustering (:last-clusters
-            # (last-clusterings k), conversation.clj:441).
-            #
-            # Clojure passes :cluster-iters (a key kmeans does NOT destructure,
-            # clusters.clj:303), so the group level actually runs kmeans' DEFAULT
-            # max-iters (20), NOT :group-iters (100). We reproduce that
-            # (GROUP_LEGACY_ITERS below); well-separated data converges long
-            # before either bound, so on real conversations it is inert.
-            base_ids = [c['id'] for c in base_clusters]
-            base_weights_by_id = {c['id']: len(c['members']) for c in base_clusters}
-            group_data = _LegacyNamedData(base_ids, base_centers_array)
-            prev_gc = prev_group_clusterings or {}
+        # PR-C: group-level warm start with lineage + weighted recentering.
+        # Clojure clusters the BASE-CLUSTER CENTERS (base-clusters-proj),
+        # weighted by base-cluster member counts (:weights base-clusters-
+        # weights, conversation.clj:433-445), warm-starting each per-k
+        # clustering from the prior tick's k-clustering (:last-clusters
+        # (last-clusterings k), conversation.clj:441). (The former improved-
+        # mode sklearn cold recompute + best_k selection is parked:
+        # POST_CUTOVER_IMPROVEMENTS.md item 8.)
+        #
+        # Clojure passes :cluster-iters (a key kmeans does NOT destructure,
+        # clusters.clj:303), so the group level actually runs kmeans' DEFAULT
+        # max-iters (20), NOT :group-iters (100). We reproduce that
+        # (GROUP_LEGACY_ITERS below); well-separated data converges long
+        # before either bound, so on real conversations it is inert.
+        base_ids = [c['id'] for c in base_clusters]
+        base_weights_by_id = {c['id']: len(c['members']) for c in base_clusters}
+        group_data = _LegacyNamedData(base_ids, base_centers_array)
+        prev_gc = prev_group_clusterings or {}
 
-            legacy_group_clusterings: Dict[int, List[Dict[str, Any]]] = {}
-            silhouettes_by_k: Dict[int, float] = {}
-            for k in range(2, max_k + 1):
-                gc = legacy_kmeans(
-                    group_data, k,
-                    last_clusters=prev_gc.get(k),
-                    weights=base_weights_by_id,
-                    max_iters=GROUP_LEGACY_ITERS)
-                gc.sort(key=lambda c: c['id'])  # Clojure sort-by :id (conversation.clj:437)
-                legacy_group_clusterings[k] = gc
-                # Score with the SAME silhouette the improved path uses, on the
-                # legacy assignment, so the smoother sees comparable numbers.
-                labels = _labels_from_id_clusters(base_ids, gc)
-                score = calculate_silhouette_sklearn(base_centers_array, labels)
-                silhouettes_by_k[k] = score
-                logger.info(f"  k={k}: silhouette={score:.4f}")
+        legacy_group_clusterings: Dict[int, List[Dict[str, Any]]] = {}
+        silhouettes_by_k: Dict[int, float] = {}
+        for k in range(2, max_k + 1):
+            gc = legacy_kmeans(
+                group_data, k,
+                last_clusters=prev_gc.get(k),
+                weights=base_weights_by_id,
+                max_iters=GROUP_LEGACY_ITERS)
+            gc.sort(key=lambda c: c['id'])  # Clojure sort-by :id (conversation.clj:437)
+            legacy_group_clusterings[k] = gc
+            # Score with the silhouette on the legacy assignment, so the
+            # smoother sees comparable numbers.
+            labels = _labels_from_id_clusters(base_ids, gc)
+            score = calculate_silhouette_sklearn(base_centers_array, labels)
+            silhouettes_by_k[k] = score
+            logger.info(f"  k={k}: silhouette={score:.4f}")
 
-            # Group-K smoother (PR-D): damps K flicker (K only switches after
-            # :group-k-buffer=4 consecutive ticks agree) with Clojure's max-key
-            # HIGHER-k-wins tie-break, threading {last_k, last_k_count,
-            # smoothed_k}. self.group_clusterings holds the id-carrying cluster
-            # dicts (legacy value type) — the warm start read next tick.
-            new_smoother_state, selected_k = group_k_smoother_update(
-                prev_group_k_smoother or {}, silhouettes_by_k)
-            self.group_clusterings = legacy_group_clusterings
-            self.group_k_smoother = new_smoother_state
-            logger.info(f"Legacy group-k-smoother: smoothed_k={selected_k} "
-                        f"state={new_smoother_state}")
+        # Group-K smoother (PR-D): damps K flicker (K only switches after
+        # :group-k-buffer=4 consecutive ticks agree) with Clojure's max-key
+        # HIGHER-k-wins tie-break, threading {last_k, last_k_count,
+        # smoothed_k}. self.group_clusterings holds the id-carrying cluster
+        # dicts — the warm start read next tick.
+        new_smoother_state, selected_k = group_k_smoother_update(
+            prev_group_k_smoother or {}, silhouettes_by_k)
+        self.group_clusterings = legacy_group_clusterings
+        self.group_k_smoother = new_smoother_state
+        logger.info(f"Legacy group-k-smoother: smoothed_k={selected_k} "
+                    f"state={new_smoother_state}")
 
-            # Build production-form group_clusters from the selected clustering.
-            # Members are base-cluster ids; ids carry the group-cluster lineage.
-            selected = legacy_group_clusterings[selected_k]
-            group_clusters = [
-                {'id': c['id'],
-                 'center': np.asarray(c['center'], dtype=float).tolist(),
-                 'members': list(c['members'])}
-                for c in selected
-            ]
-            group_clusters.sort(key=lambda c: c['id'])
-        else:
-            # Improved (default): cold recompute + best_k selection, byte-for-byte
-            # unchanged. Clear any legacy warm-start state a prior clojure-legacy
-            # tick may have left on this instance: improved mode is stateless
-            # across ticks (no stale memory retained after a mode switch), and a
-            # later switch back to legacy warm-starts cold — same as a fresh
-            # Clojure worker boot. No-op in pure improved runs (both init to {}).
-            self.group_clusterings = {}
-            self.group_k_smoother = {}
-            best_k = 2
-            best_score = -1
-            group_clusterings = {}
-
-            for k in range(2, max_k + 1):
-                group_labels, group_centers, group_member_lists = kmeans_sklearn(
-                    base_centers_array,
-                    k=k,
-                    max_iters=GROUP_ITERS,
-                    weights=base_weights
-                )
-
-                # Calculate silhouette score
-                score = calculate_silhouette_sklearn(base_centers_array, group_labels)
-                group_clusterings[k] = (group_labels, group_centers, group_member_lists, score)
-
-                logger.info(f"  k={k}: silhouette={score:.4f}")
-
-                if score > best_score:
-                    best_score = score
-                    best_k = k
-
-            logger.info(f"Selected k={best_k} with silhouette={best_score:.4f}")
-
-            selected_k = best_k
-
-            # Use the selected clustering. group_clusters is never None.
-            group_labels, group_centers, group_member_lists, _ = group_clusterings[selected_k]
-
-            # Convert to dictionary format with base cluster IDs as members
-            group_clusters = []
-            for cluster_id, (center, member_indices) in enumerate(zip(group_centers, group_member_lists)):
-                # Members are base cluster IDs (not participant IDs!)
-                member_base_cluster_ids = [base_clusters[idx]['id'] for idx in member_indices]
-                group_clusters.append({
-                    'id': cluster_id,
-                    'center': center.tolist(),
-                    'members': member_base_cluster_ids
-                })
-
-            # Keep group clusters in k-means ID order (matching Clojure's
-            # sort-by :id, conversation.clj:437). Do NOT sort by size or
-            # reassign IDs: Clojure assigns group ids by first-k-distinct
-            # encounter order over base-cluster centers (init-clusters,
-            # clusters.clj:55-64) and never re-orders by size. The former
-            # size-descending re-sort here was the root cause of the gid 0↔1
-            # label swap vs Clojure blobs (S3-4 trace, 2026-06-11: identical
-            # memberships modulo label permutation on vw-cold_start). Mirrors
-            # the identical rule at the base-cluster level above.
-            group_clusters.sort(key=lambda c: c['id'])
+        # Build production-form group_clusters from the selected clustering.
+        # Members are base-cluster ids; ids carry the group-cluster lineage.
+        selected = legacy_group_clusterings[selected_k]
+        group_clusters = [
+            {'id': c['id'],
+             'center': np.asarray(c['center'], dtype=float).tolist(),
+             'members': list(c['members'])}
+            for c in selected
+        ]
+        group_clusters.sort(key=lambda c: c['id'])
 
         logger.info(f"Created {len(group_clusters)} group clusters")
 
