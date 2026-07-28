@@ -4470,3 +4470,16 @@ and bounded-distinct semantics (NaN rows, -0.0==0.0).
 - Bench FULL prod shape (33422x783x2.0M, scratch/vectorized_full.json):
   cold 28.15s, warm 26.66s — vs the ~31 min warm tick measured s6/s7
   (~70x). The largest prod conversation now ticks in under 30s.
+
+### Rename (Julien ruling, s7): the python poller is engine, not delphi
+
+Compose service delphi-math-poller → **math-python**, profile delphi-math
+→ **math-python**, env var DELPHI_MATH_ENV → **MATH_PYTHON_ENV** (default
+math_env value 'delphi' → 'python'; free rename — no rows exist yet
+anywhere). Living docs updated (runbook step 1, design §4, example.env);
+journal history left as written. Deploy reality recorded in the runbook:
+prod starts services BY NAME via scripts/after_install.sh role dispatch
+(SERVICE_FROM_FILE: server|math|delphi; profiles gate dev only), prod
+tracks branch `stable` — so the shadow wiring is one edit to the math
+role's compose-up line, deliberately NOT made yet (Julien weighing
+shadow vs clean replace).
