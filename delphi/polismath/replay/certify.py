@@ -42,6 +42,7 @@ hits this; flagged here for whoever adds a second engine_mode to the battery.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import os
@@ -184,7 +185,15 @@ def parse_battery_entry(e: dict[str, Any], *, battery_dir: Path | None = None) -
         schedule_path = Path(e["schedule"])
         if battery_dir is not None and not schedule_path.is_absolute():
             schedule_path = battery_dir / schedule_path
-        base_id = json.loads(schedule_path.read_text())["schedule_id"]
+        schedule_json = json.loads(schedule_path.read_text())
+        schedule_dataset = schedule_json.get("dataset")
+        if schedule_dataset is not None and schedule_dataset != dataset:
+            raise ValueError(
+                f"battery entry dataset {dataset!r} does not match schedule file "
+                f"{schedule_path}'s dataset {schedule_dataset!r} — drivers and certify "
+                f"would disagree on which dataset's votes to replay/cache"
+            )
+        base_id = schedule_json["schedule_id"]
         schedule_id = derive_schedule_id(engine_mode=engine_mode, base_schedule_id=base_id)
         return BatteryEntry(dataset=dataset, engine_mode=engine_mode, schedule_id=schedule_id,
                              schedule_path=schedule_path, notes=e.get("notes", ""))
@@ -528,8 +537,20 @@ def _write_manifest(manifest_path: Path, manifest: dict[str, Any]) -> None:
         json.dump(manifest, fh, indent=2, sort_keys=True)
 
 
+@functools.lru_cache(maxsize=1)
 def _py_tree_hash() -> str:
     return sha256_tree(_DELPHI_ROOT / "polismath", "**/*.py")
+
+
+@functools.lru_cache(maxsize=1)
+def _clj_source_hashes() -> tuple[str, str]:
+    """(sha256 of dev/replay.clj, sha256 of the math/src tree) — cached since
+    both are read-only per process and re-hashing the whole math/src tree on
+    every battery entry is wasted work."""
+    return (
+        sha256_file(_MATH_ROOT / "dev" / "replay.clj"),
+        sha256_tree(_MATH_ROOT / "src", "**/*"),
+    )
 
 
 def ensure_py_recording(
@@ -566,24 +587,29 @@ def ensure_clj_recording(
     root: Path, refresh: bool = False, comments_csv: Path | None = None,
 ) -> tuple[Path, bool]:
     """Reuse ``<root>/<ds>/<sid>/clj/`` iff its cache manifest matches (votes
-    sha256, schedule hash, sha256 of dev/replay.clj, sha256 of math/src); else
-    (re)run the Clojure driver in a subprocess (cwd=math/). Returns
-    ``(clj_dir, was_cached)``. Engine_mode plays no part in the Clojure
-    reference, so it is deliberately NOT one of the cache keys.
+    sha256, schedule hash, sha256 of dev/replay.clj, sha256 of math/src, and
+    — when ``comments_csv`` is given — its sha256 too); else (re)run the
+    Clojure driver in a subprocess (cwd=math/). Returns ``(clj_dir,
+    was_cached)``. Engine_mode plays no part in the Clojure reference, so it
+    is deliberately NOT one of the cache keys.
 
     ``comments_csv`` (when given) is forwarded to :func:`run_clj_driver` as
-    ``--comments`` — deliberately NOT part of the cache manifest, so entries
-    that never pass it (moderation="none") keep their existing cache key and
-    are never invalidated by this parameter's introduction."""
+    ``--comments`` AND its sha256 is added to the cache manifest (STRICT —
+    this deliberately invalidates existing mod-entry clj recordings once; the
+    nightly battery re-records). Entries that never pass it (moderation="none")
+    keep their existing cache key and are unaffected by this parameter."""
     rec_dir = st.recording_dir(entry.dataset, entry.schedule_id, root=root)
     clj_dir = rec_dir / "clj"
     manifest_path = clj_dir / "cache_manifest.json"
+    replay_clj_sha256, math_src_sha256 = _clj_source_hashes()
     expected = {
         "votes_sha256": votes_sha,
         "schedule_hash": canonical_schedule_hash(spec),
-        "replay_clj_sha256": sha256_file(_MATH_ROOT / "dev" / "replay.clj"),
-        "math_src_sha256": sha256_tree(_MATH_ROOT / "src", "**/*"),
+        "replay_clj_sha256": replay_clj_sha256,
+        "math_src_sha256": math_src_sha256,
     }
+    if comments_csv is not None:
+        expected["comments_csv_sha256"] = sha256_file(comments_csv)
     if not refresh and _manifest_matches(manifest_path, expected):
         return clj_dir, True
 

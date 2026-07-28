@@ -17,7 +17,7 @@ Clojure instead THREADS warm-start state across ticks:
   - 'clojure-legacy'         : threads the warm-start state described above.
 
 The flag is resolved AT CALL TIME (never cached at import) by the shared
-`utils.env_flags.resolve_impl_flag`: unknown values fall back to the default
+`polismath.utils.env_flags.resolve_impl_flag`: unknown values fall back to the default
 with a warning so a typo in a deployment env cannot crash the math worker.
 This lives in a shared spot (polismath.utils) because the mode cross-cuts both
 PCA (conversation._compute_pca) and clustering (conversation._compute_clusters).
@@ -38,7 +38,7 @@ def resolve_engine_mode() -> str:
     """
     Resolve `POLISMATH_ENGINE_MODE` from the environment, at call time.
 
-    Reuses `utils.env_flags.resolve_impl_flag` so the resolution rules
+    Reuses `polismath.utils.env_flags.resolve_impl_flag` so the resolution rules
     (strip + lowercase, unknown -> default with a warning) are identical to
     the PCA-solver switch.
 

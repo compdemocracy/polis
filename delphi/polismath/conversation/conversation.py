@@ -909,15 +909,23 @@ class Conversation:
         # in-conv participant its graph still runs the full base->group chain
         # (one base cluster, k=2 group clustering of one point). Legacy mode
         # falls through and replicates that; improved mode keeps the guard.
-        # The 0-participant early return stays in BOTH modes: it is unreachable
-        # past the `not self.proj` short-circuit while the in-conv greedy floor
-        # guarantees >=1 participant (PR-E), and Clojure's kmeans on an empty
-        # matrix has nothing to warm-start either.
+        # The 0-participant early return stays in BOTH modes, but the
+        # greedy-floor unreachability argument (in-conv can't drop below 1) is
+        # LEGACY-only — the greedy floor itself only runs in 'clojure-legacy'
+        # mode (_get_in_conv_participants). In 'improved' mode there is no
+        # floor, so 0 in-conv participants is a REAL, load-bearing case this
+        # guard must handle, not just dead code.
         if len(in_conv_pids_list) == 0 or (not legacy_mode and len(in_conv_pids_list) < 2):
             logger.warning(f"Not enough participants meeting threshold ({len(in_conv_pids_list)})")
             self.base_clusters = []
             self.group_clusters = []
             self.subgroup_clusters = {}
+            if not legacy_mode:
+                # Improved mode has no warm-start use for this state, so a
+                # stale value from a prior tick must not leak forward
+                # (#2642 review finding).
+                self.group_clusterings = {}
+                self.group_k_smoother = {}
             return
 
         logger.info(f"Using {len(in_conv_pids_list)}/{len(self.proj)} participants for clustering")
@@ -1007,6 +1015,11 @@ class Conversation:
             else:
                 self.group_clusters = []
             self.subgroup_clusters = {}
+            # Improved-only path (already gated by `not legacy_mode` above): no
+            # warm-start use for this state, so a stale value from a prior
+            # tick must not leak forward (#2642 review finding).
+            self.group_clusterings = {}
+            self.group_k_smoother = {}
             return
 
         # Prepare base cluster centers and weights
