@@ -190,15 +190,31 @@
 ;; One full replay pass: seed → reduce conv-update, keeping conv per step.
 ;; ---------------------------------------------------------------------------
 
+;; Q10 carve-out (CLOJURE_QUIRKS.md): conv-update's large-conv dispatch
+;; (n-ptpts > 10000 OR n-cmts > 5000, conversation.clj:784-815) runs
+;; mini-batch partial-pca on an UNSEEDED random row sample — no
+;; deterministic reference exists on that path, even between two Clojure
+;; runs. Certification pins both cutoffs huge so every step takes the
+;; deterministic full-PCA (small-conv) path at any size. Logged per run
+;; here and by certify.py's acceptance notice.
+(def certify-conv-opts
+  {:ptpt-cutoff 1000000000
+   :cmt-cutoff  1000000000})
+
 (defn run-once
   "Returns a vector of [step conv-after-update] pairs, one per cut slot.
-  The reduce threading the conv IS the implicit warm-start chain."
+  The reduce threading the conv IS the implicit warm-start chain.
+  conv-update runs with certify-conv-opts (Q10 full-PCA carve-out)."
   [zid meta-tids steps]
+  (binding [*out* *err*]
+    (println "Q10 carve-out: large-conv mini-batch PCA disabled"
+             "(ptpt/cmt cutoffs pinned to 10^9; full PCA at every size)"))
   (let [seed (-> (conv/new-conv) (assoc :zid zid :meta-tids (set meta-tids)))]
     (loop [conv seed [s & more] steps acc []]
       (if (nil? s)
         acc
-        (let [conv' (conv/conv-update conv (->conv-votes (:votes s)))]
+        (let [conv' (conv/conv-update conv (->conv-votes (:votes s))
+                                      certify-conv-opts)]
           (recur conv' more (conj acc [s conv'])))))))
 
 ;; ---------------------------------------------------------------------------
