@@ -36,28 +36,25 @@ equivalence evidence), CLOJURE_QUIRKS.md (Q1-Q19).
    (~30.9 min)** — the warm tick is ~3.6x the cold one (legacy kmeans
    lineage warm-start dominates). Local M-series cross-check: 430.8s /
    2095.3s — same order, so this is algorithmic, not instance-bound.
-   **VERDICT: serial is NOT OK at the extreme shape** — the old 0.5-2
-   min/tick estimate was an order of magnitude optimistic. A ~31-minute
-   tick would occupy a poller process/shard for its duration whenever one
-   of the 7 historical large convs receives votes. REQUIRED fix
-   (Julien ruling, s7: NO zid is ever blocklisted, and the warm start
-   STAYS — cluster-id stability across ticks is user-facing): item 9,
-   re-scoped as (a) VECTORIZE the warm-start k-means hot path — replace
-   the per-pair python _euclidean loop with per-center BLAS columns
-   (d2 = row_norms + |c|^2 - 2*(X@c), the same cancellation formula) in
-   cluster_step/most_distal/weighted_mean; bit-identity is the
-   acceptance bar (Q11 0.0-ties are load-bearing for cluster ids — the
-   vw every-vote step-57 tie test + the full battery gate it); plus
-   (b) a deterministic (seeded) sampled PCA for the extreme shapes.
-   SCOPE NOTE (Julien question, s7): Clojure's large-conv graph
-   overrides ONLY the :pca node (mini-batch PCA over an unseeded
-   1500-row sample; conversation.clj:760-773 — large-conv-update-graph
-   merges small-conv-update-graph) — the k-means warm start is IDENTICAL
-   in both graphs, so there is no Clojure-side large-conv k-means
-   treatment to port; vectorz's JVM loops simply outran our per-cluster
-   Python port at 33k rows. The flip is NOT blocked: all 7 large convs
-   are historical and rarely active; if one ticks before item 9 lands it
-   is slow (~31 min) but correct and stable.
+   **VERDICT (FINAL, 2026-07-28 s7): serial is OK at every observed
+   shape.** Item 9a (vectorized warm-start k-means, PR #2679 —
+   bit-identical: exact-== pins vs the scalar reference, knife-edge Q11
+   ties preserved, battery 20/20 x2) re-measured on the SAME r8g.4xlarge
+   / shape / seed:
+     cold tick  519.6s -> 29.0s   (~18x)
+     warm tick 1856.0s -> 26.6s   (~70x)
+   (local M-series cross-check: 430.8s -> 28.2s / 2095.3s -> 26.7s.)
+   A ~27s worst-case steady-state tick on the 7 historical giants is
+   compatible with the serial poller (~1.66 ticks/s on normal convs).
+   NO blocklisting (Julien ruling s7) — none needed. The deterministic
+   seeded sampled PCA (item 9b) is now OPTIONAL (further speedup /
+   Q10-class hygiene), not a throughput requirement.
+   Historical note: the pre-vectorization measurement (cold 519.6s, warm
+   1856.0s, verdict then NOT serial-OK) drove item 9a; Clojure's own
+   large-conv path only ever special-cased :pca (conversation.clj:
+   760-773), never k-means — the Python fix was vectorizing our port's
+   per-pair loops (~3.3M python calls/iteration -> batched-matmul BLAS
+   columns, bit-equal by construction and by 85-combo probe).
    Sharding (#2658) is the scale-out path, opt-in via POLL_SHARD_INDEX/
    POLL_SHARD_COUNT — one shard = one process. Start UNSHARDED (defaults
    are a verified no-op); shard only if the shadow soak shows lag.
@@ -90,6 +87,12 @@ from Clojure's env, rows invisible to the server (UNIQUE(zid, math_env)).
 ```
 docker compose --profile math-python up -d math-python
 # env: MATH_PYTHON_ENV=python   (engine has one path since the mode collapse)
+# env: MATH_CONV_CACHE_CAP=<N>  — SET THIS FOR THE SOAK (s7): the conv cache
+#   never evicts by default; a long soak accumulates convs toward the 16g
+#   container limit and an OOM-kill restart loop. LRU eviction is cheap
+#   (reload = from_dict warm restore). Memory math: host 128 GiB; python
+#   capped 16g; clojure unchanged by shadow. Verify the clj container's
+#   actual -Xmx on the host before the soak (empirically fits today).
 # PROD NOTE (deploy-script reality, s7): prod instances start services BY
 # NAME from scripts/after_install.sh per-role dispatch (profiles are a
 # dev-only gate) — shadow on the math role = add `math-python` to its
