@@ -138,13 +138,19 @@ def test_parse_battery_entry_schedule_form_reads_base_id_from_file(tmp_path):
 
 
 def test_load_battery_starter_file_shape():
+    """The committed battery parses, keeps the four original starter entries,
+    covers the private datasets (session-3 extension), and has no duplicate
+    (dataset, schedule) pairs. Deliberately NOT pinned to an exact count —
+    the battery GROWS as the goal's coverage expands (GOAL_R1_PARITY.md)."""
     entries = cert.load_battery(CERTIFY_BATTERY_PATH)
     ids = {(e.dataset, e.schedule_id) for e in entries}
     assert ("vw", "uniform8-clojure-legacy") in ids
     assert ("vw", "front-loaded6-clojure-legacy") in ids
     assert ("vw", "single-cut-clojure-legacy") in ids
     assert ("biodiversity", "uniform8-clojure-legacy") in ids
-    assert len(entries) == 4
+    for private_ds in ("FLI", "bg2018", "pakistan", "engage", "bg2050"):
+        assert any(e.dataset == private_ds for e in entries), private_ds
+    assert len(ids) == len(entries), "duplicate (dataset, schedule) entries"
     assert all(e.engine_mode == "clojure-legacy" for e in entries)
 
 
