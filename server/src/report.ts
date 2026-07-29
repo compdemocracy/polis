@@ -89,6 +89,10 @@ const sep = "\n";
 
 const formatEscapedText = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
+function shouldApplyModGt(mod_gt?: number): mod_gt is number {
+  return typeof mod_gt === "number" && !Number.isNaN(mod_gt) && mod_gt > -2;
+}
+
 type ParticipantExportContext = {
   commentIds: number[];
   commentIdSet: Set<number>;
@@ -176,12 +180,19 @@ function createGroupIdResolver(
 }
 
 async function loadParticipantExportContext(
-  zid: number
+  zid: number,
+  mod_gt?: number
 ): Promise<ParticipantExportContext> {
+  const params: any[] = [zid];
+  const modClause = shouldApplyModGt(mod_gt) ? " AND mod > ($2)" : "";
+  if (shouldApplyModGt(mod_gt)) {
+    params.push(mod_gt);
+  }
+
   const [commentRowsRaw, pca] = await Promise.all([
     pg.queryP_readOnly(
-      "SELECT tid, pid FROM comments WHERE zid = ($1) ORDER BY tid ASC, created ASC",
-      [zid]
+      `SELECT tid, pid FROM comments WHERE zid = ($1)${modClause} ORDER BY tid ASC, created ASC`,
+      params
     ),
     getPca(zid),
   ]);
@@ -290,7 +301,11 @@ export async function sendConversationSummary(
   res.send(rows.join(sep));
 }
 
-export async function sendCommentSummary(zid: number, res: ResponseLike) {
+export async function sendCommentSummary(
+  zid: number,
+  res: ResponseLike,
+  mod_gt?: number
+) {
   const comments = new Map<number, CommentRow>();
 
   try {
@@ -303,9 +318,15 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
       convRows.length > 0 ? convRows[0].importance_enabled : false;
 
     // First query: Load comments metadata
+    const params: any[] = [zid];
+    const modClause = shouldApplyModGt(mod_gt) ? " AND mod > ($2)" : "";
+    if (shouldApplyModGt(mod_gt)) {
+      params.push(mod_gt);
+    }
+
     const commentRows = (await pg.queryP_readOnly(
-      "SELECT tid, pid, created, txt, mod, velocity, active FROM comments WHERE zid = ($1)",
-      [zid]
+      `SELECT tid, pid, created, txt, mod, velocity, active FROM comments WHERE zid = ($1)${modClause}`,
+      params
     )) as CommentRow[];
     for (const comment of commentRows) {
       comment.agrees = 0;
@@ -374,8 +395,14 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
   }
 }
 
-export async function sendVotesSummary(zid: number, res: ResponseLike) {
+export async function sendVotesSummary(
+  zid: number,
+  res: ResponseLike,
+  mod_gt?: number
+) {
   try {
+    const { commentIdSet } = await loadParticipantExportContext(zid, mod_gt);
+
     // Check if importance is enabled for this conversation
     const convRows = (await pg.queryP_readOnly(
       "SELECT importance_enabled FROM conversations WHERE zid = ($1)",
@@ -409,7 +436,11 @@ export async function sendVotesSummary(zid: number, res: ResponseLike) {
     pg.stream_queryP_readOnly(
       selectClause,
       [zid],
-      (row) => res.write(formatCSVRow(row, formatters) + sep),
+      (row) => {
+        if (commentIdSet.has(row.tid)) {
+          res.write(formatCSVRow(row, formatters) + sep);
+        }
+      },
       () => res.end(),
       (error) => {
         // Handle any errors
@@ -425,10 +456,11 @@ export async function sendVotesSummary(zid: number, res: ResponseLike) {
 
 export async function sendParticipantVotesSummary(
   zid: number,
-  res: ResponseLike
+  res: ResponseLike,
+  mod_gt?: number
 ) {
   const { commentIds, participantCommentCounts, getGroupId } =
-    await loadParticipantExportContext(zid);
+    await loadParticipantExportContext(zid, mod_gt);
 
   res.setHeader("content-type", "text/csv");
   res.write(
@@ -501,7 +533,8 @@ export async function sendParticipantVotesSummary(
 
 export async function sendParticipantImportance(
   zid: number,
-  res: ResponseLike
+  res: ResponseLike,
+  mod_gt?: number
 ) {
   // Export participant importance data as CSV matrix
   // Columns: participant, group-id, n-comments, n-votes, n-important, [comment-id...]
@@ -510,7 +543,7 @@ export async function sendParticipantImportance(
   //   "0" - participant voted on this comment with high_priority = false
   //   "" (empty) - participant did not vote on this comment
   const { commentIds, commentIdSet, participantCommentCounts, getGroupId } =
-    await loadParticipantExportContext(zid);
+    await loadParticipantExportContext(zid, mod_gt);
 
   res.setHeader("content-type", "text/csv");
   res.write(
@@ -608,7 +641,8 @@ export async function sendCommentGroupsSummary(
     comment_extremity?: number;
     comment_id: number;
     num_groups: number;
-  }) => boolean
+  }) => boolean,
+  mod_gt?: number
 ) {
   const csvText = [];
   // Get PCA data to identify groups and get groupVotes
@@ -635,12 +669,18 @@ export async function sendCommentGroupsSummary(
   const commentExtremity =
     (pca.asPOJO["pca"]?.["comment-extremity"] as Array<number>) || [];
 
-  // Load comment texts
+  // Load comment texts + moderation status, and precompute which tids are eligible for this report.
   const commentRows = (await pg.queryP_readOnly(
-    "SELECT tid, txt FROM comments WHERE zid = ($1)",
+    "SELECT tid, txt, mod FROM comments WHERE zid = ($1)",
     [zid]
-  )) as { tid: number; txt: string }[];
+  )) as { tid: number; txt: string; mod: number }[];
   const commentTexts = new Map(commentRows.map((row) => [row.tid, row.txt]));
+  const allowedTids = new Set<number>();
+  for (const row of commentRows) {
+    if (!shouldApplyModGt(mod_gt) || row.mod > mod_gt) {
+      allowedTids.add(row.tid);
+    }
+  }
 
   // Initialize stats map
   const commentStats = new Map<number, CommentGroupStats>();
@@ -663,6 +703,9 @@ export async function sendCommentGroupsSummary(
     // Process each comment's votes for this group
     for (const [tidStr, votes] of Object.entries(groupVoteStats.votes)) {
       const tid = parseInt(tidStr);
+      if (!allowedTids.has(tid)) {
+        continue;
+      }
 
       // Initialize stats for this comment if we haven't seen it before
       if (!commentStats.has(tid)) {
@@ -803,13 +846,17 @@ export async function sendCommentGroupsSummary(
 
 export async function sendCommentClustersSummary(
   zid: number,
-  res: ResponseLike
+  res: ResponseLike,
+  mod_gt?: number
 ) {
   try {
     logger.info(`Generating comment-clusters export for zid ${zid}`);
 
     // Get comments with cluster assignments
-    const comments = await getCommentsWithClusters(zid);
+    let comments = await getCommentsWithClusters(zid);
+    if (shouldApplyModGt(mod_gt)) {
+      comments = comments.filter((c) => c.mod > mod_gt);
+    }
 
     if (comments.length === 0) {
       logger.warn(`No comments found for zid ${zid}`);

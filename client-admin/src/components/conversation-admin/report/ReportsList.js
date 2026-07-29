@@ -102,9 +102,15 @@ const ReportsList = () => {
       conversation_id: params.conversation_id
     })
     reportsPromise.then((reports) => {
+      // Reports are effectively "latest state" views; show only the most recently modified report
+      // to avoid implying historical snapshot semantics.
+      const latestReport =
+        Array.isArray(reports) && reports.length
+          ? reports.sort((a, b) => parseInt(b.modified) - parseInt(a.modified))[0]
+          : null
       setState({
         loading: false,
-        reports: reports,
+        reports: latestReport ? [latestReport] : [],
         dataLoaded: true
       })
     })
@@ -169,137 +175,135 @@ const ReportsList = () => {
         )}
         <Button onClick={createReportClicked}>Create report url</Button>
       </Box>
-      {state.reports
-        .sort((a, b) => parseInt(b.modified) - parseInt(a.modified))
-        .map((report) => {
-          const isExpanded = expandedReports.has(report.report_id)
-          const handleCardClick = () => {
-            toggleReportExpansion(report.report_id)
-          }
+      {state.reports.map((report) => {
+        const isExpanded = expandedReports.has(report.report_id)
+        const handleCardClick = () => {
+          toggleReportExpansion(report.report_id)
+        }
 
-          return (
-            <Box key={report.report_id} sx={{ mb: [3] }}>
-              <Box
-                data-testid="report-list-item"
-                sx={{
-                  variant: 'cards.primary',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    boxShadow: 'md',
-                    transform: 'translateY(-2px)'
-                  }
-                }}
-                onClick={handleCardClick}>
-                <Flex sx={{ flexDirection: 'column', mb: [2] }}>
-                  <Text
-                    sx={{
-                      fontSize: [2, 3],
-                      fontWeight: 'bold',
-                      color: 'text',
-                      mb: [1]
-                    }}>
-                    Modified {formatTimestamp(report.modified)}
-                  </Text>
+        return (
+          <Box key={report.report_id} sx={{ mb: [3] }}>
+            <Box
+              data-testid="report-list-item"
+              sx={{
+                variant: 'cards.primary',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                '&:hover': {
+                  boxShadow: 'md',
+                  transform: 'translateY(-2px)'
+                }
+              }}
+              onClick={handleCardClick}>
+              <Flex sx={{ flexDirection: 'column', mb: [2] }}>
+                <Text
+                  sx={{
+                    fontSize: [2, 3],
+                    fontWeight: 'bold',
+                    color: 'text',
+                    mb: [1]
+                  }}>
+                  Modified {formatTimestamp(report.modified)}
+                </Text>
+                <Text
+                  sx={{
+                    fontSize: [1],
+                    color: 'textSecondary',
+                    fontStyle: 'italic'
+                  }}>
+                  Report ID: {report.report_id}
+                </Text>
+              </Flex>
+
+              {hasDelphiEnabled(authUser) && (
+                <Box sx={{ mt: [2] }}>
                   <Text
                     sx={{
                       fontSize: [1],
                       color: 'textSecondary',
                       fontStyle: 'italic'
                     }}>
-                    Report ID: {report.report_id}
+                    {modMap[String(report.mod_level)] || modMap[Number(report.mod_level)]}
                   </Text>
-                </Flex>
-
-                {hasDelphiEnabled(authUser) && (
-                  <Box sx={{ mt: [2] }}>
-                    <Text
-                      sx={{
-                        fontSize: [1],
-                        color: 'textSecondary',
-                        fontStyle: 'italic'
-                      }}>
-                      {modMap[String(report.mod_level)] || modMap[Number(report.mod_level)]}
-                    </Text>
-                  </Box>
-                )}
-              </Box>
-
-              {/* Expandable Panel */}
-              {isExpanded && (
-                <Box
-                  sx={{
-                    variant: 'cards.compact',
-                    mt: [2],
-                    overflowX: 'auto',
-                    animation: 'slideDown 0.3s ease-out',
-                    '@keyframes slideDown': {
-                      from: {
-                        opacity: 0,
-                        transform: 'translateY(-10px)',
-                        maxHeight: 0
-                      },
-                      to: {
-                        opacity: 1,
-                        transform: 'translateY(0)',
-                        maxHeight: '200px'
-                      }
-                    }
-                  }}>
-                  <Text
-                    sx={{
-                      fontSize: [1],
-                      fontWeight: 'bold',
-                      color: 'text',
-                      mb: [2]
-                    }}>
-                    Report URLs
-                  </Text>
-                  <ReportLink
-                    title="Standard Report"
-                    href={`${Url.reportUrlPrefix}report/${report.report_id}`}
-                    urlPrefix={`${Url.reportUrlPrefix}report/${report.report_id}`}
-                  />
-                  <ReportLink
-                    title="Data Export"
-                    href={`${Url.reportUrlPrefix}exportReport/${report.report_id}`}
-                    urlPrefix={`${Url.reportUrlPrefix}exportReport/${report.report_id}`}
-                  />
-                  {hasDelphiEnabled(authUser) ? (
-                    <>
-                      <ReportLink
-                        title="Topic"
-                        href={`${Url.reportUrlPrefix}topicReport/${report.report_id}`}
-                        urlPrefix={`${Url.reportUrlPrefix}topicReport/${report.report_id}`}
-                      />
-                      <ReportLink
-                        title="Topics Viz"
-                        href={`${Url.reportUrlPrefix}topicsVizReport/${report.report_id}`}
-                        urlPrefix={`${Url.reportUrlPrefix}topicsVizReport/${report.report_id}`}
-                      />
-                      <ReportLink
-                        title="Topic Stats"
-                        href={`${Url.reportUrlPrefix}topicStats/${report.report_id}`}
-                        urlPrefix={`${Url.reportUrlPrefix}topicStats/${report.report_id}`}
-                      />
-                      <ReportLink
-                        title="Topic Map Narrative"
-                        href={`${Url.reportUrlPrefix}topicMapNarrativeReport/${report.report_id}`}
-                        urlPrefix={`${Url.reportUrlPrefix}topicMapNarrativeReport/${report.report_id}`}
-                      />
-                    </>
-                  ) : (
-                    <ReportLink
-                      title="Analysis & Insights"
-                      href="https://pro.pol.is/"
-                      urlPrefix="Discover more with Delphi - advanced data analysis and AI"
-                    />
-                  )}
                 </Box>
               )}
             </Box>
-          )
-        })}
+
+            {/* Expandable Panel */}
+            {isExpanded && (
+              <Box
+                sx={{
+                  variant: 'cards.compact',
+                  mt: [2],
+                  overflowX: 'auto',
+                  animation: 'slideDown 0.3s ease-out',
+                  '@keyframes slideDown': {
+                    from: {
+                      opacity: 0,
+                      transform: 'translateY(-10px)',
+                      maxHeight: 0
+                    },
+                    to: {
+                      opacity: 1,
+                      transform: 'translateY(0)',
+                      maxHeight: '200px'
+                    }
+                  }
+                }}>
+                <Text
+                  sx={{
+                    fontSize: [1],
+                    fontWeight: 'bold',
+                    color: 'text',
+                    mb: [2]
+                  }}>
+                  Report URLs
+                </Text>
+                <ReportLink
+                  title="Standard Report"
+                  href={`${Url.reportUrlPrefix}report/${report.report_id}`}
+                  urlPrefix={`${Url.reportUrlPrefix}report/${report.report_id}`}
+                />
+                <ReportLink
+                  title="Data Export"
+                  href={`${Url.reportUrlPrefix}exportReport/${report.report_id}`}
+                  urlPrefix={`${Url.reportUrlPrefix}exportReport/${report.report_id}`}
+                />
+                {hasDelphiEnabled(authUser) ? (
+                  <>
+                    <ReportLink
+                      title="Topic"
+                      href={`${Url.reportUrlPrefix}topicReport/${report.report_id}`}
+                      urlPrefix={`${Url.reportUrlPrefix}topicReport/${report.report_id}`}
+                    />
+                    <ReportLink
+                      title="Topics Viz"
+                      href={`${Url.reportUrlPrefix}topicsVizReport/${report.report_id}`}
+                      urlPrefix={`${Url.reportUrlPrefix}topicsVizReport/${report.report_id}`}
+                    />
+                    <ReportLink
+                      title="Topic Stats"
+                      href={`${Url.reportUrlPrefix}topicStats/${report.report_id}`}
+                      urlPrefix={`${Url.reportUrlPrefix}topicStats/${report.report_id}`}
+                    />
+                    <ReportLink
+                      title="Topic Map Narrative"
+                      href={`${Url.reportUrlPrefix}topicMapNarrativeReport/${report.report_id}`}
+                      urlPrefix={`${Url.reportUrlPrefix}topicMapNarrativeReport/${report.report_id}`}
+                    />
+                  </>
+                ) : (
+                  <ReportLink
+                    title="Analysis & Insights"
+                    href="https://pro.pol.is/"
+                    urlPrefix="Discover more with Delphi - advanced data analysis and AI"
+                  />
+                )}
+              </Box>
+            )}
+          </Box>
+        )
+      })}
     </Box>
   )
 }
