@@ -1,0 +1,108 @@
+{
+  "name": "codec_fixtures",
+  "description": "cross-language payload envelopes: Python-encoded blobs decoded by both runners + self round-trips",
+  "ops": [
+    {
+      "op": "codec_decode_fixture",
+      "meta": {
+        "enc": "json",
+        "body": {
+          "unicode": "café 😀",
+          "nums": [
+            0.1,
+            1,
+            true,
+            null
+          ]
+        }
+      },
+      "blob_b64": null,
+      "expect_value": {
+        "unicode": "café 😀",
+        "nums": [
+          0.1,
+          1,
+          true,
+          null
+        ]
+      }
+    },
+    {
+      "op": "codec_decode_fixture",
+      "meta": {
+        "enc": "json+zstd",
+        "bytes": 102,
+        "sha256": "53a6b9d79b865c32df34342a558c49038e823f219a4dad84dc5b97cc6c8451ea"
+      },
+      "blob_b64": "KLUv/SBm9QIARAV7Imdyb3VwcyI6W3siY2VudGVyIjpbMC4xMjUsLTIuNV0sImlkIjowfSwxZS0wOSwzLjAxfV0sImxhYmVsIjoi5pel5pys6KqeINep15zXldedIn0CAEHlI2GoMg==",
+      "expect_value": {
+        "groups": [
+          {
+            "id": 0,
+            "center": [
+              0.125,
+              -2.5
+            ]
+          },
+          {
+            "id": 1,
+            "center": [
+              1e-09,
+              3.0
+            ]
+          }
+        ],
+        "label": "日本語 שלום"
+      }
+    },
+    {
+      "op": "codec_decode_fixture",
+      "meta": {
+        "enc": "f64+zstd",
+        "count": 7,
+        "bytes": 56,
+        "sha256": "b21fc984ed5a6d087227f3cbbb705b36c5778b2dcd46febcca7d6be3a6b2395e"
+      },
+      "blob_b64": "KLUv/SA4PQEA2AAA4D8A8ALAnHUAiDzkN34BAACamZmZmZm5PwQAM4WvJAOt40Ab",
+      "expect_value": [
+        0.0,
+        0.5,
+        1.0,
+        -2.25,
+        1e+300,
+        5e-324,
+        0.1
+      ]
+    },
+    {
+      "op": "codec_roundtrip",
+      "value": {
+        "nested": {
+          "a": [
+            1,
+            2.5
+          ],
+          "b": "text"
+        },
+        "n": null
+      }
+    },
+    {
+      "op": "codec_roundtrip",
+      "value": [
+        0.1,
+        0.2,
+        0.3,
+        1e-09,
+        12345.678
+      ]
+    },
+    {
+      "op": "codec_roundtrip",
+      "value": {
+        "unicode": "émile — 😀 — ~",
+        "empty": {}
+      }
+    }
+  ]
+}

@@ -1,0 +1,233 @@
+{
+  "name": "queue_claim",
+  "description": "claim ordering (priority desc, then FIFO), leases, duplicate enqueue, failure path, list_runs",
+  "ops": [
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "jobA",
+        "job_type": "FULL_PIPELINE",
+        "zid": 7,
+        "priority": 0,
+        "enqueued_at": "2026-07-06T10:00:00.000Z"
+      }
+    },
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "jobB",
+        "job_type": "FULL_PIPELINE",
+        "zid": 7,
+        "priority": 5,
+        "enqueued_at": "2026-07-06T10:00:01.000Z"
+      }
+    },
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "jobC",
+        "job_type": "FULL_PIPELINE",
+        "zid": 7,
+        "priority": 0,
+        "enqueued_at": "2026-07-06T10:00:00.500Z"
+      }
+    },
+    {
+      "op": "get_run",
+      "job_id": "jobA",
+      "expect": {
+        "found": true,
+        "status": "QUEUED",
+        "version": 0,
+        "priority": 0,
+        "zid": 7
+      }
+    },
+    {
+      "op": "get_run",
+      "job_id": "missing",
+      "expect": {
+        "found": false
+      }
+    },
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "jobA",
+        "job_type": "FULL_PIPELINE",
+        "zid": 7,
+        "enqueued_at": "2026-07-06T10:00:02.000Z"
+      },
+      "expect_error": "already_exists"
+    },
+    {
+      "op": "claim_next_run",
+      "worker_id": "w1",
+      "lease_seconds": 300,
+      "now": "2026-07-06T10:01:00.000Z",
+      "expect": {
+        "job_id": "jobB",
+        "lease_expires_at": "2026-07-06T10:06:00.000Z"
+      }
+    },
+    {
+      "op": "claim_next_run",
+      "worker_id": "w2",
+      "lease_seconds": 300,
+      "now": "2026-07-06T10:01:01.000Z",
+      "expect": {
+        "job_id": "jobA"
+      }
+    },
+    {
+      "op": "get_run",
+      "job_id": "jobB",
+      "expect": {
+        "found": true,
+        "status": "RUNNING",
+        "worker_id": "w1",
+        "started_at": "2026-07-06T10:01:00.000Z"
+      }
+    },
+    {
+      "op": "extend_lease",
+      "job_id": "jobB",
+      "worker_id": "w2",
+      "lease_seconds": 300,
+      "now": "2026-07-06T10:02:00.000Z",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "op": "extend_lease",
+      "job_id": "jobB",
+      "worker_id": "w1",
+      "lease_seconds": 300,
+      "now": "2026-07-06T10:02:00.000Z",
+      "expect": {
+        "ok": true
+      }
+    },
+    {
+      "op": "get_run",
+      "job_id": "jobB",
+      "expect": {
+        "found": true,
+        "lease_expires_at": "2026-07-06T10:07:00.000Z"
+      }
+    },
+    {
+      "op": "extend_lease",
+      "job_id": "missing",
+      "worker_id": "w1",
+      "lease_seconds": 300,
+      "now": "2026-07-06T10:02:00.000Z",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "op": "claim_next_run",
+      "worker_id": "w3",
+      "lease_seconds": 60,
+      "now": "2026-07-06T10:01:02.000Z",
+      "expect": {
+        "job_id": "jobC"
+      }
+    },
+    {
+      "op": "claim_next_run",
+      "worker_id": "w4",
+      "lease_seconds": 60,
+      "now": "2026-07-06T10:01:03.000Z",
+      "expect": {
+        "job_id": null
+      }
+    },
+    {
+      "op": "update_run_status",
+      "job_id": "jobC",
+      "status": "FAILED",
+      "error": "boom",
+      "now": "2026-07-06T10:03:00.000Z",
+      "expect": {
+        "status": "FAILED",
+        "error": "boom",
+        "completed_at": "2026-07-06T10:03:00.000Z"
+      }
+    },
+    {
+      "op": "update_run_status",
+      "job_id": "missing",
+      "status": "FAILED",
+      "now": "2026-07-06T10:03:00.000Z",
+      "expect_error": "not_found"
+    },
+    {
+      "op": "complete_run",
+      "job_id": "jobC",
+      "now": "2026-07-06T10:04:00.000Z",
+      "expect_error": "invalid"
+    },
+    {
+      "op": "extend_lease",
+      "job_id": "jobC",
+      "worker_id": "w3",
+      "lease_seconds": 60,
+      "now": "2026-07-06T10:04:00.000Z",
+      "expect": {
+        "ok": false
+      }
+    },
+    {
+      "op": "complete_run",
+      "job_id": "jobA",
+      "now": "2026-07-06T10:05:00.000Z",
+      "expect": {
+        "status": "COMPLETED",
+        "latest": [
+          {
+            "scope": "zid#7#FULL_PIPELINE",
+            "job_id": "jobA",
+            "seq": 1
+          }
+        ]
+      }
+    },
+    {
+      "op": "complete_run",
+      "job_id": "missing",
+      "now": "2026-07-06T10:05:00.000Z",
+      "expect_error": "not_found"
+    },
+    {
+      "op": "list_runs",
+      "zid": 7,
+      "expect": {
+        "job_ids": [
+          "jobB",
+          "jobC",
+          "jobA"
+        ]
+      }
+    },
+    {
+      "op": "list_runs",
+      "zid": 7,
+      "status": "FAILED",
+      "expect": {
+        "job_ids": [
+          "jobC"
+        ]
+      }
+    },
+    {
+      "op": "list_runs",
+      "zid": 999,
+      "expect": {
+        "job_ids": []
+      }
+    }
+  ]
+}

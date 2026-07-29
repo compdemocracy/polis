@@ -1,0 +1,253 @@
+{
+  "name": "run_manifest_fields",
+  "description": "merge_run_fields accumulates manifest provenance; append_log allocates ordered seqs as artifacts",
+  "ops": [
+    {
+      "op": "enqueue_run",
+      "run": {
+        "job_id": "j1",
+        "job_type": "FULL_PIPELINE",
+        "zid": 9,
+        "enqueued_at": "2026-07-06T11:00:00.000Z",
+        "config_requested": {
+          "umap": {
+            "n_neighbors": 15
+          }
+        }
+      }
+    },
+    {
+      "op": "claim_next_run",
+      "worker_id": "w1",
+      "lease_seconds": 300,
+      "now": "2026-07-06T11:01:00.000Z",
+      "expect": {
+        "job_id": "j1"
+      }
+    },
+    {
+      "op": "merge_run_fields",
+      "job_id": "j1",
+      "fields": {
+        "seeds": {
+          "umap": 42,
+          "kmeans": 42
+        },
+        "config_effective": {
+          "umap": {
+            "n_neighbors": 15,
+            "min_dist": 0.1
+          }
+        }
+      }
+    },
+    {
+      "op": "merge_run_fields",
+      "job_id": "j1",
+      "fields": {
+        "code_version": {
+          "git_sha": "abc123"
+        },
+        "input_fingerprints": {
+          "votes": {
+            "sha256": "deadbeef",
+            "rows": 100
+          }
+        }
+      }
+    },
+    {
+      "op": "merge_run_fields",
+      "job_id": "j1",
+      "fields": {
+        "math_tick_legacy": 25042,
+        "replayable": false,
+        "provenance": "legacy",
+        "replay_of": "orig-1"
+      }
+    },
+    {
+      "op": "get_run",
+      "job_id": "j1",
+      "expect": {
+        "found": true,
+        "math_tick_legacy": 25042,
+        "replayable": false,
+        "provenance": "legacy",
+        "replay_of": "orig-1"
+      }
+    },
+    {
+      "op": "merge_run_fields",
+      "job_id": "j1",
+      "fields": {
+        "job_id": "nope"
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "merge_run_fields",
+      "job_id": "j1",
+      "fields": {
+        "seeds": "not-a-dict"
+      },
+      "expect_error": "invalid"
+    },
+    {
+      "op": "get_run",
+      "job_id": "j1",
+      "expect": {
+        "found": true,
+        "status": "RUNNING",
+        "seeds": {
+          "umap": 42,
+          "kmeans": 42
+        },
+        "config_effective": {
+          "umap": {
+            "n_neighbors": 15,
+            "min_dist": 0.1
+          }
+        },
+        "code_version": {
+          "git_sha": "abc123"
+        },
+        "input_fingerprints": {
+          "votes": {
+            "sha256": "deadbeef",
+            "rows": 100
+          }
+        },
+        "config_requested": {
+          "umap": {
+            "n_neighbors": 15
+          }
+        }
+      }
+    },
+    {
+      "op": "merge_run_fields",
+      "job_id": "missing",
+      "fields": {
+        "seeds": {}
+      },
+      "expect_error": "not_found"
+    },
+    {
+      "op": "append_log",
+      "job_id": "j1",
+      "message": "stage math started",
+      "now": "2026-07-06T11:02:00.000Z",
+      "expect": {
+        "seq": 1
+      }
+    },
+    {
+      "op": "append_log",
+      "job_id": "j1",
+      "message": "stage math done",
+      "now": "2026-07-06T11:03:00.000Z",
+      "expect": {
+        "seq": 2
+      }
+    },
+    {
+      "op": "append_log",
+      "job_id": "j1",
+      "message": "stage umap started",
+      "now": "2026-07-06T11:04:00.000Z",
+      "expect": {
+        "seq": 3
+      }
+    },
+    {
+      "op": "append_log",
+      "job_id": "missing",
+      "message": "nope",
+      "now": "2026-07-06T11:04:00.000Z",
+      "expect_error": "not_found"
+    },
+    {
+      "op": "query_prefix",
+      "entity": "artifacts",
+      "pk": "j1",
+      "sk_prefix": "log#",
+      "expect": {
+        "sks": [
+          "log#00000001",
+          "log#00000002",
+          "log#00000003"
+        ]
+      }
+    },
+    {
+      "op": "get",
+      "entity": "artifacts",
+      "pk": "j1",
+      "sk": "log#00000002",
+      "expect": {
+        "found": true,
+        "attributes": {
+          "ts": "2026-07-06T11:03:00.000Z",
+          "message": "stage math done"
+        }
+      }
+    },
+    {
+      "op": "put",
+      "entity": "artifacts",
+      "item": {
+        "pk": "j1",
+        "sk": "math#pca",
+        "attributes": {
+          "enc": "json",
+          "body": {
+            "comps": [
+              0.1,
+              0.2
+            ]
+          }
+        }
+      }
+    },
+    {
+      "op": "query_prefix",
+      "entity": "artifacts",
+      "pk": "j1",
+      "sk_prefix": "math#",
+      "expect": {
+        "sks": [
+          "math#pca"
+        ]
+      }
+    },
+    {
+      "op": "complete_run",
+      "job_id": "j1",
+      "now": "2026-07-06T11:05:00.000Z",
+      "expect": {
+        "status": "COMPLETED",
+        "latest": [
+          {
+            "scope": "zid#9#FULL_PIPELINE",
+            "job_id": "j1",
+            "seq": 1
+          }
+        ]
+      }
+    },
+    {
+      "op": "get_run",
+      "job_id": "j1",
+      "expect": {
+        "found": true,
+        "status": "COMPLETED",
+        "completed_at": "2026-07-06T11:05:00.000Z",
+        "seeds": {
+          "umap": 42,
+          "kmeans": 42
+        }
+      }
+    }
+  ]
+}
