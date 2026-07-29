@@ -36,7 +36,7 @@
     "jest-environment-jsdom": "^29.7.0",
     "jest-fetch-mock": "^3.0.3",
     "mini-css-extract-plugin": "^2.7.6",
-    "webpack": "~5.88.0",
+    "webpack": "~5.105.0",
     "webpack-cli": "~5.1.4",
     "webpack-dev-server": "^4.15.1"
   },
