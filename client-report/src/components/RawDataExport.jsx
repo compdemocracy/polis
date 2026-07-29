@@ -103,6 +103,16 @@ const RawDataExport = ({ conversation, report_id }) => {
           {getDownloadFilename("comment-groups", conversation)}
         </a>
       </p>
+      <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
+        {`Comment clusters: `}
+        <a
+          download={getDownloadFilename("comment-clusters", conversation)}
+          href={`//${window.location.hostname}/api/v3/reportExport/${report_id}/comment-clusters.csv`}
+          type="text/csv"
+        >
+          {getDownloadFilename("comment-clusters", conversation)}
+        </a>
+      </p>
 
       <div style={{ marginTop: "3em" }}>
         <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
@@ -127,6 +137,9 @@ const RawDataExport = ({ conversation, report_id }) => {
         )}
         <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
           {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/comment-groups.csv`}
+        </p>
+        <p style={{ wordBreak: "break-all", fontFamily: "monospace" }}>
+          {`$ curl ${window.location.protocol}//${window.location.hostname}/api/v3/reportExport/${report_id}/comment-clusters.csv`}
         </p>
       </div>
 
