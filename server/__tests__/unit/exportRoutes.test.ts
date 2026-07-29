@@ -2,7 +2,9 @@ import {
   formatCSVHeaders,
   formatCSVRow,
   formatCSV,
+  getExcludedTids,
   loadConversationSummary,
+  sendCommentSummary,
   sendVotesSummary,
   sendParticipantVotesSummary,
   sendParticipantXidsSummary,
@@ -744,6 +746,200 @@ describe("handle_GET_reportExport", () => {
       expect(mockRes.write).toHaveBeenCalledWith("3,,1,1,0,,0\n");
 
       expect(mockRes.end).toHaveBeenCalled();
+    });
+  });
+
+  describe("getExcludedTids", () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it("should return an empty set when no report_comment_selections exist", async () => {
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([] as never);
+
+      const result = await getExcludedTids(123);
+
+      expect(result).toEqual(new Set());
+    });
+
+    it("should return tids with negative selection values", async () => {
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 5 },
+        { tid: 12 },
+      ] as never);
+
+      const result = await getExcludedTids(123);
+
+      expect(result).toEqual(new Set([5, 12]));
+    });
+
+    it("should pass the zid parameter to the query", async () => {
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([] as never);
+
+      await getExcludedTids(456);
+
+      expect(pg.queryP_readOnly).toHaveBeenCalledWith(
+        expect.stringContaining("report_comment_selections"),
+        [456]
+      );
+    });
+  });
+
+  describe("Excluded tids filtering", () => {
+    let mockRes: MockResponse;
+    const zid = 123;
+    const excludedTids = new Set([2]);
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+      mockRes = createMockResponse();
+    });
+
+    it("sendVotesSummary should skip rows with excluded tids", async () => {
+      const formatDatetimeSpy = jest.spyOn(
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        require("../../src/report"),
+        "formatDatetime"
+      );
+      formatDatetimeSpy.mockReturnValue("2024-01-01T00:00:00Z");
+
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { importance_enabled: false },
+      ] as never);
+
+      mockStreamWithRows([
+        { timestamp: 1000000, tid: 1, pid: 1, vote: -1 },
+        { timestamp: 2000000, tid: 2, pid: 1, vote: 1 }, // excluded
+        { timestamp: 3000000, tid: 3, pid: 1, vote: -1 },
+      ]);
+
+      await sendVotesSummary(zid, mockRes as any, excludedTids);
+
+      // Should write header + two data rows (tid 2 excluded)
+      const writeArgs = mockRes.write.mock.calls.map(
+        (call: any[]) => call[0] as string
+      );
+      const dataRows = writeArgs.filter(
+        (s: string) => !s.startsWith("timestamp")
+      );
+      expect(dataRows).toHaveLength(2);
+      // Verify excluded tid is absent
+      expect(writeArgs.join("")).not.toContain(",2,"); // tid 2 should not appear as comment-id
+    });
+
+    it("sendCommentSummary should exclude comments with excluded tids", async () => {
+      // Mock conversations query (importance_enabled)
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { importance_enabled: false },
+      ] as never);
+
+      // Mock comments query
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 1, pid: 1, created: "1000000", txt: "Comment 1", mod: 0, velocity: 1, active: true },
+        { tid: 2, pid: 1, created: "2000000", txt: "Excluded comment", mod: 0, velocity: 1, active: true },
+        { tid: 3, pid: 2, created: "3000000", txt: "Comment 3", mod: 0, velocity: 1, active: true },
+      ] as never);
+
+      // Mock votes stream (for aggregation)
+      mockStreamWithRows([
+        { tid: 1, vote: -1, high_priority: false },
+        { tid: 3, vote: 1, high_priority: false },
+      ]);
+
+      await sendCommentSummary(zid, mockRes as any, excludedTids);
+
+      // The response should be sent via res.send with CSV text
+      expect(mockRes.send).toHaveBeenCalled();
+      const csvText = mockRes.send.mock.calls[0][0] as string;
+      expect(csvText).toContain("Comment 1");
+      expect(csvText).toContain("Comment 3");
+      expect(csvText).not.toContain("Excluded comment");
+    });
+
+    it("sendParticipantVotesSummary should exclude columns and votes for excluded tids", async () => {
+      // Mock comment data - loadParticipantExportContext filters these
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 1, pid: 1 },
+        { tid: 2, pid: 1 }, // excluded tid
+        { tid: 3, pid: 2 },
+      ] as never);
+
+      const basePcaData = {
+        "in-conv": [1, 2],
+        "base-clusters": {
+          members: [[1], [2]],
+          x: [0, 1],
+          y: [0, 1],
+          id: [0, 1],
+          count: [1, 1],
+        },
+        "group-clusters": [
+          { id: 1, center: [0, 0], members: [0] },
+          { id: 2, center: [1, 1], members: [1] },
+        ],
+        "user-vote-counts": { 1: 2, 2: 1 },
+      };
+
+      (getPca as jest.Mock).mockResolvedValue({
+        asPOJO: basePcaData,
+      } as never);
+
+      mockStreamWithRows([
+        { pid: 1, tid: 1, vote: -1 },
+        { pid: 1, tid: 2, vote: 1 }, // excluded
+        { pid: 2, tid: 3, vote: -1 },
+      ]);
+
+      await sendParticipantVotesSummary(zid, mockRes as any, excludedTids);
+
+      // Header should NOT include tid 2
+      const headerCall = mockRes.write.mock.calls[0][0] as string;
+      expect(headerCall).toContain(",1,3\n");
+      expect(headerCall).not.toContain(",2,");
+      expect(headerCall).not.toContain(",2\n");
+    });
+
+    it("sendParticipantImportance should exclude columns and votes for excluded tids", async () => {
+      // Mock comment data
+      (pg.queryP_readOnly as jest.Mock).mockResolvedValueOnce([
+        { tid: 1, pid: 1 },
+        { tid: 2, pid: 1 }, // excluded tid
+        { tid: 3, pid: 2 },
+      ] as never);
+
+      const basePcaData = {
+        "in-conv": [1, 2],
+        "base-clusters": {
+          members: [[1], [2]],
+          x: [0, 1],
+          y: [0, 1],
+          id: [0, 1],
+          count: [1, 1],
+        },
+        "group-clusters": [
+          { id: 1, center: [0, 0], members: [0] },
+          { id: 2, center: [1, 1], members: [1] },
+        ],
+        "user-vote-counts": { 1: 2, 2: 1 },
+      };
+
+      (getPca as jest.Mock).mockResolvedValue({
+        asPOJO: basePcaData,
+      } as never);
+
+      mockStreamWithRows([
+        { pid: 1, tid: 1, vote: -1, high_priority: true },
+        { pid: 1, tid: 2, vote: 1, high_priority: true }, // excluded
+        { pid: 2, tid: 3, vote: -1, high_priority: false },
+      ]);
+
+      await sendParticipantImportance(zid, mockRes as any, excludedTids);
+
+      // Header should NOT include tid 2
+      const headerCall = mockRes.write.mock.calls[0][0] as string;
+      expect(headerCall).toContain(",1,3\n");
+      expect(headerCall).not.toContain(",2,");
+      expect(headerCall).not.toContain(",2\n");
     });
   });
 });

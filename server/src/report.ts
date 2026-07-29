@@ -89,6 +89,25 @@ const sep = "\n";
 
 const formatEscapedText = (s: string) => `"${s.replace(/"/g, '""')}"`;
 
+/**
+ * Returns the set of tids that should be excluded from report exports for a conversation.
+ * When the same tid has conflicting selections across different reports (rids),
+ * the most recent entry (by modified timestamp) wins.
+ */
+export async function getExcludedTids(zid: number): Promise<Set<number>> {
+  const rows = (await pg.queryP_readOnly(
+    `SELECT tid FROM (
+      SELECT DISTINCT ON (tid) tid, selection
+      FROM report_comment_selections
+      WHERE zid = ($1)
+      ORDER BY tid, modified DESC
+    ) AS latest
+    WHERE selection < 0`,
+    [zid]
+  )) as { tid: number }[];
+  return new Set(rows.map((r) => r.tid));
+}
+
 type ParticipantExportContext = {
   commentIds: number[];
   commentIdSet: Set<number>;
@@ -176,7 +195,8 @@ function createGroupIdResolver(
 }
 
 async function loadParticipantExportContext(
-  zid: number
+  zid: number,
+  excludedTids?: Set<number>
 ): Promise<ParticipantExportContext> {
   const [commentRowsRaw, pca] = await Promise.all([
     pg.queryP_readOnly(
@@ -186,7 +206,11 @@ async function loadParticipantExportContext(
     getPca(zid),
   ]);
 
-  const commentRows = (commentRowsRaw as { tid: number; pid: number }[]) || [];
+  const allCommentRows =
+    (commentRowsRaw as { tid: number; pid: number }[]) || [];
+  const commentRows = excludedTids?.size
+    ? allCommentRows.filter((r) => !excludedTids.has(r.tid))
+    : allCommentRows;
 
   const commentIds = commentRows.map((row) => row.tid);
   const commentIdSet = new Set(commentIds);
@@ -290,7 +314,11 @@ export async function sendConversationSummary(
   res.send(rows.join(sep));
 }
 
-export async function sendCommentSummary(zid: number, res: ResponseLike) {
+export async function sendCommentSummary(
+  zid: number,
+  res: ResponseLike,
+  excludedTids?: Set<number>
+) {
   const comments = new Map<number, CommentRow>();
 
   try {
@@ -303,10 +331,13 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
       convRows.length > 0 ? convRows[0].importance_enabled : false;
 
     // First query: Load comments metadata
-    const commentRows = (await pg.queryP_readOnly(
+    const allCommentRows = (await pg.queryP_readOnly(
       "SELECT tid, pid, created, txt, mod, velocity, active FROM comments WHERE zid = ($1)",
       [zid]
     )) as CommentRow[];
+    const commentRows = excludedTids?.size
+      ? allCommentRows.filter((c) => !excludedTids.has(c.tid))
+      : allCommentRows;
     for (const comment of commentRows) {
       comment.agrees = 0;
       comment.disagrees = 0;
@@ -333,8 +364,6 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
           if (importanceEnabled && row.high_priority) {
             comment.importance = (comment.importance || 0) + 1;
           }
-        } else {
-          logger.warn(`Comment row not found for [zid=${zid}, tid=${row.tid}]`);
         }
       },
       () => {
@@ -374,7 +403,11 @@ export async function sendCommentSummary(zid: number, res: ResponseLike) {
   }
 }
 
-export async function sendVotesSummary(zid: number, res: ResponseLike) {
+export async function sendVotesSummary(
+  zid: number,
+  res: ResponseLike,
+  excludedTids?: Set<number>
+) {
   try {
     // Check if importance is enabled for this conversation
     const convRows = (await pg.queryP_readOnly(
@@ -409,10 +442,12 @@ export async function sendVotesSummary(zid: number, res: ResponseLike) {
     pg.stream_queryP_readOnly(
       selectClause,
       [zid],
-      (row) => res.write(formatCSVRow(row, formatters) + sep),
+      (row) => {
+        if (excludedTids?.has(row.tid)) return;
+        res.write(formatCSVRow(row, formatters) + sep);
+      },
       () => res.end(),
       (error) => {
-        // Handle any errors
         logger.error("polis_err_report_votes_csv", error);
         failJson(res, 500, "polis_err_data_export", error);
       }
@@ -425,10 +460,11 @@ export async function sendVotesSummary(zid: number, res: ResponseLike) {
 
 export async function sendParticipantVotesSummary(
   zid: number,
-  res: ResponseLike
+  res: ResponseLike,
+  excludedTids?: Set<number>
 ) {
   const { commentIds, participantCommentCounts, getGroupId } =
-    await loadParticipantExportContext(zid);
+    await loadParticipantExportContext(zid, excludedTids);
 
   res.setHeader("content-type", "text/csv");
   res.write(
@@ -475,6 +511,7 @@ export async function sendParticipantVotesSummary(
     "SELECT pid, tid, vote FROM votes WHERE zid = ($1) ORDER BY pid, tid",
     [zid],
     (row) => {
+      if (excludedTids?.has(row.tid)) return;
       const pid: number = row.pid;
       if (pid != currentParticipantId) {
         if (currentParticipantId != -1) {
@@ -501,7 +538,8 @@ export async function sendParticipantVotesSummary(
 
 export async function sendParticipantImportance(
   zid: number,
-  res: ResponseLike
+  res: ResponseLike,
+  excludedTids?: Set<number>
 ) {
   // Export participant importance data as CSV matrix
   // Columns: participant, group-id, n-comments, n-votes, n-important, [comment-id...]
@@ -510,7 +548,7 @@ export async function sendParticipantImportance(
   //   "0" - participant voted on this comment with high_priority = false
   //   "" (empty) - participant did not vote on this comment
   const { commentIds, commentIdSet, participantCommentCounts, getGroupId } =
-    await loadParticipantExportContext(zid);
+    await loadParticipantExportContext(zid, excludedTids);
 
   res.setHeader("content-type", "text/csv");
   res.write(
@@ -608,7 +646,8 @@ export async function sendCommentGroupsSummary(
     comment_extremity?: number;
     comment_id: number;
     num_groups: number;
-  }) => boolean
+  }) => boolean,
+  excludedTids?: Set<number>
 ) {
   const csvText = [];
   // Get PCA data to identify groups and get groupVotes
@@ -753,6 +792,8 @@ export async function sendCommentGroupsSummary(
 
   // Write data rows
   for (const stats of commentStats.values()) {
+    if (excludedTids?.has(stats.tid)) continue;
+
     const row = [
       stats.tid,
       formatEscapedText(stats.txt),
@@ -803,13 +844,17 @@ export async function sendCommentGroupsSummary(
 
 export async function sendCommentClustersSummary(
   zid: number,
-  res: ResponseLike
+  res: ResponseLike,
+  excludedTids?: Set<number>
 ) {
   try {
     logger.info(`Generating comment-clusters export for zid ${zid}`);
 
     // Get comments with cluster assignments
-    const comments = await getCommentsWithClusters(zid);
+    const allComments = await getCommentsWithClusters(zid);
+    const comments = excludedTids?.size
+      ? allComments.filter((c) => !excludedTids.has(c.tid))
+      : allComments;
 
     if (comments.length === 0) {
       logger.warn(`No comments found for zid ${zid}`);

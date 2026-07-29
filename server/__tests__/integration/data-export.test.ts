@@ -524,3 +524,206 @@ describe("Data Export API with Importance Enabled", () => {
     });
   });
 });
+
+describe("Data Export API with Excluded Comments", () => {
+  let agent: Agent;
+  let testAgent: Agent;
+  let conversationId: string;
+  let reportId: string;
+  let comments: number[];
+  let excludedTid: number;
+  let includedTids: number[];
+
+  const numParticipants = 3;
+  const numComments = 3;
+  const testTopic = "Test Excluded Comments Conversation";
+  const testDescription = "Testing comment exclusion in data exports";
+
+  beforeAll(async () => {
+    // Use pooled user for JWT authentication
+    const pooledUser = getPooledTestUser(3); // Use a different user pool
+    const testUser = {
+      email: pooledUser.email,
+      hname: pooledUser.name,
+      password: pooledUser.password,
+    };
+
+    // Get JWT authenticated agent
+    const { agent: jwtAgent, token } = await getJwtAuthenticatedAgent(testUser);
+    agent = jwtAgent;
+
+    // Get agent for endpoints and authenticate it
+    testAgent = await getTestAgent();
+    testAgent.set("Authorization", `Bearer ${token}`);
+    testAgent.set("x-forwarded-proto", "http");
+
+    // Create a conversation (returns zinvite string, not zid)
+    const zinvite = await createConversation(agent, {
+      topic: testTopic,
+      description: testDescription,
+    });
+    conversationId = zinvite;
+
+    // Get the actual zid from the zinvite
+    const { pool } = await import("../setup/db-test-helpers");
+    const zidResult = await pool.query(
+      "SELECT zid FROM zinvites WHERE zinvite = $1",
+      [zinvite]
+    );
+    const zid = zidResult.rows[0].zid;
+
+    // Create comments
+    comments = [];
+    for (let i = 1; i <= numComments; i++) {
+      const response = await agent.post("/api/v3/comments").send({
+        conversation_id: conversationId,
+        txt: `Export test comment ${i}`,
+      });
+      if (response.status === 200) {
+        comments.push(response.body.tid);
+      }
+    }
+
+    // The second comment will be excluded
+    excludedTid = comments[1];
+    includedTids = [comments[0], comments[2]];
+
+    // Create participants and have them vote
+    const participants: Awaited<ReturnType<typeof initializeParticipant>>[] = [];
+    for (let i = 0; i < numParticipants; i++) {
+      const participantData = await initializeParticipant(conversationId);
+      participants.push(participantData);
+    }
+
+    // Submit votes from each participant
+    for (let i = 0; i < participants.length; i++) {
+      const participantData = participants[i];
+      for (let j = 0; j < comments.length; j++) {
+        const vote = [-1, 1, 0][j % 3] as -1 | 0 | 1;
+        await submitVote(participantData.agent, {
+          conversation_id: conversationId,
+          tid: comments[j],
+          vote,
+        });
+      }
+    }
+
+    // Trigger math computation
+    await agent.post("/api/v3/mathUpdate").send({
+      conversation_id: conversationId,
+      math_update_type: "update",
+    });
+
+    // Wait for math computation
+    let pcaAvailable = false;
+    for (let attempt = 0; attempt < 10; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      try {
+        const pcaResponse = await agent.get(
+          `/api/v3/math/pca2?conversation_id=${conversationId}`
+        );
+        if (pcaResponse.status === 200 && pcaResponse.body) {
+          pcaAvailable = true;
+          break;
+        }
+      } catch (error) {
+        // Continue trying
+      }
+    }
+
+    if (!pcaAvailable) {
+      throw new Error("PCA data not available after waiting 10 seconds");
+    }
+
+    // Create a report
+    await agent.post("/api/v3/reports").send({
+      conversation_id: conversationId,
+    });
+    await wait(2000);
+
+    // Get the report ID
+    const getReportsResponse: Response = await agent.get(
+      `/api/v3/reports?conversation_id=${conversationId}`
+    );
+    reportId = getReportsResponse.body[0].report_id;
+
+    // Get the rid from the report_id
+    const ridResult = await pool.query(
+      "SELECT rid FROM reports WHERE report_id = $1",
+      [reportId]
+    );
+    const rid = ridResult.rows[0].rid;
+
+    // Insert a report_comment_selections row to exclude the second comment
+    await pool.query(
+      `INSERT INTO report_comment_selections (zid, rid, tid, selection, modified)
+       VALUES ($1, $2, $3, -1, $4)`,
+      [zid, rid, excludedTid, Date.now()]
+    );
+  });
+
+  test("comments.csv should not contain excluded comment", async () => {
+    const response: Response = await testAgent.get(
+      `/api/v3/reportExport/${reportId}/comments.csv`
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/csv");
+
+    // Included comments should be present
+    for (const tid of includedTids) {
+      expect(response.text).toContain(`Export test comment ${comments.indexOf(tid) + 1}`);
+    }
+
+    // Excluded comment should be absent
+    expect(response.text).not.toContain("Export test comment 2");
+  });
+
+  test("votes.csv should not contain votes for excluded comment", async () => {
+    const response: Response = await testAgent.get(
+      `/api/v3/reportExport/${reportId}/votes.csv`
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/csv");
+
+    // Parse CSV rows (skip header)
+    const dataLines = response.text
+      .split("\n")
+      .slice(1)
+      .filter((line) => line.trim().length > 0);
+
+    // No row should have the excluded tid as comment-id
+    for (const line of dataLines) {
+      const cols = line.split(",");
+      const commentId = parseInt(cols[2]); // comment-id is the 3rd column
+      expect(commentId).not.toBe(excludedTid);
+    }
+
+    // Rows for included tids should exist
+    const tidsInExport = dataLines.map((line) => parseInt(line.split(",")[2]));
+    for (const tid of includedTids) {
+      expect(tidsInExport).toContain(tid);
+    }
+  });
+
+  test("participant-votes.csv should not contain column for excluded comment", async () => {
+    const response: Response = await testAgent.get(
+      `/api/v3/reportExport/${reportId}/participant-votes.csv`
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers["content-type"]).toContain("text/csv");
+
+    const headerLine = response.text.split("\n")[0];
+    const headers = headerLine.split(",");
+
+    // Excluded tid should not appear as a column header
+    expect(headers).not.toContain(String(excludedTid));
+
+    // Included tids should appear as column headers
+    for (const tid of includedTids) {
+      expect(headers).toContain(String(tid));
+    }
+  });
+});
