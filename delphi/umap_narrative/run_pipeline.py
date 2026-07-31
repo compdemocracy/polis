@@ -1476,8 +1476,14 @@ def process_conversation(
     return True
 
 
-def main():
-    """Main entry point."""
+def main(argv=None):
+    """Main entry point.
+
+    Args:
+        argv: Optional argument list (defaults to ``sys.argv[1:]`` when None),
+            so the orchestrator can invoke this stage in-process without
+            touching global ``sys.argv``.
+    """
     # Parse arguments
     import argparse
 
@@ -1524,7 +1530,7 @@ def main():
         help="Whether to exclude comments with selection=-1 in report_comment_selections table.",
     )
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     # Set up environment
     setup_environment(

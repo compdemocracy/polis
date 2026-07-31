@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 import argparse
 import os
-import subprocess
 import sys
+
+# Put umap_narrative/ on sys.path so the stage runner and stage modules resolve
+# as top-level packages (the same convention the numbered scripts rely on).
+_UMAP_NARRATIVE_DIR = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "umap_narrative"
+)
+if _UMAP_NARRATIVE_DIR not in sys.path:
+    sys.path.insert(0, _UMAP_NARRATIVE_DIR)
+
+from stages.runner import STAGES, run_stage
 
 # Define colors for output
 GREEN = '\033[0;32m'
@@ -24,6 +33,10 @@ def show_usage():
     print("  --force                   Force reprocessing even if data exists")
     print("  --validate                Run extra validation checks")
     print("  --help                    Show this help message")
+    print()
+    print("Stage execution:")
+    print("  Stages run in-process by default. Set DELPHI_STAGE_ISOLATION=subprocess")
+    print("  to run each stage as a separate subprocess (debugging / isolation).")
 
 def main():
     parser = argparse.ArgumentParser(description="Process a Polis conversation with the Delphi analytics pipeline.", add_help=False)
@@ -52,20 +65,16 @@ def main():
 
     # --- Reset all data before processing ---
     print(f"{YELLOW}Resetting all existing data for conversation {zid} before processing...{NC}")
-    reset_command = [
-        "python",
-        "umap_narrative/reset_conversation.py",
-        f"--zid={zid}",
-    ]
+    reset_argv = [f"--zid={zid}"]
     # If a report ID is provided, pass it to the reset script for full cleanup
     if rid:
-        reset_command.append(f"--rid={rid}")
+        reset_argv.append(f"--rid={rid}")
         print(f"{YELLOW}Using report ID {rid} for full narrative report cleanup.{NC}")
-    
-    reset_process = subprocess.run(reset_command)
-    if reset_process.returncode != 0:
-        print(f"{RED}Data reset failed with exit code {reset_process.returncode}. Aborting pipeline.{NC}")
-        sys.exit(reset_process.returncode)
+
+    reset_exit_code = run_stage(STAGES["reset"], reset_argv)
+    if reset_exit_code != 0:
+        print(f"{RED}Data reset failed with exit code {reset_exit_code}. Aborting pipeline.{NC}")
+        sys.exit(reset_exit_code)
     print(f"{GREEN}Data reset complete.{NC}")
 
     print(f"{GREEN}Processing conversation {zid}...{NC}")
@@ -97,17 +106,13 @@ def main():
 
     # Run the math pipeline
     print(f"{GREEN}Running math pipeline...{NC}")
-    math_command = [
-        "python", f"{app_path}/polismath/run_math_pipeline.py",
-        f"--zid={zid}",
-    ]
+    math_argv = [f"--zid={zid}"]
     if max_votes_arg:
-        math_command.append(max_votes_arg)
+        math_argv.append(max_votes_arg)
     if batch_size_arg:
-        math_command.append(batch_size_arg)
+        math_argv.append(batch_size_arg)
 
-    math_process = subprocess.run(math_command)
-    math_exit_code = math_process.returncode
+    math_exit_code = run_stage(STAGES["math"], math_argv)
 
     if math_exit_code != 0:
         print(f"{RED}Math pipeline failed with exit code {math_exit_code}{NC}")
@@ -115,34 +120,30 @@ def main():
 
     # Run the UMAP narrative pipeline
     print(f"{GREEN}Running UMAP narrative pipeline...{NC}")
-    umap_command = [
-        "python", f"{app_path}/umap_narrative/run_pipeline.py",
+    umap_argv = [
         f"--zid={zid}",
         f"--include_moderation={args.include_moderation}",
         f"--exclude_comment_selections={args.exclude_comment_selections}",
-        "--use-ollama"
+        "--use-ollama",
     ]
     if verbose_arg:
-        umap_command.append(verbose_arg)
+        umap_argv.append(verbose_arg)
 
-    pipeline_process = subprocess.run(umap_command)
-    pipeline_exit_code = pipeline_process.returncode
+    pipeline_exit_code = run_stage(STAGES["umap-pipeline"], umap_argv)
 
     # Calculate and store comment extremity values
     print(f"{GREEN}Calculating comment extremity values...{NC}")
-    extremity_command = [
-        "python", f"{app_path}/umap_narrative/501_calculate_comment_extremity.py",
+    extremity_argv = [
         f"--zid={zid}",
         f"--include_moderation={args.include_moderation}",
-        f"--exclude_comment_selections={args.exclude_comment_selections}"
+        f"--exclude_comment_selections={args.exclude_comment_selections}",
     ]
     if verbose_arg:
-        extremity_command.append(verbose_arg)
+        extremity_argv.append(verbose_arg)
     if force_arg:
-        extremity_command.append(force_arg)
-    
-    extremity_process = subprocess.run(extremity_command)
-    extremity_exit_code = extremity_process.returncode
+        extremity_argv.append(force_arg)
+
+    extremity_exit_code = run_stage(STAGES["extremity"], extremity_argv)
 
     if extremity_exit_code != 0:
         print(f"{RED}Warning: Extremity calculation failed with exit code {extremity_exit_code}{NC}")
@@ -150,15 +151,11 @@ def main():
 
     # Calculate comment priorities using group-based extremity
     print(f"{GREEN}Calculating comment priorities with group-based extremity...{NC}")
-    priority_command = [
-        "python", f"{app_path}/umap_narrative/502_calculate_priorities.py",
-        f"--conversation_id={zid}",
-    ]
+    priority_argv = [f"--conversation_id={zid}"]
     if verbose_arg:
-        priority_command.append(verbose_arg)
-    
-    priority_process = subprocess.run(priority_command)
-    priority_exit_code = priority_process.returncode
+        priority_argv.append(verbose_arg)
+
+    priority_exit_code = run_stage(STAGES["priorities"], priority_argv)
 
     if priority_exit_code != 0:
         print(f"{RED}Warning: Priority calculation failed with exit code {priority_exit_code}{NC}")
@@ -176,14 +173,14 @@ def main():
         try:
             import boto3
             from boto3.dynamodb.conditions import Key
-            
+
             raw_endpoint = os.environ.get('DYNAMODB_ENDPOINT')
             endpoint_url = raw_endpoint if raw_endpoint and raw_endpoint.strip() else None
-            
+
             # Using dummy credentials for local, IAM role for AWS
             if endpoint_url:
-                dynamodb = boto3.resource('dynamodb', 
-                                         endpoint_url=endpoint_url, 
+                dynamodb = boto3.resource('dynamodb',
+                                         endpoint_url=endpoint_url,
                                          region_name='us-east-1',
                                          aws_access_key_id='dummy',
                                          aws_secret_access_key='dummy')
@@ -192,7 +189,7 @@ def main():
 
 
             table = dynamodb.Table('Delphi_CommentHierarchicalClusterAssignments')
-            
+
             available_layers = set()
             last_key = None
 
@@ -203,7 +200,7 @@ def main():
                 }
                 if last_key:
                     query_kwargs['ExclusiveStartKey'] = last_key
-                
+
                 response = table.query(**query_kwargs)
 
                 for item in response.get('Items', []):
@@ -213,37 +210,36 @@ def main():
                                 layer_num = int(key.replace('layer', '').replace('_cluster_id', ''))
                                 available_layers.add(layer_num)
                             except ValueError:
-                                continue 
-                
+                                continue
+
                 last_key = response.get('LastEvaluatedKey')
                 if not last_key:
                     break
-            
+
             available_layers = sorted(list(available_layers))
             if not available_layers:
                  raise ValueError("No valid layers found for this conversation.")
-                 
+
             print(f"{YELLOW}Discovered layers: {available_layers}{NC}")
-            
+
         except Exception as e:
             print(f"{RED}Warning: Could not determine layers from DynamoDB: {e}{NC}")
             print(f"{YELLOW}Falling back to layer 0 only{NC}")
             available_layers = [0]
-        
+
         # Generate visualization for each available layer
         for layer_id in available_layers:
             print(f"{YELLOW}Generating visualization for layer {layer_id}...{NC}")
-            datamap_command = [
-                "python", f"{app_path}/umap_narrative/700_datamapplot_for_layer.py",
+            datamap_argv = [
                 f"--conversation_id={zid}",
                 f"--layer={layer_id}",
-                f"--output_dir={output_dir}"
+                f"--output_dir={output_dir}",
             ]
             if verbose_arg:
-                datamap_command.append(verbose_arg)
-            
-            result = subprocess.run(datamap_command)
-            if result.returncode == 0:
+                datamap_argv.append(verbose_arg)
+
+            layer_exit_code = run_stage(STAGES["datamapplot"], datamap_argv)
+            if layer_exit_code == 0:
                 print(f"{GREEN}Layer {layer_id} visualization completed{NC}")
             else:
                 print(f"{RED}Warning: Layer {layer_id} visualization failed{NC}")

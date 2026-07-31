@@ -9,8 +9,10 @@ umap_narrative_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..
 if umap_narrative_dir not in sys.path:
     sys.path.insert(0, umap_narrative_dir)
 
-# Import the module and function to be tested using importlib
-extremity_module = importlib.import_module("501_calculate_comment_extremity")
+# Import the module and function to be tested. The stage logic now lives in
+# umap_narrative/stages/comment_extremity.py (the numbered 501 script is a thin
+# CLI shim). Patch targets must reference this module, where the names resolve.
+extremity_module = importlib.import_module("stages.comment_extremity")
 calculate_and_store_extremity = extremity_module.calculate_and_store_extremity
 
 def test_calculate_and_store_extremity_with_mocks():
