@@ -11,6 +11,16 @@ var $ = require("jquery");
 var _ = require("lodash");
 
 var iOS = Utils.isIos();
+var VOTE_SHORTCUT_KEYS = {
+  agree: "s",
+  disagree: "d",
+  pass: "f"
+};
+var VOTE_SHORTCUT_KEY_BY_CODE = {
+  keys: VOTE_SHORTCUT_KEYS.agree,
+  keyd: VOTE_SHORTCUT_KEYS.disagree,
+  keyf: VOTE_SHORTCUT_KEYS.pass
+};
 
 function getOfficialTranslations(translations) {
   return (translations || []).filter(function (t) {
@@ -56,6 +66,7 @@ module.exports = Handlebones.ModelView.extend({
       ctx.createdString = new Date(ctx.created * 1).toString().match(/(.*?) [0-9]+:/)[1];
     }
     ctx.s = Strings;
+    ctx.voteShortcuts = VOTE_SHORTCUT_KEYS;
 
     var btnBg = preload.conversation.style_btn;
     if (btnBg) {
@@ -215,10 +226,14 @@ module.exports = Handlebones.ModelView.extend({
   },
   initialize: function (options) {
     Handlebones.ModelView.prototype.initialize.apply(this, arguments);
+    var that = this;
     eb.on(eb.exitConv, cleanup);
 
     function cleanup() {
       eb.off(eb.exitConv, cleanup);
+      if (that.onKeyDownVoteShortcuts && that.hotkeyTarget) {
+        that.hotkeyTarget.removeEventListener("keydown", that.onKeyDownVoteShortcuts, true);
+      }
     }
     var serverClient = (this.serverClient = options.serverClient);
     var votesByMe = (this.votesByMe = options.votesByMe);
@@ -234,13 +249,68 @@ module.exports = Handlebones.ModelView.extend({
     var conversation_id = (this.conversation_id = options.conversation_id);
     this.pid = options.pid;
     this.isSubscribed = options.isSubscribed;
+    this.hotkeyTarget = window;
+
+    this.onKeyDownVoteShortcuts = function (e) {
+      if (e.repeat || e.altKey || e.ctrlKey || e.metaKey) {
+        return;
+      }
+
+      var target = e.target || document.activeElement;
+      var tagName = target && target.tagName ? target.tagName.toLowerCase() : "";
+      if (
+        tagName === "input" ||
+        tagName === "textarea" ||
+        tagName === "select" ||
+        (target && target.isContentEditable)
+      ) {
+        return;
+      }
+
+      var agreeButton = that.$("#agreeButton");
+      var disagreeButton = that.$("#disagreeButton");
+      var passButton = that.$("#passButton");
+
+      // Enable shortcuts only while the vote screen is actually visible.
+      if (
+        !agreeButton.length ||
+        !disagreeButton.length ||
+        !passButton.length ||
+        !agreeButton.is(":visible") ||
+        !disagreeButton.is(":visible") ||
+        !passButton.is(":visible")
+      ) {
+        return;
+      }
+
+      var key = (e.key || "").toLowerCase();
+      if (!key) {
+        key = String.fromCharCode(e.which || e.keyCode || 0).toLowerCase();
+      }
+
+      // Fallback to physical-key detection only when character key is unavailable.
+      if (!key || key === "unidentified") {
+        var code = (e.code || "").toLowerCase();
+        key = VOTE_SHORTCUT_KEY_BY_CODE[code] || key;
+      }
+
+      if (key === VOTE_SHORTCUT_KEYS.agree) {
+        e.preventDefault();
+        that.participantAgreed();
+      } else if (key === VOTE_SHORTCUT_KEYS.disagree) {
+        e.preventDefault();
+        that.participantDisagreed();
+      } else if (key === VOTE_SHORTCUT_KEYS.pass) {
+        e.preventDefault();
+        that.participantPassed();
+      }
+    };
+    this.hotkeyTarget.addEventListener("keydown", this.onKeyDownVoteShortcuts, true);
 
     if (Utils.isDemoMode()) {
       votesByMeFetched.resolve();
     }
     votesByMe.on("sync", votesByMeFetched.resolve);
-
-    var that = this;
     var waitingForComments = true;
     var commentPollInterval = 5 * 1000;
 
