@@ -1,5 +1,8 @@
 const matchers = require('@testing-library/jest-dom/matchers')
+const { toHaveNoViolations } = require('jest-axe')
+
 expect.extend(matchers)
+expect.extend(toHaveNoViolations)
 
 // Mock window.matchMedia which is used by some components
 Object.defineProperty(window, 'matchMedia', {

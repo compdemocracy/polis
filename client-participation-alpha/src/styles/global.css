@@ -138,12 +138,14 @@ h1 {
   font-size: 16px;
 }
 .agree {
-  color: #28a745;
-  border-color: #28a745;
+  /* Darker than Bootstrap #28a745 so text meets WCAG AA 4.5:1 on white */
+  color: #157347;
+  border-color: #157347;
 }
 .disagree {
-  color: #dc3545;
-  border-color: #dc3545;
+  /* Darker than Bootstrap #dc3545 so text meets WCAG AA 4.5:1 on white */
+  color: #b02a37;
+  border-color: #b02a37;
 }
 .pass {
   color: #6c757d;

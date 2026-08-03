@@ -8,6 +8,7 @@
     "test": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/**/*.cy.js'",
     "test:admin": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/client-admin/**/*.cy.js'",
     "test:alpha": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/alpha-client/**/*.cy.js'",
+    "test:a11y": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/alpha-client/a11y.cy.js'",
     "test:auth": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/auth/**/*.cy.js'",
     "test:participation": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/client-participation/**/*.cy.js'",
     "test:embed": "NODE_EXTRA_CA_CERTS=$(mkcert -CAROOT)/rootCA.pem cypress run --spec 'cypress/e2e/client-participation/embeds.cy.js'",
@@ -34,6 +35,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "axe-core": "^4.12.1",
+    "cypress-axe": "^1.7.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-cypress": "^5.2.0",
