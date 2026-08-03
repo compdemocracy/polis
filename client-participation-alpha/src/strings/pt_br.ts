@@ -39,7 +39,7 @@ s.tipCommentsRandom =
   "Comentários são embaralhados para ser exibidos. Quando escreve um comentário, você não está respondendo diretamente para ninguém."
 s.writePrompt = "Inclua seu comentário..."
 s.writeCommentHelpText =
-  "Se o sua opinião não está representada ainda, <strong>escreva</strong> um comentário!</i>"
+  "Se o sua opinião não está representada ainda, <strong>escreva</strong> um comentário!"
 
 // ─────────────────────────────────────────────────────────────
 // Visualization

@@ -12,9 +12,7 @@ jest.mock('../../lib/auth', () => ({
 
 describe('SurveyForm a11y', () => {
   it('has no accessibility violations in default state', async () => {
-    const { container } = render(
-      <SurveyForm s={a11yStrings} conversation_id="test-conversation" />
-    )
+    const { container } = render(<SurveyForm s={a11yStrings} conversation_id="test-conversation" />)
 
     await expectNoA11yViolations(container)
   })

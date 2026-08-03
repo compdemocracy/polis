@@ -33,7 +33,7 @@ s.x_wrote = "表示："
 s.commentSent = "意见已送出！"
 s.submitComment = "送出"
 s.writePrompt = "分享您的观点..."
-s.writeCommentHelpText = "如果您的观点没有人写过，请务必将它<strong>写下来</strong>！</i>"
+s.writeCommentHelpText = "如果您的观点没有人写过，请务必将它<strong>写下来</strong>！"
 
 // ─────────────────────────────────────────────────────────────
 // Visualization
