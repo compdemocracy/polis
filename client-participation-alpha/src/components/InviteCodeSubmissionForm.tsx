@@ -15,6 +15,7 @@ export default function InviteCodeSubmissionForm({
   const [loginCode, setLoginCode] = useState<string>('')
   const [message, setMessage] = useState<string>('')
   const [error, setError] = useState<string>('')
+  const [errorSource, setErrorSource] = useState<'invite' | 'login' | null>(null)
   const [submittingInvite, setSubmittingInvite] = useState<boolean>(false)
   const [submittingLogin, setSubmittingLogin] = useState<boolean>(false)
 
@@ -22,6 +23,7 @@ export default function InviteCodeSubmissionForm({
     if (!inviteCode) return
     setSubmittingInvite(true)
     setError('')
+    setErrorSource(null)
     try {
       const response = await acceptInvite({
         conversation_id,
@@ -49,6 +51,7 @@ export default function InviteCodeSubmissionForm({
       setInviteCode('')
     } catch {
       setError(s.invite_code_invalid)
+      setErrorSource('invite')
     } finally {
       setSubmittingInvite(false)
     }
@@ -58,6 +61,7 @@ export default function InviteCodeSubmissionForm({
     if (!loginCode) return
     setSubmittingLogin(true)
     setError('')
+    setErrorSource(null)
     try {
       await treeviteLogin({
         conversation_id,
@@ -69,6 +73,7 @@ export default function InviteCodeSubmissionForm({
       setLoginCode('')
     } catch {
       setError(s.login_code_invalid)
+      setErrorSource('login')
     } finally {
       setSubmittingLogin(false)
     }
@@ -87,7 +92,7 @@ export default function InviteCodeSubmissionForm({
           </div>
         ) : null}
         {error ? (
-          <div className="notice error" role="alert">
+          <div id="invite-code-error" className="notice error" role="alert">
             {error}
           </div>
         ) : null}
@@ -112,6 +117,8 @@ export default function InviteCodeSubmissionForm({
               autoComplete="one-time-code"
               value={inviteCode}
               onChange={(e) => setInviteCode(e.target.value)}
+              aria-invalid={errorSource === 'invite'}
+              aria-describedby={errorSource === 'invite' ? 'invite-code-error' : undefined}
             />
             <button type="submit" disabled={!inviteCode || submittingInvite}>
               {submittingInvite ? s.submitting : s.submit_invite_code}
@@ -141,6 +148,8 @@ export default function InviteCodeSubmissionForm({
               autoComplete="one-time-code"
               value={loginCode}
               onChange={(e) => setLoginCode(e.target.value)}
+              aria-invalid={errorSource === 'login'}
+              aria-describedby={errorSource === 'login' ? 'invite-code-error' : undefined}
             />
             <button type="submit" disabled={!loginCode || submittingLogin}>
               {submittingLogin ? s.submitting : s.submit_login_code}

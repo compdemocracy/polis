@@ -64,6 +64,7 @@ export default function EmailSubscribeForm({ s, conversation_id }: EmailSubscrib
           required
           autoComplete="email"
           aria-invalid={!!errorFeedback}
+          aria-describedby={errorFeedback ? 'email-subscribe-error' : undefined}
         />
         <button
           type="submit"
@@ -74,7 +75,7 @@ export default function EmailSubscribeForm({ s, conversation_id }: EmailSubscrib
         </button>
       </form>
       {errorFeedback && (
-        <p className="subscribe-error" role="alert">
+        <p id="email-subscribe-error" className="subscribe-error" role="alert">
           {errorFeedback}
         </p>
       )}

@@ -116,6 +116,7 @@ export default function SurveyForm({
       )}
       {error && (
         <p
+          id="survey-form-error"
           role="alert"
           style={{
             textAlign: 'center',
@@ -148,6 +149,8 @@ export default function SurveyForm({
               value={text}
               onChange={(e) => setText(e.target.value)}
               maxLength={maxLength}
+              aria-invalid={!!error}
+              aria-describedby={error ? 'survey-form-error' : undefined}
             />
             <div className="char-counter">
               {text.length} / {maxLength}
