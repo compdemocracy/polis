@@ -86,11 +86,7 @@ export function Statement({
             {s.anonPerson} {s.x_wrote}
           </span>
         </div>
-        {remainingText && (
-          <span className="statement-remaining">
-            {remainingText}
-          </span>
-        )}
+        {remainingText && <span className="statement-remaining">{remainingText}</span>}
       </div>
 
       {/* Show official translation (replaces original) or original text */}
@@ -214,7 +210,11 @@ export function Statement({
           {isVoting ? '' : passUnsureText}
         </button>
       </div>
-      {voteError && <p className="vote-error">{voteError}</p>}
+      {voteError && (
+        <p className="vote-error" role="alert">
+          {voteError}
+        </p>
+      )}
     </div>
   )
 }

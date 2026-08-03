@@ -103,6 +103,7 @@ export default function SurveyForm({
     <div>
       {feedback && (
         <p
+          role="status"
           style={{
             textAlign: 'center',
             color: '#28a745',
@@ -115,6 +116,7 @@ export default function SurveyForm({
       )}
       {error && (
         <p
+          role="alert"
           style={{
             textAlign: 'center',
             color: '#dc3545',
@@ -136,20 +138,25 @@ export default function SurveyForm({
         <p dangerouslySetInnerHTML={{ __html: s.tipCommentsRandom }}></p>
       </div>
       <form className="submit-form" onSubmit={handleSubmit}>
-        <div className="textarea-wrapper">
-          <textarea
-            placeholder={s.writePrompt}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            maxLength={maxLength}
-          />
-          <div className="char-counter">
-            {text.length} / {maxLength}
+        <label className="submit-form-label" htmlFor="comment-textarea">
+          {s.writePrompt}
+        </label>
+        <div className="submit-form-controls">
+          <div className="textarea-wrapper">
+            <textarea
+              id="comment-textarea"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              maxLength={maxLength}
+            />
+            <div className="char-counter">
+              {text.length} / {maxLength}
+            </div>
           </div>
+          <button type="submit" className="submit-button" disabled={!text.trim()}>
+            {s.submitComment}
+          </button>
         </div>
-        <button type="submit" className="submit-button" disabled={!text.trim()}>
-          {s.submitComment}
-        </button>
       </form>
     </div>
   )

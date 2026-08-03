@@ -23,6 +23,17 @@ body {
   box-sizing: border-box;
 }
 
+/* Global keyboard focus indicator (WCAG 2.4.7) */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid var(--color-text);
+  outline-offset: 2px;
+}
+
 .container {
   max-width: 800px;
   margin: 2rem;
@@ -155,13 +166,28 @@ h1 {
 }
 .submit-form {
   display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: 0.5rem;
+}
+
+.submit-form-label {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.25rem;
+}
+
+.submit-form-controls {
+  display: flex;
   width: 100%;
   align-items: stretch;
   justify-content: space-between;
 }
 
 @media (max-width: 650px) {
-  .submit-form {
+  .submit-form-controls {
     flex-direction: column;
 
     button {
@@ -222,7 +248,18 @@ h1 {
 }
 .email-subscribe-form {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
+  align-items: center;
+}
+.email-subscribe-label {
+  display: block;
+  width: 100%;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 0.25rem;
+  text-align: start;
 }
 .email-subscribe-form input {
   flex-grow: 1;
