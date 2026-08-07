@@ -1373,74 +1373,60 @@ class Conversation:
 
         group_votes = {}
 
-        # Helper to count votes of a specific type for a group
-        def count_votes_for_group(group_id, comment_id, vote_type):
-            group = next((g for g in unfolded if g.get('id') == group_id), None)
-            if not group:
-                return 0
-                
-            # Get members of this group
+        # The A/D/S counts for a group are three column-wise reductions over
+        # that group's rows of the vote matrix, so resolve each group's member
+        # rows once and reduce over every comment in one pass. Doing the row
+        # lookup per (comment, vote-type) instead made this an O(groups ×
+        # comments × members) scan on every tick (#2587).
+        rating_values = self.rating_mat.values
+        comment_ids = list(self.rating_mat.columns)
+
+        # For each group, compute vote stats
+        for group in unfolded:
+            group_id = group.get('id')
+
+            # Skip groups without ID
+            if group_id is None:
+                continue
+
+            # Count members in this group
             members = group.get('members', [])
-            
-            # If members list is empty, return 0
-            if not members:
-                return 0
-                
+            n_members = len(members)
+
             # Get the row indices for these members
             row_indices = []
             for member in members:
                 try:
-                    member_idx = self.rating_mat.index.get_loc(member)
-                    row_indices.append(member_idx)
+                    row_indices.append(self.rating_mat.index.get_loc(member))
                 except ValueError:
                     # Skip members not found in matrix
                     continue
-                    
-            # Get the column index for this comment
-            try:
-                col_idx = self.rating_mat.columns.get_loc(comment_id)
-            except ValueError:
-                # If comment not found, return 0
-                return 0
-                
-            # Count votes of specified type
-            votes = self.rating_mat.values[row_indices, col_idx]
-            
-            if vote_type == 'A':  # Agree
-                return int(np.sum(np.abs(votes - 1.0) < 0.001))
-            elif vote_type == 'D':  # Disagree
-                return int(np.sum(np.abs(votes + 1.0) < 0.001))
-            elif vote_type == 'S':  # Total votes
-                return int(np.sum(~np.isnan(votes)))
-            else:
-                return 0
-        
-        # For each group, compute vote stats
-        for group in unfolded:
-            group_id = group.get('id')
-            
-            # Skip groups without ID
-            if group_id is None:
-                continue
-                
-            # Count members in this group
-            n_members = len(group.get('members', []))
-            
-            # Get vote counts for each comment
-            votes = {}
-            for comment_id in self.rating_mat.columns:
-                votes[comment_id] = {
-                    'A': count_votes_for_group(group_id, comment_id, 'A'),
-                    'D': count_votes_for_group(group_id, comment_id, 'D'),
-                    'S': count_votes_for_group(group_id, comment_id, 'S')
-                }
-                
+
+            # One (members × comments) slice per group, reduced column-wise:
+            # empty membership yields an empty slice and therefore all-zero
+            # counts, matching the per-comment version.
+            group_ratings = rating_values[row_indices, :]
+            agree_counts = np.sum(
+                np.abs(group_ratings - 1.0) < 0.001, axis=0)
+            disagree_counts = np.sum(
+                np.abs(group_ratings + 1.0) < 0.001, axis=0)
+            # S counts every cast vote, PASS included (matches Clojure).
+            seen_counts = np.sum(~np.isnan(group_ratings), axis=0)
+
+            votes = {
+                comment_id: {'A': int(n_agree),
+                             'D': int(n_disagree),
+                             'S': int(n_seen)}
+                for comment_id, n_agree, n_disagree, n_seen in zip(
+                    comment_ids, agree_counts, disagree_counts, seen_counts)
+            }
+
             # Store results
             group_votes[str(group_id)] = {
                 'n-members': n_members,
                 'votes': votes
             }
-            
+
         return group_votes
         
     def _compute_user_vote_counts(self) -> Dict[str, int]:
