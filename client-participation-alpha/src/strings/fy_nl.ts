@@ -44,7 +44,7 @@ s.submitComment = "Reagearje"
 s.tipCommentsRandom = "Reaksjes binne troch inoar sortearre. Jo binne op net ien oan it reagearjen"
 s.writePrompt = "Diel jo miening…"
 s.writeCommentHelpText =
-  "<strong>skriuw</strong> in reaksje as jo miening net fertsjinwurdige wurdt</i>"
+  "<strong>skriuw</strong> in reaksje as jo miening net fertsjinwurdige wurdt"
 
 // ─────────────────────────────────────────────────────────────
 // Visualization
