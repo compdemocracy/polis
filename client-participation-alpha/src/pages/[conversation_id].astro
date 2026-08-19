@@ -175,8 +175,7 @@ const hideHeader = Astro.url.searchParams.get('hide_header');
                 s={s}
               />
             )}
-            <p class="conversation-intro" set:html={s.participantHelpWelcomeText}></p>
-            <Survey 
+            <Survey
               client:load 
               initialStatement={firstStatement}
               conversation_id={initialData.conversation.conversation_id}

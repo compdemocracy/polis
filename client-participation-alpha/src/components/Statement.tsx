@@ -67,32 +67,8 @@ export function Statement({
 
   const passUnsureText = s.pass
 
-  const remaining = statement.remaining
-  const remainingText =
-    remaining != null && remaining > 0
-      ? s.comments_remaining.replace(
-          '{{num_comments}}',
-          remaining >= 100 ? '100+' : String(remaining)
-        )
-      : null
-
   return (
     <div className="statement-card">
-      <div className="statement-header">
-        <div className="anonymous-user">
-          {/* Use a relative URL so it works when app is mounted at /alpha/ behind nginx */}
-          <img src="anonProfile.svg" alt="" className="avatar" />
-          <span>
-            {s.anonPerson} {s.x_wrote}
-          </span>
-        </div>
-        {remainingText && (
-          <span className="statement-remaining">
-            {remainingText}
-          </span>
-        )}
-      </div>
-
       {/* Show official translation (replaces original) or original text */}
       {hasOfficialTranslation ? (
         <p className="statement-text" dir="auto">

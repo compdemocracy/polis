@@ -125,16 +125,6 @@ export default function SurveyForm({
           {error}
         </p>
       )}
-      <div className="guidelines">
-        <p dangerouslySetInnerHTML={{ __html: s.writeCommentHelpText }} />
-        <h2>{s.helpWriteListIntro}</h2>
-        <ul>
-          <li>{s.helpWriteListStandalone}</li>
-          <li>{s.helpWriteListRaisNew}</li>
-          <li>{s.helpWriteListShort}</li>
-        </ul>
-        <p dangerouslySetInnerHTML={{ __html: s.tipCommentsRandom }}></p>
-      </div>
       <form className="submit-form" onSubmit={handleSubmit}>
         <div className="textarea-wrapper">
           <textarea

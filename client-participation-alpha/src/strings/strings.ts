@@ -53,6 +53,8 @@ const translationModules: Record<string, () => Promise<{ default: Partial<Transl
   it: () => import("./it"),
   // Japanese
   ja: () => import("./ja"),
+  // Korean
+  ko: () => import("./ko"),
   // Dutch
   nl: () => import("./nl"),
   // Pashto
@@ -88,6 +90,7 @@ const translationModules: Record<string, () => Promise<{ default: Partial<Transl
 export const languageMap: Record<string, string> = {
   en: "en_us",
   ja: "ja",
+  ko: "ko",
   "zh-CN": "zh_Hans",
   "zh-SG": "zh_Hans",
   "zh-MY": "zh_Hans",
@@ -229,18 +232,19 @@ export async function getTranslations(
   }
 
   try {
-    // 1. Always load English as the default/fallback.
+    // 1. Always load English as the structural fallback (source of truth for all keys).
     const { default: enStrings } = await translationModules.en_us()
-    // Cast to Translations since en_us is our source of truth for the interface
     const finalStrings = { ...(enStrings as Translations) }
 
-    // 2. Determine the user's preferred language.
-    const targetCode = getTargetLanguageCode(queryParam, acceptLanguageHeader)
+    // 2. This deployment is Korean-first: overlay Korean by default, ...
+    const { default: koStrings } = await translationModules.ko()
+    Object.assign(finalStrings, koStrings)
 
-    // 3. If a different language is found, load it and merge it over the English default.
-    if (targetCode && targetCode !== "en_us") {
+    // 3. ...unless a different language is explicitly requested (e.g. ?ui_lang=ja).
+    const targetCode = getTargetLanguageCode(queryParam, acceptLanguageHeader)
+    if (targetCode && targetCode !== "en_us" && targetCode !== "ko") {
       const { default: targetStrings } = await translationModules[targetCode]()
-      Object.assign(finalStrings, targetStrings) // Merges target strings, overwriting English keys.
+      Object.assign(finalStrings, targetStrings) // Merges target strings, overwriting Korean/English keys.
     }
 
     if (typeof window !== "undefined") {

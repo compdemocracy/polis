@@ -50,14 +50,6 @@ h1 {
   color: #666;
   margin-bottom: 2rem;
 }
-.conversation-intro {
-  font-size: 16px;
-  text-align: start;
-  font-style: italic;
-  font-family: 'times';
-  color: #555;
-  margin-bottom: 2rem;
-}
 
 .statement-card {
   border: 1px solid #ddd;
@@ -66,35 +58,10 @@ h1 {
   margin-bottom: 2rem;
   text-align: start;
 }
-.statement-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-  font-size: 16px;
-  color: #666;
-}
-.anonymous-user {
-  display: flex;
-  align-items: center;
-}
-.avatar {
-  width: 24px;
-  height: 24px;
-  background-color: #eee;
-  border-radius: 50%;
-  margin-inline-end: 0.5rem;
-}
 .statement-text {
   font-size: 1.1rem;
   font-weight: bold;
   margin-bottom: 1.5rem;
-}
-.statement-remaining {
-  font-size: 0.875rem;
-  font-style: italic;
-  margin-inline-start: auto; /* end-align in both LTR and RTL */
-  text-align: end;
 }
 
 .vote-buttons {
@@ -138,21 +105,6 @@ h1 {
   color: #6c757d;
 }
 
-.guidelines {
-  text-align: start;
-  margin-bottom: 2rem;
-  font-size: 16px;
-  color: #555;
-  font-style: italic;
-}
-.guidelines h2 {
-  font-size: 1rem;
-  margin-bottom: 0.5rem;
-}
-.guidelines ul {
-  list-style-type: disc;
-  padding-inline-start: 1.5rem;
-}
 .submit-form {
   display: flex;
   width: 100%;

@@ -4,6 +4,7 @@ import { submitVote } from '../api/votes'
 import { getConversationToken } from '../lib/auth'
 import type { Translations } from '../strings/types'
 import EmailSubscribeForm from './EmailSubscribeForm'
+import GoogleFormModal from './GoogleFormModal'
 import InviteCodeSubmissionForm from './InviteCodeSubmissionForm'
 import { Statement } from './Statement'
 import type { StatementData, VoteData } from './types'
@@ -55,6 +56,7 @@ export default function Survey({
   const [isStatementImportant, setIsStatmentImportant] = useState<boolean>(false)
   const [voteError, setVoteError] = useState<string | null>(null)
   const [inviteGate, setInviteGate] = useState<boolean>(requiresInviteCode)
+  const [showCompletionModal, setShowCompletionModal] = useState<boolean>(false)
 
   // On hydration, fetch a participant-personalized next comment.
   // This replaces the SSR-provided generic comment if needed.
@@ -147,6 +149,7 @@ export default function Survey({
         setStatement(result.nextComment)
       } else {
         setStatement(undefined)
+        setShowCompletionModal(true)
       }
       setIsStatmentImportant(false)
     } catch (err: unknown) {
@@ -193,6 +196,7 @@ export default function Survey({
       ) : (
         <EmailSubscribeForm s={s as Translations} conversation_id={conversation_id} />
       )}
+      <GoogleFormModal isOpen={showCompletionModal} onClose={() => setShowCompletionModal(false)} />
     </>
   )
 }
