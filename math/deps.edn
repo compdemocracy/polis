@@ -63,7 +63,11 @@
                          metasoarous/oz {:mvn/version "2.0.0-alpha5"}}
             :main-opts ["-m" "nrepl.cmdline" "--middleware" "[cider.nrepl/cider-middleware]"]}
            :run
-           {:main-opts ["-m" "polismath.runner"]}
+           {:main-opts ["-m" "polismath.runner"]
+            ;; Heap for the prod worker. Sized for an r8g.2xlarge (64 GB): leaves room for the
+            ;; Datadog Java agent, JFR and page cache. Observed host peak on the old 128 GB box
+            ;; was 16.3 GB total (2026-08/09). If the instance changes, change this with it.
+            :jvm-opts ["-Xmx24g"]}
            :dev-poller
            {:extra-paths ["dev" "test"]
             :extra-deps {cider/cider-nrepl {:mvn/version "0.30.0"}}
@@ -77,7 +81,6 @@
            ;; at startup — keeps the alias self-contained on the base :deps.
            :replay
            {:main-opts ["-i" "dev/replay.clj" "-m" "replay"]}}
- ;:jvm-opts ^:replace []
- :jvm-opts ["-Xmx4g"]}
+}
  ;:mvn/repos {"twitter4j" {:url "https://twitter4j.org/maven2"}}}
   

@@ -59,7 +59,10 @@ export default (
     launchTemplate: mathWorkerLaunchTemplate,
     minCapacity: 1,
     desiredCapacity: 1,
-    maxCapacity: 5,
+    // Keep at 1: every math worker polls every conversation and holds its own actors
+    // (math/src/polismath/components/{poller,conv_man}.clj); a second instance duplicates
+    // the computation and the writes rather than sharing the load.
+    maxCapacity: 1,
     vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
     healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(2) }),
   });
@@ -79,8 +82,10 @@ export default (
   const asgDelphiLarge = new autoscaling.AutoScalingGroup(self, 'AsgDelphiLarge', {
     vpc,
     launchTemplate: delphiLargeLaunchTemplate,
-    minCapacity: 1,
-    desiredCapacity: 1,
+    // Set to 0 in the console on 2026-07-31 (c7i.8xlarge, ~$1,040/mo, was idle). Match it here so a
+    // cdk deploy does not bring it back. Large-conversation jobs route to the small class.
+    minCapacity: 0,
+    desiredCapacity: 0,
     maxCapacity: 3,
     vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
     healthCheck: autoscaling.HealthCheck.ec2({ grace: cdk.Duration.minutes(5) }),
