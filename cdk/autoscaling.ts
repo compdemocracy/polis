@@ -83,7 +83,8 @@ export default (
     vpc,
     launchTemplate: delphiLargeLaunchTemplate,
     // Set to 0 in the console on 2026-07-31 (c7i.8xlarge, ~$1,040/mo, was idle). Match it here so a
-    // cdk deploy does not bring it back. Large-conversation jobs route to the small class.
+    // cdk deploy does not bring it back. NOTE: delphi/scripts/job_poller.py still routes >5000-comment
+    // jobs to this class, so until that gate is removed such jobs will wait; tracked in P-004/P-003.
     minCapacity: 0,
     desiredCapacity: 0,
     maxCapacity: 3,
