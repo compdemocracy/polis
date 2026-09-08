@@ -454,6 +454,9 @@ def three_producer_inventory(expected: cert.ExpectedEntry, profile: str,
 #: bridge BINDS these, not just key presence: the adapter emits exactly this
 #: versioned identity, and a changed worker must NEGOTIATE a new version.
 S1_CHECKPOINT_SCHEMA = "polis-candidate-checkpoint/1"
+#: The STORE's persisted checkpoint envelope (Rust ResultsStore, store.rs) — a
+#: DIFFERENT object from the worker's polis-candidate-checkpoint/1.
+STORE_CHECKPOINT_SCHEMA = "polis-coordinator/1"
 S1_PROTOCOL = "polis-engine/1"
 S1_OUTPUT_SCHEMA = "polis-candidate-math-output/1"
 S1_STATE_SCHEMA = "rebuild-prefix/1"
@@ -474,8 +477,40 @@ _S1_CHECKPOINT_EXPECT: dict[str, Any] = {
 }
 
 #: Identity fields the caller may bind expected values for (per-run, not global).
-S1_EXPECTED_IDENTITY_FIELDS = ("run_id", "session_id", "compute_id", "checkpoint_id")
+#: fixture_id is bound too (a checkpoint for fixture 999 must not pass when the
+#: caller expects fixture 1).
+S1_EXPECTED_IDENTITY_FIELDS = ("fixture_id", "run_id", "session_id", "compute_id", "checkpoint_id")
 S1_EXPECTED_ADMISSION_FIELDS = ("input_digest", "schedule_digest", "operation_id")
+
+#: The COMPLETE closed key set of the worker's polis-candidate-checkpoint/1
+#: envelope (engine_adapter.snapshot). All 15 are mandatory; unknown top-level
+#: keys are rejected.
+S1_CHECKPOINT_CLOSED_KEYS = frozenset({
+    "schema", "protocol", "run_id", "session_id", "fixture_id", "checkpoint_id",
+    "compute_id", "profile", "admission", "output_schema", "state_schema",
+    "persistence", "math_input_cursors", "observed_state_cursors", "files",
+})
+#: The four output files the worker snapshots (emit_payloads + restore), each a
+#: {path, bytes, sha256} descriptor.
+S1_FILE_KEYS = ("main", "bidtopid", "ptptstats", "restore")
+_CURSOR_STREAMS = ("votes", "moderation")
+
+
+def _valid_descriptor(d: Any) -> bool:
+    return (isinstance(d, dict) and _nonempty_str(d.get("path"))
+            and _plain_int(d.get("bytes")) and _nonempty_str(d.get("sha256")))
+
+
+def _cursor_fails(cursors: Any, label: str) -> list[str]:
+    """A cursor map is {votes,moderation} -> {slot: int-non-bool, sha256: str}."""
+    if not isinstance(cursors, dict) or set(cursors) != set(_CURSOR_STREAMS):
+        return [f"{label} must be an object with keys {list(_CURSOR_STREAMS)}"]
+    out: list[str] = []
+    for stream in _CURSOR_STREAMS:
+        cur = cursors[stream]
+        if not isinstance(cur, dict) or not _plain_int(cur.get("slot")) or not _nonempty_str(cur.get("sha256")):
+            out.append(f"{label}.{stream} must carry a (non-boolean) integer slot and a sha256")
+    return out
 
 
 def _nonempty_str(v: Any) -> bool:
@@ -511,6 +546,25 @@ def validate_s1_identity(manifest: dict[str, Any], *,
     if manifest.get("schema") != S1_CHECKPOINT_SCHEMA:
         fails.append(f"checkpoint schema must be {S1_CHECKPOINT_SCHEMA!r}, "
                      f"got {manifest.get('schema')!r}")
+    # The full 15-field worker envelope is CLOSED: every field mandatory, no
+    # unknown top-level keys.
+    missing_env = sorted(S1_CHECKPOINT_CLOSED_KEYS - set(manifest))
+    unknown_env = sorted(set(manifest) - S1_CHECKPOINT_CLOSED_KEYS)
+    if missing_env:
+        fails.append(f"checkpoint missing envelope field(s): {missing_env}")
+    if unknown_env:
+        fails.append(f"checkpoint has unknown top-level field(s): {unknown_env}")
+    # Snapshot file descriptors and both cursor maps (mandatory in the envelope,
+    # separately checked by the Rust compute path).
+    files = manifest.get("files")
+    if not isinstance(files, dict) or set(files) != set(S1_FILE_KEYS):
+        fails.append(f"checkpoint.files must map exactly {list(S1_FILE_KEYS)}")
+    else:
+        for k in S1_FILE_KEYS:
+            if not _valid_descriptor(files[k]):
+                fails.append(f"checkpoint.files.{k} must be a {{path, bytes, sha256}} descriptor")
+    fails.extend(_cursor_fails(manifest.get("math_input_cursors"), "math_input_cursors"))
+    fails.extend(_cursor_fails(manifest.get("observed_state_cursors"), "observed_state_cursors"))
     admission = manifest.get("admission")
     if not isinstance(admission, dict):
         return fails + ["admission block missing or not an object"]
@@ -695,22 +749,32 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
     elif epoch != publisher_epoch:
         fails.append(f"ticks.publisher_epoch {epoch!r} != {publisher_epoch!r}")
 
-    # 3b. full input_checkpoint custody. When present it must be a coherent
-    # checkpoint bound to THIS operation (and to the expected checkpoint, when
-    # supplied) — a foreign checkpoint object is rejected, not ignored.
-    if "input_checkpoint" in ticks or expected_input_checkpoint is not None:
-        ckpt = ticks.get("input_checkpoint")
-        if not isinstance(ckpt, dict):
-            fails.append(f"ticks.input_checkpoint must be an object, got {ckpt!r}")
+    # 3b. persisted store checkpoint (polis-coordinator/1) custody. It is
+    # REQUIRED — the real store rejects absent checkpoints (store.rs) — a foreign
+    # or operation-only object is rejected, cursor slots are TYPED (a boolean slot
+    # must not equal an expected integer), and an expected checkpoint binds by
+    # TYPE-AWARE equality (preserving PG number spelling, keeping bools distinct).
+    ckpt = ticks.get("input_checkpoint")
+    if not isinstance(ckpt, dict):
+        fails.append("ticks.input_checkpoint (persisted store checkpoint) is required and must be an object")
+    else:
+        if ckpt.get("schema") != STORE_CHECKPOINT_SCHEMA:
+            fails.append(f"input_checkpoint.schema must be {STORE_CHECKPOINT_SCHEMA!r}, "
+                         f"got {ckpt.get('schema')!r}")
+        if ckpt.get("operation_id") != operation_id:
+            fails.append(f"input_checkpoint.operation_id {ckpt.get('operation_id')!r} != {operation_id!r}")
+        cdig = ckpt.get("original_digests")
+        if not isinstance(cdig, dict) or not _json_type_equal(cdig, ticks.get("original_digests") or {}):
+            fails.append("input_checkpoint.original_digests missing or disagree with ticks.original_digests")
+        cursors = ckpt.get("cursors")
+        if not isinstance(cursors, dict) or not cursors:
+            fails.append("input_checkpoint.cursors is required")
         else:
-            if ckpt.get("operation_id") != operation_id:
-                fails.append(f"input_checkpoint.operation_id {ckpt.get('operation_id')!r} "
-                             f"!= {operation_id!r}")
-            cdig = ckpt.get("original_digests")
-            if cdig is not None and cdig != (ticks.get("original_digests") or {}):
-                fails.append("input_checkpoint.original_digests disagree with ticks.original_digests")
-            if expected_input_checkpoint is not None and ckpt != expected_input_checkpoint:
-                fails.append("input_checkpoint does not equal the expected checkpoint")
+            for stream, cur in cursors.items():
+                if not isinstance(cur, dict) or not _plain_int(cur.get("slot")):
+                    fails.append(f"input_checkpoint.cursors.{stream}.slot must be a (non-boolean) integer")
+        if expected_input_checkpoint is not None and not _json_type_equal(ckpt, expected_input_checkpoint):
+            fails.append("input_checkpoint does not equal the expected checkpoint (type-aware)")
 
     # 4. original-byte custody + TYPE-AWARE JSONB correspondence, per table
     original_digests = ticks.get("original_digests") or {}
@@ -761,6 +825,7 @@ def _check_bidtopid_against_main(main: Any, bid: Any, zid: Any) -> list[str]:
     if not isinstance(base, dict):
         return ["observer: main.base-clusters missing for bid->index->pid check"]
     ids, members = base.get("id"), base.get("members")
+    counts = base.get("count")
     if not (isinstance(btp, list) and isinstance(ids, list) and isinstance(members, list)):
         return ["observer: bidToPid / base-clusters.id / base-clusters.members must be lists"]
     if not (len(btp) == len(ids) == len(members)):
@@ -769,6 +834,27 @@ def _check_bidtopid_against_main(main: Any, bid: Any, zid: Any) -> list[str]:
     fails: list[str] = []
     if zid is not None and bid.get("zid") != zid:
         fails.append(f"observer: bidtopid.zid {bid.get('zid')!r} != bundle zid {zid!r}")
+
+    # base-cluster ids: typed and UNIQUE
+    if not all(_plain_int(x) for x in ids):
+        fails.append("observer: base-clusters.id must be integers")
+    elif len(set(ids)) != len(ids):
+        fails.append(f"observer: base-clusters.id has duplicates: {ids}")
+
+    # counts (when present): one per cluster, equal to that cluster's membership size
+    if counts is not None:
+        if not isinstance(counts, list) or len(counts) != len(members):
+            fails.append("observer: base-clusters.count is not one entry per cluster")
+        else:
+            for i, (c, mem) in enumerate(zip(counts, members)):
+                if c != (len(mem) if isinstance(mem, list) else None):
+                    fails.append(f"observer: base-clusters.count[{i}]={c!r} != len(members)="
+                                 f"{len(mem) if isinstance(mem, list) else '?'}")
+
+    # membership is a PARTITION of the clustered participants: each bucket a list
+    # of integer pids, unique within a bucket and DISJOINT across buckets; and
+    # bidToPid[i] equals base-clusters.members[i] positionally.
+    seen: set = set()
     for i, (bucket, mem) in enumerate(zip(btp, members)):
         if not isinstance(bucket, list) or not all(_plain_int(x) for x in bucket):
             fails.append(f"observer: bidToPid[{i}] is not a list of integer pids")
@@ -776,6 +862,22 @@ def _check_bidtopid_against_main(main: Any, bid: Any, zid: Any) -> list[str]:
         if list(bucket) != list(mem):
             fails.append(f"observer: bidToPid[{i}]={bucket} != base-clusters.members[{i}]={mem} "
                          f"(positional bid membership mismatch)")
+        if len(set(bucket)) != len(bucket):
+            fails.append(f"observer: base cluster {i} has duplicate participant(s): {bucket}")
+        overlap = seen & set(bucket)
+        if overlap:
+            fails.append(f"observer: participant(s) {sorted(overlap)} appear in more than one base cluster")
+        seen |= set(bucket)
+
+    # group clusters (when present): every group bid must reference an existing
+    # base cluster id.
+    groups = main.get("group-clusters")
+    if isinstance(groups, list):
+        idset = set(x for x in ids if _plain_int(x))
+        for g in groups:
+            for gbid in (g.get("members") or []) if isinstance(g, dict) else []:
+                if gbid not in idset:
+                    fails.append(f"observer: group cluster references unknown base bid {gbid!r}")
     return fails
 
 

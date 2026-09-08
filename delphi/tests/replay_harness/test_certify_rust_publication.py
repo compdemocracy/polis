@@ -23,15 +23,20 @@ from polismath.replay import coordinator_driver as cd
 
 def _set(b, name, data):
     raw = json.dumps(data)
+    dg = hashlib.sha256(raw.encode()).hexdigest()
     b[name] = dict(b.get(name, {}), math_tick=b["ticks"]["math_tick"], data=data,
-                   original_bytes=raw, original_sha256=hashlib.sha256(raw.encode()).hexdigest())
-    b["ticks"]["original_digests"][name] = b[name]["original_sha256"]
+                   original_bytes=raw, original_sha256=dg)
+    b["ticks"]["original_digests"][name] = dg
+    ckpt = b["ticks"].get("input_checkpoint")
+    if isinstance(ckpt, dict) and isinstance(ckpt.get("original_digests"), dict):
+        ckpt["original_digests"][name] = dg  # keep the store checkpoint in sync
 
 
 def _bundle(tick=0, epoch=5, op="op-1"):
     """A coherent, REAL-shaped bundle: main carries base-clusters and bidtopid is
     the writer's {zid, bidToPid, lastVoteTimestamp} wrapper positionally aligned to
-    it (derive_bidtopid), so observer AND readback grade it clean."""
+    it (derive_bidtopid), plus a full polis-coordinator/1 store input_checkpoint —
+    so observer AND readback grade it clean."""
     conv = SimpleNamespace(base_clusters=[{"id": 2, "members": [1, 2]},
                                           {"id": 8, "members": [3, 4]}], last_updated=1000)
     b = {"zid": 1, "math_env": "rustproto",
@@ -41,6 +46,11 @@ def _bundle(tick=0, epoch=5, op="op-1"):
     _set(b, "bidtopid", derive_bidtopid(conv, 1))
     _set(b, "ptptstats", {"1": {"a": 1}})
     b["main"]["caching_tick"] = 42
+    b["ticks"]["input_checkpoint"] = {
+        "schema": "polis-coordinator/1", "operation_id": op,
+        "original_digests": dict(b["ticks"]["original_digests"]),
+        "cursors": {"votes": {"slot": 0}, "moderation": {"slot": 0}},
+    }
     return b
 
 
@@ -176,18 +186,56 @@ def test_foreign_input_checkpoint_rejected():
 
 
 def test_coherent_input_checkpoint_accepted_and_bound():
-    b = _bundle(tick=0)
-    ckpt = {"operation_id": "op-1", "original_digests": b["ticks"]["original_digests"]}
-    b["ticks"]["input_checkpoint"] = ckpt
+    b = _bundle(tick=0)  # already carries a full valid store checkpoint
+    ckpt = b["ticks"]["input_checkpoint"]
     assert _V(b) == []
-    assert _V(b, expected_input_checkpoint=ckpt) == []
-    assert _V(b, expected_input_checkpoint={"operation_id": "op-1", "original_digests": {}})
+    assert _V(b, expected_input_checkpoint=dict(ckpt)) == []
+    assert _V(b, expected_input_checkpoint=dict(ckpt, operation_id="OTHER"))
 
 
 def test_input_checkpoint_operation_mismatch_rejected():
     b = _bundle(tick=0)
-    b["ticks"]["input_checkpoint"] = {"operation_id": "WRONG"}
+    b["ticks"]["input_checkpoint"]["operation_id"] = "WRONG"
     assert any("operation_id" in f for f in _V(b))
+
+
+# ---------------------------------------------------------------------------
+# Round 4 correction 2: persisted store-checkpoint custody + typed cursors.
+# ---------------------------------------------------------------------------
+def test_absent_input_checkpoint_rejected():
+    b = _bundle(tick=0)
+    del b["ticks"]["input_checkpoint"]
+    assert any("input_checkpoint" in f and "required" in f for f in _V(b))
+
+
+def test_operation_only_checkpoint_rejected():
+    b = _bundle(tick=0)
+    b["ticks"]["input_checkpoint"] = {"operation_id": "op-1"}
+    assert _V(b)  # missing schema/original_digests/cursors
+
+
+def test_wrong_store_checkpoint_schema_rejected():
+    b = _bundle(tick=0)
+    b["ticks"]["input_checkpoint"]["schema"] = "polis-candidate-checkpoint/1"
+    assert any("input_checkpoint.schema" in f for f in _V(b))
+
+
+def test_boolean_cursor_slot_rejected():
+    """A boolean cursor slot must not equal an expected integer checkpoint."""
+    b = _bundle(tick=0)
+    expected = {k: (dict(v) if isinstance(v, dict) else v)
+                for k, v in b["ticks"]["input_checkpoint"].items()}
+    expected["cursors"] = {"votes": {"slot": 1}, "moderation": {"slot": 0}}
+    b["ticks"]["input_checkpoint"]["cursors"]["votes"]["slot"] = True
+    # rejected both by cursor typing and by type-aware expected equality
+    assert _V(b)
+    assert _V(b, expected_input_checkpoint=expected)
+
+
+def test_input_checkpoint_original_digests_mismatch_rejected():
+    b = _bundle(tick=0)
+    b["ticks"]["input_checkpoint"]["original_digests"] = {"main": "0" * 64}
+    assert any("original_digests" in f for f in _V(b))
 
 
 # ---------------------------------------------------------------------------
@@ -211,10 +259,54 @@ def test_observer_rejects_unrelated_invented_map():
     assert any("writer wrapper" in f for f in cd.observe_bundle_coherence(b))
 
 
-def test_observer_rejects_overlapping_duplicate_buckets():
+def _real_bundle_with(main_base, groups=None):
+    """A bundle whose main.base-clusters is `main_base` and whose bidtopid wrapper
+    is positionally derived from the same members — so a shape/positional check
+    passes and only the membership INVARIANTS decide the verdict."""
     b = _bundle(tick=0)
-    _set(b, "bidtopid", {"2": [1, 1], "8": [1]})
-    assert cd.observe_bundle_coherence(b)
+    main = {"base-clusters": main_base}
+    if groups is not None:
+        main["group-clusters"] = groups
+    ids, members = main_base["id"], main_base["members"]
+    conv = SimpleNamespace(base_clusters=[{"id": i, "members": m} for i, m in zip(ids, members)],
+                           last_updated=1000)
+    _set(b, "main", main)
+    b["main"]["caching_tick"] = 42
+    _set(b, "bidtopid", derive_bidtopid(conv, 1))
+    return b
+
+
+def test_observer_rejects_duplicate_and_overlapping_real_buckets():
+    """Round 4 correction 1, on the REAL wrapper: `[[1,1],[1,4]]` has an intra-
+    bucket duplicate AND a participant (1) in two buckets."""
+    b = _real_bundle_with({"id": [2, 8], "members": [[1, 1], [1, 4]], "count": [2, 2]})
+    assert pub_reject(b)
+
+
+def test_observer_rejects_wrong_base_counts():
+    b = _real_bundle_with({"id": [2, 8], "members": [[1, 2], [3, 4]], "count": [999, 0]})
+    assert any("count" in f for f in cd.observe_bundle_coherence(b))
+
+
+def test_observer_rejects_duplicate_base_ids():
+    b = _real_bundle_with({"id": [2, 2], "members": [[1, 2], [3, 4]], "count": [2, 2]})
+    assert any("base-clusters.id has duplicates" in f for f in cd.observe_bundle_coherence(b))
+
+
+def test_observer_rejects_unknown_group_bid():
+    b = _real_bundle_with({"id": [2, 8], "members": [[1, 2], [3, 4]], "count": [2, 2]},
+                          groups=[{"id": 0, "members": [999]}])
+    assert any("unknown base bid" in f for f in cd.observe_bundle_coherence(b))
+
+
+def test_observer_accepts_valid_group_reference():
+    b = _real_bundle_with({"id": [2, 8], "members": [[1, 2], [3, 4]], "count": [2, 2]},
+                          groups=[{"id": 0, "members": [2, 8]}])
+    assert cd.observe_bundle_coherence(b) == []
+
+
+def pub_reject(b):
+    return cd.observe_bundle_coherence(b) != []
 
 
 def test_observer_rejects_positional_membership_mismatch():

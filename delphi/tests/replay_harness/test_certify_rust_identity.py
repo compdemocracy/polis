@@ -13,7 +13,19 @@ import pytest
 from polismath.replay import coordinator_driver as cd
 
 
+def _cursors():
+    return {"votes": {"slot": 0, "sha256": "a" * 64},
+            "moderation": {"slot": 0, "sha256": "b" * 64}}
+
+
+def _files():
+    return {k: {"path": f"checkpoint-0/{k}.json", "bytes": 12, "sha256": "c" * 64}
+            for k in cd.S1_FILE_KEYS}
+
+
 def _manifest(**over):
+    """The FULL 15-field polis-candidate-checkpoint/1 envelope emitted by
+    engine_adapter.snapshot (files + both cursor maps included)."""
     admission = {
         "candidate_schema": cd.S1_CANDIDATE_SCHEMA,
         "engine_version": cd.S1_ENGINE_VERSION,
@@ -27,6 +39,8 @@ def _manifest(**over):
         "session_id": "s", "compute_id": "compute-0", "checkpoint_id": "checkpoint-0",
         "output_schema": cd.S1_OUTPUT_SCHEMA, "state_schema": cd.S1_STATE_SCHEMA,
         "profile": cd.S1_PROFILE_WIRE, "persistence": False,
+        "math_input_cursors": _cursors(), "observed_state_cursors": _cursors(),
+        "files": _files(),
     }
     m.update(over)
     return m
@@ -127,6 +141,46 @@ def test_expected_binding_rejects_changed_input_digest():
     fails = cd.validate_s1_identity(_manifest(admission={"input_digest": "sha256:CHANGED"}),
                                     expected_admission=_EXPECTED_ADMISSION)
     assert any("input_digest" in f and "expected" in f for f in fails)
+
+
+# ---------------------------------------------------------------------------
+# Round 4 correction 2: full worker envelope + fixture binding.
+# ---------------------------------------------------------------------------
+def test_full_envelope_positive_fixture_accepted():
+    """The full 15-field emitted shape validates clean (positive control)."""
+    assert cd.validate_s1_identity(_manifest()) == []
+
+
+@pytest.mark.parametrize("field", ["files", "math_input_cursors", "observed_state_cursors"])
+def test_missing_envelope_field_rejected(field):
+    m = _manifest()
+    m.pop(field)
+    assert any("envelope" in f or field in f for f in cd.validate_s1_identity(m))
+
+
+def test_unknown_top_level_field_rejected():
+    assert any("unknown top-level" in f for f in cd.validate_s1_identity(_manifest(surprise=True)))
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda m: m["files"].pop("restore"),
+    lambda m: m["files"]["main"].pop("sha256"),
+    lambda m: m["files"]["main"].update(bytes="10"),   # bytes must be a plain int
+    lambda m: m["math_input_cursors"]["votes"].update(slot=True),   # boolean cursor slot
+    lambda m: m["observed_state_cursors"].pop("moderation"),
+])
+def test_malformed_files_or_cursors_rejected(mutate):
+    m = _manifest()
+    mutate(m)
+    assert cd.validate_s1_identity(m)
+
+
+def test_expected_fixture_binding_rejects_foreign_fixture():
+    """Round 4: fixture_id is bound — a checkpoint for fixture 999 must not pass
+    when the caller expects fixture 1."""
+    expected = dict(_EXPECTED_IDENTITY, fixture_id=1)
+    fails = cd.validate_s1_identity(_manifest(fixture_id=999), expected_identity=expected)
+    assert any("fixture_id" in f and "expected" in f for f in fails)
 
 
 def test_missing_admission_block():
