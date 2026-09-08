@@ -38,6 +38,13 @@ def _fake_conv(zid=42, base_clusters=None, last_updated=1234567,
     return conv
 
 
+def _decoded(data):
+    """``write_conv_updates`` pre-encodes each blob before opening the
+    transaction (so json.dumps never runs under the row locks), so the writers
+    receive a JSON string from the poller and a dict from every other caller."""
+    return json.loads(data) if isinstance(data, str) else data
+
+
 class TestDeriveBidToPid:
     def test_shape_is_list_of_member_lists_sorted_by_id(self):
         # base_clusters intentionally out of id order to prove sorting.
@@ -298,13 +305,14 @@ class TestMathWriterSharedTick:
         conv = _fake_conv(zid=42, base_clusters=[{"id": 0, "members": ["1", "2"]}])
         MathWriter(client).write_conv_updates(42, conv)
 
-        # Find the data dict passed to write_math_bidtopid.
+        # Find the data blob passed to write_math_bidtopid.
         call = client.write_math_bidtopid.call_args
         data = call.kwargs.get("data")
         if data is None:
             # positional: (zid, data, math_tick)
             data = call.args[1]
-        assert data["bidToPid"] == [["1", "2"]]
+        # The writer pre-encodes the blob before opening the transaction.
+        assert _decoded(data)["bidToPid"] == [["1", "2"]]
 
     def test_ptptstats_written_uses_user_vote_counts_from_to_dict(self):
         """write_conv_updates must thread data["user-vote-counts"] (already
@@ -329,7 +337,7 @@ class TestMathWriterSharedTick:
         data = call.kwargs.get("data")
         if data is None:
             data = call.args[1]
-        assert data["ptptstats"]["n-votes"] == [42]
+        assert _decoded(data)["ptptstats"]["n-votes"] == [42]
 
 
 class TestWriterSQLFidelity:
