@@ -106,7 +106,7 @@ def test_failing_math_main_load_cold_starts_without_a_false_empty(engine,
                                                                   pg_url,
                                                                   make_service):
     """``_load_or_init`` swallows a ``load_math_main`` failure and cold-starts
-    (``service.py:568``).  That is safe ONLY because the rebuild then reads the
+    (``service.py:570``).  That is safe ONLY because the rebuild then reads the
     full authoritative vote history — assert the published result is the full
     fold, not an empty conversation."""
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)

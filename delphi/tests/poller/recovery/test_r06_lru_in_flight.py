@@ -165,7 +165,7 @@ def test_cache_stays_bounded_under_pool_concurrency(engine, pg_url,
         "DEFECT (P-019 should-fix #5, unaddressed): the conversation cache is "
         "an unsynchronized OrderedDict. polismath/poller/service.py:497 reads "
         "`conv = self._convs.get(zid)` and then, as a separate step, calls "
-        "`self._convs.move_to_end(zid)`; polismath/poller/service.py:488 "
+        "`self._convs.move_to_end(zid)`; polismath/poller/service.py:489 "
         "concurrently evicts with `self._convs.popitem(last=False)` from "
         "another pool thread. With the key evicted in that window, move_to_end "
         "raises KeyError, which escapes _run_engine into _handle_zid's blanket "
