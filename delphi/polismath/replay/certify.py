@@ -181,6 +181,71 @@ def _is_integral(value: Any) -> bool:
     return type(value) is int
 
 
+#: The versioned alias policy (P-022 B1 review round 3). ``_kebab`` maps a raw
+#: snake key onto its kebab spelling, so two DISTINCT raw keys can normalize to
+#: the same canonical name. Collapsing them into one dict silently drops one of
+#: the two values — and the dropped one never reaches the type/finiteness
+#: checks below, which is how ``{"n_cmts": "invalid-count", "n-cmts": 1}`` and
+#: ``{"hidden_value": NaN, "hidden-value": 0}`` certified PASS. Alias collisions
+#: are therefore rejected, with ONE declared exception: ``Conversation.to_dict``
+#: deliberately emits ``group-clusters`` AND its legacy ``group_clusters`` twin
+#: from the same value (conversation.py, "Legacy field for backward
+#: compatibility"), so that pair is admitted only while the two spellings carry
+#: DEEPLY EQUAL values. Anything else — an undeclared pair, a declared pair
+#: whose values disagree, a three-way collision — fails naming every raw
+#: spelling involved. When the legacy twin is finally dropped, delete the entry
+#: and this policy becomes "no collisions at all".
+_ALIAS_POLICY_VERSION = "v1"
+_ALIASED_CHECKPOINT_KEYS: frozenset[str] = frozenset({"group-clusters"})
+
+
+def _deep_equal(a: Any, b: Any) -> bool:
+    """Structural equality with JSON-ish type strictness: ``True``/``1`` differ,
+    ``1``/``1.0`` differ, and NaN never equals itself (so a duplicated NaN alias
+    is a value disagreement, not a permitted twin)."""
+    if isinstance(a, dict) and isinstance(b, dict):
+        return len(a) == len(b) and all(
+            k in b and _deep_equal(v, b[k]) for k, v in a.items())
+    if isinstance(a, list) and isinstance(b, list):
+        return len(a) == len(b) and all(_deep_equal(x, y) for x, y in zip(a, b))
+    if type(a) is not type(b):
+        return False
+    return bool(a == b)
+
+
+def _raw_alias_groups(blob: dict) -> dict[Any, list[Any]]:
+    """Canonical key -> the raw keys that normalize onto it, in blob order."""
+    groups: dict[Any, list[Any]] = {}
+    for k in blob:
+        groups.setdefault(_kebab(k), []).append(k)
+    return groups
+
+
+def _check_alias_collisions(blob: dict, label: str) -> None:
+    """Reject aliased raw keys BEFORE the canonical dict is built (see
+    :data:`_ALIASED_CHECKPOINT_KEYS`). Snake-only and kebab-only blobs, which
+    have no collision at all, are unaffected."""
+    for canonical, raw_keys in _raw_alias_groups(blob).items():
+        if len(raw_keys) == 1:
+            continue
+        spellings = ", ".join(repr(k) for k in raw_keys)
+        quantifier = "both" if len(raw_keys) == 2 else "all"
+        if canonical not in _ALIASED_CHECKPOINT_KEYS:
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{label}: raw keys {spellings} {quantifier} normalize to {canonical!r}; "
+                f"alias collisions are rejected (alias policy "
+                f"{_ALIAS_POLICY_VERSION}) — one value would be dropped before "
+                f"validation")
+        first = blob[raw_keys[0]]
+        if len(raw_keys) > 2 or not all(_deep_equal(first, blob[k]) for k in raw_keys[1:]):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{label}: raw keys {spellings} normalize to the declared alias "
+                f"{canonical!r} but do not carry deeply equal values (alias "
+                f"policy {_ALIAS_POLICY_VERSION})")
+
+
 def _find_nonfinite(value: Any, path: str) -> str | None:
     """Depth-first search for a NaN/Infinity float anywhere under ``value``,
     returning its dotted path (or ``None``). json.dumps' ``allow_nan`` default
@@ -212,8 +277,8 @@ def validate_checkpoint_blob(
     ``label`` identifies the checkpoint in the message (e.g. ``"clj: step-002"``).
     ``require_keys=False`` skips only the required-key presence check — used for
     the zero/empty checkpoint and for the standalone comparer, which has no cut
-    metadata to tell an empty checkpoint from a truncated one. Type and
-    finiteness checks always run.
+    metadata to tell an empty checkpoint from a truncated one. Type,
+    alias-collision and finiteness checks always run.
 
     Not a full schema (see the module comment): presence, integrality,
     finiteness, container and ID types only.
@@ -223,6 +288,26 @@ def validate_checkpoint_blob(
             "checkpoint-schema",
             f"{label}: checkpoint blob must be a JSON object, got {type(blob).__name__}")
 
+    # UNTOUCHED-RAW checks first, before any normalization (P-022 B1 review,
+    # round 3). Building the canonical dict is lossy: aliased raw keys collapse
+    # onto one entry and the loser's value escapes every check below, so both
+    # the alias policy and the finiteness scan run against `blob` itself.
+    _check_alias_collisions(blob, label)
+
+    # json.dumps' allow_nan default lets NaN/Infinity round-trip through a
+    # recording file and hash EQUAL on both engines, so nothing downstream would
+    # ever notice them. Scanning the raw blob (not the canonical dict, not the
+    # acceptance projection) means a non-finite under an unprojected or aliased
+    # key still fails: the producer computed garbage either way.
+    nonfinite = _find_nonfinite(blob, "")
+    if nonfinite is not None:
+        raise CertifyError(
+            "checkpoint-schema",
+            f"{label}: non-finite number (NaN/Infinity) at field '{nonfinite.lstrip('.')}'")
+
+    # Collision-free by the check above: every canonical key has exactly one
+    # raw value (or a declared, deeply-equal alias twin of it), so each accepted
+    # field is type-checked through its unique canonical identity.
     canon = {_kebab(k): v for k, v in blob.items()}
 
     if require_keys:
@@ -288,15 +373,6 @@ def validate_checkpoint_blob(
                 "checkpoint-schema",
                 f"{label}: field {key!r} must be an integer or string id, got "
                 f"{type(value).__name__} {value!r}")
-
-    # Finiteness LAST and over the whole raw blob, not just the acceptance
-    # projection: a NaN hiding under an unprojected key still means the
-    # producer computed garbage, and NaN==NaN never trips the comparer.
-    nonfinite = _find_nonfinite(canon, "")
-    if nonfinite is not None:
-        raise CertifyError(
-            "checkpoint-schema",
-            f"{label}: non-finite number (NaN/Infinity) at field '{nonfinite.lstrip('.')}'")
 
 
 def _acceptance_projecting_comparer(**kwargs: Any) -> StepComparer:
