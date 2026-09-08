@@ -211,4 +211,98 @@ describe('VisualizationContainer math_tick guard', () => {
     expect(received).not.toContain(staleA)
     expect(received[received.length - 1]).toBe(conversationB)
   })
+
+  // A -> B -> A returns to the same conversation id, so an id-equality guard
+  // lets the FIRST A's late response through. These three follow the schedules
+  // in cost-reduction/scripts/p046-r2-astra-review.cjs.
+  describe('A -> B -> A', () => {
+    function deferred<T>() {
+      let resolve: (value: T) => void = () => {}
+      let reject: (reason: unknown) => void = () => {}
+      const promise = new Promise<T>((res, rej) => {
+        resolve = res
+        reject = rej
+      })
+      // Nothing awaits a rejection until the component does.
+      promise.catch(() => {})
+      return { promise, resolve, reject }
+    }
+
+    async function goAthenBthenA(slowA: Promise<PCAData>, secondA: PCAData | Promise<PCAData>) {
+      const conversationB = pcaBody(7)
+      mockedFetchPCAData
+        .mockReturnValueOnce(slowA)
+        .mockResolvedValueOnce(conversationB)
+        .mockReturnValueOnce(
+          secondA instanceof Promise ? secondA : (Promise.resolve(secondA) as Promise<PCAData>)
+        )
+      mockedFetchComments
+        .mockResolvedValueOnce([comment(1)])
+        .mockResolvedValueOnce([comment(2)])
+        .mockResolvedValueOnce([comment(3)])
+
+      const view = render(<VisualizationContainer conversation_id="convA" s={{} as Translations} />)
+      await act(async () => {
+        view.rerender(<VisualizationContainer conversation_id="convB" s={{} as Translations} />)
+      })
+      await act(async () => {
+        view.rerender(<VisualizationContainer conversation_id="convA" s={{} as Translations} />)
+      })
+      return view
+    }
+
+    it('does not let the first visit resurrect old math and comments', async () => {
+      const slowA = deferred<PCAData>()
+      const secondA = pcaBody(9)
+      const staleA = pcaBody(3)
+
+      await goAthenBthenA(slowA.promise, secondA)
+      await waitFor(() => expect(received[received.length - 1]).toBe(secondA))
+
+      await act(async () => {
+        slowA.resolve(staleA)
+      })
+
+      expect(received).not.toContain(staleA)
+      expect(received[received.length - 1]).toBe(secondA)
+      // The stale visit's comments must not come back either.
+      expect(receivedComments[receivedComments.length - 1]).toEqual([comment(3)])
+    })
+
+    it('does not let the first visit surface an obsolete error', async () => {
+      const slowA = deferred<PCAData>()
+      const secondA = pcaBody(9)
+
+      const view = await goAthenBthenA(slowA.promise, secondA)
+      await waitFor(() => expect(received[received.length - 1]).toBe(secondA))
+
+      await act(async () => {
+        slowA.reject(new Error('obsolete A failure'))
+      })
+
+      expect(view.queryByText('Visualization unavailable')).toBeNull()
+      expect(view.queryByTestId('viz')).not.toBeNull()
+    })
+
+    it('does not let the first visit clear the current loading state', async () => {
+      const slowA = deferred<PCAData>()
+      const stillLoadingA = deferred<PCAData>()
+
+      const view = await goAthenBthenA(slowA.promise, stillLoadingA.promise)
+      // The second visit to A is still in flight, so the spinner is up.
+      expect(view.queryByText('Loading visualization data...')).not.toBeNull()
+
+      await act(async () => {
+        slowA.resolve(pcaBody(3))
+      })
+
+      // ...and the first visit finishing must not take it down.
+      expect(view.queryByText('Loading visualization data...')).not.toBeNull()
+
+      await act(async () => {
+        stillLoadingA.resolve(pcaBody(9))
+      })
+      expect(view.queryByText('Loading visualization data...')).toBeNull()
+    })
+  })
 })

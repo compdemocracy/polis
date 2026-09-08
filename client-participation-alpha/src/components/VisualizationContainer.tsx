@@ -24,12 +24,19 @@ export default function VisualizationContainer({
   // tick 7 says nothing about conversation A's tick 7 — comparing them across
   // a switch would leave A's math on screen under B's id.
   const lastMathTick = useRef<{ conversationId: string; tick: number | undefined } | null>(null)
-  // The conversation whose in-flight responses we are still willing to apply.
-  const activeConversationId = useRef<string>(conversation_id)
+  // Monotonically increasing request generation. Every call to loadData takes
+  // the next one and is only allowed to touch state while it still holds the
+  // current one. Conversation identity is NOT sufficient for this: A -> B -> A
+  // returns to the same id, so an id check would let the first A's late
+  // response through to overwrite the second A's. Generations never repeat.
+  const requestGeneration = useRef(0)
   const refetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const loadData = useCallback(
     async (showLoadingState = true) => {
+      // Taken before anything else, so even the empty-id early return
+      // invalidates whatever was in flight.
+      const generation = ++requestGeneration.current
       const conversationId = conversation_id
 
       if (!conversationId) {
@@ -37,10 +44,6 @@ export default function VisualizationContainer({
         setError('No conversation ID provided')
         return
       }
-
-      // Claim this conversation before awaiting: any response that arrives for
-      // a conversation we have since navigated away from is dropped below.
-      activeConversationId.current = conversationId
 
       try {
         if (showLoadingState) {
@@ -54,8 +57,8 @@ export default function VisualizationContainer({
           fetchComments(conversationId)
         ])
 
-        if (activeConversationId.current !== conversationId) {
-          // A newer conversation is loading; this response is stale.
+        if (requestGeneration.current !== generation) {
+          // A newer request has been started since; this response is stale.
           return
         }
 
@@ -79,13 +82,16 @@ export default function VisualizationContainer({
         lastMathTick.current = { conversationId, tick }
         setPcaData(pcaDataResult)
       } catch (err) {
-        if (activeConversationId.current !== conversationId) {
+        if (requestGeneration.current !== generation) {
+          // A stale failure must not surface over a newer successful visit.
           return
         }
         setError(err instanceof Error ? err.message : 'Failed to fetch data')
         console.error('Error fetching data:', err)
       } finally {
-        if (showLoadingState && activeConversationId.current === conversationId) {
+        // A stale request must not clear the loading state a newer, still
+        // pending request is showing.
+        if (showLoadingState && requestGeneration.current === generation) {
           setLoading(false)
         }
       }
@@ -96,6 +102,11 @@ export default function VisualizationContainer({
   // Initial load
   useEffect(() => {
     loadData()
+    return () => {
+      // Conversation change or unmount: whatever is in flight belongs to a
+      // visit we have left, so retire its generation.
+      requestGeneration.current += 1
+    }
   }, [loadData])
 
   // Listen for vote/comment submissions and refetch after delay
