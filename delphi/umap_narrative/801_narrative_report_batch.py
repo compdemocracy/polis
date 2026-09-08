@@ -49,6 +49,7 @@ from umap_narrative.llm_factory_constructor.model_provider import AnthropicProvi
 # Import from local modules
 from polismath_commentgraph.utils.storage import PostgresClient, DynamoDBStorage
 from polismath_commentgraph.utils.group_data import GroupDataProcessor
+from polismath.components.config import ConfigManager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -253,8 +254,7 @@ class BatchReportGenerator:
             LIMIT 1
             """
             
-            # Use 'prod' as the default math_env (matches the server behavior)
-            math_env = os.environ.get('MATH_ENV', 'prod')
+            math_env = ConfigManager.get_config().get('math-env')
             
             results = self.postgres_client.query(sql, {"zid": conversation_id, "math_env": math_env})
             

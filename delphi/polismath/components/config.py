@@ -199,7 +199,7 @@ class Config:
         """
         return {
             # Environment
-            'math-env': 'dev',
+            'math-env': 'prod',
             
             # Server
             'server': {
