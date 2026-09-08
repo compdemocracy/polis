@@ -896,7 +896,7 @@ def _tolerance(stage: str, key: str) -> Tolerance:
 # ---------------------------------------------------------------------------
 # The diff.
 # ---------------------------------------------------------------------------
-#: Sentinel meaning "derive the shape from (stage, key)" — the top-level call.
+#: Sentinel meaning "derive the rank from (stage, key)" — the top-level call.
 _UNSET = "\x00unset"
 
 
@@ -970,11 +970,12 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
         return
     integer_leaf = _is_integer_leaf(stage, key, field)
 
-    # Field-level SHAPE, validated before any recursion (R3-F4). A count is a
-    # typed integer, not an arbitrary tree that happens to contain none. The
-    # declaration applies at the DECLARED position only: once an "array" has
-    # been validated, its elements carry no container declaration of their own,
-    # so an array of arrays (bid-to-pid) still recurses.
+    # Field-level RANK, validated before any recursion (R3-F4, R4-F2). A count
+    # is a typed integer, not an arbitrary tree that happens to contain none.
+    # `shape` is this level's obligation and `rank[1:]` is what the levels below
+    # inherit, so a declared integer array constrains its ELEMENTS too — which
+    # is how ("array","array","scalar") distinguishes bid-to-pid from a list of
+    # ids rather than leaving either an unconstrained tree.
     if rank is _UNSET:
         rank = _integer_rank(stage, key, None)
     shape = rank[0] if rank else None
