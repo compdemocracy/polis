@@ -739,14 +739,20 @@ def _server_identity(dsn: str) -> ServerIdentity:
 
 @dataclass
 class Manifest:
-    """A coverage manifest binding required runs and their results (P4/R3).
+    """A coverage manifest binding required runs and their results (P4/R3/R4).
 
-    A bare ``--dsn`` is not proof of replica coverage: the manifest records which
-    labelled runs were demanded, PROVES the replica is a distinct server (a
-    different ``pg_control_system()`` identifier, or ``pg_is_in_recovery()`` true —
-    unless the operator explicitly approves a same-cluster read pool), and requires
-    non-empty POPULATED coverage for every requested site (declaring everything
-    empty is not acceptance).
+    Acceptance binds BOTH endpoint roles and identities:
+      * the PRIMARY must be a write endpoint (``pg_is_in_recovery()`` false);
+      * the REPLICA must be a bound physical standby (``pg_is_in_recovery()`` true
+        AND the primary's ``pg_control_system()`` identifier, which a streaming
+        standby shares) — an UNRELATED primary is never a replica;
+      * ``approve_same_identity`` is the same-cluster read-pool profile and STILL
+        requires an equal system identifier — an override can never accept two
+        different identifiers;
+      * ``expected_system_identifier``, if supplied, is a bound profile both
+        endpoints must match;
+    and requires non-empty POPULATED WIRE coverage per read target (declaring
+    cases empty, or a preflight-only run, is not acceptance).
     """
 
     runs: list[ChannelRun]
@@ -756,23 +762,37 @@ class Manifest:
     primary_identity: Optional[ServerIdentity] = None
     replica_identity: Optional[ServerIdentity] = None
     approve_same_identity: bool = False
+    expected_system_identifier: Optional[str] = None
+
+    @property
+    def primary_valid(self) -> bool:
+        """The primary endpoint must be a write endpoint (not in recovery), and
+        match ``expected_system_identifier`` when one is supplied."""
+        if self.primary_identity is None or self.primary_identity.in_recovery:
+            return False
+        if (
+            self.expected_system_identifier is not None
+            and self.primary_identity.system_identifier != self.expected_system_identifier
+        ):
+            return False
+        return True
 
     @property
     def distinct_replica(self) -> bool:
-        """A VALID bound replica (name kept for the R3 review script). The
-        physical-standby profile requires the replica to be IN RECOVERY and to
-        share the primary's system identifier (a streaming standby copies it) —
-        so an UNRELATED primary (different id, not in recovery) is NOT accepted.
-        A same-cluster read pool needs the explicit approve_same_identity profile;
-        a bare different identifier is not automatic proof."""
+        """A VALID bound replica (name kept for the R3 review script). Never
+        accepts two different system identifiers: the same-cluster approval and the
+        physical-standby profile both require an equal identifier; the standby
+        profile additionally requires the replica to be in recovery."""
         if not self.replica_seen or self.replica_identity is None or self.primary_identity is None:
             return False
+        same_id = self.replica_identity.system_identifier == self.primary_identity.system_identifier
+        if self.expected_system_identifier is not None and (
+            self.replica_identity.system_identifier != self.expected_system_identifier
+        ):
+            return False
         if self.approve_same_identity:
-            return True
-        return (
-            self.replica_identity.in_recovery
-            and self.replica_identity.system_identifier == self.primary_identity.system_identifier
-        )
+            return same_id  # same-cluster read pool — still one cluster
+        return self.replica_identity.in_recovery and same_id
 
     def _wire_populated(self, label: str) -> bool:
         """The WIRE channel ran on `label` with every requested site populated."""
@@ -809,6 +829,8 @@ class Manifest:
     def ok(self) -> bool:
         if not self.runs:
             return False
+        if not self.primary_valid:  # primary must be a write endpoint, not a standby
+            return False
         if self.require_replica and not self.replica_seen:
             return False
         if self.require_replica and not self.distinct_replica:
@@ -824,6 +846,8 @@ class Manifest:
             v = "PASS" if r.ok else (f"UNAVAILABLE({r.note})" if r.note else "FAIL")
             parts.append(f"{r.dsn_label}/{r.channel}={v}")
         reasons = []
+        if not self.primary_valid:
+            reasons.append("primary NOT a write endpoint (in recovery or wrong system id)")
         if self.require_replica and not self.replica_seen:
             reasons.append("replica MISSING")
         elif self.require_replica and not self.distinct_replica:
@@ -847,6 +871,7 @@ def run_manifest(
     node_modules: Optional[str] = None,
     approve_same_identity: bool = False,
     src_root: Optional[str] = None,
+    expected_system_identifier: Optional[str] = None,
 ) -> Manifest:
     runs: list[ChannelRun] = []
 
@@ -883,6 +908,7 @@ def run_manifest(
         primary_identity=primary_identity,
         replica_identity=replica_identity,
         approve_same_identity=approve_same_identity,
+        expected_system_identifier=expected_system_identifier,
     )
 
 
@@ -898,7 +924,9 @@ def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p.add_argument("--require-replica", action="store_true",
                    help="fail the manifest unless a DISTINCT replica run is provided (acceptance item 3)")
     p.add_argument("--approve-same-identity", action="store_true",
-                   help="accept a replica DSN on the same cluster (an intentionally primary read pool)")
+                   help="same-cluster read pool profile (still requires an equal system identifier)")
+    p.add_argument("--expected-system-identifier", default=None,
+                   help="bound profile: both primary and replica must report this pg_control_system() id")
     p.add_argument("--zid", type=int, required=True, help="conversation id to project (synthetic in tests)")
     p.add_argument("--pid", type=int, default=None)
     p.add_argument("--tid", type=int, default=None)
@@ -941,6 +969,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         server_dir=args.server_dir,
         node_modules=args.node_modules,
         approve_same_identity=args.approve_same_identity,
+        expected_system_identifier=args.expected_system_identifier,
     )
     for run in manifest.runs:
         _print_run(run)
