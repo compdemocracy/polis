@@ -38,6 +38,7 @@ from __future__ import annotations
 import functools
 import hashlib
 import json
+import math
 import os
 import re
 import subprocess
@@ -108,6 +109,194 @@ def project_acceptance(blob: dict[str, Any]) -> dict[str, Any]:
     return canonicalize_blob(
         {k: v for k, v in proj.items() if k not in ACCEPTANCE_EXCLUDED_KEYS}
     )
+
+
+# ---------------------------------------------------------------------------
+# Raw checkpoint validation (P-022 B1 review, P1).
+# ---------------------------------------------------------------------------
+# A NONEMPTY acceptance projection is not a valid checkpoint. `json.dumps`
+# round-trips NaN/Infinity by default (allow_nan=True), and
+# :func:`compare_recording_pair` short-circuits equal per-engine hashes to
+# MATCH *before* anything inspects the values — so two producers emitting the
+# SAME malformed blob (``{"n": NaN}``, ``{"n": "invalid-count"}``) certified
+# PASS with strict exit 0. Correct cursor metadata and valid file hashes do not
+# make the payload valid.
+#
+# Every checkpoint of BOTH engines is now validated RAW — before projection,
+# before hashing, before any cached step verdict, and on recording-cache hits
+# too — so a malformed value fails its entry regardless of what the other
+# engine emitted, and the reason names the offending field.
+#
+# Deliberately NOT a full schema: the versioned per-field B/G blob schema is a
+# later slice. Key names come from crosslang's ``PREP_MAIN_KEYS`` whitelist
+# (the single source of truth for prep-main spelling); this layer pins only
+# presence, integrality, finiteness and container/ID types.
+
+#: Required on every checkpoint whose cut slot is nonzero. The ZERO checkpoint
+#: is deliberately excluded: the engines' empty-compute representations are not
+#: reconciled (Clojure omits n/n-cmts/tids/in-conv where Python emits their
+#: empty values) and that checkpoint is governed by the schedule's declared
+#: ``empty_output`` contract instead — see validate_recording_inventory.
+_REQUIRED_CHECKPOINT_KEYS: tuple[str, ...] = ("n", "n-cmts", "tids", "in-conv")
+
+#: Integer-valued (never float, never bool, never a numeric string) and >= 0.
+_COUNT_CHECKPOINT_KEYS: tuple[str, ...] = ("n", "n-cmts")
+
+#: Epoch-millisecond stamps: integral or null.
+_TIMESTAMP_CHECKPOINT_KEYS: tuple[str, ...] = ("lastVoteTimestamp", "lastModTimestamp")
+
+#: Lists of integral ids. ``tids``/``in-conv`` are always emitted as lists;
+#: the set-semantic trio is nullable on both engines (see the committed
+#: real_data cold-start blobs, where mod-in/mod-out/meta-tids are null).
+_ID_LIST_CHECKPOINT_KEYS: tuple[str, ...] = ("tids", "in-conv", "mod-in", "mod-out", "meta-tids")
+_NULLABLE_CHECKPOINT_KEYS: frozenset[str] = frozenset(
+    {"mod-in", "mod-out", "meta-tids", "lastVoteTimestamp", "lastModTimestamp"}
+)
+
+#: Object-valued containers (JSON objects on both engines).
+_MAPPING_CHECKPOINT_KEYS: tuple[str, ...] = (
+    "pca", "base-clusters", "repness", "consensus", "group-votes", "votes-base",
+    "user-vote-counts", "comment-priorities", "group-aware-consensus",
+)
+
+#: Array-valued containers.
+_SEQUENCE_CHECKPOINT_KEYS: tuple[str, ...] = ("group-clusters",)
+
+#: ``zid`` is an identifier, not a number to compute with: int or str, never a
+#: float/container. (The battery's synthetic fixtures use string zids.)
+_ID_SCALAR_CHECKPOINT_KEYS: tuple[str, ...] = ("zid",)
+
+# Every name above must be a real prep-main key: no ad-hoc field invented here
+# can drift away from the canonicalization whitelist.
+assert set(
+    _REQUIRED_CHECKPOINT_KEYS + _COUNT_CHECKPOINT_KEYS + _TIMESTAMP_CHECKPOINT_KEYS
+    + _ID_LIST_CHECKPOINT_KEYS + _MAPPING_CHECKPOINT_KEYS + _SEQUENCE_CHECKPOINT_KEYS
+    + _ID_SCALAR_CHECKPOINT_KEYS
+) <= PREP_MAIN_KEYS, "checkpoint contract names a key prep-main does not emit"
+
+
+def _is_integral(value: Any) -> bool:
+    """True for a JSON integer. ``bool`` is a Python int but not a count, and a
+    float (even 3.0) is not how either engine spells an integral field."""
+    return type(value) is int
+
+
+def _find_nonfinite(value: Any, path: str) -> str | None:
+    """Depth-first search for a NaN/Infinity float anywhere under ``value``,
+    returning its dotted path (or ``None``). json.dumps' ``allow_nan`` default
+    lets these round-trip through a recording file and hash equal on both
+    engines, so nothing downstream would ever notice them."""
+    if isinstance(value, float):
+        return path if not math.isfinite(value) else None
+    if isinstance(value, dict):
+        for k, v in value.items():
+            found = _find_nonfinite(v, f"{path}.{k}")
+            if found is not None:
+                return found
+        return None
+    if isinstance(value, (list, tuple)):
+        for i, v in enumerate(value):
+            found = _find_nonfinite(v, f"{path}[{i}]")
+            if found is not None:
+                return found
+        return None
+    return None
+
+
+def validate_checkpoint_blob(
+    blob: Any, label: str, *, require_keys: bool = True,
+) -> None:
+    """Raw validation of ONE checkpoint blob. Raises :class:`CertifyError`
+    (stage ``checkpoint-schema``) naming the offending field.
+
+    ``label`` identifies the checkpoint in the message (e.g. ``"clj: step-002"``).
+    ``require_keys=False`` skips only the required-key presence check — used for
+    the zero/empty checkpoint and for the standalone comparer, which has no cut
+    metadata to tell an empty checkpoint from a truncated one. Type and
+    finiteness checks always run.
+
+    Not a full schema (see the module comment): presence, integrality,
+    finiteness, container and ID types only.
+    """
+    if not isinstance(blob, dict):
+        raise CertifyError(
+            "checkpoint-schema",
+            f"{label}: checkpoint blob must be a JSON object, got {type(blob).__name__}")
+
+    canon = {_kebab(k): v for k, v in blob.items()}
+
+    if require_keys:
+        missing = [k for k in _REQUIRED_CHECKPOINT_KEYS if k not in canon]
+        if missing:
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{label}: checkpoint blob is missing required field(s) {missing}")
+
+    def present(keys: tuple[str, ...]):
+        for k in keys:
+            if k in canon:
+                yield k, canon[k]
+
+    for key, value in present(_COUNT_CHECKPOINT_KEYS):
+        if not _is_integral(value) or value < 0:
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{label}: field {key!r} must be a non-negative integer, got "
+                f"{type(value).__name__} {value!r}")
+
+    for key, value in present(_TIMESTAMP_CHECKPOINT_KEYS):
+        if value is None:
+            continue
+        if not _is_integral(value):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{label}: field {key!r} must be an integer or null, got "
+                f"{type(value).__name__} {value!r}")
+
+    for key, value in present(_ID_LIST_CHECKPOINT_KEYS):
+        if value is None and key in _NULLABLE_CHECKPOINT_KEYS:
+            continue
+        if not isinstance(value, list):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{label}: field {key!r} must be an array of integer ids, got "
+                f"{type(value).__name__}")
+        for i, element in enumerate(value):
+            if not _is_integral(element):
+                raise CertifyError(
+                    "checkpoint-schema",
+                    f"{label}: field {key!r}[{i}] must be an integer id, got "
+                    f"{type(element).__name__} {element!r}")
+
+    for key, value in present(_MAPPING_CHECKPOINT_KEYS):
+        if not isinstance(value, dict):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{label}: field {key!r} must be a JSON object, got "
+                f"{type(value).__name__}")
+
+    for key, value in present(_SEQUENCE_CHECKPOINT_KEYS):
+        if not isinstance(value, list):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{label}: field {key!r} must be a JSON array, got "
+                f"{type(value).__name__}")
+
+    for key, value in present(_ID_SCALAR_CHECKPOINT_KEYS):
+        if not (_is_integral(value) or isinstance(value, str)):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{label}: field {key!r} must be an integer or string id, got "
+                f"{type(value).__name__} {value!r}")
+
+    # Finiteness LAST and over the whole raw blob, not just the acceptance
+    # projection: a NaN hiding under an unprojected key still means the
+    # producer computed garbage, and NaN==NaN never trips the comparer.
+    nonfinite = _find_nonfinite(canon, "")
+    if nonfinite is not None:
+        raise CertifyError(
+            "checkpoint-schema",
+            f"{label}: non-finite number (NaN/Infinity) at field '{nonfinite.lstrip('.')}'")
 
 
 def _acceptance_projecting_comparer(**kwargs: Any) -> StepComparer:
@@ -807,6 +996,15 @@ def compare_recording_pair(
 
     per_step: list[dict[str, Any]] = []
     for i in range(aligned):
+        # RAW validation first, per engine, BEFORE projection/hash/cached
+        # verdict: equal hashes short-circuit to MATCH below, so two producers
+        # emitting the same malformed value would otherwise certify clean
+        # (P-022 B1 review, P1). require_keys=False — the standalone comparer
+        # has no cursor metadata and so cannot tell a legitimate empty
+        # checkpoint from a truncated one; the certify path enforces presence
+        # in validate_recording_inventory, where cut slots are known.
+        validate_checkpoint_blob(clj_blobs[i], f"clj: step-{i:03d}", require_keys=False)
+        validate_checkpoint_blob(py_blobs[i], f"py: step-{i:03d}", require_keys=False)
         clj_proj = project_acceptance(clj_blobs[i])
         py_proj = project_acceptance(py_blobs[i])
         if not clj_proj or not py_proj:
@@ -989,6 +1187,13 @@ def validate_recording_inventory(directory: Path, engine: str, expected: Expecte
                 if engine == "clj" else meta.get("blob"))
         if not isinstance(blob, dict) or not project_acceptance(blob):
             raise CertifyError("checkpoint-schema", f"{engine}: missing acceptance blob at {stem}")
+        # Raw field validation, independently per engine and on cache hits too:
+        # a nonempty projection says nothing about the VALUES in it (P-022 B1
+        # review, P1). The zero checkpoint is exempted from required-key
+        # presence only — the empty_output contract below governs it — but its
+        # types and finiteness are still checked.
+        validate_checkpoint_blob(blob, f"{engine}: {stem}",
+                                 require_keys=checkpoint["cut_slot"] != 0)
         if checkpoint["cut_slot"] == 0:
             projected = project_acceptance(blob)
             missing = sorted(k for k in expected.spec.empty_output if k not in projected)
