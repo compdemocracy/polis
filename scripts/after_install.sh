@@ -108,18 +108,20 @@ elif [ "$SERVICE_FROM_FILE" == "math" ]; then
   sudo /usr/local/bin/docker-compose up -d math --build --force-recreate
 elif [ "$SERVICE_FROM_FILE" == "delphi" ]; then
   echo "Starting docker-compose up for 'delphi' service"
-  echo "Fetching Ollama Service URL for Delphi..."
-  OLLAMA_URL=$(aws secretsmanager get-secret-value --secret-id /polis/ollama-service-url --query SecretString --output text --region us-east-1)
+  # The Ollama GPU stack is optional (topic naming defaults to the Anthropic
+  # Batch API). Only fetch OLLAMA_HOST if the secret exists; never fail the
+  # deploy when it doesn't. Re-enable Ollama with CDK_ENABLE_OLLAMA=true +
+  # LLM_PROVIDER=ollama.
+  echo "Checking for optional Ollama Service URL for Delphi..."
+  OLLAMA_URL=$(aws secretsmanager get-secret-value --secret-id /polis/ollama-service-url --query SecretString --output text --region us-east-1 2>/dev/null || true)
 
-  if [ -z "$OLLAMA_URL" ]; then
-    echo "Error: Could not retrieve Ollama Service URL from Secrets Manager: /polis/ollama-service-url"
-    exit 1
+  if [ -n "$OLLAMA_URL" ]; then
+    echo "Retrieved Ollama Service URL; appending OLLAMA_HOST to .env for Delphi"
+    printf "\nOLLAMA_HOST=%s\n" "$OLLAMA_URL" | sudo tee -a .env > /dev/null
+    echo "OLLAMA_HOST appended."
+  else
+    echo "No Ollama Service URL secret found (/polis/ollama-service-url); skipping OLLAMA_HOST. Delphi will use the Anthropic Batch API for topic naming."
   fi
-  echo "Retrieved Ollama Service URL."
-
-  echo "Appending OLLAMA_HOST to .env for Delphi"
-  printf "\nOLLAMA_HOST=%s\n" "$OLLAMA_URL" | sudo tee -a .env > /dev/null
-  echo "OLLAMA_HOST appended."
 
 
   if [ -f "/etc/app-info/instance_size.txt" ]; then
