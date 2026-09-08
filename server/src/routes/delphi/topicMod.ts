@@ -79,6 +79,32 @@ function isResourceNotFoundException(err: unknown): boolean {
 }
 
 /**
+ * Answer a request that depends on one of the absent stores.
+ *
+ * Deliberately not `failJson`: that helper logs at error, and these tables are
+ * absent on every call, so it would emit an error event per request for a
+ * condition that is known, permanent and already described here. The store
+ * being unbuilt is not an incident. The response body keeps `failJson`'s shape
+ * so callers see one error contract, and the hint stays product-facing — the
+ * table names belong in the log line and the P-034 notes, not in an admin
+ * console.
+ */
+function failMissingStore(
+  res: Response,
+  clientVisibleErrorString: string,
+  logDetail: string,
+  additionalData: Record<string, unknown>
+) {
+  logger.warn(`${clientVisibleErrorString}: ${logDetail}`);
+  return res.status(503).json({
+    error: clientVisibleErrorString,
+    message: clientVisibleErrorString,
+    status: 503,
+    ...additionalData,
+  });
+}
+
+/**
  * GET /api/v3/topicMod/topics
  * Retrieves topics with moderation status
  */
@@ -274,13 +300,12 @@ export async function handle_GET_topicMod_comments(
         // degrade to. Say so with a stable code rather than reporting an empty
         // topic (which reads as "no comments here") or echoing the raw AWS
         // "Requested resource not found" back to the admin console.
-        return failJson(
+        return failMissingStore(
           res,
-          503,
           "polis_err_topicMod_comments_store_missing",
-          undefined,
+          `${TOPIC_COMMENT_CLUSTERS_TABLE} does not exist`,
           {
-            hint: `${TOPIC_COMMENT_CLUSTERS_TABLE} has never been provisioned; per-topic comment listing is not available.`,
+            hint: "Per-topic comment listing is not available for this conversation.",
           }
         );
       }
@@ -367,23 +392,49 @@ export async function handle_POST_topicMod_moderate(
       action === "accept" ? 1 : action === "reject" ? -1 : 0;
     const isMeta = action === "meta";
 
+    // Count comments this request actually moderated, not ids it was handed.
+    // Postgres executes an UPDATE that matches nothing perfectly happily, so a
+    // stale, foreign or repeated tid would otherwise be reported as a moderated
+    // comment. `RETURNING tid` reports what the `zid`-scoped predicate matched,
+    // and the set collapses duplicates and any overlap between the explicit ids
+    // and the topic's own comments below.
+    const moderatedTids = new Set<number>();
+
+    const applyModeration = async (tid: unknown): Promise<void> => {
+      const updated = (await p.queryP(
+        "UPDATE comments SET mod = ($1), is_meta = ($2) WHERE zid = ($3) AND tid = ($4) RETURNING tid",
+        [moderationStatus, isMeta, zid, tid]
+      )) as Array<{ tid: number }>;
+      for (const row of updated || []) {
+        moderatedTids.add(Number(row.tid));
+      }
+    };
+
     // Explicit comment ids are backed entirely by Postgres, so apply them
     // first. The topic branch below reads two tables that do not exist; doing
     // it first meant a request carrying both lost the ids it could have
     // applied, exactly the failure #2707 removed from the topic-agenda writes.
-    let commentsModerated = 0;
-    if (comment_ids && Array.isArray(comment_ids)) {
+    const requestedIds: unknown[] =
+      comment_ids && Array.isArray(comment_ids) ? comment_ids : [];
+    if (requestedIds.length > 0) {
       logger.info(
-        `Moderating ${comment_ids.length} individual comments as ${action}`
+        `Moderating ${requestedIds.length} individual comments as ${action}`
       );
 
-      for (const comment_id of comment_ids) {
-        await p.queryP(
-          "UPDATE comments SET mod = ($1), is_meta = ($2) WHERE zid = ($3) AND tid = ($4)",
-          [moderationStatus, isMeta, zid, comment_id]
-        );
+      for (const comment_id of requestedIds) {
+        await applyModeration(comment_id);
       }
-      commentsModerated = comment_ids.length;
+    }
+
+    // Ids the caller named that no comment in this conversation matched. Named
+    // separately so a partial result is legible rather than a silent shortfall.
+    const unmatchedIds = requestedIds.filter(
+      (id) => !moderatedTids.has(Number(id))
+    );
+    if (unmatchedIds.length > 0) {
+      logger.warn(
+        `Ignored ${unmatchedIds.length} comment id(s) not present in conversation ${zid}`
+      );
     }
 
     // If topic_key is provided, moderate entire topic
@@ -430,14 +481,14 @@ export async function handle_POST_topicMod_moderate(
           // its comments could not be enumerated. Report that instead of the
           // "applied successfully" this used to answer with, which told the
           // admin console a moderation had taken effect when none had.
-          return failJson(
+          return failMissingStore(
             res,
-            503,
             "polis_err_topicMod_moderate_topic_store_missing",
-            undefined,
+            `${TOPIC_MODERATION_STATUS_TABLE} and ${TOPIC_COMMENT_CLUSTERS_TABLE} do not exist`,
             {
-              hint: `${TOPIC_MODERATION_STATUS_TABLE} and ${TOPIC_COMMENT_CLUSTERS_TABLE} have never been provisioned; whole-topic moderation is not available. Moderate the topic's comments by id instead.`,
-              comments_moderated: commentsModerated,
+              hint: "Whole-topic moderation is not available for this conversation. Moderate the topic's comments by id instead.",
+              comments_moderated: moderatedTids.size,
+              unmatched_comment_ids: unmatchedIds,
             }
           );
         }
@@ -445,11 +496,7 @@ export async function handle_POST_topicMod_moderate(
       }
 
       for (const comment of commentsData.Items || []) {
-        await p.queryP(
-          "UPDATE comments SET mod = ($1), is_meta = ($2) WHERE zid = ($3) AND tid = ($4)",
-          [moderationStatus, isMeta, zid, comment.comment_id]
-        );
-        commentsModerated++;
+        await applyModeration(comment.comment_id);
       }
     }
 
@@ -457,7 +504,8 @@ export async function handle_POST_topicMod_moderate(
       status: "success",
       message: `Moderation action '${action}' applied successfully`,
       moderated_at: now,
-      comments_moderated: commentsModerated,
+      comments_moderated: moderatedTids.size,
+      unmatched_comment_ids: unmatchedIds,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
