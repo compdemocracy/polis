@@ -330,41 +330,71 @@ def resolve_roles(
     reserved: set[int] = set()
 
     for group in ("replacement", "stress"):
-        for role in config["roles"]:
-            if role["group"] != group:
-                continue
+        for batch in _selection_batches(config, group):
             exclude = reserved if group == "replacement" else set()
-            candidates = rank_candidates(rows, role, exclude=exclude)
-            rank = role["rank"]
-            if len(candidates) < rank:
-                replacement = role.get("synthetic_replacement")
-                if (replacement
-                        and role["on_missing"] == "fail_with_synthetic_replacement_offer"
-                        and role["slug"] in accepted):
-                    selections.append(Selection(
-                        role=role["role"], slug=role["slug"], group=group, rank=rank,
-                        zid=None, metrics={}, n_candidates=len(candidates),
+            # One candidate list for the whole batch: roles sharing a
+            # selection_group rank into the SAME ordering (the spec's "among
+            # remaining ... select ranks 1, 2, 4, 8, 16"), so an earlier rank
+            # does not shift a later one.
+            candidates = rank_candidates(rows, batch[0], exclude=exclude)
+            batch_zids: list[int] = []
+            for role in batch:
+                rank = role["rank"]
+                if len(candidates) < rank:
+                    replacement = role.get("synthetic_replacement")
+                    if (replacement
+                            and role["on_missing"] == "fail_with_synthetic_replacement_offer"
+                            and role["slug"] in accepted):
+                        selections.append(Selection(
+                            role=role["role"], slug=role["slug"], group=group,
+                            rank=rank, zid=None, metrics={},
+                            n_candidates=len(candidates),
+                            synthetic_replacement=replacement,
+                        ))
+                        continue
+                    raise RoleUnsatisfied(
+                        role["role"], role["slug"],
+                        f"rule matched {len(candidates)} conversation(s) but rank "
+                        f"{rank} was required",
                         synthetic_replacement=replacement,
-                    ))
-                    continue
-                raise RoleUnsatisfied(
-                    role["role"], role["slug"],
-                    f"rule matched {len(candidates)} conversation(s) but rank {rank} "
-                    "was required",
-                    synthetic_replacement=replacement,
-                )
-            chosen = candidates[rank - 1]
-            zid = chosen["zid"]
-            selections.append(Selection(
-                role=role["role"], slug=role["slug"], group=group, rank=rank,
-                zid=zid, metrics=chosen, n_candidates=len(candidates),
-                overlaps_with=list(taken.get(zid, [])),
-            ))
-            taken.setdefault(zid, []).append(role["slug"])
+                    )
+                chosen = candidates[rank - 1]
+                zid = chosen["zid"]
+                selections.append(Selection(
+                    role=role["role"], slug=role["slug"], group=group, rank=rank,
+                    zid=zid, metrics=chosen, n_candidates=len(candidates),
+                    overlaps_with=list(taken.get(zid, [])),
+                ))
+                taken.setdefault(zid, []).append(role["slug"])
+                batch_zids.append(zid)
             if group == "replacement":
-                reserved.add(zid)
+                reserved.update(batch_zids)
 
     return selections
+
+
+def _selection_batches(
+    config: dict[str, Any], group: str,
+) -> list[list[dict[str, Any]]]:
+    """Group ``group``'s roles into resolution batches, preserving config order.
+
+    A role with no ``selection_group`` is its own batch. Roles sharing a
+    ``selection_group`` form ONE batch resolved against a single candidate list.
+    """
+    batches: list[list[dict[str, Any]]] = []
+    index: dict[str, int] = {}
+    for role in config["roles"]:
+        if role["group"] != group:
+            continue
+        key = role.get("selection_group")
+        if key is None:
+            batches.append([role])
+            continue
+        if key not in index:
+            index[key] = len(batches)
+            batches.append([])
+        batches[index[key]].append(role)
+    return batches
 
 
 # ---------------------------------------------------------------------------
@@ -427,18 +457,19 @@ def coverage_report(config: dict[str, Any], rows: Sequence[dict[str, Any]]) -> d
     out: dict[str, Any] = {}
     reserved: set[int] = set()
     for group in ("replacement", "stress"):
-        for role in config["roles"]:
-            if role["group"] != group:
-                continue
+        for batch in _selection_batches(config, group):
             exclude = reserved if group == "replacement" else set()
-            candidates = rank_candidates(rows, role, exclude=exclude)
-            out[role["slug"]] = {
-                "role": role["role"],
-                "group": group,
-                "rank": role["rank"],
-                "n_candidates": len(candidates),
-                "satisfied": len(candidates) >= role["rank"],
-            }
-            if group == "replacement" and len(candidates) >= role["rank"]:
-                reserved.add(candidates[role["rank"] - 1]["zid"])
+            candidates = rank_candidates(rows, batch[0], exclude=exclude)
+            for role in batch:
+                satisfied = len(candidates) >= role["rank"]
+                out[role["slug"]] = {
+                    "role": role["role"],
+                    "group": group,
+                    "rank": role["rank"],
+                    "selection_group": role.get("selection_group"),
+                    "n_candidates": len(candidates),
+                    "satisfied": satisfied,
+                }
+                if group == "replacement" and satisfied:
+                    reserved.add(candidates[role["rank"] - 1]["zid"])
     return out

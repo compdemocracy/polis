@@ -33,6 +33,9 @@ SEMANTIC RULES (all enforced by :func:`validate_config`):
    slug; ``generator_case`` names an existing generated case id.
 7. Generated case ids are unique. ``shape = lru-cohort`` requires
    ``cohort_size``; no other shape may carry one.
+8. Roles sharing a ``selection_group`` must share identical ``predicates`` and
+   ``order_by`` (they rank into ONE list) and must have DISTINCT ranks, must all
+   be in the same ``group``, and must be contiguous in the array.
 """
 
 from __future__ import annotations
@@ -276,6 +279,35 @@ def _semantic_errors(config: dict[str, Any]) -> list[str]:
         for ref in refs:
             if ref not in slug_set:
                 errors.append(f"{where}: references unknown role slug {ref!r}")
+
+    # Rule 8 — selection groups rank into one shared candidate list.
+    groups: dict[str, list[dict[str, Any]]] = {}
+    positions: dict[str, list[int]] = {}
+    for i, role in enumerate(roles):
+        key = role.get("selection_group")
+        if key is None:
+            continue
+        groups.setdefault(key, []).append(role)
+        positions.setdefault(key, []).append(i)
+    for key, members in groups.items():
+        where = f"$.roles(selection_group={key!r})"
+        first = members[0]
+        for other in members[1:]:
+            if other.get("predicates") != first.get("predicates"):
+                errors.append(f"{where}: members must share identical predicates")
+                break
+        for other in members[1:]:
+            if other.get("order_by") != first.get("order_by"):
+                errors.append(f"{where}: members must share identical order_by")
+                break
+        ranks = [r.get("rank") for r in members]
+        if len(set(ranks)) != len(ranks):
+            errors.append(f"{where}: members must have distinct ranks, got {ranks}")
+        if len({r.get("group") for r in members}) != 1:
+            errors.append(f"{where}: members must all be in the same group")
+        idxs = positions[key]
+        if idxs != list(range(idxs[0], idxs[0] + len(idxs))):
+            errors.append(f"{where}: members must be contiguous in $.roles")
 
     # Rule 7 — generated cases.
     cases = config.get("generated", {}).get("cases", [])

@@ -110,7 +110,12 @@
         "rank": {
           "type": "integer",
           "minimum": 1,
-          "description": "1-based rank into the ordered candidate list after predicates."
+          "description": "1-based rank into the ordered candidate list after predicates (and, for a group=replacement role, after excluding conversations already reserved by earlier roles)."
+        },
+        "selection_group": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Roles sharing this name are resolved together against ONE candidate list, so their ranks are positions in the same ordering rather than successive picks from a shrinking list. They must share identical predicates and order_by, and must have distinct ranks. This is what the spec's 'among remaining V>=50,000 conversations, ... select ranks 1,2,4,8,16' means."
         },
         "predicates": {
           "type": "array",

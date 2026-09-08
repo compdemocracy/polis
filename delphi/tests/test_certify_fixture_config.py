@@ -76,8 +76,8 @@ def test_config_contains_no_identifiers(config):
     assert '"zid":' not in text.replace('"zid": {', "")  # only the metric DEFINITION
     for role in config["roles"]:
         assert set(role) <= {
-            "role", "slug", "group", "rank", "predicates", "order_by",
-            "on_missing", "synthetic_replacement", "exercise", "notes",
+            "role", "slug", "group", "rank", "selection_group", "predicates",
+            "order_by", "on_missing", "synthetic_replacement", "exercise", "notes",
         }
         for pred in role["predicates"]:
             assert isinstance(pred["value"], (int, float))
@@ -170,6 +170,45 @@ def test_structural_rejections(config, schema, mutate, needle):
 def test_semantic_rejections(config, mutate, needle):
     with pytest.raises(fc.ConfigError, match=needle.replace("$", r"\$")):
         fc.validate_config(_broken(config, mutate))
+
+
+@pytest.mark.parametrize("mutate,needle", [
+    (lambda c: next(r for r in c["roles"]
+                    if r.get("selection_group"))["predicates"].append(
+        {"metric": "V", "op": "ge", "value": 1}),
+     "must share identical predicates"),
+    (lambda c: next(r for r in c["roles"]
+                    if r.get("selection_group"))["order_by"].insert(
+        0, {"metric": "P", "direction": "desc"}),
+     "must share identical order_by"),
+    (lambda c: next(r for r in c["roles"]
+                    if r.get("selection_group")).update(
+        rank=next(r for r in reversed(c["roles"])
+                  if r.get("selection_group"))["rank"]),
+     "must have distinct ranks"),
+    (lambda c: c["roles"].insert(
+        next(i for i, r in enumerate(c["roles"]) if r.get("selection_group")) + 1,
+        dict(c["roles"][0], slug="pc-v1-interloper", role="interloper")),
+     "must be contiguous"),
+])
+def test_selection_group_rejections(config, mutate, needle):
+    with pytest.raises(fc.ConfigError, match=needle):
+        fc.validate_config(_broken(config, mutate))
+
+
+def test_selection_group_members_rank_into_one_shared_list():
+    """The spec's large-shape rule selects ranks 1/2/4/8/16 from ONE ordering;
+    an earlier rank must not shift a later one."""
+    cfg = copy.deepcopy(_MINI_CONFIG)
+    template = cfg["roles"][0]
+    cfg["roles"] = [
+        dict(template, slug=f"pc-v1-r{k}", role=f"r{k}", rank=k,
+             selection_group="shared")
+        for k in (1, 2, 4)
+    ]
+    rows = [_row(z, V=1000 - z) for z in range(1, 9)]
+    sels = {s.slug: s.zid for s in fs.resolve_roles(cfg, rows)}
+    assert sels == {"pc-v1-r1": 1, "pc-v1-r2": 2, "pc-v1-r4": 4}
 
 
 def test_unknown_synthetic_replacement_is_rejected(config):

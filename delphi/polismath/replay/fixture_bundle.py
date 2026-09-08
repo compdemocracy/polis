@@ -650,6 +650,14 @@ def render_public_pin_markdown(pin: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+#: Hex runs of 16+ characters are SHA-256 digests and opaque directory
+#: prefixes. They are not a channel through which an identifier can leak, and
+#: a long decimal identifier will coincidentally appear inside enough random
+#: hex to make an unfiltered scan flaky, so :func:`scan_public_output` removes
+#: them before looking for planted identifiers.
+_DIGEST_RE = re.compile(r"\b[0-9a-f]{16,}\b")
+
+
 def scan_for_identifiers(text: str, planted: Iterable[str]) -> list[str]:
     """Return every planted synthetic identifier that appears in ``text``.
 
@@ -657,6 +665,12 @@ def scan_for_identifiers(text: str, planted: Iterable[str]) -> list[str]:
     report ids, then assert this returns EMPTY for every public output.
     """
     return [needle for needle in planted if needle and needle in text]
+
+
+def scan_public_output(text: str, planted: Iterable[str]) -> list[str]:
+    """:func:`scan_for_identifiers` with SHA-256 digests and opaque directory
+    prefixes removed first."""
+    return scan_for_identifiers(_DIGEST_RE.sub("<digest>", text), planted)
 
 
 def collect_schedule_hashes(schedules_dir: Path) -> list[dict[str, Any]]:
