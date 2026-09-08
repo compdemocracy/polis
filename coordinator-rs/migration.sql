@@ -17,6 +17,16 @@ CREATE TABLE IF NOT EXISTS coordinator_failures (
  attempts integer NOT NULL, first_failed_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  next_attempt timestamptz NOT NULL, PRIMARY KEY(math_env,zid)
 );
+-- CO01 incremental discovery cursor: when the authoritative full snapshot was
+-- last taken for this conversation, and the cheap probe observed immediately
+-- before it. The probe is a hint that may skip a full read; `reconciled_at` is
+-- what bounds how long it may be trusted, and it is the source of the
+-- OldestReconciliationAgeSeconds scan-age metric.
+CREATE TABLE IF NOT EXISTS coordinator_reconciliation (
+ math_env varchar(999) NOT NULL, zid integer NOT NULL REFERENCES conversations(zid),
+ reconciled_at timestamptz NOT NULL, source_probe jsonb NOT NULL,
+ PRIMARY KEY(math_env,zid)
+);
 CREATE SEQUENCE IF NOT EXISTS coordinator_caching_tick;
 SELECT setval('coordinator_caching_tick', GREATEST(
  (SELECT COALESCE(MAX(caching_tick),0)+1 FROM math_main),

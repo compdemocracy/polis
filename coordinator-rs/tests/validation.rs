@@ -166,3 +166,137 @@ fn warm_cache_evicts_least_recently_used_within_capacity() -> Result<()> {
     assert!(disabled.is_empty());
     Ok(())
 }
+
+// --- CO01 metrics: the record shape P-031 can consume ---
+
+#[derive(Clone, Default)]
+struct Captured(std::sync::Arc<std::sync::Mutex<Vec<serde_json::Value>>>);
+impl polis_coordinator::metrics::Sink for Captured {
+    fn write(&mut self, record: &serde_json::Value) -> Result<()> {
+        match self.0.lock() {
+            Ok(mut records) => {
+                records.push(record.clone());
+                Ok(())
+            }
+            Err(_) => anyhow::bail!("poisoned"),
+        }
+    }
+    fn describe(&self) -> String {
+        "captured".into()
+    }
+}
+fn captured(sink: &Captured) -> Vec<serde_json::Value> {
+    match sink.0.lock() {
+        Ok(records) => records.clone(),
+        Err(_) => panic!("poisoned capture"),
+    }
+}
+
+#[test]
+fn metric_record_carries_only_the_two_permitted_dimensions() {
+    use polis_coordinator::metrics::{Metrics, NAMESPACE, count, seconds};
+    let sink = Captured::default();
+    let mut metrics = Metrics::new(Box::new(sink.clone()), "synthetic", "rustproto");
+    metrics.emit(
+        "source_pass",
+        &[
+            count("SourcePassPublished", 2u32),
+            seconds("SourcePassSeconds", std::time::Duration::from_millis(1500)),
+        ],
+        json!({"zid": 7}),
+    );
+    let records = captured(&sink);
+    assert_eq!(records.len(), 1);
+    let r = &records[0];
+    assert_eq!(r["_aws"]["CloudWatchMetrics"][0]["Namespace"], NAMESPACE);
+    // P-031: "Math uses only fixed Environment=prod, MathEnv=prod ... No
+    // conversation/job/report/run/instance dimensions."
+    assert_eq!(
+        r["_aws"]["CloudWatchMetrics"][0]["Dimensions"],
+        json!([["Environment", "MathEnv"]])
+    );
+    assert_eq!(r["Environment"], "synthetic");
+    assert_eq!(r["MathEnv"], "rustproto");
+    assert_eq!(r["SourcePassPublished"], 2.0);
+    assert_eq!(r["SourcePassSeconds"], 1.5);
+    // The zid is a log property, never a dimension.
+    assert_eq!(r["context"]["zid"], 7);
+}
+
+#[test]
+fn every_emitted_metric_name_is_declared_in_the_catalog() {
+    use polis_coordinator::metrics::{CATALOG, Metrics, Tally};
+    let sink = Captured::default();
+    let mut metrics = Metrics::new(Box::new(sink.clone()), "synthetic", "rustproto");
+    // The whole per-pass tally plus every per-zid and gauge name.
+    let mut data = Tally::default().data(std::time::Duration::from_secs(1), true);
+    data.extend([
+        polis_coordinator::metrics::seconds(
+            "OldestReconciliationAgeSeconds",
+            std::time::Duration::from_secs(0),
+        ),
+        polis_coordinator::metrics::count("ReconciliationBacklogConversations", 0u32),
+        polis_coordinator::metrics::count("FailureBacklogConversations", 0u32),
+        polis_coordinator::metrics::seconds(
+            "OldestUnrepairedAgeSeconds",
+            std::time::Duration::from_secs(0),
+        ),
+        polis_coordinator::metrics::seconds(
+            "ConversationLatencySeconds",
+            std::time::Duration::from_secs(0),
+        ),
+        polis_coordinator::metrics::seconds("SourceReadSeconds", std::time::Duration::from_secs(0)),
+        polis_coordinator::metrics::seconds("ComputeSeconds", std::time::Duration::from_secs(0)),
+        polis_coordinator::metrics::seconds("PublishSeconds", std::time::Duration::from_secs(0)),
+        polis_coordinator::metrics::count("MetricsDropped", 0u32),
+    ]);
+    metrics.emit("all", &data, json!({}));
+    let records = captured(&sink);
+    let listed = match records[0]["_aws"]["CloudWatchMetrics"][0]["Metrics"].as_array() {
+        Some(list) => list.clone(),
+        None => panic!("no metric list in the record"),
+    };
+    for entry in &listed {
+        assert!(
+            CATALOG.iter().any(|d| Some(d.name) == entry["Name"].as_str()),
+            "undeclared metric {entry}"
+        );
+    }
+    // and the catalog does not describe metrics nothing can emit
+    for declared in CATALOG {
+        assert!(
+            listed.iter().any(|e| e["Name"] == declared.name),
+            "catalog declares {} but no call site emits it",
+            declared.name
+        );
+    }
+}
+
+#[test]
+fn a_failing_metric_sink_is_counted_and_never_propagates() {
+    use polis_coordinator::metrics::{Metrics, Sink, count};
+    struct Broken;
+    impl Sink for Broken {
+        fn write(&mut self, _record: &serde_json::Value) -> Result<()> {
+            anyhow::bail!("sink is down")
+        }
+        fn describe(&self) -> String {
+            "broken".into()
+        }
+    }
+    let mut metrics = Metrics::new(Box::new(Broken), "synthetic", "rustproto");
+    metrics.emit("t", &[count("PollHealthy", 1u32)], json!({}));
+    assert_eq!(metrics.dropped(), 1, "a lost record must be visible");
+}
+
+#[test]
+fn catalog_metric_names_are_unique() {
+    let mut names: Vec<_> = polis_coordinator::metrics::CATALOG
+        .iter()
+        .map(|d| d.name)
+        .collect();
+    names.sort_unstable();
+    let before = names.len();
+    names.dedup();
+    assert_eq!(before, names.len(), "duplicate metric name in the catalog");
+}

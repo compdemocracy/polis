@@ -27,10 +27,14 @@ assert not set(compiled)-set(required), 'unreviewed compiled marker'
 # The stage inventory and the full contract gate are separate verdicts: reaching
 # every fault stage does not certify CO08/D4, which need the actual Node route.
 open_conditions=['CO08/D4: actual Node Bundle route, cache join and C7 presentation checks',
-    'CO01: scan age / backlog / failure metrics are not exposed',
+    'CO01: the incremental probe is a hint bounded by P026_RECONCILE_SECONDS; no proven'
+    ' change token covers every transaction, so the ceiling is what carries completeness',
     'polis-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate']
+metrics=json.loads(subprocess.check_output([str(root/'coordinator-rs/target/fault/debug/polis-coordinator'),'metrics'],text=True))
+assert metrics['namespace']=='Polis/Math' and metrics['dimensions']==['Environment','MathEnv']
 unreached=[r['stage'] for r in rows if r['status']!='reached-and-blocked']
 result=dict(protocol='polis-fault-control/1',compiled_stages=len(compiled),required_stages=len(required),
+    metrics_namespace=metrics['namespace'],declared_metrics=len(metrics['metrics']),
     reached=sum(r['status']=='reached-and-blocked' for r in rows),stages=rows,unreached=unreached,
     stage_inventory_gate='FAIL' if unreached else 'PASS',
     open_conditions=open_conditions,

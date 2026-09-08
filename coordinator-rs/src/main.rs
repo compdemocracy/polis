@@ -14,6 +14,12 @@ fn run() -> Result<()> {
         println!("{}", json!(polis_coordinator::fault::STAGES));
         return Ok(());
     }
+    if mode == "metrics" {
+        // The declared CO01/CO06 metric catalog, generated from the code that
+        // emits it, so the P-031 evidence file cannot drift from reality.
+        println!("{}", polis_coordinator::metrics::catalog_json());
+        return Ok(());
+    }
     let config = Config::from_env()?;
     let mut store = PgStore::connect(config)?;
     match mode.as_str() {

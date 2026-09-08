@@ -1,12 +1,14 @@
 use crate::{
     engine::{self, Source},
     lease::{LeaseState, Renewal},
+    metrics::{Tally, count, seconds},
     ordering,
     store::{Current, PgStore, Publication, ResultsStore, digest},
 };
 use anyhow::{Result, bail, ensure};
 use postgres::IsolationLevel;
 use serde_json::{Value, json};
+use std::time::{Duration, Instant};
 
 impl PgStore {
     pub fn source(&mut self, zid: i32) -> Result<Source> {
@@ -67,8 +69,34 @@ impl PgStore {
         })
     }
     pub fn process(&mut self, zid: i32) -> Result<bool> {
+        let started = Instant::now();
+        let outcome = self.process_leased(zid);
+        // CO03: every terminal outcome is counted under its own typed name, so
+        // "unavailable" can never be read as a crash or as successful work.
+        match &outcome {
+            Ok(_) => {}
+            Err(e) => match LeaseState::of(e) {
+                Some(LeaseState::Unavailable) => self.tally.lease_unavailable += 1,
+                Some(LeaseState::Expired) => self.tally.lease_expired += 1,
+                Some(LeaseState::Fenced) => self.tally.lease_fenced += 1,
+                None => {}
+            },
+        }
+        self.metrics.emit(
+            "conversation",
+            &[seconds("ConversationLatencySeconds", started.elapsed())],
+            json!({"zid":zid,"outcome":match &outcome {
+                Ok(true) => "published".to_owned(),
+                Ok(false) => "unchanged".to_owned(),
+                Err(e) => LeaseState::of(e).map_or_else(|| "failed".to_owned(), |s| s.token().to_owned()),
+            }}),
+        );
+        outcome
+    }
+    fn process_leased(&mut self, zid: i32) -> Result<bool> {
         // No epoch: another owner holds an unexpired lease. Recoverable.
         let epoch = self.acquire(zid)?.ok_or(LeaseState::Unavailable)?;
+        self.tally.lease_acquired += 1;
         let mut renewal = Renewal::start(&self.config, zid, epoch)?;
         let context = json!({"zid":zid,"math_env":self.config.math_env,"epoch":epoch});
         self.fault.hit("after_lease", &context)?;
@@ -102,24 +130,55 @@ impl PgStore {
         }
     }
     fn process_owned(&mut self, zid: i32, epoch: i64, renewal: &Renewal) -> Result<bool> {
-        let source = self.source(zid)?;
-        let context = json!({"zid":zid,"math_env":self.config.math_env,"epoch":epoch,"source_fingerprint":source.fingerprint,"event_count":source.votes.len()});
-        self.fault.hit("after_source_selection", &context)?;
-        // This is an admitted in-memory checkpoint, not durable acknowledgement.
-        // Source remains authoritative until identical provenance commits with math.
-        self.fault.hit("after_input_checkpoint", &context)?;
         let expected = self.current_tick(zid)?;
         // A warm entry is only usable while it still is the current generation.
         let prior = match self.cache.take(zid, expected) {
             Some(bundle) => Current::Coherent(bundle),
             None => self.load_current(zid)?,
         };
+        // CO01 incremental discovery. The probe is captured *before* the
+        // authoritative snapshot it will certify, so a row committing between
+        // the two changes the next probe instead of being swallowed. It can
+        // only ever *skip* a read; it never authorises a rebuild, and it is
+        // trusted only while this conversation's last full reconciliation is
+        // younger than the configured ceiling. See src/probe.rs.
+        let probe = self.probe(zid)?;
+        self.tally.probed += 1;
+        if self.config.incremental
+            && matches!(prior, Current::Coherent(_))
+            && let Some((recorded, age)) = self.reconciliation(zid)?
+            && recorded == probe
+            && age < Duration::from_secs(self.config.reconcile_seconds.max(1) as u64)
+        {
+            if let Current::Coherent(bundle) = prior {
+                self.cache.insert(&self.fault, zid, bundle)?;
+            }
+            self.tally.skipped += 1;
+            tracing::debug!(
+                zid,
+                reconciliation_age_s = age.as_secs(),
+                "source probe unchanged; full snapshot skipped"
+            );
+            return Ok(false);
+        }
+        let read = Instant::now();
+        let source = self.source(zid)?;
+        let source_seconds = read.elapsed();
+        self.tally.reconciled += 1;
+        let context = json!({"zid":zid,"math_env":self.config.math_env,"epoch":epoch,"source_fingerprint":source.fingerprint,"event_count":source.votes.len()});
+        self.fault.hit("after_source_selection", &context)?;
+        // This is an admitted in-memory checkpoint, not durable acknowledgement.
+        // Source remains authoritative until identical provenance commits with math.
+        self.fault.hit("after_input_checkpoint", &context)?;
         let unchanged = matches!(&prior,
             Current::Coherent(b) if b.checkpoint["source_fingerprint"] == source.fingerprint);
         if unchanged {
             if let Current::Coherent(bundle) = prior {
                 self.cache.insert(&self.fault, zid, bundle)?;
             }
+            // The authoritative snapshot agreed with the published generation:
+            // this is the only evidence that lets a later probe skip a read.
+            self.record_reconciliation(zid, &probe)?;
             return Ok(false);
         }
         let old = match &prior {
@@ -132,11 +191,14 @@ impl PgStore {
                 None => Ok(()),
             }
         };
+        let compute_started = Instant::now();
         let computed = engine::compute(&self.config, &self.fault, zid, &source, old, &guard);
+        let compute_seconds = compute_started.elapsed();
         // Ownership is decided authoritatively here, before any publication, so
         // an abort inside compute reports the state the database actually holds.
         self.lease_guard(zid, epoch, renewal)?;
         let (payloads, checkpoint) = computed?;
+        let publish_started = Instant::now();
         let mut attempts = 0;
         let published = loop {
             match self.publish(zid, expected, epoch, checkpoint.clone(), &payloads) {
@@ -150,14 +212,29 @@ impl PgStore {
                         return Err(error);
                     }
                     attempts += 1;
+                    self.tally.publish_retried += 1;
                     tracing::warn!(zid, attempts, "retrying whole publication transaction");
-                    std::thread::sleep(std::time::Duration::from_millis(50 * attempts));
+                    std::thread::sleep(Duration::from_millis(50 * attempts));
                 }
             }
         };
+        let publish_seconds = publish_started.elapsed();
+        self.metrics.emit(
+            "reconciliation",
+            &[
+                seconds("SourceReadSeconds", source_seconds),
+                seconds("ComputeSeconds", compute_seconds),
+                seconds("PublishSeconds", publish_seconds),
+            ],
+            json!({"zid":zid,"events":source.votes.len(),"publication":format!("{published:?}")}),
+        );
         match published {
             Publication::Committed(tick) => {
+                self.tally.publish_committed += 1;
                 self.fault.hit("after_ack", &context)?;
+                // Durable acknowledgement has happened, so the probe captured
+                // before this snapshot now certifies the published generation.
+                self.record_reconciliation(zid, &probe)?;
                 tracing::info!(
                     zid,
                     math_env = self.config.math_env,
@@ -167,11 +244,58 @@ impl PgStore {
                 );
                 Ok(true)
             }
-            Publication::Refused(state) => Err(state.into()),
-            Publication::Conflict => bail!("publication conflict; source retained"),
+            Publication::Refused(state) => {
+                self.tally.publish_refused += 1;
+                Err(state.into())
+            }
+            Publication::Conflict => {
+                self.tally.publish_conflict += 1;
+                bail!("publication conflict; source retained")
+            }
         }
     }
+    /// One bounded source pass, instrumented. `PollHealthy` is 1 only when the
+    /// whole pass completed; a failed pass emits 0 with the same counters, and
+    /// a dead process emits nothing at all, which is what P-031's A01
+    /// `treatMissingData: breaching` is for.
     pub fn cycle(&mut self) -> Result<usize> {
+        let started = Instant::now();
+        self.tally = Tally::default();
+        let result = self.cycle_pass();
+        let mut data = self.tally.data(started.elapsed(), result.is_ok());
+        // Bounded aggregate, at most once per gauge interval: CO01 scan age and
+        // backlog, CO06 oldest unrepaired age. Metadata only, no payload column.
+        if self
+            .gauged
+            .is_none_or(|at| at.elapsed() >= Duration::from_secs(self.config.gauge_seconds))
+        {
+            match self.backlog() {
+                Ok(backlog) => {
+                    self.gauged = Some(Instant::now());
+                    data.extend([
+                        seconds("OldestReconciliationAgeSeconds", backlog.oldest_reconciliation),
+                        count("ReconciliationBacklogConversations", backlog.overdue as f64),
+                        count("FailureBacklogConversations", backlog.failures as f64),
+                        seconds("OldestUnrepairedAgeSeconds", backlog.oldest_unrepaired),
+                    ]);
+                }
+                Err(error) => {
+                    // An incomplete observation must never publish health.
+                    tracing::warn!(error=%error, "backlog gauge unavailable this pass");
+                }
+            }
+        }
+        data.push(count("MetricsDropped", self.metrics.dropped() as f64));
+        self.metrics.emit(
+            "source_pass",
+            &data,
+            json!({"shard":[self.config.shard_index,self.config.shard_count],
+                "incremental":self.config.incremental,
+                "reconcile_seconds":self.config.reconcile_seconds}),
+        );
+        result
+    }
+    fn cycle_pass(&mut self) -> Result<usize> {
         let name = format!(
             "source-{}-{}",
             self.config.shard_index, self.config.shard_count
@@ -192,12 +316,14 @@ impl PgStore {
         for r in &rows {
             let zid: i32 = r.get(0);
             if self.config.accepts(zid) {
+                self.tally.visited += 1;
                 let ready = self.client.query_opt("SELECT next_attempt<=clock_timestamp() FROM coordinator_failures WHERE math_env=$1 AND zid=$2", &[&self.config.math_env,&zid])?.is_none_or(|r|r.get::<_,bool>(0));
                 if ready {
                     match self.process(zid) {
                         Ok(changed) => {
                             if changed {
                                 count += 1;
+                                self.tally.published += 1;
                             }
                             self.client.execute(
                                 "DELETE FROM coordinator_failures WHERE math_env=$1 AND zid=$2",
@@ -215,6 +341,7 @@ impl PgStore {
                                 Some(state) => tracing::warn!(zid,state=%state,"lease deferred; bounded backoff, sweep continues"),
                                 None => tracing::error!(zid,error=%e,"conversation failed; durable retry scheduled"),
                             }
+                            self.tally.deferred += 1;
                             self.defer(zid)?;
                         }
                     }
@@ -249,6 +376,28 @@ impl PgStore {
     /// One complete bounded-memory pass for --once and the black-box launcher.
     /// Strict: any lease refusal ends the pass with its typed exit code.
     pub fn once(&mut self) -> Result<usize> {
+        let started = Instant::now();
+        self.tally = Tally::default();
+        let result = self.once_pass();
+        let mut data = self.tally.data(started.elapsed(), result.is_ok());
+        match self.backlog() {
+            Ok(backlog) => data.extend([
+                seconds("OldestReconciliationAgeSeconds", backlog.oldest_reconciliation),
+                count("ReconciliationBacklogConversations", backlog.overdue as f64),
+                count("FailureBacklogConversations", backlog.failures as f64),
+                seconds("OldestUnrepairedAgeSeconds", backlog.oldest_unrepaired),
+            ]),
+            Err(error) => tracing::warn!(error=%error, "backlog gauge unavailable this pass"),
+        }
+        data.push(count("MetricsDropped", self.metrics.dropped() as f64));
+        self.metrics.emit(
+            "source_pass",
+            &data,
+            json!({"mode":"once","incremental":self.config.incremental}),
+        );
+        result
+    }
+    fn once_pass(&mut self) -> Result<usize> {
         let mut after = 0;
         let mut published = 0;
         loop {
@@ -258,8 +407,12 @@ impl PgStore {
             )?;
             for row in &rows {
                 let zid: i32 = row.get(0);
-                if self.config.accepts(zid) && self.process(zid)? {
-                    published += 1;
+                if self.config.accepts(zid) {
+                    self.tally.visited += 1;
+                    if self.process(zid)? {
+                        published += 1;
+                        self.tally.published += 1;
+                    }
                 }
                 after = zid;
             }
