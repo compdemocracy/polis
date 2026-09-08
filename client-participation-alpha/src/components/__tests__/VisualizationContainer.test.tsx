@@ -53,6 +53,20 @@ function comment(tid: number): Comment {
   }
 }
 
+function deferred<T>() {
+  let resolve: (value: T) => void = () => {}
+  let reject: (reason: unknown) => void = () => {}
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res
+    reject = rej
+  })
+  // Nothing awaits a rejection until the component does.
+  promise.catch(() => {})
+  return { promise, resolve, reject }
+}
+
+const LOADING_TEXT = 'Loading visualization data...'
+
 async function triggerPoll(conversationId = CONVERSATION_ID) {
   await act(async () => {
     window.dispatchEvent(
@@ -216,18 +230,6 @@ describe('VisualizationContainer math_tick guard', () => {
   // lets the FIRST A's late response through. These three follow the schedules
   // in cost-reduction/scripts/p046-r2-astra-review.cjs.
   describe('A -> B -> A', () => {
-    function deferred<T>() {
-      let resolve: (value: T) => void = () => {}
-      let reject: (reason: unknown) => void = () => {}
-      const promise = new Promise<T>((res, rej) => {
-        resolve = res
-        reject = rej
-      })
-      // Nothing awaits a rejection until the component does.
-      promise.catch(() => {})
-      return { promise, resolve, reject }
-    }
-
     async function goAthenBthenA(slowA: Promise<PCAData>, secondA: PCAData | Promise<PCAData>) {
       const conversationB = pcaBody(7)
       mockedFetchPCAData
@@ -290,19 +292,99 @@ describe('VisualizationContainer math_tick guard', () => {
 
       const view = await goAthenBthenA(slowA.promise, stillLoadingA.promise)
       // The second visit to A is still in flight, so the spinner is up.
-      expect(view.queryByText('Loading visualization data...')).not.toBeNull()
+      expect(view.queryByText(LOADING_TEXT)).not.toBeNull()
 
       await act(async () => {
         slowA.resolve(pcaBody(3))
       })
 
       // ...and the first visit finishing must not take it down.
-      expect(view.queryByText('Loading visualization data...')).not.toBeNull()
+      expect(view.queryByText(LOADING_TEXT)).not.toBeNull()
 
       await act(async () => {
         stillLoadingA.resolve(pcaBody(9))
       })
-      expect(view.queryByText('Loading visualization data...')).toBeNull()
+      expect(view.queryByText(LOADING_TEXT)).toBeNull()
+    })
+  })
+
+  // The vote/comment event effect calls loadData(false). If it supersedes a
+  // still-pending initial loadData(true), the spinner has to be settled by the
+  // background request even though it never asked for one — nothing else is
+  // left to take it down.
+  describe('background poll overlapping the initial load', () => {
+    it('settles the spinner when a background poll supersedes a pending initial load', async () => {
+      const slowInitial = deferred<PCAData>()
+      const refreshed = pcaBody(10)
+      mockedFetchPCAData.mockReturnValueOnce(slowInitial.promise).mockResolvedValueOnce(refreshed)
+
+      const view = render(
+        <VisualizationContainer conversation_id={CONVERSATION_ID} s={{} as Translations} />
+      )
+      expect(view.queryByText(LOADING_TEXT)).not.toBeNull()
+
+      await triggerPoll()
+      await act(async () => {
+        slowInitial.resolve(pcaBody(9))
+      })
+
+      // No request left in flight, so the spinner must be down.
+      expect(view.queryByText(LOADING_TEXT)).toBeNull()
+      expect(received[received.length - 1]).toBe(refreshed)
+    })
+
+    it('settles the spinner when the superseding background poll fails', async () => {
+      const slowInitial = deferred<PCAData>()
+      mockedFetchPCAData
+        .mockReturnValueOnce(slowInitial.promise)
+        .mockRejectedValueOnce(new Error('refresh failed'))
+
+      const view = render(
+        <VisualizationContainer conversation_id={CONVERSATION_ID} s={{} as Translations} />
+      )
+      expect(view.queryByText(LOADING_TEXT)).not.toBeNull()
+
+      await triggerPoll()
+      await act(async () => {
+        slowInitial.resolve(pcaBody(9))
+      })
+
+      // Stuck on the spinner would hide the failure entirely.
+      expect(view.queryByText(LOADING_TEXT)).toBeNull()
+      expect(view.queryByText('Visualization unavailable')).not.toBeNull()
+    })
+
+    it('still does not let a superseded background poll clear a newer spinner', async () => {
+      // The stale-finally protection has to survive the relaxation above.
+      const first = pcaBody(1)
+      const slowPoll = deferred<PCAData>()
+      const pendingB = deferred<PCAData>()
+      mockedFetchPCAData
+        .mockResolvedValueOnce(first)
+        .mockReturnValueOnce(slowPoll.promise)
+        .mockReturnValueOnce(pendingB.promise)
+
+      const view = render(<VisualizationContainer conversation_id="convA" s={{} as Translations} />)
+      await waitFor(() => expect(view.queryByText(LOADING_TEXT)).toBeNull())
+
+      // Background poll on A, left in flight.
+      await triggerPoll('convA')
+
+      // Navigate to B: its initial load shows the spinner.
+      await act(async () => {
+        view.rerender(<VisualizationContainer conversation_id="convB" s={{} as Translations} />)
+      })
+      expect(view.queryByText(LOADING_TEXT)).not.toBeNull()
+
+      await act(async () => {
+        slowPoll.resolve(pcaBody(2))
+      })
+      expect(view.queryByText(LOADING_TEXT)).not.toBeNull()
+
+      await act(async () => {
+        pendingB.resolve(pcaBody(3))
+      })
+      expect(view.queryByText(LOADING_TEXT)).toBeNull()
     })
   })
 })

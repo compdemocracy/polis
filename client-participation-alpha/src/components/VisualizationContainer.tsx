@@ -89,9 +89,13 @@ export default function VisualizationContainer({
         setError(err instanceof Error ? err.message : 'Failed to fetch data')
         console.error('Error fetching data:', err)
       } finally {
-        // A stale request must not clear the loading state a newer, still
-        // pending request is showing.
-        if (showLoadingState && requestGeneration.current === generation) {
+        // The spinner belongs to the in-flight sequence, not to the request
+        // that turned it on. Whichever request is current when it finishes
+        // settles it — including a background poll (showLoadingState false)
+        // that superseded a pending initial load, which would otherwise leave
+        // the spinner up with no request left to take it down. A stale request
+        // still clears nothing.
+        if (requestGeneration.current === generation) {
           setLoading(false)
         }
       }
