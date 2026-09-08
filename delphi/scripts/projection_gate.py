@@ -611,10 +611,12 @@ def classify_wire(
     filters: Optional[dict[str, Any]] = None,
     served_json: Optional[str] = None,
     expected_json: Optional[str] = None,
+    served_status: Optional[int] = None,
 ) -> SiteReport:
     """Classify SERVED wire objects: positional (array order is contract), keys in
     object order (ORDER_ONLY), type-sensitive values (VALUE_DIFF). If the exact
-    served/expected JSON strings are supplied, a byte mismatch is caught too."""
+    served/expected JSON strings are supplied, a byte mismatch is caught too; if the
+    served HTTP status is supplied, a non-200 response is a finding."""
     report = SiteReport(
         site=site,
         filters=dict(filters or {}),
@@ -664,6 +666,11 @@ def classify_wire(
         report.findings.append(
             Finding(CellClass.VALUE_DIFF, "<raw-json-bytes>", expected=expected_json[:120], served=served_json[:120])
         )
+    # The served response status is part of the wire contract (frozen: 200).
+    if served_status is not None and served_status != 200:
+        report.findings.append(
+            Finding(CellClass.VALUE_DIFF, "<http-status>", expected="200", served=str(served_status))
+        )
     return report
 
 
@@ -685,6 +692,7 @@ def gate_wire(
         report = classify_wire(
             SITES[name], blob["expected"], blob["served"], filters,
             served_json=blob.get("servedJson"), expected_json=blob.get("expectedJson"),
+            served_status=blob.get("servedStatus"),
         )
         reports.append(_apply_coverage(report, require_populated, allow_empty))
     return reports
@@ -706,11 +714,14 @@ class ChannelRun:
 
 @dataclass(frozen=True)
 class ServerIdentity:
-    """The database cluster identity used to prove a replica is a distinct server."""
+    """A database cluster's identity + read role, used to bind a physical standby
+    to its primary (a streaming standby shares the primary's system identifier and
+    reports ``pg_is_in_recovery()`` true)."""
 
     system_identifier: str
     in_recovery: bool
     server_addr: Optional[str]
+    upstream_host: Optional[str]  # pg_stat_wal_receiver.sender_host, if any
 
 
 def _server_identity(dsn: str) -> ServerIdentity:
@@ -719,10 +730,11 @@ def _server_identity(dsn: str) -> ServerIdentity:
             _execute(
                 cur,
                 "SELECT (SELECT system_identifier::text FROM pg_control_system()), "
-                "pg_is_in_recovery(), inet_server_addr()::text",
+                "pg_is_in_recovery(), inet_server_addr()::text, "
+                "(SELECT sender_host FROM pg_stat_wal_receiver LIMIT 1)",
             )
-            sysid, in_recovery, addr = cur.fetchone()
-    return ServerIdentity(str(sysid), bool(in_recovery), addr)
+            sysid, in_recovery, addr, upstream = cur.fetchone()
+    return ServerIdentity(str(sysid), bool(in_recovery), addr, upstream)
 
 
 @dataclass
@@ -747,26 +759,51 @@ class Manifest:
 
     @property
     def distinct_replica(self) -> bool:
+        """A VALID bound replica (name kept for the R3 review script). The
+        physical-standby profile requires the replica to be IN RECOVERY and to
+        share the primary's system identifier (a streaming standby copies it) —
+        so an UNRELATED primary (different id, not in recovery) is NOT accepted.
+        A same-cluster read pool needs the explicit approve_same_identity profile;
+        a bare different identifier is not automatic proof."""
         if not self.replica_seen or self.replica_identity is None or self.primary_identity is None:
             return False
         if self.approve_same_identity:
             return True
         return (
             self.replica_identity.in_recovery
-            or self.replica_identity.system_identifier != self.primary_identity.system_identifier
+            and self.replica_identity.system_identifier == self.primary_identity.system_identifier
         )
+
+    def _wire_populated(self, label: str) -> bool:
+        """The WIRE channel ran on `label` with every requested site populated."""
+        wire_runs = [
+            run for run in self.runs
+            if run.dsn_label == label and run.channel == "wire" and run.note is None
+        ]
+        if not wire_runs:
+            return False
+        for name in self.requested_sites:
+            reps = [r for run in wire_runs for r in run.reports if r.site.name == name]
+            if not reps or not any(r.row_count_served > 0 for r in reps):
+                return False
+        return True
 
     @property
     def populated_ok(self) -> bool:
-        """Every requested site is populated (row_count_served > 0) on the primary."""
-        primary = [r for run in self.runs if run.dsn_label == "primary" for r in run.reports]
-        if not primary:
+        """Acceptance requires POPULATED WIRE evidence on the primary and (when a
+        replica is present) the replica — per read target and channel. A
+        preflight-only run, or empty replica tables, does not certify."""
+        if not self._wire_populated("primary"):
             return False
-        for name in self.requested_sites:
-            site_reports = [r for r in primary if r.site.name == name]
-            if not site_reports or not any(r.row_count_served > 0 for r in site_reports):
-                return False
+        if self.replica_seen and not self._wire_populated("replica"):
+            return False
         return True
+
+    @property
+    def diagnostic_ok(self) -> bool:
+        """Every run passed, ignoring the wire-evidence requirement (informational
+        only — never a substitute for acceptance)."""
+        return bool(self.runs) and all(run.ok for run in self.runs)
 
     @property
     def ok(self) -> bool:
@@ -790,9 +827,9 @@ class Manifest:
         if self.require_replica and not self.replica_seen:
             reasons.append("replica MISSING")
         elif self.require_replica and not self.distinct_replica:
-            reasons.append("replica NOT a distinct server")
+            reasons.append("replica NOT a bound standby (needs in-recovery + shared system id, or approval)")
         if not self.populated_ok:
-            reasons.append("no populated coverage")
+            reasons.append("no populated WIRE coverage on primary+replica")
         tail = (" [" + "; ".join(reasons) + "]") if reasons else ""
         return f"MANIFEST {verdict}: {', '.join(parts)}{tail}"
 
