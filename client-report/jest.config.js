@@ -90,7 +90,9 @@ const config = {
 
   // A map from regular expressions to module names or to arrays of module names that allow to stub out resources with a single module
   moduleNameMapper: {
-    "\\.(css|less|scss)$": "identity-obj-proxy",
+    // Local stub rather than the identity-obj-proxy package, so component
+    // tests run even in a tree assembled without dev dependencies.
+    "\\.(css|less|scss)$": "<rootDir>/jest.styleMock.cjs",
   },
 
   // An array of regexp pattern strings, matched against all module paths before considered 'visible' to the module loader

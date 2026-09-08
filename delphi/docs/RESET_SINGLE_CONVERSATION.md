@@ -192,6 +192,31 @@ This script removes data from ALL Delphi tables:
 - `Delphi_NarrativeReports` - Generated narrative reports
 - `Delphi_JobQueue` - Job queue entries
 
+### Also delete: `Delphi_JobActiveGuard`
+
+The server's submission guard (P-003 S3, see `JOB_QUEUE_SCHEMA.md`) holds one
+row per active submission scope, pointing at a `Delphi_JobQueue` row. Deleting
+that queue row without deleting the guard leaves the guard pointing at nothing,
+which the server treats as **uncertainty, not completion** — deliberately, since
+a missing row is not proof that a paid provider run ended. The scope then stays
+blocked and new submissions keep returning the vanished job.
+
+After a reset, delete the conversation's guard rows. The table has a single
+`guard_key` hash key and no index, so scan and filter:
+
+```python
+guard = dynamodb.Table('Delphi_JobActiveGuard')
+scan = guard.scan(
+    FilterExpression='conversation_id = :cid',
+    ExpressionAttributeValues={':cid': str(conversation_id)},
+)
+for item in scan.get('Items', []):
+    guard.delete_item(Key={'guard_key': item['guard_key']})
+```
+
+Only do this as part of a deliberate reset, and only once you are satisfied no
+provider work is still outstanding for that conversation.
+
 ## Safe Usage
 
 - ✅ **Safe**: Only affects the specified conversation

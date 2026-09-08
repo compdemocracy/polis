@@ -21,6 +21,7 @@ import {
   setupAuthAndConvo,
 } from "../setup/api-test-helpers";
 import {
+  deleteJobGuardTable,
   docClient,
   ensureJobGuardTableExists,
   ensureJobQueueTableExists,
@@ -159,6 +160,7 @@ describe("Delphi job submission deduplication", () => {
       conversationId: zid,
       reportId: (body.report_id as string) ?? null,
       jobType: String(body.job_type ?? "FULL_PIPELINE"),
+      // Not part of the scope key any more; kept so the alias key matches.
       jobConfig: JSON.stringify({
         include_moderation: body.include_moderation ?? false,
       }),
@@ -193,21 +195,7 @@ describe("Delphi job submission deduplication", () => {
         conversationId: zid,
         reportId: merged.report_id,
         jobType: "CREATE_NARRATIVE_BATCH",
-        jobConfig: JSON.stringify({
-          job_type: "CREATE_NARRATIVE_BATCH",
-          stages: [
-            {
-              stage: "CREATE_NARRATIVE_BATCH_CONFIG_STAGE",
-              config: {
-                model: merged.model,
-                max_batch_size: merged.max_batch_size,
-                no_cache: merged.no_cache,
-                report_id: merged.report_id,
-                include_moderation: merged.include_moderation,
-              },
-            },
-          ],
-        }),
+        jobConfig: "",
       })
     );
     const res = makeRes();
@@ -227,6 +215,7 @@ describe("Delphi job submission deduplication", () => {
     expect(typeof res.body.job_id).toBe("string");
     expect(res.body.deduplicated).toBe(false);
     expect(res.body.job_status).toBe("PENDING");
+    expect(res.body.work_live).toBe(true);
     expect(await listJobs()).toHaveLength(1);
   });
 
@@ -324,7 +313,9 @@ describe("Delphi job submission deduplication", () => {
     expect(second.body.job_id).not.toBe(first.body.job_id);
   });
 
-  it("releases the guard when the job row was removed by a reset", async () => {
+  it("keeps the guard when the job row was removed", async () => {
+    // A removed root is uncertainty, not proof that paid work ended. The
+    // operator clears the guard row as part of a reset.
     const first = await submitJob();
     await docClient.send(
       new DeleteCommand({
@@ -334,20 +325,27 @@ describe("Delphi job submission deduplication", () => {
     );
 
     const second = await submitJob();
-    expect(second.body.deduplicated).toBe(false);
-    expect(second.body.job_id).not.toBe(first.body.job_id);
+    expect(second.body.deduplicated).toBe(true);
+    expect(second.body.job_id).toBe(first.body.job_id);
+    expect(second.body.work_live).toBe(true);
+    expect(await listJobs()).toHaveLength(0);
   });
 
-  it("treats a different job config as different work", async () => {
+  it("holds one active job per scope regardless of job config", async () => {
+    // Round-2 ruling: rev3 excludes simultaneous work by conversation, report
+    // and job type. Two configs still reset and publish into the same
+    // structures, so a config change is not a concurrency exemption.
     const first = await submitJob({ include_moderation: false });
     const second = await submitJob({ include_moderation: true });
 
-    expect(second.body.deduplicated).toBe(false);
-    expect(second.body.job_id).not.toBe(first.body.job_id);
-    expect(await listJobs()).toHaveLength(2);
+    expect(second.body.deduplicated).toBe(true);
+    expect(second.body.job_id).toBe(first.body.job_id);
+    expect(await listJobs()).toHaveLength(1);
   });
 
-  it("rejects a reused idempotency key with a conflicting payload", async () => {
+  it("rejects a reused idempotency key with a conflicting payload, even though the scope is occupied", async () => {
+    // The scope guard and the alias both fail the same transaction. Reporting
+    // only the scope's job would acknowledge a payload nobody asked for.
     const first = await submitJob({
       include_moderation: false,
       idempotency_key: "conflict-key",
@@ -373,24 +371,34 @@ describe("Delphi job submission deduplication", () => {
     expect(await listJobs()).toHaveLength(1);
   });
 
-  it("clears the idempotency alias with the guard it belongs to", async () => {
+  it("replays a completed job for the same key instead of starting another", async () => {
+    // The alias outlives the scope guard for its binding window, so a retry
+    // after a fast completion returns the recorded job. An intentional rerun
+    // needs a new key, or none.
     const scope = {
       conversationId: zid,
       reportId: null,
       jobType: "FULL_PIPELINE",
       jobConfig: JSON.stringify({ include_moderation: false }),
     };
-    const first = await submitJob({ idempotency_key: "cleared-key" });
+    const first = await submitJob({ idempotency_key: "replayed-key" });
     expect(
-      await readGuard(idempotencyGuardKey(scope, "cleared-key"))
+      await readGuard(idempotencyGuardKey(scope, "replayed-key"))
     ).toBeDefined();
 
     await setStatus(first.body.job_id, "COMPLETED");
-    await submitJob();
 
-    expect(await readGuard(idempotencyGuardKey(scope, "cleared-key"))).toBe(
-      undefined
-    );
+    const replay = await submitJob({ idempotency_key: "replayed-key" });
+    expect(replay.body.job_id).toBe(first.body.job_id);
+    expect(replay.body.deduplicated).toBe(true);
+    expect(replay.body.job_status).toBe("COMPLETED");
+    expect(replay.body.work_live).toBe(false);
+    expect(await listJobs()).toHaveLength(1);
+
+    // Without the key, the completed scope admits a new run.
+    const rerun = await submitJob();
+    expect(rerun.body.deduplicated).toBe(false);
+    expect(await listJobs()).toHaveLength(2);
   });
 
   it("deduplicates repeated batch report submissions", async () => {
@@ -410,6 +418,64 @@ describe("Delphi job submission deduplication", () => {
     expect(second.body.batch_id).toBe(first.body.job_id);
     expect(second.body.deduplicated).toBe(true);
     expect(await listJobs()).toHaveLength(1);
+  });
+
+  it("adopts an active root that predates the guard table", async () => {
+    // First deploy: jobs an older producer started have no guard, so without
+    // this the guard would happily admit a duplicate beside live paid work.
+    const legacyJobId = `legacy-${Date.now()}`;
+    await docClient.send(
+      new PutCommand({
+        TableName: JOB_QUEUE_TABLE,
+        Item: {
+          job_id: legacyJobId,
+          conversation_id: zid,
+          job_type: "FULL_PIPELINE",
+          status: "PROCESSING",
+          created_at: new Date().toISOString(),
+        },
+      })
+    );
+
+    const res = await submitJob();
+    expect(res.body.deduplicated).toBe(true);
+    expect(res.body.job_id).toBe(legacyJobId);
+    expect(res.body.work_live).toBe(true);
+    expect(await listJobs()).toHaveLength(1);
+  });
+
+  it("does not adopt a terminal pre-existing root", async () => {
+    await docClient.send(
+      new PutCommand({
+        TableName: JOB_QUEUE_TABLE,
+        Item: {
+          job_id: `legacy-done-${Date.now()}`,
+          conversation_id: zid,
+          job_type: "FULL_PIPELINE",
+          status: "COMPLETED",
+          created_at: new Date().toISOString(),
+        },
+      })
+    );
+
+    const res = await submitJob();
+    expect(res.body.deduplicated).toBe(false);
+    expect(await listJobs()).toHaveLength(2);
+  });
+
+  it("fails closed with 503 when the guard table is missing", async () => {
+    await deleteJobGuardTable();
+    try {
+      const res = await submitJob();
+      expect(res.statusCode).toBe(503);
+      expect(res.body.status).toBe("error");
+      expect(res.body.code).toBe("JOB_ADMISSION_UNAVAILABLE");
+      // Nothing was written: an un-deduplicated fallback is how a second paid
+      // provider run happens.
+      expect(await listJobs()).toHaveLength(0);
+    } finally {
+      await ensureJobGuardTableExists();
+    }
   });
 
   it("does not let a batch report submission block a full pipeline job", async () => {
