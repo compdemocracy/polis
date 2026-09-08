@@ -100,6 +100,13 @@ jobs:
         echo "Copying script to be tested into container..."
         docker compose -f docker-compose.test.yml cp delphi/polismath/run_math_pipeline.py delphi:/app/run_math_pipeline.py
         docker compose -f docker-compose.test.yml cp delphi/umap_narrative delphi:/app/umap_narrative
+        echo "Copying the compose files into container..."
+        # tests/test_compose_math_env.py asserts that every stack's delphi service
+        # receives the MATH_ENV its math service writes under. /app/tests has no
+        # checkout above it, so put the two files it parses beside it; without
+        # them the test skips instead of guarding the report pipeline's math_env.
+        docker compose -f docker-compose.test.yml cp docker-compose.yml delphi:/app/docker-compose.yml
+        docker compose -f docker-compose.test.yml cp docker-compose.test.yml delphi:/app/docker-compose.test.yml
 
         echo "Running tests and generating coverage report..."
         docker compose \
