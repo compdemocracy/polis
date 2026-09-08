@@ -28,6 +28,7 @@ from sqlalchemy.orm import DeclarativeBase, sessionmaker, scoped_session
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.sql import text
 from typing import Any, Dict, List, Optional
+from enum import Enum
 import boto3
 import json
 import logging
@@ -465,6 +466,68 @@ def mark_child_subreaper() -> bool:
     return True
 
 
+def ensure_process_exit_fence() -> None:
+    """Establish the kernel exit fence at startup, or refuse to start on Linux.
+
+    ``PR_SET_CHILD_SUBREAPER`` needs no capability, so if it cannot be set on
+    Linux the container/runtime is broken — and without it the poller can only
+    fail closed (never confirm a job's process exit, so guards are never
+    released). Rather than run in that degraded state in production, refuse to
+    start. On a platform without the call (macOS/BSD dev) the poller continues
+    with the documented fail-closed confirmation.
+    """
+    if mark_child_subreaper():
+        return
+    if sys.platform.startswith('linux'):
+        logger.critical(
+            "PR_SET_CHILD_SUBREAPER could not be set; the poller requires the kernel "
+            "process-reaper fence to confirm job exits safely on Linux and refuses to "
+            "start. The call needs no capability, so its failure means the "
+            "container/runtime is misconfigured."
+        )
+        raise SystemExit(1)
+    logger.warning(
+        "child-subreaper unavailable on %s; job exit confirmation will fail closed "
+        "(the submission guard is never released from a /proc scan alone).",
+        sys.platform,
+    )
+
+
+class ExitConfirmation(Enum):
+    """Outcome of trying to prove a job's process tree has exited.
+
+    Only ``CONFIRMED`` may release the server's submission guard. The other two
+    both mean "not proven gone" and are handled like a timeout — the guard is
+    not released and the job records why — but they are kept distinct so the
+    reason is visible: ``LIVE`` when members remained and could not be stopped,
+    ``UNCONFIRMED`` when there is no kernel reaper fence and a /proc scan cannot
+    prove exit (fail closed).
+    """
+
+    CONFIRMED = "confirmed"
+    LIVE = "live"
+    UNCONFIRMED = "unconfirmed"
+
+    @property
+    def confirmed(self) -> bool:
+        return self is ExitConfirmation.CONFIRMED
+
+    @property
+    def note(self) -> Optional[str]:
+        if self is ExitConfirmation.CONFIRMED:
+            return None
+        if self is ExitConfirmation.UNCONFIRMED:
+            return (
+                "process exit unconfirmed: no kernel process-reaper fence "
+                "(child-subreaper unavailable); a /proc scan cannot prove the tree "
+                "exited, so the submission guard is not released"
+            )
+        return (
+            "process exit unconfirmed: live members remained in the job's process "
+            "group and could not be stopped"
+        )
+
+
 def signal_handler(sig, frame):
     """Handle exit signals gracefully."""
     global running
@@ -706,7 +769,7 @@ class JobProcessor:
             # Log failure but do not crash the worker
             logger.error(f"Error updating job logs for {job['job_id']}: {e}")
 
-    def complete_job(self, job, success, result=None, error=None, process_exited=False):
+    def complete_job(self, job, success, result=None, error=None, process_exited=False, process_exit_note=None):
         """Mark a job as completed or failed using optimistic locking.
 
         ``process_exited`` records whether this worker has *confirmed* that the
@@ -716,7 +779,8 @@ class JobProcessor:
         can still create a checker row or submit provider work afterwards, so an
         unconfirmed failure is not proof that the paid work ended. Defaults to
         False so a caller that cannot make the claim does not make it by
-        accident.
+        accident. ``process_exit_note`` records *why* the exit was not confirmed
+        (see ExitConfirmation) so an unreleased guard is explainable.
         """
         job_id = job['job_id']
         current_version = job.get('version', 1)
@@ -736,7 +800,10 @@ class JobProcessor:
 
             if error:
                 job_results['error'] = str(error)
-            
+
+            if process_exit_note:
+                job_results['process_exit_note'] = str(process_exit_note)
+
             # Update the job with the new status using optimistic locking
             try:
                 self.table.update_item(
@@ -984,21 +1051,59 @@ class JobProcessor:
             # surface, then confirm emptiness with another pass.
             time.sleep(GROUP_EMPTY_RECHECK_PAUSE_SECONDS)
 
-    def confirm_process_tree_gone(self, pgid, job_id: str) -> bool:
-        """True once nothing is left in the job's process group.
+    @staticmethod
+    def _best_effort_signal_group(pgid, job_id: str) -> None:
+        """SIGTERM then SIGKILL the group, best-effort, without waiting.
+
+        Used on the fail-closed path: killpg needs no subreaper, so leftover
+        members are still stopped — but the caller does not, and must not, treat
+        this as proof the tree is gone.
+        """
+        for sig in (signal.SIGTERM, signal.SIGKILL):
+            try:
+                os.killpg(pgid, sig)
+            except ProcessLookupError:
+                return
+            except Exception as signal_error:
+                logger.warning(f"Job {job_id}: could not signal process group {pgid}: {signal_error}")
+
+    def _decline_without_fence(self, pgid, job_id: str) -> 'ExitConfirmation':
+        """Fail closed: stop the group best-effort, but never confirm it gone.
+
+        Without the kernel reaper fence a /proc scan cannot prove a process group
+        empty (it is not a snapshot), so no scan result may authorize an exit.
+        The scan is attached to the log only as diagnostics.
+        """
+        self._best_effort_signal_group(pgid, job_id)
+        logger.warning(
+            f"Job {job_id}: no kernel process-reaper fence (child-subreaper unavailable); "
+            f"refusing to confirm the process tree exited. Diagnostics: process group "
+            f"{pgid} live members (best-effort /proc scan): {self._live_group_members(pgid)}. "
+            f"The job's submission guard will not be released."
+        )
+        return ExitConfirmation.UNCONFIRMED
+
+    def confirm_process_tree_gone(self, pgid, job_id: str) -> 'ExitConfirmation':
+        """Try to prove the job's process group is empty. See ExitConfirmation.
 
         Every completion that claims `process_exit_confirmed` goes through here,
         not just the timeout and error paths. A parent that exits — with any
         status, including 0 — does not take its own subprocesses with it, so
         `process.wait()` returning is evidence about one process and not about
-        the tree. Anything still in the group is stopped before the claim is
-        made; if it cannot be stopped, or the group was never owned, the claim
-        is declined.
+        the tree.
+
+        Returns CONFIRMED only when the kernel exit fence (child-subreaper) is in
+        place and the group is proven empty. Without that fence this fails closed
+        (UNCONFIRMED): a /proc scan cannot prove an empty group, so it must never
+        release the guard, even for a group that happens to look empty. If the
+        group was never owned, the claim is declined (LIVE).
         """
         if pgid is None:
-            return False
+            return ExitConfirmation.LIVE
+        if not _child_subreaper_set:
+            return self._decline_without_fence(pgid, job_id)
         if not self._process_group_alive(pgid):
-            return True
+            return ExitConfirmation.CONFIRMED
         logger.warning(
             f"Job {job_id}: process group {pgid} still has members after the job's "
             f"parent exited (live members: {self._live_group_members(pgid)})."
@@ -1007,7 +1112,7 @@ class JobProcessor:
             try:
                 os.killpg(pgid, sig)
             except ProcessLookupError:
-                return True
+                return ExitConfirmation.CONFIRMED
             except Exception as signal_error:
                 logger.warning(f"Job {job_id}: could not signal process group {pgid}: {signal_error}")
             deadline = time.time() + CHILD_TERMINATE_GRACE_SECONDS
@@ -1015,14 +1120,14 @@ class JobProcessor:
                 time.sleep(0.05)
             if not self._process_group_alive(pgid):
                 logger.warning(f"Job {job_id}: leftover job processes {label}.")
-                return True
+                return ExitConfirmation.CONFIRMED
         logger.error(
             f"Job {job_id}: process group {pgid} still has live members; not claiming an exit."
         )
-        return False
+        return ExitConfirmation.LIVE
 
-    def stop_child_process(self, process, job_id: str, pgid=None) -> bool:
-        """Stop a job's whole process tree and join it. True once it is gone.
+    def stop_child_process(self, process, job_id: str, pgid=None) -> 'ExitConfirmation':
+        """Stop a job's whole process tree and join it. See ExitConfirmation.
 
         Marking a job FAILED while its processes are still running leaves an
         orphan that can still submit provider work, update the job row, or
@@ -1033,15 +1138,16 @@ class JobProcessor:
         `run_delphi.py`, which itself launches and waits on reset/math/UMAP
         subprocesses. Signalling the job's **process group** reaches those
         grandchildren; without an owned group there is nothing to signal them
-        with, and this reports False rather than claiming an exit it cannot see.
+        with, and this reports LIVE rather than claiming an exit it cannot see.
 
-        Note what this does and does not prove. It proves the local process tree
-        is gone. It does not prove a provider request the tree already sent has
-        been reconciled — that is what the outstanding-work sweep and
-        `checker_schedule_failed` are for.
+        Like confirm_process_tree_gone, this returns CONFIRMED only under the
+        kernel fence; without it, it stops the group best-effort but fails closed
+        (UNCONFIRMED). It proves the local process tree is gone, not that a
+        provider request the tree already sent has been reconciled — that is what
+        the outstanding-work sweep and `checker_schedule_failed` are for.
         """
         if process is None:
-            return True
+            return ExitConfirmation.CONFIRMED
 
         if pgid is None:
             pgid = self._job_process_group(process, job_id)
@@ -1056,7 +1162,23 @@ class JobProcessor:
             logger.error(
                 f"Job {job_id}: no owned process group; cannot confirm descendants exited."
             )
-            return False
+            return ExitConfirmation.LIVE
+
+        if not _child_subreaper_set:
+            # Fail closed: signal the group and join the direct child, but a
+            # /proc scan cannot prove the tree gone, so decline the claim.
+            self._best_effort_signal_group(pgid, job_id)
+            try:
+                process.wait(timeout=CHILD_TERMINATE_GRACE_SECONDS)
+            except Exception:
+                pass
+            logger.warning(
+                f"Job {job_id}: no kernel process-reaper fence (child-subreaper unavailable); "
+                f"stopped process group {pgid} best-effort but cannot confirm the tree exited "
+                f"(diagnostics: {self._live_group_members(pgid)}). The job's submission guard "
+                f"will not be released."
+            )
+            return ExitConfirmation.UNCONFIRMED
 
         for sig, label in ((signal.SIGTERM, 'terminated'), (signal.SIGKILL, 'killed')):
             try:
@@ -1069,8 +1191,9 @@ class JobProcessor:
                 process.wait(timeout=CHILD_TERMINATE_GRACE_SECONDS)
             except Exception:
                 pass
-            # Re-parented grandchildren are reaped by init a moment later, so
-            # give the group a bounded chance to disappear before escalating.
+            # Re-parented grandchildren are reaped by the poller (subreaper) a
+            # moment later, so give the group a bounded chance to disappear
+            # before escalating.
             deadline = time.time() + CHILD_TERMINATE_GRACE_SECONDS
             while self._process_group_alive(pgid) and time.time() < deadline:
                 time.sleep(0.05)
@@ -1078,13 +1201,28 @@ class JobProcessor:
                 logger.warning(
                     f"Job {job_id}: job process tree {label} before the job was marked failed."
                 )
-                return True
+                return ExitConfirmation.CONFIRMED
 
         # Report the failure without the exit claim rather than pretending.
         logger.error(
             f"Job {job_id}: process group {pgid} still has live members; not claiming an exit."
         )
-        return False
+        return ExitConfirmation.LIVE
+
+    def _complete_with_confirmation(self, job, success, confirmation: 'ExitConfirmation', error=None) -> None:
+        """Complete a job, releasing the guard only on a CONFIRMED exit.
+
+        A CONFIRMED tree sets ``process_exit_confirmed=True``; LIVE and
+        UNCONFIRMED both leave it False and record why, so an unreleased guard is
+        explainable and a fail-closed exit reads like a timeout to the server.
+        """
+        self.complete_job(
+            job,
+            success,
+            error=error,
+            process_exited=confirmation.confirmed,
+            process_exit_note=confirmation.note,
+        )
 
     def process_job(self, job: Dict[str, Any]) -> None:
         """Processes a claimed job by executing the correct script with real-time log handling."""
@@ -1160,32 +1298,32 @@ class JobProcessor:
                 if return_code == EXIT_CODE_PROCESSING_CONTINUES:
                     self.release_lock(job, is_still_processing=True)
                 else:
-                    exited = self.confirm_process_tree_gone(job_pgid, job_id)
-                    self.complete_job(job, success, error=f"Script failed with exit code {return_code}" if not success else None, process_exited=exited)
-            
+                    confirmation = self.confirm_process_tree_gone(job_pgid, job_id)
+                    self._complete_with_confirmation(job, success, confirmation, error=f"Script failed with exit code {return_code}" if not success else None)
+
             elif job_type == 'CREATE_NARRATIVE_BATCH':
-                exited = self.confirm_process_tree_gone(job_pgid, job_id)
+                confirmation = self.confirm_process_tree_gone(job_pgid, job_id)
                 if success:
                     logger.info(f"Job {job_id}: CREATE_NARRATIVE_BATCH completed successfully.")
-                    self.complete_job(job, True, process_exited=exited)
+                    self._complete_with_confirmation(job, True, confirmation)
                 else:
-                    self.complete_job(job, False, error=f"CREATE_NARRATIVE_BATCH script failed with exit code {return_code}", process_exited=exited)
+                    self._complete_with_confirmation(job, False, confirmation, error=f"CREATE_NARRATIVE_BATCH script failed with exit code {return_code}")
 
             else: # Handle all other synchronous job types
-                exited = self.confirm_process_tree_gone(job_pgid, job_id)
-                self.complete_job(job, success, error=f"Process exited with code {return_code}" if not success else None, process_exited=exited)
+                confirmation = self.confirm_process_tree_gone(job_pgid, job_id)
+                self._complete_with_confirmation(job, success, confirmation, error=f"Process exited with code {return_code}" if not success else None)
 
         except subprocess.TimeoutExpired:
             logger.error(f"Job {job_id} timed out after {timeout_seconds} seconds.")
             # Stop the child before marking the job failed: a timed-out process
             # that is still alive can keep spending provider money and can still
             # create a checker row after the job looks finished.
-            stopped = self.stop_child_process(child_process, job_id, job_pgid)
-            self.complete_job(job, False, error=f"Job process timed out after {timeout_seconds}s.", process_exited=stopped)
+            confirmation = self.stop_child_process(child_process, job_id, job_pgid)
+            self._complete_with_confirmation(job, False, confirmation, error=f"Job process timed out after {timeout_seconds}s.")
         except Exception as e:
             logger.error(f"Critical error processing job {job_id}: {e}", exc_info=True)
-            stopped = self.stop_child_process(child_process, job_id, job_pgid)
-            self.complete_job(job, False, error=f"Critical poller error: {str(e)}", process_exited=stopped)
+            confirmation = self.stop_child_process(child_process, job_id, job_pgid)
+            self._complete_with_confirmation(job, False, confirmation, error=f"Critical poller error: {str(e)}")
 
 
 def should_process_job(instance_type: str, job_actual_size: str) -> bool:
@@ -1267,8 +1405,9 @@ def main():
 
     # Become the reaper for orphaned job descendants before any job is spawned,
     # so process-exit confirmation can trust the kernel (killpg -> ESRCH) instead
-    # of scanning /proc. Falls back to a best-effort scan where unavailable.
-    mark_child_subreaper()
+    # of scanning /proc. On Linux this must succeed or the poller refuses to
+    # start; on other platforms it falls back to fail-closed confirmation.
+    ensure_process_exit_fence()
 
     try:
         processor = JobProcessor(endpoint_url=args.endpoint_url, region=args.region)

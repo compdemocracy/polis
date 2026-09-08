@@ -8,12 +8,40 @@ so this is the writer half of that fence (P-003 S3, round-3 review R1).
 """
 
 import io
+import json
 import subprocess
 from types import SimpleNamespace
 
 import pytest
 
 from scripts.job_poller import JobProcessor
+
+
+def _is_confirmed(result):
+    """True if a confirmation result authorizes releasing the guard.
+
+    Round 13 makes `confirm_process_tree_gone`/`stop_child_process` return an
+    `ExitConfirmation` enum (read via `.confirmed`); earlier commits returned a
+    plain bool. Reading it this way lets the same assertion run against the
+    pre-fix code, where it observes the unsafe `True`.
+    """
+    return bool(getattr(result, "confirmed", result))
+
+
+@pytest.fixture
+def kernel_fence():
+    """Establish the real kernel exit fence, or skip where it is unavailable.
+
+    A CONFIRMED exit requires the child-subreaper (Linux); without it the poller
+    fails closed by design, so tests that assert a confirmed exit run only where
+    the fence can actually be established. The module flag is restored by the
+    autouse fixture in the round-12 section.
+    """
+    import scripts.job_poller as jp
+
+    if not jp.mark_child_subreaper():
+        pytest.skip("kernel process-exit fence unavailable on this platform")
+    yield
 
 
 def _jump_the_clock(monkeypatch, seconds=10_000):
@@ -190,7 +218,7 @@ def run_process_job_with(monkeypatch, child, *, timed_out=False):
     return completions
 
 
-def test_timeout_stops_the_whole_job_tree(monkeypatch):
+def test_timeout_stops_the_whole_job_tree(monkeypatch, kernel_fence):
     child = NestedRealProcess(hang=True)
     try:
         completions = run_process_job_with(monkeypatch, child, timed_out=True)
@@ -201,7 +229,7 @@ def test_timeout_stops_the_whole_job_tree(monkeypatch):
         child.cleanup()
 
 
-def test_pipe_error_stops_the_whole_job_tree(monkeypatch):
+def test_pipe_error_stops_the_whole_job_tree(monkeypatch, kernel_fence):
     child = NestedRealProcess(read_error=True)
     try:
         completions = run_process_job_with(monkeypatch, child)
@@ -315,11 +343,11 @@ def _alive(pid):
     return state not in (b"Z", b"X", b"x")
 
 
-def test_stopping_a_job_kills_its_grandchildren():
+def test_stopping_a_job_kills_its_grandchildren(kernel_fence):
     worker = JobProcessor.__new__(JobProcessor)
     parent, grandchild_pid = _spawn_nested(new_session=True)
     try:
-        assert worker.stop_child_process(parent, "synthetic-root") is True
+        assert _is_confirmed(worker.stop_child_process(parent, "synthetic-root")) is True
         assert parent.poll() is not None
         # The point of the whole change: the grandchild goes too.
         deadline = time.time() + 5
@@ -339,7 +367,7 @@ def test_a_child_without_its_own_group_is_not_claimed():
     worker = JobProcessor.__new__(JobProcessor)
     parent, grandchild_pid = _spawn_nested(new_session=False)
     try:
-        assert worker.stop_child_process(parent, "synthetic-root") is False
+        assert _is_confirmed(worker.stop_child_process(parent, "synthetic-root")) is False
     finally:
         _reap(parent, grandchild_pid)
 
@@ -418,7 +446,7 @@ def _run_nested_to_completion(monkeypatch, exit_code):
 
 
 @pytest.mark.parametrize("exit_code", [1, 0])
-def test_normal_parent_exit_still_fences_the_tree(monkeypatch, exit_code):
+def test_normal_parent_exit_still_fences_the_tree(monkeypatch, exit_code, kernel_fence):
     """An ordinary return is not a tree fence on its own.
 
     The parent exits by itself — nonzero or zero — while a grandchild it
@@ -493,7 +521,7 @@ def test_unreadable_member_does_not_authorize_exit(monkeypatch):
     assert JobProcessor._process_group_alive(77) is True
 
     worker = JobProcessor.__new__(JobProcessor)
-    assert worker.confirm_process_tree_gone(77, "synthetic") is False
+    assert _is_confirmed(worker.confirm_process_tree_gone(77, "synthetic")) is False
 
 
 def test_malformed_stat_does_not_authorize_exit(monkeypatch):
@@ -508,7 +536,7 @@ def test_malformed_stat_does_not_authorize_exit(monkeypatch):
     assert JobProcessor._process_group_alive(77) is True
 
     worker = JobProcessor.__new__(JobProcessor)
-    assert worker.confirm_process_tree_gone(77, "synthetic") is False
+    assert _is_confirmed(worker.confirm_process_tree_gone(77, "synthetic")) is False
 
 
 def test_vanished_member_is_confirmed_gone(monkeypatch):
@@ -814,6 +842,191 @@ def test_real_two_generation_group_is_reaped_to_empty(monkeypatch):
             os.killpg(parent.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
+        try:
+            parent.wait(timeout=5)
+        except Exception:
+            pass
+        if parent.stdout:
+            parent.stdout.close()
+
+
+# --- Round 13: without the kernel fence, exit confirmation fails CLOSED --------
+#
+# Astra (round 12) accepted the kernel path but showed that when subreaper setup
+# FAILS the code fell back to the known-racy /proc scan and STILL claimed
+# process_exit_confirmed=True with a live successor in the group. "Logging
+# best-effort" does not protect the guard release. The fix: `confirm_process_tree_gone`
+# and `stop_child_process` return a typed ExitConfirmation; without the kernel
+# fence they never return CONFIRMED, only UNCONFIRMED (treated like a timeout:
+# the guard is not released, the job records the reason). The /proc scan survives
+# only as diagnostics. On Linux the poller refuses to start if the fence cannot
+# be established; non-Linux keeps the fail-closed path.
+
+
+def test_fallback_with_live_successor_is_not_confirmed(monkeypatch):
+    """The round-12 defect: no fence + a live successor must NOT confirm exit.
+
+    killpg succeeds (a live member remains) while the /proc scan comes back empty
+    — the exact schedule that fooled the scan. Without the subreaper the result
+    must be a refusal, not a confirmation. On 028a90c3a `confirm_process_tree_gone`
+    returns the plain bool True here, so this assertion fails there.
+    """
+    monkeypatch.setattr("scripts.job_poller._child_subreaper_set", False, raising=False)
+    monkeypatch.setattr("scripts.job_poller.CHILD_TERMINATE_GRACE_SECONDS", 0)
+    monkeypatch.setattr(os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(os, "listdir", lambda path: ["101"])
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: None)  # group still answers
+    monkeypatch.setattr("builtins.open", _fresh_stat({"101": _stat_line(101, "Z", 77)}))
+
+    worker = JobProcessor.__new__(JobProcessor)
+    assert _is_confirmed(worker.confirm_process_tree_gone(77, "synthetic")) is False
+
+
+def test_fallback_empty_group_is_still_not_confirmed(monkeypatch):
+    """Fail closed is the point: even a genuinely empty group is not confirmed
+    from the scan alone without the kernel fence."""
+    import scripts.job_poller as jp
+
+    monkeypatch.setattr("scripts.job_poller._child_subreaper_set", False, raising=False)
+
+    def esrch(pgid, sig):
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(os, "killpg", esrch)  # group is genuinely gone
+    monkeypatch.setattr(os.path, "isdir", lambda path: True)
+    monkeypatch.setattr(os, "listdir", lambda path: [])
+
+    worker = JobProcessor.__new__(JobProcessor)
+    result = worker.confirm_process_tree_gone(77, "synthetic")
+    assert _is_confirmed(result) is False
+    assert result is jp.ExitConfirmation.UNCONFIRMED
+
+
+def test_kernel_path_still_confirms_empty_group(monkeypatch):
+    """The accepted kernel path is unchanged: a proven-empty group confirms."""
+    import scripts.job_poller as jp
+
+    monkeypatch.setattr("scripts.job_poller._child_subreaper_set", True, raising=False)
+    _install_fake_waitid(monkeypatch, lambda idtype, gid, options: (_ for _ in ()).throw(ChildProcessError()))
+
+    def esrch(pgid, sig):
+        raise ProcessLookupError()
+
+    monkeypatch.setattr(os, "killpg", esrch)
+
+    worker = JobProcessor.__new__(JobProcessor)
+    result = worker.confirm_process_tree_gone(77, "synthetic")
+    assert result is jp.ExitConfirmation.CONFIRMED
+    assert _is_confirmed(result) is True
+
+
+def test_unconfirmed_completion_records_note_and_withholds_release():
+    """An UNCONFIRMED confirmation completes the job with the guard withheld
+    (process_exit_confirmed=False) and a recorded reason."""
+    from scripts.job_poller import ExitConfirmation
+
+    captured = {}
+    worker = JobProcessor.__new__(JobProcessor)
+    worker.table = SimpleNamespace(update_item=lambda **kwargs: captured.update(kwargs))
+    worker.update_job_logs = lambda *args, **kwargs: None
+
+    worker._complete_with_confirmation(
+        {"job_id": "synthetic-root", "version": 1}, True, ExitConfirmation.UNCONFIRMED
+    )
+
+    values = captured["ExpressionAttributeValues"]
+    assert values[":process_exited"] is False
+    results = json.loads(values[":job_results"])
+    assert "child-subreaper" in results["process_exit_note"]
+
+
+def test_confirmed_completion_releases_the_guard():
+    """A CONFIRMED confirmation sets process_exit_confirmed=True and no note."""
+    from scripts.job_poller import ExitConfirmation
+
+    captured = {}
+    worker = JobProcessor.__new__(JobProcessor)
+    worker.table = SimpleNamespace(update_item=lambda **kwargs: captured.update(kwargs))
+    worker.update_job_logs = lambda *args, **kwargs: None
+
+    worker._complete_with_confirmation(
+        {"job_id": "synthetic-root", "version": 1}, True, ExitConfirmation.CONFIRMED
+    )
+
+    values = captured["ExpressionAttributeValues"]
+    assert values[":process_exited"] is True
+    results = json.loads(values[":job_results"])
+    assert "process_exit_note" not in results
+
+
+def test_startup_refuses_on_linux_without_fence(monkeypatch):
+    """On Linux the poller refuses to start if the kernel fence cannot be set
+    (it needs no capability, so failure means a broken environment)."""
+    import scripts.job_poller as jp
+
+    monkeypatch.setattr(jp, "mark_child_subreaper", lambda: False)
+    monkeypatch.setattr(jp.sys, "platform", "linux")
+    with pytest.raises(SystemExit):
+        jp.ensure_process_exit_fence()
+
+
+def test_startup_tolerates_non_linux_without_fence(monkeypatch):
+    """On non-Linux the poller continues (fail-closed confirmation), no exit."""
+    import scripts.job_poller as jp
+
+    monkeypatch.setattr(jp, "mark_child_subreaper", lambda: False)
+    monkeypatch.setattr(jp.sys, "platform", "darwin")
+    jp.ensure_process_exit_fence()  # must not raise
+
+
+@pytest.mark.skipif(
+    not sys.platform.startswith("linux"), reason="needs Linux /proc + fork"
+)
+def test_real_two_generation_without_fence_is_unconfirmed(monkeypatch):
+    """Astra's r12 defect case as a control: a failed/absent subreaper setup with
+    a real two-generation live successor must return UNCONFIRMED, never confirm.
+    """
+    import scripts.job_poller as jp
+
+    monkeypatch.setattr(jp, "_child_subreaper_set", False, raising=False)
+    code = (
+        "import os,sys,time\n"
+        "for _ in range(2):\n"
+        "    pid = os.fork()\n"
+        "    if pid:\n"
+        "        print(pid, flush=True)\n"
+        "        os._exit(0)\n"
+        "time.sleep(60)\n"
+    )
+    parent = subprocess.Popen(
+        [sys.executable, "-c", code],
+        stdout=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    worker = JobProcessor.__new__(JobProcessor)
+    try:
+        parent.stdout.readline()
+        deadline = time.time() + 5
+        while parent.poll() is None and time.time() < deadline:
+            time.sleep(0.02)
+        result = worker.confirm_process_tree_gone(parent.pid, "synthetic")
+        assert result is jp.ExitConfirmation.UNCONFIRMED
+        assert _is_confirmed(result) is False
+    finally:
+        try:
+            os.killpg(parent.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        # Reap anything left; without a real subreaper an orphan may need it.
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            try:
+                if not JobProcessor._live_group_members(parent.pid):
+                    break
+            except Exception:
+                break
+            time.sleep(0.02)
         try:
             parent.wait(timeout=5)
         except Exception:
