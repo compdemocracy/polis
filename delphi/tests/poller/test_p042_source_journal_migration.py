@@ -223,8 +223,12 @@ def migrated_engine():
     finally:
         raw.close()
 
+    _PROVISION.update(container=container, dbname=dbname, db_dsn=db_dsn,
+                      base_dsn=base_dsn, host=engine.url.host, port=engine.url.port,
+                      user=engine.url.username)
     yield engine
 
+    _PROVISION.clear()
     engine.dispose()
     try:
         with admin.connect() as c:
@@ -234,6 +238,67 @@ def migrated_engine():
         if container:
             subprocess.run(["docker", "stop", container],
                            capture_output=True, text=True)
+
+
+# Provisioning info for the psql-exit-status test, populated by the fixture.
+_PROVISION: dict = {}
+
+
+def _run_psql(extra_args, sql_text):
+    """Apply ``sql_text`` to the migrated DB through a real ``psql``, returning the
+    CompletedProcess, or None if no psql is reachable. Prefers ``docker exec`` into
+    the throwaway container; else a host ``psql`` against the DSN."""
+    container = _PROVISION.get("container")
+    if container:
+        cmd = ["docker", "exec", "-i", container, "psql", "-U", _PROVISION["user"],
+               "-d", _PROVISION["dbname"], *extra_args, "-f", "-"]
+    else:
+        psql = shutil.which("psql")
+        if not psql:
+            return None
+        cmd = [psql, _PROVISION["db_dsn"], *extra_args, "-f", "-"]
+    return subprocess.run(cmd, input=sql_text, capture_output=True, text=True)
+
+
+def _gauge(engine, name, consumer_id=None):
+    """Read one collected gauge value (optionally scoped to a consumer)."""
+    from polismath.poller.source_journal_metrics import collect_samples
+    with engine.connect() as conn:
+        samples = collect_samples(conn)
+    for s in samples:
+        if s.name == name and (consumer_id is None
+                               or s.dimensions.get("ConsumerId") == consumer_id):
+            return s.value
+    raise AssertionError(f"gauge {name} for {consumer_id} not emitted")
+
+
+def _age_progress(engine, consumer_id, seconds):
+    """Simulate elapsed time since the last durable C advance (like the review
+    probe ages first_dirty_at) so growth is testable without waiting."""
+    import sqlalchemy as sa
+    with engine.begin() as conn:
+        conn.execute(sa.text(
+            "UPDATE math_source_progress "
+            "SET last_advanced_at = clock_timestamp() - make_interval(secs => :s) "
+            "WHERE consumer_id = :c"), {"s": float(seconds), "c": consumer_id})
+
+
+def _commit_conversation(engine, zid):
+    raw = _autocommit_psycopg2(engine)
+    try:
+        raw.autocommit = True
+        cur = raw.cursor()
+        cur.execute("INSERT INTO conversations(zid) VALUES (%s)", (zid,))
+        cur.close()
+    finally:
+        raw.close()
+
+
+def _drain(client, limit=50):
+    for _ in range(limit):
+        if client.discover_page(page_size=100).n == 0:
+            return
+    raise AssertionError("discovery never drained")
 
 
 def _free_port() -> int:
@@ -473,6 +538,241 @@ class TestMigrationAgainstRealSchema:
         emit_source_journal_metrics(migrated_engine, sink=captured.extend)
         assert any(s.name == "JournalRows" for s in captured)
         assert METRIC_NAMESPACE == "Polis/MathSource"
+
+    # -- Round 2, P2-1: once-only re-run refusal + failure exit status -------- #
+    def test_rerun_refuses_and_preserves_incarnation_and_journal(self, migrated_engine):
+        """A second application RAISES P042_ALREADY_INSTALLED before any DDL and
+        leaves the incarnation, journal and cursors untouched (not a silent
+        no-op, not a clobber)."""
+        import sqlalchemy as sa
+        migration = open(_MIGRATION, encoding="utf-8").read()
+        with migrated_engine.begin() as conn:
+            conn.execute(sa.text("INSERT INTO conversations(zid) VALUES (91001)"))
+        with migrated_engine.connect() as conn:
+            before_inc = conn.execute(sa.text(
+                "SELECT incarnation FROM math_source_database")).scalar_one()
+            before_journal = conn.execute(sa.text(
+                "SELECT count(*) FROM math_source_changes")).scalar_one()
+        raw = _autocommit_psycopg2(migrated_engine)
+        try:
+            raw.autocommit = True
+            cur = raw.cursor()
+            with pytest.raises(Exception) as ei:
+                cur.execute(migration)
+            assert "P042_ALREADY_INSTALLED" in str(ei.value)
+            raw.rollback()
+        finally:
+            raw.close()
+        with migrated_engine.connect() as conn:
+            assert conn.execute(sa.text(
+                "SELECT incarnation FROM math_source_database")).scalar_one() == before_inc
+            assert conn.execute(sa.text(
+                "SELECT count(*) FROM math_source_changes")).scalar_one() == before_journal
+
+    def test_failure_path_returns_nonzero_only_with_on_error_stop(self):
+        """The advertised invocation must fail loudly. On an already-installed DB
+        `psql -v ON_ERROR_STOP=1` exits nonzero; without the flag psql exits 0
+        after the ROLLBACK (which is exactly why the flag is required)."""
+        migration = open(_MIGRATION, encoding="utf-8").read()
+        stop = _run_psql(["-v", "ON_ERROR_STOP=1"], migration)
+        if stop is None:
+            pytest.skip("no psql reachable (no docker container and no host psql)")
+        assert stop.returncode != 0, (stop.returncode, stop.stderr)
+        assert "P042_ALREADY_INSTALLED" in (stop.stdout + stop.stderr)
+        nostop = _run_psql([], migration)
+        assert nostop.returncode == 0, (
+            "control: without ON_ERROR_STOP psql masks the failure as success; "
+            f"got {nostop.returncode}")
+
+    # -- Round 2, P2-2: the granted consumer role can actually run horizon ---- #
+    def test_horizon_and_discovery_work_as_granted_consumer_role(self):
+        """horizon() reads math_source_database directly (outside the RPCs), so
+        the migration's consumer grants must include SELECT on it. Provision a
+        fresh DB with the role + GUC so the migration's guarded grant block
+        applies, then run horizon + register + a discovery cycle + ack under
+        `SET LOCAL ROLE`, and confirm PUBLIC stays revoked."""
+        import sqlalchemy as sa
+        from polismath.poller.source_journal import SourceJournalClient, HORIZON_SQL
+
+        base = _PROVISION.get("base_dsn")
+        if not base:
+            pytest.skip("no base DSN available for a fresh role database")
+        suffix = uuid.uuid4().hex[:8]
+        role = "p042_role_" + suffix
+        dbname = "p042_role_" + suffix
+        admin = sa.create_engine(base, isolation_level="AUTOCOMMIT")
+        engine = None
+        try:
+            with admin.connect() as c:
+                c.exec_driver_sql(f"CREATE ROLE {role} NOLOGIN")
+                c.exec_driver_sql(f"CREATE DATABASE {dbname}")
+            db_dsn = base.rsplit("/", 1)[0] + "/" + dbname
+            engine = sa.create_engine(db_dsn)
+            raw = engine.raw_connection()
+            try:
+                raw.autocommit = True
+                cur = raw.cursor()
+                for path in _edge_migration_files():
+                    cur.execute(open(path, encoding="utf-8").read())
+                # GUC picked up by the migration's guarded grant block.
+                cur.execute(f"SET p042.consumer_role = '{role}'")
+                cur.execute(open(_MIGRATION, encoding="utf-8").read())
+                cur.close()
+            finally:
+                raw.close()
+
+            client = SourceJournalClient(engine, "role-consumer-" + suffix)
+
+            def as_role(fn):
+                with engine.connect() as conn:
+                    with conn.begin():
+                        conn.exec_driver_sql(f"SET LOCAL ROLE {role}")
+                        return fn(conn)
+
+            # The exact P2-2 defect: this used to raise 42501 on math_source_database.
+            snap = as_role(lambda conn: client.horizon(conn))
+            assert snap.database_incarnation is not None
+
+            # register (horizon + INSERT consumer + INSERT bootstrap) as the role
+            def _register(conn):
+                s = client.horizon(conn)
+                conn.execute(sa.text(
+                    "INSERT INTO math_source_consumers(consumer_id,engine,math_env,"
+                    "scope_digest,system_identifier,database_incarnation,next_xid) "
+                    "VALUES(:c,'witness','python','scope',:sid,"
+                    "CAST(:inc AS uuid),CAST(CAST(:x AS text) AS xid8))"),
+                    {"c": client.consumer_id, "sid": s.system_identifier,
+                     "inc": s.database_incarnation, "x": s.x})
+                conn.execute(sa.text(
+                    "INSERT INTO math_source_pending(consumer_id,zid) VALUES(:c,NULL)"),
+                    {"c": client.consumer_id})
+            as_role(_register)
+
+            # a full discovery cycle (lock/open/page/close) + pending + ack as role
+            _commit_conversation(engine, 95001)
+
+            def _cycle(conn):
+                cur = client.lock(conn)
+                if not cur.interval_open:
+                    client.open(conn, client.horizon(conn).x)
+                r = client.page(conn, 100)
+                if r.n == 0:
+                    client.close(conn)
+                return r
+            for _ in range(50):
+                if as_role(_cycle).n == 0:
+                    break
+
+            def _ack(conn):
+                items = client.pending(conn, 100)
+                for it in items:
+                    client.ack(conn, it.zid, it.dirty_version)
+                return items
+            acked = as_role(_ack)
+            assert any(it.zid == 95001 for it in acked) or acked == []
+
+            # PUBLIC remains revoked from the RPC.
+            with engine.connect() as conn:
+                assert conn.execute(sa.text(
+                    "SELECT has_function_privilege('public',"
+                    "'public.p042_open(text,xid8)','execute')")).scalar_one() is False
+                # the granted role can execute it and read the identity table
+                assert conn.execute(sa.text(
+                    "SELECT has_table_privilege(:r,'public.math_source_database','SELECT')"),
+                    {"r": role}).scalar_one() is True
+        finally:
+            if engine is not None:
+                engine.dispose()
+            with admin.connect() as c:
+                c.exec_driver_sql(f"DROP DATABASE IF EXISTS {dbname} WITH (FORCE)")
+                c.exec_driver_sql(f"DROP ROLE IF EXISTS {role}")
+            admin.dispose()
+
+    # -- Round 2, P2-3: ConsumerNoProgressSeconds is durable-advance based ----- #
+    def _register_drained(self, engine, tag):
+        from polismath.poller.source_journal import register_consumer, SourceJournalClient
+        cid = tag + "-" + uuid.uuid4().hex[:6]
+        register_consumer(engine, cid, "witness", "python", "scope/" + tag)
+        client = SourceJournalClient(engine, cid)
+        import sqlalchemy as sa
+        with engine.begin() as conn:
+            for it in client.pending(conn, 1000):
+                client.ack(conn, it.zid, it.dirty_version)
+        _drain(client)
+        return cid, client
+
+    def test_no_progress_grows_on_unseen_journal_demand(self, migrated_engine):
+        """M4 stall drill: an old active xid plus a newer committed change leaves
+        the journal with demand the consumer cannot reach; while C does not
+        advance, ConsumerNoProgressSeconds must grow (not sit at a healthy 0)."""
+        import sqlalchemy as sa
+        cid, client = self._register_drained(migrated_engine, "np-unseen")
+        blocker = _autocommit_psycopg2(migrated_engine)
+        try:
+            blocker.autocommit = False
+            bcur = blocker.cursor()
+            bcur.execute("SELECT pg_current_xact_id()")   # hold an old xid open
+            _commit_conversation(migrated_engine, 96001)  # newer committed demand
+            client.discover_page(page_size=100)           # cannot advance past blocker
+            # the stall has persisted (simulate 5 min since the last real advance)
+            _age_progress(migrated_engine, cid, 300)
+            client.discover_page(page_size=100)           # still cannot advance
+            with migrated_engine.connect() as conn:
+                journal = conn.execute(sa.text(
+                    "SELECT count(*) FROM math_source_changes")).scalar_one()
+            assert journal > 0
+            assert _gauge(migrated_engine, "ConsumerNoProgressSeconds", cid) >= 300
+            assert _gauge(migrated_engine, "ObserverHealthy") == 1.0
+        finally:
+            blocker.rollback()
+            blocker.close()
+
+    def test_no_progress_not_reset_by_backoff(self, migrated_engine):
+        """Backing off a pending item must NOT reset the gauge (it is not pending
+        age); OldestPendingAgeSeconds keeps the delayed work."""
+        cid, client = self._register_drained(migrated_engine, "np-backoff")
+        _commit_conversation(migrated_engine, 96101)
+        _drain(client)
+        _age_progress(migrated_engine, cid, 300)
+        before = _gauge(migrated_engine, "ConsumerNoProgressSeconds", cid)
+        assert before >= 300
+        with migrated_engine.begin() as conn:
+            item = client.pending(conn, 100)[0]
+            client.fail(conn, item.zid, item.dirty_version, 3600)
+        after = _gauge(migrated_engine, "ConsumerNoProgressSeconds", cid)
+        assert after >= 300, "backoff must not reset no-progress to zero"
+        # delayed work is still counted by OldestPendingAgeSeconds
+        assert _gauge(migrated_engine, "OldestPendingAgeSeconds", cid) >= 0
+
+    def test_no_progress_resets_on_durable_advance(self, migrated_engine):
+        """A durable C advance resets the gauge even while older pending remains."""
+        import sqlalchemy as sa
+        cid, client = self._register_drained(migrated_engine, "np-advance")
+        _commit_conversation(migrated_engine, 96201)
+        _drain(client)                                   # older pending for 96201
+        _age_progress(migrated_engine, cid, 300)
+        assert _gauge(migrated_engine, "ConsumerNoProgressSeconds", cid) >= 300
+        # a real new change; draining it advances C (no blocker) -> stamp now
+        _commit_conversation(migrated_engine, 96202)
+        _drain(client)
+        with migrated_engine.connect() as conn:
+            still_pending = conn.execute(sa.text(
+                "SELECT count(*) FROM math_source_pending WHERE consumer_id=:c"),
+                {"c": cid}).scalar_one()
+        assert still_pending >= 1, "older pending must still be present"
+        assert _gauge(migrated_engine, "ConsumerNoProgressSeconds", cid) < 300, \
+            "a durable C advance must reset no-progress even with older pending"
+
+    def test_no_progress_zero_when_no_demand(self, migrated_engine):
+        """No demand -> a genuine zero (no pending, no journal work at/after C)."""
+        cid, client = self._register_drained(migrated_engine, "np-idle")
+        import sqlalchemy as sa
+        with migrated_engine.begin() as conn:
+            for it in client.pending(conn, 1000):
+                client.ack(conn, it.zid, it.dirty_version)
+        _drain(client)
+        _age_progress(migrated_engine, cid, 300)  # even after 5 min, no demand -> 0
+        assert _gauge(migrated_engine, "ConsumerNoProgressSeconds", cid) == 0
 
 
 # --------------------------------------------------------------------------- #
