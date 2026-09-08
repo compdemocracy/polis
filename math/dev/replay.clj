@@ -402,6 +402,15 @@
 
 (def stage-dump-schema "polis-stage-dump/1")
 
+(def comment-projection-axes
+  "Axis orientation of :pca :comment-projection, DECLARED in every document
+  rather than inferred downstream: Clojure's with-proj-and-extremtiy
+  (conversation.clj:341-352) emits n-comps rows of n-tids values, and the Python
+  twin transposes to match. A comparer that guessed the orientation from array
+  lengths would misread every square case (n-tids = n-comps), so the orientation
+  is part of the wire contract."
+  "comps-by-tids")
+
 (def stage-node-map
   "Ordered [stage-name [[json-key graph-node-key] …]] — the node list P-030 §2.3
   enumerates, grouped by the port plan's R-stage. Stage names are zero-padded so
@@ -600,6 +609,7 @@
   "The `polis-stage-dump/1` document for one step of one engine."
   [step conv]
   (sorted-map
+    "comment_projection_axes" comment-projection-axes
     "engine"       "clj"
     "input_digest" (step-input-digest step)
     "schema"       stage-dump-schema
@@ -639,7 +649,8 @@
   (let [rows (mapv (fn [[s conv]] (write-stage-json! dir s conv)) results)]
     (spit (io/file dir "stages-manifest.json")
           (stage-json-string
-            (sorted-map "engine"      "clj"
+            (sorted-map "comment_projection_axes" comment-projection-axes
+                        "engine"      "clj"
                         "n_steps"     (count rows)
                         "schema"      stage-dump-schema
                         "stage_order" stage-order
