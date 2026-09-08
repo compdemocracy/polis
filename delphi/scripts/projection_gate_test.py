@@ -227,3 +227,92 @@ def test_gate_refuses_non_select() -> None:
     # A bare SELECT and the read-only control statement are allowed.
     pg._assert_statement_allowed("SELECT * FROM votes")
     pg._assert_statement_allowed("SET TRANSACTION READ ONLY")
+
+
+# --- P2: read-only guard is sound against the literal/comment write trick -------
+
+
+def test_readonly_guard_rejects_literal_comment_write() -> None:
+    """Round-1 defect (Astra): a ``--`` inside a string literal was stripped as a
+    comment, hiding a trailing multi-statement write. The guard must reject it."""
+    astra = ("SELECT '--'; COMMIT; BEGIN READ WRITE; "
+             "INSERT INTO astra_readonly_probe VALUES (1); COMMIT; --")
+    with pytest.raises(pg.GateReadOnlyViolation):
+        pg._assert_statement_allowed(astra)
+    for bad in (
+        "SELECT 1 -- trailing comment",
+        "SELECT 1 /* block */",
+        "SELECT 1; SELECT 2",
+        "VACUUM",
+        "update votes set vote = 0",
+    ):
+        with pytest.raises(pg.GateReadOnlyViolation):
+            pg._assert_statement_allowed(bad)
+    # A single comment-free SELECT and the closed control statements are allowed.
+    pg._assert_statement_allowed("SELECT 1000::int8 AS created")
+    pg._assert_statement_allowed("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
+
+
+def test_readonly_enforced_at_database_level(dsn: str) -> None:
+    """Even bypassing the guard, the session cannot write (P2 defense in depth)."""
+    import psycopg2
+
+    with pg.read_only_connection(dsn) as conn:
+        with conn.cursor() as cur:
+            with pytest.raises(psycopg2.Error) as exc:
+                cur.execute("CREATE TABLE gate_should_never_exist (x integer)")
+            assert exc.value.pgcode == "25006"  # read_only_sql_transaction
+        conn.rollback()
+
+
+# --- P3: one REPEATABLE READ snapshot for both projections; multiset matching ---
+
+
+def test_repeatable_read_shared_snapshot(dsn: str) -> None:
+    """Round-1 defect (Astra): under READ COMMITTED a commit between the two reads
+    produced a phantom VALUE_DIFF. Under one REPEATABLE READ snapshot it cannot."""
+    import psycopg2
+    from unittest.mock import patch
+
+    site = pg.SITES["handle_GET_votes_me"]
+    filters = {"zid": SYNTHETIC_ZID}
+    original = pg.served_projection
+    writer = psycopg2.connect(dsn)
+    writer.autocommit = True
+
+    def change_between(cur, s, f):  # type: ignore[no-untyped-def]
+        writer.cursor().execute(
+            "UPDATE votes SET high_priority = TRUE WHERE zid=%s AND pid=0 AND tid=0",
+            (SYNTHETIC_ZID,),
+        )
+        return original(cur, s, f)
+
+    try:
+        with pg.read_only_connection(dsn) as conn:
+            with conn.cursor() as q:
+                q.execute("SHOW transaction_isolation")
+                assert q.fetchone()[0] == "repeatable read"
+            conn.rollback()
+            with patch.object(pg, "served_projection", change_between):
+                result = pg.gate_site(conn, site, filters)
+        assert result.ok, f"phantom diff under shared snapshot: {result.findings}"
+        assert not any(f.cls is pg.CellClass.VALUE_DIFF for f in result.findings)
+    finally:
+        writer.cursor().execute(
+            "UPDATE votes SET high_priority = FALSE WHERE zid=%s", (SYNTHETIC_ZID,)
+        )
+        writer.close()
+
+
+def test_multiset_matching_is_order_and_duplicate_safe() -> None:
+    site = pg.SITES["handle_GET_votes_me"]
+    # Permuted tie rows, identical multiset -> all IDENTICAL.
+    r = pg.classify(site, {}, ("a", "b"), [(1, 2), (1, 2), (3, 4)],
+                    ("a", "b"), [(3, 4), (1, 2), (1, 2)])
+    assert r.ok and not r.findings
+    # Multiplicity matters: fewer duplicates served -> VALUE_DIFF.
+    r2 = pg.classify(site, {}, ("a",), [(1,), (1,)], ("a",), [(1,)])
+    assert not r2.ok and any(f.cls is pg.CellClass.VALUE_DIFF for f in r2.findings)
+    # A genuinely conflicting value on a shared column -> VALUE_DIFF on that column.
+    r3 = pg.classify(site, {}, ("a", "b"), [(1, 2)], ("a", "b"), [(1, 3)])
+    assert any(f.cls is pg.CellClass.VALUE_DIFF and f.column == "b" for f in r3.findings)
