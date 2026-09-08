@@ -6,18 +6,16 @@ from run import ROOT,HERE,ENV,COMPOSE,dc,ready,provenance
 def cli(*args):
  return subprocess.run(COMPOSE+['exec','-T','-e','P027_STOP_ON_DIFF=1','driver','node','characterization/cli.cjs',*args],cwd=ROOT,env=ENV,text=True,capture_output=True)
 def reset():
- dc('up','-d','server');ready()
- dc('exec','-T','driver','node','characterization/cli.cjs','seed');dc('restart','server','dynamodb');ready();provenance()
+ dc('up','-d','server','driver');ready()
+ dc('exec','-T','driver','node','characterization/cli.cjs','seed');dc('restart','server','dynamodb');ready();provenance();dc('exec','-T','driver','node','characterization/cli.cjs','seed-pages')
 def main():
+ ENV['P027_NEGATIVE_CONTROLS']='1'
  source=HERE/'artifacts/recording';out=[]
  for name in ['response','effect']:
   target=HERE/'artifacts'/('negative-'+name)
   if target.exists():shutil.rmtree(target)
   shutil.copytree(source,target)
-  lines=(target/'cases.jsonl').read_text().splitlines();first=json.loads(lines[0])
-  if name=='response':first['response']['status']=599
-  else:first['effects']['db']['pg:users']={'removed':[],'added':[{'uid':999999,'hname':'Generated mutation'}]}
-  lines[0]=json.dumps(first);(target/'cases.jsonl').write_text('\n'.join(lines)+'\n')
+  dc('exec','-T','driver','node','characterization/mutate.cjs','/artifacts/recording','/artifacts/'+target.name,name)
   reset();r=cli('replay','/artifacts/'+target.name)
   if r.returncode!=1 or 'DIFF' not in r.stdout:raise RuntimeError(f'{name} control did not detect semantic difference: {r.stdout} {r.stderr}')
   out.append({'control':name,'exit':r.returncode,'output':r.stdout.strip()});print(f'PASS control {name}: replayer exited {r.returncode}')
