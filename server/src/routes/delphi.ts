@@ -350,41 +350,40 @@ export async function handle_GET_delphi_job_logs(req: Request, res: Response) {
   const job_id = req.query.job_id as string;
   const uid = req.p?.uid as number | undefined;
 
-  if (!job_id || typeof job_id !== "string") {
-    return res
-      .status(400)
-      .json({ status: "error", message: "job_id is required" });
-  }
-
-  // Logs may contain conversation content, so reading them requires ownership
-  // of the conversation the job was run for.
-  let item: Record<string, any> | null;
+  // Express 3 invokes route callbacks without awaiting them, so a rejection
+  // anywhere below would escape the router and leave the request hanging as an
+  // unhandled rejection. The whole handler — lookup, authorization and log
+  // read — therefore shares one error boundary that always writes a response.
   try {
-    item = await getDelphiJob(job_id);
-  } catch (error) {
-    logger.error(`Failed to look up delphi job ${job_id}`, error);
-    return res
-      .status(500)
-      .json({ status: "error", message: "Failed to retrieve logs" });
-  }
+    if (!job_id || typeof job_id !== "string") {
+      return res
+        .status(400)
+        .json({ status: "error", message: "job_id is required" });
+    }
 
-  if (item === null) {
-    return res.status(404).json({ status: "error", message: "Job not found" });
-  }
+    // Logs may contain conversation content, so reading them requires
+    // ownership of the conversation the job was run for.
+    const item = await getDelphiJob(job_id);
+    if (item === null) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Job not found" });
+    }
 
-  const zid = await getZidForDelphiJob(item, job_id);
-  if (zid === null) {
-    return res.status(404).json({ status: "error", message: "Job not found" });
-  }
+    const zid = await getZidForDelphiJob(item, job_id);
+    if (zid === null) {
+      return res
+        .status(404)
+        .json({ status: "error", message: "Job not found" });
+    }
 
-  const isMod = await isModerator(zid, uid);
-  if (!isMod) {
-    return res
-      .status(403)
-      .json({ status: "error", message: "polis_err_delphi_logs_auth" });
-  }
+    const isMod = await isModerator(zid, uid);
+    if (!isMod) {
+      return res
+        .status(403)
+        .json({ status: "error", message: "polis_err_delphi_logs_auth" });
+    }
 
-  try {
     // Read from the authorized row itself, so every line returned belongs to
     // the job that was authorized.
     return res.json(readJobLogEvents(item, job_id));

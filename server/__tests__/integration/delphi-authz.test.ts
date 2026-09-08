@@ -305,4 +305,45 @@ describe("Delphi route authorization", () => {
       expect(JSON.stringify(response.body)).not.toContain(ownerMarker);
     });
   });
+
+  describe("async handlers answer instead of escaping Express 3", () => {
+    // Express 3 invokes route callbacks without awaiting them, so a rejection
+    // inside an async handler — for example from the ownership query — would
+    // never produce a response: the request hangs and the rejection surfaces
+    // as an unhandled rejection. Each of these routes must always answer.
+    test("non-owner requests all get a real response and raise no unhandled rejection", async () => {
+      const rejections: unknown[] = [];
+      const onRejection = (reason: unknown) => rejections.push(reason);
+      process.on("unhandledRejection", onRejection);
+
+      try {
+        const responses = await Promise.all([
+          strangerAgent.get(
+            `/api/v3/delphi/logs?job_id=${encodeURIComponent(jobId)}`
+          ),
+          strangerAgent.post("/api/v3/topicMod/moderate").send({
+            conversation_id: conversationId,
+            comment_ids: commentIds,
+            action: "reject",
+          }),
+          strangerAgent.get(
+            `/api/v3/dataExport?conversation_id=${conversationId}&unixTimestamp=1758000000&format=csv`
+          ),
+          strangerAgent.get(
+            `/api/v3/dataExport/results?conversation_id=${conversationId}&filename=polis-export-${conversationId}-1758000000000.zip`
+          ),
+        ]);
+
+        for (const response of responses) {
+          expect(response.status).toBe(403);
+        }
+
+        // Give any escaped rejection a turn of the loop to be reported.
+        await new Promise((resolve) => setImmediate(resolve));
+        expect(rejections).toHaveLength(0);
+      } finally {
+        process.off("unhandledRejection", onRejection);
+      }
+    });
+  });
 });
