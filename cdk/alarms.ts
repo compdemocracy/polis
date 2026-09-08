@@ -189,9 +189,15 @@ const resolveAlarmFacts = (entry: PairedAlarm, topicArn: string): ResolvedAlarmF
   const properties = renderAlarmProperties(stack, cfn);
   const actions = Array.isArray(properties.AlarmActions) ? properties.AlarmActions : [];
   const resolvedTopicArn = JSON.stringify(stack.resolve(topicArn));
+  // A caller-supplied alarm may carry a generated (token) name; the construct
+  // path is always readable and is what an operator would grep for.
+  const resolvedName = stack.resolve(entry.alarm.alarmName);
   return {
     id: entry.id,
-    alarmName: entry.alarm.alarmName,
+    alarmName:
+      typeof resolvedName === 'string' && !cdk.Token.isUnresolved(entry.alarm.alarmName)
+        ? resolvedName
+        : entry.alarm.node.path,
     treatMissingData: properties.TreatMissingData as string | undefined,
     // Absent means enabled — that is the CloudFormation default, so only an
     // explicit false counts as disabled.
