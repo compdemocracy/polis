@@ -6,11 +6,6 @@ import {
   GetCommand,
   QueryCommand,
 } from "@aws-sdk/lib-dynamodb";
-import {
-  CloudWatchLogsClient,
-  FilterLogEventsCommand,
-  FilteredLogEvent,
-} from "@aws-sdk/client-cloudwatch-logs";
 import { getZidFromReport } from "../utils/parameter";
 import { getZidFromConversationId } from "../conversation";
 import { isModerator } from "../utils/common";
@@ -39,10 +34,6 @@ const docClient = DynamoDBDocumentClient.from(client, {
     convertEmptyValues: true,
     removeUndefinedValues: true,
   },
-});
-
-const logsClient = new CloudWatchLogsClient({
-  region: Config.AWS_REGION || "us-east-1",
 });
 
 /**
@@ -225,51 +216,99 @@ export async function handle_GET_delphi(req: Request, res: Response) {
   }
 }
 
-const getLogs = async (
-  logGroupName: string,
-  startTime: number,
-  endTime: number,
-  filterPattern: string,
+/**
+ * One line of a Delphi job's log, in the shape this route has always returned
+ * (a CloudWatch `FilteredLogEvent` subset: epoch-millisecond `timestamp` plus
+ * `message`). The client keys log lines by `timestamp` and renders `message`.
+ */
+interface DelphiJobLogEvent {
+  timestamp?: number;
+  message?: string;
+}
+
+/**
+ * Reads the log lines belonging to exactly one Delphi job, from that job's own
+ * Delphi_JobQueue row.
+ *
+ * This route used to scrape CloudWatch with the filter pattern
+ * `"[DELPHI JOB <first 8 chars of job_id>"`, which is what
+ * `delphi/scripts/job_poller.py:update_job_logs` mirrors to the console. That
+ * prefix does not identify a job: every CREATE_NARRATIVE_BATCH job id begins
+ * `batch_report_...`, so all of them share the prefix `batch_re` (checker jobs
+ * likewise share `batch_ch`), and even random UUID prefixes can collide. Any
+ * caller who owned one such job passed the ownership check and then received
+ * every other owner's matching events from the shared log group. Authorization
+ * has to bind the data that is returned, not just the row that is looked up,
+ * so the prefix scrape is gone and is not replaced by a narrower one: there is
+ * no way to recover full job identity from prefix-only historical messages, so
+ * ambiguous events are never returned.
+ *
+ * The same `update_job_logs` writes each entry, in full and structured, to the
+ * job's own row (`logs` = `{"entries":[{timestamp, level, message}]}`, most
+ * recent 50), including every mirrored `[stdout]` line. Reading that row is
+ * exact by construction — a Dynamo `GetCommand` on the primary key — and it
+ * preserves the completion sentinel the report client watches for
+ * ("Results stored in DynamoDB for conversation", printed by
+ * `delphi/run_delphi.py` and mirrored into the entries).
+ */
+function readJobLogEvents(
+  item: Record<string, any>,
   job_id: string
-): Promise<FilteredLogEvent[]> => {
-  if (Config.awsLogGroupName === "docker") {
-    return [
-      {
-        message: `[DELPHI JOB ${job_id.slice(
-          -8
-        )}] INFO: view logs in console! - ${Date.now()}`,
-      },
-    ];
-  } else {
-    let allEvents: FilteredLogEvent[] = [];
-    let nextToken: string | undefined = undefined;
-
-    try {
-      do {
-        const command = new FilterLogEventsCommand({
-          logGroupName: logGroupName,
-          startTime: startTime,
-          endTime: endTime,
-          filterPattern: filterPattern,
-          nextToken: nextToken,
-        });
-
-        const response = await logsClient.send(command);
-
-        if (response.events) {
-          allEvents.push(...response.events);
-        }
-
-        nextToken = response.nextToken;
-      } while (nextToken);
-
-      return allEvents;
-    } catch (err) {
-      logger.error("Error fetching logs:", err);
-      throw err;
-    }
+): DelphiJobLogEvent[] {
+  const raw = item?.logs;
+  if (raw === undefined || raw === null) {
+    return [];
   }
-};
+
+  let parsed: any;
+  if (typeof raw === "string") {
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      logger.warn(`Unparseable logs on delphi job ${job_id}`, err);
+      return [];
+    }
+  } else {
+    parsed = raw;
+  }
+
+  const entries = parsed?.entries;
+  if (!Array.isArray(entries)) {
+    return [];
+  }
+
+  return entries.map((entry: any) => {
+    // Stored as an ISO-8601 string; the response has always carried epoch
+    // millis, so keep that and drop unparseable values rather than emitting
+    // NaN.
+    const parsedTime = Date.parse(entry?.timestamp);
+    const level = entry?.level ? `${entry.level}` : "INFO";
+    return {
+      timestamp: Number.isNaN(parsedTime) ? undefined : parsedTime,
+      // The full job id, never a truncated prefix, so a line is always
+      // attributable to the job it was authorized against.
+      message: `[DELPHI JOB ${job_id}] ${level}: ${entry?.message ?? ""}`,
+    };
+  });
+}
+
+/**
+ * Fetches one Delphi_JobQueue row by its primary key.
+ *
+ * @returns the row, or null when no such job exists.
+ */
+async function getDelphiJob(
+  job_id: string
+): Promise<Record<string, any> | null> {
+  const result = await docClient.send(
+    new GetCommand({
+      TableName: "Delphi_JobQueue",
+      Key: { job_id },
+    })
+  );
+
+  return result.Item ?? null;
+}
 
 /**
  * Resolves the conversation a Delphi job belongs to, as a numeric zid.
@@ -279,17 +318,13 @@ const getLogs = async (
  * conversation_id (zinvite) that the job was submitted with, so both are
  * accepted here.
  *
- * @returns the zid, or null when the job does not exist / cannot be resolved.
+ * @returns the zid, or null when it cannot be resolved.
  */
-async function getZidForDelphiJob(job_id: string): Promise<number | null> {
-  const result = await docClient.send(
-    new GetCommand({
-      TableName: "Delphi_JobQueue",
-      Key: { job_id },
-    })
-  );
-
-  const raw = result.Item?.conversation_id;
+async function getZidForDelphiJob(
+  item: Record<string, any>,
+  job_id: string
+): Promise<number | null> {
+  const raw = item?.conversation_id;
   if (raw === undefined || raw === null || raw === "") {
     return null;
   }
@@ -314,7 +349,6 @@ async function getZidForDelphiJob(job_id: string): Promise<number | null> {
 export async function handle_GET_delphi_job_logs(req: Request, res: Response) {
   const job_id = req.query.job_id as string;
   const uid = req.p?.uid as number | undefined;
-  const threeHoursAgo = Date.now() - 3 * 3600 * 1000;
 
   if (!job_id || typeof job_id !== "string") {
     return res
@@ -324,9 +358,9 @@ export async function handle_GET_delphi_job_logs(req: Request, res: Response) {
 
   // Logs may contain conversation content, so reading them requires ownership
   // of the conversation the job was run for.
-  let zid: number | null;
+  let item: Record<string, any> | null;
   try {
-    zid = await getZidForDelphiJob(job_id);
+    item = await getDelphiJob(job_id);
   } catch (error) {
     logger.error(`Failed to look up delphi job ${job_id}`, error);
     return res
@@ -334,6 +368,11 @@ export async function handle_GET_delphi_job_logs(req: Request, res: Response) {
       .json({ status: "error", message: "Failed to retrieve logs" });
   }
 
+  if (item === null) {
+    return res.status(404).json({ status: "error", message: "Job not found" });
+  }
+
+  const zid = await getZidForDelphiJob(item, job_id);
   if (zid === null) {
     return res.status(404).json({ status: "error", message: "Job not found" });
   }
@@ -346,14 +385,9 @@ export async function handle_GET_delphi_job_logs(req: Request, res: Response) {
   }
 
   try {
-    const logs = await getLogs(
-      Config.awsLogGroupName,
-      threeHoursAgo,
-      Date.now(),
-      `"[DELPHI JOB ${job_id.slice(0, 8)}"`,
-      job_id
-    );
-    return res.json(logs);
+    // Read from the authorized row itself, so every line returned belongs to
+    // the job that was authorized.
+    return res.json(readJobLogEvents(item, job_id));
   } catch (error) {
     logger.error(`Failed to retrieve logs for id ${job_id}`, error);
     return res
