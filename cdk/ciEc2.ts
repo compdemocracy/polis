@@ -128,6 +128,16 @@ export class CertificationCiEc2 extends Construct {
     if (props.allowedInstanceTypes.length === 0) {
       throw new Error('ciEc2AllowedInstanceTypes must not be empty');
     }
+    // An empty list would render as an undefined condition value, which CDK
+    // silently drops — the binding would vanish rather than fail. Refuse it.
+    if (!props.githubWorkflowRefs?.length) {
+      throw new Error('ciEc2WorkflowRefs must not be empty: the environment subject '
+        + 'does not bind the workflow, so this claim is the only thing that does');
+    }
+    if (!props.githubEventNames?.length) {
+      throw new Error('ciEc2EventNames must not be empty: the environment subject '
+        + 'does not exclude pull_request, so this claim is the only thing that does');
+    }
 
     const stack = cdk.Stack.of(this);
     const { account, region, partition } = stack;
