@@ -17,18 +17,20 @@ use std::time::Duration;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
+    time::Instant,
 };
 use tower::ServiceExt;
 const LIMIT: usize = 1024 * 1024;
 /// Two separate clocks. `idle` is Node's `server.keepAliveTimeout`, and like
 /// Node's it applies only while a socket is waiting for the next request to
-/// begin. `request` is the deadline for serving one, and covers routing, SQL,
-/// body generation and the response write.
+/// begin. `request` is a single ABSOLUTE deadline running from the first byte of
+/// a request through its header, its body, the handler and the response write.
 ///
-/// Conflating the two is a live defect, not a tuning question: wrapping the whole
-/// exchange in the idle window cancels a handler that is doing its job, and it
-/// does so on the connection's very first request, where nothing has been idle at
-/// all.
+/// Both halves matter. Wrapping the whole exchange in the idle window cancels a
+/// handler that is doing its job, on the connection's very first request, where
+/// nothing has been idle at all. But restarting the request clock per read is no
+/// bound either: a client that trickles header fragments below each window keeps
+/// an incomplete request alive indefinitely.
 #[derive(Clone, Copy, Debug)]
 pub struct Timeouts {
     pub idle: Duration,
@@ -69,16 +71,12 @@ async fn connection(
 ) -> Result<(), Error> {
     let mut input = Vec::new();
     loop {
-        // Waiting is timed by the idle clock; serving is timed by the request clock.
-        let Some(head) = read_head(&mut socket, &mut input, timeouts).await? else {
+        // Waiting is timed by the idle clock. Serving is timed by one deadline that
+        // started when the request's first byte arrived, header reads included.
+        let Some((head, deadline)) = read_head(&mut socket, &mut input, timeouts).await? else {
             break;
         };
-        match tokio::time::timeout(
-            timeouts.request,
-            one(&mut socket, &router, &mut input, head),
-        )
-        .await
-        {
+        match tokio::time::timeout_at(deadline, one(&mut socket, &router, &mut input, head)).await {
             Ok(Ok(true)) => continue,
             Ok(Ok(false)) => break,
             Ok(Err(e)) => return Err(e),
@@ -91,36 +89,44 @@ async fn connection(
     socket.shutdown().await?;
     Ok(())
 }
-/// Reads until a complete request head is buffered. `None` means the peer closed
-/// or let the keep-alive window lapse before starting a request. Once the first
-/// byte of a request has arrived the request clock takes over, so a slow header
-/// is a request deadline rather than an idle expiry.
+/// Reads until a complete request head is buffered, and returns the deadline the
+/// rest of the exchange must finish by. `None` means the peer closed or let the
+/// keep-alive window lapse before starting a request.
+///
+/// The deadline is absolute and is fixed the moment the request's first byte
+/// arrives, so trickling header fragments cannot extend it: every subsequent read
+/// waits only for whatever remains of it.
 async fn read_head(
     socket: &mut TcpStream,
     input: &mut Vec<u8>,
     timeouts: Timeouts,
-) -> Result<Option<Parsed>, Error> {
+) -> Result<Option<(Parsed, Instant)>, Error> {
     let mut buf = [0u8; 8192];
+    // Bytes already buffered belong to a request that has, by definition, started.
+    let mut deadline = (!input.is_empty()).then(|| Instant::now() + timeouts.request);
     loop {
         let mut fields = [httparse::EMPTY_HEADER; 128];
         let mut req = httparse::Request::new(&mut fields);
         if let httparse::Status::Complete(offset) = req.parse(input)? {
-            return Ok(Some(parse(offset, &req)?));
+            let deadline = deadline.unwrap_or_else(|| Instant::now() + timeouts.request);
+            return Ok(Some((parse(offset, &req)?, deadline)));
         }
-        let started = !input.is_empty();
-        let deadline = if started {
-            timeouts.request
-        } else {
-            timeouts.idle
-        };
-        let n = match tokio::time::timeout(deadline, socket.read(&mut buf)).await {
-            Ok(n) => n?,
-            Err(_) if started => return Err("http request header deadline".into()),
-            Err(_) => return Ok(None),
+        let n = match deadline {
+            Some(deadline) => {
+                match tokio::time::timeout_at(deadline, socket.read(&mut buf)).await {
+                    Ok(n) => n?,
+                    Err(_) => return Err("http request deadline".into()),
+                }
+            }
+            None => match tokio::time::timeout(timeouts.idle, socket.read(&mut buf)).await {
+                Ok(n) => n?,
+                Err(_) => return Ok(None),
+            },
         };
         if n == 0 {
             return Ok(None);
         }
+        deadline.get_or_insert_with(|| Instant::now() + timeouts.request);
         input.extend_from_slice(&buf[..n]);
         if input.len() > LIMIT {
             return Err("request exceeds limit".into());
@@ -310,6 +316,61 @@ mod tests {
             started.elapsed() < Duration::from_secs(5),
             "idle window ignored"
         );
+    }
+    /// Astra round 3 #3. Restarting the clock per read is not a bound: a client
+    /// trickling header fragments below each window kept an incomplete request
+    /// alive indefinitely and still got a 200. One absolute deadline from the
+    /// first byte closes it.
+    #[tokio::test]
+    async fn trickled_headers_cannot_outlive_the_request_deadline() {
+        let addr = listening_with(Timeouts {
+            idle: Duration::from_millis(100),
+            request: Duration::from_millis(150),
+        })
+        .await;
+        let mut socket = TcpStream::connect(addr).await.unwrap();
+        let started = std::time::Instant::now();
+        for fragment in [
+            b"GET /x HTTP/1.1\r\n".as_slice(),
+            b"Host: t\r\n",
+            b"X-A: 1\r\n",
+            b"X-B: 2\r\n",
+            b"X-C: 3\r\n",
+        ] {
+            // Writing to a closed peer eventually errors; that is the point.
+            if socket.write_all(fragment).await.is_err() {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(75)).await;
+        }
+        let _ = socket.write_all(b"Connection: close\r\n\r\n").await;
+        let mut out = Vec::new();
+        tokio::time::timeout(Duration::from_secs(2), socket.read_to_end(&mut out))
+            .await
+            .expect("the connection must end on its own")
+            .ok();
+        assert!(started.elapsed() > Duration::from_millis(150));
+        assert!(
+            !String::from_utf8_lossy(&out).contains("200 OK"),
+            "an incomplete request outlived its deadline: {:?}",
+            String::from_utf8_lossy(&out)
+        );
+    }
+    /// The deadline covers the header AND the handler, but the handler still gets
+    /// the whole window: a header that arrives promptly must not eat into it.
+    #[tokio::test]
+    async fn a_prompt_header_leaves_the_handler_its_window() {
+        let addr = listening_with(Timeouts {
+            idle: Duration::from_millis(100),
+            request: Duration::from_millis(2000),
+        })
+        .await;
+        let out = exchange(
+            addr,
+            "GET /slow HTTP/1.1\r\nHost: t\r\nConnection: close\r\n\r\n",
+        )
+        .await;
+        assert!(out.ends_with("hello"), "{out:?}");
     }
     #[tokio::test]
     async fn a_second_request_on_an_idle_connection_is_still_served() {

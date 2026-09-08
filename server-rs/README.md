@@ -79,7 +79,9 @@ byte gate cannot see. The `Connection: keep-alive` header is `writeDefaultHead`'
 socket only on an explicit `Connection: close`, an idle keep-alive window, or a
 response it cannot delimit. The keep-alive window and the request deadline are
 separate clocks, as they are in Node: the idle window governs a socket waiting
-for its next request to begin, and the request deadline governs serving one. The recorded policy still excludes
+for its next request to begin, and the request deadline is a single absolute
+bound running from the request's first byte through its header, its body, the
+handler and the response write, so trickled header fragments cannot extend it. The recorded policy still excludes
 Connection/Keep-Alive/Date, so this is source-read rather than gate-verified.
 The writer bounds request size and rejects ambiguous
 Content-Length/Transfer-Encoding framing. HTTP/2, streaming request bodies and
