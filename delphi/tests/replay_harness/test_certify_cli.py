@@ -83,22 +83,44 @@ def test_run_skipped_ok_by_default_but_fails_with_strict(monkeypatch):
     assert res_strict.exit_code == 1, res_strict.output
 
 
+def _passing_report():
+    """A complete, non-partial PASS — the shape a real gate run produces when
+    every entry matches. Flag-passthrough tests run against THIS so they still
+    exercise the success exit path; a report with a zero-entry battery can only
+    ever exit 1, which would make the assertions vacuous."""
+    return {"battery": [{"dataset": "vw", "schedule_id": "uniform8-clojure-legacy",
+                         "verdict": "MATCH", "n_steps": 3}],
+            "root": "/tmp/x", "verdict": "PASS", "partial": False,
+            "run_manifest": "/tmp/x/run_manifest-abc.json"}
+
+
 def test_run_passes_cli_flags_through_to_library(monkeypatch):
     mod = _module()
     captured: dict = {}
 
     def fake_run_battery(entries, **kw):
         captured.update(kw)
-        return {"battery": [], "root": "/tmp/x"}
+        return _passing_report()
 
-    monkeypatch.setattr(mod.cert, "load_battery", lambda path: [])
+    monkeypatch.setattr(mod.cert, "load_battery", lambda path: ["entry"])
     monkeypatch.setattr(mod.cert, "run_battery", fake_run_battery)
 
+    # Complete run of a green battery: strict gate satisfied, exit 0.
+    res = CliRunner().invoke(mod.cli, ["run", "--strict", "--refresh-clj", "--refresh-py"])
+    assert res.exit_code == 0, res.output
+    assert captured["only"] is None
+    assert captured["refresh_clj"] is True
+    assert captured["refresh_py"] is True
+
+    # Same green battery, but --only makes it a partial — which can never pass a
+    # strict gate however green the selected entries are.
+    captured.clear()
     res = CliRunner().invoke(
         mod.cli,
-        ["run", "--only", "vw:uniform8-clojure-legacy", "--refresh-clj", "--refresh-py"],
+        ["run", "--strict", "--only", "vw:uniform8-clojure-legacy",
+         "--refresh-clj", "--refresh-py"],
     )
-    assert res.exit_code == 1, res.output  # zero entries cannot pass
+    assert res.exit_code == 1, res.output
     assert "PARTIAL RUN, NOT A GATE" in res.output
     assert captured["only"] == "vw:uniform8-clojure-legacy"
     assert captured["refresh_clj"] is True
@@ -111,19 +133,32 @@ def test_run_passes_workers_through_and_defaults_to_six(monkeypatch):
 
     def fake_run_battery(entries, **kw):
         captured.update(kw)
-        return {"battery": [], "root": "/tmp/x"}
+        return _passing_report()
 
-    monkeypatch.setattr(mod.cert, "load_battery", lambda path: [])
+    monkeypatch.setattr(mod.cert, "load_battery", lambda path: ["entry"])
     monkeypatch.setattr(mod.cert, "run_battery", fake_run_battery)
 
-    res = CliRunner().invoke(mod.cli, ["run", "--workers", "3"])
-    assert res.exit_code == 1, res.output  # zero entries cannot pass
+    res = CliRunner().invoke(mod.cli, ["run", "--strict", "--workers", "3"])
+    assert res.exit_code == 0, res.output
     assert captured["workers"] == 3
 
     captured.clear()
-    res = CliRunner().invoke(mod.cli, ["run"])
-    assert res.exit_code == 1, res.output
+    res = CliRunner().invoke(mod.cli, ["run", "--strict"])
+    assert res.exit_code == 0, res.output
     assert captured["workers"] == 6
+
+
+def test_run_with_zero_entries_cannot_pass(monkeypatch):
+    """The success path above must not be reachable by an empty battery: a run
+    that certified nothing is not a PASS."""
+    mod = _module()
+    monkeypatch.setattr(mod.cert, "load_battery", lambda path: [])
+    monkeypatch.setattr(mod.cert, "run_battery",
+                        lambda entries, **kw: {"battery": [], "root": "/tmp/x"})
+
+    for argv in (["run"], ["run", "--strict"]):
+        res = CliRunner().invoke(mod.cli, argv)
+        assert res.exit_code == 1, res.output
 
 
 def test_run_stdout_budget_with_large_mocked_battery(monkeypatch):

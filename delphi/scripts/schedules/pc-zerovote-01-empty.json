@@ -14,5 +14,5 @@
     "tids": [],
     "in-conv": []
   },
-  "notes": "Explicit empty compute; both engines must satisfy the declared empty state."
+  "notes": "Explicit empty compute; both engines must satisfy the declared empty state. KNOWN BLOCKER (P-022, tracked separately): the engines' empty prep-main blobs disagree today — Clojure omits n/n-cmts/tids/in-conv from an empty compute where Python emits their empty values — so this entry FAILS at stage empty-output until that output contract is reconciled. That failure is a real, previously hidden divergence, not a harness regression."
 }

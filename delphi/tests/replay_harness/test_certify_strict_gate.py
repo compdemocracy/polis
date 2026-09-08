@@ -3,6 +3,7 @@
 Producers are local fakes, but schedule resolution, store validation, cache
 manifests, numeric comparison, run manifest and CLI exit paths are real.
 """
+import hashlib
 import importlib.util
 import json
 import subprocess
@@ -16,6 +17,14 @@ from polismath.replay.driver import run_replay
 from polismath.replay.types import ReplayDataset
 
 EMPTY = {"n": 0, "n-cmts": 0, "tids": [], "in-conv": []}
+
+
+def latest_manifest(root):
+    """Read the run manifest the ``latest`` pointer names. Manifests are keyed
+    by run id so a later run cannot overwrite an earlier one, so there is no
+    fixed path to read — everything goes through the pointer."""
+    pointer = json.loads((Path(root) / cert.RUN_MANIFEST_LATEST).read_text())
+    return json.loads(Path(pointer["run_manifest"]).read_text())
 
 
 @pytest.fixture
@@ -34,7 +43,7 @@ def battery(tmp_path, monkeypatch):
 
     def produce(spec_path, engine):
         state["calls"] += 1
-        manifest = json.loads((root / "run_manifest.json").read_text())
+        manifest = latest_manifest(root)
         assert manifest["verdict"] == "INCONCLUSIVE"
         assert len(manifest["inventory"]) >= 2  # written BEFORE first producer
         spec = sched.ScheduleSpec.from_json_file(spec_path)
@@ -81,6 +90,11 @@ def battery(tmp_path, monkeypatch):
             elif mutation == "wrong-empty":
                 payload = json.loads(first.read_text()); payload["blob"]["n"] = 1
                 first.write_text(json.dumps(payload))
+            elif mutation == "absent-empty":
+                # The real Clojure/Python empty-blob divergence in miniature: the
+                # contract's key is not wrong, it is simply not emitted at all.
+                payload = json.loads(first.read_text()); payload["blob"].pop("n")
+                first.write_text(json.dumps(payload))
         return subprocess.CompletedProcess([], 0, "", "")
 
     monkeypatch.setattr(cert, "run_clj_driver", lambda spec, votes, **kw: produce(spec, "clj"))
@@ -112,7 +126,7 @@ def test_damaged_producer_turns_pass_to_fail(battery, mutation, stage):
     assert report["verdict"] == "FAIL"
     assert report["battery"][0]["stage"] == stage
     assert cert.battery_exit_code(report, strict=True) == 1
-    manifest = json.loads((root / "run_manifest.json").read_text())
+    manifest = latest_manifest(root)
     assert manifest["entries"][0]["status"] == "FAIL"
     assert manifest["finished_at"] is not None
 
@@ -212,6 +226,16 @@ def test_zero_checkpoint_checks_declared_output(battery, tmp_path):
     state["mutation"] = "wrong-empty"
     report = run([entry], refresh_py=True)
     assert report["battery"][0]["stage"] == "empty-output"
+    # The message must name what actually differs. pc-zerovote-01 fails here on
+    # a genuine, unreconciled engine output contract, and a bare "violates
+    # empty_output" would read as a harness regression instead.
+    reason = report["battery"][0]["reason"]
+    assert "empty_output contract" in reason and "wrong values {'n': 1}" in reason
+
+    state["mutation"] = "absent-empty"
+    report = run([entry], refresh_py=True)
+    assert report["battery"][0]["stage"] == "empty-output"
+    assert "absent keys ['n']" in report["battery"][0]["reason"]
 
 
 def test_real_python_driver_records_zero_compute():
@@ -258,7 +282,7 @@ def test_cli_strict_partial_fails_with_manifest(battery, monkeypatch):
     result = CliRunner().invoke(module.cli, ["run", "--strict", "--root", str(root), "--only", "synthetic"])
     assert result.exit_code == 1, result.output
     assert "PARTIAL RUN, NOT A GATE" in result.output
-    manifest = json.loads((root / "run_manifest.json").read_text())
+    manifest = latest_manifest(root)
     assert manifest["partial"] and manifest["verdict"] == "INCONCLUSIVE"
 
 
@@ -269,7 +293,7 @@ def test_cli_malformed_battery_writes_failure_manifest(tmp_path, config):
     root = tmp_path / "out"
     result = CliRunner().invoke(cli_module().cli, ["run", "--strict", "--battery", str(path), "--root", str(root)])
     assert result.exit_code == 1
-    assert json.loads((root / "run_manifest.json").read_text())["verdict"] == "FAIL"
+    assert latest_manifest(root)["verdict"] == "FAIL"
 
 
 @pytest.mark.parametrize("counts", [(0, 0), (1, 0), (1, 2)])
@@ -310,7 +334,7 @@ def test_only_keeps_full_inventory_and_marks_unselected_entries(battery):
     companion = cert.parse_battery_entry({"dataset": "synthetic", "preset": "single-cut"})
     report = run([entry, companion], only=f"synthetic:{entry.schedule_id}")
     assert len(report["inventory"]) == 4
-    manifest = json.loads((root / "run_manifest.json").read_text())
+    manifest = latest_manifest(root)
     assert [e["status"] for e in manifest["entries"]] == ["PASS", "INCONCLUSIVE"]
     assert manifest["verdict"] == "INCONCLUSIVE"
     assert state["calls"] == 2
@@ -324,3 +348,116 @@ def test_unknown_schedule_and_cut_fields_fail_before_producers(battery, tmp_path
         assert report["verdict"] == "FAIL"
         assert "unknown" in report["battery"][0]["reason"]
     assert state["calls"] == 0
+
+
+# ---------------------------------------------------------------------------
+# P-022 §B negative controls for the remaining INPUT classes: a change to only
+# the comments, only the restart seam, or only a vote's polarity must reach the
+# gate. Each is carried by a recording-cache key (comments CSV sha256, schedule
+# hash via restart_after, votes CSV sha256) — the mechanism exists, but nothing
+# asserted it, so a loosened key would silently re-certify the previous run's
+# recordings and report its stale MATCH.
+# ---------------------------------------------------------------------------
+def _stamp(*parts):
+    """A small integer fingerprint of the inputs, carried in an acceptance field
+    so a stale recording is visibly stale rather than merely old."""
+    return 1 + int(hashlib.sha256(repr(parts).encode()).hexdigest()[:8], 16) % 9973
+
+
+@pytest.fixture
+def input_change(tmp_path, monkeypatch):
+    """A green battery whose fake producers stamp every input into the recorded
+    blob. Returns ``(run, state, root, blob_stamps)``."""
+    votes = tmp_path / "synthetic-votes.csv"
+    comments = tmp_path / "synthetic-comments.csv"
+    schedule = tmp_path / "input-change.json"
+    root = tmp_path / "recordings"
+    state = {"calls": 0, "polarity": -1, "restart_after": 0}
+    comments.write_text("tid,mod\n1,1\n")
+
+    def write_inputs():
+        votes.write_text("timestamp,participant,comment,vote\n"
+                         f"10,1,1,1\n20,2,1,{state['polarity']}\n30,3,1,1\n40,4,1,1\n")
+        schedule.write_text(json.dumps({
+            "dataset": "synthetic", "schedule_id": "input-change",
+            "cuts": {"mode": "vote-count", "at": [2, 3, 4]},
+            "moderation": [{"t_ms": 15, "tid": 1, "mod": 1}],
+            "restart_after": state["restart_after"], "coverage": "full-stream",
+        }))
+
+    def dataset(_name=None):
+        return ReplayDataset.build([(10, 1, 1, 1), (20, 2, 1, state["polarity"]),
+                                    (30, 3, 1, 1), (40, 4, 1, 1)])
+
+    write_inputs()
+    monkeypatch.setattr(cert, "dataset_available", lambda name: name == "synthetic")
+    monkeypatch.setattr(cert, "votes_csv_path", lambda name: votes)
+    monkeypatch.setattr(cert, "comments_csv_path", lambda name: comments)
+    monkeypatch.setattr(cert.real_data, "load_export_votes", dataset)
+    monkeypatch.setattr(cert, "_clj_source_hashes", lambda: ("clj-source", "math-source"))
+    monkeypatch.setattr(cert, "_engine_tree_hash_cached", lambda: "python-source")
+
+    def produce(spec_path, engine):
+        state["calls"] += 1
+        spec = sched.ScheduleSpec.from_json_file(spec_path)
+        steps = sched.slice_schedule(dataset(), spec)
+        out = root / spec.dataset / spec.schedule_id / engine
+        out.mkdir(parents=True, exist_ok=True)
+        stamp = _stamp(comments.read_text(), spec.restart_after, state["polarity"])
+        for step in steps:
+            meta = {"index": step.index, "prev_slot": step.prev_slot,
+                    "cut_slot": step.cut_slot, "batch_size": len(step.vote_events),
+                    "cut_time_ms": step.cut_time_ms}
+            blob = {"n": step.cut_slot, "n-cmts": stamp, "tids": [1], "in-conv": [1]}
+            stem = f"step-{step.index:03d}"
+            if engine == "clj":
+                (out / (stem + ".blob.json")).write_text(json.dumps(blob))
+                (out / (stem + ".meta.json")).write_text(json.dumps(meta))
+            else:
+                (out / (stem + ".json")).write_text(json.dumps({**meta, "blob": blob}))
+        return subprocess.CompletedProcess([], 0, "", "")
+
+    monkeypatch.setattr(cert, "run_clj_driver", lambda spec, v, **kw: produce(spec, "clj"))
+    monkeypatch.setattr(cert, "run_py_driver", lambda spec, **kw: produce(spec, "py"))
+
+    def run():
+        entry = cert.parse_battery_entry({"dataset": "synthetic", "schedule": str(schedule)})
+        return cert.run_battery([entry], root=root, ledger_path=tmp_path / "ledger.json")
+
+    def stamps():
+        recorded = sorted((root / "synthetic").rglob("step-*.blob.json"))
+        assert recorded, "no clj checkpoints recorded"
+        return {json.loads(p.read_text())["n-cmts"] for p in recorded}
+
+    return run, state, root, comments, write_inputs, stamps
+
+
+@pytest.mark.parametrize("changed", ["comments", "restart", "polarity"])
+def test_single_input_change_cannot_be_served_from_cache(input_change, changed):
+    run, state, root, comments, write_inputs, stamps = input_change
+    assert_pass(run())
+    before = stamps()
+    assert len(before) == 1
+
+    # A re-run with IDENTICAL inputs is served from cache — this is the control
+    # that makes the assertions below meaningful rather than trivially true.
+    assert_pass(run())
+    assert state["calls"] == 2
+    assert stamps() == before
+
+    if changed == "comments":
+        comments.write_text("tid,mod\n1,-1\n")   # moderation source only
+    elif changed == "restart":
+        state["restart_after"] = 1               # schedule seam only
+    else:
+        state["polarity"] = 1                    # one vote's polarity only
+    write_inputs()
+
+    report = run()
+    assert_pass(report)
+    # Both engines re-recorded, and the recordings describe the NEW inputs: a
+    # cache key blind to this change would leave calls at 2 and stamps stale.
+    assert state["calls"] == 4, f"{changed}-only change did not invalidate the cache"
+    assert stamps() != before, f"{changed}-only change left a stale recording in place"
+    entry = latest_manifest(root)["entries"][0]
+    assert entry["cache"] == {"clj": "miss", "py": "miss"}

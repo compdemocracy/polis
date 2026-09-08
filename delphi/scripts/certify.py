@@ -30,6 +30,7 @@ Usage (from delphi/)::
 from __future__ import annotations
 
 import sys
+import uuid
 from pathlib import Path
 
 import click
@@ -61,13 +62,22 @@ def run(battery_path, only, refresh_clj, refresh_py, strict, root, workers):
     try:
         entries = cert.load_battery(battery_path)
         report = cert.run_battery(entries, root=root, refresh_clj=refresh_clj,
-                                 refresh_py=refresh_py, only=only, workers=workers)
+                                 refresh_py=refresh_py, only=only, workers=workers,
+                                 battery_path=battery_path)
     except (ValueError, KeyError, TypeError, OSError) as exc:
         output_root = root or cert.st.replays_root()
-        manifest_path = output_root / "run_manifest.json"
+        # Per-run filename here too: a battery that fails to even load must not
+        # overwrite the manifest of the last run that actually reached a verdict.
+        run_id = str(uuid.uuid4())
+        manifest_path = cert.run_manifest_path(output_root, run_id)
         cert._write_json(manifest_path, {
-            "schema": "polis-certification-run/1", "verdict": "FAIL", "partial": only is not None,
+            "schema": "polis-certification-run/1", "run_id": run_id, "verdict": "FAIL",
+            "partial": only is not None, "finished_at": None,
             "inventory": [], "entries": [], "configuration_errors": [str(exc)],
+        })
+        cert._write_json(output_root / cert.RUN_MANIFEST_LATEST, {
+            "schema": "polis-certification-run-pointer/1", "run_id": run_id,
+            "verdict": "FAIL", "finished_at": None, "run_manifest": str(manifest_path),
         })
         click.echo(f"certify: FAIL [configuration] {exc}; manifest={manifest_path}")
         sys.exit(1)
