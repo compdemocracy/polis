@@ -282,7 +282,12 @@ class MathPollerService:
         self._stop = threading.Event()
         self._vote_wm: Optional[int] = None
         self._mod_wm: Optional[int] = None
+        # Set ONLY on a scan that completed without raising. Until then the
+        # parked-zid reconciler retries it every cycle (see _reconcile_once);
+        # the lock serialises start()/poll_once()/reconciler so a retry cannot
+        # run concurrently with the scan it is retrying and double-submit.
         self._startup_repair_done = False
+        self._startup_repair_lock = threading.Lock()
 
     @property
     def _parked(self) -> set:
@@ -316,9 +321,13 @@ class MathPollerService:
         # A boot-time database blip must not abort startup. Before the startup
         # scan existed, start() touched no database at all and a blip was
         # absorbed by the poll loops' own try/except; keep that property. The
-        # scan leaves _startup_repair_done False on failure, so the first poll
-        # cycle retries it. poll_once() deliberately still propagates — the
-        # --once contract and test_startup_scan_failure_is_retried depend on it.
+        # scan leaves _startup_repair_done False on failure, and the parked-zid
+        # reconciler thread started just below retries it every cycle until it
+        # succeeds — swallowing the error here must NOT strand dormant mixed
+        # generations for the process lifetime, and no vote/moderation traffic
+        # is required to trigger the retry. poll_once() deliberately still
+        # propagates — the --once contract and
+        # test_startup_scan_failure_is_retried depend on it.
         try:
             self._repair_incomplete_snapshots()
         except Exception:
@@ -382,10 +391,16 @@ class MathPollerService:
     def _repair_incomplete_snapshots(self) -> None:
         """Schedule legacy partial generations even outside the boot lookback.
 
-        A scan failure must propagate, leaving the scan pending for the next
-        poll_once/start attempt. Once submitted, ordinary worker retry/park
+        IDEMPOTENT and re-entrant-safe: it is a no-op once it has completed
+        successfully, and the flag is set ONLY after the whole scan+submit pass
+        returns. A scan failure must propagate, leaving the scan pending; the
+        caller decides. ``start()`` catches it so a boot-time blip cannot abort
+        startup, and ``_reconcile_once`` — the one daemon path that runs
+        without any vote/moderation traffic — retries it every cycle until it
+        succeeds. ``poll_once`` still propagates. The lock serialises those
+        three entry points so a retry cannot overlap the scan it is retrying
+        and submit each zid twice. Once submitted, ordinary worker retry/park
         reconciliation owns recovery, including a failed rebuild with no votes.
-        start() catches it so a boot-time blip cannot abort startup.
 
         TODO(review E4 - startup REBUILD burst cap): this submits an UNBOUNDED
         number of REBUILDs (each a full vote-history recompute), logs one
@@ -408,18 +423,21 @@ class MathPollerService:
         if self._startup_repair_done:
             return
         assert self._pool is not None
-        for zid in self._pg.find_incomplete_math_snapshots():
-            if should_process_zid(
-                zid, self.config.allowlist, self.config.blocklist,
-                self.config.shard_index, self.config.shard_count,
-            ):
-                logger.warning(
-                    "Startup repair: incomplete math snapshot for zid=%s "
-                    "math_env=%s (missing rows or mismatched math_tick); "
-                    "scheduling full rebuild", zid, self.config.math_env,
-                )
-                self._pool.submit(zid, REBUILD, [])
-        self._startup_repair_done = True
+        with self._startup_repair_lock:
+            if self._startup_repair_done:  # won by another entry point
+                return
+            for zid in self._pg.find_incomplete_math_snapshots():
+                if should_process_zid(
+                    zid, self.config.allowlist, self.config.blocklist,
+                    self.config.shard_index, self.config.shard_count,
+                ):
+                    logger.warning(
+                        "Startup repair: incomplete math snapshot for zid=%s "
+                        "math_env=%s (missing rows or mismatched math_tick); "
+                        "scheduling full rebuild", zid, self.config.math_env,
+                    )
+                    self._pool.submit(zid, REBUILD, [])
+            self._startup_repair_done = True
 
     def _vote_loop(self) -> None:
         while not self._stop.is_set():
@@ -457,8 +475,33 @@ class MathPollerService:
         unparks each parked zid (which invalidates its cache) and enqueues a
         REBUILD so the worker reloads the full vote history from Postgres and
         re-persists — reprocessing the interval that was skipped when the global
-        watermark advanced past the failure."""
+        watermark advanced past the failure.
+
+        It ALSO retries the startup repair scan until that has completed
+        successfully once. This is the only daemon path that runs without new
+        votes or moderation, so it is the only place a dormant zid with mixed
+        math_tick generations can be rediscovered after a boot-time DB error;
+        without it, swallowing that error in start() would strand the zid for
+        the process lifetime (start() runs no other scan, and the vote/mod
+        loops never look outside the watermark lookback). The retry is bounded
+        by the reconciler's own cadence, so a persistently failing scan retries
+        once per interval rather than hot-looping."""
         assert self._pool is not None
+        if not self._startup_repair_done:
+            logger.warning(
+                "Startup repair scan still pending; retrying it from the "
+                "parked-zid reconciler"
+            )
+            # Swallowed like the parked-zid work below: a still-broken database
+            # must not kill the reconciler thread, and the flag stays False so
+            # the next cycle retries again.
+            try:
+                self._repair_incomplete_snapshots()
+            except Exception:
+                logger.exception(
+                    "Startup repair scan retry failed; the next reconcile "
+                    "cycle retries"
+                )
         for zid in sorted(self._pool.parked_zids()):
             logger.info("Reconciler recovering parked zid=%s (M1)", zid)
             self._unpark(zid)  # clears park + invalidates cache

@@ -2,6 +2,7 @@
 
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
+import threading
 import time
 
 import pytest
@@ -9,8 +10,8 @@ import sqlalchemy as sa
 
 from polismath.conversation.conversation import Conversation
 from .conftest import (
-    FaultInjector, Latch, fail_stage, read_math_tables, read_vote_events,
-    seed_conversation, tables_are_coherent,
+    FaultInjector, Latch, drain, eventually, fail_stage, read_math_tables,
+    read_vote_events, seed_conversation, tables_are_coherent,
 )
 from . import fold as F
 
@@ -148,6 +149,88 @@ def test_start_survives_a_boot_time_scan_failure(pg_url, make_service, caplog):
         svc.poll_once()
         called.assert_called_once_with()
     assert svc._startup_repair_done
+
+
+def test_running_daemon_retries_a_failed_boot_scan_and_repairs_a_dormant_zid(
+    engine, pg_url, make_service, caplog
+):
+    """The daemon itself must recover from a boot-time scan failure.
+
+    ``test_start_survives_a_boot_time_scan_failure`` only proves start() does not
+    abort; it then stops the daemon and drives ``poll_once`` by hand, which the
+    long-running ``start``/``run_forever`` path never calls.  Nothing there shows
+    a RUNNING process ever retrying.  This test never calls ``poll_once``: it
+    starts the real threads, fails exactly the boot scan, heals the database, and
+    requires the daemon's own reconciler loop to rediscover a DORMANT zid whose
+    math_tick generations are mixed — a zid no vote or moderation cycle can ever
+    reach, because it is 10 days old and the lookback is 1 day.  Without the
+    reconciler retry the scan is never re-run and the zid stays broken for the
+    process lifetime.
+    """
+    old = int(time.time() * 1000) - 10 * 24 * 60 * 60 * 1000
+    seed_conversation(engine, zid=2, n_ptpts=6, n_cmts=4, base_created=old)
+    # Publish one real coherent generation (no poll cycle involved), then damage
+    # it into UNEQUAL generations across the three tables.
+    setup = make_service(pg_url, math_env=MATH_ENV, poll_from_days_ago=30)
+    setup._writer.write_conv_updates(2, setup._load_or_init(2))
+    assert tables_are_coherent(read_math_tables(engine, 2, MATH_ENV)) == []
+    with engine.begin() as conn:
+        conn.execute(sa.text("UPDATE math_ptptstats SET math_tick = math_tick + 7 "
+                             "WHERE zid=2 AND math_env=:e"), {"e": MATH_ENV})
+        # A mixed main must not seed an incorrect watermark into the rebuild.
+        conn.execute(sa.text("UPDATE math_main SET last_vote_timestamp=:t "
+                             "WHERE zid=2 AND math_env=:e"),
+                     {"t": old + 99999999, "e": MATH_ENV})
+    assert setup._pg.find_incomplete_math_snapshots() == [2]
+    before = read_math_tables(engine, 2, MATH_ENV)
+
+    svc = make_service(
+        pg_url, math_env=MATH_ENV, poll_from_days_ago=1, worker_pool_size=1,
+        vote_interval_ms=50, mod_interval_ms=50, reconcile_interval_ms=25,
+    )
+    real_scan = svc._pg.find_incomplete_math_snapshots
+    calls = []
+    lock = threading.Lock()
+    boot_scan_failed = threading.Event()
+
+    def scan():
+        """Fail exactly the first scan (the boot one), then the database is healthy."""
+        with lock:
+            calls.append(1)
+            first = len(calls) == 1
+        if first:
+            boot_scan_failed.set()
+            raise RuntimeError("boot scan failed")
+        return real_scan()
+
+    with patch.object(svc._pg, "find_incomplete_math_snapshots", side_effect=scan):
+        svc.start()
+        try:
+            # start() ran the scan synchronously before spawning the threads, so
+            # this is deterministic rather than a race with the reconciler.
+            assert boot_scan_failed.is_set()
+            assert "Startup repair scan failed" in caplog.text
+            assert svc._threads and all(t.is_alive() for t in svc._threads)
+            # The ONLY thing that can flip this now is a daemon loop.
+            eventually(
+                lambda: svc._startup_repair_done,
+                message="no daemon loop ever retried the failed startup scan",
+            )
+            assert len(calls) >= 2, "the scan was never re-run"
+            drain(svc)
+        finally:
+            svc.stop()
+
+    assert "retrying it from the parked-zid reconciler" in caplog.text
+    assert "Startup repair: incomplete math snapshot for zid=2" in caplog.text
+    # Rebuilt from authoritative history, not restored from the mixed state.
+    assert "discarding persisted state and rebuilding full history" in caplog.text
+    tables = read_math_tables(engine, 2, MATH_ENV)
+    assert tables_are_coherent(tables) == []
+    assert tables["main"]["math_tick"] > before["main"]["math_tick"]
+    fold = F.fold_votes(read_vote_events(engine, 2))
+    assert F.check_published_against_fold(tables["main"]["data"], fold) == []
+    assert svc._pg.find_incomplete_math_snapshots() == []
 
 
 def test_blocked_zid_does_not_block_other_zid_transactions(
