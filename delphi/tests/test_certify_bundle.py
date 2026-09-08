@@ -1554,3 +1554,139 @@ def test_generated_case_metrics_use_latest_distinct_cells_not_revote_rows():
     assert metrics["P"] == 2 and metrics["C"] == 2
     assert metrics["matrix_area"] == 4
     assert metrics["density"] == pytest.approx(1.0)
+
+
+# ---------------------------------------------------------------------------
+# P-023: manifest/3 — a DECLARED +-1 storage convention and the pair/transform
+# block. The old gate hard-pinned -1 (`REQUIRED_STORAGE_AGREE_VALUE`, checked
+# against a module constant rather than the bundle's own declaration), so the
+# flipped side of a compensated polarity pair was inadmissible by construction
+# and could be neither pushed nor pulled.
+# ---------------------------------------------------------------------------
+
+def _polarity_problems(manifest, config):
+    """Only the polarity/transform lines of the admission report. The shared
+    reference bundle carries an unrelated pre-existing defect, so these tests
+    assert on the predicates they are about rather than on overall success."""
+    try:
+        fb.admit_manifest(manifest, config=config,
+                          config_bytes=fc.DEFAULT_CONFIG_PATH.read_bytes())
+    except fb.AdmissionError as exc:
+        return [line.strip(" -") for line in str(exc).splitlines()
+                if "polarity" in line or "transform" in line]
+    return []
+
+
+def _as_derived(manifest, sign):
+    """A copy of the reference manifest re-declared as a DERIVED pair fixture:
+    the flipped convention and no production-source role."""
+    derived = copy.deepcopy(manifest)
+    derived["polarity"]["storage_agree_value"] = sign
+    for role in derived["roles"]:
+        role["source"] = "synthetic-replacement"
+    return derived
+
+
+def test_an_original_capture_declares_minus_one_and_no_transform(bundle, config):
+    _, manifest, _, _ = bundle
+    assert manifest["schema_version"] == "certify-fixture-manifest/3"
+    assert manifest["polarity"]["storage_agree_value"] == -1
+    assert manifest["transform"] is None
+    assert _polarity_problems(manifest, config) == []
+
+
+def test_a_derived_fixture_may_declare_the_flipped_convention(bundle, config):
+    """The whole point of the bump: +1 is admissible when it is DECLARED and
+    the bundle carries no production capture."""
+    _, manifest, _, _ = bundle
+    assert _polarity_problems(_as_derived(manifest, 1), config) == []
+
+
+def test_a_production_capture_may_not_declare_the_flipped_convention(bundle, config):
+    """The release policy, kept separate from the schema."""
+    _, manifest, _, _ = bundle
+    broken = copy.deepcopy(manifest)
+    broken["polarity"]["storage_agree_value"] = 1
+    problems = _polarity_problems(broken, config)
+    assert any("production" in p and "storage_agree_value" in p for p in problems), \
+        problems
+
+
+@pytest.mark.parametrize("bad", [True, False, 0, -1.0, "-1", None, 2])
+def test_a_convention_that_is_not_exactly_int_pm1_is_refused(bundle, config, bad):
+    _, manifest, _, _ = bundle
+    broken = copy.deepcopy(manifest)
+    broken["polarity"]["storage_agree_value"] = bad
+    problems = _polarity_problems(broken, config)
+    assert any("exactly the integer -1 or +1" in p for p in problems), problems
+
+
+def _transform(**overrides):
+    kwargs = dict(
+        source_bundle_id="pcb-test-0000",
+        source_root_digest="a" * 64,
+        source_manifest_sha256="b" * 64,
+        source_storage_agree_value=-1,
+        bijective_verified=True,
+        notes="P-023 compensated pair",
+    )
+    kwargs.update(overrides)
+    return fb.build_transform_block(**kwargs)
+
+
+def test_a_derived_manifest_binds_the_original_non_circularly(bundle, config):
+    _, manifest, _, _ = bundle
+    derived = _as_derived(manifest, 1)
+    derived["transform"] = _transform()
+    assert _polarity_problems(derived, config) == []
+    assert derived["transform"]["source"]["bundle_id"] != derived["bundle_id"]
+
+
+@pytest.mark.parametrize("mutate,needle", [
+    (lambda t, m: t.update(transform_id="hand-edited/9"), "transform_id"),
+    (lambda t, m: t.update(involution=False), "involution"),
+    (lambda t, m: t.update(bijective_verified=False), "bijective_verified"),
+    (lambda t, m: t.update(surprise="unreviewed"), "unknown transform field"),
+    (lambda t, m: t["source"].update(bundle_id=m["bundle_id"]), "non-circular"),
+    (lambda t, m: t["source"].update(storage_agree_value=1), "must be opposite"),
+    (lambda t, m: t["source"].update(root_digest="stale"), "sha256 hex digest"),
+    (lambda t, m: t["source"].pop("manifest_sha256"), "manifest_sha256 is missing"),
+    (lambda t, m: t["source"].update(extra="unreviewed"),
+     "unknown transform.source field"),
+])
+def test_a_malformed_pair_descriptor_is_refused(bundle, config, mutate, needle):
+    _, manifest, _, _ = bundle
+    derived = _as_derived(manifest, 1)
+    derived["transform"] = _transform()
+    mutate(derived["transform"], derived)
+    problems = _polarity_problems(derived, config)
+    assert any(needle in p for p in problems), problems
+
+
+def test_a_derived_fixture_may_not_also_claim_a_production_role(bundle, config):
+    _, manifest, _, _ = bundle
+    derived = copy.deepcopy(manifest)
+    derived["polarity"]["storage_agree_value"] = 1
+    derived["transform"] = _transform()
+    problems = _polarity_problems(derived, config)
+    assert any("never re-extracted from production" in p for p in problems), problems
+
+
+def test_build_manifest_refuses_an_undeclarable_convention(config, tmp_path):
+    payload, summaries = _generate(config, tmp_path)
+    with pytest.raises(Exception):
+        _manifest(config, payload, generated_summaries=summaries,
+                  storage_agree_value=True)
+    with pytest.raises(fb.BundleError, match="must be opposite"):
+        _manifest(config, payload, generated_summaries=summaries,
+                  storage_agree_value=1,
+                  transform=_transform(source_storage_agree_value=1))
+
+
+def test_build_manifest_writes_the_declared_convention(config, tmp_path):
+    payload, summaries = _generate(config, tmp_path)
+    flipped = _manifest(config, payload, generated_summaries=summaries,
+                        storage_agree_value=1, transform=_transform())
+    assert flipped["polarity"]["storage_agree_value"] == 1
+    assert flipped["polarity"]["export_agree_value"] == 1
+    assert flipped["transform"]["source"]["storage_agree_value"] == -1
