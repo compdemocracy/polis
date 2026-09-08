@@ -39,10 +39,20 @@ from typing import Optional, Sequence
 
 VOTE_TABLES = ("votes_latest_unique", "votes")
 
-# Direct `SELECT * FROM <table>` (not `SELECT * FROM (subquery)`; not `count(*)`).
-_SELECT_STAR_RE = re.compile(
-    r"select\s+\*\s+from\s+\"?(votes_latest_unique|votes)\b", re.IGNORECASE
+_TBL = r"(?:public\s*\.\s*)?\"?(votes_latest_unique|votes)\b"
+# `\s` (DOTALL) so a newline between SELECT and * is caught; `public.` optional.
+# Bare `SELECT * FROM [public.]votes` (not `SELECT * FROM (subquery)`; `count(*)`
+# has no `select \*` before it, so it is not matched).
+_SELECT_STAR_RE = re.compile(r"select\s+\*\s+from\s+" + _TBL, re.IGNORECASE | re.DOTALL)
+# `SELECT alias.* FROM votes alias` — resolved via the alias->table map below.
+_ALIAS_STAR_RE = re.compile(r"\b(\w+)\s*\.\s*\*", re.IGNORECASE)
+_FROM_ALIAS_RE = re.compile(
+    r"\b(?:from|join)\s+" + _TBL + r"(?:\s+(?:as\s+)?(\w+))?", re.IGNORECASE | re.DOTALL
 )
+_SQL_KEYWORDS = {
+    "where", "group", "order", "on", "left", "right", "inner", "outer", "join",
+    "full", "cross", "using", "limit", "having", "union", "and", "or", "as",
+}
 # node-sql wildcard on the vlu builder.
 _BUILDER_STAR_RE = re.compile(r"sql_votes_latest_unique\s*\.\s*star\s*\(")
 
@@ -144,16 +154,51 @@ def _blank_python_noncode(path: str, text: str) -> str:
     return "\n".join(out)
 
 
+def _line_of(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+
+def _raw_at(text: str, offset: int) -> str:
+    start = text.rfind("\n", 0, offset) + 1
+    end = text.find("\n", offset)
+    return text[start:end if end != -1 else len(text)].strip()
+
+
 def _scan_text(rel: str, text: str) -> list[tuple[int, str, str, str]]:
-    """Return (line_no, table, kind, raw_line) for each wildcard hit."""
+    """Return (line_no, table, kind, raw_line) for each wildcard hit. Scans the
+    whole (comment/docstring-stripped) text so MULTILINE, schema-qualified and
+    aliased-star spellings are caught, not just a bare one-line form."""
     hits: list[tuple[int, str, str, str]] = []
-    lines = text.splitlines()
-    for i, line in enumerate(lines, start=1):
-        for m in _SELECT_STAR_RE.finditer(line):
-            hits.append((i, m.group(1).lower(), "select-star", line.strip()))
-        if _BUILDER_STAR_RE.search(line):
-            hits.append((i, "votes_latest_unique", "builder-star", line.strip()))
-    return hits
+
+    def add(offset: int, table: str, kind: str) -> None:
+        hits.append((_line_of(text, offset), table.lower(), kind, _raw_at(text, offset)))
+
+    for m in _SELECT_STAR_RE.finditer(text):
+        add(m.start(), m.group(1), "select-star")
+    for m in _BUILDER_STAR_RE.finditer(text):
+        add(m.start(), "votes_latest_unique", "builder-star")
+
+    # Aliased star: map alias -> vote table from FROM/JOIN, then find `alias.*`.
+    alias_table: dict[str, str] = {}
+    for m in _FROM_ALIAS_RE.finditer(text):
+        alias = m.group(2)
+        if alias and alias.lower() not in _SQL_KEYWORDS:
+            alias_table[alias] = m.group(1).lower()
+    if alias_table:
+        for m in _ALIAS_STAR_RE.finditer(text):
+            table = alias_table.get(m.group(1))
+            if table is not None:
+                add(m.start(), table, "alias-star")
+
+    # De-duplicate (an alias-star and a bare-star can coincide on odd inputs).
+    seen: set[tuple[int, str, str]] = set()
+    unique: list[tuple[int, str, str, str]] = []
+    for line, table, kind, raw in sorted(hits):
+        key = (line, table, kind)
+        if key not in seen:
+            seen.add(key)
+            unique.append((line, table, kind, raw))
+    return unique
 
 
 def _classify(rel: str, line: int, table: str, kind: str, raw: str) -> WildcardSite:
@@ -182,6 +227,11 @@ def _repo_root() -> str:
     return os.path.abspath(os.path.join(here, "..", ".."))
 
 
+class InventoryScanError(RuntimeError):
+    """A requested scan root is missing/unreadable — an ungraded FAIL, never an
+    empty-success proof (Astra round-2 defect 4)."""
+
+
 def run_sweep(roots: Optional[Sequence[str]] = None, repo_root: Optional[str] = None) -> list[WildcardSite]:
     repo_root = repo_root or _repo_root()
     if roots is None:
@@ -189,13 +239,13 @@ def run_sweep(roots: Optional[Sequence[str]] = None, repo_root: Optional[str] = 
     sites: list[WildcardSite] = []
     for root in roots:
         if not os.path.isdir(root):
-            continue
+            raise InventoryScanError(f"scan root missing/unreadable: {root}")
         for path in _iter_source_files(root):
             rel = os.path.relpath(path, repo_root)
             try:
                 text = open(path, encoding="utf-8", errors="replace").read()
-            except OSError:
-                continue
+            except OSError as exc:
+                raise InventoryScanError(f"unreadable file {path}: {exc}") from exc
             if path.endswith(".py"):
                 text = _blank_python_noncode(path, text)
             else:
