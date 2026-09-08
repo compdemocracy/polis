@@ -284,6 +284,55 @@ def test_exemption_binds_occurrence_and_value(tmp_path) -> None:
     assert _sweep_poller_variant(tmp_path, original) == []
 
 
+def test_exemption_digest_catches_flow_edits_survives_formatting(tmp_path) -> None:
+    """R10: the exemption pins a digest of the guard function's normalised source.
+    An unreachable/caught guard or a destructuring rewrite changes the digest ->
+    NEEDS-GATE 'exemption evidence stale: re-review'; a whitespace-only or
+    comment-only edit does NOT change the normalised digest -> still cleared."""
+    import ast as _ast
+
+    if not os.path.exists(_POLLER):
+        import pytest
+        pytest.skip("poller_equiv.py not found")
+    original = open(_POLLER).read()
+    exact = "SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env"
+    guard = ('    if table not in EQUIV_TABLES:\n'
+             '        raise ValueError(f"unknown equiv table {table!r}; '
+             'expected one of {EQUIV_TABLES}")\n')
+    anchor = '    result = conn.execute(\n        sa.text(f"' + exact + '")'
+    fn = next(n for n in _ast.parse(original).body
+              if isinstance(n, _ast.FunctionDef) and n.name == "fetch_math_row")
+    fn_src = _ast.get_source_segment(original, fn)
+    assert fn_src.count(guard) == 1
+
+    def replace_guard(rep: str) -> str:
+        return original.replace(fn_src, fn_src.replace(guard, rep))
+
+    dead = replace_guard("    if False:\n" + "".join("    " + ln for ln in guard.splitlines(keepends=True)))
+    swallowed = replace_guard("    try:\n" + "".join("    " + ln for ln in guard.splitlines(keepends=True))
+                              + "    except ValueError:\n        pass\n")
+    destructured = original.replace(anchor, '    table, = ("votes",)\n' + anchor)
+
+    def is_stale(text: str) -> bool:
+        hits = _sweep_poller_variant(tmp_path, text)
+        return bool(hits) and all(
+            h.classification == "NEEDS-GATE" and h.note == inv.STALE_EXEMPTION_NOTE for h in hits
+        )
+
+    assert is_stale(dead)          # unreachable guard
+    assert is_stale(swallowed)     # caught guard exception
+    assert is_stale(destructured)  # destructuring reassignment
+
+    # Whitespace-only and comment-only edits normalise away -> still cleared.
+    whitespace = original.replace(anchor, "\n" + anchor)
+    assert _sweep_poller_variant(tmp_path, whitespace) == []
+    commented = original.replace(
+        "    if table not in EQUIV_TABLES:",
+        "    # reviewer note added\n    if table not in EQUIV_TABLES:",
+    )
+    assert _sweep_poller_variant(tmp_path, commented) == []
+
+
 def test_voters_is_not_matched_as_votes(tmp_path) -> None:
     """Word boundary: `voters` must not match `votes`."""
     src = tmp_path / "server" / "src"
