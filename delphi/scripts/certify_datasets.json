@@ -2,12 +2,18 @@
   "schema_version": "certify-datasets/1",
   "config_version": "v1",
   "notes": "P-022 section A committed selection rules. Frozen BEFORE any candidate output was inspected. Contains no zids, report ids, topics or text; it is safe in a public repository. Roles with group=replacement are resolved in array order and each one excludes every conversation an earlier replacement role already took ('among remaining' in the spec's large-shape rule); group=stress roles are resolved afterwards WITHOUT exclusion and may reuse a conversation, in which case the manifest discloses the overlap. Every order_by list ends with zid ascending, which is the only tie-break and happens entirely inside the private selection process. A threshold or rank change requires a reviewed config edit and a new bundle version; the resolver never silently picks a smaller case.",
-
   "public_fixtures": [
-    {"slug": "vw", "role": "public-medium", "notes": "retained public fixture, pinned by file hash in the bundle manifest"},
-    {"slug": "biodiversity", "role": "public-small", "notes": "retained public fixture, pinned by file hash in the bundle manifest"}
+    {
+      "slug": "vw",
+      "role": "public-medium",
+      "notes": "retained public fixture, pinned by file hash in the bundle manifest"
+    },
+    {
+      "slug": "biodiversity",
+      "role": "public-small",
+      "notes": "retained public fixture, pinned by file hash in the bundle manifest"
+    }
   ],
-
   "coverage_role_map": {
     "pc-revote-02": "revote-heavy",
     "pc-banned-01": "banned-participant",
@@ -23,7 +29,6 @@
     "engage": "large-shape-rank-2",
     "bg2050": "large-shape-rank-1"
   },
-
   "metrics": {
     "V": {
       "definition": "full vote-event count: COUNT(*) over votes rows for the conversation, revotes included",
@@ -94,7 +99,6 @@
       "denominator": "n/a"
     }
   },
-
   "roles": [
     {
       "role": "revote-heavy",
@@ -102,15 +106,40 @@
       "group": "replacement",
       "rank": 1,
       "predicates": [
-        {"metric": "V", "op": "ge", "value": 5000},
-        {"metric": "V", "op": "le", "value": 15000},
-        {"metric": "P", "op": "ge", "value": 30},
-        {"metric": "revote_share", "op": "ge", "value": 0.25}
+        {
+          "metric": "V",
+          "op": "ge",
+          "value": 5000
+        },
+        {
+          "metric": "V",
+          "op": "le",
+          "value": 15000
+        },
+        {
+          "metric": "P",
+          "op": "ge",
+          "value": 30
+        },
+        {
+          "metric": "revote_share",
+          "op": "ge",
+          "value": 0.25
+        }
       ],
       "order_by": [
-        {"metric": "revote_share", "direction": "desc"},
-        {"metric": "V", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "revote_share",
+          "direction": "desc"
+        },
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Six cuts; split at a revote; older retry with newer vote; include pass transitions."
@@ -121,12 +150,25 @@
       "group": "replacement",
       "rank": 1,
       "predicates": [
-        {"metric": "banned_voters", "op": "ge", "value": 1}
+        {
+          "metric": "banned_voters",
+          "op": "ge",
+          "value": 1
+        }
       ],
       "order_by": [
-        {"metric": "banned_voters", "direction": "desc"},
-        {"metric": "V", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "banned_voters",
+          "direction": "desc"
+        },
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Six cuts; toggle ban flags without changing math output, per the accepted removal of participant-ban filtering."
@@ -137,13 +179,30 @@
       "group": "replacement",
       "rank": 1,
       "predicates": [
-        {"metric": "V", "op": "eq", "value": 0},
-        {"metric": "all_comments", "op": "ge", "value": 1}
+        {
+          "metric": "V",
+          "op": "eq",
+          "value": 0
+        },
+        {
+          "metric": "all_comments",
+          "op": "ge",
+          "value": 1
+        }
       ],
       "order_by": [
-        {"metric": "registered_participants", "direction": "asc"},
-        {"metric": "all_comments", "direction": "asc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "registered_participants",
+          "direction": "asc"
+        },
+        {
+          "metric": "all_comments",
+          "direction": "asc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Explicit compute/bootstrap event; valid empty outputs, timestamp zero, no invented votes."
@@ -154,16 +213,46 @@
       "group": "replacement",
       "rank": 1,
       "predicates": [
-        {"metric": "V", "op": "gt", "value": 0},
-        {"metric": "V", "op": "le", "value": 5000},
-        {"metric": "revote_share", "op": "lt", "value": 0.10},
-        {"metric": "mod_out_share", "op": "lt", "value": 0.20},
-        {"metric": "meta_share", "op": "eq", "value": 0},
-        {"metric": "banned_voters", "op": "eq", "value": 0}
+        {
+          "metric": "V",
+          "op": "gt",
+          "value": 0
+        },
+        {
+          "metric": "V",
+          "op": "le",
+          "value": 5000
+        },
+        {
+          "metric": "revote_share",
+          "op": "lt",
+          "value": 0.1
+        },
+        {
+          "metric": "mod_out_share",
+          "op": "lt",
+          "value": 0.2
+        },
+        {
+          "metric": "meta_share",
+          "op": "eq",
+          "value": 0
+        },
+        {
+          "metric": "banned_voters",
+          "op": "eq",
+          "value": 0
+        }
       ],
       "order_by": [
-        {"metric": "V", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Single, uniform and burst schedules.",
@@ -175,16 +264,46 @@
       "group": "replacement",
       "rank": 1,
       "predicates": [
-        {"metric": "V", "op": "gt", "value": 5000},
-        {"metric": "V", "op": "le", "value": 50000},
-        {"metric": "revote_share", "op": "lt", "value": 0.10},
-        {"metric": "mod_out_share", "op": "lt", "value": 0.20},
-        {"metric": "meta_share", "op": "eq", "value": 0},
-        {"metric": "banned_voters", "op": "eq", "value": 0}
+        {
+          "metric": "V",
+          "op": "gt",
+          "value": 5000
+        },
+        {
+          "metric": "V",
+          "op": "le",
+          "value": 50000
+        },
+        {
+          "metric": "revote_share",
+          "op": "lt",
+          "value": 0.1
+        },
+        {
+          "metric": "mod_out_share",
+          "op": "lt",
+          "value": 0.2
+        },
+        {
+          "metric": "meta_share",
+          "op": "eq",
+          "value": 0
+        },
+        {
+          "metric": "banned_voters",
+          "op": "eq",
+          "value": 0
+        }
       ],
       "order_by": [
-        {"metric": "V", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Six cuts, plus a restart after cut three."
@@ -195,13 +314,30 @@
       "group": "replacement",
       "rank": 1,
       "predicates": [
-        {"metric": "mod_out_share", "op": "ge", "value": 0.20},
-        {"metric": "V", "op": "gt", "value": 0}
+        {
+          "metric": "mod_out_share",
+          "op": "ge",
+          "value": 0.2
+        },
+        {
+          "metric": "V",
+          "op": "gt",
+          "value": 0
+        }
       ],
       "order_by": [
-        {"metric": "mod_out_share", "direction": "desc"},
-        {"metric": "V", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "mod_out_share",
+          "direction": "desc"
+        },
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Current-state cold run plus labelled SYNTHESIZED moderate/unmoderate transitions during a warm run."
@@ -212,13 +348,30 @@
       "group": "replacement",
       "rank": 1,
       "predicates": [
-        {"metric": "meta_share", "op": "ge", "value": 0.20},
-        {"metric": "V", "op": "gt", "value": 0}
+        {
+          "metric": "meta_share",
+          "op": "ge",
+          "value": 0.2
+        },
+        {
+          "metric": "V",
+          "op": "gt",
+          "value": 0
+        }
       ],
       "order_by": [
-        {"metric": "meta_share", "direction": "desc"},
-        {"metric": "V", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "meta_share",
+          "direction": "desc"
+        },
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Cold moderation; meta flags preserved."
@@ -229,14 +382,35 @@
       "group": "replacement",
       "rank": 1,
       "predicates": [
-        {"metric": "meta_share", "op": "ge", "value": 0.10},
-        {"metric": "mod_out_share", "op": "lt", "value": 0.20},
-        {"metric": "V", "op": "gt", "value": 0}
+        {
+          "metric": "meta_share",
+          "op": "ge",
+          "value": 0.1
+        },
+        {
+          "metric": "mod_out_share",
+          "op": "lt",
+          "value": 0.2
+        },
+        {
+          "metric": "V",
+          "op": "gt",
+          "value": 0
+        }
       ],
       "order_by": [
-        {"metric": "mod_out_share", "direction": "asc"},
-        {"metric": "V", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "mod_out_share",
+          "direction": "asc"
+        },
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Meta on/off and moderation on/off interleaved with votes; a failing warm case is NEVER replaced solely with a cold case."
@@ -246,11 +420,27 @@
       "slug": "pc-v1-large-r1",
       "group": "replacement",
       "rank": 1,
-      "predicates": [{"metric": "V", "op": "ge", "value": 50000}],
+      "selection_group": "large-shape",
+      "predicates": [
+        {
+          "metric": "V",
+          "op": "ge",
+          "value": 50000
+        }
+      ],
       "order_by": [
-        {"metric": "V", "direction": "desc"},
-        {"metric": "matrix_area", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "matrix_area",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Six/eight cuts, cold and restart; record actual P/C/density, not just V."
@@ -260,11 +450,27 @@
       "slug": "pc-v1-large-r2",
       "group": "replacement",
       "rank": 2,
-      "predicates": [{"metric": "V", "op": "ge", "value": 50000}],
+      "selection_group": "large-shape",
+      "predicates": [
+        {
+          "metric": "V",
+          "op": "ge",
+          "value": 50000
+        }
+      ],
       "order_by": [
-        {"metric": "V", "direction": "desc"},
-        {"metric": "matrix_area", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "matrix_area",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Six/eight cuts, cold and restart; record actual P/C/density, not just V."
@@ -274,11 +480,27 @@
       "slug": "pc-v1-large-r4",
       "group": "replacement",
       "rank": 4,
-      "predicates": [{"metric": "V", "op": "ge", "value": 50000}],
+      "selection_group": "large-shape",
+      "predicates": [
+        {
+          "metric": "V",
+          "op": "ge",
+          "value": 50000
+        }
+      ],
       "order_by": [
-        {"metric": "V", "direction": "desc"},
-        {"metric": "matrix_area", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "matrix_area",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Six/eight cuts, cold and restart; record actual P/C/density, not just V."
@@ -288,11 +510,27 @@
       "slug": "pc-v1-large-r8",
       "group": "replacement",
       "rank": 8,
-      "predicates": [{"metric": "V", "op": "ge", "value": 50000}],
+      "selection_group": "large-shape",
+      "predicates": [
+        {
+          "metric": "V",
+          "op": "ge",
+          "value": 50000
+        }
+      ],
       "order_by": [
-        {"metric": "V", "direction": "desc"},
-        {"metric": "matrix_area", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "matrix_area",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Six/eight cuts, cold and restart; record actual P/C/density, not just V."
@@ -302,29 +540,61 @@
       "slug": "pc-v1-large-r16",
       "group": "replacement",
       "rank": 16,
-      "predicates": [{"metric": "V", "op": "ge", "value": 50000}],
+      "selection_group": "large-shape",
+      "predicates": [
+        {
+          "metric": "V",
+          "op": "ge",
+          "value": 50000
+        }
+      ],
       "order_by": [
-        {"metric": "V", "direction": "desc"},
-        {"metric": "matrix_area", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "V",
+          "direction": "desc"
+        },
+        {
+          "metric": "matrix_area",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Six/eight cuts, cold and restart; record actual P/C/density, not just V."
     },
-
     {
       "role": "participant-heavy-under-5k-comments",
       "slug": "pc-v1-ptptheavy",
       "group": "stress",
       "rank": 1,
       "predicates": [
-        {"metric": "C", "op": "lt", "value": 5000},
-        {"metric": "P", "op": "ge", "value": 10000}
+        {
+          "metric": "C",
+          "op": "lt",
+          "value": 5000
+        },
+        {
+          "metric": "P",
+          "op": "ge",
+          "value": 10000
+        }
       ],
       "order_by": [
-        {"metric": "P", "direction": "desc"},
-        {"metric": "matrix_area", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "P",
+          "direction": "desc"
+        },
+        {
+          "metric": "matrix_area",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Memory stress: the comment threshold alone does not bound memory."
@@ -335,12 +605,26 @@
       "group": "stress",
       "rank": 1,
       "predicates": [
-        {"metric": "C", "op": "lt", "value": 5000},
-        {"metric": "matrix_area", "op": "gt", "value": 0}
+        {
+          "metric": "C",
+          "op": "lt",
+          "value": 5000
+        },
+        {
+          "metric": "matrix_area",
+          "op": "gt",
+          "value": 0
+        }
       ],
       "order_by": [
-        {"metric": "matrix_area", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "matrix_area",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail",
       "exercise": "Separate maximum-matrix-area selection under the 5k-comment boundary."
@@ -351,13 +635,31 @@
       "group": "stress",
       "rank": 1,
       "predicates": [
-        {"metric": "P", "op": "ge", "value": 1000},
-        {"metric": "C", "op": "ge", "value": 100},
-        {"metric": "density", "op": "ge", "value": 0.25}
+        {
+          "metric": "P",
+          "op": "ge",
+          "value": 1000
+        },
+        {
+          "metric": "C",
+          "op": "ge",
+          "value": 100
+        },
+        {
+          "metric": "density",
+          "op": "ge",
+          "value": 0.25
+        }
       ],
       "order_by": [
-        {"metric": "matrix_area", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "matrix_area",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail_with_synthetic_replacement_offer",
       "synthetic_replacement": "gen-v1-dense-stress",
@@ -369,20 +671,37 @@
       "group": "stress",
       "rank": 1,
       "predicates": [
-        {"metric": "P", "op": "ge", "value": 1000},
-        {"metric": "C", "op": "ge", "value": 100},
-        {"metric": "density", "op": "ge", "value": 0.25}
+        {
+          "metric": "P",
+          "op": "ge",
+          "value": 1000
+        },
+        {
+          "metric": "C",
+          "op": "ge",
+          "value": 100
+        },
+        {
+          "metric": "density",
+          "op": "ge",
+          "value": 0.25
+        }
       ],
       "order_by": [
-        {"metric": "density", "direction": "desc"},
-        {"metric": "zid", "direction": "asc"}
+        {
+          "metric": "density",
+          "direction": "desc"
+        },
+        {
+          "metric": "zid",
+          "direction": "asc"
+        }
       ],
       "on_missing": "fail_with_synthetic_replacement_offer",
       "synthetic_replacement": "gen-v1-dense-stress",
       "exercise": "Retain the maximum-density eligible case alongside the maximum-area one."
     }
   ],
-
   "workloads": [
     {
       "id": "wl-v1-concurrent-4",
@@ -394,13 +713,19 @@
         "pc-v1-midmix"
       ],
       "concurrency": 4,
-      "small_job_stream": ["pc-v1-smallmix", "pc-v1-revote", "pc-v1-metawarm"],
+      "small_job_stream": [
+        "pc-v1-smallmix",
+        "pc-v1-revote",
+        "pc-v1-metawarm"
+      ],
       "description": "Four large jobs run simultaneously against distinct zids; once all four are in flight, a stream of small jobs runs alongside them. Referenced roles are NOT duplicated into independent fixtures - the manifest records that these are the same conversations as the referenced roles."
     },
     {
       "id": "wl-v1-lru-churn",
       "kind": "churn",
-      "references": ["pc-v1-large-r1"],
+      "references": [
+        "pc-v1-large-r1"
+      ],
       "cache_cap_plus_one_cohort": {
         "generator_case": "gen-v1-lru-cohort",
         "touch_after_eviction": "pc-v1-large-r1"
@@ -408,30 +733,162 @@
       "description": "A deterministic generated cohort of cache_cap + 1 distinct synthetic zids cycles the LRU; the large role's zid is touched again after it has been evicted."
     }
   ],
-
   "generated": {
     "generator_id": "polis-certify-boundary-gen",
     "generator_version": "1.0.0",
     "seed": 20260907,
     "cases": [
-      {"id": "gen-v1-ptpt-9999", "boundary": "one below the legacy 10k-participant threshold", "participants": 9999, "comments": 3, "shape": "sparse-strip", "votes_per_participant": 3},
-      {"id": "gen-v1-ptpt-10000", "boundary": "exactly the legacy 10k-participant threshold", "participants": 10000, "comments": 3, "shape": "sparse-strip", "votes_per_participant": 3},
-      {"id": "gen-v1-ptpt-10001", "boundary": "one above the legacy 10k-participant threshold", "participants": 10001, "comments": 3, "shape": "sparse-strip", "votes_per_participant": 3},
-      {"id": "gen-v1-cmt-4999", "boundary": "one below the legacy 5k-comment threshold", "participants": 3, "comments": 4999, "shape": "sparse-strip", "votes_per_participant": 4999},
-      {"id": "gen-v1-cmt-5000", "boundary": "exactly the legacy 5k-comment threshold", "participants": 3, "comments": 5000, "shape": "sparse-strip", "votes_per_participant": 5000},
-      {"id": "gen-v1-cmt-5001", "boundary": "one above the legacy 5k-comment threshold", "participants": 3, "comments": 5001, "shape": "sparse-strip", "votes_per_participant": 5001},
-      {"id": "gen-v1-one-voter", "boundary": "exactly one eligible voter", "participants": 1, "comments": 5, "shape": "dense-block", "votes_per_participant": 5},
-      {"id": "gen-v1-two-voters", "boundary": "exactly two eligible voters", "participants": 2, "comments": 5, "shape": "dense-block", "votes_per_participant": 5},
-      {"id": "gen-v1-too-few-voters", "boundary": "below any clustering floor: three voters, one vote each", "participants": 3, "comments": 2, "shape": "sparse-strip", "votes_per_participant": 1},
-      {"id": "gen-v1-all-pass", "boundary": "every vote is a pass (0)", "participants": 40, "comments": 10, "shape": "all-pass", "votes_per_participant": 10},
-      {"id": "gen-v1-constant-column", "boundary": "one comment column is constant across every voter", "participants": 40, "comments": 10, "shape": "constant-column", "votes_per_participant": 10},
-      {"id": "gen-v1-no-eligible-comments", "boundary": "every comment is moderated out", "participants": 20, "comments": 6, "shape": "no-eligible-comments", "votes_per_participant": 6, "mod_out_all": true},
-      {"id": "gen-v1-repeated-timestamps", "boundary": "many vote events share one created value", "participants": 30, "comments": 8, "shape": "repeated-timestamps", "votes_per_participant": 8},
-      {"id": "gen-v1-out-of-order-commits", "boundary": "later ordinals carry earlier created values", "participants": 30, "comments": 8, "shape": "out-of-order-commits", "votes_per_participant": 8},
-      {"id": "gen-v1-dormant", "boundary": "last activity far outside the boot lookback", "participants": 25, "comments": 8, "shape": "dormant", "votes_per_participant": 8, "dormant_age_days": 400},
-      {"id": "gen-v1-lru-cohort", "boundary": "cache_cap + 1 distinct synthetic zids for LRU cycling", "participants": 12, "comments": 6, "shape": "lru-cohort", "votes_per_participant": 6, "cohort_size": 201, "notes": "cohort_size is the deployed MATH_CONV_CACHE_CAP (200) plus one; a cap change requires a config edit and a new bundle version."},
-      {"id": "gen-v1-dense-stress", "boundary": "dense matrix stand-in when production supplies no dense shape", "participants": 1000, "comments": 100, "shape": "dense-block", "votes_per_participant": 40, "notes": "density 0.40 by construction. Only usable in place of pc-v1-dense / pc-v1-dense-max under an explicit recorded approval."},
-      {"id": "gen-v1-scale-33422x783", "boundary": "previously measured 33,422 x 783 scale control", "participants": 33422, "comments": 783, "shape": "sparse-strip", "votes_per_participant": 40, "heavy": true, "notes": "Declared but NOT materialised unless --include-heavy is passed. This benchmark is context, not proof of current memory or DB cost."}
+      {
+        "id": "gen-v1-ptpt-9999",
+        "boundary": "one below the legacy 10k-participant threshold",
+        "participants": 9999,
+        "comments": 3,
+        "shape": "sparse-strip",
+        "votes_per_participant": 3
+      },
+      {
+        "id": "gen-v1-ptpt-10000",
+        "boundary": "exactly the legacy 10k-participant threshold",
+        "participants": 10000,
+        "comments": 3,
+        "shape": "sparse-strip",
+        "votes_per_participant": 3
+      },
+      {
+        "id": "gen-v1-ptpt-10001",
+        "boundary": "one above the legacy 10k-participant threshold",
+        "participants": 10001,
+        "comments": 3,
+        "shape": "sparse-strip",
+        "votes_per_participant": 3
+      },
+      {
+        "id": "gen-v1-cmt-4999",
+        "boundary": "one below the legacy 5k-comment threshold",
+        "participants": 3,
+        "comments": 4999,
+        "shape": "sparse-strip",
+        "votes_per_participant": 4999
+      },
+      {
+        "id": "gen-v1-cmt-5000",
+        "boundary": "exactly the legacy 5k-comment threshold",
+        "participants": 3,
+        "comments": 5000,
+        "shape": "sparse-strip",
+        "votes_per_participant": 5000
+      },
+      {
+        "id": "gen-v1-cmt-5001",
+        "boundary": "one above the legacy 5k-comment threshold",
+        "participants": 3,
+        "comments": 5001,
+        "shape": "sparse-strip",
+        "votes_per_participant": 5001
+      },
+      {
+        "id": "gen-v1-one-voter",
+        "boundary": "exactly one eligible voter",
+        "participants": 1,
+        "comments": 5,
+        "shape": "dense-block",
+        "votes_per_participant": 5
+      },
+      {
+        "id": "gen-v1-two-voters",
+        "boundary": "exactly two eligible voters",
+        "participants": 2,
+        "comments": 5,
+        "shape": "dense-block",
+        "votes_per_participant": 5
+      },
+      {
+        "id": "gen-v1-too-few-voters",
+        "boundary": "below any clustering floor: three voters, one vote each",
+        "participants": 3,
+        "comments": 2,
+        "shape": "sparse-strip",
+        "votes_per_participant": 1
+      },
+      {
+        "id": "gen-v1-all-pass",
+        "boundary": "every vote is a pass (0)",
+        "participants": 40,
+        "comments": 10,
+        "shape": "all-pass",
+        "votes_per_participant": 10
+      },
+      {
+        "id": "gen-v1-constant-column",
+        "boundary": "one comment column is constant across every voter",
+        "participants": 40,
+        "comments": 10,
+        "shape": "constant-column",
+        "votes_per_participant": 10
+      },
+      {
+        "id": "gen-v1-no-eligible-comments",
+        "boundary": "every comment is moderated out",
+        "participants": 20,
+        "comments": 6,
+        "shape": "no-eligible-comments",
+        "votes_per_participant": 6,
+        "mod_out_all": true
+      },
+      {
+        "id": "gen-v1-repeated-timestamps",
+        "boundary": "many vote events share one created value",
+        "participants": 30,
+        "comments": 8,
+        "shape": "repeated-timestamps",
+        "votes_per_participant": 8
+      },
+      {
+        "id": "gen-v1-out-of-order-commits",
+        "boundary": "later ordinals carry earlier created values",
+        "participants": 30,
+        "comments": 8,
+        "shape": "out-of-order-commits",
+        "votes_per_participant": 8
+      },
+      {
+        "id": "gen-v1-dormant",
+        "boundary": "last activity far outside the boot lookback",
+        "participants": 25,
+        "comments": 8,
+        "shape": "dormant",
+        "votes_per_participant": 8,
+        "dormant_age_days": 400
+      },
+      {
+        "id": "gen-v1-lru-cohort",
+        "boundary": "cache_cap + 1 distinct synthetic zids for LRU cycling",
+        "participants": 12,
+        "comments": 6,
+        "shape": "lru-cohort",
+        "votes_per_participant": 6,
+        "cohort_size": 201,
+        "notes": "cohort_size is the deployed MATH_CONV_CACHE_CAP (200) plus one; a cap change requires a config edit and a new bundle version."
+      },
+      {
+        "id": "gen-v1-dense-stress",
+        "boundary": "dense matrix stand-in when production supplies no dense shape",
+        "participants": 1000,
+        "comments": 100,
+        "shape": "dense-block",
+        "votes_per_participant": 40,
+        "notes": "density 0.40 by construction. Only usable in place of pc-v1-dense / pc-v1-dense-max under an explicit recorded approval."
+      },
+      {
+        "id": "gen-v1-scale-33422x783",
+        "boundary": "previously measured 33,422 x 783 scale control",
+        "participants": 33422,
+        "comments": 783,
+        "shape": "sparse-strip",
+        "votes_per_participant": 40,
+        "heavy": true,
+        "notes": "Declared but NOT materialised unless --include-heavy is passed. This benchmark is context, not proof of current memory or DB cost."
+      }
     ]
   }
 }
