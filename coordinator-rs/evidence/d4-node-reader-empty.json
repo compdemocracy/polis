@@ -1,0 +1,101 @@
+{
+  "differences": {
+    "asJSON_bytes": [
+      753,
+      455
+    ],
+    "asJSON_sha256": [
+      "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
+      "d061c0682e7a7efb829d00b2c8598cbeefe89fd3a8f6338a7c2cde587afcd2ba"
+    ],
+    "bid_to_pid": [
+      [],
+      null
+    ],
+    "gzip_bytes": [
+      343,
+      266
+    ],
+    "gzip_sha256": [
+      "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
+      "ce9e403b59947ab7d8c1d8677aebf879eaca99f4ea62f0b43040bf67fdf5ea91"
+    ],
+    "keys_projection_sha256": [
+      "5e21b0f6fec91b0e609a968a8c308d8c57e58062a487dbff98628b8206acfac7",
+      "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31"
+    ],
+    "mapping_is_error": [
+      false,
+      true
+    ],
+    "mapping_sha256": [
+      "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
+      null
+    ],
+    "tids": [
+      [],
+      [
+        0,
+        1,
+        2,
+        3
+      ]
+    ]
+  },
+  "profile": "zero votes, four approved comments; rustproto has a published empty generation, python has none and is synthesized by the server",
+  "reference_published": false,
+  "served": {
+    "python": {
+      "asJSON_bytes": 455,
+      "asJSON_sha256": "d061c0682e7a7efb829d00b2c8598cbeefe89fd3a8f6338a7c2cde587afcd2ba",
+      "bid_to_pid": null,
+      "consensus_shape": {
+        "agree": 0,
+        "disagree": 0
+      },
+      "etag_math_tick": 0,
+      "gzip_bytes": 266,
+      "gzip_sha256": "ce9e403b59947ab7d8c1d8677aebf879eaca99f4ea62f0b43040bf67fdf5ea91",
+      "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
+      "mapping_is_error": true,
+      "mapping_math_tick": null,
+      "mapping_sha256": null,
+      "math_env": "python",
+      "n": 0,
+      "pids_for_gid": {
+        "0": []
+      },
+      "present": true,
+      "repness_keys": [],
+      "tids": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "rustproto": {
+      "asJSON_bytes": 753,
+      "asJSON_sha256": "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
+      "bid_to_pid": [],
+      "consensus_shape": {
+        "agree": 0,
+        "disagree": 0
+      },
+      "etag_math_tick": 1,
+      "gzip_bytes": 343,
+      "gzip_sha256": "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
+      "keys_projection_sha256": "5e21b0f6fec91b0e609a968a8c308d8c57e58062a487dbff98628b8206acfac7",
+      "mapping_is_error": false,
+      "mapping_sha256": "a5558a1314571ed26f6afdea59f81a24ab0cc942ac84485892f8a36f7ac16315",
+      "math_env": "rustproto",
+      "n": 0,
+      "pids_for_gid": {
+        "0": []
+      },
+      "present": true,
+      "repness_keys": [],
+      "tids": []
+    }
+  }
+}

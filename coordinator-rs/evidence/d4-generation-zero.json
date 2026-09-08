@@ -1,0 +1,9 @@
+{
+  "blob_math_tick": 34405,
+  "committed_math_tick": 0,
+  "note": "getPca returns undefined; pca2 answers 304. If this ever starts serving, replace this characterisation with an equality assertion.",
+  "served": {
+    "math_env": "rustproto",
+    "present": false
+  }
+}
