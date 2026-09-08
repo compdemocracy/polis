@@ -12,6 +12,7 @@ import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
 
 // custom constructs for code organization
 import createPolisVPC from '../vpc';
@@ -37,6 +38,7 @@ import createAutoScalingAndAlarms from '../autoscaling';
 import createCodedeployConfig from '../codedeploy';
 import createALBAndDNS from '../dns';
 import createSecretsAndDependencies from '../secrets';
+import createOperationalAlarms, { alarmsEnabled, requireAlarmEmail } from '../alarms';
 import { ImportWorkerService } from './import-worker-service';
 
 interface PolisStackProps extends cdk.StackProps {
@@ -153,7 +155,15 @@ export class CdkStack extends cdk.Stack {
     const { ecrWebRepository, ecrDelphiRepository, ecrMathRepository, imageTagParameter } = createECRRepos(this, instanceRole);
 
     // Create DB and related resources
-    const { dbSubnetGroup, db, dbSecretArnParam, dbHostParam, dbPortParam } = createDBResources(this, vpc);
+    const {
+      dbSubnetGroup,
+      db,
+      dbSecretArnParam,
+      dbHostParam,
+      dbPortParam,
+      lowStorageAlarm,
+      highCpuAlarm,
+    } = createDBResources(this, vpc);
 
     // --- EFS for Ollama Models (only when the GPU stack is enabled)
     let fileSystem: efs.FileSystem | undefined;
@@ -373,6 +383,37 @@ export class CdkStack extends cdk.Stack {
       lbSecurityGroup,
       asgWeb
     );
+
+    // --- Operational alarms (P-031 slice 1).
+    // Off unless synthesized with `-c enableAlarms=true -c alarmEmail=...`.
+    // Seven alarms on metrics that already exist, one SNS topic, and one
+    // CodeDeploy failure rule. Nothing about any existing resource changes
+    // except that two db.ts alarms gain a second notification target. The
+    // missing-data settings passed for those two are the deployed ones,
+    // verified by describe-alarms; the health-pair check inside relies on them.
+    if (alarmsEnabled(this)) {
+      createOperationalAlarms(this, {
+        email: requireAlarmEmail(this),
+        mathWorkerAsgName: asgMathWorker.autoScalingGroupName,
+        database: db,
+        loadBalancerFullName: lb.loadBalancerFullName,
+        webTargetGroupFullName: webTargetGroup.targetGroupFullName,
+        codeDeployApplicationName: application.applicationName,
+        codeDeployDeploymentGroupName: deploymentGroup.deploymentGroupName,
+        retargetAlarms: [
+          {
+            id: 'A06',
+            alarm: highCpuAlarm,
+            treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+          },
+          {
+            id: 'A07',
+            alarm: lowStorageAlarm,
+            treatMissingData: cloudwatch.TreatMissingData.IGNORE,
+          },
+        ],
+      });
+    }
 
     // --- Secrets & Dependencies - creates secrets managed in SSM, grants services permission to interact with each other, etc.
     createSecretsAndDependencies(
