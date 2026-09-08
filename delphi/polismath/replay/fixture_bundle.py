@@ -50,6 +50,7 @@ import json
 import os
 import re
 import subprocess
+import threading
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -446,6 +447,36 @@ _S3_CONDITIONAL_CONFLICT_CODES = frozenset({
 })
 
 
+#: botocore event id of the conditional-create signing hook. Registration under
+#: a unique id is IDEMPOTENT (``HierarchicalEmitter._register_section`` returns
+#: early when the id is already present), so every :class:`S3Store` sharing a
+#: client re-registers harmlessly and NOBODY ever unregisters it.
+_IF_NONE_MATCH_HOOK_ID = "certify-if-none-match"
+
+#: Per-THREAD depth of "this thread is inside a conditional create". botocore
+#: emits ``before-sign`` synchronously on the thread that called ``put_object``,
+#: so a thread-local is exactly the per-request context the hook needs. This
+#: replaces a register/unregister pair around each call, which was a race: with
+#: two overlapping conditional puts on one shared client, the first call's
+#: ``unregister`` ran before the second call signed, and the second PutObject
+#: went out with NO ``If-None-Match`` — an unconditional overwrite, defeating
+#: the immutability the whole publisher rests on.
+_conditional_put = threading.local()
+
+
+def _stamp_if_none_match(request, **_kwargs) -> None:
+    """Signing-time hook: stamp ``If-None-Match: *`` on the PutObject this
+    thread is issuing as a conditional create, and on nothing else.
+
+    Permanently registered, so it can never be missing while a sibling thread
+    signs; gated on the thread-local depth, so an ordinary :meth:`S3Store.put`
+    (or any other caller's PutObject on the same client) is untouched.
+    """
+    if getattr(_conditional_put, "depth", 0) > 0:
+        if "If-None-Match" not in request.headers:  # never duplicate on retry
+            request.headers.add_header("If-None-Match", "*")
+
+
 def _s3_error_code(exc: Exception) -> str | None:
     """The S3 error code of a botocore ``ClientError``, or ``None`` if ``exc``
     is not a structured S3 error at all (a socket error, a fake client raising
@@ -533,29 +564,39 @@ class S3Store(ObjectStore):
 
     @contextmanager
     def _if_none_match(self):
-        """Add ``If-None-Match: *`` to the PutObject inside this block.
+        """Add ``If-None-Match: *`` to the PutObject inside this block, on this
+        thread, REGARDLESS of what other threads are doing to the same client.
 
         Injected as a signing-time header rather than passed as a parameter:
-        ``IfNoneMatch`` only appeared in the botocore S3 model recently, and a
-        publisher that silently DROPPED the precondition on an older botocore
-        would be exactly the unconditional overwrite this is here to prevent.
-        The header is understood by S3 regardless of the local model version.
+        ``IfNoneMatch`` only appeared in the botocore S3 model in the 1.35
+        series, and this tree pins botocore 1.34.162 (``delphi/uv.lock``), whose
+        PutObject shape has no such member — passing it would raise
+        ``ParamValidationError``, and quietly dropping it would be exactly the
+        unconditional overwrite this is here to prevent. The header is
+        understood by S3 regardless of the local model version.
+
+        The hook is registered ONCE per client and never removed
+        (:func:`_stamp_if_none_match`); what this block toggles is the
+        per-thread flag the hook reads. The previous register/unregister pair
+        was scoped to the CLIENT, so two overlapping conditional puts shared one
+        registration and the first one's ``unregister`` stripped the
+        precondition from the second one's write.
         """
         events = getattr(getattr(self.client, "meta", None), "events", None)
-        if events is None:  # pragma: no cover - non-botocore test double
-            yield
-            return
-
-        def _add(request, **_kwargs):
-            request.headers.add_header("If-None-Match", "*")
-
-        events.register_first("before-sign.s3.PutObject", _add,
-                              unique_id="certify-if-none-match")
+        if events is None:
+            # An unconditional PutObject is NOT an acceptable fallback: it is
+            # the overwrite the conditional create exists to prevent.
+            raise StoreUnavailableError(
+                "the S3 client exposes no botocore event emitter, so the "
+                "If-None-Match precondition cannot be attached; refusing to "
+                "publish with an UNCONDITIONAL write")
+        events.register_first("before-sign.s3.PutObject", _stamp_if_none_match,
+                              unique_id=_IF_NONE_MATCH_HOOK_ID)
+        _conditional_put.depth = getattr(_conditional_put, "depth", 0) + 1
         try:
             yield
         finally:
-            events.unregister("before-sign.s3.PutObject", _add,
-                              unique_id="certify-if-none-match")
+            _conditional_put.depth -= 1
 
     def get(self, key: str, version_id: str | None = None) -> tuple[bytes, str]:
         kwargs: dict[str, Any] = {"Bucket": self.bucket, "Key": self._key(key)}
