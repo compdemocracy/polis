@@ -63,6 +63,18 @@ eligibility and the repair, and no service budget has been measured here. Evicti
 `cache_eviction_contends_with_same_zid_update` stage; that stage is the bounded
 Bundle-cache profile only, not a warm-worker, four-worker or Node cache profile.
 
+**Resident size after S1.** A resident `Bundle` now holds both the parsed JSONB
+values and the admitted original bytes (`Payloads::originals`), because exact
+byte replay and the decoded-correspondence check both need the originals. Each
+entry therefore costs roughly the original payload bytes *plus* their parsed
+`serde_json::Value` representation — about twice what it cost before S1, at the
+same `P026_CACHE_CAP`. The bound is still `cap ×` one generation, and eviction is
+unchanged, but the earlier bounded-memory statement was measured against the old
+per-entry constant: halve `P026_CACHE_CAP` to hold the previous ceiling. No new
+measurement has been taken here. Relatedly, `read` and `publish-fixture` now
+serialize originals as JSON integer arrays, so CLI stdout grows several-fold per
+payload byte; that is a fixture-scale format, not an interface to script against.
+
 ## Incremental discovery, and why it is only a filter
 
 Every pass still visits every admitted conversation independently of timestamps.
@@ -224,6 +236,23 @@ rows receive nullable columns and fail admission until rebuilt; migration cannot
 recover bytes already lost to JSONB. The row-shape golden still compares
 `data::text` from the Rust and Python writers.
 
+**This identity scheme is self-certifying, not tamper-evident.** The digests and
+the decoded original/JSONB correspondence catch an *incoherent* generation — a
+mutated payload, a deleted companion, a JSONB that has drifted from its original
+bytes, another owner's identical content on an uncertain-COMMIT readback. They
+catch nothing about a *coherent* forgery: anyone with write access to the four
+math tables can rewrite bytes, JSONB, both digests and the checkpoint together,
+and this crate will accept the result. Nothing here is signed, and no key is
+involved. That is the same trust boundary CO04 v0 already has, and it is stated
+here so "original/JSONB mismatch is detectable" is never read as tamper-evidence.
+
+`publish-fixture` originals are **synthesized** unless the fixture supplies
+`payloads.originals` explicitly: the command re-encodes the fixture's parsed
+values, announces `originals: synthesized=[…]` on stderr, and for those rows
+`validate_originals()` is tautological. Fixture rows are not engine originals and
+are not evidence of worker byte custody; `test_s1_identity.py` supplies real
+bytes where the byte-replay claim is made.
+
 ## Toolchain
 
 `rust-toolchain.toml` pins the crate to stable `1.98.1` with `clippy` and
@@ -364,6 +393,24 @@ is a bounded eligibility hint with no measured service budget, persisted payload
 are revalidated once per ceiling rather than every pass, and this crate
 implements none of P-031's A01/A02/A03 — and it exits non-zero while any
 remain.
+
+O8 is the eighth condition and it stays **open**. `evidence/s1-closure.json`
+records the S1 work as `state: "PARTIAL"`, and the audit writes
+`O8: PARTIAL (S1 identity/custody recorded; G01-G16 open)` into
+`condition_states` while leaving the standing "`polis-candidate-input/1` is a
+candidate profile, not a G01–G16 certificate" disclaimer in `open_conditions`.
+The record names what is still outstanding — the G01–G16 case set with its
+negative controls, an immutable manifest, fresh-rebuild versus exact-resume
+versus warm-incremental output schedules, and a non-vacuous P-023 compensated
+pair with raw C9 validation. `closed_conditions` is empty; nothing here closes.
+
+The record pins **committed** inputs only — source, migration, schemas, tests —
+and the audit re-hashes every one of them and refuses the record if a pin is
+stale, missing, or points into gitignored `target/` or `artifacts/`. Binary and
+log hashes are still recorded, in a `run_pins` block flagged
+`verifiable_on_producing_host_only`, which the audit deliberately does not gate
+on: a committed inventory must be reproducible from a clean checkout of the same
+commit, not only in the directory that produced it.
 
 `evidence/` contains sanitized final summaries, fixture digests and the explicit
 coverage inventory. Runtime logs and detailed per-test artifacts are retained in
