@@ -46,6 +46,12 @@ import re
 import sys
 import xml.etree.ElementTree as ET
 
+#: THE definition of the summary schema version. The worker reads this exact
+#: line out of this file rather than carrying its own copy: round 5 shipped a
+#: writer emitting /3 against a checker requiring /4, so every otherwise valid
+#: run would have been rejected (review R5-F1). One constant, two readers.
+SCHEMA = "p022-synthetic/4"
+
 MAX_BYTES = 64 * 1024
 MAX_INT = 1_000_000
 # The only fixture slugs this job may ever report; certify_datasets.json calls
@@ -166,8 +172,8 @@ def check(summary, expected=None) -> str:
     want(set(summary) == {"schema", "kind", "is_certification", "trust",
                           "ref_sha", "recovery", "battery", "verdict"},
          f"unexpected top-level keys: {sorted(summary)}")
-    want(summary["schema"] == "p022-synthetic/4",
-         f"unknown schema: {summary['schema']!r}")
+    want(summary["schema"] == SCHEMA,
+         f"unknown schema: {summary['schema']!r} (expected {SCHEMA!r})")
     want(summary["kind"] == "synthetic-recovery-and-public-fixture-battery",
          f"unknown kind: {summary['kind']!r}")
     want(summary["is_certification"] is False,
