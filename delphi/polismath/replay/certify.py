@@ -310,10 +310,25 @@ def _canonical_hash(obj: Any) -> str:
 
 
 def canonical_schedule_hash(spec: sched.ScheduleSpec) -> str:
-    """Hash of the parts of a schedule that affect the REPLAY (cuts,
-    moderation, source) — deliberately excludes ``schedule_id``/``notes`` so
-    two differently-named but content-identical schedules hash equal."""
-    payload = {"cuts": spec.cuts, "moderation": spec.moderation, "source": spec.source}
+    """Hash of the parts of a schedule that affect the REPLAY — deliberately
+    excludes ``schedule_id``/``notes`` (descriptive metadata) so two
+    differently-named but content-identical schedules hash equal.
+
+    M3 (P-019): this MUST include EVERY execution-affecting field, not just
+    cuts/moderation/source. ``restart_after`` controls the restart seam
+    (schedule.py: after that step the driver rebuilds the conversation the way a
+    Clojure worker restart would) and ``clojure`` carries warm-start options that
+    steer the Clojure reference run. Omitting them let a schedule edited from
+    "no restart" to "restart" under the SAME schedule_id reuse both stale
+    recordings and report their old MATCH. ``getattr`` defaults keep the hash
+    robust to specs that predate a field."""
+    payload = {
+        "cuts": spec.cuts,
+        "moderation": spec.moderation,
+        "source": spec.source,
+        "restart_after": getattr(spec, "restart_after", None),
+        "clojure": getattr(spec, "clojure", None),
+    }
     return _canonical_hash(payload)
 
 
@@ -520,6 +535,15 @@ def _write_temp_schedule(spec: sched.ScheduleSpec, root: Path) -> Path:
     return p
 
 
+#: Recording-cache manifest schema version. BUMP this to invalidate every
+#: existing cached recording at once. Bumped to 2 for M3 (P-019): the py
+#: manifest now keys on the comments CSV (moderation events Python loads from
+#: it), and the schedule hash now covers restart_after/clojure — recordings made
+#: under the old keys must not be reused, or a comments-only or restart-only edit
+#: would compare a fresh run against a stale one and report its old MATCH.
+_RECORDING_MANIFEST_VERSION = 2
+
+
 def _manifest_matches(manifest_path: Path, expected: dict[str, Any]) -> bool:
     if not manifest_path.exists():
         return False
@@ -580,11 +604,21 @@ def _clj_source_hashes() -> tuple[str, str]:
 
 def ensure_py_recording(
     entry: BatteryEntry, spec: sched.ScheduleSpec, votes_sha: str, *, root: Path,
-    refresh: bool = False,
+    refresh: bool = False, comments_csv: Path | None = None,
 ) -> tuple[Path, bool]:
     """Reuse ``<root>/<ds>/<sid>/py/`` iff its cache manifest matches (votes
-    sha256, schedule hash, ENGINE-scoped tree hash); else (re)run
-    the Python driver in a subprocess. Returns ``(py_dir, was_cached)``.
+    sha256, schedule hash, ENGINE-scoped tree hash, and — when ``comments_csv``
+    is given — its sha256); else (re)run the Python driver in a subprocess.
+    Returns ``(py_dir, was_cached)``.
+
+    M3 (P-019): the comments CSV is a real INPUT to the Python replay — Python
+    loads moderation events from it (real_data.py) — so its content MUST be part
+    of the cache key, exactly as the Clojure side already does (see
+    :func:`ensure_clj_recording`). Without it, a comments-only mutation left the
+    py recording cached and compared a fresh Clojure run against a stale Python
+    one. Entries that never pass ``comments_csv`` (moderation="none") are
+    unaffected by that field, but ALL entries are re-keyed once by the bumped
+    :data:`_RECORDING_MANIFEST_VERSION`.
 
     The 2026-07-27 switch from the full-``polismath`` tree hash to the
     engine-scoped one (key renamed ``py_tree_sha256`` → ``engine_tree_sha256``)
@@ -594,10 +628,13 @@ def ensure_py_recording(
     py_dir = rec_dir / "py"
     manifest_path = py_dir / "cache_manifest.json"
     expected = {
+        "manifest_version": _RECORDING_MANIFEST_VERSION,
         "votes_sha256": votes_sha,
         "schedule_hash": canonical_schedule_hash(spec),
         "engine_tree_sha256": _engine_tree_hash_cached(),
     }
+    if comments_csv is not None:
+        expected["comments_csv_sha256"] = sha256_file(comments_csv)
     if not refresh and _manifest_matches(manifest_path, expected):
         return py_dir, True
 
@@ -632,6 +669,7 @@ def ensure_clj_recording(
     manifest_path = clj_dir / "cache_manifest.json"
     replay_clj_sha256, math_src_sha256 = _clj_source_hashes()
     expected = {
+        "manifest_version": _RECORDING_MANIFEST_VERSION,
         "votes_sha256": votes_sha,
         "schedule_hash": canonical_schedule_hash(spec),
         "replay_clj_sha256": replay_clj_sha256,
@@ -801,7 +839,10 @@ def _certify_entry_heavy(
 
         clj_dir, _ = ensure_clj_recording(entry, spec, votes_sha, votes_csv, root=root,
                                            refresh=refresh_clj, comments_csv=comments_csv)
-        py_dir, _ = ensure_py_recording(entry, spec, votes_sha, root=root, refresh=refresh_py)
+        # M3 (P-019): the comments CSV is an input to the PYTHON replay too, so it
+        # must be part of the py cache key, mirroring the clj side above.
+        py_dir, _ = ensure_py_recording(entry, spec, votes_sha, root=root,
+                                        refresh=refresh_py, comments_csv=comments_csv)
     except CertifyError as exc:
         return {"dataset": entry.dataset, "schedule_id": entry.schedule_id,
                 "verdict": "ERROR", "stage": exc.stage, "reason": str(exc)}
