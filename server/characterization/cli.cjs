@@ -419,6 +419,9 @@ async function runCase(c, tokens, tables, normalizer) {
   return {
     ...c,
     version: 1,
+    ...(c.caseId.startsWith("comments-read/")
+      ? { commentsContext: obsAfter.commentsContext }
+      : {}),
     wire,
     ...(credentialWireValidation ? { credentialWireValidation } : {}),
     response: normalizedResponse,
@@ -494,6 +497,19 @@ async function main() {
       `created ${
         Object.keys(tables).length
       } generated empty Dynamo tables and generated metadata fixtures`
+    );
+    return;
+  }
+  if (command === "seed-comments") {
+    if (new URL(process.env.DATABASE_URL).pathname !== "/p027")
+      throw Error("disposable p027 only");
+    const evidence = await require("./seed-comments.cjs").seedComments(
+      pool,
+      await get("/tokens")
+    );
+    write("/artifacts", "comments-seed.json", evidence);
+    console.log(
+      `Comments: ${evidence.fixtures.length} independent generated SQL fixtures`
     );
     return;
   }
@@ -612,6 +628,44 @@ async function main() {
   const selected = tables.filter((t) => actualTables.has(t));
   const tokens = { ...(await get("/tokens")), ...(await get("/public-key")) };
   tokens.moderator = tokens.admin; // uid 2 is the configured global moderator.
+  const commentsBindings = [];
+  if (["round6", "comments-read"].includes(profile))
+    for (const f of require("./comments-cases.cjs").fixtures) {
+      const binding = {
+        publicKey: tokens.publicKey,
+        now: 1700000000,
+        issuer: "https://pol.is/",
+        audience: "participants",
+        ttl: 31536000,
+        conversation_id: f.capability,
+        uid: 3,
+        pid: f.participantPid,
+        sub: "anon:3",
+      };
+      require("./jwt.cjs").verifyToken(
+        tokens[`comments-participant-${f.zid}`],
+        binding
+      );
+      require("./jwt.cjs").verifyToken(tokens[`comments-expired-${f.zid}`], {
+        ...binding,
+        now: 1700000000 - 31536001,
+      });
+      const row = (
+        await pool.query(
+          "select pid from participants where zid=$1 and uid=3",
+          [f.zid]
+        )
+      ).rows;
+      if (row.length !== 1 || row[0].pid !== f.participantPid)
+        throw Error("comments participant binding");
+      commentsBindings.push({
+        zid: f.zid,
+        uid: 3,
+        pid: f.participantPid,
+        verified: true,
+        expiredSignatureAndHistoricalBindingVerified: true,
+      });
+    }
   const participantBindings = [];
   for (const f of require("./pca2-fixtures.json").filter(
     (f) => f.auth === "participant"
@@ -771,6 +825,28 @@ async function main() {
       coverage: cov,
     };
     writeRecording(dir, metadata, results, {
+      ...(["round6", "comments-read"].includes(profile)
+        ? {
+            "comments-plan.json": require("./comments-plan.json"),
+            "comments-seed.json": JSON.parse(
+              fs.readFileSync("/artifacts/comments-seed.json")
+            ),
+            "comments-auth.json": {
+              participantBindings: commentsBindings,
+              adminUid: 2,
+              moderatorUid: 200004,
+              distinct: true,
+            },
+            "seed-comments.cjs": fs.readFileSync(
+              path.join(__dirname, "seed-comments.cjs"),
+              "utf8"
+            ),
+            "comments-cases.cjs": fs.readFileSync(
+              path.join(__dirname, "comments-cases.cjs"),
+              "utf8"
+            ),
+          }
+        : {}),
       "schema.json": schemaRows,
       "boot.json": dump.boot,
       "routes.json": dump,
@@ -861,7 +937,9 @@ async function main() {
   );
   if (
     failures ||
-    (cov.missing && profile !== "pca2" && process.env.P027_MARKERS !== "0") ||
+    (cov.missing &&
+      !["pca2", "comments-read"].includes(profile) &&
+      process.env.P027_MARKERS !== "0") ||
     diffs.some((d) => d.result === "different")
   )
     process.exitCode = 1;

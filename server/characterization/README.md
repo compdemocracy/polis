@@ -1,18 +1,29 @@
-# P-027 API characterization, corrections round 4
+# P-027 API characterization, corrections round 6
 
-This is a generated-data characterization corpus. The round-4 recording completed
-869 cases with zero oracle failures; fresh-stack replay completed the same 869
-cases with zero differences and zero oracle failures. The baseline is re-pinned
-to SHA-256 f448cbbb5d754b3e152ffef67578c41f0fdff4b583f6cf7eb7b6bc2090aa6eef.
-**331/869 bodies are the identical opaque "Bad Request" string (HTTP 400, trailing
-newline); 869 requests do not mean 869 distinct response shapes.** Of 128 targeted
-registrations, 29 have a 2xx and 99 have none; 53 are role-invariant across their
-recorded scenarios. There are 19 DB-effect cases, two participant creations and
-two verified client-visible JWTs. 375 responses are 400 and six are 500. Dispatch
-coverage remains 129/201 with 72 exclusions. Dispatch is not authorization/effect
-coverage for every route.
+The generated-data corpus records and replays **1,265 cases with zero differences
+and zero oracle failures**, including all 869 prior requests and 396 comments
+requests. All **3,873 P-025 records** validate. Baseline SHA-256:
+`bd1034cf4575d7129736bcc8769d9b8471fc9594b3540e39cca3b69d7abab69f`.
 
-The 336 new PCA2 requests cover 112 cells with three independent fixtures each,
+**340/1,265 bodies are the identical opaque "Bad Request" string (HTTP 400,
+trailing newline); case counts are not distinct response shapes.** Of 128 targeted
+registrations, 30 have a 2xx and 98 have none. There are 19 DB-effect cases, two
+participant creations and two verified client-visible JWTs. Status totals include
+384 HTTP 400s and six HTTP 500s. Dispatch remains 129/201 with 72 exclusions.
+The legacy four-label invariance diagnostic reports 52 registrations; it is not
+a six-actor authorization/effect equivalence claim.
+
+The retained general/PCA2 corpus uses anonymous, participant, owner and
+admin(=moderator) labels; its moderator token aliases uid 2. The comments profile
+adds six actor classes: anonymous, bound participant, owner, distinct site-sharing
+moderator (uid 200004), foreign owner and admin (uid 2). Owner replicas use three
+different generated identities. Parsed uid/pid/mode context is captured and replayed.
+The 396 comments requests establish 96 three-fixture cells, 102 dispatch witnesses
+and six identity witnesses; all add zero recorded writes/provider/JWT-issuance effects.
+The plan test pins the governing notes plan and also compares its current file when
+available; set P027_NOTES_ROOT to require that external-checkout comparison explicitly.
+
+The 336 PCA2 requests cover 112 cells with three independent fixtures each,
 using 60 conversations and 4,450 synthetic votes. They add no DB, filesystem,
 JWT-issuance or provider effects. Populated data comes from 36 real Python-engine
 conversations (72 writer publications); 12 are scoped only to a different math_env.
@@ -41,16 +52,21 @@ ordinary admission. No egress exception was added.
 
 ## Isolated operation
 
-Use three unused host ports in 55930–55939 and a fresh random project suffix:
+Use three unused host ports and a fresh random project suffix. The shared host/
+seed guard defaults to 55930–55939; set P027_PORT_MIN/MAX together to use your
+assigned window. The project must stay in the p027 namespace:
 
 ```sh
-export COMPOSE_PROJECT_NAME=p027r4fix-$(openssl rand -hex 4)
+export COMPOSE_PROJECT_NAME=p027-review-$(openssl rand -hex 4)
+export P027_PORT_MIN=55930 P027_PORT_MAX=55939
 export POLIS_RECOVERY_PG_PORT=55930 P027_HTTP_PORT=55931 P027_CONTROL_PORT=55932
 python3 server/characterization/run.py record recording
 python3 server/characterization/run.py down
 python3 server/characterization/run.py replay recording
-node --test server/characterization/test.cjs server/characterization/corrections.test.cjs server/characterization/recorded.test.cjs server/characterization/round2.test.cjs server/characterization/pca2.test.cjs
-python3 -m unittest discover -s server/characterization -p 'test_pseudonymize.py'
+python3 server/characterization/run.py test
+# Equivalent inside the running sealed server (includes both live runtime tests):
+docker compose -f server/characterization/compose.yml exec -T server node --test characterization/test.cjs characterization/corrections.test.cjs characterization/recorded.test.cjs characterization/round2.test.cjs characterization/pca2.test.cjs characterization/runtime.test.cjs
+python3 -m unittest discover -s server/characterization -p 'test_*.py'
 python3 server/characterization/run.py down
 ```
 
@@ -94,7 +110,9 @@ and are queried cold before their warm-cache controls.
 
 The temporary `math-seed` Compose profile runs the existing local
 `p011-delphi-test:latest` image on the same sealed network, then removes its
-container. Its entrypoint directly invokes the seed script; it does not start the
+container. `run.py build` does not build this prerequisite image: a clean machine
+must obtain it from the reviewed local Delphi build first; recording cannot yet
+be described as clone-and-record. Its entrypoint directly invokes the seed script; it does not start the
 image's normal jobs/providers. The image ID, Python/library versions, engine
 source digest, input/row witnesses and credential-safe JWT binding assertions are
 pinned. Published host ports may be unavailable on Docker's internal network;
@@ -110,8 +128,7 @@ conversation's token. Credential values never enter recordings.
 Conditional coverage includes ETag equality/older/newer, weak prefixes, lists,
 wildcard and conflicting math_tick/header inputs. Express turns wildcard freshness
 into 304 while retaining Content-Encoding gzip: the body is empty. Cold and warm
-math-not-ready are distinct scenarios. The route never sends its commented-out
-404. Keys coverage includes reverse order, duplicates, unknown/prototype/integer
+math-not-ready are distinct scenarios. The route never sends its commented-out 404. Keys coverage includes reverse order, duplicates, unknown/prototype/integer
 names, empty string (subset), JSON array and empty array (full), and both large
 (gzip) and small (identity) subsets requesting gzip. GET JSON bodies carry their
 actual Content-Length.
@@ -226,7 +243,10 @@ server/characterization/artifacts/recording` packs only manifest/index-reference
 files in sorted order and updates baseline.sha256. It uses UTF-8 JSON, gzip level
 9/windowBits 15/memLevel 8/default strategy, zero mtime, no filename and OS byte 3.
 `round2.test.cjs` unpacks and repacks twice to the committed digest. Do not repin
-merely to make a failing replay pass.
+merely to make a failing replay pass. `run.json.harnessHash` (also carried in
+the index metadata) identifies the harness that produced the recording; it is not
+a digest of the current checkout and is not a replay compatibility check. Harness
+maintenance alone does not change historical run.json or the archive pin.
 
 Inside the running isolated stack, run `docker compose -f
 server/characterization/compose.yml exec -T driver node --test
@@ -241,3 +261,51 @@ fail-closed classifier for unknown embedded encodings remain typed-contract work
 The existing two admitted PCA codec paths are enumerated in normalization.json;
 round2.test.cjs verifies all five participationInit PCA cases agree across POJO,
 JSON-string and gzipped Buffer representations, before and after normalization.
+
+## Comments round-6 recording profile
+
+`comments-plan.json` is the exact revision-2 P-032 inventory: 396 requests =
+96 three-fixture cells (288) + 102 dispatch witnesses + 6 identity witnesses.
+`comments-read` selects those requests; `round6` retains all 869 prior requests
+and appends them, for 1,265 requests. Both profiles use checked inventory admission.
+
+`comments-cases.cjs` and `seed-comments.cjs` generate 71 independent conversations,
+9,452 comment rows and 9,452 votes. Shape/coding replicas are shared across the six
+actors, but each cell uses three different conversations, owners and input digests
+(two derivation, one held out). Empty conversations intentionally have no votes.
+Three owner credentials are distinct; the separate site-sharing moderator is uid
+200004, foreign owner uid 4, and global admin uid 2. They are synthetic SQL
+identities mapped to real local OIDC simulator tokens. Bound participant JWTs
+exercise pid zero and nonzero in separate cells. An expired token is locally
+signed, signature/binding-verified at its historical clock, and then sent expired;
+the cross-conversation witness deliberately sends a valid token for another fixture.
+Credential bytes and signing keys are never persisted.
+
+Ordinary comments are produced by the real application SQL and projection, with
+no fabricated response JSON or changes to the public route. The harness records
+selected parsed request-context fields after completion to distinguish actual uid,
+pid and mode outcomes. `comments-audit.cjs` checks exact inventory, the P-025 records,
+fixture independence, input visibility predicates/counts, ordinary item order,
+created-as-string, CORS/Vary and four size/negotiation coding profiles. The tied-created
+fixture changes insertion order; replay compares the resulting arrays exactly.
+The non-moderation projection excludes zid, so addConversationIds cannot add a
+conversation_id in ordinary or paginated non-moderation mode. Moderation=true is a
+separate witness and may add it. Witnesses describe existing Node behavior; this
+harness contains no Rust dispatch implementation or authorization for routing.
+
+```sh
+# Use a fresh project and assigned 55950–55959 ports as in Isolated operation.
+python3 server/characterization/run.py record round6 round6
+python3 server/characterization/run.py down
+python3 server/characterization/run.py replay round6 round6
+node server/characterization/comments-audit.cjs server/characterization/artifacts/round6
+node server/characterization/pca2-audit.cjs server/characterization/artifacts/round6
+node server/characterization/baseline.cjs pack server/characterization/artifacts/round6
+python3 server/characterization/run.py test
+python3 server/characterization/run.py down
+```
+
+The six-file Node command remains the runner/README source of truth; round 6 adds
+two comments tests within the existing pca2.test.cjs file. The round-5 maintenance
+alone passed 80/80 before this expansion. Host audit commands require the existing
+server Node dependencies (or run their equivalents inside the sealed driver).

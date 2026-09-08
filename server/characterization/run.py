@@ -3,12 +3,9 @@
 import hashlib,json,os,pathlib,subprocess,sys,time
 ROOT=pathlib.Path(__file__).resolve().parents[2]
 HERE=ROOT/'server/characterization'
-ENV=dict(os.environ)
-project=ENV.get('COMPOSE_PROJECT_NAME','')
-if not __import__('re').fullmatch(r'p027r4fix-[a-z0-9]+(?:[a-z0-9_-]*[a-z0-9])?',project):raise RuntimeError('set a unique COMPOSE_PROJECT_NAME=p027r4fix-<random>')
-ports=[int(ENV[k]) for k in ['POLIS_RECOVERY_PG_PORT','P027_HTTP_PORT','P027_CONTROL_PORT']]
-if len(set(ports))!=3 or any(p<55930 or p>55939 for p in ports):raise RuntimeError('set three unique host ports in 55930–55939')
-ENV['RECOVERY_PG_PORT']=str(ports[0])
+from isolation import isolated_environment
+ENV=isolated_environment(os.environ)
+project=ENV['COMPOSE_PROJECT_NAME']
 ENV.setdefault('BUILDX_CONFIG','/private/tmp/'+project+'-buildx')
 COMPOSE=['docker','compose','-f',str(HERE/'compose.yml')]
 def run(*args,capture=False,check=True):
@@ -55,12 +52,13 @@ def main():
   # Dynamo has no tables in the boundary corpus; restart it for a clean independent replay.
   dc('exec','-T','driver','node','characterization/cli.cjs','seed')
   dc('run','--rm','--no-deps','math-seed')
+  if len(sys.argv)>3 and sys.argv[3] in ['round6','comments-read']:dc('exec','-T','driver','node','characterization/cli.cjs','seed-comments')
   dc('restart','server','dynamodb');ready();provenance()
   dc('exec','-T','driver','node','characterization/cli.cjs','seed-pages')
   if len(sys.argv)>3 and sys.argv[3]=='nominal':dc('exec','-T','driver','node','characterization/cli.cjs','init-dynamo')
   dc('exec','-T','-e','P027_ONLY='+ENV.get('P027_ONLY',''),'-e','P027_PARITY_ONLY='+ENV.get('P027_PARITY_ONLY',''),'driver','node','characterization/cli.cjs',command,'/artifacts/'+(sys.argv[2] if len(sys.argv)>2 else 'recording'),sys.argv[3] if len(sys.argv)>3 else 'boundary',sys.argv[4] if len(sys.argv)>4 else '1')
  elif command=='coverage':dc('exec','-T','driver','node','characterization/cli.cjs','coverage')
- elif command=='test':dc('exec','-T','server','node','--test','characterization/test.cjs','characterization/corrections.test.cjs','characterization/recorded.test.cjs','characterization/round2.test.cjs','characterization/runtime.test.cjs')
+ elif command=='test':dc('exec','-T','server','node','--test','characterization/test.cjs','characterization/corrections.test.cjs','characterization/recorded.test.cjs','characterization/round2.test.cjs','characterization/pca2.test.cjs','characterization/runtime.test.cjs')
  else:raise RuntimeError('unknown command')
 if __name__=='__main__':
  try:main()

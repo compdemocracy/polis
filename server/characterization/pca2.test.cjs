@@ -78,3 +78,35 @@ test("PCA2: empty string and empty array are distinct request modes, GET body is
     );
   }
 });
+
+test("Comments: exact 396-request inventory has 96 three-replica cells and 108 witnesses", () => {
+  const { plan, commentsCases, fixtures } = require("./comments-cases.cjs");
+  const cases = commentsCases();
+  assert.deepEqual(
+    cases.map((c) => c.caseId),
+    plan.cases.map((c) => c.id)
+  );
+  assert.equal(new Set(cases.map((c) => c.caseId)).size, 396);
+  assert.equal(
+    plan.cases.filter((c) => c.usage !== "witness-only").length,
+    288
+  );
+  assert.equal(plan.cases.filter((c) => c.family === "dispatch").length, 102);
+  assert.equal(plan.cases.filter((c) => c.family === "identity").length, 6);
+  assert.equal(fixtures.length, 71);
+  const empty = cases.find(
+    (c) => c.caseId === "comments-read/dispatch/anonymous/tids-empty"
+  );
+  assert.deepEqual(empty.request.body, { tids: [] });
+  assert.equal(empty.request.query.tids, undefined);
+  const list = cases.find(
+    (c) => c.caseId === "comments-read/dispatch/anonymous/tids-list"
+  );
+  assert.equal(list.request.query.tids, "0,2");
+});
+
+test("Comments: wire-derived projection, coding, six actors and independent floors", () => {
+  const result = require("./comments-audit.cjs").audit(root);
+  assert.equal(result.newCases, 396);
+  assert.equal(result.cells.length, 96);
+});

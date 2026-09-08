@@ -4,6 +4,13 @@ const modes = ["unauthenticated", "participant", "owner", "admin"];
 // Shapes mined from setup/api-test-helpers.ts, vote/conversation integration tests,
 // e2e/cypress/support/{conversation,auth}-helpers.js and client calls in the inventory.
 function generate(inventory, scope, seed = "p027-v1", profile = "boundary") {
+  if (profile === "comments-read")
+    return require("./comments-cases.cjs").commentsCases(seed);
+  if (profile === "round6")
+    return [
+      ...generate(inventory, scope, seed, "boundary"),
+      ...require("./comments-cases.cjs").commentsCases(seed),
+    ];
   if (profile === "pca2") return require("./pca2-cases.cjs").pca2Cases(seed);
   const excluded = new Set(scope.exclusions.map((e) => e.id)),
     cases = [];
