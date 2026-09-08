@@ -86,11 +86,7 @@ export function Statement({
             {s.anonPerson} {s.x_wrote}
           </span>
         </div>
-        {remainingText && (
-          <span className="statement-remaining">
-            {remainingText}
-          </span>
-        )}
+        {remainingText && <span className="statement-remaining">{remainingText}</span>}
       </div>
 
       {/* Show official translation (replaces original) or original text */}
