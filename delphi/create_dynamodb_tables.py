@@ -6,9 +6,13 @@ This script creates all necessary DynamoDB tables for the Delphi job queue and
 the EVōC (Efficient Visualization of Clusters) pipeline.
 
 It runs on every delphi container start (see Dockerfile), so a table listed here
-is recreated automatically wherever it is missing -- which is why the write-only
+is recreated wherever it is missing AND the running role holds
+`dynamodb:CreateTable` -- true locally and in CI, not true of the production
+instance role, where the create instead fails and is swallowed below. That is an
+IAM boundary, not a guarantee from this code, which is why the write-only
 Python-PCA export tables had to leave this file before they could be deleted in
-AWS. Nine such tables were retired under P-011/P-033; the list, the writers that
+AWS. Nine such tables were retired under P-011/P-033 -- they had no live product
+consumers, so nothing user-visible changed. The list, the writers that
 were removed with them and the reasoning are in docs/RETIRED_DYNAMODB_TABLES.md,
 and tests/test_dynamodb_bootstrap_allowlist.py fails if any of them reappears
 here. Do not re-add them.
