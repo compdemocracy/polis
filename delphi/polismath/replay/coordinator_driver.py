@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -816,6 +817,13 @@ def _rust_number(text: str) -> str:
     return digits
 
 
+#: serde_json integer token ranges (no arbitrary_precision): a positive token up
+#: to u64::MAX and a negative token down to i64::MIN stay EXACT integers; anything
+#: outside becomes f64.
+_I64_MIN = -(2 ** 63)
+_U64_MAX = 2 ** 64 - 1
+
+
 def _rust_encode(value: Any, out: bytearray) -> None:
     """Port of ``store.rs`` ``storage_digest::encode`` (coordinator-rs/src/store.rs
     :52-83). NB: check ``bool`` before ``int`` — a Python bool is an int but serde
@@ -823,7 +831,20 @@ def _rust_encode(value: Any, out: bytearray) -> None:
     if isinstance(value, bool):
         out += b"true" if value else b"false"
     elif isinstance(value, int):
-        out += _rust_number(str(value)).encode()
+        # serde_json::Value (no arbitrary_precision) admits an integer token as
+        # i64 or u64 and keeps it EXACT; a value outside [-2^63, 2^64-1] takes a
+        # floating representation before number(n.to_string()) (store.rs:56). Match
+        # that dispatch: exact string in range, else the serde f64 rendering.
+        if _I64_MIN <= value <= _U64_MAX:
+            out += _rust_number(str(value)).encode()
+        else:
+            try:
+                f = float(value)
+            except OverflowError:
+                raise BridgeError("digest", f"integer {value} exceeds the f64 range serde admits") from None
+            if not math.isfinite(f):
+                raise BridgeError("digest", f"integer {value} is not finite as f64")
+            out += _rust_number(repr(f)).encode()
     elif isinstance(value, float):
         out += _rust_number(repr(value)).encode()
     elif isinstance(value, str):
@@ -903,7 +924,7 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
     elif expected_math_env is not None and env != expected_math_env:
         fails.append(f"bundle math_env {env!r} != expected {expected_math_env!r}")
 
-    ticks = bundle.get("ticks") or {}
+    ticks = bundle.get("ticks") if isinstance(bundle.get("ticks"), dict) else {}
     tick_val = ticks.get("math_tick")
 
     # 1. next-tick allocation (non-boolean integer)
@@ -929,10 +950,11 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
         if not isinstance(row.get("data"), (dict, list)):
             fails.append(f"{name}: JSONB data (correspondence evidence) is required")
     for name in _COMPANIONS:
-        row = bundle.get(name) or {}
-        if row.get("caching_tick") is not None:
+        row = bundle.get(name)
+        if isinstance(row, dict) and row.get("caching_tick") is not None:
             fails.append(f"{name}: companion must not carry a caching_tick")
-    if bundle.get("main") and "caching_tick" not in (bundle.get("main") or {}):
+    main_row = bundle.get("main")
+    if isinstance(main_row, dict) and "caching_tick" not in main_row:
         fails.append("main: caching_tick absent where it must exist")
 
     # 3. operation / epoch binding (epoch TYPED before comparison: a JSON bool

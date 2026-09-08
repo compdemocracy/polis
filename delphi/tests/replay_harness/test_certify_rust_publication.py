@@ -506,3 +506,36 @@ def test_store_cursor_hash_required_and_typed(mutate):
     b = _bundle(tick=0)
     mutate(b["ticks"]["input_checkpoint"])
     assert _V(b, expected_input_checkpoint=copy.deepcopy(b["ticks"]["input_checkpoint"]))
+
+
+# ---------------------------------------------------------------------------
+# Round 7 (board [449]): every remaining row dereference is graded, not raised.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("row,value", [
+    ("ticks", [1]), ("bidtopid", [1]), ("ptptstats", [1]), ("main", 7),
+    ("ticks", 7), ("bidtopid", "x"), ("ptptstats", None),
+])
+def test_readback_malformed_row_is_graded_not_raised(row, value):
+    b = _bundle()
+    b[row] = value
+    fails = _V(b)  # must not raise
+    assert isinstance(fails, list) and fails and all(isinstance(f, str) for f in fails)
+
+
+@pytest.mark.parametrize("row,value", [
+    ("ticks", [1]), ("bidtopid", [1]), ("ptptstats", [1]), ("main", 7),
+])
+def test_observer_malformed_row_is_graded_not_raised(row, value):
+    b = _bundle()
+    b[row] = value
+    assert cd.observe_bundle_coherence(b)  # graded, no exception
+
+
+def test_integer_boundary_digest_is_serde_dispatched():
+    """Python ints beyond i64/u64 take serde's f64 representation, so 2**64 and
+    2**64+1 (both f64 -> same value) share a digest distinct from the exact int
+    string; u64::MAX and i64::MIN stay exact."""
+    assert cd._canonical_payload_digest({"x": 2 ** 64}) == cd._canonical_payload_digest({"x": 2 ** 64 + 1})
+    assert cd._canonical_payload_digest({"x": 2 ** 64 - 1}) != cd._canonical_payload_digest({"x": 2 ** 64})
+    # exact integers in range are byte-for-byte their decimal spelling
+    assert cd._canonical_payload_digest(2 ** 64 - 1) != cd._canonical_payload_digest(2 ** 64)
