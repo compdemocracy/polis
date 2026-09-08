@@ -30,6 +30,15 @@
 -- meta-commands are used, so the file is executable by both psql -f and a
 -- driver that sends it as one multi-statement string.
 --
+-- REQUIRED INVOCATION: apply with error propagation so a failure returns
+-- nonzero, e.g.
+--     psql -v ON_ERROR_STOP=1 "$DATABASE_URL" -f 000020_create_math_source_journal.sql
+-- (or a driver that raises on error). This migration is ONCE-ONLY: it guards
+-- against a second application (see the re-run guard below) and refuses loudly
+-- rather than clobbering or no-op'ing. The repo's server/bin/run-migrations.sh
+-- has no ON_ERROR_STOP and no ledger, so it is a fresh-install convenience only;
+-- do NOT use the all-files runner to re-apply or "upgrade" this migration.
+--
 -- The SQL between the "BEGIN P-042 design block" and "END P-042 design block"
 -- markers below is a VERBATIM copy of the two labelled blocks in the design
 -- (`-- p042:migration` and `-- p042:legacy-lock-safety`). The witness scripts
@@ -45,6 +54,27 @@ BEGIN;
 -- contention we would rather abort and let the operator retry than block
 -- writers. Transaction-local, reverts at COMMIT/ROLLBACK.
 SET LOCAL lock_timeout = '3s';
+
+-- Once-only re-run guard. This migration is not idempotent by design (its
+-- verbatim blocks use unconditional CREATE/INSERT, so re-running would raise
+-- 42P07 and, worse, a naive IF NOT EXISTS rewrite could regenerate the database
+-- incarnation or hide schema drift). Instead we refuse a second application
+-- loudly and change nothing: if the journal already exists we RAISE before any
+-- DDL, the whole transaction rolls back untouched (incarnation, journal,
+-- consumer cursors and identity sequences preserved), and under
+-- `psql -v ON_ERROR_STOP=1` (the required invocation — see header) that RAISE
+-- returns a nonzero exit. Re-provisioning is a separately reviewed maintenance
+-- operation, never the all-files runner.
+DO $guard$
+BEGIN
+  IF to_regclass('public.math_source_changes') IS NOT NULL THEN
+    RAISE EXCEPTION 'P042_ALREADY_INSTALLED: migration 000020 is once-only and '
+      'math_source_changes already exists; refusing to re-run so the database '
+      'incarnation, journal and consumer cursors are preserved'
+      USING ERRCODE = 'object_not_in_prerequisite_state';
+  END IF;
+END
+$guard$;
 
 -- ==== BEGIN P-042 design block: p042:migration (verbatim) ====
 CREATE TABLE public.math_source_changes (
@@ -303,6 +333,42 @@ $$ LANGUAGE plpgsql STRICT;
 -- ==== END P-042 design block: p042:legacy-lock-safety ====
 
 -- ----------------------------------------------------------------------------
+-- Durable completed-prefix progress (ConsumerNoProgressSeconds support).
+-- ----------------------------------------------------------------------------
+-- NEW SCHEMA beyond the design's candidate blocks. The design names
+-- ConsumerNoProgressSeconds ("age since completed-prefix progress while
+-- unresolved demand exists") but persists no last-advance timestamp, so slice 0
+-- records one here rather than substituting pending-age (review round 2, P2-3).
+-- One row per consumer, stamped whenever C (next_xid) durably advances — i.e.
+-- p042_close moves next_xid forward. p042_open/p042_page touch through_xid /
+-- after_event_id only, never next_xid, so `UPDATE OF next_xid` does not fire for
+-- them; an empty-interval close (next_xid unchanged) is filtered out in the body.
+-- The gauge is therefore elapsed time since the last DURABLE prefix advance, not
+-- pending age: a backoff does not reset it, and an advance resets it even while
+-- older pending repair remains.
+CREATE TABLE public.math_source_progress (
+  consumer_id text PRIMARY KEY
+    REFERENCES public.math_source_consumers(consumer_id) ON DELETE CASCADE,
+  last_advanced_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+CREATE FUNCTION public.p042_stamp_progress() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+BEGIN
+  IF TG_OP = 'INSERT' OR NEW.next_xid IS DISTINCT FROM OLD.next_xid THEN
+    INSERT INTO public.math_source_progress(consumer_id, last_advanced_at)
+      VALUES (NEW.consumer_id, clock_timestamp())
+      ON CONFLICT (consumer_id) DO UPDATE SET last_advanced_at = clock_timestamp();
+  END IF;
+  RETURN NULL;
+END $$;
+CREATE TRIGGER p042_progress_stamp
+  AFTER INSERT OR UPDATE OF next_xid ON public.math_source_consumers
+  FOR EACH ROW EXECUTE FUNCTION public.p042_stamp_progress();
+ALTER TABLE public.math_source_consumers ENABLE ALWAYS TRIGGER p042_progress_stamp;
+REVOKE ALL ON public.math_source_progress FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.p042_stamp_progress() FROM PUBLIC;
+
+-- ----------------------------------------------------------------------------
 -- Named-role grants (guarded).
 -- ----------------------------------------------------------------------------
 -- The design REVOKEs ALL from PUBLIC above and states that the actual login /
@@ -335,6 +401,10 @@ DECLARE
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = consumer_role) THEN
     EXECUTE format('GRANT SELECT ON public.math_source_changes TO %I', consumer_role);
+    -- horizon() (source_journal.py HORIZON_SQL) reads the identity table
+    -- directly, outside the SECURITY DEFINER RPCs, so the consumer needs SELECT
+    -- on it or register/open fail with 42501 (review round 2, P2-2).
+    EXECUTE format('GRANT SELECT ON public.math_source_database TO %I', consumer_role);
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.math_source_consumers TO %I', consumer_role);
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.math_source_pending TO %I', consumer_role);
     EXECUTE format('GRANT USAGE ON SEQUENCE public.math_source_pending_dirty_version_seq TO %I', consumer_role);
