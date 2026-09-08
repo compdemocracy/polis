@@ -908,3 +908,161 @@ def capture_rust_stage_sibling(conv: Any, blob: dict[str, Any] | None, *,
                 f"sibling already exists for this operation") from None
     return dest
 
+
+# ===========================================================================
+# Slice-1 reachable reporting path (correction 1).
+#
+# A REAL runner + report so the `rust` producer can be invoked end-to-end the
+# way clj/py can, emitting the required per-entry rows into a
+# polis-certification-run/2 report — WITHOUT the blocked forced-compute or warm
+# path. Unsupported computations stay non-passing: rust records
+# UNSUPPORTED_PROFILE, the references record INCONCLUSIVE (their real recording
+# is the existing certify.ensure_*_recording path, not re-run here), and every
+# pair is non-passing. A bridge run ALWAYS writes a terminal manifest.
+#
+# STILL OUTSTANDING for full slice 1 (named, not faked): the Clojure three-table
+# companion sink (real cm/prep-main / prep-bidToPid / prep-ptpt-stats capture
+# through the pg-json/upload-math-* path) is a real-engine change to
+# math/dev/replay.clj and cannot run without the JVM; it is not implemented here.
+# ===========================================================================
+
+BRIDGE_RUN_MANIFEST = "bridge_run_manifest-{run_id}.json"
+
+
+def _entry_producer_rows(expected: Optional["cert.ExpectedEntry"], entry: Any,
+                         profile: str, plan: dict[str, Any], out_root: Path
+                         ) -> list[dict[str, Any]]:
+    """Three producer rows for one entry: the inventory row joined to the
+    driver's DriverReceipt. Works whether or not the entry prepared."""
+    if expected is not None:
+        inv = {r["engine"]: r for r in three_producer_inventory(expected, profile)}
+    else:
+        role = getattr(entry, "role", None) or f"{getattr(entry, 'dataset', '?')}:{getattr(entry, 'schedule_id', '?')}"
+        inv = {eng: {"dataset": getattr(entry, "dataset", None),
+                     "schedule_id": getattr(entry, "schedule_id", None), "role": role,
+                     "engine": eng, "loader": REGISTRY[eng].loader, "profile": profile,
+                     "coverage": None, "stream_end": None, "checkpoints": [],
+                     "advertised": REGISTRY[eng].supports(profile),
+                     "status": (ProducerStatus.INCONCLUSIVE if REGISTRY[eng].supports(profile)
+                                else ProducerStatus.UNSUPPORTED_PROFILE).value}
+              for eng in DRIVER_IDS}
+    rows: list[dict[str, Any]] = []
+    for eng in DRIVER_IDS:
+        row = dict(inv[eng])
+        receipt = REGISTRY[eng].record(plan, expected if expected is not None else entry,
+                                       out_root / eng)
+        row["receipt"] = receipt.to_dict()
+        row["status"] = receipt.status.value
+        rows.append(row)
+    return rows
+
+
+def _pair_rows(entry_rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Three pair rows per entry (clj-py, clj-rust, py-rust). A pair is
+    non-passing unless BOTH sides produced a PASS producer row (none can today)."""
+    by_eng = {r["engine"]: r for r in entry_rows}
+    pairs = []
+    for a, b in (("clj", "py"), ("clj", "rust"), ("py", "rust")):
+        sa, sb = by_eng[a]["status"], by_eng[b]["status"]
+        status = (ProducerStatus.PASS.value if sa == sb == ProducerStatus.PASS.value
+                  else ProducerStatus.UNSUPPORTED_PROFILE.value
+                  if ProducerStatus.UNSUPPORTED_PROFILE.value in (sa, sb)
+                  else ProducerStatus.INCONCLUSIVE.value)
+        pairs.append({"a": a, "b": b, "a_status": sa, "b_status": sb, "status": status})
+    return pairs
+
+
+def run_bridge_battery(entries: list[Any], *, root: str | Path, profile: str,
+                       drivers: tuple[str, ...] = DRIVER_IDS,
+                       policy_path: Optional[str | Path] = None,
+                       battery_path: Optional[str | Path] = None) -> dict[str, Any]:
+    """Run the three-producer bridge over ``entries`` and write a terminal
+    polis-certification-run/2 report to ``<root>/certify_report_bridge.json``.
+
+    No engine is launched and no database is touched; every producer row is
+    non-passing (rust UNSUPPORTED_PROFILE; references INCONCLUSIVE). Returns the
+    report dict. Raises BridgeError only on CONFIGURATION failure (bad drivers,
+    unknown profile, bad policy) — a per-entry preparation failure becomes a
+    non-passing row, not a crash, and the manifest is still written."""
+    import uuid as _uuid
+    from datetime import datetime, timezone
+    drivers = parse_drivers(",".join(drivers)) if not isinstance(drivers, str) else parse_drivers(drivers)
+    if profile not in PROFILES:
+        raise BridgeError("profile", f"unknown profile {profile!r} (allowed: {PROFILES})")
+    policy = load_policy(policy_path) if policy_path is not None else None
+    root = Path(root)
+    root.mkdir(parents=True, exist_ok=True)
+    plan = {"profile": profile, "drivers": list(drivers)}
+    run_id = str(_uuid.uuid4())
+
+    producers: list[dict[str, Any]] = []
+    pairs: list[dict[str, Any]] = []
+    inventory: list[dict[str, Any]] = []
+    for entry in entries:
+        try:
+            expected: Optional[cert.ExpectedEntry] = cert.prepare_entry(entry)
+        except Exception as exc:  # noqa: BLE001 - a bad entry is a non-passing row
+            expected = None
+            plan_entry_err = str(exc)
+        else:
+            plan_entry_err = None
+        rows = _entry_producer_rows(expected, entry, profile, plan, root / run_id)
+        if plan_entry_err is not None:
+            for r in rows:
+                if r["engine"] != "rust":
+                    r["status"] = ProducerStatus.INCONCLUSIVE.value
+                    r["reason"] = f"prepare failed: {plan_entry_err}"
+        producers.extend(rows)
+        inventory.extend({k: r[k] for k in ("dataset", "schedule_id", "engine", "loader",
+                                            "profile", "advertised", "status")} for r in rows)
+        pairs.extend({"dataset": getattr(entry, "dataset", None),
+                      "schedule_id": getattr(entry, "schedule_id", None), **p}
+                     for p in _pair_rows(rows))
+
+    all_pass = bool(producers) and all(r["status"] == ProducerStatus.PASS.value for r in producers)
+    verdict = ProducerStatus.PASS.value if all_pass else ProducerStatus.INCONCLUSIVE.value
+    report = {
+        "schema": CERTIFICATION_RUN_SCHEMA_V2,
+        "run_id": run_id,
+        "finished_at": datetime.now(timezone.utc).isoformat(),
+        "profile": profile,
+        "drivers": list(drivers),
+        "battery_path": str(battery_path) if battery_path is not None else None,
+        "policy": policy.to_dict() if policy is not None else None,
+        "inventory": inventory,
+        "producers": producers,
+        "pairs": pairs,
+        "verdict": verdict,
+        "terminal": True,
+        "notes": ["rust producer UNSUPPORTED_PROFILE until the slice-3 "
+                  "p045-replay-plan/1 forced-compute path exists",
+                  "reference producers INCONCLUSIVE: their real recording is the "
+                  "existing certify.ensure_*_recording path, not re-run here",
+                  "Clojure three-table companion sink is a real-engine change not "
+                  "implemented in this reachable-path slice"],
+    }
+    manifest_path = root / "certify_report_bridge.json"
+    manifest_path.write_text(json.dumps(report, indent=2, sort_keys=True, default=str))
+    (root / BRIDGE_RUN_MANIFEST.format(run_id=run_id)).write_text(
+        json.dumps(report, indent=2, sort_keys=True, default=str))
+    report["report_path"] = str(manifest_path)
+    return report
+
+
+def render_bridge_lines(report: dict[str, Any]) -> list[str]:
+    """Human summary of a bridge report for the CLI."""
+    lines = [f"bridge {report['schema']} verdict={report['verdict']} "
+             f"profile={report['profile']} drivers={','.join(report['drivers'])}"]
+    for r in report["producers"]:
+        lines.append(f"  {r['dataset']}:{r['schedule_id']} {r['engine']:>4} -> {r['status']}")
+    return lines
+
+
+def bridge_exit_code(report: dict[str, Any]) -> int:
+    """0 PASS, 1 FAIL, 2 INCONCLUSIVE (incl. UNSUPPORTED_PROFILE)."""
+    v = report.get("verdict")
+    if v == ProducerStatus.PASS.value:
+        return 0
+    if v == ProducerStatus.FAIL.value:
+        return 1
+    return 2
