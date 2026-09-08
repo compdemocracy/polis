@@ -4,7 +4,7 @@
 import {
   DynamoDBClient,
   CreateTableCommand,
-  // DeleteTableCommand,
+  DeleteTableCommand,
   DescribeTableCommand,
 } from "@aws-sdk/client-dynamodb";
 import {
@@ -178,6 +178,39 @@ export async function ensureJobGuardTableExists(): Promise<void> {
   }
 
   throw new Error(`Table ${tableName} failed to become active`);
+}
+
+/**
+ * Drops the Delphi_JobActiveGuard table.
+ *
+ * Only for the fail-closed case: with the guard table absent, job submission
+ * must report unavailability rather than writing an unguarded job. Recreate it
+ * with ensureJobGuardTableExists afterwards.
+ */
+export async function deleteJobGuardTable(): Promise<void> {
+  try {
+    await dynamoClient.send(
+      new DeleteTableCommand({ TableName: "Delphi_JobActiveGuard" })
+    );
+  } catch (error: any) {
+    if (error.name !== "ResourceNotFoundException") {
+      throw error;
+    }
+  }
+  for (let attempts = 0; attempts < 30; attempts++) {
+    try {
+      await dynamoClient.send(
+        new DescribeTableCommand({ TableName: "Delphi_JobActiveGuard" })
+      );
+    } catch (error: any) {
+      if (error.name === "ResourceNotFoundException") {
+        return;
+      }
+      throw error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  throw new Error("Delphi_JobActiveGuard did not finish deleting");
 }
 
 /**

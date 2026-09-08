@@ -2,7 +2,11 @@ import { Request, Response } from "express";
 import { v4 as uuidv4 } from "uuid";
 import logger from "../../utils/logger";
 import { getZidFromReport } from "../../utils/parameter";
-import { admitDelphiJob, JOB_QUEUE_TABLE } from "./jobGuard";
+import {
+  admitDelphiJob,
+  JobAdmissionUnavailableError,
+  JOB_QUEUE_TABLE,
+} from "./jobGuard";
 
 /**
  * Handler for Delphi API route that generates batch narrative reports
@@ -164,11 +168,21 @@ export async function handle_POST_delphi_batch_reports(
       no_cache: no_cache,
       job_status: admission.jobStatus,
       deduplicated,
-      ...(admission.outcome === "created" && admission.degraded
-        ? { dedupe_degraded: true }
-        : {}),
+      work_live: admission.workLive,
     });
   } catch (err: any) {
+    if (err instanceof JobAdmissionUnavailableError) {
+      // Fail closed: no job was written. An un-deduplicated fallback here is
+      // exactly how a second Anthropic batch gets paid for.
+      logger.error(`Delphi batch report admission unavailable: ${err.message}`);
+      return res.status(503).json({
+        status: "error",
+        message:
+          "Delphi job admission is temporarily unavailable; no batch report job was created.",
+        code: "JOB_ADMISSION_UNAVAILABLE",
+        report_id: report_id,
+      });
+    }
     logger.error(`Error in delphi batch reports endpoint: ${err.message}`);
     if (err instanceof Error && err.stack) {
       logger.error(err.stack);

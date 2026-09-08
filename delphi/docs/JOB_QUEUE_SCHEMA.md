@@ -383,27 +383,45 @@ guard row in a single `TransactWriteItems`.
 
 | Prefix | Meaning | Digest input |
 |---|---|---|
-| `s:` | Submission scope | `v1`, `job_type`, `conversation_id`, `report_id`, canonicalised `job_config` |
-| `i:` | Idempotency alias | `v1`, `conversation_id`, `report_id`, client `idempotency_key` |
+| `s:` | Submission scope | `v2`, `job_type`, `conversation_id`, `report_id` |
+| `i:` | Idempotency alias | `v2`, `conversation_id`, `report_id`, client `idempotency_key` |
+
+The scope deliberately excludes `job_config`: at most one root job of a given
+type runs per conversation/report, because two configurations still reset and
+publish into the same structures. Configuration is recorded as `config_hash`
+and is what an idempotency key binds to.
 
 Scope rows carry `job_id`, `version`, `conversation_id`, `report_id`,
-`job_type` and (when the client sent one) `idem_guard_key`. Alias rows carry
-`scope_guard_key` and `job_id`.
+`job_type`, `config_hash` and, for an adopted pre-existing root, `adopted_at`.
+Alias rows carry `scope_guard_key`, `config_hash`, `job_id` and
+`binding_expires_at`.
 
 ### Lifecycle
 
-1. **Admission.** One transaction: conditional `Put` of the queue row
-   (`attribute_not_exists(job_id)`), conditional `Put` of the scope guard
-   (`attribute_not_exists(guard_key)`), and the alias when an idempotency key
-   was supplied. Either both stores are written or neither is.
-2. **Duplicate submission.** The guard condition fails, the server does a
-   strongly-consistent read of the guard and the queue row, and returns the
-   existing `job_id` with `deduplicated: true`.
-3. **Release.** A guard is deleted only under an exact `job_id` + `version`
-   condition, and only once the root job is `COMPLETED`/`FAILED` (or its row is
-   gone) *and* no `batch_job_id` descendant of that root is still non-terminal.
-   Any status the server cannot classify — including a missing `status` — counts
-   as live work and keeps the guard.
+1. **Alias check.** When the request carries an idempotency key, the alias is
+   read first, on every path. A key bound to a different scope or a different
+   `config_hash` is a conflict (HTTP 409) even when the target scope is already
+   occupied by someone else's job.
+2. **Scope check.** A strongly-consistent read of the scope guard decides
+   whether work is outstanding.
+3. **Migration check.** With no guard, the server sweeps the base table for an
+   already-active root of the same scope — work an older producer started — and
+   adopts it rather than admitting a duplicate beside it.
+4. **Admission.** One transaction: conditional `Put` of the queue row
+   (`attribute_not_exists(job_id)`), conditional `Put` of the scope guard, and
+   the alias when supplied. Either both tables are written or neither is.
+5. **Release.** A guard is deleted only under an exact `job_id` + `version`
+   condition, and only on *proof* that no paid work remains: a
+   strongly-consistent read showing the root `COMPLETED`/`FAILED`, plus a
+   completed, strongly-consistent **base-table scan** finding no non-terminal
+   `batch_job_id` descendant of that root. A GSI query cannot serve here — a
+   global secondary index is eventually consistent and does not accept
+   `ConsistentRead`, so its silence is not evidence. Any error, page cap, or
+   missing root row keeps the guard.
+6. **Alias expiry.** The alias outlives the scope guard for a 24-hour binding
+   window, so a retry after a fast completion returns the recorded job instead
+   of starting a second one. The window is evaluated in code; it is not a
+   DynamoDB TTL. An intentional rerun needs a new key, or none.
 
 ### Operator notes
 
@@ -413,7 +431,11 @@ Scope rows carry `job_id`, `version`, `conversation_id`, `report_id`,
 - Migrating the queue off DynamoDB moves the guard in the same cutover. A
   Postgres job row with a DynamoDB guard has no transaction across it and is
   forbidden (P-003 rev3, G6).
-- If the guard table is absent, the server logs an error and falls back to the
-  pre-guard unconditional put, flagging the response with
-  `dedupe_degraded: true`. Create this table before deploying the server change
-  to any environment where duplicate provider spend matters.
+- **Fail closed.** If the guard table is missing or an existing-work sweep
+  cannot be completed, submission returns HTTP 503 with
+  `code: "JOB_ADMISSION_UNAVAILABLE"` and writes no job. There is no
+  un-deduplicated fallback. `cdk/dynamodb.ts` provisions the table.
+- Deleting a conversation's job rows (`RESET_SINGLE_CONVERSATION.md`) leaves the
+  guard pointing at a row that no longer exists. That is treated as uncertainty
+  and keeps the scope blocked, so the reset must delete the scope's guard rows
+  too.
