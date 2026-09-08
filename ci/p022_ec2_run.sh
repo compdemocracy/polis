@@ -103,9 +103,20 @@ has_target() {
 install_junit_plugin() {
   mkdir -p /opt/polis-ci
   cat >/opt/polis-ci/p022_junit.py <<'PLUGIN'
+"""Per-invocation JUnit reports, and an XPASS is always a failure.
+
+`-o xfail_strict=true` does not override an explicit `@pytest.mark.xfail(
+strict=False)`, and JUnit renders such an XPASS as an ordinary passing test —
+so the round-4 move from terminal tallies to XML silently dropped the XPASS
+rejection round 3 had (review R4-F2). This hooks the report itself: any passing
+report carrying `wasxfail` is an XPASS, is recorded, and makes the process exit
+nonzero regardless of how the marker was written.
+"""
 import os
 import pathlib
 import uuid
+
+_XPASSED = []
 
 
 def pytest_load_initial_conftests(early_config, parser, args):
@@ -117,6 +128,24 @@ def pytest_load_initial_conftests(early_config, parser, args):
     name = "%s-%d-%s.xml" % (os.environ.get("P022_JUNIT_TAG", "run"),
                              os.getpid(), uuid.uuid4().hex[:8])
     early_config.option.xmlpath = str(directory / name)
+
+
+def pytest_runtest_logreport(report):
+    if report.when == "call" and report.passed and getattr(report, "wasxfail", None) is not None:
+        _XPASSED.append(report.nodeid)
+
+
+def pytest_sessionfinish(session, exitstatus):
+    if not _XPASSED:
+        return
+    target = os.environ.get("P022_XPASS_FILE")
+    if target:
+        # One line per XPASS. Only the COUNT ever leaves the instance; node ids
+        # are candidate-controlled text and stay in the log directory.
+        with open(target, "a", encoding="utf-8") as handle:
+            for node in _XPASSED:
+                handle.write(node + "\n")
+    session.exitstatus = 1
 PLUGIN
 }
 
@@ -154,7 +183,11 @@ phase_recovery() {
 
   install_junit_plugin
   export PYTHONPATH="/opt/polis-ci${PYTHONPATH:+:$PYTHONPATH}"
-  export PYTEST_ADDOPTS="-p p022_junit ${PYTEST_ADDOPTS:-}"
+  # `xfail_strict` makes an unmarked xfail strict; the plugin catches the rest,
+  # including an explicit strict=False that `xfail_strict` cannot override.
+  export PYTEST_ADDOPTS="-p p022_junit -o xfail_strict=true ${PYTEST_ADDOPTS:-}"
+  export P022_XPASS_FILE="$LOG_DIR/xpassed.txt"
+  rm -f "$P022_XPASS_FILE"
   rm -rf "$JUNIT_DIR"
   mkdir -p "$JUNIT_DIR/recovery" "$JUNIT_DIR/races"
 
@@ -171,13 +204,20 @@ phase_recovery() {
 
   echo "$rc_main" >"$STATE_DIR/recovery_main_rc"
   echo "$rc_races" >"$STATE_DIR/recovery_races_rc"
+  local xpassed=0
+  if [ -f "$P022_XPASS_FILE" ]; then
+    xpassed=$(wc -l <"$P022_XPASS_FILE" | tr -d " ")
+  fi
+  echo "$xpassed" >"$STATE_DIR/xpassed"
+  status recovery xpassed "$xpassed"
 
   collect_reports recovery "$JUNIT_DIR/recovery" "$EXPECTED_MAIN_REPORTS" || rc_reports=1
   collect_reports races "$JUNIT_DIR/races" "$EXPECTED_RACE_REPORTS" || rc_reports=1
   echo "$EXPECTED_RACE_REPORTS" >"$STATE_DIR/expected_race_reports"
   echo "$EXPECTED_MAIN_REPORTS" >"$STATE_DIR/expected_main_reports"
 
-  if [ "$rc_main" -ne 0 ] || [ "$rc_races" -ne 0 ] || [ "$rc_reports" -ne 0 ]; then
+  if [ "$rc_main" -ne 0 ] || [ "$rc_races" -ne 0 ] || [ "$rc_reports" -ne 0 ] \
+     || [ "$xpassed" -ne 0 ]; then
     status recovery result fail
     return 1
   fi
@@ -210,19 +250,73 @@ def resolves(slug):
 
 selected = [e for e in battery if e.get("dataset") in public]
 missing = sorted({e["dataset"] for e in selected if not resolves(e["dataset"])})
-# Inventory digest. Case count plus dataset names do not bind schedules, cuts
-# or the restart seam; this does. Kept byte-identical to
+# Inventory digest, kept byte-identical in behaviour to
 # ci/p022_battery_digest.py, which the runner uses to compute the expectation.
+# Types are preserved (8 and "8" are different inventories) and every referenced
+# schedule is hashed by CONTENT, so deleting a restart seam from a same-named
+# schedule moves the digest (review R4-F3).
 FIELDS = ("dataset", "preset", "n_cuts", "schedule")
-rows = sorted([[f, "" if e.get(f) is None else str(e.get(f))] for f in FIELDS]
-              for e in selected)
-canonical = json.dumps(rows, sort_keys=True, separators=(",", ":"))
+
+
+def canonical_json(value):
+    return json.dumps(value, sort_keys=True, separators=(",", ":"))
+
+
+def read_schedule(name):
+    candidate = (scripts / name).resolve()
+    if scripts.resolve() not in candidate.parents and candidate != scripts.resolve():
+        return None
+    try:
+        return candidate.read_bytes()
+    except OSError:
+        return None
+
+
+def schedule_fingerprint(name):
+    if not name:
+        return None
+    raw = read_schedule(name)
+    if raw is None:
+        return "missing"
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError):
+        return "unparseable:" + hashlib.sha256(raw).hexdigest()
+    return hashlib.sha256(canonical_json(parsed).encode("utf-8")).hexdigest()
+
+
+def declares_restart(name):
+    if not name:
+        return False
+    raw = read_schedule(name)
+    if raw is None:
+        return False
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError):
+        return False
+    return isinstance(parsed, dict) and parsed.get("restart_after") is not None
+
+
+rows, restarts = [], 0
+for entry in selected:
+    row = {f: entry.get(f) for f in FIELDS}
+    row["schedule_sha256"] = schedule_fingerprint(entry.get("schedule"))
+    if declares_restart(entry.get("schedule")):
+        restarts += 1
+    rows.append(canonical_json(row))
+canonical = canonical_json({
+    "version": "p022-battery-inventory/2",
+    "entries": sorted(rows),
+    "public_fixtures": sorted(canonical_json(f) for f in datasets["public_fixtures"]),
+})
 json.dump({
     "public_slugs": sorted(public),
     "selected": selected,
     "selected_count": len(selected),
     "missing": missing,
     "inventory_digest": hashlib.sha256(canonical.encode("utf-8")).hexdigest(),
+    "restart_cases": restarts,
     "private_skipped": sorted({e.get("dataset") for e in battery
                                if e.get("dataset") not in public}),
 }, sys.stdout, indent=1)
@@ -320,22 +414,35 @@ def counts(phase):
     R3-F4). These are sums of the reports' own attributes, and the runner
     re-parses the same files and must get the same numbers.
     """
-    out = {k: 0 for k in ("reports", "tests", "failures", "errors", "skipped")}
+    out = {k: 0 for k in ("reports", "tests", "failures", "errors", "skipped",
+                          "executed")}
+    out["min_executed"] = 0
     directory = artdir / "junit" / phase
     if not directory.is_dir():
         return out
+    per_report = []
     for report in sorted(directory.glob("*.xml")):
         try:
             root = ET.parse(report).getroot()
         except ET.ParseError:
             out["reports"] += 1  # counted, but contributes no results
+            per_report.append(0)
             continue
         out["reports"] += 1
         suites = ([root] if root.tag == "testsuite"
                   else list(root.iter("testsuite")))
+        this = {"tests": 0, "skipped": 0}
         for suite in suites:
             for key in ("tests", "failures", "errors", "skipped"):
                 out[key] += int(suite.get(key, 0) or 0)
+            this["tests"] += int(suite.get("tests", 0) or 0)
+            this["skipped"] += int(suite.get("skipped", 0) or 0)
+        per_report.append(this["tests"] - this["skipped"])
+    out["executed"] = out["tests"] - out["skipped"]
+    # `tests` includes skips, so an all-skipped report — or nineteen empty ones
+    # beside a single real test — used to satisfy "tests > 0" (review R4-F1).
+    # The MINIMUM over reports is what makes each invocation carry its weight.
+    out["min_executed"] = min(per_report) if per_report else 0
     return out
 
 
@@ -349,6 +456,7 @@ sel_path = state / "battery-selection.json"
 sel = json.loads(sel_path.read_text()) if sel_path.exists() else {}
 slug = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 
+xpassed = read_int("xpassed", 0)
 main_rc = read_int("recovery_main_rc")
 races_rc = read_int("recovery_races_rc")
 battery_rc = read_int("battery_rc")
@@ -360,13 +468,15 @@ expected_main = read_int("expected_main_reports", 0)
 expected_races = read_int("expected_race_reports", 0)
 
 def suite_clean(c):
-    return c["tests"] > 0 and c["failures"] == 0 and c["errors"] == 0
+    return (c["executed"] > 0 and c["min_executed"] > 0
+            and c["failures"] == 0 and c["errors"] == 0)
 
 
 recovery_ok = (main_rc == 0 and races_rc == 0
                and main_reports == expected_main and main_reports > 0
                and race_reports == expected_races and race_reports > 0
-               and suite_clean(main_counts) and suite_clean(race_counts))
+               and suite_clean(main_counts) and suite_clean(race_counts)
+               and xpassed == 0)
 battery_ok = battery_rc == 0
 
 summary = {
@@ -384,6 +494,7 @@ summary = {
         "expected_race_reports": expected_races,
         "counts": main_counts,
         "races_counts": race_counts,
+        "xpassed": xpassed,
         "status": "pass" if recovery_ok else "fail",
     },
     "battery": {
@@ -395,6 +506,7 @@ summary = {
         "inventory_digest": (sel.get("inventory_digest", "")
                              if re.fullmatch(r"[0-9a-f]{64}",
                                              str(sel.get("inventory_digest", ""))) else ""),
+        "restart_cases": int(sel.get("restart_cases", 0) or 0),
         "private_cases": "not-run",
         "skip_reason": "" if battery_rc is not None else "not-run-in-this-job",
         "status": "pass" if battery_ok else ("skipped" if battery_rc is None else "fail"),
