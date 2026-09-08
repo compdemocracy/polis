@@ -411,10 +411,14 @@ conversation's guard rows can be found without a join.
    under an already-terminal parent, and a root whose terminal write is
    unresolved (FAILED with no confirmed process exit, or
    `checker_schedule_failed`), are both outstanding work that a status filter
-   hides. Candidates are classified with the same rule release uses. Rows the sweep
-   already shows as cleanly finished — terminal, resolved, no failed checker
-   scheduling — are skipped, so a conversation's ordinary history neither costs
-   a strong re-read nor fills the 25-candidate budget. Above that budget of
+   hides. Candidates are classified with the same rule release uses. A row is skipped
+   on the sweep's own word only when it was demonstrably finished *before* the
+   sweep began — terminal, resolved, no failed checker scheduling, and with a
+   `completed_at`/`updated_at` older than the sweep by a margin. A root that
+   went terminal *during* the sweep, or one with no timestamp to judge by,
+   becomes a candidate and is decided by the anchored assessment, because a
+   multi-page scan is not a snapshot. Ordinary history is old and dated, so it
+   neither costs a strong re-read nor fills the 25-candidate budget. Above that budget of
    genuinely ambiguous roots, admission fails closed with 503 and an operator
    has to triage them (see `RESET_SINGLE_CONVERSATION.md`). After writing, it sweeps again: a producer that does not take part
    in the transaction cannot be fenced by a read, so if one raced in, the server

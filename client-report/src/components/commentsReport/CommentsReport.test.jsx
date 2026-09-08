@@ -382,17 +382,44 @@ describe('reconcileTrackedJob', () => {
     ).toBeNull();
   });
 
-  it('treats a superseded row as finished', () => {
-    // The server marks a withdrawn admission SUPERSEDED rather than deleting
-    // it, so an id already handed out still resolves — to nothing outstanding.
-    expect(
-      reconcileTrackedJob(
-        { jobId: 'job-a', status: 'PENDING', workLive: true, reportId: 'r-test' },
-        [{ jobId: 'job-a', status: 'SUPERSEDED', workLive: false }],
-        false,
-        'r-test'
-      )
-    ).toBeNull();
+  const withdrawn = {
+    jobId: 'job-a',
+    status: 'FAILED',
+    workLive: false,
+    supersededBy: 'winner',
+  };
+
+  it('keeps waiting when a withdrawn job\u2019s successor is not listed yet', () => {
+    // R6-F2: the acknowledged id resolves, but the work moved. Dropping it
+    // because this row is terminal stops the polling for a run still going.
+    const previous = { jobId: 'job-a', status: 'PENDING', workLive: true, reportId: 'r-test' };
+    expect(reconcileTrackedJob(previous, [withdrawn], false, 'r-test')).toBe(previous);
+  });
+
+  it('hands over to the winner once it is in the response', () => {
+    const previous = { jobId: 'job-a', status: 'PENDING', workLive: true, reportId: 'r-test' };
+    const next = reconcileTrackedJob(
+      previous,
+      [withdrawn, { jobId: 'winner', status: 'PROCESSING', workLive: true }],
+      false,
+      'r-test'
+    );
+    expect(next.jobId).toBe('winner');
+    expect(isTrackedJobLive(next)).toBe(true);
+  });
+
+  it('does not spin on a supersession cycle', () => {
+    const previous = { jobId: 'job-a', status: 'PENDING', workLive: true, reportId: 'r-test' };
+    const next = reconcileTrackedJob(
+      previous,
+      [
+        { jobId: 'job-a', status: 'FAILED', workLive: false, supersededBy: 'job-b' },
+        { jobId: 'job-b', status: 'FAILED', workLive: false, supersededBy: 'job-a' },
+      ],
+      false,
+      'r-test'
+    );
+    expect(next).toBeDefined();
   });
 
   it('does not carry a job across a report change', () => {
