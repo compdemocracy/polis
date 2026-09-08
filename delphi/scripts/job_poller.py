@@ -395,6 +395,15 @@ EXIT_CODE_PROCESSING_CONTINUES = 3
 # before giving up on confirming it. See JobProcessor.stop_child_process.
 CHILD_TERMINATE_GRACE_SECONDS = 30
 
+# Deciding a process group is empty is not done from a single /proc pass:
+# enumeration is not a snapshot, so the group's last live member can fork a
+# successor and exit between the listing and the stat reads, leaving a live
+# process the pass never saw. Emptiness therefore requires this many consecutive
+# passes that all find no live member, with a short pause between them for a
+# just-forked successor to surface. See JobProcessor._process_group_alive.
+GROUP_EMPTY_STABLE_PASSES = 2
+GROUP_EMPTY_RECHECK_PAUSE_SECONDS = 0.05
+
 
 def signal_handler(sig, frame):
     """Handle exit signals gracefully."""
@@ -727,8 +736,26 @@ class JobProcessor:
         return pgid
 
     @staticmethod
+    def _pid_confirmed_gone(pid: int) -> bool:
+        """True only if ``pid`` is *definitively* gone (ESRCH), not merely unread.
+
+        Used to tell a pid that exited mid-scan (safe to drop from the live
+        count) apart from one whose ``/proc`` entry simply could not be read
+        (uncertain — must not be dropped). Anything other than a confirmed
+        ``ProcessLookupError`` means the pid still exists.
+        """
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return True
+        except OSError:
+            # EPERM or anything else: the pid still exists, just not ours.
+            return False
+        return False
+
+    @staticmethod
     def _live_group_members(pgid) -> Optional[List[int]]:
-        """PIDs still *running* in the group, or None if that cannot be read.
+        """PIDs still *running* in the group, or None when that is uncertain.
 
         A zombie is an entry in the process table, not a running process: it has
         already exited and cannot spend provider money or write a row. It stays
@@ -739,53 +766,108 @@ class JobProcessor:
         group emptied of live processes can keep answering ``killpg(pgid, 0)``
         forever, and a wait for it to disappear would never return.
 
-        Returns None where /proc is unavailable (macOS, BSD), leaving the caller
-        with the ``killpg`` answer; those platforms have a reaping init.
+        ``None`` means the scan could not be completed with certainty; the caller
+        must then treat the group as still live, because an incomplete
+        observation never authorizes an exit. That covers /proc being
+        unavailable (macOS, BSD — where a reaping init makes the ``killpg``
+        answer sufficient), the directory failing to list, and any member whose
+        state could not be read (permission error, short read, malformed data).
+        A member is dropped from the count only for a definitive reason: it is a
+        zombie/dead entry, it is not in this group, or its ``/proc`` entry is
+        confirmed gone (ESRCH on recheck) because it exited mid-scan.
         """
         if not os.path.isdir('/proc'):
             return None
+        try:
+            entries = os.listdir('/proc')
+        except OSError:
+            # Cannot enumerate the process table: unknown, not empty.
+            return None
         live = []
-        for entry in os.listdir('/proc'):
+        for entry in entries:
             if not entry.isdigit():
                 continue
+            pid = int(entry)
             try:
                 with open(f'/proc/{entry}/stat', 'rb') as stat_file:
-                    # comm can contain spaces and parentheses; everything after
-                    # the last ')' is state, ppid, pgrp, ...
-                    fields = stat_file.read().rpartition(b')')[2].split()
+                    data = stat_file.read()
+            except FileNotFoundError:
+                # The pid may have exited between listdir and open. Drop it only
+                # if that is confirmed; a pid that still exists but could not be
+                # read is uncertainty, not absence.
+                if JobProcessor._pid_confirmed_gone(pid):
+                    continue
+                return None
             except OSError:
-                # The process exited mid-scan, or is not ours to read.
-                continue
+                # Permission or any other read error: cannot classify -> unknown.
+                return None
+            # comm can contain spaces and parentheses; everything after the last
+            # ')' is state, ppid, pgrp, ...
+            fields = data.rpartition(b')')[2].split()
             if len(fields) < 3:
-                continue
+                # Short or malformed read: cannot classify -> unknown.
+                return None
             state, pgrp = fields[0], fields[2]
+            try:
+                member_pgid = int(pgrp)
+            except ValueError:
+                # Cannot tell whether this member is in the group -> unknown.
+                return None
+            if member_pgid != pgid:
+                continue
             if state in (b'Z', b'X', b'x'):
                 continue
-            try:
-                if int(pgrp) == pgid:
-                    live.append(int(entry))
-            except ValueError:
-                continue
+            live.append(pid)
         return live
 
     @staticmethod
     def _process_group_alive(pgid) -> bool:
-        """True while the group still holds a process that can do work."""
+        """True while the group may still hold a process that can do work.
+
+        Returns ``False`` only for a group *proven* empty. Two things make that
+        proof more than a single /proc pass:
+
+        * An incomplete observation is never emptiness. ``_live_group_members``
+          returns ``None`` when it cannot read a member, and that is reported as
+          alive rather than authorizing an exit on a partial scan.
+        * Enumeration is not a snapshot. The group's last live member can fork a
+          successor and exit between the ``/proc`` listing and the stat reads, so
+          one pass can report empty while a live process it never saw remains in
+          the group. Emptiness therefore requires ``GROUP_EMPTY_STABLE_PASSES``
+          consecutive passes that all find no live member. Between passes the
+          group is re-checked with ``killpg(pgid, 0)``: ESRCH proves it is gone
+          (empty immediately); EPERM means a live member not ours to signal
+          (alive); success means an entry remains — a zombie, which stays absent
+          from the live count on the next pass, or a just-forked successor, which
+          appears in it.
+        """
         if pgid is None:
             return False
-        try:
-            os.killpg(pgid, 0)
-        except ProcessLookupError:
-            return False
-        except PermissionError:
-            # Something in the group is alive and not ours to signal.
-            return True
-        except Exception:
-            return True
-        live = JobProcessor._live_group_members(pgid)
-        if live is None:
-            return True
-        return bool(live)
+        empty_passes = 0
+        while True:
+            try:
+                os.killpg(pgid, 0)
+            except ProcessLookupError:
+                # The group no longer exists: definitively empty.
+                return False
+            except PermissionError:
+                # Something in the group is alive and not ours to signal.
+                return True
+            except Exception:
+                return True
+            live = JobProcessor._live_group_members(pgid)
+            if live is None:
+                # An incomplete scan is not proof of an empty group.
+                return True
+            if live:
+                return True
+            empty_passes += 1
+            if empty_passes >= GROUP_EMPTY_STABLE_PASSES:
+                return False
+            # killpg still succeeds but no live member was seen. Give a member a
+            # pass may have missed — a successor forked mid-scan — a moment to
+            # surface, then confirm emptiness with another pass.
+            time.sleep(GROUP_EMPTY_RECHECK_PAUSE_SECONDS)
 
     def confirm_process_tree_gone(self, pgid, job_id: str) -> bool:
         """True once nothing is left in the job's process group.
