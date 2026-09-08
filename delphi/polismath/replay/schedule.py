@@ -208,9 +208,12 @@ def resolved_cut_count(cuts: dict[str, Any]) -> int | None:
 
     One step per resolved cut slot, so this is also the checkpoint count a
     schedule pinned in a certification manifest must declare. It mirrors
-    :func:`resolve_cut_slots` exactly — degenerate 0-slots dropped, duplicates
-    collapsed — so the manifest's count is DERIVED from the same resolution the
-    replay driver runs, not asserted alongside it.
+    :func:`resolve_cut_slots` exactly — duplicates collapsed, and a 0-slot
+    dropped as degenerate ONLY when ``empty_checkpoint`` was not declared. An
+    explicit ``empty_checkpoint: true`` makes the zero cut a real step (the
+    empty compute the certification battery contracts on), so it is counted
+    here too — otherwise the manifest would derive a checkpoint inventory the
+    replay driver does not produce.
 
     ``"end"``, ``timestamp`` and ``fraction`` all resolve against ``dataset.n``
     and therefore return ``None``: only a real dataset can count those.
@@ -224,7 +227,10 @@ def resolved_cut_count(cuts: dict[str, Any]) -> int | None:
     at = cuts.get("at", [])
     if any(a == _END for a in at):
         return None
-    return len({int(a) for a in at if int(a) > 0})
+    slots = dict.fromkeys(int(a) for a in at)
+    if not cuts.get("empty_checkpoint", False):
+        slots.pop(0, None)
+    return len(slots)
 
 
 def _count_votes_up_to(votes: list[VoteEvent], t_ms: int) -> int:
