@@ -66,6 +66,7 @@ def run_replay(
     spec: ScheduleSpec,
     *,
     progress: Callable[[int, int], None] | None = None,
+    on_step: Callable[[ReplayStep, Conversation, StepRecord], None] | None = None,
 ) -> list[StepRecord]:
     """Replay ``dataset`` through the math engine on ``spec``'s schedule.
 
@@ -74,6 +75,13 @@ def run_replay(
     timestamps are data-derived — the only wall-clock field is the blob's
     ``math_tick`` (conversation.py:2226). ``progress(i, total)`` is called
     before each step if provided.
+
+    ``on_step(step, conv, record)`` is a read-only observer called after each
+    step's record is built and BEFORE the restart seam, so a caller can capture
+    intermediate engine state (``polismath.replay.stages``' stage dump) without
+    re-implementing this fold. It is purely additive: leaving it ``None`` — as
+    ``scripts/replay_driver.py`` and ``certify`` do — is byte-identical to the
+    pre-hook behavior. An observer must not mutate ``conv``.
     """
     steps = slice_schedule(dataset, spec)
     total = len(steps)
@@ -141,6 +149,8 @@ def run_replay(
             extras=_step_extras(conv),
         )
         records.append(record)
+        if on_step is not None:
+            on_step(step, conv, record)
         woven_mods.extend(step.mod_events)
 
         if spec.restart_after is not None and step.index == spec.restart_after:
