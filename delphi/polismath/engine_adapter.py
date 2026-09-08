@@ -194,6 +194,19 @@ class Adapter:
         self.sign = manifest["storage_agree_value"]
         if type(self.sign) is not int or self.sign not in (-1, 1):
             fail()
+        # Rev5 item 1: a live profile declares its own normalization, and the
+        # tie key must be over the semantic vote; a frozen replay names its
+        # pinned order instead. Nothing else is admitted.
+        order = manifest["ordering"]
+        if isinstance(order, dict):
+            if order.get("schema") != "polis-order/1" or not order.get("algorithm_digest"):
+                fail()
+            if order.get("semantic_vote") != "raw_vote * storage_agree_value":
+                fail()
+            if order.get("storage_agree_value") != self.sign:
+                fail()
+        elif not (type(order) is str and order):
+            fail()
         self.vote_lines = admitted(self.input_root, manifest["votes"]).splitlines(keepends=True)
         self.mod_lines = admitted(self.input_root, manifest["moderation"]).splitlines(keepends=True)
         self.votes = [strict_json(line) for line in self.vote_lines]

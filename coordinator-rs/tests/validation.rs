@@ -76,6 +76,51 @@ fn strict_wire_rejects_duplicate_keys_and_nonfinite() {
     }
 }
 
+// The declared source normalization (`polis-order/1`), Rev5 item 1: the live
+// tie key is over the SEMANTIC vote, and that is a contract term, not a literal.
+#[test]
+fn declared_tie_key_is_over_the_semantic_vote() -> Result<()> {
+    use polis_coordinator::ordering;
+    let names: Vec<_> = ordering::TERMS.iter().map(|t| t.name).collect();
+    assert_eq!(
+        names,
+        ["tid", "pid", "created_ms", "semantic_vote", "weight_x_32767"]
+    );
+    let sql = ordering::order_by();
+    // The polarity constant is bound, and the raw sign is never ordered on.
+    assert!(sql.contains(&format!("vote::bigint*{}::bigint", ordering::PARAMETER_BINDING)));
+    assert!(!sql.split(',').any(|term| term.trim() == "vote"));
+    assert!(sql.ends_with("weight_x_32767 NULLS FIRST"));
+    let census = json!({"tied_groups":0});
+    let manifest = ordering::manifest(-1, census.clone())?;
+    assert_eq!(manifest["semantic_vote"], "raw_vote * storage_agree_value");
+    assert_eq!(manifest["parameter"], ordering::PARAMETER);
+    assert_eq!(manifest["storage_agree_value"], -1);
+    assert_eq!(manifest["order_by"], sql);
+    assert_eq!(manifest["equal_time_census"], census);
+    // The declaration is polarity-bound: the agree convention is part of the
+    // pinned ordering algorithm, so the two conventions cannot share a digest.
+    assert_ne!(
+        ordering::algorithm_digest(-1)?,
+        ordering::algorithm_digest(1)?
+    );
+    Ok(())
+}
+
+#[test]
+fn census_records_only_ambiguous_tied_groups() {
+    use polis_coordinator::ordering::census;
+    let row = |tid: i64, pid: i64, created: i64| json!({"tid":tid,"pid":pid,"created":created});
+    let none = census(&[row(1, 1, 10), row(1, 2, 10), row(2, 1, 10)]);
+    assert_eq!(none["tied_groups"], 0);
+    assert_eq!(none["tied_rows"], 0);
+    let tied = census(&[row(1, 1, 10), row(1, 1, 10), row(1, 2, 11), row(1, 2, 11)]);
+    assert_eq!(tied["tied_groups"], 2);
+    assert_eq!(tied["tied_rows"], 4);
+    assert_eq!(tied["key"], json!(["tid", "pid", "created_ms"]));
+    assert_eq!(tied["resolved_by"], json!(["semantic_vote", "weight_x_32767"]));
+}
+
 fn bundle(tick: i64) -> Box<polis_coordinator::store::Bundle> {
     Box::new(polis_coordinator::store::Bundle {
         payloads: payload(),
