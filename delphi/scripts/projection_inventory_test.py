@@ -333,6 +333,34 @@ def test_exemption_digest_catches_flow_edits_survives_formatting(tmp_path) -> No
     assert _sweep_poller_variant(tmp_path, commented) == []
 
 
+def test_exemption_module_digest_binds_the_guard_set(tmp_path) -> None:
+    """R11: the exemption also pins a digest of the WHOLE module, so a module-level
+    change to the guard set — outside the function, leaving the function digest
+    unchanged — is NEEDS-GATE. A module-level whitespace/comment edit still clears."""
+    if not os.path.exists(_POLLER):
+        import pytest
+        pytest.skip("poller_equiv.py not found")
+    original = open(_POLLER).read()
+    old_set = 'EQUIV_TABLES: tuple[str, ...] = ("math_main", "math_bidtopid", "math_ptptstats")'
+    assert original.count(old_set) == 1
+
+    def is_stale(text: str) -> bool:
+        hits = _sweep_poller_variant(tmp_path, text)
+        return bool(hits) and all(
+            h.classification == "NEEDS-GATE" and h.note == inv.STALE_EXEMPTION_NOTE for h in hits
+        )
+
+    # (a) augmenting the guard set at module level (function body untouched).
+    assert is_stale(original.replace(old_set, old_set + '\nEQUIV_TABLES += ("votes",)'))
+    # (b) rebinding the guard set after its definition.
+    assert is_stale(original.replace(old_set, old_set + '\nEQUIV_TABLES = ("votes",)'))
+    # (c) module-level comment-only and whitespace-only edits still clear.
+    assert _sweep_poller_variant(
+        tmp_path, original.replace(old_set, "# reviewer module note\n" + old_set)
+    ) == []
+    assert _sweep_poller_variant(tmp_path, original.replace(old_set, old_set + "\n")) == []
+
+
 def test_voters_is_not_matched_as_votes(tmp_path) -> None:
     """Word boundary: `voters` must not match `votes`."""
     src = tmp_path / "server" / "src"
