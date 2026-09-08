@@ -4,6 +4,7 @@
  */
 import app from "./app";
 import Config from "./src/config";
+import { startNotificationLoop } from "./src/routes/notify";
 import logger from "./src/utils/logger";
 
 if (Config.nodeEnv === "production") {
@@ -22,6 +23,7 @@ function startServer(port = Config.serverPort) {
   return server;
 }
 
+startNotificationLoop();
 startServer();
 
 export { startServer };

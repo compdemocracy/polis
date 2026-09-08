@@ -1,0 +1,2540 @@
+[
+  {
+    "table_name": "apikeysndvweifu",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "apikeysndvweifu",
+    "column_name": "apikey",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "apikeysndvweifu",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "auth_tokens",
+    "column_name": "token",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "auth_tokens",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "auth_tokens",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "beta",
+    "column_name": "name",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "beta",
+    "column_name": "email",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "beta",
+    "column_name": "organization",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "beta",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "byod_import_jobs",
+    "column_name": "id",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "byod_import_jobs",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "byod_import_jobs",
+    "column_name": "s3_key",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "byod_import_jobs",
+    "column_name": "status",
+    "data_type": "USER-DEFINED",
+    "udt_name": "job_status"
+  },
+  {
+    "table_name": "byod_import_jobs",
+    "column_name": "stage",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "byod_import_jobs",
+    "column_name": "error_message",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "byod_import_jobs",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "byod_import_jobs",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "comment_translations",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "comment_translations",
+    "column_name": "tid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "comment_translations",
+    "column_name": "src",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "comment_translations",
+    "column_name": "txt",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "comment_translations",
+    "column_name": "lang",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "comment_translations",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "comment_translations",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "tid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "txt",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "velocity",
+    "data_type": "real",
+    "udt_name": "float4"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "mod",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "lang",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "lang_confidence",
+    "data_type": "real",
+    "udt_name": "float4"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "active",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "is_meta",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "tweet_id",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "quote_src_url",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "anon",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "is_seed",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "comments",
+    "column_name": "original_id",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  },
+  {
+    "table_name": "contexts",
+    "column_name": "context_id",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "contexts",
+    "column_name": "name",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "contexts",
+    "column_name": "creator",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "contexts",
+    "column_name": "is_public",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "contexts",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "contributer_agreement_signatures",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "contributer_agreement_signatures",
+    "column_name": "name",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "contributer_agreement_signatures",
+    "column_name": "company_name",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "contributer_agreement_signatures",
+    "column_name": "github_id",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "contributer_agreement_signatures",
+    "column_name": "email",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "contributer_agreement_signatures",
+    "column_name": "agreement_version",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "contributer_agreement_signatures",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "conversation_translations",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversation_translations",
+    "column_name": "src",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversation_translations",
+    "column_name": "topic",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversation_translations",
+    "column_name": "description",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversation_translations",
+    "column_name": "lang",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversation_translations",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "conversation_translations",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "topic",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "description",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "link_url",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "parent_url",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "upvotes",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "participant_count",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "is_anon",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "is_active",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "is_draft",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "is_public",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "is_data_open",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "profanity_filter",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "spam_filter",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "strict_moderation",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "prioritize_seed",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "vis_type",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "write_type",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "help_type",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "write_hint_type",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "style_btn",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "socialbtn_type",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "subscribe_type",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "branding_type",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "bgcolor",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "help_bgcolor",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "help_color",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "email_domain",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "use_xid_whitelist",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "owner",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "org_id",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "context",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "course_id",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "owner_sees_participation_stats",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "auth_needed_to_vote",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "auth_needed_to_write",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "auth_opt_fb",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "auth_opt_tw",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "auth_opt_allow_3rdparty",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "importance_enabled",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "treevite_enabled",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "xid_required",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "conversations",
+    "column_name": "topics_enabled",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "courses",
+    "column_name": "course_id",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "courses",
+    "column_name": "topic",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "courses",
+    "column_name": "description",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "courses",
+    "column_name": "owner",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "courses",
+    "column_name": "course_invite",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "courses",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "tid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "as_important",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "as_factual",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "as_feeling",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "as_notmyfeeling",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "as_notgoodidea",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "as_notfact",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "as_unsure",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "as_spam",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "as_abusive",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "crowd_mod",
+    "column_name": "as_offtopic",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "demographic_data",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "demographic_data",
+    "column_name": "fb_gender",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "demographic_data",
+    "column_name": "ms_birth_year_estimate_fb",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "demographic_data",
+    "column_name": "ms_gender_estimate_fb",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "demographic_data",
+    "column_name": "fb_timestamp",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "demographic_data",
+    "column_name": "ms_fb_timestamp",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "demographic_data",
+    "column_name": "ms_response",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "demographic_data",
+    "column_name": "gender_guess",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "demographic_data",
+    "column_name": "birth_year_guess",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "einvites",
+    "column_name": "einvite",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "einvites",
+    "column_name": "email",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "einvites",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "email_validations",
+    "column_name": "email",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "email_validations",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "event_ptpt_no_more_comments",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "event_ptpt_no_more_comments",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "event_ptpt_no_more_comments",
+    "column_name": "votes_placed",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "event_ptpt_no_more_comments",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "facebook_friends",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "facebook_friends",
+    "column_name": "friend",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "fb_user_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "fb_name",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "fb_link",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "fb_public_profile",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "fb_login_status",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "fb_auth_response",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "fb_access_token",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "fb_granted_scopes",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "fb_location_id",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "location",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "response",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "fb_friends_response",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "facebook_users",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "inviters",
+    "column_name": "inviter_uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "inviters",
+    "column_name": "invited_email",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "inviters",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "jianiuevyew",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "jianiuevyew",
+    "column_name": "pwhash",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "math_bidtopid",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "math_bidtopid",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "math_bidtopid",
+    "column_name": "math_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_bidtopid",
+    "column_name": "data",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "math_bidtopid",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_cache",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "math_cache",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "math_cache",
+    "column_name": "data",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "math_cache",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_exportstatus",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "math_exportstatus",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "math_exportstatus",
+    "column_name": "filename",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "math_exportstatus",
+    "column_name": "data",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "math_exportstatus",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_main",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "math_main",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "math_main",
+    "column_name": "data",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "math_main",
+    "column_name": "last_vote_timestamp",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_main",
+    "column_name": "caching_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_main",
+    "column_name": "math_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_main",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_profile",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "math_profile",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "math_profile",
+    "column_name": "data",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "math_profile",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_ptptstats",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "math_ptptstats",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "math_ptptstats",
+    "column_name": "math_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_ptptstats",
+    "column_name": "data",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "math_ptptstats",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_report_correlationmatrix",
+    "column_name": "rid",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_report_correlationmatrix",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "math_report_correlationmatrix",
+    "column_name": "data",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "math_report_correlationmatrix",
+    "column_name": "math_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_report_correlationmatrix",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_ticks",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "math_ticks",
+    "column_name": "math_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_ticks",
+    "column_name": "caching_tick",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "math_ticks",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "math_ticks",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "metrics",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "metrics",
+    "column_name": "type",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "metrics",
+    "column_name": "dur",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "metrics",
+    "column_name": "hashedpc",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "metrics",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "notification_tasks",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "notification_tasks",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "oidc_user_mappings",
+    "column_name": "oidc_sub",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "oidc_user_mappings",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "oidc_user_mappings",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "oinvites",
+    "column_name": "oinvite",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "oinvites",
+    "column_name": "note",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "oinvites",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "page_ids",
+    "column_name": "site_id",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "page_ids",
+    "column_name": "page_id",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "page_ids",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_locations",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_locations",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_locations",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_locations",
+    "column_name": "lat",
+    "data_type": "double precision",
+    "udt_name": "float8"
+  },
+  {
+    "table_name": "participant_locations",
+    "column_name": "lng",
+    "data_type": "double precision",
+    "udt_name": "float8"
+  },
+  {
+    "table_name": "participant_locations",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "participant_locations",
+    "column_name": "source",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_metadata_answers",
+    "column_name": "pmaid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_metadata_answers",
+    "column_name": "pmqid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_metadata_answers",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_metadata_answers",
+    "column_name": "value",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "participant_metadata_answers",
+    "column_name": "alive",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "participant_metadata_answers",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "participant_metadata_choices",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_metadata_choices",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_metadata_choices",
+    "column_name": "pmqid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_metadata_choices",
+    "column_name": "pmaid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_metadata_choices",
+    "column_name": "alive",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "participant_metadata_choices",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "participant_metadata_questions",
+    "column_name": "pmqid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_metadata_questions",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participant_metadata_questions",
+    "column_name": "key",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "participant_metadata_questions",
+    "column_name": "alive",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "participant_metadata_questions",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "participants",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participants",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participants",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participants",
+    "column_name": "vote_count",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participants",
+    "column_name": "last_interaction",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "participants",
+    "column_name": "subscribed",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participants",
+    "column_name": "last_notified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "participants",
+    "column_name": "nsli",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "participants",
+    "column_name": "mod",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participants",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "participants_extended",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participants_extended",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "participants_extended",
+    "column_name": "referrer",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "participants_extended",
+    "column_name": "parent_url",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "participants_extended",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "participants_extended",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "participants_extended",
+    "column_name": "subscribe_email",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "participants_extended",
+    "column_name": "show_translation_activated",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "participants_extended",
+    "column_name": "permanent_cookie",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "participants_extended",
+    "column_name": "origin",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "permanentcookiezidjoins",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "permanentcookiezidjoins",
+    "column_name": "cookie",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "permanentcookiezidjoins",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "pwreset_tokens",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "pwreset_tokens",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "pwreset_tokens",
+    "column_name": "token",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "report_comment_selections",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "report_comment_selections",
+    "column_name": "rid",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "report_comment_selections",
+    "column_name": "tid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "report_comment_selections",
+    "column_name": "selection",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "report_comment_selections",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "rid",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "report_id",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "report_name",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_x_neg",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_x_pos",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_y_neg",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_y_pos",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_group_0",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_group_1",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_group_2",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_group_3",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_group_4",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_group_5",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_group_6",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_group_7",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_group_8",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "label_group_9",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "reports",
+    "column_name": "mod_level",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "site_domain_whitelist",
+    "column_name": "site_id",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "site_domain_whitelist",
+    "column_name": "domain_whitelist",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "site_domain_whitelist",
+    "column_name": "domain_whitelist_override_key",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "site_domain_whitelist",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "site_domain_whitelist",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "social_settings",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "social_settings",
+    "column_name": "polis_pic",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "stars",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "stars",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "stars",
+    "column_name": "tid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "stars",
+    "column_name": "starred",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "stars",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "suzinvites",
+    "column_name": "owner",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "suzinvites",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "suzinvites",
+    "column_name": "xid",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "suzinvites",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "suzinvites",
+    "column_name": "suzinvite",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "topic_agenda_selections",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "topic_agenda_selections",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "topic_agenda_selections",
+    "column_name": "archetypal_selections",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "topic_agenda_selections",
+    "column_name": "delphi_job_id",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "topic_agenda_selections",
+    "column_name": "total_selections",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "topic_agenda_selections",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "topic_agenda_selections",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "trashes",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "trashes",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "trashes",
+    "column_name": "tid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "trashes",
+    "column_name": "trashed",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "trashes",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "id",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "wave_id",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "parent_invite_id",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "invite_code",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "status",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "invite_owner_pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "invite_used_by_pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "invite_used_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "treevite_invites",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "id",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "login_code_hash",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "login_code_fingerprint",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "login_code_lookup",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "fp_kid",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "revoked",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "expires_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "last_used_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "treevite_login_codes",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "treevite_waves",
+    "column_name": "id",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "treevite_waves",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_waves",
+    "column_name": "wave",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_waves",
+    "column_name": "parent_wave",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_waves",
+    "column_name": "size",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_waves",
+    "column_name": "invites_per_user",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_waves",
+    "column_name": "owner_invites",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "treevite_waves",
+    "column_name": "created_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "treevite_waves",
+    "column_name": "updated_at",
+    "data_type": "timestamp with time zone",
+    "udt_name": "timestamptz"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "twitter_user_id",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "screen_name",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "name",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "followers_count",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "friends_count",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "verified",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "profile_image_url_https",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "location",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "response",
+    "data_type": "json",
+    "udt_name": "json"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "twitter_users",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "upvotes",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "upvotes",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "users",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "users",
+    "column_name": "hname",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "users",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "users",
+    "column_name": "username",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "users",
+    "column_name": "email",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "users",
+    "column_name": "is_owner",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "users",
+    "column_name": "zinvite",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "users",
+    "column_name": "oinvite",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "users",
+    "column_name": "tut",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "users",
+    "column_name": "site_id",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "users",
+    "column_name": "site_owner",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "tid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "vote",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "weight_x_32767",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "votes",
+    "column_name": "high_priority",
+    "data_type": "boolean",
+    "udt_name": "bool"
+  },
+  {
+    "table_name": "votes_latest_unique",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "votes_latest_unique",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "votes_latest_unique",
+    "column_name": "tid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "votes_latest_unique",
+    "column_name": "vote",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "votes_latest_unique",
+    "column_name": "weight_x_32767",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "votes_latest_unique",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "worker_tasks",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "worker_tasks",
+    "column_name": "math_env",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "worker_tasks",
+    "column_name": "attempts",
+    "data_type": "smallint",
+    "udt_name": "int2"
+  },
+  {
+    "table_name": "worker_tasks",
+    "column_name": "task_data",
+    "data_type": "jsonb",
+    "udt_name": "jsonb"
+  },
+  {
+    "table_name": "worker_tasks",
+    "column_name": "task_type",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "worker_tasks",
+    "column_name": "task_bucket",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "worker_tasks",
+    "column_name": "finished_time",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "xid_whitelist",
+    "column_name": "owner",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "xid_whitelist",
+    "column_name": "xid",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "xid_whitelist",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "xid_whitelist",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "xids",
+    "column_name": "uid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "xids",
+    "column_name": "owner",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "xids",
+    "column_name": "xid",
+    "data_type": "text",
+    "udt_name": "text"
+  },
+  {
+    "table_name": "xids",
+    "column_name": "x_profile_image_url",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "xids",
+    "column_name": "x_name",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "xids",
+    "column_name": "x_email",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "xids",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "xids",
+    "column_name": "modified",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "xids",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "xids",
+    "column_name": "pid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "zinvites",
+    "column_name": "zid",
+    "data_type": "integer",
+    "udt_name": "int4"
+  },
+  {
+    "table_name": "zinvites",
+    "column_name": "zinvite",
+    "data_type": "character varying",
+    "udt_name": "varchar"
+  },
+  {
+    "table_name": "zinvites",
+    "column_name": "created",
+    "data_type": "bigint",
+    "udt_name": "int8"
+  },
+  {
+    "table_name": "zinvites",
+    "column_name": "uuid",
+    "data_type": "uuid",
+    "udt_name": "uuid"
+  }
+]

@@ -252,7 +252,7 @@ const helpersInitialized = new Promise(function (resolve) {
   resolve(server.initializePolisHelpers());
 });
 
-helpersInitialized.then(
+export const appReady = helpersInitialized.then(
   function (o: any) {
     const {
       fetchIndexForAdminPage,

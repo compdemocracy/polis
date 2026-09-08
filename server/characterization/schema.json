@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:polis:characterization:case:1",
+  "title": "P-027 version 1 JSONL case",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "caseId", "routeId", "auth", "case", "seed", "request", "response", "effects", "process", "oracle", "routeHits"],
+  "properties": {
+    "version": {"const": 1},
+    "caseId": {"type": "string", "minLength": 1},
+    "routeId": {"type": ["integer", "null"], "minimum": 1, "maximum": 201},
+    "auth": {"enum": ["unauthenticated", "participant", "owner", "admin"]},
+    "case": {"type": "string"},
+    "seed": {"type": "string"},
+    "request": {
+      "type": "object", "additionalProperties": false,
+      "required": ["method", "path", "query", "headers", "body"],
+      "properties": {"method": {"type": "string"}, "path": {"type": "string"}, "query": {"type": "object"}, "headers": {"type": "object", "additionalProperties": {"type": "string"}}, "body": {}}
+    },
+    "response": {
+      "type": "object", "additionalProperties": false,
+      "required": ["completed", "status", "headers", "body", "ttfbMs", "ttlbMs"],
+      "properties": {"completed": {"type": "boolean"}, "status": {"type": ["integer", "null"]}, "headers": {"type": "object"}, "body": {}, "ttfbMs": {"type": ["number", "null"]}, "ttlbMs": {"type": "number"}}
+    },
+    "effects": {
+      "type": "object", "additionalProperties": false,
+      "required": ["db", "files", "outbound", "participantCreated", "jwtIssued"],
+      "properties": {"db": {"type": "object", "additionalProperties": {"$ref": "#/$defs/delta"}}, "files": {"type": "object", "additionalProperties": {"$ref": "#/$defs/delta"}}, "outbound": {"type": "array"}, "participantCreated": {"type": "boolean"}, "jwtIssued": {"type": "boolean"}}
+    },
+    "process": {"type": "array", "items": {"type": "object", "required": ["event", "message", "code"]}},
+    "oracle": {"type": "object", "required": ["pass", "failures", "flag"], "properties": {"pass": {"type": "boolean"}, "failures": {"type": "array", "items": {"type": "string"}}, "flag": {"type": ["string", "null"]}}},
+    "routeHits": {"type": "array", "items": {"type": "integer"}, "uniqueItems": true}
+  },
+  "$defs": {"delta": {"type": "object", "additionalProperties": false, "required": ["removed", "added"], "properties": {"removed": {"type": "array"}, "added": {"type": "array"}}}}
+}
