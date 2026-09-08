@@ -20,15 +20,41 @@ use tokio::{
 };
 use tower::ServiceExt;
 const LIMIT: usize = 1024 * 1024;
-/// Node's default `server.keepAliveTimeout`.
-const IDLE: Duration = Duration::from_secs(5);
-const REQUEST: Duration = Duration::from_secs(15);
+/// Two separate clocks. `idle` is Node's `server.keepAliveTimeout`, and like
+/// Node's it applies only while a socket is waiting for the next request to
+/// begin. `request` is the deadline for serving one, and covers routing, SQL,
+/// body generation and the response write.
+///
+/// Conflating the two is a live defect, not a tuning question: wrapping the whole
+/// exchange in the idle window cancels a handler that is doing its job, and it
+/// does so on the connection's very first request, where nothing has been idle at
+/// all.
+#[derive(Clone, Copy, Debug)]
+pub struct Timeouts {
+    pub idle: Duration,
+    pub request: Duration,
+}
+impl Default for Timeouts {
+    fn default() -> Self {
+        Self {
+            idle: Duration::from_secs(5),
+            request: Duration::from_secs(15),
+        }
+    }
+}
 pub async fn serve(listener: TcpListener, router: Router) -> Result<(), Error> {
+    serve_with(listener, router, Timeouts::default()).await
+}
+pub async fn serve_with(
+    listener: TcpListener,
+    router: Router,
+    timeouts: Timeouts,
+) -> Result<(), Error> {
     loop {
         let (socket, _) = listener.accept().await?;
         let router = router.clone();
         tokio::spawn(async move {
-            if let Err(e) = connection(socket, router).await {
+            if let Err(e) = connection(socket, router, timeouts).await {
                 eprintln!("http connection: {e}");
             }
         });
@@ -36,17 +62,26 @@ pub async fn serve(listener: TcpListener, router: Router) -> Result<(), Error> {
 }
 /// Serves requests until the peer closes, asks to close, sends nothing for the idle
 /// window, or produces a response this writer cannot delimit.
-async fn connection(mut socket: TcpStream, router: Router) -> Result<(), Error> {
+async fn connection(
+    mut socket: TcpStream,
+    router: Router,
+    timeouts: Timeouts,
+) -> Result<(), Error> {
     let mut input = Vec::new();
     loop {
-        let idle = input.is_empty();
-        let deadline = if idle { IDLE } else { REQUEST };
-        match tokio::time::timeout(deadline, one(&mut socket, &router, &mut input)).await {
+        // Waiting is timed by the idle clock; serving is timed by the request clock.
+        let Some(head) = read_head(&mut socket, &mut input, timeouts).await? else {
+            break;
+        };
+        match tokio::time::timeout(
+            timeouts.request,
+            one(&mut socket, &router, &mut input, head),
+        )
+        .await
+        {
             Ok(Ok(true)) => continue,
             Ok(Ok(false)) => break,
             Ok(Err(e)) => return Err(e),
-            // An idle connection simply reached its keep-alive window.
-            Err(_) if idle => break,
             Err(_) => {
                 eprintln!("http request deadline");
                 break;
@@ -56,24 +91,51 @@ async fn connection(mut socket: TcpStream, router: Router) -> Result<(), Error> 
     socket.shutdown().await?;
     Ok(())
 }
-/// Returns whether the connection may serve another request.
-async fn one(socket: &mut TcpStream, router: &Router, input: &mut Vec<u8>) -> Result<bool, Error> {
+/// Reads until a complete request head is buffered. `None` means the peer closed
+/// or let the keep-alive window lapse before starting a request. Once the first
+/// byte of a request has arrived the request clock takes over, so a slow header
+/// is a request deadline rather than an idle expiry.
+async fn read_head(
+    socket: &mut TcpStream,
+    input: &mut Vec<u8>,
+    timeouts: Timeouts,
+) -> Result<Option<Parsed>, Error> {
     let mut buf = [0u8; 8192];
-    let (header_len, method, path, headers, length) = loop {
+    loop {
         let mut fields = [httparse::EMPTY_HEADER; 128];
         let mut req = httparse::Request::new(&mut fields);
         if let httparse::Status::Complete(offset) = req.parse(input)? {
-            break parse(offset, &req)?;
+            return Ok(Some(parse(offset, &req)?));
         }
-        let n = socket.read(&mut buf).await?;
+        let started = !input.is_empty();
+        let deadline = if started {
+            timeouts.request
+        } else {
+            timeouts.idle
+        };
+        let n = match tokio::time::timeout(deadline, socket.read(&mut buf)).await {
+            Ok(n) => n?,
+            Err(_) if started => return Err("http request header deadline".into()),
+            Err(_) => return Ok(None),
+        };
         if n == 0 {
-            return Ok(false);
+            return Ok(None);
         }
         input.extend_from_slice(&buf[..n]);
         if input.len() > LIMIT {
             return Err("request exceeds limit".into());
         }
-    };
+    }
+}
+/// Serves one already-parsed request. Returns whether the connection may serve another.
+async fn one(
+    socket: &mut TcpStream,
+    router: &Router,
+    input: &mut Vec<u8>,
+    head: Parsed,
+) -> Result<bool, Error> {
+    let mut buf = [0u8; 8192];
+    let (header_len, method, path, headers, length) = head;
     while input.len() < header_len + length {
         let n = socket.read(&mut buf).await?;
         if n == 0 {
@@ -196,11 +258,80 @@ mod tests {
         r
     }
     async fn listening() -> std::net::SocketAddr {
+        listening_with(Timeouts::default()).await
+    }
+    async fn listening_with(timeouts: Timeouts) -> std::net::SocketAddr {
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let addr = listener.local_addr().unwrap();
-        let router = Router::new().route("/x", get(hello).head(hello));
-        tokio::spawn(async move { serve(listener, router).await });
+        // A handler that takes longer than the idle window to answer.
+        async fn slow() -> Response<Body> {
+            tokio::time::sleep(Duration::from_millis(250)).await;
+            hello().await
+        }
+        let router = Router::new()
+            .route("/x", get(hello).head(hello))
+            .route("/slow", get(slow));
+        tokio::spawn(async move { serve_with(listener, router, timeouts).await });
         addr
+    }
+    /// The idle window is Node's keep-alive timeout: it governs a socket waiting
+    /// for its next request, never a request already being served. Before this
+    /// change the whole exchange ran under the idle clock, so a handler slower
+    /// than the window was cancelled with zero response bytes — on the first
+    /// request of a connection, where nothing had been idle at all.
+    #[tokio::test]
+    async fn a_slow_handler_outlives_the_idle_window() {
+        let addr = listening_with(Timeouts {
+            idle: Duration::from_millis(100),
+            request: Duration::from_secs(10),
+        })
+        .await;
+        let out = exchange(
+            addr,
+            "GET /slow HTTP/1.1\r\nHost: t\r\nConnection: close\r\n\r\n",
+        )
+        .await;
+        assert!(out.ends_with("hello"), "handler was cancelled: {out:?}");
+    }
+    #[tokio::test]
+    async fn an_actually_idle_socket_still_expires() {
+        let addr = listening_with(Timeouts {
+            idle: Duration::from_millis(100),
+            request: Duration::from_secs(10),
+        })
+        .await;
+        let started = std::time::Instant::now();
+        // Connect, send nothing, and expect the keep-alive window to close it.
+        let mut socket = TcpStream::connect(addr).await.unwrap();
+        let mut rest = Vec::new();
+        socket.read_to_end(&mut rest).await.unwrap();
+        assert!(rest.is_empty());
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "idle window ignored"
+        );
+    }
+    #[tokio::test]
+    async fn a_second_request_on_an_idle_connection_is_still_served() {
+        let addr = listening_with(Timeouts {
+            idle: Duration::from_millis(400),
+            request: Duration::from_secs(10),
+        })
+        .await;
+        let mut socket = TcpStream::connect(addr).await.unwrap();
+        let mut buf = [0u8; 4096];
+        for _ in 0..2 {
+            socket
+                .write_all(b"GET /slow HTTP/1.1\r\nHost: t\r\n\r\n")
+                .await
+                .unwrap();
+            let mut response = String::new();
+            while !response.ends_with("hello") {
+                let n = socket.read(&mut buf).await.unwrap();
+                assert!(n > 0, "connection closed mid-response: {response:?}");
+                response.push_str(std::str::from_utf8(&buf[..n]).unwrap());
+            }
+        }
     }
     async fn exchange(addr: std::net::SocketAddr, request: &str) -> String {
         let mut socket = TcpStream::connect(addr).await.unwrap();

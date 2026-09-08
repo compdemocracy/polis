@@ -77,7 +77,9 @@ so a connection per poll would be a throughput and tail-latency regression the
 byte gate cannot see. The `Connection: keep-alive` header is `writeDefaultHead`'s
 (`domain.ts:14-18`) and travels with the response headers; the writer closes the
 socket only on an explicit `Connection: close`, an idle keep-alive window, or a
-response it cannot delimit. The recorded policy still excludes
+response it cannot delimit. The keep-alive window and the request deadline are
+separate clocks, as they are in Node: the idle window governs a socket waiting
+for its next request to begin, and the request deadline governs serving one. The recorded policy still excludes
 Connection/Keep-Alive/Date, so this is source-read rather than gate-verified.
 The writer bounds request size and rejects ambiguous
 Content-Length/Transfer-Encoding framing. HTTP/2, streaming request bodies and
