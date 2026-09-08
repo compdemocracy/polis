@@ -98,7 +98,20 @@ describe("topicMod routes against the never-provisioned DynamoDB tables", () => 
       LAYER_ID,
       CLUSTER_ID
     );
-    await wait(500);
+
+    // Wait on the route actually seeing the seed rather than on a fixed delay.
+    // With no topics the handler returns early on a different shape (no
+    // `moderation_available`), so a slow seed would otherwise fail the tests
+    // below for a reason that has nothing to do with the missing tables.
+    for (let attempt = 0; attempt < 20; attempt++) {
+      const seeded = await ownerAgent.get(
+        `/api/v3/topicMod/topics?conversation_id=${conversationId}`
+      );
+      if (seeded.body?.total_topics > 0) {
+        break;
+      }
+      await wait(250);
+    }
   });
 
   afterAll(async () => {
@@ -240,6 +253,56 @@ describe("topicMod routes against the never-provisioned DynamoDB tables", () => 
 
       const after = await modStateFor(commentIds);
       expect(after.get(commentIds[2])).toBe(1);
+    });
+
+    // `comments_moderated` must count comments this request actually moderated.
+    // Postgres runs an UPDATE that matches nothing without complaint, so
+    // counting the submitted ids would report a moderation that never happened.
+    test("an id matching no comment in this conversation is not counted", async () => {
+      const absentTid = 999999;
+      const before = await modStateFor(commentIds);
+
+      const response = await ownerAgent.post("/api/v3/topicMod/moderate").send({
+        conversation_id: conversationId,
+        comment_ids: [absentTid],
+        action: "reject",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty("comments_moderated", 0);
+      expect(response.body.unmatched_comment_ids).toEqual([absentTid]);
+
+      // And no real comment was touched on the way past it.
+      const after = await modStateFor(commentIds);
+      for (const tid of commentIds) {
+        expect(after.get(tid)).toBe(before.get(tid));
+      }
+    });
+
+    test("a mix of real and absent ids counts only the real one", async () => {
+      const response = await ownerAgent.post("/api/v3/topicMod/moderate").send({
+        conversation_id: conversationId,
+        comment_ids: [commentIds[0], 999999],
+        action: "reject",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty("comments_moderated", 1);
+      expect(response.body.unmatched_comment_ids).toEqual([999999]);
+      expect((await modStateFor(commentIds)).get(commentIds[0])).toBe(-1);
+    });
+
+    test("the same id twice counts as one moderated comment", async () => {
+      const response = await ownerAgent.post("/api/v3/topicMod/moderate").send({
+        conversation_id: conversationId,
+        comment_ids: [commentIds[1], commentIds[1]],
+        action: "meta",
+      });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toHaveProperty("comments_moderated", 1);
+      expect(response.body.unmatched_comment_ids).toEqual([]);
+      expect((await modStateFor(commentIds)).get(commentIds[1])).toBe(0);
     });
   });
 
