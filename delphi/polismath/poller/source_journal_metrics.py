@@ -11,17 +11,22 @@ is the module logger, which makes the values observable in tests and dev without
 any cloud dependency. Alarms, thresholds and drills are the operator's release
 work; no thresholds are chosen here (the design invents none).
 
-Two honest slice-0 limitations, documented rather than faked:
+``ConsumerNoProgressSeconds`` is the gauge the design specifies: elapsed time
+since the last DURABLE completed-prefix advance (``C = next_xid`` moving forward
+via ``p042_close``) while unresolved demand exists; a genuine 0 only when there
+is no demand. It reads ``math_source_progress.last_advanced_at`` (stamped by the
+migration's ``p042_progress_stamp`` trigger), NOT pending age (review round 2,
+P2-3). Consequences, all tested:
 
-* ``ConsumerNoProgressSeconds`` in the design is "age since completed-prefix
-  progress while unresolved demand exists". The slice-0 schema persists no
-  last-C-advance timestamp, so this collector emits it as the age of the oldest
-  *due* unresolved demand per consumer (0 when there is no due demand). The exact
-  completed-prefix-progress timestamp is a slice-1 addition.
-* All per-consumer gauges emit nothing in slice 0 because slice 0 registers no
-  consumer. The cluster gauges (transaction / backend_xmin / prepared age, xid
-  distance, journal rows/bytes) — which are what detect the horizon stall the
-  design is most sensitive to — are fully computable now.
+* An old active xid plus a newer committed source change (journal nonempty,
+  pending empty) is demand — ``EXISTS(changes WHERE source_xid >= next_xid)`` —
+  so the gauge grows even while ``ObserverHealthy=1``; this is the M4 stall drill.
+* Backing off a pending item does not reset it (it is not pending age).
+* A durable C advance resets it even while older pending repair remains.
+
+Per-consumer gauges emit nothing until a consumer is registered (slice 1). The
+cluster gauges (transaction / backend_xmin / prepared age, xid distance, journal
+rows/bytes) are fully computable now.
 """
 
 from __future__ import annotations
@@ -68,15 +73,30 @@ _JOURNAL_BYTES = sa.text(
 _CONSUMERS = sa.text(
     "SELECT consumer_id, engine, math_env FROM public.math_source_consumers"
 )
+# OldestPendingAgeSeconds / SweepPassAgeSeconds retain delayed work (all pending,
+# not only due) — correct per the design; keep them.
 _CONSUMER_PENDING_AGES = sa.text(
     "SELECT "
     "  COALESCE(EXTRACT(EPOCH FROM max(clock_timestamp() - first_dirty_at)), 0) "
     "    AS oldest_pending, "
     "  COALESCE(EXTRACT(EPOCH FROM max(clock_timestamp() - first_dirty_at) "
-    "    FILTER (WHERE zid IS NULL)), 0) AS sweep_pass, "
-    "  COALESCE(EXTRACT(EPOCH FROM max(clock_timestamp() - first_dirty_at) "
-    "    FILTER (WHERE next_attempt_at <= clock_timestamp())), 0) AS no_progress "
+    "    FILTER (WHERE zid IS NULL)), 0) AS sweep_pass "
     "FROM public.math_source_pending WHERE consumer_id=:consumer_id"
+)
+# ConsumerNoProgressSeconds: elapsed since the last DURABLE C advance while demand
+# exists. Demand = any outstanding pending OR any journal change at/after the
+# consumer's cursor (source_xid >= next_xid), which is exactly the unconsumed
+# completed-prefix work an old open xid can pin. Genuine 0 only when neither holds.
+_CONSUMER_NO_PROGRESS = sa.text(
+    "SELECT "
+    "  EXTRACT(EPOCH FROM clock_timestamp() - pr.last_advanced_at) AS since_advance, "
+    "  ( EXISTS (SELECT 1 FROM public.math_source_pending p "
+    "            WHERE p.consumer_id = c.consumer_id) "
+    "    OR EXISTS (SELECT 1 FROM public.math_source_changes e "
+    "               WHERE e.source_xid >= c.next_xid) ) AS demand "
+    "FROM public.math_source_consumers c "
+    "JOIN public.math_source_progress pr ON pr.consumer_id = c.consumer_id "
+    "WHERE c.consumer_id = :consumer_id"
 )
 
 
@@ -140,8 +160,17 @@ def collect_samples(conn: Connection) -> List[MetricSample]:
         ages = conn.execute(
             _CONSUMER_PENDING_AGES, {"consumer_id": consumer["consumer_id"]}
         ).mappings().one()
+        prog = conn.execute(
+            _CONSUMER_NO_PROGRESS, {"consumer_id": consumer["consumer_id"]}
+        ).mappings().first()
+        # No demand -> genuine 0. No progress row (should not happen: the stamp
+        # trigger creates one at registration) -> 0 as a safe floor.
+        if prog is None or not prog["demand"]:
+            no_progress = 0.0
+        else:
+            no_progress = float(prog["since_advance"])
         samples.append(MetricSample(
-            "ConsumerNoProgressSeconds", float(ages["no_progress"]), "Seconds", dims))
+            "ConsumerNoProgressSeconds", no_progress, "Seconds", dims))
         samples.append(MetricSample(
             "OldestPendingAgeSeconds", float(ages["oldest_pending"]), "Seconds", dims))
         samples.append(MetricSample(
