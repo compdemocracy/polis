@@ -69,10 +69,12 @@ async fn connection(
     router: Router,
     timeouts: Timeouts,
 ) -> Result<(), Error> {
-    let mut input = Vec::new();
+    let mut input = Incoming::default();
     loop {
         // Waiting is timed by the idle clock. Serving is timed by one deadline that
-        // started when the request's first byte arrived, header reads included.
+        // started when the request's first byte ARRIVED, header reads included —
+        // and, for a pipelined request already sitting in the buffer, when those
+        // bytes arrived rather than when the previous handler finished with them.
         let Some((head, deadline)) = read_head(&mut socket, &mut input, timeouts).await? else {
             break;
         };
@@ -89,31 +91,72 @@ async fn connection(
     socket.shutdown().await?;
     Ok(())
 }
+/// The unread bytes, with the arrival instant of each still-buffered run.
+///
+/// Keeping the instants is what makes the first-byte deadline honest under
+/// pipelining. Two complete requests can land in one read; the second one's bytes
+/// arrived then, not when the first handler finally released the buffer, and
+/// stamping it on arrival at the head of the loop would hand it a fresh window
+/// for time it had already spent queued.
+#[derive(Default)]
+struct Incoming {
+    bytes: Vec<u8>,
+    /// `(length, arrival)` for each run still present, oldest first.
+    arrivals: std::collections::VecDeque<(usize, Instant)>,
+}
+impl Incoming {
+    fn len(&self) -> usize {
+        self.bytes.len()
+    }
+    fn extend(&mut self, chunk: &[u8], at: Instant) {
+        self.bytes.extend_from_slice(chunk);
+        self.arrivals.push_back((chunk.len(), at));
+    }
+    /// When the byte now at the front of the buffer reached this process.
+    fn first_arrival(&self) -> Option<Instant> {
+        self.arrivals.front().map(|(_, at)| *at)
+    }
+    fn drain(&mut self, count: usize) {
+        self.bytes.drain(..count);
+        let mut remaining = count;
+        while remaining > 0 {
+            let Some((len, at)) = self.arrivals.pop_front() else {
+                break;
+            };
+            if len > remaining {
+                self.arrivals.push_front((len - remaining, at));
+                break;
+            }
+            remaining -= len;
+        }
+    }
+}
 /// Reads until a complete request head is buffered, and returns the deadline the
 /// rest of the exchange must finish by. `None` means the peer closed or let the
 /// keep-alive window lapse before starting a request.
 ///
-/// The deadline is absolute and is fixed the moment the request's first byte
-/// arrives, so trickling header fragments cannot extend it: every subsequent read
-/// waits only for whatever remains of it.
+/// The deadline is absolute and derived from the arrival of the request's first
+/// byte, so neither trickled header fragments nor a pipelined predecessor's
+/// handler can extend it.
 async fn read_head(
     socket: &mut TcpStream,
-    input: &mut Vec<u8>,
+    input: &mut Incoming,
     timeouts: Timeouts,
 ) -> Result<Option<(Parsed, Instant)>, Error> {
     let mut buf = [0u8; 8192];
-    // Bytes already buffered belong to a request that has, by definition, started.
-    let mut deadline = (!input.is_empty()).then(|| Instant::now() + timeouts.request);
     loop {
         let mut fields = [httparse::EMPTY_HEADER; 128];
         let mut req = httparse::Request::new(&mut fields);
-        if let httparse::Status::Complete(offset) = req.parse(input)? {
-            let deadline = deadline.unwrap_or_else(|| Instant::now() + timeouts.request);
-            return Ok(Some((parse(offset, &req)?, deadline)));
+        if let httparse::Status::Complete(offset) = req.parse(&input.bytes)? {
+            let arrived = input.first_arrival().expect("a parsed head has bytes");
+            return Ok(Some((parse(offset, &req)?, arrived + timeouts.request)));
         }
-        let n = match deadline {
-            Some(deadline) => {
-                match tokio::time::timeout_at(deadline, socket.read(&mut buf)).await {
+        let n = match input.first_arrival() {
+            // A request is under way: it must finish within its own window.
+            Some(arrived) => {
+                match tokio::time::timeout_at(arrived + timeouts.request, socket.read(&mut buf))
+                    .await
+                {
                     Ok(n) => n?,
                     Err(_) => return Err("http request deadline".into()),
                 }
@@ -126,8 +169,7 @@ async fn read_head(
         if n == 0 {
             return Ok(None);
         }
-        deadline.get_or_insert_with(|| Instant::now() + timeouts.request);
-        input.extend_from_slice(&buf[..n]);
+        input.extend(&buf[..n], Instant::now());
         if input.len() > LIMIT {
             return Err("request exceeds limit".into());
         }
@@ -137,7 +179,7 @@ async fn read_head(
 async fn one(
     socket: &mut TcpStream,
     router: &Router,
-    input: &mut Vec<u8>,
+    input: &mut Incoming,
     head: Parsed,
 ) -> Result<bool, Error> {
     let mut buf = [0u8; 8192];
@@ -147,7 +189,7 @@ async fn one(
         if n == 0 {
             return Err("truncated request".into());
         }
-        input.extend_from_slice(&buf[..n]);
+        input.extend(&buf[..n], Instant::now());
         if input.len() > LIMIT {
             return Err("request exceeds limit".into());
         }
@@ -157,9 +199,12 @@ async fn one(
     for (k, v) in &request_headers {
         request = request.header(k, v);
     }
-    let request = request.body(Body::from(input[header_len..header_len + length].to_vec()))?;
-    // Anything after this request belongs to the next one on the same connection.
-    input.drain(..header_len + length);
+    let request = request.body(Body::from(
+        input.bytes[header_len..header_len + length].to_vec(),
+    ))?;
+    // Anything after this request belongs to the next one on the same connection,
+    // and keeps the arrival instant it was actually read at.
+    input.drain(header_len + length);
     let result = router.clone().oneshot(request).await?;
     let status = result.status();
     let headers = result.extensions().get::<OrderedHeaders>().cloned();
@@ -437,6 +482,56 @@ mod tests {
         let mut rest = Vec::new();
         socket.read_to_end(&mut rest).await.unwrap();
         assert!(String::from_utf8(rest).unwrap().ends_with("hello"));
+    }
+    /// Astra round 4 #2. Under a first-byte policy a pipelined request does not
+    /// get a fresh window when the previous handler finally reaches it: both
+    /// requests arrived in the same write, so both deadlines run from that
+    /// instant. With a 300ms budget and two 180ms handlers, the first response
+    /// is served and the second must not be.
+    #[tokio::test]
+    async fn a_buffered_pipelined_request_keeps_its_arrival_deadline() {
+        let addr = listening_with(Timeouts {
+            idle: Duration::from_millis(100),
+            request: Duration::from_millis(300),
+        })
+        .await;
+        let started = std::time::Instant::now();
+        let out = exchange(
+            addr,
+            concat!(
+                "GET /slow HTTP/1.1\r\nHost: t\r\n\r\n",
+                "GET /slow HTTP/1.1\r\nHost: t\r\nConnection: close\r\n\r\n",
+            ),
+        )
+        .await;
+        assert_eq!(
+            out.matches("200 OK").count(),
+            1,
+            "the queued request must not get a fresh window: {out:?}"
+        );
+        assert!(
+            started.elapsed() < Duration::from_millis(600),
+            "the connection must end on its own deadline"
+        );
+    }
+    /// The same two requests, pipelined but comfortably inside the budget, are
+    /// both served: the bound is a deadline, not a ban on pipelining.
+    #[tokio::test]
+    async fn pipelining_within_the_deadline_still_serves_both() {
+        let addr = listening_with(Timeouts {
+            idle: Duration::from_millis(100),
+            request: Duration::from_millis(2000),
+        })
+        .await;
+        let out = exchange(
+            addr,
+            concat!(
+                "GET /slow HTTP/1.1\r\nHost: t\r\n\r\n",
+                "GET /slow HTTP/1.1\r\nHost: t\r\nConnection: close\r\n\r\n",
+            ),
+        )
+        .await;
+        assert_eq!(out.matches("200 OK").count(), 2, "{out:?}");
     }
     #[tokio::test]
     async fn pipelined_requests_are_not_lost() {

@@ -80,8 +80,11 @@ socket only on an explicit `Connection: close`, an idle keep-alive window, or a
 response it cannot delimit. The keep-alive window and the request deadline are
 separate clocks, as they are in Node: the idle window governs a socket waiting
 for its next request to begin, and the request deadline is a single absolute
-bound running from the request's first byte through its header, its body, the
-handler and the response write, so trickled header fragments cannot extend it. The recorded policy still excludes
+bound running from the ARRIVAL of the request's first byte through its header,
+its body, the handler and the response write. The buffer keeps the arrival
+instant of every unread run, so neither trickled header fragments nor a pipelined
+predecessor's handler can extend it: a second request that landed in the same
+read is already spending its window while the first is being served. The recorded policy still excludes
 Connection/Keep-Alive/Date, so this is source-read rather than gate-verified.
 The writer bounds request size and rejects ambiguous
 Content-Length/Transfer-Encoding framing. HTTP/2, streaming request bodies and
