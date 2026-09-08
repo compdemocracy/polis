@@ -646,3 +646,49 @@ def test_checkpoint_contract_keys_come_from_the_crosslang_whitelist():
         | set(cert._ID_SCALAR_CHECKPOINT_KEYS)
     assert named <= PREP_MAIN_KEYS
     assert set(cert._REQUIRED_CHECKPOINT_KEYS) <= cert.ACCEPTANCE_KEYS
+
+
+# ---------------------------------------------------------------------------
+# P-022 B1 review, P2 — the temporary schedule path must be collision-free.
+# ---------------------------------------------------------------------------
+def _spec(dataset, schedule_id):
+    return sched.ScheduleSpec(dataset=dataset, schedule_id=schedule_id,
+                              cuts={"mode": "vote-count", "at": [1]})
+
+
+def test_temp_schedule_path_does_not_collide_for_valid_component_pairs(tmp_path):
+    """``f"{dataset}__{schedule_id}.json"`` mapped these two VALID pairs onto one
+    path, so the second entry's write silently handed its schedule to the
+    first entry's producer."""
+    a = _spec("synthetic__a", "b-clojure-legacy")
+    b = _spec("synthetic", "a__b-clojure-legacy")
+    pa = cert._write_temp_schedule(a, tmp_path)
+    pb = cert._write_temp_schedule(b, tmp_path)
+    assert pa != pb
+    assert json.loads(pa.read_text())["dataset"] == "synthetic__a"
+    assert json.loads(pb.read_text())["dataset"] == "synthetic"
+    assert json.loads(pa.read_text())["schedule_id"] == "b-clojure-legacy"
+    assert json.loads(pb.read_text())["schedule_id"] == "a__b-clojure-legacy"
+
+
+def test_temp_schedule_path_is_stable_for_the_same_pair(tmp_path):
+    a = _spec("synthetic", "every-vote-clojure-legacy")
+    assert cert._write_temp_schedule(a, tmp_path) == cert._write_temp_schedule(a, tmp_path)
+
+
+def test_temp_schedule_write_leaves_no_staging_files(tmp_path):
+    cert._write_temp_schedule(_spec("synthetic", "s"), tmp_path)
+    tmp_dir = tmp_path / ".certify_cache" / "tmp_schedules"
+    assert [p.name for p in sorted(tmp_dir.rglob("*")) if p.is_file()] == ["s.json"]
+
+
+@pytest.mark.parametrize("dataset,schedule_id", [
+    ("../escape", "s"), ("d", "../escape"), ("", "s"), ("d", ""),
+    ("d/e", "s"), ("d", "e/f"), ("..", "s"), (".", "s"),
+])
+def test_temp_schedule_rejects_ambiguous_or_traversing_components(
+    tmp_path, dataset, schedule_id
+):
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert._write_temp_schedule(_spec(dataset, schedule_id), tmp_path)
+    assert excinfo.value.stage == "schedule-path"
