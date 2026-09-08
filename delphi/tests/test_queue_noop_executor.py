@@ -14,8 +14,10 @@ hands us) is only used to apply the migration and to act as the producer.
 Not claimed: gates A1-A8. No COMMIT is severed here and no Rust adapter exists.
 """
 
+import contextlib
 import os
 import re
+import sys
 import uuid
 
 import pytest
@@ -118,35 +120,81 @@ def _executor_dsn(url: str, user: str, password: str) -> str:
     return re.sub(r"^(postgres(?:ql)?://)[^@]*@", rf"\1{user}:{password}@", url)
 
 
-@pytest.fixture(scope="module")
-def queue_db():
-    """A Postgres with the queue migration applied, plus a restricted login.
+def _release(conn, created):
+    """Drop only what this fixture actually created, and never raise.
 
-    The configured test database may be shared with other runs, so teardown
-    removes ONLY this fixture's own env namespace, its own conversation and its
-    own role, and runs in ``finally`` so a partially completed setup still
-    cleans up after itself. A wildcard over the ``ENV`` prefix would delete a
-    concurrent run's rows.
+    R1: cleanup used to run unconditionally, so a setup that skipped before
+    creating anything still issued DELETEs. On a login without CREATEROLE -
+    the case the skip exists for - those DELETEs raise InsufficientPrivilege
+    from inside `finally`, and that error replaces the intentional
+    `pytest.skip`, turning a supported situation into an error. The same shape
+    hides a failure that happens before the migration creates the tables.
+
+    So each step is guarded by the flag set after its create succeeded, and a
+    cleanup failure is collected rather than thrown from a `finally` that may
+    be unwinding something more important.
+    """
+    failures = []
+
+    def step(label, statement, args=()):
+        try:
+            with conn.cursor() as cur:
+                cur.execute(statement, args or None)
+        except Exception as exc:  # noqa: BLE001 - cleanup must not mask
+            failures.append(f"{label}: {exc}")
+
+    if created["migration"]:
+        for table in (
+            "polis_queue_requests",
+            "polis_queue_attempts",
+            "polis_queue_jobs",
+            "polis_queue_heads",
+            "polis_queue_runs",
+        ):
+            # Exact namespace only: never a LIKE over the shared prefix.
+            step(
+                f"delete {table}",
+                f"DELETE FROM public.{table} WHERE env = %s",
+                (created["env"],),
+            )
+    if created["zid"] is not None:
+        step(
+            "delete conversation",
+            "DELETE FROM conversations WHERE zid = %s",
+            (created["zid"],),
+        )
+    if created["role"] is not None:
+        step("drop owned", f"DROP OWNED BY {created['role']}")
+        step("drop role", f"DROP ROLE IF EXISTS {created['role']}")
+    return failures
+
+
+def _provision_queue_db():
+    """Generator behind the `queue_db` fixture, so the tests can drive it.
+
+    Yields once. Everything it creates is recorded as it is created, and only
+    those things are released; a prerequisite skip or a mid-setup failure
+    reaches the caller intact.
     """
     import psycopg2
 
-    if MIGRATION is None:
-        # Same packaging fact as the SQL pin: no checkout, no migration to
-        # apply. Skip before taking a connection or starting a container.
-        pytest.skip(
-            "no polis checkout above these tests and POLIS_MIGRATIONS_DIR is "
-            "unset, so server/postgres/migrations/000019_create_polis_queue.sql "
-            "cannot be read; run from a checkout or set POLIS_MIGRATIONS_DIR"
-        )
+    # An explicit POLIS_MIGRATIONS_DIR that does not resolve is operator error
+    # and fails here too, exactly as it does for the SQL pin; only the
+    # no-checkout case skips.
+    migration_path = require_migration()
 
     with require_polis_postgres() as url:
         suffix = uuid.uuid4().hex[:8]
         role = f"pq_x_{suffix}"
-        env = f"{ENV}-{suffix}"
-        zid = None
-        role_created = False
+        created = {
+            "env": f"{ENV}-{suffix}",
+            "role": None,
+            "zid": None,
+            "migration": False,
+        }
         conn = psycopg2.connect(url)
         conn.autocommit = True
+        clean_exit = False
         try:
             with conn.cursor() as cur:
                 cur.execute(
@@ -159,48 +207,48 @@ def queue_db():
                     "the test Postgres login can neither create roles nor apply "
                     "the queue migration; provide a superuser or CREATEROLE login"
                 )
-            with open(MIGRATION, "r", encoding="utf-8") as handle:
+            with open(migration_path, "r", encoding="utf-8") as handle:
                 migration_sql = handle.read()
             with conn.cursor() as cur:
                 cur.execute(migration_sql)
+                created["migration"] = True
                 cur.execute(
                     f"CREATE ROLE {role} LOGIN NOSUPERUSER NOCREATEROLE "
                     f"PASSWORD '{LOCAL_ROLE_PASSWORD}' IN ROLE polis_queue_executor"
                 )
-                role_created = True
+                created["role"] = role
                 cur.execute(
                     "INSERT INTO conversations (topic) VALUES (%s) RETURNING zid",
                     (f"p024 queue noop {suffix}",),
                 )
-                zid = cur.fetchone()[0]
+                created["zid"] = cur.fetchone()[0]
             yield {
                 "url": url,
-                "zid": zid,
-                "env": env,
+                "zid": created["zid"],
+                "env": created["env"],
                 "executor_dsn": _executor_dsn(url, role, LOCAL_ROLE_PASSWORD),
                 "role": role,
             }
+            clean_exit = True
         finally:
-            try:
-                with conn.cursor() as cur:
-                    for table in (
-                        "polis_queue_requests",
-                        "polis_queue_attempts",
-                        "polis_queue_jobs",
-                        "polis_queue_heads",
-                        "polis_queue_runs",
-                    ):
-                        # Exact namespace only: never a LIKE over the prefix.
-                        cur.execute(
-                            f"DELETE FROM public.{table} WHERE env = %s", (env,)
-                        )
-                    if zid is not None:
-                        cur.execute("DELETE FROM conversations WHERE zid=%s", (zid,))
-                    if role_created:
-                        cur.execute(f"DROP OWNED BY {role}")
-                        cur.execute(f"DROP ROLE IF EXISTS {role}")
-            finally:
-                conn.close()
+            failures = _release(conn, created)
+            conn.close()
+            # Only surface a cleanup problem when nothing else is in flight.
+            if failures and clean_exit:
+                raise RuntimeError(
+                    "queue fixture cleanup failed: " + "; ".join(failures)
+                )
+
+
+@pytest.fixture(scope="module")
+def queue_db():
+    """A Postgres with the queue migration applied, plus a restricted login.
+
+    The configured test database may be shared with other runs, so teardown
+    removes only this fixture's own env namespace, its own conversation and its
+    own role.
+    """
+    yield from _provision_queue_db()
 
 
 @pytest.fixture(autouse=True)
@@ -224,7 +272,15 @@ def _admin(queue_db, statement, args=()):
 
 
 def _enqueue(
-    queue_db, key, *, uri=None, sha=None, image=None, max_attempts=3, priority=1
+    queue_db,
+    key,
+    *,
+    uri=None,
+    sha=None,
+    image=None,
+    max_attempts=3,
+    priority=1,
+    env=None,
 ):
     """Produce one job as the provisioning login, mirroring the Node adapter."""
     import psycopg2
@@ -240,7 +296,7 @@ def _enqueue(
                 "%s::text,%s::uuid,%s::uuid,%s::text,%s::text,%s::text,%s::text,"
                 "%s::smallint,%s::integer)",
                 [
-                    queue_db["env"],
+                    env or queue_db["env"],
                     queue_db["zid"],
                     PRODUCT,
                     ACTOR,
@@ -641,3 +697,127 @@ def test_reaper_pages_101_parked_jobs_and_resets_its_cursor(queue_db):
     assert executor.reap_page() == 1
     assert executor.after_job is None
     assert executor.reap_page() == 0
+
+
+def _use_provider(monkeypatch, dsn):
+    """Point the fixture's prerequisite discovery at one explicit DSN."""
+
+    @contextlib.contextmanager
+    def provider():
+        yield dsn
+
+    monkeypatch.setattr(sys.modules[__name__], "require_polis_postgres", provider)
+
+
+def test_an_unprivileged_login_skips_rather_than_erroring(queue_db, monkeypatch):
+    """R1: the intentional prerequisite skip must survive teardown.
+
+    A login without CREATEROLE cannot apply the migration, which is exactly why
+    the fixture skips. Cleanup that runs regardless raises InsufficientPrivilege
+    from the `finally` and replaces that skip with an error.
+    """
+    limited = f"pq_lim_{uuid.uuid4().hex[:8]}"
+    _admin(
+        queue_db,
+        f"CREATE ROLE {limited} LOGIN NOSUPERUSER NOCREATEROLE "
+        f"PASSWORD '{LOCAL_ROLE_PASSWORD}' IN ROLE polis_queue_executor",
+    )
+    try:
+        _use_provider(
+            monkeypatch, _executor_dsn(queue_db["url"], limited, LOCAL_ROLE_PASSWORD)
+        )
+        with pytest.raises(pytest.skip.Exception):
+            next(_provision_queue_db())
+    finally:
+        _admin(queue_db, f"DROP OWNED BY {limited}")
+        _admin(queue_db, f"DROP ROLE IF EXISTS {limited}")
+
+
+def test_teardown_removes_its_own_namespace_and_leaves_a_sibling(queue_db, monkeypatch):
+    sibling = f"{ENV}-sibling-{uuid.uuid4().hex[:8]}"
+
+    def rows(env):
+        return _admin(
+            queue_db,
+            "SELECT count(*) FROM public.polis_queue_jobs WHERE env = %s",
+            (env,),
+        )[0][0]
+
+    assert _enqueue(queue_db, "sibling", env=sibling)["outcome"] == "enqueued"
+    assert rows(sibling) == 1
+    try:
+        _use_provider(monkeypatch, queue_db["url"])
+        generator = _provision_queue_db()
+        inner = next(generator)
+        assert _enqueue(inner, "inner")["outcome"] == "enqueued"
+        assert rows(inner["env"]) == 1
+        with pytest.raises(StopIteration):
+            next(generator)
+        assert rows(inner["env"]) == 0
+        assert rows(sibling) == 1
+    finally:
+        for table in (
+            "polis_queue_requests",
+            "polis_queue_attempts",
+            "polis_queue_jobs",
+            "polis_queue_heads",
+            "polis_queue_runs",
+        ):
+            _admin(
+                queue_db,
+                f"DELETE FROM public.{table} WHERE env = %s",
+                (sibling,),
+            )
+
+
+def test_a_mid_setup_failure_releases_only_what_it_created(queue_db, monkeypatch):
+    """A failure after the creates still frees them, and deletes nothing else."""
+    sibling = f"{ENV}-sibling-{uuid.uuid4().hex[:8]}"
+
+    def counts():
+        return (
+            _admin(
+                queue_db,
+                "SELECT count(*) FROM pg_roles WHERE rolname LIKE 'pq\\_x\\_%'",
+            )[0][0],
+            _admin(
+                queue_db,
+                "SELECT count(*) FROM conversations WHERE topic LIKE 'p024 queue noop %'",
+            )[0][0],
+            _admin(
+                queue_db,
+                "SELECT count(*) FROM public.polis_queue_jobs WHERE env = %s",
+                (sibling,),
+            )[0][0],
+        )
+
+    assert _enqueue(queue_db, "sibling-partial", env=sibling)["outcome"] == "enqueued"
+    before = counts()
+    assert before[2] == 1
+    try:
+        _use_provider(monkeypatch, queue_db["url"])
+        # Fails after the migration, the role and the conversation exist, and
+        # before the fixture yields.
+        monkeypatch.setattr(
+            sys.modules[__name__],
+            "_executor_dsn",
+            lambda *args, **kwargs: (_ for _ in ()).throw(
+                RuntimeError("synthetic setup failure")
+            ),
+        )
+        with pytest.raises(RuntimeError, match="synthetic setup failure"):
+            next(_provision_queue_db())
+        assert counts() == before
+    finally:
+        for table in (
+            "polis_queue_requests",
+            "polis_queue_attempts",
+            "polis_queue_jobs",
+            "polis_queue_heads",
+            "polis_queue_runs",
+        ):
+            _admin(
+                queue_db,
+                f"DELETE FROM public.{table} WHERE env = %s",
+                (sibling,),
+            )
