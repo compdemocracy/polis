@@ -408,18 +408,37 @@ describe('reconcileTrackedJob', () => {
     expect(isTrackedJobLive(next)).toBe(true);
   });
 
-  it('does not spin on a supersession cycle', () => {
+  it('keeps the acknowledged job on a supersession cycle', () => {
     const previous = { jobId: 'job-a', status: 'PENDING', workLive: true, reportId: 'r-test' };
-    const next = reconcileTrackedJob(
-      previous,
-      [
-        { jobId: 'job-a', status: 'FAILED', workLive: false, supersededBy: 'job-b' },
-        { jobId: 'job-b', status: 'FAILED', workLive: false, supersededBy: 'job-a' },
-      ],
-      false,
-      'r-test'
-    );
-    expect(next).toBeDefined();
+    expect(
+      reconcileTrackedJob(
+        previous,
+        [
+          { jobId: 'job-a', status: 'FAILED', workLive: false, supersededBy: 'job-b' },
+          { jobId: 'job-b', status: 'FAILED', workLive: false, supersededBy: 'job-a' },
+        ],
+        false,
+        'r-test'
+      )
+    ).toBe(previous);
+  });
+
+  it('keeps the acknowledged job on a tail into a cycle', () => {
+    // R7-F3: stopping at the first repeated successor returned a terminal row
+    // that was not the job we started from, which ended the polling.
+    const previous = { jobId: 'job-a', status: 'PENDING', workLive: true, reportId: 'r-test' };
+    expect(
+      reconcileTrackedJob(
+        previous,
+        [
+          { jobId: 'job-a', status: 'FAILED', workLive: false, supersededBy: 'job-b' },
+          { jobId: 'job-b', status: 'FAILED', workLive: false, supersededBy: 'job-c' },
+          { jobId: 'job-c', status: 'FAILED', workLive: false, supersededBy: 'job-b' },
+        ],
+        false,
+        'r-test'
+      )
+    ).toBe(previous);
   });
 
   it('does not carry a job across a report change', () => {
