@@ -466,6 +466,14 @@ function handle_PUT_participants_extended(
     fields.show_translation_activated = req.p.show_translation_activated;
   }
 
+  // Same defect as PUT /api/v3/users: the only assignable column comes from a
+  // want() parameter, so an empty update renders
+  // "UPDATE participants_extended SET  WHERE …" and Postgres answers 42601.
+  if (_.isEmpty(fields)) {
+    failJson(res, 400, "polis_err_param_missing_show_translation_activated");
+    return;
+  }
+
   const q = sql_participants_extended
     .update(fields)
     .where(sql_participants_extended.zid.equals(zid))
