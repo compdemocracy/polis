@@ -147,6 +147,18 @@ async function main() {
           return res.end(
             JSON.stringify({
               participant,
+              ...Object.fromEntries(
+                require("./pca2-fixtures.json")
+                  .filter((f) => f.auth === "participant")
+                  .map((f) => [
+                    `participant-${f.zid}`,
+                    require("../src/auth/anonymous-jwt.ts").issueAnonymousJWT(
+                      f.capability,
+                      3,
+                      2
+                    ),
+                  ])
+              ),
               owner: await oidc("test.user.0@polis.test"),
               admin: await oidc("admin@polis.test"),
             })

@@ -115,6 +115,24 @@ services:
       P027_CONTROL_URL: http://server:5001
     networks: [sealed]
 
+  math-seed:
+    image: p011-delphi-test:latest
+    profiles: [seed]
+    entrypoint: [python3]
+    command: [/repo/server/characterization/seed-pca2.py]
+    working_dir: /repo
+    volumes:
+      - ../../delphi:/repo/delphi:ro
+      - ./:/repo/server/characterization:ro
+      - ./artifacts:/repo/server/characterization/artifacts
+    environment:
+      COMPOSE_PROJECT_NAME: ${COMPOSE_PROJECT_NAME}
+      POLIS_RECOVERY_PG_PORT: ${POLIS_RECOVERY_PG_PORT}
+      PYTHONDONTWRITEBYTECODE: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+    networks: [sealed]
+
 networks:
   sealed:
     internal: true

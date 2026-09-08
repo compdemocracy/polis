@@ -113,6 +113,10 @@ function send(request, tokens, deadlineMs = 2000) {
         typeof v === "object" ? JSON.stringify(v) : String(v)
       );
     const headers = { host: "localhost:5000", ...request.headers };
+    if (request.method === "GET" && request.body !== null)
+      headers["content-length"] = String(
+        Buffer.byteLength(JSON.stringify(request.body))
+      );
     if (headers.authorization?.startsWith("$auth:"))
       headers.authorization = `Bearer ${
         tokens[headers.authorization.slice(6)]
@@ -312,7 +316,7 @@ async function runCase(c, tokens, tables, normalizer) {
       c.request.body?.conversation_id || c.request.query.conversation_id,
     participants: after["pg:participants"],
     zid: 1,
-    actorUid: { owner: 1, admin: 2, participant: 3 }[c.auth],
+    actorUid: { owner: 1, admin: 2, moderator: 2, participant: 3 }[c.auth],
     oidcSub: ["owner", "admin"].includes(c.auth)
       ? JSON.parse(Buffer.from(tokens[c.auth].split(".")[1], "base64url")).sub
       : undefined,
@@ -607,6 +611,38 @@ async function main() {
   );
   const selected = tables.filter((t) => actualTables.has(t));
   const tokens = { ...(await get("/tokens")), ...(await get("/public-key")) };
+  tokens.moderator = tokens.admin; // uid 2 is the configured global moderator.
+  const participantBindings = [];
+  for (const f of require("./pca2-fixtures.json").filter(
+    (f) => f.auth === "participant"
+  )) {
+    const binding = {
+      publicKey: tokens.publicKey,
+      now: 1700000000,
+      issuer: "https://pol.is/",
+      audience: "participants",
+      ttl: 31536000,
+      conversation_id: f.capability,
+      uid: 3,
+      pid: 2,
+      sub: "anon:3",
+    };
+    require("./jwt.cjs").verifyToken(tokens[`participant-${f.zid}`], binding);
+    const rows = await pool.query(
+      "select pid from participants where zid=$1 and uid=3",
+      [f.zid]
+    );
+    if (rows.rows.length !== 1 || rows.rows[0].pid !== 2)
+      throw Error("PCA2 participant binding missing");
+    participantBindings.push({
+      credentialRef: `$auth:participant-${f.zid}`,
+      zid: f.zid,
+      uid: 3,
+      pid: 2,
+      conversation_id: f.capability,
+      verified: true,
+    });
+  }
   for (const auth of ["participant", "owner", "admin"]) {
     const probe = await send(
       {
@@ -744,7 +780,8 @@ async function main() {
         code: fs.readFileSync(path.join(__dirname, "normalize.cjs"), "utf8"),
       },
       "generated-policy.json": {
-        origin: "fixture.sql only; no imported data permitted",
+        origin:
+          "fixture.sql + pca2-fixtures.json + Python engine/writer; no imported data permitted",
         columns: schemaRows.map((r) => ({ ...r, policy: "generated-exact" })),
       },
       "run.json": {
@@ -753,6 +790,22 @@ async function main() {
         runtime: dump.runtime,
       },
       "recording-schema.json": require("./P-025-recording.schema.json"),
+      "pca2-auth.json": {
+        participantBindings,
+        moderator: {
+          credentialRef: "$auth:moderator",
+          uid: 2,
+          source: "ADMIN_UIDS=[2]; isPolisDev grants isModerator",
+        },
+      },
+      "pca2-fixtures.json": require("./pca2-fixtures.json"),
+      "pca2-seed.json": JSON.parse(
+        fs.readFileSync("/artifacts/pca2-seed.json", "utf8")
+      ),
+      "seed-pca2.py": fs.readFileSync(
+        path.join(__dirname, "seed-pca2.py"),
+        "utf8"
+      ),
       "fixture.sql": fs.readFileSync(
         path.join(__dirname, "fixture.sql"),
         "utf8"
@@ -808,7 +861,7 @@ async function main() {
   );
   if (
     failures ||
-    (cov.missing && process.env.P027_MARKERS !== "0") ||
+    (cov.missing && profile !== "pca2" && process.env.P027_MARKERS !== "0") ||
     diffs.some((d) => d.result === "different")
   )
     process.exitCode = 1;
