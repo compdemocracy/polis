@@ -564,6 +564,13 @@ Email verified! You can close this tab or hit the back button.
           failJson(res, 500, "polis_err_get_email_db", err);
           return;
         }
+        // Same hazard as POST /api/v3/trashes: this callback runs outside any
+        // Express or promise boundary, so dereferencing a missing row here
+        // would surface as an uncaughtException and kill the web process.
+        if (!results?.rows?.length) {
+          failJson(res, 500, "polis_err_get_email_db");
+          return;
+        }
         const email = results.rows[0].email;
         const fullname = results.rows[0].hname;
 
