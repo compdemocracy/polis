@@ -10,6 +10,7 @@
  */
 import {
   admitDelphiJob,
+  assessJobLiveness,
   configFingerprint,
   GuardRow,
   idempotencyGuardKey,
@@ -61,12 +62,14 @@ function makeStore(overrides: Partial<JobAdmissionStore>): JobAdmissionStore {
   return {
     admit: jest.fn(async () => ({ outcome: "admitted" as const })),
     readGuard: jest.fn(async () => null),
-    readJobStatus: jest.fn(async () => null),
+    readJob: jest.fn(async () => null),
     sweepLiveDescendants: jest.fn(async () => ({ kind: "none" as const })),
     sweepUnguardedActiveRoot: jest.fn(async () => ({ kind: "none" as const })),
     adoptGuard: jest.fn(async () => true),
+    bindAlias: jest.fn(async () => true),
     clearGuard: jest.fn(async () => true),
     clearAlias: jest.fn(async () => true),
+    deleteUnclaimedJob: jest.fn(async () => true),
     ...overrides,
   };
 }
@@ -118,7 +121,10 @@ describe("admitDelphiJob: release needs authoritative proof", () => {
     const store = makeStore({
       admit: jest.fn(async () => ({ outcome: "scope_taken" as const })),
       readGuard: jest.fn(async () => liveGuard()),
-      readJobStatus: jest.fn(async () => "COMPLETED"),
+      readJob: jest.fn(async () => ({
+        status: "COMPLETED",
+        process_exit_confirmed: true,
+      })),
       sweepLiveDescendants: jest.fn(async () => ({
         kind: "unknown" as const,
         reason: "synthetic read failure",
@@ -139,7 +145,10 @@ describe("admitDelphiJob: release needs authoritative proof", () => {
     const store = makeStore({
       admit: jest.fn(async () => ({ outcome: "scope_taken" as const })),
       readGuard: jest.fn(async () => liveGuard()),
-      readJobStatus: jest.fn(async () => "COMPLETED"),
+      readJob: jest.fn(async () => ({
+        status: "COMPLETED",
+        process_exit_confirmed: true,
+      })),
       sweepLiveDescendants: jest.fn(async () => ({
         kind: "found" as const,
         value: "batch_check_existing-job_1",
@@ -156,7 +165,7 @@ describe("admitDelphiJob: release needs authoritative proof", () => {
     const store = makeStore({
       admit: jest.fn(async () => ({ outcome: "scope_taken" as const })),
       readGuard: jest.fn(async () => liveGuard()),
-      readJobStatus: jest.fn(async () => null),
+      readJob: jest.fn(async () => null),
     });
 
     const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
@@ -172,7 +181,7 @@ describe("admitDelphiJob: release needs authoritative proof", () => {
     const store = makeStore({
       admit: jest.fn(async () => ({ outcome: "scope_taken" as const })),
       readGuard: jest.fn(async () => liveGuard()),
-      readJobStatus: jest.fn(async () => {
+      readJob: jest.fn(async () => {
         throw namedError("InternalServerError");
       }),
     });
@@ -191,7 +200,10 @@ describe("admitDelphiJob: release needs authoritative proof", () => {
     const store = makeStore({
       admit,
       readGuard: jest.fn(async () => guards.shift() ?? null),
-      readJobStatus: jest.fn(async () => "COMPLETED"),
+      readJob: jest.fn(async () => ({
+        status: "COMPLETED",
+        process_exit_confirmed: true,
+      })),
     });
 
     const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
@@ -230,7 +242,10 @@ describe("admitDelphiJob: idempotency binding", () => {
           ? aliasRow({ config_hash: "some-other-payload" })
           : liveGuard()
       ),
-      readJobStatus: jest.fn(async () => "PENDING"),
+      readJob: jest.fn(async () => ({
+        status: "PENDING",
+        process_exit_confirmed: true,
+      })),
     });
 
     const result = await admitDelphiJob(
@@ -269,7 +284,10 @@ describe("admitDelphiJob: idempotency binding", () => {
       readGuard: jest.fn(async (key: string) =>
         key === aliasKey ? aliasRow() : null
       ),
-      readJobStatus: jest.fn(async () => "COMPLETED"),
+      readJob: jest.fn(async () => ({
+        status: "COMPLETED",
+        process_exit_confirmed: true,
+      })),
     });
 
     const result = await admitDelphiJob(
@@ -321,7 +339,10 @@ describe("admitDelphiJob: idempotency binding", () => {
         throw namedError("TimeoutError");
       }),
       readGuard: jest.fn(async () => guards.shift() ?? null),
-      readJobStatus: jest.fn(async () => "PENDING"),
+      readJob: jest.fn(async () => ({
+        status: "PENDING",
+        process_exit_confirmed: true,
+      })),
     });
 
     const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
@@ -352,7 +373,10 @@ describe("admitDelphiJob: migration", () => {
         kind: "found" as const,
         value: "legacy-root",
       })),
-      readJobStatus: jest.fn(async () => "PROCESSING"),
+      readJob: jest.fn(async () => ({
+        status: "PROCESSING",
+        process_exit_confirmed: true,
+      })),
     });
 
     const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
@@ -378,7 +402,10 @@ describe("admitDelphiJob: migration", () => {
       sweepUnguardedActiveRoot: sweep,
       adoptGuard: jest.fn(async () => false),
       readGuard: jest.fn(async () => guards.shift() ?? null),
-      readJobStatus: jest.fn(async () => "PENDING"),
+      readJob: jest.fn(async () => ({
+        status: "PENDING",
+        process_exit_confirmed: true,
+      })),
     });
 
     const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
@@ -401,6 +428,219 @@ describe("admitDelphiJob: identity", () => {
 
     expect(result.outcome).toBe("created");
     expect((result as any).jobId.startsWith("job-1_")).toBe(true);
+  });
+});
+
+describe("admitDelphiJob: round-3 review", () => {
+  it("keeps the guard on a FAILED root whose child process was never confirmed gone", async () => {
+    // The old worker marked a job FAILED without stopping its subprocess, so
+    // the orphan could still create a checker after the sweep. A FAILED root
+    // that does not carry the worker's exit confirmation is not proof.
+    const store = makeStore({
+      admit: jest.fn(async () => ({ outcome: "scope_taken" as const })),
+      readGuard: jest.fn(async () => liveGuard()),
+      readJob: jest.fn(async () => ({ status: "FAILED" })),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+    expect(result).toMatchObject({ outcome: "deduplicated", workLive: true });
+    expect(store.clearGuard).not.toHaveBeenCalled();
+  });
+
+  it("releases a FAILED root once the worker confirms the process exited", async () => {
+    const guards: (GuardRow | null)[] = [liveGuard(), null];
+    const store = makeStore({
+      admit: jest
+        .fn()
+        .mockResolvedValueOnce({ outcome: "scope_taken" })
+        .mockResolvedValueOnce({ outcome: "admitted" }),
+      readGuard: jest.fn(async () => guards.shift() ?? null),
+      readJob: jest.fn(async () => ({
+        status: "FAILED",
+        process_exit_confirmed: true,
+      })),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+    expect(store.clearGuard).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({ outcome: "created" });
+  });
+
+  it("keeps the guard when a root submitted work it could not schedule a checker for", async () => {
+    const store = makeStore({
+      admit: jest.fn(async () => ({ outcome: "scope_taken" as const })),
+      readGuard: jest.fn(async () => liveGuard()),
+      readJob: jest.fn(async () => ({
+        status: "COMPLETED",
+        checker_schedule_failed: true,
+      })),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+    expect(result).toMatchObject({ outcome: "deduplicated", workLive: true });
+    expect(store.clearGuard).not.toHaveBeenCalled();
+  });
+
+  it("reports live work on a keyed replay of a completed root with a live child", async () => {
+    // The alias path must use the same effective-work assessment as the
+    // unkeyed path, or a retry is told the work is finished when it is not.
+    const aliasKey = idempotencyGuardKey(scope, "k");
+    const store = makeStore({
+      readGuard: jest.fn(async (guardKey: string) =>
+        guardKey === aliasKey
+          ? ({
+              guard_key: aliasKey,
+              job_id: "root",
+              version: 1,
+              conversation_id: scope.conversationId,
+              job_type: scope.jobType,
+              scope_guard_key: scopeGuardKey(scope),
+              config_hash: configFingerprint(scope.jobConfig),
+              binding_expires_at: new Date(Date.now() + 60_000).toISOString(),
+            } as GuardRow)
+          : null
+      ),
+      readJob: jest.fn(async () => ({
+        status: "COMPLETED",
+        process_exit_confirmed: true,
+      })),
+      sweepLiveDescendants: jest.fn(async () => ({
+        kind: "found" as const,
+        value: "batch_check_root_1",
+      })),
+    });
+
+    const result = await admitDelphiJob(
+      { scope, jobItem: jobItem(), idempotencyKey: "k" },
+      store
+    );
+    expect(result).toMatchObject({
+      outcome: "deduplicated",
+      jobId: "root",
+      jobStatus: "COMPLETED",
+      workLive: true,
+    });
+  });
+
+  it("binds a newly supplied key to the job it deduplicated onto", async () => {
+    // Without this, the first keyed response carries a job id it never bound,
+    // so the retry it invites starts a second run once the first finishes.
+    const store = makeStore({
+      readGuard: jest.fn(async (guardKey: string) =>
+        guardKey.startsWith("s:") ? liveGuard() : null
+      ),
+      readJob: jest.fn(async () => ({ status: "PROCESSING" })),
+    });
+
+    const result = await admitDelphiJob(
+      { scope, jobItem: jobItem(), idempotencyKey: "fresh" },
+      store
+    );
+
+    expect(result).toMatchObject({
+      outcome: "deduplicated",
+      jobId: "existing-job",
+    });
+    expect(store.bindAlias).toHaveBeenCalledTimes(1);
+    expect((store.bindAlias as jest.Mock).mock.calls[0][0]).toMatchObject({
+      guard_key: idempotencyGuardKey(scope, "fresh"),
+      job_id: "existing-job",
+      scope_guard_key: scopeGuardKey(scope),
+      conversation_id: scope.conversationId,
+    });
+  });
+
+  it("binds a newly supplied key on adoption too", async () => {
+    const store = makeStore({
+      sweepUnguardedActiveRoot: jest.fn(async () => ({
+        kind: "found" as const,
+        value: "legacy-root",
+      })),
+      readJob: jest.fn(async () => ({ status: "PROCESSING" })),
+    });
+
+    const result = await admitDelphiJob(
+      { scope, jobItem: jobItem(), idempotencyKey: "fresh" },
+      store
+    );
+
+    expect(result).toMatchObject({ jobId: "legacy-root", adopted: true });
+    expect((store.bindAlias as jest.Mock).mock.calls[0][0]).toMatchObject({
+      job_id: "legacy-root",
+    });
+  });
+
+  it("withdraws its own job when an unguarded producer raced it", async () => {
+    // A producer outside the transaction cannot be fenced by a read. The
+    // post-admission re-check compensates while the row is still unclaimed.
+    const sweep = jest
+      .fn()
+      .mockResolvedValueOnce({ kind: "none" })
+      .mockResolvedValueOnce({ kind: "found", value: "old-producer" })
+      .mockResolvedValue({ kind: "found", value: "old-producer" });
+    const store = makeStore({
+      sweepUnguardedActiveRoot: sweep,
+      readJob: jest.fn(async () => ({ status: "PENDING" })),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+
+    expect(store.deleteUnclaimedJob).toHaveBeenCalledWith("job-1");
+    expect(store.clearGuard).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      outcome: "deduplicated",
+      jobId: "old-producer",
+      adopted: true,
+    });
+  });
+
+  it("keeps both rows, loudly, when its own job was already claimed", async () => {
+    const sweep = jest
+      .fn()
+      .mockResolvedValueOnce({ kind: "none" })
+      .mockResolvedValue({ kind: "found", value: "old-producer" });
+    const store = makeStore({
+      sweepUnguardedActiveRoot: sweep,
+      deleteUnclaimedJob: jest.fn(async () => false),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+    // Nothing better is possible once a worker owns the row; the caller is
+    // told about the job that exists rather than being lied to.
+    expect(result).toMatchObject({ outcome: "created", jobId: "job-1" });
+  });
+});
+
+describe("assessJobLiveness", () => {
+  it("reports live work for a terminal root with a live descendant", async () => {
+    const store = makeStore({
+      readJob: jest.fn(async () => ({
+        status: "COMPLETED",
+        process_exit_confirmed: true,
+      })),
+      sweepLiveDescendants: jest.fn(async () => ({
+        kind: "found" as const,
+        value: "child",
+      })),
+    });
+
+    await expect(assessJobLiveness(store, "root")).resolves.toMatchObject({
+      status: "COMPLETED",
+      live: true,
+    });
+  });
+
+  it("reports finished only for a terminal, childless, confirmed root", async () => {
+    const store = makeStore({
+      readJob: jest.fn(async () => ({
+        status: "COMPLETED",
+        process_exit_confirmed: true,
+      })),
+    });
+
+    await expect(assessJobLiveness(store, "root")).resolves.toMatchObject({
+      live: false,
+    });
   });
 });
 

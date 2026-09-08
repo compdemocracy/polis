@@ -1476,6 +1476,19 @@ class BatchReportGenerator:
                     except Exception as e:
                         logger.error(f"Failed to schedule batch status check job: {str(e)}")
                         logger.error(traceback.format_exc())
+                        # The provider batch has already been submitted, so there
+                        # is outstanding paid work with no checker row to find.
+                        # Record that on the root: the server's submission guard
+                        # treats it as unresolved and refuses to release the
+                        # scope, rather than admitting a second paid run.
+                        try:
+                            job_table.update_item(
+                                Key={'job_id': self.job_id},
+                                UpdateExpression="SET checker_schedule_failed = :failed",
+                                ExpressionAttributeValues={':failed': True},
+                            )
+                        except Exception as flag_error:
+                            logger.error(f"Could not flag checker scheduling failure on job {self.job_id}: {flag_error}")
                         # Continue despite failure
                         logger.info("Continuing despite failure to schedule status check job")
 

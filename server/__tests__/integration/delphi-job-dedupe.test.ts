@@ -103,14 +103,23 @@ describe("Delphi job submission deduplication", () => {
     return result.Item;
   }
 
-  async function setStatus(jobId: string, status: string): Promise<void> {
+  async function setStatus(
+    jobId: string,
+    status: string,
+    // `job_poller.py` writes this only after it has stopped and joined the
+    // job's child process; the guard will not release a FAILED root without it.
+    processExitConfirmed = true
+  ): Promise<void> {
     await docClient.send(
       new UpdateCommand({
         TableName: JOB_QUEUE_TABLE,
         Key: { job_id: jobId },
-        UpdateExpression: "SET #s = :s",
+        UpdateExpression: "SET #s = :s, process_exit_confirmed = :confirmed",
         ExpressionAttributeNames: { "#s": "status" },
-        ExpressionAttributeValues: { ":s": status },
+        ExpressionAttributeValues: {
+          ":s": status,
+          ":confirmed": processExitConfirmed,
+        },
       })
     );
   }
@@ -282,13 +291,44 @@ describe("Delphi job submission deduplication", () => {
     expect(await listJobs()).toHaveLength(2);
   });
 
-  it("lets a new submission through after a FAILED job", async () => {
+  it("lets a new submission through after a confirmed FAILED job", async () => {
     const first = await submitJob();
     await setStatus(first.body.job_id, "FAILED");
 
     const second = await submitJob();
     expect(second.body.deduplicated).toBe(false);
     expect(second.body.job_id).not.toBe(first.body.job_id);
+  });
+
+  it("keeps the guard on a FAILED job whose worker never confirmed the child exited", async () => {
+    // The pre-round-3 worker marked a job FAILED without stopping its
+    // subprocess, so the orphan could still create a checker after the sweep.
+    const first = await submitJob();
+    await setStatus(first.body.job_id, "FAILED", false);
+
+    const second = await submitJob();
+    expect(second.body.deduplicated).toBe(true);
+    expect(second.body.job_id).toBe(first.body.job_id);
+    expect(second.body.work_live).toBe(true);
+    expect(await listJobs()).toHaveLength(1);
+  });
+
+  it("keeps the guard when a completed root could not schedule its checker", async () => {
+    const first = await submitJob();
+    await setStatus(first.body.job_id, "COMPLETED");
+    await docClient.send(
+      new UpdateCommand({
+        TableName: JOB_QUEUE_TABLE,
+        Key: { job_id: first.body.job_id },
+        UpdateExpression: "SET checker_schedule_failed = :failed",
+        ExpressionAttributeValues: { ":failed": true },
+      })
+    );
+
+    const second = await submitJob();
+    expect(second.body.deduplicated).toBe(true);
+    expect(second.body.job_id).toBe(first.body.job_id);
+    expect(await listJobs()).toHaveLength(1);
   });
 
   it("holds the guard while a checker descendant of a completed parent is live", async () => {
@@ -417,6 +457,47 @@ describe("Delphi job submission deduplication", () => {
     expect(second.body.job_id).toBe(first.body.job_id);
     expect(second.body.batch_id).toBe(first.body.job_id);
     expect(second.body.deduplicated).toBe(true);
+    expect(await listJobs()).toHaveLength(1);
+  });
+
+  it("adopts the root of a live checker whose parent is already terminal", async () => {
+    // The rollout state the guarded path exists to protect: an old COMPLETED
+    // root whose checker is still running, with no guard covering either.
+    const legacyRootId = `legacy-root-${Date.now()}`;
+    await docClient.send(
+      new PutCommand({
+        TableName: JOB_QUEUE_TABLE,
+        Item: {
+          job_id: legacyRootId,
+          conversation_id: zid,
+          job_type: "FULL_PIPELINE",
+          status: "COMPLETED",
+          process_exit_confirmed: true,
+          created_at: new Date().toISOString(),
+        },
+      })
+    );
+    await addCheckerDescendant(legacyRootId, "PENDING");
+
+    const res = await submitJob();
+    expect(res.body.deduplicated).toBe(true);
+    expect(res.body.job_id).toBe(legacyRootId);
+    expect(res.body.work_live).toBe(true);
+    // Old root plus its checker, and no new root.
+    expect(await listJobs()).toHaveLength(2);
+  });
+
+  it("binds a newly supplied key to the job it deduplicated onto", async () => {
+    const first = await submitJob();
+    const keyed = await submitJob({ idempotency_key: "late-key" });
+    expect(keyed.body.deduplicated).toBe(true);
+    expect(keyed.body.job_id).toBe(first.body.job_id);
+
+    // Finishing the job must not make that key start a second run.
+    await setStatus(first.body.job_id, "COMPLETED");
+    const retry = await submitJob({ idempotency_key: "late-key" });
+    expect(retry.body.job_id).toBe(first.body.job_id);
+    expect(retry.body.deduplicated).toBe(true);
     expect(await listJobs()).toHaveLength(1);
   });
 

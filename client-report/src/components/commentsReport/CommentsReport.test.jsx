@@ -26,9 +26,15 @@ jest.mock('../../util/net', () => ({
   default: { polisGet: jest.fn(), polisPost: jest.fn() },
 }));
 
+// `mock`-prefixed so the jest.mock factory may close over it.
+const mockReport = { id: 'r-test' };
 jest.mock('../framework/useReportId', () => ({
-  useReportId: () => ({ report_id: 'r-test' }),
+  useReportId: () => ({ report_id: mockReport.id }),
 }));
+
+beforeEach(() => {
+  mockReport.id = 'r-test';
+});
 
 jest.mock('../lists/commentList.jsx', () => () => <div />);
 
@@ -185,6 +191,54 @@ describe('CommentsReport Delphi job status', () => {
   });
 });
 
+describe('report switching', () => {
+  it('ignores a previous report\u2019s delayed response', async () => {
+    // R5: the old render's callback compares two values it captured itself, so
+    // without a generation reference it happily installs stale state.
+    const resolvers = {};
+    net.polisGet.mockImplementation((path, params) => {
+      if (path === '/api/v3/delphi/visualizations') {
+        return new Promise((resolve) => {
+          resolvers[params.report_id] = resolve;
+        });
+      }
+      if (path === '/api/v3/delphi/reports') {
+        return Promise.resolve({ status: 'success', reports: {} });
+      }
+      if (path === '/api/v3/delphi/logs') {
+        return Promise.resolve([]);
+      }
+      return Promise.resolve({ status: 'success' });
+    });
+
+    mockReport.id = 'r-old';
+    const view = render(<CommentsReport {...props} />);
+    await waitFor(() => expect(resolvers['r-old']).toBeDefined());
+
+    // Switch reports before the first response lands.
+    mockReport.id = 'r-new';
+    view.rerender(<CommentsReport {...props} key="same" />);
+    await waitFor(() => expect(resolvers['r-new']).toBeDefined());
+
+    resolvers['r-new']({
+      status: 'success',
+      jobs: [{ jobId: 'new-report-job', status: 'PENDING', visualizations: [] }],
+    });
+    const banner = await screen.findByTestId('delphi-job-status');
+    expect(banner).toHaveTextContent('new-report-job');
+
+    // The old report's response arrives late and must be dropped.
+    resolvers['r-old']({
+      status: 'success',
+      jobs: [{ jobId: 'old-report-job', status: 'PENDING', visualizations: [] }],
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId('delphi-job-status')).toHaveTextContent('new-report-job')
+    );
+    expect(screen.getByTestId('delphi-job-status')).not.toHaveTextContent('old-report-job');
+  });
+});
+
 describe('reconcileTrackedJob', () => {
   const acknowledged = { jobId: 'job-a', status: 'PENDING', reportId: 'r-test' };
 
@@ -240,6 +294,27 @@ describe('reconcileTrackedJob', () => {
     expect(
       reconcileTrackedJob(acknowledged, [{ jobId: 'job-a', status: 'COMPLETED' }], false, 'r-test')
     ).toBeNull();
+  });
+
+  it('keeps a terminal acknowledged job while the server says work is live', () => {
+    // R4: a COMPLETED root whose checker has not surfaced in this
+    // eventually-consistent list yet is not finished work.
+    const live = { jobId: 'job-a', status: 'COMPLETED', workLive: true, reportId: 'r-test' };
+    expect(
+      reconcileTrackedJob(live, [{ jobId: 'job-a', status: 'COMPLETED' }], false, 'r-test')
+    ).toBe(live);
+  });
+
+  it('does not treat an unknown status as terminal', () => {
+    // R4: /delphi/visualizations reports "unknown" for a row with no status.
+    const next = reconcileTrackedJob(
+      { ...acknowledged, workLive: true },
+      [{ jobId: 'job-a', status: 'unknown' }],
+      false,
+      'r-test'
+    );
+    expect(next).not.toBeNull();
+    expect(next.jobId).toBe('job-a');
   });
 
   it('does not carry a job across a report change', () => {

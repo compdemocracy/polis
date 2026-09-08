@@ -393,8 +393,9 @@ and is what an idempotency key binds to.
 
 Scope rows carry `job_id`, `version`, `conversation_id`, `report_id`,
 `job_type`, `config_hash` and, for an adopted pre-existing root, `adopted_at`.
-Alias rows carry `scope_guard_key`, `config_hash`, `job_id` and
-`binding_expires_at`.
+Alias rows carry `scope_guard_key`, `config_hash`, `job_id`,
+`binding_expires_at`, and `conversation_id`/`report_id`/`job_type` so a
+conversation's guard rows can be found without a join.
 
 ### Lifecycle
 
@@ -404,24 +405,43 @@ Alias rows carry `scope_guard_key`, `config_hash`, `job_id` and
    occupied by someone else's job.
 2. **Scope check.** A strongly-consistent read of the scope guard decides
    whether work is outstanding.
-3. **Migration check.** With no guard, the server sweeps the base table for an
-   already-active root of the same scope — work an older producer started — and
-   adopts it rather than admitting a duplicate beside it.
+3. **Migration check.** With no guard, the server sweeps the base table for
+   active work in the scope — including a live checker whose parent root is
+   already terminal — and adopts that root rather than admitting a duplicate
+   beside it. After writing, it sweeps again: a producer that does not take part
+   in the transaction cannot be fenced by a read, so if one raced in, the server
+   withdraws its own row while that row is still unclaimed. This narrows the
+   window; it does not close it. **Deploy every producer before relying on the
+   guard.**
 4. **Admission.** One transaction: conditional `Put` of the queue row
    (`attribute_not_exists(job_id)`), conditional `Put` of the scope guard, and
    the alias when supplied. Either both tables are written or neither is.
-5. **Release.** A guard is deleted only under an exact `job_id` + `version`
-   condition, and only on *proof* that no paid work remains: a
-   strongly-consistent read showing the root `COMPLETED`/`FAILED`, plus a
-   completed, strongly-consistent **base-table scan** finding no non-terminal
-   `batch_job_id` descendant of that root. A GSI query cannot serve here — a
-   global secondary index is eventually consistent and does not accept
-   `ConsistentRead`, so its silence is not evidence. Any error, page cap, or
-   missing root row keeps the guard.
-6. **Alias expiry.** The alias outlives the scope guard for a 24-hour binding
-   window, so a retry after a fast completion returns the recorded job instead
-   of starting a second one. The window is evaluated in code; it is not a
-   DynamoDB TTL. An intentional rerun needs a new key, or none.
+5. **Key binding.** Every accepted idempotency key is bound to the job the
+   caller was actually told about — on creation, on deduplication and on
+   adoption alike. A key that is acknowledged without a binding invites a retry
+   that starts a second run once the first job finishes.
+6. **Release.** A guard is deleted only under an exact `job_id` + `version`
+   condition, and only on *proof* that no paid work remains. Four conditions,
+   all of them:
+   - a strongly-consistent read shows the root `COMPLETED` or `FAILED`;
+   - a completed, strongly-consistent **base-table scan** finds no non-terminal
+     `batch_job_id` descendant. A GSI query cannot serve here — a global
+     secondary index is eventually consistent and does not accept
+     `ConsistentRead`, so its silence is not evidence;
+   - a `FAILED` root carries `process_exit_confirmed`, which `job_poller.py`
+     writes only after it has stopped and joined the job's child process. A root
+     failed out from under a live subprocess can still grow a checker
+     afterwards, so an unconfirmed failure is not proof;
+   - the root does not carry `checker_schedule_failed`, which
+     `801_narrative_report_batch.py` sets when it submitted a provider batch but
+     could not schedule the checker row that would otherwise represent it.
+
+   Any error, page cap, or missing root row keeps the guard.
+7. **Alias expiry.** The alias outlives the scope guard for a 24-hour binding
+   window **anchored at the moment the binding is written**, not at the job's
+   completion: a key first used at T is replayable until T + 24 h. The window is
+   evaluated in code; it is not a DynamoDB TTL. An intentional rerun needs a new
+   key, or none.
 
 ### Operator notes
 
