@@ -336,7 +336,18 @@ def _bid_to_pids(blob: dict, label: str, where: str) -> dict[Any, list[Any]]:
     ``{'id': [...], 'members': [[pid, ...], ...], 'x': [...], 'y': [...],
     'count': [...]}``). Raises when it is absent or unusable, because without it
     the declared unfolding relation cannot be evaluated at all — and an
-    unevaluated relation is exactly the hole this policy closes."""
+    unevaluated relation is exactly the hole this policy closes.
+
+    The mapping is the relation's TRUSTED INPUT, so it is typed with exactly the
+    same strictness as the two group views (Astra review round 2, R2-F1). Left
+    untyped, ``False == 0`` and ``0.0 == 0`` reappeared one level below the
+    views — a folded member ``0`` resolved a base-cluster ``id`` of ``False`` or
+    ``0.0``, and an unfolded participant ``0`` matched a mapped ``False``, so all
+    three variants certified PASS with strict exit 0 — and an array-valued
+    ``id`` raised an uncaught ``TypeError`` at dict membership instead of a
+    ``checkpoint-schema`` failure. Every non-conforming shape is a named gate
+    failure here; nothing escapes as an exception.
+    """
     bc = _canonical_view(blob).get("base-clusters")
     if not isinstance(bc, dict) or not isinstance(bc.get("id"), list) \
             or not isinstance(bc.get("members"), list) \
@@ -348,7 +359,15 @@ def _bid_to_pids(blob: dict, label: str, where: str) -> dict[Any, list[Any]]:
             f"base-cluster ids to participant ids; got "
             f"{type(bc).__name__}")
     mapping: dict[Any, list[Any]] = {}
-    for bid, members in zip(bc["id"], bc["members"]):
+    seen_pids: dict[Any, Any] = {}
+    for i, (bid, members) in enumerate(zip(bc["id"], bc["members"])):
+        # Type BEFORE hashing: an unhashable (array/object) id would otherwise
+        # raise TypeError, and a bool/float id would silently alias a real one.
+        if not _is_integral(bid):
+            raise CertifyError(
+                "checkpoint-schema",
+                f"{where}: 'base-clusters'.id[{i}] must be an integer "
+                f"base-cluster id, got {type(bid).__name__} {bid!r}")
         if bid in mapping:
             raise CertifyError(
                 "checkpoint-schema",
@@ -359,6 +378,24 @@ def _bid_to_pids(blob: dict, label: str, where: str) -> dict[Any, list[Any]]:
                 "checkpoint-schema",
                 f"{where}: 'base-clusters'.members for base-cluster id {bid!r} "
                 f"must be a JSON array, got {type(members).__name__}")
+        for j, pid in enumerate(members):
+            if not _is_integral(pid):
+                raise CertifyError(
+                    "checkpoint-schema",
+                    f"{where}: 'base-clusters'.members for base-cluster id "
+                    f"{bid!r} element [{j}] must be an integer participant id, "
+                    f"got {type(pid).__name__} {pid!r}")
+            # A participant belongs to exactly one base cluster: the fold is a
+            # partition (`_fold_base_clusters`). A pid in two clusters would
+            # make the unfolding relation satisfiable by two different folded
+            # member lists.
+            if pid in seen_pids:
+                raise CertifyError(
+                    "checkpoint-schema",
+                    f"{where}: 'base-clusters' places participant id {pid!r} in "
+                    f"base clusters {seen_pids[pid]!r} and {bid!r}; the fold must "
+                    f"be a partition for the unfolding relation to be well defined")
+            seen_pids[pid] = bid
         mapping[bid] = list(members)
     return mapping
 

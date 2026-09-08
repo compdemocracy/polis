@@ -3,6 +3,7 @@
 Producers are local fakes, but schedule resolution, store validation, cache
 manifests, numeric comparison, run manifest and CLI exit paths are real.
 """
+import copy
 import hashlib
 import importlib.util
 import json
@@ -895,6 +896,109 @@ def test_folded_view_is_held_to_the_same_raw_schema_as_the_unfolded_one():
             cert.validate_checkpoint_blob(
                 _twin_blob(fixture, **{"group-clusters": folded}), "py: step-000")
         assert excinfo.value.stage == "checkpoint-schema"
+
+
+#: Astra review round 2 (R2-F1): the relation's TRUSTED INPUT — the columnar
+#: ``base-clusters`` bid -> pid mapping — was not typed, so ``False == 0`` and
+#: ``0.0 == 0`` reappeared one level below the views. Each entry mutates a valid
+#: many-to-one blob and must now fail at ``checkpoint-schema`` with the named
+#: reason. ``(mutate, needle)``; ``mutate`` edits the blob in place.
+ASTRA_R2_BAD_MAPPINGS = {
+    "boolean base id": (
+        lambda b: b["base-clusters"].__setitem__("id", [False]),
+        "must be an integer base-cluster id"),
+    "float base id": (
+        lambda b: b["base-clusters"].__setitem__("id", [0.0]),
+        "must be an integer base-cluster id"),
+    "boolean participant map": (
+        lambda b: (b["base-clusters"].__setitem__("members", [[False, 11]]),
+                   b["group_clusters"][0].__setitem__("members", [0, 11])),
+        "must be an integer participant id"),
+    # An unhashable id used to raise TypeError at dict membership instead of
+    # producing a gate failure.
+    "array base id": (
+        lambda b: b["base-clusters"].__setitem__("id", [[]]),
+        "must be an integer base-cluster id"),
+    "object base id": (
+        lambda b: b["base-clusters"].__setitem__("id", [{}]),
+        "must be an integer base-cluster id"),
+    "string participant map": (
+        lambda b: b["base-clusters"].__setitem__("members", [["10", 11]]),
+        "must be an integer participant id"),
+    "participant in two base clusters": (
+        lambda b: (b["base-clusters"].update(id=[0, 1], members=[[10, 11], [11]],
+                                             x=[1.0, 1.0], y=[2.0, 2.0],
+                                             count=[2, 1]),
+                   b["group-clusters"][0].__setitem__("members", [0, 1])),
+        "must be a partition"),
+}
+
+
+def _many_to_one_twin_blob():
+    """A minimal VALID many-to-one pair: one base cluster folding two
+    participants, one group, exact sign negation. Astra's r2 probe base."""
+    return copy.deepcopy({
+        **VALID_BASE,
+        "n": 2,
+        "in-conv": [10, 11],
+        "base-clusters": {"id": [0], "members": [[10, 11]], "x": [1.0],
+                          "y": [2.0], "count": [2]},
+        "group-clusters": [{"id": 0, "members": [0], "center": [-1.0, -2.0]}],
+        "group_clusters": [{"id": 0, "members": [10, 11], "center": [1.0, 2.0]}],
+    })
+
+
+def test_many_to_one_mapping_baseline_is_admitted():
+    """Non-vacuity for the controls below: the unmutated blob certifies."""
+    cert.validate_checkpoint_blob(_many_to_one_twin_blob(), "py: step-000")
+
+
+@pytest.mark.parametrize("name", sorted(ASTRA_R2_BAD_MAPPINGS))
+def test_astra_r2_bad_mapping_controls_are_rejected(name):
+    """The relation's mapping input is typed exactly as strictly as the views:
+    strict integer bids and participant ids (``bool`` rejected), no unhashable
+    id crash, and a fold that is a real partition."""
+    mutate, needle = ASTRA_R2_BAD_MAPPINGS[name]
+    blob = _many_to_one_twin_blob()
+    mutate(blob)
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert.validate_checkpoint_blob(blob, "py: step-000")
+    assert excinfo.value.stage == "checkpoint-schema"
+    assert needle in str(excinfo.value), str(excinfo.value)
+
+
+@pytest.mark.parametrize("name", sorted(ASTRA_R2_BAD_MAPPINGS))
+def test_astra_r2_bad_mappings_raise_no_bare_exception(name):
+    """Every non-conforming mapping shape is a gate failure with a named
+    reason, NEVER an exception escaping the gate (an array bid used to raise
+    TypeError at dict membership)."""
+    mutate, _ = ASTRA_R2_BAD_MAPPINGS[name]
+    blob = _many_to_one_twin_blob()
+    mutate(blob)
+    try:
+        cert.validate_checkpoint_blob(blob, "py: step-000")
+    except cert.CertifyError:
+        pass
+    except Exception as exc:  # pragma: no cover - the defect being pinned
+        pytest.fail(f"{name} escaped as {type(exc).__name__}: {exc}")
+
+
+@pytest.mark.parametrize("name", ["unknown bid", "wrong order", "wrong sign"])
+def test_astra_r2_positive_relation_rejections_still_hold(name):
+    """The r2 probe's three positive controls: the relation itself keeps
+    rejecting an unknown bid, a permuted unfolding and an unflipped center."""
+    blob = _many_to_one_twin_blob()
+    if name == "unknown bid":
+        blob["group-clusters"][0]["members"] = [9]
+        needle = "does not declare"
+    elif name == "wrong order":
+        blob["group_clusters"][0]["members"] = [11, 10]
+        needle = "not the unfolding"
+    else:
+        blob["group_clusters"][0]["center"] = [-1.0, -2.0]
+        needle = "sign negation"
+    with pytest.raises(cert.CertifyError, match=needle):
+        cert.validate_checkpoint_blob(blob, "py: step-000")
 
 
 def test_unfolding_relation_needs_a_usable_base_cluster_mapping():
