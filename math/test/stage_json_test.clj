@@ -179,9 +179,12 @@
           step   {:index 3 :votes [] :mods []}
           text   (write (doc-fn step conv))
           parsed (json/parse-string text)]
-      (is (= #{"engine" "input_digest" "schema" "stages" "step" "tick"
-               "vote_sign_convention"}
+      (is (= #{"comment_projection_axes" "engine" "input_digest" "schema"
+               "stages" "step" "tick" "vote_sign_convention"}
              (set (keys parsed))))
+      (testing "the comment-projection axis orientation is DECLARED, so a
+                comparer never has to guess it from array lengths (Astra F4)"
+        (is (= "comps-by-tids" (get parsed "comment_projection_axes"))))
       (is (= "polis-stage-dump/1" (get parsed "schema")))
       (is (= "clj" (get parsed "engine")))
       (is (= "raw-db" (get parsed "vote_sign_convention")))
