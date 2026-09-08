@@ -13,10 +13,33 @@ import pytest
 from click.testing import CliRunner
 
 from polismath.replay import certify as cert, schedule as sched
+from polismath.replay.crosslang import PREP_MAIN_KEYS
 from polismath.replay.driver import run_replay
 from polismath.replay.types import ReplayDataset
 
 EMPTY = {"n": 0, "n-cmts": 0, "tids": [], "in-conv": []}
+
+#: Blob mutations applied IDENTICALLY to both engines' checkpoints (P-022 B1
+#: review, P1). Each produces byte-identical malformed recordings, so the
+#: acceptance projection stays nonempty and the two per-engine hashes are
+#: EQUAL — the hash-first shortcut used to short-circuit them to MATCH and
+#: certify PASS with strict exit 0. Every one of these must now FAIL at
+#: ``checkpoint-schema`` with the offending field named. Values are
+#: ``(mutate, field_named_in_reason)``.
+PAIRED_MALFORMED = {
+    "nan-count": (lambda b: {**b, "n": float("nan")}, "n"),
+    "inf-count": (lambda b: {**b, "n": float("-inf")}, "n"),
+    "string-count": (lambda b: {**b, "n": "invalid-count"}, "n"),
+    "float-count": (lambda b: {**b, "n": 1.5}, "n"),
+    "negative-count": (lambda b: {**b, "n": -1}, "n"),
+    "missing-count": (lambda b: {k: v for k, v in b.items() if k != "n"}, "n"),
+    "string-tid": (lambda b: {**b, "tids": ["1"]}, "tids"),
+    "scalar-tids": (lambda b: {**b, "tids": 1}, "tids"),
+    "container-zid": (lambda b: {**b, "zid": {"nope": 1}}, "zid"),
+    "list-pca": (lambda b: {**b, "pca": [1, 2]}, "pca"),
+    "nested-nan": (lambda b: {**b, "pca": {"center": [0.0, float("nan")]}}, "pca.center[1]"),
+    "nested-inf": (lambda b: {**b, "base-clusters": {"x": [float("inf")]}}, "base-clusters.x[0]"),
+}
 
 
 def latest_manifest(root):
@@ -60,6 +83,11 @@ def battery(tmp_path, monkeypatch):
                     "cut_time_ms": step.cut_time_ms}
             blob = EMPTY if step.cut_slot == 0 else {
                 "n": step.cut_slot, "n-cmts": 1, "tids": [1], "in-conv": [1]}
+            # Paired malformation: BOTH engines emit the same broken value, so
+            # the recordings are byte-identical and hash equal.
+            paired = PAIRED_MALFORMED.get(state["mutation"])
+            if paired is not None:
+                blob = paired[0](blob)
             stem = f"step-{step.index:03d}"
             if engine == "clj":
                 (out / (stem + ".blob.json")).write_text(json.dumps(blob))
@@ -89,6 +117,13 @@ def battery(tmp_path, monkeypatch):
                 first.write_text(json.dumps(payload))
             elif mutation == "wrong-empty":
                 payload = json.loads(first.read_text()); payload["blob"]["n"] = 1
+                first.write_text(json.dumps(payload))
+            elif mutation == "py-only-nan":
+                # Asymmetric control: only py is malformed, so the hashes
+                # DIFFER — validation must still name py, not fall through to
+                # the comparer and report a mere divergence.
+                payload = json.loads(first.read_text())
+                payload["blob"]["n"] = float("nan")
                 first.write_text(json.dumps(payload))
             elif mutation == "absent-empty":
                 # The real Clojure/Python empty-blob divergence in miniature: the
@@ -461,3 +496,153 @@ def test_single_input_change_cannot_be_served_from_cache(input_change, changed):
     assert stamps() != before, f"{changed}-only change left a stale recording in place"
     entry = latest_manifest(root)["entries"][0]
     assert entry["cache"] == {"clj": "miss", "py": "miss"}
+
+
+# ---------------------------------------------------------------------------
+# P-022 B1 review, P1 — a nonempty projection is not a valid checkpoint.
+#
+# Before this, `validate_recording_inventory` only asked for a nonempty
+# acceptance projection and `compare_recording_pair` short-circuited equal
+# per-engine hashes to MATCH before anything read the values. Two producers
+# emitting the SAME malformed blob (`{"n": NaN}`, `{"n": "invalid-count"}`)
+# therefore produced a complete run manifest with verdict PASS and strict exit
+# 0. These controls are red until raw validation runs on every checkpoint of
+# both engines, ahead of projection, hashing and any cached verdict.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("mutation", sorted(PAIRED_MALFORMED))
+def test_identical_malformed_blobs_on_both_engines_fail(battery, mutation):
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    state["mutation"] = mutation
+    report = run(refresh_clj=True, refresh_py=True)
+    assert report["verdict"] == "FAIL", report
+    result = report["battery"][0]
+    assert result["stage"] == "checkpoint-schema", result
+    # The reason must NAME the offending field, not just say "schema".
+    assert PAIRED_MALFORMED[mutation][1] in result["reason"], result["reason"]
+    assert cert.battery_exit_code(report, strict=True) == 1
+    assert latest_manifest(root)["entries"][0]["status"] == "FAIL"
+
+
+def test_paired_malformed_blobs_would_have_hash_matched(battery):
+    """Control that makes the parametrized failures above non-vacuous: the two
+    engines' malformed recordings really are identical, their acceptance
+    projections really are nonempty, and their acceptance hashes really are
+    equal — i.e. every pre-fix admission criterion is still satisfied and only
+    the new raw validation rejects them."""
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    state["mutation"] = "nan-count"
+    assert run(refresh_clj=True, refresh_py=True)["verdict"] == "FAIL"
+
+    rec = root / entry.dataset / entry.schedule_id
+    clj = json.loads((rec / "clj" / "step-000.blob.json").read_text())
+    py = json.loads((rec / "py" / "step-000.json").read_text())["blob"]
+    assert clj == py or (repr(clj) == repr(py))  # NaN != NaN, compare by repr
+    assert cert.project_acceptance(clj) and cert.project_acceptance(py)
+    assert cert._canonical_hash(cert.project_acceptance(clj)) == \
+        cert._canonical_hash(cert.project_acceptance(py))
+
+
+@pytest.mark.parametrize("mutation", ["nan-count", "string-count", "inf-count", "string-tid"])
+def test_compare_recording_pair_rejects_identical_malformed_blobs(tmp_path, mutation):
+    """The standalone comparer entry point must reject them too — it is the
+    function that owns the hash short-circuit."""
+    blob = PAIRED_MALFORMED[mutation][0](
+        {"n": 2, "n-cmts": 1, "tids": [1], "in-conv": [1]})
+    clj, py = tmp_path / "clj", tmp_path / "py"
+    clj.mkdir(); py.mkdir()
+    (clj / "step-000.blob.json").write_text(json.dumps(blob))
+    (py / "step-000.json").write_text(json.dumps({"index": 0, "blob": blob}))
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert.compare_recording_pair(clj, py, cache_root=tmp_path)
+    assert excinfo.value.stage == "checkpoint-schema"
+    assert PAIRED_MALFORMED[mutation][1] in str(excinfo.value)
+
+
+def test_malformed_blob_fails_even_when_the_other_engine_is_valid(battery):
+    """Symmetry: validation is per engine, so a malformed blob fails whatever
+    the other engine emitted — a valid partner cannot rescue it."""
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    state["mutation"] = "py-only-nan"
+    report = run(refresh_clj=True, refresh_py=True)
+    assert report["verdict"] == "FAIL"
+    assert report["battery"][0]["stage"] == "checkpoint-schema"
+    assert "py:" in report["battery"][0]["reason"]
+
+
+def test_cached_recordings_are_revalidated(battery):
+    """Validation must run on recording-cache HITS too: a cached malformed
+    recording is exactly the stale-MATCH failure mode the gate exists to stop."""
+    entry, state, root, ds, run = battery
+    assert_pass(run())
+    rec = root / entry.dataset / entry.schedule_id
+    for path in (rec / "clj" / "step-000.blob.json", rec / "py" / "step-000.json"):
+        payload = json.loads(path.read_text())
+        target = payload if path.name.endswith(".blob.json") else payload["blob"]
+        target["n"] = float("nan")
+        path.write_text(json.dumps(payload))
+    # No refresh: both manifests are re-validated against the (now tampered)
+    # files, so this fails at the integrity check or the schema check — never
+    # a served MATCH.
+    report = run()
+    assert report["verdict"] == "FAIL", report
+    assert report["battery"][0]["stage"] in ("recording-integrity", "checkpoint-schema")
+
+
+# ---------------------------------------------------------------------------
+# validate_checkpoint_blob directly.
+# ---------------------------------------------------------------------------
+def test_validate_checkpoint_blob_accepts_the_committed_real_blobs():
+    """Ground the contract in reality: every committed math blob (the shape the
+    engines actually emit) must validate clean, or the gate is over-strict."""
+    real_dir = Path(cert.__file__).resolve().parents[2] / "real_data"
+    blobs = sorted(real_dir.glob("*/*math_blob*.json"))
+    assert blobs, "no committed real math blobs to validate against"
+    for path in blobs:
+        cert.validate_checkpoint_blob(json.loads(path.read_text()), path.name)
+
+
+@pytest.mark.parametrize("blob,needle", [
+    ({"n": 1, "n-cmts": 1, "tids": [1]}, "in-conv"),
+    ({"n": 1, "n-cmts": True, "tids": [], "in-conv": []}, "n-cmts"),
+    ({"n": 1, "n-cmts": 1, "tids": [], "in-conv": [], "lastVoteTimestamp": "x"},
+     "lastVoteTimestamp"),
+    ({"n": 1, "n-cmts": 1, "tids": [], "in-conv": [], "group-clusters": {}},
+     "group-clusters"),
+    ({"n": 1, "n-cmts": 1, "tids": [], "in-conv": [], "repness": []}, "repness"),
+    ("not-an-object", "JSON object"),
+])
+def test_validate_checkpoint_blob_rejects_and_names_the_field(blob, needle):
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert.validate_checkpoint_blob(blob, "clj: step-000")
+    assert excinfo.value.stage == "checkpoint-schema"
+    assert needle in str(excinfo.value)
+    assert "clj: step-000" in str(excinfo.value)
+
+
+def test_validate_checkpoint_blob_accepts_nullable_and_snake_spellings():
+    cert.validate_checkpoint_blob(
+        {"n": 0, "n_cmts": 0, "tids": [], "in_conv": [], "mod-in": None,
+         "mod-out": None, "meta-tids": None, "lastModTimestamp": None,
+         "zid": "synthetic"},
+        "py: step-000")
+
+
+def test_validate_checkpoint_blob_require_keys_false_still_checks_values():
+    cert.validate_checkpoint_blob({"n": 0}, "clj: step-000", require_keys=False)
+    with pytest.raises(cert.CertifyError, match="'n'"):
+        cert.validate_checkpoint_blob(
+            {"n": float("nan")}, "clj: step-000", require_keys=False)
+
+
+def test_checkpoint_contract_keys_come_from_the_crosslang_whitelist():
+    """The contract must not invent field names: every key it constrains is one
+    crosslang's canonicalization whitelist actually emits."""
+    named = set(cert._REQUIRED_CHECKPOINT_KEYS) | set(cert._COUNT_CHECKPOINT_KEYS) \
+        | set(cert._TIMESTAMP_CHECKPOINT_KEYS) | set(cert._ID_LIST_CHECKPOINT_KEYS) \
+        | set(cert._MAPPING_CHECKPOINT_KEYS) | set(cert._SEQUENCE_CHECKPOINT_KEYS) \
+        | set(cert._ID_SCALAR_CHECKPOINT_KEYS)
+    assert named <= PREP_MAIN_KEYS
+    assert set(cert._REQUIRED_CHECKPOINT_KEYS) <= cert.ACCEPTANCE_KEYS
