@@ -316,32 +316,62 @@ async function setDomainWhitelist(
   uid: number,
   newWhitelist: string
 ): Promise<void> {
-  // Check if record exists first
-  const rows = (await pg.queryP(
-    "select * from site_domain_whitelist where site_id = (select site_id from users where uid = ($1));",
-    [uid]
-  )) as any[];
+  // site_domain_whitelist has no unique constraint on site_id
+  // (server/postgres/migrations/000000_initial.sql), so this cannot be written
+  // as a single INSERT ... ON CONFLICT (site_id) DO UPDATE. Instead run the
+  // check-then-write on one dedicated connection inside one transaction, and
+  // take a row lock with FOR UPDATE: pool-level pg.queryP() picks a different
+  // connection per call, so the old sequence had no isolation at all and two
+  // concurrent updates to the same site could interleave freely.
+  const client = await pg.connect();
+  try {
+    await client.query("BEGIN");
 
-  if (!rows || !rows.length) {
-    // Insert new record
-    await pg.queryP(
-      "insert into site_domain_whitelist (site_id, domain_whitelist) values ((select site_id from users where uid = ($1)), $2);",
-      [uid, newWhitelist]
+    // Check if record exists first, locking it against a concurrent writer.
+    const existing = await client.query(
+      "select site_id from site_domain_whitelist where site_id = (select site_id from users where uid = ($1)) for update;",
+      [uid]
     );
-  } else {
-    // Update existing record
-    await pg.queryP(
-      "update site_domain_whitelist set domain_whitelist = ($2) where site_id = (select site_id from users where uid = ($1));",
-      [uid, newWhitelist]
-    );
+
+    if (!existing.rows.length) {
+      // Insert new record
+      await client.query(
+        "insert into site_domain_whitelist (site_id, domain_whitelist) values ((select site_id from users where uid = ($1)), $2);",
+        [uid, newWhitelist]
+      );
+    } else {
+      // Update existing record
+      await client.query(
+        "update site_domain_whitelist set domain_whitelist = ($2) where site_id = (select site_id from users where uid = ($1));",
+        [uid, newWhitelist]
+      );
+    }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackErr) {
+      logger.error("Failed to roll back domain whitelist write", rollbackErr);
+    }
+    throw err;
+  } finally {
+    client.release();
   }
 }
 
 async function getDomainWhitelist(uid: number): Promise<string> {
+  // A site can still have more than one row (see setDomainWhitelist: without a
+  // unique constraint on site_id, historical duplicates are possible), so pick
+  // deterministically rather than letting the planner decide. Most recently
+  // written first; the domain_whitelist tiebreak keeps the returned value
+  // stable even when the timestamps are equal.
   const rows = await pg.queryP(
-    `SELECT domain_whitelist 
-     FROM site_domain_whitelist 
-     WHERE site_id = (SELECT site_id FROM users WHERE uid = $1)`,
+    `SELECT domain_whitelist
+     FROM site_domain_whitelist
+     WHERE site_id = (SELECT site_id FROM users WHERE uid = $1)
+     ORDER BY modified DESC, created DESC, domain_whitelist ASC
+     LIMIT 1`,
     [uid]
   );
   return rows?.[0]?.domain_whitelist || "";
