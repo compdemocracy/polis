@@ -113,14 +113,16 @@ services:
       # Ollama connection
       - OLLAMA_HOST=${OLLAMA_HOST}
       - OLLAMA_MODEL=${OLLAMA_MODEL}
-      # AWS environment variables (will be provided in prod)
+      # AWS credentials. Declared ONCE: this single pair is shared by every AWS
+      # client in the delphi container (DynamoDB and the S3/MinIO clients), so a
+      # second declaration would silently win and swap one service's identity for
+      # the other's. Locally example.env sets the MinIO pair; in prod the real
+      # values come from the deployment env document.
       - AWS_REGION=${AWS_REGION:-us-east-1}
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
-      # S3 storage for visualization files
-      - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT}
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-minioadmin}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-minioadmin}
+      # S3 storage for visualization files
+      - AWS_S3_ENDPOINT=${AWS_S3_ENDPOINT}
       - AWS_S3_BUCKET_NAME=${AWS_S3_BUCKET_NAME:-polis-delphi}
       # API keys for LLM services
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
