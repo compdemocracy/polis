@@ -34,6 +34,9 @@ pub struct Config {
     pub environment: String,
     /// Minimum interval between the bounded backlog/scan-age aggregate.
     pub gauge_seconds: u64,
+    /// Rev6 CO04: the remaining lease a publication must still hold at its
+    /// final in-transaction authorization, immediately before COMMIT.
+    pub commit_margin_seconds: f64,
 }
 fn value<T: std::str::FromStr>(name: &str, default: &str) -> Result<T>
 where
@@ -69,6 +72,7 @@ impl Config {
             metrics_sink: env::var("P026_METRICS").unwrap_or_else(|_| "off".into()),
             environment: env::var("P026_ENVIRONMENT").unwrap_or_else(|_| "synthetic".into()),
             gauge_seconds: value("P026_GAUGE_SECONDS", "60")?,
+            commit_margin_seconds: value("P026_COMMIT_MARGIN_SECONDS", "0.5")?,
         };
         c.validate()?;
         Ok(c)
@@ -100,6 +104,13 @@ impl Config {
             "invalid reconciliation interval"
         );
         ensure!(!self.metrics_sink.is_empty(), "invalid metrics sink");
+        // A non-positive margin would restore the old "expires_at in the
+        // future is good enough" gamble Rev6 removed.
+        ensure!(
+            self.commit_margin_seconds > 0.0
+                && self.commit_margin_seconds < f64::from(self.lease_seconds),
+            "invalid commit margin"
+        );
         ensure!(
             !self.environment.is_empty() && self.environment.len() <= 64,
             "invalid environment dimension"
