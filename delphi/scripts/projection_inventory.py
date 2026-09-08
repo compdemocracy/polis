@@ -291,17 +291,20 @@ class ClearedUnresolved:
     guarding function's normalised source (``ast.unparse`` — comments dropped,
     whitespace normalised) captured at review time, alongside the exact query text,
     the guard variable, and the fact that the guard set excludes every vote table.
-    At scan time the digest is recomputed; ANY edit to the function (a moved/dead
-    guard, a caught exception, a destructuring rewrite, a changed query) changes the
-    digest -> the exemption is stale and the hit is NEEDS-GATE. A whitespace-only or
-    comment-only edit does not change the normalised digest."""
+    At scan time BOTH digests are recomputed. Any edit to the function (a moved/dead
+    guard, a caught exception, a destructuring rewrite, a changed query) OR anywhere
+    in the module (rebinding/augmenting the guard set, e.g. `EQUIV_TABLES +=
+    ("votes",)`) changes a digest -> the exemption is stale and the hit is
+    NEEDS-GATE. A whitespace-only or comment-only edit does not change either
+    normalised digest."""
 
     file_suffix: str
     function_name: str       # the reviewed guarding function
     query_text: str          # exact decoded query the exemption covers
     guard_var: str           # the membership-guard variable, e.g. EQUIV_TABLES
     forbidden_tables: frozenset[str]  # exemption void if the guard set intersects these
-    digest: str              # sha256 of ast.unparse(function) at review time
+    function_digest: str     # sha256 of ast.unparse(function) at review time
+    module_digest: str       # sha256 of ast.unparse(module) at review time
     note: str
 
 
@@ -312,7 +315,8 @@ CLEARED_UNRESOLVED: tuple[ClearedUnresolved, ...] = (
         query_text="SELECT * FROM {table} WHERE zid = :zid AND math_env = :math_env",
         guard_var="EQUIV_TABLES",
         forbidden_tables=frozenset({"votes", "votes_latest_unique"}),
-        digest="cd5a6f07951a3e7a0f4ec249a2eff0440887f9788b4b89b4615db2ccf3eb0613",
+        function_digest="cd5a6f07951a3e7a0f4ec249a2eff0440887f9788b4b89b4615db2ccf3eb0613",
+        module_digest="13b03d55b9f25e069fed406dc8946f6654775f160b9dbef6a89ba557812b5c06",
         note="replay harness fetch_math_row; {table} guarded by `table not in "
         "EQUIV_TABLES` (math_main/bidtopid/ptptstats) — never a vote table",
     ),
@@ -518,11 +522,11 @@ def _guard_flow_ok(fn: ast.AST, qvar: str, guard_var: str, query_node: ast.AST) 
     return True
 
 
-def _function_digest(fn: ast.AST) -> str:
-    """sha256 of the function's NORMALISED source (ast.unparse drops comments and
+def _normalised_digest(node: ast.AST) -> str:
+    """sha256 of the node's NORMALISED source (ast.unparse drops comments and
     normalises whitespace), so a formatter/comment edit does not change it but any
-    structural change does."""
-    return hashlib.sha256(ast.unparse(fn).encode("utf-8")).hexdigest()
+    structural change does. Used for both the function and the whole module."""
+    return hashlib.sha256(ast.unparse(node).encode("utf-8")).hexdigest()
 
 
 def _exemption_status(rel: str, kind: str, raw: str, source: str) -> str:
@@ -537,6 +541,10 @@ def _exemption_status(rel: str, kind: str, raw: str, source: str) -> str:
         try:
             tree = ast.parse(source)
         except SyntaxError:
+            return "stale"
+        # Pinned digest of the WHOLE module (binds the external guard-set definition
+        # and any rebinding/augmentation of it, e.g. `EQUIV_TABLES += ("votes",)`).
+        if _normalised_digest(tree) != entry.module_digest:
             return "stale"
         # Module-level guard set must be a literal tuple/set with no vote table.
         if not _guard_set_ok(tree, entry):
@@ -556,9 +564,9 @@ def _exemption_status(rel: str, kind: str, raw: str, source: str) -> str:
         fn = _enclosing_function(tree, node)
         if fn is None or getattr(fn, "name", None) != entry.function_name:
             return "stale"
-        # Pinned digest of the guarding function's normalised source (the total
-        # binding — catches dead guards, caught exceptions, destructuring, etc.).
-        if _function_digest(fn) != entry.digest:
+        # Pinned digest of the guarding function's normalised source (catches dead
+        # guards, caught exceptions, destructuring, etc.).
+        if _normalised_digest(fn) != entry.function_digest:
             return "stale"
         # Straight-line structural checks retained as belt-and-suspenders.
         if not _guard_flow_ok(fn, qvar, entry.guard_var, node):
