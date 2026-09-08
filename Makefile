@@ -173,6 +173,62 @@ refresh-prodclone: ## Force prodclone mode, drop prodclone volume, and restart f
 refresh-devdb: ## Force dev DB mode (migrations), drop postgres_data volume, and restart
 	$(MAKE) USE_PRODCLONE=false refresh-db
 
+# ---------------------------------------------------------------------------- #
+# P-022 §C — poller recovery matrix (R01-R12) on a REAL Postgres
+# ---------------------------------------------------------------------------- #
+# Reuses docker-compose.test.yml's postgres service (built from
+# server/Dockerfile-db, which bakes server/postgres/migrations/*.sql into
+# docker-entrypoint-initdb.d) with docker-compose.recovery.yml overriding the
+# host port and making the data directory a tmpfs, so every `up` re-runs initdb
+# with the real migrations and nothing survives teardown.
+#
+# The suite FAILS rather than skips without a Postgres (P-022 §C Acceptance:
+# "Missing Postgres is a failing required job, not pytest skip"), so this is the
+# supported way to run it.
+RECOVERY_PG_PORT ?= 55432
+RECOVERY_COMPOSE = POLIS_RECOVERY_PG_PORT=$(RECOVERY_PG_PORT) docker compose \
+	-f docker-compose.test.yml -f docker-compose.recovery.yml --env-file test.env
+RECOVERY_PG_PASSWORD = $(shell grep -e ^POSTGRES_PASSWORD test.env | cut -d= -f2)
+RECOVERY_PG_URL = postgresql://postgres:$(RECOVERY_PG_PASSWORD)@localhost:$(RECOVERY_PG_PORT)/polis-test
+# Runs in a SUBSHELL so the `cd` cannot leak into the cleanup trap (which must
+# still find this Makefile in the repository root).
+RECOVERY_PYTEST = cd $(CURDIR)/delphi && POLIS_TEST_POSTGRES_URL="$(RECOVERY_PG_URL)" uv run --no-sync pytest
+
+test-recovery-up: ## Start the recovery suite's Postgres (real migrations, ephemeral)
+	$(RECOVERY_COMPOSE) up -d --force-recreate postgres
+	@echo "waiting for postgres to become healthy on port $(RECOVERY_PG_PORT)..."
+	@cid=$$($(RECOVERY_COMPOSE) ps -q postgres); \
+	for i in $$(seq 1 60); do \
+		s=$$(docker inspect -f '{{.State.Health.Status}}' $$cid 2>/dev/null); \
+		if [ "$$s" = "healthy" ]; then echo "postgres healthy"; exit 0; fi; \
+		sleep 1; \
+	done; \
+	echo "postgres did not become healthy"; exit 1
+
+test-recovery-down: ## Stop and remove the recovery suite's Postgres
+	$(RECOVERY_COMPOSE) down -v --remove-orphans
+
+test-recovery: ## Run the P-022 recovery matrix (R01-R12) on a real Postgres
+	@$(MAKE) test-recovery-up
+	@set -e; trap '$(MAKE) test-recovery-down' EXIT; \
+		( $(RECOVERY_PYTEST) tests/poller -q -rxX )
+
+test-recovery-races: ## Re-run the deterministic race schedules 20x (P-022 acceptance)
+	@$(MAKE) test-recovery-up
+	@set -e; trap '$(MAKE) test-recovery-down' EXIT; \
+		for i in $$(seq 1 20); do \
+			echo "=== race iteration $$i/20 ==="; \
+			( $(RECOVERY_PYTEST) \
+				tests/poller/recovery/test_r02_newer_revote_during_retry.py \
+				tests/poller/recovery/test_r04_park_unpark_races.py \
+				tests/poller/recovery/test_r06_lru_in_flight.py \
+				tests/poller/recovery/test_r09_partial_tables_readers.py \
+				tests/poller/recovery/test_r12_publication_cursor.py \
+				tests/poller/test_park_rebuild_recovery.py \
+				-q ) || exit 1; \
+		done; \
+		echo "20/20 race iterations passed"
+
 e2e-install: e2e/node_modules ## Install Cypress E2E testing tools
 	$(E2E_RUN) npm install
 
@@ -208,7 +264,8 @@ rbs: start-rebuild
 	rebuild-delphi rebuild-server rebuild-web 
 	refresh-db refresh-devdb refresh-prodclone regenerate-jwt-keys \
 	rm-ALL rm-containers rm-images rm-volumes \
-	start-FULL-REBUILD start-prodclone start-rebuild start-recreate
+	start-FULL-REBUILD start-prodclone start-rebuild start-recreate \
+	test-recovery test-recovery-up test-recovery-down test-recovery-races
 
 
 help: ## Show this help message
