@@ -14,6 +14,7 @@
 
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 import crypto from "crypto";
+import zlib from "zlib";
 
 const queryP_readOnly = jest.fn();
 
@@ -50,12 +51,12 @@ import {
   prefetchLatestPcaData,
 } from "../../src/utils/pca";
 
-// sha256(asJSON):sha256(asBufferOfGzippedJson) for the tick-1 fixture below,
-// recorded against origin/edge BEFORE the tick-0 guard fix and unchanged after
-// it. This is the "served bytes for tick >= 1 are unchanged" proof.
-const TICK_ONE_GOLDEN =
-  "14a67d485bd330c374fe4f76ccdac37027c5d853fce1e66c27398122fcfa4d96:" +
-  "96e71406c2c85d29e1ac90116ad29668cb4d371e6e65a845b6fbc0757a18f591";
+// sha256(asJSON) for the tick-1 fixture below, recorded against origin/edge
+// BEFORE the tick-0 guard fix and unchanged after it. This is the "served bytes
+// for tick >= 1 are unchanged" proof. Verified identical on macOS and on CI's
+// Linux runner; see the test for why the gzip hash is deliberately not pinned.
+const TICK_ONE_JSON_GOLDEN =
+  "14a67d485bd330c374fe4f76ccdac37027c5d853fce1e66c27398122fcfa4d96";
 
 // A blob shaped like what the engines actually store in math_main.data.
 // NOTE the blob's own `math_tick`: the Python engine stamps a wall-clock
@@ -180,22 +181,42 @@ describe("getPca and a committed math generation of tick 0", () => {
   });
 
   test("tick 1 is unaffected: identical bytes for every request form", async () => {
-    // The golden hashes below are the pre-fix bytes. They pin that treating 0
-    // as a valid tick changed nothing about what is served for tick >= 1.
-    const seen = new Set<string>();
+    // Pins that treating 0 as a valid tick changed nothing about what is served
+    // for tick >= 1.
+    //
+    // asJSON is what participationInit embeds as response.pca;
+    // asBufferOfGzippedJson is the literal GET /api/v3/math/pca2 body.
+    //
+    // Only the asJSON hash is pinned as a cross-machine constant. The gzip
+    // ENCODING of that JSON is not portable: zlib's deflate output depends on
+    // the zlib build, so the same input produces different compressed bytes on
+    // different platforms. The first version of this test pinned the gzip hash
+    // too and passed locally while failing in CI with the JSON hash equal and
+    // only the gzip hash different:
+    //
+    //   local  ...:96e71406c2c85d29e1ac90116ad29668cb4d371e6e65a845b6fbc0757a18f591
+    //   CI     ...:abe9cc747dbc157c39e3d3b09d067daf79f5388248f6910847996efd42ec3591
+    //
+    // which is evidence that the served payload is identical, not that it
+    // differs. The portable invariants are asserted instead: one JSON for all
+    // request forms, matching the pinned constant; one gzip buffer for all
+    // request forms within a process; and the gzip decoding to exactly asJSON.
+    const seenJson = new Set<string>();
+    const seenGzip = new Set<string>();
     for (const requested of [undefined, -1, 0] as Array<number | undefined>) {
       serveRow("1");
       const result = await getPca(freshZid(), requested);
       expect(result).toBeDefined();
       expect(result?.asPOJO.math_tick).toBe(1);
-      // asJSON is what participationInit embeds as response.pca;
-      // asBufferOfGzippedJson is the literal GET /api/v3/math/pca2 body.
-      seen.add(
-        `${sha256(result!.asJSON)}:${sha256(result!.asBufferOfGzippedJson)}`
-      );
+      seenJson.add(sha256(result!.asJSON));
+      seenGzip.add(sha256(result!.asBufferOfGzippedJson));
+      expect(
+        zlib.gunzipSync(result!.asBufferOfGzippedJson).toString("utf-8")
+      ).toBe(result!.asJSON);
     }
-    expect(seen.size).toBe(1);
-    expect([...seen][0]).toBe(TICK_ONE_GOLDEN);
+    expect(seenJson.size).toBe(1);
+    expect(seenGzip.size).toBe(1);
+    expect([...seenJson][0]).toBe(TICK_ONE_JSON_GOLDEN);
   });
 
   test("a still-uncomputed conversation (no math_main row) is unchanged", async () => {
