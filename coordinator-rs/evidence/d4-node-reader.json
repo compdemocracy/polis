@@ -1,0 +1,129 @@
+{
+  "compared_fields": [
+    "asJSON_sha256",
+    "asJSON_bytes",
+    "gzip_sha256",
+    "gzip_bytes",
+    "keys_projection_sha256",
+    "tids",
+    "n",
+    "repness_keys",
+    "consensus_shape",
+    "mapping_sha256",
+    "bid_to_pid",
+    "pids_for_gid",
+    "mapping_is_error"
+  ],
+  "differences": {},
+  "math_tick": 1,
+  "profile": "real server/src/utils/pca.ts + participants.ts, in-process, one Node process",
+  "served": {
+    "python": {
+      "asJSON_bytes": 6467,
+      "asJSON_sha256": "a6f97eefa01d1163618efa72aef0d84daa82816185952dca43f2d0c5f04e4e6f",
+      "bid_to_pid": [
+        [
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          3
+        ]
+      ],
+      "consensus_shape": {
+        "agree": 0,
+        "disagree": 0
+      },
+      "etag_math_tick": 1,
+      "gzip_bytes": 1736,
+      "gzip_sha256": "bf1011c0dcffd052f512135046e4c38f807c2158c82faaea6f45cc912110f528",
+      "keys_projection_sha256": "08743f5ed0bac5e02c7a38535745cbc2c5d22f0b8c52d601dda7c65b4c9dd29a",
+      "mapping_is_error": false,
+      "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
+      "n": 6,
+      "pids_for_gid": {
+        "0": [
+          0,
+          2,
+          3,
+          5
+        ],
+        "1": [
+          1,
+          4
+        ]
+      },
+      "repness_keys": [
+        "0",
+        "1"
+      ],
+      "tids": [
+        0,
+        1,
+        2,
+        3
+      ]
+    },
+    "rustproto": {
+      "asJSON_bytes": 6467,
+      "asJSON_sha256": "a6f97eefa01d1163618efa72aef0d84daa82816185952dca43f2d0c5f04e4e6f",
+      "bid_to_pid": [
+        [
+          0
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          3
+        ]
+      ],
+      "consensus_shape": {
+        "agree": 0,
+        "disagree": 0
+      },
+      "etag_math_tick": 1,
+      "gzip_bytes": 1736,
+      "gzip_sha256": "bf1011c0dcffd052f512135046e4c38f807c2158c82faaea6f45cc912110f528",
+      "keys_projection_sha256": "08743f5ed0bac5e02c7a38535745cbc2c5d22f0b8c52d601dda7c65b4c9dd29a",
+      "mapping_is_error": false,
+      "mapping_sha256": "9a6fbcea6bfcd81da7c209e594312ba9860280003a57dd122943ca009253dedd",
+      "n": 6,
+      "pids_for_gid": {
+        "0": [
+          0,
+          2,
+          3,
+          5
+        ],
+        "1": [
+          1,
+          4
+        ]
+      },
+      "repness_keys": [
+        "0",
+        "1"
+      ],
+      "tids": [
+        0,
+        1,
+        2,
+        3
+      ]
+    }
+  },
+  "zid": 1
+}
