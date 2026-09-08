@@ -5,9 +5,9 @@ ROOT=pathlib.Path(__file__).resolve().parents[2]
 HERE=ROOT/'server/characterization'
 ENV=dict(os.environ)
 project=ENV.get('COMPOSE_PROJECT_NAME','')
-if not __import__('re').fullmatch(r'[a-z0-9]+(?:[a-z0-9_-]*[a-z0-9])?',project):raise RuntimeError('set a non-empty unique COMPOSE_PROJECT_NAME (lowercase letters/digits/underscore/hyphen)')
+if not __import__('re').fullmatch(r'p027r4fix-[a-z0-9]+(?:[a-z0-9_-]*[a-z0-9])?',project):raise RuntimeError('set a unique COMPOSE_PROJECT_NAME=p027r4fix-<random>')
 ports=[int(ENV[k]) for k in ['POLIS_RECOVERY_PG_PORT','P027_HTTP_PORT','P027_CONTROL_PORT']]
-if len(set(ports))!=3 or any(p<55940 or p>55949 for p in ports):raise RuntimeError('set three unique host ports in 55940–55949')
+if len(set(ports))!=3 or any(p<55930 or p>55939 for p in ports):raise RuntimeError('set three unique host ports in 55930–55939')
 ENV['RECOVERY_PG_PORT']=str(ports[0])
 ENV.setdefault('BUILDX_CONFIG','/private/tmp/'+project+'-buildx')
 COMPOSE=['docker','compose','-f',str(HERE/'compose.yml')]
@@ -34,7 +34,7 @@ def provenance():
    server_env=dict(x.split('=',1) for x in c['Config']['Env'])
    if any(p not in mounts or mounts[p]['RW'] for p in ['/app/src','/app/app.ts','/app/index.ts']):raise RuntimeError('source snapshot exclusions require read-only source mounts')
  source=list((ROOT/'server/src').rglob('*.ts'))+[ROOT/'server/app.ts',ROOT/'server/index.ts',ROOT/'server/package-lock.json']
- stack={'commit':run('git','rev-parse','HEAD',capture=True).strip(),'sourceHash':digest_files(source),'migrationHash':digest_files((ROOT/'server/postgres/migrations').glob('*.sql')),'composeHash':hashlib.sha256((HERE/'compose.yml').read_bytes()).hexdigest(),'images':{c['Config']['Labels']['com.docker.compose.service']:c['Image'] for c in containers},'networkInternal':True,'networkCount':1,'generatedOnly':True,'fixtureClock':1700000000000,'harnessHash':digest_files([p for p in HERE.iterdir() if p.suffix in ['.cjs','.sql','.py','.json']]),'negativeControls':server_env.get('P027_NEGATIVE_CONTROLS','0'),'markers':server_env.get('P027_MARKERS','1')}
+ stack={'commit':run('git','rev-parse','HEAD',capture=True).strip(),'sourceHash':digest_files(source),'migrationHash':digest_files((ROOT/'server/postgres/migrations').glob('*.sql')),'composeHash':hashlib.sha256((HERE/'compose.yml').read_bytes()).hexdigest(),'images':{c['Config']['Labels']['com.docker.compose.service']:c['Image'] for c in containers},'networkInternal':True,'networkCount':1,'generatedOnly':True,'fixtureClock':1700000000000,'harnessHash':digest_files([p for p in HERE.iterdir() if p.suffix in ['.cjs','.sql','.py','.json']]),'mathSeedImage':json.loads(run('docker','image','inspect','p011-delphi-test:latest',capture=True))[0]['Id'],'mathEnv':server_env['MATH_ENV'],'negativeControls':server_env.get('P027_NEGATIVE_CONTROLS','0'),'markers':server_env.get('P027_MARKERS','1')}
  (HERE/'artifacts').mkdir(exist_ok=True)
  (HERE/'artifacts/stack.json').write_text(json.dumps(stack,indent=2)+'\n')
  return stack
@@ -54,6 +54,7 @@ def main():
   # Reset SQL and restart the web process to reset LRU caches and observer state.
   # Dynamo has no tables in the boundary corpus; restart it for a clean independent replay.
   dc('exec','-T','driver','node','characterization/cli.cjs','seed')
+  dc('run','--rm','--no-deps','math-seed')
   dc('restart','server','dynamodb');ready();provenance()
   dc('exec','-T','driver','node','characterization/cli.cjs','seed-pages')
   if len(sys.argv)>3 and sys.argv[3]=='nominal':dc('exec','-T','driver','node','characterization/cli.cjs','init-dynamo')

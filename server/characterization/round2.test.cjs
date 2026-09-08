@@ -19,7 +19,8 @@ const root = testBaseline(),
 const by = (id) => baseline.cases.find((c) => c.caseId === id);
 test("N2: production coverage counts the 307 identical opaque 400 bodies per registration", () => {
   const { coverageStats, coverageTable } = require("./core.cjs");
-  const stats = coverageStats(baseline.cases);
+  const legacy = baseline.cases.filter((c) => !c.caseId.includes("/pca2/"));
+  const stats = coverageStats(legacy);
   assert.equal(stats.cases, 533);
   assert.equal(stats.opaque400Cases, 307);
   assert.equal(stats.statuses[400], 339);
@@ -28,7 +29,7 @@ test("N2: production coverage counts the 307 identical opaque 400 bodies per reg
     307
   );
   for (const row of stats.rows) {
-    const opaque = baseline.cases.filter(
+    const opaque = legacy.filter(
       (c) =>
         c.routeId === row.routeId &&
         c.response.status === 400 &&
@@ -52,7 +53,7 @@ test("R1: every manifest pins production-compact settings and all plain JSON bod
     )
       continue;
     assert.equal(b.toString(), JSON.stringify(JSON.parse(b)), c.caseId);
-    plain++;
+    if (!c.caseId.includes("/pca2/")) plain++;
   }
   assert.equal(plain, 176);
   for (const role of ["participant", "owner"])
@@ -265,7 +266,7 @@ test("R1: production finalhandler hides internal error messages in all 307 gener
       bytes(c).toString() ===
       require("node:http").STATUS_CODES[c.response.status] + "\n"
   );
-  assert.equal(generic.length, 307);
+  assert.equal(generic.filter((c) => !c.caseId.includes("/pca2/")).length, 307);
   assert.equal(bytes(by("r5/owner/boundary")).toString(), "Bad Request\n");
   assert(generic.every((c) => c.response.status >= 400));
 });
