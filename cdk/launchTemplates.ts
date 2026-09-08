@@ -52,7 +52,9 @@ export default (
       'sudo systemctl start docker',
       'sudo systemctl enable docker',
       'sudo usermod -a -G docker ec2-user',
-      'sudo curl -L https://github.com/docker/compose/releases/download/v2.40.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose',
+      // $(uname -m) → x86_64 on the web/delphi tiers, aarch64 on the Graviton math worker. A hardcoded
+      // x86_64 binary aborts the boot script on ARM (Exec format error) and the CodeDeploy agent never installs.
+      'sudo curl -L https://github.com/docker/compose/releases/download/v2.40.0/docker-compose-linux-$(uname -m) -o /usr/local/bin/docker-compose',
       'sudo chmod +x /usr/local/bin/docker-compose',
       'docker-compose --version',
       'sudo yum install -y jq',

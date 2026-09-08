@@ -111,6 +111,17 @@ class ConversationWorkerPool:
         with self._lock:
             return zid in self._parked
 
+    def parked_zids(self) -> Set[int]:
+        """Snapshot of currently-parked zids under the pool lock.
+
+        The pool is the SINGLE owner of parked-zid truth (P-022 R04): the
+        service reads its parked set through this method rather than keeping a
+        second set that must agree by convention. Returning a fresh copy under
+        the lock guarantees the snapshot cannot tear against a concurrent
+        park()/unpark()/submit()."""
+        with self._lock:
+            return set(self._parked)
+
     def submit(self, zid: int, message_type: str, batch: List[Any]) -> None:
         """Queue a batch for a zid; ensure exactly one worker drains it."""
         with self._lock:

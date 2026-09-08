@@ -26,8 +26,8 @@ function handle_GET_math_pca(
 
 // Cache the knowledge of whether there are any pca results for a given zid.
 // Needed to determine whether to return a 404 or a 304.
-// zid -> boolean
-const pcaResultsExistForZid: Record<number, boolean> = {};
+// [math_env, zid] -> boolean
+const pcaResultsExistForZid: Record<string, boolean> = {};
 
 function handle_GET_math_pca2(
   req: {
@@ -54,6 +54,7 @@ function handle_GET_math_pca2(
   }
 ) {
   const zid = req.p.zid;
+  const cacheKey = JSON.stringify([Config.mathEnv, zid]);
   let math_tick = req.p.math_tick;
   const keys = req.p.keys;
 
@@ -84,7 +85,7 @@ function handle_GET_math_pca2(
   }
 
   function finishWith304or404() {
-    if (pcaResultsExistForZid[zid]) {
+    if (pcaResultsExistForZid[cacheKey]) {
       res.status(304).end();
     } else {
       // Technically, this should probably be a 404, but
@@ -122,12 +123,12 @@ function handle_GET_math_pca2(
         res.send(data.asBufferOfGzippedJson);
       } else {
         // check whether we should return a 304 or a 404
-        if (pcaResultsExistForZid[zid] === undefined) {
+        if (pcaResultsExistForZid[cacheKey] === undefined) {
           // This server doesn't know yet if there are any PCA results in the DB
           // So try querying from -1
           return getPca(zid, -1).then(function (data: any) {
             const exists = !!data;
-            pcaResultsExistForZid[zid] = exists;
+            pcaResultsExistForZid[cacheKey] = exists;
             finishWith304or404();
           });
         } else {

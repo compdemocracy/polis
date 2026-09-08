@@ -113,15 +113,19 @@ export async function ensureJobQueueTableExists(): Promise<void> {
  * Creates a completed Delphi job for a conversation
  * @param conversationId The conversation ID (zid)
  * @param jobId Optional job ID (defaults to generated ID)
+ * @param logMessages Optional log lines to store on the job row, in the shape
+ *   `delphi/scripts/job_poller.py:update_job_logs` writes them
+ *   (`logs` = a JSON string `{"entries":[{timestamp, level, message}]}`).
  * @returns The created job ID
  */
 export async function createCompletedDelphiJob(
   conversationId: string,
-  jobId?: string
+  jobId?: string,
+  logMessages?: string[]
 ): Promise<string> {
   const actualJobId = jobId || `test-job-${conversationId}-${Date.now()}`;
 
-  const item = {
+  const item: Record<string, any> = {
     job_id: actualJobId,
     conversation_id: conversationId.toString(),
     status: "COMPLETED",
@@ -145,6 +149,16 @@ export async function createCompletedDelphiJob(
       created_by: "integration-test",
     },
   };
+
+  if (logMessages) {
+    item.logs = JSON.stringify({
+      entries: logMessages.map((message) => ({
+        timestamp: new Date().toISOString(),
+        level: "INFO",
+        message,
+      })),
+    });
+  }
 
   await docClient.send(
     new PutCommand({
