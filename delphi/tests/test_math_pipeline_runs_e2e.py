@@ -292,8 +292,10 @@ def test_run_math_pipeline_e2e(mock_connect, dynamodb_client, mock_comments_data
     assert finished, "no conversation reached the final computation stage"
 
     conv = finished[-1]
-    expected_pids = {v['pid'] for v in mock_votes_data['votes_dicts']['votes']}
-    expected_tids = {v['tid'] for v in mock_votes_data['votes_dicts']['votes']}
+    # Derived from the tuples the batched SELECT mock actually returns --
+    # (created, tid, pid, vote) -- i.e. from what the pipeline really consumed.
+    expected_tids = {row[1] for row in mock_votes_data['votes_tuples']}
+    expected_pids = {row[2] for row in mock_votes_data['votes_tuples']}
     assert conv.participant_count == len(expected_pids)
     assert conv.comment_count == len(expected_tids)
     assert conv.raw_rating_mat.shape == (len(expected_pids), len(expected_tids))
