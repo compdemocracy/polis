@@ -611,6 +611,107 @@ describe("admitDelphiJob: round-3 review", () => {
   });
 });
 
+describe("admitDelphiJob: round-4 review", () => {
+  it("adopts a FAILED root whose process exit was never confirmed", async () => {
+    // Discovery used to filter on status, so exactly the old-worker state the
+    // guarded path treats as live was invisible to adoption.
+    const store = makeStore({
+      sweepUnguardedActiveRoot: jest.fn(async () => ({
+        kind: "found" as const,
+        value: "unconfirmed-root",
+      })),
+      readJob: jest.fn(async () => ({ status: "FAILED" })),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+    expect(result).toMatchObject({
+      outcome: "deduplicated",
+      jobId: "unconfirmed-root",
+      adopted: true,
+      workLive: true,
+    });
+    expect(store.admit).not.toHaveBeenCalled();
+  });
+
+  it("acknowledges the job an idempotency key was already bound to", async () => {
+    // A concurrent request bound the key to another root; answering with ours
+    // would make the same key name two different jobs.
+    const aliasKey = idempotencyGuardKey(scope, "raced");
+    let aliasBound = false;
+    const store = makeStore({
+      readGuard: jest.fn(async (guardKey: string) => {
+        if (guardKey === aliasKey) {
+          return aliasBound
+            ? ({
+                guard_key: aliasKey,
+                job_id: "other-root",
+                version: 1,
+                conversation_id: scope.conversationId,
+                job_type: scope.jobType,
+                scope_guard_key: scopeGuardKey(scope),
+                config_hash: configFingerprint(scope.jobConfig),
+                binding_expires_at: new Date(Date.now() + 60_000).toISOString(),
+              } as GuardRow)
+            : null;
+        }
+        return liveGuard();
+      }),
+      bindAlias: jest.fn(async () => {
+        aliasBound = true;
+        return false; // someone else got there first
+      }),
+      readJob: jest.fn(async () => ({ status: "PROCESSING" })),
+    });
+
+    const result = await admitDelphiJob(
+      { scope, jobItem: jobItem(), idempotencyKey: "raced" },
+      store
+    );
+    expect(result).toMatchObject({ jobId: "other-root" });
+  });
+
+  it("does not acknowledge a job whose guard has gone away underneath it", async () => {
+    // Compensation, or a reset, can withdraw the guard and its row between
+    // resolving one and returning it. Naming a dead id leaves the retry stuck.
+    let reads = 0;
+    const store = makeStore({
+      readGuard: jest.fn(async () => (reads++ === 0 ? liveGuard() : null)),
+      readJob: jest.fn(async (jobId: string) =>
+        jobId === "existing-job" ? null : { status: "PENDING" }
+      ),
+    });
+
+    const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
+    // Re-resolved rather than handing back the withdrawn job.
+    expect(result.jobId).not.toBe("existing-job");
+    expect(result.outcome).toBe("created");
+  });
+
+  it("withdraws the alias along with the job it compensated away", async () => {
+    const sweep = jest
+      .fn()
+      .mockResolvedValueOnce({ kind: "none" })
+      .mockResolvedValueOnce({ kind: "found", value: "old-producer" })
+      .mockResolvedValue({ kind: "found", value: "old-producer" });
+    const store = makeStore({
+      sweepUnguardedActiveRoot: sweep,
+      readJob: jest.fn(async () => ({ status: "PENDING" })),
+    });
+
+    await admitDelphiJob(
+      { scope, jobItem: jobItem(), idempotencyKey: "raced" },
+      store
+    );
+
+    expect(store.clearAlias).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guard_key: idempotencyGuardKey(scope, "raced"),
+        job_id: "job-1",
+      })
+    );
+  });
+});
+
 describe("assessJobLiveness", () => {
   it("reports live work for a terminal root with a live descendant", async () => {
     const store = makeStore({

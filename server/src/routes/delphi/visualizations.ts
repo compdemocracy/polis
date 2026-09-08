@@ -319,10 +319,60 @@ async function fetchJobMetadata(
 }
 
 /**
+ * Statuses that mean a job row is durably finished. Kept in step with
+ * `jobGuard.ts` and `delphi/scripts/job_poller.py`.
+ */
+const TERMINAL_JOB_STATUSES = new Set(["COMPLETED", "FAILED"]);
+
+/**
+ * Is paid work still outstanding under this job?
+ *
+ * The same rule the submission guard applies, computed from rows this query
+ * already returned so it costs no extra reads: a job is live unless it is
+ * terminal, its terminal write is resolved (a FAILED root needs the worker's
+ * confirmed process exit; no root may carry `checker_schedule_failed`), and no
+ * checker child of it is still running. The client uses this to know when to
+ * stop polling, so an unknown answer must be `true`.
+ *
+ * This view comes from an eventually consistent index, so `false` here means
+ * "nothing outstanding as far as this read can see", not proof. The client
+ * treats a job it cannot find at all as uncertain for that reason.
+ */
+function computeWorkLive(
+  item: any,
+  childrenByParent: Map<string, any[]>
+): boolean {
+  const status = item.status || "unknown";
+  const children = childrenByParent.get(item.job_id) || [];
+  if (children.some((child) => !TERMINAL_JOB_STATUSES.has(child.status))) {
+    return true;
+  }
+  if (!TERMINAL_JOB_STATUSES.has(status)) {
+    return true;
+  }
+  if (item.checker_schedule_failed) {
+    return true;
+  }
+  if (status === "FAILED" && !item.process_exit_confirmed) {
+    return true;
+  }
+  return false;
+}
+
+/**
  * Process job items from DynamoDB into a map of job metadata.
  */
 function processJobItems(items: any[]): Record<string, any> {
   const jobMap: Record<string, any> = {};
+
+  const childrenByParent = new Map<string, any[]>();
+  for (const item of items) {
+    if (item.batch_job_id) {
+      const siblings = childrenByParent.get(item.batch_job_id) || [];
+      siblings.push(item);
+      childrenByParent.set(item.batch_job_id, siblings);
+    }
+  }
 
   for (const item of items) {
     const job_id = item.job_id;
@@ -345,6 +395,9 @@ function processJobItems(items: any[]): Record<string, any> {
       startedAt: item.started_at || null,
       completedAt: item.completed_at || null,
       results: jobResults,
+      // Additive: lets a reloaded client tell "finished" from "terminal row,
+      // work still outstanding underneath" without a second request.
+      workLive: computeWorkLive(item, childrenByParent),
     };
   }
 

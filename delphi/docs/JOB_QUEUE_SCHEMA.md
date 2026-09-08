@@ -406,9 +406,12 @@ conversation's guard rows can be found without a join.
 2. **Scope check.** A strongly-consistent read of the scope guard decides
    whether work is outstanding.
 3. **Migration check.** With no guard, the server sweeps the base table for
-   active work in the scope — including a live checker whose parent root is
-   already terminal — and adopts that root rather than admitting a duplicate
-   beside it. After writing, it sweeps again: a producer that does not take part
+   outstanding work in the scope and adopts its root rather than admitting a
+   duplicate beside it. The sweep does not filter on status: a live checker
+   under an already-terminal parent, and a root whose terminal write is
+   unresolved (FAILED with no confirmed process exit, or
+   `checker_schedule_failed`), are both outstanding work that a status filter
+   hides. Candidates are classified with the same rule release uses. After writing, it sweeps again: a producer that does not take part
    in the transaction cannot be fenced by a read, so if one raced in, the server
    withdraws its own row while that row is still unclaimed. This narrows the
    window; it does not close it. **Deploy every producer before relying on the
@@ -429,9 +432,14 @@ conversation's guard rows can be found without a join.
      secondary index is eventually consistent and does not accept
      `ConsistentRead`, so its silence is not evidence;
    - a `FAILED` root carries `process_exit_confirmed`, which `job_poller.py`
-     writes only after it has stopped and joined the job's child process. A root
-     failed out from under a live subprocess can still grow a checker
-     afterwards, so an unconfirmed failure is not proof;
+     writes only after it has stopped and joined the job's whole **process
+     tree**. Jobs are started with `start_new_session=True` and stopped by
+     signalling their process group, because a `FULL_PIPELINE` child is
+     `run_delphi.py`, which launches subprocesses of its own; stopping the
+     direct child alone left those running. A root failed out from under live
+     processes can still grow a checker afterwards, so an unconfirmed failure is
+     not proof. Process exit is not provider reconciliation: that is what the
+     descendant sweep and `checker_schedule_failed` are for;
    - the root does not carry `checker_schedule_failed`, which
      `801_narrative_report_batch.py` sets when it submitted a provider batch but
      could not schedule the checker row that would otherwise represent it.

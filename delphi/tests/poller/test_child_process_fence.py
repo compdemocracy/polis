@@ -91,61 +91,115 @@ def run_process_job(monkeypatch, child, *, timed_out=False):
     return completions
 
 
-def test_timeout_stops_the_child_before_failing_the_job(monkeypatch):
-    child = FakeProcess()
-    completions = run_process_job(monkeypatch, child, timed_out=True)
+class NestedRealProcess:
+    """A real parent+grandchild pair, wrapped so process_job can drive it.
 
-    assert completions == [(False, True)]
-    assert not child.alive
-    assert "terminate" in child.calls
-    assert "wait" in child.calls
+    Delegates everything to an actual Popen so the process-group fence is
+    exercised for real; only stdout is faked, to inject a pipe failure.
+    """
+
+    def __init__(self, read_error=False, hang=False):
+        code = (
+            "import subprocess,sys,time;"
+            "p=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)']);"
+            "print(p.pid,flush=True);"
+            "p.wait()"
+        )
+        self._proc = subprocess.Popen(
+            [sys.executable, "-c", code],
+            stdout=subprocess.PIPE,
+            text=True,
+            start_new_session=True,
+        )
+        self.grandchild_pid = int(self._proc.stdout.readline())
+        if read_error:
+            self.stdout = SimpleNamespace(
+                readline=self._raise_read_error, close=lambda: None
+            )
+        elif hang:
+            # Never yields a line, so the timeout check is what ends the loop.
+            self.stdout = SimpleNamespace(
+                readline=lambda: " ", close=lambda: None
+            )
+        else:
+            self.stdout = self._proc.stdout
+
+    def _raise_read_error(self):
+        raise OSError("synthetic pipe failure")
+
+    @property
+    def pid(self):
+        return self._proc.pid
+
+    def poll(self):
+        return self._proc.poll()
+
+    def wait(self, timeout=None):
+        return self._proc.wait(timeout=timeout)
+
+    def kill(self):
+        self._proc.kill()
+
+    def cleanup(self):
+        _reap(self._proc, self.grandchild_pid)
 
 
-def test_pipe_error_stops_the_child_before_failing_the_job(monkeypatch):
-    child = FakeProcess(read_error=True)
-    completions = run_process_job(monkeypatch, child)
+def run_process_job_with(monkeypatch, child, *, timed_out=False):
+    completions = []
+    worker = JobProcessor.__new__(JobProcessor)
+    worker.worker_id = "synthetic-worker"
+    worker.update_job_logs = lambda *args, **kwargs: None
+    worker.complete_job = lambda job, success, **kwargs: completions.append(
+        (success, kwargs.get("process_exited"))
+    )
+    worker.release_lock = lambda *args, **kwargs: None
+    monkeypatch.setattr("scripts.job_poller.subprocess.Popen", lambda *a, **kw: child)
+    monkeypatch.setenv("ANTHROPIC_MODEL", "synthetic-model")
+    if timed_out:
+        clock = iter([0, 10_000])
+        monkeypatch.setattr(
+            "scripts.job_poller.time.time", lambda: next(clock, 10_000)
+        )
+    worker.process_job(
+        {
+            "job_id": "synthetic-root",
+            "job_type": "CREATE_NARRATIVE_BATCH",
+            "conversation_id": "1",
+            "timeout_seconds": 1,
+        }
+    )
+    return completions
 
-    assert completions == [(False, True)]
-    assert not child.alive
-    assert "terminate" in child.calls
+
+def test_timeout_stops_the_whole_job_tree(monkeypatch):
+    child = NestedRealProcess(hang=True)
+    try:
+        completions = run_process_job_with(monkeypatch, child, timed_out=True)
+        assert completions == [(False, True)]
+        assert child.poll() is not None
+        assert not _alive(child.grandchild_pid)
+    finally:
+        child.cleanup()
 
 
-def test_child_that_ignores_terminate_is_killed(monkeypatch):
-    child = FakeProcess(read_error=True, ignore_terminate=True)
-    completions = run_process_job(monkeypatch, child)
-
-    assert completions == [(False, True)]
-    assert not child.alive
-    assert child.calls.count("terminate") == 1
-    assert "kill" in child.calls
+def test_pipe_error_stops_the_whole_job_tree(monkeypatch):
+    child = NestedRealProcess(read_error=True)
+    try:
+        completions = run_process_job_with(monkeypatch, child)
+        assert completions == [(False, True)]
+        assert child.poll() is not None
+        assert not _alive(child.grandchild_pid)
+    finally:
+        child.cleanup()
 
 
 def test_ordinary_completion_still_waits_and_claims_exit(monkeypatch):
+    """The success path never needs the fence: it already joined the child."""
     child = FakeProcess()
     completions = run_process_job(monkeypatch, child)
 
-    # No terminate needed: the normal path already joins the child.
     assert completions == [(True, True)]
     assert child.calls == ["wait"]
-
-
-def test_unconfirmed_exit_is_not_claimed(monkeypatch):
-    """If the child cannot be stopped, the failure must not claim it exited."""
-
-    class Unstoppable(FakeProcess):
-        def terminate(self):
-            self.calls.append("terminate")
-            raise OSError("synthetic terminate failure")
-
-        def kill(self):
-            self.calls.append("kill")
-            raise OSError("synthetic kill failure")
-
-    child = Unstoppable(read_error=True)
-    completions = run_process_job(monkeypatch, child)
-
-    assert completions == [(False, False)]
-    assert child.alive
 
 
 @pytest.mark.parametrize("success", [True, False])
@@ -169,3 +223,117 @@ def test_complete_job_records_the_exit_claim(success):
     captured.clear()
     worker.complete_job({"job_id": "synthetic-root", "version": 1}, success)
     assert captured["ExpressionAttributeValues"][":process_exited"] is False
+
+
+# --- Real nested processes -------------------------------------------------
+#
+# The fake Popen above cannot show the failure round 3 missed: a FULL_PIPELINE
+# child is run_delphi.py, which launches and waits on its own subprocesses.
+# Stopping the direct child leaves those grandchildren running, still able to
+# write output and reach a provider. These use actual sleeping processes.
+
+import os
+import signal
+import sys
+import time
+
+
+def _spawn_nested(new_session):
+    """A parent that spawns a grandchild and waits on it, like run_delphi.py."""
+    code = (
+        "import subprocess,sys,time;"
+        "p=subprocess.Popen([sys.executable,'-c','import time; time.sleep(60)']);"
+        "print(p.pid,flush=True);"
+        "p.wait()"
+    )
+    parent = subprocess.Popen(
+        [sys.executable, "-c", code],
+        stdout=subprocess.PIPE,
+        text=True,
+        start_new_session=new_session,
+    )
+    grandchild_pid = int(parent.stdout.readline())
+    return parent, grandchild_pid
+
+
+def _reap(parent, grandchild_pid):
+    for pid in (grandchild_pid,):
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    if parent.poll() is None:
+        parent.kill()
+    parent.wait(timeout=5)
+    if parent.stdout:
+        parent.stdout.close()
+
+
+def _alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    return True
+
+
+def test_stopping_a_job_kills_its_grandchildren():
+    worker = JobProcessor.__new__(JobProcessor)
+    parent, grandchild_pid = _spawn_nested(new_session=True)
+    try:
+        assert worker.stop_child_process(parent, "synthetic-root") is True
+        assert parent.poll() is not None
+        # The point of the whole change: the grandchild goes too.
+        deadline = time.time() + 5
+        while _alive(grandchild_pid) and time.time() < deadline:
+            time.sleep(0.05)
+        assert not _alive(grandchild_pid)
+    finally:
+        _reap(parent, grandchild_pid)
+
+
+def test_a_child_without_its_own_group_is_not_claimed():
+    """A process the poller does not own as a group cannot be confirmed.
+
+    It is stopped as best we can, but the exit is not claimed, so the server
+    keeps the guard instead of releasing a scope whose descendants may live on.
+    """
+    worker = JobProcessor.__new__(JobProcessor)
+    parent, grandchild_pid = _spawn_nested(new_session=False)
+    try:
+        assert worker.stop_child_process(parent, "synthetic-root") is False
+    finally:
+        _reap(parent, grandchild_pid)
+
+
+def test_process_job_starts_the_child_in_its_own_session(monkeypatch):
+    """The group only exists if Popen is asked for it."""
+    captured = {}
+
+    class Recorded(FakeProcess):
+        pass
+
+    child = Recorded()
+
+    def fake_popen(*args, **kwargs):
+        captured.update(kwargs)
+        return child
+
+    monkeypatch.setattr("scripts.job_poller.subprocess.Popen", fake_popen)
+    monkeypatch.setenv("ANTHROPIC_MODEL", "synthetic-model")
+
+    worker = JobProcessor.__new__(JobProcessor)
+    worker.worker_id = "synthetic-worker"
+    worker.update_job_logs = lambda *a, **kw: None
+    worker.complete_job = lambda *a, **kw: None
+    worker.release_lock = lambda *a, **kw: None
+    worker.process_job(
+        {
+            "job_id": "synthetic-root",
+            "job_type": "CREATE_NARRATIVE_BATCH",
+            "conversation_id": "1",
+            "timeout_seconds": 1,
+        }
+    )
+
+    assert captured.get("start_new_session") is True
