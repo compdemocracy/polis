@@ -1,0 +1,20 @@
+# Compose override for the P-022 §C poller recovery suite.
+#
+# Used with docker-compose.test.yml, e.g.
+#   docker compose -f docker-compose.test.yml -f docker-compose.recovery.yml \
+#     --env-file test.env up -d postgres
+#
+# Two deliberate differences from the plain test stack:
+#   * the host port is NOT 5432 — a developer's live local Postgres usually owns
+#     that port, and the recovery suite creates/drops databases, so it must never
+#     be able to reach a real one by accident. Override with
+#     POLIS_RECOVERY_PG_PORT.
+#   * the data directory is tmpfs: every `up` starts from a clean initdb, which
+#     re-runs server/postgres/migrations/*.sql (the REAL migrations baked into
+#     server/Dockerfile-db), and nothing survives teardown.
+services:
+  postgres:
+    ports: !override
+      - "${POLIS_RECOVERY_PG_PORT:-55432}:5432"
+    tmpfs:
+      - /var/lib/postgresql/data

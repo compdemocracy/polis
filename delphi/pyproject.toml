@@ -146,6 +146,7 @@ markers = [
     "local_dataset: mark test as using local (non-committed) datasets from real_data/.local/",
     "clojure_comparison: mark test as comparing with Clojure reference implementation (can be excluded with '-m \"not clojure_comparison\"')",
     "integration: mark test as an opt-in integration test needing a real Postgres (self-skips if docker/port unavailable)",
+    "recovery: P-022 §C poller recovery matrix (R01-R12); REQUIRES a real Postgres via POLIS_TEST_POSTGRES_URL and FAILS (never skips) without one — run via `make test-recovery`",
 ]
 
 [tool.coverage.run]
