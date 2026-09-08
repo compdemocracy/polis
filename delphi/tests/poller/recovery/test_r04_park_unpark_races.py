@@ -28,6 +28,7 @@ from .conftest import (
     commit_vote,
     drain,
     fail_stage,
+    pool_pending as _pool_pending,
     read_math_tables,
     read_vote_events,
     seed_conversation,
@@ -136,22 +137,52 @@ def test_overlapping_reconciliation_triggers_run_one_handler_per_zid(
                 conc["cur"] -= 1
 
     svc._load_or_init = latched_load
+    writes = []
+    real_write = svc._writer.write_conv_updates
+
+    def counting_write(zid, conv):
+        writes.append(zid)
+        return real_write(zid, conv)
+
+    svc._writer.write_conv_updates = counting_write
 
     svc._pool.park(1)
     svc._reconcile_once()                    # trigger 1: unpark + REBUILD
-    assert entered.wait(timeout=30)
-    svc._pool.park(1)                        # re-park under the in-flight handler
-    svc._reconcile_once()                    # trigger 2, overlapping
-    svc._reconcile_once()                    # trigger 3, overlapping
+    assert entered.wait(timeout=30), "the first rebuild never started"
+
+    # Two more triggers arrive while the first handler is PROVABLY in flight.
+    # Neither may run now (per-zid serialization) and neither may be dropped:
+    # the pool must coalesce them into exactly one further cycle.
+    svc._pool.submit(1, REBUILD, [])
+    svc._pool.submit(1, REBUILD, [])
     proceed.set()
     drain(svc)
     svc._load_or_init = real_load
+    svc._writer.write_conv_updates = real_write
 
+    # --- handler accounting (exact, not ">= 1") ---------------------------- #
     assert conc["max"] == 1, (
         f"at most one active handler per zid, saw {conc['max']} concurrent"
     )
-    assert conc["n"] >= 1, "the rebuild ran; nothing silently dropped"
-    assert 1 not in svc._parked
+    assert conc["n"] == 2, (
+        "expected EXACTLY two rebuild executions — the in-flight one plus one "
+        f"coalesced cycle for the two overlapping triggers — but saw {conc['n']}. "
+        "A count of 1 means the queued rebuilds were DROPPED; more than 2 means "
+        "per-zid serialization or coalescing broke."
+    )
+    assert conc["cur"] == 0, "no handler left in flight"
+
+    # --- final state ------------------------------------------------------- #
+    assert writes == [1, 1], (
+        f"each executed rebuild must publish exactly once, saw {writes!r}"
+    )
+    assert not _pool_pending(svc._pool, 1), (
+        "the pool must have no queued or active work left for the zid"
+    )
+    assert 1 not in svc._parked and not svc._pool.is_parked(1), (
+        "a successful rebuild must leave the zid quiet and unparked"
+    )
+    assert svc._retry_counts.get(1) is None, "retry markers must be cleared"
     _assert_published(engine, 1)
 
 
