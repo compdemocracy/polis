@@ -738,6 +738,17 @@ Thanks for using Polis!
         res.json({});
       },
       (err: any) => {
+        // contributor_agreement_signatures is not created by any migration in
+        // server/postgres/migrations, so on a schema built from this repo the
+        // insert always fails with 42601-adjacent 42P01 (undefined_table).
+        // Answer with a code that names the real condition instead of the
+        // generic misc 500. See P-029 notes: the route has no caller in
+        // client-admin, client-participation-alpha, client-report or e2e and
+        // is a remove-or-410 candidate.
+        if (err && err.code === "42P01") {
+          failJson(res, 503, "polis_err_contributors_unavailable", err);
+          return;
+        }
         failJson(res, 500, "polis_err_POST_contributors_misc", err);
       }
     );
