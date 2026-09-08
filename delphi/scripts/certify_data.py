@@ -27,6 +27,11 @@ Commands (run from ``delphi/``)::
         --bundle-id pcb-2026-09-07-a --dest /tmp/bundle \\
         --store s3://polis-certification-data
 
+    #    Identities (SEPARATE IAM role; the payload reader is denied this):
+    uv run python scripts/certify_data.py pull \\
+        --bundle-id pcb-2026-09-07-a --dest /tmp/bundle-prov \\
+        --with-provenance --provenance-role polis-certification-provenance-reader
+
     # 4. Re-verify a local tree at any time:
     uv run python scripts/certify_data.py verify \\
         --payload /tmp/bundle/payload --manifest /tmp/bundle/manifest.json
@@ -183,13 +188,19 @@ def survey(database_url: str, config_path: Path | None, out_dir: Path,
 @click.option("--store", default=f"s3://{fb.DEFAULT_BUCKET}", show_default=True)
 @click.option("--manifest-out", type=click.Path(path_type=Path), default=None,
               help="Also write the manifest locally (for review before/after push).")
+@click.option("--accept-null-vote-drops", is_flag=True, default=False,
+              help="Record an EXPLICIT acceptance that some compatibility CSV "
+                   "omitted NULL-vote rows. Without it, admission refuses a "
+                   "bundle whose extraction dropped any; with it, the bundle is "
+                   "published as a NON-CERTIFYING compatibility export.")
 @click.option("--dry-run", is_flag=True, default=False,
-              help="Build and verify the manifest; upload nothing.")
+              help="Build, verify and ADMIT the manifest; upload nothing.")
 def push(bundle_id: str, payload: Path, extract_json: Path, provenance_json: Path,
          config_path: Path | None, owner: str, snapshot_identifier: str,
          snapshot_time: str, schema_migration_version: str | None,
          archive_sha256: str | None, archive_object_version: str | None,
-         store: str, manifest_out: Path | None, dry_run: bool) -> None:
+         store: str, manifest_out: Path | None, accept_null_vote_drops: bool,
+         dry_run: bool) -> None:
     """Build the manifest + restricted provenance object and publish the bundle
     immutably, pinning every object's version id."""
     config_path = config_path or fc.DEFAULT_CONFIG_PATH
@@ -217,8 +228,13 @@ def push(bundle_id: str, payload: Path, extract_json: Path, provenance_json: Pat
         archive=None if not archive_sha256 else {
             "sha256": archive_sha256, "object_version": archive_object_version},
         coverage_report=extract.get("coverage_report"),
+        accepted_null_vote_drops=accept_null_vote_drops,
     )
     fb.verify(payload, manifest)
+    try:
+        fb.admit_manifest(manifest, config=config, config_bytes=config_bytes)
+    except fb.AdmissionError as exc:
+        raise click.ClickException(str(exc)) from exc
 
     provenance = fb.build_provenance(
         bundle_id=bundle_id, root_digest_value=manifest["root_digest"],
@@ -237,13 +253,15 @@ def push(bundle_id: str, payload: Path, extract_json: Path, provenance_json: Pat
     click.echo(f"ordering       : {manifest['ordering']['guarantee']}")
 
     if dry_run:
-        click.echo("dry run: nothing uploaded")
+        click.echo("admitted; dry run: nothing uploaded")
         return
 
     try:
         pins = fb.push(_store_from_url(store), bundle_id=bundle_id,
-                       payload_root=payload, manifest=manifest, provenance=provenance)
-    except fb.ImmutabilityError as exc:
+                       payload_root=payload, manifest=manifest,
+                       provenance=provenance, config=config,
+                       config_bytes=config_bytes)
+    except fb.BundleError as exc:
         raise click.ClickException(str(exc)) from exc
     click.echo(f"published {len(pins['objects'])} pinned object(s) to {store}/{bundle_id}/")
     click.echo(f"pins object version: {pins.get('pins_object_version_id')}")
@@ -259,37 +277,70 @@ def push(bundle_id: str, payload: Path, extract_json: Path, provenance_json: Pat
 @click.option("--dest", type=click.Path(path_type=Path), required=True,
               help="EMPTY destination directory.")
 @click.option("--store", default=f"s3://{fb.DEFAULT_BUCKET}", show_default=True)
+@click.option("--config", "config_path", type=click.Path(path_type=Path), default=None,
+              help="Selection config to ADMIT the manifest against (default: the "
+                   "committed one). Its sha256 must match the manifest.")
 @click.option("--with-provenance", is_flag=True, default=False,
               help="Also fetch the RESTRICTED role->zid object. Ordinary "
-                   "certification runs do not need it.")
-def pull(bundle_id: str, dest: Path, store: str, with_provenance: bool) -> None:
-    """Download a bundle into an empty workspace, verifying every hash BEFORE
-    any engine may use it and rejecting path traversal and symlinks."""
+                   "certification runs do not need it, and the payload-reader "
+                   "IAM role is DENIED it.")
+@click.option("--provenance-role", default=None,
+              help="REQUIRED with --with-provenance: the distinct IAM role/"
+                   "principal being exercised to read identities. Payload read "
+                   "access is never sufficient; see delphi/docs/CERTIFICATION.md.")
+def pull(bundle_id: str, dest: Path, store: str, config_path: Path | None,
+         with_provenance: bool, provenance_role: str | None) -> None:
+    """Download a bundle into an empty workspace: every hash verified and the
+    manifest ADMITTED before any engine may use it, path traversal and symlinks
+    rejected."""
+    config_path = config_path or fc.DEFAULT_CONFIG_PATH
     try:
         result = fb.pull(_store_from_url(store), bundle_id=bundle_id, dest=Path(dest),
-                         with_provenance=with_provenance)
+                         with_provenance=with_provenance,
+                         provenance_role=provenance_role,
+                         config=fc.load_config(config_path),
+                         config_bytes=Path(config_path).read_bytes())
     except fb.BundleError as exc:
         raise click.ClickException(str(exc)) from exc
-    click.echo(f"verified {result['n_files']} file(s) into {result['payload_root']}")
+    click.echo(f"verified and admitted {result['n_files']} file(s) into "
+               f"{result['payload_root']}")
     click.echo(f"root_digest: {result['root_digest']}")
     if result["provenance_pulled"]:
-        click.echo("restricted provenance object pulled (identities on disk)")
+        click.echo("restricted provenance object pulled (identities on disk, mode "
+                   f"0600) as role {result['provenance_role']}")
 
 
 @cli.command()
 @click.option("--payload", type=click.Path(path_type=Path), required=True)
 @click.option("--manifest", "manifest_path", type=click.Path(path_type=Path), required=True)
-def verify(payload: Path, manifest_path: Path) -> None:
-    """Verify a local payload tree against its manifest. Corrupted, truncated,
-    missing AND extra files all fail."""
+@click.option("--config", "config_path", type=click.Path(path_type=Path), default=None,
+              help="Selection config to admit against (default: the committed one).")
+@click.option("--admit/--no-admit", default=True, show_default=True,
+              help="Also run SEMANTIC admission (schema version, role coverage "
+                   "and rule conformance, materialisation, schedules, polarity). "
+                   "--no-admit is a bytes-only integrity check and never "
+                   "certifies a bundle.")
+def verify(payload: Path, manifest_path: Path, config_path: Path | None,
+           admit: bool) -> None:
+    """Verify a local payload tree against its manifest, and ADMIT the manifest.
+
+    Corrupted, truncated, missing AND extra files all fail the integrity pass;
+    a manifest that is byte-consistent but semantically inadmissible (wrong
+    schema version, a role outside its own rule, an unmaterialised substitute,
+    an inconsistent checkpoint count, undeclared polarity) fails the second."""
     manifest = json.loads(Path(manifest_path).read_text())
+    config_path = config_path or fc.DEFAULT_CONFIG_PATH
     try:
         fb.verify(Path(payload), manifest)
-    except fb.VerificationError as exc:
+        if admit:
+            fb.admit_manifest(manifest, config=fc.load_config(config_path),
+                              config_bytes=Path(config_path).read_bytes())
+    except fb.BundleError as exc:
         click.echo(str(exc), err=True)
         sys.exit(1)
     click.echo(f"OK: {len(manifest['files'])} file(s) match manifest "
-               f"{manifest['bundle_id']} (root digest {manifest['root_digest']})")
+               f"{manifest['bundle_id']} (root digest {manifest['root_digest']})"
+               + ("; manifest ADMITTED" if admit else "; NOT admitted (--no-admit)"))
 
 
 @cli.command()

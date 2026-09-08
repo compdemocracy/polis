@@ -485,9 +485,14 @@ def test_generated_cases_land_beside_the_extracted_ones(extracted):
 def published(extracted, tmp_path_factory):
     _, payload, result = extracted
     bundle_id = "pcb-itest-0001"
+    # The roles were selected under the SCALED rules, so that is the config the
+    # manifest records and the config admission has to be given: a bundle can
+    # only be admitted against the exact rule revision it was built from.
+    config = scaled_config()
+    config_bytes = fb.canonical_json(config)
     manifest = fb.build_manifest(
-        bundle_id=bundle_id, payload_root=payload, config=scaled_config(),
-        config_bytes=fc.DEFAULT_CONFIG_PATH.read_bytes(),
+        bundle_id=bundle_id, payload_root=payload, config=config,
+        config_bytes=config_bytes,
         selections=result["roles"], generated_summaries=result["generated"],
         snapshot={"identifier": "snap-itest", "created_at": "2026-09-07T00:00:00Z",
                   "schema_migration_version": "000018"},
@@ -495,6 +500,7 @@ def published(extracted, tmp_path_factory):
         tie_key=result["tie_key"],
         schedules=fb.collect_schedule_hashes(fc.SCRIPTS_DIR / "schedules"),
         owner="polis-certification",
+        extraction_commit="1" * 40, source_commit="1" * 40,
         coverage_report=result["coverage_report"],
     )
     provenance = fb.build_provenance(
@@ -502,8 +508,15 @@ def published(extracted, tmp_path_factory):
         selections=result["provenance_rows"], owner="polis-certification")
     store = fb.LocalStore(tmp_path_factory.mktemp("store"))
     pins = fb.push(store, bundle_id=bundle_id, payload_root=payload,
-                   manifest=manifest, provenance=provenance)
+                   manifest=manifest, provenance=provenance,
+                   config=config, config_bytes=config_bytes)
     return store, bundle_id, manifest, provenance, pins
+
+
+def _admission_kwargs() -> dict:
+    """The scaled rules a pull of this bundle must be admitted against."""
+    config = scaled_config()
+    return {"config": config, "config_bytes": fb.canonical_json(config)}
 
 
 def test_manifest_records_measured_metrics_without_identities(published):
@@ -538,7 +551,8 @@ def test_second_operator_pulls_and_verifies_into_an_empty_workspace(
         published, tmp_path):
     store, bundle_id, manifest, _, _ = published
     dest = tmp_path / "operator-two"
-    result = fb.pull(store, bundle_id=bundle_id, dest=dest)
+    result = fb.pull(store, bundle_id=bundle_id, dest=dest,
+                     **_admission_kwargs())
     assert result["root_digest"] == manifest["root_digest"]
     fb.verify(dest / "payload", json.loads((dest / fb.MANIFEST_KEY).read_text()))
     assert not (dest / fb.PROVENANCE_KEY).exists()
@@ -547,7 +561,7 @@ def test_second_operator_pulls_and_verifies_into_an_empty_workspace(
 def test_corrupted_pull_fails_verification(published, tmp_path):
     store, bundle_id, manifest, _, _ = published
     dest = tmp_path / "corrupt-me"
-    fb.pull(store, bundle_id=bundle_id, dest=dest)
+    fb.pull(store, bundle_id=bundle_id, dest=dest, **_admission_kwargs())
     victim = dest / "payload" / manifest["files"][0]["path"]
     victim.write_bytes(victim.read_bytes()[:-3] + b"XYZ")
     with pytest.raises(fb.VerificationError, match="hash mismatch"):
@@ -559,7 +573,8 @@ def test_republishing_with_different_bytes_is_refused(published, extracted):
     _, payload, _ = extracted
     with pytest.raises(fb.ImmutabilityError):
         fb.push(store, bundle_id=bundle_id, payload_root=payload,
-                manifest=dict(manifest, owner="impostor"), provenance=provenance)
+                manifest=dict(manifest, owner="impostor"), provenance=provenance,
+                **_admission_kwargs())
 
 
 def test_public_pin_leaks_nothing(published):
