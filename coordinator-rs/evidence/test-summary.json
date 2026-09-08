@@ -1,0 +1,56 @@
+{
+  "python_full_suite": {
+    "passed": 77,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "by_module": {
+      "test_adapter": 18,
+      "test_equivalence": 5,
+      "test_recovery": 47,
+      "test_reference_controls": 2,
+      "test_store": 5
+    },
+    "junit": "artifacts/final-pytest.xml"
+  },
+  "python_followup_store_suite": {
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "repeated_from_full_suite": 5,
+    "additional_test": "test_missing_checkpoint_metadata_is_repaired",
+    "log": "artifacts/final-store.log"
+  },
+  "python_distinct_tests_passed": 78,
+  "rust_tests": {
+    "passed": 10,
+    "failed": 0,
+    "ignored": 0
+  },
+  "clippy": {
+    "default_all_targets": "PASS -D warnings",
+    "fault_injection_all_targets": "PASS -D warnings"
+  },
+  "builds": {
+    "release": "PASS",
+    "debug_fault_injection": "PASS",
+    "release_fault_injection": "EXPECTED REFUSAL; passing negative-control assertion"
+  },
+  "stage_audit": {
+    "exit_code": 1,
+    "required": 25,
+    "reached": 24,
+    "full_contract_gate": "FAIL",
+    "missing": [
+      "cache_eviction_contends_with_same_zid_update"
+    ]
+  },
+  "scope": "Selected D0-D5 candidate profile; not full CO/G certification",
+  "cleanup": {
+    "compose_project": "p026",
+    "down_v_exit": 0,
+    "remaining_project_containers": 0,
+    "committed": false,
+    "pushed": false
+  }
+}
