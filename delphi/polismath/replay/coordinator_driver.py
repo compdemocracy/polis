@@ -770,16 +770,27 @@ def _serde_json_string(s: str) -> bytes:
     """serde_json's string encoding (``serde_json::to_writer`` for a &str): the
     two-char escapes for " \\ \\b \\f \\n \\r \\t, ``\\u00XX`` for the remaining
     C0 controls, ``/`` NOT escaped, and every other codepoint written through as
-    UTF-8 (no ``\\uXXXX`` for non-ASCII — the store writes Unicode through serde)."""
+    UTF-8 (no ``\\uXXXX`` for non-ASCII — the store writes Unicode through serde).
+
+    An UNPAIRED surrogate (U+D800..U+DFFF) cannot exist in a Rust ``String``, so a
+    JSON text carrying one fails to parse into ``serde_json::Value`` on the Rust
+    side; mirror that as a graded refusal (BridgeError) rather than a
+    UnicodeEncodeError. A valid non-BMP scalar (a proper surrogate pair, which
+    Python's JSON parser has already combined into a single codepoint) encodes
+    through as UTF-8 exactly as serde does."""
     out = bytearray(b'"')
     _short = {'"': b'\\"', '\\': b'\\\\', '\b': b'\\b', '\f': b'\\f',
               '\n': b'\\n', '\r': b'\\r', '\t': b'\\t'}
     for ch in s:
+        code = ord(ch)
         esc = _short.get(ch)
         if esc is not None:
             out += esc
-        elif ord(ch) < 0x20:
-            out += b'\\u%04x' % ord(ch)
+        elif code < 0x20:
+            out += b'\\u%04x' % code
+        elif 0xD800 <= code <= 0xDFFF:
+            raise BridgeError("digest", f"string carries an unpaired surrogate U+{code:04X}; "
+                              "serde cannot parse it into a Rust String")
         else:
             out += ch.encode("utf-8")
     out += b'"'
@@ -1020,9 +1031,16 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
         if raw is None:
             fails.append(f"{name}: original_bytes absent — data::text is not original evidence")
             continue
-        # Admit the original-byte evidence type BEFORE converting it.
+        # Admit the original-byte evidence type BEFORE converting it. A str
+        # carrying an unpaired surrogate is not UTF-8-encodable (serde cannot hold
+        # it in a Rust String); grade it rather than raising UnicodeEncodeError.
         if isinstance(raw, str):
-            raw_bytes = raw.encode()
+            try:
+                raw_bytes = raw.encode()
+            except UnicodeEncodeError:
+                fails.append(f"{name}: original_bytes is not valid UTF-8 (unpaired "
+                             f"surrogate) — serde cannot hold it in a Rust String")
+                continue
         elif isinstance(raw, (bytes, bytearray)):
             raw_bytes = bytes(raw)
         else:

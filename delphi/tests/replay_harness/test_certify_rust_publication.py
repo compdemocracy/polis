@@ -575,3 +575,35 @@ def test_string_and_byte_original_evidence_still_accepted():
     for name in ("main", "bidtopid", "ptptstats"):
         b2[name]["original_bytes"] = b2[name]["original_bytes"].encode()  # bytes evidence
     assert _V(b2) == []
+
+
+# ---------------------------------------------------------------------------
+# Round 9 (board [459]): unpaired surrogates graded; valid Unicode preserved.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("change", [
+    lambda b: b["main"].update(original_bytes=json.loads('"\\ud800"')),   # lone high in original str
+    lambda b: b["main"].update(data=json.loads('{"x":"\\ud800"}')),       # lone high in a value
+    lambda b: b["main"].update(data=json.loads('{"\\udfff":1}')),          # lone low in a key
+])
+def test_unpaired_surrogates_are_graded_not_raised(change):
+    b = _bundle()
+    change(b)
+    fails = _V(b)  # must not raise UnicodeEncodeError
+    assert isinstance(fails, list) and fails and all(isinstance(f, str) for f in fails)
+
+
+def test_lone_surrogate_digest_raises_named_bridgeerror():
+    with pytest.raises(cd.BridgeError):
+        cd._canonical_payload_digest({"x": json.loads('"\\ud800"')})
+    with pytest.raises(cd.BridgeError):
+        cd._canonical_payload_digest({json.loads('"\\udfff"'): 1})
+
+
+@pytest.mark.parametrize("value", ["é", chr(0x1F600), json.loads('"\\ud83d\\ude00"')])
+def test_valid_non_bmp_unicode_still_digests(value):
+    # a proper surrogate pair is one astral scalar to Python's JSON parser
+    assert cd._canonical_payload_digest({"x": value})  # no raise, deterministic
+    b = _bundle()
+    _set(b, "main", {"x": value})
+    b["main"]["caching_tick"] = 42
+    assert _V(b) == []

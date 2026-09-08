@@ -28,13 +28,23 @@ def _load(name):
 _manifest = _load("test_certify_rust_identity")._manifest
 _bundle = _load("test_certify_rust_publication")._bundle
 
+# Strings that are NOT UTF-8-encodable (lone surrogates) or are valid non-BMP,
+# used in every string position (keys and values). Lone surrogates must be graded
+# (serde cannot hold them); valid astral scalars must encode/hash.
+_SURROGATES = ["\ud800", "\udfff", "\udc00", "a\ud800b", "🐀pair",
+               chr(0x1F600), "astral \U0001d538 key"]
 _ATOMS = [
     None, True, False, 0, 1, -1, 7,
     2 ** 63, 2 ** 64, 2 ** 64 + 1, -(2 ** 63) - 1, 10 ** 25, 10 ** 400, -(10 ** 400),
     0.0, -0.0, 1.5, 1e-7, 1e21, float("inf"), float("nan"),
     "", "x", "é", "a\nb\t\"c\\", "\x00\x1f", "sha", "a" * 64,
     [], {}, [1], {"x": 1}, {"slot": 0}, {"sha256": []},
-]
+] + _SURROGATES
+
+_KEYS = ["a", "b", "x", "slot", "sha256", "data", "id", "members", "count",
+         "bidToPid", "zid", "schema", "cursors", "votes", "operation_id",
+         "publisher_epoch", "original_digests", "payload_digests",
+         "base-clusters", "group-clusters"] + _SURROGATES
 
 
 def _rand_json(rng, depth=0):
@@ -42,11 +52,7 @@ def _rand_json(rng, depth=0):
         return rng.choice(_ATOMS)
     if rng.random() < 0.5:
         return [_rand_json(rng, depth + 1) for _ in range(rng.randint(0, 4))]
-    return {rng.choice(["a", "b", "x", "slot", "sha256", "data", "id", "members",
-                        "count", "bidToPid", "zid", "schema", "cursors", "votes",
-                        "operation_id", "publisher_epoch", "original_digests",
-                        "payload_digests", "base-clusters", "group-clusters"]):
-            _rand_json(rng, depth + 1) for _ in range(rng.randint(0, 4))}
+    return {rng.choice(_KEYS): _rand_json(rng, depth + 1) for _ in range(rng.randint(0, 4))}
 
 
 def _graded(result):
@@ -89,17 +95,37 @@ def _call_all(value, rng):
         mm = dict(m)
         mm[slot] = value
         assert _graded(cd.validate_s1_identity(mm)); calls += 1
+    # a string value carried in the digested payload and the original bytes,
+    # plus a string custody field (reaches the serde encoder and str encode)
+    if isinstance(value, str):
+        b = _bundle()
+        b["main"]["data"] = {"k": value}
+        b["main"]["original_bytes"] = value
+        assert _graded(cd.validate_readback(b, expected_prior_tick=None,
+                                            operation_id="op-1", publisher_epoch=5)); calls += 1
+        b = _bundle()
+        b["main"]["data"] = {value: 1}   # the string as a payload KEY
+        assert _graded(cd.validate_readback(b, expected_prior_tick=None,
+                                            operation_id="op-1", publisher_epoch=5)); calls += 1
+        for field in ("operation_id", "schema"):
+            b = _bundle()
+            b["ticks"]["input_checkpoint"][field] = value
+            assert _graded(cd.validate_readback(b, expected_prior_tick=None,
+                                                operation_id="op-1", publisher_epoch=5)); calls += 1
     return calls
 
 
 def test_admission_sweep_no_exception_escapes():
-    rng = random.Random(454)
+    rng = random.Random(459)
     total = 0
     for _ in range(1500):
         total += _call_all(_rand_json(rng), rng)
-    # A fixed corpus of adversarial atoms as the outer value too.
+    # A fixed corpus of adversarial atoms as the outer value too, and every
+    # surrogate/valid-astral string injected into every string position.
     for atom in _ATOMS:
         total += _call_all(atom, rng)
+    for s in _SURROGATES:
+        total += _call_all(s, rng)
     assert total > 20000
     # expose the count for the notes
     print(f"\nADMISSION SWEEP: {total} public-entry calls, no exception escaped")

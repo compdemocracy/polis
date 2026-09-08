@@ -273,3 +273,31 @@ def test_fixture_fails_not_skips_on_build_error():
             with pytest.raises(BaseException) as exc:
                 rust_probe.__wrapped__(factory)
             assert not isinstance(exc.value, pytest.skip.Exception)
+
+
+# ---------------------------------------------------------------------------
+# Round 9 (board [459]): valid Unicode parity; serde refuses lone surrogates.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("value", [
+    "é", chr(0x1F600), json.loads('"\\ud83d\\ude00"'),      # value: BMP + astral + pair
+])
+def test_valid_astral_value_digest_parity(rust_probe, value):
+    (rust,) = _rust_digests(rust_probe, [{"x": value}])
+    assert cd._canonical_payload_digest({"x": value}) == rust
+
+
+def test_astral_key_digest_parity(rust_probe):
+    obj = {json.loads('"\\ud83d\\ude00"'): 1, "astral \U0001d538 key": "✓"}
+    (rust,) = _rust_digests(rust_probe, [obj])
+    assert cd._canonical_payload_digest(obj) == rust
+
+
+def test_serde_refuses_lone_surrogate_like_the_bridge(rust_probe):
+    """A JSON text with an unpaired surrogate fails to parse into a Rust String;
+    the standalone probe errors on it (nonzero exit / no digest line), mirroring
+    the bridge's graded BridgeError."""
+    proc = subprocess.run([str(rust_probe)], input='"\\ud800"\n',
+                          capture_output=True, text=True)
+    assert proc.returncode != 0 or proc.stdout.strip() == ""
+    with pytest.raises(cd.BridgeError):
+        cd._canonical_payload_digest({"x": json.loads('"\\ud800"')})
