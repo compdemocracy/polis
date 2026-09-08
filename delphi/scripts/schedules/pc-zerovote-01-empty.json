@@ -1,0 +1,18 @@
+{
+  "dataset": "pc-zerovote-01",
+  "schedule_id": "single-cut",
+  "cuts": {
+    "mode": "vote-count",
+    "at": [
+      0
+    ],
+    "empty_checkpoint": true
+  },
+  "empty_output": {
+    "n": 0,
+    "n-cmts": 0,
+    "tids": [],
+    "in-conv": []
+  },
+  "notes": "Explicit empty compute; both engines must satisfy the declared empty state."
+}

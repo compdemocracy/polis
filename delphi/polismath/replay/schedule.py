@@ -67,12 +67,21 @@ class ScheduleSpec:
     # `_restart_conversation`). None (default) means no restart — every
     # existing schedule is unaffected.
     restart_after: int | None = None
+    coverage: str = "full-stream"
+    # Exact required fields in the empty checkpoint's acceptance projection.
+    empty_output: dict[str, Any] | None = None
     # Verbatim mapping this spec was loaded from (None → reconstruct on demand).
     _raw: dict[str, Any] | None = field(default=None, repr=False, compare=False)
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "ScheduleSpec":
         """Build from a §4 mapping, retaining it verbatim for round-tripping."""
+        if not isinstance(d, dict):
+            raise ValueError("schedule must be an object")
+        unknown = set(d) - {"dataset", "schedule_id", "cuts", "source", "moderation",
+                            "clojure", "notes", "restart_after", "coverage", "empty_output"}
+        if unknown:
+            raise ValueError(f"unknown schedule fields: {sorted(unknown)}")
         return cls(
             dataset=d["dataset"],
             schedule_id=d["schedule_id"],
@@ -82,6 +91,8 @@ class ScheduleSpec:
             clojure=d.get("clojure", {"warm_start": "chain"}),
             notes=d.get("notes", ""),
             restart_after=d.get("restart_after"),
+            coverage=d.get("coverage", "full-stream"),
+            empty_output=d.get("empty_output"),
             _raw=dict(d),
         )
 
@@ -103,6 +114,8 @@ class ScheduleSpec:
             "clojure": self.clojure,
             "notes": self.notes,
             "restart_after": self.restart_after,
+            "coverage": self.coverage,
+            "empty_output": self.empty_output,
         }
 
     def write_json(self, path: str | Path) -> None:
@@ -138,17 +151,26 @@ class ReplayStep:
 def resolve_cut_slots(dataset: ReplayDataset, cuts: dict[str, Any]) -> Schedule:
     """Resolve a §4 ``cuts`` spec into a validated :data:`Schedule`.
 
-    Returns a strictly-increasing tuple of 1-based slots in ``1..n``. Slots
-    that resolve to 0 (e.g. a timestamp before the first vote) are dropped as
-    degenerate — recomputing an empty conversation is a no-op. Duplicate slots
-    are collapsed; out-of-range slots raise via ``validate_schedule``.
+    A zero slot requires ``empty_checkpoint: true``. Duplicate resolved slots
+    are errors unless ``deduplicate: true`` explicitly requests collapsing
+    them. Order is preserved: decreasing slots are always errors.
     """
+    if not isinstance(cuts, dict):
+        raise ValueError("cuts must be an object")
+    unknown = set(cuts) - {"mode", "at", "empty_checkpoint", "deduplicate"}
+    if unknown:
+        raise ValueError(f"unknown cut fields: {sorted(unknown)}")
     mode = cuts.get("mode")
     if mode not in _VALID_MODES:
         raise ValueError(
             f"unknown cut mode {mode!r}; expected one of {sorted(_VALID_MODES)}"
         )
     at = cuts.get("at", [])
+    if not isinstance(at, list):
+        raise ValueError("cuts.at must be a list")
+    for flag in ("empty_checkpoint", "deduplicate"):
+        if flag in cuts and type(cuts[flag]) is not bool:
+            raise ValueError(f"cuts.{flag} must be boolean")
     n = dataset.n
 
     raw_slots: list[int] = []
@@ -156,6 +178,8 @@ def resolve_cut_slots(dataset: ReplayDataset, cuts: dict[str, Any]) -> Schedule:
         if a == _END:
             raw_slots.append(n)
         elif mode in ("vote-count", "explicit-event-index"):
+            if type(a) is not int:
+                raise ValueError(f"vote cut must be an integer, got {a!r}")
             raw_slots.append(int(a))
         elif mode == "fraction":
             f = float(a)
@@ -166,11 +190,15 @@ def resolve_cut_slots(dataset: ReplayDataset, cuts: dict[str, Any]) -> Schedule:
             # slot = number of votes with t_ms <= T (votes are time-sorted).
             raw_slots.append(_count_votes_up_to(dataset.votes, int(a)))
 
-    # Drop degenerate 0-slots, dedupe, sort.
-    slots = tuple(sorted({s for s in raw_slots if s > 0}))
+    if any(a > b for a, b in zip(raw_slots, raw_slots[1:])):
+        raise ValueError("schedule not strictly increasing: cut order must be preserved")
+    if len(set(raw_slots)) != len(raw_slots) and not cuts.get("deduplicate", False):
+        raise ValueError("duplicate resolved cut slots; opt in with deduplicate: true")
+    slots = tuple(dict.fromkeys(raw_slots))
+    if 0 in slots and not cuts.get("empty_checkpoint", False):
+        raise ValueError("zero cut requires explicit empty_checkpoint: true")
     schedule: Schedule = slots
-    # validate_schedule enforces 1<=s<=n and strict monotonicity.
-    dataset.validate_schedule(schedule)
+    dataset.validate_schedule(schedule, allow_zero=cuts.get("empty_checkpoint", False))
     return schedule
 
 
@@ -209,8 +237,8 @@ def slice_schedule(dataset: ReplayDataset, spec: ScheduleSpec) -> list[ReplaySte
     prev = 0
     for i, cut in enumerate(slots):
         batch = tuple(dataset.votes[prev:cut])  # 1-based (prev, cut] → 0-based slice
-        cut_time_ms = dataset.votes[cut - 1].t_ms
-        prev_time = dataset.votes[prev - 1].t_ms if prev > 0 else None
+        cut_time_ms = dataset.votes[cut - 1].t_ms if cut else 0
+        prev_time = steps[-1].cut_time_ms if steps else None
         step_mods = tuple(
             m
             for m in mod_events
@@ -284,27 +312,27 @@ def preset_every_vote(dataset_name: str, n: int, *, schedule_id: str = "every-vo
 def preset_uniform(dataset_name: str, n: int, n_cuts: int, *,
                    schedule_id: str | None = None) -> ScheduleSpec:
     """``n_cuts`` evenly-spaced recomputes; the last lands on ``n``."""
-    slots = _dedupe_slots([round(n * i / n_cuts) for i in range(1, n_cuts + 1)], n)
+    slots = _preset_slots([round(n * i / n_cuts) for i in range(1, n_cuts + 1)], n)
     return _spec(dataset_name, schedule_id or f"uniform-{n_cuts}",
-                 {"mode": "vote-count", "at": slots},
+                 {"mode": "vote-count", "at": slots, "deduplicate": True},
                  notes=f"{n_cuts} evenly-spaced recomputes")
 
 
 def preset_front_loaded(dataset_name: str, n: int, *, n_cuts: int = 6,
                         schedule_id: str = "front-loaded") -> ScheduleSpec:
     """Recomputes concentrated EARLY (quadratic spacing, denser at the start)."""
-    slots = _dedupe_slots([round(n * (i / n_cuts) ** 2) for i in range(1, n_cuts + 1)], n)
-    return _spec(dataset_name, schedule_id, {"mode": "vote-count", "at": slots},
+    slots = _preset_slots([round(n * (i / n_cuts) ** 2) for i in range(1, n_cuts + 1)], n)
+    return _spec(dataset_name, schedule_id, {"mode": "vote-count", "at": slots, "deduplicate": True},
                  notes="front-loads recomputes into the early conversation")
 
 
 def preset_back_loaded(dataset_name: str, n: int, *, n_cuts: int = 6,
                        schedule_id: str = "back-loaded") -> ScheduleSpec:
     """Recomputes concentrated LATE (mirror of front-loaded)."""
-    slots = _dedupe_slots(
+    slots = _preset_slots(
         [round(n * (1 - (1 - i / n_cuts) ** 2)) for i in range(1, n_cuts + 1)], n
     )
-    return _spec(dataset_name, schedule_id, {"mode": "vote-count", "at": slots},
+    return _spec(dataset_name, schedule_id, {"mode": "vote-count", "at": slots, "deduplicate": True},
                  notes="back-loads recomputes into the late conversation")
 
 
@@ -326,12 +354,15 @@ def preset_per_day(dataset_name: str, dataset: ReplayDataset, *,
         prev_day = d
     if dataset.n:
         slots.append(dataset.n)  # close the final day
-    slots = _dedupe_slots(slots, dataset.n)
+    slots = _preset_slots(slots, dataset.n)
     return _spec(dataset_name, schedule_id,
                  {"mode": "explicit-event-index", "at": slots},
                  notes="one recompute per UTC day (from real timestamps)")
 
 
-def _dedupe_slots(slots: list[int], n: int) -> list[int]:
-    """Clamp to ``1..n``, drop 0/dupes, keep sorted — as a plain JSON list."""
-    return sorted({max(1, min(int(s), n)) for s in slots if s > 0})
+def _preset_slots(slots: list[int], n: int) -> list[int]:
+    """Space preset cuts over available votes; resolution owns explicit dedup.
+
+    Preserve zero on empty datasets so missing empty-checkpoint opt-in fails.
+    """
+    return [min(n, max(1, int(s))) for s in slots]

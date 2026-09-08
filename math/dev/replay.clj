@@ -123,23 +123,30 @@
   (count (take-while #(<= (long (:t-ms %)) (long t-ms)) votes)))
 
 (defn validate-slots
-  "Mirror ReplayDataset.validate_schedule: 1<=s<=n, strictly increasing."
-  [slots n]
-  (loop [prev 0 [s & more] slots]
+  "Validate increasing vote cursors, with an explicit zero-checkpoint opt-in."
+  ([slots n] (validate-slots slots n false))
+  ([slots n allow-zero]
+  (loop [prev (if allow-zero -1 0) [s & more] slots]
     (when s
-      (when-not (<= 1 s n)
+      (when-not (<= (if allow-zero 0 1) s n)
         (throw (ex-info (str "cut slot " s " outside 1.." n) {:slot s :n n})))
       (when-not (> s prev)
         (throw (ex-info (str "schedule not strictly increasing at slot " s) {:slot s})))
-      (recur s more))))
+      (recur s more)))))
 
 (defn resolve-cut-slots
-  "Resolve a §4 `cuts` map into strictly-increasing 1-based slots in 1..n.
-  0-slots dropped as degenerate, duplicates collapsed (== schedule.py)."
+  "Mirror schedule.py: preserve order; zero and deduplication require opt-in."
   [votes cuts]
   (let [mode (get cuts "mode")
         at   (get cuts "at" [])
         n    (count votes)]
+    (when-not (and (map? cuts) (vector? at))
+      (throw (ex-info "cuts must be an object and cuts.at a list" {})))
+    (when (seq (remove #{"mode" "at" "empty_checkpoint" "deduplicate"} (keys cuts)))
+      (throw (ex-info "unknown cut fields" {:cuts cuts})))
+    (doseq [flag ["empty_checkpoint" "deduplicate"]]
+      (when (and (contains? cuts flag) (not (instance? Boolean (get cuts flag))))
+        (throw (ex-info (str "cuts." flag " must be boolean") {}))))
     (when-not (valid-modes mode)
       (throw (ex-info (str "unknown cut mode " (pr-str mode)
                            "; expected one of " (sort valid-modes)) {:mode mode})))
@@ -148,7 +155,9 @@
                   (= a "end")
                   n
                   (#{"vote-count" "explicit-event-index"} mode)
-                  (long a)
+                  (do (when-not (integer? a)
+                        (throw (ex-info "vote cut must be an integer" {:cut a})))
+                      (long a))
                   (= mode "fraction")
                   (let [f (double a)]
                     (when-not (and (< 0.0 f) (<= f 1.0))
@@ -156,8 +165,15 @@
                     (py-round (* f n)))
                   (= mode "timestamp")
                   (count-votes-up-to votes (long a))))
-          slots (->> raw (filter pos?) (into (sorted-set)) vec)]
-      (validate-slots slots n)
+          slots (vec (distinct raw))]
+      (when (some (fn [[a b]] (> a b)) (partition 2 1 raw))
+        (throw (ex-info "schedule not strictly increasing: preserve cut order" {:cuts cuts})))
+      (when (and (not= (count raw) (count slots))
+                 (not (true? (get cuts "deduplicate"))))
+        (throw (ex-info "duplicate resolved cut slots" {:cuts cuts})))
+      (when (and (some zero? slots) (not (true? (get cuts "empty_checkpoint"))))
+        (throw (ex-info "zero cut requires explicit empty_checkpoint: true" {:cuts cuts})))
+      (validate-slots slots n (true? (get cuts "empty_checkpoint")))
       slots)))
 
 ;; ---------------------------------------------------------------------------
@@ -174,8 +190,8 @@
    (loop [prev 0 [cut & more] slots i 0 acc []]
      (if (nil? cut)
        acc
-       (let [cut-time  (:t-ms (nth votes (dec cut)))
-             prev-time (when (pos? prev) (:t-ms (nth votes (dec prev))))
+       (let [cut-time  (if (zero? cut) 0 (:t-ms (nth votes (dec cut))))
+             prev-time (:cut-time-ms (peek acc))
              mods (filterv #(and (<= (long (:modified %)) (long cut-time))
                                  (or (nil? prev-time)
                                      (> (long (:modified %)) (long prev-time))))
@@ -308,7 +324,13 @@
   postgres.clj pg-json does (the DB blob's own serialization)."
   [dir step conv]
   (spit (io/file dir (format "step-%03d.blob.json" (:index step)))
-        (json/generate-string (cm/prep-main conv))))
+        (json/generate-string (cm/prep-main conv)))
+  ;; Identity sidecar: the raw prep-main blob deliberately remains unchanged.
+  (spit (io/file dir (format "step-%03d.meta.json" (:index step)))
+        (json/generate-string
+          {:index (:index step) :prev_slot (:prev-slot step)
+           :cut_slot (:cut-slot step) :batch_size (count (:votes step))
+           :cut_time_ms (:cut-time-ms step)})))
 
 (defn write-edn!
   "Write full-fidelity conv state in the `conv-update-dump` shape

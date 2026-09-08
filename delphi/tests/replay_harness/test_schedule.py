@@ -109,8 +109,9 @@ def test_resolve_timestamp_mode(ds8):
     assert slots == (2, 5, 8)
 
 
-def test_resolve_dedupes_and_sorts(ds8):
-    slots = sched.resolve_cut_slots(ds8, {"mode": "vote-count", "at": [5, 2, 5, "end"]})
+def test_resolve_dedupes_only_with_opt_in(ds8):
+    slots = sched.resolve_cut_slots(ds8, {"mode": "vote-count", "at": [2, 5, 5, "end"],
+                                        "deduplicate": True})
     assert slots == (2, 5, 8)
 
 
@@ -119,10 +120,9 @@ def test_cut_slot_out_of_range_raises(ds8):
         sched.resolve_cut_slots(ds8, {"mode": "vote-count", "at": [999]})
 
 
-def test_timestamp_before_first_vote_dropped(ds8):
-    # t=50 is before the first vote (t=100) → slot 0 → dropped (degenerate).
-    slots = sched.resolve_cut_slots(ds8, {"mode": "timestamp", "at": [50, "end"]})
-    assert slots == (8,)
+def test_timestamp_before_first_vote_requires_explicit_checkpoint(ds8):
+    with pytest.raises(ValueError, match="empty_checkpoint"):
+        sched.resolve_cut_slots(ds8, {"mode": "timestamp", "at": [50, "end"]})
 
 
 def test_unknown_mode_raises(ds8):

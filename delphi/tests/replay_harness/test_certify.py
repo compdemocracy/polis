@@ -603,7 +603,7 @@ def test_certify_entry_passes_comments_when_moderation_requested(tmp_path, monke
     schedule_path = tmp_path / "sched.json"
     schedule_path.write_text(json.dumps({
         "dataset": "vw", "schedule_id": "mod-comments-test",
-        "cuts": {"mode": "vote-count", "at": [10]},
+        "cuts": {"mode": "vote-count", "at": ["end"]},
         "moderation": "interleave-by-timestamp",
         "clojure": {"warm_start": "chain"}, "notes": "",
     }))
@@ -635,10 +635,10 @@ def test_certify_entry_omits_comments_when_moderation_none(tmp_path, monkeypatch
     assert "--comments" not in clj_cmds[0]
 
 
-def test_certify_entry_skipped_for_missing_dataset(tmp_path):
+def test_certify_entry_fails_for_missing_required_dataset(tmp_path):
     entry = _make_entry(dataset="no-such-dataset-xyz")
     result, ledger = cert.certify_entry(entry, root=tmp_path, ledger={})
-    assert result["verdict"] == "SKIPPED"
+    assert result["verdict"] == "ERROR"
     assert result["reason"] == "dataset-unavailable"
     assert ledger == {}
 
@@ -744,7 +744,7 @@ def test_render_focus_lines_caps_exact_divergences_shown():
 # Battery-level exit code.
 # ---------------------------------------------------------------------------
 def test_battery_exit_code():
-    results = [{"verdict": "MATCH"}, {"verdict": "SKIPPED"}]
+    results = [{"verdict": "MATCH"}, {"verdict": "SKIPPED", "optional": True}]
     assert cert.battery_exit_code(results, strict=False) == 0
     assert cert.battery_exit_code(results, strict=True) == 1
 
@@ -811,6 +811,11 @@ def _seed_cached_pair(root: Path, ds: str, sid: str, *, divergent: bool) -> None
     _write_clj_step(rec / "clj", 0, blob)
     py_blob = dict(blob, n=blob["n"] + 5) if divergent else blob
     _write_py_step(rec / "py", 0, py_blob)
+    # Cached fixtures must carry the actual scheduled endpoint on both engines.
+    expected = cert.prepare_entry(_make_entry(dataset=ds, schedule_id=sid))
+    checkpoint = expected.checkpoints[0]
+    (rec / "clj" / "step-000.meta.json").write_text(json.dumps(checkpoint))
+    (rec / "py" / "step-000.json").write_text(json.dumps({**checkpoint, "blob": py_blob}))
 
 
 def test_run_battery_parallel_matches_serial_report_and_ledger(tmp_path, monkeypatch):

@@ -19,7 +19,7 @@ Usage (from delphi/)::
     # Force re-running a driver (bypass the content-hash cache):
     uv run python scripts/certify.py run --refresh-clj --refresh-py
 
-    # SKIPPED (dataset-unavailable) entries also fail the run:
+    # A strict run succeeds only on a complete PASS manifest:
     uv run python scripts/certify.py run --strict
 
     # Inspect the earliest divergent step of an EXISTING recording pair
@@ -50,7 +50,7 @@ def cli() -> None:
 @click.option("--refresh-clj", is_flag=True, help="Force re-run the Clojure driver.")
 @click.option("--refresh-py", is_flag=True, help="Force re-run the Python driver.")
 @click.option("--strict", is_flag=True,
-              help="SKIPPED (dataset-unavailable) entries also fail the run.")
+              help="Exit nonzero unless the complete run manifest verdict is PASS.")
 @click.option("--root", type=click.Path(path_type=Path), default=None,
               help="Recording store root (default: real_data/.local/replays).")
 @click.option("--workers", type=int, default=6, show_default=True,
@@ -58,12 +58,25 @@ def cli() -> None:
                    "fold stays serial, so results match --workers 1 exactly.")
 def run(battery_path, only, refresh_clj, refresh_py, strict, root, workers):
     """Certify every entry in the battery (or a filtered subset)."""
-    entries = cert.load_battery(battery_path)
-    report = cert.run_battery(entries, root=root, refresh_clj=refresh_clj,
-                               refresh_py=refresh_py, only=only, workers=workers)
+    try:
+        entries = cert.load_battery(battery_path)
+        report = cert.run_battery(entries, root=root, refresh_clj=refresh_clj,
+                                 refresh_py=refresh_py, only=only, workers=workers)
+    except (ValueError, KeyError, TypeError, OSError) as exc:
+        output_root = root or cert.st.replays_root()
+        manifest_path = output_root / "run_manifest.json"
+        cert._write_json(manifest_path, {
+            "schema": "polis-certification-run/1", "verdict": "FAIL", "partial": only is not None,
+            "inventory": [], "entries": [], "configuration_errors": [str(exc)],
+        })
+        click.echo(f"certify: FAIL [configuration] {exc}; manifest={manifest_path}")
+        sys.exit(1)
+    # Carry the CLI selection into the summary even if a caller substitutes a runner.
+    if only is not None:
+        report["partial"] = True
     for line in cert.render_run_lines(report):
         click.echo(line)
-    sys.exit(cert.battery_exit_code(report["battery"], strict=strict))
+    sys.exit(cert.battery_exit_code(report, strict=strict))
 
 
 @cli.command()
