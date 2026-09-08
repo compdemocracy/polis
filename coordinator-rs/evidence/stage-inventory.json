@@ -1,8 +1,8 @@
 {
   "protocol": "polis-fault-control/1",
-  "compiled_stages": 24,
+  "compiled_stages": 25,
   "required_stages": 25,
-  "reached": 24,
+  "reached": 25,
   "stages": [
     {
       "stage": "after_source_selection",
@@ -14,11 +14,11 @@
             "epoch": 1,
             "event_count": 24,
             "math_env": "rustproto",
-            "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+            "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "zid": 1
           },
-          "operation_id": "9d91f00570a04b53a32380f1f5d7abc7",
-          "pid": 66346,
+          "operation_id": "102b41c6f4d7441ca6c70bbee1bbc6f8",
+          "pid": 96085,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_source_selection",
@@ -27,7 +27,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -40,11 +43,11 @@
             "epoch": 1,
             "event_count": 24,
             "math_env": "rustproto",
-            "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+            "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "zid": 1
           },
-          "operation_id": "1c8bea1ced4d4fc2a7231ffbe881c26f",
-          "pid": 66394,
+          "operation_id": "24ca99d4bca6471fbc9e6943dde01903",
+          "pid": 96168,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_input_checkpoint",
@@ -53,7 +56,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -63,13 +69,13 @@
         "stage": "before_worker_apply",
         "ack": {
           "context": {
-            "fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+            "fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "math_env": "rustproto",
-            "worker_pid": 66417,
+            "worker_pid": 96238,
             "zid": 1
           },
-          "operation_id": "8312ba34e0f84a72899183bb0f4b521a",
-          "pid": 66416,
+          "operation_id": "e8d6496eca394d499393c120b4679052",
+          "pid": 96237,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_worker_apply",
@@ -78,7 +84,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -88,13 +97,13 @@
         "stage": "after_worker_compute",
         "ack": {
           "context": {
-            "fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+            "fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "math_env": "rustproto",
-            "worker_pid": 66515,
+            "worker_pid": 96302,
             "zid": 1
           },
-          "operation_id": "323f18e5ab51452ea490f9ebc9960ac1",
-          "pid": 66513,
+          "operation_id": "e8e99fb72c8d446d9a136a39681d294b",
+          "pid": 96301,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_worker_compute",
@@ -103,7 +112,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -117,8 +129,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "2fdeb75652aa477193bbf70a57c0cf0f",
-          "pid": 66309,
+          "operation_id": "92fb11c54b63418d86369dd6d8f5ad37",
+          "pid": 96014,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_lease",
@@ -127,7 +139,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -137,7 +152,7 @@
         "stage": "before_ticks",
         "ack": {
           "context": {
-            "backend_pid": 16373,
+            "backend_pid": 21472,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -151,22 +166,72 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
+              "ordering": {
+                "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+                "equal_time_census": {
+                  "key": [
+                    "tid",
+                    "pid",
+                    "created_ms"
+                  ],
+                  "resolved_by": [
+                    "semantic_vote",
+                    "weight_x_32767"
+                  ],
+                  "schema": "polis-census/1",
+                  "tied_groups": 0,
+                  "tied_rows": 0
+                },
+                "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+                "parameter": "storage_agree_value",
+                "profile": "live-tid-pid-created-semantic-value-weight/1",
+                "schema": "polis-order/1",
+                "semantic_vote": "raw_vote * storage_agree_value",
+                "storage_agree_value": -1,
+                "terms": [
+                  {
+                    "name": "tid",
+                    "nulls": "default",
+                    "source": "votes.tid"
+                  },
+                  {
+                    "name": "pid",
+                    "nulls": "default",
+                    "source": "votes.pid"
+                  },
+                  {
+                    "name": "created_ms",
+                    "nulls": "default",
+                    "source": "votes.created"
+                  },
+                  {
+                    "name": "semantic_vote",
+                    "nulls": "default",
+                    "source": "raw_vote * storage_agree_value"
+                  },
+                  {
+                    "name": "weight_x_32767",
+                    "nulls": "first",
+                    "source": "votes.weight_x_32767"
+                  }
+                ]
+              },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "61072040584ee65805218d214e787b39a004b18e35589d8d61b28aa9809a670e",
+                "main": "189e762c31c8ec8eb40f867287f553cc9c45c21e9463fc9c04cbb6c0de259b74",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
               "schema": "polis-coordinator/1",
-              "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+              "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
               "storage_agree_value": -1
             },
             "epoch": 1,
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "21049c90e82641f6806edb81aa09348f",
-          "pid": 66588,
+          "operation_id": "6a49fb6a3db8441e9e0d3bd8f334f052",
+          "pid": 96852,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_ticks",
@@ -175,7 +240,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -185,7 +253,7 @@
         "stage": "after_ticks",
         "ack": {
           "context": {
-            "backend_pid": 16419,
+            "backend_pid": 21593,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -199,22 +267,72 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
+              "ordering": {
+                "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+                "equal_time_census": {
+                  "key": [
+                    "tid",
+                    "pid",
+                    "created_ms"
+                  ],
+                  "resolved_by": [
+                    "semantic_vote",
+                    "weight_x_32767"
+                  ],
+                  "schema": "polis-census/1",
+                  "tied_groups": 0,
+                  "tied_rows": 0
+                },
+                "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+                "parameter": "storage_agree_value",
+                "profile": "live-tid-pid-created-semantic-value-weight/1",
+                "schema": "polis-order/1",
+                "semantic_vote": "raw_vote * storage_agree_value",
+                "storage_agree_value": -1,
+                "terms": [
+                  {
+                    "name": "tid",
+                    "nulls": "default",
+                    "source": "votes.tid"
+                  },
+                  {
+                    "name": "pid",
+                    "nulls": "default",
+                    "source": "votes.pid"
+                  },
+                  {
+                    "name": "created_ms",
+                    "nulls": "default",
+                    "source": "votes.created"
+                  },
+                  {
+                    "name": "semantic_vote",
+                    "nulls": "default",
+                    "source": "raw_vote * storage_agree_value"
+                  },
+                  {
+                    "name": "weight_x_32767",
+                    "nulls": "first",
+                    "source": "votes.weight_x_32767"
+                  }
+                ]
+              },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "45b7caed109caf3583023b522452acf02fbc8e8eea63204aa8cee20146e00b7d",
+                "main": "f6da768257c4eb14fb1bad1ce5c420755374abe90ea37d7ecd88d772d264de25",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
               "schema": "polis-coordinator/1",
-              "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+              "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
               "storage_agree_value": -1
             },
             "epoch": 1,
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "3d3a291d932b4a9a9a9b73fa40d28872",
-          "pid": 66658,
+          "operation_id": "31325bdc05454415b1c763703aef955d",
+          "pid": 96933,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_ticks",
@@ -223,7 +341,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -233,7 +354,7 @@
         "stage": "before_bidtopid",
         "ack": {
           "context": {
-            "backend_pid": 16470,
+            "backend_pid": 21706,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -247,22 +368,72 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
+              "ordering": {
+                "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+                "equal_time_census": {
+                  "key": [
+                    "tid",
+                    "pid",
+                    "created_ms"
+                  ],
+                  "resolved_by": [
+                    "semantic_vote",
+                    "weight_x_32767"
+                  ],
+                  "schema": "polis-census/1",
+                  "tied_groups": 0,
+                  "tied_rows": 0
+                },
+                "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+                "parameter": "storage_agree_value",
+                "profile": "live-tid-pid-created-semantic-value-weight/1",
+                "schema": "polis-order/1",
+                "semantic_vote": "raw_vote * storage_agree_value",
+                "storage_agree_value": -1,
+                "terms": [
+                  {
+                    "name": "tid",
+                    "nulls": "default",
+                    "source": "votes.tid"
+                  },
+                  {
+                    "name": "pid",
+                    "nulls": "default",
+                    "source": "votes.pid"
+                  },
+                  {
+                    "name": "created_ms",
+                    "nulls": "default",
+                    "source": "votes.created"
+                  },
+                  {
+                    "name": "semantic_vote",
+                    "nulls": "default",
+                    "source": "raw_vote * storage_agree_value"
+                  },
+                  {
+                    "name": "weight_x_32767",
+                    "nulls": "first",
+                    "source": "votes.weight_x_32767"
+                  }
+                ]
+              },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "266e52413e7ebeaf7e273fcb66e7fb659f54bd897116697cb8636a2909243ab2",
+                "main": "61a2056b23b6f8deb2bb9a0c3ccd860083cb2a57e25effea997465eb4876b0a1",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
               "schema": "polis-coordinator/1",
-              "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+              "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
               "storage_agree_value": -1
             },
             "epoch": 1,
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "ab52498010ed4c4cb8a94c3798889f38",
-          "pid": 67006,
+          "operation_id": "5ee8c3483de5463789077a217448b48c",
+          "pid": 97020,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_bidtopid",
@@ -271,7 +442,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -281,7 +455,7 @@
         "stage": "after_bidtopid",
         "ack": {
           "context": {
-            "backend_pid": 16513,
+            "backend_pid": 21818,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -295,22 +469,72 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
+              "ordering": {
+                "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+                "equal_time_census": {
+                  "key": [
+                    "tid",
+                    "pid",
+                    "created_ms"
+                  ],
+                  "resolved_by": [
+                    "semantic_vote",
+                    "weight_x_32767"
+                  ],
+                  "schema": "polis-census/1",
+                  "tied_groups": 0,
+                  "tied_rows": 0
+                },
+                "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+                "parameter": "storage_agree_value",
+                "profile": "live-tid-pid-created-semantic-value-weight/1",
+                "schema": "polis-order/1",
+                "semantic_vote": "raw_vote * storage_agree_value",
+                "storage_agree_value": -1,
+                "terms": [
+                  {
+                    "name": "tid",
+                    "nulls": "default",
+                    "source": "votes.tid"
+                  },
+                  {
+                    "name": "pid",
+                    "nulls": "default",
+                    "source": "votes.pid"
+                  },
+                  {
+                    "name": "created_ms",
+                    "nulls": "default",
+                    "source": "votes.created"
+                  },
+                  {
+                    "name": "semantic_vote",
+                    "nulls": "default",
+                    "source": "raw_vote * storage_agree_value"
+                  },
+                  {
+                    "name": "weight_x_32767",
+                    "nulls": "first",
+                    "source": "votes.weight_x_32767"
+                  }
+                ]
+              },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "aa2d6ab901186e70a16b3bd3fdb6197dde3abf500c2475abcbd9d31ef14146b6",
+                "main": "fd34eea267eeae04b38144ff95de29cf75276d534bba9d7c5d152103d799ab36",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
               "schema": "polis-coordinator/1",
-              "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+              "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
               "storage_agree_value": -1
             },
             "epoch": 1,
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "cba708bca09242a49a308974d7f3f80f",
-          "pid": 67089,
+          "operation_id": "456b92c1aa1e471195bc5daa541d643e",
+          "pid": 97109,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_bidtopid",
@@ -319,7 +543,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -329,7 +556,7 @@
         "stage": "before_ptptstats",
         "ack": {
           "context": {
-            "backend_pid": 16551,
+            "backend_pid": 21939,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -343,22 +570,72 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
+              "ordering": {
+                "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+                "equal_time_census": {
+                  "key": [
+                    "tid",
+                    "pid",
+                    "created_ms"
+                  ],
+                  "resolved_by": [
+                    "semantic_vote",
+                    "weight_x_32767"
+                  ],
+                  "schema": "polis-census/1",
+                  "tied_groups": 0,
+                  "tied_rows": 0
+                },
+                "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+                "parameter": "storage_agree_value",
+                "profile": "live-tid-pid-created-semantic-value-weight/1",
+                "schema": "polis-order/1",
+                "semantic_vote": "raw_vote * storage_agree_value",
+                "storage_agree_value": -1,
+                "terms": [
+                  {
+                    "name": "tid",
+                    "nulls": "default",
+                    "source": "votes.tid"
+                  },
+                  {
+                    "name": "pid",
+                    "nulls": "default",
+                    "source": "votes.pid"
+                  },
+                  {
+                    "name": "created_ms",
+                    "nulls": "default",
+                    "source": "votes.created"
+                  },
+                  {
+                    "name": "semantic_vote",
+                    "nulls": "default",
+                    "source": "raw_vote * storage_agree_value"
+                  },
+                  {
+                    "name": "weight_x_32767",
+                    "nulls": "first",
+                    "source": "votes.weight_x_32767"
+                  }
+                ]
+              },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "7ed542702a5f51835465c065f6822d10c7513482210ef499edeeda5cccdaddf6",
+                "main": "c051b743977039fbd63b4dfaa2b54fc612d595122b92a9db4d72d4f7d415f9e5",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
               "schema": "polis-coordinator/1",
-              "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+              "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
               "storage_agree_value": -1
             },
             "epoch": 1,
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "2b4f49d69f074a6bb0085b48f48ef35d",
-          "pid": 67136,
+          "operation_id": "38b11033be114468a0b192536682e800",
+          "pid": 97417,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_ptptstats",
@@ -367,7 +644,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -377,7 +657,7 @@
         "stage": "after_ptptstats",
         "ack": {
           "context": {
-            "backend_pid": 16586,
+            "backend_pid": 22053,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -391,22 +671,72 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
+              "ordering": {
+                "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+                "equal_time_census": {
+                  "key": [
+                    "tid",
+                    "pid",
+                    "created_ms"
+                  ],
+                  "resolved_by": [
+                    "semantic_vote",
+                    "weight_x_32767"
+                  ],
+                  "schema": "polis-census/1",
+                  "tied_groups": 0,
+                  "tied_rows": 0
+                },
+                "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+                "parameter": "storage_agree_value",
+                "profile": "live-tid-pid-created-semantic-value-weight/1",
+                "schema": "polis-order/1",
+                "semantic_vote": "raw_vote * storage_agree_value",
+                "storage_agree_value": -1,
+                "terms": [
+                  {
+                    "name": "tid",
+                    "nulls": "default",
+                    "source": "votes.tid"
+                  },
+                  {
+                    "name": "pid",
+                    "nulls": "default",
+                    "source": "votes.pid"
+                  },
+                  {
+                    "name": "created_ms",
+                    "nulls": "default",
+                    "source": "votes.created"
+                  },
+                  {
+                    "name": "semantic_vote",
+                    "nulls": "default",
+                    "source": "raw_vote * storage_agree_value"
+                  },
+                  {
+                    "name": "weight_x_32767",
+                    "nulls": "first",
+                    "source": "votes.weight_x_32767"
+                  }
+                ]
+              },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "d34b68fe2c03d0fa650860a471748131b4302c3c69fe4f496d3bf2aa9ad38440",
+                "main": "1d9ce7eb314b5d32ffbf3825d2038b40169893075a3587b11488a8b2a0026c69",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
               "schema": "polis-coordinator/1",
-              "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+              "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
               "storage_agree_value": -1
             },
             "epoch": 1,
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "b676c91f2b7b434cb1057175b02996d3",
-          "pid": 67182,
+          "operation_id": "920e74f8f60a499e87be2c3a9b370328",
+          "pid": 97737,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_ptptstats",
@@ -415,7 +745,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -425,7 +758,7 @@
         "stage": "before_main",
         "ack": {
           "context": {
-            "backend_pid": 16631,
+            "backend_pid": 22167,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -439,22 +772,72 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
+              "ordering": {
+                "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+                "equal_time_census": {
+                  "key": [
+                    "tid",
+                    "pid",
+                    "created_ms"
+                  ],
+                  "resolved_by": [
+                    "semantic_vote",
+                    "weight_x_32767"
+                  ],
+                  "schema": "polis-census/1",
+                  "tied_groups": 0,
+                  "tied_rows": 0
+                },
+                "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+                "parameter": "storage_agree_value",
+                "profile": "live-tid-pid-created-semantic-value-weight/1",
+                "schema": "polis-order/1",
+                "semantic_vote": "raw_vote * storage_agree_value",
+                "storage_agree_value": -1,
+                "terms": [
+                  {
+                    "name": "tid",
+                    "nulls": "default",
+                    "source": "votes.tid"
+                  },
+                  {
+                    "name": "pid",
+                    "nulls": "default",
+                    "source": "votes.pid"
+                  },
+                  {
+                    "name": "created_ms",
+                    "nulls": "default",
+                    "source": "votes.created"
+                  },
+                  {
+                    "name": "semantic_vote",
+                    "nulls": "default",
+                    "source": "raw_vote * storage_agree_value"
+                  },
+                  {
+                    "name": "weight_x_32767",
+                    "nulls": "first",
+                    "source": "votes.weight_x_32767"
+                  }
+                ]
+              },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "3e48aeea1e0be7017b5c1d344c5fc8ab7f074dcf79803dd81d94f713a1a67ccb",
+                "main": "8333ca9b7c490eeba660c1261bc9cce265948d1cd9a0224f6e71803f7368da0a",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
               "schema": "polis-coordinator/1",
-              "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+              "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
               "storage_agree_value": -1
             },
             "epoch": 1,
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "c0f7298df4d64886927d4bd4296d18bc",
-          "pid": 67243,
+          "operation_id": "47554627b75746f6ac6256aefb55f7be",
+          "pid": 97809,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_main",
@@ -463,7 +846,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -473,7 +859,7 @@
         "stage": "after_main",
         "ack": {
           "context": {
-            "backend_pid": 16668,
+            "backend_pid": 22287,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -487,22 +873,72 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
+              "ordering": {
+                "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+                "equal_time_census": {
+                  "key": [
+                    "tid",
+                    "pid",
+                    "created_ms"
+                  ],
+                  "resolved_by": [
+                    "semantic_vote",
+                    "weight_x_32767"
+                  ],
+                  "schema": "polis-census/1",
+                  "tied_groups": 0,
+                  "tied_rows": 0
+                },
+                "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+                "parameter": "storage_agree_value",
+                "profile": "live-tid-pid-created-semantic-value-weight/1",
+                "schema": "polis-order/1",
+                "semantic_vote": "raw_vote * storage_agree_value",
+                "storage_agree_value": -1,
+                "terms": [
+                  {
+                    "name": "tid",
+                    "nulls": "default",
+                    "source": "votes.tid"
+                  },
+                  {
+                    "name": "pid",
+                    "nulls": "default",
+                    "source": "votes.pid"
+                  },
+                  {
+                    "name": "created_ms",
+                    "nulls": "default",
+                    "source": "votes.created"
+                  },
+                  {
+                    "name": "semantic_vote",
+                    "nulls": "default",
+                    "source": "raw_vote * storage_agree_value"
+                  },
+                  {
+                    "name": "weight_x_32767",
+                    "nulls": "first",
+                    "source": "votes.weight_x_32767"
+                  }
+                ]
+              },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "30082fa8cd64fb390dee6236b82f4324d4cb9b323f766f62e084b11ca17a63b5",
+                "main": "e24034d51146ddc08d4352a7302e15981662f15ef8fad2e56c8d48496b8cdf18",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
               "schema": "polis-coordinator/1",
-              "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+              "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
               "storage_agree_value": -1
             },
             "epoch": 1,
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "a2a2109b221e4cf0b9e4b6fa23a23fe3",
-          "pid": 67359,
+          "operation_id": "cca909b0bbbf4f43b9b26425cd485773",
+          "pid": 97931,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_main",
@@ -511,7 +947,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -521,7 +960,7 @@
         "stage": "before_commit",
         "ack": {
           "context": {
-            "backend_pid": 16712,
+            "backend_pid": 22401,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -535,22 +974,72 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
+              "ordering": {
+                "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+                "equal_time_census": {
+                  "key": [
+                    "tid",
+                    "pid",
+                    "created_ms"
+                  ],
+                  "resolved_by": [
+                    "semantic_vote",
+                    "weight_x_32767"
+                  ],
+                  "schema": "polis-census/1",
+                  "tied_groups": 0,
+                  "tied_rows": 0
+                },
+                "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+                "parameter": "storage_agree_value",
+                "profile": "live-tid-pid-created-semantic-value-weight/1",
+                "schema": "polis-order/1",
+                "semantic_vote": "raw_vote * storage_agree_value",
+                "storage_agree_value": -1,
+                "terms": [
+                  {
+                    "name": "tid",
+                    "nulls": "default",
+                    "source": "votes.tid"
+                  },
+                  {
+                    "name": "pid",
+                    "nulls": "default",
+                    "source": "votes.pid"
+                  },
+                  {
+                    "name": "created_ms",
+                    "nulls": "default",
+                    "source": "votes.created"
+                  },
+                  {
+                    "name": "semantic_vote",
+                    "nulls": "default",
+                    "source": "raw_vote * storage_agree_value"
+                  },
+                  {
+                    "name": "weight_x_32767",
+                    "nulls": "first",
+                    "source": "votes.weight_x_32767"
+                  }
+                ]
+              },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "ed4a228273eb94f58ed3150200f8e987e51084adcfd3e8cbb14f12c7a19c75f1",
+                "main": "2939af228c7f5331d810199d4592b331e7c9ae93acc3ee5c7322ada030bfedf1",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
               "schema": "polis-coordinator/1",
-              "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+              "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
               "storage_agree_value": -1
             },
             "epoch": 1,
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "6fc395ce19fc4deda6aabdfad4c030ec",
-          "pid": 67449,
+          "operation_id": "ed048bbebf754740b7d046d38af5d60d",
+          "pid": 98039,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_commit",
@@ -559,7 +1048,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -569,7 +1061,7 @@
         "stage": "after_commit",
         "ack": {
           "context": {
-            "backend_pid": 16757,
+            "backend_pid": 22521,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -583,22 +1075,72 @@
               },
               "event_count": 24,
               "lifecycle": "rebuild-prefix/1",
+              "ordering": {
+                "algorithm_digest": "2dc3856741cc73ad45426230758b1557b97988720b3551df9282819c5978e7d1",
+                "equal_time_census": {
+                  "key": [
+                    "tid",
+                    "pid",
+                    "created_ms"
+                  ],
+                  "resolved_by": [
+                    "semantic_vote",
+                    "weight_x_32767"
+                  ],
+                  "schema": "polis-census/1",
+                  "tied_groups": 0,
+                  "tied_rows": 0
+                },
+                "order_by": "tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST",
+                "parameter": "storage_agree_value",
+                "profile": "live-tid-pid-created-semantic-value-weight/1",
+                "schema": "polis-order/1",
+                "semantic_vote": "raw_vote * storage_agree_value",
+                "storage_agree_value": -1,
+                "terms": [
+                  {
+                    "name": "tid",
+                    "nulls": "default",
+                    "source": "votes.tid"
+                  },
+                  {
+                    "name": "pid",
+                    "nulls": "default",
+                    "source": "votes.pid"
+                  },
+                  {
+                    "name": "created_ms",
+                    "nulls": "default",
+                    "source": "votes.created"
+                  },
+                  {
+                    "name": "semantic_vote",
+                    "nulls": "default",
+                    "source": "raw_vote * storage_agree_value"
+                  },
+                  {
+                    "name": "weight_x_32767",
+                    "nulls": "first",
+                    "source": "votes.weight_x_32767"
+                  }
+                ]
+              },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "cb1d5c9161b7e0e1c73063d3df3a6c8c7edeaa82b50c42536dbc9a258852bbca",
+                "main": "7987798b32609047bf9e47d8c95804930d58b187e1f5b8cfbcc751cde8e35ac6",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
               "schema": "polis-coordinator/1",
-              "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+              "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
               "storage_agree_value": -1
             },
             "epoch": 1,
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "07a756f386574e8c83c5c3eb17f4926b",
-          "pid": 67510,
+          "operation_id": "07767f40c990476eb587aad37683f7c1",
+          "pid": 98880,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_commit",
@@ -607,7 +1149,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -620,11 +1165,11 @@
             "epoch": 1,
             "event_count": 24,
             "math_env": "rustproto",
-            "source_fingerprint": "6ef6156d6814012525eb59c3eec359462bc63fe55b74830e272e0863fe3b82b6",
+            "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "zid": 1
           },
-          "operation_id": "6de1e9d4af5c4fdcb98d4f1a5ea41bf4",
-          "pid": 67540,
+          "operation_id": "ad46d03fb73248eca2d12cd9e65b1b0a",
+          "pid": 99006,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_ack",
@@ -633,7 +1178,10 @@
         "signal": "SIGKILL",
         "exit": -9,
         "restart": "passed",
-        "postcondition": "coherent; independent fold exact"
+        "manual_lease_expiry": false,
+        "repaired_epoch": 2,
+        "math_tick": 0,
+        "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
     },
     {
@@ -643,13 +1191,13 @@
         "stage": "before_restore",
         "ack": {
           "context": {
-            "fingerprint": "0f375deb67eddaee0130006dcac74a50a7a9934061a7ae48cfb42a104dbbdb87",
+            "fingerprint": "c96dd4fdf8ca7b7b09176eae1abf6fd32adbacd0378b24cf46c9b250e0be32be",
             "math_env": "rustproto",
-            "worker_pid": 68324,
+            "worker_pid": 1487,
             "zid": 1
           },
-          "operation_id": "dc0a9dcf0d034aa58d170a7d95d1ded1",
-          "pid": 68323,
+          "operation_id": "0c91014ed7b0404aa8ee243b5ed5d586",
+          "pid": 1486,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_restore",
@@ -657,6 +1205,7 @@
         },
         "signal": "SIGKILL",
         "restart": "passed",
+        "manual_lease_expiry": false,
         "postcondition": "coherent independent fold"
       }
     },
@@ -667,13 +1216,13 @@
         "stage": "after_restore",
         "ack": {
           "context": {
-            "fingerprint": "0f375deb67eddaee0130006dcac74a50a7a9934061a7ae48cfb42a104dbbdb87",
+            "fingerprint": "c96dd4fdf8ca7b7b09176eae1abf6fd32adbacd0378b24cf46c9b250e0be32be",
             "math_env": "rustproto",
-            "worker_pid": 68408,
+            "worker_pid": 1573,
             "zid": 1
           },
-          "operation_id": "1626277691b14fdda6a0b206d907637d",
-          "pid": 68407,
+          "operation_id": "dbf958d02f144b5588bcb10578c4d0f4",
+          "pid": 1572,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_restore",
@@ -681,6 +1230,7 @@
         },
         "signal": "SIGKILL",
         "restart": "passed",
+        "manual_lease_expiry": false,
         "postcondition": "coherent independent fold"
       }
     },
@@ -691,8 +1241,8 @@
         "stage": "before_cursor",
         "ack": {
           "context": {},
-          "operation_id": "b4a69733d6dc4bd4a6ecd6e7dc999ade",
-          "pid": 68465,
+          "operation_id": "e204cf0c9e9042daa7f512d3a4948035",
+          "pid": 1670,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_cursor",
@@ -716,8 +1266,8 @@
             "maximum": 1,
             "sweep": 0
           },
-          "operation_id": "4ce1624903d247428e0fe395d4e0139a",
-          "pid": 68493,
+          "operation_id": "9eebecdc51224f36b75fa830606b7580",
+          "pid": 1705,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_cursor",
@@ -735,8 +1285,8 @@
         "stage": "before_sweep",
         "ack": {
           "context": {},
-          "operation_id": "04f689cb4f664ad981412c04676df419",
-          "pid": 68506,
+          "operation_id": "50754b13cb0a46c9adbd5ab53b6787e0",
+          "pid": 1730,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_sweep",
@@ -763,8 +1313,8 @@
               }
             ]
           },
-          "operation_id": "dc5a3414ca80492096b5f3e2f2afa84e",
-          "pid": 68600,
+          "operation_id": "242fbc3d94534f708dfe455c403360bb",
+          "pid": 1750,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_sweep",
@@ -785,8 +1335,8 @@
             "tick": 0,
             "zid": 1
           },
-          "operation_id": "7134cf9a76de44df93601e1bb7f7ec1b",
-          "pid": 69243,
+          "operation_id": "5ec5c4f9ca35440098a5fa6e43b3af78",
+          "pid": 1786,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "bundle_pinned",
@@ -806,8 +1356,8 @@
             "tick": 0,
             "zid": 1
           },
-          "operation_id": "3383d7dcdbeb4a128db4bd0b11f2cc7c",
-          "pid": 69557,
+          "operation_id": "817bd28bffe844dd8c84fde8942acdd4",
+          "pid": 1831,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_companion_join",
@@ -819,9 +1369,34 @@
     },
     {
       "stage": "cache_eviction_contends_with_same_zid_update",
-      "status": "required-but-unreached",
-      "reason": "single-worker rebuild profile has no warm cache; non-applicability needs contract-owner review"
+      "status": "reached-and-blocked",
+      "evidence": {
+        "stage": "cache_eviction_contends_with_same_zid_update",
+        "ack": {
+          "context": {
+            "cache_len": 1,
+            "capacity": 1,
+            "evicted_zid": 1,
+            "inserted_zid": 2
+          },
+          "operation_id": "7568d33a4100487bb1c55e328bd06dac",
+          "pid": 99814,
+          "protocol": "polis-fault-control/1",
+          "run_id": "synthetic-test",
+          "stage": "cache_eviction_contends_with_same_zid_update",
+          "state": "reached-and-blocked"
+        },
+        "action": "same-zid vote committed while the LRU eviction of that zid is blocked",
+        "postcondition": "no lost input; evicted zid republished coherently; warm output equals the cold-rebuild reference"
+      }
     }
+  ],
+  "unreached": [],
+  "stage_inventory_gate": "PASS",
+  "open_conditions": [
+    "CO08/D4: actual Node Bundle route, cache join and C7 presentation checks",
+    "CO01: scan age / backlog / failure metrics are not exposed",
+    "polis-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate"
   ],
   "full_contract_gate": "FAIL",
   "profile": "Rust coordinator + Python worker + CLI Bundle reader; actual Node not exercised"
