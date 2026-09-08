@@ -132,6 +132,55 @@ export async function ensureJobQueueTableExists(): Promise<void> {
 }
 
 /**
+ * Ensures the Delphi_JobActiveGuard table exists.
+ *
+ * Mirrors `delphi/create_dynamodb_tables.py`: a single string partition key and
+ * no TTL, because an automatic expiry could release a scope while paid provider
+ * work is still live.
+ */
+export async function ensureJobGuardTableExists(): Promise<void> {
+  const tableName = "Delphi_JobActiveGuard";
+
+  try {
+    await dynamoClient.send(new DescribeTableCommand({ TableName: tableName }));
+    return;
+  } catch (error: any) {
+    if (error.name !== "ResourceNotFoundException") {
+      logger.error(`Error checking table ${tableName}:`, error);
+      throw error;
+    }
+  }
+
+  logger.info(`Creating table ${tableName}...`);
+  await dynamoClient.send(
+    new CreateTableCommand({
+      TableName: tableName,
+      KeySchema: [{ AttributeName: "guard_key", KeyType: "HASH" }],
+      AttributeDefinitions: [
+        { AttributeName: "guard_key", AttributeType: "S" },
+      ],
+      BillingMode: "PAY_PER_REQUEST",
+    } as any)
+  );
+
+  for (let attempts = 0; attempts < 30; attempts++) {
+    try {
+      const response = await dynamoClient.send(
+        new DescribeTableCommand({ TableName: tableName })
+      );
+      if (response.Table?.TableStatus === "ACTIVE") {
+        return;
+      }
+    } catch (e) {
+      // fall through to the retry sleep
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+
+  throw new Error(`Table ${tableName} failed to become active`);
+}
+
+/**
  * Creates a completed Delphi job for a conversation
  * @param conversationId The conversation ID (zid)
  * @param jobId Optional job ID (defaults to generated ID)

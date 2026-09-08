@@ -363,3 +363,57 @@ def create_job_queue_table(dynamodb=None, table_name='Delphi_JobQueue'):
 2. Develop job submission API for the server
 3. Create the worker poller service that will process jobs
 4. Add admin UI components for monitoring and managing the job queue
+## Companion table: `Delphi_JobActiveGuard`
+
+The server's two HTTP producers (`POST /api/v3/delphi/jobs` and
+`POST /api/v3/delphi/batchReports`) do not write `Delphi_JobQueue` directly.
+They go through the active-work guard added by P-003 S3
+(`server/src/routes/delphi/jobGuard.ts`), which creates the queue row and a
+guard row in a single `TransactWriteItems`.
+
+### Table design
+
+- **Table name**: `Delphi_JobActiveGuard`
+- **Partition key**: `guard_key` (String)
+- **Billing**: PAY_PER_REQUEST, no GSIs
+- **No TTL attribute** — deliberately. An automatic expiry could release a
+  scope while paid provider work is still live.
+
+`guard_key` is a SHA-256 digest with a one-character kind prefix:
+
+| Prefix | Meaning | Digest input |
+|---|---|---|
+| `s:` | Submission scope | `v1`, `job_type`, `conversation_id`, `report_id`, canonicalised `job_config` |
+| `i:` | Idempotency alias | `v1`, `conversation_id`, `report_id`, client `idempotency_key` |
+
+Scope rows carry `job_id`, `version`, `conversation_id`, `report_id`,
+`job_type` and (when the client sent one) `idem_guard_key`. Alias rows carry
+`scope_guard_key` and `job_id`.
+
+### Lifecycle
+
+1. **Admission.** One transaction: conditional `Put` of the queue row
+   (`attribute_not_exists(job_id)`), conditional `Put` of the scope guard
+   (`attribute_not_exists(guard_key)`), and the alias when an idempotency key
+   was supplied. Either both stores are written or neither is.
+2. **Duplicate submission.** The guard condition fails, the server does a
+   strongly-consistent read of the guard and the queue row, and returns the
+   existing `job_id` with `deduplicated: true`.
+3. **Release.** A guard is deleted only under an exact `job_id` + `version`
+   condition, and only once the root job is `COMPLETED`/`FAILED` (or its row is
+   gone) *and* no `batch_job_id` descendant of that root is still non-terminal.
+   Any status the server cannot classify — including a missing `status` — counts
+   as live work and keeps the guard.
+
+### Operator notes
+
+- Guard rows must never be written into `Delphi_JobQueue`: they carry no
+  `status`, so they would appear to the queue observer as missing-status
+  anomalies.
+- Migrating the queue off DynamoDB moves the guard in the same cutover. A
+  Postgres job row with a DynamoDB guard has no transaction across it and is
+  forbidden (P-003 rev3, G6).
+- If the guard table is absent, the server logs an error and falls back to the
+  pre-guard unconditional put, flagging the response with
+  `dedupe_degraded: true`. Create this table before deploying the server change
+  to any environment where duplicate provider spend matters.
