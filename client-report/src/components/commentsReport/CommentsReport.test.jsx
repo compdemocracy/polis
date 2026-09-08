@@ -274,7 +274,7 @@ describe('reconcileTrackedJob', () => {
       false,
       'r-test'
     );
-    expect(next).toEqual({ jobId: 'job-a', status: 'PROCESSING', reportId: 'r-test' });
+    expect(next).toMatchObject({ jobId: 'job-a', status: 'PROCESSING', reportId: 'r-test' });
   });
 
   it('hands over to remaining work when the acknowledged job is terminal', () => {
@@ -300,9 +300,14 @@ describe('reconcileTrackedJob', () => {
     // R4: a COMPLETED root whose checker has not surfaced in this
     // eventually-consistent list yet is not finished work.
     const live = { jobId: 'job-a', status: 'COMPLETED', workLive: true, reportId: 'r-test' };
-    expect(
-      reconcileTrackedJob(live, [{ jobId: 'job-a', status: 'COMPLETED' }], false, 'r-test')
-    ).toBe(live);
+    const next = reconcileTrackedJob(
+      live,
+      [{ jobId: 'job-a', status: 'COMPLETED' }],
+      false,
+      'r-test'
+    );
+    expect(next).toMatchObject({ jobId: 'job-a', workLive: true });
+    expect(isTrackedJobLive(next)).toBe(true);
   });
 
   it('does not treat an unknown status as terminal', () => {
@@ -315,6 +320,41 @@ describe('reconcileTrackedJob', () => {
     );
     expect(next).not.toBeNull();
     expect(next.jobId).toBe('job-a');
+  });
+
+  it('clears once the server reports the job finished', () => {
+    // R3-F4: a submission is acknowledged with workLive true, so repeated
+    // completed observations must be able to turn that off again.
+    let tracked = { jobId: 'job-a', status: 'PENDING', workLive: true, reportId: 'r-test' };
+    for (let i = 0; i < 5; i++) {
+      tracked = reconcileTrackedJob(
+        tracked,
+        [{ jobId: 'job-a', status: 'COMPLETED', workLive: false }],
+        false,
+        'r-test'
+      );
+    }
+    expect(tracked).toBeNull();
+  });
+
+  it('keeps polling a job adopted after reload that goes unknown', () => {
+    // R3-F4: adoption gave no workLive, so an "unknown" row stopped polling
+    // even though unknown is supposed to be uncertainty.
+    const adopted = reconcileTrackedJob(null, [{ jobId: 'job-a', status: 'PENDING' }], false, 'r-test');
+    expect(isTrackedJobLive(adopted)).toBe(true);
+    const unknown = reconcileTrackedJob(adopted, [{ jobId: 'job-a', status: 'unknown' }], false, 'r-test');
+    expect(isTrackedJobLive(unknown)).toBe(true);
+  });
+
+  it('honours a fresh work_live=false on a batch slot too', () => {
+    const tracked = { jobId: 'batch_report_x', status: 'PENDING', workLive: true, reportId: 'r-test' };
+    const next = reconcileTrackedJob(
+      tracked,
+      [{ jobId: 'batch_report_x', status: 'FAILED', work_live: false }],
+      true,
+      'r-test'
+    );
+    expect(next).toBeNull();
   });
 
   it('does not carry a job across a report change', () => {

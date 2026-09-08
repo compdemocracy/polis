@@ -544,6 +544,54 @@ describe("Delphi job submission deduplication", () => {
     expect(await listJobs()).toHaveLength(2);
   });
 
+  it("adopts a FAILED root whose worker never confirmed the child exited", async () => {
+    // Round-4 review: discovery filtered on status, so the very state the
+    // guarded path treats as live was invisible to adoption.
+    const legacyJobId = `legacy-unconfirmed-${Date.now()}`;
+    await docClient.send(
+      new PutCommand({
+        TableName: JOB_QUEUE_TABLE,
+        Item: {
+          job_id: legacyJobId,
+          conversation_id: zid,
+          job_type: "FULL_PIPELINE",
+          status: "FAILED",
+          process_exit_confirmed: false,
+          created_at: new Date().toISOString(),
+        },
+      })
+    );
+
+    const res = await submitJob();
+    expect(res.body.deduplicated).toBe(true);
+    expect(res.body.job_id).toBe(legacyJobId);
+    expect(res.body.work_live).toBe(true);
+    expect(await listJobs()).toHaveLength(1);
+  });
+
+  it("adopts a completed root that could not schedule its checker", async () => {
+    const legacyJobId = `legacy-unscheduled-${Date.now()}`;
+    await docClient.send(
+      new PutCommand({
+        TableName: JOB_QUEUE_TABLE,
+        Item: {
+          job_id: legacyJobId,
+          conversation_id: zid,
+          job_type: "FULL_PIPELINE",
+          status: "COMPLETED",
+          process_exit_confirmed: true,
+          checker_schedule_failed: true,
+          created_at: new Date().toISOString(),
+        },
+      })
+    );
+
+    const res = await submitJob();
+    expect(res.body.deduplicated).toBe(true);
+    expect(res.body.job_id).toBe(legacyJobId);
+    expect(await listJobs()).toHaveLength(1);
+  });
+
   it("fails closed with 503 when the guard table is missing", async () => {
     await deleteJobGuardTable();
     try {

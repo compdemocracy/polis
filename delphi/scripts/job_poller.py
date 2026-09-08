@@ -702,37 +702,108 @@ class JobProcessor:
         except Exception as e:
             logger.error(f"Error completing job {job_id}: {e}")
 
-    def stop_child_process(self, process, job_id: str) -> bool:
-        """Stop a job's child process and join it. True once it is gone.
+    def _job_process_group(self, process, job_id: str):
+        """The process group this job owns, or None if it does not own one.
 
-        Marking a job FAILED while its subprocess is still running leaves an
+        Jobs are started with ``start_new_session=True`` so the child leads its
+        own session and group; everything it spawns inherits that group. A child
+        that shares the poller's own group predates that change (or the call
+        failed), and signalling it would take the poller down with it — so it is
+        reported as "no owned group", which the caller treats as unconfirmable.
+        """
+        try:
+            pgid = os.getpgid(process.pid)
+        except Exception as lookup_error:
+            logger.warning(f"Job {job_id}: cannot read the child's process group ({lookup_error}).")
+            return None
+        try:
+            if pgid == os.getpgid(0):
+                logger.error(
+                    f"Job {job_id}: child shares the poller's process group; refusing to signal it."
+                )
+                return None
+        except Exception:
+            return None
+        return pgid
+
+    @staticmethod
+    def _process_group_alive(pgid) -> bool:
+        if pgid is None:
+            return False
+        try:
+            os.killpg(pgid, 0)
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            # Something in the group is alive and not ours to signal.
+            return True
+        except Exception:
+            return True
+        return True
+
+    def stop_child_process(self, process, job_id: str) -> bool:
+        """Stop a job's whole process tree and join it. True once it is gone.
+
+        Marking a job FAILED while its processes are still running leaves an
         orphan that can still submit provider work, update the job row, or
         create a checker row *after* the server has concluded the job finished.
-        The job is not failed until the process is.
+        The job is not failed until the work is.
+
+        Stopping only the direct child is not enough: a FULL_PIPELINE child is
+        `run_delphi.py`, which itself launches and waits on reset/math/UMAP
+        subprocesses. Signalling the job's **process group** reaches those
+        grandchildren; without an owned group there is nothing to signal them
+        with, and this reports False rather than claiming an exit it cannot see.
+
+        Note what this does and does not prove. It proves the local process tree
+        is gone. It does not prove a provider request the tree already sent has
+        been reconciled — that is what the outstanding-work sweep and
+        `checker_schedule_failed` are for.
         """
         if process is None:
             return True
-        try:
-            if process.poll() is not None:
-                return True
-        except Exception:
-            pass
-        try:
-            process.terminate()
-            process.wait(timeout=CHILD_TERMINATE_GRACE_SECONDS)
-            logger.warning(f"Job {job_id}: child process terminated before the job was marked failed.")
-            return True
-        except Exception as term_error:
-            logger.warning(f"Job {job_id}: terminate did not settle the child ({term_error}); killing.")
-        try:
-            process.kill()
-            process.wait(timeout=CHILD_TERMINATE_GRACE_SECONDS)
-            logger.warning(f"Job {job_id}: child process killed before the job was marked failed.")
-            return True
-        except Exception as kill_error:
-            # Report the failure without the exit claim rather than pretending.
-            logger.error(f"Job {job_id}: could not confirm the child process exited: {kill_error}")
+
+        pgid = self._job_process_group(process, job_id)
+        if pgid is None:
+            # Stop what we can, then decline to make the claim.
+            try:
+                if process.poll() is None:
+                    process.kill()
+                process.wait(timeout=CHILD_TERMINATE_GRACE_SECONDS)
+            except Exception as kill_error:
+                logger.error(f"Job {job_id}: could not stop the child: {kill_error}")
+            logger.error(
+                f"Job {job_id}: no owned process group; cannot confirm descendants exited."
+            )
             return False
+
+        for sig, label in ((signal.SIGTERM, 'terminated'), (signal.SIGKILL, 'killed')):
+            try:
+                os.killpg(pgid, sig)
+            except ProcessLookupError:
+                pass
+            except Exception as signal_error:
+                logger.warning(f"Job {job_id}: could not signal process group {pgid}: {signal_error}")
+            try:
+                process.wait(timeout=CHILD_TERMINATE_GRACE_SECONDS)
+            except Exception:
+                pass
+            # Re-parented grandchildren are reaped by init a moment later, so
+            # give the group a bounded chance to disappear before escalating.
+            deadline = time.time() + CHILD_TERMINATE_GRACE_SECONDS
+            while self._process_group_alive(pgid) and time.time() < deadline:
+                time.sleep(0.05)
+            if not self._process_group_alive(pgid):
+                logger.warning(
+                    f"Job {job_id}: job process tree {label} before the job was marked failed."
+                )
+                return True
+
+        # Report the failure without the exit claim rather than pretending.
+        logger.error(
+            f"Job {job_id}: process group {pgid} still has live members; not claiming an exit."
+        )
+        return False
 
     def process_job(self, job: Dict[str, Any]) -> None:
         """Processes a claimed job by executing the correct script with real-time log handling."""
@@ -776,7 +847,10 @@ class JobProcessor:
             env['DELPHI_JOB_ID'] = job_id
             env['DELPHI_REPORT_ID'] = str(job.get('report_id', conversation_id))
             
-            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True, env=env)
+            # start_new_session puts the child in its own session and process
+            # group, so everything it spawns can be signalled as one tree when
+            # the job has to be stopped. See stop_child_process.
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True, env=env, start_new_session=True)
             child_process = process
 
             start_time = time.time()
