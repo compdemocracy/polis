@@ -98,7 +98,14 @@ the same manifest.
   edit and a new bundle version.
 - The `pc-v1-dense*` roles alone may fall back to a deterministic synthetic
   stress case (`gen-v1-dense-stress`), and only under an explicitly recorded
-  approval (`--accept-synthetic`), which the manifest stores.
+  approval (`--accept-synthetic`), which the manifest stores. The substitution
+  is not fulfilled by the approval: the generator case is force-materialised
+  even when generation is otherwise off, its directory is pinned in the role
+  entry, and its measured `U/P/C/V/density` (computed over LATEST DISTINCT
+  `(pid, tid)` cells, never over total revote rows) must satisfy the same
+  predicate the missing production role was defined by. Coverage limits are
+  recorded with it: a synthetic case is scoped stress coverage, never evidence
+  that production carries the same geometry.
 - Survey and extraction run inside ONE read-only repeatable-read transaction (or
   against a clone with all writers disabled). The manifest records which.
 - The bundle carries a lossless private event stream with integer-millisecond
@@ -106,9 +113,22 @@ the same manifest.
   table has no primary key, no unique index and no identity/serial column, so
   there is no portable event identity. The extract order (`created ASC,
   ctid ASC`) is FROZEN into the bundle bytes and is authoritative for every
-  replay; re-restoring the snapshot need not reproduce ctid order. Ambiguous
-  equal-time opposite votes are COUNTED in the manifest's census and are never
-  given an invented historical order — they need their own specified contract.
+  replay; re-restoring the snapshot need not reproduce ctid order. Given that
+  same frozen order, equal-input ties resolve identically on every engine —
+  there is no equal-time parity waiver for a replay of the admitted bytes.
+  Ambiguous equal-time opposite votes are a NARROW, census-counted ambiguity in
+  the reconstruction of historical live state: they are COUNTED in the
+  manifest's census, in `(pid, tid, created)` GROUPS rather than vote events,
+  and are never given an invented historical order. Second-truncated collisions
+  are a different, much larger population and are never measured from the
+  second-resolution compatibility CSVs.
+- A tie key is only claimed when the live catalog actually provides one. The
+  detector accepts a unique index only if it is valid, live, unconditional
+  (non-partial), non-expression, keyed on NOT NULL columns, and counted over key
+  columns only (INCLUDE columns excluded); an identity/serial column counts only
+  when a qualifying unique index is keyed on exactly that column, since a serial
+  DEFAULT does not forbid a duplicate value. Anything short of that keeps the
+  honest `frozen-extract-order` guarantee.
 - Moderation timelines woven from a comments snapshot are SYNTHESIZED by
   deterministic rule and are labelled as such. A comments snapshot is current
   state and a latest-modification time, not a history of every moderation
@@ -116,20 +136,96 @@ the same manifest.
 
 ### Immutability and access
 
-- The publisher REFUSES to republish a bundle id whose objects would differ in
-  bytes. S3 versioning alone does not make a logical bundle immutable.
-- Every object is pinned by version id in `<bundle-id>/pins.json`, written last.
-  `pull` verifies every hash against both the manifest and the pins before any
-  engine may read the data, and rejects path traversal, absolute paths and
-  symlinks.
+- A bundle id may be published EXACTLY ONCE. Immutability is enforced by a
+  CONDITIONAL CREATE, not by a check followed by a write: `push` claims the id
+  by creating `<bundle-id>/manifest.json` with `If-None-Match: *` (`O_CREAT |
+  O_EXCL` in the filesystem stand-in) BEFORE it writes any payload object.
+  Because the manifest carries the root digest of the whole payload, a second
+  push with different bytes anywhere is refused at that first write, with
+  nothing published. Two concurrent publishers produce exactly one winner.
+- Every payload digest is re-verified against the manifest locally BEFORE the
+  claim, so a payload that drifted since the manifest was built cannot occupy
+  the id.
+- A store that cannot answer authoritatively about a key — access denied, a
+  transient failure, a network error — FAILS THE PUBLICATION. An unreadable key
+  is never treated as an absent key. S3 versioning alone does not make a logical
+  bundle immutable.
+- Every object is pinned by version id in `<bundle-id>/pins.json`, written LAST
+  and acting as the commit marker: an interrupted or losing publication leaves
+  an unadmitted prefix, never a mixed bundle. `pull` verifies every hash against
+  both the manifest and the pins before any engine may read the data, and
+  rejects path traversal, absolute paths and symlinks.
 - The role -> zid mapping lives in a SEPARATE restricted object
-  (`<bundle-id>/provenance.json`). Ordinary certification runs do not read it;
-  `pull` fetches it only with `--with-provenance`.
-- A dedicated writer publishes. Test readers get `s3:GetObject` /
-  `s3:GetObjectVersion` only, so a reader cannot overwrite or delete a bundle.
+  (`<bundle-id>/provenance.json`), pulled only with `--with-provenance` AND an
+  explicit `--provenance-role`, and written mode 0600.
+
+#### IAM: three principals, and payload access is not identity access
+
+| Principal | Grants | Explicitly denied |
+| --- | --- | --- |
+| **publisher** | `s3:PutObject`, `s3:GetObject` on `<bucket>/<bundle-id>/*` | `s3:DeleteObject`, `s3:DeleteObjectVersion`, bucket-policy edits |
+| **payload reader** (every ordinary certification run) | `s3:GetObject`, `s3:GetObjectVersion` on `<bundle-id>/data/*`, `<bundle-id>/manifest.json`, `<bundle-id>/pins.json` | `<bundle-id>/provenance.json` — an explicit `Deny`, so holding this role can never yield an identity |
+| **provenance reader** (separate, rarely assumed, audited) | the payload reader's grants plus `s3:GetObject`/`s3:GetObjectVersion` on `<bundle-id>/provenance.json` | `s3:PutObject`, `s3:DeleteObject` |
+
+  The CLI enforces the same split: `--with-provenance` without
+  `--provenance-role` is refused, and the role that was exercised is echoed in
+  the pull output so the read is attributable.
+
 - The bundle is retained for the supported lifetime of the certificate.
   Retirement requires an explicit privacy-approved decision, not a short
   artifact TTL.
+
+### Admission: hashes are not a certificate
+
+`verify` proves the bytes on disk are the bytes the manifest names. It says
+nothing about whether the bundle covers what it claims, so `push`, `pull` and
+`certify_data.py verify` all run a SEPARATE semantic admission gate
+(`fixture_bundle.admit_manifest`), which refuses a bundle unless:
+
+- the manifest schema version is the current one and the top-level field set is
+  exactly the expected one — a missing field is an incomplete manifest, an
+  unknown field is one nothing is checking;
+- the file inventory is non-empty, its paths unique and safe, and the root
+  digest matches it (an empty inventory trivially matches an empty directory and
+  certifies nothing);
+- EVERY role in the selection config is present, backed by a directory that
+  actually holds bytes, and carries measured metrics that satisfy the config
+  predicates it claims to have been selected under;
+- a synthetic substitute names its approval, its generator case, its coverage
+  limits, and that case is MATERIALISED in this bundle — a role recorded with
+  `dir: null` is unfilled, whatever it is named — and its measured metrics
+  satisfy the same stress predicate the missing production role was defined by;
+- each pinned schedule's `expected_checkpoints` is DERIVED from its resolved
+  cuts (and any `restart_after` falls inside them), and at least one schedule is
+  pinned;
+- the storage/export polarity is declared, with its boundary sites;
+- the config used to admit the bundle hashes to the `config_sha256` the manifest
+  recorded, so a bundle is never admitted against a different rule revision.
+
+Bundle CONSTRUCTION stays separate from release ADMISSION: a partial payload can
+still be inspected with `verify --no-admit`, which never certifies anything.
+
+### Nullability and the compatibility CSVs
+
+The event stream is the authoritative artifact and is LOSSLESS:
+
+- `votes.weight_x_32767` is nullable and a NULL survives as JSON `null`. It is a
+  distinct storage fact from a weight of `0` and the two are never merged. The
+  compatibility CSV has no weight column at all, so the event stream is the only
+  carrier.
+- `votes.vote` is nullable and a NULL survives as JSON `null`. The compatibility
+  CSV cannot carry it: every consumer parses that column as an integer
+  (`real_data.load_export_votes` does `int(row["vote"])`, and the Clojure replay
+  driver reads the same file), and every integer already means something — `0`
+  is "pass", not "unknown". NULL-vote rows are therefore OMITTED from the
+  compatibility CSV under the `drop-counted` policy and COUNTED in
+  `events.meta.json` and in the manifest role entry. A nonzero count makes that
+  compatibility export NON-CERTIFYING: admission refuses the bundle unless the
+  operator recorded an explicit acceptance (`push --accept-null-vote-drops`).
+  NULL never becomes pass, and never silently disappears.
+- `prodclone.format_votes_rows` raises a typed `NullVoteError` on a NULL vote,
+  before any row is written, rather than a `TypeError` from unary negation
+  partway through a file.
 
 ## Release record
 
