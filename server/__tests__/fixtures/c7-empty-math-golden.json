@@ -1,0 +1,3121 @@
+{
+  "legacy prod shape 1 (in-conv, meta-tids, mod-in, mod-out)": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 3",
+          "tid": 5,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 1,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "pcaAsJSON": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":1,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 1,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "text": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":1,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,0",
+      "voters-in-conv,0",
+      "commenters,1",
+      "comments,6",
+      "groups,0",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  },
+  "legacy prod shape 2 (base-clusters only)": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 3",
+          "tid": 5,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 2,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "pcaAsJSON": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":2,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 2,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "text": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":2,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,0",
+      "voters-in-conv,0",
+      "commenters,1",
+      "comments,6",
+      "groups,0",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  },
+  "legacy prod shape 3 (in-conv, mod-out)": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 3",
+          "tid": 5,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 3,
+        "mod-out": [],
+        "mod-in": [],
+        "meta-tids": []
+      },
+      "pcaAsJSON": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":3,\"mod-out\":[],\"mod-in\":[],\"meta-tids\":[]}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 3,
+        "mod-out": [],
+        "mod-in": [],
+        "meta-tids": []
+      },
+      "text": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":3,\"mod-out\":[],\"mod-in\":[],\"meta-tids\":[]}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,0",
+      "voters-in-conv,0",
+      "commenters,1",
+      "comments,6",
+      "groups,0",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  },
+  "legacy prod shape 4 (in-conv, meta-tids, mod-out)": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 3",
+          "tid": 5,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 4,
+        "mod-out": [],
+        "meta-tids": [],
+        "mod-in": []
+      },
+      "pcaAsJSON": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":4,\"mod-out\":[],\"meta-tids\":[],\"mod-in\":[]}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 4,
+        "mod-out": [],
+        "meta-tids": [],
+        "mod-in": []
+      },
+      "text": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":4,\"mod-out\":[],\"meta-tids\":[],\"mod-in\":[]}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,0",
+      "voters-in-conv,0",
+      "commenters,1",
+      "comments,6",
+      "groups,0",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  },
+  "legacy prod shape 5 (meta-tids, mod-in, mod-out)": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 3",
+          "tid": 5,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 5,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "pcaAsJSON": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":5,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 5,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "text": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":5,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,0",
+      "voters-in-conv,0",
+      "commenters,1",
+      "comments,6",
+      "groups,0",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  },
+  "B1 synthetic Clojure empty (six keys, pca.comps [[1],[1]])": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 3",
+          "tid": 5,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 6,
+        "meta-tids": [],
+        "mod-in": [],
+        "mod-out": []
+      },
+      "pcaAsJSON": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[1],[1]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":6,\"meta-tids\":[],\"mod-in\":[],\"mod-out\":[]}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 6,
+        "meta-tids": [],
+        "mod-in": [],
+        "mod-out": []
+      },
+      "text": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[1],[1]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":6,\"meta-tids\":[],\"mod-in\":[],\"mod-out\":[]}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [
+              1
+            ],
+            [
+              1
+            ]
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,0",
+      "voters-in-conv,0",
+      "commenters,1",
+      "comments,6",
+      "groups,0",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  },
+  "corrected polis-empty/1 golden (20 explicit fields)": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 3",
+          "tid": 5,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 0,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [],
+          "comment-extremity": [],
+          "comment-projection": [
+            [],
+            []
+          ]
+        },
+        "tids": [],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 7,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "pcaAsJSON": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":0,\"pca\":{\"comps\":[[],[]],\"center\":[],\"comment-extremity\":[],\"comment-projection\":[[],[]]},\"tids\":[],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":7,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 0,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [],
+          "comment-extremity": [],
+          "comment-projection": [
+            [],
+            []
+          ]
+        },
+        "tids": [],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 7,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "text": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":0,\"pca\":{\"comps\":[[],[]],\"center\":[],\"comment-extremity\":[],\"comment-projection\":[[],[]]},\"tids\":[],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":7,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [],
+        "n-cmts": 0,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [],
+          "comment-extremity": [],
+          "comment-projection": [
+            [],
+            []
+          ]
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,0",
+      "voters-in-conv,0",
+      "commenters,1",
+      "comments,0",
+      "groups,0",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  },
+  "no math row at all": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 3",
+          "tid": 5,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": "<now>",
+        "comment-priorities": {},
+        "math_tick": 0
+      },
+      "pcaAsJSON": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<now>,\"comment-priorities\":{},\"math_tick\":0}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": "<now>",
+        "comment-priorities": {},
+        "math_tick": 0
+      },
+      "text": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":6,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4,5],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<now>,\"comment-priorities\":{},\"math_tick\":0}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,0",
+      "voters-in-conv,0",
+      "commenters,1",
+      "comments,6",
+      "groups,0",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  },
+  "blob whose tids cover only one approved comment": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 3",
+          "tid": 5,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 1,
+        "pca": {
+          "comps": [
+            [
+              0
+            ],
+            [
+              0
+            ]
+          ],
+          "center": [
+            0
+          ],
+          "comment-extremity": [
+            0
+          ],
+          "comment-projection": [
+            [
+              0
+            ],
+            [
+              0
+            ]
+          ]
+        },
+        "tids": [
+          0
+        ],
+        "n": 1,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 8,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "pcaAsJSON": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":1,\"pca\":{\"comps\":[[0],[0]],\"center\":[0],\"comment-extremity\":[0],\"comment-projection\":[[0],[0]]},\"tids\":[0],\"n\":1,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":8,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 1,
+        "pca": {
+          "comps": [
+            [
+              0
+            ],
+            [
+              0
+            ]
+          ],
+          "center": [
+            0
+          ],
+          "comment-extremity": [
+            0
+          ],
+          "comment-projection": [
+            [
+              0
+            ],
+            [
+              0
+            ]
+          ]
+        },
+        "tids": [
+          0
+        ],
+        "n": 1,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 8,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "text": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":1,\"pca\":{\"comps\":[[0],[0]],\"center\":[0],\"comment-extremity\":[0],\"comment-projection\":[[0],[0]]},\"tids\":[0],\"n\":1,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":8,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [
+          0
+        ],
+        "n-cmts": 1,
+        "pca": {
+          "comps": [
+            [
+              0
+            ],
+            [
+              0
+            ]
+          ],
+          "center": [
+            0
+          ],
+          "comment-extremity": [
+            0
+          ],
+          "comment-projection": [
+            [
+              0
+            ],
+            [
+              0
+            ]
+          ]
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,0",
+      "voters-in-conv,0",
+      "commenters,1",
+      "comments,1",
+      "groups,0",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  },
+  "a conversation with real math": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 3",
+          "tid": 5,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [
+          {
+            "id": 0,
+            "center": [
+              0.1,
+              0.2
+            ],
+            "members": [
+              0
+            ]
+          },
+          {
+            "id": 1,
+            "center": [
+              -0.1,
+              -0.2
+            ],
+            "members": [
+              1
+            ]
+          }
+        ],
+        "base-clusters": {
+          "x": [
+            0.1,
+            -0.1
+          ],
+          "y": [
+            0.2,
+            -0.2
+          ],
+          "id": [
+            0,
+            1
+          ],
+          "count": [
+            1,
+            1
+          ],
+          "members": [
+            [
+              1
+            ],
+            [
+              2
+            ]
+          ]
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {
+          "1": 3,
+          "2": 3
+        },
+        "in-conv": [
+          1,
+          2
+        ],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "center": [
+            0.3,
+            -0.3,
+            0.05
+          ],
+          "comment-extremity": [
+            0.7,
+            0.7999999999999999,
+            0.8999999999999999,
+            1,
+            1.1,
+            1.2
+          ],
+          "comment-projection": [
+            [
+              0.1,
+              0.2,
+              0.30000000000000004,
+              0.4,
+              0.5,
+              0.6
+            ],
+            [
+              0.4,
+              0.5,
+              0.6000000000000001,
+              0.7,
+              0.8,
+              0.9
+            ]
+          ]
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 2,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": "<now>",
+        "comment-priorities": {},
+        "math_tick": 9,
+        "mod-in": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "pcaAsJSON": "{\"group-clusters\":[{\"id\":0,\"center\":[0.1,0.2],\"members\":[0]},{\"id\":1,\"center\":[-0.1,-0.2],\"members\":[1]}],\"base-clusters\":{\"x\":[0.1,-0.1],\"y\":[0.2,-0.2],\"id\":[0,1],\"count\":[1,1],\"members\":[[1],[2]]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{\"1\":3,\"2\":3},\"in-conv\":[1,2],\"n-cmts\":6,\"pca\":{\"comps\":[[1,0,0,0,0,0],[0,1,0,0,0,0]],\"center\":[0.3,-0.3,0.05],\"comment-extremity\":[0.7,0.7999999999999999,0.8999999999999999,1,1.1,1.2],\"comment-projection\":[[0.1,0.2,0.30000000000000004,0.4,0.5,0.6],[0.4,0.5,0.6000000000000001,0.7,0.8,0.9]]},\"tids\":[0,1,2,3,4,5],\"n\":2,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<now>,\"comment-priorities\":{},\"math_tick\":9,\"mod-in\":[0,1,2,3,4,5],\"mod-out\":[],\"meta-tids\":[]}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [
+          {
+            "id": 0,
+            "center": [
+              0.1,
+              0.2
+            ],
+            "members": [
+              0
+            ]
+          },
+          {
+            "id": 1,
+            "center": [
+              -0.1,
+              -0.2
+            ],
+            "members": [
+              1
+            ]
+          }
+        ],
+        "base-clusters": {
+          "x": [
+            0.1,
+            -0.1
+          ],
+          "y": [
+            0.2,
+            -0.2
+          ],
+          "id": [
+            0,
+            1
+          ],
+          "count": [
+            1,
+            1
+          ],
+          "members": [
+            [
+              1
+            ],
+            [
+              2
+            ]
+          ]
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {
+          "1": 3,
+          "2": 3
+        },
+        "in-conv": [
+          1,
+          2
+        ],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "center": [
+            0.3,
+            -0.3,
+            0.05
+          ],
+          "comment-extremity": [
+            0.7,
+            0.7999999999999999,
+            0.8999999999999999,
+            1,
+            1.1,
+            1.2
+          ],
+          "comment-projection": [
+            [
+              0.1,
+              0.2,
+              0.30000000000000004,
+              0.4,
+              0.5,
+              0.6
+            ],
+            [
+              0.4,
+              0.5,
+              0.6000000000000001,
+              0.7,
+              0.8,
+              0.9
+            ]
+          ]
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n": 2,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": "<now>",
+        "comment-priorities": {},
+        "math_tick": 9,
+        "mod-in": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "text": "{\"group-clusters\":[{\"id\":0,\"center\":[0.1,0.2],\"members\":[0]},{\"id\":1,\"center\":[-0.1,-0.2],\"members\":[1]}],\"base-clusters\":{\"x\":[0.1,-0.1],\"y\":[0.2,-0.2],\"id\":[0,1],\"count\":[1,1],\"members\":[[1],[2]]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{\"1\":3,\"2\":3},\"in-conv\":[1,2],\"n-cmts\":6,\"pca\":{\"comps\":[[1,0,0,0,0,0],[0,1,0,0,0,0]],\"center\":[0.3,-0.3,0.05],\"comment-extremity\":[0.7,0.7999999999999999,0.8999999999999999,1,1.1,1.2],\"comment-projection\":[[0.1,0.2,0.30000000000000004,0.4,0.5,0.6],[0.4,0.5,0.6000000000000001,0.7,0.8,0.9]]},\"tids\":[0,1,2,3,4,5],\"n\":2,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":<now>,\"comment-priorities\":{},\"math_tick\":9,\"mod-in\":[0,1,2,3,4,5],\"mod-out\":[],\"meta-tids\":[]}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "n-cmts": 6,
+        "pca": {
+          "comps": [
+            [
+              1,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              0,
+              1,
+              0,
+              0,
+              0,
+              0
+            ]
+          ],
+          "center": [
+            0.3,
+            -0.3,
+            0.05
+          ],
+          "comment-extremity": [
+            0.7,
+            0.7999999999999999,
+            0.8999999999999999,
+            1,
+            1.1,
+            1.2
+          ],
+          "comment-projection": [
+            [
+              0.1,
+              0.2,
+              0.30000000000000004,
+              0.4,
+              0.5,
+              0.6
+            ],
+            [
+              0.4,
+              0.5,
+              0.6000000000000001,
+              0.7,
+              0.8,
+              0.9
+            ]
+          ]
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,2",
+      "voters-in-conv,2",
+      "commenters,1",
+      "comments,6",
+      "groups,2",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  },
+  "banned comment, empty math": {
+    "comments": {
+      "status": 200,
+      "body": [
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 0,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 1",
+          "tid": 1,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 2,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Test comment 2",
+          "tid": 3,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": false,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        },
+        {
+          "txt": "Seed comment for auth <ts>",
+          "tid": 4,
+          "created": "<volatile>",
+          "quote_src_url": null,
+          "is_seed": true,
+          "is_meta": false,
+          "lang": null,
+          "pid": 0,
+          "original_id": null
+        }
+      ]
+    },
+    "participationInit": {
+      "status": 200,
+      "pcaKeys": [
+        "asBufferOfGzippedJson",
+        "asJSON",
+        "asPOJO",
+        "consensus",
+        "expiration",
+        "repness"
+      ],
+      "pcaAsPOJO": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 5,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 10,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "pcaAsJSON": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":5,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":10,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}",
+      "pcaConsensus": {
+        "agree": [],
+        "disagree": []
+      },
+      "pcaRepness": {},
+      "nextCommentIsServedComment": true,
+      "votes": []
+    },
+    "pca2": {
+      "status": 200,
+      "body": {
+        "group-clusters": [],
+        "base-clusters": {
+          "x": [],
+          "y": [],
+          "id": [],
+          "count": [],
+          "members": []
+        },
+        "group-votes": {},
+        "group-aware-consensus": {},
+        "user-vote-counts": {},
+        "in-conv": [],
+        "n-cmts": 5,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        },
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "n": 0,
+        "repness": {},
+        "consensus": {
+          "agree": [],
+          "disagree": []
+        },
+        "votes-base": {},
+        "lastModTimestamp": null,
+        "lastVoteTimestamp": 0,
+        "comment-priorities": {},
+        "math_tick": 10,
+        "mod-in": [],
+        "mod-out": [],
+        "meta-tids": []
+      },
+      "text": "{\"group-clusters\":[],\"base-clusters\":{\"x\":[],\"y\":[],\"id\":[],\"count\":[],\"members\":[]},\"group-votes\":{},\"group-aware-consensus\":{},\"user-vote-counts\":{},\"in-conv\":[],\"n-cmts\":5,\"pca\":{\"comps\":[[],[]],\"center\":[0,0],\"comment-extremity\":[0,0,0,0,0],\"comment-projection\":{}},\"tids\":[0,1,2,3,4],\"n\":0,\"repness\":{},\"consensus\":{\"agree\":[],\"disagree\":[]},\"votes-base\":{},\"lastModTimestamp\":null,\"lastVoteTimestamp\":0,\"comment-priorities\":{},\"math_tick\":10,\"mod-in\":[],\"mod-out\":[],\"meta-tids\":[]}"
+    },
+    "pca2Keys": {
+      "status": 200,
+      "body": {
+        "tids": [
+          0,
+          1,
+          2,
+          3,
+          4
+        ],
+        "n-cmts": 5,
+        "pca": {
+          "comps": [
+            [],
+            []
+          ],
+          "center": [
+            0,
+            0
+          ],
+          "comment-extremity": [
+            0,
+            0,
+            0,
+            0,
+            0
+          ],
+          "comment-projection": {}
+        }
+      }
+    },
+    "nextComment": {
+      "status": 200,
+      "keys": [
+        "created",
+        "is_meta",
+        "is_seed",
+        "lang",
+        "original_id",
+        "pid",
+        "quote_src_url",
+        "randomN",
+        "remaining",
+        "tid",
+        "total",
+        "translations",
+        "txt"
+      ],
+      "isServedComment": true
+    },
+    "summaryCsv": [
+      "topic,\"C7 empty math characterization\"",
+      "url,https://example.com/<conversation_id>",
+      "voters,0",
+      "voters-in-conv,0",
+      "commenters,1",
+      "comments,5",
+      "groups,0",
+      "conversation-description,\"C7 empty math characterization description\""
+    ]
+  }
+}
