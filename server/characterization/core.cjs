@@ -16,7 +16,7 @@ const hash = (x) =>
     .createHash("sha256")
     .update(typeof x === "string" || Buffer.isBuffer(x) ? x : canonical(x))
     .digest("hex");
-function firstDiff(a, b, path = "$") {
+function firstDiff(a, b, path = "$", visitOrder = {}) {
   if (Object.is(a, b)) return null;
   if (
     typeof a !== typeof b ||
@@ -26,10 +26,17 @@ function firstDiff(a, b, path = "$") {
   )
     return path;
   if (Array.isArray(a) !== Array.isArray(b)) return path;
-  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].sort();
+  const priority = visitOrder[path] || [];
+  const keys = [...new Set([...Object.keys(a), ...Object.keys(b)])].sort(
+    (x, y) => {
+      const rank = (k) =>
+        priority.includes(k) ? priority.indexOf(k) : priority.length;
+      return rank(x) - rank(y) || (x < y ? -1 : x > y ? 1 : 0);
+    }
+  );
   for (const k of keys) {
     if (!Object.hasOwn(a, k) || !Object.hasOwn(b, k)) return `${path}.${k}`;
-    const d = firstDiff(a[k], b[k], `${path}.${k}`);
+    const d = firstDiff(a[k], b[k], `${path}.${k}`, visitOrder);
     if (d) return d;
   }
   return null;
@@ -176,6 +183,8 @@ module.exports = {
 };
 
 function coverageStats(cases) {
+  const opaque400 = (c) =>
+    c.response.status === 400 && c.response.body === "Bad Request\n";
   const groups = new Map();
   for (const c of cases)
     if (c.routeId !== null) {
@@ -187,6 +196,7 @@ function coverageStats(cases) {
     return {
       routeId,
       cases: cs.length,
+      opaque400Cases: cs.filter(opaque400).length,
       responses2xx: cs.filter(
         (c) => c.response.status >= 200 && c.response.status < 300
       ).length,
@@ -210,6 +220,7 @@ function coverageStats(cases) {
   });
   return {
     cases: cases.length,
+    opaque400Cases: cases.filter(opaque400).length,
     statuses: cases.reduce((out, c) => {
       out[c.response.status] = (out[c.response.status] || 0) + 1;
       return out;
@@ -232,3 +243,21 @@ function coverageStats(cases) {
   };
 }
 module.exports.coverageStats = coverageStats;
+function coverageTable(stats) {
+  return (
+    "| Registration | Scenarios | Cases | Opaque 400 | 2xx | Invariant | DB cases | Participant cases | JWT cases |\n" +
+    "|---|---|---:|---:|---:|---|---:|---:|---:|\n" +
+    stats.rows
+      .map(
+        (r) =>
+          `| r${r.routeId} | ${r.scenarios.join(", ")} | ${r.cases} | ${
+            r.opaque400Cases
+          } | ${r.responses2xx} | ${r.roleInvariant ? "yes" : "no"} | ${
+            r.dbEffectCases
+          } | ${r.participantEffectCases} | ${r.jwtEffectCases} |`
+      )
+      .join("\n") +
+    "\n"
+  );
+}
+module.exports.coverageTable = coverageTable;

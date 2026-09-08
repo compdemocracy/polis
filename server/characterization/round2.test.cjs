@@ -17,6 +17,28 @@ const { firstDiff } = require("./core.cjs");
 const root = testBaseline(),
   baseline = readRecording(root);
 const by = (id) => baseline.cases.find((c) => c.caseId === id);
+test("N2: production coverage counts the 307 identical opaque 400 bodies per registration", () => {
+  const { coverageStats, coverageTable } = require("./core.cjs");
+  const stats = coverageStats(baseline.cases);
+  assert.equal(stats.cases, 533);
+  assert.equal(stats.opaque400Cases, 307);
+  assert.equal(stats.statuses[400], 339);
+  assert.equal(
+    stats.rows.reduce((n, r) => n + r.opaque400Cases, 0),
+    307
+  );
+  for (const row of stats.rows) {
+    const opaque = baseline.cases.filter(
+      (c) =>
+        c.routeId === row.routeId &&
+        c.response.status === 400 &&
+        bytes(c).equals(Buffer.from("Bad Request\n"))
+    );
+    assert.equal(row.opaque400Cases, opaque.length, `r${row.routeId}`);
+  }
+  assert.match(coverageTable(stats), /Cases \| Opaque 400 \| 2xx/);
+  assert.equal(coverageTable(stats).trim().split("\n").length, 130);
+});
 test("R1: every manifest pins production-compact settings and all plain JSON bodies are compact", () => {
   require("./serialization.cjs").assertProfile(baseline.manifest.serialization);
   assert.match(baseline.manifest.runtime.node, /^v22\./);

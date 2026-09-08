@@ -7,7 +7,7 @@ ENV=dict(os.environ)
 project=ENV.get('COMPOSE_PROJECT_NAME','')
 if not __import__('re').fullmatch(r'[a-z0-9]+(?:[a-z0-9_-]*[a-z0-9])?',project):raise RuntimeError('set a non-empty unique COMPOSE_PROJECT_NAME (lowercase letters/digits/underscore/hyphen)')
 ports=[int(ENV[k]) for k in ['POLIS_RECOVERY_PG_PORT','P027_HTTP_PORT','P027_CONTROL_PORT']]
-if len(set(ports))!=3 or any(p<55970 or p>55999 for p in ports):raise RuntimeError('set three unique host ports in 55970–55999')
+if len(set(ports))!=3 or any(p<55940 or p>55949 for p in ports):raise RuntimeError('set three unique host ports in 55940–55949')
 ENV['RECOVERY_PG_PORT']=str(ports[0])
 ENV.setdefault('BUILDX_CONFIG','/private/tmp/'+project+'-buildx')
 COMPOSE=['docker','compose','-f',str(HERE/'compose.yml')]

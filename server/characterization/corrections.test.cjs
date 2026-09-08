@@ -155,11 +155,21 @@ test("F7: database timestamp errors remain visible and repeated cookies are in c
     null
   );
 });
-function pcaModule(engine) {
+function pcaModule(engine, removeRefill = false) {
   const vm = require("node:vm"),
     ts = require("typescript");
   const filename = path.resolve(__dirname, "../src/utils/pca.ts");
-  const code = ts.transpileModule(fs.readFileSync(filename, "utf8"), {
+  let source = fs.readFileSync(filename, "utf8");
+  if (removeRefill) {
+    const refill =
+      "tids = commentsQuery.map((row: { tid: number }) => row.tid);";
+    assert(
+      source.includes(refill),
+      "C7 refill mutation must hit server source"
+    );
+    source = source.replace(refill, "tids = [];");
+  }
+  const code = ts.transpileModule(source, {
     compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true },
   }).outputText;
   const module = { exports: {} };
@@ -198,6 +208,50 @@ function pcaModule(engine) {
   );
   return module.exports;
 }
+test("N1: removing the server C7 refill reports n-cmts before derived headers", async () => {
+  const { firstDifference } = require("./compare.cjs");
+  const { blob } = require("./recording.cjs");
+  const asCase = (item) => {
+    const raw = item.asBufferOfGzippedJson;
+    return {
+      response: {
+        body: new Normalizer().normalize(
+          JSON.parse(require("node:zlib").gunzipSync(raw)),
+          "$.response.body"
+        ),
+        status: 200,
+        headers: { "content-type": "application/json" },
+      },
+      effects: { outbound: [] },
+      process: [],
+      wire: {
+        response: {
+          body: [{ sequence: 0, at_ms: 0, bytes: blob(raw) }],
+          headers: [
+            { name: "Content-Type", value: "application/json" },
+            { name: "Content-Length", value: String(raw.length) },
+            { name: "ETag", value: require("express/lib/utils").wetag(raw) },
+          ],
+        },
+      },
+    };
+  };
+  const before = asCase(await pcaModule(null).getPca(1, -1));
+  const after = asCase(await pcaModule(null, true).getPca(1, -1));
+  assert.equal(before.response.body["n-cmts"], 2);
+  assert.equal(after.response.body["n-cmts"], 0);
+  assert.equal(firstDifference(before, structuredClone(before)), null);
+  assert.match(
+    firstDifference(before, after),
+    /^\$\.response\.body\.n-cmts \(body-derived consequences: .*content-length.*etag/
+  );
+  // Header-only regressions still block and are not described as body effects.
+  const headerOnly = structuredClone(before);
+  headerOnly.wire.response.headers[1].value = "wrong";
+  assert.equal(firstDifference(before, headerOnly), "$.orderedHeaders.1.value");
+  after.wire.response.headers[1].value = "wrong";
+  assert(!firstDifference(before, after).includes("content-length"));
+});
 test("F4: actual PCA serializer exposes C7 empty-engine regression against approved-comment no-row baseline", async () => {
   const decode = (item) =>
     JSON.parse(require("node:zlib").gunzipSync(item.asBufferOfGzippedJson));
