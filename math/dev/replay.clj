@@ -631,10 +631,14 @@
   (let [doc  (stage-document step conv)
         name (format "step-%03d.stages.json" (:index step))]
     (spit (io/file dir name) (stage-json-string doc))
-    (sorted-map "file"         name
+    ;; Self-describing row: a manifest must be checkable against the document
+    ;; it names on all four identity fields plus the emission polarity.
+    (sorted-map "engine"       (get doc "engine")
+                "file"         name
                 "index"        (long (:index step))
                 "input_digest" (get doc "input_digest")
-                "tick"         (get doc "tick"))))
+                "tick"         (get doc "tick")
+                "vote_sign_convention" (get doc "vote_sign_convention"))))
 
 (defn write-stage-results!
   "Write the whole stage recording (per-step dumps + stages-manifest.json) for
