@@ -70,23 +70,31 @@ export type PcaCacheItem = {
   asJSON: string;
   asBufferOfGzippedJson: any;
   expiration: number;
-  /**
-   * True when this entry is `createEmptyPcaStructure`'s synthesized empty
-   * presentation for a conversation with NO committed math row, rather than a
-   * generation read from `math_main`.
-   *
-   * Provenance has to be carried, not inferred: a real published generation can
-   * legitimately be empty (tick 0, n 0, empty arrays), and such a row must stay
-   * returnable and cacheable. Lives on the cache entry, never inside `asPOJO`,
-   * so it cannot reach `asJSON` or the gzip body.
-   */
-  synthesized?: boolean;
 };
 
 const pcaCacheSize = Config.cacheMathResults ? 300 : 1;
 const pcaCache = new LruCache<string, PcaCacheItem>({
   max: pcaCacheSize,
 });
+
+/**
+ * Cache entries that are `createEmptyPcaStructure`'s synthesized empty
+ * presentation for a conversation with NO committed math row, rather than a
+ * generation read from `math_main`.
+ *
+ * Provenance has to be carried, not inferred: a real published generation can
+ * legitimately be empty (tick 0, n 0, empty arrays), and such a row must stay
+ * returnable and cacheable.
+ *
+ * It is held OUTSIDE the entry, in a WeakSet keyed by entry identity, because
+ * `handle_GET_participationInit` assigns the whole cache entry to
+ * `response.pca` and serializes it (routes/participation.ts:393,450). Any
+ * enumerable property added here would go out on the wire for every tick,
+ * including tick 1 — a served-bytes change. Keeping asPOJO/asJSON/the gzip body
+ * clean is not enough; the wrapper is served too. A WeakSet cannot be
+ * serialized and drops entries with the cache.
+ */
+const synthesizedEntries = new WeakSet<PcaCacheItem>();
 
 // Each namespace has an independent publication cursor and cache entries.
 const lastPrefetchedMathTicks = new Map<string, number>();
@@ -385,7 +393,7 @@ export function getPca(
   //
   // Bypass, not evict: ordinary readers still want that entry, and dropping it
   // would change their query pattern. Row-backed entries are always usable.
-  if (cached && !synthesizeEmptyWhenMissing && cached.synthesized) {
+  if (cached && !synthesizeEmptyWhenMissing && synthesizedEntries.has(cached)) {
     logger.silly("mathpoll bypassing synthesized cache entry", { zid });
     cached = undefined;
   }
@@ -534,8 +542,10 @@ function updatePcaCache(
           expiration: Date.now() + 3000,
           consensus: (item as any).consensus || { agree: {}, disagree: {} },
           repness: (item as any).repness || {},
-          synthesized,
         } as unknown as PcaCacheItem;
+        if (synthesized) {
+          synthesizedEntries.add(o);
+        }
         // save in LRU cache, but don't update the lastPrefetchedMathTick
         pcaCache.set(pcaCacheKey(mathEnv, zid), o);
         resolve(o);
