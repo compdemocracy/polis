@@ -41,16 +41,17 @@ VOTE_TABLES = ("votes_latest_unique", "votes")
 
 # A vote table, optionally schema-qualified and/or double-quoted:
 #   votes | "votes" | public.votes | public."votes" | "public"."votes"
-_TBL = r"(?:\"?public\"?\s*\.\s*)?\"?(votes_latest_unique|votes)\"?"
+# `\b` after the name keeps `voters` from matching `votes`; a closing quote is
+# allowed after it. These run on DECODED string-literal contents, so escaped
+# source quotes have already been unescaped.
+_TBL = r'(?:"?public"?\s*\.\s*)?"?(votes_latest_unique|votes)\b"?'
 # `\s` (DOTALL) so a newline between SELECT and * is caught.
-# Bare `SELECT * FROM [public.]votes` (not `SELECT * FROM (subquery)`; `count(*)`
-# has no `select \*` before it, so it is not matched).
 _SELECT_STAR_RE = re.compile(r"select\s+\*\s+from\s+" + _TBL, re.IGNORECASE | re.DOTALL)
-# `SELECT alias.* FROM votes alias` / `SELECT votes.* FROM votes` — resolved via the
-# alias->table map below (the alias may be a real alias OR the table name itself).
-_ALIAS_STAR_RE = re.compile(r"\b(\w+)\s*\.\s*\*", re.IGNORECASE)
+# `SELECT alias.* FROM votes alias` / `SELECT votes.* FROM votes` — qualifier may be
+# quoted; resolved via the alias->table map (alias, or the table name itself).
+_ALIAS_STAR_RE = re.compile(r'"?(\w+)"?\s*\.\s*\*', re.IGNORECASE)
 _FROM_ALIAS_RE = re.compile(
-    r"\b(?:from|join)\s+" + _TBL + r"(?:\s+(?:as\s+)?(\w+))?", re.IGNORECASE | re.DOTALL
+    r'\b(?:from|join)\s+' + _TBL + r'(?:\s+(?:as\s+)?"?(\w+)"?)?', re.IGNORECASE | re.DOTALL
 )
 _SQL_KEYWORDS = {
     "where", "group", "order", "on", "left", "right", "inner", "outer", "join",
@@ -170,14 +171,15 @@ def _strip_ts_comments(text: str) -> str:
     return _blank_comments(text, "//", allow_block=True)
 
 
-def _blank_python_noncode(path: str, text: str) -> str:
-    """Blank Python docstrings (via ast) then ``#`` comments (string-aware). Real
-    queries are argument strings (not docstrings), so they survive."""
+def _blank_python_docstrings(text: str) -> str:
+    """Blank module/class/function docstrings (via ast), keeping line numbers.
+    ``#`` comments need no separate pass: the literal extractor ignores comments,
+    so a `SELECT *` in a comment is never scanned."""
     lines = text.splitlines()
     try:
         tree = ast.parse(text)
     except SyntaxError:
-        return _blank_comments(text, "#", allow_block=False)
+        return text
     blanked: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -191,50 +193,106 @@ def _blank_python_noncode(path: str, text: str) -> str:
                 d = body[0]
                 for ln in range(d.lineno, (d.end_lineno or d.lineno) + 1):
                     blanked.add(ln)
-    kept = "\n".join("" if i in blanked else line for i, line in enumerate(lines, start=1))
-    return _blank_comments(kept, "#", allow_block=False)
+    return "\n".join("" if i in blanked else line for i, line in enumerate(lines, start=1))
+
+
+_ESCAPES = {"n": " ", "t": " ", "r": " ", "b": " ", "f": " ", "v": " ", "0": " "}
+
+
+def _extract_string_literals(text: str) -> list[tuple[int, str]]:
+    """Yield (start_line, DECODED content) for each ', " or ` string/template
+    literal, skipping comments. Escape backslashes are decoded (so an escaped
+    source quote ``\\"`` becomes ``"`` and quoted SQL identifiers are matchable).
+    This is where SQL queries live; comments are not literals, so a `SELECT *` in a
+    comment is never returned."""
+    out: list[tuple[int, str]] = []
+    i, n, line = 0, len(text), 1
+    while i < n:
+        c = text[i]
+        if c == "\n":
+            line += 1
+            i += 1
+            continue
+        if text.startswith("//", i) or c == "#":
+            while i < n and text[i] != "\n":
+                i += 1
+            continue
+        if text.startswith("/*", i):
+            i += 2
+            while i < n and not text.startswith("*/", i):
+                if text[i] == "\n":
+                    line += 1
+                i += 1
+            i += 2
+            continue
+        if c in ("'", '"', "`"):
+            quote = c
+            start_line = line
+            i += 1
+            buf: list[str] = []
+            while i < n:
+                d = text[i]
+                if d == "\\" and i + 1 < n:
+                    esc = text[i + 1]
+                    if esc == "\n":
+                        line += 1
+                    buf.append(_ESCAPES.get(esc, esc))  # \" -> ", \\ -> \, \n -> space
+                    i += 2
+                    continue
+                if d == quote:
+                    i += 1
+                    break
+                if d == "\n":
+                    line += 1
+                buf.append(d)
+                i += 1
+            out.append((start_line, "".join(buf)))
+            continue
+        i += 1
+    return out
+
+
+def _sql_hits_in(content: str) -> list[tuple[str, str]]:
+    """(table, kind) wildcard hits in one DECODED SQL string."""
+    hits: list[tuple[str, str]] = []
+    for m in _SELECT_STAR_RE.finditer(content):
+        hits.append((m.group(1).lower(), "select-star"))
+    alias_table: dict[str, str] = {}
+    for m in _FROM_ALIAS_RE.finditer(content):
+        tbl = m.group(1).lower()
+        alias_table[tbl] = tbl
+        alias = m.group(2)
+        if alias and alias.lower() not in _SQL_KEYWORDS:
+            alias_table[alias.lower()] = tbl
+    if alias_table:
+        for m in _ALIAS_STAR_RE.finditer(content):
+            table = alias_table.get(m.group(1).lower())
+            if table is not None:
+                hits.append((table, "alias-star"))
+    return hits
 
 
 def _line_of(text: str, offset: int) -> int:
     return text.count("\n", 0, offset) + 1
 
 
-def _raw_at(text: str, offset: int) -> str:
-    start = text.rfind("\n", 0, offset) + 1
-    end = text.find("\n", offset)
-    return text[start:end if end != -1 else len(text)].strip()
-
-
-def _scan_text(rel: str, text: str) -> list[tuple[int, str, str, str]]:
-    """Return (line_no, table, kind, raw_line) for each wildcard hit. Scans the
-    whole (comment/docstring-stripped) text so MULTILINE, schema-qualified and
-    aliased-star spellings are caught, not just a bare one-line form."""
+def _scan_text(rel: str, text: str, is_ts: bool) -> list[tuple[int, str, str, str]]:
+    """Return (line_no, table, kind, raw) for each wildcard hit. SQL is matched on
+    DECODED string-literal contents (so quoted/escaped spellings resolve); the
+    node-sql ``.star()`` builder is matched in comment-stripped code (TS only)."""
     hits: list[tuple[int, str, str, str]] = []
 
-    def add(offset: int, table: str, kind: str) -> None:
-        hits.append((_line_of(text, offset), table.lower(), kind, _raw_at(text, offset)))
+    for start_line, content in _extract_string_literals(text):
+        for table, kind in _sql_hits_in(content):
+            hits.append((start_line, table, kind, content.strip()[:200]))
 
-    for m in _SELECT_STAR_RE.finditer(text):
-        add(m.start(), m.group(1), "select-star")
-    for m in _BUILDER_STAR_RE.finditer(text):
-        add(m.start(), "votes_latest_unique", "builder-star")
+    if is_ts:
+        code = _blank_comments(text, "//", allow_block=True)
+        for m in _BUILDER_STAR_RE.finditer(code):
+            line = _line_of(code, m.start())
+            raw = code[code.rfind("\n", 0, m.start()) + 1:code.find("\n", m.start())].strip()
+            hits.append((line, "votes_latest_unique", "builder-star", raw))
 
-    # Aliased star: map both the table name itself and any alias to the table,
-    # then find `<name>.*` (so `votes.*` and `v.*` both resolve).
-    alias_table: dict[str, str] = {}
-    for m in _FROM_ALIAS_RE.finditer(text):
-        tbl = m.group(1).lower()
-        alias_table[tbl] = tbl
-        alias = m.group(2)
-        if alias and alias.lower() not in _SQL_KEYWORDS:
-            alias_table[alias] = tbl
-    if alias_table:
-        for m in _ALIAS_STAR_RE.finditer(text):
-            table = alias_table.get(m.group(1))
-            if table is not None:
-                add(m.start(), table, "alias-star")
-
-    # De-duplicate (an alias-star and a bare-star can coincide on odd inputs).
     seen: set[tuple[int, str, str]] = set()
     unique: list[tuple[int, str, str, str]] = []
     for line, table, kind, raw in sorted(hits):
@@ -287,14 +345,14 @@ def run_sweep(roots: Optional[Sequence[str]] = None, repo_root: Optional[str] = 
         for path in _iter_source_files(root):
             rel = os.path.relpath(path, repo_root)
             try:
-                text = open(path, encoding="utf-8", errors="replace").read()
+                with open(path, encoding="utf-8", errors="replace") as fh:
+                    text = fh.read()
             except OSError as exc:
                 raise InventoryScanError(f"unreadable file {path}: {exc}") from exc
-            if path.endswith(".py"):
-                text = _blank_python_noncode(path, text)
-            else:
-                text = _strip_ts_comments(text)
-            for line, table, kind, raw in _scan_text(rel, text):
+            is_py = path.endswith(".py")
+            if is_py:
+                text = _blank_python_docstrings(text)
+            for line, table, kind, raw in _scan_text(rel, text, is_ts=not is_py):
                 sites.append(_classify(rel, line, table, kind, raw))
     sites.sort(key=lambda s: (s.file, s.line))
     return sites

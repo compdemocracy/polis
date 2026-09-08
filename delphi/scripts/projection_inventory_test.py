@@ -92,6 +92,32 @@ def test_catches_qualified_quoted_and_url_bearing_wildcards(tmp_path) -> None:
         assert sites[0].classification == "NEEDS-GATE"
 
 
+def test_catches_quoted_identifiers_and_escaped_literals(tmp_path) -> None:
+    """R5 defect: quoted qualifiers/aliases and ESCAPED TS string literals must be
+    decoded before matching (each is exactly one hit)."""
+    src = tmp_path / "server" / "src"
+    src.mkdir(parents=True)
+    cases = {
+        "qqual.ts": "const q = 'SELECT \"votes\".* FROM \"votes\"';\n",
+        "qalias.ts": "const q = 'SELECT \"v\".* FROM votes AS \"v\"';\n",
+        "escaped.ts": 'const q = "SELECT v.* FROM \\"votes\\" AS v";\n',
+    }
+    for fn, source in cases.items():
+        (src / fn).write_text(source)
+        sites = inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path))
+        (src / fn).unlink()
+        assert len(sites) == 1, (fn, source, [(s.file, s.line, s.kind) for s in sites])
+        assert sites[0].classification == "NEEDS-GATE"
+
+
+def test_voters_is_not_matched_as_votes(tmp_path) -> None:
+    """Word boundary: `voters` must not match `votes`."""
+    src = tmp_path / "server" / "src"
+    src.mkdir(parents=True)
+    (src / "voters.ts").write_text('const q = "SELECT * FROM voters";\n')
+    assert inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path)) == []
+
+
 def test_url_double_slash_is_not_stripped_as_comment(tmp_path) -> None:
     src = tmp_path / "server" / "src"
     src.mkdir(parents=True)
