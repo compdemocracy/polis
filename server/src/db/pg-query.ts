@@ -112,8 +112,14 @@ function queryImpl(pool: Pool, queryString: string, ...args: any[]) {
   // every failing queryP produced a *second*, permanently unobserved rejection
   // in addition to the one it hands its own caller. Marking it handled here
   // stops each failed query from raising a process-level 'unhandledRejection'.
-  // Callers that omit a callback still get an unhandled rejection if they drop
-  // the returned promise, which is the behaviour worth keeping.
+  //
+  // The `if (callback)` is a guard on the code below, not a second supported
+  // calling convention: the argument parser above throws
+  // "unexpected db query syntax" synchronously when no function argument is
+  // present, so there is no callback-free path that reaches this line. A
+  // caller that awaits the returned promise directly, alongside its callback,
+  // still receives the identical rejection — attaching a handler does not
+  // consume it for other consumers.
   if (callback) {
     promise.catch(() => {});
   }
