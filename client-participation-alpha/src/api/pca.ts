@@ -1,5 +1,5 @@
 import PolisNet from '../lib/net'
-import type { PCAData } from './types'
+import type { PCA2FullResponse, PCAData } from './types'
 
 /**
  * Field names of the decoded `GET /api/v3/math/pca2` body, in the wire order
@@ -33,7 +33,7 @@ export const PCA2_WIRE_FIELDS = [
   'lastVoteTimestamp',
   'comment-priorities',
   'math_tick'
-] as const
+] as const satisfies ReadonlyArray<keyof PCA2FullResponse>
 
 /**
  * The subset of pca2 fields the participation visualization needs.

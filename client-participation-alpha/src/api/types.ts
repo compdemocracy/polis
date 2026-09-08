@@ -20,7 +20,41 @@ export interface BaseClusters {
   y: number[]
   id: number[]
   count: number[]
+  // All five are `required` in the closed empty schema; `members` is not
+  // optional on the wire (existing callers still guard it defensively).
   members?: number[][]
+}
+
+/**
+ * `pca` sub-object. Empty-branch shapes are pinned by the closed schema:
+ * `comps` is `[[], []]`, `center` is `[0, 0]`, `comment-extremity` is zeros of
+ * `tids.length`, and `comment-projection` is the empty object `{}`.
+ *
+ * Populated element types are NOT established by that schema — P-032-slice1
+ * says so explicitly ("Empty collections do not establish populated element
+ * types", "null, absence, empty arrays and empty objects remain distinct").
+ * The populated arms below are read off real math output
+ * (delphi/real_data/*_math_blob.json), where `comment-projection` is a
+ * 2 x n array of numbers rather than a map — the empty `{}` and the populated
+ * array really are different JSON types, so both arms are declared.
+ */
+export interface PCAComponents {
+  comps: number[][]
+  center: number[]
+  'comment-extremity': number[]
+  'comment-projection': number[][] | Record<string, never>
+}
+
+export interface ConsensusGroups {
+  agree: ConsensusItem[]
+  disagree: ConsensusItem[]
+}
+
+/** Per-base-cluster vote tallies for one statement. */
+export interface VotesBaseEntry {
+  A: number[] // Agree, one entry per base cluster
+  D: number[] // Disagree
+  S: number[] // Skip
 }
 
 export interface ConsensusItem {
@@ -55,21 +89,78 @@ export interface RepnessItem {
   'best-agree'?: boolean
 }
 
-export interface PCAData {
-  'base-clusters': BaseClusters
+/**
+ * The full decoded body of `GET /api/v3/math/pca2`.
+ *
+ * Field set and empty-branch types come from the P-032 slice-1 contract:
+ * cost-reduction/04-plans/p032-slice1/decoded-empty.schema.json is a closed
+ * Draft-07 schema (`additionalProperties: false`) whose `required` list names
+ * all seventeen properties, and cost-reduction/04-plans/P-032-slice1-pca2.md
+ * quotes the same seventeen in wire order. In full mode (no `keys` parameter)
+ * every one of them is present, so every property here is required.
+ *
+ * Caveat carried from the contract: that schema pins the *empty-math* cell
+ * only, and populated schemas "need review before a general generated client
+ * type is approved". Where the schema shows only an empty collection, the
+ * element types below are read off real math output
+ * (delphi/real_data/*_math_blob.json) and are the client's best current belief,
+ * not admitted contract.
+ */
+export interface PCA2FullResponse {
   'group-clusters': GroupCluster[]
-  'group-aware-consensus'?: {
-    [tid: string]: number
-  }
-  'group-votes'?: {
+  'base-clusters': BaseClusters
+  /** group id -> that group's vote tallies */
+  'group-votes': {
     [groupId: string]: GroupVotes
   }
-  repness?: {
+  /** tid -> group-aware consensus score */
+  'group-aware-consensus': {
+    [tid: string]: number
+  }
+  /** pid -> number of votes cast */
+  'user-vote-counts': {
+    [pid: string]: number
+  }
+  /** pids counted as in-conversation */
+  'in-conv': number[]
+  'n-cmts': number
+  pca: PCAComponents
+  tids: number[]
+  n: number
+  /** group id -> representative statements for that group */
+  repness: {
     [groupId: string]: RepnessItem[]
   }
-  // Wire field name is `math_tick` (P-032 slice-1 decoded contract,
-  // cost-reduction/04-plans/p032-slice1/decoded-empty.schema.json).
-  math_tick?: number
+  consensus: ConsensusGroups
+  /** tid -> per-base-cluster tallies */
+  'votes-base': {
+    [tid: string]: VotesBaseEntry
+  }
+  /** null in the recorded empty branch; a ms epoch when moderation has run */
+  lastModTimestamp: number | null
+  lastVoteTimestamp: number
+  /** tid -> priority weight */
+  'comment-priorities': {
+    [tid: string]: number
+  }
+  /** Integer per the schema. The wire name is `math_tick`, never `mathTick`. */
+  math_tick: number
+}
+
+/**
+ * Subset mode: when `keys=` is sent, the server returns `_.pick(body, keys)`,
+ * so nothing is guaranteed and unknown keys are dropped silently.
+ */
+export type PCA2SubsetResponse = Partial<PCA2FullResponse>
+
+/**
+ * What the participation visualization consumes. It is a subset response —
+ * VisualizationContainer always sends `keys` — narrowed by the two fields it
+ * asks for and then dereferences without a guard.
+ */
+export interface PCAData extends PCA2SubsetResponse {
+  'base-clusters': BaseClusters
+  'group-clusters': GroupCluster[]
 }
 
 export interface Topic {
