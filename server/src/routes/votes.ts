@@ -356,8 +356,14 @@ async function handle_POST_votes_bulk(
   req: RequestWithP,
   res: Response & { json: (data: any) => void }
 ): Promise<void> {
+  // Express 3.21.2 invokes a route callback and moves on
+  // (express/lib/router/index.js:164): it neither awaits the returned promise
+  // nor attaches a catch. Throwing here — outside the try below — produced no
+  // response at all, so the request hung until the client gave up and the
+  // rejection surfaced as an unhandled rejection on the process. Answer.
   if (!req.p.delphiEnabled) {
-    throw new Error("Unauthorized");
+    failJson(res, 403, "polis_err_votes_bulk_delphi_disabled");
+    return;
   }
   const { zid, uid } = req.p;
   const csv = req.body.csv;
