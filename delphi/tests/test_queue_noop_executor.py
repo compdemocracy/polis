@@ -47,17 +47,30 @@ def _executor_dsn(url: str, user: str, password: str) -> str:
 
 @pytest.fixture(scope="module")
 def queue_db():
-    """A Postgres with the queue migration applied, plus a restricted login."""
+    """A Postgres with the queue migration applied, plus a restricted login.
+
+    The configured test database may be shared with other runs, so teardown
+    removes ONLY this fixture's own env namespace, its own conversation and its
+    own role, and runs in ``finally`` so a partially completed setup still
+    cleans up after itself. A wildcard over the ``ENV`` prefix would delete a
+    concurrent run's rows.
+    """
     import psycopg2
 
     with require_polis_postgres() as url:
         suffix = uuid.uuid4().hex[:8]
         role = f"pq_x_{suffix}"
+        env = f"{ENV}-{suffix}"
+        zid = None
+        role_created = False
         conn = psycopg2.connect(url)
         conn.autocommit = True
         try:
             with conn.cursor() as cur:
-                cur.execute("SELECT rolsuper OR rolcreaterole FROM pg_roles WHERE rolname=current_user")
+                cur.execute(
+                    "SELECT rolsuper OR rolcreaterole FROM pg_roles"
+                    " WHERE rolname=current_user"
+                )
                 privileged = cur.fetchone()[0]
             if not privileged:
                 pytest.skip(
@@ -72,6 +85,7 @@ def queue_db():
                     f"CREATE ROLE {role} LOGIN NOSUPERUSER NOCREATEROLE "
                     f"PASSWORD '{LOCAL_ROLE_PASSWORD}' IN ROLE polis_queue_executor"
                 )
+                role_created = True
                 cur.execute(
                     "INSERT INTO conversations (topic) VALUES (%s) RETURNING zid",
                     (f"p024 queue noop {suffix}",),
@@ -80,26 +94,31 @@ def queue_db():
             yield {
                 "url": url,
                 "zid": zid,
-                "env": f"{ENV}-{suffix}",
+                "env": env,
                 "executor_dsn": _executor_dsn(url, role, LOCAL_ROLE_PASSWORD),
                 "role": role,
             }
-            with conn.cursor() as cur:
-                for table in (
-                    "polis_queue_requests",
-                    "polis_queue_attempts",
-                    "polis_queue_jobs",
-                    "polis_queue_heads",
-                    "polis_queue_runs",
-                ):
-                    cur.execute(
-                        f"DELETE FROM public.{table} WHERE env LIKE %s", (f"{ENV}-%",)
-                    )
-                cur.execute("DELETE FROM conversations WHERE zid=%s", (zid,))
-                cur.execute(f"DROP OWNED BY {role}")
-                cur.execute(f"DROP ROLE IF EXISTS {role}")
         finally:
-            conn.close()
+            try:
+                with conn.cursor() as cur:
+                    for table in (
+                        "polis_queue_requests",
+                        "polis_queue_attempts",
+                        "polis_queue_jobs",
+                        "polis_queue_heads",
+                        "polis_queue_runs",
+                    ):
+                        # Exact namespace only: never a LIKE over the prefix.
+                        cur.execute(
+                            f"DELETE FROM public.{table} WHERE env = %s", (env,)
+                        )
+                    if zid is not None:
+                        cur.execute("DELETE FROM conversations WHERE zid=%s", (zid,))
+                    if role_created:
+                        cur.execute(f"DROP OWNED BY {role}")
+                        cur.execute(f"DROP ROLE IF EXISTS {role}")
+            finally:
+                conn.close()
 
 
 @pytest.fixture(autouse=True)
@@ -108,7 +127,23 @@ def _opt_in(monkeypatch):
     monkeypatch.delenv("NODE_ENV", raising=False)
 
 
-def _enqueue(queue_db, key, *, uri=None, sha=None, image=None, max_attempts=3):
+def _admin(queue_db, statement, args=()):
+    """Run one statement as the provisioning login and return its rows."""
+    import psycopg2
+
+    conn = psycopg2.connect(queue_db["url"])
+    conn.autocommit = True
+    try:
+        with conn.cursor() as cur:
+            cur.execute(statement, args or None)
+            return cur.fetchall() if cur.description else None
+    finally:
+        conn.close()
+
+
+def _enqueue(
+    queue_db, key, *, uri=None, sha=None, image=None, max_attempts=3, priority=1
+):
     """Produce one job as the provisioning login, mirroring the Node adapter."""
     import psycopg2
 
@@ -135,7 +170,7 @@ def _enqueue(queue_db, key, *, uri=None, sha=None, image=None, max_attempts=3):
                     sha or ex.NOOP_SHA256,
                     sha or ex.NOOP_SHA256,
                     image or ex.NOOP_IMAGE,
-                    1,
+                    priority,
                     max_attempts,
                 ],
             )
@@ -348,3 +383,173 @@ def test_an_uncertain_claim_commit_reconciles_instead_of_claiming_again(queue_db
     assert "pq_heartbeat" in calls
     job = executor.call("pq_job_status", [queue_db["env"], reply["job_id"]])
     assert job["state"] == "succeeded"
+
+
+def test_a_claim_reply_naming_another_attempt_is_rejected():
+    """The minted attempt UUID is half of the fence, so the reply must name it.
+
+    A reply that carries a different attempt is not this claim's job and its
+    token must not be used. Checking the finalize reply against an already-wrong
+    claim reply is not equivalent: the two would simply agree with each other.
+    """
+    from polismath.queue import executor as ex
+
+    class WrongAttempt:
+        def call(self, name, args):
+            if name == "pq_due":
+                return []
+            if name != "pq_claim":
+                raise AssertionError(f"reached {name} with an unverified token")
+            job = {field: None for field in ex.ORDINARY_FIELDS}
+            job.update(
+                schema_version=ex.SCHEMA_VERSION,
+                outcome="owned",
+                published=False,
+                env="test",
+                owner_id=args[2],
+                attempt_id=str(uuid.uuid4()),
+                job_id=str(uuid.uuid4()),
+                lease_epoch="1",
+                stage="noop",
+                input={
+                    "uri": ex.NOOP_URI,
+                    "sha256": ex.NOOP_SHA256,
+                    "config_sha256": ex.NOOP_SHA256,
+                    "code_image_digest": ex.NOOP_IMAGE,
+                },
+            )
+            assert job["attempt_id"] != args[3]
+            return job
+
+    executor = ex.Executor(WrongAttempt(), "test", sleep=lambda _: None)
+    with pytest.raises(ex.ProtocolError):
+        executor.run_once()
+
+
+def test_a_head_writer_with_executor_membership_is_refused(queue_db):
+    """One denied UPDATE on one table is not proof of the grant boundary."""
+    from polismath.queue import executor as ex
+
+    role = queue_db["role"]
+    database = ex.Database(
+        ex.Settings(dsn=queue_db["executor_dsn"], env=queue_db["env"])
+    )
+    _admin(queue_db, f"GRANT UPDATE ON public.polis_queue_heads TO {role}")
+    try:
+        with pytest.raises(ex.ExecutorRefused):
+            database.call("pq_job_status", [queue_db["env"], str(uuid.uuid4())])
+    finally:
+        _admin(queue_db, f"REVOKE UPDATE ON public.polis_queue_heads FROM {role}")
+    # And it works again once the extra grant is gone.
+    assert database.call("pq_job_status", [queue_db["env"], str(uuid.uuid4())])
+
+
+def test_a_login_that_can_become_the_queue_owner_is_refused(queue_db):
+    from polismath.queue import executor as ex
+
+    role = queue_db["role"]
+    database = ex.Database(
+        ex.Settings(dsn=queue_db["executor_dsn"], env=queue_db["env"])
+    )
+    _admin(queue_db, f"GRANT polis_queue_owner TO {role}")
+    try:
+        with pytest.raises(ex.ExecutorRefused):
+            database.call("pq_job_status", [queue_db["env"], str(uuid.uuid4())])
+    finally:
+        _admin(queue_db, f"REVOKE polis_queue_owner FROM {role}")
+    assert database.call("pq_job_status", [queue_db["env"], str(uuid.uuid4())])
+
+
+def test_a_suppressed_finalize_acknowledgement_replays_the_exact_token(queue_db):
+    """A lost finalize reply is retried with the same token and digest.
+
+    The retry must return already_succeeded from the committed first attempt,
+    not a second publication and not a rollback.
+    """
+    from polismath.queue import executor as ex
+
+    _enqueue(queue_db, "lost-finalize")
+    executor = _make_executor(queue_db)
+    real_call = executor.db.call
+    finals = []
+    suppressed = []
+
+    def flaky(name, args):
+        result = real_call(name, args)
+        if name == "pq_finalize":
+            finals.append(list(args))
+            if not suppressed:
+                suppressed.append(True)
+                raise ex.CommitOutcomeUnknown(result)
+        return result
+
+    executor.db.call = flaky  # type: ignore[method-assign]
+    assert executor.run_once() == "already_succeeded"
+    assert len(finals) == 2
+    assert finals[0] == finals[1]
+
+
+def test_weighted_lanes_visit_every_priority_under_backlog(queue_db):
+    """Continuous urgent arrivals must not starve lane 2."""
+    from polismath.queue import executor as ex
+
+    for lane in range(3):
+        for index in range(7):
+            _enqueue(queue_db, f"lane-{lane}-{index}", priority=lane)
+    executor = _make_executor(queue_db)
+    real_call = executor.db.call
+    seen = []
+
+    def observe(name, args):
+        result = real_call(name, args)
+        if name == "pq_claim" and result["outcome"] == "owned":
+            seen.append(args[1])
+        return result
+
+    executor.db.call = observe  # type: ignore[method-assign]
+    for _ in range(len(ex.LANES)):
+        assert executor.run_once() == "succeeded"
+    assert seen == list(ex.LANES)
+
+
+def test_reaper_pages_101_parked_jobs_and_resets_its_cursor(queue_db):
+    """Discovery is bounded at 100, and a short page resets the cursor."""
+    env = queue_db["env"]
+    # Retire this module's remaining backlog so the pages are this test's rows.
+    _admin(
+        queue_db,
+        "UPDATE public.polis_queue_jobs SET state='dead'"
+        " WHERE env=%s AND state IN ('queued','retry_wait')",
+        (env,),
+    )
+    executor = _make_executor(queue_db)
+    for index in range(101):
+        _enqueue(queue_db, f"park-{index}")
+        job = executor.call(
+            "pq_claim", [env, 1, executor.owner, str(uuid.uuid4()), 60]
+        )
+        assert job["outcome"] == "owned"
+        assert (
+            executor.call("pq_park", executor.token(job) + ["synthetic"])["outcome"]
+            == "parked"
+        )
+    _admin(
+        queue_db,
+        "UPDATE public.polis_queue_jobs SET eligible_at=clock_timestamp()"
+        " - interval '1 second' WHERE env=%s AND state='parked'",
+        (env,),
+    )
+    assert executor.reap_page() == 100
+    assert executor.after_job is not None
+    assert (
+        _admin(
+            queue_db,
+            "SELECT count(*) FROM public.polis_queue_jobs"
+            " WHERE env=%s AND state='queued'",
+            (env,),
+        )[0][0]
+        == 100
+    )
+    assert executor.reap_page() == 1
+    assert executor.after_job is None
+    assert executor.reap_page() == 0
