@@ -313,14 +313,17 @@ def test_failed_write_leaves_prior_cached_object_unchanged(engine, pg_url,
 
 
 def test_tick_gap_is_allowed_but_votes_are_not_lost(engine, pg_url, make_service):
-    """A failure AFTER tick allocation burns a math_tick.  P-022: "Tick gaps may
-    occur; gaps are not lost votes." — assert the gap AND the intact input."""
+    """A legacy standalone allocation can leave a tick gap. Atomic publication
+    must tolerate that existing gap and preserve the final authoritative input.
+    New transaction rollback is checked separately in test_atomic_publish."""
     from .conftest import commit_vote
 
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
     svc = make_service(pg_url, math_env=MATH_ENV, retry_cap=0)
     svc.poll_once()
     first = read_math_tables(engine, 1, MATH_ENV)["main"]["math_tick"]
+    # Explicit legacy negative control: commit an allocation without a snapshot.
+    assert svc._pg.increment_math_tick(1) == first + 1
 
     injector = FaultInjector(name="write_math_main", mode="once")
     undo = fail_stage(svc._pg, "write_math_main", injector)

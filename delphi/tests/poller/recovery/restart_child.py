@@ -14,10 +14,10 @@ Stages (the P-022 §C R05 list):
     after the poll cycle advanced the watermark, before any compute
 ``during_compute``
     inside ``Conversation.recompute``
-``after_main_commit``
-    after ``write_math_main`` committed, before the other two tables
-``before_final_table_commit``
-    after main+bidtopid committed, before ``write_participant_stats``
+``after_main_write``
+    after ``write_math_main`` executed, before the other two tables (uncommitted)
+``before_final_table_write``
+    after main+bidtopid executed, before ``write_participant_stats`` (uncommitted)
 ``after_all_writes_before_cache``
     after all three writes committed, before the conversation is cached
 ``none``
@@ -43,6 +43,8 @@ def _block_forever() -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
+    parser.add_argument("--legacy-writes", action="store_true",
+                        help="Test-only negative control: commit each write separately")
     parser.add_argument("--pg-url", required=True)
     parser.add_argument("--math-env", required=True)
     parser.add_argument("--kill-stage", default="none")
@@ -63,6 +65,19 @@ def main() -> int:
                        ssl_mode="disable")
     )
     pg.initialize()
+    if args.legacy_writes:
+        # None tells each table writer to own/commit its transaction. Only the
+        # victim uses this: survivors always run the production atomic writer.
+        from contextlib import nullcontext
+        pg.transaction = lambda: nullcontext(None)
+        # Standalone _write_returning also uses transaction(), so provide its
+        # original implementation bound to the engine rather than recurse.
+        def legacy_returning(sql, params=None, *, connection=None):
+            from sqlalchemy import text
+            with pg.engine.begin() as conn:
+                result = conn.execute(text(sql), params or {})
+                return [dict(row) for row in result.mappings().all()]
+        pg._write_returning = legacy_returning
     svc = MathPollerService(
         pg,
         PollerConfig(
@@ -97,7 +112,7 @@ def main() -> int:
 
         Conversation.recompute = hooked_recompute
 
-    elif stage == "after_main_commit":
+    elif stage == "after_main_write":
         real_main = pg.write_math_main
 
         def hooked_main(*a, **kw):
@@ -107,7 +122,7 @@ def main() -> int:
 
         pg.write_math_main = hooked_main
 
-    elif stage == "before_final_table_commit":
+    elif stage == "before_final_table_write":
         real_stats = pg.write_participant_stats
 
         def hooked_stats(*a, **kw):

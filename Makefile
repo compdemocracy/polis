@@ -223,6 +223,7 @@ test-recovery-races: ## Re-run the deterministic race schedules 20x (P-022 accep
 				tests/poller/recovery/test_r04_park_unpark_races.py \
 				tests/poller/recovery/test_r06_lru_in_flight.py \
 				tests/poller/recovery/test_r09_partial_tables_readers.py \
+				tests/poller/recovery/test_atomic_publish.py::test_blocked_zid_does_not_block_other_zid_transactions \
 				tests/poller/recovery/test_r12_publication_cursor.py \
 				tests/poller/test_park_rebuild_recovery.py \
 				-q ) || exit 1; \

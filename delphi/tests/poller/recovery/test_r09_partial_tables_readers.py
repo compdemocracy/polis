@@ -157,26 +157,8 @@ class ContinuousReader(threading.Thread):
                 if s[0] is not None and response_problems(*s)]
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT (predicted by P-022 §C): the three tables are published "
-        "NON-ATOMICALLY, so a reader can observe math_main at generation N "
-        "together with math_bidtopid/math_ptptstats at N-1 or absent. "
-        "polismath/poller/math_writer.py:238 makes three separate client "
-        "calls and each commits on its own engine.begin() "
-        "(polismath/database/postgres.py:413, :432). The consumer joins the "
-        "two blobs POSITIONALLY — server/src/utils/participants.ts:33-51 maps "
-        "base-clusters.id -> index -> bidToPid[index] — so a mixed pair is a "
-        "wrong participant mapping, not merely a stale one. P-022 §C: 'No "
-        "response may combine incompatible generations... Eventual repair "
-        "alone does not make a mixed mapping safe.' The fix is a transaction "
-        "spanning all three writes, or a reader-visible completed-generation "
-        "marker; that is a separate decision."
-    ),
-)
 def test_reader_never_sees_a_mixed_generation(engine, pg_url, make_service):
-    """Pause the writer after the main commit and before the bidtopid commit,
+    """Pause the writer after the main write and before the bidtopid write,
     while a reader polls continuously."""
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
     svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
@@ -195,7 +177,7 @@ def test_reader_never_sees_a_mixed_generation(engine, pg_url, make_service):
     worker = threading.Thread(target=svc.poll_once, daemon=True)
     worker.start()
     latch.wait_arrival()
-    # The reader is running while math_main is committed and bidtopid is not.
+    # Main has executed, but the full snapshot is still uncommitted.
     eventually(lambda: len(reader.snapshots) > 3, timeout=10,
                message="the reader took no snapshots during the pause")
     latch.let_go()
@@ -210,13 +192,25 @@ def test_reader_never_sees_a_mixed_generation(engine, pg_url, make_service):
     )
 
 
-def test_the_mixed_window_is_real_and_observable(engine, pg_url, make_service):
-    """Companion to the xfail: assert the incoherent window EXISTS, so the
-    defect is documented directly rather than only as a failing expectation."""
+def test_legacy_mixed_window_is_real_and_observable(engine, pg_url, make_service,
+                                                    monkeypatch):
+    """Negative control: the intentionally non-atomic legacy writer MUST expose
+    a mixed window. Keep the original defect assertions load-bearing."""
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
     svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
     svc.poll_once()
     first_tick = read_math_tables(engine, 1, MATH_ENV)["main"]["math_tick"]
+
+    from contextlib import nullcontext
+    real_transaction = svc._pg.transaction
+    real_returning = svc._pg._write_returning
+
+    def legacy_returning(sql, params=None, *, connection=None):
+        with real_transaction() as conn:
+            return real_returning(sql, params, connection=conn)
+
+    monkeypatch.setattr(svc._pg, "transaction", lambda: nullcontext(None))
+    monkeypatch.setattr(svc._pg, "_write_returning", legacy_returning)
 
     latch = Latch("write_math_bidtopid")
     undo = latch_method(svc._pg, "write_math_bidtopid", latch)
@@ -314,7 +308,7 @@ class TestNegativeControl:
         """Intentionally 'fixed' variant: write all three rows inside ONE
         transaction and show the continuous reader never observes a split.
         This proves the observer above can distinguish atomic from non-atomic
-        publication — the xfail is about the writer, not about the check."""
+        publication — the regression is about the writer, not about the check."""
         seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
         svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
         svc.poll_once()

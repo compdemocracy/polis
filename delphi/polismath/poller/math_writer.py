@@ -11,7 +11,8 @@ write-conv-updates! (conv_man.clj:158-169):
 
 The Clojure-exact SQL (caching_tick = MAX+1 subquery, atomic tick upsert) lives
 in polismath.database.postgres.PostgresClient; this module orchestrates the
-per-cycle write and derives the bidToPid blob.
+per-cycle write and derives the bidToPid blob. Python publishes the tick and
+all three tables in ONE transaction so readers never see a partial commit.
 """
 
 import json
@@ -224,36 +225,32 @@ class MathWriter:
         self._pg = pg_client
 
     def write_conv_updates(self, zid: int, conv: Any) -> int:
-        """Mint one math_tick and write all three data tables with it.
+        """Atomically mint one math_tick and publish all three data tables.
 
         Returns the math_tick used (handy for logging / tests).
         """
-        math_tick = self._pg.increment_math_tick(zid)
-
         data = conv.to_dict()
         last_vote_timestamp = data.get("lastVoteTimestamp")
         if last_vote_timestamp is None:
             last_vote_timestamp = getattr(conv, "last_updated", None)
 
-        # 1. math_main — client-facing PCA/cluster/repness blob (fidelity-critical)
-        self._pg.write_math_main(
-            zid,
-            data,
-            last_vote_timestamp=last_vote_timestamp,
-            math_tick=math_tick,
-        )
-        # 2. math_bidtopid — server bid->pid mapping (fidelity-critical)
-        self._pg.write_math_bidtopid(
-            zid, data=derive_bidtopid(conv, zid), math_tick=math_tick
-        )
-        # 3. math_ptptstats — participant stats (clj-shaped, 2026-07-24 fix).
-        # Reuses data["user-vote-counts"] (already computed above for
-        # math_main) rather than recomputing it a second time.
-        self._pg.write_participant_stats(
-            zid,
-            data=derive_ptptstats(conv, zid, data.get("user-vote-counts", {})),
-            math_tick=math_tick,
-        )
+        # Derive blobs before opening the transaction/holding any row locks.
+        bidtopid = derive_bidtopid(conv, zid)
+        ptptstats = derive_ptptstats(conv, zid, data.get("user-vote-counts", {}))
+        with self._pg.transaction() as connection:
+            # The tick upsert locks this (zid, math_env) until all three writes
+            # commit. Other zids use independent connections on the shared client.
+            math_tick = self._pg.increment_math_tick(zid, connection=connection)
+            self._pg.write_math_main(
+                zid, data, last_vote_timestamp=last_vote_timestamp,
+                math_tick=math_tick, connection=connection,
+            )
+            self._pg.write_math_bidtopid(
+                zid, data=bidtopid, math_tick=math_tick, connection=connection,
+            )
+            self._pg.write_participant_stats(
+                zid, data=ptptstats, math_tick=math_tick, connection=connection,
+            )
 
         logger.info(
             "Wrote math results for zid=%s math_tick=%s (main+bidtopid+ptptstats)",

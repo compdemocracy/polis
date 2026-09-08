@@ -83,6 +83,9 @@ class FakePg:
     def poll_moderation(self, zid, since):
         return []
 
+    def find_incomplete_math_snapshots(self):
+        return []
+
     def load_math_main(self, zid):
         return None
 
