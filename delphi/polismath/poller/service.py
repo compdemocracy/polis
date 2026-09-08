@@ -277,12 +277,27 @@ class MathPollerService:
         # the coldest (see _remember).
         self._convs: "OrderedDict[int, Conversation]" = OrderedDict()
         self._retry_counts: Dict[int, int] = {}
-        self._parked: set = set()
         self._pool: Optional[ConversationWorkerPool] = None
         self._threads: List[threading.Thread] = []
         self._stop = threading.Event()
         self._vote_wm: Optional[int] = None
         self._mod_wm: Optional[int] = None
+
+    @property
+    def _parked(self) -> set:
+        """Parked-zid truth is owned SOLELY by the worker pool — one
+        lock-protected set (P-022 R04). This is a READ-ONLY view; the service
+        never keeps a second set that could disagree with the pool's. Park and
+        unpark always go through ``pool.park`` / ``pool.unpark`` (each atomic
+        with the pool's queue/active bookkeeping under the same lock), so an
+        interleaving between "mark parked" and "stop the queue" — the old
+        divergence bug — is no longer expressible.
+
+        Returns an empty set before the pool is constructed so early lookups are
+        safe."""
+        if self._pool is None:
+            return set()
+        return self._pool.parked_zids()
 
     # -- lifecycle ---------------------------------------------------------- #
     def _ensure_runtime(self) -> None:
@@ -387,7 +402,7 @@ class MathPollerService:
         re-persists — reprocessing the interval that was skipped when the global
         watermark advanced past the failure."""
         assert self._pool is not None
-        for zid in sorted(self._parked):
+        for zid in sorted(self._pool.parked_zids()):
             logger.info("Reconciler recovering parked zid=%s (M1)", zid)
             self._unpark(zid)  # clears park + invalidates cache
             self._pool.submit(zid, REBUILD, [])
@@ -405,13 +420,11 @@ class MathPollerService:
         batch on the stale cached conv would leave the failed interval missing
         forever. Dropping the cache entry forces `_run_engine` down the
         load-or-init path, which subsumes both the lost and the new votes."""
-        if zid not in self._parked:
+        if self._pool is None or not self._pool.is_parked(zid):
             return
-        self._parked.discard(zid)
         self._retry_counts.pop(zid, None)
         self._convs.pop(zid, None)  # invalidate → next touch rebuilds full history
-        if self._pool is not None:
-            self._pool.unpark(zid)
+        self._pool.unpark(zid)  # pool owns parked truth (P-022 R04)
         logger.info(
             "Un-parked zid=%s: invalidated cache; next batch rebuilds full "
             "history (M1 recovery)", zid,
@@ -455,7 +468,7 @@ class MathPollerService:
 
     # -- per-zid processing (runs on pool threads) -------------------------- #
     def _handle_zid(self, zid: int, coalesced: CoalescedBatch) -> None:
-        if zid in self._parked:
+        if self._pool is not None and self._pool.is_parked(zid):
             return
         try:
             self._run_engine(zid, coalesced)
@@ -639,13 +652,25 @@ class MathPollerService:
                 attempts,
                 error,
             )
-            self._parked.add(zid)
+            # The pool is the SINGLE owner of parked truth (P-022 R04): park
+            # here in one atomic step instead of setting a separate service-side
+            # marker first and then calling pool.park. The old two-step sequence
+            # let a reconciliation land in the gap — clearing the service marker
+            # and queueing a REBUILD that pool.park then dropped — leaving the
+            # service (unparked) and pool (parked) permanently disagreeing.
             if self._pool is not None:
                 self._pool.park(zid)
 
     def _requeue(self, zid: int, coalesced: CoalescedBatch) -> None:
         if self._pool is None:
             return
+        # Preserve ALL coalesced message kinds on retry (P-022 R03). Dropping the
+        # REBUILD flag here was the old bug: a reconciler rebuild that failed once
+        # was never re-submitted, and because the reconciler had already cleared
+        # the parked marker (`_unpark`) the zid ended up neither parked nor queued
+        # — silently lost until an unrelated restart.
+        if coalesced.rebuild:
+            self._pool.submit(zid, REBUILD, [])
         if coalesced.votes:
             self._pool.submit(zid, VOTES, list(coalesced.votes))
         if coalesced.moderation:

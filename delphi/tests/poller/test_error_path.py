@@ -12,11 +12,44 @@ from polismath.poller.worker_pool import CoalescedBatch
 from unittest.mock import MagicMock
 
 
+class FakePool:
+    """A synchronous stand-in for ConversationWorkerPool that OWNS parked truth
+    the same way the real pool does (P-022 R04), so ``service._parked`` — now a
+    read-through view of the pool — reflects reality. It records submit/park/
+    unpark calls for assertions without spawning worker threads (these tests
+    drive ``_handle_zid`` / ``_poll_votes_once`` directly)."""
+
+    def __init__(self):
+        self._parked = set()
+        self.submitted = []
+        self.park_calls = []
+        self.unpark_calls = []
+
+    def submit(self, zid, message_type, batch):
+        if zid in self._parked:
+            return
+        self.submitted.append((zid, message_type, batch))
+
+    def park(self, zid):
+        self.park_calls.append(zid)
+        self._parked.add(zid)
+
+    def unpark(self, zid):
+        self.unpark_calls.append(zid)
+        self._parked.discard(zid)
+
+    def is_parked(self, zid):
+        return zid in self._parked
+
+    def parked_zids(self):
+        return set(self._parked)
+
+
 def _service(tmp_path, retry_cap=1):
     pg = MagicMock()
     cfg = PollerConfig(dump_dir=str(tmp_path), retry_cap=retry_cap)
     svc = MathPollerService(pg, cfg)
-    svc._pool = MagicMock()  # capture requeue / park without real threads
+    svc._pool = FakePool()  # capture requeue / park without real threads
     return svc
 
 
@@ -43,9 +76,9 @@ class TestErrorPath:
         assert "kaboom" in payload["error"]
         assert payload["batch"]["votes"] == [{"pid": "1", "tid": "1", "vote": 1}]
         # retry: batch requeued, zid NOT parked yet
-        svc._pool.submit.assert_called()
+        assert svc._pool.submitted, "the batch must be requeued on the first failure"
         assert 5 not in svc._parked
-        svc._pool.park.assert_not_called()
+        assert svc._pool.park_calls == []
 
     def test_second_failure_parks_zid(self, tmp_path, monkeypatch):
         svc = _service(tmp_path)
@@ -59,7 +92,7 @@ class TestErrorPath:
         svc._handle_zid(5, batch)  # attempt 2 -> park (exceeds retry_cap=1)
 
         assert 5 in svc._parked
-        svc._pool.park.assert_called_once_with(5)
+        assert svc._pool.park_calls == [5]
         assert len(_dumps(tmp_path, 5)) == 2  # dumped on each failure
 
     def test_parked_zid_is_skipped(self, tmp_path, monkeypatch):
@@ -112,8 +145,8 @@ class TestErrorPath:
 
         assert 5 not in svc._parked
         assert svc._retry_counts.get(5) is None
-        svc._pool.unpark.assert_called_once_with(5)
-        svc._pool.submit.assert_called_with(5, "votes", [{"zid": 5, "created": 100}])
+        assert svc._pool.unpark_calls == [5]
+        assert svc._pool.submitted[-1] == (5, "votes", [{"zid": 5, "created": 100}])
 
 
 def test_pool_unpark_reenables_dispatch():
