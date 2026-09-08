@@ -123,8 +123,8 @@
       "default": 31,
       "fault": 31
     },
-    "compose_project": "s1fix-b7c2",
-    "postgres_port": 55886,
+    "compose_project": "s1fix-4d19",
+    "postgres_port": 55887,
     "platform": "macOS-15.7.4-arm64-arm-64bit",
     "runtime": {
       "python": "3.12.11",
@@ -143,8 +143,8 @@
       "coordinator-rs/artifacts/s1-clippy-default.log": "0f37198acea076fbbdd6813ac3854393ebc36b9c8124fe96a58e8f22eb8f2e41",
       "coordinator-rs/artifacts/s1-clippy-fault.log": "6acc69d8690125f2e3d62b1868e1da69b4f030b21d543d11ede47817133f89f2",
       "coordinator-rs/artifacts/s1-fault-build.log": "87e2c653e8d594185e31fa30aad0d35332fe7756b7fb1574affe20fc4e3cc47d",
-      "coordinator-rs/artifacts/s1-pytest.log": "44dd00c634c8e0425659a0f5a486dc99f9f794126304b802d946e8cf70d946dd",
-      "coordinator-rs/artifacts/s1-pytest.xml": "c0a360b6c568bdc8b5bdf4c1e669193830df1ba080c9b83b1ea04b55a3cc2662",
+      "coordinator-rs/artifacts/s1-pytest.log": "0b330b1fd318d98fb9a1946f83dc1f99994653ca6c525b0a5344a7987f66493c",
+      "coordinator-rs/artifacts/s1-pytest.xml": "2fe88d6cc018f3a2c479c4faaf158b43f534155adf5ce1096aa9641d631283a9",
       "coordinator-rs/artifacts/s1-release.log": "e54e643021f99a69aecdca2057cd5dbc1c37f14e1784841e5446a79ea7a4a81e",
       "coordinator-rs/target/fault/debug/polis-coordinator": "6e7816cedba88954ae819f7c957c344e2ea7dab368c807ce24bb80a44f09c43a",
       "coordinator-rs/target/release/polis-coordinator": "e1a219c545bee43910d703142d0a6a97db51d5986e80f155b2850dd21c980af3"
