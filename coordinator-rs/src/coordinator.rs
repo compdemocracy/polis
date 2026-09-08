@@ -1,19 +1,11 @@
 use crate::{
     engine::{self, Source},
+    lease::{LeaseState, Renewal},
     store::{Current, PgStore, Publication, ResultsStore, digest},
 };
 use anyhow::{Result, bail, ensure};
 use postgres::IsolationLevel;
 use serde_json::{Value, json};
-
-#[derive(Debug)]
-pub struct OwnershipRefused;
-impl std::fmt::Display for OwnershipRefused {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "OWNERSHIP-REFUSED")
-    }
-}
-impl std::error::Error for OwnershipRefused {}
 
 impl PgStore {
     pub fn source(&mut self, zid: i32) -> Result<Source> {
@@ -56,17 +48,41 @@ impl PgStore {
         })
     }
     pub fn process(&mut self, zid: i32) -> Result<bool> {
-        let epoch = self.acquire(zid)?.ok_or(OwnershipRefused)?;
+        // No epoch: another owner holds an unexpired lease. Recoverable.
+        let epoch = self.acquire(zid)?.ok_or(LeaseState::Unavailable)?;
+        let mut renewal = Renewal::start(&self.config, zid, epoch)?;
         let context = json!({"zid":zid,"math_env":self.config.math_env,"epoch":epoch});
         self.fault.hit("after_lease", &context)?;
-        let result = self.process_owned(zid, epoch);
-        // Keep epoch history; only expire ownership on clean completion.
-        if result.is_ok() {
-            self.release(zid, epoch)?;
+        let result = self.process_owned(zid, epoch, &renewal);
+        renewal.stop();
+        // Release our own epoch on any decided outcome. The update is
+        // conditional on (owner_id,owner_epoch), so a transferred or fenced row
+        // is untouched, epoch history is preserved, and a clean local failure
+        // does not hold the conversation for the rest of the lease window.
+        // Only an unclean death leaves a live lease behind, as R05 requires.
+        if let Err(error) = self.reconnect_if_closed().and_then(|()| self.release(zid, epoch)) {
+            tracing::warn!(zid, epoch, error=%error, "lease release failed; expiry still bounds it");
         }
         result
     }
-    fn process_owned(&mut self, zid: i32, epoch: i64) -> Result<bool> {
+    /// Authoritative ownership check at a decision point. A heartbeat loss that
+    /// the database contradicts is not a loss; anything else stops the work.
+    fn lease_guard(&mut self, zid: i32, epoch: i64, renewal: &Renewal) -> Result<()> {
+        if renewal.state().is_none() {
+            return Ok(());
+        }
+        match self.lease_state(zid, epoch)? {
+            Some(state) => {
+                tracing::error!(zid, epoch, state=%state, "lease lost during compute; not publishing");
+                Err(state.into())
+            }
+            None => {
+                tracing::warn!(zid, epoch, "uncertain renewal contradicted by the lease row");
+                Ok(())
+            }
+        }
+    }
+    fn process_owned(&mut self, zid: i32, epoch: i64, renewal: &Renewal) -> Result<bool> {
         let source = self.source(zid)?;
         let context = json!({"zid":zid,"math_env":self.config.math_env,"epoch":epoch,"source_fingerprint":source.fingerprint,"event_count":source.votes.len()});
         self.fault.hit("after_source_selection", &context)?;
@@ -84,7 +100,17 @@ impl PgStore {
             Current::Coherent(b) => Some(b.as_ref()),
             _ => None,
         };
-        let (payloads, checkpoint) = engine::compute(&self.config, &self.fault, zid, &source, old)?;
+        let guard = || -> Result<()> {
+            match renewal.state() {
+                Some(state) => Err(state.into()),
+                None => Ok(()),
+            }
+        };
+        let computed = engine::compute(&self.config, &self.fault, zid, &source, old, &guard);
+        // Ownership is decided authoritatively here, before any publication, so
+        // an abort inside compute reports the state the database actually holds.
+        self.lease_guard(zid, epoch, renewal)?;
+        let (payloads, checkpoint) = computed?;
         let mut attempts = 0;
         let published = loop {
             match self.publish(zid, expected, epoch, checkpoint.clone(), &payloads) {
@@ -115,7 +141,7 @@ impl PgStore {
                 );
                 Ok(true)
             }
-            Publication::Fenced => Err(OwnershipRefused.into()),
+            Publication::Refused(state) => Err(state.into()),
             Publication::Conflict => bail!("publication conflict; source retained"),
         }
     }
@@ -152,16 +178,18 @@ impl PgStore {
                                 &[&self.config.math_env, &zid],
                             )?;
                         }
-                        Err(e) if e.is::<OwnershipRefused>() => return Err(e),
+                        // Only a superseded owner stops the daemon. A lease that
+                        // is merely unavailable or elapsed defers one zid and
+                        // must not starve the rest of the sweep.
+                        Err(e) if LeaseState::of(&e).is_some_and(|s| !s.recoverable()) => {
+                            return Err(e);
+                        }
                         Err(e) => {
-                            tracing::error!(zid,error=%e,"conversation failed; durable retry scheduled");
-                            let mut tx = self.client.transaction()?;
-                            tx.query_one(
-                                "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
-                                &[&zid],
-                            )?;
-                            tx.execute("INSERT INTO coordinator_failures(math_env,zid,attempts,next_attempt) VALUES($1,$2,1,clock_timestamp()+interval '1 second') ON CONFLICT(math_env,zid) DO UPDATE SET attempts=LEAST(coordinator_failures.attempts+1,30),next_attempt=clock_timestamp()+make_interval(secs=>LEAST(coordinator_failures.attempts+1,30))", &[&self.config.math_env,&zid])?;
-                            tx.commit()?;
+                            match LeaseState::of(&e) {
+                                Some(state) => tracing::warn!(zid,state=%state,"lease deferred; bounded backoff, sweep continues"),
+                                None => tracing::error!(zid,error=%e,"conversation failed; durable retry scheduled"),
+                            }
+                            self.defer(zid)?;
                         }
                     }
                 }
@@ -180,7 +208,20 @@ impl PgStore {
         );
         Ok(count)
     }
+    /// Durable bounded backoff for one conversation, shared by failures and by
+    /// recoverable lease outcomes.
+    fn defer(&mut self, zid: i32) -> Result<()> {
+        let mut tx = self.client.transaction()?;
+        tx.query_one(
+            "SELECT zid FROM conversations WHERE zid=$1 FOR KEY SHARE",
+            &[&zid],
+        )?;
+        tx.execute("INSERT INTO coordinator_failures(math_env,zid,attempts,next_attempt) VALUES($1,$2,1,clock_timestamp()+interval '1 second') ON CONFLICT(math_env,zid) DO UPDATE SET attempts=LEAST(coordinator_failures.attempts+1,30),next_attempt=clock_timestamp()+make_interval(secs=>LEAST(coordinator_failures.attempts+1,30))", &[&self.config.math_env,&zid])?;
+        tx.commit()?;
+        Ok(())
+    }
     /// One complete bounded-memory pass for --once and the black-box launcher.
+    /// Strict: any lease refusal ends the pass with its typed exit code.
     pub fn once(&mut self) -> Result<usize> {
         let mut after = 0;
         let mut published = 0;

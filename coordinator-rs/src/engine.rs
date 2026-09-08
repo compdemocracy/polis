@@ -112,7 +112,7 @@ impl Worker {
             session: uuid::Uuid::new_v4().to_string(),
         })
     }
-    fn call(&mut self, op: &str, payload: Value) -> Result<Value> {
+    fn call(&mut self, op: &str, payload: Value, guard: &dyn Fn() -> Result<()>) -> Result<Value> {
         self.request += 1;
         let req = json!({"protocol":"polis-engine/1","run_id":self.run,"session_id":self.session,"request_id":self.request,"op":op,"payload":payload});
         let bytes = serde_json::to_vec(&req)?;
@@ -120,10 +120,24 @@ impl Worker {
         self.input.write_all(&bytes)?;
         self.input.write_all(b"\n")?;
         self.input.flush()?;
-        let response = self
-            .responses
-            .recv_timeout(Duration::from_secs(120))
-            .context("worker timeout/exit")??;
+        // Poll so a lease lost mid-compute aborts the operation instead of
+        // waiting out the whole worker timeout.
+        let deadline = std::time::Instant::now() + Duration::from_secs(120);
+        let response = loop {
+            guard()?;
+            match self.responses.recv_timeout(Duration::from_millis(200)) {
+                Ok(response) => break response?,
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    ensure!(
+                        std::time::Instant::now() < deadline,
+                        "worker timeout/exit"
+                    );
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => {
+                    return Err(anyhow::anyhow!("worker timeout/exit"));
+                }
+            }
+        };
         ensure!(
             response.as_object().is_some_and(|m| m.len() == 6
                 && m.keys().all(|k| matches!(
@@ -153,6 +167,7 @@ pub fn compute(
     zid: i32,
     source: &Source,
     prior: Option<&Bundle>,
+    guard: &dyn Fn() -> Result<()>,
 ) -> Result<(Payloads, Value)> {
     let input = tempfile::tempdir()?;
     let output = tempfile::tempdir()?;
@@ -197,7 +212,7 @@ pub fn compute(
     let mut worker = Worker::start(c, input.path(), output.path())?;
     worker.call("initialize",json!({"input_manifest":manifest_desc,"resolved_schedule":schedule_desc,
         "required_capabilities":["rebuild-prefix/1","snapshot-moderation/1"],
-        "config":{"profile":"candidate-profile","seed":42,"pca_mode":"powerit","empty_contract":true,"init_vector":"engine-default"}}))?;
+        "config":{"profile":"candidate-profile","seed":42,"pca_mode":"powerit","empty_contract":true,"init_vector":"engine-default"}}),guard)?;
     let context = json!({"zid":zid,"math_env":c.math_env,"fingerprint":source.fingerprint,"worker_pid":worker.child.id()});
     fault.hit("before_worker_apply", &context)?;
     let mut checkpoint = Value::Null;
@@ -206,7 +221,7 @@ pub fn compute(
         if name == "restore" {
             fault.hit("before_restore", &context)?;
         }
-        let result = worker.call(name, op["payload"].clone())?;
+        let result = worker.call(name, op["payload"].clone(), guard)?;
         if name == "restore" {
             fault.hit("after_restore", &context)?;
         }
@@ -226,6 +241,7 @@ pub fn compute(
         "invalid checkpoint identity"
     );
     let cursors = json!({"votes":{"slot":source.votes.len(),"sha256":digest(&vote_bytes)},"moderation":{"slot":1,"sha256":digest(&mod_bytes)}});
+    guard()?;
     ensure!(
         checkpoint["observed_state_cursors"] == cursors
             && checkpoint["math_input_cursors"] == cursors,
