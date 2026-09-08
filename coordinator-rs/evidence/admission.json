@@ -1,0 +1,67 @@
+{
+  "writer_commit": "b3262008f862d155c193b71d7af92b3d8e3d37f8",
+  "recovery_remote_tip": "a4f3b4d82bad53b5039979db9a3b29ed276a69b5",
+  "recovery_local_oracle": "aaaf7ca5c93f9a758b28e7a361c3b9544e24305a",
+  "checkout_base": "451ab8265a244ba5cfeb1888a375ccba911682e7",
+  "input_fixtures": {
+    "vw": {
+      "sha256": "622b8c164150dc509f7387d81d2e2d616d37211c3bb256458064972ad805b56a",
+      "vote_rows": 4683,
+      "source_format": "public export CSV",
+      "normalization": "replay.real_data.load_export_votes; storage vote=-semantic sign; timestamps in milliseconds",
+      "synthetic_zid": 1
+    },
+    "biodiversity": {
+      "sha256": "9b6c1847bcd2e93c2cc349e79676f8be3ffe49a7e5f79f0d2e19412f0be29f94",
+      "vote_rows": 29802,
+      "source_format": "public export CSV",
+      "normalization": "replay.real_data.load_export_votes; storage vote=-semantic sign; timestamps in milliseconds",
+      "synthetic_zid": 1
+    }
+  },
+  "files": {
+    "coordinator-rs/src/config.rs": "6e8ff6c9165e83109ec4cdba22113625b4cebda568261146c74bc50e4f3dd46f",
+    "coordinator-rs/src/lib.rs": "c0b414f0fa1982004862e25958e7e650174f613c99977a3caa63b7c74e0c0649",
+    "coordinator-rs/src/store.rs": "83dbd47fa8019fdb9edf053d64d7bc3cc0c88ceeb8089097c0afffcc9f8a3ef7",
+    "coordinator-rs/src/coordinator.rs": "3167c58df6faa62e45bc0fdbecf87c2d5cd70975815f05620b9ae8ef4354a045",
+    "coordinator-rs/src/fault.rs": "c39d73439b22cb343d18f87296c3f78e809e53c0b637fab5ed3c5cb084d70dc7",
+    "coordinator-rs/src/main.rs": "9bdd1f79efa671f79d25b98f0530aab569d62803d6d49a1e38cbd84638bfefa7",
+    "coordinator-rs/src/wire.rs": "5065d751edbd17987222b3cf18c262a669ec7df96afa25979c88422288972013",
+    "coordinator-rs/src/reader.rs": "07f70f308dc018fdd9b95c6deda5a0c38053e049acb391e774d4d70401dd412c",
+    "coordinator-rs/src/engine.rs": "73ce227f5ce5f2e2c111ec5f757f9c1c73ca04fbbf6df4ff43320269e7ceb1d3",
+    "coordinator-rs/Cargo.toml": "87d4c0a11cf171daf946519514d07512c7da9b7ccc9a428a1ee435881b7f8554",
+    "coordinator-rs/Cargo.lock": "308d38666623b7bc9a0f5f09ae2084dfeef667c977a9ee241df3003d6e1306bf",
+    "coordinator-rs/migration.sql": "da000ce00b7cb761e758283f555b9cd66eef096f73bba35eb9e74288c0e69e07",
+    "delphi/polismath/engine_adapter.py": "b4198c15fdc3c85344e5b0785289588227c1706167d96110c491249896df25c3",
+    "coordinator-rs/build.rs": "f717ec6adfab1adb10fdae12db4b9d19d3de06265603ef5112d1336e243598fd",
+    "delphi/tests/coordinator/audit_stages.py": "55d7ef73dff047119249f81538f6f72c18297b4de7f4f99b0bd5705a7a693ca5",
+    "delphi/tests/coordinator/conftest.py": "b04a75a8f01adbc74d4a9e70d3e79ea7fc5d44a32c2e0a7a931235605b854d84",
+    "delphi/tests/coordinator/reference_child.py": "add6c53bbe9bcb4b384bdb1a80b31ca51dcce0eabe1ead4d31d2b3376a25f6f5",
+    "delphi/tests/coordinator/test_adapter.py": "df306b2813033470d98446ab8be1dcb66c174488d6f6b4d3dd8bfa6f0fdb3771",
+    "delphi/tests/coordinator/test_equivalence.py": "e4b43ca75474fc05bca1098b5483d94de3e7c05ecc51fb9cdf837e4f9a08bfa6",
+    "delphi/tests/coordinator/test_recovery.py": "00a7a5861eabed883100daf54abce8a4c2f2ee0b8928d1f78e85aa151551d7af",
+    "delphi/tests/coordinator/test_reference_controls.py": "3e4ea890b96f7c604ea53f72a4227bbe1a7929dddd267e10fa0e173cfe4a52eb",
+    "delphi/tests/coordinator/test_store.py": "ffd1a2ad2ffab5d250ecfcf0a3d44e2da93e8931c9b8176900e13f41714d8310",
+    "coordinator-rs/tests/validation.rs": "7d90220e5033e207426a82096ae673ba1e35a929c08792569de9531fa9d69ad3"
+  },
+  "binaries": {
+    "coordinator-rs/target/release/polis-coordinator": "03074e065822ccb34e7fad0ccf401c587274deaaf47e6ce8499a499809697ab3",
+    "coordinator-rs/target/fault/debug/polis-coordinator": "6d9e442dd7dda7e5dae46ccf5e09f0cdff3fef993d79efee1e5a3d1a39de45d2"
+  },
+  "runtime": {
+    "rustc": "1.98.1",
+    "python": "3.12.11",
+    "postgres_major": 17,
+    "compose_project": "p026",
+    "postgres_port": 55458,
+    "engine_seed": 42,
+    "engine_preset": "engine-default",
+    "storage_agree_value": -1,
+    "test_page_size": 2,
+    "test_poll_window": 1,
+    "math_namespaces": [
+      "python",
+      "rustproto"
+    ]
+  }
+}
