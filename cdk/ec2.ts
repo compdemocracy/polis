@@ -2,7 +2,10 @@ import * as ec2 from 'aws-cdk-lib/aws-ec2';
 
 export const instanceTypeWeb = ec2.InstanceType.of(ec2.InstanceClass.T3, ec2.InstanceSize.MEDIUM);
 export const machineImageWeb = new ec2.AmazonLinuxImage({ generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2023 });
-export const instanceTypeMathWorker = ec2.InstanceType.of(ec2.InstanceClass.R8G, ec2.InstanceSize.XLARGE4);
+// Right-sized 2026-09: 14 days of CloudWatch showed peak 16.3 GB host memory and ~4 busy cores
+// on the previous r8g.4xlarge (128 GB / 16 vCPU). 2xlarge = 8 vCPU / 64 GB. Step to xlarge after
+// a month if peaks stay < 12 GB. See math/deps.edn for the matching JVM heap.
+export const instanceTypeMathWorker = ec2.InstanceType.of(ec2.InstanceClass.R8G, ec2.InstanceSize.XLARGE2);
 export const machineImageMathWorker = new ec2.AmazonLinuxImage({
   generation: ec2.AmazonLinuxGeneration.AMAZON_LINUX_2023,
   cpuType: ec2.AmazonLinuxCpuType.ARM_64,
