@@ -60,27 +60,40 @@ STAGES = [
 
 
 class Child:
-    """A real poller subprocess whose stdout stage markers the test can await."""
+    """A real poller subprocess whose stdout markers the test can await.
 
-    def __init__(self, pg_url, stage, days=1.0, tmp_path=None):
+    ``stages`` holds the ``STAGE <name>`` markers; ``lines`` holds EVERY stdout
+    line in order, so a test can assert the ORDER of the child's own
+    acknowledgements (``GATE run_engine`` before ``WM_ACK``, and so on).
+    """
+
+    def __init__(self, pg_url, stage, days=1.0, tmp_path=None,
+                 ownership_latch_dir=None, math_env=MATH_ENV):
         env = dict(os.environ)
         env["PYTHONPATH"] = _DELPHI_ROOT + os.pathsep + env.get("PYTHONPATH", "")
         if tmp_path is not None:
             env["POLIS_RECOVERY_DUMP_DIR"] = str(tmp_path / "errorconv")
+        argv = [sys.executable, _CHILD, "--pg-url", pg_url,
+                "--math-env", math_env, "--kill-stage", stage,
+                "--poll-from-days-ago", str(days)]
+        if ownership_latch_dir is not None:
+            argv += ["--ownership-latch-dir", str(ownership_latch_dir)]
         self.proc = subprocess.Popen(
-            [sys.executable, _CHILD, "--pg-url", pg_url,
-             "--math-env", MATH_ENV, "--kill-stage", stage,
-             "--poll-from-days-ago", str(days)],
+            argv,
             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
             bufsize=1, env=env, cwd=_DELPHI_ROOT,
         )
         self.stages = []
+        self.lines = []
         self._reader = threading.Thread(target=self._read, daemon=True)
         self._reader.start()
 
     def _read(self):
         for line in self.proc.stdout:
             line = line.strip()
+            if not line:
+                continue
+            self.lines.append(line)
             if line.startswith("STAGE "):
                 self.stages.append(line.split(" ", 1)[1])
 
@@ -91,6 +104,22 @@ class Child:
             message=(f"child never reported stage {stage!r} "
                      f"(saw {self.stages}); stderr:\n{self._peek_stderr()}"),
         )
+
+    def await_line(self, prefix, timeout=90.0):
+        """Wait for a non-STAGE acknowledgement line and return it."""
+        eventually(
+            lambda: any(l.startswith(prefix) for l in self.lines),
+            timeout=timeout,
+            message=(f"child never printed a line starting {prefix!r} "
+                     f"(saw {self.lines})"),
+        )
+        return next(l for l in self.lines if l.startswith(prefix))
+
+    def line_index(self, prefix):
+        for i, line in enumerate(self.lines):
+            if line.startswith(prefix):
+                return i
+        raise AssertionError(f"no line starting {prefix!r} in {self.lines}")
 
     def _peek_stderr(self):
         try:
@@ -128,8 +157,8 @@ def children():
         c.cleanup()
 
 
-def _spawn(children, pg_url, stage, days=1.0, tmp_path=None):
-    c = Child(pg_url, stage, days=days, tmp_path=tmp_path)
+def _spawn(children, pg_url, stage, days=1.0, tmp_path=None, **kwargs):
+    c = Child(pg_url, stage, days=days, tmp_path=tmp_path, **kwargs)
     children.append(c)
     return c
 
@@ -147,6 +176,14 @@ def test_kill_at_stage_then_restart_recovers(engine, pg_url, children,
 
     victim = _spawn(children, pg_url, stage, tmp_path=tmp_path)
     victim.await_stage(stage)
+    if stage == "after_poll":
+        # The stage name claims the watermark ALREADY advanced.  The child
+        # proves it (restart_child._install_after_poll_latch) and this is the
+        # control that fails loudly if that acknowledgement was skipped.
+        assert any(l.startswith("WM_ACK ") for l in victim.lines), (
+            "after_poll must not be claimed without the watermark "
+            f"acknowledgement: {victim.lines}"
+        )
     victim.kill()
 
     # Restart. No new votes are committed between the kill and the restart.
@@ -162,6 +199,57 @@ def test_kill_at_stage_then_restart_recovers(engine, pg_url, children,
     fold = F.fold_votes(read_vote_events(engine, 1))
     assert F.check_published_against_fold(tables["main"]["data"], fold) == []
     assert fold.event_count == len(seeded.vote_events)
+
+
+def test_after_poll_kill_point_is_latched_after_the_watermark_advance(
+    engine, pg_url, children, tmp_path
+):
+    """The R05 "after poll/watermark advance, before any compute" kill point is
+    ORDERED, not hoped for (astra review finding 4).
+
+    ``_poll_votes_once`` submits to the pool BEFORE assigning ``_vote_wm``
+    (``polismath/poller/service.py:437-448``) and ``_run_engine`` runs on a pool
+    thread, so a hook on ``_run_engine`` alone can fire before the assignment.
+    The child now gates ``_run_engine``, lets ``_poll_votes_once`` return,
+    acknowledges the watermark it actually assigned, and only then names the
+    stage.  Assert that whole sequence, including the exact watermark value."""
+    seeded = seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
+    expected_wm = max(e["created"] for e in seeded.vote_events)
+
+    victim = _spawn(children, pg_url, "after_poll", tmp_path=tmp_path)
+    victim.await_stage("after_poll")
+
+    # 1. work was really dispatched (so "before any compute" is not vacuous),
+    # 2. the watermark was assigned and acknowledged AFTER that,
+    # 3. only then was the stage named.
+    gate = victim.line_index("GATE run_engine")
+    ack = victim.line_index("WM_ACK ")
+    marker = victim.line_index("STAGE after_poll")
+    assert gate < ack < marker, (
+        f"expected dispatch -> watermark ack -> stage marker, saw "
+        f"{victim.lines}"
+    )
+    acked = int(victim.await_line("WM_ACK ").split(" ", 1)[1])
+    assert acked == expected_wm, (
+        f"the child acknowledged watermark {acked}, but the newest seeded vote "
+        f"is {expected_wm}: the poll cycle did not advance the watermark over "
+        "the whole batch before the kill point"
+    )
+
+    victim.kill()
+
+    # "before any compute": nothing was published at all.
+    assert read_math_tables(engine, 1, MATH_ENV)["main"] is None, (
+        "the kill point is before compute, so no generation may exist"
+    )
+    assert "DONE" not in victim.stages
+
+    survivor = _spawn(children, pg_url, "none", tmp_path=tmp_path)
+    survivor.wait_done()
+    tables = read_math_tables(engine, 1, MATH_ENV)
+    assert tables_are_coherent(tables) == [], tables_are_coherent(tables)
+    fold = F.fold_votes(read_vote_events(engine, 1))
+    assert F.check_published_against_fold(tables["main"]["data"], fold) == []
 
 
 def test_kill_after_main_commit_leaves_a_mixed_generation_before_restart(
@@ -290,6 +378,30 @@ class TestNegativeControl:
         child = _spawn(children, pg_url, "none", tmp_path=tmp_path)
         with pytest.raises(AssertionError):
             child.await_stage("after_main_commit", timeout=5.0)
+
+    def test_the_after_poll_latch_refuses_to_claim_an_unadvanced_watermark(
+        self, engine, pg_url, children, tmp_path
+    ):
+        """The after_poll latch's own control: point it at a database whose
+        only conversation is OUTSIDE the lookback, so the poll returns no rows
+        and the watermark cannot advance.  The child must exit with the
+        watermark code and must NOT name the stage — otherwise the stage name
+        would mean nothing."""
+        _seed_dormant(engine, zid=2)
+        child = _spawn(children, pg_url, "after_poll", days=1.0,
+                       tmp_path=tmp_path)
+        rc = child.proc.wait(timeout=90)
+        assert rc == 5, (
+            f"expected EXIT_WATERMARK_NOT_ADVANCED (5), got {rc}; "
+            f"stdout: {child.lines}"
+        )
+        assert "after_poll" not in child.stages, (
+            "NEGATIVE CONTROL FAILED: the child named the after_poll stage "
+            "even though the watermark never advanced"
+        )
+        assert any(l.startswith("WM_NOT_ADVANCED") for l in child.lines), (
+            child.lines
+        )
 
     def test_the_kill_is_real(self, engine, pg_url, children, tmp_path):
         """The victim must die by signal, not exit cleanly — otherwise the
