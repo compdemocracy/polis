@@ -1,6 +1,7 @@
 use crate::{
     engine::{self, Source},
     lease::{LeaseState, Renewal},
+    ordering,
     store::{Current, PgStore, Publication, ResultsStore, digest},
 };
 use anyhow::{Result, bail, ensure};
@@ -17,7 +18,18 @@ impl PgStore {
             .start()?;
         // Keyless votes: content order is deterministic, exact duplicate rows remain
         // separate events. No ctid or invented primary key, no timestamp cutoff.
-        let votes: Vec<Value> = tx.query("SELECT jsonb_build_object('pid',pid,'tid',tid,'vote',vote,'created',created,'weight_x_32767',weight_x_32767) FROM votes WHERE zid=$1 ORDER BY tid,pid,created,(vote::bigint*$2::bigint),weight_x_32767 NULLS FIRST LIMIT 1000001", &[&zid,&self.config.storage_agree_value])?.iter().map(|r|r.get(0)).collect();
+        // The order is the declared `polis-order/1` normalization, and the agree
+        // convention reaches it only as that declaration's bound parameter.
+        ensure!(
+            ordering::PARAMETER_BINDING == "$2",
+            "declared ordering parameter is not bound at $2"
+        );
+        let votes_sql = format!("SELECT jsonb_build_object('pid',pid,'tid',tid,'vote',vote,'created',created,'weight_x_32767',weight_x_32767) FROM votes WHERE zid=$1 ORDER BY {} LIMIT 1000001", ordering::order_by());
+        let votes: Vec<Value> = tx
+            .query(votes_sql.as_str(), &[&zid, &self.config.storage_agree_value])?
+            .iter()
+            .map(|r| r.get(0))
+            .collect();
         let comments: Vec<Value> = tx.query("SELECT jsonb_build_object('tid',tid,'mod',mod,'is_meta',is_meta,'modified',modified) FROM comments WHERE zid=$1 ORDER BY tid LIMIT 1000001", &[&zid])?.iter().map(|r|r.get(0)).collect();
         let participants: Vec<Value> = tx.query("SELECT jsonb_build_object('pid',pid,'mod',mod) FROM participants WHERE zid=$1 ORDER BY pid LIMIT 1000001", &[&zid])?.iter().map(|r|r.get(0)).collect();
         tx.commit()?;
@@ -38,12 +50,19 @@ impl PgStore {
             "meta_tids":comments.iter().filter(|r|r["is_meta"]==true).map(|r|r["tid"].clone()).collect::<Vec<_>>(),
             "mod_out_ptpts":participants.iter().filter(|r|r["mod"] == -1).map(|r|r["pid"].clone()).collect::<Vec<_>>(),
             "lastModTimestamp":Value::Null}); // exact Python poller snapshot profile
+        let ordering = ordering::manifest(
+            self.config.storage_agree_value,
+            ordering::census(&votes),
+        )?;
+        // The declared normalization is part of the source identity: changing a
+        // term or the polarity constant must discard warm state.
         let fingerprint = digest(&serde_json::to_vec(
-            &json!({"votes":votes,"comments":comments,"participants":participants,"polarity":self.config.storage_agree_value}),
+            &json!({"votes":votes,"comments":comments,"participants":participants,"ordering":ordering}),
         )?);
         Ok(Source {
             votes,
             moderation,
+            ordering,
             fingerprint,
         })
     }
