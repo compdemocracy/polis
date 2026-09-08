@@ -215,24 +215,6 @@ def test_cache_stays_bounded_under_pool_concurrency(engine, pg_url,
 # --------------------------------------------------------------------------- #
 # The in-flight race itself
 # --------------------------------------------------------------------------- #
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT (P-019 should-fix #5, unaddressed): the conversation cache is "
-        "an unsynchronized OrderedDict. polismath/poller/service.py:497 reads "
-        "`conv = self._convs.get(zid)` and then, as a separate step, calls "
-        "`self._convs.move_to_end(zid)`; polismath/poller/service.py:489 "
-        "concurrently evicts with `self._convs.popitem(last=False)` from "
-        "another pool thread. With the key evicted in that window, move_to_end "
-        "raises KeyError, which escapes _run_engine into _handle_zid's blanket "
-        "except (:476) and is treated as an ENGINE error: the batch is retried "
-        "or the healthy zid is PARKED, and an errorconv dump is written — a "
-        "spurious failure caused purely by cache bookkeeping. P-022 §C R06 "
-        "requires 'No KeyError, dropped handler or lost input; cache "
-        "bookkeeping synchronized.' The fix is a lock (or a thread-safe cache) "
-        "around get/touch/store/evict; that is a separate decision."
-    ),
-)
 def test_lru_touch_racing_an_eviction_does_not_park_a_healthy_zid(
     engine, pg_url, make_service
 ):
