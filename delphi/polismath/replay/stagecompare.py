@@ -6,38 +6,51 @@ Reads two ``polis-stage-dump/1`` recordings (``<recording>/clj-stages`` and
 
 * the **first diverging stage** — the earliest stage, in pipeline order, that
   carries a difference outside its declared tolerance and outside the declared
-  carve-outs. A cross-engine difference at stage *N* explains every difference at
-  stages > *N*, so this is the only number worth acting on;
+  carve-outs. A difference at stage *N* is a plausible cause of differences at
+  stages > *N*; it does not prove they are all propagation, and it does not rule
+  out a second independent bug further down;
 * per key: how many values were compared, how many differed, and the **max
   absolute and max relative error** with the path that produced it.
 
-**GRADING — non-negotiable (P-030 §2.3).** This is a DIAGNOSTIC. It has no
-verdict vocabulary, is never consulted by :mod:`polismath.replay.certify`, and
-changes no gate. Clojure and Python already differ at ~1e-16 inside ``proj`` and
-at ~1e-5 in cold-tick ``comps`` (CLOJURE_QUIRKS Q12/Q13/Q18) while the final blob
-still MATCHes; a stage-level exact comparison would fail on exactly the noise the
-acceptance policy deliberately tolerates. ``certify`` on the final blob remains
-the sole PASS/FAIL authority.
+**GRADING (P-030 §2.3).** This is a DIAGNOSTIC. It emits per-key statuses
+(MATCH / DIVERGENT / CARVED / ENGINE_LOCAL / INVALID), but the accurate promise
+is that :mod:`polismath.replay.certify` never consumes any of them: the
+final-blob gate is untouched and no status here admits or rejects an engine.
+Clojure and Python already differ at ~1e-16 inside ``proj`` and at ~1e-5 in
+cold-tick ``comps`` while the final blob still MATCHes, so a stage-level exact
+comparison of continuous geometry would fail on noise the acceptance policy
+deliberately tolerates.
+
+Two rules the comparer holds to, both learned the hard way:
+
+1. **A carve-out must never suppress a real difference.** Each carve-out has a
+   narrow, mechanical scope (an exact value pair, or numeric leaves only).
+   Anything outside that scope — a non-empty set changing, a missing key, a
+   changed identity — is reported.
+2. **Missing or misaligned input is a divergence, not a pass.** The report
+   withholds its numeric headline whenever the two recordings are not a complete,
+   step-identity-aligned, same-input pair.
 
 Canonicalization (applied to each side before diffing, so that only real
 differences survive):
 
 1. **Polarity.** A dump declaring ``vote_sign_convention == "raw-db"`` has its
-   vote-valued and geometry nodes negated into Delphi convention (AGREE=+1).
-   ``comps`` are NOT negated (``XᵀX == (-X)ᵀ(-X)``, so power iteration from the
-   same start vector returns the identical vector) and neither is
-   ``comment-extremity`` (a norm) or ``bucket-dists`` (distances). P-030 §2.5.
-2. **Identity keying.** Named matrices become ``{rowname|colname: cell}`` and
-   every tid/pid/bid-indexed array becomes a dict keyed by that id, so the two
-   engines' arbitrary and DIFFERENT array orders (Clojure emits hash/insertion
-   order, Python sorted — ``crosslang.canonicalize_blob``'s note) cannot
-   masquerade as a numeric difference.
-3. **Component sign.** Each principal component is oriented so its largest-|v|
-   entry is positive (first tid on ties), and the coupled arrays — that
-   component's ``comment-projection`` row, the matching ``proj`` column, and
-   coordinate *k* of every base- and group-cluster center — are flipped with it.
-   ``pca.center`` is a data mean and is never flipped
-   (``crosslang.canonicalize_blob:150-163``).
+   vote-valued and geometry nodes negated into Delphi convention (AGREE=+1),
+   including the non-finite wire tokens (``"Infinity"`` <-> ``"-Infinity"``,
+   ``"NaN"`` unchanged). ``comps`` are NOT negated (``XᵀX == (−X)ᵀ(−X)``, so
+   power iteration from the same start vector returns the identical vector) and
+   neither is ``comment-extremity`` (a norm) or ``bucket-dists`` (distances).
+2. **Identity keying.** Named matrices become ``{rowlabel|collabel: cell}`` with
+   TYPE-TAGGED labels, and every tid/pid/bid-indexed array becomes a dict keyed
+   by that id, so the two engines' arbitrary and DIFFERENT array orders cannot
+   masquerade as numeric differences. Dimensions, rectangularity and label
+   uniqueness are VALIDATED first; a violation is carried as a structural error,
+   never as a synthesized number that a tolerance could absorb.
+3. **Coupled component sign.** Each principal component is oriented so its
+   largest-magnitude entry is positive (first tid in canonical order on ties),
+   and the arrays coupled to it are flipped with it. ``pca.center`` is a data
+   mean and is never flipped. Axis orientation is READ from the dump's declared
+   ``comment_projection_axes``; it is never inferred from array lengths.
 
 Run it::
 
@@ -48,18 +61,48 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 from typing import Any, Sequence
 
-from polismath.replay.stages import STAGE_DUMP_SCHEMA, STAGE_ORDER
+from polismath.replay.stages import (
+    COMMENT_PROJECTION_AXES,
+    STAGE_DUMP_SCHEMA,
+    STAGE_ORDER,
+)
 
 COMPARE_SCHEMA = "polis-stage-compare/1"
 
 GRADING_NOTE = (
-    "DIAGNOSTICS ONLY — certify on the final blob is the sole PASS/FAIL "
-    "authority (P-030 §2.3). Nothing here is a gate."
+    "DIAGNOSTICS ONLY — certify never consumes these statuses; the final-blob "
+    "gate is untouched (P-030 §2.3)."
 )
+
+SUPPORTED_CONVENTIONS = ("raw-db", "delphi")
+
+#: The three non-finite values the dump encodes as JSON strings, because JSON has
+#: no literal for them. They must survive every normalization step.
+NAN_TOKEN = "NaN"
+POS_INF_TOKEN = "Infinity"
+NEG_INF_TOKEN = "-Infinity"
+NONFINITE_TOKENS = frozenset({NAN_TOKEN, POS_INF_TOKEN, NEG_INF_TOKEN})
+
+
+class Structural:
+    """A canonicalization failure carried in place of a value.
+
+    Kept as an object rather than a synthesized number so that ``_walk`` reports
+    it as a structural defect: a sentinel like ``{"__length_mismatch__": [3, 4]}``
+    would be walked as numeric leaves and could be absorbed by a tolerance.
+    """
+
+    __slots__ = ("reason",)
+
+    def __init__(self, reason: str) -> None:
+        self.reason = reason
+
+    def __repr__(self) -> str:  # pragma: no cover - debugging aid
+        return f"Structural({self.reason!r})"
 
 
 # ---------------------------------------------------------------------------
@@ -80,85 +123,135 @@ class Tolerance:
         return abs(a - b) <= self.abs_tol + self.rel_tol * scale
 
 
-#: Typed ids, counts, membership, eligibility, vote meaning and cursors — the
-#: families P-022-G-engine-contract.md:433-441 requires exact.
+#: Not a tolerance at all — the marker for leaves compared as exact integers.
+#: Typed IDs, counts, memberships, selections, watermarks and vote meanings are
+#: compared without ever being converted to float (see :func:`_is_integer_leaf`).
 EXACT = Tolerance(0.0, 0.0, "exact")
 
-#: The bound P-022-G-engine-contract.md:434-436 proposes for finite numeric
-#: statistics, with zero outlier allowance.
+#: The bound P-022-G-engine-contract.md proposes for finite numeric statistics,
+#: with zero outlier allowance. A *proposed* diagnostic reference: it has not
+#: been admitted against the full battery.
 TIGHT = Tolerance(1e-6, 1e-4, "tight")
 
-#: Geometry. Deliberately looser than TIGHT because the two engines' cold-tick
-#: ``comps`` are documented to differ at ~1e-5 (CLOJURE_QUIRKS Q12/Q18) while the
-#: final blob still MATCHes; this is the same 1e-2 relative bound
-#: ``stepcompare.StepComparer`` already defaults to for PCA-family paths.
-GEOM = Tolerance(1e-6, 1e-2, "geom")
+#: A LEGACY-COMPARER diagnostic setting, not the proposed contract. It is the
+#: 1e-2 relative bound `stepcompare.StepComparer` already defaults to for
+#: PCA-family paths, kept so this tool's geometry verdicts line up with the
+#: comparer already in use. The documented ~1e-5 cross-engine noise does NOT
+#: establish that 1e-2 is necessary — it is two orders below this ceiling and
+#: already inside TIGHT's relative coefficient at most scales. G permits a higher
+#: ceiling only under scoped, independently measured reference jitter, so every
+#: GEOM key ALSO reports its exceedances of the stricter TIGHT reference
+#: (`n_over_tight`), and this bound is never tuned from candidate output.
+GEOM = Tolerance(1e-6, 1e-2, "geom-legacy")
 
 
 @dataclass(frozen=True)
 class CarveOut:
-    """A difference the port plan says is expected and must NOT be chased."""
+    """A difference the port plan says is expected and must NOT be chased.
+
+    ``mode`` is the mechanical scope, and it is deliberately narrow:
+
+    * ``null-empty`` — suppress ONLY the exact ``None`` <-> ``[]`` value pair at
+      the top of the key. A non-empty set changing, or a null becoming
+      non-empty, is a real difference and is reported.
+    * ``numeric-only`` — suppress numeric leaf differences only. Missing keys,
+      changed candidate inventories, changed types and structural defects are
+      reported.
+    * ``documented`` — declared for the reader, with NO comparison rule. Nothing
+      is suppressed.
+    """
 
     id: str
+    mode: str
     reason: str
 
 
 CARVE_OUTS: dict[str, CarveOut] = {
     "C1": CarveOut(
-        "C1",
+        "C1", "null-empty",
         "mod-in/mod-out/meta-tids: Clojure emits nil until a mod-update has "
-        "written the set; this engine emits an empty set. null-vs-[] on those "
-        "three keys only — a genuinely absent value elsewhere still reports.",
+        "written the set; this engine emits an empty set. ONLY the null-vs-[] "
+        "value pair is suppressed. [1] -> [2], null -> [2], a missing key or a "
+        "wrong type all report normally.",
     ),
     "C2": CarveOut(
-        "C2",
+        "C2", "documented",
         "Q13 — warm-chain split-loop extraction order is knife-edge chaotic on "
         "tie-dense geometry (within-engine gaps ~2.5e-16 vs cross-engine "
         "projection noise ~1e-5). Cluster ids/membership can permute with no "
-        "arithmetic cause. Not carved automatically: reported, and flagged so a "
-        "reader recognises the fingerprint (P-030 §5/R7).",
+        "arithmetic cause. NOTHING is suppressed: identity and lineage drift "
+        "stays visible, because a path rule that hid it would also hide real "
+        "breakage in the lineage code (P-030 §5/R7).",
     ),
     "C3": CarveOut(
-        "C3",
-        "group-clusterings-silhouettes: Clojure scores with clusters/silhouette "
-        "over bucket-dists; this engine scores with calculate_silhouette_sklearn "
-        "over the base-cluster centers. Different estimators, so the VALUES are "
-        "expected to differ. What must agree is the argmax they feed — visible "
-        "in group-k-smoother and the group count, both compared exactly.",
+        "C3", "numeric-only",
+        "group-clusterings-silhouettes VALUES: Clojure scores with "
+        "clusters/silhouette over bucket-dists, this engine with "
+        "calculate_silhouette_sklearn over the base-cluster centers. Different "
+        "estimators, so the numbers are expected to differ. The candidate "
+        "inventory (which k were scored), the argmax they feed, the smoother "
+        "state and group membership are all OUTSIDE the exception and compared "
+        "normally. This is not an approved final-output difference.",
     ),
     "C4": CarveOut(
-        "C4",
-        "ptpt-stats: the engines compute DIFFERENT statistics under this name. "
-        "Clojure emits coreness/centricness/extremeness (geometry over the "
-        "participant projection, repness.clj:372-381); this engine emits "
-        "n_agree/n_disagree/n_pass/group_correlations. Even the two "
-        "same-named fields disagree by construction: Clojure's n-votes is "
-        "user-vote-counts over the RAW rating matrix, this engine's n_votes "
-        "counts non-zero cells of the moderation-applied matrix, and this "
-        "engine omits participants with no votes entirely. math_ptptstats has "
-        "no reader in Node or the clients (P-030 §5/R13), so it is "
-        "verification surface only and the whole key is carved.",
+        "C4", "documented",
+        "participant-info-legacy is this engine's vote-correlation report "
+        "statistic (n_agree/n_disagree/n_pass/group_correlations). It is NOT "
+        "engine-contract surface and has no Clojure counterpart, so it is "
+        "carried as an engine-local diagnostic and never graded against one. "
+        "The contract's geometric ptpt-stats (pid/gid/n-votes/centricness/"
+        "coreness/extremeness) is a fully compared stage with NO waiver.",
     ),
     "C5": CarveOut(
-        "C5",
+        "C5", "documented",
         "mat, all-NaN column: this engine substitutes a 0.0 column mean where "
         "Clojure would divide by zero. Unreachable on a real conversation "
-        "(every column carries at least one vote).",
+        "(every column carries at least one vote), so there is no comparison "
+        "rule and nothing is suppressed — if it were ever observed it would be "
+        "reported as an ordinary divergence.",
     ),
     "C6": CarveOut(
-        "C6",
+        "C6", "documented",
         "Q18 — uniqify's exact-center-equality predicate is value-dependent ulp "
-        "luck, so whether a merge chain over coincident singletons continues "
-        "(and which id survives) depends on the 17th digit. Ledgered as the root "
-        "cause of all 11 carved-out entries in delphi/docs/divergences.json. "
-        "Reported, not auto-suppressed (P-030 §5/R7).",
+        "luck, so whether a merge chain over coincident singletons continues — "
+        "and which id survives — depends on the 17th digit. Root cause of all "
+        "11 carved-out entries in delphi/docs/divergences.json. NOTHING is "
+        "suppressed, for the same reason as C2.",
     ),
 }
 
-#: Carve-outs applied automatically by the comparer. C2/C6 are documentation for
-#: the reader — they are chaotic, not addressable by a path rule, so suppressing
-#: them by path would hide real structural breakage.
-AUTO_CARVED = ("C1", "C3", "C4", "C5")
+#: Carve-outs with an actual comparison rule. Everything else in CARVE_OUTS is
+#: documentation for the reader and suppresses nothing.
+AUTO_CARVED = tuple(cid for cid, c in CARVE_OUTS.items() if c.mode != "documented")
+
+#: (stage, key) -> carve-out id, for the carve-outs that have a rule.
+KEY_CARVE_OUT: dict[tuple[str, str], str] = {
+    ("R02_moderation", "meta-tids"): "C1",
+    ("R02_moderation", "mod-in"): "C1",
+    ("R02_moderation", "mod-out"): "C1",
+    ("R09_group_clusters", "group-clusterings-silhouettes"): "C3",
+}
+
+#: Keys one engine emits that have no counterpart on the other. Reported, never
+#: graded, never a divergence — and never silently dropped either.
+ENGINE_LOCAL_KEYS: frozenset[tuple[str, str]] = frozenset({
+    ("R13_ptpt_stats", "participant-info-legacy"),
+})
+
+
+# ---------------------------------------------------------------------------
+# Non-finite tokens.
+# ---------------------------------------------------------------------------
+def _is_token(x: Any) -> bool:
+    return isinstance(x, str) and x in NONFINITE_TOKENS
+
+
+def _negate_token(tok: str) -> str:
+    if tok == POS_INF_TOKEN:
+        return NEG_INF_TOKEN
+    if tok == NEG_INF_TOKEN:
+        return POS_INF_TOKEN
+    return NAN_TOKEN
 
 
 # ---------------------------------------------------------------------------
@@ -167,7 +260,7 @@ AUTO_CARVED = ("C1", "C3", "C4", "C5")
 #: Stage -> the keys whose values are negated when converting a raw-DB dump into
 #: Delphi convention. Everything not listed is polarity-invariant: counts are
 #: relabelled not rescaled, distances and extremities are norms, and comps are
-#: invariant because XᵀX == (-X)ᵀ(-X).
+#: invariant because XᵀX == (−X)ᵀ(−X).
 NEGATE: dict[str, tuple[str, ...]] = {
     "R01_ingest": ("rating-mat", "raw-rating-mat"),
     "R04_pca": ("mat", "pca.center", "pca.comment-projection"),
@@ -178,7 +271,12 @@ NEGATE: dict[str, tuple[str, ...]] = {
 
 
 def _negate(x: Any) -> Any:
-    if x is None or isinstance(x, (str, bool)):
+    """Negate a value, carrying the non-finite wire tokens correctly."""
+    if x is None or isinstance(x, bool) or isinstance(x, Structural):
+        return x
+    if _is_token(x):
+        return _negate_token(x)
+    if isinstance(x, str):
         return x
     if isinstance(x, (int, float)):
         return -x
@@ -191,27 +289,36 @@ def _negate(x: Any) -> Any:
 
 def _negate_clusters(clusters: Any) -> Any:
     """Only a cluster's ``center`` is geometry; its id and members are not."""
-    if clusters is None:
-        return None
+    if clusters is None or isinstance(clusters, Structural):
+        return clusters
     if isinstance(clusters, dict):  # {k: [clusters]}
         return {k: _negate_clusters(v) for k, v in clusters.items()}
-    return [dict(c, center=_negate(c.get("center"))) for c in clusters]
+    if not isinstance(clusters, list):
+        return Structural("clusters must be a list")
+    out = []
+    for c in clusters:
+        if not isinstance(c, dict):
+            return Structural("cluster entry must be an object")
+        out.append(dict(c, center=_negate(c.get("center"))))
+    return out
 
 
 def _negate_named_matrix(nm: Any) -> Any:
     if not isinstance(nm, dict) or "matrix" not in nm:
         return _negate(nm)
-    return dict(nm, matrix=[[None if v is None else -v for v in row]
-                            for row in nm["matrix"]])
+    rows = nm["matrix"]
+    if not isinstance(rows, list):
+        return Structural("named matrix 'matrix' must be a list")
+    return dict(nm, matrix=[_negate(row) for row in rows])
 
 
 def apply_polarity(stages: dict[str, Any], convention: str) -> dict[str, Any]:
     """Bring a stage tree into Delphi convention (AGREE=+1)."""
     if convention != "raw-db":
         return stages
-    out = {k: dict(v) for k, v in stages.items()}
+    out = {k: (dict(v) if isinstance(v, dict) else v) for k, v in stages.items()}
     for stage, keys in NEGATE.items():
-        if stage not in out:
+        if not isinstance(out.get(stage), dict):
             continue
         for key in keys:
             if "." in key:
@@ -237,39 +344,92 @@ def apply_polarity(stages: dict[str, Any], convention: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Identity keying + component sign orientation.
 # ---------------------------------------------------------------------------
-def _nm_cells(nm: Any) -> dict[str, Any] | None:
-    """A named matrix as ``{"rowname|colname": cell}`` — order-independent."""
-    if not isinstance(nm, dict) or "matrix" not in nm:
-        return None
-    rows, cols = nm.get("rownames") or [], nm.get("colnames") or []
+def _typed_label(x: Any) -> str:
+    """A label that keeps the identity's TYPE, so integer 1 and string "1" are
+    different rows/columns rather than colliding into one."""
+    if isinstance(x, bool):
+        return f"b:{x}"
+    if isinstance(x, int):
+        return f"i:{x}"
+    if isinstance(x, float):
+        return f"f:{x!r}"
+    if isinstance(x, str):
+        return f"s:{x}"
+    if x is None:
+        return "n:"
+    return f"o:{x!r}"
+
+
+def _sort_labels(values: Sequence[Any]) -> list[Any]:
+    """Canonical order for identities: by type tag, then value. Used so both
+    engines' tie-breaks land on the same element."""
+    return sorted(values, key=lambda v: (type(v).__name__, _typed_label(v)))
+
+
+def _validate_named_matrix(nm: Any, label: str) -> Structural | None:
+    if not isinstance(nm, dict):
+        return Structural(f"{label}: not an object")
+    for k in ("rownames", "colnames", "matrix"):
+        if not isinstance(nm.get(k), list):
+            return Structural(f"{label}: '{k}' missing or not a list")
+    rows, cols, mat = nm["rownames"], nm["colnames"], nm["matrix"]
+    if len(mat) != len(rows):
+        return Structural(
+            f"{label}: {len(mat)} matrix rows for {len(rows)} rownames")
+    for i, row in enumerate(mat):
+        if not isinstance(row, list):
+            return Structural(f"{label}: row {i} is not a list")
+        if len(row) != len(cols):
+            return Structural(
+                f"{label}: row {i} has {len(row)} cells for {len(cols)} colnames")
+    for name, labels in (("rownames", rows), ("colnames", cols)):
+        seen = [_typed_label(x) for x in labels]
+        if len(set(seen)) != len(seen):
+            return Structural(f"{label}: duplicate {name}")
+    return None
+
+
+def _nm_cells(nm: Any, label: str) -> dict[str, Any] | Structural:
+    """A named matrix as ``{rowlabel|collabel: cell}`` — order-independent, with
+    dimensions and label uniqueness validated first."""
+    bad = _validate_named_matrix(nm, label)
+    if bad is not None:
+        return bad
     cells: dict[str, Any] = {}
-    for i, r in enumerate(rows):
-        if i >= len(nm["matrix"]):
-            break
-        row = nm["matrix"][i]
-        for j, c in enumerate(cols):
-            if j < len(row):
-                cells[f"{r}|{c}"] = row[j]
+    for i, r in enumerate(nm["rownames"]):
+        for j, c in enumerate(nm["colnames"]):
+            cells[f"{_typed_label(r)}|{_typed_label(c)}"] = nm["matrix"][i][j]
     return cells
 
 
-def _by_tid(values: Sequence[Any] | None, tids: Sequence[Any]) -> dict[str, Any] | None:
+def _by_tid(values: Any, tids: Sequence[Any], label: str) -> Any:
+    """Index an array by tid, requiring exact length agreement."""
     if values is None:
         return None
+    if not isinstance(values, list):
+        return Structural(f"{label}: expected a list")
     if len(values) != len(tids):
-        return {"__length_mismatch__": [len(values), len(tids)]}
-    return {str(t): v for t, v in zip(tids, values)}
+        return Structural(f"{label}: {len(values)} values for {len(tids)} tids")
+    return {_typed_label(t): v for t, v in zip(tids, values)}
 
 
-def _orient(comps_by_tid: list[dict[str, Any]]) -> list[float]:
-    """Flip sign per component so its max-|value| entry is positive; ties go to
-    the first tid in sorted-tid order (crosslang.canonicalize_blob:162-163)."""
+def _orient(comps_by_tid: list[Any], tid_labels: Sequence[str]) -> list[float]:
+    """Flip sign per component so its largest-magnitude entry is positive; ties
+    go to the first tid in canonical order (crosslang.canonicalize_blob:162-163).
+
+    A non-finite token is not comparable by magnitude, so a component containing
+    one is left un-oriented (sign +1) — the difference then shows up honestly
+    rather than being flipped into agreement.
+    """
     signs = []
     for comp in comps_by_tid:
+        if not isinstance(comp, dict):
+            signs.append(1.0)
+            continue
         best_key, best_abs = None, -1.0
-        for key in sorted(comp, key=lambda k: (len(k), k)):
-            v = comp[key]
-            if not isinstance(v, (int, float)):
+        for key in tid_labels:
+            v = comp.get(key)
+            if not isinstance(v, (int, float)) or isinstance(v, bool):
                 continue
             if abs(v) > best_abs:
                 best_key, best_abs = key, abs(v)
@@ -277,162 +437,293 @@ def _orient(comps_by_tid: list[dict[str, Any]]) -> list[float]:
     return signs
 
 
-def _flip(d: dict[str, Any] | None, sign: float) -> dict[str, Any] | None:
-    if d is None or sign == 1.0:
+def _flip(d: Any, sign: float) -> Any:
+    if d is None or isinstance(d, Structural) or sign == 1.0:
         return d
-    return {k: (-v if isinstance(v, (int, float)) and not isinstance(v, bool) else v)
+    if not isinstance(d, dict):
+        return d
+    return {k: _negate(v) if (_is_token(v)
+                              or (isinstance(v, (int, float))
+                                  and not isinstance(v, bool)))
+            else v
             for k, v in d.items()}
 
 
 def canonicalize(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Polarity-normalize, key everything by identity, and orient components.
 
-    Returns ``{stage: {key: canonical value}}``. Values are plain JSON data whose
-    ORDER is meaningful only where it is meaningful on both engines (repness
-    selection order, votes-base bucket arrays, bid-to-pid).
+    Returns ``{stage: {key: canonical value}}``. A value that could not be
+    canonicalized is a :class:`Structural`, never a synthesized number.
     """
     stages = apply_polarity(doc.get("stages") or {},
                             doc.get("vote_sign_convention", "delphi"))
-    out: dict[str, dict[str, Any]] = {s: dict(v) for s, v in stages.items()}
+    out: dict[str, dict[str, Any]] = {
+        s: (dict(v) if isinstance(v, dict) else {"__stage__": Structural(
+            "stage is not an object")})
+        for s, v in stages.items()
+    }
 
     r01 = out.get("R01_ingest", {})
-    tids = list(r01.get("tids") or [])
+    raw_tids = r01.get("tids")
+    tids = list(raw_tids) if isinstance(raw_tids, list) else []
+    if tids and len({_typed_label(t) for t in tids}) != len(tids):
+        r01["tids"] = Structural("tids: duplicate identity")
+        tids = []
+    tid_labels = [_typed_label(t) for t in _sort_labels(tids)]
 
-    # R01: order-free views of the two vote matrices; tids as a sorted set.
     for key in ("rating-mat", "raw-rating-mat"):
-        cells = _nm_cells(r01.get(key))
-        if cells is not None:
-            r01[key] = cells
-    if tids:
-        r01["tids"] = sorted(tids, key=lambda t: (str(type(t)), t))
+        if key in r01 and r01[key] is not None:
+            r01[key] = _nm_cells(r01[key], key)
+    if isinstance(r01.get("tids"), list):
+        r01["tids"] = _sort_labels(r01["tids"])
 
     # R04: mat keyed by (pid, tid); pca arrays keyed by tid.
     r04 = out.get("R04_pca", {})
     mat = r04.get("mat")
     rating_nm = (stages.get("R01_ingest") or {}).get("rating-mat")
-    if isinstance(mat, list) and isinstance(rating_nm, dict):
-        r04["mat"] = _nm_cells({"rownames": rating_nm.get("rownames"),
-                                "colnames": rating_nm.get("colnames"),
-                                "matrix": mat})
-    comps_by_tid: list[dict[str, Any]] = []
+    if mat is not None:
+        if isinstance(mat, list) and isinstance(rating_nm, dict):
+            r04["mat"] = _nm_cells({"rownames": rating_nm.get("rownames"),
+                                    "colnames": rating_nm.get("colnames"),
+                                    "matrix": mat}, "mat")
+        else:
+            r04["mat"] = Structural("mat: not a matrix, or rating-mat missing")
+
+    signs: list[float] = []
     pca = r04.get("pca")
     if isinstance(pca, dict):
         pca = dict(pca)
-        pca["center"] = _by_tid(pca.get("center"), tids)
-        pca["comment-extremity"] = _by_tid(pca.get("comment-extremity"), tids)
-        comps = pca.get("comps") or []
-        comps_by_tid = [_by_tid(row, tids) or {} for row in comps]
+        pca["center"] = _by_tid(pca.get("center"), tids, "pca.center")
+        pca["comment-extremity"] = _by_tid(
+            pca.get("comment-extremity"), tids, "pca.comment-extremity")
+
+        comps = pca.get("comps")
+        if comps is None:
+            comps_by_tid: list[Any] = []
+        elif not isinstance(comps, list):
+            pca["comps"] = Structural("pca.comps: expected a list of components")
+            comps_by_tid = []
+        else:
+            comps_by_tid = [_by_tid(row, tids, f"pca.comps[{i}]")
+                            for i, row in enumerate(comps)]
+
+        # AXES ARE DECLARED, NOT INFERRED. Both emitters write
+        # comment-projection as n_comps rows of n_tids values and say so in
+        # `comment_projection_axes`; guessing from lengths misreads every square
+        # case (n_tids == n_comps).
+        declared = doc.get("comment_projection_axes")
         proj_rows = pca.get("comment-projection")
-        cproj_by_comp: list[dict[str, Any]] = []
-        if isinstance(proj_rows, list) and proj_rows:
-            # Clojure emits n_comps x n_tids; this engine n_tids x n_comps.
-            if len(proj_rows) == len(tids) and len(tids) != len(comps):
-                proj_rows = [list(col) for col in zip(*proj_rows)]
-            cproj_by_comp = [_by_tid(row, tids) or {} for row in proj_rows]
-        signs = _orient(comps_by_tid)
-        pca["comps"] = {str(i): _flip(c, s)
-                        for i, (c, s) in enumerate(zip(comps_by_tid, signs))}
-        pca["comment-projection"] = {str(i): _flip(c, s)
-                                     for i, (c, s) in enumerate(zip(cproj_by_comp, signs))}
+        if proj_rows is None:
+            cproj_by_comp: list[Any] = []
+        elif declared != COMMENT_PROJECTION_AXES:
+            pca["comment-projection"] = Structural(
+                f"pca.comment-projection: undeclared or unsupported axes "
+                f"{declared!r}, expected {COMMENT_PROJECTION_AXES!r}")
+            cproj_by_comp = []
+        elif not isinstance(proj_rows, list):
+            pca["comment-projection"] = Structural(
+                "pca.comment-projection: expected a list of component rows")
+            cproj_by_comp = []
+        elif isinstance(comps, list) and len(proj_rows) != len(comps):
+            pca["comment-projection"] = Structural(
+                f"pca.comment-projection: {len(proj_rows)} component rows for "
+                f"{len(comps)} comps")
+            cproj_by_comp = []
+        else:
+            cproj_by_comp = [_by_tid(row, tids, f"pca.comment-projection[{i}]")
+                             for i, row in enumerate(proj_rows)]
+
+        signs = _orient(comps_by_tid, tid_labels)
+        if not isinstance(pca.get("comps"), Structural):
+            pca["comps"] = {str(i): _flip(c, s)
+                            for i, (c, s) in enumerate(zip(comps_by_tid, signs))}
+        if not isinstance(pca.get("comment-projection"), Structural):
+            pca["comment-projection"] = {
+                str(i): _flip(c, s)
+                for i, (c, s) in enumerate(zip(cproj_by_comp, signs))}
         r04["pca"] = pca
-    else:
-        signs = []
+    elif pca is not None:
+        r04["pca"] = Structural("pca: not an object")
 
     # R05: proj columns keyed by pid, flipped with their component.
     r05 = out.get("R05_projections", {})
     proj_nm = r05.get("proj")
-    if isinstance(proj_nm, dict) and "matrix" in proj_nm:
-        rows = proj_nm.get("rownames") or []
-        cols: dict[str, dict[str, Any]] = {}
-        for k in range(len(proj_nm.get("colnames") or [])):
-            col = {str(r): (proj_nm["matrix"][i][k]
-                            if i < len(proj_nm["matrix"]) and k < len(proj_nm["matrix"][i])
-                            else None)
-                   for i, r in enumerate(rows)}
-            cols[str(k)] = _flip(col, signs[k] if k < len(signs) else 1.0)
-        r05["proj"] = cols
+    if proj_nm is not None:
+        cells = _nm_cells(proj_nm, "proj")
+        if isinstance(cells, Structural):
+            r05["proj"] = cells
+        else:
+            cols = proj_nm["colnames"]
+            if signs and len(cols) != len(signs):
+                r05["proj"] = Structural(
+                    f"proj: {len(cols)} columns for {len(signs)} components")
+            else:
+                out_cols: dict[str, Any] = {}
+                for k, cname in enumerate(cols):
+                    suffix = f"|{_typed_label(cname)}"
+                    col = {key[: -len(suffix)]: v for key, v in cells.items()
+                           if key.endswith(suffix)}
+                    out_cols[str(k)] = _flip(
+                        col, signs[k] if k < len(signs) else 1.0)
+                r05["proj"] = out_cols
 
     # R06: cluster centers flip with their component; the rest is identity data.
     r06 = out.get("R06_base_clusters", {})
-    r06["base-clusters"] = _canon_clusters(r06.get("base-clusters"), signs)
-    bcp = _nm_cells(r06.get("base-clusters-proj"))
-    if bcp is not None:
-        r06["base-clusters-proj"] = _flip_nm_cells(bcp, signs,
-                                                   r06.get("base-clusters-proj"))
-    bd = _nm_cells(r06.get("bucket-dists"))
-    if bd is not None:
-        r06["bucket-dists"] = bd  # distances are sign-invariant
-    if isinstance(r06.get("bid-to-pid"), list):
-        r06["bid-to-pid"] = [sorted(m, key=lambda x: (str(type(x)), x))
-                             for m in r06["bid-to-pid"]]
+    if "base-clusters" in r06:
+        r06["base-clusters"] = _canon_clusters(r06.get("base-clusters"), signs)
+    if r06.get("base-clusters-proj") is not None:
+        r06["base-clusters-proj"] = _flip_nm_cells(
+            r06["base-clusters-proj"], signs, "base-clusters-proj")
+    if r06.get("bucket-dists") is not None:
+        # distances are sign-invariant
+        r06["bucket-dists"] = _nm_cells(r06["bucket-dists"], "bucket-dists")
+    btp = r06.get("bid-to-pid")
+    if btp is not None:
+        if isinstance(btp, list) and all(isinstance(m, list) for m in btp):
+            r06["bid-to-pid"] = [_sort_labels(m) for m in btp]
+        else:
+            r06["bid-to-pid"] = Structural("bid-to-pid: expected a list of lists")
 
     r09 = out.get("R09_group_clusters", {})
-    r09["group-clusters"] = _canon_clusters(r09.get("group-clusters"), signs)
+    if "group-clusters" in r09:
+        r09["group-clusters"] = _canon_clusters(r09.get("group-clusters"), signs)
     gcs = r09.get("group-clusterings")
     if isinstance(gcs, dict):
-        r09["group-clusterings"] = {k: _canon_clusters(v, signs) for k, v in gcs.items()}
+        r09["group-clusterings"] = {k: _canon_clusters(v, signs)
+                                    for k, v in gcs.items()}
+    elif gcs is not None:
+        r09["group-clusterings"] = Structural("group-clusterings: not an object")
 
-    # R13: key by pid; only pid/gid/n-votes are the same quantity (carve-out C4).
+    # R13: the CONTRACT geometry, keyed by pid with EVERY field retained.
     r13 = out.get("R13_ptpt_stats", {})
     stats = r13.get("ptpt-stats")
-    if isinstance(stats, list):
-        r13["ptpt-stats"] = {
-            str(row.get("pid")): {"gid": row.get("gid"), "n-votes": row.get("n-votes")}
-            for row in stats
-        }
+    if stats is not None:
+        r13["ptpt-stats"] = _rows_by_pid(stats, "ptpt-stats")
+    legacy = r13.get("participant-info-legacy")
+    if legacy is not None:
+        r13["participant-info-legacy"] = _rows_by_pid(
+            legacy, "participant-info-legacy")
     return out
 
 
-def _flip_nm_cells(cells: dict[str, Any], signs: Sequence[float],
-                   nm: Any) -> dict[str, Any]:
-    """Flip an ``x``/``y`` named matrix's columns with their components."""
-    cols = list((nm or {}).get("colnames") or [])
+def _rows_by_pid(rows: Any, label: str) -> Any:
+    """Row list -> ``{pid: row}``, retaining every field. A duplicate or missing
+    pid is a structural defect, not a silent overwrite."""
+    if not isinstance(rows, list):
+        return Structural(f"{label}: expected a list of rows")
+    out: dict[str, Any] = {}
+    for i, row in enumerate(rows):
+        if not isinstance(row, dict):
+            return Structural(f"{label}[{i}]: not an object")
+        if "pid" not in row:
+            return Structural(f"{label}[{i}]: no pid")
+        key = _typed_label(row["pid"])
+        if key in out:
+            return Structural(f"{label}: duplicate pid {row['pid']!r}")
+        out[key] = {k: v for k, v in row.items() if k != "pid"}
+    return out
+
+
+def _flip_nm_cells(nm: Any, signs: Sequence[float], label: str) -> Any:
+    """Flip an x/y named matrix's columns with their components."""
+    cells = _nm_cells(nm, label)
+    if isinstance(cells, Structural):
+        return cells
+    cols = list(nm["colnames"])
+    if signs and len(cols) != len(signs):
+        return Structural(f"{label}: {len(cols)} columns for {len(signs)} components")
     out = {}
     for key, v in cells.items():
-        col = key.rsplit("|", 1)[-1]
-        k = cols.index(col) if col in cols else -1
+        col_label = key.rsplit("|", 1)[-1]
+        k = next((i for i, c in enumerate(cols)
+                  if _typed_label(c) == col_label), -1)
         s = signs[k] if 0 <= k < len(signs) else 1.0
-        out[key] = -v if (s == -1.0 and isinstance(v, (int, float))
-                          and not isinstance(v, bool)) else v
+        out[key] = _negate(v) if (s == -1.0 and (_is_token(v) or (
+            isinstance(v, (int, float)) and not isinstance(v, bool)))) else v
     return out
 
 
 def _canon_clusters(clusters: Any, signs: Sequence[float]) -> Any:
-    if not isinstance(clusters, list):
+    if isinstance(clusters, Structural) or clusters is None:
         return clusters
+    if not isinstance(clusters, list):
+        return Structural("clusters: expected a list")
     out = []
+    seen: set[str] = set()
     for c in clusters:
-        center = list(c.get("center") or [])
-        center = [(-v if (k < len(signs) and signs[k] == -1.0
-                          and isinstance(v, (int, float))) else v)
+        if not isinstance(c, dict):
+            return Structural("cluster entry: not an object")
+        if "id" not in c:
+            return Structural("cluster entry: no id")
+        label = _typed_label(c["id"])
+        if label in seen:
+            return Structural(f"clusters: duplicate id {c['id']!r}")
+        seen.add(label)
+        center = c.get("center")
+        if center is not None and not isinstance(center, list):
+            return Structural("cluster center: expected a list")
+        center = list(center or [])
+        center = [(_negate(v) if (k < len(signs) and signs[k] == -1.0
+                                  and (_is_token(v) or (
+                                      isinstance(v, (int, float))
+                                      and not isinstance(v, bool))))
+                   else v)
                   for k, v in enumerate(center)]
+        members = c.get("members")
+        if members is not None and not isinstance(members, list):
+            return Structural("cluster members: expected a list")
         out.append({"center": center,
-                    "id": c.get("id"),
-                    "members": sorted(c.get("members") or [],
-                                      key=lambda x: (str(type(x)), x))})
-    out.sort(key=lambda c: (str(type(c["id"])), c["id"]))
+                    "id": c["id"],
+                    "members": _sort_labels(members or [])})
+    out.sort(key=lambda c: (type(c["id"]).__name__, _typed_label(c["id"])))
     return out
 
 
 # ---------------------------------------------------------------------------
-# Per-key tolerance policy.
+# Per-leaf semantics: integer identities vs continuous statistics.
 # ---------------------------------------------------------------------------
-#: (stage, key) -> Tolerance for that key's NUMERIC leaves. Non-numeric leaves
-#: (ids, booleans, strings, membership) are always compared exactly, whatever a
-#: key's numeric class is.
+#: Whole keys whose every numeric leaf is integer-typed by contract.
+INTEGER_KEYS: frozenset[tuple[str, str]] = frozenset({
+    ("R01_ingest", "last-vote-timestamp"),
+    ("R01_ingest", "n"),
+    ("R01_ingest", "n-cmts"),
+    ("R01_ingest", "rating-mat"),
+    ("R01_ingest", "raw-rating-mat"),
+    ("R01_ingest", "tids"),
+    ("R02_moderation", "last-mod-timestamp"),
+    ("R02_moderation", "meta-tids"),
+    ("R02_moderation", "mod-in"),
+    ("R02_moderation", "mod-out"),
+    ("R03_eligibility", "in-conv"),
+    ("R03_eligibility", "user-vote-counts"),
+    ("R06_base_clusters", "base-clusters-weights"),
+    ("R06_base_clusters", "bid-to-pid"),
+    ("R09_group_clusters", "group-k-smoother"),
+    ("R10_tallies", "votes-base"),
+    ("R10_tallies", "group-votes"),
+})
+
+#: Field names that are integer-typed wherever they appear. Matched against the
+#: nearest enclosing object key, so `base-clusters[3].id` and
+#: `repness.0[2].n-trials` both resolve.
+INTEGER_FIELDS: frozenset[str] = frozenset({
+    "A", "D", "S",
+    "bid", "count", "gid", "id", "members", "n-agree", "n-cmts", "n-members",
+    "n-success", "n-trials", "n-votes", "pid", "tid",
+    "last-k", "last-k-count", "smoothed-k",
+    "last-mod-timestamp", "last-vote-timestamp",
+})
+
+
+def _is_integer_leaf(stage: str, key: str, field: str | None) -> bool:
+    if (stage, key) in INTEGER_KEYS:
+        return True
+    return field in INTEGER_FIELDS
+
+
+#: (stage, key) -> Tolerance for that key's CONTINUOUS numeric leaves. Integer
+#: leaves (see above) never use a tolerance, whatever this table says.
 KEY_TOLERANCE: dict[tuple[str, str], Tolerance] = {
-    ("R01_ingest", "last-vote-timestamp"): EXACT,
-    ("R01_ingest", "n"): EXACT,
-    ("R01_ingest", "n-cmts"): EXACT,
-    ("R01_ingest", "raw-rating-mat"): EXACT,
-    ("R01_ingest", "rating-mat"): EXACT,
-    ("R01_ingest", "tids"): EXACT,
-    ("R02_moderation", "last-mod-timestamp"): EXACT,
-    ("R02_moderation", "meta-tids"): EXACT,
-    ("R02_moderation", "mod-in"): EXACT,
-    ("R02_moderation", "mod-out"): EXACT,
-    ("R03_eligibility", "in-conv"): EXACT,
-    ("R03_eligibility", "user-vote-counts"): EXACT,
     # `mat` is a deterministic function of integers and one division per column
     # (P-030 §5/R4) — TIGHT, not GEOM.
     ("R04_pca", "mat"): TIGHT,
@@ -440,33 +731,22 @@ KEY_TOLERANCE: dict[tuple[str, str], Tolerance] = {
     ("R05_projections", "proj"): GEOM,
     ("R06_base_clusters", "base-clusters"): GEOM,
     ("R06_base_clusters", "base-clusters-proj"): GEOM,
-    ("R06_base_clusters", "base-clusters-weights"): EXACT,
-    ("R06_base_clusters", "bid-to-pid"): EXACT,
     ("R06_base_clusters", "bucket-dists"): GEOM,
     ("R09_group_clusters", "group-clusterings"): GEOM,
     ("R09_group_clusters", "group-clusterings-silhouettes"): GEOM,
     ("R09_group_clusters", "group-clusters"): GEOM,
-    ("R09_group_clusters", "group-k-smoother"): EXACT,
     ("R10_tallies", "group-aware-consensus"): TIGHT,
-    ("R10_tallies", "group-votes"): EXACT,
-    ("R10_tallies", "votes-base"): EXACT,
     ("R11_repness", "consensus"): TIGHT,
     ("R11_repness", "repness"): TIGHT,
     ("R12_priorities", "comment-priorities"): TIGHT,
-    ("R13_ptpt_stats", "ptpt-stats"): EXACT,
-}
-
-#: Keys whose divergences are automatically attributed to a carve-out.
-KEY_CARVE_OUT: dict[tuple[str, str], str] = {
-    ("R02_moderation", "meta-tids"): "C1",
-    ("R02_moderation", "mod-in"): "C1",
-    ("R02_moderation", "mod-out"): "C1",
-    ("R09_group_clusters", "group-clusterings-silhouettes"): "C3",
-    ("R13_ptpt_stats", "ptpt-stats"): "C4",
+    ("R13_ptpt_stats", "ptpt-stats"): TIGHT,
+    ("R13_ptpt_stats", "participant-info-legacy"): TIGHT,
 }
 
 
 def _tolerance(stage: str, key: str) -> Tolerance:
+    if (stage, key) in INTEGER_KEYS:
+        return EXACT
     return KEY_TOLERANCE.get((stage, key), TIGHT)
 
 
@@ -477,28 +757,43 @@ def _is_num(x: Any) -> bool:
     return isinstance(x, (int, float)) and not isinstance(x, bool)
 
 
+def _as_exact_int(x: Any) -> int | None:
+    """The exact integer value of an integer-typed leaf, WITHOUT float coercion.
+
+    A Python ``int`` passes through with full precision (so 2**53 and 2**53+1
+    stay distinct). A float is accepted only when it is exactly integral — the
+    two engines legitimately spell the same vote as ``-1`` and ``-1.0``.
+    Booleans are rejected: a bool is not a count.
+    """
+    if isinstance(x, bool):
+        return None
+    if isinstance(x, int):
+        return x
+    if isinstance(x, float) and x.is_integer():
+        return int(x)
+    return None
+
+
 @dataclass
 class KeyResult:
     n_compared: int = 0
     n_diff: int = 0
+    n_over_tight: int = 0
     max_abs: float = 0.0
     max_rel: float = 0.0
     n_suppressed: int = 0
+    n_nonfinite: int = 0
     worst_path: str | None = None
-    structural: list[str] = None  # type: ignore[assignment]
-    examples: list[dict[str, Any]] = None  # type: ignore[assignment]
-
-    def __post_init__(self) -> None:
-        if self.structural is None:
-            self.structural = []
-        if self.examples is None:
-            self.examples = []
+    structural: list[str] = dc_field(default_factory=list)
+    examples: list[dict[str, Any]] = dc_field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "n_compared": self.n_compared,
             "n_diff": self.n_diff,
+            "n_over_tight": self.n_over_tight,
             "n_suppressed": self.n_suppressed,
+            "n_nonfinite": self.n_nonfinite,
             "max_abs": self.max_abs,
             "max_rel": self.max_rel,
             "worst_path": self.worst_path,
@@ -507,64 +802,118 @@ class KeyResult:
             "examples": self.examples[:5],
         }
 
+    def note(self, path: str, a: Any, b: Any, **extra: Any) -> None:
+        if len(self.examples) < 5:
+            self.examples.append({"path": path, "a": a, "b": b, **extra})
 
-def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult,
-          *, carved: bool) -> None:
-    """Recursively diff two canonical values, accumulating into ``res``."""
+
+def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
+          stage: str, key: str, field: str | None, carve_numeric: bool) -> None:
+    """Recursively diff two canonical values, accumulating into ``res``.
+
+    ``carve_numeric`` attributes NUMERIC differences to a numeric-only carve-out
+    (C3). Structural defects, type changes and non-numeric differences are always
+    counted, whatever the carve-out says.
+    """
+    if isinstance(a, Structural) or isinstance(b, Structural):
+        for side, v in (("a", a), ("b", b)):
+            if isinstance(v, Structural):
+                res.structural.append(f"{path}: [{side}] {v.reason}")
+        return
     if a is None and b is None:
         return
+
+    integer_leaf = _is_integer_leaf(stage, key, field)
+
+    # Non-finite wire tokens compare as tokens, on either or both sides.
+    if _is_token(a) or _is_token(b):
+        res.n_compared += 1
+        res.n_nonfinite += 1
+        if a != b:
+            res.n_diff += 1
+            res.note(path, a, b, nonfinite=True)
+            if res.worst_path is None:
+                res.worst_path = path
+            res.max_rel = max(res.max_rel, 1.0)
+        return
+
     if _is_num(a) and _is_num(b):
         res.n_compared += 1
+        if integer_leaf:
+            ia, ib = _as_exact_int(a), _as_exact_int(b)
+            if ia is None or ib is None:
+                res.structural.append(
+                    f"{path}: integer-typed field carries a non-integral value "
+                    f"({a!r} vs {b!r})")
+                return
+            if ia != ib:
+                res.n_diff += 1
+                res.n_over_tight += 1
+                delta = float(abs(ia - ib))
+                if delta > res.max_abs:
+                    res.max_abs, res.worst_path = delta, path
+                scale = max(abs(ia), abs(ib))
+                res.max_rel = max(res.max_rel, delta / scale if scale else 1.0)
+                res.note(path, a, b, abs=delta)
+            return
         abs_err = abs(float(a) - float(b))
         scale = max(abs(float(a)), abs(float(b)))
         rel_err = abs_err / scale if scale > 0 else 0.0
         # max_abs/max_rel are over EVERY compared pair, not only the failing
-        # ones: on a key that is fully within tolerance they are the headroom
-        # measurement the port plan wants, and on a failing key the worst pair
-        # is by construction also the largest error.
+        # ones: on a key within tolerance they are the headroom measurement.
         if abs_err > res.max_abs:
             res.max_abs, res.worst_path = abs_err, path
         res.max_rel = max(res.max_rel, rel_err)
+        if not TIGHT.ok(float(a), float(b)):
+            res.n_over_tight += 1
         if not tol.ok(float(a), float(b)):
-            res.n_diff += 1
-            if len(res.examples) < 5:
-                res.examples.append({"path": path, "a": a, "b": b,
-                                     "abs": abs_err, "rel": rel_err})
+            if carve_numeric:
+                res.n_suppressed += 1
+            else:
+                res.n_diff += 1
+                res.note(path, a, b, abs=abs_err, rel=rel_err)
         return
+
+    if integer_leaf and (_is_num(a) or _is_num(b)) and a is not None and b is not None:
+        res.structural.append(
+            f"{path}: integer-typed field type mismatch ({a!r} vs {b!r})")
+        return
+
     if isinstance(a, dict) and isinstance(b, dict):
         for k in sorted(set(a) | set(b)):
             if k not in a or k not in b:
-                if carved and (a.get(k) in (None, [], {}) or b.get(k) in (None, [], {})):
-                    res.n_suppressed += 1
-                    continue
                 res.structural.append(f"{path}.{k}: present on only one side")
                 continue
-            _walk(a[k], b[k], f"{path}.{k}", tol, res, carved=carved)
+            _walk(a[k], b[k], f"{path}.{k}", tol, res,
+                  stage=stage, key=key, field=k, carve_numeric=carve_numeric)
         return
+
     if isinstance(a, list) and isinstance(b, list):
         if len(a) != len(b):
             res.structural.append(f"{path}: length {len(a)} vs {len(b)}")
         for i, (x, y) in enumerate(zip(a, b)):
-            _walk(x, y, f"{path}[{i}]", tol, res, carved=carved)
+            _walk(x, y, f"{path}[{i}]", tol, res,
+                  stage=stage, key=key, field=field, carve_numeric=carve_numeric)
         return
+
     if a is None or b is None:
-        # C1: an empty collection and an absent one are the same emptiness for
-        # the moderation sets only; anywhere else it is a real shape difference.
-        # Exactly one side is None here (both-None returned at the top), so this
-        # is the null-vs-empty case C1 covers.
-        if carved and a in (None, [], {}) and b in (None, [], {}):
-            res.n_suppressed += 1
-            return
         res.structural.append(f"{path}: {a!r} vs {b!r}")
         return
+
     res.n_compared += 1
     if a != b:
         res.n_diff += 1
-        if len(res.examples) < 5:
-            res.examples.append({"path": path, "a": a, "b": b})
+        res.note(path, a, b)
         if res.worst_path is None:
             res.worst_path = path
         res.max_rel = max(res.max_rel, 1.0)
+
+
+def _is_null_empty_pair(a: Any, b: Any) -> bool:
+    """Exactly the C1 case: one side absent, the other an empty collection."""
+    empty = ([], {}, set())
+    return ((a is None and any(b == e for e in empty))
+            or (b is None and any(a == e for e in empty)))
 
 
 def compare_step(doc_a: dict[str, Any], doc_b: dict[str, Any]) -> dict[str, Any]:
@@ -572,33 +921,48 @@ def compare_step(doc_a: dict[str, Any], doc_b: dict[str, Any]) -> dict[str, Any]
     can_a, can_b = canonicalize(doc_a), canonicalize(doc_b)
     stage_reports: dict[str, Any] = {}
     first_diverging: str | None = None
+    problems: list[str] = []
 
     for stage in STAGE_ORDER:
-        sa, sb = can_a.get(stage) or {}, can_b.get(stage) or {}
+        raw_a, raw_b = can_a.get(stage), can_b.get(stage)
+        if raw_a is None or raw_b is None:
+            missing = [s for s, v in (("a", raw_a), ("b", raw_b)) if v is None]
+            problems.append(f"{stage}: absent on side(s) {','.join(missing)}")
+        sa, sb = raw_a or {}, raw_b or {}
         keys = sorted(set(sa) | set(sb))
         key_reports: dict[str, Any] = {}
         stage_divergent = False
         for key in keys:
+            if (stage, key) in ENGINE_LOCAL_KEYS:
+                key_reports[key] = _engine_local_report(stage, key, sa, sb)
+                continue
             carve = KEY_CARVE_OUT.get((stage, key))
+            mode = CARVE_OUTS[carve].mode if carve else None
             tol = _tolerance(stage, key)
             res = KeyResult()
+
             if key not in sa or key not in sb:
                 res.structural.append(f"{key}: present on only one side")
+            elif mode == "null-empty" and _is_null_empty_pair(sa[key], sb[key]):
+                # The ONLY thing C1 suppresses. Anything else on this key —
+                # [1] vs [2], null vs [2], a wrong type — falls through to the
+                # ordinary comparison below.
+                res.n_suppressed += 1
             else:
-                _walk(sa[key], sb[key], key, tol, res, carved=carve is not None)
+                _walk(sa[key], sb[key], key, tol, res, stage=stage, key=key,
+                      field=None, carve_numeric=(mode == "numeric-only"))
+
             entry = res.to_dict()
             entry["tolerance"] = tol.name
             entry["abs_tol"] = tol.abs_tol
             entry["rel_tol"] = tol.rel_tol
             diverged = bool(res.n_diff or res.structural)
-            if carve is not None and carve in AUTO_CARVED:
+            if carve is not None and not diverged and res.n_suppressed:
                 entry["carve_out"] = carve
-                # CARVED, not MATCH, whenever the carve-out actually did
-                # something: the reader must see that a difference was
-                # suppressed, not be told the key was clean.
-                entry["status"] = ("CARVED" if (diverged or res.n_suppressed)
-                                   else "MATCH")
+                entry["status"] = "CARVED"
             else:
+                if carve is not None:
+                    entry["carve_out"] = carve
                 entry["status"] = "DIVERGENT" if diverged else "MATCH"
                 stage_divergent = stage_divergent or diverged
             key_reports[key] = entry
@@ -609,22 +973,56 @@ def compare_step(doc_a: dict[str, Any], doc_b: dict[str, Any]) -> dict[str, Any]
         if stage_divergent and first_diverging is None:
             first_diverging = stage
 
+    digest_match = doc_a.get("input_digest") == doc_b.get("input_digest")
+    tick_match = doc_a.get("tick") == doc_b.get("tick")
+    if not digest_match:
+        problems.append("input digests differ — the engines were not fed the "
+                        "same batch")
+    if not tick_match:
+        problems.append(f"tick {doc_a.get('tick')!r} vs {doc_b.get('tick')!r}")
+
     return {
         "step": doc_a.get("step"),
-        "input_digest_match": doc_a.get("input_digest") == doc_b.get("input_digest"),
+        "input_digest_match": digest_match,
         "tick_a": doc_a.get("tick"),
         "tick_b": doc_b.get("tick"),
-        "tick_match": doc_a.get("tick") == doc_b.get("tick"),
+        "tick_match": tick_match,
+        "comparable": not problems,
+        "problems": problems,
         "first_diverging_stage": first_diverging,
         "stages": stage_reports,
     }
 
 
+def _engine_local_report(stage: str, key: str, sa: dict, sb: dict) -> dict[str, Any]:
+    """An engine-local diagnostic key: reported, never graded against the other
+    engine, and never counted as a divergence — but never silently dropped."""
+    present = [side for side, s in (("a", sa), ("b", sb)) if key in s]
+    entry = KeyResult().to_dict()
+    entry.update({
+        "status": "ENGINE_LOCAL",
+        "tolerance": "not-compared",
+        "abs_tol": None,
+        "rel_tol": None,
+        "present_on": present,
+        "note": ("engine-local diagnostic with no counterpart in the engine "
+                 "contract; not graded"),
+    })
+    if len(present) == 2:
+        res = KeyResult()
+        _walk(sa[key], sb[key], key, _tolerance(stage, key), res,
+              stage=stage, key=key, field=None, carve_numeric=False)
+        entry.update(res.to_dict())
+        entry["status"] = "ENGINE_LOCAL"
+        entry["tolerance"] = "informational"
+    return entry
+
+
 # ---------------------------------------------------------------------------
-# Loading + the whole-recording compare.
+# Loading + input validation.
 # ---------------------------------------------------------------------------
 def load_stage_dumps(directory: str | Path) -> list[dict[str, Any]]:
-    """Load ``step-NNN.stages.json`` from a stage-recording directory, in index
+    """Load ``step-NNN.stages.json`` from a stage-recording directory, in step
     order. Rejects a document whose ``schema`` is not the one we understand."""
     d = Path(directory)
     docs = []
@@ -639,15 +1037,104 @@ def load_stage_dumps(directory: str | Path) -> list[dict[str, Any]]:
     return docs
 
 
-def compare_recordings(dir_a: str | Path, dir_b: str | Path) -> dict[str, Any]:
-    """Diff two stage recordings step by step.
+def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], list[str]]:
+    """Load a stage recording and check that it is complete and self-consistent.
 
-    A step-count mismatch is reported, never silently truncated: only the
-    overlapping prefix is diffed.
+    Returns ``(documents, problems)``. Anything on the problems list makes the
+    recording incomparable; the caller must withhold its numeric headline rather
+    than reporting the empty comparison as agreement.
     """
-    docs_a, docs_b = load_stage_dumps(dir_a), load_stage_dumps(dir_b)
-    aligned = min(len(docs_a), len(docs_b))
-    per_step = [compare_step(docs_a[i], docs_b[i]) for i in range(aligned)]
+    d = Path(directory)
+    problems: list[str] = []
+    if not d.is_dir():
+        return [], [f"{d}: not a directory"]
+
+    manifest_path = d / "stages-manifest.json"
+    manifest: dict[str, Any] | None = None
+    if not manifest_path.is_file():
+        problems.append(f"{d}: no stages-manifest.json")
+    else:
+        try:
+            manifest = json.loads(manifest_path.read_text())
+        except (ValueError, OSError) as exc:
+            problems.append(f"{d}: unreadable manifest ({exc})")
+            manifest = None
+
+    try:
+        docs = load_stage_dumps(d)
+    except ValueError as exc:
+        return [], problems + [str(exc)]
+    if not docs:
+        problems.append(f"{d}: no step-NNN.stages.json files")
+
+    steps = [doc.get("step") for doc in docs]
+    if len(set(steps)) != len(steps):
+        problems.append(f"{d}: duplicate step identities {steps}")
+    for doc in docs:
+        if not isinstance(doc.get("step"), int):
+            problems.append(f"{d}: a document has a non-integer step identity")
+        if doc.get("vote_sign_convention") not in SUPPORTED_CONVENTIONS:
+            problems.append(
+                f"{d}: step {doc.get('step')!r} declares unsupported "
+                f"vote_sign_convention {doc.get('vote_sign_convention')!r}")
+        if doc.get("comment_projection_axes") != COMMENT_PROJECTION_AXES:
+            problems.append(
+                f"{d}: step {doc.get('step')!r} does not declare "
+                f"comment_projection_axes={COMMENT_PROJECTION_AXES!r}")
+        stages_present = set(doc.get("stages") or {})
+        missing = [s for s in STAGE_ORDER if s not in stages_present]
+        if missing:
+            problems.append(
+                f"{d}: step {doc.get('step')!r} is missing stage(s) "
+                f"{', '.join(missing)}")
+
+    if manifest is not None:
+        if manifest.get("schema") != STAGE_DUMP_SCHEMA:
+            problems.append(f"{d}: manifest schema {manifest.get('schema')!r}")
+        if manifest.get("stage_order") != list(STAGE_ORDER):
+            problems.append(f"{d}: manifest stage_order does not match this "
+                            f"comparer's pipeline")
+        rows = manifest.get("steps")
+        if not isinstance(rows, list):
+            problems.append(f"{d}: manifest has no steps list")
+        else:
+            if manifest.get("n_steps") != len(rows):
+                problems.append(f"{d}: manifest n_steps "
+                                f"{manifest.get('n_steps')!r} != {len(rows)} rows")
+            declared = [r.get("index") for r in rows if isinstance(r, dict)]
+            if declared != steps:
+                problems.append(
+                    f"{d}: manifest inventory {declared} != on-disk steps {steps}")
+            for r in rows:
+                if isinstance(r, dict) and not (d / str(r.get("file"))).is_file():
+                    problems.append(f"{d}: manifest names a missing file "
+                                    f"{r.get('file')!r}")
+    return docs, problems
+
+
+def compare_recordings(dir_a: str | Path, dir_b: str | Path) -> dict[str, Any]:
+    """Diff two stage recordings, aligned by STEP IDENTITY.
+
+    Missing directories, incomplete manifests, mismatched inventories and
+    unpaired steps are input problems: they are reported and the numeric headline
+    is withheld. An empty or absent comparison is never reported as agreement.
+    """
+    docs_a, problems_a = validate_recording(dir_a)
+    docs_b, problems_b = validate_recording(dir_b)
+    problems = [f"A: {p}" for p in problems_a] + [f"B: {p}" for p in problems_b]
+
+    by_step_a = {doc.get("step"): doc for doc in docs_a}
+    by_step_b = {doc.get("step"): doc for doc in docs_b}
+    only_a = sorted(k for k in by_step_a if k not in by_step_b)
+    only_b = sorted(k for k in by_step_b if k not in by_step_a)
+    if only_a:
+        problems.append(f"steps present only in A: {only_a}")
+    if only_b:
+        problems.append(f"steps present only in B: {only_b}")
+
+    shared = sorted(k for k in by_step_a if k in by_step_b)
+    per_step = [compare_step(by_step_a[k], by_step_b[k]) for k in shared]
+    problems += [f"step {s['step']}: {p}" for s in per_step for p in s["problems"]]
 
     first_stage, first_step = None, None
     for s in per_step:
@@ -655,6 +1142,8 @@ def compare_recordings(dir_a: str | Path, dir_b: str | Path) -> dict[str, Any]:
             idx = STAGE_ORDER.index(s["first_diverging_stage"])
             if first_stage is None or idx < STAGE_ORDER.index(first_stage):
                 first_stage, first_step = s["first_diverging_stage"], s["step"]
+
+    input_valid = not problems
     return {
         "schema": COMPARE_SCHEMA,
         "grading": GRADING_NOTE,
@@ -664,19 +1153,28 @@ def compare_recordings(dir_a: str | Path, dir_b: str | Path) -> dict[str, Any]:
         "engine_b": docs_b[0].get("engine") if docs_b else None,
         "n_steps_a": len(docs_a),
         "n_steps_b": len(docs_b),
-        "aligned_steps": aligned,
+        "aligned_steps": len(shared),
         "step_count_mismatch": len(docs_a) != len(docs_b),
-        "first_diverging_stage": first_stage,
-        "first_diverging_step": first_step,
-        "carve_outs": {c.id: c.reason for c in CARVE_OUTS.values()},
+        "input_valid": input_valid,
+        "input_problems": problems,
+        # Withheld unless the two recordings are a complete, aligned, same-input
+        # pair: "no diverging stage" over incomparable input is not agreement.
+        "first_diverging_stage": first_stage if input_valid else None,
+        "first_diverging_step": first_step if input_valid else None,
+        "headline_withheld": not input_valid,
+        "carve_outs": {c.id: {"mode": c.mode, "reason": c.reason}
+                       for c in CARVE_OUTS.values()},
         "auto_carved": list(AUTO_CARVED),
+        "engine_local_keys": [f"{s}.{k}" for s, k in sorted(ENGINE_LOCAL_KEYS)],
         "stage_order": list(STAGE_ORDER),
         "per_step": per_step,
     }
 
 
 def format_report(report: dict[str, Any], *, verbose: bool = False) -> str:
-    """A compact human summary. The first diverging stage is the headline.
+    """A compact human summary. The first diverging stage is the headline —
+    unless the input is incomplete or misaligned, in which case there is no
+    headline to give.
 
     ``verbose`` also prints the max abs/rel error of every MATCHing key — the
     headroom measurement, i.e. how far a stage is from its tolerance.
@@ -688,22 +1186,29 @@ def format_report(report: dict[str, Any], *, verbose: bool = False) -> str:
         f"  B: {report['recording_b']}  ({report['n_steps_b']} steps)",
     ]
     if report["step_count_mismatch"]:
-        lines.append(f"  ! step-count mismatch — comparing first "
-                     f"{report['aligned_steps']}")
-    fds = report["first_diverging_stage"]
-    lines.append(
-        f"  first diverging stage: {fds} (step {report['first_diverging_step']})"
-        if fds else "  first diverging stage: none — every stage within tolerance"
-    )
+        lines.append(f"  ! step-count mismatch — {report['aligned_steps']} steps "
+                     f"share an identity")
+    if report.get("headline_withheld"):
+        lines.append("  INCOMPLETE OR MISALIGNED INPUT — no comparison headline. "
+                     "Fix the input and re-run:")
+        for p in report["input_problems"][:20]:
+            lines.append(f"      ! {p}")
+        extra = len(report["input_problems"]) - 20
+        if extra > 0:
+            lines.append(f"      ! … and {extra} more")
+    else:
+        fds = report["first_diverging_stage"]
+        lines.append(
+            f"  first diverging stage: {fds} (step {report['first_diverging_step']})"
+            if fds else
+            "  first diverging stage: none — every stage within tolerance"
+        )
     for step in report["per_step"]:
-        if not step["input_digest_match"]:
-            lines.append(f"  step {step['step']}: ! input digests differ — the two "
-                         f"engines were NOT fed the same batch")
-        if not step["tick_match"]:
-            lines.append(f"  step {step['step']}: ! tick {step['tick_a']} vs "
-                         f"{step['tick_b']}")
         lines.append(f"  step {step['step']}: first diverging stage = "
-                     f"{step['first_diverging_stage'] or 'none'}")
+                     f"{step['first_diverging_stage'] or 'none'}"
+                     + ("" if step["comparable"] else "  [INCOMPARABLE]"))
+        for p in step["problems"]:
+            lines.append(f"      ! {p}")
         for stage in report["stage_order"]:
             sr = step["stages"].get(stage)
             if not sr:
@@ -711,16 +1216,28 @@ def format_report(report: dict[str, Any], *, verbose: bool = False) -> str:
             for key, k in sorted(sr["keys"].items()):
                 if k["status"] == "MATCH" and not verbose:
                     continue
+                if k["status"] == "ENGINE_LOCAL":
+                    lines.append(
+                        f"      [ENGINE_LOCAL] {stage}.{key}: not graded "
+                        f"(present on {','.join(k.get('present_on') or [])})")
+                    continue
                 tag = ("MATCH" if k["status"] == "MATCH"
                        else f"CARVED {k['carve_out']}" if k["status"] == "CARVED"
                        else "DIVERGENT")
-                lines.append(
-                    f"      [{tag}] {stage}.{key} ({k['tolerance']}): "
-                    f"{k['n_diff']}/{k['n_compared']} out of tolerance, "
-                    f"max_abs={k['max_abs']:.3e} max_rel={k['max_rel']:.3e}"
-                    + (f" struct={k['n_structural']}" if k["n_structural"] else "")
-                    + (f" worst={k['worst_path']}" if k["worst_path"] else "")
-                )
+                line = (f"      [{tag}] {stage}.{key} ({k['tolerance']}): "
+                        f"{k['n_diff']}/{k['n_compared']} out of tolerance, "
+                        f"max_abs={k['max_abs']:.3e} max_rel={k['max_rel']:.3e}")
+                if k["tolerance"] == GEOM.name and k.get("n_over_tight"):
+                    line += f" over_tight={k['n_over_tight']}"
+                if k["n_structural"]:
+                    line += f" struct={k['n_structural']}"
+                if k.get("n_suppressed"):
+                    line += f" suppressed={k['n_suppressed']}"
+                if k.get("n_nonfinite"):
+                    line += f" nonfinite={k['n_nonfinite']}"
+                if k["worst_path"]:
+                    line += f" worst={k['worst_path']}"
+                lines.append(line)
     return "\n".join(lines)
 
 
