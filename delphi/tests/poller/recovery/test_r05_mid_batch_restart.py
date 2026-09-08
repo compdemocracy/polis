@@ -212,7 +212,15 @@ def test_after_poll_kill_point_is_latched_after_the_watermark_advance(
     thread, so a hook on ``_run_engine`` alone can fire before the assignment.
     The child now gates ``_run_engine``, lets ``_poll_votes_once`` return,
     acknowledges the watermark it actually assigned, and only then names the
-    stage.  Assert that whole sequence, including the exact watermark value."""
+    stage.  Assert that whole sequence, including the exact watermark value.
+
+    The ordering is DETERMINISTIC, not merely likely: the gate writes and
+    flushes ``GATE run_engine`` before setting the event that unblocks
+    ``WM_ACK``/``STAGE`` (``restart_child._install_after_poll_latch``).  Setting
+    the event first — which it used to do — allowed the polling thread to
+    interleave its two lines between the ``set()`` and the ``write()``, making
+    this assertion flake on a harness detail rather than on the barrier it is
+    testing (astra second-round review)."""
     seeded = seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
     expected_wm = max(e["created"] for e in seeded.vote_events)
 
@@ -222,6 +230,13 @@ def test_after_poll_kill_point_is_latched_after_the_watermark_advance(
     # 1. work was really dispatched (so "before any compute" is not vacuous),
     # 2. the watermark was assigned and acknowledged AFTER that,
     # 3. only then was the stage named.
+    ordered = [l for l in victim.lines
+               if l.startswith(("GATE run_engine", "WM_ACK ",
+                                "STAGE after_poll"))]
+    assert [l.split(" ", 1)[0] for l in ordered] == ["GATE", "WM_ACK", "STAGE"], (
+        f"expected dispatch -> watermark ack -> stage marker exactly once each, "
+        f"saw {victim.lines}"
+    )
     gate = victim.line_index("GATE run_engine")
     ack = victim.line_index("WM_ACK ")
     marker = victim.line_index("STAGE after_poll")
@@ -229,6 +244,9 @@ def test_after_poll_kill_point_is_latched_after_the_watermark_advance(
         f"expected dispatch -> watermark ack -> stage marker, saw "
         f"{victim.lines}"
     )
+    # ...and neither bail-out path fired, so the acknowledgement is real.
+    assert not any(l.startswith(("WM_NOT_ADVANCED", "NO_DISPATCH"))
+                   for l in victim.lines), victim.lines
     acked = int(victim.await_line("WM_ACK ").split(" ", 1)[1])
     assert acked == expected_wm, (
         f"the child acknowledged watermark {acked}, but the newest seeded vote "
