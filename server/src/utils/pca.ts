@@ -92,7 +92,14 @@ const pcaCache = new LruCache<string, PcaCacheItem>({
  * enumerable property added here would go out on the wire for every tick,
  * including tick 1 — a served-bytes change. Keeping asPOJO/asJSON/the gzip body
  * clean is not enough; the wrapper is served too. A WeakSet cannot be
- * serialized and drops entries with the cache.
+ * serialized at any level.
+ *
+ * It also holds its entries weakly, so membership here never keeps a cache
+ * entry alive on its own. That is a retention property, NOT a lifecycle one:
+ * eviction from the LRU makes an entry collectable, but nothing guarantees the
+ * WeakSet is cleared at that moment. Correctness does not depend on when it is
+ * — membership is keyed by object identity, and an evicted entry is
+ * unreachable from the cache, so it can never be consulted again.
  */
 const synthesizedEntries = new WeakSet<PcaCacheItem>();
 
