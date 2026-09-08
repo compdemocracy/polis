@@ -399,6 +399,10 @@ ${message}`;
     return emailTeam("Polis Bad Problems!!!", body);
   }
 
+  // Sentinel used to leave the verification chain without letting the
+  // success continuation run and write a second response.
+  const VERIFICATION_MISSING = "polis_err_verification_missing";
+
   function handle_GET_verification(
     req: { p: { e: any } },
     res: {
@@ -410,7 +414,12 @@ ${message}`;
     pg.queryP("select * from einvites where einvite = ($1);", [einvite])
       .then(function (rows: string | any[]) {
         if (!rows.length) {
-          failJson(res, 500, "polis_err_verification_missing");
+          // Without this the chain continued: rows[0].email threw, the catch
+          // below sent a second response, and Express raised
+          // ERR_HTTP_HEADERS_SENT. Reject instead, so exactly one response is
+          // written and it is the same 500 polis_err_verification_missing the
+          // route already produced.
+          throw VERIFICATION_MISSING;
         }
         const email = rows[0].email;
         return pg
@@ -438,6 +447,10 @@ Email verified! You can close this tab or hit the back button.
         );
       })
       .catch(function (err: any) {
+        if (err === VERIFICATION_MISSING) {
+          failJson(res, 500, "polis_err_verification_missing");
+          return;
+        }
         failJson(res, 500, "polis_err_verification", err);
       });
   }
