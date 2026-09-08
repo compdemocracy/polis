@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, test } from "@jest/globals";
 import { newAgent, getJwtAuthenticatedAgent } from "../setup/api-test-helpers";
-import { getPooledTestUser } from "../setup/test-user-helpers";
+import {
+  getPooledTestUser,
+  RESERVED_POOLED_USER_INDEXES,
+} from "../setup/test-user-helpers";
 import type { Response } from "supertest";
 import { Agent } from "supertest";
 
@@ -13,8 +16,12 @@ describe("Domain Whitelist API", () => {
 
   // Setup with a registered and authenticated user
   beforeEach(async () => {
-    // Use pooled user for JWT authentication
-    const pooledUser = getPooledTestUser(1);
+    // Use a pooled user reserved for this suite. The whitelist row is keyed by
+    // the user's site_id, so sharing a pooled user with any other suite means
+    // sharing the row this suite writes and immediately reads back.
+    const pooledUser = getPooledTestUser(
+      RESERVED_POOLED_USER_INDEXES.domainWhitelist
+    );
     const testUser = {
       email: pooledUser.email,
       hname: pooledUser.name,
