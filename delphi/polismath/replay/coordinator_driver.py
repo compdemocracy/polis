@@ -744,6 +744,12 @@ def _row_data(bundle: Any, name: str) -> Any:
     return row.get("data") if isinstance(row, dict) else None
 
 
+def _dict_or_empty(value: Any) -> dict:
+    """``value`` when it is a dict, else ``{}`` — a graded-safe accessor so a
+    malformed (non-object) map is compared/looked-up without raising."""
+    return value if isinstance(value, dict) else {}
+
+
 def _json_type_equal(a: Any, b: Any) -> bool:
     """Type-aware JSON equality: PostgreSQL is allowed to normalize NUMBER
     spelling (1 vs 1.0), but a JSON boolean is NEVER equal to an integer —
@@ -985,17 +991,27 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
             fails.append(f"input_checkpoint.operation_id {ckpt['operation_id']!r} != {operation_id!r}")
         if ckpt["publisher_epoch"] != publisher_epoch:
             fails.append(f"input_checkpoint.publisher_epoch {ckpt['publisher_epoch']!r} != {publisher_epoch!r}")
-        if not _json_type_equal(ckpt["original_digests"], ticks.get("original_digests") or {}):
+        if not _json_type_equal(ckpt["original_digests"], _dict_or_empty(ticks.get("original_digests"))):
             fails.append("input_checkpoint.original_digests disagree with ticks.original_digests")
-        canon = {name: _canonical_payload_digest(_row_data(bundle, name))
-                 for name in _PAYLOAD_TABLES if _row_data(bundle, name) is not None}
-        if ckpt["payload_digests"] != canon:
+        # The encoder REFUSES a value beyond serde's f64 range with BridgeError;
+        # catch it here so the public API always returns a graded failure list.
+        canon, digest_ok = {}, True
+        for name in _PAYLOAD_TABLES:
+            d = _row_data(bundle, name)
+            if d is None:
+                continue
+            try:
+                canon[name] = _canonical_payload_digest(d)
+            except BridgeError as exc:
+                fails.append(f"{name}: cannot canonical-digest payload — {exc}")
+                digest_ok = False
+        if digest_ok and ckpt["payload_digests"] != canon:
             fails.append("input_checkpoint.payload_digests are not the canonical digests of the payloads")
         if expected_input_checkpoint is not None and not _json_type_equal(ckpt, expected_input_checkpoint):
             fails.append("input_checkpoint does not equal the expected checkpoint (type-aware)")
 
     # 4. original-byte custody + TYPE-AWARE JSONB correspondence, per table
-    original_digests = ticks.get("original_digests") or {}
+    original_digests = _dict_or_empty(ticks.get("original_digests"))
     for name in _PAYLOAD_TABLES:
         row = bundle.get(name)
         if not isinstance(row, dict) or not row:
@@ -1004,7 +1020,15 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
         if raw is None:
             fails.append(f"{name}: original_bytes absent — data::text is not original evidence")
             continue
-        raw_bytes = raw.encode() if isinstance(raw, str) else bytes(raw)
+        # Admit the original-byte evidence type BEFORE converting it.
+        if isinstance(raw, str):
+            raw_bytes = raw.encode()
+        elif isinstance(raw, (bytes, bytearray)):
+            raw_bytes = bytes(raw)
+        else:
+            fails.append(f"{name}: original_bytes must be a string or byte sequence, "
+                         f"got {type(raw).__name__}")
+            continue
         digest = hashlib.sha256(raw_bytes).hexdigest()
         if row.get("original_sha256") != digest:
             fails.append(f"{name}: original_sha256 does not match its original_bytes")

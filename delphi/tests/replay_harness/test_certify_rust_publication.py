@@ -539,3 +539,39 @@ def test_integer_boundary_digest_is_serde_dispatched():
     assert cd._canonical_payload_digest({"x": 2 ** 64 - 1}) != cd._canonical_payload_digest({"x": 2 ** 64})
     # exact integers in range are byte-for-byte their decimal spelling
     assert cd._canonical_payload_digest(2 ** 64 - 1) != cd._canonical_payload_digest(2 ** 64)
+
+
+# ---------------------------------------------------------------------------
+# Round 8 (board [454]): custody values admitted before use; digest error graded.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("change", [
+    lambda b: b["ticks"].update(original_digests=[1]),          # was AttributeError
+    lambda b: b["main"].update(original_bytes=[[]]),            # was TypeError
+    lambda b: b["main"].update(original_bytes={"x": 1}),        # was TypeError
+    lambda b: b["main"].update(data={"x": 10 ** 400}),          # was BridgeError escape
+])
+def test_readback_custody_failures_are_graded_not_raised(change):
+    b = _bundle()
+    change(b)
+    fails = _V(b)  # must not raise
+    assert isinstance(fails, list) and fails and all(isinstance(f, str) for f in fails)
+
+
+def test_out_of_range_payload_integer_is_graded_in_readback():
+    b = _bundle()
+    b["main"]["data"] = {"x": 10 ** 400}
+    assert any("canonical-digest" in f for f in _V(b))
+
+
+def test_low_level_overflow_still_raises_named_bridgeerror():
+    with pytest.raises(cd.BridgeError):
+        cd._canonical_payload_digest({"x": 10 ** 400})
+
+
+def test_string_and_byte_original_evidence_still_accepted():
+    b = _bundle()
+    assert _V(b) == []                      # str original_bytes (factory default)
+    b2 = _bundle()
+    for name in ("main", "bidtopid", "ptptstats"):
+        b2[name]["original_bytes"] = b2[name]["original_bytes"].encode()  # bytes evidence
+    assert _V(b2) == []
