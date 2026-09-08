@@ -44,7 +44,7 @@ jest.mock("../../src/utils/metered", () => ({
   MPromise: Promise,
 }));
 
-import { getPca } from "../../src/utils/pca";
+import { getPca, prefetchLatestPcaData } from "../../src/utils/pca";
 
 // sha256(asJSON):sha256(asBufferOfGzippedJson) for the tick-1 fixture below,
 // recorded against origin/edge BEFORE the tick-0 guard fix and unchanged after
@@ -214,5 +214,68 @@ describe("getPca and a committed math generation of tick 0", () => {
     expect(await getPca(freshZid(), undefined)).toBeUndefined();
     serveRow("-1");
     expect(await getPca(freshZid(), -1)).toBeUndefined();
+  });
+});
+
+describe("prefetchLatestPcaData column authority at zero", () => {
+  // Astra's review noted the prefetch guards had no direct committed test.
+  // These pin both of them, and the ONE place where the fix intentionally
+  // changes bytes even at a positive math_tick.
+  beforeEach(() => {
+    queryP_readOnly.mockReset();
+  });
+
+  function prefetchRow(zid: number, mathTick: unknown, cachingTick: unknown) {
+    queryP_readOnly.mockImplementation(((sql: string) => {
+      if (String(sql).includes("from math_main")) {
+        return Promise.resolve([
+          {
+            zid,
+            data: { ...mathBlob(), caching_tick: 34808 },
+            math_tick: mathTick,
+            caching_tick: cachingTick,
+          },
+        ]);
+      }
+      if (String(sql).includes("from comments")) {
+        return Promise.resolve([{ tid: 0 }, { tid: 1 }]);
+      }
+      return Promise.resolve([]);
+    }) as never);
+  }
+
+  test("a numeric column math_tick of 0 reaches the cache, not the blob's clock", async () => {
+    const zid = freshZid();
+    prefetchRow(zid, 0, 1);
+    await prefetchLatestPcaData();
+    const cached = await getPca(zid, -1);
+    expect(cached?.asPOJO.math_tick).toBe(0);
+    expect(cached?.asPOJO.math_tick).not.toBe(BLOB_WALL_CLOCK_TICK);
+  });
+
+  test("a numeric column caching_tick of 0 overrides the blob -- an INTENTIONAL byte change", async () => {
+    // This is the one qualifier to "tick >= 1 bytes are identical". With a
+    // numeric int8 parser, math_tick 1 and column caching_tick 0, prefetch now
+    // emits the column's 0 where it used to leave the blob's 34808. Astra
+    // reproduced this independently (34808 -> 0). It is the intended
+    // column-authority repair, not a regression: under the CURRENT
+    // string-returning BIGINT parser no such row occurs, because "0" is truthy
+    // and the column already won.
+    const zid = freshZid();
+    prefetchRow(zid, 1, 0);
+    await prefetchLatestPcaData();
+    const cached = await getPca(zid, -1);
+    expect(cached?.asPOJO.math_tick).toBe(1);
+    expect((cached?.asPOJO as any).caching_tick).toBe(0);
+    expect((cached?.asPOJO as any).caching_tick).not.toBe(34808);
+  });
+
+  test("string column ticks -- what node-pg actually returns -- are unchanged", async () => {
+    const zid = freshZid();
+    prefetchRow(zid, "1", "7");
+    await prefetchLatestPcaData();
+    const cached = await getPca(zid, -1);
+    expect(cached?.asPOJO.math_tick).toBe(1);
+    expect((cached?.asPOJO as any).caching_tick).toBe(7);
   });
 });

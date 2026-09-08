@@ -18,7 +18,10 @@
 
 import { beforeEach, describe, expect, jest, test } from "@jest/globals";
 import express from "express";
+import fs from "fs";
+import path from "path";
 import request from "supertest";
+import ts from "typescript";
 import zlib from "zlib";
 
 const queryP_readOnly = jest.fn();
@@ -184,11 +187,84 @@ function freshZid() {
 }
 
 /**
- * Replicates only the parameter binding app.ts performs for these two routes.
+ * Reads the `math_tick` default straight out of a route's real registration in
+ * server/app.ts, via TypeScript's AST.
+ *
+ * Astra's review (F1) caught the earlier version of this file hardcoding -1,
+ * which meant reverting the app.ts fix left every test passing. Binding to the
+ * registration closes that: change `want("math_tick", getInt, assignToP, -1)`
+ * back to `0` and the /api/v3/bid positive test below fails.
+ *
+ * Returns the fourth argument to `want("math_tick", ...)` inside the
+ * `app.get(<routePath>, ...)` call, or undefined when the registration supplies
+ * no default (which is the case for /api/v3/math/pca2).
+ */
+function mathTickDefaultForRoute(routePath: string): number | undefined {
+  const source = ts.createSourceFile(
+    "app.ts",
+    fs.readFileSync(path.join(__dirname, "../../app.ts"), "utf-8"),
+    ts.ScriptTarget.Latest,
+    true
+  );
+
+  let registration: ts.CallExpression | undefined;
+  const findRegistration = (node: ts.Node): void => {
+    if (
+      ts.isCallExpression(node) &&
+      ts.isPropertyAccessExpression(node.expression) &&
+      node.expression.name.text === "get" &&
+      node.arguments.length > 0 &&
+      ts.isStringLiteral(node.arguments[0]) &&
+      node.arguments[0].text === routePath
+    ) {
+      registration = node;
+      return;
+    }
+    ts.forEachChild(node, findRegistration);
+  };
+  findRegistration(source);
+  if (!registration) {
+    throw new Error(`no app.get registration found for ${routePath}`);
+  }
+
+  const wantCall = registration.arguments.find(
+    (arg): arg is ts.CallExpression =>
+      ts.isCallExpression(arg) &&
+      ts.isIdentifier(arg.expression) &&
+      arg.expression.text === "want" &&
+      arg.arguments.length > 0 &&
+      ts.isStringLiteral(arg.arguments[0]) &&
+      arg.arguments[0].text === "math_tick"
+  );
+  if (!wantCall) {
+    throw new Error(`no want("math_tick", ...) found for ${routePath}`);
+  }
+
+  const fourth = wantCall.arguments[3];
+  if (fourth === undefined) {
+    return undefined;
+  }
+  if (
+    ts.isPrefixUnaryExpression(fourth) &&
+    fourth.operator === ts.SyntaxKind.MinusToken &&
+    ts.isNumericLiteral(fourth.operand)
+  ) {
+    return -Number(fourth.operand.text);
+  }
+  if (ts.isNumericLiteral(fourth)) {
+    return Number(fourth.text);
+  }
+  throw new Error(
+    `want("math_tick", ...) default for ${routePath} is not a numeric literal`
+  );
+}
+
+/**
+ * Replicates only the parameter binding app.ts performs for these routes.
  *
  * `mathTickDefault` is the fourth argument to `want("math_tick", getInt,
- * assignToP, ...)`: absent for /api/v3/math/pca2 (server/app.ts:345), 0 for
- * /api/v3/bid (server/app.ts:433).
+ * assignToP, ...)`, read from the real registration by
+ * mathTickDefaultForRoute.
  */
 function appFor(
   handler: (req: any, res: any) => void,
@@ -218,8 +294,16 @@ function appFor(
   return app;
 }
 
-const pca2App = (zid: number) => appFor(handle_GET_math_pca2, zid, undefined);
-const bidApp = (zid: number) => appFor(handle_GET_bid, zid, 0);
+// Bound to the real registrations, not to literals.
+const PCA2_MATH_TICK_DEFAULT = mathTickDefaultForRoute("/api/v3/math/pca2");
+const BID_MATH_TICK_DEFAULT = mathTickDefaultForRoute("/api/v3/bid");
+
+const pca2App = (zid: number) =>
+  appFor(handle_GET_math_pca2, zid, PCA2_MATH_TICK_DEFAULT);
+const bidApp = (zid: number) =>
+  appFor(handle_GET_bid, zid, BID_MATH_TICK_DEFAULT);
+// Negative control: the pre-fix default, kept to pin the failure it caused.
+const bidAppWithOldDefault = (zid: number) => appFor(handle_GET_bid, zid, 0);
 
 describe("HTTP routes at a committed math generation of 0", () => {
   beforeEach(() => {
@@ -274,25 +358,34 @@ describe("HTTP routes at a committed math generation of 0", () => {
     expect(res.status).toBe(304);
   });
 
-  test("GET /api/v3/bid serves generation 0 (its math_tick default is -1, not 0)", async () => {
-    // server/app.ts:433 used to default this route's math_tick to 0, so
-    // handle_GET_bid called getPca(zid, 0), got undefined, and dereferencing
-    // items[2].asPOJO threw into the .catch -> failJson 500. The default is now
-    // -1, matching /api/v3/votes/famous and getBidIndexToPidMapping's own
-    // `math_tick || -1` (src/utils/participants.ts:7).
+  test("the registered math_tick defaults are the ones these tests exercise", async () => {
+    // Guards the guard: if app.ts stops matching what this file assumes, the
+    // suite says so rather than silently testing a fiction.
+    expect(PCA2_MATH_TICK_DEFAULT).toBeUndefined();
+    expect(BID_MATH_TICK_DEFAULT).toBe(-1);
+  });
+
+  test("GET /api/v3/bid serves generation 0 using its REGISTERED math_tick default", async () => {
+    // Bound to server/app.ts's actual want("math_tick", getInt, assignToP, -1).
+    // Reverting that argument to 0 makes this test fail, which is the whole
+    // point (Astra F1).
+    //
+    // With the old default of 0, handle_GET_bid called getPca(zid, 0), got
+    // undefined, and dereferencing items[2].asPOJO threw into the .catch ->
+    // failJson 500. -1 matches /api/v3/votes/famous and
+    // getBidIndexToPidMapping's own `math_tick || -1` (utils/participants.ts:7),
+    // which this same handler already calls.
     serveTick("0");
-    const res = await request(appFor(handle_GET_bid, freshZid(), -1)).get(
-      "/route"
-    );
+    const res = await request(bidApp(freshZid())).get("/route");
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ bid: 0 });
   });
 
   test("GET /api/v3/bid with the old default of 0 is the 500 this fixes", async () => {
-    // Pins why the route default had to change: nothing in pca.ts can rescue a
+    // Negative control, deliberately hardcoded: nothing in pca.ts can rescue a
     // caller that explicitly asks for "something newer than 0".
     serveTick("0");
-    const res = await request(bidApp(freshZid())).get("/route");
+    const res = await request(bidAppWithOldDefault(freshZid())).get("/route");
     expect(res.status).toBe(500);
   });
 
@@ -305,11 +398,9 @@ describe("HTTP routes at a committed math generation of 0", () => {
     expect(pca2.headers.etag).toBe('"1"');
     expect(pca2.body).toEqual({ math_tick: 1, n: 1, tids: [0, 1] });
 
-    for (const mathTickDefault of [0, -1]) {
+    for (const bidAppVariant of [bidApp, bidAppWithOldDefault]) {
       serveTick("1");
-      const bid = await request(
-        appFor(handle_GET_bid, freshZid(), mathTickDefault)
-      ).get("/route");
+      const bid = await request(bidAppVariant(freshZid())).get("/route");
       expect(bid.status).toBe(200);
       expect(bid.body).toEqual({ bid: 0 });
     }
