@@ -32,8 +32,14 @@ CLOCK = 1700000000000
 def main():
     project = os.environ['COMPOSE_PROJECT_NAME']
     port = int(os.environ['POLIS_RECOVERY_PG_PORT'])
-    if not project.startswith('p027r4fix-') or not 55930 <= port <= 55939:
-        raise RuntimeError('round-4 isolated project and port required')
+    # Isolation bounds, not identities: read them from the environment so a second
+    # consumer runs under its own assigned prefix and range without editing this
+    # script. Defaults are the round-4 values, so round-4 behaviour is unchanged.
+    prefix = os.environ.get('P032_PROJECT_PREFIX', 'p027r4fix')
+    low = int(os.environ.get('P032_PORT_MIN', 55930))
+    high = int(os.environ.get('P032_PORT_MAX', 55939))
+    if not project.startswith(prefix + '-') or not low <= port <= high:
+        raise RuntimeError('isolated project and port required')
     logging.disable(logging.INFO)
     fixtures = json.loads((HERE / 'pca2-fixtures.json').read_text())
     db = psycopg2.connect(host='postgres', port=5432, dbname='p027', user='postgres')

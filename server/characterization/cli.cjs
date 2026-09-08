@@ -866,12 +866,22 @@ async function main() {
   )
     process.exitCode = 1;
 }
-main()
-  .catch((e) => {
-    console.error(e.stack);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await pool.end();
-    dynamo.destroy();
-  });
+async function close() {
+  await pool.end();
+  dynamo.destroy();
+}
+
+// The recorder is also a library: an alternate-runtime judge reuses this exact
+// sender, snapshot and schema reader rather than reimplementing request
+// semantics. Requiring the module must not run the recorder, and a consumer
+// needs a way to release the pg pool and the DynamoDB client it opens on import.
+module.exports = { send, snapshot, schema, close };
+
+if (require.main === module) {
+  main()
+    .catch((e) => {
+      console.error(e.stack);
+      process.exitCode = 1;
+    })
+    .finally(close);
+}
