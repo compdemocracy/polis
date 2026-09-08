@@ -9,30 +9,48 @@ import { UserInfo } from "../d";
 AWS.config.update({ region: Config.awsRegion });
 const s3Client = new AWS.S3({ apiVersion: "2006-03-01" });
 
-function handle_GET_dataExport(
+async function handle_GET_dataExport(
   req: { p: { uid?: number; zid: number; unixTimestamp: number; format: any } },
   res: { json: (arg0: {}) => void }
 ) {
-  getUserInfoForUid2(req.p.uid)
-    .then((user: UserInfo) => {
-      return doAddDataExportTask(
-        Config.mathEnv,
-        user.email!,
-        req.p.zid,
-        req.p.unixTimestamp * 1000,
-        req.p.format,
-        Math.abs((Math.random() * 999999999999) >> 0)
-      )
-        .then(() => {
-          res.json({});
-        })
-        .catch((err: any) => {
-          failJson(res, 500, "polis_err_data_export123", err);
-        });
-    })
-    .catch((err: any) => {
-      failJson(res, 500, "polis_err_data_export123b", err);
-    });
+  const { uid, zid } = req.p;
+
+  // Enqueuing an export is work performed against someone else's conversation:
+  // it dumps that conversation's votes and comments to S3 under a filename the
+  // requester chose (`unixTimestamp` becomes part of the object name) and mails
+  // the download link to the *caller's* address. So it takes the same ownership
+  // gate as GET /api/v3/dataExport/results, which serves the result.
+  let isMod: boolean;
+  try {
+    isMod = await isModerator(zid, uid);
+  } catch (err) {
+    return failJson(res, 500, "polis_err_data_export_auth_check", err);
+  }
+  if (!isMod) {
+    return failJson(res, 403, "polis_err_data_export_auth");
+  }
+
+  let user: UserInfo;
+  try {
+    user = await getUserInfoForUid2(uid);
+  } catch (err) {
+    return failJson(res, 500, "polis_err_data_export123b", err);
+  }
+
+  try {
+    await doAddDataExportTask(
+      Config.mathEnv,
+      user.email!,
+      zid,
+      req.p.unixTimestamp * 1000,
+      req.p.format,
+      Math.abs((Math.random() * 999999999999) >> 0)
+    );
+  } catch (err) {
+    return failJson(res, 500, "polis_err_data_export123", err);
+  }
+
+  res.json({});
 }
 
 /**
