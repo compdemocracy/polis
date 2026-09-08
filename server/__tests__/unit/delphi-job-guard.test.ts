@@ -87,7 +87,7 @@ function makeStore(overrides: Partial<JobAdmissionStore>): JobAdmissionStore {
     bindAlias: jest.fn(async () => true),
     clearGuard: jest.fn(async () => true),
     clearAlias: jest.fn(async () => true),
-    deleteUnclaimedJob: jest.fn(async () => true),
+    withdrawAdmission: jest.fn(async () => true),
     ...overrides,
   };
 }
@@ -603,8 +603,10 @@ describe("admitDelphiJob: round-3 review", () => {
 
     const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
 
-    expect(store.deleteUnclaimedJob).toHaveBeenCalledWith("job-1");
-    expect(store.clearGuard).toHaveBeenCalledTimes(1);
+    expect(store.withdrawAdmission).toHaveBeenCalledWith(
+      "job-1",
+      scopeGuardKey(scope)
+    );
     expect(result).toMatchObject({
       outcome: "deduplicated",
       jobId: "old-producer",
@@ -619,7 +621,7 @@ describe("admitDelphiJob: round-3 review", () => {
       .mockResolvedValue({ kind: "found", value: "old-producer" });
     const store = makeStore({
       sweepUnguardedActiveRoot: sweep,
-      deleteUnclaimedJob: jest.fn(async () => false),
+      withdrawAdmission: jest.fn(async () => false),
     });
 
     const result = await admitDelphiJob({ scope, jobItem: jobItem() }, store);
