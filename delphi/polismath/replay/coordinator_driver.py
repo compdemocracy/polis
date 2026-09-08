@@ -496,23 +496,6 @@ S1_FILE_KEYS = ("main", "bidtopid", "ptptstats", "restore")
 _CURSOR_STREAMS = ("votes", "moderation")
 
 
-def _valid_descriptor(d: Any) -> bool:
-    return (isinstance(d, dict) and _nonempty_str(d.get("path"))
-            and _plain_int(d.get("bytes")) and _nonempty_str(d.get("sha256")))
-
-
-def _cursor_fails(cursors: Any, label: str) -> list[str]:
-    """A cursor map is {votes,moderation} -> {slot: int-non-bool, sha256: str}."""
-    if not isinstance(cursors, dict) or set(cursors) != set(_CURSOR_STREAMS):
-        return [f"{label} must be an object with keys {list(_CURSOR_STREAMS)}"]
-    out: list[str] = []
-    for stream in _CURSOR_STREAMS:
-        cur = cursors[stream]
-        if not isinstance(cur, dict) or not _plain_int(cur.get("slot")) or not _nonempty_str(cur.get("sha256")):
-            out.append(f"{label}.{stream} must carry a (non-boolean) integer slot and a sha256")
-    return out
-
-
 def _nonempty_str(v: Any) -> bool:
     return isinstance(v, str) and len(v) > 0
 
@@ -521,9 +504,139 @@ def _plain_int(v: Any) -> bool:
     return isinstance(v, int) and not isinstance(v, bool)
 
 
+# ---------------------------------------------------------------------------
+# ONE typed admission schema, and one total admitter derived from it.
+#
+# Every bundle/checkpoint/envelope structure is described declaratively (kind,
+# rank, element kind, nullability, closedness); :func:`_admit` walks any value
+# against a spec and returns GRADED failures — it never raises on a wrong type,
+# so admission is total and there are no ungraded TypeErrors. Relational and
+# custody checks (partition, positional equality, count==len, group references,
+# value bindings) run AFTER admission, on already-typed data.
+# ---------------------------------------------------------------------------
+Spec = dict  # {"kind": ..., ...}
+
+
+def _admit(value: Any, spec: Spec, path: str = "") -> list[str]:
+    here = path or "<root>"
+
+    def bad(default: str) -> list[str]:
+        return [f"{here}: {spec.get('msg', default)}"]
+
+    kind = spec["kind"]
+    if kind == "any":
+        return []
+    if kind == "int":
+        if not _plain_int(value):
+            return bad(f"must be a (non-boolean) integer, got {value!r}")
+        if "min" in spec and value < spec["min"]:
+            return bad(f"must be >= {spec['min']}, got {value!r}")
+        return []
+    if kind == "bool":
+        return [] if isinstance(value, bool) else bad(f"must be a boolean, got {value!r}")
+    if kind == "str":
+        if not isinstance(value, str):
+            return bad(f"must be a string, got {value!r}")
+        if spec.get("nonempty") and not value:
+            return bad("must be a nonempty string")
+        return []
+    if kind == "hex64":
+        return [] if _is_hex64(value) else bad(f"must be a 64-char lowercase hex sha256, got {value!r}")
+    if kind == "const":
+        want = spec["value"]
+        ok = value == want and type(value) is type(want)
+        return [] if ok else bad(f"must be {want!r}, got {value!r}")
+    if kind == "list":
+        if not isinstance(value, list):
+            return bad(f"must be a list, got {value!r}")
+        if "min_len" in spec and len(value) < spec["min_len"]:
+            return bad(f"must have at least {spec['min_len']} element(s)")
+        out: list[str] = []
+        for i, el in enumerate(value):
+            out.extend(_admit(el, spec["of"], f"{path}[{i}]"))
+        return out
+    if kind == "object":
+        if not isinstance(value, dict):
+            return bad(f"must be an object, got {value!r}")
+        out = []
+        fields: dict[str, Spec] = spec.get("fields", {})
+        optional = set(spec.get("optional", ()))
+        if spec.get("closed"):
+            unknown = sorted(set(value) - set(fields))
+            if unknown:
+                out.append(f"{here}: unknown key(s) {unknown}")
+        for k, sub in fields.items():
+            if k not in value:
+                if k not in optional:
+                    out.append(f"{here}: missing {k}")
+            else:
+                out.extend(_admit(value[k], sub, f"{path}.{k}" if path else k))
+        return out
+    return bad(f"unknown schema kind {kind!r}")
+
+
+# --- reusable leaf specs ---
+_HEXSPEC = {"kind": "hex64"}
+_STR = {"kind": "str", "nonempty": True}
+_NNINT = {"kind": "int", "min": 0}
+_PID = {"kind": "int"}            # a participant id: integer, never bool/float
+_INT_LIST = {"kind": "list", "of": _PID}
+
+# --- worker envelope (polis-candidate-checkpoint/1) ---
+_CURSOR = {"kind": "object", "closed": True, "fields": {"slot": _NNINT, "sha256": _HEXSPEC}}
+_CURSOR_MAP = {"kind": "object", "closed": True,
+               "fields": {"votes": _CURSOR, "moderation": _CURSOR}}
+_FILE_DESC = {"kind": "object", "closed": True,
+              "fields": {"path": _STR, "bytes": _NNINT, "sha256": _HEXSPEC}}
+_FILES = {"kind": "object", "closed": True, "fields": {k: _FILE_DESC for k in S1_FILE_KEYS}}
+_ADMISSION_SPEC = {"kind": "object", "closed": True, "fields": {
+    "candidate_schema": {"kind": "const", "value": S1_CANDIDATE_SCHEMA},
+    "engine_version": {"kind": "const", "value": S1_ENGINE_VERSION,
+                       "msg": f"engine_version must be {S1_ENGINE_VERSION!r} "
+                              f"(negotiate a new version rather than claim S1 bytes)"},
+    "input_digest": _STR, "schedule_digest": _STR, "operation_id": _STR}}
+_S1_ENVELOPE_SPEC = {"kind": "object", "closed": True, "fields": {
+    "schema": {"kind": "const", "value": S1_CHECKPOINT_SCHEMA},
+    "protocol": {"kind": "const", "value": S1_PROTOCOL},
+    "run_id": _STR, "session_id": _STR, "compute_id": _STR, "checkpoint_id": _STR,
+    "fixture_id": _NNINT, "profile": {"kind": "const", "value": S1_PROFILE_WIRE},
+    "admission": _ADMISSION_SPEC,
+    "output_schema": {"kind": "const", "value": S1_OUTPUT_SCHEMA},
+    "state_schema": {"kind": "const", "value": S1_STATE_SCHEMA},
+    "persistence": {"kind": "const", "value": False},
+    "math_input_cursors": _CURSOR_MAP, "observed_state_cursors": _CURSOR_MAP,
+    "files": _FILES}}
+
+# --- observer payloads ---
+_BASE_CLUSTERS_SPEC = {"kind": "object", "closed": False, "optional": ("count",), "fields": {
+    "id": {"kind": "list", "of": _PID},
+    "members": {"kind": "list", "of": _INT_LIST},
+    "count": {"kind": "list", "of": _PID}}}
+_GROUP_SPEC = {"kind": "list", "of": {"kind": "object", "closed": False,
+               "fields": {"members": {"kind": "list", "of": _PID}}}}
+_MAIN_SPEC = {"kind": "object", "closed": False, "optional": ("group-clusters",),
+              "fields": {"base-clusters": _BASE_CLUSTERS_SPEC, "group-clusters": _GROUP_SPEC}}
+_BIDTOPID_SPEC = {"kind": "object", "closed": True, "fields": {
+    "zid": {"kind": "any"}, "lastVoteTimestamp": {"kind": "any"},
+    "bidToPid": {"kind": "list", "of": _INT_LIST}}}
+
+# --- store checkpoint (polis-coordinator/1) ---
+_STORE_CURSOR_MAP = {"kind": "object", "closed": True, "fields": {
+    "votes": {"kind": "object", "closed": False, "fields": {"slot": _NNINT}},
+    "moderation": {"kind": "object", "closed": False, "fields": {"slot": _NNINT}}}}
+_STORE_CHECKPOINT_SPEC = {"kind": "object", "closed": False, "fields": {
+    "schema": {"kind": "const", "value": STORE_CHECKPOINT_SCHEMA},
+    "operation_id": _STR, "publisher_epoch": _NNINT,
+    "original_digests": {"kind": "object", "closed": False, "fields": {}},
+    "payload_digests": {"kind": "object", "closed": False, "fields": {}},
+    "cursors": _STORE_CURSOR_MAP}}
+
+
 def validate_s1_identity(manifest: dict[str, Any], *,
                          expected_admission: Optional[dict[str, Any]] = None,
-                         expected_identity: Optional[dict[str, Any]] = None) -> list[str]:
+                         expected_identity: Optional[dict[str, Any]] = None,
+                         expected_cursors: Optional[dict[str, Any]] = None,
+                         expected_files: Optional[dict[str, Any]] = None) -> list[str]:
     """Check S1's closed, VERSIONED identity on a candidate checkpoint manifest.
 
     Binds the checkpoint schema (``polis-candidate-checkpoint/1``); requires the
@@ -542,61 +655,26 @@ def validate_s1_identity(manifest: dict[str, Any], *,
     identity so a well-typed FOREIGN session/digest is rejected, not accepted.
     A different engine_version is never accepted as "implements a capability S1
     never advertised". Returns failures (empty == identity intact)."""
-    fails: list[str] = []
-    if manifest.get("schema") != S1_CHECKPOINT_SCHEMA:
-        fails.append(f"checkpoint schema must be {S1_CHECKPOINT_SCHEMA!r}, "
-                     f"got {manifest.get('schema')!r}")
-    # The full 15-field worker envelope is CLOSED: every field mandatory, no
-    # unknown top-level keys.
-    missing_env = sorted(S1_CHECKPOINT_CLOSED_KEYS - set(manifest))
-    unknown_env = sorted(set(manifest) - S1_CHECKPOINT_CLOSED_KEYS)
-    if missing_env:
-        fails.append(f"checkpoint missing envelope field(s): {missing_env}")
-    if unknown_env:
-        fails.append(f"checkpoint has unknown top-level field(s): {unknown_env}")
-    # Snapshot file descriptors and both cursor maps (mandatory in the envelope,
-    # separately checked by the Rust compute path).
-    files = manifest.get("files")
-    if not isinstance(files, dict) or set(files) != set(S1_FILE_KEYS):
-        fails.append(f"checkpoint.files must map exactly {list(S1_FILE_KEYS)}")
-    else:
-        for k in S1_FILE_KEYS:
-            if not _valid_descriptor(files[k]):
-                fails.append(f"checkpoint.files.{k} must be a {{path, bytes, sha256}} descriptor")
-    fails.extend(_cursor_fails(manifest.get("math_input_cursors"), "math_input_cursors"))
-    fails.extend(_cursor_fails(manifest.get("observed_state_cursors"), "observed_state_cursors"))
-    admission = manifest.get("admission")
-    if not isinstance(admission, dict):
-        return fails + ["admission block missing or not an object"]
-    unknown = set(admission) - set(S1_ADMISSION_FIELDS)
-    if unknown:
-        fails.append(f"admission has unknown key(s): {sorted(unknown)}")
-    for f in S1_ADMISSION_FIELDS:
-        if f not in admission:
-            fails.append(f"admission missing {f}")
-    if admission.get("candidate_schema") != S1_CANDIDATE_SCHEMA:
-        fails.append(f"candidate_schema must be {S1_CANDIDATE_SCHEMA!r}, "
-                     f"got {admission.get('candidate_schema')!r}")
-    if admission.get("engine_version") != S1_ENGINE_VERSION:
-        fails.append(f"engine_version must be {S1_ENGINE_VERSION!r}, "
-                     f"got {admission.get('engine_version')!r} (negotiate a new "
-                     f"version rather than claim S1 bytes)")
-    for f in S1_EXPECTED_ADMISSION_FIELDS:
-        if f in admission and not _nonempty_str(admission[f]):
-            fails.append(f"admission.{f} must be a nonempty string")
-    for f in S1_CHECKPOINT_FIELDS:
-        if f not in manifest:
-            fails.append(f"checkpoint missing {f}")
-            continue
-        expect, val = _S1_CHECKPOINT_EXPECT[f], manifest[f]
-        if expect == "str+" and not _nonempty_str(val):
-            fails.append(f"checkpoint.{f} must be a nonempty string, got {val!r}")
-        elif expect == "int" and not _plain_int(val):
-            fails.append(f"checkpoint.{f} must be a (non-boolean) integer, got {val!r}")
-        elif expect == "false" and val is not False:
-            fails.append(f"checkpoint.{f} must be exactly False, got {val!r}")
-        elif expect not in ("str+", "int", "false") and val != expect:
-            fails.append(f"checkpoint.{f} must be {expect!r}, got {val!r}")
+    # Total admission against the ONE worker-envelope schema (no per-case checks,
+    # no ungraded exceptions): types, ranks, closedness, nonnegative slots/lengths
+    # and hex digests all come from _S1_ENVELOPE_SPEC.
+    fails: list[str] = _admit(manifest, _S1_ENVELOPE_SPEC)
+    admission = manifest.get("admission") if isinstance(manifest.get("admission"), dict) else {}
+
+    # Cursor custody (value binding beyond shape): at the snapshot seam both maps
+    # bind to the same independently derived source cursors, so they must agree
+    # with each other and with any supplied expected cursors.
+    mic, osc = manifest.get("math_input_cursors"), manifest.get("observed_state_cursors")
+    if isinstance(mic, dict) and isinstance(osc, dict) and mic != osc:
+        fails.append("math_input_cursors and observed_state_cursors disagree "
+                     "(both must bind the same source cursors at the snapshot seam)")
+    if expected_cursors is not None:
+        for name, cur in (("math_input_cursors", mic), ("observed_state_cursors", osc)):
+            if not _json_type_equal(cur, expected_cursors):
+                fails.append(f"{name} does not equal the expected source cursors")
+    if expected_files is not None and not _json_type_equal(manifest.get("files"), expected_files):
+        fails.append("files do not equal the expected output-file descriptors")
+
     # Per-run expected-identity binding (rejects a well-typed FOREIGN identity).
     if expected_admission is not None:
         for f in S1_EXPECTED_ADMISSION_FIELDS:
@@ -669,6 +747,16 @@ def _json_type_equal(a: Any, b: Any) -> bool:
     if isinstance(a, list) and isinstance(b, list):
         return len(a) == len(b) and all(_json_type_equal(x, y) for x, y in zip(a, b))
     return type(a) is type(b) and a == b
+
+
+def _canonical_payload_digest(data: Any) -> str:
+    """The store's CANONICAL payload digest — sha256 of the JSONB payload in a
+    normalized spelling — DISTINCT from the original-byte hash (which fixes the
+    exact serialization). A deterministic canonical JSON (sorted keys, compact
+    separators) stands in for PostgreSQL's numeric normalization here; the
+    checkpoint carries the same digest, so the two must agree."""
+    return hashlib.sha256(
+        json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[int],
@@ -749,30 +837,30 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
     elif epoch != publisher_epoch:
         fails.append(f"ticks.publisher_epoch {epoch!r} != {publisher_epoch!r}")
 
-    # 3b. persisted store checkpoint (polis-coordinator/1) custody. It is
-    # REQUIRED — the real store rejects absent checkpoints (store.rs) — a foreign
-    # or operation-only object is rejected, cursor slots are TYPED (a boolean slot
-    # must not equal an expected integer), and an expected checkpoint binds by
-    # TYPE-AWARE equality (preserving PG number spelling, keeping bools distinct).
+    # 3b. persisted store checkpoint (polis-coordinator/1) custody, matching the
+    # store's real load_current checks (store.rs). Total admission via the schema
+    # (required, typed, non-boolean nonnegative cursor slots, votes/moderation
+    # only), then VALUE bindings the store performs: embedded publisher_epoch ==
+    # the row/expected epoch; original_digests == ticks; and the CANONICAL
+    # payload_digests (numeric-normalized JSONB, distinct from original-byte
+    # hashes) == the canonical digest of each table's data. An expected checkpoint
+    # binds by TYPE-AWARE equality (PG number spelling normalized, bools distinct).
     ckpt = ticks.get("input_checkpoint")
-    if not isinstance(ckpt, dict):
-        fails.append("ticks.input_checkpoint (persisted store checkpoint) is required and must be an object")
+    admit = _admit(ckpt, _STORE_CHECKPOINT_SPEC, "input_checkpoint") if ckpt is not None else \
+        ["input_checkpoint: persisted store checkpoint is required"]
+    if admit:
+        fails.extend(admit)
     else:
-        if ckpt.get("schema") != STORE_CHECKPOINT_SCHEMA:
-            fails.append(f"input_checkpoint.schema must be {STORE_CHECKPOINT_SCHEMA!r}, "
-                         f"got {ckpt.get('schema')!r}")
-        if ckpt.get("operation_id") != operation_id:
-            fails.append(f"input_checkpoint.operation_id {ckpt.get('operation_id')!r} != {operation_id!r}")
-        cdig = ckpt.get("original_digests")
-        if not isinstance(cdig, dict) or not _json_type_equal(cdig, ticks.get("original_digests") or {}):
-            fails.append("input_checkpoint.original_digests missing or disagree with ticks.original_digests")
-        cursors = ckpt.get("cursors")
-        if not isinstance(cursors, dict) or not cursors:
-            fails.append("input_checkpoint.cursors is required")
-        else:
-            for stream, cur in cursors.items():
-                if not isinstance(cur, dict) or not _plain_int(cur.get("slot")):
-                    fails.append(f"input_checkpoint.cursors.{stream}.slot must be a (non-boolean) integer")
+        if ckpt["operation_id"] != operation_id:
+            fails.append(f"input_checkpoint.operation_id {ckpt['operation_id']!r} != {operation_id!r}")
+        if ckpt["publisher_epoch"] != publisher_epoch:
+            fails.append(f"input_checkpoint.publisher_epoch {ckpt['publisher_epoch']!r} != {publisher_epoch!r}")
+        if not _json_type_equal(ckpt["original_digests"], ticks.get("original_digests") or {}):
+            fails.append("input_checkpoint.original_digests disagree with ticks.original_digests")
+        canon = {name: _canonical_payload_digest((bundle.get(name) or {}).get("data"))
+                 for name in _PAYLOAD_TABLES if (bundle.get(name) or {}).get("data") is not None}
+        if ckpt["payload_digests"] != canon:
+            fails.append("input_checkpoint.payload_digests are not the canonical digests of the payloads")
         if expected_input_checkpoint is not None and not _json_type_equal(ckpt, expected_input_checkpoint):
             fails.append("input_checkpoint does not equal the expected checkpoint (type-aware)")
 
@@ -802,83 +890,57 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
     return fails
 
 
-#: The actual companion wrapper math_writer.derive_bidtopid emits (verified
-#: against math_writer.py:32-84): a positional vector of member vectors aligned
-#: to main.base-clusters.id, NOT a {bid: [pid]} dict.
-_BIDTOPID_KEYS = frozenset({"zid", "bidToPid", "lastVoteTimestamp"})
-
-
 def _check_bidtopid_against_main(main: Any, bid: Any, zid: Any) -> list[str]:
-    """Resolve bids through ``main.base-clusters.id`` into the real ``bidToPid``
-    wrapper and compare the ordered membership relationships. A wrapper that is
-    not the writer's ``{zid, bidToPid, lastVoteTimestamp}`` shape, or whose
-    positional buckets do not equal ``base-clusters.members``, does NOT belong to
-    this bundle and is rejected; an empty generation (no base clusters, empty
-    bidToPid) is valid."""
-    if not isinstance(bid, dict) or not isinstance(main, dict):
-        return ["observer: bidtopid/main data missing for bid->index->pid check"]
-    if set(bid) != _BIDTOPID_KEYS:
-        return [f"observer: bidtopid is not the writer wrapper {sorted(_BIDTOPID_KEYS)} "
-                f"(got keys {sorted(bid)})"]
-    btp = bid["bidToPid"]
-    base = main.get("base-clusters")
-    if not isinstance(base, dict):
-        return ["observer: main.base-clusters missing for bid->index->pid check"]
-    ids, members = base.get("id"), base.get("members")
+    """Grade the companion against the real ``bidToPid`` wrapper.
+
+    Total admission first (``_BIDTOPID_SPEC`` / ``_MAIN_SPEC``): the wrapper shape,
+    element types (integer pids, no bools/floats), list ranks and group-row shapes
+    are all decided by the schema, so a malformed value fails with a GRADED message
+    and the relational checks below — positional ``bidToPid[i] ==
+    base-clusters.members[i]``, unique base ids, ``count == len(members)``, a
+    participant PARTITION, and group bids that reference existing base ids — can
+    never raise. An empty generation is valid."""
+    admit = _admit(bid, _BIDTOPID_SPEC, "bidtopid") + _admit(main, _MAIN_SPEC, "main")
+    if admit:
+        return [f"observer: {f}" for f in admit]
+
+    base = main["base-clusters"]
+    ids, members, btp = base["id"], base["members"], bid["bidToPid"]
     counts = base.get("count")
-    if not (isinstance(btp, list) and isinstance(ids, list) and isinstance(members, list)):
-        return ["observer: bidToPid / base-clusters.id / base-clusters.members must be lists"]
+    out: list[str] = []
+    if zid is not None and bid["zid"] != zid:
+        out.append(f"observer: bidtopid.zid {bid['zid']!r} != bundle zid {zid!r}")
     if not (len(btp) == len(ids) == len(members)):
-        return [f"observer: bidToPid ({len(btp)}) not aligned to base-clusters "
-                f"id/members ({len(ids)}/{len(members)})"]
-    fails: list[str] = []
-    if zid is not None and bid.get("zid") != zid:
-        fails.append(f"observer: bidtopid.zid {bid.get('zid')!r} != bundle zid {zid!r}")
-
-    # base-cluster ids: typed and UNIQUE
-    if not all(_plain_int(x) for x in ids):
-        fails.append("observer: base-clusters.id must be integers")
-    elif len(set(ids)) != len(ids):
-        fails.append(f"observer: base-clusters.id has duplicates: {ids}")
-
-    # counts (when present): one per cluster, equal to that cluster's membership size
+        return out + [f"observer: bidToPid ({len(btp)}) not aligned to base-clusters "
+                      f"id/members ({len(ids)}/{len(members)})"]
+    if len(set(ids)) != len(ids):
+        out.append(f"observer: base-clusters.id has duplicates: {ids}")
     if counts is not None:
-        if not isinstance(counts, list) or len(counts) != len(members):
-            fails.append("observer: base-clusters.count is not one entry per cluster")
+        if len(counts) != len(members):
+            out.append("observer: base-clusters.count is not one entry per cluster")
         else:
             for i, (c, mem) in enumerate(zip(counts, members)):
-                if c != (len(mem) if isinstance(mem, list) else None):
-                    fails.append(f"observer: base-clusters.count[{i}]={c!r} != len(members)="
-                                 f"{len(mem) if isinstance(mem, list) else '?'}")
-
-    # membership is a PARTITION of the clustered participants: each bucket a list
-    # of integer pids, unique within a bucket and DISJOINT across buckets; and
-    # bidToPid[i] equals base-clusters.members[i] positionally.
+                if c != len(mem):
+                    out.append(f"observer: base-clusters.count[{i}]={c!r} != len(members)={len(mem)}")
     seen: set = set()
     for i, (bucket, mem) in enumerate(zip(btp, members)):
-        if not isinstance(bucket, list) or not all(_plain_int(x) for x in bucket):
-            fails.append(f"observer: bidToPid[{i}] is not a list of integer pids")
-            continue
-        if list(bucket) != list(mem):
-            fails.append(f"observer: bidToPid[{i}]={bucket} != base-clusters.members[{i}]={mem} "
-                         f"(positional bid membership mismatch)")
+        if bucket != mem:
+            out.append(f"observer: bidToPid[{i}]={bucket} != base-clusters.members[{i}]={mem} "
+                       f"(positional bid membership mismatch)")
         if len(set(bucket)) != len(bucket):
-            fails.append(f"observer: base cluster {i} has duplicate participant(s): {bucket}")
+            out.append(f"observer: base cluster {i} has duplicate participant(s): {bucket}")
         overlap = seen & set(bucket)
         if overlap:
-            fails.append(f"observer: participant(s) {sorted(overlap)} appear in more than one base cluster")
+            out.append(f"observer: participant(s) {sorted(overlap)} appear in more than one base cluster")
         seen |= set(bucket)
-
-    # group clusters (when present): every group bid must reference an existing
-    # base cluster id.
     groups = main.get("group-clusters")
-    if isinstance(groups, list):
-        idset = set(x for x in ids if _plain_int(x))
+    if groups is not None:
+        idset = set(ids)
         for g in groups:
-            for gbid in (g.get("members") or []) if isinstance(g, dict) else []:
+            for gbid in g["members"]:
                 if gbid not in idset:
-                    fails.append(f"observer: group cluster references unknown base bid {gbid!r}")
-    return fails
+                    out.append(f"observer: group cluster references unknown base bid {gbid!r}")
+    return out
 
 
 def observe_bundle_coherence(bundle: ReadbackBundle,

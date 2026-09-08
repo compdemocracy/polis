@@ -17,8 +17,14 @@ import hashlib
 import json
 from types import SimpleNamespace
 
+import pytest
+
 from polismath.poller.math_writer import derive_bidtopid
 from polismath.replay import coordinator_driver as cd
+
+
+def _canon(data):
+    return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
 def _set(b, name, data):
@@ -28,15 +34,19 @@ def _set(b, name, data):
                    original_bytes=raw, original_sha256=dg)
     b["ticks"]["original_digests"][name] = dg
     ckpt = b["ticks"].get("input_checkpoint")
-    if isinstance(ckpt, dict) and isinstance(ckpt.get("original_digests"), dict):
-        ckpt["original_digests"][name] = dg  # keep the store checkpoint in sync
+    if isinstance(ckpt, dict):  # keep the store checkpoint's digests in sync
+        if isinstance(ckpt.get("original_digests"), dict):
+            ckpt["original_digests"][name] = dg
+        if isinstance(ckpt.get("payload_digests"), dict):
+            ckpt["payload_digests"][name] = _canon(data)
 
 
 def _bundle(tick=0, epoch=5, op="op-1"):
     """A coherent, REAL-shaped bundle: main carries base-clusters and bidtopid is
     the writer's {zid, bidToPid, lastVoteTimestamp} wrapper positionally aligned to
-    it (derive_bidtopid), plus a full polis-coordinator/1 store input_checkpoint —
-    so observer AND readback grade it clean."""
+    it (derive_bidtopid), plus a full polis-coordinator/1 store input_checkpoint
+    (schema, operation, epoch, original + canonical payload digests, cursors) — so
+    observer AND readback grade it clean."""
     conv = SimpleNamespace(base_clusters=[{"id": 2, "members": [1, 2]},
                                           {"id": 8, "members": [3, 4]}], last_updated=1000)
     b = {"zid": 1, "math_env": "rustproto",
@@ -47,8 +57,9 @@ def _bundle(tick=0, epoch=5, op="op-1"):
     _set(b, "ptptstats", {"1": {"a": 1}})
     b["main"]["caching_tick"] = 42
     b["ticks"]["input_checkpoint"] = {
-        "schema": "polis-coordinator/1", "operation_id": op,
+        "schema": "polis-coordinator/1", "operation_id": op, "publisher_epoch": epoch,
         "original_digests": dict(b["ticks"]["original_digests"]),
+        "payload_digests": {n: _canon(b[n]["data"]) for n in ("main", "bidtopid", "ptptstats")},
         "cursors": {"votes": {"slot": 0}, "moderation": {"slot": 0}},
     }
     return b
@@ -167,6 +178,7 @@ def test_pg_numeric_normalization_still_allowed():
     _set(b, "main", {"x": 1})
     b["main"]["caching_tick"] = 42
     b["main"]["data"] = {"x": 1.0}
+    b["ticks"]["input_checkpoint"]["payload_digests"]["main"] = _canon({"x": 1.0})
     assert _V(b) == []
 
 
@@ -256,7 +268,8 @@ def test_observer_accepts_valid_empty_generation():
 def test_observer_rejects_unrelated_invented_map():
     b = _bundle(tick=0)
     _set(b, "bidtopid", {"2": [999], "8": [1]})
-    assert any("writer wrapper" in f for f in cd.observe_bundle_coherence(b))
+    fails = cd.observe_bundle_coherence(b)
+    assert fails and any("bidtopid" in f for f in fails)
 
 
 def _real_bundle_with(main_base, groups=None):
@@ -363,3 +376,76 @@ def test_bundle_mutations_are_independent():
     a["main"]["math_tick"] = 99
     assert b["main"]["math_tick"] == 0
     assert copy.deepcopy(a) == a
+
+
+# ---------------------------------------------------------------------------
+# Round 5 (board [440]): total membership admission — graded, never a TypeError.
+# ---------------------------------------------------------------------------
+def _obs_reject(main):
+    b = _bundle(tick=0)
+    _set(b, "main", main)
+    assert _V(b) == [], "byte custody must still pass"
+    return cd.observe_bundle_coherence(b)
+
+
+def _main_base(**over):
+    base = {"id": [2, 8], "members": [[1, 2], [3, 4]], "count": [2, 2]}
+    base.update(over)
+    return {"base-clusters": base}
+
+
+def test_observer_rejects_boolean_main_pid():
+    # main members [True,2] must not alias companion integer [1,2] via 1==True
+    m = _main_base(members=[[True, 2], [3, 4]])
+    assert _obs_reject(m)
+
+
+@pytest.mark.parametrize("groups", [
+    [{"id": 0, "members": [2.0]}],   # float bid aliases integer base id
+    {},                              # wrong container (not a list)
+    [7],                             # scalar group row (not an object)
+])
+def test_observer_rejects_malformed_groups(groups):
+    m = _main_base()
+    m["group-clusters"] = groups
+    assert _obs_reject(m)
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda m: m["base-clusters"].__setitem__("members", [7, [3, 4]]),   # scalar membership (was TypeError)
+    lambda m: m.__setitem__("group-clusters", [{"id": 0, "members": [[]]}]),  # unhashable bid (was TypeError)
+])
+def test_observer_total_admission_never_raises(mutate):
+    m = _main_base()
+    mutate(m)
+    # must be a graded rejection, not an exception
+    fails = _obs_reject(m)
+    assert fails
+
+
+# ---------------------------------------------------------------------------
+# Round 5: persisted checkpoint epoch / canonical-digest / cursor binding.
+# ---------------------------------------------------------------------------
+def test_checkpoint_missing_epoch_or_payload_digests_rejected():
+    for field in ("publisher_epoch", "payload_digests"):
+        b = _bundle(tick=0)
+        b["ticks"]["input_checkpoint"].pop(field)
+        assert _V(b, expected_input_checkpoint=copy.deepcopy(b["ticks"]["input_checkpoint"])), field
+
+
+def test_checkpoint_foreign_embedded_epoch_rejected():
+    b = _bundle(tick=0)
+    b["ticks"]["input_checkpoint"]["publisher_epoch"] = 999
+    assert any("publisher_epoch" in f for f in _V(b, expected_input_checkpoint=copy.deepcopy(b["ticks"]["input_checkpoint"])))
+
+
+def test_checkpoint_wrong_payload_digests_rejected():
+    b = _bundle(tick=0)
+    b["ticks"]["input_checkpoint"]["payload_digests"] = {"main": "bad"}
+    assert any("payload_digests" in f for f in _V(b, expected_input_checkpoint=copy.deepcopy(b["ticks"]["input_checkpoint"])))
+
+
+def test_checkpoint_unknown_cursor_stream_rejected():
+    b = _bundle(tick=0)
+    b["ticks"]["input_checkpoint"]["cursors"] = {"unrelated": {"slot": 0}}
+    assert _V(b, expected_input_checkpoint=copy.deepcopy(b["ticks"]["input_checkpoint"]))

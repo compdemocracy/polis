@@ -159,7 +159,7 @@ def test_missing_envelope_field_rejected(field):
 
 
 def test_unknown_top_level_field_rejected():
-    assert any("unknown top-level" in f for f in cd.validate_s1_identity(_manifest(surprise=True)))
+    assert any("unknown key" in f for f in cd.validate_s1_identity(_manifest(surprise=True)))
 
 
 @pytest.mark.parametrize("mutate", [
@@ -185,7 +185,7 @@ def test_expected_fixture_binding_rejects_foreign_fixture():
 
 def test_missing_admission_block():
     fails = cd.validate_s1_identity({"schema": cd.S1_CHECKPOINT_SCHEMA})
-    assert any("admission block missing" in f for f in fails)
+    assert any("missing admission" in f for f in fails)
 
 
 def test_campaign_cut_binding_distinguishes_plan_hash_from_schedule_digest():
@@ -194,3 +194,35 @@ def test_campaign_cut_binding_distinguishes_plan_hash_from_schedule_digest():
                              campaign_plan_sha256="sha256:campaign")
     assert b["global_cut_index"] == 5
     assert b["s1_schedule_digest"] != b["campaign_plan_sha256"]
+
+
+# ---------------------------------------------------------------------------
+# Round 5 (board [440]): worker cursor/file custody bound by VALUE, not shape.
+# ---------------------------------------------------------------------------
+def test_input_and_observed_cursors_must_agree():
+    m = _manifest()
+    m["observed_state_cursors"]["votes"]["slot"] = 999   # input stays 0
+    fails = cd.validate_s1_identity(m, expected_admission=m["admission"], expected_identity=m)
+    assert any("disagree" in f for f in fails)
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda m: m["files"]["main"].update(bytes=-1),          # negative descriptor length
+    lambda m: m["files"]["main"].update(sha256="not-a-digest"),
+    lambda m: m["math_input_cursors"]["votes"].update(slot=-1),  # negative cursor slot
+    lambda m: m["math_input_cursors"]["votes"].update(sha256="not-a-digest"),
+])
+def test_negative_lengths_and_invalid_digests_rejected(mutate):
+    m = _manifest()
+    mutate(m)
+    assert cd.validate_s1_identity(m)
+
+
+def test_expected_cursors_and_files_binding():
+    m = _manifest()
+    good_cursors = _cursors()
+    assert cd.validate_s1_identity(m, expected_cursors=good_cursors) == []
+    other = _cursors()
+    other["votes"]["slot"] = 7
+    assert cd.validate_s1_identity(m, expected_cursors=other)
+    assert cd.validate_s1_identity(m, expected_files={"nope": 1})
