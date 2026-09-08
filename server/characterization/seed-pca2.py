@@ -14,6 +14,11 @@ from pathlib import Path
 import sys
 from unittest.mock import patch
 
+from isolation import isolated_environment
+
+# Fail before importing the engine or opening a database connection.
+isolated_environment(os.environ)
+
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'delphi'))
 import numpy as np
@@ -30,10 +35,6 @@ HERE = Path(__file__).resolve().parent
 CLOCK = 1700000000000
 
 def main():
-    project = os.environ['COMPOSE_PROJECT_NAME']
-    port = int(os.environ['POLIS_RECOVERY_PG_PORT'])
-    if not project.startswith('p027r4fix-') or not 55930 <= port <= 55939:
-        raise RuntimeError('round-4 isolated project and port required')
     logging.disable(logging.INFO)
     fixtures = json.loads((HERE / 'pca2-fixtures.json').read_text())
     db = psycopg2.connect(host='postgres', port=5432, dbname='p027', user='postgres')

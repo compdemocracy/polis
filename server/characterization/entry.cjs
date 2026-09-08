@@ -53,6 +53,27 @@ async function main() {
   const handle = app.handle;
   app.handle = function (req, res, ...rest) {
     const owner = state.currentCase;
+    if (owner?.startsWith("comments-read/"))
+      res.once("finish", () => {
+        state.commentsContext = Object.fromEntries(
+          [
+            "uid",
+            "pid",
+            "zid",
+            "rid",
+            "tids",
+            "moderation",
+            "mod",
+            "modIn",
+            "mod_gt",
+            "include_voting_patterns",
+            "limit",
+            "offset",
+          ]
+            .filter((k) => req.p?.[k] !== undefined)
+            .map((k) => [k, req.p[k]])
+        );
+      });
     // Body-parser and stream continuations arrive on reused HTTP sockets. Their
     // request/response emitters must retain this request's ownership too.
     for (const target of [req, res]) {
@@ -80,6 +101,7 @@ async function main() {
             "case"
           );
           state.currentCase = owner;
+          state.commentsContext = null;
           state.caseStart = performance.now();
           state.setSeed(seed);
           return res.end("{}");
@@ -113,6 +135,7 @@ async function main() {
               process: state.process,
               hits: state.hits,
               work: state.barrier.state(state.currentCase),
+              commentsContext: state.commentsContext,
               jwtIssues: state.jwtIssues,
               files: files(),
             })
@@ -158,6 +181,38 @@ async function main() {
                       2
                     ),
                   ])
+              ),
+              ...Object.fromEntries(
+                await Promise.all(
+                  require("./comments-cases.cjs").actors.map(async (a) => [
+                    a.ref,
+                    await oidc(a.username),
+                  ])
+                )
+              ),
+              ...Object.fromEntries(
+                require("./comments-cases.cjs").fixtures.flatMap((f) => {
+                  const token =
+                    require("../src/auth/anonymous-jwt.ts").issueAnonymousJWT(
+                      f.capability,
+                      3,
+                      f.participantPid
+                    );
+                  const claims = JSON.parse(
+                    Buffer.from(token.split(".")[1], "base64url")
+                  );
+                  claims.iat -= 31536001;
+                  claims.exp -= 31536001;
+                  const expired = require("jsonwebtoken").sign(
+                    claims,
+                    pair.privateKey,
+                    { algorithm: "RS256" }
+                  );
+                  return [
+                    [`comments-participant-${f.zid}`, token],
+                    [`comments-expired-${f.zid}`, expired],
+                  ];
+                })
               ),
               owner: await oidc("test.user.0@polis.test"),
               admin: await oidc("admin@polis.test"),
