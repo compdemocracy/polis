@@ -231,11 +231,13 @@ export interface JobAdmissionStore {
   /** Delete an expired idempotency alias under an exact job condition. */
   clearAlias(alias: GuardRow): Promise<boolean>;
   /**
-   * Delete a queue row this request created, only while it is still unclaimed.
-   * The compensating action for losing a race with a producer that does not
-   * participate in the guard transaction.
+   * Withdraw a queue row this request created *and* its scope guard, in one
+   * transaction, and only while the row is still unclaimed. The compensating
+   * action for losing a race with a producer that does not participate in the
+   * guard transaction. Atomic because a reader that catches the two halves
+   * apart sees a guard naming a row that no longer exists.
    */
-  deleteUnclaimedJob(jobId: string): Promise<boolean>;
+  withdrawAdmission(jobId: string, scopeKey: string): Promise<boolean>;
 }
 
 function canonicalise(value: unknown): unknown {
@@ -574,23 +576,37 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
     }
   },
 
-  async deleteUnclaimedJob(jobId) {
+  async withdrawAdmission(jobId, scopeKey) {
     try {
-      await docClient.delete({
-        TableName: JOB_QUEUE_TABLE,
-        Key: { job_id: jobId },
-        // Only while no worker has taken it: `job_poller.py:claim_job` moves
-        // status to PROCESSING and stamps worker_id.
-        ConditionExpression: "#s = :pending AND #w = :unclaimed",
-        ExpressionAttributeNames: { "#s": "status", "#w": "worker_id" },
-        ExpressionAttributeValues: {
-          ":pending": "PENDING",
-          ":unclaimed": "none",
-        },
+      await docClient.transactWrite({
+        TransactItems: [
+          {
+            Delete: {
+              TableName: JOB_QUEUE_TABLE,
+              Key: { job_id: jobId },
+              // Only while no worker has taken it: `job_poller.py:claim_job`
+              // moves status to PROCESSING and stamps worker_id.
+              ConditionExpression: "#s = :pending AND #w = :unclaimed",
+              ExpressionAttributeNames: { "#s": "status", "#w": "worker_id" },
+              ExpressionAttributeValues: {
+                ":pending": "PENDING",
+                ":unclaimed": "none",
+              },
+            },
+          },
+          {
+            Delete: {
+              TableName: JOB_GUARD_TABLE,
+              Key: { guard_key: scopeKey },
+              ConditionExpression: "job_id = :jid",
+              ExpressionAttributeValues: { ":jid": jobId },
+            },
+          },
+        ],
       });
       return true;
     } catch (error: any) {
-      if (error?.name === "ConditionalCheckFailedException") {
+      if (error?.name === "TransactionCanceledException") {
         return false;
       }
       throw error;
@@ -1284,15 +1300,13 @@ export async function admitDelphiJob(
               job_id: String(jobItem.job_id),
             } as GuardRow);
           }
-          const withdrawn = await store.deleteUnclaimedJob(
-            String(jobItem.job_id)
+          // One transaction, so no reader can catch the guard naming a row
+          // that has already gone.
+          const withdrawn = await store.withdrawAdmission(
+            String(jobItem.job_id),
+            scopeKey
           );
           if (withdrawn) {
-            await store.clearGuard({
-              guard_key: scopeKey,
-              job_id: String(jobItem.job_id),
-              version: 1,
-            } as GuardRow);
             logger.warn(
               `Delphi scope ${logScope(
                 scopeKey
