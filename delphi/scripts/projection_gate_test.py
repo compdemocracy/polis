@@ -426,6 +426,40 @@ def test_manifest_populated_wire_coverage_per_target() -> None:
     assert not manifest([prim_pre]).populated_ok                # preflight only
 
 
+def test_manifest_approval_binds_cluster_and_primary_role() -> None:
+    """R5 defect 1 (unit): --approve-same-identity never accepts two different
+    identifiers, and the primary must be a write endpoint (not in recovery)."""
+    def ident(sid, rec):
+        return pg.ServerIdentity(sid, rec, None, None)
+
+    prim = pg.ChannelRun("primary", "wire", [_fake_wire_report(n, 1) for n in pg.SITES])
+    repl = pg.ChannelRun("replica", "wire", [_fake_wire_report(n, 1) for n in pg.SITES])
+
+    def mani(p_id, r_id, approve=False, expected=None):
+        return pg.Manifest(runs=[prim, repl], require_replica=True, replica_seen=True,
+                           requested_sites=tuple(pg.SITES), primary_identity=p_id,
+                           replica_identity=r_id, approve_same_identity=approve,
+                           expected_system_identifier=expected)
+
+    primary = ident("100", False)
+    standby = ident("100", True)       # same cluster, in recovery
+    other = ident("200", False)        # unrelated primary
+
+    # Approval with DIFFERENT identifiers is rejected (never two clusters).
+    assert not mani(primary, other, approve=True).ok
+    assert not mani(primary, other, approve=True).distinct_replica
+    # Approval with the SAME identifier (same-cluster read pool) passes.
+    assert mani(primary, ident("100", False), approve=True).ok
+    # A bound standby (in recovery + same id) passes.
+    assert mani(primary, standby).ok and mani(primary, standby).distinct_replica
+    # The primary must be a write endpoint: a standby offered as primary is rejected.
+    assert not mani(ident("100", True), standby).ok
+    assert not mani(ident("100", True), standby).primary_valid
+    # expected_system_identifier binds both endpoints.
+    assert mani(primary, standby, expected="100").ok
+    assert not mani(primary, standby, expected="999").ok
+
+
 # --- P1: bind to the real served path (query builder + pg types + serializer) ---
 
 
