@@ -132,6 +132,13 @@ export default {
   polisFromAddress: process.env.POLIS_FROM_ADDRESS as string,
   polisJwtIssuer: process.env.POLIS_JWT_ISSUER || "https://pol.is/",
   polisJwtAudience: process.env.POLIS_JWT_AUDIENCE || "participants",
+  // P-024 Postgres queue substrate, first slice. Default off, and never on in
+  // production regardless of the variable: turning it on only makes
+  // src/queue/enqueue.ts callable from dev/test code, it wires no route and
+  // starts no worker. See docs/queue-substrate.md.
+  queueSubstrateEnabled:
+    process.env.NODE_ENV !== "production" &&
+    isTrue(process.env.POLIS_QUEUE_SUBSTRATE_ENABLED),
   readOnlyDatabaseURL:
     process.env.READ_ONLY_DATABASE_URL || (process.env.DATABASE_URL as string),
   runPeriodicExportTests: isTrue(process.env.RUN_PERIODIC_EXPORT_TESTS),
