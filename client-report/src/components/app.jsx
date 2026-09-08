@@ -570,6 +570,10 @@ const App = (props) => {
         const _computedStats = {
           votesPerVoterAvg: totalVotes / _ptptCountTotal,
           commentsPerCommenterAvg: _comments.length / numUniqueCommenters,
+          // How many statements the conversation has, from /api/v3/comments.
+          // NOT math["n-cmts"], which counts only the statements that are in the
+          // math and is legitimately 0 for a conversation with zero votes.
+          commentCount: _comments.length,
         };
 
         // Enrich math results with normalized consensus values
@@ -760,7 +764,7 @@ const App = (props) => {
             </div>
             <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
               <h3>Comments</h3>
-              <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{math["n-cmts"]}</p>
+              <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{comments.length}</p>
             </div>
             <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
               <h3>Votes</h3>

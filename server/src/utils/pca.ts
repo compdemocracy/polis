@@ -179,30 +179,27 @@ export function fetchAndCacheLatestPcaData() {
 }
 
 /**
- * Creates a minimal valid PCA structure for conversations with no votes.
- * This allows reports to load and display properly even when there's no voting data.
+ * Creates a minimal valid PCA structure for conversations with no math results.
+ *
+ * This is a *template of absences*, not a source of conversation content. It used
+ * to query `comments` and backfill `tids` / `n-cmts` / `pca.comment-extremity`, so
+ * a conversation with zero votes served a math blob that claimed to contain every
+ * approved comment, with a fabricated `center: [0, 0]` and one fabricated `0`
+ * extremity per comment. That made the math blob look like a comment index and
+ * hid a real bug: a blob whose `tids` covered only *some* approved comments could
+ * not be distinguished from one that covered all of them.
+ *
+ * The math blob's `tids` now means exactly one thing: "the comments that are in
+ * the math". Anything that needs the conversation's comments reads the `comments`
+ * table (see `getCommentsCount` / `getComments` in src/comment.ts, which apply the
+ * conversation's moderation and visibility rules).
+ *
+ * Kept deliberately unchanged: `comment-projection: {}` (the historical served
+ * value on the no-math path; the corrected engine emits `[[], []]` in its own
+ * blob, which wins the merge below), `lastVoteTimestamp: Date.now()` and
+ * `math_tick: 0` (the no-row fallback's liveness/poll contract, out of scope here).
  */
-async function createEmptyPcaStructure(
-  zid: number
-): Promise<PcaCacheItem["asPOJO"]> {
-  // Fetch comment IDs if they exist
-  let tids: number[] = [];
-  let nCmts = 0;
-
-  try {
-    const commentsQuery = await pg.queryP_readOnly<Array<{ tid: number }>>(
-      "select tid from comments where zid = ($1) and mod >= 1 order by tid",
-      [zid]
-    );
-
-    if (commentsQuery && Array.isArray(commentsQuery)) {
-      tids = commentsQuery.map((row: { tid: number }) => row.tid);
-      nCmts = tids.length;
-    }
-  } catch (err) {
-    logger.error("Error fetching comments for empty PCA structure", err);
-  }
-
+function createEmptyPcaStructure(): PcaCacheItem["asPOJO"] {
   return {
     "group-clusters": [],
     "base-clusters": {
@@ -216,14 +213,14 @@ async function createEmptyPcaStructure(
     "group-aware-consensus": {},
     "user-vote-counts": {},
     "in-conv": [],
-    "n-cmts": nCmts,
+    "n-cmts": 0,
     pca: {
       comps: [[], []],
-      center: [0, 0],
-      "comment-extremity": tids.map(() => 0), // Initialize with zeros for each comment
+      center: [],
+      "comment-extremity": [],
       "comment-projection": {},
     },
-    tids: tids,
+    tids: [],
     n: 0,
     repness: {},
     consensus: {
@@ -243,10 +240,9 @@ async function createEmptyPcaStructure(
  * This prevents client failures when PCA data exists but is missing required fields
  */
 async function ensureCompletePcaStructure(
-  zid: number,
   existingData?: any
 ): Promise<PcaCacheItem["asPOJO"]> {
-  const emptyStructure = await createEmptyPcaStructure(zid);
+  const emptyStructure = createEmptyPcaStructure();
 
   if (!existingData) {
     return emptyStructure;
@@ -469,7 +465,7 @@ export function getPca(
             "No PCA data found, returning empty structure for zid:",
             zid
           );
-          return ensureCompletePcaStructure(zid).then((completeData) => {
+          return ensureCompletePcaStructure().then((completeData) => {
             const dataWithZid = { ...completeData, zid: zid };
             // No committed row backs this presentation.
             return updatePcaCache(mathEnv, zid, dataWithZid, true);
@@ -515,7 +511,7 @@ export function getPca(
       processMathObject(item);
 
       // Ensure all required fields exist by merging with empty structure if needed
-      return ensureCompletePcaStructure(zid, item).then((completeData) => {
+      return ensureCompletePcaStructure(item).then((completeData) => {
         const dataWithZid = { ...completeData, zid: zid };
         return updatePcaCache(mathEnv, zid, dataWithZid);
       });
