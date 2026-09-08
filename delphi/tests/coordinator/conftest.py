@@ -147,6 +147,7 @@ def assert_coherent(url, zid=1, env="rustproto", fold=True):
 class Child:
     def __init__(self, url, mode="once", env="rustproto", stage=None, directory=None, extra=None, args=()):
         self.directory = Path(directory) if directory else None
+        self.out = self.err = None
         process_env = dict(os.environ, DATABASE_URL=url, MATH_ENV=env, P026_PYTHON=sys.executable,
             PYTHONPATH=str(ROOT/"delphi"), OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1",
             PYTHONDONTWRITEBYTECODE="1", P026_PAGE_SIZE="2", P026_WINDOW="1", P026_LEASE_SECONDS="120")
@@ -186,8 +187,9 @@ class Child:
 
     def kill(self):
         self.proc.kill()
-        self.proc.communicate(timeout=10)
+        self.out, self.err = self.proc.communicate(timeout=10)
         assert self.proc.returncode == -signal.SIGKILL
+        return self.out, self.err
 
 
 @pytest.fixture
@@ -201,6 +203,16 @@ def launch():
     for child in children:
         if child.proc.poll() is None:
             child.kill()
+
+
+def lease(url, zid=1, env="rustproto"):
+    """The durable lease row exactly as a competing process would observe it."""
+    c = connect(url)
+    with c.cursor() as cur:
+        cur.execute("SELECT owner_id,owner_epoch,expires_at>clock_timestamp() FROM coordinator_leases WHERE math_env=%s AND zid=%s", (env, zid))
+        row = cur.fetchone()
+    c.close()
+    return dict(zip(("owner_id", "owner_epoch", "unexpired"), row)) if row else None
 
 
 def expire(url):
