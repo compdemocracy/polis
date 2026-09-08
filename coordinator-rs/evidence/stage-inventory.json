@@ -2,6 +2,8 @@
   "protocol": "polis-fault-control/1",
   "compiled_stages": 25,
   "required_stages": 25,
+  "metrics_namespace": "Polis/Math",
+  "declared_metrics": 26,
   "reached": 25,
   "stages": [
     {
@@ -17,8 +19,8 @@
             "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "zid": 1
           },
-          "operation_id": "102b41c6f4d7441ca6c70bbee1bbc6f8",
-          "pid": 96085,
+          "operation_id": "81a028c1ad3a45f7907de4183ef19296",
+          "pid": 78945,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_source_selection",
@@ -46,8 +48,8 @@
             "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "zid": 1
           },
-          "operation_id": "24ca99d4bca6471fbc9e6943dde01903",
-          "pid": 96168,
+          "operation_id": "de3dbf20000141f4a005049bd6ed1f8e",
+          "pid": 79253,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_input_checkpoint",
@@ -57,7 +59,7 @@
         "exit": -9,
         "restart": "passed",
         "manual_lease_expiry": false,
-        "repaired_epoch": 2,
+        "repaired_epoch": 3,
         "math_tick": 0,
         "postcondition": "coherent; independent fold exact; dead owner's lease never expired by the harness"
       }
@@ -71,11 +73,11 @@
           "context": {
             "fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "math_env": "rustproto",
-            "worker_pid": 96238,
+            "worker_pid": 79795,
             "zid": 1
           },
-          "operation_id": "e8d6496eca394d499393c120b4679052",
-          "pid": 96237,
+          "operation_id": "f712d3b01e92442f81bb31f6531f2e46",
+          "pid": 79794,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_worker_apply",
@@ -99,11 +101,11 @@
           "context": {
             "fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "math_env": "rustproto",
-            "worker_pid": 96302,
+            "worker_pid": 80304,
             "zid": 1
           },
-          "operation_id": "e8e99fb72c8d446d9a136a39681d294b",
-          "pid": 96301,
+          "operation_id": "7a0bbd52118d4875a983a25f2a2230a3",
+          "pid": 80303,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_worker_compute",
@@ -129,8 +131,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "92fb11c54b63418d86369dd6d8f5ad37",
-          "pid": 96014,
+          "operation_id": "44cbccf3c96b4c04a9bffdab6e213818",
+          "pid": 78666,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_lease",
@@ -152,7 +154,7 @@
         "stage": "before_ticks",
         "ack": {
           "context": {
-            "backend_pid": 21472,
+            "backend_pid": 27453,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -218,7 +220,7 @@
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "189e762c31c8ec8eb40f867287f553cc9c45c21e9463fc9c04cbb6c0de259b74",
+                "main": "860c8dd4c7c5252a2fe257e46a6c0809995d6cdcb949482fdd00f7a9508bf834",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -230,8 +232,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "6a49fb6a3db8441e9e0d3bd8f334f052",
-          "pid": 96852,
+          "operation_id": "20d2bbdac762472f8545d9735faf318f",
+          "pid": 80365,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_ticks",
@@ -253,7 +255,7 @@
         "stage": "after_ticks",
         "ack": {
           "context": {
-            "backend_pid": 21593,
+            "backend_pid": 27568,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -319,7 +321,7 @@
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "f6da768257c4eb14fb1bad1ce5c420755374abe90ea37d7ecd88d772d264de25",
+                "main": "163a365d66170e433886b70c4ab6cf5eec4d47af6330ddc9119c83edbe9d6fd5",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -331,8 +333,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "31325bdc05454415b1c763703aef955d",
-          "pid": 96933,
+          "operation_id": "545e2687fefd476f93c8c1ac10d965da",
+          "pid": 80421,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_ticks",
@@ -354,7 +356,7 @@
         "stage": "before_bidtopid",
         "ack": {
           "context": {
-            "backend_pid": 21706,
+            "backend_pid": 27683,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -420,7 +422,7 @@
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "61a2056b23b6f8deb2bb9a0c3ccd860083cb2a57e25effea997465eb4876b0a1",
+                "main": "88104e5c68204ecc37876568a74cd5bd27ffa8bae5d65b817fc1df5103ab4742",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -432,8 +434,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "5ee8c3483de5463789077a217448b48c",
-          "pid": 97020,
+          "operation_id": "faa1de49a0384785a63f320fba5ddabc",
+          "pid": 80936,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_bidtopid",
@@ -455,7 +457,7 @@
         "stage": "after_bidtopid",
         "ack": {
           "context": {
-            "backend_pid": 21818,
+            "backend_pid": 27798,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -521,7 +523,7 @@
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "fd34eea267eeae04b38144ff95de29cf75276d534bba9d7c5d152103d799ab36",
+                "main": "edb4eb7420ac09c277b4ca66481f73c374e6686b2dee57854aeb0d297342b4af",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -533,8 +535,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "456b92c1aa1e471195bc5daa541d643e",
-          "pid": 97109,
+          "operation_id": "6077e13a6e4542bdb6e1a2f3293b6439",
+          "pid": 80979,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_bidtopid",
@@ -556,7 +558,7 @@
         "stage": "before_ptptstats",
         "ack": {
           "context": {
-            "backend_pid": 21939,
+            "backend_pid": 27913,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -622,7 +624,7 @@
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "c051b743977039fbd63b4dfaa2b54fc612d595122b92a9db4d72d4f7d415f9e5",
+                "main": "86d05b8dcd4691123d6f352032ccc7a539526d1588b7a42b2c395fcfc9984b84",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -634,8 +636,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "38b11033be114468a0b192536682e800",
-          "pid": 97417,
+          "operation_id": "0fb78aee4e1c4c16a4fcc996e7f350c7",
+          "pid": 81491,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_ptptstats",
@@ -657,7 +659,7 @@
         "stage": "after_ptptstats",
         "ack": {
           "context": {
-            "backend_pid": 22053,
+            "backend_pid": 28027,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -723,7 +725,7 @@
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "1d9ce7eb314b5d32ffbf3825d2038b40169893075a3587b11488a8b2a0026c69",
+                "main": "5246873f49e68e12dd1643d997af57a319f9c401d9ca34b79f156adf5a8ee478",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -735,8 +737,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "920e74f8f60a499e87be2c3a9b370328",
-          "pid": 97737,
+          "operation_id": "2000b4135b414e0bbe07827c9d5579ef",
+          "pid": 81535,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_ptptstats",
@@ -758,7 +760,7 @@
         "stage": "before_main",
         "ack": {
           "context": {
-            "backend_pid": 22167,
+            "backend_pid": 28143,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -824,7 +826,7 @@
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "8333ca9b7c490eeba660c1261bc9cce265948d1cd9a0224f6e71803f7368da0a",
+                "main": "61cabb69dbeaae2786f078f56bf3afa4f23ea91e395596f5670542a62aed7482",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -836,8 +838,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "47554627b75746f6ac6256aefb55f7be",
-          "pid": 97809,
+          "operation_id": "ab57a415c692434eb63b1360e702582a",
+          "pid": 81837,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_main",
@@ -859,7 +861,7 @@
         "stage": "after_main",
         "ack": {
           "context": {
-            "backend_pid": 22287,
+            "backend_pid": 28257,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -925,7 +927,7 @@
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "e24034d51146ddc08d4352a7302e15981662f15ef8fad2e56c8d48496b8cdf18",
+                "main": "c41f3b7bbca2d827229da2def7849343e86f05fca9025f53c3e4a8b856cd0ecf",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -937,8 +939,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "cca909b0bbbf4f43b9b26425cd485773",
-          "pid": 97931,
+          "operation_id": "bf1393cc17254a4698f82222839be6be",
+          "pid": 82116,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_main",
@@ -960,7 +962,7 @@
         "stage": "before_commit",
         "ack": {
           "context": {
-            "backend_pid": 22401,
+            "backend_pid": 28379,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -1026,7 +1028,7 @@
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "2939af228c7f5331d810199d4592b331e7c9ae93acc3ee5c7322ada030bfedf1",
+                "main": "5f3677e6b9731c33dcf296ec1c12dd2991eef414f4563c1fdac50381b1fee6f0",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -1038,8 +1040,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "ed048bbebf754740b7d046d38af5d60d",
-          "pid": 98039,
+          "operation_id": "6001a8f7e97d420b91f2c37b6a355014",
+          "pid": 82167,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_commit",
@@ -1061,7 +1063,7 @@
         "stage": "after_commit",
         "ack": {
           "context": {
-            "backend_pid": 22521,
+            "backend_pid": 28516,
             "checkpoint": {
               "cursors": {
                 "moderation": {
@@ -1127,7 +1129,7 @@
               },
               "payload_digests": {
                 "bidtopid": "bce9a00e58bfb881ee202dfb6bd7b3e8e572ffa85c9a9f230f97e4dbbeab2b78",
-                "main": "7987798b32609047bf9e47d8c95804930d58b187e1f5b8cfbcc751cde8e35ac6",
+                "main": "211969bf315625aa5e4a2ae81ca656f47789eaaa0dc0a1dc6d6d0edb1bc72938",
                 "ptptstats": "c71a7fdb80b86ca6f403c7f28a1b8355a702a3224587e3cc78666665ebf5c8a2"
               },
               "profile": "candidate-profile",
@@ -1139,8 +1141,8 @@
             "math_env": "rustproto",
             "zid": 1
           },
-          "operation_id": "07767f40c990476eb587aad37683f7c1",
-          "pid": 98880,
+          "operation_id": "61817b477dfc47e58ee511228e5b38d7",
+          "pid": 82680,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_commit",
@@ -1168,8 +1170,8 @@
             "source_fingerprint": "9d9f34f05fea81bed7f90bfe641e5c5ca4a833d41f9830e70871353bd6bce57f",
             "zid": 1
           },
-          "operation_id": "ad46d03fb73248eca2d12cd9e65b1b0a",
-          "pid": 99006,
+          "operation_id": "ff0a978db5a24449a46fe6c585b04381",
+          "pid": 82749,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_ack",
@@ -1193,11 +1195,11 @@
           "context": {
             "fingerprint": "c96dd4fdf8ca7b7b09176eae1abf6fd32adbacd0378b24cf46c9b250e0be32be",
             "math_env": "rustproto",
-            "worker_pid": 1487,
+            "worker_pid": 83650,
             "zid": 1
           },
-          "operation_id": "0c91014ed7b0404aa8ee243b5ed5d586",
-          "pid": 1486,
+          "operation_id": "7c7c208dc8c94db088adc01d497d9830",
+          "pid": 83649,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_restore",
@@ -1218,11 +1220,11 @@
           "context": {
             "fingerprint": "c96dd4fdf8ca7b7b09176eae1abf6fd32adbacd0378b24cf46c9b250e0be32be",
             "math_env": "rustproto",
-            "worker_pid": 1573,
+            "worker_pid": 83969,
             "zid": 1
           },
-          "operation_id": "dbf958d02f144b5588bcb10578c4d0f4",
-          "pid": 1572,
+          "operation_id": "7b9b5ad500854accb3054cb151ac67fd",
+          "pid": 83968,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_restore",
@@ -1241,8 +1243,8 @@
         "stage": "before_cursor",
         "ack": {
           "context": {},
-          "operation_id": "e204cf0c9e9042daa7f512d3a4948035",
-          "pid": 1670,
+          "operation_id": "9c3a8cf68c8f4e8b8ebe9150b5011e6d",
+          "pid": 84038,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_cursor",
@@ -1266,8 +1268,8 @@
             "maximum": 1,
             "sweep": 0
           },
-          "operation_id": "9eebecdc51224f36b75fa830606b7580",
-          "pid": 1705,
+          "operation_id": "9cd5162c45564911a89b0db71abb89aa",
+          "pid": 84052,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_cursor",
@@ -1285,8 +1287,8 @@
         "stage": "before_sweep",
         "ack": {
           "context": {},
-          "operation_id": "50754b13cb0a46c9adbd5ab53b6787e0",
-          "pid": 1730,
+          "operation_id": "f593ddede8dd4ed0a5df92ebd34211e6",
+          "pid": 84063,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_sweep",
@@ -1313,8 +1315,8 @@
               }
             ]
           },
-          "operation_id": "242fbc3d94534f708dfe455c403360bb",
-          "pid": 1750,
+          "operation_id": "96aef79fbe5b437ab9f573efbc69a0ac",
+          "pid": 84093,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "after_sweep",
@@ -1335,8 +1337,8 @@
             "tick": 0,
             "zid": 1
           },
-          "operation_id": "5ec5c4f9ca35440098a5fa6e43b3af78",
-          "pid": 1786,
+          "operation_id": "caf1a68ebb2a4df7bf43cf43dca7b09e",
+          "pid": 84103,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "bundle_pinned",
@@ -1356,8 +1358,8 @@
             "tick": 0,
             "zid": 1
           },
-          "operation_id": "817bd28bffe844dd8c84fde8942acdd4",
-          "pid": 1831,
+          "operation_id": "43f4e6526d98411a8b5e0c04fb63e056",
+          "pid": 84121,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "before_companion_join",
@@ -1379,8 +1381,8 @@
             "evicted_zid": 1,
             "inserted_zid": 2
           },
-          "operation_id": "7568d33a4100487bb1c55e328bd06dac",
-          "pid": 99814,
+          "operation_id": "3eb50a9f43c84fc29dff97f813a268f0",
+          "pid": 83039,
           "protocol": "polis-fault-control/1",
           "run_id": "synthetic-test",
           "stage": "cache_eviction_contends_with_same_zid_update",
@@ -1394,10 +1396,14 @@
   "unreached": [],
   "stage_inventory_gate": "PASS",
   "open_conditions": [
-    "CO08/D4: actual Node Bundle route, cache join and C7 presentation checks",
-    "CO01: scan age / backlog / failure metrics are not exposed",
+    "CO08/D4: the real Node reader (getPca + getBidIndexToPidMapping + getPidsForGid) now serves identical bytes for both writers, but CO04's loadBundle/Bundle cache-unit rewrite does not exist in the server and is untested here",
+    "CO08/D4: HTTP routes, ETag/304 handling and the private 2,884-case served corpus are not executed; the empty presentation is compared synthetically only",
+    "CO08/D4 finding: a committed generation of 0 is not served at all by the real reader (pca.ts guards the column override with a falsy 0, then drops the row)",
+    "C7: a published empty math blob lists no tids while the server synthesizes the approved-comment listing; polis-empty-served/1 must rule on the difference",
+    "CO01: the incremental probe is a hint bounded by P026_RECONCILE_SECONDS; no proven change token covers every transaction, so the ceiling is what carries completeness",
+    "CO02/CO06: resident-cache integrity reconciliation is per-pass and single-threaded; a multi-worker / warm-worker cache campaign is absent",
     "polis-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate"
   ],
   "full_contract_gate": "FAIL",
-  "profile": "Rust coordinator + Python worker + CLI Bundle reader; actual Node not exercised"
+  "profile": "Rust coordinator + Python worker + CLI Bundle reader + the real Node getPca/getBidIndexToPidMapping reader in-process; no HTTP route, no loadBundle"
 }
