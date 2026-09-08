@@ -137,7 +137,7 @@ async function runMigration(pool: Pool): Promise<void> {
 
 /** One-statement helper on a fresh pooled connection, as the owning login. */
 async function sql(
-  pool: Pool,
+  pool: { query(text: string, values?: unknown[]): Promise<any> },
   text: string,
   values: unknown[] = []
 ): Promise<any> {
@@ -456,11 +456,27 @@ function requireProvisioning(): void {
  * removes only the entries that role granted; the ones the migration made as
  * the main login survive.
  */
-async function dropCreatedRoles(): Promise<void> {
+/** The pool shape dropCreatedRoles needs, so a control can supply a fake one. */
+interface CleanupPool {
+  connect(): Promise<{
+    query(text: string, values?: unknown[]): Promise<any>;
+    release(destroy?: boolean): void;
+  }>;
+}
+
+async function dropCreatedRoles(
+  pool: CleanupPool = mainPool,
+  roles: { roles: string[] } = created
+): Promise<void> {
   const failures: string[] = [];
-  const client = await mainPool.connect();
-  // A client whose session principal is unknown must not be pooled.
+  const client = await pool.connect();
+  // A client whose session principal is not provably the login must not be
+  // pooled. This is set BEFORE any identity-changing statement and cleared only
+  // by a verified reset, so no path out of the loop can return an unverified
+  // session to the pool - including one where the verification query itself
+  // fails, which is unknown state rather than evidence that pooling is safe.
   let discard = false;
+  let stop = false;
   try {
     const principal = async (): Promise<string> => {
       const answer = await client.query("SELECT current_user AS role");
@@ -468,7 +484,31 @@ async function dropCreatedRoles(): Promise<void> {
     };
     const login = await principal();
 
-    for (const role of created.roles) {
+    /** Restore the login and prove it. Never throws; false means unknown. */
+    const restore = async (role: string): Promise<boolean> => {
+      try {
+        await client.query("RESET ROLE");
+      } catch (err) {
+        failures.push(`${role}: RESET ROLE failed (${String(err)})`);
+        return false;
+      }
+      try {
+        if ((await principal()) !== login) {
+          failures.push(`RESET ROLE did not restore ${login} after ${role}`);
+          return false;
+        }
+      } catch (err) {
+        failures.push(
+          `${role}: could not verify the session principal after RESET ROLE (${String(
+            err
+          )})`
+        );
+        return false;
+      }
+      return true;
+    };
+
+    for (const role of roles.roles) {
       // The two REVOKEs below are grantor-specific: they are correct only while
       // the session actually IS this role. If the switch fails the session is
       // still the main login, and running them would withdraw grants this run
@@ -483,59 +523,72 @@ async function dropCreatedRoles(): Promise<void> {
             err
           )}); its grants were left in place`
         );
-        if ((await principal()) !== login) {
+        // The session identity did not change, but that has to be established
+        // rather than assumed, and the read itself can fail.
+        try {
+          if ((await principal()) !== login) {
+            failures.push(
+              `session principal is not ${login} after a failed SET ROLE`
+            );
+            discard = true;
+            break;
+          }
+        } catch (readErr) {
           failures.push(
-            `session principal is not ${login} after a failed SET ROLE`
+            `${role}: could not verify the session principal after a failed SET ROLE (${String(
+              readErr
+            )})`
           );
           discard = true;
           break;
         }
         continue;
       }
-      if ((await principal()) !== role) {
-        failures.push(`SET ROLE ${role} reported success without switching`);
-        discard = true;
-        break;
-      }
 
+      // Identity changed. Unsafe to pool until a verified reset says otherwise,
+      // whatever happens in between.
+      discard = true;
       try {
-        // Only the grantor can revoke what it granted, and only while it still
-        // holds the grant option, so this runs before DROP OWNED BY takes the
-        // option away. It removes this role's ACL entries and no others.
-        await client.query(
-          "REVOKE ALL ON SCHEMA public FROM polis_queue_owner, polis_queue_executor CASCADE"
-        );
-        await client.query(
-          "REVOKE ALL ON public.conversations FROM polis_queue_owner CASCADE"
-        );
-      } catch (err) {
-        // A role that granted nothing here holds no privilege to revoke, and
-        // PostgreSQL answers that with insufficient_privilege. That is the
-        // normal case for the roles which never replayed the migration, not a
-        // cleanup failure. If a revoke was genuinely needed and did not happen,
-        // the role keeps its grantor dependency and the leaked-role check below
-        // catches it.
-        if ((err as { code?: string }).code !== "42501") {
-          failures.push(
-            `${role}: revoking its own grants failed (${String(err)})`
+        if ((await principal()) !== role) {
+          throw new Error(
+            `SET ROLE ${role} reported success without switching`
           );
         }
-      }
-
-      // Restore the principal, and verify it: everything after this point runs
-      // as the main login, and so does the next iteration.
-      try {
-        await client.query("RESET ROLE");
+        try {
+          // Only the grantor can revoke what it granted, and only while it
+          // still holds the grant option, so this runs before DROP OWNED BY
+          // takes the option away. It removes this role's entries and no
+          // others.
+          await client.query(
+            "REVOKE ALL ON SCHEMA public FROM polis_queue_owner, polis_queue_executor CASCADE"
+          );
+          await client.query(
+            "REVOKE ALL ON public.conversations FROM polis_queue_owner CASCADE"
+          );
+        } catch (err) {
+          // A role that granted nothing here holds no privilege to revoke, and
+          // PostgreSQL answers that with insufficient_privilege. That is the
+          // normal case for the roles which never replayed the migration, not a
+          // cleanup failure. If a revoke was genuinely needed and did not
+          // happen, the role keeps its grantor dependency and the leaked-role
+          // check below catches it.
+          if ((err as { code?: string }).code !== "42501") {
+            failures.push(
+              `${role}: revoking its own grants failed (${String(err)})`
+            );
+          }
+        }
       } catch (err) {
-        failures.push(`${role}: RESET ROLE failed (${String(err)})`);
-        discard = true;
-        break;
+        failures.push(`${role}: cleanup as that role failed (${String(err)})`);
+      } finally {
+        // Every path out of the switched section restores and re-verifies.
+        if (await restore(role)) {
+          discard = false;
+        } else {
+          stop = true;
+        }
       }
-      if ((await principal()) !== login) {
-        failures.push(`RESET ROLE did not restore ${login} after ${role}`);
-        discard = true;
-        break;
-      }
+      if (stop) break;
 
       try {
         await client.query(`DROP OWNED BY ${role}`);
@@ -548,12 +601,14 @@ async function dropCreatedRoles(): Promise<void> {
     if (!discard) {
       const leaked = await client.query(
         "SELECT rolname FROM pg_roles WHERE rolname = ANY($1::text[])",
-        [created.roles]
+        [roles.roles]
       );
       if (leaked.rowCount) {
         failures.push(
           "roles left behind: " +
-            leaked.rows.map((row) => row.rolname).join(", ")
+            leaked.rows
+              .map((row: { rolname: string }) => row.rolname)
+              .join(", ")
         );
       }
     }
@@ -768,6 +823,61 @@ describeProvisioned(
         await pool.end();
       }
     }, 60000);
+
+    it("never pools a session whose principal it could not verify", async () => {
+      requireProvisioning();
+      // Astra's 22012 injection: the verification read fails AFTER SET ROLE has
+      // succeeded. The connection is fine, so "the query failed" is not
+      // evidence that the socket is gone - the session is simply still acting
+      // as the helper, and returning it to the pool hands that identity to the
+      // next borrower.
+      const helper = `pq_t_ver_${RUN_ID}`;
+      const login = await sql(mainPool, "SELECT current_user");
+      await mainPool.query(`CREATE ROLE ${helper}`);
+      const raw = await mainPool.connect();
+      let reads = 0;
+      let released: boolean | undefined;
+      const injected: CleanupPool = {
+        connect: async () => ({
+          query: async (text: string, values?: unknown[]) => {
+            if (text === "SELECT current_user AS role" && (reads += 1) === 2) {
+              return raw.query("SELECT 1/0");
+            }
+            return raw.query(text, values as unknown[]);
+          },
+          // Record the decision instead of acting on it, so the session can be
+          // inspected afterwards.
+          release: (destroy?: boolean) => {
+            released = destroy;
+          },
+        }),
+      };
+      try {
+        await expect(
+          dropCreatedRoles(injected, { roles: [helper] })
+        ).rejects.toThrow(/cleanup failed/);
+        const principal = await sql(raw, "SELECT current_user");
+        // The invariant: a session is pooled only when it is provably the
+        // login again. Either it was restored and verified, or it is destroyed.
+        if (released === false) {
+          expect(principal).toBe(login);
+        } else {
+          expect(released).toBe(true);
+        }
+        // Nothing was revoked on the way through.
+        expect(
+          await sql(
+            mainPool,
+            "SELECT has_schema_privilege('polis_queue_owner','public','USAGE')"
+          )
+        ).toBe(true);
+      } finally {
+        raw.release(true);
+        await mainPool
+          .query(`DROP ROLE IF EXISTS ${helper}`)
+          .catch(() => undefined);
+      }
+    }, 30000);
 
     it("refuses an unprovisioned login with a readable precondition", async () => {
       requireProvisioning();
