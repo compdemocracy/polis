@@ -56,6 +56,31 @@ def test_new_wildcard_is_flagged_needs_gate(tmp_path) -> None:
     assert needs[0].table == "votes" and needs[0].line == 3
 
 
+def test_catches_multiline_alias_and_schema_wildcards(tmp_path) -> None:
+    """R3 defect 4: three ordinary spellings that a line-by-line, unqualified-only
+    scan missed. Each must be flagged NEEDS-GATE."""
+    src = tmp_path / "server" / "src"
+    src.mkdir(parents=True)
+    for filename, query in {
+        "multiline.ts": "SELECT\n* FROM votes",
+        "qualified.ts": "SELECT v.* FROM votes v",
+        "schema.ts": "SELECT * FROM public.votes",
+    }.items():
+        (src / filename).write_text("const rows = pg.query(`" + query + "`);\n")
+    sites = inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path))
+    needs = {s.file.split("/")[-1] for s in sites if s.classification == "NEEDS-GATE"}
+    assert needs == {"multiline.ts", "qualified.ts", "schema.ts"}, [
+        (s.file, s.line, s.kind) for s in sites
+    ]
+
+
+def test_missing_scan_root_fails_not_empty_success(tmp_path) -> None:
+    """R3 defect 4: an absent/unreadable root is an ungraded FAIL, not empty PASS."""
+    import pytest
+    with pytest.raises(inv.InventoryScanError):
+        inv.run_sweep(roots=[str(tmp_path / "does-not-exist")], repo_root=str(tmp_path))
+
+
 def test_subquery_and_count_star_are_not_flagged(tmp_path) -> None:
     src = tmp_path / "server" / "src"
     src.mkdir(parents=True)
