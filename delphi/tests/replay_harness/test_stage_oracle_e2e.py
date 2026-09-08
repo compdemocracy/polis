@@ -191,15 +191,29 @@ def test_both_engines_dump_stages_and_the_comparison_report_is_produced(tmp_path
 
     assert report["aligned_steps"] == 1
     assert report["step_count_mismatch"] is False
+    # Two complete, step-identity-aligned, same-input recordings: the report is
+    # entitled to a headline (Astra F5 — an invalid input must withhold one).
+    assert report["input_valid"] is True, report["input_problems"]
+    assert report["headline_withheld"] is False
     step = report["per_step"][0]
     assert step["input_digest_match"] is True
     assert step["tick_match"] is True
+    assert step["comparable"] is True
     assert list(step["stages"]) == stages.STAGE_ORDER
     for name, stage in step["stages"].items():
         assert stage["keys"], f"{name} produced no compared keys"
         for key in stage["keys"].values():
-            assert key["status"] in ("MATCH", "CARVED", "DIVERGENT")
+            assert key["status"] in ("MATCH", "CARVED", "DIVERGENT",
+                                     "ENGINE_LOCAL")
             assert "max_abs" in key and "max_rel" in key
+
+    # The corrected R13 stage carries the engine contract's six geometric
+    # columns and is compared with no waiver (Astra F1). Its Python-only
+    # correlation view rides along, explicitly ungraded.
+    r13 = step["stages"]["R13_ptpt_stats"]["keys"]
+    assert r13["ptpt-stats"]["n_compared"] > 0
+    assert "carve_out" not in r13["ptpt-stats"]
+    assert r13["participant-info-legacy"]["status"] == "ENGINE_LOCAL"
 
     # The human rendering must name the first diverging stage either way.
     text = sc.format_report(report)

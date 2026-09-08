@@ -8,11 +8,12 @@ Both replay drivers can dump the intermediate outputs of the tick pipeline —
 one file per replay step, in a shared JSON shape — and a comparer diffs the two
 dumps stage by stage and names the **first diverging stage**.
 
-**What this is not.** A gate. Stage dumps are **diagnostics only**. The single
-PASS / APPROVED_DIFFERENCE / FAIL / INCONCLUSIVE authority remains
-`polismath.replay.certify` on the final blob. Nothing in this document changes a
-verdict, and `certify` does not import either module (there is a test that
-asserts it).
+**What this is not.** A gate. Stage dumps are **diagnostics only**. The comparer
+does emit per-key statuses — MATCH, DIVERGENT, CARVED, ENGINE_LOCAL — but the
+accurate promise is narrower and stronger than "no verdicts": **`certify` never
+consumes any of them**, and there is a test asserting it imports neither module.
+The single PASS / APPROVED_DIFFERENCE / FAIL / INCONCLUSIVE authority remains
+`polismath.replay.certify` on the final blob.
 
 The reason is not squeamishness. The two live engines already differ at ~1e-16
 inside `proj` and at ~1e-5 in cold-tick `comps` while the final blob still
@@ -83,6 +84,15 @@ stages.run_stage_dump(ds, spec, out_dir=recording / "py-stages")
 `run_stage_dump` folds with `driver.run_replay` itself, through its `on_step`
 hook, so a stage dump can never drift from the recording `certify` consumes.
 
+**Captures vs reconstructions.** Where an engine persists a node, the stage
+function *captures* it. Where it does not, the stage function *reconstructs* the
+node by calling that engine's own code on stored state — on the Python side that
+is `mat` (the imputation block of `pca_project_dataframe`),
+`pca.comment-projection` / `comment-extremity`, the base-cluster derived
+matrices, the per-k silhouettes, `user-vote-counts`, and the R13 geometry
+(`math_writer.derive_ptptstats`). A reconstruction is faithful to the engine's
+code, but it is not evidence that the engine executed it during the tick.
+
 ### A third engine
 
 Write the same `polis-stage-dump/1` files into `<recording>/<engine>-stages/`
@@ -145,15 +155,19 @@ output:
 | `R10_tallies` | `votes-base`, `group-votes`, `group-aware-consensus` |
 | `R11_repness` | `repness`, `consensus` |
 | `R12_priorities` | `comment-priorities` |
-| `R13_ptpt_stats` | `ptpt-stats` |
+| `R13_ptpt_stats` | `ptpt-stats` (the contract geometry), plus this engine's ungraded `participant-info-legacy` |
 
 The **first diverging stage** is the earliest stage carrying a difference that
 is outside its declared tolerance *and* outside the declared carve-outs.
 
-It is the only number worth acting on. A difference at stage *N* mechanically
-propagates into every later stage, so a report showing eight divergent stages is
-usually one bug at the earliest of them and seven consequences. Fix the first;
-re-run; look again. Correspondingly, a divergence at a *later* stage with every
+It is the number to act on first. A difference at stage *N* feeds every later
+stage, so a report showing eight divergent stages is usually one bug at the
+earliest of them and seven consequences. Fix the first; re-run; look again.
+
+It is a *suggested cause*, not a proof. The tool cannot show that the later
+differences are only propagation, and it cannot rule out a second, independent
+bug further down the pipeline — so keep reading the later stages after you fix
+the first one. Correspondingly, a divergence at a *later* stage with every
 earlier stage clean is a genuinely local bug in that stage's own arithmetic —
 the most useful signal this tool produces.
 
@@ -162,21 +176,46 @@ JSON *is* pipeline order.
 
 ### Tolerance classes
 
+**Integer leaves never see a tolerance at all.** Typed IDs, counts, membership,
+eligibility, vote meaning and watermarks — `id`, `pid`, `gid`, `tid`, `members`,
+`n`, `n-cmts`, `n-votes`, `n-agree`, `n-success`, `n-trials`, `n-members`, the
+`A`/`D`/`S` buckets, the k-smoother state, both timestamps, and every cell of
+the two vote matrices — are compared as **exact integers, without ever being
+converted to float**. This matters twice over: it stops a `geom` class on a
+containing key from leaking onto the cluster `id` inside it (200 vs 201 is a
+divergence, not a rounding), and it stops the float round trip from erasing a
+one-unit difference above 2^53. A non-integral value, or a boolean, in an
+integer-typed field is a structural defect, not a number. The two engines'
+legitimate spellings of the same integer — Clojure `-1`, Python `-1.0` — agree.
+
+The remaining, genuinely continuous leaves get one of two bounds:
+
 | class | bound | applies to |
 |---|---|---|
-| `exact` | `a == b` | typed ids, counts, membership, eligibility, vote meaning, cursors, the k-smoother state |
-| `tight` | `abs(a-b) <= 1e-6 + 1e-4·max(\|a\|,\|b\|)` | numeric statistics: `mat`, tallies-derived consensus, repness/consensus stats, comment priorities |
-| `geom` | `abs(a-b) <= 1e-6 + 1e-2·max(\|a\|,\|b\|)` | PCA-derived geometry: `pca`, `proj`, cluster centers, `bucket-dists`, silhouettes |
+| `tight` | `abs(a-b) <= 1e-6 + 1e-4 · max(abs(a), abs(b))` | numeric statistics: `mat`, group-aware consensus, repness/consensus stats, comment priorities, the ptptstats geometry |
+| `geom-legacy` | `abs(a-b) <= 1e-6 + 1e-2 · max(abs(a), abs(b))` | PCA-derived geometry: `pca`, `proj`, cluster centers, `bucket-dists`, silhouettes |
 
-`tight` is the bound `P-022-G-engine-contract.md` §numeric-policy proposes for
-finite numeric statistics with zero outlier allowance. `geom` is deliberately
-looser because the two engines' cold-tick `comps` are documented to differ at
-~1e-5 while the final blob still MATCHes; it is the same relative bound
-`stepcompare.StepComparer` already defaults to for PCA-family paths.
+`tight` is the bound `P-022-G-engine-contract.md` proposes for finite numeric
+statistics with zero outlier allowance. It is a **proposed diagnostic
+reference**, not an admitted one: it has never been measured against the full
+battery.
 
-Non-numeric leaves (ids, booleans, strings, membership lists) are compared
-exactly whatever a key's numeric class is, and a shape difference — a missing
-key, a length mismatch — is always a divergence, never a tolerance question.
+`geom-legacy` is named for what it is — the 1e-2 relative bound
+`stepcompare.StepComparer` already defaults to for PCA-family paths, kept so
+this tool's geometry verdicts line up with the comparer already in use. It is
+**not** the proposed contract bound, and the documented ~1e-5 cross-engine noise
+does not establish that 1e-2 is necessary: 1e-5 is two orders below this ceiling
+and already inside `tight`'s relative coefficient at most scales. G permits a
+higher ceiling only under scoped, independently measured reference jitter, which
+nobody has measured here. So every `geom-legacy` key **also reports
+`n_over_tight`** — how many of its values the stricter reference would reject —
+and the bound is never tuned from candidate output. On the public battery
+`n_over_tight` is **0 everywhere**: the looseness is currently carrying nothing.
+
+Non-numeric leaves (booleans, strings, membership lists) are compared exactly
+whatever a key's numeric class is, and a shape difference — a missing key, a
+length mismatch, a duplicate identity — is always a divergence, never a
+tolerance question.
 
 ### What the comparer normalizes first
 
@@ -198,36 +237,67 @@ differences survive.
    the file stays a faithful record of what that engine actually computed and
    the interpretation lives in one auditable place.
 
-2. **Identity keying.** Named matrices become `{rowname|colname: cell}`, and
-   every tid-, pid- or bid-indexed array becomes a dict keyed by that id. Clojure
-   emits `tids` in hash/insertion order and Python in sorted order; each blob is
-   internally consistent, so array position is not semantics. Without this every
-   run would report thousands of phantom differences.
+2. **Identity keying, after validation.** Named matrices become
+   `{rowlabel|collabel: cell}` and every tid-, pid- or bid-indexed array becomes
+   a dict keyed by that id. Clojure emits `tids` in hash/insertion order and
+   Python in sorted order; each blob is internally consistent, so array position
+   is not semantics. Without this every run would report thousands of phantom
+   differences.
 
-3. **Coupled component sign.** Each principal component is oriented so its
-   largest-magnitude entry is positive (first tid on ties), and the arrays coupled
-   to it — that component's `comment-projection` row, the matching `proj`
-   column, and coordinate *k* of every base- and group-cluster center — are
-   flipped with it. `pca.center` is a data mean and is never flipped. This is
-   `crosslang.canonicalize_blob`'s rule, applied one level deeper.
+   Two safeguards make that keying honest. Labels are **type-tagged**, so the
+   integer `1` and the string `"1"` are different rows rather than colliding into
+   one. And the shape is **validated first**: a matrix whose row count disagrees
+   with its rownames, a ragged row, a duplicate row or column identity, an array
+   whose length disagrees with `tids`, a cluster list with a duplicate id, a
+   ptptstats row list with a duplicate or missing pid — each becomes a
+   **structural error**, reported as such. It is never a synthesized number,
+   because a number can be absorbed by a tolerance and a dropped cell can hide a
+   real difference behind a clean MATCH.
+
+3. **Coupled component sign, on declared axes.** Each principal component is
+   oriented so its largest-magnitude entry is positive (first tid in canonical
+   order on ties), and the arrays coupled to it — that component's
+   `comment-projection` row, the matching `proj` column, and coordinate *k* of
+   every base- and group-cluster center — are flipped with it. `pca.center` is a
+   data mean and is never flipped. This is `crosslang.canonicalize_blob`'s rule,
+   applied one level deeper.
+
+   The axis orientation of `comment-projection` is **read from the dump's
+   declared `comment_projection_axes`, never inferred from array lengths**: when
+   a conversation has exactly as many comments as components, lengths cannot
+   distinguish an *n*×2 from a 2×*n*, and a comparer that guessed would silently
+   compare a transposed array. Both emitters write `comps-by-tids` and say so; a
+   dump that does not declare it is refused.
 
 ---
 
 ## Carve-outs — differences that are expected
 
-From P-030 §Q13/Q18 and the engines' own documented boundaries. Four are applied
-automatically (the key reports `CARVED` instead of `DIVERGENT`, with its numbers
-still printed, and it does not become the first diverging stage). Two are
-documented but never auto-suppressed.
+From P-030 §Q13/Q18 and the engines' own documented boundaries.
 
-| id | key | auto | why it is expected |
+**The rule a carve-out must obey: it may never suppress a real difference.**
+Each one below has a narrow, mechanical scope, and anything outside that scope is
+reported normally. Only two carve-outs have a comparison rule at all; the rest
+are notes for the reader and suppress nothing.
+
+| id | scope | key | why it is expected |
 |---|---|---|---|
-| **C1** | `mod-in`, `mod-out`, `meta-tids` | yes | Clojure emits `nil` until a `mod-update` has written the set; Python emits an empty set. `null` vs `[]` on those three keys only — a genuinely absent value anywhere else still reports. Python's own blob boundary already mirrors the Clojure rule via `moderation_applied`, and the stage emitter applies the same gate, so in practice this fires rarely. |
-| **C2** | cluster ids / membership on warm chains | **no** | **Q13.** Warm-chain split-loop extraction order is knife-edge chaotic on tie-dense geometry: within-engine gaps at 2.5e-16 and 5.6e-17 against cross-engine projection noise at ~1e-5, eleven orders larger. No arithmetic replication reproduces the order. Ledgered on `FP-912391ece7 / FP-c29173e1ba / FP-98dc728043`; carved in the battery by swapping `pc-revote-01` for `pc-revote-02`. |
-| **C3** | `group-clusterings-silhouettes` | yes | The two engines score with **different estimators**: Clojure's `clusters/silhouette` over `bucket-dists`, Python's `calculate_silhouette_sklearn` over the base-cluster centers. The values are expected to differ. What must agree is the *argmax* they feed, which is visible in `group-k-smoother` and the group count — both compared exactly. |
-| **C4** | `ptpt-stats` | yes | The engines compute **different statistics under the same name**. Clojure emits `coreness` / `centricness` / `extremeness` (geometry over the participant projection); Python emits `n_agree` / `n_disagree` / `n_pass` / `group_correlations`. Even the two same-named fields disagree by construction: Clojure's `n-votes` is `user-vote-counts` over the *raw* rating matrix, Python's `n_votes` counts non-zero cells of the moderation-applied matrix, and Python omits participants with no votes entirely. `math_ptptstats` has no reader anywhere in Node or the clients, so this is verification surface only. |
-| **C5** | `mat`, all-NaN column | yes | Python substitutes a 0.0 column mean where Clojure would divide by zero. Unreachable on a real conversation — every column carries at least one vote. |
-| **C6** | cluster ids on coincident centers | **no** | **Q18.** `uniqify`'s exact-center-equality predicate is value-dependent ulp luck: `merge-clusters`' weighted mean preserves the input value for some doubles and rounds one ulp for others, so whether a merge *chain* over coincident singletons continues — and which id survives — depends on the 17th digit. Root cause of all 11 `carved-out` entries in `delphi/docs/divergences.json`. |
+| **C1** | `null` ↔ `[]` **only** | `mod-in`, `mod-out`, `meta-tids` | Clojure emits `nil` until a `mod-update` has written the set; Python emits an empty set. That exact value pair is suppressed and nothing else: `[1]` → `[2]`, `null` → `[2]`, a missing key or a wrong type all report as divergences. Python's own blob boundary already mirrors the Clojure rule via `moderation_applied`, and the stage emitter applies the same gate, so this rarely fires. |
+| **C2** | none — documented only | cluster ids / membership on warm chains | **Q13.** Warm-chain split-loop extraction order is knife-edge chaotic on tie-dense geometry: within-engine gaps at 2.5e-16 and 5.6e-17 against cross-engine projection noise at ~1e-5, eleven orders larger. Ledgered on `FP-912391ece7 / FP-c29173e1ba / FP-98dc728043`; carved in the *battery* by swapping `pc-revote-01` for `pc-revote-02`. |
+| **C3** | numeric **values** only | `group-clusterings-silhouettes` | The two engines score with **different estimators**: Clojure's `clusters/silhouette` over `bucket-dists`, Python's `calculate_silhouette_sklearn` over the base-cluster centers. Different numbers are expected. The candidate inventory (*which* k were scored), the argmax they feed, the smoother state and group membership are all **outside** the exception and compared normally — a missing k is a coverage problem, not an estimator difference. |
+| **C4** | none — documented only | `participant-info-legacy` | This engine's `participant_info` is a vote-correlation *report* statistic (`n_agree`/`n_disagree`/`n_pass`/`group_correlations`). It is not engine-contract surface and has no Clojure counterpart, so it rides along as an **engine-local** key, reported and never graded. It is **not** a waiver on `ptpt-stats`: see below. |
+| **C5** | none — documented only | `mat`, all-NaN column | Python substitutes a 0.0 column mean where Clojure would divide by zero. Unreachable on a real conversation (every column carries at least one vote), so there is no comparison rule — if it were ever observed it would report as an ordinary divergence. |
+| **C6** | none — documented only | cluster ids on coincident centers | **Q18.** `uniqify`'s exact-center-equality predicate is value-dependent ulp luck: `merge-clusters`' weighted mean preserves the input value for some doubles and rounds one ulp for others, so whether a merge *chain* over coincident singletons continues — and which id survives — depends on the 17th digit. Root cause of all 11 `carved-out` entries in `delphi/docs/divergences.json`. |
+
+**There is no carve-out on `ptpt-stats`.** The engine contract names six
+columnar geometric statistics — pid, gid, n-votes, centricness, coreness,
+extremeness — and this engine already implements them in
+`polismath.poller.math_writer.derive_ptptstats`, the production output adapter,
+a verbatim port of `repness/participant-stats` pinned against a live Clojure
+reference row. The stage reads *that*, with the raw `user-vote-counts` Clojure's
+`n-votes` is taken from, and compares pid/gid/n-votes exactly and the three
+geometric floats tolerantly. The absence of a Node reader for `math_ptptstats`
+is not a reason to waive anything.
 
 **Why C2 and C6 are not auto-suppressed.** They are chaotic, not addressable by
 a path rule. A rule that hid "cluster ids differ" would also hide real
@@ -237,6 +307,34 @@ fingerprint. P-030 §5/R7 says it directly: if a divergence's path pattern
 matches a carved-out fingerprint on a mod-heavy warm chain, probe it with the
 split-probe before spending a day on it — the correct action is to record it,
 not to fix it.
+
+---
+
+## Incomplete or misaligned input
+
+**A comparison that could not happen is not agreement.** Before diffing anything,
+the comparer validates each recording and refuses to print a headline unless the
+two are a complete, aligned, same-input pair. It checks that:
+
+* both directories exist and carry a `stages-manifest.json`;
+* the manifest's schema, `stage_order` and `n_steps` are right, its inventory
+  matches the files actually on disk, and every file it names is present;
+* every document declares a supported `vote_sign_convention` and the expected
+  `comment_projection_axes`, and carries **all eleven stages**;
+* step identities are unique, and the two sides are aligned **by step identity**,
+  not by position — two recordings that both hold "one step" are not comparable
+  if one is step 0 and the other step 7;
+* the two engines were fed the same batch (equal `input_digest`) and reached the
+  same `tick`.
+
+Anything unmet lands in `input_problems`, sets `input_valid: false` and
+`headline_withheld: true`, and the report prints `INCOMPLETE OR MISALIGNED
+INPUT` with the reasons instead of a first-diverging-stage line. Two empty
+directories now say so, rather than reporting that every stage is within
+tolerance.
+
+This is input validity, not a gate: an invalid input makes the *diagnostic*
+unusable, and says nothing about any engine.
 
 ---
 
@@ -268,16 +366,18 @@ Encoding rules, identical on both engines:
 * **Integers** — ids, counts, timestamps, vote values — are JSON integers with
   no decimal point.
 * **Doubles** use the shortest decimal that round-trips to the same double
-  (`Double/toString` on JDK 19+, `repr(float)` in Python). **Nothing is ever
-  rounded**: the compared numbers are the exact doubles the engine computed.
-  Exponent *formatting* differs across the two languages (`1.0E-5` vs `1e-05`)
-  and does not matter — the comparison parses, it does not diff bytes.
+  (`Double/toString` on JDK 19+, `repr(float)` in Python). Exponent *formatting*
+  differs across the two languages (`1.0E-5` vs `1e-05`) and does not matter —
+  the comparison parses, it does not diff bytes.
 * **Non-finite doubles** become the JSON strings `"NaN"`, `"Infinity"`,
   `"-Infinity"`; JSON has no literal for them and silently emitting one would
   make the file unparseable by a strict reader.
 * **A named matrix** is `{"rownames": […], "colnames": […], "matrix": [[…]]}`
   with missing cells as `null` — a nil vote and a 0 vote are different meanings.
 * **Sets** become sorted arrays; keywords become their bare name.
+* **`comment_projection_axes`** declares the orientation of
+  `pca.comment-projection` (`comps-by-tids` on both engines). A dump without it
+  is refused rather than guessed at.
 * **`input_digest`** is `sha256` over the step's fed batch in *export/Delphi*
   sign convention (`{"mods": [[tid, is_meta, mod, modified], …], "votes":
   [[pid, tid, sign, created], …]}`, canonical JSON, fed order). Taking it in
@@ -285,6 +385,34 @@ Encoding rules, identical on both engines:
   the raw-DB flip Clojure applies before `conv-update`. **If the digests differ,
   stop**: the engines were not fed the same batch and every other number in the
   report is meaningless.
+
+### What the encoding is and is not lossless for
+
+**Verified.** Finite `binary64` survives the wire in both directions,
+bit-for-bit: 265 values Clojure→Python and 265 Python→Clojure, including signed
+zero, the minimum subnormal, the maximum finite value and adjacent representable
+neighbours, plus a 5 000-value random-bit sample within each runtime. Ordinary
+signed-64-bit JSON integers are preserved on output by both emitters, and the
+comparer compares them as integers rather than through a float.
+
+**Not claimed.** This is not a general, lossless serializer for arbitrary engine
+values, and the following are deliberate, tested limits of the admitted value
+domain rather than defects to be discovered later:
+
+* map keys are **stringified**, so integer `1` and string `"1"` collapse into one
+  key on both engines;
+* the JSON string `"NaN"` and the non-finite token for NaN are
+  **indistinguishable** on the wire — the same is true of the two infinities;
+* Clojure `Ratio` (e.g. `1/3`) is projected to the nearest double
+  (`0.3333333333333333`), and keyword / set / type identity is projected away;
+* a pandas `NaN` cell in a vote matrix means **missing vote** and becomes `null`,
+  not a non-finite token — a field-level rule, not a number rule;
+* the JSON is canonical *within* each engine, but the two engines' bytes are not
+  identical, because their decimal spellings differ. Numeric round-trip
+  equivalence is the claim; byte equality is not.
+
+If exact source-type reconstruction is ever needed, rationals and non-finite
+values will have to be tagged rather than projected.
 
 Dumps are large — for `vw` (69 participants, 125 comments) roughly 350 KB per
 step per engine, dominated by `bucket-dists` and the two vote matrices. They are
@@ -308,6 +436,13 @@ clojure -M:test          # includes test/stage_json_test.clj
 sides — key order, integer formatting, exact double round-trip over a 5 000-value
 random sample, non-finite handling, named-matrix shape — plus the comparer's
 canonicalization, tolerance classes and carve-outs.
+
+The `test_f1_…` through `test_f6_…` group is the regression set for the six
+findings in `cost-reduction/04-plans/P-030-R-ORACLE-astra-review.md`, one
+behaviour per name: the contract geometry at R13, C1's narrow scope, integer
+identities never seeing a tolerance, malformed matrices and undeclared axes
+becoming structural errors, incomplete input withholding the headline, and the
+non-finite tokens surviving polarity conversion.
 
 `test_stage_oracle_e2e.py` runs the whole loop on the smallest public battery
 case (`vw:single-cut`). The Clojure half is opt-in behind
