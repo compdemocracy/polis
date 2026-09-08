@@ -1,0 +1,23 @@
+{
+  "rustDefault": {
+    "passed": 7,
+    "failed": 0
+  },
+  "rustCharacterization": {
+    "passed": 7,
+    "failed": 0
+  },
+  "harnessNode": {
+    "passed": 30,
+    "failed": 0,
+    "skipped": 0
+  },
+  "cargoFmt": "PASS",
+  "clippyAllTargetsAllFeaturesWarningsDenied": "PASS",
+  "releaseBuild": "PASS",
+  "deterministicRegeneration": {
+    "runs": 2,
+    "identicalArtifactsPerRun": 5
+  },
+  "vendorPinsVerified": 17
+}

@@ -1,0 +1,1013 @@
+{
+  "type": "object",
+  "properties": {
+    "group-clusters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "center": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "required": [
+          "id",
+          "center",
+          "members"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "base-clusters": {
+      "type": "object",
+      "properties": {
+        "x": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "y": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "id": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "count": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        }
+      },
+      "required": [
+        "x",
+        "y",
+        "id",
+        "count",
+        "members"
+      ],
+      "additionalProperties": false
+    },
+    "group-votes": {
+      "type": "object",
+      "patternProperties": {
+        "^(0|[1-9][0-9]*)$": {
+          "type": "object",
+          "properties": {
+            "votes": {
+              "type": "object",
+              "patternProperties": {
+                "^(0|[1-9][0-9]*)$": {
+                  "type": "object",
+                  "properties": {
+                    "A": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "D": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "S": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  },
+                  "required": [
+                    "A",
+                    "D",
+                    "S"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "n-members": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "id": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "votes",
+            "n-members",
+            "id"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "group-aware-consensus": {
+      "type": "object",
+      "patternProperties": {
+        "^(0|[1-9][0-9]*)$": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "user-vote-counts": {
+      "type": "object",
+      "patternProperties": {
+        "^(0|[1-9][0-9]*)$": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      },
+      "additionalProperties": false
+    },
+    "in-conv": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "n-cmts": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "pca": {
+      "type": "object",
+      "properties": {
+        "comps": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          }
+        },
+        "center": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "comment-extremity": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "comment-projection": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "maxProperties": 0
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              }
+            }
+          ]
+        }
+      },
+      "required": [
+        "comps",
+        "center",
+        "comment-extremity",
+        "comment-projection"
+      ],
+      "additionalProperties": false
+    },
+    "tids": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "n": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "repness": {
+      "type": "object",
+      "patternProperties": {
+        "^(0|[1-9][0-9]*)$": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "p-test": {
+                "type": "number"
+              },
+              "n-agree": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "repness": {
+                "type": "number"
+              },
+              "n-trials": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "n-success": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "p-success": {
+                "type": "number"
+              },
+              "best-agree": {
+                "type": "boolean"
+              },
+              "repful-for": {
+                "type": "string"
+              },
+              "repness-test": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "tid",
+              "p-test",
+              "repness",
+              "n-trials",
+              "n-success",
+              "p-success",
+              "repful-for",
+              "repness-test"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "consensus": {
+      "type": "object",
+      "properties": {
+        "agree": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "p-test": {
+                "type": "number"
+              },
+              "n-trials": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "n-success": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "p-success": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "tid",
+              "p-test",
+              "n-trials",
+              "n-success",
+              "p-success"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "disagree": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "p-test": {
+                "type": "number"
+              },
+              "n-trials": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "n-success": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "p-success": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "tid",
+              "p-test",
+              "n-trials",
+              "n-success",
+              "p-success"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "agree",
+        "disagree"
+      ],
+      "additionalProperties": false
+    },
+    "votes-base": {
+      "type": "object",
+      "patternProperties": {
+        "^(0|[1-9][0-9]*)$": {
+          "type": "object",
+          "properties": {
+            "A": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "D": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            },
+            "S": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              }
+            }
+          },
+          "required": [
+            "A",
+            "D",
+            "S"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "lastModTimestamp": {
+      "type": "null"
+    },
+    "lastVoteTimestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "comment-priorities": {
+      "type": "object",
+      "patternProperties": {
+        "^(0|[1-9][0-9]*)$": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "math_tick": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "proj": {
+      "type": "object",
+      "patternProperties": {
+        "^(0|[1-9][0-9]*)$": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "mod-in": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "mod-out": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "meta-tids": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 9007199254740991
+      }
+    },
+    "moderation": {
+      "type": "object",
+      "properties": {
+        "meta_tids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "mod_in_tids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "mod_out_tids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "mod_out_ptpts": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "required": [
+        "meta_tids",
+        "mod_in_tids",
+        "mod_out_tids",
+        "mod_out_ptpts"
+      ],
+      "additionalProperties": false
+    },
+    "vote_stats": {
+      "type": "object",
+      "properties": {
+        "n_pass": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "n_agree": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "n_votes": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "n_disagree": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "comment_stats": {
+          "type": "object",
+          "patternProperties": {
+            "^(0|[1-9][0-9]*)$": {
+              "type": "object",
+              "properties": {
+                "n_agree": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "n_votes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "n_disagree": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "agree_ratio": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "n_agree",
+                "n_votes",
+                "n_disagree",
+                "agree_ratio"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "participant_stats": {
+          "type": "object",
+          "patternProperties": {
+            "^(0|[1-9][0-9]*)$": {
+              "type": "object",
+              "properties": {
+                "n_agree": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "n_votes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "n_disagree": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "agree_ratio": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "n_agree",
+                "n_votes",
+                "n_disagree",
+                "agree_ratio"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "n_pass",
+        "n_agree",
+        "n_votes",
+        "n_disagree",
+        "comment_stats",
+        "participant_stats"
+      ],
+      "additionalProperties": false
+    },
+    "last_updated": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "repness_full": {
+      "type": "object",
+      "properties": {
+        "comment_ids": {
+          "type": "array",
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "group_repness": {
+          "type": "object",
+          "patternProperties": {
+            "^(0|[1-9][0-9]*)$": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "na": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "nd": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "ns": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "pa": {
+                    "type": "number"
+                  },
+                  "pd": {
+                    "type": "number"
+                  },
+                  "ra": {
+                    "type": "number"
+                  },
+                  "rd": {
+                    "type": "number"
+                  },
+                  "pat": {
+                    "type": "number"
+                  },
+                  "pdt": {
+                    "type": "number"
+                  },
+                  "rat": {
+                    "type": "number"
+                  },
+                  "rdt": {
+                    "type": "number"
+                  },
+                  "repful": {
+                    "type": "string"
+                  },
+                  "n_agree": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "group_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "best_agree": {
+                    "type": "boolean"
+                  },
+                  "comment_id": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "agree_metric": {
+                    "type": "number"
+                  },
+                  "disagree_metric": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "na",
+                  "nd",
+                  "ns",
+                  "pa",
+                  "pd",
+                  "ra",
+                  "rd",
+                  "pat",
+                  "pdt",
+                  "rat",
+                  "rdt",
+                  "repful",
+                  "group_id",
+                  "comment_id",
+                  "agree_metric",
+                  "disagree_metric"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "comment_repness": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pa": {
+                "type": "number"
+              },
+              "pd": {
+                "type": "number"
+              },
+              "gid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "tid": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "repness": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "pa",
+              "pd",
+              "gid",
+              "tid",
+              "repness"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "consensus_comments": {
+          "type": "object",
+          "properties": {
+            "agree": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tid": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "p-test": {
+                    "type": "number"
+                  },
+                  "n-trials": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "n-success": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "p-success": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "tid",
+                  "p-test",
+                  "n-trials",
+                  "n-success",
+                  "p-success"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "disagree": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tid": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "p-test": {
+                    "type": "number"
+                  },
+                  "n-trials": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "n-success": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "p-success": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "tid",
+                  "p-test",
+                  "n-trials",
+                  "n-success",
+                  "p-success"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "agree",
+            "disagree"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "comment_ids",
+        "group_repness",
+        "comment_repness",
+        "consensus_comments"
+      ],
+      "additionalProperties": false
+    },
+    "comment_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "group_clusters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "center": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            }
+          },
+          "members": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        },
+        "required": [
+          "id",
+          "center",
+          "members"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "participant_info": {
+      "type": "object",
+      "patternProperties": {
+        "^(0|[1-9][0-9]*)$": {
+          "type": "object",
+          "properties": {
+            "group": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "n_pass": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "n_agree": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "n_votes": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "n_disagree": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "group_correlations": {
+              "type": "object",
+              "patternProperties": {
+                "^(0|[1-9][0-9]*)$": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "group",
+            "n_pass",
+            "n_agree",
+            "n_votes",
+            "n_disagree",
+            "group_correlations"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "participant_count": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "comment_priorities": {
+      "type": "object",
+      "patternProperties": {
+        "^(0|[1-9][0-9]*)$": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "group-clusters",
+    "base-clusters",
+    "group-votes",
+    "group-aware-consensus",
+    "user-vote-counts",
+    "in-conv",
+    "n-cmts",
+    "pca",
+    "tids",
+    "n",
+    "repness",
+    "consensus",
+    "votes-base",
+    "lastModTimestamp",
+    "lastVoteTimestamp",
+    "comment-priorities",
+    "math_tick"
+  ],
+  "additionalProperties": false,
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "P-032 PCA2 implementation candidate; populated extension requires independent review"
+}
