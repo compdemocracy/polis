@@ -94,10 +94,20 @@ cargo clippy --locked --all-targets --all-features -- -D warnings
 cargo build --locked --release
 ```
 
-The ordinary service needs `DATABASE_URL`, `MATH_ENV`, `LISTEN_ADDR` (defaults to
-`127.0.0.1:5000`), and `P032_CORS_ORIGIN` for the admitted deployment origin
-(default `https://localhost` matches the recording). No credential values are
-provided or stored here. For this candidate use the generated local stack.
+The ordinary service needs `DATABASE_URL` and `MATH_ENV`; `MATH_ENV` has no
+default and the process refuses to start without it, because `Config.mathEnv`
+has none either and an unset variable would silently serve another namespace's
+math. `LISTEN_ADDR` defaults to `127.0.0.1:5000`.
+
+CORS is not configured here: `src/cors.rs` reads the same variables
+`addCorsHeader` reads — `DOMAIN_OVERRIDE`, `DEV_MODE`, `NODE_ENV`, `TESTING`,
+`API_DEV_HOSTNAME`, `API_PROD_HOSTNAME` and `DOMAIN_WHITELIST_ITEM_01..08` — and
+reflects the request `Origin` (or `Referer`) rather than emitting a static one.
+The recording ran with `DOMAIN_OVERRIDE=localhost`, so every recorded response
+carries `https://localhost`; that is one point on the curve, not the rule.
+
+No credential values are provided or stored here. For this candidate use the
+generated local stack.
 
 From the repository root:
 

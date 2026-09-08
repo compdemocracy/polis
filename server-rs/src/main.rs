@@ -1,3 +1,4 @@
+mod cors;
 mod json;
 mod model;
 mod transport;
@@ -9,6 +10,7 @@ use axum::{
     routing::get,
 };
 use base64::Engine;
+use cors::Cors;
 use model::{MathData, PcaData, Subset};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -43,7 +45,7 @@ struct Metrics {
 struct App {
     db: Arc<Client>,
     math_env: String,
-    origin: String,
+    cors: Arc<Cors>,
     cache: Arc<Mutex<Cache>>,
     metrics: Arc<Metrics>,
 }
@@ -289,38 +291,67 @@ fn response(status: u16, body: Vec<u8>, headers: Vec<(String, String)>) -> Respo
     r.extensions_mut().insert(OrderedHeaders(headers));
     r
 }
-fn base_headers(app: &App, media: Option<&str>) -> Vec<(String, String)> {
+/// writeDefaultHead then addCorsHeader. The four CORS headers are emitted only
+/// when addCorsHeader resolved a non-empty origin, exactly as Node does.
+fn base_headers(origin: Option<&str>, media: Option<&str>) -> Vec<(String, String)> {
     let mut h = Vec::new();
     if let Some(media) = media {
         h.push(("Content-Type".into(), media.into()));
     }
-    h.extend(
-        [
-            ("Cache-Control", "no-cache"),
-            ("Access-Control-Allow-Origin", app.origin.as_str()),
-            ("Access-Control-Allow-Credentials", "true"),
-            (
-                "Access-Control-Allow-Headers",
-                "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
-            ),
-            (
-                "Access-Control-Allow-Methods",
-                "GET, PUT, POST, DELETE, OPTIONS",
-            ),
-        ]
-        .map(|(k, v)| (k.into(), v.into())),
-    );
+    h.push(("Cache-Control".into(), "no-cache".into()));
+    if let Some(origin) = origin {
+        h.push(("Access-Control-Allow-Origin".into(), origin.into()));
+        h.extend(
+            [
+                ("Access-Control-Allow-Credentials", "true"),
+                (
+                    "Access-Control-Allow-Headers",
+                    "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With",
+                ),
+                (
+                    "Access-Control-Allow-Methods",
+                    "GET, PUT, POST, DELETE, OPTIONS",
+                ),
+            ]
+            .map(|(k, v)| (k.into(), v.into())),
+        );
+    }
     h
 }
 fn add(h: &mut Vec<(String, String)>, k: &str, v: impl ToString) {
     h.push((k.into(), v.to_string()));
 }
-fn bad_request(app: &App) -> Response<Body> {
-    let mut h = base_headers(app, Some("text/html; charset=utf-8"));
+fn bad_request(origin: Option<&str>) -> Response<Body> {
+    let mut h = base_headers(origin, Some("text/html; charset=utf-8"));
     add(&mut h, "X-Content-Type-Options", "nosniff");
     add(&mut h, "Content-Length", 12);
     add(&mut h, "Vary", "Accept-Encoding");
     response(400, b"Bad Request\n".to_vec(), h)
+}
+/// `next("unauthorized domain: " + origin)` -> connect finalhandler. The headers
+/// writeDefaultHead already set survive; the CORS headers were never reached.
+fn unauthorized_domain(refusal: &cors::UnauthorizedDomain) -> Response<Body> {
+    let production = std::env::var("NODE_ENV").unwrap_or("development".into()) == "production";
+    let body = if production {
+        "Internal Server Error\n".to_string()
+    } else {
+        // finalhandler escapes the message, then maps newlines and double spaces.
+        let escaped = format!("unauthorized domain: {}", refusal.origin)
+            .replace('&', "&amp;")
+            .replace('<', "&lt;")
+            .replace('>', "&gt;")
+            .replace('"', "&quot;")
+            .replace('\'', "&#39;");
+        format!(
+            "{}\n",
+            escaped.replace('\n', "<br>").replace("  ", " &nbsp;")
+        )
+    };
+    let mut h = base_headers(None, Some("text/html; charset=utf-8"));
+    add(&mut h, "X-Content-Type-Options", "nosniff");
+    add(&mut h, "Content-Length", body.len());
+    add(&mut h, "Vary", "Accept-Encoding");
+    response(500, body.into_bytes(), h)
 }
 #[derive(Serialize)]
 struct Failure<'a> {
@@ -328,14 +359,14 @@ struct Failure<'a> {
     message: &'a str,
     status: u16,
 }
-fn fail(app: &App, status: u16, message: &str) -> Response<Body> {
+fn fail(origin: Option<&str>, status: u16, message: &str) -> Response<Body> {
     let body = json::encode(&Failure {
         error: message,
         message,
         status,
     })
     .unwrap();
-    let mut h = base_headers(app, Some("application/json; charset=utf-8"));
+    let mut h = base_headers(origin, Some("application/json; charset=utf-8"));
     add(&mut h, "Content-Length", body.len());
     // The pinned Express 3 etag module uses MD5, unlike newer Express releases.
     let digest = base64::engine::general_purpose::STANDARD_NO_PAD.encode(md5::compute(&body).0);
@@ -349,34 +380,41 @@ async fn route(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response<Body> {
-    match handle(&app, query, headers, &body).await {
+    let origin = match app.cors.resolve(&headers) {
+        Ok(origin) => origin,
+        // Node answers the refusal from connect's final handler, which has no status
+        // to respect and defaults to 500. No CORS header is emitted on this path.
+        Err(refusal) => return unauthorized_domain(&refusal),
+    };
+    match handle(&app, origin.as_deref(), query, headers, &body).await {
         Ok(r) => r,
         // The recording pins no cell for a blob the model does not describe, so the
         // gap is refused explicitly (upstream data, hence 502) under its own code
         // rather than dressed up as the route's generic 500.
         Err(e) if e.is::<ContractViolation>() => {
-            fail(&app, 502, "polis_err_pca2_contract_violation")
+            fail(origin.as_deref(), 502, "polis_err_pca2_contract_violation")
         }
         Err(e) => {
             eprintln!("pca2 request failed: {e}");
-            fail(&app, 500, "polis_err_pca2")
+            fail(origin.as_deref(), 500, "polis_err_pca2")
         }
     }
 }
 async fn handle(
     app: &App,
+    origin: Option<&str>,
     query: Option<String>,
     headers: HeaderMap,
     body: &[u8],
 ) -> Result<Response<Body>, Error> {
     let Ok(params) = parameters(query, body) else {
-        return Ok(bad_request(app));
+        return Ok(bad_request(origin));
     };
     let cap = params.get("conversation_id").and_then(Param::string);
     if params.get("zid").is_some_and(Param::truthy)
         && !params.get("conversation_id").is_some_and(Param::truthy)
     {
-        let mut h = base_headers(app, Some("application/json"));
+        let mut h = base_headers(origin, Some("application/json"));
         let protocol = headers
             .get("x-forwarded-proto")
             .and_then(|v| v.to_str().ok())
@@ -391,14 +429,14 @@ async fn handle(
         return Ok(response(302, vec![], h));
     }
     let Some(cap) = cap.filter(|s| !s.is_empty() && s.len() <= 100) else {
-        return Ok(bad_request(app));
+        return Ok(bad_request(origin));
     };
     let Some(row) = app
         .db
         .query_opt("select zid from zinvites where zinvite=$1", &[&cap])
         .await?
     else {
-        return Ok(bad_request(app));
+        return Ok(bad_request(origin));
     };
     let zid: i32 = row.get(0);
     let tick = params
@@ -406,7 +444,7 @@ async fn handle(
         .filter(|p| !matches!(p, Param::Null));
     let mut requested = if let Some(t) = tick {
         let Some(n) = parse_tick(t) else {
-            return Ok(bad_request(app));
+            return Ok(bad_request(origin));
         };
         n
     } else {
@@ -423,19 +461,19 @@ async fn handle(
                 _ => None,
             })
             .collect(),
-        _ => return Ok(bad_request(app)),
+        _ => return Ok(bad_request(origin)),
     };
     let etag = headers
         .get("if-none-match")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("");
     if etag.len() > 1000 {
-        return Ok(bad_request(app));
+        return Ok(bad_request(origin));
     }
     if !etag.is_empty() {
         if tick.is_some() {
             return Ok(fail(
-                app,
+                origin,
                 400,
                 "Expected either math_tick param or If-Not-Match header, but not both.",
             ));
@@ -447,14 +485,14 @@ async fn handle(
         .as_ref()
         .is_none_or(|item| item.data.math_tick as f64 <= requested)
     {
-        let mut h = base_headers(app, Some("application/json"));
+        let mut h = base_headers(origin, Some("application/json"));
         add(&mut h, "Vary", "Accept-Encoding");
         return Ok(response(304, vec![], h));
     }
     let item = item.expect("returned 304 for missing math");
     let full = keys.is_empty();
     let mut h = base_headers(
-        app,
+        origin,
         if etag == "*" {
             None
         } else if full {
@@ -507,7 +545,7 @@ async fn main() -> Result<(), Error> {
     let app = App {
         db: Arc::new(db),
         math_env: std::env::var("MATH_ENV").unwrap_or("dev".into()),
-        origin: std::env::var("P032_CORS_ORIGIN").unwrap_or("https://localhost".into()),
+        cors: Arc::new(Cors::from_env()),
         cache: Default::default(),
         metrics: Default::default(),
     };
@@ -678,6 +716,63 @@ mod tests {
         )
         .unwrap();
         assert_eq!(subset, r#"{"mod-in":[],"mod-out":[1],"meta-tids":[]}"#);
+    }
+    fn names(h: &[(String, String)]) -> Vec<&str> {
+        h.iter().map(|(k, _)| k.as_str()).collect()
+    }
+    fn value<'a>(h: &'a [(String, String)], key: &str) -> &'a str {
+        h.iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.as_str())
+            .unwrap_or_default()
+    }
+    /// B2: the exact header set Node emits, which is conditional on the origin
+    /// addCorsHeader resolved — not four headers on every response.
+    #[test]
+    fn cors_headers_follow_the_resolved_origin() {
+        let with = base_headers(Some("https://embed.pol.is"), Some("application/json"));
+        assert_eq!(
+            names(&with),
+            [
+                "Content-Type",
+                "Cache-Control",
+                "Access-Control-Allow-Origin",
+                "Access-Control-Allow-Credentials",
+                "Access-Control-Allow-Headers",
+                "Access-Control-Allow-Methods",
+            ]
+        );
+        assert_eq!(
+            value(&with, "Access-Control-Allow-Origin"),
+            "https://embed.pol.is"
+        );
+        assert_eq!(value(&with, "Access-Control-Allow-Credentials"), "true");
+        assert_eq!(
+            value(&with, "Access-Control-Allow-Headers"),
+            "Cache-Control, Pragma, Origin, Authorization, Content-Type, X-Requested-With"
+        );
+        assert_eq!(
+            value(&with, "Access-Control-Allow-Methods"),
+            "GET, PUT, POST, DELETE, OPTIONS"
+        );
+        // No Origin and no Referer: Node's `if (origin)` guard emits nothing.
+        let without = base_headers(None, Some("application/json"));
+        assert_eq!(names(&without), ["Content-Type", "Cache-Control"]);
+    }
+    #[test]
+    fn refused_origin_answers_the_final_handler_without_cors() {
+        let r = unauthorized_domain(&cors::UnauthorizedDomain {
+            origin: "https://evil.example".into(),
+        });
+        assert_eq!(r.status(), 500);
+        let h = &r
+            .extensions()
+            .get::<OrderedHeaders>()
+            .expect("ordered headers")
+            .0;
+        assert!(!names(h).iter().any(|k| k.starts_with("Access-Control-")));
+        assert_eq!(value(h, "Content-Type"), "text/html; charset=utf-8");
+        assert_eq!(value(h, "X-Content-Type-Options"), "nosniff");
     }
     #[test]
     fn conditionals() {
