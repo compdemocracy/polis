@@ -53,7 +53,10 @@ jobs:
       # does. It currently reports 34 pre-existing errors (28 of them one
       # missing @testing-library/jest-dom type augmentation), so this step
       # reports rather than blocks; flip continue-on-error off once they are
-      # triaged. See cost-reduction/04-plans/P-046-alpha-pca-type-notes.md.
+      # triaged. Note the asymmetry: CI stays green on those 34, but local
+      # `npm run verify` runs the same command without this escape hatch and
+      # therefore exits nonzero until they are cleared.
+      # See cost-reduction/04-plans/P-046-alpha-pca-type-notes.md.
       - name: Typecheck (reporting only until pre-existing errors are triaged)
         run: npm run typecheck
         working-directory: client-participation-alpha

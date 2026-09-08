@@ -3,7 +3,7 @@ import VisualizationContainer from '../VisualizationContainer'
 import { fetchPCAData, PCA_VISUALIZATION_KEYS } from '../../api/pca'
 import { fetchComments } from '../../api/comments'
 import { REFRESH_DELAY_MS } from '../visualization/constants'
-import type { PCAData } from '../../api/types'
+import type { Comment, PCAData } from '../../api/types'
 import type { Translations } from '../../strings/types'
 
 jest.mock('../../lib/net')
@@ -14,12 +14,15 @@ jest.mock('../../api/pca', () => {
 })
 jest.mock('../../api/comments')
 
-// Record every `data` object the visualization is handed, so we can tell a
-// short-circuited poll (no new object) from an applied one.
+// Record every (data, comments) pair the visualization is handed, so we can
+// tell a short-circuited poll (no new object) from an applied one, and so the
+// two states can be checked independently of each other.
 const received: PCAData[] = []
+const receivedComments: (Comment[] | null)[] = []
 jest.mock('../visualization', () => ({
-  PCAVisualization: (props: { data: PCAData }) => {
+  PCAVisualization: (props: { data: PCAData; comments: Comment[] | null }) => {
     received.push(props.data)
+    receivedComments.push(props.comments)
     return <div data-testid="viz">tick:{String(props.data.math_tick)}</div>
   }
 }))
@@ -37,11 +40,24 @@ function pcaBody(math_tick: number): PCAData {
   } as PCAData
 }
 
-async function triggerPoll() {
+function comment(tid: number): Comment {
+  return {
+    txt: `statement ${tid}`,
+    tid,
+    created: 0,
+    quote_src_url: null,
+    is_seed: false,
+    is_meta: false,
+    lang: 'en',
+    pid: 0
+  }
+}
+
+async function triggerPoll(conversationId = CONVERSATION_ID) {
   await act(async () => {
     window.dispatchEvent(
       new CustomEvent('polis-vote-submitted', {
-        detail: { conversation_id: CONVERSATION_ID }
+        detail: { conversation_id: conversationId }
       })
     )
     jest.advanceTimersByTime(REFRESH_DELAY_MS)
@@ -52,6 +68,7 @@ describe('VisualizationContainer math_tick guard', () => {
   beforeEach(() => {
     jest.clearAllMocks()
     received.length = 0
+    receivedComments.length = 0
     jest.useFakeTimers()
     mockedFetchComments.mockResolvedValue([])
   })
@@ -118,5 +135,80 @@ describe('VisualizationContainer math_tick guard', () => {
     await triggerPoll()
 
     expect(received).toContain(untracked)
+  })
+
+  it('applies changed comments even when the tick is unchanged', async () => {
+    // A statement can be submitted or moderated between polls while the math
+    // tick stands still. The short circuit must skip only the PCA state.
+    const first = pcaBody(7)
+    const unchanged = pcaBody(7)
+    const before = [comment(1)]
+    const after = [comment(1), comment(2)]
+    mockedFetchPCAData.mockResolvedValueOnce(first).mockResolvedValueOnce(unchanged)
+    mockedFetchComments.mockResolvedValueOnce(before).mockResolvedValueOnce(after)
+
+    render(<VisualizationContainer conversation_id={CONVERSATION_ID} s={{} as Translations} />)
+
+    await waitFor(() => expect(received.length).toBeGreaterThan(0))
+    expect(receivedComments[receivedComments.length - 1]).toBe(before)
+
+    await triggerPoll()
+
+    // PCA state still short-circuited...
+    expect(received).not.toContain(unchanged)
+    expect(new Set(received).size).toBe(1)
+    // ...but the newer comments were applied.
+    expect(receivedComments).toContain(after)
+    expect(receivedComments[receivedComments.length - 1]).toBe(after)
+  })
+
+  it('re-applies math when the conversation changes at an equal tick', async () => {
+    // Ticks are per-conversation generations: conversation B's tick 7 is not
+    // conversation A's tick 7, so a switch must not short-circuit and leave
+    // A's math on screen under B's id.
+    const conversationA = pcaBody(7)
+    const conversationB = pcaBody(7)
+    mockedFetchPCAData.mockResolvedValueOnce(conversationA).mockResolvedValueOnce(conversationB)
+
+    const { rerender } = render(
+      <VisualizationContainer conversation_id="convA" s={{} as Translations} />
+    )
+
+    await waitFor(() => expect(received.length).toBeGreaterThan(0))
+    expect(received[received.length - 1]).toBe(conversationA)
+
+    await act(async () => {
+      rerender(<VisualizationContainer conversation_id="convB" s={{} as Translations} />)
+    })
+
+    await waitFor(() => expect(received[received.length - 1]).toBe(conversationB))
+    expect(mockedFetchPCAData).toHaveBeenNthCalledWith(2, 'convB', PCA_VISUALIZATION_KEYS)
+  })
+
+  it('drops a response for a conversation that has already been left', async () => {
+    // A slow response for conversation A must not land on conversation B.
+    let resolveA: (value: PCAData) => void = () => {}
+    const slowA = new Promise<PCAData>((resolve) => {
+      resolveA = resolve
+    })
+    const staleA = pcaBody(3)
+    const conversationB = pcaBody(4)
+    mockedFetchPCAData.mockReturnValueOnce(slowA).mockResolvedValueOnce(conversationB)
+
+    const { rerender } = render(
+      <VisualizationContainer conversation_id="convA" s={{} as Translations} />
+    )
+
+    await act(async () => {
+      rerender(<VisualizationContainer conversation_id="convB" s={{} as Translations} />)
+    })
+    await waitFor(() => expect(received[received.length - 1]).toBe(conversationB))
+
+    await act(async () => {
+      resolveA(staleA)
+    })
+
+    expect(received).not.toContain(staleA)
+    expect(received[received.length - 1]).toBe(conversationB)
   })
 })

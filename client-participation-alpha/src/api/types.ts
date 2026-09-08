@@ -20,8 +20,11 @@ export interface BaseClusters {
   y: number[]
   id: number[]
   count: number[]
-  // All five are `required` in the closed empty schema; `members` is not
-  // optional on the wire (existing callers still guard it defensively).
+  // All five are `required` in the empty-cell schema, so the contract does not
+  // sanction an absent `members`. It stays optional here as *compatibility
+  // typing* — existing callers guard it, and tightening it would be a
+  // behaviour question, not a typing one. Do not read this `?` as evidence
+  // that the field may be missing on the wire.
   members?: number[][]
 }
 
@@ -99,12 +102,18 @@ export interface RepnessItem {
  * quotes the same seventeen in wire order. In full mode (no `keys` parameter)
  * every one of them is present, so every property here is required.
  *
- * Caveat carried from the contract: that schema pins the *empty-math* cell
- * only, and populated schemas "need review before a general generated client
- * type is approved". Where the schema shows only an empty collection, the
- * element types below are read off real math output
- * (delphi/real_data/*_math_blob.json) and are the client's best current belief,
- * not admitted contract.
+ * Caveat carried from the contract, and it applies to the field *set* as well
+ * as the field types: that schema pins the **empty-math cell only**
+ * (MATH_ENV=p027, math_tick=0, n=0). Seventeen is what that cell is closed
+ * over; it is not proof that every production full-mode blob carries exactly
+ * these seventeen and no others. Populated schemas "need review before a
+ * general generated client type is approved", so this interface is a
+ * contract-derived belief about full mode, not an admitted full-mode contract.
+ * Where the schema shows only an empty collection, the element types below are
+ * read off real math output (delphi/real_data/*_math_blob.json) and are the
+ * client's best current belief.
+ *
+ * This interface is erased at runtime: nothing here validates a response.
  */
 export interface PCA2FullResponse {
   'group-clusters': GroupCluster[]

@@ -19,16 +19,28 @@ export default function VisualizationContainer({
   const [comments, setComments] = useState<Comment[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const currentMathTick = useRef<number | undefined>(undefined)
+  // The last math tick we applied, together with the conversation it came
+  // from. A tick is a per-conversation generation counter, so conversation B's
+  // tick 7 says nothing about conversation A's tick 7 — comparing them across
+  // a switch would leave A's math on screen under B's id.
+  const lastMathTick = useRef<{ conversationId: string; tick: number | undefined } | null>(null)
+  // The conversation whose in-flight responses we are still willing to apply.
+  const activeConversationId = useRef<string>(conversation_id)
   const refetchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const loadData = useCallback(
     async (showLoadingState = true) => {
-      if (!conversation_id) {
+      const conversationId = conversation_id
+
+      if (!conversationId) {
         setLoading(false)
         setError('No conversation ID provided')
         return
       }
+
+      // Claim this conversation before awaiting: any response that arrives for
+      // a conversation we have since navigated away from is dropped below.
+      activeConversationId.current = conversationId
 
       try {
         if (showLoadingState) {
@@ -38,27 +50,42 @@ export default function VisualizationContainer({
 
         // Fetch both PCA data and comments in parallel
         const [pcaDataResult, commentsResult] = await Promise.all([
-          fetchPCAData(conversation_id, PCA_VISUALIZATION_KEYS),
-          fetchComments(conversation_id)
+          fetchPCAData(conversationId, PCA_VISUALIZATION_KEYS),
+          fetchComments(conversationId)
         ])
 
-        // Check if math_tick has changed (skip update if unchanged)
-        if (
-          pcaDataResult.math_tick !== undefined &&
-          pcaDataResult.math_tick === currentMathTick.current
-        ) {
-          // Math hasn't been recalculated yet, data is the same
+        if (activeConversationId.current !== conversationId) {
+          // A newer conversation is loading; this response is stale.
           return
         }
 
-        currentMathTick.current = pcaDataResult.math_tick
-        setPcaData(pcaDataResult)
+        // Comments do not depend on the math tick: submitting or editing a
+        // statement changes this response while the tick stands still, so
+        // they are applied unconditionally. Only the PCA state is guarded.
         setComments(commentsResult)
+
+        const tick = pcaDataResult.math_tick
+        const applied = lastMathTick.current
+        if (
+          tick !== undefined &&
+          applied !== null &&
+          applied.conversationId === conversationId &&
+          applied.tick === tick
+        ) {
+          // Math hasn't been recalculated yet, the PCA data is the same
+          return
+        }
+
+        lastMathTick.current = { conversationId, tick }
+        setPcaData(pcaDataResult)
       } catch (err) {
+        if (activeConversationId.current !== conversationId) {
+          return
+        }
         setError(err instanceof Error ? err.message : 'Failed to fetch data')
         console.error('Error fetching data:', err)
       } finally {
-        if (showLoadingState) {
+        if (showLoadingState && activeConversationId.current === conversationId) {
           setLoading(false)
         }
       }
