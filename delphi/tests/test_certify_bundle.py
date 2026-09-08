@@ -25,7 +25,9 @@ import pytest
 
 from polismath.replay import fixture_bundle as fb
 from polismath.replay import fixture_config as fc
+from polismath.replay import fixture_extract as fx
 from polismath.replay import fixture_generate as fg
+from polismath.replay import prodclone as pc
 
 
 # ---------------------------------------------------------------------------
@@ -189,13 +191,75 @@ def test_safe_join_refuses_to_write_through_a_symlink(tmp_path):
 # ---------------------------------------------------------------------------
 
 
-def _manifest(config, payload, bundle_id="pcb-test-0001"):
-    return fb.build_manifest(
+def _satisfying_metrics(rule) -> dict[str, float]:
+    """Measured metrics that satisfy EVERY predicate of ``rule``.
+
+    Derived from the rule itself rather than hand-written, so this helper stays
+    correct when the shipped thresholds move; it asserts the result really does
+    satisfy the rule before handing it back.
+    """
+    bounds: dict[str, dict[str, float]] = {}
+    for pred in rule["predicates"]:
+        b = bounds.setdefault(pred["metric"], {})
+        integral = isinstance(pred["value"], int)
+        step = 1 if integral else 1e-6
+        value = pred["value"]
+        if pred["op"] == "ge":
+            b["lo"] = max(b.get("lo", value), value)
+        elif pred["op"] == "gt":
+            b["lo"] = max(b.get("lo", value + step), value + step)
+        elif pred["op"] == "le":
+            b["hi"] = min(b.get("hi", value), value)
+        elif pred["op"] == "lt":
+            b["hi"] = min(b.get("hi", value - step), value - step)
+        elif pred["op"] == "eq":
+            b["lo"] = b["hi"] = value
+        elif pred["op"] == "ne":
+            b["not"] = value
+    metrics: dict[str, float] = {}
+    for metric, b in bounds.items():
+        value = b.get("lo", b.get("hi", 1))
+        if "hi" in b and value > b["hi"]:
+            value = b["hi"]
+        if b.get("not") == value:
+            value = value + 1
+        metrics[metric] = value
+    assert fc.evaluate_predicates(metrics, rule["predicates"]), (rule["slug"], metrics)
+    return metrics
+
+
+def _selections(config, payload: Path) -> list[dict]:
+    """One materialised production role per CONFIG role.
+
+    Admission requires every configured role to be present, measured inside its
+    own rule, and backed by a directory that actually holds bytes — so the
+    fixture materialises a stub directory per role rather than naming one.
+    """
+    selections = []
+    for rule in config["roles"]:
+        dir_name = f"aaaaaaaaaaaaaaaa-{rule['slug']}"
+        target = payload / dir_name
+        target.mkdir(parents=True, exist_ok=True)
+        (target / "events.jsonl").write_text(
+            '{"ord":0,"kind":"vote","created":1,"pid":1,"tid":1,"vote":-1,'
+            '"weight_x_32767":null}\n')
+        selections.append({
+            "slug": rule["slug"], "role": rule["role"], "dir": dir_name,
+            "source": "production", "group": rule["group"], "rank": rule["rank"],
+            "measured_metrics": _satisfying_metrics(rule),
+            "compat": {"null_vote_policy": "drop-counted", "null_votes_dropped": 0,
+                       "vote_rows_written": 1, "certifying": True},
+        })
+    return selections
+
+
+def _manifest(config, payload, bundle_id="pcb-test-0001", generated_summaries=(),
+              **overrides):
+    kwargs = dict(
         bundle_id=bundle_id, payload_root=payload, config=config,
         config_bytes=fc.DEFAULT_CONFIG_PATH.read_bytes(),
-        selections=[{"slug": "pc-v1-one", "role": "one", "dir": "gen-v1-one-voter",
-                     "source": "production", "measured_metrics": {"V": 5}}],
-        generated_summaries=[{"slug": "gen-v1-one-voter"}],
+        selections=_selections(config, payload),
+        generated_summaries=list(generated_summaries),
         snapshot={"identifier": "snap-test", "created_at": "2026-09-07T00:00:00Z",
                   "schema_migration_version": "000018"},
         transaction_guarantee={"isolation_level": "repeatable read",
@@ -206,13 +270,17 @@ def _manifest(config, payload, bundle_id="pcb-test-0001"):
         schedules=fb.collect_schedule_hashes(
             fc.SCRIPTS_DIR / "schedules"),
         owner="test-owner",
+        extraction_commit="0" * 40,
+        source_commit="0" * 40,
     )
+    kwargs.update(overrides)
+    return fb.build_manifest(**kwargs)
 
 
 @pytest.fixture
 def bundle(config, tmp_path):
-    payload, _ = _generate(config, tmp_path)
-    manifest = _manifest(config, payload)
+    payload, summaries = _generate(config, tmp_path)
+    manifest = _manifest(config, payload, generated_summaries=summaries)
     provenance = fb.build_provenance(
         bundle_id=manifest["bundle_id"], root_digest_value=manifest["root_digest"],
         selections=[{"role": "one", "slug": "pc-v1-one", "dir": "gen-v1-one-voter",
@@ -277,9 +345,45 @@ def test_pull_can_fetch_the_restricted_provenance_on_request(bundle, tmp_path):
             manifest=manifest, provenance=provenance)
     dest = tmp_path / "pulled"
     result = fb.pull(store, bundle_id=manifest["bundle_id"], dest=dest,
-                     with_provenance=True)
+                     with_provenance=True,
+                     provenance_role="polis-certification-provenance-reader")
     assert result["provenance_pulled"]
+    assert result["provenance_role"] == "polis-certification-provenance-reader"
     assert json.loads((dest / fb.PROVENANCE_KEY).read_text())["role_to_zid"]
+
+
+def test_provenance_pull_requires_its_own_named_permission(bundle, tmp_path):
+    """Payload read access is NOT provenance read access: the caller has to name
+    the distinct IAM principal it is exercising, and asking for identities
+    without one fetches nothing."""
+    payload, manifest, provenance, store = bundle
+    fb.push(store, bundle_id=manifest["bundle_id"], payload_root=payload,
+            manifest=manifest, provenance=provenance)
+    dest = tmp_path / "no-role"
+    with pytest.raises(fb.BundleError, match="requires an explicit provenance_role"):
+        fb.pull(store, bundle_id=manifest["bundle_id"], dest=dest,
+                with_provenance=True)
+    assert not (dest / fb.PROVENANCE_KEY).exists()
+    with pytest.raises(fb.BundleError, match="without with_provenance"):
+        fb.pull(store, bundle_id=manifest["bundle_id"], dest=tmp_path / "d2",
+                provenance_role="some-role")
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX file modes")
+def test_pulled_provenance_is_owner_only(bundle, tmp_path):
+    """The extractor writes identities 0600; the pull path must not undo that by
+    falling back to whatever the ambient umask allows."""
+    payload, manifest, provenance, store = bundle
+    fb.push(store, bundle_id=manifest["bundle_id"], payload_root=payload,
+            manifest=manifest, provenance=provenance)
+    dest = tmp_path / "modes"
+    old = os.umask(0o022)
+    try:
+        fb.pull(store, bundle_id=manifest["bundle_id"], dest=dest,
+                with_provenance=True, provenance_role="provenance-reader")
+    finally:
+        os.umask(old)
+    assert (dest / fb.PROVENANCE_KEY).stat().st_mode & 0o777 == 0o600
 
 
 def test_pull_refuses_a_non_empty_destination(bundle, tmp_path):
@@ -442,3 +546,533 @@ def test_s3_store_roundtrip_under_moto(bundle, tmp_path, monkeypatch):
         with pytest.raises(fb.ImmutabilityError):
             fb.push(store, bundle_id=manifest["bundle_id"], payload_root=payload,
                     manifest=dict(manifest, owner="other"), provenance=provenance)
+
+
+# ---------------------------------------------------------------------------
+# Post-review corrections. Each block below is a defect an independent review
+# reproduced against this branch; the test is the thing that stops it coming
+# back. Everything here is synthetic and offline.
+# ---------------------------------------------------------------------------
+
+# --- P1(2): NULL weight and NULL vote survive extraction -------------------
+
+
+def test_null_weight_survives_extraction_as_null():
+    """``weight_x_32767`` is nullable and NULL is a distinct storage fact.
+
+    The old ``int(row["weight_x_32767"] or 0)`` collapsed NULL into 0 — and,
+    because 0 is falsy, collapsed a real zero weight through the same branch.
+    """
+    events = fx.build_events(
+        [{"created": 1000, "pid": 7, "tid": 9, "vote": -1, "weight_x_32767": None},
+         {"created": 1001, "pid": 7, "tid": 10, "vote": 1, "weight_x_32767": 0},
+         {"created": 1002, "pid": 7, "tid": 11, "vote": 0, "weight_x_32767": 32767}],
+        [])
+    assert [e["weight_x_32767"] for e in events] == [None, 0, 32767]
+
+
+def test_null_vote_survives_the_event_stream():
+    events = fx.build_events(
+        [{"created": 1000, "pid": 7, "tid": 9, "vote": None, "weight_x_32767": None}],
+        [])
+    assert events[0]["vote"] is None
+
+
+def test_null_vote_is_dropped_from_the_compat_csv_and_counted():
+    """The compatibility CSV's readers parse the column as an integer
+    (``real_data.load_export_votes`` does ``int(row["vote"])``), so a NULL has
+    no representation there. It is omitted and COUNTED — never turned into 0,
+    which would mean 'pass'."""
+    events = fx.build_events([
+        {"created": 1000, "pid": 7, "tid": 9, "vote": None, "weight_x_32767": None},
+        {"created": 1001, "pid": 7, "tid": 9, "vote": -1, "weight_x_32767": 1},
+    ], [])
+    votes_rows, _, census = fx.compat_rows_from_events(events)
+    assert len(votes_rows) == 1 and votes_rows[0]["vote"] == "1"
+    assert census["null_votes_dropped"] == 1
+    assert census["null_vote_policy"] == "drop-counted"
+    assert census["certifying"] is False
+    assert census["null_vote_ordinals"] == [0]
+
+
+def test_compat_rows_do_not_raise_on_a_null_vote():
+    """The reviewer's reproduction: a NULL vote reached unary negation in
+    ``prodclone.format_votes_rows`` and raised TypeError AFTER half the
+    extraction had been written."""
+    events = fx.build_events(
+        [{"created": 1000, "pid": 7, "tid": 9, "vote": None, "weight_x_32767": None}],
+        [])
+    votes_rows, comments_rows, census = fx.compat_rows_from_events(events)
+    assert votes_rows == [] and comments_rows == []
+    assert census["null_votes_dropped"] == 1
+
+
+def test_format_votes_rows_refuses_a_null_vote_with_a_typed_error():
+    """Callers without a declared policy get a typed refusal, not a TypeError
+    from unary negation."""
+    with pytest.raises(pc.NullVoteError, match="NULL"):
+        pc.format_votes_rows([{"tid": 1, "pid": 2, "vote": None, "created": 1000}])
+
+
+def test_a_null_vote_drop_is_not_admissible_without_an_explicit_acceptance(
+        config, tmp_path):
+    payload, summaries = _generate(config, tmp_path)
+    manifest = _manifest(config, payload, generated_summaries=summaries)
+    victim = manifest["roles"][0]
+    victim["compat"] = {"null_vote_policy": "drop-counted", "null_votes_dropped": 3,
+                        "vote_rows_written": 10, "certifying": False}
+    with pytest.raises(fb.AdmissionError, match="NON-CERTIFYING"):
+        fb.admit_manifest(manifest, config=config)
+    manifest["admission"]["accepted_null_vote_drops"] = True
+    fb.admit_manifest(manifest, config=config)
+
+
+def test_the_equal_time_census_does_not_count_a_null_as_an_opposite_vote():
+    events = fx.build_events([
+        {"created": 1000, "pid": 1, "tid": 1, "vote": None, "weight_x_32767": None},
+        {"created": 1000, "pid": 1, "tid": 1, "vote": -1, "weight_x_32767": None},
+        {"created": 2000, "pid": 2, "tid": 1, "vote": -1, "weight_x_32767": None},
+        {"created": 2000, "pid": 2, "tid": 1, "vote": 1, "weight_x_32767": None},
+    ], [])
+    census = fx.equal_time_census(events)
+    assert census["opposite_votes"] == 1, "only the (2, 1, 2000) cell is opposing"
+    assert census["null_votes"] == 1 and census["cells_with_null_vote"] == 1
+    assert "GROUPS" in census["unit"]
+
+
+# --- P1(4): semantic admission --------------------------------------------
+
+
+def test_verify_refuses_an_empty_unversioned_manifest(tmp_path):
+    """The reviewer's reproduction: an empty directory plus
+    ``{files: [], root_digest: sha256(empty)}`` passed verification, with no
+    schema version, identity, roles or coverage anywhere."""
+    empty = tmp_path / "nothing"
+    empty.mkdir()
+    with pytest.raises(fb.VerificationError, match="schema_version"):
+        fb.verify(empty, {"files": [], "root_digest": fb.root_digest([])})
+    with pytest.raises(fb.VerificationError, match="lists NO files"):
+        fb.verify(empty, {"schema_version": fb.MANIFEST_SCHEMA_VERSION,
+                          "bundle_id": "pcb-empty", "files": [],
+                          "root_digest": fb.root_digest([])})
+
+
+def test_admission_accepts_the_reference_manifest(bundle, config):
+    _, manifest, _, _ = bundle
+    fb.admit_manifest(manifest, config=config,
+                      config_bytes=fc.DEFAULT_CONFIG_PATH.read_bytes())
+
+
+@pytest.mark.parametrize("mutate,needle", [
+    (lambda m: m.update(schema_version="certify-fixture-manifest/1"),
+     "schema_version"),
+    (lambda m: m.update(surprise="unreviewed"), "unknown manifest field"),
+    (lambda m: m.pop("polarity"), "missing required manifest field: polarity"),
+    (lambda m: m["polarity"].update(storage_agree_value=1),
+     "polarity.storage_agree_value"),
+    (lambda m: m["roles"].pop(0), "is not in the manifest"),
+    (lambda m: m["roles"][0].update(dir=None), "dir:null"),
+    (lambda m: m["roles"][0].update(dir="never-materialised"),
+     "not materialised"),
+    (lambda m: m["roles"][0].update(measured_metrics={}),
+     "records no measured metrics"),
+    (lambda m: m["roles"][0]["measured_metrics"].update(V=-1),
+     "do NOT satisfy the config predicates"),
+    (lambda m: m["schedules"][0].update(expected_checkpoints=99),
+     "expected checkpoint"),
+    (lambda m: m["schedules"].clear(), "no schedules are pinned"),
+    (lambda m: m["ordering"].update(guarantee="vibes"), "ordering.guarantee"),
+    (lambda m: m["admission"].update(null_weight_policy="coerce-to-zero"),
+     "nullable-preserved"),
+    (lambda m: m.update(commits=dict(m["commits"], extraction_commit=None)),
+     "extraction_commit"),
+])
+def test_admission_rejects(bundle, config, mutate, needle):
+    _, manifest, _, _ = bundle
+    broken = copy.deepcopy(manifest)
+    mutate(broken)
+    with pytest.raises(fb.AdmissionError, match=needle):
+        fb.admit_manifest(broken, config=config)
+
+
+def test_admission_rejects_a_config_that_is_not_the_one_the_bundle_was_built_from(
+        bundle, config):
+    _, manifest, _, _ = bundle
+    with pytest.raises(fb.AdmissionError, match="different revision"):
+        fb.admit_manifest(manifest, config=config, config_bytes=b"{}")
+
+
+def test_push_and_pull_both_run_admission(bundle, tmp_path):
+    payload, manifest, provenance, store = bundle
+    broken = copy.deepcopy(manifest)
+    broken["roles"][0]["dir"] = None
+    with pytest.raises(fb.AdmissionError):
+        fb.push(store, bundle_id=manifest["bundle_id"], payload_root=payload,
+                manifest=broken, provenance=provenance)
+    assert not store.exists(f"{manifest['bundle_id']}/{fb.MANIFEST_KEY}"), \
+        "an inadmissible bundle must not occupy the logical id"
+
+    fb.push(store, bundle_id=manifest["bundle_id"], payload_root=payload,
+            manifest=manifest, provenance=provenance)
+    # Substitute an inadmissible manifest into the store and pull it.
+    evil = copy.deepcopy(manifest)
+    evil["bundle_id"] = "pcb-test-inadmissible"
+    evil["roles"] = []
+    evil_bytes = fb.canonical_json(evil)
+    store.put(f"{evil['bundle_id']}/{fb.MANIFEST_KEY}", evil_bytes)
+    store.put(f"{evil['bundle_id']}/{fb.PINS_KEY}", fb.canonical_json({
+        "schema_version": fb.PINS_SCHEMA_VERSION, "bundle_id": evil["bundle_id"],
+        "root_digest": evil["root_digest"],
+        "manifest_sha256": fb.sha256_bytes(evil_bytes),
+        "provenance_sha256": "0" * 64, "objects": {},
+    }))
+    dest = tmp_path / "inadmissible"
+    with pytest.raises(fb.AdmissionError):
+        fb.pull(store, bundle_id=evil["bundle_id"], dest=dest)
+    assert not (dest / "payload").exists(), \
+        "nothing may be written before the manifest is admitted"
+
+
+def test_schedule_checkpoints_are_derived_from_the_resolved_cuts():
+    schedules = fb.collect_schedule_hashes(fc.SCRIPTS_DIR / "schedules")
+    assert schedules
+    for entry in schedules:
+        assert entry["n_cuts"] >= 1
+        assert entry["expected_checkpoints"] == entry["n_cuts"]
+        if entry["restart_after"] is not None:
+            assert 1 <= entry["restart_after"] <= entry["n_cuts"]
+
+
+# --- P1(1): the publisher cannot fail open and cannot race ------------------
+
+
+class _DeniedHeadClient:
+    """A store that answers HEAD with a permission error. Old behaviour: every
+    HEAD failure was mapped to "absent", so the next put overwrote bytes the
+    publisher could not even read."""
+
+    def __init__(self, data=b"original"):
+        self.data = data
+        self.puts = 0
+
+    def head_object(self, **kwargs):
+        raise PermissionError("synthetic HEAD denied")
+
+    def put_object(self, **kwargs):
+        self.puts += 1
+        self.data = kwargs["Body"]
+        return {"VersionId": "synthetic-v2"}
+
+
+def test_publisher_fails_closed_when_the_store_cannot_answer():
+    client = _DeniedHeadClient()
+    store = fb.S3Store("synthetic-offline-bucket", client=client)
+    with pytest.raises(fb.StoreUnavailableError, match="not an absent key"):
+        fb._put_immutable(store, "synthetic-bundle/manifest.json", b"replacement")
+    assert client.data == b"original" and client.puts == 0
+
+
+def test_a_genuinely_absent_key_is_still_absent():
+    """Failing closed must not mean failing always: a real 404 is an absence."""
+
+    class _Missing(_DeniedHeadClient):
+        def head_object(self, **kwargs):
+            err = Exception("not found")
+            err.response = {"Error": {"Code": "404"}}
+            raise err
+
+    client = _Missing()
+    store = fb.S3Store("synthetic-offline-bucket", client=client)
+    result = fb._put_immutable(store, "synthetic-bundle/manifest.json", b"new")
+    assert client.data == b"new" and result.sha256 == fb.sha256_bytes(b"new")
+
+
+def test_local_store_conditional_create_is_atomic(tmp_path):
+    store = fb.LocalStore(tmp_path / "store")
+    store.put_if_absent("k/a.json", b"first")
+    with pytest.raises(fb.ObjectExistsError):
+        store.put_if_absent("k/a.json", b"second")
+    assert store.get("k/a.json")[0] == b"first"
+
+
+def test_two_concurrent_pushes_produce_exactly_one_winner(config, tmp_path):
+    """A barrier-controlled race on the same bundle id with DIFFERENT bytes.
+
+    Both publishers pass their own pre-flight; the conditional create on
+    ``manifest.json`` is what settles it. The loser must abort with
+    ImmutabilityError having published nothing at all — in particular none of
+    its payload objects, which is why the manifest is claimed first.
+    """
+    import threading
+
+    bundle_id = "pcb-race-0001"
+    payload_a, summaries_a = _generate(config, tmp_path / "a")
+    payload_b, summaries_b = _generate(config, tmp_path / "b",
+                                       only=_CHEAP_CASES[:3])
+    manifest_a = _manifest(config, payload_a, bundle_id=bundle_id,
+                           generated_summaries=summaries_a)
+    manifest_b = _manifest(config, payload_b, bundle_id=bundle_id,
+                           generated_summaries=summaries_b)
+    assert manifest_a["root_digest"] != manifest_b["root_digest"]
+    provenance = fb.build_provenance(
+        bundle_id=bundle_id, root_digest_value=manifest_a["root_digest"],
+        selections=[], owner="test-owner")
+
+    store = fb.LocalStore(tmp_path / "store")
+    barrier = threading.Barrier(2)
+    outcomes: dict[str, object] = {}
+
+    def publish(name, payload, manifest):
+        barrier.wait()
+        try:
+            fb.push(store, bundle_id=bundle_id, payload_root=payload,
+                    manifest=manifest,
+                    provenance=dict(provenance,
+                                    root_digest=manifest["root_digest"]))
+            outcomes[name] = "published"
+        except fb.ImmutabilityError as exc:
+            outcomes[name] = exc
+
+    threads = [
+        threading.Thread(target=publish, args=("a", payload_a, manifest_a)),
+        threading.Thread(target=publish, args=("b", payload_b, manifest_b)),
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    winners = [k for k, v in outcomes.items() if v == "published"]
+    assert len(winners) == 1, outcomes
+    loser = "b" if winners == ["a"] else "a"
+    assert isinstance(outcomes[loser], fb.ImmutabilityError)
+
+    won = manifest_a if winners == ["a"] else manifest_b
+    lost = manifest_b if winners == ["a"] else manifest_a
+    stored_manifest, _ = store.get(f"{bundle_id}/{fb.MANIFEST_KEY}")
+    assert stored_manifest == fb.canonical_json(won)
+    only_loser = {f["path"] for f in lost["files"]} - {f["path"] for f in won["files"]}
+    for rel in only_loser:
+        assert not store.exists(f"{bundle_id}/{fb.DATA_PREFIX}{rel}"), \
+            f"the losing publisher wrote payload object {rel}"
+
+
+def test_a_losing_push_leaves_the_winning_bytes_intact(bundle, config, tmp_path):
+    """Sequential form of the race: the second publication of a spent id is
+    refused at the FIRST write, and the published bundle is untouched."""
+    payload, manifest, provenance, store = bundle
+    pins = fb.push(store, bundle_id=manifest["bundle_id"], payload_root=payload,
+                   manifest=manifest, provenance=provenance)
+
+    other_payload, other_summaries = _generate(config, tmp_path / "other",
+                                               only=_CHEAP_CASES[:2])
+    other = _manifest(config, other_payload, bundle_id=manifest["bundle_id"],
+                      generated_summaries=other_summaries)
+    assert other["root_digest"] != manifest["root_digest"]
+    with pytest.raises(fb.ImmutabilityError):
+        fb.push(store, bundle_id=manifest["bundle_id"], payload_root=other_payload,
+                manifest=other, provenance=provenance)
+
+    stored, _ = store.get(f"{manifest['bundle_id']}/{fb.MANIFEST_KEY}")
+    assert stored == fb.canonical_json(manifest)
+    dest = tmp_path / "after-loss"
+    assert fb.pull(store, bundle_id=manifest["bundle_id"],
+                   dest=dest)["root_digest"] == pins["root_digest"]
+
+
+def test_pins_are_written_last_so_an_interrupted_push_is_not_admitted(
+        bundle, tmp_path):
+    """``pins.json`` is the commit marker. Without it a pull has nothing to
+    resolve object versions from and refuses, so a half-published prefix can
+    never be mistaken for an admitted bundle."""
+    payload, manifest, provenance, store = bundle
+
+    class _FailsBeforePins(fb.LocalStore):
+        def put_if_absent(self, key, data):
+            if key.endswith(fb.PINS_KEY):
+                raise RuntimeError("synthetic interruption before the commit marker")
+            return super().put_if_absent(key, data)
+
+    interrupted = _FailsBeforePins(tmp_path / "interrupted")
+    with pytest.raises(RuntimeError, match="synthetic interruption"):
+        fb.push(interrupted, bundle_id=manifest["bundle_id"], payload_root=payload,
+                manifest=manifest, provenance=provenance)
+    assert interrupted.exists(f"{manifest['bundle_id']}/{fb.MANIFEST_KEY}")
+    assert not interrupted.exists(f"{manifest['bundle_id']}/{fb.PINS_KEY}")
+    with pytest.raises(fb.VerificationError, match="not found"):
+        fb.pull(interrupted, bundle_id=manifest["bundle_id"], dest=tmp_path / "d")
+
+
+# --- P2: the tie key must be a real key ------------------------------------
+
+
+class _FakeCursor:
+    def __init__(self, results):
+        self._results = list(results)
+        self._current: list = []
+        self.sql: list[str] = []
+
+    def execute(self, sql, params=None):
+        self.sql.append(sql)
+        self._current = self._results.pop(0)
+
+    def fetchall(self):
+        return self._current
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+class _FakeConn:
+    """detect_tie_key opens ONE cursor and runs the unique-index query then the
+    surrogate-column query."""
+
+    def __init__(self, uniques, surrogates):
+        self._cursor = _FakeCursor([uniques, surrogates])
+
+    def cursor(self):
+        return self._cursor
+
+
+def test_tie_key_catalog_query_excludes_the_forms_that_are_not_keys():
+    """A partial, invalid, expression-based or nullable unique index is not a
+    key over the table, and INCLUDE columns are payload rather than key
+    columns. The guards live in the SQL, so the SQL is asserted."""
+    sql = fx._SQL_UNIQUE_INDEXES
+    for guard in ("i.indisvalid", "i.indislive", "i.indpred IS NULL",
+                  "i.indexprs IS NULL", "k.ord <= i.indnkeyatts",
+                  "bool_and(a.attnotnull)", "NOT a.attisdropped"):
+        assert guard in sql, guard
+    assert "is_nullable = 'NO'" in fx._SQL_SURROGATE_COLUMNS
+
+
+def test_a_serial_column_without_a_unique_index_is_not_a_tie_key():
+    """An identity/serial DEFAULT does not forbid a duplicate value: it is not
+    a uniqueness guarantee, and claiming 'stable-tie-key' from it would assign
+    a stronger promise than the schema makes."""
+    result = fx.detect_tie_key(_FakeConn(uniques=[], surrogates=[("id",)]))
+    assert result["guarantee"] == "frozen-extract-order"
+    assert result["available"] is False
+    assert "not a uniqueness guarantee" in result["note"]
+    assert result["order_by"] == "created ASC, ctid ASC"
+
+
+def test_a_serial_column_covered_by_a_unique_index_is_a_tie_key():
+    result = fx.detect_tie_key(
+        _FakeConn(uniques=[(False, ["id"], True)], surrogates=[("id",)]))
+    assert result["guarantee"] == "stable-tie-key"
+    assert result["method"] == "identity-or-serial-column"
+    assert result["order_by"] == "created ASC, id ASC"
+
+
+def test_a_primary_key_is_a_tie_key():
+    result = fx.detect_tie_key(
+        _FakeConn(uniques=[(True, ["zid", "pid", "tid"], True)], surrogates=[]))
+    assert result["method"] == "primary-key"
+    assert result["order_by"] == "created ASC, zid ASC, pid ASC, tid ASC"
+
+
+def test_no_key_at_all_freezes_the_extract_order():
+    result = fx.detect_tie_key(_FakeConn(uniques=[], surrogates=[]))
+    assert result["guarantee"] == "frozen-extract-order"
+    assert "need not reproduce ctid order" in result["note"]
+
+
+# --- The decision: a synthetic substitute must be MATERIALISED and pinned ---
+
+
+def _dense_only_config(config):
+    """A minimal config holding only the two roles that may be substituted, with
+    the dense generator case shrunk so the test stays cheap and the predicates
+    lowered to match the shrunken case."""
+    cfg = copy.deepcopy(config)
+    cfg["roles"] = [copy.deepcopy(r) for r in config["roles"]
+                    if r["slug"] in ("pc-v1-dense", "pc-v1-dense-max")]
+    assert len(cfg["roles"]) == 2
+    for role in cfg["roles"]:
+        role["predicates"] = [
+            {"metric": "P", "op": "ge", "value": 20},
+            {"metric": "C", "op": "ge", "value": 5},
+            {"metric": "density", "op": "ge", "value": 0.25},
+        ]
+    case = next(c for c in config["generated"]["cases"]
+                if c["id"] == "gen-v1-dense-stress")
+    cfg["generated"] = dict(
+        config["generated"],
+        cases=[dict(case, participants=20, comments=5, votes_per_participant=5)])
+    return cfg
+
+
+@pytest.mark.parametrize("include_generated", [True, False])
+def test_a_synthetic_substitute_is_materialised_and_pinned(
+        config, tmp_path, monkeypatch, include_generated):
+    """``--accept-synthetic`` is an approval, not a fulfilment.
+
+    The substitute's generator case is force-materialised even when generation
+    is otherwise switched off, its directory is pinned into the role entry so
+    the manifest can never record ``dir: null``, and its measured metrics —
+    density over LATEST DISTINCT cells — must satisfy the same predicate the
+    missing production role was defined by.
+    """
+    from polismath.replay import fixture_survey as fs
+
+    cfg = _dense_only_config(config)
+    monkeypatch.setattr(fs, "open_readonly_repeatable_read",
+                        lambda conn, **kw: {"isolation_level": "repeatable read",
+                                            "access_mode": "read only",
+                                            "single_transaction": True,
+                                            "writers_disabled_on_clone": True})
+    monkeypatch.setattr(fs, "fetch_metrics", lambda conn: [])
+    monkeypatch.setattr(fx, "detect_tie_key", lambda conn, table="votes": {
+        "available": False, "columns": [], "method": "physical-ctid",
+        "order_by": "created ASC, ctid ASC",
+        "guarantee": "frozen-extract-order", "note": "frozen"})
+
+    payload = tmp_path / ".local" / "payload"
+    payload.mkdir(parents=True)
+    result = fx.extract_from_config(
+        object(), config=cfg, payload_root=payload, guard_root=tmp_path,
+        accept_synthetic=["pc-v1-dense", "pc-v1-dense-max"],
+        include_generated=include_generated)
+
+    assert result["provenance_rows"] == [], "a substitute has no zid to record"
+    for role in result["roles"]:
+        assert role["source"] == "synthetic-replacement"
+        assert role["dir"] == "gen-v1-dense-stress", \
+            "an approved substitute recorded with dir:null is not fulfilled"
+        assert (payload / role["dir"] / "events.jsonl").is_file()
+        assert role["generator"]["case_id"] == "gen-v1-dense-stress"
+        assert role["generator"]["seed"] == cfg["generated"]["seed"]
+        assert role["coverage_limits"].startswith("SYNTHETIC")
+        assert role["failed_production_predicate"]
+        metrics = role["measured_metrics"]
+        assert metrics["P"] == 20 and metrics["C"] == 5
+        assert metrics["density"] == pytest.approx(1.0)
+        assert "LATEST DISTINCT" in metrics["basis"]
+        rule = next(r for r in cfg["roles"] if r["slug"] == role["slug"])
+        assert fc.evaluate_predicates(metrics, rule["predicates"])
+
+
+def test_generated_case_metrics_use_latest_distinct_cells_not_revote_rows():
+    """Revoting the same cell must not inflate density: 8 vote rows over 2
+    participants x 2 comments is density 1.0, not 2.0."""
+    events = fx.build_events([
+        {"created": 1000 + i, "pid": pid, "tid": tid, "vote": -1,
+         "weight_x_32767": None}
+        for i, (pid, tid) in enumerate(
+            [(1, 1), (1, 2), (2, 1), (2, 2)] * 2)
+    ], [])
+    metrics = fg.case_metrics(events, participants=[{"pid": 1}, {"pid": 2}])
+    assert metrics["V"] == 8 and metrics["U"] == 4
+    assert metrics["C"] == 0  # no comment events in this synthetic stream
+    metrics = fg.case_metrics(
+        events + fx.build_events([], [
+            {"tid": t, "pid": 1, "created": 1, "modified": None, "mod": 0,
+             "is_meta": False} for t in (1, 2)]),
+        participants=[{"pid": 1}, {"pid": 2}])
+    assert metrics["P"] == 2 and metrics["C"] == 2
+    assert metrics["matrix_area"] == 4
+    assert metrics["density"] == pytest.approx(1.0)

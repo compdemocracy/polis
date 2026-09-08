@@ -11,15 +11,32 @@ a content digest, published once and never republished with different bytes:
                                  written last; this is the single pin the public
                                  record cites alongside bundle id + root digest
 
-Immutability is enforced by the PUBLISHER, not by S3 versioning: :func:`push`
-refuses to write any key that already exists with different bytes, and refuses
-a bundle id whose manifest already exists with different bytes. S3 versioning
-only lets a reader pin the exact bytes it verified.
+Immutability is enforced by the PUBLISHER, not by S3 versioning, and it is
+enforced with a CONDITIONAL CREATE rather than a check followed by a write.
+:func:`push` claims the bundle id by creating ``manifest.json`` with
+``If-None-Match: *`` (``O_CREAT | O_EXCL`` in the filesystem stand-in) BEFORE it
+writes a single payload object; because the manifest carries the root digest of
+the whole payload, a second publication of the same id with different bytes is
+refused at that first write, with nothing published. Two concurrent publishers
+therefore produce exactly one winner. A store that cannot answer authoritatively
+about a key — access denied, a transient failure — raises
+:class:`StoreUnavailableError`: an unreadable key is NEVER treated as absent.
+``pins.json`` is written last and is the commit marker, so an interrupted or
+losing publication leaves an unadmitted prefix, not a mixed bundle.
 
-:func:`pull` verifies EVERY hash before any engine may use the data, and
-rejects path traversal, absolute paths and symlinks in both the object keys and
-the destination tree. :func:`verify` fails on corrupted, truncated, missing AND
-extra files.
+:func:`verify` proves bytes: it fails on corrupted, truncated, missing AND extra
+files, and refuses an unversioned or empty manifest outright.
+:func:`admit_manifest` proves MEANING — schema version, closed field set, every
+configured role present, materialised and inside the rule it claims, synthetic
+substitutes actually generated and pinned, checkpoint counts derived from the
+schedules, polarity declared. Both run on push and on pull; hashes alone never
+certify coverage.
+
+:func:`pull` fetches every object at its pinned version id and rejects path
+traversal, absolute paths and symlinks in both the object keys and the
+destination tree. The restricted provenance object needs a DISTINCT IAM
+principal from the payload and an explicit ``provenance_role`` argument, and is
+written 0600.
 
 :func:`public_pin` renders the ONLY bundle facts that may appear publicly:
 bundle id, root digest, selector/policy/schedule hashes, role names and
@@ -33,14 +50,20 @@ import json
 import os
 import re
 import subprocess
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable, Sequence
 
-MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/1"
+#: Bumped to /2 by the lossless correction: NULL ``weight_x_32767`` and NULL
+#: ``votes.vote`` now survive extraction as nulls instead of becoming 0, and the
+#: manifest carries an ``admission`` block stating the release policy that
+#: :func:`admit_manifest` enforces. A /1 manifest is NOT admissible.
+MANIFEST_SCHEMA_VERSION = "certify-fixture-manifest/2"
 PROVENANCE_SCHEMA_VERSION = "certify-fixture-provenance/1"
 PINS_SCHEMA_VERSION = "certify-fixture-pins/1"
+ADMISSION_SCHEMA_VERSION = "certify-fixture-admission/1"
 
 DEFAULT_BUCKET = "polis-certification-data"
 
@@ -67,8 +90,32 @@ class ImmutabilityError(BundleError):
     """A bundle id (or one of its objects) already exists with different bytes."""
 
 
+class ObjectExistsError(BundleError):
+    """A CONDITIONAL create lost the race: the key already exists.
+
+    Internal to :func:`_put_immutable`, which then fetches the existing bytes
+    and decides between idempotent republication and :class:`ImmutabilityError`.
+    """
+
+
+class StoreUnavailableError(BundleError):
+    """The object store could not answer AUTHORITATIVELY about a key.
+
+    Access denied, a transient 5xx, a network failure: none of these mean
+    "absent". Publication FAILS CLOSED on them — an unreadable key is never
+    treated as free to overwrite.
+    """
+
+
 class VerificationError(BundleError):
     """A file is missing, extra, truncated or does not match its recorded hash."""
+
+
+class AdmissionError(BundleError):
+    """A manifest is byte-consistent but not SEMANTICALLY admissible: wrong or
+    missing schema version, unknown fields, a role whose measured metrics fall
+    outside the config rule it claims, an unmaterialised role, an inconsistent
+    checkpoint declaration, undeclared polarity."""
 
 
 # ---------------------------------------------------------------------------
@@ -190,6 +237,7 @@ def build_manifest(
     owner: str, extraction_commit: str | None = None,
     source_commit: str | None = None, archive: dict[str, Any] | None = None,
     coverage_report: dict[str, Any] | None = None,
+    accepted_null_vote_drops: bool = False,
 ) -> dict[str, Any]:
     """The PRIVATE manifest. It records everything P-022 A lists EXCEPT the
     role -> zid mapping, which lives in the separate restricted provenance
@@ -221,9 +269,11 @@ def build_manifest(
         "timestamp_precision": "integer milliseconds since the unix epoch "
                                "(the compatibility CSVs remain second-resolution and "
                                "are derived from the millisecond stream)",
+        "admission": _admission_block(
+            accepted_null_vote_drops=accepted_null_vote_drops),
         "polarity": {
-            "storage_agree_value": -1,
-            "export_agree_value": 1,
+            "storage_agree_value": REQUIRED_STORAGE_AGREE_VALUE,
+            "export_agree_value": REQUIRED_EXPORT_AGREE_VALUE,
             "boundaries": [
                 "storage: server/postgres/migrations/000000_initial.sql votes.vote",
                 "export: polismath/replay/prodclone.py format_votes_rows negates the sign",
@@ -302,15 +352,32 @@ class PutResult:
 
 
 class ObjectStore:
-    """Minimal versioned-object interface used by push/pull."""
+    """Minimal versioned-object interface used by push/pull.
+
+    :meth:`put_if_absent` is the ONLY write path the publisher uses. It must be
+    ATOMIC — a conditional create at the store boundary, not a read followed by
+    a write — because two publishers can otherwise both observe "absent" before
+    either writes. An implementation that cannot offer a conditional create
+    cannot back an immutable bundle.
+    """
 
     def exists(self, key: str) -> bool:  # pragma: no cover - interface
+        """``True``/``False`` ONLY when the store answered authoritatively.
+        Raise :class:`StoreUnavailableError` for anything else."""
         raise NotImplementedError
 
     def get(self, key: str, version_id: str | None = None) -> tuple[bytes, str]:  # pragma: no cover
         raise NotImplementedError
 
     def put(self, key: str, data: bytes) -> PutResult:  # pragma: no cover
+        """UNCONDITIONAL write. Never used by :func:`push`; present for test
+        fixtures and for stores used as scratch space."""
+        raise NotImplementedError
+
+    def put_if_absent(self, key: str, data: bytes) -> PutResult:  # pragma: no cover
+        """Atomically create ``key``. Raise :class:`ObjectExistsError` if it
+        already exists, :class:`StoreUnavailableError` if the store could not
+        answer. MUST NOT overwrite under any circumstance."""
         raise NotImplementedError
 
 
@@ -348,12 +415,69 @@ class LocalStore(ObjectStore):
         path.write_bytes(data)
         return PutResult(key=key, version_id=sha256_bytes(data), sha256=sha256_bytes(data))
 
+    def put_if_absent(self, key: str, data: bytes) -> PutResult:
+        """``O_CREAT | O_EXCL`` — the filesystem's own conditional create, so
+        two concurrent publishers racing on the same key produce exactly one
+        winner (this is what the two-writer test exercises)."""
+        path = self._path(key)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        except FileExistsError as exc:
+            raise ObjectExistsError(f"object already exists: {key}") from exc
+        except OSError as exc:  # pragma: no cover - disk-level failure
+            raise StoreUnavailableError(f"store could not create {key}: {exc}") from exc
+        try:
+            os.write(fd, data)
+        finally:
+            os.close(fd)
+        return PutResult(key=key, version_id=sha256_bytes(data), sha256=sha256_bytes(data))
+
+
+#: S3 error codes that mean "the key is definitely absent". EVERYTHING else —
+#: ``AccessDenied``, ``SlowDown``, ``InternalError``, a socket failure — is an
+#: unavailable store, not an absent object.
+_S3_ABSENT_CODES = frozenset({"404", "NoSuchKey", "NotFound"})
+
+#: S3 error codes returned when a conditional create (``If-None-Match: *``)
+#: loses to an object that already exists, or races another conditional write.
+_S3_CONDITIONAL_CONFLICT_CODES = frozenset({
+    "PreconditionFailed", "412", "ConditionalRequestConflict", "409",
+})
+
+
+def _s3_error_code(exc: Exception) -> str | None:
+    """The S3 error code of a botocore ``ClientError``, or ``None`` if ``exc``
+    is not a structured S3 error at all (a socket error, a fake client raising
+    ``PermissionError``, ...) — which is exactly the ambiguous case that must
+    fail closed."""
+    response = getattr(exc, "response", None)
+    if not isinstance(response, dict):
+        return None
+    error = response.get("Error")
+    if not isinstance(error, dict):
+        return None
+    code = error.get("Code")
+    return str(code) if code is not None else None
+
 
 class S3Store(ObjectStore):
-    """Real S3. The publisher needs ``s3:PutObject``/``s3:GetObject`` on
-    ``<bucket>/<bundle-id>/*``; test readers need ``s3:GetObject`` and
-    ``s3:GetObjectVersion`` ONLY — never PutObject or DeleteObject, so a reader
-    cannot overwrite or delete a bundle."""
+    """Real S3, with the publisher's immutability enforced by a CONDITIONAL
+    create (``If-None-Match: *``) rather than by a read-then-write.
+
+    IAM, three distinct principals (see ``delphi/docs/CERTIFICATION.md``):
+
+    * **publisher** — ``s3:PutObject`` + ``s3:GetObject`` on
+      ``<bucket>/<bundle-id>/*``. No ``s3:DeleteObject``,
+      no ``s3:PutObjectVersion`` override, no bucket policy edit.
+    * **payload reader** — ``s3:GetObject``/``s3:GetObjectVersion`` on
+      ``<bucket>/<bundle-id>/data/*``, ``manifest.json`` and ``pins.json``
+      ONLY, with an explicit ``Deny`` on ``<bundle-id>/provenance.json``.
+    * **provenance reader** — a SEPARATE role whose only extra grant is
+      ``s3:GetObject``/``s3:GetObjectVersion`` on
+      ``<bucket>/<bundle-id>/provenance.json``. Holding the payload role must
+      never be sufficient to read identities.
+    """
 
     def __init__(self, bucket: str, prefix: str = "", client=None):
         import boto3
@@ -366,11 +490,72 @@ class S3Store(ObjectStore):
         return self.prefix + key
 
     def exists(self, key: str) -> bool:
+        """Authoritative presence check. A denied or failing HEAD raises
+        :class:`StoreUnavailableError` — it is NEVER reported as absent, which
+        is what previously let a publication overwrite bytes it could not
+        read."""
         try:
             self.client.head_object(Bucket=self.bucket, Key=self._key(key))
             return True
-        except Exception:  # noqa: BLE001 - any head failure means "not readable"
-            return False
+        except Exception as exc:  # noqa: BLE001
+            code = _s3_error_code(exc)
+            if code in _S3_ABSENT_CODES:
+                return False
+            raise StoreUnavailableError(
+                f"cannot determine whether {key} exists ({code or type(exc).__name__}: "
+                f"{exc}); refusing to write, because an unreadable key is not an "
+                "absent key"
+            ) from exc
+
+    def put_if_absent(self, key: str, data: bytes) -> PutResult:
+        """Conditional create. Two guards, in order:
+
+        1. an AUTHORITATIVE :meth:`exists` probe, which fails closed on a denied
+           or failing HEAD rather than assuming the key is free; and
+        2. ``If-None-Match: *`` on the write itself, which is what actually
+           settles a race between two publishers that both saw "absent".
+        """
+        if self.exists(key):
+            raise ObjectExistsError(f"object already exists: {key}")
+        try:
+            with self._if_none_match():
+                resp = self.client.put_object(
+                    Bucket=self.bucket, Key=self._key(key), Body=data,
+                    ChecksumAlgorithm="SHA256",
+                )
+        except Exception as exc:  # noqa: BLE001
+            code = _s3_error_code(exc)
+            if code in _S3_CONDITIONAL_CONFLICT_CODES:
+                raise ObjectExistsError(f"object already exists: {key}") from exc
+            raise StoreUnavailableError(f"conditional put failed for {key}: {exc}") from exc
+        return PutResult(key=key, version_id=resp.get("VersionId", "null"),
+                         sha256=sha256_bytes(data))
+
+    @contextmanager
+    def _if_none_match(self):
+        """Add ``If-None-Match: *`` to the PutObject inside this block.
+
+        Injected as a signing-time header rather than passed as a parameter:
+        ``IfNoneMatch`` only appeared in the botocore S3 model recently, and a
+        publisher that silently DROPPED the precondition on an older botocore
+        would be exactly the unconditional overwrite this is here to prevent.
+        The header is understood by S3 regardless of the local model version.
+        """
+        events = getattr(getattr(self.client, "meta", None), "events", None)
+        if events is None:  # pragma: no cover - non-botocore test double
+            yield
+            return
+
+        def _add(request, **_kwargs):
+            request.headers.add_header("If-None-Match", "*")
+
+        events.register_first("before-sign.s3.PutObject", _add,
+                              unique_id="certify-if-none-match")
+        try:
+            yield
+        finally:
+            events.unregister("before-sign.s3.PutObject", _add,
+                              unique_id="certify-if-none-match")
 
     def get(self, key: str, version_id: str | None = None) -> tuple[bytes, str]:
         kwargs: dict[str, Any] = {"Bucket": self.bucket, "Key": self._key(key)}
@@ -397,29 +582,60 @@ class S3Store(ObjectStore):
 
 
 def _put_immutable(store: ObjectStore, key: str, data: bytes) -> PutResult:
-    """Write ``key`` only if it does not already exist with DIFFERENT bytes."""
-    if store.exists(key):
-        existing, version = store.get(key)
-        if existing == data:
-            return PutResult(key=key, version_id=version, sha256=sha256_bytes(data))
-        raise ImmutabilityError(
-            f"refusing to republish {key}: it already exists with different bytes "
-            f"(existing sha256 {sha256_bytes(existing)}, new {sha256_bytes(data)}). "
-            "Publish a NEW bundle id instead."
-        )
-    return store.put(key, data)
+    """CONDITIONALLY create ``key``; tolerate only a byte-identical re-run.
+
+    The write is attempted first, as an atomic conditional create, so there is
+    no check-then-write window for a second publisher to slip through. Only
+    when the conditional create loses do we read the existing bytes and decide:
+
+    * identical bytes -> idempotent, the caller is re-running a publication;
+    * different bytes -> :class:`ImmutabilityError`, the logical id is spent.
+
+    A store that cannot answer authoritatively raises
+    :class:`StoreUnavailableError` and the publication FAILS CLOSED.
+    """
+    try:
+        return store.put_if_absent(key, data)
+    except ObjectExistsError:
+        pass
+    existing, version = store.get(key)
+    if existing == data:
+        return PutResult(key=key, version_id=version, sha256=sha256_bytes(data))
+    raise ImmutabilityError(
+        f"refusing to republish {key}: it already exists with different bytes "
+        f"(existing sha256 {sha256_bytes(existing)}, new {sha256_bytes(data)}). "
+        "Publish a NEW bundle id instead."
+    )
 
 
 def push(
     store: ObjectStore, *, bundle_id: str, payload_root: Path,
     manifest: dict[str, Any], provenance: dict[str, Any],
+    config: dict[str, Any] | None = None, config_bytes: bytes | None = None,
+    admit: bool = True,
 ) -> dict[str, Any]:
     """Publish a bundle immutably and return the pins record.
 
-    Every data object is uploaded first (so ``pins.json`` can name their exact
-    version ids), then the manifest, then the restricted provenance object, then
-    ``pins.json`` last. Any key that already exists with different bytes aborts
-    the whole publication.
+    Publication order — the reason a second push of DIFFERENT bytes cannot
+    write a single object:
+
+    0. **Admission.** :func:`admit_manifest` (unless ``admit=False``): schema
+       version, closed field set, role/metric conformance, materialisation,
+       schedule/checkpoint consistency, declared polarity.
+    1. **Pre-flight.** Every payload file named by the manifest is read and
+       re-digested locally and the root digest is recomputed. Nothing has been
+       written yet, so a payload that drifted since the manifest was built
+       fails before it can occupy the logical id.
+    2. **Claim.** ``manifest.json`` is created CONDITIONALLY. Because the
+       manifest carries the root digest of the whole payload, different bytes
+       anywhere in the bundle mean different manifest bytes, so a second
+       publication of this id is refused HERE — before any data object exists.
+       A byte-identical re-run passes through and resumes.
+    3. **Payload**, then the restricted provenance object, each conditionally.
+    4. **Commit.** ``pins.json`` is written LAST, conditionally. It is the
+       admission marker: :func:`pull` requires it, so an interrupted or
+       conflicting upload leaves an INCOMPLETE, unadmitted prefix rather than a
+       mixed bundle that looks published.
     """
     if manifest["bundle_id"] != bundle_id or provenance["bundle_id"] != bundle_id:
         raise BundleError("bundle_id mismatch between arguments and manifest/provenance")
@@ -427,19 +643,40 @@ def push(
     payload_root = Path(payload_root).resolve()
     objects: dict[str, dict[str, str]] = {}
 
+    if admit:
+        admit_manifest(manifest, config=config, config_bytes=config_bytes)
+
+    # 1. Pre-flight: verify EVERY payload digest against the manifest before a
+    #    single byte is published.
+    payloads: list[tuple[str, bytes]] = []
     for entry in manifest["files"]:
         rel = assert_safe_relpath(entry["path"])
         local = safe_join(payload_root, rel)
         data = local.read_bytes()
-        if sha256_bytes(data) != entry["sha256"]:
+        if sha256_bytes(data) != entry["sha256"] or len(data) != entry["size"]:
             raise VerificationError(
-                f"payload changed under us: {rel} no longer matches its manifest hash")
-        result = _put_immutable(store, f"{bundle_id}/{DATA_PREFIX}{rel}", data)
-        objects[result.key] = {"version_id": result.version_id, "sha256": result.sha256}
+                f"payload changed under us: {rel} no longer matches its manifest "
+                "entry; nothing was published")
+        payloads.append((rel, data))
+    staged_digest = root_digest([
+        {"path": rel, "sha256": sha256_bytes(data), "size": len(data)}
+        for rel, data in payloads
+    ])
+    if staged_digest != manifest["root_digest"]:
+        raise VerificationError(
+            f"root digest mismatch before publication: manifest says "
+            f"{manifest['root_digest']}, staged payload is {staged_digest}; "
+            "nothing was published")
 
+    # 2. Claim the logical id with the manifest itself.
     manifest_bytes = canonical_json(manifest)
     m = _put_immutable(store, f"{bundle_id}/{MANIFEST_KEY}", manifest_bytes)
     objects[m.key] = {"version_id": m.version_id, "sha256": m.sha256}
+
+    # 3. Payload, then the restricted provenance object.
+    for rel, data in payloads:
+        result = _put_immutable(store, f"{bundle_id}/{DATA_PREFIX}{rel}", data)
+        objects[result.key] = {"version_id": result.version_id, "sha256": result.sha256}
 
     provenance_bytes = canonical_json(provenance)
     p = _put_immutable(store, f"{bundle_id}/{PROVENANCE_KEY}", provenance_bytes)
@@ -457,19 +694,51 @@ def push(
         "provenance_sha256": p.sha256,
         "objects": objects,
     }
+    # 4. Commit marker, last.
     pins_result = _put_immutable(store, f"{bundle_id}/{PINS_KEY}", canonical_json(pins))
     pins["pins_object_version_id"] = pins_result.version_id
     return pins
 
 
-def verify(payload_root: Path, manifest: dict[str, Any]) -> None:
+def verify(payload_root: Path, manifest: dict[str, Any], *,
+           allow_partial: bool = False) -> None:
     """Verify a LOCAL payload tree against ``manifest``.
 
     Fails on corrupted, truncated, missing AND extra files; a truncated file
     fails on both its size and its hash, and each is reported.
+
+    This is the INTEGRITY primitive, not release admission (see
+    :func:`admit_manifest`) — but it is no longer willing to call an
+    unidentified object a manifest: the schema version must be the one this
+    module writes, the bundle must be named, and an EMPTY payload is refused.
+    ``allow_partial=True`` lifts only the empty-payload refusal, for diagnostic
+    use of a half-built payload tree that is never going to be published.
     """
     payload_root = Path(payload_root).resolve()
+
+    if not isinstance(manifest, dict):
+        raise VerificationError("manifest is not an object")
+    version = manifest.get("schema_version")
+    if version != MANIFEST_SCHEMA_VERSION:
+        raise VerificationError(
+            f"manifest schema_version is {version!r}, expected "
+            f"{MANIFEST_SCHEMA_VERSION!r}; an unversioned or foreign manifest is "
+            "not verifiable")
+    if not isinstance(manifest.get("bundle_id"), str) or not manifest["bundle_id"]:
+        raise VerificationError("manifest has no bundle_id")
+    if not isinstance(manifest.get("files"), list):
+        raise VerificationError("manifest has no file inventory")
+    if not manifest["files"] and not allow_partial:
+        raise VerificationError(
+            f"manifest {manifest['bundle_id']} lists NO files: an empty inventory "
+            "trivially matches an empty directory and certifies nothing "
+            "(pass allow_partial=True for diagnostic use of a partial payload)")
+    if "root_digest" not in manifest:
+        raise VerificationError("manifest has no root_digest")
+
     expected = {e["path"]: e for e in manifest["files"]}
+    if len(expected) != len(manifest["files"]):
+        raise VerificationError("manifest lists the same path more than once")
     actual = {e["path"]: e for e in scan_files(payload_root)}
 
     problems: list[str] = []
@@ -500,17 +769,348 @@ def verify(payload_root: Path, manifest: dict[str, Any]) -> None:
             + "\n  - ".join(problems))
 
 
+# ---------------------------------------------------------------------------
+# Semantic admission — what the hashes cannot tell you.
+# ---------------------------------------------------------------------------
+
+#: Exactly the top-level manifest keys :func:`build_manifest` writes. Admission
+#: is a CLOSED set in both directions: a missing key is an incomplete manifest,
+#: an unknown key is an unreviewed field that no gate is checking.
+MANIFEST_TOP_LEVEL_KEYS = frozenset({
+    "schema_version", "bundle_id", "created_at", "owner", "commits", "snapshot",
+    "transaction_guarantee", "ordering", "timestamp_precision", "polarity",
+    "roles", "generated", "workloads", "coverage_role_map", "coverage_report",
+    "schedules", "files", "root_digest", "archive", "redactions", "retention",
+    "admission",
+})
+
+ORDERING_GUARANTEES = frozenset({"stable-tie-key", "frozen-extract-order"})
+
+ROLE_SOURCES = frozenset({"production", "synthetic-replacement"})
+
+#: Raw storage sign of AGREE and the export sign it becomes. Declaring these in
+#: the manifest is mandatory; admission checks the declaration matches the one
+#: definition the extractor uses.
+REQUIRED_STORAGE_AGREE_VALUE = -1
+REQUIRED_EXPORT_AGREE_VALUE = 1
+
+
+def _admission_block(*, accepted_null_vote_drops: bool = False) -> dict[str, Any]:
+    """The manifest's declared, machine-checked release policy."""
+    return {
+        "schema_version": ADMISSION_SCHEMA_VERSION,
+        "null_weight_policy": "nullable-preserved",
+        "null_vote_policy": "event-stream-nullable; compatibility-csv-drop-counted",
+        "accepted_null_vote_drops": bool(accepted_null_vote_drops),
+        "synthetic_substitution_policy":
+            "allowed only with an explicit --accept-synthetic approval, and only "
+            "when the replacement generator case is MATERIALISED and pinned in "
+            "this manifest; a dir:null substitute is an unfilled role",
+        "tie_order_policy":
+            "the frozen extract bytes are authoritative; equal-input ties resolve "
+            "identically on every engine given the same frozen order",
+        "equal_time_policy":
+            "historical same-millisecond opposite votes are a narrow, "
+            "census-counted ambiguity, never an invented order",
+        "schedule_coverage":
+            "file schedules under scripts/schedules only; the battery's inline "
+            "presets are NOT hashed here (section B)",
+    }
+
+
+def _admission_problem(problems: list[str], cond: bool, message: str) -> None:
+    if not cond:
+        problems.append(message)
+
+
+def admit_manifest(
+    manifest: dict[str, Any], *, config: dict[str, Any] | None = None,
+    config_bytes: bytes | None = None,
+) -> None:
+    """SEMANTIC admission. Raises :class:`AdmissionError` listing every defect.
+
+    :func:`verify` proves the bytes on disk are the bytes the manifest names.
+    That is necessary and nowhere near sufficient: it says nothing about which
+    roles the bundle claims, whether the conversation behind a role actually
+    satisfies the rule it was selected under, whether a synthetic substitute
+    was ever materialised, whether the declared checkpoint counts match the
+    schedules, or whether the polarity that every downstream comparison depends
+    on was declared at all. This function is that gate, and ``push``/``pull``
+    both run it.
+
+    ``config`` — the selection config the bundle was BUILT from (defaults to
+    the committed one). ``config_bytes`` — its exact bytes; when given, they
+    must hash to the ``config_sha256`` the manifest recorded, so a bundle can
+    never be admitted against a different revision of the rules.
+    """
+    from polismath.replay import fixture_config as fc
+
+    if not isinstance(manifest, dict):
+        raise AdmissionError("manifest is not an object")
+    problems: list[str] = []
+    P = lambda cond, msg: _admission_problem(problems, cond, msg)  # noqa: E731
+
+    # --- identity + closed field set -------------------------------------
+    P(manifest.get("schema_version") == MANIFEST_SCHEMA_VERSION,
+      f"schema_version is {manifest.get('schema_version')!r}, expected "
+      f"{MANIFEST_SCHEMA_VERSION!r}")
+    keys = set(manifest)
+    for missing in sorted(MANIFEST_TOP_LEVEL_KEYS - keys):
+        P(False, f"missing required manifest field: {missing}")
+    for unknown in sorted(keys - MANIFEST_TOP_LEVEL_KEYS):
+        P(False, f"unknown manifest field (nothing validates it): {unknown}")
+    if problems:
+        # Everything below indexes into fields whose presence is in doubt.
+        raise AdmissionError(_admission_message(manifest, problems))
+
+    P(bool(manifest["bundle_id"]) and isinstance(manifest["bundle_id"], str),
+      "bundle_id must be a non-empty string")
+    P(bool(manifest["owner"]) and isinstance(manifest["owner"], str),
+      "owner must be a non-empty string (an unowned bundle cannot be retired)")
+    P(bool(manifest["created_at"]), "created_at is empty")
+
+    # --- provenance of the rules -----------------------------------------
+    commits = manifest["commits"]
+    for field in ("config_version", "config_sha256", "config_schema_version"):
+        P(bool(commits.get(field)), f"commits.{field} is missing")
+    P(bool(commits.get("extraction_commit")),
+      "commits.extraction_commit is missing: a bundle with no source-commit "
+      "evidence cannot become a certificate")
+
+    config = fc.load_config() if config is None else config
+    if config_bytes is not None:
+        actual = sha256_bytes(config_bytes)
+        P(actual == commits.get("config_sha256"),
+          f"config bytes hash to {actual}, manifest recorded "
+          f"{commits.get('config_sha256')}: this bundle was built from a "
+          "different revision of the selection rules")
+    P(config.get("config_version") == commits.get("config_version"),
+      f"config_version {commits.get('config_version')!r} does not match the "
+      f"config supplied for admission ({config.get('config_version')!r})")
+
+    # --- integrity fields the semantic gate also depends on ---------------
+    files = manifest["files"]
+    P(isinstance(files, list) and bool(files),
+      "files is empty: an empty inventory certifies nothing")
+    paths = [f.get("path") for f in files] if isinstance(files, list) else []
+    P(len(set(paths)) == len(paths), "duplicate path in the file inventory")
+    for path in paths:
+        # A traversal path is not a defect to list next to the others: stop.
+        assert_safe_relpath(str(path))
+    if isinstance(files, list) and files:
+        P(root_digest(files) == manifest["root_digest"],
+          "root_digest does not match the file inventory")
+    dirs_present = {str(p).split("/", 1)[0] for p in paths if "/" in str(p)}
+
+    # --- ordering, precision, polarity ------------------------------------
+    ordering = manifest["ordering"]
+    P(ordering.get("guarantee") in ORDERING_GUARANTEES,
+      f"ordering.guarantee {ordering.get('guarantee')!r} is not one of "
+      f"{sorted(ORDERING_GUARANTEES)}")
+    for field in ("tie_key_available", "tie_key_method", "votes_order_by", "note"):
+        P(field in ordering, f"ordering.{field} is missing")
+    P(str(manifest["timestamp_precision"]).startswith("integer milliseconds"),
+      "timestamp_precision must declare integer milliseconds")
+
+    polarity = manifest["polarity"]
+    P(polarity.get("storage_agree_value") == REQUIRED_STORAGE_AGREE_VALUE,
+      f"polarity.storage_agree_value must be {REQUIRED_STORAGE_AGREE_VALUE}")
+    P(polarity.get("export_agree_value") == REQUIRED_EXPORT_AGREE_VALUE,
+      f"polarity.export_agree_value must be {REQUIRED_EXPORT_AGREE_VALUE}")
+    P(bool(polarity.get("boundaries")),
+      "polarity.boundaries must name the storage/export/ingress sites")
+
+    # --- declared release policy ------------------------------------------
+    admission = manifest["admission"]
+    P(admission.get("schema_version") == ADMISSION_SCHEMA_VERSION,
+      f"admission.schema_version is {admission.get('schema_version')!r}, expected "
+      f"{ADMISSION_SCHEMA_VERSION!r}")
+    for field in ("null_weight_policy", "null_vote_policy",
+                  "synthetic_substitution_policy", "tie_order_policy",
+                  "equal_time_policy", "schedule_coverage"):
+        P(bool(admission.get(field)), f"admission.{field} is missing")
+    P(admission.get("null_weight_policy") == "nullable-preserved",
+      "admission.null_weight_policy must be 'nullable-preserved': a NULL weight "
+      "that became 0 is a lossy extraction")
+
+    # --- generated cases ---------------------------------------------------
+    generated = manifest["generated"]
+    gen_cfg = config["generated"]
+    P(generated.get("generator_id") == gen_cfg["generator_id"],
+      "generated.generator_id does not match the config")
+    P(generated.get("generator_version") == gen_cfg["generator_version"],
+      "generated.generator_version does not match the config")
+    P(generated.get("seed") == gen_cfg["seed"], "generated.seed does not match the config")
+    cases = generated.get("cases") or []
+    case_slugs = [c.get("slug") for c in cases]
+    P(len(set(case_slugs)) == len(case_slugs), "duplicate generated case slug")
+    materialised_cases: set[str] = set()
+    for case in cases:
+        slug = case.get("slug")
+        if case.get("dir"):
+            if case["dir"] in dirs_present:
+                materialised_cases.add(str(slug))
+            else:
+                P(False, f"generated case {slug!r} claims dir {case['dir']!r} but no "
+                         "file in the inventory lives there")
+        else:
+            P(case.get("materialised") is False,
+              f"generated case {slug!r} has no dir and does not say why")
+    # A generator case id can expand into several cohort directories.
+    materialised_case_ids = set(materialised_cases)
+    for case in cases:
+        ident = (case.get("generated") or {}).get("case_id")
+        if ident and case.get("dir") and case["dir"] in dirs_present:
+            materialised_case_ids.add(str(ident))
+
+    # --- roles: declared, ruled, materialised ------------------------------
+    roles = manifest["roles"]
+    by_slug: dict[str, dict[str, Any]] = {}
+    for entry in roles:
+        slug = entry.get("slug")
+        P(slug not in by_slug, f"role slug {slug!r} appears twice")
+        by_slug[str(slug)] = entry
+    config_roles = {r["slug"]: r for r in config["roles"]}
+    for slug in sorted(set(config_roles) - set(by_slug)):
+        P(False, f"required role {slug!r} ({config_roles[slug]['role']}) is not in "
+                 "the manifest")
+    for slug in sorted(set(by_slug) - set(config_roles)):
+        P(False, f"manifest declares role {slug!r}, which the config does not define")
+
+    for slug, rule in sorted(config_roles.items()):
+        entry = by_slug.get(slug)
+        if entry is None:
+            continue
+        P(entry.get("role") == rule["role"],
+          f"role {slug!r} is named {entry.get('role')!r}, config says {rule['role']!r}")
+        source = entry.get("source")
+        P(source in ROLE_SOURCES, f"role {slug!r} has unknown source {source!r}")
+        directory = entry.get("dir")
+        P(bool(directory),
+          f"role {slug!r} has no fixture directory: a role with dir:null is NOT "
+          "filled, whatever it is named")
+        if directory:
+            P(str(directory) in dirs_present,
+              f"role {slug!r} names directory {directory!r}, which holds no file in "
+              "the inventory: the role is declared but not materialised")
+        # Both a production conversation and a synthetic substitute have to be
+        # MEASURED inside the rule the role is named for. A substitute claimed
+        # from a case's name, without numbers, is not a substitute.
+        metrics = entry.get("measured_metrics")
+        P(isinstance(metrics, dict) and bool(metrics),
+          f"role {slug!r} records no measured metrics, so nothing shows it "
+          "satisfies its own selection rule")
+        if isinstance(metrics, dict) and metrics:
+            P(fc.evaluate_predicates(metrics, rule["predicates"]),
+              f"role {slug!r} measured metrics do NOT satisfy the config "
+              f"predicates it claims to have been selected under: "
+              f"{_failed_predicates(metrics, rule['predicates'])}")
+        if source == "synthetic-replacement":
+            replacement = rule.get("synthetic_replacement")
+            P(rule.get("on_missing") == "fail_with_synthetic_replacement_offer",
+              f"role {slug!r} is a synthetic replacement but its rule does not "
+              "offer one")
+            P(bool(entry.get("approval")),
+              f"synthetic role {slug!r} carries no recorded operator approval")
+            P(entry.get("synthetic_replacement") == replacement,
+              f"synthetic role {slug!r} names generator case "
+              f"{entry.get('synthetic_replacement')!r}, config offers "
+              f"{replacement!r}")
+            P(str(entry.get("synthetic_replacement")) in materialised_case_ids
+              or str(directory) in dirs_present,
+              f"synthetic role {slug!r} substitutes generator case "
+              f"{entry.get('synthetic_replacement')!r}, which is NOT materialised "
+              "in this bundle")
+            P(bool(entry.get("coverage_limits")),
+              f"synthetic role {slug!r} does not state its coverage limits")
+            P(bool((entry.get("generator") or {}).get("case_id")),
+              f"synthetic role {slug!r} does not pin the generator that produced it")
+        compat = entry.get("compat") or {}
+        dropped = compat.get("null_votes_dropped", 0) or 0
+        if dropped:
+            P(admission.get("accepted_null_vote_drops") is True,
+              f"role {slug!r} dropped {dropped} NULL-vote row(s) from its "
+              "compatibility CSV; that is a NON-CERTIFYING extraction and needs an "
+              "explicit recorded acceptance (admission.accepted_null_vote_drops)")
+
+    # --- schedules and expected checkpoints --------------------------------
+    schedules = manifest["schedules"]
+    P(isinstance(schedules, list) and bool(schedules),
+      "no schedules are pinned: the bundle declares no checkpoint inventory")
+    seen_paths: set[str] = set()
+    for sched in schedules if isinstance(schedules, list) else []:
+        path = sched.get("path")
+        P(path not in seen_paths, f"schedule {path!r} is pinned twice")
+        seen_paths.add(str(path))
+        P(bool(sched.get("schedule_id")), f"schedule {path!r} has no schedule_id")
+        P(bool(sched.get("sha256")), f"schedule {path!r} has no sha256")
+        n_cuts = sched.get("n_cuts")
+        expected = sched.get("expected_checkpoints")
+        P(isinstance(n_cuts, int) and n_cuts >= 1,
+          f"schedule {path!r} declares no cuts")
+        P(expected == n_cuts,
+          f"schedule {path!r} declares {expected} expected checkpoint(s) but "
+          f"{n_cuts} cut(s): the checkpoint count must be derived from the "
+          "resolved cuts, not asserted")
+        restart = sched.get("restart_after")
+        if restart is not None and isinstance(n_cuts, int):
+            P(isinstance(restart, int) and 1 <= restart <= n_cuts,
+              f"schedule {path!r} restarts after cut {restart}, outside its "
+              f"{n_cuts} cut(s)")
+
+    if problems:
+        raise AdmissionError(_admission_message(manifest, problems))
+
+
+def _failed_predicates(
+    metrics: dict[str, Any], predicates: Sequence[dict[str, Any]],
+) -> str:
+    from polismath.replay import fixture_config as fc
+
+    failed = [
+        f"{p['metric']} {p['op']} {p['value']} (measured {metrics.get(p['metric'])!r})"
+        for p in predicates
+        if not fc.evaluate_predicates(metrics, [p])
+    ]
+    return "; ".join(failed) or "none"
+
+
+def _admission_message(manifest: dict[str, Any], problems: Sequence[str]) -> str:
+    name = manifest.get("bundle_id", "<unnamed>") if isinstance(manifest, dict) else "?"
+    return (f"bundle {name} is NOT admissible:\n  - " + "\n  - ".join(problems))
+
+
 def pull(
     store: ObjectStore, *, bundle_id: str, dest: Path,
     pins: dict[str, Any] | None = None, with_provenance: bool = False,
+    provenance_role: str | None = None,
+    config: dict[str, Any] | None = None, config_bytes: bytes | None = None,
+    admit: bool = True,
 ) -> dict[str, Any]:
-    """Download and VERIFY a bundle into an empty ``dest``.
+    """Download, ADMIT and VERIFY a bundle into an empty ``dest``.
 
     Every object is fetched at its pinned version id, its sha256 is checked
     against the manifest BEFORE it is written, and every destination path is
     re-validated against traversal and symlinks. The manifest itself is verified
-    against ``pins.json`` before any payload path from it is trusted.
+    against ``pins.json`` and then put through :func:`admit_manifest` before any
+    payload path from it is trusted — hashes prove the bytes, admission proves
+    the bytes are a bundle anyone should run.
+
+    ``provenance_role`` is REQUIRED alongside ``with_provenance``: reading the
+    restricted role->zid object needs a DIFFERENT IAM principal from reading the
+    payload (see :class:`S3Store`), and the caller has to name the one it is
+    exercising so the request is attributable. Payload-only pulls never touch
+    the object.
     """
+    if with_provenance and not provenance_role:
+        raise BundleError(
+            "pulling the restricted provenance object requires an explicit "
+            "provenance_role: it is a SEPARATE IAM grant from payload read "
+            "access, and the payload reader role is denied it")
+    if provenance_role and not with_provenance:
+        raise BundleError(
+            "provenance_role was supplied without with_provenance; refusing to "
+            "guess whether identities were wanted")
     dest = Path(dest)
     dest.mkdir(parents=True, exist_ok=True)
     if any(dest.iterdir()):
@@ -533,6 +1133,12 @@ def pull(
     manifest = json.loads(manifest_bytes)
     if manifest["root_digest"] != pins["root_digest"]:
         raise VerificationError("manifest root digest does not match the pinned value")
+
+    # Admission BEFORE any payload byte is written: a bundle that cannot be
+    # admitted must not leave a half-populated workspace behind that an engine
+    # could pick up.
+    if admit:
+        admit_manifest(manifest, config=config, config_bytes=config_bytes)
 
     payload_root = dest / "payload"
     payload_root.mkdir()
@@ -572,8 +1178,11 @@ def pull(
         data, _ = store.get(key, objects.get(key, {}).get("version_id"))
         if sha256_bytes(data) != pins["provenance_sha256"]:
             raise VerificationError("provenance hash does not match the pinned value")
-        (dest / PROVENANCE_KEY).write_bytes(data)
+        # Identities on a shared runner disk: 0600, like the extractor writes
+        # them, NEVER whatever the ambient umask happens to allow.
+        os_umask_safe_write(dest / PROVENANCE_KEY, data)
         result["provenance_pulled"] = True
+        result["provenance_role"] = provenance_role
 
     return result
 
@@ -674,18 +1283,31 @@ def scan_public_output(text: str, planted: Iterable[str]) -> list[str]:
 
 
 def collect_schedule_hashes(schedules_dir: Path) -> list[dict[str, Any]]:
+    """Pin every FILE schedule, with its checkpoint count DERIVED from its own
+    resolved cuts rather than asserted.
+
+    Coverage limit, recorded in the manifest's ``admission.schedule_coverage``
+    and re-stated here so it cannot be forgotten: the certification battery also
+    runs inline preset schedules, which are not files and are therefore not
+    hashed by this function. Wiring the presets into the pinned inventory is
+    section B's work; until then a bundle pins the file schedules only.
+    """
     out: list[dict[str, Any]] = []
     if not schedules_dir.is_dir():
         return out
     for path in sorted(schedules_dir.glob("*.json")):
         data = json.loads(path.read_text())
         cuts = data.get("cuts", {}).get("at", [])
+        n_cuts = len(cuts)
         out.append({
             "path": f"schedules/{path.name}",
             "sha256": sha256_file(path),
             "schedule_id": data.get("schedule_id"),
             "dataset": data.get("dataset"),
-            "expected_checkpoints": len(cuts) if cuts else 1,
+            "cuts_mode": data.get("cuts", {}).get("mode"),
+            "n_cuts": n_cuts,
+            # Derived, never asserted: one checkpoint per resolved cut.
+            "expected_checkpoints": n_cuts,
             "restart_after": data.get("restart_after"),
             "moderation": data.get("moderation"),
         })
