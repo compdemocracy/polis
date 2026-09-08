@@ -34,6 +34,20 @@ import { pool, closePool } from "../setup/db-test-helpers";
  * Each shape is published under its own `math_env` so it gets its own row and
  * its own `pcaCache` entry (the cache is keyed `[math_env, zid]`), which lets one
  * conversation with one comment set exercise every shape from a cold cache.
+ *
+ * There are two comparisons here, and the second is the one that gates the
+ * cutover:
+ *
+ *   1. SAME INPUT -- each blob shape through this server must serve exactly what
+ *      the same blob shape served on `edge`. That is this server release, before
+ *      any engine change.
+ *   2. THE CUTOVER -- with the comments table unchanged, the corrected engine's
+ *      `polis-empty/1` result through THIS server must serve what the legacy
+ *      blob served through `edge`. That is the pair BOARD [55] is about: the
+ *      conversation whose blob is about to be replaced. Comparing the corrected
+ *      golden on `edge` against the corrected golden here compares the wrong
+ *      pair -- the old engine never emitted it -- and is kept below only as the
+ *      failing control it is.
  */
 
 const GOLDEN_PATH = path.join(
@@ -44,14 +58,21 @@ const GOLDEN_PATH = path.join(
 );
 
 /**
- * How the golden was made, and how to remake it:
+ * How the golden was made, and how to remake it. `EDGE` is this branch's base,
+ * `451ab8265` (`server/src/utils/pca.ts` there is identical to `origin/edge`'s):
  *
- *   git worktree add ../wt-edge origin/edge
- *   cp server/__tests__/integration/empty-math-comments.test.ts ../wt-edge/server/__tests__/integration/
- *   cd ../wt-edge/server && C7_RECORD_GOLDEN=1 npm test -- --ci empty-math-comments
- *   cp ../wt-edge/server/__tests__/fixtures/c7-empty-math-golden.json server/__tests__/fixtures/
+ *   git archive $EDGE | tar -x -C /tmp/edge-tree
+ *   ln -s "$PWD/server/node_modules" /tmp/edge-tree/server/node_modules
+ *   cp server/.env /tmp/edge-tree/server/.env
+ *   cp server/__tests__/integration/empty-math-comments.test.ts \
+ *      /tmp/edge-tree/server/__tests__/integration/
+ *   cd /tmp/edge-tree/server && C7_RECORD_GOLDEN=1 npx jest --ci empty-math-comments
+ *   cp /tmp/edge-tree/server/__tests__/fixtures/c7-empty-math-golden.json \
+ *      "$OLDPWD/server/__tests__/fixtures/"
  *
- * Recording on this branch instead would make the test tautological.
+ * Recording on this branch instead would make the test tautological. In
+ * `C7_RECORD_GOLDEN=1` mode every assertion returns early, so the recorder runs
+ * green on `edge` even for the cases `edge` fails; it records, it does not judge.
  */
 const RECORD_ENV = "C7_RECORD_GOLDEN";
 const RECORDING = process.env[RECORD_ENV] === "1";
@@ -166,47 +187,86 @@ const EMPTY_SCENARIOS: Scenario[] = [
     }),
   },
   {
-    name: "corrected polis-empty/1 golden (20 explicit fields)",
-    env: "c7-golden-empty",
-    // The engine's future output declares all four fields, so `edge` never
-    // backfilled it either: it is served exactly as emitted, empty. Nothing to
-    // preserve, and nothing changes when the engine starts emitting it.
-    backfilled: false,
-    blob: (zid) => ({
-      zid,
-      n: 0,
-      "n-cmts": 0,
-      tids: [],
-      "in-conv": [],
-      "base-clusters": EMPTY_BASE_CLUSTERS,
-      "group-clusters": [],
-      "group-votes": {},
-      "votes-base": {},
-      "user-vote-counts": {},
-      "comment-priorities": {},
-      consensus: { agree: [], disagree: [] },
-      "group-aware-consensus": {},
-      repness: {},
-      "meta-tids": [],
-      "mod-in": [],
-      "mod-out": [],
-      lastVoteTimestamp: 0,
-      lastModTimestamp: null,
-      pca: {
-        center: [],
-        comps: [[], []],
-        "comment-projection": [[], []],
-        "comment-extremity": [],
-      },
-    }),
-  },
-  {
     name: "no math row at all",
     env: "c7-no-row",
     backfilled: true,
     blob: null,
   },
 ];
+
+/**
+ * The corrected engine's own output: `polis-empty/1` from
+ * P-022-G-engine-contract.md, all 20 fields, as the engine will emit it for a
+ * conversation with zero votes.
+ *
+ * This is NOT a same-input case. It is the thing the legacy blobs above are
+ * about to be replaced BY, so its comparison is against what those blobs served
+ * on `edge` -- see "the cutover" tests below. Recorded on `edge` too, where it
+ * is G rev4's documented failing control: `edge` never backfilled a blob that
+ * declares these fields, so publishing it through the old merge silently drops
+ * the conversation's comments.
+ */
+const CORRECTED_GOLDEN: Scenario = {
+  name: "corrected polis-empty/1 golden (20 explicit fields)",
+  env: "c7-golden-empty",
+  backfilled: false,
+  blob: (zid) => ({
+    zid,
+    n: 0,
+    "n-cmts": 0,
+    tids: [],
+    "in-conv": [],
+    "base-clusters": EMPTY_BASE_CLUSTERS,
+    "group-clusters": [],
+    "group-votes": {},
+    "votes-base": {},
+    "user-vote-counts": {},
+    "comment-priorities": {},
+    consensus: { agree: [], disagree: [] },
+    "group-aware-consensus": {},
+    repness: {},
+    "meta-tids": [],
+    "mod-in": [],
+    "mod-out": [],
+    lastVoteTimestamp: 0,
+    lastModTimestamp: null,
+    pca: {
+      center: [],
+      comps: [[], []],
+      "comment-projection": [[], []],
+      "comment-extremity": [],
+    },
+  }),
+};
+
+/**
+ * How far the cutover comparison gets as BYTES, and where it stops.
+ *
+ * The served key order is the merge's: the template's keys in template order,
+ * then whatever else the blob carries, then the arrays the guards append when a
+ * blob omits them, in guard order (`mod-in`, `mod-out`, `meta-tids`). The blob's
+ * own key order is not the engine's -- `math_main.data` is `jsonb`, so Postgres
+ * has already canonicalized it (by key length, then bytewise) before the server
+ * sees it -- but the SPLIT between "carried by the blob" and "appended by the
+ * guards" still depends on the blob's key SET.
+ *
+ * Three of the five production shapes therefore land on exactly `polis-empty/1`'s
+ * served key order and are compared as exact strings. The two that carry
+ * `mod-out` without `mod-in` (shapes 3 and 4, 103 of the 3,212 zero-vote rows)
+ * put those three empty arrays in a different position. Their VALUES, and every
+ * other key's position, are still compared exactly; only the position of these
+ * three is exempt, and the exemption is itself asserted rather than assumed.
+ *
+ * This is not fixable at the presentation layer: `edge`'s order for a shape is a
+ * function of that shape's key set, and same-input byte identity pins this
+ * server to it, so no single presented order can equal all five.
+ */
+const MERGE_APPENDED_KEYS = ["meta-tids", "mod-in", "mod-out"];
+
+const ORDER_ONLY_CUTOVER = new Set([
+  "legacy prod shape 3 (in-conv, mod-out)",
+  "legacy prod shape 4 (in-conv, meta-tids, mod-out)",
+]);
 
 const OTHER_SCENARIOS: Scenario[] = [
   {
@@ -298,7 +358,11 @@ const OTHER_SCENARIOS: Scenario[] = [
   },
 ];
 
-const ALL_SCENARIOS = [...EMPTY_SCENARIOS, ...OTHER_SCENARIOS];
+const ALL_SCENARIOS = [
+  ...EMPTY_SCENARIOS,
+  CORRECTED_GOLDEN,
+  ...OTHER_SCENARIOS,
+];
 
 // Values that legitimately differ between two runs of this file. Everything else
 // is compared exactly.
@@ -389,7 +453,14 @@ describe("zero-vote conversations serve exactly the bytes edge served", () => {
     approvedTids = tids.rows.map((r: { tid: number }) => r.tid);
     expect(approvedTids.length).toBeGreaterThanOrEqual(3);
 
-    let tick = 1;
+    // The same `math_tick` for every shape. Each shape lives in its own
+    // `math_env`, so they never compete, and an identical tick is what makes the
+    // cutover comparison a comparison of BYTES: `math_tick` is serialized into
+    // the response, and a legacy blob and its replacement carrying different
+    // generation numbers would mask everything else with a diff nobody cares
+    // about. It must be > 0 for `getPca` to consider the row newer than a
+    // `math_tick`-less request.
+    const MATH_TICK = 1;
     for (const scenario of ALL_SCENARIOS) {
       if (!scenario.blob) continue;
       await pool.query(
@@ -397,7 +468,7 @@ describe("zero-vote conversations serve exactly the bytes edge served", () => {
          values ($1, $2, $3, 0, $4, $4)
          on conflict (zid, math_env) do update
            set data = excluded.data, math_tick = excluded.math_tick, caching_tick = excluded.caching_tick`,
-        [zid, scenario.env, scenario.blob(zid, approvedTids), tick++]
+        [zid, scenario.env, scenario.blob(zid, approvedTids), MATH_TICK]
       );
     }
 
@@ -481,25 +552,36 @@ describe("zero-vote conversations serve exactly the bytes edge served", () => {
     };
   }
 
-  async function check(name: string, env: string) {
-    const observed = await observe(env);
-    observations[name] = observed;
-    if (RECORDING) return;
-    const golden = JSON.parse(fs.readFileSync(GOLDEN_PATH, "utf8"));
-    expect(golden[name]).toBeDefined();
-    expect(observed).toEqual(golden[name]);
+  function readGolden(name: string) {
+    const golden = JSON.parse(fs.readFileSync(GOLDEN_PATH, "utf8"))[name];
+    expect(golden).toBeDefined();
+    return golden;
   }
 
-  test.each(EMPTY_SCENARIOS.map((s) => [s.name, s.env, s.backfilled] as const))(
-    "%s serves byte-for-byte what edge served",
-    async (name, env, backfilled) => {
+  /** Observe one shape and file it under `name` for the recorder. */
+  async function record(name: string, env: string) {
+    const observed = await observe(env);
+    observations[name] = observed;
+    return observed;
+  }
+
+  /** Observe one shape and require it to be what `edge` served for it. */
+  async function check(name: string, env: string) {
+    const observed = await record(name, env);
+    if (RECORDING) return;
+    expect(observed).toEqual(readGolden(name));
+  }
+
+  test.each(EMPTY_SCENARIOS.map((s) => [s.name, s.env] as const))(
+    "same input: %s serves byte-for-byte what edge served",
+    async (name, env) => {
       await check(name, env);
 
       if (RECORDING) return;
       // Spelled out on top of the byte comparison, so a golden regenerated for
       // the wrong reason still fails. `golden` here is edge's recorded response,
       // which the assertion above has already proved this branch reproduces.
-      const golden = JSON.parse(fs.readFileSync(GOLDEN_PATH, "utf8"))[name];
+      const golden = readGolden(name);
 
       // Independent of the shape: the comment list and the next comment never
       // came from the blob, on edge either.
@@ -509,35 +591,183 @@ describe("zero-vote conversations serve exactly the bytes edge served", () => {
       expect(golden.nextComment.isServedComment).toBe(true);
       expect(golden.participationInit.nextCommentIsServedComment).toBe(true);
 
-      if (backfilled) {
-        // The four fields the old backfill supplied, still on the wire.
-        expect(golden.pca2.body.tids).toEqual(approvedTids);
-        expect(golden.pca2.body["n-cmts"]).toBe(approvedTids.length);
-        expect(golden.pca2.body.pca.center).toEqual([0, 0]);
-        expect(golden.pca2.body.pca["comment-extremity"]).toEqual(
-          approvedTids.map(() => 0)
-        );
-        expect(golden.participationInit.pcaAsPOJO.tids).toEqual(approvedTids);
-        expect(golden.participationInit.pcaAsPOJO["n-cmts"]).toBe(
-          approvedTids.length
-        );
-        expect(
-          golden.summaryCsv.find((r: string) => r.startsWith("comments,"))
-        ).toBe(`comments,${approvedTids.length}`);
+      // The fields the old backfill supplied, still on the wire. Every one of
+      // these shapes leaves them to the merge's template.
+      expect(golden.pca2.body.tids).toEqual(approvedTids);
+      expect(golden.pca2.body["n-cmts"]).toBe(approvedTids.length);
+      expect(golden.pca2.body.pca.center).toEqual([0, 0]);
+      expect(golden.pca2.body.pca["comment-extremity"]).toEqual(
+        approvedTids.map(() => 0)
+      );
+      expect(golden.pca2.body.pca["comment-projection"]).toEqual({});
+      expect(golden.participationInit.pcaAsPOJO.tids).toEqual(approvedTids);
+      expect(golden.participationInit.pcaAsPOJO["n-cmts"]).toBe(
+        approvedTids.length
+      );
+      expect(
+        golden.summaryCsv.find((r: string) => r.startsWith("comments,"))
+      ).toBe(`comments,${approvedTids.length}`);
+    }
+  );
+
+  // ------------------------------------------------------------------ cutover
+  //
+  // One observation of the corrected engine's output through THIS server,
+  // compared against every legacy shape's recording from `edge`. This is the
+  // pair BOARD [55] governs: the same conversation, the same comments table, the
+  // blob replaced by the engine change.
+
+  let correctedOnThisServer: Awaited<ReturnType<typeof observe>> | undefined;
+  async function correctedGolden() {
+    if (!correctedOnThisServer) {
+      correctedOnThisServer = await record(
+        CORRECTED_GOLDEN.name,
+        CORRECTED_GOLDEN.env
+      );
+    }
+    return correctedOnThisServer;
+  }
+
+  test("control: the corrected engine's blob through edge's merge drops the conversation's comments", async () => {
+    await correctedGolden();
+    if (RECORDING) return;
+    // Recorded by running this file on `edge`. G rev4 "Third boundary" names
+    // this row the failing control, and it is: `edge` only backfilled fields a
+    // blob left out, and `polis-empty/1` declares all of them.
+    const onEdge = readGolden(CORRECTED_GOLDEN.name);
+    expect(onEdge.pca2.body.tids).toEqual([]);
+    expect(onEdge.pca2.body["n-cmts"]).toBe(0);
+    expect(onEdge.pca2.body.pca.center).toEqual([]);
+    expect(onEdge.pca2.body.pca["comment-extremity"]).toEqual([]);
+    expect(onEdge.pca2.body.pca["comment-projection"]).toEqual([[], []]);
+    expect(
+      onEdge.summaryCsv.find((r: string) => r.startsWith("comments,"))
+    ).toBe("comments,0");
+    // ... while the comment list itself never depended on the blob.
+    expect(
+      onEdge.comments.body.map((c: { tid: number }) => c.tid).sort(numeric)
+    ).toEqual(approvedTids);
+  });
+
+  test.each(
+    EMPTY_SCENARIOS.filter((s) => s.name.startsWith("legacy prod")).map(
+      (s) => [s.name] as const
+    )
+  )(
+    "cutover: the corrected engine on this server serves what %s served on edge",
+    async (name) => {
+      const observed = await correctedGolden();
+      if (RECORDING) return;
+      const onEdge = readGolden(name);
+
+      // Everything except the serialized key order, compared exactly. `toEqual`
+      // on the parsed bodies is order-insensitive but value-exact, so a changed
+      // `mod-in`, `meta-tids`, count, list or geometry still fails here.
+      expect(observed.comments).toEqual(onEdge.comments);
+      expect(observed.summaryCsv).toEqual(onEdge.summaryCsv);
+      expect(observed.pca2.body).toEqual(onEdge.pca2.body);
+      expect(observed.pca2.status).toBe(onEdge.pca2.status);
+      expect(observed.pca2Keys).toEqual(onEdge.pca2Keys);
+      expect(observed.participationInit.status).toBe(
+        onEdge.participationInit.status
+      );
+      expect(observed.participationInit.pcaKeys).toEqual(
+        onEdge.participationInit.pcaKeys
+      );
+      expect(observed.participationInit.pcaAsPOJO).toEqual(
+        onEdge.participationInit.pcaAsPOJO
+      );
+      expect(observed.participationInit.pcaConsensus).toEqual(
+        onEdge.participationInit.pcaConsensus
+      );
+      expect(observed.participationInit.pcaRepness).toEqual(
+        onEdge.participationInit.pcaRepness
+      );
+      expect(observed.participationInit.votes).toEqual(
+        onEdge.participationInit.votes
+      );
+      expect(observed.nextComment.status).toBe(onEdge.nextComment.status);
+      expect(observed.nextComment.keys).toEqual(onEdge.nextComment.keys);
+      expect(observed.nextComment.isServedComment).toBe(true);
+      expect(observed.participationInit.nextCommentIsServedComment).toBe(true);
+
+      // Named explicitly as well, so this cannot pass by both sides being empty.
+      expect(observed.pca2.body.tids).toEqual(approvedTids);
+      expect(observed.pca2.body["n-cmts"]).toBe(approvedTids.length);
+      expect(observed.pca2.body.pca.center).toEqual([0, 0]);
+      expect(observed.pca2.body.pca["comment-extremity"]).toEqual(
+        approvedTids.map(() => 0)
+      );
+      expect(observed.pca2.body.pca["comment-projection"]).toEqual({});
+      expect(observed.pca2.body.pca.comps).toEqual([[], []]);
+      expect(observed.pca2.body.lastVoteTimestamp).toBe(0);
+      expect(
+        observed.summaryCsv.find((r: string) => r.startsWith("comments,"))
+      ).toBe(`comments,${approvedTids.length}`);
+
+      // And now the bytes: the exact response text and the exact `asJSON`
+      // string, which pin key order as well as content.
+      const pairs = [
+        [observed.pca2.text, onEdge.pca2.text],
+        [
+          observed.participationInit.pcaAsJSON,
+          onEdge.participationInit.pcaAsJSON,
+        ],
+      ] as const;
+      if (!ORDER_ONLY_CUTOVER.has(name)) {
+        for (const [mine, theirs] of pairs) {
+          expect(mine).toBe(theirs);
+        }
       } else {
-        // The engine's own explicit empty result is served as emitted -- edge
-        // did not backfill a blob that declares these fields, and neither does
-        // this branch. This is the shape the certification golden pins.
-        expect(golden.pca2.body.tids).toEqual([]);
-        expect(golden.pca2.body["n-cmts"]).toBe(0);
-        expect(golden.pca2.body.pca.center).toEqual([]);
-        expect(golden.pca2.body.pca["comment-extremity"]).toEqual([]);
-        expect(
-          golden.summaryCsv.find((r: string) => r.startsWith("comments,"))
-        ).toBe("comments,0");
+        // The one permitted difference, checked rather than assumed: the
+        // position of the three empty arrays the merge appends. See
+        // ORDER_ONLY_CUTOVER above for why it cannot be closed here.
+        for (const [mine, theirs] of pairs) {
+          const a = Object.keys(JSON.parse(mine!));
+          const b = Object.keys(JSON.parse(theirs!));
+          expect(a).not.toEqual(b);
+          expect([...a].sort()).toEqual([...b].sort());
+          expect(a.filter((k) => !MERGE_APPENDED_KEYS.includes(k))).toEqual(
+            b.filter((k) => !MERGE_APPENDED_KEYS.includes(k))
+          );
+        }
       }
     }
   );
+
+  test("cutover: B1's synthetic sentinel and the no-row fallback, with their scoped differences", async () => {
+    const observed = await correctedGolden();
+    if (RECORDING) return;
+
+    // B1's replay-empty-6 is a synthetic fixture with 0 production rows, and its
+    // `pca.comps: [[1],[1]]` is a sentinel the corrected engine is explicitly not
+    // required to reproduce (G rev4, "Third boundary"). Everything else matches.
+    const b1 = readGolden(
+      "B1 synthetic Clojure empty (six keys, pca.comps [[1],[1]])"
+    );
+    expect(observed.comments).toEqual(b1.comments);
+    expect(observed.summaryCsv).toEqual(b1.summaryCsv);
+    expect(b1.pca2.body.pca.comps).toEqual([[1], [1]]);
+    expect(observed.pca2.body.pca.comps).toEqual([[], []]);
+    expect({ ...observed.pca2.body.pca, comps: null }).toEqual({
+      ...b1.pca2.body.pca,
+      comps: null,
+    });
+
+    // The no-row fallback is unchanged by this branch and is NOT a cutover pair:
+    // a conversation with no math row still has no math row. If the engine ever
+    // writes one, `math_tick` and `lastVoteTimestamp` become the real
+    // checkpoint's, which is the honest report, not a regression. The comment
+    // surface is what has to match, and does.
+    const noRow = readGolden("no math row at all");
+    expect(observed.comments).toEqual(noRow.comments);
+    expect(observed.summaryCsv).toEqual(noRow.summaryCsv);
+    expect(observed.pca2.body.tids).toEqual(noRow.pca2.body.tids);
+    expect(observed.pca2.body["n-cmts"]).toBe(noRow.pca2.body["n-cmts"]);
+    expect(observed.pca2.body.pca).toEqual(noRow.pca2.body.pca);
+    expect(noRow.pca2.body.lastVoteTimestamp).toBe("<now>");
+    expect(noRow.pca2.body.math_tick).toBe(0);
+  });
 
   test("a blob whose tids cover only one approved comment: served bytes unchanged", async () => {
     await check(
