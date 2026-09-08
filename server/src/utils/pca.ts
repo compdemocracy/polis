@@ -106,10 +106,13 @@ export async function prefetchLatestPcaData(): Promise<void> {
       }>
     ).map((row) => {
       const item = row.data;
-      if (row.math_tick) {
+      // `!= null`, not truthiness: generation 0 is a real committed tick (see
+      // getPca below), and the blob's own `math_tick` is an engine-local value
+      // that must never win over the column.
+      if (row.math_tick != null) {
         item.math_tick = Number(row.math_tick);
       }
-      if (row.caching_tick) {
+      if (row.caching_tick != null) {
         item.caching_tick = Number(row.caching_tick);
       }
       logger.info("mathpoll updating", {
@@ -395,11 +398,27 @@ export function getPca(
       }
       const item = rowsArray[0].data;
 
-      if (rowsArray[0].math_tick) {
+      // `!= null`, not truthiness. A committed generation of 0 is a real
+      // production state: `math_ticks.math_tick` is `NOT NULL DEFAULT 0`
+      // (migrations/000000_initial.sql:649) and every writer mints ticks with
+      // `insert into math_ticks (zid, math_env) values (?, ?) on conflict do
+      // update set math_tick = math_ticks.math_tick + 1 returning math_tick`,
+      // whose INSERT arm returns 0 for the first publication of a
+      // (zid, math_env). Under truthiness the column was skipped at 0 and the
+      // blob's own engine-local `math_tick` leaked into the served POJO and
+      // its ETag.
+      if (rowsArray[0].math_tick != null) {
         item.math_tick = Number(rowsArray[0].math_tick);
       }
 
-      if (item.math_tick <= (math_tick || 0)) {
+      // `math_tick` undefined means "give me the latest", the same thing the
+      // cached branch above treats as latest, so the floor is -1. Coercing it
+      // to 0 with `|| 0` made a committed generation of 0 look "not newer" and
+      // reported the conversation as having no math at all. -1 remains the
+      // `math_main.math_tick` default for a row that never got a real tick,
+      // and such a row stays unserved.
+      const requestedMathTick = typeof math_tick === "number" ? math_tick : -1;
+      if (item.math_tick <= requestedMathTick) {
         logger.silly("after cache miss, unable to find newer item", {
           zid,
           math_tick,
