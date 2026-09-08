@@ -1,4 +1,5 @@
 mod cors;
+mod db;
 mod json;
 mod model;
 mod transport;
@@ -11,6 +12,7 @@ use axum::{
 };
 use base64::Engine;
 use cors::Cors;
+use db::Pool;
 use model::{MathData, PcaData, Subset};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -22,7 +24,6 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 use tokio::sync::Mutex;
-use tokio_postgres::{Client, NoTls};
 type Error = Box<dyn std::error::Error + Send + Sync>;
 /// A stored blob that the pinned model does not describe. The recording has no cell
 /// for it, so the route refuses the request under a named code instead of guessing a
@@ -43,10 +44,12 @@ struct Metrics {
 }
 #[derive(Clone)]
 struct App {
-    db: Arc<Client>,
+    db: Arc<Pool>,
     math_env: String,
     cors: Arc<Cors>,
     cache: Arc<Mutex<Cache>>,
+    /// `pcaResultsExistForZid` (`math.ts:29`), keyed by (math_env, zid) as Node keys it.
+    results_exist: Arc<Mutex<HashMap<(String, i32), bool>>>,
     metrics: Arc<Metrics>,
 }
 #[derive(Default)]
@@ -70,7 +73,14 @@ fn now() -> u64 {
         .as_millis() as u64
 }
 impl App {
-    async fn load(&self, zid: i32) -> Result<Option<Arc<Cached>>, Error> {
+    /// `getPca` (`pca.ts:325-419`). `requested` is the tick the caller asks to beat;
+    /// -1 is the "latest" sentinel `math.ts` substitutes for an absent `math_tick`.
+    /// Returning None is Node's `undefined`, which `math.ts` turns into a 304.
+    ///
+    /// The cache is filled ONLY on the two paths that fill it in Node. The earlier
+    /// unconditional fill could serve up to 3s of staleness in a window where Node
+    /// re-queries, which is a behaviour change the recording cannot see.
+    async fn get_pca(&self, zid: i32, requested: f64) -> Result<Option<Arc<Cached>>, Error> {
         let key = (self.math_env.clone(), zid);
         let mut cache = self.cache.lock().await;
         if let Some(item) = cache
@@ -81,12 +91,25 @@ impl App {
         {
             cache.order.retain(|k| k != &key);
             cache.order.push_back(key);
-            return Ok(Some(item));
+            // The latest-requested branch returns the cached item without comparing.
+            if requested == -1.0 || (item.data.math_tick as f64) > requested {
+                return Ok(Some(item));
+            }
+            return Ok(None);
         }
-        let row = self.db.query_opt("select (data - 'zid' - 'subgroup-votes' - 'subgroup-repness' - 'subgroup-clusters')::text, math_tick from math_main where zid=$1 and math_env=$2", &[&zid, &self.math_env]).await?;
+        let db = self.db.get().await?;
+        let row = db.query_opt("select (data - 'zid' - 'subgroup-votes' - 'subgroup-repness' - 'subgroup-clusters')::text, math_tick from math_main where zid=$1 and math_env=$2", &[&zid, &self.math_env]).await?;
         let mut data = if let Some(row) = row {
             let tick: i64 = row.get(1);
-            if tick < 0 {
+            // `item.math_tick <= (math_tick || 0)`: JS coerces a falsy requested tick
+            // — 0 and NaN alike — to 0 here, unlike the cache-hit comparison above.
+            let floor = if requested == 0.0 || requested.is_nan() {
+                0.0
+            } else {
+                requested
+            };
+            if (tick as f64) <= floor {
+                // Node returns undefined WITHOUT populating the cache on this path.
                 return Ok(None);
             }
             let text: String = row.get(0);
@@ -129,8 +152,11 @@ impl App {
             }
             data
         } else {
-            let tids: Vec<u64> = self
-                .db
+            if requested != -1.0 {
+                // No row and an explicit tick: undefined, and again no cache fill.
+                return Ok(None);
+            }
+            let tids: Vec<u64> = db
                 .query(
                     "select tid from comments where zid=$1 and mod>=1 order by tid",
                     &[&zid],
@@ -299,6 +325,7 @@ fn base_headers(origin: Option<&str>, media: Option<&str>) -> Vec<(String, Strin
         h.push(("Content-Type".into(), media.into()));
     }
     h.push(("Cache-Control".into(), "no-cache".into()));
+    h.push(("Connection".into(), "keep-alive".into()));
     if let Some(origin) = origin {
         h.push(("Access-Control-Allow-Origin".into(), origin.into()));
         h.extend(
@@ -464,6 +491,8 @@ async fn handle(
     };
     let Some(row) = app
         .db
+        .get()
+        .await?
         .query_opt("select zid from zinvites where zinvite=$1", &[&cap])
         .await?
     else {
@@ -511,16 +540,31 @@ async fn handle(
         }
         requested = conditional_tick(etag);
     }
-    let item = app.load(zid).await?;
-    if item
-        .as_ref()
-        .is_none_or(|item| item.data.math_tick as f64 <= requested)
-    {
-        let mut h = base_headers(origin, Some("application/json"));
-        add(&mut h, "Vary", "Accept-Encoding");
-        return Ok(response(304, vec![], h));
-    }
-    let item = item.expect("returned 304 for missing math");
+    let item = match app.get_pca(zid, requested).await? {
+        Some(item) => item,
+        None => {
+            // math.ts:120-134. The first miss for a cache key re-queries from the
+            // latest sentinel to learn whether any math exists, which is also what
+            // warms the empty structure for the next request. Both branches of
+            // finishWith304or404 send 304; its 404 is commented out at the source.
+            let seen = app
+                .results_exist
+                .lock()
+                .await
+                .get(&(app.math_env.clone(), zid))
+                .copied();
+            if seen.is_none() {
+                let exists = app.get_pca(zid, -1.0).await?.is_some();
+                app.results_exist
+                    .lock()
+                    .await
+                    .insert((app.math_env.clone(), zid), exists);
+            }
+            let mut h = base_headers(origin, Some("application/json"));
+            add(&mut h, "Vary", "Accept-Encoding");
+            return Ok(response(304, vec![], h));
+        }
+    };
     let full = keys.is_empty();
     let mut h = base_headers(
         origin,
@@ -564,20 +608,63 @@ async fn handle(
         Ok(response(200, bytes, h))
     }
 }
+#[derive(Serialize)]
+struct Health {
+    status: &'static str,
+    #[serde(rename = "mathEnv")]
+    math_env: String,
+    #[serde(rename = "poolIdle")]
+    pool_idle: usize,
+    #[serde(rename = "poolOpened")]
+    pool_opened: u64,
+    #[serde(rename = "poolFailed")]
+    pool_failed: u64,
+    #[serde(rename = "contractViolations")]
+    contract_violations: u64,
+}
+/// Not a Node route. It exists so a reconnect, a pool starved of connections, and
+/// the contract-violation rate are observable rather than inferred from 5xx counts.
+async fn health(State(app): State<App>) -> Response<Body> {
+    let reachable = match app.db.get().await {
+        Ok(db) => db.query_one("select 1", &[]).await.is_ok(),
+        Err(_) => false,
+    };
+    let (idle, opened, failed) = app.db.stats();
+    let body = json::encode(&Health {
+        status: if reachable { "ok" } else { "degraded" },
+        math_env: app.math_env.clone(),
+        pool_idle: idle,
+        pool_opened: opened,
+        pool_failed: failed,
+        contract_violations: app.metrics.contract_violations.load(Ordering::Relaxed),
+    })
+    .expect("health encodes");
+    let mut h = vec![
+        ("Content-Type".to_string(), "application/json".to_string()),
+        ("Cache-Control".to_string(), "no-cache".to_string()),
+        ("Connection".to_string(), "keep-alive".to_string()),
+    ];
+    add(&mut h, "Content-Length", body.len());
+    response(if reachable { 200 } else { 503 }, body, h)
+}
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let (db, connection) = tokio_postgres::connect(&std::env::var("DATABASE_URL")?, NoTls).await?;
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            eprintln!("database connection failed: {e}");
-            std::process::exit(1);
-        }
-    });
+    // Config.mathEnv has no default. An unset variable makes Node match no rows;
+    // defaulting it here would silently serve another namespace's math instead.
+    let math_env = std::env::var("MATH_ENV")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .ok_or("MATH_ENV is required and has no default")?;
+    let pool_size = std::env::var("PG_POOL_SIZE")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(16);
     let app = App {
-        db: Arc::new(db),
-        math_env: std::env::var("MATH_ENV").unwrap_or("dev".into()),
+        db: Pool::open(std::env::var("DATABASE_URL")?, pool_size).await?,
+        math_env,
         cors: Arc::new(Cors::from_env()),
         cache: Default::default(),
+        results_exist: Default::default(),
         metrics: Default::default(),
     };
     let router = Router::new()
@@ -585,6 +672,7 @@ async fn main() -> Result<(), Error> {
             "/api/v3/math/pca2",
             get(route).head(route).options(options_route),
         )
+        .route("/health", get(health))
         .with_state(app);
     let listener = tokio::net::TcpListener::bind(
         std::env::var("LISTEN_ADDR").unwrap_or("127.0.0.1:5000".into()),
@@ -767,6 +855,7 @@ mod tests {
             [
                 "Content-Type",
                 "Cache-Control",
+                "Connection",
                 "Access-Control-Allow-Origin",
                 "Access-Control-Allow-Credentials",
                 "Access-Control-Allow-Headers",
@@ -788,7 +877,12 @@ mod tests {
         );
         // No Origin and no Referer: Node's `if (origin)` guard emits nothing.
         let without = base_headers(None, Some("application/json"));
-        assert_eq!(names(&without), ["Content-Type", "Cache-Control"]);
+        assert_eq!(
+            names(&without),
+            ["Content-Type", "Cache-Control", "Connection"]
+        );
+        // M1: writeDefaultHead pins keep-alive; the transport no longer overrides it.
+        assert_eq!(value(&without, "Connection"), "keep-alive");
     }
     #[test]
     fn refused_origin_answers_the_final_handler_without_cors() {
@@ -826,7 +920,7 @@ mod tests {
             .expect("ordered headers")
             .0;
         // 204 strips Content-Type and Content-Length; the computed ETag survives.
-        assert_eq!(names(h), ["Cache-Control", "ETag", "Vary"]);
+        assert_eq!(names(h), ["Cache-Control", "Connection", "ETag", "Vary"]);
         assert_eq!(value(h, "ETag"), weak_etag(b"No Content"));
         assert_eq!(value(h, "Vary"), "Accept-Encoding");
         assert_eq!(
@@ -848,6 +942,7 @@ mod tests {
             names(h),
             [
                 "Cache-Control",
+                "Connection",
                 "Access-Control-Allow-Origin",
                 "Access-Control-Allow-Credentials",
                 "Access-Control-Allow-Headers",

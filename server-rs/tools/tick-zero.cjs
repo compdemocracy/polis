@@ -5,7 +5,8 @@ const cp=require('node:child_process'),path=require('node:path'),assert=require(
 const {Client}=require('pg');const wait=ms=>new Promise(r=>setTimeout(r,ms));
 async function main(){
  const url=new URL(process.env.DATABASE_URL);
- assert.equal(url.hostname,'127.0.0.1');assert.equal(url.pathname,'/p027');assert.ok(Number(url.port)>=55720&&Number(url.port)<=55739);
+ const min=Number(process.env.P032_PORT_MIN||55720),max=Number(process.env.P032_PORT_MAX||55739);
+ assert.equal(url.hostname,'127.0.0.1');assert.equal(url.pathname,'/p027');assert.ok(Number(url.port)>=min&&Number(url.port)<=max);
  const pg=new Client({connectionString:process.env.DATABASE_URL});await pg.connect();
  const fixtures=require('../../server/characterization/pca2-fixtures.json');const f=fixtures.find(f=>f.shape==='populated');
  const old=(await pg.query('select data::text,math_tick from math_main where zid=$1 and math_env=$2',[f.zid,'p027'])).rows[0];

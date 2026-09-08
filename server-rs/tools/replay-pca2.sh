@@ -2,14 +2,19 @@
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../.." && pwd)
 cd "$root"
-export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-rpca2x-$(openssl rand -hex 4)}
-[[ "$COMPOSE_PROJECT_NAME" =~ ^rpca2x-[a-z0-9]+$ ]] || { echo 'isolated rpca2x project required' >&2; exit 1; }
+# Isolation bounds are configurable so another reviewer or CI can run this under
+# its own assigned prefix and port range without editing the tools. The defaults
+# are the round-4 values.
+export P032_PROJECT_PREFIX=${P032_PROJECT_PREFIX:-rpca2x}
+export P032_PORT_MIN=${P032_PORT_MIN:-55720} P032_PORT_MAX=${P032_PORT_MAX:-55739}
+export COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME:-$P032_PROJECT_PREFIX-$(openssl rand -hex 4)}
+[[ "$COMPOSE_PROJECT_NAME" =~ ^${P032_PROJECT_PREFIX}-[a-z0-9]+$ ]] || { echo "isolated $P032_PROJECT_PREFIX project required" >&2; exit 1; }
 # Reserve five distinct ports within the user-assigned range. No other project's
 # containers, networks, volumes, checkout or env files may be changed.
 read -r POLIS_RECOVERY_PG_PORT P027_HTTP_PORT P027_CONTROL_PORT P032_HTTP_PORT P032_DYNAMO_PORT < <(python3 - <<'PY'
-import socket
+import os,socket
 ports=[]
-for p in range(55720,55740):
+for p in range(int(os.environ['P032_PORT_MIN']),int(os.environ['P032_PORT_MAX'])+1):
  s=socket.socket()
  try:s.bind(('127.0.0.1',p));ports.append(p)
  except OSError:pass
