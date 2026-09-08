@@ -51,7 +51,17 @@ fn run() -> Result<()> {
             let result = store.publish(zid, expected, epoch, v["checkpoint"].clone(), &payloads)?;
             store.release(zid, epoch)?;
             println!("{result:?}");
-            Ok(())
+            // A refusal is not a successful one-shot run. `publish-fixture` is
+            // a strict command like `once`, so an ownership refusal goes
+            // through the same typed exit mapper instead of being printed and
+            // exiting 0. Conflict keeps its distinct handling: a stale expected
+            // tick is a normal outcome that overwrote nothing, and the caller
+            // reads it from the printed result.
+            match result {
+                polis_coordinator::store::Publication::Refused(state) => Err(state.into()),
+                polis_coordinator::store::Publication::Conflict
+                | polis_coordinator::store::Publication::Committed(_) => Ok(()),
+            }
         }
         "reader" => {
             let consumer = std::env::args().nth(2).unwrap_or_else(|| "cli".into());
