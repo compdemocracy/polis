@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
-from conftest import ROOT,seed,connect,rows,assert_coherent
+from coordinator.conftest import ROOT,seed,connect,rows,assert_coherent
 
 
 def fixture_file(tmp_path,payloads,expected=None):
