@@ -1,0 +1,236 @@
+name: Certification (EC2)
+
+# P-022 §E v1 "minimal". Runs the recovery matrix and the Delphi certification
+# battery on ONE disposable EC2 worker, then destroys it.
+#
+# Nothing here works until the CDK construct behind `-c enableCiEc2=true` has
+# been deployed once and CERTIFY_OIDC_ROLE_ARN / CERTIFY_LAUNCH_TEMPLATE_ID are
+# set. See docs/ci-ec2.md.
+#
+# The worker is NOT a self-hosted runner: it is never registered with GitHub,
+# it has no inbound network path, and it is only reachable through SSM from
+# this job's short-lived OIDC credentials.
+
+on:
+  workflow_dispatch:
+    inputs:
+      instance_type:
+        description: EC2 instance type for the worker (must be arm64/Graviton)
+        required: false
+        default: r8g.4xlarge
+        type: string
+      ref:
+        description: "Git ref to test on the worker (default: this workflow's ref)"
+        required: false
+        default: ''
+        type: string
+      run_battery:
+        description: Run the certification battery as well as the recovery matrix
+        required: false
+        default: true
+        type: boolean
+  schedule:
+    # Nightly. `schedule` always runs the DEFAULT branch's copy of this file,
+    # so the job below refuses to proceed unless that resolved to edge.
+    - cron: '41 5 * * *'
+
+permissions: {}
+
+# One certification campaign at a time, and never cancel a running one: a
+# cancelled job cannot terminate its instance, and GitHub concurrency does not
+# fence an orphaned EC2 box.
+concurrency:
+  group: certification-ec2
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    name: Certification battery and recovery matrix
+    if: github.event_name != 'schedule' || github.ref == 'refs/heads/edge'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 420
+    environment: certification-private
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.CERTIFY_REGION || 'us-east-1' }}
+      POLIS_CI_TAG_KEY: 'polis:ci'
+      POLIS_CI_TAG_VALUE: disposable
+      TARGET_REF: ${{ inputs.ref || github.ref_name }}
+      INSTANCE_TYPE: ${{ inputs.instance_type || 'r8g.4xlarge' }}
+
+    steps:
+      - name: Check out the trusted control code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: ${{ vars.CERTIFY_OIDC_ROLE_ARN }}
+          aws-region: ${{ vars.CERTIFY_REGION || 'us-east-1' }}
+          role-session-name: certify-${{ github.run_id }}-${{ github.run_attempt }}
+          # The campaign budget is six hours and this action does not refresh;
+          # a one-hour session would expire mid-poll and orphan the worker.
+          role-duration-seconds: 21600
+
+      - name: Launch the disposable worker
+        id: launch
+        env:
+          LAUNCH_TEMPLATE_ID: ${{ vars.CERTIFY_LAUNCH_TEMPLATE_ID }}
+        run: |
+          set -euo pipefail
+          test -n "$LAUNCH_TEMPLATE_ID" || {
+            echo "CERTIFY_LAUNCH_TEMPLATE_ID is unset; deploy the CDK construct first (docs/ci-ec2.md)" >&2
+            exit 1
+          }
+          # Deterministic client token: a retried step after a lost response
+          # returns the SAME instance instead of launching a second one.
+          TOKEN="polis-certify-${{ github.run_id }}-${{ github.run_attempt }}"
+          # Version=1 is pinned; the OIDC role cannot create another version.
+          TAGS="ResourceType=instance,Tags=[{Key=$POLIS_CI_TAG_KEY,Value=$POLIS_CI_TAG_VALUE},{Key=polis:ci-ref,Value=$TARGET_REF},{Key=polis:ci-run,Value=${{ github.run_id }}-${{ github.run_attempt }}}]"
+          VOLTAGS="ResourceType=volume,Tags=[{Key=$POLIS_CI_TAG_KEY,Value=$POLIS_CI_TAG_VALUE}]"
+          INSTANCE_ID=$(aws ec2 run-instances \
+            --launch-template "LaunchTemplateId=${LAUNCH_TEMPLATE_ID},Version=1" \
+            --instance-type "$INSTANCE_TYPE" \
+            --min-count 1 --max-count 1 \
+            --client-token "$TOKEN" \
+            --tag-specifications "$TAGS" "$VOLTAGS" \
+            --query 'Instances[0].InstanceId' --output text)
+          echo "INSTANCE_ID=$INSTANCE_ID" >> "$GITHUB_ENV"
+          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
+          echo "Launched $INSTANCE_ID ($INSTANCE_TYPE) for ref $TARGET_REF"
+
+      - name: Wait for SSM registration and bootstrap
+        run: |
+          set -euo pipefail
+          online=None
+          for _ in $(seq 1 60); do
+            online=$(aws ssm describe-instance-information \
+              --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+              --query 'InstanceInformationList[0].PingStatus' --output text 2>/dev/null || echo None)
+            if [ "$online" = "Online" ]; then break; fi
+            sleep 20
+          done
+          [ "${online:-None}" = "Online" ] || { echo "worker never registered with SSM" >&2; exit 1; }
+          # user-data writes the ready marker last, after docker/compose and the
+          # clone at the requested ref; the failed marker short-circuits.
+          POLIS_SSM_TIMEOUT=1800 bash ci/p022_ssm.sh bootstrap-wait '
+            for i in $(seq 1 120); do
+              [ -f /var/lib/polis-ci-failed ] && { echo "bootstrap failed"; tail -n 60 /var/log/polis-ci-userdata.log; exit 1; }
+              [ -f /var/lib/polis-ci-ready ] && { echo "ready sha=$(cat /var/lib/polis-ci-sha)"; exit 0; }
+              sleep 15
+            done
+            echo "bootstrap timed out"; tail -n 60 /var/log/polis-ci-userdata.log; exit 1'
+
+      - name: Recovery matrix (make test-recovery, make test-recovery-races)
+        run: |
+          set -euo pipefail
+          POLIS_SSM_TIMEOUT=7200 bash ci/p022_ssm.sh recovery \
+            'sudo env POLIS_CI_REPO_ROOT=/opt/polis bash /opt/polis/ci/p022_ec2_run.sh recovery'
+
+      - name: Certification battery
+        if: ${{ inputs.run_battery != false }}
+        env:
+          FIXTURE_S3: ${{ secrets.CERTIFY_FIXTURE_S3_URI }}
+          EVIDENCE_S3: ${{ vars.CERTIFY_EVIDENCE_S3_URI }}
+        run: |
+          set -euo pipefail
+          # The bundle is private prod-derived data and is NOT in the repo. The
+          # WORKER fetches it with its own instance role; this runner never gets
+          # read access. Unset => the worker skips those cases and still runs
+          # the public fixtures.
+          if [ -z "$FIXTURE_S3" ]; then
+            echo "::notice::CERTIFY_FIXTURE_S3_URI is unset; private battery cases will be skipped"
+          fi
+          # These two are spliced into the remote command string. Reject
+          # anything that is not a plain s3:// URI rather than trusting the
+          # value's quoting to hold.
+          for u in "$FIXTURE_S3" "$EVIDENCE_S3"; do
+            case "$u" in
+              ''|s3://[A-Za-z0-9]*) : ;;
+              *) echo "::error::not a plain s3:// URI: $u"; exit 1 ;;
+            esac
+            case "$u" in
+              *[!A-Za-z0-9:/._-]*) echo "::error::unsafe character in S3 URI"; exit 1 ;;
+            esac
+          done
+          POLIS_SSM_TIMEOUT=21600 bash ci/p022_ssm.sh battery \
+            "sudo env POLIS_CI_REPO_ROOT=/opt/polis POLIS_CI_FIXTURE_S3='${FIXTURE_S3}' POLIS_CI_EVIDENCE_S3='${EVIDENCE_S3}' POLIS_CI_RUN='${{ github.run_id }}-${{ github.run_attempt }}' bash /opt/polis/ci/p022_ec2_run.sh battery"
+
+      - name: Collect logs and JUnit
+        if: ${{ always() && env.INSTANCE_ID != '' }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          # SSM caps command output at 24000 characters, so the artifact tarball
+          # comes back base64 in bounded chunks. Only public-safe files are in
+          # it (see ci/p022_ec2_run.sh); raw battery output goes to the private
+          # evidence bucket, never here.
+          POLIS_SSM_TIMEOUT=900 bash ci/p022_ssm.sh bundle \
+            'sudo bash /opt/polis/ci/p022_ec2_run.sh bundle' | tee bundle.txt || true
+          CHUNKS=$(grep -oE 'CHUNKS=[0-9]+' bundle.txt | tail -n1 | cut -d= -f2 || echo 0)
+          echo "expecting ${CHUNKS:-0} chunk(s)"
+          : > artifacts.b64
+          for i in $(seq 1 "${CHUNKS:-0}"); do
+            POLIS_SSM_RAW=1 POLIS_SSM_TIMEOUT=300 bash ci/p022_ssm.sh "chunk-$i" \
+              "sudo bash /opt/polis/ci/p022_ec2_run.sh chunk $i" >> artifacts.b64 || break
+          done
+          if [ -s artifacts.b64 ]; then
+            base64 -d artifacts.b64 > artifacts.tar.gz
+            tar -xzf artifacts.tar.gz -C artifacts || true
+          fi
+          ls -la artifacts || true
+
+      - name: Upload artifacts
+        if: ${{ always() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: certification-ec2-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
+
+      # ---------------------------------------------------------------- teardown
+      # This is the only thing in the job that is allowed to be optimistic about
+      # nothing else having worked.
+      - name: Terminate the worker and confirm
+        if: ${{ always() }}
+        run: |
+          set -uo pipefail
+          if [ -z "${INSTANCE_ID:-}" ]; then
+            # The launch step may have created an instance whose ID we lost.
+            # Sweep this run's tag before giving up.
+            ORPHANS=$(aws ec2 describe-instances \
+              --filters "Name=tag:polis:ci-run,Values=${{ github.run_id }}-${{ github.run_attempt }}" \
+                        "Name=instance-state-name,Values=pending,running,stopping,stopped" \
+              --query 'Reservations[].Instances[].InstanceId' --output text 2>/dev/null || echo '')
+            if [ -z "$ORPHANS" ]; then
+              echo "no instance was launched; nothing to terminate"
+              exit 0
+            fi
+            INSTANCE_ID="$ORPHANS"
+          fi
+          echo "terminating: $INSTANCE_ID"
+          # shellcheck disable=SC2086
+          aws ec2 terminate-instances --instance-ids $INSTANCE_ID || true
+          # Confirm. An unconfirmed termination is a cost leak and a FAILURE of
+          # this job even when every test passed.
+          for _ in $(seq 1 30); do
+            # shellcheck disable=SC2086
+            STATES=$(aws ec2 describe-instances --instance-ids $INSTANCE_ID \
+              --query 'Reservations[].Instances[].State.Name' --output text 2>/dev/null || echo '')
+            echo "state(s): ${STATES:-<none>}"
+            case "$STATES" in
+              *pending*|*running*|*stopping*|*stopped*) ;;
+              '') ;;
+              *) echo "termination confirmed"; exit 0 ;;
+            esac
+            # shellcheck disable=SC2086
+            aws ec2 terminate-instances --instance-ids $INSTANCE_ID >/dev/null 2>&1 || true
+            sleep 10
+          done
+          echo "::error::could not confirm termination of $INSTANCE_ID -- kill it by hand (docs/ci-ec2.md)"
+          exit 1
