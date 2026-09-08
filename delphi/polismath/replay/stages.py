@@ -729,11 +729,17 @@ def write_stage_documents(out_dir: str | Path, documents: Sequence[dict[str, Any
     for doc in documents:
         name = f"step-{int(doc['step']):03d}.stages.json"
         (out / name).write_text(canonical_json(doc))
+        # Each row is self-describing: a manifest must be checkable against
+        # the document it names on all four identity fields (file/index, tick,
+        # digest, engine) plus the polarity the numbers were emitted in.
         rows.append({
+            "engine": doc.get("engine", engine),
             "file": name,
             "index": int(doc["step"]),
             "input_digest": doc["input_digest"],
             "tick": doc["tick"],
+            "vote_sign_convention": doc.get("vote_sign_convention",
+                                            VOTE_SIGN_CONVENTION),
         })
     (out / "stages-manifest.json").write_text(canonical_json({
         "comment_projection_axes": COMMENT_PROJECTION_AXES,
