@@ -239,25 +239,6 @@ def test_one_poison_zid_does_not_starve_healthy_zids(engine, pg_url,
 # --------------------------------------------------------------------------- #
 # The join timeout
 # --------------------------------------------------------------------------- #
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "DEFECT (P-022 §C R10): poll_once IGNORES the pool join result. "
-        "polismath/poller/service.py:365 calls `self._pool.join(timeout=120.0)` "
-        "and discards its boolean; ConversationWorkerPool.join returns False on "
-        "timeout (polismath/poller/worker_pool.py:156). So a cycle whose work "
-        "never drained returns NORMALLY and looks like a completed poll — the "
-        "`--once` CLI exits 0, and the integration harness treats a stuck "
-        "conversation as a successful cycle. P-022 §C: 'Exhaust a join timeout: "
-        "poll_once must surface failure, not successful completion.' The fix is "
-        "to raise (or return a status) when join() is False; that is a separate "
-        "decision (#2708 raises PoolDrainTimeout). The oracle requires the poll "
-        "thread to have COMPLETED and the failure to be that named class "
-        "(resolved by name, falling back to the builtin TimeoutError on this "
-        "base): a permanently hung observer used to satisfy the old "
-        "`raised is not None or not returned` form."
-    ),
-)
 def test_poll_once_surfaces_a_join_timeout(engine, pg_url, make_service):
     """Stall a worker past the join bound and require ``poll_once`` to surface
     the failure instead of returning as if the cycle completed."""
