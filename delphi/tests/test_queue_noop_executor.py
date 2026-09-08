@@ -24,15 +24,88 @@ from tests.conftest import require_polis_postgres
 
 pytestmark = pytest.mark.integration
 
-MIGRATION = os.path.join(
-    os.path.dirname(__file__),
-    "..",
-    "..",
-    "server",
-    "postgres",
-    "migrations",
-    "000019_create_polis_queue.sql",
-)
+# Locate the checkout rather than counting ".." segments. The Delphi Python CI
+# job copies only `delphi/tests` into `/app/tests` inside the delphi image
+# (.github/workflows/python-ci.yml step 6), where two levels up is `/` and the
+# polis checkout genuinely does not exist. Counting segments there silently
+# produced `/server/postgres/migrations` and failed the SQL pin for a packaging
+# reason rather than a real drift. Same shape as the recovery matrix's conftest.
+_MIGRATIONS_SUBPATH = ("server", "postgres", "migrations")
+MIGRATION_FILENAME = "000019_create_polis_queue.sql"
+
+
+def _find_repo_root(start):
+    """The polis checkout at or above ``start``, identified by what we need."""
+    path = os.path.abspath(start)
+    while True:
+        if os.path.isdir(os.path.join(path, *_MIGRATIONS_SUBPATH)):
+            return path
+        parent = os.path.dirname(path)
+        if parent == path:
+            return None
+        path = parent
+
+
+#: The polis checkout root, or None when these tests run outside one.
+REPO_ROOT = _find_repo_root(os.path.dirname(__file__))
+
+_NO_CHECKOUT_MESSAGE = """
+This test reads {needed} from the polis checkout, and no checkout was found at
+or above {here}.
+
+That is a packaging fact, not a configuration one: the Delphi Python CI job
+copies only `delphi/tests` into `/app/tests` inside the delphi image, so the
+checkout is genuinely absent there and nothing inside the image can supply it.
+
+Run the test from a checkout, or point at the migrations explicitly:
+
+    cd delphi && pytest tests/test_queue_noop_executor.py
+    POLIS_MIGRATIONS_DIR=/app/migrations pytest tests/test_queue_noop_executor.py
+"""
+
+_BAD_OVERRIDE_MESSAGE = """
+POLIS_MIGRATIONS_DIR resolves to {path!r}, which is not there.
+
+An explicit override that does not resolve is operator error, so this FAILS
+rather than skipping. Unset it to fall back to the checkout's
+server/postgres/migrations.
+"""
+
+
+def _resolve_migration():
+    """``(path, problem)``; exactly one of the two is None.
+
+    An explicit override that does not resolve fails; an absent checkout skips.
+    Neither weakens the pin when the file IS present.
+    """
+    override = os.environ.get("POLIS_MIGRATIONS_DIR")
+    if override:
+        candidate = os.path.join(os.path.abspath(override), MIGRATION_FILENAME)
+        if not os.path.isfile(candidate):
+            return None, ("fail", _BAD_OVERRIDE_MESSAGE.format(path=candidate))
+        return candidate, None
+    if REPO_ROOT is None:
+        return None, (
+            "skip",
+            _NO_CHECKOUT_MESSAGE.format(
+                needed=os.path.join(*_MIGRATIONS_SUBPATH, MIGRATION_FILENAME),
+                here=os.path.dirname(os.path.abspath(__file__)),
+            ),
+        )
+    return os.path.join(REPO_ROOT, *_MIGRATIONS_SUBPATH, MIGRATION_FILENAME), None
+
+
+MIGRATION, _MIGRATION_PROBLEM = _resolve_migration()
+
+
+def require_migration():
+    """The migration path, or a clean skip / loud failure saying why not."""
+    if _MIGRATION_PROBLEM is not None:
+        kind, message = _MIGRATION_PROBLEM
+        if kind == "fail":
+            pytest.fail(message, pytrace=False)
+        pytest.skip(message)
+    return MIGRATION
 
 ENV = "test-p024-py"
 PRODUCT = "product-noop"
@@ -56,6 +129,15 @@ def queue_db():
     concurrent run's rows.
     """
     import psycopg2
+
+    if MIGRATION is None:
+        # Same packaging fact as the SQL pin: no checkout, no migration to
+        # apply. Skip before taking a connection or starting a container.
+        pytest.skip(
+            "no polis checkout above these tests and POLIS_MIGRATIONS_DIR is "
+            "unset, so server/postgres/migrations/000019_create_polis_queue.sql "
+            "cannot be read; run from a checkout or set POLIS_MIGRATIONS_DIR"
+        )
 
     with require_polis_postgres() as url:
         suffix = uuid.uuid4().hex[:8]
@@ -187,12 +269,18 @@ def _make_executor(queue_db, env=None):
 
 
 def test_sql_pin_matches_the_migration_on_disk():
-    """Round 4: both adapters pin the SQL they were written against."""
+    """Round 4: both adapters pin the SQL they were written against.
+
+    The pin is not weakened where the file exists. Where no checkout exists at
+    all - the delphi image, which carries only `delphi/tests` - there is nothing
+    to compare against, so this skips with the reason and the fixing command.
+    """
     import hashlib
 
     from polismath.queue import executor as ex
 
-    with open(MIGRATION, "rb") as handle:
+    path = require_migration()
+    with open(path, "rb") as handle:
         assert hashlib.sha256(handle.read()).hexdigest() == ex.QUEUE_SQL_SHA256
 
 
