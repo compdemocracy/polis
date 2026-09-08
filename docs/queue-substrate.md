@@ -104,9 +104,15 @@ work.
 `delphi/polismath/queue/executor.py` is a standalone process: claim, heartbeat,
 finalize, plus one bounded reaper opportunity per cycle. It refuses to start
 unless `POLIS_QUEUE_SUBSTRATE_ENABLED` is set, `NODE_ENV` is not `production`,
-the env is in the dev/test namespace, and the database login is a member of
-`polis_queue_executor` **and** holds no direct write on the queue tables. The
-last check runs on every connection, not only at startup.
+and the env is in the dev/test namespace.
+
+Every connection then re-checks the grant boundary, not only the first one. The
+login must be a member of `polis_queue_executor`, must hold **no** table-level
+or column-level privilege on **any** of the five queue tables, and must not be
+able to reach `polis_queue_owner` by inheritance or `SET ROLE`. A single denied
+`UPDATE` on one table would not be proof of the boundary: a login with executor
+membership plus `UPDATE` on `polis_queue_heads` passes that and can still move a
+published pointer behind the functions' backs.
 
 ```sh
 POLIS_QUEUE_SUBSTRATE_ENABLED=true python -m polismath.queue.executor \
@@ -149,6 +155,15 @@ available, in which case it starts a throwaway `postgres:17`):
 ```sh
 cd delphi && pytest tests/test_queue_noop_executor.py
 ```
+
+The migration is located by walking up from the test file for a directory that
+holds `server/postgres/migrations`, so it works from any checkout depth. The
+Delphi Python CI job copies only `delphi/tests` into `/app/tests` inside the
+delphi image, where no checkout exists above the tests; there the migration-
+dependent cases skip with that reason rather than failing the SQL pin for a
+packaging reason. `POLIS_MIGRATIONS_DIR` overrides the location and makes them
+run in that image too - and an override that does not resolve fails, because
+that is operator error rather than an absent prerequisite.
 
 The language-neutral specification harness stays outside the repository, in the
 cost-reduction notes (`scripts/p024-queue-sql-smoke.py`). This repository's
