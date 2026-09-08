@@ -744,25 +744,39 @@ def test_alias_collision_is_caught_before_the_lossy_canonical_dict():
             cert.validate_checkpoint_blob(blob, "clj: step-000")
 
 
-#: The ``group-clusters`` / ``group_clusters`` pair EXACTLY as the real Python
-#: driver emitted it for the public vw dataset, battery entry
-#: ``{dataset: vw, preset: single-cut}``, step-000 — recorded so the defect that
-#: alias policy v1 could only show under ``RUN_CLJ_INTEGRATION=1`` reproduces in
-#: ordinary CI. The two views differ by construction (see
-#: :data:`certify._DECLARED_ALIAS_FIELDS`): folded base-cluster-id members with
-#: Clojure-sign centers under the kebab key, unfolded participant-id members
-#: with Delphi-sign centers under the snake one.
-REAL_DRIVER_GROUP_CLUSTER_TWINS = json.loads(
+#: The ``group-clusters`` / ``group_clusters`` pairs EXACTLY as the real Python
+#: driver emitted them, with the ``base-clusters`` the unfolding relation runs
+#: through, for BOTH committed public datasets at ``{preset: single-cut}``,
+#: step-000 — recorded so a defect that could otherwise only show under
+#: ``RUN_CLJ_INTEGRATION=1`` reproduces in ordinary CI. ``vw`` folds one
+#: participant per base cluster; ``biodiversity`` folds up to nine, so it is the
+#: fixture that can actually prove the unfolding relation (Astra review F2).
+REAL_DRIVER_TWINS = json.loads(
     (Path(__file__).parent / "fixtures"
-     / "vw_single_cut_group_cluster_twins.json").read_text())
+     / "real_driver_group_cluster_twins.json").read_text())
+REAL_DRIVER_GROUP_CLUSTER_TWINS = REAL_DRIVER_TWINS["vw"]
+FOLDED_TWINS = REAL_DRIVER_TWINS["biodiversity"]
 
 
-def test_real_driver_group_cluster_twins_are_two_views_not_a_duplicate():
-    """Non-vacuity for the fixture: the recorded pair really does disagree
+def _twin_blob(fixture, **overrides):
+    """``VALID_BASE`` carrying a recorded real-driver twin pair and the
+    ``base-clusters`` its unfolding relation is defined against."""
+    return {
+        **VALID_BASE,
+        "base-clusters": fixture["base-clusters"],
+        "group-clusters": fixture["group-clusters"],
+        "group_clusters": fixture["group_clusters"],
+        **overrides,
+    }
+
+
+@pytest.mark.parametrize("name", ["vw", "biodiversity"])
+def test_real_driver_group_cluster_twins_are_two_views_not_a_duplicate(name):
+    """Non-vacuity for the fixtures: each recorded pair really does disagree
     value-for-value, so alias policy v1's deep-equality rule really did reject
     every checkpoint the real Python driver produces."""
-    kebab = REAL_DRIVER_GROUP_CLUSTER_TWINS["group-clusters"]
-    snake = REAL_DRIVER_GROUP_CLUSTER_TWINS["group_clusters"]
+    fixture = REAL_DRIVER_TWINS[name]
+    kebab, snake = fixture["group-clusters"], fixture["group_clusters"]
     assert kebab != snake
     assert [g["id"] for g in kebab] == [g["id"] for g in snake]
     # Different member id-spaces (base-cluster ids vs participant ids) and
@@ -772,48 +786,173 @@ def test_real_driver_group_cluster_twins_are_two_views_not_a_duplicate():
         assert g["center"] == [-c for c in h["center"]]
 
 
-def test_declared_alias_pair_admits_the_real_driver_blob():
+def test_biodiversity_fixture_actually_folds_many_participants_per_cluster():
+    """The vw fold is one-to-one, so it cannot distinguish "unfolded through
+    base-clusters" from "relabelled"; biodiversity can (Astra review F2)."""
+    assert REAL_DRIVER_GROUP_CLUSTER_TWINS["max_participants_per_base_cluster"] == 1
+    assert FOLDED_TWINS["max_participants_per_base_cluster"] > 1
+    folded, unfolded = FOLDED_TWINS["group-clusters"], FOLDED_TWINS["group_clusters"]
+    assert any(len(u["members"]) > len(f["members"])
+               for f, u in zip(folded, unfolded))
+
+
+@pytest.mark.parametrize("name", ["vw", "biodiversity"])
+def test_declared_alias_pair_admits_the_real_driver_blob(name):
     """Regression for the P-022 alias-twin real-driver defect: the pair the
     real Python driver emits must certify, and it must do so on the RAW blob —
     no Clojure flag needed to reproduce."""
     assert cert._ALIASED_CHECKPOINT_KEYS == frozenset({"group-clusters"})
-    blob = {
-        **VALID_BASE,
-        "group-clusters": REAL_DRIVER_GROUP_CLUSTER_TWINS["group-clusters"],
-        "group_clusters": REAL_DRIVER_GROUP_CLUSTER_TWINS["group_clusters"],
-    }
+    blob = _twin_blob(REAL_DRIVER_TWINS[name])
     cert.validate_checkpoint_blob(blob, "py: step-000")
     # Insertion order must not matter either.
     cert.validate_checkpoint_blob(
         {k: blob[k] for k in reversed(list(blob))}, "py: step-000")
 
 
+def test_declared_alias_pair_admits_the_empty_and_singleton_group_states():
+    """Explicit empty/singleton behavior (Astra review F1): a conversation with
+    no groups is a legitimate state and needs no base-clusters to unfold, and a
+    one-group one-member pair is admitted on its own terms."""
+    cert.validate_checkpoint_blob(
+        {**VALID_BASE, "group-clusters": [], "group_clusters": []}, "py: step-000")
+    cert.validate_checkpoint_blob(
+        {**VALID_BASE,
+         "base-clusters": {"id": [7], "members": [[3]], "x": [0.0], "y": [0.0],
+                           "count": [1]},
+         "group-clusters": [{"id": 0, "members": [7], "center": [1.5, -2.0]}],
+         "group_clusters": [{"id": 0, "members": [3], "center": [-1.5, 2.0]}]},
+        "py: step-000")
+
+
+#: The six mutations Astra's probe (``cost-reduction/scripts/p2725-alias-review.py``)
+#: drove through raw validation AND a full strict ``run_battery`` to PASS/exit 0
+#: under the first cut of policy v2: four raw-schema escapes (F1) and two
+#: well-typed but WRONG unfolded values (F2). Each mutates the UNFOLDED view of
+#: an otherwise-valid recorded pair. ``(mutate, needle)``.
+ASTRA_BAD_TWIN_MUTATIONS = {
+    "string members": (lambda g: dict(g, members="not-members"), "members"),
+    "string center": (lambda g: dict(g, center="not-geometry"), "center"),
+    "missing members": (lambda g: {k: v for k, v in g.items() if k != "members"},
+                        "missing required field"),
+    "boolean group id": (lambda g: dict(g, id=False), "id"),
+    "wrong participant membership": (lambda g: dict(g, members=[999]),
+                                     "not the unfolding"),
+    # The canonical sign on the unfolded view: well-typed, right dimension,
+    # right groups — and wrong.
+    "wrong center sign": (lambda g: dict(g, center=[-c for c in g["center"]]),
+                          "sign negation"),
+}
+
+
+@pytest.mark.parametrize("name", sorted(ASTRA_BAD_TWIN_MUTATIONS))
+@pytest.mark.parametrize("dataset", ["vw", "biodiversity"])
+def test_astra_bad_twin_controls_are_rejected(name, dataset):
+    """The six controls from the Astra review must FAIL the gate. `id=False`
+    matters on its own: Python's ``False == 0`` satisfied the old ordered-id
+    comparison against a real group 0."""
+    mutate, needle = ASTRA_BAD_TWIN_MUTATIONS[name]
+    fixture = REAL_DRIVER_TWINS[dataset]
+    unfolded = list(fixture["group_clusters"])
+    unfolded[0] = mutate(unfolded[0])
+    with pytest.raises(cert.CertifyError) as excinfo:
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, group_clusters=unfolded), "py: step-000")
+    assert excinfo.value.stage == "checkpoint-schema"
+    assert needle in str(excinfo.value), str(excinfo.value)
+    assert "group_clusters" in str(excinfo.value)
+
+
+@pytest.mark.parametrize("dataset", ["vw", "biodiversity"])
+def test_membership_omission_and_duplication_break_the_unfolding_relation(dataset):
+    """Astra review F2: dropping or duplicating participants must fail the
+    relation rather than quietly shrinking/growing the unfolded view."""
+    fixture = REAL_DRIVER_TWINS[dataset]
+    unfolded = list(fixture["group_clusters"])
+    omitted = dict(unfolded[0], members=unfolded[0]["members"][1:])
+    with pytest.raises(cert.CertifyError, match="not the unfolding"):
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, group_clusters=[omitted, *unfolded[1:]]),
+            "py: step-000")
+    duplicated = dict(unfolded[0],
+                      members=unfolded[0]["members"] + unfolded[0]["members"][:1])
+    with pytest.raises(cert.CertifyError, match="duplicate ids"):
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, group_clusters=[duplicated, *unfolded[1:]]),
+            "py: step-000")
+
+
+def test_folded_view_is_held_to_the_same_raw_schema_as_the_unfolded_one():
+    """F1 applies to BOTH roles: the canonical view is not exempt just because
+    it is the one the comparer reads."""
+    fixture = FOLDED_TWINS
+    for mutate, needle in ASTRA_BAD_TWIN_MUTATIONS.values():
+        folded = list(fixture["group-clusters"])
+        mutated = mutate(folded[0])
+        if mutated == folded[0]:
+            continue
+        folded[0] = mutated
+        with pytest.raises(cert.CertifyError) as excinfo:
+            cert.validate_checkpoint_blob(
+                _twin_blob(fixture, **{"group-clusters": folded}), "py: step-000")
+        assert excinfo.value.stage == "checkpoint-schema"
+
+
+def test_unfolding_relation_needs_a_usable_base_cluster_mapping():
+    """An unevaluated relation is the hole this policy closes, so a twin pair
+    whose blob cannot supply the bid -> pid mapping fails rather than passing
+    unchecked — and unknown or duplicated base-cluster ids fail too."""
+    fixture = FOLDED_TWINS
+    blob = _twin_blob(fixture)
+    for bad_bc in (None, {}, [], {"id": [1], "members": []}):
+        broken = {k: v for k, v in blob.items() if k != "base-clusters"}
+        if bad_bc is not None:
+            broken["base-clusters"] = bad_bc
+        with pytest.raises(cert.CertifyError, match="base-clusters"):
+            cert.validate_checkpoint_blob(broken, "py: step-000")
+    bc = fixture["base-clusters"]
+    duped = dict(bc, id=[bc["id"][0], *bc["id"][1:-1], bc["id"][0]])
+    with pytest.raises(cert.CertifyError, match="twice"):
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, **{"base-clusters": duped}), "py: step-000")
+    folded = list(fixture["group-clusters"])
+    folded[0] = dict(folded[0], members=[10 ** 9])
+    with pytest.raises(cert.CertifyError, match="does not declare"):
+        cert.validate_checkpoint_blob(
+            _twin_blob(fixture, **{"group-clusters": folded}), "py: step-000")
+
+
 def test_declared_alias_pair_still_rejects_everything_v1_rejected():
     """v2 keeps the property B1 was protecting: no raw value rides in by losing
     the canonical collapse. Only the false equal-values premise is gone."""
-    groups = REAL_DRIVER_GROUP_CLUSTER_TWINS["group-clusters"]
+    fixture = REAL_DRIVER_GROUP_CLUSTER_TWINS
+    groups = fixture["group-clusters"]
     # A twin that is not a group array at all — the losing spelling would
     # otherwise escape the container check entirely.
-    for bad in ([], "not-a-list", {}, [1, 2], [{"members": [1]}],
-                groups[:-1], groups + [{"id": 99, "members": []}]):
-        with pytest.raises(cert.CertifyError, match="same groups"):
+    for bad in ("not-a-list", {}, [1, 2], [{"members": [1]}]):
+        with pytest.raises(cert.CertifyError, match="group_clusters"):
             cert.validate_checkpoint_blob(
-                {**VALID_BASE, "group-clusters": groups, "group_clusters": bad},
-                "py: step-000")
+                _twin_blob(fixture, group_clusters=bad), "py: step-000")
+    # Group counts that disagree, in both directions.
+    for bad in ([], groups[:-1],
+                fixture["group_clusters"] + [{"id": 99, "members": [],
+                                              "center": [0.0, 0.0]}]):
+        with pytest.raises(cert.CertifyError, match="number of groups"):
+            cert.validate_checkpoint_blob(
+                _twin_blob(fixture, group_clusters=bad), "py: step-000")
     # ...and in the other direction, with the malformed value under the
     # CANONICAL spelling.
-    with pytest.raises(cert.CertifyError, match="same groups"):
+    with pytest.raises(cert.CertifyError, match="group-clusters"):
         cert.validate_checkpoint_blob(
-            {**VALID_BASE, "group-clusters": float("nan"),
-             "group_clusters": float("nan")},
+            _twin_blob(fixture, **{"group-clusters": float("nan"),
+                                   "group_clusters": float("nan")}),
             "py: step-000")
-    # Same groups, but a NaN inside one view: the raw finiteness scan still
-    # names it (the twin can never launder a non-finite).
-    poisoned = [dict(g, center=[float("nan"), 0.0]) for g in groups]
-    with pytest.raises(cert.CertifyError, match="non-finite"):
+    # A NaN inside either view is named as non-finite — the twin can never
+    # launder one past the finiteness discipline.
+    poisoned = [dict(g, center=[float("nan"), 0.0])
+                for g in fixture["group_clusters"]]
+    with pytest.raises(cert.CertifyError, match="finite"):
         cert.validate_checkpoint_blob(
-            {**VALID_BASE, "group-clusters": groups, "group_clusters": poisoned},
-            "py: step-000")
+            _twin_blob(fixture, group_clusters=poisoned), "py: step-000")
     # The exemption covers that ONE canonical key and that ONE extra spelling:
     # no other collision inherits it, however equal the values.
     with pytest.raises(cert.CertifyError, match="alias collisions are rejected"):
@@ -834,8 +973,8 @@ def test_canonical_view_reads_the_same_spelling_the_comparer_does():
                                  for k in order}}
         assert cert._canonical_view(blob)["group-clusters"] == kebab
         assert project_prep_main(blob)["group-clusters"] == kebab
-        # Last-writer-wins picks the Python-only view for one of the orders —
-        # non-vacuity for the arbitration.
+    # Last-writer-wins picks the Python-only view — non-vacuity for the
+    # arbitration.
     assert {cert._kebab(k): v for k, v in
             {"group-clusters": kebab, "group_clusters": snake}.items()
             }["group-clusters"] == snake
