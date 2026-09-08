@@ -1,7 +1,7 @@
 {
   "run": "P-026 step 4 / S1",
   "python_full_suite": {
-    "passed": 131,
+    "passed": 139,
     "failed": 0,
     "errors": 0,
     "skipped": 0,
@@ -10,6 +10,7 @@
       "test_equivalence": 6,
       "test_incremental": 6,
       "test_node_reader": 2,
+      "test_recorder_controls": 8,
       "test_recovery": 51,
       "test_reference_controls": 2,
       "test_s1_identity": 15,
@@ -87,12 +88,12 @@
     ],
     "hashes_identical_to_previous_evidence": true,
     "observer_errors": 0,
-    "observations": 201
+    "observations": 200
   },
   "polarity": "four artifacts and semantic tie control unchanged; compensated pairs equal, negative controls differ",
   "node_d4": "0 differences; generation-zero route 200 / ETag 0 / conditional 304; no loadBundle claim",
   "scope": "Rust versus Python rebuild-prefix campaign; Clojure remains the live production writer; no Rust/Clojure comparison",
-  "compose_project": "s1fix-4d19",
-  "postgres_port": 55887,
+  "compose_project": "s1fix-e5a8",
+  "postgres_port": 55888,
   "uncommitted": false
 }
