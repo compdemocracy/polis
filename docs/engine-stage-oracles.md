@@ -212,13 +212,20 @@ malformed operands cannot slip through: `True` vs `True` for a count, `"1"` vs
 `"1"` for a tid, or a float-spelled cluster id `1.5` on both sides are all
 divergences, not matches.
 
-So is the **shape**. An integer position is declared scalar or array and
-validated before any recursion, because `n = {}` on both sides is not a count
-that happens to agree — it is not a count. The declaration is *key-scoped* where
-it has to be: `A`/`D`/`S` are per-base-cluster bucket arrays in `votes-base` and
-per-group scalar totals in `group-votes`, so a rule keyed on the field name
-alone gets one of them wrong. It applies at the declared position only, so
-`bid-to-pid` remains an array of arrays.
+So is the **shape** — and the shape of everything below it. Each integer
+position carries a declared **rank**: `("scalar",)` for a count,
+`("array", "scalar")` for a list of ids, `("array", "array", "scalar")` for
+`bid-to-pid`, the one legitimately two-dimensional integer key. The rank is
+validated before any recursion and descends *with* it, so `n = {}` on both sides
+is not a count that happens to agree (it is not a count), and `in-conv = [{}]` is
+a malformed element rather than an unconstrained subtree. A null element of an
+integer array is structural too — a top-level integer field may legitimately be
+null (a nullable `n-votes`, a watermark on a votes tick, a moderation set before
+any `mod-update`), but an array of ids holds ids.
+
+The declaration is *key-scoped* where it has to be: `A`/`D`/`S` are
+per-base-cluster bucket arrays in `votes-base` and per-group scalar totals in
+`group-votes`, so a rule keyed on the field name alone gets one of them wrong.
 
 The remaining, genuinely continuous leaves get one of two bounds:
 
@@ -386,8 +393,15 @@ two are a complete, aligned, same-input pair. It checks that:
   on disk appears in the manifest; and the recording declares **one** engine and
   **one** polarity throughout, matching the manifest's;
 * a malformed document — not an object, unparseable JSON, a non-object `stages`
-  container, a non-integer step — becomes an input problem rather than an
-  exception;
+  container, a non-integer step, an unusable `engine` or `vote_sign_convention`
+  (wrong type, unknown value, empty) — becomes a named input problem rather than
+  an exception. Metadata is type- and enum-checked *before* it is used as a set
+  member or a membership test, and every container is type-checked rather than
+  tested for truthiness: a **non-empty** array in a stage position is truthy, and
+  used to raise where the empty and null cases did not;
+* a document that fails any of this is **not sent onward to be compared**. A
+  usable step identity is not a licence to canonicalize a document validation has
+  already rejected;
 * step identities are unique, and the two sides are aligned **by step identity**,
   not by position — two recordings that both hold "one step" are not comparable
   if one is step 0 and the other step 7;

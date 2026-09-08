@@ -1177,3 +1177,133 @@ def test_r3f4_the_ads_tally_shape_is_key_scoped_not_field_scoped():
         "DIVERGENT"
     assert rep["stages"]["R10_tallies"]["keys"]["group-votes"]["status"] == \
         "DIVERGENT"
+
+
+# ---------------------------------------------------------------------------
+# Round 5 — regressions for the two residual findings in the round-4 review
+# (R4-F1, R4-F2). Astra's seven reproductions, plus the cases they imply.
+# ---------------------------------------------------------------------------
+def _recording_pair(tmp_path, mutate_b, *, target="doc"):
+    """Two real on-disk recordings, the second corrupted. Exercises the PUBLIC
+    compare_recordings path, not just validate_recording."""
+    for side in ("a", "b"):
+        stages.write_stage_documents(
+            tmp_path / side, [_complete(_doc("py", "delphi", {}))], engine="py")
+    name = "step-000.stages.json" if target == "doc" else "stages-manifest.json"
+    path = tmp_path / "b" / name
+    obj = json.loads(path.read_text())
+    mutate_b(obj)
+    path.write_text(json.dumps(obj))
+    return sc.compare_recordings(tmp_path / "a", tmp_path / "b")
+
+
+@pytest.mark.parametrize("target,key,value", [
+    ("doc", "engine", []),
+    ("doc", "engine", {}),
+    ("doc", "engine", ""),
+    ("doc", "engine", 7),
+    ("doc", "vote_sign_convention", {}),
+    ("doc", "vote_sign_convention", "sideways"),
+    ("doc", "vote_sign_convention", None),
+    ("manifest", "engine", []),
+    ("manifest", "vote_sign_convention", []),
+])
+def test_r4f1_malformed_metadata_is_a_named_problem_not_an_exception(
+        tmp_path, target, key, value):
+    """A wrong type, an unknown enum member or an empty value must be reported.
+    Building a set from an unhashable engine, or testing membership against one,
+    raised TypeError before the report was ever written."""
+    report = _recording_pair(tmp_path, lambda o: o.__setitem__(key, value),
+                             target=target)
+    assert report["input_valid"] is False
+    assert report["headline_withheld"] is True
+    assert report["input_problems"]
+    assert "every stage within tolerance" not in sc.format_report(report)
+
+
+@pytest.mark.parametrize("body", [[1], [1, 2], [{}], ["x"]])
+def test_r4f1_a_non_empty_array_stage_does_not_crash_the_public_compare(
+        tmp_path, body):
+    """A NON-EMPTY array is truthy, so `(stages.get(...) or {}).get(...)` raised
+    AttributeError on it — the empty-list and null cases missed this path."""
+    report = _recording_pair(
+        tmp_path, lambda o: o["stages"].__setitem__("R01_ingest", body))
+    assert report["input_valid"] is False
+    assert report["headline_withheld"] is True
+
+
+@pytest.mark.parametrize("body", [[1], "text", 7])
+def test_r4f1_canonicalize_survives_a_non_object_stage_body(body):
+    """Canonicalization must type-check rather than test truthiness."""
+    doc = _doc("py", "delphi", {})
+    doc["stages"]["R01_ingest"] = body
+    can = sc.canonicalize(doc)                      # must not raise
+    assert isinstance(can["R01_ingest"]["__stage__"], sc.Structural)
+
+
+def test_r4f1_an_invalid_document_is_not_sent_onward_to_be_compared(tmp_path):
+    """A usable step identity is not a licence to canonicalize a document that
+    validation has already rejected."""
+    report = _recording_pair(
+        tmp_path, lambda o: o["stages"].__setitem__("R09_group_clusters", [1]))
+    assert any("not comparable" in p for p in report["input_problems"])
+    assert report["aligned_steps"] == 0
+
+
+def test_r4f1_document_is_comparable_names_its_reason():
+    good = _complete(_doc("py", "delphi", {}))
+    assert sc.document_is_comparable(good) is None
+    assert "engine" in sc.document_is_comparable(dict(good, engine=[]))
+    assert "vote_sign_convention" in sc.document_is_comparable(
+        dict(good, vote_sign_convention="sideways"))
+    assert "stages" in sc.document_is_comparable(dict(good, stages=[1]))
+    bad_stage = json.loads(json.dumps(good))
+    bad_stage["stages"]["R01_ingest"] = [1]
+    assert "R01_ingest" in sc.document_is_comparable(bad_stage)
+
+
+@pytest.mark.parametrize("stage,key,value", [
+    ("R03_eligibility", "in-conv", [{}]),
+    ("R01_ingest", "tids", [{}]),
+    ("R10_tallies", "votes-base", {"7": {"A": [{}], "D": [0], "S": [0]}}),
+    ("R03_eligibility", "in-conv", [[]]),
+    ("R03_eligibility", "in-conv", [None]),
+    ("R03_eligibility", "in-conv", [1, {}]),
+    ("R02_moderation", "mod-out", [{"tid": 1}]),
+    ("R06_base_clusters", "bid-to-pid", [[{}]]),
+])
+def test_r4f2_a_malformed_element_of_an_integer_array_is_structural(
+        stage, key, value):
+    """A declared integer array holds integers. Equal malformed elements are
+    not a match — the rank descends with the recursion (R4-F2)."""
+    doc = _doc("py", "delphi", {stage: {key: value}})
+    k = sc.compare_step(doc, doc)["stages"][stage]["keys"][key]
+    assert k["status"] == "DIVERGENT"
+    assert k["n_structural"] >= 1
+
+
+@pytest.mark.parametrize("stage,key,value", [
+    ("R03_eligibility", "in-conv", [1, 2, 3]),
+    ("R01_ingest", "tids", [7, 3]),
+    ("R02_moderation", "mod-out", []),
+    ("R06_base_clusters", "bid-to-pid", [[1, 2], [3], []]),
+    ("R10_tallies", "votes-base", {"7": {"A": [1, 0], "D": [0, 1], "S": [1, 1]}}),
+    ("R10_tallies", "group-votes",
+     {"0": {"n-members": 2, "votes": {"7": {"A": 1, "D": 1, "S": 2}}}}),
+])
+def test_r4f2_well_formed_integer_containers_still_match(stage, key, value):
+    """bid-to-pid legitimately has one more array dimension than in-conv, and
+    the declaration has to say so rather than treating both as free trees."""
+    doc = _doc("py", "delphi", {stage: {key: value}})
+    assert sc.compare_step(doc, doc)["stages"][stage]["keys"][key]["status"] == \
+        "MATCH"
+
+
+def test_r4f2_the_declared_ranks_are_explicit_about_dimensionality():
+    assert sc.INTEGER_KEY_RANK[("R03_eligibility", "in-conv")] == sc.INT_ARRAY
+    assert sc.INTEGER_KEY_RANK[("R06_base_clusters", "bid-to-pid")] == \
+        sc.INT_ARRAY_2D
+    assert sc.KEY_SCOPED_INTEGER_RANK[("R10_tallies", "votes-base", "A")] == \
+        sc.INT_ARRAY
+    assert sc.KEY_SCOPED_INTEGER_RANK[("R10_tallies", "group-votes", "A")] == \
+        sc.SCALAR
