@@ -5,6 +5,7 @@ import { failJson } from "../utils/fail";
 import { getConversationInfo } from "../conversation";
 import { getNextComment } from "../nextComment";
 import { getPca } from "../utils/pca";
+import { presentPca } from "../utils/pcaPresentation";
 import { getPid, getUser } from "../user";
 import { getVotesForSingleParticipant } from "./votes";
 import { getXidRecord } from "../xids";
@@ -382,7 +383,10 @@ async function handle_GET_participationInit(
         ? _getParticipant(req.p.zid, effectiveUidForUser)
         : Promise.resolve(null),
       getOneConversation(req.p.zid, effectiveUidForUser, null),
-      getPca(req.p.zid, undefined),
+      // The presented blob, not the raw one: for a conversation with no math
+      // this still carries the comment defaults already-loaded clients read
+      // (see utils/pcaPresentation).
+      getPca(req.p.zid, undefined).then((data) => presentPca(req.p.zid, data)),
     ]);
 
     response.user = user;

@@ -1,5 +1,6 @@
 import _ from "underscore";
 import { getPca, PcaCacheItem } from "../utils/pca";
+import { presentPca } from "../utils/pcaPresentation";
 import { failJson } from "../utils/fail";
 import pg from "../db/pg-query";
 import Utils from "../utils/common";
@@ -97,6 +98,9 @@ function handle_GET_math_pca2(
   }
 
   getPca(zid, math_tick)
+    // Serve the presentation, not the raw blob: an empty math result still puts
+    // the conversation's comment defaults on the wire (see utils/pcaPresentation).
+    .then((data: PcaCacheItem | undefined) => presentPca(zid, data))
     .then(function (data: PcaCacheItem | undefined) {
       if (data) {
         // If keys are specified and non-empty, filter the response
