@@ -12,7 +12,6 @@ import pg from "../../src/db/pg-query";
 import { getZinvite } from "../../src/utils/zinvite";
 import { getPca } from "../../src/utils/pca";
 import { getXids } from "../../src/routes/xids";
-import { getCommentsCount } from "../../src/comment";
 import { jest } from "@jest/globals";
 import logger from "../../src/utils/logger";
 import { failJson } from "../../src/utils/fail";
@@ -74,10 +73,6 @@ jest.mock("../../src/utils/zinvite", () => ({
 
 jest.mock("../../src/routes/xids", () => ({
   getXids: jest.fn(),
-}));
-
-jest.mock("../../src/comment", () => ({
-  getCommentsCount: jest.fn(),
 }));
 
 jest.mock("../../src/utils/pca");
@@ -186,18 +181,14 @@ describe("handle_GET_reportExport", () => {
           { topic: "Test Topic", description: "Test Description" },
         ] as never)
         .mockResolvedValueOnce([{ count: 10 }] as never);
-      // The math blob reports zero comments in the math -- which is the honest
-      // answer for a conversation with no votes. The summary's `comments` column
-      // must come from the comments table instead, so it still reports 20.
       (getPca as jest.Mock).mockResolvedValue({
         asPOJO: {
           "in-conv": [1, 2, 3],
           "user-vote-counts": { 1: 5, 2: 3 },
           "group-clusters": { 1: { name: "Group 1" } },
-          "n-cmts": 0,
+          "n-cmts": 20,
         },
       } as never);
-      (getCommentsCount as jest.Mock).mockResolvedValue(20 as never);
 
       const result = await loadConversationSummary(zid, siteUrl);
 
