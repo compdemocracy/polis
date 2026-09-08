@@ -50,35 +50,70 @@ struct Priority {
     /// Specificity: 1 for a named match, 0 for `*`.
     s: i64,
 }
-/// JS `parseFloat`: parses the longest numeric prefix, NaN when there is none.
-/// `q=abc` therefore yields NaN, which `isQuality` filters out, and `q=0.5junk`
-/// yields 0.5 — neither of which `str::parse` reproduces on its own.
+/// ECMAScript `parseFloat`, which is what `negotiator` uses for `q`.
+///
+/// It skips leading whitespace, accepts a sign, accepts the literal `Infinity`,
+/// and otherwise takes the LONGEST valid `StrDecimalLiteral` prefix — so
+/// `" 0.5"`, `"\t0.5"` and `"Infinity"` are all numbers, `"0.5junk"` is 0.5,
+/// `"1e"` is 1 (the incomplete exponent is not part of the prefix), and only a
+/// string with no numeric prefix at all is NaN. Rust's `str::parse` accepts none
+/// of the first three and rejects the rest outright, so this is spelled out.
 fn parse_float(text: &str) -> f64 {
-    let bytes = text.as_bytes();
-    let mut end = 0;
-    let mut seen_digit = false;
-    while end < bytes.len() {
-        let c = bytes[end] as char;
-        let ok = match c {
-            '+' | '-' => end == 0 || matches!(bytes[end - 1] as char, 'e' | 'E'),
-            '.' | 'e' | 'E' | '0'..='9' => true,
-            _ => false,
-        };
-        if !ok {
-            break;
-        }
-        seen_digit |= c.is_ascii_digit();
-        end += 1;
+    // JS StrWhiteSpace, which is Unicode White_Space plus the BOM.
+    let text = text.trim_start_matches(|c: char| c.is_whitespace() || c == '\u{FEFF}');
+    let (sign, rest) = match text.strip_prefix('-') {
+        Some(rest) => (-1.0, rest),
+        None => (1.0, text.strip_prefix('+').unwrap_or(text)),
+    };
+    if rest.starts_with("Infinity") {
+        return sign * f64::INFINITY;
     }
-    if !seen_digit {
+    let bytes = rest.as_bytes();
+    let digits = |from: usize| {
+        let mut i = from;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            i += 1;
+        }
+        i
+    };
+    let mut end = digits(0);
+    let integral = end;
+    if end < bytes.len() && bytes[end] == b'.' {
+        let fractional = digits(end + 1);
+        // A lone `.` with no digits on either side is not a numeric prefix.
+        if integral > 0 || fractional > end + 1 {
+            end = fractional;
+        }
+    }
+    if end == 0 {
         return f64::NAN;
     }
-    // Shrink to the longest prefix Rust can parse, which is JS's prefix rule.
-    let mut candidate = &text[..end];
-    while !candidate.is_empty() && candidate.parse::<f64>().is_err() {
-        candidate = &candidate[..candidate.len() - 1];
+    let mantissa = end;
+    if end < bytes.len() && matches!(bytes[end], b'e' | b'E') {
+        let signed = end + 1 + usize::from(matches!(bytes.get(end + 1), Some(b'+' | b'-')));
+        let exponent = digits(signed);
+        // An exponent marker with no digits is dropped, not an error.
+        end = if exponent > signed {
+            exponent
+        } else {
+            mantissa
+        };
     }
-    candidate.parse().unwrap_or(f64::NAN)
+    sign * rest[..end].parse::<f64>().unwrap_or(f64::NAN)
+}
+/// JS `a || b || c` over numbers: `0`, `-0` and `NaN` are falsy and fall through.
+/// `getEncodingPriority` and `compareSpecs` both depend on this, and a NaN quality
+/// difference falling through to the header-order comparison is exactly what makes
+/// `gzip;q=abc, gzip` select gzip rather than nothing.
+fn js_or(first: f64, second: f64, third: f64) -> f64 {
+    let truthy = |v: f64| v != 0.0 && !v.is_nan();
+    if truthy(first) {
+        first
+    } else if truthy(second) {
+        second
+    } else {
+        third
+    }
 }
 /// negotiator 0.5.3's `/^\s*(\S+?)\s*(?:;(.*))?$/`.
 ///
@@ -172,13 +207,11 @@ fn priority(coding: Coding, accepts: &[Spec], index: usize) -> Priority {
             continue;
         };
         // `(priority.s - spec.s || priority.q - spec.q || priority.o - spec.o) < 0`
-        let better = if best.s != s {
-            best.s < s
-        } else if best.q != spec.q {
-            best.q < spec.q
-        } else {
-            best.o < spec.i as i64
-        };
+        let better = js_or(
+            (best.s - s) as f64,
+            best.q - spec.q,
+            (best.o - spec.i as i64) as f64,
+        ) < 0.0;
         if better {
             best = Priority {
                 coding,
@@ -199,12 +232,17 @@ fn best(accepts: &[Spec], provided: &[Coding]) -> Option<Coding> {
         .map(|(index, coding)| priority(*coding, accepts, index))
         .filter(|p| p.q > 0.0)
         .collect();
-    // `compareSpecs`: 0.5.3 takes no preferred list, so this is the whole order.
+    // `compareSpecs(a, b) = (b.q - a.q) || (b.s - a.s) || (a.o - b.o) || (a.i - b.i) || 0`,
+    // over JS's stable sort. The `||` chain falls through on NaN here too.
     priorities.sort_by(|a, b| {
-        b.q.total_cmp(&a.q)
-            .then(b.s.cmp(&a.s))
-            .then(a.o.cmp(&b.o))
-            .then(a.i.cmp(&b.i))
+        let ordering = js_or(
+            b.q - a.q,
+            (b.s - a.s) as f64,
+            js_or((a.o - b.o) as f64, (a.i as f64) - (b.i as f64), 0.0),
+        );
+        ordering
+            .partial_cmp(&0.0)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
     priorities.first().map(|p| p.coding)
 }
@@ -303,6 +341,20 @@ mod tests {
         assert_eq!(encoding(Some("gzip;q=0, deflate")), Coding::Deflate);
         assert_eq!(encoding(None), Coding::Identity);
     }
+    /// Astra round 4 #1. Four legacy `Accept-Encoding` forms that the resolved
+    /// middleware accepts and this module answered `identity` for: leading
+    /// whitespace and a literal tab before the quality, `Infinity`, and a NaN
+    /// quality that must fall through the `||` chain to the header-order
+    /// comparison instead of disqualifying the coding.
+    #[test]
+    fn legacy_quality_forms_select_what_node_selects() {
+        assert_eq!(encoding(Some("gzip;q= 0.5")), Coding::Gzip);
+        assert_eq!(encoding(Some("gzip;q=\t0.5")), Coding::Gzip);
+        assert_eq!(encoding(Some("gzip;q=abc, gzip")), Coding::Gzip);
+        assert_eq!(encoding(Some("gzip;q=Infinity")), Coding::Gzip);
+        // Still identity where Node says identity: a single unparsable quality.
+        assert_eq!(encoding(Some("gzip;q=abc")), Coding::Identity);
+    }
     #[test]
     fn js_parse_float_prefixes() {
         assert_eq!(parse_float("1.0"), 1.0);
@@ -310,6 +362,28 @@ mod tests {
         assert!(parse_float("abc").is_nan());
         assert!(parse_float("").is_nan());
         assert_eq!(parse_float("1e-1"), 0.1);
+        // Leading whitespace is skipped, not rejected.
+        assert_eq!(parse_float("  0.5"), 0.5);
+        assert_eq!(parse_float("\t0.5"), 0.5);
+        assert_eq!(parse_float("Infinity"), f64::INFINITY);
+        assert_eq!(parse_float("-Infinity"), f64::NEG_INFINITY);
+        assert_eq!(parse_float("+.5"), 0.5);
+        assert_eq!(parse_float("5."), 5.0);
+        // A prefix, not a whole-string parse: an incomplete exponent is dropped,
+        // and hex is not a JS float literal.
+        assert_eq!(parse_float("1e"), 1.0);
+        assert_eq!(parse_float("1e+"), 1.0);
+        assert_eq!(parse_float("0x10"), 0.0);
+        assert!(parse_float(".").is_nan());
+    }
+    /// `0`, `-0` and `NaN` are all falsy in a JS `||` chain.
+    #[test]
+    fn the_or_chain_falls_through_on_nan_and_zero() {
+        assert_eq!(js_or(0.0, 0.0, 7.0), 7.0);
+        assert_eq!(js_or(-0.0, f64::NAN, 7.0), 7.0);
+        assert_eq!(js_or(f64::NAN, 3.0, 7.0), 3.0);
+        assert_eq!(js_or(2.0, 3.0, 7.0), 2.0);
+        assert!(js_or(0.0, 0.0, f64::NAN).is_nan());
     }
     /// The lazy `\S+?` token: with no short token that leaves `;params`, the group
     /// grows until the whole element is the encoding name.

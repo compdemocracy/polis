@@ -101,8 +101,12 @@ resolves against `connect/` and finds the nested
 `connect/node_modules/compression@1.5.2`, whose `accepts@1.2.13` likewise
 resolves the nested `negotiator@0.5.3`. `tools/negotiation-parity.cjs` asserts
 that `express.compress` IS that module, records the resolved paths, versions and
-source hash, and then measures 36 `Accept-Encoding` headers through a real HTTP
-socket against a real Express app, checking the decoded body each time.
+source hash, and then measures 49 `Accept-Encoding` headers through a real HTTP
+socket against a real Express app, checking the decoded body each time. The set
+includes the legacy quality forms the middleware accepts — leading whitespace, a
+literal tab, `Infinity`, and a NaN quality that falls through to header order —
+because `q` is parsed by ECMAScript `parseFloat` and compared through a JS `||`
+chain, neither of which `str::parse` or Rust's comparison operators reproduce.
 `contract/negotiation.json` pins those observations and a Rust test replays the
 whole table, so a divergence fails there rather than on the wire.
 
