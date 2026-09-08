@@ -377,7 +377,9 @@ class MathPollerService:
     def poll_once(self) -> None:
         """Run one vote + one moderation cycle, blocking until processed.
 
-        Used by ``--once`` and the integration test.
+        Used by ``--once`` and the integration test. Raises ``TimeoutError``
+        if the worker pool has not drained within 120 seconds. A timeout does
+        not cancel in-flight work; callers must not treat it as completion.
         """
         self._ensure_runtime()
         self._repair_incomplete_snapshots()
@@ -386,7 +388,8 @@ class MathPollerService:
         # Recover any zids parked in earlier cycles even if they got no new votes.
         self._reconcile_once()
         assert self._pool is not None
-        self._pool.join(timeout=120.0)
+        if not self._pool.join(timeout=120.0):
+            raise TimeoutError("Poll cycle worker pool did not drain within 120 seconds")
 
     def _repair_incomplete_snapshots(self) -> None:
         """Schedule legacy partial generations even outside the boot lookback.
@@ -408,9 +411,10 @@ class MathPollerService:
         three seq scans (math_env is unindexed on all three tables) and the
         burst on a large production namespace has not been benchmarked. Wants a
         cap, a summary count log instead of per-zid warnings, an env kill
-        switch, and a benchmark. Note R10: poll_once's join(timeout=120)
-        result is discarded, so with a backlog `--once` reports success with
-        work still pending.
+        switch, and a benchmark. Note R10: poll_once now raises when its
+        join(timeout=120) bound is exhausted, so a startup burst that outruns
+        that bound fails `--once` rather than reporting success with work
+        still pending.
 
         TODO(review E5 - rebuild-thrash metering): _load_or_init's mismatch
         path discards warm state and re-reads full vote history every time it
