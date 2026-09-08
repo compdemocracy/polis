@@ -7,31 +7,35 @@
  * during a long PENDING paid for two Anthropic batch runs. This module is the
  * paid-work correctness gate named in P-003 rev3.
  *
- * Round-2 review (`P-003-S3-S4-astra-review.md`) changed four things, all of
- * them about never authorising a second paid run:
+ * The shape of the thing, after two rounds of review:
  *
- * - **Scope is `job_type + conversation + report`** — not the job config. Rev3
- *   excludes simultaneous work by conversation/report/job type; two different
- *   configs still reset and publish into the same structures. Configuration is
- *   payload binding on the idempotency alias, not a concurrency exemption.
- * - **Release needs authoritative proof.** A ConversationIndex query cannot
- *   prove the absence of a checker child: global secondary indexes are
- *   eventually consistent, and `ConsistentRead` is not available on them. The
- *   descendant sweep is now a bounded, strongly-consistent **base-table scan**,
- *   and anything short of a completed scan — an error, a page/item cap, a root
- *   row that has been removed — keeps the guard.
- * - **The idempotency alias outlives the scope guard**, for a declared binding
- *   window, so a retry after a fast completion returns the recorded job instead
- *   of starting a second one. Alias binding is validated on *every* resolution
- *   path, including when the scope is occupied by a different payload.
- * - **A missing guard table fails closed** with
- *   {@link JobAdmissionUnavailableError} and no job write. There is no
- *   un-deduplicated fallback: `cdk/dynamodb.ts` makes the table exist.
- *
- * Migration: a guard table that has just been created knows nothing about jobs
- * already running. When no guard exists for a scope, admission first looks for
- * an existing active root of the same scope and adopts it, so the first deploy
- * cannot admit a duplicate alongside work an old producer started.
+ * - **Scope** is `job_type + conversation + report`. Rev3 excludes simultaneous
+ *   work by that triple; two different configs still reset and publish into the
+ *   same structures, so configuration is payload binding, not a concurrency
+ *   exemption.
+ * - **Admission** is one `TransactWriteItems`: the queue row and the guard row,
+ *   both conditional on non-existence. Either both land or neither does.
+ * - **Release needs proof, from two sides.** The server's half: a
+ *   strongly-consistent terminal root and a *completed*, strongly-consistent
+ *   base-table scan finding no non-terminal descendant. A GSI cannot serve here
+ *   — it is eventually consistent and does not accept `ConsistentRead` — and an
+ *   error, a cap, or a missing root row is uncertainty, which keeps the guard.
+ *   The writer's half: `job_poller.py` stops and joins a job's child process
+ *   before marking it FAILED, and records `process_exit_confirmed`. Without
+ *   that, a FAILED root can still grow a checker afterwards, so a FAILED root
+ *   that does not carry the confirmation is *not* released.
+ * - **Fail closed.** A missing guard table, or any sweep that cannot be
+ *   completed, raises {@link JobAdmissionUnavailableError} and writes nothing.
+ * - **Migration.** A guard table that has just been created knows nothing about
+ *   running jobs. Admission first looks for existing active work in the scope —
+ *   including a live checker under an already-terminal root — and adopts its
+ *   root. It then re-checks after writing, because a producer that does not
+ *   participate in the transaction cannot be fenced by a read; see
+ *   {@link admitDelphiJob} for what that window does and does not cover.
+ * - **Idempotency.** Every accepted key is bound to the job actually
+ *   acknowledged, including on deduplication and adoption, so the declared
+ *   retry window applies to the first keyed response and not only to keys that
+ *   happened to create a job.
  *
  * G6 / "guard and queue migrate together": every read and write goes through
  * {@link JobAdmissionStore}, against one substrate, and creation is one
@@ -68,12 +72,15 @@ const SCAN_PAGE_SIZE = 200;
 const MAX_ADMISSION_ATTEMPTS = 3;
 
 /**
- * How long a supplied idempotency key stays bound to the job it created, after
- * the job itself is finished and the scope guard has been released. Inside the
- * window a replay returns the recorded job; outside it, the key is stale and a
- * new run is admitted. An intentional rerun therefore needs a new key (or no
- * key), not a wait. This is evaluated in code: there is deliberately no
- * DynamoDB TTL, which could expire a row while paid work is still live.
+ * How long a supplied idempotency key stays bound to the job it was
+ * acknowledged with. **Anchored at the moment the binding is written**, not at
+ * the job's completion: a key first used at T is replayable until T + 24 h,
+ * whether the job is still running or finished ten minutes in. Beyond it the
+ * key is stale and a new run is admitted, so an intentional rerun needs a new
+ * key (or none) rather than a wait.
+ *
+ * Evaluated in code. There is deliberately no DynamoDB TTL, which could expire
+ * a row while paid work is still live.
  */
 export const IDEMPOTENCY_BINDING_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -81,9 +88,9 @@ export const IDEMPOTENCY_BINDING_WINDOW_MS = 24 * 60 * 60 * 1000;
 const HASH_SEPARATOR = "\u0000";
 
 /**
- * Raised when the admission substrate is unusable. The producer must report
- * unavailability and write nothing: an un-deduplicated fallback would be a
- * second paid provider run.
+ * Raised when the admission substrate cannot answer safely. The producer must
+ * report unavailability and write nothing: an un-deduplicated fallback would be
+ * a second paid provider run.
  */
 export class JobAdmissionUnavailableError extends Error {
   constructor(message: string, readonly cause?: unknown) {
@@ -126,11 +133,22 @@ export interface GuardRow {
   [key: string]: unknown;
 }
 
+/** The queue-row fields the guard reads. */
+export interface JobRow {
+  status: string;
+  process_exit_confirmed?: boolean;
+  checker_schedule_failed?: boolean;
+  batch_job_id?: string;
+  job_type?: string;
+  report_id?: string;
+  conversation_id?: string;
+}
+
 export type AdmissionResult =
   /** A new queue row and its guard were created in one transaction. */
   | { outcome: "created"; jobId: string; jobStatus: string; workLive: true }
   /**
-   * No new paid work. `adopted` marks the migration case: an active root that
+   * No new paid work. `adopted` marks the migration case: active work that
    * predates the guard table, now covered by a freshly written guard.
    */
   | {
@@ -148,6 +166,15 @@ type SweepResult<T> =
   | { kind: "found"; value: T }
   | { kind: "none" }
   | { kind: "unknown"; reason: string };
+
+/** What a job row means for "is paid work still outstanding?". */
+export interface Liveness {
+  status: string;
+  /** True whenever work may still be outstanding, including every unknown. */
+  live: boolean;
+  /** Why the answer is what it is, for logs. */
+  reason: string;
+}
 
 /**
  * The one seam P-024 re-points. Guard and queue reads/writes all go through it,
@@ -167,8 +194,8 @@ export interface JobAdmissionStore {
   >;
   /** Strongly-consistent read of a guard row. */
   readGuard(guardKey: string): Promise<GuardRow | null>;
-  /** Strongly-consistent read of a queue row's status; null when absent. */
-  readJobStatus(jobId: string): Promise<string | null>;
+  /** Strongly-consistent read of a queue row; null when absent. */
+  readJob(jobId: string): Promise<JobRow | null>;
   /**
    * Authoritative answer to "does this root still have a non-terminal
    * provider/checker descendant?". Must be a strongly-consistent base-table
@@ -176,17 +203,30 @@ export interface JobAdmissionStore {
    */
   sweepLiveDescendants(rootJobId: string): Promise<SweepResult<string>>;
   /**
-   * Authoritative answer to "is there already an active root for this scope
-   * that no guard covers?" — the migration case. `unknown` whenever the sweep
-   * could not be completed.
+   * Authoritative answer to "is there active work in this scope that no guard
+   * covers?" — the migration case. Returns the *root* job id of whatever it
+   * finds, including the root of a live checker under an already-terminal
+   * parent. `unknown` whenever the sweep could not be completed or a row could
+   * not be classified.
    */
-  sweepUnguardedActiveRoot(scope: JobScope): Promise<SweepResult<string>>;
+  sweepUnguardedActiveRoot(
+    scope: JobScope,
+    exceptJobId?: string
+  ): Promise<SweepResult<string>>;
   /** Write a guard row for an already-existing root; false if one appeared first. */
   adoptGuard(guardItem: Record<string, unknown>): Promise<boolean>;
+  /** Write an idempotency alias; false if one appeared first. */
+  bindAlias(aliasItem: Record<string, unknown>): Promise<boolean>;
   /** Delete a guard row under an exact job/version condition. */
   clearGuard(guard: GuardRow): Promise<boolean>;
   /** Delete an expired idempotency alias under an exact job condition. */
   clearAlias(alias: GuardRow): Promise<boolean>;
+  /**
+   * Delete a queue row this request created, only while it is still unclaimed.
+   * The compensating action for losing a race with a producer that does not
+   * participate in the guard transaction.
+   */
+  deleteUnclaimedJob(jobId: string): Promise<boolean>;
 }
 
 function canonicalise(value: unknown): unknown {
@@ -227,8 +267,7 @@ export function configFingerprint(jobConfig: string): string {
 
 /**
  * The authorized scope: at most one active root per job type per
- * conversation/report. Rev3's exclusion, and deliberately not the job config —
- * two configs still write into the same conversation and report structures.
+ * conversation/report. Rev3's exclusion, and deliberately not the job config.
  */
 export function scopeGuardKey(scope: JobScope): string {
   return `s:${sha256([
@@ -287,6 +326,10 @@ function isSubstrateMissing(error: any): boolean {
   return error?.name === "ResourceNotFoundException";
 }
 
+const JOB_PROJECTION =
+  "#s, #jid, batch_job_id, job_type, report_id, conversation_id, process_exit_confirmed, checker_schedule_failed";
+const JOB_PROJECTION_NAMES = { "#s": "status", "#jid": "job_id" };
+
 export const dynamoJobAdmissionStore: JobAdmissionStore = {
   async admit(request, guardItem, aliasItem) {
     const transactItems: any[] = [
@@ -325,7 +368,7 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
       }
       const codes = cancellationCodes(error);
       // Order matters only as a hint: every resolution path re-validates the
-      // alias independently, because more than one condition can fail at once.
+      // alias and the guard, because more than one condition can fail at once.
       if (codes[0] === "ConditionalCheckFailed") {
         return { outcome: "job_id_taken" };
       }
@@ -348,18 +391,21 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
     return (result.Item as GuardRow | undefined) || null;
   },
 
-  async readJobStatus(jobId) {
+  async readJob(jobId) {
     const result = await docClient.get({
       TableName: JOB_QUEUE_TABLE,
       Key: { job_id: jobId },
       ConsistentRead: true,
-      ProjectionExpression: "#s",
-      ExpressionAttributeNames: { "#s": "status" },
+      ProjectionExpression: JOB_PROJECTION,
+      ExpressionAttributeNames: JOB_PROJECTION_NAMES,
     });
     if (!result.Item) {
       return null;
     }
-    return (result.Item.status as string) || "UNKNOWN";
+    return {
+      ...(result.Item as JobRow),
+      status: (result.Item.status as string) || "UNKNOWN",
+    };
   },
 
   async sweepLiveDescendants(rootJobId) {
@@ -368,53 +414,81 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
     // and a ConversationIndex query could not prove their absence anyway: a GSI
     // is eventually consistent and does not accept ConsistentRead. Only a
     // strongly-consistent base-table scan is authoritative.
-    return baseTableSweep(
+    const rows = await baseTableSweep(
       "batch_job_id = :root AND NOT (#s IN (:completed, :failed))",
       { ":root": rootJobId, ":completed": "COMPLETED", ":failed": "FAILED" },
-      { "#s": "status" },
       "descendants of a terminal root"
     );
+    if (rows.kind !== "found") {
+      return rows;
+    }
+    return { kind: "found", value: String(rows.value[0].job_id) };
   },
 
-  async sweepUnguardedActiveRoot(scope) {
-    // Root rows only: a checker child carries batch_job_id and belongs to its
-    // root, never to a new submission. A request with no report_id must also
-    // match rows written before report_id was set, where the attribute is
-    // absent rather than empty.
-    const reportId = scope.reportId || "";
-    const reportMatch = reportId
-      ? "report_id = :rid"
-      : "(attribute_not_exists(report_id) OR report_id = :rid)";
-    return baseTableSweep(
-      `conversation_id = :cid AND job_type = :jt AND ${reportMatch} ` +
-        "AND attribute_not_exists(batch_job_id) " +
-        "AND NOT (#s IN (:completed, :failed))",
+  async sweepUnguardedActiveRoot(scope, exceptJobId) {
+    // Every non-terminal row in the conversation, then classify. A live checker
+    // means its *root* still owns the scope even if that root is already
+    // COMPLETED, so filtering children out here would miss exactly the state
+    // the guarded path exists to protect.
+    const rows = await baseTableSweep(
+      "conversation_id = :cid AND NOT (#s IN (:completed, :failed))",
       {
         ":cid": scope.conversationId,
-        ":jt": scope.jobType,
-        ":rid": reportId,
         ":completed": "COMPLETED",
         ":failed": "FAILED",
       },
-      { "#s": "status" },
-      "unguarded active roots"
+      "unguarded active work"
     );
+    if (rows.kind !== "found") {
+      return rows;
+    }
+
+    const wantReport = scope.reportId || "";
+    for (const row of rows.value) {
+      const jobId = String(row.job_id);
+      if (exceptJobId && jobId === exceptJobId) {
+        continue;
+      }
+      const parentId = row.batch_job_id ? String(row.batch_job_id) : null;
+      if (!parentId) {
+        // A root of its own. Does it belong to this scope?
+        if (
+          row.job_type === scope.jobType &&
+          (row.report_id || "") === wantReport
+        ) {
+          return { kind: "found", value: jobId };
+        }
+        continue;
+      }
+      if (exceptJobId && parentId === exceptJobId) {
+        continue;
+      }
+      // A checker child: its root owns the scope. Read the root to classify it.
+      const parent = await this.readJob(parentId);
+      if (!parent) {
+        // Live child, unreadable lineage. We cannot tell whose scope this
+        // occupies, and guessing either way risks a second paid run.
+        return {
+          kind: "unknown",
+          reason: `live descendant ${jobId} has no readable root`,
+        };
+      }
+      if (
+        parent.job_type === scope.jobType &&
+        (parent.report_id || "") === wantReport
+      ) {
+        return { kind: "found", value: parentId };
+      }
+    }
+    return { kind: "none" };
   },
 
   async adoptGuard(guardItem) {
-    try {
-      await docClient.put({
-        TableName: JOB_GUARD_TABLE,
-        Item: guardItem,
-        ConditionExpression: "attribute_not_exists(guard_key)",
-      });
-      return true;
-    } catch (error: any) {
-      if (error?.name === "ConditionalCheckFailedException") {
-        return false;
-      }
-      throw error;
-    }
+    return conditionalPut(JOB_GUARD_TABLE, guardItem, "guard_key");
+  },
+
+  async bindAlias(aliasItem) {
+    return conditionalPut(JOB_GUARD_TABLE, aliasItem, "guard_key");
   },
 
   async clearGuard(guard) {
@@ -456,7 +530,50 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
       throw error;
     }
   },
+
+  async deleteUnclaimedJob(jobId) {
+    try {
+      await docClient.delete({
+        TableName: JOB_QUEUE_TABLE,
+        Key: { job_id: jobId },
+        // Only while no worker has taken it: `job_poller.py:claim_job` moves
+        // status to PROCESSING and stamps worker_id.
+        ConditionExpression: "#s = :pending AND #w = :unclaimed",
+        ExpressionAttributeNames: { "#s": "status", "#w": "worker_id" },
+        ExpressionAttributeValues: {
+          ":pending": "PENDING",
+          ":unclaimed": "none",
+        },
+      });
+      return true;
+    } catch (error: any) {
+      if (error?.name === "ConditionalCheckFailedException") {
+        return false;
+      }
+      throw error;
+    }
+  },
 };
+
+async function conditionalPut(
+  table: string,
+  item: Record<string, unknown>,
+  keyName: string
+): Promise<boolean> {
+  try {
+    await docClient.put({
+      TableName: table,
+      Item: item,
+      ConditionExpression: `attribute_not_exists(${keyName})`,
+    });
+    return true;
+  } catch (error: any) {
+    if (error?.name === "ConditionalCheckFailedException") {
+      return false;
+    }
+    throw error;
+  }
+}
 
 /**
  * Bounded, strongly-consistent scan of the queue's base table.
@@ -468,29 +585,31 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
 async function baseTableSweep(
   filterExpression: string,
   values: Record<string, unknown>,
-  names: Record<string, string>,
   what: string
-): Promise<SweepResult<string>> {
+): Promise<SweepResult<any[]>> {
   const params: any = {
     TableName: JOB_QUEUE_TABLE,
     ConsistentRead: true,
     FilterExpression: filterExpression,
     ExpressionAttributeValues: values,
-    ExpressionAttributeNames: { ...names, "#jid": "job_id" },
-    ProjectionExpression: "#jid",
+    ExpressionAttributeNames: JOB_PROJECTION_NAMES,
+    ProjectionExpression: JOB_PROJECTION,
     Limit: SCAN_PAGE_SIZE,
   };
 
   let scanned = 0;
+  const matches: any[] = [];
   try {
     for (let page = 0; page < SCAN_MAX_PAGES; page++) {
       const result = await docClient.scan(params);
       if (result.Items?.length) {
-        return { kind: "found", value: String(result.Items[0].job_id) };
+        matches.push(...result.Items);
       }
       scanned += result.ScannedCount || 0;
       if (!result.LastEvaluatedKey) {
-        return { kind: "none" };
+        return matches.length
+          ? { kind: "found", value: matches }
+          : { kind: "none" };
       }
       if (scanned >= SCAN_MAX_SCANNED_ITEMS) {
         return { kind: "unknown", reason: `${what}: scanned-item cap reached` };
@@ -510,66 +629,88 @@ async function baseTableSweep(
 }
 
 /**
- * Does this guard still protect live paid work?
+ * Is paid work still outstanding under this job?
  *
  * Every uncertain answer resolves to "yes". Releasing a guard authorises a
- * second paid provider run, so it needs proof, not the absence of evidence:
- * a strongly-consistent terminal root plus a completed strongly-consistent
- * descendant sweep. A root row that has been removed is uncertainty too, not
- * proof that the work ended.
+ * second paid provider run, so it needs proof, not the absence of evidence.
+ * The descendant sweep runs whatever the root's status is, so that the answer
+ * is the same on every path that reports it — a COMPLETED root with a live
+ * checker is live work, however the caller arrived at it.
  *
- * The fence this relies on, shared with the writer: checker children are
- * created by `801_narrative_report_batch.py` while their root is still being
- * processed, and the root's transition to COMPLETED/FAILED is the last thing
- * the poller does for it. So "terminal root + no descendants right now" cannot
- * be followed by a new descendant for that root.
+ * Three things must all hold before this reports `live: false`:
+ *
+ * 1. a strongly-consistent read shows the root COMPLETED or FAILED;
+ * 2. a *completed* strongly-consistent descendant sweep finds nothing;
+ * 3. the terminal transition is trustworthy. A FAILED root must carry
+ *    `process_exit_confirmed`, which `job_poller.py` writes only after it has
+ *    stopped and joined the job's child process. Without that the root may have
+ *    been failed out from under a live subprocess that can still create a
+ *    checker. `checker_schedule_failed` — written by
+ *    `801_narrative_report_batch.py` when a provider batch was submitted but
+ *    its checker row could not be scheduled — is outstanding work with nothing
+ *    left to find, so it also keeps the guard.
  */
-async function assessGuard(
+export async function assessJobLiveness(
   store: JobAdmissionStore,
-  guard: GuardRow
-): Promise<{ live: boolean; status: string }> {
-  let status: string | null;
+  jobId: string
+): Promise<Liveness> {
+  let row: JobRow | null;
   try {
-    status = await store.readJobStatus(guard.job_id);
+    row = await store.readJob(jobId);
   } catch (error: any) {
     if (isSubstrateMissing(error)) {
       throw error;
     }
-    logger.warn(
-      `Delphi guard ${logScope(guard.guard_key)}: root status unreadable (${
-        error?.name || error
-      }); treating as live`
-    );
-    return { live: true, status: "UNKNOWN" };
+    return {
+      status: "UNKNOWN",
+      live: true,
+      reason: `root unreadable (${error?.name || error})`,
+    };
   }
 
-  if (status === null) {
-    // Removed by a reset, or never written. Not proof that paid work ended.
-    logger.warn(
-      `Delphi guard ${logScope(
-        guard.guard_key
-      )}: root row absent; treating as live. Clear the guard row by hand if the conversation was reset.`
-    );
-    return { live: true, status: "UNKNOWN" };
-  }
-
-  if (!TERMINAL_STATUSES.has(status)) {
-    return { live: true, status };
-  }
-
-  const descendants = await store.sweepLiveDescendants(guard.job_id);
+  const descendants = await store.sweepLiveDescendants(jobId);
   if (descendants.kind === "found") {
-    return { live: true, status };
+    return {
+      status: row?.status || "UNKNOWN",
+      live: true,
+      reason: "a descendant is still non-terminal",
+    };
   }
   if (descendants.kind === "unknown") {
-    logger.warn(
-      `Delphi guard ${logScope(guard.guard_key)} retained: ${
-        descendants.reason
-      }`
-    );
-    return { live: true, status };
+    return {
+      status: row?.status || "UNKNOWN",
+      live: true,
+      reason: descendants.reason,
+    };
   }
-  return { live: false, status };
+
+  if (!row) {
+    // Removed by a reset, or never written. Not proof that paid work ended.
+    return {
+      status: "UNKNOWN",
+      live: true,
+      reason: "root row absent; clear the guard by hand if this was a reset",
+    };
+  }
+  if (!TERMINAL_STATUSES.has(row.status)) {
+    return { status: row.status, live: true, reason: "root is not terminal" };
+  }
+  if (row.checker_schedule_failed) {
+    return {
+      status: row.status,
+      live: true,
+      reason: "the root could not schedule its checker after submitting work",
+    };
+  }
+  if (row.status === "FAILED" && !row.process_exit_confirmed) {
+    return {
+      status: row.status,
+      live: true,
+      reason:
+        "FAILED without a confirmed child-process exit; the worker may still be running",
+    };
+  }
+  return { status: row.status, live: false, reason: "terminal and childless" };
 }
 
 function aliasIsExpired(alias: GuardRow, now: number): boolean {
@@ -636,6 +777,61 @@ function guardItemFor(
   };
 }
 
+function aliasItemFor(
+  aliasKey: string,
+  scopeKey: string,
+  scope: JobScope,
+  jobId: string,
+  configHash: string
+): Record<string, unknown> {
+  const now = Date.now();
+  return {
+    guard_key: aliasKey,
+    guard_kind: "idempotency",
+    scope_guard_key: scopeKey,
+    config_hash: configHash,
+    job_id: jobId,
+    // Carried so a conversation's guard rows can be found without a join.
+    conversation_id: scope.conversationId,
+    report_id: scope.reportId || "",
+    job_type: scope.jobType,
+    version: 1,
+    created_at: new Date(now).toISOString(),
+    binding_expires_at: new Date(
+      now + IDEMPOTENCY_BINDING_WINDOW_MS
+    ).toISOString(),
+  };
+}
+
+/**
+ * Bind an accepted key to the job actually acknowledged.
+ *
+ * Called on every successful resolution, not only when a job was created:
+ * without this, the first keyed request to be *deduplicated* returns a job id
+ * with no binding, and the retry it invites starts a second run once the first
+ * finishes. Returns a conflict if the key turns out to belong elsewhere.
+ */
+async function bindKeyToJob(
+  store: JobAdmissionStore,
+  aliasKey: string,
+  scopeKey: string,
+  scope: JobScope,
+  jobId: string,
+  configHash: string
+): Promise<{ kind: "bound" } | { kind: "conflict"; jobId: string }> {
+  const written = await store.bindAlias(
+    aliasItemFor(aliasKey, scopeKey, scope, jobId, configHash)
+  );
+  if (written) {
+    return { kind: "bound" };
+  }
+  const existing = await resolveAlias(store, aliasKey, scopeKey, configHash);
+  if (existing.kind === "conflict") {
+    return { kind: "conflict", jobId: existing.jobId };
+  }
+  return { kind: "bound" };
+}
+
 /**
  * Run the admission transaction, and settle an *ambiguous* failure rather than
  * reporting it.
@@ -676,22 +872,22 @@ async function admitOrResolve(
         };
       }
       if (alias.kind === "bound") {
-        const status = (await store.readJobStatus(alias.jobId)) || "UNKNOWN";
+        const liveness = await assessJobLiveness(store, alias.jobId);
         return {
           outcome: "resolved",
           result: {
             outcome: "deduplicated",
             jobId: alias.jobId,
-            jobStatus: status,
-            workLive: !TERMINAL_STATUSES.has(status),
+            jobStatus: liveness.status,
+            workLive: liveness.live,
           },
         };
       }
     }
     const guard = await store.readGuard(scopeKey);
     if (guard) {
-      const state = await assessGuard(store, guard);
-      if (state.live) {
+      const liveness = await assessJobLiveness(store, guard.job_id);
+      if (liveness.live) {
         logger.warn(
           `Delphi admission for scope ${logScope(scopeKey)} failed with ${
             error?.name || "an error"
@@ -702,7 +898,7 @@ async function admitOrResolve(
           result: {
             outcome: "deduplicated",
             jobId: guard.job_id,
-            jobStatus: state.status,
+            jobStatus: liveness.status,
             workLive: true,
           },
         };
@@ -719,6 +915,16 @@ async function admitOrResolve(
  * already has active work, or whenever a supplied idempotency key is still
  * bound. Throws {@link JobAdmissionUnavailableError} when the substrate cannot
  * answer safely; the caller must report unavailability and write nothing.
+ *
+ * **What the migration path can and cannot do.** The pre-admission sweep finds
+ * work that already exists. It cannot fence a producer that writes *after* the
+ * sweep and does not participate in the transaction — an older build of this
+ * server during a rolling deploy is exactly that. The post-admission re-check
+ * below narrows that window by compensating (deleting the row it just created,
+ * while it is still unclaimed) but does not close it: if the other row appears
+ * after the re-check, or a worker claims ours first, two roots exist. Deploying
+ * every producer before relying on the guard is still required; this is
+ * mitigation, not a cutover protocol.
  */
 export async function admitDelphiJob(
   request: AdmissionRequest,
@@ -732,6 +938,26 @@ export async function admitDelphiJob(
     : null;
   const jobItem = { ...request.jobItem };
 
+  // Every successful resolution funnels through here so a supplied key is
+  // always bound to the job the caller is actually told about.
+  const settle = async (result: AdmissionResult): Promise<AdmissionResult> => {
+    if (!aliasKey || result.outcome === "idempotency_conflict") {
+      return result;
+    }
+    const bound = await bindKeyToJob(
+      store,
+      aliasKey,
+      scopeKey,
+      scope,
+      result.jobId,
+      configHash
+    );
+    if (bound.kind === "conflict") {
+      return { outcome: "idempotency_conflict", jobId: bound.jobId };
+    }
+    return result;
+  };
+
   try {
     for (let attempt = 0; attempt < MAX_ADMISSION_ATTEMPTS; attempt++) {
       // 1. A supplied idempotency key is authoritative about the payload,
@@ -742,12 +968,12 @@ export async function admitDelphiJob(
           return { outcome: "idempotency_conflict", jobId: alias.jobId };
         }
         if (alias.kind === "bound") {
-          const status = (await store.readJobStatus(alias.jobId)) || "UNKNOWN";
+          const liveness = await assessJobLiveness(store, alias.jobId);
           return {
             outcome: "deduplicated",
             jobId: alias.jobId,
-            jobStatus: status,
-            workLive: !TERMINAL_STATUSES.has(status),
+            jobStatus: liveness.status,
+            workLive: liveness.live,
           };
         }
       }
@@ -755,27 +981,32 @@ export async function admitDelphiJob(
       // 2. An existing guard decides the scope.
       const guard = await store.readGuard(scopeKey);
       if (guard) {
-        const state = await assessGuard(store, guard);
-        if (state.live) {
+        const liveness = await assessJobLiveness(store, guard.job_id);
+        if (liveness.live) {
           logger.info(
             `Delphi job ${jobItem.job_id} deduplicated onto active job ${
               guard.job_id
-            } for scope ${logScope(scopeKey)}`
+            } for scope ${logScope(scopeKey)} (${liveness.reason})`
           );
-          return {
+          return settle({
             outcome: "deduplicated",
             jobId: guard.job_id,
-            jobStatus: state.status,
+            jobStatus: liveness.status,
             workLive: true,
-          };
+          });
         }
+        logger.info(
+          `Delphi scope ${logScope(scopeKey)} released from job ${
+            guard.job_id
+          }: ${liveness.reason}`
+        );
         await store.clearGuard(guard);
         continue;
       }
 
-      // 3. No guard. Before creating anything, prove that no active root for
-      //    this scope predates the guard table — the migration case, and any
-      //    producer that has not been through this code.
+      // 3. No guard. Before creating anything, look for active work in this
+      //    scope that predates the guard table, including a live checker under
+      //    an already-terminal root.
       const legacy = await store.sweepUnguardedActiveRoot(scope);
       if (legacy.kind === "unknown") {
         throw new JobAdmissionUnavailableError(
@@ -790,22 +1021,22 @@ export async function admitDelphiJob(
             adopted_at: new Date().toISOString(),
           })
         );
-        logger.info(
-          `Delphi scope ${logScope(scopeKey)} adopted pre-existing active job ${
-            legacy.value
-          }${adopted ? "" : " (guard appeared concurrently)"}`
-        );
         if (!adopted) {
           continue;
         }
-        const status = (await store.readJobStatus(legacy.value)) || "UNKNOWN";
-        return {
+        logger.info(
+          `Delphi scope ${logScope(scopeKey)} adopted pre-existing active job ${
+            legacy.value
+          }`
+        );
+        const liveness = await assessJobLiveness(store, legacy.value);
+        return settle({
           outcome: "deduplicated",
           jobId: legacy.value,
-          jobStatus: status,
-          workLive: true,
+          jobStatus: liveness.status,
+          workLive: liveness.live,
           adopted: true,
-        };
+        });
       }
 
       // 4. Create the job and its guard in one transaction.
@@ -814,18 +1045,13 @@ export async function admitDelphiJob(
         { ...request, jobItem },
         guardItemFor(scopeKey, scope, String(jobItem.job_id), configHash),
         aliasKey
-          ? {
-              guard_key: aliasKey,
-              guard_kind: "idempotency",
-              scope_guard_key: scopeKey,
-              config_hash: configHash,
-              job_id: jobItem.job_id,
-              version: 1,
-              created_at: new Date().toISOString(),
-              binding_expires_at: new Date(
-                Date.now() + IDEMPOTENCY_BINDING_WINDOW_MS
-              ).toISOString(),
-            }
+          ? aliasItemFor(
+              aliasKey,
+              scopeKey,
+              scope,
+              String(jobItem.job_id),
+              configHash
+            )
           : null,
         scopeKey,
         aliasKey,
@@ -833,16 +1059,55 @@ export async function admitDelphiJob(
       );
 
       if (admission.outcome === "resolved") {
-        return admission.result;
+        return settle(admission.result);
       }
 
       if (admission.outcome === "admitted") {
-        return {
+        const created: AdmissionResult = {
           outcome: "created",
           jobId: String(jobItem.job_id),
           jobStatus: String(jobItem.status || "PENDING"),
           workLive: true,
         };
+        // 5. Re-check for unguarded work that appeared while we were writing.
+        //    A producer outside the transaction cannot be fenced by the read in
+        //    step 3; if one raced us, give up our row rather than leave two.
+        const raced = await store.sweepUnguardedActiveRoot(
+          scope,
+          String(jobItem.job_id)
+        );
+        if (raced.kind === "found") {
+          const withdrawn = await store.deleteUnclaimedJob(
+            String(jobItem.job_id)
+          );
+          if (withdrawn) {
+            await store.clearGuard({
+              guard_key: scopeKey,
+              job_id: String(jobItem.job_id),
+              version: 1,
+            } as GuardRow);
+            logger.warn(
+              `Delphi scope ${logScope(
+                scopeKey
+              )}: withdrew a just-created job after an unguarded producer wrote ${
+                raced.value
+              }; deploy every producer before relying on the guard`
+            );
+            continue;
+          }
+          logger.error(
+            `Delphi scope ${logScope(scopeKey)}: an unguarded producer wrote ${
+              raced.value
+            } and our job was already claimed; two roots now exist for this scope`
+          );
+        } else if (raced.kind === "unknown") {
+          logger.warn(
+            `Delphi scope ${logScope(
+              scopeKey
+            )}: post-admission re-check inconclusive (${raced.reason})`
+          );
+        }
+        return settle(created);
       }
 
       if (admission.outcome === "job_id_taken") {

@@ -391,6 +391,10 @@ running = True
 # Exit code from 803_check_batch_status.py script if batch is still processing
 EXIT_CODE_PROCESSING_CONTINUES = 3
 
+# How long to wait for a job's child process to exit after terminate/kill
+# before giving up on confirming it. See JobProcessor.stop_child_process.
+CHILD_TERMINATE_GRACE_SECONDS = 30
+
 
 def signal_handler(sig, frame):
     """Handle exit signals gracefully."""
@@ -633,8 +637,18 @@ class JobProcessor:
             # Log failure but do not crash the worker
             logger.error(f"Error updating job logs for {job['job_id']}: {e}")
 
-    def complete_job(self, job, success, result=None, error=None):
-        """Mark a job as completed or failed using optimistic locking."""
+    def complete_job(self, job, success, result=None, error=None, process_exited=False):
+        """Mark a job as completed or failed using optimistic locking.
+
+        ``process_exited`` records whether this worker has *confirmed* that the
+        job's child process is gone (terminated and joined). The server's
+        submission guard reads ``process_exit_confirmed`` before it will release
+        a FAILED root: a root marked FAILED while its subprocess was still alive
+        can still create a checker row or submit provider work afterwards, so an
+        unconfirmed failure is not proof that the paid work ended. Defaults to
+        False so a caller that cannot make the claim does not make it by
+        accident.
+        """
         job_id = job['job_id']
         current_version = job.get('version', 1)
         new_status = 'COMPLETED' if success else 'FAILED'
@@ -663,6 +677,7 @@ class JobProcessor:
                             updated_at = :now, 
                             completed_at = :now,
                             job_results = :job_results,
+                            process_exit_confirmed = :process_exited,
                             version = :new_version
                     ''',
                     ConditionExpression='version = :current_version',
@@ -671,6 +686,7 @@ class JobProcessor:
                         ':new_status': new_status,
                         ':now': now,
                         ':job_results': json.dumps(job_results),
+                        ':process_exited': bool(process_exited),
                         ':current_version': current_version,
                         ':new_version': current_version + 1
                     }
@@ -686,6 +702,38 @@ class JobProcessor:
         except Exception as e:
             logger.error(f"Error completing job {job_id}: {e}")
 
+    def stop_child_process(self, process, job_id: str) -> bool:
+        """Stop a job's child process and join it. True once it is gone.
+
+        Marking a job FAILED while its subprocess is still running leaves an
+        orphan that can still submit provider work, update the job row, or
+        create a checker row *after* the server has concluded the job finished.
+        The job is not failed until the process is.
+        """
+        if process is None:
+            return True
+        try:
+            if process.poll() is not None:
+                return True
+        except Exception:
+            pass
+        try:
+            process.terminate()
+            process.wait(timeout=CHILD_TERMINATE_GRACE_SECONDS)
+            logger.warning(f"Job {job_id}: child process terminated before the job was marked failed.")
+            return True
+        except Exception as term_error:
+            logger.warning(f"Job {job_id}: terminate did not settle the child ({term_error}); killing.")
+        try:
+            process.kill()
+            process.wait(timeout=CHILD_TERMINATE_GRACE_SECONDS)
+            logger.warning(f"Job {job_id}: child process killed before the job was marked failed.")
+            return True
+        except Exception as kill_error:
+            # Report the failure without the exit claim rather than pretending.
+            logger.error(f"Job {job_id}: could not confirm the child process exited: {kill_error}")
+            return False
+
     def process_job(self, job: Dict[str, Any]) -> None:
         """Processes a claimed job by executing the correct script with real-time log handling."""
         job_id = job['job_id']
@@ -694,7 +742,8 @@ class JobProcessor:
         timeout_seconds = int(job.get('timeout_seconds', 3600))
 
         self.update_job_logs(job, {'level': 'INFO', 'message': f'Worker {self.worker_id} starting job {job_id}'})
-        
+
+        child_process = None
         try:
             # 1. Build the command
             job_config = json.loads(job.get('job_config', '{}'))
@@ -728,6 +777,7 @@ class JobProcessor:
             env['DELPHI_REPORT_ID'] = str(job.get('report_id', conversation_id))
             
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True, env=env)
+            child_process = process
 
             start_time = time.time()
             for line in iter(process.stdout.readline, ''):
@@ -741,28 +791,35 @@ class JobProcessor:
 
             # 3. Handle the results
             success = (return_code == 0)
+            # process.wait() above has joined the child, so every completion
+            # from here on can honestly claim the process is gone.
             if job_type == 'AWAITING_NARRATIVE_BATCH':
                 if return_code == EXIT_CODE_PROCESSING_CONTINUES:
                     self.release_lock(job, is_still_processing=True)
                 else:
-                    self.complete_job(job, success, error=f"Script failed with exit code {return_code}" if not success else None)
+                    self.complete_job(job, success, error=f"Script failed with exit code {return_code}" if not success else None, process_exited=True)
             
             elif job_type == 'CREATE_NARRATIVE_BATCH':
                 if success:
                     logger.info(f"Job {job_id}: CREATE_NARRATIVE_BATCH completed successfully.")
-                    self.complete_job(job, True)
+                    self.complete_job(job, True, process_exited=True)
                 else:
-                    self.complete_job(job, False, error=f"CREATE_NARRATIVE_BATCH script failed with exit code {return_code}")
+                    self.complete_job(job, False, error=f"CREATE_NARRATIVE_BATCH script failed with exit code {return_code}", process_exited=True)
 
             else: # Handle all other synchronous job types
-                self.complete_job(job, success, error=f"Process exited with code {return_code}" if not success else None)
+                self.complete_job(job, success, error=f"Process exited with code {return_code}" if not success else None, process_exited=True)
 
         except subprocess.TimeoutExpired:
             logger.error(f"Job {job_id} timed out after {timeout_seconds} seconds.")
-            self.complete_job(job, False, error=f"Job process timed out after {timeout_seconds}s.")
+            # Stop the child before marking the job failed: a timed-out process
+            # that is still alive can keep spending provider money and can still
+            # create a checker row after the job looks finished.
+            stopped = self.stop_child_process(child_process, job_id)
+            self.complete_job(job, False, error=f"Job process timed out after {timeout_seconds}s.", process_exited=stopped)
         except Exception as e:
             logger.error(f"Critical error processing job {job_id}: {e}", exc_info=True)
-            self.complete_job(job, False, error=f"Critical poller error: {str(e)}")
+            stopped = self.stop_child_process(child_process, job_id)
+            self.complete_job(job, False, error=f"Critical poller error: {str(e)}", process_exited=stopped)
 
 
 def should_process_job(instance_type: str, job_actual_size: str) -> bool:

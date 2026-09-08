@@ -1,4 +1,4 @@
-import React, { useState, useEffect, SetStateAction } from "react";
+import React, { useState, useEffect, useRef, SetStateAction } from "react";
 import { jsonrepair } from "jsonrepair";
 import net from "../../util/net";
 import { useReportId } from "../framework/useReportId";
@@ -32,6 +32,13 @@ const ACTIVE_JOB_STATUSES = [
   "AWAITING_RECHECK",
   "LOCKED_FOR_CHECKING",
 ];
+
+// Only these two mean a job row is durably finished. Anything else — including
+// "unknown", which the visualizations endpoint returns for a row with no status
+// — is uncertainty and must not be read as completion.
+const TERMINAL_JOB_STATUSES = ["COMPLETED", "FAILED"];
+const isTerminalJobStatus = (status) =>
+  TERMINAL_JOB_STATUSES.includes(status);
 
 const isBatchReportJob = (job) => Boolean(job?.jobId?.includes("batch_report_"));
 
@@ -75,14 +82,29 @@ export const reconcileTrackedJob = (previous, jobs, wantBatch, reportId) => {
 
   const durable = list.find((job) => job?.jobId === previous.jobId);
   if (!durable) {
+    // Absence is uncertainty: this list comes from an eventually consistent
+    // index, so a job it does not mention has not been shown to be finished.
     return previous;
   }
-  if (ACTIVE_JOB_STATUSES.includes(durable.status)) {
-    return { jobId: durable.jobId, status: durable.status, reportId };
+  if (!isTerminalJobStatus(durable.status)) {
+    // Includes "unknown" and any status this client does not recognise.
+    return {
+      jobId: durable.jobId,
+      status: durable.status,
+      workLive: previous.workLive,
+      reportId,
+    };
   }
   // The acknowledged job is durably terminal. Any live child or successor shows
   // up as its own row, so hand over rather than stopping while work remains.
-  return adopt();
+  const successor = adopt();
+  if (successor) {
+    return successor;
+  }
+  // Nothing else is listed. If the server told us work was still live under
+  // this job — a completed root whose checker has not surfaced yet — keep
+  // watching rather than declaring it done on the strength of one index read.
+  return previous.workLive ? previous : null;
 };
 
 const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, voteColors, showControls = true, authToken, reportModLevel }) => {
@@ -119,6 +141,11 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
   const [showGlobalSections, setShowGlobalSections] = useState(false);
   const [processedLogs, setProcessedLogs] = useState(undefined);
   const [confirmDelphiRunModalVisible, setConfirmDelphiRunModalVisible] = useState(false);
+  // The report this component is currently tracking. Every asynchronous
+  // continuation compares against this ref rather than against the `report_id`
+  // captured in its own closure: after a report change, an old render's
+  // callback still sees old === old and would happily install stale state.
+  const trackedReportRef = useRef(report_id);
 
   const DelphiModal = () => {
     return confirmDelphiRunModalVisible ? (
@@ -154,6 +181,18 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
       </div>
       ) : null;
   };
+
+  // Point the ref at the current report before anything can resolve against
+  // it, and drop state belonging to the report we just left.
+  useEffect(() => {
+    trackedReportRef.current = report_id;
+    setActiveJob(null);
+    setActiveBatchJob(null);
+    setVisualizationJobs([]);
+    setProcessedLogs(undefined);
+    setJobCreationResult(null);
+    setBatchReportResult(null);
+  }, [report_id]);
 
   useEffect(() => {
     if (!report_id) return;
@@ -265,7 +304,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
   // arrive for a different report than the one now on screen are dropped, so a
   // late reply cannot install another report's job.
   function applyJobsFromResponse(jobs, forReportId) {
-    if (forReportId !== report_id) {
+    if (forReportId !== trackedReportRef.current) {
       return;
     }
     setVisualizationJobs(jobs);
@@ -311,7 +350,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
     }
     net.polisGet("/api/v3/delphi/logs", { job_id: pipelineJobId }, authToken)
       .then(response => {
-        if (pollReportId !== report_id) return;
+        if (pollReportId !== trackedReportRef.current) return;
         setProcessedLogs(response);
         const isFinished = response?.find(m => m.message.includes("Results stored in DynamoDB for conversation"));
         if (isFinished) {
@@ -327,6 +366,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
   // Handle job form submission
   const handleJobFormSubmit = (e) => {
     e.preventDefault();
+    const submittedForReportId = report_id;
     setIsSubmitting(true);
     setJobCreationResult(null);
 
@@ -351,14 +391,16 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
             job_id: response.job_id,
             deduplicated: Boolean(response.deduplicated),
           });
-          setActiveJob({
-            jobId: response.job_id,
-            status: response.job_status || QUEUED_JOB_STATUS,
-            // The root can be COMPLETED while a checker child of it still runs;
-            // work_live is the server's answer to "keep polling?".
-            workLive: response.work_live !== false,
-            reportId: report_id,
-          });
+          if (submittedForReportId === trackedReportRef.current) {
+            setActiveJob({
+              jobId: response.job_id,
+              status: response.job_status || QUEUED_JOB_STATUS,
+              // The root can be COMPLETED while a checker child of it still
+              // runs; work_live is the server's answer to "keep polling?".
+              workLive: response.work_live !== false,
+              reportId: submittedForReportId,
+            });
+          }
         } else {
           throw new Error(response?.error || "Unknown error creating job");
         }
@@ -368,11 +410,11 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
           // Fetch visualizations to get the new job
           net
             .polisGet("/api/v3/delphi/visualizations", {
-              report_id: report_id,
+              report_id: submittedForReportId,
             })
             .then((response) => {
               if (response && response.status === "success" && response.jobs) {
-                applyJobsFromResponse(response.jobs, report_id);
+                applyJobsFromResponse(response.jobs, submittedForReportId);
               }
             })
             .catch((err) => {
@@ -397,6 +439,7 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
 
   // Handle generate narrative report button click
   const handleGenerateNarrativeReport = () => {
+    const submittedForReportId = report_id;
     setBatchReportLoading(true);
     setBatchReportResult(null);
 
@@ -421,12 +464,14 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
           // Acknowledge the batch job so it gets the same polling loop and
           // banner as a pipeline job; without this a batch-only submission was
           // never polled at all.
-          setActiveBatchJob({
-            jobId: response.batch_id || response.job_id,
-            status: response.job_status || QUEUED_JOB_STATUS,
-            workLive: response.work_live !== false,
-            reportId: report_id,
-          });
+          if (submittedForReportId === trackedReportRef.current) {
+            setActiveBatchJob({
+              jobId: response.batch_id || response.job_id,
+              status: response.job_status || QUEUED_JOB_STATUS,
+              workLive: response.work_live !== false,
+              reportId: submittedForReportId,
+            });
+          }
         } else {
           throw new Error(response?.error || response?.message || "Unknown error generating batch report");
         }
