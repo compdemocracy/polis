@@ -158,8 +158,10 @@ class ContinuousReader(threading.Thread):
 
 
 def test_reader_never_sees_a_mixed_generation(engine, pg_url, make_service):
-    """Pause the writer after the main write and before the bidtopid write,
-    while a reader polls continuously."""
+    """Pause the writer between the table writes — after bidtopid and ptptstats
+    have executed and before math_main, which the writer now emits last — while
+    a reader polls continuously. That is the widest window in which a reader
+    could observe a mixed generation."""
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
     svc = make_service(pg_url, math_env=MATH_ENV, worker_pool_size=1)
     svc.poll_once()          # generation 1: complete
@@ -167,8 +169,8 @@ def test_reader_never_sees_a_mixed_generation(engine, pg_url, make_service):
     reader = ContinuousReader(engine, 1, MATH_ENV)
     reader.start()
 
-    latch = Latch("write_math_bidtopid")
-    undo = latch_method(svc._pg, "write_math_bidtopid", latch)
+    latch = Latch("write_math_main")
+    undo = latch_method(svc._pg, "write_math_main", latch)
     from .conftest import commit_vote
     base = max(e["created"] for e in read_vote_events(engine, 1))
     commit_vote(engine, 1, 0, 0, F.RAW_DISAGREE, base + 1000)
@@ -177,7 +179,7 @@ def test_reader_never_sees_a_mixed_generation(engine, pg_url, make_service):
     worker = threading.Thread(target=svc.poll_once, daemon=True)
     worker.start()
     latch.wait_arrival()
-    # Main has executed, but the full snapshot is still uncommitted.
+    # Both companions have executed, but the full snapshot is still uncommitted.
     eventually(lambda: len(reader.snapshots) > 3, timeout=10,
                message="the reader took no snapshots during the pause")
     latch.let_go()
@@ -212,8 +214,10 @@ def test_legacy_mixed_window_is_real_and_observable(engine, pg_url, make_service
     monkeypatch.setattr(svc._pg, "transaction", lambda: nullcontext(None))
     monkeypatch.setattr(svc._pg, "_write_returning", legacy_returning)
 
-    latch = Latch("write_math_bidtopid")
-    undo = latch_method(svc._pg, "write_math_bidtopid", latch)
+    # Pause after the FIRST table write commits on its own: with separate
+    # commits, whichever table goes first is a generation ahead of the rest.
+    latch = Latch("write_participant_stats")
+    undo = latch_method(svc._pg, "write_participant_stats", latch)
     from .conftest import commit_vote
     base = max(e["created"] for e in read_vote_events(engine, 1))
     commit_vote(engine, 1, 0, 0, F.RAW_DISAGREE, base + 1000)
@@ -223,8 +227,8 @@ def test_legacy_mixed_window_is_real_and_observable(engine, pg_url, make_service
     latch.wait_arrival()
 
     main, bid, pts = read_generation(engine, 1, MATH_ENV)
-    assert main["math_tick"] > first_tick, "math_main advanced on its own"
-    assert bid["math_tick"] == first_tick, "math_bidtopid is a generation behind"
+    assert bid["math_tick"] > first_tick, "math_bidtopid advanced on its own"
+    assert main["math_tick"] == first_tick, "math_main is a generation behind"
     assert pts["math_tick"] == first_tick
     problems = response_problems(main, bid, pts)
     assert any("MIXED GENERATIONS" in p for p in problems), problems

@@ -31,6 +31,21 @@ from polismath.utils.serialization import convert_numpy_types
 logger = logging.getLogger(__name__)
 
 
+def encode_math_blob(data: Any) -> str:
+    """Encode a math blob for a ``jsonb`` parameter, or pass one through.
+
+    The poller pre-encodes all three blobs BEFORE opening the publication
+    transaction (``math_writer.write_conv_updates``) so that ``json.dumps`` of a
+    large ``math_main`` blob does not run while the ``(zid, math_env)`` row
+    locks are held — it lengthens both the lock hold and the
+    caching_tick allocate -> commit window (R12). Every other caller still
+    hands these writers a dict.
+    """
+    if isinstance(data, str):
+        return data
+    return json.dumps(data, default=convert_numpy_types)
+
+
 # Base class for SQLAlchemy models
 class Base(DeclarativeBase):
     """Base class for all SQLAlchemy models."""
@@ -875,7 +890,7 @@ class PostgresClient:
                 "math_env": self.config.math_env,
                 "last_vote_timestamp": last_vote_timestamp,
                 "math_tick": math_tick if math_tick is not None else -1,
-                "data": json.dumps(data, default=convert_numpy_types),
+                "data": encode_math_blob(data),
             },
             connection=connection,
         )
@@ -908,7 +923,7 @@ class PostgresClient:
                 "zid": zid,
                 "math_env": self.config.math_env,
                 "math_tick": math_tick if math_tick is not None else -1,
-                "data": json.dumps(data, default=convert_numpy_types),
+                "data": encode_math_blob(data),
             },
             connection=connection,
         )
@@ -941,7 +956,7 @@ class PostgresClient:
                 "zid": zid,
                 "math_env": self.config.math_env,
                 "math_tick": math_tick if math_tick is not None else -1,
-                "data": json.dumps(data, default=convert_numpy_types),
+                "data": encode_math_blob(data),
             },
             connection=connection,
         )

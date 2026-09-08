@@ -313,7 +313,19 @@ class MathPollerService:
 
     def start(self) -> None:
         self._ensure_runtime()
-        self._repair_incomplete_snapshots()
+        # A boot-time database blip must not abort startup. Before the startup
+        # scan existed, start() touched no database at all and a blip was
+        # absorbed by the poll loops' own try/except; keep that property. The
+        # scan leaves _startup_repair_done False on failure, so the first poll
+        # cycle retries it. poll_once() deliberately still propagates — the
+        # --once contract and test_startup_scan_failure_is_retried depend on it.
+        try:
+            self._repair_incomplete_snapshots()
+        except Exception:
+            logger.exception(
+                "Startup repair scan failed; continuing without it "
+                "(the next poll cycle retries)"
+            )
         self._stop.clear()
         self._threads = [
             threading.Thread(target=self._vote_loop, name="vote-poller", daemon=True),
@@ -373,6 +385,25 @@ class MathPollerService:
         A scan failure must propagate, leaving the scan pending for the next
         poll_once/start attempt. Once submitted, ordinary worker retry/park
         reconciliation owns recovery, including a failed rebuild with no votes.
+        start() catches it so a boot-time blip cannot abort startup.
+
+        TODO(review E4 - startup REBUILD burst cap): this submits an UNBOUNDED
+        number of REBUILDs (each a full vote-history recompute), logs one
+        WARNING per zid, and runs before the poll threads start. The scan is
+        three seq scans (math_env is unindexed on all three tables) and the
+        burst on a large production namespace has not been benchmarked. Wants a
+        cap, a summary count log instead of per-zid warnings, an env kill
+        switch, and a benchmark. Note R10: poll_once's join(timeout=120)
+        result is discarded, so with a backlog `--once` reports success with
+        work still pending.
+
+        TODO(review E5 - rebuild-thrash metering): _load_or_init's mismatch
+        path discards warm state and re-reads full vote history every time it
+        fires, unthrottled. A second writer (Clojure during dual-run) holding
+        one table at a different tick would make that zid full-rebuild every
+        cycle. Wants a counter/metric so it is visible.
+
+        Both are deliberate follow-ups, not part of this change.
         """
         if self._startup_repair_done:
             return

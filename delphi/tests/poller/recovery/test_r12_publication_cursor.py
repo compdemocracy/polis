@@ -10,9 +10,18 @@ P-022 §C required matrix:
 
 Two halves, both real:
 
-* the WRITER's cursor allocation — ``polismath/database/postgres.py:838``'s
-  ``COALESCE((select max(caching_tick) + 1 from math_main where math_env = ?), 1)``,
-  evaluated inside each write's own transaction;
+* the WRITER's cursor allocation — ``polismath/database/postgres.py:878``'s
+  ``COALESCE((select max(caching_tick) + 1 from math_main where math_env = ?), 1)``.
+  It is now evaluated inside the ONE publication transaction that also mints the
+  math_tick and writes all three tables (``math_writer.py:227``), not inside a
+  per-table transaction — the R05/R09 fix.  That makes the snapshot atomic but
+  changes nothing here: the allocation is still a non-serializable read at READ
+  COMMITTED with no uniqueness constraint on ``caching_tick``, so two zids
+  publishing concurrently can still allocate the same value and still commit out
+  of cursor order.  ``write_math_main`` is deliberately the last statement
+  before the COMMIT so the allocate -> commit window stays as short as it was
+  when each write autocommitted;
+
 * the READER's cursor consumption — ``server/src/utils/pca.ts:98``'s
   ``select * from math_main where caching_tick > ($1) order by caching_tick
   limit 10``, with ``lastPrefetchedMathTick`` advanced to the largest
@@ -151,10 +160,15 @@ def test_two_concurrent_publications_allocate_the_SAME_cursor(engine, pg_url):
     strict=True,
     reason=(
         "DEFECT (predicted by P-022 §C): MAX(caching_tick)+1 is not a safe "
-        "global change cursor. polismath/database/postgres.py:838 allocates "
+        "global change cursor. polismath/database/postgres.py:878 allocates "
         "`COALESCE((select max(caching_tick)+1 from math_main where math_env = "
-        "?), 1)` INSIDE each write's own transaction, so two conversations "
-        "publishing concurrently allocate the SAME value; the consumer "
+        "?), 1)` inside the single publication transaction that mints the "
+        "math_tick and writes all three tables (math_writer.py:227). That "
+        "transaction made the SNAPSHOT atomic (R05/R09) but does not serialize "
+        "the allocation: it is still a plain read at READ COMMITTED with no "
+        "predicate lock and no uniqueness constraint on caching_tick, so two "
+        "conversations publishing concurrently allocate the SAME value; the "
+        "consumer "
         "(server/src/utils/pca.ts:98, :130-132) polls `caching_tick > "
         "lastPrefetchedMathTick` and advances the cursor to the largest value "
         "it saw. If the reader advances past a value between the two commits, "

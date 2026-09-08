@@ -14,10 +14,15 @@ Stages (the P-022 §C R05 list):
     after the poll cycle advanced the watermark, before any compute
 ``during_compute``
     inside ``Conversation.recompute``
-``after_main_write``
-    after ``write_math_main`` executed, before the other two tables (uncommitted)
+``after_first_table_write``
+    after the FIRST of the three table writes (``write_math_bidtopid``)
+    executed, before the other two.  Under the production writer nothing is
+    committed yet; under ``--legacy-writes`` that first table committed alone,
+    which is the mixed generation the old writer could leave behind.
 ``before_final_table_write``
-    after main+bidtopid executed, before ``write_participant_stats`` (uncommitted)
+    after tick+bidtopid+ptptstats executed, before ``write_math_main`` — which
+    is deliberately the LAST statement in the publication transaction, so this
+    is the widest uncommitted window the writer ever has
 ``after_all_writes_before_cache``
     after all three writes committed, before the conversation is cached
 ``none``
@@ -76,6 +81,11 @@ def main() -> int:
             from sqlalchemy import text
             with pg.engine.begin() as conn:
                 result = conn.execute(text(sql), params or {})
+                # Mirror the real _write_returning: .mappings() on a statement
+                # with no result set raises. Every writer uses RETURNING today,
+                # so this only keeps the stand-in from drifting.
+                if not result.returns_rows:
+                    return []
                 return [dict(row) for row in result.mappings().all()]
         pg._write_returning = legacy_returning
     svc = MathPollerService(
@@ -112,24 +122,24 @@ def main() -> int:
 
         Conversation.recompute = hooked_recompute
 
-    elif stage == "after_main_write":
+    elif stage == "after_first_table_write":
+        real_bidtopid = pg.write_math_bidtopid
+
+        def hooked_bidtopid(*a, **kw):
+            result = real_bidtopid(*a, **kw)
+            _emit(stage)
+            _block_forever()
+
+        pg.write_math_bidtopid = hooked_bidtopid
+
+    elif stage == "before_final_table_write":
         real_main = pg.write_math_main
 
         def hooked_main(*a, **kw):
-            result = real_main(*a, **kw)
             _emit(stage)
             _block_forever()
 
         pg.write_math_main = hooked_main
-
-    elif stage == "before_final_table_write":
-        real_stats = pg.write_participant_stats
-
-        def hooked_stats(*a, **kw):
-            _emit(stage)
-            _block_forever()
-
-        pg.write_participant_stats = hooked_stats
 
     elif stage == "after_all_writes_before_cache":
         real_remember = svc._remember

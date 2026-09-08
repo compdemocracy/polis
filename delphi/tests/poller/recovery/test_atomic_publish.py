@@ -128,6 +128,28 @@ def test_startup_scan_failure_is_retried(pg_url, make_service):
     assert svc._startup_repair_done
 
 
+def test_start_survives_a_boot_time_scan_failure(pg_url, make_service, caplog):
+    """A database blip at boot must not abort startup. Before the startup scan
+    existed, start() touched no database at all; a scan failure now has to be
+    logged and swallowed there (poll_once still propagates, above), leaving the
+    scan pending so the first poll cycle retries it."""
+    svc = make_service(pg_url, math_env=MATH_ENV)
+    scan = svc._pg.find_incomplete_math_snapshots
+    with patch.object(svc._pg, "find_incomplete_math_snapshots",
+                      side_effect=RuntimeError("boot scan failed")):
+        svc.start()
+    try:
+        assert not svc._startup_repair_done
+        assert "Startup repair scan failed" in caplog.text
+        assert svc._threads and all(t.is_alive() for t in svc._threads)
+    finally:
+        svc.stop()
+    with patch.object(svc._pg, "find_incomplete_math_snapshots", wraps=scan) as called:
+        svc.poll_once()
+        called.assert_called_once_with()
+    assert svc._startup_repair_done
+
+
 def test_blocked_zid_does_not_block_other_zid_transactions(
     engine, pg_url, make_service, monkeypatch
 ):

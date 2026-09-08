@@ -16,6 +16,12 @@ The production writer now commits all three rows together. The legacy-writes
 child option intentionally restores separate commits ONLY for negative controls
 and the dormant-zid repair regression: old partial rows still need repair even
 though new publications can no longer produce them.
+
+P-022's "after main commit / before final table commit" stages are expressed as
+``after_first_table_write`` and ``before_final_table_write``, because the writer
+now emits ``math_main`` LAST (it is the statement that allocates caching_tick,
+so it is kept adjacent to the COMMIT — see math_writer.py). The two stages still
+bracket the same seam: one table written, and all-but-the-last written.
 """
 
 import os
@@ -49,7 +55,7 @@ _MS_PER_DAY = 24 * 60 * 60 * 1000
 STAGES = [
     "after_poll",
     "during_compute",
-    "after_main_write",
+    "after_first_table_write",
     "before_final_table_write",
     "after_all_writes_before_cache",
 ]
@@ -162,23 +168,23 @@ def test_kill_at_stage_then_restart_recovers(engine, pg_url, children,
     assert fold.event_count == len(seeded.vote_events)
 
 
-def test_legacy_kill_after_main_write_leaves_a_mixed_generation(
+def test_legacy_kill_after_first_table_write_leaves_a_mixed_generation(
     engine, pg_url, children, tmp_path
 ):
     """The seam itself, asserted directly: a kill between the three writes DOES
-    leave math_main ahead of the other two tables.  (Recovery is the test
+    leave the first table ahead of the other two.  (Recovery is the test
     above; this one pins the intermediate state so the defect is documented
     rather than inferred.)"""
     seed_conversation(engine, zid=1, n_ptpts=6, n_cmts=4)
 
-    victim = _spawn(children, pg_url, "after_main_write", tmp_path=tmp_path,
+    victim = _spawn(children, pg_url, "after_first_table_write", tmp_path=tmp_path,
                     legacy_writes=True)
-    victim.await_stage("after_main_write")
+    victim.await_stage("after_first_table_write")
     victim.kill()
 
     tables = read_math_tables(engine, 1, MATH_ENV)
-    assert tables["main"] is not None, "math_main committed on its own"
-    assert tables["bidtopid"] is None and tables["ptptstats"] is None, (
+    assert tables["bidtopid"] is not None, "math_bidtopid committed on its own"
+    assert tables["main"] is None and tables["ptptstats"] is None, (
         "the other two tables must not exist yet — that is the non-atomic "
         "three-table write (math_writer.py:238)"
     )
@@ -214,17 +220,18 @@ def test_dormant_zid_is_outside_the_lookback(engine, pg_url, children,
 def test_dormant_zid_partial_write_is_repaired_after_restart(
     engine, pg_url, children, tmp_path
 ):
-    """Kill the process after the main commit for a DORMANT conversation using the legacy writer, then
-    restart the production writer with no new votes. It must discover and repair
-    the preexisting mixed generation outside its lookback."""
+    """Kill the process after the first table commit for a DORMANT conversation
+    using the legacy writer, then restart the production writer with no new
+    votes. It must discover and repair the preexisting mixed generation outside
+    its lookback."""
     _seed_dormant(engine, zid=2)
 
     # The conversation was active when the poller last ran (wide lookback).
-    victim = _spawn(children, pg_url, "after_main_write", days=30.0,
+    victim = _spawn(children, pg_url, "after_first_table_write", days=30.0,
                     tmp_path=tmp_path, legacy_writes=True)
-    victim.await_stage("after_main_write")
+    victim.await_stage("after_first_table_write")
     victim.kill()
-    assert read_math_tables(engine, 2, MATH_ENV)["main"] is not None
+    assert read_math_tables(engine, 2, MATH_ENV)["bidtopid"] is not None
 
     # It has since gone quiet for longer than the boot lookback.
     survivor = _spawn(children, pg_url, "none", days=1.0, tmp_path=tmp_path)
@@ -244,9 +251,9 @@ def test_dormant_zid_partial_write_is_repaired_with_a_wide_lookback(
     durable repair path rather than to the write seam alone."""
     _seed_dormant(engine, zid=2)
 
-    victim = _spawn(children, pg_url, "after_main_write", days=30.0,
+    victim = _spawn(children, pg_url, "after_first_table_write", days=30.0,
                     tmp_path=tmp_path, legacy_writes=True)
-    victim.await_stage("after_main_write")
+    victim.await_stage("after_first_table_write")
     victim.kill()
 
     survivor = _spawn(children, pg_url, "none", days=30.0, tmp_path=tmp_path)
@@ -270,7 +277,7 @@ class TestNegativeControl:
         seed_conversation(engine, zid=1, n_ptpts=4, n_cmts=3)
         child = _spawn(children, pg_url, "none", tmp_path=tmp_path)
         with pytest.raises(AssertionError):
-            child.await_stage("after_main_write", timeout=5.0)
+            child.await_stage("after_first_table_write", timeout=5.0)
 
     def test_the_kill_is_real(self, engine, pg_url, children, tmp_path):
         """The victim must die by signal, not exit cleanly — otherwise the
@@ -286,7 +293,7 @@ class TestNegativeControl:
         )
 
 
-@pytest.mark.parametrize("stage", ["after_main_write", "before_final_table_write"])
+@pytest.mark.parametrize("stage", ["after_first_table_write", "before_final_table_write"])
 @pytest.mark.parametrize("published_before", [False, True])
 def test_atomic_publish_kill_rolls_back_every_table(
     engine, pg_url, children, tmp_path, stage, published_before
