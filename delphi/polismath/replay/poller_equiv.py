@@ -139,6 +139,7 @@ from polismath.replay.stepcompare import DEFAULT_TOLERANT_STAT_KEYS, StepCompare
 from polismath.replay.store import _safe_path_component
 from polismath.replay.types import ModEvent, ReplayDataset
 from polismath.utils.general import delphi_vote_to_postgres
+from polismath.utils.vote_convention import STORAGE_AGREE_VALUE
 
 # poller_equiv.py -> replay -> polismath -> delphi -> repo root (mirrors
 # certify.py / store.py).
@@ -507,14 +508,19 @@ def seed_conversation(conn: Any, dataset: ReplayDataset, zid: int = DEFAULT_ZID)
 
 
 def insert_votes(
-    conn: Any, dataset: ReplayDataset, from_slot: int, to_slot: int, zid: int = DEFAULT_ZID
+    conn: Any, dataset: ReplayDataset, from_slot: int, to_slot: int,
+    zid: int = DEFAULT_ZID, *, storage_agree_value: int = STORAGE_AGREE_VALUE,
 ) -> int:
     """Insert ``dataset.votes[from_slot:to_slot]`` (plain 0-based Python slice
     — consistent with :func:`polismath.replay.schedule.slice_schedule`'s own
     ``dataset.votes[prev:cut]`` use of 1-based cut slots as slice bounds),
     preserving ``pid``/``tid``/``created`` (``t_ms``) and flipping the vote
-    sign from the dataset's Delphi convention to RAW DB convention (module
-    docstring) via :func:`polismath.utils.general.delphi_vote_to_postgres`.
+    sign from the dataset's Delphi (semantic) convention to the DECLARED RAW DB
+    convention (module docstring) via
+    :func:`polismath.utils.general.delphi_vote_to_postgres` — which reads the
+    declared ``storage_agree_value`` (-1 or +1, defaulting to the one
+    authoritative constant), never a literal, so a seeded DB and the ingress
+    that reads it back cannot disagree about polarity.
 
     ATOMIC per batch — ONE multi-row ``INSERT ... VALUES (...), (...), ...``
     statement, never a per-row loop (ROOT CAUSE #5, 2026-07-24 live-debug
@@ -555,7 +561,7 @@ def insert_votes(
         value_clauses.append(f"(:zid, :pid{i}, :tid{i}, :vote{i}, :created{i})")
         params[f"pid{i}"] = v.pid
         params[f"tid{i}"] = v.tid
-        params[f"vote{i}"] = delphi_vote_to_postgres(v.sign)
+        params[f"vote{i}"] = delphi_vote_to_postgres(v.sign, storage_agree_value)
         params[f"created{i}"] = v.t_ms
     stmt = (
         "INSERT INTO votes (zid, pid, tid, vote, created) VALUES "

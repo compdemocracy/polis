@@ -13,6 +13,7 @@ import decimal
 from datetime import datetime
 
 from polismath.utils.general import postgres_vote_to_delphi
+from polismath.utils.vote_convention import STORAGE_AGREE_VALUE
 
 # Setup logging
 logging.basicConfig(level=logging.INFO)
@@ -76,13 +77,16 @@ def connect_to_db():
         return None
 
 
-def fetch_votes(conn, conversation_id):
+def fetch_votes(conn, conversation_id, storage_agree_value=STORAGE_AGREE_VALUE):
     """
     Fetch votes for a specific conversation from PostgreSQL.
     Returns a dictionary containing votes in the format expected by Conversation.
 
-    Vote signs are flipped at this PostgreSQL boundary:
-    - PostgreSQL stores: AGREE=-1, DISAGREE=+1
+    Vote signs are converted at this PostgreSQL boundary, through the DECLARED
+    storage convention (``storage_agree_value``, -1 or +1 — the one
+    authoritative definition in polismath.utils.vote_convention), never a
+    literal:
+    - PostgreSQL stores: AGREE=storage_agree_value (today -1)
     - Delphi expects:    AGREE=+1, DISAGREE=-1
     """
     import time
@@ -117,8 +121,8 @@ def fetch_votes(conn, conversation_id):
                 "pid": str(vote["voter_id"]),
                 "tid": str(vote["comment_id"]),
                 "vote": postgres_vote_to_delphi(
-                    float(vote["vote"])
-                ),  # Flip at boundary
+                    float(vote["vote"]), storage_agree_value
+                ),  # Declared-convention conversion at the boundary
                 "created": created_time,
             }
         )

@@ -33,6 +33,12 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
+from polismath.utils.vote_convention import (
+    STORAGE_AGREE_VALUE,
+    semantic_vote,
+    validate_storage_agree_value,
+)
+
 
 class NullVoteError(ValueError):
     """A raw ``votes.vote`` was NULL where an export row was being formatted.
@@ -167,14 +173,23 @@ def sql_comments_export() -> str:
     """
 
 
-def sql_comment_vote_counts() -> str:
+def sql_comment_vote_counts(
+    storage_agree_value: int = STORAGE_AGREE_VALUE,
+) -> str:
     """Agrees/disagrees per comment, counted over ALL vote rows (including
     revotes) — mirrors server/src/report.ts's sendCommentSummary, which
-    increments per raw vote row with no dedup."""
-    return """
+    increments per raw vote row with no dedup.
+
+    The two predicates are RAW-STORAGE sign tests, so they are derived from the
+    declared convention (``storage_agree_value``, -1 or +1) rather than written
+    as literals: under a flipped storage convention the same SQL with a bare
+    ``vote = -1`` would silently count disagreements as agreements.
+    """
+    agree = validate_storage_agree_value(storage_agree_value)
+    return f"""
         SELECT tid,
-               COUNT(*) FILTER (WHERE vote = -1) AS agrees,
-               COUNT(*) FILTER (WHERE vote = 1) AS disagrees
+               COUNT(*) FILTER (WHERE vote = {agree}) AS agrees,
+               COUNT(*) FILTER (WHERE vote = {-agree}) AS disagrees
         FROM votes
         WHERE zid = %s
         GROUP BY tid
@@ -365,12 +380,22 @@ def format_export_datetime(created_ms: int) -> str:
     )
 
 
-def format_votes_rows(raw_rows: Iterable[dict[str, Any]]) -> list[dict[str, str]]:
+def format_votes_rows(
+    raw_rows: Iterable[dict[str, Any]],
+    *, storage_agree_value: int = STORAGE_AGREE_VALUE,
+) -> list[dict[str, str]]:
     """``raw_rows``: dicts with keys tid, pid, vote (RAW db sign), created (ms).
     Returns export-format row dicts, one per input row, in the SAME order —
-    no sorting, no dedup (full revote history survives verbatim). The vote
-    sign is flipped (raw AGREE=-1 -> export +1), mirroring the production
-    export's ``String(-row.vote)``."""
+    no sorting, no dedup (full revote history survives verbatim).
+
+    The vote column is converted from the DECLARED raw storage convention to
+    the export/semantic one (``raw × storage_agree_value``: AGREE -> +1),
+    mirroring the production export's ``String(-row.vote)`` at the default
+    ``storage_agree_value = -1``. The export convention itself is FIXED
+    (agree = +1) and does not move with storage — an export row is already
+    semantic input and must never be negated a second time.
+    """
+    agree = validate_storage_agree_value(storage_agree_value)
     out = []
     for row in raw_rows:
         if row["vote"] is None:
@@ -392,7 +417,7 @@ def format_votes_rows(raw_rows: Iterable[dict[str, Any]]) -> list[dict[str, str]
             "datetime": format_export_datetime(created),
             "comment-id": str(row["tid"]),
             "voter-id": str(row["pid"]),
-            "vote": str(-row["vote"]),
+            "vote": str(semantic_vote(row["vote"], agree)),
         })
     return out
 
