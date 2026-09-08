@@ -14,6 +14,34 @@ deliberate exception: ``POLIS_RECOVERY_ALLOW_NO_PG=1`` turns the failure into a
 skip, for a developer running an unrelated part of the suite.  CI must not set
 it, and the required job asserts it is unset.
 
+Checkout policy
+---------------
+The migrations (and, for R11, ``docker-compose.yml``) are read from the polis
+checkout, which is located by walking UP from this file until a directory
+containing ``server/postgres/migrations`` is found — never by a hard-coded
+absolute path.  ``POLIS_MIGRATIONS_DIR`` overrides the migrations location.
+
+A real Postgres is a *policy* prerequisite (see above: its absence fails).  The
+checkout is a *packaging* prerequisite: the Delphi Python CI job copies only
+``delphi/tests`` into ``/app/tests`` inside the delphi image
+(.github/workflows/python-ci.yml step 6), so the polis checkout genuinely does
+not exist there.  Its absence is therefore a clean, reasoned
+:func:`pytest.skip` carrying the fixing command — see
+:func:`recovery_migrations_dir` and :func:`require_repo_root`.  An explicitly
+set but wrong ``POLIS_MIGRATIONS_DIR`` still FAILS: that is operator error, not
+an absent prerequisite.
+
+Nothing here hides the matrix from that job by policy — the skip is a statement
+about the image's contents, and it is one step away from being satisfied::
+
+    docker compose ... cp server/postgres/migrations delphi:/app/migrations
+    ... exec -e POLIS_MIGRATIONS_DIR=/app/migrations delphi ...
+
+which makes the whole matrix run there (verified: 122 passed, 1 skipped — R11's
+docker-compose.yml assertion, still outside the image — and 12 xfailed).
+Whether the matrix belongs in that shared job or in its own required job is
+P-022 §C's separate "required recovery job" decision, not this file's.
+
 Schema freshness
 ----------------
 The migrations are applied ONCE per session into a template database; each test
@@ -51,10 +79,53 @@ import sqlalchemy as sa
 # Every module in this package is part of the required recovery job.
 pytestmark = pytest.mark.recovery
 
-_MIGRATIONS_DIR = os.path.abspath(
-    os.path.join(os.path.dirname(__file__), "..", "..", "..", "..",
-                 "server", "postgres", "migrations")
-)
+_MIGRATIONS_SUBPATH = ("server", "postgres", "migrations")
+
+
+def _find_repo_root(start: str) -> Optional[str]:
+    """The polis checkout root at or above ``start``, or None.
+
+    Identified by the thing these tests actually need — a real
+    ``server/postgres/migrations`` directory — rather than by counting ``..``
+    segments, which silently walks off the top of the filesystem when the tests
+    are copied somewhere shallower than the checkout (as the Delphi Python CI
+    job does: ``delphi/tests`` -> ``/app/tests``, four levels up from which is
+    ``/``).
+    """
+    path = os.path.abspath(start)
+    while True:
+        if os.path.isdir(os.path.join(path, *_MIGRATIONS_SUBPATH)):
+            return path
+        parent = os.path.dirname(path)
+        if parent == path:
+            return None
+        path = parent
+
+
+#: The polis checkout root, or None when these tests are running outside one.
+REPO_ROOT = _find_repo_root(os.path.dirname(__file__))
+
+_NO_CHECKOUT_MESSAGE = """
+The P-022 §C recovery matrix reads {needed} from the polis checkout, and no
+checkout was found at or above {here}.
+
+This is NOT the "missing Postgres" case (which fails by policy): the file is a
+packaging prerequisite, so it cannot be supplied by configuration here.  The
+Delphi Python CI job copies only `delphi/tests` into `/app/tests` inside the
+delphi image, so the checkout is genuinely absent there.
+
+Run the suite from a checkout instead:
+
+    make test-recovery                 # from the repository root
+"""
+
+_BAD_MIGRATIONS_OVERRIDE = """
+POLIS_MIGRATIONS_DIR is set to {path!r}, which is not a directory.
+
+An explicit override that does not resolve is operator error, so this FAILS
+rather than skipping.  Unset it to fall back to the checkout's
+server/postgres/migrations.
+"""
 
 _MISSING_PG_MESSAGE = """
 P-022 §C requires a REAL Postgres; POLIS_TEST_POSTGRES_URL is {why}.
@@ -103,6 +174,42 @@ def _quiet_engine_logs():
 # --------------------------------------------------------------------------- #
 # Postgres plumbing
 # --------------------------------------------------------------------------- #
+def require_repo_root(needed: str) -> str:
+    """The checkout root, or a clean skip naming what could not be reached.
+
+    Used by the handful of assertions that read a repository file (R11 reads
+    ``docker-compose.yml``).  The assertion itself is untouched — it either runs
+    against the real file or does not run at all, and says so.
+    """
+    if REPO_ROOT is None:
+        pytest.skip(
+            _NO_CHECKOUT_MESSAGE.format(
+                needed=needed, here=os.path.dirname(os.path.abspath(__file__))
+            )
+        )
+    return REPO_ROOT
+
+
+@pytest.fixture(scope="session")
+def recovery_migrations_dir() -> str:
+    """Directory holding the REAL ``server/postgres/migrations/*.sql``.
+
+    ``POLIS_MIGRATIONS_DIR`` wins when set (and FAILS when it does not resolve);
+    otherwise the checkout found by :func:`_find_repo_root` supplies it, and its
+    absence is a skip.
+    """
+    override = os.environ.get("POLIS_MIGRATIONS_DIR")
+    if override:
+        path = os.path.abspath(override)
+        if not os.path.isdir(path):
+            pytest.fail(
+                _BAD_MIGRATIONS_OVERRIDE.format(path=override), pytrace=False
+            )
+        return path
+    root = require_repo_root(os.path.join(*_MIGRATIONS_SUBPATH))
+    return os.path.join(root, *_MIGRATIONS_SUBPATH)
+
+
 def _fail_or_skip(why: str) -> None:
     message = _MISSING_PG_MESSAGE.format(why=why)
     if os.environ.get("POLIS_RECOVERY_ALLOW_NO_PG") == "1":
@@ -136,13 +243,18 @@ def recovery_postgres_url() -> str:
 
 
 @pytest.fixture(scope="session")
-def migrated_template(recovery_postgres_url: str) -> str:
+def migrated_template(recovery_migrations_dir: str,
+                      recovery_postgres_url: str) -> str:
     """Name of a session-scoped template database carrying the REAL migrations.
 
     Built by applying every ``server/postgres/migrations/*.sql`` in filename
     order, so schema constraints/types under test are the migrated ones (P-022
     §C: "Test schema constraints/types against migrations, not only the
     hand-maintained equivalence schema").
+
+    ``recovery_migrations_dir`` is listed FIRST deliberately: when there is
+    neither a checkout nor a Postgres, the packaging prerequisite is the more
+    actionable diagnosis, so its skip should win over the Postgres failure.
     """
     import psycopg2
 
@@ -150,11 +262,13 @@ def migrated_template(recovery_postgres_url: str) -> str:
     template = f"polis_recovery_tmpl_{os.getpid()}"
 
     files = sorted(
-        f for f in os.listdir(_MIGRATIONS_DIR)
-        if f.endswith(".sql") and os.path.isfile(os.path.join(_MIGRATIONS_DIR, f))
+        f for f in os.listdir(recovery_migrations_dir)
+        if f.endswith(".sql")
+        and os.path.isfile(os.path.join(recovery_migrations_dir, f))
     )
     if not files:  # pragma: no cover - infra guard
-        pytest.fail(f"no migrations found in {_MIGRATIONS_DIR}", pytrace=False)
+        pytest.fail(f"no migrations found in {recovery_migrations_dir}",
+                    pytrace=False)
 
     admin = psycopg2.connect(recovery_postgres_url, connect_timeout=5)
     admin.autocommit = True
@@ -170,7 +284,7 @@ def migrated_template(recovery_postgres_url: str) -> str:
     conn.autocommit = True
     try:
         for name in files:
-            with open(os.path.join(_MIGRATIONS_DIR, name), "r") as fh:
+            with open(os.path.join(recovery_migrations_dir, name), "r") as fh:
                 sql = fh.read()
             with conn.cursor() as cur:
                 cur.execute(sql)
