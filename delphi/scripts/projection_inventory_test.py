@@ -74,6 +74,36 @@ def test_catches_multiline_alias_and_schema_wildcards(tmp_path) -> None:
     ]
 
 
+def test_catches_qualified_quoted_and_url_bearing_wildcards(tmp_path) -> None:
+    """R4 defect 3: table-qualified star, quoted-table alias, and a query on a line
+    with a URL (whose // must not be treated as a comment) — each is one hit."""
+    src = tmp_path / "server" / "src"
+    src.mkdir(parents=True)
+    cases = {
+        "tqual.ts": 'const q = "SELECT votes.* FROM votes";\n',
+        "quoted.ts": "const q = 'SELECT v.* FROM \"votes\" AS v';\n",
+        "url.ts": 'const u = "https://synthetic.invalid"; const q = "SELECT * FROM votes";\n',
+    }
+    for fn, source in cases.items():
+        (src / fn).write_text(source)
+        sites = inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path))
+        (src / fn).unlink()
+        assert len(sites) == 1, (fn, [(s.file, s.line, s.kind) for s in sites])
+        assert sites[0].classification == "NEEDS-GATE"
+
+
+def test_url_double_slash_is_not_stripped_as_comment(tmp_path) -> None:
+    src = tmp_path / "server" / "src"
+    src.mkdir(parents=True)
+    # A real `//` comment IS stripped; a `//` inside a string is preserved.
+    (src / "mix.ts").write_text(
+        'const a = "no query here"; // SELECT * FROM votes  (a real comment)\n'
+        'const b = "see https://x/y"; const q = "SELECT * FROM votes";\n'
+    )
+    sites = inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path))
+    assert len(sites) == 1 and sites[0].line == 2, [(s.file, s.line) for s in sites]
+
+
 def test_missing_scan_root_fails_not_empty_success(tmp_path) -> None:
     """R3 defect 4: an absent/unreadable root is an ungraded FAIL, not empty PASS."""
     import pytest

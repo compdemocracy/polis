@@ -39,12 +39,15 @@ from typing import Optional, Sequence
 
 VOTE_TABLES = ("votes_latest_unique", "votes")
 
-_TBL = r"(?:public\s*\.\s*)?\"?(votes_latest_unique|votes)\b"
-# `\s` (DOTALL) so a newline between SELECT and * is caught; `public.` optional.
+# A vote table, optionally schema-qualified and/or double-quoted:
+#   votes | "votes" | public.votes | public."votes" | "public"."votes"
+_TBL = r"(?:\"?public\"?\s*\.\s*)?\"?(votes_latest_unique|votes)\"?"
+# `\s` (DOTALL) so a newline between SELECT and * is caught.
 # Bare `SELECT * FROM [public.]votes` (not `SELECT * FROM (subquery)`; `count(*)`
 # has no `select \*` before it, so it is not matched).
 _SELECT_STAR_RE = re.compile(r"select\s+\*\s+from\s+" + _TBL, re.IGNORECASE | re.DOTALL)
-# `SELECT alias.* FROM votes alias` — resolved via the alias->table map below.
+# `SELECT alias.* FROM votes alias` / `SELECT votes.* FROM votes` — resolved via the
+# alias->table map below (the alias may be a real alias OR the table name itself).
 _ALIAS_STAR_RE = re.compile(r"\b(\w+)\s*\.\s*\*", re.IGNORECASE)
 _FROM_ALIAS_RE = re.compile(
     r"\b(?:from|join)\s+" + _TBL + r"(?:\s+(?:as\s+)?(\w+))?", re.IGNORECASE | re.DOTALL
@@ -118,20 +121,63 @@ DISPOSITIONS: tuple[_Disposition, ...] = (
 )
 
 
+def _blank_comments(text: str, line_token: str, allow_block: bool) -> str:
+    """Blank comments while PRESERVING string literals (', ", `) and line numbers.
+
+    A char scanner, not a regex, so a `//` inside a string (e.g. an ``https://``
+    URL) is not mistaken for a comment (Astra round-3 defect 3). Comment characters
+    are replaced by spaces; newlines are kept so offsets map to the right line.
+    """
+    out: list[str] = []
+    i, n = 0, len(text)
+    quote: Optional[str] = None
+    while i < n:
+        c = text[i]
+        if quote is not None:
+            out.append(c)
+            if c == "\\" and i + 1 < n:
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if c == quote:
+                quote = None
+            i += 1
+            continue
+        if c in ("'", '"', "`"):
+            quote = c
+            out.append(c)
+            i += 1
+            continue
+        if text.startswith(line_token, i):
+            while i < n and text[i] != "\n":
+                out.append(" ")
+                i += 1
+            continue
+        if allow_block and text.startswith("/*", i):
+            while i < n and not text.startswith("*/", i):
+                out.append("\n" if text[i] == "\n" else " ")
+                i += 1
+            if i < n:
+                out.append("  ")
+                i += 2
+            continue
+        out.append(c)
+        i += 1
+    return "".join(out)
+
+
 def _strip_ts_comments(text: str) -> str:
-    text = re.sub(r"/\*.*?\*/", lambda m: "\n" * m.group(0).count("\n"), text, flags=re.DOTALL)
-    text = re.sub(r"//[^\n]*", "", text)
-    return text
+    return _blank_comments(text, "//", allow_block=True)
 
 
 def _blank_python_noncode(path: str, text: str) -> str:
-    """Blank out Python docstrings (via ast) and ``#`` comments, keeping line
-    numbers. Real queries are argument strings (not docstrings) and survive."""
+    """Blank Python docstrings (via ast) then ``#`` comments (string-aware). Real
+    queries are argument strings (not docstrings), so they survive."""
     lines = text.splitlines()
     try:
         tree = ast.parse(text)
     except SyntaxError:
-        return text
+        return _blank_comments(text, "#", allow_block=False)
     blanked: set[int] = set()
     for node in ast.walk(tree):
         if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
@@ -145,13 +191,8 @@ def _blank_python_noncode(path: str, text: str) -> str:
                 d = body[0]
                 for ln in range(d.lineno, (d.end_lineno or d.lineno) + 1):
                     blanked.add(ln)
-    out = []
-    for i, line in enumerate(lines, start=1):
-        if i in blanked:
-            out.append("")
-        else:
-            out.append(re.sub(r"#[^\n]*", "", line))
-    return "\n".join(out)
+    kept = "\n".join("" if i in blanked else line for i, line in enumerate(lines, start=1))
+    return _blank_comments(kept, "#", allow_block=False)
 
 
 def _line_of(text: str, offset: int) -> int:
@@ -178,12 +219,15 @@ def _scan_text(rel: str, text: str) -> list[tuple[int, str, str, str]]:
     for m in _BUILDER_STAR_RE.finditer(text):
         add(m.start(), "votes_latest_unique", "builder-star")
 
-    # Aliased star: map alias -> vote table from FROM/JOIN, then find `alias.*`.
+    # Aliased star: map both the table name itself and any alias to the table,
+    # then find `<name>.*` (so `votes.*` and `v.*` both resolve).
     alias_table: dict[str, str] = {}
     for m in _FROM_ALIAS_RE.finditer(text):
+        tbl = m.group(1).lower()
+        alias_table[tbl] = tbl
         alias = m.group(2)
         if alias and alias.lower() not in _SQL_KEYWORDS:
-            alias_table[alias] = m.group(1).lower()
+            alias_table[alias] = tbl
     if alias_table:
         for m in _ALIAS_STAR_RE.finditer(text):
             table = alias_table.get(m.group(1))
