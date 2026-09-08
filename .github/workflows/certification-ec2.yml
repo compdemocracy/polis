@@ -81,12 +81,51 @@ jobs:
       RUN_TAG: ${{ github.run_id }}-${{ github.run_attempt }}
       TARGET_REF: ${{ inputs.ref || github.ref_name }}
       INSTANCE_TYPE: ${{ inputs.instance_type || 'r8g.4xlarge' }}
+      # Resolved ONCE, here, and used by both execution and validation. A
+      # schedule event has no dispatch inputs, and an absent input compares
+      # equal to false under GitHub's conversions — so round 3's
+      # `inputs.run_battery != false` skipped the nightly battery AND told the
+      # validator the omission was deliberate (review R3-F3). Only an explicit
+      # manual false selects recovery-only.
+      RUN_BATTERY: ${{ (github.event_name == 'workflow_dispatch' && inputs.run_battery == false) && 'false' || 'true' }}
 
     steps:
       - name: Check out the control code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           persist-credentials: false
+          fetch-depth: 0
+
+      # An undeclared scope is not a default; it is a bug in this file.
+      - name: Resolve the run scope and the immutable target commit
+        id: scope_and_sha
+        run: |
+          set -euo pipefail
+          case "$RUN_BATTERY" in
+            true|false) ;;
+            *) echo "::error::RUN_BATTERY resolved to '$RUN_BATTERY'"; exit 1 ;;
+          esac
+          # A branch name is mutable, and the worker used to fall back to `edge`
+          # when its tag read failed. Resolve once, here, and hand the immutable
+          # commit to the launch tag AND to validation (review R3-F4).
+          if printf %s "$TARGET_REF" | grep -Eq '^[0-9a-f]{40}$'; then
+            TARGET_SHA="$TARGET_REF"
+          else
+            TARGET_SHA=$(git ls-remote origin "refs/heads/${TARGET_REF}" | cut -f1)
+          fi
+          if ! printf %s "$TARGET_SHA" | grep -Eq '^[0-9a-f]{40}$'; then
+            echo "::error::could not resolve '$TARGET_REF' to a commit"
+            exit 1
+          fi
+          echo "TARGET_SHA=$TARGET_SHA" >> "$GITHUB_ENV"
+          # The admitted battery inventory, taken from the commit under test —
+          # not from this checkout, which may differ.
+          git fetch --depth 1 origin "$TARGET_SHA"
+          git show "$TARGET_SHA:delphi/scripts/certify_battery.json" > /tmp/p022-battery.json
+          git show "$TARGET_SHA:delphi/scripts/certify_datasets.json" > /tmp/p022-datasets.json
+          DIGEST=$(python3 ci/p022_battery_digest.py /tmp/p022-battery.json /tmp/p022-datasets.json)
+          echo "BATTERY_DIGEST=$DIGEST" >> "$GITHUB_ENV"
+          echo "scope run_battery=$RUN_BATTERY commit=$TARGET_SHA inventory=$DIGEST"
 
       # Session 1 launches, and does ONLY that. The base role holds a
       # tag-scoped SendCommand that reaches any concurrent campaign's box, and
@@ -125,7 +164,7 @@ jobs:
           # Deterministic client token: a retried step after a lost response
           # returns the SAME instance instead of launching a second one.
           TOKEN="polis-certify-${RUN_TAG}"
-          TAGS="ResourceType=instance,Tags=[{Key=polis:ci,Value=disposable},{Key=polis:ci-ref,Value=$TARGET_REF},{Key=polis:ci-run,Value=$RUN_TAG}]"
+          TAGS="ResourceType=instance,Tags=[{Key=polis:ci,Value=disposable},{Key=polis:ci-ref,Value=$TARGET_SHA},{Key=polis:ci-run,Value=$RUN_TAG}]"
           # The run tag goes on the volume as well as the instance: an orphan
           # volume with no owner is as hard to reconcile as an orphan instance.
           VOLTAGS="ResourceType=volume,Tags=[{Key=polis:ci,Value=disposable},{Key=polis:ci-run,Value=$RUN_TAG}]"
@@ -140,7 +179,7 @@ jobs:
             --tag-specifications "$TAGS" "$VOLTAGS" \
             --query 'Instances[0].InstanceId' --output text)
           echo "INSTANCE_ID=$INSTANCE_ID" >> "$GITHUB_ENV"
-          echo "Launched $INSTANCE_ID ($INSTANCE_TYPE) for ref $TARGET_REF"
+          echo "Launched $INSTANCE_ID ($INSTANCE_TYPE) at commit $TARGET_SHA"
 
       - name: Build the instance-scoped session policy
         id: scope
@@ -212,7 +251,7 @@ jobs:
             'sudo env POLIS_CI_REPO_ROOT=/opt/polis bash /opt/polis/ci/p022_ec2_run.sh recovery'
 
       - name: Public-fixture battery
-        if: ${{ inputs.run_battery != false }}
+        if: ${{ env.RUN_BATTERY == 'true' }}
         run: |
           set -euo pipefail
           # No fixture URI, no secret, no S3: the public fixtures are checked
@@ -262,8 +301,6 @@ jobs:
 
       - name: Validate the summary against the declared scope
         if: ${{ always() && env.INSTANCE_ID != '' }}
-        env:
-          RUN_BATTERY: ${{ inputs.run_battery == false && 'false' || 'true' }}
         run: |
           set -euo pipefail
           if [ ! -f artifacts/summary.json ]; then
@@ -277,10 +314,13 @@ jobs:
           # every field it inspects.
           python3 ci/p022_check_summary.py artifacts/summary.json \
             --run-battery "${RUN_BATTERY}" \
+            --expected-sha "${TARGET_SHA}" \
+            --expected-battery-digest "${BATTERY_DIGEST}" \
             --expected-battery-cases 6 \
             --expected-datasets biodiversity,vw \
             --expected-main-reports 1 \
-            --expected-race-reports 20
+            --expected-race-reports 20 \
+            --junit-dir artifacts/junit
 
       - name: Upload artifacts
         if: ${{ always() }}
@@ -314,19 +354,37 @@ jobs:
           else
             TARGET="arn:aws:ec2:${AWS_REGION}:*:instance/*"
           fi
-          jq -nc --arg arn "$TARGET" '{
+          # The lost-ID path cannot name an ARN, so it carries this run's tag as
+          # a condition instead. Round 3 left that path wildcard and
+          # unconditional, so it could terminate another campaign's box.
+          jq -nc --arg arn "$TARGET" --arg run "$RUN_TAG" '{
             Version: "2012-10-17",
             Statement: [
               {Sid: "ObserveInstances", Effect: "Allow",
                Action: ["ec2:DescribeInstances", "ec2:DescribeInstanceStatus"], Resource: "*"},
-              {Sid: "TerminateTeardownTarget", Effect: "Allow",
-               Action: "ec2:TerminateInstances", Resource: $arn}
+              ({Sid: "TerminateTeardownTarget", Effect: "Allow",
+                Action: "ec2:TerminateInstances", Resource: $arn}
+               + (if ($arn | endswith("/*"))
+                  then {Condition: {StringEquals: {"ec2:ResourceTag/polis:ci-run": $run}}}
+                  else {} end))
             ]}' > teardown-policy.json
+          # A policy that did not get built must never become an OMITTED policy:
+          # the pinned action turns an empty input into no session policy at
+          # all, which hands back the full base-role reach (review R3-F5).
+          if [ ! -s teardown-policy.json ]; then
+            echo "::error::teardown session policy could not be built"
+            exit 1
+          fi
+          python3 -c 'import json,sys; json.load(open(sys.argv[1]))' teardown-policy.json
           echo "policy=$(cat teardown-policy.json)" >> "$GITHUB_OUTPUT"
           echo "teardown scoped to $TARGET"
 
+      # Gated on a policy that actually exists. Without it there is no teardown
+      # session at all, the step below is skipped, and the independent expiry
+      # sweeper is what reaps the instance — which is the correct failure mode,
+      # and is reported as a failure by the guard that follows.
       - name: Refresh credentials for teardown
-        if: ${{ always() }}
+        if: ${{ always() && steps.teardown_scope.outputs.policy != '' }}
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ vars.CERTIFY_OIDC_ROLE_ARN }}
@@ -336,9 +394,16 @@ jobs:
           inline-session-policy: ${{ steps.teardown_scope.outputs.policy }}
 
       - name: Terminate the worker and confirm
-        if: ${{ always() }}
+        if: ${{ always() && steps.teardown_scope.outputs.policy != '' }}
         run: |
           python3 ci/p022_teardown.py \
             --run-tag "$RUN_TAG" \
             --launch-attempted "${LAUNCH_ATTEMPTED:-0}" \
             --instance-id "${INSTANCE_ID:-}"
+
+      - name: Fail if teardown could not be scoped
+        if: ${{ always() && steps.teardown_scope.outputs.policy == '' }}
+        run: |
+          echo "::error::no teardown session policy was produced; this run did not"
+          echo "::error::terminate its worker. The expiry sweeper will reap it."
+          exit 1

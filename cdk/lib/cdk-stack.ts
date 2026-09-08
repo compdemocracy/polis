@@ -445,14 +445,11 @@ export class CdkStack extends cdk.Stack {
         // policy admits this subject and nothing else.
         githubEnvironment: (this.node.tryGetContext('ciEc2GithubEnvironment') as string | undefined)
           ?? 'certification-synthetic',
-        // Binds the token to the reviewed workflow file and to non-PR events,
-        // which the environment subject cannot do on its own.
-        githubWorkflowRefs: ((this.node.tryGetContext('ciEc2WorkflowRefs') as string | undefined)
-          ?? 'compdemocracy/polis/.github/workflows/certification-ec2.yml@refs/heads/edge,'
-           + 'compdemocracy/polis/.github/workflows/certification-ec2.yml@refs/heads/stable')
+        // The environment-form subject carries no ref and is issued to
+        // pull-request jobs too; the `ref` claim is what excludes them.
+        githubRefs: ((this.node.tryGetContext('ciEc2Refs') as string | undefined)
+          ?? 'refs/heads/edge,refs/heads/stable')
           .split(',').map((r) => r.trim()).filter(Boolean),
-        githubEventNames: ((this.node.tryGetContext('ciEc2EventNames') as string | undefined)
-          ?? 'workflow_dispatch,schedule').split(',').map((e) => e.trim()).filter(Boolean),
         // r8g.4xlarge = 16 vCPU / 128 GiB, the class P-022 E asks for so that a
         // runner OOM cannot be mistaken for a correctness failure.
         instanceType: new ec2.InstanceType(

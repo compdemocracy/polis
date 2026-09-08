@@ -81,15 +81,24 @@ export interface CertificationCiEc2Props {
    */
   readonly githubEnvironment: string;
   /**
-   * Exact `job_workflow_ref` values the token must carry — the reviewed
-   * workflow file at a reviewed branch. The environment subject binds neither
-   * the workflow nor the event (review R2-F5): a job in ANY workflow that
-   * references this environment gets the same subject. These claims do bind
-   * them, and they fail closed.
+   * Exact `ref` claim values admitted, e.g. `refs/heads/edge`.
+   *
+   * Round 3 bound `job_workflow_ref` and `event_name` instead. Both were wrong
+   * (review R3-F1): `job_workflow_ref` is the claim for a job that CALLS a
+   * reusable workflow, and this job runs directly on a runner, so the token
+   * carries `workflow_ref` and the StringEquals could never match — the trust
+   * policy could not admit the workflow it ships with. `event_name` is emitted
+   * by GitHub but is not in AWS's supported context-key list for this provider,
+   * so it is not a gate STS will evaluate.
+   *
+   * `ref` IS supported, and it is what excludes pull-request jobs: a PR job's
+   * ref is `refs/pull/<n>/merge`, never `refs/heads/edge`. Combined with the
+   * environment-form `sub` and the environment's own branch protection, that is
+   * the admission boundary.
    */
-  readonly githubWorkflowRefs: string[];
-  /** Exact `event_name` values admitted. Excludes `pull_request` at the token. */
-  readonly githubEventNames: string[];
+  readonly githubRefs: string[];
+  /** Exact `repository` claim value; belt and braces with the subject. */
+  readonly githubRepositoryClaim?: string;
   /** Default instance type baked into the template. */
   readonly instanceType: ec2.InstanceType;
   /** Must match `instanceType`'s architecture. */
@@ -130,13 +139,14 @@ export class CertificationCiEc2 extends Construct {
     }
     // An empty list would render as an undefined condition value, which CDK
     // silently drops — the binding would vanish rather than fail. Refuse it.
-    if (!props.githubWorkflowRefs?.length) {
-      throw new Error('ciEc2WorkflowRefs must not be empty: the environment subject '
-        + 'does not bind the workflow, so this claim is the only thing that does');
+    if (!props.githubRefs?.length) {
+      throw new Error('ciEc2Refs must not be empty: the environment subject does not '
+        + 'exclude pull-request jobs, and the ref claim is what does');
     }
-    if (!props.githubEventNames?.length) {
-      throw new Error('ciEc2EventNames must not be empty: the environment subject '
-        + 'does not exclude pull_request, so this claim is the only thing that does');
+    for (const ref of props.githubRefs) {
+      if (!ref.startsWith('refs/heads/')) {
+        throw new Error(`ciEc2Refs entries must be full branch refs, got ${ref}`);
+      }
     }
 
     const stack = cdk.Stack.of(this);
@@ -276,13 +286,13 @@ export class CertificationCiEc2 extends Construct {
           'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com',
           'token.actions.githubusercontent.com:sub':
             `repo:${props.githubRepo}:environment:${props.githubEnvironment}`,
-          // The subject alone binds neither workflow nor event. These two
-          // claims do. A StringEquals against a list is an OR, so each is an
-          // explicit allowlist. Both must be validated against the repository's
-          // actual token claims before the first real run: a wrong claim name
-          // fails the assume, which is the correct direction to fail.
-          'token.actions.githubusercontent.com:job_workflow_ref': props.githubWorkflowRefs,
-          'token.actions.githubusercontent.com:event_name': props.githubEventNames,
+          // The environment-form subject does not carry the ref, and a job
+          // referencing an environment gets that subject on a pull request too.
+          // `ref` is the supported claim that separates them. StringEquals
+          // against a list is an OR, i.e. an explicit allowlist.
+          'token.actions.githubusercontent.com:ref': props.githubRefs,
+          'token.actions.githubusercontent.com:repository':
+            props.githubRepositoryClaim ?? props.githubRepo,
         },
       }),
     });
@@ -589,7 +599,11 @@ function buildUserData(props: CertificationCiEc2Props): ec2.UserData {
     '# --- which ref to test: an instance tag, read over IMDSv2.',
     'IMDS_TOKEN="$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 600")" || fail "no IMDSv2 token"',
     `POLIS_REF="$(curl -fsS -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" "http://169.254.169.254/latest/meta-data/tags/instance/${CI_REF_TAG_KEY}" || true)"`,
-    'if [ -z "$POLIS_REF" ]; then POLIS_REF=edge; fi',
+    '# No default. Round 3 fell back to `edge` when the tag read failed, so a',
+    '# box could silently test a different commit from the one the workflow',
+    '# resolved and later validated against (review R3-F4). Missing identity is',
+    '# a bootstrap failure.',
+    'if [ -z "$POLIS_REF" ]; then fail "no polis:ci-ref tag; refusing to guess a ref"; fi',
     '# Untrusted input. Ref-shaped characters only, and no ".." segment.',
     'if ! printf %s "$POLIS_REF" | grep -Eq \'^[A-Za-z0-9][A-Za-z0-9._/-]{0,255}$\'; then fail "rejected ref"; fi',
     'case "$POLIS_REF" in *..*) fail "rejected ref" ;; esac',
