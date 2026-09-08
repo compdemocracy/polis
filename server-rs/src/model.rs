@@ -394,8 +394,9 @@ pub struct MathData {
     pub consensus: ConsensusData,
     #[serde(rename = "votes-base")]
     pub votes_dash_base: BTreeMap<u32, VotesdashbaseentryData>,
+    // server/src/utils/pca.ts:64 declares `lastModTimestamp?: number | null`; ensureCompletePcaStructure does not repair it, so a stored number reaches the wire.
     #[serde(rename = "lastModTimestamp")]
-    pub lastmodtimestamp: (),
+    pub lastmodtimestamp: Option<u64>,
     #[serde(rename = "lastVoteTimestamp")]
     pub lastvotetimestamp: u64,
     #[serde(rename = "comment-priorities")]
@@ -462,6 +463,13 @@ pub struct MathData {
         deserialize_with = "present"
     )]
     pub group_clusters: Option<Vec<GroupClustersitemData>>,
+    // census: emitted by the Python engine output (math/python_conversion) alongside the extras this model already carries; not observed in any stored row, since the writer normalizes before publication. Modelled optional so a stored copy is served, not refused.
+    #[serde(
+        rename = "conversation_id",
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "present"
+    )]
+    pub conversation_id: Option<String>,
     #[serde(
         rename = "participant_info",
         skip_serializing_if = "Option::is_none",
@@ -480,6 +488,30 @@ pub struct MathData {
         deserialize_with = "present"
     )]
     pub comment_priorities: Option<BTreeMap<u32, f64>>,
+    /// Set only when the stored blob omitted `mod-in`; ensureCompletePcaStructure
+    /// appends it after every other extra key, so it must serialize last.
+    #[serde(
+        rename = "mod-in",
+        skip_deserializing,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub mod_dash_in_appended: Option<Vec<u64>>,
+    /// Set only when the stored blob omitted `mod-out`; ensureCompletePcaStructure
+    /// appends it after every other extra key, so it must serialize last.
+    #[serde(
+        rename = "mod-out",
+        skip_deserializing,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub mod_dash_out_appended: Option<Vec<u64>>,
+    /// Set only when the stored blob omitted `meta-tids`; ensureCompletePcaStructure
+    /// appends it after every other extra key, so it must serialize last.
+    #[serde(
+        rename = "meta-tids",
+        skip_deserializing,
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub meta_dash_tids_appended: Option<Vec<u64>>,
 }
 pub struct Subset<'a> {
     pub data: &'a MathData,
@@ -524,17 +556,32 @@ impl Serialize for Subset<'_> {
                     }
                 }
                 "mod-in" => {
-                    if let Some(value) = &self.data.mod_dash_in {
+                    if let Some(value) = self
+                        .data
+                        .mod_dash_in
+                        .as_ref()
+                        .or(self.data.mod_dash_in_appended.as_ref())
+                    {
                         map.serialize_entry(key, value)?;
                     }
                 }
                 "mod-out" => {
-                    if let Some(value) = &self.data.mod_dash_out {
+                    if let Some(value) = self
+                        .data
+                        .mod_dash_out
+                        .as_ref()
+                        .or(self.data.mod_dash_out_appended.as_ref())
+                    {
                         map.serialize_entry(key, value)?;
                     }
                 }
                 "meta-tids" => {
-                    if let Some(value) = &self.data.meta_dash_tids {
+                    if let Some(value) = self
+                        .data
+                        .meta_dash_tids
+                        .as_ref()
+                        .or(self.data.meta_dash_tids_appended.as_ref())
+                    {
                         map.serialize_entry(key, value)?;
                     }
                 }
@@ -565,6 +612,11 @@ impl Serialize for Subset<'_> {
                 }
                 "group_clusters" => {
                     if let Some(value) = &self.data.group_clusters {
+                        map.serialize_entry(key, value)?;
+                    }
+                }
+                "conversation_id" => {
+                    if let Some(value) = &self.data.conversation_id {
                         map.serialize_entry(key, value)?;
                     }
                 }

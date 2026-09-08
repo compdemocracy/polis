@@ -28,6 +28,31 @@ def ordered(objects):
 MAX=9007199254740991
 integer={'type':'integer','minimum':0,'maximum':MAX}
 number={'type':'number'}
+# The recording is not the domain. Where the Node source declares a wider type than
+# the 96 seeded bodies exhibit, the source wins: a model fitted to the corpus alone
+# turns a legal production value into a decode failure. Each entry cites its source.
+SOURCE_TYPES={
+ '$.lastModTimestamp':{
+  'schema':{'anyOf':[{'type':'null'},integer]},
+  'rust':'Option<u64>',
+  'source':'server/src/utils/pca.ts:64 declares `lastModTimestamp?: number | null`; '
+           'ensureCompletePcaStructure does not repair it, so a stored number reaches the wire.',
+ },
+}
+# Keys the census observed outside the 96 seeded bodies. The Node route serves
+# whatever is stored, so covering one costs a skipped `None` and not covering it
+# costs a refusal. `after` is the preceding key in JSONB's length-then-bytewise
+# order, which is the order a stored blob's extras arrive in.
+EXTRA_FIELDS=[
+ {'key':'conversation_id','after':'group_clusters','rust':'String',
+  'source':'census: emitted by the Python engine output (math/python_conversion) alongside the '
+           'extras this model already carries; not observed in any stored row, since the writer '
+           'normalizes before publication. Modelled optional so a stored copy is served, not refused.'},
+]
+# ensureCompletePcaStructure fills these three AFTER the object spread, and
+# createEmptyPcaStructure has no such key, so when the blob omits one Node APPENDS
+# it after every other extra key rather than emitting it at its struct position.
+APPENDED=[('mod-in','mod_dash_in'),('mod-out','mod_dash_out'),('meta-tids','meta_dash_tids')]
 # Empty observations are resolved explicitly by pca.ts and populated sibling types.
 def empty_hint(p):
  if p.endswith('.comment-priorities') or p.endswith('.comment_priorities'):return {'type':'object','patternProperties':{'^(0|[1-9][0-9]*)$':number},'additionalProperties':False}
@@ -56,8 +81,21 @@ def infer(values,p):
   return {'type':'object','patternProperties':{'^(0|[1-9][0-9]*)$':infer([x for v in values for x in v.values()],p+'.*')},'additionalProperties':False}
  props={k:infer([v[k] for v in values if k in v],p+'.'+k) for k in ordered(values)}
  return {'type':'object','properties':props,'required':[k for k in props if all(k in v for v in values)],'additionalProperties':False}
+def widen(s):
+ for path,rule in SOURCE_TYPES.items():
+  key=path.split('.',1)[1]
+  if key in s.get('properties',{}):s['properties'][key]=dict(rule['schema'],description=rule['source'])
+ props=s.get('properties')
+ if props is not None:
+  for extra in EXTRA_FIELDS:
+   rebuilt={}
+   for k,v in props.items():
+    rebuilt[k]=v
+    if k==extra['after']:rebuilt[extra['key']]={'type':extra['rust'].lower(),'description':extra['source']}
+   props.clear();props.update(rebuilt)
+ return s
 # Infer common types across empty + populated; full branch required lists stay distinct.
-schema=infer(full,'$');schema['$schema']='http://json-schema.org/draft-07/schema#'
+schema=widen(infer(full,'$'));schema['$schema']='http://json-schema.org/draft-07/schema#'
 schema['title']='P-032 PCA2 implementation candidate; populated extension requires independent review'
 for variant,vals in [('empty',[v for v in full if v['n']==0]),('populated',[v for v in full if v['n']>0])]:
  s=infer(vals,'$') if variant=='populated' else json.loads((pathlib.Path('/Users/colinmegill/polis/cost-reduction/04-plans/p032-slice1/decoded-empty.schema.json')).read_text())
@@ -80,10 +118,24 @@ def rust(s,p):
  for key,sub in s['properties'].items():
   ident=key.lower().replace('-','_dash_')
   if ident=='in':ident='r#in'
+  rule=SOURCE_TYPES.get(p+'.'+key)
+  if rule:
+   # Source-declared type: absent and explicit null both decode, and null is re-emitted.
+   fields.append(f'    // {rule["source"]}\n    #[serde(rename = "{key}")]\n    pub {ident}: {rule["rust"]},')
+   if p=='$':top_fields.append((key,ident,False))
+   continue
   typ=rust(sub,p+'.'+key);optional=key not in s['required']
   attr=f'#[serde(rename = "{key}"'+(', skip_serializing_if = "Option::is_none", deserialize_with = "present"' if optional else '')+')]'
-  fields.append(f'    {attr}\n    pub {ident}: '+(f'Option<{typ}>' if optional else typ)+',')
+  note=f'    // {sub["description"]}\n' if isinstance(sub,dict) and 'description' in sub else ''
+  fields.append(f'{note}    {attr}\n    pub {ident}: '+(f'Option<{typ}>' if optional else typ)+',')
   if p=='$':top_fields.append((key,ident,optional))
+ if p=='$':
+  for key,ident in APPENDED:
+   fields.append(
+    f'    /// Set only when the stored blob omitted `{key}`; ensureCompletePcaStructure\n'
+    f'    /// appends it after every other extra key, so it must serialize last.\n'
+    f'    #[serde(rename = "{key}", skip_deserializing, skip_serializing_if = "Option::is_none")]\n'
+    f'    pub {ident}_appended: Option<Vec<u64>>,')
  # Stored JSONB may omit default fields; output is always schema validated by harness.
  structs.append('#[derive(Debug, Clone, Default, Serialize, Deserialize)]\n#[serde(default, deny_unknown_fields)]\npub struct '+name+' {\n'+'\n'.join(fields)+'\n}')
  return name
@@ -91,8 +143,14 @@ rust(schema,'$')
 header="""// Generated by tools/generate-contract.py from hash-pinned ordered wire.\nuse std::collections::BTreeMap;\nuse serde::{Serialize, Deserialize};\nfn present<'de, D: serde::Deserializer<'de>, T: Deserialize<'de>>(d: D) -> Result<Option<T>, D::Error> { T::deserialize(d).map(Some) }\n#[derive(Debug, Clone, Default, Serialize, Deserialize)]\n#[serde(deny_unknown_fields)]\npub struct EmptyObject {}\n"""
 # A typed, ordered subset serializer: only declared members are selectable.
 subset='\npub struct Subset<\'a> { pub data: &\'a MathData, pub keys: &\'a [String] }\nimpl Serialize for Subset<\'_> {\n fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {\n use serde::ser::SerializeMap;\n let mut map = serializer.serialize_map(None)?;\n let mut seen = std::collections::HashSet::new();\n for key in self.keys { if !seen.insert(key) { continue; } match key.as_str() {\n'
+appended={k:i for k,i in APPENDED}
 for key,ident,opt in top_fields:
- subset+=f'"{key}" => '+(f'if let Some(value) = &self.data.{ident} {{ map.serialize_entry(key, value)?; }}' if opt else f'map.serialize_entry(key, &self.data.{ident})?,')+'\n'
+ if key in appended:
+  # _.pick reads the merged object, where exactly one of the two carriers is set.
+  value=f'self.data.{ident}.as_ref().or(self.data.{ident}_appended.as_ref())'
+  subset+=f'"{key}" => if let Some(value) = {value} {{ map.serialize_entry(key, value)?; }}\n'
+ else:
+  subset+=f'"{key}" => '+(f'if let Some(value) = &self.data.{ident} {{ map.serialize_entry(key, value)?; }}' if opt else f'map.serialize_entry(key, &self.data.{ident})?,')+'\n'
 subset+=' _ => {}\n } }\n map.end()\n }\n}\n'
 (DEST/'src/model.rs').write_text(header+'\n\n'.join(structs)+subset)
 (DEST/'contract/provenance.json').write_text(json.dumps({'archiveSha256':hashlib.sha256(archive).hexdigest(),'sourceCommit':'c9685319980cd048d3c7bfa98e75b0c302083a6a','fullCases':cases,'state':'implementation-candidate-not-client-admission'},indent=2)+'\n')
