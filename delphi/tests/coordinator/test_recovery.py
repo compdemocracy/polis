@@ -4,7 +4,8 @@ import signal
 import threading
 import time
 import pytest
-from conftest import ARTIFACTS, FOLD, MAPPING, seed, rows, connect, assert_coherent, expire, lease
+from conftest import (ARTIFACTS, FOLD, MAPPING, seed, rows, connect, assert_coherent, expire,
+    lease, wait, repair_after_unclean_death)
 
 PUBLISH_STAGES=["after_lease","after_source_selection","after_input_checkpoint","before_worker_apply",
     "after_worker_compute","before_ticks","after_ticks","before_bidtopid","after_bidtopid",
@@ -18,21 +19,94 @@ def test_smoke(db,launch):
 
 
 @pytest.mark.parametrize("stage",PUBLISH_STAGES)
-def test_r05_kill_restart(db,launch,tmp_path,stage):
+def test_r05_unclean_death_restart_repairs(db,launch,tmp_path,stage):
+    """R05 with no expire() anywhere: the dead owner's lease is left exactly as
+    an unclean death leaves it, and the restart has to repair through it."""
     seed(db)
-    child=launch(db,stage=stage,directory=tmp_path/"latch")
+    child=launch(db,stage=stage,directory=tmp_path/"latch",extra={"P026_LEASE_SECONDS":"2"})
     ack=child.ack()
     child.kill()
+    held=lease(db)
+    assert held is not None and held["owner_epoch"]==1 # killed owners never release
     interim=rows(db)
     if stage not in ("after_commit","after_ack"):
         assert all(v is None for v in interim.values())
     else:
         assert_coherent(db)
-    expire(db)  # explicit DB-time lease-loss fixture; never reuse owner token
+    _,err=repair_after_unclean_death(launch,db,
+        lambda: rows(db)["math_main"] is not None and lease(db)["owner_epoch"]>1,
+        why=f"repair after unclean death at {stage}")
+    assert "FENCED" not in err # a dead owner is not a superseding one
+    tables=assert_coherent(db)
+    (ARTIFACTS/f"stage-{stage}.json").write_text(json.dumps({"stage":stage,"ack":ack,
+        "signal":"SIGKILL","exit":-signal.SIGKILL,"restart":"passed","manual_lease_expiry":False,
+        "repaired_epoch":lease(db)["owner_epoch"],"math_tick":tables["math_main"]["math_tick"],
+        "postcondition":"coherent; independent fold exact; dead owner's lease never expired by the harness"},indent=2))
+
+
+def test_r05_restart_inside_a_live_lease_defers_then_repairs(db,launch,tmp_path):
+    """The liveness defect itself: a restart inside the dead owner's lease
+    window must defer the zid and stay alive, not refuse and exit."""
+    seed(db)
+    child=launch(db,stage="after_worker_compute",directory=tmp_path/"live",extra={"P026_LEASE_SECONDS":"8"})
+    child.ack();child.kill()
+    held=lease(db)
+    assert held["unexpired"] and held["owner_epoch"]==1
+    restart=launch(db,"run",extra={"P026_LEASE_SECONDS":"8","P026_POLL_MS":"50"})
+    for _ in range(20): # inside the window: alive, and publishing nothing
+        assert restart.proc.poll() is None
+        assert rows(db)["math_main"] is None
+        time.sleep(.05)
+    wait(lambda: rows(db)["math_main"] is not None,timeout=90,alive=restart,why="repair after genuine expiry")
+    assert_coherent(db)
+    _,err=restart.kill()
+    assert "LEASE-UNAVAILABLE" in err and "FENCED" not in err
+    assert lease(db)["owner_epoch"]==2 # monotone takeover, not a reused epoch
+
+
+@pytest.mark.parametrize("stage",["after_worker_compute","before_main"])
+def test_r05_expired_lease_restart_repairs(db,launch,tmp_path,stage):
+    """Explicit DB-time lease-loss control, kept alongside the unclean-death
+    matrix: with the lease already gone the restart takes over immediately."""
+    seed(db)
+    child=launch(db,stage=stage,directory=tmp_path/"expired")
+    child.ack();child.kill()
+    expire(db)
+    assert lease(db)["unexpired"] is False
     launch(db).done()
     assert_coherent(db)
-    (ARTIFACTS/f"stage-{stage}.json").write_text(json.dumps({"stage":stage,"ack":ack,
-        "signal":"SIGKILL","exit":-signal.SIGKILL,"restart":"passed","postcondition":"coherent; independent fold exact"},indent=2))
+
+
+def test_r06_cache_eviction_contends_with_same_zid_update(db,launch,tmp_path):
+    """CO07 R06: an LRU eviction and an update to the very zid being evicted.
+    No lost input, no dropped conversation, and the warm path must publish what
+    a cold rebuild of the same source publishes."""
+    seed(db,1);seed(db,2)
+    launch(db).done()
+    launch(db,env="recovery",extra={"P026_CACHE_CAP":"0"}).done() # cold reference namespace
+    child=launch(db,"run",stage="cache_eviction_contends_with_same_zid_update",
+        directory=tmp_path/"cache",extra={"P026_CACHE_CAP":"1","P026_POLL_MS":"20"})
+    ack=child.ack()
+    context=ack["context"]
+    # the race is staged, not assumed: this zid really is being evicted now
+    assert context["evicted_zid"]==1 and context["inserted_zid"]==2
+    assert context["capacity"]==1 and context["cache_len"]==1
+    c=connect(db)
+    with c.cursor() as cur:cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
+    c.close()
+    child.release()
+    wait(lambda: rows(db)["math_ticks"]["input_checkpoint"]["event_count"]==25,
+        timeout=90,alive=child,why="the update to the evicted zid is published")
+    child.kill()
+    warm=assert_coherent(db,1);assert_coherent(db,2)
+    launch(db,env="recovery",extra={"P026_CACHE_CAP":"0"}).done()
+    cold=rows(db,1,env="recovery")["math_main"]["data"]
+    drop=lambda blob:{k:v for k,v in blob.items() if k!="math_tick"}
+    assert drop(warm["math_main"]["data"])==drop(cold) # evicted-vs-cold reference
+    (ARTIFACTS/"stage-cache_eviction_contends_with_same_zid_update.json").write_text(json.dumps(
+        {"stage":"cache_eviction_contends_with_same_zid_update","ack":ack,
+         "action":"same-zid vote committed while the LRU eviction of that zid is blocked",
+         "postcondition":"no lost input; evicted zid republished coherently; warm output equals the cold-rebuild reference"},indent=2))
 
 
 def test_r07_duplicate_refused_healthy_winner(db,launch,tmp_path):
@@ -193,10 +267,13 @@ def test_restore_stage_recovery(db,launch,tmp_path,stage):
     c=connect(db)
     with c.cursor() as cur:cur.execute("INSERT INTO votes(zid,pid,tid,vote,created) VALUES(1,0,0,1,2000)")
     c.close()
-    child=launch(db,stage=stage,directory=tmp_path/'restore')
-    ack=child.ack();child.kill();expire(db)
-    launch(db).done();assert_coherent(db)
-    (ARTIFACTS/f'stage-{stage}.json').write_text(json.dumps(dict(stage=stage,ack=ack,signal='SIGKILL',restart='passed',postcondition='coherent independent fold')))
+    child=launch(db,stage=stage,directory=tmp_path/'restore',extra={'P026_LEASE_SECONDS':'2'})
+    ack=child.ack();child.kill()
+    assert lease(db)['unexpired'] # the dead owner's lease is left live, as R05 requires
+    repair_after_unclean_death(launch,db,
+        lambda: rows(db)['math_ticks']['input_checkpoint']['event_count']==25,why=f'restore repair at {stage}')
+    assert_coherent(db)
+    (ARTIFACTS/f'stage-{stage}.json').write_text(json.dumps(dict(stage=stage,ack=ack,signal='SIGKILL',restart='passed',manual_lease_expiry=False,postcondition='coherent independent fold')))
 
 
 @pytest.mark.parametrize("stage",["before_cursor","after_cursor","before_sweep","after_sweep"])
@@ -365,5 +442,5 @@ def test_terminate_actual_publication_backend_rolls_back(db,launch,tmp_path):
         cur.execute('SELECT pg_terminate_backend(%s)',(backend,));assert cur.fetchone()[0]
     child.release();child.done(code=1)
     assert all(v is None for v in rows(db).values())
-    assert lease(db)['unexpired'] is False
+    assert lease(db)['unexpired'] is False # a clean failure releases its own epoch
     launch(db).done();assert_coherent(db);c.close()

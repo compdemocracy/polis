@@ -22,11 +22,19 @@ for stage in required:
         assert evidence.get('postcondition')
         rows.append(dict(stage=stage,status='reached-and-blocked',evidence=evidence))
     else:
-        rows.append(dict(stage=stage,status='required-but-unreached',reason='single-worker rebuild profile has no warm cache; non-applicability needs contract-owner review'))
+        rows.append(dict(stage=stage,status='required-but-unreached',reason='no evidence artifact for a compiled, contract-required stage'))
 assert not set(compiled)-set(required), 'unreviewed compiled marker'
+# The stage inventory and the full contract gate are separate verdicts: reaching
+# every fault stage does not certify CO08/D4, which need the actual Node route.
+open_conditions=['CO08/D4: actual Node Bundle route, cache join and C7 presentation checks',
+    'CO01: scan age / backlog / failure metrics are not exposed',
+    'polis-input/1 is claimed locally as a candidate profile, not a G01-G16 certificate']
+unreached=[r['stage'] for r in rows if r['status']!='reached-and-blocked']
 result=dict(protocol='polis-fault-control/1',compiled_stages=len(compiled),required_stages=len(required),
-    reached=sum(r['status']=='reached-and-blocked' for r in rows),stages=rows,
-    full_contract_gate='FAIL' if any(r['status']!='reached-and-blocked' for r in rows) else 'PASS',
+    reached=sum(r['status']=='reached-and-blocked' for r in rows),stages=rows,unreached=unreached,
+    stage_inventory_gate='FAIL' if unreached else 'PASS',
+    open_conditions=open_conditions,
+    full_contract_gate='FAIL',
     profile='Rust coordinator + Python worker + CLI Bundle reader; actual Node not exercised')
 path=root/'coordinator-rs/evidence/stage-inventory.json'
 path.write_text(json.dumps(result,indent=2)+'\n')

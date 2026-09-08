@@ -10,6 +10,7 @@ full contract certification. See the P-026 report for executed coverage and gaps
   expected-tick conflicts, lease fencing, JSONB integrity digests, atomic publication.
 - `src/lease.rs`: the three distinguishable ownership outcomes and the
   conditional heartbeat renewal that keeps a long compute inside its lease.
+- `src/cache.rs`: bounded warm bundle cache with the LRU eviction stage.
 - `src/coordinator.rs`: complete source snapshot reconciliation, durable keyset
   cursor, bounded failure backoff, one active conversation and worker process.
 - `src/engine.rs`, `src/wire.rs`: bounded JSONL subprocess client, strict parsing,
@@ -24,9 +25,16 @@ full contract certification. See the P-026 report for executed coverage and gaps
 
 The coordinator rebuilds from persisted warm fields and the entire authoritative
 prefix for every changed source snapshot. This resets the smoother as the reference
-poller does on restart. It does not implement a persistent warm worker cache, so
-cache eviction/update contention is absent from this profile. The live comparator
-uses exactly this restart schedule. This is not uninterrupted-warm equivalence.
+poller does on restart. There is still no warm *worker* (Conversation) cache, so
+this is not uninterrupted-warm equivalence and the live comparator uses exactly
+this restart schedule. There is a bounded warm **bundle** cache
+(`P026_CACHE_CAP`, default 16, 0 disables): the last coherent published bundle of
+an unchanged conversation, so a quiet pass does not re-read the three results
+tables. Lookup and LRU touch are one operation, so an eviction can never
+interleave between them, and an entry is only usable while its `math_tick` is
+still the conversation's current generation — any other writer's update turns it
+into a miss instead of a lost update. Eviction is the CO07
+`cache_eviction_contends_with_same_zid_update` stage.
 
 Source order is `tid,pid,created,semantic_vote,weight NULLS FIRST`, matching the
 live poller's encounter order; the final keys explicitly resolve otherwise
@@ -142,7 +150,7 @@ pass; `run` bounds each cycle by `P026_PAGE_SIZE` (default 16, range 1–1000).
 `MATH_ENV` defaults to `rustproto`. `DATABASE_URL`, `P026_PYTHON`,
 `STORAGE_AGREE_VALUE` (-1 or +1), `POLL_SHARD_INDEX`, `POLL_SHARD_COUNT`,
 `POLL_ALLOWLIST`, `P026_WINDOW` (default 64, positive), `P026_LEASE_SECONDS`,
-`P026_POLL_MS` are configuration inputs.
+`P026_POLL_MS`, `P026_CACHE_CAP` (default 16, 0-1024, 0 disables) are configuration inputs.
 `PYTHONPATH` must include this checkout's `delphi` directory. No credentials are
 stored in the crate or report.
 
@@ -187,6 +195,11 @@ Write `arm.json` to `P026_FAULT_DIR` with protocol `polis-fault-control/1`,
 `ack.json` carrying PID, context, and `state:"reached-and-blocked"`; it waits for
 `release` or an external SIGKILL. Publication contexts contain the actual PG
 backend PID. The barrier has a bounded deadline. A log alone is never an ack.
+
+`audit_stages.py` reports two separate verdicts: `stage_inventory_gate` over the
+25 contract-required fault stages, and `full_contract_gate`, which stays FAIL
+while CO08/D4 (the actual Node Bundle route) and the CO01 metrics are open. It
+exits non-zero while the full gate fails.
 
 `evidence/` contains sanitized final summaries, fixture digests and the explicit
 coverage inventory. Runtime logs and detailed per-test artifacts are retained in
