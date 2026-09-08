@@ -522,7 +522,10 @@ def canonicalize(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
     # R04: mat keyed by (pid, tid); pca arrays keyed by tid.
     r04 = out.get("R04_pca", {})
     mat = r04.get("mat")
-    rating_nm = (stages.get("R01_ingest") or {}).get("rating-mat")
+    raw_r01 = stages.get("R01_ingest")
+    # A non-empty ARRAY here is truthy, so `(x or {}).get(...)` raised
+    # AttributeError on it (R4-F1). Type-check, never truthiness.
+    rating_nm = raw_r01.get("rating-mat") if isinstance(raw_r01, dict) else None
     if mat is not None:
         if isinstance(mat, list) and isinstance(rating_nm, dict):
             r04["mat"] = _nm_cells({"rownames": rating_nm.get("rownames"),
@@ -781,48 +784,59 @@ INTEGER_FIELDS: frozenset[str] = frozenset({
 })
 
 
-#: Integer positions that must hold a SCALAR — never a container. Without this
-#: an `n` of `{}` on both sides recurses into two empty trees and reports MATCH:
-#: "no integer leaf disagreed" is not the same as "this is a count".
-SCALAR_INTEGER_KEYS: frozenset[tuple[str, str]] = frozenset({
-    ("R01_ingest", "last-vote-timestamp"),
-    ("R01_ingest", "n"),
-    ("R01_ingest", "n-cmts"),
-    ("R02_moderation", "last-mod-timestamp"),
-})
-SCALAR_INTEGER_FIELDS: frozenset[str] = frozenset({
-    "bid", "count", "gid", "id", "last-k", "last-k-count",
-    "last-mod-timestamp", "last-vote-timestamp", "n", "n-agree", "n-cmts",
-    "n-members", "n-success", "n-trials", "n-votes", "pid", "smoothed-k", "tid",
-})
+#: The RANK of an integer position: the shape at this level and at every level
+#: below it. ``("array", "scalar")`` is a list of integers; ``("array", "array",
+#: "scalar")`` is a list of lists of integers. Carrying the whole rank through
+#: recursion is what stops a declared integer array from admitting arbitrary
+#: nested containers: an element of `in-conv` is an integer, not "whatever
+#: happens to contain no disagreeing leaves".
+SCALAR: tuple[str, ...] = ("scalar",)
+INT_ARRAY: tuple[str, ...] = ("array", "scalar")
+INT_ARRAY_2D: tuple[str, ...] = ("array", "array", "scalar")
 
-#: Integer positions that must hold a LIST of integers.
-ARRAY_INTEGER_KEYS: frozenset[tuple[str, str]] = frozenset({
-    ("R01_ingest", "tids"),
-    ("R02_moderation", "meta-tids"),
-    ("R02_moderation", "mod-in"),
-    ("R02_moderation", "mod-out"),
-    ("R03_eligibility", "in-conv"),
-    ("R06_base_clusters", "bid-to-pid"),
-})
-ARRAY_INTEGER_FIELDS: frozenset[str] = frozenset({"members"})
+#: Rank by (stage, key), for whole keys.
+INTEGER_KEY_RANK: dict[tuple[str, str], tuple[str, ...]] = {
+    ("R01_ingest", "last-vote-timestamp"): SCALAR,
+    ("R01_ingest", "n"): SCALAR,
+    ("R01_ingest", "n-cmts"): SCALAR,
+    ("R02_moderation", "last-mod-timestamp"): SCALAR,
+    ("R01_ingest", "tids"): INT_ARRAY,
+    ("R02_moderation", "meta-tids"): INT_ARRAY,
+    ("R02_moderation", "mod-in"): INT_ARRAY,
+    ("R02_moderation", "mod-out"): INT_ARRAY,
+    ("R03_eligibility", "in-conv"): INT_ARRAY,
+    # bid-to-pid is the one legitimately two-dimensional integer key: a list of
+    # per-base-cluster member lists (conversation.clj:593-594).
+    ("R06_base_clusters", "bid-to-pid"): INT_ARRAY_2D,
+}
 
-#: Shapes that depend on WHICH key the field sits under. The A/D/S vote tallies
+#: Rank by field name, wherever that field appears.
+INTEGER_FIELD_RANK: dict[str, tuple[str, ...]] = {
+    "bid": SCALAR, "count": SCALAR, "gid": SCALAR, "id": SCALAR,
+    "last-k": SCALAR, "last-k-count": SCALAR, "last-mod-timestamp": SCALAR,
+    "last-vote-timestamp": SCALAR, "n": SCALAR, "n-agree": SCALAR,
+    "n-cmts": SCALAR, "n-members": SCALAR, "n-success": SCALAR,
+    "n-trials": SCALAR, "n-votes": SCALAR, "pid": SCALAR,
+    "smoothed-k": SCALAR, "tid": SCALAR,
+    "members": INT_ARRAY,
+}
+
+#: Rank that depends on WHICH key the field sits under. The A/D/S vote tallies
 #: are the reason this exists: in `votes-base` they are per-base-cluster bucket
 #: ARRAYS, and in `group-votes` they are per-group SCALAR totals
 #: (conversation.clj:600-624). A field-name-only rule gets one of them wrong.
-KEY_SCOPED_INTEGER_SHAPE: dict[tuple[str, str, str], str] = {
-    ("R10_tallies", "votes-base", "A"): "array",
-    ("R10_tallies", "votes-base", "D"): "array",
-    ("R10_tallies", "votes-base", "S"): "array",
-    ("R10_tallies", "group-votes", "A"): "scalar",
-    ("R10_tallies", "group-votes", "D"): "scalar",
-    ("R10_tallies", "group-votes", "S"): "scalar",
+KEY_SCOPED_INTEGER_RANK: dict[tuple[str, str, str], tuple[str, ...]] = {
+    ("R10_tallies", "votes-base", "A"): INT_ARRAY,
+    ("R10_tallies", "votes-base", "D"): INT_ARRAY,
+    ("R10_tallies", "votes-base", "S"): INT_ARRAY,
+    ("R10_tallies", "group-votes", "A"): SCALAR,
+    ("R10_tallies", "group-votes", "D"): SCALAR,
+    ("R10_tallies", "group-votes", "S"): SCALAR,
 }
 
 #: Integer keys whose canonical form is a MAPPING whose every value is a scalar
 #: integer (a cell, a per-participant count, a per-cluster weight). Declared so
-#: the scalar rule reaches one level below the key too.
+#: the rank rule reaches one level below the key too.
 MAPPING_SCALAR_INTEGER_KEYS: frozenset[tuple[str, str]] = frozenset({
     ("R01_ingest", "rating-mat"),
     ("R01_ingest", "raw-rating-mat"),
@@ -831,24 +845,17 @@ MAPPING_SCALAR_INTEGER_KEYS: frozenset[tuple[str, str]] = frozenset({
 })
 
 
-def _integer_shape(stage: str, key: str, field: str | None) -> str | None:
-    """``"scalar"``, ``"array"`` or ``None`` (unconstrained container) for an
-    integer-typed position. A field declaration wins over the key's, because it
-    is the more specific statement about that position."""
+def _integer_rank(stage: str, key: str,
+                  field: str | None) -> tuple[str, ...] | None:
+    """The declared rank for an integer position, or ``None`` when the position
+    is an unconstrained container (a mapping keyed by id, say). A field
+    declaration wins over the key's: it is the more specific statement."""
     if field is not None:
-        scoped = KEY_SCOPED_INTEGER_SHAPE.get((stage, key, field))
+        scoped = KEY_SCOPED_INTEGER_RANK.get((stage, key, field))
         if scoped is not None:
             return scoped
-        if field in SCALAR_INTEGER_FIELDS:
-            return "scalar"
-        if field in ARRAY_INTEGER_FIELDS:
-            return "array"
-        return None
-    if (stage, key) in SCALAR_INTEGER_KEYS:
-        return "scalar"
-    if (stage, key) in ARRAY_INTEGER_KEYS:
-        return "array"
-    return None
+        return INTEGER_FIELD_RANK.get(field)
+    return INTEGER_KEY_RANK.get((stage, key))
 
 
 def _is_integer_leaf(stage: str, key: str, field: str | None) -> bool:
@@ -949,7 +956,7 @@ class KeyResult:
 
 def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
           stage: str, key: str, field: str | None, carve_numeric: bool,
-          shape: str | None = _UNSET) -> None:
+          rank: tuple[str, ...] | None = _UNSET, in_array: bool = False) -> None:
     """Recursively diff two canonical values, accumulating into ``res``.
 
     ``carve_numeric`` attributes NUMERIC differences to a numeric-only carve-out
@@ -961,9 +968,6 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
             if isinstance(v, Structural):
                 res.structural.append(f"{path}: [{side}] {v.reason}")
         return
-    if a is None and b is None:
-        return
-
     integer_leaf = _is_integer_leaf(stage, key, field)
 
     # Field-level SHAPE, validated before any recursion (R3-F4). A count is a
@@ -971,8 +975,20 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
     # declaration applies at the DECLARED position only: once an "array" has
     # been validated, its elements carry no container declaration of their own,
     # so an array of arrays (bid-to-pid) still recurses.
-    if shape is _UNSET:
-        shape = _integer_shape(stage, key, None)
+    if rank is _UNSET:
+        rank = _integer_rank(stage, key, None)
+    shape = rank[0] if rank else None
+
+    if a is None and b is None:
+        # A top-level integer field may legitimately be null: a nullable
+        # n-votes, a watermark on a votes tick, a moderation set before any
+        # mod-update (the C1 case). An ELEMENT of a declared integer array
+        # never may — the array holds integers (R4-F2).
+        if in_array and integer_leaf and shape == "scalar":
+            res.structural.append(
+                f"{path}: element of an integer array must not be null")
+        return
+
     if integer_leaf and shape is not None:
         wrong = [f"[{side}] {type(v).__name__}"
                  for side, v in (("a", a), ("b", b))
@@ -983,7 +999,7 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
                 f"{path}: integer field must be a {shape}, got "
                 f"{', '.join(wrong)}")
             return
-    root = shape is not None or field is None
+    root = rank is not None or field is None
 
     # Non-finite wire tokens compare as tokens, on either or both sides. This
     # runs BEFORE the integer type check so the token evidence is always
@@ -1077,22 +1093,26 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
             if k not in a or k not in b:
                 res.structural.append(f"{path}.{k}: present on only one side")
                 continue
-            child = _integer_shape(stage, key, k)
+            child = _integer_rank(stage, key, k)
             if child is None and root \
                     and (stage, key) in MAPPING_SCALAR_INTEGER_KEYS:
-                child = "scalar"
+                child = SCALAR
             _walk(a[k], b[k], f"{path}.{k}", tol, res,
                   stage=stage, key=key, field=k, carve_numeric=carve_numeric,
-                  shape=child)
+                  rank=child)
         return
 
     if isinstance(a, list) and isinstance(b, list):
         if len(a) != len(b):
             res.structural.append(f"{path}: length {len(a)} vs {len(b)}")
         for i, (x, y) in enumerate(zip(a, b)):
+            # The rank descends WITH the recursion: an element of a declared
+            # integer array carries the rest of that declaration, so
+            # `in-conv = [{}]` is a malformed element rather than an
+            # unconstrained subtree (R4-F2).
             _walk(x, y, f"{path}[{i}]", tol, res,
                   stage=stage, key=key, field=field, carve_numeric=carve_numeric,
-                  shape=None)
+                  rank=(rank[1:] if rank else None), in_array=True)
         return
 
     if a is None or b is None:
@@ -1269,6 +1289,40 @@ def load_stage_dumps(directory: str | Path) -> list[dict[str, Any]]:
     return docs
 
 
+def document_is_comparable(doc: Any) -> str | None:
+    """``None`` when a document is structurally safe to canonicalize and diff,
+    else the reason it is not.
+
+    A document that :func:`validate_recording` has already rejected must not be
+    sent onward merely because its step identity is usable: canonicalization
+    assumes typed containers, and an invalid one produced an exception from the
+    PUBLIC compare path rather than a named input problem (R4-F1).
+    """
+    if not isinstance(doc, dict):
+        return "document is not an object"
+    if not _valid_engine(doc.get("engine")):
+        return f"unusable engine {doc.get('engine')!r}"
+    if not _valid_convention(doc.get("vote_sign_convention")):
+        return f"unsupported vote_sign_convention {doc.get('vote_sign_convention')!r}"
+    stages_map = doc.get("stages")
+    if not isinstance(stages_map, dict):
+        return f"stages is {type(stages_map).__name__}, not an object"
+    for name, body in stages_map.items():
+        if not isinstance(body, dict):
+            return f"stage {name} is {type(body).__name__}, not an object"
+    return None
+
+
+def _valid_engine(value: Any) -> bool:
+    """An engine tag must be a non-empty string. No whitelist — a third engine
+    is anticipated — but it must be usable as a set member and a label."""
+    return isinstance(value, str) and bool(value)
+
+
+def _valid_convention(value: Any) -> bool:
+    return isinstance(value, str) and value in SUPPORTED_CONVENTIONS
+
+
 _STEP_FILE_RE = re.compile(r"^step-(\d{3,})\.stages\.json$")
 _SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 
@@ -1349,9 +1403,10 @@ def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], lis
             # 64 lower-case hex digits, not merely a "sha256:" prefix.
             problems.append(f"{d}: step {sid!r} has no well-formed sha256 "
                             f"input_digest ({digest!r})")
-        if not isinstance(doc.get("engine"), str) or not doc.get("engine"):
-            problems.append(f"{d}: step {sid!r} declares no engine")
-        if doc.get("vote_sign_convention") not in SUPPORTED_CONVENTIONS:
+        if not _valid_engine(doc.get("engine")):
+            problems.append(f"{d}: step {sid!r} declares no usable engine "
+                            f"({doc.get('engine')!r})")
+        if not _valid_convention(doc.get("vote_sign_convention")):
             problems.append(
                 f"{d}: step {sid!r} declares unsupported "
                 f"vote_sign_convention {doc.get('vote_sign_convention')!r}")
@@ -1459,29 +1514,38 @@ def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], lis
                     f"{d}: step file(s) {', '.join(unlisted)} are not in the "
                     f"manifest")
 
-            engines = {doc.get("engine") for doc in docs}
+            # Only VALIDATED values enter a set or a membership test: an
+            # engine of [] or a convention of {} is unhashable, and building
+                # the set first raised TypeError before the report was written.
+            engines = {doc["engine"] for doc in docs
+                       if _valid_engine(doc.get("engine"))}
             if len(engines) > 1:
                 problems.append(
                     f"{d}: documents declare more than one engine "
-                    f"{sorted(map(str, engines))}")
-            if docs and manifest.get("engine") not in engines:
+                    f"{sorted(engines)}")
+            man_engine = manifest.get("engine")
+            if not _valid_engine(man_engine):
+                problems.append(f"{d}: manifest declares no usable engine "
+                                f"({man_engine!r})")
+            elif engines and man_engine not in engines:
                 problems.append(
-                    f"{d}: manifest engine {manifest.get('engine')!r} is not "
-                    f"the documents' engine {sorted(map(str, engines))}")
-            conventions = {doc.get("vote_sign_convention") for doc in docs}
-            if manifest.get("vote_sign_convention") not in SUPPORTED_CONVENTIONS:
+                    f"{d}: manifest engine {man_engine!r} is not "
+                    f"the documents' engine {sorted(engines)}")
+            conventions = {doc["vote_sign_convention"] for doc in docs
+                           if _valid_convention(doc.get("vote_sign_convention"))}
+            man_conv = manifest.get("vote_sign_convention")
+            if not _valid_convention(man_conv):
                 problems.append(
                     f"{d}: manifest declares unsupported vote_sign_convention "
-                    f"{manifest.get('vote_sign_convention')!r}")
-            elif docs and manifest.get("vote_sign_convention") not in conventions:
+                    f"{man_conv!r}")
+            elif conventions and man_conv not in conventions:
                 problems.append(
-                    f"{d}: manifest vote_sign_convention "
-                    f"{manifest.get('vote_sign_convention')!r} contradicts the "
-                    f"documents' {sorted(map(str, conventions))}")
+                    f"{d}: manifest vote_sign_convention {man_conv!r} "
+                    f"contradicts the documents' {sorted(conventions)}")
             if len(conventions) > 1:
                 problems.append(
                     f"{d}: documents declare more than one "
-                    f"vote_sign_convention {sorted(map(str, conventions))}")
+                    f"vote_sign_convention {sorted(conventions)}")
             if manifest.get("comment_projection_axes") != COMMENT_PROJECTION_AXES:
                 problems.append(
                     f"{d}: manifest does not declare "
@@ -1514,6 +1578,15 @@ def compare_recordings(dir_a: str | Path, dir_b: str | Path) -> dict[str, Any]:
     if unusable:
         problems.append(f"{len(unusable)} document(s) have an unusable step "
                         f"identity and cannot be aligned")
+
+    # Drop documents that are not safe to canonicalize, with a named reason.
+    for side, table in (("A", by_step_a), ("B", by_step_b)):
+        for step_id in sorted(table):
+            reason = document_is_comparable(table[step_id])
+            if reason is not None:
+                problems.append(f"{side}: step {step_id} is not comparable "
+                                f"({reason})")
+                del table[step_id]
     only_a = sorted(k for k in by_step_a if k not in by_step_b)
     only_b = sorted(k for k in by_step_b if k not in by_step_a)
     if only_a:
