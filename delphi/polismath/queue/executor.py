@@ -15,9 +15,13 @@ Boundaries this module keeps, all of them deliberate:
   starts a child process, loads science code or calls a provider. A job whose
   descriptor is not the expected synthetic one is failed permanently rather
   than executed.
-* It refuses to run on a broad database login. The connection must be a member
-  of ``polis_queue_executor`` and must NOT hold a direct write on the queue
-  tables, so the migration's grant boundary is what constrains it.
+* It refuses to run on a broad database login. Every connection asserts
+  membership in ``polis_queue_executor``, the absence of ANY table-level or
+  column-level privilege on all five queue tables, and the inability to reach
+  ``polis_queue_owner`` by inheritance or SET ROLE. One denied UPDATE on one
+  table would not be proof of the boundary: executor membership plus UPDATE on
+  ``polis_queue_heads`` would pass that and still move a published pointer
+  behind the functions' backs.
 * One active job and one connection at a time. Every RPC opens and commits its
   own short transaction, including the reaper's per-job mutations.
 * The set of statements it can issue is a closed inventory with fixed argument
@@ -52,7 +56,7 @@ SCHEMA_VERSION = "polis-queue/1"
 #: the SQL so that neither is silently upgraded by a schema change; the Node
 #: adapter pins the same value in ``server/src/queue/protocol.ts``. This pins
 #: the repository file, and is not runtime attestation about the live catalog.
-QUEUE_SQL_SHA256 = "e8ad0d3212809b1da92e9ab2f4d24930101e2de4507b095cf953746a341fcce9"
+QUEUE_SQL_SHA256 = "c229a7fb41dbc86a5a5ae637772f70ebfbb469cfc52f8e40a61303c82b428617"
 
 #: The fixed synthetic input descriptor of the /1 noop stage. The enqueuer pins
 #: it and this executor refuses anything else.
@@ -111,9 +115,32 @@ _SESSION_POLICY = (
     " WHERE current_setting('server_version_num')::int >= 170000"
 )
 
+#: Every table the executor must reach only through the granted RPCs.
+QUEUE_TABLES = (
+    "public.polis_queue_runs",
+    "public.polis_queue_heads",
+    "public.polis_queue_jobs",
+    "public.polis_queue_attempts",
+    "public.polis_queue_requests",
+)
+
+#: The admission gate, re-checked on every connection. A single denied UPDATE on
+#: one table is not proof of the grant boundary: a login with executor
+#: membership plus UPDATE on polis_queue_heads would pass that and still be able
+#: to move a published pointer behind the functions' backs. So this asks, for
+#: each of the five tables, whether the login holds ANY table-level or
+#: column-level privilege, and separately whether it can reach polis_queue_owner
+#: by inheritance or SET ROLE, which would hand it everything anyway.
 _BOUNDARY_SQL = (
-    "SELECT pg_has_role(current_user,'polis_queue_executor','MEMBER'),"
-    " has_table_privilege(current_user,'public.polis_queue_jobs','UPDATE')"
+    "SELECT pg_has_role(current_user,'polis_queue_executor','MEMBER') AS member,"
+    " (SELECT COALESCE(bool_or("
+    "   has_table_privilege(current_user,t,"
+    "     'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER')"
+    "   OR has_any_column_privilege(current_user,t,"
+    "     'SELECT,INSERT,UPDATE,REFERENCES')),false)"
+    "  FROM unnest(%s::text[]) t) AS direct_access,"
+    " pg_has_role(current_user,'polis_queue_owner','USAGE')"
+    "  OR pg_has_role(current_user,'polis_queue_owner','MEMBER') AS owner_escape"
 )
 
 
@@ -271,12 +298,14 @@ class Database:
             conn.set_session(isolation_level="READ COMMITTED")
             with conn.cursor() as cur:
                 cur.execute(_SESSION_POLICY)
-                cur.execute(_BOUNDARY_SQL)
-                member, direct_write = cur.fetchone()
-                if not member or direct_write:
-                    raise ExecutorRefused(
-                        "queue_noop_requires_restricted_executor_login"
-                    )
+                cur.execute(_BOUNDARY_SQL, [list(QUEUE_TABLES)])
+                member, direct_access, owner_escape = cur.fetchone()
+                if not member:
+                    raise ExecutorRefused("queue_noop_requires_executor_membership")
+                if direct_access:
+                    raise ExecutorRefused("queue_noop_login_has_direct_table_access")
+                if owner_escape:
+                    raise ExecutorRefused("queue_noop_login_can_become_queue_owner")
                 cur.execute(statement, args)
                 if name == "pq_due":
                     reply: Any = [str(row[0]) for row in cur.fetchall()]
@@ -378,9 +407,12 @@ class Executor:
                 # ownership of a job, and a second claim would take a second one
                 # while the first lease runs unattended. Renew the exact token
                 # the uncertain reply named instead, on a fresh connection.
+                # The identity of that reply is checked BEFORE it is used as a
+                # token, not after.
                 job = validate(exc.reply)
                 if job["outcome"] != "owned":
                     raise
+                self._assert_claim_identity(job, attempt)
                 job = self.call("pq_heartbeat", self.token(job) + [self.lease_seconds])
                 if job["outcome"] != "owned":
                     return str(job["outcome"])
@@ -388,14 +420,25 @@ class Executor:
                 continue
             if job["outcome"] == "fenced":
                 return "fenced"
-            if (
-                job["outcome"] != "owned"
-                or job["env"] != self.env
-                or job["owner_id"] != self.owner
-            ):
-                raise ProtocolError("queue_claim_identity")
+            self._assert_claim_identity(job, attempt)
             return self._execute(job)
         return "none"
+
+    def _assert_claim_identity(self, job: Dict[str, Any], attempt: str) -> None:
+        """The reply must name the token this process asked for.
+
+        The attempt UUID is minted here and is half of the fence, so a reply
+        carrying a different one is not this claim's job and its token must not
+        be used. Comparing the finalize reply against an already-wrong claim
+        reply is not equivalent: the two would simply agree with each other.
+        """
+        if (
+            job["outcome"] != "owned"
+            or job["env"] != self.env
+            or job["owner_id"] != self.owner
+            or job["attempt_id"] != attempt
+        ):
+            raise ProtocolError("queue_claim_identity")
 
     def _execute(self, job: Dict[str, Any]) -> str:
         expected = {
