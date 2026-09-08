@@ -325,6 +325,19 @@ def test_multiset_matching_is_order_and_duplicate_safe() -> None:
     assert any(f.cls is pg.CellClass.VALUE_DIFF and f.column == "b" for f in r3.findings)
 
 
+def test_preflight_catches_swapped_row_associations() -> None:
+    """Round-2 defect (Astra): independent per-column bags accepted a swap of
+    values BETWEEN two rows. Whole-row multiset comparison rejects it."""
+    site = pg.SITES["handle_GET_votes_me"]
+    before = [(0, -1), (1, 1)]  # (tid, vote)
+    after = [(0, 1), (1, -1)]   # both comments' votes swapped; column bags unchanged
+    swapped = pg.classify(site, {}, ("tid", "vote"), before, ("tid", "vote"), after)
+    assert not swapped.ok
+    assert any(f.cls is pg.CellClass.VALUE_DIFF and f.column == "vote" for f in swapped.findings)
+    # A genuine permutation (same rows, reordered) still passes.
+    assert pg.classify(site, {}, ("tid", "vote"), before, ("tid", "vote"), before[::-1]).ok
+
+
 # --- P4: zero-evidence runs are INCONCLUSIVE; coverage manifest binds replica ---
 
 
