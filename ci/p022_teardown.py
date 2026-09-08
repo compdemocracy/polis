@@ -23,7 +23,19 @@ Confirmation means every expected instance ID is observed in state
 real, which is a failure, not a success. Nothing here ever concludes from a
 missing identity.
 
+Round 3 closes two more ways of concluding absence too readily (review R2-F6):
+
+  * blank stdout from a "successful" describe was parsed as an empty inventory.
+    Blank output is not an empty answer; it is a malformed one.
+  * a lost launch acknowledgement accepted the FIRST empty tag query. EC2
+    describes are eventually consistent, so an instance that exists may not be
+    visible yet. Discovery now retries through a propagation window, and
+    ``--launch-attempted`` says whether there is anything to look for at all:
+    if a launch was attempted and discovery never resolves it, that is
+    unresolved ownership and a failure, not proof of absence.
+
   usage: p022_teardown.py --run-tag <run_id>-<attempt> [--instance-id i-...]
+                          [--launch-attempted 0|1]
 """
 from __future__ import annotations
 
@@ -61,8 +73,12 @@ def describe(instance_ids: list[str] | None, run_tag: str | None) -> dict[str, s
     else:
         args += ["--filters", f"Name=tag:polis:ci-run,Values={run_tag}"]
     raw = aws(*args)
+    # Blank output is a malformed answer, not an empty one. A "successful"
+    # command that printed nothing tells us nothing about what exists.
+    if not raw.strip():
+        raise DiscoveryError("describe-instances returned blank output")
     try:
-        records = json.loads(raw or "[]")
+        records = json.loads(raw)
     except json.JSONDecodeError as exc:
         raise DiscoveryError(f"unparseable describe-instances response: {exc}") from exc
     if not isinstance(records, list):
@@ -79,27 +95,51 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--run-tag", required=True)
     ap.add_argument("--instance-id", default="")
+    ap.add_argument("--launch-attempted", default="1",
+                    help="whether RunInstances was reached at all; default assumes yes")
     ap.add_argument("--attempts", type=int, default=60)
     ap.add_argument("--interval", type=float, default=15.0)
+    ap.add_argument("--discovery-attempts", type=int, default=12,
+                    help="reads across the EC2 describe propagation window")
     args = ap.parse_args()
 
+    launch_attempted = args.launch_attempted.strip().lower() not in {"0", "false", "no", ""}
     expected = [args.instance_id] if args.instance_id else []
 
     if not expected:
-        # The launch step may have created an instance whose ID we lost. A
-        # discovery ERROR here is unresolved ownership and must fail the job:
-        # the expiry sweeper is then the only thing left, and someone should
-        # know that.
+        if not launch_attempted:
+            # The job never reached RunInstances (a missing repository variable,
+            # a failed checkout). There is nothing to reconcile.
+            print("launch was never attempted; nothing to terminate")
+            return 0
+        # A launch WAS attempted and its ID was lost. EC2 describes are
+        # eventually consistent, so one empty answer is not absence: retry
+        # across the propagation window before concluding anything.
         print(f"no instance id recorded; sweeping tag polis:ci-run={args.run_tag}")
-        try:
-            found = describe(None, args.run_tag)
-        except DiscoveryError as exc:
-            print(f"::error::could not determine whether an instance was launched: {exc}")
+        found: dict[str, str] = {}
+        last_error = None
+        for probe in range(1, args.discovery_attempts + 1):
+            try:
+                found = describe(None, args.run_tag)
+            except DiscoveryError as exc:
+                last_error = exc
+                print(f"discovery attempt {probe} failed: {exc}")
+                found = {}
+            else:
+                if found:
+                    break
+                print(f"discovery attempt {probe}: nothing visible yet")
+            time.sleep(args.interval)
+        if not found:
+            # Unresolved, never "proven absent": a launch was attempted and we
+            # cannot say what it produced. The expiry sweeper is now the only
+            # thing standing between this and a running instance, and someone
+            # should know that.
+            print("::error::a launch was attempted but its instance never became "
+                  f"visible under polis:ci-run={args.run_tag}"
+                  + (f" (last error: {last_error})" if last_error else ""))
             print("::error::ownership unresolved; the expiry sweeper must reap it")
             return 1
-        if not found:
-            print("discovery succeeded and found no instance for this run")
-            return 0
         expected = sorted(found)
         print(f"discovered {expected}")
 

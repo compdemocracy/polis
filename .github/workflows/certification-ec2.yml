@@ -58,7 +58,14 @@ concurrency:
 jobs:
   synthetic:
     name: Synthetic recovery matrix and public-fixture battery
-    if: github.event_name != 'schedule' || github.ref == 'refs/heads/edge'
+    # The environment subject does NOT by itself exclude pull-request jobs: a
+    # job that references an environment gets the environment subject even on a
+    # PR, and GitHub silently creates a referenced-but-missing environment with
+    # NO protection rules. So the ref is checked here as well, on every event.
+    # This is defence in depth, not the control: the `certification-synthetic`
+    # environment must be configured with edge as its only deployment branch
+    # and a required reviewer (docs/ci-ec2.md).
+    if: github.ref == 'refs/heads/edge' || github.ref == 'refs/heads/stable'
     runs-on: ubuntu-24.04
     # Must stay below the role's 6 h max session duration, with room for the
     # teardown. Round 1 allowed 420 minutes against a 360-minute session, so a
@@ -102,11 +109,17 @@ jobs:
             echo "CERTIFY_LAUNCH_TEMPLATE_ID is unset; deploy the CDK construct first (docs/ci-ec2.md)" >&2
             exit 1
           fi
+          # Recorded BEFORE the call, so a lost acknowledgement is still known
+          # to have been a launch attempt. The teardown treats "attempted but
+          # never resolved" as unresolved ownership, not as absence.
+          echo "LAUNCH_ATTEMPTED=1" >> "$GITHUB_ENV"
           # Deterministic client token: a retried step after a lost response
           # returns the SAME instance instead of launching a second one.
           TOKEN="polis-certify-${RUN_TAG}"
           TAGS="ResourceType=instance,Tags=[{Key=polis:ci,Value=disposable},{Key=polis:ci-ref,Value=$TARGET_REF},{Key=polis:ci-run,Value=$RUN_TAG}]"
-          VOLTAGS="ResourceType=volume,Tags=[{Key=polis:ci,Value=disposable}]"
+          # The run tag goes on the volume as well as the instance: an orphan
+          # volume with no owner is as hard to reconcile as an orphan instance.
+          VOLTAGS="ResourceType=volume,Tags=[{Key=polis:ci,Value=disposable},{Key=polis:ci-run,Value=$RUN_TAG}]"
           # Version=1 is pinned here; note that this is a caller choice, not an
           # IAM restriction -- the role could select another version of the same
           # template if one ever existed. Only the CDK deploy creates versions.
@@ -238,15 +251,27 @@ jobs:
           tar -xzf artifacts.tar.gz -C artifacts
           ls -la artifacts
 
-      - name: Validate the summary schema
+      - name: Validate the summary against the declared scope
         if: ${{ always() && env.INSTANCE_ID != '' }}
+        env:
+          RUN_BATTERY: ${{ inputs.run_battery == false && 'false' || 'true' }}
         run: |
           set -euo pipefail
           if [ ! -f artifacts/summary.json ]; then
             echo "::error::no summary.json returned"
             exit 1
           fi
-          python3 ci/p022_check_summary.py artifacts/summary.json
+          # The validator is given the run's DECLARED scope, so a battery that
+          # silently shrank from six cases to one, or an absent battery result
+          # claiming to be an intentional skip, is rejected. It is a coherence
+          # and inventory check, not proof of execution -- the worker produces
+          # every field it inspects.
+          python3 ci/p022_check_summary.py artifacts/summary.json \
+            --run-battery "${RUN_BATTERY}" \
+            --expected-battery-cases 6 \
+            --expected-datasets biodiversity,vw \
+            --expected-main-reports 1 \
+            --expected-race-reports 20
 
       - name: Upload artifacts
         if: ${{ always() }}
@@ -261,6 +286,36 @@ jobs:
       # Re-assume first: a long run's launch-session credentials may be minutes
       # from expiry by now, and the one step that must not fail for lack of
       # credentials is this one.
+      # Round 2 re-assumed the BASE role here, which reaches every instance
+      # sharing the CI tag — the narrowing was real for the main path and absent
+      # for the one step that terminates things (review R2-F5). Now the teardown
+      # session carries a policy too: pinned to this instance when its ID is
+      # known, and only widened to the tag-bounded pattern for the lost-ID
+      # sweep, which cannot name an ARN by definition.
+      - name: Build the teardown session policy
+        id: teardown_scope
+        if: ${{ always() }}
+        run: |
+          set -euo pipefail
+          if [ -n "${INSTANCE_ID:-}" ]; then
+            # The account field is a wildcard because sts:GetCallerIdentity
+            # needs credentials that may already have expired by this point;
+            # the role's own policy pins the account and region regardless.
+            TARGET="arn:aws:ec2:${AWS_REGION}:*:instance/${INSTANCE_ID}"
+          else
+            TARGET="arn:aws:ec2:${AWS_REGION}:*:instance/*"
+          fi
+          jq -nc --arg arn "$TARGET" '{
+            Version: "2012-10-17",
+            Statement: [
+              {Sid: "ObserveInstances", Effect: "Allow",
+               Action: ["ec2:DescribeInstances", "ec2:DescribeInstanceStatus"], Resource: "*"},
+              {Sid: "TerminateTeardownTarget", Effect: "Allow",
+               Action: "ec2:TerminateInstances", Resource: $arn}
+            ]}' > teardown-policy.json
+          echo "policy=$(cat teardown-policy.json)" >> "$GITHUB_OUTPUT"
+          echo "teardown scoped to $TARGET"
+
       - name: Refresh credentials for teardown
         if: ${{ always() }}
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
@@ -269,10 +324,12 @@ jobs:
           aws-region: ${{ vars.CERTIFY_REGION || 'us-east-1' }}
           role-session-name: certify-teardown-${{ github.run_id }}-${{ github.run_attempt }}
           role-duration-seconds: 3600
+          inline-session-policy: ${{ steps.teardown_scope.outputs.policy }}
 
       - name: Terminate the worker and confirm
         if: ${{ always() }}
         run: |
           python3 ci/p022_teardown.py \
             --run-tag "$RUN_TAG" \
+            --launch-attempted "${LAUNCH_ATTEMPTED:-0}" \
             --instance-id "${INSTANCE_ID:-}"

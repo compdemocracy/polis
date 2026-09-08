@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
 # P-022 §E — the on-instance half of .github/workflows/certification-ec2.yml.
 #
-# ## What this is, after Astra's #2715 review (round 2)
+# ## What this is
 #
 # A SYNTHETIC job: the recovery matrix plus the replay battery restricted to the
-# repository's PUBLIC fixtures. It is not private certification and its verdict
-# is named so it cannot be mistaken for one. Round 1 staged the private
-# prod-derived bundle here and then shipped the raw log back to public Actions
-# artifacts (review E1/E2). Round 2 removes the private data path entirely:
-# there is no fixture bucket, the instance role cannot read one, and nothing
-# prod-derived is ever present on this box.
+# repository's PUBLIC fixtures. It is not private certification. There is no
+# fixture bucket, the instance role cannot read one, and nothing prod-derived is
+# ever present on this box.
 #
 # ## Output discipline
 #
@@ -18,31 +15,37 @@
 #     p022 <phase> <key>=<value>
 #
 # with values restricted to a fixed character class. Nothing else reaches SSM
-# stdout — no log tails, no greps of candidate output, no exception text. Round
-# 1's `grep -E 'VERDICT|PASS|FAIL'` was not a sanitizer: arbitrary candidate
-# text matches it. Full logs stay in /var/log/polis-ci and die with the box.
+# stdout — no log tails, no greps of candidate output, no exception text. Full
+# logs stay in /var/log/polis-ci and die with the box. What comes back is a
+# fixed-schema summary.json plus one JUnit report per pytest invocation.
 #
-# What does come back is structured and bounded: a fixed-schema summary.json
-# built from parsed integers and enums, and pytest's JUnit XML. Both are
-# public-safe by construction here, because this instance has access to nothing
-# that is not already public in the repository.
+# ## Round 3 (Astra #2715 R2-F2/F3)
 #
-# Phases:
-#   recovery  make test-recovery, then make test-recovery-races
-#   battery   scripts/certify.py over the PUBLIC subset of certify_battery.json
-#   summary   write summary.json from the phase results
-#   bundle    build the artifact tarball, print its length and sha256
-#   chunk N   emit base64 chunk N of that tarball
+#   * The recovery runtime is installed and VERIFIED in user-data, before the
+#     ready marker, because C's target runs host `uv run --no-sync pytest`. A
+#     phase that assumed the battery had installed uv first was unrunnable on a
+#     fresh box, and entirely unrunnable with run_battery=false.
+#   * `make -n <target>` is not a target-existence oracle: the repository
+#     Makefile has a `%: @true` catch-all, so the dry run succeeds for a target
+#     that does not exist. `has_target()` reads make's own database instead.
+#   * pytest writes ONE report per invocation into a per-phase directory, via a
+#     tiny `-p p022_junit` plugin. A single `--junitxml` path meant C's twenty
+#     race iterations overwrote each other and the matrix report — nineteen
+#     iterations of evidence silently lost on the success path.
 set -euo pipefail
 
-REPO_ROOT="${POLIS_CI_REPO_ROOT:-/opt/polis}"
-LOG_DIR=/var/log/polis-ci
-ART_DIR="$LOG_DIR/artifacts"
-STATE_DIR="$LOG_DIR/state"
+# All four are env-overridable so the phases can be exercised in isolation.
+REPO_ROOT="${POLIS_CI_REPO_ROOT:-${REPO_ROOT:-/opt/polis}}"
+LOG_DIR="${LOG_DIR:-/var/log/polis-ci}"
+ART_DIR="${ART_DIR:-$LOG_DIR/artifacts}"
+STATE_DIR="${STATE_DIR:-$LOG_DIR/state}"
+JUNIT_DIR="${JUNIT_DIR:-$LOG_DIR/junit}"
 BUNDLE="$LOG_DIR/polis-ci-artifacts.tar.gz"
-# SSM truncates GetCommandInvocation output at 24000 characters. Stay well
-# under it: these phases emit a handful of status lines, and the bundle is
-# returned in explicit, verified chunks.
+# How many pytest invocations each phase must produce. C's race target loops
+# twenty times; the collector fails if it does not see exactly that many.
+EXPECTED_MAIN_REPORTS="${P022_EXPECTED_MAIN_REPORTS:-1}"
+EXPECTED_RACE_REPORTS="${P022_EXPECTED_RACE_REPORTS:-20}"
+# SSM truncates GetCommandInvocation output at 24000 characters.
 CHUNK_CHARS=18000
 MAX_CHUNKS=64
 
@@ -59,42 +62,96 @@ status() {
   printf 'p022 %s %s=%s\n' "$phase" "$key" "$value"
 }
 
+# An explicit target-existence oracle. `make -n` consults the catch-all pattern
+# rule and answers "yes" for anything; `make -qp` prints the rule database, in
+# which an explicitly declared target appears at the start of a line.
+has_target() {
+  make -qp 2>/dev/null | grep -Eq "^$1:( |\$)"
+}
+
+# One JUnit file per pytest process, named uniquely, so nothing is overwritten.
+# The plugin sets the report path in `pytest_load_initial_conftests`, which runs
+# before the stock junitxml plugin reads it, and it works regardless of how
+# pytest is invoked (`uv run --no-sync pytest` included) because PYTHONPATH is
+# inherited.
+install_junit_plugin() {
+  mkdir -p /opt/polis-ci
+  cat >/opt/polis-ci/p022_junit.py <<'PLUGIN'
+import os
+import pathlib
+import uuid
+
+
+def pytest_load_initial_conftests(early_config, parser, args):
+    target = os.environ.get("P022_JUNIT_DIR")
+    if not target:
+        return
+    directory = pathlib.Path(target)
+    directory.mkdir(parents=True, exist_ok=True)
+    name = "%s-%d-%s.xml" % (os.environ.get("P022_JUNIT_TAG", "run"),
+                             os.getpid(), uuid.uuid4().hex[:8])
+    early_config.option.xmlpath = str(directory / name)
+PLUGIN
+}
+
+# Count the reports a phase produced and refuse anything but the exact number.
+# `find -newer` is not used: each phase gets its own directory, so a collision
+# or a missing invocation is a count mismatch, not a timestamp puzzle.
+collect_reports() {
+  local phase="$1" dir="$2" expected="$3" found
+  found=$(find "$dir" -maxdepth 1 -name '*.xml' 2>/dev/null | wc -l | tr -d ' ')
+  status "$phase" reports "$found"
+  echo "$found" >"$STATE_DIR/${phase}_reports"
+  if [ "$found" -ne "$expected" ]; then
+    status "$phase" reports_expected "$expected"
+    return 1
+  fi
+  mkdir -p "$ART_DIR/junit/$phase"
+  cp "$dir"/*.xml "$ART_DIR/junit/$phase/" 2>/dev/null || true
+  # A copy that loses a file to a name collision is the bug this replaced.
+  local copied
+  copied=$(find "$ART_DIR/junit/$phase" -maxdepth 1 -name '*.xml' | wc -l | tr -d ' ')
+  if [ "$copied" -ne "$found" ]; then
+    status "$phase" reports_collision "$copied"
+    return 1
+  fi
+}
+
 phase_recovery() {
   cd "$REPO_ROOT"
 
-  if ! make -n test-recovery >/dev/null 2>&1; then
+  if ! has_target test-recovery || ! has_target test-recovery-races; then
     status recovery result missing-target
     status recovery detail p022-section-C-not-in-this-ref
     return 78
   fi
 
-  # JUnit regardless of what the Makefile itself passes to pytest.
-  export PYTEST_ADDOPTS="--junitxml=$LOG_DIR/recovery-junit.xml ${PYTEST_ADDOPTS:-}"
+  install_junit_plugin
+  export PYTHONPATH="/opt/polis-ci${PYTHONPATH:+:$PYTHONPATH}"
+  export PYTEST_ADDOPTS="-p p022_junit ${PYTEST_ADDOPTS:-}"
+  rm -rf "$JUNIT_DIR"
+  mkdir -p "$JUNIT_DIR/recovery" "$JUNIT_DIR/races"
 
-  # Each command's status is captured on its own. Round 1 wrapped both makes in
-  # a `{ ...; date; } || rc=$?` group, where errexit is suppressed inside an
-  # OR-list and the trailing successful command set the group's status — both
-  # makes could fail with rc 0 reported (review E4).
-  local rc_main=0 rc_races=0
-  make test-recovery >"$LOG_DIR/recovery.log" 2>&1 || rc_main=$?
+  # Each command's status is captured on its own: a `{ a; b; date; } || rc=$?`
+  # group suppresses errexit and lets the trailing command set the result.
+  local rc_main=0 rc_races=0 rc_reports=0
+  P022_JUNIT_DIR="$JUNIT_DIR/recovery" P022_JUNIT_TAG=main \
+    make test-recovery >"$LOG_DIR/recovery.log" 2>&1 || rc_main=$?
   status recovery main_rc "$rc_main"
 
-  make test-recovery-races >"$LOG_DIR/recovery-races.log" 2>&1 || rc_races=$?
+  P022_JUNIT_DIR="$JUNIT_DIR/races" P022_JUNIT_TAG=race \
+    make test-recovery-races >"$LOG_DIR/recovery-races.log" 2>&1 || rc_races=$?
   status recovery races_rc "$rc_races"
 
   echo "$rc_main" >"$STATE_DIR/recovery_main_rc"
   echo "$rc_races" >"$STATE_DIR/recovery_races_rc"
 
-  if [ -f "$LOG_DIR/recovery-junit.xml" ]; then
-    cp "$LOG_DIR/recovery-junit.xml" "$ART_DIR/recovery-junit.xml"
-    status recovery junit present
-  else
-    # A green pytest with no report is not evidence of anything.
-    status recovery junit missing
-    echo 1 >"$STATE_DIR/recovery_junit_missing"
-  fi
+  collect_reports recovery "$JUNIT_DIR/recovery" "$EXPECTED_MAIN_REPORTS" || rc_reports=1
+  collect_reports races "$JUNIT_DIR/races" "$EXPECTED_RACE_REPORTS" || rc_reports=1
+  echo "$EXPECTED_RACE_REPORTS" >"$STATE_DIR/expected_race_reports"
+  echo "$EXPECTED_MAIN_REPORTS" >"$STATE_DIR/expected_main_reports"
 
-  if [ "$rc_main" -ne 0 ] || [ "$rc_races" -ne 0 ] || [ -f "$STATE_DIR/recovery_junit_missing" ]; then
+  if [ "$rc_main" -ne 0 ] || [ "$rc_races" -ne 0 ] || [ "$rc_reports" -ne 0 ]; then
     status recovery result fail
     return 1
   fi
@@ -107,8 +164,7 @@ phase_battery() {
 
   # The battery is restricted to the fixtures declared public in
   # certify_datasets.json and checked into the repository. There is no private
-  # bundle to fetch and no credential that could fetch one. A private battery
-  # needs the isolated worker design in P-022-E-ci-spec.md, not this box.
+  # bundle to fetch and no credential that could fetch one.
   python3 - "$delphi" >"$STATE_DIR/battery-selection.json" <<'PY'
 import json, pathlib, sys
 delphi = pathlib.Path(sys.argv[1])
@@ -121,8 +177,8 @@ battery = json.loads((scripts / "certify_battery.json").read_text())
 
 def resolves(slug):
     # Public fixtures only: real_data/*-<slug>. The .local private tree is
-    # deliberately NOT consulted; if one were ever left on a box, it must not
-    # silently enlarge a synthetic run.
+    # deliberately NOT consulted; a stray private directory must not silently
+    # enlarge a synthetic run.
     return bool(list(root.glob(f"*-{slug}")))
 
 
@@ -140,14 +196,17 @@ PY
 
   cp "$STATE_DIR/battery-selection.json" "$ART_DIR/battery-selection.json"
   local selected missing
-  selected=$(python3 -c 'import json;print(json.load(open("/var/log/polis-ci/state/battery-selection.json"))["selected_count"])')
-  missing=$(python3 -c 'import json;print(len(json.load(open("/var/log/polis-ci/state/battery-selection.json"))["missing"]))')
+  selected=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["selected_count"])' \
+    "$STATE_DIR/battery-selection.json")
+  missing=$(python3 -c 'import json,sys;print(len(json.load(open(sys.argv[1]))["missing"]))' \
+    "$STATE_DIR/battery-selection.json")
   status battery selected "$selected"
   status battery missing "$missing"
 
-  # Round 1 returned success for an empty selection, so a battery that silently
-  # shrank to nothing still reported green (review E5). An empty or incomplete
-  # public inventory is a failure, not a smaller run.
+  # An empty OR incomplete public inventory is a failure, not a smaller run.
+  # The pinned inventory length is additionally checked on the runner by
+  # ci/p022_check_summary.py, because a short-but-nonempty battery passes every
+  # guard that can be written here.
   if [ "$selected" -eq 0 ]; then
     status battery result empty-inventory
     echo 1 >"$STATE_DIR/battery_rc"
@@ -159,34 +218,31 @@ PY
     return 1
   fi
 
-  python3 - >"$delphi/scripts/certify_battery.public.json" <<'PY'
+  python3 - "$STATE_DIR/battery-selection.json" \
+    >"$delphi/scripts/certify_battery.public.json" <<'PY'
 import json, sys
-sel = json.load(open("/var/log/polis-ci/state/battery-selection.json"))
-json.dump(sel["selected"], sys.stdout, indent=1)
+json.dump(json.load(open(sys.argv[1]))["selected"], sys.stdout, indent=1)
 PY
 
-  # certify shells out to `uv run python scripts/replay_driver.py` and to
-  # `clojure -M:replay` (polismath/replay/certify.py), so both toolchains must
-  # exist before the first case runs.
-  if ! command -v uv >/dev/null 2>&1; then
-    curl -LsSf https://astral.sh/uv/install.sh 2>>"$LOG_DIR/battery.log" | sh >>"$LOG_DIR/battery.log" 2>&1
-  fi
-  export PATH="$HOME/.local/bin:$PATH"
-  if ! command -v clojure >/dev/null 2>&1; then
-    # This script runs as root over SSM; no sudo (which would not cover the
-    # redirect anyway).
-    dnf install -y java-21-amazon-corretto-headless rlwrap >>"$LOG_DIR/battery.log" 2>&1
-    curl -fsSL -o /tmp/linux-install.sh https://download.clojure.org/install/linux-install.sh
-    chmod +x /tmp/linux-install.sh
-    /tmp/linux-install.sh >>"$LOG_DIR/battery.log" 2>&1
-  fi
-  uv sync >>"$LOG_DIR/battery.log" 2>&1 || uv venv >>"$LOG_DIR/battery.log" 2>&1
+  # The toolchain is installed and verified in user-data, before the ready
+  # marker. Verify rather than install, so a phase never silently repairs a
+  # bootstrap that should have failed.
+  export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+  local tool
+  for tool in uv clojure java; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      status battery result missing-toolchain
+      status battery tool "$tool"
+      echo 1 >"$STATE_DIR/battery_rc"
+      return 1
+    fi
+  done
 
   # Serial workers and fixed BLAS threads: this is a correctness baseline, not
   # a throughput measurement.
   export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1
   local rc=0
-  uv run python scripts/certify.py run \
+  uv run --no-sync python scripts/certify.py run \
       --battery scripts/certify_battery.public.json \
       --refresh-clj --refresh-py --strict --workers 1 \
       --root "$LOG_DIR/certify-run" >>"$LOG_DIR/battery.log" 2>&1 || rc=$?
@@ -201,12 +257,13 @@ PY
 
 phase_summary() {
   # A fixed schema built from parsed integers, enums and known fixture slugs.
-  # Nothing free-form from any log reaches this file.
-  python3 - "$REPO_ROOT" "$LOG_DIR" >"$ART_DIR/summary.json" <<'PY'
+  # Nothing free-form from any log reaches this file. It is NOT independent
+  # execution evidence: every field is produced by the recipe running here, and
+  # the runner-side validator checks coherence and inventory, not authenticity.
+  python3 - "$REPO_ROOT" "$LOG_DIR" "$STATE_DIR" >"$ART_DIR/summary.json" <<'PY'
 import json, pathlib, re, sys
 
-repo, logdir = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
-state = logdir / "state"
+repo, logdir, state = (pathlib.Path(p) for p in sys.argv[1:4])
 
 
 def read_int(name, default=None):
@@ -246,18 +303,29 @@ slug = re.compile(r"^[A-Za-z0-9_-]{1,32}$")
 main_rc = read_int("recovery_main_rc")
 races_rc = read_int("recovery_races_rc")
 battery_rc = read_int("battery_rc")
-recovery_ok = main_rc == 0 and races_rc == 0 and not (state / "recovery_junit_missing").exists()
+main_reports = read_int("recovery_reports", 0)
+race_reports = read_int("races_reports", 0)
+expected_main = read_int("expected_main_reports", 0)
+expected_races = read_int("expected_race_reports", 0)
+
+recovery_ok = (main_rc == 0 and races_rc == 0
+               and main_reports == expected_main and main_reports > 0
+               and race_reports == expected_races and race_reports > 0)
 battery_ok = battery_rc == 0
 
 summary = {
-    "schema": "p022-synthetic/1",
+    "schema": "p022-synthetic/2",
     "kind": "synthetic-recovery-and-public-fixture-battery",
     "is_certification": False,
+    "trust": "reviewed-recipe-self-reported",
     "ref_sha": sha,
     "recovery": {
         "main_rc": main_rc,
         "races_rc": races_rc,
-        "junit": (state / "recovery_junit_missing").exists() is False,
+        "main_reports": main_reports,
+        "race_reports": race_reports,
+        "expected_main_reports": expected_main,
+        "expected_race_reports": expected_races,
         "counts": counts(logdir / "recovery.log"),
         "races_counts": counts(logdir / "recovery-races.log"),
         "status": "pass" if recovery_ok else "fail",
@@ -269,6 +337,7 @@ summary = {
         "datasets": sorted(s for s in set(
             e.get("dataset") for e in sel.get("selected", [])) if s and slug.match(s)),
         "private_cases": "not-run",
+        "skip_reason": "" if battery_rc is not None else "not-run-in-this-job",
         "status": "pass" if battery_ok else ("skipped" if battery_rc is None else "fail"),
     },
     "verdict": "SYNTHETIC-PASS" if (recovery_ok and battery_rc in (0, None))
@@ -277,7 +346,8 @@ summary = {
 json.dump(summary, sys.stdout, indent=1, sort_keys=True)
 PY
   local verdict
-  verdict=$(python3 -c 'import json;print(json.load(open("/var/log/polis-ci/artifacts/summary.json"))["verdict"])')
+  verdict=$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["verdict"])' \
+    "$ART_DIR/summary.json")
   status summary verdict "$verdict"
 }
 
@@ -288,8 +358,8 @@ phase_bundle() {
   chars=$(wc -c <"$LOG_DIR/artifacts.b64")
   chunks=$(( (chars + CHUNK_CHARS - 1) / CHUNK_CHARS ))
   digest=$(sha256sum "$BUNDLE" | cut -d' ' -f1)
-  # Round 1 truncated an oversized bundle and still succeeded. Evidence that
-  # does not fit is missing evidence: fail rather than ship a partial tarball.
+  # Evidence that does not fit is missing evidence: fail rather than ship a
+  # partial tarball.
   if [ "$chunks" -gt "$MAX_CHUNKS" ]; then
     status bundle result too-large
     status bundle chars "$chars"
