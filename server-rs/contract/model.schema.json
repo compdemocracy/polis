@@ -431,7 +431,17 @@
       "additionalProperties": false
     },
     "lastModTimestamp": {
-      "type": "null"
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        }
+      ],
+      "description": "server/src/utils/pca.ts:64 declares `lastModTimestamp?: number | null`; ensureCompletePcaStructure does not repair it, so a stored number reaches the wire."
     },
     "lastVoteTimestamp": {
       "type": "integer",
@@ -918,6 +928,10 @@
         ],
         "additionalProperties": false
       }
+    },
+    "conversation_id": {
+      "type": "string",
+      "description": "census: emitted by the Python engine output (math/python_conversion) alongside the extras this model already carries; not observed in any stored row, since the writer normalizes before publication. Modelled optional so a stored copy is served, not refused."
     },
     "participant_info": {
       "type": "object",

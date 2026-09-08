@@ -13,18 +13,39 @@ use model::{MathData, PcaData, Subset};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::{HashMap, VecDeque},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
     time::{SystemTime, UNIX_EPOCH},
 };
 use tokio::sync::Mutex;
 use tokio_postgres::{Client, NoTls};
 type Error = Box<dyn std::error::Error + Send + Sync>;
+/// A stored blob that the pinned model does not describe. The recording has no cell
+/// for it, so the route refuses the request under a named code instead of guessing a
+/// body; the refusal is counted and surfaced on /health rather than lost in a 500.
+#[derive(Debug)]
+struct ContractViolation {
+    detail: String,
+}
+impl std::fmt::Display for ContractViolation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.detail)
+    }
+}
+impl std::error::Error for ContractViolation {}
+#[derive(Default)]
+struct Metrics {
+    contract_violations: AtomicU64,
+}
 #[derive(Clone)]
 struct App {
     db: Arc<Client>,
     math_env: String,
     origin: String,
     cache: Arc<Mutex<Cache>>,
+    metrics: Arc<Metrics>,
 }
 #[derive(Default)]
 struct Cache {
@@ -67,15 +88,43 @@ impl App {
                 return Ok(None);
             }
             let text: String = row.get(0);
-            let mut data: MathData = serde_json::from_str(&text)?;
+            let mut data: MathData = serde_json::from_str(&text).map_err(|e| {
+                self.metrics
+                    .contract_violations
+                    .fetch_add(1, Ordering::Relaxed);
+                // Structured, greppable, and free of stored content: only the model's
+                // own complaint and the row's identity are recorded.
+                eprintln!(
+                    "{}",
+                    serde_json::json!({
+                        "event": "pca2_contract_violation",
+                        "math_env": self.math_env,
+                        "zid": zid,
+                        "line": e.line(),
+                        "column": e.column(),
+                        "detail": e.to_string(),
+                    })
+                );
+                Error::from(ContractViolation {
+                    detail: e.to_string(),
+                })
+            })?;
             // Column is authoritative even at zero; never use the blob's engine-local tick.
             data.math_tick = tick.try_into()?;
             for (id, group) in &mut data.group_dash_votes {
                 group.id = u64::from(*id);
             }
-            data.mod_dash_in.get_or_insert_with(Vec::new);
-            data.mod_dash_out.get_or_insert_with(Vec::new);
-            data.meta_dash_tids.get_or_insert_with(Vec::new);
+            // ensureCompletePcaStructure appends a missing key after every other extra;
+            // a blob that carries the key keeps it at its own position.
+            if data.mod_dash_in.is_none() {
+                data.mod_dash_in_appended = Some(Vec::new());
+            }
+            if data.mod_dash_out.is_none() {
+                data.mod_dash_out_appended = Some(Vec::new());
+            }
+            if data.meta_dash_tids.is_none() {
+                data.meta_dash_tids_appended = Some(Vec::new());
+            }
             data
         } else {
             let tids: Vec<u64> = self
@@ -302,6 +351,12 @@ async fn route(
 ) -> Response<Body> {
     match handle(&app, query, headers, &body).await {
         Ok(r) => r,
+        // The recording pins no cell for a blob the model does not describe, so the
+        // gap is refused explicitly (upstream data, hence 502) under its own code
+        // rather than dressed up as the route's generic 500.
+        Err(e) if e.is::<ContractViolation>() => {
+            fail(&app, 502, "polis_err_pca2_contract_violation")
+        }
         Err(e) => {
             eprintln!("pca2 request failed: {e}");
             fail(&app, 500, "polis_err_pca2")
@@ -454,6 +509,7 @@ async fn main() -> Result<(), Error> {
         math_env: std::env::var("MATH_ENV").unwrap_or("dev".into()),
         origin: std::env::var("P032_CORS_ORIGIN").unwrap_or("https://localhost".into()),
         cache: Default::default(),
+        metrics: Default::default(),
     };
     let router = Router::new()
         .route(
@@ -468,9 +524,161 @@ async fn main() -> Result<(), Error> {
     eprintln!("polis-api listening {}", listener.local_addr()?);
     transport::serve(listener, router).await
 }
+/// B1 gate. Decodes stored `math_main.data` blobs through the pinned model and
+/// reports every key and type the model does not cover. It reads blobs from
+/// `P032_CENSUS_DIR` (a directory of `.json` objects or `.jsonl` lines) so no
+/// production content is ever committed; without that variable the census is a
+/// no-op and the fixture below still exercises the decoder.
+#[cfg(test)]
+mod census {
+    use super::model::MathData;
+    use serde_json::Value;
+    // Mirrors the route's SQL projection: these four are stripped before the model sees them.
+    const STRIPPED: [&str; 4] = [
+        "zid",
+        "subgroup-votes",
+        "subgroup-repness",
+        "subgroup-clusters",
+    ];
+    fn blobs(dir: &std::path::Path) -> Vec<(String, Value)> {
+        let mut out = Vec::new();
+        for entry in std::fs::read_dir(dir)
+            .expect("census dir readable")
+            .flatten()
+        {
+            let path = entry.path();
+            let name = path
+                .file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .into_owned();
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            match path.extension().and_then(|e| e.to_str()) {
+                Some("jsonl") => {
+                    for (i, line) in text.lines().filter(|l| !l.trim().is_empty()).enumerate() {
+                        out.push((
+                            format!("{name}#{i}"),
+                            serde_json::from_str(line).expect("jsonl row"),
+                        ));
+                    }
+                }
+                Some("json") => match serde_json::from_str::<Value>(&text) {
+                    Ok(Value::Array(rows)) => out.extend(
+                        rows.into_iter()
+                            .enumerate()
+                            .map(|(i, v)| (format!("{name}#{i}"), v)),
+                    ),
+                    Ok(value) => out.push((name, value)),
+                    Err(_) => {}
+                },
+                _ => {}
+            }
+        }
+        out
+    }
+    #[test]
+    fn stored_blobs_decode_through_the_model() {
+        let Ok(dir) = std::env::var("P032_CENSUS_DIR") else {
+            eprintln!("census skipped: set P032_CENSUS_DIR to a directory of math_main blobs");
+            return;
+        };
+        let mut failures = Vec::new();
+        let mut census: std::collections::BTreeMap<String, std::collections::BTreeSet<String>> =
+            Default::default();
+        let mut total = 0usize;
+        for (name, mut value) in blobs(std::path::Path::new(&dir)) {
+            let Some(object) = value.as_object_mut() else {
+                continue;
+            };
+            total += 1;
+            for key in STRIPPED {
+                object.remove(key);
+            }
+            for (key, member) in object.iter() {
+                let kind = match member {
+                    Value::Null => "null",
+                    Value::Bool(_) => "boolean",
+                    Value::Number(n) if n.is_f64() && n.as_i64().is_none() => "number",
+                    Value::Number(_) => "integer",
+                    Value::String(_) => "string",
+                    Value::Array(_) => "array",
+                    Value::Object(_) => "object",
+                };
+                census
+                    .entry(key.clone())
+                    .or_default()
+                    .insert(kind.to_string());
+            }
+            if let Err(e) = serde_json::from_value::<MathData>(value) {
+                failures.push(format!("{name}: {e}"));
+            }
+        }
+        for (key, kinds) in &census {
+            println!("census key {key}: {kinds:?}");
+        }
+        println!("census blobs {total}, decode failures {}", failures.len());
+        assert!(
+            failures.is_empty(),
+            "unmodelled stored shapes:\n{}",
+            failures.join("\n")
+        );
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
+    /// The seeded corpus never carries a non-null `lastModTimestamp`, and every
+    /// populated fixture carries all three of mod-in/mod-out/meta-tids. Both gaps
+    /// are covered here so the model is judged against the source, not the seed.
+    #[test]
+    fn source_declared_shapes_decode_and_reserialize() {
+        let numeric: MathData =
+            serde_json::from_str(r#"{"lastModTimestamp":1700000000000}"#).expect("number decodes");
+        assert_eq!(numeric.lastmodtimestamp, Some(1700000000000));
+        let null: MathData = serde_json::from_str(r#"{"lastModTimestamp":null}"#).expect("null");
+        assert_eq!(null.lastmodtimestamp, None);
+        let absent: MathData = serde_json::from_str("{}").expect("absent");
+        let wire = String::from_utf8(json::encode(&absent).unwrap()).unwrap();
+        assert!(wire.contains("\"lastModTimestamp\":null"));
+    }
+    #[test]
+    fn unmodelled_key_is_a_refusal_not_a_guess() {
+        let e = serde_json::from_str::<MathData>(r#"{"n":0,"a-future-key":1}"#).unwrap_err();
+        assert!(e.to_string().contains("a-future-key"), "{e}");
+    }
+    /// M4: with the key absent from the blob it must appear AFTER every other extra,
+    /// because `ensureCompletePcaStructure` writes it after the object spread.
+    #[test]
+    fn absent_mod_keys_serialize_after_every_other_extra() {
+        let mut data: MathData =
+            serde_json::from_str(r#"{"comment_count":7,"mod-out":[1]}"#).expect("blob");
+        data.mod_dash_in_appended = Some(Vec::new());
+        data.meta_dash_tids_appended = Some(Vec::new());
+        let wire = String::from_utf8(json::encode(&data).unwrap()).unwrap();
+        let at = |k: &str| {
+            wire.find(k)
+                .unwrap_or_else(|| panic!("{k} missing from {wire}"))
+        };
+        assert!(at("\"mod-out\"") < at("\"comment_count\""));
+        assert!(at("\"comment_count\"") < at("\"mod-in\""));
+        assert!(at("\"mod-in\"") < at("\"meta-tids\""));
+        let keys = [
+            "mod-in".to_string(),
+            "mod-out".to_string(),
+            "meta-tids".to_string(),
+        ];
+        let subset = String::from_utf8(
+            json::encode(&Subset {
+                data: &data,
+                keys: &keys,
+            })
+            .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(subset, r#"{"mod-in":[],"mod-out":[1],"meta-tids":[]}"#);
+    }
     #[test]
     fn conditionals() {
         assert_eq!(conditional_tick("\"2\", W/\"0\""), 0.0);
