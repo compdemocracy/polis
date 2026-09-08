@@ -74,6 +74,20 @@ async function main(){
   assert.ok(Number(subsetHead['content-length'])>0);
   checks.push('negotiated subset gzip on GET, identity on HEAD');
 
+  // Negotiation is the pinned middleware's, not a bare token match.
+  const withAccept=(accept)=>`GET ${url}${keys} HTTP/1.1\r\nHost: t\r\nAccept-Encoding: ${accept}\r\nX-Forwarded-Proto: https\r\nConnection: close\r\n\r\n`;
+  const q1=await exchange(recorded,withAccept('gzip;q=1'));
+  assert.equal(headers(q1)['content-encoding'],'gzip','gzip;q=1 is gzip, as negotiator selects');
+  const q0=await exchange(recorded,withAccept('gzip;q=0'));
+  assert.equal(headers(q0)['content-encoding'],undefined,'a zero quality is a refusal');
+  assert.ok(Number(headers(q0)['content-length'])>0);
+  // A brotli-capable Node selects br for the wildcard; this candidate has no
+  // brotli, so it must refuse under its own code rather than serve gzip.
+  const wildcard=await exchange(recorded,withAccept('*'));
+  assert.ok(wildcard.startsWith('HTTP/1.1 502 Bad Gateway\r\n'),wildcard.slice(0,64));
+  assert.ok(JSON.parse(wildcard.split('\r\n\r\n')[1]).error==='polis_err_pca2_unadmitted_encoding');
+  checks.push('q-values, zero quality and the wildcard follow the pinned negotiator');
+
   // Two requests, one connection: the writer no longer forces close.
   const reuse=await exchange(recorded,
    `GET ${url} HTTP/1.1\r\nHost: t\r\nX-Forwarded-Proto: https\r\n\r\n`+
