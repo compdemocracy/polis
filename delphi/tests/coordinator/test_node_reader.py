@@ -21,6 +21,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -144,6 +145,9 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
         "profile": "zero votes, four approved comments; rustproto has a published "
                    "empty generation, python has none and is synthesized by the server",
         "reference_published": False,
+        "note": "the synthesized empty presentation stamps lastVoteTimestamp with "
+                "Date.now(), so it is not reproducible across servers or requests; "
+                "the published empty generation is",
         "differences": differences, "served": served}, indent=2, sort_keys=True))
     assert published["n"] == synthesized["n"] == 0
     assert published["consensus_shape"] == synthesized["consensus_shape"]
@@ -157,6 +161,14 @@ def test_published_empty_math_versus_the_servers_own_empty_presentation(db, laun
     assert published["tids"] == []
     assert synthesized["tids"] == [0, 1, 2, 3]
     assert "tids" in differences
+    # And the synthesized presentation is not even reproducible: pca.ts's
+    # createEmptyPcaStructure stamps `lastVoteTimestamp: Date.now()`, so two
+    # servers answering the same request for the same conversation serve
+    # different bytes. The published generation carries the engine's value.
+    now = time.time() * 1000
+    assert abs(synthesized["last_vote_timestamp"] - now) < 600_000, (
+        synthesized["last_vote_timestamp"], now)
+    assert published["last_vote_timestamp"] != synthesized["last_vote_timestamp"]
 
 
 @requires_server_modules
