@@ -305,6 +305,8 @@ function doNotificationsForZid(zid: number, timeOfLastEvent: any) {
     });
 }
 
+let notificationLoopStarted = false;
+
 function doNotificationLoop() {
   logger.debug("doNotificationLoop");
   doNotificationBatch().then(() => {
@@ -335,9 +337,16 @@ function sendNotificationEmail(
   return sendEmailByUid(uid, subject, body);
 }
 
-const shouldSendNotifications = !Config.isDevMode;
-if (shouldSendNotifications) {
+// Importing routes must not start a background email writer. The web entrypoint
+// explicitly starts it; characterization controls its lifecycle independently.
+export function startNotificationLoop() {
+  if (Config.isDevMode || notificationLoopStarted) return;
+  notificationLoopStarted = true;
   doNotificationLoop();
+}
+
+export function isNotificationLoopStarted() {
+  return notificationLoopStarted;
 }
 
 function createNotificationsUnsubscribeUrl(conversation_id: any, email: any) {

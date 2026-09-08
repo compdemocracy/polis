@@ -23,7 +23,7 @@ async function loadFiles() {
   );
 }
 
-loadFiles();
+export const moderationReady = loadFiles();
 
 async function analyzeComment(
   txt: string,
