@@ -60,8 +60,14 @@ from polismath.replay.crosslang import (
     load_clj_blobs,
     project_prep_main,
 )
+from polismath.replay.polarity import (
+    DEFAULT_CONVENTIONS,
+    ConventionDescriptor,
+    run_standing_property,
+)
 from polismath.replay.stepcompare import DEFAULT_TOLERANT_STAT_KEYS, StepComparer
 from polismath.replay.types import ReplayDataset
+from polismath.utils.output_profile import OUTPUT_PROFILE_KEY, profile_of
 
 #: Frozen schedule-id suffix + fingerprint component. Battery schedule ids
 #: and ledger fingerprint keys were minted while the engine still had a mode
@@ -287,6 +293,22 @@ def validate_checkpoint_blob(
         raise CertifyError(
             "checkpoint-schema",
             f"{label}: checkpoint blob must be a JSON object, got {type(blob).__name__}")
+
+    # A PROJECTED comparison view is not a checkpoint (P-023 rev3, R3-1). It is
+    # a legal kebab-only blob — no alias pair, so C9 never runs — and every
+    # remaining field is well typed, so nothing below would object; recorded or
+    # restored, it would silently lose the raw extensions (the group_clusters
+    # twin, proj) that the restore path reads. The output-profile marker is the
+    # only thing that distinguishes it, so it is refused here as well as at
+    # Conversation.from_dict.
+    marked = profile_of(blob)
+    if marked is not None:
+        raise CertifyError(
+            "checkpoint-schema",
+            f"{label}: blob carries the output-profile marker "
+            f"{OUTPUT_PROFILE_KEY!r} ({marked.get('profile')!r}, vote_axis "
+            f"{marked.get('vote_axis')!r}): a projected comparison view is "
+            f"never a raw checkpoint")
 
     # UNTOUCHED-RAW checks first, before any normalization (P-022 B1 review,
     # round 3). Building the canonical dict is lossy: aliased raw keys collapse
@@ -855,13 +877,21 @@ def _write_temp_schedule(spec: sched.ScheduleSpec, root: Path) -> Path:
 
 
 #: Recording-cache manifest schema version. BUMP this to invalidate every
-#: existing cached recording at once. Version 3 adds checkpoint content hashes
+#: existing cached recording at once. Version 4 (P-023) adds the DECLARED
+#: polarity conventions — storage_agree_value, input/output convention and pair
+#: side — to the read/write cache predicate: without them P-023's mandatory
+#: "change s without votes" control is a CACHE HIT (same votes file, same
+#: schedule, same engine tree) and returns the stale recording instead of
+#: executing, so the control never reaches its gate. The bump is what forces
+#: every existing recording to be re-produced rather than accepted under an
+#: undeclared convention; a documentation-only key change is insufficient.
+#: Version 3 adds checkpoint content hashes
 #: and requires cursor metadata on both engines. Version 2 (M3/P-019): the py
 #: manifest now keys on the comments CSV (moderation events Python loads from
 #: it), and the schedule hash now covers restart_after/clojure — recordings made
 #: under the old keys must not be reused, or a comments-only or restart-only edit
 #: would compare a fresh run against a stale one and report its old MATCH.
-_RECORDING_MANIFEST_VERSION = 3
+_RECORDING_MANIFEST_VERSION = 4
 
 
 def _recording_hashes(directory: Path) -> dict[str, str]:
@@ -886,7 +916,7 @@ def _manifest_matches(manifest_path: Path, expected: dict[str, Any]) -> bool:
     if not isinstance(existing, dict):
         raise CertifyError("recording-manifest", "recording manifest must be an object")
     # Old versions require a fresh producer run, never acceptance of old steps.
-    if existing.get("manifest_version") in (1, 2):
+    if existing.get("manifest_version") in (1, 2, 3):
         return False
     if type(existing.get("manifest_version")) is not int or existing["manifest_version"] != _RECORDING_MANIFEST_VERSION:
         raise CertifyError("recording-manifest", "unknown or missing recording manifest version")
@@ -969,6 +999,7 @@ def run_provenance(root: Path, battery_path: str | Path | None = None) -> dict[s
         "math_src_sha256": math_src_sha256,
         "comparer_cfg_sha256": _comparer_cfg_hash(_acceptance_projecting_comparer()),
         "recording_manifest_version": _RECORDING_MANIFEST_VERSION,
+        "conventions": DEFAULT_CONVENTIONS.cache_fields(),
         "battery_path": str(battery_path) if battery_path is not None else None,
         "root": str(root),
         "deferred": ["runtime_versions", "architecture", "image_digest",
@@ -979,6 +1010,7 @@ def run_provenance(root: Path, battery_path: str | Path | None = None) -> dict[s
 def ensure_py_recording(
     entry: BatteryEntry, spec: sched.ScheduleSpec, votes_sha: str, *, root: Path,
     refresh: bool = False, comments_csv: Path | None = None,
+    conventions: ConventionDescriptor = DEFAULT_CONVENTIONS,
 ) -> tuple[Path, bool]:
     """Reuse ``<root>/<ds>/<sid>/py/`` iff its cache manifest matches (votes
     sha256, schedule hash, ENGINE-scoped tree hash, and — when ``comments_csv``
@@ -1006,6 +1038,7 @@ def ensure_py_recording(
         "votes_sha256": votes_sha,
         "schedule_hash": canonical_schedule_hash(spec),
         "engine_tree_sha256": _engine_tree_hash_cached(),
+        **conventions.cache_fields(),
     }
     if comments_csv is not None:
         expected["comments_csv_sha256"] = sha256_file(comments_csv)
@@ -1026,6 +1059,7 @@ def ensure_py_recording(
 def ensure_clj_recording(
     entry: BatteryEntry, spec: sched.ScheduleSpec, votes_sha: str, votes_csv: Path, *,
     root: Path, refresh: bool = False, comments_csv: Path | None = None,
+    conventions: ConventionDescriptor = DEFAULT_CONVENTIONS,
 ) -> tuple[Path, bool]:
     """Reuse ``<root>/<ds>/<sid>/clj/`` iff its cache manifest matches (votes
     sha256, schedule hash, sha256 of dev/replay.clj, sha256 of math/src, and
@@ -1049,6 +1083,7 @@ def ensure_clj_recording(
         "schedule_hash": canonical_schedule_hash(spec),
         "replay_clj_sha256": replay_clj_sha256,
         "math_src_sha256": math_src_sha256,
+        **conventions.cache_fields(),
     }
     if comments_csv is not None:
         expected["comments_csv_sha256"] = sha256_file(comments_csv)
@@ -1468,6 +1503,7 @@ def run_battery(
     entries: list[BatteryEntry], *, root: Path | None = None, refresh_clj: bool = False,
     refresh_py: bool = False, ledger_path: str | Path | None = None, only: str | None = None,
     workers: int = 1, battery_path: str | Path | None = None,
+    standing_properties: bool = True,
 ) -> dict[str, Any]:
     """Certify every (filtered) entry, persist the ledger once, and write the
     machine report to ``<root>/certify_report.json``. Does NOT print — see
@@ -1477,7 +1513,16 @@ def run_battery(
     hash-first compare) across threads — entries are independent by
     construction (disjoint recording dirs, atomic verdict-cache writes). The
     ledger fold stays strictly serial and in battery order, so the report and
-    ledger are identical to a ``workers=1`` run."""
+    ledger are identical to a ``workers=1`` run.
+
+    STANDING PROPERTIES. Every run also executes P-023's compensated polarity
+    property — ``E(V, s) == E(-V, -s)`` through both real ingress paths, from
+    fresh state, plus every mandatory negative control — and a FAIL there fails
+    the gate exactly like a divergent entry. It is a standing property, not a
+    per-entry check: it holds of the ENGINE, so it must run even on a battery
+    whose entries all come back from cache (which is otherwise the case where
+    nothing executes at all). ``standing_properties=False`` is for tests that
+    exercise the battery plumbing itself."""
     root = root or st.replays_root()
     ledger_path = ledger_path or default_ledger_path()
     ledger = load_ledger(ledger_path)
@@ -1509,6 +1554,23 @@ def run_battery(
         if p.spec.coverage == "prefix-diagnostic" and p.entry.dataset not in full_datasets:
             errors[(p.entry.dataset, p.entry.schedule_id)] = _entry_error(
                 p.entry, CertifyError("inventory", "prefix diagnostic requires a full-stream companion"))
+    standing: list[dict[str, Any]] = []
+    if standing_properties:
+        try:
+            polarity = run_standing_property(project=project_acceptance)
+        except Exception as exc:  # noqa: BLE001 — a broken property is a FAIL
+            polarity = {"property": "P-023 compensated polarity pair",
+                        "verdict": "FAIL",
+                        "problems": [f"{type(exc).__name__}: {exc}"]}
+        standing.append({
+            "property": polarity["property"],
+            "verdict": polarity["verdict"],
+            "problems": polarity["problems"],
+            "pairs": len(polarity.get("pairs", [])),
+            "controls": len(polarity.get("controls", [])),
+            "storage_agree_value": polarity.get("storage_agree_value"),
+        })
+
     run_id = str(uuid.uuid4())
     started = datetime.now(timezone.utc).isoformat()
     manifest = {
@@ -1520,6 +1582,7 @@ def run_battery(
                           "battery_path": str(battery_path) if battery_path is not None else None,
                           "root": str(root)},
         "provenance": run_provenance(root, battery_path),
+        "standing_properties": standing,
         "configuration_errors": configuration_errors, "inventory": inventory,
         "entries": [{"dataset": e.dataset, "schedule_id": e.schedule_id,
                      "role": e.role or f"{e.dataset}:{e.schedule_id}", "optional": e.optional,
@@ -1563,7 +1626,9 @@ def run_battery(
             item["cache"] = result.get("cache")
             item["result"] = result
     verdict = "PASS"
-    if configuration_errors or any(e["status"] == "FAIL" for e in manifest["entries"]):
+    if (configuration_errors
+            or any(e["status"] == "FAIL" for e in manifest["entries"])
+            or any(p["verdict"] != "PASS" for p in standing)):
         verdict = "FAIL"
     elif only is not None or any(e["status"] != "PASS" for e in manifest["entries"]):
         verdict = "INCONCLUSIVE"
@@ -1572,6 +1637,7 @@ def run_battery(
     report = {"battery": results, "root": str(root), "verdict": verdict,
               "partial": only is not None, "inventory": inventory,
               "configuration_errors": configuration_errors,
+              "standing_properties": standing,
               "run_id": run_id, "run_manifest": str(manifest_path)}
     _write_json(root / "certify_report.json", report)
     return report
@@ -1634,6 +1700,13 @@ def render_run_lines(report: dict[str, Any], *, max_lines: int = 40) -> list[str
     '+N more' line if the battery is too large to fit), and a footer."""
     header = [ACCEPTANCE_NOTICE, f"certify: {len(report['battery'])} entries  root={report['root']}"]
     footer = [_format_footer(report["battery"])]
+    for prop in report.get("standing_properties", []):
+        footer.append(
+            f"standing property: {prop['property']} {prop['verdict']} "
+            f"({prop['pairs']} pairs, {prop['controls']} negative controls, "
+            f"storage agree = {prop['storage_agree_value']})"
+            + ("" if prop["verdict"] == "PASS"
+               else "  " + "; ".join(prop["problems"][:2])))
     if report.get("partial"):
         header.append("PARTIAL RUN, NOT A GATE (--only)")
     if "verdict" in report:

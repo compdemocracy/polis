@@ -31,6 +31,7 @@ from polismath.pca_kmeans_rep.legacy_kmeans import (
     kmeans as legacy_kmeans,
 )
 from polismath.utils.clj_hash import clojure_hash_map_key_order
+from polismath.utils.output_profile import assert_restorable
 
 
 # Configure logging
@@ -2680,13 +2681,26 @@ class Conversation:
     def from_dict(cls, data: Dict[str, Any]) -> 'Conversation':
         """
         Create a conversation from a dictionary.
-        
+
         Args:
            data: Dictionary representation of a conversation
-            
+
         Returns:
             Conversation instance
+
+        Raises:
+            OutputProfileError: if ``data`` is a PROJECTED comparison view
+            rather than a raw serialization (P-023 rev3 R3-1). A projected
+            ``PREP_MAIN_KEYS`` view is a legal kebab-only blob — no alias pair,
+            so the C9 relation never runs — and the ``group_clusters`` read at
+            the bottom of this method would then default to ``[]``, silently
+            restoring a conversation with no groups. The marker is the only
+            thing that distinguishes the two, so it is checked here, at the
+            restore boundary itself. Unmarked raw blobs (everything any
+            producer emits) are unaffected.
         """
+        assert_restorable(data, label="Conversation.from_dict")
+
         # Create empty conversation. to_dict emits the id under 'zid' (both
         # modes — it renames conversation_id at emission), matching Clojure
         # prep-main blobs; accept either key so a recorded blob round-trips
