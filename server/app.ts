@@ -2222,6 +2222,25 @@ helpersInitialized.then(
       app.get(/^\/[^(api\/)]?.*/, proxy);
     }
 
+    // P-038. This is the only position from which `globalErrorHandler` can see
+    // errors that a route hands to `next(err)`: Express 3 inserts `app.router`
+    // into the app stack at the first route registration (express
+    // `lib/application.js:464`) and `next(err)` walks the stack forward from
+    // there, so any error middleware mounted earlier — including the
+    // module-level `app.use(globalErrorHandler)` below and
+    // `middleware_log_middleware_errors` above — is never reached and the error
+    // falls through to connect's finalhandler.
+    //
+    // Mounting it here is NOT behaviour-preserving: finalhandler currently
+    // serves `400 text/html "Bad Request\n"` where `globalErrorHandler` would
+    // serve `500 application/json {"error":"internal_server_error",...}`. It is
+    // therefore off by default and gated so the change can be recorded and
+    // approved before it ships. See
+    // cost-reduction/04-plans/P-038-global-error-handler-notes.md.
+    if (Config.reachableErrorHandler) {
+      app.use(globalErrorHandler);
+    }
+
     // move app.listen to index.ts
   },
 
@@ -2230,7 +2249,15 @@ helpersInitialized.then(
   }
 );
 
-// Setup global error handling
+// Setup global error handling.
+//
+// P-038: this mount runs during module evaluation, i.e. before the async
+// `helpersInitialized` callback above registers any route, so it sits ahead of
+// `app.router` in the app stack and is unreachable for route errors. It is kept
+// because it is the current production behaviour and it still covers errors
+// raised by the two middlewares registered above it (morgan /
+// `middleware_http_json_logger`). The reachable mount is inside the callback,
+// behind `POLIS_REACHABLE_ERROR_HANDLER`.
 app.use(globalErrorHandler);
 
 // Initialize global process-level error handlers
