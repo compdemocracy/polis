@@ -1,0 +1,25 @@
+{
+  "project": "rpca2x-af025f5b",
+  "ports": [
+    55720,
+    55721,
+    55722,
+    55723,
+    55724
+  ],
+  "images": {
+    "server": "sha256:ef85771823ed5e66a21e2915896c38e23bdf784a68437a793d70d55a08dc7c54",
+    "oidc-simulator": "sha256:2dae688563ff9728aa1d2e55062a80fbc38a85aafbca44b7ecee0026e9cb98b2",
+    "file-server": "sha256:9ea48fbe88ebcdc3424b20f75c2b9b5a88f3cd388816539efe5ad1d829715cbf",
+    "postgres": "sha256:b5d31bf33362709c1adc27aa078080cd91db573466a5b5f000b0709348023a29",
+    "driver": "sha256:ef85771823ed5e66a21e2915896c38e23bdf784a68437a793d70d55a08dc7c54",
+    "dynamodb": "sha256:2ad13921fae7674e403010156419aab2889985aa5381d3b73a0a8dd5a01b2c37"
+  },
+  "networkInternal": true,
+  "generatedOnly": true,
+  "sourceCommit": "c9685319980cd048d3c7bfa98e75b0c302083a6a",
+  "archiveSha256": "f448cbbb5d754b3e152ffef67578c41f0fdff4b583f6cf7eb7b6bc2090aa6eef",
+  "binarySha256": "5ace57194920ed07c070451afe3cc57557073bc1722d739bf0e7b84a22d22951",
+  "clock": 1700000000000,
+  "mathEnv": "p027"
+}
