@@ -54,6 +54,17 @@ PROJECTED_PROFILE = "polis-prep-main-projected/1"
 VOTE_AXIS_AS_EMITTED = "as-emitted"
 VOTE_AXIS_NEGATED = "negated"
 
+#: Closed enums. A marker is a DECLARATION inside a gate, so every value is
+#: checked against the set of reviewed tokens; an unknown profile, axis or
+#: transform name is a malformed marker, not a new feature.
+PROFILES: frozenset[str] = frozenset({PROJECTED_PROFILE})
+VOTE_AXES: frozenset[str] = frozenset({VOTE_AXIS_AS_EMITTED, VOTE_AXIS_NEGATED})
+TRANSFORMS: frozenset[str] = frozenset({"project_prep_main", "N"})
+
+#: Closed key set of the marker value itself.
+MARKER_KEYS: frozenset[str] = frozenset(
+    {"profile", "restorable", "vote_axis", "transforms"})
+
 
 class OutputProfileError(ValueError):
     """A marked (projected/N-translated) view reached a boundary that requires
@@ -81,18 +92,89 @@ def stamp(view: dict[str, Any], marker_value: dict[str, Any]) -> dict[str, Any]:
     return view
 
 
+def has_marker(blob: Any) -> bool:
+    """True iff the reserved key is PRESENT, whatever its value.
+
+    The distinction matters at a gate (Astra review #2730 F2): a guard that
+    only reacts to a well-formed dict treats ``{"__output_profile__": null}``,
+    ``false``, a string or an array as unmarked raw data — so replacing a valid
+    marker with any garbage walked a projected view straight through both
+    restore boundaries. Malformed provenance is not the absence of provenance.
+    """
+    return isinstance(blob, dict) and OUTPUT_PROFILE_KEY in blob
+
+
+def marker_problems(value: Any) -> list[str]:
+    """Everything wrong with a marker VALUE, or an empty list. Closed schema:
+    a dict with exactly :data:`MARKER_KEYS`, a reviewed profile token, a
+    reviewed vote axis, ``restorable`` the literal boolean ``False``, and a
+    list of reviewed transform names."""
+    if not isinstance(value, dict):
+        return [f"marker must be a JSON object, got {type(value).__name__}"]
+    problems: list[str] = []
+    for missing in sorted(MARKER_KEYS - set(value)):
+        problems.append(f"marker is missing {missing!r}")
+    for unknown in sorted(set(value) - MARKER_KEYS):
+        problems.append(f"marker carries unknown field {unknown!r}")
+    if value.get("profile") not in PROFILES:
+        problems.append(
+            f"marker profile {value.get('profile')!r} is not one of "
+            f"{sorted(PROFILES)}")
+    if value.get("vote_axis") not in VOTE_AXES:
+        problems.append(
+            f"marker vote_axis {value.get('vote_axis')!r} is not one of "
+            f"{sorted(VOTE_AXES)}")
+    restorable = value.get("restorable")
+    if type(restorable) is not bool or restorable is not False:
+        problems.append(
+            f"marker restorable must be the boolean False, got "
+            f"{type(restorable).__name__} {restorable!r}")
+    transforms = value.get("transforms")
+    if not isinstance(transforms, list) or not transforms:
+        problems.append(
+            f"marker transforms must be a non-empty array, got "
+            f"{type(transforms).__name__}")
+    else:
+        for i, name in enumerate(transforms):
+            if name not in TRANSFORMS:
+                problems.append(
+                    f"marker transforms[{i}] is {name!r}, not one of "
+                    f"{sorted(TRANSFORMS)}")
+    return problems
+
+
 def profile_of(blob: Any) -> dict[str, Any] | None:
-    """The marker on ``blob``, or ``None`` for an unmarked (raw) blob."""
-    if isinstance(blob, dict):
-        found = blob.get(OUTPUT_PROFILE_KEY)
-        if isinstance(found, dict):
-            return found
-    return None
+    """The VALID marker on ``blob``, or ``None``.
+
+    ``None`` here means "no well-formed marker" and covers both an unmarked raw
+    blob and a corrupted one, so it is never the right thing for a gate to key
+    on by itself — use :func:`has_marker` for presence and
+    :func:`marker_problems` for validity.
+    """
+    if not has_marker(blob):
+        return None
+    found = blob[OUTPUT_PROFILE_KEY]
+    return found if not marker_problems(found) else None
 
 
 def is_projected_view(blob: Any) -> bool:
-    """True iff ``blob`` declares itself a projected (non-restorable) view."""
+    """True iff ``blob`` carries a WELL-FORMED projected-view marker."""
     return profile_of(blob) is not None
+
+
+def assert_valid_marker(blob: Any, *, label: str = "comparison view") -> dict[str, Any]:
+    """The COMPARISON-boundary check: the view must carry a marker and that
+    marker must satisfy the closed schema. Returns it."""
+    if not has_marker(blob):
+        raise OutputProfileError(
+            f"{label}: no {OUTPUT_PROFILE_KEY!r} marker; a projected view must "
+            f"declare its output profile and vote axis")
+    problems = marker_problems(blob[OUTPUT_PROFILE_KEY])
+    if problems:
+        raise OutputProfileError(
+            f"{label}: malformed {OUTPUT_PROFILE_KEY!r} marker — "
+            + "; ".join(problems))
+    return blob[OUTPUT_PROFILE_KEY]
 
 
 def payload(view: dict[str, Any]) -> dict[str, Any]:
@@ -109,12 +191,22 @@ def assert_restorable(blob: Any, *, label: str = "restore") -> None:
     a path that must consume the original complete, validated raw engine
     serialization.
 
-    Cheap and total: an unmarked raw blob — every blob any producer actually
-    emits — passes without inspection.
+    Fails closed on PRESENCE, not on validity: a malformed marker value is a
+    corrupted or hand-edited projected view, which is exactly the thing that
+    must not be restored (Astra review #2730 F2). An unmarked raw blob — every
+    blob any producer actually emits — passes without inspection.
     """
-    found = profile_of(blob)
-    if found is None:
+    if not has_marker(blob):
         return
+    found = blob[OUTPUT_PROFILE_KEY]
+    problems = marker_problems(found)
+    if problems:
+        raise OutputProfileError(
+            f"{label}: this blob carries a MALFORMED output-profile marker "
+            f"{OUTPUT_PROFILE_KEY!r} ({'; '.join(problems)}). The reserved key "
+            f"is rejected whenever it is present: malformed provenance is not "
+            f"the absence of provenance, and restore consumes only an original "
+            f"complete raw engine serialization.")
     raise OutputProfileError(
         f"{label}: this blob carries the output-profile marker "
         f"{OUTPUT_PROFILE_KEY!r} ({found.get('profile')!r}, vote_axis "

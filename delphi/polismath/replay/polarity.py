@@ -67,7 +67,9 @@ from polismath.utils.output_profile import (
     PROJECTED_PROFILE,
     VOTE_AXIS_AS_EMITTED,
     VOTE_AXIS_NEGATED,
-    is_projected_view,
+    OutputProfileError,
+    assert_valid_marker,
+    has_marker,
     marker,
     payload,
     stamp,
@@ -187,13 +189,20 @@ def vote_axis_involution(view: dict[str, Any]) -> dict[str, Any]:
     marker included: N is its own inverse, and the view always says which axis
     it is currently on, independently of the input storage sign.
     """
-    if not is_projected_view(view):
+    # The COMPARISON boundary validates the marker's own values, not merely its
+    # presence (Astra review #2730 F2): an unknown profile or axis is a
+    # corrupted view, and N must not translate one.
+    if not has_marker(view):
         raise PolarityError(
             "N is defined strictly on the validated, PROJECTED PREP_MAIN_KEYS "
             "comparison view (P-023 rev3). This blob carries no output-profile "
             f"marker ({OUTPUT_PROFILE_KEY!r}); build it with comparison_view() "
             "first. Applying N to a raw blob would break C9's producer sign "
             "relation on the group_clusters twin and corrupt the restore path.")
+    try:
+        assert_valid_marker(view, label="N")
+    except OutputProfileError as exc:
+        raise PolarityError(str(exc)) from exc
     present = [k for k in N_FORBIDDEN_RAW_KEYS if k in view]
     if present:
         raise PolarityError(
@@ -293,6 +302,14 @@ OUTPUT_CONVENTION_AS_EMITTED = "engine-as-emitted/1"
 PAIR_SIDE_ORIGINAL = "original"
 PAIR_SIDE_FLIPPED = "flipped"
 
+#: Closed enums. "Unknown convention fails admission" (P-023 rev3) is a
+#: predicate, not a sentiment: a truthiness check accepted `unknown-input/99`
+#: (Astra review #2730 F2).
+INPUT_CONVENTIONS: frozenset[str] = frozenset(
+    {INPUT_CONVENTION_EXPORT_SEMANTIC, INPUT_CONVENTION_RAW_STORAGE})
+OUTPUT_CONVENTIONS: frozenset[str] = frozenset({OUTPUT_CONVENTION_AS_EMITTED})
+PAIR_SIDES: frozenset[str] = frozenset({PAIR_SIDE_ORIGINAL, PAIR_SIDE_FLIPPED})
+
 
 @dataclass(frozen=True)
 class ConventionDescriptor:
@@ -308,11 +325,18 @@ class ConventionDescriptor:
 
     def __post_init__(self) -> None:
         validate_storage_agree_value(self.storage_agree_value)
-        if self.pair_side not in (PAIR_SIDE_ORIGINAL, PAIR_SIDE_FLIPPED):
+        if self.pair_side not in PAIR_SIDES:
             raise PolarityError(f"unknown pair side {self.pair_side!r}")
-        if not self.input_convention or not self.output_convention:
-            raise PolarityError("input/output conventions must be declared; an "
-                                "unknown convention fails admission")
+        if self.input_convention not in INPUT_CONVENTIONS:
+            raise PolarityError(
+                f"input convention {self.input_convention!r} is not one of "
+                f"{sorted(INPUT_CONVENTIONS)}: an unknown convention fails "
+                f"admission")
+        if self.output_convention not in OUTPUT_CONVENTIONS:
+            raise PolarityError(
+                f"output convention {self.output_convention!r} is not one of "
+                f"{sorted(OUTPUT_CONVENTIONS)}: an unknown convention fails "
+                f"admission")
 
     def cache_fields(self) -> dict[str, Any]:
         return {
@@ -458,28 +482,34 @@ def _apply_control(
     rows: Sequence[dict[str, Any]], s: int, control: str,
 ) -> tuple[list[dict[str, Any]], int, bool]:
     """Build the FLIPPED side under ``control``. Returns
-    ``(rows_b, s_b, double_convert_original_side)``.
+    ``(rows_b, s_b, double_convert_side)`` where the third element names the
+    side whose ingress converts twice (``None`` for every other control).
 
-    Note which side ``double-negate-ingress`` breaks: the ORIGINAL one. A
-    double conversion is arithmetically the identity (``s**2 == 1``), so
-    breaking the FLIPPED side would be indistinguishable from a correct pair at
-    ``s == -1`` — ``(-V)`` converted twice equals ``V x (-1)`` — and the
-    control would PASS while proving nothing. Breaking the original side gives
-    ``V`` against ``V x s``, which differs on every nonzero vote.
+    Which side ``double-negate-ingress`` must break depends on the DECLARED
+    convention, and getting it wrong makes the control vacuous (Astra review
+    #2730 F4). A double conversion is arithmetically the identity
+    (``s**2 == 1``), so a doubly-converted side emits raw ``V`` while the
+    correct side emits ``V x s``: the two differ only when ``s == -1``.
+    Breaking the side that declares ``-1`` is therefore the non-degenerate
+    choice under BOTH declarations — the original side at ``s == -1``, the
+    flipped side at ``s == +1`` — and it is the same fault either way: one
+    ingress converted twice.
     """
     if control == CONTROL_NONE:
-        return flip_raw_votes(rows), flipped(s), False
+        return flip_raw_votes(rows), flipped(s), None
     if control == CONTROL_VOTES_ONLY:
         # Votes negated, convention NOT re-declared: the semantic meaning of
         # every nonzero vote inverts.
-        return flip_raw_votes(rows), s, False
+        return flip_raw_votes(rows), s, None
     if control == CONTROL_CONVENTION_ONLY:
         # The convention alone changes. Same votes file — which is precisely
         # why the recording cache must key on the declared convention, or this
         # control silently reads a stale recording instead of executing.
-        return list(rows), flipped(s), False
+        return list(rows), flipped(s), None
     if control == CONTROL_DOUBLE_NEGATION:
-        return flip_raw_votes(rows), flipped(s), True  # applied to side A
+        # Break whichever side declares -1.
+        side = PAIR_SIDE_ORIGINAL if s == -1 else PAIR_SIDE_FLIPPED
+        return flip_raw_votes(rows), flipped(s), side
     if control == CONTROL_ONE_VOTE_UNCHANGED:
         out = flip_raw_votes(rows)
         for i, row in enumerate(rows):
@@ -490,7 +520,7 @@ def _apply_control(
             raise PolarityError(
                 f"control {control!r} needs at least one nonzero vote in the "
                 "fixture; it must reach the gate, not fail setup")
-        return out, flipped(s), False
+        return out, flipped(s), None
     if control == CONTROL_NULL_TO_PASS:
         out = flip_raw_votes(rows)
         for i, row in enumerate(rows):
@@ -501,7 +531,7 @@ def _apply_control(
             raise PolarityError(
                 f"control {control!r} needs at least one NULL vote in the "
                 "fixture; it must reach the gate, not fail setup")
-        return out, flipped(s), False
+        return out, flipped(s), None
     if control == CONTROL_RESORT_BY_SIGN:
         out = flip_raw_votes(rows)
         # Re-sort by (created, raw sign) — the "improvement" P-023 forbids.
@@ -509,7 +539,7 @@ def _apply_control(
         # side only, because the raw signs are opposite across the pair.
         out = sorted(out, key=lambda r: (r["created"], r["vote"] is None,
                                          r["vote"] if r["vote"] is not None else 0))
-        return out, flipped(s), False
+        return out, flipped(s), None
     raise PolarityError(f"unknown control {control!r}")
 
 
@@ -620,17 +650,19 @@ def check_polarity_pair(
     s = validate_storage_agree_value(storage_agree_value)
     if ingress not in _INGRESS:
         raise PolarityError(f"unknown ingress path {ingress!r}")
-    rows_b, s_b, double_convert_a = _apply_control(case.rows, s, control)
+    rows_b, s_b, double_side = _apply_control(case.rows, s, control)
 
     with tempfile.TemporaryDirectory(dir=workdir) as tmp:
         root = Path(tmp)
         (root / "a").mkdir()
         (root / "b").mkdir()
         side_a = _run_side(case, case.rows, s, ingress=ingress,
-                           workdir=root / "a", double_convert=double_convert_a,
+                           workdir=root / "a",
+                           double_convert=double_side == PAIR_SIDE_ORIGINAL,
                            project=project)
         side_b = _run_side(case, rows_b, s_b, ingress=ingress,
-                           workdir=root / "b", double_convert=False,
+                           workdir=root / "b",
+                           double_convert=double_side == PAIR_SIDE_FLIPPED,
                            project=project)
 
     problems: list[str] = []

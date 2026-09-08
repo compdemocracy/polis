@@ -1557,136 +1557,280 @@ def test_generated_case_metrics_use_latest_distinct_cells_not_revote_rows():
 
 
 # ---------------------------------------------------------------------------
-# P-023: manifest/3 — a DECLARED +-1 storage convention and the pair/transform
-# block. The old gate hard-pinned -1 (`REQUIRED_STORAGE_AGREE_VALUE`, checked
-# against a module constant rather than the bundle's own declaration), so the
-# flipped side of a compensated polarity pair was inadmissible by construction
-# and could be neither pushed nor pulled.
+# P-023: manifest/3 — a DECLARED +-1 storage convention, the pair/transform
+# block, and the DERIVED role source that makes a flipped bundle admissible.
+#
+# Every test here runs the REAL admission gate end to end: no filtered problem
+# list (Astra review #2730 F1 — filtering hid the fact that no role source
+# existed under which a flipped bundle could be admitted at all), so an
+# unrelated admission error fails the test rather than being discarded.
+#
+# The shared `bundle` fixture pins the committed `schedules/` directory, which
+# contains an independently pre-existing zero-cut schedule that admission
+# rejects. These tests therefore pin the valid subset explicitly: the defect is
+# real and untouched, but it is not what they are about.
 # ---------------------------------------------------------------------------
 
-def _polarity_problems(manifest, config):
-    """Only the polarity/transform lines of the admission report. The shared
-    reference bundle carries an unrelated pre-existing defect, so these tests
-    assert on the predicates they are about rather than on overall success."""
-    try:
-        fb.admit_manifest(manifest, config=config,
-                          config_bytes=fc.DEFAULT_CONFIG_PATH.read_bytes())
-    except fb.AdmissionError as exc:
-        return [line.strip(" -") for line in str(exc).splitlines()
-                if "polarity" in line or "transform" in line]
-    return []
+import shutil
 
 
-def _as_derived(manifest, sign):
-    """A copy of the reference manifest re-declared as a DERIVED pair fixture:
-    the flipped convention and no production-source role."""
-    derived = copy.deepcopy(manifest)
-    derived["polarity"]["storage_agree_value"] = sign
-    for role in derived["roles"]:
-        role["source"] = "synthetic-replacement"
-    return derived
+def _valid_schedules():
+    return [s for s in fb.collect_schedule_hashes(fc.SCRIPTS_DIR / "schedules")
+            if s["n_cuts"] > 0]
 
 
-def test_an_original_capture_declares_minus_one_and_no_transform(bundle, config):
-    _, manifest, _, _ = bundle
+def _admit(manifest, config):
+    fb.admit_manifest(manifest, config=config,
+                      config_bytes=fc.DEFAULT_CONFIG_PATH.read_bytes())
+
+
+@pytest.fixture
+def admitted(config, tmp_path):
+    """A COMPLETELY admitted original manifest/3 bundle: -1, transform null."""
+    payload, summaries = _generate(config, tmp_path)
+    manifest = _manifest(config, payload, generated_summaries=summaries,
+                         schedules=_valid_schedules())
+    _admit(manifest, config)
+    return payload, manifest
+
+
+def _flip_payload(src: Path, dest: Path) -> Path:
+    """The derived side's payload: every non-null RAW vote leaf negated in the
+    authoritative event stream, written back through the extractor's own
+    serializer, and the compatibility CSVs regenerated under the flipped
+    declared convention. Identities, ordinals, timestamps and order are
+    untouched."""
+    shutil.copytree(src, dest)
+    for events_path in sorted(dest.rglob("events.jsonl")):
+        events = [json.loads(line) for line
+                  in events_path.read_text().splitlines() if line.strip()]
+        for event in events:
+            if event.get("kind") == "vote" and event.get("vote") is not None:
+                event["vote"] = -event["vote"]
+        fx.write_events_jsonl(events_path, events)
+        votes_rows, comments_rows, _ = fx.compat_rows_from_events(
+            events, storage_agree_value=1)
+        stem = events_path.parent.name
+        pc.write_votes_csv(events_path.parent / f"{stem}-votes.csv", votes_rows)
+        pc.write_comments_csv(
+            events_path.parent / f"{stem}-comments.csv", comments_rows)
+    return dest
+
+
+def test_an_original_capture_declares_minus_one_and_no_transform(admitted, config):
+    _, manifest = admitted
     assert manifest["schema_version"] == "certify-fixture-manifest/3"
     assert manifest["polarity"]["storage_agree_value"] == -1
     assert manifest["transform"] is None
-    assert _polarity_problems(manifest, config) == []
+    assert {r["source"] for r in manifest["roles"]} <= fb.ORIGINAL_ROLE_SOURCES
 
 
-def test_a_derived_fixture_may_declare_the_flipped_convention(bundle, config):
-    """The whole point of the bump: +1 is admissible when it is DECLARED and
-    the bundle carries no production capture."""
-    _, manifest, _, _ = bundle
-    assert _polarity_problems(_as_derived(manifest, 1), config) == []
+def test_the_flipped_side_of_a_pair_verifies_admits_pushes_and_pulls(
+        admitted, config, tmp_path):
+    """F1, end to end and unfiltered. The whole point of the schema bump: the
+    +1 side of the compensated pair must be publishable, and it was not — 15 of
+    the 17 required roles carry on_missing:fail, so they can be neither
+    substituted nor (under +1) production."""
+    payload, manifest = admitted
+    derived_payload = _flip_payload(payload, tmp_path / "derived-payload")
+
+    # The involution is visible in the RAW stream and invisible in the
+    # compatibility export: the export is semantic, so raw x s is unchanged.
+    # That is the pair's convergence, asserted on real bytes.
+    for original_csv in sorted(payload.rglob("*-votes.csv")):
+        mirror = derived_payload / original_csv.relative_to(payload)
+        assert mirror.read_bytes() == original_csv.read_bytes()
+    raw_changed = [p for p in sorted(payload.rglob("events.jsonl"))
+                   if (derived_payload / p.relative_to(payload)).read_bytes()
+                   != p.read_bytes()]
+    assert raw_changed, "the derived payload must actually differ in raw votes"
+
+    derived = fb.build_derived_manifest(
+        manifest, bundle_id="pcb-test-0001-flipped",
+        payload_root=derived_payload,
+        source_manifest_sha256=fb.sha256_bytes(fb.canonical_json(manifest)),
+        bijective_verified=True,
+        notes="P-023 compensated pair, flipped side")
+
+    assert derived["polarity"]["storage_agree_value"] == 1
+    assert all(r["source"] == fb.DERIVED_ROLE_SOURCE for r in derived["roles"])
+    assert all(r["derived_from"]["bundle_id"] == manifest["bundle_id"]
+               for r in derived["roles"])
+    assert derived["transform"]["source"]["root_digest"] == manifest["root_digest"]
+
+    fb.verify(derived_payload, derived)
+    _admit(derived, config)
+
+    store = fb.LocalStore(tmp_path / "store")
+    provenance = fb.build_provenance(
+        bundle_id=derived["bundle_id"], root_digest_value=derived["root_digest"],
+        selections=[{"role": "one", "slug": "pc-v1-one", "dir": "gen-v1-one-voter",
+                     "zid": 987654321}],
+        owner="test-owner")
+    pins = fb.push(store, bundle_id=derived["bundle_id"],
+                   payload_root=derived_payload, manifest=derived,
+                   provenance=provenance, config=config,
+                   config_bytes=fc.DEFAULT_CONFIG_PATH.read_bytes())
+    assert pins["root_digest"] == derived["root_digest"]
+
+    dest = tmp_path / "pulled"
+    result = fb.pull(store, bundle_id=derived["bundle_id"], dest=dest)
+    assert result["n_files"] == len(derived["files"])
+    assert fb.root_digest(fb.scan_files(dest / "payload")) == derived["root_digest"]
 
 
-def test_a_production_capture_may_not_declare_the_flipped_convention(bundle, config):
-    """The release policy, kept separate from the schema."""
-    _, manifest, _, _ = bundle
+def test_a_production_capture_may_not_declare_the_flipped_convention(
+        admitted, config):
+    _, manifest = admitted
     broken = copy.deepcopy(manifest)
     broken["polarity"]["storage_agree_value"] = 1
-    problems = _polarity_problems(broken, config)
-    assert any("production" in p and "storage_agree_value" in p for p in problems), \
-        problems
+    with pytest.raises(fb.AdmissionError, match="production storage is still -1"):
+        _admit(broken, config)
 
 
 @pytest.mark.parametrize("bad", [True, False, 0, -1.0, "-1", None, 2])
-def test_a_convention_that_is_not_exactly_int_pm1_is_refused(bundle, config, bad):
-    _, manifest, _, _ = bundle
+def test_a_convention_that_is_not_exactly_int_pm1_is_refused(admitted, config, bad):
+    _, manifest = admitted
     broken = copy.deepcopy(manifest)
     broken["polarity"]["storage_agree_value"] = bad
-    problems = _polarity_problems(broken, config)
-    assert any("exactly the integer -1 or +1" in p for p in problems), problems
+    with pytest.raises(fb.AdmissionError, match="exactly the integer -1 or \\+1"):
+        _admit(broken, config)
 
 
-def _transform(**overrides):
+def _derived_manifest(manifest, payload_root, **overrides):
     kwargs = dict(
-        source_bundle_id="pcb-test-0000",
-        source_root_digest="a" * 64,
-        source_manifest_sha256="b" * 64,
-        source_storage_agree_value=-1,
-        bijective_verified=True,
-        notes="P-023 compensated pair",
-    )
+        bundle_id="pcb-test-0001-flipped", payload_root=payload_root,
+        source_manifest_sha256=fb.sha256_bytes(fb.canonical_json(manifest)),
+        bijective_verified=True)
     kwargs.update(overrides)
-    return fb.build_transform_block(**kwargs)
+    return fb.build_derived_manifest(manifest, **kwargs)
 
 
-def test_a_derived_manifest_binds_the_original_non_circularly(bundle, config):
-    _, manifest, _, _ = bundle
-    derived = _as_derived(manifest, 1)
-    derived["transform"] = _transform()
-    assert _polarity_problems(derived, config) == []
-    assert derived["transform"]["source"]["bundle_id"] != derived["bundle_id"]
+@pytest.fixture
+def derived_pair(admitted, tmp_path):
+    payload, manifest = admitted
+    derived_payload = _flip_payload(payload, tmp_path / "derived-payload")
+    return manifest, _derived_manifest(manifest, derived_payload)
 
 
 @pytest.mark.parametrize("mutate,needle", [
-    (lambda t, m: t.update(transform_id="hand-edited/9"), "transform_id"),
-    (lambda t, m: t.update(involution=False), "involution"),
-    (lambda t, m: t.update(bijective_verified=False), "bijective_verified"),
-    (lambda t, m: t.update(surprise="unreviewed"), "unknown transform field"),
-    (lambda t, m: t["source"].update(bundle_id=m["bundle_id"]), "non-circular"),
-    (lambda t, m: t["source"].update(storage_agree_value=1), "must be opposite"),
-    (lambda t, m: t["source"].update(root_digest="stale"), "sha256 hex digest"),
-    (lambda t, m: t["source"].pop("manifest_sha256"), "manifest_sha256 is missing"),
-    (lambda t, m: t["source"].update(extra="unreviewed"),
+    (lambda m: m["transform"].update(schema_version="unreviewed-transform/999"),
+     "transform.schema_version"),
+    (lambda m: m["transform"].update(transform_id="hand-edited/9"), "transform_id"),
+    (lambda m: m["transform"].update(involution=False), "involution"),
+    (lambda m: m["transform"].update(bijective_verified=False), "bijective_verified"),
+    (lambda m: m["transform"].update(surprise="unreviewed"), "unknown transform field"),
+    (lambda m: m["transform"]["source"].update(bundle_id=m["bundle_id"]),
+     "non-circular"),
+    (lambda m: m["transform"]["source"].update(storage_agree_value=1),
+     "must be opposite"),
+    (lambda m: m["transform"]["source"].update(root_digest="stale"),
+     "sha256 hex digest"),
+    (lambda m: m["transform"]["source"].pop("manifest_sha256"),
+     "manifest_sha256 is missing"),
+    (lambda m: m["transform"]["source"].update(extra="unreviewed"),
      "unknown transform.source field"),
+    (lambda m: m.update(transform=None), "declares no transform block"),
+    (lambda m: [r.pop("derived_from") for r in m["roles"]],
+     "no derived_from binding"),
+    (lambda m: [r["derived_from"].update(source="derived") for r in m["roles"]],
+     "RETAIN the original"),
+    (lambda m: [r["derived_from"].update(bundle_id="some-other-bundle")
+                for r in m["roles"]], "derived from two different bundles"),
+    (lambda m: [r["derived_from"].update(slug="pc-v1-elsewhere") for r in m["roles"]],
+     "never which conversation filled a role"),
+    (lambda m: [r["derived_from"].update(surprise=1) for r in m["roles"]],
+     "unknown field"),
+    (lambda m: [r.update(source="production") for r in m["roles"]],
+     "never re-extracted from production"),
+    (lambda m: [r["compat"].update(storage_agree_value=-1) for r in m["roles"]
+                if isinstance(r.get("compat"), dict)],
+     "counted under storage agree"),
 ])
-def test_a_malformed_pair_descriptor_is_refused(bundle, config, mutate, needle):
-    _, manifest, _, _ = bundle
-    derived = _as_derived(manifest, 1)
-    derived["transform"] = _transform()
-    mutate(derived["transform"], derived)
-    problems = _polarity_problems(derived, config)
-    assert any(needle in p for p in problems), problems
+def test_a_malformed_derived_manifest_is_refused(derived_pair, config, mutate, needle):
+    _, derived = derived_pair
+    broken = copy.deepcopy(derived)
+    mutate(broken)
+    with pytest.raises(fb.AdmissionError, match=needle):
+        _admit(broken, config)
 
 
-def test_a_derived_fixture_may_not_also_claim_a_production_role(bundle, config):
-    _, manifest, _, _ = bundle
-    derived = copy.deepcopy(manifest)
-    derived["polarity"]["storage_agree_value"] = 1
-    derived["transform"] = _transform()
-    problems = _polarity_problems(derived, config)
-    assert any("never re-extracted from production" in p for p in problems), problems
+def test_a_derived_role_needs_its_transform_block(admitted, config, tmp_path):
+    payload, manifest = admitted
+    broken = copy.deepcopy(manifest)
+    broken["roles"] = [fb.derived_role(r, source_bundle_id="pcb-test-0000")
+                       for r in broken["roles"]]
+    with pytest.raises(fb.AdmissionError, match="declares no transform block"):
+        _admit(broken, config)
 
 
-def test_build_manifest_refuses_an_undeclarable_convention(config, tmp_path):
-    payload, summaries = _generate(config, tmp_path)
-    with pytest.raises(Exception):
-        _manifest(config, payload, generated_summaries=summaries,
-                  storage_agree_value=True)
-    with pytest.raises(fb.BundleError, match="must be opposite"):
-        _manifest(config, payload, generated_summaries=summaries,
-                  storage_agree_value=1,
-                  transform=_transform(source_storage_agree_value=1))
+def test_a_transform_block_needs_derived_roles(derived_pair, config):
+    _, derived = derived_pair
+    broken = copy.deepcopy(derived)
+    for role, original in zip(broken["roles"], derived["roles"]):
+        role["source"] = original["derived_from"]["source"]
+        role.pop("derived_from")
+    with pytest.raises(fb.AdmissionError, match="no role declares source"):
+        _admit(broken, config)
 
 
-def test_build_manifest_writes_the_declared_convention(config, tmp_path):
-    payload, summaries = _generate(config, tmp_path)
-    flipped = _manifest(config, payload, generated_summaries=summaries,
-                        storage_agree_value=1, transform=_transform())
-    assert flipped["polarity"]["storage_agree_value"] == 1
-    assert flipped["polarity"]["export_agree_value"] == 1
-    assert flipped["transform"]["source"]["storage_agree_value"] == -1
+def test_a_pair_is_two_sides_not_a_chain(derived_pair, tmp_path):
+    _, derived = derived_pair
+    with pytest.raises(fb.BundleError, match="not a chain"):
+        fb.build_derived_manifest(
+            derived, bundle_id="pcb-test-0001-flipped-again",
+            payload_root=tmp_path / "derived-payload",
+            source_manifest_sha256="c" * 64, bijective_verified=True)
+
+
+def test_bijective_verified_is_never_coerced():
+    """F3: bool("false") is True, so coercion turned an unverified declaration
+    into a verified one."""
+    with pytest.raises(fb.BundleError, match="never coerced"):
+        fb.build_transform_block(
+            source_bundle_id="pcb-test-0000", source_root_digest="a" * 64,
+            source_manifest_sha256="b" * 64, source_storage_agree_value=-1,
+            bijective_verified="false")
+
+
+# --- manifest/2 stays admissible on its original bytes ----------------------
+
+def _as_legacy_v2(manifest):
+    """Exactly what the parent implementation wrote: no transform key, and the
+    /2 schema version."""
+    legacy = copy.deepcopy(manifest)
+    legacy.pop("transform")
+    legacy["schema_version"] = fb.LEGACY_MANIFEST_SCHEMA_VERSION
+    return legacy
+
+
+def test_an_existing_manifest_v2_still_verifies_and_admits_unchanged(
+        admitted, config):
+    """Astra #2730: a /2 manifest that verified and admitted under the parent
+    implementation must not be invalidated by this bump. Its absent transform
+    field IS the 'original capture' declaration, and its bytes are untouched."""
+    payload, manifest = admitted
+    legacy = _as_legacy_v2(manifest)
+    before = fb.canonical_json(legacy)
+
+    fb.verify(payload, legacy)
+    _admit(legacy, config)
+    assert fb.canonical_json(legacy) == before
+
+
+def test_a_v2_manifest_may_not_carry_a_v3_field(admitted, config, tmp_path):
+    payload, manifest = admitted
+    legacy = _as_legacy_v2(manifest)
+    legacy["transform"] = _derived_manifest(
+        manifest, payload)["transform"]
+    with pytest.raises(fb.AdmissionError, match="unknown manifest field"):
+        _admit(legacy, config)
+
+
+def test_a_v3_manifest_must_state_the_transform_field(admitted, config):
+    _, manifest = admitted
+    broken = copy.deepcopy(manifest)
+    broken.pop("transform")
+    with pytest.raises(fb.AdmissionError,
+                       match="missing required manifest field: transform"):
+        _admit(broken, config)

@@ -354,6 +354,62 @@ def test_control_17_the_projected_view_is_refused_at_both_restore_boundaries(
         Conversation.from_dict(view)
 
 
+MALFORMED_MARKERS = [
+    None, False, True, 0, "projected", [], {},
+    {"profile": "made-up/9", "restorable": False,
+     "vote_axis": op.VOTE_AXIS_AS_EMITTED, "transforms": ["project_prep_main"]},
+    {"profile": op.PROJECTED_PROFILE, "restorable": False,
+     "vote_axis": "sideways", "transforms": ["project_prep_main"]},
+    {"profile": op.PROJECTED_PROFILE, "restorable": "false",
+     "vote_axis": op.VOTE_AXIS_AS_EMITTED, "transforms": ["project_prep_main"]},
+    {"profile": op.PROJECTED_PROFILE, "restorable": False,
+     "vote_axis": op.VOTE_AXIS_AS_EMITTED, "transforms": ["hand-rolled"]},
+    {"profile": op.PROJECTED_PROFILE, "restorable": False,
+     "vote_axis": op.VOTE_AXIS_AS_EMITTED, "transforms": []},
+    {"profile": op.PROJECTED_PROFILE, "restorable": False,
+     "vote_axis": op.VOTE_AXIS_AS_EMITTED, "transforms": ["project_prep_main"],
+     "surprise": 1},
+    {"profile": op.PROJECTED_PROFILE, "restorable": False,
+     "vote_axis": op.VOTE_AXIS_AS_EMITTED},
+]
+
+
+@pytest.mark.parametrize("malformed", MALFORMED_MARKERS)
+def test_control_17b_a_malformed_marker_does_not_bypass_either_boundary(
+        real_driver_blob, malformed):
+    """Astra #2730 F2. Both guards keyed on a well-formed dict, so replacing the
+    marker value with null, false, a string or an array made the projected view
+    read as unmarked RAW data: it passed the checkpoint gate and restored a
+    conversation with zero groups. Malformed provenance is not the absence of
+    provenance — the reserved key is refused whenever it is present."""
+    view = pol.payload(pol.vote_axis_involution(_projected(real_driver_blob)))
+    view[op.OUTPUT_PROFILE_KEY] = malformed
+
+    with pytest.raises(cert.CertifyError, match="output-profile marker"):
+        cert.validate_checkpoint_blob(view, "malformed marker")
+    with pytest.raises(op.OutputProfileError):
+        Conversation.from_dict(view)
+
+
+@pytest.mark.parametrize("malformed", MALFORMED_MARKERS)
+def test_N_refuses_a_malformed_marker_at_the_comparison_boundary(malformed):
+    """The comparison boundary validates the marker's VALUES, not just its
+    presence: N must not translate a view whose declared output convention is
+    unreviewed or corrupted."""
+    view = _projected(GEOMETRY_BLOB)
+    view[op.OUTPUT_PROFILE_KEY] = malformed
+    with pytest.raises(pol.PolarityError):
+        pol.vote_axis_involution(view)
+
+
+def test_a_well_formed_marker_round_trips_through_the_validator():
+    view = _projected(GEOMETRY_BLOB)
+    assert op.marker_problems(view[op.OUTPUT_PROFILE_KEY]) == []
+    assert op.assert_valid_marker(view)["profile"] == op.PROJECTED_PROFILE
+    assert op.has_marker(view) and op.is_projected_view(view)
+    assert not op.has_marker(pol.payload(view))
+
+
 def test_control_18_the_marker_is_what_prevents_the_silent_empty_restore(
         real_driver_blob):
     """Control 18 — the hazard the marker prevents, demonstrated. Strip the
@@ -383,14 +439,20 @@ def test_the_compensated_pair_holds_on_every_case_and_ingress(ingress, case_inde
     assert result["run_ids"][0] != result["run_ids"][1]
 
 
+@pytest.mark.parametrize("declared", [-1, 1])
 @pytest.mark.parametrize("ingress", pol.INGRESS_PATHS)
 @pytest.mark.parametrize("control", pol.FAILING_CONTROLS)
-def test_every_negative_control_reaches_its_gate_and_fails(ingress, control):
+def test_every_negative_control_reaches_its_gate_and_fails(ingress, control, declared):
+    """Under BOTH declarations (Astra #2730 F4). The double-conversion control
+    was injected unconditionally on the original side, which is the identity
+    at s = +1: the "broken" pair passed on both ingress paths and the mandatory
+    control proved nothing."""
     if control == pol.CONTROL_NULL_TO_PASS and ingress == pol.INGRESS_DB_ROWS:
         pytest.skip("NULL is INVALID_INPUT at the computing ingress; see the "
                     "rejection test below")
     case = pol.control_case(control)
-    result = pol.check_polarity_pair(case, ingress=ingress, control=control)
+    result = pol.check_polarity_pair(case, ingress=ingress, control=control,
+                                     storage_agree_value=declared)
     assert result["verdict"] == "FAIL", result
     assert result["problems"], "a control must fail for a NAMED reason"
     assert result["checkpoints"] > 0, (
@@ -413,9 +475,11 @@ def test_the_pair_runs_from_a_declared_plus_one_convention_too():
     assert result["conventions"]["flipped"]["storage_agree_value"] == -1
 
 
-def test_the_standing_property_passes_and_carries_its_controls():
-    report = pol.run_standing_property()
+@pytest.mark.parametrize("declared", [-1, 1])
+def test_the_standing_property_passes_and_carries_its_controls(declared):
+    report = pol.run_standing_property(storage_agree_value=declared)
     assert report["verdict"] == "PASS", report["problems"]
+    assert report["storage_agree_value"] == declared
     assert len(report["pairs"]) == 8
     assert len(report["controls"]) == 11
     assert all(r["verdict"] == "FAIL" for r in report["controls"])
@@ -436,13 +500,22 @@ def test_a_broken_ingress_conversion_fails_the_standing_property(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
-def test_the_convention_descriptor_refuses_an_undeclared_convention():
-    with pytest.raises(vc.VoteConventionError):
-        pol.ConventionDescriptor(storage_agree_value=True)
-    with pytest.raises(pol.PolarityError):
-        pol.ConventionDescriptor(pair_side="whichever")
-    with pytest.raises(pol.PolarityError):
-        pol.ConventionDescriptor(output_convention="")
+@pytest.mark.parametrize("kwargs", [
+    {"storage_agree_value": True},
+    {"pair_side": "whichever"},
+    {"output_convention": ""},
+    {"input_convention": ""},
+    # "Unknown convention fails admission" is a predicate, not a sentiment:
+    # a truthiness check accepted these (Astra #2730 F2).
+    {"input_convention": "unknown-input/99"},
+    {"output_convention": "unknown-output/99"},
+])
+def test_the_convention_descriptor_refuses_an_undeclared_convention(kwargs):
+    with pytest.raises((pol.PolarityError, vc.VoteConventionError)):
+        pol.ConventionDescriptor(**kwargs)
+
+
+def test_the_convention_descriptor_flip_is_an_involution():
     assert pol.DEFAULT_CONVENTIONS.flip().flip() == pol.DEFAULT_CONVENTIONS
 
 

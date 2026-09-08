@@ -67,7 +67,11 @@ from polismath.replay.polarity import (
 )
 from polismath.replay.stepcompare import DEFAULT_TOLERANT_STAT_KEYS, StepComparer
 from polismath.replay.types import ReplayDataset
-from polismath.utils.output_profile import OUTPUT_PROFILE_KEY, profile_of
+from polismath.utils.output_profile import (
+    OUTPUT_PROFILE_KEY,
+    has_marker,
+    marker_problems,
+)
 
 #: Frozen schedule-id suffix + fingerprint component. Battery schedule ids
 #: and ledger fingerprint keys were minted while the engine still had a mode
@@ -575,14 +579,21 @@ def validate_checkpoint_blob(
     # twin, proj) that the restore path reads. The output-profile marker is the
     # only thing that distinguishes it, so it is refused here as well as at
     # Conversation.from_dict.
-    marked = profile_of(blob)
-    if marked is not None:
+    # Presence, not validity: a malformed marker value is a corrupted projected
+    # view, and treating it as unmarked raw data is how all four of
+    # {null, false, "projected", []} walked straight through this gate (Astra
+    # review #2730 F2). The reserved key is refused whenever it appears.
+    if has_marker(blob):
+        marked = blob[OUTPUT_PROFILE_KEY]
+        problems = marker_problems(marked)
+        detail = ("; ".join(problems) if problems else
+                  f"{marked.get('profile')!r}, vote_axis "
+                  f"{marked.get('vote_axis')!r}")
         raise CertifyError(
             "checkpoint-schema",
-            f"{label}: blob carries the output-profile marker "
-            f"{OUTPUT_PROFILE_KEY!r} ({marked.get('profile')!r}, vote_axis "
-            f"{marked.get('vote_axis')!r}): a projected comparison view is "
-            f"never a raw checkpoint")
+            f"{label}: blob carries the reserved output-profile marker "
+            f"{OUTPUT_PROFILE_KEY!r} ({detail}): a projected comparison view — "
+            f"malformed or not — is never a raw checkpoint")
 
     # UNTOUCHED-RAW checks first, before any normalization (P-022 B1 review,
     # round 3). Building the canonical dict is lossy: aliased raw keys collapse
@@ -1774,6 +1785,23 @@ def _write_run_manifest(root: Path, manifest: dict[str, Any]) -> Path:
     return path
 
 
+#: The standing property's verdict for one engine tree, memoized per PROCESS.
+#: It is a property of the ENGINE, not of a battery entry or a run: replaying
+#: it for every ``run_battery`` call in one process re-proves the same fact
+#: about the same bytes (the key is the engine tree hash the recording cache
+#: already keys on), and a battery that certifies many entries would pay for it
+#: many times over.
+@functools.lru_cache(maxsize=4)
+def _standing_polarity_property(engine_tree_sha256: str) -> dict[str, Any]:
+    try:
+        return run_standing_property(project=project_acceptance)
+    except Exception as exc:  # noqa: BLE001 — a broken property is a FAIL
+        return {"property": "P-023 compensated polarity pair",
+                "verdict": "FAIL", "pairs": [], "controls": [],
+                "storage_agree_value": None,
+                "problems": [f"{type(exc).__name__}: {exc}"]}
+
+
 def run_battery(
     entries: list[BatteryEntry], *, root: Path | None = None, refresh_clj: bool = False,
     refresh_py: bool = False, ledger_path: str | Path | None = None, only: str | None = None,
@@ -1831,12 +1859,7 @@ def run_battery(
                 p.entry, CertifyError("inventory", "prefix diagnostic requires a full-stream companion"))
     standing: list[dict[str, Any]] = []
     if standing_properties:
-        try:
-            polarity = run_standing_property(project=project_acceptance)
-        except Exception as exc:  # noqa: BLE001 — a broken property is a FAIL
-            polarity = {"property": "P-023 compensated polarity pair",
-                        "verdict": "FAIL",
-                        "problems": [f"{type(exc).__name__}: {exc}"]}
+        polarity = _standing_polarity_property(_engine_tree_hash_cached())
         standing.append({
             "property": polarity["property"],
             "verdict": polarity["verdict"],
