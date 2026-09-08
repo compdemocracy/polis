@@ -7,14 +7,31 @@ const cp=require('node:child_process'),path=require('node:path'),net=require('no
 const wait=ms=>new Promise(r=>setTimeout(r,ms));
 const BIN=path.resolve(__dirname,'../target/debug/polis-api');
 async function start(env,port){
- const errors=[];let ready=false;
+ const errors=[];let ready=false,pending='';
  const child=cp.spawn(BIN,[],{env:{...process.env,...env,LISTEN_ADDR:`127.0.0.1:${port}`,P032_FIXTURE_CLOCK:'1700000000000'},stdio:['ignore','ignore','pipe']});
- child.stderr.on('data',b=>{for(const s of b.toString().split('\n').filter(Boolean)){if(s.startsWith('polis-api listening'))ready=true;else errors.push(s);}});
+ // Buffer partial lines: a structured log record can straddle two chunks.
+ child.stderr.on('data',b=>{
+  pending+=b.toString();
+  const lines=pending.split('\n');pending=lines.pop();
+  for(const s of lines.filter(Boolean)){if(s.startsWith('polis-api listening'))ready=true;else errors.push(s);}
+ });
  for(let i=0;i<100&&!ready;i++)await wait(50);
  assert.ok(ready,'candidate started');
  return {child,errors};
 }
-const stop=async p=>{const ended=new Promise(r=>p.child.once('exit',r));p.child.kill('SIGTERM');await ended;assert.deepEqual(p.errors,[]);};
+// A probe may deliberately provoke a structured log line; name the events it must
+// emit, and every other stderr line is still a failure.
+const stop=async(p,expected=[])=>{
+ const ended=new Promise(r=>p.child.once('exit',r));p.child.kill('SIGTERM');await ended;
+ await new Promise(r=>setTimeout(r,50));
+ const events=[],other=[];
+ for(const line of p.errors){
+  let event=null;try{event=JSON.parse(line).event;}catch{}
+  (expected.includes(event)?events:other).push(event??line);
+ }
+ assert.deepEqual(other,[],'unexpected stderr');
+ for(const name of expected)assert.ok(events.includes(name),`expected the ${name} log line`);
+};
 // A raw client: fetch hides the wire, and connection reuse is the wire.
 function exchange(port,requests){
  return new Promise((resolve,reject)=>{
@@ -95,7 +112,7 @@ async function main(){
   assert.equal(reuse.split('HTTP/1.1 200 OK').length-1,2,'both responses on one connection');
   assert.equal(reuse.split('Connection: keep-alive').length-1,2);
   checks.push('one connection serves successive polls');
- }finally{await stop(p);}
+ }finally{await stop(p,['pca2_unadmitted_encoding']);}
 
  // 2) Production configuration with no DOMAIN_OVERRIDE: the reflection, the
  //    absence rule and the whitelist refusal that addCorsHeader implements.
