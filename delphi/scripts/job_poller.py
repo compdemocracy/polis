@@ -741,7 +741,43 @@ class JobProcessor:
             return True
         return True
 
-    def stop_child_process(self, process, job_id: str) -> bool:
+    def confirm_process_tree_gone(self, pgid, job_id: str) -> bool:
+        """True once nothing is left in the job's process group.
+
+        Every completion that claims `process_exit_confirmed` goes through here,
+        not just the timeout and error paths. A parent that exits — with any
+        status, including 0 — does not take its own subprocesses with it, so
+        `process.wait()` returning is evidence about one process and not about
+        the tree. Anything still in the group is stopped before the claim is
+        made; if it cannot be stopped, or the group was never owned, the claim
+        is declined.
+        """
+        if pgid is None:
+            return False
+        if not self._process_group_alive(pgid):
+            return True
+        logger.warning(
+            f"Job {job_id}: process group {pgid} still has members after the job's parent exited."
+        )
+        for sig, label in ((signal.SIGTERM, 'terminated'), (signal.SIGKILL, 'killed')):
+            try:
+                os.killpg(pgid, sig)
+            except ProcessLookupError:
+                return True
+            except Exception as signal_error:
+                logger.warning(f"Job {job_id}: could not signal process group {pgid}: {signal_error}")
+            deadline = time.time() + CHILD_TERMINATE_GRACE_SECONDS
+            while self._process_group_alive(pgid) and time.time() < deadline:
+                time.sleep(0.05)
+            if not self._process_group_alive(pgid):
+                logger.warning(f"Job {job_id}: leftover job processes {label}.")
+                return True
+        logger.error(
+            f"Job {job_id}: process group {pgid} still has live members; not claiming an exit."
+        )
+        return False
+
+    def stop_child_process(self, process, job_id: str, pgid=None) -> bool:
         """Stop a job's whole process tree and join it. True once it is gone.
 
         Marking a job FAILED while its processes are still running leaves an
@@ -763,7 +799,8 @@ class JobProcessor:
         if process is None:
             return True
 
-        pgid = self._job_process_group(process, job_id)
+        if pgid is None:
+            pgid = self._job_process_group(process, job_id)
         if pgid is None:
             # Stop what we can, then decline to make the claim.
             try:
@@ -815,6 +852,7 @@ class JobProcessor:
         self.update_job_logs(job, {'level': 'INFO', 'message': f'Worker {self.worker_id} starting job {job_id}'})
 
         child_process = None
+        job_pgid = None
         try:
             # 1. Build the command
             job_config = json.loads(job.get('job_config', '{}'))
@@ -852,6 +890,10 @@ class JobProcessor:
             # the job has to be stopped. See stop_child_process.
             process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1, universal_newlines=True, env=env, start_new_session=True)
             child_process = process
+            # Read the group id now, while the leader is certainly alive. After
+            # the parent exits there is nothing left to ask, and the group may
+            # still hold its subprocesses.
+            job_pgid = self._job_process_group(process, job_id)
 
             start_time = time.time()
             for line in iter(process.stdout.readline, ''):
@@ -865,34 +907,40 @@ class JobProcessor:
 
             # 3. Handle the results
             success = (return_code == 0)
-            # process.wait() above has joined the child, so every completion
-            # from here on can honestly claim the process is gone.
+            # process.wait() has joined the parent, which says nothing about
+            # what the parent left running. Confirm the whole group is empty —
+            # stopping anything still in it — before any completion claims the
+            # job's processes are gone. This applies to a clean exit as much as
+            # a failing one: a zero exit code does not reap subprocesses.
             if job_type == 'AWAITING_NARRATIVE_BATCH':
                 if return_code == EXIT_CODE_PROCESSING_CONTINUES:
                     self.release_lock(job, is_still_processing=True)
                 else:
-                    self.complete_job(job, success, error=f"Script failed with exit code {return_code}" if not success else None, process_exited=True)
+                    exited = self.confirm_process_tree_gone(job_pgid, job_id)
+                    self.complete_job(job, success, error=f"Script failed with exit code {return_code}" if not success else None, process_exited=exited)
             
             elif job_type == 'CREATE_NARRATIVE_BATCH':
+                exited = self.confirm_process_tree_gone(job_pgid, job_id)
                 if success:
                     logger.info(f"Job {job_id}: CREATE_NARRATIVE_BATCH completed successfully.")
-                    self.complete_job(job, True, process_exited=True)
+                    self.complete_job(job, True, process_exited=exited)
                 else:
-                    self.complete_job(job, False, error=f"CREATE_NARRATIVE_BATCH script failed with exit code {return_code}", process_exited=True)
+                    self.complete_job(job, False, error=f"CREATE_NARRATIVE_BATCH script failed with exit code {return_code}", process_exited=exited)
 
             else: # Handle all other synchronous job types
-                self.complete_job(job, success, error=f"Process exited with code {return_code}" if not success else None, process_exited=True)
+                exited = self.confirm_process_tree_gone(job_pgid, job_id)
+                self.complete_job(job, success, error=f"Process exited with code {return_code}" if not success else None, process_exited=exited)
 
         except subprocess.TimeoutExpired:
             logger.error(f"Job {job_id} timed out after {timeout_seconds} seconds.")
             # Stop the child before marking the job failed: a timed-out process
             # that is still alive can keep spending provider money and can still
             # create a checker row after the job looks finished.
-            stopped = self.stop_child_process(child_process, job_id)
+            stopped = self.stop_child_process(child_process, job_id, job_pgid)
             self.complete_job(job, False, error=f"Job process timed out after {timeout_seconds}s.", process_exited=stopped)
         except Exception as e:
             logger.error(f"Critical error processing job {job_id}: {e}", exc_info=True)
-            stopped = self.stop_child_process(child_process, job_id)
+            stopped = self.stop_child_process(child_process, job_id, job_pgid)
             self.complete_job(job, False, error=f"Critical poller error: {str(e)}", process_exited=stopped)
 
 

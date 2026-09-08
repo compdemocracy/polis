@@ -10,6 +10,7 @@
  */
 import {
   admitDelphiJob,
+  assessConversationLiveness,
   assessJobLiveness,
   configFingerprint,
   GuardRow,
@@ -17,6 +18,7 @@ import {
   IDEMPOTENCY_BINDING_WINDOW_MS,
   JobAdmissionStore,
   JobAdmissionUnavailableError,
+  dynamoJobAdmissionStore,
   scopeGuardKey,
 } from "../../src/routes/delphi/jobGuard";
 
@@ -58,6 +60,21 @@ function liveGuard(jobId = "existing-job"): GuardRow {
   };
 }
 
+/**
+ * Wrap an injected store so that discovery runs the *real* classifier over the
+ * injected conversation rows, instead of a canned sweep result.
+ */
+function dynamoBackedBy(store: JobAdmissionStore): JobAdmissionStore {
+  return {
+    ...store,
+    sweepUnguardedActiveRoot:
+      dynamoJobAdmissionStore.sweepUnguardedActiveRoot.bind({
+        ...store,
+        readJob: store.readJob,
+      } as JobAdmissionStore),
+  };
+}
+
 function makeStore(overrides: Partial<JobAdmissionStore>): JobAdmissionStore {
   return {
     admit: jest.fn(async () => ({ outcome: "admitted" as const })),
@@ -65,6 +82,7 @@ function makeStore(overrides: Partial<JobAdmissionStore>): JobAdmissionStore {
     readJob: jest.fn(async () => null),
     sweepLiveDescendants: jest.fn(async () => ({ kind: "none" as const })),
     sweepUnguardedActiveRoot: jest.fn(async () => ({ kind: "none" as const })),
+    sweepConversation: jest.fn(async () => ({ kind: "none" as const })),
     adoptGuard: jest.fn(async () => true),
     bindAlias: jest.fn(async () => true),
     clearGuard: jest.fn(async () => true),
@@ -709,6 +727,127 @@ describe("admitDelphiJob: round-4 review", () => {
         job_id: "job-1",
       })
     );
+  });
+});
+
+describe("admitDelphiJob: round-5 review", () => {
+  it("does not acknowledge an alias whose job row has been deleted", async () => {
+    // Compensation removes the alias, the queue row and the guard in three
+    // writes; a request landing between them used to be handed the id of a row
+    // that had just gone.
+    const aliasKey = idempotencyGuardKey(scope, "stale");
+    let aliasPresent = true;
+    const store = makeStore({
+      readGuard: jest.fn(async (guardKey: string) =>
+        guardKey === aliasKey && aliasPresent
+          ? ({
+              guard_key: aliasKey,
+              job_id: "deleted-job",
+              version: 1,
+              conversation_id: scope.conversationId,
+              job_type: scope.jobType,
+              scope_guard_key: scopeGuardKey(scope),
+              config_hash: configFingerprint(scope.jobConfig),
+              binding_expires_at: new Date(Date.now() + 60_000).toISOString(),
+            } as GuardRow)
+          : null
+      ),
+      readJob: jest.fn(async (jobId: string) =>
+        jobId === "deleted-job" ? null : { status: "PENDING" }
+      ),
+      clearAlias: jest.fn(async () => {
+        aliasPresent = false;
+        return true;
+      }),
+    });
+
+    const result = await admitDelphiJob(
+      { scope, jobItem: jobItem(), idempotencyKey: "stale" },
+      store
+    );
+
+    expect(result.jobId).not.toBe("deleted-job");
+    expect(store.clearAlias).toHaveBeenCalled();
+  });
+
+  it("does not spend the candidate budget on ordinary history", async () => {
+    // Discovery stopped filtering on status in round 4, so a conversation's
+    // finished runs would otherwise fill the cap and fail admission closed.
+    const history = Array.from({ length: 60 }, (_, index) => ({
+      job_id: `old-${index}`,
+      conversation_id: scope.conversationId,
+      job_type: scope.jobType,
+      report_id: scope.reportId,
+      status: "COMPLETED",
+      process_exit_confirmed: true,
+    }));
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => ({
+        kind: "found" as const,
+        value: history,
+      })),
+    });
+
+    const result = await admitDelphiJob(
+      { scope, jobItem: jobItem() },
+      dynamoBackedBy(store)
+    );
+    expect(result).toMatchObject({ outcome: "created" });
+  });
+});
+
+describe("assessConversationLiveness", () => {
+  it("reports a completed root with a live checker as live", async () => {
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => ({
+        kind: "found" as const,
+        value: [
+          { job_id: "root", status: "COMPLETED", process_exit_confirmed: true },
+          { job_id: "checker", status: "PENDING", batch_job_id: "root" },
+        ],
+      })),
+    });
+
+    const { complete, liveByJobId } = await assessConversationLiveness(
+      "4242",
+      store
+    );
+    expect(complete).toBe(true);
+    expect(liveByJobId.get("root")).toBe(true);
+    expect(liveByJobId.get("checker")).toBe(true);
+  });
+
+  it("reports a finished conversation as not live", async () => {
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => ({
+        kind: "found" as const,
+        value: [
+          { job_id: "root", status: "COMPLETED", process_exit_confirmed: true },
+          { job_id: "checker", status: "COMPLETED", batch_job_id: "root" },
+        ],
+      })),
+    });
+
+    const { liveByJobId } = await assessConversationLiveness("4242", store);
+    expect(liveByJobId.get("root")).toBe(false);
+  });
+
+  it("says nothing rather than false when the sweep cannot be completed", async () => {
+    // The whole point: an incomplete read must never become a client-visible
+    // "finished", because the client stops polling on it.
+    const store = makeStore({
+      sweepConversation: jest.fn(async () => ({
+        kind: "unknown" as const,
+        reason: "synthetic",
+      })),
+    });
+
+    const { complete, liveByJobId } = await assessConversationLiveness(
+      "4242",
+      store
+    );
+    expect(complete).toBe(false);
+    expect(liveByJobId.size).toBe(0);
   });
 });
 

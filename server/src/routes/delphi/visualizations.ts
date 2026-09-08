@@ -5,6 +5,7 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
 import { S3Client, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import Config from "../../config";
+import { assessConversationLiveness } from "./jobGuard";
 // import { datetime } from "aws-sdk/clients/redshiftdata";
 
 const dynamoDBConfig: any = {
@@ -228,6 +229,8 @@ export async function handle_GET_delphi_visualizations(
           jobId,
           status: "metadata_not_found",
           createdAt: null,
+          // No queue row to assess, so there is nothing for a client to track.
+          workLive: false,
           visualizations: visualizationsByJob[jobId],
         });
       }
@@ -309,8 +312,10 @@ async function fetchJobMetadata(
       `Found a total of ${allItems.length} jobs across all pages for conversation ${conversation_id}`
     );
 
-    // Process the complete list of items.
-    return processJobItems(allItems);
+    // Process the complete list of items, with liveness from a strongly-read
+    // sweep rather than from this eventually consistent index.
+    const liveness = await assessConversationLiveness(conversation_id);
+    return processJobItems(allItems, liveness.liveByJobId, liveness.complete);
   } catch (err: any) {
     logger.error(`Error fetching job metadata via GSI Query: ${err.message}`);
     // Return an empty object so the main handler can continue without metadata if needed.
@@ -319,60 +324,21 @@ async function fetchJobMetadata(
 }
 
 /**
- * Statuses that mean a job row is durably finished. Kept in step with
- * `jobGuard.ts` and `delphi/scripts/job_poller.py`.
- */
-const TERMINAL_JOB_STATUSES = new Set(["COMPLETED", "FAILED"]);
-
-/**
- * Is paid work still outstanding under this job?
- *
- * The same rule the submission guard applies, computed from rows this query
- * already returned so it costs no extra reads: a job is live unless it is
- * terminal, its terminal write is resolved (a FAILED root needs the worker's
- * confirmed process exit; no root may carry `checker_schedule_failed`), and no
- * checker child of it is still running. The client uses this to know when to
- * stop polling, so an unknown answer must be `true`.
- *
- * This view comes from an eventually consistent index, so `false` here means
- * "nothing outstanding as far as this read can see", not proof. The client
- * treats a job it cannot find at all as uncertain for that reason.
- */
-function computeWorkLive(
-  item: any,
-  childrenByParent: Map<string, any[]>
-): boolean {
-  const status = item.status || "unknown";
-  const children = childrenByParent.get(item.job_id) || [];
-  if (children.some((child) => !TERMINAL_JOB_STATUSES.has(child.status))) {
-    return true;
-  }
-  if (!TERMINAL_JOB_STATUSES.has(status)) {
-    return true;
-  }
-  if (item.checker_schedule_failed) {
-    return true;
-  }
-  if (status === "FAILED" && !item.process_exit_confirmed) {
-    return true;
-  }
-  return false;
-}
-
-/**
  * Process job items from DynamoDB into a map of job metadata.
+ *
+ * `liveByJobId` comes from `assessConversationLiveness`, a strongly-read
+ * base-table sweep — deliberately not from the `items` this handler queried,
+ * which arrive through an eventually consistent index. An index that has not
+ * caught up with a newly written checker row would show that child's parent as
+ * finished, and the client stops polling on `workLive === false`. Anything the
+ * authoritative sweep cannot speak for is reported live.
  */
-function processJobItems(items: any[]): Record<string, any> {
+function processJobItems(
+  items: any[],
+  liveByJobId: Map<string, boolean>,
+  livenessComplete: boolean
+): Record<string, any> {
   const jobMap: Record<string, any> = {};
-
-  const childrenByParent = new Map<string, any[]>();
-  for (const item of items) {
-    if (item.batch_job_id) {
-      const siblings = childrenByParent.get(item.batch_job_id) || [];
-      siblings.push(item);
-      childrenByParent.set(item.batch_job_id, siblings);
-    }
-  }
 
   for (const item of items) {
     const job_id = item.job_id;
@@ -396,8 +362,9 @@ function processJobItems(items: any[]): Record<string, any> {
       completedAt: item.completed_at || null,
       results: jobResults,
       // Additive: lets a reloaded client tell "finished" from "terminal row,
-      // work still outstanding underneath" without a second request.
-      workLive: computeWorkLive(item, childrenByParent),
+      // work still outstanding underneath" without a second request. A false
+      // here only ever comes from the authoritative sweep.
+      workLive: livenessComplete ? liveByJobId.get(job_id) !== false : true,
     };
   }
 

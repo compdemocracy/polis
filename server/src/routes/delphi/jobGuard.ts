@@ -220,6 +220,8 @@ export interface JobAdmissionStore {
     scope: JobScope,
     exceptJobId?: string
   ): Promise<SweepResult<string>>;
+  /** Every row of one conversation, strongly read. */
+  sweepConversation(conversationId: string): Promise<SweepResult<any[]>>;
   /** Write a guard row for an already-existing root; false if one appeared first. */
   adoptGuard(guardItem: Record<string, unknown>): Promise<boolean>;
   /** Write an idempotency alias; false if one appeared first. */
@@ -440,11 +442,7 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
     // confirmed process exit, or `checker_schedule_failed` — is outstanding
     // work that a status filter hides. Those are precisely the old-worker and
     // operator-reset states adoption exists for.
-    const rows = await baseTableSweep(
-      "conversation_id = :cid",
-      { ":cid": scope.conversationId },
-      "unguarded work"
-    );
+    const rows = await this.sweepConversation(scope.conversationId);
     if (rows.kind !== "found") {
       return rows;
     }
@@ -463,11 +461,20 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
       }
     };
 
+    // A row the scan already shows as cleanly finished — terminal, resolved,
+    // no failed checker scheduling — cannot be outstanding work, so it neither
+    // needs a strong re-read nor consumes the candidate budget. This is what
+    // keeps a conversation's ordinary history from filling the cap.
+    const settledByScan = (row: any) =>
+      TERMINAL_STATUSES.has(row.status) &&
+      !row.checker_schedule_failed &&
+      (row.status !== "FAILED" || row.process_exit_confirmed === true);
+
     for (const row of rows.value) {
       const jobId = String(row.job_id);
       const parentId = row.batch_job_id ? String(row.batch_job_id) : null;
       if (!parentId) {
-        if (inScope(row)) {
+        if (inScope(row) && !settledByScan(row)) {
           consider(jobId);
         }
         continue;
@@ -509,6 +516,14 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
       }
     }
     return { kind: "none" };
+  },
+
+  async sweepConversation(conversationId) {
+    return baseTableSweep(
+      "conversation_id = :cid",
+      { ":cid": conversationId },
+      "conversation liveness"
+    );
   },
 
   async adoptGuard(guardItem) {
@@ -739,6 +754,52 @@ export async function assessJobLiveness(
     };
   }
   return { status: row.status, live: false, reason: "terminal and childless" };
+}
+
+/**
+ * Strongly-read effective-work state for every job in one conversation.
+ *
+ * The visualizations reader needs this because its own view comes from
+ * `ConversationIndex`, and a global secondary index that has not caught up with
+ * a newly written checker row would report its parent as finished — which the
+ * client would then act on by stopping its polling. One consistent base-table
+ * scan of the conversation answers for every job at once, from the same
+ * evidence {@link assessJobLiveness} uses.
+ *
+ * `complete: false` means the sweep could not be finished, in which case every
+ * answer is `true`: uncertainty is live work.
+ */
+export async function assessConversationLiveness(
+  conversationId: string,
+  store: JobAdmissionStore = dynamoJobAdmissionStore
+): Promise<{ complete: boolean; liveByJobId: Map<string, boolean> }> {
+  const liveByJobId = new Map<string, boolean>();
+  const rows = await store.sweepConversation(conversationId);
+  if (rows.kind === "unknown") {
+    logger.warn(
+      `Delphi conversation liveness incomplete: ${rows.reason}; reporting live`
+    );
+    return { complete: false, liveByJobId };
+  }
+  const all = rows.kind === "found" ? rows.value : [];
+
+  const liveChildParents = new Set<string>();
+  for (const row of all) {
+    if (row.batch_job_id && !TERMINAL_STATUSES.has(row.status)) {
+      liveChildParents.add(String(row.batch_job_id));
+    }
+  }
+
+  for (const row of all) {
+    const jobId = String(row.job_id);
+    const live =
+      liveChildParents.has(jobId) ||
+      !TERMINAL_STATUSES.has(row.status) ||
+      Boolean(row.checker_schedule_failed) ||
+      (row.status === "FAILED" && row.process_exit_confirmed !== true);
+    liveByJobId.set(jobId, live);
+  }
+  return { complete: true, liveByJobId };
 }
 
 function aliasIsExpired(alias: GuardRow, now: number): boolean {
@@ -1076,6 +1137,22 @@ export async function admitDelphiJob(
           return { outcome: "idempotency_conflict", jobId: alias.jobId };
         }
         if (alias.kind === "bound") {
+          // The alias is only an answer while the job it names still exists.
+          // Compensation withdraws a job, its guard and its alias in three
+          // writes, and a request arriving between them would otherwise be
+          // handed the id of a row that has just been deleted.
+          if (!(await store.readJob(alias.jobId))) {
+            logger.warn(
+              `Delphi scope ${logScope(scopeKey)}: idempotency key names ${
+                alias.jobId
+              }, which no longer exists; re-resolving`
+            );
+            await store.clearAlias({
+              guard_key: aliasKey,
+              job_id: alias.jobId,
+            } as GuardRow);
+            continue;
+          }
           const liveness = await assessJobLiveness(store, alias.jobId);
           return {
             outcome: "deduplicated",
@@ -1197,6 +1274,16 @@ export async function admitDelphiJob(
           String(jobItem.job_id)
         );
         if (raced.kind === "found") {
+          if (aliasKey) {
+            // Withdraw the alias *before* the row it names. The three writes
+            // cannot be one transaction here, so order them so that a reader
+            // arriving mid-compensation finds no alias rather than an alias
+            // pointing at a row that has already gone.
+            await store.clearAlias({
+              guard_key: aliasKey,
+              job_id: String(jobItem.job_id),
+            } as GuardRow);
+          }
           const withdrawn = await store.deleteUnclaimedJob(
             String(jobItem.job_id)
           );
@@ -1206,15 +1293,6 @@ export async function admitDelphiJob(
               job_id: String(jobItem.job_id),
               version: 1,
             } as GuardRow);
-            if (aliasKey) {
-              // The alias went in with the job. Leaving it behind would bind
-              // the key to a row that no longer exists, and every retry would
-              // resolve to it instead of adopting the producer that won.
-              await store.clearAlias({
-                guard_key: aliasKey,
-                job_id: String(jobItem.job_id),
-              } as GuardRow);
-            }
             logger.warn(
               `Delphi scope ${logScope(
                 scopeKey

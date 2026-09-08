@@ -193,13 +193,12 @@ def test_pipe_error_stops_the_whole_job_tree(monkeypatch):
         child.cleanup()
 
 
-def test_ordinary_completion_still_waits_and_claims_exit(monkeypatch):
-    """The success path never needs the fence: it already joined the child."""
+def test_ordinary_completion_without_an_owned_group_is_not_claimed(monkeypatch):
+    """Joining the parent is not evidence about what the parent left running."""
     child = FakeProcess()
     completions = run_process_job(monkeypatch, child)
 
-    assert completions == [(True, True)]
-    assert child.calls == ["wait"]
+    assert completions == [(True, False)]
 
 
 @pytest.mark.parametrize("success", [True, False])
@@ -337,3 +336,61 @@ def test_process_job_starts_the_child_in_its_own_session(monkeypatch):
     )
 
     assert captured.get("start_new_session") is True
+
+
+def _run_nested_to_completion(monkeypatch, exit_code):
+    """A real parent that leaves a grandchild behind and then exits normally."""
+    code = (
+        "import subprocess,sys;"
+        "p=subprocess.Popen([sys.executable,'-c','import time;time.sleep(60)'],"
+        "stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL);"
+        "print(p.pid,flush=True);"
+        f"sys.exit({exit_code})"
+    )
+    parent = subprocess.Popen(
+        [sys.executable, "-c", code],
+        stdout=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    grandchild_pid = int(parent.stdout.readline())
+    completions = []
+    worker = JobProcessor.__new__(JobProcessor)
+    worker.worker_id = "synthetic-worker"
+    worker.update_job_logs = lambda *a, **kw: None
+    worker.complete_job = lambda job, success, **kw: completions.append(
+        (success, kw.get("process_exited"))
+    )
+    worker.release_lock = lambda *a, **kw: None
+    monkeypatch.setattr("scripts.job_poller.subprocess.Popen", lambda *a, **kw: parent)
+    monkeypatch.setenv("ANTHROPIC_MODEL", "synthetic-model")
+    try:
+        worker.process_job(
+            {
+                "job_id": "synthetic-root",
+                "job_type": "CREATE_NARRATIVE_BATCH",
+                "conversation_id": "1",
+                "timeout_seconds": 30,
+            }
+        )
+        return completions, grandchild_pid
+    finally:
+        _reap(parent, grandchild_pid)
+
+
+@pytest.mark.parametrize("exit_code", [1, 0])
+def test_normal_parent_exit_still_fences_the_tree(monkeypatch, exit_code):
+    """An ordinary return is not a tree fence on its own.
+
+    The parent exits by itself — nonzero or zero — while a grandchild it
+    started keeps running. Waiting on the parent proves nothing about that
+    grandchild, so the completion path has to check the group, stop what is left
+    and only then claim the exit.
+    """
+    completions, grandchild_pid = _run_nested_to_completion(monkeypatch, exit_code)
+
+    assert completions == [(exit_code == 0, True)]
+    deadline = time.time() + 5
+    while _alive(grandchild_pid) and time.time() < deadline:
+        time.sleep(0.05)
+    assert not _alive(grandchild_pid)

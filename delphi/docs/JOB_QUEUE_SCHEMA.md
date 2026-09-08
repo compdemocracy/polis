@@ -411,7 +411,12 @@ conversation's guard rows can be found without a join.
    under an already-terminal parent, and a root whose terminal write is
    unresolved (FAILED with no confirmed process exit, or
    `checker_schedule_failed`), are both outstanding work that a status filter
-   hides. Candidates are classified with the same rule release uses. After writing, it sweeps again: a producer that does not take part
+   hides. Candidates are classified with the same rule release uses. Rows the sweep
+   already shows as cleanly finished — terminal, resolved, no failed checker
+   scheduling — are skipped, so a conversation's ordinary history neither costs
+   a strong re-read nor fills the 25-candidate budget. Above that budget of
+   genuinely ambiguous roots, admission fails closed with 503 and an operator
+   has to triage them (see `RESET_SINGLE_CONVERSATION.md`). After writing, it sweeps again: a producer that does not take part
    in the transaction cannot be fenced by a read, so if one raced in, the server
    withdraws its own row while that row is still unclaimed. This narrows the
    window; it does not close it. **Deploy every producer before relying on the
@@ -467,3 +472,16 @@ conversation's guard rows can be found without a join.
   guard pointing at a row that no longer exists. That is treated as uncertainty
   and keeps the scope blocked, so the reset must delete the scope's guard rows
   too.
+
+### Effective work state for readers
+
+`GET /api/v3/delphi/visualizations` returns `workLive` per job. It is computed by
+`assessConversationLiveness`, one **strongly-consistent base-table sweep** of the
+conversation — not from the `ConversationIndex` query that produces the rest of
+that response. The distinction matters because clients stop polling on
+`workLive === false`: an index that has not caught up with a newly written
+checker row would otherwise report its parent as finished, and the client would
+believe it. When the sweep cannot be completed, every job is reported live.
+
+This costs one extra consistent scan per visualizations request. The client only
+polls while something is outstanding, and the table was measured at 255 rows.
