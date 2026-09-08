@@ -110,6 +110,52 @@ def test_catches_quoted_identifiers_and_escaped_literals(tmp_path) -> None:
         assert sites[0].classification == "NEEDS-GATE"
 
 
+def test_decodes_unicode_and_hex_escapes(tmp_path) -> None:
+    """R6: \\u0076 and \\x76 both decode to `v`, so each is `SELECT * FROM votes`."""
+    src = tmp_path / "server" / "src"
+    src.mkdir(parents=True)
+    for fn, source in {
+        "uni.ts": 'const q = "SELECT * FROM \\u0076otes";\n',
+        "hex.ts": 'const q = "SELECT * FROM \\x76otes";\n',
+    }.items():
+        (src / fn).write_text(source)
+        sites = inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path))
+        (src / fn).unlink()
+        assert len(sites) == 1 and sites[0].table == "votes", (fn, source, sites)
+
+
+def test_unresolved_template_table_is_reported_needs_gate(tmp_path) -> None:
+    """R6: a wildcard SELECT whose table is a template/variable is UNRESOLVED and
+    must be reported NEEDS-GATE (the documented fallback), not silently cleared."""
+    src = tmp_path / "server" / "src"
+    src.mkdir(parents=True)
+    (src / "tmpl.ts").write_text(
+        'const table = "votes"; const q = `SELECT * FROM ${table}`;\n'
+    )
+    sites = inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path))
+    assert len(sites) == 1, sites
+    assert sites[0].classification == "NEEDS-GATE" and sites[0].kind == "unresolved-table"
+    # A subquery `SELECT * FROM (...)` is NOT an unresolved candidate.
+    (src / "tmpl.ts").write_text(
+        'const q = "SELECT * FROM (SELECT tid FROM comments) x";\n'
+    )
+    assert inv.run_sweep(roots=[str(src)], repo_root=str(tmp_path)) == []
+
+
+def test_python_floor_division_is_not_a_comment(tmp_path) -> None:
+    """R6 regression: `//` in a .py file is floor division, not a comment, so a real
+    `SELECT *` on the same line is still found; a `#` comment wildcard is NOT."""
+    delphi = tmp_path / "delphi"
+    delphi.mkdir()
+    (delphi / "div.py").write_text('n = 10 // 2\nq = "SELECT * FROM votes"\n')
+    sites = inv.run_sweep(roots=[str(delphi)], repo_root=str(tmp_path))
+    assert len(sites) == 1 and sites[0].table == "votes", sites
+    (delphi / "div.py").unlink()
+    # A `#` comment containing a wildcard must NOT count.
+    (delphi / "cmt.py").write_text('q = "safe"  # SELECT * FROM votes\n')
+    assert inv.run_sweep(roots=[str(delphi)], repo_root=str(tmp_path)) == []
+
+
 def test_voters_is_not_matched_as_votes(tmp_path) -> None:
     """Word boundary: `voters` must not match `votes`."""
     src = tmp_path / "server" / "src"
