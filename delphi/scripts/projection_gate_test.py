@@ -316,3 +316,32 @@ def test_multiset_matching_is_order_and_duplicate_safe() -> None:
     # A genuinely conflicting value on a shared column -> VALUE_DIFF on that column.
     r3 = pg.classify(site, {}, ("a", "b"), [(1, 2)], ("a", "b"), [(1, 3)])
     assert any(f.cls is pg.CellClass.VALUE_DIFF and f.column == "b" for f in r3.findings)
+
+
+# --- P4: zero-evidence runs are INCONCLUSIVE; coverage manifest binds replica ---
+
+
+def test_empty_run_is_inconclusive_not_pass(dsn: str) -> None:
+    """Round-1 defect (Astra): an absent zid returned full GATE PASS with zero
+    cells. Zero rows carry no evidence -> INCONCLUSIVE, not PASS."""
+    reports = pg.gate_all(dsn, {"zid": -SYNTHETIC_ZID})  # absent conversation
+    assert reports
+    for r in reports:
+        assert r.row_count_served == 0 and r.identical_cells == 0
+        assert not r.ok
+        assert r.status == "INCONCLUSIVE" and r.inconclusive_reason
+    # A separately declared empty case is a legitimate individual case.
+    declared = pg.gate_all(dsn, {"zid": -SYNTHETIC_ZID}, allow_empty=list(pg.SITES))
+    assert all(r.status == "PASS" for r in declared)
+
+
+def test_manifest_requires_replica_when_demanded(dsn: str) -> None:
+    # A bare primary DSN is not proof of replica coverage.
+    m = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=None, require_replica=True)
+    assert not m.ok and not m.replica_seen
+    # Both a primary and a replica run present and populated -> manifest PASS.
+    m2 = pg.run_manifest(dsn, {"zid": SYNTHETIC_ZID}, replica_dsn=dsn, require_replica=True)
+    assert m2.ok and m2.replica_seen and len(m2.runs) == 2
+    # An empty populated-required run fails the whole manifest.
+    m3 = pg.run_manifest(dsn, {"zid": -SYNTHETIC_ZID})
+    assert not m3.ok

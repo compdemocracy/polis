@@ -166,11 +166,23 @@ class SiteReport:
     row_count_served: int
     identical_cells: int = 0
     findings: list[Finding] = field(default_factory=list)
+    # Set when the run carries no evidence for this site (zero rows) and empty was
+    # not explicitly declared acceptable (P4). An INCONCLUSIVE report is not a PASS.
+    inconclusive_reason: Optional[str] = None
+    channel: str = "preflight"  # "preflight" (DB) or "wire" (Node serializer)
+
+    @property
+    def status(self) -> str:
+        if self.inconclusive_reason:
+            return "INCONCLUSIVE"
+        if self.findings or self.row_count_expected != self.row_count_served:
+            return "FAIL"
+        return "PASS"
 
     @property
     def ok(self) -> bool:
-        """Pass iff every cell is IDENTICAL: no findings, matching row counts."""
-        return not self.findings and self.row_count_expected == self.row_count_served
+        """Pass iff every cell is IDENTICAL AND the run carried evidence."""
+        return self.status == "PASS"
 
     def counts(self) -> dict[str, int]:
         out = {c.value: 0 for c in CellClass}
@@ -181,9 +193,11 @@ class SiteReport:
 
     def summary_line(self) -> str:
         c = self.counts()
-        verdict = "PASS" if self.ok else "FAIL"
+        verdict = self.status
+        if self.inconclusive_reason:
+            verdict = f"INCONCLUSIVE({self.inconclusive_reason})"
         return (
-            f"[{verdict}] {self.site.name} ({self.site.table}) "
+            f"[{verdict}] {self.channel}:{self.site.name} ({self.site.table}) "
             f"rows(expected={self.row_count_expected},served={self.row_count_served}) "
             f"IDENTICAL={c['IDENTICAL']} ORDER_ONLY={c['ORDER_ONLY']} "
             f"MISSING_FIELD={c['MISSING_FIELD']} EXTRA_FIELD={c['EXTRA_FIELD']} "
@@ -447,15 +461,101 @@ def gate_site(
     return classify(site, filters, exp_cols, exp_rows, srv_cols, srv_rows)
 
 
+def _apply_coverage(
+    report: SiteReport, require_populated: bool, allow_empty: Sequence[str]
+) -> SiteReport:
+    """A run with zero rows carries no evidence for the contract (P4). Mark it
+    INCONCLUSIVE unless the caller declared this site's empty case acceptable."""
+    if (
+        require_populated
+        and report.row_count_served == 0
+        and report.row_count_expected == 0
+        and report.site.name not in allow_empty
+    ):
+        report.inconclusive_reason = "no rows: zero evidence"
+    return report
+
+
 def gate_all(
-    dsn: str, filters: dict[str, Any], sites: Optional[Sequence[str]] = None
+    dsn: str,
+    filters: dict[str, Any],
+    sites: Optional[Sequence[str]] = None,
+    require_populated: bool = True,
+    allow_empty: Sequence[str] = (),
 ) -> list[SiteReport]:
     names = list(sites) if sites else list(SITES)
     reports: list[SiteReport] = []
     with read_only_connection(dsn) as conn:
         for name in names:
-            reports.append(gate_site(conn, SITES[name], filters))
+            report = gate_site(conn, SITES[name], filters)
+            reports.append(_apply_coverage(report, require_populated, allow_empty))
     return reports
+
+
+@dataclass
+class ChannelRun:
+    """One (dsn-label, channel) run over the requested sites."""
+
+    dsn_label: str
+    channel: str
+    reports: list[SiteReport]
+
+    @property
+    def ok(self) -> bool:
+        return bool(self.reports) and all(r.ok for r in self.reports)
+
+
+@dataclass
+class Manifest:
+    """A coverage manifest binding required runs and their results (P4).
+
+    A bare ``--dsn`` is not proof of replica coverage: the manifest records which
+    labelled runs were demanded (e.g. primary AND replica) and fails if any
+    required run is missing, empty, or not PASS.
+    """
+
+    runs: list[ChannelRun]
+    require_replica: bool
+    replica_seen: bool
+
+    @property
+    def ok(self) -> bool:
+        if self.require_replica and not self.replica_seen:
+            return False
+        return bool(self.runs) and all(run.ok for run in self.runs)
+
+    def summary_line(self) -> str:
+        verdict = "PASS" if self.ok else "FAIL"
+        labels = ", ".join(f"{r.dsn_label}/{r.channel}={'PASS' if r.ok else 'FAIL'}" for r in self.runs)
+        rep = "" if self.replica_seen else " (replica MISSING)" if self.require_replica else ""
+        return f"MANIFEST {verdict}: {labels}{rep}"
+
+
+def run_manifest(
+    primary_dsn: str,
+    filters: dict[str, Any],
+    sites: Optional[Sequence[str]] = None,
+    replica_dsn: Optional[str] = None,
+    require_replica: bool = False,
+    require_populated: bool = True,
+    allow_empty: Sequence[str] = (),
+) -> Manifest:
+    runs: list[ChannelRun] = [
+        ChannelRun(
+            "primary",
+            "preflight",
+            gate_all(primary_dsn, filters, sites, require_populated, allow_empty),
+        )
+    ]
+    if replica_dsn:
+        runs.append(
+            ChannelRun(
+                "replica",
+                "preflight",
+                gate_all(replica_dsn, filters, sites, require_populated, allow_empty),
+            )
+        )
+    return Manifest(runs=runs, require_replica=require_replica, replica_seen=bool(replica_dsn))
 
 
 # ---------------------------------------------------------------------------
@@ -465,31 +565,45 @@ def gate_all(
 
 def _parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--dsn", required=True, help="Postgres connection string (a replica DSN is supported and safe)")
+    p.add_argument("--dsn", required=True, help="primary Postgres connection string")
+    p.add_argument("--replica-dsn", default=None, help="replica connection string (read-only; safe)")
+    p.add_argument("--require-replica", action="store_true",
+                   help="fail the manifest unless a replica run is provided (acceptance item 3)")
     p.add_argument("--zid", type=int, required=True, help="conversation id to project (synthetic in tests)")
     p.add_argument("--pid", type=int, default=None)
     p.add_argument("--tid", type=int, default=None)
     p.add_argument("--site", choices=list(SITES) + ["all"], default="all")
+    p.add_argument("--allow-empty", action="append", default=[],
+                   help="site name whose empty result is acceptable (repeatable)")
     return p.parse_args(argv)
+
+
+def _print_run(run: ChannelRun) -> None:
+    for r in run.reports:
+        print(f"  {run.dsn_label}: {r.summary_line()}")
+        for f in r.findings:
+            detail = ""
+            if f.cls is CellClass.VALUE_DIFF:
+                detail = f" expected={f.expected!r} served={f.served!r}"
+            print(f"      {f.cls.value}: column={f.column}{detail}")
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _parse_args(argv)
     filters = {"zid": args.zid, "pid": args.pid, "tid": args.tid}
     sites = None if args.site == "all" else [args.site]
-    reports = gate_all(args.dsn, filters, sites)
-    all_ok = True
-    for r in reports:
-        print(r.summary_line())
-        for f in r.findings:
-            loc = f"row {f.row_index} " if f.row_index is not None else ""
-            detail = ""
-            if f.cls is CellClass.VALUE_DIFF:
-                detail = f" expected={f.expected!r} served={f.served!r}"
-            print(f"    {f.cls.value}: {loc}column={f.column}{detail}")
-        all_ok = all_ok and r.ok
-    print(f"GATE {'PASS' if all_ok else 'FAIL'}: {len(reports)} site(s) checked")
-    return 0 if all_ok else 1
+    manifest = run_manifest(
+        args.dsn,
+        filters,
+        sites,
+        replica_dsn=args.replica_dsn,
+        require_replica=args.require_replica,
+        allow_empty=args.allow_empty,
+    )
+    for run in manifest.runs:
+        _print_run(run)
+    print(manifest.summary_line())
+    return 0 if manifest.ok else 1
 
 
 if __name__ == "__main__":
