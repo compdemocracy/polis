@@ -39,6 +39,7 @@ import createALBAndDNS from '../dns';
 import createSecretsAndDependencies from '../secrets';
 import createOperationalAlarms, { alarmsEnabled, requireAlarmEmail } from '../alarms';
 import { ImportWorkerService } from './import-worker-service';
+import { CertificationCiEc2 } from '../ciEc2';
 
 interface PolisStackProps extends cdk.StackProps {
   enableSSHAccess?: boolean; // Make optional, default to false
@@ -424,9 +425,36 @@ export class CdkStack extends cdk.Stack {
     // add ECS Fargate service for BYOPD import worker
     new ImportWorkerService(this, 'ImportWorker', {
       vpc: vpc,
-      database: db, 
+      database: db,
       logGroup: logGroup,
     });
+
+    // --- P-022 E: disposable certification CI worker (OFF by default).
+    // Nothing below is synthesized unless `-c enableCiEc2=true` is passed, so a
+    // normal deploy is byte-identical to before. See docs/ci-ec2.md.
+    if (this.node.tryGetContext('enableCiEc2') === true ||
+        this.node.tryGetContext('enableCiEc2') === 'true') {
+      const ciArch = (this.node.tryGetContext('ciEc2Arch') as string | undefined) ?? 'arm64';
+      new CertificationCiEc2(this, 'CertificationCi', {
+        vpc,
+        githubRepo: (this.node.tryGetContext('ciEc2GithubRepo') as string | undefined) ?? 'compdemocracy/polis',
+        // r8g.4xlarge = 16 vCPU / 128 GiB, the class P-022 E asks for so that a
+        // runner OOM cannot be mistaken for a correctness failure.
+        instanceType: new ec2.InstanceType(
+          (this.node.tryGetContext('ciEc2InstanceType') as string | undefined) ?? 'r8g.4xlarge'),
+        cpuType: ciArch === 'arm64'
+          ? ec2.AmazonLinuxCpuType.ARM_64
+          : ec2.AmazonLinuxCpuType.X86_64,
+        volumeSizeGiB: Number(this.node.tryGetContext('ciEc2VolumeGiB') ?? 200),
+        // Generous: the compute budget is 6 h, this is the backstop for a box
+        // whose job died without terminating it.
+        shutdownMinutes: Number(this.node.tryGetContext('ciEc2ShutdownMinutes') ?? 480),
+        fixtureBucket: this.node.tryGetContext('ciEc2FixtureBucket') as string | undefined,
+        fixturePrefix: (this.node.tryGetContext('ciEc2FixturePrefix') as string | undefined) ?? 'p022/bundle/',
+        evidenceBucket: this.node.tryGetContext('ciEc2EvidenceBucket') as string | undefined,
+        evidencePrefix: (this.node.tryGetContext('ciEc2EvidencePrefix') as string | undefined) ?? 'p022/evidence/',
+      });
+    }
 
     // --- Outputs
     new cdk.CfnOutput(this, 'LoadBalancerDNS', { value: lb.loadBalancerDnsName, description: 'Public DNS name of the Application Load Balancer' });
