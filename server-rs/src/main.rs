@@ -615,10 +615,16 @@ struct Health {
     math_env: String,
     #[serde(rename = "poolIdle")]
     pool_idle: usize,
+    #[serde(rename = "poolLive")]
+    pool_live: usize,
+    #[serde(rename = "poolMax")]
+    pool_max: usize,
     #[serde(rename = "poolOpened")]
     pool_opened: u64,
     #[serde(rename = "poolFailed")]
     pool_failed: u64,
+    #[serde(rename = "poolAcquireTimeouts")]
+    pool_acquire_timeouts: u64,
     #[serde(rename = "contractViolations")]
     contract_violations: u64,
 }
@@ -629,13 +635,16 @@ async fn health(State(app): State<App>) -> Response<Body> {
         Ok(db) => db.query_one("select 1", &[]).await.is_ok(),
         Err(_) => false,
     };
-    let (idle, opened, failed) = app.db.stats();
+    let pool = app.db.stats();
     let body = json::encode(&Health {
         status: if reachable { "ok" } else { "degraded" },
         math_env: app.math_env.clone(),
-        pool_idle: idle,
-        pool_opened: opened,
-        pool_failed: failed,
+        pool_idle: pool.idle,
+        pool_live: pool.live,
+        pool_max: pool.max,
+        pool_opened: pool.opened,
+        pool_failed: pool.failed,
+        pool_acquire_timeouts: pool.timeouts,
         contract_violations: app.metrics.contract_violations.load(Ordering::Relaxed),
     })
     .expect("health encodes");
@@ -659,8 +668,15 @@ async fn main() -> Result<(), Error> {
         .ok()
         .and_then(|v| v.parse().ok())
         .unwrap_or(16);
+    // A saturated pool must fail the request rather than queue behind the database.
+    let acquire_timeout = std::time::Duration::from_millis(
+        std::env::var("PG_ACQUIRE_TIMEOUT_MS")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(5000),
+    );
     let app = App {
-        db: Pool::open(std::env::var("DATABASE_URL")?, pool_size).await?,
+        db: Pool::open(std::env::var("DATABASE_URL")?, pool_size, acquire_timeout).await?,
         math_env,
         cors: Arc::new(Cors::from_env()),
         cache: Default::default(),
