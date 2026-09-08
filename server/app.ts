@@ -2233,7 +2233,10 @@ helpersInitialized.then(
     //
     // Mounting it here is NOT behaviour-preserving: finalhandler currently
     // serves `400 text/html "Bad Request\n"` where `globalErrorHandler` would
-    // serve `500 application/json {"error":"internal_server_error",...}`. It is
+    // serve `500 application/json {"error":"internal_server_error",...}`. Note
+    // that the generic branch's status stays 500 either way — what the flag
+    // changes on an already-500 path is the Content-Type and body, and only the
+    // 400 paths (and the typed 23505/JWT/timeout branches) change status. It is
     // therefore off by default and gated so the change can be recorded and
     // approved before it ships. See
     // cost-reduction/04-plans/P-038-global-error-handler-notes.md.
