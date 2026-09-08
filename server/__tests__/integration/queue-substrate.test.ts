@@ -457,36 +457,115 @@ function requireProvisioning(): void {
  * the main login survive.
  */
 async function dropCreatedRoles(): Promise<void> {
+  const failures: string[] = [];
   const client = await mainPool.connect();
+  // A client whose session principal is unknown must not be pooled.
+  let discard = false;
   try {
+    const principal = async (): Promise<string> => {
+      const answer = await client.query("SELECT current_user AS role");
+      return answer.rows[0].role;
+    };
+    const login = await principal();
+
     for (const role of created.roles) {
-      await client.query(`SET ROLE ${role}`).catch(() => undefined);
-      await client
-        .query(
+      // The two REVOKEs below are grantor-specific: they are correct only while
+      // the session actually IS this role. If the switch fails the session is
+      // still the main login, and running them would withdraw grants this run
+      // never made - the migration's own grants to polis_queue_owner and
+      // polis_queue_executor - damaging the shared test schema during cleanup
+      // of a faulted run. So a failed switch revokes nothing at all.
+      try {
+        await client.query(`SET ROLE ${role}`);
+      } catch (err) {
+        failures.push(
+          `${role}: SET ROLE failed (${String(
+            err
+          )}); its grants were left in place`
+        );
+        if ((await principal()) !== login) {
+          failures.push(
+            `session principal is not ${login} after a failed SET ROLE`
+          );
+          discard = true;
+          break;
+        }
+        continue;
+      }
+      if ((await principal()) !== role) {
+        failures.push(`SET ROLE ${role} reported success without switching`);
+        discard = true;
+        break;
+      }
+
+      try {
+        // Only the grantor can revoke what it granted, and only while it still
+        // holds the grant option, so this runs before DROP OWNED BY takes the
+        // option away. It removes this role's ACL entries and no others.
+        await client.query(
           "REVOKE ALL ON SCHEMA public FROM polis_queue_owner, polis_queue_executor CASCADE"
-        )
-        .catch(() => undefined);
-      await client
-        .query(
+        );
+        await client.query(
           "REVOKE ALL ON public.conversations FROM polis_queue_owner CASCADE"
-        )
-        .catch(() => undefined);
-      await client.query("RESET ROLE").catch(() => undefined);
-      await client.query(`DROP OWNED BY ${role}`).catch(() => undefined);
-      await client.query(`DROP ROLE IF EXISTS ${role}`).catch(() => undefined);
+        );
+      } catch (err) {
+        // A role that granted nothing here holds no privilege to revoke, and
+        // PostgreSQL answers that with insufficient_privilege. That is the
+        // normal case for the roles which never replayed the migration, not a
+        // cleanup failure. If a revoke was genuinely needed and did not happen,
+        // the role keeps its grantor dependency and the leaked-role check below
+        // catches it.
+        if ((err as { code?: string }).code !== "42501") {
+          failures.push(
+            `${role}: revoking its own grants failed (${String(err)})`
+          );
+        }
+      }
+
+      // Restore the principal, and verify it: everything after this point runs
+      // as the main login, and so does the next iteration.
+      try {
+        await client.query("RESET ROLE");
+      } catch (err) {
+        failures.push(`${role}: RESET ROLE failed (${String(err)})`);
+        discard = true;
+        break;
+      }
+      if ((await principal()) !== login) {
+        failures.push(`RESET ROLE did not restore ${login} after ${role}`);
+        discard = true;
+        break;
+      }
+
+      try {
+        await client.query(`DROP OWNED BY ${role}`);
+        await client.query(`DROP ROLE IF EXISTS ${role}`);
+      } catch (err) {
+        failures.push(`${role}: could not be dropped (${String(err)})`);
+      }
     }
-    const leaked = await client.query(
-      "SELECT rolname FROM pg_roles WHERE rolname = ANY($1::text[])",
-      [created.roles]
-    );
-    if (leaked.rowCount) {
-      console.warn(
-        "queue substrate suite left roles behind: " +
-          leaked.rows.map((row) => row.rolname).join(", ")
+
+    if (!discard) {
+      const leaked = await client.query(
+        "SELECT rolname FROM pg_roles WHERE rolname = ANY($1::text[])",
+        [created.roles]
       );
+      if (leaked.rowCount) {
+        failures.push(
+          "roles left behind: " +
+            leaked.rows.map((row) => row.rolname).join(", ")
+        );
+      }
     }
   } finally {
-    client.release();
+    client.release(discard);
+  }
+  // Incomplete cleanup fails the suite rather than printing a warning nobody
+  // reads: a leaked role or a half-restored session is a real defect.
+  if (failures.length > 0) {
+    throw new Error(
+      "queue substrate suite cleanup failed: " + failures.join("; ")
+    );
   }
 }
 
