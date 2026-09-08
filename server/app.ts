@@ -883,7 +883,12 @@ helpersInitialized.then(
 
     app.get("/api/v3/delphi", moveToBody, handle_GET_delphi);
 
-    app.get("/api/v3/delphi/logs", moveToBody, handle_GET_delphi_job_logs);
+    app.get(
+      "/api/v3/delphi/logs",
+      moveToBody,
+      hybridAuth(assignToP),
+      handle_GET_delphi_job_logs
+    );
 
     // Add POST endpoint for creating Delphi jobs
     app.post(
@@ -975,6 +980,7 @@ helpersInitialized.then(
     app.post(
       "/api/v3/topicMod/moderate",
       moveToBody,
+      hybridAuth(assignToP),
       need(
         "conversation_id",
         getConversationIdFetchZid,
