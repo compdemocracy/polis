@@ -1,0 +1,18 @@
+{
+  "negative_controls": [
+    {
+      "control": "stale-source-pin",
+      "refused": true,
+      "O8": "OPEN",
+      "full_contract_gate": "FAIL"
+    },
+    {
+      "control": "missing-source-pin",
+      "refused": true,
+      "O8": "OPEN",
+      "full_contract_gate": "FAIL"
+    }
+  ],
+  "restored_O8": "CLOSED (S1 scope; no G01-G16 certificate)",
+  "audit_inventory_summary_agree": true
+}

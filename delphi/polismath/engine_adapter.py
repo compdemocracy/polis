@@ -15,6 +15,8 @@ import random
 import sys
 
 PROTOCOL = "polis-engine/1"
+CANDIDATE_SCHEMA = "polis-candidate-input/1"
+ENGINE_VERSION = "python-conversation/p026-s1"
 LIMIT = 65536
 BULK_LIMIT = 256 * 1024 * 1024
 
@@ -59,7 +61,9 @@ def descriptor(root, path):
 
 
 def admitted(root, desc):
-    if set(desc) != {"path", "bytes", "sha256"}:
+    if not isinstance(desc, dict) or set(desc) != {"path", "bytes", "sha256"}:
+        fail()
+    if not isinstance(desc["path"], str) or not isinstance(desc["sha256"], str):
         fail()
     relative = Path(desc["path"])
     if relative.is_absolute() or ".." in relative.parts:
@@ -178,16 +182,32 @@ class Adapter:
     def initialize(self, p):
         from polismath.conversation.conversation import Conversation
         import numpy as np
-        if set(p) != {"input_manifest", "resolved_schedule", "config", "required_capabilities"}:
+        if set(p) != {"input_manifest", "resolved_schedule", "config", "required_capabilities", "admission"}:
             fail()
         if set(p["required_capabilities"]) - {"rebuild-prefix/1", "snapshot-moderation/1"}:
             fail("UNSUPPORTED_VERSION")
-        self.manifest = strict_json(admitted(self.input_root, p["input_manifest"]))
+        admission = p["admission"]
+        keys = {"candidate_schema", "engine_version", "input_digest", "schedule_digest", "operation_id"}
+        if not isinstance(admission, dict) or set(admission) != keys or any(
+                not isinstance(v, str) or not 0 < len(v) <= 128 for v in admission.values()):
+            fail("MALFORMED_CANDIDATE")
+        if admission["candidate_schema"] != CANDIDATE_SCHEMA:
+            fail("CANDIDATE_SCHEMA_MISMATCH")
+        if admission["engine_version"] != ENGINE_VERSION:
+            fail("ENGINE_VERSION_MISMATCH")
+        manifest_raw = admitted(self.input_root, p["input_manifest"])
+        if admission["input_digest"] != sha(manifest_raw):
+            fail("INPUT_DIGEST_MISMATCH")
+        schedule_raw = admitted(self.input_root, p["resolved_schedule"])
+        if admission["schedule_digest"] != sha(schedule_raw):
+            fail("SCHEDULE_DIGEST_MISMATCH")
+        self.admission = admission.copy()
+        self.manifest = strict_json(manifest_raw)
         manifest = self.manifest
-        if set(manifest) != {"schema", "fixture_id", "storage_agree_value", "ordering", "votes", "moderation", "parent"}:
+        if not isinstance(manifest, dict) or set(manifest) != {"schema", "fixture_id", "storage_agree_value", "ordering", "votes", "moderation", "parent"}:
             fail()
-        if manifest["schema"] != "polis-input/1":
-            fail("UNSUPPORTED_VERSION")
+        if manifest["schema"] != CANDIDATE_SCHEMA:
+            fail("CANDIDATE_SCHEMA_MISMATCH")
         self.zid = manifest["fixture_id"]
         if not (type(self.zid) is int or isinstance(self.zid, str)):
             fail()
@@ -229,7 +249,7 @@ class Adapter:
             for key in ("mod_out_tids", "mod_in_tids", "meta_tids", "mod_out_ptpts"):
                 for v in state[key]:
                     integer(v)
-        schedule = strict_json(admitted(self.input_root, p["resolved_schedule"]))
+        schedule = strict_json(schedule_raw)
         if set(schedule) != {"schema", "operations"} or schedule["schema"] != "polis-schedule/1":
             fail("UNSUPPORTED_VERSION")
         self.schedule = schedule["operations"]
@@ -249,7 +269,7 @@ class Adapter:
         self.conv.last_updated = 0
         if cfg["init_vector"] == "ones":
             self.conv.pca = {"center": np.zeros(1), "comps": np.array([[1.0], [1.0]])}
-        return {"engine": "python-conversation", "profile": "candidate-profile",
+        return {"engine": "python-conversation", "admission": self.admission, "profile": "candidate-profile",
                 "restore_profiles": ["rebuild-prefix/1"],
                 "reset_on_restore": ["raw_rating_mat", "rating_mat", "group_clusterings", "group_k_smoother"],
                 "observed_state_cursors": self.cursors()}
@@ -296,10 +316,10 @@ class Adapter:
             raw = json.dumps(value, default=convert_numpy_types, allow_nan=False).encode()
             (self.output_root / path).write_bytes(raw)
             files[key] = descriptor(self.output_root, path)
-        manifest = {"schema": "polis-checkpoint/1", "protocol": PROTOCOL,
+        manifest = {"schema": "polis-candidate-checkpoint/1", "protocol": PROTOCOL,
             "run_id": self.identity[0], "session_id": self.identity[1], "fixture_id": self.zid,
             "checkpoint_id": name, "compute_id": self.compute_id, "profile": "candidate-profile",
-            "output_schema": "polis-math-output/1", "state_schema": "rebuild-prefix/1",
+            "admission": self.admission, "output_schema": "polis-candidate-math-output/1", "state_schema": "rebuild-prefix/1",
             "persistence": False, "math_input_cursors": self.math_cursors,
             "observed_state_cursors": self.cursors(), "files": files}
         temp = dest / "manifest.tmp"
