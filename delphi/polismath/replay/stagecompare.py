@@ -61,6 +61,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from dataclasses import dataclass, field as dc_field
 from pathlib import Path
 from typing import Any, Sequence
@@ -418,6 +419,25 @@ def _by_tid(values: Any, tids: Sequence[Any], label: str) -> Any:
     return {_typed_label(t): v for t, v in zip(tids, values)}
 
 
+#: Sign applied to a projection row that has no component to couple with — the
+#: rank-one Q16 pad. It is all-zero by construction, so the choice is inert; it
+#: is declared rather than left implicit, and the construction is validated.
+PADDED_COMPONENT_SIGN = 1.0
+
+
+def _non_zero_labels(row: Any) -> list[str]:
+    """Labels in a padded projection row whose value is not exactly zero. A
+    non-finite token counts as non-zero: the Q16 pad is real zeros."""
+    if not isinstance(row, dict):
+        return ["<not a row>"]
+    out = []
+    for label, v in sorted(row.items()):
+        if _is_token(v) or not (isinstance(v, (int, float))
+                                and not isinstance(v, bool) and v == 0):
+            out.append(f"{label}={v!r}")
+    return out
+
+
 def _orient(comps_by_tid: list[Any], tid_labels: Sequence[str]) -> list[float]:
     """Flip sign per component so its largest-magnitude entry is positive; ties
     go to the first tid in canonical order (crosslang.canonicalize_blob:162-163).
@@ -562,13 +582,29 @@ def canonicalize(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
         signs = _orient(comps_by_tid, tid_labels)
         if not isinstance(pca.get("comps"), Structural) and comps is not None:
-            pca["comps"] = {str(i): _flip(c, s)
-                            for i, (c, s) in enumerate(zip(comps_by_tid, signs))}
+            pca["comps"] = {str(i): _flip(comps_by_tid[i], signs[i])
+                            for i in range(len(comps_by_tid))}
         if not isinstance(pca.get("comment-projection"), Structural) \
                 and proj_rows is not None:
-            pca["comment-projection"] = {
-                str(i): _flip(c, s)
-                for i, (c, s) in enumerate(zip(cproj_by_comp, signs))}
+            # NO ZIP. The projection can be WIDER than `comps` — the rank-one
+            # Q16 pad — and a zip over unequal lengths would silently drop the
+            # padded row, so a garbage value there would never be compared.
+            # Padded rows keep sign +1 (they are all-zero by construction) and
+            # that construction is VALIDATED rather than assumed.
+            out_proj: dict[str, Any] = {}
+            for i, row in enumerate(cproj_by_comp):
+                if i < len(signs):
+                    out_proj[str(i)] = _flip(row, signs[i])
+                    continue
+                bad = _non_zero_labels(row)
+                if bad:
+                    out_proj[str(i)] = Structural(
+                        f"pca.comment-projection[{i}]: padded component beyond "
+                        f"{len(signs)} comps must be all-zero (Q16), but "
+                        f"{', '.join(bad)} are not")
+                else:
+                    out_proj[str(i)] = _flip(row, PADDED_COMPONENT_SIGN)
+            pca["comment-projection"] = out_proj
         r04["pca"] = pca
     elif pca is not None:
         r04["pca"] = Structural("pca: not an object")
@@ -745,6 +781,76 @@ INTEGER_FIELDS: frozenset[str] = frozenset({
 })
 
 
+#: Integer positions that must hold a SCALAR — never a container. Without this
+#: an `n` of `{}` on both sides recurses into two empty trees and reports MATCH:
+#: "no integer leaf disagreed" is not the same as "this is a count".
+SCALAR_INTEGER_KEYS: frozenset[tuple[str, str]] = frozenset({
+    ("R01_ingest", "last-vote-timestamp"),
+    ("R01_ingest", "n"),
+    ("R01_ingest", "n-cmts"),
+    ("R02_moderation", "last-mod-timestamp"),
+})
+SCALAR_INTEGER_FIELDS: frozenset[str] = frozenset({
+    "bid", "count", "gid", "id", "last-k", "last-k-count",
+    "last-mod-timestamp", "last-vote-timestamp", "n", "n-agree", "n-cmts",
+    "n-members", "n-success", "n-trials", "n-votes", "pid", "smoothed-k", "tid",
+})
+
+#: Integer positions that must hold a LIST of integers.
+ARRAY_INTEGER_KEYS: frozenset[tuple[str, str]] = frozenset({
+    ("R01_ingest", "tids"),
+    ("R02_moderation", "meta-tids"),
+    ("R02_moderation", "mod-in"),
+    ("R02_moderation", "mod-out"),
+    ("R03_eligibility", "in-conv"),
+    ("R06_base_clusters", "bid-to-pid"),
+})
+ARRAY_INTEGER_FIELDS: frozenset[str] = frozenset({"members"})
+
+#: Shapes that depend on WHICH key the field sits under. The A/D/S vote tallies
+#: are the reason this exists: in `votes-base` they are per-base-cluster bucket
+#: ARRAYS, and in `group-votes` they are per-group SCALAR totals
+#: (conversation.clj:600-624). A field-name-only rule gets one of them wrong.
+KEY_SCOPED_INTEGER_SHAPE: dict[tuple[str, str, str], str] = {
+    ("R10_tallies", "votes-base", "A"): "array",
+    ("R10_tallies", "votes-base", "D"): "array",
+    ("R10_tallies", "votes-base", "S"): "array",
+    ("R10_tallies", "group-votes", "A"): "scalar",
+    ("R10_tallies", "group-votes", "D"): "scalar",
+    ("R10_tallies", "group-votes", "S"): "scalar",
+}
+
+#: Integer keys whose canonical form is a MAPPING whose every value is a scalar
+#: integer (a cell, a per-participant count, a per-cluster weight). Declared so
+#: the scalar rule reaches one level below the key too.
+MAPPING_SCALAR_INTEGER_KEYS: frozenset[tuple[str, str]] = frozenset({
+    ("R01_ingest", "rating-mat"),
+    ("R01_ingest", "raw-rating-mat"),
+    ("R03_eligibility", "user-vote-counts"),
+    ("R06_base_clusters", "base-clusters-weights"),
+})
+
+
+def _integer_shape(stage: str, key: str, field: str | None) -> str | None:
+    """``"scalar"``, ``"array"`` or ``None`` (unconstrained container) for an
+    integer-typed position. A field declaration wins over the key's, because it
+    is the more specific statement about that position."""
+    if field is not None:
+        scoped = KEY_SCOPED_INTEGER_SHAPE.get((stage, key, field))
+        if scoped is not None:
+            return scoped
+        if field in SCALAR_INTEGER_FIELDS:
+            return "scalar"
+        if field in ARRAY_INTEGER_FIELDS:
+            return "array"
+        return None
+    if (stage, key) in SCALAR_INTEGER_KEYS:
+        return "scalar"
+    if (stage, key) in ARRAY_INTEGER_KEYS:
+        return "array"
+    return None
+
+
 def _is_integer_leaf(stage: str, key: str, field: str | None) -> bool:
     if (stage, key) in INTEGER_KEYS:
         return True
@@ -783,6 +889,10 @@ def _tolerance(stage: str, key: str) -> Tolerance:
 # ---------------------------------------------------------------------------
 # The diff.
 # ---------------------------------------------------------------------------
+#: Sentinel meaning "derive the shape from (stage, key)" — the top-level call.
+_UNSET = "\x00unset"
+
+
 def _is_num(x: Any) -> bool:
     return isinstance(x, (int, float)) and not isinstance(x, bool)
 
@@ -838,7 +948,8 @@ class KeyResult:
 
 
 def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
-          stage: str, key: str, field: str | None, carve_numeric: bool) -> None:
+          stage: str, key: str, field: str | None, carve_numeric: bool,
+          shape: str | None = _UNSET) -> None:
     """Recursively diff two canonical values, accumulating into ``res``.
 
     ``carve_numeric`` attributes NUMERIC differences to a numeric-only carve-out
@@ -854,6 +965,25 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
         return
 
     integer_leaf = _is_integer_leaf(stage, key, field)
+
+    # Field-level SHAPE, validated before any recursion (R3-F4). A count is a
+    # typed integer, not an arbitrary tree that happens to contain none. The
+    # declaration applies at the DECLARED position only: once an "array" has
+    # been validated, its elements carry no container declaration of their own,
+    # so an array of arrays (bid-to-pid) still recurses.
+    if shape is _UNSET:
+        shape = _integer_shape(stage, key, None)
+    if integer_leaf and shape is not None:
+        wrong = [f"[{side}] {type(v).__name__}"
+                 for side, v in (("a", a), ("b", b))
+                 if (shape == "scalar" and isinstance(v, (dict, list)))
+                 or (shape == "array" and not isinstance(v, list))]
+        if wrong:
+            res.structural.append(
+                f"{path}: integer field must be a {shape}, got "
+                f"{', '.join(wrong)}")
+            return
+    root = shape is not None or field is None
 
     # Non-finite wire tokens compare as tokens, on either or both sides. This
     # runs BEFORE the integer type check so the token evidence is always
@@ -947,8 +1077,13 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
             if k not in a or k not in b:
                 res.structural.append(f"{path}.{k}: present on only one side")
                 continue
+            child = _integer_shape(stage, key, k)
+            if child is None and root \
+                    and (stage, key) in MAPPING_SCALAR_INTEGER_KEYS:
+                child = "scalar"
             _walk(a[k], b[k], f"{path}.{k}", tol, res,
-                  stage=stage, key=key, field=k, carve_numeric=carve_numeric)
+                  stage=stage, key=key, field=k, carve_numeric=carve_numeric,
+                  shape=child)
         return
 
     if isinstance(a, list) and isinstance(b, list):
@@ -956,7 +1091,8 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
             res.structural.append(f"{path}: length {len(a)} vs {len(b)}")
         for i, (x, y) in enumerate(zip(a, b)):
             _walk(x, y, f"{path}[{i}]", tol, res,
-                  stage=stage, key=key, field=field, carve_numeric=carve_numeric)
+                  stage=stage, key=key, field=field, carve_numeric=carve_numeric,
+                  shape=None)
         return
 
     if a is None or b is None:
@@ -1133,6 +1269,35 @@ def load_stage_dumps(directory: str | Path) -> list[dict[str, Any]]:
     return docs
 
 
+_STEP_FILE_RE = re.compile(r"^step-(\d{3,})\.stages\.json$")
+_SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+
+
+def _load_with_paths(d: Path) -> list[tuple[Path, dict[str, Any]]]:
+    """Every step document paired with the file it came from, so a manifest can
+    be checked against the actual file rather than against an index lookup."""
+    out = []
+    for path in sorted(d.glob("step-*.stages.json")):
+        try:
+            doc = json.loads(path.read_text())
+        except (ValueError, OSError) as exc:
+            raise ValueError(f"{path}: unreadable ({exc})") from exc
+        if not isinstance(doc, dict):
+            raise ValueError(f"{path}: document is not an object")
+        if doc.get("schema") != STAGE_DUMP_SCHEMA:
+            raise ValueError(
+                f"{path}: schema {doc.get('schema')!r}, expected "
+                f"{STAGE_DUMP_SCHEMA!r}")
+        out.append((path, doc))
+    return out
+
+
+def _step_sort_key(doc: dict[str, Any]) -> tuple[int, int]:
+    step = doc.get("step")
+    ok = isinstance(step, int) and not isinstance(step, bool)
+    return (0 if ok else 1, step if ok else 0)
+
+
 def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], list[str]]:
     """Load a stage recording and check that it is complete and self-consistent.
 
@@ -1157,9 +1322,11 @@ def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], lis
             manifest = None
 
     try:
-        docs = load_stage_dumps(d)
+        pairs = _load_with_paths(d)
     except ValueError as exc:
         return [], problems + [str(exc)]
+    pairs.sort(key=lambda pd: _step_sort_key(pd[1]))
+    docs = [doc for _, doc in pairs]
     if not docs:
         problems.append(f"{d}: no step-NNN.stages.json files")
 
@@ -1178,10 +1345,10 @@ def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], lis
             problems.append(f"{d}: step {sid!r} has no integer tick "
                             f"({doc.get('tick')!r})")
         digest = doc.get("input_digest")
-        if not isinstance(digest, str) or not digest.startswith("sha256:") \
-                or len(digest) <= len("sha256:"):
-            problems.append(f"{d}: step {sid!r} has no sha256 input_digest "
-                            f"({digest!r})")
+        if not isinstance(digest, str) or not _SHA256_RE.match(digest):
+            # 64 lower-case hex digits, not merely a "sha256:" prefix.
+            problems.append(f"{d}: step {sid!r} has no well-formed sha256 "
+                            f"input_digest ({digest!r})")
         if not isinstance(doc.get("engine"), str) or not doc.get("engine"):
             problems.append(f"{d}: step {sid!r} declares no engine")
         if doc.get("vote_sign_convention") not in SUPPORTED_CONVENTIONS:
@@ -1209,12 +1376,15 @@ def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], lis
         # A stage with no evidence is a hole in the recording, not a stage that
         # happened to match: every declared key must be PRESENT on every side.
         for name in STAGE_ORDER:
-            body = raw_stages.get(name)
-            if body is None:
-                continue
+            if name not in raw_stages:
+                continue  # already reported as a missing stage above
+            body = raw_stages[name]
             if not isinstance(body, dict):
+                # A null or array stage is a MISSING stage, not one to skip:
+                # skipping it bypassed every required-key check below.
                 problems.append(
-                    f"{d}: step {sid!r} stage {name} is not an object")
+                    f"{d}: step {sid!r} stage {name} is not an object "
+                    f"({type(body).__name__}) — no evidence for it")
                 continue
             inventory = STAGE_KEYS[name]
             absent = sorted(inventory["required"] - set(body))
@@ -1229,6 +1399,10 @@ def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], lis
                     f"{d}: step {sid!r} stage {name} carries unknown key(s) "
                     f"{', '.join(unknown)}")
 
+    if manifest is not None and not isinstance(manifest, dict):
+        problems.append(f"{d}: manifest is not an object "
+                        f"({type(manifest).__name__})")
+        manifest = None
     if manifest is not None:
         if manifest.get("schema") != STAGE_DUMP_SCHEMA:
             problems.append(f"{d}: manifest schema {manifest.get('schema')!r}")
@@ -1246,31 +1420,68 @@ def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], lis
             if declared != steps:
                 problems.append(
                     f"{d}: manifest inventory {declared} != on-disk steps {steps}")
-            by_step = {doc.get("step"): doc for doc in docs}
+            # Each row is bound to the ACTUAL parsed file, not merely to a
+            # path that happens to exist and an index that happens to resolve
+            # (R3-F3): a row naming stages-manifest.json used to pass.
+            by_file = {path.name: doc for path, doc in pairs}
+            seen_files: set[str] = set()
             for r in rows:
                 if not isinstance(r, dict):
-                    problems.append(f"{d}: manifest row is not an object")
+                    problems.append(f"{d}: manifest row is not an object "
+                                    f"({type(r).__name__})")
                     continue
-                if not (d / str(r.get("file"))).is_file():
-                    problems.append(f"{d}: manifest names a missing file "
-                                    f"{r.get('file')!r}")
-                # The manifest must agree with the document it names, or it is
-                # not an inventory of this recording (R2-F2).
-                doc = by_step.get(r.get("index"))
+                name = r.get("file")
+                if not isinstance(name, str) or not _STEP_FILE_RE.match(name):
+                    problems.append(f"{d}: manifest row names {name!r}, which "
+                                    f"is not a step-NNN.stages.json filename")
+                    continue
+                if name in seen_files:
+                    problems.append(f"{d}: manifest names {name!r} twice")
+                    continue
+                seen_files.add(name)
+                doc = by_file.get(name)
                 if doc is None:
-                    problems.append(f"{d}: manifest row {r.get('index')!r} "
-                                    f"names no on-disk step")
+                    problems.append(f"{d}: manifest names {name!r}, which is "
+                                    f"not a step file in this recording")
                     continue
-                for field in ("tick", "input_digest"):
-                    if r.get(field) != doc.get(field):
+                # Every identity field must agree with THAT document.
+                for field in ("step", "tick", "input_digest", "engine",
+                              "vote_sign_convention"):
+                    row_field = "index" if field == "step" else field
+                    if r.get(row_field) != doc.get(field):
                         problems.append(
-                            f"{d}: manifest step {r.get('index')!r} {field} "
-                            f"{r.get(field)!r} != document {doc.get(field)!r}")
+                            f"{d}: manifest row {name} {row_field} "
+                            f"{r.get(row_field)!r} != document {field} "
+                            f"{doc.get(field)!r}")
+            unlisted = sorted({path.name for path, _ in pairs} - seen_files)
+            if unlisted:
+                problems.append(
+                    f"{d}: step file(s) {', '.join(unlisted)} are not in the "
+                    f"manifest")
+
             engines = {doc.get("engine") for doc in docs}
-            if manifest.get("engine") not in engines and docs:
+            if len(engines) > 1:
+                problems.append(
+                    f"{d}: documents declare more than one engine "
+                    f"{sorted(map(str, engines))}")
+            if docs and manifest.get("engine") not in engines:
                 problems.append(
                     f"{d}: manifest engine {manifest.get('engine')!r} is not "
                     f"the documents' engine {sorted(map(str, engines))}")
+            conventions = {doc.get("vote_sign_convention") for doc in docs}
+            if manifest.get("vote_sign_convention") not in SUPPORTED_CONVENTIONS:
+                problems.append(
+                    f"{d}: manifest declares unsupported vote_sign_convention "
+                    f"{manifest.get('vote_sign_convention')!r}")
+            elif docs and manifest.get("vote_sign_convention") not in conventions:
+                problems.append(
+                    f"{d}: manifest vote_sign_convention "
+                    f"{manifest.get('vote_sign_convention')!r} contradicts the "
+                    f"documents' {sorted(map(str, conventions))}")
+            if len(conventions) > 1:
+                problems.append(
+                    f"{d}: documents declare more than one "
+                    f"vote_sign_convention {sorted(map(str, conventions))}")
             if manifest.get("comment_projection_axes") != COMMENT_PROJECTION_AXES:
                 problems.append(
                     f"{d}: manifest does not declare "
@@ -1289,8 +1500,20 @@ def compare_recordings(dir_a: str | Path, dir_b: str | Path) -> dict[str, Any]:
     docs_b, problems_b = validate_recording(dir_b)
     problems = [f"A: {p}" for p in problems_a] + [f"B: {p}" for p in problems_b]
 
-    by_step_a = {doc.get("step"): doc for doc in docs_a}
-    by_step_b = {doc.get("step"): doc for doc in docs_b}
+    # Only documents with a usable identity take part in the alignment. An
+    # invalid one is already an input problem (the headline is withheld); it
+    # must not be used as a dict key or a sort key on the way there.
+    def _by_step(docs: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
+        return {doc["step"]: doc for doc in docs
+                if isinstance(doc.get("step"), int)
+                and not isinstance(doc.get("step"), bool)}
+
+    by_step_a, by_step_b = _by_step(docs_a), _by_step(docs_b)
+    unusable = ([d for d in docs_a if _by_step([d]) == {}]
+                + [d for d in docs_b if _by_step([d]) == {}])
+    if unusable:
+        problems.append(f"{len(unusable)} document(s) have an unusable step "
+                        f"identity and cannot be aligned")
     only_a = sorted(k for k in by_step_a if k not in by_step_b)
     only_b = sorted(k for k in by_step_b if k not in by_step_a)
     if only_a:
