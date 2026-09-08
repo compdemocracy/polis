@@ -6,7 +6,7 @@
     ],
     "asJSON_sha256": [
       "fa78e3c4a1cbacb495960da1fcb9b1a834ffc0d825361b968e9e2eadb2670050",
-      "3dce084588c4cb68c0bbd72f082acd37a0b7a63e1bfa0ff3a7a180ddbbdaaabc"
+      "c3d55d3ed62a2f6f1b8c15d7bfd7f53425a4fe95e742e65c8c5b544a2b12872e"
     ],
     "bid_to_pid": [
       [],
@@ -18,7 +18,7 @@
     ],
     "gzip_sha256": [
       "666e7e9f166083dfc4cf0489725d1be564b371049fc0a3779bdcf67db8cb76f9",
-      "9317ecdb137100f7e75b2c7a331effdee2124825d7f0def0b61a72edfd2b8caa"
+      "d91c8c5fe6990e61e5d212769e77ed62f20eca8b8ba54a145abc341af72e3bbe"
     ],
     "keys_projection_sha256": [
       "5e21b0f6fec91b0e609a968a8c308d8c57e58062a487dbff98628b8206acfac7",
@@ -48,7 +48,7 @@
   "served": {
     "python": {
       "asJSON_bytes": 455,
-      "asJSON_sha256": "3dce084588c4cb68c0bbd72f082acd37a0b7a63e1bfa0ff3a7a180ddbbdaaabc",
+      "asJSON_sha256": "c3d55d3ed62a2f6f1b8c15d7bfd7f53425a4fe95e742e65c8c5b544a2b12872e",
       "bid_to_pid": null,
       "consensus_shape": {
         "agree": 0,
@@ -56,9 +56,9 @@
       },
       "etag_math_tick": 0,
       "gzip_bytes": 266,
-      "gzip_sha256": "9317ecdb137100f7e75b2c7a331effdee2124825d7f0def0b61a72edfd2b8caa",
+      "gzip_sha256": "d91c8c5fe6990e61e5d212769e77ed62f20eca8b8ba54a145abc341af72e3bbe",
       "keys_projection_sha256": "bdfafdc98f5d9e7439255a1073827ca5509cc40621dbb02bd1e9e8f5d7668a31",
-      "last_vote_timestamp": 1788873072680,
+      "last_vote_timestamp": 1788875807779,
       "mapping_is_error": true,
       "mapping_math_tick": null,
       "mapping_sha256": null,

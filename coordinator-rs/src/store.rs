@@ -6,7 +6,7 @@ use crate::{
     lease::{self, LeaseState},
     metrics::{Metrics, Tally},
 };
-use anyhow::{Result, bail, ensure};
+use anyhow::{Result, ensure};
 use postgres::{Client, NoTls};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -86,13 +86,44 @@ pub fn storage_digest(value: &Value) -> Result<String> {
     Ok(digest(&bytes))
 }
 
+/// Exact worker output, retained before JSONB normalization or re-encoding.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OriginalPayloads {
+    pub main: Vec<u8>,
+    pub bidtopid: Vec<u8>,
+    pub ptptstats: Vec<u8>,
+}
+impl OriginalPayloads {
+    fn hashes(&self) -> Value {
+        json!({"main":digest(&self.main),"bidtopid":digest(&self.bidtopid),"ptptstats":digest(&self.ptptstats)})
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Payloads {
+    pub originals: OriginalPayloads,
     pub main: Value,
     pub bidtopid: Value,
     pub ptptstats: Value,
 }
 impl Payloads {
+    pub fn from_originals(originals: OriginalPayloads) -> Result<Self> {
+        Ok(Self {
+            main: crate::wire::parse(&originals.main)?,
+            bidtopid: crate::wire::parse(&originals.bidtopid)?,
+            ptptstats: crate::wire::parse(&originals.ptptstats)?,
+            originals,
+        })
+    }
+    pub fn validate_originals(&self) -> Result<()> {
+        let parsed = Self::from_originals(self.originals.clone())?;
+        ensure!(
+            parsed.hashes()? == self.hashes()?,
+            "ORIGINAL_JSONB_MISMATCH"
+        );
+        Ok(())
+    }
+
     pub fn validate(&self, zid: i32) -> Result<()> {
         for data in [&self.main, &self.bidtopid, &self.ptptstats] {
             ensure!(data["zid"] == zid, "foreign payload identity");
@@ -146,6 +177,8 @@ pub struct Bundle {
     pub math_tick: i64,
     pub caching_tick: i64,
     pub checkpoint: Value,
+    pub publisher_epoch: i64,
+    pub operation_id: String,
 }
 #[derive(Debug)]
 pub enum Current {
@@ -153,6 +186,39 @@ pub enum Current {
     Inconsistent,
     Coherent(Box<Bundle>),
 }
+#[derive(Debug, PartialEq)]
+pub enum CommitReadback {
+    Own(i64),
+    Lost,
+}
+/// In-place storage cannot prove an overwritten operation ever committed. Fail
+/// closed unless the current coherent generation is this exact attempt.
+pub fn classify_commit(
+    current: &Current,
+    checkpoint: &Value,
+    epoch: i64,
+    operation_id: &str,
+    tick: i64,
+) -> CommitReadback {
+    if let Current::Coherent(bundle) = current
+        && bundle.math_tick == tick
+        && bundle.publisher_epoch == epoch
+        && bundle.operation_id == operation_id
+        && bundle.checkpoint == *checkpoint
+    {
+        return CommitReadback::Own(tick);
+    }
+    CommitReadback::Lost
+}
+#[derive(Debug)]
+pub struct CommitLost;
+impl std::fmt::Display for CommitLost {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("UNCERTAIN_COMMIT_LOST")
+    }
+}
+impl std::error::Error for CommitLost {}
+
 #[derive(Debug, PartialEq)]
 pub enum Publication {
     Committed(i64),
@@ -206,7 +272,11 @@ impl PgStore {
         let fault = Fault::new(&mut client, &config.math_env)?;
         let cache = WarmCache::new(config.cache_capacity);
         let metrics = Metrics::from_env(&config);
-        tracing::info!(sink = metrics.describe(), namespace = crate::metrics::NAMESPACE, "metrics sink");
+        tracing::info!(
+            sink = metrics.describe(),
+            namespace = crate::metrics::NAMESPACE,
+            "metrics sink"
+        );
         Ok(Self {
             client,
             config,
@@ -272,13 +342,18 @@ struct GenerationMeta {
     caching_tick: Option<i64>,
     checkpoint: Option<Value>,
     complete: bool,
+    epoch: Option<i64>,
+    operation_id: Option<String>,
 }
 
 impl PgStore {
     fn generation_meta(&mut self, zid: i32) -> Result<Option<GenerationMeta>> {
         let row = self.client.query_opt(
             "SELECT t.math_tick,t.publisher_epoch,t.input_checkpoint,
-                    m.math_tick,m.caching_tick,b.math_tick,p.math_tick
+                    m.math_tick,m.caching_tick,b.math_tick,p.math_tick,t.operation_id,
+                    m.original_bytes IS NOT NULL AND m.original_sha256 IS NOT NULL
+                    AND b.original_bytes IS NOT NULL AND b.original_sha256 IS NOT NULL
+                    AND p.original_bytes IS NOT NULL AND p.original_sha256 IS NOT NULL
                FROM math_ticks t
                LEFT JOIN math_main m ON m.zid=t.zid AND m.math_env=t.math_env
                LEFT JOIN math_bidtopid b ON b.zid=t.zid AND b.math_env=t.math_env
@@ -293,6 +368,8 @@ impl PgStore {
         let checkpoint: Option<Value> = r.get(2);
         let companions: [Option<i64>; 3] = [r.get(3), r.get(5), r.get(6)];
         let complete = r.get::<_, Option<i64>>(1).is_some()
+            && r.get::<_, Option<String>>(7).is_some()
+            && r.get::<_, Option<bool>>(8) == Some(true)
             && checkpoint.is_some()
             && companions.iter().all(|t| *t == Some(tick));
         Ok(Some(GenerationMeta {
@@ -300,6 +377,8 @@ impl PgStore {
             caching_tick: r.get(4),
             checkpoint,
             complete,
+            epoch: r.get(1),
+            operation_id: r.get(7),
         }))
     }
 
@@ -334,6 +413,8 @@ impl PgStore {
     pub fn resident_is_intact(&mut self, zid: i32, bundle: &Bundle) -> Result<bool> {
         Ok(self.generation_meta(zid)?.is_some_and(|g| {
             g.complete
+                && g.epoch == Some(bundle.publisher_epoch)
+                && g.operation_id.as_ref() == Some(&bundle.operation_id)
                 && g.tick == bundle.math_tick
                 && g.caching_tick == Some(bundle.caching_tick)
                 && g.checkpoint.as_ref() == Some(&bundle.checkpoint)
@@ -351,20 +432,45 @@ impl PgStore {
 }
 impl ResultsStore for PgStore {
     fn load_current(&mut self, zid: i32) -> Result<Current> {
-        let row = self.client.query_opt("SELECT m.data,b.data,p.data,m.math_tick,m.caching_tick,t.input_checkpoint,COALESCE(m.math_tick=b.math_tick AND m.math_tick=p.math_tick AND m.math_tick=t.math_tick AND t.publisher_epoch IS NOT NULL AND t.input_checkpoint IS NOT NULL,false) FROM (SELECT zid FROM math_main WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_bidtopid WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_ptptstats WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_ticks WHERE math_env=$1 AND zid=$2) k LEFT JOIN math_main m ON m.zid=k.zid AND m.math_env=$1 LEFT JOIN math_bidtopid b ON b.zid=k.zid AND b.math_env=$1 LEFT JOIN math_ptptstats p ON p.zid=k.zid AND p.math_env=$1 LEFT JOIN math_ticks t ON t.zid=k.zid AND t.math_env=$1", &[&self.config.math_env,&zid])?;
+        let row = self.client.query_opt("SELECT m.data,b.data,p.data,m.math_tick,m.caching_tick,t.input_checkpoint,COALESCE(m.math_tick=b.math_tick AND m.math_tick=p.math_tick AND m.math_tick=t.math_tick AND t.publisher_epoch IS NOT NULL AND t.input_checkpoint IS NOT NULL,false),t.publisher_epoch,t.operation_id,m.original_bytes,b.original_bytes,p.original_bytes,m.original_sha256,b.original_sha256,p.original_sha256 FROM (SELECT zid FROM math_main WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_bidtopid WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_ptptstats WHERE math_env=$1 AND zid=$2 UNION SELECT zid FROM math_ticks WHERE math_env=$1 AND zid=$2) k LEFT JOIN math_main m ON m.zid=k.zid AND m.math_env=$1 LEFT JOIN math_bidtopid b ON b.zid=k.zid AND b.math_env=$1 LEFT JOIN math_ptptstats p ON p.zid=k.zid AND p.math_env=$1 LEFT JOIN math_ticks t ON t.zid=k.zid AND t.math_env=$1", &[&self.config.math_env,&zid])?;
         let Some(r) = row else {
             return Ok(Current::Absent);
         };
         if !r.get::<_, bool>(6) {
             return Ok(Current::Inconsistent);
         }
+        let Some(operation_id) = r.get::<_, Option<String>>(8) else {
+            return Ok(Current::Inconsistent);
+        };
+        let raw: [Option<Vec<u8>>; 3] = [r.get(9), r.get(10), r.get(11)];
+        let [Some(main), Some(bidtopid), Some(ptptstats)] = raw else {
+            return Ok(Current::Inconsistent);
+        };
+        let originals = OriginalPayloads {
+            main,
+            bidtopid,
+            ptptstats,
+        };
+        let hashes = originals.hashes();
+        for (index, key) in [(12, "main"), (13, "bidtopid"), (14, "ptptstats")] {
+            if r.get::<_, Option<String>>(index).as_deref() != hashes[key].as_str() {
+                return Ok(Current::Inconsistent);
+            }
+        }
         let payloads = Payloads {
+            originals,
             main: r.get(0),
             bidtopid: r.get(1),
             ptptstats: r.get(2),
         };
         let checkpoint: Value = r.get(5);
-        if payloads.validate(zid).is_err() || payloads.hashes()? != checkpoint["payload_digests"] {
+        if payloads.validate(zid).is_err()
+            || payloads.validate_originals().is_err()
+            || payloads.hashes()? != checkpoint["payload_digests"]
+            || hashes != checkpoint["original_digests"]
+            || checkpoint["operation_id"] != operation_id
+            || checkpoint["publisher_epoch"] != r.get::<_, i64>(7)
+        {
             return Ok(Current::Inconsistent);
         }
         Ok(Current::Coherent(Box::new(Bundle {
@@ -372,6 +478,8 @@ impl ResultsStore for PgStore {
             math_tick: r.get(3),
             caching_tick: r.get(4),
             checkpoint,
+            operation_id,
+            publisher_epoch: r.get(7),
         })))
     }
     fn publish(
@@ -383,6 +491,14 @@ impl ResultsStore for PgStore {
         payload: &Payloads,
     ) -> Result<Publication> {
         payload.validate(zid)?;
+        payload.validate_originals()?;
+        let operation_id = checkpoint["operation_id"]
+            .as_str()
+            .filter(|s| !s.is_empty() && s.len() <= 128)
+            .ok_or_else(|| anyhow::anyhow!("missing publication operation id"))?
+            .to_owned();
+        checkpoint["publisher_epoch"] = json!(epoch);
+        checkpoint["original_digests"] = payload.originals.hashes();
         checkpoint["payload_digests"] = payload.hashes()?; // before ANY lock
         let encoded =
             [&payload.main, &payload.bidtopid, &payload.ptptstats].map(serde_json::to_string);
@@ -419,14 +535,24 @@ impl ResultsStore for PgStore {
                 .ok_or_else(|| anyhow::anyhow!("tick overflow"))?,
             None => 0,
         };
-        tx.execute("INSERT INTO math_ticks(zid,math_env,math_tick,publisher_epoch,input_checkpoint) VALUES($1,$2,$3,$4,$5) ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,publisher_epoch=excluded.publisher_epoch,input_checkpoint=excluded.input_checkpoint,modified=now_as_millis()", &[&zid,&c.math_env,&tick,&epoch,&checkpoint])?;
+        tx.execute("INSERT INTO math_ticks(zid,math_env,math_tick,publisher_epoch,input_checkpoint,operation_id) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,publisher_epoch=excluded.publisher_epoch,input_checkpoint=excluded.input_checkpoint,operation_id=excluded.operation_id,modified=now_as_millis()", &[&zid,&c.math_env,&tick,&epoch,&checkpoint,&operation_id])?;
         self.fault.hit("after_ticks", &context)?;
-        for (table, name, data) in [
-            ("math_bidtopid", "bidtopid", bid),
-            ("math_ptptstats", "ptptstats", stats),
+        for (table, name, data, original) in [
+            (
+                "math_bidtopid",
+                "bidtopid",
+                bid,
+                &payload.originals.bidtopid,
+            ),
+            (
+                "math_ptptstats",
+                "ptptstats",
+                stats,
+                &payload.originals.ptptstats,
+            ),
         ] {
             self.fault.hit(&format!("before_{name}"), &context)?;
-            tx.execute(&format!("INSERT INTO {table}(zid,math_env,math_tick,data) VALUES($1,$2,$3,$4::text::jsonb) ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,data=excluded.data,modified=now_as_millis()"), &[&zid,&c.math_env,&tick,&data])?;
+            tx.execute(&format!("INSERT INTO {table}(zid,math_env,math_tick,data,original_bytes,original_sha256) VALUES($1,$2,$3,$4::text::jsonb,$5,$6) ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,data=excluded.data,original_bytes=excluded.original_bytes,original_sha256=excluded.original_sha256,modified=now_as_millis()"), &[&zid,&c.math_env,&tick,&data,original,&checkpoint["original_digests"][name].as_str()])?;
             self.fault.hit(&format!("after_{name}"), &context)?;
         }
         self.fault.hit("before_main", &context)?;
@@ -437,7 +563,7 @@ impl ResultsStore for PgStore {
             cursor <= 9_007_199_254_740_991,
             "cursor exceeds exact Node integer range"
         );
-        tx.execute("INSERT INTO math_main(zid,math_env,math_tick,data,last_vote_timestamp,caching_tick) VALUES($1,$2,$3,$4::text::jsonb,$5,$6) ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,data=excluded.data,last_vote_timestamp=excluded.last_vote_timestamp,caching_tick=excluded.caching_tick,modified=now_as_millis()", &[&zid,&c.math_env,&tick,&main,&stamp,&cursor])?;
+        tx.execute("INSERT INTO math_main(zid,math_env,math_tick,data,last_vote_timestamp,caching_tick,original_bytes,original_sha256) VALUES($1,$2,$3,$4::text::jsonb,$5,$6,$7,$8) ON CONFLICT(zid,math_env) DO UPDATE SET math_tick=excluded.math_tick,data=excluded.data,last_vote_timestamp=excluded.last_vote_timestamp,caching_tick=excluded.caching_tick,original_bytes=excluded.original_bytes,original_sha256=excluded.original_sha256,modified=now_as_millis()", &[&zid,&c.math_env,&tick,&main,&stamp,&cursor,&payload.originals.main,&checkpoint["original_digests"]["main"].as_str()])?;
         self.fault.hit("after_main", &context)?;
         self.fault.hit("before_commit", &context)?;
         // Rev6 CO04 "remaining-lease final authorization under lock". The lease
@@ -469,12 +595,17 @@ impl ResultsStore for PgStore {
             // Lost COMMIT response: reconnect and compare immutable identity.
             self.tally.publish_uncertain += 1;
             self.client = Client::connect(&self.config.database_url, NoTls)?;
-            if let Current::Coherent(bundle) = self.load_current(zid)?
-                && bundle.checkpoint == checkpoint
-            {
-                return Ok(Publication::Committed(bundle.math_tick));
+            if let CommitReadback::Own(tick) = classify_commit(
+                &self.load_current(zid)?,
+                &checkpoint,
+                epoch,
+                &operation_id,
+                tick,
+            ) {
+                return Ok(Publication::Committed(tick));
             }
-            bail!("uncertain commit, checkpoint not observed: {error}");
+            tracing::error!(%error, "uncertain COMMIT identity not observed");
+            return Err(CommitLost.into());
         }
         self.fault.hit("after_commit", &context)?;
         Ok(Publication::Committed(tick))

@@ -165,7 +165,7 @@ authorization immediately before COMMIT re-reads owner, epoch and the
 `P026_COMMIT_MARGIN_SECONDS` is left rather than gambling that the COMMIT round
 trip beats the clock. That check does not prove the round trip finishes in time
 — nothing in-transaction can — so an uncertain COMMIT is still resolved by
-checkpoint identity, never by a wall-clock deadline. Reclaims increment the epoch; rows are expired,
+operation, publisher epoch, tick and checkpoint identity, never by a wall-clock deadline. Reclaims increment the epoch; rows are expired,
 never deleted/recreated. Default lease duration is 120 seconds.
 
 ## Ownership outcomes
@@ -209,14 +209,20 @@ the release — is what the invariant rests on.
 
 Per-conversation error attempts are durable and capped at 30 for backoff. SQLSTATE
 40001/40P01 gets at most three whole-transaction attempts. Uncertain COMMIT checks
-coherent persisted checkpoint identity before reporting success or failure.
+coherent persisted operation/epoch/tick/checkpoint identity before reporting success or failure.
 
 Integrity digests are separate from harness semantic hashes. JSONB normalizes
 numeric spellings (`-0.0` and exponent notation). `storage_digest` expands decimal
 number tokens and removes insignificant zeroes, preserving JSON types and all
-payload fields. Hashing/encoding occurs before any publication lock. The original
-worker file bytes have SHA256 descriptors; PostgreSQL JSONB does not preserve those
-lexical bytes. The row-shape golden compares `data::text` from both writers.
+payload fields. Hashing/encoding occurs before any publication lock. Each results row stores `original_bytes` (BYTEA) and `original_sha256` in the same
+publication transaction as `data` (JSONB). These are the admitted worker bytes,
+not JSON re-encoded from a parsed value. `load_current` verifies the raw digest,
+the checkpoint's raw and storage digests, and the decoded original/JSONB
+correspondence before returning a Bundle. The returned originals permit exact
+byte replay, including whitespace, negative zero and exponent spellings. Legacy
+rows receive nullable columns and fail admission until rebuilt; migration cannot
+recover bytes already lost to JSONB. The row-shape golden still compares
+`data::text` from the Rust and Python writers.
 
 ## Toolchain
 
@@ -274,6 +280,35 @@ stored in the crate or report.
 
 ## Candidate wire profile
 
+S1 reserves `polis-input/1` for the complete reviewed contract. This local
+profile uses `polis-candidate-input/1`, `polis-candidate-checkpoint/1` and
+`polis-candidate-math-output/1`; none is a G01–G16 certificate.
+
+Initialization also requires the exact admission tuple documented in
+`schemas/candidate-admission.schema.json`: candidate schema id, declared engine
+version `python-conversation/p026-s1`, SHA256 of the immutable input manifest,
+SHA256 of the resolved schedule, and a fresh coordinator operation id. The input
+manifest transitively binds vote/moderation files and parent provenance. The
+worker validates these before creating Conversation state, returns the tuple at
+initialization and in its checkpoint, and Rust compares both against its request.
+The engine version is a local adapter revision, not a certified release or a
+substitute for the source/dependency hashes recorded in the campaign evidence.
+
+Admission refusals are typed: `MALFORMED_CANDIDATE`,
+`CANDIDATE_SCHEMA_MISMATCH`, `ENGINE_VERSION_MISMATCH`,
+`INPUT_DIGEST_MISMATCH`, `SCHEDULE_DIGEST_MISMATCH`, and (at coordinator
+readback of the candidate) `OPERATION_ID_MISMATCH`. File checksum refusal remains
+`CHECKSUM_MISMATCH`; existing input/sequence/resource errors remain terminal.
+Unknown checkpoint or admission fields fail closed.
+
+The operation id survives whole-transaction retries. Publication writes it and
+`publisher_epoch` both in `math_ticks` and the checkpoint; `Bundle` exposes both.
+An uncertain COMMIT returns own success only for a coherent current Bundle with
+matching operation, publisher epoch, tick, complete checkpoint and all digests.
+A different or overwritten publication is `UNCERTAIN_COMMIT_LOST`, never evidence
+of our own success. In-place rows provide no historical operation receipt: an
+operation overwritten before readback is conservatively lost/unknown.
+
 Initialization requires descriptors `{path,bytes,sha256}` for an input manifest
 and resolved schedule, a `config`, and `required_capabilities`. Dedicated input
 and output roots are process arguments. Symlinks/traversal, duplicate keys, invalid
@@ -281,7 +316,7 @@ votes (including NULL), foreign identities and checksum errors fail closed.
 The control line limit is 64 KiB; each admitted bulk file is bounded at 256 MiB.
 The client operation timeout is 120 seconds and failure kills/discards the worker.
 
-Local manifest keys: `schema:"polis-input/1"`, `fixture_id`,
+Local manifest keys: `schema:"polis-candidate-input/1"`, `fixture_id`,
 `storage_agree_value`, `ordering`, `votes`, `moderation`, `parent`. `ordering` is
 either the `polis-order/1` declaration above (live profile) or the pinned name of
 a frozen replay order; a live declaration must agree with `storage_agree_value`

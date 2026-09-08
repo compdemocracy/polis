@@ -44,11 +44,29 @@ fn run() -> Result<()> {
                 .ok_or_else(|| anyhow::anyhow!("fixture path required"))?;
             let v: serde_json::Value = serde_json::from_slice(&std::fs::read(path)?)?;
             let zid: i32 = serde_json::from_value(v["zid"].clone())?;
-            let payloads: polis_coordinator::store::Payloads =
-                serde_json::from_value(v["payloads"].clone())?;
+            // Fixture ingress has no worker files. Preserve its explicitly supplied
+            // bytes, or serialize the fixture values once as the fixture origin.
+            let raw = |key: &str| -> Result<Vec<u8>> {
+                if let Some(bytes) = v["payloads"]["originals"].get(key) {
+                    Ok(serde_json::from_value(bytes.clone())?)
+                } else {
+                    Ok(serde_json::to_vec(&v["payloads"][key])?)
+                }
+            };
+            let payloads = polis_coordinator::store::Payloads::from_originals(
+                polis_coordinator::store::OriginalPayloads {
+                    main: raw("main")?,
+                    bidtopid: raw("bidtopid")?,
+                    ptptstats: raw("ptptstats")?,
+                },
+            )?;
+            let mut checkpoint = v["checkpoint"].clone();
+            if checkpoint.get("operation_id").is_none() {
+                checkpoint["operation_id"] = json!(uuid::Uuid::new_v4().to_string());
+            }
             let epoch = store.acquire(zid)?.ok_or(LeaseState::Unavailable)?;
             let expected = v["expected_tick"].as_i64();
-            let result = store.publish(zid, expected, epoch, v["checkpoint"].clone(), &payloads)?;
+            let result = store.publish(zid, expected, epoch, checkpoint, &payloads)?;
             store.release(zid, epoch)?;
             println!("{result:?}");
             // A refusal is not a successful one-shot run. `publish-fixture` is
