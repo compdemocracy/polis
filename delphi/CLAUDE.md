@@ -246,7 +246,8 @@ Delphi now includes a distributed job queue system built on DynamoDB:
   scan finding no live checker descendant. A missing guard table makes submission fail closed (503),
   and a reset must delete the conversation's guard rows or the scope stays blocked. See
   `docs/JOB_QUEUE_SCHEMA.md`, `docs/RESET_SINGLE_CONVERSATION.md` and
-  `server/src/routes/delphi/jobGuard.ts`.
+  `server/src/routes/delphi/jobGuard.ts`. `GET /api/v3/delphi/visualizations` reports the same
+  effective-work answer per job as `workLive`, so a reloaded client knows when to stop polling.
 - `Delphi_CollectiveStatement` - Collective statements generated for topics
 
 > **Note:** All table names now use the `Delphi_` prefix for consistency.

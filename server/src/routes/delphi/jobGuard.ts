@@ -72,6 +72,13 @@ const SCAN_PAGE_SIZE = 200;
 const MAX_ADMISSION_ATTEMPTS = 3;
 
 /**
+ * How many candidate roots of one scope adoption will classify before giving
+ * up. A conversation with more than this many is not a shape this code
+ * understands, so it fails closed rather than picking one.
+ */
+const ADOPTION_CANDIDATE_LIMIT = 25;
+
+/**
  * How long a supplied idempotency key stays bound to the job it was
  * acknowledged with. **Anchored at the moment the binding is written**, not at
  * the job's completion: a key first used at T is replayable until T + 24 h,
@@ -426,44 +433,52 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
   },
 
   async sweepUnguardedActiveRoot(scope, exceptJobId) {
-    // Every non-terminal row in the conversation, then classify. A live checker
-    // means its *root* still owns the scope even if that root is already
-    // COMPLETED, so filtering children out here would miss exactly the state
-    // the guarded path exists to protect.
+    // Every row in the conversation, then classify with the same rule the
+    // guarded path uses. Filtering on status here was wrong twice over: a live
+    // checker means its *root* still owns the scope even when that root is
+    // COMPLETED, and a root whose terminal write is unresolved — FAILED with no
+    // confirmed process exit, or `checker_schedule_failed` — is outstanding
+    // work that a status filter hides. Those are precisely the old-worker and
+    // operator-reset states adoption exists for.
     const rows = await baseTableSweep(
-      "conversation_id = :cid AND NOT (#s IN (:completed, :failed))",
-      {
-        ":cid": scope.conversationId,
-        ":completed": "COMPLETED",
-        ":failed": "FAILED",
-      },
-      "unguarded active work"
+      "conversation_id = :cid",
+      { ":cid": scope.conversationId },
+      "unguarded work"
     );
     if (rows.kind !== "found") {
       return rows;
     }
 
     const wantReport = scope.reportId || "";
+    const inScope = (row: any) =>
+      row &&
+      row.job_type === scope.jobType &&
+      (row.report_id || "") === wantReport;
+
+    // Candidate roots of this scope, plus the roots of any live checker.
+    const candidates: string[] = [];
+    const consider = (jobId: string) => {
+      if (jobId !== exceptJobId && !candidates.includes(jobId)) {
+        candidates.push(jobId);
+      }
+    };
+
     for (const row of rows.value) {
       const jobId = String(row.job_id);
-      if (exceptJobId && jobId === exceptJobId) {
-        continue;
-      }
       const parentId = row.batch_job_id ? String(row.batch_job_id) : null;
       if (!parentId) {
-        // A root of its own. Does it belong to this scope?
-        if (
-          row.job_type === scope.jobType &&
-          (row.report_id || "") === wantReport
-        ) {
-          return { kind: "found", value: jobId };
+        if (inScope(row)) {
+          consider(jobId);
         }
         continue;
       }
-      if (exceptJobId && parentId === exceptJobId) {
+      if (TERMINAL_STATUSES.has(row.status)) {
+        continue; // a finished checker says nothing about its root
+      }
+      if (jobId === exceptJobId || parentId === exceptJobId) {
         continue;
       }
-      // A checker child: its root owns the scope. Read the root to classify it.
+      // A live checker: its root owns the scope. Read the root to classify it.
       const parent = await this.readJob(parentId);
       if (!parent) {
         // Live child, unreadable lineage. We cannot tell whose scope this
@@ -473,11 +488,24 @@ export const dynamoJobAdmissionStore: JobAdmissionStore = {
           reason: `live descendant ${jobId} has no readable root`,
         };
       }
-      if (
-        parent.job_type === scope.jobType &&
-        (parent.report_id || "") === wantReport
-      ) {
-        return { kind: "found", value: parentId };
+      if (inScope(parent)) {
+        consider(parentId);
+      }
+    }
+
+    if (!candidates.length) {
+      return { kind: "none" };
+    }
+    if (candidates.length > ADOPTION_CANDIDATE_LIMIT) {
+      return {
+        kind: "unknown",
+        reason: `${candidates.length} candidate roots in scope; too many to classify`,
+      };
+    }
+    for (const candidate of candidates) {
+      const liveness = await assessJobLiveness(this, candidate);
+      if (liveness.live) {
+        return { kind: "found", value: candidate };
       }
     }
     return { kind: "none" };
@@ -818,18 +846,30 @@ async function bindKeyToJob(
   scope: JobScope,
   jobId: string,
   configHash: string
-): Promise<{ kind: "bound" } | { kind: "conflict"; jobId: string }> {
+): Promise<
+  | { kind: "bound"; jobId: string }
+  | { kind: "conflict"; jobId: string }
+  | { kind: "retry" }
+> {
   const written = await store.bindAlias(
     aliasItemFor(aliasKey, scopeKey, scope, jobId, configHash)
   );
   if (written) {
-    return { kind: "bound" };
+    return { kind: "bound", jobId };
   }
+  // Someone else bound this key first. Which job did *they* record? Assuming it
+  // was ours would hand back a job id whose retry resolves a different one, and
+  // the same key must always name the same job.
   const existing = await resolveAlias(store, aliasKey, scopeKey, configHash);
   if (existing.kind === "conflict") {
     return { kind: "conflict", jobId: existing.jobId };
   }
-  return { kind: "bound" };
+  if (existing.kind === "absent") {
+    // Cleared between the failed put and the read: nothing is bound, so re-run
+    // rather than acknowledging an unbound key.
+    return { kind: "retry" };
+  }
+  return { kind: "bound", jobId: existing.jobId };
 }
 
 /**
@@ -938,24 +978,92 @@ export async function admitDelphiJob(
     : null;
   const jobItem = { ...request.jobItem };
 
-  // Every successful resolution funnels through here so a supplied key is
-  // always bound to the job the caller is actually told about.
-  const settle = async (result: AdmissionResult): Promise<AdmissionResult> => {
-    if (!aliasKey || result.outcome === "idempotency_conflict") {
+  /**
+   * Commit an acknowledgement.
+   *
+   * Two things must hold before a job id goes back to the caller, and neither
+   * was checked before: a supplied key must be bound to *that* job — and if
+   * someone else bound the key first, theirs is the answer, or the same key
+   * would name two jobs — and the job must still exist. Compensation and
+   * concurrent binding can both leave a result naming a row that has been
+   * deleted or superseded. Returns null for "start the cycle again"; the caller
+   * must not acknowledge anything.
+   */
+  const settle = async (
+    result: AdmissionResult
+  ): Promise<AdmissionResult | null> => {
+    if (result.outcome === "idempotency_conflict") {
       return result;
     }
-    const bound = await bindKeyToJob(
-      store,
-      aliasKey,
-      scopeKey,
-      scope,
-      result.jobId,
-      configHash
-    );
-    if (bound.kind === "conflict") {
-      return { outcome: "idempotency_conflict", jobId: bound.jobId };
+
+    let acknowledged: AdmissionResult = result;
+    if (aliasKey) {
+      const bound = await bindKeyToJob(
+        store,
+        aliasKey,
+        scopeKey,
+        scope,
+        result.jobId,
+        configHash
+      );
+      if (bound.kind === "conflict") {
+        return { outcome: "idempotency_conflict", jobId: bound.jobId };
+      }
+      if (bound.kind === "retry") {
+        return null;
+      }
+      if (bound.jobId !== result.jobId) {
+        logger.warn(
+          `Delphi scope ${logScope(
+            scopeKey
+          )}: idempotency key was already bound to ${
+            bound.jobId
+          }; acknowledging that job instead of ${result.jobId}`
+        );
+        acknowledged = {
+          outcome: "deduplicated",
+          jobId: bound.jobId,
+          jobStatus: "UNKNOWN",
+          workLive: true,
+        };
+      }
     }
-    return result;
+
+    if (acknowledged.outcome === "created") {
+      // Its queue row and guard went in together, in one transaction, and the
+      // compensating path never reaches here.
+      return acknowledged;
+    }
+
+    // Re-read what backs this id before naming it. Compensation and concurrent
+    // binding can both leave a result pointing at a row that has been withdrawn
+    // or a scope that has moved on; either way the honest move is to resolve
+    // again rather than hand out an id nothing stands behind.
+    const guardNow = await store.readGuard(scopeKey);
+    if (guardNow) {
+      if (guardNow.job_id !== acknowledged.jobId) {
+        logger.warn(
+          `Delphi scope ${logScope(scopeKey)}: guard now names ${
+            guardNow.job_id
+          }, not ${acknowledged.jobId}; re-resolving`
+        );
+        return null;
+      }
+    } else if (!(await store.readJob(acknowledged.jobId))) {
+      logger.warn(
+        `Delphi scope ${logScope(scopeKey)}: job ${
+          acknowledged.jobId
+        } is unguarded and gone; re-resolving`
+      );
+      return null;
+    }
+
+    const liveness = await assessJobLiveness(store, acknowledged.jobId);
+    return {
+      ...acknowledged,
+      jobStatus: liveness.status,
+      workLive: liveness.live,
+    };
   };
 
   try {
@@ -988,12 +1096,16 @@ export async function admitDelphiJob(
               guard.job_id
             } for scope ${logScope(scopeKey)} (${liveness.reason})`
           );
-          return settle({
+          const settled = await settle({
             outcome: "deduplicated",
             jobId: guard.job_id,
             jobStatus: liveness.status,
             workLive: true,
           });
+          if (settled) {
+            return settled;
+          }
+          continue;
         }
         logger.info(
           `Delphi scope ${logScope(scopeKey)} released from job ${
@@ -1030,13 +1142,17 @@ export async function admitDelphiJob(
           }`
         );
         const liveness = await assessJobLiveness(store, legacy.value);
-        return settle({
+        const settled = await settle({
           outcome: "deduplicated",
           jobId: legacy.value,
           jobStatus: liveness.status,
           workLive: liveness.live,
           adopted: true,
         });
+        if (settled) {
+          return settled;
+        }
+        continue;
       }
 
       // 4. Create the job and its guard in one transaction.
@@ -1059,7 +1175,11 @@ export async function admitDelphiJob(
       );
 
       if (admission.outcome === "resolved") {
-        return settle(admission.result);
+        const settled = await settle(admission.result);
+        if (settled) {
+          return settled;
+        }
+        continue;
       }
 
       if (admission.outcome === "admitted") {
@@ -1086,6 +1206,15 @@ export async function admitDelphiJob(
               job_id: String(jobItem.job_id),
               version: 1,
             } as GuardRow);
+            if (aliasKey) {
+              // The alias went in with the job. Leaving it behind would bind
+              // the key to a row that no longer exists, and every retry would
+              // resolve to it instead of adopting the producer that won.
+              await store.clearAlias({
+                guard_key: aliasKey,
+                job_id: String(jobItem.job_id),
+              } as GuardRow);
+            }
             logger.warn(
               `Delphi scope ${logScope(
                 scopeKey
@@ -1107,7 +1236,11 @@ export async function admitDelphiJob(
             )}: post-admission re-check inconclusive (${raced.reason})`
           );
         }
-        return settle(created);
+        const settled = await settle(created);
+        if (settled) {
+          return settled;
+        }
+        continue;
       }
 
       if (admission.outcome === "job_id_taken") {

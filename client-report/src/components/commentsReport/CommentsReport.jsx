@@ -49,12 +49,22 @@ const findActiveJob = (jobs, wantBatch) =>
       isBatchReportJob(job) === wantBatch
   ) || null;
 
-// A tracked job is still worth polling if its own status says so, or if the
-// server told us work is live under it — a FULL_PIPELINE root can be COMPLETED
-// while the checker child it spawned is still running.
+// A tracked job is worth polling unless it is durably finished *and* the server
+// says nothing is outstanding under it. Anything the client cannot classify —
+// "unknown" from a row with no status, a status this build does not know — is
+// uncertainty, and uncertainty means keep watching.
 export const isTrackedJobLive = (tracked) =>
   Boolean(tracked) &&
-  (ACTIVE_JOB_STATUSES.includes(tracked.status) || Boolean(tracked.workLive));
+  (!isTerminalJobStatus(tracked.status) || Boolean(tracked.workLive));
+
+// The server's per-job effective-work answer, when the response carried one.
+// `undefined` means this response cannot speak to it.
+const responseWorkLive = (job) =>
+  typeof job?.workLive === "boolean"
+    ? job.workLive
+    : typeof job?.work_live === "boolean"
+      ? job.work_live
+      : undefined;
 
 /**
  * Reconcile a tracked job against a fresh durable job list.
@@ -70,9 +80,16 @@ export const reconcileTrackedJob = (previous, jobs, wantBatch, reportId) => {
   const list = jobs || [];
   const adopt = () => {
     const active = findActiveJob(list, wantBatch);
-    return active
-      ? { jobId: active.jobId, status: active.status, reportId }
-      : null;
+    if (!active) {
+      return null;
+    }
+    return {
+      jobId: active.jobId,
+      status: active.status,
+      // A job picked up after a reload starts with whatever the server says.
+      workLive: responseWorkLive(active) ?? true,
+      reportId,
+    };
   };
 
   // State belongs to one report; a report change starts over.
@@ -86,25 +103,33 @@ export const reconcileTrackedJob = (previous, jobs, wantBatch, reportId) => {
     // index, so a job it does not mention has not been shown to be finished.
     return previous;
   }
+  // Every reconcile refreshes the liveness flag from this response, so an
+  // optimistic `true` set at submission time can actually clear. Where the
+  // response says nothing, an unfinished status is live and a terminal one
+  // inherits the previous answer.
+  const reported = responseWorkLive(durable);
   if (!isTerminalJobStatus(durable.status)) {
     // Includes "unknown" and any status this client does not recognise.
     return {
       jobId: durable.jobId,
       status: durable.status,
-      workLive: previous.workLive,
+      workLive: reported ?? true,
       reportId,
     };
   }
+  const stillLive = reported ?? previous.workLive;
   // The acknowledged job is durably terminal. Any live child or successor shows
   // up as its own row, so hand over rather than stopping while work remains.
   const successor = adopt();
   if (successor) {
     return successor;
   }
-  // Nothing else is listed. If the server told us work was still live under
-  // this job — a completed root whose checker has not surfaced yet — keep
-  // watching rather than declaring it done on the strength of one index read.
-  return previous.workLive ? previous : null;
+  // Nothing else is listed. If work is still outstanding under this job — a
+  // completed root whose checker has not surfaced yet — keep watching rather
+  // than declaring it done on the strength of one index read.
+  return stillLive
+    ? { jobId: durable.jobId, status: durable.status, workLive: true, reportId }
+    : null;
 };
 
 const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, voteColors, showControls = true, authToken, reportModLevel }) => {
@@ -192,6 +217,11 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
     setProcessedLogs(undefined);
     setJobCreationResult(null);
     setBatchReportResult(null);
+    // A submission still in flight for the previous report will not clear these
+    // any more, so the report change has to.
+    setIsSubmitting(false);
+    setBatchReportLoading(false);
+    setConfirmDelphiRunModalVisible(false);
   }, [report_id]);
 
   useEffect(() => {
@@ -378,6 +408,11 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
       }, authToken)
       .then((response) => {
 
+        if (submittedForReportId !== trackedReportRef.current) {
+          // The user moved to another report while this was in flight. Its
+          // result belongs to the report that asked for it, not to this one.
+          return;
+        }
         if (response && response.status === "success") {
           // The server deduplicates on an active (conversation, report,
           // job type) scope, so a resubmit after a reload comes back as the job
@@ -391,16 +426,14 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
             job_id: response.job_id,
             deduplicated: Boolean(response.deduplicated),
           });
-          if (submittedForReportId === trackedReportRef.current) {
-            setActiveJob({
-              jobId: response.job_id,
-              status: response.job_status || QUEUED_JOB_STATUS,
-              // The root can be COMPLETED while a checker child of it still
-              // runs; work_live is the server's answer to "keep polling?".
-              workLive: response.work_live !== false,
-              reportId: submittedForReportId,
-            });
-          }
+          setActiveJob({
+            jobId: response.job_id,
+            status: response.job_status || QUEUED_JOB_STATUS,
+            // The root can be COMPLETED while a checker child of it still
+            // runs; work_live is the server's answer to "keep polling?".
+            workLive: response.work_live !== false,
+            reportId: submittedForReportId,
+          });
         } else {
           throw new Error(response?.error || "Unknown error creating job");
         }
@@ -424,12 +457,14 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
       })
       .catch((err) => {
         console.error("Error creating job:", err);
+        if (submittedForReportId !== trackedReportRef.current) return;
         setJobCreationResult({
           success: false,
           message: `Error creating job: ${err.error ||err.message || "Unknown error"}`,
         });
       })
       .finally(() => {
+        if (submittedForReportId !== trackedReportRef.current) return;
         setIsSubmitting(false);
         // The queued/processing state no longer replaces the whole report, so
         // the confirmation modal has to be dismissed explicitly.
@@ -452,6 +487,9 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
       }, authToken)
       .then((response) => {
 
+        if (submittedForReportId !== trackedReportRef.current) {
+          return;
+        }
         if (response && response.status === "success") {
           setBatchReportResult({
             success: true,
@@ -464,26 +502,26 @@ const CommentsReport = ({ math, comments, conversation, ptptCount, formatTid, vo
           // Acknowledge the batch job so it gets the same polling loop and
           // banner as a pipeline job; without this a batch-only submission was
           // never polled at all.
-          if (submittedForReportId === trackedReportRef.current) {
-            setActiveBatchJob({
-              jobId: response.batch_id || response.job_id,
-              status: response.job_status || QUEUED_JOB_STATUS,
-              workLive: response.work_live !== false,
-              reportId: submittedForReportId,
-            });
-          }
+          setActiveBatchJob({
+            jobId: response.batch_id || response.job_id,
+            status: response.job_status || QUEUED_JOB_STATUS,
+            workLive: response.work_live !== false,
+            reportId: submittedForReportId,
+          });
         } else {
           throw new Error(response?.error || response?.message || "Unknown error generating batch report");
         }
       })
       .catch((err) => {
         console.error("Error generating batch report:", err);
+        if (submittedForReportId !== trackedReportRef.current) return;
         setBatchReportResult({
           success: false,
           message: `Error generating batch report: ${err.message || "Unknown error"}`,
         });
       })
       .finally(() => {
+        if (submittedForReportId !== trackedReportRef.current) return;
         setBatchReportLoading(false);
         setConfirmDelphiRunModalVisible(false);
       });
