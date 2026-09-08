@@ -230,7 +230,12 @@ require additional typed evidence; the decoder fails closed, and a blob it
 cannot describe is answered 502 `polis_err_pca2_contract_violation` — logged as
 a structured record and counted on `/health` — rather than 500. Run the B1
 census against a local corpus of stored `math_main.data` blobs with
-`P032_CENSUS_DIR=<dir> cargo test --locked census -- --nocapture`. General Express
+`P032_CENSUS_DIR=<dir> cargo test --locked -- --ignored census`. The corpus must
+declare its inventory in `census-manifest.json` (expected records per file and
+per `math_env`, where a declared `0` is an explicit reviewed zero-row
+declaration); anything it does not grade must be excluded in
+`census-exclusions.json` with a non-blank reason. A globally nonzero record
+total is not coverage. General Express
 query-object/coercion variants, richer content negotiation, dynamic CORS and
 transport behavior outside these recordings are not certified by this run.
 Runtime failure responses outside the recorded 200/304/400 cells are also not
