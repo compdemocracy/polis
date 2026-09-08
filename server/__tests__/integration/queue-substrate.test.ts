@@ -107,6 +107,18 @@ function databaseNameOf(url: string): string {
 
 let mainPool: Pool;
 let scratchPool: Pool;
+/**
+ * Set when role/database provisioning could not be done at all. CI's Postgres
+ * login is the superuser, so this stays undefined there; a login that cannot
+ * CREATE ROLE or CREATE DATABASE gets a named, actionable failure from the
+ * tests that need it instead of an opaque "permission denied" mid-test.
+ */
+let provisioningFailure: Error | undefined;
+/** Only what provisioning actually created is torn down. */
+const created = {
+  roles: [] as string[],
+  scratchDatabase: false,
+};
 /** Real conversations.zid used by every protocol check. */
 let zid = 0;
 /** Synthetic parent zid inside the scratch database. */
@@ -415,6 +427,69 @@ function nodes(plan: any): any[] {
   return out;
 }
 
+/**
+ * Guard for the tests that need a provisioning-capable login. Deliberately a
+ * failure and not a silent pass: a missing capability is a real gap, and the
+ * message says exactly how to report these as skipped instead.
+ */
+function requireProvisioning(): void {
+  if (provisioningFailure) {
+    throw new Error(
+      "this test needs a test database login that can CREATE ROLE and CREATE " +
+        "DATABASE; provisioning failed with: " +
+        provisioningFailure.message +
+        ". Set POLIS_QUEUE_TEST_SKIP_ROLE_PROVISIONING=true to report the " +
+        "apply/replay and plans-at-scale suites as skipped instead."
+    );
+  }
+}
+
+/**
+ * Drop the roles this run created, leaving nothing behind in a shared cluster.
+ *
+ * The replayer applies the migration with grant option, so the grants it makes
+ * are recorded with it as the grantor and hold a shared dependency on it -
+ * DROP ROLE then fails with "privileges for schema public". Only the grantor
+ * can revoke those (REVOKE ... GRANTED BY requires the grantor to be the
+ * current user), and only while it still holds the grant option, so the revoke
+ * happens as that role and BEFORE DROP OWNED BY takes the option away. It
+ * removes only the entries that role granted; the ones the migration made as
+ * the main login survive.
+ */
+async function dropCreatedRoles(): Promise<void> {
+  const client = await mainPool.connect();
+  try {
+    for (const role of created.roles) {
+      await client.query(`SET ROLE ${role}`).catch(() => undefined);
+      await client
+        .query(
+          "REVOKE ALL ON SCHEMA public FROM polis_queue_owner, polis_queue_executor CASCADE"
+        )
+        .catch(() => undefined);
+      await client
+        .query(
+          "REVOKE ALL ON public.conversations FROM polis_queue_owner CASCADE"
+        )
+        .catch(() => undefined);
+      await client.query("RESET ROLE").catch(() => undefined);
+      await client.query(`DROP OWNED BY ${role}`).catch(() => undefined);
+      await client.query(`DROP ROLE IF EXISTS ${role}`).catch(() => undefined);
+    }
+    const leaked = await client.query(
+      "SELECT rolname FROM pg_roles WHERE rolname = ANY($1::text[])",
+      [created.roles]
+    );
+    if (leaked.rowCount) {
+      console.warn(
+        "queue substrate suite left roles behind: " +
+          leaked.rows.map((row) => row.rolname).join(", ")
+      );
+    }
+  } finally {
+    client.release();
+  }
+}
+
 async function expectSqlState(
   promise: Promise<unknown>,
   code: string
@@ -440,15 +515,29 @@ beforeAll(async () => {
 
   if (SKIP_PROVISIONING) return;
 
+  try {
+    await provision();
+  } catch (err) {
+    // Recorded rather than thrown: the protocol suite needs none of this and
+    // must still run, and the tests that do need it then say so by name.
+    provisioningFailure = err instanceof Error ? err : new Error(String(err));
+  }
+}, 180000);
+
+/** Everything the apply/replay and plans-at-scale suites need. */
+async function provision(): Promise<void> {
   await mainPool.query(
     `CREATE ROLE ${ROLE_MIGRATOR} LOGIN NOSUPERUSER NOCREATEROLE PASSWORD '${ROLE_PASSWORD}'`
   );
+  created.roles.push(ROLE_MIGRATOR);
   await mainPool.query(
     `CREATE ROLE ${ROLE_REPLAYER} LOGIN NOSUPERUSER NOCREATEROLE PASSWORD '${ROLE_PASSWORD}'`
   );
+  created.roles.push(ROLE_REPLAYER);
   await mainPool.query(
     `CREATE ROLE ${ROLE_STRANGER} LOGIN NOSUPERUSER NOCREATEROLE PASSWORD '${ROLE_PASSWORD}'`
   );
+  created.roles.push(ROLE_STRANGER);
   // ADMIN without SET reproduces the PostgreSQL 17 shape that broke revision 3:
   // the migration must grant itself WITH SET TRUE before it can SET LOCAL ROLE.
   await mainPool.query(
@@ -466,6 +555,7 @@ beforeAll(async () => {
       `TO ${ROLE_REPLAYER} WITH GRANT OPTION`
   );
   await mainPool.query(`CREATE DATABASE ${SCRATCH_DB}`);
+  created.scratchDatabase = true;
   await mainPool.query(
     `GRANT USAGE, CREATE ON SCHEMA public TO ${ROLE_MIGRATOR} WITH GRANT OPTION`
   );
@@ -490,7 +580,7 @@ beforeAll(async () => {
   await scratchPool.query(
     "INSERT INTO public.conversations VALUES (1,'synthetic',NULL),(2,'synthetic',NULL)"
   );
-}, 180000);
+}
 
 afterAll(async () => {
   if (mainPool) {
@@ -514,17 +604,22 @@ afterAll(async () => {
     }
   }
   if (scratchPool) await scratchPool.end().catch(() => undefined);
-  if (mainPool && !SKIP_PROVISIONING) {
+  if (mainPool && created.scratchDatabase) {
+    // A leftover connection makes DROP DATABASE fail and leaks the database
+    // into a shared cluster, so close them first.
+    await mainPool
+      .query(
+        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1",
+        [SCRATCH_DB]
+      )
+      .catch(() => undefined);
     await mainPool
       .query(`DROP DATABASE IF EXISTS ${SCRATCH_DB}`)
       .catch(() => undefined);
-    for (const role of [ROLE_MIGRATOR, ROLE_REPLAYER, ROLE_STRANGER]) {
-      await mainPool.query(`DROP OWNED BY ${role}`).catch(() => undefined);
-      await mainPool
-        .query(`DROP ROLE IF EXISTS ${role}`)
-        .catch(() => undefined);
-    }
   }
+  // Only roles this run actually created, so a half-finished provisioning
+  // still releases what it made and touches nothing else.
+  if (mainPool && created.roles.length > 0) await dropCreatedRoles();
   if (mainPool) await mainPool.end().catch(() => undefined);
 }, 120000);
 
@@ -536,6 +631,7 @@ describeProvisioned(
     : "P-024 migration apply and replay",
   () => {
     it("applies fresh over a representative parent fixture as a non-superuser migrator", async () => {
+      requireProvisioning();
       // The NOLOGIN roles already exist cluster-wide, so this exercises fresh
       // object creation, the ADMIN-without-SET self-grant and the parent grants,
       // not first-time role creation.
@@ -552,6 +648,7 @@ describeProvisioned(
     }, 60000);
 
     it("replays for the same non-superuser migrator against a matching schema", async () => {
+      requireProvisioning();
       await runMigration(scratchPool);
       expect(
         await sql(
@@ -563,6 +660,7 @@ describeProvisioned(
     }, 60000);
 
     it("replays for a superuser against the real conversations schema", async () => {
+      requireProvisioning();
       await runMigration(mainPool);
       expect(
         await sql(mainPool, "SELECT to_regclass('public.polis_queue_runs')")
@@ -570,6 +668,7 @@ describeProvisioned(
     }, 60000);
 
     it("replays for a non-owner login through explicitly provisioned owner membership", async () => {
+      requireProvisioning();
       const pool = new Pool({
         connectionString: urlFor(
           databaseNameOf(BASE_DATABASE_URL),
@@ -592,6 +691,7 @@ describeProvisioned(
     }, 60000);
 
     it("refuses an unprovisioned login with a readable precondition", async () => {
+      requireProvisioning();
       const pool = new Pool({
         connectionString: urlFor(
           databaseNameOf(BASE_DATABASE_URL),
@@ -1434,6 +1534,7 @@ describeProvisioned(
     : "P-024 queue substrate plans at scale",
   () => {
     it("30. uses the ready index with 20,000 terminal and other-lane rows", async () => {
+      requireProvisioning();
       const a = await enqueue(scratchPool, "r3-plan");
       await scratchPool.query(
         "INSERT INTO public.polis_queue_jobs(env,job_id,run_id,stage,stage_instance,state,priority,max_attempts) " +
@@ -1460,6 +1561,7 @@ describeProvisioned(
     }, 180000);
 
     it("38. uses a zid index for both parent lookups at 20,000 rows and restricts parent deletion", async () => {
+      requireProvisioning();
       await scratchPool.query(
         "INSERT INTO public.conversations(zid,topic) SELECT g,'synthetic' FROM generate_series(3,20002) g"
       );
