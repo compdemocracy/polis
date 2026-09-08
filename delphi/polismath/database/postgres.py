@@ -429,26 +429,34 @@ class PostgresClient:
             result = conn.execute(text(sql), params or {})
             return result.rowcount
 
-    def _write_returning(
-        self, sql: str, params: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
-        """Execute a writing statement inside a COMMITTED transaction and return
-        any RETURNING rows.
+    @contextmanager
+    def transaction(self):
+        """One commit/rollback boundary; the connection belongs to the caller.
 
-        ``query()`` uses ``engine.connect()`` (SQLAlchemy 2.0 "commit as you go"),
-        which rolls back on close — fine for SELECTs but it silently discards
-        INSERT/UPDATEs.  The upsert writers (math_main / math_ticks / math_bidtopid
-        / math_ptptstats) MUST persist, so they route through here:
-        ``engine.begin()`` commits on successful exit.
+        Never store it on this shared client: different zid workers must use
+        independent connections and transactions.
         """
         if not self._initialized:
             self.initialize()
-
         with self.engine.begin() as conn:
-            result = conn.execute(text(sql), params or {})
-            if result.returns_rows:
-                return [dict(row) for row in result.mappings().all()]
-            return []
+            yield conn
+
+    def _write_returning(
+        self, sql: str, params: Optional[Dict[str, Any]] = None,
+        *, connection: Optional[sa.Connection] = None,
+    ) -> List[Dict[str, Any]]:
+        """Write within the supplied transaction, or commit a standalone call.
+
+        Only the owner of ``connection`` commits or rolls back. This lets the
+        poller publish a complete snapshot while retaining per-table callers.
+        """
+        if connection is None:
+            with self.transaction() as conn:
+                return self._write_returning(sql, params, connection=conn)
+        result = connection.execute(text(sql), params or {})
+        if result.returns_rows:
+            return [dict(row) for row in result.mappings().all()]
+        return []
 
     def get_zinvite_from_zid(self, zid: int) -> Optional[str]:
         """
@@ -778,36 +786,51 @@ class PostgresClient:
         }
 
     def load_math_main(self, zid: int) -> Optional[Dict[str, Any]]:
+        """Load main plus generation completeness in ONE statement snapshot.
+
+        Separate SELECTs at READ COMMITTED could straddle a successful publish
+        and falsely diagnose a mixed generation. Missing companions and NULL
+        ticks are incomplete, even if both companions are missing/NULL alike.
         """
-        Load math results for a conversation.
+        rows = self.query(
+            """
+            SELECT m.*, COALESCE(
+                m.math_tick = b.math_tick AND m.math_tick = p.math_tick,
+                false) AS snapshot_complete
+            FROM math_main m
+            LEFT JOIN math_bidtopid b USING (zid, math_env)
+            LEFT JOIN math_ptptstats p USING (zid, math_env)
+            WHERE m.zid = :zid AND m.math_env = :math_env
+            """,
+            {"zid": zid, "math_env": self.config.math_env},
+        )
+        return rows[0] if rows else None
 
-        Args:
-            zid: Conversation ID
+    def find_incomplete_math_snapshots(self) -> List[int]:
+        """Find legacy partial publications, including dormant/orphan rows.
 
-        Returns:
-            Math data, or None if not found
+        Run once at startup, independent of vote/moderation lookback. FULL
+        JOINs include companion-only remnants; namespace predicates are applied
+        before joining so another engine's rows cannot complete this snapshot.
         """
-        with self.session() as session:
-            # Query for math main data
-            math_main = (
-                session.query(MathMain)
-                .filter_by(zid=zid, math_env=self.config.math_env)
-                .first()
-            )
-
-            if not math_main:
-                return None
-
-            # Return data with all fields
-            return {
-                "zid": math_main.zid,
-                "math_env": math_main.math_env,
-                "data": math_main.data,
-                "last_vote_timestamp": math_main.last_vote_timestamp,
-                "caching_tick": math_main.caching_tick,
-                "math_tick": math_main.math_tick,
-                "modified": math_main.modified,
-            }
+        rows = self.query(
+            """
+            SELECT zid FROM
+                (SELECT zid, math_tick AS main_tick FROM math_main
+                 WHERE math_env = :math_env) m
+            FULL JOIN
+                (SELECT zid, math_tick AS bid_tick FROM math_bidtopid
+                 WHERE math_env = :math_env) b USING (zid)
+            FULL JOIN
+                (SELECT zid, math_tick AS stats_tick FROM math_ptptstats
+                 WHERE math_env = :math_env) p USING (zid)
+            WHERE main_tick IS NULL OR bid_tick IS NULL OR stats_tick IS NULL
+               OR main_tick <> bid_tick OR main_tick <> stats_tick
+            ORDER BY zid
+            """,
+            {"math_env": self.config.math_env},
+        )
+        return [row["zid"] for row in rows]
 
     def write_math_main(
         self,
@@ -816,6 +839,7 @@ class PostgresClient:
         last_vote_timestamp: Optional[int] = None,
         caching_tick: Optional[int] = None,
         math_tick: Optional[int] = None,
+        *, connection: Optional[sa.Connection] = None,
     ) -> None:
         """
         Write math results for a conversation (Clojure upload-math-main parity).
@@ -827,9 +851,10 @@ class PostgresClient:
                 (SELECT max(caching_tick) + 1 FROM math_main WHERE math_env = ?),
                 1)
 
-        so the TS server's prefetch (pca.ts:84-151 polls caching_tick > last) sees
-        a strictly increasing, per-math_env cursor.  The `caching_tick` parameter
-        is accepted for signature compatibility but ignored.
+        Allocation happens inside the publication transaction. MAX+1 still
+        races across different zids (R12); it is not a commit-order guarantee.
+        The `caching_tick` parameter is accepted for signature compatibility
+        but ignored.
 
         Args:
             zid: Conversation ID
@@ -869,10 +894,12 @@ class PostgresClient:
                 "math_tick": math_tick if math_tick is not None else -1,
                 "data": json.dumps(data, default=convert_numpy_types),
             },
+            connection=connection,
         )
 
     def write_math_bidtopid(
-        self, zid: int, data: Dict[str, Any], math_tick: Optional[int] = None
+        self, zid: int, data: Dict[str, Any], math_tick: Optional[int] = None,
+        *, connection: Optional[sa.Connection] = None,
     ) -> None:
         """
         Write the bid -> participant-id mapping (Clojure upload-math-bidtopid,
@@ -900,10 +927,12 @@ class PostgresClient:
                 "math_tick": math_tick if math_tick is not None else -1,
                 "data": json.dumps(data, default=convert_numpy_types),
             },
+            connection=connection,
         )
 
     def write_participant_stats(
-        self, zid: int, data: Dict[str, Any], math_tick: Optional[int] = None
+        self, zid: int, data: Dict[str, Any], math_tick: Optional[int] = None,
+        *, connection: Optional[sa.Connection] = None,
     ) -> None:
         """
         Write participant statistics (Clojure upload-math-ptptstats parity,
@@ -931,6 +960,7 @@ class PostgresClient:
                 "math_tick": math_tick if math_tick is not None else -1,
                 "data": json.dumps(data, default=convert_numpy_types),
             },
+            connection=connection,
         )
 
     def write_correlation_matrix(self, rid: int, data: Dict[str, Any]) -> None:
@@ -962,7 +992,9 @@ class PostgresClient:
                 )
                 session.add(corr_matrix)
 
-    def increment_math_tick(self, zid: int) -> int:
+    def increment_math_tick(
+        self, zid: int, *, connection: Optional[sa.Connection] = None,
+    ) -> int:
         """
         Atomically increment the math tick counter for a conversation.
 
@@ -990,6 +1022,7 @@ class PostgresClient:
             returning math_tick;
             """,
             {"zid": zid, "math_env": self.config.math_env},
+            connection=connection,
         )
         return rows[0]["math_tick"]
 
