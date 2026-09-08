@@ -397,3 +397,298 @@ def three_producer_inventory(expected: cert.ExpectedEntry, profile: str) -> list
                        else ProducerStatus.UNSUPPORTED_PROFILE).value,
         })
     return rows
+
+
+# ===========================================================================
+# P-045 slice 2 (identity / readback / observer / stage sibling).
+#
+# These grade a `rust` producer on the ONLY profile the binary implements today,
+# snapshot-rebuild/1 — the scoped rebuild verdict both P-044 and P-045 refuse to
+# call a battery-chain PASS. They are PURE validators over readback/checkpoint
+# dicts, so they run with neither Postgres nor the binary; the real DB readback,
+# the live observer and the actual worker launch are slice 3 (BLOCKED). The
+# once --replay-plan/--checkpoint/--evidence-dir forced-compute path is NOT
+# touched here and stays as it is on the S1 binary.
+# ===========================================================================
+
+#: Fields the closed S1 worker checkpoint must retain besides the five admission
+#: fields (brief §5). Presence + type are checked; values bind to the campaign
+#: sidecar, never mutated after the worker acknowledges them.
+S1_CHECKPOINT_FIELDS: tuple[str, ...] = (
+    "protocol", "fixture_id", "run_id", "session_id", "compute_id",
+    "checkpoint_id", "output_schema", "state_schema", "profile", "persistence",
+)
+
+
+def validate_s1_identity(manifest: dict[str, Any]) -> list[str]:
+    """Check S1's closed identity on a candidate checkpoint manifest.
+
+    The five admission fields must be exact (candidate_schema/engine_version are
+    the pinned S1 constants; input_digest/schedule_digest/operation_id present and
+    string); the retained checkpoint fields must be present. A changed
+    worker/profile must NEGOTIATE a new version — this validator never accepts a
+    different engine_version as "implements a capability S1 never advertised".
+    Returns a list of human-readable failures (empty == identity intact)."""
+    fails: list[str] = []
+    admission = manifest.get("admission")
+    if not isinstance(admission, dict):
+        return ["admission block missing or not an object"]
+    for f in S1_ADMISSION_FIELDS:
+        if f not in admission:
+            fails.append(f"admission missing {f}")
+    if admission.get("candidate_schema") != S1_CANDIDATE_SCHEMA:
+        fails.append(f"candidate_schema must be {S1_CANDIDATE_SCHEMA!r}, "
+                     f"got {admission.get('candidate_schema')!r}")
+    if admission.get("engine_version") != S1_ENGINE_VERSION:
+        fails.append(f"engine_version must be {S1_ENGINE_VERSION!r}, "
+                     f"got {admission.get('engine_version')!r} (negotiate a new "
+                     f"version rather than claim S1 bytes)")
+    for f in ("input_digest", "schedule_digest", "operation_id"):
+        if f in admission and not isinstance(admission[f], str):
+            fails.append(f"admission.{f} must be a string")
+    for f in S1_CHECKPOINT_FIELDS:
+        if f not in manifest:
+            fails.append(f"checkpoint missing {f}")
+    return fails
+
+
+def bind_campaign_cut(*, compute_id: str, checkpoint_id: str, global_cut_index: int,
+                      schedule_digest: str, campaign_plan_sha256: str) -> dict[str, Any]:
+    """The campaign sidecar entry binding S1's per-session identity to ONE global
+    cut. S1 resets names to compute-0/checkpoint-0 in a fresh session, so local
+    name reuse across different sessions is legal; this record makes the mapping
+    explicit and distinguishes the campaign plan hash from S1's schedule_digest."""
+    return {
+        "compute_id": compute_id, "checkpoint_id": checkpoint_id,
+        "global_cut_index": int(global_cut_index),
+        "s1_schedule_digest": schedule_digest,
+        "campaign_plan_sha256": campaign_plan_sha256,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Four-row publication readback (main/bidtopid/ptptstats/ticks).
+# ---------------------------------------------------------------------------
+class TableRow(TypedDict, total=False):
+    math_tick: int
+    caching_tick: Optional[int]
+    data: dict          # parsed JSONB — correspondence ONLY, never the origin
+    original_bytes: str  # the exact bytes the worker emitted (origin of truth)
+    original_sha256: str
+
+
+class TicksRow(TypedDict, total=False):
+    math_tick: int
+    caching_tick: Optional[int]
+    publisher_epoch: int
+    operation_id: str
+    original_digests: dict   # {"main","bidtopid","ptptstats"}
+
+
+class ReadbackBundle(TypedDict, total=False):
+    zid: int
+    math_env: str
+    main: TableRow
+    bidtopid: TableRow
+    ptptstats: TableRow
+    ticks: TicksRow
+
+
+_COMPANIONS = ("bidtopid", "ptptstats")
+_PAYLOAD_TABLES = ("main", "bidtopid", "ptptstats")
+
+
+def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[int],
+                      operation_id: str, publisher_epoch: int) -> list[str]:
+    """Grade a Rust producer's own readback of the four math rows (brief §4).
+
+    Requires: all four math_tick agree; expected prior->next math_tick (first
+    publication 0 when ``expected_prior_tick is None``); both companions present;
+    checkpoint/epoch/operation binding; per-table original-byte hashes matching
+    both the row's own original_sha256 AND ticks.original_digests; and parsed
+    JSONB correspondence to those exact original bytes.
+
+    ``data::text`` is NEVER original evidence: a table missing ``original_bytes``
+    fails here rather than falling back to its JSONB rendering. caching_tick is
+    inspected only on math_main; neither companion carries one. Cross-producer
+    allocation values/owner UUIDs are out of scope (they need not match); the
+    logical cut mapping that must match is graded by the campaign sidecar."""
+    fails: list[str] = []
+    ticks = bundle.get("ticks") or {}
+    tick_val = ticks.get("math_tick")
+
+    # 1. next-tick allocation
+    if expected_prior_tick is None:
+        if tick_val != 0:
+            fails.append(f"first publication math_tick must be 0, got {tick_val!r}")
+    elif not (isinstance(tick_val, int) and tick_val == expected_prior_tick + 1):
+        fails.append(f"math_tick must be prior+1 ({expected_prior_tick}+1), got {tick_val!r}")
+
+    # 2. four-row tick agreement + companion presence
+    for name in _PAYLOAD_TABLES:
+        row = bundle.get(name)
+        if not row:
+            fails.append(f"{name}: row absent")
+            continue
+        if row.get("math_tick") != tick_val:
+            fails.append(f"{name}: math_tick {row.get('math_tick')!r} != ticks {tick_val!r}")
+    for name in _COMPANIONS:
+        row = bundle.get(name) or {}
+        if row.get("caching_tick") is not None:
+            fails.append(f"{name}: companion must not carry a caching_tick")
+    if bundle.get("main") and "caching_tick" not in (bundle.get("main") or {}):
+        fails.append("main: caching_tick absent where it must exist")
+
+    # 3. operation / epoch binding
+    if ticks.get("operation_id") != operation_id:
+        fails.append(f"ticks.operation_id {ticks.get('operation_id')!r} != {operation_id!r}")
+    if ticks.get("publisher_epoch") != publisher_epoch:
+        fails.append(f"ticks.publisher_epoch {ticks.get('publisher_epoch')!r} != {publisher_epoch!r}")
+
+    # 4. original-byte custody + JSONB correspondence, per table
+    original_digests = ticks.get("original_digests") or {}
+    for name in _PAYLOAD_TABLES:
+        row = bundle.get(name)
+        if not row:
+            continue
+        raw = row.get("original_bytes")
+        if raw is None:
+            fails.append(f"{name}: original_bytes absent — data::text is not original evidence")
+            continue
+        raw_bytes = raw.encode() if isinstance(raw, str) else bytes(raw)
+        digest = hashlib.sha256(raw_bytes).hexdigest()
+        if row.get("original_sha256") != digest:
+            fails.append(f"{name}: original_sha256 does not match its original_bytes")
+        if original_digests.get(name) != digest:
+            fails.append(f"{name}: ticks.original_digests[{name}] does not match original_bytes")
+        try:
+            parsed = json.loads(raw_bytes)
+        except (ValueError, TypeError):
+            fails.append(f"{name}: original_bytes is not valid JSON")
+            continue
+        if "data" in row and parsed != row["data"]:
+            fails.append(f"{name}: JSONB data does not correspond to the original bytes")
+    return fails
+
+
+def observe_bundle_coherence(bundle: ReadbackBundle,
+                             fold_check: Optional[Callable[..., list[str]]] = None) -> list[str]:
+    """Independent post-cut coherence of a published bundle (brief §4/§5 observer).
+
+    Structural, producer-agnostic: one generation across all four rows and a
+    well-formed bid->index->pid mapping. ``fold_check`` (e.g. the recovery
+    oracle's ``check_published_against_fold``) is injected when a full latest-cell
+    fold is available, so the same invariants can be reused without importing a
+    pinned asset here. Returns failures (empty == coherent)."""
+    fails: list[str] = []
+    ticks = bundle.get("ticks") or {}
+    tick_val = ticks.get("math_tick")
+    for name in _PAYLOAD_TABLES:
+        row = bundle.get(name) or {}
+        if row.get("math_tick") != tick_val:
+            fails.append(f"observer: {name} at a different generation than ticks")
+    main = (bundle.get("main") or {}).get("data") or {}
+    bid = (bundle.get("bidtopid") or {}).get("data") or {}
+    if bid:
+        base = main.get("base-clusters") or main.get("base_clusters") or {}
+        members = base.get("members") if isinstance(base, dict) else None
+        if members is not None and not isinstance(members, list):
+            fails.append("observer: base-cluster members malformed")
+    if fold_check is not None and main:
+        try:
+            fails.extend(fold_check(main) or [])
+        except Exception as exc:  # noqa: BLE001 - a fold failure is a finding, not a crash
+            fails.append(f"observer: fold raised {exc!r}")
+    return fails
+
+
+# ---------------------------------------------------------------------------
+# Same-invocation stage sibling (p045-stage-binding/1) + stage context.
+# ---------------------------------------------------------------------------
+class StageContextEntry(TypedDict, total=False):
+    global_cut_index: int
+    semantic_input_digest: str   # R-ORACLE digest the worker must reproduce
+    profile: str
+
+
+def load_stage_context(path: str | Path) -> dict[tuple[str, str], StageContextEntry]:
+    """Load a closed ``p045-stage-context/1`` map: (compute_id, checkpoint_id) ->
+    expected {global_cut_index, semantic_input_digest, profile}. Trace-only, and
+    plan-bound; a wrong schema fails."""
+    obj = json.loads(Path(path).read_bytes())
+    if not isinstance(obj, dict) or obj.get("schema") != STAGE_CONTEXT_SCHEMA:
+        raise BridgeError("stage-context", f"stage context schema must be {STAGE_CONTEXT_SCHEMA!r}")
+    out: dict[tuple[str, str], StageContextEntry] = {}
+    for ent in obj.get("entries", []):
+        out[(ent["compute_id"], ent["checkpoint_id"])] = {
+            "global_cut_index": int(ent["global_cut_index"]),
+            "semantic_input_digest": ent["semantic_input_digest"],
+            "profile": ent.get("profile", ""),
+        }
+    return out
+
+
+def check_stage_context(context: dict[tuple[str, str], StageContextEntry], *,
+                        compute_id: str, checkpoint_id: str,
+                        derived_semantic_digest: str) -> list[str]:
+    """The worker derives the semantic digest from the inputs it ACTUALLY applied
+    and checks it against the plan-bound context. A foreign (compute_id,
+    checkpoint_id) or a mismatched digest is rejected — the plan's expected hash
+    is never stamped onto an unverified source."""
+    entry = context.get((compute_id, checkpoint_id))
+    if entry is None:
+        return [f"foreign stage context: ({compute_id!r},{checkpoint_id!r}) not in the plan"]
+    if entry["semantic_input_digest"] != derived_semantic_digest:
+        return [f"semantic input digest mismatch: derived {derived_semantic_digest!r} "
+                f"!= context {entry['semantic_input_digest']!r}"]
+    return []
+
+
+def stage_binding_manifest(*, run_id: str, session_id: str, compute_id: str,
+                           checkpoint_id: str, operation_id: str,
+                           input_digest: str, schedule_digest: str,
+                           semantic_input_digest: str, stage_file_sha256: str,
+                           output_file_sha256s: dict[str, str],
+                           binary_sha256: str, worker_tree_sha256: str,
+                           profile: str) -> dict[str, Any]:
+    """The closed ``p045-stage-binding/1`` SIBLING manifest — never appended to
+    S1's closed four-file checkpoint. Its sidecar identifies producer ``rust``
+    and binds it to its binary/worker hashes; the stage engine label stays ``py``
+    (the Python science worker), so nobody relabels Python mathematics as Rust.
+    The publication receipt must match this record."""
+    return {
+        "schema": STAGE_BINDING_SCHEMA,
+        "producer": "rust",
+        "stage_engine": "py",
+        "run_id": run_id, "session_id": session_id,
+        "compute_id": compute_id, "checkpoint_id": checkpoint_id,
+        "operation_id": operation_id,
+        "input_digest": input_digest,
+        "schedule_digest": schedule_digest,
+        "semantic_input_digest": semantic_input_digest,
+        "stage_file_sha256": stage_file_sha256,
+        "output_file_sha256s": dict(output_file_sha256s),
+        "binary_sha256": binary_sha256,
+        "worker_tree_sha256": worker_tree_sha256,
+        "profile": profile,
+    }
+
+
+def capture_rust_stage_sibling(conv: Any, blob: dict[str, Any] | None, *,
+                               step_index: int, semantic_input_digest: str,
+                               out_dir: str | Path, tick: Any = None) -> Path:
+    """Write ONE immutable operation directory holding the same-invocation stage
+    sibling for a Rust snapshot, using the very ``conv`` and already-emitted raw
+    ``blob`` from that operation (brief §5). Reuses ``stages.stage_document`` with
+    the ``py`` engine label; does NOT call ``write_stage_documents`` (which
+    deletes older step files) and does NOT call ``run_stage_dump`` afterwards.
+    Returns the path to the written stage document."""
+    from polismath.replay import stages
+    op_dir = Path(out_dir)
+    op_dir.mkdir(parents=True, exist_ok=True)
+    doc = stages.stage_document(conv, step_index=step_index,
+                                digest=semantic_input_digest, tick=tick, blob=blob,
+                                engine=stages.PY_STAGE_ENGINE)
+    dest = op_dir / f"step-{step_index:03d}.stages.json"
+    dest.write_text(stages.canonical_json(doc))
+    return dest
