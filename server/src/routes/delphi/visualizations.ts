@@ -303,17 +303,19 @@ async function fetchJobMetadata(
     } while (lastEvaluatedKey);
 
     // After the loop, allItems contains all items from all pages.
-    if (allItems.length === 0) {
-      logger.info(`No jobs found for conversation ${conversation_id}`);
-      return {};
-    }
-
+    //
+    // An empty result is *not* an answer. This is a global secondary index: a
+    // row missing a sort key never appears in it at all, and a freshly written
+    // row appears late. Returning here — as this used to — skips the strong
+    // sweep below and hides exactly the rows the sweep exists to surface, so a
+    // reload with no prior job id cannot see work that is running.
     logger.info(
-      `Found a total of ${allItems.length} jobs across all pages for conversation ${conversation_id}`
+      `Found a total of ${allItems.length} indexed jobs for conversation ${conversation_id}; confirming against the base table`
     );
 
-    // Process the complete list of items, with liveness from a strongly-read
-    // sweep rather than from this eventually consistent index.
+    // Liveness, and the rows themselves, come from a strongly-read sweep rather
+    // than from this eventually consistent index. `processJobItems` merges what
+    // the sweep saw into whatever the index returned, including nothing.
     const liveness = await assessConversationLiveness(conversation_id);
     return processJobItems(
       allItems,

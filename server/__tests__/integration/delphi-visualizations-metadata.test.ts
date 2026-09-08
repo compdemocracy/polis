@@ -179,10 +179,80 @@ describe("Delphi visualizations job metadata", () => {
     expect(job.logs).toBeUndefined();
   });
 
-  it("still answers when the index has no rows for the report", async () => {
+  it("still answers when the conversation has no rows at all", async () => {
     const res = await getVisualizations(reportId);
     expect(res.body.status).toBe("success");
-    expect(Array.isArray(res.body.jobs)).toBe(true);
+    expect(res.body.jobs).toHaveLength(0);
+  });
+
+  it("returns a live row the index cannot see, with nothing indexed", async () => {
+    // ConversationIndex is (conversation_id, created_at). A row with no
+    // created_at is absent from it — a deterministic stand-in for the row that
+    // has simply not propagated yet. The handler used to return early on an
+    // empty index, skipping the strong sweep that exists to surface exactly
+    // this, so a reload with no prior job id could not see running work.
+    const hiddenId = `viz-sparse-${Date.now()}`;
+    written.push(hiddenId);
+    await docClient.send(
+      new PutCommand({
+        TableName: JOB_QUEUE_TABLE,
+        Item: {
+          job_id: hiddenId,
+          conversation_id: zid,
+          report_id: reportId,
+          job_type: "FULL_PIPELINE",
+          status: "PROCESSING",
+          // No created_at: invisible to the index, present in the base table.
+        },
+      })
+    );
+
+    // Precondition: the index really does not have it.
+    const indexed = await docClient.send(
+      new QueryCommand({
+        TableName: JOB_QUEUE_TABLE,
+        IndexName: "ConversationIndex",
+        KeyConditionExpression: "conversation_id = :cid",
+        ExpressionAttributeValues: { ":cid": zid },
+      })
+    );
+    expect(indexed.Items || []).toHaveLength(0);
+
+    const res = await getVisualizations(reportId);
+    const hidden = res.body.jobs.find((job: any) => job.jobId === hiddenId);
+    expect(hidden).toBeDefined();
+    expect(hidden.status).toBe("PROCESSING");
+    expect(hidden.workLive).toBe(true);
+  });
+
+  it("returns an index-invisible live row alongside indexed ones", async () => {
+    // Astra's second half: adding one indexed terminal row must not be what
+    // makes the hidden row visible.
+    const hiddenId = `viz-sparse2-${Date.now()}`;
+    written.push(hiddenId);
+    await docClient.send(
+      new PutCommand({
+        TableName: JOB_QUEUE_TABLE,
+        Item: {
+          job_id: hiddenId,
+          conversation_id: zid,
+          report_id: reportId,
+          job_type: "FULL_PIPELINE",
+          status: "PROCESSING",
+        },
+      })
+    );
+    await putJob({
+      job_id: `viz-indexed-${Date.now()}`,
+      status: "COMPLETED",
+      process_exit_confirmed: true,
+      completed_at: new Date().toISOString(),
+    });
+
+    const res = await getVisualizations(reportId);
+    expect(res.body.jobs).toHaveLength(2);
+    const hidden = res.body.jobs.find((job: any) => job.jobId === hiddenId);
+    expect(hidden.workLive).toBe(true);
   });
 
   it("cheaply prunes a long history of old terminal roots", async () => {
