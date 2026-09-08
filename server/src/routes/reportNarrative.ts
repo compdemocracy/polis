@@ -16,6 +16,7 @@ import { create } from "xmlbuilder2";
 import { sendCommentGroupsSummary } from "../report";
 import { getTopicsFromRID } from "../report_experimental/topics-example";
 import DynamoStorageService, { StorageError } from "../utils/storage";
+import { AwsCredentialsConfigurationError } from "../utils/dynamoClient";
 import { PathLike } from "node:fs";
 import config from "../config";
 import logger from "../utils/logger";
@@ -298,7 +299,10 @@ const getModelResponse = async (
         const textBlock = responseClaude.content.find((b) => b.type === "text");
         const rawText = textBlock?.type === "text" ? textBlock.text : "";
         // Strip markdown code fences if present
-        return rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+        return rawText
+          .replace(/^```(?:json)?\s*/i, "")
+          .replace(/\s*```$/, "")
+          .trim();
       }
       case "openai": {
         if (!openai) {
@@ -884,16 +888,19 @@ export async function handle_GET_reportNarrative(
   req: { p: { rid: string; delphiEnabled: boolean }; query: QueryParams },
   res: Response
 ) {
-  const storage = new DynamoStorageService(
-    "report_narrative_store",
-    req.query.noCache === "true"
-  );
+  let storage: DynamoStorageService;
 
-  // Initialize storage with improved error handling
+  // Initialize storage with improved error handling. Construction is inside the
+  // try because it resolves AWS credentials and throws a named configuration
+  // error on a placeholder credential in the environment.
   try {
     if (!req.p.delphiEnabled) {
       throw new Error("Unauthorized");
     }
+    storage = new DynamoStorageService(
+      "report_narrative_store",
+      req.query.noCache === "true"
+    );
     const initResult = await storage.initTable();
     if (!initResult.success) {
       const error = initResult.error!;
@@ -921,6 +928,12 @@ export async function handle_GET_reportNarrative(
     }
   } catch (error) {
     logger.error("Storage initialization failed:", error);
+    if (error instanceof AwsCredentialsConfigurationError) {
+      failJson(res, 503, error.code, {
+        hint: "Storage service credentials are misconfigured. Please contact support.",
+      });
+      return;
+    }
     failJson(res, 503, "polis_err_report_storage", {
       hint: "Storage service error. Please try again later.",
     });

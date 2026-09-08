@@ -6,12 +6,21 @@ import logger from "../../utils/logger";
 import { getZidFromReport } from "../../utils/parameter";
 import { buildDynamoClientConfig } from "../../utils/dynamoClient";
 
-// Initialize DynamoDB client. Shared credential precedence: local endpoint ->
-// real configured keys -> default AWS credential provider chain (instance role).
-const dynamoDbClient = new DynamoDB(buildDynamoClientConfig());
+// DynamoDB client. Shared credential precedence: local endpoint -> real
+// configured keys -> default AWS credential provider chain (instance role).
+//
+// Built lazily on first use, not at module load: `buildDynamoClientConfig`
+// throws on a placeholder credential left in the environment, and a
+// misconfiguration should fail this one route rather than prevent the server
+// from starting. Memoized, so the client is still constructed once.
+let docClient: DynamoDBDocument | undefined;
 
-// Create DocumentClient
-const docClient = DynamoDBDocument.from(dynamoDbClient);
+function getDocClient(): DynamoDBDocument {
+  if (!docClient) {
+    docClient = DynamoDBDocument.from(new DynamoDB(buildDynamoClientConfig()));
+  }
+  return docClient;
+}
 
 /**
  * Handler for Delphi API route that generates batch narrative reports
@@ -129,7 +138,7 @@ export async function handle_POST_delphi_batch_reports(
       })}`
     );
 
-    await docClient.put({
+    await getDocClient().put({
       TableName: "Delphi_JobQueue",
       Item: jobItem,
     });

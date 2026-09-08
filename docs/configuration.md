@@ -152,6 +152,17 @@ If you are deploying to a custom domain (not `pol.is`) then you need to update b
 - **`MAILGUN_API_KEY`**, **`MAILGUN_DOMAIN`** If using Mailgun as an email transport.
 - **`AWS_REGION`** Used for some data import/export.
 - **`AWS_ACCESS_KEY_ID`**, **`AWS_SECRET_ACCESS_KEY`** Useful for AWS SDK operations.
+  Leave both **unset** in production to use the AWS default credential provider
+  chain (the EC2 instance role). Set both to real static credentials to use them
+  explicitly; temporary credentials are not supported here, as `AWS_SESSION_TOKEN`
+  is not read — put those on the default chain instead. Setting either to the
+  literal string `local` is rejected: the SDK's environment provider would send
+  that placeholder to AWS, so the DynamoDB clients refuse to start and report
+  `polis_err_aws_credentials_placeholder`. For local development set
+  `DYNAMODB_ENDPOINT` (and `AWS_S3_ENDPOINT` for MinIO) instead. These two
+  variables are shared by every AWS client in the server and delphi containers —
+  DynamoDB, S3/MinIO, SES and SQS — so declare each exactly once per environment
+  file.
 - **`ANTHROPIC_API_KEY`** For using Anthropic as a generative AI model.
 - **`GEMINI_API_KEY`** For using Gemini as a generative AI model.
 - **`OPENAI_API_KEY`** For using OpenAI as a generative AI model.
