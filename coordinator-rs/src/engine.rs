@@ -18,6 +18,9 @@ use std::{
 pub struct Source {
     pub votes: Vec<Value>,
     pub moderation: Value,
+    /// The declared `polis-order/1` normalization plus this conversation's
+    /// `equal_time_census`; shipped verbatim to the worker.
+    pub ordering: Value,
     pub fingerprint: String,
 }
 fn write_file(root: &Path, name: &str, data: &[u8]) -> Result<Value> {
@@ -182,8 +185,9 @@ pub fn compute(
     mod_bytes.push(b'\n');
     let mods = write_file(input.path(), "moderation.jsonl", &mod_bytes)?;
     let parent = prior.map(|b| json!({"profile":"rebuild-prefix/1","source_fingerprint":b.checkpoint["source_fingerprint"],"math_tick":b.math_tick,"payload_digests":b.checkpoint["payload_digests"]}));
+    // `ordering` is the declared contract term the coordinator itself ordered by.
     let manifest = json!({"schema":"polis-input/1","fixture_id":zid,"storage_agree_value":c.storage_agree_value,
-        "ordering":"live-tid-pid-created-semantic-value-weight/1","votes":votes,"moderation":mods,"parent":parent});
+        "ordering":source.ordering,"votes":votes,"moderation":mods,"parent":parent});
     let manifest_desc = write_file(input.path(), "input.json", &serde_json::to_vec(&manifest)?)?;
     let mut ops = Vec::new();
     if let Some(p) = prior {
@@ -258,6 +262,6 @@ pub fn compute(
         payloads,
         json!({"schema":"polis-coordinator/1","source_fingerprint":source.fingerprint,
         "profile":"candidate-profile","lifecycle":"rebuild-prefix/1","cursors":cursors,"event_count":source.votes.len(),
-        "storage_agree_value":c.storage_agree_value}),
+        "storage_agree_value":c.storage_agree_value,"ordering":source.ordering}),
     ))
 }

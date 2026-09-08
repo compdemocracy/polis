@@ -10,6 +10,8 @@ full contract certification. See the P-026 report for executed coverage and gaps
   expected-tick conflicts, lease fencing, JSONB integrity digests, atomic publication.
 - `src/lease.rs`: the three distinguishable ownership outcomes and the
   conditional heartbeat renewal that keeps a long compute inside its lease.
+- `src/ordering.rs`: the declared `polis-order/1` source normalization and its
+  `equal_time_census`; the coordinator's ORDER BY is built from it.
 - `src/cache.rs`: bounded warm bundle cache with the LRU eviction stage.
 - `src/coordinator.rs`: complete source snapshot reconciliation, durable keyset
   cursor, bounded failure backoff, one active conversation and worker process.
@@ -36,10 +38,18 @@ still the conversation's current generation — any other writer's update turns 
 into a miss instead of a lost update. Eviction is the CO07
 `cache_eviction_contends_with_same_zid_update` stage.
 
-Source order is `tid,pid,created,semantic_vote,weight NULLS FIRST`, matching the
-live poller's encounter order; the final keys explicitly resolve otherwise
-ambiguous ties. Exact duplicate multiplicity survives. The source fingerprint
-covers all vote rows, current comment metadata and participant moderation. One
+Source order is the **declared** `polis-order/1` normalization
+`(tid,pid,created_ms,semantic_vote,weight_x_32767 NULLS FIRST)`, where
+`semantic_vote = raw_vote * storage_agree_value`. It is a contract term, not a
+literal in one query: `src/ordering.rs` owns the terms, the coordinator builds
+its ORDER BY from them, the same declaration (with its `algorithm_digest` and
+this conversation's `equal_time_census`) is the worker manifest's `ordering`
+value and is recorded in the published checkpoint, and the worker rejects a
+manifest whose declaration does not match its `storage_agree_value`. Ordering on
+the raw sign instead would break the polarity property. This is a declared
+content normalization, not historical encounter order. Exact duplicate
+multiplicity survives. The source fingerprint covers all vote rows, current
+comment metadata, participant moderation and that declaration. One
 REPEATABLE READ snapshot covers all three source queries. Every conversation is
 visited independently of event timestamps; a late commit behind a completed page
 is found on the next pass. Source rows are limited to 1,000,000 per table per
@@ -164,7 +174,10 @@ The control line limit is 64 KiB; each admitted bulk file is bounded at 256 MiB.
 The client operation timeout is 120 seconds and failure kills/discards the worker.
 
 Local manifest keys: `schema:"polis-input/1"`, `fixture_id`,
-`storage_agree_value`, `ordering`, `votes`, `moderation`, `parent`.
+`storage_agree_value`, `ordering`, `votes`, `moderation`, `parent`. `ordering` is
+either the `polis-order/1` declaration above (live profile) or the pinned name of
+a frozen replay order; a live declaration must agree with `storage_agree_value`
+and must declare the semantic tie term, or initialization fails.
 Vote lines use the contract's eight-field normalized example. Moderation lines
 are `{slot,state}`, where state is the existing poller snapshot with four
 moderation sets and `lastModTimestamp`. Current poller snapshot semantics leave
