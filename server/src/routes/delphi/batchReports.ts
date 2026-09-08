@@ -4,17 +4,11 @@ import { DynamoDB } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocument } from "@aws-sdk/lib-dynamodb";
 import logger from "../../utils/logger";
 import { getZidFromReport } from "../../utils/parameter";
-import Config from "../../config";
+import { buildDynamoClientConfig } from "../../utils/dynamoClient";
 
-// Initialize DynamoDB client
-const dynamoDbClient = new DynamoDB({
-  endpoint: Config.DYNAMODB_ENDPOINT as string,
-  region: Config.AWS_REGION as string,
-  credentials: {
-    accessKeyId: Config.AWS_ACCESS_KEY_ID as string,
-    secretAccessKey: Config.AWS_SECRET_ACCESS_KEY as string,
-  },
-});
+// Initialize DynamoDB client. Shared credential precedence: local endpoint ->
+// real configured keys -> default AWS credential provider chain (instance role).
+const dynamoDbClient = new DynamoDB(buildDynamoClientConfig());
 
 // Create DocumentClient
 const docClient = DynamoDBDocument.from(dynamoDbClient);
