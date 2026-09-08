@@ -38,6 +38,12 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient, {
   },
 });
 
+// Bound the work one participant save can trigger. Without a cap the query is
+// bounded only by the conversation's partition size; with COALESCE in place,
+// bailing out early is non-destructive (it preserves any existing attribution).
+const MAX_JOB_QUERY_PAGES = 20;
+const JOB_QUERY_PAGE_SIZE = 25;
+
 /**
  * Get the newest completed Delphi job ID for a conversation.
  */
@@ -57,26 +63,31 @@ async function getCurrentDelphiJobId(zid: string): Promise<string | null> {
         ":status": "COMPLETED",
       },
       ScanIndexForward: false, // Sort by created_at DESC
-      Limit: 25,
+      Limit: JOB_QUERY_PAGE_SIZE,
     };
 
     // DynamoDB applies Limit before FilterExpression. An empty page may still
-    // have older completed jobs, so only stop once a match is found or the
-    // conversation's pages are exhausted (including the 1 MB page boundary).
-    do {
+    // have older completed jobs, so only stop once a match is found, the
+    // conversation's pages are exhausted (including the 1 MB page boundary),
+    // or the page cap is reached.
+    for (let page = 0; page < MAX_JOB_QUERY_PAGES; page++) {
       const result = await docClient.send(new QueryCommand(queryParams));
       if (result.Items?.length) {
         return result.Items[0].job_id;
       }
+      if (!result.LastEvaluatedKey) {
+        break;
+      }
       queryParams.ExclusiveStartKey = result.LastEvaluatedKey;
-    } while (queryParams.ExclusiveStartKey);
+    }
 
     return null;
   } catch (error: any) {
     logger.error("Error getting current Delphi job ID from DynamoDB", error);
-    // A failed lookup is not evidence of absence. Let the handler fail before
-    // writing selections rather than overwriting their attribution with null.
-    throw error;
+    // Degrade instead of failing the request: a null here cannot erase an
+    // existing attribution (the writes below COALESCE it), while throwing
+    // would 500 the handler and drop the participant's selections entirely.
+    return null;
   }
 }
 
@@ -135,7 +146,7 @@ export async function handle_POST_topicAgenda_selections(
         participant_id: pid.toString(),
         selections_count:
           (result as any)[0]?.total_selections || selections.length,
-        job_id: (result as any)[0].delphi_job_id,
+        job_id: (result as any)[0]?.delphi_job_id ?? null,
       },
     };
 

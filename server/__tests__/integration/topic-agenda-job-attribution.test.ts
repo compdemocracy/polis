@@ -87,13 +87,18 @@ describe.each(["post", "put"] as const)(
       });
     }
 
-    async function expectStoredJob(jobId: string | null) {
+    async function expectStoredJob(
+      jobId: string | null,
+      storedSelections: unknown = selections
+    ) {
       const response = await agent
         .get("/api/v3/topicAgenda/selections")
         .query({ conversation_id: conversationId });
       expect(response.status).toBe(200);
       expect(response.body.data.delphi_job_id).toBe(jobId);
-      expect(response.body.data.archetypal_selections).toEqual(selections);
+      expect(response.body.data.archetypal_selections).toEqual(
+        storedSelections
+      );
     }
 
     it("returns and stores the newest completed job", async () => {
@@ -108,6 +113,19 @@ describe.each(["post", "put"] as const)(
     it("returns the older completed job without erasing it when a newer job is pending", async () => {
       const completed = await createJob("COMPLETED", 1);
       expect((await save()).body.data.job_id).toBe(completed);
+      await createJob("PENDING", 2);
+      const response = await save();
+      expect(response.status).toBe(200);
+      expect(response.body.data.job_id).toBe(completed);
+      await expectStoredJob(completed);
+    });
+
+    // The Limit-before-Filter regression proper: no row exists beforehand, so
+    // COALESCE has nothing to restore and cannot mask a null attribution. A
+    // reintroduced `Limit: 1` reads only the newer PENDING job, filters it
+    // away and stores null, which this case must catch.
+    it("attributes the older completed job when a newer job is pending and no selections row exists", async () => {
+      const completed = await createJob("COMPLETED", 1);
       await createJob("PENDING", 2);
       const response = await save();
       expect(response.status).toBe(200);
@@ -184,10 +202,11 @@ describe.each(["post", "put"] as const)(
       await expectStoredJob(completed);
     });
 
-    it("fails without changing selections or attribution if a later query page fails", async () => {
+    it("still saves selections and preserves attribution if a later query page fails", async () => {
       const completed = await createJob("COMPLETED", 1);
       const initial = await save();
       expect(initial.body.data.job_id).toBe(completed);
+      const changed = [{ topic_id: "changed-topic", priority: 2 }];
       for (let i = 2; i < 29; i++) {
         await createJob("PENDING", i);
       }
@@ -218,13 +237,18 @@ describe.each(["post", "put"] as const)(
             zid: Number(zid),
             pid: Number(initial.body.data.participant_id),
           },
-          body: { selections: [{ topic_id: "changed-topic", priority: 2 }] },
+          body: { selections: changed },
         } as RequestWithP,
         response as unknown as Response
       );
-      expect(response.status).toHaveBeenCalledWith(500);
+      // A DynamoDB outage must degrade to "selections saved, attribution kept",
+      // never to a 500 that discards the participant's selections.
+      expect(response.status).not.toHaveBeenCalled();
+      expect(response.json).toHaveBeenCalledTimes(1);
+      expect(response.json.mock.calls[0][0].status).toBe("success");
+      expect(response.json.mock.calls[0][0].data.job_id).toBe(completed);
       expect(queryCount).toBe(2);
-      await expectStoredJob(completed);
+      await expectStoredJob(completed, changed);
     });
   }
 );
