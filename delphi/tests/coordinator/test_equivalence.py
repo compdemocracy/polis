@@ -7,7 +7,7 @@ import sys
 import threading
 from pathlib import Path
 import pytest
-from conftest import ROOT, ARTIFACTS, FOLD, MAPPING, seed, connect, rows, assert_coherent
+from coordinator.conftest import ROOT, ARTIFACTS, FOLD, MAPPING, seed, connect, rows, assert_coherent
 from polismath.replay.crosslang import canonicalize_blob
 
 
