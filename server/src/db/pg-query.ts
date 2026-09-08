@@ -82,7 +82,7 @@ function queryImpl(pool: Pool, queryString: string, ...args: any[]) {
   // Not sure whether we have to be this careful in calling release for these query results. There may or may
   // not have been a good reason why Mike did this. If just using pool.query works and doesn't exhibit scale
   // under load, might be worth stripping
-  return new Promise((resolve, reject) => {
+  const promise = new Promise((resolve, reject) => {
     pool.connect((err, client, release) => {
       if (err) {
         if (callback) callback(err);
@@ -106,6 +106,19 @@ function queryImpl(pool: Pool, queryString: string, ...args: any[]) {
       });
     });
   });
+
+  // Every caller that supplies a callback receives the failure through it and
+  // ignores this promise — queryP_impl below is the largest such caller, so
+  // every failing queryP produced a *second*, permanently unobserved rejection
+  // in addition to the one it hands its own caller. Marking it handled here
+  // stops each failed query from raising a process-level 'unhandledRejection'.
+  // Callers that omit a callback still get an unhandled rejection if they drop
+  // the returned promise, which is the behaviour worth keeping.
+  if (callback) {
+    promise.catch(() => {});
+  }
+
+  return promise;
 }
 
 const pgPoolLevelRanks = ["info", "verbose"]; // TODO investigate
