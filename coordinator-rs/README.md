@@ -58,6 +58,20 @@ payload fields. Hashing/encoding occurs before any publication lock. The origina
 worker file bytes have SHA256 descriptors; PostgreSQL JSONB does not preserve those
 lexical bytes. The row-shape golden compares `data::text` from both writers.
 
+## Toolchain
+
+`rust-toolchain.toml` pins the crate to stable `1.98.1` with `clippy` and
+`rustfmt`, so every build here uses one known compiler. Run cargo from inside
+`coordinator-rs/` for the pin to apply; `--manifest-path` from the repository
+root bypasses it.
+
+`Cargo.toml` declares `rust-version = "1.88"` as the minimum supported Rust
+version. Edition 2024 alone needs 1.85, and the highest MSRV among the locked
+dependencies is also 1.85; 1.88 is required because `src/main.rs` uses a
+let-chain, stabilized in 1.88 for edition 2024. The MSRV is derived from the
+edition, that feature and the lockfile — it has not been exercised by building
+on a 1.88 toolchain. Raise it deliberately if newer language features land here.
+
 ## Local build and test
 
 The sandbox refused writes to `$HOME/.cargo` and `.git/FETCH_HEAD`. Stable rustup
