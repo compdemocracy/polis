@@ -386,11 +386,11 @@ def main():
             logger.info(f"Representativeness for {len(conv.repness['comment_repness'])} comments")
 
         # The PCA/k-means/repness results used to be exported to six DynamoDB
-        # tables here. Nothing ever read them back (see
-        # cost-reduction/02-findings/delphi-pca-consumers.md); every math surface
-        # the product renders comes from the PostgreSQL `math_main` blob, which
-        # the poller in polismath/poller/ writes. The export was removed under
-        # P-011/P-033 along with its tables.
+        # tables here. Nothing ever read them back; every math surface the
+        # product renders comes from the PostgreSQL `math_main` blob, which the
+        # poller in polismath/poller/ writes. The export was removed under
+        # P-011/P-033 along with its tables -- see
+        # delphi/docs/RETIRED_DYNAMODB_TABLES.md.
 
     except Exception as e:
         logger.error(f"Pipeline failed: {e}")

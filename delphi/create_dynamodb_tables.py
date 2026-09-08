@@ -9,8 +9,9 @@ It runs on every delphi container start (see Dockerfile), so a table listed here
 is recreated automatically wherever it is missing -- which is why the write-only
 Python-PCA export tables had to leave this file before they could be deleted in
 AWS. Nine such tables were retired under P-011/P-033; the list, the writers that
-were removed with them and the deletion runbook are in
-cost-reduction/04-plans/P-011-code-retirement-notes.md. Do not re-add them here.
+were removed with them and the reasoning are in docs/RETIRED_DYNAMODB_TABLES.md,
+and tests/test_dynamodb_bootstrap_allowlist.py fails if any of them reappears
+here. Do not re-add them.
 Topic-agenda selections live in the PostgreSQL `topic_agenda_selections` table,
 and the PCA/repness surfaces the product renders come from `math_main`.
 

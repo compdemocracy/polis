@@ -1,3 +1,4 @@
+import contextlib
 import os
 import time
 import pytest
@@ -15,7 +16,9 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 # Import the main function from the script we want to test
+from polismath.conversation.conversation import Conversation
 from polismath.run_math_pipeline import main as run_math_pipeline_main
+from tests.retired_tables import RETIRED_TABLES
 
 # --- Define Mock Data Paths ---
 # FIX: Corrected path inside the container. The 'delphi' part is removed
@@ -28,20 +31,42 @@ MOCK_ZID = 123456789 # We can use our own ZID for the test
 
 # --- Fixtures to Set Up Test Environment ---
 
-# Tables the Python PCA stage used to write on every FULL_PIPELINE job. Nothing
-# ever read them back, so the export and its tables were retired under
-# P-011/P-033. The pipeline must now finish without them -- and, just as
-# importantly, must not recreate them: `create_dynamodb_tables.py` runs on every
-# delphi container start, so a table that comes back here is a table that comes
-# back in production and defeats the AWS deletion.
-RETIRED_PCA_TABLES = [
-    "Delphi_PCAConversationConfig",
-    "Delphi_PCAResults",
-    "Delphi_KMeansClusters",
-    "Delphi_CommentRouting",
-    "Delphi_RepresentativeComments",
-    "Delphi_PCAParticipantProjections",
-]
+# The four real computation stages `main()` drives, in order. Recording them is
+# what makes the table-absence assertion below mean something: without a
+# positive control, an early return or a no-op `main()` would satisfy "none of
+# the retired tables exists" just as well as a successful run.
+PIPELINE_STAGES = (
+    "_compute_pca",
+    "_compute_clusters",
+    "_compute_repness",
+    "_compute_participant_info",
+)
+
+
+@contextlib.contextmanager
+def record_pipeline_stages():
+    """Wrap the real Conversation stages, passing through to the originals."""
+    observed = []
+    finished = []
+
+    def wrap(stage_name):
+        original = getattr(Conversation, stage_name)
+
+        def wrapped(self, *args, **kwargs):
+            result = original(self, *args, **kwargs)
+            observed.append(stage_name)
+            if stage_name == PIPELINE_STAGES[-1]:
+                # `update_votes` returns a new Conversation per batch, so the
+                # receiver of the last stage is the finished one.
+                finished.append(self)
+            return result
+
+        return wrapped
+
+    with contextlib.ExitStack() as stack:
+        for stage_name in PIPELINE_STAGES:
+            stack.enter_context(mock.patch.object(Conversation, stage_name, wrap(stage_name)))
+        yield observed, finished
 
 
 @pytest.fixture(scope="module")
@@ -250,19 +275,43 @@ def test_run_math_pipeline_e2e(mock_connect, dynamodb_client, mock_comments_data
         ]
         
         with mock.patch.object(sys, 'argv', test_args):
-            # 2. Run the main function
-            try:
-                run_math_pipeline_main()
-            except SystemExit as e:
-                pytest.fail(f"run_math_pipeline.py exited unexpectedly: {e}")
+            # 2. Run the main function, recording the real computation stages
+            with record_pipeline_stages() as (observed_stages, finished):
+                try:
+                    run_math_pipeline_main()
+                except SystemExit as e:
+                    pytest.fail(f"run_math_pipeline.py exited unexpectedly: {e}")
 
-    # 3. The pipeline must not have created (or needed) any of the retired
-    #    PCA export tables. `_ensure_tables_exist` in the old DynamoDB client
-    #    created them itself on every run, so their continued absence after a
-    #    full pipeline run is the regression guard for P-033-review H3.
+    # 3. Positive control: the job really computed something. Every stage ran,
+    #    in order, on a conversation of the expected shape with a non-empty PCA.
+    #    Without this, step 4 would pass just as happily for a `main()` that
+    #    returned immediately.
+    assert observed_stages == list(PIPELINE_STAGES), (
+        f"expected the four computation stages in order, observed {observed_stages}"
+    )
+    assert finished, "no conversation reached the final computation stage"
+
+    conv = finished[-1]
+    expected_pids = {v['pid'] for v in mock_votes_data['votes_dicts']['votes']}
+    expected_tids = {v['tid'] for v in mock_votes_data['votes_dicts']['votes']}
+    assert conv.participant_count == len(expected_pids)
+    assert conv.comment_count == len(expected_tids)
+    assert conv.raw_rating_mat.shape == (len(expected_pids), len(expected_tids))
+    assert conv.pca, "pipeline produced an empty PCA"
+    assert conv.repness and conv.repness.get('comment_repness'), (
+        "pipeline produced no representativeness"
+    )
+
+    # 4. Negative control: having actually done the work, the job must not have
+    #    created -- or needed -- any of the NINE retired tables. The old
+    #    DynamoDB client's `_ensure_tables_exist` created six of them itself on
+    #    every run, and `create_dynamodb_tables.py` runs on every delphi
+    #    container start, so a table that comes back here is a table that comes
+    #    back in production and defeats the AWS deletion (P-033-review H3).
     live_tables = set(dynamodb_client.list_tables()['TableNames'])
-    recreated = sorted(live_tables.intersection(RETIRED_PCA_TABLES))
+    recreated = sorted(live_tables.intersection(RETIRED_TABLES))
     assert not recreated, (
         f"run_math_pipeline recreated retired DynamoDB tables: {recreated}. "
-        "Deleting them in AWS will not stick while anything recreates them."
+        "Deleting them in AWS will not stick while anything recreates them; "
+        "see delphi/docs/RETIRED_DYNAMODB_TABLES.md."
     )

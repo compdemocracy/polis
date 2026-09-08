@@ -3,7 +3,7 @@
 > **Superseded in part (P-011/P-033, 2026-09-08).** Nine write-only DynamoDB
 > tables and the Python stages that fed them have since been removed from the
 > code. Table names below are kept as a point-in-time record; see
-> `cost-reduction/04-plans/P-011-code-retirement-notes.md` for what still exists.
+> `delphi/docs/RETIRED_DYNAMODB_TABLES.md` for what still exists.
 
 **Status:** DRAFT for review — 2026-07-06
 **Author:** Claude (host session "Fable JobID"), for Julien

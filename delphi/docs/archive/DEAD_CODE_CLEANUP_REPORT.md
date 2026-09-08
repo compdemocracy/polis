@@ -1,5 +1,10 @@
 # Dead Code Cleanup Report - delphi/
 
+> **Superseded in part (P-011/P-033, 2026-09-08).** Nine write-only DynamoDB
+> tables and the Python stages that fed them have since been removed from the
+> code. Names and entry points below are kept as a point-in-time record; see
+> `delphi/docs/RETIRED_DYNAMODB_TABLES.md` for what still exists.
+
 **Date:** January 2026
 **Branch:** `dead-code-cleanup`
 **Base:** `edge`

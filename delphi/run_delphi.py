@@ -143,8 +143,7 @@ def main():
     # "priorities" back into a table no route consults. The narrative report
     # (801) re-derives comment extremity from the PostgreSQL `math_main` blob,
     # and comment routing reads `math_main` via /api/v3/math/pca2, so neither
-    # stage had a consumer. See
-    # cost-reduction/02-findings/delphi-pca-consumers.md.
+    # stage had a consumer. See delphi/docs/RETIRED_DYNAMODB_TABLES.md.
 
     if pipeline_exit_code == 0:
         print(f"{YELLOW}Creating visualizations with datamapplot...{NC}")

@@ -212,7 +212,8 @@ Delphi now includes a distributed job queue system built on DynamoDB:
 - Primary script: `/create_dynamodb_tables.py` - Creates the job queue and EVōC tables
 - It runs on every container start (`Dockerfile`), so anything listed there is
   recreated automatically. Nine write-only tables were retired under P-011/P-033;
-  see `cost-reduction/04-plans/P-011-code-retirement-notes.md` before adding a table back.
+  read `docs/RETIRED_DYNAMODB_TABLES.md` before adding a table back, and expect
+  `tests/test_dynamodb_bootstrap_allowlist.py` to fail if you re-add one of them.
 
 ### Schema Definitions
 
