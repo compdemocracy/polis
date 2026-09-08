@@ -167,10 +167,6 @@ def _blank_comments(text: str, line_token: str, allow_block: bool) -> str:
     return "".join(out)
 
 
-def _strip_ts_comments(text: str) -> str:
-    return _blank_comments(text, "//", allow_block=True)
-
-
 def _blank_python_docstrings(text: str) -> str:
     """Blank module/class/function docstrings (via ast), keeping line numbers.
     ``#`` comments need no separate pass: the literal extractor ignores comments,
@@ -196,15 +192,43 @@ def _blank_python_docstrings(text: str) -> str:
     return "\n".join("" if i in blanked else line for i, line in enumerate(lines, start=1))
 
 
-_ESCAPES = {"n": " ", "t": " ", "r": " ", "b": " ", "f": " ", "v": " ", "0": " "}
+_ESCAPES = {"n": " ", "t": " ", "r": " ", "b": " ", "f": " ", "v": " ", "0": " ", "a": " "}
 
 
-def _extract_string_literals(text: str) -> list[tuple[int, str]]:
+def _decode_escape(text: str, i: int) -> tuple[str, int]:
+    """Decode the escape sequence at text[i]=='\\'; return (decoded_str, new_i).
+    Handles \\uXXXX, \\u{...}, \\xXX (unicode/hex), whitespace escapes -> space,
+    and \\<char> -> <char>."""
+    n = len(text)
+    esc = text[i + 1] if i + 1 < n else ""
+    if esc == "u" and i + 2 < n and text[i + 2] == "{":
+        j = text.find("}", i + 3)
+        if j != -1:
+            try:
+                return chr(int(text[i + 3:j], 16)), j + 1
+            except ValueError:
+                pass
+        return "u", i + 2
+    if esc == "u" and i + 6 <= n:
+        try:
+            return chr(int(text[i + 2:i + 6], 16)), i + 6
+        except ValueError:
+            pass
+    if esc == "x" and i + 4 <= n:
+        try:
+            return chr(int(text[i + 2:i + 4], 16)), i + 4
+        except ValueError:
+            pass
+    return _ESCAPES.get(esc, esc), i + 2
+
+
+def _extract_string_literals(text: str, is_py: bool) -> list[tuple[int, str]]:
     """Yield (start_line, DECODED content) for each ', " or ` string/template
-    literal, skipping comments. Escape backslashes are decoded (so an escaped
-    source quote ``\\"`` becomes ``"`` and quoted SQL identifiers are matchable).
-    This is where SQL queries live; comments are not literals, so a `SELECT *` in a
-    comment is never returned."""
+    literal, skipping comments. Comment syntax is PER LANGUAGE — ``#`` for Python,
+    ``//``/``/* */`` for JS/TS — so a Python ``//`` (floor division) is never a
+    comment. Escapes (``\\"``, ``\\uXXXX``, ``\\xXX``) are decoded so quoted and
+    unicode/hex-escaped SQL identifiers are matchable. Comments are not literals, so
+    a ``SELECT *`` in a comment is never returned."""
     out: list[tuple[int, str]] = []
     i, n, line = 0, len(text), 1
     while i < n:
@@ -213,11 +237,15 @@ def _extract_string_literals(text: str) -> list[tuple[int, str]]:
             line += 1
             i += 1
             continue
-        if text.startswith("//", i) or c == "#":
+        if is_py:
+            comment_here = c == "#"
+        else:
+            comment_here = text.startswith("//", i)
+        if comment_here:
             while i < n and text[i] != "\n":
                 i += 1
             continue
-        if text.startswith("/*", i):
+        if not is_py and text.startswith("/*", i):
             i += 2
             while i < n and not text.startswith("*/", i):
                 if text[i] == "\n":
@@ -233,11 +261,10 @@ def _extract_string_literals(text: str) -> list[tuple[int, str]]:
             while i < n:
                 d = text[i]
                 if d == "\\" and i + 1 < n:
-                    esc = text[i + 1]
-                    if esc == "\n":
+                    if text[i + 1] == "\n":
                         line += 1
-                    buf.append(_ESCAPES.get(esc, esc))  # \" -> ", \\ -> \, \n -> space
-                    i += 2
+                    decoded, i = _decode_escape(text, i)
+                    buf.append(decoded)
                     continue
                 if d == quote:
                     i += 1
@@ -252,11 +279,32 @@ def _extract_string_literals(text: str) -> list[tuple[int, str]]:
     return out
 
 
+# A wildcard SELECT whose FROM target is not a bare identifier we can resolve.
+_STAR_FROM_RE = re.compile(r"select\s+\*\s+from\b\s*", re.IGNORECASE | re.DOTALL)
+UNRESOLVED = "<unresolved-table>"
+
+
 def _sql_hits_in(content: str) -> list[tuple[str, str]]:
-    """(table, kind) wildcard hits in one DECODED SQL string."""
+    """(table, kind) wildcard hits in one DECODED SQL string. A wildcard SELECT
+    whose table is a template/variable/concatenation (unresolvable statically) is
+    reported as an UNRESOLVED candidate rather than silently cleared."""
     hits: list[tuple[str, str]] = []
     for m in _SELECT_STAR_RE.finditer(content):
         hits.append((m.group(1).lower(), "select-star"))
+
+    # `SELECT * FROM <x>` where <x> is not a recognizable table name and not a
+    # subquery -> unresolved (e.g. `${table}` template, or a dangling concatenation
+    # tail `"... FROM " + table`). A resolvable non-vote table or a subquery `(` is
+    # left alone.
+    for m in _STAR_FROM_RE.finditer(content):
+        after = content[m.end():]
+        if re.match(_TBL, after, re.IGNORECASE):
+            continue  # a recognizable table (vote tables already added above)
+        if after[:1] == "(":
+            continue  # subquery over a derived table, not a table wildcard
+        if after[:2] == "${" or after.strip() == "":
+            hits.append((UNRESOLVED, "unresolved-table"))
+
     alias_table: dict[str, str] = {}
     for m in _FROM_ALIAS_RE.finditer(content):
         tbl = m.group(1).lower()
@@ -282,7 +330,7 @@ def _scan_text(rel: str, text: str, is_ts: bool) -> list[tuple[int, str, str, st
     node-sql ``.star()`` builder is matched in comment-stripped code (TS only)."""
     hits: list[tuple[int, str, str, str]] = []
 
-    for start_line, content in _extract_string_literals(text):
+    for start_line, content in _extract_string_literals(text, is_py=not is_ts):
         for table, kind in _sql_hits_in(content):
             hits.append((start_line, table, kind, content.strip()[:200]))
 
