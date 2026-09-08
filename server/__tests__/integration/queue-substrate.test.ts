@@ -45,8 +45,10 @@ dotenv.config({ override: false });
 // against a second copy of the field list.
 type EnqueueModule = typeof import("../../src/queue/enqueue");
 type ProtocolModule = typeof import("../../src/queue/protocol");
+type PgQueryModule = typeof import("../../src/db/pg-query");
 let queue: EnqueueModule;
 let protocol: ProtocolModule;
+let pgQuery: PgQueryModule;
 
 const MIGRATION_PATH = path.join(
   __dirname,
@@ -426,6 +428,7 @@ beforeAll(async () => {
   process.env.POLIS_QUEUE_SUBSTRATE_ENABLED = "true";
   protocol = await import("../../src/queue/protocol");
   queue = await import("../../src/queue/enqueue");
+  pgQuery = await import("../../src/db/pg-query");
 
   mainPool = new Pool({ connectionString: BASE_DATABASE_URL, max: 12 });
   await runMigration(mainPool);
@@ -1359,6 +1362,56 @@ describe("P-024 queue substrate protocol", () => {
     expect(changed.outcome).toBe("conflict");
     expect(changed.requestSha256).not.toBe(first.requestSha256);
   }, 60000);
+
+  it("puts the declared session bounds in effect on a real connection", async () => {
+    const settings = await pgQuery.default.withTransaction(async (client) => {
+      const reply = await client.query(
+        "SELECT current_setting('TimeZone') AS tz, current_setting('lock_timeout') AS lt, " +
+          "current_setting('statement_timeout') AS st, current_setting('transaction_timeout') AS tt"
+      );
+      return reply.rows[0];
+    });
+    expect(settings).toEqual({
+      tz: "UTC",
+      lt: "500ms",
+      st: "5s",
+      tt: "10s",
+    });
+  }, 30000);
+
+  it("refuses to report success when a swallowed statement error aborted the transaction", async () => {
+    await expect(
+      pgQuery.default.withTransaction(async (client) => {
+        try {
+          await client.query("SELECT 1/0");
+        } catch {
+          // A caller that swallows this leaves the transaction aborted, and
+          // PostgreSQL then answers COMMIT with a ROLLBACK command tag.
+        }
+        return 42;
+      })
+    ).rejects.toThrow("transaction_was_aborted");
+  }, 30000);
+
+  it("survives its backend being terminated between queries, and the pool recovers", async () => {
+    await expect(
+      pgQuery.default.withTransaction(async (client) => {
+        const reply = await client.query("SELECT pg_backend_pid() AS pid");
+        await mainPool.query("SELECT pg_terminate_backend($1)", [
+          reply.rows[0].pid,
+        ]);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        return 42;
+      })
+    ).rejects.toBeDefined();
+    // The discarded client did not poison the pool.
+    expect(
+      await pgQuery.default.withTransaction(async (client) => {
+        const reply = await client.query("SELECT 42 AS n");
+        return reply.rows[0].n;
+      })
+    ).toBe(42);
+  }, 30000);
 
   it("refuses an env outside the dev/test namespace and refuses when disabled", async () => {
     await expect(
