@@ -592,6 +592,63 @@ describe("Delphi job submission deduplication", () => {
     expect(await listJobs()).toHaveLength(1);
   });
 
+  it("keeps the guard on a COMPLETED job whose process exit was not confirmed", async () => {
+    // The worker writes the flag false on a *successful* completion too, when
+    // it could not verify the process group.
+    const first = await submitJob();
+    await setStatus(first.body.job_id, "COMPLETED", false);
+
+    const second = await submitJob();
+    expect(second.body.deduplicated).toBe(true);
+    expect(second.body.job_id).toBe(first.body.job_id);
+    expect(second.body.work_live).toBe(true);
+    expect(await listJobs()).toHaveLength(1);
+  });
+
+  it("adopts a COMPLETED root whose process exit was not confirmed", async () => {
+    const legacyJobId = `legacy-completed-unconfirmed-${Date.now()}`;
+    await docClient.send(
+      new PutCommand({
+        TableName: JOB_QUEUE_TABLE,
+        Item: {
+          job_id: legacyJobId,
+          conversation_id: zid,
+          job_type: "FULL_PIPELINE",
+          status: "COMPLETED",
+          process_exit_confirmed: false,
+          created_at: new Date().toISOString(),
+        },
+      })
+    );
+
+    const res = await submitJob();
+    expect(res.body.deduplicated).toBe(true);
+    expect(res.body.job_id).toBe(legacyJobId);
+    expect(await listJobs()).toHaveLength(1);
+  });
+
+  it("does not treat a superseded row as work", async () => {
+    const supersededId = `superseded-${Date.now()}`;
+    await docClient.send(
+      new PutCommand({
+        TableName: JOB_QUEUE_TABLE,
+        Item: {
+          job_id: supersededId,
+          conversation_id: zid,
+          job_type: "FULL_PIPELINE",
+          status: "SUPERSEDED",
+          superseded_by: "some-other-root",
+          process_exit_confirmed: true,
+          created_at: new Date().toISOString(),
+        },
+      })
+    );
+
+    const res = await submitJob();
+    expect(res.body.deduplicated).toBe(false);
+    expect(await listJobs()).toHaveLength(2);
+  });
+
   it("fails closed with 503 when the guard table is missing", async () => {
     await deleteJobGuardTable();
     try {
