@@ -640,6 +640,77 @@ describe('synth-enforced health pairs', () => {
     })).toThrow(/A07 .*requires one of \[A04, A03\]/s);
   });
 
+  // --- escape hatches: the same guard against the override API -----------
+  //
+  // Review r2. `addPropertyOverride` writes into the resource's raw overrides,
+  // which are merged in at render time and leave the typed getters untouched.
+  // A gate reading `cfn.alarmActions` therefore passes while the EMITTED alarm
+  // carries the harmful value. These are Astra's three reproductions, inverted:
+  // each must now fail synth.
+
+  test('A04 with ActionsEnabled overridden to false fails the real synth', () => {
+    expect(synthWithMutatedA04((cfn) => {
+      cfn.addPropertyOverride('ActionsEnabled', false);
+    })).toThrow(/A07 .*requires one of \[A04, A03\]/s);
+  });
+
+  test('A04 with AlarmActions overridden to empty fails the real synth', () => {
+    expect(synthWithMutatedA04((cfn) => {
+      cfn.addPropertyOverride('AlarmActions', []);
+    })).toThrow(/A07 .*requires one of \[A04, A03\]/s);
+  });
+
+  test('A04 with TreatMissingData overridden fails the real synth', () => {
+    expect(synthWithMutatedA04((cfn) => {
+      cfn.addPropertyOverride('TreatMissingData', 'notBreaching');
+    })).toThrow(/A07 .*requires one of \[A04, A03\]/s);
+  });
+
+  test('the lower-level addOverride path is covered too', () => {
+    // addPropertyOverride is sugar over addOverride('Properties.X'); both end
+    // up in the same rawOverrides bag, and the gate reads the render, not the
+    // API that produced it.
+    expect(synthWithMutatedA04((cfn) => {
+      cfn.addOverride('Properties.AlarmActions', [
+        'arn:aws:sns:us-east-1:123456789012:elsewhere',
+      ]);
+    })).toThrow(/A07 .*requires one of \[A04, A03\]/s);
+  });
+
+  test('an override that leaves the wiring intact still synthesizes', () => {
+    // The gate must reject harmful final values, not any use of the escape
+    // hatch. Overriding an unrelated property is fine.
+    expect(synthWithMutatedA04((cfn) => {
+      cfn.addPropertyOverride('DatapointsToAlarm', 3);
+    })).not.toThrow();
+  });
+
+  test('the emitted template, not the getter, is what the gate reads', () => {
+    // Belt and braces: prove the override really does change the emitted
+    // properties while leaving the getter alone, so these tests are exercising
+    // the reported gap rather than a coincidence.
+    const app = new cdk.App();
+    const stack = new cdk.Stack(app, 'OverrideVisibility', {
+      env: { account: ACCOUNT, region: REGION },
+    });
+    const alarm = new cloudwatch.Alarm(stack, 'Probe', {
+      alarmName: 'probe',
+      metric: new cloudwatch.Metric({ namespace: 'X', metricName: 'Y' }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.BREACHING,
+    });
+    const cfn = alarm.node.defaultChild as cloudwatch.CfnAlarm;
+    cfn.addPropertyOverride('TreatMissingData', 'notBreaching');
+    // The getter is unchanged...
+    expect(cfn.treatMissingData).toBe('breaching');
+    // ...while the emitted template carries the override.
+    const emitted = Object.values(
+      Template.fromStack(stack).findResources('AWS::CloudWatch::Alarm'),
+    ).map((r: any) => r.Properties.TreatMissingData);
+    expect(emitted).toEqual(['notBreaching']);
+  });
+
   test('ActionsEnabled left absent still counts as enabled', () => {
     // CloudFormation defaults it to true, so an absent property must not be
     // read as "disabled" and trip a false violation.

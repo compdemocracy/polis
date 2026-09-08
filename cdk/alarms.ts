@@ -142,31 +142,69 @@ interface PairedAlarm {
 }
 
 /**
- * Reads the final state of one alarm off its `CfnAlarm`, resolving tokens
- * through the stack. Anything a later `node.defaultChild` mutation changed is
- * visible here, which is the whole point.
+ * Renders one `CfnAlarm` exactly as CloudFormation will receive it.
+ *
+ * The typed getters (`cfn.alarmActions`, `cfn.treatMissingData`, …) are NOT the
+ * emitted template. `addPropertyOverride` and `addOverride` write into the
+ * resource's raw overrides, which are merged in during rendering and leave the
+ * getters untouched — so a gate reading the getters passes while the emitted
+ * alarm carries `ActionsEnabled: false`. Review r2. `_toCloudFormation()` is
+ * the same rendering path synthesis uses, so it sees escape hatches too.
+ *
+ * Throws if the render cannot be read. This gate fails closed: a health-pair
+ * check that silently degrades into "looks fine" is the exact failure it
+ * exists to prevent.
+ */
+const renderAlarmProperties = (
+  stack: cdk.Stack,
+  cfn: cloudwatch.CfnAlarm,
+): Record<string, unknown> => {
+  const render = (cfn as unknown as { _toCloudFormation?: () => unknown })._toCloudFormation;
+  if (typeof render !== 'function') {
+    throw new Error(
+      'P-031 health pairing: cannot read the rendered CloudFormation for ' +
+        `${cfn.node.path}. CfnResource._toCloudFormation is unavailable, probably after an ` +
+        'aws-cdk-lib upgrade. Fix the gate rather than removing it.',
+    );
+  }
+  const resources = (stack.resolve(render.call(cfn)) as { Resources?: Record<string, unknown> })
+    ?.Resources;
+  const rendered = Object.values(resources ?? {})[0] as { Properties?: Record<string, unknown> };
+  if (!rendered) {
+    throw new Error(
+      `P-031 health pairing: ${cfn.node.path} rendered no CloudFormation resource.`,
+    );
+  }
+  return rendered.Properties ?? {};
+};
+
+/**
+ * Reads the final state of one alarm from its rendered template fragment, so
+ * every mutation route — property assignment, `addPropertyOverride`,
+ * `addOverride` — is visible.
  */
 const resolveAlarmFacts = (entry: PairedAlarm, topicArn: string): ResolvedAlarmFacts => {
   const stack = cdk.Stack.of(entry.alarm);
   const cfn = entry.alarm.node.defaultChild as cloudwatch.CfnAlarm;
-  const actionsEnabled = stack.resolve(cfn.actionsEnabled);
-  const actions: unknown[] = stack.resolve(cfn.alarmActions) ?? [];
+  const properties = renderAlarmProperties(stack, cfn);
+  const actions = Array.isArray(properties.AlarmActions) ? properties.AlarmActions : [];
   const resolvedTopicArn = JSON.stringify(stack.resolve(topicArn));
   return {
     id: entry.id,
     alarmName: entry.alarm.alarmName,
-    treatMissingData: stack.resolve(cfn.treatMissingData),
+    treatMissingData: properties.TreatMissingData as string | undefined,
     // Absent means enabled — that is the CloudFormation default, so only an
     // explicit false counts as disabled.
-    actionsEnabled: actionsEnabled !== false,
+    actionsEnabled: properties.ActionsEnabled !== false,
     notifiesTopic: actions.some((action) => JSON.stringify(action) === resolvedTopicArn),
   };
 };
 
 /**
  * Synthesis-time gate. `Node.addValidation` runs after the construct tree is
- * final, so this sees the alarms as CloudFormation will, not as they were
- * declared.
+ * final and after escape hatches have been applied, so this sees the alarms as
+ * CloudFormation will, not as they were declared. It renders each alarm on its
+ * own rather than re-synthesizing the app, which would recurse.
  */
 class HealthPairValidation implements IValidation {
   constructor(
