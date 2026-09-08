@@ -6,7 +6,7 @@ use axum::{
     Router,
     body::{Body, Bytes},
     extract::{RawQuery, State},
-    http::{HeaderMap, Response},
+    http::{HeaderMap, Method, Response},
     routing::get,
 };
 use base64::Engine;
@@ -359,6 +359,28 @@ struct Failure<'a> {
     message: &'a str,
     status: u16,
 }
+/// Express 3's pinned etag module is MD5-based, unlike newer Express releases.
+fn weak_etag(body: &[u8]) -> String {
+    let digest = base64::engine::general_purpose::STANDARD_NO_PAD.encode(md5::compute(body).0);
+    format!("W/\"{:x}-{}\"", body.len(), digest)
+}
+/// `middleware_check_if_options` (`server-middleware.ts:107-116`) answers OPTIONS
+/// with `res.send(204)`. Express measures and ETags the status text "No Content",
+/// then the 204 branch strips Content-Type and Content-Length and empties the body,
+/// so the ETag it computed survives on a bodyless response.
+async fn options_route(State(app): State<App>, headers: HeaderMap) -> Response<Body> {
+    options_response(&app.cors, &headers)
+}
+fn options_response(cors: &Cors, headers: &HeaderMap) -> Response<Body> {
+    let origin = match cors.resolve(headers) {
+        Ok(origin) => origin,
+        Err(refusal) => return unauthorized_domain(&refusal),
+    };
+    let mut h = base_headers(origin.as_deref(), None);
+    add(&mut h, "ETag", weak_etag(b"No Content"));
+    add(&mut h, "Vary", "Accept-Encoding");
+    response(204, Vec::new(), h)
+}
 fn fail(origin: Option<&str>, status: u16, message: &str) -> Response<Body> {
     let body = json::encode(&Failure {
         error: message,
@@ -368,14 +390,22 @@ fn fail(origin: Option<&str>, status: u16, message: &str) -> Response<Body> {
     .unwrap();
     let mut h = base_headers(origin, Some("application/json; charset=utf-8"));
     add(&mut h, "Content-Length", body.len());
-    // The pinned Express 3 etag module uses MD5, unlike newer Express releases.
-    let digest = base64::engine::general_purpose::STANDARD_NO_PAD.encode(md5::compute(&body).0);
-    add(&mut h, "ETag", format!("W/\"{:x}-{}\"", body.len(), digest));
+    add(&mut h, "ETag", weak_etag(&body));
     add(&mut h, "Vary", "Accept-Encoding");
     response(status, body, h)
 }
+/// The installed `compression` middleware, in its own order: it never transforms a
+/// response that already carries an encoding (full mode sets one in the route), one
+/// below the 1024-byte threshold, or a HEAD (`compression/index.js:192`).
+fn should_compress(method: &Method, full: bool, len: usize, accept: Option<&str>) -> bool {
+    !full
+        && method != Method::HEAD
+        && len >= 1024
+        && accept.is_some_and(|v| v.split(',').any(|x| x.trim() == "gzip"))
+}
 async fn route(
     State(app): State<App>,
+    method: Method,
     RawQuery(query): RawQuery,
     headers: HeaderMap,
     body: Bytes,
@@ -386,7 +416,7 @@ async fn route(
         // to respect and defaults to 500. No CORS header is emitted on this path.
         Err(refusal) => return unauthorized_domain(&refusal),
     };
-    match handle(&app, origin.as_deref(), query, headers, &body).await {
+    match handle(&app, origin.as_deref(), &method, query, headers, &body).await {
         Ok(r) => r,
         // The recording pins no cell for a blob the model does not describe, so the
         // gap is refused explicitly (upstream data, hence 502) under its own code
@@ -403,6 +433,7 @@ async fn route(
 async fn handle(
     app: &App,
     origin: Option<&str>,
+    method: &Method,
     query: Option<String>,
     headers: HeaderMap,
     body: &[u8],
@@ -516,12 +547,12 @@ async fn handle(
             keys: &keys,
         })?
     };
-    let compress = !full
-        && bytes.len() >= 1024
-        && headers
-            .get("accept-encoding")
-            .and_then(|v| v.to_str().ok())
-            .is_some_and(|v| v.split(',').any(|x| x.trim() == "gzip"));
+    let compress = should_compress(
+        method,
+        full,
+        bytes.len(),
+        headers.get("accept-encoding").and_then(|v| v.to_str().ok()),
+    );
     if compress {
         add(&mut h, "Vary", "Accept-Encoding");
         add(&mut h, "Content-Encoding", "gzip");
@@ -552,7 +583,7 @@ async fn main() -> Result<(), Error> {
     let router = Router::new()
         .route(
             "/api/v3/math/pca2",
-            get(route).head(|| async { axum::http::StatusCode::METHOD_NOT_ALLOWED }),
+            get(route).head(route).options(options_route),
         )
         .with_state(app);
     let listener = tokio::net::TcpListener::bind(
@@ -773,6 +804,58 @@ mod tests {
         assert!(!names(h).iter().any(|k| k.starts_with("Access-Control-")));
         assert_eq!(value(h, "Content-Type"), "text/html; charset=utf-8");
         assert_eq!(value(h, "X-Content-Type-Options"), "nosniff");
+    }
+    #[test]
+    fn head_is_never_compressed_by_the_middleware() {
+        let gzip = Some("gzip");
+        assert!(should_compress(&Method::GET, false, 2048, gzip));
+        assert!(!should_compress(&Method::HEAD, false, 2048, gzip));
+        assert!(!should_compress(&Method::GET, false, 1023, gzip));
+        assert!(!should_compress(&Method::GET, true, 2048, gzip));
+        assert!(!should_compress(&Method::GET, false, 2048, Some("deflate")));
+    }
+    /// B3: `app.all("/api/v3/*", middleware_check_if_options)` answers before the
+    /// router, so a preflight never reaches the route's parameter middleware.
+    #[tokio::test]
+    async fn options_answers_204_with_nodes_headers() {
+        let r = options_response(&Cors::for_test(&["pol.is"]), &HeaderMap::new());
+        assert_eq!(r.status(), 204);
+        let h = &r
+            .extensions()
+            .get::<OrderedHeaders>()
+            .expect("ordered headers")
+            .0;
+        // 204 strips Content-Type and Content-Length; the computed ETag survives.
+        assert_eq!(names(h), ["Cache-Control", "ETag", "Vary"]);
+        assert_eq!(value(h, "ETag"), weak_etag(b"No Content"));
+        assert_eq!(value(h, "Vary"), "Accept-Encoding");
+        assert_eq!(
+            axum::body::to_bytes(r.into_body(), 16).await.unwrap().len(),
+            0
+        );
+    }
+    #[test]
+    fn options_carries_the_cors_headers_when_an_origin_resolves() {
+        let mut headers = HeaderMap::new();
+        headers.insert("origin", "https://embed.pol.is".parse().unwrap());
+        let r = options_response(&Cors::for_test(&["pol.is"]), &headers);
+        let h = &r
+            .extensions()
+            .get::<OrderedHeaders>()
+            .expect("ordered headers")
+            .0;
+        assert_eq!(
+            names(h),
+            [
+                "Cache-Control",
+                "Access-Control-Allow-Origin",
+                "Access-Control-Allow-Credentials",
+                "Access-Control-Allow-Headers",
+                "Access-Control-Allow-Methods",
+                "ETag",
+                "Vary",
+            ]
+        );
     }
     #[test]
     fn conditionals() {
