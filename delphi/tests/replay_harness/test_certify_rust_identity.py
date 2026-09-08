@@ -226,3 +226,12 @@ def test_expected_cursors_and_files_binding():
     other["votes"]["slot"] = 7
     assert cd.validate_s1_identity(m, expected_cursors=other)
     assert cd.validate_s1_identity(m, expected_files={"nope": 1})
+
+
+# ---------------------------------------------------------------------------
+# Round 6 (board [445]): graded outer-container admission.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("bad", [None, [], "x", 7])
+def test_validate_s1_identity_nonobject_is_graded(bad):
+    fails = cd.validate_s1_identity(bad)
+    assert isinstance(fails, list) and fails and all(isinstance(f, str) for f in fails)

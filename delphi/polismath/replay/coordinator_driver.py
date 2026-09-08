@@ -621,9 +621,10 @@ _BIDTOPID_SPEC = {"kind": "object", "closed": True, "fields": {
     "bidToPid": {"kind": "list", "of": _INT_LIST}}}
 
 # --- store checkpoint (polis-coordinator/1) ---
-_STORE_CURSOR_MAP = {"kind": "object", "closed": True, "fields": {
-    "votes": {"kind": "object", "closed": False, "fields": {"slot": _NNINT}},
-    "moderation": {"kind": "object", "closed": False, "fields": {"slot": _NNINT}}}}
+# engine.rs:374,393-396 persists {slot, sha256} for BOTH streams; the store
+# checkpoint reuses the same typed cursor as the worker envelope (_CURSOR).
+_STORE_CURSOR_MAP = {"kind": "object", "closed": True,
+                     "fields": {"votes": _CURSOR, "moderation": _CURSOR}}
 _STORE_CHECKPOINT_SPEC = {"kind": "object", "closed": False, "fields": {
     "schema": {"kind": "const", "value": STORE_CHECKPOINT_SCHEMA},
     "operation_id": _STR, "publisher_epoch": _NNINT,
@@ -659,6 +660,8 @@ def validate_s1_identity(manifest: dict[str, Any], *,
     # no ungraded exceptions): types, ranks, closedness, nonnegative slots/lengths
     # and hex digests all come from _S1_ENVELOPE_SPEC.
     fails: list[str] = _admit(manifest, _S1_ENVELOPE_SPEC)
+    if not isinstance(manifest, dict):
+        return fails  # a non-object envelope is graded; do not dereference it
     admission = manifest.get("admission") if isinstance(manifest.get("admission"), dict) else {}
 
     # Cursor custody (value binding beyond shape): at the snapshot seam both maps
@@ -733,6 +736,13 @@ _COMPANIONS = ("bidtopid", "ptptstats")
 _PAYLOAD_TABLES = ("main", "bidtopid", "ptptstats")
 
 
+def _row_data(bundle: Any, name: str) -> Any:
+    """The ``data`` of a bundle row, or None when the row is absent or not an
+    object — so a non-dict row never crashes a public accessor."""
+    row = bundle.get(name) if isinstance(bundle, dict) else None
+    return row.get("data") if isinstance(row, dict) else None
+
+
 def _json_type_equal(a: Any, b: Any) -> bool:
     """Type-aware JSON equality: PostgreSQL is allowed to normalize NUMBER
     spelling (1 vs 1.0), but a JSON boolean is NEVER equal to an integer —
@@ -749,14 +759,108 @@ def _json_type_equal(a: Any, b: Any) -> bool:
     return type(a) is type(b) and a == b
 
 
+def _serde_json_string(s: str) -> bytes:
+    """serde_json's string encoding (``serde_json::to_writer`` for a &str): the
+    two-char escapes for " \\ \\b \\f \\n \\r \\t, ``\\u00XX`` for the remaining
+    C0 controls, ``/`` NOT escaped, and every other codepoint written through as
+    UTF-8 (no ``\\uXXXX`` for non-ASCII — the store writes Unicode through serde)."""
+    out = bytearray(b'"')
+    _short = {'"': b'\\"', '\\': b'\\\\', '\b': b'\\b', '\f': b'\\f',
+              '\n': b'\\n', '\r': b'\\r', '\t': b'\\t'}
+    for ch in s:
+        esc = _short.get(ch)
+        if esc is not None:
+            out += esc
+        elif ord(ch) < 0x20:
+            out += b'\\u%04x' % ord(ch)
+        else:
+            out += ch.encode("utf-8")
+    out += b'"'
+    return bytes(out)
+
+
+def _rust_number(text: str) -> str:
+    """Port of ``store.rs`` ``storage_digest::number`` (coordinator-rs/src/store.rs
+    :23-51): expand the exponent, trim insignificant fractional zeroes, drop a
+    negative sign on zero, so PostgreSQL numeric equality (1 == 1.0, -0.0 == 0,
+    1e-7 == 0.0000001) collapses to one spelling before hashing. Input is the
+    serde/Python shortest-round-trip rendering of the number."""
+    if "e" in text or "E" in text:
+        i = text.find("e")
+        if i == -1:
+            i = text.find("E")
+        mantissa, exponent = text[:i], int(text[i + 1:])
+    else:
+        mantissa, exponent = text, 0
+    negative = mantissa.startswith("-")
+    unsigned = mantissa.lstrip("-")
+    fractional = len(unsigned.split(".", 1)[1]) if "." in unsigned else 0
+    digits = unsigned.replace(".", "")
+    scale = fractional - exponent
+    if scale <= 0:
+        digits = digits + "0" * (-scale)
+    else:
+        chars = list(digits)
+        while len(chars) <= scale:
+            chars.insert(0, "0")
+        chars.insert(len(chars) - scale, ".")
+        digits = "".join(chars)
+        while digits.endswith("0"):
+            digits = digits[:-1]
+        if digits.endswith("."):
+            digits = digits[:-1]
+    while len(digits) > 1 and digits.startswith("0") and not digits.startswith("0."):
+        digits = digits[1:]
+    if negative and digits != "0":
+        digits = "-" + digits
+    return digits
+
+
+def _rust_encode(value: Any, out: bytearray) -> None:
+    """Port of ``store.rs`` ``storage_digest::encode`` (coordinator-rs/src/store.rs
+    :52-83). NB: check ``bool`` before ``int`` — a Python bool is an int but serde
+    renders it in the ``_ =>`` branch as ``true``/``false``, not as a Number."""
+    if isinstance(value, bool):
+        out += b"true" if value else b"false"
+    elif isinstance(value, int):
+        out += _rust_number(str(value)).encode()
+    elif isinstance(value, float):
+        out += _rust_number(repr(value)).encode()
+    elif isinstance(value, str):
+        out += _serde_json_string(value)
+    elif value is None:
+        out += b"null"
+    elif isinstance(value, list):
+        out += b"["
+        for i, el in enumerate(value):
+            if i:
+                out += b","
+            _rust_encode(el, out)
+        out += b"]"
+    elif isinstance(value, dict):
+        out += b"{"
+        # serde_json's Map is a BTreeMap (no preserve_order feature): keys sorted.
+        for i, k in enumerate(sorted(value)):
+            if i:
+                out += b","
+            out += _serde_json_string(k)
+            out += b":"
+            _rust_encode(value[k], out)
+        out += b"}"
+    else:
+        raise BridgeError("digest", f"cannot storage-digest value of type {type(value).__name__}")
+
+
 def _canonical_payload_digest(data: Any) -> str:
-    """The store's CANONICAL payload digest — sha256 of the JSONB payload in a
-    normalized spelling — DISTINCT from the original-byte hash (which fixes the
-    exact serialization). A deterministic canonical JSON (sorted keys, compact
-    separators) stands in for PostgreSQL's numeric normalization here; the
-    checkpoint carries the same digest, so the two must agree."""
-    return hashlib.sha256(
-        json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    """The store's CANONICAL payload digest — a BYTE-FOR-BYTE port of the Rust
+    ``storage_digest`` (coordinator-rs/src/store.rs:21-89), DISTINCT from the
+    original-byte hash. It hashes the payload under PostgreSQL's numeric
+    normalization (expanded exponents, trimmed fractional zeroes, no negative
+    zero) with serde string/Unicode encoding and BTreeMap-sorted object keys, so
+    the digest equals the one the Rust store persists in the checkpoint."""
+    out = bytearray()
+    _rust_encode(data, out)
+    return hashlib.sha256(bytes(out)).hexdigest()
 
 
 def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[int],
@@ -781,6 +885,10 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
     neither companion carries one. Cross-producer allocation values/owner UUIDs
     are out of scope (they need not match); the logical cut mapping that must
     match is graded by the campaign sidecar."""
+    # Total admission at the public boundary: a non-object bundle is graded, not
+    # dereferenced.
+    if not isinstance(bundle, dict):
+        return [f"readback: bundle must be an object, got {bundle!r}"]
     fails: list[str] = []
 
     # 0. publication scope
@@ -810,8 +918,8 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
     # 2. four-row tick agreement + companion presence + JSONB present
     for name in _PAYLOAD_TABLES:
         row = bundle.get(name)
-        if not row:
-            fails.append(f"{name}: row absent")
+        if not isinstance(row, dict) or not row:
+            fails.append(f"{name}: row absent or not an object")
             continue
         rt = row.get("math_tick")
         if not _plain_int(rt):
@@ -857,8 +965,8 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
             fails.append(f"input_checkpoint.publisher_epoch {ckpt['publisher_epoch']!r} != {publisher_epoch!r}")
         if not _json_type_equal(ckpt["original_digests"], ticks.get("original_digests") or {}):
             fails.append("input_checkpoint.original_digests disagree with ticks.original_digests")
-        canon = {name: _canonical_payload_digest((bundle.get(name) or {}).get("data"))
-                 for name in _PAYLOAD_TABLES if (bundle.get(name) or {}).get("data") is not None}
+        canon = {name: _canonical_payload_digest(_row_data(bundle, name))
+                 for name in _PAYLOAD_TABLES if _row_data(bundle, name) is not None}
         if ckpt["payload_digests"] != canon:
             fails.append("input_checkpoint.payload_digests are not the canonical digests of the payloads")
         if expected_input_checkpoint is not None and not _json_type_equal(ckpt, expected_input_checkpoint):
@@ -868,7 +976,7 @@ def validate_readback(bundle: ReadbackBundle, *, expected_prior_tick: Optional[i
     original_digests = ticks.get("original_digests") or {}
     for name in _PAYLOAD_TABLES:
         row = bundle.get(name)
-        if not row:
+        if not isinstance(row, dict) or not row:
             continue
         raw = row.get("original_bytes")
         if raw is None:
@@ -959,6 +1067,8 @@ def observe_bundle_coherence(bundle: ReadbackBundle,
     ``check_published_against_fold``) is the OPTIONAL full latest-cell fold.
     Returns failures (empty == coherent). A live mid-publication observer remains
     a slice-3 integration obligation; this pure helper does not claim it."""
+    if not isinstance(bundle, dict):
+        return [f"observer: bundle must be an object, got {bundle!r}"]
     fails: list[str] = []
     ticks = bundle.get("ticks")
     if not isinstance(ticks, dict) or not _plain_int(ticks.get("math_tick")):
@@ -969,7 +1079,7 @@ def observe_bundle_coherence(bundle: ReadbackBundle,
     for name in _PAYLOAD_TABLES:
         row = bundle.get(name)
         if not isinstance(row, dict) or not row:
-            fails.append(f"observer: {name} row absent")
+            fails.append(f"observer: {name} row absent or not an object")
             continue
         rt = row.get("math_tick")
         if not _plain_int(rt):
@@ -978,8 +1088,8 @@ def observe_bundle_coherence(bundle: ReadbackBundle,
             fails.append(f"observer: {name} at a different generation than ticks")
         if not isinstance(row.get("data"), (dict, list)):
             fails.append(f"observer: {name} data absent")
-    main = (bundle.get("main") or {}).get("data")
-    bid = (bundle.get("bidtopid") or {}).get("data")
+    main = _row_data(bundle, "main")
+    bid = _row_data(bundle, "bidtopid")
     fails.extend(_check_bidtopid_against_main(main, bid, bundle.get("zid")))
     if fold_check is not None:
         try:

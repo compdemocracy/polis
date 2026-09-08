@@ -24,7 +24,8 @@ from polismath.replay import coordinator_driver as cd
 
 
 def _canon(data):
-    return hashlib.sha256(json.dumps(data, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    # Delegate to the ported Rust storage_digest (no duplicate implementation).
+    return cd._canonical_payload_digest(data)
 
 
 def _set(b, name, data):
@@ -60,7 +61,8 @@ def _bundle(tick=0, epoch=5, op="op-1"):
         "schema": "polis-coordinator/1", "operation_id": op, "publisher_epoch": epoch,
         "original_digests": dict(b["ticks"]["original_digests"]),
         "payload_digests": {n: _canon(b[n]["data"]) for n in ("main", "bidtopid", "ptptstats")},
-        "cursors": {"votes": {"slot": 0}, "moderation": {"slot": 0}},
+        "cursors": {"votes": {"slot": 0, "sha256": "a" * 64},
+                    "moderation": {"slot": 0, "sha256": "b" * 64}},
     }
     return b
 
@@ -448,4 +450,59 @@ def test_checkpoint_wrong_payload_digests_rejected():
 def test_checkpoint_unknown_cursor_stream_rejected():
     b = _bundle(tick=0)
     b["ticks"]["input_checkpoint"]["cursors"] = {"unrelated": {"slot": 0}}
+    assert _V(b, expected_input_checkpoint=copy.deepcopy(b["ticks"]["input_checkpoint"]))
+
+
+# ---------------------------------------------------------------------------
+# Round 6 (board [445]): graded outer-container admission; store digest / cursors.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("bad", [None, [], "x", 7])
+def test_readback_nonobject_bundle_is_graded(bad):
+    fails = cd.validate_readback(bad, expected_prior_tick=None, operation_id="op-1", publisher_epoch=5)
+    assert isinstance(fails, list) and fails and all(isinstance(f, str) for f in fails)
+
+
+@pytest.mark.parametrize("bad", [None, [], "x", 7])
+def test_observer_nonobject_bundle_is_graded(bad):
+    fails = cd.observe_bundle_coherence(bad)
+    assert isinstance(fails, list) and fails
+
+
+def test_readback_nonobject_row_is_graded():
+    fails = _V(dict(_bundle(), main=[1]))       # a list-valued row must not crash
+    assert fails and all(isinstance(f, str) for f in fails)
+
+
+def test_observer_nonobject_row_is_graded():
+    assert cd.observe_bundle_coherence(dict(_bundle(), main=[1]))
+
+
+@pytest.mark.parametrize("obj", [{"x": 1.0}, {"x": -0.0}, {"x": 1e-7}, {"x": "é"}])
+def test_store_bound_normalized_digest_accepted(obj):
+    """The ported digest normalizes PG-equal numbers and Unicode exactly like the
+    Rust store, so a store-bound checkpoint digest for a normalized payload is
+    ACCEPTED (was rejected under compact-JSON hashing)."""
+    b = _bundle(tick=0)
+    _set(b, "main", obj)
+    b["main"]["caching_tick"] = 42
+    assert _V(b) == []
+    # the checkpoint digest equals the ported (store) digest
+    assert b["ticks"]["input_checkpoint"]["payload_digests"]["main"] == cd._canonical_payload_digest(obj)
+
+
+def test_digest_normalizes_one_and_one_point_zero_and_negative_zero():
+    assert cd._canonical_payload_digest({"x": 1}) == cd._canonical_payload_digest({"x": 1.0})
+    assert cd._canonical_payload_digest({"x": 0}) == cd._canonical_payload_digest({"x": -0.0})
+    # ...but distinct from a genuinely different number
+    assert cd._canonical_payload_digest({"x": 1}) != cd._canonical_payload_digest({"x": 2})
+
+
+@pytest.mark.parametrize("mutate", [
+    lambda c: c["cursors"]["votes"].pop("sha256"),   # missing stored cursor hash
+    lambda c: c["cursors"]["votes"].__setitem__("sha256", []),  # malformed
+    lambda c: c["cursors"]["votes"].__setitem__("sha256", "x" * 63),  # not 64-hex
+])
+def test_store_cursor_hash_required_and_typed(mutate):
+    b = _bundle(tick=0)
+    mutate(b["ticks"]["input_checkpoint"])
     assert _V(b, expected_input_checkpoint=copy.deepcopy(b["ticks"]["input_checkpoint"]))
