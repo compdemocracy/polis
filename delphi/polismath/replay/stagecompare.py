@@ -67,8 +67,11 @@ from typing import Any, Sequence
 
 from polismath.replay.stages import (
     COMMENT_PROJECTION_AXES,
+    PROJECTION_WIDTH,
     STAGE_DUMP_SCHEMA,
+    STAGE_KEYS,
     STAGE_ORDER,
+    STRUCTURAL_ERROR_KEY,
 )
 
 COMPARE_SCHEMA = "polis-stage-compare/1"
@@ -392,6 +395,8 @@ def _validate_named_matrix(nm: Any, label: str) -> Structural | None:
 def _nm_cells(nm: Any, label: str) -> dict[str, Any] | Structural:
     """A named matrix as ``{rowlabel|collabel: cell}`` — order-independent, with
     dimensions and label uniqueness validated first."""
+    if isinstance(nm, Structural):
+        return nm
     bad = _validate_named_matrix(nm, label)
     if bad is not None:
         return bad
@@ -404,8 +409,8 @@ def _nm_cells(nm: Any, label: str) -> dict[str, Any] | Structural:
 
 def _by_tid(values: Any, tids: Sequence[Any], label: str) -> Any:
     """Index an array by tid, requiring exact length agreement."""
-    if values is None:
-        return None
+    if values is None or isinstance(values, Structural):
+        return values
     if not isinstance(values, list):
         return Structural(f"{label}: expected a list")
     if len(values) != len(tids):
@@ -449,13 +454,30 @@ def _flip(d: Any, sign: float) -> Any:
             for k, v in d.items()}
 
 
+def _lift_emitter_errors(value: Any) -> Any:
+    """Turn an emitter's ``__structural_error__`` sentinel into a
+    :class:`Structural`, wherever it appears. An emitter that refused to guess
+    must not have its refusal graded as data."""
+    if isinstance(value, dict):
+        if STRUCTURAL_ERROR_KEY in value:
+            return Structural(f"emitter: {value[STRUCTURAL_ERROR_KEY]}")
+        return {k: _lift_emitter_errors(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_lift_emitter_errors(v) for v in value]
+    return value
+
+
 def canonicalize(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """Polarity-normalize, key everything by identity, and orient components.
 
     Returns ``{stage: {key: canonical value}}``. A value that could not be
     canonicalized is a :class:`Structural`, never a synthesized number.
     """
-    stages = apply_polarity(doc.get("stages") or {},
+    raw_stages = doc.get("stages")
+    if not isinstance(raw_stages, dict):
+        return {s: {"__stage__": Structural("document 'stages' is not an object")}
+                for s in STAGE_ORDER}
+    stages = apply_polarity(_lift_emitter_errors(raw_stages),
                             doc.get("vote_sign_convention", "delphi"))
     out: dict[str, dict[str, Any]] = {
         s: (dict(v) if isinstance(v, dict) else {"__stage__": Structural(
@@ -498,7 +520,8 @@ def canonicalize(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
             pca.get("comment-extremity"), tids, "pca.comment-extremity")
 
         comps = pca.get("comps")
-        if comps is None:
+        if comps is None or isinstance(comps, Structural):
+            # An emitter that refused keeps its own reason; do not overwrite it.
             comps_by_tid: list[Any] = []
         elif not isinstance(comps, list):
             pca["comps"] = Structural("pca.comps: expected a list of components")
@@ -513,7 +536,7 @@ def canonicalize(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
         # case (n_tids == n_comps).
         declared = doc.get("comment_projection_axes")
         proj_rows = pca.get("comment-projection")
-        if proj_rows is None:
+        if proj_rows is None or isinstance(proj_rows, Structural):
             cproj_by_comp: list[Any] = []
         elif declared != COMMENT_PROJECTION_AXES:
             pca["comment-projection"] = Structural(
@@ -524,20 +547,25 @@ def canonicalize(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
             pca["comment-projection"] = Structural(
                 "pca.comment-projection: expected a list of component rows")
             cproj_by_comp = []
-        elif isinstance(comps, list) and len(proj_rows) != len(comps):
+        elif isinstance(comps, list) and len(proj_rows) != max(
+                len(comps), PROJECTION_WIDTH):
+            # The projection is always at least PROJECTION_WIDTH rows wide (the
+            # rank-one Q16 case), and otherwise exactly one row per component.
             pca["comment-projection"] = Structural(
                 f"pca.comment-projection: {len(proj_rows)} component rows for "
-                f"{len(comps)} comps")
+                f"{len(comps)} comps (expected "
+                f"{max(len(comps), PROJECTION_WIDTH)})")
             cproj_by_comp = []
         else:
             cproj_by_comp = [_by_tid(row, tids, f"pca.comment-projection[{i}]")
                              for i, row in enumerate(proj_rows)]
 
         signs = _orient(comps_by_tid, tid_labels)
-        if not isinstance(pca.get("comps"), Structural):
+        if not isinstance(pca.get("comps"), Structural) and comps is not None:
             pca["comps"] = {str(i): _flip(c, s)
                             for i, (c, s) in enumerate(zip(comps_by_tid, signs))}
-        if not isinstance(pca.get("comment-projection"), Structural):
+        if not isinstance(pca.get("comment-projection"), Structural) \
+                and proj_rows is not None:
             pca["comment-projection"] = {
                 str(i): _flip(c, s)
                 for i, (c, s) in enumerate(zip(cproj_by_comp, signs))}
@@ -609,6 +637,8 @@ def canonicalize(doc: dict[str, Any]) -> dict[str, dict[str, Any]]:
 def _rows_by_pid(rows: Any, label: str) -> Any:
     """Row list -> ``{pid: row}``, retaining every field. A duplicate or missing
     pid is a structural defect, not a silent overwrite."""
+    if isinstance(rows, Structural):
+        return rows
     if not isinstance(rows, list):
         return Structural(f"{label}: expected a list of rows")
     out: dict[str, Any] = {}
@@ -825,16 +855,49 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
 
     integer_leaf = _is_integer_leaf(stage, key, field)
 
-    # Non-finite wire tokens compare as tokens, on either or both sides.
+    # Non-finite wire tokens compare as tokens, on either or both sides. This
+    # runs BEFORE the integer type check so the token evidence is always
+    # retained (R2-F5): a non-finite value is never a silent pass, whether or
+    # not the two sides agree on it.
     if _is_token(a) or _is_token(b):
         res.n_compared += 1
         res.n_nonfinite += 1
+        res.note(path, a, b, nonfinite=True)
         if a != b:
             res.n_diff += 1
-            res.note(path, a, b, nonfinite=True)
             if res.worst_path is None:
                 res.worst_path = path
             res.max_rel = max(res.max_rel, 1.0)
+        elif integer_leaf:
+            # A vote, id or count is never NaN or an infinity.
+            res.structural.append(
+                f"{path}: integer-typed field carries the non-finite token "
+                f"{a!r}")
+        return
+
+    # An integer-typed leaf is validated BEFORE any equality test, on BOTH
+    # sides, so that two equally-malformed operands (True/True, "1"/"1", two
+    # equal float-spelled ids) cannot pass as a match. Containers fall through
+    # to the recursive branches below; only leaves are typed here.
+    if integer_leaf and not isinstance(a, (dict, list)) \
+            and not isinstance(b, (dict, list)):
+        res.n_compared += 1
+        ia, ib = _as_exact_int(a), _as_exact_int(b)
+        bad = [f"[{side}] {v!r}" for side, v, iv in (("a", a, ia), ("b", b, ib))
+               if iv is None]
+        if bad:
+            res.structural.append(
+                f"{path}: integer-typed field is not an integer: {', '.join(bad)}")
+            return
+        if ia != ib:
+            res.n_diff += 1
+            res.n_over_tight += 1
+            delta = float(abs(ia - ib))
+            if delta > res.max_abs:
+                res.max_abs, res.worst_path = delta, path
+            scale = max(abs(ia), abs(ib))
+            res.max_rel = max(res.max_rel, delta / scale if scale else 1.0)
+            res.note(path, a, b, abs=delta)
         return
 
     if _is_num(a) and _is_num(b):
@@ -910,10 +973,18 @@ def _walk(a: Any, b: Any, path: str, tol: Tolerance, res: KeyResult, *,
 
 
 def _is_null_empty_pair(a: Any, b: Any) -> bool:
-    """Exactly the C1 case: one side absent, the other an empty collection."""
-    empty = ([], {}, set())
-    return ((a is None and any(b == e for e in empty))
-            or (b is None and any(a == e for e in empty)))
+    """Exactly the C1 case and nothing adjacent to it: one side is ``None`` and
+    the other is an empty JSON **list**, in either direction.
+
+    Type-checked, not equality-checked. ``{}`` and ``set()`` compare equal to
+    neither but an ``x == []`` test on a stray object can still succeed, and
+    ``null`` against an empty *object* is a shape difference this carve-out
+    never promised to cover.
+    """
+    def empty_list(x: Any) -> bool:
+        return type(x) is list and len(x) == 0
+
+    return (a is None and empty_list(b)) or (b is None and empty_list(a))
 
 
 def compare_step(doc_a: dict[str, Any], doc_b: dict[str, Any]) -> dict[str, Any]:
@@ -922,6 +993,7 @@ def compare_step(doc_a: dict[str, Any], doc_b: dict[str, Any]) -> dict[str, Any]
     stage_reports: dict[str, Any] = {}
     first_diverging: str | None = None
     problems: list[str] = []
+    nonfinite_total = 0
 
     for stage in STAGE_ORDER:
         raw_a, raw_b = can_a.get(stage), can_b.get(stage)
@@ -960,14 +1032,29 @@ def compare_step(doc_a: dict[str, Any], doc_b: dict[str, Any]) -> dict[str, Any]
             if carve is not None and not diverged and res.n_suppressed:
                 entry["carve_out"] = carve
                 entry["status"] = "CARVED"
+            elif diverged:
+                if carve is not None:
+                    entry["carve_out"] = carve
+                entry["status"] = "DIVERGENT"
+                stage_divergent = True
+            elif res.n_nonfinite:
+                # Agreeing on NaN is not a divergence, but it is not clean data
+                # either. It gets its own status so it can never be hidden
+                # behind a default "every stage within tolerance" (R2-F5).
+                if carve is not None:
+                    entry["carve_out"] = carve
+                entry["status"] = "NONFINITE"
+                nonfinite_total += res.n_nonfinite
             else:
                 if carve is not None:
                     entry["carve_out"] = carve
-                entry["status"] = "DIVERGENT" if diverged else "MATCH"
-                stage_divergent = stage_divergent or diverged
+                entry["status"] = "MATCH"
             key_reports[key] = entry
+        stage_nonfinite = any(k.get("status") == "NONFINITE"
+                              for k in key_reports.values())
         stage_reports[stage] = {
-            "status": "DIVERGENT" if stage_divergent else "MATCH",
+            "status": ("DIVERGENT" if stage_divergent
+                       else "NONFINITE" if stage_nonfinite else "MATCH"),
             "keys": key_reports,
         }
         if stage_divergent and first_diverging is None:
@@ -983,6 +1070,7 @@ def compare_step(doc_a: dict[str, Any], doc_b: dict[str, Any]) -> dict[str, Any]
 
     return {
         "step": doc_a.get("step"),
+        "n_nonfinite": nonfinite_total,
         "input_digest_match": digest_match,
         "tick_a": doc_a.get("tick"),
         "tick_b": doc_b.get("tick"),
@@ -1027,13 +1115,21 @@ def load_stage_dumps(directory: str | Path) -> list[dict[str, Any]]:
     d = Path(directory)
     docs = []
     for path in sorted(d.glob("step-*.stages.json")):
-        doc = json.loads(path.read_text())
+        try:
+            doc = json.loads(path.read_text())
+        except (ValueError, OSError) as exc:
+            raise ValueError(f"{path}: unreadable ({exc})") from exc
+        if not isinstance(doc, dict):
+            raise ValueError(f"{path}: document is not an object")
         schema = doc.get("schema")
         if schema != STAGE_DUMP_SCHEMA:
             raise ValueError(
                 f"{path}: schema {schema!r}, expected {STAGE_DUMP_SCHEMA!r}")
         docs.append(doc)
-    docs.sort(key=lambda x: int(x.get("step", 0)))
+    # Sort by a TYPE-TAGGED key: a malformed step identity must not raise here;
+    # validate_recording reports it as an input problem instead.
+    docs.sort(key=lambda x: (not isinstance(x.get("step"), int),
+                             x.get("step") if isinstance(x.get("step"), int) else 0))
     return docs
 
 
@@ -1068,25 +1164,70 @@ def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], lis
         problems.append(f"{d}: no step-NNN.stages.json files")
 
     steps = [doc.get("step") for doc in docs]
-    if len(set(steps)) != len(steps):
+    if len(set(map(repr, steps))) != len(steps):
         problems.append(f"{d}: duplicate step identities {steps}")
     for doc in docs:
-        if not isinstance(doc.get("step"), int):
-            problems.append(f"{d}: a document has a non-integer step identity")
+        sid = doc.get("step")
+        # Mandatory identity and evidence fields, TYPED. A null tick or a null
+        # digest is missing evidence, not a value that happens to be equal to
+        # the other side's (R2-F2).
+        if not isinstance(sid, int) or isinstance(sid, bool):
+            problems.append(f"{d}: a document has a non-integer step identity "
+                            f"({sid!r})")
+        if not isinstance(doc.get("tick"), int) or isinstance(doc.get("tick"), bool):
+            problems.append(f"{d}: step {sid!r} has no integer tick "
+                            f"({doc.get('tick')!r})")
+        digest = doc.get("input_digest")
+        if not isinstance(digest, str) or not digest.startswith("sha256:") \
+                or len(digest) <= len("sha256:"):
+            problems.append(f"{d}: step {sid!r} has no sha256 input_digest "
+                            f"({digest!r})")
+        if not isinstance(doc.get("engine"), str) or not doc.get("engine"):
+            problems.append(f"{d}: step {sid!r} declares no engine")
         if doc.get("vote_sign_convention") not in SUPPORTED_CONVENTIONS:
             problems.append(
-                f"{d}: step {doc.get('step')!r} declares unsupported "
+                f"{d}: step {sid!r} declares unsupported "
                 f"vote_sign_convention {doc.get('vote_sign_convention')!r}")
         if doc.get("comment_projection_axes") != COMMENT_PROJECTION_AXES:
             problems.append(
-                f"{d}: step {doc.get('step')!r} does not declare "
+                f"{d}: step {sid!r} does not declare "
                 f"comment_projection_axes={COMMENT_PROJECTION_AXES!r}")
-        stages_present = set(doc.get("stages") or {})
-        missing = [s for s in STAGE_ORDER if s not in stages_present]
+
+        raw_stages = doc.get("stages")
+        if not isinstance(raw_stages, dict):
+            problems.append(f"{d}: step {sid!r} has no stages object")
+            continue
+        missing = [s for s in STAGE_ORDER if s not in raw_stages]
         if missing:
             problems.append(
-                f"{d}: step {doc.get('step')!r} is missing stage(s) "
-                f"{', '.join(missing)}")
+                f"{d}: step {sid!r} is missing stage(s) {', '.join(missing)}")
+        extra_stages = sorted(set(raw_stages) - set(STAGE_ORDER))
+        if extra_stages:
+            problems.append(
+                f"{d}: step {sid!r} carries unknown stage(s) "
+                f"{', '.join(extra_stages)}")
+        # A stage with no evidence is a hole in the recording, not a stage that
+        # happened to match: every declared key must be PRESENT on every side.
+        for name in STAGE_ORDER:
+            body = raw_stages.get(name)
+            if body is None:
+                continue
+            if not isinstance(body, dict):
+                problems.append(
+                    f"{d}: step {sid!r} stage {name} is not an object")
+                continue
+            inventory = STAGE_KEYS[name]
+            absent = sorted(inventory["required"] - set(body))
+            if absent:
+                problems.append(
+                    f"{d}: step {sid!r} stage {name} is missing required "
+                    f"key(s) {', '.join(absent)}")
+            unknown = sorted(
+                set(body) - inventory["required"] - inventory["optional"])
+            if unknown:
+                problems.append(
+                    f"{d}: step {sid!r} stage {name} carries unknown key(s) "
+                    f"{', '.join(unknown)}")
 
     if manifest is not None:
         if manifest.get("schema") != STAGE_DUMP_SCHEMA:
@@ -1105,10 +1246,35 @@ def validate_recording(directory: str | Path) -> tuple[list[dict[str, Any]], lis
             if declared != steps:
                 problems.append(
                     f"{d}: manifest inventory {declared} != on-disk steps {steps}")
+            by_step = {doc.get("step"): doc for doc in docs}
             for r in rows:
-                if isinstance(r, dict) and not (d / str(r.get("file"))).is_file():
+                if not isinstance(r, dict):
+                    problems.append(f"{d}: manifest row is not an object")
+                    continue
+                if not (d / str(r.get("file"))).is_file():
                     problems.append(f"{d}: manifest names a missing file "
                                     f"{r.get('file')!r}")
+                # The manifest must agree with the document it names, or it is
+                # not an inventory of this recording (R2-F2).
+                doc = by_step.get(r.get("index"))
+                if doc is None:
+                    problems.append(f"{d}: manifest row {r.get('index')!r} "
+                                    f"names no on-disk step")
+                    continue
+                for field in ("tick", "input_digest"):
+                    if r.get(field) != doc.get(field):
+                        problems.append(
+                            f"{d}: manifest step {r.get('index')!r} {field} "
+                            f"{r.get(field)!r} != document {doc.get(field)!r}")
+            engines = {doc.get("engine") for doc in docs}
+            if manifest.get("engine") not in engines and docs:
+                problems.append(
+                    f"{d}: manifest engine {manifest.get('engine')!r} is not "
+                    f"the documents' engine {sorted(map(str, engines))}")
+            if manifest.get("comment_projection_axes") != COMMENT_PROJECTION_AXES:
+                problems.append(
+                    f"{d}: manifest does not declare "
+                    f"comment_projection_axes={COMMENT_PROJECTION_AXES!r}")
     return docs, problems
 
 
@@ -1144,6 +1310,7 @@ def compare_recordings(dir_a: str | Path, dir_b: str | Path) -> dict[str, Any]:
                 first_stage, first_step = s["first_diverging_stage"], s["step"]
 
     input_valid = not problems
+    nonfinite_total = sum(s.get("n_nonfinite", 0) for s in per_step)
     return {
         "schema": COMPARE_SCHEMA,
         "grading": GRADING_NOTE,
@@ -1162,6 +1329,10 @@ def compare_recordings(dir_a: str | Path, dir_b: str | Path) -> dict[str, Any]:
         "first_diverging_stage": first_stage if input_valid else None,
         "first_diverging_step": first_step if input_valid else None,
         "headline_withheld": not input_valid,
+        "n_nonfinite": nonfinite_total,
+        # A clean "every stage within tolerance" is not available while
+        # non-finite values are present in graded leaves (R2-F5).
+        "headline_qualified": bool(nonfinite_total) if input_valid else False,
         "carve_outs": {c.id: {"mode": c.mode, "reason": c.reason}
                        for c in CARVE_OUTS.values()},
         "auto_carved": list(AUTO_CARVED),
@@ -1198,11 +1369,17 @@ def format_report(report: dict[str, Any], *, verbose: bool = False) -> str:
             lines.append(f"      ! … and {extra} more")
     else:
         fds = report["first_diverging_stage"]
-        lines.append(
-            f"  first diverging stage: {fds} (step {report['first_diverging_step']})"
-            if fds else
-            "  first diverging stage: none — every stage within tolerance"
-        )
+        if fds:
+            lines.append(f"  first diverging stage: {fds} "
+                         f"(step {report['first_diverging_step']})")
+        elif report.get("n_nonfinite"):
+            lines.append(
+                f"  first diverging stage: none, but {report['n_nonfinite']} "
+                f"NON-FINITE value(s) are present in graded leaves — the data "
+                f"is not clean; see the NONFINITE keys below")
+        else:
+            lines.append(
+                "  first diverging stage: none — every stage within tolerance")
     for step in report["per_step"]:
         lines.append(f"  step {step['step']}: first diverging stage = "
                      f"{step['first_diverging_stage'] or 'none'}"
@@ -1215,6 +1392,13 @@ def format_report(report: dict[str, Any], *, verbose: bool = False) -> str:
                 continue
             for key, k in sorted(sr["keys"].items()):
                 if k["status"] == "MATCH" and not verbose:
+                    continue
+                if k["status"] == "NONFINITE":
+                    lines.append(
+                        f"      [NONFINITE] {stage}.{key} ({k['tolerance']}): "
+                        f"{k['n_nonfinite']} non-finite value(s) present and "
+                        f"matching — reported, never a silent pass"
+                        + (f" worst={k['worst_path']}" if k["worst_path"] else ""))
                     continue
                 if k["status"] == "ENGINE_LOCAL":
                     lines.append(
