@@ -1,5 +1,5 @@
 import { isFunction, isString, isUndefined } from "underscore";
-import { Pool, PoolConfig, QueryResult } from "pg";
+import { Pool, PoolClient, PoolConfig, QueryResult } from "pg";
 import { parse as parsePgConnectionString } from "pg-connection-string";
 import QueryStream from "pg-query-stream";
 
@@ -230,6 +230,110 @@ function connect() {
   return readWritePool.connect();
 }
 
+// Session policy applied immediately after BEGIN, from
+// cost-reduction/04-plans/P-024-queue-substrate.md. These are declared initial
+// bounds for the queue substrate, not a general-purpose transaction profile;
+// changing them is a pinned contract change with its own tests.
+//
+// transaction_timeout only exists on PostgreSQL 17, so it is set through
+// set_config() behind a server-version guard: on an older server the target
+// list is never evaluated and the SET is simply skipped, rather than aborting
+// the transaction with "unrecognized configuration parameter".
+const TRANSACTION_SESSION_POLICY = `SET LOCAL TIME ZONE 'UTC';
+   SET LOCAL lock_timeout = '500ms';
+   SET LOCAL statement_timeout = '5s';
+   SET LOCAL idle_in_transaction_session_timeout = '5s';
+   SELECT set_config('transaction_timeout', '10s', true)
+     WHERE current_setting('server_version_num')::int >= 170000`;
+
+/**
+ * A COMMIT that did not report success. The transaction may or may not be
+ * durable: a lost acknowledgement is unknown, never proof of rollback. Callers
+ * must resolve it by reading authoritative state back under the original
+ * request identity, not by assuming either outcome.
+ */
+export class CommitOutcomeUnknownError extends Error {
+  readonly cause: unknown;
+  constructor(cause: unknown) {
+    super("transaction_commit_outcome_unknown");
+    this.name = "CommitOutcomeUnknownError";
+    this.cause = cause;
+  }
+}
+
+/**
+ * Run `callback` inside one transaction on one pinned readWritePool client.
+ *
+ * Every read and write that must be atomic with the callback's writes has to go
+ * through the client passed in. queryP / queryP_readOnly acquire and release
+ * their own connection per statement, so a statement issued through them is a
+ * different session and is NOT part of this transaction, idempotency and
+ * read-back checks included.
+ *
+ * No network call, upload, child-process execution or other long work belongs
+ * inside the callback: the session policy above bounds how long the transaction
+ * may hold its locks.
+ *
+ * Three failure modes are handled explicitly, because each of them can
+ * otherwise be mistaken for success:
+ *
+ *   * The backend can die, or the socket can drop, while the callback is
+ *     between queries. A borrowed pg client emits that on its own "error"
+ *     event; with no listener attached it escapes as an unhandled EventEmitter
+ *     error. It is captured here, fails the transaction, and discards the
+ *     client.
+ *   * A callback that catches a statement error and continues leaves the
+ *     transaction aborted, and PostgreSQL then answers COMMIT with a ROLLBACK
+ *     command tag. Returning normally there would report a write that did not
+ *     happen, so the command tag is checked.
+ *   * A failure raised by COMMIT itself is rethrown as
+ *     CommitOutcomeUnknownError, and that client is discarded rather than
+ *     pooled.
+ *
+ * A client whose transaction state is unknown is never handed back to the pool.
+ */
+async function withTransaction<T>(
+  callback: (client: PoolClient) => Promise<T>
+): Promise<T> {
+  const client: PoolClient = await connect();
+  let discard = false;
+  let committing = false;
+  let connectionError: Error | undefined;
+  const onClientError = (error: Error) => {
+    connectionError = error;
+    discard = true;
+  };
+  client.on("error", onClientError);
+  try {
+    await client.query("BEGIN ISOLATION LEVEL READ COMMITTED");
+    await client.query(TRANSACTION_SESSION_POLICY);
+    const result = await callback(client);
+    if (connectionError) throw connectionError;
+    committing = true;
+    const commit = await client.query("COMMIT");
+    committing = false;
+    if (commit.command !== "COMMIT") {
+      throw new Error("transaction_was_aborted");
+    }
+    return result;
+  } catch (err) {
+    discard = discard || committing;
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackErr) {
+      logger.error("pg_transaction_rollback_failed", rollbackErr);
+      discard = true;
+    }
+    if (committing) throw new CommitOutcomeUnknownError(err);
+    throw err;
+  } finally {
+    client.release(discard);
+    // A discarded client may still emit a socket error asynchronously, so it
+    // keeps its listener. A healthy pooled client is handed back clean.
+    if (!discard) client.removeListener("error", onClientError);
+  }
+}
+
 export default {
   query,
   query_readOnly,
@@ -240,4 +344,5 @@ export default {
   queryP_readOnly_wRetryIfEmpty,
   stream_queryP_readOnly,
   connect,
+  withTransaction,
 };
