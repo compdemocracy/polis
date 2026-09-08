@@ -1,6 +1,10 @@
 import _ from "underscore";
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, QueryCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  QueryCommand,
+  QueryCommandInput,
+} from "@aws-sdk/lib-dynamodb";
 import { Response } from "express";
 
 import { RequestWithP } from "../../d";
@@ -35,12 +39,12 @@ const docClient = DynamoDBDocumentClient.from(dynamoClient, {
 });
 
 /**
- * Get the current Delphi job ID for a conversation
+ * Get the newest completed Delphi job ID for a conversation.
  */
 async function getCurrentDelphiJobId(zid: string): Promise<string | null> {
   try {
     // Query the ConversationIndex GSI to find completed jobs for this conversation
-    const queryParams = {
+    const queryParams: QueryCommandInput = {
       TableName: "Delphi_JobQueue",
       IndexName: "ConversationIndex",
       KeyConditionExpression: "conversation_id = :zid",
@@ -53,20 +57,26 @@ async function getCurrentDelphiJobId(zid: string): Promise<string | null> {
         ":status": "COMPLETED",
       },
       ScanIndexForward: false, // Sort by created_at DESC
-      Limit: 1,
+      Limit: 25,
     };
 
-    const result = await docClient.send(new QueryCommand(queryParams));
-
-    if (result.Items && result.Items.length > 0) {
-      const jobId = result.Items[0].job_id;
-      return jobId;
-    }
+    // DynamoDB applies Limit before FilterExpression. An empty page may still
+    // have older completed jobs, so only stop once a match is found or the
+    // conversation's pages are exhausted (including the 1 MB page boundary).
+    do {
+      const result = await docClient.send(new QueryCommand(queryParams));
+      if (result.Items?.length) {
+        return result.Items[0].job_id;
+      }
+      queryParams.ExclusiveStartKey = result.LastEvaluatedKey;
+    } while (queryParams.ExclusiveStartKey);
 
     return null;
   } catch (error: any) {
     logger.error("Error getting current Delphi job ID from DynamoDB", error);
-    return null;
+    // A failed lookup is not evidence of absence. Let the handler fail before
+    // writing selections rather than overwriting their attribution with null.
+    throw error;
   }
 }
 
@@ -95,17 +105,18 @@ export async function handle_POST_topicAgenda_selections(
     // Get current Delphi job ID
     const jobId = await getCurrentDelphiJobId(zid.toString());
 
-    // Use UPSERT (INSERT ... ON CONFLICT UPDATE) to handle both new and existing records
+    // Preserve existing attribution when the GSI has no completed job: its
+    // eventually consistent results cannot prove the referenced job is gone.
     const query = `
       INSERT INTO topic_agenda_selections (zid, pid, archetypal_selections, delphi_job_id, total_selections, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       ON CONFLICT (zid, pid) 
       DO UPDATE SET 
         archetypal_selections = EXCLUDED.archetypal_selections,
-        delphi_job_id = EXCLUDED.delphi_job_id,
+        delphi_job_id = COALESCE(EXCLUDED.delphi_job_id, topic_agenda_selections.delphi_job_id),
         total_selections = EXCLUDED.total_selections,
         updated_at = CURRENT_TIMESTAMP
-      RETURNING zid, pid, total_selections
+      RETURNING zid, pid, total_selections, delphi_job_id
     `;
 
     const result = await pgQuery.queryP(query, [
@@ -124,7 +135,7 @@ export async function handle_POST_topicAgenda_selections(
         participant_id: pid.toString(),
         selections_count:
           (result as any)[0]?.total_selections || selections.length,
-        job_id: jobId,
+        job_id: (result as any)[0].delphi_job_id,
       },
     };
 
@@ -242,16 +253,17 @@ export async function handle_PUT_topicAgenda_selections(
     // Get current Delphi job ID
     const jobId = await getCurrentDelphiJobId(zid.toString());
 
-    // Update the record
+    // An empty, eventually consistent GSI lookup cannot prove an existing
+    // attribution is absent/terminal. Preserve it unless a completed job replaces it.
     const updateQuery = `
       UPDATE topic_agenda_selections 
       SET 
         archetypal_selections = $3,
-        delphi_job_id = $4,
+        delphi_job_id = COALESCE($4, delphi_job_id),
         total_selections = $5,
         updated_at = CURRENT_TIMESTAMP
       WHERE zid = $1 AND pid = $2
-      RETURNING zid, pid, total_selections
+      RETURNING zid, pid, total_selections, delphi_job_id
     `;
 
     const result = await pgQuery.queryP(updateQuery, [
@@ -299,7 +311,7 @@ export async function handle_PUT_topicAgenda_selections(
           conversation_id: zid.toString(),
           participant_id: pid.toString(),
           selections_count: rows[0]?.total_selections || selections.length,
-          job_id: jobId,
+          job_id: rows[0].delphi_job_id,
         },
       });
     }
