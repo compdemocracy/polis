@@ -4,6 +4,8 @@ and engine-mode passthrough into the process environment."""
 import os
 from unittest.mock import MagicMock
 
+import pytest
+
 from polismath.poller.service import MathPollerService, PollerConfig
 
 
@@ -171,3 +173,29 @@ class TestConvCacheEviction:
     def test_cap_from_env(self, monkeypatch):
         monkeypatch.setenv("MATH_CONV_CACHE_CAP", "5")
         assert PollerConfig.from_env().conv_cache_cap == 5
+
+
+class TestConvCacheCapValidation:
+    """M4 (P-019): the cache cap defaults to a FINITE value and rejects negatives.
+    An unbounded cache is not acceptable for a long prod shadow soak; a negative
+    cap would pop a just-inserted conv forever."""
+
+    def test_default_cap_is_finite(self):
+        assert PollerConfig().conv_cache_cap == 200
+
+    def test_default_cap_from_env_is_finite(self, monkeypatch):
+        monkeypatch.delenv("MATH_CONV_CACHE_CAP", raising=False)
+        assert PollerConfig.from_env().conv_cache_cap == 200
+
+    def test_zero_cap_is_unlimited_and_allowed(self):
+        # 0 = unlimited is a legitimate, explicitly documented value.
+        assert PollerConfig(conv_cache_cap=0).conv_cache_cap == 0
+
+    def test_negative_cap_is_rejected(self):
+        with pytest.raises(ValueError, match="conv_cache_cap must be >= 0"):
+            PollerConfig(conv_cache_cap=-1)
+
+    def test_negative_cap_from_env_is_rejected(self, monkeypatch):
+        monkeypatch.setenv("MATH_CONV_CACHE_CAP", "-5")
+        with pytest.raises(ValueError, match="conv_cache_cap must be >= 0"):
+            PollerConfig.from_env()
