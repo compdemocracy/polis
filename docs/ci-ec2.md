@@ -60,8 +60,7 @@ npx cdk synth -c enableCiEc2=true
 | `ciEc2ShutdownMinutes` | `480` | Hard-deadline self-termination (see "Cost backstops"). |
 | `ciEc2GithubRepo` | `compdemocracy/polis` | Repository allowed to assume the OIDC role. |
 | `ciEc2GithubEnvironment` | `certification-synthetic` | Must equal the workflow job's `environment:`. The trust policy admits this subject and no other. |
-| `ciEc2WorkflowRefs` | this workflow at `edge`,`stable` | Exact `job_workflow_ref` claim values. Empty is refused at synth: an empty allowlist would silently drop the condition. |
-| `ciEc2EventNames` | `workflow_dispatch,schedule` | Exact `event_name` claim values. This is what excludes `pull_request` at the token. |
+| `ciEc2Refs` | `refs/heads/edge,refs/heads/stable` | Exact `ref` claim values. This is what excludes pull-request jobs at the token. Empty or non-branch entries are refused at synth. |
 | `ciEc2AllowedInstanceTypes` | `r8g.4xlarge,r8g.2xlarge` | Enforced in IAM via `ec2:InstanceType`, so a dispatch input cannot select arbitrary spend. |
 | `ciEc2SweeperMaxAgeMinutes` | `ciEc2ShutdownMinutes + 60` | Age past which the independent sweeper kills a CI instance. Must exceed the OS deadline. |
 
@@ -103,16 +102,25 @@ An environment name in YAML is not an approval gate.
 
 The environment subject also does **not** by itself exclude pull-request jobs —
 a job that references an environment gets the environment subject even on a PR.
-Three things exclude them, and all three are in place:
+Two things exclude them, and both are in place:
 
-1. the trust policy pins `event_name` to `workflow_dispatch` and `schedule`;
-2. it pins `job_workflow_ref` to this workflow file at `edge` or `stable`;
-3. the job itself refuses any ref that is not `edge` or `stable`.
+1. the trust policy pins the `ref` claim to `refs/heads/edge` /
+   `refs/heads/stable` — a pull-request job's ref is `refs/pull/<n>/merge`;
+2. the job itself refuses any other ref, on every event.
 
-Verify (1) and (2) against your repository's actual OIDC claims before the first
-run — if immutable IDs or a customized subject template are enabled, the exact
-strings change. A wrong claim name makes the assume fail, which is the right
-direction to fail, but it will look like a broken workflow.
+An earlier revision pinned `job_workflow_ref` and `event_name` instead. Both
+were wrong and worth recording: `job_workflow_ref` is the claim a job gets when
+it **calls a reusable workflow**, and this job runs directly on a runner, so the
+condition could never match — the trust policy could not admit its own workflow.
+`event_name` is emitted by GitHub but is not among the context keys AWS makes
+available for this provider, so it was not a gate STS would evaluate. Only
+claims AWS documents as supported are used now: `sub`, `aud`, `ref`,
+`repository`.
+
+Verify those against your repository's actual OIDC claims before the first run —
+if immutable IDs or a customized subject template are enabled, the exact strings
+change. A wrong claim value makes the assume fail, which is the right direction
+to fail, but it will look like a broken workflow.
 
 Because the flag is a CDK **context** value, everyone who deploys the stack must
 pass it. If it is omitted on a later deploy, CloudFormation deletes the role,
@@ -170,8 +178,12 @@ artifacts are kept 7 days.
 
 Three, layered, because each covers a failure the others do not:
 
-1. **The job's `if: always()` teardown** (`ci/p022_teardown.py`) terminates the
-   instance and then *proves* it: every expected instance ID must be observed in
+1. **The job's `if: always()` teardown** (`ci/p022_teardown.py`), gated on a
+   teardown session policy that was actually built — if the builder fails, no
+   credentials are issued (an empty `inline-session-policy` becomes *no* session
+   policy, i.e. full base-role reach) and the job fails, saying the sweeper must
+   reap the instance. It terminates the
+   terminates the instance and then *proves* it: every expected instance ID must be observed in
    state `terminated`. `shutting-down` keeps it polling; a missing ID, an
    unrecognised state, blank output, or a `describe-instances` that fails
    outright all **fail the job**. When the instance ID was lost, discovery
@@ -203,7 +215,7 @@ workflow. Inputs:
 |---|---|---|
 | `instance_type` | `r8g.4xlarge` | A dropdown, and IAM enforces the same allowlist. |
 | `ref` | the workflow's own ref | Git ref checked out **on the worker**. |
-| `run_battery` | `true` | Set false to run only the recovery matrix (much cheaper). |
+| `run_battery` | `true` | Only an **explicit manual false** selects recovery-only. A scheduled run has no inputs and always runs the full battery. |
 
 The nightly cron only proceeds on `edge`: GitHub runs a scheduled workflow from
 the **default branch**, so the job carries `if: github.ref == 'refs/heads/edge'`
@@ -245,7 +257,18 @@ dataset slugs:
   that is not the pinned one;
 - an absent battery result claiming to be an intentional skip, unless the
   *caller* declared `--run-battery false`;
-- a blank or mismatched candidate SHA.
+- a candidate SHA that is not the commit the workflow resolved — the ref is
+  resolved once, on the runner, to an immutable commit that is both the launch
+  tag and the validation expectation, and the worker no longer falls back to
+  `edge` if its tag read fails;
+- a battery whose **inventory digest** (dataset, preset, cut count, schedule
+  file over the public entries) is not the admitted one — six cases over two
+  datasets does not bind the `vw` restart seam, and swapping it for an ordinary
+  uniform run used to pass;
+- report counts that disagree with the JUnit files actually returned. The
+  validator re-parses them: a summary claiming twenty-one reports with no XML
+  present is rejected, and the counts are aggregates over every report rather
+  than a maximum scraped from the tail of a log.
 
 ## Killing a stuck instance by tag
 
