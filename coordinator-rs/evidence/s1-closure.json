@@ -44,7 +44,7 @@
     "coordinator-rs/src/wire.rs": "5065d751edbd17987222b3cf18c262a669ec7df96afa25979c88422288972013",
     "coordinator-rs/tests/s1_admission.rs": "729a351dcaa6aab1a57895073d6c5ccf03f75a34852be566097f1c27e9c4ae18",
     "coordinator-rs/tests/validation.rs": "d2a6230752d78dbc57c57d2dca1c88ff887ff1200303b02bfc0f87e4c03fe7d5",
-    "coordinator-rs/tools/record_s1.py": "9a9d001cecf55e43dc4365317dbb64236ed4cbe2b9bf9ab85d67fc65583cb15b",
+    "coordinator-rs/tools/record_s1.py": "61a63ad00a4fd4f1a358453fbf73fb3f3a119c68bdf07e789773a69869f26f26",
     "delphi/polismath/__init__.py": "77261d0fc27172aa576a06d9947330f2d5b1bcd8d14721df98eac7c5f305f16b",
     "delphi/polismath/benchmarks/__init__.py": "ac90a49e001cba824dc10b56e6f67d671087eaf458d6ff5616c017dedd4b7a98",
     "delphi/polismath/benchmarks/bench_pca.py": "98f0e73cbf06b3859ec530f0a94427794748d8d27d66e2ecfe10801d5293d340",
@@ -108,6 +108,7 @@
     "delphi/tests/coordinator/test_equivalence.py": "a8b4978adfcba99dbdd91a805c8878cff713667771d189190ca496fcefc91670",
     "delphi/tests/coordinator/test_incremental.py": "dfc47a73aab6553cdf792b7578970639726e4877ee55255f1079081366e8391b",
     "delphi/tests/coordinator/test_node_reader.py": "64e52e696351113f98c3b22271b199c71c2edafd11901f84565581fd4ff5f527",
+    "delphi/tests/coordinator/test_recorder_controls.py": "7694f50b0796f6bf3dbe6a1e3c4477a64010af67431acde102cd867ee4118813",
     "delphi/tests/coordinator/test_recovery.py": "44a1396ec474ad0a3ff00954b715d45016346313a534dc3fffd036e93e84dd44",
     "delphi/tests/coordinator/test_reference_controls.py": "7d7c424359aa62e7901743f074ded8257077b8882cdba3cd09dc08f8d63c963b",
     "delphi/tests/coordinator/test_s1_identity.py": "88a1b87bc5804d16b063d30270cdc7dd2528b6d03c818f5875f3c2f511bfec8a",
@@ -118,13 +119,13 @@
   "run_pins": {
     "verifiable_on_producing_host_only": true,
     "junit": "coordinator-rs/artifacts/s1-pytest.xml",
-    "python_tests": 131,
+    "python_tests": 139,
     "rust_tests": {
       "default": 31,
       "fault": 31
     },
-    "compose_project": "s1fix-4d19",
-    "postgres_port": 55887,
+    "compose_project": "s1fix-e5a8",
+    "postgres_port": 55888,
     "platform": "macOS-15.7.4-arm64-arm-64bit",
     "runtime": {
       "python": "3.12.11",
@@ -138,15 +139,21 @@
       }
     },
     "sha256": {
-      "coordinator-rs/artifacts/s1-cargo-default.log": "d86aeccd83837c34973aaa2b2cbf2702efdc3e78c02e2ae96b6b59bbda0c41fc",
-      "coordinator-rs/artifacts/s1-cargo-fault.log": "e4f0e72bbb6585cd4ad4d0c23d552f4139e9ebed2f160497d98b6b282a85ec78",
-      "coordinator-rs/artifacts/s1-clippy-default.log": "0f37198acea076fbbdd6813ac3854393ebc36b9c8124fe96a58e8f22eb8f2e41",
-      "coordinator-rs/artifacts/s1-clippy-fault.log": "6acc69d8690125f2e3d62b1868e1da69b4f030b21d543d11ede47817133f89f2",
-      "coordinator-rs/artifacts/s1-fault-build.log": "87e2c653e8d594185e31fa30aad0d35332fe7756b7fb1574affe20fc4e3cc47d",
-      "coordinator-rs/artifacts/s1-pytest.log": "0b330b1fd318d98fb9a1946f83dc1f99994653ca6c525b0a5344a7987f66493c",
-      "coordinator-rs/artifacts/s1-pytest.xml": "2fe88d6cc018f3a2c479c4faaf158b43f534155adf5ce1096aa9641d631283a9",
-      "coordinator-rs/artifacts/s1-release.log": "e54e643021f99a69aecdca2057cd5dbc1c37f14e1784841e5446a79ea7a4a81e",
-      "coordinator-rs/target/fault/debug/polis-coordinator": "6e7816cedba88954ae819f7c957c344e2ea7dab368c807ce24bb80a44f09c43a",
+      "coordinator-rs/artifacts/s1-cargo-default.log": "c56ecb8f8a137a84a5388a157eb227809154972b16541290a6f92b337d1ce704",
+      "coordinator-rs/artifacts/s1-cargo-default.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/s1-cargo-fault.log": "346a7c59d8e06967311d76c135acfddd3ccd8ec477cceb96d9a57c5d3b7be1f9",
+      "coordinator-rs/artifacts/s1-cargo-fault.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/s1-clippy-default.log": "2cba8e01a27235b416d3e1c54ca46b77be3e601cdd848f9f4e0c5670801e0d88",
+      "coordinator-rs/artifacts/s1-clippy-default.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/s1-clippy-fault.log": "9d37a1405eaeaafcf860ad94d150cad4495c775c683052e5858e7e3f57438432",
+      "coordinator-rs/artifacts/s1-clippy-fault.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/s1-fault-build.log": "446d404a5299191022b3bcfe5de291d913b69bc53c7177d7f5c6340befd10fde",
+      "coordinator-rs/artifacts/s1-fault-build.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/artifacts/s1-pytest.log": "05fcd3649bc998f549c332925b8bca704dbcaa029a7b0c75c0e98dcf79ae4316",
+      "coordinator-rs/artifacts/s1-pytest.xml": "0397abadb8fc2c47f976125b2807f062c649d45ebfe495999ad0db6a2d06948f",
+      "coordinator-rs/artifacts/s1-release.log": "05526c21bd3cb27709fc979c8349a96a86704db33ce70d0f223ad8013c7af42e",
+      "coordinator-rs/artifacts/s1-release.status": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "coordinator-rs/target/fault/debug/polis-coordinator": "b081abcf885b6fff0b8f90f0931bdb224691a1678ac183066fc020058c0300dc",
       "coordinator-rs/target/release/polis-coordinator": "e1a219c545bee43910d703142d0a6a97db51d5986e80f155b2850dd21c980af3"
     }
   }
