@@ -746,12 +746,45 @@ def test_schedule_checkpoints_are_derived_from_the_resolved_cuts():
 # --- P1(1): the publisher cannot fail open and cannot race ------------------
 
 
-class _DeniedHeadClient:
+class _Headers(dict):
+    """The two operations botocore's request headers expose to a signing hook."""
+
+    def add_header(self, key, value):
+        self[key] = value
+
+
+class _EmittingClient:
+    """Base test double carrying a REAL botocore event emitter.
+
+    The conditional-create precondition is attached by a ``before-sign`` hook,
+    so a double without an emitter is not a weaker double — it is a client the
+    publisher must refuse (see
+    ``test_conditional_put_refuses_a_client_that_cannot_carry_the_precondition``).
+    Every double below therefore signs its own PutObject the way botocore does.
+    """
+
+    def __init__(self):
+        from botocore.hooks import HierarchicalEmitter
+
+        from types import SimpleNamespace
+
+        self.meta = SimpleNamespace(events=HierarchicalEmitter())
+
+    def _sign(self):
+        """Emit ``before-sign`` and return the headers the request went out with."""
+        request = type("R", (), {})()
+        request.headers = _Headers()
+        self.meta.events.emit("before-sign.s3.PutObject", request=request)
+        return dict(request.headers)
+
+
+class _DeniedHeadClient(_EmittingClient):
     """A store that answers HEAD with a permission error. Old behaviour: every
     HEAD failure was mapped to "absent", so the next put overwrote bytes the
     publisher could not even read."""
 
     def __init__(self, data=b"original"):
+        super().__init__()
         self.data = data
         self.puts = 0
 
@@ -760,6 +793,7 @@ class _DeniedHeadClient:
 
     def put_object(self, **kwargs):
         self.puts += 1
+        self.headers = self._sign()
         self.data = kwargs["Body"]
         return {"VersionId": "synthetic-v2"}
 
@@ -793,6 +827,151 @@ def test_local_store_conditional_create_is_atomic(tmp_path):
     with pytest.raises(fb.ObjectExistsError):
         store.put_if_absent("k/a.json", b"second")
     assert store.get("k/a.json")[0] == b"first"
+
+
+def test_two_concurrent_local_conditional_puts_produce_exactly_one_winner(tmp_path):
+    """The local stand-in, hit by two threads on the same key at once.
+
+    The filesystem's ``O_CREAT | O_EXCL`` settles it; asserted here as the
+    stand-in half of the S3 precondition test below, so both object-store
+    implementations are covered by a CONCURRENT case and not only a serial one.
+    """
+    import threading
+
+    store = fb.LocalStore(tmp_path / "store")
+    barrier = threading.Barrier(2)
+    outcomes: dict[bytes, object] = {}
+
+    def write(body):
+        barrier.wait()
+        try:
+            outcomes[body] = store.put_if_absent("k/a.json", body)
+        except fb.ObjectExistsError as exc:
+            outcomes[body] = exc
+
+    threads = [threading.Thread(target=write, args=(b,))
+               for b in (b"first", b"second")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(10)
+    assert not any(t.is_alive() for t in threads)
+
+    winners = [k for k, v in outcomes.items() if isinstance(v, fb.PutResult)]
+    assert len(winners) == 1, outcomes
+    losers = [v for v in outcomes.values() if not isinstance(v, fb.PutResult)]
+    assert all(isinstance(v, fb.ObjectExistsError) for v in losers)
+    assert store.get("k/a.json")[0] == winners[0]
+
+
+class _RacingS3Client(_EmittingClient):
+    """A fake S3 transport that FORCES the two conditional puts to overlap.
+
+    ``A`` blocks inside ``put_object`` until ``B`` has entered it, and ``B``
+    blocks until ``A`` has returned — so the second write signs while the first
+    call is still in flight. That is the exact interleaving in which the old
+    per-call ``register``/``unregister`` pair lost the precondition: A's
+    ``unregister`` ran before B signed and B's PutObject went out
+    unconditionally.
+
+    Every request's headers are recorded and asserted on, not just the first.
+    """
+
+    def __init__(self):
+        import threading
+
+        super().__init__()
+        self.headers: dict[bytes, dict] = {}
+        self.bodies: list[bytes] = []
+        self.b_entered = threading.Event()
+        self.a_done = threading.Event()
+
+    def head_object(self, **kwargs):
+        err = Exception("not found")
+        err.response = {"Error": {"Code": "404"}}
+        raise err
+
+    def put_object(self, **kwargs):
+        body = kwargs["Body"]
+        if body == b"A":
+            assert self.b_entered.wait(10)
+        else:
+            self.b_entered.set()
+            assert self.a_done.wait(10)
+        self.headers[body] = self._sign()
+        self.bodies.append(body)
+        return {"VersionId": body.decode()}
+
+
+def test_concurrent_conditional_puts_each_carry_the_precondition():
+    """Reviewer's r2 finding 1: with two overlapping ``put_if_absent`` calls on
+    ONE shared botocore client, the second PutObject went out with no
+    ``If-None-Match`` — an unconditional overwrite of whatever the first
+    publisher had just created."""
+    import threading
+
+    client = _RacingS3Client()
+    store = fb.S3Store("synthetic-bucket", client=client)
+    errors: list[BaseException] = []
+
+    def write(body):
+        try:
+            store.put_if_absent("synthetic-key", body)
+        except BaseException as exc:  # noqa: BLE001 - reported, not swallowed
+            errors.append(exc)
+        finally:
+            if body == b"A":
+                client.a_done.set()
+
+    threads = [threading.Thread(target=write, args=(b,), daemon=True)
+               for b in (b"A", b"B")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(15)
+    assert not any(t.is_alive() for t in threads)
+    assert not errors, errors
+
+    assert set(client.headers) == {b"A", b"B"}
+    for body, headers in client.headers.items():
+        assert headers.get("If-None-Match") == "*", (body, headers)
+
+
+def test_an_ordinary_unconditional_put_is_not_given_the_precondition():
+    """The hook stays registered for the client's lifetime, so it has to be
+    gated: :meth:`S3Store.put` must NOT acquire an ``If-None-Match``."""
+    client = _RacingS3Client()
+    client.b_entered.set()
+    client.a_done.set()
+    store = fb.S3Store("synthetic-bucket", client=client)
+    store.put_if_absent("k", b"A")
+    store.put("k", b"B")
+    assert client.headers[b"A"].get("If-None-Match") == "*"
+    assert "If-None-Match" not in client.headers[b"B"]
+
+
+def test_conditional_put_refuses_a_client_that_cannot_carry_the_precondition():
+    """No emitter means no way to attach the precondition. Falling back to an
+    unconditional PutObject would be the overwrite the guard exists to stop."""
+
+    class _NoEvents:
+        def __init__(self):
+            self.puts = 0
+
+        def head_object(self, **kwargs):
+            err = Exception("not found")
+            err.response = {"Error": {"Code": "404"}}
+            raise err
+
+        def put_object(self, **kwargs):  # pragma: no cover - must never run
+            self.puts += 1
+            return {"VersionId": "v"}
+
+    client = _NoEvents()
+    store = fb.S3Store("synthetic-offline-bucket", client=client)
+    with pytest.raises(fb.StoreUnavailableError, match="UNCONDITIONAL"):
+        store.put_if_absent("k", b"bytes")
+    assert client.puts == 0
 
 
 def test_two_concurrent_pushes_produce_exactly_one_winner(config, tmp_path):
