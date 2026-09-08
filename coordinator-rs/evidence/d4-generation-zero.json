@@ -1,9 +1,30 @@
 {
-  "blob_math_tick": 25132,
   "committed_math_tick": 0,
-  "note": "getPca returns undefined; pca2 answers 304. If this ever starts serving, replace this characterisation with an equality assertion.",
-  "served": {
-    "math_env": "rustproto",
-    "present": false
+  "note": "the route requests latest with math_tick=-1 and serves generation zero; getPca(zid, undefined) is a different branch and is cache-dependent. That helper asymmetry is a reader defect for the server owner, characterised here, not fixed here.",
+  "profile": "real handle_GET_math_pca2 on a real Express app over loopback HTTP, real reader/cache/PostgreSQL; only the parameter middleware is synthetic",
+  "route": {
+    "coldUndefinedPresent": false,
+    "conditional": {
+      "bodyTick": null,
+      "contentEncoding": "identity",
+      "n": null,
+      "status": 304
+    },
+    "pgTickType": "string",
+    "subset": {
+      "bodyTick": 0,
+      "contentEncoding": "identity",
+      "etag": "\"0\"",
+      "n": 6,
+      "status": 200
+    },
+    "warmUndefinedPresent": true,
+    "whole": {
+      "bodyTick": 0,
+      "contentEncoding": "gzip",
+      "etag": "\"0\"",
+      "n": 6,
+      "status": 200
+    }
   }
 }

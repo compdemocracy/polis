@@ -131,47 +131,59 @@ impl PgStore {
     }
     fn process_owned(&mut self, zid: i32, epoch: i64, renewal: &Renewal) -> Result<bool> {
         let expected = self.current_tick(zid)?;
-        // A warm entry is only usable while it still is the current generation.
-        // Rev6: a resident bundle is not evidence about the durable store. Its
-        // companions and checkpoint are reconciled independently on every pass
-        // that hits the cache, and any disagreement evicts it and repairs.
-        let prior = match self.cache.take(zid, expected) {
-            Some(bundle) if self.resident_is_intact(zid, &bundle)? => Current::Coherent(bundle),
-            Some(bundle) => {
-                tracing::warn!(
-                    zid,
-                    math_tick = bundle.math_tick,
-                    "resident bundle contradicted by the store; evicted, repairing"
-                );
-                self.load_current(zid)?
-            }
-            None => self.load_current(zid)?,
-        };
         // CO01 incremental discovery. The probe is captured *before* the
-        // authoritative snapshot it will certify, so a row committing between
-        // the two changes the next probe instead of being swallowed. It can
-        // only ever *skip* a read; it never authorises a rebuild, and it is
-        // trusted only while this conversation's last full reconciliation is
-        // younger than the configured ceiling. See src/probe.rs.
+        // authoritative snapshot it will certify — and carries the database
+        // time of that observation, so a long compute cannot reset the
+        // advertised source age. It can only ever *skip* a read; it never
+        // authorises a rebuild, and it is trusted only while this
+        // conversation's last full reconciliation is younger than the
+        // configured ceiling. See src/probe.rs.
         let probe = self.probe(zid)?;
         self.tally.probed += 1;
-        if self.config.incremental
-            && matches!(prior, Current::Coherent(_))
-            && let Some((recorded, age)) = self.reconciliation(zid)?
-            && recorded == probe
-            && age < Duration::from_secs(self.config.reconcile_seconds.max(1) as u64)
-        {
-            if let Current::Coherent(bundle) = prior {
-                self.cache.insert(&self.fault, zid, bundle)?;
+        let fresh = self.reconciliation(zid)?.is_some_and(|(recorded, age)| {
+            recorded == probe.value
+                && age < Duration::from_secs(self.config.reconcile_seconds.max(1) as u64)
+        });
+        let resident = self.cache.take(zid, expected);
+        // CO06 quiet repair is not negotiable against a fresh hint: an absent
+        // companion or missing checkpoint provenance must be repaired without
+        // waiting for future input or for the ceiling, so a metadata-complete
+        // persisted generation is a precondition of skipping anything.
+        if self.config.incremental && fresh && self.generation_is_complete(zid)? {
+            // Rev6: a resident bundle is not evidence about the durable store.
+            // On the fast path its companions, generation and checkpoint are
+            // reconciled against the database; a disagreement drops it and
+            // falls through to the authoritative path below.
+            let usable = match resident {
+                Some(bundle) if self.resident_is_intact(zid, &bundle)? => {
+                    self.cache.insert(&self.fault, zid, bundle)?;
+                    true
+                }
+                Some(bundle) => {
+                    tracing::warn!(
+                        zid,
+                        math_tick = bundle.math_tick,
+                        "resident bundle contradicted by the store; evicted, repairing"
+                    );
+                    false
+                }
+                // Nothing resident to contradict: the ceiling is what bounds
+                // this, exactly as it bounds the source hint.
+                None => true,
+            };
+            if usable {
+                self.tally.skipped += 1;
+                tracing::debug!(zid, "source probe unchanged; full snapshot skipped");
+                return Ok(false);
             }
-            self.tally.skipped += 1;
-            tracing::debug!(
-                zid,
-                reconciliation_age_s = age.as_secs(),
-                "source probe unchanged; full snapshot skipped"
-            );
-            return Ok(false);
         }
+        // The authoritative path. Rev7 CO02/CO06: the full-source ceiling must
+        // *also* independently validate the persisted payloads, so the prior
+        // generation is re-read and re-hashed from the store here and a
+        // resident bundle is never the evidence. Payload corruption that leaves
+        // metadata intact is therefore repaired within one ceiling interval
+        // rather than surviving indefinitely behind a warm cache.
+        let prior = self.load_current(zid)?;
         let read = Instant::now();
         let source = self.source(zid)?;
         let source_seconds = read.elapsed();
@@ -265,10 +277,12 @@ impl PgStore {
             }
         }
     }
-    /// One bounded source pass, instrumented. `PollHealthy` is 1 only when the
-    /// whole pass completed; a failed pass emits 0 with the same counters, and
-    /// a dead process emits nothing at all, which is what P-031's A01
-    /// `treatMissingData: breaching` is for.
+    /// One bounded source pass, instrumented. `SourcePassHealthy` is 1 only
+    /// when the whole pass completed; a failed pass emits 0 with the same
+    /// counters, and a dead process emits nothing at all. It is page-loop
+    /// liveness, deliberately not P-031's A01 `PollHealthy`: a pass in which
+    /// every conversation failed still completes, and the failure backlog and
+    /// unrepaired age are what say so.
     pub fn cycle(&mut self) -> Result<usize> {
         let started = Instant::now();
         self.tally = Tally::default();
