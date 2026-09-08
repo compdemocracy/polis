@@ -287,6 +287,11 @@ class MathPollerService:
         # LRU order: most-recently-touched zid last, so popitem(last=False) evicts
         # the coldest (see _remember).
         self._convs: "OrderedDict[int, Conversation]" = OrderedDict()
+        # One lock covers every cache access, including compound get/touch and
+        # store/evict operations. Never hold it across engine work or DB I/O:
+        # the pool serializes each zid, and a worker's local reference survives
+        # eviction until it publishes and remembers the updated conversation.
+        self._convs_lock = threading.Lock()
         self._retry_counts: Dict[int, int] = {}
         self._pool: Optional[ConversationWorkerPool] = None
         self._threads: List[threading.Thread] = []
@@ -541,7 +546,8 @@ class MathPollerService:
         if self._pool is None or not self._pool.is_parked(zid):
             return
         self._retry_counts.pop(zid, None)
-        self._convs.pop(zid, None)  # invalidate → next touch rebuilds full history
+        with self._convs_lock:
+            self._convs.pop(zid, None)  # next touch rebuilds full history
         self._pool.unpark(zid)  # pool owns parked truth (P-022 R04)
         logger.info(
             "Un-parked zid=%s: invalidated cache; next batch rebuilds full "
@@ -599,22 +605,24 @@ class MathPollerService:
         when conv_cache_cap (>0) is exceeded. An evicted conv is reloaded from
         math_main and fully rebuilt on its next touch (= Clojure-restart
         semantics), so eviction is lossless — just a memory/latency trade."""
-        self._convs[zid] = conv
-        self._convs.move_to_end(zid)
-        cap = self.config.conv_cache_cap
-        if cap and len(self._convs) > cap:
-            while len(self._convs) > cap:
-                evicted_zid, _ = self._convs.popitem(last=False)  # coldest
-                logger.info(
-                    "LRU-evicting cold conversation zid=%s (cache cap=%d); it will "
-                    "reload from math_main + rebuild on next touch",
-                    evicted_zid, cap,
-                )
+        with self._convs_lock:
+            self._convs[zid] = conv
+            self._convs.move_to_end(zid)
+            cap = self.config.conv_cache_cap
+            if cap and len(self._convs) > cap:
+                while len(self._convs) > cap:
+                    evicted_zid, _ = self._convs.popitem(last=False)  # coldest
+                    logger.info(
+                        "LRU-evicting cold conversation zid=%s (cache cap=%d); it will "
+                        "reload from math_main + rebuild on next touch",
+                        evicted_zid, cap,
+                    )
 
     def _run_engine(self, zid: int, coalesced: CoalescedBatch) -> None:
-        conv = self._convs.get(zid)
-        if conv is not None:
-            self._convs.move_to_end(zid)  # LRU touch
+        with self._convs_lock:
+            conv = self._convs.get(zid)
+            if conv is not None:
+                self._convs.move_to_end(zid)  # LRU touch
 
         # M1 (P-019): an explicit rebuild request (parked-zid reconciler) forces a
         # full-history reload even when a cached conv exists — the cached state may
@@ -758,7 +766,9 @@ class MathPollerService:
     def _on_engine_error(
         self, zid: int, coalesced: CoalescedBatch, error: BaseException
     ) -> None:
-        dump_error(zid, self._convs.get(zid), coalesced, error, self.config.dump_dir)
+        with self._convs_lock:
+            conv = self._convs.get(zid)
+        dump_error(zid, conv, coalesced, error, self.config.dump_dir)
         attempts = self._retry_counts.get(zid, 0) + 1
         self._retry_counts[zid] = attempts
         if attempts <= self.config.retry_cap:
