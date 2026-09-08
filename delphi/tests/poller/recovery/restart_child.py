@@ -97,7 +97,11 @@ def _install_after_poll_latch(svc) -> None:
     The latch instead:
 
     1. gates ``_run_engine`` so no compute can start, and records that dispatch
-       really happened (``GATE run_engine``);
+       really happened (``GATE run_engine``).  The marker is WRITTEN AND FLUSHED
+       BEFORE ``dispatched`` is set (astra second-round review): setting the
+       event first lets the polling thread wake and print ``WM_ACK``/``STAGE``
+       between the ``set()`` and the ``write()``, so the stdout ORDER the parent
+       asserts would flake even though the watermark barrier itself is correct;
     2. lets ``_poll_votes_once`` RETURN, then reads the watermark it assigned
        and acknowledges it (``WM_ACK <value>``).  If the watermark did not
        advance, or the pool never picked the work up, the child exits with a
@@ -109,8 +113,13 @@ def _install_after_poll_latch(svc) -> None:
     hold = threading.Event()          # never set: the compute never starts
 
     def gated_run_engine(zid, coalesced):
-        dispatched.set()
+        # ORDER MATTERS: emit + flush the marker BEFORE releasing the polling
+        # thread.  `dispatched` is what unblocks `WM_ACK`/`STAGE after_poll` in
+        # `latched_poll_votes_once`, so setting it first would let those two
+        # lines reach stdout ahead of this one.  The event is now strictly the
+        # LAST thing this gate does before parking.
         _emit_line(f"GATE run_engine zid={zid}")
+        dispatched.set()
         hold.wait()
 
     svc._run_engine = gated_run_engine
