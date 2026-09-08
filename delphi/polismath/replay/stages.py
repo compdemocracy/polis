@@ -120,6 +120,24 @@ STAGE_DIR_NAME = {"py": "py-stages", "clj": "clj-stages"}
 #: never guess from lengths — a square case (n_tids == n_comps) is ambiguous.
 COMMENT_PROJECTION_AXES = "comps-by-tids"
 
+#: Marker key for a value the EMITTER could not produce faithfully. It travels
+#: on the wire so the comparer reports a structural failure instead of grading a
+#: guess. An emitter must never fall back to inferring a shape it cannot verify.
+STRUCTURAL_ERROR_KEY = "__structural_error__"
+
+#: Width of the comment projection, on BOTH engines. `pca_project_cmnts` returns
+#: (n_cmnts, n_components) and is ALWAYS 2-wide even in the rank-one Q16 case,
+#: where Clojure's `[pc1 pc2]` destructure truncates every comment to 0.0 on both
+#: components (pca.py:470-478, pca.clj:134-157). So the emitted comps-by-tids
+#: array has max(len(comps), 2) rows — never fewer, and never inferred.
+PROJECTION_WIDTH = 2
+
+
+def structural_error(reason: str) -> dict[str, str]:
+    """A wire-visible emitter failure. Never a guess, never a silent drop."""
+    return {STRUCTURAL_ERROR_KEY: reason}
+
+
 #: Zero-padded so that lexicographic key order IS pipeline order.
 STAGE_ORDER = [
     "R01_ingest",
@@ -134,6 +152,51 @@ STAGE_ORDER = [
     "R12_priorities",
     "R13_ptpt_stats",
 ]
+
+
+#: The exact key inventory each stage must carry. `required` keys must be
+#: present in EVERY document from EVERY engine — a stage mapped to `{}` is
+#: missing evidence, not a stage that happened to match. `optional` keys are
+#: engine-local diagnostics with no counterpart in the engine contract.
+STAGE_KEYS: dict[str, dict[str, frozenset[str]]] = {
+    "R01_ingest": {
+        "required": frozenset({"last-vote-timestamp", "n", "n-cmts",
+                               "raw-rating-mat", "rating-mat", "tids"}),
+        "optional": frozenset()},
+    "R02_moderation": {
+        "required": frozenset({"last-mod-timestamp", "meta-tids", "mod-in",
+                               "mod-out"}),
+        "optional": frozenset()},
+    "R03_eligibility": {
+        "required": frozenset({"in-conv", "user-vote-counts"}),
+        "optional": frozenset()},
+    "R04_pca": {
+        "required": frozenset({"mat", "pca"}), "optional": frozenset()},
+    "R05_projections": {
+        "required": frozenset({"proj"}), "optional": frozenset()},
+    "R06_base_clusters": {
+        "required": frozenset({"base-clusters", "base-clusters-proj",
+                               "base-clusters-weights", "bid-to-pid",
+                               "bucket-dists"}),
+        "optional": frozenset()},
+    "R09_group_clusters": {
+        "required": frozenset({"group-clusterings",
+                               "group-clusterings-silhouettes",
+                               "group-clusters", "group-k-smoother"}),
+        "optional": frozenset()},
+    "R10_tallies": {
+        "required": frozenset({"group-aware-consensus", "group-votes",
+                               "votes-base"}),
+        "optional": frozenset()},
+    "R11_repness": {
+        "required": frozenset({"consensus", "repness"}),
+        "optional": frozenset()},
+    "R12_priorities": {
+        "required": frozenset({"comment-priorities"}), "optional": frozenset()},
+    "R13_ptpt_stats": {
+        "required": frozenset({"ptpt-stats"}),
+        "optional": frozenset({"participant-info-legacy"})},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -375,18 +438,33 @@ def stage_r04_pca(conv: Conversation) -> dict[str, Any]:
         pca["center"] = plain(center)
         pca["comps"] = plain(comps)
         if center.size and comps.size:
-            cmnt_proj = np.asarray(pca_project_cmnts(center, comps))
-            # AXES ARE NORMALIZED HERE, NOT INFERRED DOWNSTREAM. Clojure's
-            # with-proj-and-extremtiy emits comment-projection as
-            # n_comps x n_tids; pca_project_cmnts returns n_tids x n_comps.
-            # A comparer that guessed the orientation from lengths would read a
-            # square case (n_tids == n_comps) wrong, so the transpose happens
-            # once, here, and COMMENT_PROJECTION_AXES declares the result.
-            if cmnt_proj.ndim == 2 and cmnt_proj.shape[0] != comps.shape[0]:
-                cmnt_proj = cmnt_proj.T
-            pca["comment-projection"] = plain(cmnt_proj)
-            pca["comment-extremity"] = plain(
-                compute_comment_extremity(np.asarray(pca_project_cmnts(center, comps))))
+            raw_proj = np.asarray(pca_project_cmnts(center, comps))
+            # AXES ARE NORMALIZED BY THE PRODUCER'S DOCUMENTED ORIENTATION,
+            # UNCONDITIONALLY. pca_project_cmnts always returns
+            # (n_cmnts, n_components) — comments-by-components, and always
+            # 2-wide even in the rank-one Q16 case (pca.py:470-478). Clojure's
+            # with-proj-and-extremtiy emits comps-by-tids, so the transpose is
+            # ALWAYS applied. It is deliberately NOT conditional on a shape
+            # comparison: when n_tids == n_components the two orientations are
+            # indistinguishable by shape, so any such test silently emits the
+            # wrong array while declaring the right axes.
+            pca["comment-extremity"] = plain(compute_comment_extremity(raw_proj))
+            if raw_proj.ndim != 2:
+                pca["comment-projection"] = structural_error(
+                    f"pca_project_cmnts returned a {raw_proj.ndim}-d array; "
+                    f"expected 2-d (n_cmnts, n_components)")
+            else:
+                cmnt_proj = raw_proj.T
+                expected_rows = max(int(comps.shape[0]), PROJECTION_WIDTH)
+                if cmnt_proj.shape != (expected_rows, int(center.size)):
+                    # Refuse rather than reshape: the declaration would be a
+                    # lie about data we cannot verify.
+                    pca["comment-projection"] = structural_error(
+                        f"comment-projection is {cmnt_proj.shape} but "
+                        f"{COMMENT_PROJECTION_AXES} requires "
+                        f"({expected_rows}, {int(center.size)})")
+                else:
+                    pca["comment-projection"] = plain(cmnt_proj)
         else:
             pca["comment-projection"] = None
             pca["comment-extremity"] = None
