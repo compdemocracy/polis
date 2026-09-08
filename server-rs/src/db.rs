@@ -18,14 +18,17 @@ const ATTEMPTS: u32 = 5;
 const BACKOFF_MS: u64 = 50;
 pub struct Pool {
     url: String,
-    /// Bounds LIVE connections, not the idle list. Bounding only the idle list
+    /// Bounds connections in use, not the idle list. Bounding only the idle list
     /// bounds nothing: every concurrent lease that finds the list empty opens
     /// another real backend, so N concurrent requests reach N backends whatever
-    /// the configured maximum. A permit is held for the whole life of a lease.
+    /// the configured maximum. A permit is held for the whole life of a lease, so
+    /// open backends never exceed `max` (they are `leased + idle`).
     permits: Arc<Semaphore>,
     max: usize,
-    /// How long a caller waits for a permit before the request fails. Without it
-    /// a saturated pool turns into an unbounded queue behind the database.
+    /// How long a caller waits for a USABLE CLIENT before the request fails. It
+    /// covers the permit, every reconnect attempt and the PG startup handshake:
+    /// bounding only the permit leaves a peer that accepts TCP and never speaks
+    /// Postgres holding the request open past the advertised bound.
     acquire_timeout: Duration,
     attempts: u32,
     idle: Mutex<Vec<Client>>,
@@ -69,7 +72,15 @@ impl Pool {
         acquire_timeout: Duration,
     ) -> Result<Arc<Self>, Error> {
         let pool = Self::new(url, max, acquire_timeout, ATTEMPTS);
-        let client = pool.connect().await?;
+        // The eager connect is bounded too: startup must not hang on a peer that
+        // accepts the socket and never completes the handshake.
+        let client = tokio::time::timeout(acquire_timeout, pool.connect())
+            .await
+            .map_err(|_| {
+                Error::from(format!(
+                    "database unreachable within {acquire_timeout:?} at startup"
+                ))
+            })??;
         pool.idle.lock().expect("pool mutex").push(client);
         Ok(pool)
     }
@@ -116,23 +127,26 @@ impl Pool {
         }
         Err(last.unwrap_or_else(|| "no connection attempt was made".into()))
     }
-    /// Waits for a permit, then hands back a live client. Cancelling this future
-    /// before it resolves releases the permit with it.
+    /// Hands back a usable client, or fails. ONE deadline covers the whole
+    /// acquisition — the permit, the reconnect attempts and the PG handshake —
+    /// because a bound that stops at the semaphore is not the bound advertised.
+    /// Cancelling this future, from outside or by the deadline, releases the
+    /// permit with it.
     pub async fn get(self: &Arc<Self>) -> Result<Lease, Error> {
-        let permit =
-            match tokio::time::timeout(self.acquire_timeout, self.permits.clone().acquire_owned())
-                .await
-            {
-                Ok(permit) => permit?,
-                Err(_) => {
-                    self.timeouts.fetch_add(1, Ordering::Relaxed);
-                    return Err(format!(
-                        "no database connection available within {:?} (pool max {})",
-                        self.acquire_timeout, self.max
-                    )
-                    .into());
-                }
-            };
+        match tokio::time::timeout(self.acquire_timeout, self.acquire()).await {
+            Ok(lease) => lease,
+            Err(_) => {
+                self.timeouts.fetch_add(1, Ordering::Relaxed);
+                Err(format!(
+                    "no database connection available within {:?} (pool max {})",
+                    self.acquire_timeout, self.max
+                )
+                .into())
+            }
+        }
+    }
+    async fn acquire(self: &Arc<Self>) -> Result<Lease, Error> {
+        let permit = self.permits.clone().acquire_owned().await?;
         loop {
             let pooled = self.idle.lock().expect("pool mutex").pop();
             match pooled {
@@ -172,7 +186,7 @@ impl Pool {
     pub fn stats(&self) -> Stats {
         Stats {
             idle: self.idle.lock().expect("pool mutex").len(),
-            live: self.max - self.permits.available_permits(),
+            leased: self.max - self.permits.available_permits(),
             max: self.max,
             opened: self.opened.load(Ordering::Relaxed),
             failed: self.failed.load(Ordering::Relaxed),
@@ -181,8 +195,11 @@ impl Pool {
     }
 }
 pub struct Stats {
+    /// Connections sitting in the pool, ready to be leased.
     pub idle: usize,
-    pub live: usize,
+    /// Permits currently checked out. Open backends are `leased + idle`, so this
+    /// is deliberately NOT called `live`: it counts in-use connections only.
+    pub leased: usize,
     pub max: usize,
     pub opened: u64,
     pub failed: u64,
@@ -197,7 +214,7 @@ mod tests {
     async fn the_bound_is_on_live_connections_not_the_idle_list() {
         let pool = Pool::new(REFUSED.into(), 1, Duration::from_millis(50), 1);
         let first = pool.permit().await.expect("first permit");
-        assert_eq!(pool.stats().live, 1);
+        assert_eq!(pool.stats().leased, 1);
         // Before this change a second concurrent lease simply opened another real
         // backend, because `max` was only consulted when a client was returned.
         assert!(
@@ -216,7 +233,7 @@ mod tests {
         let pool = Pool::new(REFUSED.into(), 1, Duration::from_millis(50), 1);
         assert!(pool.get().await.is_err(), "connection refused");
         assert_eq!(
-            pool.stats().live,
+            pool.stats().leased,
             0,
             "an outage must not leak the pool away"
         );
@@ -233,6 +250,55 @@ mod tests {
         pending.abort();
         let _ = pending.await;
         drop(held);
-        assert_eq!(pool.stats().live, 0);
+        assert_eq!(pool.stats().leased, 0);
+    }
+    /// Astra round 3 #4. A peer that accepts TCP and never speaks Postgres held
+    /// `get()` far past the acquisition bound and recorded no timeout, because the
+    /// bound stopped at the semaphore.
+    #[tokio::test]
+    async fn the_acquisition_bound_covers_the_handshake() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        // Accept and then say nothing, which is what a wedged proxy looks like.
+        let peer = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            drop(socket);
+        });
+        let pool = Pool::new(
+            format!("postgres://postgres@{address}/postgres"),
+            1,
+            Duration::from_millis(40),
+            1,
+        );
+        let started = std::time::Instant::now();
+        assert!(pool.get().await.is_err(), "the handshake never completes");
+        assert!(
+            started.elapsed() < Duration::from_millis(250),
+            "get() must honour its own bound, not wait on the peer"
+        );
+        assert_eq!(pool.stats().timeouts, 1, "the timeout must be recorded");
+        assert_eq!(pool.stats().leased, 0, "the deadline releases the permit");
+        peer.abort();
+    }
+    #[tokio::test]
+    async fn startup_is_bounded_too() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let peer = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            tokio::time::sleep(Duration::from_secs(10)).await;
+            drop(socket);
+        });
+        let started = std::time::Instant::now();
+        let opened = Pool::open(
+            format!("postgres://postgres@{address}/postgres"),
+            1,
+            Duration::from_millis(40),
+        )
+        .await;
+        assert!(opened.is_err(), "startup must not hang on a silent peer");
+        assert!(started.elapsed() < Duration::from_millis(250));
+        peer.abort();
     }
 }

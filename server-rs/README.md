@@ -157,16 +157,20 @@ cargo build --locked --release
 ```
 
 `/health` is not a Node route. It leases a pooled connection, round-trips
-`select 1`, and reports idle/live/max connections, reconnect counts, acquisition
-timeouts and the contract-violation counter, answering 200 or 503. The pool
+`select 1`, and reports idle/leased/max connections, reconnect counts,
+acquisition timeouts and the contract-violation counter, answering 200 or 503.
+`poolLeased` counts permits checked out, so open backends are
+`poolLeased + poolIdle`; it is deliberately not called "live". The pool
 (`src/db.rs`) replaces the single client whose connection task called
 `process::exit(1)` on any error: a lost connection is logged, the dead client is
 discarded, and the next lease reconnects with five bounded, backing-off attempts.
-`PG_POOL_SIZE` (default 16) bounds **live** connections, not the idle list — a
+`PG_POOL_SIZE` (default 16) bounds connections **in use**, not the idle list — a
 permit is held for the whole life of a lease, so N concurrent requests cannot
-reach more than `PG_POOL_SIZE` backends, and a saturated pool fails the request
-after `PG_ACQUIRE_TIMEOUT_MS` (default 5000) rather than queueing behind the
-database. TLS is still not implemented, so production RDS remains out of scope
+reach more than `PG_POOL_SIZE` backends. `PG_ACQUIRE_TIMEOUT_MS` (default 5000)
+is one deadline over the WHOLE acquisition — the permit, the reconnect attempts
+and the PG startup handshake — so a peer that accepts TCP and never speaks
+Postgres cannot hold a request open past it; the startup connect is bounded by
+the same value. TLS is still not implemented, so production RDS remains out of scope
 and that blocker stands.
 
 The ordinary service needs `DATABASE_URL` and `MATH_ENV`; `MATH_ENV` has no
